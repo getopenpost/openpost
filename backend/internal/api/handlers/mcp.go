@@ -135,6 +135,7 @@ func (h *MCPHandler) SetTokenEncryptor(encryptor *servicecrypto.TokenEncryptor) 
 
 func (h *MCPHandler) RegisterRoutes(e *echo.Echo) {
 	e.POST("/mcp", h.handle)
+	e.GET("/mcp", h.handleStreamGetUnsupported)
 	e.GET("/.well-known/oauth-protected-resource", h.protectedResourceMetadata)
 }
 
@@ -215,6 +216,11 @@ func (h *MCPHandler) handle(c echo.Context) error {
 		resp.Result = result
 	}
 	return c.JSON(http.StatusOK, resp)
+}
+
+func (h *MCPHandler) handleStreamGetUnsupported(c echo.Context) error {
+	c.Response().Header().Set(echo.HeaderAllow, http.MethodPost)
+	return c.NoContent(http.StatusMethodNotAllowed)
 }
 
 func (h *MCPHandler) protectedResourceMetadata(c echo.Context) error {

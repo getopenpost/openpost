@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Made remote MCP `GET /mcp` return HTTP 405 instead of falling through to SPA HTML, restoring Streamable HTTP compatibility with clients such as Hermes.
 - Registered persisted and newly added dynamic Mastodon instance adapters with publishing and token refresh so custom instances can publish without manual server restarts.
 
 ## [1.0.40] - 2026-07-06

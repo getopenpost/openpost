@@ -198,6 +198,19 @@ func TestMCPRejectsMissingAuthorization(t *testing.T) {
 	require.Equal(t, resp.Header().Get("WWW-Authenticate"), meta["mcp/www_authenticate"])
 }
 
+func TestMCPGetReturnsMethodNotAllowed(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/mcp", nil)
+	rec := httptest.NewRecorder()
+	srv.echo.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusMethodNotAllowed, rec.Code)
+	require.Equal(t, http.MethodPost, rec.Header().Get("Allow"))
+	require.NotContains(t, rec.Header().Get("Content-Type"), "text/html")
+}
+
 func TestMCPProtectedResourceMetadata(t *testing.T) {
 	t.Parallel()
 

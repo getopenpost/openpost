@@ -132,8 +132,10 @@ func TestOAuthCallbackCreatesAndCompletesAccountSelection(t *testing.T) {
 	require.NotEmpty(t, state)
 
 	callbackResp := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/selectable/callback?code=provider-code&state="+url.QueryEscape(state), nil, false)
-	require.Equal(t, http.StatusTemporaryRedirect, callbackResp.Code, callbackResp.Body.String())
-	location := callbackResp.Header().Get("Location")
+	callbackResult := callbackResp.Result()
+	t.Cleanup(func() { _ = callbackResult.Body.Close() })
+	require.Equal(t, http.StatusTemporaryRedirect, callbackResult.StatusCode, callbackResp.Body.String())
+	location := callbackResult.Header.Get("Location")
 	require.Contains(t, location, "status=selection_required")
 	require.Contains(t, location, "platform=selectable")
 	callbackURL, err := url.Parse(location)

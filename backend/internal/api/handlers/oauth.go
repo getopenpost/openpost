@@ -720,8 +720,8 @@ func (h *OAuthHandler) redirectWithError(msg string) (*huma.StreamResponse, erro
 	location := h.frontendURL + "/accounts?error=" + url.QueryEscape(msg)
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {
-			ctx.SetStatus(http.StatusTemporaryRedirect)
 			ctx.SetHeader("Location", location)
+			ctx.SetStatus(http.StatusTemporaryRedirect)
 		},
 	}, nil
 }
@@ -730,8 +730,8 @@ func (h *OAuthHandler) redirectWithAccountSelection(platformName, connectionID s
 	location := h.frontendURL + "/accounts/callback?status=selection_required&platform=" + url.QueryEscape(platformName) + "&connection_id=" + url.QueryEscape(connectionID)
 	return &huma.StreamResponse{
 		Body: func(ctx huma.Context) {
-			ctx.SetStatus(http.StatusTemporaryRedirect)
 			ctx.SetHeader("Location", location)
+			ctx.SetStatus(http.StatusTemporaryRedirect)
 		},
 	}, nil
 }

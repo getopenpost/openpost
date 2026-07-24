@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto, replaceState } from '$app/navigation';
+	import { afterNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
@@ -116,6 +116,12 @@
 	type MediaDeletionRequest =
 		{ kind: 'single'; media: MediaItem } | { kind: 'batch'; ids: string[] };
 
+	function hubViewFor(value: string | null): 'assets' | 'designs' | 'brand' {
+		if (value === 'brand') return 'brand';
+		if (value === 'designs' || value === 'templates') return 'designs';
+		return 'assets';
+	}
+
 	let workspaces = $derived<Workspace[]>(workspaceCtx.workspaces);
 	let selectedWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	let loading = $state(true);
@@ -145,7 +151,9 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
-	let hubView = $state<'assets' | 'designs' | 'brand'>('assets');
+	let hubView = $state<'assets' | 'designs' | 'brand'>(
+		hubViewFor($page.url.searchParams.get('view'))
+	);
 	let designs = $state<StudioDesignSummary[]>([]);
 	let templates = $state<StudioTemplate[]>([]);
 	let brandKit = $state<StudioBrandKit | null>(null);
@@ -170,6 +178,7 @@
 	let uploadLoading = $state(false);
 	let uploadError = $state('');
 	let uploadProgress = $state('');
+	let uploadFiles = $state.raw<File[]>([]);
 
 	let usageDialogOpen = $state(false);
 	let selectedMedia = $state<MediaItem | null>(null);
@@ -356,6 +365,15 @@
 		const next = new URL($page.url);
 		if (view === 'assets') next.searchParams.delete('view');
 		else next.searchParams.set('view', view);
+		replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
+	}
+
+	function syncHubViewFromURL(): void {
+		const requestedView = $page.url.searchParams.get('view');
+		hubView = hubViewFor(requestedView);
+		if (requestedView !== 'templates') return;
+		const next = new URL($page.url);
+		next.searchParams.set('view', 'designs');
 		replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
 	}
 
@@ -681,9 +699,7 @@
 		uploadLoading = true;
 		uploadError = '';
 
-		const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-		const selectedFiles = Array.from(fileInput?.files ?? []);
-		const files = selectedFiles.filter(isSupportedMediaFile);
+		const files = uploadFiles.filter(isSupportedMediaFile);
 		if (files.length === 0) {
 			uploadError = m.media_select_file_error();
 			uploadLoading = false;
@@ -704,7 +720,7 @@
 			});
 
 			uploadDialogOpen = false;
-			fileInput.value = '';
+			uploadFiles = [];
 			notify(uploadedCountLabel(uploaded.length), 'success');
 			soundPreferences.play('success');
 			await loadMedia();
@@ -715,6 +731,14 @@
 			uploadLoading = false;
 			uploadProgress = '';
 		}
+	}
+
+	function handleUploadDialogOpenChange(open: boolean) {
+		uploadDialogOpen = open;
+		if (open) return;
+		uploadFiles = [];
+		uploadError = '';
+		uploadProgress = '';
 	}
 
 	function formatSize(bytes: number): string {
@@ -860,20 +884,10 @@
 	}
 
 	onMount(() => {
-		const requestedView = $page.url.searchParams.get('view');
-		hubView =
-			requestedView === 'brand'
-				? 'brand'
-				: requestedView === 'designs' || requestedView === 'templates'
-					? 'designs'
-					: 'assets';
-		if (requestedView === 'templates') {
-			const next = new URL($page.url);
-			next.searchParams.set('view', 'designs');
-			replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
-		}
 		void loadWorkspaces();
 	});
+
+	afterNavigate(syncHubViewFromURL);
 
 	$effect(() => {
 		const workspaceID = selectedWorkspaceId;
@@ -886,8 +900,22 @@
 	const quickFilters = $derived([
 		{ value: 'all', label: m.media_filter_all() },
 		{ value: 'favorites', label: m.media_filter_favorites() },
+		{ value: 'used', label: m.media_filter_used() },
 		{ value: 'unused', label: m.media_filter_unused() }
 	]);
+
+	const advancedFilterCount = $derived(
+		[
+			Boolean(collectionID),
+			Boolean(tagID),
+			minWidth > 0,
+			minHeight > 0,
+			maxWidth > 0,
+			maxHeight > 0,
+			Boolean(dateFrom),
+			Boolean(dateTo)
+		].filter(Boolean).length
+	);
 
 	const activeFilterCount = $derived(
 		[
@@ -950,6 +978,7 @@
 	{loading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="gallery"
+	compactHeaderOnMobile
 >
 	{#snippet actions()}
 		{#if workspaces && workspaces.length > 1}
@@ -1010,7 +1039,7 @@
 
 	<nav
 		aria-label={m.media_hub_views()}
-		class="grid min-h-12 grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:w-fit sm:min-w-[28rem]"
+		class="mb-5 grid min-h-12 grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:mb-6 sm:w-fit sm:min-w-[28rem]"
 	>
 		<button
 			type="button"
@@ -1112,7 +1141,7 @@
 			</Button>
 		</form>
 
-		<div class="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-center">
+		<div class="media-asset-toolbar flex flex-col gap-2 border-b pb-4">
 			<div class="flex min-w-0 gap-1 overflow-x-auto">
 				{#each quickFilters as quickFilter (quickFilter.value)}
 					<Button
@@ -1125,7 +1154,7 @@
 					</Button>
 				{/each}
 			</div>
-			<div class="flex shrink-0 items-center justify-between gap-1.5 sm:ml-auto sm:justify-start">
+			<div class="media-asset-toolbar-actions flex shrink-0 items-center justify-between gap-1.5">
 				<Select.Root type="single" value={sort} onValueChange={changeSort}>
 					<Select.Trigger class="h-10 w-[7.75rem] text-sm">
 						{sort === 'newest'
@@ -1261,7 +1290,7 @@
 		{:else}
 			<div
 				class={layoutMode === 'grid'
-					? 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+					? 'media-asset-grid grid grid-cols-2 gap-3'
 					: 'grid grid-cols-1 gap-2'}
 			>
 				{#each mediaItems as media (media.id)}
@@ -1329,7 +1358,7 @@
 							{/if}
 
 							{#if !isSelectionMode}
-								<div class="absolute top-2 right-2 z-10">
+								<div class="media-card-actions absolute top-2 right-2 z-10">
 									<DropdownMenu.Root>
 										<DropdownMenu.Trigger>
 											{#snippet child({ props })}
@@ -1460,7 +1489,7 @@
 							</p>
 						</div>
 						<div
-							class="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-5"
+							class="media-template-track -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-5"
 						>
 							{#each templates as template (template.id)}
 								<div class="relative w-[10rem] shrink-0 snap-start sm:w-auto">
@@ -1648,18 +1677,6 @@
 		</Dialog.Header>
 		<div class="grid gap-4 py-2 sm:grid-cols-2">
 			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_status()}</span>
-				<select
-					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
-					bind:value={filter}
-				>
-					<option value="all">{m.media_filter_all()}</option>
-					<option value="used">{m.media_filter_used()}</option>
-					<option value="unused">{m.media_filter_unused()}</option>
-					<option value="favorites">{m.media_filter_favorites()}</option>
-				</select>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
 				<span>{m.media_type()}</span>
 				<select
 					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
@@ -1696,36 +1713,48 @@
 					<option value="landscape">{m.media_landscape()}</option>
 				</select>
 			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_collection()}</span>
-				<select
-					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
-					bind:value={collectionID}
-				>
-					<option value="">{m.media_all_collections()}</option>
-					{#each collections as collection (collection.id)}
-						<option value={collection.id}>{collection.name} ({collection.item_count})</option>
-					{/each}
-				</select>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_tag()}</span>
-				<select
-					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
-					bind:value={tagID}
-				>
-					<option value="">{m.media_all_tags()}</option>
-					{#each tags as tag (tag.id)}
-						<option value={tag.id}>{tag.name} ({tag.item_count})</option>
-					{/each}
-				</select>
-			</label>
 		</div>
-		<details class="border-y py-1">
-			<summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium">
-				{m.media_dimensions_date()}
+		<details class="border-y py-1" open={advancedFilterCount > 0}>
+			<summary
+				class="flex min-h-11 cursor-pointer items-center justify-between gap-3 text-sm font-medium"
+			>
+				<span>{m.media_more_filters()}</span>
+				{#if advancedFilterCount > 0}
+					<span
+						class="flex size-5 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-secondary-foreground"
+					>
+						{advancedFilterCount}
+					</span>
+				{/if}
 			</summary>
-			<div class="grid gap-3 pb-3 sm:grid-cols-2">
+			<div class="grid gap-4 pb-4 sm:grid-cols-2">
+				<label class="grid gap-1.5 text-sm font-medium">
+					<span>{m.media_collection()}</span>
+					<select
+						class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+						bind:value={collectionID}
+					>
+						<option value="">{m.media_all_collections()}</option>
+						{#each collections as collection (collection.id)}
+							<option value={collection.id}>{collection.name} ({collection.item_count})</option>
+						{/each}
+					</select>
+				</label>
+				<label class="grid gap-1.5 text-sm font-medium">
+					<span>{m.media_tag()}</span>
+					<select
+						class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+						bind:value={tagID}
+					>
+						<option value="">{m.media_all_tags()}</option>
+						{#each tags as tag (tag.id)}
+							<option value={tag.id}>{tag.name} ({tag.item_count})</option>
+						{/each}
+					</select>
+				</label>
+				<p class="text-xs font-medium text-muted-foreground sm:col-span-2">
+					{m.media_dimensions_date()}
+				</p>
 				<div class="grid grid-cols-2 gap-2">
 					<label class="grid gap-1 text-xs font-medium">
 						<span>{m.media_min_width()}</span>
@@ -1905,7 +1934,7 @@
 />
 
 <!-- Upload Dialog -->
-<Dialog.Root bind:open={uploadDialogOpen}>
+<Dialog.Root open={uploadDialogOpen} onOpenChange={handleUploadDialogOpenChange}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
 			<Dialog.Title>{m.media_upload_title()}</Dialog.Title>
@@ -1913,7 +1942,14 @@
 		</Dialog.Header>
 
 		<div class="space-y-4 py-4">
-			<input id="file-upload" type="file" accept="image/*,video/*" multiple class="peer sr-only" />
+			<input
+				id="file-upload"
+				type="file"
+				accept="image/*,video/*"
+				multiple
+				class="peer sr-only"
+				onchange={(event) => (uploadFiles = Array.from(event.currentTarget.files ?? []))}
+			/>
 			<label
 				class="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:bg-muted/40"
 				for="file-upload"
@@ -1922,6 +1958,13 @@
 				<p class="text-sm font-medium">{m.media_select_files()}</p>
 				<p class="mt-1 text-sm text-muted-foreground">{m.media_upload_batch_hint()}</p>
 			</label>
+			{#if uploadFiles.length > 0}
+				<p class="truncate text-sm font-medium" role="status">
+					{uploadFiles.length === 1
+						? uploadFiles[0].name
+						: m.media_files_selected({ count: uploadFiles.length })}
+				</p>
+			{/if}
 
 			{#if uploadError}
 				<InlineNotice
@@ -1938,10 +1981,10 @@
 		</div>
 
 		<Dialog.Footer>
-			<Button variant="outline" onclick={() => (uploadDialogOpen = false)}
+			<Button variant="outline" onclick={() => handleUploadDialogOpenChange(false)}
 				>{m.common_cancel()}</Button
 			>
-			<Button onclick={handleUpload} disabled={uploadLoading}>
+			<Button onclick={handleUpload} disabled={uploadLoading || uploadFiles.length === 0}>
 				{#if uploadLoading}
 					<LoaderIcon class="mr-2 size-4 animate-spin" />
 				{/if}
@@ -2159,9 +2202,59 @@
 </Dialog.Root>
 
 <style>
+	.media-template-track {
+		scrollbar-width: none;
+	}
+
+	.media-template-track::-webkit-scrollbar {
+		display: none;
+	}
+
 	.media-card-control {
 		width: 2rem;
 		height: 2rem;
+	}
+
+	@container (min-width: 30rem) {
+		.media-asset-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
+	}
+
+	@container (min-width: 44rem) {
+		.media-asset-toolbar {
+			flex-direction: row;
+			align-items: center;
+		}
+
+		.media-asset-toolbar-actions {
+			margin-left: auto;
+			justify-content: flex-start;
+		}
+	}
+
+	@container (min-width: 48rem) {
+		.media-asset-grid {
+			grid-template-columns: repeat(4, minmax(0, 1fr));
+		}
+	}
+
+	@container (min-width: 64rem) {
+		.media-asset-grid {
+			grid-template-columns: repeat(5, minmax(0, 1fr));
+		}
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.media-card-actions {
+			opacity: 0;
+			transition: opacity 150ms ease;
+		}
+
+		.group:hover .media-card-actions,
+		.group:focus-within .media-card-actions {
+			opacity: 1;
+		}
 	}
 
 	@media (pointer: coarse) {

@@ -512,10 +512,11 @@ export class StudioEditor {
 
 	fitZoom(containerWidth: number, containerHeight: number): void {
 		if (!this.document) return;
+		const padding = Math.min(80, Math.max(32, Math.min(containerWidth, containerHeight) * 0.16));
 		this.zoom = Math.min(
 			1,
-			(containerWidth - 80) / this.document.width_px,
-			(containerHeight - 80) / this.document.height_px
+			(containerWidth - padding) / this.document.width_px,
+			(containerHeight - padding) / this.document.height_px
 		);
 		this.panX = 0;
 		this.panY = 0;

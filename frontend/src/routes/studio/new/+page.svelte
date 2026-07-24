@@ -143,12 +143,16 @@
 		if (returnToken) query.set('return_token', returnToken);
 		if (initialAction) query.set('action', initialAction);
 		const suffix = query.size > 0 ? `?${query.toString()}` : '';
-		await goto(resolve(`/studio/${id}${suffix}` as '/'));
+		await goto(resolve(`/studio/${id}${suffix}` as '/'), { replaceState: true });
 	}
 
 	function goBack(): void {
-		if (history.length > 1) history.back();
-		else void goto(resolve('/media?view=designs' as '/'));
+		if (returnToken && history.length > 1) {
+			history.back();
+			return;
+		}
+		const destination = sourceMediaID ? '/media' : '/media?view=designs';
+		void goto(resolve(destination as '/'), { replaceState: true });
 	}
 
 	function presetName(preset: StudioPreset): string {
@@ -233,16 +237,17 @@
 	<header
 		class="sticky top-0 z-10 flex h-14 items-center border-b bg-background/95 px-3 backdrop-blur"
 	>
-		<Button variant="ghost" size="icon-sm" onclick={goBack} aria-label={m.common_back()}
-			><ArrowLeftIcon /></Button
+		<Button
+			variant="ghost"
+			size="icon-sm"
+			onclick={goBack}
+			aria-label={m.common_back()}
+			class="size-11"><ArrowLeftIcon /></Button
 		>
-		<div class="ml-2">
-			<h1 class="text-sm font-semibold">{m.studio_new_design()}</h1>
-			<p class="text-xs text-muted-foreground">{m.studio_title()}</p>
-		</div>
+		<p class="ml-2 text-sm font-semibold">{m.studio_new_design()}</p>
 	</header>
 
-	<main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+	<main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
 		{#if loading}
 			<div class="flex min-h-[60dvh] items-center justify-center text-muted-foreground">
 				<LoaderIcon class="mr-2 size-5 animate-spin" />
@@ -260,7 +265,7 @@
 				>
 			</div>
 		{:else}
-			<div class="mb-8 max-w-2xl">
+			<div class="mb-6 max-w-2xl sm:mb-8">
 				<p class="text-sm font-medium text-primary">{m.studio_title()}</p>
 				<h1 class="mt-1 text-3xl font-semibold tracking-tight">{m.studio_choose_format()}</h1>
 				<p class="mt-2 text-muted-foreground">
@@ -278,16 +283,16 @@
 				<h2 id="preset-heading" class="mb-3 text-sm font-semibold">
 					{m.studio_social_presets()}
 				</h2>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+				<div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
 					{#each presets as preset (preset.key)}
 						<button
 							type="button"
-							class="group rounded-xl border bg-card p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+							class="group flex min-h-20 items-center gap-3 rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-muted/40"
 							onclick={() => createPreset(preset.key)}
 							disabled={Boolean(creating)}
 						>
 							<div
-								class="mb-3 flex aspect-[4/3] items-center justify-center rounded-lg bg-neutral-800 p-4"
+								class="flex size-14 shrink-0 items-center justify-center rounded-lg bg-neutral-800 p-2"
 							>
 								<div
 									class="max-h-full max-w-full bg-orange-50 shadow-sm"
@@ -296,14 +301,17 @@
 									style:width={preset.width_px >= preset.height_px ? '100%' : 'auto'}
 								></div>
 							</div>
-							<div class="flex items-center gap-2">
-								<span class="min-w-0 flex-1 truncate text-sm font-medium">{presetName(preset)}</span
-								>
-								{#if creating === preset.key}<LoaderIcon class="size-4 animate-spin" />{/if}
+							<div class="min-w-0 flex-1">
+								<div class="flex items-center gap-2">
+									<span class="min-w-0 flex-1 truncate text-sm font-medium"
+										>{presetName(preset)}</span
+									>
+									{#if creating === preset.key}<LoaderIcon class="size-4 animate-spin" />{/if}
+								</div>
+								<p class="mt-0.5 text-xs text-muted-foreground">
+									{preset.width_px} × {preset.height_px}
+								</p>
 							</div>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{preset.width_px} × {preset.height_px}
-							</p>
 						</button>
 					{/each}
 				</div>

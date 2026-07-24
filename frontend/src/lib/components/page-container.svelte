@@ -2,6 +2,7 @@
 	import type { ComponentProps, Snippet } from 'svelte';
 	import PageHeader from '$lib/components/page-header.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
+	import { cn } from '$lib/utils';
 
 	type PageLoadingProps = ComponentProps<typeof PageLoading>;
 
@@ -26,6 +27,8 @@
 		loadingItems?: number;
 		/** Number of controls represented in the loading header */
 		loadingActionCount?: number;
+		/** Visually collapse the title on small screens while preserving it for assistive technology */
+		compactHeaderOnMobile?: boolean;
 		/** Page content */
 		children: Snippet;
 	}
@@ -41,16 +44,28 @@
 		loadingVariant = 'profile',
 		loadingItems = 4,
 		loadingActionCount = 2,
+		compactHeaderOnMobile = false,
 		children
 	}: Props = $props();
 </script>
 
 <div
 	data-slot="page-container"
-	class="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-5 sm:px-6 sm:py-6 lg:px-8"
+	class={cn(
+		'mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-5 sm:px-6 sm:py-6 lg:px-8',
+		compactHeaderOnMobile && 'gap-4 sm:gap-6'
+	)}
 	style="container-type: inline-size;"
 >
-	<PageHeader {title} icon={Icon} {description} {actions} {loading} {loadingActionCount} />
+	<PageHeader
+		{title}
+		icon={Icon}
+		{description}
+		{actions}
+		{loading}
+		{loadingActionCount}
+		compactOnMobile={compactHeaderOnMobile}
+	/>
 
 	<div data-slot="page-content" class="min-w-0" aria-busy={loading}>
 		{#if loading}

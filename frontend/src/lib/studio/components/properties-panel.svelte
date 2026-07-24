@@ -63,7 +63,7 @@
 
 <div class="flex h-full min-h-0 flex-col">
 	<div class="border-b px-3 py-2">
-		<h2 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+		<h2 class="text-sm font-semibold">
 			{m.studio_properties()}
 		</h2>
 	</div>

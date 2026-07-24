@@ -97,7 +97,8 @@ export class OpenPostFabricAdapter {
 			this.canvas.add(object);
 		}
 		if (!this.staticMode) this.restoreSelection(selectedIDs);
-		this.canvas.requestRenderAll();
+		if (this.staticMode) this.canvas.renderAll();
+		else this.canvas.requestRenderAll();
 		this.syncing = false;
 	}
 

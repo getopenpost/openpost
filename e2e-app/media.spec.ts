@@ -31,11 +31,20 @@ test("media library uploads and lists a local media file", async ({
   await expect(
     page.getByRole("dialog", { name: "Upload Media" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Upload" }),
+  ).toBeDisabled();
   await page.locator("#file-upload").setInputFiles({
     name: "launch-card.png",
     mimeType: "image/png",
     buffer: tinyPNG,
   });
+  await expect(
+    page.getByRole("status").getByText("launch-card.png"),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("dialog").getByRole("button", { name: "Upload" }),
+  ).toBeEnabled();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Upload" })
@@ -50,12 +59,8 @@ test("media library uploads and lists a local media file", async ({
   ).toBeVisible();
   await expect(page.getByText("Studio edits")).toHaveCount(0);
 
-  await page
-    .getByRole("button", { name: "Select", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Select launch-card.png" })
-    .click();
+  await page.getByRole("button", { name: "Select", exact: true }).click();
+  await page.getByRole("button", { name: "Select launch-card.png" }).click();
   await expect(
     page.getByRole("toolbar", { name: "Selected media actions" }),
   ).toContainText("1 selected");

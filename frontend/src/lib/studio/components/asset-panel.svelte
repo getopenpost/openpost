@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { useStudioEditor } from '../editor.svelte';
@@ -35,27 +34,35 @@
 	let search = $state('');
 	let pickerOpen = $state(false);
 	let replaceMode = $state(false);
-	onMount(() => {
-		if (editor.workspaceID) void loadAll();
+	let loadSequence = 0;
+
+	$effect(() => {
+		const workspaceID = editor.workspaceID;
+		if (!workspaceID) return;
+		void loadAll(workspaceID);
 	});
 
-	async function loadAll(): Promise<void> {
+	async function loadAll(workspaceID = editor.workspaceID): Promise<void> {
+		if (!workspaceID) return;
+		const sequence = ++loadSequence;
 		loading = true;
 		error = '';
 		try {
 			const [nextMedia, nextTemplates, nextBrand] = await Promise.all([
-				listStudioMedia(editor.workspaceID),
-				listStudioTemplates(editor.workspaceID),
-				loadStudioBrandKit(editor.workspaceID)
+				listStudioMedia(workspaceID),
+				listStudioTemplates(workspaceID),
+				loadStudioBrandKit(workspaceID)
 			]);
+			if (sequence !== loadSequence || workspaceID !== editor.workspaceID) return;
 			media = nextMedia;
 			templates = nextTemplates;
 			brand = nextBrand;
 			await loadStudioBrandFonts(nextBrand);
 		} catch (cause) {
+			if (sequence !== loadSequence || workspaceID !== editor.workspaceID) return;
 			error = cause instanceof Error ? cause.message : m.studio_load_assets_failed();
 		} finally {
-			loading = false;
+			if (sequence === loadSequence) loading = false;
 		}
 	}
 

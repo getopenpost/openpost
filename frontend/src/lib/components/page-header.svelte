@@ -12,6 +12,7 @@
 		actions?: Snippet;
 		loading?: boolean;
 		loadingActionCount?: number;
+		compactOnMobile?: boolean;
 		class?: string;
 	}
 
@@ -24,6 +25,7 @@
 		actions,
 		loading = false,
 		loadingActionCount = 2,
+		compactOnMobile = false,
 		class: className
 	}: Props = $props();
 
@@ -38,9 +40,13 @@
 <header
 	data-slot="page-header"
 	data-testid="page-header"
-	class={cn('page-header flex min-w-0 flex-col gap-4', className)}
+	class={cn(
+		'page-header flex min-w-0 flex-col gap-4',
+		compactOnMobile && 'gap-2 sm:gap-4',
+		className
+	)}
 >
-	<div class="min-w-0">
+	<div class={cn('min-w-0', compactOnMobile && 'compact-page-header-title')}>
 		{#if eyebrow}
 			<div class="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
 				{#if Icon}
@@ -68,7 +74,10 @@
 	{#if actions}
 		<div
 			data-slot="page-header-actions"
-			class="page-header-actions flex w-full shrink-0 flex-wrap items-center gap-2"
+			class={cn(
+				'page-header-actions flex w-full shrink-0 flex-wrap items-center gap-2',
+				compactOnMobile && 'justify-end'
+			)}
 		>
 			{#if loading}
 				{#each loadingActionKeys as key, index (key)}
@@ -82,7 +91,31 @@
 </header>
 
 <style>
+	.compact-page-header-title {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
+	}
+
 	@container (min-width: 44rem) {
+		.compact-page-header-title {
+			position: static;
+			width: auto;
+			height: auto;
+			padding: 0;
+			margin: 0;
+			overflow: visible;
+			clip: auto;
+			white-space: normal;
+			border-width: 0;
+		}
+
 		.page-header {
 			flex-direction: row;
 			align-items: flex-start;

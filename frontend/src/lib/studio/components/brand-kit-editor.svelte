@@ -29,10 +29,15 @@
 		onSaved: (kit: StudioBrandKit) => void;
 	} = $props();
 
+	type BrandBackgroundEntry = {
+		id: string;
+		value: string;
+	};
+
 	let initialized = false;
 	let name = $state('');
 	let colors = $state.raw<StudioBrandColor[]>([]);
-	let backgrounds = $state.raw<string[]>([]);
+	let backgrounds = $state.raw<BrandBackgroundEntry[]>([]);
 	let textStyles = $state.raw<StudioBrandTextStyle[]>([]);
 	let assets = $state.raw<StudioBrandAsset[]>([]);
 	let fonts = $state.raw<StudioBrandFont[]>([]);
@@ -51,7 +56,7 @@
 		initialized = true;
 		name = kit.name || m.brand_default_name();
 		colors = structuredClone($state.snapshot(kit.colors));
-		backgrounds = [...kit.backgrounds];
+		backgrounds = kit.backgrounds.map((value) => ({ id: crypto.randomUUID(), value }));
 		textStyles = structuredClone($state.snapshot(kit.text_styles));
 		assets = structuredClone($state.snapshot(kit.assets));
 		fonts = structuredClone($state.snapshot(kit.fonts));
@@ -65,7 +70,7 @@
 
 	function updateBackground(index: number, value: string) {
 		backgrounds = backgrounds.map((background, itemIndex) =>
-			itemIndex === index ? value : background
+			itemIndex === index ? { ...background, value } : background
 		);
 	}
 
@@ -182,7 +187,7 @@
 				name,
 				colors,
 				text_styles: textStyles,
-				backgrounds,
+				backgrounds: backgrounds.map((background) => background.value),
 				assets,
 				fonts
 			});
@@ -229,7 +234,7 @@
 				</div>
 			</div>
 			<div class="space-y-3">
-				{#each colors as color, index (`${index}-${color.name}`)}
+				{#each colors as color, index (color.id)}
 					<div
 						class="grid grid-cols-[3rem_minmax(0,1fr)_3rem] items-start gap-2 sm:grid-cols-[3rem_minmax(0,1fr)_8rem_3rem]"
 					>
@@ -288,18 +293,18 @@
 					<h3 class="text-sm font-medium">{m.brand_page_backgrounds()}</h3>
 					<p class="mt-1 text-xs text-muted-foreground">{m.brand_backgrounds_body()}</p>
 				</div>
-				{#each backgrounds as background, index (`${index}-${background}`)}
+				{#each backgrounds as background, index (background.id)}
 					<div class="grid grid-cols-[3rem_minmax(0,1fr)_3rem] gap-2">
 						<input
 							type="color"
-							value={background}
+							value={background.value}
 							aria-label={m.brand_choose_background()}
 							class="h-11 w-12 rounded-lg border bg-background p-1"
 							oninput={(event) => updateBackground(index, event.currentTarget.value)}
 						/>
 						<Input
 							class="min-h-11"
-							value={background}
+							value={background.value}
 							aria-label={m.brand_background_value()}
 							oninput={(event) => updateBackground(index, event.currentTarget.value)}
 						/>
@@ -319,7 +324,8 @@
 					variant="outline"
 					size="sm"
 					class="min-h-11"
-					onclick={() => (backgrounds = [...backgrounds, '#ffffff'])}
+					onclick={() =>
+						(backgrounds = [...backgrounds, { id: crypto.randomUUID(), value: '#ffffff' }])}
 				>
 					<PlusIcon />
 					{m.brand_add_background()}
@@ -518,7 +524,7 @@
 				><PlusIcon /> {m.brand_add_style()}</Button
 			>
 		</div>
-		{#each textStyles as style, index (`${index}-${style.name}`)}
+		{#each textStyles as style, index (style.id)}
 			<details class="rounded-xl border">
 				<summary class="cursor-pointer px-4 py-3">
 					<p class="text-xs font-medium text-muted-foreground">{style.name}</p>

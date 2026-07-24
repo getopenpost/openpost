@@ -49,7 +49,7 @@
 
 <div class="flex h-full min-h-0 flex-col" role="tree" aria-label={m.studio_layers()}>
 	<div class="border-b px-3 py-2">
-		<h2 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+		<h2 class="text-sm font-semibold">
 			{m.studio_layers()}
 		</h2>
 	</div>

@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Made Media density follow its available content width, reduced mobile filter and header clutter, and compacted Studio format selection and export controls.
 - Simplified the Media hub and picker, replaced blank design cards with source previews, curated the starter templates, and rebuilt the mobile Brand editor.
 - Kept one intent and capability model across composer flows while restoring the classic Post and Thread authoring surface.
 - Moved destination-specific composer settings into account cog dialogs in the Publish to menu, with structured tag, category, and playlist controls for YouTube.
@@ -63,6 +64,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Preserved focus while editing repeatable Brand fields, made Studio Back a single deterministic action, restored the requested Media section on return, loaded Studio assets after workspace initialization, and generated missing design previews without requiring an edit.
+- Rendered Studio’s static canvas before encoding so previews and exported images retain every visible layer.
 - Updated SvelteKit, PostCSS, and node-tar to patched releases after new production dependency advisories.
 - Kept generic provider quota caveats from marking connected accounts as needing attention in the composer.
 - Stopped unavailable X settings from requesting unsupported account-option endpoints and replaced their empty controls with concise availability details.

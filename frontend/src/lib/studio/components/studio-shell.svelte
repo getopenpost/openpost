@@ -125,6 +125,8 @@
 	let resizeHeight = $state(1080);
 	let resizeMode = $state<'scale' | 'preserve'>('scale');
 	let resizeError = $state('');
+	let leaving = $state(false);
+	let compactLandscape = false;
 
 	function initializeShell() {
 		if (!editor.document) {
@@ -141,9 +143,15 @@
 	}
 
 	onMount(() => {
-		if (window.innerWidth < 1024 && window.innerHeight <= 520) {
-			editor.pagesExpanded = false;
-		}
+		const syncCompactLandscape = () => {
+			const nextCompactLandscape = window.innerWidth < 1024 && window.innerHeight <= 520;
+			if (nextCompactLandscape && !compactLandscape) {
+				editor.pagesExpanded = false;
+			}
+			compactLandscape = nextCompactLandscape;
+		};
+		syncCompactLandscape();
+		window.addEventListener('resize', syncCompactLandscape);
 		const unsubscribe = editor.onChange(() => {
 			clearTimeout(saveTimer);
 			previewPending = true;
@@ -164,6 +172,10 @@
 		});
 		void (async () => {
 			await restoreLocalIfNewer();
+			if (!coverPreviewMediaID && editor.canEdit) {
+				previewPending = true;
+				schedulePreview();
+			}
 			if (initialAction === 'remove-background') {
 				const imageLayer = editor.activePage?.layers.find((layer) => Boolean(layer.image));
 				if (imageLayer) {
@@ -186,6 +198,7 @@
 			clearTimeout(saveTimer);
 			clearTimeout(previewTimer);
 			backgroundRemoval.dispose();
+			window.removeEventListener('resize', syncCompactLandscape);
 			window.removeEventListener('beforeunload', beforeUnload);
 		};
 	});
@@ -322,6 +335,8 @@
 	}
 
 	async function goBack(): Promise<void> {
+		if (leaving) return;
+		leaving = true;
 		if (
 			editor.canEdit &&
 			(editor.saveState === 'idle' ||
@@ -887,8 +902,14 @@
 			class="size-11 md:size-11 lg:size-8"
 			onclick={goBack}
 			aria-label={m.common_back()}
+			aria-busy={leaving}
+			disabled={leaving}
 		>
-			<ArrowLeftIcon />
+			{#if leaving}
+				<LoaderIcon class="animate-spin" />
+			{:else}
+				<ArrowLeftIcon />
+			{/if}
 		</Button>
 		<Input
 			value={editor.document?.title ?? ''}
@@ -1459,7 +1480,11 @@
 				<input type="checkbox" bind:checked={exportAllPages} />
 				<span>{m.studio_export_all_pages({ count: editor.document?.pages.length ?? 0 })}</span>
 			</label>
-			<div class="grid grid-cols-2 gap-3">
+			<div
+				class="grid gap-3 {editor.document?.export_defaults.format === 'png'
+					? 'grid-cols-1'
+					: 'grid-cols-2'}"
+			>
 				<label class="grid gap-1.5 text-sm">
 					<span class="font-medium">{m.studio_format()}</span>
 					<select
@@ -1476,30 +1501,31 @@
 						<option value="webp">WebP</option>
 					</select>
 				</label>
-				<label class="grid gap-1.5 text-sm">
-					<span class="font-medium">
-						{m.studio_quality({
-							quality: Math.round((editor.document?.export_defaults.quality ?? 0.92) * 100)
-						})}
-					</span>
-					<input
-						class="h-10"
-						type="range"
-						min="0.5"
-						max="1"
-						step="0.01"
-						value={editor.document?.export_defaults.quality ?? 0.92}
-						disabled={editor.document?.export_defaults.format === 'png'}
-						oninput={(event) =>
-							editor.mutate(
-								'Change export quality',
-								(document) => {
-									document.export_defaults.quality = Number(event.currentTarget.value);
-								},
-								'export-quality'
-							)}
-					/>
-				</label>
+				{#if editor.document?.export_defaults.format !== 'png'}
+					<label class="grid gap-1.5 text-sm">
+						<span class="font-medium">
+							{m.studio_quality({
+								quality: Math.round((editor.document?.export_defaults.quality ?? 0.92) * 100)
+							})}
+						</span>
+						<input
+							class="h-10"
+							type="range"
+							min="0.5"
+							max="1"
+							step="0.01"
+							value={editor.document?.export_defaults.quality ?? 0.92}
+							oninput={(event) =>
+								editor.mutate(
+									'Change export quality',
+									(document) => {
+										document.export_defaults.quality = Number(event.currentTarget.value);
+									},
+									'export-quality'
+								)}
+						/>
+					</label>
+				{/if}
 			</div>
 			<div class="grid grid-cols-3 gap-2">
 				<Button

@@ -99,6 +99,48 @@ func TestStudioDesignSaveUsesOptimisticConcurrencyAndTracksMedia(t *testing.T) {
 	require.Contains(t, err.Error(), "changed elsewhere")
 }
 
+func TestStudioSourceDesignUsesItsImageAsTheLibraryPreview(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newStudioHandlerTest(t)
+	_, err := handler.db.NewInsert().Model(&models.MediaAttachment{
+		ID:               "source-image",
+		WorkspaceID:      "workspace-1",
+		FilePath:         "source-image.png",
+		MimeType:         "image/png",
+		ProcessingStatus: mediaReadyStatus,
+		OriginalFilename: "source-image.png",
+		FileHash:         "source-image-hash",
+		Source:           "upload",
+		AssetKind:        "library",
+		Width:            1200,
+		Height:           630,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	create := &CreateStudioDesignInput{}
+	create.Body.WorkspaceID = "workspace-1"
+	create.Body.Title = "Edit source image"
+	create.Body.PresetKey = "custom"
+	create.Body.WidthPX = 1200
+	create.Body.HeightPX = 630
+	create.Body.SourceMediaID = "source-image"
+	created, err := handler.createDesign(ctx, create)
+	require.NoError(t, err)
+	require.Equal(t, "source-image", created.Body.CoverPreviewMediaID)
+
+	_, err = handler.db.NewUpdate().
+		Model((*models.DesignDocument)(nil)).
+		Set("cover_preview_media_id = ''").
+		Where("id = ?", created.Body.ID).
+		Exec(ctx)
+	require.NoError(t, err)
+
+	listed, err := handler.listDesigns(ctx, &ListStudioDesignsInput{WorkspaceID: "workspace-1"})
+	require.NoError(t, err)
+	require.Len(t, listed.Body.Designs, 1)
+	require.Equal(t, "source-image", listed.Body.Designs[0].CoverPreviewMediaID)
+}
+
 func TestStudioViewerCanReadButCannotEdit(t *testing.T) {
 	t.Parallel()
 	handler, adminCtx := newStudioHandlerTest(t)
@@ -235,7 +277,7 @@ func TestStudioWorkspaceTemplateCanBeReplacedDeliberately(t *testing.T) {
 func TestBuiltinStudioTemplatesIncludeOriginalMultipageSets(t *testing.T) {
 	t.Parallel()
 	templates := builtinStudioTemplates()
-	require.GreaterOrEqual(t, len(templates), 12)
+	require.Len(t, templates, 5)
 
 	multipage := 0
 	for _, template := range templates {
@@ -253,7 +295,7 @@ func TestBuiltinStudioTemplatesIncludeOriginalMultipageSets(t *testing.T) {
 			multipage++
 		}
 	}
-	require.GreaterOrEqual(t, multipage, 2)
+	require.Equal(t, 1, multipage)
 }
 
 func TestStudioRejectsCrossWorkspacePreviewReferences(t *testing.T) {

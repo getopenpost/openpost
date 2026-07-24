@@ -576,12 +576,23 @@ func (h *StudioHandler) listDesigns(ctx context.Context, input *ListStudioDesign
 	}
 	var rows []struct {
 		models.DesignDocument
-		PageCount int `bun:"page_count"`
+		PageCount              int    `bun:"page_count"`
+		FallbackPreviewMediaID string `bun:"fallback_preview_media_id"`
 	}
 	err = h.db.NewSelect().
 		TableExpr("design_documents AS d").
 		ColumnExpr("d.*").
 		ColumnExpr("(SELECT COUNT(*) FROM design_pages p WHERE p.design_document_id = d.id) AS page_count").
+		ColumnExpr(`(
+			SELECT r.media_id
+			FROM design_media_references AS r
+			JOIN media_attachments AS m ON m.id = r.media_id
+			WHERE r.design_document_id = d.id
+				AND r.usage = 'layer'
+				AND m.asset_kind = 'library'
+			ORDER BY r.created_at ASC
+			LIMIT 1
+		) AS fallback_preview_media_id`).
 		Where("d.workspace_id = ? AND d.deleted_at IS NULL", input.WorkspaceID).
 		Apply(func(q *bun.SelectQuery) *bun.SelectQuery {
 			if search := strings.TrimSpace(input.Search); search != "" {
@@ -601,6 +612,9 @@ func (h *StudioHandler) listDesigns(ctx context.Context, input *ListStudioDesign
 	out.Body.CanEdit = canEdit
 	out.Body.Designs = make([]StudioDesignSummary, 0, len(rows))
 	for _, row := range rows {
+		if row.CoverPreviewMediaID == "" {
+			row.CoverPreviewMediaID = row.FallbackPreviewMediaID
+		}
 		out.Body.Designs = append(out.Body.Designs, designSummary(row.DesignDocument, row.PageCount))
 	}
 	return out, nil
@@ -656,6 +670,7 @@ func (h *StudioHandler) createDesign(ctx context.Context, input *CreateStudioDes
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to load source media")
 		}
+		document.CoverPreviewMediaID = media.ID
 		page.Layers = append(page.Layers, newStudioImageLayer(media, width, height))
 	}
 	payload := StudioDocumentPayload{

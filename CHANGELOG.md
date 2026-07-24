@@ -24,6 +24,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Simplified the Media hub and picker, replaced blank design cards with source previews, curated the starter templates, and rebuilt the mobile Brand editor.
 - Kept one intent and capability model across composer flows while restoring the classic Post and Thread authoring surface.
 - Moved destination-specific composer settings into account cog dialogs in the Publish to menu, with structured tag, category, and playlist controls for YouTube.
 - Rewrote the landing, pricing, security, open-source, changelog, platform, comparison, and tools pages around current product behavior, and refreshed the canonical composer, accounts, media, and settings screenshots.

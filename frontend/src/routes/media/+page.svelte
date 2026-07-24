@@ -1,12 +1,11 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import { page } from '$app/stores';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
-	import { videoProviderSupportDetail, videoProviderSupportLabel } from '$lib/media-capabilities';
 	import { isSupportedMediaFile, uploadMediaFiles } from '$lib/media-upload-client';
 	import { uploadMediaFile } from '$lib/media-upload-client';
 	import {
@@ -20,11 +19,9 @@
 	import { clampMediaPage } from '$lib/media-pagination';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Select from '$lib/components/ui/select';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
-	import { Tabs, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
@@ -54,6 +51,9 @@
 	import TagIcon from 'lucide-svelte/icons/tag';
 	import PlusIcon from 'lucide-svelte/icons/plus';
 	import ListIcon from 'lucide-svelte/icons/list';
+	import SlidersHorizontalIcon from 'lucide-svelte/icons/sliders-horizontal';
+	import FolderPlusIcon from 'lucide-svelte/icons/folder-plus';
+	import XIcon from 'lucide-svelte/icons/x';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
@@ -145,11 +145,7 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
-	let hubView = $derived<'assets' | 'designs' | 'templates' | 'brand'>(
-		(['assets', 'designs', 'templates', 'brand'].includes($page.url.searchParams.get('view') ?? '')
-			? $page.url.searchParams.get('view')
-			: 'assets') as 'assets' | 'designs' | 'templates' | 'brand'
-	);
+	let hubView = $state<'assets' | 'designs' | 'brand'>('assets');
 	let designs = $state<StudioDesignSummary[]>([]);
 	let templates = $state<StudioTemplate[]>([]);
 	let brandKit = $state<StudioBrandKit | null>(null);
@@ -159,6 +155,8 @@
 	let cameraDialogOpen = $state(false);
 	let cameraUploading = $state(false);
 	let organizationDialogOpen = $state(false);
+	let filterDialogOpen = $state(false);
+	let selectionOrganizationDialogOpen = $state(false);
 	let batchCollectionID = $state('');
 	let batchTagID = $state('');
 	let organizationSaving = $state(false);
@@ -207,10 +205,6 @@
 
 	function filesCountLabel(count: number) {
 		return count === 1 ? m.media_files_one() : m.media_files_many({ count });
-	}
-
-	function usedInCountLabel(count: number) {
-		return count === 1 ? m.media_used_in_one() : m.media_used_in_many({ count });
 	}
 
 	function usageSummaryLabel(count: number) {
@@ -356,14 +350,34 @@
 		}
 	}
 
-	function changeHubView(view: 'assets' | 'designs' | 'templates' | 'brand') {
+	function changeHubView(view: 'assets' | 'designs' | 'brand') {
+		if (hubView === view) return;
+		hubView = view;
 		const next = new URL($page.url);
 		if (view === 'assets') next.searchParams.delete('view');
 		else next.searchParams.set('view', view);
-		void goto(resolve(`${next.pathname}${next.search}` as '/'), {
-			replaceState: true,
-			noScroll: true
-		});
+		replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
+	}
+
+	function resetAssetFilters() {
+		filter = 'all';
+		mediaType = 'all';
+		source = 'all';
+		collectionID = '';
+		tagID = '';
+		aspect = 'all';
+		minWidth = 0;
+		minHeight = 0;
+		maxWidth = 0;
+		maxHeight = 0;
+		dateFrom = '';
+		dateTo = '';
+		applyAssetFilters();
+	}
+
+	function showAllAssets() {
+		search = '';
+		resetAssetFilters();
 	}
 
 	function requestTemplateDeletion(template: StudioTemplate): void {
@@ -388,6 +402,7 @@
 
 	function applyAssetFilters() {
 		currentPage = 0;
+		filterDialogOpen = false;
 		void loadMedia();
 	}
 
@@ -466,6 +481,7 @@
 			);
 			selectedMediaIds.clear();
 			isSelectionMode = false;
+			selectionOrganizationDialogOpen = false;
 			if (kind === 'collection') batchCollectionID = '';
 			else batchTagID = '';
 		} catch (cause) {
@@ -573,6 +589,7 @@
 		const query = new URLSearchParams({
 			workspace: selectedWorkspaceId,
 			source_media: media.id,
+			source_name: media.original_filename,
 			width: String(media.width || 1080),
 			height: String(media.height || 1080)
 		});
@@ -665,10 +682,7 @@
 		uploadError = '';
 
 		const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-		const batchFileInput = document.getElementById('batch-file-upload') as HTMLInputElement;
-		const selectedFiles = fileInput?.files?.length
-			? Array.from(fileInput.files)
-			: Array.from(batchFileInput?.files ?? []);
+		const selectedFiles = Array.from(fileInput?.files ?? []);
 		const files = selectedFiles.filter(isSupportedMediaFile);
 		if (files.length === 0) {
 			uploadError = m.media_select_file_error();
@@ -691,7 +705,6 @@
 
 			uploadDialogOpen = false;
 			fileInput.value = '';
-			if (batchFileInput) batchFileInput.value = '';
 			notify(uploadedCountLabel(uploaded.length), 'success');
 			soundPreferences.play('success');
 			await loadMedia();
@@ -717,6 +730,14 @@
 			day: 'numeric',
 			timeZone: workspaceCtx.settings.timezone || 'UTC'
 		});
+	}
+
+	function designDisplayTitle(title: string): string {
+		const normalized = title.trim().toLocaleLowerCase();
+		if (normalized === 'media edit' || normalized === 'edição de multimédia') {
+			return m.media_edited_image();
+		}
+		return title;
 	}
 
 	function isImage(mimeType: string): boolean {
@@ -839,6 +860,18 @@
 	}
 
 	onMount(() => {
+		const requestedView = $page.url.searchParams.get('view');
+		hubView =
+			requestedView === 'brand'
+				? 'brand'
+				: requestedView === 'designs' || requestedView === 'templates'
+					? 'designs'
+					: 'assets';
+		if (requestedView === 'templates') {
+			const next = new URL($page.url);
+			next.searchParams.set('view', 'designs');
+			replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
+		}
 		void loadWorkspaces();
 	});
 
@@ -850,12 +883,28 @@
 		});
 	});
 
-	const filterTabs = $derived([
+	const quickFilters = $derived([
 		{ value: 'all', label: m.media_filter_all() },
-		{ value: 'used', label: m.media_filter_used() },
-		{ value: 'unused', label: m.media_filter_unused() },
-		{ value: 'favorites', label: m.media_filter_favorites() }
+		{ value: 'favorites', label: m.media_filter_favorites() },
+		{ value: 'unused', label: m.media_filter_unused() }
 	]);
+
+	const activeFilterCount = $derived(
+		[
+			filter !== 'all',
+			mediaType !== 'all',
+			source !== 'all',
+			Boolean(collectionID),
+			Boolean(tagID),
+			aspect !== 'all',
+			minWidth > 0,
+			minHeight > 0,
+			maxWidth > 0,
+			maxHeight > 0,
+			Boolean(dateFrom),
+			Boolean(dateTo)
+		].filter(Boolean).length
+	);
 
 	const totalPages = $derived(Math.ceil(totalCount / pageSize));
 	const allMediaSelected = $derived(
@@ -868,6 +917,8 @@
 	);
 
 	const descriptionText = $derived.by(() => {
+		if (hubView === 'designs') return m.media_designs_body();
+		if (hubView === 'brand') return m.media_brand_description();
 		if (totalCount > 0) {
 			let text: string = filesCountLabel(totalCount);
 			if (filter === 'unused') {
@@ -896,7 +947,7 @@
 	title={m.media_hub_title()}
 	description={descriptionText}
 	icon={ImageIcon}
-	loading={loading || (mediaLoading && mediaItems.length === 0)}
+	{loading}
 	loadingMessage={m.common_loading()}
 	loadingLayout="gallery"
 >
@@ -913,7 +964,7 @@
 				</Select.Content>
 			</Select.Root>
 		{/if}
-		{#if mediaCanEdit}
+		{#if mediaCanEdit && hubView === 'assets'}
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
@@ -945,48 +996,75 @@
 					{/if}
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
+		{:else if mediaCanEdit && hubView === 'designs' && studioEnabled}
+			<Button
+				class="gap-2"
+				onclick={() =>
+					goto(resolve(`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}` as '/'))}
+			>
+				<PlusIcon class="size-4" />
+				{m.media_new_design()}
+			</Button>
 		{/if}
 	{/snippet}
 
-	<Tabs value={hubView} onValueChange={(value) => changeHubView(value as typeof hubView)}>
-		<TabsList class="max-w-full justify-start overflow-x-auto">
-			<TabsTrigger value="assets"><ImageIcon /> {m.media_assets()}</TabsTrigger>
-			{#if studioEnabled}
-				<TabsTrigger value="designs"><PaletteIcon /> {m.media_designs()}</TabsTrigger>
-				<TabsTrigger value="templates"><Grid2X2Icon /> {m.media_templates()}</TabsTrigger>
-				<TabsTrigger value="brand"><HeartIcon /> {m.media_brand()}</TabsTrigger>
-			{/if}
-		</TabsList>
-	</Tabs>
+	<nav
+		aria-label={m.media_hub_views()}
+		class="grid min-h-12 grid-cols-3 gap-1 rounded-xl bg-muted p-1 sm:w-fit sm:min-w-[28rem]"
+	>
+		<button
+			type="button"
+			class="flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors {hubView ===
+			'assets'
+				? 'bg-background text-foreground shadow-xs'
+				: 'text-muted-foreground hover:text-foreground'}"
+			aria-current={hubView === 'assets' ? 'page' : undefined}
+			onclick={() => changeHubView('assets')}
+		>
+			<ImageIcon class="size-4" />
+			{m.media_assets()}
+		</button>
+		{#if studioEnabled}
+			<button
+				type="button"
+				class="flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors {hubView ===
+				'designs'
+					? 'bg-background text-foreground shadow-xs'
+					: 'text-muted-foreground hover:text-foreground'}"
+				aria-current={hubView === 'designs' ? 'page' : undefined}
+				onclick={() => changeHubView('designs')}
+			>
+				<PaletteIcon class="size-4" />
+				{m.media_designs()}
+			</button>
+			<button
+				type="button"
+				class="flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors {hubView ===
+				'brand'
+					? 'bg-background text-foreground shadow-xs'
+					: 'text-muted-foreground hover:text-foreground'}"
+				aria-current={hubView === 'brand' ? 'page' : undefined}
+				onclick={() => changeHubView('brand')}
+			>
+				<HeartIcon class="size-4" />
+				{m.media_brand()}
+			</button>
+		{/if}
+	</nav>
 
 	{#if hubView === 'assets'}
-		<div
-			class="flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-card px-3 py-2"
-		>
-			<div>
-				<p class="text-sm font-medium">
-					{m.media_stored({ size: formatSize(storageUsage.used_bytes) })}
-				</p>
-				<p class="text-xs text-muted-foreground">
-					{m.media_library_assets({
-						count: storageUsage.asset_count,
-						suffix: storageUsage.asset_count === 1 ? '' : 's'
-					})}
-					{#if storageUsage.internal_bytes > 0}
-						·
-						{m.media_internal_previews({ size: formatSize(storageUsage.internal_bytes) })}
-					{/if}
-				</p>
-			</div>
-			{#if storageUsage.limit_bytes > 0}
-				<div class="w-full max-w-56">
-					<div class="h-2 overflow-hidden rounded-full bg-muted">
-						<div
-							class="h-full rounded-full bg-primary"
-							style:width={`${Math.min(100, (storageUsage.used_bytes / storageUsage.limit_bytes) * 100)}%`}
-						></div>
-					</div>
-				</div>
+		<div class="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+			<p>
+				{m.media_storage_summary({
+					count: storageUsage.asset_count,
+					size: formatSize(storageUsage.used_bytes)
+				})}
+			</p>
+			{#if mediaLoading && mediaItems.length > 0}
+				<span class="inline-flex items-center gap-1.5" role="status">
+					<LoaderIcon class="size-3.5 animate-spin" />
+					{m.common_loading()}
+				</span>
 			{/if}
 		</div>
 		{#if error && mediaItems.length > 0}
@@ -999,177 +1077,57 @@
 		{/if}
 
 		<form
-			class="grid gap-2 rounded-xl border bg-card p-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(14rem,1fr)_9rem_10rem_12rem_12rem_auto]"
+			class="flex gap-2"
 			onsubmit={(event) => {
 				event.preventDefault();
 				applyAssetFilters();
 			}}
 		>
-			<div class="relative">
+			<div class="relative min-w-0 flex-1">
 				<SearchIcon
 					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 				/>
 				<input
-					class="h-11 w-full rounded-md border border-input bg-background pr-3 pl-9 text-sm sm:h-10"
+					class="h-11 w-full rounded-lg border border-input bg-background pr-3 pl-9 text-sm"
 					bind:value={search}
 					placeholder={m.media_search_filename_alt()}
 				/>
 			</div>
-			<select
-				class="h-11 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-				bind:value={mediaType}
+			<Button
+				type="button"
+				variant={activeFilterCount > 0 ? 'secondary' : 'outline'}
+				class="h-11 shrink-0"
+				aria-label={m.media_filters()}
+				onclick={() => (filterDialogOpen = true)}
 			>
-				<option value="all">{m.media_all_types()}</option>
-				<option value="image">{m.media_images()}</option>
-				<option value="video">{m.media_videos()}</option>
-			</select>
-			<select
-				class="h-11 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-				bind:value={source}
-			>
-				<option value="all">{m.media_all_sources()}</option>
-				<option value="upload">{m.media_uploads()}</option>
-				<option value="camera">{m.media_camera()}</option>
-				<option value="studio_export">{m.media_studio_exports()}</option>
-				<option value="studio_edit">{m.media_studio_edits()}</option>
-				<option value="background_removal">{m.media_background_removal()}</option>
-			</select>
-			<select
-				class="h-11 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-				bind:value={collectionID}
-			>
-				<option value="">{m.media_all_collections()}</option>
-				{#each collections as collection (collection.id)}
-					<option value={collection.id}>{collection.name} ({collection.item_count})</option>
-				{/each}
-			</select>
-			<select
-				class="h-11 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-				bind:value={tagID}
-			>
-				<option value="">{m.media_all_tags()}</option>
-				{#each tags as tag (tag.id)}
-					<option value={tag.id}>{tag.name} ({tag.item_count})</option>
-				{/each}
-			</select>
-			<Button type="submit" variant="outline" class="h-11 sm:h-10">{m.media_apply()}</Button>
+				<SlidersHorizontalIcon />
+				<span class="hidden sm:inline">{m.media_filters()}</span>
+				{#if activeFilterCount > 0}
+					<span
+						class="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+					>
+						{activeFilterCount}
+					</span>
+				{/if}
+			</Button>
 		</form>
-		<details class="rounded-xl border bg-card">
-			<summary class="min-h-11 cursor-pointer px-3 py-3 text-sm font-medium">
-				{m.media_dimensions_date()}
-			</summary>
-			<div class="grid gap-3 border-t p-3 sm:grid-cols-2 lg:grid-cols-4">
-				<label class="grid gap-1 text-xs font-medium">
-					<span>{m.media_aspect_ratio()}</span>
-					<select
-						class="h-11 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-						bind:value={aspect}
-					>
-						<option value="all">{m.media_any_aspect()}</option>
-						<option value="square">{m.media_square()}</option>
-						<option value="portrait">{m.media_portrait()}</option>
-						<option value="landscape">{m.media_landscape()}</option>
-					</select>
-				</label>
-				<div class="grid grid-cols-2 gap-2">
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_min_width()}</span>
-						<input
-							class="h-11 min-w-0 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-							type="number"
-							min="0"
-							bind:value={minWidth}
-						/>
-					</label>
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_min_height()}</span>
-						<input
-							class="h-11 min-w-0 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-							type="number"
-							min="0"
-							bind:value={minHeight}
-						/>
-					</label>
-				</div>
-				<div class="grid grid-cols-2 gap-2">
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_max_width()}</span>
-						<input
-							class="h-11 min-w-0 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-							type="number"
-							min="0"
-							bind:value={maxWidth}
-						/>
-					</label>
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_max_height()}</span>
-						<input
-							class="h-11 min-w-0 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-							type="number"
-							min="0"
-							bind:value={maxHeight}
-						/>
-					</label>
-				</div>
-				<div class="grid grid-cols-2 gap-2">
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_from()}</span>
-						<input
-							class="h-11 min-w-0 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-							type="date"
-							bind:value={dateFrom}
-						/>
-					</label>
-					<label class="grid gap-1 text-xs font-medium">
-						<span>{m.media_to()}</span>
-						<input
-							class="h-11 min-w-0 rounded-md border border-input bg-background px-2 text-sm sm:h-10"
-							type="date"
-							bind:value={dateTo}
-						/>
-					</label>
-				</div>
-				<div class="flex items-end gap-2 lg:col-span-4 lg:justify-end">
+
+		<div class="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-center">
+			<div class="flex min-w-0 gap-1 overflow-x-auto">
+				{#each quickFilters as quickFilter (quickFilter.value)}
 					<Button
-						variant="ghost"
-						onclick={() => {
-							aspect = 'all';
-							minWidth = 0;
-							minHeight = 0;
-							maxWidth = 0;
-							maxHeight = 0;
-							dateFrom = '';
-							dateTo = '';
-							applyAssetFilters();
-						}}
-						class="h-11 sm:h-9">{m.media_clear()}</Button
+						variant={filter === quickFilter.value ? 'secondary' : 'ghost'}
+						size="sm"
+						class="shrink-0"
+						onclick={() => changeFilter(quickFilter.value)}
 					>
-					<Button onclick={applyAssetFilters} class="h-11 sm:h-9">{m.media_apply_filters()}</Button>
-				</div>
+						{quickFilter.label}
+					</Button>
+				{/each}
 			</div>
-		</details>
-		{#if mediaCanEdit}
-			<div class="flex justify-end">
-				<Button variant="ghost" size="sm" onclick={() => (organizationDialogOpen = true)}>
-					<TagIcon />
-					{m.media_manage_organization()}
-				</Button>
-			</div>
-		{/if}
-
-		<!-- Filter Tabs + Sort -->
-		<div class="flex flex-wrap items-center gap-3">
-			<Tabs value={filter} onValueChange={changeFilter} class="max-w-full min-w-0">
-				<TabsList class="max-w-full justify-start overflow-x-auto">
-					{#each filterTabs as tab (tab.value)}
-						<TabsTrigger value={tab.value} class="px-3">{tab.label}</TabsTrigger>
-					{/each}
-				</TabsList>
-			</Tabs>
-
-			<div class="ml-auto flex items-center gap-2">
+			<div class="flex shrink-0 items-center justify-between gap-1.5 sm:ml-auto sm:justify-start">
 				<Select.Root type="single" value={sort} onValueChange={changeSort}>
-					<Select.Trigger class="h-9 w-[148px] text-sm">
+					<Select.Trigger class="h-10 w-[7.75rem] text-sm">
 						{sort === 'newest'
 							? m.media_sort_newest()
 							: sort === 'oldest'
@@ -1188,112 +1146,87 @@
 						<Select.Item value="recently_used">{m.media_recently_used()}</Select.Item>
 					</Select.Content>
 				</Select.Root>
-				<div class="flex rounded-md border p-0.5">
+				<div class="hidden rounded-lg border p-0.5 sm:flex">
 					<Button
 						variant={layoutMode === 'grid' ? 'secondary' : 'ghost'}
-						size="icon-xs"
+						size="icon-sm"
 						onclick={() => (layoutMode = 'grid')}
 						aria-label={m.media_grid_view()}><Grid2X2Icon /></Button
 					>
 					<Button
 						variant={layoutMode === 'list' ? 'secondary' : 'ghost'}
-						size="icon-xs"
+						size="icon-sm"
 						onclick={() => (layoutMode = 'list')}
 						aria-label={m.media_compact_view()}><ListIcon /></Button
 					>
 				</div>
+				{#if mediaCanEdit && mediaItems.length > 0 && !isSelectionMode}
+					<Button variant="outline" size="sm" class="h-11" onclick={() => (isSelectionMode = true)}>
+						{m.media_select()}
+					</Button>
+				{/if}
 			</div>
 		</div>
 
-		<!-- Selection Toolbar -->
 		{#if isSelectionMode}
 			<div
-				class="flex flex-col gap-3 rounded-lg border bg-muted/50 p-3 sm:flex-row sm:items-center"
+				class="fixed right-3 bottom-[calc(5.75rem+env(safe-area-inset-bottom))] left-3 z-40 rounded-2xl bg-popover p-2 text-popover-foreground shadow-lg ring-1 ring-border md:sticky md:right-auto md:bottom-4 md:left-auto"
+				role="toolbar"
+				aria-label={m.media_selection_actions()}
 			>
-				<div class="flex flex-wrap items-center gap-2">
-					<span class="text-sm font-medium">
+				<div class="flex items-center gap-1">
+					<span class="min-w-0 flex-1 truncate px-2 text-sm font-semibold">
 						{selectedCountLabel(selectedMediaIds.size)}
 					</span>
-					{#if mediaItems.length > 0}
-						<Button variant="outline" size="sm" onclick={selectAll}>
-							{allMediaSelected ? m.media_deselect_all() : m.media_select_all()}
-						</Button>
-					{/if}
+					<Button variant="ghost" size="sm" onclick={selectAll}>
+						{allMediaSelected ? m.media_deselect_all() : m.media_select_all()}
+					</Button>
+					<Button
+						variant="ghost"
+						size="icon-sm"
+						onclick={cancelSelection}
+						aria-label={m.common_cancel()}
+					>
+						<XIcon />
+					</Button>
 				</div>
-				<div class="flex flex-wrap items-center gap-2 sm:ml-auto sm:justify-end">
-					<div class="flex items-center gap-1">
-						<select
-							class="h-9 max-w-40 rounded-md border border-input bg-background px-2 text-sm"
-							bind:value={batchCollectionID}
-							aria-label={m.media_collection()}
-						>
-							<option value="">{m.media_collection()}…</option>
-							{#each collections as collection (collection.id)}
-								<option value={collection.id}>{collection.name}</option>
-							{/each}
-						</select>
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={!batchCollectionID || organizationSaving}
-							onclick={() => assignSelectedOrganization('collection')}
-						>
-							{m.media_add()}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							disabled={!batchCollectionID || organizationSaving}
-							onclick={() => assignSelectedOrganization('collection', 'remove')}
-						>
-							{m.media_remove()}
-						</Button>
-					</div>
-					<div class="flex items-center gap-1">
-						<select
-							class="h-9 max-w-36 rounded-md border border-input bg-background px-2 text-sm"
-							bind:value={batchTagID}
-							aria-label={m.media_tag()}
-						>
-							<option value="">{m.media_tag()}…</option>
-							{#each tags as tag (tag.id)}
-								<option value={tag.id}>{tag.name}</option>
-							{/each}
-						</select>
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={!batchTagID || organizationSaving}
-							onclick={() => assignSelectedOrganization('tag')}
-						>
-							{m.media_add()}
-						</Button>
-						<Button
-							variant="ghost"
-							size="sm"
-							disabled={!batchTagID || organizationSaving}
-							onclick={() => assignSelectedOrganization('tag', 'remove')}
-						>
-							{m.media_remove()}
-						</Button>
-					</div>
-					<Button variant="outline" size="sm" onclick={toggleFavoriteBatch}>
-						<HeartIcon class="mr-1 size-4" />
-						{m.media_toggle_favorite()}
+				<div class="flex gap-1 overflow-x-auto">
+					<Button
+						variant="ghost"
+						size="sm"
+						class="shrink-0"
+						disabled={selectedMediaIds.size === 0}
+						onclick={() => (selectionOrganizationDialogOpen = true)}
+					>
+						<FolderPlusIcon />
+						{m.media_organize()}
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="shrink-0"
+						disabled={selectedMediaIds.size === 0}
+						onclick={toggleFavoriteBatch}
+					>
+						<HeartIcon />
+						{m.media_favorite()}
 					</Button>
 					{#if selectedDeletableIds.length > 0}
-						<Button variant="destructive" size="sm" onclick={requestDeleteSelectedBatch}>
-							<TrashIcon class="mr-1 size-4" />
-							{m.media_delete_selected()}
+						<Button
+							variant="ghost"
+							size="sm"
+							class="shrink-0 text-destructive hover:text-destructive"
+							onclick={requestDeleteSelectedBatch}
+						>
+							<TrashIcon />
+							{m.common_delete()}
 						</Button>
 					{/if}
-					<Button variant="ghost" size="sm" onclick={cancelSelection}>{m.common_cancel()}</Button>
 				</div>
 			</div>
 		{/if}
 
-		<!-- Media Grid -->
-		{#if mediaLoading}
+		{#if mediaLoading && mediaItems.length === 0}
 			<PageLoading layout="gallery" label={m.common_loading()} items={10} />
 		{:else if error && mediaItems.length === 0}
 			<InlineNotice tone="error" message={error} class="my-2">
@@ -1304,13 +1237,13 @@
 				{/snippet}
 			</InlineNotice>
 		{:else if mediaItems.length === 0}
-			{#if filter !== 'all'}
+			{#if activeFilterCount > 0 || search.trim()}
 				<EmptyState
 					icon={ImageIcon}
 					title={m.media_empty_title()}
 					description={m.media_empty_filtered_body()}
 					actionLabel={m.media_show_all()}
-					onAction={() => changeFilter('all')}
+					onAction={showAllAssets}
 					variant="dashed"
 					size="lg"
 				/>
@@ -1328,12 +1261,12 @@
 		{:else}
 			<div
 				class={layoutMode === 'grid'
-					? 'grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+					? 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
 					: 'grid grid-cols-1 gap-2'}
 			>
 				{#each mediaItems as media (media.id)}
 					<div
-						class="group relative overflow-hidden rounded-lg border bg-card transition-all hover:shadow-sm {layoutMode ===
+						class="group relative overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/20 {layoutMode ===
 						'list'
 							? 'grid grid-cols-[6rem_minmax(0,1fr)]'
 							: ''} {selectedMediaIds.has(media.id) ? 'ring-2 ring-primary' : ''}"
@@ -1363,7 +1296,7 @@
 									src={getAuthenticatedMediaURL(media.thumbnail_url || media.url)}
 									alt={media.alt_text || media.original_filename || m.media_library_title()}
 									loading="lazy"
-									class="size-full object-cover transition-transform group-hover:scale-105"
+									class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
 								/>
 							{:else}
 								<div class="flex size-full items-center justify-center">
@@ -1371,95 +1304,99 @@
 								</div>
 							{/if}
 
-							<!-- Selection checkbox -->
-							{#if mediaCanEdit}
-								<button
-									type="button"
-									class="media-card-control absolute top-2 left-2 z-10 flex items-center justify-center rounded-md border bg-background/90 shadow-sm backdrop-blur-sm transition-colors hover:bg-background"
-									onclick={(e) => {
-										e.stopPropagation();
-										toggleSelection(media.id);
-									}}
-									aria-label={selectedMediaIds.has(media.id)
+							<button
+								type="button"
+								class="absolute inset-0 z-[1]"
+								onclick={() => (isSelectionMode ? toggleSelection(media.id) : showUsage(media))}
+								aria-label={isSelectionMode
+									? selectedMediaIds.has(media.id)
 										? m.media_deselect_item({ name: media.original_filename || media.id })
-										: m.media_select_item({ name: media.original_filename || media.id })}
-									aria-pressed={selectedMediaIds.has(media.id)}
+										: m.media_select_item({ name: media.original_filename || media.id })
+									: m.media_open_details({ name: media.original_filename || media.id })}
+								aria-pressed={isSelectionMode ? selectedMediaIds.has(media.id) : undefined}
+							></button>
+
+							{#if isSelectionMode}
+								<span
+									class="media-card-control absolute top-2 left-2 z-10 flex items-center justify-center rounded-lg bg-background/95 shadow-sm"
 								>
 									{#if selectedMediaIds.has(media.id)}
 										<CheckIcon class="size-4 text-primary" />
 									{:else}
 										<div class="size-4 rounded-sm border-2 border-muted-foreground"></div>
 									{/if}
-								</button>
+								</span>
 							{/if}
 
-							<div class="absolute top-2 right-2 z-10">
-								<DropdownMenu.Root>
-									<DropdownMenu.Trigger>
-										{#snippet child({ props })}
-											<Button
-												{...props}
-												variant="outline"
-												size="icon-sm"
-												class="media-card-control bg-background/90 shadow-sm backdrop-blur-sm"
-												aria-label={m.media_actions_for({
-													name: media.original_filename || media.id
-												})}
-											>
-												<MoreHorizontalIcon class="size-4" />
-											</Button>
-										{/snippet}
-									</DropdownMenu.Trigger>
-									<DropdownMenu.Content align="end" class="w-48">
-										<DropdownMenu.Item onclick={() => showUsage(media)} class="gap-2">
-											<ExternalLinkIcon class="size-4" />
-											{m.media_details()}
-										</DropdownMenu.Item>
-										{#if isImage(media.mime_type) && mediaCanEdit && studioEnabled}
-											<DropdownMenu.Item onclick={() => openMediaInStudio(media)} class="gap-2">
-												<PaletteIcon class="size-4" />
-												{m.media_edit_studio()}
+							{#if !isSelectionMode}
+								<div class="absolute top-2 right-2 z-10">
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button
+													{...props}
+													variant="outline"
+													size="icon-sm"
+													class="media-card-control bg-background/90 shadow-sm backdrop-blur-sm"
+													aria-label={m.media_actions_for({
+														name: media.original_filename || media.id
+													})}
+												>
+													<MoreHorizontalIcon class="size-4" />
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content align="end" class="w-48">
+											<DropdownMenu.Item onclick={() => showUsage(media)} class="gap-2">
+												<ExternalLinkIcon class="size-4" />
+												{m.media_details()}
 											</DropdownMenu.Item>
-											<DropdownMenu.Item
-												onclick={() => openMediaInStudio(media, 'remove-background')}
-												class="gap-2"
-											>
-												<ImageIcon class="size-4" />
-												{m.studio_remove_background()}
+											{#if isImage(media.mime_type) && mediaCanEdit && studioEnabled}
+												<DropdownMenu.Item onclick={() => openMediaInStudio(media)} class="gap-2">
+													<PaletteIcon class="size-4" />
+													{m.media_edit_studio()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													onclick={() => openMediaInStudio(media, 'remove-background')}
+													class="gap-2"
+												>
+													<ImageIcon class="size-4" />
+													{m.studio_remove_background()}
+												</DropdownMenu.Item>
+											{/if}
+											{#if mediaCanEdit}
+												<DropdownMenu.Item onclick={() => duplicateMedia(media)} class="gap-2">
+													<Grid2X2Icon class="size-4" />
+													{m.studio_duplicate()}
+												</DropdownMenu.Item>
+											{/if}
+											<DropdownMenu.Item onclick={() => downloadMedia(media)} class="gap-2">
+												<DownloadIcon class="size-4" />
+												{m.media_download()}
 											</DropdownMenu.Item>
-										{/if}
-										{#if mediaCanEdit}
-											<DropdownMenu.Item onclick={() => duplicateMedia(media)} class="gap-2">
-												<Grid2X2Icon class="size-4" />
-												{m.studio_duplicate()}
-											</DropdownMenu.Item>
-										{/if}
-										<DropdownMenu.Item onclick={() => downloadMedia(media)} class="gap-2">
-											<DownloadIcon class="size-4" />
-											{m.media_download()}
-										</DropdownMenu.Item>
-										{#if mediaCanEdit}
-											<DropdownMenu.Item onclick={() => toggleFavorite(media.id)} class="gap-2">
-												<HeartIcon
-													class="size-4"
-													fill={media.is_favorite ? 'currentColor' : 'none'}
-												/>
-												{media.is_favorite ? m.media_unfavorite() : m.media_favorite()}
-											</DropdownMenu.Item>
-										{/if}
-										{#if mediaCanEdit && canDeleteMedia(media)}
-											<DropdownMenu.Separator />
-											<DropdownMenu.Item
-												class="gap-2 text-destructive"
-												onclick={() => requestDeleteMedia(media)}
-											>
-												<TrashIcon class="size-4" />
-												{m.common_delete()}
-											</DropdownMenu.Item>
-										{/if}
-									</DropdownMenu.Content>
-								</DropdownMenu.Root>
-							</div>
+											{#if mediaCanEdit}
+												<DropdownMenu.Item onclick={() => toggleFavorite(media.id)} class="gap-2">
+													<HeartIcon
+														class="size-4"
+														fill={media.is_favorite ? 'currentColor' : 'none'}
+													/>
+													{media.is_favorite ? m.media_unfavorite() : m.media_favorite()}
+												</DropdownMenu.Item>
+											{/if}
+											{#if mediaCanEdit && canDeleteMedia(media)}
+												<DropdownMenu.Separator />
+												<DropdownMenu.Item
+													class="gap-2 text-destructive"
+													onclick={() => requestDeleteMedia(media)}
+												>
+													<TrashIcon class="size-4" />
+													{m.common_delete()}
+												</DropdownMenu.Item>
+											{/if}
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+								</div>
+							{/if}
 
 							{#if media.is_favorite}
 								<div class="absolute bottom-2 left-2 rounded-full bg-background/90 p-1.5 shadow-sm">
@@ -1474,49 +1411,9 @@
 									{media.original_filename}
 								</p>
 							{/if}
-							<p class="truncate text-sm text-muted-foreground">
+							<p class="mt-0.5 truncate text-xs text-muted-foreground">
 								{formatSize(media.size)} · {formatDate(media.created_at)}
-								{#if media.width && media.height}
-									· {media.width}×{media.height}
-								{/if}
 							</p>
-							<div class="mt-1.5">
-								{#if videoProviderSupportLabel(media.mime_type)}
-									<span
-										class="mr-1 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
-										title={videoProviderSupportDetail(media.mime_type) ?? ''}
-									>
-										{videoProviderSupportLabel(media.mime_type)}
-									</span>
-								{/if}
-								{#if media.usage_count > 0}
-									<span
-										class="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary"
-									>
-										{usedInCountLabel(media.usage_count)}
-									</span>
-								{:else}
-									<span
-										class="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground"
-									>
-										{m.media_unused_label()}
-									</span>
-								{/if}
-								{#if canDeleteMedia(media) && media.usage_count > 0}
-									<span
-										class="ml-1 inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-300"
-									>
-										{m.media_deletable_label()}
-									</span>
-								{/if}
-								{#if media.source && media.source !== 'upload'}
-									<span
-										class="ml-1 inline-flex items-center rounded-full bg-orange-500/10 px-2 py-0.5 text-xs font-medium text-orange-700 dark:text-orange-300"
-									>
-										{mediaSourceLabel(media.source)}
-									</span>
-								{/if}
-							</div>
 						</div>
 					</div>
 				{/each}
@@ -1545,98 +1442,119 @@
 					</Button>
 				</div>
 			{/if}
+			{#if isSelectionMode}<div class="h-24 md:hidden"></div>{/if}
 		{/if}
 	{:else if hubView === 'designs'}
-		{#if hubLoading}
+		{#if hubLoading && designs.length === 0 && templates.length === 0}
 			<PageLoading layout="gallery" label={m.media_loading_designs()} items={8} />
-		{:else if designs.length === 0}
-			<EmptyState
-				icon={PaletteIcon}
-				title={m.media_no_designs()}
-				description={m.media_design_empty_body()}
-				actionLabel={mediaCanEdit ? m.media_create_design() : undefined}
-				onAction={() =>
-					goto(resolve(`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}` as '/'))}
-				variant="dashed"
-				size="lg"
-			/>
 		{:else}
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-				{#each designs as design (design.id)}
-					<a
-						href={resolve(`/studio/${design.id}` as '/')}
-						class="group overflow-hidden rounded-xl border bg-card transition hover:-translate-y-0.5 hover:shadow-sm"
-					>
-						<div class="flex aspect-[4/3] items-center justify-center bg-neutral-800 p-5">
-							{#if design.cover_preview_media_id}
-								<img
-									src={getAuthenticatedMediaURL(`/media/${design.cover_preview_media_id}`)}
-									alt=""
-									class="max-h-full max-w-full shadow"
-								/>
-							{:else}
-								<div
-									class="max-h-full max-w-full bg-orange-50 shadow"
-									style:aspect-ratio={`${design.width_px}/${design.height_px}`}
-									style:height={design.height_px > design.width_px ? '100%' : 'auto'}
-									style:width={design.width_px >= design.height_px ? '100%' : 'auto'}
-								></div>
-							{/if}
-						</div>
-						<div class="p-3">
-							<p class="truncate text-sm font-medium">{design.title}</p>
-							<p class="mt-1 text-xs text-muted-foreground">
-								{m.media_design_pages({
-									count: design.page_count,
-									suffix: design.page_count === 1 ? '' : 's'
-								})}
-								· {design.width_px}×{design.height_px}
+			<div class="space-y-9">
+				{#if templates.length > 0 && mediaCanEdit}
+					<section aria-labelledby="media-template-heading">
+						<div class="mb-3">
+							<h2 id="media-template-heading" class="text-base font-semibold">
+								{m.media_starting_points()}
+							</h2>
+							<p class="mt-1 text-sm text-muted-foreground">
+								{m.media_starting_points_body()}
 							</p>
-							<p class="mt-1 text-xs text-muted-foreground">{formatDate(design.updated_at)}</p>
 						</div>
-					</a>
-				{/each}
-			</div>
-		{/if}
-	{:else if hubView === 'templates'}
-		{#if hubLoading}
-			<PageLoading layout="gallery" label={m.media_loading_templates()} items={8} />
-		{:else}
-			<div class="mb-4">
-				<h2 class="text-base font-semibold">{m.media_templates_heading()}</h2>
-				<p class="text-sm text-muted-foreground">{m.media_templates_body()}</p>
-			</div>
-			<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-				{#each templates as template (template.id)}
-					<div class="relative rounded-xl border bg-card hover:border-primary/40 hover:shadow-sm">
-						<a
-							href={resolve(
-								`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&template=${encodeURIComponent(template.id)}` as '/'
-							)}
-							class="block p-3"
+						<div
+							class="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-1 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-5"
 						>
-							<div class="mb-3 aspect-[4/3] overflow-hidden rounded-lg border">
-								<TemplatePreview document={template.document} label={template.name} />
-							</div>
-							<p class="truncate pr-8 text-sm font-medium">{template.name}</p>
-							<p class="mt-1 truncate text-xs text-muted-foreground">
-								{template.built_in ? m.media_openpost_starter() : m.media_workspace_template()} ·
-								{template.category}
-							</p>
-						</a>
-						{#if !template.built_in && brandKit?.can_edit}
-							<Button
-								variant="ghost"
-								size="icon-sm"
-								class="absolute right-2 bottom-2"
-								onclick={() => requestTemplateDeletion(template)}
-								aria-label={m.media_delete_named({ name: template.name })}
-							>
-								<TrashIcon />
-							</Button>
-						{/if}
+							{#each templates as template (template.id)}
+								<div class="relative w-[10rem] shrink-0 snap-start sm:w-auto">
+									<a
+										href={resolve(
+											`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&template=${encodeURIComponent(template.id)}` as '/'
+										)}
+										class="group block"
+									>
+										<div
+											class="aspect-[4/3] overflow-hidden rounded-xl border bg-muted transition-colors group-hover:border-foreground/30"
+										>
+											<TemplatePreview document={template.document} label={template.name} />
+										</div>
+										<p class="mt-2 truncate text-sm font-medium">{template.name}</p>
+										<p class="truncate text-xs text-muted-foreground">{template.category}</p>
+									</a>
+									{#if !template.built_in && brandKit?.can_edit}
+										<Button
+											variant="outline"
+											size="icon-sm"
+											class="absolute top-2 right-2 bg-background/95"
+											onclick={() => requestTemplateDeletion(template)}
+											aria-label={m.media_delete_named({ name: template.name })}
+										>
+											<TrashIcon />
+										</Button>
+									{/if}
+								</div>
+							{/each}
+						</div>
+					</section>
+				{/if}
+
+				<section aria-labelledby="media-design-heading">
+					<div class="mb-3">
+						<div>
+							<h2 id="media-design-heading" class="text-base font-semibold">
+								{m.media_your_designs()}
+							</h2>
+							<p class="mt-1 text-sm text-muted-foreground">{m.media_designs_body()}</p>
+						</div>
 					</div>
-				{/each}
+					{#if designs.length === 0}
+						<EmptyState
+							icon={PaletteIcon}
+							title={m.media_no_designs()}
+							description={m.media_design_empty_body()}
+							actionLabel={mediaCanEdit ? m.media_create_design() : undefined}
+							onAction={() =>
+								goto(
+									resolve(`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}` as '/')
+								)}
+							variant="dashed"
+							size="lg"
+						/>
+					{:else}
+						<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+							{#each designs as design (design.id)}
+								<a
+									href={resolve(`/studio/${design.id}` as '/')}
+									class="group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/25"
+								>
+									<div class="flex aspect-[4/3] items-center justify-center bg-neutral-900 p-3">
+										{#if design.cover_preview_media_id}
+											<img
+												src={getAuthenticatedMediaURL(`/media/${design.cover_preview_media_id}`)}
+												alt=""
+												class="max-h-full max-w-full object-contain shadow-md"
+											/>
+										{:else}
+											<div class="flex flex-col items-center gap-2 text-center text-neutral-400">
+												<PaletteIcon class="size-6" />
+												<span class="line-clamp-2 text-xs">{m.media_preview_unavailable()}</span>
+											</div>
+										{/if}
+									</div>
+									<div class="p-2.5">
+										<p class="truncate text-sm font-medium">
+											{designDisplayTitle(design.title)}
+										</p>
+										<p class="mt-0.5 truncate text-xs text-muted-foreground">
+											{m.media_design_pages({
+												count: design.page_count,
+												suffix: design.page_count === 1 ? '' : 's'
+											})}
+											· {formatDate(design.updated_at)}
+										</p>
+									</div>
+								</a>
+							{/each}
+						</div>
+					{/if}
+				</section>
 			</div>
 		{/if}
 	{:else if hubView === 'brand'}
@@ -1722,6 +1640,241 @@
 	{/if}
 </PageContainer>
 
+<Dialog.Root bind:open={filterDialogOpen}>
+	<Dialog.Content class="max-h-[calc(100dvh-1rem)] overflow-y-auto sm:max-w-xl">
+		<Dialog.Header>
+			<Dialog.Title>{m.media_filters()}</Dialog.Title>
+			<Dialog.Description>{m.media_filters_body()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4 py-2 sm:grid-cols-2">
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_status()}</span>
+				<select
+					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+					bind:value={filter}
+				>
+					<option value="all">{m.media_filter_all()}</option>
+					<option value="used">{m.media_filter_used()}</option>
+					<option value="unused">{m.media_filter_unused()}</option>
+					<option value="favorites">{m.media_filter_favorites()}</option>
+				</select>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_type()}</span>
+				<select
+					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+					bind:value={mediaType}
+				>
+					<option value="all">{m.media_all_types()}</option>
+					<option value="image">{m.media_images()}</option>
+					<option value="video">{m.media_videos()}</option>
+				</select>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_source()}</span>
+				<select
+					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+					bind:value={source}
+				>
+					<option value="all">{m.media_all_sources()}</option>
+					<option value="upload">{m.media_uploads()}</option>
+					<option value="camera">{m.media_camera()}</option>
+					<option value="studio_export">{m.media_studio_exports()}</option>
+					<option value="studio_edit">{m.media_studio_edits()}</option>
+					<option value="background_removal">{m.media_background_removal()}</option>
+				</select>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_aspect_ratio()}</span>
+				<select
+					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+					bind:value={aspect}
+				>
+					<option value="all">{m.media_any_aspect()}</option>
+					<option value="square">{m.media_square()}</option>
+					<option value="portrait">{m.media_portrait()}</option>
+					<option value="landscape">{m.media_landscape()}</option>
+				</select>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_collection()}</span>
+				<select
+					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+					bind:value={collectionID}
+				>
+					<option value="">{m.media_all_collections()}</option>
+					{#each collections as collection (collection.id)}
+						<option value={collection.id}>{collection.name} ({collection.item_count})</option>
+					{/each}
+				</select>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_tag()}</span>
+				<select
+					class="h-11 rounded-lg border border-input bg-background px-3 text-sm"
+					bind:value={tagID}
+				>
+					<option value="">{m.media_all_tags()}</option>
+					{#each tags as tag (tag.id)}
+						<option value={tag.id}>{tag.name} ({tag.item_count})</option>
+					{/each}
+				</select>
+			</label>
+		</div>
+		<details class="border-y py-1">
+			<summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium">
+				{m.media_dimensions_date()}
+			</summary>
+			<div class="grid gap-3 pb-3 sm:grid-cols-2">
+				<div class="grid grid-cols-2 gap-2">
+					<label class="grid gap-1 text-xs font-medium">
+						<span>{m.media_min_width()}</span>
+						<input
+							class="h-11 min-w-0 rounded-lg border border-input bg-background px-2 text-sm"
+							type="number"
+							min="0"
+							bind:value={minWidth}
+						/>
+					</label>
+					<label class="grid gap-1 text-xs font-medium">
+						<span>{m.media_min_height()}</span>
+						<input
+							class="h-11 min-w-0 rounded-lg border border-input bg-background px-2 text-sm"
+							type="number"
+							min="0"
+							bind:value={minHeight}
+						/>
+					</label>
+				</div>
+				<div class="grid grid-cols-2 gap-2">
+					<label class="grid gap-1 text-xs font-medium">
+						<span>{m.media_max_width()}</span>
+						<input
+							class="h-11 min-w-0 rounded-lg border border-input bg-background px-2 text-sm"
+							type="number"
+							min="0"
+							bind:value={maxWidth}
+						/>
+					</label>
+					<label class="grid gap-1 text-xs font-medium">
+						<span>{m.media_max_height()}</span>
+						<input
+							class="h-11 min-w-0 rounded-lg border border-input bg-background px-2 text-sm"
+							type="number"
+							min="0"
+							bind:value={maxHeight}
+						/>
+					</label>
+				</div>
+				<div class="grid grid-cols-2 gap-2 sm:col-span-2">
+					<label class="grid gap-1 text-xs font-medium">
+						<span>{m.media_from()}</span>
+						<input
+							class="h-11 min-w-0 rounded-lg border border-input bg-background px-2 text-sm"
+							type="date"
+							bind:value={dateFrom}
+						/>
+					</label>
+					<label class="grid gap-1 text-xs font-medium">
+						<span>{m.media_to()}</span>
+						<input
+							class="h-11 min-w-0 rounded-lg border border-input bg-background px-2 text-sm"
+							type="date"
+							bind:value={dateTo}
+						/>
+					</label>
+				</div>
+			</div>
+		</details>
+		{#if mediaCanEdit}
+			<Button
+				variant="ghost"
+				class="justify-start"
+				onclick={() => {
+					filterDialogOpen = false;
+					organizationDialogOpen = true;
+				}}
+			>
+				<TagIcon />
+				{m.media_manage_organization()}
+			</Button>
+		{/if}
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={resetAssetFilters}>{m.media_clear()}</Button>
+			<Button onclick={applyAssetFilters}>{m.media_apply_filters()}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={selectionOrganizationDialogOpen}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>{m.media_organize_selected()}</Dialog.Title>
+			<Dialog.Description>{selectedCountLabel(selectedMediaIds.size)}</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-5 py-2">
+			<div class="space-y-2">
+				<label for="batch-collection" class="text-sm font-medium">{m.media_collection()}</label>
+				<div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+					<select
+						id="batch-collection"
+						class="h-11 min-w-0 rounded-lg border border-input bg-background px-3 text-sm"
+						bind:value={batchCollectionID}
+					>
+						<option value="">{m.media_choose_collection()}</option>
+						{#each collections as collection (collection.id)}
+							<option value={collection.id}>{collection.name}</option>
+						{/each}
+					</select>
+					<Button
+						variant="outline"
+						disabled={!batchCollectionID || organizationSaving}
+						onclick={() => assignSelectedOrganization('collection')}
+					>
+						{m.media_add()}
+					</Button>
+					<Button
+						variant="ghost"
+						disabled={!batchCollectionID || organizationSaving}
+						onclick={() => assignSelectedOrganization('collection', 'remove')}
+					>
+						{m.media_remove()}
+					</Button>
+				</div>
+			</div>
+			<div class="space-y-2">
+				<label for="batch-tag" class="text-sm font-medium">{m.media_tag()}</label>
+				<div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+					<select
+						id="batch-tag"
+						class="h-11 min-w-0 rounded-lg border border-input bg-background px-3 text-sm"
+						bind:value={batchTagID}
+					>
+						<option value="">{m.media_choose_tag()}</option>
+						{#each tags as tag (tag.id)}
+							<option value={tag.id}>{tag.name}</option>
+						{/each}
+					</select>
+					<Button
+						variant="outline"
+						disabled={!batchTagID || organizationSaving}
+						onclick={() => assignSelectedOrganization('tag')}
+					>
+						{m.media_add()}
+					</Button>
+					<Button
+						variant="ghost"
+						disabled={!batchTagID || organizationSaving}
+						onclick={() => assignSelectedOrganization('tag', 'remove')}
+					>
+						{m.media_remove()}
+					</Button>
+				</div>
+			</div>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>
+
 <DestructiveConfirmDialog
 	bind:open={deleteDialogOpen}
 	title={deletionRequest?.kind === 'batch' ? m.media_delete_batch_title() : m.media_delete_title()}
@@ -1760,46 +1913,15 @@
 		</Dialog.Header>
 
 		<div class="space-y-4 py-4">
-			<div class="space-y-2">
-				<span class="text-sm font-medium">{m.media_single_upload()}</span>
-				<input id="file-upload" type="file" accept="image/*,video/*" class="peer sr-only" />
-				<label
-					class="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:border-primary/50"
-					for="file-upload"
-				>
-					<UploadIcon class="mb-2 h-8 w-8 text-muted-foreground/40" />
-					<p class="text-sm font-medium">{m.media_select_file()}</p>
-					<p class="text-sm text-muted-foreground">{m.media_file_limits()}</p>
-				</label>
-			</div>
-
-			<div class="relative">
-				<div class="absolute inset-0 flex items-center">
-					<div class="w-full border-t"></div>
-				</div>
-				<div class="relative flex justify-center text-xs uppercase">
-					<span class="bg-background px-2 text-muted-foreground">{m.media_or()}</span>
-				</div>
-			</div>
-
-			<div class="space-y-2">
-				<span class="text-sm font-medium">{m.media_batch_upload()}</span>
-				<input
-					id="batch-file-upload"
-					type="file"
-					accept="image/*,video/*"
-					multiple
-					class="peer sr-only"
-				/>
-				<label
-					class="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-muted-foreground/25 p-6 transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:border-primary/50"
-					for="batch-file-upload"
-				>
-					<Grid2X2Icon class="mb-2 h-8 w-8 text-muted-foreground/40" />
-					<p class="text-sm font-medium">{m.media_select_files()}</p>
-					<p class="text-sm text-muted-foreground">{m.media_images_or_videos()}</p>
-				</label>
-			</div>
+			<input id="file-upload" type="file" accept="image/*,video/*" multiple class="peer sr-only" />
+			<label
+				class="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:bg-muted/40"
+				for="file-upload"
+			>
+				<UploadIcon class="mb-3 size-8 text-muted-foreground" />
+				<p class="text-sm font-medium">{m.media_select_files()}</p>
+				<p class="mt-1 text-sm text-muted-foreground">{m.media_upload_batch_hint()}</p>
+			</label>
 
 			{#if uploadError}
 				<InlineNotice
@@ -1809,12 +1931,6 @@
 					onDismiss={() => (uploadError = '')}
 				/>
 			{/if}
-
-			<div
-				class="rounded-md border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-700 dark:text-amber-300"
-			>
-				{m.media_video_limits()}
-			</div>
 
 			{#if uploadProgress}
 				<p class="text-sm text-muted-foreground">{uploadProgress}</p>

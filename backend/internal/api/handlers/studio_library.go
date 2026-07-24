@@ -1415,18 +1415,11 @@ func builtinStudioTemplates() []StudioTemplateResponse {
 		id, name, category, preset, headline, subline, background, accent string
 		pageCount                                                         int
 	}{
-		{"builtin-bold-announcement", "Bold announcement", "Announcements", "instagram-square", "A clear update", "Give the news room to land.", "#161616", "#f97316", 1},
-		{"builtin-photo-caption", "Photo caption", "Photo-led", "instagram-portrait", "A moment worth sharing", "Add a concise caption.", "#f5f3ef", "#2c2a27", 1},
-		{"builtin-quiet-quote", "Quiet quote", "Quotes", "instagram-square", "Put the useful line first.", "Name or source", "#ece7df", "#c45120", 1},
-		{"builtin-carousel-opener", "Carousel opener", "Education", "instagram-portrait", "Five things to know", "Swipe through the details.", "#fff8f1", "#ea580c", 5},
-		{"builtin-carousel-step", "Numbered steps", "Education", "instagram-portrait", "Start with the first action", "Keep every slide focused.", "#1f1d1a", "#fb923c", 4},
-		{"builtin-story-prompt", "Story prompt", "Stories", "story-reel-slide", "What are you working on?", "Share one useful detail.", "#171717", "#f97316", 1},
-		{"builtin-story-photo", "Story photo", "Stories", "story-reel-slide", "Today", "Add a photo behind this frame.", "#292524", "#fdba74", 1},
-		{"builtin-linkedin-insight", "LinkedIn insight", "Professional", "linkedin-square", "One practical insight", "Explain it in one short paragraph.", "#f6f5f2", "#c2410c", 1},
-		{"builtin-linkedin-launch", "LinkedIn launch", "Announcements", "linkedin-landscape", "Now available", "State what changed and who it helps.", "#1c1917", "#fb923c", 1},
-		{"builtin-x-update", "X visual update", "Announcements", "x-landscape", "A short visual update", "Keep it readable in the feed.", "#fafaf9", "#ea580c", 1},
-		{"builtin-youtube-focus", "YouTube focus", "Thumbnails", "youtube-thumbnail", "THE MAIN IDEA", "Use one strong subject.", "#18181b", "#f97316", 1},
-		{"builtin-youtube-list", "YouTube list", "Thumbnails", "youtube-thumbnail", "7 USEFUL MOVES", "Large type, clear promise.", "#fff7ed", "#c2410c", 1},
+		{"builtin-quick-announcement", "Quick announcement", "Announcement", "instagram-square", "A clear update", "Say what changed and why it matters.", "#161616", "#f97316", 1},
+		{"builtin-quote-card", "Quote card", "Quote", "instagram-square", "Put the useful line first.", "Name or source", "#ece7df", "#c45120", 1},
+		{"builtin-how-to-carousel", "How-to carousel", "Carousel", "instagram-portrait", "How to get it done", "A focused five-page walkthrough.", "#fff8f1", "#ea580c", 5},
+		{"builtin-linkedin-insight", "LinkedIn insight", "Professional", "linkedin-square", "One practical insight", "Explain the idea in one short paragraph.", "#f6f5f2", "#c2410c", 1},
+		{"builtin-youtube-focus", "YouTube headline", "Thumbnail", "youtube-thumbnail", "THE MAIN IDEA", "Use one strong subject and a short promise.", "#18181b", "#f97316", 1},
 	}
 	result := make([]StudioTemplateResponse, 0, len(specs))
 	for _, spec := range specs {
@@ -1437,8 +1430,15 @@ func builtinStudioTemplates() []StudioTemplateResponse {
 			headline := spec.headline
 			subline := spec.subline
 			if pageIndex > 0 {
-				headline = fmt.Sprintf("Point %d", pageIndex+1)
-				subline = "Replace this with one clear supporting idea."
+				carouselHeadlines := []string{"Why this matters", "Start here", "Do this next", "Keep this in mind"}
+				carouselSublines := []string{
+					"Give the context in one useful sentence.",
+					"Show the first concrete action.",
+					"Add the next action without repeating yourself.",
+					"End with the key takeaway or next step.",
+				}
+				headline = carouselHeadlines[pageIndex-1]
+				subline = carouselSublines[pageIndex-1]
 			}
 			pages = append(pages, StudioPagePayload{
 				ID:              uuid.NewSHA1(uuid.NameSpaceURL, []byte(pageSeed)).String(),

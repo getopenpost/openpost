@@ -46,11 +46,17 @@ test("media library uploads and lists a local media file", async ({
   ).toBeVisible();
   await expect(page.getByText("launch-card.png")).toBeVisible();
   await expect(
-    page.locator("span").filter({ hasText: /^Unused$/ }),
-  ).toBeVisible();
-  await expect(
     page.getByTestId("page-header").getByText("1 file", { exact: true }),
   ).toBeVisible();
+  await expect(page.getByText("Studio edits")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Select" }).click();
+  await page
+    .getByRole("button", { name: "Select launch-card.png" })
+    .click();
+  await expect(
+    page.getByRole("toolbar", { name: "Selected media actions" }),
+  ).toContainText("1 selected");
 
   const media = await request.get(
     `/api/v1/media?workspace_id=${workspaceBody.id}`,

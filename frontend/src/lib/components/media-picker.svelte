@@ -2,7 +2,6 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import * as Dialog from '$lib/components/ui/dialog';
-	import * as Tabs from '$lib/components/ui/tabs';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import CameraCapture from './camera-capture.svelte';
@@ -17,6 +16,7 @@
 	import PaletteIcon from 'lucide-svelte/icons/palette';
 	import CheckIcon from 'lucide-svelte/icons/check';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
+	import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
 	import { m } from '$lib/paraglide/messages';
 
 	let {
@@ -45,7 +45,7 @@
 		onCreate?: () => void | Promise<void>;
 	} = $props();
 
-	let tab = $state('library');
+	let mode = $state<'library' | 'camera'>('library');
 	let media = $state<StudioMediaItem[]>([]);
 	let selectedIDs = $state.raw<string[]>([]);
 	let search = $state('');
@@ -64,6 +64,8 @@
 
 	function initializePicker() {
 		selectedIDs = [...currentSelection];
+		mode = 'library';
+		error = '';
 		if (loadedForWorkspace !== workspaceId) void loadMedia();
 	}
 
@@ -137,7 +139,7 @@
 				selectedIDs = [...selectedIDs, uploaded.id];
 			}
 			await loadMedia();
-			tab = 'library';
+			mode = 'library';
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.media_picker_upload_failed();
 		} finally {
@@ -153,7 +155,7 @@
 			const uploaded = await uploadMediaFile({ workspaceId, file, source: 'camera' });
 			selectedIDs = multiple ? [...selectedIDs, uploaded.id].slice(0, maxSelection) : [uploaded.id];
 			await loadMedia();
-			tab = 'library';
+			mode = 'library';
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.media_picker_photo_failed();
 		} finally {
@@ -185,24 +187,64 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="flex h-[min(760px,calc(100dvh-2rem))] max-w-5xl flex-col gap-0 p-0">
+	<Dialog.Content
+		class="top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-5xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+	>
 		<div class="contents" {@attach initializePicker}></div>
 		<Dialog.Header class="border-b px-4 py-3 pr-14">
 			<Dialog.Title>{title}</Dialog.Title>
-			<Dialog.Description>{m.media_picker_description()}</Dialog.Description>
+			<Dialog.Description>
+				{m.media_picker_selected_count({
+					selected: selectedIDs.length,
+					maximum: maxSelection
+				})}
+			</Dialog.Description>
 		</Dialog.Header>
 
-		<Tabs.Root bind:value={tab} class="min-h-0 flex-1 gap-0">
-			<Tabs.List class={`mx-4 mt-3 grid ${showCreate ? 'grid-cols-4' : 'grid-cols-3'}`}>
-				<Tabs.Trigger value="library"><ImageIcon /> {m.media_picker_library()}</Tabs.Trigger>
-				<Tabs.Trigger value="upload"><UploadIcon /> {m.media_picker_upload()}</Tabs.Trigger>
-				<Tabs.Trigger value="camera"><CameraIcon /> {m.studio_camera()}</Tabs.Trigger>
-				{#if showCreate}<Tabs.Trigger value="create"
-						><PaletteIcon /> {m.media_picker_create()}</Tabs.Trigger
-					>{/if}
-			</Tabs.List>
+		{#if mode === 'library'}
+			<div class="grid grid-cols-3 gap-2 border-b px-4 py-3">
+				<label
+					class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium hover:bg-muted"
+				>
+					{#if actionLoading}<LoaderIcon class="size-4 animate-spin" />{:else}<UploadIcon
+							class="size-4"
+						/>{/if}
+					{m.media_picker_upload()}
+					<input
+						{@attach attachUploadInput}
+						type="file"
+						{multiple}
+						accept={accept.join(',')}
+						class="sr-only"
+						disabled={actionLoading}
+						onchange={(event) => uploadFiles(event.currentTarget.files)}
+					/>
+				</label>
+				<Button
+					variant="outline"
+					class="min-h-11"
+					disabled={actionLoading}
+					onclick={() => (mode = 'camera')}
+				>
+					<CameraIcon />
+					{m.studio_camera()}
+				</Button>
+				{#if showCreate}
+					<Button
+						variant="outline"
+						class="min-h-11"
+						disabled={actionLoading}
+						onclick={createDesign}
+					>
+						<PaletteIcon />
+						{m.media_picker_create()}
+					</Button>
+				{:else}
+					<div></div>
+				{/if}
+			</div>
 
-			<Tabs.Content value="library" class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+			<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
 				<form
 					class="mb-3 flex gap-2"
 					onsubmit={(event) => {
@@ -216,9 +258,16 @@
 						/>
 						<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
 					</div>
-					<Button variant="outline" type="submit">{m.media_picker_search_action()}</Button>
+					<Button
+						variant="outline"
+						type="submit"
+						size="icon"
+						aria-label={m.media_picker_search_action()}
+					>
+						{#if loading}<LoaderIcon class="animate-spin" />{:else}<SearchIcon />{/if}
+					</Button>
 				</form>
-				{#if loading}
+				{#if loading && media.length === 0}
 					<div class="flex min-h-48 items-center justify-center text-muted-foreground">
 						<LoaderIcon class="mr-2 size-5 animate-spin" />
 						{m.media_picker_loading()}
@@ -232,7 +281,7 @@
 						<p class="mt-1 text-sm text-muted-foreground">{m.media_picker_no_match_body()}</p>
 					</div>
 				{:else}
-					<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+					<div class="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
 						{#each media as item (item.id)}
 							<button
 								type="button"
@@ -267,45 +316,16 @@
 						{/each}
 					</div>
 				{/if}
-			</Tabs.Content>
-
-			<Tabs.Content value="upload" class="flex flex-1 items-center justify-center p-4">
-				<label
-					class="flex min-h-64 w-full cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed bg-muted/20 p-6 text-center hover:bg-muted/40"
-				>
-					<UploadIcon class="mb-3 size-9 text-muted-foreground" />
-					<span class="font-medium">{m.media_picker_choose_files()}</span>
-					<span class="mt-1 text-sm text-muted-foreground">{m.media_picker_provider_limits()}</span>
-					<input
-						{@attach attachUploadInput}
-						type="file"
-						{multiple}
-						accept={accept.join(',')}
-						class="sr-only"
-						onchange={(event) => uploadFiles(event.currentTarget.files)}
-					/>
-				</label>
-			</Tabs.Content>
-
-			<Tabs.Content value="camera" class="min-h-0 flex-1 overflow-y-auto p-4">
-				<CameraCapture onCapture={capturePhoto} />
-			</Tabs.Content>
-
-			{#if showCreate}
-				<Tabs.Content value="create" class="flex flex-1 items-center justify-center p-4">
-					<div class="max-w-md text-center">
-						<div
-							class="mx-auto mb-4 flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary"
-						>
-							<PaletteIcon class="size-7" />
-						</div>
-						<h3 class="text-lg font-semibold">{m.media_picker_create_title()}</h3>
-						<p class="mt-2 text-sm text-muted-foreground">{m.media_picker_create_body()}</p>
-						<Button class="mt-5" onclick={createDesign}>{m.media_picker_open_studio()}</Button>
-					</div>
-				</Tabs.Content>
-			{/if}
-		</Tabs.Root>
+			</div>
+		{:else}
+			<div class="min-h-0 flex-1 overflow-y-auto p-4">
+				<Button variant="ghost" class="mb-3" onclick={() => (mode = 'library')}>
+					<ArrowLeftIcon />
+					{m.media_picker_back_to_library()}
+				</Button>
+				<CameraCapture onCapture={capturePhoto} onCancel={() => (mode = 'library')} />
+			</div>
+		{/if}
 
 		{#if error}
 			<div
@@ -316,12 +336,6 @@
 			</div>
 		{/if}
 		<Dialog.Footer class="border-t px-4 py-3">
-			<div class="mr-auto self-center text-sm text-muted-foreground">
-				{m.media_picker_selected_count({
-					selected: selectedIDs.length,
-					maximum: maxSelection
-				})}
-			</div>
 			<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
 			<Button onclick={confirm} disabled={actionLoading || selectedIDs.length === 0}>
 				{#if actionLoading}<LoaderIcon class="animate-spin" />{/if}

@@ -22,7 +22,7 @@ test("Studio creates from an original template, adapts to mobile, and exports to
 
   await page
     .getByRole("region", { name: "Starter templates" })
-    .getByRole("button", { name: /Bold announcement/ })
+    .getByRole("button", { name: /Quick announcement/ })
     .click();
 
   await expect(page).toHaveURL(/\/studio\/[0-9a-f-]+$/);
@@ -86,5 +86,5 @@ test("Studio creates from an original template, adapts to mobile, and exports to
 
   await expect(page.getByText("1 exported page saved to Media.")).toBeVisible();
   await page.goto("/media");
-  await expect(page.getByText("bold-announcement-page-01.png")).toBeVisible();
+  await expect(page.getByText("quick-announcement-page-01.png")).toBeVisible();
 });

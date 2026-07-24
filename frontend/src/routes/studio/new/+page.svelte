@@ -33,6 +33,7 @@
 	);
 	let returnToken = $derived($page.url.searchParams.get('return_token') || '');
 	let sourceMediaID = $derived($page.url.searchParams.get('source_media') || '');
+	let sourceName = $derived($page.url.searchParams.get('source_name') || '');
 	let sourceWidth = $derived(Number($page.url.searchParams.get('width') || 0));
 	let sourceHeight = $derived(Number($page.url.searchParams.get('height') || 0));
 	let initialAction = $derived($page.url.searchParams.get('action') || '');
@@ -108,7 +109,9 @@
 		const sourceSize = fitSourceSize(sourceWidth, sourceHeight);
 		try {
 			const design = await createStudioDesign(workspaceID, {
-				title: m.studio_media_edit_title(),
+				title: sourceName
+					? m.studio_image_edit_title({ name: sourceName.replace(/\.[^.]+$/, '') })
+					: m.studio_media_edit_title(),
 				preset_key: 'custom',
 				width_px: sourceSize.width,
 				height_px: sourceSize.height,

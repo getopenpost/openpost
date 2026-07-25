@@ -29,6 +29,7 @@
 		title = m.media_picker_add_media(),
 		purpose = 'post_media',
 		showCreate = true,
+		desktopSize = 'default',
 		onConfirm,
 		onCreate
 	}: {
@@ -41,6 +42,7 @@
 		title?: string;
 		purpose?: string;
 		showCreate?: boolean;
+		desktopSize?: 'default' | 'compact';
 		onConfirm: (mediaIDs: string[], media: StudioMediaItem[]) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
 	} = $props();
@@ -188,7 +190,10 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Content
-		class="top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-5xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl"
+		class="top-0 left-0 flex h-dvh max-h-dvh max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none p-0 sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl {desktopSize ===
+		'compact'
+			? 'sm:h-[min(640px,calc(100dvh-2rem))] sm:max-w-3xl'
+			: 'sm:h-[min(760px,calc(100dvh-2rem))] sm:max-w-5xl'}"
 	>
 		<div class="contents" {@attach initializePicker}></div>
 		<Dialog.Header class="border-b px-4 py-3 pr-14">

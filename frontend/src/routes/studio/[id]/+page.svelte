@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import { loadStudioBrandKit, loadStudioConfig, loadStudioDesign } from '$lib/studio/api';
 	import { loadStudioBrandFonts } from '$lib/studio/fonts';
@@ -16,20 +15,28 @@
 	let loading = $state(true);
 	let error = $state('');
 	let readOnlyReason = $state('');
-	let returnToken = $derived($page.url.searchParams.get('return_token') || '');
-	let initialAction = $derived($page.url.searchParams.get('action') || '');
+	let loadRequest = 0;
+	let returnToken = $derived(page.url.searchParams.get('return_token') || '');
+	let initialAction = $derived(page.url.searchParams.get('action') || '');
 
-	onMount(() => {
-		void initialize();
+	$effect(() => {
+		const designID = page.params.id ?? '';
+		const request = ++loadRequest;
+		void initialize(designID, request);
 	});
 
-	async function initialize(): Promise<void> {
+	async function initialize(designID: string, request: number): Promise<void> {
 		const finishMetric = startStudioMetric('document_load');
+		loading = true;
+		error = '';
+		readOnlyReason = '';
+		design = null;
 		try {
 			const [config, response] = await Promise.all([
 				loadStudioConfig(),
-				loadStudioDesign($page.params.id ?? '')
+				loadStudioDesign(designID)
 			]);
+			if (request !== loadRequest) return;
 			if (!config.enabled) throw new Error(m.studio_not_enabled());
 			backgroundModelBaseURL = config.background_model_base_url || '/studio-models';
 			const migration = migrateStudioDocument(response.document);
@@ -41,13 +48,15 @@
 			}
 			const brand = await loadStudioBrandKit(response.workspace_id);
 			await loadStudioBrandFonts(brand);
+			if (request !== loadRequest) return;
 			design = response;
 			finishMetric();
 		} catch (cause) {
+			if (request !== loadRequest) return;
 			finishMetric('error');
 			error = cause instanceof Error ? cause.message : m.studio_open_failed();
 		} finally {
-			loading = false;
+			if (request === loadRequest) loading = false;
 		}
 	}
 </script>

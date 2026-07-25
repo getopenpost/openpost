@@ -5,6 +5,7 @@ type FabricModule = typeof import('fabric');
 type FabricCanvas = InstanceType<FabricModule['Canvas']>;
 type FabricStaticCanvas = InstanceType<FabricModule['StaticCanvas']>;
 type FabricObject = InstanceType<FabricModule['FabricObject']> & { __studioLayerID?: string };
+type FabricTextObject = FabricObject & { text?: string; initDimensions?: () => void };
 
 interface FabricAdapterOptions {
 	canvas: HTMLCanvasElement;
@@ -15,6 +16,7 @@ interface FabricAdapterOptions {
 	renderScale?: number;
 	onSelection(ids: string[]): void;
 	onTransform(id: string, updates: Partial<StudioLayer['transform']>): void;
+	onTextChange(id: string, text: string): void;
 }
 
 const SNAP_SCREEN_PX = 7;
@@ -25,6 +27,8 @@ export class OpenPostFabricAdapter {
 	private readonly element: HTMLCanvasElement;
 	private objectURLs = new Set<string>();
 	private objectByLayerID = new Map<string, FabricObject>();
+	private layerSnapshots = new Map<string, StudioLayer>();
+	private desiredSelectionIDs: string[] = [];
 	private guideObjects: FabricObject[] = [];
 	private syncing = false;
 	private renderSequence = 0;
@@ -35,6 +39,7 @@ export class OpenPostFabricAdapter {
 	private readonly renderScale: number;
 	private onSelection: FabricAdapterOptions['onSelection'];
 	private onTransform: FabricAdapterOptions['onTransform'];
+	private onTextChange: FabricAdapterOptions['onTextChange'];
 
 	constructor(options: FabricAdapterOptions) {
 		this.element = options.canvas;
@@ -45,6 +50,7 @@ export class OpenPostFabricAdapter {
 		this.renderScale = Math.max(0.01, options.renderScale ?? 1);
 		this.onSelection = options.onSelection;
 		this.onTransform = options.onTransform;
+		this.onTextChange = options.onTextChange;
 	}
 
 	async mount(): Promise<void> {
@@ -77,11 +83,11 @@ export class OpenPostFabricAdapter {
 		this.page = page;
 		const sequence = ++this.renderSequence;
 		this.syncing = true;
-		const selectedIDs = this.staticMode ? [] : this.selectedIDs();
 		this.interactiveCanvas()?.discardActiveObject();
 		this.canvas.clear();
 		this.revokeObjectURLs();
 		this.objectByLayerID.clear();
+		this.layerSnapshots.clear();
 		this.guideObjects = [];
 		this.canvas.setDimensions({
 			width: Math.max(1, Math.round(document.width_px * this.renderScale)),
@@ -94,11 +100,77 @@ export class OpenPostFabricAdapter {
 			if (sequence !== this.renderSequence) return;
 			if (!object) continue;
 			this.objectByLayerID.set(layer.id, object);
+			this.layerSnapshots.set(layer.id, structuredClone(layer));
 			this.canvas.add(object);
 		}
-		if (!this.staticMode) this.restoreSelection(selectedIDs);
+		if (!this.staticMode) this.restoreSelection(this.desiredSelectionIDs);
 		this.canvas.requestRenderAll();
 		this.syncing = false;
+	}
+
+	async sync(document: StudioDocument, page: StudioPage): Promise<void> {
+		if (!this.canvas || !this.fabric) return;
+		const dimensionsChanged =
+			document.width_px !== this.document.width_px ||
+			document.height_px !== this.document.height_px;
+		const pageChanged = page.id !== this.page.id;
+		if (dimensionsChanged || pageChanged) {
+			await this.render(document, page);
+			return;
+		}
+
+		const sequence = ++this.renderSequence;
+		this.document = document;
+		this.page = page;
+		this.syncing = true;
+		const nextLayerIDs = new Set(page.layers.map((layer) => layer.id));
+		try {
+			this.canvas.backgroundColor = page.background_color;
+			for (const [id, object] of this.objectByLayerID) {
+				if (nextLayerIDs.has(id)) continue;
+				this.canvas.remove(object);
+				this.objectByLayerID.delete(id);
+				this.layerSnapshots.delete(id);
+			}
+			for (const [index, layer] of page.layers.entries()) {
+				const previous = this.layerSnapshots.get(layer.id);
+				let object = this.objectByLayerID.get(layer.id);
+				if (!previous || !object || this.requiresObjectRebuild(previous, layer)) {
+					if (object) this.canvas.remove(object);
+					const replacement = await this.createObject(layer);
+					if (sequence !== this.renderSequence) return;
+					if (!replacement) {
+						this.objectByLayerID.delete(layer.id);
+						this.layerSnapshots.delete(layer.id);
+						continue;
+					}
+					object = replacement;
+					this.objectByLayerID.set(layer.id, object);
+					this.canvas.insertAt(index, object);
+				} else if (JSON.stringify(previous) !== JSON.stringify(layer)) {
+					this.updateObject(object, previous, layer);
+				}
+				this.layerSnapshots.set(layer.id, structuredClone(layer));
+				this.canvas.moveObjectTo(object, index);
+			}
+			this.objectByLayerID = new Map(
+				page.layers
+					.map((layer) => [layer.id, this.objectByLayerID.get(layer.id)] as const)
+					.filter((entry): entry is readonly [string, FabricObject] => Boolean(entry[1]))
+			);
+			if (!this.staticMode) this.restoreSelection(this.desiredSelectionIDs);
+			this.canvas.requestRenderAll();
+		} finally {
+			if (sequence === this.renderSequence) this.syncing = false;
+		}
+	}
+
+	accept(document: StudioDocument, page: StudioPage): void {
+		this.document = document;
+		this.page = page;
+		this.layerSnapshots = new Map(
+			page.layers.map((layer) => [layer.id, structuredClone(layer)] as const)
+		);
 	}
 
 	setReadOnly(readOnly: boolean): void {
@@ -113,6 +185,7 @@ export class OpenPostFabricAdapter {
 	}
 
 	setSelection(ids: string[]): void {
+		this.desiredSelectionIDs = [...ids];
 		const canvas = this.interactiveCanvas();
 		if (!canvas || !this.fabric || this.syncing) return;
 		this.syncing = true;
@@ -133,6 +206,7 @@ export class OpenPostFabricAdapter {
 		this.renderSequence++;
 		this.revokeObjectURLs();
 		this.objectByLayerID.clear();
+		this.layerSnapshots.clear();
 		this.canvas?.dispose();
 		this.canvas = null;
 		this.fabric = null;
@@ -149,11 +223,14 @@ export class OpenPostFabricAdapter {
 			this.clearGuides();
 			this.emitTransform(event.target as FabricObject);
 		});
+		canvas.on('text:changed', (event) => this.emitTextChange(event.target as FabricTextObject));
 	}
 
 	private emitSelection(): void {
 		if (this.syncing) return;
-		this.onSelection(this.selectedIDs());
+		const ids = this.selectedIDs();
+		this.desiredSelectionIDs = ids;
+		this.onSelection(ids);
 	}
 
 	private selectedIDs(): string[] {
@@ -202,6 +279,11 @@ export class OpenPostFabricAdapter {
 		});
 		target.set({ scaleX: 1, scaleY: 1, width: scaledWidth, height: scaledHeight });
 		target.setCoords();
+	}
+
+	private emitTextChange(target?: FabricTextObject): void {
+		if (!target?.__studioLayerID || this.syncing || typeof target.text !== 'string') return;
+		this.onTextChange(target.__studioLayerID, target.text);
 	}
 
 	private snapObject(target?: FabricObject): void {
@@ -411,6 +493,115 @@ export class OpenPostFabricAdapter {
 			lockScalingY: effectivelyLocked
 		});
 		return object;
+	}
+
+	private requiresObjectRebuild(previous: StudioLayer, next: StudioLayer): boolean {
+		if (previous.type !== next.type) return true;
+		if (next.type === 'shape') return previous.shape?.kind !== next.shape?.kind;
+		if (next.type !== 'image') return false;
+		return (
+			previous.image?.media_id !== next.image?.media_id ||
+			previous.image?.fit !== next.image?.fit ||
+			JSON.stringify(previous.image?.crop) !== JSON.stringify(next.image?.crop)
+		);
+	}
+
+	private updateObject(object: FabricObject, previous: StudioLayer, layer: StudioLayer): void {
+		if (!this.fabric) return;
+		const effectivelyLocked = this.layerIsLocked(layer);
+		const common = {
+			angle: layer.transform.rotation,
+			flipX: layer.transform.flip_x,
+			flipY: layer.transform.flip_y,
+			opacity: layer.opacity,
+			visible: this.layerIsVisible(layer),
+			selectable: !this.readOnly && !effectivelyLocked,
+			evented: !this.readOnly && !effectivelyLocked,
+			lockMovementX: effectivelyLocked,
+			lockMovementY: effectivelyLocked,
+			lockRotation: effectivelyLocked,
+			lockScalingX: effectivelyLocked,
+			lockScalingY: effectivelyLocked
+		};
+
+		if (layer.type === 'image' && layer.image) {
+			const widthScale =
+				previous.transform.width > 0 ? layer.transform.width / previous.transform.width : 1;
+			const heightScale =
+				previous.transform.height > 0 ? layer.transform.height / previous.transform.height : 1;
+			object.set({
+				...common,
+				left:
+					layer.transform.x +
+					((object.left ?? previous.transform.x) - previous.transform.x) * widthScale,
+				top:
+					layer.transform.y +
+					((object.top ?? previous.transform.y) - previous.transform.y) * heightScale,
+				scaleX: (object.scaleX ?? 1) * widthScale,
+				scaleY: (object.scaleY ?? 1) * heightScale
+			});
+			this.applyImageFilters(object as InstanceType<FabricModule['FabricImage']>, layer);
+		} else if (layer.type === 'text' && layer.text) {
+			const textObject = object as FabricTextObject;
+			textObject.set({
+				...common,
+				left: layer.transform.x,
+				top: layer.transform.y,
+				width: layer.transform.width,
+				text: layer.text.text,
+				fontFamily: layer.text.font_family,
+				fontWeight: layer.text.font_weight,
+				fontStyle: layer.text.font_style,
+				fontSize: layer.text.font_size,
+				fill: layer.text.color,
+				textAlign: layer.text.align,
+				lineHeight: layer.text.line_height,
+				charSpacing: layer.text.letter_spacing * 10,
+				stroke: layer.text.stroke_color,
+				strokeWidth: layer.text.stroke_width,
+				backgroundColor: layer.text.highlight_color,
+				shadow:
+					layer.text.shadow.blur ||
+					layer.text.shadow.offset_x ||
+					layer.text.shadow.offset_y ||
+					layer.text.shadow.color !== '#00000000'
+						? new this.fabric.Shadow({
+								color: layer.text.shadow.color,
+								blur: layer.text.shadow.blur,
+								offsetX: layer.text.shadow.offset_x,
+								offsetY: layer.text.shadow.offset_y
+							})
+						: undefined
+			});
+			textObject.initDimensions?.();
+		} else if (layer.type === 'shape' && layer.shape) {
+			object.set({
+				...common,
+				left: layer.transform.x,
+				top: layer.transform.y,
+				width: layer.transform.width,
+				height: layer.transform.height,
+				fill: layer.shape.fill,
+				stroke: layer.shape.stroke,
+				strokeWidth: layer.shape.stroke_width,
+				...(layer.shape.kind === 'rounded_rectangle'
+					? { rx: layer.shape.radius, ry: layer.shape.radius }
+					: {}),
+				...(layer.shape.kind === 'ellipse'
+					? { rx: layer.transform.width / 2, ry: layer.transform.height / 2 }
+					: {}),
+				...(layer.shape.kind === 'line' ? { x2: layer.transform.width, y2: 0 } : {})
+			});
+		} else {
+			object.set({
+				...common,
+				left: layer.transform.x,
+				top: layer.transform.y,
+				width: layer.transform.width,
+				height: layer.transform.height
+			});
+		}
+		object.setCoords();
 	}
 
 	private layerIsVisible(layer: StudioLayer): boolean {

@@ -55,8 +55,6 @@
 	import CropIcon from 'lucide-svelte/icons/crop';
 	import TypeIcon from 'lucide-svelte/icons/type';
 	import SquareIcon from 'lucide-svelte/icons/square';
-	import ImageIcon from 'lucide-svelte/icons/image';
-	import CameraIcon from 'lucide-svelte/icons/camera';
 	import HandIcon from 'lucide-svelte/icons/hand';
 	import ZoomInIcon from 'lucide-svelte/icons/zoom-in';
 	import LayersIcon from 'lucide-svelte/icons/layers-3';
@@ -87,10 +85,19 @@
 
 	const editor = provideStudioEditor(new StudioEditor());
 	const backgroundRemoval = new StudioBackgroundRemoval();
+	const DESKTOP_TOOL_RAIL_WIDTH = 44;
+	const MINIMUM_CANVAS_WIDTH = 320;
+	type SaveRequest = {
+		coverPreviewMediaID?: string;
+		recoveryReason: 'idle' | 'export' | 'close';
+	};
 	let saveTimer: ReturnType<typeof setTimeout> | undefined;
+	let pendingSave: SaveRequest | null = null;
+	let saveDrain: Promise<boolean> | null = null;
 	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let previewPending = false;
 	let previewBusy = false;
+	let previewTask: Promise<void> | null = null;
 	let lastPreviewAt = 0;
 	let coverPreviewMediaID = '';
 	let exportDialogOpen = $state(false);
@@ -125,6 +132,18 @@
 	let resizeHeight = $state(1080);
 	let resizeMode = $state<'scale' | 'preserve'>('scale');
 	let resizeError = $state('');
+	let assetPanelWidth = $state(260);
+	let inspectorPanelWidth = $state(320);
+	let layersPanelHeight = $state(280);
+	let inspectorElement = $state<HTMLElement>();
+	let panelResize:
+		| {
+				panel: 'assets' | 'inspector' | 'layers';
+				startX: number;
+				startY: number;
+				startSize: number;
+		  }
+		| undefined;
 
 	function initializeShell() {
 		if (!editor.document) {
@@ -141,6 +160,19 @@
 	}
 
 	onMount(() => {
+		try {
+			const stored = JSON.parse(localStorage.getItem('openpost-studio-layout-v1') || '{}') as {
+				assets?: number;
+				inspector?: number;
+				layers?: number;
+			};
+			assetPanelWidth = clampPanelSize(stored.assets, 220, 420, assetPanelWidth);
+			inspectorPanelWidth = clampPanelSize(stored.inspector, 280, 480, inspectorPanelWidth);
+			layersPanelHeight = clampPanelSize(stored.layers, 120, 520, layersPanelHeight);
+			constrainDesktopPanelWidths();
+		} catch {
+			// Invalid local layout preferences fall back to the balanced defaults.
+		}
 		if (window.innerWidth < 1024 && window.innerHeight <= 520) {
 			editor.pagesExpanded = false;
 		}
@@ -190,6 +222,143 @@
 		};
 	});
 
+	function clampPanelSize(
+		value: number | undefined,
+		minimum: number,
+		maximum: number,
+		fallback: number
+	): number {
+		return Number.isFinite(value) ? Math.max(minimum, Math.min(maximum, value!)) : fallback;
+	}
+
+	function panelMaximum(panel: 'assets' | 'inspector'): number {
+		const otherPanelWidth = panel === 'assets' ? inspectorPanelWidth : assetPanelWidth;
+		const available =
+			document.documentElement.clientWidth -
+			DESKTOP_TOOL_RAIL_WIDTH -
+			MINIMUM_CANVAS_WIDTH -
+			otherPanelWidth;
+		return Math.max(
+			panel === 'assets' ? 220 : 280,
+			Math.min(panel === 'assets' ? 420 : 480, available)
+		);
+	}
+
+	function constrainDesktopPanelWidths(): void {
+		if (window.innerWidth < 1024) return;
+		const maximumCombinedWidth =
+			document.documentElement.clientWidth - DESKTOP_TOOL_RAIL_WIDTH - MINIMUM_CANVAS_WIDTH;
+		let overflow = assetPanelWidth + inspectorPanelWidth - maximumCombinedWidth;
+		if (overflow <= 0) return;
+		const assetReduction = Math.min(assetPanelWidth - 220, Math.ceil(overflow / 2));
+		assetPanelWidth -= assetReduction;
+		overflow -= assetReduction;
+		inspectorPanelWidth -= Math.min(inspectorPanelWidth - 280, overflow);
+	}
+
+	function startPanelResize(event: PointerEvent, panel: 'assets' | 'inspector' | 'layers'): void {
+		if (event.button !== 0) return;
+		(event.currentTarget as HTMLButtonElement).focus();
+		event.preventDefault();
+		panelResize = {
+			panel,
+			startX: event.clientX,
+			startY: event.clientY,
+			startSize:
+				panel === 'assets'
+					? assetPanelWidth
+					: panel === 'inspector'
+						? inspectorPanelWidth
+						: layersPanelHeight
+		};
+	}
+
+	function resizePanels(event: PointerEvent): void {
+		if (!panelResize) return;
+		if (panelResize.panel === 'assets') {
+			assetPanelWidth = clampPanelSize(
+				panelResize.startSize + event.clientX - panelResize.startX,
+				220,
+				panelMaximum('assets'),
+				assetPanelWidth
+			);
+		} else if (panelResize.panel === 'inspector') {
+			inspectorPanelWidth = clampPanelSize(
+				panelResize.startSize - (event.clientX - panelResize.startX),
+				280,
+				panelMaximum('inspector'),
+				inspectorPanelWidth
+			);
+		} else {
+			const maximum = Math.max(160, (inspectorElement?.clientHeight ?? 680) - 166);
+			layersPanelHeight = clampPanelSize(
+				panelResize.startSize + event.clientY - panelResize.startY,
+				120,
+				maximum,
+				layersPanelHeight
+			);
+		}
+	}
+
+	function stopPanelResize(): void {
+		if (!panelResize) return;
+		panelResize = undefined;
+		storePanelLayout();
+	}
+
+	function storePanelLayout(): void {
+		try {
+			localStorage.setItem(
+				'openpost-studio-layout-v1',
+				JSON.stringify({
+					assets: Math.round(assetPanelWidth),
+					inspector: Math.round(inspectorPanelWidth),
+					layers: Math.round(layersPanelHeight)
+				})
+			);
+		} catch {
+			// Layout persistence is optional when browser storage is unavailable.
+		}
+	}
+
+	function resizePanelWithKeyboard(
+		event: KeyboardEvent,
+		panel: 'assets' | 'inspector' | 'layers'
+	): void {
+		const direction =
+			event.key === 'ArrowRight' || event.key === 'ArrowDown'
+				? 1
+				: event.key === 'ArrowLeft' || event.key === 'ArrowUp'
+					? -1
+					: 0;
+		if (!direction) return;
+		event.preventDefault();
+		const step = event.shiftKey ? 32 : 8;
+		if (panel === 'assets') {
+			assetPanelWidth = clampPanelSize(
+				assetPanelWidth + direction * step,
+				220,
+				panelMaximum('assets'),
+				assetPanelWidth
+			);
+		} else if (panel === 'inspector') {
+			inspectorPanelWidth = clampPanelSize(
+				inspectorPanelWidth - direction * step,
+				280,
+				panelMaximum('inspector'),
+				inspectorPanelWidth
+			);
+		} else {
+			layersPanelHeight = clampPanelSize(
+				layersPanelHeight + direction * step,
+				120,
+				Math.max(160, (inspectorElement?.clientHeight ?? 680) - 166),
+				layersPanelHeight
+			);
+		}
+		storePanelLayout();
+	}
+
 	async function restoreLocalIfNewer(): Promise<void> {
 		const local = await loadLocalStudioRecovery(editor.id);
 		if (!local || local.revision < editor.revision) return;
@@ -200,13 +369,55 @@
 		statusAnnouncement = m.studio_recovered_announcement();
 	}
 
-	async function saveNow(
+	function saveNow(
 		nextCoverPreviewMediaID: string | undefined = undefined,
 		recoveryReason: 'idle' | 'export' | 'close' = 'idle'
 	): Promise<boolean> {
 		clearTimeout(saveTimer);
+		pendingSave = mergeSaveRequest(pendingSave, {
+			coverPreviewMediaID: nextCoverPreviewMediaID,
+			recoveryReason
+		});
+		if (!saveDrain) {
+			const drain = drainSaves();
+			const tracked = drain.finally(() => {
+				if (saveDrain === tracked) saveDrain = null;
+			});
+			saveDrain = tracked;
+		}
+		return saveDrain;
+	}
+
+	function mergeSaveRequest(current: SaveRequest | null, next: SaveRequest): SaveRequest {
+		if (!current) return next;
+		const reasonPriority = { idle: 0, export: 1, close: 2 } as const;
+		return {
+			coverPreviewMediaID: next.coverPreviewMediaID ?? current.coverPreviewMediaID,
+			recoveryReason:
+				reasonPriority[next.recoveryReason] >= reasonPriority[current.recoveryReason]
+					? next.recoveryReason
+					: current.recoveryReason
+		};
+	}
+
+	async function drainSaves(): Promise<boolean> {
+		let saved = true;
+		while (pendingSave) {
+			const request = pendingSave;
+			pendingSave = null;
+			saved = await performSave(request);
+			if (!saved) {
+				pendingSave = null;
+				return false;
+			}
+		}
+		return saved;
+	}
+
+	async function performSave(request: SaveRequest): Promise<boolean> {
 		if (!editor.document || !editor.canEdit) return true;
-		const errors = validateStudioDocument(editor.document);
+		const submittedDocument = editor.document;
+		const errors = validateStudioDocument(submittedDocument);
 		if (errors.length > 0) {
 			editor.saveState = 'error';
 			editor.saveMessage = errors[0];
@@ -220,18 +431,20 @@
 			const response = await saveStudioDesign(
 				editor.id,
 				editor.revision,
-				editor.document,
-				nextCoverPreviewMediaID ?? coverPreviewMediaID,
-				recoveryReason
+				submittedDocument,
+				request.coverPreviewMediaID ?? coverPreviewMediaID,
+				request.recoveryReason
 			);
 			editor.revision = response.revision;
-			editor.document = response.document;
 			coverPreviewMediaID = response.cover_preview_media_id ?? '';
-			editor.saveState = 'saved';
-			editor.saveMessage = m.studio_saved();
-			await clearLocalStudioRecovery(editor.id);
-			statusAnnouncement = m.studio_saved_announcement();
-			if (recoveryReason === 'idle' && previewPending) schedulePreview();
+			if (editor.document === submittedDocument) {
+				editor.document = response.document;
+				editor.saveState = 'saved';
+				editor.saveMessage = m.studio_saved();
+				await clearLocalStudioRecovery(editor.id);
+				statusAnnouncement = m.studio_saved_announcement();
+				if (request.recoveryReason === 'idle' && previewPending) schedulePreview();
+			}
 			finishMetric();
 			return true;
 		} catch (cause) {
@@ -259,10 +472,20 @@
 		if (!editor.canEdit || previewBusy || !previewPending) return;
 		clearTimeout(previewTimer);
 		const wait = Math.max(1000, 30_000 - (Date.now() - lastPreviewAt));
-		previewTimer = setTimeout(() => void generatePreview(), wait);
+		previewTimer = setTimeout(() => void runPreview(), wait);
 	}
 
-	async function generatePreview(): Promise<void> {
+	function runPreview(recoveryReason: 'idle' | 'close' = 'idle'): Promise<void> {
+		if (previewTask) return previewTask;
+		const task = generatePreview(recoveryReason);
+		const tracked = task.finally(() => {
+			if (previewTask === tracked) previewTask = null;
+		});
+		previewTask = tracked;
+		return tracked;
+	}
+
+	async function generatePreview(recoveryReason: 'idle' | 'close' = 'idle'): Promise<void> {
 		if (!editor.document || !editor.canEdit || previewBusy || !previewPending) return;
 		const page = editor.document.pages.find((item) => item.id === editor.activePageID);
 		if (!page) return;
@@ -293,7 +516,7 @@
 			lastPreviewAt = Date.now();
 			const firstPagePreview =
 				nextDocument.pages[0]?.id === page.id ? uploaded.id : coverPreviewMediaID;
-			await saveNow(firstPagePreview, 'idle');
+			await saveNow(firstPagePreview, recoveryReason);
 		} catch {
 			metricOutcome = 'error';
 			// Preview generation is best-effort and must never interrupt editing or autosave.
@@ -322,14 +545,10 @@
 	}
 
 	async function goBack(): Promise<void> {
-		if (
-			editor.canEdit &&
-			(editor.saveState === 'idle' ||
-				editor.saveState === 'local' ||
-				editor.saveState === 'offline' ||
-				editor.saveState === 'error')
-		) {
-			await saveNow('', 'close');
+		if (editor.canEdit) {
+			const saved = editor.saveState === 'saved' ? true : await saveNow(undefined, 'close');
+			if (previewTask) await previewTask;
+			if (saved && previewPending) await runPreview('close');
 		}
 		if (history.length > 1) history.back();
 		else void goto(resolve('/media?view=designs' as '/'));
@@ -484,7 +703,7 @@
 		if (tool === 'shape') editor.addShape();
 		if (tool === 'image' || tool === 'camera') {
 			editor.leftPanel = 'media';
-			mobileSheet = 'assets';
+			if (window.innerWidth < 1024) mobileSheet = 'assets';
 		}
 		if (tool === 'eyedropper') void pickColor();
 	}
@@ -863,15 +1082,19 @@
 		{ key: 'crop', label: m.studio_crop(), icon: CropIcon },
 		{ key: 'text', label: m.studio_text(), icon: TypeIcon },
 		{ key: 'shape', label: m.studio_shape(), icon: SquareIcon },
-		{ key: 'image', label: m.studio_image(), icon: ImageIcon },
-		{ key: 'camera', label: m.studio_camera(), icon: CameraIcon },
 		{ key: 'eyedropper', label: m.studio_eyedropper(), icon: PipetteIcon },
 		{ key: 'hand', label: m.studio_hand(), icon: HandIcon },
 		{ key: 'zoom', label: m.studio_zoom(), icon: ZoomInIcon }
 	];
 </script>
 
-<svelte:window onkeydown={handleShortcut} />
+<svelte:window
+	onkeydown={handleShortcut}
+	onresize={constrainDesktopPanelWidths}
+	onpointermove={resizePanels}
+	onpointerup={stopPanelResize}
+	onpointercancel={stopPanelResize}
+/>
 
 <div
 	class="studio-theme flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground"
@@ -892,7 +1115,7 @@
 		</Button>
 		<Input
 			value={editor.document?.title ?? ''}
-			class="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 font-medium hover:border-input focus:border-input sm:max-w-56 sm:flex-none md:h-11 lg:h-8"
+			class="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 font-medium hover:border-input focus:border-input sm:max-w-56 sm:flex-none md:h-11 lg:order-2 lg:ml-auto lg:h-8 lg:max-w-72"
 			aria-label={m.studio_design_title()}
 			disabled={!editor.canEdit}
 			oninput={(event) =>
@@ -902,9 +1125,10 @@
 					'document-title'
 				)}
 		/>
-		<span class="hidden min-w-20 text-xs text-muted-foreground sm:inline">{editor.saveMessage}</span
+		<span class="hidden min-w-20 text-xs text-muted-foreground sm:inline lg:order-2"
+			>{editor.saveMessage}</span
 		>
-		<nav class="ml-2 hidden items-center gap-0.5 lg:flex" aria-label={m.studio_menus()}>
+		<nav class="ml-2 hidden items-center gap-0.5 lg:order-1 lg:flex" aria-label={m.studio_menus()}>
 			<DropdownMenu.Root>
 				<DropdownMenu.Trigger>
 					{#snippet child({ props })}
@@ -999,7 +1223,7 @@
 				</DropdownMenu.Content>
 			</DropdownMenu.Root>
 		</nav>
-		<div class="ml-auto flex items-center gap-1">
+		<div class="ml-auto flex items-center gap-1 lg:order-3">
 			<Button
 				variant="ghost"
 				size="icon-sm"
@@ -1088,30 +1312,44 @@
 	{/if}
 
 	<div
-		class={focusedCanvas
-			? 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]'
-			: 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[44px_248px_minmax(0,1fr)_300px]'}
+		class="studio-workspace grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]"
+		data-focused={focusedCanvas}
+		data-inspector={editor.rightPanelVisible}
+		style:--studio-assets-width={`${assetPanelWidth}px`}
+		style:--studio-inspector-width={`${inspectorPanelWidth}px`}
 	>
+		<nav
+			class="hidden min-h-0 flex-col items-center gap-1 border-r bg-background py-2 lg:flex"
+			aria-label={m.studio_tools()}
+		>
+			{#each tools as tool (tool.key)}
+				{@const Icon = tool.icon}
+				<Button
+					variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
+					size="icon-sm"
+					onclick={() => setTool(tool.key)}
+					aria-label={tool.label}
+					aria-pressed={editor.activeTool === tool.key}
+					title={tool.label}
+					disabled={!editor.canEdit && !['select', 'hand', 'zoom'].includes(tool.key)}
+				>
+					<Icon />
+				</Button>
+			{/each}
+		</nav>
 		{#if !focusedCanvas}
 			<aside
-				class="hidden border-r bg-background lg:flex lg:flex-col lg:items-center lg:gap-1 lg:py-2"
+				class="relative hidden min-h-0 min-w-0 overflow-hidden border-r bg-background lg:block"
 			>
-				{#each tools as tool (tool.key)}
-					{@const Icon = tool.icon}
-					<Button
-						variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
-						size="icon-sm"
-						onclick={() => setTool(tool.key)}
-						aria-label={tool.label}
-						title={tool.label}
-						disabled={!editor.canEdit && !['select', 'hand', 'zoom'].includes(tool.key)}
-					>
-						<Icon />
-					</Button>
-				{/each}
-			</aside>
-			<aside class="hidden min-h-0 border-r bg-background lg:block">
 				<AssetPanel />
+				<button
+					type="button"
+					aria-label={m.studio_resize_asset_panel()}
+					title={m.studio_resize_asset_panel()}
+					class="studio-resize-handle absolute inset-y-0 right-0 z-20 w-2 cursor-col-resize touch-none border-0 bg-transparent p-0"
+					onpointerdown={(event) => startPanelResize(event, 'assets')}
+					onkeydown={(event) => resizePanelWithKeyboard(event, 'assets')}
+				></button>
 			</aside>
 		{/if}
 		<main class="relative min-h-0 min-w-0">
@@ -1164,9 +1402,29 @@
 			{/if}
 		</main>
 		{#if editor.rightPanelVisible && !focusedCanvas}
-			<aside class="hidden min-h-0 grid-rows-2 border-l bg-background lg:grid">
-				<div class="min-h-0 border-b"><LayerTree /></div>
-				<div class="min-h-0"><PropertiesPanel /></div>
+			<aside
+				bind:this={inspectorElement}
+				class="studio-inspector relative hidden min-h-0 min-w-0 overflow-hidden border-l bg-background lg:grid"
+				style:--studio-layers-height={`${layersPanelHeight}px`}
+			>
+				<button
+					type="button"
+					aria-label={m.studio_resize_inspector_panel()}
+					title={m.studio_resize_inspector_panel()}
+					class="studio-resize-handle absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize touch-none border-0 bg-transparent p-0"
+					onpointerdown={(event) => startPanelResize(event, 'inspector')}
+					onkeydown={(event) => resizePanelWithKeyboard(event, 'inspector')}
+				></button>
+				<div class="min-h-0 min-w-0 overflow-hidden"><LayerTree /></div>
+				<button
+					type="button"
+					aria-label={m.studio_resize_layers_properties()}
+					title={m.studio_resize_layers_properties()}
+					class="studio-resize-handle relative z-10 cursor-row-resize touch-none border-x-0 border-y bg-background p-0"
+					onpointerdown={(event) => startPanelResize(event, 'layers')}
+					onkeydown={(event) => resizePanelWithKeyboard(event, 'layers')}
+				></button>
+				<div class="min-h-0 min-w-0 overflow-hidden"><PropertiesPanel /></div>
 			</aside>
 		{/if}
 	</div>
@@ -1183,7 +1441,7 @@
 			<PanelLeftIcon />
 			{m.studio_add()}
 		</Button>
-		{#each tools.filter( (tool) => ['select', 'text', 'shape', 'image', 'crop', 'hand'].includes(tool.key) ) as tool (tool.key)}
+		{#each tools.filter( (tool) => ['select', 'text', 'shape', 'crop', 'hand'].includes(tool.key) ) as tool (tool.key)}
 			{@const Icon = tool.icon}
 			<Button
 				variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
@@ -1563,5 +1821,56 @@
 		--studio-accent: oklch(0.65 0.18 48);
 		--studio-panel: var(--background);
 		--studio-panel-border: var(--border);
+	}
+
+	.studio-resize-handle::after {
+		position: absolute;
+		content: '';
+		background: var(--border);
+		transition: background-color 120ms ease-out;
+	}
+
+	.studio-resize-handle.absolute::after {
+		inset-block: 0;
+		inset-inline-start: 50%;
+		width: 1px;
+	}
+
+	.studio-inspector > .studio-resize-handle.relative::after {
+		inset-inline: 0;
+		inset-block-start: 50%;
+		height: 1px;
+	}
+
+	.studio-resize-handle:hover::after,
+	.studio-resize-handle:focus-visible::after {
+		background: var(--primary);
+	}
+
+	.studio-resize-handle:focus-visible {
+		outline: 2px solid var(--ring);
+		outline-offset: -2px;
+	}
+
+	@media (min-width: 64rem) {
+		.studio-workspace {
+			grid-template-columns:
+				44px
+				var(--studio-assets-width)
+				minmax(0, 1fr)
+				var(--studio-inspector-width);
+		}
+
+		.studio-workspace[data-inspector='false'] {
+			grid-template-columns: 44px var(--studio-assets-width) minmax(0, 1fr);
+		}
+
+		.studio-workspace[data-focused='true'] {
+			grid-template-columns: 44px minmax(0, 1fr);
+		}
+
+		.studio-inspector {
+			grid-template-rows: minmax(120px, var(--studio-layers-height)) 6px minmax(160px, 1fr);
+		}
 	}
 </style>

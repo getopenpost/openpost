@@ -143,7 +143,7 @@
 		if (returnToken) query.set('return_token', returnToken);
 		if (initialAction) query.set('action', initialAction);
 		const suffix = query.size > 0 ? `?${query.toString()}` : '';
-		await goto(resolve(`/studio/${id}${suffix}` as '/'));
+		await goto(resolve(`/studio/${id}${suffix}` as '/'), { replaceState: true });
 	}
 
 	function goBack(): void {

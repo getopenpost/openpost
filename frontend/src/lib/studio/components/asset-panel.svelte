@@ -148,12 +148,13 @@
 	}
 </script>
 
-<div class="flex h-full min-h-0 flex-col">
+<div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
 	<div class="grid grid-cols-3 border-b p-1">
 		{#each [['media', m.studio_media()], ['templates', m.studio_templates()], ['brand', m.studio_brand()]] as [value, label] (value)}
 			<button
 				type="button"
-				class="min-h-9 rounded-md px-2 text-xs font-medium {editor.leftPanel === value
+				class="min-h-9 min-w-0 truncate rounded-md px-2 text-xs font-medium {editor.leftPanel ===
+				value
 					? 'bg-muted text-foreground'
 					: 'text-muted-foreground hover:text-foreground'}"
 				onclick={() => (editor.leftPanel = value as 'media' | 'templates' | 'brand')}
@@ -343,6 +344,7 @@
 	maxSelection={1}
 	multiple={false}
 	showCreate={false}
+	desktopSize="compact"
 	title={m.studio_add_image()}
 	onConfirm={async (ids) => {
 		const id = ids[0];

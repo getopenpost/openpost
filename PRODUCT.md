@@ -4,7 +4,7 @@
 
 ## Platform
 
-web
+Web and Android (Capacitor)
 
 ## Users
 

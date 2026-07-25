@@ -11,6 +11,7 @@
 	let canvasElement = $state<HTMLCanvasElement>();
 	let viewport = $state<HTMLDivElement>();
 	let adapter = $state.raw<OpenPostFabricAdapter | null>(null);
+	let canvasOriginDocument = editor.document;
 	let ready = $state(false);
 	let canvasError = $state('');
 	let canvasAttempt = $state(0);
@@ -40,6 +41,13 @@
 				},
 				onTransform(id, updates) {
 					editor.updateTransform(id, updates);
+					canvasOriginDocument = editor.document;
+				},
+				onTextChange(id, text) {
+					const layer = editor.activePage?.layers.find((item) => item.id === id);
+					if (!layer?.text || layer.text.text === text) return;
+					editor.updateLayer(id, { text: { ...layer.text, text } }, `text:${id}`);
+					canvasOriginDocument = editor.document;
 				}
 			});
 			mountedAdapter = next;
@@ -97,7 +105,12 @@
 		const document = editor.document;
 		const page = editor.activePage;
 		if (!adapter || !document || !page) return;
-		void adapter.render(document, page);
+		if (document === canvasOriginDocument) {
+			canvasOriginDocument = null;
+			adapter.accept(document, page);
+			return;
+		}
+		void adapter.sync(document, page);
 	});
 
 	$effect(() => {

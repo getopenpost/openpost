@@ -39,7 +39,8 @@ export async function renderStudioPage(
 		readOnly: true,
 		staticCanvas: true,
 		onSelection() {},
-		onTransform() {}
+		onTransform() {},
+		onTextChange() {}
 	});
 	await adapter.mount();
 	const format =
@@ -81,7 +82,8 @@ export async function renderStudioPreview(
 		staticCanvas: true,
 		renderScale,
 		onSelection() {},
-		onTransform() {}
+		onTransform() {},
+		onTextChange() {}
 	});
 	await adapter.mount();
 	const blob = await new Promise<Blob>((resolve, reject) => {

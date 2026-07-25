@@ -68,6 +68,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Aligned the product platform declaration with the responsive web app and Capacitor Android wrapper already shipped from the shared frontend.
+- Rebuilt Studio editing around stable in-place canvas updates, serialized autosaves, reliable inline text persistence, current previews, correct Back navigation, resizable desktop panels, and an inspector that stays within the viewport.
 - Routed linked Post and Thread publications back to the text-and-thread composer, removed their duplicate sidebar entries, and added quick draft deletion from the draft list.
 - Resolved empty media-first drafts against their chosen Story or video format, and collapsed their shared media requirement into one clear composer warning instead of marking every destination as incompatible.
 - Let the desktop draft list use and scroll through all available space above the fixed Workspace actions.

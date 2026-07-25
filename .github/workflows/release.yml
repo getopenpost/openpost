@@ -253,10 +253,6 @@ jobs:
             runner: ubuntu-latest
             ext: ""
           - os: darwin
-            arch: amd64
-            runner: macos-latest
-            ext: ""
-          - os: darwin
             arch: arm64
             runner: macos-latest
             ext: ""

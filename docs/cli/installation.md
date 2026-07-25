@@ -25,7 +25,7 @@ openpost --version
 
 ## Install with curl
 
-The installer detects Linux or macOS on `amd64` and `arm64`, downloads the matching `openpost-cli-*` binary from the latest GitHub release, and installs it as `openpost`. Pass `--with-mcp` or set `OPENPOST_INSTALL_MCP=1` to also install the matching `openpost-mcp-*` asset as `openpost-mcp`.
+The installer supports Linux on `amd64` and `arm64`, and macOS on Apple Silicon (`arm64`). It downloads the matching `openpost-cli-*` binary from the latest GitHub release and installs it as `openpost`. Pass `--with-mcp` or set `OPENPOST_INSTALL_MCP=1` to also install the matching `openpost-mcp-*` asset as `openpost-mcp`.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/rodrgds/openpost/main/scripts/install-cli.sh | sh

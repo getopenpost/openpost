@@ -103,6 +103,10 @@ need mktemp
 OS=$(detect_os)
 ARCH=$(detect_arch)
 
+if [ "$OS" = "darwin" ] && [ "$ARCH" = "amd64" ]; then
+  fail "unsupported platform: macOS on amd64; use an arm64 Mac or build from source"
+fi
+
 if [ "$(id -u)" -eq 0 ]; then
   INSTALL_DIR="/usr/local/bin"
 else

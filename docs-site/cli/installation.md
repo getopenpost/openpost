@@ -10,7 +10,7 @@ The install script downloads the latest matching `openpost-cli-*` release asset 
 curl -fsSL https://raw.githubusercontent.com/rodrgds/openpost/main/scripts/install-cli.sh | sh
 ```
 
-It supports Linux and macOS on `amd64` and `arm64`. To install the desktop MCP stdio proxy at the same time:
+It supports Linux on `amd64` and `arm64`, and macOS on Apple Silicon (`arm64`). To install the desktop MCP stdio proxy at the same time:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/rodrgds/openpost/main/scripts/install-cli.sh | sh -s -- --with-mcp

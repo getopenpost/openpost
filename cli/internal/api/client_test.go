@@ -1,0 +1,654 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
+	"testing"
+)
+
+func TestReadyChecksReadinessEndpoint(t *testing.T) {
+	SetVersion("v4.5.6")
+	t.Cleanup(func() { SetVersion("dev") })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/ready" {
+			t.Fatalf("path = %s, want /api/v1/ready", r.URL.Path)
+		}
+		if got := r.Header.Get("User-Agent"); got != "openpost-cli/v4.5.6" {
+			t.Fatalf("user-agent = %q, want openpost-cli/v4.5.6", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"status":"ready","database":"ok"}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.Ready(context.Background())
+	if err != nil {
+		t.Fatalf("Ready returned error: %v", err)
+	}
+	if got.Status != "ready" || got.Database != "ok" {
+		t.Fatalf("readiness = %+v", got)
+	}
+}
+
+func TestReadyRejectsUnexpectedStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = fmt.Fprint(w, `{"status":"starting","database":"ok"}`)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	_, err := c.Ready(context.Background())
+	if err == nil {
+		t.Fatal("Ready returned nil error")
+	}
+}
+
+func TestListPublicationEvents_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/publications/pub_1/events" {
+			t.Fatalf("path = %s, want /api/v1/publications/pub_1/events", r.URL.Path)
+		}
+		if r.URL.Query().Get("limit") != "25" {
+			t.Fatalf("limit query = %q, want 25", r.URL.Query().Get("limit"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"id":"evt_1","publication_id":"pub_1","rendition_id":"rend_1","type":"published","status":"succeeded","message":"rendition published","metadata":{"platform":"x"},"created_at":"2026-07-04T21:00:00Z"}
+		]`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.ListPublicationEvents(context.Background(), "pub_1", 25)
+	if err != nil {
+		t.Fatalf("ListPublicationEvents returned error: %v", err)
+	}
+	if len(got) != 1 || got[0].Type != "published" || got[0].Metadata["platform"] != "x" {
+		t.Fatalf("events wrong: %+v", got)
+	}
+}
+
+func TestSchedulePublication_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/v1/publications/pub_1/schedule" {
+			t.Fatalf("path = %s, want /api/v1/publications/pub_1/schedule", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"message":"publication scheduled","job_id":"job_1"}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.SchedulePublication(context.Background(), "pub_1")
+	if err != nil {
+		t.Fatalf("SchedulePublication returned error: %v", err)
+	}
+	if got.JobID != "job_1" {
+		t.Fatalf("result = %+v", got)
+	}
+}
+
+func TestListRenditionComments_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/renditions/rend_1/comments" {
+			t.Fatalf("path = %s, want /api/v1/renditions/rend_1/comments", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"comments":[
+			{"id":"comment_1","rendition_id":"rend_1","provider_comment_id":"provider_1","author_name":"Rita","text":"Nice launch","hidden":false,"can_reply":true,"can_hide":false,"can_delete":false}
+		]}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.ListRenditionComments(context.Background(), "rend_1")
+	if err != nil {
+		t.Fatalf("ListRenditionComments returned error: %v", err)
+	}
+	if len(got) != 1 || got[0].Text != "Nice launch" || got[0].CanHide {
+		t.Fatalf("comments wrong: %+v", got)
+	}
+}
+
+func TestPublicationMutationMethods_WireFormat(t *testing.T) {
+	requests := make(chan string, 5)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests <- r.Method + " " + r.URL.EscapedPath()
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/api/v1/publications/pub_1/renditions" {
+			_, _ = w.Write([]byte(`{"id":"pub_1","renditions":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"message":"ok","id":"provider_reply","job_id":"job_1"}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	if _, err := c.UpsertPublicationRenditions(context.Background(), "pub_1", []RenditionInput{{SocialAccountID: "acc_1", Body: "Hello"}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ReplyToRendition(context.Background(), "rend_1", RenditionReplyInput{Body: "Follow-up"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ReplyToComment(context.Background(), "opaque/id", "Thanks"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.HideComment(context.Background(), "opaque/id"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.DeleteComment(context.Background(), "opaque/id"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []string{
+		"PUT /api/v1/publications/pub_1/renditions",
+		"POST /api/v1/renditions/rend_1/reply",
+		"POST /api/v1/comments/opaque%2Fid/reply",
+		"POST /api/v1/comments/opaque%2Fid/hide",
+		"DELETE /api/v1/comments/opaque%2Fid",
+	}
+	for _, expected := range want {
+		if got := <-requests; got != expected {
+			t.Fatalf("request = %q, want %q", got, expected)
+		}
+	}
+}
+
+// TestListAccounts_WireFormat verifies that ListAccounts decodes a raw
+// JSON array from the server. The server's Huma output type is
+// ListAccountsOutput { Body []AccountResponse } and Huma flattens the
+// Body field on the wire, so the response is `[...]`, not
+// `{body: [...]}`.
+//
+// This is a regression guard. A previous version of this client
+// decoded `{body: [...]}` and failed with "cannot unmarshal array
+// into Go value of type struct { Body []SocialAccount }".
+func TestListAccounts_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"id":"acc_1","slug":"x","platform":"x","account_id":"x_handle","account_username":"@rodrigo","is_active":true},
+			{"id":"acc_2","slug":"bluesky","platform":"bluesky","account_id":"did:plc:abc","account_username":"rodrigo.bsky.social","is_active":true}
+		]`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.ListAccounts(context.Background(), "ws_1")
+	if err != nil {
+		t.Fatalf("ListAccounts returned error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 accounts, got %d", len(got))
+	}
+	if got[0].ID != "acc_1" || got[0].Slug != "x" || got[0].Platform != "x" {
+		t.Errorf("account[0] wrong: %+v", got[0])
+	}
+	if got[1].ID != "acc_2" || got[1].Slug != "bluesky" || got[1].Platform != "bluesky" {
+		t.Errorf("account[1] wrong: %+v", got[1])
+	}
+}
+
+func TestListAccountProviders_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/accounts/providers" {
+			t.Fatalf("path = %s, want /api/v1/accounts/providers", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"platform":"bluesky","display_name":"Bluesky","auth_mode":"app_password","configured":true,"status":"available","capabilities":["Text posts"]},
+			{"platform":"youtube","display_name":"YouTube","auth_mode":"oauth","configured":false,"status":"needs_configuration","description":"Requires a Google OAuth provider app."}
+		]`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.ListAccountProviders(context.Background())
+	if err != nil {
+		t.Fatalf("ListAccountProviders returned error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expected 2 providers, got %d", len(got))
+	}
+	if got[0].Platform != "bluesky" || !got[0].Configured || got[0].Status != "available" {
+		t.Errorf("provider[0] wrong: %+v", got[0])
+	}
+	if got[1].Platform != "youtube" || got[1].Configured || got[1].Status != "needs_configuration" {
+		t.Errorf("provider[1] wrong: %+v", got[1])
+	}
+}
+
+func TestBillingStatus_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/billing/status" {
+			t.Fatalf("path = %s, want /api/v1/billing/status", r.URL.Path)
+		}
+		if r.URL.Query().Get("workspace_id") != "ws_1" {
+			t.Fatalf("workspace_id query = %q, want ws_1", r.URL.Query().Get("workspace_id"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"workspace_id":"ws_1",
+			"provider":"polar",
+			"status":"active",
+			"plan_id":"creator",
+			"current_period_end":"2026-07-31T00:00:00Z",
+			"cancel_at_period_end":false,
+			"limits":{"scheduled_posts_monthly":500,"social_accounts":6},
+			"usage":{"scheduled_posts_monthly":42,"social_accounts":3},
+			"period_start":"2026-07-01T00:00:00Z"
+		}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.BillingStatus(context.Background(), "ws_1")
+	if err != nil {
+		t.Fatalf("BillingStatus returned error: %v", err)
+	}
+	if got.WorkspaceID != "ws_1" || got.Provider != "polar" || got.Status != "active" || got.PlanID != "creator" {
+		t.Fatalf("billing status wrong: %+v", got)
+	}
+	if got.Limits["scheduled_posts_monthly"] != 500 || got.Usage["scheduled_posts_monthly"] != 42 {
+		t.Fatalf("billing usage wrong: %+v", got)
+	}
+}
+
+func TestCreateBillingCheckout_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/v1/billing/checkout" {
+			t.Fatalf("path = %s, want /api/v1/billing/checkout", r.URL.Path)
+		}
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if body["workspace_id"] != "ws_1" || body["plan_id"] != "creator" {
+			t.Fatalf("body = %#v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"checkout_1","url":"https://polar.sh/checkout/checkout_1"}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.CreateBillingCheckout(context.Background(), "ws_1", "creator")
+	if err != nil {
+		t.Fatalf("CreateBillingCheckout returned error: %v", err)
+	}
+	if got.ID != "checkout_1" || got.URL != "https://polar.sh/checkout/checkout_1" {
+		t.Fatalf("checkout = %+v", got)
+	}
+}
+
+func TestCreateBillingPortal_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Fatalf("method = %s, want POST", r.Method)
+		}
+		if r.URL.Path != "/api/v1/billing/portal" {
+			t.Fatalf("path = %s, want /api/v1/billing/portal", r.URL.Path)
+		}
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if body["workspace_id"] != "ws_1" {
+			t.Fatalf("body = %#v", body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"portal_1","url":"https://polar.sh/portal/portal_1"}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "op_cli_test")
+	got, err := c.CreateBillingPortal(context.Background(), "ws_1")
+	if err != nil {
+		t.Fatalf("CreateBillingPortal returned error: %v", err)
+	}
+	if got.ID != "portal_1" || got.URL != "https://polar.sh/portal/portal_1" {
+		t.Fatalf("portal = %+v", got)
+	}
+}
+
+func TestUpdateAccount_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("method = %s, want PATCH", r.Method)
+		}
+		if r.URL.Path != "/api/v1/accounts/acc_1" {
+			t.Errorf("path = %s, want /api/v1/accounts/acc_1", r.URL.Path)
+		}
+		var body map[string]string
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode request body: %v", err)
+		}
+		if body["slug"] != "main-x" {
+			t.Errorf("slug body = %q, want main-x", body["slug"])
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"acc_1","slug":"main-x","platform":"x","account_id":"x_handle","account_username":"@rodrigo","is_active":true}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.UpdateAccount(context.Background(), "acc_1", UpdateAccountInput{Slug: "main-x"})
+	if err != nil {
+		t.Fatalf("UpdateAccount returned error: %v", err)
+	}
+	if got.ID != "acc_1" || got.Slug != "main-x" || got.Platform != "x" {
+		t.Errorf("account wrong: %+v", got)
+	}
+}
+
+// TestListMedia_WireFormat verifies that ListMedia decodes the
+// server's `{media: [...], total: N}` shape, not a `{body: {media,
+// total}}` envelope.
+func TestListMedia_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"media":[{"id":"m_1","workspace_id":"ws_1","mime_type":"image/png","size":1024,"original_filename":"x.png","width":800,"height":600,"alt_text":"","is_favorite":false,"created_at":"2026-06-15T10:00:00Z","url":"/media/m_1","thumbnail_url":"/media/m_1/thumb/sm","usage_count":0,"can_delete":true,"processing_status":"ready"}],"total":1}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.ListMedia(context.Background(), "ws_1", 50)
+	if err != nil {
+		t.Fatalf("ListMedia returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 media item, got %d", len(got))
+	}
+	if got[0].ID != "m_1" || got[0].URL != "/media/m_1" {
+		t.Errorf("media[0] wrong: %+v", got[0])
+	}
+}
+
+// TestListMedia_EmptyResponse_DoesNotSilentlySucceed guards against
+// the prior bug where the client decoded `{media: null, total: 0}`
+// into `{body: {media, total}}`, which silently produced a nil
+// slice — making the user believe there was no media when in fact
+// the response was just missing the `body` wrapper. With the fix,
+// the decode now matches the wire format and returns the empty
+// list directly.
+func TestListMedia_EmptyResponse(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"media":[],"total":0}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.ListMedia(context.Background(), "ws_1", 50)
+	if err != nil {
+		t.Fatalf("ListMedia returned error: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("expected 0 media items, got %d", len(got))
+	}
+}
+
+// TestListPosts_WireFormat: server returns a raw array of posts.
+func TestListPosts_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("workspace_id"); got != "ws_1" {
+			t.Fatalf("workspace_id query = %q, want ws_1", got)
+		}
+		if got := r.URL.Query().Get("status"); got != "scheduled" {
+			t.Fatalf("status query = %q, want scheduled", got)
+		}
+		if got := r.URL.Query().Get("date"); got != "2026-06-16" {
+			t.Fatalf("date query = %q, want 2026-06-16", got)
+		}
+		if got := r.URL.Query().Get("limit"); got != "25" {
+			t.Fatalf("limit query = %q, want 25", got)
+		}
+		if got := r.URL.Query().Get("offset"); got != "50" {
+			t.Fatalf("offset query = %q, want 50", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":"p_1","workspace_id":"ws_1","created_by":"u_1","content":"Hello","status":"scheduled","scheduled_at":"2026-06-16T09:00:00Z","created_at":"2026-06-15T10:00:00Z","random_delay_minutes":0}]`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.ListPosts(context.Background(), ListPostsInput{WorkspaceID: "ws_1", Status: "scheduled", Date: "2026-06-16", Limit: 25, Offset: 50})
+	if err != nil {
+		t.Fatalf("ListPosts returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 post, got %d", len(got))
+	}
+	if got[0].ID != "p_1" || got[0].Content != "Hello" {
+		t.Errorf("post wrong: %+v", got[0])
+	}
+}
+
+// TestListJobs_WireFormat: server returns a raw array of jobs.
+func TestListJobs_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.Query().Get("workspace_id"); got != "ws_1" {
+			t.Fatalf("workspace_id query = %q, want ws_1", got)
+		}
+		if got := r.URL.Query().Get("status"); got != "pending" {
+			t.Fatalf("status query = %q, want pending", got)
+		}
+		if got := r.URL.Query().Get("limit"); got != "25" {
+			t.Fatalf("limit query = %q, want 25", got)
+		}
+		if got := r.URL.Query().Get("offset"); got != "50" {
+			t.Fatalf("offset query = %q, want 50", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[{"id":"j_1","type":"publish","payload":"{}","status":"queued","run_at":"2026-06-16T09:00:00Z","attempts":0}]`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.ListJobs(context.Background(), ListJobsInput{WorkspaceID: "ws_1", Status: "pending", Limit: 25, Offset: 50})
+	if err != nil {
+		t.Fatalf("ListJobs returned error: %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expected 1 job, got %d", len(got))
+	}
+	if got[0].ID != "j_1" || got[0].Type != "publish" {
+		t.Errorf("job wrong: %+v", got[0])
+	}
+}
+
+// TestGetWorkspaceSettings_WireFormat: server returns a flat object.
+func TestGetWorkspaceSettings_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"timezone":"Europe/Lisbon","week_start":1,"media_cleanup_days":30,"random_delay_minutes":5,"draft_gap_minutes":60,"slot_start_hour":9,"slot_end_hour":18,"slot_interval_minutes":30}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.GetWorkspaceSettings(context.Background(), "ws_1")
+	if err != nil {
+		t.Fatalf("GetWorkspaceSettings returned error: %v", err)
+	}
+	if got.Timezone != "Europe/Lisbon" {
+		t.Errorf("expected timezone Europe/Lisbon, got %q", got.Timezone)
+	}
+	if got.WeekStart != 1 {
+		t.Errorf("expected week_start 1, got %d", got.WeekStart)
+	}
+}
+
+func TestNextAvailableSlot_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		if r.URL.Path != "/api/v1/posting-schedules/next-slot" {
+			t.Errorf("path = %s", r.URL.Path)
+		}
+		if got := r.URL.Query().Get("workspace_id"); got != "ws_1" {
+			t.Errorf("workspace_id = %q, want ws_1", got)
+		}
+		if got := r.URL.Query().Get("set_id"); got != "" {
+			t.Errorf("set_id query = %q, want empty", got)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"slot":{"id":"slot_1","workspace_id":"ws_1","utc_hour":9,"utc_minute":0,"day_of_week":2,"local_hour":9,"local_minute":0,"local_day_of_week":2,"label":"Morning","is_active":true,"created_at":"2026-06-16T08:00:00Z"},
+			"slot_time":"2026-06-16T09:00:00Z",
+			"message":"Next available slot found"
+		}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.NextAvailableSlot(context.Background(), NextAvailableSlotInput{WorkspaceID: "ws_1"})
+	if err != nil {
+		t.Fatalf("NextAvailableSlot returned error: %v", err)
+	}
+	if got.SlotTime != "2026-06-16T09:00:00Z" {
+		t.Fatalf("slot_time = %q", got.SlotTime)
+	}
+	if got.Slot == nil || got.Slot.ID != "slot_1" {
+		t.Fatalf("slot = %+v", got.Slot)
+	}
+}
+
+// TestCreatePost_WireFormat: server returns the Post object directly.
+func TestCreatePost_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"p_new","workspace_id":"ws_1","created_by":"u_1","content":"Hi","status":"draft","scheduled_at":"","created_at":"2026-06-15T10:00:00Z","random_delay_minutes":0}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.CreatePost(context.Background(), CreatePostInput{
+		WorkspaceID:      "ws_1",
+		Content:          "Hi",
+		SocialAccountIDs: []string{"acc_1"},
+	})
+	if err != nil {
+		t.Fatalf("CreatePost returned error: %v", err)
+	}
+	if got.ID != "p_new" {
+		t.Errorf("expected id p_new, got %q", got.ID)
+	}
+	if got.Content != "Hi" {
+		t.Errorf("expected content Hi, got %q", got.Content)
+	}
+}
+
+func TestGetPostIncludesRenditions(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/variants") {
+			_, _ = w.Write([]byte(`{"variants":[{"id":"inherit","social_account_id":"a1","content":"Inherited","media_ids":"","is_unsynced":true},{"id":"clear","social_account_id":"a2","content":"Clear","media_ids":"[]","is_unsynced":true},{"id":"override","social_account_id":"a3","content":"Override","media_ids":"[\"m1\"]","is_unsynced":true}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"p1","content":"source","media":[{"media_id":"source-media"}]}`))
+	}))
+	defer srv.Close()
+	got, err := New(srv.URL, "").GetPost(context.Background(), "p1")
+	if err != nil || len(got.Renditions) != 3 {
+		t.Fatalf("post = %+v, err = %v", got, err)
+	}
+	if got.Renditions[0].MediaMode != "inherit" || !reflect.DeepEqual(got.Renditions[0].EffectiveMediaIDs, []string{"source-media"}) {
+		t.Fatalf("inherit rendition = %+v", got.Renditions[0])
+	}
+	if got.Renditions[1].MediaMode != "clear" || len(got.Renditions[1].EffectiveMediaIDs) != 0 {
+		t.Fatalf("clear rendition = %+v", got.Renditions[1])
+	}
+	if got.Renditions[2].MediaMode != "override" || !reflect.DeepEqual(got.Renditions[2].MediaIDs, []string{"m1"}) {
+		t.Fatalf("override rendition = %+v", got.Renditions[2])
+	}
+}
+
+func TestGetPostRejectsMalformedRenditionMediaJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/variants") {
+			_, _ = w.Write([]byte(`{"variants":[{"id":"bad","media_ids":"not-json"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"p1"}`))
+	}))
+	defer srv.Close()
+	_, err := New(srv.URL, "").GetPost(context.Background(), "p1")
+	if err == nil || !strings.Contains(err.Error(), "decode rendition bad media_ids") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestGetPostRejectsNullRenditionMediaJSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasSuffix(r.URL.Path, "/variants") {
+			_, _ = w.Write([]byte(`{"variants":[{"id":"null-media","media_ids":"null"}]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"id":"p1"}`))
+	}))
+	defer srv.Close()
+	_, err := New(srv.URL, "").GetPost(context.Background(), "p1")
+	if err == nil || !strings.Contains(err.Error(), "decode rendition null-media media_ids") || !strings.Contains(err.Error(), "JSON array") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestUpdatePostMediaDistinguishesOmittedFromCleared(t *testing.T) {
+	var bodies []map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		bodies = append(bodies, body)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"p1"}`))
+	}))
+	defer srv.Close()
+	c := New(srv.URL, "")
+	_, _ = c.UpdatePost(context.Background(), "p1", UpdatePostInput{})
+	empty := []string{}
+	_, _ = c.UpdatePost(context.Background(), "p1", UpdatePostInput{MediaIDs: &empty})
+	if _, ok := bodies[0]["media_ids"]; ok {
+		t.Fatal("omitted update unexpectedly sent media_ids")
+	}
+	if got, ok := bodies[1]["media_ids"].([]any); !ok || len(got) != 0 {
+		t.Fatalf("clear media_ids = %#v", bodies[1]["media_ids"])
+	}
+}
+
+// TestCreateAPIToken_WireFormat: server returns `{token, item}`.
+func TestCreateAPIToken_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"token":"op_cli_abc_secret","item":{"id":"t_1","name":"laptop","token_prefix":"op_cli_","scope":"cli:full","created_at":"2026-06-15T10:00:00Z"}}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.CreateAPIToken(context.Background(), CreateAPITokenInput{Name: "laptop"})
+	if err != nil {
+		t.Fatalf("CreateAPIToken returned error: %v", err)
+	}
+	if got.RawToken != "op_cli_abc_secret" {
+		t.Errorf("expected raw token, got %q", got.RawToken)
+	}
+	if got.Item.Name != "laptop" {
+		t.Errorf("expected item.name laptop, got %q", got.Item.Name)
+	}
+}

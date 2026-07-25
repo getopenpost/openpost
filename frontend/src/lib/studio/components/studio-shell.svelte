@@ -1,0 +1,1567 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import * as Dialog from '$lib/components/ui/dialog';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Sheet from '$lib/components/ui/sheet';
+	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import StudioCanvas from './studio-canvas.svelte';
+	import AssetPanel from './asset-panel.svelte';
+	import LayerTree from './layer-tree.svelte';
+	import PropertiesPanel from './properties-panel.svelte';
+	import PageStrip from './page-strip.svelte';
+	import { provideStudioEditor, StudioEditor } from '../editor.svelte';
+	import {
+		completeStudioReturnToken,
+		createStudioCheckpoint,
+		createStudioTemplate,
+		duplicateStudioDesign,
+		loadStudioDesign,
+		listStudioRevisions,
+		listStudioTemplates,
+		restoreStudioRevision,
+		saveStudioDesign,
+		updateStudioTemplate
+	} from '../api';
+	import {
+		clearLocalStudioRecovery,
+		loadLocalStudioRecovery,
+		storeLocalStudioRecovery
+	} from '../recovery';
+	import { cloneStudioLayer, validateStudioDocument } from '../document';
+	import {
+		downloadRenderedPages,
+		renderStudioPages,
+		renderStudioPreview
+	} from '../static-renderer';
+	import { StudioBackgroundRemoval } from '../background-removal';
+	import type {
+		StudioDocumentResponse,
+		StudioLayer,
+		StudioRevisionSummary,
+		StudioTemplate,
+		StudioTool
+	} from '../types';
+	import { getAuthenticatedMediaURL } from '$lib/media-url';
+	import { uploadMediaFile } from '$lib/media-upload-client';
+	import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
+	import UndoIcon from 'lucide-svelte/icons/undo-2';
+	import RedoIcon from 'lucide-svelte/icons/redo-2';
+	import DownloadIcon from 'lucide-svelte/icons/download';
+	import SaveIcon from 'lucide-svelte/icons/save';
+	import MousePointerIcon from 'lucide-svelte/icons/mouse-pointer-2';
+	import CropIcon from 'lucide-svelte/icons/crop';
+	import TypeIcon from 'lucide-svelte/icons/type';
+	import SquareIcon from 'lucide-svelte/icons/square';
+	import ImageIcon from 'lucide-svelte/icons/image';
+	import CameraIcon from 'lucide-svelte/icons/camera';
+	import HandIcon from 'lucide-svelte/icons/hand';
+	import ZoomInIcon from 'lucide-svelte/icons/zoom-in';
+	import LayersIcon from 'lucide-svelte/icons/layers-3';
+	import SlidersIcon from 'lucide-svelte/icons/sliders-horizontal';
+	import PanelLeftIcon from 'lucide-svelte/icons/panel-left';
+	import LoaderIcon from 'lucide-svelte/icons/loader-2';
+	import WandIcon from 'lucide-svelte/icons/wand-sparkles';
+	import GroupIcon from 'lucide-svelte/icons/group';
+	import UngroupIcon from 'lucide-svelte/icons/ungroup';
+	import MoreIcon from 'lucide-svelte/icons/ellipsis';
+	import PipetteIcon from 'lucide-svelte/icons/pipette';
+	import { m } from '$lib/paraglide/messages';
+	import { startStudioMetric } from '../telemetry';
+
+	let {
+		initial,
+		returnToken = '',
+		backgroundModelBaseURL = '/studio-models',
+		initialAction = '',
+		readOnlyReason = ''
+	}: {
+		initial: StudioDocumentResponse;
+		returnToken?: string;
+		backgroundModelBaseURL?: string;
+		initialAction?: string;
+		readOnlyReason?: string;
+	} = $props();
+
+	const editor = provideStudioEditor(new StudioEditor());
+	const backgroundRemoval = new StudioBackgroundRemoval();
+	let saveTimer: ReturnType<typeof setTimeout> | undefined;
+	let previewTimer: ReturnType<typeof setTimeout> | undefined;
+	let previewPending = false;
+	let previewBusy = false;
+	let lastPreviewAt = 0;
+	let coverPreviewMediaID = '';
+	let exportDialogOpen = $state(false);
+	let conflictDialogOpen = $state(false);
+	let historyDialogOpen = $state(false);
+	let checkpointDialogOpen = $state(false);
+	let templateDialogOpen = $state(false);
+	let resizeDialogOpen = $state(false);
+	let exportMode = $state<'download' | 'media' | 'attach'>('download');
+	let exportAllPages = $state(true);
+	let exportBusy = $state(false);
+	let exportProgress = $state('');
+	let exportError = $state('');
+	let exportSuccessfulByPage = $state.raw<Record<string, string>>({});
+	let backgroundBusy = $state(false);
+	let backgroundProgress = $state('');
+	let backgroundError = $state('');
+	let backgroundOptimizeDialogOpen = $state(false);
+	let mobileSheet = $state<'assets' | 'layers' | 'properties' | null>(null);
+	let focusedCanvas = $state(false);
+	let copiedLayers = $state.raw<StudioLayer[]>([]);
+	let statusAnnouncement = $state('');
+	let revisions = $state<StudioRevisionSummary[]>([]);
+	let historyBusy = $state(false);
+	let historyError = $state('');
+	let checkpointName = $state('');
+	let templateName = $state('');
+	let templateCategory = $state<string>(m.studio_workspace_category());
+	let templateTargetID = $state('new');
+	let workspaceTemplates = $state<StudioTemplate[]>([]);
+	let resizeWidth = $state(1080);
+	let resizeHeight = $state(1080);
+	let resizeMode = $state<'scale' | 'preserve'>('scale');
+	let resizeError = $state('');
+
+	function initializeShell() {
+		if (!editor.document) {
+			editor.load(initial);
+			coverPreviewMediaID = initial.cover_preview_media_id ?? '';
+		}
+	}
+
+	function openExport(mode: 'download' | 'media' | 'attach'): void {
+		exportMode = mode;
+		exportError = '';
+		exportSuccessfulByPage = {};
+		exportDialogOpen = true;
+	}
+
+	onMount(() => {
+		if (window.innerWidth < 1024 && window.innerHeight <= 520) {
+			editor.pagesExpanded = false;
+		}
+		const unsubscribe = editor.onChange(() => {
+			clearTimeout(saveTimer);
+			previewPending = true;
+			if (editor.document) {
+				void storeLocalStudioRecovery({
+					design_id: editor.id,
+					workspace_id: editor.workspaceID,
+					revision: editor.revision,
+					document: editor.document
+				}).then(() => {
+					if (editor.saveState === 'idle') {
+						editor.saveState = 'local';
+						editor.saveMessage = m.studio_saved_locally();
+					}
+				});
+			}
+			saveTimer = setTimeout(() => void saveNow(), 750);
+		});
+		void (async () => {
+			await restoreLocalIfNewer();
+			if (initialAction === 'remove-background') {
+				const imageLayer = editor.activePage?.layers.find((layer) => Boolean(layer.image));
+				if (imageLayer) {
+					editor.selectLayer(imageLayer.id);
+					const cleanURL = new URL(window.location.href);
+					cleanURL.searchParams.delete('action');
+					window.history.replaceState(window.history.state, '', cleanURL);
+					await removeBackground();
+				}
+			}
+		})();
+		const beforeUnload = (event: BeforeUnloadEvent) => {
+			if (editor.saveState === 'idle' || editor.saveState === 'saving') {
+				event.preventDefault();
+			}
+		};
+		window.addEventListener('beforeunload', beforeUnload);
+		return () => {
+			unsubscribe();
+			clearTimeout(saveTimer);
+			clearTimeout(previewTimer);
+			backgroundRemoval.dispose();
+			window.removeEventListener('beforeunload', beforeUnload);
+		};
+	});
+
+	async function restoreLocalIfNewer(): Promise<void> {
+		const local = await loadLocalStudioRecovery(editor.id);
+		if (!local || local.revision < editor.revision) return;
+		if (local.updated_at <= initial.updated_at) return;
+		editor.document = local.document;
+		editor.saveState = 'local';
+		editor.saveMessage = m.studio_recovered_local();
+		statusAnnouncement = m.studio_recovered_announcement();
+	}
+
+	async function saveNow(
+		nextCoverPreviewMediaID: string | undefined = undefined,
+		recoveryReason: 'idle' | 'export' | 'close' = 'idle'
+	): Promise<boolean> {
+		clearTimeout(saveTimer);
+		if (!editor.document || !editor.canEdit) return true;
+		const errors = validateStudioDocument(editor.document);
+		if (errors.length > 0) {
+			editor.saveState = 'error';
+			editor.saveMessage = errors[0];
+			statusAnnouncement = errors[0];
+			return false;
+		}
+		editor.saveState = 'saving';
+		editor.saveMessage = m.common_saving();
+		const finishMetric = startStudioMetric('autosave');
+		try {
+			const response = await saveStudioDesign(
+				editor.id,
+				editor.revision,
+				editor.document,
+				nextCoverPreviewMediaID ?? coverPreviewMediaID,
+				recoveryReason
+			);
+			editor.revision = response.revision;
+			editor.document = response.document;
+			coverPreviewMediaID = response.cover_preview_media_id ?? '';
+			editor.saveState = 'saved';
+			editor.saveMessage = m.studio_saved();
+			await clearLocalStudioRecovery(editor.id);
+			statusAnnouncement = m.studio_saved_announcement();
+			if (recoveryReason === 'idle' && previewPending) schedulePreview();
+			finishMetric();
+			return true;
+		} catch (cause) {
+			finishMetric('error');
+			const status = (cause as Error & { status?: number }).status;
+			if (status === 409) {
+				editor.saveState = 'conflict';
+				editor.saveMessage = m.studio_save_conflict();
+				conflictDialogOpen = true;
+				statusAnnouncement = m.studio_conflict_title();
+			} else if (!navigator.onLine) {
+				editor.saveState = 'offline';
+				editor.saveMessage = m.studio_saved_locally();
+				statusAnnouncement = m.studio_offline_saved();
+			} else {
+				editor.saveState = 'error';
+				editor.saveMessage = cause instanceof Error ? cause.message : m.studio_save_failed();
+				statusAnnouncement = editor.saveMessage;
+			}
+			return false;
+		}
+	}
+
+	function schedulePreview(): void {
+		if (!editor.canEdit || previewBusy || !previewPending) return;
+		clearTimeout(previewTimer);
+		const wait = Math.max(1000, 30_000 - (Date.now() - lastPreviewAt));
+		previewTimer = setTimeout(() => void generatePreview(), wait);
+	}
+
+	async function generatePreview(): Promise<void> {
+		if (!editor.document || !editor.canEdit || previewBusy || !previewPending) return;
+		const page = editor.document.pages.find((item) => item.id === editor.activePageID);
+		if (!page) return;
+		previewBusy = true;
+		const finishMetric = startStudioMetric('preview_generation');
+		let metricOutcome: 'success' | 'error' = 'success';
+		const documentSnapshot = structuredClone(editor.document);
+		const pageSnapshot = structuredClone(page);
+		try {
+			const blob = await renderStudioPreview(documentSnapshot, pageSnapshot);
+			const uploaded = await uploadMediaFile({
+				workspaceId: editor.workspaceID,
+				file: new File([blob], `${editor.id}-${page.id}-preview.webp`, {
+					type: 'image/webp'
+				}),
+				source: 'studio_edit',
+				assetKind: 'design_preview',
+				designDocumentId: editor.id,
+				designPageId: page.id
+			});
+			if (!editor.document?.pages.some((item) => item.id === page.id)) return;
+			const nextDocument = structuredClone(editor.document);
+			const nextPage = nextDocument.pages.find((item) => item.id === page.id);
+			if (!nextPage) return;
+			nextPage.preview_media_id = uploaded.id;
+			editor.document = nextDocument;
+			previewPending = false;
+			lastPreviewAt = Date.now();
+			const firstPagePreview =
+				nextDocument.pages[0]?.id === page.id ? uploaded.id : coverPreviewMediaID;
+			await saveNow(firstPagePreview, 'idle');
+		} catch {
+			metricOutcome = 'error';
+			// Preview generation is best-effort and must never interrupt editing or autosave.
+		} finally {
+			finishMetric(metricOutcome);
+			previewBusy = false;
+		}
+	}
+
+	async function reloadServerVersion(): Promise<void> {
+		const response = await loadStudioDesign(editor.id);
+		editor.replaceFromServer(response);
+		coverPreviewMediaID = response.cover_preview_media_id ?? '';
+		await clearLocalStudioRecovery(editor.id);
+		conflictDialogOpen = false;
+	}
+
+	async function saveConflictAsCopy(): Promise<void> {
+		if (!editor.document) return;
+		const localDocument = structuredClone(editor.document);
+		const duplicate = await duplicateStudioDesign(editor.id);
+		const saved = await saveStudioDesign(duplicate.id, duplicate.revision, localDocument);
+		editor.load(saved);
+		conflictDialogOpen = false;
+		await goto(resolve(`/studio/${duplicate.id}` as '/'));
+	}
+
+	async function goBack(): Promise<void> {
+		if (
+			editor.canEdit &&
+			(editor.saveState === 'idle' ||
+				editor.saveState === 'local' ||
+				editor.saveState === 'offline' ||
+				editor.saveState === 'error')
+		) {
+			await saveNow('', 'close');
+		}
+		if (history.length > 1) history.back();
+		else void goto(resolve('/media?view=designs' as '/'));
+	}
+
+	async function openHistory(): Promise<void> {
+		historyDialogOpen = true;
+		historyBusy = true;
+		historyError = '';
+		try {
+			revisions = await listStudioRevisions(editor.id);
+		} catch (cause) {
+			historyError = cause instanceof Error ? cause.message : m.studio_history_load_failed();
+		} finally {
+			historyBusy = false;
+		}
+	}
+
+	async function createCheckpoint(): Promise<void> {
+		if (!checkpointName.trim()) return;
+		historyBusy = true;
+		historyError = '';
+		try {
+			if (!(await saveNow())) throw new Error(m.studio_checkpoint_save_first());
+			await createStudioCheckpoint(editor.id, checkpointName.trim());
+			checkpointName = '';
+			checkpointDialogOpen = false;
+			await openHistory();
+			statusAnnouncement = m.studio_checkpoint_created();
+		} catch (cause) {
+			historyError = cause instanceof Error ? cause.message : m.studio_checkpoint_failed();
+		} finally {
+			historyBusy = false;
+		}
+	}
+
+	async function restoreRevision(revision: StudioRevisionSummary): Promise<void> {
+		historyBusy = true;
+		historyError = '';
+		try {
+			const response = await restoreStudioRevision(editor.id, revision.id, editor.revision);
+			editor.load(response);
+			await clearLocalStudioRecovery(editor.id);
+			historyDialogOpen = false;
+			statusAnnouncement = m.studio_version_restored();
+		} catch (cause) {
+			historyError = cause instanceof Error ? cause.message : m.studio_restore_failed();
+		} finally {
+			historyBusy = false;
+		}
+	}
+
+	async function saveAsTemplate(): Promise<void> {
+		if (!editor.document || !templateName.trim()) return;
+		historyBusy = true;
+		historyError = '';
+		try {
+			if (!(await saveNow())) throw new Error(m.studio_template_save_first());
+			const templateInput = {
+				name: templateName.trim(),
+				category: templateCategory.trim() || m.studio_workspace_category(),
+				preview_media_id: editor.document.pages[0]?.latest_export_media_id,
+				document: editor.document
+			};
+			if (templateTargetID === 'new') {
+				await createStudioTemplate({ workspace_id: editor.workspaceID, ...templateInput });
+			} else {
+				await updateStudioTemplate(templateTargetID, templateInput);
+			}
+			templateDialogOpen = false;
+			templateName = '';
+			statusAnnouncement =
+				templateTargetID === 'new' ? m.studio_template_created() : m.studio_template_replaced();
+		} catch (cause) {
+			historyError = cause instanceof Error ? cause.message : m.studio_template_save_failed();
+		} finally {
+			historyBusy = false;
+		}
+	}
+
+	async function openTemplateDialog(): Promise<void> {
+		historyError = '';
+		templateTargetID = 'new';
+		templateName = editor.document?.title ?? '';
+		templateCategory = m.studio_workspace_category();
+		templateDialogOpen = true;
+		try {
+			workspaceTemplates = (await listStudioTemplates(editor.workspaceID)).filter(
+				(template) => !template.built_in
+			);
+		} catch (cause) {
+			historyError = cause instanceof Error ? cause.message : m.studio_templates_load_failed();
+		}
+	}
+
+	function selectTemplateTarget(id: string): void {
+		templateTargetID = id;
+		const template = workspaceTemplates.find((item) => item.id === id);
+		if (template) {
+			templateName = template.name;
+			templateCategory = template.category;
+		}
+	}
+
+	function openResizeDialog(): void {
+		if (!editor.document) return;
+		resizeWidth = editor.document.width_px;
+		resizeHeight = editor.document.height_px;
+		resizeMode = 'scale';
+		resizeError = '';
+		resizeDialogOpen = true;
+	}
+
+	function resizeDocument(): void {
+		if (!editor.document) return;
+		if (
+			resizeWidth < 64 ||
+			resizeHeight < 64 ||
+			resizeWidth > 4096 ||
+			resizeHeight > 4096 ||
+			resizeWidth * resizeHeight > 25_000_000
+		) {
+			resizeError = m.studio_resize_limits();
+			return;
+		}
+		const previousWidth = editor.document.width_px;
+		const previousHeight = editor.document.height_px;
+		editor.mutate('Resize design', (document) => {
+			if (resizeMode === 'scale') {
+				const scaleX = resizeWidth / previousWidth;
+				const scaleY = resizeHeight / previousHeight;
+				for (const page of document.pages) {
+					for (const layer of page.layers) {
+						layer.transform.x *= scaleX;
+						layer.transform.y *= scaleY;
+						layer.transform.width *= scaleX;
+						layer.transform.height *= scaleY;
+						if (layer.text) layer.text.font_size *= Math.min(scaleX, scaleY);
+					}
+				}
+			}
+			document.width_px = resizeWidth;
+			document.height_px = resizeHeight;
+			document.preset_key = 'custom';
+		});
+		resizeDialogOpen = false;
+	}
+
+	function setTool(tool: StudioTool): void {
+		editor.activeTool = tool;
+		if (tool === 'text') editor.addText();
+		if (tool === 'shape') editor.addShape();
+		if (tool === 'image' || tool === 'camera') {
+			editor.leftPanel = 'media';
+			mobileSheet = 'assets';
+		}
+		if (tool === 'eyedropper') void pickColor();
+	}
+
+	async function pickColor(): Promise<void> {
+		const EyeDropperConstructor = (
+			window as typeof window & {
+				EyeDropper?: new () => { open(): Promise<{ sRGBHex: string }> };
+			}
+		).EyeDropper;
+		if (!EyeDropperConstructor) {
+			statusAnnouncement = m.studio_eyedropper_unavailable();
+			editor.activeTool = 'select';
+			return;
+		}
+		try {
+			const { sRGBHex } = await new EyeDropperConstructor().open();
+			const selected = editor.selectedLayers[0];
+			if (selected?.text) {
+				editor.updateLayer(selected.id, { text: { ...selected.text, color: sRGBHex } });
+			} else if (selected?.shape) {
+				editor.updateLayer(selected.id, { shape: { ...selected.shape, fill: sRGBHex } });
+			} else {
+				editor.mutate('Pick page color', (document) => {
+					const page = document.pages.find((item) => item.id === editor.activePageID);
+					if (page) page.background_color = sRGBHex;
+				});
+			}
+		} catch {
+			// Closing the native eyedropper is not an error.
+		} finally {
+			editor.activeTool = 'select';
+		}
+	}
+
+	function editableTarget(target: EventTarget | null): boolean {
+		return (
+			target instanceof HTMLInputElement ||
+			target instanceof HTMLTextAreaElement ||
+			target instanceof HTMLSelectElement ||
+			(target instanceof HTMLElement && target.isContentEditable)
+		);
+	}
+
+	function handleShortcut(event: KeyboardEvent): void {
+		if (editableTarget(event.target)) return;
+		const modifier = event.metaKey || event.ctrlKey;
+		const key = event.key.toLowerCase();
+		if (modifier && key === 's') {
+			event.preventDefault();
+			void saveNow();
+			return;
+		}
+		if (modifier && key === 'z') {
+			event.preventDefault();
+			if (event.shiftKey) editor.redo();
+			else editor.undo();
+			return;
+		}
+		if (modifier && key === 'j') {
+			event.preventDefault();
+			editor.duplicateSelected();
+			return;
+		}
+		if (modifier && key === 'g') {
+			event.preventDefault();
+			if (event.shiftKey) editor.ungroupSelected();
+			else editor.groupSelected();
+			return;
+		}
+		if (modifier && key === 'a') {
+			event.preventDefault();
+			editor.selectAll();
+			return;
+		}
+		if (modifier && key === 'd') {
+			event.preventDefault();
+			editor.selectLayer('');
+			return;
+		}
+		if (modifier && key === 'c') {
+			event.preventDefault();
+			void copySelection();
+			return;
+		}
+		if (modifier && key === 'x') {
+			event.preventDefault();
+			void copySelection().then(() => editor.deleteSelected());
+			return;
+		}
+		if (modifier && key === 'v') {
+			event.preventDefault();
+			void pasteSelection();
+			return;
+		}
+		if (modifier && key === '0') {
+			event.preventDefault();
+			editor.zoom = 0.75;
+			editor.panX = 0;
+			editor.panY = 0;
+			return;
+		}
+		if (modifier && key === '1') {
+			event.preventDefault();
+			editor.zoom = 1;
+			return;
+		}
+		if (key === 'delete' || key === 'backspace') {
+			event.preventDefault();
+			editor.deleteSelected();
+			return;
+		}
+		const tools: Record<string, StudioTool> = {
+			v: 'select',
+			c: 'crop',
+			t: 'text',
+			u: 'shape',
+			i: 'eyedropper',
+			h: 'hand',
+			z: 'zoom'
+		};
+		if (tools[key]) setTool(tools[key]);
+		if (key === 'f') focusedCanvas = !focusedCanvas;
+		if (key === 'tab') {
+			event.preventDefault();
+			editor.rightPanelVisible = !editor.rightPanelVisible;
+		}
+	}
+
+	async function copySelection(): Promise<void> {
+		copiedLayers = structuredClone(editor.selectedLayers);
+		if (copiedLayers.length === 0) return;
+		const payload = JSON.stringify({ version: 1, layers: copiedLayers });
+		try {
+			await navigator.clipboard.write([
+				new ClipboardItem({
+					'application/x-openpost-studio-layers+json': new Blob([payload], {
+						type: 'application/x-openpost-studio-layers+json'
+					}),
+					'text/plain': new Blob([payload], { type: 'text/plain' })
+				})
+			]);
+		} catch {
+			// The in-session clipboard remains available when custom clipboard MIME is blocked.
+		}
+	}
+
+	async function pasteSelection(): Promise<void> {
+		let source = copiedLayers;
+		let externalImage: Blob | null = null;
+		let externalText = '';
+		try {
+			const items = await navigator.clipboard.read();
+			const item = items.find((entry) =>
+				entry.types.includes('application/x-openpost-studio-layers+json')
+			);
+			if (item) {
+				const blob = await item.getType('application/x-openpost-studio-layers+json');
+				const parsed = JSON.parse(await blob.text()) as { version: number; layers: StudioLayer[] };
+				if (parsed.version === 1 && Array.isArray(parsed.layers)) source = parsed.layers;
+			} else {
+				const imageItem = items.find((entry) =>
+					entry.types.some((type) => type.startsWith('image/'))
+				);
+				const imageType = imageItem?.types.find((type) => type.startsWith('image/'));
+				if (imageItem && imageType) externalImage = await imageItem.getType(imageType);
+			}
+		} catch {
+			// Use the sanitized in-session clipboard.
+		}
+		if (source.length === 0 && externalImage) {
+			const extension = externalImage.type === 'image/png' ? 'png' : 'jpg';
+			const uploaded = await uploadMediaFile({
+				workspaceId: editor.workspaceID,
+				file: new File([externalImage], `pasted-image.${extension}`, { type: externalImage.type }),
+				source: 'upload'
+			});
+			editor.addImage({ id: uploaded.id, name: m.studio_pasted_image() });
+			return;
+		}
+		if (source.length === 0) {
+			try {
+				externalText = (await navigator.clipboard.readText()).trim();
+			} catch {
+				externalText = '';
+			}
+			if (externalText) {
+				editor.addText();
+				const textLayer = editor.selectedLayers[0];
+				if (textLayer?.text) {
+					editor.updateLayer(textLayer.id, { text: { ...textLayer.text, text: externalText } });
+				}
+				return;
+			}
+		}
+		if (source.length === 0) return;
+		const copies = source.map((layer) =>
+			cloneStudioLayer(layer, m.studio_layer_copy_name({ name: layer.name }))
+		);
+		editor.mutate('Paste layers', (document) => {
+			document.pages
+				.find((page) => page.id === editor.activePageID)
+				?.layers.push(...structuredClone(copies));
+		});
+		editor.selectedLayerIDs = copies.map((layer) => layer.id);
+	}
+
+	async function removeBackground(optimizeLarge = false): Promise<void> {
+		const layer = editor.selectedLayers[0];
+		if (!layer?.image || backgroundBusy) return;
+		backgroundBusy = true;
+		const finishMetric = startStudioMetric('background_removal');
+		backgroundError = '';
+		backgroundProgress = m.studio_background_loading();
+		try {
+			const response = await fetch(getAuthenticatedMediaURL(`/media/${layer.image.media_id}`), {
+				credentials: 'include'
+			});
+			if (!response.ok) throw new Error(m.studio_background_source_failed());
+			let source = await response.blob();
+			const sourceBitmap = await createImageBitmap(source);
+			const sourcePixels = sourceBitmap.width * sourceBitmap.height;
+			const sourceMaxDimension = Math.max(sourceBitmap.width, sourceBitmap.height);
+			sourceBitmap.close();
+			if (
+				!optimizeLarge &&
+				(source.size > 15 * 1024 * 1024 || sourcePixels > 16_000_000 || sourceMaxDimension > 4096)
+			) {
+				backgroundOptimizeDialogOpen = true;
+				return;
+			}
+			if (optimizeLarge) {
+				backgroundProgress = m.studio_background_optimizing();
+				source = await optimizeBackgroundSource(source);
+			}
+			const result = await backgroundRemoval.remove(source, backgroundModelBaseURL, (progress) => {
+				backgroundProgress = `${progress.stage} ${Math.round(progress.progress * 100)}%`;
+			});
+			backgroundProgress = m.studio_background_saving();
+			const uploaded = await uploadMediaFile({
+				workspaceId: editor.workspaceID,
+				file: new File([result], `${layer.name || 'image'}-no-background.png`, {
+					type: 'image/png'
+				}),
+				source: 'background_removal',
+				parentMediaId: layer.image.media_id,
+				designDocumentId: editor.id,
+				designPageId: editor.activePageID
+			});
+			editor.updateLayer(layer.id, {
+				image: { ...layer.image, media_id: uploaded.id }
+			});
+			statusAnnouncement = m.studio_background_done();
+			finishMetric();
+		} catch (cause) {
+			finishMetric('error');
+			backgroundError = cause instanceof Error ? cause.message : m.studio_background_failed();
+			statusAnnouncement = backgroundError;
+		} finally {
+			backgroundBusy = false;
+			backgroundProgress = '';
+		}
+	}
+
+	async function optimizeBackgroundSource(source: Blob): Promise<Blob> {
+		const bitmap = await createImageBitmap(source);
+		const scale = Math.min(
+			1,
+			3072 / Math.max(bitmap.width, bitmap.height),
+			Math.sqrt(12_000_000 / (bitmap.width * bitmap.height))
+		);
+		const canvas = document.createElement('canvas');
+		canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+		canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+		const context = canvas.getContext('2d');
+		if (!context) {
+			bitmap.close();
+			throw new Error(m.studio_background_preparation_failed());
+		}
+		context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+		bitmap.close();
+		return await new Promise<Blob>((resolve, reject) => {
+			canvas.toBlob(
+				(blob) => (blob ? resolve(blob) : reject(new Error(m.studio_background_prepare_failed()))),
+				'image/png'
+			);
+		});
+	}
+
+	async function exportDesign(): Promise<void> {
+		if (!editor.document || exportBusy) return;
+		exportBusy = true;
+		const finishMetric = startStudioMetric('export');
+		exportError = '';
+		exportProgress = m.studio_export_saving();
+		try {
+			const saved = await saveNow();
+			if (!saved && exportMode !== 'download') {
+				throw new Error(m.studio_export_save_first());
+			}
+			const pageIDs = exportAllPages
+				? editor.document.pages.map((page) => page.id)
+				: [editor.activePageID];
+			const rendered = await renderStudioPages(editor.document, pageIDs, (done, total) => {
+				exportProgress = m.studio_rendering_progress({ done, total });
+			});
+			if (exportMode === 'download') {
+				downloadRenderedPages(rendered, editor.document.title);
+				exportDialogOpen = false;
+				exportSuccessfulByPage = {};
+				statusAnnouncement = m.studio_export_downloaded();
+				finishMetric();
+				return;
+			}
+			const mediaIDs: string[] = [];
+			for (let index = 0; index < rendered.length; index++) {
+				const page = rendered[index];
+				const existingMediaID = exportSuccessfulByPage[page.page.id];
+				if (existingMediaID) {
+					mediaIDs.push(existingMediaID);
+					continue;
+				}
+				exportProgress = m.studio_saving_media_progress({
+					done: index + 1,
+					total: rendered.length
+				});
+				const file = new File([page.blob], page.filename, { type: page.blob.type });
+				const uploaded = await uploadMediaFile({
+					workspaceId: editor.workspaceID,
+					file,
+					source: 'studio_export',
+					designDocumentId: editor.id,
+					designPageId: page.page.id
+				});
+				mediaIDs.push(uploaded.id);
+				exportSuccessfulByPage = {
+					...exportSuccessfulByPage,
+					[page.page.id]: uploaded.id
+				};
+				editor.mutate('Record page export', (document) => {
+					const target = document.pages.find((item) => item.id === page.page.id);
+					if (target) target.latest_export_media_id = uploaded.id;
+				});
+			}
+			await saveNow(mediaIDs[0] ?? '', 'export');
+			if (exportMode === 'attach') {
+				if (!returnToken) throw new Error(m.studio_attach_missing());
+				const returnURL = await completeStudioReturnToken(returnToken, editor.id, mediaIDs);
+				await goto(
+					resolve(
+						`${returnURL}${returnURL.includes('?') ? '&' : '?'}studio_return=${encodeURIComponent(returnToken)}` as '/'
+					)
+				);
+				finishMetric();
+				return;
+			}
+			exportDialogOpen = false;
+			exportSuccessfulByPage = {};
+			statusAnnouncement = m.studio_exported_pages({
+				count: mediaIDs.length,
+				suffix: mediaIDs.length === 1 ? '' : 's'
+			});
+			finishMetric();
+		} catch (cause) {
+			finishMetric('error');
+			exportError = cause instanceof Error ? cause.message : m.studio_export_failed();
+			statusAnnouncement = exportError;
+		} finally {
+			exportBusy = false;
+			exportProgress = '';
+		}
+	}
+
+	const tools: Array<{ key: StudioTool; label: string; icon: typeof MousePointerIcon }> = [
+		{ key: 'select', label: m.studio_select(), icon: MousePointerIcon },
+		{ key: 'crop', label: m.studio_crop(), icon: CropIcon },
+		{ key: 'text', label: m.studio_text(), icon: TypeIcon },
+		{ key: 'shape', label: m.studio_shape(), icon: SquareIcon },
+		{ key: 'image', label: m.studio_image(), icon: ImageIcon },
+		{ key: 'camera', label: m.studio_camera(), icon: CameraIcon },
+		{ key: 'eyedropper', label: m.studio_eyedropper(), icon: PipetteIcon },
+		{ key: 'hand', label: m.studio_hand(), icon: HandIcon },
+		{ key: 'zoom', label: m.studio_zoom(), icon: ZoomInIcon }
+	];
+</script>
+
+<svelte:window onkeydown={handleShortcut} />
+
+<div
+	class="studio-theme flex h-dvh min-h-0 flex-col overflow-hidden bg-background text-foreground"
+	{@attach initializeShell}
+>
+	<div class="sr-only" aria-live="polite">{statusAnnouncement}</div>
+	<header
+		class="flex h-14 shrink-0 items-center gap-1 border-b bg-background/95 px-2 backdrop-blur md:h-12"
+	>
+		<Button
+			variant="ghost"
+			size="icon-sm"
+			class="size-11 md:size-11 lg:size-8"
+			onclick={goBack}
+			aria-label={m.common_back()}
+		>
+			<ArrowLeftIcon />
+		</Button>
+		<Input
+			value={editor.document?.title ?? ''}
+			class="h-11 min-w-0 flex-1 border-transparent bg-transparent px-2 font-medium hover:border-input focus:border-input sm:max-w-56 sm:flex-none md:h-11 lg:h-8"
+			aria-label={m.studio_design_title()}
+			disabled={!editor.canEdit}
+			oninput={(event) =>
+				editor.mutate(
+					'Rename design',
+					(document) => (document.title = event.currentTarget.value),
+					'document-title'
+				)}
+		/>
+		<span class="hidden min-w-20 text-xs text-muted-foreground sm:inline">{editor.saveMessage}</span
+		>
+		<nav class="ml-2 hidden items-center gap-0.5 lg:flex" aria-label={m.studio_menus()}>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="xs">{m.studio_file()}</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content>
+					<DropdownMenu.Item onclick={() => saveNow()} disabled={!editor.canEdit}
+						><SaveIcon /> {m.common_save()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={openHistory}>{m.studio_version_history()}</DropdownMenu.Item>
+					<DropdownMenu.Item
+						onclick={() => (checkpointDialogOpen = true)}
+						disabled={!editor.canEdit}>{m.studio_create_checkpoint()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={openTemplateDialog} disabled={!editor.canEdit}
+						>{m.studio_save_template()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={openResizeDialog} disabled={!editor.canEdit}
+						>{m.studio_resize_design()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Separator />
+					<DropdownMenu.Item onclick={() => openExport('download')}
+						><DownloadIcon /> {m.studio_export()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="xs">{m.studio_edit()}</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content>
+					<DropdownMenu.Item onclick={() => editor.undo()} disabled={!editor.canUndo}
+						>{m.studio_undo()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => editor.redo()} disabled={!editor.canRedo}
+						>{m.studio_redo()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => editor.duplicateSelected()}
+						>{m.studio_duplicate()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => editor.deleteSelected()}
+						>{m.common_delete()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="xs">{m.studio_layer()}</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content>
+					<DropdownMenu.Item onclick={() => editor.groupSelected()}
+						><GroupIcon /> {m.studio_group()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => editor.ungroupSelected()}
+						><UngroupIcon /> {m.studio_ungroup()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item
+						onclick={() => removeBackground()}
+						disabled={!editor.selectedLayers[0]?.image}
+						><WandIcon /> {m.studio_remove_background()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="ghost" size="xs">{m.studio_view()}</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content>
+					<DropdownMenu.Item onclick={() => (editor.rightPanelVisible = !editor.rightPanelVisible)}
+						>{m.studio_toggle_inspector()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item
+						onclick={() => {
+							editor.zoom = 0.75;
+							editor.panX = 0;
+							editor.panY = 0;
+						}}>{m.studio_fit_canvas()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => (editor.zoom = 1)}
+						>{m.studio_zoom_100()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => (focusedCanvas = !focusedCanvas)}
+						>{m.studio_focused_canvas()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+		</nav>
+		<div class="ml-auto flex items-center gap-1">
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="size-11 max-[359px]:hidden md:size-11 lg:size-8"
+				onclick={() => editor.undo()}
+				disabled={!editor.canUndo}
+				aria-label={m.studio_undo()}><UndoIcon /></Button
+			>
+			<Button
+				variant="ghost"
+				size="icon-sm"
+				class="size-11 max-[359px]:hidden md:size-11 lg:size-8"
+				onclick={() => editor.redo()}
+				disabled={!editor.canRedo}
+				aria-label={m.studio_redo()}><RedoIcon /></Button
+			>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="ghost"
+							size="icon-sm"
+							class="size-11 md:size-11 lg:hidden"
+							aria-label={m.studio_more_actions()}
+						>
+							<MoreIcon />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					<DropdownMenu.Item onclick={() => saveNow()} disabled={!editor.canEdit}
+						>{m.common_save()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={openHistory}>{m.studio_version_history()}</DropdownMenu.Item>
+					<DropdownMenu.Item
+						onclick={() => (checkpointDialogOpen = true)}
+						disabled={!editor.canEdit}>{m.studio_create_checkpoint()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => (mobileSheet = 'layers')}
+						>{m.studio_layers()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item onclick={() => (mobileSheet = 'properties')}
+						>{m.studio_properties()}</DropdownMenu.Item
+					>
+					<DropdownMenu.Item
+						onclick={() => removeBackground()}
+						disabled={!editor.selectedLayers[0]?.image}
+						>{m.studio_remove_background()}</DropdownMenu.Item
+					>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
+			<Button
+				size="sm"
+				class="h-11 md:h-11 lg:h-8"
+				onclick={() => openExport(editor.canEdit ? (returnToken ? 'attach' : 'media') : 'download')}
+			>
+				{#if returnToken}{m.studio_attach()}{:else}{m.studio_export()}{/if}
+			</Button>
+		</div>
+	</header>
+
+	{#if !editor.canEdit}
+		<div class="border-b bg-muted px-3 py-2 text-center text-xs">
+			{readOnlyReason || m.studio_read_only()}
+		</div>
+	{/if}
+	{#if backgroundBusy}
+		<div class="border-b bg-primary/10 px-3 py-2 text-center text-xs" aria-live="polite">
+			{backgroundProgress || m.studio_background_removing()}
+			<Button variant="ghost" size="xs" class="ml-2" onclick={() => backgroundRemoval.cancel()}
+				>{m.common_cancel()}</Button
+			>
+		</div>
+	{/if}
+	{#if backgroundError}
+		<div
+			class="flex items-center justify-center gap-2 border-b bg-destructive/10 px-3 py-2 text-xs text-destructive"
+			role="alert"
+		>
+			<span>{backgroundError}</span>
+			<Button variant="ghost" size="xs" onclick={() => (backgroundError = '')}
+				>{m.common_dismiss()}</Button
+			>
+		</div>
+	{/if}
+
+	<div
+		class={focusedCanvas
+			? 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)]'
+			: 'grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)] lg:grid-cols-[44px_248px_minmax(0,1fr)_300px]'}
+	>
+		{#if !focusedCanvas}
+			<aside
+				class="hidden border-r bg-background lg:flex lg:flex-col lg:items-center lg:gap-1 lg:py-2"
+			>
+				{#each tools as tool (tool.key)}
+					{@const Icon = tool.icon}
+					<Button
+						variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
+						size="icon-sm"
+						onclick={() => setTool(tool.key)}
+						aria-label={tool.label}
+						title={tool.label}
+						disabled={!editor.canEdit && !['select', 'hand', 'zoom'].includes(tool.key)}
+					>
+						<Icon />
+					</Button>
+				{/each}
+			</aside>
+			<aside class="hidden min-h-0 border-r bg-background lg:block">
+				<AssetPanel />
+			</aside>
+		{/if}
+		<main class="relative min-h-0 min-w-0">
+			<div
+				class="absolute inset-0 {focusedCanvas
+					? 'bottom-0'
+					: editor.pagesExpanded
+						? 'bottom-[8.75rem] lg:bottom-33'
+						: 'bottom-11 lg:bottom-9'}"
+			>
+				<StudioCanvas />
+			</div>
+			<div
+				class="absolute right-3 {focusedCanvas
+					? 'bottom-3'
+					: editor.pagesExpanded
+						? 'bottom-[9.5rem] lg:bottom-36'
+						: 'bottom-14 lg:bottom-12'} z-10 flex items-center gap-1 rounded-lg bg-background/90 p-1 shadow ring-1 ring-black/10"
+			>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-11 md:size-11 lg:size-7"
+					onclick={() => (editor.zoom = Math.max(0.1, editor.zoom - 0.1))}
+					aria-label={m.studio_zoom_out()}>−</Button
+				>
+				<button
+					type="button"
+					class="min-h-11 min-w-14 rounded px-2 text-xs md:min-h-11 lg:min-h-7"
+					onclick={() => {
+						editor.zoom = 0.75;
+						editor.panX = 0;
+						editor.panY = 0;
+					}}
+				>
+					{Math.round(editor.zoom * 100)}%
+				</button>
+				<Button
+					variant="ghost"
+					size="icon-xs"
+					class="size-11 md:size-11 lg:size-7"
+					onclick={() => (editor.zoom = Math.min(4, editor.zoom + 0.1))}
+					aria-label={m.studio_zoom_in()}>+</Button
+				>
+			</div>
+			{#if !focusedCanvas}
+				<div class="absolute inset-x-0 bottom-0">
+					<PageStrip />
+				</div>
+			{/if}
+		</main>
+		{#if editor.rightPanelVisible && !focusedCanvas}
+			<aside class="hidden min-h-0 grid-rows-2 border-l bg-background lg:grid">
+				<div class="min-h-0 border-b"><LayerTree /></div>
+				<div class="min-h-0"><PropertiesPanel /></div>
+			</aside>
+		{/if}
+	</div>
+
+	<nav
+		class="no-scrollbar flex h-[calc(4rem+env(safe-area-inset-bottom))] shrink-0 gap-1 overflow-x-auto border-t bg-background px-2 pt-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+		aria-label={m.studio_tools()}
+	>
+		<Button
+			variant="ghost"
+			class="h-12 min-w-14 flex-col gap-0 text-xs md:h-12"
+			onclick={() => (mobileSheet = 'assets')}
+		>
+			<PanelLeftIcon />
+			{m.studio_add()}
+		</Button>
+		{#each tools.filter( (tool) => ['select', 'text', 'shape', 'image', 'crop', 'hand'].includes(tool.key) ) as tool (tool.key)}
+			{@const Icon = tool.icon}
+			<Button
+				variant={editor.activeTool === tool.key ? 'secondary' : 'ghost'}
+				class="h-12 min-w-14 flex-col gap-0 text-xs md:h-12"
+				onclick={() => setTool(tool.key)}
+				disabled={!editor.canEdit && !['select', 'hand'].includes(tool.key)}
+			>
+				<Icon />
+				{tool.label}
+			</Button>
+		{/each}
+		<Button
+			variant="ghost"
+			class="h-12 min-w-14 flex-col gap-0 text-xs md:h-12"
+			onclick={() => (mobileSheet = 'layers')}
+		>
+			<LayersIcon />
+			{m.studio_layers()}
+		</Button>
+		<Button
+			variant="ghost"
+			class="h-12 min-w-16 flex-col gap-0 text-xs md:h-12"
+			onclick={() => (mobileSheet = 'properties')}
+		>
+			<SlidersIcon />
+			{m.studio_edit()}
+		</Button>
+	</nav>
+</div>
+
+<Sheet.Root open={mobileSheet !== null} onOpenChange={(open) => !open && (mobileSheet = null)}>
+	<Sheet.Content
+		side={mobileSheet === 'layers' ? 'right' : 'bottom'}
+		class={mobileSheet === 'layers'
+			? 'h-dvh! w-full! p-0 sm:max-w-sm!'
+			: 'max-h-[82dvh] w-full! rounded-t-2xl p-0'}
+	>
+		<Sheet.Header class="sr-only">
+			<Sheet.Title
+				>{mobileSheet === 'assets'
+					? m.studio_add()
+					: mobileSheet === 'layers'
+						? m.studio_layers()
+						: m.studio_properties()}</Sheet.Title
+			>
+			<Sheet.Description>{m.studio_editing_controls()}</Sheet.Description>
+		</Sheet.Header>
+		<div class={mobileSheet === 'layers' ? 'h-full pt-14' : 'max-h-[82dvh] overflow-y-auto pt-12'}>
+			{#if mobileSheet === 'assets'}
+				<div class="h-[70dvh]"><AssetPanel /></div>
+			{:else if mobileSheet === 'layers'}
+				<LayerTree />
+			{:else if mobileSheet === 'properties'}
+				<PropertiesPanel />
+			{/if}
+		</div>
+	</Sheet.Content>
+</Sheet.Root>
+
+<Dialog.Root bind:open={backgroundOptimizeDialogOpen}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_optimize_title()}</Dialog.Title>
+			<Dialog.Description>{m.studio_optimize_body()}</Dialog.Description>
+		</Dialog.Header>
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={() => (backgroundOptimizeDialogOpen = false)}
+				>{m.common_cancel()}</Button
+			>
+			<Button
+				onclick={() => {
+					backgroundOptimizeDialogOpen = false;
+					void removeBackground(true);
+				}}>{m.studio_optimize_continue()}</Button
+			>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={historyDialogOpen}>
+	<Dialog.Content class="max-h-[85dvh] overflow-hidden sm:max-w-xl">
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_version_history()}</Dialog.Title>
+			<Dialog.Description>{m.studio_history_body()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="max-h-[55dvh] space-y-2 overflow-y-auto pr-1">
+			{#if historyBusy}
+				<div class="flex min-h-32 items-center justify-center text-sm text-muted-foreground">
+					<LoaderIcon class="mr-2 size-4 animate-spin" />
+					{m.studio_loading_history()}
+				</div>
+			{:else if revisions.length === 0}
+				<p class="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
+					{m.studio_no_history()}
+				</p>
+			{:else}
+				{#each revisions as revision (revision.id)}
+					<div class="flex min-h-14 items-center gap-3 rounded-lg border p-3">
+						<div class="min-w-0 flex-1">
+							<p class="truncate text-sm font-medium">
+								{revision.kind === 'checkpoint'
+									? revision.name || m.studio_checkpoint()
+									: m.studio_autosave_revision({ revision: revision.revision })}
+							</p>
+							<p class="text-xs text-muted-foreground">
+								{new Date(revision.created_at).toLocaleString()}
+								{#if revision.expires_at}
+									·
+									{m.studio_expires({
+										date: new Date(revision.expires_at).toLocaleDateString()
+									})}
+								{/if}
+							</p>
+						</div>
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={!editor.canEdit || historyBusy}
+							onclick={() => restoreRevision(revision)}>{m.studio_restore()}</Button
+						>
+					</div>
+				{/each}
+			{/if}
+			{#if historyError}
+				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+					{historyError}
+				</p>
+			{/if}
+		</div>
+		<Dialog.Footer>
+			<Button variant="outline" onclick={() => (historyDialogOpen = false)}
+				>{m.common_close()}</Button
+			>
+			<Button
+				onclick={() => {
+					historyDialogOpen = false;
+					checkpointDialogOpen = true;
+				}}
+				disabled={!editor.canEdit}>{m.studio_create_checkpoint()}</Button
+			>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={checkpointDialogOpen}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_create_checkpoint()}</Dialog.Title>
+			<Dialog.Description>{m.studio_checkpoint_body()}</Dialog.Description>
+		</Dialog.Header>
+		<label class="grid gap-1.5 text-sm">
+			<span class="font-medium">{m.studio_checkpoint_name()}</span>
+			<Input
+				bind:value={checkpointName}
+				maxlength={100}
+				placeholder={m.studio_checkpoint_placeholder()}
+			/>
+		</label>
+		{#if historyError}
+			<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+				{historyError}
+			</p>
+		{/if}
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={() => (checkpointDialogOpen = false)}
+				>{m.common_cancel()}</Button
+			>
+			<Button onclick={createCheckpoint} disabled={!checkpointName.trim() || historyBusy}>
+				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{m.studio_create_checkpoint()}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={templateDialogOpen}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_save_template()}</Dialog.Title>
+			<Dialog.Description>{m.studio_template_body()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-3">
+			<label class="grid gap-1.5 text-sm">
+				<span class="font-medium">{m.studio_save_behavior()}</span>
+				<select
+					class="h-10 rounded-md border border-input bg-background px-3"
+					value={templateTargetID}
+					onchange={(event) => selectTemplateTarget(event.currentTarget.value)}
+				>
+					<option value="new">{m.studio_create_new_template()}</option>
+					{#each workspaceTemplates as template (template.id)}
+						<option value={template.id}
+							>{m.studio_replace_named_template({ name: template.name })}</option
+						>
+					{/each}
+				</select>
+			</label>
+			<label class="grid gap-1.5 text-sm">
+				<span class="font-medium">{m.studio_template_name()}</span>
+				<Input bind:value={templateName} maxlength={120} />
+			</label>
+			<label class="grid gap-1.5 text-sm">
+				<span class="font-medium">{m.studio_category()}</span>
+				<Input bind:value={templateCategory} maxlength={80} />
+			</label>
+			{#if historyError}
+				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+					{historyError}
+				</p>
+			{/if}
+		</div>
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={() => (templateDialogOpen = false)}
+				>{m.common_cancel()}</Button
+			>
+			<Button onclick={saveAsTemplate} disabled={!templateName.trim() || historyBusy}>
+				{#if historyBusy}<LoaderIcon class="animate-spin" />{/if}
+				{templateTargetID === 'new'
+					? m.studio_save_template_action()
+					: m.studio_replace_template_action()}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={resizeDialogOpen}>
+	<Dialog.Content class="sm:max-w-md">
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_resize_design()}</Dialog.Title>
+			<Dialog.Description>{m.studio_resize_body()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-4">
+			<div class="grid grid-cols-2 gap-3">
+				<label class="grid gap-1.5 text-sm">
+					<span class="font-medium">{m.studio_width()}</span>
+					<Input type="number" min="64" max="4096" bind:value={resizeWidth} />
+				</label>
+				<label class="grid gap-1.5 text-sm">
+					<span class="font-medium">{m.studio_height()}</span>
+					<Input type="number" min="64" max="4096" bind:value={resizeHeight} />
+				</label>
+			</div>
+			<label class="flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm">
+				<input type="radio" value="scale" bind:group={resizeMode} />
+				<span>{m.studio_scale_content()}</span>
+			</label>
+			<label class="flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm">
+				<input type="radio" value="preserve" bind:group={resizeMode} />
+				<span>{m.studio_preserve_content()}</span>
+			</label>
+			{#if resizeError}
+				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+					{resizeError}
+				</p>
+			{/if}
+		</div>
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={() => (resizeDialogOpen = false)}>{m.common_cancel()}</Button
+			>
+			<Button onclick={resizeDocument}>{m.studio_resize()}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={exportDialogOpen}>
+	<Dialog.Content class="sm:max-w-lg">
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_export_design()}</Dialog.Title>
+			<Dialog.Description>{m.studio_export_body()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="space-y-4">
+			<label class="flex min-h-11 items-center gap-2 rounded-lg border px-3">
+				<input type="checkbox" bind:checked={exportAllPages} />
+				<span>{m.studio_export_all_pages({ count: editor.document?.pages.length ?? 0 })}</span>
+			</label>
+			<div class="grid grid-cols-2 gap-3">
+				<label class="grid gap-1.5 text-sm">
+					<span class="font-medium">{m.studio_format()}</span>
+					<select
+						class="h-10 rounded-md border border-input bg-background px-3"
+						value={editor.document?.export_defaults.format ?? 'png'}
+						onchange={(event) =>
+							editor.mutate('Change export format', (document) => {
+								document.export_defaults.format = event.currentTarget.value as
+									'png' | 'jpeg' | 'webp';
+							})}
+					>
+						<option value="png">PNG</option>
+						<option value="jpeg">JPEG</option>
+						<option value="webp">WebP</option>
+					</select>
+				</label>
+				<label class="grid gap-1.5 text-sm">
+					<span class="font-medium">
+						{m.studio_quality({
+							quality: Math.round((editor.document?.export_defaults.quality ?? 0.92) * 100)
+						})}
+					</span>
+					<input
+						class="h-10"
+						type="range"
+						min="0.5"
+						max="1"
+						step="0.01"
+						value={editor.document?.export_defaults.quality ?? 0.92}
+						disabled={editor.document?.export_defaults.format === 'png'}
+						oninput={(event) =>
+							editor.mutate(
+								'Change export quality',
+								(document) => {
+									document.export_defaults.quality = Number(event.currentTarget.value);
+								},
+								'export-quality'
+							)}
+					/>
+				</label>
+			</div>
+			<div class="grid grid-cols-3 gap-2">
+				<Button
+					variant={exportMode === 'download' ? 'secondary' : 'outline'}
+					onclick={() => (exportMode = 'download')}>{m.studio_download()}</Button
+				>
+				<Button
+					variant={exportMode === 'media' ? 'secondary' : 'outline'}
+					onclick={() => (exportMode = 'media')}
+					disabled={!editor.canEdit}>{m.studio_media()}</Button
+				>
+				<Button
+					variant={exportMode === 'attach' ? 'secondary' : 'outline'}
+					onclick={() => (exportMode = 'attach')}
+					disabled={!returnToken || !editor.canEdit}>{m.studio_attach()}</Button
+				>
+			</div>
+			{#if exportProgress}
+				<p class="text-sm text-muted-foreground" aria-live="polite">{exportProgress}</p>
+			{/if}
+			{#if exportError}
+				<p class="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+					{exportError}
+				</p>
+			{/if}
+		</div>
+		<Dialog.Footer>
+			<Button variant="ghost" onclick={() => (exportDialogOpen = false)} disabled={exportBusy}
+				>{m.common_cancel()}</Button
+			>
+			<Button onclick={exportDesign} disabled={exportBusy || !editor.document}>
+				{#if exportBusy}<LoaderIcon class="animate-spin" />{/if}
+				{exportMode === 'download'
+					? m.studio_download()
+					: exportMode === 'attach'
+						? m.studio_export_attach()
+						: m.studio_export_media()}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<Dialog.Root bind:open={conflictDialogOpen}>
+	<Dialog.Content>
+		<Dialog.Header>
+			<Dialog.Title>{m.studio_conflict_title()}</Dialog.Title>
+			<Dialog.Description>{m.studio_conflict_body()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="grid gap-2">
+			<Button onclick={reloadServerVersion}>{m.studio_reload_server()}</Button>
+			<Button variant="outline" onclick={saveConflictAsCopy}>{m.studio_save_copy()}</Button>
+			<Button variant="ghost" onclick={() => (conflictDialogOpen = false)}
+				>{m.studio_continue_local()}</Button
+			>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>
+
+<style>
+	.studio-theme {
+		--studio-accent: oklch(0.65 0.18 48);
+		--studio-panel: var(--background);
+		--studio-panel-border: var(--border);
+	}
+</style>

@@ -91,11 +91,11 @@ devenv shell -- verify
 
 See the [development setup](https://docs.openpost.social/development/setup) and [contributing guide](CONTRIBUTING.md).
 
-## Star history
+## Support OpenPost
 
-[![OpenPost stars](https://img.shields.io/github/stars/rodrgds/openpost?style=for-the-badge&label=OpenPost%20stars)](https://www.star-history.com/?repos=rodrgds%2Fopenpost&type=date&legend=top-left)
+If OpenPost helps you, star the repository. Your star helps more people find the project and shows us that the work is useful.
 
-[View OpenPost on Star History](https://www.star-history.com/?repos=rodrgds%2Fopenpost&type=date&legend=top-left).
+[![Star OpenPost on GitHub](https://img.shields.io/github/stars/rodrgds/openpost?style=for-the-badge&logo=github&label=Star%20OpenPost&color=f4b942)](https://github.com/rodrgds/openpost)
 
 ## License
 

@@ -1,0 +1,107 @@
+<script lang="ts">
+	import { page } from '$app/state';
+	import { error } from '@sveltejs/kit';
+	import CharacterCounter from '../../_components/tools/CharacterCounter.svelte';
+	import HandleChecker from '../../_components/tools/HandleChecker.svelte';
+	import LinkedInFormatter from '../../_components/tools/LinkedInFormatter.svelte';
+	import PostingPlanner from '../../_components/tools/PostingPlanner.svelte';
+	import PreviewGenerator from '../../_components/tools/PreviewGenerator.svelte';
+	import ThreadSplitter from '../../_components/tools/ThreadSplitter.svelte';
+	import ToolPageShell from '../../_components/tools/ToolPageShell.svelte';
+	import { getTool, siteUrl } from '../../_marketing';
+
+	const seoBySlug: Record<
+		string,
+		{ title: string; heading: string; description: string; privacyNote?: string }
+	> = {
+		'multi-platform-character-counter': {
+			title: 'Free social media character counter - OpenPost',
+			heading: 'Count every visible character before you publish',
+			description:
+				'Check one draft against nine social platform limits. Emoji stay intact, with an X-style estimate for weighted characters and links.'
+		},
+		'post-preview-generator': {
+			title: 'Free social post preview generator - OpenPost',
+			heading: 'See how your post changes by platform',
+			description:
+				'Compare distinct X, Mastodon, Bluesky, LinkedIn, Threads, and Instagram layouts with your own name, handle, copy, image, and alt text.'
+		},
+		'thread-splitter': {
+			title: 'Free social media thread splitter - OpenPost',
+			heading: 'Turn long drafts into clean social threads',
+			description:
+				'Split at paragraph, sentence, and word boundaries for X, Bluesky, Mastodon, Threads, or LinkedIn. Add numbering and copy each part or the full thread.'
+		},
+		'fediverse-handle-checker': {
+			title: 'Fediverse and Bluesky handle checker - OpenPost',
+			heading: 'Validate a Fediverse or Bluesky handle',
+			description:
+				'Check handle syntax locally, open the correct profile or lookup URL, and run an optional live WebFinger or Bluesky identity check when you choose.',
+			privacyNote:
+				'Syntax checks stay in this browser. A network request runs only after you select “Check live.”'
+		},
+		'linkedin-text-formatter': {
+			title: 'Accessible LinkedIn post formatter - OpenPost',
+			heading: 'Make LinkedIn posts easier to scan',
+			description:
+				'Clean spacing, shorten paragraph blocks, normalize bullets, and check length while keeping every letter readable and searchable.'
+		},
+		'best-time-to-post-calculator': {
+			title: 'Free social posting schedule planner - OpenPost',
+			heading: 'Build posting times your team can actually use',
+			description:
+				'Choose your audience days and active hours, convert the cadence to your timezone, then copy or download a weekly plan to test.'
+		}
+	};
+
+	const slug = $derived(page.params.slug ?? '');
+	const tool = $derived.by(() => {
+		const found = getTool(slug);
+		if (!found) error(404, 'Tool not found');
+		return found;
+	});
+	const seo = $derived(
+		seoBySlug[slug] ?? {
+			title: `${tool.name} - OpenPost`,
+			heading: tool.name,
+			description: tool.description
+		}
+	);
+	const canonical = $derived(`${siteUrl}/tools/${tool.slug}`);
+</script>
+
+<svelte:head>
+	<title>{seo.title}</title>
+	<meta name="description" content={seo.description} />
+	<link rel="canonical" href={canonical} />
+	<meta property="og:type" content="website" />
+	<meta property="og:site_name" content="OpenPost" />
+	<meta property="og:title" content={seo.title} />
+	<meta property="og:description" content={seo.description} />
+	<meta property="og:url" content={canonical} />
+	<meta property="og:image" content={`${siteUrl}/assets/brand/og-image.png`} />
+	<meta name="twitter:card" content="summary_large_image" />
+	<meta name="twitter:title" content={seo.title} />
+	<meta name="twitter:description" content={seo.description} />
+	<meta name="twitter:image" content={`${siteUrl}/assets/brand/og-image.png`} />
+</svelte:head>
+
+<ToolPageShell
+	title={seo.heading}
+	description={seo.description}
+	privacyNote={seo.privacyNote}
+>
+	{#if slug === 'multi-platform-character-counter'}
+		<CharacterCounter />
+	{:else if slug === 'post-preview-generator'}
+		<PreviewGenerator />
+	{:else if slug === 'thread-splitter'}
+		<ThreadSplitter />
+	{:else if slug === 'fediverse-handle-checker'}
+		<HandleChecker />
+	{:else if slug === 'linkedin-text-formatter'}
+		<LinkedInFormatter />
+	{:else if slug === 'best-time-to-post-calculator'}
+		<PostingPlanner />
+	{/if}
+</ToolPageShell>

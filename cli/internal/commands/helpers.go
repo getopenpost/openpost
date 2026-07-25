@@ -92,6 +92,55 @@ func activeWorkspaceID(cmd *cobra.Command, client *api.Client) (string, error) {
 	return resolveWorkspaceID(cmd.Context(), client, cfg.Workspace)
 }
 
+func confirmMutation(cfg *config.Runtime, prompt string) (bool, error) {
+	if cfg.Yes {
+		return true, nil
+	}
+	if cfg.AsJSON {
+		return false, fmt.Errorf("--yes is required for this action when using --json")
+	}
+	return confirm(prompt)
+}
+
+func newConfirmedDeleteCmd(
+	use string,
+	short string,
+	noun string,
+	deleteItem func(context.Context, *api.Client, string) error,
+) *cobra.Command {
+	return &cobra.Command{
+		Use:   use,
+		Short: short,
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := runtimeFrom(cmd)
+			if err != nil {
+				return err
+			}
+			ok, err := confirmMutation(cfg, fmt.Sprintf("Delete %s %s?", noun, args[0]))
+			if err != nil {
+				return err
+			}
+			if !ok {
+				printerFrom(cfg).Printf("Canceled.")
+				return nil
+			}
+			client, err := clientFrom(cfg)
+			if err != nil {
+				return err
+			}
+			if err := deleteItem(cmd.Context(), client, args[0]); err != nil {
+				return err
+			}
+			if cfg.AsJSON {
+				return printerFrom(cfg).PrintJSON(map[string]string{"id": args[0], "status": "deleted"})
+			}
+			printerFrom(cfg).Printf("Deleted %s %s.", noun, args[0])
+			return nil
+		},
+	}
+}
+
 func resolveWorkspaceID(ctx context.Context, client *api.Client, selector string) (string, error) {
 	workspaces, err := client.ListWorkspaces(ctx)
 	if err != nil {

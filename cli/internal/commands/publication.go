@@ -32,6 +32,7 @@ type publicationFlags struct {
 	status           string
 	limit            int
 	offset           int
+	force            bool
 }
 
 func newPublicationCmd() *cobra.Command {
@@ -45,6 +46,9 @@ func newPublicationCmd() *cobra.Command {
 	cmd.AddCommand(newPublicationValidateCmd())
 	cmd.AddCommand(newPublicationScheduleCmd())
 	cmd.AddCommand(newPublicationPublishNowCmd())
+	cmd.AddCommand(newPublicationRetryCmd())
+	cmd.AddCommand(newPublicationDeleteRenditionCmd())
+	cmd.AddCommand(newPublicationDeleteCmd())
 	cmd.AddCommand(newPublicationEventsCmd())
 	cmd.AddCommand(newPublicationCommentsCmd())
 	cmd.AddCommand(newPublicationReplyCommentCmd())
@@ -68,30 +72,34 @@ func newPublicationUpdateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			input := api.UpdatePublicationInput{
-				Title: current.Title, ContentProfile: current.ContentProfile, SourceText: current.SourceText,
-				SourceURL: current.SourceURL, Goal: current.Goal, Audience: current.Audience, Metadata: current.Metadata,
-			}
+			input := api.UpdatePublicationInput{ExpectedRevision: current.Revision, Force: flags.force}
 			if cmd.Flags().Changed("title") {
-				input.Title = flags.title
+				input.Title = &flags.title
 			}
 			if cmd.Flags().Changed("profile") {
-				input.ContentProfile = flags.profile
+				input.ContentProfile = &flags.profile
 			}
 			if cmd.Flags().Changed("content") || cmd.Flags().Changed("file") {
-				input.SourceText, err = contentFromFlags(flags.content, flags.file)
+				content, contentErr := contentFromFlags(flags.content, flags.file)
+				err = contentErr
 				if err != nil {
 					return err
 				}
+				input.SourceText = &content
 			}
 			if cmd.Flags().Changed("url") {
-				input.SourceURL = flags.url
+				input.SourceURL = &flags.url
 			}
 			if cmd.Flags().Changed("schedule") {
 				input.ScheduledAt, _, err = parseScheduleFlag(cmd, client, workspaceID, flags.schedule, settings.Timezone)
 				if err != nil {
 					return err
 				}
+				input.ClearSchedule = input.ScheduledAt == nil
+			}
+			if input.Title == nil && input.ContentProfile == nil && input.SourceText == nil &&
+				input.SourceURL == nil && input.ScheduledAt == nil && !input.ClearSchedule {
+				return fmt.Errorf("no publication changes requested")
 			}
 			updated, err := client.UpdatePublication(cmd.Context(), args[0], input)
 			if err != nil {
@@ -101,11 +109,12 @@ func newPublicationUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flags.title, "title", "", "publication title")
-	cmd.Flags().StringVar(&flags.profile, "profile", "", "content profile")
+	cmd.Flags().StringVar(&flags.profile, "content-profile", "", "content profile")
 	cmd.Flags().StringVar(&flags.content, "content", "", "canonical post or caption text")
 	cmd.Flags().StringVar(&flags.file, "file", "", "read canonical text from file or '-' for stdin")
 	cmd.Flags().StringVar(&flags.url, "url", "", "source URL; pass an empty value to clear")
-	cmd.Flags().StringVar(&flags.schedule, "schedule", "", "new schedule time")
+	cmd.Flags().StringVar(&flags.schedule, "schedule", "", "new schedule time; use draft to clear")
+	cmd.Flags().BoolVar(&flags.force, "force", false, "overwrite after reviewing a revision conflict")
 	return cmd
 }
 
@@ -138,7 +147,11 @@ func newPublicationRenditionsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			publication, err := client.UpsertPublicationRenditions(cmd.Context(), args[0], renditions)
+			current, err := client.GetPublication(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			publication, err := client.UpsertPublicationRenditions(cmd.Context(), args[0], current.Revision, renditions)
 			if err != nil {
 				return err
 			}
@@ -245,7 +258,7 @@ func newPublicationCreateCmd() *cobra.Command {
 				return err
 			}
 			if scheduledAt != nil {
-				if _, err := client.SchedulePublication(cmd.Context(), publication.ID); err != nil {
+				if _, err := client.SchedulePublication(cmd.Context(), publication.ID, publication.Revision); err != nil {
 					return err
 				}
 				publication, err = client.GetPublication(cmd.Context(), publication.ID)
@@ -256,7 +269,7 @@ func newPublicationCreateCmd() *cobra.Command {
 			return printPublicationSummary(cfg, publication)
 		},
 	}
-	cmd.Flags().StringVar(&flags.profile, "profile", "short_text", "content profile: short_text, thread, link_share, image_post, carousel, story, short_video, long_video")
+	cmd.Flags().StringVar(&flags.profile, "content-profile", "short_text", "content profile: short_text, thread, link_share, image_post, carousel, story, short_video, long_video")
 	cmd.Flags().StringVar(&flags.title, "title", "", "publication title")
 	cmd.Flags().StringVar(&flags.content, "content", "", "post text or fallback source text")
 	cmd.Flags().StringVar(&flags.file, "file", "", "read post/source text from file or '-' for stdin")
@@ -316,7 +329,7 @@ func newPublicationListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&flags.status, "status", "", "filter by status")
-	cmd.Flags().StringVar(&flags.profile, "profile", "", "filter by content profile")
+	cmd.Flags().StringVar(&flags.profile, "content-profile", "", "filter by content profile")
 	cmd.Flags().IntVar(&flags.limit, "limit", 0, "maximum number of publications to return")
 	cmd.Flags().IntVar(&flags.offset, "offset", 0, "number of publications to skip")
 	return cmd
@@ -400,10 +413,18 @@ func newPublicationScheduleCmd() *cobra.Command {
 			if err := confirmNaturalSchedule(cfg.Yes, scheduledAt, label); err != nil {
 				return err
 			}
-			if _, err := client.UpdatePublication(cmd.Context(), args[0], api.UpdatePublicationInput{ScheduledAt: scheduledAt}); err != nil {
+			current, err := client.GetPublication(cmd.Context(), args[0])
+			if err != nil {
 				return err
 			}
-			result, err := client.SchedulePublication(cmd.Context(), args[0])
+			updated, err := client.UpdatePublication(cmd.Context(), args[0], api.UpdatePublicationInput{
+				ExpectedRevision: current.Revision,
+				ScheduledAt:      scheduledAt,
+			})
+			if err != nil {
+				return err
+			}
+			result, err := client.SchedulePublication(cmd.Context(), args[0], updated.Revision)
 			if err != nil {
 				return err
 			}
@@ -433,7 +454,11 @@ func newPublicationPublishNowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			result, err := client.PublishPublicationNow(cmd.Context(), args[0])
+			current, err := client.GetPublication(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			result, err := client.PublishPublicationNow(cmd.Context(), args[0], current.Revision)
 			if err != nil {
 				return err
 			}
@@ -445,6 +470,95 @@ func newPublicationPublishNowCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newPublicationRetryCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "retry <publication-id> <account-id>",
+		Short: "Retry one failed publication destination",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := runtimeFrom(cmd)
+			if err != nil {
+				return err
+			}
+			client, err := clientFrom(cfg)
+			if err != nil {
+				return err
+			}
+			result, err := client.RetryPublicationRendition(cmd.Context(), args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return printPublicationAction(cfg, result.Message, result.JobID)
+		},
+	}
+}
+
+func newPublicationDeleteRenditionCmd() *cobra.Command {
+	var confirm bool
+	cmd := &cobra.Command{
+		Use:   "delete-rendition <publication-id> <account-id>",
+		Short: "Permanently delete one saved publication destination",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !confirm {
+				return fmt.Errorf("--confirm is required to delete a saved destination")
+			}
+			cfg, err := runtimeFrom(cmd)
+			if err != nil {
+				return err
+			}
+			client, err := clientFrom(cfg)
+			if err != nil {
+				return err
+			}
+			current, err := client.GetPublication(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			result, err := client.DeletePublicationRendition(cmd.Context(), args[0], args[1], current.Revision)
+			if err != nil {
+				return err
+			}
+			return printPublicationAction(cfg, result.Message, "")
+		},
+	}
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "confirm permanent destination deletion")
+	return cmd
+}
+
+func newPublicationDeleteCmd() *cobra.Command {
+	var confirm bool
+	cmd := &cobra.Command{
+		Use:   "delete <publication-id>",
+		Short: "Permanently delete an editable publication",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !confirm {
+				return fmt.Errorf("--confirm is required to delete a publication")
+			}
+			cfg, err := runtimeFrom(cmd)
+			if err != nil {
+				return err
+			}
+			client, err := clientFrom(cfg)
+			if err != nil {
+				return err
+			}
+			current, err := client.GetPublication(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			result, err := client.DeletePublication(cmd.Context(), args[0], current.Revision)
+			if err != nil {
+				return err
+			}
+			return printPublicationAction(cfg, result.Message, "")
+		},
+	}
+	cmd.Flags().BoolVar(&confirm, "confirm", false, "confirm permanent publication deletion")
+	return cmd
 }
 
 func newPublicationEventsCmd() *cobra.Command {
@@ -628,6 +742,7 @@ func printPublicationSummary(cfg *config.Runtime, publication *api.Publication) 
 		{"id", publication.ID},
 		{"workspace_id", publication.WorkspaceID},
 		{"status", publication.Status},
+		{"revision", strconv.Itoa(publication.Revision)},
 		{"profile", publication.ContentProfile},
 		{"scheduled_at", scheduleLabel(publication.ScheduledAt)},
 		{"title", publication.Title},

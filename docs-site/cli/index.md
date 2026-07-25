@@ -5,7 +5,9 @@ The OpenPost CLI controls a running OpenPost instance from a terminal or automat
 Use it when you want to:
 
 - Create drafts, scheduled posts, and threads from scripts
-- Upload media from a terminal
+- Inspect provider readiness and publishing capabilities
+- Upload, inspect, update, and clean up media from a terminal
+- Manage reusable weekly posting slots
 - Manage workspaces, account slugs, jobs, and API tokens
 - Run OpenPost from CI, cron, deploy hooks, or a personal shell workflow
 
@@ -23,6 +25,7 @@ Then inspect accounts and pass explicit selectors to posting commands:
 
 ```sh
 openpost account list
+openpost provider readiness
 openpost post create --accounts main-x,linkedin --content "Hello from OpenPost" --schedule next-slot
 ```
 

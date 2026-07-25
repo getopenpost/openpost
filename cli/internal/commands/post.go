@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -82,7 +83,37 @@ func newPostCreateCmd() *cobra.Command {
 			if flags.threadDraft != "" {
 				in.ThreadDraft = &flags.threadDraft
 			}
-			post, err := client.CreatePost(cmd.Context(), in)
+			scheduledAtText := optionalScheduleText(scheduledAt)
+			intent := "post"
+			profile := "short_text"
+			if in.ThreadDraft != nil {
+				intent = "thread"
+				profile = "thread"
+			}
+			result, err := client.CreateTextPostDraft(cmd.Context(), api.CreateTextPostDraftInput{
+				WorkspaceID:        in.WorkspaceID,
+				Content:            in.Content,
+				ScheduledAt:        scheduledAtText,
+				SocialAccountIDs:   in.SocialAccountIDs,
+				MediaIDs:           in.MediaIDs,
+				RandomDelayMinutes: in.RandomDelayMinutes,
+				ThreadDraft:        in.ThreadDraft,
+				Publication: api.TextPostPublicationInput{
+					Intent:         &intent,
+					ContentProfile: &profile,
+					SourceText:     &content,
+					ScheduledAt:    scheduledAt,
+				},
+			})
+			if err != nil {
+				return err
+			}
+			if scheduledAt != nil {
+				if _, err := client.SchedulePublication(cmd.Context(), result.PublicationID, result.Revision); err != nil {
+					return err
+				}
+			}
+			post, err := client.GetPost(cmd.Context(), result.PostID)
 			if err != nil {
 				return err
 			}
@@ -189,9 +220,24 @@ func newPostUpdateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var in api.UpdatePostInput
+			current, err := client.GetPost(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			in := api.SaveTextPostDraftInput{
+				ExpectedRevision:   current.Revision,
+				Content:            current.Content,
+				SocialAccountIDs:   postDestinationIDs(current),
+				MediaIDs:           postMediaIDs(current),
+				RandomDelayMinutes: current.RandomDelayMinutes,
+				ThreadDraft:        current.ThreadDraft,
+				Variants:           textPostVariants(current),
+			}
+			changed := false
 			if cmd.Flags().Changed("content") {
-				in.Content = &flags.content
+				in.Content = flags.content
+				in.Publication.SourceText = &flags.content
+				changed = true
 			}
 			if cmd.Flags().Changed("accounts") {
 				accountIDs, err := resolveAccounts(cmd, client, workspaceID, flags.accounts)
@@ -199,34 +245,49 @@ func newPostUpdateCmd() *cobra.Command {
 					return err
 				}
 				in.SocialAccountIDs = accountIDs
+				changed = true
 			}
 			if cmd.Flags().Changed("schedule") {
-				if flags.schedule == "" {
+				if flags.schedule == "" || strings.EqualFold(strings.TrimSpace(flags.schedule), "draft") {
 					empty := ""
 					in.ScheduledAt = &empty
+					in.Publication.ClearSchedule = true
 				} else {
 					t, label, err := parseScheduleFlag(cmd, client, workspaceID, flags.schedule, settings.Timezone)
 					if err != nil {
 						return err
+					}
+					if t == nil {
+						return fmt.Errorf("--schedule must resolve to a future time or draft")
 					}
 					if err := confirmNaturalSchedule(cfg.Yes, t, label); err != nil {
 						return err
 					}
 					v := t.Format(time.RFC3339)
 					in.ScheduledAt = &v
+					in.Publication.ScheduledAt = t
 				}
+				changed = true
 			}
 			if cmd.Flags().Changed("random-delay") {
-				in.RandomDelayMinutes = &flags.randomDelay
+				in.RandomDelayMinutes = flags.randomDelay
+				changed = true
 			}
 			if cmd.Flags().Changed("media") {
 				mediaIDs, err := resolveMedia(cmd, client, workspaceID, flags.media, flags.mediaAlt)
 				if err != nil {
 					return err
 				}
-				in.MediaIDs = &mediaIDs
+				in.MediaIDs = mediaIDs
+				changed = true
 			}
-			post, err := client.UpdatePost(cmd.Context(), args[0], in)
+			if !changed {
+				return fmt.Errorf("at least one update flag is required")
+			}
+			if _, err := client.SaveTextPostDraft(cmd.Context(), args[0], in); err != nil {
+				return err
+			}
+			post, err := client.GetPost(cmd.Context(), args[0])
 			if err != nil {
 				return err
 			}
@@ -256,14 +317,13 @@ func newPostDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if !cfg.Yes {
-				ok, err := askYesNo(fmt.Sprintf("Delete post %s? [y/N] ", args[0]), false)
-				if err != nil {
-					return err
-				}
-				if !ok {
-					return nil
-				}
+			ok, err := confirmMutation(cfg, fmt.Sprintf("Delete post %s?", args[0]))
+			if err != nil {
+				return err
+			}
+			if !ok {
+				printerFrom(cfg).Printf("Canceled.")
+				return nil
 			}
 			if err := client.DeletePost(cmd.Context(), args[0]); err != nil {
 				return err
@@ -367,6 +427,56 @@ func isNextSlotSchedule(raw string) bool {
 	default:
 		return false
 	}
+}
+
+func optionalScheduleText(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	text := value.Format(time.RFC3339)
+	return &text
+}
+
+func postDestinationIDs(post *api.Post) []string {
+	ids := make([]string, 0, len(post.Destinations))
+	for _, destination := range post.Destinations {
+		ids = append(ids, destination.SocialAccountID)
+	}
+	return ids
+}
+
+func postMediaIDs(post *api.Post) []string {
+	if len(post.MediaIDs) > 0 {
+		return append([]string(nil), post.MediaIDs...)
+	}
+	ids := make([]string, 0, len(post.Media))
+	for _, media := range post.Media {
+		ids = append(ids, media.MediaID)
+	}
+	return ids
+}
+
+func textPostVariants(post *api.Post) []api.TextPostVariantInput {
+	variants := make([]api.TextPostVariantInput, 0, len(post.Renditions))
+	for _, rendition := range post.Renditions {
+		content := rendition.Content
+		var mediaIDs *string
+		switch rendition.MediaMode {
+		case "clear", "override":
+			encoded, err := json.Marshal(rendition.MediaIDs)
+			if err == nil {
+				value := string(encoded)
+				mediaIDs = &value
+			}
+		}
+		variants = append(variants, api.TextPostVariantInput{
+			SocialAccountID: rendition.SocialAccountID,
+			Content:         &content,
+			MediaIDs:        mediaIDs,
+			IsUnsynced:      rendition.IsUnsynced,
+		})
+	}
+	return variants
 }
 
 func confirmNaturalSchedule(skip bool, t *time.Time, source string) error {

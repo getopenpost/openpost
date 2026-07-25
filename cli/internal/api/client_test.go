@@ -84,13 +84,20 @@ func TestSchedulePublication_WireFormat(t *testing.T) {
 		if r.URL.Path != "/api/v1/publications/pub_1/schedule" {
 			t.Fatalf("path = %s, want /api/v1/publications/pub_1/schedule", r.URL.Path)
 		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Fatalf("decode body: %v", err)
+		}
+		if body["expected_revision"] != float64(7) {
+			t.Fatalf("body = %#v, want expected_revision 7", body)
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"message":"publication scheduled","job_id":"job_1"}`))
 	}))
 	defer srv.Close()
 
 	c := New(srv.URL, "op_cli_test")
-	got, err := c.SchedulePublication(context.Background(), "pub_1")
+	got, err := c.SchedulePublication(context.Background(), "pub_1", 7)
 	if err != nil {
 		t.Fatalf("SchedulePublication returned error: %v", err)
 	}
@@ -127,6 +134,13 @@ func TestPublicationMutationMethods_WireFormat(t *testing.T) {
 		requests <- r.Method + " " + r.URL.EscapedPath()
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/api/v1/publications/pub_1/renditions" {
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode rendition body: %v", err)
+			}
+			if body["expected_revision"] != float64(3) {
+				t.Fatalf("rendition body = %#v, want expected_revision 3", body)
+			}
 			_, _ = w.Write([]byte(`{"id":"pub_1","renditions":[]}`))
 			return
 		}
@@ -135,7 +149,7 @@ func TestPublicationMutationMethods_WireFormat(t *testing.T) {
 	defer srv.Close()
 
 	c := New(srv.URL, "op_cli_test")
-	if _, err := c.UpsertPublicationRenditions(context.Background(), "pub_1", []RenditionInput{{SocialAccountID: "acc_1", Body: "Hello"}}); err != nil {
+	if _, err := c.UpsertPublicationRenditions(context.Background(), "pub_1", 3, []RenditionInput{{SocialAccountID: "acc_1", Body: "Hello"}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := c.ReplyToRendition(context.Background(), "rend_1", RenditionReplyInput{Body: "Follow-up"}); err != nil {

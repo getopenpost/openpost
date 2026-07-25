@@ -133,9 +133,9 @@ openpost thread create ./thread.md --accounts x --schedule "next monday 9am"
 Use `publication create` for platform-specific post types and media workflows:
 
 ```sh
-openpost publication create --profile link_share --accounts linkedin --url https://openpost.social --content "Launch notes"
-openpost publication create --profile short_video --accounts youtube,tiktok --video-title "Short title" --video-description "YouTube description" --caption "TikTok caption" --media ./short.mp4
-openpost publication create --profile long_video --accounts youtube --video-title "Full walkthrough" --video-description "Long-form description" --privacy private --media ./walkthrough.mp4 --schedule next-slot
+openpost publication create --content-profile link_share --accounts linkedin --url https://openpost.social --content "Launch notes"
+openpost publication create --content-profile short_video --accounts youtube,tiktok --video-title "Short title" --video-description "YouTube description" --caption "TikTok caption" --media ./short.mp4
+openpost publication create --content-profile long_video --accounts youtube --video-title "Full walkthrough" --video-description "Long-form description" --privacy private --media ./walkthrough.mp4 --schedule next-slot
 openpost publication schedule pub_123 --at "tomorrow 9am"
 ```
 

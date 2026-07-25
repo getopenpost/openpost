@@ -394,6 +394,71 @@ type NextAvailableSlotOutput struct {
 	Message  string           `json:"message"`
 }
 
+type CreatePostingScheduleInput struct {
+	WorkspaceID    string `json:"workspace_id"`
+	UTCHour        int    `json:"utc_hour"`
+	UTCMinute      int    `json:"utc_minute"`
+	DayOfWeek      int    `json:"day_of_week"`
+	LocalHour      *int   `json:"local_hour,omitempty"`
+	LocalMinute    *int   `json:"local_minute,omitempty"`
+	LocalDayOfWeek *int   `json:"local_day_of_week,omitempty"`
+	Label          string `json:"label,omitempty"`
+}
+
+type UpdatePostingScheduleInput struct {
+	UTCHour   *int    `json:"utc_hour,omitempty"`
+	UTCMinute *int    `json:"utc_minute,omitempty"`
+	DayOfWeek *int    `json:"day_of_week,omitempty"`
+	Label     *string `json:"label,omitempty"`
+	IsActive  *bool   `json:"is_active,omitempty"`
+}
+
+type SuggestPostingScheduleOutput struct {
+	Schedules []PostingSchedule `json:"schedules"`
+	Message   string            `json:"message"`
+}
+
+func (c *Client) ListPostingSchedules(ctx context.Context, workspaceID string) ([]PostingSchedule, error) {
+	v := url.Values{}
+	v.Set("workspace_id", workspaceID)
+	var out []PostingSchedule
+	if err := c.GetJSON(ctx, "/api/v1/posting-schedules?"+v.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *Client) CreatePostingSchedule(ctx context.Context, in CreatePostingScheduleInput) (*PostingSchedule, error) {
+	var out PostingSchedule
+	if err := c.PostJSON(ctx, "/api/v1/posting-schedules", in, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) UpdatePostingSchedule(ctx context.Context, scheduleID string, in UpdatePostingScheduleInput) (*PostingSchedule, error) {
+	var out PostingSchedule
+	if err := c.PatchJSON(ctx, "/api/v1/posting-schedules/"+url.PathEscape(scheduleID), in, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeletePostingSchedule(ctx context.Context, scheduleID string) error {
+	return c.DeleteJSON(ctx, "/api/v1/posting-schedules/"+url.PathEscape(scheduleID), nil)
+}
+
+func (c *Client) SuggestPostingSchedule(ctx context.Context, workspaceID string, postsPerDay int) (*SuggestPostingScheduleOutput, error) {
+	var out SuggestPostingScheduleOutput
+	if err := c.PostJSON(ctx, "/api/v1/posting-schedules/suggest", map[string]any{
+		"workspace_id":  workspaceID,
+		"posts_per_day": postsPerDay,
+	}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (c *Client) NextAvailableSlot(ctx context.Context, in NextAvailableSlotInput) (*NextAvailableSlotOutput, error) {
 	v := url.Values{}
 	v.Set("workspace_id", in.WorkspaceID)
@@ -429,6 +494,77 @@ type ProviderInfo struct {
 	Capabilities []string `json:"capabilities,omitempty"`
 }
 
+type PublicMediaHealth struct {
+	Status         string `json:"status"`
+	CheckedCount   int    `json:"checked_count"`
+	FailingCount   int    `json:"failing_count"`
+	LastCheckedAt  string `json:"last_checked_at,omitempty"`
+	LastFailure    string `json:"last_failure,omitempty"`
+	LastStatusCode int    `json:"last_status_code,omitempty"`
+}
+
+type ProviderReadiness struct {
+	Provider           string            `json:"provider"`
+	ConfiguredAppState string            `json:"configured_app_state"`
+	ConnectedAccounts  int               `json:"connected_accounts"`
+	RequiredScopes     []string          `json:"required_scopes"`
+	GrantedScopes      []string          `json:"granted_scopes,omitempty"`
+	AccountTypes       []string          `json:"account_types,omitempty"`
+	AppReviewWarnings  []string          `json:"app_review_warnings,omitempty"`
+	PublicMediaHealth  PublicMediaHealth `json:"public_media_health"`
+	QuotaCaveats       []string          `json:"quota_caveats,omitempty"`
+	BlockingIssues     []string          `json:"blocking_issues,omitempty"`
+	NextActions        []string          `json:"next_actions,omitempty"`
+	SupportedProfiles  []string          `json:"supported_profiles"`
+	CapabilityCaveats  []string          `json:"capability_caveats,omitempty"`
+}
+
+type CapabilityProfile struct {
+	Key         string `json:"key"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
+type CapabilityMediaConstraint struct {
+	MinCount               int      `json:"min_count"`
+	MaxCount               int      `json:"max_count"`
+	AllowedMIMEs           []string `json:"allowed_mimes"`
+	AspectRatios           []string `json:"aspect_ratios,omitempty"`
+	MaxDurationSeconds     int      `json:"max_duration_seconds,omitempty"`
+	MaxSizeBytes           int64    `json:"max_size_bytes,omitempty"`
+	RequiresPublicURL      bool     `json:"requires_public_url"`
+	RequiresHTTPSFetchable bool     `json:"requires_https_fetchable"`
+}
+
+type Capability struct {
+	Provider             string                    `json:"provider"`
+	Profile              string                    `json:"profile"`
+	OutputProfile        string                    `json:"output_profile"`
+	Intents              []string                  `json:"intents"`
+	MediaShapes          []string                  `json:"media_shapes"`
+	Label                string                    `json:"label"`
+	ValidationCategories []string                  `json:"validation_categories,omitempty"`
+	TextLimit            int                       `json:"text_limit,omitempty"`
+	TitleRequired        bool                      `json:"title_required,omitempty"`
+	DescriptionRequired  bool                      `json:"description_required,omitempty"`
+	NativeScheduling     bool                      `json:"native_scheduling"`
+	OpenPostQueued       bool                      `json:"openpost_queued"`
+	RequiresAppReview    bool                      `json:"requires_app_review"`
+	RequiresPublicMedia  bool                      `json:"requires_public_media"`
+	Media                CapabilityMediaConstraint `json:"media"`
+	Settings             []map[string]any          `json:"settings,omitempty"`
+	Caveats              []string                  `json:"caveats,omitempty"`
+	Metadata             map[string]string         `json:"metadata,omitempty"`
+	CapabilityRevision   string                    `json:"capability_revision"`
+	ExpiresAt            string                    `json:"expires_at,omitempty"`
+	UnavailableReason    string                    `json:"unavailable_reason,omitempty"`
+}
+
+type CapabilityCatalog struct {
+	Profiles     []CapabilityProfile `json:"profiles"`
+	Capabilities []Capability        `json:"capabilities"`
+}
+
 type UpdateAccountInput struct {
 	Slug string `json:"slug"`
 }
@@ -439,6 +575,26 @@ func (c *Client) ListAccountProviders(ctx context.Context) ([]ProviderInfo, erro
 		return nil, err
 	}
 	return out, nil
+}
+
+func (c *Client) GetProviderReadiness(ctx context.Context, workspaceID string) ([]ProviderReadiness, error) {
+	v := url.Values{}
+	v.Set("workspace_id", workspaceID)
+	var out struct {
+		Providers []ProviderReadiness `json:"providers"`
+	}
+	if err := c.GetJSON(ctx, "/api/v1/provider-readiness?"+v.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return out.Providers, nil
+}
+
+func (c *Client) ListCapabilities(ctx context.Context) (*CapabilityCatalog, error) {
+	var out CapabilityCatalog
+	if err := c.GetJSON(ctx, "/api/v1/capabilities", &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *Client) ListAccounts(ctx context.Context, workspaceID string) ([]SocialAccount, error) {
@@ -475,21 +631,59 @@ type Media struct {
 }
 
 type MediaListItem struct {
-	ID               string `json:"id"`
-	WorkspaceID      string `json:"workspace_id"`
-	MimeType         string `json:"mime_type"`
-	Size             int64  `json:"size"`
-	OriginalFilename string `json:"original_filename"`
-	Width            int    `json:"width"`
-	Height           int    `json:"height"`
-	AltText          string `json:"alt_text"`
-	IsFavorite       bool   `json:"is_favorite"`
-	CreatedAt        string `json:"created_at"`
-	URL              string `json:"url"`
-	ThumbnailURL     string `json:"thumbnail_url"`
-	UsageCount       int    `json:"usage_count"`
-	CanDelete        bool   `json:"can_delete"`
-	ProcessingStatus string `json:"processing_status"`
+	ID                 string   `json:"id"`
+	WorkspaceID        string   `json:"workspace_id"`
+	MimeType           string   `json:"mime_type"`
+	Size               int64    `json:"size"`
+	OriginalFilename   string   `json:"original_filename"`
+	Width              int      `json:"width"`
+	Height             int      `json:"height"`
+	AltText            string   `json:"alt_text"`
+	IsFavorite         bool     `json:"is_favorite"`
+	CreatedAt          string   `json:"created_at"`
+	URL                string   `json:"url"`
+	ThumbnailURL       string   `json:"thumbnail_url"`
+	UsageCount         int      `json:"usage_count"`
+	CanDelete          bool     `json:"can_delete"`
+	ProcessingStatus   string   `json:"processing_status"`
+	DurationMS         int64    `json:"duration_ms"`
+	FrameRate          float64  `json:"frame_rate"`
+	AnalysisStatus     string   `json:"analysis_status"`
+	AnalysisError      string   `json:"analysis_error,omitempty"`
+	PosterThumbnailURL string   `json:"poster_thumbnail_url,omitempty"`
+	PublicURLCheckedAt string   `json:"public_url_checked_at,omitempty"`
+	PublicURLStatus    int      `json:"public_url_status"`
+	PublicURLError     string   `json:"public_url_error,omitempty"`
+	Source             string   `json:"source"`
+	AssetKind          string   `json:"asset_kind"`
+	ParentMediaID      string   `json:"parent_media_id,omitempty"`
+	DesignDocumentID   string   `json:"design_document_id,omitempty"`
+	DesignPageID       string   `json:"design_page_id,omitempty"`
+	Collections        []string `json:"collections"`
+	Tags               []string `json:"tags"`
+}
+
+type MediaStorage struct {
+	UsedBytes             int64 `json:"used_bytes"`
+	AssetCount            int   `json:"asset_count"`
+	InternalBytes         int64 `json:"internal_bytes"`
+	LimitBytes            int64 `json:"limit_bytes"`
+	DirectUploadSupported bool  `json:"direct_upload_supported"`
+}
+
+type MediaUsageItem struct {
+	Kind        string `json:"kind"`
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	PostID      string `json:"post_id,omitempty"`
+	Content     string `json:"content,omitempty"`
+	Status      string `json:"status,omitempty"`
+	ScheduledAt string `json:"scheduled_at,omitempty"`
+}
+
+type MediaUsage struct {
+	Usage []MediaUsageItem `json:"usage"`
+	Count int              `json:"count"`
 }
 
 func (c *Client) ListMedia(ctx context.Context, workspaceID string, limit int) ([]MediaListItem, error) {
@@ -508,7 +702,7 @@ func (c *Client) ListMedia(ctx context.Context, workspaceID string, limit int) (
 	return out.Media, nil
 }
 
-// UploadMedia uploads a local file to the active workspace using the legacy multipart media endpoint.
+// UploadMedia uploads a local file to the active workspace using the multipart media endpoint.
 func (c *Client) UploadMedia(ctx context.Context, workspaceID, filePath, altText string) (*Media, error) {
 	fields := map[string]string{"workspace_id": workspaceID}
 	if altText != "" {
@@ -522,7 +716,29 @@ func (c *Client) UploadMedia(ctx context.Context, workspaceID, filePath, altText
 }
 
 func (c *Client) DeleteMedia(ctx context.Context, mediaID string) error {
-	return c.DeleteJSON(ctx, "/api/v1/media/"+mediaID, nil)
+	return c.DeleteJSON(ctx, "/api/v1/media/"+url.PathEscape(mediaID), nil)
+}
+
+func (c *Client) UpdateMedia(ctx context.Context, mediaID, altText string) error {
+	return c.PatchJSON(ctx, "/api/v1/media/"+url.PathEscape(mediaID), map[string]string{"alt_text": altText}, nil)
+}
+
+func (c *Client) GetMediaStorage(ctx context.Context, workspaceID string) (*MediaStorage, error) {
+	v := url.Values{}
+	v.Set("workspace_id", workspaceID)
+	var out MediaStorage
+	if err := c.GetJSON(ctx, "/api/v1/media/storage?"+v.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) GetMediaUsage(ctx context.Context, mediaID string) (*MediaUsage, error) {
+	var out MediaUsage
+	if err := c.GetJSON(ctx, "/api/v1/media/"+url.PathEscape(mediaID)+"/usage", &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 // ----- Posts -----
@@ -532,17 +748,26 @@ type PostDestination struct {
 	Platform        string `json:"platform"`
 	Status          string `json:"status"`
 	ErrorMessage    string `json:"error_message,omitempty"`
+	ErrorKind       string `json:"error_kind,omitempty"`
+	ErrorCode       string `json:"error_code,omitempty"`
+	ErrorHTTPStatus int    `json:"error_http_status,omitempty"`
+	ErrorRetryable  bool   `json:"error_retryable"`
+	ErrorRetryAt    string `json:"error_retry_at,omitempty"`
+	ErrorAction     string `json:"error_action,omitempty"`
 }
 
 type Post struct {
 	ID                 string            `json:"id"`
+	PublicationID      string            `json:"publication_id,omitempty"`
 	WorkspaceID        string            `json:"workspace_id"`
 	CreatedBy          string            `json:"created_by"`
 	Content            string            `json:"content"`
 	Status             string            `json:"status"`
+	Revision           int               `json:"revision"`
 	ScheduledAt        string            `json:"scheduled_at"`
 	ActualRunAt        string            `json:"actual_run_at,omitempty"`
 	CreatedAt          string            `json:"created_at"`
+	UpdatedAt          string            `json:"updated_at"`
 	RandomDelayMinutes int               `json:"random_delay_minutes"`
 	Destinations       []PostDestination `json:"destinations,omitempty"`
 	MediaIDs           []string          `json:"media_ids,omitempty"`
@@ -569,6 +794,86 @@ type CreatePostInput struct {
 	MediaIDs           []string   `json:"media_ids,omitempty"`
 	RandomDelayMinutes int        `json:"random_delay_minutes,omitempty"`
 	ThreadDraft        *string    `json:"thread_draft,omitempty"`
+}
+
+type TextPostPublicationInput struct {
+	Title          *string                `json:"title,omitempty"`
+	Intent         *string                `json:"intent,omitempty"`
+	ContentProfile *string                `json:"content_profile,omitempty"`
+	SourceText     *string                `json:"source_text,omitempty"`
+	SourceURL      *string                `json:"source_url,omitempty"`
+	Goal           *string                `json:"goal,omitempty"`
+	Audience       *string                `json:"audience,omitempty"`
+	ScheduledAt    *time.Time             `json:"scheduled_at,omitempty"`
+	ClearSchedule  bool                   `json:"clear_schedule,omitempty"`
+	Metadata       map[string]any         `json:"metadata,omitempty"`
+	Segments       []TextPostSegmentInput `json:"segments,omitempty"`
+	Renditions     []RenditionInput       `json:"renditions,omitempty"`
+}
+
+type TextPostSegmentInput struct {
+	ID          string                  `json:"id,omitempty"`
+	Body        string                  `json:"body,omitempty"`
+	Title       string                  `json:"title,omitempty"`
+	Description string                  `json:"description,omitempty"`
+	URL         string                  `json:"url,omitempty"`
+	Settings    map[string]any          `json:"settings,omitempty"`
+	Media       []PublicationMediaInput `json:"media,omitempty"`
+}
+
+type TextPostVariantInput struct {
+	SocialAccountID string  `json:"social_account_id"`
+	Content         *string `json:"content,omitempty"`
+	MediaIDs        *string `json:"media_ids,omitempty"`
+	IsUnsynced      bool    `json:"is_unsynced"`
+}
+
+type CreateTextPostDraftInput struct {
+	WorkspaceID        string                   `json:"workspace_id"`
+	Content            string                   `json:"content"`
+	ScheduledAt        *string                  `json:"scheduled_at,omitempty"`
+	SocialAccountIDs   []string                 `json:"social_account_ids"`
+	MediaIDs           []string                 `json:"media_ids"`
+	RandomDelayMinutes int                      `json:"random_delay_minutes,omitempty"`
+	ThreadDraft        *string                  `json:"thread_draft,omitempty"`
+	Variants           []TextPostVariantInput   `json:"variants"`
+	Publication        TextPostPublicationInput `json:"publication"`
+}
+
+type SaveTextPostDraftInput struct {
+	ExpectedRevision   int                      `json:"expected_revision"`
+	Force              bool                     `json:"force,omitempty"`
+	Content            string                   `json:"content"`
+	ScheduledAt        *string                  `json:"scheduled_at,omitempty"`
+	SocialAccountIDs   []string                 `json:"social_account_ids"`
+	MediaIDs           []string                 `json:"media_ids"`
+	RandomDelayMinutes int                      `json:"random_delay_minutes,omitempty"`
+	ThreadDraft        *string                  `json:"thread_draft,omitempty"`
+	Variants           []TextPostVariantInput   `json:"variants"`
+	Publication        TextPostPublicationInput `json:"publication"`
+}
+
+type TextPostDraftResult struct {
+	PostID        string `json:"post_id"`
+	PublicationID string `json:"publication_id"`
+	Revision      int    `json:"revision"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
+func (c *Client) CreateTextPostDraft(ctx context.Context, in CreateTextPostDraftInput) (*TextPostDraftResult, error) {
+	var out TextPostDraftResult
+	if err := c.PostJSON(ctx, "/api/v1/posts/draft", in, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) SaveTextPostDraft(ctx context.Context, postID string, in SaveTextPostDraftInput) (*TextPostDraftResult, error) {
+	var out TextPostDraftResult
+	if err := c.PutJSON(ctx, "/api/v1/posts/"+url.PathEscape(postID)+"/draft", in, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (c *Client) CreatePost(ctx context.Context, in CreatePostInput) (*Post, error) {
@@ -731,21 +1036,26 @@ type CreatePublicationInput struct {
 }
 
 type UpdatePublicationInput struct {
-	Title          string                 `json:"title,omitempty"`
-	ContentProfile string                 `json:"content_profile,omitempty"`
-	SourceText     string                 `json:"source_text,omitempty"`
-	SourceURL      string                 `json:"source_url,omitempty"`
-	Goal           string                 `json:"goal,omitempty"`
-	Audience       string                 `json:"audience,omitempty"`
-	ScheduledAt    *time.Time             `json:"scheduled_at,omitempty"`
-	Metadata       map[string]interface{} `json:"metadata,omitempty"`
+	ExpectedRevision int                    `json:"expected_revision"`
+	Force            bool                   `json:"force,omitempty"`
+	Title            *string                `json:"title,omitempty"`
+	ContentProfile   *string                `json:"content_profile,omitempty"`
+	SourceText       *string                `json:"source_text,omitempty"`
+	SourceURL        *string                `json:"source_url,omitempty"`
+	Goal             *string                `json:"goal,omitempty"`
+	Audience         *string                `json:"audience,omitempty"`
+	ScheduledAt      *time.Time             `json:"scheduled_at,omitempty"`
+	ClearSchedule    bool                   `json:"clear_schedule,omitempty"`
+	Metadata         map[string]interface{} `json:"metadata,omitempty"`
 }
 
 type Publication struct {
 	ID             string                 `json:"id"`
+	TextPostID     string                 `json:"text_post_id,omitempty"`
 	WorkspaceID    string                 `json:"workspace_id"`
 	CreatedBy      string                 `json:"created_by"`
 	Title          string                 `json:"title"`
+	Intent         string                 `json:"intent"`
 	ContentProfile string                 `json:"content_profile"`
 	SourceText     string                 `json:"source_text"`
 	SourceURL      string                 `json:"source_url,omitempty"`
@@ -753,9 +1063,11 @@ type Publication struct {
 	Audience       string                 `json:"audience,omitempty"`
 	Metadata       map[string]interface{} `json:"metadata,omitempty"`
 	Status         string                 `json:"status"`
+	Revision       int                    `json:"revision"`
 	ScheduledAt    string                 `json:"scheduled_at,omitempty"`
 	ActualRunAt    string                 `json:"actual_run_at,omitempty"`
 	CreatedAt      string                 `json:"created_at"`
+	UpdatedAt      string                 `json:"updated_at"`
 	Renditions     []Rendition            `json:"renditions"`
 }
 
@@ -772,6 +1084,12 @@ type Rendition struct {
 	ExternalID      string                 `json:"external_id,omitempty"`
 	ExternalURL     string                 `json:"external_url,omitempty"`
 	ErrorMessage    string                 `json:"error_message,omitempty"`
+	ErrorKind       string                 `json:"error_kind,omitempty"`
+	ErrorCode       string                 `json:"error_code,omitempty"`
+	ErrorHTTPStatus int                    `json:"error_http_status,omitempty"`
+	ErrorRetryable  bool                   `json:"error_retryable"`
+	ErrorRetryAt    string                 `json:"error_retry_at,omitempty"`
+	ErrorAction     string                 `json:"error_action,omitempty"`
 }
 
 type ListPublicationsInput struct {
@@ -797,8 +1115,9 @@ type PublicationValidation struct {
 }
 
 type PublicationActionOutput struct {
-	Message string `json:"message"`
-	JobID   string `json:"job_id,omitempty"`
+	Message  string `json:"message"`
+	JobID    string `json:"job_id,omitempty"`
+	Revision int    `json:"revision,omitempty"`
 }
 
 type RenditionReplyInput struct {
@@ -883,9 +1202,12 @@ func (c *Client) UpdatePublication(ctx context.Context, id string, in UpdatePubl
 	return &out, nil
 }
 
-func (c *Client) UpsertPublicationRenditions(ctx context.Context, id string, renditions []RenditionInput) (*Publication, error) {
+func (c *Client) UpsertPublicationRenditions(ctx context.Context, id string, expectedRevision int, renditions []RenditionInput) (*Publication, error) {
 	var out Publication
-	if err := c.PutJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/renditions", map[string]any{"renditions": renditions}, &out); err != nil {
+	if err := c.PutJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/renditions", map[string]any{
+		"expected_revision": expectedRevision,
+		"renditions":        renditions,
+	}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -907,17 +1229,50 @@ func (c *Client) ValidatePublication(ctx context.Context, id string) (*Publicati
 	return &out, nil
 }
 
-func (c *Client) PublishPublicationNow(ctx context.Context, id string) (*PublicationActionOutput, error) {
+func (c *Client) PublishPublicationNow(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
 	var out PublicationActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/publish-now", map[string]any{}, &out); err != nil {
+	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/publish-now", map[string]any{"expected_revision": expectedRevision}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 
-func (c *Client) SchedulePublication(ctx context.Context, id string) (*PublicationActionOutput, error) {
+func (c *Client) SchedulePublication(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
 	var out PublicationActionOutput
-	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/schedule", map[string]any{}, &out); err != nil {
+	if err := c.PostJSON(ctx, "/api/v1/publications/"+url.PathEscape(id)+"/schedule", map[string]any{"expected_revision": expectedRevision}, &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeletePublication(ctx context.Context, id string, expectedRevision int) (*PublicationActionOutput, error) {
+	path := "/api/v1/publications/" + url.PathEscape(id)
+	query := url.Values{}
+	query.Set("confirm", "true")
+	query.Set("expected_revision", strconv.Itoa(expectedRevision))
+	var out PublicationActionOutput
+	if err := c.DeleteJSON(ctx, path+"?"+query.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) DeletePublicationRendition(ctx context.Context, id, accountID string, expectedRevision int) (*PublicationActionOutput, error) {
+	path := "/api/v1/publications/" + url.PathEscape(id) + "/renditions/" + url.PathEscape(accountID)
+	query := url.Values{}
+	query.Set("confirm", "true")
+	query.Set("expected_revision", strconv.Itoa(expectedRevision))
+	var out PublicationActionOutput
+	if err := c.DeleteJSON(ctx, path+"?"+query.Encode(), &out); err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (c *Client) RetryPublicationRendition(ctx context.Context, id, accountID string) (*PublicationActionOutput, error) {
+	var out PublicationActionOutput
+	path := "/api/v1/publications/" + url.PathEscape(id) + "/renditions/" + url.PathEscape(accountID) + "/retry"
+	if err := c.PostJSON(ctx, path, map[string]any{}, &out); err != nil {
 		return nil, err
 	}
 	return &out, nil

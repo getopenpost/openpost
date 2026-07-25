@@ -23,6 +23,8 @@ Useful flags:
 
 For recurring jobs, pass explicit `--accounts` selectors and `--schedule next-slot`. `next-slot` is workspace-scoped and uses the selected workspace posting schedule.
 
+`--json` changes output only. Destructive or bulk-creation commands still require `--yes` in non-interactive runs.
+
 ## GitHub Actions Example
 
 ```yaml

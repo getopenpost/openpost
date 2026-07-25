@@ -1,11 +1,80 @@
 package commands
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
+
+func TestPostUpdateUsesAtomicDraftRevision(t *testing.T) {
+	t.Setenv("OPENPOST_CONFIG_DIR", t.TempDir())
+	var saveBody map[string]any
+	saved := false
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/v1/workspaces":
+			_, _ = w.Write([]byte(`[{"id":"ws-1","name":"Production"}]`))
+		case "/api/v1/workspaces/ws-1/settings":
+			_, _ = w.Write([]byte(`{"timezone":"Europe/Lisbon"}`))
+		case "/api/v1/posts/post-1":
+			revision := 7
+			content := "Original"
+			if saved {
+				revision = 8
+				content = "Updated"
+			}
+			_, _ = w.Write([]byte(`{"id":"post-1","publication_id":"pub-1","workspace_id":"ws-1","created_by":"user-1","content":"` + content + `","status":"draft","revision":` + strconv.Itoa(revision) + `,"random_delay_minutes":3,"destinations":[{"social_account_id":"account-1","platform":"x","status":"pending"}],"media_ids":["media-1"]}`))
+		case "/api/v1/posts/post-1/variants":
+			_, _ = w.Write([]byte(`{"variants":[{"id":"variant-1","social_account_id":"account-1","content":"Custom","media_ids":"[]","is_unsynced":true}]}`))
+		case "/api/v1/posts/post-1/draft":
+			if r.Method != http.MethodPut {
+				t.Fatalf("method = %s, want PUT", r.Method)
+			}
+			if err := json.NewDecoder(r.Body).Decode(&saveBody); err != nil {
+				t.Fatalf("decode body: %v", err)
+			}
+			saved = true
+			_, _ = w.Write([]byte(`{"post_id":"post-1","publication_id":"pub-1","revision":8,"updated_at":"2026-07-25T12:00:00Z"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	out, err := executeRootCaptureStdout(
+		t,
+		"--instance", srv.URL,
+		"--token", "op_cli_test",
+		"--workspace", "Production",
+		"post", "update", "post-1",
+		"--content", "Updated",
+	)
+	if err != nil {
+		t.Fatalf("post update returned error: %v", err)
+	}
+	if saveBody["expected_revision"] != float64(7) || saveBody["content"] != "Updated" {
+		t.Fatalf("save body = %#v", saveBody)
+	}
+	if got := saveBody["social_account_ids"].([]any); len(got) != 1 || got[0] != "account-1" {
+		t.Fatalf("destinations = %#v", got)
+	}
+	if got := saveBody["media_ids"].([]any); len(got) != 1 || got[0] != "media-1" {
+		t.Fatalf("media = %#v", got)
+	}
+	variants := saveBody["variants"].([]any)
+	if len(variants) != 1 || variants[0].(map[string]any)["media_ids"] != "[]" {
+		t.Fatalf("variants = %#v", variants)
+	}
+	if !strings.Contains(out, "post-1") || !strings.Contains(out, "draft") {
+		t.Fatalf("output = %q", out)
+	}
+}
 
 func TestResolveMediaInputsPreservesExistingCommaFilenameAndOriginalAltIndex(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "launch,final.png")

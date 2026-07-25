@@ -409,18 +409,21 @@ func TestProcessingPrimaryJobBlocksClearAndEditsAcrossRESTAndMCP(t *testing.T) {
 
 	mcpHandler := &MCPHandler{db: db}
 	result, rpcErr := mcpHandler.updatePublication(ctx, "user-1", map[string]any{
-		"publication_id": "publication-1",
-		"title":          "Changed",
+		"publication_id":    "publication-1",
+		"expected_revision": 1,
+		"title":             "Changed",
 	})
 	requireMCPConflict(result, rpcErr)
 	result, rpcErr = mcpHandler.setPublicationRenditions(ctx, "user-1", map[string]any{
-		"publication_id": "publication-1",
-		"renditions":     []map[string]any{{"body": "Changed"}},
+		"publication_id":    "publication-1",
+		"expected_revision": 1,
+		"renditions":        []map[string]any{{"body": "Changed"}},
 	})
 	requireMCPConflict(result, rpcErr)
 	result, rpcErr = mcpHandler.updatePublication(ctx, "user-1", map[string]any{
-		"publication_id": "publication-1",
-		"clear_schedule": true,
+		"publication_id":    "publication-1",
+		"expected_revision": 1,
+		"clear_schedule":    true,
 	})
 	requireMCPConflict(result, rpcErr)
 }
@@ -812,13 +815,13 @@ func TestMCPPublishedPublicationActionsPreserveDeliveryState(t *testing.T) {
 		{
 			publicationID: "publication-schedule",
 			run: func(handler *MCPHandler) (any, *mcpError) {
-				return handler.schedulePublication(ctx, "user-1", map[string]any{"publication_id": "publication-schedule"})
+				return handler.schedulePublication(ctx, "user-1", map[string]any{"publication_id": "publication-schedule", "expected_revision": 1})
 			},
 		},
 		{
 			publicationID: "publication-publish-now",
 			run: func(handler *MCPHandler) (any, *mcpError) {
-				return handler.publishPublicationNow(ctx, "user-1", map[string]any{"publication_id": "publication-publish-now"})
+				return handler.publishPublicationNow(ctx, "user-1", map[string]any{"publication_id": "publication-publish-now", "expected_revision": 1})
 			},
 		},
 	}
@@ -932,7 +935,7 @@ func TestPublicationActionsRejectProcessingPrimaryJobAcrossRESTAndMCP(t *testing
 	require.Equal(t, http.StatusConflict, resp.Code, resp.Body.String())
 	require.Contains(t, resp.Body.String(), errPublicationAlreadyProcessing.Error())
 
-	result, rpcErr := (&MCPHandler{db: db}).schedulePublication(ctx, "user-1", map[string]any{"publication_id": "publication-1"})
+	result, rpcErr := (&MCPHandler{db: db}).schedulePublication(ctx, "user-1", map[string]any{"publication_id": "publication-1", "expected_revision": 1})
 	require.Nil(t, result)
 	require.NotNil(t, rpcErr)
 	require.Equal(t, -32602, rpcErr.Code)

@@ -149,15 +149,13 @@ func newAccountDisconnectCmd() *cobra.Command {
 				return err
 			}
 			accountID := args[0]
-			if !cfg.Yes && !cfg.AsJSON {
-				ok, err := confirm(fmt.Sprintf("Disconnect account %s?", accountID))
-				if err != nil {
-					return err
-				}
-				if !ok {
-					printerFrom(cfg).Printf("Canceled.")
-					return nil
-				}
+			ok, err := confirmMutation(cfg, fmt.Sprintf("Disconnect account %s?", accountID))
+			if err != nil {
+				return err
+			}
+			if !ok {
+				printerFrom(cfg).Printf("Canceled.")
+				return nil
 			}
 			if err := client.DisconnectAccount(cmd.Context(), accountID); err != nil {
 				return err

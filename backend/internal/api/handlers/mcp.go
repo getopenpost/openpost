@@ -21,11 +21,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
+	databasemigrations "github.com/openpost/backend/internal/database/migrations"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/netguard"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/apitokens"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/drafts"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/mediastore"
@@ -1441,7 +1443,12 @@ func mcpUpdatePublicationTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
-				"title":          map[string]any{"type": "string", "description": "Optional replacement internal title used to identify the publication."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_publication. Reload the publication after a conflict before retrying.",
+				},
+				"title": map[string]any{"type": "string", "description": "Optional replacement internal title used to identify the publication."},
 				"content_profile": map[string]any{
 					"type": "string", "description": "Optional replacement OpenPost content profile.",
 					"enum": []string{"short_text", "thread", "link_share", "image_post", "carousel", "story", "short_video", "long_video"},
@@ -1459,7 +1466,7 @@ func mcpUpdatePublicationTool() mcpOperationDefinition {
 				},
 				"metadata": map[string]any{"type": "object", "description": "Optional replacement application metadata, e.g. {\"campaign\":\"spring-launch\"}.", "additionalProperties": true},
 			},
-			"required": []string{"publication_id"}, "additionalProperties": false,
+			"required": []string{"publication_id", "expected_revision"}, "additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, false)
 }
@@ -1472,13 +1479,18 @@ func mcpSetPublicationRenditionsTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_publication. Reload the publication after a conflict before retrying.",
+				},
 				"renditions": map[string]any{
 					"type": "array", "minItems": 1,
 					"description": "Complete replacement list of destination-specific publication outputs.",
 					"items":       mcpPublicationRenditionSchema(),
 				},
 			},
-			"required": []string{"publication_id", "renditions"}, "additionalProperties": false,
+			"required": []string{"publication_id", "expected_revision", "renditions"}, "additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, false)
 }
@@ -1573,8 +1585,13 @@ func mcpSchedulePublicationTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_publication after the schedule time was saved.",
+				},
 			},
-			"required":             []string{"publication_id"},
+			"required":             []string{"publication_id", "expected_revision"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
@@ -1589,8 +1606,13 @@ func mcpPublishPublicationNowTool() mcpOperationDefinition {
 			"type": "object",
 			"properties": map[string]any{
 				"publication_id": map[string]any{"type": "string", "description": "Publication ID returned by create_publication or list_publications."},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_publication immediately before publishing.",
+				},
 			},
-			"required":             []string{"publication_id"},
+			"required":             []string{"publication_id", "expected_revision"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, false, true)
@@ -1695,6 +1717,11 @@ func mcpUpdateDraftTool() mcpOperationDefinition {
 					"type":        "string",
 					"description": "Draft post ID returned by create_draft or list_drafts.",
 				},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post_status or list_drafts. Reload the draft after a conflict before retrying.",
+				},
 				"content": map[string]any{
 					"type":        "string",
 					"description": "Updated source draft content.",
@@ -1710,7 +1737,7 @@ func mcpUpdateDraftTool() mcpOperationDefinition {
 					"items":       map[string]any{"type": "string"},
 				},
 			},
-			"required":             []string{"workspace_id", "post_id"},
+			"required":             []string{"workspace_id", "post_id", "expected_revision"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, true, false)
@@ -1731,6 +1758,11 @@ func mcpSetPostRenditionsTool() mcpOperationDefinition {
 				"post_id": map[string]any{
 					"type":        "string",
 					"description": "Post ID returned by create_draft or schedule_post.",
+				},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post_status immediately before changing renditions.",
 				},
 				"renditions": map[string]any{
 					"type":        "array",
@@ -1758,7 +1790,7 @@ func mcpSetPostRenditionsTool() mcpOperationDefinition {
 					},
 				},
 			},
-			"required":             []string{"workspace_id", "post_id", "renditions"},
+			"required":             []string{"workspace_id", "post_id", "expected_revision", "renditions"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, true, false)
@@ -1833,6 +1865,11 @@ func mcpScheduleDraftTool() mcpOperationDefinition {
 					"type":        "string",
 					"description": "Draft post ID returned by create_draft or list_drafts.",
 				},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post_status immediately before scheduling.",
+				},
 				"scheduled_at": map[string]any{
 					"type":        "string",
 					"format":      "date-time",
@@ -1855,7 +1892,7 @@ func mcpScheduleDraftTool() mcpOperationDefinition {
 					"description": "Optional natural-posting random delay window in minutes.",
 				},
 			},
-			"required":             []string{"workspace_id", "post_id", "scheduled_at"},
+			"required":             []string{"workspace_id", "post_id", "expected_revision", "scheduled_at"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, true, true)
@@ -1935,8 +1972,13 @@ func mcpCancelPostTool() mcpOperationDefinition {
 					"type":        "string",
 					"description": "Scheduled post ID returned by schedule_post.",
 				},
+				"expected_revision": map[string]any{
+					"type":        "integer",
+					"minimum":     1,
+					"description": "Revision returned by get_post_status immediately before cancellation.",
+				},
 			},
-			"required":             []string{"workspace_id", "post_id"},
+			"required":             []string{"workspace_id", "post_id", "expected_revision"},
 			"additionalProperties": false,
 		},
 	}, mcpOperationExecute, true, false)
@@ -3187,10 +3229,12 @@ type mcpPublicationStatus struct {
 	Title          string `json:"title"`
 	ContentProfile string `json:"content_profile"`
 	Status         string `json:"status"`
+	Revision       int    `json:"revision"`
 	SourceText     string `json:"source_text"`
 	SourceURL      string `json:"source_url,omitempty"`
 	ScheduledAt    string `json:"scheduled_at,omitempty"`
 	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
 	RenditionCount int    `json:"rendition_count"`
 }
 
@@ -3378,16 +3422,17 @@ func (h *MCPHandler) getPublication(ctx context.Context, userID string, args map
 }
 
 type mcpPublicationUpdateInput struct {
-	PublicationID  string                  `json:"publication_id"`
-	Title          *string                 `json:"title"`
-	ContentProfile *string                 `json:"content_profile"`
-	SourceText     *string                 `json:"source_text"`
-	SourceURL      *string                 `json:"source_url"`
-	Goal           *string                 `json:"goal"`
-	Audience       *string                 `json:"audience"`
-	ScheduledAt    *time.Time              `json:"scheduled_at"`
-	ClearSchedule  bool                    `json:"clear_schedule"`
-	Metadata       *map[string]interface{} `json:"metadata"`
+	PublicationID    string                  `json:"publication_id"`
+	ExpectedRevision int                     `json:"expected_revision"`
+	Title            *string                 `json:"title"`
+	ContentProfile   *string                 `json:"content_profile"`
+	SourceText       *string                 `json:"source_text"`
+	SourceURL        *string                 `json:"source_url"`
+	Goal             *string                 `json:"goal"`
+	Audience         *string                 `json:"audience"`
+	ScheduledAt      *time.Time              `json:"scheduled_at"`
+	ClearSchedule    bool                    `json:"clear_schedule"`
+	Metadata         *map[string]interface{} `json:"metadata"`
 }
 
 func applyMCPPublicationUpdate(publication *models.Publication, input mcpPublicationUpdateInput, now time.Time) (bool, bool, error) {
@@ -3425,9 +3470,12 @@ func applyMCPPublicationUpdate(publication *models.Publication, input mcpPublica
 	return clearQueuedSchedule, rescheduleQueuedJob, nil
 }
 
+//nolint:gocyclo // Coordinates one atomic publication, schedule-job, and linked-text-post mutation.
 func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input mcpPublicationUpdateInput
-	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" {
+	if err := decodeMCPArguments(args, &input); err != nil ||
+		strings.TrimSpace(input.PublicationID) == "" ||
+		input.ExpectedRevision < 1 {
 		return nil, &mcpError{Code: -32602, Message: "invalid update_publication arguments"}
 	}
 	var publication models.Publication
@@ -3446,31 +3494,85 @@ func (h *MCPHandler) updatePublication(ctx context.Context, userID string, args 
 		if err != nil {
 			return err
 		}
+		if currentPublication.Revision != input.ExpectedRevision {
+			return handler.publicationRevisionConflict(txCtx, tx, currentPublication, input.ExpectedRevision)
+		}
 		clearQueuedSchedule, rescheduleQueuedJob, err := applyMCPPublicationUpdate(currentPublication, input, time.Now().UTC())
 		if err != nil {
 			return err
 		}
+		nextRevision := currentPublication.Revision + 1
+		currentPublication.Revision = nextRevision
 		if clearQueuedSchedule {
 			if err := handler.clearPublicationScheduleTx(txCtx, tx, currentPublication.ID, currentPublication.UpdatedAt); err != nil {
 				return err
 			}
 		}
-		if _, err := tx.NewUpdate().Model(currentPublication).Where("id = ?", currentPublication.ID).Exec(txCtx); err != nil {
+		result, err := tx.NewUpdate().
+			Model(currentPublication).
+			Where("id = ? AND revision = ?", currentPublication.ID, input.ExpectedRevision).
+			Exec(txCtx)
+		if err != nil {
 			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return handler.publicationRevisionConflict(txCtx, tx, currentPublication, input.ExpectedRevision)
 		}
 		if rescheduleQueuedJob {
-			_, err := handler.replacePublicationJobTx(txCtx, tx, currentPublication.ID, currentPublication.ScheduledAt)
+			if _, err := handler.replacePublicationJobTx(txCtx, tx, currentPublication.ID, currentPublication.ScheduledAt); err != nil {
+				return err
+			}
+		}
+		changedDomains := publicationChangedDomains(PublicationUpdateBody{
+			Title:          input.Title,
+			ContentProfile: input.ContentProfile,
+			SourceText:     input.SourceText,
+			SourceURL:      input.SourceURL,
+			Goal:           input.Goal,
+			Audience:       input.Audience,
+			ScheduledAt:    input.ScheduledAt,
+			ClearSchedule:  input.ClearSchedule,
+			Metadata:       mcpMetadataValue(input.Metadata),
+		})
+		if err := handler.syncTextPostRevisionsTx(
+			txCtx,
+			tx,
+			currentPublication.ID,
+			input.ExpectedRevision,
+			nextRevision,
+			changedDomains,
+			userID,
+			currentPublication.UpdatedAt,
+		); err != nil {
 			return err
 		}
-		return nil
+		return drafts.RecordChange(
+			txCtx,
+			tx,
+			drafts.AggregatePublication,
+			currentPublication.ID,
+			nextRevision,
+			changedDomains,
+			userID,
+			currentPublication.UpdatedAt,
+		)
 	}); err != nil {
 		return nil, publicationMutationMCPError(err, "failed to update publication")
 	}
 	return h.getPublication(ctx, userID, map[string]any{"publication_id": publication.ID})
 }
 
+func mcpMetadataValue(metadata *map[string]interface{}) map[string]interface{} {
+	if metadata == nil {
+		return nil
+	}
+	return *metadata
+}
+
 func publicationMutationMCPError(err error, fallback string) *mcpError {
 	switch {
+	case isDraftRevisionConflict(err):
+		return &mcpError{Code: -32602, Message: err.Error()}
 	case errors.Is(err, errPublicationNotFound),
 		errors.Is(err, errPublicationAlreadyProcessing),
 		errors.Is(err, errPublicationNotEditable),
@@ -3484,13 +3586,25 @@ func publicationMutationMCPError(err error, fallback string) *mcpError {
 	}
 }
 
+func isDraftRevisionConflict(err error) bool {
+	if errors.Is(err, drafts.ErrRevisionConflict) {
+		return true
+	}
+	var conflict *drafts.ConflictError
+	return errors.As(err, &conflict)
+}
+
 //nolint:gocyclo
 func (h *MCPHandler) setPublicationRenditions(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	var input struct {
-		PublicationID string           `json:"publication_id"`
-		Renditions    []RenditionInput `json:"renditions"`
+		PublicationID    string           `json:"publication_id"`
+		ExpectedRevision int              `json:"expected_revision"`
+		Renditions       []RenditionInput `json:"renditions"`
 	}
-	if err := decodeMCPArguments(args, &input); err != nil || strings.TrimSpace(input.PublicationID) == "" || len(input.Renditions) == 0 {
+	if err := decodeMCPArguments(args, &input); err != nil ||
+		strings.TrimSpace(input.PublicationID) == "" ||
+		input.ExpectedRevision < 1 ||
+		len(input.Renditions) == 0 {
 		return nil, &mcpError{Code: -32602, Message: "invalid set_publication_renditions arguments"}
 	}
 	var publication models.Publication
@@ -3516,6 +3630,9 @@ func (h *MCPHandler) setPublicationRenditions(ctx context.Context, userID string
 		if err != nil {
 			return err
 		}
+		if currentPublication.Revision != input.ExpectedRevision {
+			return handler.publicationRevisionConflict(txCtx, tx, currentPublication, input.ExpectedRevision)
+		}
 		var IDs []string
 		if err := tx.NewSelect().Model((*models.Rendition)(nil)).Column("id").Where("publication_id = ?", publication.ID).Scan(txCtx, &IDs); err != nil {
 			return err
@@ -3532,7 +3649,46 @@ func (h *MCPHandler) setPublicationRenditions(ctx context.Context, userID string
 		if err != nil {
 			return err
 		}
-		return handler.insertRenditions(txCtx, tx, currentPublication, segments, segmentInputs, input.Renditions, nil, accounts)
+		if err := handler.insertRenditions(txCtx, tx, currentPublication, segments, segmentInputs, input.Renditions, nil, accounts); err != nil {
+			return err
+		}
+		now := time.Now().UTC()
+		nextRevision := currentPublication.Revision + 1
+		result, err := tx.NewUpdate().
+			Model((*models.Publication)(nil)).
+			Set("revision = ?", nextRevision).
+			Set("updated_at = ?", now).
+			Where("id = ? AND revision = ?", currentPublication.ID, input.ExpectedRevision).
+			Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return handler.publicationRevisionConflict(txCtx, tx, currentPublication, input.ExpectedRevision)
+		}
+		changedDomains := []string{"destinations", "destination overrides", "media"}
+		if err := handler.syncTextPostRevisionsTx(
+			txCtx,
+			tx,
+			currentPublication.ID,
+			input.ExpectedRevision,
+			nextRevision,
+			changedDomains,
+			userID,
+			now,
+		); err != nil {
+			return err
+		}
+		return drafts.RecordChange(
+			txCtx,
+			tx,
+			drafts.AggregatePublication,
+			currentPublication.ID,
+			nextRevision,
+			changedDomains,
+			userID,
+			now,
+		)
 	}); err != nil {
 		return nil, publicationMutationMCPError(err, "failed to update publication renditions")
 	}
@@ -3617,12 +3773,12 @@ func (h *MCPHandler) validatePublication(ctx context.Context, userID string, arg
 }
 
 func (h *MCPHandler) schedulePublication(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	publication, rpcErr := h.loadMCPPublicationForAction(ctx, userID, args, "invalid schedule_publication arguments")
+	publication, expectedRevision, rpcErr := h.loadMCPPublicationForAction(ctx, userID, args, "invalid schedule_publication arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	handler := &PublicationHandler{db: h.db}
-	jobID, err := handler.queueScheduledPublication(ctx, publication.ID)
+	jobID, err := handler.queueScheduledPublicationExpected(ctx, publication.ID, expectedRevision)
 	if err != nil {
 		return nil, publicationMutationMCPError(err, "failed to schedule publication")
 	}
@@ -3634,12 +3790,12 @@ func (h *MCPHandler) schedulePublication(ctx context.Context, userID string, arg
 }
 
 func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
-	publication, rpcErr := h.loadMCPPublicationForAction(ctx, userID, args, "invalid publish_publication_now arguments")
+	publication, expectedRevision, rpcErr := h.loadMCPPublicationForAction(ctx, userID, args, "invalid publish_publication_now arguments")
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
 	handler := &PublicationHandler{db: h.db}
-	jobID, err := handler.queuePublicationNow(ctx, publication.ID)
+	jobID, err := handler.queuePublicationNowExpected(ctx, publication.ID, expectedRevision)
 	if err != nil {
 		return nil, publicationMutationMCPError(err, "failed to queue publication")
 	}
@@ -3650,28 +3806,29 @@ func (h *MCPHandler) publishPublicationNow(ctx context.Context, userID string, a
 	return mcpPublicationActionResult("Publication queued: "+publication.ID, jobID, status), nil
 }
 
-func (h *MCPHandler) loadMCPPublicationForAction(ctx context.Context, userID string, args map[string]any, invalidMessage string) (models.Publication, *mcpError) {
+func (h *MCPHandler) loadMCPPublicationForAction(ctx context.Context, userID string, args map[string]any, invalidMessage string) (models.Publication, int, *mcpError) {
 	var input struct {
-		PublicationID string `json:"publication_id"`
+		PublicationID    string `json:"publication_id"`
+		ExpectedRevision int    `json:"expected_revision"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
-		return models.Publication{}, &mcpError{Code: -32602, Message: invalidMessage}
+		return models.Publication{}, 0, &mcpError{Code: -32602, Message: invalidMessage}
 	}
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
-	if input.PublicationID == "" {
-		return models.Publication{}, &mcpError{Code: -32602, Message: "publication_id is required"}
+	if input.PublicationID == "" || input.ExpectedRevision < 1 {
+		return models.Publication{}, 0, &mcpError{Code: -32602, Message: "publication_id and expected_revision are required"}
 	}
 	var publication models.Publication
 	if err := h.db.NewSelect().Model(&publication).Where("id = ?", input.PublicationID).Scan(ctx); err != nil {
-		return models.Publication{}, &mcpError{Code: -32602, Message: "publication not found"}
+		return models.Publication{}, 0, &mcpError{Code: -32602, Message: "publication not found"}
 	}
 	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, publication.WorkspaceID); rpcErr != nil {
-		return models.Publication{}, rpcErr
+		return models.Publication{}, 0, rpcErr
 	}
 	if !isPublicationEditable(publication.Status) {
-		return models.Publication{}, &mcpError{Code: -32602, Message: errPublicationNotEditable.Error()}
+		return models.Publication{}, 0, &mcpError{Code: -32602, Message: errPublicationNotEditable.Error()}
 	}
-	return publication, nil
+	return publication, input.ExpectedRevision, nil
 }
 
 func mcpPublicationActionResult(message, jobID string, status mcpPublicationStatus) map[string]any {
@@ -3872,10 +4029,12 @@ func (h *MCPHandler) loadMCPPublicationStatus(ctx context.Context, publicationID
 		Title:          publication.Title,
 		ContentProfile: publication.ContentProfile,
 		Status:         publication.Status,
+		Revision:       publication.Revision,
 		SourceText:     publication.SourceText,
 		SourceURL:      publication.SourceURL,
 		ScheduledAt:    formatOptionalTime(publication.ScheduledAt),
 		CreatedAt:      publication.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:      publication.UpdatedAt.Format(time.RFC3339),
 		RenditionCount: count,
 	}, nil
 }
@@ -3948,6 +4107,9 @@ func (h *MCPHandler) createDraft(ctx context.Context, userID string, args map[st
 	if err != nil {
 		return nil, &mcpError{Code: -32603, Message: "failed to create draft"}
 	}
+	if rpcErr := h.ensureMCPPostAuthoring(ctx); rpcErr != nil {
+		return nil, rpcErr
+	}
 
 	postStatus, rpcErr := h.loadMCPPostStatus(ctx, post.ID)
 	if rpcErr != nil {
@@ -4013,6 +4175,7 @@ func (h *MCPHandler) listDrafts(ctx context.Context, userID string, args map[str
 type mcpUpdateDraftInput struct {
 	WorkspaceID      string    `json:"workspace_id"`
 	PostID           string    `json:"post_id"`
+	ExpectedRevision int       `json:"expected_revision"`
 	Content          *string   `json:"content"`
 	SocialAccountIDs *[]string `json:"social_account_ids"`
 	MediaIDs         *[]string `json:"media_ids"`
@@ -4023,17 +4186,17 @@ func (h *MCPHandler) updateDraft(ctx context.Context, userID string, args map[st
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+	if rpcErr := h.ensureMCPPostAuthoring(ctx); rpcErr != nil {
+		return nil, rpcErr
+	}
 
 	err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		mutation, err := h.lockMCPTextPostMutation(txCtx, tx, post.ID, input.ExpectedRevision)
+		if err != nil {
+			return err
+		}
 		if input.Content != nil {
-			post.Content = *input.Content
-			if _, err := tx.NewUpdate().
-				Model(post).
-				Column("content").
-				Where("id = ?", post.ID).
-				Exec(txCtx); err != nil {
-				return err
-			}
+			mutation.Post.Content = *input.Content
 		}
 		if input.SocialAccountIDs != nil {
 			if err := replaceMCPPostDestinations(txCtx, tx, post.ID, accountIDs); err != nil {
@@ -4048,10 +4211,29 @@ func (h *MCPHandler) updateDraft(ctx context.Context, userID string, args map[st
 				return err
 			}
 		}
-		return nil
+		mutation.Post.Revision = mutation.NextRevision
+		mutation.Post.UpdatedAt = mutation.UpdatedAt
+		result, err := tx.NewUpdate().
+			Model(mutation.Post).
+			Column("content", "revision", "updated_at").
+			Where("id = ? AND revision = ?", mutation.Post.ID, input.ExpectedRevision).
+			Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return (&PostHandler{db: h.db}).textPostRevisionConflict(txCtx, tx, mutation.Post, input.ExpectedRevision)
+		}
+		return h.finishMCPTextPostMutation(
+			txCtx,
+			tx,
+			mutation,
+			userID,
+			mcpDraftChangedDomains(input),
+		)
 	})
 	if err != nil {
-		return nil, &mcpError{Code: -32603, Message: "failed to update draft"}
+		return nil, mcpDraftMutationError(err, "failed to update draft")
 	}
 
 	postStatus, rpcErr := h.loadMCPPostStatus(ctx, post.ID)
@@ -4059,6 +4241,20 @@ func (h *MCPHandler) updateDraft(ctx context.Context, userID string, args map[st
 		return nil, rpcErr
 	}
 	return mcpPostToolResult("Draft updated: "+post.ID, postStatus), nil
+}
+
+func mcpDraftChangedDomains(input mcpUpdateDraftInput) []string {
+	domains := make([]string, 0, 3)
+	if input.Content != nil {
+		domains = append(domains, "content")
+	}
+	if input.SocialAccountIDs != nil {
+		domains = append(domains, "destinations", "destination overrides")
+	}
+	if input.MediaIDs != nil {
+		domains = append(domains, "media")
+	}
+	return domains
 }
 
 func (h *MCPHandler) validateUpdateDraftInput(ctx context.Context, userID string, args map[string]any) (mcpUpdateDraftInput, *models.Post, []string, []string, *mcpError) {
@@ -4076,6 +4272,9 @@ func (h *MCPHandler) validateUpdateDraftInput(ctx context.Context, userID string
 	if input.Content == nil && input.SocialAccountIDs == nil && input.MediaIDs == nil {
 		return input, nil, nil, nil, &mcpError{Code: -32602, Message: "content, social_account_ids, or media_ids is required"}
 	}
+	if input.ExpectedRevision < 1 {
+		return input, nil, nil, nil, &mcpError{Code: -32602, Message: "expected_revision is required"}
+	}
 	if input.Content != nil && strings.TrimSpace(*input.Content) == "" {
 		return input, nil, nil, nil, &mcpError{Code: -32602, Message: "content is required"}
 	}
@@ -4091,9 +4290,10 @@ func (h *MCPHandler) validateUpdateDraftInput(ctx context.Context, userID string
 }
 
 type mcpPostRenditionInput struct {
-	WorkspaceID string                    `json:"workspace_id"`
-	PostID      string                    `json:"post_id"`
-	Renditions  []mcpPostRenditionRequest `json:"renditions"`
+	WorkspaceID      string                    `json:"workspace_id"`
+	PostID           string                    `json:"post_id"`
+	ExpectedRevision int                       `json:"expected_revision"`
+	Renditions       []mcpPostRenditionRequest `json:"renditions"`
 }
 
 type mcpPostRenditionRequest struct {
@@ -4122,17 +4322,43 @@ func (h *MCPHandler) setPostRenditions(ctx context.Context, userID string, args 
 	if rpcErr != nil {
 		return nil, rpcErr
 	}
+	if rpcErr := h.ensureMCPPostAuthoring(ctx); rpcErr != nil {
+		return nil, rpcErr
+	}
 
 	err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		mutation, err := h.lockMCPTextPostMutation(txCtx, tx, post.ID, input.ExpectedRevision)
+		if err != nil {
+			return err
+		}
 		for _, rendition := range input.Renditions {
 			if err := upsertMCPPostRendition(txCtx, tx, post.ID, rendition); err != nil {
 				return err
 			}
 		}
-		return nil
+		mutation.Post.Revision = mutation.NextRevision
+		mutation.Post.UpdatedAt = mutation.UpdatedAt
+		result, err := tx.NewUpdate().
+			Model(mutation.Post).
+			Column("revision", "updated_at").
+			Where("id = ? AND revision = ?", mutation.Post.ID, input.ExpectedRevision).
+			Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return (&PostHandler{db: h.db}).textPostRevisionConflict(txCtx, tx, mutation.Post, input.ExpectedRevision)
+		}
+		return h.finishMCPTextPostMutation(
+			txCtx,
+			tx,
+			mutation,
+			userID,
+			[]string{"destination overrides", "media"},
+		)
 	})
 	if err != nil {
-		return nil, &mcpError{Code: -32603, Message: "failed to update post renditions"}
+		return nil, mcpDraftMutationError(err, "failed to update post renditions")
 	}
 
 	renditions, rpcErr := h.loadMCPPostRenditions(ctx, post.ID)
@@ -4161,6 +4387,9 @@ func (h *MCPHandler) validateSetPostRenditionsInput(ctx context.Context, userID 
 	}
 	if strings.TrimSpace(input.PostID) == "" {
 		return input, nil, &mcpError{Code: -32602, Message: "post_id is required"}
+	}
+	if input.ExpectedRevision < 1 {
+		return input, nil, &mcpError{Code: -32602, Message: "expected_revision is required"}
 	}
 	if len(input.Renditions) == 0 {
 		return input, nil, &mcpError{Code: -32602, Message: "renditions must contain at least one item"}
@@ -4398,13 +4627,16 @@ type mcpPostMedia struct {
 
 type mcpPostStatus struct {
 	ID                 string               `json:"id"`
+	PublicationID      string               `json:"publication_id,omitempty"`
 	WorkspaceID        string               `json:"workspace_id"`
 	Content            string               `json:"content"`
 	Status             string               `json:"status"`
+	Revision           int                  `json:"revision"`
 	ScheduledAt        string               `json:"scheduled_at,omitempty"`
 	ActualRunAt        string               `json:"actual_run_at,omitempty"`
 	RandomDelayMinutes int                  `json:"random_delay_minutes"`
 	CreatedAt          string               `json:"created_at"`
+	UpdatedAt          string               `json:"updated_at"`
 	MediaIDs           []string             `json:"media_ids"`
 	Media              []mcpPostMedia       `json:"media"`
 	Destinations       []mcpPostDestination `json:"destinations"`
@@ -4572,6 +4804,9 @@ func (h *MCPHandler) schedulePost(ctx context.Context, userID string, args map[s
 	if err != nil {
 		return nil, &mcpError{Code: -32603, Message: "failed to schedule post"}
 	}
+	if rpcErr := h.ensureMCPPostAuthoring(ctx); rpcErr != nil {
+		return nil, rpcErr
+	}
 	if rpcErr := h.recordScheduledPostUsage(ctx, input.WorkspaceID, 1, scheduledAt); rpcErr != nil {
 		return nil, rpcErr
 	}
@@ -4586,15 +4821,20 @@ func (h *MCPHandler) schedulePost(ctx context.Context, userID string, args map[s
 type mcpScheduleDraftInput struct {
 	WorkspaceID        string    `json:"workspace_id"`
 	PostID             string    `json:"post_id"`
+	ExpectedRevision   int       `json:"expected_revision"`
 	ScheduledAt        string    `json:"scheduled_at"`
 	SocialAccountIDs   *[]string `json:"social_account_ids"`
 	MediaIDs           *[]string `json:"media_ids"`
 	RandomDelayMinutes *int      `json:"random_delay_minutes"`
 }
 
+//nolint:gocyclo // Keeps draft, destination, media, revision, and canonical job state atomic.
 func (h *MCPHandler) scheduleDraft(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
 	input, post, accountIDs, mediaIDs, scheduledAt, jobRunAt, rpcErr := h.validateScheduleDraftInput(ctx, userID, args)
 	if rpcErr != nil {
+		return nil, rpcErr
+	}
+	if rpcErr := h.ensureMCPPostAuthoring(ctx); rpcErr != nil {
 		return nil, rpcErr
 	}
 
@@ -4610,17 +4850,15 @@ func (h *MCPHandler) scheduleDraft(ctx context.Context, userID string, args map[
 		RunAt:   jobRunAt,
 	}
 
-	post.Status = statusScheduled
-	post.ScheduledAt = scheduledAt
-	post.ActualRunAt = jobRunAt
 	err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewUpdate().
-			Model(post).
-			Column("status", "scheduled_at", "actual_run_at", "random_delay_minutes").
-			Where("id = ?", post.ID).
-			Exec(txCtx); err != nil {
+		mutation, err := h.lockMCPTextPostMutation(txCtx, tx, post.ID, input.ExpectedRevision)
+		if err != nil {
 			return err
 		}
+		mutation.Post.Status = statusScheduled
+		mutation.Post.ScheduledAt = scheduledAt
+		mutation.Post.ActualRunAt = jobRunAt
+		mutation.Post.RandomDelayMinutes = post.RandomDelayMinutes
 		if input.SocialAccountIDs != nil {
 			if err := replaceMCPPostDestinations(txCtx, tx, post.ID, accountIDs); err != nil {
 				return err
@@ -4643,10 +4881,30 @@ func (h *MCPHandler) scheduleDraft(ctx context.Context, userID string, args map[
 		if _, err := tx.NewInsert().Model(job).Exec(txCtx); err != nil {
 			return err
 		}
-		return nil
+		mutation.Post.Revision = mutation.NextRevision
+		mutation.Post.UpdatedAt = mutation.UpdatedAt
+		result, err := tx.NewUpdate().
+			Model(mutation.Post).
+			Column("status", "scheduled_at", "actual_run_at", "random_delay_minutes", "revision", "updated_at").
+			Where("id = ? AND revision = ?", mutation.Post.ID, input.ExpectedRevision).
+			Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return (&PostHandler{db: h.db}).textPostRevisionConflict(txCtx, tx, mutation.Post, input.ExpectedRevision)
+		}
+		changedDomains := []string{"schedule"}
+		if input.SocialAccountIDs != nil {
+			changedDomains = append(changedDomains, "destinations", "destination overrides")
+		}
+		if input.MediaIDs != nil {
+			changedDomains = append(changedDomains, "media")
+		}
+		return h.finishMCPTextPostMutation(txCtx, tx, mutation, userID, changedDomains)
 	})
 	if err != nil {
-		return nil, &mcpError{Code: -32603, Message: "failed to schedule draft"}
+		return nil, mcpDraftMutationError(err, "failed to schedule draft")
 	}
 	if rpcErr := h.recordScheduledPostUsage(ctx, input.WorkspaceID, 1, scheduledAt); rpcErr != nil {
 		return nil, rpcErr
@@ -4712,6 +4970,9 @@ func decodeMCPScheduleDraftArguments(args map[string]any) (mcpScheduleDraftInput
 	var input mcpScheduleDraftInput
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return input, time.Time{}, &mcpError{Code: -32602, Message: "invalid schedule_draft arguments"}
+	}
+	if input.ExpectedRevision < 1 {
+		return input, time.Time{}, &mcpError{Code: -32602, Message: "expected_revision is required"}
 	}
 	scheduledAt, err := time.Parse(time.RFC3339, input.ScheduledAt)
 	if err != nil {
@@ -4836,6 +5097,10 @@ func (h *MCPHandler) listScheduledPosts(ctx context.Context, userID string, args
 }
 
 func (h *MCPHandler) cancelPost(ctx context.Context, userID string, args map[string]any) (any, *mcpError) {
+	expectedRevision, rpcErr := expectedRevisionFromMCPArguments(args)
+	if rpcErr != nil {
+		return nil, rpcErr
+	}
 	post, rpcErr := h.accessibleMCPPost(ctx, userID, args)
 	if rpcErr != nil {
 		return nil, rpcErr
@@ -4843,32 +5108,45 @@ func (h *MCPHandler) cancelPost(ctx context.Context, userID string, args map[str
 	if rpcErr := h.ensureWorkspaceEditAccess(ctx, userID, post.WorkspaceID); rpcErr != nil {
 		return nil, rpcErr
 	}
+	if rpcErr := h.ensureMCPPostAuthoring(ctx); rpcErr != nil {
+		return nil, rpcErr
+	}
 	if post.Status == models.PostStatusPublished || post.Status == models.PostStatusPublishing {
 		return nil, &mcpError{Code: -32602, Message: "cannot cancel a post that is published or being published"}
 	}
 
-	post.Status = statusDraft
-	post.ScheduledAt = time.Time{}
-	post.ActualRunAt = time.Time{}
-	post.RandomDelayMinutes = 0
 	err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewUpdate().
-			Model(post).
-			Column("status", "scheduled_at", "actual_run_at", "random_delay_minutes").
-			Where("id = ?", post.ID).
-			Exec(txCtx); err != nil {
+		mutation, err := h.lockMCPTextPostMutation(txCtx, tx, post.ID, expectedRevision)
+		if err != nil {
 			return err
 		}
+		mutation.Post.Status = statusDraft
+		mutation.Post.ScheduledAt = time.Time{}
+		mutation.Post.ActualRunAt = time.Time{}
+		mutation.Post.RandomDelayMinutes = 0
 		if _, err := tx.NewDelete().
 			Model(&models.Job{}).
 			Where(publishPostJobPostIDWhere(h.db), jobTypePublishPost, post.ID).
 			Exec(txCtx); err != nil {
 			return err
 		}
-		return nil
+		mutation.Post.Revision = mutation.NextRevision
+		mutation.Post.UpdatedAt = mutation.UpdatedAt
+		result, err := tx.NewUpdate().
+			Model(mutation.Post).
+			Column("status", "scheduled_at", "actual_run_at", "random_delay_minutes", "revision", "updated_at").
+			Where("id = ? AND revision = ?", mutation.Post.ID, expectedRevision).
+			Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return (&PostHandler{db: h.db}).textPostRevisionConflict(txCtx, tx, mutation.Post, expectedRevision)
+		}
+		return h.finishMCPTextPostMutation(txCtx, tx, mutation, userID, []string{"schedule"})
 	})
 	if err != nil {
-		return nil, &mcpError{Code: -32603, Message: "failed to cancel post"}
+		return nil, mcpDraftMutationError(err, "failed to cancel post")
 	}
 
 	postStatus, rpcErr := h.loadMCPPostStatus(ctx, post.ID)
@@ -5321,10 +5599,140 @@ func mediaURLPolicy() netguard.URLPolicy {
 	}
 }
 
+type mcpTextPostMutation struct {
+	Post             *models.Post
+	Publication      *models.Publication
+	ExpectedRevision int
+	NextRevision     int
+	UpdatedAt        time.Time
+}
+
+func (h *MCPHandler) ensureMCPPostAuthoring(ctx context.Context) *mcpError {
+	if err := databasemigrations.MigrateLegacyPublicationAuthoring(ctx, h.db); err != nil {
+		return &mcpError{Code: -32603, Message: "failed to prepare canonical post authoring"}
+	}
+	return nil
+}
+
+func (h *MCPHandler) lockMCPTextPostMutation(
+	ctx context.Context,
+	tx bun.Tx,
+	postID string,
+	expectedRevision int,
+) (mcpTextPostMutation, error) {
+	postHandler := &PostHandler{db: h.db}
+	post, err := postHandler.lockTextPostTx(ctx, tx, postID)
+	if err != nil {
+		return mcpTextPostMutation{}, err
+	}
+	if expectedRevision < 1 || post.Revision != expectedRevision {
+		return mcpTextPostMutation{}, postHandler.textPostRevisionConflict(ctx, tx, post, expectedRevision)
+	}
+
+	var publication *models.Publication
+	if post.PublicationID != "" {
+		publicationHandler := &PublicationHandler{db: h.db}
+		current, err := publicationHandler.loadEditablePublicationTx(ctx, tx, post.PublicationID)
+		if err != nil {
+			return mcpTextPostMutation{}, err
+		}
+		if current.Revision != expectedRevision {
+			return mcpTextPostMutation{}, publicationHandler.publicationRevisionConflict(ctx, tx, current, expectedRevision)
+		}
+		publication = current
+	}
+
+	return mcpTextPostMutation{
+		Post:             post,
+		Publication:      publication,
+		ExpectedRevision: expectedRevision,
+		NextRevision:     expectedRevision + 1,
+		UpdatedAt:        time.Now().UTC(),
+	}, nil
+}
+
+func (h *MCPHandler) finishMCPTextPostMutation(
+	ctx context.Context,
+	tx bun.Tx,
+	mutation mcpTextPostMutation,
+	userID string,
+	changedDomains []string,
+) error {
+	if err := databasemigrations.SyncTextPostAuthoringTx(ctx, tx, mutation.Post.ID); err != nil {
+		return err
+	}
+	if mutation.Publication != nil {
+		result, err := tx.NewUpdate().
+			Model((*models.Publication)(nil)).
+			Set("revision = ?", mutation.NextRevision).
+			Set("updated_at = ?", mutation.UpdatedAt).
+			Where("id = ? AND revision = ?", mutation.Publication.ID, mutation.ExpectedRevision).
+			Exec(ctx)
+		if err != nil {
+			return err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return (&PublicationHandler{db: h.db}).publicationRevisionConflict(
+				ctx,
+				tx,
+				mutation.Publication,
+				mutation.ExpectedRevision,
+			)
+		}
+		if err := drafts.RecordChange(
+			ctx,
+			tx,
+			drafts.AggregatePublication,
+			mutation.Publication.ID,
+			mutation.NextRevision,
+			changedDomains,
+			userID,
+			mutation.UpdatedAt,
+		); err != nil {
+			return err
+		}
+	}
+	return drafts.RecordChange(
+		ctx,
+		tx,
+		drafts.AggregateTextPost,
+		mutation.Post.ID,
+		mutation.NextRevision,
+		changedDomains,
+		userID,
+		mutation.UpdatedAt,
+	)
+}
+
+func mcpDraftMutationError(err error, fallback string) *mcpError {
+	if isDraftRevisionConflict(err) {
+		return &mcpError{Code: -32602, Message: err.Error()}
+	}
+	return publicationMutationMCPError(err, fallback)
+}
+
+func expectedRevisionFromMCPArguments(args map[string]any) (int, *mcpError) {
+	raw, ok := args["expected_revision"]
+	if !ok {
+		return 0, &mcpError{Code: -32602, Message: "expected_revision is required"}
+	}
+	value, ok := raw.(int)
+	if !ok {
+		if number, numberOK := raw.(float64); numberOK && number == float64(int(number)) {
+			value, ok = int(number), true
+		}
+	}
+	if !ok || value < 1 {
+		return 0, &mcpError{Code: -32602, Message: "expected_revision must be a positive integer"}
+	}
+	return value, nil
+}
+
 func (h *MCPHandler) accessibleMCPPost(ctx context.Context, userID string, args map[string]any) (*models.Post, *mcpError) {
 	var input struct {
-		WorkspaceID string `json:"workspace_id"`
-		PostID      string `json:"post_id"`
+		WorkspaceID      string `json:"workspace_id"`
+		PostID           string `json:"post_id"`
+		ExpectedRevision int    `json:"expected_revision"`
 	}
 	if err := decodeMCPArguments(args, &input); err != nil {
 		return nil, &mcpError{Code: -32602, Message: "invalid post arguments"}
@@ -5441,11 +5849,14 @@ func (h *MCPHandler) loadMCPPostStatus(ctx context.Context, postID string) (mcpP
 
 	status := mcpPostStatus{
 		ID:                 post.ID,
+		PublicationID:      post.PublicationID,
 		WorkspaceID:        post.WorkspaceID,
 		Content:            post.Content,
 		Status:             post.Status,
+		Revision:           post.Revision,
 		RandomDelayMinutes: post.RandomDelayMinutes,
 		CreatedAt:          post.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:          post.UpdatedAt.Format(time.RFC3339),
 		MediaIDs:           mediaIDs,
 		Media:              media,
 		Destinations:       destinations,

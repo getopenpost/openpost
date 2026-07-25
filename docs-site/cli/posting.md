@@ -1,6 +1,15 @@
 # Posting with the CLI
 
-Use `openpost post` for single posts, `openpost thread` for markdown threads, and `openpost media` for uploads.
+Use `openpost post` for the text-and-thread composer, `openpost thread` for markdown threads, `openpost publication` for format-first content, and `openpost media` for attachments.
+
+## Check Provider Support
+
+Inspect setup blockers and the provider/profile capability matrix before a new publishing workflow:
+
+```sh
+openpost provider readiness --json
+openpost provider capabilities --provider youtube --content-profile long_video --json
+```
 
 ## Choose Accounts
 
@@ -40,6 +49,15 @@ openpost post create --accounts x --content 'New queue view is live.' --media <i
 
 `--media` also accepts a local file path and uploads it before creating the post.
 
+Inspect storage and usage, update alt text, or delete an unused item:
+
+```sh
+openpost media storage
+openpost media usage <media-id>
+openpost media update <media-id> --alt 'Revised product screenshot'
+openpost media delete <media-id>
+```
+
 ## Create Threads
 
 Create a markdown file with optional front matter and `---` separators:
@@ -69,11 +87,30 @@ Use `openpost publication create` for post types that need explicit provider
 fields, video details, link metadata, or capability validation.
 
 ```sh
-openpost publication create --profile link_share --accounts linkedin --url https://openpost.social --content 'Launch notes'
-openpost publication create --profile short_video --accounts youtube,tiktok --video-title 'Short title' --video-description 'YouTube description' --caption 'TikTok caption' --media ./short.mp4
-openpost publication create --profile long_video --accounts youtube --video-title 'Full walkthrough' --video-description 'Long-form description' --privacy private --media ./walkthrough.mp4 --schedule next-slot
+openpost publication create --content-profile link_share --accounts linkedin --url https://openpost.social --content 'Launch notes'
+openpost publication create --content-profile short_video --accounts youtube,tiktok --video-title 'Short title' --video-description 'YouTube description' --caption 'TikTok caption' --media ./short.mp4
+openpost publication create --content-profile long_video --accounts youtube --video-title 'Full walkthrough' --video-description 'Long-form description' --privacy private --media ./walkthrough.mp4 --schedule next-slot
 openpost publication schedule pub_123 --at 'tomorrow 9am'
 ```
+
+Validate a format-first publication before scheduling or immediate publishing:
+
+```sh
+openpost publication validate pub_123 --json
+openpost publication publish-now pub_123
+```
+
+## Manage Posting Slots
+
+Posting slots use the workspace timezone and `0=Sunday` through `6=Saturday`:
+
+```sh
+openpost schedule list
+openpost schedule create --day 1 --hour 9 --minute 30 --label Morning
+openpost schedule next
+```
+
+`openpost schedule suggest --posts-per-day 2` creates fourteen active slots, so it asks for confirmation.
 
 ## Schedule Inputs
 

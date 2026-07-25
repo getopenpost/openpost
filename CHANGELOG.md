@@ -6,11 +6,14 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+- Added an installable `openpost-cli` agent skill with safe CLI workflows for setup, authoring, media, scheduling, publishing, recovery, and moderation.
+- Added CLI commands for provider readiness and capabilities, reusable posting slots, media storage and usage, alt-text updates and deletion, and publication retry and deletion.
 - Added reusable image and shape masks, drop and inner shadows, glow presets, curved text paths, and layer blend modes to Studio, with the same rendering in the canvas, saved previews, and exports.
 - Added rectangle, lasso, and color-aware magic selection to Studio, including add, subtract, toggle, touch controls, keyboard shortcuts, and group-aware layer picking.
 
 ### Changed
 
+- Moved CLI and MCP text-post and publication mutations onto the current revision-aware authoring contract, kept linked publications and publish jobs synchronized, and reserved `--profile` for CLI profiles by naming content filters `--content-profile`.
 - Reworked Studio around a media-first asset panel, brand-aware color and font pickers, custom sliders, richer shape and crop controls, transient save feedback, native range selection, inline layer naming, hierarchical groups, and contextual layer and design actions.
 
 ### Fixed

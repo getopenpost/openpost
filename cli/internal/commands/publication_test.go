@@ -17,6 +17,7 @@ func TestPublicationCommandExposesFormatFirstLifecycle(t *testing.T) {
 	want := map[string]bool{
 		"create": true, "list": true, "view": true, "update": true, "renditions": true,
 		"reply": true, "validate": true, "schedule": true, "publish-now": true,
+		"retry": true, "delete-rendition": true, "delete": true,
 		"events": true, "comments": true, "reply-comment": true, "hide-comment": true, "delete-comment": true,
 	}
 	for _, child := range cmd.Commands() {
@@ -24,6 +25,27 @@ func TestPublicationCommandExposesFormatFirstLifecycle(t *testing.T) {
 	}
 	if len(want) != 0 {
 		t.Fatalf("missing publication commands: %v", want)
+	}
+}
+
+func TestContentProfileFlagsDoNotShadowCLIProfile(t *testing.T) {
+	root := NewRoot("test")
+	for _, path := range [][]string{
+		{"publication", "create"},
+		{"publication", "update"},
+		{"publication", "list"},
+		{"provider", "capabilities"},
+	} {
+		cmd, _, err := root.Find(path)
+		if err != nil {
+			t.Fatalf("find %v: %v", path, err)
+		}
+		if cmd.Flag("profile") == nil {
+			t.Fatalf("%v does not inherit the CLI --profile flag", path)
+		}
+		if cmd.Flag("content-profile") == nil {
+			t.Fatalf("%v does not expose --content-profile", path)
+		}
 	}
 }
 
@@ -90,16 +112,27 @@ func TestPublicationScheduleCommandUpdatesAndEnqueues(t *testing.T) {
 		case "/api/v1/workspaces/ws-1/settings":
 			_, _ = w.Write([]byte(`{"timezone":"Europe/Lisbon","week_start":1,"media_cleanup_days":30,"random_delay_minutes":0,"draft_gap_minutes":0,"slot_start_hour":9,"slot_end_hour":17,"slot_interval_minutes":30}`))
 		case "/api/v1/publications/pub_1":
-			if r.Method != http.MethodPut {
-				t.Fatalf("publication update method = %s, want PUT", r.Method)
+			switch r.Method {
+			case http.MethodGet:
+				_, _ = w.Write([]byte(`{"id":"pub_1","workspace_id":"ws-1","created_by":"u-1","title":"Draft","content_profile":"short_video","source_text":"Demo","status":"draft","revision":4,"created_at":"2026-07-06T09:00:00Z","renditions":[]}`))
+			case http.MethodPut:
+				if err := json.NewDecoder(r.Body).Decode(&updateBody); err != nil {
+					t.Fatalf("decode update body: %v", err)
+				}
+				_, _ = fmt.Fprintf(w, `{"id":"pub_1","workspace_id":"ws-1","created_by":"u-1","title":"Draft","content_profile":"short_video","source_text":"Demo","status":"draft","revision":5,"scheduled_at":%q,"created_at":"2026-07-06T09:00:00Z","renditions":[]}`, scheduleAt)
+			default:
+				t.Fatalf("publication method = %s, want GET or PUT", r.Method)
 			}
-			if err := json.NewDecoder(r.Body).Decode(&updateBody); err != nil {
-				t.Fatalf("decode update body: %v", err)
-			}
-			_, _ = fmt.Fprintf(w, `{"id":"pub_1","workspace_id":"ws-1","created_by":"u-1","title":"Draft","content_profile":"short_video","source_text":"Demo","status":"draft","scheduled_at":%q,"created_at":"2026-07-06T09:00:00Z","renditions":[]}`, scheduleAt)
 		case "/api/v1/publications/pub_1/schedule":
 			if r.Method != http.MethodPost {
 				t.Fatalf("publication schedule method = %s, want POST", r.Method)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode schedule body: %v", err)
+			}
+			if body["expected_revision"] != float64(5) {
+				t.Fatalf("schedule body = %#v, want expected_revision 5", body)
 			}
 			scheduled = true
 			_, _ = w.Write([]byte(`{"message":"publication scheduled","job_id":"job_1"}`))
@@ -123,6 +156,9 @@ func TestPublicationScheduleCommandUpdatesAndEnqueues(t *testing.T) {
 	}
 	if updateBody["scheduled_at"] != scheduleAt {
 		t.Fatalf("scheduled_at body = %#v", updateBody)
+	}
+	if updateBody["expected_revision"] != float64(4) {
+		t.Fatalf("expected_revision body = %#v", updateBody)
 	}
 	if !scheduled {
 		t.Fatalf("schedule endpoint was not called")

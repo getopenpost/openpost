@@ -1,0 +1,33 @@
+{
+  "name": "openpost",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "sync:assets": "node scripts/sync-assets.mjs",
+    "sync:docs-external": "node scripts/sync-docs-external.mjs",
+    "dev": "turbo run dev --parallel",
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "check:contracts": "node scripts/check-contracts.mjs",
+    "test": "turbo run test",
+    "test:e2e": "playwright test",
+    "test:e2e:app": "playwright test --config playwright.app.config.ts",
+    "test:e2e:docs": "playwright test --config playwright.docs.config.ts",
+    "capture:product-screenshots": "OPENPOST_UPDATE_PRODUCT_SCREENSHOTS=1 OPENPOST_APP_E2E_PORT=18181 playwright test --config playwright.app.config.ts e2e-app/product-screenshots.spec.ts --workers=1",
+    "release:prod": "scripts/release-prod.sh",
+    "lint": "turbo run lint",
+    "docs:dev": "pnpm run sync:assets && pnpm run sync:docs-external && pnpm --filter @openpost/docs docs:dev",
+    "docs:build": "pnpm run sync:assets && pnpm run sync:docs-external && pnpm --filter @openpost/docs docs:build",
+    "docs:preview": "pnpm --filter @openpost/docs docs:preview",
+    "frontend:dev": "pnpm --filter @openpost/web dev",
+    "frontend:build": "pnpm --filter @openpost/web build",
+    "marketing:dev": "pnpm run sync:assets && pnpm --filter @openpost/site dev",
+    "marketing:build": "pnpm run sync:assets && pnpm --filter @openpost/site build",
+    "marketing:preview": "pnpm --filter @openpost/site preview"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1",
+    "turbo": "^2.6.3"
+  }
+}

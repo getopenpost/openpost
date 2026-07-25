@@ -806,13 +806,15 @@
 								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-2">
 										<h3 class="text-sm font-medium">{providerTitle(provider)}</h3>
-										<span
-											class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium {providerStatusClass(
-												provider
-											)}"
-										>
-											{providerStatusLabel(provider)}
-										</span>
+										{#if providerStatus(provider) !== 'available'}
+											<span
+												class="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium {providerStatusClass(
+													provider
+												)}"
+											>
+												{providerStatusLabel(provider)}
+											</span>
+										{/if}
 									</div>
 									<p class="truncate text-sm text-muted-foreground">
 										{providerDescription(provider)}

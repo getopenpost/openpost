@@ -4,7 +4,10 @@ import type { StudioDocument, StudioLayer, StudioPage } from './types';
 type FabricModule = typeof import('fabric');
 type FabricCanvas = InstanceType<FabricModule['Canvas']>;
 type FabricStaticCanvas = InstanceType<FabricModule['StaticCanvas']>;
-type FabricObject = InstanceType<FabricModule['FabricObject']> & { __studioLayerID?: string };
+type FabricObject = InstanceType<FabricModule['FabricObject']> & {
+	__studioLayerID?: string;
+	__studioObjectURL?: string;
+};
 type FabricTextObject = FabricObject & { text?: string; initDimensions?: () => void };
 
 interface FabricAdapterOptions {
@@ -97,7 +100,10 @@ export class OpenPostFabricAdapter {
 		this.canvas.backgroundColor = page.background_color;
 		for (const layer of page.layers) {
 			const object = await this.createObject(layer);
-			if (sequence !== this.renderSequence) return;
+			if (sequence !== this.renderSequence) {
+				if (object) this.releaseObjectURL(object);
+				return;
+			}
 			if (!object) continue;
 			this.objectByLayerID.set(layer.id, object);
 			this.layerSnapshots.set(layer.id, structuredClone(layer));
@@ -128,7 +134,7 @@ export class OpenPostFabricAdapter {
 			this.canvas.backgroundColor = page.background_color;
 			for (const [id, object] of this.objectByLayerID) {
 				if (nextLayerIDs.has(id)) continue;
-				this.canvas.remove(object);
+				this.removeObject(object);
 				this.objectByLayerID.delete(id);
 				this.layerSnapshots.delete(id);
 			}
@@ -136,9 +142,12 @@ export class OpenPostFabricAdapter {
 				const previous = this.layerSnapshots.get(layer.id);
 				let object = this.objectByLayerID.get(layer.id);
 				if (!previous || !object || this.requiresObjectRebuild(previous, layer)) {
-					if (object) this.canvas.remove(object);
+					if (object) this.removeObject(object);
 					const replacement = await this.createObject(layer);
-					if (sequence !== this.renderSequence) return;
+					if (sequence !== this.renderSequence) {
+						if (replacement) this.releaseObjectURL(replacement);
+						return;
+					}
 					if (!replacement) {
 						this.objectByLayerID.delete(layer.id);
 						this.layerSnapshots.delete(layer.id);
@@ -431,7 +440,13 @@ export class OpenPostFabricAdapter {
 			if (!response.ok) return null;
 			const objectURL = URL.createObjectURL(await response.blob());
 			this.objectURLs.add(objectURL);
-			const image = await this.fabric.FabricImage.fromURL(objectURL);
+			let image: InstanceType<FabricModule['FabricImage']>;
+			try {
+				image = await this.fabric.FabricImage.fromURL(objectURL);
+			} catch (cause) {
+				this.revokeObjectURL(objectURL);
+				throw cause;
+			}
 			const sourceWidth = Math.max(1, image.width);
 			const sourceHeight = Math.max(1, image.height);
 			const crop = layer.image.crop;
@@ -478,6 +493,7 @@ export class OpenPostFabricAdapter {
 			});
 			this.applyImageFilters(image, layer);
 			object = image as FabricObject;
+			object.__studioObjectURL = objectURL;
 		}
 		if (!object) return null;
 		object.__studioLayerID = layer.id;
@@ -707,6 +723,22 @@ export class OpenPostFabricAdapter {
 	private revokeObjectURLs(): void {
 		for (const url of this.objectURLs) URL.revokeObjectURL(url);
 		this.objectURLs.clear();
+	}
+
+	private removeObject(object: FabricObject): void {
+		this.canvas?.remove(object);
+		this.releaseObjectURL(object);
+	}
+
+	private releaseObjectURL(object: FabricObject): void {
+		if (!object.__studioObjectURL) return;
+		this.revokeObjectURL(object.__studioObjectURL);
+		delete object.__studioObjectURL;
+	}
+
+	private revokeObjectURL(url: string): void {
+		URL.revokeObjectURL(url);
+		this.objectURLs.delete(url);
 	}
 }
 

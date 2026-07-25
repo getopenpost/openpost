@@ -91,9 +91,13 @@
 		coverPreviewMediaID?: string;
 		recoveryReason: 'idle' | 'export' | 'close';
 	};
+	type SaveAttemptResult = 'saved' | 'retry' | 'blocked';
+	const INITIAL_SAVE_RETRY_DELAY = 2_000;
+	const MAXIMUM_SAVE_RETRY_DELAY = 30_000;
 	let saveTimer: ReturnType<typeof setTimeout> | undefined;
 	let pendingSave: SaveRequest | null = null;
 	let saveDrain: Promise<boolean> | null = null;
+	let saveRetryDelay = INITIAL_SAVE_RETRY_DELAY;
 	let previewTimer: ReturnType<typeof setTimeout> | undefined;
 	let previewPending = false;
 	let previewBusy = false;
@@ -401,28 +405,38 @@
 	}
 
 	async function drainSaves(): Promise<boolean> {
-		let saved = true;
 		while (pendingSave) {
 			const request = pendingSave;
 			pendingSave = null;
-			saved = await performSave(request);
-			if (!saved) {
+			const result = await performSave(request);
+			if (result === 'saved') continue;
+			if (result === 'retry') {
+				pendingSave = pendingSave ? mergeSaveRequest(request, pendingSave) : request;
+				scheduleSaveRetry();
+			} else {
 				pendingSave = null;
-				return false;
 			}
+			return false;
 		}
-		return saved;
+		return true;
 	}
 
-	async function performSave(request: SaveRequest): Promise<boolean> {
-		if (!editor.document || !editor.canEdit) return true;
+	function scheduleSaveRetry(): void {
+		clearTimeout(saveTimer);
+		const delay = saveRetryDelay;
+		saveRetryDelay = Math.min(saveRetryDelay * 2, MAXIMUM_SAVE_RETRY_DELAY);
+		saveTimer = setTimeout(() => void saveNow(), delay);
+	}
+
+	async function performSave(request: SaveRequest): Promise<SaveAttemptResult> {
+		if (!editor.document || !editor.canEdit) return 'saved';
 		const submittedDocument = editor.document;
 		const errors = validateStudioDocument(submittedDocument);
 		if (errors.length > 0) {
 			editor.saveState = 'error';
 			editor.saveMessage = errors[0];
 			statusAnnouncement = errors[0];
-			return false;
+			return 'blocked';
 		}
 		editor.saveState = 'saving';
 		editor.saveMessage = m.common_saving();
@@ -445,11 +459,13 @@
 				statusAnnouncement = m.studio_saved_announcement();
 				if (request.recoveryReason === 'idle' && previewPending) schedulePreview();
 			}
+			saveRetryDelay = INITIAL_SAVE_RETRY_DELAY;
 			finishMetric();
-			return true;
+			return 'saved';
 		} catch (cause) {
 			finishMetric('error');
 			const status = (cause as Error & { status?: number }).status;
+			const retryable = !navigator.onLine || !status || status === 429 || status >= 500;
 			if (status === 409) {
 				editor.saveState = 'conflict';
 				editor.saveMessage = m.studio_save_conflict();
@@ -464,7 +480,7 @@
 				editor.saveMessage = cause instanceof Error ? cause.message : m.studio_save_failed();
 				statusAnnouncement = editor.saveMessage;
 			}
-			return false;
+			return retryable ? 'retry' : 'blocked';
 		}
 	}
 

@@ -18,6 +18,7 @@ This folder is a worked example of an agent-assisted, human-reviewed OpenPost ca
 | [`release-freeze-checklist.md`](./release-freeze-checklist.md) | Version freeze, production smoke, campaign rehearsal, and rollback template |
 | [`pilot-evidence-log.md`](./pilot-evidence-log.md) | Empty ten-user pilot log for activation, failure points, and permitted proof |
 | [`distribution-plan.md`](./distribution-plan.md) | Proof-first launch waves and destination-specific material |
+| [`listings.md`](./listings.md) | Human-maintained directory and marketplace listing tracker |
 | [`metrics-plan.md`](./metrics-plan.md) | Fourteen-day activation and guardrail plan with manual evidence fields |
 | [`results-template.md`](./results-template.md) | Clearly labeled template for real outcomes, URLs, failures, and lessons |
 | [`media/README.md`](./media/README.md) | Existing product assets and placeholders for the final campaign media |

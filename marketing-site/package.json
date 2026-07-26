@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 4322",
-    "build": "vite build",
+    "build": "vite build && node scripts/check-routing-output.mjs",
+    "check:routing": "node scripts/check-routing-output.mjs",
     "preview": "vite preview --host 0.0.0.0 --port 4322",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },

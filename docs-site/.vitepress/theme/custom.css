@@ -1,0 +1,166 @@
+:root {
+  --op-bg: oklch(0.985 0.002 80);
+  --op-bg-alt: oklch(0.98 0.003 85);
+  --op-surface: oklch(1 0 0);
+  --op-text: oklch(0.2 0.01 50);
+  --op-muted: oklch(0.55 0.015 55);
+  --op-border: oklch(0.9 0.005 80);
+  --op-orange: oklch(0.55 0.155 45);
+  --op-orange-dark: oklch(0.5 0.15 45);
+  --op-orange-soft: oklch(0.92 0.03 55 / 0.5);
+  --op-orange-glow: oklch(0.72 0.12 50 / 0.18);
+
+  --vp-c-brand-1: var(--op-orange);
+  --vp-c-brand-2: var(--op-orange-dark);
+  --vp-c-brand-3: oklch(0.6 0.14 45);
+  --vp-c-brand-soft: var(--op-orange-soft);
+
+  --vp-c-bg: var(--op-bg);
+  --vp-c-bg-alt: var(--op-bg-alt);
+  --vp-c-bg-soft: oklch(0.95 0.003 80);
+  --vp-c-bg-elv: var(--op-surface);
+  --vp-c-text-1: var(--op-text);
+  --vp-c-text-2: oklch(0.35 0.012 52);
+  --vp-c-text-3: var(--op-muted);
+  --vp-c-border: var(--op-border);
+  --vp-c-divider: var(--op-border);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, oklch(0.55 0.155 45), oklch(0.6 0.14 45), oklch(0.7 0.11 55));
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, var(--op-orange-glow), oklch(0.82 0.06 60 / 0.14));
+  --vp-home-hero-image-filter: blur(44px);
+
+  --vp-button-brand-border: var(--op-orange);
+  --vp-button-brand-text: oklch(0.98 0.005 85);
+  --vp-button-brand-bg: var(--op-orange);
+  --vp-button-brand-hover-border: var(--op-orange-dark);
+  --vp-button-brand-hover-text: oklch(0.98 0.005 85);
+  --vp-button-brand-hover-bg: var(--op-orange-dark);
+  --vp-button-alt-border: var(--op-border);
+  --vp-button-alt-text: var(--op-text);
+  --vp-button-alt-bg: var(--op-surface);
+  --vp-button-alt-hover-border: oklch(0.82 0.01 65);
+  --vp-button-alt-hover-text: var(--op-text);
+  --vp-button-alt-hover-bg: oklch(0.96 0.005 85);
+}
+
+.dark {
+  --op-bg: oklch(0.145 0.008 55);
+  --op-bg-alt: oklch(0.18 0.01 52);
+  --op-surface: oklch(0.2 0.01 50);
+  --op-text: oklch(0.92 0.005 85);
+  --op-muted: oklch(0.65 0.015 55);
+  --op-border: oklch(0.25 0.015 55);
+  --op-orange: oklch(0.6 0.14 45);
+  --op-orange-dark: oklch(0.54 0.13 45);
+  --op-orange-soft: oklch(0.34 0.06 48 / 0.42);
+  --op-orange-glow: oklch(0.62 0.11 48 / 0.22);
+
+  --vp-c-brand-1: var(--op-orange);
+  --vp-c-brand-2: var(--op-orange-dark);
+  --vp-c-brand-3: oklch(0.64 0.12 48);
+  --vp-c-brand-soft: var(--op-orange-soft);
+  --vp-c-bg: var(--op-bg);
+  --vp-c-bg-alt: var(--op-bg-alt);
+  --vp-c-bg-soft: oklch(0.25 0.015 55);
+  --vp-c-bg-elv: var(--op-surface);
+  --vp-c-text-1: var(--op-text);
+  --vp-c-text-2: oklch(0.78 0.008 78);
+  --vp-c-text-3: var(--op-muted);
+  --vp-c-border: var(--op-border);
+  --vp-c-divider: var(--op-border);
+
+  --vp-button-brand-border: var(--op-orange);
+  --vp-button-brand-text: oklch(0.1 0.01 50);
+  --vp-button-brand-bg: var(--op-orange);
+  --vp-button-brand-hover-border: var(--op-orange-dark);
+  --vp-button-brand-hover-text: oklch(0.1 0.01 50);
+  --vp-button-brand-hover-bg: var(--op-orange-dark);
+  --vp-button-alt-border: var(--op-border);
+  --vp-button-alt-text: var(--op-text);
+  --vp-button-alt-bg: var(--op-surface);
+  --vp-button-alt-hover-border: oklch(0.32 0.016 55);
+  --vp-button-alt-hover-text: var(--op-text);
+  --vp-button-alt-hover-bg: oklch(0.25 0.015 55);
+}
+
+.VPHomeHero .name,
+.VPHomeHero .text {
+  letter-spacing: -0.04em;
+}
+
+.VPHomeHero .tagline {
+  max-width: 620px;
+}
+
+.VPButton.brand {
+  color: var(--vp-button-brand-text);
+  border-color: var(--vp-button-brand-border);
+  background-color: var(--vp-button-brand-bg);
+  box-shadow: inset 0 1px 0 oklch(1 0 0 / 0.08), 0 10px 30px oklch(0.5 0.15 45 / 0.18);
+}
+
+.VPButton.brand:hover {
+  color: var(--vp-button-brand-hover-text);
+  border-color: var(--vp-button-brand-hover-border);
+  background-color: var(--vp-button-brand-hover-bg);
+}
+
+.dark .VPButton.brand {
+  color: var(--vp-button-brand-text);
+  border-color: var(--vp-button-brand-border);
+  background-color: var(--vp-button-brand-bg);
+}
+
+.dark .VPButton.brand:hover {
+  color: var(--vp-button-brand-hover-text);
+  border-color: var(--vp-button-brand-hover-border);
+  background-color: var(--vp-button-brand-hover-bg);
+}
+
+.VPButton.alt {
+  border-color: var(--vp-button-alt-border);
+  color: var(--vp-button-alt-text);
+  background-color: var(--vp-button-alt-bg);
+}
+
+.VPButton.alt:hover {
+  border-color: var(--vp-button-alt-hover-border);
+  color: var(--vp-button-alt-hover-text);
+  background-color: var(--vp-button-alt-hover-bg);
+}
+
+.custom-block.tip {
+  border-color: var(--vp-c-brand-1);
+}
+
+.VPSidebar {
+  border-right-color: var(--vp-c-divider);
+  background: color-mix(in oklab, var(--vp-c-bg) 82%, var(--vp-c-bg-alt));
+}
+
+.VPSidebarItem.level-0 > .item > .text {
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.VPSidebarItem .item.is-active > .indicator,
+.VPSidebarItem .item:hover > .indicator {
+  background-color: var(--vp-c-brand-1);
+}
+
+.vp-doc {
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}
+
+.vp-doc a {
+  text-underline-offset: 2px;
+}
+
+.vp-doc img {
+  border-radius: 14px;
+}
+
+.vp-doc table {
+  font-size: 0.92rem;
+}

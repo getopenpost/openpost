@@ -1,0 +1,991 @@
+package communications
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/notifications"
+	"github.com/uptrace/bun"
+)
+
+const (
+	JobTypeSweep          = "communications_sweep"
+	JobTypeEngagementSync = "engagement_sync"
+	JobTypeMessagesSync   = "messages_sync"
+	JobTypeEngagementAct  = "engagement_action"
+	JobTypeMessageSend    = "message_send"
+
+	capabilityEngagement = "engagement"
+	capabilityMessages   = "messages"
+	subjectRendition     = "rendition"
+	subjectAccount       = "account"
+)
+
+const sweepInterval = 5 * time.Minute
+
+type TokenSource interface {
+	GetValidAccessToken(ctx context.Context, accountID string) (string, error)
+}
+
+type Service struct {
+	db            *bun.DB
+	tokenSource   TokenSource
+	notifications *notifications.Service
+	providersMu   sync.RWMutex
+	providers     map[string]platform.Adapter
+	now           func() time.Time
+}
+
+func accountMessagesEnabled(account models.SocialAccount) bool {
+	state := map[string]string{}
+	if err := json.Unmarshal([]byte(account.CapabilityState), &state); err != nil {
+		return false
+	}
+	return state["messages_enabled"] == "true"
+}
+
+func NewService(db *bun.DB, tokenSource TokenSource, notificationService *notifications.Service) *Service {
+	return &Service{
+		db:            db,
+		tokenSource:   tokenSource,
+		notifications: notificationService,
+		providers:     make(map[string]platform.Adapter),
+		now:           func() time.Time { return time.Now().UTC() },
+	}
+}
+
+func (s *Service) SetProvider(name string, adapter platform.Adapter) {
+	s.providersMu.Lock()
+	defer s.providersMu.Unlock()
+	s.providers[name] = adapter
+}
+
+func (s *Service) ScheduleSweep(ctx context.Context, runAt time.Time) error {
+	payload, _ := json.Marshal(map[string]string{"scheduled_for": runAt.UTC().Truncate(time.Minute).Format(time.RFC3339)})
+	_, err := s.enqueue(ctx, JobTypeSweep, string(payload), runAt)
+	return err
+}
+
+func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error {
+	switch jobType {
+	case JobTypeSweep:
+		return s.handleSweep(ctx)
+	case JobTypeEngagementSync:
+		var input subjectJob
+		if err := json.Unmarshal([]byte(payload), &input); err != nil {
+			return fmt.Errorf("decode engagement sync: %w", err)
+		}
+		return s.syncEngagement(ctx, input.ID)
+	case JobTypeMessagesSync:
+		var input subjectJob
+		if err := json.Unmarshal([]byte(payload), &input); err != nil {
+			return fmt.Errorf("decode messages sync: %w", err)
+		}
+		return s.syncMessages(ctx, input.ID)
+	case JobTypeEngagementAct:
+		var input engagementActionJob
+		if err := json.Unmarshal([]byte(payload), &input); err != nil {
+			return fmt.Errorf("decode engagement action: %w", err)
+		}
+		return s.performEngagementAction(ctx, input)
+	case JobTypeMessageSend:
+		var input subjectJob
+		if err := json.Unmarshal([]byte(payload), &input); err != nil {
+			return fmt.Errorf("decode message send: %w", err)
+		}
+		return s.sendMessage(ctx, input.ID)
+	default:
+		return fmt.Errorf("unsupported communications job type %q", jobType)
+	}
+}
+
+type subjectJob struct {
+	ID string `json:"id"`
+}
+
+type engagementActionJob struct {
+	ItemID  string `json:"item_id"`
+	Action  string `json:"action"`
+	Message string `json:"message,omitempty"`
+	UserID  string `json:"user_id"`
+}
+
+func (s *Service) handleSweep(ctx context.Context) error {
+	if _, err := s.db.NewDelete().
+		Model((*models.CommunicationSyncState)(nil)).
+		Where("capability = ? AND subject_type = ?", capabilityEngagement, subjectRendition).
+		Where("NOT EXISTS (SELECT 1 FROM renditions AS rendition WHERE rendition.id = communication_sync_state.subject_id)").
+		Exec(ctx); err != nil {
+		return fmt.Errorf("cleaning communications sync state: %w", err)
+	}
+	var workspaces []string
+	if err := s.db.NewSelect().
+		Model((*models.SocialAccount)(nil)).
+		ColumnExpr("DISTINCT workspace_id").
+		Where("is_active = ?", true).
+		Scan(ctx, &workspaces); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	var combined error
+	for _, workspaceID := range workspaces {
+		if _, err := s.RefreshWorkspace(ctx, workspaceID, false); err != nil {
+			combined = errors.Join(combined, err)
+		}
+	}
+	if err := s.ScheduleSweep(ctx, s.now().Add(sweepInterval)); err != nil {
+		combined = errors.Join(combined, err)
+	}
+	return combined
+}
+
+//nolint:gocyclo // One sweep applies capability, scope, opt-in, cadence, and job-uniqueness gates.
+func (s *Service) RefreshWorkspace(ctx context.Context, workspaceID string, force bool) (int, error) {
+	now := s.now()
+	queued := 0
+	var renditions []models.Rendition
+	err := s.db.NewSelect().Model(&renditions).
+		Join("JOIN publications AS publication ON publication.id = rendition.publication_id").
+		Where("publication.workspace_id = ?", workspaceID).
+		Where("rendition.status = ? AND rendition.external_id != ''", models.RenditionStatusPublished).
+		Where("COALESCE(publication.actual_run_at, publication.updated_at) >= ?", now.Add(-90*24*time.Hour)).
+		Scan(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
+	for _, rendition := range renditions {
+		var account models.SocialAccount
+		if err := s.db.NewSelect().Model(&account).Where("id = ? AND is_active = ?", rendition.SocialAccountID, true).Scan(ctx); err != nil {
+			continue
+		}
+		adapter := s.adapter(account)
+		if _, ok := adapter.(platform.CommentAdapter); !ok {
+			continue
+		}
+		if !force && !s.due(ctx, capabilityEngagement, subjectRendition, rendition.ID, now) {
+			continue
+		}
+		payload, _ := json.Marshal(subjectJob{ID: rendition.ID})
+		inserted, enqueueErr := s.enqueue(ctx, JobTypeEngagementSync, string(payload), now)
+		if enqueueErr != nil {
+			return queued, enqueueErr
+		}
+		if inserted {
+			queued++
+		}
+	}
+	var accounts []models.SocialAccount
+	if err := s.db.NewSelect().Model(&accounts).
+		Where("workspace_id = ? AND is_active = ?", workspaceID, true).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return queued, err
+	}
+	for _, account := range accounts {
+		messenger, ok := s.adapter(account).(platform.MessagingAdapter)
+		if !ok || !messenger.MessagingSupport().Enabled {
+			continue
+		}
+		if messenger.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
+			_ = s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "disabled", "opt_in_required", "Enable inbox sync for this account to collect messages.", "", false, 0, 0)
+			continue
+		}
+		if missing := platform.MissingAnalyticsScopes(account.GrantedScopes, messenger.MessagingSupport().RequiredScopes); len(missing) > 0 {
+			_ = s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "permission_required", "missing_scope", "Reconnect this account and grant messaging access.", "", false, 24*time.Hour, 0)
+			continue
+		}
+		if !force && !s.due(ctx, capabilityMessages, subjectAccount, account.ID, now) {
+			continue
+		}
+		payload, _ := json.Marshal(subjectJob{ID: account.ID})
+		inserted, enqueueErr := s.enqueue(ctx, JobTypeMessagesSync, string(payload), now)
+		if enqueueErr != nil {
+			return queued, enqueueErr
+		}
+		if inserted {
+			queued++
+		}
+	}
+	return queued, nil
+}
+
+func (s *Service) syncEngagement(ctx context.Context, renditionID string) error {
+	var rendition models.Rendition
+	if err := s.db.NewSelect().Model(&rendition).Where("id = ?", renditionID).Scan(ctx); err != nil {
+		return err
+	}
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ?", rendition.SocialAccountID).Scan(ctx); err != nil {
+		return err
+	}
+	commenter, ok := s.adapter(account).(platform.CommentAdapter)
+	if !ok {
+		return s.recordState(ctx, capabilityEngagement, subjectRendition, rendition.ID, account, "unsupported", "unsupported", "Engagement collection is not supported for this provider.", "", true, 0, 0)
+	}
+	token, err := s.tokenSource.GetValidAccessToken(ctx, account.ID)
+	if err != nil {
+		return s.recordState(ctx, capabilityEngagement, subjectRendition, rendition.ID, account, "failed", "authentication", "Reconnect this account to resume engagement collection.", "", true, time.Hour, 0)
+	}
+	comments, err := commenter.ListComments(ctx, token, account.AccountID, rendition.ExternalID)
+	if err != nil {
+		return s.recordState(ctx, capabilityEngagement, subjectRendition, rendition.ID, account, "failed", "provider_error", "OpenPost could not collect engagement from this provider.", "", true, time.Hour, 0)
+	}
+	now := s.now()
+	newItems := make([]models.EngagementItem, 0)
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		for _, comment := range comments {
+			if strings.TrimSpace(comment.ID) == "" {
+				continue
+			}
+			exists, err := tx.NewSelect().Model((*models.EngagementItem)(nil)).
+				Where("social_account_id = ? AND remote_id = ?", account.ID, comment.ID).
+				Exists(ctx)
+			if err != nil {
+				return err
+			}
+			item := models.EngagementItem{
+				ID:                   uuid.NewString(),
+				WorkspaceID:          account.WorkspaceID,
+				RenditionID:          rendition.ID,
+				SocialAccountID:      account.ID,
+				Platform:             account.Platform,
+				RemoteID:             comment.ID,
+				ParentRemoteID:       comment.ParentID,
+				ConversationRemoteID: comment.ConversationID,
+				AuthorRemoteID:       comment.AuthorID,
+				AuthorName:           comment.AuthorName,
+				AuthorHandle:         comment.AuthorHandle,
+				AuthorAvatarURL:      comment.AuthorAvatarURL,
+				Body:                 comment.Text,
+				IsOurs:               comment.IsOurs,
+				CanReply:             comment.CanReply,
+				CanHide:              comment.CanHide,
+				CanDelete:            comment.CanDelete,
+				Hidden:               comment.Hidden,
+				RemoteCreatedAt:      parseProviderTime(comment.CreatedAt),
+				LastSeenAt:           now,
+				CreatedAt:            now,
+				UpdatedAt:            now,
+			}
+			_, err = tx.NewInsert().Model(&item).
+				On("CONFLICT (social_account_id, remote_id) DO UPDATE").
+				Set("parent_remote_id = EXCLUDED.parent_remote_id").
+				Set("conversation_remote_id = EXCLUDED.conversation_remote_id").
+				Set("author_remote_id = EXCLUDED.author_remote_id").
+				Set("author_name = EXCLUDED.author_name").
+				Set("author_handle = EXCLUDED.author_handle").
+				Set("author_avatar_url = EXCLUDED.author_avatar_url").
+				Set("body = EXCLUDED.body").
+				Set("is_ours = EXCLUDED.is_ours").
+				Set("can_reply = EXCLUDED.can_reply").
+				Set("can_hide = EXCLUDED.can_hide").
+				Set("can_delete = EXCLUDED.can_delete").
+				Set("hidden = EXCLUDED.hidden").
+				Set("remote_created_at = EXCLUDED.remote_created_at").
+				Set("last_seen_at = EXCLUDED.last_seen_at").
+				Set("updated_at = EXCLUDED.updated_at").
+				Exec(ctx)
+			if err != nil {
+				return err
+			}
+			if !exists && !comment.IsOurs {
+				newItems = append(newItems, item)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	var publication models.Publication
+	_ = s.db.NewSelect().Model(&publication).Where("id = ?", rendition.PublicationID).Scan(ctx)
+	for _, item := range newItems {
+		_ = s.notify(ctx, publication.CreatedByID, account.WorkspaceID, notifications.TypeNewEngagement,
+			"New "+providerLabel(account.Platform)+" engagement",
+			firstNonEmpty(item.AuthorName, item.AuthorHandle, "Someone")+" replied to your post.",
+			"/engagement?item="+item.ID)
+	}
+	publishedAt := publication.ActualRunAt
+	if publishedAt.IsZero() {
+		publishedAt = firstNonZeroTime(publication.UpdatedAt, publication.CreatedAt)
+	}
+	cadence := engagementCadence(publishedAt, now, len(comments) == 0)
+	return s.recordState(ctx, capabilityEngagement, subjectRendition, rendition.ID, account, "ok", "", "", "", true, cadence, boolToInt(len(comments) == 0))
+}
+
+//nolint:gocyclo // Keeps newest-page collection, bounded backfill, persistence, and health state ordered.
+func (s *Service) syncMessages(ctx context.Context, accountID string) error {
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ? AND is_active = ?", accountID, true).Scan(ctx); err != nil {
+		return err
+	}
+	messenger, ok := s.adapter(account).(platform.MessagingAdapter)
+	if !ok || !messenger.MessagingSupport().Enabled {
+		return s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "unsupported", "unsupported", "Messages are not supported for this provider.", "", false, 0, 0)
+	}
+	if messenger.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
+		return s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "disabled", "opt_in_required", "Enable inbox sync for this account to collect messages.", "", false, 0, 0)
+	}
+	state := s.loadState(ctx, capabilityMessages, subjectAccount, account.ID)
+	cursor := ""
+	backfillComplete := false
+	emptyStreak := 0
+	if state != nil {
+		cursor = state.Cursor
+		backfillComplete = state.BackfillComplete
+		emptyStreak = state.EmptyStreak
+	}
+	token, err := s.tokenSource.GetValidAccessToken(ctx, account.ID)
+	if err != nil {
+		return s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "failed", "authentication", "Reconnect this account to resume messages.", cursor, backfillComplete, time.Hour, emptyStreak)
+	}
+	result, err := messenger.FetchMessages(ctx, token, platform.FetchMessagesRequest{AccountID: account.AccountID, Limit: 100})
+	if err != nil {
+		return s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "failed", "provider_error", "OpenPost could not collect messages from this provider.", cursor, backfillComplete, time.Hour, emptyStreak)
+	}
+	newInbound, err := s.persistConversations(ctx, account, result.Conversations)
+	if err != nil {
+		return err
+	}
+	fetchedCount := len(result.Conversations)
+	nextCursor := cursor
+	if !backfillComplete {
+		if cursor == "" {
+			nextCursor = result.NextCursor
+			backfillComplete = nextCursor == ""
+		} else {
+			older, fetchErr := messenger.FetchMessages(ctx, token, platform.FetchMessagesRequest{AccountID: account.AccountID, Cursor: cursor, Limit: 100})
+			if fetchErr != nil {
+				return s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "failed", "backfill_failed", "Current messages were collected, but OpenPost could not collect older message history.", cursor, false, time.Hour, emptyStreak)
+			}
+			olderInbound, persistErr := s.persistConversations(ctx, account, older.Conversations)
+			if persistErr != nil {
+				return persistErr
+			}
+			newInbound = append(newInbound, olderInbound...)
+			fetchedCount += len(older.Conversations)
+			nextCursor = older.NextCursor
+			backfillComplete = nextCursor == ""
+		}
+	}
+	for _, conversation := range newInbound {
+		for _, userID := range s.workspaceMemberIDs(ctx, account.WorkspaceID) {
+			_ = s.notify(ctx, userID, account.WorkspaceID, notifications.TypeNewMessage,
+				"New message from "+firstNonEmpty(conversation.CounterpartName, conversation.CounterpartHandle, "a social account"),
+				conversation.LastMessagePreview, "/messages?conversation="+conversation.ID)
+		}
+	}
+	if fetchedCount == 0 {
+		emptyStreak++
+	} else {
+		emptyStreak = 0
+	}
+	return s.recordState(ctx, capabilityMessages, subjectAccount, account.ID, account, "ok", "", "", nextCursor, backfillComplete, messageCadence(emptyStreak), emptyStreak)
+}
+
+func (s *Service) persistConversations(ctx context.Context, account models.SocialAccount, fetched []platform.ProviderConversation) ([]models.Conversation, error) {
+	now := s.now()
+	newInbound := make([]models.Conversation, 0)
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		for _, remote := range fetched {
+			if remote.ID == "" {
+				continue
+			}
+			var existing models.Conversation
+			existingErr := tx.NewSelect().Model(&existing).
+				Where("social_account_id = ? AND remote_conversation_id = ?", account.ID, remote.ID).
+				Scan(ctx)
+			conversationID := existing.ID
+			if errors.Is(existingErr, sql.ErrNoRows) {
+				conversationID = uuid.NewString()
+			} else if existingErr != nil {
+				return existingErr
+			}
+			conversation := models.Conversation{
+				ID:                       conversationID,
+				WorkspaceID:              account.WorkspaceID,
+				SocialAccountID:          account.ID,
+				Platform:                 account.Platform,
+				RemoteConversationID:     remote.ID,
+				CounterpartRemoteID:      remote.CounterpartRemoteID,
+				CounterpartName:          remote.CounterpartName,
+				CounterpartHandle:        remote.CounterpartHandle,
+				CounterpartAvatarURL:     remote.CounterpartAvatarURL,
+				LastMessageAt:            remote.LastMessageAt,
+				LastMessagePreview:       remote.LastMessagePreview,
+				LastRemoteMessageID:      remote.LastRemoteMessageID,
+				UnreadCount:              existing.UnreadCount,
+				MessagingWindowExpiresAt: remote.ReplyWindowExpiresAt,
+				CreatedAt:                now,
+				UpdatedAt:                now,
+			}
+			_, err := tx.NewInsert().Model(&conversation).
+				On("CONFLICT (social_account_id, remote_conversation_id) DO UPDATE").
+				Set("counterpart_remote_id = EXCLUDED.counterpart_remote_id").
+				Set("counterpart_name = EXCLUDED.counterpart_name").
+				Set("counterpart_handle = EXCLUDED.counterpart_handle").
+				Set("counterpart_avatar_url = EXCLUDED.counterpart_avatar_url").
+				Set("last_message_at = EXCLUDED.last_message_at").
+				Set("last_message_preview = EXCLUDED.last_message_preview").
+				Set("last_remote_message_id = EXCLUDED.last_remote_message_id").
+				Set("messaging_window_expires_at = EXCLUDED.messaging_window_expires_at").
+				Set("updated_at = EXCLUDED.updated_at").
+				Exec(ctx)
+			if err != nil {
+				return err
+			}
+			newInboundCount := 0
+			for _, remoteMessage := range remote.Messages {
+				if remoteMessage.ID == "" {
+					continue
+				}
+				exists, err := tx.NewSelect().Model((*models.DirectMessage)(nil)).
+					Where("conversation_id = ? AND remote_message_id = ?", conversationID, remoteMessage.ID).
+					Exists(ctx)
+				if err != nil {
+					return err
+				}
+				attachments, _ := json.Marshal(remoteMessage.Attachments)
+				message := models.DirectMessage{
+					ID:              uuid.NewString(),
+					WorkspaceID:     account.WorkspaceID,
+					ConversationID:  conversationID,
+					RemoteMessageID: remoteMessage.ID,
+					Direction:       remoteMessage.Direction,
+					AuthorRemoteID:  remoteMessage.AuthorRemoteID,
+					Body:            remoteMessage.Body,
+					AttachmentsJSON: string(attachments),
+					SendStatus:      "received",
+					RemoteCreatedAt: remoteMessage.RemoteCreatedAt,
+					CreatedAt:       now,
+					UpdatedAt:       now,
+				}
+				if remoteMessage.Direction == "outbound" {
+					message.SendStatus = "sent"
+				}
+				_, err = tx.NewInsert().Model(&message).On("CONFLICT DO NOTHING").Exec(ctx)
+				if err != nil {
+					return err
+				}
+				if !exists && remoteMessage.Direction == "inbound" {
+					newInboundCount++
+				}
+			}
+			if newInboundCount > 0 {
+				if _, err := tx.NewUpdate().Model((*models.Conversation)(nil)).
+					Set("unread_count = unread_count + ?", newInboundCount).
+					Set("read_at = NULL").
+					Where("id = ?", conversationID).
+					Exec(ctx); err != nil {
+					return err
+				}
+				newInbound = append(newInbound, conversation)
+			}
+		}
+		return nil
+	})
+	return newInbound, err
+}
+
+func (s *Service) QueueEngagementAction(ctx context.Context, itemID, action, message, userID string) error {
+	var item models.EngagementItem
+	if err := s.db.NewSelect().Model(&item).Where("id = ?", itemID).Scan(ctx); err != nil {
+		return err
+	}
+	switch action {
+	case "reply":
+		if !item.CanReply {
+			return fmt.Errorf("this provider does not allow a reply to this item")
+		}
+		if strings.TrimSpace(message) == "" {
+			return fmt.Errorf("reply message is required")
+		}
+	case "hide":
+		if !item.CanHide {
+			return fmt.Errorf("this provider does not allow this item to be hidden")
+		}
+	case "delete":
+		if !item.CanDelete {
+			return fmt.Errorf("this item cannot be deleted by the connected account")
+		}
+	default:
+		return fmt.Errorf("unsupported engagement action %q", action)
+	}
+	payload, _ := json.Marshal(engagementActionJob{ItemID: itemID, Action: action, Message: strings.TrimSpace(message), UserID: userID})
+	_, err := s.enqueue(ctx, JobTypeEngagementAct, string(payload), s.now())
+	return err
+}
+
+func (s *Service) performEngagementAction(ctx context.Context, input engagementActionJob) error {
+	var item models.EngagementItem
+	if err := s.db.NewSelect().Model(&item).Where("id = ?", input.ItemID).Scan(ctx); err != nil {
+		return err
+	}
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ?", item.SocialAccountID).Scan(ctx); err != nil {
+		return err
+	}
+	commenter, ok := s.adapter(account).(platform.CommentAdapter)
+	if !ok {
+		return fmt.Errorf("engagement actions are unsupported")
+	}
+	token, err := s.tokenSource.GetValidAccessToken(ctx, account.ID)
+	if err != nil {
+		return err
+	}
+	switch input.Action {
+	case "reply":
+		if strings.TrimSpace(input.Message) == "" {
+			return fmt.Errorf("reply message is required")
+		}
+		_, err = commenter.ReplyToComment(ctx, token, account.AccountID, item.RemoteID, input.Message)
+	case "hide":
+		err = commenter.HideComment(ctx, token, account.AccountID, item.RemoteID)
+		if err == nil {
+			_, err = s.db.NewUpdate().Model(&item).Set("hidden = ?", true).WherePK().Exec(ctx)
+		}
+	case "delete":
+		err = commenter.DeleteComment(ctx, token, account.AccountID, item.RemoteID)
+		if err == nil {
+			_, err = s.db.NewDelete().Model(&item).WherePK().Exec(ctx)
+		}
+	default:
+		return fmt.Errorf("unsupported engagement action %q", input.Action)
+	}
+	if err != nil {
+		_ = s.notify(ctx, input.UserID, item.WorkspaceID, notifications.TypeReplyFailed, "Engagement action failed", "OpenPost could not complete the action. Try again.", "/engagement?item="+item.ID)
+	}
+	return err
+}
+
+func (s *Service) QueueMessage(ctx context.Context, conversationID, body string) (*models.DirectMessage, error) {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return nil, fmt.Errorf("message is required")
+	}
+	var conversation models.Conversation
+	if err := s.db.NewSelect().Model(&conversation).Where("id = ?", conversationID).Scan(ctx); err != nil {
+		return nil, err
+	}
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ? AND is_active = ?", conversation.SocialAccountID, true).Scan(ctx); err != nil {
+		return nil, fmt.Errorf("connected account is unavailable")
+	}
+	messenger, ok := s.adapter(account).(platform.MessagingAdapter)
+	if !ok || !messenger.MessagingSupport().CanSend {
+		return nil, fmt.Errorf("sending messages is unsupported for this provider")
+	}
+	if messenger.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
+		return nil, fmt.Errorf("enable inbox sync for this account before sending messages")
+	}
+	if !conversation.MessagingWindowExpiresAt.IsZero() && !conversation.MessagingWindowExpiresAt.After(s.now()) {
+		return nil, fmt.Errorf("the provider reply window has closed")
+	}
+	now := s.now()
+	message := &models.DirectMessage{
+		ID:              uuid.NewString(),
+		WorkspaceID:     conversation.WorkspaceID,
+		ConversationID:  conversation.ID,
+		Direction:       "outbound",
+		Body:            body,
+		AttachmentsJSON: "[]",
+		SendStatus:      "queued",
+		CreatedAt:       now,
+		UpdatedAt:       now,
+	}
+	payload, _ := json.Marshal(subjectJob{ID: message.ID})
+	job := &models.Job{
+		ID: uuid.NewString(), Type: JobTypeMessageSend, Payload: string(payload),
+		Status: "pending", RunAt: now, MaxAttempts: 1,
+	}
+	if err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewInsert().Model(message).Exec(txCtx); err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(job).Exec(txCtx); err != nil {
+			return err
+		}
+		_, err := tx.NewUpdate().Model((*models.Conversation)(nil)).
+			Set("last_message_at = ?", now).
+			Set("last_message_preview = ?", body).
+			Set("updated_at = ?", now).
+			Where("id = ?", conversation.ID).
+			Exec(txCtx)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return message, nil
+}
+
+func (s *Service) sendMessage(ctx context.Context, messageID string) error {
+	var message models.DirectMessage
+	if err := s.db.NewSelect().Model(&message).Where("id = ?", messageID).Scan(ctx); err != nil {
+		return err
+	}
+	var conversation models.Conversation
+	if err := s.db.NewSelect().Model(&conversation).Where("id = ?", message.ConversationID).Scan(ctx); err != nil {
+		return err
+	}
+	var account models.SocialAccount
+	if err := s.db.NewSelect().Model(&account).Where("id = ?", conversation.SocialAccountID).Scan(ctx); err != nil {
+		return err
+	}
+	messenger, ok := s.adapter(account).(platform.MessagingAdapter)
+	if !ok || !messenger.MessagingSupport().CanSend {
+		return fmt.Errorf("sending messages is unsupported for this provider")
+	}
+	if messenger.MessagingSupport().RequiresOptIn && !accountMessagesEnabled(account) {
+		return fmt.Errorf("enable inbox sync for this account before sending messages")
+	}
+	token, err := s.tokenSource.GetValidAccessToken(ctx, account.ID)
+	if err != nil {
+		return err
+	}
+	result, err := messenger.SendMessage(ctx, token, platform.SendMessageRequest{
+		AccountID:            account.AccountID,
+		RemoteConversationID: conversation.RemoteConversationID,
+		CounterpartRemoteID:  conversation.CounterpartRemoteID,
+		CounterpartHandle:    conversation.CounterpartHandle,
+		ReplyToRemoteID:      conversation.LastRemoteMessageID,
+		Body:                 message.Body,
+	})
+	if err != nil {
+		_, _ = s.db.NewUpdate().Model(&message).Set("send_status = ?", "failed").Set("error_message = ?", "The provider rejected this message.").Set("updated_at = ?", s.now()).WherePK().Exec(ctx)
+		for _, userID := range s.workspaceMemberIDs(ctx, conversation.WorkspaceID) {
+			_ = s.notify(ctx, userID, conversation.WorkspaceID, notifications.TypeReplyFailed,
+				"Message failed", "OpenPost could not send a message to "+firstNonEmpty(conversation.CounterpartName, conversation.CounterpartHandle, "this conversation")+".",
+				"/messages?conversation="+conversation.ID)
+		}
+		return err
+	}
+	createdAt := result.CreatedAt
+	if createdAt.IsZero() {
+		createdAt = s.now()
+	}
+	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewUpdate().Model(&message).
+			Set("remote_message_id = ?", result.RemoteMessageID).
+			Set("send_status = ?", "sent").
+			Set("error_message = ''").
+			Set("remote_created_at = ?", createdAt).
+			Set("updated_at = ?", s.now()).
+			WherePK().Exec(txCtx); err != nil {
+			return err
+		}
+		_, err := tx.NewUpdate().Model(&conversation).
+			Set("last_remote_message_id = ?", result.RemoteMessageID).
+			Set("last_message_at = ?", createdAt).
+			Set("last_message_preview = ?", message.Body).
+			Set("updated_at = ?", s.now()).
+			WherePK().Exec(txCtx)
+		return err
+	})
+}
+
+func (s *Service) ListEngagement(ctx context.Context, workspaceID, platformName, accountID string, unreadOnly, archived bool, limit, offset int) ([]models.EngagementItem, int, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	query := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id = ?", workspaceID)
+	query = engagementFilters(query, platformName, accountID, unreadOnly, archived)
+	count, err := query.Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	var items []models.EngagementItem
+	query = s.db.NewSelect().Model(&items).Where("workspace_id = ?", workspaceID)
+	query = engagementFilters(query, platformName, accountID, unreadOnly, archived)
+	err = query.Order("remote_created_at DESC", "created_at DESC").Limit(limit).Offset(max(0, offset)).Scan(ctx)
+	return items, count, err
+}
+
+func engagementFilters(query *bun.SelectQuery, platformName, accountID string, unreadOnly, archived bool) *bun.SelectQuery {
+	if platformName != "" {
+		query = query.Where("platform = ?", platformName)
+	}
+	if accountID != "" {
+		query = query.Where("social_account_id = ?", accountID)
+	}
+	if unreadOnly {
+		query = query.Where("read_at IS NULL")
+	}
+	if archived {
+		query = query.Where("archived_at IS NOT NULL")
+	} else {
+		query = query.Where("archived_at IS NULL")
+	}
+	return query
+}
+
+func (s *Service) SetEngagementState(ctx context.Context, workspaceID string, ids []string, read, archived *bool) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	query := s.db.NewUpdate().Model((*models.EngagementItem)(nil)).
+		Where("workspace_id = ? AND id IN (?)", workspaceID, bun.List(ids))
+	if read != nil {
+		if *read {
+			query = query.Set("read_at = ?", s.now())
+		} else {
+			query = query.Set("read_at = NULL")
+		}
+	}
+	if archived != nil {
+		if *archived {
+			query = query.Set("archived_at = ?", s.now())
+		} else {
+			query = query.Set("archived_at = NULL")
+		}
+	}
+	_, err := query.Exec(ctx)
+	return err
+}
+
+func (s *Service) ListConversations(ctx context.Context, workspaceID, platformName, accountID string, archived bool, limit, offset int) ([]models.Conversation, int, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	base := func(query *bun.SelectQuery) *bun.SelectQuery {
+		query = query.Where("workspace_id = ?", workspaceID)
+		if platformName != "" {
+			query = query.Where("platform = ?", platformName)
+		}
+		if accountID != "" {
+			query = query.Where("social_account_id = ?", accountID)
+		}
+		if archived {
+			return query.Where("archived_at IS NOT NULL")
+		}
+		return query.Where("archived_at IS NULL")
+	}
+	count, err := base(s.db.NewSelect().Model((*models.Conversation)(nil))).Count(ctx)
+	if err != nil {
+		return nil, 0, err
+	}
+	var conversations []models.Conversation
+	err = base(s.db.NewSelect().Model(&conversations)).
+		Order("last_message_at DESC", "updated_at DESC").Limit(limit).Offset(max(0, offset)).Scan(ctx)
+	return conversations, count, err
+}
+
+func (s *Service) ListMessageSyncStates(ctx context.Context, workspaceID string) ([]models.CommunicationSyncState, error) {
+	var states []models.CommunicationSyncState
+	err := s.db.NewSelect().Model(&states).
+		Where("workspace_id = ? AND capability = ?", workspaceID, capabilityMessages).
+		Order("platform ASC", "social_account_id ASC").
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return states, nil
+	}
+	return states, err
+}
+
+func (s *Service) ListMessages(ctx context.Context, workspaceID, conversationID string, limit, offset int) ([]models.DirectMessage, error) {
+	if limit <= 0 || limit > 200 {
+		limit = 100
+	}
+	var messages []models.DirectMessage
+	err := s.db.NewSelect().Model(&messages).
+		Join("JOIN conversations AS conversation ON conversation.id = direct_message.conversation_id").
+		Where("direct_message.conversation_id = ? AND conversation.workspace_id = ?", conversationID, workspaceID).
+		Order("COALESCE(direct_message.remote_created_at, direct_message.created_at) ASC").
+		Limit(limit).Offset(max(0, offset)).Scan(ctx)
+	return messages, err
+}
+
+func (s *Service) SetConversationState(ctx context.Context, workspaceID, conversationID string, read, archived *bool) error {
+	query := s.db.NewUpdate().Model((*models.Conversation)(nil)).
+		Where("workspace_id = ? AND id = ?", workspaceID, conversationID)
+	if read != nil {
+		if *read {
+			query = query.Set("read_at = ?", s.now()).Set("unread_count = 0")
+		} else {
+			query = query.Set("read_at = NULL")
+		}
+	}
+	if archived != nil {
+		if *archived {
+			query = query.Set("archived_at = ?", s.now())
+		} else {
+			query = query.Set("archived_at = NULL")
+		}
+	}
+	_, err := query.Exec(ctx)
+	return err
+}
+
+func (s *Service) adapter(account models.SocialAccount) platform.Adapter {
+	key := account.Platform
+	if account.Platform == "mastodon" {
+		key += ":" + account.InstanceURL
+	}
+	s.providersMu.RLock()
+	defer s.providersMu.RUnlock()
+	return s.providers[key]
+}
+
+func (s *Service) due(ctx context.Context, capability, subjectType, subjectID string, now time.Time) bool {
+	state := s.loadState(ctx, capability, subjectType, subjectID)
+	return state == nil || state.NextSyncAt.IsZero() || !state.NextSyncAt.After(now)
+}
+
+func (s *Service) loadState(ctx context.Context, capability, subjectType, subjectID string) *models.CommunicationSyncState {
+	var state models.CommunicationSyncState
+	err := s.db.NewSelect().Model(&state).Where("id = ?", syncStateID(capability, subjectType, subjectID)).Scan(ctx)
+	if err != nil {
+		return nil
+	}
+	return &state
+}
+
+func (s *Service) recordState(ctx context.Context, capability, subjectType, subjectID string, account models.SocialAccount, status, code, message, cursor string, backfillComplete bool, cadence time.Duration, emptyStreak int) error {
+	now := s.now()
+	next := time.Time{}
+	if cadence > 0 {
+		next = now.Add(cadence)
+	}
+	state := &models.CommunicationSyncState{
+		ID: syncStateID(capability, subjectType, subjectID), WorkspaceID: account.WorkspaceID,
+		Capability: capability, SubjectType: subjectType, SubjectID: subjectID,
+		SocialAccountID: account.ID, Platform: account.Platform, Status: status,
+		ErrorCode: code, ErrorMessage: message, Cursor: cursor, BackfillComplete: backfillComplete, LastAttemptedAt: now,
+		NextSyncAt: next, EmptyStreak: emptyStreak, CreatedAt: now, UpdatedAt: now,
+	}
+	old := s.loadState(ctx, capability, subjectType, subjectID)
+	if old != nil {
+		state.LastSuccessAt = old.LastSuccessAt
+	}
+	if status == "ok" {
+		state.LastSuccessAt = now
+	}
+	_, err := s.db.NewInsert().Model(state).
+		On("CONFLICT (id) DO UPDATE").
+		Set("status = EXCLUDED.status").
+		Set("error_code = EXCLUDED.error_code").
+		Set("error_message = EXCLUDED.error_message").
+		Set("cursor = EXCLUDED.cursor").
+		Set("backfill_complete = EXCLUDED.backfill_complete").
+		Set("last_attempted_at = EXCLUDED.last_attempted_at").
+		Set("last_success_at = EXCLUDED.last_success_at").
+		Set("next_sync_at = EXCLUDED.next_sync_at").
+		Set("empty_streak = EXCLUDED.empty_streak").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
+}
+
+func (s *Service) enqueue(ctx context.Context, jobType, payload string, runAt time.Time) (bool, error) {
+	maxAttempts := 5
+	// Provider writes do not have a portable idempotency key. A timeout after
+	// provider acceptance is ambiguous, so automatic retries could duplicate a
+	// reply or DM. Keep the durable failure record and let the user retry.
+	if jobType == JobTypeEngagementAct || jobType == JobTypeMessageSend {
+		maxAttempts = 1
+	}
+	job := &models.Job{ID: uuid.NewString(), Type: jobType, Payload: payload, Status: "pending", RunAt: runAt.UTC(), MaxAttempts: maxAttempts}
+	result, err := s.db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	return rows > 0, err
+}
+
+func (s *Service) notify(ctx context.Context, userID, workspaceID, eventType, title, body, href string) error {
+	if s.notifications == nil || userID == "" {
+		return nil
+	}
+	return s.notifications.Create(ctx, notifications.CreateInput{
+		UserID: userID, WorkspaceID: workspaceID, Type: eventType,
+		Title: title, Body: body, Href: href, Payload: map[string]any{},
+	})
+}
+
+func (s *Service) workspaceMemberIDs(ctx context.Context, workspaceID string) []string {
+	var ids []string
+	_ = s.db.NewSelect().Model((*models.WorkspaceMember)(nil)).
+		Column("user_id").Where("workspace_id = ?", workspaceID).Scan(ctx, &ids)
+	return ids
+}
+
+func syncStateID(capability, subjectType, subjectID string) string {
+	return capability + ":" + subjectType + ":" + subjectID
+}
+
+func parseProviderTime(raw string) time.Time {
+	value, _ := time.Parse(time.RFC3339, strings.TrimSpace(raw))
+	return value
+}
+
+func firstNonZeroTime(values ...time.Time) time.Time {
+	for _, value := range values {
+		if !value.IsZero() {
+			return value
+		}
+	}
+	return time.Time{}
+}
+
+func engagementCadence(publishedAt, now time.Time, empty bool) time.Duration {
+	age := now.Sub(publishedAt)
+	switch {
+	case publishedAt.IsZero() || age > 30*24*time.Hour:
+		if empty {
+			return 7 * 24 * time.Hour
+		}
+		return 24 * time.Hour
+	case age < 24*time.Hour:
+		return 5 * time.Minute
+	case age < 7*24*time.Hour:
+		return 30 * time.Minute
+	default:
+		return 6 * time.Hour
+	}
+}
+
+func messageCadence(emptyStreak int) time.Duration {
+	switch {
+	case emptyStreak <= 0:
+		return 2 * time.Minute
+	case emptyStreak == 1:
+		return 5 * time.Minute
+	case emptyStreak == 2:
+		return 15 * time.Minute
+	default:
+		return time.Hour
+	}
+}
+
+func providerLabel(provider string) string {
+	if provider == "x" {
+		return "X"
+	}
+	if provider == "" {
+		return "social"
+	}
+	return strings.ToUpper(provider[:1]) + provider[1:]
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func boolToInt(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
+}

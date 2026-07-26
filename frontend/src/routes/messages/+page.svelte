@@ -1,0 +1,505 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { resolve } from '$app/paths';
+	import { client } from '$lib/api/client';
+	import type { components } from '$lib/api/types';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { m } from '$lib/paraglide/messages';
+	import { getLocaleTag } from '$lib/i18n';
+	import { getPlatformName } from '$lib/utils';
+	import PageContainer from '$lib/components/page-container.svelte';
+	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
+	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import EmptyState from '$lib/components/empty-state.svelte';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import AppToast from '$lib/components/app-toast.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import InboxIcon from 'lucide-svelte/icons/inbox';
+	import RefreshIcon from 'lucide-svelte/icons/refresh-cw';
+	import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
+	import ArchiveIcon from 'lucide-svelte/icons/archive';
+	import SendIcon from 'lucide-svelte/icons/send';
+
+	type Conversation = components['schemas']['Conversation'];
+	type DirectMessage = components['schemas']['DirectMessage'];
+	type SyncState = components['schemas']['MessageSyncState'];
+	type Attachment = { type: string; url: string; name?: string; thumbnail?: string };
+
+	let loading = $state(true);
+	let conversations = $state.raw<Conversation[]>([]);
+	let messages = $state.raw<DirectMessage[]>([]);
+	let syncStates = $state.raw<SyncState[]>([]);
+	let selectedId = $state('');
+	let error = $state('');
+	let messageError = $state('');
+	let loadedWorkspace = $state('');
+	let loadingMessages = $state(false);
+	let refreshing = $state(false);
+	let sending = $state(false);
+	let replyBody = $state('');
+	let archived = $state(false);
+	let toast = $state('');
+	let toastTone = $state<'success' | 'error'>('success');
+	let nowMs = $state(Date.now());
+
+	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const selected = $derived(conversations.find((conversation) => conversation.id === selectedId));
+	const replyWindowClosed = $derived(
+		Boolean(
+			selected?.messaging_window_expires_at &&
+			new Date(selected.messaging_window_expires_at).getTime() <= nowMs
+		)
+	);
+	const actionableSyncStates = $derived(
+		syncStates.filter(
+			(state) => state.status === 'permission_required' || state.status === 'failed'
+		)
+	);
+
+	onMount(() => {
+		void workspaceCtx.initialize();
+		const interval = window.setInterval(() => (nowMs = Date.now()), 30_000);
+		return () => window.clearInterval(interval);
+	});
+
+	$effect(() => {
+		if (workspaceId && workspaceId !== loadedWorkspace) {
+			loadedWorkspace = workspaceId;
+			selectedId = '';
+			messages = [];
+			void loadConversations();
+		}
+	});
+
+	async function loadConversations() {
+		if (!workspaceId) return;
+		loading = true;
+		error = '';
+		const requestedWorkspace = workspaceId;
+		const { data, error: apiError } = await client.GET('/messages', {
+			params: {
+				query: {
+					workspace_id: requestedWorkspace,
+					archived,
+					limit: 100,
+					offset: 0
+				}
+			}
+		});
+		if (requestedWorkspace !== workspaceId) return;
+		if (apiError) {
+			error = apiError.detail || m.messages_load_failed();
+			conversations = [];
+		} else {
+			conversations = data?.items ?? [];
+			syncStates = data?.sync_states ?? [];
+			if (selectedId && !conversations.some((conversation) => conversation.id === selectedId)) {
+				selectedId = '';
+				messages = [];
+			}
+		}
+		loading = false;
+	}
+
+	async function selectConversation(conversation: Conversation) {
+		selectedId = conversation.id;
+		replyBody = '';
+		await Promise.all([loadMessages(conversation.id), markConversationRead(conversation)]);
+	}
+
+	async function loadMessages(conversationId: string) {
+		if (!workspaceId) return;
+		loadingMessages = true;
+		messageError = '';
+		const { data, error: apiError } = await client.GET('/messages/{conversation_id}', {
+			params: {
+				path: { conversation_id: conversationId },
+				query: { workspace_id: workspaceId, limit: 200, offset: 0 }
+			}
+		});
+		if (selectedId !== conversationId) return;
+		if (apiError) {
+			messageError = apiError.detail || m.messages_load_failed();
+			messages = [];
+		} else {
+			messages = data ?? [];
+		}
+		loadingMessages = false;
+	}
+
+	async function markConversationRead(conversation: Conversation) {
+		if (!workspaceId || conversation.unread_count === 0) return;
+		await client.POST('/messages/{conversation_id}/state', {
+			params: { path: { conversation_id: conversation.id } },
+			body: { workspace_id: workspaceId, read: true }
+		});
+		conversations = conversations.map((item) =>
+			item.id === conversation.id ? { ...item, unread_count: 0 } : item
+		);
+	}
+
+	async function setArchived(conversation: Conversation) {
+		if (!workspaceId) return;
+		const { error: apiError } = await client.POST('/messages/{conversation_id}/state', {
+			params: { path: { conversation_id: conversation.id } },
+			body: { workspace_id: workspaceId, archived: !conversation.archived_at }
+		});
+		if (apiError) {
+			showToast(m.messages_send_failed(), 'error');
+			return;
+		}
+		selectedId = '';
+		messages = [];
+		await loadConversations();
+	}
+
+	async function sendMessage() {
+		if (!workspaceId || !selected || !replyBody.trim() || replyWindowClosed) return;
+		sending = true;
+		const body = replyBody.trim();
+		const { data, error: apiError } = await client.POST('/messages/{conversation_id}/send', {
+			params: { path: { conversation_id: selected.id } },
+			body: { workspace_id: workspaceId, message: body }
+		});
+		sending = false;
+		if (apiError) {
+			showToast(apiError.detail || m.messages_send_failed(), 'error');
+			return;
+		}
+		if (data) messages = [...messages, data];
+		replyBody = '';
+		showToast(m.messages_queued(), 'success');
+	}
+
+	async function refresh() {
+		if (!workspaceId) return;
+		refreshing = true;
+		const { error: apiError } = await client.POST('/communications/refresh', {
+			body: { workspace_id: workspaceId }
+		});
+		refreshing = false;
+		showToast(
+			apiError ? m.communications_refresh_failed() : m.communications_refresh_queued(),
+			apiError ? 'error' : 'success'
+		);
+	}
+
+	function showToast(message: string, tone: 'success' | 'error') {
+		toast = message;
+		toastTone = tone;
+	}
+
+	function counterpartLabel(conversation: Conversation) {
+		return (
+			conversation.counterpart_name ||
+			conversation.counterpart_handle ||
+			conversation.remote_conversation_id
+		);
+	}
+
+	function initials(value: string) {
+		return value
+			.split(/\s+/)
+			.slice(0, 2)
+			.map((part) => part[0] ?? '')
+			.join('')
+			.toUpperCase();
+	}
+
+	function dateLabel(value: string) {
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '';
+		return new Intl.DateTimeFormat(getLocaleTag(), {
+			month: 'short',
+			day: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit'
+		}).format(date);
+	}
+
+	function attachments(message: DirectMessage): Attachment[] {
+		try {
+			const parsed = JSON.parse(message.attachments_json);
+			return Array.isArray(parsed)
+				? parsed.filter(
+						(value): value is Attachment =>
+							Boolean(value) &&
+							typeof value === 'object' &&
+							typeof value.url === 'string' &&
+							isSafeRemoteURL(value.url)
+					)
+				: [];
+		} catch {
+			return [];
+		}
+	}
+
+	function isSafeRemoteURL(value: string) {
+		try {
+			const url = new URL(value);
+			return url.protocol === 'https:' || url.protocol === 'http:';
+		} catch {
+			return false;
+		}
+	}
+</script>
+
+<svelte:head>
+	<title>{m.messages_heading()} · OpenPost</title>
+</svelte:head>
+
+{#if toast}
+	<AppToast
+		message={toast}
+		tone={toastTone}
+		dismissLabel={m.common_dismiss()}
+		onDismiss={() => (toast = '')}
+	/>
+{/if}
+
+<PageContainer
+	title={m.messages_heading()}
+	description={m.messages_description()}
+	icon={InboxIcon}
+	{loading}
+	loadingLayout="list"
+	loadingItems={6}
+>
+	{#snippet actions()}
+		<Button variant="outline" onclick={refresh} disabled={refreshing || !workspaceId}>
+			<RefreshIcon class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
+			{m.communications_refresh()}
+		</Button>
+	{/snippet}
+
+	<div class="space-y-5">
+		<CommunicationsNavigation active="messages" />
+
+		{#each actionableSyncStates as state (state.id)}
+			<InlineNotice
+				tone={state.status === 'failed' ? 'error' : 'warning'}
+				message={`${getPlatformName(state.platform)}: ${state.error_message || m.messages_sync_attention()}`}
+			/>
+		{/each}
+
+		<label class="flex min-h-11 items-center gap-2 text-sm">
+			<input
+				class="size-4 accent-primary"
+				type="checkbox"
+				bind:checked={archived}
+				onchange={() => {
+					selectedId = '';
+					messages = [];
+					void loadConversations();
+				}}
+			/>
+			{m.engagement_archived()}
+		</label>
+
+		{#if error}
+			<InlineNotice tone="error" message={error} />
+		{:else if conversations.length === 0}
+			<EmptyState
+				icon={InboxIcon}
+				title={m.messages_empty_title()}
+				description={m.messages_empty_description()}
+				variant="muted"
+			/>
+		{:else}
+			<div
+				class="min-h-[34rem] overflow-hidden rounded-lg border bg-card lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]"
+			>
+				<section
+					class={['border-r', selectedId ? 'hidden lg:block' : 'block']}
+					aria-label={m.messages_heading()}
+				>
+					<div class="max-h-[42rem] divide-y overflow-y-auto">
+						{#each conversations as conversation (conversation.id)}
+							<button
+								type="button"
+								class={[
+									'flex min-h-20 w-full gap-3 p-3 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset',
+									selectedId === conversation.id && 'bg-muted/60'
+								]}
+								onclick={() => void selectConversation(conversation)}
+							>
+								<div class="relative shrink-0">
+									{#if conversation.counterpart_avatar_url}
+										<img
+											class="size-10 rounded-full object-cover"
+											src={conversation.counterpart_avatar_url}
+											alt=""
+										/>
+									{:else}
+										<div
+											class="flex size-10 items-center justify-center rounded-full bg-muted text-xs font-semibold"
+											aria-hidden="true"
+										>
+											{initials(counterpartLabel(conversation))}
+										</div>
+									{/if}
+									<span
+										class="absolute -right-1 -bottom-1 flex size-5 items-center justify-center rounded-full border-2 border-card bg-muted"
+									>
+										<PlatformIcon platform={conversation.platform} class="size-3" />
+									</span>
+								</div>
+								<span class="min-w-0 flex-1">
+									<span class="flex items-center gap-2">
+										<span class="truncate text-sm font-medium"
+											>{counterpartLabel(conversation)}</span
+										>
+										{#if conversation.unread_count > 0}
+											<span
+												class="ms-auto size-2 shrink-0 rounded-full bg-primary"
+												aria-hidden="true"
+											></span>
+										{/if}
+									</span>
+									<span class="mt-1 line-clamp-2 text-xs leading-5 text-muted-foreground">
+										{conversation.last_message_preview}
+									</span>
+								</span>
+							</button>
+						{/each}
+					</div>
+				</section>
+
+				<section
+					class={selectedId
+						? 'flex min-h-[34rem] flex-col'
+						: 'hidden lg:flex lg:items-center lg:justify-center'}
+				>
+					{#if selected}
+						<header class="flex min-h-16 items-center gap-3 border-b px-3 sm:px-4">
+							<Button
+								variant="ghost"
+								size="icon"
+								class="lg:hidden"
+								aria-label={m.messages_back()}
+								onclick={() => (selectedId = '')}
+							>
+								<ArrowLeftIcon class="size-4" />
+							</Button>
+							<div class="min-w-0 flex-1">
+								<h2 class="truncate text-sm font-semibold">{counterpartLabel(selected)}</h2>
+								<p class="truncate text-xs text-muted-foreground">{selected.counterpart_handle}</p>
+							</div>
+							<Button
+								variant="ghost"
+								size="icon"
+								aria-label={selected.archived_at ? m.messages_restore() : m.messages_archive()}
+								onclick={() => void setArchived(selected)}
+							>
+								<ArchiveIcon class="size-4" />
+							</Button>
+						</header>
+
+						<div
+							class="flex flex-1 flex-col gap-3 overflow-y-auto bg-muted/15 p-3 sm:p-5"
+							aria-busy={loadingMessages}
+						>
+							{#if messageError}
+								<InlineNotice tone="error" message={messageError} />
+							{:else if loadingMessages}
+								<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
+							{:else}
+								{#each messages as message (message.id)}
+									<div
+										class={[
+											'flex',
+											message.direction === 'outbound' ? 'justify-end' : 'justify-start'
+										]}
+									>
+										<div
+											class={[
+												'max-w-[85%] rounded-xl px-3 py-2 text-sm shadow-xs sm:max-w-[72%]',
+												message.direction === 'outbound'
+													? 'rounded-br-sm bg-primary text-primary-foreground'
+													: 'rounded-bl-sm border bg-background'
+											]}
+										>
+											{#if message.body}<p class="leading-5 whitespace-pre-wrap">
+													{message.body}
+												</p>{/if}
+											{#each attachments(message) as attachment (attachment.url)}
+												<a
+													class="mt-2 block break-all underline"
+													href={resolve(attachment.url as '/')}
+													target="_blank"
+													rel="noreferrer"
+												>
+													{attachment.name || attachment.type}
+												</a>
+											{/each}
+											<p
+												class={[
+													'mt-1 text-[10px]',
+													message.direction === 'outbound'
+														? 'text-primary-foreground/75'
+														: 'text-muted-foreground'
+												]}
+											>
+												{dateLabel(message.remote_created_at || message.created_at)}
+												{#if message.send_status === 'queued'}
+													· {m.messages_queued_status()}{/if}
+												{#if message.send_status === 'failed'}
+													· {m.messages_failed_status()}{/if}
+											</p>
+										</div>
+									</div>
+								{/each}
+							{/if}
+						</div>
+
+						<div class="border-t p-3 sm:p-4">
+							{#if replyWindowClosed}
+								<InlineNotice tone="warning" message={m.messages_window_closed()} />
+							{:else}
+								{#if selected.messaging_window_expires_at}
+									<p class="mb-2 text-xs text-muted-foreground">
+										{m.messages_window_until({
+											date: dateLabel(selected.messaging_window_expires_at)
+										})}
+									</p>
+								{/if}
+								<form
+									class="flex items-end gap-2"
+									onsubmit={(event) => {
+										event.preventDefault();
+										void sendMessage();
+									}}
+								>
+									<Textarea
+										class="min-h-11 resize-none"
+										bind:value={replyBody}
+										placeholder={m.messages_reply_placeholder()}
+										rows={2}
+										required
+									/>
+									<Button
+										type="submit"
+										size="icon"
+										class="mb-0.5 shrink-0"
+										disabled={sending || !replyBody.trim()}
+										aria-label={m.messages_send()}
+									>
+										<SendIcon class="size-4" />
+									</Button>
+								</form>
+							{/if}
+						</div>
+					{:else}
+						<EmptyState
+							icon={InboxIcon}
+							title={m.messages_select_title()}
+							description={m.messages_select_description()}
+							variant="muted"
+						/>
+					{/if}
+				</section>
+			</div>
+		{/if}
+	</div>
+</PageContainer>

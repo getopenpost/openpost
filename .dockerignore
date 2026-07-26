@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Nix
+flake.nix
+flake.lock
+devenv.nix
+devenv.yaml
+.envrc
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Frontend build artifacts (rebuilt in container)
+frontend/node_modules/
+frontend/.svelte-kit/
+
+# Backend binary (rebuilt in container)
+backend/openpost
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Tests
+**/test/
+**/__tests__/
+**/*.test.*
+**/*.spec.*
+
+# Vitest examples (already removed but in case)
+frontend/src/lib/vitest-examples/

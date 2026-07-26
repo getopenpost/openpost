@@ -1,0 +1,421 @@
+package analytics
+
+import (
+	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"time"
+
+	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
+	"github.com/uptrace/bun"
+)
+
+type MetricSummary struct {
+	Value    int64  `json:"value"`
+	Delta    *int64 `json:"delta,omitempty"`
+	Measured int    `json:"measured"`
+}
+
+type Summary struct {
+	Followers   MetricSummary `json:"followers"`
+	Engagement  MetricSummary `json:"engagement"`
+	Views       MetricSummary `json:"views"`
+	Impressions MetricSummary `json:"impressions"`
+	Reach       MetricSummary `json:"reach"`
+	Published   int           `json:"published"`
+}
+
+type SeriesPoint struct {
+	Date  string `json:"date"`
+	Value int64  `json:"value"`
+}
+
+type AccountOverview struct {
+	ID                   string                   `json:"id"`
+	Platform             string                   `json:"platform"`
+	Username             string                   `json:"username"`
+	AvatarURL            string                   `json:"avatar_url,omitempty"`
+	Status               string                   `json:"status"`
+	ErrorCode            string                   `json:"error_code,omitempty"`
+	ErrorMessage         string                   `json:"error_message,omitempty"`
+	AccountSupported     bool                     `json:"account_supported"`
+	ContentSupported     bool                     `json:"content_supported"`
+	MissingAccountScopes []string                 `json:"missing_account_scopes"`
+	MissingContentScopes []string                 `json:"missing_content_scopes"`
+	Metrics              platform.AnalyticsValues `json:"metrics"`
+	FollowerDelta        *int64                   `json:"follower_delta,omitempty"`
+	FollowerSeries       []SeriesPoint            `json:"follower_series"`
+	LastSyncedAt         time.Time                `json:"last_synced_at,omitempty"`
+}
+
+type ContentOverview struct {
+	PublicationID string                   `json:"publication_id"`
+	RenditionID   string                   `json:"rendition_id"`
+	Title         string                   `json:"title"`
+	Platform      string                   `json:"platform"`
+	AccountID     string                   `json:"account_id"`
+	Username      string                   `json:"username"`
+	PublishedAt   time.Time                `json:"published_at"`
+	Status        string                   `json:"status"`
+	ErrorCode     string                   `json:"error_code,omitempty"`
+	ErrorMessage  string                   `json:"error_message,omitempty"`
+	Metrics       platform.AnalyticsValues `json:"metrics"`
+	Engagement    int64                    `json:"engagement"`
+	LastSyncedAt  time.Time                `json:"last_synced_at,omitempty"`
+}
+
+type Overview struct {
+	GeneratedAt  time.Time         `json:"generated_at"`
+	LastSyncedAt time.Time         `json:"last_synced_at,omitempty"`
+	RangeDays    int               `json:"range_days"`
+	Summary      Summary           `json:"summary"`
+	Accounts     []AccountOverview `json:"accounts"`
+	Content      []ContentOverview `json:"content"`
+}
+
+func (s *Service) Overview(ctx context.Context, workspaceID string, days int) (Overview, error) {
+	days = normalizeOverviewDays(days)
+	now := s.now()
+	start := now.AddDate(0, 0, -days)
+	result := Overview{
+		GeneratedAt: now,
+		RangeDays:   days,
+		Accounts:    []AccountOverview{},
+		Content:     []ContentOverview{},
+	}
+
+	activeAccounts, accountByID, err := s.loadOverviewAccounts(ctx, workspaceID)
+	if err != nil {
+		return Overview{}, err
+	}
+	stateByID, lastSyncedAt, err := s.loadOverviewStates(ctx, workspaceID)
+	if err != nil {
+		return Overview{}, err
+	}
+	result.LastSyncedAt = lastSyncedAt
+	history, err := s.loadAccountHistory(ctx, workspaceID, start)
+	if err != nil {
+		return Overview{}, err
+	}
+
+	result.Accounts = s.buildAccountOverviews(activeAccounts, stateByID, history, &result.Summary)
+
+	publications, publicationByID, publicationIDs, err := s.loadOverviewPublications(ctx, workspaceID, start)
+	if err != nil {
+		return Overview{}, err
+	}
+	result.Summary.Published = len(publications)
+	if len(publicationIDs) == 0 {
+		return result, nil
+	}
+	renditions, err := s.loadOverviewRenditions(ctx, publicationIDs)
+	if err != nil {
+		return Overview{}, err
+	}
+	result.Content = buildContentOverviews(renditions, publicationByID, accountByID, stateByID, &result.Summary)
+	return result, nil
+}
+
+func normalizeOverviewDays(days int) int {
+	switch days {
+	case 7, 30, 90:
+		return days
+	default:
+		return 30
+	}
+}
+
+func (s *Service) loadOverviewAccounts(
+	ctx context.Context,
+	workspaceID string,
+) ([]models.SocialAccount, map[string]models.SocialAccount, error) {
+	var accounts []models.SocialAccount
+	if err := s.db.NewSelect().
+		Model(&accounts).
+		Where("workspace_id = ?", workspaceID).
+		Order("platform ASC", "account_username ASC").
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, fmt.Errorf("list analytics overview accounts: %w", err)
+	}
+	accountByID := make(map[string]models.SocialAccount, len(accounts))
+	activeAccounts := make([]models.SocialAccount, 0, len(accounts))
+	for _, account := range accounts {
+		accountByID[account.ID] = account
+		if account.IsActive {
+			activeAccounts = append(activeAccounts, account)
+		}
+	}
+	return activeAccounts, accountByID, nil
+}
+
+func (s *Service) loadOverviewStates(
+	ctx context.Context,
+	workspaceID string,
+) (map[string]models.AnalyticsSyncState, time.Time, error) {
+	var states []models.AnalyticsSyncState
+	if err := s.db.NewSelect().
+		Model(&states).
+		Where("workspace_id = ?", workspaceID).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, time.Time{}, fmt.Errorf("list analytics overview states: %w", err)
+	}
+	stateByID := make(map[string]models.AnalyticsSyncState, len(states))
+	var lastSyncedAt time.Time
+	for _, state := range states {
+		stateByID[state.ID] = state
+		if state.LastSuccessAt.After(lastSyncedAt) {
+			lastSyncedAt = state.LastSuccessAt
+		}
+	}
+	return stateByID, lastSyncedAt, nil
+}
+
+func (s *Service) loadAccountHistory(
+	ctx context.Context,
+	workspaceID string,
+	start time.Time,
+) (map[string][]models.AnalyticsAccountSnapshot, error) {
+	var snapshots []models.AnalyticsAccountSnapshot
+	if err := s.db.NewSelect().
+		Model(&snapshots).
+		Where("workspace_id = ? AND captured_at >= ?", workspaceID, start).
+		Order("social_account_id ASC", "captured_at ASC").
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("list account analytics history: %w", err)
+	}
+	history := make(map[string][]models.AnalyticsAccountSnapshot)
+	for _, snapshot := range snapshots {
+		history[snapshot.SocialAccountID] = append(history[snapshot.SocialAccountID], snapshot)
+	}
+	return history, nil
+}
+
+func (s *Service) loadOverviewPublications(
+	ctx context.Context,
+	workspaceID string,
+	start time.Time,
+) ([]models.Publication, map[string]models.Publication, []string, error) {
+	var publications []models.Publication
+	if err := s.db.NewSelect().
+		Model(&publications).
+		Where("workspace_id = ? AND status = ?", workspaceID, models.PublicationStatusPublished).
+		Where("COALESCE(actual_run_at, updated_at) >= ?", start).
+		OrderExpr("COALESCE(actual_run_at, updated_at) DESC").
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil, fmt.Errorf("list analytics publications: %w", err)
+	}
+	publicationByID := make(map[string]models.Publication, len(publications))
+	publicationIDs := make([]string, 0, len(publications))
+	for _, publication := range publications {
+		publicationByID[publication.ID] = publication
+		publicationIDs = append(publicationIDs, publication.ID)
+	}
+	return publications, publicationByID, publicationIDs, nil
+}
+
+func (s *Service) loadOverviewRenditions(ctx context.Context, publicationIDs []string) ([]models.Rendition, error) {
+	var renditions []models.Rendition
+	if err := s.db.NewSelect().
+		Model(&renditions).
+		Where("publication_id IN (?)", bun.List(publicationIDs)).
+		Where("status = ?", models.RenditionStatusPublished).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("list analytics content: %w", err)
+	}
+	return renditions, nil
+}
+
+func (s *Service) buildAccountOverviews(
+	accounts []models.SocialAccount,
+	stateByID map[string]models.AnalyticsSyncState,
+	history map[string][]models.AnalyticsAccountSnapshot,
+	summary *Summary,
+) []AccountOverview {
+	overviews := make([]AccountOverview, 0, len(accounts))
+	for _, account := range accounts {
+		overview := s.buildAccountOverview(account, stateByID[stateID(subjectAccount, account.ID)])
+		overview.FollowerSeries, overview.FollowerDelta = accountFollowerHistory(history[account.ID])
+		addFollowerSummary(&summary.Followers, overview)
+		overviews = append(overviews, overview)
+	}
+	return overviews
+}
+
+func (s *Service) buildAccountOverview(account models.SocialAccount, state models.AnalyticsSyncState) AccountOverview {
+	overview := AccountOverview{
+		ID:                   account.ID,
+		Platform:             account.Platform,
+		Username:             account.AccountUsername,
+		AvatarURL:            account.AccountAvatarURL,
+		Status:               string(platform.AnalyticsStatusPending),
+		Metrics:              platform.AnalyticsValues{},
+		FollowerSeries:       []SeriesPoint{},
+		MissingAccountScopes: []string{},
+		MissingContentScopes: []string{},
+	}
+	adapter := s.analyticsAdapter(account)
+	if adapter == nil {
+		overview.Status = string(platform.AnalyticsStatusUnsupported)
+		overview.ErrorMessage = "Analytics are not available for this provider."
+	} else {
+		applyAnalyticsSupport(&overview, account, adapter.AnalyticsSupport())
+	}
+	if state.ID != "" {
+		overview.Status = state.Status
+		overview.ErrorCode = state.ErrorCode
+		overview.ErrorMessage = state.ErrorMessage
+		overview.LastSyncedAt = state.LastSuccessAt
+		overview.Metrics = decodeAnalyticsValues(state.MetricsJSON)
+	}
+	return overview
+}
+
+func applyAnalyticsSupport(overview *AccountOverview, account models.SocialAccount, support platform.AnalyticsSupport) {
+	overview.AccountSupported = support.Account
+	overview.ContentSupported = support.Content
+	overview.MissingAccountScopes = platform.MissingAnalyticsScopes(account.GrantedScopes, support.AccountRequiredScopes)
+	overview.MissingContentScopes = platform.MissingAnalyticsScopes(account.GrantedScopes, support.ContentRequiredScopes)
+	if !support.Account {
+		overview.Status = string(platform.AnalyticsStatusUnsupported)
+		overview.ErrorMessage = support.AccountUnavailable
+		return
+	}
+	if len(overview.MissingAccountScopes) > 0 {
+		overview.Status = string(platform.AnalyticsStatusPermissionRequired)
+		overview.ErrorMessage = missingScopeMessage(overview.MissingAccountScopes)
+	}
+}
+
+func addFollowerSummary(summary *MetricSummary, overview AccountOverview) {
+	if followers, ok := overview.Metrics[platform.MetricFollowers]; ok {
+		summary.Value += followers
+		summary.Measured++
+	}
+	if overview.FollowerDelta == nil {
+		return
+	}
+	if summary.Delta == nil {
+		summary.Delta = new(int64)
+	}
+	*summary.Delta += *overview.FollowerDelta
+}
+
+func buildContentOverviews(
+	renditions []models.Rendition,
+	publicationByID map[string]models.Publication,
+	accountByID map[string]models.SocialAccount,
+	stateByID map[string]models.AnalyticsSyncState,
+	summary *Summary,
+) []ContentOverview {
+	content := make([]ContentOverview, 0, len(renditions))
+	for _, rendition := range renditions {
+		publication, publicationExists := publicationByID[rendition.PublicationID]
+		account, accountExists := accountByID[rendition.SocialAccountID]
+		if !publicationExists || !accountExists {
+			continue
+		}
+		item := buildContentOverview(
+			rendition,
+			publication,
+			account,
+			stateByID[stateID(subjectRendition, rendition.ID)],
+		)
+		item.Engagement = platform.EngagementTotal(item.Metrics)
+		summary.Engagement.Value += item.Engagement
+		if platform.HasEngagementMetric(item.Metrics) {
+			summary.Engagement.Measured++
+		}
+		addMeasuredSummary(&summary.Views, item.Metrics, platform.MetricViews)
+		addMeasuredSummary(&summary.Impressions, item.Metrics, platform.MetricImpressions)
+		addMeasuredSummary(&summary.Reach, item.Metrics, platform.MetricReach)
+		content = append(content, item)
+	}
+	sort.SliceStable(content, func(i, j int) bool {
+		if content[i].Engagement != content[j].Engagement {
+			return content[i].Engagement > content[j].Engagement
+		}
+		return content[i].Metrics[platform.MetricViews] > content[j].Metrics[platform.MetricViews]
+	})
+	if len(content) > 50 {
+		content = content[:50]
+	}
+	return content
+}
+
+func buildContentOverview(
+	rendition models.Rendition,
+	publication models.Publication,
+	account models.SocialAccount,
+	state models.AnalyticsSyncState,
+) ContentOverview {
+	publishedAt := publication.ActualRunAt
+	if publishedAt.IsZero() {
+		publishedAt = publication.UpdatedAt
+	}
+	item := ContentOverview{
+		PublicationID: publication.ID,
+		RenditionID:   rendition.ID,
+		Title:         publication.Title,
+		Platform:      rendition.Platform,
+		AccountID:     account.ID,
+		Username:      account.AccountUsername,
+		PublishedAt:   publishedAt,
+		Status:        string(platform.AnalyticsStatusPending),
+		Metrics:       platform.AnalyticsValues{},
+	}
+	if state.ID != "" {
+		item.Status = state.Status
+		item.ErrorCode = state.ErrorCode
+		item.ErrorMessage = state.ErrorMessage
+		item.LastSyncedAt = state.LastSuccessAt
+		item.Metrics = decodeAnalyticsValues(state.MetricsJSON)
+	}
+	return item
+}
+
+func accountFollowerHistory(snapshots []models.AnalyticsAccountSnapshot) ([]SeriesPoint, *int64) {
+	daily := make(map[string]int64)
+	order := make([]string, 0)
+	for _, snapshot := range snapshots {
+		values := decodeAnalyticsValues(snapshot.MetricsJSON)
+		followers, ok := values[platform.MetricFollowers]
+		if !ok {
+			continue
+		}
+		date := snapshot.CapturedAt.UTC().Format("2006-01-02")
+		if _, exists := daily[date]; !exists {
+			order = append(order, date)
+		}
+		daily[date] = followers
+	}
+	points := make([]SeriesPoint, 0, len(order))
+	for _, date := range order {
+		points = append(points, SeriesPoint{Date: date, Value: daily[date]})
+	}
+	if len(points) < 2 {
+		return points, nil
+	}
+	delta := points[len(points)-1].Value - points[0].Value
+	return points, &delta
+}
+
+func decodeAnalyticsValues(raw string) platform.AnalyticsValues {
+	values := platform.AnalyticsValues{}
+	if json.Unmarshal([]byte(raw), &values) != nil {
+		return platform.AnalyticsValues{}
+	}
+	return values
+}
+
+func addMeasuredSummary(summary *MetricSummary, values platform.AnalyticsValues, metric string) {
+	value, ok := values[metric]
+	if !ok {
+		return
+	}
+	summary.Value += value
+	summary.Measured++
+}

@@ -1,0 +1,404 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-22T16:40:03Z",
+  "title": "Design System: OpenPost",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Workshop Orange",
+        "canonical": "oklch(0.55 0.155 45)",
+        "tonalRamp": [
+          "oklch(0.15 0.155 45)",
+          "oklch(0.25 0.155 45)",
+          "oklch(0.35 0.155 45)",
+          "oklch(0.45 0.155 45)",
+          "oklch(0.55 0.155 45)",
+          "oklch(0.65 0.155 45)",
+          "oklch(0.8 0.12 45)",
+          "oklch(0.95 0.04 45)"
+        ]
+      },
+      "primary-dark-theme": {
+        "role": "primary",
+        "displayName": "Workshop Orange, Dark Theme",
+        "canonical": "oklch(0.6 0.14 45)",
+        "tonalRamp": [
+          "oklch(0.15 0.14 45)",
+          "oklch(0.25 0.14 45)",
+          "oklch(0.35 0.14 45)",
+          "oklch(0.45 0.14 45)",
+          "oklch(0.6 0.14 45)",
+          "oklch(0.7 0.13 45)",
+          "oklch(0.82 0.1 45)",
+          "oklch(0.95 0.035 45)"
+        ]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Warm Canvas",
+        "canonical": "oklch(0.985 0.002 80)",
+        "tonalRamp": [
+          "oklch(0.15 0.002 80)",
+          "oklch(0.25 0.002 80)",
+          "oklch(0.35 0.002 80)",
+          "oklch(0.45 0.002 80)",
+          "oklch(0.55 0.002 80)",
+          "oklch(0.65 0.002 80)",
+          "oklch(0.8 0.002 80)",
+          "oklch(0.95 0.002 80)"
+        ]
+      },
+      "canvas-dark": {
+        "role": "neutral",
+        "displayName": "Warm Canvas, Dark Theme",
+        "canonical": "oklch(0.145 0.008 55)",
+        "tonalRamp": [
+          "oklch(0.15 0.008 55)",
+          "oklch(0.25 0.008 55)",
+          "oklch(0.35 0.008 55)",
+          "oklch(0.45 0.008 55)",
+          "oklch(0.55 0.008 55)",
+          "oklch(0.65 0.008 55)",
+          "oklch(0.8 0.006 55)",
+          "oklch(0.95 0.003 55)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Clean Surface",
+        "canonical": "oklch(1 0 0)",
+        "tonalRamp": [
+          "oklch(0.15 0 0)",
+          "oklch(0.25 0 0)",
+          "oklch(0.35 0 0)",
+          "oklch(0.45 0 0)",
+          "oklch(0.55 0 0)",
+          "oklch(0.65 0 0)",
+          "oklch(0.8 0 0)",
+          "oklch(0.95 0 0)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Clean Surface, Dark Theme",
+        "canonical": "oklch(0.2 0.01 50)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 50)",
+          "oklch(0.25 0.01 50)",
+          "oklch(0.35 0.01 50)",
+          "oklch(0.45 0.01 50)",
+          "oklch(0.55 0.01 50)",
+          "oklch(0.65 0.01 50)",
+          "oklch(0.8 0.007 50)",
+          "oklch(0.95 0.003 50)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Carbon Ink",
+        "canonical": "oklch(0.2 0.01 50)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 50)",
+          "oklch(0.25 0.01 50)",
+          "oklch(0.35 0.01 50)",
+          "oklch(0.45 0.01 50)",
+          "oklch(0.55 0.01 50)",
+          "oklch(0.65 0.01 50)",
+          "oklch(0.8 0.007 50)",
+          "oklch(0.95 0.003 50)"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Carbon Ink, Dark Theme",
+        "canonical": "oklch(0.92 0.005 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.005 85)",
+          "oklch(0.25 0.005 85)",
+          "oklch(0.35 0.005 85)",
+          "oklch(0.45 0.005 85)",
+          "oklch(0.55 0.005 85)",
+          "oklch(0.65 0.005 85)",
+          "oklch(0.8 0.004 85)",
+          "oklch(0.95 0.002 85)"
+        ]
+      },
+      "muted-ink": {
+        "role": "neutral",
+        "displayName": "Toolmark Gray",
+        "canonical": "oklch(0.55 0.015 55)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 55)",
+          "oklch(0.25 0.015 55)",
+          "oklch(0.35 0.015 55)",
+          "oklch(0.45 0.015 55)",
+          "oklch(0.55 0.015 55)",
+          "oklch(0.65 0.015 55)",
+          "oklch(0.8 0.01 55)",
+          "oklch(0.95 0.004 55)"
+        ]
+      },
+      "muted-ink-dark": {
+        "role": "neutral",
+        "displayName": "Toolmark Gray, Dark Theme",
+        "canonical": "oklch(0.65 0.015 55)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 55)",
+          "oklch(0.25 0.015 55)",
+          "oklch(0.35 0.015 55)",
+          "oklch(0.45 0.015 55)",
+          "oklch(0.55 0.015 55)",
+          "oklch(0.65 0.015 55)",
+          "oklch(0.8 0.01 55)",
+          "oklch(0.95 0.004 55)"
+        ]
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline Warmth",
+        "canonical": "oklch(0.9 0.005 80)",
+        "tonalRamp": [
+          "oklch(0.15 0.005 80)",
+          "oklch(0.25 0.005 80)",
+          "oklch(0.35 0.005 80)",
+          "oklch(0.45 0.005 80)",
+          "oklch(0.55 0.005 80)",
+          "oklch(0.65 0.005 80)",
+          "oklch(0.8 0.004 80)",
+          "oklch(0.95 0.002 80)"
+        ]
+      },
+      "border-dark": {
+        "role": "neutral",
+        "displayName": "Hairline Warmth, Dark Theme",
+        "canonical": "oklch(0.25 0.015 55)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 55)",
+          "oklch(0.25 0.015 55)",
+          "oklch(0.35 0.015 55)",
+          "oklch(0.45 0.015 55)",
+          "oklch(0.55 0.015 55)",
+          "oklch(0.65 0.015 55)",
+          "oklch(0.8 0.01 55)",
+          "oklch(0.95 0.004 55)"
+        ]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Failure Red",
+        "canonical": "oklch(0.57 0.22 25)",
+        "tonalRamp": [
+          "oklch(0.15 0.18 25)",
+          "oklch(0.25 0.2 25)",
+          "oklch(0.35 0.21 25)",
+          "oklch(0.45 0.22 25)",
+          "oklch(0.57 0.22 25)",
+          "oklch(0.67 0.2 25)",
+          "oklch(0.82 0.12 25)",
+          "oklch(0.95 0.04 25)"
+        ]
+      },
+      "danger-dark": {
+        "role": "tertiary",
+        "displayName": "Failure Red, Dark Theme",
+        "canonical": "oklch(0.6 0.2 25)",
+        "tonalRamp": [
+          "oklch(0.15 0.17 25)",
+          "oklch(0.25 0.18 25)",
+          "oklch(0.35 0.19 25)",
+          "oklch(0.45 0.2 25)",
+          "oklch(0.6 0.2 25)",
+          "oklch(0.7 0.18 25)",
+          "oklch(0.82 0.11 25)",
+          "oklch(0.95 0.04 25)"
+        ]
+      },
+      "docs-cta-shadow": {
+        "role": "primary",
+        "displayName": "Docs CTA Shadow",
+        "canonical": "oklch(0.5 0.15 45 / 0.18)",
+        "tonalRamp": [
+          "oklch(0.15 0.15 45 / 0.18)",
+          "oklch(0.25 0.15 45 / 0.18)",
+          "oklch(0.35 0.15 45 / 0.18)",
+          "oklch(0.45 0.15 45 / 0.18)",
+          "oklch(0.55 0.15 45 / 0.18)",
+          "oklch(0.65 0.15 45 / 0.18)",
+          "oklch(0.8 0.11 45 / 0.18)",
+          "oklch(0.95 0.04 45 / 0.18)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Public Display",
+        "purpose": "Marketing hero and major campaign headings."
+      },
+      "app-title": {
+        "displayName": "Application Title",
+        "purpose": "Authenticated route h1 headings through PageHeader."
+      },
+      "body": {
+        "displayName": "Compact Body",
+        "purpose": "Controls, descriptions, and routine interface copy."
+      },
+      "metadata": {
+        "displayName": "Operational Metadata",
+        "purpose": "IDs, timestamps, counts, handles, and queue values."
+      },
+      "docs-table": {
+        "displayName": "Documentation Table",
+        "purpose": "Dense reference tables on reading surfaces."
+      }
+    },
+    "shadows": [
+      {
+        "name": "focal-action",
+        "value": "0 1px 3px oklch(0.2 0.01 50 / 0.16)",
+        "purpose": "Keeps a floating or circular primary action legible over content."
+      },
+      {
+        "name": "temporary-layer",
+        "value": "0 12px 32px oklch(0.15 0.008 55 / 0.18)",
+        "purpose": "Menus and dialogs only, paired with a full border."
+      },
+      {
+        "name": "docs-primary-action",
+        "value": "inset 0 1px 0 oklch(1 0 0 / 0.08), 0 10px 30px oklch(0.5 0.15 45 / 0.18)",
+        "purpose": "Primary call to action on the documentation home."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-transition",
+        "value": "150ms cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default color and state transition; reduced to near-zero for reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "page-header-container",
+        "value": "704px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The clear next action within a local group.",
+      "html": "<button class=\"ds-btn-primary\">Schedule post</button>",
+      "css": ".ds-btn-primary { display: inline-flex; height: 2.25rem; align-items: center; justify-content: center; gap: 0.375rem; padding: 0 0.75rem; border: 1px solid transparent; border-radius: 0.625rem; background: var(--primary, oklch(0.55 0.155 45)); color: var(--primary-foreground, oklch(0.98 0.005 85)); font: 500 0.875rem/1.25rem 'Geist Variable', Geist, system-ui, sans-serif; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary, oklch(0.55 0.155 45)) 80%, transparent); } .ds-btn-primary:focus-visible { outline: none; border-color: var(--ring, oklch(0.7 0.015 55)); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring, oklch(0.7 0.015 55)) 30%, transparent); } .ds-btn-primary:active { transform: translateY(1px); } @media (pointer: coarse) { .ds-btn-primary { min-width: 44px; min-height: 44px; } }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "description": "A secondary action that keeps the surface visible.",
+      "html": "<button class=\"ds-btn-outline\">View details</button>",
+      "css": ".ds-btn-outline { display: inline-flex; height: 2.25rem; align-items: center; justify-content: center; gap: 0.375rem; padding: 0 0.75rem; border: 1px solid var(--border, oklch(0.9 0.005 80)); border-radius: 0.625rem; background: transparent; color: var(--foreground, oklch(0.2 0.01 50)); font: 500 0.875rem/1.25rem 'Geist Variable', Geist, system-ui, sans-serif; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), transform 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-btn-outline:hover { background: color-mix(in oklch, var(--input, oklch(0.9 0.005 80)) 50%, transparent); } .ds-btn-outline:focus-visible { outline: none; border-color: var(--ring, oklch(0.7 0.015 55)); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring, oklch(0.7 0.015 55)) 30%, transparent); } .ds-btn-outline:active { transform: translateY(1px); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Compact data entry with tonal fill and explicit focus.",
+      "html": "<input class=\"ds-input\" value=\"Launch update\" aria-label=\"Post title\">",
+      "css": ".ds-input { width: 100%; min-width: 0; height: 2.25rem; padding: 0 0.75rem; border: 1px solid var(--input, oklch(0.9 0.005 80)); border-radius: 0.625rem; background: color-mix(in oklch, var(--input, oklch(0.9 0.005 80)) 20%, transparent); color: var(--foreground, oklch(0.2 0.01 50)); font: 400 0.875rem/1.25rem 'Geist Variable', Geist, system-ui, sans-serif; transition: border-color 150ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-input::placeholder { color: var(--muted-foreground, oklch(0.55 0.015 55)); } .ds-input:focus-visible { outline: none; border-color: var(--ring, oklch(0.7 0.015 55)); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring, oklch(0.7 0.015 55)) 30%, transparent); }"
+    },
+    {
+      "name": "Surface Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A flat structured surface for one coherent content group.",
+      "html": "<section class=\"ds-card\"><h3>Publishing queue</h3><p>Three posts are ready for their next scheduled slot.</p></section>",
+      "css": ".ds-card { display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; overflow: hidden; border-radius: 0.75rem; background: var(--card, oklch(1 0 0)); color: var(--card-foreground, oklch(0.2 0.01 50)); box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground, oklch(0.2 0.01 50)) 10%, transparent); font-family: 'Geist Variable', Geist, system-ui, sans-serif; } .ds-card h3 { margin: 0; font-size: 0.875rem; line-height: 1.25rem; font-weight: 600; } .ds-card p { margin: 0; max-width: 65ch; color: var(--muted-foreground, oklch(0.55 0.015 55)); font-size: 0.8125rem; line-height: 1.5; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "description": "A compact operational label with a full, quiet boundary.",
+      "html": "<span class=\"ds-chip\">Scheduled</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border: 1px solid transparent; border-radius: 0.625rem; background: var(--secondary, oklch(0.96 0.005 85)); color: var(--secondary-foreground, oklch(0.25 0.01 50)); font: 500 0.75rem/1rem 'Geist Variable', Geist, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Application Page Header",
+      "kind": "custom",
+      "description": "Shared route hierarchy with compact title, description, and actions.",
+      "html": "<header class=\"ds-page-header\"><div><h1>Publications</h1><p>Review drafts, scheduled work, and destination outcomes.</p></div><button>New post</button></header>",
+      "css": ".ds-page-header { display: flex; min-width: 0; flex-direction: column; gap: 1rem; font-family: 'Geist Variable', Geist, system-ui, sans-serif; } .ds-page-header h1 { margin: 0; color: var(--foreground, oklch(0.2 0.01 50)); font-size: 1.25rem; line-height: 1.75rem; font-weight: 600; letter-spacing: -0.025em; } .ds-page-header p { margin: 0.25rem 0 0; max-width: 42rem; color: var(--muted-foreground, oklch(0.55 0.015 55)); font-size: 0.875rem; line-height: 1.25rem; } .ds-page-header button { align-self: flex-start; height: 2.25rem; padding: 0 0.75rem; border: 1px solid transparent; border-radius: 0.625rem; background: var(--primary, oklch(0.55 0.155 45)); color: var(--primary-foreground, oklch(0.98 0.005 85)); font: 500 0.875rem/1.25rem 'Geist Variable', Geist, system-ui, sans-serif; } .ds-page-header button:focus-visible { outline: none; box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring, oklch(0.7 0.015 55)) 30%, transparent); } @container (min-width: 44rem) { .ds-page-header { flex-direction: row; align-items: flex-start; justify-content: space-between; } .ds-page-header button { align-self: auto; } }"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "description": "Quiet navigation that becomes explicit on hover or when active.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Primary\"><a href=\"#\">Calendar</a><a class=\"is-active\" href=\"#\" aria-current=\"page\">Posts</a><a href=\"#\">Media</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 0.25rem; font-family: 'Geist Variable', Geist, system-ui, sans-serif; } .ds-nav a { display: inline-flex; min-height: 2.25rem; align-items: center; padding: 0 0.75rem; border-radius: 0.625rem; color: var(--muted-foreground, oklch(0.55 0.015 55)); text-decoration: none; font-size: 0.875rem; line-height: 1.25rem; font-weight: 500; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1), color 150ms cubic-bezier(0.4, 0, 0.2, 1); } .ds-nav a:hover { background: color-mix(in oklch, var(--muted, oklch(0.95 0.003 80)) 60%, transparent); color: var(--foreground, oklch(0.2 0.01 50)); } .ds-nav a.is-active { color: var(--primary, oklch(0.55 0.155 45)); } .ds-nav a:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ring, oklch(0.7 0.015 55)); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Well-Maintained Workshop",
+    "overview": "OpenPost is a focused working environment: every control has a clear job, related information stays aligned, and operational state is easy to scan. Its identity comes from precise composition, warm-tinted neutrals, a restrained orange signal, and the nib-and-line mark—not from decorative dashboard effects.\n\nThe authenticated app stays compact and predictable. Marketing pages use the same materials with more breathing room and stronger type contrast. Documentation keeps VitePress reading conventions while sharing the product palette, assets, and direct voice. Light and dark are equal expressions of one system.",
+    "keyCharacteristics": [
+      "Warm technical minimalism rather than corporate dashboard styling.",
+      "Thin structural borders and tonal layers instead of decorative shadows.",
+      "Orange reserved for action, selection, and meaningful status.",
+      "Compact app hierarchy with more spacious public and reading surfaces.",
+      "Consistent page, loading, empty, notice, toast, and destructive patterns."
+    ],
+    "rules": [
+      {
+        "name": "The One Signal Rule",
+        "body": "Orange marks the next action or current selection. It is not a background decoration and should remain visually scarce.",
+        "section": "colors"
+      },
+      {
+        "name": "The Paired Theme Rule",
+        "body": "A component is incomplete until its contrast, borders, hover state, and focus state work in both themes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Task Scale Rule",
+        "body": "App headings stay at the shared application scale. Large display typography belongs to persuasive or reading surfaces, not routine settings and workflow pages.",
+        "section": "typography"
+      },
+      {
+        "name": "The Data Earns Mono Rule",
+        "body": "Use monospace only when character alignment or literal values improve comprehension.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-by-Default Rule",
+        "body": "A resting surface proves its hierarchy with tone, border, and spacing before it earns a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do reuse semantic theme variables and verify every change in light and dark.",
+      "Do keep the primary orange rare enough that the next action remains obvious.",
+      "Do use shared page and feedback primitives before creating route-specific chrome.",
+      "Do preserve touch targets, safe areas, responsive overflow, keyboard focus, and reduced-motion behavior.",
+      "Do keep provider state and operational outcomes compact but explicit."
+    ],
+    "donts": [
+      "Don't turn routine app pages into spacious marketing compositions.",
+      "Don't use gradient text, glow-heavy dark UI, glass panels, decorative charts, or generic card grids.",
+      "Don't wrap every group in another card or nest cards when spacing and a divider would express the hierarchy.",
+      "Don't use monospace, uppercase, badges, or orange as decoration.",
+      "Don't create one-off loading, empty, success, error, or destructive patterns when a shared primitive exists."
+    ]
+  }
+}

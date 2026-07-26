@@ -22,6 +22,10 @@ every active row.
 | Product | <https://openpost.social> |
 | Documentation | <https://docs.openpost.social> |
 | Managed app | <https://app.openpost.social> |
+| Supported networks | Bluesky, LinkedIn, Mastodon, Threads, and X |
+| Install methods | Docker Compose, GHCR container, or a single Go binary |
+| Remote MCP endpoint | `https://app.openpost.social/mcp` (Streamable HTTP, OAuth 2.0 with PKCE) |
+| First tagged release | `v0.1.0`, 2026-03-29 22:06 UTC |
 | License | [AGPL-3.0-only](../LICENSE) |
 | Icon | [`assets/brand/icon.svg`](../assets/brand/icon.svg), [raw GitHub](https://raw.githubusercontent.com/rodrgds/openpost/main/assets/brand/icon.svg) |
 | Primary logo | [`assets/brand/logo.svg`](../assets/brand/logo.svg), [raw GitHub](https://raw.githubusercontent.com/rodrgds/openpost/main/assets/brand/logo.svg) |

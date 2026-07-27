@@ -1,0 +1,104 @@
+# OpenPost Studio critique
+
+Method: dual-agent (A: `/root/studio_critique_a` · B: `/root/studio_critique_b`)
+
+## Design Health Score
+
+| # | Heuristic | Score | Key issue |
+|---|---|---:|---|
+| 1 | Visibility of System Status | 3/4 | Strong save, recovery, conflict, and progress states, but save/offline status disappears on phones. |
+| 2 | Match System / Real World | 3/4 | Familiar editor language, although pixel tools appear before basic composition tools. |
+| 3 | User Control and Freedom | 3/4 | Undo, redo, recovery, checkpoints, cancel, and conflict-copy behavior are strong. |
+| 4 | Consistency and Standards | 3/4 | Cohesive editor conventions, with some advanced actions discoverable only by right-click or shortcut. |
+| 5 | Error Prevention | 3/4 | Validation, autosave, locked layers, recovery, and conflict handling provide solid guardrails. |
+| 6 | Recognition Rather Than Recall | 2/4 | The icon-only desktop rail, right-click tool groups, and horizontally hidden mobile actions require recall. |
+| 7 | Flexibility and Efficiency | 3/4 | Strong shortcuts, clipboard support, alignment, distribution, guides, and panel resizing, but no shortcut reference or command search. |
+| 8 | Aesthetic and Minimalist Design | 2/4 | The canvas is primary, but three panes, many tools, a page strip, and long property sections create a dense noise floor. |
+| 9 | Error Recovery | 3/4 | Errors are local and actionable; canvas retry and conflict recovery are particularly good. |
+| 10 | Help and Documentation | 1/4 | There is no visible help, shortcut map, guided first action, or contextual learning surface. |
+| **Total** |  | **26/40** | **Acceptable; strong foundation with significant discoverability and accessibility problems.** |
+
+## Anti-Patterns Verdict
+
+**LLM assessment:** Studio does not look like generic AI output. It is a coherent, hand-built editor with real state safety and interaction depth. The warm orange selection signal, restrained pasteboard, compact controls, and OpenPost media and brand integrations feel intentional. Functional specificity is stronger than visual specificity: the central shell is still a conventional raster editor, while social-format and destination-aware value appears mainly at the edges.
+
+**Deterministic scan:** The one CLI scan returned 21 advisory findings: 9 colors outside the documented palette, 4 radii outside the documented scale, and 8 uses of an undocumented 11px font size. The 11px mobile labels and 0.375rem radii are real token drift. Several color and radius findings are context-dependent false positives: editable document colors, black-alpha media scrims, and pill radii should not be forced into app-chrome tokens. Literal orange canvas-selection colors are semantically correct but should still be centralized as Studio interaction tokens.
+
+**Visual overlays:** Browser injection was attempted in a fresh `[Human]` tab, but the preview timed out after the detector script was injected. No overlay or console completion could be confirmed. The page was reloaded to remove the transient script and title.
+
+## Overall Impression
+
+Studio feels capable and trustworthy once someone knows where things are. Its biggest opportunity is to make the first 30 seconds about creating a social design, not deciphering a compact raster-editor shell. Basic insertion, destination context, and progressive disclosure should precede additional expert effects.
+
+The cognitive-load checklist failed 5 of 8 items: chunking, one-thing-at-a-time, minimal choices, working-memory support, and progressive disclosure. High-choice decision points include 10 desktop tools, 12 mobile destinations, 9 font weights, 7 blend modes, 6 masks, 6 text curves, 5 gradient styles, and 5 quick looks. The emotional peak is direct manipulation with snapping, brand colors, background removal, and effects. The valley is orientation, especially on mobile. Export, autosave, and recovery produce a reassuring end state.
+
+## What's Working
+
+1. **State safety:** Autosave, local recovery, conflict choices, checkpoints, undo/redo, progress, and export errors create unusually strong trust.
+2. **Editor mechanics:** Multi-select, grouping, alignment, distribution, layer reordering, clipboard interoperability, snapping, direct manipulation, and shortcuts are substantial.
+3. **Responsive structure:** The tested 390×844 initial load fitted a 310×174 stage at 24% without page overflow and kept visible primary controls at 44–48px.
+
+## Priority Issues
+
+### [P1] Global Tab handling breaks keyboard navigation
+
+**Why it matters:** `studio-shell.svelte` intercepts unmodified Tab to toggle the inspector. Keyboard and assistive-technology users cannot rely on the standard focus-navigation key.
+
+**Fix:** Restore native Tab behavior. Move the inspector shortcut to a non-reserved chord and scope canvas shortcuts to a focused canvas state.
+
+**Suggested command:** `/audit`
+
+### [P1] Basic shape insertion is unreachable
+
+**Why it matters:** The model supports rectangle, rounded rectangle, ellipse, and line creation, but no Studio component calls `addShape()`. A blank design exposes expert pixel tools while withholding a core composition primitive.
+
+**Fix:** Make Add a real insertion surface with Text, Shapes, Media, and Brand groups, available on desktop and mobile.
+
+**Suggested command:** `/shape`
+
+### [P1] Mobile navigation prioritizes expert tools over core editing
+
+**Why it matters:** At 390px, only about half of the twelve 64px rail destinations are initially visible; Layers and Edit sit far to the right without a strong overflow cue.
+
+**Fix:** Keep Add, Select, Text, Layers, and Edit stable. Move pixel selection, paint, fill, and erase into a Tools sheet or contextual secondary rail. Collapse the page strip by default for one-page phone documents.
+
+**Suggested command:** `/adapt`
+
+### [P2] The inspector is a long control wall
+
+**Why it matters:** Identity, arrangement, transform, effects, typography, curves, and layer-specific controls appear in one continuous scroll. This raises scan cost and repeats the same density in the mobile sheet.
+
+**Fix:** Add a sticky selection summary and collapsible sections. Keep Transform and essential layer controls open; collapse Effects and advanced typography by default. Preserve user section state per layer type.
+
+**Suggested command:** `/distill`
+
+### [P2] OpenPost-specific value is not present enough on the canvas
+
+**Why it matters:** The central experience resembles a generic raster editor. Destination-aware social composition is why Studio belongs inside OpenPost.
+
+**Fix:** Surface format and dimensions, platform safe-zone overlays, brand text styles, layout insertion, and carousel/page intent without adding decorative chrome.
+
+**Suggested command:** `/shape`
+
+## Persona Red Flags
+
+**Alex, power user:** Strong shortcut and arrangement support is undermined by the lack of a shortcut reference or command palette. Hijacking Tab violates a deeply learned desktop convention. Shape insertion remains impossible despite model support.
+
+**Jordan, first-timer:** The first visible choices include marquee, lasso, magic select, pencil, fill, and erase, but not Shapes. Desktop navigation is icon-only until hover, and the empty Properties state does not offer a useful next action.
+
+**Sam, accessibility-dependent user:** Labeled controls, live announcements, a DOM layer tree, keyboard reordering, and Properties equivalents are strong foundations, but global Tab interception prevents normal traversal. Dense color-swatch grids also need coarse-pointer target verification.
+
+## Minor Observations
+
+- The one-page mobile strip consumes substantial vertical space.
+- Long titles get little room between the mobile back and action groups.
+- Export currently combines output destination and file settings in one decision area; it should present a clear output summary and remember user choices.
+- The asset gallery is functional but filename-led and visually flat; collections and media-type filters would reduce scanning.
+- Canvas selection literals, 11px labels, and compact radii should be promoted into documented Studio tokens where they are intentional.
+
+## Questions to Consider
+
+- Why are pixel-selection tools more prominent than Shapes, layouts, and brand primitives in a social-image editor?
+- Should phone Studio support full creation or prioritize quick finishing edits?
+- Where should users see destination and safe-area context while designing a Story, carousel, or thumbnail?
+- What should a first-time user successfully create within the first 30 seconds?

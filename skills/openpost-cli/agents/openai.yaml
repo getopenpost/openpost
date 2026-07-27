@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenPost CLI"
+  short_description: "Manage OpenPost safely from the command line"
+  default_prompt: "Use $openpost-cli to create and schedule social content with the OpenPost CLI."

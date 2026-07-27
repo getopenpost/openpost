@@ -1,0 +1,286 @@
+package analytics
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/openpost/backend/internal/database"
+	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
+	"github.com/stretchr/testify/require"
+	"github.com/uptrace/bun"
+)
+
+type staticTokenSource struct{}
+
+func (staticTokenSource) GetValidAccessToken(context.Context, string) (string, error) {
+	return "token", nil
+}
+
+type fakeAnalyticsAdapter struct {
+	platform.Adapter
+	support    platform.AnalyticsSupport
+	account    platform.AnalyticsValues
+	content    platform.AnalyticsValues
+	accountErr error
+	contentErr error
+}
+
+func (f *fakeAnalyticsAdapter) AnalyticsSupport() platform.AnalyticsSupport {
+	return f.support
+}
+
+func (f *fakeAnalyticsAdapter) FetchAccountAnalytics(context.Context, string, platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
+	return f.account, f.accountErr
+}
+
+func (f *fakeAnalyticsAdapter) FetchContentAnalytics(context.Context, string, platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
+	return f.content, f.contentErr
+}
+
+func TestAccountSyncStoresHistoryAndBacksOffWhenUnchanged(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "")
+
+	now := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
+	service := NewService(db, staticTokenSource{})
+	service.now = func() time.Time { return now }
+	service.SetProvider("test", &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{Account: true},
+		account: platform.AnalyticsValues{platform.MetricFollowers: 42},
+	})
+
+	require.NoError(t, service.syncAccount(ctx, account.ID))
+	var state models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	require.Equal(t, string(platform.AnalyticsStatusOK), state.Status)
+	require.True(t, now.Add(24*time.Hour).Equal(state.NextSyncAt))
+	require.Zero(t, state.UnchangedStreak)
+
+	now = now.Add(24 * time.Hour)
+	require.NoError(t, service.syncAccount(ctx, account.ID))
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	require.Equal(t, 1, state.UnchangedStreak)
+	require.True(t, now.Add(48*time.Hour).Equal(state.NextSyncAt))
+
+	count, err := db.NewSelect().Model((*models.AnalyticsAccountSnapshot)(nil)).Where("social_account_id = ?", account.ID).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	require.NoError(t, service.recordUnavailable(
+		ctx,
+		subjectAccount,
+		account.ID,
+		account,
+		platform.AnalyticsStatusPermissionRequired,
+		"missing_scope",
+		"Reconnect this account.",
+	))
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	require.JSONEq(t, `{"followers":42}`, state.MetricsJSON)
+	require.False(t, state.LastSuccessAt.IsZero())
+	due, err := service.subjectDue(ctx, subjectAccount, account.ID, now)
+	require.NoError(t, err)
+	require.True(t, due)
+}
+
+func TestRefreshRecordsMissingScopeWithoutCallingProvider(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "basic")
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("test", &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{
+			Account:               true,
+			AccountRequiredScopes: []string{"analytics.read"},
+		},
+	})
+
+	queued, err := service.RefreshWorkspace(ctx, account.WorkspaceID)
+	require.NoError(t, err)
+	require.Zero(t, queued)
+
+	var state models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	require.Equal(t, string(platform.AnalyticsStatusPermissionRequired), state.Status)
+	require.Contains(t, state.ErrorMessage, "analytics.read")
+}
+
+func TestProviderFailurePreservesLastSuccessWithoutRetryingQueueJob(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
+	service := NewService(db, staticTokenSource{})
+	service.now = func() time.Time { return now }
+	adapter := &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{Account: true},
+		account: platform.AnalyticsValues{platform.MetricFollowers: 42},
+	}
+	service.SetProvider("test", adapter)
+
+	require.NoError(t, service.syncAccount(ctx, account.ID))
+	adapter.accountErr = &platform.AnalyticsError{
+		Status:     platform.AnalyticsStatusRateLimited,
+		Code:       "rate_limit",
+		RetryAfter: 2 * time.Hour,
+	}
+	now = now.Add(time.Hour)
+	require.NoError(t, service.syncAccount(ctx, account.ID))
+
+	var state models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	require.Equal(t, string(platform.AnalyticsStatusRateLimited), state.Status)
+	require.JSONEq(t, `{"followers":42}`, state.MetricsJSON)
+	require.True(t, now.Add(2*time.Hour).Equal(state.NextSyncAt))
+	require.True(t, now.Add(-time.Hour).Equal(state.LastSuccessAt))
+}
+
+func TestContentCadenceStopsAutomaticCollectionAfterSevenDays(t *testing.T) {
+	require.Equal(t, time.Hour, contentCadence(5*time.Hour))
+	require.Equal(t, 3*time.Hour, contentCadence(12*time.Hour))
+	require.Equal(t, 12*time.Hour, contentCadence(48*time.Hour))
+	require.Equal(t, 24*time.Hour, contentCadence(6*24*time.Hour))
+	require.Zero(t, contentCadence(7*24*time.Hour))
+}
+
+func TestOverviewAggregatesLatestProviderMetricsWithoutBlendingExposureKinds(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Date(2026, 7, 26, 12, 0, 0, 0, time.UTC)
+	service := NewService(db, staticTokenSource{})
+	service.now = func() time.Time { return now }
+	service.SetProvider("test", &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{Account: true, Content: true},
+	})
+
+	publication := &models.Publication{
+		ID:             "publication-1",
+		WorkspaceID:    account.WorkspaceID,
+		CreatedByID:    "user-1",
+		Title:          "Launch",
+		Intent:         "post",
+		ContentProfile: "short_text",
+		SourceContent:  "Launch",
+		Status:         models.PublicationStatusPublished,
+		ActualRunAt:    now.Add(-24 * time.Hour),
+		CreatedAt:      now.Add(-48 * time.Hour),
+		UpdatedAt:      now.Add(-24 * time.Hour),
+	}
+	_, err := db.NewInsert().Model(publication).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Rendition{
+		ID:              "rendition-1",
+		PublicationID:   publication.ID,
+		SocialAccountID: account.ID,
+		Platform:        account.Platform,
+		Profile:         "short_text",
+		Status:          models.RenditionStatusPublished,
+		ExternalID:      "provider-post",
+		CreatedAt:       now.Add(-48 * time.Hour),
+		UpdatedAt:       now.Add(-24 * time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	for _, snapshot := range []models.AnalyticsAccountSnapshot{
+		{ID: "snapshot-1", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"followers":40}`, CapturedAt: now.Add(-7 * 24 * time.Hour)},
+		{ID: "snapshot-2", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"followers":50}`, CapturedAt: now},
+	} {
+		_, err = db.NewInsert().Model(&snapshot).Exec(ctx)
+		require.NoError(t, err)
+	}
+	for _, state := range []models.AnalyticsSyncState{
+		{
+			ID: stateID(subjectAccount, account.ID), WorkspaceID: account.WorkspaceID,
+			SubjectType: subjectAccount, SubjectID: account.ID, SocialAccountID: account.ID,
+			Platform: account.Platform, Status: string(platform.AnalyticsStatusOK),
+			MetricsJSON: `{"followers":50}`, LastSuccessAt: now,
+		},
+		{
+			ID: stateID(subjectRendition, "rendition-1"), WorkspaceID: account.WorkspaceID,
+			SubjectType: subjectRendition, SubjectID: "rendition-1", SocialAccountID: account.ID,
+			Platform: account.Platform, Status: string(platform.AnalyticsStatusOK),
+			MetricsJSON: `{"likes":5,"comments":2,"views":100,"impressions":300}`, LastSuccessAt: now,
+		},
+	} {
+		_, err = db.NewInsert().Model(&state).Exec(ctx)
+		require.NoError(t, err)
+	}
+
+	overview, err := service.Overview(ctx, account.WorkspaceID, 30)
+	require.NoError(t, err)
+	require.Equal(t, 1, overview.Summary.Published)
+	require.Equal(t, int64(50), overview.Summary.Followers.Value)
+	require.Equal(t, int64(7), overview.Summary.Engagement.Value)
+	require.Equal(t, int64(100), overview.Summary.Views.Value)
+	require.Equal(t, int64(300), overview.Summary.Impressions.Value)
+	require.Len(t, overview.Accounts, 1)
+	require.NotNil(t, overview.Accounts[0].FollowerDelta)
+	require.Equal(t, int64(10), *overview.Accounts[0].FollowerDelta)
+	require.Len(t, overview.Content, 1)
+}
+
+func TestScheduleSweepKeepsOnePendingChainAcrossRestarts(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	service := NewService(db, staticTokenSource{})
+	first := time.Date(2026, 7, 26, 10, 0, 0, 0, time.UTC)
+
+	require.NoError(t, service.ScheduleSweep(ctx, first))
+	require.NoError(t, service.ScheduleSweep(ctx, first.Add(time.Minute)))
+
+	count, err := db.NewSelect().
+		Model((*models.Job)(nil)).
+		Where("type = ? AND status = ?", JobTypeSweep, "pending").
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
+func TestRefreshCountsOnlyNewAnalyticsJobs(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "")
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("test", &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{Account: true},
+	})
+
+	queued, err := service.RefreshWorkspace(ctx, account.WorkspaceID)
+	require.NoError(t, err)
+	require.Equal(t, 1, queued)
+
+	queued, err = service.RefreshWorkspace(ctx, account.WorkspaceID)
+	require.NoError(t, err)
+	require.Zero(t, queued)
+}
+
+func newAnalyticsTestDB(t *testing.T) *bun.DB {
+	t.Helper()
+	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
+	require.NoError(t, err)
+	require.NoError(t, database.CreateSchema(db))
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+	return db
+}
+
+func seedAnalyticsAccount(t *testing.T, db *bun.DB, scopes string) models.SocialAccount {
+	t.Helper()
+	account := models.SocialAccount{
+		ID:              "account-1",
+		WorkspaceID:     "workspace-1",
+		Slug:            "test-account",
+		Platform:        "test",
+		AccountID:       "provider-account",
+		AccountUsername: "person",
+		AccessTokenEnc:  []byte("encrypted"),
+		GrantedScopes:   scopes,
+		IsActive:        true,
+		CreatedAt:       time.Now().UTC(),
+	}
+	_, err := db.NewInsert().Model(&account).Exec(context.Background())
+	require.NoError(t, err)
+	return account
+}

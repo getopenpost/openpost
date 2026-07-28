@@ -1,0 +1,16 @@
+{
+  "name": "@openpost/social-preview",
+  "private": true,
+  "type": "module",
+  "svelte": "./src/index.ts",
+  "exports": {
+    ".": {
+      "svelte": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "peerDependencies": {
+    "svelte": "^5.0.0"
+  }
+}

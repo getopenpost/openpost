@@ -1,0 +1,105 @@
+@import "../../../frontend/src/routes/layout.css";
+
+@source './**/*.{svelte,ts}';
+@source '../../../frontend/src/lib/components';
+@source '../../../packages/social-preview/src';
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 42%, transparent);
+    color: var(--foreground);
+  }
+}
+
+@layer utilities {
+  .section-pad {
+    padding-block: clamp(4.5rem, 8vw, 8rem);
+  }
+
+  .section-label,
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.8rem;
+    font-weight: 650;
+    color: var(--primary);
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .marketing-shell {
+    width: min(100% - 2rem, 80rem);
+    margin-inline: auto;
+  }
+
+  .marketing-copy {
+    max-width: 68ch;
+    font-size: clamp(1rem, 1.3vw, 1.125rem);
+    line-height: 1.75;
+    color: var(--muted-foreground);
+  }
+
+  .marketing-title {
+    max-width: 15ch;
+    font-size: clamp(2.6rem, 7vw, 6rem);
+    font-weight: 650;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+
+  .marketing-heading {
+    max-width: 18ch;
+    font-size: clamp(2rem, 4vw, 4rem);
+    font-weight: 630;
+    line-height: 1.04;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+
+  .marketing-frame {
+    border: 1px solid var(--border);
+    background: color-mix(in oklch, var(--card) 88%, var(--background));
+    border-radius: 1rem;
+  }
+
+  .reading-shell {
+    width: min(100% - 2rem, 72ch);
+    margin-inline: auto;
+  }
+
+  .focus-ring {
+    outline: none;
+  }
+
+  .focus-ring:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--background),
+      0 0 0 4px var(--ring);
+  }
+}
+
+@media (min-width: 40rem) {
+  @layer utilities {
+    .marketing-shell {
+      width: min(100% - 3rem, 80rem);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

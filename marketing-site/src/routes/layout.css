@@ -1,0 +1,60 @@
+@import '../../../frontend/src/routes/layout.css';
+
+@source './**/*.{svelte,ts}';
+@source '../../../frontend/src/lib/components';
+@source '../../../packages/social-preview/src';
+
+@layer base {
+	html {
+		scroll-behavior: smooth;
+	}
+
+	body {
+		background: var(--background);
+	}
+
+	::selection {
+		background: color-mix(in oklch, var(--primary) 42%, transparent);
+		color: var(--foreground);
+	}
+}
+
+@layer utilities {
+	.section-pad {
+		padding-block: clamp(4rem, 7vw, 7rem);
+	}
+
+	.section-label,
+	.eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.65rem;
+		font-size: 0.8rem;
+		font-weight: 650;
+		letter-spacing: 0.01em;
+		color: var(--muted-foreground);
+	}
+
+	.section-label::before,
+	.eyebrow::before {
+		width: 1.4rem;
+		height: 1px;
+		content: '';
+		background: var(--primary);
+	}
+
+	.text-pretty {
+		text-wrap: pretty;
+	}
+
+	.marketing-frame {
+		border: 1px solid var(--border);
+		background: color-mix(in oklch, var(--card) 82%, var(--background));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	html {
+		scroll-behavior: auto;
+	}
+}

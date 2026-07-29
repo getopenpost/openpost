@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openpost.social/schemas/video-project-v1.schema.json",
+  "title": "OpenPost Video Studio project",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "title",
+    "timebase",
+    "sources",
+    "primary_sequence",
+    "visual_tracks",
+    "audio_tracks",
+    "caption_tracks",
+    "variants",
+    "markers",
+    "export_defaults"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "timebase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticks_per_second", "fps_numerator", "fps_denominator"],
+      "properties": {
+        "ticks_per_second": { "const": 1000000 },
+        "fps_numerator": { "enum": [24, 25, 30, 50, 60] },
+        "fps_denominator": { "enum": [1, 1001] }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "maxProperties": 250,
+      "additionalProperties": { "$ref": "#/$defs/source" }
+    },
+    "primary_sequence": {
+      "type": "array",
+      "maxItems": 2000,
+      "items": { "$ref": "#/$defs/primaryClip" }
+    },
+    "visual_tracks": { "type": "array", "maxItems": 4 },
+    "audio_tracks": { "type": "array", "maxItems": 8 },
+    "caption_tracks": { "type": "array", "maxItems": 2 },
+    "variants": { "type": "array", "minItems": 4, "maxItems": 4 },
+    "markers": { "type": "array" },
+    "export_defaults": { "type": "object" }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "locator",
+        "original_name",
+        "mime_type",
+        "size_bytes",
+        "duration_us",
+        "width",
+        "height",
+        "rotation"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": {
+          "enum": [
+            "video",
+            "audio",
+            "image",
+            "recording-screen",
+            "recording-camera",
+            "recording-microphone",
+            "recording-system-audio"
+          ]
+        },
+        "locator": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "path"],
+              "properties": {
+                "type": { "const": "local-opfs" },
+                "path": { "type": "string", "minLength": 1 }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["type", "media_id"],
+              "properties": {
+                "type": { "const": "openpost-media" },
+                "media_id": { "type": "string", "minLength": 1 }
+              }
+            }
+          ]
+        },
+        "original_name": { "type": "string", "maxLength": 500 },
+        "mime_type": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "duration_us": { "type": "integer", "minimum": 0, "maximum": 1200000000 },
+        "width": { "type": "integer", "minimum": 0 },
+        "height": { "type": "integer", "minimum": 0 },
+        "rotation": { "type": "integer" },
+        "video_codec": { "type": "string" },
+        "audio_codec": { "type": "string" },
+        "content_hash": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+        "provenance": { "type": "object" }
+      }
+    },
+    "primaryClip": {
+      "type": "object",
+      "required": [
+        "id",
+        "source_id",
+        "mode",
+        "source_in_us",
+        "source_out_us",
+        "speed",
+        "video",
+        "audio",
+        "effects"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source_id": { "type": "string", "minLength": 1 },
+        "mode": { "enum": ["source", "freeze"] },
+        "source_in_us": { "type": "integer", "minimum": 0 },
+        "source_out_us": { "type": "integer", "minimum": 0 },
+        "freeze_duration_us": { "type": "integer", "minimum": 1 },
+        "speed": { "type": "number", "minimum": 0.25, "maximum": 4 },
+        "video": { "type": "object" },
+        "audio": { "type": "object" },
+        "effects": { "type": "array" },
+        "transition_in": { "type": "object" },
+        "transition_out": { "type": "object" },
+        "variant_overrides": { "type": "object" }
+      }
+    }
+  }
+}

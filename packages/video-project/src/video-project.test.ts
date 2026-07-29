@@ -1,0 +1,296 @@
+import { describe, expect, it } from "vitest";
+import {
+  VideoProjectHistory,
+  captionCutRange,
+  createBlankVideoProject,
+  defaultClipAudio,
+  defaultVideoPresentation,
+  detachPrimaryClipAudio,
+  derivePrimarySequence,
+  duplicatePrimaryClip,
+  fillerCandidates,
+  frameToTimestampUS,
+  insertFreezeFrame,
+  interpolateKeyframes,
+  projectDurationUS,
+  reflowCaptionText,
+  removePrimaryRanges,
+  reorderPrimaryClip,
+  setClipSpeed,
+  setVariantPresentationOverride,
+  silenceSuggestions,
+  splitPrimaryClip,
+  timestampUSToFrame,
+  validateVideoProject,
+  type PrimarySequenceClip,
+  type VideoProjectDocumentV1,
+} from "./index.js";
+
+function projectWithClips(): VideoProjectDocumentV1 {
+  const project = createBlankVideoProject("Test");
+  project.sources.source = {
+    id: "source",
+    kind: "video",
+    locator: { type: "local-opfs", path: "projects/test/sources/source.mp4" },
+    original_name: "source.mp4",
+    mime_type: "video/mp4",
+    size_bytes: 10,
+    duration_us: 20_000_000,
+    width: 1920,
+    height: 1080,
+    rotation: 0,
+  };
+  const clip = (
+    id: string,
+    start: number,
+    end: number,
+  ): PrimarySequenceClip => ({
+    id,
+    source_id: "source",
+    mode: "source",
+    source_in_us: start,
+    source_out_us: end,
+    speed: 1,
+    video: defaultVideoPresentation(),
+    audio: defaultClipAudio(),
+    effects: [],
+  });
+  project.primary_sequence = [
+    clip("a", 0, 4_000_000),
+    clip("b", 4_000_000, 10_000_000),
+  ];
+  return project;
+}
+
+describe("video project document", () => {
+  it("creates and validates the complete four-variant document", () => {
+    const project = projectWithClips();
+    expect(validateVideoProject(project)).toEqual({
+      valid: true,
+      issues: [],
+      document: project,
+    });
+    expect(project.variants.map((variant) => variant.id)).toEqual([
+      "portrait",
+      "feed-portrait",
+      "square",
+      "landscape",
+    ]);
+  });
+
+  it("rejects unknown root fields, missing sources, and invalid speed", () => {
+    const project = projectWithClips() as VideoProjectDocumentV1 & {
+      surprise?: boolean;
+    };
+    project.surprise = true;
+    project.primary_sequence[0]!.source_id = "missing";
+    project.primary_sequence[0]!.speed = 8;
+    const result = validateVideoProject(project);
+    expect(result.valid).toBe(false);
+    expect(result.issues.map((entry) => entry.code)).toEqual(
+      expect.arrayContaining(["unknown-field", "source-reference", "speed"]),
+    );
+  });
+});
+
+describe("derived sequence operations", () => {
+  it("derives ripple timing and bounded transition overlap", () => {
+    const project = projectWithClips();
+    project.primary_sequence[0]!.transition_out = {
+      type: "cross-dissolve",
+      duration_us: 1_000_000,
+      easing: "ease-in-out",
+    };
+    const derived = derivePrimarySequence(project);
+    expect(derived[0]).toMatchObject({
+      timeline_start_us: 0,
+      timeline_end_us: 4_000_000,
+    });
+    expect(derived[1]).toMatchObject({
+      timeline_start_us: 3_000_000,
+      timeline_end_us: 9_000_000,
+      transition_overlap_us: 1_000_000,
+    });
+    expect(projectDurationUS(project)).toBe(9_000_000);
+  });
+
+  it("splits at the playhead without changing duration", () => {
+    const project = projectWithClips();
+    const split = splitPrimaryClip(project, "a", 1_500_000, () => "a-right");
+    expect(split.primary_sequence.map((clip) => clip.id)).toEqual([
+      "a",
+      "a-right",
+      "b",
+    ]);
+    expect(split.primary_sequence[0]!.source_out_us).toBe(1_500_000);
+    expect(split.primary_sequence[1]!.source_in_us).toBe(1_500_000);
+    expect(projectDurationUS(split)).toBe(10_000_000);
+  });
+
+  it("ripple-cuts across clip boundaries as one deterministic action", () => {
+    const project = projectWithClips();
+    const cut = removePrimaryRanges(
+      project,
+      [{ start_us: 3_000_000, end_us: 5_000_000 }],
+      () => "new",
+    );
+    expect(cut.primary_sequence[0]!.source_out_us).toBe(3_000_000);
+    expect(cut.primary_sequence[1]!.source_in_us).toBe(5_000_000);
+    expect(projectDurationUS(cut)).toBe(8_000_000);
+  });
+
+  it("reorders clips and updates speed within beta bounds", () => {
+    const project = projectWithClips();
+    const reordered = reorderPrimaryClip(project, "b", 0);
+    expect(reordered.primary_sequence.map((clip) => clip.id)).toEqual([
+      "b",
+      "a",
+    ]);
+    const sped = setClipSpeed(reordered, "b", 2);
+    expect(projectDurationUS(sped)).toBe(7_000_000);
+    expect(() => setClipSpeed(sped, "b", 5)).toThrow(/0.25/);
+  });
+
+  it("duplicates, freezes, and detaches clip audio without changing the source", () => {
+    const project = projectWithClips();
+    const duplicated = duplicatePrimaryClip(project, "a", () => "copy");
+    expect(duplicated.primary_sequence.map((clip) => clip.id)).toEqual([
+      "a",
+      "copy",
+      "b",
+    ]);
+    expect(duplicated.primary_sequence[1]!.source_id).toBe("source");
+
+    let id = 0;
+    const frozen = insertFreezeFrame(
+      project,
+      "a",
+      2_000_000,
+      1_500_000,
+      () => `new-${id++}`,
+    );
+    expect(frozen.primary_sequence.map((clip) => clip.mode)).toEqual([
+      "source",
+      "freeze",
+      "source",
+      "source",
+    ]);
+    expect(frozen.primary_sequence[1]!.freeze_duration_us).toBe(1_500_000);
+    expect(projectDurationUS(frozen)).toBe(11_500_000);
+
+    const detached = detachPrimaryClipAudio(project, "a", () => "audio-item");
+    expect(detached.primary_sequence[0]!.audio.muted).toBe(true);
+    expect(detached.audio_tracks[0]!.items[0]).toMatchObject({
+      id: "audio-item",
+      source_id: "source",
+      timeline_start_us: 0,
+      duration_us: 4_000_000,
+    });
+  });
+
+  it("isolates per-variant presentation overrides", () => {
+    const project = projectWithClips();
+    const changed = setVariantPresentationOverride(project, "a", "portrait", {
+      scale: 1.25,
+    });
+    expect(
+      changed.primary_sequence[0]!.variant_overrides?.portrait?.scale,
+    ).toBe(1.25);
+    expect(
+      changed.primary_sequence[0]!.variant_overrides?.square,
+    ).toBeUndefined();
+    expect(project.primary_sequence[0]!.variant_overrides).toBeUndefined();
+  });
+});
+
+describe("time, keyframes, captions, and suggestions", () => {
+  it("round-trips rational frame timestamps without accumulated drift", () => {
+    for (const frame of [0, 1, 29, 1_000, 35_964]) {
+      const timestamp = frameToTimestampUS(frame, 30_000, 1_001);
+      expect(timestampUSToFrame(timestamp, 30_000, 1_001)).toBe(frame);
+    }
+  });
+
+  it("interpolates supported easing and hold keyframes", () => {
+    const base = [
+      { time_us: 0, value: 0, easing: "linear" as const },
+      { time_us: 1_000_000, value: 10, easing: "hold" as const },
+    ];
+    expect(interpolateKeyframes(base, 500_000)).toBe(5);
+    expect(
+      interpolateKeyframes(
+        [{ ...base[0]!, easing: "hold" }, base[1]!],
+        500_000,
+      ),
+    ).toBe(0);
+  });
+
+  it("reflows captions and links timed transcript selection to a padded cut", () => {
+    expect(
+      reflowCaptionText(
+        "Make one clear social video without leaving the browser",
+        18,
+        2,
+      ),
+    ).toEqual(["Make one clear", "social video without leaving the browser"]);
+    const cut = captionCutRange(
+      [
+        {
+          id: "cue",
+          start_us: 500_000,
+          end_us: 2_000_000,
+          text: "hello world",
+          words: [
+            { text: "hello", start_us: 500_000, end_us: 900_000 },
+            { text: "world", start_us: 1_000_000, end_us: 1_500_000 },
+          ],
+        },
+      ],
+      [{ cue_id: "cue", word_index: 1 }],
+    );
+    expect(cut).toEqual({ start_us: 880_000, end_us: 1_620_000 });
+  });
+
+  it("keeps VAD padding, merges short speech gaps, and requires filler confidence", () => {
+    const silence = silenceSuggestions(
+      [
+        { start_us: 500_000, end_us: 1_000_000 },
+        { start_us: 1_100_000, end_us: 1_500_000 },
+        { start_us: 2_500_000, end_us: 3_000_000 },
+      ],
+      4_000_000,
+    );
+    expect(silence).toEqual([
+      { start_us: 0, end_us: 380_000, duration_us: 380_000 },
+      { start_us: 1_620_000, end_us: 2_380_000, duration_us: 760_000 },
+      { start_us: 3_120_000, end_us: 4_000_000, duration_us: 880_000 },
+    ]);
+    expect(
+      fillerCandidates(
+        [
+          { text: "Um", start_us: 0, end_us: 200_000, confidence: 0.95 },
+          { text: "real", start_us: 250_000, end_us: 500_000, confidence: 0.9 },
+          { text: "real", start_us: 520_000, end_us: 800_000, confidence: 0.9 },
+          { text: "uh", start_us: 900_000, end_us: 1_000_000, confidence: 0.2 },
+        ],
+        "en",
+      ).map((candidate) => candidate.reason),
+    ).toEqual(["dictionary", "repeated-word"]);
+  });
+});
+
+describe("history", () => {
+  it("undoes and redoes compound project edits", () => {
+    const history = new VideoProjectHistory();
+    const original = projectWithClips();
+    const changed = history.execute(original, {
+      id: "speed",
+      label: "Change speed",
+      apply: (project) => setClipSpeed(project, "a", 2),
+    });
+    expect(projectDurationUS(changed)).toBe(8_000_000);
+    const undone = history.undo(changed);
+    expect(projectDurationUS(undone)).toBe(10_000_000);
+    expect(projectDurationUS(history.redo(undone))).toBe(8_000_000);
+  });
+});

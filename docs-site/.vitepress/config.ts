@@ -197,8 +197,12 @@ export default defineConfig({
 			{ text: 'Self-Hosting', link: '/self-hosting/' },
 			{ text: 'Providers', link: '/providers/overview' },
 			{ text: 'Developer Docs', link: '/development/' },
+			{ text: 'Community', link: 'https://discord.gg/u2QwukmY4W' },
 		],
-		socialLinks: [{ icon: 'github', link: 'https://github.com/rodrgds/openpost' }],
+		socialLinks: [
+			{ icon: 'github', link: 'https://github.com/rodrgds/openpost' },
+			{ icon: 'discord', link: 'https://discord.gg/u2QwukmY4W' },
+		],
 		search: {
 			provider: 'local',
 		},

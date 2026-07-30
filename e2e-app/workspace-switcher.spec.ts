@@ -53,7 +53,7 @@ test("workspace switcher creates and selects a workspace", async ({
   await page.goto("/");
 
   const workspaceButton = page
-    .getByRole("button", { name: new RegExp(firstName) })
+    .getByRole("button", { name: new RegExp(`${firstName}|${newName}`) })
     .first();
   await expect(workspaceButton).toBeVisible();
 

@@ -37,6 +37,54 @@ test("sidebar footer switches between workspaces", async ({
   await expect(workspaceButton).toContainText(nextWorkspace);
 });
 
+test("workspace switcher creates and selects a workspace", async ({
+  page,
+  request,
+}) => {
+  const unique = Date.now().toString(36);
+  const email = `workspace-create-${unique}@example.com`;
+  const firstName = `Personal ${unique}`;
+  const newName = `Project ${unique}`;
+
+  const auth = await registerUser(request, email);
+  await createWorkspace(request, auth.token, firstName);
+
+  await authenticatePage(page, auth.token);
+  await page.goto("/");
+
+  const workspaceButton = page
+    .getByRole("button", { name: new RegExp(firstName) })
+    .first();
+  await expect(workspaceButton).toBeVisible();
+
+  await workspaceButton.click();
+  await page.getByRole("menuitem", { name: "Create workspace" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await expect(
+    dialog.getByRole("heading", { name: "Create workspace" }),
+  ).toBeVisible();
+  await dialog.getByLabel("Workspace name").fill(newName);
+
+  const createResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/v1/workspaces" &&
+      response.request().method() === "POST"
+    );
+  });
+  await dialog.getByRole("button", { name: "Create workspace" }).click();
+  expect((await createResponse).ok()).toBe(true);
+
+  await expect(dialog).toBeHidden();
+  await expect(workspaceButton).toContainText(newName);
+
+  await workspaceButton.click();
+  await expect(
+    page.getByRole("menuitem", { name: new RegExp(newName) }),
+  ).toBeVisible();
+});
+
 test("workspace-scoped pages reload when the sidebar workspace changes", async ({
   page,
   request,

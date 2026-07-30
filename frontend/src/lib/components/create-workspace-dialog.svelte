@@ -24,10 +24,14 @@
 		error = '';
 	}
 
+	function handleOpenChange(isOpen: boolean) {
+		if (!isOpen && pending) return;
+		open = isOpen;
+		if (!isOpen) reset();
+	}
+
 	function close() {
-		if (pending) return;
-		open = false;
-		reset();
+		handleOpenChange(false);
 	}
 
 	async function createWorkspace(event: SubmitEvent) {
@@ -58,7 +62,7 @@
 	}
 </script>
 
-<Dialog.Root bind:open>
+<Dialog.Root {open} onOpenChange={handleOpenChange}>
 	<Dialog.Content aria-busy={pending} showCloseButton={false} class="sm:max-w-md">
 		<form onsubmit={createWorkspace} class="space-y-4">
 			<Dialog.Header>

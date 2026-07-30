@@ -18,6 +18,7 @@
 	import SidebarPlanner from './sidebar-planner.svelte';
 	import AccountPreferencesMenu from './account-preferences-menu.svelte';
 	import WorkspaceMenuItems from './workspace-menu-items.svelte';
+	import CreateWorkspaceDialog from './create-workspace-dialog.svelte';
 	import CalendarIcon from 'lucide-svelte/icons/calendar-days';
 	import ComposeIcon from 'lucide-svelte/icons/square-pen';
 	import PostsIcon from 'lucide-svelte/icons/files';
@@ -31,6 +32,7 @@
 	import NotificationBell from './notification-bell.svelte';
 
 	let authState = $derived($auth);
+	let createWorkspaceOpen = $state(false);
 	const sidebar = Sidebar.useSidebar();
 	const currentPath = $derived(page.url.pathname);
 	const currentWorkspaceName = $derived(
@@ -119,6 +121,11 @@
 		return initials(workspace?.name || 'Workspace');
 	}
 
+	function openCreateWorkspace() {
+		sidebar.setOpenMobile(false);
+		createWorkspaceOpen = true;
+	}
+
 	function navigate(href: string) {
 		sidebar.setOpenMobile(false);
 		if (href === '/') ui.startNewPost();
@@ -197,7 +204,10 @@
 				align="start"
 				sideOffset={6}
 			>
-				<WorkspaceMenuItems onSelect={() => sidebar.setOpenMobile(false)} />
+				<WorkspaceMenuItems
+					onCreate={openCreateWorkspace}
+					onSelect={() => sidebar.setOpenMobile(false)}
+				/>
 			</DropdownMenu.Content>
 		</DropdownMenu.Root>
 	</Sidebar.Header>
@@ -295,7 +305,10 @@
 						align="end"
 						sideOffset={6}
 					>
-						<AccountPreferencesMenu onNavigate={() => sidebar.setOpenMobile(false)} />
+						<AccountPreferencesMenu
+							onCreateWorkspace={openCreateWorkspace}
+							onNavigate={() => sidebar.setOpenMobile(false)}
+						/>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
 			</Sidebar.MenuItem>
@@ -303,6 +316,8 @@
 	</Sidebar.Footer>
 	<Sidebar.Rail />
 </Sidebar.Root>
+
+<CreateWorkspaceDialog bind:open={createWorkspaceOpen} />
 
 <style>
 	.sidebar-context-swap {

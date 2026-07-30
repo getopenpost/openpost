@@ -178,6 +178,14 @@ export default defineConfig({
 		['meta', { property: 'og:title', content: 'OpenPost' }],
 		['meta', { property: 'og:description', content: 'Draft, adapt, schedule, and automate social posts with the managed OpenPost app or the same self-hosted product.' }],
 		['meta', { property: 'og:image', content: `${docsBase}assets/brand/og-image.png` }],
+		[
+			'script',
+			{
+				defer: '',
+				src: 'https://analytics.rgo.pt/script.js',
+				'data-website-id': 'fded0cc2-dbbf-4362-a0c2-494694a56621',
+			},
+		],
 	],
 	themeConfig: {
 		logo: '/assets/brand/icon.svg',

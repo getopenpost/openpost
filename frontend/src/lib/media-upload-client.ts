@@ -2,6 +2,7 @@ import { getToken } from '$lib/api/client';
 import type { components } from '$lib/api/types';
 import { getApiBase } from '$lib/stores/instance.svelte';
 import type { VideoConstraint, VideoPreparationProgress } from '$lib/video/types';
+import type { StockMediaProvenance } from '@openpost/video-project';
 
 export type MediaUploadResult = components['schemas']['MediaUploadResult'];
 
@@ -9,11 +10,23 @@ export interface UploadMediaFileOptions {
 	workspaceId: string;
 	file: File;
 	altText?: string;
-	source?: 'upload' | 'camera' | 'studio_export' | 'studio_edit' | 'background_removal';
+	source?:
+		| 'upload'
+		| 'camera'
+		| 'studio_export'
+		| 'studio_edit'
+		| 'background_removal'
+		| 'video_studio_source'
+		| 'video_studio_export'
+		| 'stock_import';
 	assetKind?: 'library' | 'brand_asset' | 'brand_font' | 'design_preview' | 'template_preview';
 	parentMediaId?: string;
 	designDocumentId?: string;
 	designPageId?: string;
+	videoProjectId?: string;
+	clientSHA256?: string;
+	stockProvenance?: StockMediaProvenance;
+	prepareVideo?: boolean;
 	videoConstraints?: VideoConstraint[];
 	onProgress?: (progress: VideoPreparationProgress) => void;
 	signal?: AbortSignal;
@@ -46,12 +59,16 @@ export async function uploadMediaFile({
 	parentMediaId = '',
 	designDocumentId = '',
 	designPageId = '',
+	videoProjectId = '',
+	clientSHA256 = '',
+	stockProvenance,
+	prepareVideo = true,
 	videoConstraints = [],
 	onProgress,
 	signal
 }: UploadMediaFileOptions): Promise<MediaUploadResult> {
 	let uploadFile = file;
-	if (file.type.startsWith('video/') || looksLikeVideo(file.name)) {
+	if (prepareVideo && (file.type.startsWith('video/') || looksLikeVideo(file.name))) {
 		const { prepareVideoForUpload } = await import('$lib/video/prepare');
 		const prepared = await prepareVideoForUpload(file, videoConstraints, onProgress, signal);
 		uploadFile = prepared.file;
@@ -61,7 +78,10 @@ export async function uploadMediaFile({
 		assetKind,
 		parentMediaId,
 		designDocumentId,
-		designPageId
+		designPageId,
+		videoProjectId,
+		clientSHA256,
+		stockProvenance
 	};
 	if (!(await mediaStorageSupportsDirectUploads(workspaceId))) {
 		return uploadViaMultipart(workspaceId, uploadFile, altText, metadata, onProgress, signal);
@@ -165,6 +185,9 @@ async function uploadViaDirectSession(
 		parentMediaId: string;
 		designDocumentId: string;
 		designPageId: string;
+		videoProjectId: string;
+		clientSHA256: string;
+		stockProvenance?: StockMediaProvenance;
 	},
 	onProgress?: (progress: VideoPreparationProgress) => void,
 	signal?: AbortSignal
@@ -185,7 +208,10 @@ async function uploadViaDirectSession(
 			asset_kind: metadata.assetKind,
 			...(metadata.parentMediaId ? { parent_media_id: metadata.parentMediaId } : {}),
 			...(metadata.designDocumentId ? { design_document_id: metadata.designDocumentId } : {}),
-			...(metadata.designPageId ? { design_page_id: metadata.designPageId } : {})
+			...(metadata.designPageId ? { design_page_id: metadata.designPageId } : {}),
+			...(metadata.videoProjectId ? { video_project_id: metadata.videoProjectId } : {}),
+			...(metadata.clientSHA256 ? { client_sha256: metadata.clientSHA256 } : {}),
+			...(metadata.stockProvenance ? { stock_provenance: metadata.stockProvenance } : {})
 		})
 	});
 	if (!sessionResp.ok) {
@@ -194,6 +220,24 @@ async function uploadViaDirectSession(
 
 	const session =
 		(await sessionResp.json()) as components['schemas']['CreateMediaUploadSessionOutputBody'];
+	if (session.deduped) {
+		onProgress?.({ stage: 'finalizing', fraction: 1, message: 'Existing media reused' });
+		return {
+			id: session.media_id,
+			mime_type: file.type || 'application/octet-stream',
+			url: `/media/${session.media_id}`,
+			size: file.size,
+			deduped: true,
+			alt_text: altText,
+			original_filename: file.name,
+			source: metadata.source,
+			asset_kind: metadata.assetKind,
+			processing_status: 'ready',
+			processing_progress: 100,
+			analysis_status: 'ready',
+			...(metadata.videoProjectId ? { video_project_id: metadata.videoProjectId } : {})
+		};
+	}
 	const uploadHeaders = directUploadHeadersForBrowser(session.upload.headers ?? {});
 	const isExternalUpload = /^https?:\/\//i.test(session.upload.url);
 	if (!isExternalUpload) {
@@ -239,6 +283,9 @@ async function uploadViaMultipart(
 		parentMediaId: string;
 		designDocumentId: string;
 		designPageId: string;
+		videoProjectId: string;
+		clientSHA256: string;
+		stockProvenance?: StockMediaProvenance;
 	},
 	onProgress?: (progress: VideoPreparationProgress) => void,
 	signal?: AbortSignal
@@ -254,6 +301,10 @@ async function uploadViaMultipart(
 	if (metadata.parentMediaId) formData.append('parent_media_id', metadata.parentMediaId);
 	if (metadata.designDocumentId) formData.append('design_document_id', metadata.designDocumentId);
 	if (metadata.designPageId) formData.append('design_page_id', metadata.designPageId);
+	if (metadata.videoProjectId) formData.append('video_project_id', metadata.videoProjectId);
+	if (metadata.stockProvenance) {
+		formData.append('stock_provenance', JSON.stringify(metadata.stockProvenance));
+	}
 
 	onProgress?.({ stage: 'uploading', fraction: 0, message: 'Starting upload' });
 	const response = await uploadFormWithProgress(

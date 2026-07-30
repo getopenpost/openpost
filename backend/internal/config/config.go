@@ -42,6 +42,12 @@ type Config struct {
 	SupportEmail            string
 	StudioEnabled           bool
 	StudioModelBaseURL      string
+	VideoStudioEnabled      bool
+	VideoModelBaseURL       string
+	StockMediaEnabled       bool
+	PexelsAPIKey            string
+	UnsplashAccessKey       string
+	PixabayAPIKey           string
 	FeedbackEnabled         bool
 	FeedbackDestinationURL  string
 	FeedbackRecipient       string
@@ -165,6 +171,12 @@ func Load() *Config {
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
 		StudioEnabled:           getEnvBoolWithAliases(true, "OPENPOST_STUDIO_ENABLED"),
 		StudioModelBaseURL:      strings.TrimRight(getEnvDefault("OPENPOST_STUDIO_MODEL_BASE_URL", "/studio-models"), "/"),
+		VideoStudioEnabled:      getEnvBoolWithAliases(false, "OPENPOST_VIDEO_STUDIO_ENABLED"),
+		VideoModelBaseURL:       strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_VIDEO_MODEL_BASE_URL", "/video-studio-models")), "/"),
+		StockMediaEnabled:       getEnvBoolWithAliases(false, "OPENPOST_STOCK_MEDIA_ENABLED"),
+		PexelsAPIKey:            strings.TrimSpace(getEnvDefault("OPENPOST_PEXELS_API_KEY", "")),
+		UnsplashAccessKey:       strings.TrimSpace(getEnvDefault("OPENPOST_UNSPLASH_ACCESS_KEY", "")),
+		PixabayAPIKey:           strings.TrimSpace(getEnvDefault("OPENPOST_PIXABAY_API_KEY", "")),
 		FeedbackEnabled:         getEnvBoolWithAliases(false, "OPENPOST_FEEDBACK_ENABLED"),
 		FeedbackDestinationURL:  getEnvDefault("OPENPOST_FEEDBACK_DESTINATION_URL", ""),
 		FeedbackRecipient:       getEnvDefault("OPENPOST_FEEDBACK_RECIPIENT", ""),

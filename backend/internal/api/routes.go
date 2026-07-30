@@ -59,6 +59,12 @@ type RouteDeps struct {
 	DisableLinkedInThreadReplies bool
 	StudioEnabled                bool
 	StudioModelBaseURL           string
+	VideoStudioEnabled           bool
+	VideoModelBaseURL            string
+	StockMediaEnabled            bool
+	PexelsAPIKey                 string
+	UnsplashAccessKey            string
+	PixabayAPIKey                string
 	FeedbackService              *feedback.Service
 	IdentityService              *identity.Service
 	AnalyticsService             *analyticsservice.Service
@@ -92,6 +98,23 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		deps.StudioEnabled,
 		deps.StudioModelBaseURL,
 	).RegisterRoutes(api)
+	stockMediaHandler := handlers.NewStockMediaHandler(
+		deps.DB,
+		deps.StockMediaEnabled,
+		deps.PexelsAPIKey,
+		deps.UnsplashAccessKey,
+		deps.PixabayAPIKey,
+	)
+	stockMediaHandler.RegisterRoutes(api)
+	videoStudioHandler := handlers.NewVideoStudioHandler(
+		deps.DB,
+		deps.Authenticator,
+		deps.VideoStudioEnabled,
+		deps.VideoModelBaseURL,
+	)
+	videoStudioHandler.SetEntitlement(deps.Entitlement)
+	videoStudioHandler.SetStockProviders(stockMediaHandler.ProviderKeys())
+	videoStudioHandler.RegisterRoutes(api)
 
 	billingHandler := deps.BillingHandler
 	if billingHandler == nil {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { ContextMenu } from 'bits-ui';
 	import { useStudioEditor } from '../editor.svelte';
 	import { listStudioMedia, loadStudioBrandKit } from '../api';
@@ -11,6 +12,10 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
+	import StockMediaBrowser from '$lib/components/stock-media-browser.svelte';
+	import { uploadMediaFile } from '$lib/media-upload-client';
+	import type { StockAsset } from '$lib/video-studio/api';
+	import type { StockMediaProvenance } from '@openpost/video-project';
 	import SearchIcon from 'lucide-svelte/icons/search';
 	import PlusIcon from 'lucide-svelte/icons/plus';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
@@ -32,12 +37,13 @@
 	let error = $state('');
 	let search = $state('');
 	let pickerOpen = $state(false);
+	let stockOpen = $state(false);
 	let replaceMode = $state(false);
 	let loadedWorkspaceID = '';
 	let dragPreview: HTMLElement | null = null;
 	let guestFileInput = $state<HTMLInputElement | null>(null);
 
-	$effect(() => {
+	onMount(() => {
 		const scopeID = guestMode ? editor.id : editor.workspaceID;
 		if (!scopeID || scopeID === loadedWorkspaceID) return;
 		loadedWorkspaceID = scopeID;
@@ -166,6 +172,49 @@
 			input.value = '';
 		}
 	}
+
+	function stockProvenance(asset: StockAsset): StockMediaProvenance {
+		return {
+			provider: asset.provider,
+			external_id: asset.external_id,
+			source_url: asset.source_url,
+			creator_name: asset.creator_name,
+			creator_url: asset.creator_url,
+			license_name: asset.license_name,
+			license_url: asset.license_url,
+			attribution_text: asset.attribution_text
+		};
+	}
+
+	async function addStockMedia(file: File, asset: StockAsset): Promise<void> {
+		loading = true;
+		error = '';
+		try {
+			const provenance = stockProvenance(asset);
+			if (guestMode) {
+				const item = await storeGuestStudioMedia(editor.id, file, { provenance });
+				media = [item, ...media];
+				addMedia(item);
+			} else {
+				const uploaded = await uploadMediaFile({
+					workspaceId: editor.workspaceID,
+					file,
+					source: 'stock_import',
+					stockProvenance: provenance,
+					prepareVideo: false
+				});
+				await loadAll();
+				const item = media.find((entry) => entry.id === uploaded.id);
+				if (item) addMedia(item);
+				else editor.addImage({ id: uploaded.id, name: uploaded.original_filename });
+			}
+			stockOpen = false;
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.video_studio_stock_download_failed();
+		} finally {
+			loading = false;
+		}
+	}
 </script>
 
 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
@@ -277,6 +326,20 @@
 			<PlusIcon />
 			{m.studio_upload_camera()}
 		</Button>
+		<Button
+			variant={stockOpen ? 'secondary' : 'outline'}
+			size="sm"
+			class="mb-3 w-full"
+			onclick={() => (stockOpen = !stockOpen)}
+		>
+			<ImagePlusIcon />
+			{stockOpen ? m.common_close() : m.video_studio_stock()}
+		</Button>
+		{#if stockOpen}
+			<div class="mb-4 rounded-lg border bg-card p-2">
+				<StockMediaBrowser accept="photo" compact onSelect={addStockMedia} />
+			</div>
+		{/if}
 		{#if editor.backgroundImagePickerActive}
 			<div
 				class="mb-3 flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/8 p-2 text-xs"

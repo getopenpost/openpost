@@ -63,8 +63,6 @@
 		"vitest-browser-svelte": "^2.0.2"
 	},
 	"dependencies": {
-		"@openpost/social-preview": "workspace:*",
-		"@tanstack/table-core": "^8.21.3",
 		"@capacitor/android": "^8.3.0",
 		"@capacitor/app": "^8.1.0",
 		"@capacitor/browser": "^8.0.4",
@@ -73,7 +71,12 @@
 		"@capacitor/splash-screen": "^8.0.1",
 		"@capacitor/status-bar": "^8.0.2",
 		"@fontsource-variable/geist": "^5.2.8",
+		"@huggingface/transformers": "3.8.1",
 		"@imgly/background-removal": "1.7.0",
+		"@noble/hashes": "1.8.0",
+		"@openpost/social-preview": "workspace:*",
+		"@openpost/video-project": "workspace:*",
+		"@tanstack/table-core": "^8.21.3",
 		"@uppy/core": "^5.2.0",
 		"@uppy/dashboard": "^5.1.1",
 		"@uppy/image-editor": "^4.2.0",

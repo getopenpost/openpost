@@ -71,10 +71,10 @@ let
       pkgs.pnpm
     ];
     text = ''
-      # The production bundle now needs slightly more than 2GB while
-      # adapter-static finalizes the client output. Keep a bounded heap for
-      # small-memory hosts, but leave enough headroom for release builds.
-      export NODE_OPTIONS="--max-old-space-size=2560"
+      # Video Studio adds the Transformers.js and ONNX worker graphs to the
+      # production build. Keep the V8 heap bounded while leaving enough room
+      # for Vite to transform those lazy chunks and adapter-static to finish.
+      export NODE_OPTIONS="--max-old-space-size=4096"
       cd "${config.git.root}"
       pnpm --filter @openpost/web build
       mkdir -p "${config.git.root}/backend/cmd/openpost/public"

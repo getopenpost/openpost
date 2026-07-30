@@ -66,13 +66,20 @@
 	let isStandaloneRoute = $derived(
 		standaloneRoutes.includes(currentPath) ||
 			currentPath === '/studio' ||
-			currentPath.startsWith('/studio/')
+			currentPath.startsWith('/studio/') ||
+			currentPath === '/video-studio' ||
+			currentPath.startsWith('/video-studio/')
 	);
 	let isPublicStudioRoute = $derived(
 		currentPath === '/studio' || currentPath.startsWith('/studio/local_design_')
 	);
+	let isPublicVideoStudioRoute = $derived(
+		currentPath === '/video-studio' || currentPath.startsWith('/video-studio/')
+	);
 	let isPublicRoute = $derived(
-		isPublicStudioRoute || publicRoutes.some((route) => currentPath.startsWith(route))
+		isPublicStudioRoute ||
+			isPublicVideoStudioRoute ||
+			publicRoutes.some((route) => currentPath.startsWith(route))
 	);
 
 	let needsOnboarding = $state(false);
@@ -125,7 +132,7 @@
 
 		if (needsOnboarding) {
 			if (
-				isPublicStudioRoute &&
+				(isPublicStudioRoute || isPublicVideoStudioRoute) &&
 				!(
 					currentPath.startsWith('/studio/local_design_') &&
 					$page.url.searchParams.get('import') === '1'
@@ -306,7 +313,7 @@
 {:else if instance.isLoading || authState.isLoading || pendingRedirect || ssoChallengeInFlight || (authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
 	<AppLoading label={m.common_loading()} />
 {:else if !authState.isAuthenticated}
-	{#if currentPath !== '/studio' && !currentPath.startsWith('/studio/')}
+	{#if currentPath !== '/studio' && !currentPath.startsWith('/studio/') && !currentPath.startsWith('/video-studio')}
 		<div class="fixed top-4 right-4 z-20">
 			<LanguageSwitcher compact />
 		</div>
@@ -336,7 +343,7 @@
 		{@render children()}
 	{/if}
 {:else if isStandaloneRoute}
-	{#if !currentPath.startsWith('/studio/')}
+	{#if !currentPath.startsWith('/studio/') && !currentPath.startsWith('/video-studio')}
 		<div class="fixed top-4 right-4 z-20">
 			<LanguageSwitcher compact />
 		</div>

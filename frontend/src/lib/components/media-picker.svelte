@@ -42,7 +42,8 @@
 		presentation = 'dialog',
 		videoConstraints = [],
 		onConfirm,
-		onCreate
+		onCreate,
+		onCreateVideo
 	}: {
 		open?: boolean;
 		workspaceId: string;
@@ -58,6 +59,7 @@
 		videoConstraints?: VideoConstraint[];
 		onConfirm: (mediaIDs: string[], media: StudioMediaItem[]) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
+		onCreateVideo?: () => void | Promise<void>;
 	} = $props();
 
 	let mode = $state<'library' | 'camera'>('library');
@@ -294,11 +296,30 @@
 			actionLoading = false;
 		}
 	}
+
+	async function createVideo(): Promise<void> {
+		if (!onCreateVideo || actionLoading) return;
+		actionLoading = true;
+		error = '';
+		try {
+			await onCreateVideo();
+			open = false;
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.media_picker_video_studio_failed();
+		} finally {
+			actionLoading = false;
+		}
+	}
 </script>
 
 {#snippet pickerBody()}
 	{#if mode === 'library'}
-		<div class="grid grid-cols-2 gap-2 border-b px-4 py-3 {showCreate ? 'sm:grid-cols-3' : ''}">
+		<div
+			class={[
+				'grid grid-cols-2 gap-2 border-b px-4 py-3',
+				showCreate && onCreateVideo ? 'sm:grid-cols-4' : showCreate ? 'sm:grid-cols-3' : ''
+			]}
+		>
 			<label
 				class="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg border bg-background px-3 text-sm font-medium focus-within:ring-2 focus-within:ring-ring hover:bg-muted"
 			>
@@ -334,6 +355,12 @@
 				>
 					<PaletteIcon />
 					{m.media_picker_create()}
+				</Button>
+			{/if}
+			{#if onCreateVideo}
+				<Button variant="outline" class="min-h-11" disabled={actionLoading} onclick={createVideo}>
+					<VideoIcon />
+					{m.media_picker_create_video()}
 				</Button>
 			{/if}
 		</div>

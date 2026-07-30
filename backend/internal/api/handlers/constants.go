@@ -15,6 +15,7 @@ const (
 	tagPublications      = "Publications"
 	tagPrompts           = "Prompts"
 	tagStudio            = "Studio"
+	tagVideoStudio       = "Video Studio"
 	tagWorkspaces        = "Workspaces"
 
 	fieldError = "error"

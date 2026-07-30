@@ -135,8 +135,25 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 		if err := makeUserPasswordOptional(ctx, db); err != nil {
 			return fmt.Errorf("migration %s optional password preparation failed: %w", migration.name, err)
 		}
+	case 53:
+		if err := addVideoProjectIDToMediaAttachments(ctx, db); err != nil {
+			return fmt.Errorf("migration %s media project linkage preparation failed: %w", migration.name, err)
+		}
 	}
 	return nil
+}
+
+func addVideoProjectIDToMediaAttachments(ctx context.Context, db *bun.DB) error {
+	exists, err := migrationTableExists(ctx, db, "media_attachments")
+	if err != nil || !exists {
+		return err
+	}
+	present, err := migrationColumnExists(ctx, db, "media_attachments", "video_project_id")
+	if err != nil || present {
+		return err
+	}
+	_, err = db.ExecContext(ctx, "ALTER TABLE media_attachments ADD COLUMN video_project_id TEXT NOT NULL DEFAULT ''")
+	return err
 }
 
 func makeUserPasswordOptional(ctx context.Context, db *bun.DB) error {

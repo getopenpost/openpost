@@ -1,7 +1,6 @@
 import {
 	ALL_FORMATS,
 	BlobSource,
-	BufferTarget,
 	Conversion,
 	EncodedAudioPacketSource,
 	EncodedPacketSink,
@@ -13,6 +12,7 @@ import {
 	type InputAudioTrack
 } from 'mediabunny';
 import { firstPlatformVideoCodec } from './support';
+import { createStreamingOutputTarget } from './stream-target';
 import type { VideoEditRecipe } from './types';
 import { VideoPreparationError } from './types';
 
@@ -27,7 +27,6 @@ export async function renderVideoEdit(
 		const sourceAudioTrack = await input.getPrimaryAudioTrack();
 		const sourceAudioCodec = await sourceAudioTrack?.getCodec();
 		const canCopyAAC = sourceAudioTrack !== null && sourceAudioCodec === 'aac';
-		const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() });
 		const video: ConversionVideoOptions = {};
 		if (recipe.crop) {
 			const width = even(recipe.crop.width);
@@ -48,73 +47,75 @@ export async function renderVideoEdit(
 				height
 			};
 		}
-		const conversion = await Conversion.init({
-			input,
-			output,
-			composable: true,
-			trim: {
-				start: recipe.trim.startSeconds,
-				end: recipe.trim.endSeconds
-			},
-			video,
-			audio: canCopyAAC
-				? { discard: true }
-				: sourceAudioTrack
-					? { codec: 'aac', bitrate: 128_000, forceTranscode: true }
-					: { discard: true }
-		});
-		const videoIncluded = conversion.utilizedTracks.some((track) => track.type === 'video');
-		const encodedAudioIncluded =
-			sourceAudioTrack !== null && conversion.utilizedTracks.includes(sourceAudioTrack);
-		if (!videoIncluded || (sourceAudioTrack !== null && !canCopyAAC && !encodedAudioIncluded)) {
-			throw new VideoPreparationError(
-				'invalid-edit',
-				sourceAudioTrack
-					? 'This browser cannot preserve the audio in a platform-ready MP4. Upload the original or use a browser with AAC encoding support.'
-					: 'This video cannot be edited in this browser.'
-			);
-		}
-		const copiedAudioSource = canCopyAAC ? new EncodedAudioPacketSource('aac') : null;
-		if (copiedAudioSource) output.addAudioTrack(copiedAudioSource);
-		conversion.onProgress = onProgress;
-		const abort = () => {
-			void conversion.cancel();
-			void output.cancel();
-		};
-		signal?.addEventListener('abort', abort, { once: true });
+		const stream = await createStreamingOutputTarget(signal);
+		let completed = false;
 		try {
-			await output.start();
-			await Promise.all([
-				conversion.execute(),
-				copiedAudioSource && sourceAudioTrack
-					? copyAACAudio(
-							sourceAudioTrack,
-							copiedAudioSource,
-							recipe.trim.startSeconds,
-							recipe.trim.endSeconds,
-							signal
-						)
-					: Promise.resolve()
-			]);
-			await output.finalize();
+			const output = new Output({ format: new Mp4OutputFormat(), target: stream.target });
+			const conversion = await Conversion.init({
+				input,
+				output,
+				composable: true,
+				trim: {
+					start: recipe.trim.startSeconds,
+					end: recipe.trim.endSeconds
+				},
+				video,
+				audio: canCopyAAC
+					? { discard: true }
+					: sourceAudioTrack
+						? { codec: 'aac', bitrate: 128_000, forceTranscode: true }
+						: { discard: true }
+			});
+			const videoIncluded = conversion.utilizedTracks.some((track) => track.type === 'video');
+			const encodedAudioIncluded =
+				sourceAudioTrack !== null && conversion.utilizedTracks.includes(sourceAudioTrack);
+			if (!videoIncluded || (sourceAudioTrack !== null && !canCopyAAC && !encodedAudioIncluded)) {
+				throw new VideoPreparationError(
+					'invalid-edit',
+					sourceAudioTrack
+						? 'This browser cannot preserve the audio in a platform-ready MP4. Upload the original or use a browser with AAC encoding support.'
+						: 'This video cannot be edited in this browser.'
+				);
+			}
+			const copiedAudioSource = canCopyAAC ? new EncodedAudioPacketSource('aac') : null;
+			if (copiedAudioSource) output.addAudioTrack(copiedAudioSource);
+			conversion.onProgress = onProgress;
+			const abort = () => {
+				void conversion.cancel();
+				void output.cancel();
+			};
+			signal?.addEventListener('abort', abort, { once: true });
+			try {
+				await output.start();
+				await Promise.all([
+					conversion.execute(),
+					copiedAudioSource && sourceAudioTrack
+						? copyAACAudio(
+								sourceAudioTrack,
+								copiedAudioSource,
+								recipe.trim.startSeconds,
+								recipe.trim.endSeconds,
+								signal
+							)
+						: Promise.resolve()
+				]);
+				await output.finalize();
+			} finally {
+				signal?.removeEventListener('abort', abort);
+			}
+			const base = source.name.replace(/\.[^./\\]+$/, '');
+			const rendered = await stream.file(`${base}-edited.mp4`, 'video/mp4');
+			if (sourceAudioTrack && (await audioCodec(rendered)) !== 'aac') {
+				throw new VideoPreparationError(
+					'invalid-edit',
+					'This browser could not preserve the video audio as AAC. The original file was not changed.'
+				);
+			}
+			completed = true;
+			return rendered;
 		} finally {
-			signal?.removeEventListener('abort', abort);
+			if (!completed) await stream.discard();
 		}
-		if (!output.target.buffer) {
-			throw new VideoPreparationError('invalid-edit', 'The video editor produced no output.');
-		}
-		const base = source.name.replace(/\.[^./\\]+$/, '');
-		const rendered = new File([output.target.buffer], `${base}-edited.mp4`, {
-			type: 'video/mp4',
-			lastModified: Date.now()
-		});
-		if (sourceAudioTrack && (await audioCodec(rendered)) !== 'aac') {
-			throw new VideoPreparationError(
-				'invalid-edit',
-				'This browser could not preserve the video audio as AAC. The original file was not changed.'
-			);
-		}
-		return rendered;
 	} finally {
 		if (!input.disposed) input.dispose();
 	}

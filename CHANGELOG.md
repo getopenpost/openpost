@@ -7,14 +7,21 @@ All notable changes to this project are documented in this file.
 ### Added
 
 - Added a dedicated instance-admin Users table with plan, access, activity, and content details, plus audited five-minute, one-use links for opening a non-admin user's session in a private browser window.
+- Added a live month-and-year label to the rolling sidebar mini-calendar so its position stays clear while scrolling.
+- Added OpenPost Video Studio: a local-first browser editor and recorder with a guided timeline, four social format variants, local captions and cleanup suggestions, crash recovery, incremental MP4/WebM export, optional cloud projects and checkpoints, stock photo/video search, and rendition-aware composer handoff.
 
 ### Changed
 
-- Rebuilt application and free-tool previews with destination-specific feeds, controls, and full-page shells for posts, threads, images, videos, Stories, Reels, Shorts, photo posts, polls, cards, and documents across all ten supported platforms.
+- Kept Video Studio private by default while hardening its strict project schema, bounded three-decoder WebGL2 preview, exact codec preflight, streamed source/model/export storage, resumable model downloads, recording manifests, workspace-only sync planning, brand-kit styles, and checked-in CC0 audio pack.
+- Reworked the desktop month calendar into a fixed six-week grid with compact post rows and a complete day drawer for dense dates.
+- Rebuilt application and free-tool previews with richer destination data, destination-specific desktop and mobile website chrome, and full-page shells for posts, threads, images, videos, Stories, Reels, Shorts, photo posts, polls, cards, and documents across all ten supported platforms; moved optional free-tool controls into a drawer so the live preview stays full-size.
 - Rewrote marketing, comparisons, free tools, user docs, platform guides, and app messages in plain language, and aligned them with the current posting, analytics, comments, inbox, Studio, and automation features.
 
 ### Fixed
 
+- Prevented cancelled native save pickers from being mistaken for export failures, completed local VAD requests instead of leaving them busy, kept promoted recording files after manifest cleanup, recovered recordings only through verified decodable chunks, and treated narrow pointer-based desktops as the full compact editor.
+- Replaced the oversized native sidebar mini-calendar scrollbar with a slimmer treatment and kept date numbers behind its sticky weekday header while scrolling.
+- Kept the expanding text-and-thread editor free of an internal scrollbar while preserving the shared Textarea primitive.
 - Let token-only standalone preview windows load without an authentication redirect while keeping preview content off the URL and inside the random same-origin channel.
 
 ## [1.43.2] - 2026-07-29

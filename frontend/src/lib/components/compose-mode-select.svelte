@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import * as Select from '$lib/components/ui/select';
 	import { cn } from '$lib/utils';
 	import AlignLeftIcon from 'lucide-svelte/icons/align-left';
@@ -92,5 +93,18 @@
 				{/each}
 			</Select.Group>
 		{/each}
+		<Select.Separator class="mx-2" />
+		<a
+			href={resolve('/video-studio' as '/')}
+			class="mx-1.5 my-1 flex min-h-12 items-start gap-2.5 rounded-md px-2 py-2 text-xs hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+		>
+			<VideoIcon class="mt-0.5 size-4 text-muted-foreground" />
+			<span class="min-w-0">
+				<span class="block font-medium text-foreground">{m.compose_create_video_studio()}</span>
+				<span class="mt-0.5 block leading-4 text-muted-foreground">
+					{m.compose_create_video_studio_description()}
+				</span>
+			</span>
+		</a>
 	</Select.Content>
 </Select.Root>

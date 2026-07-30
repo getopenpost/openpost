@@ -9,6 +9,7 @@
   import StudioLauncher from "../../_components/tools/StudioLauncher.svelte";
   import ThreadSplitter from "../../_components/tools/ThreadSplitter.svelte";
   import ToolPageShell from "../../_components/tools/ToolPageShell.svelte";
+  import VideoStudioLauncher from "../../_components/tools/VideoStudioLauncher.svelte";
   import { getTool, siteUrl } from "../../_marketing";
 
   const seoBySlug: Record<
@@ -20,6 +21,14 @@
       privacyNote?: string;
     }
   > = {
+    "social-media-video-editor": {
+      title: "Free social media video editor - OpenPost Video Studio",
+      heading: "Edit social videos without an account",
+      description:
+        "Record or import footage, edit one shared timeline for portrait, feed, square, and landscape video, then export without a watermark.",
+      privacyNote:
+        "Your projects, recordings, transcripts, and analysis stay in this browser unless you choose Save to OpenPost or Use in a post.",
+    },
     "social-media-image-editor": {
       title: "Free social media image editor - OpenPost Studio",
       heading: "Create social media images without an account",
@@ -105,7 +114,9 @@
   description={seo.description}
   privacyNote={seo.privacyNote}
 >
-  {#if slug === "social-media-image-editor"}
+  {#if slug === "social-media-video-editor"}
+    <VideoStudioLauncher />
+  {:else if slug === "social-media-image-editor"}
     <StudioLauncher />
   {:else if slug === "multi-platform-character-counter"}
     <CharacterCounter />

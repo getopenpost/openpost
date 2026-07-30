@@ -9,6 +9,17 @@ This page lists the most common core and provider variables. Use [Environment Va
 | `OPENPOST_STUDIO_ENABLED`        | `true`           | Enable the Studio UI and API. Disabling it leaves the Media library operational.                 |
 | `OPENPOST_STUDIO_MODEL_BASE_URL` | `/studio-models` | Serve the pinned background-removal model and runtime from another operator-controlled base URL. |
 
+## Video Studio and stock media
+
+| Variable                           | Default                | Purpose                                                                                         |
+| ---------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------- |
+| `OPENPOST_VIDEO_STUDIO_ENABLED`    | `false`                | Enable the private-beta Video Studio routes and APIs. Local projects remain browser-owned.       |
+| `OPENPOST_VIDEO_MODEL_BASE_URL`    | `/video-studio-models` | Serve the pinned local transcription and voice-detection files from another operator base URL.  |
+| `OPENPOST_STOCK_MEDIA_ENABLED`     | `false`                | Enable the public, rate-limited stock search API for providers with configured server keys.      |
+| `OPENPOST_PEXELS_API_KEY`          | empty                  | Server-only Pexels photo and video API key.                                                      |
+| `OPENPOST_UNSPLASH_ACCESS_KEY`     | empty                  | Server-only Unsplash photo API access key.                                                       |
+| `OPENPOST_PIXABAY_API_KEY`         | empty                  | Server-only Pixabay image and video API key.                                                     |
+
 ## User feedback
 
 | Variable                            | Default                       | Purpose                                                                                      |

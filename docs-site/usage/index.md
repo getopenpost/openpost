@@ -19,6 +19,7 @@ The web app is the main place to work.
 - [Engagement, Inbox, and Notifications](/usage/communications) covers comments, replies, messages, and alerts.
 - [Media](/usage/media-library) covers reusable files, designs, templates, brand items, collections, file sources, use checks, and safe cleanup.
 - [OpenPost Studio](/usage/studio) covers the no-account editor, multi-page still-image designs, saved versions, background removal, export, and return to the post editor.
+- [Video Studio](/usage/video-studio) covers local video editing and recording, captions, format variants, recovery, export, cloud save, and return to a post.
 
 ## CLI
 

@@ -13,6 +13,7 @@ import {
 	releaseLocalStudioMedia
 } from './local-media-url';
 import { m } from '$lib/paraglide/messages';
+import type { StockMediaProvenance } from '@openpost/video-project';
 import type {
 	StudioDocument,
 	StudioDocumentResponse,
@@ -50,6 +51,7 @@ interface LocalStudioMedia {
 	created_at: string;
 	storage: 'opfs' | 'indexeddb';
 	blob?: Blob;
+	provenance?: StockMediaProvenance;
 }
 
 type StorageManagerWithDirectory = StorageManager & {
@@ -250,7 +252,8 @@ export async function listGuestStudioMedia(
 
 export async function storeGuestStudioMedia(
 	designID: string,
-	file: File
+	file: File,
+	options: { provenance?: StockMediaProvenance } = {}
 ): Promise<StudioMediaItem> {
 	assertSupportedGuestImage(file);
 	const dimensions = await imageDimensions(file);
@@ -265,7 +268,8 @@ export async function storeGuestStudioMedia(
 		height: dimensions.height,
 		created_at: new Date().toISOString(),
 		storage: 'indexeddb',
-		blob: file
+		blob: file,
+		provenance: options.provenance
 	};
 	if (await writeOPFSFile(id, file)) {
 		record.storage = 'opfs';
@@ -300,13 +304,14 @@ export async function getGuestStudioMediaBlob(mediaID: string): Promise<Blob> {
 
 export async function getGuestStudioMediaForMigration(
 	mediaID: string
-): Promise<{ blob: Blob; name: string; mimeType: string }> {
+): Promise<{ blob: Blob; name: string; mimeType: string; provenance?: StockMediaProvenance }> {
 	const record = await getGuestMediaRecord(mediaID);
 	if (!record) throw new Error(m.studio_public_image_missing());
 	return {
 		blob: await getGuestStudioMediaBlob(mediaID),
 		name: record.name,
-		mimeType: record.mime_type
+		mimeType: record.mime_type,
+		provenance: record.provenance
 	};
 }
 
@@ -472,6 +477,7 @@ function guestMediaItem(record: LocalStudioMedia): StudioMediaItem {
 		frame_rate: 0,
 		source: 'local',
 		asset_kind: 'library',
+		provenance: record.provenance,
 		collections: [],
 		tags: []
 	};

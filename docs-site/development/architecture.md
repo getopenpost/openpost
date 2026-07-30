@@ -30,6 +30,8 @@ Media uses the `BlobStorage` abstraction with local filesystem storage by defaul
 
 Studio is a separate backend handler/service and a dedicated `frontend/src/lib/studio/` module. It persists a strict OpenPost document schema, normalized pages, optimistic revisions, extracted media references, recovery history, templates, brand metadata, and one-time composer return tokens. Fabric.js stays behind an adapter and is never the persisted data model. The background-removal runtime and model load only after a user requests removal.
 
+Video Studio uses the shared `packages/video-project` schema and deterministic timeline operations. IndexedDB owns local project metadata, revisions, analysis results, and recording manifests; OPFS owns sources, recording chunks, thumbnails, waveform data, analysis indexes, exports, and temporary files. Preview and export share the same timeline evaluator. Mediabunny provides container access and streaming muxing, while WebCodecs and canvas APIs perform bounded decoding, composition, and encoding. The backend stores only explicit cloud projects, their revisions and media references, one-time composer return tokens, normalized stock provenance, and short-lived stock search cache entries.
+
 ## Deployment
 
 The built frontend is embedded into the Go binary for single-binary deployment.

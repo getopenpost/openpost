@@ -32,7 +32,8 @@ export async function migrateGuestStudioDesign(
 		const uploaded = await uploadMediaFile({
 			workspaceId: workspaceID,
 			file: new File([media.blob], media.name, { type: media.mimeType }),
-			source: 'upload'
+			source: media.provenance ? 'stock_import' : 'upload',
+			stockProvenance: media.provenance
 		});
 		replacements.set(mediaID, uploaded.id);
 	}

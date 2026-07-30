@@ -70,6 +70,8 @@ export interface FocusedMediaInput {
 	altText?: string;
 	settings?: Record<string, unknown>;
 	settingsByAccount?: Record<string, Record<string, unknown>>;
+	accountIds?: string[];
+	includeInCanonical?: boolean;
 }
 
 export interface FocusedSegmentInput {
@@ -491,22 +493,28 @@ function fallbackOutputProfile(
 }
 
 function mediaPayload(media: FocusedMediaInput[], accountId?: string) {
-	return media.map((item) => {
-		const settings = {
-			...(accountId ? (item.settingsByAccount?.[accountId] ?? {}) : (item.settings ?? {}))
-		};
-		const accountAltText = typeof settings.alt_text === 'string' ? settings.alt_text.trim() : '';
-		const thumbnailTimestamp = Number(settings.thumbnail_timestamp_ms ?? 0);
-		delete settings.alt_text;
-		delete settings.thumbnail_timestamp_ms;
-		return {
-			media_id: item.id,
-			role: item.role || 'attachment',
-			...(accountAltText || item.altText ? { alt_text: accountAltText || item.altText } : {}),
-			...(thumbnailTimestamp > 0 ? { thumbnail_timestamp_ms: thumbnailTimestamp } : {}),
-			...(Object.keys(settings).length > 0 ? { settings } : {})
-		};
-	});
+	return media
+		.filter((item) =>
+			accountId
+				? !item.accountIds || item.accountIds.includes(accountId)
+				: item.includeInCanonical !== false
+		)
+		.map((item) => {
+			const settings = {
+				...(accountId ? (item.settingsByAccount?.[accountId] ?? {}) : (item.settings ?? {}))
+			};
+			const accountAltText = typeof settings.alt_text === 'string' ? settings.alt_text.trim() : '';
+			const thumbnailTimestamp = Number(settings.thumbnail_timestamp_ms ?? 0);
+			delete settings.alt_text;
+			delete settings.thumbnail_timestamp_ms;
+			return {
+				media_id: item.id,
+				role: item.role || 'attachment',
+				...(accountAltText || item.altText ? { alt_text: accountAltText || item.altText } : {}),
+				...(thumbnailTimestamp > 0 ? { thumbnail_timestamp_ms: thumbnailTimestamp } : {}),
+				...(Object.keys(settings).length > 0 ? { settings } : {})
+			};
+		});
 }
 
 function captionField(hint: string, required = false): FocusedRoleField {

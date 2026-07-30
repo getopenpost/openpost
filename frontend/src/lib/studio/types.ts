@@ -1,3 +1,5 @@
+import type { StockMediaProvenance } from '@openpost/video-project';
+
 export const STUDIO_SCHEMA_VERSION = 1 as const;
 export const STUDIO_LIMITS = {
 	minDimension: 64,
@@ -378,6 +380,7 @@ export interface StudioMediaItem {
 	processing_progress: number;
 	analysis_status: string;
 	analysis_error?: string;
+	provenance?: StockMediaProvenance;
 	poster_thumbnail_url?: string;
 	duration_ms: number;
 	frame_rate: number;

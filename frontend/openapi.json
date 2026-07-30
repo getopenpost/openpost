@@ -864,6 +864,170 @@
 				},
 				"type": "object"
 			},
+			"Asset": {
+				"additionalProperties": false,
+				"properties": {
+					"attribution_text": {
+						"type": "string"
+					},
+					"creator_name": {
+						"type": "string"
+					},
+					"creator_url": {
+						"type": "string"
+					},
+					"duration_seconds": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"external_id": {
+						"type": "string"
+					},
+					"height": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"license_name": {
+						"type": "string"
+					},
+					"license_url": {
+						"type": "string"
+					},
+					"preview_url": {
+						"type": "string"
+					},
+					"provider": {
+						"type": "string"
+					},
+					"provider_url": {
+						"type": "string"
+					},
+					"source_url": {
+						"type": "string"
+					},
+					"thumbnail_url": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"width": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"external_id",
+					"kind",
+					"title",
+					"width",
+					"height",
+					"thumbnail_url",
+					"source_url",
+					"creator_name",
+					"creator_url",
+					"provider",
+					"provider_url",
+					"attribution_text",
+					"license_name",
+					"license_url"
+				],
+				"type": "object"
+			},
+			"AudioTrack": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/AudioTrackItem"
+						},
+						"type": ["array", "null"]
+					},
+					"muted": {
+						"type": "boolean"
+					},
+					"name": {
+						"type": "string"
+					},
+					"role": {
+						"enum": ["voice", "music", "system", "effects", "other"],
+						"type": "string"
+					}
+				},
+				"required": ["id", "name", "role", "muted", "items"],
+				"type": "object"
+			},
+			"AudioTrackItem": {
+				"additionalProperties": false,
+				"properties": {
+					"duck_others": {
+						"type": "boolean"
+					},
+					"duration_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"fade_in_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"fade_out_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"gain_db": {
+						"format": "double",
+						"type": "number"
+					},
+					"gain_db_keyframes": {
+						"items": {
+							"$ref": "#/components/schemas/NumericKeyframe"
+						},
+						"type": ["array", "null"]
+					},
+					"id": {
+						"type": "string"
+					},
+					"muted": {
+						"type": "boolean"
+					},
+					"source_id": {
+						"type": "string"
+					},
+					"source_in_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"speed": {
+						"format": "double",
+						"type": "number"
+					},
+					"timeline_start_us": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"id",
+					"source_id",
+					"timeline_start_us",
+					"source_in_us",
+					"duration_us",
+					"speed",
+					"gain_db",
+					"fade_in_us",
+					"fade_out_us",
+					"muted",
+					"duck_others"
+				],
+				"type": "object"
+			},
 			"AuthConfigurationOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -1342,6 +1506,189 @@
 				],
 				"type": "object"
 			},
+			"CaptionCue": {
+				"additionalProperties": false,
+				"properties": {
+					"end_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"review_required": {
+						"type": "boolean"
+					},
+					"speaker": {
+						"type": "string"
+					},
+					"start_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"text": {
+						"type": "string"
+					},
+					"words": {
+						"items": {
+							"$ref": "#/components/schemas/CaptionWord"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["id", "start_us", "end_us", "text", "words"],
+				"type": "object"
+			},
+			"CaptionStyle": {
+				"additionalProperties": false,
+				"properties": {
+					"background_color": {
+						"type": "string"
+					},
+					"color": {
+						"type": "string"
+					},
+					"emphasis_color": {
+						"type": "string"
+					},
+					"font_family": {
+						"type": "string"
+					},
+					"font_size": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"font_weight": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_lines": {
+						"format": "int64",
+						"maximum": 3,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"position": {
+						"enum": ["top", "middle", "bottom"],
+						"type": "string"
+					},
+					"preset": {
+						"enum": ["clean", "bold", "karaoke", "boxed"],
+						"type": "string"
+					}
+				},
+				"required": [
+					"preset",
+					"font_family",
+					"font_size",
+					"font_weight",
+					"color",
+					"emphasis_color",
+					"background_color",
+					"position",
+					"max_lines"
+				],
+				"type": "object"
+			},
+			"CaptionStyleOverride": {
+				"additionalProperties": false,
+				"properties": {
+					"background_color": {
+						"type": "string"
+					},
+					"color": {
+						"type": "string"
+					},
+					"emphasis_color": {
+						"type": "string"
+					},
+					"font_family": {
+						"type": "string"
+					},
+					"font_size": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"font_weight": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_lines": {
+						"format": "int64",
+						"maximum": 3,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"position": {
+						"enum": ["top", "middle", "bottom"],
+						"type": "string"
+					},
+					"preset": {
+						"enum": ["clean", "bold", "karaoke", "boxed"],
+						"type": "string"
+					}
+				},
+				"type": "object"
+			},
+			"CaptionTrack": {
+				"additionalProperties": false,
+				"properties": {
+					"cues": {
+						"items": {
+							"$ref": "#/components/schemas/CaptionCue"
+						},
+						"type": ["array", "null"]
+					},
+					"id": {
+						"type": "string"
+					},
+					"language": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"style": {
+						"$ref": "#/components/schemas/CaptionStyle"
+					},
+					"variant_overrides": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/CaptionStyleOverride"
+						},
+						"type": "object"
+					},
+					"visible": {
+						"type": "boolean"
+					}
+				},
+				"required": ["id", "name", "language", "visible", "style", "cues"],
+				"type": "object"
+			},
+			"CaptionWord": {
+				"additionalProperties": false,
+				"properties": {
+					"confidence": {
+						"format": "double",
+						"type": "number"
+					},
+					"emphasis": {
+						"type": "boolean"
+					},
+					"end_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"start_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": ["text", "start_us", "end_us"],
+				"type": "object"
+			},
 			"ChangeNotificationsInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -1439,6 +1786,37 @@
 					}
 				},
 				"required": ["name", "message", "timestamp"],
+				"type": "object"
+			},
+			"ClipAudioSettings": {
+				"additionalProperties": false,
+				"properties": {
+					"duck_others": {
+						"type": "boolean"
+					},
+					"fade_in_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"fade_out_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"gain_db": {
+						"format": "double",
+						"type": "number"
+					},
+					"gain_db_keyframes": {
+						"items": {
+							"$ref": "#/components/schemas/NumericKeyframe"
+						},
+						"type": ["array", "null"]
+					},
+					"muted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["muted", "gain_db", "fade_in_us", "fade_out_us", "duck_others"],
 				"type": "object"
 			},
 			"CommentActionOutputBody": {
@@ -1634,6 +2012,23 @@
 				"required": ["return_url"],
 				"type": "object"
 			},
+			"CompleteVideoReturnTokenOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CompleteVideoReturnTokenOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"return_url": {
+						"type": "string"
+					}
+				},
+				"required": ["return_url"],
+				"type": "object"
+			},
 			"ConfirmTOTPSetupInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -1736,6 +2131,36 @@
 					}
 				},
 				"required": ["message"],
+				"type": "object"
+			},
+			"ConsumeVideoReturnTokenOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ConsumeVideoReturnTokenOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"constraints": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"purpose": {
+						"type": "string"
+					},
+					"result": {
+						"$ref": "#/components/schemas/VideoReturnResult"
+					},
+					"return_url": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "return_url", "purpose", "constraints", "result"],
 				"type": "object"
 			},
 			"ContentOverview": {
@@ -2169,6 +2594,11 @@
 						"enum": ["library", "brand_asset", "brand_font", "design_preview", "template_preview"],
 						"type": "string"
 					},
+					"client_sha256": {
+						"description": "Optional SHA-256 used to reuse an identical ready asset in this workspace",
+						"pattern": "^[a-fA-F0-9]{64}$",
+						"type": "string"
+					},
 					"design_document_id": {
 						"description": "Producing Studio design ID",
 						"type": "string"
@@ -2196,7 +2626,24 @@
 					},
 					"source": {
 						"description": "Media provenance",
-						"enum": ["upload", "camera", "studio_export", "studio_edit", "background_removal"],
+						"enum": [
+							"upload",
+							"camera",
+							"studio_export",
+							"studio_edit",
+							"background_removal",
+							"video_studio_source",
+							"video_studio_export",
+							"stock_import"
+						],
+						"type": "string"
+					},
+					"stock_provenance": {
+						"$ref": "#/components/schemas/StockMediaProvenance",
+						"description": "License and creator provenance for a selected stock asset"
+					},
+					"video_project_id": {
+						"description": "Producing Video Studio project ID",
 						"type": "string"
 					},
 					"workspace_id": {
@@ -2221,6 +2668,10 @@
 						"description": "API path to call after the upload succeeds",
 						"type": "string"
 					},
+					"deduped": {
+						"description": "Whether an identical ready workspace asset was reused",
+						"type": "boolean"
+					},
 					"media_id": {
 						"description": "Pending media ID",
 						"type": "string"
@@ -2230,7 +2681,7 @@
 						"description": "Streaming upload request details"
 					}
 				},
-				"required": ["media_id", "upload", "complete_url"],
+				"required": ["media_id", "upload", "complete_url", "deduped"],
 				"type": "object"
 			},
 			"CreateOrganizationBillingCheckoutInputBody": {
@@ -2768,6 +3219,100 @@
 				"required": ["url", "expires_at"],
 				"type": "object"
 			},
+			"CreateVideoProjectCheckpointInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVideoProjectCheckpointInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"name": {
+						"maxLength": 100,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["name"],
+				"type": "object"
+			},
+			"CreateVideoProjectInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVideoProjectInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"client_request_id": {
+						"maxLength": 200,
+						"type": "string"
+					},
+					"cover_preview_media_id": {
+						"type": "string"
+					},
+					"document": {
+						"$ref": "#/components/schemas/Document"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "client_request_id", "document"],
+				"type": "object"
+			},
+			"CreateVideoReturnTokenInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVideoReturnTokenInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"constraints": {
+						"additionalProperties": {},
+						"type": "object"
+					},
+					"purpose": {
+						"maxLength": 64,
+						"type": "string"
+					},
+					"return_url": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "return_url", "purpose", "constraints"],
+				"type": "object"
+			},
+			"CreateVideoReturnTokenOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVideoReturnTokenOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expires_at": {
+						"type": "string"
+					},
+					"token": {
+						"type": "string"
+					}
+				},
+				"required": ["token", "expires_at"],
+				"type": "object"
+			},
 			"CreateWorkspaceInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -2840,6 +3385,29 @@
 					}
 				},
 				"required": ["id", "organization_id", "name", "created_at"],
+				"type": "object"
+			},
+			"CropRectangle": {
+				"additionalProperties": false,
+				"properties": {
+					"height": {
+						"format": "double",
+						"type": "number"
+					},
+					"width": {
+						"format": "double",
+						"type": "number"
+					},
+					"x": {
+						"format": "double",
+						"type": "number"
+					},
+					"y": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": ["x", "y", "width", "height"],
 				"type": "object"
 			},
 			"DeleteAccountInputBody": {
@@ -3060,6 +3628,23 @@
 					}
 				},
 				"required": ["message"],
+				"type": "object"
+			},
+			"DeleteVideoProjectOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DeleteVideoProjectOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"],
 				"type": "object"
 			},
 			"DeletionBlocker": {
@@ -3348,6 +3933,80 @@
 					}
 				},
 				"required": ["workspace_id", "webhook_url"],
+				"type": "object"
+			},
+			"Document": {
+				"additionalProperties": false,
+				"properties": {
+					"audio_tracks": {
+						"items": {
+							"$ref": "#/components/schemas/AudioTrack"
+						},
+						"type": ["array", "null"]
+					},
+					"caption_tracks": {
+						"items": {
+							"$ref": "#/components/schemas/CaptionTrack"
+						},
+						"type": ["array", "null"]
+					},
+					"export_defaults": {
+						"$ref": "#/components/schemas/ExportDefaults"
+					},
+					"markers": {
+						"items": {
+							"$ref": "#/components/schemas/TimelineMarker"
+						},
+						"type": ["array", "null"]
+					},
+					"primary_sequence": {
+						"items": {
+							"$ref": "#/components/schemas/PrimarySequenceClip"
+						},
+						"type": ["array", "null"]
+					},
+					"schema_version": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"sources": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/Source"
+						},
+						"type": "object"
+					},
+					"timebase": {
+						"$ref": "#/components/schemas/Timebase"
+					},
+					"title": {
+						"type": "string"
+					},
+					"variants": {
+						"items": {
+							"$ref": "#/components/schemas/VideoVariant"
+						},
+						"type": ["array", "null"]
+					},
+					"visual_tracks": {
+						"items": {
+							"$ref": "#/components/schemas/VisualTrack"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"schema_version",
+					"title",
+					"timebase",
+					"sources",
+					"primary_sequence",
+					"visual_tracks",
+					"audio_tracks",
+					"caption_tracks",
+					"variants",
+					"markers",
+					"export_defaults"
+				],
 				"type": "object"
 			},
 			"EngagementActionInputBody": {
@@ -3716,6 +4375,69 @@
 					}
 				},
 				"required": ["workspace_id", "server_name", "instance_url", "code"],
+				"type": "object"
+			},
+			"ExportDefaults": {
+				"additionalProperties": false,
+				"properties": {
+					"audio_bitrate": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"audio_codec": {
+						"enum": ["aac", "opus"],
+						"type": "string"
+					},
+					"format": {
+						"enum": ["mp4", "webm"],
+						"type": "string"
+					},
+					"frame_rate": {
+						"$ref": "#/components/schemas/ExportFrameRate"
+					},
+					"loudness_normalization": {
+						"type": "boolean"
+					},
+					"variant_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"video_bitrate": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"video_codec": {
+						"enum": ["avc", "vp9"],
+						"type": "string"
+					}
+				},
+				"required": [
+					"variant_ids",
+					"format",
+					"video_codec",
+					"audio_codec",
+					"frame_rate",
+					"video_bitrate",
+					"audio_bitrate",
+					"loudness_normalization"
+				],
+				"type": "object"
+			},
+			"ExportFrameRate": {
+				"additionalProperties": false,
+				"properties": {
+					"denominator": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"numerator": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["numerator", "denominator"],
 				"type": "object"
 			},
 			"FailedAPIRequest": {
@@ -4468,6 +5190,29 @@
 				"required": ["templates"],
 				"type": "object"
 			},
+			"ListStockProvidersOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ListStockProvidersOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"enabled": {
+						"type": "boolean"
+					},
+					"providers": {
+						"items": {
+							"$ref": "#/components/schemas/StockProviderResponse"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["enabled", "providers"],
+				"type": "object"
+			},
 			"ListStudioDesignsOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -4536,6 +5281,53 @@
 					}
 				},
 				"required": ["templates", "can_edit"],
+				"type": "object"
+			},
+			"ListVideoProjectRevisionsOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ListVideoProjectRevisionsOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"revisions": {
+						"items": {
+							"$ref": "#/components/schemas/VideoProjectRevisionSummary"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["revisions"],
+				"type": "object"
+			},
+			"ListVideoProjectsOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ListVideoProjectsOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"can_edit": {
+						"type": "boolean"
+					},
+					"projects": {
+						"items": {
+							"$ref": "#/components/schemas/VideoProjectSummary"
+						},
+						"type": ["array", "null"]
+					},
+					"total": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["projects", "total", "can_edit"],
 				"type": "object"
 			},
 			"LoginInputBody": {
@@ -4907,6 +5699,10 @@
 						"description": "Detected video codec profile",
 						"type": "string"
 					},
+					"video_project_id": {
+						"description": "Producing Video Studio project",
+						"type": "string"
+					},
 					"width": {
 						"description": "Image width",
 						"format": "int64",
@@ -5157,6 +5953,10 @@
 					"url": {
 						"description": "URL to access the media",
 						"type": "string"
+					},
+					"video_project_id": {
+						"description": "Producing Video Studio project ID",
+						"type": "string"
 					}
 				},
 				"required": [
@@ -5359,6 +6159,25 @@
 					}
 				},
 				"required": ["items", "unread_count"],
+				"type": "object"
+			},
+			"NumericKeyframe": {
+				"additionalProperties": false,
+				"properties": {
+					"easing": {
+						"enum": ["hold", "linear", "ease-in", "ease-out", "ease-in-out", "focus-spring"],
+						"type": "string"
+					},
+					"time_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"value": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": ["time_us", "value", "easing"],
 				"type": "object"
 			},
 			"OIDCAuthenticatedStartInputBody": {
@@ -6095,6 +6914,77 @@
 				"required": ["action", "password"],
 				"type": "object"
 			},
+			"PlanVideoStudioSyncInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/PlanVideoStudioSyncInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"project_id": {
+						"maxLength": 200,
+						"type": "string"
+					},
+					"sources": {
+						"items": {
+							"$ref": "#/components/schemas/VideoStudioSyncSource"
+						},
+						"maxItems": 250,
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["sources"],
+				"type": "object"
+			},
+			"PlanVideoStudioSyncOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/PlanVideoStudioSyncOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"additional_bytes": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"allowed": {
+						"type": "boolean"
+					},
+					"missing_source_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"reason": {
+						"type": ["string", "null"]
+					},
+					"reused": {
+						"items": {
+							"$ref": "#/components/schemas/VideoStudioSyncReuse"
+						},
+						"type": ["array", "null"]
+					},
+					"storage": {
+						"$ref": "#/components/schemas/VideoStudioSyncStorage"
+					}
+				},
+				"required": [
+					"reused",
+					"missing_source_ids",
+					"additional_bytes",
+					"storage",
+					"allowed",
+					"reason"
+				],
+				"type": "object"
+			},
 			"Policy": {
 				"additionalProperties": false,
 				"properties": {
@@ -6539,6 +7429,81 @@
 					"local_day_of_week",
 					"is_active",
 					"created_at"
+				],
+				"type": "object"
+			},
+			"PrimarySequenceClip": {
+				"additionalProperties": false,
+				"properties": {
+					"audio": {
+						"$ref": "#/components/schemas/ClipAudioSettings"
+					},
+					"duration_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"effects": {
+						"items": {
+							"$ref": "#/components/schemas/VideoEffect"
+						},
+						"type": ["array", "null"]
+					},
+					"freeze_duration_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"enum": ["clip", "gap"],
+						"type": "string"
+					},
+					"mode": {
+						"enum": ["source", "freeze"],
+						"type": "string"
+					},
+					"source_id": {
+						"type": "string"
+					},
+					"source_in_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"source_out_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"speed": {
+						"format": "double",
+						"type": "number"
+					},
+					"transition_in": {
+						"$ref": "#/components/schemas/Transition"
+					},
+					"transition_out": {
+						"$ref": "#/components/schemas/Transition"
+					},
+					"variant_overrides": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/VideoPresentationOverride"
+						},
+						"type": "object"
+					},
+					"video": {
+						"$ref": "#/components/schemas/VideoPresentation"
+					}
+				},
+				"required": [
+					"id",
+					"source_id",
+					"mode",
+					"source_in_us",
+					"source_out_us",
+					"speed",
+					"video",
+					"audio",
+					"effects"
 				],
 				"type": "object"
 			},
@@ -8369,6 +9334,94 @@
 				],
 				"type": "object"
 			},
+			"ResolvedAsset": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ResolvedAsset.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"attribution_text": {
+						"type": "string"
+					},
+					"creator_name": {
+						"type": "string"
+					},
+					"creator_url": {
+						"type": "string"
+					},
+					"download_url": {
+						"type": "string"
+					},
+					"duration_seconds": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"external_id": {
+						"type": "string"
+					},
+					"height": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"license_name": {
+						"type": "string"
+					},
+					"license_url": {
+						"type": "string"
+					},
+					"mime_type": {
+						"type": "string"
+					},
+					"preview_url": {
+						"type": "string"
+					},
+					"provider": {
+						"type": "string"
+					},
+					"provider_url": {
+						"type": "string"
+					},
+					"source_url": {
+						"type": "string"
+					},
+					"thumbnail_url": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"width": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"download_url",
+					"mime_type",
+					"external_id",
+					"kind",
+					"title",
+					"width",
+					"height",
+					"thumbnail_url",
+					"source_url",
+					"creator_name",
+					"creator_url",
+					"provider",
+					"provider_url",
+					"attribution_text",
+					"license_name",
+					"license_url"
+				],
+				"type": "object"
+			},
 			"ResolvedSettingGroup": {
 				"additionalProperties": false,
 				"properties": {
@@ -8391,6 +9444,25 @@
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
 						"examples": ["https://example.com/schemas/RestoreStudioRevisionInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expected_revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["expected_revision"],
+				"type": "object"
+			},
+			"RestoreVideoProjectRevisionInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/RestoreVideoProjectRevisionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8783,6 +9855,47 @@
 				"required": ["mime_type", "data"],
 				"type": "object"
 			},
+			"SearchPage": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/SearchPage.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"has_more": {
+						"type": "boolean"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/Asset"
+						},
+						"type": ["array", "null"]
+					},
+					"page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"per_page": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"provider": {
+						"type": "string"
+					},
+					"provider_url": {
+						"type": "string"
+					},
+					"total": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["items", "page", "per_page", "total", "has_more", "provider", "provider_url"],
+				"type": "object"
+			},
 			"SecurityStatusOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -8815,6 +9928,29 @@
 					}
 				},
 				"required": ["user", "totp_enabled", "passkeys", "methods"],
+				"type": "object"
+			},
+			"SelectStockMediaInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/SelectStockMediaInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"external_id": {
+						"maxLength": 160,
+						"minLength": 1,
+						"type": "string"
+					},
+					"provider": {
+						"enum": ["pexels", "unsplash", "pixabay"],
+						"type": "string"
+					}
+				},
+				"required": ["provider", "external_id"],
 				"type": "object"
 			},
 			"SendMessageInputBody": {
@@ -9120,6 +10256,130 @@
 				"required": ["challenge_id", "manual_entry_key", "otpauth_url", "qr_code_data_url"],
 				"type": "object"
 			},
+			"ShapeStyle": {
+				"additionalProperties": false,
+				"properties": {
+					"blur": {
+						"format": "double",
+						"type": "number"
+					},
+					"fill": {
+						"type": "string"
+					},
+					"kind": {
+						"enum": [
+							"rectangle",
+							"ellipse",
+							"arrow",
+							"highlight",
+							"click-pulse",
+							"redaction",
+							"progress"
+						],
+						"type": "string"
+					},
+					"stroke": {
+						"type": "string"
+					},
+					"stroke_width": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": ["kind", "fill", "stroke", "stroke_width", "blur"],
+				"type": "object"
+			},
+			"Source": {
+				"additionalProperties": false,
+				"properties": {
+					"audio_codec": {
+						"type": "string"
+					},
+					"content_hash": {
+						"type": "string"
+					},
+					"duration_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"height": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"enum": [
+							"video",
+							"audio",
+							"image",
+							"recording-screen",
+							"recording-camera",
+							"recording-microphone",
+							"recording-system-audio"
+						],
+						"type": "string"
+					},
+					"locator": {
+						"$ref": "#/components/schemas/SourceLocator"
+					},
+					"mime_type": {
+						"type": "string"
+					},
+					"original_name": {
+						"type": "string"
+					},
+					"provenance": {
+						"$ref": "#/components/schemas/StockMediaProvenance"
+					},
+					"rotation": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"size_bytes": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"video_codec": {
+						"type": "string"
+					},
+					"width": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"id",
+					"kind",
+					"locator",
+					"original_name",
+					"mime_type",
+					"size_bytes",
+					"duration_us",
+					"width",
+					"height",
+					"rotation"
+				],
+				"type": "object"
+			},
+			"SourceLocator": {
+				"additionalProperties": false,
+				"properties": {
+					"media_id": {
+						"type": "string"
+					},
+					"path": {
+						"type": "string"
+					},
+					"type": {
+						"enum": ["local-opfs", "openpost-media"],
+						"type": "string"
+					}
+				},
+				"required": ["type"],
+				"type": "object"
+			},
 			"StartCLIAuthInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -9179,6 +10439,74 @@
 					}
 				},
 				"required": ["device_code", "user_code", "verification_url", "expires_in", "interval"],
+				"type": "object"
+			},
+			"StockMediaProvenance": {
+				"additionalProperties": false,
+				"properties": {
+					"attribution_text": {
+						"type": "string"
+					},
+					"creator_name": {
+						"type": "string"
+					},
+					"creator_url": {
+						"type": "string"
+					},
+					"external_id": {
+						"type": "string"
+					},
+					"license_name": {
+						"type": "string"
+					},
+					"license_url": {
+						"type": "string"
+					},
+					"provider": {
+						"type": "string"
+					},
+					"source_url": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"provider",
+					"external_id",
+					"source_url",
+					"creator_name",
+					"creator_url",
+					"license_name",
+					"license_url",
+					"attribution_text"
+				],
+				"type": "object"
+			},
+			"StockProviderResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"attribution": {
+						"type": "string"
+					},
+					"audio": {
+						"type": "boolean"
+					},
+					"key": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"photos": {
+						"type": "boolean"
+					},
+					"provider_url": {
+						"type": "string"
+					},
+					"videos": {
+						"type": "boolean"
+					}
+				},
+				"required": ["key", "name", "provider_url", "photos", "videos", "audio", "attribution"],
 				"type": "object"
 			},
 			"StudioBrandAsset": {
@@ -10597,6 +11925,60 @@
 				},
 				"type": "object"
 			},
+			"TextStyle": {
+				"additionalProperties": false,
+				"properties": {
+					"align": {
+						"enum": ["left", "center", "right"],
+						"type": "string"
+					},
+					"animation": {
+						"enum": ["none", "fade", "rise", "pop", "typewriter"],
+						"type": "string"
+					},
+					"background_color": {
+						"type": "string"
+					},
+					"color": {
+						"type": "string"
+					},
+					"font_family": {
+						"type": "string"
+					},
+					"font_size": {
+						"format": "double",
+						"type": "number"
+					},
+					"font_weight": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"outline_color": {
+						"type": "string"
+					},
+					"outline_width": {
+						"format": "double",
+						"type": "number"
+					},
+					"shadow_blur": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": [
+					"font_family",
+					"font_size",
+					"font_weight",
+					"color",
+					"align",
+					"background_color",
+					"outline_color",
+					"outline_width",
+					"shadow_blur",
+					"animation"
+				],
+				"type": "object"
+			},
 			"ThreadPostInput": {
 				"additionalProperties": false,
 				"properties": {
@@ -10615,6 +11997,48 @@
 				"required": ["content"],
 				"type": "object"
 			},
+			"Timebase": {
+				"additionalProperties": false,
+				"properties": {
+					"fps_denominator": {
+						"enum": [1, 1001],
+						"format": "int64",
+						"type": "integer"
+					},
+					"fps_numerator": {
+						"enum": [24, 25, 30, 50, 60],
+						"format": "int64",
+						"type": "integer"
+					},
+					"ticks_per_second": {
+						"enum": [1000000],
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["ticks_per_second", "fps_numerator", "fps_denominator"],
+				"type": "object"
+			},
+			"TimelineMarker": {
+				"additionalProperties": false,
+				"properties": {
+					"color": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"label": {
+						"type": "string"
+					},
+					"time_us": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["id", "time_us", "label", "color"],
+				"type": "object"
+			},
 			"ToggleStudioDesignFavoriteOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -10630,6 +12054,33 @@
 					}
 				},
 				"required": ["is_favorite"],
+				"type": "object"
+			},
+			"Transition": {
+				"additionalProperties": false,
+				"properties": {
+					"duration_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"easing": {
+						"enum": ["hold", "linear", "ease-in", "ease-out", "ease-in-out", "focus-spring"],
+						"type": "string"
+					},
+					"type": {
+						"enum": [
+							"cut",
+							"cross-dissolve",
+							"dip-black",
+							"dip-white",
+							"slide",
+							"push",
+							"zoom-blur"
+						],
+						"type": "string"
+					}
+				},
+				"required": ["type", "duration_us", "easing"],
 				"type": "object"
 			},
 			"UpdateAccountInputBody": {
@@ -11018,6 +12469,31 @@
 					}
 				},
 				"required": ["name", "category", "document"],
+				"type": "object"
+			},
+			"UpdateVideoProjectInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/UpdateVideoProjectInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"cover_preview_media_id": {
+						"type": "string"
+					},
+					"document": {
+						"$ref": "#/components/schemas/Document"
+					},
+					"expected_revision": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					}
+				},
+				"required": ["expected_revision", "document"],
 				"type": "object"
 			},
 			"UpdateWorkspaceSettingsInputBody": {
@@ -11521,6 +12997,632 @@
 				"required": ["mfa_token", "code"],
 				"type": "object"
 			},
+			"VideoEffect": {
+				"additionalProperties": false,
+				"properties": {
+					"keyframes": {
+						"items": {
+							"$ref": "#/components/schemas/NumericKeyframe"
+						},
+						"type": ["array", "null"]
+					},
+					"type": {
+						"enum": [
+							"exposure",
+							"contrast",
+							"saturation",
+							"temperature",
+							"tint",
+							"blur",
+							"vignette"
+						],
+						"type": "string"
+					},
+					"value": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": ["type", "value"],
+				"type": "object"
+			},
+			"VideoPresentation": {
+				"additionalProperties": false,
+				"properties": {
+					"background_color": {
+						"type": "string"
+					},
+					"border_color": {
+						"type": "string"
+					},
+					"border_width": {
+						"format": "double",
+						"type": "number"
+					},
+					"corner_radius": {
+						"format": "double",
+						"type": "number"
+					},
+					"crop": {
+						"$ref": "#/components/schemas/CropRectangle"
+					},
+					"flip_x": {
+						"type": "boolean"
+					},
+					"flip_y": {
+						"type": "boolean"
+					},
+					"keyframes": {
+						"additionalProperties": {
+							"items": {
+								"$ref": "#/components/schemas/NumericKeyframe"
+							},
+							"type": ["array", "null"]
+						},
+						"type": "object"
+					},
+					"opacity": {
+						"format": "double",
+						"type": "number"
+					},
+					"position_x": {
+						"format": "double",
+						"type": "number"
+					},
+					"position_y": {
+						"format": "double",
+						"type": "number"
+					},
+					"rotation": {
+						"format": "double",
+						"type": "number"
+					},
+					"scale": {
+						"format": "double",
+						"type": "number"
+					},
+					"shadow_blur": {
+						"format": "double",
+						"type": "number"
+					},
+					"shadow_opacity": {
+						"format": "double",
+						"type": "number"
+					}
+				},
+				"required": [
+					"position_x",
+					"position_y",
+					"scale",
+					"rotation",
+					"opacity",
+					"crop",
+					"flip_x",
+					"flip_y",
+					"corner_radius",
+					"border_width",
+					"border_color",
+					"shadow_blur",
+					"shadow_opacity",
+					"background_color"
+				],
+				"type": "object"
+			},
+			"VideoPresentationOverride": {
+				"additionalProperties": false,
+				"properties": {
+					"background_color": {
+						"type": "string"
+					},
+					"border_color": {
+						"type": "string"
+					},
+					"border_width": {
+						"format": "double",
+						"type": "number"
+					},
+					"corner_radius": {
+						"format": "double",
+						"type": "number"
+					},
+					"crop": {
+						"$ref": "#/components/schemas/CropRectangle"
+					},
+					"flip_x": {
+						"type": "boolean"
+					},
+					"flip_y": {
+						"type": "boolean"
+					},
+					"keyframes": {
+						"additionalProperties": {
+							"items": {
+								"$ref": "#/components/schemas/NumericKeyframe"
+							},
+							"type": ["array", "null"]
+						},
+						"type": "object"
+					},
+					"opacity": {
+						"format": "double",
+						"type": "number"
+					},
+					"position_x": {
+						"format": "double",
+						"type": "number"
+					},
+					"position_y": {
+						"format": "double",
+						"type": "number"
+					},
+					"rotation": {
+						"format": "double",
+						"type": "number"
+					},
+					"scale": {
+						"format": "double",
+						"type": "number"
+					},
+					"shadow_blur": {
+						"format": "double",
+						"type": "number"
+					},
+					"shadow_opacity": {
+						"format": "double",
+						"type": "number"
+					},
+					"visible": {
+						"type": "boolean"
+					}
+				},
+				"type": "object"
+			},
+			"VideoProjectResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoProjectResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"can_edit": {
+						"type": "boolean"
+					},
+					"cover_preview_media_id": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"created_by_id": {
+						"type": "string"
+					},
+					"document": {
+						"$ref": "#/components/schemas/Document"
+					},
+					"duration_ms": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"updated_at": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"created_by_id",
+					"revision",
+					"can_edit",
+					"duration_ms",
+					"created_at",
+					"updated_at",
+					"document"
+				],
+				"type": "object"
+			},
+			"VideoProjectRevisionSummary": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoProjectRevisionSummary.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"expires_at": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["id", "revision", "kind", "created_at"],
+				"type": "object"
+			},
+			"VideoProjectSummary": {
+				"additionalProperties": false,
+				"properties": {
+					"cover_preview_media_id": {
+						"type": "string"
+					},
+					"created_at": {
+						"type": "string"
+					},
+					"duration_ms": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"source_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"title": {
+						"type": "string"
+					},
+					"updated_at": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"title",
+					"revision",
+					"duration_ms",
+					"source_count",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"VideoReturnExport": {
+				"additionalProperties": false,
+				"properties": {
+					"duration_ms": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"height": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"media_id": {
+						"type": "string"
+					},
+					"rendition_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"variant_id": {
+						"enum": ["portrait", "feed-portrait", "square", "landscape"],
+						"type": "string"
+					},
+					"width": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["variant_id", "media_id", "width", "height", "duration_ms", "rendition_ids"],
+				"type": "object"
+			},
+			"VideoReturnResult": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoReturnResult.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"exports": {
+						"items": {
+							"$ref": "#/components/schemas/VideoReturnExport"
+						},
+						"type": ["array", "null"]
+					},
+					"project_id": {
+						"type": "string"
+					}
+				},
+				"required": ["project_id", "exports"],
+				"type": "object"
+			},
+			"VideoStudioConfigOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VideoStudioConfigOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"enabled": {
+						"type": "boolean"
+					},
+					"limits": {
+						"$ref": "#/components/schemas/VideoStudioLimits"
+					},
+					"model_manifest": {
+						"items": {
+							"$ref": "#/components/schemas/VideoStudioModelManifestItem"
+						},
+						"type": ["array", "null"]
+					},
+					"schema_version": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"stock_providers": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["enabled", "schema_version", "limits", "model_manifest", "stock_providers"],
+				"type": "object"
+			},
+			"VideoStudioLimits": {
+				"additionalProperties": false,
+				"properties": {
+					"max_document_bytes": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_duration_seconds": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_export_fps": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_export_height": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_export_width": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"max_sources": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"max_duration_seconds",
+					"max_sources",
+					"max_document_bytes",
+					"max_export_width",
+					"max_export_height",
+					"max_export_fps"
+				],
+				"type": "object"
+			},
+			"VideoStudioModelManifestItem": {
+				"additionalProperties": false,
+				"properties": {
+					"fingerprint": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"enum": ["transcription", "vad", "reframing"],
+						"type": "string"
+					},
+					"license_name": {
+						"type": "string"
+					},
+					"license_reference": {
+						"type": "string"
+					},
+					"license_url": {
+						"type": "string"
+					},
+					"required_backends": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"resumable": {
+						"type": "boolean"
+					},
+					"runtime_bytes_wasm": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"runtime_bytes_webgpu": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"sha256": {
+						"type": "string"
+					},
+					"size_bytes": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"url": {
+						"type": "string"
+					},
+					"version": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"kind",
+					"version",
+					"size_bytes",
+					"runtime_bytes_wasm",
+					"runtime_bytes_webgpu",
+					"url",
+					"sha256",
+					"required_backends",
+					"fingerprint",
+					"resumable",
+					"license_name",
+					"license_url",
+					"license_reference"
+				],
+				"type": "object"
+			},
+			"VideoStudioSyncReuse": {
+				"additionalProperties": false,
+				"properties": {
+					"media_id": {
+						"type": "string"
+					},
+					"source_id": {
+						"type": "string"
+					}
+				},
+				"required": ["source_id", "media_id"],
+				"type": "object"
+			},
+			"VideoStudioSyncSource": {
+				"additionalProperties": false,
+				"properties": {
+					"mime_type": {
+						"maxLength": 200,
+						"minLength": 1,
+						"type": "string"
+					},
+					"original_name": {
+						"maxLength": 500,
+						"minLength": 1,
+						"type": "string"
+					},
+					"sha256": {
+						"maxLength": 64,
+						"minLength": 64,
+						"type": "string"
+					},
+					"size_bytes": {
+						"format": "int64",
+						"minimum": 0,
+						"type": "integer"
+					},
+					"source_id": {
+						"maxLength": 200,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["source_id", "sha256", "size_bytes", "mime_type", "original_name"],
+				"type": "object"
+			},
+			"VideoStudioSyncStorage": {
+				"additionalProperties": false,
+				"properties": {
+					"limit_bytes": {
+						"format": "int64",
+						"type": ["integer", "null"]
+					},
+					"remaining_bytes": {
+						"format": "int64",
+						"type": ["integer", "null"]
+					},
+					"used_bytes": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["used_bytes", "limit_bytes", "remaining_bytes"],
+				"type": "object"
+			},
+			"VideoVariant": {
+				"additionalProperties": false,
+				"properties": {
+					"background_color": {
+						"type": "string"
+					},
+					"height": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"enum": ["portrait", "feed-portrait", "square", "landscape"],
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"safe_area": {
+						"$ref": "#/components/schemas/VideoVariantSafeAreaStruct"
+					},
+					"width": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["id", "name", "width", "height", "safe_area", "background_color"],
+				"type": "object"
+			},
+			"VideoVariantSafeAreaStruct": {
+				"additionalProperties": false,
+				"properties": {
+					"bottom": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"left": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"right": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"top": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["top", "right", "bottom", "left"],
+				"type": "object"
+			},
 			"Viewport": {
 				"additionalProperties": false,
 				"properties": {
@@ -11538,6 +13640,97 @@
 					}
 				},
 				"required": ["width", "height", "pixel_ratio"],
+				"type": "object"
+			},
+			"VisualPresentationOverride": {
+				"additionalProperties": false,
+				"properties": {
+					"presentation": {
+						"$ref": "#/components/schemas/VideoPresentationOverride"
+					},
+					"visible": {
+						"type": "boolean"
+					}
+				},
+				"type": "object"
+			},
+			"VisualTrack": {
+				"additionalProperties": false,
+				"properties": {
+					"hidden": {
+						"type": "boolean"
+					},
+					"id": {
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/VisualTrackItem"
+						},
+						"type": ["array", "null"]
+					},
+					"locked": {
+						"type": "boolean"
+					},
+					"name": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "name", "locked", "hidden", "items"],
+				"type": "object"
+			},
+			"VisualTrackItem": {
+				"additionalProperties": false,
+				"properties": {
+					"duration_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"id": {
+						"type": "string"
+					},
+					"presentation": {
+						"$ref": "#/components/schemas/VideoPresentation"
+					},
+					"shape": {
+						"$ref": "#/components/schemas/ShapeStyle"
+					},
+					"source_id": {
+						"type": "string"
+					},
+					"source_in_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"speed": {
+						"format": "double",
+						"type": "number"
+					},
+					"style": {
+						"$ref": "#/components/schemas/TextStyle"
+					},
+					"text": {
+						"type": "string"
+					},
+					"timeline_start_us": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"type": {
+						"enum": ["media", "camera", "text", "shape", "annotation"],
+						"type": "string"
+					},
+					"variant_overrides": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/VisualPresentationOverride"
+						},
+						"type": "object"
+					},
+					"visible": {
+						"type": "boolean"
+					}
+				},
+				"required": ["id", "type", "timeline_start_us", "duration_us", "visible", "presentation"],
 				"type": "object"
 			},
 			"WorkspaceInvitationResponse": {
@@ -23326,6 +25519,296 @@
 				"tags": ["Publications"]
 			}
 		},
+		"/stock-media/providers": {
+			"get": {
+				"operationId": "list-stock-media-providers",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ListStockProvidersOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "List configured stock media providers",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/stock-media/search": {
+			"get": {
+				"operationId": "search-stock-media",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "provider",
+						"required": true,
+						"schema": {
+							"enum": ["pexels", "unsplash", "pixabay"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "query",
+						"required": true,
+						"schema": {
+							"maxLength": 120,
+							"minLength": 1,
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "kind",
+						"schema": {
+							"default": "photo",
+							"enum": ["photo", "video"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "orientation",
+						"schema": {
+							"enum": ["landscape", "portrait", "square"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "page",
+						"schema": {
+							"default": 1,
+							"format": "int64",
+							"maximum": 500,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "per_page",
+						"schema": {
+							"default": 24,
+							"format": "int64",
+							"maximum": 40,
+							"minimum": 1,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/SearchPage"
+								}
+							}
+						},
+						"description": "OK",
+						"headers": {
+							"Cache-Control": {
+								"schema": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Search configured stock photo and video providers",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/stock-media/selections": {
+			"post": {
+				"operationId": "select-stock-media",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SelectStockMediaInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ResolvedAsset"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Resolve a selected stock asset and record provider attribution events",
+				"tags": ["Video Studio"]
+			}
+		},
 		"/studio/brand-kit": {
 			"get": {
 				"operationId": "get-studio-brand-kit",
@@ -24968,6 +27451,1037 @@
 				},
 				"summary": "Create a Studio design from a template",
 				"tags": ["Studio"]
+			}
+		},
+		"/video-studio/config": {
+			"get": {
+				"operationId": "get-video-studio-config",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoStudioConfigOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "Get Video Studio browser limits and optional local model manifest",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/projects": {
+			"get": {
+				"operationId": "list-video-studio-projects",
+				"parameters": [
+					{
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"format": "int64",
+							"maximum": 100,
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "offset",
+						"schema": {
+							"format": "int64",
+							"minimum": 0,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ListVideoProjectsOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List cloud-saved Video Studio projects",
+				"tags": ["Video Studio"]
+			},
+			"post": {
+				"operationId": "create-video-studio-project",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateVideoProjectInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "Created"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Save a local Video Studio project to OpenPost",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/projects/{id}": {
+			"delete": {
+				"operationId": "delete-video-studio-project",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeleteVideoProjectOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Move a Video Studio project to trash",
+				"tags": ["Video Studio"]
+			},
+			"get": {
+				"operationId": "get-video-studio-project",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Get a cloud-saved Video Studio project",
+				"tags": ["Video Studio"]
+			},
+			"patch": {
+				"operationId": "update-video-studio-project",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateVideoProjectInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Save a Video Studio project with optimistic concurrency",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/projects/{id}/checkpoints": {
+			"post": {
+				"operationId": "create-video-studio-project-checkpoint",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateVideoProjectCheckpointInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectRevisionSummary"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Create a named Video Studio checkpoint",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/projects/{id}/revisions": {
+			"get": {
+				"operationId": "list-video-studio-project-revisions",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ListVideoProjectRevisionsOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List Video Studio recovery revisions and checkpoints",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/projects/{id}/revisions/{revision_id}/restore": {
+			"post": {
+				"operationId": "restore-video-studio-project-revision",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"in": "path",
+						"name": "revision_id",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RestoreVideoProjectRevisionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VideoProjectResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Restore a Video Studio revision as a new head",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/return-tokens": {
+			"post": {
+				"operationId": "create-video-studio-return-token",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateVideoReturnTokenInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"201": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CreateVideoReturnTokenOutputBody"
+								}
+							}
+						},
+						"description": "Created"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Create a one-time Video Studio composer return token",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/return-tokens/{token}/complete": {
+			"post": {
+				"operationId": "complete-video-studio-return-token",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "token",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/VideoReturnResult"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CompleteVideoReturnTokenOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Store Video Studio variant-to-rendition export assignments",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/return-tokens/{token}/consume": {
+			"post": {
+				"operationId": "consume-video-studio-return-token",
+				"parameters": [
+					{
+						"in": "path",
+						"name": "token",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ConsumeVideoReturnTokenOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Consume completed Video Studio export assignments once",
+				"tags": ["Video Studio"]
+			}
+		},
+		"/video-studio/sync-plan": {
+			"post": {
+				"operationId": "plan-video-studio-sync",
+				"parameters": [
+					{
+						"description": "Active workspace ID",
+						"in": "header",
+						"name": "X-OpenPost-Workspace-ID",
+						"required": true,
+						"schema": {
+							"description": "Active workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/PlanVideoStudioSyncInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PlanVideoStudioSyncOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Estimate and deduplicate an explicit Video Studio cloud sync",
+				"tags": ["Video Studio"]
 			}
 		},
 		"/workspace-invitations/accept": {

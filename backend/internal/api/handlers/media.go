@@ -36,6 +36,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/videoproject"
 	"github.com/uptrace/bun"
 )
 
@@ -78,6 +79,8 @@ type mediaUploadBytesInput struct {
 	ParentMediaID    string
 	DesignDocumentID string
 	DesignPageID     string
+	VideoProjectID   string
+	StockProvenance  *videoproject.StockMediaProvenance
 }
 
 type mediaUploadInspection struct {
@@ -216,6 +219,7 @@ type MediaListItem struct {
 	ParentMediaID      string   `json:"parent_media_id,omitempty" doc:"Source media for this derivative"`
 	DesignDocumentID   string   `json:"design_document_id,omitempty" doc:"Producing Studio design"`
 	DesignPageID       string   `json:"design_page_id,omitempty" doc:"Producing Studio page"`
+	VideoProjectID     string   `json:"video_project_id,omitempty" doc:"Producing Video Studio project"`
 	Collections        []string `json:"collections" doc:"Collection IDs containing this media"`
 	Tags               []string `json:"tags" doc:"Tag IDs assigned to this media"`
 }
@@ -368,16 +372,19 @@ type RetryMediaAnalysisOutput struct {
 
 type CreateMediaUploadSessionInput struct {
 	Body struct {
-		WorkspaceID      string `json:"workspace_id" doc:"Workspace ID"`
-		Filename         string `json:"filename" doc:"Original filename"`
-		MimeType         string `json:"mime_type,omitempty" doc:"Declared MIME type"`
-		Size             int64  `json:"size" doc:"Expected upload size in bytes"`
-		AltText          string `json:"alt_text,omitempty" doc:"Alt text for accessibility"`
-		Source           string `json:"source,omitempty" enum:"upload,camera,studio_export,studio_edit,background_removal" doc:"Media provenance"`
-		AssetKind        string `json:"asset_kind,omitempty" enum:"library,brand_asset,brand_font,design_preview,template_preview" doc:"Media library role"`
-		ParentMediaID    string `json:"parent_media_id,omitempty" doc:"Source media ID for a derivative"`
-		DesignDocumentID string `json:"design_document_id,omitempty" doc:"Producing Studio design ID"`
-		DesignPageID     string `json:"design_page_id,omitempty" doc:"Producing Studio page ID"`
+		WorkspaceID      string                             `json:"workspace_id" doc:"Workspace ID"`
+		Filename         string                             `json:"filename" doc:"Original filename"`
+		MimeType         string                             `json:"mime_type,omitempty" doc:"Declared MIME type"`
+		Size             int64                              `json:"size" doc:"Expected upload size in bytes"`
+		AltText          string                             `json:"alt_text,omitempty" doc:"Alt text for accessibility"`
+		Source           string                             `json:"source,omitempty" enum:"upload,camera,studio_export,studio_edit,background_removal,video_studio_source,video_studio_export,stock_import" doc:"Media provenance"`
+		AssetKind        string                             `json:"asset_kind,omitempty" enum:"library,brand_asset,brand_font,design_preview,template_preview" doc:"Media library role"`
+		ParentMediaID    string                             `json:"parent_media_id,omitempty" doc:"Source media ID for a derivative"`
+		DesignDocumentID string                             `json:"design_document_id,omitempty" doc:"Producing Studio design ID"`
+		DesignPageID     string                             `json:"design_page_id,omitempty" doc:"Producing Studio page ID"`
+		VideoProjectID   string                             `json:"video_project_id,omitempty" doc:"Producing Video Studio project ID"`
+		ClientSHA256     string                             `json:"client_sha256,omitempty" pattern:"^[a-fA-F0-9]{64}$" doc:"Optional SHA-256 used to reuse an identical ready asset in this workspace"`
+		StockProvenance  *videoproject.StockMediaProvenance `json:"stock_provenance,omitempty" doc:"License and creator provenance for a selected stock asset"`
 	}
 }
 
@@ -394,6 +401,7 @@ type CreateMediaUploadSessionOutput struct {
 		MediaID     string                  `json:"media_id" doc:"Pending media ID"`
 		Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
 		CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
+		Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
 	}
 }
 
@@ -417,6 +425,7 @@ type MediaUploadResult struct {
 	ParentMediaID      string `json:"parent_media_id,omitempty" doc:"Source media ID"`
 	DesignDocumentID   string `json:"design_document_id,omitempty" doc:"Producing Studio design ID"`
 	DesignPageID       string `json:"design_page_id,omitempty" doc:"Producing Studio page ID"`
+	VideoProjectID     string `json:"video_project_id,omitempty" doc:"Producing Video Studio project ID"`
 	ProcessingStatus   string `json:"processing_status" doc:"Media processing status"`
 	ProcessingProgress int    `json:"processing_progress" doc:"Server processing progress from 0 to 100"`
 	AnalysisStatus     string `json:"analysis_status" doc:"Media analysis status"`
@@ -676,6 +685,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 				ParentMediaID:      m.ParentMediaID,
 				DesignDocumentID:   m.DesignDocumentID,
 				DesignPageID:       m.DesignPageID,
+				VideoProjectID:     m.VideoProjectID,
 				Collections:        collectionsByMedia[m.ID],
 				Tags:               tagsByMedia[m.ID],
 			}
@@ -1044,6 +1054,9 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
+		if err := validateStockUploadProvenance(source, input.Body.StockProvenance); err != nil {
+			return nil, huma.Error400BadRequest(err.Error())
+		}
 		mimeType := strings.TrimSpace(input.Body.MimeType)
 		if mimeType == "" {
 			mimeType = defaultMediaMimeType
@@ -1065,6 +1078,33 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			input.Body.DesignPageID,
 		); err != nil {
 			return nil, err
+		}
+		if err := h.validateVideoProjectReference(ctx, workspaceID, input.Body.VideoProjectID); err != nil {
+			return nil, err
+		}
+		reusable, err := h.reusableMediaForClientHash(
+			ctx,
+			workspaceID,
+			input.Body.ClientSHA256,
+			input.Body.Size,
+			mimeType,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if reusable != nil {
+			if err := h.persistStockMediaProvenance(ctx, reusable.ID, input.Body.StockProvenance); err != nil {
+				return nil, huma.Error500InternalServerError("failed to save stock media provenance")
+			}
+			return &CreateMediaUploadSessionOutput{Body: struct {
+				MediaID     string                  `json:"media_id" doc:"Pending media ID"`
+				Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
+				CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
+				Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
+			}{
+				MediaID: reusable.ID,
+				Deduped: true,
+			}}, nil
 		}
 
 		mediaID := uuid.New().String()
@@ -1112,6 +1152,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			ParentMediaID:      strings.TrimSpace(input.Body.ParentMediaID),
 			DesignDocumentID:   strings.TrimSpace(input.Body.DesignDocumentID),
 			DesignPageID:       strings.TrimSpace(input.Body.DesignPageID),
+			VideoProjectID:     strings.TrimSpace(input.Body.VideoProjectID),
 			AltText:            input.Body.AltText,
 			AnalysisStatus:     mediaanalysis.AnalysisStatusPending,
 			CreatedAt:          now,
@@ -1119,11 +1160,16 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
 			return nil, huma.Error500InternalServerError("failed to reserve media upload")
 		}
+		if err := h.persistStockMediaProvenance(ctx, media.ID, input.Body.StockProvenance); err != nil {
+			_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
+			return nil, huma.Error500InternalServerError("failed to save stock media provenance")
+		}
 
 		return &CreateMediaUploadSessionOutput{Body: struct {
 			MediaID     string                  `json:"media_id" doc:"Pending media ID"`
 			Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
 			CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
+			Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
 		}{
 			MediaID: mediaID,
 			Upload: DirectMediaUploadTarget{
@@ -1134,6 +1180,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 				ObjectKey: session.Key,
 			},
 			CompleteURL: "/api/v1/media/upload-session/" + mediaID + "/complete",
+			Deduped:     false,
 		}}, nil
 	})
 
@@ -1274,7 +1321,7 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 	}
 
 	fileHash := inspection.FileHash
-	if media.Source == "upload" && media.AssetKind == "library" {
+	if mediaSourceSupportsDeduplication(media.Source) && media.AssetKind == "library" {
 		if existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID); err != nil {
 			return result, err
 		} else if found {
@@ -1306,7 +1353,7 @@ func (h *MediaHandler) resolveDirectUploadDeduplication(
 	fileHash string,
 	media models.MediaAttachment,
 ) (MediaUploadResult, bool) {
-	if media.Source != "upload" || media.AssetKind != "library" {
+	if !mediaSourceSupportsDeduplication(media.Source) || media.AssetKind != "library" {
 		return MediaUploadResult{}, false
 	}
 	existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID)
@@ -1631,6 +1678,7 @@ func mediaUploadResultFromAttachment(media models.MediaAttachment, deduped bool)
 		ParentMediaID:      media.ParentMediaID,
 		DesignDocumentID:   media.DesignDocumentID,
 		DesignPageID:       media.DesignPageID,
+		VideoProjectID:     media.VideoProjectID,
 		ProcessingStatus:   media.ProcessingStatus,
 		ProcessingProgress: media.ProcessingProgress,
 		AnalysisStatus:     media.AnalysisStatus,
@@ -1671,10 +1719,20 @@ func isInternalMediaAssetKind(assetKind string) bool {
 	}
 }
 
+func mediaSourceSupportsDeduplication(source string) bool {
+	switch source {
+	case "upload", "video_studio_source", "stock_import":
+		return true
+	default:
+		return false
+	}
+}
+
 func normalizeMediaProvenance(source, assetKind string) (string, string, error) {
 	source = defaultMediaSource(source)
 	switch source {
-	case "upload", "camera", "studio_export", "studio_edit", "background_removal":
+	case "upload", "camera", "studio_export", "studio_edit", "background_removal",
+		"video_studio_source", "video_studio_export", "stock_import":
 	default:
 		return "", "", errors.New("invalid media source")
 	}
@@ -1688,6 +1746,119 @@ func normalizeMediaProvenance(source, assetKind string) (string, string, error) 
 		return "", "", errors.New("design previews must be produced by Studio")
 	}
 	return source, assetKind, nil
+}
+
+func parseStockMediaProvenance(raw string) (*videoproject.StockMediaProvenance, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	var provenance videoproject.StockMediaProvenance
+	if err := json.Unmarshal([]byte(raw), &provenance); err != nil {
+		return nil, errors.New("stock provenance must be valid JSON")
+	}
+	if err := videoproject.ValidateStockMediaProvenance(provenance); err != nil {
+		return nil, err
+	}
+	return &provenance, nil
+}
+
+func validateStockUploadProvenance(source string, provenance *videoproject.StockMediaProvenance) error {
+	if source == "stock_import" && provenance == nil {
+		return errors.New("stock imports require license and creator provenance")
+	}
+	if provenance == nil {
+		return nil
+	}
+	if source != "stock_import" {
+		return errors.New("stock provenance is allowed only for stock imports")
+	}
+	return videoproject.ValidateStockMediaProvenance(*provenance)
+}
+
+func (h *MediaHandler) persistStockMediaProvenance(
+	ctx context.Context,
+	mediaID string,
+	provenance *videoproject.StockMediaProvenance,
+) error {
+	if provenance == nil {
+		return nil
+	}
+	record := &models.MediaProvenance{
+		MediaID:         mediaID,
+		Provider:        strings.TrimSpace(provenance.Provider),
+		ExternalID:      strings.TrimSpace(provenance.ExternalID),
+		SourceURL:       strings.TrimSpace(provenance.SourceURL),
+		CreatorName:     strings.TrimSpace(provenance.CreatorName),
+		CreatorURL:      strings.TrimSpace(provenance.CreatorURL),
+		LicenseName:     strings.TrimSpace(provenance.LicenseName),
+		LicenseURL:      strings.TrimSpace(provenance.LicenseURL),
+		AttributionText: strings.TrimSpace(provenance.AttributionText),
+		ImportedAt:      time.Now().UTC(),
+	}
+	_, err := h.db.NewInsert().Model(record).On("CONFLICT (media_id) DO NOTHING").Exec(ctx)
+	return err
+}
+
+func (h *MediaHandler) validateVideoProjectReference(
+	ctx context.Context,
+	workspaceID string,
+	videoProjectID string,
+) error {
+	videoProjectID = strings.TrimSpace(videoProjectID)
+	if videoProjectID == "" {
+		return nil
+	}
+	count, err := h.db.NewSelect().Model((*models.VideoProject)(nil)).
+		Where("id = ? AND workspace_id = ? AND deleted_at IS NULL", videoProjectID, workspaceID).
+		Count(ctx)
+	if err != nil {
+		return huma.Error500InternalServerError("failed to validate Video Studio project")
+	}
+	if count != 1 {
+		return huma.Error400BadRequest("Video Studio project must belong to the workspace")
+	}
+	return nil
+}
+
+func (h *MediaHandler) reusableMediaForClientHash(
+	ctx context.Context,
+	workspaceID string,
+	clientSHA256 string,
+	size int64,
+	mimeType string,
+) (*models.MediaAttachment, error) {
+	hash := strings.ToLower(strings.TrimSpace(clientSHA256))
+	if hash == "" {
+		return nil, nil
+	}
+	if len(hash) != sha256.Size*2 {
+		return nil, huma.Error400BadRequest("client_sha256 must be a SHA-256 hex digest")
+	}
+	if _, err := hex.DecodeString(hash); err != nil {
+		return nil, huma.Error400BadRequest("client_sha256 must be a SHA-256 hex digest")
+	}
+	var media models.MediaAttachment
+	err := h.db.NewSelect().Model(&media).
+		Where(
+			"workspace_id = ? AND file_hash = ? AND size = ? AND mime_type = ? AND processing_status = ? AND asset_kind = ?",
+			workspaceID,
+			hash,
+			size,
+			mimeType,
+			mediaReadyStatus,
+			"library",
+		).
+		OrderExpr("created_at ASC").
+		Limit(1).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to check reusable workspace media")
+	}
+	return &media, nil
 }
 
 func defaultMediaSource(value string) string {
@@ -1886,6 +2057,7 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 	blockingTables := []string{
 		"design_media_references",
 		"design_template_media_references",
+		"video_project_assets",
 		"brand_assets",
 		"brand_fonts",
 	}
@@ -1918,6 +2090,7 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 		{table: "design_pages", column: "preview_media_id"},
 		{table: "design_pages", column: "latest_export_media_id"},
 		{table: "design_templates", column: "preview_media_id"},
+		{table: "video_projects", column: "cover_preview_media_id"},
 	}
 	for _, reference := range directReferences {
 		var rows []struct {
@@ -2553,6 +2726,11 @@ func (h *MediaHandler) uploadMedia(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: "file is required"})
 	}
 
+	stockProvenance, err := parseStockMediaProvenance(c.FormValue("stock_provenance"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: err.Error()})
+	}
+
 	result, err := h.processUpload(c.Request().Context(), workspaceID, fileHeader, mediaUploadBytesInput{
 		AltText:          c.FormValue("alt_text"),
 		Source:           c.FormValue("source"),
@@ -2560,6 +2738,8 @@ func (h *MediaHandler) uploadMedia(c echo.Context) error {
 		ParentMediaID:    c.FormValue("parent_media_id"),
 		DesignDocumentID: c.FormValue("design_document_id"),
 		DesignPageID:     c.FormValue("design_page_id"),
+		VideoProjectID:   c.FormValue("video_project_id"),
+		StockProvenance:  stockProvenance,
 	})
 	if err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: err.Error()})
@@ -2629,6 +2809,9 @@ func (h *MediaHandler) processUpload(ctx context.Context, workspaceID string, fi
 	if err != nil {
 		return nil, err
 	}
+	if err := validateStockUploadProvenance(source, metadata.StockProvenance); err != nil {
+		return nil, err
+	}
 	sizeLimit := mediaUploadSizeLimit(assetKind, metadata.Filename, metadata.DeclaredMimeType)
 	if metadata.Size > sizeLimit {
 		return nil, errors.New(mediaUploadSizeError(sizeLimit))
@@ -2664,6 +2847,9 @@ func (h *MediaHandler) processStreamUpload(
 		return nil, errors.New(mediaUploadSizeError(sizeLimit))
 	}
 	if err := h.validateMediaProvenanceReferences(ctx, input.WorkspaceID, input.ParentMediaID, input.DesignDocumentID, input.DesignPageID); err != nil {
+		return nil, errors.New(err.Error())
+	}
+	if err := h.validateVideoProjectReference(ctx, input.WorkspaceID, input.VideoProjectID); err != nil {
 		return nil, errors.New(err.Error())
 	}
 	if !isInternalMediaAssetKind(assetKind) {
@@ -2705,11 +2891,15 @@ func (h *MediaHandler) processStreamUpload(
 		return nil, errors.New("uploaded media size does not match multipart metadata")
 	}
 	fileHash := hex.EncodeToString(hasher.Sum(nil))
-	if source == "upload" && assetKind == "library" {
+	if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 		if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, mediaID); duplicateErr != nil {
 			_ = h.storage.Delete(objectKey)
 			return nil, duplicateErr
 		} else if found {
+			if err := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); err != nil {
+				_ = h.storage.Delete(objectKey)
+				return nil, err
+			}
 			_ = h.storage.Delete(objectKey)
 			return mediaUploadMap(existing, true), nil
 		}
@@ -2732,6 +2922,7 @@ func (h *MediaHandler) processStreamUpload(
 		ParentMediaID:      strings.TrimSpace(input.ParentMediaID),
 		DesignDocumentID:   strings.TrimSpace(input.DesignDocumentID),
 		DesignPageID:       strings.TrimSpace(input.DesignPageID),
+		VideoProjectID:     strings.TrimSpace(input.VideoProjectID),
 		DominantType:       dominantMediaType(mimeType),
 		AnalysisStatus:     mediaanalysis.AnalysisStatusReady,
 	}
@@ -2742,14 +2933,22 @@ func (h *MediaHandler) processStreamUpload(
 	}
 
 	if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
-		if source == "upload" && assetKind == "library" {
+		if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 			if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, media.ID); duplicateErr == nil && found {
 				_ = h.storage.Delete(objectKey)
+				if provenanceErr := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); provenanceErr != nil {
+					return nil, provenanceErr
+				}
 				return mediaUploadMap(existing, true), nil
 			}
 		}
 		_ = h.storage.Delete(objectKey)
 		return nil, errors.New("failed to save media record")
+	}
+	if err := h.persistStockMediaProvenance(ctx, media.ID, input.StockProvenance); err != nil {
+		_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
+		_ = h.storage.Delete(objectKey)
+		return nil, errors.New("failed to save stock media provenance")
 	}
 	if err := refreshPublicMediaState(ctx, h.db, h.publicMedia, media); err != nil {
 		log.Printf("failed to persist public URL verification for media %s: %v", media.ID, err)
@@ -2788,6 +2987,9 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	if err := h.validateMediaProvenanceReferences(ctx, input.WorkspaceID, input.ParentMediaID, input.DesignDocumentID, input.DesignPageID); err != nil {
 		return nil, errors.New(err.Error())
 	}
+	if err := h.validateVideoProjectReference(ctx, input.WorkspaceID, input.VideoProjectID); err != nil {
+		return nil, errors.New(err.Error())
+	}
 	hash := sha256.Sum256(input.Content)
 	fileHash := hex.EncodeToString(hash[:])
 
@@ -2800,11 +3002,14 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	}
 
 	var existing models.MediaAttachment
-	if source == "upload" && assetKind == "library" {
+	if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 		err = h.db.NewSelect().Model(&existing).
 			Where("workspace_id = ? AND file_hash = ? AND (asset_kind = ? OR asset_kind = '' OR asset_kind IS NULL)", input.WorkspaceID, fileHash, "library").
 			Scan(ctx)
 		if err == nil {
+			if err := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); err != nil {
+				return nil, err
+			}
 			return mediaUploadMap(existing, true), nil
 		}
 	}
@@ -2840,6 +3045,7 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 		ParentMediaID:      strings.TrimSpace(input.ParentMediaID),
 		DesignDocumentID:   strings.TrimSpace(input.DesignDocumentID),
 		DesignPageID:       strings.TrimSpace(input.DesignPageID),
+		VideoProjectID:     strings.TrimSpace(input.VideoProjectID),
 	}
 
 	width, height := 0, 0
@@ -2866,15 +3072,25 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	}
 
 	if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
-		if source == "upload" && assetKind == "library" {
+		if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 			if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, media.ID); duplicateErr == nil && found {
 				if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
 					log.Printf("failed to delete deduplicated upload files for %s: %v", media.ID, deleteErr)
+				}
+				if provenanceErr := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); provenanceErr != nil {
+					return nil, provenanceErr
 				}
 				return mediaUploadMap(existing, true), nil
 			}
 		}
 		return nil, errors.New("failed to save media record")
+	}
+	if err := h.persistStockMediaProvenance(ctx, media.ID, input.StockProvenance); err != nil {
+		_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
+		if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
+			log.Printf("failed to delete media after provenance persistence failure for %s: %v", media.ID, deleteErr)
+		}
+		return nil, errors.New("failed to save stock media provenance")
 	}
 	if err := refreshPublicMediaState(ctx, h.db, h.publicMedia, media); err != nil {
 		log.Printf("failed to persist public URL verification for media %s: %v", media.ID, err)

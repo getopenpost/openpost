@@ -47,6 +47,7 @@ OpenPost helps you write, tailor, schedule, and publish social posts.
 - **See the full schedule.** Plan posts in a calendar, reuse posting times, and check scheduled, published, and failed posts.
 - **Track real platform numbers.** Keep account growth and post results while treating views, impressions, and reach as different metrics.
 - **Make still images.** Use OpenPost Studio without an account for local exports with no watermark, or save designs with workspace media and brand items.
+- **Make social videos locally.** Video Studio records or imports footage, edits one shared timeline for four social formats, creates local captions and cleanup suggestions, and exports without an account or watermark.
 - **Keep brands separate.** Workspaces isolate accounts, media, schedules, members, and automation access.
 - **Manage replies and messages.** Read and reply to comments, get personal alerts, and turn on inbox collection for supported accounts.
 - **Automate without sharing social account keys.** Use the API, CLI, or MCP with OpenPost tokens that you can limit to one workspace and remove.

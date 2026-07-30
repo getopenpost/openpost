@@ -39,6 +39,12 @@ var configTestEnvKeys = []string{
 	"OPENPOST_SUPPORT_EMAIL",
 	"OPENPOST_STUDIO_ENABLED",
 	"OPENPOST_STUDIO_MODEL_BASE_URL",
+	"OPENPOST_VIDEO_STUDIO_ENABLED",
+	"OPENPOST_VIDEO_MODEL_BASE_URL",
+	"OPENPOST_STOCK_MEDIA_ENABLED",
+	"OPENPOST_PEXELS_API_KEY",
+	"OPENPOST_UNSPLASH_ACCESS_KEY",
+	"OPENPOST_PIXABAY_API_KEY",
 	"OPENPOST_FEEDBACK_ENABLED",
 	"OPENPOST_FEEDBACK_DESTINATION_URL",
 	"OPENPOST_FEEDBACK_RECIPIENT",
@@ -122,6 +128,9 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Empty(t, cfg.PolarWebhookSecret)
 	require.True(t, cfg.StudioEnabled)
 	require.Equal(t, "/studio-models", cfg.StudioModelBaseURL)
+	require.False(t, cfg.VideoStudioEnabled)
+	require.Equal(t, "/video-studio-models", cfg.VideoModelBaseURL)
+	require.False(t, cfg.StockMediaEnabled)
 	require.False(t, cfg.FeedbackEnabled)
 	require.Empty(t, cfg.FeedbackDestinationURL)
 	require.Equal(t, "https://github.com/rodrgds/openpost/issues/new", cfg.FeedbackSupportURL)
@@ -156,6 +165,24 @@ func TestLoadStudioConfiguration(t *testing.T) {
 
 	require.False(t, cfg.StudioEnabled)
 	require.Equal(t, "https://assets.example.com/openpost/studio", cfg.StudioModelBaseURL)
+}
+
+func TestLoadVideoStudioAndStockConfiguration(t *testing.T) {
+	t.Setenv("OPENPOST_VIDEO_STUDIO_ENABLED", "false")
+	t.Setenv("OPENPOST_VIDEO_MODEL_BASE_URL", " https://models.example.test/openpost ")
+	t.Setenv("OPENPOST_STOCK_MEDIA_ENABLED", "true")
+	t.Setenv("OPENPOST_PEXELS_API_KEY", " pexels-key ")
+	t.Setenv("OPENPOST_UNSPLASH_ACCESS_KEY", " unsplash-key ")
+	t.Setenv("OPENPOST_PIXABAY_API_KEY", " pixabay-key ")
+
+	cfg := Load()
+
+	require.False(t, cfg.VideoStudioEnabled)
+	require.Equal(t, "https://models.example.test/openpost", cfg.VideoModelBaseURL)
+	require.True(t, cfg.StockMediaEnabled)
+	require.Equal(t, "pexels-key", cfg.PexelsAPIKey)
+	require.Equal(t, "unsplash-key", cfg.UnsplashAccessKey)
+	require.Equal(t, "pixabay-key", cfg.PixabayAPIKey)
 }
 
 func TestLoadFeedbackConfigurationSupportsFileBackedWebhook(t *testing.T) {

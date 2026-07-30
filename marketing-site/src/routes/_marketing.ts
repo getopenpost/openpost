@@ -2,6 +2,7 @@ import {
   Activity,
   CalendarClock,
   CheckCircle2,
+  Clapperboard,
   Clock3,
   Code2,
   FileText,
@@ -903,6 +904,13 @@ export const securityItems = [
 
 export const tools = [
   {
+    slug: "social-media-video-editor",
+    name: "Social media video editor",
+    description:
+      "Record or import a video, edit one timeline for four social formats, and export locally without a watermark.",
+    icon: Clapperboard,
+  },
+  {
     slug: "social-media-image-editor",
     name: "Social media image editor",
     description:
@@ -1231,7 +1239,8 @@ export const comparisons = [
       },
       {
         area: "Scheduling horizon",
-        openpost: "Schedule at any future time or use saved weekly posting times.",
+        openpost:
+          "Schedule at any future time or use saved weekly posting times.",
         competitor:
           "Official help documents scheduling up to two months ahead.",
       },

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { resolve } from "$app/paths";
   import { siteUrl } from "../_marketing";
 
   const effectiveDate = "29 July 2026";
@@ -26,7 +27,7 @@
       choices available to you.
     </p>
     <a
-      href="/security"
+      href={resolve("/security")}
       class="mt-5 inline-flex text-sm font-medium text-primary"
       >Security details</a
     >
@@ -61,8 +62,9 @@
       </li>
       <li>
         <strong>Post data:</strong> drafts, scheduled and published content, media,
-        account versions, Studio designs and saved versions, templates, brand settings,
-        prompts, schedules, post status, and job history.
+        account versions, Studio designs and saved versions, explicitly cloud-saved
+        Video Studio projects, templates, brand settings, prompts, schedules, post
+        status, and job history.
       </li>
       <li>
         <strong>Analytics data:</strong> account and post numbers, past results, update
@@ -210,9 +212,10 @@
     <p>
       The application uses essential session and security cookies. It may use
       local browser storage for the selected workspace, server address,
-      language, sound preference, composer return state, and unsynced Studio
-      recovery copies. One-time Studio return state expires after two hours;
-      unsynced Studio recovery copies expire seven days after the last edit.
+      language, sound preference, composer return state, unsynced Studio recovery
+      copies, and local Video Studio projects, sources, recordings, transcripts,
+      analysis results, models, and exports. Clearing site data can remove local
+      Video Studio content.
     </p>
     <p>
       Studio background removal runs in your browser with model and runtime
@@ -221,6 +224,13 @@
       only when processing succeeds. The marketing site does not use advertising
       trackers. The privacy-enhanced YouTube player is loaded only when you open
       the product demo; YouTube may then process device and playback data.
+    </p>
+    <p>
+      Video Studio editing, recording, transcription, voice detection, framing
+      analysis, and export run in the browser. Model files are downloaded only
+      after the user starts the related tool. Project sources and exports are
+      uploaded only when the user chooses a cloud save, Media save, or post
+      handoff.
     </p>
 
     <h2>9. International transfers</h2>

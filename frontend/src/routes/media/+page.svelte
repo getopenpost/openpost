@@ -18,6 +18,7 @@
 		toggleStudioDesignFavorite
 	} from '$lib/studio/api';
 	import type { StudioDesignSummary } from '$lib/studio/types';
+	import { loadVideoStudioConfig } from '$lib/video-studio/api';
 	import { clampMediaPage } from '$lib/media-pagination';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -161,6 +162,7 @@
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
 	let designs = $state<StudioDesignSummary[]>([]);
+	let videoStudioEnabled = $state(false);
 	let collections = $state<MediaCollection[]>([]);
 	let tags = $state<MediaTag[]>([]);
 	let hubLoading = $state(false);
@@ -369,6 +371,14 @@
 			notify(cause instanceof Error ? cause.message : m.media_hub_load_failed(), 'error');
 		} finally {
 			hubLoading = false;
+		}
+	}
+
+	async function loadVideoStudioState(): Promise<void> {
+		try {
+			videoStudioEnabled = (await loadVideoStudioConfig()).enabled;
+		} catch {
+			videoStudioEnabled = false;
 		}
 	}
 
@@ -615,6 +625,15 @@
 		});
 		if (action) query.set('action', action);
 		void goto(resolve(`/studio/new?${query.toString()}` as '/'));
+	}
+
+	function openMediaInVideoStudio(media: MediaItem) {
+		const query = new URLSearchParams({
+			mode: 'media',
+			source_media: media.id,
+			source_name: media.original_filename
+		});
+		void goto(resolve(`/video-studio/new?${query.toString()}` as '/'));
 	}
 
 	async function duplicateMedia(media: MediaItem) {
@@ -1001,6 +1020,7 @@
 			replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
 		}
 		void loadWorkspaces();
+		void loadVideoStudioState();
 	});
 
 	onMount(() => {
@@ -1639,6 +1659,15 @@
 									{m.studio_remove_background()}
 								</ContextMenu.Item>
 							{/if}
+							{#if isVideo(media.mime_type) && mediaCanEdit && videoStudioEnabled}
+								<ContextMenu.Item
+									class={libraryContextItemClass}
+									onclick={() => openMediaInVideoStudio(media)}
+								>
+									<VideoIcon class="size-4" />
+									{m.media_edit_video_studio()}
+								</ContextMenu.Item>
+							{/if}
 							{#if mediaCanEdit}
 								<ContextMenu.Item
 									class={libraryContextItemClass}
@@ -2204,6 +2233,16 @@
 					>
 						<ImageIcon />
 						{m.studio_remove_background()}
+					</Button>
+				{/if}
+				{#if isVideo(selectedMedia.mime_type) && mediaCanEdit && videoStudioEnabled}
+					<Button
+						variant="outline"
+						size="sm"
+						onclick={() => openMediaInVideoStudio(selectedMedia!)}
+					>
+						<VideoIcon />
+						{m.media_edit_video_studio()}
 					</Button>
 				{/if}
 				{#if mediaCanEdit}

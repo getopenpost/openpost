@@ -21,7 +21,7 @@
     {
       title: "Prepare media",
       description: "Build and export the visual asset.",
-      slugs: ["social-media-image-editor"],
+      slugs: ["social-media-video-editor", "social-media-image-editor"],
     },
     {
       title: "Plan and verify",
@@ -31,6 +31,7 @@
   ] as const;
 
   const outcomes: Record<string, string> = {
+    "social-media-video-editor": "Edit and export videos",
     "social-media-image-editor": "Edit and export images",
     "multi-platform-character-counter": "Compare ten limits",
     "post-preview-generator": "Preview ten platforms and their formats",
@@ -51,7 +52,7 @@
   <title>Free social media tools - OpenPost</title>
   <meta
     name="description"
-    content="Free browser tools for previewing posts, checking character limits, splitting threads, preparing images, checking handles, and planning a weekly schedule."
+    content="Free browser tools for editing videos and images, previewing posts, checking character limits, splitting threads, checking handles, and planning a weekly schedule."
   />
   <link rel="canonical" href={`${siteUrl}/tools`} />
   <meta property="og:type" content="website" />

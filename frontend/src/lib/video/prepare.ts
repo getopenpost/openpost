@@ -1,7 +1,6 @@
 import {
 	ALL_FORMATS,
 	BlobSource,
-	BufferTarget,
 	Conversion,
 	Input,
 	Mp4OutputFormat,
@@ -10,6 +9,7 @@ import {
 } from 'mediabunny';
 import { effectiveVideoConstraints, formatBytes, isCanonicalPlatformVideo } from './constraints';
 import { firstPlatformVideoCodec } from './support';
+import { createStreamingOutputTarget } from './stream-target';
 import type {
 	PreparedVideo,
 	VideoConstraint,
@@ -184,18 +184,26 @@ async function remuxToMP4(
 ): Promise<Blob | null> {
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
 	try {
-		const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() });
-		const conversion = await Conversion.init({ input, output });
-		if (!conversion.isValid) return null;
-		conversion.onProgress = onProgress;
-		const abort = () => void conversion.cancel();
-		signal?.addEventListener('abort', abort, { once: true });
+		const stream = await createStreamingOutputTarget(signal);
+		let completed = false;
 		try {
-			await conversion.execute();
+			const output = new Output({ format: new Mp4OutputFormat(), target: stream.target });
+			const conversion = await Conversion.init({ input, output });
+			if (!conversion.isValid) return null;
+			conversion.onProgress = onProgress;
+			const abort = () => void conversion.cancel();
+			signal?.addEventListener('abort', abort, { once: true });
+			try {
+				await conversion.execute();
+			} finally {
+				signal?.removeEventListener('abort', abort);
+			}
+			const file = await stream.file(`remuxed-${crypto.randomUUID()}.mp4`, 'video/mp4');
+			completed = true;
+			return file;
 		} finally {
-			signal?.removeEventListener('abort', abort);
+			if (!completed) await stream.discard();
 		}
-		return output.target.buffer ? new Blob([output.target.buffer], { type: 'video/mp4' }) : null;
 	} finally {
 		if (!input.disposed) input.dispose();
 	}
@@ -264,36 +272,44 @@ async function encodeOnce(
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(source) });
 	try {
 		const sourceAudioTrack = await input.getPrimaryAudioTrack();
-		const output = new Output({ format: new Mp4OutputFormat(), target: new BufferTarget() });
-		const video: ConversionVideoOptions = {
-			codec: params.codec,
-			bitrate: params.videoBitrate,
-			width: params.width,
-			height: params.height,
-			fit: 'contain',
-			forceTranscode: true
-		};
-		const conversion = await Conversion.init({
-			input,
-			output,
-			video,
-			audio: { codec: 'aac', bitrate: AUDIO_BITRATE, forceTranscode: true }
-		});
-		if (
-			!conversion.isValid ||
-			(sourceAudioTrack !== null && !conversion.utilizedTracks.includes(sourceAudioTrack))
-		) {
-			return null;
-		}
-		conversion.onProgress = onProgress;
-		const abort = () => void conversion.cancel();
-		signal?.addEventListener('abort', abort, { once: true });
+		const stream = await createStreamingOutputTarget(signal);
+		let completed = false;
 		try {
-			await conversion.execute();
+			const output = new Output({ format: new Mp4OutputFormat(), target: stream.target });
+			const video: ConversionVideoOptions = {
+				codec: params.codec,
+				bitrate: params.videoBitrate,
+				width: params.width,
+				height: params.height,
+				fit: 'contain',
+				forceTranscode: true
+			};
+			const conversion = await Conversion.init({
+				input,
+				output,
+				video,
+				audio: { codec: 'aac', bitrate: AUDIO_BITRATE, forceTranscode: true }
+			});
+			if (
+				!conversion.isValid ||
+				(sourceAudioTrack !== null && !conversion.utilizedTracks.includes(sourceAudioTrack))
+			) {
+				return null;
+			}
+			conversion.onProgress = onProgress;
+			const abort = () => void conversion.cancel();
+			signal?.addEventListener('abort', abort, { once: true });
+			try {
+				await conversion.execute();
+			} finally {
+				signal?.removeEventListener('abort', abort);
+			}
+			const file = await stream.file(`prepared-${crypto.randomUUID()}.mp4`, 'video/mp4');
+			completed = true;
+			return file;
 		} finally {
-			signal?.removeEventListener('abort', abort);
+			if (!completed) await stream.discard();
 		}
-		return output.target.buffer ? new Blob([output.target.buffer], { type: 'video/mp4' }) : null;
 	} finally {
 		if (!input.disposed) input.dispose();
 	}

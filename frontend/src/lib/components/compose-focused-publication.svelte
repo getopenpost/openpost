@@ -72,6 +72,7 @@
 	import XIcon from 'lucide-svelte/icons/x';
 	import { m } from '$lib/paraglide/messages';
 	import { consumeStudioReturnToken, createStudioReturnToken } from '$lib/studio/api';
+	import { consumeVideoReturnToken, createVideoReturnToken } from '$lib/video-studio/api';
 	import {
 		clearComposerRecovery,
 		loadComposerRecovery,
@@ -105,6 +106,8 @@
 		altText?: string;
 		settings?: Record<string, unknown>;
 		settingsByAccount?: Record<string, Record<string, unknown>>;
+		accountIds?: string[];
+		includeInCanonical?: boolean;
 	}
 
 	interface FocusedStudioSnapshotPayload {
@@ -356,6 +359,7 @@
 			'';
 		await loadInitialData();
 		await restoreStudioReturn();
+		await restoreVideoStudioReturn();
 	});
 
 	onMount(() => {
@@ -997,7 +1001,9 @@
 			role: item.role,
 			altText: item.altText,
 			settings: item.settings,
-			settingsByAccount: item.settingsByAccount
+			settingsByAccount: item.settingsByAccount,
+			accountIds: item.accountIds,
+			includeInCanonical: item.includeInCanonical
 		}));
 	}
 
@@ -1307,6 +1313,173 @@
 				cause instanceof Error
 					? `${cause.message} Your Studio exports are still available in Media.`
 					: 'Studio exports are still available in Media.';
+		}
+	}
+
+	function videoVariantForRatios(
+		ratios: string[]
+	): 'portrait' | 'feed-portrait' | 'square' | 'landscape' {
+		const preferred =
+			mode === 'video' ? ['16:9', '9:16', '1:1', '4:5'] : ['9:16', '4:5', '1:1', '16:9'];
+		const ratio = preferred.find((candidate) => ratios.includes(candidate)) ?? preferred[0]!;
+		return {
+			'9:16': 'portrait',
+			'4:5': 'feed-portrait',
+			'1:1': 'square',
+			'16:9': 'landscape'
+		}[ratio] as 'portrait' | 'feed-portrait' | 'square' | 'landscape';
+	}
+
+	async function openVideoStudioFromFocusedComposer() {
+		if (
+			!selectedWorkspaceId ||
+			!['story', 'short_video', 'video'].includes(mode) ||
+			selectedAccounts.length === 0
+		) {
+			return;
+		}
+		mediaPickerOpen = false;
+		clearAutoSaveTimer();
+		const savedPublicationID = await persistPublication();
+		lastSavedSnapshot = saveSnapshot();
+		const { data: savedPublication, error: loadError } = await client.GET('/publications/{id}', {
+			params: { path: { id: savedPublicationID } }
+		});
+		if (loadError || !savedPublication) {
+			throw new Error(loadError?.detail || m.compose_save_publication_failed());
+		}
+
+		const variantRenditions: Record<string, string[]> = {};
+		for (const rendition of savedPublication.renditions ?? []) {
+			const account = selectedAccounts.find((item) => item.id === rendition.social_account_id);
+			const capability = account ? capabilityForAccount(account) : null;
+			const variant = videoVariantForRatios(capability?.media.aspect_ratios ?? []);
+			(variantRenditions[variant] ??= []).push(rendition.id);
+		}
+		const requiredVariants = Object.keys(variantRenditions);
+		const constraints = effectiveVideoConstraints(selectedVideoConstraints);
+		const returnURL = new URL(
+			resolve(`/publications/${encodeURIComponent(savedPublicationID)}` as '/'),
+			$page.url
+		);
+		returnURL.searchParams.delete('video_studio_return');
+		const token = await createVideoReturnToken({
+			workspace_id: selectedWorkspaceId,
+			return_url: `${returnURL.pathname}${returnURL.search}`,
+			purpose: 'publication_media',
+			constraints: {
+				publication_id: savedPublicationID,
+				rendition_ids: Object.values(variantRenditions).flat(),
+				required_variants: requiredVariants,
+				variant_renditions: variantRenditions,
+				allowed_mimes: constraints.allowedMIMEs,
+				max_file_size_bytes: Number.isFinite(constraints.maxBytes) ? constraints.maxBytes : 0,
+				max_duration_ms: Number.isFinite(constraints.maxDurationSeconds)
+					? Math.round(constraints.maxDurationSeconds * 1_000)
+					: 0,
+				max_width: 1920,
+				max_height: 1920,
+				max_fps: 60
+			}
+		});
+		const snapshot: ComposerRecoverySnapshot = {
+			version: 1,
+			workspace_id: selectedWorkspaceId,
+			return_url: `${returnURL.pathname}${returnURL.search}`,
+			purpose: 'publication_media',
+			created_at: new Date().toISOString(),
+			expires_at: token.expires_at,
+			payload: {
+				mode,
+				publication_id: savedPublicationID,
+				selected_workspace_id: selectedWorkspaceId,
+				selected_account_ids: [...selectedAccountIds],
+				fields: $state.snapshot(fields),
+				media: $state.snapshot(media),
+				segments: $state.snapshot(segments),
+				active_settings_segment_id: activeSettingsSegmentId,
+				thumbnail_media: $state.snapshot(thumbnailMedia),
+				thumbnail_media_id: thumbnailMediaId,
+				settings_by_account: $state.snapshot(settingsByAccount),
+				segment_settings_by_account: $state.snapshot(segmentSettingsByAccount),
+				selected_date: selectedDate?.toString(),
+				selected_time: selectedTime,
+				picker_purpose: 'media'
+			} satisfies FocusedStudioSnapshotPayload
+		};
+		storeComposerRecovery(token.token, snapshot);
+		const query = new URLSearchParams({
+			mode: media[0]?.id ? 'media' : 'import',
+			workspace: selectedWorkspaceId,
+			return_token: token.token,
+			required_variants: requiredVariants.join(','),
+			variant_renditions: JSON.stringify(variantRenditions)
+		});
+		if (media[0]?.id) query.set('source_media', media[0].id);
+		await goto(resolve(`/video-studio/new?${query.toString()}` as '/'));
+	}
+
+	async function restoreVideoStudioReturn() {
+		if (!$page?.url) return;
+		const token = $page.url.searchParams.get('video_studio_return');
+		if (!token) return;
+		const cleanURL = new URL($page.url);
+		cleanURL.searchParams.delete('video_studio_return');
+		replaceState(resolve(`${cleanURL.pathname}${cleanURL.search}` as '/'), {});
+		try {
+			const snapshot = loadComposerRecovery(token);
+			const result = await consumeVideoReturnToken(token);
+			if (snapshot?.workspace_id === result.workspace_id) {
+				const payload = snapshot.payload as FocusedStudioSnapshotPayload;
+				publicationId = payload.publication_id;
+				selectedWorkspaceId = payload.selected_workspace_id;
+				selectedAccountIds = [...payload.selected_account_ids];
+				fields = structuredClone(payload.fields);
+				media = structuredClone(payload.media);
+				segments = structuredClone(payload.segments);
+				activeSettingsSegmentId = payload.active_settings_segment_id;
+				thumbnailMedia = structuredClone(payload.thumbnail_media);
+				thumbnailMediaId = payload.thumbnail_media_id;
+				settingsByAccount = structuredClone(payload.settings_by_account);
+				segmentSettingsByAccount = structuredClone(payload.segment_settings_by_account);
+				if (payload.selected_date) {
+					const [year, month, day] = payload.selected_date.split('-').map(Number);
+					selectedDate = new CalendarDate(year, month, day);
+				}
+				selectedTime = payload.selected_time;
+			}
+
+			const renditionAccounts = new SvelteMap<string, string>();
+			if (publicationId) {
+				const { data } = await client.GET('/publications/{id}', {
+					params: { path: { id: publicationId } }
+				});
+				for (const rendition of data?.renditions ?? []) {
+					renditionAccounts.set(rendition.id, rendition.social_account_id);
+				}
+			}
+			const returnedMedia: FocusedMedia[] = (result.result.exports ?? []).map((item, index) => ({
+				id: item.media_id,
+				mime_type: 'video/mp4',
+				url: getAuthenticatedMediaByID(item.media_id),
+				filename: `${item.variant_id}.mp4`,
+				role: 'attachment',
+				accountIds: (item.rendition_ids ?? [])
+					.map((renditionID) => renditionAccounts.get(renditionID))
+					.filter((accountID): accountID is string => Boolean(accountID)),
+				includeInCanonical: index === 0
+			}));
+			media = [...media.filter((item) => !item.mime_type.startsWith('video/')), ...returnedMedia];
+			await resolveSelectedCapabilities();
+			await persistPublication();
+			lastSavedSnapshot = saveSnapshot();
+			clearComposerRecovery(token);
+			success = m.video_studio_return_success({ count: returnedMedia.length });
+		} catch (cause) {
+			error =
+				cause instanceof Error
+					? `${cause.message} ${m.video_studio_return_recovery()}`
+					: m.video_studio_return_recovery();
 		}
 	}
 
@@ -2727,6 +2900,9 @@
 	videoConstraints={mediaPickerPurpose === 'thumbnail' ? [] : selectedVideoConstraints}
 	onConfirm={applyFocusedMediaPicker}
 	onCreate={openStudioFromFocusedComposer}
+	onCreateVideo={['story', 'short_video', 'video'].includes(mode)
+		? openVideoStudioFromFocusedComposer
+		: undefined}
 />
 
 <VideoEditorDialog

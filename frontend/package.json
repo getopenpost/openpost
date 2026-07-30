@@ -17,7 +17,7 @@
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "pnpm run check:i18n && pnpm run generate:i18n && pnpm run check:types && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
-		"lint": "prettier --write src/lib/components/create-workspace-dialog.svelte && git diff -- src/lib/components/create-workspace-dialog.svelte && exit 1",
+		"lint": "prettier --check . && eslint .",
 		"format": "prettier --write .",
 		"test:unit": "vitest",
 		"test": "pnpm run test:unit -- --run",

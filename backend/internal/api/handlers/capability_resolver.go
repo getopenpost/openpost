@@ -126,6 +126,7 @@ func (h *CapabilityResolverHandler) RegisterRoutes(api huma.API) {
 				segments,
 				&resolved,
 			)
+			satisfyCanonicalURLRequirement(&resolved, input.Body.SourceURL, segments)
 			output.Body.Accounts = append(output.Body.Accounts, ResolvedAccountCapability{
 				AccountID:          account.ID,
 				ResolvedCapability: resolved,
@@ -327,6 +328,45 @@ func (h *CapabilityResolverHandler) mergeAccountCapability(
 		if len(resolved.DynamicOptions[setting.OptionsSource]) == 0 {
 			h.addDynamicCapabilityFailure(resolved, settings, setting.Label+" options are not available.")
 			return
+		}
+	}
+}
+
+func satisfyCanonicalURLRequirement(
+	resolved *capabilities.ResolvedCapability,
+	sourceURL string,
+	segments []capabilities.ResolveSegment,
+) {
+	if resolved == nil || resolved.ActiveConstraints["media_shape"] != capabilities.MediaShapeLink {
+		return
+	}
+	hasURL := strings.TrimSpace(sourceURL) != ""
+	for _, segment := range segments {
+		hasURL = hasURL || strings.TrimSpace(segment.URL) != ""
+	}
+	if !hasURL {
+		return
+	}
+
+	issues := resolved.Issues[:0]
+	removed := false
+	for _, issue := range resolved.Issues {
+		if issue.Code == "setting_required" && (issue.Field == "url" || issue.Field == "link_url") {
+			removed = true
+			continue
+		}
+		issues = append(issues, issue)
+	}
+	if !removed {
+		return
+	}
+
+	resolved.Issues = issues
+	resolved.Compatible = strings.TrimSpace(resolved.UnavailableReason) == ""
+	for _, issue := range issues {
+		if issue.Severity == "error" {
+			resolved.Compatible = false
+			break
 		}
 	}
 }

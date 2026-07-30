@@ -33,9 +33,10 @@
 	interface Props {
 		showDestinations?: boolean;
 		onNavigate?: () => void;
+		onCreateWorkspace?: () => void;
 	}
 
-	let { showDestinations = false, onNavigate }: Props = $props();
+	let { showDestinations = false, onNavigate, onCreateWorkspace }: Props = $props();
 	let workspacesExpanded = $state(false);
 	const menuItemClass = $derived(showDestinations ? 'min-h-11' : '');
 
@@ -100,6 +101,7 @@
 			<WorkspaceMenuItems
 				touchSize
 				showLabel={false}
+				onCreate={onCreateWorkspace}
 				onSelect={() => {
 					workspacesExpanded = false;
 					onNavigate?.();

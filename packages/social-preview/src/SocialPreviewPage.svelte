@@ -3,18 +3,26 @@
   import Bell from "@lucide/svelte/icons/bell";
   import Bookmark from "@lucide/svelte/icons/bookmark";
   import ChevronDown from "@lucide/svelte/icons/chevron-down";
+  import CirclePlay from "@lucide/svelte/icons/circle-play";
   import Compass from "@lucide/svelte/icons/compass";
+  import Grid2X2 from "@lucide/svelte/icons/grid-2x2";
   import Hash from "@lucide/svelte/icons/hash";
+  import Heart from "@lucide/svelte/icons/heart";
   import Home from "@lucide/svelte/icons/house";
+  import ImageIcon from "@lucide/svelte/icons/image";
   import Menu from "@lucide/svelte/icons/menu";
   import MessageCircle from "@lucide/svelte/icons/message-circle";
   import Mic from "@lucide/svelte/icons/mic";
   import MoreHorizontal from "@lucide/svelte/icons/ellipsis";
+  import Newspaper from "@lucide/svelte/icons/newspaper";
   import PlaySquare from "@lucide/svelte/icons/play-square";
   import Plus from "@lucide/svelte/icons/plus";
+  import Repeat2 from "@lucide/svelte/icons/repeat-2";
   import Search from "@lucide/svelte/icons/search";
   import Send from "@lucide/svelte/icons/send";
+  import Share2 from "@lucide/svelte/icons/share-2";
   import Settings from "@lucide/svelte/icons/settings";
+  import Smile from "@lucide/svelte/icons/smile";
   import User from "@lucide/svelte/icons/user-round";
   import Users from "@lucide/svelte/icons/users";
   import Video from "@lucide/svelte/icons/video";
@@ -65,6 +73,12 @@
     <Menu />
   {:else if name === "plus"}
     <Plus />
+  {:else if name === "grid"}
+    <Grid2X2 />
+  {:else if name === "news"}
+    <Newspaper />
+  {:else if name === "heart"}
+    <Heart />
   {:else}
     <Compass />
   {/if}
@@ -91,6 +105,50 @@
   </div>
 {/snippet}
 
+{#snippet feedPost(
+  name: string,
+  account: string,
+  text: string,
+  tone: string,
+)}
+  <article class="context-post" aria-hidden="true">
+    <i style={`--avatar-tone: ${tone}`}>{name.slice(0, 1)}</i>
+    <div>
+      <header>
+        <strong>{name}</strong><span>@{account} · 2h</span
+        ><MoreHorizontal />
+      </header>
+      <p>{text}</p>
+      <footer>
+        <span><MessageCircle /> 12</span><span><Repeat2 /> 4</span
+        ><span><Heart /> 86</span><span><Share2 /></span>
+      </footer>
+    </div>
+  </article>
+{/snippet}
+
+{#snippet followRow(name: string, account: string, tone: string)}
+  <div class="follow-row" aria-hidden="true">
+    <i style={`--avatar-tone: ${tone}`}>{name.slice(0, 1)}</i>
+    <span><strong>{name}</strong><small>@{account}</small></span>
+    <b>Follow</b>
+  </div>
+{/snippet}
+
+{#snippet mobileNav()}
+  <nav class="mobile-native-nav" aria-label={`${platformName} mobile navigation`}>
+    <span class="active">{@render navIcon("home")}</span>
+    <span>{@render navIcon("search")}</span>
+    {#if model.platform === "instagram" || model.platform === "tiktok"}
+      <span class="mobile-create">{@render navIcon("plus")}</span>
+    {:else}
+      <span>{@render navIcon("message")}</span>
+    {/if}
+    <span>{@render navIcon(model.platform === "instagram" ? "video" : "bell")}</span>
+    <PreviewAvatar identity={model.identity} size={26} />
+  </nav>
+{/snippet}
+
 {#snippet searchBox(label: string)}
   <div class="native-search" aria-hidden="true">
     <Search />
@@ -105,6 +163,7 @@
     `format-${model.format}`,
     className,
   ]}
+  data-preview-shell={model.platform}
   aria-label={`${platformName} page preview`}
 >
   {#if model.platform === "x" || model.platform === "bluesky" || model.platform === "mastodon" || model.platform === "threads"}
@@ -157,22 +216,82 @@
       </aside>
 
       <section class="micro-center">
+        <header class="micro-mobile-header">
+          <PreviewAvatar identity={model.identity} size={32} />
+          <PlatformGlyph platform={model.platform} label={platformName} />
+          {#if model.platform === "x"}
+            <Settings />
+          {:else}
+            <MessageCircle />
+          {/if}
+        </header>
         <header class="column-header">
           <div>
-            <h1>{model.format === "thread" ? "Thread" : "Post"}</h1>
-            {#if model.platform === "mastodon"}<span>Home</span>{/if}
+            <h1>
+              {model.platform === "mastodon"
+                ? "Home"
+                : model.platform === "threads"
+                  ? "For you"
+                  : "Home"}
+            </h1>
+            {#if model.platform === "mastodon"}<span
+                >Posts from people you follow</span
+              >{/if}
           </div>
           {#if model.platform === "threads"}<ChevronDown
               aria-hidden="true"
             />{/if}
-          {#if model.platform === "bluesky"}<span class="feed-toggle"
-              >Discover</span
+          {#if model.platform === "bluesky"}<Settings aria-hidden="true" />{/if}
+          {#if model.platform === "x"}<span class="feed-settings"
+              ><Settings /></span
             >{/if}
         </header>
+        {#if model.platform !== "mastodon"}
+          <div class="feed-tabs" aria-hidden="true">
+            <strong
+              >{model.platform === "bluesky" ? "Following" : "For you"}</strong
+            >
+            <span
+              >{model.platform === "bluesky"
+                ? "Discover"
+                : model.platform === "threads"
+                  ? "Following"
+                  : "Following"}</span
+            >
+          </div>
+        {/if}
+        <div class="micro-composer" aria-hidden="true">
+          <PreviewAvatar identity={model.identity} size={40} />
+          <span>
+            {model.platform === "mastodon"
+              ? "What is on your mind?"
+              : model.platform === "threads"
+                ? "Start a thread..."
+                : "What’s happening?"}
+          </span>
+          <div>
+            <ImageIcon />
+            <Smile />
+          </div>
+          <b>Post</b>
+        </div>
         <div class="platform-post-stage">
           <SocialPreview {model} />
         </div>
-        {@render ghostRows(3)}
+        {@render feedPost(
+          "Maya Chen",
+          "mayac",
+          model.platform === "mastodon"
+            ? "A small update from the fediverse: the community design notes are ready to read."
+            : "The best product updates show the work and make the next step obvious.",
+          "#7c3aed",
+        )}
+        {@render feedPost(
+          "Open Design",
+          "opendesign",
+          "A practical look at accessible interface patterns for publishing tools.",
+          "#0f766e",
+        )}
       </section>
 
       <aside class="micro-right">
@@ -185,19 +304,32 @@
                 ? "For you"
                 : "What’s happening"}
           </h2>
-          {#each ["Design", "Social media", "Open source"] as topic, index (topic)}
+          {#each ["Interface design", "Creator tools", "Open source"] as topic, index (topic)}
             <div class="topic">
-              <span>{index === 0 ? "Trending now" : "Popular"}</span>
+              <span
+                >{model.platform === "bluesky"
+                  ? "Popular with friends"
+                  : index === 0
+                    ? "Trending now"
+                    : "Popular"}</span
+              >
               <strong>{topic}</strong>
               <small>{`${index + 1}.2K posts`}</small>
             </div>
           {/each}
+          <span class="side-more" aria-hidden="true">Show more</span>
         </section>
         <section class="side-card follow-card">
           <h2>Who to follow</h2>
-          {@render ghostRows(3)}
+          {@render followRow("Studio Notes", "studionotes", "#2563eb")}
+          {@render followRow("Ari Santos", "arisantos", "#db2777")}
+          {@render followRow("The Web", "theweb", "#ca8a04")}
         </section>
+        <p class="native-footer" aria-hidden="true">
+          Terms · Privacy · Accessibility · Help · © 2026
+        </p>
       </aside>
+      {@render mobileNav()}
     </div>
   {:else if model.platform === "linkedin"}
     <header class="linkedin-topbar">
@@ -218,26 +350,43 @@
         <PreviewAvatar identity={model.identity} size={68} />
         <strong>{model.identity.displayName}</strong>
         <span>@{handle}</span>
+        <p>Creator · Building with OpenPost</p>
         <hr />
-        <small>Connections</small>
-        <b>0</b>
+        <div class="profile-stat"><small>Profile viewers</small><b>24</b></div>
+        <div class="profile-stat"><small>Post impressions</small><b>138</b></div>
+        <hr />
+        <div class="saved-row"><Bookmark /> <strong>Saved items</strong></div>
       </aside>
       <section class="linkedin-feed">
         <div class="linkedin-composer">
           <PreviewAvatar identity={model.identity} size={44} />
           <span>Start a post</span>
+          <footer>
+            <b><ImageIcon /> Media</b><b><CirclePlay /> Event</b
+            ><b><Newspaper /> Write article</b>
+          </footer>
         </div>
         <SocialPreview {model} />
-        {@render ghostRows(2)}
+        <div class="linkedin-divider"><span>Sort by: <b>Top</b></span></div>
+        {@render feedPost(
+          "Product Builders",
+          "product-builders",
+          "Three concrete ways teams can make publishing reviews faster and clearer.",
+          "#0a66c2",
+        )}
       </section>
       <aside class="linkedin-news side-card">
         <h2>LinkedIn News</h2>
-        {#each ["Top stories for you", "Creator updates", "Workplace trends"] as item (item)}
+        {#each ["Creators rethink distribution", "Design systems keep evolving", "Teams invest in video"] as item, index (item)}
           <div class="news-item">
-            <strong>{item}</strong><span>Top news · 2,104 readers</span>
+            <strong>{item}</strong><span
+              >{index + 2}h ago · {index + 1},104 readers</span
+            >
           </div>
         {/each}
+        <b class="show-more">Show more <ChevronDown /></b>
       </aside>
+      {@render mobileNav()}
     </div>
   {:else if model.platform === "facebook"}
     <header class="facebook-topbar">
@@ -270,17 +419,40 @@
         {@render navItem("compass", "Feeds")}
       </aside>
       <section class="facebook-feed">
+        <div class="facebook-stories" aria-hidden="true">
+          {#each ["Create story", "Maya", "Ari", "Studio"] as story, index (story)}
+            <div
+              style={`--story-tone: ${["#1877f2", "#7c3aed", "#db2777", "#0f766e"][index]}`}
+            >
+              <i>{story.slice(0, 1)}</i
+              ><span>{story}</span>
+            </div>
+          {/each}
+        </div>
         <div class="facebook-composer">
           <PreviewAvatar identity={model.identity} size={40} />
           <span>What’s on your mind?</span>
+          <footer>
+            <b><Video /> Live video</b><b><ImageIcon /> Photo/video</b
+            ><b><Smile /> Feeling/activity</b>
+          </footer>
         </div>
         <SocialPreview {model} />
-        {@render ghostRows(2)}
+        {@render feedPost(
+          "OpenPost Community",
+          "openpostcommunity",
+          "This week’s community round-up is ready. Thanks to everyone who shared feedback.",
+          "#1877f2",
+        )}
       </section>
       <aside class="facebook-right">
-        <h2>Contacts</h2>
-        {@render ghostRows(5)}
+        <div class="contacts-heading"><h2>Contacts</h2><Video /><Search /><MoreHorizontal /></div>
+        {@render followRow("Maya Chen", "Online", "#7c3aed")}
+        {@render followRow("Ari Santos", "Online", "#db2777")}
+        {@render followRow("Studio Notes", "Online", "#2563eb")}
+        {@render followRow("Open Design", "Online", "#0f766e")}
       </aside>
+      {@render mobileNav()}
     </div>
   {:else if model.platform === "instagram"}
     <div class="instagram-page">
@@ -307,6 +479,10 @@
           (model.format === "story" || model.format === "reel") && "immersive",
         ]}
       >
+        <header class="instagram-mobile-header">
+          <div class="instagram-wordmark">Instagram</div>
+          <span><Heart /><Send /></span>
+        </header>
         {#if model.format === "post"}
           <div class="story-strip" aria-hidden="true">
             {#each Array(6) as _, index (index)}
@@ -328,12 +504,18 @@
               ><strong>{handle}</strong><small
                 >{model.identity.displayName}</small
               ></span
-            >
+            ><b>Switch</b>
           </div>
-          <h2>Suggested for you</h2>
-          {@render ghostRows(5)}
+          <div class="suggested-heading"><h2>Suggested for you</h2><b>See all</b></div>
+          {@render followRow("Studio Notes", "studionotes", "#2563eb")}
+          {@render followRow("Maya Chen", "mayac", "#7c3aed")}
+          {@render followRow("Open Design", "opendesign", "#0f766e")}
+          <p class="native-footer" aria-hidden="true">
+            About · Help · Press · API · Jobs · Privacy · Terms
+          </p>
         </aside>
       {/if}
+      {@render mobileNav()}
     </div>
   {:else if model.platform === "youtube"}
     <header class="youtube-topbar">
@@ -365,15 +547,36 @@
       <section
         class={["youtube-watch", model.format === "short" && "shorts-view"]}
       >
-        <div class="youtube-main"><SocialPreview {model} /></div>
+        <div class="youtube-main">
+          <div class="youtube-chips" aria-hidden="true">
+            <b>All</b><span>From your search</span><span>Related</span
+            ><span>Recently uploaded</span>
+          </div>
+          <SocialPreview {model} />
+        </div>
         <aside class="recommendations">
           {#each Array(7) as _, index (index)}
             <div class="recommendation" aria-hidden="true">
               <i><span>{index + 2}:14</span></i>
-              <div><b></b><b></b><small>Channel name</small></div>
+              <div
+                ><strong
+                  >{[
+                    "A practical guide to better social video",
+                    "Build a repeatable publishing workflow",
+                    "The creator tools worth knowing",
+                    "Designing clear content systems",
+                    "How small teams publish consistently",
+                    "Behind the scenes: launch day",
+                    "Weekly product and design notes",
+                  ][index]}</strong
+                ><small>Open Studio</small><small
+                  >{index + 3}K views · {index + 1} days ago</small
+                ></div
+              >
             </div>
           {/each}
         </aside>
+        {@render mobileNav()}
       </section>
     </div>
   {:else if model.platform === "tiktok"}
@@ -402,7 +605,11 @@
         {@render ghostRows(4)}
       </aside>
       <section class="tiktok-feed">
+        <div class="tiktok-feed-tabs" aria-hidden="true">
+          <span>Following</span><strong>For You</strong>
+        </div>
         <SocialPreview {model} />
+        {@render mobileNav()}
       </section>
     </div>
   {:else if model.platform === "discord"}
@@ -431,7 +638,8 @@
       </aside>
       <section class="discord-chat">
         <header>
-          <Hash /><strong>general</strong><span>OpenPost community chat</span>
+          <Hash /><strong>general</strong><span>OpenPost community chat</span
+          ><div><Bell /><Users /><Search /></div>
         </header>
         <div class="chat-history">
           <div class="channel-welcome">
@@ -447,7 +655,10 @@
       </section>
       <aside class="member-rail">
         <span>ONLINE — 4</span>
-        {@render ghostRows(4)}
+        {@render followRow("OpenPost", "Creator", "#5865f2")}
+        {@render followRow("Maya", "Online", "#7c3aed")}
+        {@render followRow("Ari", "Online", "#db2777")}
+        {@render followRow("Studio Bot", "BOT", "#0f766e")}
       </aside>
     </div>
   {:else}
@@ -475,6 +686,12 @@
 
   .preview-page :global(svg) {
     display: block;
+  }
+
+  .mobile-native-nav,
+  .micro-mobile-header,
+  .instagram-mobile-header {
+    display: none;
   }
 
   .micro-page,
@@ -652,6 +869,12 @@
     font-size: 0.72rem;
   }
 
+  .column-header > :global(svg),
+  .feed-settings :global(svg) {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
   .feed-toggle {
     color: var(--page-accent, #1d9bf0) !important;
     font-weight: 700;
@@ -671,6 +894,75 @@
     width: 100%;
     max-width: none;
     border-inline: 0;
+  }
+
+  .feed-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-height: 3.25rem;
+    border-bottom: 1px solid var(--page-border);
+    color: var(--page-muted);
+    text-align: center;
+  }
+
+  .feed-tabs > * {
+    position: relative;
+    display: grid;
+    place-items: center;
+    font-size: 0.78rem;
+  }
+
+  .feed-tabs strong {
+    color: var(--page-fg);
+  }
+
+  .feed-tabs strong::after {
+    position: absolute;
+    bottom: 0;
+    width: 3.5rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    background: var(--page-accent);
+    content: "";
+  }
+
+  .micro-composer {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.7rem;
+    min-height: 7.25rem;
+    border-bottom: 1px solid var(--page-border);
+    padding: 0.75rem 1rem;
+  }
+
+  .micro-composer > span {
+    align-self: start;
+    color: var(--page-muted);
+    padding-top: 0.55rem;
+    font-size: 1rem;
+  }
+
+  .micro-composer > div {
+    display: flex;
+    grid-column: 2;
+    gap: 0.7rem;
+    color: var(--page-accent);
+  }
+
+  .micro-composer > div :global(svg) {
+    width: 1.1rem;
+    height: 1.1rem;
+  }
+
+  .micro-composer > b {
+    grid-row: 1 / span 2;
+    grid-column: 3;
+    border-radius: 999px;
+    background: var(--page-accent);
+    color: #fff;
+    padding: 0.48rem 0.9rem;
+    font-size: 0.75rem;
   }
 
   .micro-right {
@@ -723,6 +1015,143 @@
 
   .topic strong {
     font-size: 0.82rem;
+  }
+
+  .side-card > .side-more {
+    display: block;
+    color: var(--page-accent);
+    padding: 0.8rem 1rem 1rem;
+    font-size: 0.75rem;
+    text-decoration: none;
+  }
+
+  .context-post {
+    display: grid;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: 0.65rem;
+    border-bottom: 1px solid var(--page-border);
+    padding: 0.8rem 1rem;
+  }
+
+  .context-post > i,
+  .follow-row > i {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--avatar-tone);
+    color: #fff;
+    font-size: 0.78rem;
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  .context-post > div {
+    min-width: 0;
+  }
+
+  .context-post header {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .context-post header strong {
+    font-size: 0.8rem;
+  }
+
+  .context-post header span {
+    overflow: hidden;
+    color: var(--page-muted);
+    font-size: 0.72rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .context-post header :global(svg) {
+    width: 1rem;
+    height: 1rem;
+    margin-left: auto;
+    color: var(--page-muted);
+  }
+
+  .context-post p {
+    margin: 0.2rem 0 0;
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .context-post footer {
+    display: flex;
+    justify-content: space-between;
+    max-width: 25rem;
+    margin-top: 0.65rem;
+    color: var(--page-muted);
+  }
+
+  .context-post footer span {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.67rem;
+  }
+
+  .context-post footer :global(svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .follow-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.65rem 1rem;
+  }
+
+  .follow-row > i {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .follow-row > span {
+    display: grid;
+    min-width: 0;
+  }
+
+  .follow-row strong,
+  .follow-row small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .follow-row strong {
+    font-size: 0.75rem;
+  }
+
+  .follow-row small {
+    color: var(--page-muted);
+    font-size: 0.66rem;
+  }
+
+  .follow-row > b {
+    margin-left: auto;
+    border-radius: 999px;
+    background: var(--page-fg);
+    color: var(--page-bg);
+    padding: 0.42rem 0.75rem;
+    font-size: 0.68rem;
+  }
+
+  .native-footer {
+    color: var(--page-muted);
+    padding-inline: 1rem;
+    font-size: 0.65rem;
+    line-height: 1.6;
   }
 
   .ghost-rows {
@@ -961,20 +1390,54 @@
   }
 
   .linkedin-profile span,
-  .linkedin-profile small {
+  .linkedin-profile small,
+  .linkedin-profile p {
     color: var(--page-muted);
     font-size: 0.72rem;
   }
 
+  .linkedin-profile p {
+    margin: 0.25rem 0.9rem 0.6rem;
+    line-height: 1.4;
+  }
+
   .linkedin-profile hr {
     width: 100%;
+    margin: 0.7rem 0;
     border: 0;
     border-top: 1px solid var(--page-border);
   }
 
-  .linkedin-profile b {
+  .profile-stat {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    padding: 0.2rem 0.8rem;
+    text-align: left;
+  }
+
+  .profile-stat b {
     color: #0a66c2;
     font-size: 0.75rem;
+  }
+
+  .saved-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0 0.8rem;
+    text-align: left;
+  }
+
+  .saved-row :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .saved-row strong {
+    margin: 0;
+    font-size: 0.7rem;
   }
 
   .linkedin-feed {
@@ -987,6 +1450,7 @@
   .linkedin-composer,
   .facebook-composer {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.65rem;
     border: 1px solid var(--page-border);
@@ -1009,6 +1473,50 @@
     font-weight: 600;
   }
 
+  .linkedin-composer footer,
+  .facebook-composer footer {
+    display: flex;
+    width: 100%;
+    justify-content: space-around;
+    border-top: 1px solid var(--page-border);
+    padding-top: 0.6rem;
+  }
+
+  .linkedin-composer footer b,
+  .facebook-composer footer b {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--page-muted);
+    font-size: 0.68rem;
+  }
+
+  .linkedin-composer footer :global(svg),
+  .facebook-composer footer :global(svg) {
+    width: 1.15rem;
+    height: 1.15rem;
+  }
+
+  .linkedin-composer footer b:first-child :global(svg) {
+    color: #378fe9;
+  }
+
+  .linkedin-divider {
+    height: 0.5rem;
+    position: relative;
+    border-top: 1px solid var(--page-border);
+  }
+
+  .linkedin-divider span {
+    position: absolute;
+    top: -0.45rem;
+    right: 0;
+    background: var(--page-bg);
+    color: var(--page-muted);
+    padding-left: 0.5rem;
+    font-size: 0.62rem;
+  }
+
   .news-item {
     display: grid;
     gap: 0.2rem;
@@ -1022,6 +1530,26 @@
   .news-item span {
     color: var(--page-muted);
     font-size: 0.66rem;
+  }
+
+  .show-more {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    color: var(--page-muted);
+    padding: 0.7rem 1rem 1rem;
+    font-size: 0.72rem;
+  }
+
+  .show-more :global(svg) {
+    width: 0.9rem;
+    height: 0.9rem;
+  }
+
+  .platform-linkedin .context-post {
+    border: 1px solid var(--page-border);
+    border-radius: 0.5rem;
+    background: var(--page-surface);
   }
 
   .platform-facebook {
@@ -1141,14 +1669,99 @@
     gap: 1rem;
   }
 
+  .facebook-stories {
+    display: grid;
+    width: min(100%, 31.25rem);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .facebook-stories > div {
+    position: relative;
+    min-height: 10rem;
+    overflow: hidden;
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--story-tone, #1877f2) 22%, var(--page-surface));
+    box-shadow: 0 1px 2px rgb(0 0 0 / 16%);
+  }
+
+  .facebook-stories i {
+    display: grid;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin: 0.65rem;
+    place-items: center;
+    border: 3px solid #1877f2;
+    border-radius: 50%;
+    background: var(--story-tone);
+    color: #fff;
+    font-size: 0.72rem;
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  .facebook-stories span {
+    position: absolute;
+    right: 0.55rem;
+    bottom: 0.55rem;
+    left: 0.55rem;
+    color: var(--page-fg);
+    font-size: 0.68rem;
+    font-weight: 700;
+  }
+
   .facebook-composer {
     width: min(100%, 31.25rem);
+  }
+
+  .facebook-composer footer b:first-child :global(svg) {
+    color: #f3425f;
+  }
+
+  .facebook-composer footer b:nth-child(2) :global(svg) {
+    color: #45bd62;
+  }
+
+  .facebook-composer footer b:last-child :global(svg) {
+    color: #f7b928;
+  }
+
+  .platform-facebook .context-post {
+    width: min(100%, 31.25rem);
+    border-radius: 0.65rem;
+    background: var(--page-surface);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
   }
 
   .facebook-right h2 {
     margin: 0 1rem;
     color: var(--page-muted);
     font-size: 0.92rem;
+  }
+
+  .contacts-heading {
+    display: flex;
+    align-items: center;
+    color: var(--page-muted);
+    padding: 0 0.75rem;
+  }
+
+  .contacts-heading h2 {
+    margin: 0 auto 0 0;
+  }
+
+  .contacts-heading :global(svg) {
+    width: 1rem;
+    height: 1rem;
+    margin-left: 0.85rem;
+  }
+
+  .facebook-right .follow-row {
+    padding-inline: 0.75rem;
+  }
+
+  .facebook-right .follow-row > b {
+    display: none;
   }
 
   .platform-instagram {
@@ -1271,10 +1884,33 @@
     font-size: 0.72rem;
   }
 
+  .instagram-right .account-row > b {
+    margin-left: auto;
+    color: #0095f6;
+    font-size: 0.68rem;
+  }
+
   .instagram-right h2 {
     margin: 1rem;
     color: var(--page-muted);
     font-size: 0.82rem;
+  }
+
+  .suggested-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-right: 1rem;
+  }
+
+  .suggested-heading b {
+    font-size: 0.68rem;
+  }
+
+  .platform-instagram .follow-row > b {
+    background: transparent;
+    color: #0095f6;
+    padding: 0;
   }
 
   .platform-youtube {
@@ -1407,6 +2043,26 @@
     min-width: 0;
   }
 
+  .youtube-chips {
+    display: flex;
+    gap: 0.5rem;
+    overflow: hidden;
+    margin-bottom: 0.75rem;
+    white-space: nowrap;
+  }
+
+  .youtube-chips > * {
+    border-radius: 0.45rem;
+    background: var(--page-soft);
+    padding: 0.45rem 0.75rem;
+    font-size: 0.72rem;
+  }
+
+  .youtube-chips > b {
+    background: var(--page-fg);
+    color: var(--page-bg);
+  }
+
   .recommendations {
     display: grid;
     align-content: start;
@@ -1444,15 +2100,14 @@
     padding-top: 0.25rem;
   }
 
-  .recommendation b {
-    width: 94%;
-    height: 0.5rem;
-    border-radius: 999px;
-    background: var(--page-border);
-  }
-
-  .recommendation b:nth-child(2) {
-    width: 70%;
+  .recommendation strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: 0.75rem;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 
   .recommendation small {
@@ -1540,10 +2195,31 @@
   }
 
   .tiktok-feed {
+    position: relative;
     display: grid;
     min-height: calc(100dvh - 3.75rem);
     place-items: center;
     padding: 1rem 5rem 1rem 1rem;
+  }
+
+  .tiktok-feed-tabs {
+    position: absolute;
+    z-index: 3;
+    top: 1rem;
+    left: 50%;
+    display: flex;
+    gap: 1.25rem;
+    transform: translateX(-50%);
+    font-size: 0.78rem;
+  }
+
+  .tiktok-feed-tabs span {
+    color: var(--page-muted);
+  }
+
+  .tiktok-feed-tabs strong {
+    padding-bottom: 0.35rem;
+    border-bottom: 2px solid var(--page-fg);
   }
 
   .platform-discord {
@@ -1712,6 +2388,18 @@
     font-size: 0.72rem;
   }
 
+  .discord-chat > header > div {
+    display: flex;
+    gap: 0.9rem;
+    margin-left: auto;
+    color: var(--page-muted);
+  }
+
+  .discord-chat > header > div :global(svg) {
+    width: 1rem;
+    height: 1rem;
+  }
+
   .chat-history {
     display: grid;
     align-content: end;
@@ -1772,6 +2460,19 @@
 
   .member-rail {
     background: #2b2d31;
+  }
+
+  .member-rail .follow-row {
+    padding: 0.35rem 0.75rem;
+  }
+
+  .member-rail .follow-row > i {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .member-rail .follow-row > b {
+    display: none;
   }
 
   .unsupported-page {
@@ -2084,6 +2785,88 @@
 
     .micro-center {
       border: 0;
+      padding-bottom: 3.75rem;
+    }
+
+    .micro-mobile-header {
+      display: grid;
+      min-height: 3.35rem;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      border-bottom: 1px solid var(--page-border);
+      padding: 0 0.9rem;
+    }
+
+    .micro-mobile-header > :global(svg) {
+      width: 1.4rem;
+      height: 1.4rem;
+      justify-self: center;
+    }
+
+    .micro-mobile-header > :global(svg):last-child {
+      width: 1.15rem;
+      height: 1.15rem;
+      justify-self: end;
+    }
+
+    .column-header {
+      position: static;
+      min-height: 2.8rem;
+      justify-content: center;
+    }
+
+    .column-header > div span,
+    .column-header > :global(svg),
+    .feed-settings {
+      display: none;
+    }
+
+    .column-header h1 {
+      font-size: 0.9rem;
+    }
+
+    .micro-composer {
+      display: none;
+    }
+
+    .mobile-native-nav {
+      position: fixed;
+      z-index: 40;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      display: grid;
+      min-height: 3.65rem;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: center;
+      border-top: 1px solid var(--page-border);
+      background: var(--page-surface);
+      color: var(--page-fg);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .mobile-native-nav > span,
+    .mobile-native-nav > :global(.preview-avatar) {
+      display: grid;
+      justify-self: center;
+      place-items: center;
+    }
+
+    .mobile-native-nav :global(svg) {
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+
+    .mobile-native-nav > span.active :global(svg) {
+      fill: currentColor;
+    }
+
+    .mobile-native-nav .mobile-create {
+      width: 2.3rem;
+      height: 1.75rem;
+      border-radius: 0.5rem;
+      background: var(--page-fg);
+      color: var(--page-bg);
     }
 
     .linkedin-topbar {
@@ -2096,7 +2879,7 @@
 
     .linkedin-page {
       display: block;
-      padding: 0;
+      padding: 0 0 3.75rem;
     }
 
     .linkedin-composer,
@@ -2119,12 +2902,57 @@
 
     .facebook-feed {
       gap: 0;
+      padding-bottom: 3.75rem;
+    }
+
+    .facebook-stories {
+      gap: 0.35rem;
+      padding: 0.65rem;
+    }
+
+    .facebook-stories > div {
+      min-height: 8.5rem;
     }
 
     .instagram-feed,
     .instagram-feed.immersive {
       min-height: 100dvh;
+      padding: 0 0 3.75rem;
+    }
+
+    .instagram-feed.immersive {
+      padding-bottom: 0;
+    }
+
+    .instagram-mobile-header {
+      display: flex;
+      width: 100%;
+      min-height: 3.5rem;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--page-border);
+      padding: 0 0.9rem;
+    }
+
+    .instagram-mobile-header .instagram-wordmark {
+      display: block;
       padding: 0;
+      font-size: 1.5rem;
+    }
+
+    .instagram-mobile-header > span {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .instagram-mobile-header :global(svg) {
+      width: 1.35rem;
+      height: 1.35rem;
+    }
+
+    .instagram-feed.immersive .instagram-mobile-header,
+    .instagram-feed.immersive ~ .mobile-native-nav {
+      display: none;
     }
 
     .story-strip {
@@ -2149,12 +2977,22 @@
     .youtube-watch,
     .youtube-watch.shorts-view {
       display: block;
-      padding: 0;
+      padding: 0 0 3.75rem;
+    }
+
+    .youtube-chips {
+      padding: 0.65rem 0.75rem 0;
     }
 
     .tiktok-feed {
       min-height: calc(100dvh - 3.75rem);
-      padding: 0;
+      padding: 0 0 3.75rem;
+    }
+
+    .tiktok-feed-tabs {
+      top: 0.8rem;
+      color: #fff;
+      text-shadow: 0 1px 2px #000;
     }
 
     .discord-chat {

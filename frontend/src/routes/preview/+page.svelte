@@ -52,7 +52,7 @@
 </script>
 
 <svelte:head>
-	<title>{pageTitle} · OpenPost</title>
+	<title>{pageTitle}</title>
 	<meta name="robots" content="noindex,nofollow" />
 </svelte:head>
 

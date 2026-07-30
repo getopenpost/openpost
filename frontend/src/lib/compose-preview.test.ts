@@ -61,8 +61,18 @@ describe('composer preview mapping', () => {
 	it('maps composer modes to native-looking preview formats', () => {
 		expect(previewFormat('x', 'thread')).toBe('thread');
 		expect(previewFormat('instagram', 'short_video')).toBe('reel');
+		expect(previewFormat('facebook', 'short_video')).toBe('reel');
 		expect(previewFormat('youtube', 'short_video')).toBe('short');
 		expect(previewFormat('tiktok', 'short_video')).toBe('video');
+		expect(previewFormat('threads', 'short_video')).toBe('video');
+		expect(
+			previewFormat('linkedin', 'post', [
+				{ id: 'document', kind: 'document', src: '/media/document' }
+			])
+		).toBe('document');
+		expect(
+			previewFormat('tiktok', 'post', [{ id: 'photo', kind: 'image', src: '/media/photo' }])
+		).toBe('photo');
 	});
 
 	it('maps destination settings without exposing them in the preview URL', () => {
@@ -76,7 +86,9 @@ describe('composer preview mapping', () => {
 				poll_options: ['Previews', 'Analytics'],
 				poll_duration_minutes: 30,
 				link_url: 'https://openpost.social/tools',
-				link_title: 'Free social tools'
+				link_title: 'Free social tools',
+				link_image_url: 'https://openpost.social/social-card.png',
+				location_name: 'Lisbon'
 			}
 		});
 
@@ -92,8 +104,43 @@ describe('composer preview mapping', () => {
 			card: {
 				kind: 'link',
 				title: 'Free social tools',
-				domain: 'openpost.social'
-			}
+				domain: 'openpost.social',
+				imageUrl: 'https://openpost.social/social-card.png'
+			},
+			location: 'Lisbon'
 		});
+	});
+
+	it('uses the actual destination format for documents and photo posts', () => {
+		const linkedInModel = buildComposerPreview({
+			account: { ...account, platform: 'linkedin' } as SocialAccount,
+			mode: 'post',
+			segments: [
+				{
+					id: 'primary',
+					text: 'Read the report',
+					media: [{ id: 'report', mimeType: 'application/pdf' }]
+				}
+			],
+			destinationSettings: { document_title: 'The 2026 report' }
+		});
+		const tiktokModel = buildComposerPreview({
+			account: { ...account, platform: 'tiktok' } as SocialAccount,
+			mode: 'post',
+			segments: [
+				{
+					id: 'primary',
+					text: 'A photo post',
+					media: [{ id: 'photo', mimeType: 'image/jpeg' }]
+				}
+			]
+		});
+
+		expect(linkedInModel).toMatchObject({
+			platform: 'linkedin',
+			format: 'document',
+			title: 'The 2026 report'
+		});
+		expect(tiktokModel).toMatchObject({ platform: 'tiktok', format: 'photo' });
 	});
 });

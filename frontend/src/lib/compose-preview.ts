@@ -59,16 +59,18 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 	const title =
 		input.title ||
 		settingText(mergedSettings, 'title') ||
+		settingText(mergedSettings, 'video_title') ||
 		settingText(mergedSettings, 'article_title') ||
 		settingText(mergedSettings, 'document_title');
 	const subtitle =
 		input.subtitle ||
 		settingText(mergedSettings, 'description') ||
+		settingText(mergedSettings, 'video_description') ||
 		settingText(mergedSettings, 'article_description');
 
 	return createPreviewModel({
 		platform,
-		format: previewFormat(platform, input.mode),
+		format: previewFormat(platform, input.mode, media),
 		identity: {
 			displayName: input.account.account_username || getPlatformName(input.account.platform),
 			handle: input.account.account_username || input.account.slug || platform,
@@ -82,7 +84,10 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 			settingText(mergedSettings, 'spoiler_text') ||
 			(settingBoolean(mergedSettings, 'spoiler') ? 'Sensitive media' : undefined),
 		visibility: settingText(mergedSettings, 'visibility') || undefined,
-		location: input.location,
+		location:
+			input.location ||
+			settingText(mergedSettings, 'location_name') ||
+			settingText(mergedSettings, 'location'),
 		title,
 		subtitle
 	});
@@ -90,7 +95,8 @@ export function buildComposerPreview(input: ComposerPreviewInput): PreviewModel 
 
 export function previewFormat(
 	platform: PreviewModel['platform'],
-	mode: ComposerModeKey
+	mode: ComposerModeKey,
+	media: PreviewMedia[] = []
 ): PreviewFormat {
 	switch (mode) {
 		case 'thread':
@@ -99,12 +105,23 @@ export function previewFormat(
 			return 'story';
 		case 'short_video':
 			if (platform === 'youtube') return 'short';
-			if (platform === 'tiktok') return 'video';
-			return 'reel';
+			if (platform === 'instagram' || platform === 'facebook') return 'reel';
+			return 'video';
 		case 'video':
 			return 'video';
-		default:
+		default: {
+			if (platform === 'linkedin' && media.some((item) => item.kind === 'document')) {
+				return 'document';
+			}
+			if (
+				platform === 'tiktok' &&
+				media.length > 0 &&
+				media.every((item) => item.kind === 'image')
+			) {
+				return 'photo';
+			}
 			return 'post';
+		}
 	}
 }
 
@@ -158,7 +175,9 @@ function previewCard(
 		kind: 'link',
 		title: settingText(settings, 'link_title') || safeDomain(url) || 'Shared link',
 		description: settingText(settings, 'link_description') || undefined,
-		domain: safeDomain(url)
+		domain: safeDomain(url),
+		imageUrl:
+			settingText(settings, 'link_image_url') || settingText(settings, 'thumbnail_url') || undefined
 	};
 }
 

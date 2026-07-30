@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { SocialPreviewPage, createPreviewModel } from '@openpost/social-preview';
+import { SocialPreviewPage, createPreviewModel, platformNames } from '@openpost/social-preview';
 import PlatformPreview from './platform-preview.svelte';
 
 const previewProps = {
@@ -135,9 +135,50 @@ describe('PlatformPreview platform views', () => {
 		});
 
 		await expect.element(screen.getByLabelText('X page preview')).toBeVisible();
+		await expect
+			.element(screen.getByLabelText('X page preview'))
+			.toHaveAttribute('data-preview-shell', 'x');
+		await expect
+			.element(screen.getByLabelText('X page preview'))
+			.toHaveTextContent('What’s happening?');
 		await expect.element(screen.getByText('First destination post.')).toBeVisible();
 		await expect.element(screen.getByText('Second destination post.')).toBeVisible();
 	});
+
+	it.each([
+		['mastodon', 'post', 'What is on your mind?'],
+		['bluesky', 'post', 'Discover'],
+		['threads', 'post', 'Start a thread...'],
+		['linkedin', 'document', 'LinkedIn News'],
+		['facebook', 'post', 'What’s on your mind?'],
+		['instagram', 'post', 'Suggested for you'],
+		['youtube', 'video', 'Subscriptions'],
+		['tiktok', 'video', 'Suggested accounts'],
+		['discord', 'post', 'Welcome to #general!']
+	] as const)(
+		'renders the %s destination website around the authored post',
+		async (platform, format, chromeText) => {
+			const screen = await render(SocialPreviewPage, {
+				model: createPreviewModel({
+					platform,
+					format,
+					identity: { displayName: 'OpenPost', handle: 'openpost' },
+					segments: [{ id: 'one', text: `Authored ${platform} post.` }],
+					title: format === 'document' ? 'Launch brief' : 'Launch video'
+				})
+			});
+
+			await expect
+				.element(screen.getByLabelText(`${platformNames[platform]} page preview`))
+				.toHaveAttribute('data-preview-shell', platform);
+			await expect
+				.element(screen.getByLabelText(`${platformNames[platform]} page preview`))
+				.toHaveTextContent(chromeText);
+			await expect
+				.element(screen.getByLabelText(`${platformNames[platform]} page preview`))
+				.toHaveTextContent(`Authored ${platform} post.`);
+		}
+	);
 
 	it('shows an unsupported state instead of falling back to another network', async () => {
 		const screen = await render(PlatformPreview, {

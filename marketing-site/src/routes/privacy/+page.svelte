@@ -2,7 +2,7 @@
   import { resolve } from "$app/paths";
   import { siteUrl } from "../_marketing";
 
-  const effectiveDate = "29 July 2026";
+  const effectiveDate = "30 July 2026";
 </script>
 
 <svelte:head>
@@ -72,6 +72,12 @@
         platform replies, access tokens, post text, or direct messages.
       </li>
       <li>
+        <strong>Website analytics data:</strong> anonymous page views, referrer URLs,
+        browser, operating system, device type, country, and selected interaction
+        events from openpost.social and docs.openpost.social. The website tracker
+        does not use cookies, identify visitors, or track people across websites.
+      </li>
+      <li>
         <strong>Brand font records:</strong> custom WOFF2, TTF, or OTF files, family
         and style details, and the account and time associated with the required font-license
         acknowledgement.
@@ -129,6 +135,10 @@
         Comply with law, enforce the Terms of Service, and resolve disputes.
       </li>
       <li>Improve the service using technical logs and error data.</li>
+      <li>
+        Understand anonymous traffic and selected interactions on the marketing
+        and documentation sites.
+      </li>
     </ul>
     <p>
       For users in the European Economic Area, these uses rely on performing our
@@ -149,7 +159,7 @@
       </li>
       <li>
         <strong>Hosting companies</strong> that run the app, database, media, email,
-        network, and backups under their service terms.
+        network, analytics, and backups under their service terms.
       </li>
       <li>
         <strong>Polar</strong> for checkout, subscriptions, billing, and customer
@@ -221,8 +231,14 @@
       Studio background removal runs in your browser with model and runtime
       files served by the OpenPost operator. Source pixels are not sent to a
       background-removal service. A result is uploaded to the selected workspace
-      only when processing succeeds. The marketing site does not use advertising
-      trackers. The privacy-enhanced YouTube player is loaded only when you open
+      only when processing succeeds.
+    </p>
+    <p>
+      The marketing and documentation sites use self-hosted, cookie-free Umami
+      analytics to measure anonymous traffic and selected interactions. They do
+      not use advertising trackers, identify visitors, or track people across
+      websites. The hosted application does not load this website analytics
+      tracker. The privacy-enhanced YouTube player is loaded only when you open
       the product demo; YouTube may then process device and playback data.
     </p>
     <p>

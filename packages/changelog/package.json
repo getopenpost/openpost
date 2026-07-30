@@ -1,0 +1,14 @@
+{
+  "name": "@openpost/changelog",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "scripts": {
+    "test": "node --test src/index.test.mjs"
+  }
+}

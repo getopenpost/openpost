@@ -1,0 +1,211 @@
+name: Apply composer link capability fix
+
+on:
+  push:
+    branches:
+      - fix/composer-link-capability-validation
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch resolver and add regression test
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          resolver_path = Path('backend/internal/api/handlers/capability_resolver.go')
+          resolver = resolver_path.read_text()
+          old_call = '''\t\t\th.mergeAccountCapability(
+          \t\t\t\tctx,
+          \t\t\t\taccount,
+          \t\t\t\tinput.Body.Locale,
+          \t\t\t\tinput.Body.Region,
+          \t\t\t\tinput.Body.Settings[account.ID],
+          \t\t\t\tsegments,
+          \t\t\t\t&resolved,
+          \t\t\t)
+          \t\t\toutput.Body.Accounts = append(output.Body.Accounts, ResolvedAccountCapability{
+          '''
+          new_call = '''\t\t\th.mergeAccountCapability(
+          \t\t\t\tctx,
+          \t\t\t\taccount,
+          \t\t\t\tinput.Body.Locale,
+          \t\t\t\tinput.Body.Region,
+          \t\t\t\tinput.Body.Settings[account.ID],
+          \t\t\t\tsegments,
+          \t\t\t\t&resolved,
+          \t\t\t)
+          \t\t\tsatisfyCanonicalURLRequirement(&resolved, input.Body.SourceURL, segments)
+          \t\t\toutput.Body.Accounts = append(output.Body.Accounts, ResolvedAccountCapability{
+          '''
+          if old_call not in resolver:
+              raise SystemExit('resolver call site did not match')
+          resolver = resolver.replace(old_call, new_call, 1)
+
+          marker = 'func applyDynamicCapabilityConstraints(resolved *capabilities.ResolvedCapability, constraints map[string]interface{}, segments []capabilities.ResolveSegment) {'
+          helper = '''func satisfyCanonicalURLRequirement(
+          \tresolved *capabilities.ResolvedCapability,
+          \tsourceURL string,
+          \tsegments []capabilities.ResolveSegment,
+          ) {
+          \tif resolved == nil || resolved.ActiveConstraints["media_shape"] != capabilities.MediaShapeLink {
+          \t\treturn
+          \t}
+          \thasURL := strings.TrimSpace(sourceURL) != ""
+          \tfor _, segment := range segments {
+          \t\thasURL = hasURL || strings.TrimSpace(segment.URL) != ""
+          \t}
+          \tif !hasURL {
+          \t\treturn
+          \t}
+
+          \tissues := resolved.Issues[:0]
+          \tremoved := false
+          \tfor _, issue := range resolved.Issues {
+          \t\tif issue.Code == "setting_required" && (issue.Field == "url" || issue.Field == "link_url") {
+          \t\t\tremoved = true
+          \t\t\tcontinue
+          \t\t}
+          \t\tissues = append(issues, issue)
+          \t}
+          \tif !removed {
+          \t\treturn
+          \t}
+
+          \tresolved.Issues = issues
+          \tresolved.Compatible = strings.TrimSpace(resolved.UnavailableReason) == ""
+          \tfor _, issue := range issues {
+          \t\tif issue.Severity == "error" {
+          \t\t\tresolved.Compatible = false
+          \t\t\tbreak
+          \t\t}
+          \t}
+          }
+
+          '''
+          if marker not in resolver:
+              raise SystemExit('resolver helper insertion point did not match')
+          resolver = resolver.replace(marker, helper + marker, 1)
+          resolver_path.write_text(resolver)
+
+          test_path = Path('backend/internal/api/handlers/capability_resolver_link_test.go')
+          test_path.write_text('''package handlers
+
+          import (
+          \t"testing"
+
+          \t"github.com/openpost/backend/internal/capabilities"
+          \t"github.com/stretchr/testify/require"
+          )
+
+          func TestSatisfyCanonicalURLRequirement(t *testing.T) {
+          \ttests := []struct {
+          \t\tname       string
+          \t\tsourceURL  string
+          \t\tsegmentURL string
+          \t\twantFixed  bool
+          \t}{
+          \t\t{name: "source URL", sourceURL: "https://example.com", wantFixed: true},
+          \t\t{name: "segment URL", segmentURL: "https://example.com", wantFixed: true},
+          \t\t{name: "missing URL", wantFixed: false},
+          \t}
+
+          \tfor _, tt := range tests {
+          \t\tt.Run(tt.name, func(t *testing.T) {
+          \t\t\tsegments := []capabilities.ResolveSegment{{
+          \t\t\t\tID:   "segment-1",
+          \t\t\t\tBody: "A link post",
+          \t\t\t\tURL:  tt.segmentURL,
+          \t\t\t}}
+          \t\t\tresolved := capabilities.Resolve(capabilities.ProviderX, capabilities.ResolveInput{
+          \t\t\t\tIntent:    capabilities.IntentPost,
+          \t\t\t\tSourceURL: tt.sourceURL,
+          \t\t\t\tSegments:  segments,
+          \t\t\t})
+
+          \t\t\trequire.True(t, hasCapabilityIssue(resolved.Issues, "setting_required", "url"))
+          \t\t\trequire.False(t, resolved.Compatible)
+
+          \t\t\tsatisfyCanonicalURLRequirement(&resolved, tt.sourceURL, segments)
+
+          \t\t\tif tt.wantFixed {
+          \t\t\t\trequire.False(t, hasCapabilityIssue(resolved.Issues, "setting_required", "url"))
+          \t\t\t\trequire.True(t, resolved.Compatible)
+          \t\t\t} else {
+          \t\t\t\trequire.True(t, hasCapabilityIssue(resolved.Issues, "setting_required", "url"))
+          \t\t\t\trequire.False(t, resolved.Compatible)
+          \t\t\t}
+          \t\t})
+          \t}
+          }
+
+          func TestSatisfyCanonicalURLRequirementKeepsOtherErrors(t *testing.T) {
+          \tsegments := []capabilities.ResolveSegment{{
+          \t\tID:   "segment-1",
+          \t\tBody: "A link post",
+          \t\tURL:  "https://example.com",
+          \t}}
+          \tresolved := capabilities.Resolve(capabilities.ProviderX, capabilities.ResolveInput{
+          \t\tIntent:   capabilities.IntentPost,
+          \t\tSegments: segments,
+          \t})
+          \tresolved.Issues = append(resolved.Issues, capabilities.ValidationIssue{
+          \t\tSeverity: "error",
+          \t\tCode:     "other_error",
+          \t\tField:    "body",
+          \t})
+
+          \tsatisfyCanonicalURLRequirement(&resolved, "", segments)
+
+          \trequire.False(t, hasCapabilityIssue(resolved.Issues, "setting_required", "url"))
+          \trequire.True(t, hasCapabilityIssue(resolved.Issues, "other_error", "body"))
+          \trequire.False(t, resolved.Compatible)
+          }
+
+          func hasCapabilityIssue(issues []capabilities.ValidationIssue, code string, field string) bool {
+          \tfor _, issue := range issues {
+          \t\tif issue.Code == code && issue.Field == field {
+          \t\t\treturn true
+          \t\t}
+          \t}
+          \treturn false
+          }
+          ''')
+
+          changelog_path = Path('CHANGELOG.md')
+          changelog = changelog_path.read_text()
+          heading = '## [Unreleased]\n'
+          entry = '## [Unreleased]\n\n### Fixed\n\n- Fixed link posts in the text-and-thread composer being blocked by false per-destination `URL is required` errors.\n'
+          if heading not in changelog:
+              raise SystemExit('Unreleased changelog heading not found')
+          changelog_path.write_text(changelog.replace(heading, entry, 1))
+          PY
+
+          gofmt -w backend/internal/api/handlers/capability_resolver.go backend/internal/api/handlers/capability_resolver_link_test.go
+
+      - name: Run regression tests
+        working-directory: backend
+        run: go test ./internal/api/handlers -run 'TestSatisfyCanonicalURLRequirement'
+
+      - name: Commit fix
+        shell: bash
+        run: |
+          rm .github/workflows/agent-fix-composer-link.yml
+          git config user.name "OpenPost automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add backend/internal/api/handlers/capability_resolver.go \
+            backend/internal/api/handlers/capability_resolver_link_test.go \
+            CHANGELOG.md \
+            .github/workflows/agent-fix-composer-link.yml
+          git commit -m "fix: accept composer links during capability resolution"
+          git push origin HEAD:${GITHUB_REF_NAME}

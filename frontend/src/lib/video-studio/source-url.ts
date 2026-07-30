@@ -37,15 +37,18 @@ export async function openVideoProjectPreviewSource(
 	projectID: string | undefined,
 	source: VideoSource,
 	signal?: AbortSignal
-): Promise<File> {
+): Promise<{ file: File; using_proxy: boolean }> {
 	if (projectID && source.kind !== 'image' && source.kind !== 'audio') {
 		const proxy = (await listProjectAssets(projectID, source.id)).find(
 			(asset) => asset.kind === 'proxy'
 		);
 		if (proxy) {
 			const file = await readProjectFile(proxy.path);
-			if (file) return file;
+			if (file) return { file, using_proxy: true };
 		}
 	}
-	return await openVideoProjectSource(projectID, source, signal);
+	return {
+		file: await openVideoProjectSource(projectID, source, signal),
+		using_proxy: false
+	};
 }

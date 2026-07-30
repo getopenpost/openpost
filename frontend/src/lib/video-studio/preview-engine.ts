@@ -9,6 +9,18 @@ export interface PreviewEngineState {
 	ready: boolean;
 	rendered_timestamp_us: number;
 	error?: string;
+	diagnostics?: PreviewEngineDiagnostics;
+}
+
+export interface PreviewEngineDiagnostics {
+	active_video_decoders: number;
+	peak_video_decoders: number;
+	dropped_render_requests: number;
+	proxy_source_count: number;
+	sample_requests: number;
+	discontinuity_seeks: number;
+	render_ms: number;
+	quality: 'full' | 'adaptive';
 }
 
 export class VideoStudioPreviewEngine {
@@ -49,14 +61,18 @@ export class VideoStudioPreviewEngine {
 		this.controller = controller;
 		const revision = ++this.revision;
 		const files = await Promise.all(
-			referencedSourceIDs(project).map(async (sourceID) => ({
-				source_id: sourceID,
-				file: await openVideoProjectPreviewSource(
+			referencedSourceIDs(project).map(async (sourceID) => {
+				const source = await openVideoProjectPreviewSource(
 					this.projectID,
 					project.sources[sourceID]!,
 					controller.signal
-				)
-			}))
+				);
+				return {
+					source_id: sourceID,
+					file: source.file,
+					using_proxy: source.using_proxy
+				};
+			})
 		);
 		controller.signal.throwIfAborted();
 		this.worker.postMessage({
@@ -67,7 +83,7 @@ export class VideoStudioPreviewEngine {
 		});
 	}
 
-	render(variantID: VariantID, timestampUS: number): void {
+	render(variantID: VariantID, timestampUS: number, playing = false): void {
 		if (this.disposed) return;
 		this.lastVariantID = variantID;
 		this.lastTimestampUS = timestampUS;
@@ -75,7 +91,8 @@ export class VideoStudioPreviewEngine {
 			type: 'render',
 			request_id: ++this.requestID,
 			variant_id: variantID,
-			timestamp_us: timestampUS
+			timestamp_us: timestampUS,
+			playing
 		});
 	}
 
@@ -94,7 +111,8 @@ export class VideoStudioPreviewEngine {
 		} else if (event.data.type === 'frame') {
 			this.onState({
 				ready: true,
-				rendered_timestamp_us: Number(event.data.timestamp_us ?? 0)
+				rendered_timestamp_us: Number(event.data.timestamp_us ?? 0),
+				diagnostics: event.data.diagnostics as PreviewEngineDiagnostics
 			});
 		} else if (event.data.type === 'error') {
 			this.onState({

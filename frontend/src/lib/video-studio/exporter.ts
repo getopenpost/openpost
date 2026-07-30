@@ -31,6 +31,7 @@ import { evaluateFrame } from './render-graph';
 import { openVideoProjectSource } from './source-access';
 import { WebGLFrameCompositor } from './webgl-compositor';
 import { drawEvaluatedFrame, type SourceRuntime } from './frame-renderer';
+import { SequentialVideoSampler } from './sequential-video-sampler';
 
 const AUDIO_SAMPLE_RATE = 48_000;
 const AUDIO_BLOCK_SECONDS = 1;
@@ -299,6 +300,7 @@ async function prepareVideoRuntimes(
 			}
 			runtime.input = input;
 			runtime.video = new VideoSampleSink(videoTrack, { optimizeForLatency: true });
+			runtime.videoSampler = new SequentialVideoSampler(runtime.video);
 		}
 		resources.set(sourceID, runtime);
 	}
@@ -502,6 +504,7 @@ async function prepareAudioRuntimes(
 }
 
 function disposeSourceRuntime(runtime: SourceRuntime): void {
+	void runtime.videoSampler?.dispose();
 	runtime.image?.close();
 	if (runtime.input && !runtime.input.disposed) runtime.input.dispose();
 }

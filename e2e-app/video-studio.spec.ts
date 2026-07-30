@@ -225,6 +225,26 @@ test("guest imports, edits, autosaves, restores, and exports a local video", asy
   await expect(page).toHaveURL(/\/video-studio\/local_video_/);
   await expect(page.getByRole("heading", { name: "Timeline" })).toBeVisible();
   await expect(page.getByText("openpost-e2e.webm").first()).toBeVisible();
+  const previewEngine = page.locator("[data-preview-engine-ready]").first();
+  await expect(previewEngine).toHaveAttribute(
+    "data-preview-engine-ready",
+    "true",
+    { timeout: 15_000 },
+  );
+  expect(
+    Number(await previewEngine.getAttribute("data-preview-peak-decoders")),
+  ).toBeLessThanOrEqual(3);
+  await page.getByRole("button", { name: "Play" }).first().click();
+  await expect
+    .poll(() => previewEngine.getAttribute("data-preview-quality"))
+    .toBe("adaptive");
+  await page.getByRole("button", { name: "Pause" }).first().click();
+  await expect
+    .poll(() => previewEngine.getAttribute("data-preview-quality"))
+    .toBe("full");
+  await page
+    .getByRole("slider", { name: "Timeline", exact: true })
+    .press("Home");
 
   const positionX = page.getByRole("slider", {
     name: "Horizontal position",

@@ -7,11 +7,13 @@ import {
 } from '@openpost/video-project';
 import type { AudioBufferSink, Input, VideoSample, VideoSampleSink } from 'mediabunny';
 import { evaluateFrame, type EvaluatedPrimaryLayer } from './render-graph';
+import type { SequentialVideoSampler } from './sequential-video-sampler';
 
 export interface SourceRuntime {
 	source: VideoSource;
 	input?: Input;
 	video?: VideoSampleSink;
+	videoSampler?: SequentialVideoSampler<VideoSample>;
 	audio?: AudioBufferSink;
 	image?: ImageBitmap;
 }
@@ -27,9 +29,11 @@ export async function drawEvaluatedFrame(
 	for (const layer of frame.primary_layers) {
 		const runtime = resources.get(layer.source_id);
 		if (!runtime) continue;
-		const sample = runtime.video
-			? await runtime.video.getSample(layer.source_time_us / 1_000_000)
-			: null;
+		const sample = runtime.videoSampler
+			? await runtime.videoSampler.sample(layer.source_time_us / 1_000_000)
+			: runtime.video
+				? await runtime.video.getSample(layer.source_time_us / 1_000_000)
+				: null;
 		try {
 			drawMediaLayer(context, sample ?? runtime.image, layer.presentation, layer.opacity, layer);
 		} finally {
@@ -161,11 +165,12 @@ async function drawVisualLayer(
 	if (item.type === 'media' || item.type === 'camera') {
 		const runtime = resources.get(item.source_id);
 		if (!runtime) return;
-		const sample = runtime.video
-			? await runtime.video.getSample(
-					(item.source_in_us + Math.round(localTimeUS * item.speed)) / 1_000_000
-				)
-			: null;
+		const timestamp = (item.source_in_us + Math.round(localTimeUS * item.speed)) / 1_000_000;
+		const sample = runtime.videoSampler
+			? await runtime.videoSampler.sample(timestamp)
+			: runtime.video
+				? await runtime.video.getSample(timestamp)
+				: null;
 		try {
 			drawMediaLayer(context, sample ?? runtime.image, presentation, opacity);
 		} finally {

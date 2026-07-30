@@ -244,6 +244,117 @@ test("public Studio creates and restores a local design without authentication",
   ).toEqual([]);
 });
 
+test("public Studio imports attributed stock photos into durable local media", async ({
+  page,
+}) => {
+  test.setTimeout(60_000);
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(message.text());
+  });
+
+  const stockPng = await page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 320;
+    canvas.height = 180;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("Canvas is unavailable");
+    context.fillStyle = "#fb923c";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/png");
+  });
+  const stockAsset = {
+    external_id: "studio-photo-1",
+    kind: "photo",
+    title: "Warm desk",
+    width: 320,
+    height: 180,
+    thumbnail_url:
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='180'%3E%3Crect width='320' height='180' fill='%23fb923c'/%3E%3C/svg%3E",
+    source_url: "https://example.test/studio-photo-1",
+    creator_name: "OpenPost Test",
+    creator_url: "https://example.test/creator",
+    provider: "pexels",
+    provider_url: "https://www.pexels.com",
+    attribution_text: "OpenPost Test on Pexels",
+    license_name: "Pexels License",
+    license_url: "https://www.pexels.com/license/",
+  };
+
+  await page.route("**/api/v1/stock-media/providers", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        enabled: true,
+        providers: [
+          {
+            key: "pexels",
+            name: "Pexels",
+            provider_url: "https://www.pexels.com",
+            photos: true,
+            videos: true,
+            audio: false,
+            attribution: "Photos provided by Pexels",
+          },
+        ],
+      },
+    });
+  });
+  await page.route("**/api/v1/stock-media/search**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        items: [stockAsset],
+        page: 1,
+        per_page: 24,
+        total: 1,
+        has_more: false,
+        provider: "pexels",
+        provider_url: "https://www.pexels.com",
+      },
+    });
+  });
+  await page.route("**/api/v1/stock-media/selections", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        ...stockAsset,
+        download_url: stockPng,
+        mime_type: "image/png",
+      },
+    });
+  });
+
+  await page.goto("/studio");
+  await page.getByRole("button", { name: /Instagram square/ }).click();
+  await expect(page).toHaveURL(/\/studio\/local_design_/);
+  await page.getByRole("button", { name: "Browse stock" }).click();
+  await page
+    .getByRole("textbox", { name: "Search stock photos and videos" })
+    .fill("desk");
+  await page.getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByText("By OpenPost Test")).toBeVisible();
+  await page.getByRole("button", { name: "Use this item" }).click();
+
+  const stockLayer = page.getByRole("treeitem", {
+    name: /pexels-studio-photo-1\.jpg, image/,
+  });
+  await expect(stockLayer).toBeVisible();
+  await expect(
+    page.getByText("pexels-studio-photo-1.jpg", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("banner").getByText("Saved on this device"),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(stockLayer).toBeVisible();
+  expect(
+    browserErrors.filter((message) => !message.includes("401 (Unauthorized)")),
+  ).toEqual([]);
+});
+
 test("Studio creates from an original template, adapts to mobile, and exports to Media", async ({
   page,
   request,

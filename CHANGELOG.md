@@ -13,6 +13,8 @@ All notable changes to this project are documented in this file.
 ### Changed
 
 - Kept Video Studio private by default while hardening its strict project schema, bounded three-decoder WebGL2 preview, exact codec preflight, streamed source/model/export storage, resumable model downloads, recording manifests, workspace-only sync planning, brand-kit styles, and checked-in CC0 audio pack.
+- Reused keyframe-aware WebCodecs decode sessions across sequential Video Studio frames, generated 720p proxies only for demanding sources, adapted playback quality without lowering paused frames, and moved export UX into a focused editor component.
+- Shared attributed Pexels, Unsplash, and Pixabay photo search with the existing image Studio, including durable guest imports and local-project recovery.
 - Reworked the desktop month calendar into a fixed six-week grid with compact post rows and a complete day drawer for dense dates.
 - Rebuilt application and free-tool previews with richer destination data, destination-specific desktop and mobile website chrome, and full-page shells for posts, threads, images, videos, Stories, Reels, Shorts, photo posts, polls, cards, and documents across all ten supported platforms; moved optional free-tool controls into a drawer so the live preview stays full-size.
 - Rewrote marketing, comparisons, free tools, user docs, platform guides, and app messages in plain language, and aligned them with the current posting, analytics, comments, inbox, Studio, and automation features.

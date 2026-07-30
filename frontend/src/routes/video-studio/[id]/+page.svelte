@@ -120,6 +120,7 @@ FORM: Operate surface; no floating-card dashboard, unlimited NLE chrome, hidden 
 	} from '$lib/video-studio/types';
 	import Timeline from '$lib/video-studio/components/timeline.svelte';
 	import VideoPreview from '$lib/video-studio/components/video-preview.svelte';
+	import ExportDialog from '$lib/video-studio/components/export-dialog.svelte';
 	import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
 	import CameraIcon from 'lucide-svelte/icons/camera';
 	import CaptionsIcon from 'lucide-svelte/icons/captions';
@@ -4686,142 +4687,29 @@ FORM: Operate surface; no floating-card dashboard, unlimited NLE chrome, hidden 
 		</Dialog.Content>
 	</Dialog.Root>
 
-	<Dialog.Root bind:open={exportOpen}>
-		<Dialog.Content class="sm:max-w-lg">
-			<Dialog.Header>
-				<Dialog.Title>{m.video_studio_export_title()}</Dialog.Title>
-				<Dialog.Description>{m.video_studio_export_description()}</Dialog.Description>
-			</Dialog.Header>
-			<div class="space-y-4 py-2">
-				{#if project.primary_sequence.length === 0}
-					<InlineNotice tone="warning" message={m.video_studio_export_no_video()} />
-				{/if}
-				{#if exportError}
-					<InlineNotice tone="error" message={exportError} />
-				{/if}
-				<fieldset class="grid gap-2">
-					<legend class="mb-1 text-sm font-medium">{m.video_studio_export_formats()}</legend>
-					{#each variantOptions as option (option.value)}
-						{@const target = option.value as VariantID}
-						{@const variant = project.variants.find((item) => item.id === target)}
-						<label
-							class="flex min-h-11 items-center gap-3 rounded-md border bg-muted/20 px-3 text-sm"
-						>
-							<Checkbox
-								checked={exportVariantIDs.includes(target)}
-								disabled={Boolean(returnToken) || exportBusy}
-								onCheckedChange={(checked) => setExportVariant(target, checked)}
-							/>
-							<span class="min-w-0 flex-1">
-								<span class="block font-medium">{option.label}</span>
-								<span class="block text-xs text-muted-foreground">
-									{variant?.width}×{variant?.height} · {project.timebase.fps_numerator} fps
-								</span>
-							</span>
-							{#if returnToken && requiredVariantIDs.includes(target)}
-								<span class="text-xs text-muted-foreground">{m.video_studio_export_required()}</span
-								>
-							{/if}
-						</label>
-					{/each}
-				</fieldset>
-				<label class="grid gap-1.5 text-sm font-medium">
-					<span>{m.video_studio_export_format()}</span>
-					<AppSelect
-						value={returnToken ? 'mp4' : exportFormat}
-						onValueChange={setExportFormat}
-						disabled={exportBusy || Boolean(returnToken)}
-						options={[
-							{ value: 'mp4', label: m.video_studio_export_mp4() },
-							{ value: 'webm', label: m.video_studio_export_webm() }
-						]}
-					/>
-				</label>
-				{#if exportCapabilityState === 'checking'}
-					<InlineNotice tone="info" message={m.video_studio_export_checking()} />
-				{:else if exportCapabilityState === 'ready'}
-					<InlineNotice tone="success" message={m.video_studio_export_supported()} />
-				{:else if exportCapabilityState === 'unsupported'}
-					<InlineNotice tone="error" message={exportCapabilityError} />
-				{/if}
-				{#if exportBusy || returningToComposer}
-					<div class="space-y-2" aria-live="polite">
-						<div class="h-2 overflow-hidden rounded-full bg-muted">
-							<div
-								class="h-full bg-primary transition-[width]"
-								style:width={`${Math.round(exportProgress * 100)}%`}
-							></div>
-						</div>
-						<p class="text-xs text-muted-foreground">
-							{m.video_studio_export_progress({ progress: Math.round(exportProgress * 100) })}
-						</p>
-					</div>
-				{:else if exportFile && exportURL}
-					<InlineNotice
-						tone="success"
-						message={`${m.video_studio_export_ready()} · ${formatBytes(exportFile.size)}`}
-					/>
-					{#if !returnToken && Object.keys(exportedFiles).length > 1}
-						<div class="grid gap-2">
-							{#each variantOptions as option (option.value)}
-								{@const completedFile = exportedFiles[option.value as VariantID]}
-								{#if completedFile}
-									<div class="flex min-h-11 items-center gap-3 rounded-md border px-3">
-										<span class="min-w-0 flex-1">
-											<span class="block text-sm font-medium">{option.label}</span>
-											<span class="block text-xs text-muted-foreground">
-												{formatBytes(completedFile.size)}
-											</span>
-										</span>
-										<Button
-											variant="outline"
-											size="sm"
-											onclick={() => void saveExportFile(completedFile)}
-										>
-											<DownloadIcon class="size-4" />
-											{m.video_studio_export_download()}
-										</Button>
-									</div>
-								{/if}
-							{/each}
-						</div>
-					{/if}
-				{/if}
-			</div>
-			<Dialog.Footer>
-				{#if exportBusy || returningToComposer}
-					<Button variant="outline" onclick={cancelExport}>
-						{m.video_studio_export_cancel()}
-					</Button>
-				{:else}
-					<Button variant="outline" onclick={() => (exportOpen = false)}>
-						{m.video_studio_close()}
-					</Button>
-					{#if returnToken && Object.keys(exportedFiles).length > 0}
-						<Button onclick={() => void returnExportsToComposer()}>
-							<CheckIcon class="size-4" />
-							{m.video_studio_use_in_post()}
-						</Button>
-					{:else if exportFile && exportURL && Object.keys(exportedFiles).length === 1}
-						<Button onclick={() => void saveExportFile(exportFile!)}>
-							<DownloadIcon class="size-4" />
-							{m.video_studio_export_download()}
-						</Button>
-					{:else}
-						<Button
-							disabled={project.primary_sequence.length === 0 ||
-								exportVariantIDs.length === 0 ||
-								exportCapabilityState !== 'ready'}
-							onclick={() => void startExport(true)}
-						>
-							<DownloadIcon class="size-4" />
-							{returnToken ? m.video_studio_export_for_post() : m.video_studio_export_start()}
-						</Button>
-					{/if}
-				{/if}
-			</Dialog.Footer>
-		</Dialog.Content>
-	</Dialog.Root>
+	<ExportDialog
+		bind:open={exportOpen}
+		{project}
+		{exportVariantIDs}
+		{requiredVariantIDs}
+		{returnToken}
+		{exportBusy}
+		{returningToComposer}
+		{exportError}
+		{exportFormat}
+		{exportCapabilityState}
+		{exportCapabilityError}
+		{exportProgress}
+		{exportFile}
+		{exportURL}
+		{exportedFiles}
+		onSetVariant={setExportVariant}
+		onSetFormat={setExportFormat}
+		onSaveFile={saveExportFile}
+		onCancel={cancelExport}
+		onReturnToComposer={returnExportsToComposer}
+		onStart={() => startExport(true)}
+	/>
 
 	<Dialog.Root bind:open={cloudOpen}>
 		<Dialog.Content class="sm:max-w-lg">

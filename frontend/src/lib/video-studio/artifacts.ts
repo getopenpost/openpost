@@ -19,8 +19,9 @@ import {
 	writeProjectStream
 } from './storage';
 import { hashLocalFile } from './file-hash';
+import { proxyReason, type ProxyReason } from './proxy-policy';
 
-const ARTIFACT_VERSION = 2;
+const ARTIFACT_VERSION = 3;
 const WAVEFORM_BUCKETS = 720;
 const MAX_KEYFRAMES = 4_000;
 
@@ -28,6 +29,8 @@ export interface SourceArtifactIndex {
 	version: number;
 	source_id: string;
 	duration_us: number;
+	frame_rate: number;
+	proxy_reason: ProxyReason;
 	keyframes_us: number[];
 	waveform_peaks: number[];
 }
@@ -67,7 +70,7 @@ export async function ensureSourceArtifacts(
 			input.getPrimaryVideoTrack(),
 			input.getPrimaryAudioTrack()
 		]);
-		const [keyframesUS, waveformPeaks] = await Promise.all([
+		const [keyframesUS, waveformPeaks, packetStats] = await Promise.all([
 			videoTrack
 				? indexKeyframes(new EncodedPacketSink(videoTrack), signal)
 				: Promise.resolve<number[]>([]),
@@ -78,7 +81,10 @@ export async function ensureSourceArtifacts(
 						WAVEFORM_BUCKETS,
 						signal
 					)
-				: Promise.resolve<number[]>([])
+				: Promise.resolve<number[]>([]),
+			videoTrack
+				? videoTrack.computePacketStats(180)
+				: Promise.resolve({ packetCount: 0, averagePacketRate: 0, averageBitrate: 0 })
 		]);
 		if (videoTrack && (await videoTrack.canDecode())) {
 			await generateThumbnail(
@@ -89,13 +95,17 @@ export async function ensureSourceArtifacts(
 				signal
 			);
 		}
-		if (shouldGenerateProxy(source)) {
+		const estimatedFrameRate = packetStats.averagePacketRate || 0;
+		const reason = proxyReason(source, estimatedFrameRate);
+		if (reason) {
 			await generateProxy(projectID, source, file, contentHash, signal);
 		}
 		const artifact: SourceArtifactIndex = {
 			version: ARTIFACT_VERSION,
 			source_id: source.id,
 			duration_us: source.duration_us,
+			frame_rate: estimatedFrameRate,
+			proxy_reason: reason,
 			keyframes_us: keyframesUS,
 			waveform_peaks: waveformPeaks
 		};
@@ -239,10 +249,6 @@ async function indexDisposableAsset(
 		updated_at: now,
 		disposable: true
 	});
-}
-
-function shouldGenerateProxy(source: VideoSource): boolean {
-	return source.width > 1920 || source.height > 1080;
 }
 
 async function generateProxy(

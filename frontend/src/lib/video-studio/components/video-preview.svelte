@@ -11,7 +11,7 @@
 	} from '@openpost/video-project';
 	import { evaluateAudio, evaluateFrame, type EvaluatedPrimaryLayer } from '../render-graph';
 	import { localVideoSourceURL } from '../source-url';
-	import { VideoStudioPreviewEngine } from '../preview-engine';
+	import { VideoStudioPreviewEngine, type PreviewEngineDiagnostics } from '../preview-engine';
 	import { m } from '$lib/paraglide/messages';
 	import PlayIcon from 'lucide-svelte/icons/play';
 
@@ -50,6 +50,7 @@
 	let previewEngine = $state.raw<VideoStudioPreviewEngine | undefined>();
 	let previewWorkerReady = $state(false);
 	let previewWorkerError = $state('');
+	let previewDiagnostics = $state<PreviewEngineDiagnostics | undefined>();
 	let dragging = $state<{
 		kind: 'clip' | 'visual';
 		id: string;
@@ -77,6 +78,7 @@
 				(state) => {
 					previewWorkerReady = state.ready;
 					previewWorkerError = state.error ?? '';
+					previewDiagnostics = state.diagnostics;
 				}
 			);
 		} catch (cause) {
@@ -100,7 +102,7 @@
 	});
 
 	$effect(() => {
-		previewEngine?.render(variantID, playheadUS);
+		previewEngine?.render(variantID, playheadUS, playing);
 	});
 
 	$effect(() => {
@@ -376,6 +378,13 @@
 
 <div
 	class="relative flex size-full min-h-0 items-center justify-center overflow-hidden bg-[#121214] p-4 sm:p-6"
+	data-preview-engine-ready={previewWorkerReady}
+	data-preview-active-decoders={previewDiagnostics?.active_video_decoders ?? 0}
+	data-preview-peak-decoders={previewDiagnostics?.peak_video_decoders ?? 0}
+	data-preview-proxy-sources={previewDiagnostics?.proxy_source_count ?? 0}
+	data-preview-quality={previewDiagnostics?.quality ?? 'unavailable'}
+	data-preview-dropped-requests={previewDiagnostics?.dropped_render_requests ?? 0}
+	data-preview-error={previewWorkerError}
 >
 	<div
 		class="relative max-h-full max-w-full overflow-hidden bg-black shadow-2xl"

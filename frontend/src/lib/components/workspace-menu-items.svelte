@@ -6,17 +6,25 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Avatar from '$lib/components/ui/avatar';
 	import CheckIcon from 'lucide-svelte/icons/check';
+	import PlusIcon from 'lucide-svelte/icons/plus';
 	import SettingsIcon from 'lucide-svelte/icons/settings';
 	import type { Workspace } from '$lib/api/client';
 
 	interface Props {
 		touchSize?: boolean;
 		onSelect?: () => void;
+		onCreate?: () => void;
 		showLabel?: boolean;
 		showSettings?: boolean;
 	}
 
-	let { touchSize = false, onSelect, showLabel = true, showSettings = true }: Props = $props();
+	let {
+		touchSize = false,
+		onSelect,
+		onCreate,
+		showLabel = true,
+		showSettings = true
+	}: Props = $props();
 	const itemClass = $derived(touchSize ? 'min-h-11 gap-3' : 'gap-3 py-2');
 
 	function initials(value: string) {
@@ -33,6 +41,11 @@
 			await workspaceCtx.setWorkspace(workspace);
 		}
 		onSelect?.();
+	}
+
+	function createWorkspace() {
+		onSelect?.();
+		onCreate?.();
 	}
 
 	function openWorkspaceSettings() {
@@ -62,8 +75,16 @@
 		{m.sidebar_no_workspaces()}
 	</DropdownMenu.Item>
 {/if}
-{#if showSettings}
+{#if onCreate || showSettings}
 	<DropdownMenu.Separator />
+{/if}
+{#if onCreate}
+	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={createWorkspace}>
+		<PlusIcon class="mr-2 size-4 text-muted-foreground" />
+		{m.onboarding_submit()}
+	</DropdownMenu.Item>
+{/if}
+{#if showSettings}
 	<DropdownMenu.Item class={touchSize ? 'min-h-11' : ''} onclick={openWorkspaceSettings}>
 		<SettingsIcon class="mr-2 size-4 text-muted-foreground" />
 		{m.sidebar_workspace_settings()}

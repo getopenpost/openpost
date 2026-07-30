@@ -33,6 +33,8 @@
   <a href="https://docs.openpost.social/guide/quickstart"><strong>Quickstart</strong></a>
   ·
   <a href="https://docs.openpost.social/self-hosting/"><strong>Self-hosting docs</strong></a>
+  ·
+  <a href="https://discord.gg/u2QwukmY4W"><strong>Discord community</strong></a>
 </p>
 
 <p align="center">
@@ -144,6 +146,8 @@ devenv shell -- verify
 ```
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) and the [development docs](https://docs.openpost.social/development/setup) before opening a pull request. Bug reports, focused feature proposals, documentation fixes, and tested provider improvements are welcome.
+
+For setup questions, ideas, and general discussion, join the [OpenPost Discord community](https://discord.gg/u2QwukmY4W).
 
 ## Help OpenPost grow
 

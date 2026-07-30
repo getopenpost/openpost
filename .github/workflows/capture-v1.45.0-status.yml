@@ -1,0 +1,130 @@
+name: Capture v1.45.0 release status
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/capture-v1.45.0-status.yml"
+
+permissions:
+  actions: write
+  contents: write
+
+concurrency:
+  group: capture-v1.45.0-release-status
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    name: Capture release and production status
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find or dispatch the release run
+        id: release-run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          find_run() {
+            gh run list \
+              --repo "$GITHUB_REPOSITORY" \
+              --workflow release.yml \
+              --limit 50 \
+              --json databaseId,headBranch \
+              --jq '.[] | select(.headBranch == "v1.45.0") | .databaseId' \
+              | head -n 1
+          }
+
+          run_id="$(find_run)"
+          if [[ -z "$run_id" ]]; then
+            gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref v1.45.0
+            for _ in $(seq 1 60); do
+              sleep 5
+              run_id="$(find_run)"
+              if [[ -n "$run_id" ]]; then
+                break
+              fi
+            done
+          fi
+
+          if [[ -z "$run_id" ]]; then
+            echo "Could not find or dispatch Build and Release for v1.45.0" >&2
+            exit 1
+          fi
+
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the release workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.release-run.outputs.run_id }}
+        shell: bash
+        run: |
+          set +e
+          gh run watch "$RUN_ID" --repo "$GITHUB_REPOSITORY" --exit-status
+          echo "watch_exit=$?" >> "$GITHUB_ENV"
+          set -e
+
+      - name: Capture release and readiness evidence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ steps.release-run.outputs.run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh run view "$RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json databaseId,status,conclusion,url,headBranch,headSha,event \
+            > /tmp/release-run.json
+
+          if ! gh api "repos/$GITHUB_REPOSITORY/releases/tags/v1.45.0" > /tmp/release.json; then
+            printf 'null\n' > /tmp/release.json
+          fi
+
+          ready_http="$(
+            curl --silent --show-error \
+              --output /tmp/ready-body.txt \
+              --write-out '%{http_code}' \
+              https://app.openpost.social/api/v1/ready \
+              || true
+          )"
+
+          RUN_ID="$RUN_ID" READY_HTTP="$ready_http" WATCH_EXIT="${watch_exit:-}" python3 <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          run = json.loads(Path('/tmp/release-run.json').read_text())
+          release = json.loads(Path('/tmp/release.json').read_text())
+          ready_body = Path('/tmp/ready-body.txt').read_text() if Path('/tmp/ready-body.txt').exists() else ''
+
+          result = {
+              'tag': 'v1.45.0',
+              'run_id': int(os.environ['RUN_ID']),
+              'watch_exit': int(os.environ['WATCH_EXIT'] or 0),
+              'workflow': run,
+              'release': release,
+              'production_ready_http': int(os.environ['READY_HTTP'] or 0),
+              'production_ready_body': ready_body,
+          }
+          Path('.release-status-v1.45.0.json').write_text(json.dumps(result, indent=2, sort_keys=True) + '\n')
+          PY
+
+      - name: Commit captured status
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .release-status-v1.45.0.json
+          git commit -m "chore: record v1.45.0 release status"
+          git pull --rebase origin main
+          git push origin HEAD:main

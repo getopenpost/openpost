@@ -1,5 +1,6 @@
 <script lang="ts">
   import Github from "lucide-svelte/icons/github";
+  import MessageCircle from "lucide-svelte/icons/message-circle";
   import Logo from "$lib/components/Logo.svelte";
   import {
     developerDocsUrl,
@@ -9,6 +10,8 @@
     selfHostingDocsUrl,
     userDocsUrl,
   } from "../_marketing";
+
+  const discordCommunityUrl = "https://discord.gg/u2QwukmY4W";
 
   const groups = [
     {
@@ -57,15 +60,26 @@
         Write one post, tailor it for each account, and preview it before it
         goes live.
       </p>
-      <a
-        href={githubUrl}
-        target="_blank"
-        rel="noreferrer"
-        class="focus-ring mt-5 inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground"
-      >
-        <Github class="size-4" />
-        GitHub source
-      </a>
+      <div class="mt-5 flex flex-wrap gap-x-5">
+        <a
+          href={githubUrl}
+          target="_blank"
+          rel="noreferrer"
+          class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <Github class="size-4" />
+          GitHub source
+        </a>
+        <a
+          href={discordCommunityUrl}
+          target="_blank"
+          rel="noreferrer"
+          class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          <MessageCircle class="size-4" />
+          Discord community
+        </a>
+      </div>
     </div>
 
     <div class="grid gap-8 sm:grid-cols-3">

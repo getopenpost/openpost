@@ -15,6 +15,13 @@
 
   let mobileOpen = $state(false);
   const currentPath = $derived(page.url.pathname);
+  const navigationResourceItems = [
+    ...resourceItems,
+    {
+      label: "Discord community",
+      href: "https://discord.gg/u2QwukmY4W",
+    },
+  ] as const;
 
   function isActive(href: string): boolean {
     if (href.startsWith("http")) return false;
@@ -23,7 +30,7 @@
   }
 
   function resourcesActive(): boolean {
-    return resourceItems.some((item) => isActive(item.href));
+    return navigationResourceItems.some((item) => isActive(item.href));
   }
 </script>
 
@@ -66,7 +73,7 @@
           </NavigationMenu.Trigger>
           <NavigationMenu.Content class="w-56">
             <ul class="grid gap-1">
-              {#each resourceItems as item (item.href)}
+              {#each navigationResourceItems as item (item.href)}
                 <li>
                   <NavigationMenu.Link
                     href={item.href}
@@ -154,7 +161,7 @@
         <p class="mt-3 px-3 text-xs font-semibold text-muted-foreground">
           Resources
         </p>
-        {#each resourceItems as item (item.href)}
+        {#each navigationResourceItems as item (item.href)}
           <a
             href={item.href}
             class="focus-ring flex min-h-11 items-center rounded-md px-3 text-sm text-muted-foreground"

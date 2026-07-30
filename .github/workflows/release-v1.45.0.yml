@@ -1,0 +1,89 @@
+name: Bootstrap v1.45.0 release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-v1.45.0.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: release-v1.45.0
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Prepare tag and dispatch release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          if git ls-remote --exit-code --tags origin refs/tags/v1.45.0 >/dev/null 2>&1; then
+            echo "v1.45.0 already exists" >&2
+            exit 1
+          fi
+          if grep -q '^## \[1\.45\.0\]' CHANGELOG.md; then
+            echo "CHANGELOG.md already contains v1.45.0" >&2
+            exit 1
+          fi
+
+      - name: Add release notes to Unreleased
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path("CHANGELOG.md")
+          text = path.read_text()
+          marker = "## [Unreleased]\n\n"
+          if text.count(marker) != 1:
+              raise SystemExit("expected exactly one Unreleased changelog marker")
+
+          entries = """### Added
+
+          - Added workspace creation from the desktop and mobile workspace switchers, with a focused name dialog that refreshes the workspace list and selects the new workspace immediately.
+          - Added anonymous, cookie-free Umami analytics to the public marketing and documentation sites while keeping the authenticated application untracked.
+          - Added the official OpenPost Discord community to the marketing navigation and footer, documentation navigation, and repository overview.
+
+          ### Fixed
+
+          - Allowed canonical composer source and first-segment URLs to satisfy link-profile capability requirements across providers while preserving unrelated validation and provider-availability errors.
+
+          """
+          path.write_text(text.replace(marker, marker + entries, 1))
+          PY
+          node scripts/prepare-release-changelog.mjs v1.45.0 2026-07-30
+
+      - name: Commit changelog and create tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/release-v1.45.0.yml
+          git add CHANGELOG.md
+          git commit -m "docs: prepare v1.45.0 changelog"
+          git push origin HEAD:main
+          git tag v1.45.0
+          git push origin v1.45.0
+
+      - name: Dispatch audited release pipeline
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref v1.45.0
+          echo "Dispatched Build and Release for v1.45.0"

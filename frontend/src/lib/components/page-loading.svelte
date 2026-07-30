@@ -163,12 +163,15 @@
 			{/each}
 		</div>
 		<div
-			class="hidden min-h-[720px] grid-cols-7 grid-rows-6 overflow-hidden rounded-lg border xl:grid"
+			class="calendar-loading-shell hidden grid-cols-7 grid-rows-6 overflow-hidden rounded-lg border xl:grid"
 		>
 			{#each calendarDayKeys as key (key)}
-				<div class="min-h-28 border-r border-b p-2 last:border-r-0">
-					<Skeleton class="size-7" />
-					<Skeleton class="mt-3 h-12 w-full" />
+				<div class="min-h-0 border-r border-b p-1.5 last:border-r-0">
+					<Skeleton class="size-5" />
+					<div class="mt-1 space-y-1">
+						<Skeleton class="h-6 w-full" />
+						<Skeleton class="h-6 w-4/5" />
+					</div>
 				</div>
 			{/each}
 		</div>
@@ -188,3 +191,17 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	.calendar-loading-shell {
+		height: 100%;
+		min-height: 30rem;
+		max-height: min(52rem, calc(100dvh - 16.5rem));
+	}
+
+	@media (min-width: 90rem) {
+		.calendar-loading-shell {
+			max-height: min(52rem, calc(100dvh - 10rem));
+		}
+	}
+</style>

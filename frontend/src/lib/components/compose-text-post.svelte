@@ -3364,7 +3364,7 @@
 													: i === 0
 														? m.compose_whats_on_your_mind()
 														: m.compose_add_to_thread()}
-												class="w-full resize-none border-0 bg-transparent py-2 pr-3 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg"
+												class="w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 pr-3 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg"
 												style="min-height: {i === 0 ? '120px' : '56px'};"
 												disabled={isSubmitting ||
 													(!!activeVariantAccountId && !activeVariantIsUnsynced)}

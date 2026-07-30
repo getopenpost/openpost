@@ -129,3 +129,106 @@ test("sidebar and full calendar use the same canonical publication inventory", a
     .toBe(true);
   expect(consoleErrors).toEqual([]);
 });
+
+test("desktop month view keeps dense days compact and reveals the full day", async ({
+  page,
+  request,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(
+    request,
+    `calendar-density-${unique}@example.com`,
+  );
+  const workspace = (await createWorkspace(
+    request,
+    auth.token,
+    "Calendar density",
+  )) as {
+    id: string;
+    name: string;
+  };
+  await authenticatePage(page, auth.token);
+  await page.addInitScript((currentWorkspace) => {
+    localStorage.setItem(
+      "openpost_current_workspace",
+      JSON.stringify(currentWorkspace),
+    );
+  }, workspace);
+  await page.clock.setFixedTime(new Date("2030-06-15T12:00:00Z"));
+
+  const publications = [
+    publication("dense-one", workspace.id, "scheduled", "2030-06-15T13:00:00Z"),
+    publication("dense-two", workspace.id, "scheduled", "2030-06-15T14:00:00Z"),
+    publication(
+      "dense-three",
+      workspace.id,
+      "scheduled",
+      "2030-06-15T15:00:00Z",
+    ),
+    publication(
+      "dense-four",
+      workspace.id,
+      "scheduled",
+      "2030-06-15T16:00:00Z",
+    ),
+  ];
+  await page.route("**/api/v1/publications?**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "X-Has-More": "false" },
+      json: publications,
+    });
+  });
+  await page.route("**/api/v1/accounts?**", async (route) => {
+    await route.fulfill({ contentType: "application/json", json: [] });
+  });
+
+  await page.setViewportSize({ width: 1280, height: 820 });
+  await page.goto(`/calendar?workspace=${workspace.id}`);
+
+  const month = page.getByRole("region", {
+    name: "Monthly publishing calendar",
+  });
+  await expect(month).toBeVisible();
+  const inlineItems = month.locator("[data-calendar-item]");
+  await expect(inlineItems).toHaveCount(2);
+  await expect(month.locator("[data-calendar-item]:visible")).toHaveCount(1);
+
+  const eventHeight = await inlineItems
+    .first()
+    .evaluate((element) => element.getBoundingClientRect().height);
+  expect(eventHeight).toBeLessThanOrEqual(24);
+
+  const monthBounds = await month.boundingBox();
+  expect(monthBounds).not.toBeNull();
+  expect(
+    (monthBounds?.y ?? 0) + (monthBounds?.height ?? 0),
+  ).toBeLessThanOrEqual(820);
+
+  await page
+    .getByRole("button", {
+      name: "View 4 posts on Saturday, Jun 15",
+      exact: true,
+    })
+    .click();
+  const drawer = page.getByTestId("calendar-day-drawer");
+  await expect(drawer).toBeVisible();
+  await expect(drawer).toContainText("4 posts");
+  for (const item of publications) {
+    await expect(drawer).toContainText(item.title);
+  }
+
+  expect(
+    await page.evaluate(
+      () =>
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth,
+    ),
+  ).toBeLessThanOrEqual(0);
+  expect(consoleErrors).toEqual([]);
+});

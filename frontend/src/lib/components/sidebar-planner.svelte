@@ -49,7 +49,9 @@
 	let draftsRequest = 0;
 	let renderedWeekCount = $state(12);
 	let focusedDayKey = $state('');
+	let visibleCalendarDayKey = $state('');
 	const weeksPerBatch = 8;
+	const calendarWeekHeight = 36;
 	const draftContextItemClass =
 		'flex min-h-9 cursor-default items-center gap-2 rounded-md px-2 text-sm outline-none data-highlighted:bg-muted data-disabled:pointer-events-none data-disabled:opacity-45';
 
@@ -59,6 +61,10 @@
 	const rollingWeeks = $derived(
 		buildRollingCalendarWeeks(plannerToday, workspaceCtx.weekStartsOn, renderedWeekCount)
 	);
+	const visibleCalendarDate = $derived(
+		rollingWeeks.flat().find((day) => day.key === visibleCalendarDayKey)?.date ?? plannerToday
+	);
+	const visibleCalendarMonth = $derived(formatCalendarMonth(visibleCalendarDate));
 	const keyboardFocusDayKey = $derived.by(() => {
 		const focusedDay = rollingWeeks.flat().find((day) => day.key === focusedDayKey && !day.past);
 		return focusedDay?.key ?? plannerToday.toString();
@@ -261,8 +267,24 @@
 
 	function loadMoreWeeks(event: Event) {
 		const calendar = event.currentTarget as HTMLElement;
+		const visibleWeekIndex = Math.min(
+			rollingWeeks.length - 1,
+			Math.max(0, Math.floor((calendar.scrollTop + calendarWeekHeight / 2) / calendarWeekHeight))
+		);
+		const visibleWeek = rollingWeeks[visibleWeekIndex];
+		visibleCalendarDayKey =
+			visibleWeek?.find((day) => day.today)?.key ?? visibleWeek?.[3]?.key ?? '';
+
 		const remaining = calendar.scrollHeight - calendar.scrollTop - calendar.clientHeight;
 		if (remaining <= 72) renderedWeekCount += weeksPerBatch;
+	}
+
+	function formatCalendarMonth(date: CalendarDate) {
+		return date.toDate(viewerTimeZone).toLocaleDateString(getLocaleTag(), {
+			month: 'long',
+			year: 'numeric',
+			timeZone: viewerTimeZone
+		});
 	}
 
 	function formatWeekday(date: CalendarDate) {
@@ -284,9 +306,17 @@
 </script>
 
 <div class="flex min-h-0 flex-1 flex-col" data-testid="desktop-sidebar-planner">
-	<section class="shrink-0 border-b border-sidebar-border px-2 pb-3">
+	<section
+		class="shrink-0 border-b border-sidebar-border px-2 pb-3"
+		aria-label={m.sidebar_calendar()}
+	>
 		<div class="flex h-7 items-center justify-between px-2">
-			<span class="text-xs font-medium text-sidebar-foreground/52">{m.sidebar_calendar()}</span>
+			<span
+				class="truncate text-xs font-medium text-sidebar-foreground/64"
+				data-testid="sidebar-calendar-month"
+			>
+				{visibleCalendarMonth}
+			</span>
 			<button
 				type="button"
 				class="inline-flex size-7 items-center justify-center rounded-md text-sidebar-foreground/52 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
@@ -298,12 +328,16 @@
 			</button>
 		</div>
 		<div
-			class="h-45 overflow-y-auto overscroll-contain pt-1 select-none"
+			class="sidebar-calendar-scrollbar h-45 overflow-y-auto overscroll-contain select-none"
 			data-testid="sidebar-rolling-calendar"
 			onscroll={loadMoreWeeks}
 		>
 			<div role="grid" aria-label={m.calendar_label()} class="relative">
-				<div role="row" class="sticky top-0 z-10 grid h-7 grid-cols-7 items-center bg-sidebar">
+				<div
+					role="row"
+					class="sticky top-0 z-10 grid h-8 grid-cols-7 items-center bg-sidebar pt-1"
+					data-testid="sidebar-calendar-weekdays"
+				>
 					{#each rollingWeeks[0] ?? [] as day (day.key)}
 						<span
 							role="columnheader"
@@ -478,3 +512,33 @@
 		onDismiss={() => (draftDeleteError = '')}
 	/>
 {/if}
+
+<style>
+	.sidebar-calendar-scrollbar {
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in oklch, var(--sidebar-foreground) 22%, transparent) transparent;
+	}
+
+	.sidebar-calendar-scrollbar::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.sidebar-calendar-scrollbar::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.sidebar-calendar-scrollbar::-webkit-scrollbar-button {
+		display: none;
+		width: 0;
+		height: 0;
+	}
+
+	.sidebar-calendar-scrollbar::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background-color: color-mix(in oklch, var(--sidebar-foreground) 22%, transparent);
+	}
+
+	.sidebar-calendar-scrollbar::-webkit-scrollbar-thumb:hover {
+		background-color: color-mix(in oklch, var(--sidebar-foreground) 34%, transparent);
+	}
+</style>

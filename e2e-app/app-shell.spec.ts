@@ -156,6 +156,11 @@ test("text-and-thread editor keeps its canvas-owned field treatment", async ({
 }) => {
   const unique = Date.now().toString(36);
   const email = `composer-chrome-${unique}@example.com`;
+  const longContent = Array.from(
+    { length: 18 },
+    (_, index) =>
+      `Paragraph ${index + 1} stays visible in the expanding editor.`,
+  ).join("\n\n");
 
   const auth = await registerUser(request, email);
   await createWorkspace(request, auth.token, "Composer Chrome E2E");
@@ -198,6 +203,28 @@ test("text-and-thread editor keeps its canvas-owned field treatment", async ({
       (element) => getComputedStyle(element).boxShadow,
     );
     expect(focusedShadow).not.toMatch(/\b[1-9]\d*(?:\.\d+)?px\b/);
+
+    await editor.fill(longContent);
+    await expect
+      .poll(() =>
+        editor.evaluate((element) => ({
+          overflowY: getComputedStyle(element).overflowY,
+          clientHeight: element.clientHeight,
+          scrollHeight: element.scrollHeight,
+        })),
+      )
+      .toMatchObject({
+        overflowY: "hidden",
+        clientHeight: expect.any(Number),
+        scrollHeight: expect.any(Number),
+      });
+    const editorMetrics = await editor.evaluate((element) => ({
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+    }));
+    expect(editorMetrics.clientHeight).toBeGreaterThanOrEqual(
+      editorMetrics.scrollHeight,
+    );
   }
 });
 
@@ -267,6 +294,9 @@ test("desktop planning sidebar resumes drafts and stays out of mobile navigation
   await expect(planner).toBeVisible();
   const rollingCalendar = planner.getByTestId("sidebar-rolling-calendar");
   await expect(rollingCalendar).toBeVisible();
+  const calendarMonth = planner.getByTestId("sidebar-calendar-month");
+  const initialCalendarMonth = await calendarMonth.textContent();
+  expect(initialCalendarMonth?.trim()).toBeTruthy();
   const today = rollingCalendar.locator('[aria-current="date"]');
   await expect(today).toBeVisible();
   await today.focus();
@@ -285,17 +315,35 @@ test("desktop planning sidebar resumes drafts and stays out of mobile navigation
     scrollTop: element.scrollTop,
     clientHeight: element.clientHeight,
     scrollHeight: element.scrollHeight,
+    scrollbarWidth: getComputedStyle(element).scrollbarWidth,
   }));
   expect(initialCalendarMetrics.scrollTop).toBe(0);
   expect(initialCalendarMetrics.scrollHeight).toBeGreaterThan(
     initialCalendarMetrics.clientHeight,
   );
+  expect(initialCalendarMetrics.scrollbarWidth).toBe("thin");
   await rollingCalendar.evaluate((element) => {
     element.scrollTop = element.scrollHeight;
   });
   await expect
     .poll(() => rollingCalendar.locator('[role="row"]').count())
     .toBeGreaterThan(initialCalendarRows);
+  const weekdayHeader = rollingCalendar.getByTestId(
+    "sidebar-calendar-weekdays",
+  );
+  const [calendarBox, weekdayHeaderBox, weekdayHeaderBackground] =
+    await Promise.all([
+      rollingCalendar.boundingBox(),
+      weekdayHeader.boundingBox(),
+      weekdayHeader.evaluate(
+        (element) => getComputedStyle(element).backgroundColor,
+      ),
+    ]);
+  expect(calendarBox).not.toBeNull();
+  expect(weekdayHeaderBox).not.toBeNull();
+  expect(weekdayHeaderBox!.y).toBeCloseTo(calendarBox!.y, 0);
+  expect(weekdayHeaderBackground).not.toBe("rgba(0, 0, 0, 0)");
+  await expect(calendarMonth).not.toHaveText(initialCalendarMonth!);
   await rollingCalendar.evaluate((element) => {
     element.scrollTop = -100;
   });

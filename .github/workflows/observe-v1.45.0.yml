@@ -1,3 +1,4 @@
+# Triggered through a merged pull request so GitHub emits the workflow event.
 name: Observe v1.45.0 release
 
 on:

@@ -52,7 +52,8 @@
 			open = false;
 			reset();
 		} catch (cause) {
-			error = cause instanceof Error && cause.message ? cause.message : m.onboarding_create_failed();
+			error =
+				cause instanceof Error && cause.message ? cause.message : m.onboarding_create_failed();
 		} finally {
 			pending = false;
 		}

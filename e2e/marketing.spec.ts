@@ -76,6 +76,9 @@ test("marketing index links to the app and documentation", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "GitHub source" }),
   ).toHaveAttribute("href", "https://github.com/rodrgds/openpost");
+  await expect(
+    page.getByRole("link", { name: "Discord community", exact: true }).last(),
+  ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
 });
 
 test("security page states AI tool access accurately", async ({ page }) => {
@@ -124,6 +127,12 @@ test("marketing navigation uses the shared responsive menu patterns", async ({
     await expect(
       navigation.getByRole("link", { name: "Changelog", exact: true }),
     ).toHaveAttribute("href", "/changelog");
+    await expect(
+      navigation.getByRole("link", {
+        name: "Discord community",
+        exact: true,
+      }),
+    ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
     await page.keyboard.press("Escape");
     return;
   }
@@ -136,6 +145,12 @@ test("marketing navigation uses the shared responsive menu patterns", async ({
   await expect(
     navigation.getByRole("link", { name: "Changelog", exact: true }),
   ).toHaveAttribute("href", "/changelog");
+  await expect(
+    navigation.getByRole("link", {
+      name: "Discord community",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
 });
 
 test("marketing SEO routes expose the current public index", async ({

@@ -1,0 +1,167 @@
+# Single Binary
+
+OpenPost can run as a single Go binary with the frontend embedded into the executable.
+
+## 1. Download a release
+
+Download the binary for your platform from [GitHub Releases](https://github.com/rodrgds/openpost/releases).
+
+Expected release assets:
+
+- Linux x86_64: `openpost-server-linux-amd64`
+- macOS Apple Silicon: `openpost-server-darwin-arm64`
+- Windows x86_64: `openpost-server-windows-amd64.exe`
+
+## 2. Create `.env`
+
+Create a working directory and write a complete `.env` file:
+
+```dotenv
+OPENPOST_PORT=8080
+OPENPOST_DATABASE_PATH=/var/lib/openpost/openpost.db
+OPENPOST_MEDIA_PATH=/var/lib/openpost/media
+OPENPOST_APP_URL=https://social.example.com
+OPENPOST_PUBLIC_URL=https://social.example.com
+OPENPOST_MEDIA_URL=https://social.example.com/media
+
+OPENPOST_JWT_SECRET=replace-with-a-random-secret-at-least-32-characters-long
+OPENPOST_ENCRYPTION_KEY=replace-with-a-random-secret-at-least-32-characters-long
+
+# Optional but commonly useful
+OPENPOST_DISABLE_REGISTRATIONS=false
+
+# Example provider config
+# X_CLIENT_ID=
+# X_CLIENT_SECRET=
+# MASTODON_SERVERS='[{"name":"Personal","client_id":"...","client_secret":"...","instance_url":"https://mastodon.social"}]'
+# LINKEDIN_CLIENT_ID=
+# LINKEDIN_CLIENT_SECRET=
+# THREADS_CLIENT_ID=
+# THREADS_CLIENT_SECRET=
+```
+
+## 3. Prepare production paths
+
+```bash
+sudo mkdir -p /var/lib/openpost/media
+sudo chown -R $(whoami) /var/lib/openpost
+```
+
+Recommended production locations:
+
+- Database: `/var/lib/openpost/openpost.db`
+- Media: `/var/lib/openpost/media`
+
+On Windows, keep the binary, `.env`, database, and media under stable service-owned paths. For example:
+
+```powershell
+New-Item -ItemType Directory -Force C:\OpenPost, C:\OpenPost\data, C:\OpenPost\media
+```
+
+Use Windows paths in `.env`:
+
+```dotenv
+OPENPOST_DATABASE_PATH=C:\OpenPost\data\openpost.db
+OPENPOST_MEDIA_PATH=C:\OpenPost\media
+OPENPOST_APP_URL=https://social.example.com
+OPENPOST_PUBLIC_URL=https://social.example.com
+OPENPOST_MEDIA_URL=https://social.example.com/media
+```
+
+## 4. Install or rename it on Linux/macOS
+
+```bash
+mv ./openpost-server-linux-amd64 ./openpost
+chmod +x ./openpost
+```
+
+On macOS Apple Silicon, use `openpost-server-darwin-arm64` instead of the Linux asset.
+
+## 5. Run it
+
+Linux/macOS:
+
+```bash
+./openpost
+```
+
+Windows PowerShell:
+
+```powershell
+cd C:\OpenPost
+.\openpost-server-windows-amd64.exe
+```
+
+By default, OpenPost listens on `http://localhost:8080`.
+
+OpenPost loads `.env` from the process working directory. When running it as a Windows service, either set the service working directory to the folder containing `.env` or configure the environment variables directly in the service wrapper.
+
+## 6. Run it as a service
+
+### Linux systemd
+
+Example unit:
+
+```ini
+[Unit]
+Description=OpenPost
+After=network.target
+
+[Service]
+Type=simple
+User=openpost
+Group=openpost
+WorkingDirectory=/opt/openpost
+EnvironmentFile=/opt/openpost/.env
+ExecStart=/opt/openpost/openpost
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Example install layout:
+
+- Binary: `/opt/openpost/openpost`
+- Environment file: `/opt/openpost/.env`
+- Database: `/var/lib/openpost/openpost.db`
+- Media: `/var/lib/openpost/media`
+
+After creating the unit:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now openpost
+sudo systemctl status openpost
+```
+
+### Windows
+
+Use a standard Windows service wrapper such as NSSM or WinSW, or a Task Scheduler entry that starts at boot.
+
+For NSSM, configure:
+
+- Application: `C:\OpenPost\openpost-server-windows-amd64.exe`
+- Startup directory: `C:\OpenPost`
+- Service account: a dedicated local user with read access to `C:\OpenPost` and write access to `C:\OpenPost\data` and `C:\OpenPost\media`
+
+If your wrapper does not load `.env`, set the same `OPENPOST_*` values as service environment variables.
+
+## 7. Upgrade safely
+
+1. Back up the database, media directory, and `.env` file first.
+2. Stop the service: `sudo systemctl stop openpost`
+3. Replace the binary with the new release asset.
+4. Confirm ownership and execute permissions.
+5. Start the service: `sudo systemctl start openpost`
+6. Check logs and the health endpoint before considering the upgrade complete.
+
+## Backup reminder
+
+Do not upgrade without a restorable backup. See [Backups](/operations/backups).
+
+## Notes
+
+- Put the service behind HTTPS before enabling production OAuth callbacks. Set `OPENPOST_APP_URL` and `OPENPOST_PUBLIC_URL` to the same public browser origin unless you intentionally operate a split-origin deployment.
+- Protect the `.env` file because `OPENPOST_ENCRYPTION_KEY` is required to decrypt stored provider tokens.

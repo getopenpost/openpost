@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827" />
+      <stop offset="1" stop-color="#1f2937" />
+    </linearGradient>
+    <linearGradient id="accent" x1="186" y1="106" x2="738" y2="476" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f97316" />
+      <stop offset="1" stop-color="#fb923c" />
+    </linearGradient>
+    <mask id="nib-cutout">
+      <rect x="-50" y="-20" width="100" height="150" fill="white" />
+      <circle cx="0" cy="35" r="5" fill="black" />
+      <rect x="-1.5" y="35" width="3" height="70" fill="black" />
+    </mask>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)" rx="36" />
+  <circle cx="200" cy="130" r="160" fill="#f97316" fill-opacity=".15" />
+  <circle cx="1080" cy="510" r="210" fill="#fb923c" fill-opacity=".08" />
+
+  <rect x="88" y="88" width="1024" height="454" rx="32" fill="#0b1220" stroke="#374151" />
+
+  <g transform="translate(230 322) scale(1.3) rotate(-40)">
+    <path d="M -30 -170
+             A 30 30 0 0 1 30 -170
+             L 22 -10
+             L -22 -10 Z"
+          fill="url(#accent)" />
+    <path d="M -20 0
+             L 20 0
+             L 28 35
+             L 0 100
+             L -28 35 Z"
+          fill="url(#accent)"
+          mask="url(#nib-cutout)" />
+  </g>
+
+  <path d="M 440 458
+           C 492 414, 540 414, 592 458
+           C 644 502, 692 502, 744 458
+           C 796 414, 844 414, 896 458
+           C 918 476, 940 484, 962 484"
+        stroke="url(#accent)"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="18" />
+
+  <text x="438" y="246" fill="#f9fafb" font-family="ui-sans-serif, system-ui, sans-serif" font-size="82" font-weight="800">
+    OpenPost
+  </text>
+  <text x="438" y="318" fill="#d1d5db" font-family="ui-sans-serif, system-ui, sans-serif" font-size="34" font-weight="500">
+    Write once. Tailor every destination.
+  </text>
+  <text x="438" y="382" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="28">
+    Managed or self-hosted. Open source.
+  </text>
+</svg>

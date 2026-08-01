@@ -1,0 +1,125 @@
+{
+  "version": 1,
+  "generated_from_pinned_sources": true,
+  "models": [
+    {
+      "id": "whisper-tiny-multilingual",
+      "kind": "transcription",
+      "version": "ff4177021cc41f7db950912b73ea4fdf7d01d8e7",
+      "base_path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7",
+      "size_bytes": 100123789,
+      "sha256": "e244e7c9105e997e3205c99cb552e5a7344c275ca725c0b5b18670f44782555a",
+      "runtime_bytes_wasm": 11133407,
+      "runtime_bytes_webgpu": 21596019,
+      "required_backends": [
+        "webgpu",
+        "wasm"
+      ],
+      "fingerprint": "whisper-tiny-multilingual:ff4177021cc41f7db950912b73ea4fdf7d01d8e7:q4",
+      "resumable": true,
+      "license_reference": "THIRD_PARTY_LICENSES.md",
+      "license_name": "Apache-2.0",
+      "license_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "files": [
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/config.json",
+          "size_bytes": 2243,
+          "sha256": "46aeea0a406afbeb563fc8e59ca10609203df4299af6a83f73752fef369efd2d",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/config.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/generation_config.json",
+          "size_bytes": 3772,
+          "sha256": "f5c67e5a4f7102f8cb4d058bc95da276bbc19eeec997267c3bb0f25ef68facd1",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/generation_config.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/preprocessor_config.json",
+          "size_bytes": 339,
+          "sha256": "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/preprocessor_config.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/tokenizer.json",
+          "size_bytes": 2480466,
+          "sha256": "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/tokenizer.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/tokenizer_config.json",
+          "size_bytes": 282683,
+          "sha256": "2a4c4281cf9f51ac6ccc406fdc711a087afe6530f671fa7b80953edc498275ce",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/tokenizer_config.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/special_tokens_map.json",
+          "size_bytes": 2194,
+          "sha256": "e67ae3a0aaa99abcd9f187138e12db1f65c16a14761c50ef10eef2c174a7a691",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/special_tokens_map.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/added_tokens.json",
+          "size_bytes": 34604,
+          "sha256": "9715fd2243b6f06a5858b5e32950d2853f73dd5bc201aafcf76f5082a2d8acd1",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/added_tokens.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/merges.txt",
+          "size_bytes": 493869,
+          "sha256": "2df2990a395e35e8dfbc7511e08c12d56018d8d04691e0133e5d63b21e154dc6",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/merges.txt"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/normalizer.json",
+          "size_bytes": 52666,
+          "sha256": "bf1c507dc8724ca9cf9903640dacfb69dae2f00edee4f21ceba106a7392f26dd",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/normalizer.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/vocab.json",
+          "size_bytes": 1036584,
+          "sha256": "50d6a919f0a0601d56a04eb583c780d18553aa388254ba3158eb6a00f13e2c1a",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/vocab.json"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/onnx/encoder_model_q4.onnx",
+          "size_bytes": 9020667,
+          "sha256": "45a55cedf1ff46606520f5938ed40c94bd4f6b38beb2a646eed8636225342488",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/onnx/encoder_model_q4.onnx"
+        },
+        {
+          "path": "whisper-tiny-multilingual-ff4177021cc41f7db950912b73ea4fdf7d01d8e7/onnx/decoder_model_merged_q4.onnx",
+          "size_bytes": 86713702,
+          "sha256": "a7573efde84f7d018d59e50e7f860c03e26623d68e23eb6037b76135367e72eb",
+          "source_url": "https://huggingface.co/onnx-community/whisper-tiny/resolve/ff4177021cc41f7db950912b73ea4fdf7d01d8e7/onnx/decoder_model_merged_q4.onnx"
+        }
+      ]
+    },
+    {
+      "id": "silero-vad",
+      "kind": "vad",
+      "version": "6.2",
+      "path": "silero-vad-v6.2.onnx",
+      "size_bytes": 2327524,
+      "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+      "runtime_bytes_wasm": 12666427,
+      "runtime_bytes_webgpu": 0,
+      "required_backends": [
+        "wasm"
+      ],
+      "fingerprint": "silero-vad:6.2:onnx",
+      "resumable": true,
+      "license_reference": "THIRD_PARTY_LICENSES.md",
+      "license_name": "MIT",
+      "license_url": "https://github.com/snakers4/silero-vad/blob/v6.2/LICENSE",
+      "files": [
+        {
+          "path": "silero-vad-v6.2.onnx",
+          "size_bytes": 2327524,
+          "sha256": "1a153a22f4509e292a94e67d6f9b85e8deb25b4988682b7e174c65279d8788e3",
+          "source_url": "https://raw.githubusercontent.com/snakers4/silero-vad/v6.2/src/silero_vad/data/silero_vad.onnx"
+        }
+      ]
+    }
+  ]
+}

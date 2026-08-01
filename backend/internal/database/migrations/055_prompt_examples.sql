@@ -1,0 +1,1 @@
+ALTER TABLE prompts ADD COLUMN example TEXT NOT NULL DEFAULT '';

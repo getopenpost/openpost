@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<link rel="icon" type="image/svg+xml" href="/icon.svg" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<script
+			defer
+			src="https://analytics.rgo.pt/script.js"
+			data-website-id="116c64a7-786b-437f-bb0d-e011e5e10a2b"
+		></script>
+		<script>
+			(() => {
+				try {
+					const mode = localStorage.getItem('mode-watcher-mode');
+					const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+					document.documentElement.classList.toggle('dark', mode ? mode === 'dark' : prefersDark);
+				} catch {
+					/* no-op */
+				}
+			})();
+		</script>
+		%sveltekit.head%
+	</head>
+	<body data-sveltekit-preload-data="hover">
+		<div style="display: contents">%sveltekit.body%</div>
+	</body>
+</html>

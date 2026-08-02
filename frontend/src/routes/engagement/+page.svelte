@@ -1,0 +1,736 @@
+<!--
+	Direction — Communications / Engagement
+	Intent: A scan-first operations queue for people managing replies across several accounts.
+	World: Existing OpenPost application shell, typography, controls, and neutral surfaces.
+	Density: Compact list rows with one expanded response area; filters stay above the queue.
+	Composition: Provider identity and author lead; content and actions follow in reading order.
+	Responsive: One column at every width, with controls wrapping into touch-safe rows on phones.
+-->
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+	import { client, type SocialAccount } from '$lib/api/client';
+	import type { components } from '$lib/api/types';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { m } from '$lib/paraglide/messages';
+	import { getLocaleTag } from '$lib/i18n';
+	import { getPlatformName } from '$lib/utils';
+	import PageContainer from '$lib/components/page-container.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
+	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
+	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import EmptyState from '$lib/components/empty-state.svelte';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import AppToast from '$lib/components/app-toast.svelte';
+	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Popover from '$lib/components/ui/popover';
+	import * as Select from '$lib/components/ui/select';
+	import { Textarea } from '$lib/components/ui/textarea';
+	import MessagesSquareIcon from 'lucide-svelte/icons/messages-square';
+	import RefreshIcon from 'lucide-svelte/icons/refresh-cw';
+	import ArchiveIcon from 'lucide-svelte/icons/archive';
+	import ExternalLinkIcon from 'lucide-svelte/icons/external-link';
+	import InboxIcon from 'lucide-svelte/icons/inbox';
+	import ReplyIcon from 'lucide-svelte/icons/reply';
+	import EyeOffIcon from 'lucide-svelte/icons/eye-off';
+	import TrashIcon from 'lucide-svelte/icons/trash-2';
+	import HeartIcon from 'lucide-svelte/icons/heart';
+	import CircleAlertIcon from 'lucide-svelte/icons/circle-alert';
+
+	type EngagementItem = components['schemas']['EngagementItem'];
+	type EngagementSyncState = components['schemas']['EngagementSyncState'];
+	type Publication = components['schemas']['PublicationResponse'];
+
+	let loading = $state(true);
+	let refreshing = $state(false);
+	let error = $state('');
+	let items = $state.raw<EngagementItem[]>([]);
+	let total = $state(0);
+	let unreadOnly = $state(false);
+	let archived = $state(false);
+	let platformFilter = $state('');
+	let loadedKey = $state('');
+	let dataWorkspaceId = $state('');
+	let knownPlatforms = $state.raw<string[]>([]);
+	let accounts = $state.raw<SocialAccount[]>([]);
+	let publications = $state.raw<Publication[]>([]);
+	let syncStates = $state.raw<EngagementSyncState[]>([]);
+	let accountFilter = $state('');
+	let publicationFilter = $state('');
+	let replyItemId = $state('');
+	let replyBody = $state('');
+	let actionInFlight = $state('');
+	let confirmItem = $state.raw<EngagementItem | null>(null);
+	let confirmAction = $state<'hide' | 'delete'>('delete');
+	let confirmDialogOpen = $state(false);
+	let toast = $state('');
+	let toastTone = $state<'neutral' | 'success' | 'error'>('neutral');
+
+	const workspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
+	const initialLoading = $derived(
+		Boolean(workspaceId) && loading && dataWorkspaceId !== workspaceId
+	);
+	const loadKey = $derived(
+		`${workspaceId}:${platformFilter}:${accountFilter}:${publicationFilter}:${unreadOnly ? 'unread' : 'all'}:${archived ? 'archived' : 'active'}`
+	);
+	const confirmPlatformName = $derived(
+		confirmItem ? getPlatformName(confirmItem.platform) : m.engagement_heading()
+	);
+	const filteredSyncStates = $derived(
+		syncStates.filter(
+			(state) =>
+				!['ok', 'pending', 'unsupported'].includes(state.status) &&
+				(!platformFilter || state.platform === platformFilter) &&
+				(!accountFilter || state.social_account_id === accountFilter)
+		)
+	);
+	const groupedItems = $derived.by(() => {
+		const groups = new SvelteMap<
+			string,
+			{ key: string; items: EngagementItem[]; newest: number }
+		>();
+		for (const item of items) {
+			const group = groups.get(item.rendition_id) ?? {
+				key: item.rendition_id,
+				items: [],
+				newest: 0
+			};
+			group.items.push(item);
+			group.newest = Math.max(
+				group.newest,
+				new Date(item.remote_created_at || item.created_at).getTime() || 0
+			);
+			groups.set(item.rendition_id, group);
+		}
+		return [...groups.values()]
+			.map((group) => ({ ...group, items: orderThread(group.items) }))
+			.toSorted((left, right) => right.newest - left.newest);
+	});
+
+	onMount(() => void workspaceCtx.initialize());
+
+	$effect(() => {
+		if (workspaceId && loadKey !== loadedKey) {
+			loadedKey = loadKey;
+			void loadEngagement();
+		}
+	});
+
+	async function loadEngagement() {
+		if (!workspaceId) return;
+		loading = true;
+		error = '';
+		const requestedKey = loadKey;
+		const [engagementResponse, accountResponse, publicationResponse] = await Promise.all([
+			client.GET('/engagement', {
+				params: {
+					query: {
+						workspace_id: workspaceId,
+						platform: platformFilter || undefined,
+						account_id: accountFilter || undefined,
+						publication_id: publicationFilter || undefined,
+						unread_only: unreadOnly,
+						archived,
+						limit: 100,
+						offset: 0
+					}
+				}
+			}),
+			client.GET('/accounts', { params: { query: { workspace_id: workspaceId } } }),
+			client.GET('/publications', {
+				params: { query: { workspace_id: workspaceId, limit: 200, offset: 0 } }
+			})
+		]);
+		if (requestedKey !== loadKey) return;
+		const { data, error: apiError } = engagementResponse;
+		if (apiError) {
+			error = apiError.detail || m.engagement_load_failed();
+		} else {
+			items = data?.items ?? [];
+			total = data?.total ?? 0;
+			syncStates = data?.sync_states ?? [];
+			accounts = accountResponse.error ? [] : (accountResponse.data ?? []);
+			publications = publicationResponse.error ? [] : (publicationResponse.data ?? []);
+			dataWorkspaceId = workspaceId;
+			knownPlatforms = [
+				...new Set([
+					...knownPlatforms,
+					...items.map((item) => item.platform),
+					...accounts.map((account) => account.platform)
+				])
+			].sort();
+		}
+		loading = false;
+	}
+
+	async function refresh() {
+		if (!workspaceId) return;
+		refreshing = true;
+		const { error: apiError } = await client.POST('/communications/refresh', {
+			body: { workspace_id: workspaceId }
+		});
+		refreshing = false;
+		showToast(
+			apiError ? m.communications_refresh_failed() : m.communications_refresh_queued(),
+			apiError ? 'error' : 'success'
+		);
+	}
+
+	async function setState(
+		item: EngagementItem,
+		state: { read?: boolean; archived?: boolean },
+		announce = true
+	) {
+		if (!workspaceId) return false;
+		actionInFlight = item.id;
+		const { error: apiError } = await client.POST('/engagement/state', {
+			body: { workspace_id: workspaceId, ids: [item.id], ...state }
+		});
+		actionInFlight = '';
+		if (apiError) {
+			if (announce) showToast(m.engagement_action_failed(), 'error');
+			return false;
+		}
+		if (state.archived !== undefined || (state.read && unreadOnly)) {
+			items = items.filter((candidate) => candidate.id !== item.id);
+			total = Math.max(0, total - 1);
+		} else if (state.read !== undefined) {
+			items = items.map((candidate) =>
+				candidate.id === item.id
+					? {
+							...candidate,
+							read_at: state.read ? new Date().toISOString() : undefined
+						}
+					: candidate
+			);
+		}
+		if (announce) {
+			showToast(
+				state.archived === true
+					? m.engagement_archived_success()
+					: state.archived === false
+						? m.engagement_restored_success()
+						: m.engagement_read_success(),
+				'success'
+			);
+		}
+		return true;
+	}
+
+	async function queueAction(
+		item: EngagementItem,
+		action: 'reply' | 'hide' | 'delete' | 'like' | 'unlike'
+	) {
+		if (!workspaceId) return;
+		actionInFlight = item.id;
+		const { error: apiError } = await client.POST('/engagement/{item_id}/actions', {
+			params: { path: { item_id: item.id } },
+			body: {
+				workspace_id: workspaceId,
+				action,
+				message: action === 'reply' ? replyBody.trim() : undefined
+			}
+		});
+		actionInFlight = '';
+		if (apiError) {
+			showToast(apiError.detail || m.engagement_action_failed(), 'error');
+			return;
+		}
+		if (action === 'reply') {
+			replyItemId = '';
+			replyBody = '';
+		}
+		if (action === 'like' || action === 'unlike') {
+			const liked = action === 'like';
+			items = items.map((candidate) =>
+				candidate.id === item.id
+					? { ...candidate, liked, can_like: !liked, can_unlike: liked }
+					: candidate
+			);
+		}
+		await setState(item, { read: true }, false);
+		showToast(m.engagement_action_queued(), 'success');
+	}
+
+	function showToast(message: string, tone: 'neutral' | 'success' | 'error') {
+		toast = message;
+		toastTone = tone;
+	}
+
+	function requestProviderAction(item: EngagementItem, action: 'hide' | 'delete') {
+		confirmItem = item;
+		confirmAction = action;
+		confirmDialogOpen = true;
+	}
+
+	async function confirmProviderAction() {
+		const item = confirmItem;
+		const action = confirmAction;
+		confirmItem = null;
+		if (item) await queueAction(item, action);
+	}
+
+	function authorLabel(item: EngagementItem) {
+		return item.author_name || item.author_handle || m.common_untitled_user();
+	}
+
+	function hasTimestamp(value: string | undefined) {
+		return Boolean(value && !value.startsWith('0001-01-01'));
+	}
+
+	function dateLabel(value: string | undefined) {
+		if (!value) return '';
+		const date = new Date(value);
+		if (Number.isNaN(date.getTime())) return '';
+		return new Intl.DateTimeFormat(getLocaleTag(), {
+			dateStyle: 'medium',
+			timeStyle: 'short'
+		}).format(date);
+	}
+
+	function publicationLabel(publication: Publication) {
+		return (
+			publication.title ||
+			publication.source_text?.slice(0, 80) ||
+			m.engagement_untitled_publication()
+		);
+	}
+
+	function syncStateAccount(state: EngagementSyncState) {
+		return accounts.find((account) => account.id === state.social_account_id);
+	}
+
+	function syncStatePublication(state: EngagementSyncState) {
+		return publications.find((publication) =>
+			(publication.renditions ?? []).some((rendition) => rendition.id === state.rendition_id)
+		);
+	}
+
+	function syncStateMessage(state: EngagementSyncState) {
+		if (state.status === 'rate_limited') {
+			return m.engagement_rate_limited({ date: dateLabel(state.next_sync_at) });
+		}
+		if (state.status === 'failed') return m.engagement_collection_failed();
+		return state.error_message || m.engagement_sync_delayed();
+	}
+
+	function orderThread(source: EngagementItem[]) {
+		const byParent = new SvelteMap<string, EngagementItem[]>();
+		const ids = new SvelteSet(source.map((item) => item.remote_id));
+		for (const item of source) {
+			const parent = ids.has(item.parent_remote_id) ? item.parent_remote_id : '';
+			byParent.set(parent, [...(byParent.get(parent) ?? []), item]);
+		}
+		const ordered: EngagementItem[] = [];
+		const seen = new SvelteSet<string>();
+		const append = (parent: string) => {
+			for (const item of (byParent.get(parent) ?? []).toSorted(
+				(left, right) =>
+					new Date(left.remote_created_at || left.created_at).getTime() -
+					new Date(right.remote_created_at || right.created_at).getTime()
+			)) {
+				if (seen.has(item.id)) continue;
+				seen.add(item.id);
+				ordered.push(item);
+				append(item.remote_id);
+			}
+		};
+		append('');
+		for (const item of source) {
+			if (!seen.has(item.id)) ordered.push(item);
+		}
+		return ordered;
+	}
+</script>
+
+<svelte:head>
+	<title>{m.engagement_heading()} · OpenPost</title>
+</svelte:head>
+
+{#if toast}
+	<AppToast
+		message={toast}
+		tone={toastTone}
+		dismissLabel={m.common_dismiss()}
+		onDismiss={() => (toast = '')}
+	/>
+{/if}
+
+<PageContainer
+	title={m.engagement_heading()}
+	description={m.engagement_description()}
+	icon={MessagesSquareIcon}
+	loading={false}
+	loadingLayout="list"
+	loadingItems={6}
+>
+	{#snippet actions()}
+		{#if filteredSyncStates.length > 0}
+			<Popover.Root>
+				<Popover.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} variant="outline">
+							<CircleAlertIcon class="size-4 text-amber-600 dark:text-amber-400" />
+							{m.engagement_collection_issues({ count: filteredSyncStates.length })}
+						</Button>
+					{/snippet}
+				</Popover.Trigger>
+				<Popover.Content align="end" class="w-96 max-w-[calc(100vw-1rem)] overflow-hidden p-0">
+					<div class="border-b px-4 py-3">
+						<p class="text-sm font-semibold">{m.engagement_collection_issues_title()}</p>
+						<p class="mt-1 text-xs leading-5 text-muted-foreground">
+							{m.engagement_collection_issues_description()}
+						</p>
+					</div>
+					<div class="max-h-80 divide-y overflow-y-auto">
+						{#each filteredSyncStates as state (state.id)}
+							{@const account = syncStateAccount(state)}
+							{@const publication = syncStatePublication(state)}
+							<div class="flex gap-3 px-4 py-3">
+								<span
+									class="flex size-8 shrink-0 items-center justify-center rounded-full border bg-background"
+								>
+									<PlatformIcon platform={state.platform} class="size-4" />
+								</span>
+								<div class="min-w-0">
+									<p class="truncate text-sm font-medium">
+										{account?.account_username || getPlatformName(state.platform)}
+									</p>
+									<p class="truncate text-xs text-muted-foreground">
+										{publication
+											? publicationLabel(publication)
+											: m.engagement_collection_published_post()}
+									</p>
+									<p class="mt-1 text-xs leading-5 text-muted-foreground">
+										{syncStateMessage(state)}
+									</p>
+								</div>
+							</div>
+						{/each}
+					</div>
+				</Popover.Content>
+			</Popover.Root>
+		{/if}
+		<Button variant="outline" onclick={refresh} disabled={refreshing || !workspaceId}>
+			<RefreshIcon class={refreshing ? 'size-4 animate-spin' : 'size-4'} />
+			{m.communications_refresh()}
+		</Button>
+	{/snippet}
+
+	<div class="space-y-5">
+		<CommunicationsNavigation active="engagement" />
+
+		<div class="flex flex-wrap items-center gap-3">
+			<Select.Root
+				type="single"
+				value={platformFilter || 'all'}
+				onValueChange={(value) => {
+					platformFilter = value === 'all' ? '' : value;
+					const selectedAccount = accounts.find((account) => account.id === accountFilter);
+					if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
+						accountFilter = '';
+					}
+				}}
+			>
+				<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
+					{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
+					{#each knownPlatforms as provider (provider)}
+						<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Select.Root
+				type="single"
+				value={accountFilter || 'all'}
+				onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
+			>
+				<Select.Trigger class="h-11 w-48 sm:h-9" aria-label={m.engagement_all_accounts()}>
+					{#if accountFilter}
+						{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
+						{selectedAccount?.account_username ||
+							(selectedAccount
+								? getPlatformName(selectedAccount.platform)
+								: m.engagement_all_accounts())}
+					{:else}
+						{m.engagement_all_accounts()}
+					{/if}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{m.engagement_all_accounts()}</Select.Item>
+					{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
+						<Select.Item value={account.id}>
+							{account.account_username || getPlatformName(account.platform)}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Select.Root
+				type="single"
+				value={publicationFilter || 'all'}
+				onValueChange={(value) => (publicationFilter = value === 'all' ? '' : value)}
+			>
+				<Select.Trigger class="h-11 max-w-80 min-w-52 sm:h-9" aria-label={m.engagement_all_posts()}>
+					{publicationFilter
+						? publicationLabel(
+								publications.find((publication) => publication.id === publicationFilter) ??
+									({} as Publication)
+							)
+						: m.engagement_all_posts()}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{m.engagement_all_posts()}</Select.Item>
+					{#each publications as publication (publication.id)}
+						<Select.Item value={publication.id}>{publicationLabel(publication)}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<label class="flex min-h-11 items-center gap-2 text-sm">
+				<Checkbox bind:checked={unreadOnly} />
+				{m.engagement_unread_only()}
+			</label>
+			<label class="flex min-h-11 items-center gap-2 text-sm">
+				<Checkbox bind:checked={archived} />
+				{m.engagement_archived()}
+			</label>
+			<span class="ms-auto text-sm text-muted-foreground">{total}</span>
+		</div>
+		<p class="-mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+			{m.engagement_archive_help()}
+		</p>
+
+		{#if initialLoading}
+			<PageLoading layout="list" label={m.common_loading()} items={5} />
+		{:else if error}
+			<InlineNotice tone="error" message={error} />
+		{/if}
+		{#if !initialLoading && items.length === 0 && !error}
+			<EmptyState
+				icon={MessagesSquareIcon}
+				title={m.engagement_empty_title()}
+				description={m.engagement_empty_description()}
+				variant="muted"
+			/>
+		{:else if !initialLoading && items.length > 0}
+			<div class="space-y-4 transition-opacity" class:opacity-70={loading} aria-busy={loading}>
+				{#each groupedItems as group (group.key)}
+					{@const firstItem = group.items[0]}
+					<section class="overflow-hidden rounded-lg border bg-card">
+						<header class="flex flex-wrap items-center gap-3 border-b bg-muted/25 px-4 py-3">
+							<div
+								class="flex size-8 shrink-0 items-center justify-center rounded-full bg-background"
+							>
+								<PlatformIcon platform={firstItem.platform} class="size-4" />
+							</div>
+							<div class="min-w-0 flex-1">
+								<h2 class="truncate text-sm font-semibold">
+									{firstItem.publication_title ||
+										firstItem.publication_excerpt ||
+										m.engagement_untitled_publication()}
+								</h2>
+								<p class="truncate text-xs text-muted-foreground">
+									{firstItem.account_username || getPlatformName(firstItem.platform)}
+									· {m.engagement_reply_count({ count: group.items.length })}
+								</p>
+							</div>
+							{#if firstItem.provider_post_url}
+								<Button
+									href={firstItem.provider_post_url}
+									target="_blank"
+									rel="noreferrer"
+									variant="outline"
+									size="sm"
+								>
+									<ExternalLinkIcon class="size-4" />
+									{m.engagement_open_provider({ platform: getPlatformName(firstItem.platform) })}
+								</Button>
+							{/if}
+						</header>
+						<div class="divide-y">
+							{#each group.items as item (item.id)}
+								{@const isRead = hasTimestamp(item.read_at)}
+								{@const isDeleted = hasTimestamp(item.deleted_at)}
+								{@const isChild = group.items.some(
+									(candidate) => candidate.remote_id === item.parent_remote_id
+								)}
+								{@const attachments = item.attachments ?? []}
+								<article
+									class={[
+										'p-4 sm:p-5',
+										!isRead && 'bg-primary/[0.025]',
+										isChild && 'ms-5 border-s sm:ms-10'
+									]}
+								>
+									<div class="flex min-w-0 items-start gap-3">
+										<div
+											class="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold"
+											aria-hidden="true"
+										>
+											{authorLabel(item).slice(0, 1).toUpperCase()}
+										</div>
+										<div class="min-w-0 flex-1">
+											<div class="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+												<h3 class="truncate text-sm font-semibold">{authorLabel(item)}</h3>
+												{#if item.author_handle}
+													<span class="truncate text-xs text-muted-foreground">
+														{item.author_handle}
+													</span>
+												{/if}
+												<span class="text-xs text-muted-foreground">
+													{dateLabel(item.remote_created_at || item.created_at)}
+												</span>
+												{#if hasTimestamp(item.edited_at) && !isDeleted}
+													<span class="text-xs text-muted-foreground">{m.engagement_edited()}</span>
+												{/if}
+											</div>
+											{#if isDeleted}
+												<p class="mt-2 text-sm text-muted-foreground italic">
+													{m.engagement_deleted_item()}
+												</p>
+											{:else}
+												<p class="mt-2 max-w-3xl text-sm leading-6 whitespace-pre-wrap">
+													{item.body}
+												</p>
+												{#if attachments.length}
+													<div class="mt-3 flex flex-wrap gap-2">
+														{#each attachments as attachment, index (`${attachment.url}:${index}`)}
+															<Button
+																href={attachment.url || attachment.thumbnail}
+																target="_blank"
+																rel="noreferrer"
+																variant="outline"
+																size="sm"
+															>
+																<ExternalLinkIcon class="size-4" />
+																{attachment.name || m.engagement_open_attachment()}
+															</Button>
+														{/each}
+													</div>
+												{/if}
+											{/if}
+
+											<div class="mt-3 flex flex-wrap gap-1">
+												{#if item.can_reply && !isDeleted}
+													<Button
+														variant="ghost"
+														size="sm"
+														onclick={() => {
+															replyItemId = replyItemId === item.id ? '' : item.id;
+															replyBody = '';
+														}}
+													>
+														<ReplyIcon class="size-4" />{m.engagement_reply()}
+													</Button>
+												{/if}
+												{#if (item.can_like && !item.liked) || (item.can_unlike && item.liked)}
+													<Button
+														variant="ghost"
+														size="sm"
+														disabled={actionInFlight === item.id}
+														onclick={() => void queueAction(item, item.liked ? 'unlike' : 'like')}
+													>
+														<HeartIcon class={item.liked ? 'size-4 fill-current' : 'size-4'} />
+														{item.liked ? m.engagement_unlike() : m.engagement_like()}
+													</Button>
+												{/if}
+												{#if !isRead}
+													<Button
+														variant="ghost"
+														size="sm"
+														disabled={actionInFlight === item.id}
+														onclick={() => void setState(item, { read: true })}
+													>
+														{m.engagement_mark_read()}
+													</Button>
+												{/if}
+												{#if item.can_hide && !item.hidden && !isDeleted}
+													<Button
+														variant="ghost"
+														size="sm"
+														disabled={actionInFlight === item.id}
+														onclick={() => requestProviderAction(item, 'hide')}
+													>
+														<EyeOffIcon class="size-4" />{m.engagement_hide()}
+													</Button>
+												{/if}
+												<Button
+													variant="ghost"
+													size="sm"
+													disabled={actionInFlight === item.id}
+													onclick={() => void setState(item, { archived: !archived })}
+												>
+													{#if archived}
+														<InboxIcon class="size-4" />
+													{:else}
+														<ArchiveIcon class="size-4" />
+													{/if}
+													{archived ? m.engagement_restore() : m.engagement_archive()}
+												</Button>
+												{#if item.can_delete && !isDeleted}
+													<Button
+														variant="ghost"
+														size="sm"
+														class="text-destructive"
+														onclick={() => requestProviderAction(item, 'delete')}
+													>
+														<TrashIcon class="size-4" />{m.engagement_delete({
+															platform: getPlatformName(item.platform)
+														})}
+													</Button>
+												{/if}
+											</div>
+
+											{#if replyItemId === item.id}
+												<form
+													class="mt-3 grid gap-2"
+													onsubmit={(event) => {
+														event.preventDefault();
+														void queueAction(item, 'reply');
+													}}
+												>
+													<Textarea
+														bind:value={replyBody}
+														placeholder={m.engagement_reply_placeholder()}
+														rows={3}
+														required
+													/>
+													<div class="flex justify-end">
+														<Button
+															type="submit"
+															size="sm"
+															disabled={!replyBody.trim() || actionInFlight === item.id}
+														>
+															{m.engagement_send_reply()}
+														</Button>
+													</div>
+												</form>
+											{/if}
+										</div>
+									</div>
+								</article>
+							{/each}
+						</div>
+					</section>
+				{/each}
+			</div>
+		{/if}
+	</div>
+</PageContainer>
+
+<DestructiveConfirmDialog
+	bind:open={confirmDialogOpen}
+	title={confirmAction === 'delete'
+		? m.engagement_delete({ platform: confirmPlatformName })
+		: m.engagement_hide()}
+	description={confirmAction === 'delete'
+		? m.engagement_delete_confirm_description({ platform: confirmPlatformName })
+		: m.engagement_hide_confirm_description()}
+	confirmLabel={confirmAction === 'delete'
+		? m.engagement_delete({ platform: confirmPlatformName })
+		: m.engagement_hide()}
+	onConfirm={confirmProviderAction}
+/>

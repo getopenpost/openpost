@@ -1,0 +1,397 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      cli: ${{ steps.filter.outputs.cli }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      ci: ${{ steps.filter.outputs.ci }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'devenv.nix'
+              - 'devenv.yaml'
+              - 'devenv.lock'
+            cli:
+              - 'cli/**'
+              - 'devenv.nix'
+              - 'devenv.yaml'
+              - 'devenv.lock'
+            frontend:
+              - 'frontend/**'
+              - 'backend/internal/api/**'
+              - 'backend/cmd/openpost-openapi/**'
+              - 'cli/internal/commands/**'
+              - 'cli/cmd/openpost-docs/**'
+              - 'scripts/sync-docs-openapi.mjs'
+              - 'scripts/check-contracts.mjs'
+              - 'scripts/check-doc-links.mjs'
+              - 'scripts/next-release-version.mjs'
+              - 'scripts/next-release-version.test.mjs'
+              - 'marketing-site/**'
+              - 'docs-site/**'
+              - 'e2e/**'
+              - 'e2e-app/**'
+              - 'e2e-docs/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'playwright.app.config.ts'
+              - 'playwright.config.ts'
+              - 'playwright.docs.config.ts'
+              - 'turbo.json'
+              - 'devenv.nix'
+              - 'devenv.yaml'
+              - 'devenv.lock'
+            ci:
+              - '.github/workflows/**'
+
+  setup-nix-store:
+    name: Setup Nix Store
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+          installCommand: bash scripts/install-cachix-with-retry.sh
+
+      - name: Restore shared Nix store
+        id: nix-cache-restore
+        uses: nix-community/cache-nix-action/restore@v7
+        with:
+          primary-key: nix-${{ runner.os }}-devenv-${{ hashFiles('devenv.nix', 'devenv.yaml', 'devenv.lock', 'backend/devenv.nix', 'backend/go.sum', 'frontend/devenv.nix', 'pnpm-lock.yaml') }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-devenv-
+
+      - name: Install devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
+      - name: Warm devenv shell
+        shell: bash
+        run: devenv shell -- true
+
+      - name: Save shared Nix store
+        if: steps.nix-cache-restore.outputs.hit-primary-key != 'true'
+        uses: nix-community/cache-nix-action/save@v7
+        with:
+          primary-key: nix-${{ runner.os }}-devenv-${{ hashFiles('devenv.nix', 'devenv.yaml', 'devenv.lock', 'backend/devenv.nix', 'backend/go.sum', 'frontend/devenv.nix', 'pnpm-lock.yaml') }}
+          gc-max-store-size-linux: 3G
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    needs: [changes, setup-nix-store]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+          installCommand: bash scripts/install-cachix-with-retry.sh
+
+      - name: Restore shared Nix store
+        uses: nix-community/cache-nix-action/restore@v7
+        with:
+          primary-key: nix-${{ runner.os }}-devenv-${{ hashFiles('devenv.nix', 'devenv.yaml', 'devenv.lock', 'backend/devenv.nix', 'backend/go.sum', 'frontend/devenv.nix', 'pnpm-lock.yaml') }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-devenv-
+
+      - name: Install devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
+      - name: Set up Go cache
+        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Set up golangci-lint cache
+        if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/golangci-lint
+          key: golangci-lint-${{ runner.os }}-${{ hashFiles('backend/.golangci.yml', 'backend/go.sum') }}
+          restore-keys: |
+            golangci-lint-${{ runner.os }}-
+
+      - name: Set up pnpm cache
+        if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            node_modules
+            frontend/node_modules
+            marketing-site/node_modules
+            docs-site/node_modules
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Run relevant lint suite
+        shell: devenv shell bash -- -e {0}
+        env:
+          BACKEND_CHANGED: ${{ needs.changes.outputs.backend }}
+          FRONTEND_CHANGED: ${{ needs.changes.outputs.frontend }}
+          CI_CHANGED: ${{ needs.changes.outputs.ci }}
+        run: |
+          if [[ "$FRONTEND_CHANGED" == "true" || "$CI_CHANGED" == "true" ]]; then
+            frontend-lint
+            frontend-check
+          fi
+
+          if [[ "$BACKEND_CHANGED" == "true" || "$CI_CHANGED" == "true" ]]; then
+            backend-format-check
+            backend-lint
+          fi
+
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest
+    needs: [changes, setup-nix-store]
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+          installCommand: bash scripts/install-cachix-with-retry.sh
+
+      - name: Restore shared Nix store
+        uses: nix-community/cache-nix-action/restore@v7
+        with:
+          primary-key: nix-${{ runner.os }}-devenv-${{ hashFiles('devenv.nix', 'devenv.yaml', 'devenv.lock', 'backend/devenv.nix', 'backend/go.sum', 'frontend/devenv.nix', 'pnpm-lock.yaml') }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-devenv-
+
+      - name: Install devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
+      - name: Set up Go cache
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run backend tests
+        shell: devenv shell bash -- -e {0}
+        run: |
+          mkdir -p backend/cmd/openpost/public
+          touch backend/cmd/openpost/public/.gitkeep
+          cd backend
+          go test -v -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: backend/coverage.out
+          fail_ci_if_error: false
+
+  security:
+    name: Security
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || needs.changes.outputs.cli == 'true' || needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: |
+            backend/go.sum
+            cli/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Install locked JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Scan reachable Go vulnerabilities and production JavaScript dependencies
+        run: scripts/security-check.sh
+
+  test-backend-race:
+    name: Test Backend Race
+    runs-on: ubuntu-latest
+    needs: [changes, setup-nix-store]
+    if: github.event_name == 'push' && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.ci == 'true')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+          installCommand: bash scripts/install-cachix-with-retry.sh
+
+      - name: Restore shared Nix store
+        uses: nix-community/cache-nix-action/restore@v7
+        with:
+          primary-key: nix-${{ runner.os }}-devenv-${{ hashFiles('devenv.nix', 'devenv.yaml', 'devenv.lock', 'backend/devenv.nix', 'backend/go.sum', 'frontend/devenv.nix', 'pnpm-lock.yaml') }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-devenv-
+
+      - name: Install devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
+      - name: Set up Go cache
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: Run backend race tests
+        shell: devenv shell bash -- -e {0}
+        run: |
+          mkdir -p backend/cmd/openpost/public
+          touch backend/cmd/openpost/public/.gitkeep
+          cd backend
+          go test -race ./...
+
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+    needs: [changes, setup-nix-store]
+    if: needs.changes.outputs.frontend == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
+      - name: Set up devenv cache
+        uses: cachix/cachix-action@v16
+        with:
+          name: devenv
+          installCommand: bash scripts/install-cachix-with-retry.sh
+
+      - name: Restore shared Nix store
+        uses: nix-community/cache-nix-action/restore@v7
+        with:
+          primary-key: nix-${{ runner.os }}-devenv-${{ hashFiles('devenv.nix', 'devenv.yaml', 'devenv.lock', 'backend/devenv.nix', 'backend/go.sum', 'frontend/devenv.nix', 'pnpm-lock.yaml') }}
+          restore-prefixes-first-match: |
+            nix-${{ runner.os }}-devenv-
+
+      - name: Install devenv
+        shell: bash
+        run: nix profile add nixpkgs#devenv
+
+      - name: Set up pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            node_modules
+            frontend/node_modules
+            marketing-site/node_modules
+            docs-site/node_modules
+          key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-${{ runner.os }}-
+
+      - name: Run frontend tests and build
+        shell: devenv shell bash -- -e {0}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run check:docs
+          pnpm run check:release-version
+          pnpm run check:changelog
+          pnpm run check:ui-consistency
+          pnpm run check:contracts
+          pnpm exec playwright install --with-deps chromium
+          pnpm --filter @openpost/web test
+          pnpm --filter @openpost/web build
+          pnpm --filter @openpost/site check
+          pnpm --filter @openpost/site build
+          pnpm --filter @openpost/docs docs:build
+          pnpm run test:e2e
+          pnpm run test:e2e:app
+          pnpm run test:e2e:docs
+
+  cli:
+    name: CLI
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.cli == 'true' || needs.changes.outputs.ci == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+
+      - name: Build and test CLI
+        run: |
+          cd cli
+          go mod download
+          go build ./...
+          go test ./...

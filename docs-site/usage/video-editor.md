@@ -52,6 +52,8 @@ Open OpenPost Video Editor from Media, a Story, short-video, or video composer, 
 
 When the operator configures them, Pexels supplies photos and video, Unsplash supplies photos, and Pixabay supplies images and video. Search results show the creator and provider. Selection tracking follows each provider's API rules, the chosen bytes become a durable local source, and the project keeps provenance for its Credits panel and cloud Media record.
 
+Operators can use [Stock Media Providers](/configuration/stock-media) to compare the current free limits, get keys, complete Unsplash Production approval, and estimate storage and network costs.
+
 The included audio pack contains eight checked-in mastered loops and twelve checked-in interface or transition sounds. Its machine-readable manifest records each file's CC0 license, author, duration, loop points, mastering targets, size, and SHA-256 hash. OpenPost Video Editor verifies the selected file before importing it. Third-party music search is not enabled.
 
 ## Limits

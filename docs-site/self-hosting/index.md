@@ -18,6 +18,7 @@ These pages assume that you manage the server. You should know how to set enviro
 
 - [Configuration Overview](/configuration/overview) groups the main settings.
 - [Environment Variables](/configuration/environment-variables) is the full configuration reference.
+- [Stock Media Providers](/configuration/stock-media) covers Pexels, Unsplash, and Pixabay keys, free limits, approval, and operating costs.
 - [Database](/configuration/database) covers SQLite and Postgres.
 - [Media Storage](/configuration/media-storage) covers local files and S3/R2 storage.
 - [CORS and URLs](/configuration/cors-and-urls) covers public app and media web addresses.

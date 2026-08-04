@@ -18,6 +18,7 @@ devenv.yaml
 # Documentation
 docs/
 *.md
+!docs-site/**/*.md
 LICENSE
 
 # Frontend build artifacts (rebuilt in container)

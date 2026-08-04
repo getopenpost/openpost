@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Documented stock media provider registration, credentials, current free API limits, Unsplash Production approval, attribution and caching rules, storage and network costs, and a recommended Pexels, Pixabay, and Unsplash rollout order.
+
 ## [2.0.0] - 2026-08-04
 
 ### Added

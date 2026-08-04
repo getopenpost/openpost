@@ -13,8 +13,10 @@ RUN pnpm install --frozen-lockfile --filter @openpost/web...
 
 COPY frontend/ ./frontend/
 COPY packages/social-preview/ ./packages/social-preview/
+COPY packages/social-images/ ./packages/social-images/
 COPY packages/video-project/ ./packages/video-project/
 COPY assets/ ./assets/
+COPY docs-site/ ./docs-site/
 COPY scripts/ ./scripts/
 RUN mkdir -p backend/cmd/openpost/public && pnpm --filter @openpost/web build
 

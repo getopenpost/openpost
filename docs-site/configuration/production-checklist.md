@@ -58,6 +58,9 @@ changes live in [Developer Docs](/development/).
 - [ ] Add Instagram through `OPENPOST_PROVIDER_APPS` or the instance-admin provider app API if Instagram professional publishing is enabled, and confirm `OPENPOST_MEDIA_URL` serves public HTTPS media.
 - [ ] Add TikTok through `OPENPOST_PROVIDER_APPS` or the instance-admin provider app API if short-form video publishing is enabled, and confirm `OPENPOST_MEDIA_URL` serves public HTTPS media.
 - [ ] Add YouTube through `OPENPOST_PROVIDER_APPS` or the instance-admin provider app API if video uploads are enabled, and confirm the Google Cloud project has YouTube Data API v3 enabled.
+- [ ] If stock media is enabled, review [Stock Media Providers](/configuration/stock-media), configure only the intended Pexels, Unsplash, or Pixabay keys, and complete Unsplash Production approval before public use.
+- [ ] Confirm `/api/v1/stock-media/providers` lists only the intended providers, then search, import, and verify the saved credits for one asset from each provider.
+- [ ] Include imported stock files in the media storage, network, retention, and backup capacity plan.
 - [ ] Configure Mastodon servers in `MASTODON_SERVERS` if you need fixed self-hosted Mastodon apps.
 - [ ] Confirm custom Mastodon instance registration works if you rely on dynamic Mastodon connections.
 - [ ] Limit each new social network until OAuth, media, publishing, token refresh, retries, and API limits pass a live account test.

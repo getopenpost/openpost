@@ -11,6 +11,8 @@ This page lists the most common core and provider variables. Use [Environment Va
 
 ## OpenPost Video Editor and stock media
 
+See [Stock Media Providers](/configuration/stock-media) for provider registration, current free limits, approval requirements, and usage rules.
+
 | Variable                        | Default                | Purpose                                                                                        |
 | ------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
 | `OPENPOST_VIDEO_EDITOR_ENABLED` | `false`                | Enable the private-beta OpenPost Video Editor routes and APIs. Local projects remain browser-owned.     |

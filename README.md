@@ -52,7 +52,7 @@ OpenPost helps solo founders turn launches, product updates, lessons, and ideas 
 - **Keep brands separate.** Workspaces isolate accounts, media, schedules, members, and automation access.
 - **Manage replies and messages.** Read and reply to comments, get personal alerts, and turn on inbox collection for supported accounts.
 - **Choose how users sign in.** Require email confirmation, enable Google login, link methods explicitly, or configure organization SSO.
-- **Configure optional services in the app.** Instance admins can add encrypted billing, email, identity, stock media, feedback, and social provider credentials while deployment environment values remain authoritative.
+- **Configure optional services in the app.** Instance admins can add encrypted billing, email, identity, stock media, feedback, and social provider credentials while deployment environment values remain authoritative. The optional [Pexels, Unsplash, and Pixabay APIs](https://docs.openpost.social/configuration/stock-media) are free within their current terms and limits; imported media still uses your storage and network capacity.
 - **Automate without sharing social account keys.** Use the API, CLI, or MCP with OpenPost tokens that you can limit to one workspace and remove.
 - **Run a small server.** Use one container or binary, SQLite, local media, and saved background jobs. Redis is not required.
 

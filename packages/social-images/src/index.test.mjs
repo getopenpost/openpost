@@ -74,7 +74,7 @@ test("docs routes and image keys match VitePress output paths", () => {
 });
 
 test("every generated docs card has a unique, server-resolvable catalog id", () => {
-  assert.equal(docsSocialEntries.length, 84);
+  assert.equal(docsSocialEntries.length, 85);
   assert.equal(
     new Set(docsSocialEntries.map((entry) => entry.id)).size,
     docsSocialEntries.length,

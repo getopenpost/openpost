@@ -22,6 +22,8 @@ Leave the direct variable unset when you want the file value to win.
 
 Instance administrators can manage account policy, Whop billing, authentication, email, OpenPost Image Editor, stock media, feedback, provider behavior, and provider-app settings in **Settings → Instance → Configuration**. OpenPost encrypts every database-backed value with `OPENPOST_ENCRYPTION_KEY`; secret values are write-only and the API only reports whether one exists.
 
+See [Stock Media Providers](/configuration/stock-media) for key registration, current free limits, Unsplash Production approval, provider rules, and operating costs.
+
 Configuration precedence is:
 
 1. a direct environment variable or its `_FILE` variant;

@@ -256,7 +256,7 @@ func TestBillingStatus_WireFormat(t *testing.T) {
 			"workspace_id":"ws_1",
 			"provider":"whop",
 			"status":"active",
-			"plan_id":"founder",
+			"plan_id":"creator",
 			"current_period_end":"2026-07-31T00:00:00Z",
 			"cancel_at_period_end":false,
 			"limits":{"scheduled_posts_monthly":500,"social_accounts":6},
@@ -271,7 +271,7 @@ func TestBillingStatus_WireFormat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BillingStatus returned error: %v", err)
 	}
-	if got.WorkspaceID != "ws_1" || got.Provider != "whop" || got.Status != "active" || got.PlanID != "founder" {
+	if got.WorkspaceID != "ws_1" || got.Provider != "whop" || got.Status != "active" || got.PlanID != "creator" {
 		t.Fatalf("billing status wrong: %+v", got)
 	}
 	if got.Limits["scheduled_posts_monthly"] != 500 || got.Usage["scheduled_posts_monthly"] != 42 {
@@ -291,20 +291,20 @@ func TestCreateBillingCheckout_WireFormat(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode body: %v", err)
 		}
-		if body["workspace_id"] != "ws_1" || body["plan_id"] != "founder" || body["billing_period"] != "annual" {
+		if body["workspace_id"] != "ws_1" || body["plan_id"] != "creator" || body["billing_period"] != "annual" {
 			t.Fatalf("body = %#v", body)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"id":"checkout_1","url":"https://app.openpost.social/checkout?session_id=checkout_1","plan_id":"founder","billing_period":"annual","price_usd":250}`))
+		_, _ = w.Write([]byte(`{"id":"checkout_1","url":"https://app.openpost.social/checkout?session_id=checkout_1","plan_id":"creator","billing_period":"annual","price_usd":290}`))
 	}))
 	defer srv.Close()
 
 	c := New(srv.URL, "op_cli_test")
-	got, err := c.CreateBillingCheckout(context.Background(), "ws_1", "founder", "annual")
+	got, err := c.CreateBillingCheckout(context.Background(), "ws_1", "creator", "annual")
 	if err != nil {
 		t.Fatalf("CreateBillingCheckout returned error: %v", err)
 	}
-	if got.ID != "checkout_1" || got.URL != "https://app.openpost.social/checkout?session_id=checkout_1" || got.BillingPeriod != "annual" || got.PriceUSD != 250 {
+	if got.ID != "checkout_1" || got.URL != "https://app.openpost.social/checkout?session_id=checkout_1" || got.BillingPeriod != "annual" || got.PriceUSD != 290 {
 		t.Fatalf("checkout = %+v", got)
 	}
 }

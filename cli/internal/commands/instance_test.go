@@ -241,7 +241,7 @@ func TestInstanceDiagnosticsIncludesBillingSnapshot(t *testing.T) {
 				"workspace_id":"ws-1",
 				"provider":"whop",
 				"status":"active",
-				"plan_id":"founder",
+				"plan_id":"creator",
 				"cancel_at_period_end":false,
 				"limits":{"scheduled_posts_monthly":500,"social_accounts":6},
 				"usage":{"scheduled_posts_monthly":42,"social_accounts":3},
@@ -277,11 +277,11 @@ func TestInstanceDiagnosticsIncludesBillingSnapshot(t *testing.T) {
 	if got["billing_workspace_id"] != "ws-1" {
 		t.Fatalf("billing_workspace_id = %#v", got["billing_workspace_id"])
 	}
-	if got["billing_summary"] != "founder; active; scheduled_posts_monthly=42/500, social_accounts=3/6" {
+	if got["billing_summary"] != "creator; active; scheduled_posts_monthly=42/500, social_accounts=3/6" {
 		t.Fatalf("billing_summary = %#v", got["billing_summary"])
 	}
 	billing, ok := got["billing"].(map[string]any)
-	if !ok || billing["plan_id"] != "founder" || billing["status"] != "active" {
+	if !ok || billing["plan_id"] != "creator" || billing["status"] != "active" {
 		t.Fatalf("billing = %#v", got["billing"])
 	}
 }

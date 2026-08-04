@@ -6,7 +6,7 @@
 
 	function planName(planID: string) {
 		if (planID === 'starter') return m.settings_plan_starter();
-		if (planID === 'founder') return m.settings_plan_founder();
+		if (planID === 'creator') return m.settings_plan_creator();
 		if (planID === 'pro') return m.settings_plan_pro();
 		if (planID === 'team') return m.settings_plan_team();
 		if (planID === 'agency') return m.settings_plan_agency();

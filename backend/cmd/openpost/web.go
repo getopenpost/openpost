@@ -316,7 +316,7 @@ func isImmutableAsset(relPath string) bool {
 	if strings.HasPrefix(relPath, "_app/immutable/") {
 		return true
 	}
-	if !strings.HasPrefix(relPath, "image-editor-models/") {
+	if !strings.HasPrefix(relPath, "studio-models/") {
 		return false
 	}
 	filename := path.Base(relPath)

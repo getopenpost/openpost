@@ -3,7 +3,6 @@
   import { ArrowRight, Menu, Moon, Sun, X } from "lucide-svelte";
   import { mode, toggleMode } from "mode-watcher";
   import Logo from "$lib/components/Logo.svelte";
-  import PlatformIcon from "$lib/components/platform-icon.svelte";
   import { Button } from "$lib/components/ui/button";
   import * as NavigationMenu from "$lib/components/ui/navigation-menu";
   import {
@@ -11,7 +10,6 @@
     docsUrl,
     managedSignupUrl,
     navItems,
-    platforms,
     resourceItems,
   } from "../_marketing";
 
@@ -22,9 +20,6 @@
     ...resourceItems.filter((item) => item.href !== "/platforms"),
     { label: "Discord community", href: "https://discord.gg/u2QwukmY4W" },
   ] as const;
-  const platformMenuCells = Array.from({ length: 14 }, (_, index) =>
-    [2, 5, 9, 12].includes(index),
-  );
 
   function isActive(href: string): boolean {
     if (href.startsWith("http")) return false;
@@ -55,99 +50,16 @@
     >
       <NavigationMenu.List>
         {#each navItems as item (item.href)}
-          {#if item.href === "/platforms"}
-            <NavigationMenu.Item>
-              <NavigationMenu.Trigger
-                aria-current={isActive(item.href) ? "page" : undefined}
-                class="focus-ring h-11 min-h-11 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-open:bg-muted data-open:text-foreground"
-              >
-                {item.label}
-              </NavigationMenu.Trigger>
-              <NavigationMenu.Content
-                class="platform-menu left-1/2 w-[min(46rem,calc(100vw-2rem))] -translate-x-1/2 p-0"
-              >
-                <div
-                  class="flex items-center justify-between gap-5 border-b px-4 py-3.5"
-                >
-                  <div>
-                    <p class="text-sm font-semibold text-foreground">
-                      Publishing destinations
-                    </p>
-                    <p class="mt-0.5 text-xs text-muted-foreground">
-                      Formats, setup needs, limits, and live-test notes.
-                    </p>
-                  </div>
-                  <div class="flex shrink-0 items-center gap-4">
-                    <span
-                      class="platform-menu-cells hidden items-center gap-1 sm:flex"
-                      aria-hidden="true"
-                    >
-                      {#each platformMenuCells as active, index (index)}
-                        <i class={active ? "active" : undefined}></i>
-                      {/each}
-                    </span>
-                    <NavigationMenu.Link
-                      href="/platforms"
-                      active={isActive("/platforms")}
-                      class="focus-ring min-h-9 gap-1.5 rounded-md px-2.5 text-xs font-semibold text-foreground"
-                    >
-                      View all
-                      <ArrowRight class="size-3.5" aria-hidden="true" />
-                    </NavigationMenu.Link>
-                  </div>
-                </div>
-
-                <ul class="grid gap-1 p-2 md:grid-cols-2">
-                  {#each platforms as platform (platform.slug)}
-                    <li>
-                      <NavigationMenu.Link
-                        href={`/platforms/${platform.slug}`}
-                        active={isActive(`/platforms/${platform.slug}`)}
-                        aria-current={isActive(`/platforms/${platform.slug}`)
-                          ? "page"
-                          : undefined}
-                        class="group/platform-link focus-ring min-h-14 w-full gap-3 rounded-lg px-3 py-2.5"
-                      >
-                        <span
-                          class="flex size-9 shrink-0 items-center justify-center rounded-lg border bg-background text-foreground"
-                        >
-                          <PlatformIcon
-                            platform={platform.slug}
-                            class="size-[1.15rem]"
-                          />
-                        </span>
-                        <span class="min-w-0 flex-1">
-                          <span
-                            class="block text-sm font-semibold text-foreground"
-                            >{platform.name}</span
-                          >
-                          <span
-                            class="mt-0.5 block truncate text-xs text-muted-foreground"
-                            >{platform.tag}</span
-                          >
-                        </span>
-                        <ArrowRight
-                          class="size-3.5 -translate-x-1 text-muted-foreground opacity-0 transition group-hover/platform-link:translate-x-0 group-hover/platform-link:opacity-100 group-focus-visible/platform-link:translate-x-0 group-focus-visible/platform-link:opacity-100"
-                          aria-hidden="true"
-                        />
-                      </NavigationMenu.Link>
-                    </li>
-                  {/each}
-                </ul>
-              </NavigationMenu.Content>
-            </NavigationMenu.Item>
-          {:else}
-            <NavigationMenu.Item>
-              <NavigationMenu.Link
-                href={item.href}
-                active={isActive(item.href)}
-                aria-current={isActive(item.href) ? "page" : undefined}
-                class="focus-ring min-h-11 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[active=true]:text-foreground"
-              >
-                {item.label}
-              </NavigationMenu.Link>
-            </NavigationMenu.Item>
-          {/if}
+          <NavigationMenu.Item>
+            <NavigationMenu.Link
+              href={item.href}
+              active={isActive(item.href)}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              class="focus-ring min-h-11 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted/70 hover:text-foreground data-[active=true]:text-foreground"
+            >
+              {item.label}
+            </NavigationMenu.Link>
+          </NavigationMenu.Item>
         {/each}
 
         <NavigationMenu.Item>
@@ -219,55 +131,21 @@
     >
       <div class="marketing-shell grid gap-1 py-4">
         {#each navItems as item (item.href)}
-          {#if item.href !== "/platforms"}
-            <a
-              href={item.href}
-              aria-current={isActive(item.href) ? "page" : undefined}
-              class={[
-                "focus-ring flex min-h-11 items-center rounded-md px-3 text-sm font-medium",
-                isActive(item.href)
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground",
-              ]}
-              onclick={() => (mobileOpen = false)}
-            >
-              {item.label}
-            </a>
-          {/if}
-        {/each}
-
-        <div class="mt-3 flex min-h-11 items-center justify-between px-3">
-          <p class="text-xs font-semibold text-muted-foreground">Platforms</p>
           <a
-            href="/platforms"
-            class="focus-ring inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold"
+            href={item.href}
+            aria-current={isActive(item.href) ? "page" : undefined}
+            class={[
+              "focus-ring flex min-h-11 items-center rounded-md px-3 text-sm font-medium",
+              isActive(item.href)
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground",
+            ]}
             onclick={() => (mobileOpen = false)}
           >
-            View all <ArrowRight class="size-3.5" aria-hidden="true" />
+            {item.label}
           </a>
-        </div>
-        <div class="grid grid-cols-2 gap-1">
-          {#each platforms as platform (platform.slug)}
-            <a
-              href={`/platforms/${platform.slug}`}
-              aria-current={isActive(`/platforms/${platform.slug}`)
-                ? "page"
-                : undefined}
-              class={[
-                "focus-ring flex min-h-11 min-w-0 items-center gap-2 rounded-md px-3 text-sm",
-                isActive(`/platforms/${platform.slug}`)
-                  ? "bg-muted text-foreground"
-                  : "text-muted-foreground",
-              ]}
-              onclick={() => (mobileOpen = false)}
-            >
-              <PlatformIcon platform={platform.slug} class="size-4 shrink-0" />
-              <span class="truncate">{platform.name}</span>
-            </a>
-          {/each}
-        </div>
-
-        <p class="mt-4 px-3 text-xs font-semibold text-muted-foreground">
+        {/each}
+        <p class="mt-3 px-3 text-xs font-semibold text-muted-foreground">
           Resources
         </p>
         {#each navigationResourceItems as item (item.href)}
@@ -304,16 +182,5 @@
     border-bottom: 1px solid color-mix(in oklch, var(--border) 70%, transparent);
     background: color-mix(in oklch, var(--background) 88%, transparent);
     backdrop-filter: blur(18px) saturate(140%);
-  }
-
-  .platform-menu-cells i {
-    width: 0.42rem;
-    height: 0.42rem;
-    border-radius: 0.12rem;
-    background: color-mix(in oklch, var(--muted) 36%, var(--background));
-  }
-
-  .platform-menu-cells i.active {
-    background: var(--primary);
   }
 </style>

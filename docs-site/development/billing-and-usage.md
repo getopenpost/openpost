@@ -73,8 +73,8 @@ Hosted/cloud deployments need the complete set below. Set it in the deployment e
 - `OPENPOST_WHOP_CHECKOUT_RETURN_URL`
 - `OPENPOST_WHOP_STARTER_MONTHLY_PLAN_ID`
 - `OPENPOST_WHOP_STARTER_ANNUAL_PLAN_ID`
-- `OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID`
-- `OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID`
+- `OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID`
+- `OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID`
 - `OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID`
 - `OPENPOST_WHOP_PRO_ANNUAL_PLAN_ID`
 - `OPENPOST_WHOP_TEAM_MONTHLY_PLAN_ID`
@@ -90,4 +90,4 @@ Checkout endpoints return `503` when Whop is missing required server-side config
 
 Checkout metadata carries the OpenPost organization, workspace, user, plan, and billing period. Webhooks may be duplicated or arrive out of order, so the worker retrieves the current Whop membership before writing the local subscription snapshot. API handlers consume that local snapshot only.
 
-All managed plans use a card-required 14-day trial. Prices are USD-first: Starter $15 monthly or $150 annually, Founder $25 or $250, Pro $49 or $490, Team $99 or $990, and Agency $199 or $1,990.
+All managed plans use a card-required 14-day trial. Prices are USD-first: Starter $15 monthly or $150 annually, Creator $29 or $290, Pro $49 or $490, Team $99 or $990, and Agency $199 or $1,990.

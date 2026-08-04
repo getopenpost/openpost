@@ -77,7 +77,7 @@ FORM: Product-led publishing workspace with activity squares as the recurring pr
       ],
     },
     {
-      eyebrow: "Media workspace",
+      eyebrow: "Media studio",
       title: "Prepare the asset where you publish it.",
       description:
         "Keep source files, alt text, favorites, and use history in the media library, then open focused editors for video work.",
@@ -104,6 +104,23 @@ FORM: Product-led publishing workspace with activity squares as the recurring pr
   />
   <link rel="canonical" href={siteUrl} />
   <meta name="robots" content="index, follow" />
+  <meta property="og:url" content={siteUrl} />
+  <meta
+    property="og:title"
+    content="OpenPost - The all-in-one content team for solo founders"
+  />
+  <meta
+    property="og:description"
+    content="Turn what you are building into content and publish it everywhere from one place."
+  />
+  <meta
+    name="twitter:title"
+    content="OpenPost - The all-in-one content team for solo founders"
+  />
+  <meta
+    name="twitter:description"
+    content="Create, adapt, schedule, and track the content behind your company from one place."
+  />
 </svelte:head>
 
 <section class="hero overflow-hidden">

@@ -22,7 +22,7 @@ func TestBillingStatusCommand(t *testing.T) {
 				"workspace_id":"ws-1",
 				"provider":"whop",
 				"status":"active",
-				"plan_id":"founder",
+				"plan_id":"creator",
 				"limits":{"scheduled_posts_monthly":500},
 				"usage":{"scheduled_posts_monthly":42},
 				"period_start":"2026-07-01T00:00:00Z"
@@ -52,7 +52,7 @@ func TestBillingStatusCommand(t *testing.T) {
 	if billingQuery != "workspace_id=ws-1" {
 		t.Fatalf("billing query = %q, want workspace_id=ws-1", billingQuery)
 	}
-	if got["workspace_id"] != "ws-1" || got["plan_id"] != "founder" || got["status"] != "active" {
+	if got["workspace_id"] != "ws-1" || got["plan_id"] != "creator" || got["status"] != "active" {
 		t.Fatalf("billing status output = %#v", got)
 	}
 }
@@ -73,7 +73,7 @@ func TestBillingCheckoutCommand(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&checkoutBody); err != nil {
 				t.Fatalf("decode checkout body: %v", err)
 			}
-			_, _ = w.Write([]byte(`{"id":"checkout_1","url":"https://app.openpost.social/checkout?session_id=checkout_1","plan_id":"founder","billing_period":"annual","price_usd":250}`))
+			_, _ = w.Write([]byte(`{"id":"checkout_1","url":"https://app.openpost.social/checkout?session_id=checkout_1","plan_id":"creator","billing_period":"annual","price_usd":290}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -86,13 +86,13 @@ func TestBillingCheckoutCommand(t *testing.T) {
 		"--token", "op_cli_test",
 		"--workspace", "Production",
 		"--json",
-		"billing", "checkout", "founder", "--billing-period", "annual",
+		"billing", "checkout", "creator", "--billing-period", "annual",
 	)
 	if err != nil {
 		t.Fatalf("billing checkout returned error: %v", err)
 	}
 
-	if checkoutBody["workspace_id"] != "ws-1" || checkoutBody["plan_id"] != "founder" || checkoutBody["billing_period"] != "annual" {
+	if checkoutBody["workspace_id"] != "ws-1" || checkoutBody["plan_id"] != "creator" || checkoutBody["billing_period"] != "annual" {
 		t.Fatalf("checkout body = %#v", checkoutBody)
 	}
 	var got map[string]any

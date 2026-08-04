@@ -62,8 +62,8 @@
       </li>
       <li>
         <strong>Post data:</strong> drafts, scheduled and published content, media,
-        account versions, OpenPost Image Editor designs and saved versions, explicitly cloud-saved
-        OpenPost Video Editor projects, templates, brand settings, prompts, schedules, post
+        account versions, Studio designs and saved versions, explicitly cloud-saved
+        Video Studio projects, templates, brand settings, prompts, schedules, post
         status, and job history.
       </li>
       <li>
@@ -221,13 +221,13 @@
     <p>
       The application uses essential session and security cookies. It may use
       local browser storage for the selected workspace, server address,
-      language, sound preference, composer return state, unsynced OpenPost Image Editor
-      recovery copies, and local OpenPost Video Editor projects, sources, recordings,
+      language, sound preference, composer return state, unsynced Studio
+      recovery copies, and local Video Studio projects, sources, recordings,
       transcripts, analysis results, models, and exports. Clearing site data can
-      remove local OpenPost Video Editor content.
+      remove local Video Studio content.
     </p>
     <p>
-      OpenPost Image Editor background removal runs in your browser with model and runtime
+      Studio background removal runs in your browser with model and runtime
       files served by the OpenPost operator. Source pixels are not sent to a
       background-removal service. A result is uploaded to the selected workspace
       only when processing succeeds.
@@ -241,7 +241,7 @@
       the product demo; YouTube may then process device and playback data.
     </p>
     <p>
-      OpenPost Video Editor editing, recording, transcription, voice detection, framing
+      Video Studio editing, recording, transcription, voice detection, framing
       analysis, and export run in the browser. Model files are downloaded only
       after the user starts the related tool. Project sources and exports are
       uploaded only when the user chooses a cloud save, Media save, or post

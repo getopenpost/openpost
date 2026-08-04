@@ -193,7 +193,7 @@ test("accounts page starts custom Mastodon instance connection", async ({
         serverName: string | null;
       }
     | undefined;
-  await page.route("**/api/v1/accounts/mastodon/auth-url*", async (route) => {
+  await page.route("**/api/v1/accounts/mastodon/auth-url?**", async (route) => {
     const url = new URL(route.request().url());
     authURLRequest = {
       workspaceId: url.searchParams.get("workspace_id"),
@@ -210,18 +210,11 @@ test("accounts page starts custom Mastodon instance connection", async ({
   const card = page.getByTestId("provider-card-mastodon");
   await expect(card).toContainText("Connect any public Mastodon instance");
   await card.getByRole("button", { name: "Connect" }).click();
-  const dialog = page.getByRole("dialog", { name: /connect mastodon/i });
+  const dialog = page.getByRole("dialog", { name: "Connect Mastodon" });
   await expect(dialog).toBeVisible();
-  const instanceInput = dialog.locator("#mastodon-server");
-  if (!(await instanceInput.isVisible())) {
-    await dialog.getByRole("button", { name: /continue/i }).click();
-  }
-  await expect(instanceInput).toBeVisible();
-  await instanceInput.fill("mastodon.social");
-  await Promise.all([
-    page.waitForRequest("**/api/v1/accounts/mastodon/auth-url*"),
-    dialog.getByRole("button", { name: "Connect" }).click(),
-  ]);
+  await dialog.getByLabel("Server address").fill("mastodon.social");
+  await dialog.getByRole("button", { name: "Connect" }).click();
+
   await expect(page).toHaveURL(/\/accounts\/mastodon\/callback/);
   expect(authURLRequest?.workspaceId).toBeTruthy();
   expect(authURLRequest?.instanceURL).toBe("mastodon.social");

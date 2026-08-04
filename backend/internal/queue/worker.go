@@ -17,9 +17,7 @@ import (
 	communicationsservice "github.com/openpost/backend/internal/services/communications"
 	"github.com/openpost/backend/internal/services/feedback"
 	"github.com/openpost/backend/internal/services/mediastore"
-	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/publisher"
-	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/videoprocessing"
 	"github.com/uptrace/bun"
@@ -53,8 +51,6 @@ type BackgroundWorker struct {
 	analytics      *analyticsservice.Service
 	billing        *billingservice.Service
 	communications *communicationsservice.Service
-	notifications  *notifications.Service
-	reposts        *repostservice.Service
 	video          *videoprocessing.Service
 	done           chan struct{}
 }
@@ -73,14 +69,6 @@ func (w *BackgroundWorker) SetBillingService(service *billingservice.Service) {
 
 func (w *BackgroundWorker) SetCommunicationsService(service *communicationsservice.Service) {
 	w.communications = service
-}
-
-func (w *BackgroundWorker) SetNotificationService(service *notifications.Service) {
-	w.notifications = service
-}
-
-func (w *BackgroundWorker) SetRepostService(service *repostservice.Service) {
-	w.reposts = service
 }
 
 func (w *BackgroundWorker) SetVideoProcessingService(service *videoprocessing.Service) {
@@ -132,23 +120,8 @@ func (w *BackgroundWorker) processDueJobs(ctx context.Context) {
 	}
 }
 
-//nolint:gocyclo
 func (w *BackgroundWorker) requeueStaleProcessingJobs(ctx context.Context) {
 	cutoff := time.Now().UTC().Add(-staleProcessingJobAge)
-	if w.reposts != nil {
-		var ambiguousWrites []models.Job
-		if err := w.db.NewSelect().Model(&ambiguousWrites).
-			Where("type = ? AND status = ? AND locked_at IS NOT NULL AND locked_at <= ?", repostservice.JobTypeExecute, jobStatusProcessing, cutoff).
-			Scan(ctx); err == nil {
-			for _, job := range ambiguousWrites {
-				w.reposts.MarkAmbiguousWrite(ctx, job.Payload)
-				_, _ = w.db.NewUpdate().Model((*models.Job)(nil)).
-					Set("status = ?", jobStatusFailed).
-					Set("last_error = ?", "The worker stopped during a provider repost. OpenPost did not retry because the provider result may be ambiguous.").
-					Set("locked_at = NULL").Set("locked_by = ''").Where("id = ?", job.ID).Exec(ctx)
-			}
-		}
-	}
 	superseded, err := w.db.NewUpdate().
 		Model((*models.Job)(nil)).
 		Set("status = ?", jobStatusCompleted).
@@ -184,24 +157,6 @@ func (w *BackgroundWorker) requeueStaleProcessingJobs(ctx context.Context) {
 	}
 	if rows, rowsErr := communicationsSuperseded.RowsAffected(); rowsErr == nil && rows > 0 {
 		log.Printf("[Worker %s] superseded %d stale communications sweep job(s)\n", w.workerID, rows)
-	}
-	repostSuperseded, err := w.db.NewUpdate().
-		Model((*models.Job)(nil)).
-		Set("status = ?", jobStatusCompleted).
-		Set("last_error = ?", "A later repost sweep was already queued after worker recovery.").
-		Set("locked_at = NULL").
-		Set("locked_by = ''").
-		Where("type = ? AND status = ?", repostservice.JobTypeSweep, jobStatusProcessing).
-		Where("locked_at IS NOT NULL").
-		Where("locked_at <= ?", cutoff).
-		Where("EXISTS (SELECT 1 FROM jobs AS queued_sweep WHERE queued_sweep.type = ? AND queued_sweep.status = ?)", repostservice.JobTypeSweep, jobStatusPending).
-		Exec(ctx)
-	if err != nil {
-		log.Printf("[Worker %s] failed to supersede stale repost sweep: %v\n", w.workerID, err)
-		return
-	}
-	if rows, rowsErr := repostSuperseded.RowsAffected(); rowsErr == nil && rows > 0 {
-		log.Printf("[Worker %s] superseded %d stale repost sweep job(s)\n", w.workerID, rows)
 	}
 
 	result, err := w.db.NewUpdate().
@@ -306,18 +261,6 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 		case communicationsservice.JobTypeEngagementAct, communicationsservice.JobTypeMessageSend:
 			retryable = false
 			lastError = "The provider write failed. OpenPost did not retry because the provider result may be ambiguous."
-		case repostservice.JobTypeSweep, repostservice.JobTypeEvaluate:
-			failure := publisher.ClassifyFailure(processErr)
-			retryable = failure.Retryable || failure.Kind == publisher.FailureUnknown
-			retryAfter = failure.RetryAfter
-			lastError = "Repost evaluation failed. OpenPost will retry when the failure is temporary."
-			if job.Type == repostservice.JobTypeSweep && w.hasPendingRepostSweep(ctx, job.ID) {
-				retryable = false
-				lastError = "Repost sweep finished with an error; the next sweep remains queued."
-			}
-		case repostservice.JobTypeExecute:
-			retryable = false
-			lastError = "The provider repost failed. OpenPost did not retry because the provider result may be ambiguous."
 		}
 		if !retryable || job.Attempts >= job.MaxAttempts {
 			job.Status = jobStatusFailed
@@ -384,18 +327,6 @@ func (w *BackgroundWorker) hasPendingCommunicationsSweep(ctx context.Context, ex
 	return exists
 }
 
-func (w *BackgroundWorker) hasPendingRepostSweep(ctx context.Context, excludeID string) bool {
-	exists, err := w.db.NewSelect().
-		Model((*models.Job)(nil)).
-		Where("type = ? AND status = ? AND id != ?", repostservice.JobTypeSweep, jobStatusPending, excludeID).
-		Exists(ctx)
-	if err != nil {
-		log.Printf("[Worker %s] failed to inspect queued repost sweep: %v\n", w.workerID, err)
-		return false
-	}
-	return exists
-}
-
 func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, jobID string) {
 	ticker := time.NewTicker(processingHeartbeat)
 	defer ticker.Stop()
@@ -415,7 +346,6 @@ func (w *BackgroundWorker) heartbeatJobLock(ctx context.Context, jobID string) {
 	}
 }
 
-//nolint:gocyclo
 func (w *BackgroundWorker) executeJob(ctx context.Context, job *models.Job) error {
 	ctx = publisher.WithJobExecution(ctx, job.ID, job.Attempts, job.LockedAt)
 	// Job handlers will be injected or called from here based on Type
@@ -451,16 +381,6 @@ func (w *BackgroundWorker) executeJob(ctx context.Context, job *models.Job) erro
 			return fmt.Errorf("communications collection is not configured")
 		}
 		return w.communications.HandleJob(ctx, job.Type, job.Payload)
-	case notifications.JobTypeEmailDelivery:
-		if w.notifications == nil {
-			return fmt.Errorf("notification delivery is not configured")
-		}
-		return w.notifications.HandleJob(ctx, job.Type, job.Payload)
-	case repostservice.JobTypeSweep, repostservice.JobTypeEvaluate, repostservice.JobTypeExecute:
-		if w.reposts == nil {
-			return fmt.Errorf("repost automation is not configured")
-		}
-		return w.reposts.HandleJob(ctx, job.Type, job.Payload)
 	case videoprocessing.JobTypeAnalyze:
 		if w.video == nil {
 			return fmt.Errorf("video processing is not configured")

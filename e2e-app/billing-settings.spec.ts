@@ -32,7 +32,7 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
   ).toBeVisible();
   await expect(page.getByRole("button", { name: /^Choose / })).toHaveCount(5);
   await expect(page.getByRole("heading", { name: "Starter" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Founder" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Creator" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
   await expect(
     page.locator("#billing").getByRole("heading", { name: "Team" }),
@@ -65,7 +65,7 @@ test("settings keeps hosted X costs separate from product usage", async ({
         organization_id: workspace.organization_id,
         workspace_id: workspace.id,
         status: "active",
-        plan_id: "founder",
+        plan_id: "creator",
         cancel_at_period_end: false,
         limits: {},
         usage: {},
@@ -207,7 +207,7 @@ test("instance admins can review usage, users, and update status", async ({
               : `User ${userNumber}`,
         avatar_url: "",
         is_admin: userNumber === 1,
-        plan_ids: userNumber === 1 ? ["team"] : ["founder"],
+        plan_ids: userNumber === 1 ? ["team"] : ["creator"],
         organization_count: (userNumber % 2) + 1,
         workspace_count: userNumber % 4,
         social_account_count: userNumber % 3,
@@ -295,7 +295,7 @@ test("instance admins can review usage, users, and update status", async ({
   const directory = page.getByTestId("instance-user-directory");
   await expect(directory).toContainText("Ada Admin");
   await expect(directory).toContainText("Instance admin");
-  await expect(directory).toContainText("Founder");
+  await expect(directory).toContainText("Creator");
   await expect(directory).toContainText("Publications");
   await expect(usersPanel).toContainText("Showing 1–25 of 42");
 
@@ -591,27 +591,29 @@ test("plan selection from signup starts checkout after onboarding", async ({
       contentType: "application/json",
       json: {
         id: "checkout-e2e",
-        url: "/checkout?plan=founder&billing_period=monthly&session_id=checkout-e2e",
-        purchase_url: "https://whop.com/checkout/plan_founder_month",
-        provider_plan_id: "plan_founder_month",
-        plan_id: "founder",
+        url: "/checkout?plan=creator&billing_period=monthly&session_id=checkout-e2e",
+        purchase_url: "https://whop.com/checkout/plan_creator_month",
+        provider_plan_id: "plan_creator_month",
+        plan_id: "creator",
         billing_period: "monthly",
-        price_usd: 25,
+        price_usd: 29,
         trial_ends_at: "2026-08-18T12:00:00Z",
         return_url:
-          "http://127.0.0.1/checkout?plan=founder&billing_period=monthly&status=success",
+          "http://127.0.0.1/checkout?plan=creator&billing_period=monthly&status=success",
       },
     });
   });
 
-  await page.goto("/register?plan=founder");
+  await page.goto("/register?plan=creator");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
 
+  await expect(page).toHaveURL(/\/onboarding\?plan=creator/);
+
   await expect(page).toHaveURL(
-    /\/checkout\?plan=founder&billing_period=monthly$/,
+    /\/checkout\?plan=creator&billing_period=monthly$/,
   );
   await expect(
     page.getByRole("heading", { name: "Put your content team to work" }),
@@ -623,8 +625,8 @@ test("plan selection from signup starts checkout after onboarding", async ({
   );
   await expect(page.locator("#openpost-whop-checkout")).toHaveAttribute(
     "data-whop-checkout-plan-id",
-    "plan_founder_month",
+    "plan_creator_month",
   );
   expect(checkoutURL).toContain("/api/v1/billing/checkout");
-  expect(checkoutBody?.plan_id).toBe("founder");
+  expect(checkoutBody?.plan_id).toBe("creator");
 });

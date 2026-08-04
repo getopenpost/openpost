@@ -22,7 +22,7 @@ OpenPost is for people who are building a company and also have to create its au
 5. Publish now or choose a time.
 6. Check the result, errors, and retry options in the app.
 
-OpenPost also has a media library, a still-image editor called OpenPost Image Editor, posting schedules, analytics, comments and replies, personal alerts, and inboxes for supported accounts.
+OpenPost also has a media library, a still-image editor called Studio, posting schedules, analytics, comments and replies, personal alerts, and inboxes for supported accounts.
 
 If an AI tool helps, give it an OpenPost token instead of your social account keys. `mcp:read` is read-only. `mcp:full` can create, change, schedule, publish, reply, or moderate. Review the result before you allow a change. See [Agent-Assisted Publishing](/usage/agent-assisted-publishing).
 

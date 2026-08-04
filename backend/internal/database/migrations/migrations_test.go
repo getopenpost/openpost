@@ -342,7 +342,7 @@ func TestRemoveGlobalMediaHashConstraintKeepsIndexesAndAllowsWorkspaceScopedHash
 		VALUES ('media-3', 'workspace-1', 'same-hash')`)
 	require.Error(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO media_attachments (id, workspace_id, file_hash, source, asset_kind)
-		VALUES ('media-4', 'workspace-1', 'same-hash', 'image_editor_export', 'library')`)
+		VALUES ('media-4', 'workspace-1', 'same-hash', 'studio_export', 'library')`)
 	require.NoError(t, err)
 
 	var indexCount int

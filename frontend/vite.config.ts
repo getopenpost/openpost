@@ -53,10 +53,10 @@ export default defineConfig({
 						}
 					},
 					{
-						urlPattern: ({ url }) => url.pathname.startsWith('/image-editor-models/'),
+						urlPattern: ({ url }) => url.pathname.startsWith('/studio-models/'),
 						handler: 'CacheFirst',
 						options: {
-							cacheName: 'openpost-image-editor-models-1.7.0',
+							cacheName: 'openpost-studio-models-1.7.0',
 							expiration: {
 								maxEntries: 32,
 								maxAgeSeconds: 365 * 24 * 60 * 60

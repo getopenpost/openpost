@@ -193,7 +193,7 @@ test("onboarding does not offer workspace creation when bootstrap fails", async 
   await loadError.getByRole("button", { name: "Try again" }).click();
 
   await expect(loadError).toHaveCount(0);
-  await expect(page).toHaveURL(/\/onboarding/);
+  await expect(page.getByLabel("Workspace name")).toBeVisible();
 });
 
 test("accepted invitations retry workspace refresh without consuming the token again", async ({

@@ -46,11 +46,6 @@ type Service struct {
 	usage                        *usage.Service
 	quota                        entitlements.Service
 	notifications                *notifications.Service
-	reposts                      RepostScheduler
-}
-
-type RepostScheduler interface {
-	ScheduleForRendition(ctx context.Context, renditionID string) error
 }
 
 func NewService(db *bun.DB, tm *tokenmanager.TokenManager) *Service {
@@ -93,10 +88,6 @@ func (s *Service) SetEntitlement(entitlement entitlements.Service) {
 
 func (s *Service) SetNotificationService(service *notifications.Service) {
 	s.notifications = service
-}
-
-func (s *Service) SetRepostScheduler(service RepostScheduler) {
-	s.reposts = service
 }
 
 func (s *Service) SetProvider(platformName string, adapter platform.Adapter) {
@@ -544,7 +535,6 @@ func (s *Service) publishRendition(ctx context.Context, publication *models.Publ
 		"external_id":  externalID,
 		"external_url": externalURL,
 	})
-	s.scheduleReposts(ctx, rendition.ID)
 	return nil
 }
 
@@ -746,17 +736,7 @@ func (s *Service) publishRenditionSegments(
 		Exec(ctx); err != nil {
 		return fmt.Errorf("updating segmented rendition status: %w", err)
 	}
-	s.scheduleReposts(ctx, rendition.ID)
 	return nil
-}
-
-func (s *Service) scheduleReposts(ctx context.Context, renditionID string) {
-	if s.reposts == nil {
-		return
-	}
-	if err := s.reposts.ScheduleForRendition(ctx, renditionID); err != nil {
-		log.Printf("[Publisher] failed to schedule repost automation for rendition %s: %v", renditionID, err)
-	}
 }
 
 func (s *Service) failRenditionSegment(ctx context.Context, segment *models.RenditionSegment, failure error) error {

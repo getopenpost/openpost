@@ -64,5 +64,3 @@ This matrix reflects current OpenPost support, not the full theoretical capabili
 Social network API rules, access, request limits, and app review can change. Check that network's docs if a feature stops working.
 
 See [Analytics](/usage/analytics) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage.
-
-Native auto reposts are currently available for X, Mastodon, Bluesky, and LinkedIn. OpenPost reposts only within the source network; it never turns a repost into a copied post on another network. See [Auto Reposts](/usage/auto-reposts) for rule and account-access details.

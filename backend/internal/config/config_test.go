@@ -38,11 +38,8 @@ var configTestEnvKeys = []string{
 	"OPENPOST_TERMS_VERSION",
 	"OPENPOST_PRIVACY_VERSION",
 	"OPENPOST_SUPPORT_EMAIL",
-	"OPENPOST_IMAGE_EDITOR_ENABLED",
-	"OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL",
 	"OPENPOST_STUDIO_ENABLED",
 	"OPENPOST_STUDIO_MODEL_BASE_URL",
-	"OPENPOST_VIDEO_EDITOR_ENABLED",
 	"OPENPOST_VIDEO_STUDIO_ENABLED",
 	"OPENPOST_VIDEO_MODEL_BASE_URL",
 	"OPENPOST_STOCK_MEDIA_ENABLED",
@@ -119,8 +116,6 @@ var configTestEnvKeys = []string{
 	"OPENPOST_WHOP_CHECKOUT_RETURN_URL",
 	"OPENPOST_WHOP_STARTER_MONTHLY_PLAN_ID",
 	"OPENPOST_WHOP_STARTER_ANNUAL_PLAN_ID",
-	"OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID",
-	"OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID",
 	"OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID",
 	"OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID",
 	"OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID",
@@ -145,10 +140,10 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Empty(t, cfg.WhopAPIKey)
 	require.Equal(t, "https://api.whop.com/api/v1", cfg.WhopAPIBaseURL)
 	require.Empty(t, cfg.WhopWebhookSecret)
-	require.True(t, cfg.ImageEditorEnabled)
-	require.Equal(t, "/image-editor-models", cfg.ImageEditorModelBaseURL)
-	require.False(t, cfg.VideoEditorEnabled)
-	require.Equal(t, "/video-editor-models", cfg.VideoModelBaseURL)
+	require.True(t, cfg.StudioEnabled)
+	require.Equal(t, "/studio-models", cfg.StudioModelBaseURL)
+	require.False(t, cfg.VideoStudioEnabled)
+	require.Equal(t, "/video-studio-models", cfg.VideoModelBaseURL)
 	require.False(t, cfg.StockMediaEnabled)
 	require.False(t, cfg.FeedbackEnabled)
 	require.Empty(t, cfg.FeedbackDestinationURL)
@@ -176,40 +171,18 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	require.Equal(t, 90, cfg.ProviderUsageRetentionDays)
 }
 
-func TestLoadImageEditorConfiguration(t *testing.T) {
-	t.Setenv("OPENPOST_IMAGE_EDITOR_ENABLED", "false")
-	t.Setenv("OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL", "https://assets.example.com/openpost/image-editor/")
-
-	cfg := Load()
-
-	require.False(t, cfg.ImageEditorEnabled)
-	require.Equal(t, "https://assets.example.com/openpost/image-editor", cfg.ImageEditorModelBaseURL)
-}
-
-func TestLoadEditorConfigurationSupportsLegacyEnvironmentAliases(t *testing.T) {
+func TestLoadStudioConfiguration(t *testing.T) {
 	t.Setenv("OPENPOST_STUDIO_ENABLED", "false")
-	t.Setenv("OPENPOST_STUDIO_MODEL_BASE_URL", "https://assets.example.com/legacy-image-editor/")
-	t.Setenv("OPENPOST_VIDEO_STUDIO_ENABLED", "true")
+	t.Setenv("OPENPOST_STUDIO_MODEL_BASE_URL", "https://assets.example.com/openpost/studio/")
 
 	cfg := Load()
 
-	require.False(t, cfg.ImageEditorEnabled)
-	require.Equal(t, "https://assets.example.com/legacy-image-editor", cfg.ImageEditorModelBaseURL)
-	require.True(t, cfg.VideoEditorEnabled)
+	require.False(t, cfg.StudioEnabled)
+	require.Equal(t, "https://assets.example.com/openpost/studio", cfg.StudioModelBaseURL)
 }
 
-func TestLoadFounderPlanConfigurationSupportsLegacyCreatorEnvironmentAliases(t *testing.T) {
-	t.Setenv("OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID", "plan_creator_monthly")
-	t.Setenv("OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID", "plan_creator_annual")
-
-	cfg := Load()
-
-	require.Equal(t, "plan_creator_monthly", cfg.WhopFounderMonthlyPlanID)
-	require.Equal(t, "plan_creator_annual", cfg.WhopFounderAnnualPlanID)
-}
-
-func TestLoadVideoEditorAndStockConfiguration(t *testing.T) {
-	t.Setenv("OPENPOST_VIDEO_EDITOR_ENABLED", "false")
+func TestLoadVideoStudioAndStockConfiguration(t *testing.T) {
+	t.Setenv("OPENPOST_VIDEO_STUDIO_ENABLED", "false")
 	t.Setenv("OPENPOST_VIDEO_MODEL_BASE_URL", " https://models.example.test/openpost ")
 	t.Setenv("OPENPOST_STOCK_MEDIA_ENABLED", "true")
 	t.Setenv("OPENPOST_PEXELS_API_KEY", " pexels-key ")
@@ -218,7 +191,7 @@ func TestLoadVideoEditorAndStockConfiguration(t *testing.T) {
 
 	cfg := Load()
 
-	require.False(t, cfg.VideoEditorEnabled)
+	require.False(t, cfg.VideoStudioEnabled)
 	require.Equal(t, "https://models.example.test/openpost", cfg.VideoModelBaseURL)
 	require.True(t, cfg.StockMediaEnabled)
 	require.Equal(t, "pexels-key", cfg.PexelsAPIKey)
@@ -390,7 +363,7 @@ func TestLoadSupportsFileBackedEnvValues(t *testing.T) {
 	t.Setenv("OPENPOST_WHOP_ACCOUNT_ID_FILE", writeEnvFile(t, "whop-account", "biz_1\n"))
 	t.Setenv("OPENPOST_WHOP_PRODUCT_ID_FILE", writeEnvFile(t, "whop-product", "prod_1\n"))
 	t.Setenv("OPENPOST_WHOP_CHECKOUT_RETURN_URL_FILE", writeEnvFile(t, "whop-return-url", "https://app.openpost.social/checkout?status=success\n"))
-	for _, plan := range []string{"STARTER", "FOUNDER", "PRO", "TEAM", "AGENCY"} {
+	for _, plan := range []string{"STARTER", "CREATOR", "PRO", "TEAM", "AGENCY"} {
 		t.Setenv("OPENPOST_WHOP_"+plan+"_MONTHLY_PLAN_ID_FILE", writeEnvFile(t, strings.ToLower(plan)+"-monthly", "plan_"+strings.ToLower(plan)+"_monthly\n"))
 		t.Setenv("OPENPOST_WHOP_"+plan+"_ANNUAL_PLAN_ID_FILE", writeEnvFile(t, strings.ToLower(plan)+"-annual", "plan_"+strings.ToLower(plan)+"_annual\n"))
 	}
@@ -569,8 +542,8 @@ func TestValidateRuntimeRejectsCloudMissingWhopPrimitives(t *testing.T) {
 	cfg.WhopProductID = ""
 	cfg.WhopStarterMonthlyPlanID = ""
 	cfg.WhopStarterAnnualPlanID = ""
-	cfg.WhopFounderMonthlyPlanID = ""
-	cfg.WhopFounderAnnualPlanID = ""
+	cfg.WhopCreatorMonthlyPlanID = ""
+	cfg.WhopCreatorAnnualPlanID = ""
 	cfg.WhopProMonthlyPlanID = ""
 	cfg.WhopProAnnualPlanID = ""
 	cfg.WhopTeamMonthlyPlanID = ""
@@ -638,8 +611,8 @@ func validCloudRuntimeConfig() *Config {
 		WhopProductID:             "prod_1",
 		WhopStarterMonthlyPlanID:  "plan_starter_monthly",
 		WhopStarterAnnualPlanID:   "plan_starter_annual",
-		WhopFounderMonthlyPlanID:  "plan_founder_monthly",
-		WhopFounderAnnualPlanID:   "plan_founder_annual",
+		WhopCreatorMonthlyPlanID:  "plan_creator_monthly",
+		WhopCreatorAnnualPlanID:   "plan_creator_annual",
 		WhopProMonthlyPlanID:      "plan_pro_monthly",
 		WhopProAnnualPlanID:       "plan_pro_annual",
 		WhopTeamMonthlyPlanID:     "plan_team_monthly",
@@ -669,7 +642,7 @@ func TestLoadWhopPrimitives(t *testing.T) {
 	t.Setenv("OPENPOST_WHOP_ACCOUNT_ID", "biz_1")
 	t.Setenv("OPENPOST_WHOP_PRODUCT_ID", "prod_1")
 	t.Setenv("OPENPOST_WHOP_CHECKOUT_RETURN_URL", "https://app.openpost.social/checkout?status=success")
-	for _, plan := range []string{"STARTER", "FOUNDER", "PRO", "TEAM", "AGENCY"} {
+	for _, plan := range []string{"STARTER", "CREATOR", "PRO", "TEAM", "AGENCY"} {
 		t.Setenv("OPENPOST_WHOP_"+plan+"_MONTHLY_PLAN_ID", "plan_"+strings.ToLower(plan)+"_monthly")
 		t.Setenv("OPENPOST_WHOP_"+plan+"_ANNUAL_PLAN_ID", "plan_"+strings.ToLower(plan)+"_annual")
 	}

@@ -40,9 +40,9 @@ type Config struct {
 	TermsVersion            string
 	PrivacyVersion          string
 	SupportEmail            string
-	ImageEditorEnabled      bool
-	ImageEditorModelBaseURL string
-	VideoEditorEnabled      bool
+	StudioEnabled           bool
+	StudioModelBaseURL      string
+	VideoStudioEnabled      bool
 	VideoModelBaseURL       string
 	StockMediaEnabled       bool
 	PexelsAPIKey            string
@@ -122,8 +122,8 @@ type Config struct {
 	WhopCheckoutReturnURL    string
 	WhopStarterMonthlyPlanID string
 	WhopStarterAnnualPlanID  string
-	WhopFounderMonthlyPlanID string
-	WhopFounderAnnualPlanID  string
+	WhopCreatorMonthlyPlanID string
+	WhopCreatorAnnualPlanID  string
 	WhopProMonthlyPlanID     string
 	WhopProAnnualPlanID      string
 	WhopTeamMonthlyPlanID    string
@@ -184,45 +184,30 @@ func Load() *Config {
 		TermsVersion:            getEnvDefault("OPENPOST_TERMS_VERSION", defaultPolicyVersion),
 		PrivacyVersion:          getEnvDefault("OPENPOST_PRIVACY_VERSION", defaultPolicyVersion),
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
-		ImageEditorEnabled: getEnvBoolWithAliases(
-			true,
-			"OPENPOST_IMAGE_EDITOR_ENABLED",
-			"OPENPOST_STUDIO_ENABLED",
-		),
-		ImageEditorModelBaseURL: strings.TrimRight(
-			getEnvWithFallbacks(
-				"OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL",
-				"/image-editor-models",
-				"OPENPOST_STUDIO_MODEL_BASE_URL",
-			),
-			"/",
-		),
-		VideoEditorEnabled: getEnvBoolWithAliases(
-			false,
-			"OPENPOST_VIDEO_EDITOR_ENABLED",
-			"OPENPOST_VIDEO_STUDIO_ENABLED",
-		),
-		VideoModelBaseURL:      strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_VIDEO_MODEL_BASE_URL", "/video-editor-models")), "/"),
-		StockMediaEnabled:      getEnvBoolWithAliases(false, "OPENPOST_STOCK_MEDIA_ENABLED"),
-		PexelsAPIKey:           strings.TrimSpace(getEnvDefault("OPENPOST_PEXELS_API_KEY", "")),
-		UnsplashAccessKey:      strings.TrimSpace(getEnvDefault("OPENPOST_UNSPLASH_ACCESS_KEY", "")),
-		PixabayAPIKey:          strings.TrimSpace(getEnvDefault("OPENPOST_PIXABAY_API_KEY", "")),
-		FeedbackEnabled:        getEnvBoolWithAliases(false, "OPENPOST_FEEDBACK_ENABLED"),
-		FeedbackDestinationURL: getEnvDefault("OPENPOST_FEEDBACK_DESTINATION_URL", ""),
-		FeedbackRecipient:      getEnvDefault("OPENPOST_FEEDBACK_RECIPIENT", ""),
-		FeedbackSupportURL:     getEnvDefault("OPENPOST_FEEDBACK_SUPPORT_URL", "https://github.com/rodrgds/openpost/issues/new"),
-		UpdateCheckEnabled:     getEnvBoolWithAliases(true, "OPENPOST_UPDATE_CHECK_ENABLED"),
-		OIDCIssuer:             strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_ISSUER", "")),
-		OIDCClientID:           strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_CLIENT_ID", "")),
-		OIDCClientSecret:       getEnvDefault("OPENPOST_OIDC_CLIENT_SECRET", ""),
-		OIDCName:               strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_NAME", "Single sign-on")),
-		OIDCScopes:             parseStringList(getEnvDefault("OPENPOST_OIDC_SCOPES", "openid profile email")),
-		OIDCJITEnabled:         getEnvBoolWithAliases(false, "OPENPOST_OIDC_JIT_ENABLED"),
-		OIDCBootstrapAllowlist: parseStringList(getEnvDefault("OPENPOST_OIDC_BOOTSTRAP_ALLOWLIST", "")),
-		OIDCBreakGlassEmails:   parseStringList(getEnvDefault("OPENPOST_SSO_BREAK_GLASS_EMAILS", "")),
-		OIDCNativeCallbackURL:  strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_NATIVE_CALLBACK_URL", "openpost://oidc/callback")),
-		GoogleAuthClientID:     strings.TrimSpace(getEnvDefault("OPENPOST_AUTH_GOOGLE_CLIENT_ID", "")),
-		GoogleAuthClientSecret: getEnvDefault("OPENPOST_AUTH_GOOGLE_CLIENT_SECRET", ""),
+		StudioEnabled:           getEnvBoolWithAliases(true, "OPENPOST_STUDIO_ENABLED"),
+		StudioModelBaseURL:      strings.TrimRight(getEnvDefault("OPENPOST_STUDIO_MODEL_BASE_URL", "/studio-models"), "/"),
+		VideoStudioEnabled:      getEnvBoolWithAliases(false, "OPENPOST_VIDEO_STUDIO_ENABLED"),
+		VideoModelBaseURL:       strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_VIDEO_MODEL_BASE_URL", "/video-studio-models")), "/"),
+		StockMediaEnabled:       getEnvBoolWithAliases(false, "OPENPOST_STOCK_MEDIA_ENABLED"),
+		PexelsAPIKey:            strings.TrimSpace(getEnvDefault("OPENPOST_PEXELS_API_KEY", "")),
+		UnsplashAccessKey:       strings.TrimSpace(getEnvDefault("OPENPOST_UNSPLASH_ACCESS_KEY", "")),
+		PixabayAPIKey:           strings.TrimSpace(getEnvDefault("OPENPOST_PIXABAY_API_KEY", "")),
+		FeedbackEnabled:         getEnvBoolWithAliases(false, "OPENPOST_FEEDBACK_ENABLED"),
+		FeedbackDestinationURL:  getEnvDefault("OPENPOST_FEEDBACK_DESTINATION_URL", ""),
+		FeedbackRecipient:       getEnvDefault("OPENPOST_FEEDBACK_RECIPIENT", ""),
+		FeedbackSupportURL:      getEnvDefault("OPENPOST_FEEDBACK_SUPPORT_URL", "https://github.com/rodrgds/openpost/issues/new"),
+		UpdateCheckEnabled:      getEnvBoolWithAliases(true, "OPENPOST_UPDATE_CHECK_ENABLED"),
+		OIDCIssuer:              strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_ISSUER", "")),
+		OIDCClientID:            strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_CLIENT_ID", "")),
+		OIDCClientSecret:        getEnvDefault("OPENPOST_OIDC_CLIENT_SECRET", ""),
+		OIDCName:                strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_NAME", "Single sign-on")),
+		OIDCScopes:              parseStringList(getEnvDefault("OPENPOST_OIDC_SCOPES", "openid profile email")),
+		OIDCJITEnabled:          getEnvBoolWithAliases(false, "OPENPOST_OIDC_JIT_ENABLED"),
+		OIDCBootstrapAllowlist:  parseStringList(getEnvDefault("OPENPOST_OIDC_BOOTSTRAP_ALLOWLIST", "")),
+		OIDCBreakGlassEmails:    parseStringList(getEnvDefault("OPENPOST_SSO_BREAK_GLASS_EMAILS", "")),
+		OIDCNativeCallbackURL:   strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_NATIVE_CALLBACK_URL", "openpost://oidc/callback")),
+		GoogleAuthClientID:      strings.TrimSpace(getEnvDefault("OPENPOST_AUTH_GOOGLE_CLIENT_ID", "")),
+		GoogleAuthClientSecret:  getEnvDefault("OPENPOST_AUTH_GOOGLE_CLIENT_SECRET", ""),
 
 		EmailVerificationRequired: getEnvBoolWithAliases(edition == EditionCloud, "OPENPOST_EMAIL_VERIFICATION_REQUIRED"),
 		EmailProvider:             getEnvEnum("OPENPOST_EMAIL_PROVIDER", "", "smtp", "resend", "cloudflare"),
@@ -281,8 +266,8 @@ func Load() *Config {
 		WhopCheckoutReturnURL:    strings.TrimRight(getEnvDefault("OPENPOST_WHOP_CHECKOUT_RETURN_URL", ""), "/"),
 		WhopStarterMonthlyPlanID: getEnvDefault("OPENPOST_WHOP_STARTER_MONTHLY_PLAN_ID", ""),
 		WhopStarterAnnualPlanID:  getEnvDefault("OPENPOST_WHOP_STARTER_ANNUAL_PLAN_ID", ""),
-		WhopFounderMonthlyPlanID: getEnvWithFallbacks("OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID", "", "OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID"),
-		WhopFounderAnnualPlanID:  getEnvWithFallbacks("OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID", "", "OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID"),
+		WhopCreatorMonthlyPlanID: getEnvDefault("OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID", ""),
+		WhopCreatorAnnualPlanID:  getEnvDefault("OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID", ""),
 		WhopProMonthlyPlanID:     getEnvDefault("OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID", ""),
 		WhopProAnnualPlanID:      getEnvDefault("OPENPOST_WHOP_PRO_ANNUAL_PLAN_ID", ""),
 		WhopTeamMonthlyPlanID:    getEnvDefault("OPENPOST_WHOP_TEAM_MONTHLY_PLAN_ID", ""),
@@ -611,8 +596,8 @@ func (c *Config) missingCloudBillingConfig() []string {
 		{c.WhopProductID, "OPENPOST_WHOP_PRODUCT_ID"},
 		{c.WhopStarterMonthlyPlanID, "OPENPOST_WHOP_STARTER_MONTHLY_PLAN_ID"},
 		{c.WhopStarterAnnualPlanID, "OPENPOST_WHOP_STARTER_ANNUAL_PLAN_ID"},
-		{c.WhopFounderMonthlyPlanID, "OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID"},
-		{c.WhopFounderAnnualPlanID, "OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID"},
+		{c.WhopCreatorMonthlyPlanID, "OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID"},
+		{c.WhopCreatorAnnualPlanID, "OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID"},
 		{c.WhopProMonthlyPlanID, "OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID"},
 		{c.WhopProAnnualPlanID, "OPENPOST_WHOP_PRO_ANNUAL_PLAN_ID"},
 		{c.WhopTeamMonthlyPlanID, "OPENPOST_WHOP_TEAM_MONTHLY_PLAN_ID"},

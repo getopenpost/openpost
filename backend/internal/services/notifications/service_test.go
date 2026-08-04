@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -27,7 +26,6 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 		(*models.User)(nil),
 		(*models.UserNotification)(nil),
 		(*models.UserNotificationPreference)(nil),
-		(*models.Job)(nil),
 	} {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
 		require.NoError(t, err)
@@ -38,24 +36,6 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "one@example.com", PasswordHash: "hash"}).Exec(ctx)
 	require.NoError(t, err)
 	return db
-}
-
-type recordingNotificationSender struct {
-	messages []passwordmail.NotificationMessage
-	err      error
-}
-
-func (s *recordingNotificationSender) SendPasswordReset(_ context.Context, _ passwordmail.ResetMessage) error {
-	return s.err
-}
-
-func (s *recordingNotificationSender) SendEmailVerification(_ context.Context, _ passwordmail.VerificationMessage) error {
-	return s.err
-}
-
-func (s *recordingNotificationSender) SendNotification(_ context.Context, message passwordmail.NotificationMessage) error {
-	s.messages = append(s.messages, message)
-	return s.err
 }
 
 func TestNotificationDedupKeyIsIdempotent(t *testing.T) {
@@ -99,87 +79,6 @@ func TestNotificationPreferencesSuppressOptionalButKeepCritical(t *testing.T) {
 	require.Len(t, page.Items, 1)
 	require.Equal(t, "Critical", page.Items[0].Title)
 	require.Equal(t, 1, page.UnreadCount)
-}
-
-func TestLegacyNotificationPreferencesAdoptNewEmailDefaults(t *testing.T) {
-	db := notificationsTestDB(t)
-	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.UserNotificationPreference{
-		UserID:          "user-1",
-		PreferencesJSON: `{"publish_failed":{"in_app":true},"post_published":{"in_app":false}}`,
-		UpdatedAt:       time.Now().UTC(),
-	}).Exec(ctx)
-	require.NoError(t, err)
-
-	preferences, err := NewService(db).GetPreferences(ctx, "user-1")
-	require.NoError(t, err)
-	require.True(t, preferences[TypePublishFailed].Email)
-	require.False(t, preferences[TypePostPublished].Email)
-	require.False(t, preferences[TypePostPublished].InApp)
-}
-
-func TestNotificationEmailDeliveryIsDurableDeduplicatedAndPreferenceAware(t *testing.T) {
-	db := notificationsTestDB(t)
-	sender := &recordingNotificationSender{}
-	service := NewService(db, Options{Sender: sender, PublicURL: "https://app.openpost.test/"})
-	now := time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
-	service.now = func() time.Time { return now }
-	ctx := context.Background()
-
-	require.True(t, DefaultPreferences()[TypePublishFailed].Email)
-	require.False(t, DefaultPreferences()[TypePostPublished].Email)
-	input := CreateInput{
-		UserID: "user-1", Type: TypePublishFailed, Title: "Publication failed",
-		Body: "OpenPost could not publish to Mastodon.", Href: "/activity?publication=publication-1",
-		DedupKey: "publication:publication-1:failed",
-	}
-	require.NoError(t, service.Create(ctx, input))
-	require.NoError(t, service.Create(ctx, input))
-
-	var jobs []models.Job
-	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", JobTypeEmailDelivery).Scan(ctx))
-	require.Len(t, jobs, 1)
-	require.Equal(t, "pending", jobs[0].Status)
-	require.NoError(t, service.HandleJob(ctx, jobs[0].Type, jobs[0].Payload))
-	require.Equal(t, []passwordmail.NotificationMessage{{
-		Recipient:      "one@example.com",
-		Title:          "Publication failed",
-		Body:           "OpenPost could not publish to Mastodon.",
-		ActionURL:      "https://app.openpost.test/activity?publication=publication-1",
-		PreferencesURL: "https://app.openpost.test/settings?tab=notifications",
-		IdempotencyKey: "notification-" + jobs[0].ID,
-	}}, sender.messages)
-
-	preferences, err := service.UpdatePreferences(ctx, "user-1", Preferences{
-		TypePublishFailed: {InApp: true, Email: false},
-	})
-	require.NoError(t, err)
-	require.False(t, preferences[TypePublishFailed].Email)
-	require.NoError(t, service.HandleJob(ctx, jobs[0].Type, jobs[0].Payload))
-	require.Len(t, sender.messages, 1)
-}
-
-func TestNotificationCanDeliverEmailWithoutCreatingOptionalInAppItem(t *testing.T) {
-	db := notificationsTestDB(t)
-	sender := &recordingNotificationSender{}
-	service := NewService(db, Options{Sender: sender, PublicURL: "https://app.openpost.test"})
-	ctx := context.Background()
-
-	_, err := service.UpdatePreferences(ctx, "user-1", Preferences{
-		TypePostPublished: {InApp: false, Email: true},
-	})
-	require.NoError(t, err)
-	require.NoError(t, service.Create(ctx, CreateInput{
-		UserID: "user-1", Type: TypePostPublished, Title: "Publication completed",
-		DedupKey: "publication:publication-1:published",
-	}))
-
-	count, err := db.NewSelect().Model((*models.UserNotification)(nil)).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, count)
-	jobs, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", JobTypeEmailDelivery).Count(ctx)
-	require.NoError(t, err)
-	require.Equal(t, 1, jobs)
 }
 
 func TestNotificationListScopesMarksAndDeletesByUser(t *testing.T) {

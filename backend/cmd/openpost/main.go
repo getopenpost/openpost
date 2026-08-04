@@ -49,7 +49,6 @@ import (
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/publisher"
-	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/updatestatus"
@@ -169,7 +168,7 @@ func main() {
 		ReturnURL:  cfg.WhopCheckoutReturnURL,
 		Plans: billing.DefaultPlanCatalog(
 			billing.ProviderPlanIDs{Monthly: cfg.WhopStarterMonthlyPlanID, Annual: cfg.WhopStarterAnnualPlanID},
-			billing.ProviderPlanIDs{Monthly: cfg.WhopFounderMonthlyPlanID, Annual: cfg.WhopFounderAnnualPlanID},
+			billing.ProviderPlanIDs{Monthly: cfg.WhopCreatorMonthlyPlanID, Annual: cfg.WhopCreatorAnnualPlanID},
 			billing.ProviderPlanIDs{Monthly: cfg.WhopProMonthlyPlanID, Annual: cfg.WhopProAnnualPlanID},
 			billing.ProviderPlanIDs{Monthly: cfg.WhopTeamMonthlyPlanID, Annual: cfg.WhopTeamAnnualPlanID},
 			billing.ProviderPlanIDs{Monthly: cfg.WhopAgencyMonthlyPlanID, Annual: cfg.WhopAgencyAnnualPlanID},
@@ -297,21 +296,14 @@ func main() {
 	}
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
-	repostService := repostservice.NewService(db, tokenManager)
-	repostService.SetUsage(usageService)
-	repostService.SetEntitlement(entitlementService)
-	notificationService := notifications.NewService(db, notifications.Options{
-		Sender: authMailSender, PublicURL: cfg.PublicURL,
-	})
+	notificationService := notifications.NewService(db)
 	publishSvc.SetNotificationService(notificationService)
-	publishSvc.SetRepostScheduler(repostService)
 	communicationsService := communicationsservice.NewService(db, tokenManager, notificationService)
 	for name, adapter := range providers {
 		tokenManager.SetProvider(name, adapter)
 		publishSvc.SetProvider(name, adapter)
 		analyticsService.SetProvider(name, adapter)
 		communicationsService.SetProvider(name, adapter)
-		repostService.SetProvider(name, adapter)
 	}
 
 	storage, err := mediastore.New(context.Background(), mediastore.Config{
@@ -362,8 +354,6 @@ func main() {
 	worker.SetAnalyticsService(analyticsService)
 	worker.SetBillingService(billingService)
 	worker.SetCommunicationsService(communicationsService)
-	worker.SetNotificationService(notificationService)
-	worker.SetRepostService(repostService)
 	worker.SetVideoProcessingService(videoProcessingService)
 	if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 		log.Fatalf("failed to schedule pending video analysis: %v", err)
@@ -373,9 +363,6 @@ func main() {
 	}
 	if err := communicationsService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
 		log.Fatalf("failed to schedule communications collection: %v", err)
-	}
-	if err := repostService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule repost automation: %v", err)
 	}
 
 	apiGroup := e.Group("/api/v1")
@@ -455,16 +442,15 @@ func main() {
 			publishSvc.SetProvider,
 			analyticsService.SetProvider,
 			communicationsService.SetProvider,
-			repostService.SetProvider,
 		},
 		MastodonAppService:           mastodonAppService,
 		FrontendURL:                  cfg.FrontendURL,
 		PublicURL:                    cfg.PublicURL,
 		DisableRegistrations:         cfg.DisableRegistrations,
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
-		ImageEditorEnabled:           cfg.ImageEditorEnabled,
-		ImageEditorModelBaseURL:      cfg.ImageEditorModelBaseURL,
-		VideoEditorEnabled:           cfg.VideoEditorEnabled,
+		StudioEnabled:                cfg.StudioEnabled,
+		StudioModelBaseURL:           cfg.StudioModelBaseURL,
+		VideoStudioEnabled:           cfg.VideoStudioEnabled,
 		VideoModelBaseURL:            cfg.VideoModelBaseURL,
 		StockMediaEnabled:            cfg.StockMediaEnabled,
 		PexelsAPIKey:                 cfg.PexelsAPIKey,
@@ -475,7 +461,6 @@ func main() {
 		InstanceSettingsService:      instanceSettingsService,
 		AnalyticsService:             analyticsService,
 		CommunicationsService:        communicationsService,
-		RepostService:                repostService,
 		NotificationService:          notificationService,
 		UpdateStatusService:          updateStatusService,
 		MediaHandler:                 mediaHandler,

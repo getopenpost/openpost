@@ -20,7 +20,7 @@ test("marketing index links to the app and documentation", async ({ page }) => {
       .first(),
   ).toHaveAttribute(
     "href",
-    "https://app.openpost.social/register?plan=founder",
+    "https://app.openpost.social/register?plan=creator",
   );
   await expect(
     page
@@ -75,32 +75,6 @@ test("marketing index links to the app and documentation", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "Discord", exact: true }).last(),
   ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
-});
-
-test("pricing presents Founder at the configured monthly and annual prices", async ({
-  page,
-}) => {
-  await page.goto("/pricing");
-
-  const founderPlan = page
-    .getByRole("article")
-    .filter({ has: page.getByRole("heading", { name: "Founder" }) });
-  await expect(founderPlan).toContainText("$25/month");
-  await expect(
-    founderPlan.getByRole("link", { name: "Start Founder" }),
-  ).toHaveAttribute(
-    "href",
-    "https://app.openpost.social/register?plan=founder&billing_period=monthly",
-  );
-
-  await page.getByRole("button", { name: /^Annual/ }).click();
-  await expect(founderPlan).toContainText("$250/year");
-  await expect(
-    founderPlan.getByRole("link", { name: "Start Founder" }),
-  ).toHaveAttribute(
-    "href",
-    "https://app.openpost.social/register?plan=founder&billing_period=annual",
-  );
 });
 
 test("security page states AI tool access accurately", async ({ page }) => {

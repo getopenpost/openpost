@@ -334,7 +334,7 @@ export interface ExportDefaults {
 
 export interface VideoProjectDocumentV1 {
   schema_version: typeof VIDEO_PROJECT_SCHEMA_VERSION;
-  editing_mode?: "quick-cut" | "editor";
+  editing_mode?: "quick-cut" | "studio";
   title: string;
   timebase: {
     ticks_per_second: typeof VIDEO_TICKS_PER_SECOND;

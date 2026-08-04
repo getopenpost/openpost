@@ -13,7 +13,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Use `<VARIABLE>_FILE` variants for Docker/Podman/Kubernetes/NixOS secrets, and leave the direct variable unset when the file value should win.
 - [ ] Set `OPENPOST_APP_URL` to the public HTTPS app origin.
 - [ ] Set `OPENPOST_PUBLIC_URL` to the same public HTTPS app origin unless you have a specific split-origin reason.
-- [ ] Configure `OPENPOST_EMAIL_PROVIDER`, `OPENPOST_EMAIL_FROM`, and that provider's credentials; verify signup, password-reset, and one opted-in operational notification without logging codes or secrets.
+- [ ] Configure `OPENPOST_EMAIL_PROVIDER`, `OPENPOST_EMAIL_FROM`, and that provider's credentials; verify signup and password-reset delivery without logging codes or secrets.
 - [ ] If Google login is enabled, register the exact `/api/v1/auth/oidc/google/callback` URL and store `OPENPOST_AUTH_GOOGLE_CLIENT_SECRET` through a file-backed secret.
 - [ ] Keep `OPENPOST_EXTRA_CORS_ORIGINS` explicit and do not use `*`.
 - [ ] Configure a reverse proxy with HTTPS before connecting OAuth providers.
@@ -43,7 +43,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Set `OPENPOST_S3_PUBLIC_BASE_URL` to a stable public media origin.
 - [ ] Verify the S3 bucket lifecycle policy and object access model before launch.
 - [ ] Set `OPENPOST_WHOP_API_KEY`, `OPENPOST_WHOP_WEBHOOK_SECRET`, `OPENPOST_WHOP_ACCOUNT_ID`, `OPENPOST_WHOP_PRODUCT_ID`, and `OPENPOST_WHOP_CHECKOUT_RETURN_URL`.
-- [ ] Set the monthly and annual `OPENPOST_WHOP_<PLAN>_<PERIOD>_PLAN_ID` values for Starter, Founder, Pro, Team, and Agency.
+- [ ] Set the monthly and annual `OPENPOST_WHOP_<PLAN>_<PERIOD>_PLAN_ID` values for Starter, Creator, Pro, Team, and Agency.
 - [ ] Keep production on the default `OPENPOST_WHOP_API_BASE_URL=https://api.whop.com/api/v1`.
 - [ ] Configure the Whop webhook at `/api/v1/billing/whop/webhook`, send a signed test event, and confirm the event is stored once and reconciled through the billing job.
 - [ ] Complete an embedded checkout smoke: plan and period selection, $0 trial start, return to OpenPost, local `trialing` status, and billing management URL.

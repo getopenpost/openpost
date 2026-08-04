@@ -10,8 +10,6 @@ OpenPost uses the text-and-thread composer for Post and Thread. A focused editor
 4. Open an account's settings to review its final version and options.
 5. Fix any errors, then save, check, schedule, or publish.
 
-Use **Repost settings** in either composer to decide what happens after the post publishes. Keep **Use workspace rules**, choose **Do not repost**, or select **Custom** to replace the target accounts, delay, evaluation window, and engagement gates for this post. The override is saved with the draft and follows it through scheduling and publishing.
-
 Multiple images stay in the Post. OpenPost sends them as an image, carousel, multi-image post, or photo post based on the platform. If you add a video to Post, the editor asks you to switch to Short video or Video.
 
 ## Drafts and account versions

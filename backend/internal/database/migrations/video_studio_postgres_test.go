@@ -14,7 +14,7 @@ import (
 	"github.com/uptrace/bun/driver/pgdriver"
 )
 
-func TestVideoEditorMigrationsPostgres(t *testing.T) {
+func TestVideoStudioMigrationsPostgres(t *testing.T) {
 	dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
 	if dsn == "" {
 		t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
@@ -27,7 +27,7 @@ func TestVideoEditorMigrationsPostgres(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	require.NoError(t, db.PingContext(ctx))
 
-	schema := fmt.Sprintf("video_editor_%d", time.Now().UnixNano())
+	schema := fmt.Sprintf("video_studio_%d", time.Now().UnixNano())
 	_, err := db.ExecContext(ctx, `CREATE SCHEMA "`+schema+`"`)
 	require.NoError(t, err)
 	t.Cleanup(func() {

@@ -67,7 +67,7 @@ func (a *selectionTestAdapter) ListAccountSelections(_ context.Context, token *p
 	}
 	return []platform.AccountSelectionOption{
 		{ID: "page-1", DisplayName: "Main Page", Username: "main-page", Kind: "page"},
-		{ID: "page-2", DisplayName: "OpenPost Image Editor Page", Username: "studio", AvatarURL: "https://cdn.example/image-editor.png", Kind: "page"},
+		{ID: "page-2", DisplayName: "Studio Page", Username: "studio", AvatarURL: "https://cdn.example/studio.png", Kind: "page"},
 	}, nil
 }
 
@@ -78,7 +78,7 @@ func (a *selectionTestAdapter) SelectAccount(_ context.Context, token *platform.
 	return &platform.SelectedAccount{
 		AccountID:        "page-2",
 		AccountUsername:  "studio",
-		AccountAvatarURL: "https://cdn.example/image-editor.png",
+		AccountAvatarURL: "https://cdn.example/studio.png",
 		Token: &platform.TokenResult{
 			AccessToken: "page-access-token",
 			ExpiresIn:   7200,
@@ -153,7 +153,7 @@ func TestOAuthCallbackCreatesAndCompletesAccountSelection(t *testing.T) {
 	require.Equal(t, "selectable", selectionBody.Platform)
 	require.Equal(t, "ws-1", selectionBody.WorkspaceID)
 	require.Len(t, selectionBody.Options, 2)
-	require.Equal(t, "OpenPost Image Editor Page", selectionBody.Options[1].DisplayName)
+	require.Equal(t, "Studio Page", selectionBody.Options[1].DisplayName)
 
 	completeResp := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/selections/"+connectionID+"/complete", map[string]string{
 		"selection_id": "page-2",
@@ -164,11 +164,11 @@ func TestOAuthCallbackCreatesAndCompletesAccountSelection(t *testing.T) {
 	require.Equal(t, "selectable", accountBody.Platform)
 	require.Equal(t, "page-2", accountBody.AccountID)
 	require.Equal(t, "studio", accountBody.AccountUsername)
-	require.Equal(t, "https://cdn.example/image-editor.png", accountBody.AccountAvatarURL)
+	require.Equal(t, "https://cdn.example/studio.png", accountBody.AccountAvatarURL)
 
 	var account models.SocialAccount
 	require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", accountBody.ID).Scan(ctx))
-	require.Equal(t, "https://cdn.example/image-editor.png", account.AccountAvatarURL)
+	require.Equal(t, "https://cdn.example/studio.png", account.AccountAvatarURL)
 	decryptedAccess, err := encryptor.Decrypt(account.AccessTokenEnc)
 	require.NoError(t, err)
 	require.Equal(t, "page-access-token", decryptedAccess)

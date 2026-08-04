@@ -46,7 +46,7 @@ func newBillingCheckoutCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "checkout <plan>",
 		Short: "Create an OpenPost checkout URL for the active workspace",
-		Long:  "Create an OpenPost checkout URL with an embedded Whop payment form. Plan IDs are starter, founder, pro, team, or agency.",
+		Long:  "Create an OpenPost checkout URL with an embedded Whop payment form. Plan IDs are starter, creator, pro, team, or agency.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, client, workspaceID, err := billingRuntime(cmd)

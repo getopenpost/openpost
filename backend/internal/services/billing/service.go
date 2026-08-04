@@ -73,7 +73,7 @@ type PlanConfig struct {
 	Limits          map[entitlements.LimitKey]int64
 }
 
-func DefaultPlanCatalog(starter, founder, pro, team, agency ProviderPlanIDs) map[string]PlanConfig {
+func DefaultPlanCatalog(starter, creator, pro, team, agency ProviderPlanIDs) map[string]PlanConfig {
 	return map[string]PlanConfig{
 		"starter": {
 			ProviderPlanIDs: starter,
@@ -88,10 +88,10 @@ func DefaultPlanCatalog(starter, founder, pro, team, agency ProviderPlanIDs) map
 				entitlements.LimitTeamMembers:               1,
 			},
 		},
-		"founder": {
-			ProviderPlanIDs: founder,
-			MonthlyPriceUSD: 25,
-			AnnualPriceUSD:  250,
+		"creator": {
+			ProviderPlanIDs: creator,
+			MonthlyPriceUSD: 29,
+			AnnualPriceUSD:  290,
 			Limits: map[entitlements.LimitKey]int64{
 				entitlements.LimitWorkspaces:                3,
 				entitlements.LimitSocialAccounts:            6,

@@ -99,7 +99,7 @@
 <DashboardModal
 	{uppy}
 	{open}
-	plugins={['Webcam', 'OpenPost Image Editor']}
+	plugins={['Webcam', 'ImageEditor']}
 	props={{
 		proudlyDisplayPoweredByUppy: false,
 		closeModalOnClickOutside: true,

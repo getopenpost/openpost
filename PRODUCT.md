@@ -29,12 +29,12 @@ The SvelteKit interface is embedded in the Go binary and also packaged as a Capa
 - A focused composer supports shared drafts plus account-specific text, media, formats, and settings.
 - Publications can be scheduled through a durable database-backed queue, with visible draft, scheduled, published, failed, and retry states.
 - Workspaces organize accounts, media, prompts, schedules, members, billing, and usage limits.
-- OpenPost Image Editor creates editable, multi-page social images from workspace media, original templates, brand assets, text, and shapes. It exports ordered derivatives back to Media or the active composer without replacing source assets.
+- OpenPost Studio creates editable, multi-page social images from workspace media, original templates, brand assets, text, and shapes. It exports ordered derivatives back to Media or the active composer without replacing source assets.
 - The web app, typed HTTP API, CLI, and MCP server share authorization and workspace boundaries.
 - Provider capabilities, media limits, review requirements, quotas, and live-account readiness vary. Product copy and UI must preserve those distinctions.
 - The app supports light and dark themes, English and Portuguese, responsive browser use, and an Android build from the same frontend.
 - Self-hosted deployments must remain portable: embedded static assets, configurable storage, SQLite by default, PostgreSQL support, and no hard dependency on an external queue service.
-- OpenPost Image Editor remains a focused still-image editor. Video editing, animation, print color workflows, arbitrary remote assets, and low-level image-editor MCP operations are outside its product scope.
+- Studio remains a focused still-image editor. Video editing, animation, print color workflows, arbitrary remote assets, and low-level Studio MCP operations are outside its product scope.
 
 ## Brand Commitments
 

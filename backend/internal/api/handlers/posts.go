@@ -20,7 +20,6 @@ import (
 	"github.com/openpost/backend/internal/services/drafts"
 	"github.com/openpost/backend/internal/services/entitlements"
 	postservice "github.com/openpost/backend/internal/services/posts"
-	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
@@ -42,7 +41,6 @@ type PostHandler struct {
 	entitlement entitlements.Service
 	usage       *usage.Service
 	posts       *postservice.Service
-	reposts     *repostservice.Service
 	providers   map[string]platform.Adapter
 	tokenSource AccessTokenSource
 }
@@ -76,10 +74,6 @@ func (h *PostHandler) SetUsage(usageService *usage.Service) {
 	if usageService != nil {
 		h.usage = usageService
 	}
-}
-
-func (h *PostHandler) SetRepostService(service *repostservice.Service) {
-	h.reposts = service
 }
 
 type CreatePostInput struct {
@@ -144,7 +138,6 @@ type TextPostPublicationInput struct {
 	Metadata       map[string]any            `json:"metadata,omitempty" doc:"Safe publication metadata"`
 	Segments       []PublicationSegmentInput `json:"segments,omitempty" doc:"Replacement canonical segments"`
 	Renditions     []RenditionInput          `json:"renditions,omitempty" doc:"Replacement destination renditions"`
-	RepostOverride *repostservice.Override   `json:"repost_override,omitempty" doc:"Per-publication repost override"`
 }
 
 type SaveTextPostDraftInput struct {
@@ -201,7 +194,6 @@ func publicationUpdateFromTextPost(input TextPostPublicationInput) PublicationUp
 		Metadata:       input.Metadata,
 		Segments:       input.Segments,
 		Renditions:     input.Renditions,
-		RepostOverride: input.RepostOverride,
 	}
 }
 
@@ -1539,15 +1531,6 @@ func (h *PostHandler) CreateTextPostDraft(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		repostOverride, err := h.validateTextPostRepostOverride(
-			ctx,
-			input.Body.WorkspaceID,
-			userID,
-			input.Body.Publication.RepostOverride,
-		)
-		if err != nil {
-			return nil, huma.Error400BadRequest(err.Error())
-		}
 
 		var scheduledAt time.Time
 		if input.Body.ScheduledAt != nil && strings.TrimSpace(*input.Body.ScheduledAt) != "" {
@@ -1613,7 +1596,6 @@ func (h *PostHandler) CreateTextPostDraft(api huma.API) {
 			ScheduledAt:     scheduledAt,
 			MetadataJSON:    mustJSON(publicationInput.Metadata),
 			ReleasePlanJSON: mustJSON(publicationInput.Metadata),
-			RepostOverride:  repostOverride,
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
@@ -1799,17 +1781,6 @@ func (h *PostHandler) SaveTextPostDraft(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		repostOverride, err := h.validateTextPostRepostOverride(
-			ctx,
-			post.WorkspaceID,
-			userID,
-			input.Body.Publication.RepostOverride,
-		)
-		if err != nil {
-			return nil, huma.Error400BadRequest(err.Error())
-		}
-		normalizedOverride := repostservice.DecodeOverride(repostOverride)
-		input.Body.Publication.RepostOverride = &normalizedOverride
 
 		var scheduledAt time.Time
 		if input.Body.ScheduledAt != nil && strings.TrimSpace(*input.Body.ScheduledAt) != "" {
@@ -2028,27 +1999,6 @@ func (h *PostHandler) SaveTextPostDraft(api huma.API) {
 		output.Body.UpdatedAt = now.Format(time.RFC3339)
 		return output, nil
 	})
-}
-
-func (h *PostHandler) validateTextPostRepostOverride(
-	ctx context.Context,
-	workspaceID, userID string,
-	input *repostservice.Override,
-) (string, error) {
-	override := repostservice.Override{Mode: repostservice.ModeInherit}
-	if input != nil {
-		override = *input
-	}
-	var err error
-	if h.reposts != nil {
-		override, err = h.reposts.ValidateOverride(ctx, workspaceID, userID, override)
-	} else {
-		override, err = repostservice.NormalizeOverride(override)
-	}
-	if err != nil {
-		return "", err
-	}
-	return repostservice.EncodeOverride(override)
 }
 
 func isTextPostEditable(status string) bool {

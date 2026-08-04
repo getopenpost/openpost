@@ -25,7 +25,6 @@ type instanceAdminTestServer struct {
 	echo        *echo.Echo
 	db          *bun.DB
 	authService *auth.Service
-	handler     *InstanceAdminHandler
 }
 
 func newInstanceAdminTestServer(
@@ -88,7 +87,7 @@ func newInstanceAdminTestServer(
 		ProviderCustomerID:     "customer-1",
 		ProviderSubscriptionID: "subscription-1",
 		Status:                 "active",
-		PlanID:                 "founder",
+		PlanID:                 "creator",
 		EntitlementSnapshot:    "{}",
 		RawPayload:             "{}",
 		CreatedAt:              now.AddDate(0, 0, -15),
@@ -147,7 +146,7 @@ func newInstanceAdminTestServer(
 	)
 	handler.now = func() time.Time { return now }
 	handler.RegisterRoutes(api)
-	return &instanceAdminTestServer{echo: e, db: db, authService: authService, handler: handler}
+	return &instanceAdminTestServer{echo: e, db: db, authService: authService}
 }
 
 func (s *instanceAdminTestServer) get(t *testing.T, path, token string) *httptest.ResponseRecorder {
@@ -225,7 +224,7 @@ func TestInstanceAdminUsersArePaginatedNewestFirst(t *testing.T) {
 	require.Equal(t, 2, first.TotalPages)
 	require.Len(t, first.Users, 2)
 	require.Equal(t, "user-2", first.Users[0].ID)
-	require.Equal(t, []string{"founder"}, first.Users[0].PlanIDs)
+	require.Equal(t, []string{"creator"}, first.Users[0].PlanIDs)
 	require.Equal(t, 1, first.Users[0].OrganizationCount)
 	require.Equal(t, 2, first.Users[0].WorkspaceCount)
 	require.Equal(t, 1, first.Users[0].SocialAccountCount)
@@ -259,7 +258,7 @@ func TestInstanceAdminUsersSupportSearchAndSort(t *testing.T) {
 	require.Equal(t, 1, page.Total)
 	require.Len(t, page.Users, 1)
 	require.Equal(t, "user-3", page.Users[0].ID)
-	require.Equal(t, []string{"founder"}, page.Users[0].PlanIDs)
+	require.Equal(t, []string{"creator"}, page.Users[0].PlanIDs)
 }
 
 func TestInstanceAdminCreatesAndConsumesOneUseImpersonationLink(t *testing.T) {
@@ -270,8 +269,6 @@ func TestInstanceAdminCreatesAndConsumesOneUseImpersonationLink(t *testing.T) {
 			UserID: "user-1", Email: "admin@example.com", SessionID: "admin-session",
 		},
 	})
-	now := time.Now().UTC().Truncate(time.Second)
-	srv.handler.now = func() time.Time { return now }
 	createResp := srv.post(
 		t,
 		"/api/v1/admin/users/user-2/impersonation-links",

@@ -3,12 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "docs:dev": "node ../scripts/sync-docs-openapi.mjs && node ../scripts/sync-assets.mjs && vitepress dev --host 0.0.0.0 --port 4174",
-    "docs:build": "node ../scripts/sync-docs-openapi.mjs && node ../scripts/sync-assets.mjs && vitepress build && node scripts/check-social-metadata-output.mjs",
-    "docs:preview": "node ../scripts/sync-docs-openapi.mjs && node ../scripts/sync-assets.mjs && vitepress preview --host 0.0.0.0 --port 4174"
+    "docs:dev": "node ../scripts/sync-assets.mjs && node ../scripts/sync-docs-openapi.mjs && vitepress dev --host 0.0.0.0 --port 4174",
+    "docs:build": "node ../scripts/sync-assets.mjs && node ../scripts/sync-docs-openapi.mjs && vitepress build",
+    "docs:preview": "node ../scripts/sync-assets.mjs && node ../scripts/sync-docs-openapi.mjs && vitepress preview --host 0.0.0.0 --port 4174"
   },
   "devDependencies": {
-    "@openpost/social-images": "workspace:*",
     "typescript": "latest",
     "vitepress": "latest",
     "vitepress-openapi": "^0.1.20"

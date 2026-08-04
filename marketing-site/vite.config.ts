@@ -10,8 +10,5 @@ const paraglidePlugin = paraglideVitePlugin({
 }) as unknown as PluginOption;
 
 export default defineConfig({
-	plugins: [tailwindcss(), paraglidePlugin, sveltekit()],
-	ssr: {
-		noExternal: ['bits-ui']
-	}
+	plugins: [tailwindcss(), paraglidePlugin, sveltekit()]
 });

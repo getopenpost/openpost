@@ -20,7 +20,7 @@ import {
 import { PLATFORM_LIMITS, publicPlatformLimits } from "$lib/platform-limits";
 
 export const appUrl = "https://app.openpost.social";
-export const managedSignupUrl = `${appUrl}/register?plan=founder`;
+export const managedSignupUrl = `${appUrl}/register?plan=creator`;
 export const userDocsUrl = "https://docs.openpost.social/usage/";
 export const selfHostingDocsUrl = "https://docs.openpost.social/self-hosting/";
 export const developerDocsUrl = "https://docs.openpost.social/development/";
@@ -46,7 +46,7 @@ export const resourceItems = [
   { label: "Changelog", href: "/changelog" },
   { label: "Developers", href: developerDocsUrl },
 ] as const;
-export const planIDs = ["starter", "founder", "pro", "team", "agency"] as const;
+export const planIDs = ["starter", "creator", "pro", "team", "agency"] as const;
 
 export const managedAccessSummary =
   "Start with a 14-day free trial. A card is required, and you can cancel before the first charge.";
@@ -73,10 +73,10 @@ export const plans = [
     featured: false,
   },
   {
-    id: "founder",
-    name: "Founder",
-    price: "$25",
-    annualPrice: "$250",
+    id: "creator",
+    name: "Creator",
+    price: "$29",
+    annualPrice: "$290",
     description: "Run your company’s content across more channels.",
     workspaces: "3",
     accounts: "6",

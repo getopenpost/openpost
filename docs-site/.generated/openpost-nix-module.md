@@ -178,7 +178,7 @@ in
       default = [ ];
       description = ''
         Extra env files passed to the OpenPost container. In cloud mode this
-        should provide OPENPOST_DATABASE_URL, S3 credentials, Polar product
+        should provide OPENPOST_DATABASE_URL, S3 credentials, Whop billing
         secrets, or *_FILE pointers unless they are set via extraEnvironment.
       '';
     };
@@ -316,8 +316,8 @@ in
             OPENPOST_LEGAL_ACCEPTANCE_REQUIRED=true
             OPENPOST_TERMS_URL=https://openpost.social/terms
             OPENPOST_PRIVACY_URL=https://openpost.social/privacy
-            OPENPOST_TERMS_VERSION=2026-07-22
-            OPENPOST_PRIVACY_VERSION=2026-07-22
+            OPENPOST_TERMS_VERSION=2026-08-04
+            OPENPOST_PRIVACY_VERSION=2026-08-04
             OPENPOST_SUPPORT_EMAIL=openpost@rgo.pt
             OPENPOST_SMTP_HOST=smtp.eu.mailgun.org
             OPENPOST_SMTP_PORT=465
@@ -325,15 +325,22 @@ in
             OPENPOST_SMTP_PASSWORD=${config.sops.placeholder.ghost_mailgun_password}
             OPENPOST_SMTP_FROM=openpost@rgo.pt
             OPENPOST_SMTP_TLS_MODE=tls
-            OPENPOST_POLAR_ACCESS_TOKEN=${config.sops.placeholder.openpost_polar_access_token}
-            OPENPOST_POLAR_WEBHOOK_SECRET=${config.sops.placeholder.openpost_polar_webhook_secret}
-            OPENPOST_POLAR_CHECKOUT_SUCCESS_URL=https://${cfg.domain}/settings?tab=billing&checkout_id={CHECKOUT_ID}
-            OPENPOST_POLAR_RETURN_URL=https://${cfg.domain}/settings?tab=billing
-            OPENPOST_POLAR_STARTER_PRODUCT_ID=${config.sops.placeholder.openpost_polar_starter_product_id}
-            OPENPOST_POLAR_CREATOR_PRODUCT_ID=${config.sops.placeholder.openpost_polar_creator_product_id}
-            OPENPOST_POLAR_PRO_PRODUCT_ID=${config.sops.placeholder.openpost_polar_pro_product_id}
-            OPENPOST_POLAR_TEAM_PRODUCT_ID=${config.sops.placeholder.openpost_polar_team_product_id}
-            OPENPOST_POLAR_AGENCY_PRODUCT_ID=${config.sops.placeholder.openpost_polar_agency_product_id}
+            OPENPOST_WHOP_API_KEY=${config.sops.placeholder.openpost_whop_api_key}
+            OPENPOST_WHOP_API_BASE_URL=https://api.whop.com/api/v1
+            OPENPOST_WHOP_WEBHOOK_SECRET=${config.sops.placeholder.openpost_whop_webhook_secret}
+            OPENPOST_WHOP_ACCOUNT_ID=biz_S92iIf3niJx3AX
+            OPENPOST_WHOP_PRODUCT_ID=prod_elW4nwt4JwCoJ
+            OPENPOST_WHOP_CHECKOUT_RETURN_URL=https://${cfg.domain}/checkout?status=success
+            OPENPOST_WHOP_STARTER_MONTHLY_PLAN_ID=plan_NbMrhbCpylDWf
+            OPENPOST_WHOP_STARTER_ANNUAL_PLAN_ID=plan_a7FHQQ9dcoMaM
+            OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID=plan_PZ33VWXSFFTGH
+            OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID=plan_TnJ9JyzviOpIe
+            OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID=plan_8dtDS3Whuk2qp
+            OPENPOST_WHOP_PRO_ANNUAL_PLAN_ID=plan_mF4lP09g9BiZQ
+            OPENPOST_WHOP_TEAM_MONTHLY_PLAN_ID=plan_GHUbRiuiH7ltx
+            OPENPOST_WHOP_TEAM_ANNUAL_PLAN_ID=plan_5SwqQ0PpEjXXv
+            OPENPOST_WHOP_AGENCY_MONTHLY_PLAN_ID=plan_4TifThy1SBiWW
+            OPENPOST_WHOP_AGENCY_ANNUAL_PLAN_ID=plan_UFIyGxVGv6GLO
           '';
           mode = "0444";
         };

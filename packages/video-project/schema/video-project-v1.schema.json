@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://openpost.social/schemas/video-project-v1.schema.json",
-  "title": "OpenPost Video Editor project",
+  "title": "OpenPost Video Studio project",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,7 @@
   ],
   "properties": {
     "schema_version": { "const": 1 },
-    "editing_mode": { "enum": ["quick-cut", "editor"] },
+    "editing_mode": { "enum": ["quick-cut", "studio"] },
     "title": { "type": "string", "minLength": 1, "maxLength": 200 },
     "timebase": {
       "type": "object",

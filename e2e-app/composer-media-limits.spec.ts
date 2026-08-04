@@ -82,15 +82,13 @@ test("Post drafts can move from one image to multiple before destination validat
       json: { accounts: providers.map(resolvedCapability) },
     });
   });
-  await page.route("**/api/v1/media**", async (route) => {
-    const url = new URL(route.request().url());
-    if (url.pathname.endsWith("/media/tags")) {
-      await route.fulfill({
-        contentType: "application/json",
-        json: { tags: [], can_edit: true },
-      });
-      return;
-    }
+  await page.route("**/api/v1/media/metadata?**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      json: { media: mediaItems },
+    });
+  });
+  await page.route("**/api/v1/media?**", async (route) => {
     await route.fulfill({
       contentType: "application/json",
       json: { media: mediaItems, total: mediaItems.length },

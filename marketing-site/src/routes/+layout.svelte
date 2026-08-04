@@ -1,33 +1,21 @@
 <script lang="ts">
 	import './layout.css';
-	import { page } from '$app/state';
-	import { resolveMarketingSocial } from '@openpost/social-images';
 	import { ModeWatcher } from 'mode-watcher';
 	import MarketingFooter from './_components/MarketingFooter.svelte';
 	import MarketingNav from './_components/MarketingNav.svelte';
 
 	let { children } = $props();
-	const social = $derived(resolveMarketingSocial(page.url.pathname));
-	const socialImage = $derived(social.imageUrl);
 </script>
 
 <svelte:head>
 	<meta property="og:site_name" content="OpenPost" />
 	<meta property="og:type" content="website" />
-	<meta property="og:title" content={social.socialTitle} />
-	<meta property="og:description" content={social.description} />
-	<meta property="og:url" content={social.canonical} />
-	<meta property="og:image" content={socialImage} />
-	<meta property="og:image:secure_url" content={socialImage} />
-	<meta property="og:image:type" content="image/png" />
+	<meta property="og:image" content="https://openpost.social/assets/brand/og-image.png" />
 	<meta property="og:image:width" content="1200" />
 	<meta property="og:image:height" content="630" />
-	<meta property="og:image:alt" content={social.imageAlt} />
+	<meta property="og:image:alt" content="OpenPost social publishing workspace." />
 	<meta name="twitter:card" content="summary_large_image" />
-	<meta name="twitter:title" content={social.socialTitle} />
-	<meta name="twitter:description" content={social.description} />
-	<meta name="twitter:image" content={socialImage} />
-	<meta name="twitter:image:alt" content={social.imageAlt} />
+	<meta name="twitter:image" content="https://openpost.social/assets/brand/og-image.png" />
 </svelte:head>
 
 <ModeWatcher

@@ -89,7 +89,7 @@ func TestWhopBillingCredentialsCanBeStoredWithoutBeingReturned(t *testing.T) {
 	_, err := service.Save(t.Context(), "user-1", []Update{
 		{Key: "OPENPOST_WHOP_API_KEY", Value: strptr("whop_runtime_secret")},
 		{Key: "OPENPOST_WHOP_ACCOUNT_ID", Value: strptr("biz_openpost")},
-		{Key: "OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID", Value: strptr("plan_founder_monthly")},
+		{Key: "OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID", Value: strptr("plan_creator_monthly")},
 	})
 	require.NoError(t, err)
 
@@ -106,7 +106,7 @@ func TestWhopBillingCredentialsCanBeStoredWithoutBeingReturned(t *testing.T) {
 	applied := config.Load()
 	require.NoError(t, service.ApplyStored(t.Context(), applied))
 	require.Equal(t, "whop_runtime_secret", applied.WhopAPIKey)
-	require.Equal(t, "plan_founder_monthly", applied.WhopFounderMonthlyPlanID)
+	require.Equal(t, "plan_creator_monthly", applied.WhopCreatorMonthlyPlanID)
 }
 
 func TestSaveRejectsEnvironmentManagedAndInvalidCombinedConfiguration(t *testing.T) {

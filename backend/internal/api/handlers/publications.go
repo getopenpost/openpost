@@ -24,7 +24,6 @@ import (
 	"github.com/openpost/backend/internal/services/lifecycle"
 	postservice "github.com/openpost/backend/internal/services/posts"
 	"github.com/openpost/backend/internal/services/publicurl"
-	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 )
@@ -53,7 +52,6 @@ type PublicationHandler struct {
 	providers   map[string]platform.Adapter
 	tokenSource AccessTokenSource
 	publicMedia *publicurl.MediaVerifier
-	reposts     *repostservice.Service
 }
 
 func (h *PublicationHandler) SetCapabilityDependencies(providers map[string]platform.Adapter, tokenSource AccessTokenSource) {
@@ -63,10 +61,6 @@ func (h *PublicationHandler) SetCapabilityDependencies(providers map[string]plat
 
 func (h *PublicationHandler) SetPublicMediaVerifier(verifier *publicurl.MediaVerifier) {
 	h.publicMedia = verifier
-}
-
-func (h *PublicationHandler) SetRepostService(service *repostservice.Service) {
-	h.reposts = service
 }
 
 func NewPublicationHandler(db *bun.DB, authenticator middleware.Authenticator, entitlement entitlements.Service) *PublicationHandler {
@@ -134,7 +128,6 @@ type CreatePublicationInput struct {
 		Media            []PublicationMediaInput   `json:"media,omitempty" doc:"Default ordered media"`
 		Segments         []PublicationSegmentInput `json:"segments,omitempty" doc:"Ordered canonical publication segments"`
 		Renditions       []RenditionInput          `json:"renditions,omitempty" doc:"Explicit platform/account renditions"`
-		RepostOverride   *repostservice.Override   `json:"repost_override,omitempty" doc:"Optional per-publication repost override"`
 	}
 }
 
@@ -152,7 +145,6 @@ type PublicationUpdateBody struct {
 	Metadata         map[string]interface{}    `json:"metadata,omitempty" doc:"Publication metadata"`
 	Segments         []PublicationSegmentInput `json:"segments,omitempty" doc:"Replacement ordered canonical segments"`
 	Renditions       []RenditionInput          `json:"renditions,omitempty" doc:"Replacement destination renditions saved in the same transaction"`
-	RepostOverride   *repostservice.Override   `json:"repost_override,omitempty" doc:"Replace the per-publication repost override"`
 }
 
 type UpdatePublicationInput struct {
@@ -283,7 +275,6 @@ type PublicationResponse struct {
 	Renditions     []RenditionResponse          `json:"renditions"`
 	Segments       []PublicationSegmentResponse `json:"segments"`
 	Media          []MediaSummary               `json:"media"`
-	RepostOverride repostservice.Override       `json:"repost_override"`
 }
 
 type PublicationSegmentResponse struct {
@@ -547,17 +538,6 @@ func (h *PublicationHandler) createPublication(api huma.API) {
 		if err := h.validateMediaBelongsToWorkspace(ctx, input.Body.WorkspaceID, allPublicationMediaIDs(input.Body.Media, input.Body.Segments, input.Body.Renditions)); err != nil {
 			return nil, err
 		}
-		repostOverride := repostservice.Override{Mode: repostservice.ModeInherit}
-		if input.Body.RepostOverride != nil {
-			repostOverride, err = h.validateRepostOverride(ctx, input.Body.WorkspaceID, userID, *input.Body.RepostOverride)
-			if err != nil {
-				return nil, huma.Error400BadRequest(err.Error())
-			}
-		}
-		repostOverrideJSON, err := repostservice.EncodeOverride(repostOverride)
-		if err != nil {
-			return nil, huma.Error400BadRequest(err.Error())
-		}
 
 		now := time.Now().UTC()
 		if input.Body.ScheduledAt != nil {
@@ -581,7 +561,6 @@ func (h *PublicationHandler) createPublication(api huma.API) {
 			Status:          models.PublicationStatusDraft,
 			MetadataJSON:    metadataJSON,
 			ReleasePlanJSON: metadataJSON,
-			RepostOverride:  repostOverrideJSON,
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
@@ -809,13 +788,6 @@ func (h *PublicationHandler) updatePublication(api huma.API) {
 				return nil, err
 			}
 		}
-		if input.Body.RepostOverride != nil {
-			normalized, validationErr := h.validateRepostOverride(ctx, existing.WorkspaceID, userID, *input.Body.RepostOverride)
-			if validationErr != nil {
-				return nil, huma.Error400BadRequest(validationErr.Error())
-			}
-			input.Body.RepostOverride = &normalized
-		}
 		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 			publication, err := h.loadEditablePublicationTx(txCtx, tx, input.PathID)
 			if err != nil {
@@ -981,12 +953,8 @@ func applyPublicationFieldUpdates(publication *models.Publication, input Publica
 		publication.MetadataJSON = mustJSON(input.Metadata)
 		publication.ReleasePlanJSON = publication.MetadataJSON
 	}
-	if input.RepostOverride != nil {
-		publication.RepostOverride, _ = repostservice.EncodeOverride(*input.RepostOverride)
-	}
 }
 
-//nolint:gocyclo
 func publicationChangedDomains(input PublicationUpdateBody) []string {
 	var domains []string
 	if input.Title != nil || input.Intent != nil || input.ContentProfile != nil ||
@@ -1005,9 +973,6 @@ func publicationChangedDomains(input PublicationUpdateBody) []string {
 	}
 	if input.Metadata != nil {
 		domains = append(domains, "settings")
-	}
-	if input.RepostOverride != nil {
-		domains = append(domains, "repost automation")
 	}
 	if len(domains) == 0 {
 		domains = append(domains, "draft")
@@ -3454,18 +3419,10 @@ func publicationResponse(publication *models.Publication, media []MediaSummary) 
 		ScheduledAt:    formatOptionalTime(publication.ScheduledAt),
 		ActualRunAt:    formatOptionalTime(publication.ActualRunAt),
 		Metadata:       metadata,
-		RepostOverride: repostservice.DecodeOverride(publication.RepostOverride),
 		CreatedAt:      publication.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      publication.UpdatedAt.Format(time.RFC3339),
 		Media:          media,
 	}
-}
-
-func (h *PublicationHandler) validateRepostOverride(ctx context.Context, workspaceID, userID string, input repostservice.Override) (repostservice.Override, error) {
-	if h.reposts == nil {
-		return repostservice.NormalizeOverride(input)
-	}
-	return h.reposts.ValidateOverride(ctx, workspaceID, userID, input)
 }
 
 func renditionResponse(rendition models.Rendition, media []MediaSummary) RenditionResponse {

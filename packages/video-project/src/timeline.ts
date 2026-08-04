@@ -224,7 +224,7 @@ export function trimPrimaryClip(
 /**
  * Sets an exact source boundary without quantizing it to the project frame rate.
  *
- * Full editor trims are timeline operations and intentionally snap to the project
+ * Full Studio trims are timeline operations and intentionally snap to the project
  * timebase. Quick Cut, however, works on encoded packet boundaries. Reusing the
  * timeline trim operation for packet timestamps can move a verified keyframe by
  * a fraction of a frame and make an otherwise lossless cut impossible.

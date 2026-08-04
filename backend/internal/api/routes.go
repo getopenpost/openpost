@@ -29,7 +29,6 @@ import (
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/publicurl"
-	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/uptrace/bun"
@@ -63,9 +62,9 @@ type RouteDeps struct {
 	PublicURL                    string
 	DisableRegistrations         bool
 	DisableLinkedInThreadReplies bool
-	ImageEditorEnabled           bool
-	ImageEditorModelBaseURL      string
-	VideoEditorEnabled           bool
+	StudioEnabled                bool
+	StudioModelBaseURL           string
+	VideoStudioEnabled           bool
 	VideoModelBaseURL            string
 	StockMediaEnabled            bool
 	PexelsAPIKey                 string
@@ -76,7 +75,6 @@ type RouteDeps struct {
 	InstanceSettingsService      *instancesettings.Service
 	AnalyticsService             *analyticsservice.Service
 	CommunicationsService        *communicationsservice.Service
-	RepostService                *repostservice.Service
 	NotificationService          *notifications.Service
 	UpdateStatusService          *updatestatus.Service
 
@@ -100,11 +98,11 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	}
 	mediaHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	mediaHandler.RegisterRoutes(api)
-	handlers.NewImageEditorHandler(
+	handlers.NewStudioHandler(
 		deps.DB,
 		deps.Authenticator,
-		deps.ImageEditorEnabled,
-		deps.ImageEditorModelBaseURL,
+		deps.StudioEnabled,
+		deps.StudioModelBaseURL,
 	).RegisterRoutes(api)
 	stockMediaHandler := handlers.NewStockMediaHandler(
 		deps.DB,
@@ -114,15 +112,15 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		deps.PixabayAPIKey,
 	)
 	stockMediaHandler.RegisterRoutes(api)
-	videoEditorHandler := handlers.NewVideoEditorHandler(
+	videoStudioHandler := handlers.NewVideoStudioHandler(
 		deps.DB,
 		deps.Authenticator,
-		deps.VideoEditorEnabled,
+		deps.VideoStudioEnabled,
 		deps.VideoModelBaseURL,
 	)
-	videoEditorHandler.SetEntitlement(deps.Entitlement)
-	videoEditorHandler.SetStockProviders(stockMediaHandler.ProviderKeys())
-	videoEditorHandler.RegisterRoutes(api)
+	videoStudioHandler.SetEntitlement(deps.Entitlement)
+	videoStudioHandler.SetStockProviders(stockMediaHandler.ProviderKeys())
+	videoStudioHandler.RegisterRoutes(api)
 
 	billingHandler := deps.BillingHandler
 	if billingHandler == nil {
@@ -203,9 +201,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationHandler := handlers.NewPublicationHandler(deps.DB, deps.Authenticator, deps.Entitlement)
 	publicationHandler.SetCapabilityDependencies(deps.Providers, deps.TokenSource)
 	publicationHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
-	publicationHandler.SetRepostService(deps.RepostService)
 	publicationHandler.RegisterRoutes(api)
-	handlers.NewRepostHandler(deps.RepostService, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewCommentHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenEncryptor).RegisterRoutes(api)
 	handlers.NewAnalyticsHandler(deps.DB, deps.Authenticator, deps.AnalyticsService).RegisterRoutes(api)
 	handlers.NewCommunicationsHandler(deps.DB, deps.Authenticator, deps.CommunicationsService).RegisterRoutes(api)
@@ -243,7 +239,6 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	workspaceHandler.UpdateWorkspaceSettings(api)
 
 	postHandler := handlers.NewPostHandler(deps.DB, deps.Authenticator, deps.Entitlement)
-	postHandler.SetRepostService(deps.RepostService)
 	postHandler.SetCapabilityDependencies(deps.Providers, deps.TokenSource)
 	postHandler.CreatePost(api)
 	postHandler.CreateTextPostDraft(api)

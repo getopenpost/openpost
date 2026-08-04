@@ -4,31 +4,6 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [2.0.0] - 2026-08-04
-
-### Added
-
-- Added tag-based Media organization with many tags per file, multi-tag and Untagged filters, image, video, and audio type filters, sorting, drag-and-drop upload, bulk tag assignment, and the same controls in media pickers and both editors. New uploads remain untagged unless the user explicitly uploads into an active tag.
-- Added a ready-to-use OpenPost social kit with X and LinkedIn banners, profile images, post formats, a five-slide carousel, story layouts, blank templates, campaign copy, and accessible alt text.
-- Added declarative route-specific Open Graph and X card images for every marketing and documentation page, rendered on demand by a versioned Cloudflare Pages image endpoint instead of stored per-page files.
-- Added per-event in-app and email notification settings for publishing outcomes, account attention, conversations, failed replies, and workspace invitations, with durable deduplicated email delivery through the configured SMTP, Resend, or Cloudflare provider.
-- Added durable native auto repost rules for X, Mastodon, Bluesky, and LinkedIn, with source and target account selection, delays, evaluation windows, minimum likes/comments/reposts/views, all-or-any gates, plateau checks, per-post inherit/off/custom overrides, and revocable cross-workspace target grants.
-
-### Changed
-
-- Renamed Studio and Video Studio to OpenPost Image Editor and OpenPost Video Editor across product copy, source names, configuration, APIs, assets, and canonical URLs. Existing `/studio` and `/video-studio` links redirect to the matching editor route.
-- Changed the editor API paths from `/api/v1/studio` and `/api/v1/video-studio` to `/api/v1/image-editor` and `/api/v1/video-editor`. API clients must update these paths. Existing editor environment variables remain temporary read aliases, and migration 063 converts stored editor settings, media provenance, project modes, Creator plan settings, checkout attempts, and subscriptions to their new canonical names.
-- Reworked the marketing navigation with a logo-led platform menu and replaced the footer activity grid with a compact single-row publishing pulse.
-- Added local Git-ignored Postiz and Shoutrrr reference checkouts and contributor guidance to consult their current scheduler implementations when designing related features.
-
-## [1.52.1] - 2026-08-04
-
-### Fixed
-
-- Improved app E2E coverage reliability by aligning onboarding/register assertions to the active checkout flow, hardening the custom Mastodon connection path, and stabilizing media/communications test fixtures for deterministic execution.
-
-## [1.52.0] - 2026-08-04
-
 ### Added
 
 - Added an OpenPost-owned embedded Whop checkout with monthly and annual plan selection, exact card-required 14-day trial terms, signed webhook reconciliation, local checkout-attempt mapping, and Whop membership management links.
@@ -39,7 +14,7 @@ All notable changes to this project are documented in this file.
 
 - Rebuilt Full Studio around a CapCut-style four-zone workspace with a dominant canvas, grouped creation tools, selection-specific inspector tabs, concise action-first copy, consistent panel gutters, a draggable multi-track timeline, and direct seeking on the timeline ruler instead of a separate progress slider.
 - Replaced Polar billing with Whop across the backend, frontend, CLI, generated contracts, configuration, legal copy, and operator documentation. Cloud operators must configure the Whop API key, account, product, webhook secret, checkout return URL, and all ten monthly and annual plan IDs before upgrading.
-- Changed managed pricing to USD-first plans: Starter $15/month or $150/year, Founder $25/$250, Pro $49/$490, Team $99/$990, and Agency $199/$1,990, each with a card-required 14-day trial.
+- Changed managed pricing to USD-first plans: Starter $15/month or $150/year, Creator $29/$290, Pro $49/$490, Team $99/$990, and Agency $199/$1,990, each with a card-required 14-day trial.
 - Simplified registration and workspace onboarding, moved plan payment into the OpenPost checkout screen, and removed the username and workspace-name decisions from the critical path.
 - Reworked the marketing homepage, pricing page, navigation, product metadata, and signup proof around the managed product and interactive demo; self-hosting remains available through documentation and footer links instead of the primary conversion path.
 - Repositioned OpenPost as the all-in-one content team for solo founders, centered on turning company work into content and publishing it everywhere rather than competing as another scheduler.

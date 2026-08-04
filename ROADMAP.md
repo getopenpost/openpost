@@ -16,7 +16,7 @@ OpenPost is a social publishing product with a managed service and a self-hosted
 - Platform analytics with saved account and post results, background updates, 7/30/90-day views, and clear access errors.
 - Comments, moderation, personal alerts, and opt-in inbox collection for supported accounts.
 - Discord webhook publishing with text, files, reply links, scheduling, and deletion.
-- OpenPost Image Editor for local or workspace still-image designs, templates, brand items, background removal, and media export.
+- OpenPost Studio for local or workspace still-image designs, templates, brand items, background removal, and media export.
 - E2E coverage for marketing, docs audience separation, auth/onboarding, settings/billing/MCP activity, provider discovery, workspace switching, composer scheduling, media library, and app smoke flows.
 
 ## Current Priorities

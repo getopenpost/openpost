@@ -157,7 +157,7 @@ Inspect or start hosted billing flows for the active workspace:
 
 ```sh
 openpost billing status
-openpost billing checkout founder
+openpost billing checkout creator
 openpost billing portal
 ```
 

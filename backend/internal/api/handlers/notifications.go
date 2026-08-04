@@ -39,7 +39,7 @@ type ChangeNotificationsInput struct {
 }
 
 type NotificationPreferencesOutput struct {
-	Body notifications.PreferenceSettings
+	Body notifications.Preferences
 }
 
 type UpdateNotificationPreferencesInput struct {
@@ -108,11 +108,11 @@ func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 		Tags:        []string{tagNotifications},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, func(ctx context.Context, _ *struct{}) (*NotificationPreferencesOutput, error) {
-		settings, err := h.service.GetPreferenceSettings(ctx, middleware.GetUserID(ctx))
+		preferences, err := h.service.GetPreferences(ctx, middleware.GetUserID(ctx))
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to load notification preferences")
 		}
-		return &NotificationPreferencesOutput{Body: settings}, nil
+		return &NotificationPreferencesOutput{Body: preferences}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -127,12 +127,7 @@ func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to save notification preferences")
 		}
-		settings, err := h.service.GetPreferenceSettings(ctx, middleware.GetUserID(ctx))
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to reload notification preferences")
-		}
-		settings.Preferences = preferences
-		return &NotificationPreferencesOutput{Body: settings}, nil
+		return &NotificationPreferencesOutput{Body: preferences}, nil
 	})
 }
 

@@ -81,13 +81,13 @@ const portugueseCopy: Record<string, SettingCopy> = {
 		label: 'ID anual Starter',
 		description: 'Plano Whop usado nas subscrições anuais Starter.'
 	},
-	OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID: {
-		label: 'ID mensal Founder',
-		description: 'Plano Whop usado nas subscrições mensais Founder.'
+	OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID: {
+		label: 'ID mensal Creator',
+		description: 'Plano Whop usado nas subscrições mensais Creator.'
 	},
-	OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID: {
-		label: 'ID anual Founder',
-		description: 'Plano Whop usado nas subscrições anuais Founder.'
+	OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID: {
+		label: 'ID anual Creator',
+		description: 'Plano Whop usado nas subscrições anuais Creator.'
 	},
 	OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID: {
 		label: 'ID mensal Pro',
@@ -203,23 +203,21 @@ const portugueseCopy: Record<string, SettingCopy> = {
 		label: 'Retorno OIDC nativo',
 		description: 'URI de retorno usada pelos clientes nativos do OpenPost.'
 	},
-	OPENPOST_IMAGE_EDITOR_ENABLED: {
-		label: 'Editor de Imagens OpenPost',
+	OPENPOST_STUDIO_ENABLED: {
+		label: 'Estúdio de design',
 		description: 'Ativa o espaço de design e os respetivos modelos.'
 	},
-	OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL: {
+	OPENPOST_STUDIO_MODEL_BASE_URL: {
 		label: 'Caminho dos modelos de design',
-		description:
-			'URL ou caminho da aplicação usado para carregar os modelos do Editor de Imagens OpenPost.'
+		description: 'URL ou caminho da aplicação usado para carregar os modelos do Estúdio de design.'
 	},
-	OPENPOST_VIDEO_EDITOR_ENABLED: {
-		label: 'Editor de Vídeo OpenPost',
+	OPENPOST_VIDEO_STUDIO_ENABLED: {
+		label: 'Estúdio de vídeo',
 		description: 'Ativa o espaço de edição de vídeo no navegador.'
 	},
 	OPENPOST_VIDEO_MODEL_BASE_URL: {
 		label: 'Caminho dos modelos de vídeo',
-		description:
-			'URL ou caminho da aplicação usado para carregar os modelos do Editor de Vídeo OpenPost.'
+		description: 'URL ou caminho da aplicação usado para carregar os modelos do Estúdio de vídeo.'
 	},
 	OPENPOST_STOCK_MEDIA_ENABLED: {
 		label: 'Pesquisa de multimédia de stock',

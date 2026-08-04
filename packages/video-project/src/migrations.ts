@@ -14,21 +14,18 @@ export function migrateVideoProjectDocument(
   input: unknown,
 ): VideoProjectMigrationResult {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
-    throw new Error("OpenPost Video Editor project data must be a JSON object.");
+    throw new Error("Video Studio project data must be a JSON object.");
   }
   const sourceVersion = Number(
     (input as Record<string, unknown>).schema_version,
   );
   if (sourceVersion !== VIDEO_PROJECT_SCHEMA_VERSION) {
     throw new Error(
-      `OpenPost Video Editor project schema ${String(sourceVersion)} is not supported.`,
+      `Video Studio project schema ${String(sourceVersion)} is not supported.`,
     );
   }
 
   const normalized = structuredClone(input) as Record<string, unknown>;
-  if (normalized.editing_mode === "studio") {
-    normalized.editing_mode = "editor";
-  }
   for (const field of [
     "primary_sequence",
     "visual_tracks",

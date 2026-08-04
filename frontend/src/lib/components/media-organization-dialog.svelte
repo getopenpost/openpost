@@ -1,161 +1,272 @@
 <script lang="ts">
+	import { client } from '$lib/api/client';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
-	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
-	import { createMediaTag, deleteMediaTag, updateMediaTag, type MediaTag } from '$lib/media-tags';
-	import HashIcon from 'lucide-svelte/icons/hash';
+	import * as Tabs from '$lib/components/ui/tabs';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
 	import PencilIcon from 'lucide-svelte/icons/pencil';
 	import TrashIcon from 'lucide-svelte/icons/trash-2';
 	import { m } from '$lib/paraglide/messages';
 
+	interface MediaCollection {
+		id: string;
+		name: string;
+		color: string;
+		item_count: number;
+	}
+
+	interface MediaTag {
+		id: string;
+		name: string;
+		item_count: number;
+	}
+
 	let {
 		open = $bindable(false),
 		workspaceId,
+		collections,
 		tags,
-		onChanged,
-		onNotify
+		onChanged
 	}: {
 		open?: boolean;
 		workspaceId: string;
+		collections: MediaCollection[];
 		tags: MediaTag[];
 		onChanged: () => void | Promise<void>;
-		onNotify?: (message: string, tone?: 'neutral' | 'success' | 'error') => void;
 	} = $props();
 
-	let editingId = $state('');
+	let activeTab = $state('collections');
+	let editingID = $state('');
 	let name = $state('');
+	let color = $state('#f97316');
 	let saving = $state(false);
 	let error = $state('');
-	let pendingDelete = $state<MediaTag | null>(null);
-	let deleteDialogOpen = $state(false);
+	let pendingDelete = $state<{ kind: 'collection' | 'tag'; id: string; name: string } | null>(null);
 
-	function resetForm(): void {
-		editingId = '';
+	function resetForm() {
+		editingID = '';
 		name = '';
+		color = '#f97316';
 		error = '';
 	}
 
-	function edit(tag: MediaTag): void {
-		editingId = tag.id;
+	function editCollection(collection: MediaCollection) {
+		activeTab = 'collections';
+		editingID = collection.id;
+		name = collection.name;
+		color = collection.color || '#f97316';
+	}
+
+	function editTag(tag: MediaTag) {
+		activeTab = 'tags';
+		editingID = tag.id;
 		name = tag.name;
-		error = '';
 	}
 
-	async function submit(): Promise<void> {
-		const nextName = name.trim();
-		if (!nextName) return;
+	async function submit() {
+		if (!name.trim()) return;
 		saving = true;
 		error = '';
 		try {
-			if (editingId) {
-				await updateMediaTag(editingId, nextName);
-				onNotify?.(m.media_tag_updated(), 'success');
+			if (activeTab === 'collections') {
+				if (editingID) {
+					const { error: requestError } = await client.PATCH('/media/collections/{id}', {
+						params: { path: { id: editingID } },
+						body: { name: name.trim(), color }
+					});
+					if (requestError) throw new Error(requestError.detail);
+				} else {
+					const { error: requestError } = await client.POST('/media/collections', {
+						body: { workspace_id: workspaceId, name: name.trim(), color }
+					});
+					if (requestError) throw new Error(requestError.detail);
+				}
+			} else if (editingID) {
+				const { error: requestError } = await client.PATCH('/media/tags/{id}', {
+					params: { path: { id: editingID } },
+					body: { name: name.trim() }
+				});
+				if (requestError) throw new Error(requestError.detail);
 			} else {
-				await createMediaTag(workspaceId, nextName);
-				onNotify?.(m.media_tag_created(), 'success');
+				const { error: requestError } = await client.POST('/media/tags', {
+					body: { workspace_id: workspaceId, name: name.trim() }
+				});
+				if (requestError) throw new Error(requestError.detail);
 			}
 			resetForm();
 			await onChanged();
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.media_tag_update_failed();
+			error = cause instanceof Error ? cause.message : m.media_organization_save_failed();
 		} finally {
 			saving = false;
 		}
 	}
 
-	function requestDelete(tag: MediaTag): void {
-		pendingDelete = tag;
-		deleteDialogOpen = true;
-	}
-
-	async function confirmDelete(): Promise<void> {
-		if (!pendingDelete) return;
-		await deleteMediaTag(pendingDelete.id);
-		if (editingId === pendingDelete.id) resetForm();
-		pendingDelete = null;
-		await onChanged();
-		onNotify?.(m.media_tag_deleted(), 'success');
+	async function deletePending() {
+		const target = pendingDelete;
+		if (!target) return;
+		saving = true;
+		error = '';
+		try {
+			const result =
+				target.kind === 'collection'
+					? await client.DELETE('/media/collections/{id}', {
+							params: { path: { id: target.id } }
+						})
+					: await client.DELETE('/media/tags/{id}', {
+							params: { path: { id: target.id } }
+						});
+			if (result.error) throw new Error(result.error.detail);
+			if (editingID === target.id) resetForm();
+			pendingDelete = null;
+			await onChanged();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.media_organization_delete_failed();
+		} finally {
+			saving = false;
+		}
 	}
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-2xl">
+	<Dialog.Content class="flex max-h-[min(720px,calc(100dvh-2rem))] flex-col sm:max-w-2xl">
 		<Dialog.Header>
-			<Dialog.Title>{m.media_manage_tags()}</Dialog.Title>
-			<Dialog.Description>{m.media_tags_description()}</Dialog.Description>
+			<Dialog.Title>{m.media_organization_title()}</Dialog.Title>
+			<Dialog.Description>{m.media_organization_body()}</Dialog.Description>
 		</Dialog.Header>
 
-		<div class="grid gap-5 py-2 sm:grid-cols-[minmax(0,1fr)_15rem]">
-			<div class="max-h-96 space-y-1 overflow-y-auto">
-				{#each tags as tag (tag.id)}
-					<div class="flex min-h-11 items-center gap-2 rounded-lg px-2 hover:bg-muted/60">
-						<HashIcon class="size-4 shrink-0 text-muted-foreground" />
-						<div class="min-w-0 flex-1">
-							<p class="flex items-center gap-1.5 truncate text-sm font-medium">
-								<span class="truncate">{tag.name}</span>
-							</p>
-							<p class="text-xs text-muted-foreground">
-								{m.media_tag_assets({ count: tag.item_count })}
-							</p>
-						</div>
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							onclick={() => edit(tag)}
-							aria-label={m.media_organization_edit_named({ name: tag.name })}
-						>
-							<PencilIcon />
-						</Button>
-						<Button
-							variant="ghost"
-							size="icon-sm"
-							onclick={() => requestDelete(tag)}
-							aria-label={m.media_organization_delete_named({ name: tag.name })}
-						>
-							<TrashIcon />
-						</Button>
-					</div>
-				{/each}
-				{#if tags.length === 0}
-					<p class="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">
-						{m.media_no_tags()}
-					</p>
-				{/if}
-			</div>
+		<Tabs.Root bind:value={activeTab} class="min-h-0 flex-1" onValueChange={() => resetForm()}>
+			<Tabs.List class="grid grid-cols-2">
+				<Tabs.Trigger value="collections">{m.media_collections()}</Tabs.Trigger>
+				<Tabs.Trigger value="tags">{m.media_tags()}</Tabs.Trigger>
+			</Tabs.List>
 
-			<form
-				class="space-y-3"
-				onsubmit={(event) => {
-					event.preventDefault();
-					void submit();
-				}}
-			>
-				<label class="grid gap-1.5 text-sm font-medium">
-					<span>{editingId ? m.media_rename_tag() : m.media_new_tag()}</span>
-					<Input bind:value={name} maxlength={64} placeholder={m.media_tag_name()} />
-				</label>
-				<div class="flex gap-2">
-					<Button type="submit" size="sm" disabled={saving || !name.trim()}>
-						{#if saving}<LoaderIcon class="animate-spin" />{/if}
-						{editingId ? m.common_save() : m.media_create_tag()}
-					</Button>
-					{#if editingId}
-						<Button type="button" variant="ghost" size="sm" onclick={resetForm}
-							>{m.common_cancel()}</Button
-						>
+			<div class="mt-4 grid min-h-0 gap-4 md:grid-cols-[1fr_15rem]">
+				<div class="max-h-80 space-y-2 overflow-y-auto">
+					{#if activeTab === 'collections'}
+						{#each collections as collection (collection.id)}
+							<div class="flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2">
+								<span class="size-4 rounded-full border" style:background={collection.color}></span>
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium">{collection.name}</p>
+									<p class="text-xs text-muted-foreground">
+										{m.media_organization_assets({ count: collection.item_count })}
+									</p>
+								</div>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label={m.media_organization_edit_named({ name: collection.name })}
+									onclick={() => editCollection(collection)}
+								>
+									<PencilIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label={m.media_organization_delete_named({ name: collection.name })}
+									onclick={() =>
+										(pendingDelete = {
+											kind: 'collection',
+											id: collection.id,
+											name: collection.name
+										})}
+								>
+									<TrashIcon />
+								</Button>
+							</div>
+						{/each}
+					{:else}
+						{#each tags as tag (tag.id)}
+							<div class="flex min-h-12 items-center gap-2 rounded-lg border px-3 py-2">
+								<div class="min-w-0 flex-1">
+									<p class="truncate text-sm font-medium">{tag.name}</p>
+									<p class="text-xs text-muted-foreground">
+										{m.media_organization_assets({ count: tag.item_count })}
+									</p>
+								</div>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label={m.media_organization_edit_named({ name: tag.name })}
+									onclick={() => editTag(tag)}
+								>
+									<PencilIcon />
+								</Button>
+								<Button
+									variant="ghost"
+									size="icon"
+									aria-label={m.media_organization_delete_named({ name: tag.name })}
+									onclick={() => (pendingDelete = { kind: 'tag', id: tag.id, name: tag.name })}
+								>
+									<TrashIcon />
+								</Button>
+							</div>
+						{/each}
 					{/if}
 				</div>
-			</form>
-		</div>
+
+				<form
+					class="space-y-3 rounded-lg border bg-muted/20 p-3"
+					onsubmit={(event) => {
+						event.preventDefault();
+						void submit();
+					}}
+				>
+					<h3 class="text-sm font-semibold">
+						{editingID
+							? `${m.media_organization_edit()} ${
+									activeTab === 'collections'
+										? m.media_organization_collection()
+										: m.media_organization_tag()
+								}`
+							: activeTab === 'collections'
+								? m.media_organization_new_collection()
+								: m.media_organization_new_tag()}
+					</h3>
+					<Input
+						bind:value={name}
+						maxlength={activeTab === 'collections' ? 100 : 64}
+						placeholder={m.media_organization_name()}
+					/>
+					{#if activeTab === 'collections'}
+						<label class="flex items-center gap-2 text-sm">
+							<Input type="color" bind:value={color} class="h-10 w-12 p-1" />
+							<span>{color}</span>
+						</label>
+					{/if}
+					<div class="flex gap-2">
+						<Button type="submit" size="sm" disabled={saving || !name.trim()}>
+							{#if saving}<LoaderIcon class="animate-spin" />{/if}
+							{editingID ? m.common_save() : m.media_organization_create()}
+						</Button>
+						{#if editingID}
+							<Button type="button" variant="ghost" size="sm" onclick={resetForm}
+								>{m.common_cancel()}</Button
+							>
+						{/if}
+					</div>
+				</form>
+			</div>
+		</Tabs.Root>
+
+		{#if pendingDelete}
+			<div class="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+				<p>
+					{m.media_organization_delete_confirm({ name: pendingDelete.name })}
+				</p>
+				<div class="mt-2 flex gap-2">
+					<Button variant="destructive" size="sm" disabled={saving} onclick={deletePending}>
+						{m.common_delete()}
+					</Button>
+					<Button variant="ghost" size="sm" onclick={() => (pendingDelete = null)}
+						>{m.common_cancel()}</Button
+					>
+				</div>
+			</div>
+		{/if}
+
 		{#if error}<p class="text-sm text-destructive" role="alert">{error}</p>{/if}
 	</Dialog.Content>
 </Dialog.Root>
-
-<DestructiveConfirmDialog
-	bind:open={deleteDialogOpen}
-	title={m.media_delete_tag_title()}
-	description={m.media_delete_tag_body({ name: pendingDelete?.name ?? '' })}
-	onConfirm={confirmDelete}
-/>

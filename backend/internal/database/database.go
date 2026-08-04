@@ -190,16 +190,6 @@ func CreateSchema(db *bun.DB) error {
 		Exec(ctx); err != nil {
 		return fmt.Errorf("failed to create communications subject uniqueness index: %w", err)
 	}
-	if _, err := db.NewCreateIndex().
-		Index("repost_sweep_pending_unique_idx").
-		Table("jobs").
-		Column("type").
-		Unique().
-		Where("status = 'pending' AND type = 'repost_sweep'").
-		IfNotExists().
-		Exec(ctx); err != nil {
-		return fmt.Errorf("failed to create repost sweep uniqueness index: %w", err)
-	}
 
 	return nil
 }

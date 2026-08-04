@@ -204,7 +204,7 @@
 	}
 
 	function stageLabel(aspect: string): string {
-		return aspect === 'original' ? m.video_upload_editor_original_aspect() : aspect;
+		return aspect === 'original' ? m.video_editor_original_aspect() : aspect;
 	}
 
 	function formatSeconds(value: number): string {
@@ -262,9 +262,9 @@
 		<Dialog.Header class="border-b px-4 py-4 pr-14 sm:px-5">
 			<Dialog.Title class="flex items-center gap-2">
 				<ScissorsIcon class="size-4" />
-				{m.video_upload_editor_title()}
+				{m.video_editor_title()}
 			</Dialog.Title>
-			<Dialog.Description>{m.video_upload_editor_description()}</Dialog.Description>
+			<Dialog.Description>{m.video_editor_description()}</Dialog.Description>
 		</Dialog.Header>
 
 		<div class="grid min-h-0 overflow-y-auto lg:grid-cols-[minmax(0,1.5fr)_minmax(18rem,0.8fr)]">
@@ -292,7 +292,7 @@
 								sourceWidth={metadata.width}
 								sourceHeight={metadata.height}
 								{crop}
-								label={m.video_upload_editor_crop_position()}
+								label={m.video_editor_crop_position()}
 								onChange={(nextCrop) => (crop = nextCrop)}
 							/>
 						{/if}
@@ -306,7 +306,7 @@
 				{#if loading}
 					<div class="flex items-center gap-2 text-sm text-muted-foreground">
 						<LoaderIcon class="size-4 animate-spin" />
-						{m.video_upload_editor_loading()}
+						{m.video_editor_loading()}
 					</div>
 				{:else if metadata && file}
 					<div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -316,10 +316,10 @@
 					</div>
 
 					<fieldset class="space-y-3">
-						<legend class="text-sm font-medium">{m.video_upload_editor_trim()}</legend>
+						<legend class="text-sm font-medium">{m.video_editor_trim()}</legend>
 						<div class="grid grid-cols-2 gap-3">
 							<label class="space-y-1 text-xs text-muted-foreground">
-								<span>{m.video_upload_editor_start()}</span>
+								<span>{m.video_editor_start()}</span>
 								<Input
 									type="number"
 									min="0"
@@ -330,7 +330,7 @@
 								/>
 							</label>
 							<label class="space-y-1 text-xs text-muted-foreground">
-								<span>{m.video_upload_editor_end()}</span>
+								<span>{m.video_editor_end()}</span>
 								<Input
 									type="number"
 									min={Math.min(duration, trimStart + 0.1)}
@@ -347,7 +347,7 @@
 								max={duration}
 								step={0.1}
 								value={trimStart}
-								ariaLabel={m.video_upload_editor_start()}
+								ariaLabel={m.video_editor_start()}
 								onValueChange={updateStart}
 							/>
 							<Slider
@@ -355,7 +355,7 @@
 								max={duration}
 								step={0.1}
 								value={trimEnd}
-								ariaLabel={m.video_upload_editor_end()}
+								ariaLabel={m.video_editor_end()}
 								onValueChange={updateEnd}
 							/>
 						</div>
@@ -366,7 +366,7 @@
 					</fieldset>
 
 					<fieldset class="space-y-2">
-						<legend class="text-sm font-medium">{m.video_upload_editor_aspect()}</legend>
+						<legend class="text-sm font-medium">{m.video_editor_aspect()}</legend>
 						<div class="flex flex-wrap gap-2">
 							{#each aspectOptions as aspect (aspect)}
 								<Button
@@ -384,13 +384,13 @@
 						</div>
 						{#if cropSupported === false}
 							<p class="text-xs text-muted-foreground">
-								{m.video_upload_editor_crop_unavailable()}
+								{m.video_editor_crop_unavailable()}
 							</p>
 						{/if}
 						{#if crop}
 							<label class="grid gap-2 pt-2 text-xs text-muted-foreground">
 								<span class="flex items-center justify-between gap-3">
-									{m.video_upload_editor_crop_zoom()}
+									{m.video_editor_crop_zoom()}
 									<span>{cropZoom}%</span>
 								</span>
 								<Slider
@@ -398,7 +398,7 @@
 									max={100}
 									step={1}
 									value={cropZoom}
-									ariaLabel={m.video_upload_editor_crop_zoom()}
+									ariaLabel={m.video_editor_crop_zoom()}
 									onValueChange={updateCropZoom}
 								/>
 							</label>
@@ -415,7 +415,7 @@
 							></div>
 						</div>
 						<p class="text-xs text-muted-foreground">
-							{m.video_upload_editor_rendering({ percent: Math.round(renderProgress * 100) })}
+							{m.video_editor_rendering({ percent: Math.round(renderProgress * 100) })}
 						</p>
 					</div>
 				{/if}
@@ -436,14 +436,14 @@
 				disabled={!file || rendering}
 				onclick={skipEdit}
 			>
-				{m.video_upload_editor_use_original()}
+				{m.video_editor_use_original()}
 			</Button>
 			<Button type="button" variant="outline" class="min-h-12" onclick={closeEditor}>
 				{rendering ? m.video_upload_cancel() : m.common_cancel()}
 			</Button>
 			<Button type="button" class="min-h-12" disabled={!metadata || rendering} onclick={applyEdit}>
 				{#if rendering}<LoaderIcon class="size-4 animate-spin" />{/if}
-				{m.video_upload_editor_apply()}
+				{m.video_editor_apply()}
 			</Button>
 		</Dialog.Footer>
 	</Dialog.Content>

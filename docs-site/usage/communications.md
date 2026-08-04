@@ -40,10 +40,6 @@ OpenPost now checks supported platform APIs on a timer. Messaging stays separate
 
 OpenPost sends in-app alerts for failed posts, accounts that need help, new replies, new messages, failed replies, workspace invites, and successful posts. If only some accounts fail, the alert names the accounts that worked and failed and links to the right fix. Retry only runs for failed accounts that can be tried again.
 
-Open **Settings → Notifications** to choose in-app and email delivery for each event. Email is on by default for failed publishing, failed replies, and workspace invitations. Successful posts, account attention, new engagement, and new messages stay in the app unless you turn on email for them. This avoids sending a second default email when a publishing failure already explains that an account needs to be reconnected. Critical failure alerts always remain on in the app.
-
-Email alerts use the same SMTP, Resend, or Cloudflare Email provider as account messages. OpenPost queues each alert in the database with the event, retries temporary delivery failures, and checks your current preference again before sending. If an administrator has not configured email delivery, the settings page shows email as unavailable.
-
-Workspace invites for an existing user do not store the raw invite token in the alert. Each user can mark alerts as read, delete them, or change alert settings.
+Workspace invites for an existing user do not store the raw invite token in the alert. Each user can mark alerts as read, delete them, or change alert settings. OpenPost always keeps key failure alerts on.
 
 Alert settings do not control inbox collection. Turn inbox collection on or off from the social account.

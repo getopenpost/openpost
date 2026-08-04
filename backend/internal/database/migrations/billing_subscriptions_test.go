@@ -64,7 +64,7 @@ func TestRunMigrationsBillingSubscriptionsIdempotent(t *testing.T) {
 		ProviderCustomerID:     "customer-1",
 		ProviderSubscriptionID: "sub-1",
 		Status:                 "active",
-		PlanID:                 "founder",
+		PlanID:                 "creator",
 	}).Exec(ctx)
 	require.NoError(t, err)
 }

@@ -17,23 +17,21 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import ProfileAvatarUploader from '$lib/components/profile-avatar-uploader.svelte';
 	import AccountDataCard from '$lib/components/account-data-card.svelte';
-	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
 	import OrganizationSSOSettings from '$lib/components/organization-sso-settings.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
 	import MediaPicker from '$lib/components/media-picker.svelte';
-	import BrandKitEditor from '$lib/image-editor/components/brand-kit-editor.svelte';
-	import ImageEditorColorPicker from '$lib/image-editor/components/image-editor-color-picker.svelte';
+	import BrandKitEditor from '$lib/studio/components/brand-kit-editor.svelte';
+	import StudioColorPicker from '$lib/studio/components/studio-color-picker.svelte';
 	import AccountsPage from '../accounts/+page.svelte';
-	import RepostAutomationSettings from '$lib/components/repost-automation-settings.svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth } from '$lib/stores/auth';
 	import { getApiBase } from '$lib/stores/instance.svelte';
 	import type { SettingsTabID } from '$lib/settings-navigation';
-	import { loadImageEditorBrandKit } from '$lib/image-editor/api';
+	import { loadStudioBrandKit } from '$lib/studio/api';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
-	import type { ImageEditorBrandKit } from '$lib/image-editor/types';
+	import type { StudioBrandKit } from '$lib/studio/types';
 	import { createPasskeyCredential } from '$lib/auth/webauthn';
 	import { acquireReauthGrant, startOIDCIdentityLink } from '$lib/auth/reauth';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
@@ -161,7 +159,7 @@
 	let teamError = $state('');
 	let teamLoadError = $state('');
 	let workspaceTeam = $state<WorkspaceTeam | null>(null);
-	let brandKit = $state.raw<ImageEditorBrandKit | null>(null);
+	let brandKit = $state.raw<StudioBrandKit | null>(null);
 	let brandLoading = $state(false);
 	let brandError = $state('');
 	let inviteEmail = $state('');
@@ -315,7 +313,7 @@
 
 	function billingPlanName(planID: string) {
 		if (planID === 'starter') return m.settings_plan_starter();
-		if (planID === 'founder') return m.settings_plan_founder();
+		if (planID === 'creator') return m.settings_plan_creator();
 		if (planID === 'pro') return m.settings_plan_pro();
 		if (planID === 'team') return m.settings_plan_team();
 		if (planID === 'agency') return m.settings_plan_agency();
@@ -324,7 +322,7 @@
 
 	function billingPlanDescription(planID: string) {
 		if (planID === 'starter') return m.settings_plan_starter_description();
-		if (planID === 'founder') return m.settings_plan_founder_description();
+		if (planID === 'creator') return m.settings_plan_creator_description();
 		if (planID === 'pro') return m.settings_plan_pro_description();
 		if (planID === 'team') return m.settings_plan_team_description();
 		if (planID === 'agency') return m.settings_plan_agency_description();
@@ -522,13 +520,11 @@
 	);
 	const settingsTabs = $derived([
 		{ id: 'profile', label: m.settings_profile() },
-		{ id: 'notifications', label: m.notifications_settings() },
 		{ id: 'security', label: m.settings_security() },
 		{ id: 'developer', label: m.settings_developer() },
 		{ id: 'general', label: m.settings_general() },
 		{ id: 'brand', label: m.media_brand() },
 		{ id: 'accounts', label: m.accounts_heading() },
-		{ id: 'reposts', label: m.settings_reposts() },
 		{ id: 'schedule', label: m.settings_schedule() },
 		{ id: 'members', label: m.settings_members() },
 		{ id: 'sso', label: m.settings_sso() },
@@ -552,18 +548,11 @@
 	});
 	const settingsLoadingVariant = $derived.by(() => {
 		if (activeSettingsTab === 'profile') return 'profile' as const;
-		if (['members', 'sso', 'plan', 'security', 'notifications'].includes(activeSettingsTab))
-			return 'cards' as const;
+		if (['members', 'sso', 'plan', 'security'].includes(activeSettingsTab)) return 'cards' as const;
 		if (
-			[
-				'developer',
-				'schedule',
-				'accounts',
-				'reposts',
-				'instance',
-				'configuration',
-				'users'
-			].includes(activeSettingsTab)
+			['developer', 'schedule', 'accounts', 'instance', 'configuration', 'users'].includes(
+				activeSettingsTab
+			)
 		)
 			return 'list' as const;
 		return 'form' as const;
@@ -599,7 +588,6 @@
 	);
 	const activeSettingsTitle = $derived.by(() => {
 		if (activeSettingsTab === 'profile') return m.settings_profile();
-		if (activeSettingsTab === 'notifications') return m.notifications_settings();
 		if (activeSettingsTab === 'security') return m.settings_security();
 		if (activeSettingsTab === 'developer') return m.settings_developer();
 		if (activeSettingsTab === 'instance') return m.settings_instance();
@@ -611,12 +599,10 @@
 		if (activeSettingsTab === 'schedule') return m.settings_schedule();
 		if (activeSettingsTab === 'brand') return m.media_brand();
 		if (activeSettingsTab === 'accounts') return m.accounts_heading();
-		if (activeSettingsTab === 'reposts') return m.settings_reposts();
 		return m.settings_general();
 	});
 	const activeSettingsDescription = $derived.by(() => {
 		if (activeSettingsTab === 'profile') return m.settings_profile_description();
-		if (activeSettingsTab === 'notifications') return m.notifications_settings_description();
 		if (activeSettingsTab === 'security') return m.settings_account_security_body();
 		if (activeSettingsTab === 'developer') return m.settings_developer_description();
 		if (activeSettingsTab === 'instance') return m.settings_instance_description();
@@ -628,7 +614,6 @@
 		if (activeSettingsTab === 'schedule') return m.settings_schedule_description();
 		if (activeSettingsTab === 'brand') return m.media_brand_description();
 		if (activeSettingsTab === 'accounts') return m.accounts_description();
-		if (activeSettingsTab === 'reposts') return m.settings_reposts_description();
 		return m.settings_general_description({
 			workspace: workspaceCtx.currentWorkspace?.name || m.settings_workspace()
 		});
@@ -1445,7 +1430,7 @@
 		brandError = '';
 		brandKit = null;
 		try {
-			const kit = await loadImageEditorBrandKit(workspaceID);
+			const kit = await loadStudioBrandKit(workspaceID);
 			if (requestSequence !== brandRequestSequence || !isCurrentWorkspace(workspaceID)) return;
 			brandKit = kit;
 		} catch (cause) {
@@ -1921,7 +1906,7 @@
 								</p>
 								{#if authState.user?.public_profile_enabled && authState.user.username}
 									<a
-										href={resolve(`/u/${authState.user.username}` as '/')}
+										href={`/u/${authState.user.username}`}
 										target="_blank"
 										rel="noreferrer"
 										class="mt-2 inline-flex min-h-11 items-center gap-2 text-sm font-medium text-primary hover:underline"
@@ -1946,25 +1931,9 @@
 					</form>
 				</section>
 
-				<section
-					id="notifications"
-					class:hidden={activeSettingsTab !== 'notifications'}
-					class="scroll-mt-24"
-				>
-					{#if activeSettingsTab === 'notifications'}
-						<NotificationPreferences />
-					{/if}
-				</section>
-
 				<section id="accounts" class:hidden={activeSettingsTab !== 'accounts'} class="scroll-mt-24">
 					{#if activeSettingsTab === 'accounts'}
 						<AccountsPage />
-					{/if}
-				</section>
-
-				<section id="reposts" class:hidden={activeSettingsTab !== 'reposts'} class="scroll-mt-24">
-					{#if activeSettingsTab === 'reposts'}
-						<RepostAutomationSettings workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} />
 					{/if}
 				</section>
 
@@ -2169,7 +2138,7 @@
 					<div class="mt-4 max-w-sm space-y-2">
 						<Label for="workspace-color">{m.settings_workspace_color()}</Label>
 						<div class="[&>button]:min-h-11">
-							<ImageEditorColorPicker
+							<StudioColorPicker
 								id="workspace-color"
 								label={m.settings_workspace_color()}
 								value={workspaceCtx.settings.color}
@@ -3448,7 +3417,7 @@
 										</div>
 										{#if brandKit.assets.length === 0 && brandKit.fonts.length === 0}
 											<p class="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
-												{m.image_editor_brand_empty()}
+												{m.studio_brand_empty()}
 											</p>
 										{/if}
 									</section>

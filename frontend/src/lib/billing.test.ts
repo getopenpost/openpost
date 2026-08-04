@@ -15,7 +15,7 @@ describe('hosted billing catalog', () => {
 		expect(hostedPlans.map((plan) => [plan.id, plan.monthlyPriceUSD, plan.annualPriceUSD])).toEqual(
 			[
 				['starter', 15, 150],
-				['founder', 25, 250],
+				['creator', 29, 290],
 				['pro', 49, 490],
 				['team', 99, 990],
 				['agency', 199, 1990]
@@ -23,10 +23,10 @@ describe('hosted billing catalog', () => {
 		);
 	});
 
-	it('defaults unknown plans to Founder without accepting arbitrary ids', () => {
+	it('defaults unknown plans to Creator without accepting arbitrary ids', () => {
 		expect(normalizeHostedPlanID('AGENCY')).toBe('agency');
 		expect(normalizeHostedPlanID('enterprise')).toBe('');
-		expect(hostedPlanByID('enterprise').id).toBe('founder');
+		expect(hostedPlanByID('enterprise').id).toBe('creator');
 	});
 
 	it('normalizes yearly links to the annual billing period', () => {
@@ -40,13 +40,13 @@ describe('hosted billing catalog', () => {
 	it('builds an internal checkout path with a safe plan and billing period', () => {
 		expect(checkoutPathForPlan('team', 'annual')).toBe('/checkout?plan=team&billing_period=annual');
 		expect(checkoutPathForPlan('unknown', 'yearly')).toBe(
-			'/checkout?plan=founder&billing_period=annual'
+			'/checkout?plan=creator&billing_period=annual'
 		);
 	});
 
 	it('returns the full-period price used by checkout', () => {
-		const founder = hostedPlanByID('founder');
-		expect(planPriceUSD(founder, 'monthly')).toBe(25);
-		expect(planPriceUSD(founder, 'annual')).toBe(250);
+		const creator = hostedPlanByID('creator');
+		expect(planPriceUSD(creator, 'monthly')).toBe(29);
+		expect(planPriceUSD(creator, 'annual')).toBe(290);
 	});
 });

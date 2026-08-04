@@ -24,7 +24,6 @@
 	import ComposerPublishActions from './composer-publish-actions.svelte';
 	import SaveIndicator from './save-indicator.svelte';
 	import ComposerScheduleDialog from './composer-schedule-dialog.svelte';
-	import ComposerRepostControl from './composer-repost-control.svelte';
 	import ComposerValidationMenu from './composer-validation-menu.svelte';
 	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 	import PlatformIcon from './platform-icon.svelte';
@@ -96,16 +95,13 @@
 	import DraftConflictDialog from './draft-conflict-dialog.svelte';
 	import PromptApplyDialog from './prompt-apply-dialog.svelte';
 	import MediaPicker from './media-picker.svelte';
-	import {
-		consumeImageEditorReturnToken,
-		createImageEditorReturnToken
-	} from '$lib/image-editor/api';
+	import { consumeStudioReturnToken, createStudioReturnToken } from '$lib/studio/api';
 	import {
 		clearComposerRecovery,
 		loadComposerRecovery,
 		storeComposerRecovery
-	} from '$lib/image-editor/recovery';
-	import type { ComposerRecoverySnapshot } from '$lib/image-editor/types';
+	} from '$lib/studio/recovery';
+	import type { ComposerRecoverySnapshot } from '$lib/studio/types';
 	import { parseDraftConflict, type DraftConflictProblem } from '$lib/draft-conflict';
 	import { SerializedSaveQueue } from '$lib/serialized-save-queue';
 	import { buildComposerPreview } from '$lib/compose-preview';
@@ -120,7 +116,6 @@
 		workspace_id: string;
 		content: string;
 		thread_draft?: string | null;
-		repost_override?: components['schemas']['Override'];
 		status: string;
 		revision: number;
 		scheduled_at: string;
@@ -142,7 +137,7 @@
 		is_unsynced: boolean;
 	};
 
-	interface ImageEditorComposerSnapshotPayload {
+	interface StudioComposerSnapshotPayload {
 		posts: PostItem[];
 		variants: Array<[string, Record<string, VariantPost>]>;
 		active_post_index: number;
@@ -161,7 +156,6 @@
 		selected_date?: string;
 		selected_time: string | null;
 		random_delay_override: string;
-		repost_override: components['schemas']['Override'];
 	}
 
 	interface Props {
@@ -234,7 +228,6 @@
 	let showScheduleDialog = $state(false);
 	let scheduleInputError = $state('');
 	let randomDelayOverride = $state<string>('default');
-	let repostOverride = $state<components['schemas']['Override']>({ mode: 'inherit' });
 
 	let showPromptCard = $state(false);
 	let currentPrompt = $state<{ text: string; example: string; category: string } | null>(null);
@@ -669,7 +662,6 @@
 			scheduledDate: selectedDate?.toString() ?? null,
 			selectedTime,
 			randomDelayOverride,
-			repostOverride,
 			selectedWorkspaceId
 		});
 	}
@@ -1023,7 +1015,6 @@
 	function hydrateCanonicalSettings(publication: Publication) {
 		publicationId = publication.id;
 		revision = publication.revision;
-		repostOverride = publication.repost_override ?? { mode: 'inherit' };
 		linkUrl = publication.source_url ?? '';
 		showLinkInput = Boolean(linkUrl);
 		settingsByAccount = Object.fromEntries(
@@ -1387,7 +1378,7 @@
 		mediaPickerOpen = true;
 	}
 
-	async function openImageEditorFromComposer() {
+	async function openStudioFromComposer() {
 		if (!selectedWorkspaceId) return;
 		mediaPickerOpen = false;
 		if (hasContent) await saveDraft();
@@ -1395,8 +1386,8 @@
 			draftId ? resolve(`/posts/${encodeURIComponent(draftId)}` as '/') : $page.url,
 			$page.url
 		);
-		returnURL.searchParams.delete('image_editor_return');
-		const token = await createImageEditorReturnToken({
+		returnURL.searchParams.delete('studio_return');
+		const token = await createStudioReturnToken({
 			workspace_id: selectedWorkspaceId,
 			return_url: `${returnURL.pathname}${returnURL.search}`,
 			purpose: isThread ? 'thread_segment' : 'post_media',
@@ -1432,30 +1423,29 @@
 				media_sizes: Array.from(mediaSizes.entries()),
 				selected_date: selectedDate?.toString(),
 				selected_time: selectedTime,
-				random_delay_override: randomDelayOverride,
-				repost_override: $state.snapshot(repostOverride)
-			} satisfies ImageEditorComposerSnapshotPayload
+				random_delay_override: randomDelayOverride
+			} satisfies StudioComposerSnapshotPayload
 		};
 		storeComposerRecovery(token.token, snapshot);
 		await goto(
 			resolve(
-				`/image-editor/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}` as '/'
+				`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}` as '/'
 			)
 		);
 	}
 
-	async function restoreImageEditorReturn() {
+	async function restoreStudioReturn() {
 		if (!$page?.url) return;
-		const token = $page.url.searchParams.get('image_editor_return');
+		const token = $page.url.searchParams.get('studio_return');
 		if (!token) return;
 		const clean = new URL($page.url);
-		clean.searchParams.delete('image_editor_return');
+		clean.searchParams.delete('studio_return');
 		replaceState(resolve(`${clean.pathname}${clean.search}` as '/'), {});
 		try {
 			const snapshot = loadComposerRecovery(token);
-			const result = await consumeImageEditorReturnToken(token);
+			const result = await consumeStudioReturnToken(token);
 			if (snapshot?.workspace_id === result.workspace_id) {
-				const payload = snapshot.payload as ImageEditorComposerSnapshotPayload;
+				const payload = snapshot.payload as StudioComposerSnapshotPayload;
 				posts = structuredClone(payload.posts);
 				variants = new SvelteMap(payload.variants);
 				activePostIndex = Math.max(
@@ -1481,7 +1471,6 @@
 				}
 				selectedTime = payload.selected_time;
 				randomDelayOverride = payload.random_delay_override;
-				repostOverride = structuredClone(payload.repost_override ?? { mode: 'inherit' });
 				await loadAccounts(selectedWorkspaceId, selectedAccountIds);
 				await resolveCapabilities();
 			}
@@ -1499,16 +1488,16 @@
 			await hydrateMediaMetadata(result.workspace_id, result.media_ids);
 			scheduleAutoSave();
 			clearComposerRecovery(token);
-			notifyImageEditorReturn(result.media_ids.length);
+			notifyStudioReturn(result.media_ids.length);
 		} catch (cause) {
 			error =
 				cause instanceof Error
-					? `${cause.message} Your OpenPost Image Editor exports are still available in Media.`
-					: 'OpenPost Image Editor exports are still available in Media.';
+					? `${cause.message} Your Studio exports are still available in Media.`
+					: 'Studio exports are still available in Media.';
 		}
 	}
 
-	function notifyImageEditorReturn(count: number) {
+	function notifyStudioReturn(count: number) {
 		error = '';
 		if (count > 0) soundPreferences.play('success');
 	}
@@ -1555,7 +1544,6 @@
 			selectedDate = undefined;
 			selectedTime = null;
 			randomDelayOverride = 'default';
-			repostOverride = { mode: 'inherit' };
 			if (workspaces.length > 0) {
 				selectedWorkspaceId = workspaceCtx.currentWorkspace?.id ?? workspaces[0].id;
 				await ensureComposerWorkspace(selectedWorkspaceId);
@@ -1573,7 +1561,6 @@
 		selectedWorkspaceId = post.workspace_id;
 		selectedAccountIds = post.destinations?.map((d) => d.social_account_id) ?? [];
 		randomDelayOverride = normalizeRandomDelayValue(post.random_delay_minutes);
-		repostOverride = post.repost_override ?? { mode: 'inherit' };
 
 		// Load alt texts from media
 		const newAlts = new SvelteMap<string, string>();
@@ -1675,7 +1662,7 @@
 		document.addEventListener('visibilitychange', handleVisibilityChange);
 		void (async () => {
 			await initializeComposer();
-			await restoreImageEditorReturn();
+			await restoreStudioReturn();
 		})();
 		return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
 	});
@@ -2050,8 +2037,7 @@
 					: { clear_schedule: true }),
 				metadata: canonical.metadata,
 				segments: canonical.segments,
-				renditions: canonical.renditions,
-				repost_override: $state.snapshot(repostOverride)
+				renditions: canonical.renditions
 			};
 			const body = {
 				content: draftContent,
@@ -2964,15 +2950,6 @@
 				{#if accounts.length > 0}
 					<ComposerValidationMenu issues={visibleGlobalIssues} />
 				{/if}
-				<ComposerRepostControl
-					workspaceID={selectedWorkspaceId}
-					sourcePlatforms={[
-						...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
-					]}
-					bind:value={repostOverride}
-					disabled={!selectedWorkspaceId || isSaving || isSubmitting}
-					onChange={scheduleAutoSave}
-				/>
 				<DropdownMenu.Root>
 					<DropdownMenu.Trigger>
 						{#snippet child({ props })}
@@ -3102,15 +3079,6 @@
 				{#if accounts.length > 0}
 					<ComposerValidationMenu issues={visibleGlobalIssues} class="size-8" />
 				{/if}
-				<ComposerRepostControl
-					workspaceID={selectedWorkspaceId}
-					sourcePlatforms={[
-						...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
-					]}
-					bind:value={repostOverride}
-					disabled={!selectedWorkspaceId || isSaving || isSubmitting}
-					onChange={scheduleAutoSave}
-				/>
 			</div>
 
 			<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
@@ -3736,7 +3704,7 @@
 		setEditorMediaIds(mediaPickerPostIndex, ids);
 		await hydrateMediaMetadata(selectedWorkspaceId, ids);
 	}}
-	onCreate={openImageEditorFromComposer}
+	onCreate={openStudioFromComposer}
 />
 
 <DestinationSettingsDialog

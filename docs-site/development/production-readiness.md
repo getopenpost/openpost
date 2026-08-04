@@ -52,7 +52,7 @@ Analytics, comments, and inbox reads use optional adapter interfaces. They do no
 - Schedules and current status stay on the publication and its account versions.
 - Media uses local storage or S3-compatible storage through `BlobStorage`.
 - Direct S3/R2 uploads use a signed browser upload when the file fits one request. Larger files stream through bounded multipart uploads.
-- OpenPost Image Editor saves still-image designs, pages, templates, brand items, history, and media links. Its saved document format does not depend on Fabric.js.
+- OpenPost Studio saves still-image designs, pages, templates, brand items, history, and media links. Its saved document format does not depend on Fabric.js.
 
 ## API, CLI, and MCP
 

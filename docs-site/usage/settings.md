@@ -11,7 +11,6 @@ Workspace settings belong to the selected workspace.
 - Media cleanup policy
 - Posting schedule and default slot behavior
 - Natural posting delay
-- Native auto repost rules, engagement gates, and account access grants
 - Brand colors, marks, text styles, and custom WOFF2, TTF, or OTF fonts
 
 Use this tab when the setting should differ between brands, clients, or projects.
@@ -60,7 +59,7 @@ MFA-protected local instance administrator in
 Instance settings are available only to instance administrators.
 
 - **Overview** shows account growth, publishing activity, and the running release.
-- **Configuration** manages optional account policy, authentication, email delivery, OpenPost Image Editor, feedback, provider behavior, and OAuth provider applications.
+- **Configuration** manages optional account policy, authentication, email delivery, Studio, feedback, provider behavior, and OAuth provider applications.
 - **Users** shows instance-wide account, plan, access, and activity details.
 
 The Configuration screen identifies whether each value comes from the environment, an encrypted admin setting, or the application default. Environment values are read-only and win over database overrides. Dormant database fallbacks remain visible and removable so they cannot reactivate unnoticed after an environment value is removed. Saved admin values take effect after a server restart. Database, encryption, network, storage, and hosted billing settings remain deployment-only because OpenPost needs them before this screen can load.

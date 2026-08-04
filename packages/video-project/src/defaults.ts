@@ -102,7 +102,7 @@ export function defaultExportSettings(): ExportDefaults {
 
 export function createBlankVideoProject(
 	title = 'Untitled video',
-	editingMode: 'quick-cut' | 'editor' = 'editor'
+	editingMode: 'quick-cut' | 'studio' = 'studio'
 ): VideoProjectDocumentV1 {
 	return {
 		schema_version: VIDEO_PROJECT_SCHEMA_VERSION,

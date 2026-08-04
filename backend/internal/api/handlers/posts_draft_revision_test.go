@@ -109,7 +109,6 @@ func TestSaveTextPostDraftCompareAndSetIsAtomicAndPermissionScoped(t *testing.T)
 		"publication": {
 			"title": "Updated title",
 			"source_text": "Updated",
-			"repost_override": {"mode": "off"},
 			"segments": [{"body": "Updated"}],
 			"renditions": []
 		}
@@ -126,7 +125,6 @@ func TestSaveTextPostDraftCompareAndSetIsAtomicAndPermissionScoped(t *testing.T)
 	var publication models.Publication
 	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
 	require.Equal(t, "Updated title", publication.Title)
-	require.JSONEq(t, `{"mode":"off"}`, publication.RepostOverride)
 	require.Equal(t, 2, publication.Revision)
 
 	stale := save(`{

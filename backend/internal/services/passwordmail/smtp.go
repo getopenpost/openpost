@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"mime"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -30,19 +29,9 @@ type VerificationMessage struct {
 	IdempotencyKey string
 }
 
-type NotificationMessage struct {
-	Recipient      string
-	Title          string
-	Body           string
-	ActionURL      string
-	PreferencesURL string
-	IdempotencyKey string
-}
-
 type Sender interface {
 	SendPasswordReset(context.Context, ResetMessage) error
 	SendEmailVerification(context.Context, VerificationMessage) error
-	SendNotification(context.Context, NotificationMessage) error
 }
 
 type SMTPConfig struct {
@@ -133,18 +122,6 @@ func (s *SMTPSender) SendEmailVerification(ctx context.Context, message Verifica
 		return errors.New("email verification code must contain six digits")
 	}
 	return s.send(ctx, recipient, buildVerificationEmail(s.from, recipient, message))
-}
-
-func (s *SMTPSender) SendNotification(ctx context.Context, message NotificationMessage) error {
-	recipient, err := mail.ParseAddress(strings.TrimSpace(message.Recipient))
-	if err != nil {
-		return fmt.Errorf("invalid notification recipient: %w", err)
-	}
-	content, err := notificationContent(message)
-	if err != nil {
-		return err
-	}
-	return s.send(ctx, recipient, buildTextEmail(s.from, recipient, content))
 }
 
 func (s *SMTPSender) send(ctx context.Context, recipient *mail.Address, raw []byte) error {
@@ -260,20 +237,6 @@ func buildVerificationEmail(from, recipient *mail.Address, message VerificationM
 			"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n"+
 			"Content-Transfer-Encoding: 8bit\r\n\r\n%s",
 		time.Now().UTC().Format(time.RFC1123Z), from.String(), recipient.String(), body,
-	))
-}
-
-func buildTextEmail(from, recipient *mail.Address, content messageContent) []byte {
-	body := strings.ReplaceAll(content.Text, "\n", "\r\n")
-	return []byte(fmt.Sprintf(
-		"Date: %s\r\nFrom: %s\r\nTo: %s\r\nSubject: %s\r\n"+
-			"MIME-Version: 1.0\r\nContent-Type: text/plain; charset=UTF-8\r\n"+
-			"Content-Transfer-Encoding: 8bit\r\n\r\n%s",
-		time.Now().UTC().Format(time.RFC1123Z),
-		from.String(),
-		recipient.String(),
-		mime.QEncoding.Encode("UTF-8", content.Subject),
-		body,
 	))
 }
 

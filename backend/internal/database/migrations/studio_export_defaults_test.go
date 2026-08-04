@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsAddsImageEditorExportDefaults(t *testing.T) {
+func TestRunMigrationsAddsStudioExportDefaults(t *testing.T) {
 	t.Parallel()
 
 	db := newPostVariantsTestDB(t)

@@ -1,25 +1,20 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
-	import { untrack } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
-	import AppSelect from '$lib/components/app-select.svelte';
-	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import CameraCapture from './camera-capture.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { uploadMediaFile } from '$lib/media-upload-client';
-	import { listImageEditorMedia } from '$lib/image-editor/api';
-	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
-	import { listMediaTags, type MediaTag } from '$lib/media-tags';
+	import { listStudioMedia } from '$lib/studio/api';
+	import type { StudioMediaItem } from '$lib/studio/types';
 	import SearchIcon from 'lucide-svelte/icons/search';
 	import UploadIcon from 'lucide-svelte/icons/upload';
 	import CameraIcon from 'lucide-svelte/icons/camera';
 	import ImageIcon from 'lucide-svelte/icons/image';
 	import VideoIcon from 'lucide-svelte/icons/video';
-	import FileAudioIcon from 'lucide-svelte/icons/file-audio';
 	import PaletteIcon from 'lucide-svelte/icons/palette';
 	import CheckIcon from 'lucide-svelte/icons/check';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
@@ -62,13 +57,13 @@
 		desktopSize?: 'default' | 'compact';
 		presentation?: 'dialog' | 'sheet';
 		videoConstraints?: VideoConstraint[];
-		onConfirm: (mediaIDs: string[], media: ImageEditorMediaItem[]) => void | Promise<void>;
+		onConfirm: (mediaIDs: string[], media: StudioMediaItem[]) => void | Promise<void>;
 		onCreate?: () => void | Promise<void>;
 		onCreateVideo?: () => void | Promise<void>;
 	} = $props();
 
 	let mode = $state<'library' | 'camera'>('library');
-	let media = $state<ImageEditorMediaItem[]>([]);
+	let media = $state<StudioMediaItem[]>([]);
 	let selectedIDs = $state.raw<string[]>([]);
 	let search = $state('');
 	let loading = $state(false);
@@ -79,23 +74,11 @@
 	let uploadProgress = $state<VideoPreparationProgress | null>(null);
 	let uploadController: AbortController | null = null;
 	let editorOpen = $state(false);
-	let tags = $state<MediaTag[]>([]);
-	let selectedTagIDs = $state.raw<string[]>([]);
-	let showUntagged = $state(false);
-	let mediaType = $state<'all' | 'image' | 'video' | 'audio'>('all');
-	let sort = $state<'newest' | 'oldest' | 'name' | 'size' | 'recently_used'>('newest');
 	let editorFile = $state<File | null>(null);
 	let videoEditorModule = $state.raw<Promise<typeof import('./video-editor-dialog.svelte')> | null>(
 		null
 	);
 	const editorAspectRatios = $derived(effectiveVideoConstraints(videoConstraints).aspectRatios);
-	const typeFilters = $derived(
-		[
-			{ value: 'image' as const, label: m.media_images(), allowed: mimeTypeAllowed('image') },
-			{ value: 'video' as const, label: m.media_videos(), allowed: mimeTypeAllowed('video') },
-			{ value: 'audio' as const, label: m.media_audio(), allowed: mimeTypeAllowed('audio') }
-		].filter((item) => item.allowed)
-	);
 
 	function attachUploadInput(node: HTMLInputElement) {
 		uploadInput = node;
@@ -105,44 +88,10 @@
 	}
 
 	function initializePicker() {
-		untrack(() => {
-			selectedIDs = [...currentSelection];
-			mode = 'library';
-			error = '';
-			if (loadedForWorkspace !== workspaceId) {
-				selectedTagIDs = [];
-				showUntagged = false;
-				mediaType = 'all';
-			}
-			void Promise.all([loadMedia(), loadTags()]);
-		});
-	}
-
-	async function loadTags(): Promise<void> {
-		if (!workspaceId) return;
-		try {
-			const result = await listMediaTags(workspaceId);
-			tags = result.tags;
-			const validIDs = new Set(result.tags.map((tag) => tag.id));
-			const nextSelected = selectedTagIDs.filter((id) => validIDs.has(id));
-			if (nextSelected.length !== selectedTagIDs.length) {
-				selectedTagIDs = nextSelected;
-				void loadMedia();
-			}
-		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.media_picker_load_failed();
-		}
-	}
-
-	function changeTagFilters(tagIDs: string[], untagged: boolean): void {
-		selectedTagIDs = tagIDs;
-		showUntagged = untagged;
-		void loadMedia();
-	}
-
-	function uploadTagID(): string | undefined {
-		if (!showUntagged && selectedTagIDs.length === 1) return selectedTagIDs[0];
-		return undefined;
+		selectedIDs = [...currentSelection];
+		mode = 'library';
+		error = '';
+		if (loadedForWorkspace !== workspaceId) void loadMedia();
 	}
 
 	async function loadMedia(): Promise<void> {
@@ -152,25 +101,10 @@
 		try {
 			const allowsImages = accept.some((mime) => mime === 'image/*' || mime.startsWith('image/'));
 			const allowsVideos = accept.some((mime) => mime === 'video/*' || mime.startsWith('video/'));
-			const allowsAudio = accept.some((mime) => mime === 'audio/*' || mime.startsWith('audio/'));
-			const allowedTypeCount = [allowsImages, allowsVideos, allowsAudio].filter(Boolean).length;
-			const requestedType =
-				mediaType !== 'all'
-					? mediaType
-					: allowedTypeCount !== 1
-						? 'all'
-						: allowsVideos
-							? 'video'
-							: allowsAudio
-								? 'audio'
-								: 'image';
-			media = (
-				await listImageEditorMedia(workspaceId, search, requestedType, {
-					tagIds: selectedTagIDs,
-					untagged: showUntagged,
-					sort
-				})
-			).filter((item) => mimeAllowed(item.mime_type));
+			const requestedType = allowsImages && allowsVideos ? 'all' : allowsVideos ? 'video' : 'image';
+			media = (await listStudioMedia(workspaceId, search, requestedType)).filter((item) =>
+				mimeAllowed(item.mime_type)
+			);
 			loadedForWorkspace = workspaceId;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.media_picker_load_failed();
@@ -183,10 +117,6 @@
 		return accept.some((accepted) =>
 			accepted.endsWith('/*') ? mime.startsWith(accepted.slice(0, -1)) : mime === accepted
 		);
-	}
-
-	function mimeTypeAllowed(type: 'image' | 'video' | 'audio'): boolean {
-		return accept.some((accepted) => accepted === `${type}/*` || accepted.startsWith(`${type}/`));
 	}
 
 	function toggleMedia(id: string): void {
@@ -225,7 +155,7 @@
 				selectedIDs,
 				selectedIDs
 					.map((id) => media.find((item) => item.id === id))
-					.filter((item): item is ImageEditorMediaItem => Boolean(item))
+					.filter((item): item is StudioMediaItem => Boolean(item))
 			);
 			open = false;
 		} catch (cause) {
@@ -282,14 +212,13 @@
 					workspaceId,
 					file,
 					source: 'upload',
-					tagId: uploadTagID(),
 					videoConstraints,
 					onProgress: (progress) => (uploadProgress = progress),
 					signal: uploadController.signal
 				});
 				selectedIDs = [...selectedIDs, uploaded.id];
 			}
-			await Promise.all([loadMedia(), loadTags()]);
+			await loadMedia();
 			mode = 'library';
 		} catch (cause) {
 			if (cause instanceof DOMException && cause.name === 'AbortError') {
@@ -335,14 +264,9 @@
 		actionLoading = true;
 		error = '';
 		try {
-			const uploaded = await uploadMediaFile({
-				workspaceId,
-				file,
-				source: 'camera',
-				tagId: uploadTagID()
-			});
+			const uploaded = await uploadMediaFile({ workspaceId, file, source: 'camera' });
 			selectedIDs = multiple ? [...selectedIDs, uploaded.id].slice(0, maxSelection) : [uploaded.id];
-			await Promise.all([loadMedia(), loadTags()]);
+			await loadMedia();
 			mode = 'library';
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.media_picker_photo_failed();
@@ -362,12 +286,12 @@
 			}
 			await goto(
 				resolve(
-					`/image-editor/new?workspace=${encodeURIComponent(workspaceId)}&purpose=${encodeURIComponent(purpose)}` as '/'
+					`/studio/new?workspace=${encodeURIComponent(workspaceId)}&purpose=${encodeURIComponent(purpose)}` as '/'
 				)
 			);
 			open = false;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.media_picker_image_editor_failed();
+			error = cause instanceof Error ? cause.message : m.media_picker_studio_failed();
 		} finally {
 			actionLoading = false;
 		}
@@ -381,7 +305,7 @@
 			await onCreateVideo();
 			open = false;
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.media_picker_video_editor_failed();
+			error = cause instanceof Error ? cause.message : m.media_picker_video_studio_failed();
 		} finally {
 			actionLoading = false;
 		}
@@ -420,7 +344,7 @@
 				onclick={() => (mode = 'camera')}
 			>
 				<CameraIcon />
-				{m.image_editor_camera()}
+				{m.studio_camera()}
 			</Button>
 			{#if showCreate}
 				<Button
@@ -442,59 +366,19 @@
 		</div>
 
 		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-			{#if typeFilters.length > 1}
-				<div class="mb-2 flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
-					{#each [{ value: 'all' as const, label: m.media_all_types() }, ...typeFilters] as typeFilter (typeFilter.value)}
-						<Button
-							variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}
-							size="sm"
-							class="min-w-11 shrink-0 rounded-full"
-							onclick={() => {
-								mediaType = typeFilter.value;
-								void loadMedia();
-							}}
-						>
-							{typeFilter.label}
-						</Button>
-					{/each}
-				</div>
-			{/if}
-			<div class="mb-3 overflow-x-auto pb-1">
-				<MediaTagFilter
-					{tags}
-					selectedIds={selectedTagIDs}
-					untagged={showUntagged}
-					onChange={changeTagFilters}
-				/>
-			</div>
 			<form
-				class="mb-3 flex flex-wrap gap-2"
+				class="mb-3 flex gap-2"
 				onsubmit={(event) => {
 					event.preventDefault();
 					void loadMedia();
 				}}
 			>
-				<div class="relative min-w-48 flex-1">
+				<div class="relative flex-1">
 					<SearchIcon
 						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 					/>
 					<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
 				</div>
-				<AppSelect
-					value={sort}
-					onValueChange={(value) => {
-						sort = value as typeof sort;
-						void loadMedia();
-					}}
-					options={[
-						{ value: 'newest', label: m.media_sort_newest() },
-						{ value: 'oldest', label: m.media_sort_oldest() },
-						{ value: 'name', label: m.media_sort_name() },
-						{ value: 'size', label: m.media_sort_size() },
-						{ value: 'recently_used', label: m.media_recently_used() }
-					]}
-					class="h-10 w-36"
-				/>
 				<Button
 					variant="outline"
 					type="submit"
@@ -555,20 +439,13 @@
 								>
 									<VideoIcon class="size-3.5" />
 								</span>
-							{:else if item.mime_type.startsWith('image/')}
+							{:else}
 								<img
 									src={getAuthenticatedMediaURL(item.thumbnail_url || item.url)}
 									alt={item.alt_text || item.original_filename}
 									class="size-full object-cover transition-transform group-hover:scale-[1.02]"
 									loading="lazy"
 								/>
-							{:else}
-								<div class="flex size-full flex-col items-center justify-center gap-2 p-2">
-									<FileAudioIcon class="size-7 text-muted-foreground" />
-									<span class="line-clamp-2 text-center text-xs text-muted-foreground">
-										{item.original_filename}
-									</span>
-								</div>
 							{/if}
 							{#if selectedIDs.includes(item.id)}
 								<span

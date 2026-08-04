@@ -69,14 +69,6 @@ func (s *ResendSender) SendEmailVerification(ctx context.Context, message Verifi
 	return s.send(ctx, message.Recipient, message.IdempotencyKey, content)
 }
 
-func (s *ResendSender) SendNotification(ctx context.Context, message NotificationMessage) error {
-	content, err := notificationContent(message)
-	if err != nil {
-		return err
-	}
-	return s.send(ctx, message.Recipient, message.IdempotencyKey, content)
-}
-
 func (s *ResendSender) send(ctx context.Context, recipient, idempotencyKey string, content messageContent) error {
 	payload := map[string]any{
 		"from":    s.from.String(),
@@ -145,14 +137,6 @@ func (s *CloudflareSender) SendPasswordReset(ctx context.Context, message ResetM
 
 func (s *CloudflareSender) SendEmailVerification(ctx context.Context, message VerificationMessage) error {
 	content, err := verificationContent(message)
-	if err != nil {
-		return err
-	}
-	return s.send(ctx, message.Recipient, content)
-}
-
-func (s *CloudflareSender) SendNotification(ctx context.Context, message NotificationMessage) error {
-	content, err := notificationContent(message)
 	if err != nil {
 		return err
 	}

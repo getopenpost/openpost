@@ -76,7 +76,6 @@ type mediaUploadBytesInput struct {
 	AltText          string
 	Source           string
 	AssetKind        string
-	TagID            string
 	ParentMediaID    string
 	DesignDocumentID string
 	DesignPageID     string
@@ -218,32 +217,32 @@ type MediaListItem struct {
 	Source             string   `json:"source" doc:"Media provenance"`
 	AssetKind          string   `json:"asset_kind" doc:"Media library role"`
 	ParentMediaID      string   `json:"parent_media_id,omitempty" doc:"Source media for this derivative"`
-	DesignDocumentID   string   `json:"design_document_id,omitempty" doc:"Producing OpenPost Image Editor design"`
-	DesignPageID       string   `json:"design_page_id,omitempty" doc:"Producing OpenPost Image Editor page"`
-	VideoProjectID     string   `json:"video_project_id,omitempty" doc:"Producing OpenPost Video Editor project"`
+	DesignDocumentID   string   `json:"design_document_id,omitempty" doc:"Producing Studio design"`
+	DesignPageID       string   `json:"design_page_id,omitempty" doc:"Producing Studio page"`
+	VideoProjectID     string   `json:"video_project_id,omitempty" doc:"Producing Video Studio project"`
+	Collections        []string `json:"collections" doc:"Collection IDs containing this media"`
 	Tags               []string `json:"tags" doc:"Tag IDs assigned to this media"`
 }
 
 type ListMediaInput struct {
-	WorkspaceID string `query:"workspace_id" required:"true" doc:"Filter by workspace ID"`
-	Filter      string `query:"filter" doc:"Filter: all, used, unused, favorites"`
-	Sort        string `query:"sort" doc:"Sort: newest, oldest, name, size, recently_used"`
-	Search      string `query:"search" doc:"Search filename, alt text, and tag"`
-	Type        string `query:"type" doc:"Filter by dominant media type"`
-	Source      string `query:"source" doc:"Filter by media provenance"`
-	AssetKind   string `query:"asset_kind" doc:"Filter by asset role; defaults to library"`
-	Aspect      string `query:"aspect" doc:"Filter: square, portrait, landscape"`
-	TagID       string `query:"tag_id" doc:"Filter by one tag ID"`
-	TagIDs      string `query:"tag_ids" doc:"Comma-separated tag IDs; media must have every selected tag"`
-	Untagged    bool   `query:"untagged" doc:"Only media that has no tags"`
-	MinWidth    int    `query:"min_width" minimum:"0"`
-	MinHeight   int    `query:"min_height" minimum:"0"`
-	MaxWidth    int    `query:"max_width" minimum:"0"`
-	MaxHeight   int    `query:"max_height" minimum:"0"`
-	DateFrom    string `query:"date_from" doc:"Created on or after this YYYY-MM-DD date"`
-	DateTo      string `query:"date_to" doc:"Created on or before this YYYY-MM-DD date"`
-	Limit       int    `query:"limit" doc:"Limit (default 50, max 200)"`
-	Offset      int    `query:"offset" doc:"Offset for pagination"`
+	WorkspaceID  string `query:"workspace_id" required:"true" doc:"Filter by workspace ID"`
+	Filter       string `query:"filter" doc:"Filter: all, used, unused, favorites"`
+	Sort         string `query:"sort" doc:"Sort: newest, oldest, name, size, recently_used"`
+	Search       string `query:"search" doc:"Search filename, alt text, tag, and collection"`
+	Type         string `query:"type" doc:"Filter by dominant media type"`
+	Source       string `query:"source" doc:"Filter by media provenance"`
+	AssetKind    string `query:"asset_kind" doc:"Filter by asset role; defaults to library"`
+	Aspect       string `query:"aspect" doc:"Filter: square, portrait, landscape"`
+	CollectionID string `query:"collection_id" doc:"Filter by collection ID"`
+	TagID        string `query:"tag_id" doc:"Filter by tag ID"`
+	MinWidth     int    `query:"min_width" minimum:"0"`
+	MinHeight    int    `query:"min_height" minimum:"0"`
+	MaxWidth     int    `query:"max_width" minimum:"0"`
+	MaxHeight    int    `query:"max_height" minimum:"0"`
+	DateFrom     string `query:"date_from" doc:"Created on or after this YYYY-MM-DD date"`
+	DateTo       string `query:"date_to" doc:"Created on or before this YYYY-MM-DD date"`
+	Limit        int    `query:"limit" doc:"Limit (default 50, max 200)"`
+	Offset       int    `query:"offset" doc:"Offset for pagination"`
 }
 
 type ListMediaOutput struct {
@@ -378,13 +377,12 @@ type CreateMediaUploadSessionInput struct {
 		MimeType         string                             `json:"mime_type,omitempty" doc:"Declared MIME type"`
 		Size             int64                              `json:"size" doc:"Expected upload size in bytes"`
 		AltText          string                             `json:"alt_text,omitempty" doc:"Alt text for accessibility"`
-		Source           string                             `json:"source,omitempty" enum:"upload,camera,image_editor_export,image_editor_edit,background_removal,video_editor_source,video_editor_export,stock_import" doc:"Media provenance"`
+		Source           string                             `json:"source,omitempty" enum:"upload,camera,studio_export,studio_edit,background_removal,video_studio_source,video_studio_export,stock_import" doc:"Media provenance"`
 		AssetKind        string                             `json:"asset_kind,omitempty" enum:"library,brand_asset,brand_font,design_preview,template_preview" doc:"Media library role"`
-		TagID            string                             `json:"tag_id,omitempty" doc:"Optional tag to assign to this upload"`
 		ParentMediaID    string                             `json:"parent_media_id,omitempty" doc:"Source media ID for a derivative"`
-		DesignDocumentID string                             `json:"design_document_id,omitempty" doc:"Producing OpenPost Image Editor design ID"`
-		DesignPageID     string                             `json:"design_page_id,omitempty" doc:"Producing OpenPost Image Editor page ID"`
-		VideoProjectID   string                             `json:"video_project_id,omitempty" doc:"Producing OpenPost Video Editor project ID"`
+		DesignDocumentID string                             `json:"design_document_id,omitempty" doc:"Producing Studio design ID"`
+		DesignPageID     string                             `json:"design_page_id,omitempty" doc:"Producing Studio page ID"`
+		VideoProjectID   string                             `json:"video_project_id,omitempty" doc:"Producing Video Studio project ID"`
 		ClientSHA256     string                             `json:"client_sha256,omitempty" pattern:"^[a-fA-F0-9]{64}$" doc:"Optional SHA-256 used to reuse an identical ready asset in this workspace"`
 		StockProvenance  *videoproject.StockMediaProvenance `json:"stock_provenance,omitempty" doc:"License and creator provenance for a selected stock asset"`
 	}
@@ -425,9 +423,9 @@ type MediaUploadResult struct {
 	Source             string `json:"source" doc:"Media provenance"`
 	AssetKind          string `json:"asset_kind" doc:"Media library role"`
 	ParentMediaID      string `json:"parent_media_id,omitempty" doc:"Source media ID"`
-	DesignDocumentID   string `json:"design_document_id,omitempty" doc:"Producing OpenPost Image Editor design ID"`
-	DesignPageID       string `json:"design_page_id,omitempty" doc:"Producing OpenPost Image Editor page ID"`
-	VideoProjectID     string `json:"video_project_id,omitempty" doc:"Producing OpenPost Video Editor project ID"`
+	DesignDocumentID   string `json:"design_document_id,omitempty" doc:"Producing Studio design ID"`
+	DesignPageID       string `json:"design_page_id,omitempty" doc:"Producing Studio page ID"`
+	VideoProjectID     string `json:"video_project_id,omitempty" doc:"Producing Video Studio project ID"`
 	ProcessingStatus   string `json:"processing_status" doc:"Media processing status"`
 	ProcessingProgress int    `json:"processing_progress" doc:"Server processing progress from 0 to 100"`
 	AnalysisStatus     string `json:"analysis_status" doc:"Media analysis status"`
@@ -489,6 +487,12 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 						FROM media_tag_assignments assignment
 						JOIN media_tags tag ON tag.id = assignment.tag_id
 						WHERE LOWER(tag.name) LIKE ?
+					)`, pattern).
+					WhereOr(`id IN (
+						SELECT item.media_id
+						FROM media_collection_items item
+						JOIN media_collections collection ON collection.id = item.collection_id
+						WHERE LOWER(collection.name) LIKE ?
 					)`, pattern)
 			})
 		}
@@ -532,12 +536,11 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			}
 			query = query.Where("created_at < ?", date.UTC().AddDate(0, 0, 1))
 		}
-		tagIDs := uniqueMediaFilterValues(input.TagID, input.TagIDs)
-		for _, tagID := range tagIDs {
-			query = query.Where("id IN (SELECT media_id FROM media_tag_assignments WHERE tag_id = ?)", tagID)
+		if collectionID := strings.TrimSpace(input.CollectionID); collectionID != "" {
+			query = query.Where("id IN (SELECT media_id FROM media_collection_items WHERE collection_id = ?)", collectionID)
 		}
-		if input.Untagged {
-			query = query.Where("id NOT IN (SELECT media_id FROM media_tag_assignments)")
+		if tagID := strings.TrimSpace(input.TagID); tagID != "" {
+			query = query.Where("id IN (SELECT media_id FROM media_tag_assignments WHERE tag_id = ?)", tagID)
 		}
 		variantMediaIDs := []string{}
 		if input.Filter == "used" || input.Filter == "unused" {
@@ -627,7 +630,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to check media usage")
 		}
-		tagsByMedia, err := h.mediaTagsByMedia(ctx, mediaIDs)
+		collectionsByMedia, tagsByMedia, err := h.mediaOrganizationByMedia(ctx, mediaIDs)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to load media organization")
 		}
@@ -683,6 +686,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 				DesignDocumentID:   m.DesignDocumentID,
 				DesignPageID:       m.DesignPageID,
 				VideoProjectID:     m.VideoProjectID,
+				Collections:        collectionsByMedia[m.ID],
 				Tags:               tagsByMedia[m.ID],
 			}
 			if result[i].Source == "" {
@@ -795,7 +799,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		}
 		otherUsage, err := h.nonPostMediaUsage(ctx, media.WorkspaceID, input.PathID)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to fetch OpenPost Image Editor media usage")
+			return nil, huma.Error500InternalServerError("failed to fetch Studio media usage")
 		}
 		usage = append(usage, otherUsage...)
 
@@ -1050,10 +1054,6 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
-		tagID, err := h.resolveMediaUploadTag(ctx, workspaceID, input.Body.TagID, assetKind)
-		if err != nil {
-			return nil, err
-		}
 		if err := validateStockUploadProvenance(source, input.Body.StockProvenance); err != nil {
 			return nil, huma.Error400BadRequest(err.Error())
 		}
@@ -1095,9 +1095,6 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if reusable != nil {
 			if err := h.persistStockMediaProvenance(ctx, reusable.ID, input.Body.StockProvenance); err != nil {
 				return nil, huma.Error500InternalServerError("failed to save stock media provenance")
-			}
-			if err := h.addMediaTag(ctx, tagID, reusable.ID); err != nil {
-				return nil, err
 			}
 			return &CreateMediaUploadSessionOutput{Body: struct {
 				MediaID     string                  `json:"media_id" doc:"Pending media ID"`
@@ -1162,10 +1159,6 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		}
 		if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
 			return nil, huma.Error500InternalServerError("failed to reserve media upload")
-		}
-		if err := h.addMediaTag(ctx, tagID, media.ID); err != nil {
-			_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)
-			return nil, err
 		}
 		if err := h.persistStockMediaProvenance(ctx, media.ID, input.Body.StockProvenance); err != nil {
 			_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
@@ -1239,80 +1232,6 @@ func (h *MediaHandler) ensureMediaWorkspaceEditAccess(ctx context.Context, userI
 		return huma.Error403Forbidden("workspace editor role required")
 	}
 	return nil
-}
-
-func (h *MediaHandler) resolveMediaUploadTag(ctx context.Context, workspaceID, requestedTagID, assetKind string) (string, error) {
-	if defaultMediaAssetKind(assetKind) != "library" {
-		return "", nil
-	}
-	tagID := strings.TrimSpace(requestedTagID)
-	if tagID == "" {
-		return "", nil
-	}
-	var tag models.MediaTag
-	if err := h.db.NewSelect().Model(&tag).Column("id", "workspace_id").Where("id = ?", tagID).Scan(ctx); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return "", huma.Error400BadRequest("media tag not found")
-		}
-		return "", huma.Error500InternalServerError("failed to load media tag")
-	}
-	if tag.WorkspaceID != workspaceID {
-		return "", huma.Error400BadRequest("media tag must belong to this workspace")
-	}
-	return tag.ID, nil
-}
-
-func (h *MediaHandler) addMediaTag(ctx context.Context, tagID, mediaID string) error {
-	if tagID == "" || mediaID == "" {
-		return nil
-	}
-	assignment := &models.MediaTagAssignment{
-		TagID:     tagID,
-		MediaID:   mediaID,
-		CreatedAt: time.Now().UTC(),
-	}
-	if _, err := h.db.NewInsert().Model(assignment).On("CONFLICT (tag_id, media_id) DO NOTHING").Exec(ctx); err != nil {
-		return huma.Error500InternalServerError("failed to tag media")
-	}
-	return nil
-}
-
-func (h *MediaHandler) transferMediaTagAssignments(ctx context.Context, sourceMediaID, destinationMediaID string) error {
-	if sourceMediaID == "" || destinationMediaID == "" || sourceMediaID == destinationMediaID {
-		return nil
-	}
-	var assignments []models.MediaTagAssignment
-	if err := h.db.NewSelect().Model(&assignments).Where("media_id = ?", sourceMediaID).Scan(ctx); err != nil {
-		if isMissingOptionalMediaTable(err) {
-			return nil
-		}
-		return huma.Error500InternalServerError("failed to load media tags")
-	}
-	for _, assignment := range assignments {
-		if err := h.addMediaTag(ctx, assignment.TagID, destinationMediaID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func uniqueMediaFilterValues(values ...string) []string {
-	seen := make(map[string]struct{})
-	result := make([]string, 0)
-	for _, value := range values {
-		for _, candidate := range strings.Split(value, ",") {
-			candidate = strings.TrimSpace(candidate)
-			if candidate == "" {
-				continue
-			}
-			if _, exists := seen[candidate]; exists {
-				continue
-			}
-			seen[candidate] = struct{}{}
-			result = append(result, candidate)
-		}
-	}
-	return result
 }
 
 func cleanUploadFilename(filename string) string {
@@ -1406,9 +1325,6 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 		if existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID); err != nil {
 			return result, err
 		} else if found {
-			if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
-				return result, err
-			}
 			_ = h.storage.Delete(filepath.Base(media.FilePath))
 			_, _ = h.db.NewDelete().Model(&media).Where("id = ?", media.ID).Exec(ctx)
 			return mediaUploadResultFromAttachment(existing, true), nil
@@ -1442,9 +1358,6 @@ func (h *MediaHandler) resolveDirectUploadDeduplication(
 	}
 	existing, found, err := h.findDuplicateMedia(ctx, workspaceID, fileHash, media.ID)
 	if err != nil || !found {
-		return MediaUploadResult{}, false
-	}
-	if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
 		return MediaUploadResult{}, false
 	}
 	_, _ = h.db.NewDelete().Model(&media).Where("id = ?", media.ID).Exec(ctx)
@@ -1808,7 +1721,7 @@ func isInternalMediaAssetKind(assetKind string) bool {
 
 func mediaSourceSupportsDeduplication(source string) bool {
 	switch source {
-	case "upload", "video_editor_source", "stock_import":
+	case "upload", "video_studio_source", "stock_import":
 		return true
 	default:
 		return false
@@ -1818,8 +1731,8 @@ func mediaSourceSupportsDeduplication(source string) bool {
 func normalizeMediaProvenance(source, assetKind string) (string, string, error) {
 	source = defaultMediaSource(source)
 	switch source {
-	case "upload", "camera", "image_editor_export", "image_editor_edit", "background_removal",
-		"video_editor_source", "video_editor_export", "stock_import":
+	case "upload", "camera", "studio_export", "studio_edit", "background_removal",
+		"video_studio_source", "video_studio_export", "stock_import":
 	default:
 		return "", "", errors.New("invalid media source")
 	}
@@ -1829,8 +1742,8 @@ func normalizeMediaProvenance(source, assetKind string) (string, string, error) 
 	default:
 		return "", "", errors.New("invalid media asset kind")
 	}
-	if assetKind == "design_preview" && source != "image_editor_export" && source != "image_editor_edit" {
-		return "", "", errors.New("design previews must be produced by OpenPost Image Editor")
+	if assetKind == "design_preview" && source != "studio_export" && source != "studio_edit" {
+		return "", "", errors.New("design previews must be produced by Studio")
 	}
 	return source, assetKind, nil
 }
@@ -1900,10 +1813,10 @@ func (h *MediaHandler) validateVideoProjectReference(
 		Where("id = ? AND workspace_id = ? AND deleted_at IS NULL", videoProjectID, workspaceID).
 		Count(ctx)
 	if err != nil {
-		return huma.Error500InternalServerError("failed to validate OpenPost Video Editor project")
+		return huma.Error500InternalServerError("failed to validate Video Studio project")
 	}
 	if count != 1 {
-		return huma.Error400BadRequest("OpenPost Video Editor project must belong to the workspace")
+		return huma.Error400BadRequest("Video Studio project must belong to the workspace")
 	}
 	return nil
 }
@@ -1985,10 +1898,10 @@ func (h *MediaHandler) validateMediaProvenanceReferences(ctx context.Context, wo
 			Where("id = ? AND workspace_id = ? AND deleted_at IS NULL", designDocumentID, workspaceID).
 			Count(ctx)
 		if err != nil {
-			return huma.Error500InternalServerError("failed to validate OpenPost Image Editor design")
+			return huma.Error500InternalServerError("failed to validate Studio design")
 		}
 		if count != 1 {
-			return huma.Error400BadRequest("OpenPost Image Editor design must belong to the workspace")
+			return huma.Error400BadRequest("Studio design must belong to the workspace")
 		}
 	}
 	if designPageID != "" {
@@ -1996,10 +1909,10 @@ func (h *MediaHandler) validateMediaProvenanceReferences(ctx context.Context, wo
 			Where("id = ? AND design_document_id = ?", designPageID, designDocumentID).
 			Count(ctx)
 		if err != nil {
-			return huma.Error500InternalServerError("failed to validate OpenPost Image Editor page")
+			return huma.Error500InternalServerError("failed to validate Studio page")
 		}
 		if count != 1 {
-			return huma.Error400BadRequest("OpenPost Image Editor page must belong to the design")
+			return huma.Error400BadRequest("Studio page must belong to the design")
 		}
 	}
 	return nil
@@ -2063,27 +1976,41 @@ type mediaOrganizationRow struct {
 	ID      string `bun:"id"`
 }
 
-func (h *MediaHandler) mediaTagsByMedia(ctx context.Context, mediaIDs []string) (map[string][]string, error) {
+func (h *MediaHandler) mediaOrganizationByMedia(ctx context.Context, mediaIDs []string) (map[string][]string, map[string][]string, error) {
+	collections := make(map[string][]string, len(mediaIDs))
 	tags := make(map[string][]string, len(mediaIDs))
 	for _, mediaID := range mediaIDs {
+		collections[mediaID] = []string{}
 		tags[mediaID] = []string{}
 	}
 	if len(mediaIDs) == 0 {
-		return tags, nil
+		return collections, tags, nil
 	}
-	var rows []mediaOrganizationRow
+	var collectionRows []mediaOrganizationRow
+	if err := h.db.NewSelect().
+		TableExpr("media_collection_items AS i").
+		ColumnExpr("i.media_id").
+		ColumnExpr("i.collection_id AS id").
+		Where("i.media_id IN (?)", bun.List(mediaIDs)).
+		Scan(ctx, &collectionRows); err != nil && !isMissingOptionalMediaTable(err) {
+		return nil, nil, err
+	}
+	for _, row := range collectionRows {
+		collections[row.MediaID] = append(collections[row.MediaID], row.ID)
+	}
+	var tagRows []mediaOrganizationRow
 	if err := h.db.NewSelect().
 		TableExpr("media_tag_assignments AS a").
 		ColumnExpr("a.media_id").
 		ColumnExpr("a.tag_id AS id").
 		Where("a.media_id IN (?)", bun.List(mediaIDs)).
-		Scan(ctx, &rows); err != nil && !isMissingOptionalMediaTable(err) {
-		return nil, err
+		Scan(ctx, &tagRows); err != nil && !isMissingOptionalMediaTable(err) {
+		return nil, nil, err
 	}
-	for _, row := range rows {
+	for _, row := range tagRows {
 		tags[row.MediaID] = append(tags[row.MediaID], row.ID)
 	}
-	return tags, nil
+	return collections, tags, nil
 }
 
 //nolint:gocyclo // Usage aggregation intentionally checks every independent reference surface.
@@ -2808,7 +2735,6 @@ func (h *MediaHandler) uploadMedia(c echo.Context) error {
 		AltText:          c.FormValue("alt_text"),
 		Source:           c.FormValue("source"),
 		AssetKind:        c.FormValue("asset_kind"),
-		TagID:            c.FormValue("tag_id"),
 		ParentMediaID:    c.FormValue("parent_media_id"),
 		DesignDocumentID: c.FormValue("design_document_id"),
 		DesignPageID:     c.FormValue("design_page_id"),
@@ -2882,10 +2808,6 @@ func (h *MediaHandler) processUpload(ctx context.Context, workspaceID string, fi
 	source, assetKind, err := normalizeMediaProvenance(metadata.Source, metadata.AssetKind)
 	if err != nil {
 		return nil, err
-	}
-	metadata.TagID, err = h.resolveMediaUploadTag(ctx, workspaceID, metadata.TagID, assetKind)
-	if err != nil {
-		return nil, errors.New(err.Error())
 	}
 	if err := validateStockUploadProvenance(source, metadata.StockProvenance); err != nil {
 		return nil, err
@@ -2978,10 +2900,6 @@ func (h *MediaHandler) processStreamUpload(
 				_ = h.storage.Delete(objectKey)
 				return nil, err
 			}
-			if err := h.addMediaTag(ctx, input.TagID, existing.ID); err != nil {
-				_ = h.storage.Delete(objectKey)
-				return nil, errors.New(err.Error())
-			}
 			_ = h.storage.Delete(objectKey)
 			return mediaUploadMap(existing, true), nil
 		}
@@ -3021,19 +2939,11 @@ func (h *MediaHandler) processStreamUpload(
 				if provenanceErr := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); provenanceErr != nil {
 					return nil, provenanceErr
 				}
-				if tagErr := h.addMediaTag(ctx, input.TagID, existing.ID); tagErr != nil {
-					return nil, errors.New(tagErr.Error())
-				}
 				return mediaUploadMap(existing, true), nil
 			}
 		}
 		_ = h.storage.Delete(objectKey)
 		return nil, errors.New("failed to save media record")
-	}
-	if err := h.addMediaTag(ctx, input.TagID, media.ID); err != nil {
-		_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)
-		_ = h.storage.Delete(objectKey)
-		return nil, errors.New(err.Error())
 	}
 	if err := h.persistStockMediaProvenance(ctx, media.ID, input.StockProvenance); err != nil {
 		_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
@@ -3067,10 +2977,6 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	if err != nil {
 		return nil, err
 	}
-	input.TagID, err = h.resolveMediaUploadTag(ctx, input.WorkspaceID, input.TagID, assetKind)
-	if err != nil {
-		return nil, errors.New(err.Error())
-	}
 	sizeLimit := mediaUploadSizeLimit(assetKind, input.Filename, input.DeclaredMimeType)
 	if input.Size > sizeLimit {
 		return nil, errors.New(mediaUploadSizeError(sizeLimit))
@@ -3103,9 +3009,6 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 		if err == nil {
 			if err := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); err != nil {
 				return nil, err
-			}
-			if err := h.addMediaTag(ctx, input.TagID, existing.ID); err != nil {
-				return nil, errors.New(err.Error())
 			}
 			return mediaUploadMap(existing, true), nil
 		}
@@ -3177,20 +3080,10 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 				if provenanceErr := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); provenanceErr != nil {
 					return nil, provenanceErr
 				}
-				if tagErr := h.addMediaTag(ctx, input.TagID, existing.ID); tagErr != nil {
-					return nil, errors.New(tagErr.Error())
-				}
 				return mediaUploadMap(existing, true), nil
 			}
 		}
 		return nil, errors.New("failed to save media record")
-	}
-	if err := h.addMediaTag(ctx, input.TagID, media.ID); err != nil {
-		_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)
-		if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
-			log.Printf("failed to delete media after tag assignment failure for %s: %v", media.ID, deleteErr)
-		}
-		return nil, errors.New(err.Error())
 	}
 	if err := h.persistStockMediaProvenance(ctx, media.ID, input.StockProvenance); err != nil {
 		_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)

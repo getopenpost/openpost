@@ -19,7 +19,6 @@
 
 	const personalDestinations = $derived<SettingsDestination[]>([
 		{ id: 'profile', label: m.settings_profile() },
-		{ id: 'notifications', label: m.notifications_settings() },
 		{ id: 'security', label: m.settings_security() },
 		{ id: 'developer', label: m.settings_developer() }
 	]);
@@ -27,7 +26,6 @@
 		{ id: 'general', label: m.settings_general() },
 		{ id: 'brand', label: m.media_brand() },
 		{ id: 'accounts', label: m.accounts_heading() },
-		{ id: 'reposts', label: m.settings_reposts() },
 		{ id: 'schedule', label: m.settings_schedule() },
 		{ id: 'members', label: m.settings_members() }
 	]);

@@ -69,7 +69,7 @@ func seedBillingSubscription(t *testing.T, db *bun.DB, status, snapshot string) 
 		ProviderCustomerID:     "customer-1",
 		ProviderSubscriptionID: uuid.NewString(),
 		Status:                 status,
-		PlanID:                 "founder",
+		PlanID:                 "creator",
 		EntitlementSnapshot:    snapshot,
 	}).Exec(context.Background())
 	require.NoError(t, err)

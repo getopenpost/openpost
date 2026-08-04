@@ -85,8 +85,8 @@ export const billingPlans = [
 		]
 	},
 	{
-		id: 'founder',
-		monthlyPriceUSD: 25,
+		id: 'creator',
+		monthlyPriceUSD: 29,
 		limits: [
 			{ kind: 'workspaces', count: 3 },
 			{ kind: 'social_accounts', count: 6 },

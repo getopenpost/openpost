@@ -11,7 +11,7 @@
 		searchStockMedia,
 		type StockAsset,
 		type StockProvider
-	} from '$lib/video-editor/api';
+	} from '$lib/video-studio/api';
 	import ImageIcon from 'lucide-svelte/icons/image';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
 	import SearchIcon from 'lucide-svelte/icons/search';
@@ -44,8 +44,8 @@
 			.map((item) => ({ value: item.key, label: item.name }))
 	);
 	const kindOptions = $derived([
-		...(accept !== 'video' ? [{ value: 'photo', label: m.video_editor_stock_photos() }] : []),
-		...(accept !== 'photo' ? [{ value: 'video', label: m.video_editor_stock_videos() }] : [])
+		...(accept !== 'video' ? [{ value: 'photo', label: m.video_studio_stock_photos() }] : []),
+		...(accept !== 'photo' ? [{ value: 'video', label: m.video_studio_stock_videos() }] : [])
 	]);
 
 	async function initialize(): Promise<void> {
@@ -55,7 +55,7 @@
 			provider =
 				providers.find((item) => (kind === 'photo' ? item.photos : item.videos))?.key ?? '';
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.video_editor_stock_unavailable();
+			error = cause instanceof Error ? cause.message : m.video_studio_stock_unavailable();
 		} finally {
 			loading = false;
 		}
@@ -70,7 +70,7 @@
 			const page = await searchStockMedia({ provider, query: query.trim(), kind });
 			results = page.items ?? [];
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.video_editor_stock_search_failed();
+			error = cause instanceof Error ? cause.message : m.video_studio_stock_search_failed();
 		} finally {
 			searching = false;
 		}
@@ -87,7 +87,7 @@
 				credentials: 'omit',
 				referrerPolicy: 'no-referrer'
 			});
-			if (!response.ok) throw new Error(m.video_editor_stock_download_failed());
+			if (!response.ok) throw new Error(m.video_studio_stock_download_failed());
 			const blob = await response.blob();
 			const extension = resolved.mime_type.includes('video') ? 'mp4' : 'jpg';
 			const file = new File(
@@ -100,7 +100,7 @@
 			);
 			await onSelect(file, asset);
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.video_editor_stock_download_failed();
+			error = cause instanceof Error ? cause.message : m.video_studio_stock_download_failed();
 		} finally {
 			selecting = '';
 		}
@@ -110,12 +110,12 @@
 <div class={compact ? 'space-y-3' : 'space-y-4'}>
 	<div>
 		<h2 class={compact ? 'text-sm font-semibold' : 'text-base font-semibold'}>
-			{m.video_editor_stock_search()}
+			{m.video_studio_stock_search()}
 		</h2>
 		<p
 			class={compact ? 'mt-1 text-xs text-muted-foreground' : 'mt-1 text-sm text-muted-foreground'}
 		>
-			{m.video_editor_stock_description()}
+			{m.video_studio_stock_description()}
 		</p>
 	</div>
 
@@ -127,7 +127,7 @@
 			{m.common_loading()}
 		</div>
 	{:else if providers.length === 0}
-		<InlineNotice tone="info" message={m.video_editor_stock_unavailable()} />
+		<InlineNotice tone="info" message={m.video_studio_stock_unavailable()} />
 	{:else}
 		<form
 			class={compact ? 'grid gap-2' : 'grid gap-3 sm:grid-cols-[minmax(0,1fr)_10rem_9rem_auto]'}
@@ -138,19 +138,19 @@
 		>
 			<Input
 				bind:value={query}
-				placeholder={m.video_editor_stock_query_placeholder()}
-				aria-label={m.video_editor_stock_search()}
+				placeholder={m.video_studio_stock_query_placeholder()}
+				aria-label={m.video_studio_stock_search()}
 			/>
 			<AppSelect
 				bind:value={provider}
 				options={providerOptions}
-				ariaLabel={m.video_editor_stock_provider()}
+				ariaLabel={m.video_studio_stock_provider()}
 			/>
 			{#if accept === 'both'}
 				<AppSelect
 					bind:value={kind}
 					options={kindOptions}
-					ariaLabel={m.video_editor_stock_kind()}
+					ariaLabel={m.video_studio_stock_kind()}
 					onValueChange={() => {
 						if (!providerOptions.some((item) => item.value === provider)) {
 							provider = providerOptions[0]?.value ?? '';
@@ -162,7 +162,7 @@
 				{#if searching}<LoaderIcon class="size-4 animate-spin" />{:else}<SearchIcon
 						class="size-4"
 					/>{/if}
-				{m.video_editor_stock_search_action()}
+				{m.video_studio_stock_search_action()}
 			</Button>
 		</form>
 
@@ -209,7 +209,7 @@
 									size="xs"
 									class="h-auto p-0 text-xs text-muted-foreground"
 								>
-									{m.video_editor_stock_by({ creator: asset.creator_name })}
+									{m.video_studio_stock_by({ creator: asset.creator_name })}
 								</Button>
 								·
 								<Button
@@ -231,7 +231,7 @@
 								onclick={() => selectAsset(asset)}
 							>
 								{#if selecting === asset.external_id}<LoaderIcon class="size-4 animate-spin" />{/if}
-								{m.video_editor_stock_use()}
+								{m.video_studio_stock_use()}
 							</Button>
 						</div>
 					</article>
@@ -239,11 +239,11 @@
 			</div>
 		{:else if searched && !searching}
 			<div class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-				{m.video_editor_no_results()}
+				{m.video_studio_no_results()}
 			</div>
 		{:else}
 			<div class="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-				{m.video_editor_stock_empty()}
+				{m.video_studio_stock_empty()}
 			</div>
 		{/if}
 	{/if}

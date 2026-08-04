@@ -24,12 +24,14 @@ test("hosted registration requires current legal acceptance", async ({
 }) => {
   const unique = Date.now().toString(36);
   const email = `legal-registration-${unique}@example.com`;
+  const username = `legal-${unique}`;
   await routeBrowserRegistration(page, email);
   await page.route("**/api/v1/auth/config", (route) =>
     route.fulfill({ json: hostedAuthConfiguration }),
   );
 
   await page.goto("/register");
+  await page.getByLabel("Username").fill(username);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm Password").fill(password);
@@ -51,11 +53,10 @@ test("hosted registration requires current legal acceptance", async ({
   await submit.click();
   expect((await registrationRequest).postDataJSON()).toMatchObject({
     email,
+    username,
     accepted_legal: true,
   });
-  await expect(page).toHaveURL(
-    /\/checkout\?plan=founder&billing_period=monthly$/,
-  );
+  await expect(page).toHaveURL(/\/onboarding$/);
 });
 
 test("password recovery keeps the token out of browser history and uses generic confirmation", async ({

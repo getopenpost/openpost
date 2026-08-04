@@ -13,14 +13,13 @@ export interface UploadMediaFileOptions {
 	source?:
 		| 'upload'
 		| 'camera'
-		| 'image_editor_export'
-		| 'image_editor_edit'
+		| 'studio_export'
+		| 'studio_edit'
 		| 'background_removal'
-		| 'video_editor_source'
-		| 'video_editor_export'
+		| 'video_studio_source'
+		| 'video_studio_export'
 		| 'stock_import';
 	assetKind?: 'library' | 'brand_asset' | 'brand_font' | 'design_preview' | 'template_preview';
-	tagId?: string;
 	parentMediaId?: string;
 	designDocumentId?: string;
 	designPageId?: string;
@@ -57,7 +56,6 @@ export async function uploadMediaFile({
 	altText = '',
 	source = 'upload',
 	assetKind = 'library',
-	tagId = '',
 	parentMediaId = '',
 	designDocumentId = '',
 	designPageId = '',
@@ -78,7 +76,6 @@ export async function uploadMediaFile({
 	const metadata = {
 		source,
 		assetKind,
-		tagId,
 		parentMediaId,
 		designDocumentId,
 		designPageId,
@@ -124,7 +121,6 @@ export function isSupportedMediaFile(file: File): boolean {
 	return (
 		file.type.startsWith('image/') ||
 		file.type.startsWith('video/') ||
-		file.type.startsWith('audio/') ||
 		[
 			'application/pdf',
 			'application/msword',
@@ -186,7 +182,6 @@ async function uploadViaDirectSession(
 	metadata: {
 		source: NonNullable<UploadMediaFileOptions['source']>;
 		assetKind: NonNullable<UploadMediaFileOptions['assetKind']>;
-		tagId: string;
 		parentMediaId: string;
 		designDocumentId: string;
 		designPageId: string;
@@ -211,7 +206,6 @@ async function uploadViaDirectSession(
 			...(altText ? { alt_text: altText } : {}),
 			source: metadata.source,
 			asset_kind: metadata.assetKind,
-			...(metadata.tagId ? { tag_id: metadata.tagId } : {}),
 			...(metadata.parentMediaId ? { parent_media_id: metadata.parentMediaId } : {}),
 			...(metadata.designDocumentId ? { design_document_id: metadata.designDocumentId } : {}),
 			...(metadata.designPageId ? { design_page_id: metadata.designPageId } : {}),
@@ -286,7 +280,6 @@ async function uploadViaMultipart(
 	metadata: {
 		source: NonNullable<UploadMediaFileOptions['source']>;
 		assetKind: NonNullable<UploadMediaFileOptions['assetKind']>;
-		tagId: string;
 		parentMediaId: string;
 		designDocumentId: string;
 		designPageId: string;
@@ -305,7 +298,6 @@ async function uploadViaMultipart(
 	}
 	formData.append('source', metadata.source);
 	formData.append('asset_kind', metadata.assetKind);
-	if (metadata.tagId) formData.append('tag_id', metadata.tagId);
 	if (metadata.parentMediaId) formData.append('parent_media_id', metadata.parentMediaId);
 	if (metadata.designDocumentId) formData.append('design_document_id', metadata.designDocumentId);
 	if (metadata.designPageId) formData.append('design_page_id', metadata.designPageId);

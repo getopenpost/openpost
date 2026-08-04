@@ -129,31 +129,6 @@ test("composer quick-schedules a publication from the selected time", async ({
       },
     });
   });
-  await page.route("**/api/v1/repost-automation*", async (route) => {
-    await route.fulfill({
-      contentType: "application/json",
-      json: {
-        workspace_id: workspaceBody.id,
-        can_manage: true,
-        supported_platforms: ["bluesky"],
-        policies: [],
-        accounts: [
-          {
-            id: "bluesky-main",
-            workspace_id: workspaceBody.id,
-            workspace_name: "Composer Scheduling E2E",
-            platform: "bluesky",
-            username: "openpost.bsky.social",
-            supports_repost: true,
-            cross_workspace: false,
-            grant_required: false,
-            grant_active: true,
-          },
-        ],
-        grants: [],
-      },
-    });
-  });
   await page.route("**/api/v1/publications", async (route) => {
     if (route.request().method() === "POST") {
       publicationPayload = JSON.parse(
@@ -247,15 +222,6 @@ test("composer quick-schedules a publication from the selected time", async ({
   await expect(page.getByRole("button", { name: "Save draft" })).toHaveCount(0);
   await expect(page.getByTestId("composer-media-dropzone")).toBeVisible();
   await page.getByLabel("Caption").fill(postContent);
-  await page.getByRole("button", { name: "Repost settings" }).click();
-  await page.getByText("Custom", { exact: true }).click();
-  const repostTarget = page.getByRole("checkbox", {
-    name: "@openpost.bsky.social · bluesky",
-  });
-  await expect(repostTarget).toBeVisible();
-  if (!(await repostTarget.isChecked())) await repostTarget.click();
-  await page.getByLabel("Minimum likes").fill("10");
-  await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Schedule" }).first().click();
   const futureDate = new Date();
   futureDate.setDate(futureDate.getDate() + 2);
@@ -307,14 +273,6 @@ test("composer quick-schedules a publication from the selected time", async ({
         media: [],
       }),
     ],
-    repost_override: {
-      mode: "custom",
-      target_account_ids: ["bluesky-main"],
-      rule: expect.objectContaining({
-        delay_seconds: 86400,
-        min_likes: 10,
-      }),
-    },
   });
   expect(publicationPayload?.source_url).toBeUndefined();
   expect(publicationPayload?.scheduled_at).toBeTruthy();

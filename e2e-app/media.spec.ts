@@ -10,15 +10,6 @@ const tinyPNG = Buffer.from(
   "base64",
 );
 
-const ffmpegAvailable = (() => {
-  try {
-    execFileSync("ffmpeg", ["-version"]);
-    return true;
-  } catch {
-    return false;
-  }
-})();
-
 function createVideoFixture(): Buffer {
   const directory = mkdtempSync(join(tmpdir(), "openpost-video-e2e-"));
   const filename = join(directory, "clip.mp4");
@@ -82,7 +73,7 @@ test("media library uploads and lists a local media file", async ({
   ).toHaveCount(0);
   await expect(page.getByText("No media found")).toBeVisible();
 
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("menuitem", { name: "Upload media" }).click();
   await expect(
     page.getByRole("dialog", { name: "Upload Media" }),
@@ -106,7 +97,7 @@ test("media library uploads and lists a local media file", async ({
       .getByTestId("page-header")
       .getByText(/1 assets · 0 designs · .* stored/, { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("OpenPost Image Editor edits")).toHaveCount(0);
+  await expect(page.getByText("Studio edits")).toHaveCount(0);
 
   await page
     .getByRole("button", { name: "Open details for launch-card.png" })
@@ -158,115 +149,10 @@ test("media library uploads and lists a local media file", async ({
   await expect(page.getByText("No media found")).toBeVisible();
 });
 
-test("media tags combine with type filters while new uploads remain untagged", async ({
-  page,
-  request,
-}) => {
-  const unique = Date.now().toString(36);
-  const auth = await registerUser(request, `media-tags-${unique}@example.com`);
-  const workspace = await createWorkspace(
-    request,
-    auth.token,
-    "Media Tags E2E",
-  );
-
-  await authenticatePage(page, auth.token);
-  await page.goto("/media");
-
-  await page.getByRole("button", { name: "Manage tags" }).click();
-  const tagDialog = page.getByRole("dialog", { name: "Manage tags" });
-  await tagDialog.getByPlaceholder("Tag name").fill("Inbox");
-  await tagDialog.getByRole("button", { name: "Create tag" }).click();
-  await expect(tagDialog.getByText("Inbox", { exact: true })).toBeVisible();
-  await tagDialog.getByRole("button", { name: "Close" }).click();
-
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Upload media" }).click();
-  await page.locator("#file-upload").setInputFiles({
-    name: "tagged-launch.png",
-    mimeType: "image/png",
-    buffer: tinyPNG,
-  });
-  await page
-    .getByRole("dialog", { name: "Upload Media" })
-    .getByRole("button", { name: "Upload" })
-    .click();
-  await expect(
-    page.locator("[data-sonner-toast]").filter({ hasText: "Uploaded 1 file" }),
-  ).toBeVisible();
-  await expect(page.getByText("tagged-launch.png")).toBeVisible();
-  const initialTagFilters = page.locator('[aria-label="Filter media by tag"]');
-  await initialTagFilters.getByRole("button", { name: "Untagged" }).click();
-  await expect(page.getByText("tagged-launch.png")).toBeVisible();
-  await initialTagFilters.getByRole("button", { name: "All tags" }).click();
-
-  const tagsResponse = await request.get(
-    `/api/v1/media/tags?workspace_id=${workspace.id}`,
-    { headers: { Authorization: `Bearer ${auth.token}` } },
-  );
-  expect(tagsResponse.ok()).toBeTruthy();
-  const tagsBody = (await tagsResponse.json()) as {
-    tags: Array<{ id: string; name: string }>;
-  };
-  const inbox = tagsBody.tags.find((tag) => tag.name === "Inbox");
-  expect(inbox).toBeTruthy();
-
-  const mediaResponse = await request.get(
-    `/api/v1/media?workspace_id=${workspace.id}`,
-    { headers: { Authorization: `Bearer ${auth.token}` } },
-  );
-  expect(mediaResponse.ok()).toBeTruthy();
-  const mediaBody = (await mediaResponse.json()) as {
-    media: Array<{ id: string; tags: string[] }>;
-  };
-  expect(mediaBody.media[0]?.tags).toEqual([]);
-
-  const assignInboxResponse = await request.put(
-    `/api/v1/media/tags/${inbox?.id}/items`,
-    {
-      headers: { Authorization: `Bearer ${auth.token}` },
-      data: { media_ids: [mediaBody.media[0]?.id], mode: "add" },
-    },
-  );
-  expect(assignInboxResponse.ok()).toBeTruthy();
-
-  const campaignResponse = await request.post("/api/v1/media/tags", {
-    headers: { Authorization: `Bearer ${auth.token}` },
-    data: { workspace_id: workspace.id, name: "Campaign" },
-  });
-  expect(campaignResponse.ok()).toBeTruthy();
-  const campaign = (await campaignResponse.json()) as { id: string };
-  const assignResponse = await request.put(
-    `/api/v1/media/tags/${campaign.id}/items`,
-    {
-      headers: { Authorization: `Bearer ${auth.token}` },
-      data: { media_ids: [mediaBody.media[0]?.id], mode: "add" },
-    },
-  );
-  expect(assignResponse.ok()).toBeTruthy();
-
-  await page.reload();
-  await expect(page.getByText("tagged-launch.png")).toBeVisible();
-  const tagFilters = page.locator('[aria-label="Filter media by tag"]');
-  await tagFilters.getByRole("button", { name: /Inbox/ }).click();
-  await tagFilters.getByRole("button", { name: /Campaign/ }).click();
-  await expect(page.getByText("tagged-launch.png")).toBeVisible();
-
-  await tagFilters.getByRole("button", { name: "Untagged" }).click();
-  await expect(page.getByText("No media found")).toBeVisible();
-  await tagFilters.getByRole("button", { name: "All tags" }).click();
-  await page.getByRole("button", { name: "Audio", exact: true }).click();
-  await expect(page.getByText("No media found")).toBeVisible();
-  await page.getByRole("button", { name: "Images", exact: true }).click();
-  await expect(page.getByText("tagged-launch.png")).toBeVisible();
-});
-
 test("video upload edits in the browser and becomes a verified media asset", async ({
   page,
   request,
 }) => {
-  test.skip(!ffmpegAvailable, "ffmpeg is required to generate video fixture");
-
   test.setTimeout(120_000);
   const unique = Date.now().toString(36);
   const auth = await registerUser(request, `media-video-${unique}@example.com`);
@@ -284,7 +170,7 @@ test("video upload edits in the browser and becomes a verified media asset", asy
   await page.setViewportSize({ width: 1280, height: 800 });
   await authenticatePage(page, auth.token);
   await page.goto("/media");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("menuitem", { name: "Upload media" }).click();
   await page.locator("#file-upload").setInputFiles({
     name: "launch-video.mp4",
@@ -330,7 +216,7 @@ test("video upload edits in the browser and becomes a verified media asset", asy
   expect(String(mediaBody.media[0].poster_thumbnail_url)).toContain("/poster");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("button", { name: "Create" }).click();
   await page.getByRole("menuitem", { name: "Upload media" }).click();
   await page.locator("#file-upload").setInputFiles({
     name: "phone-video.mp4",
@@ -433,7 +319,7 @@ test("brand assets fall back to the original file when no thumbnail exists", asy
   expect(upload.ok()).toBeTruthy();
   const media = (await upload.json()) as { id: string };
 
-  const saveBrand = await request.put("/api/v1/image-editor/brand-kit", {
+  const saveBrand = await request.put("/api/v1/studio/brand-kit", {
     headers: { Authorization: `Bearer ${auth.token}` },
     data: {
       workspace_id: workspace.id,

@@ -12,19 +12,41 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import SectionHeader from '$lib/components/section-header.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import BellIcon from 'lucide-svelte/icons/bell';
 	import TrashIcon from 'lucide-svelte/icons/trash-2';
 	import CheckIcon from 'lucide-svelte/icons/check-check';
-	import SettingsIcon from 'lucide-svelte/icons/settings-2';
 
 	type Notification = components['schemas']['UserNotification'];
 	type NotificationAction = NonNullable<Notification['actions']>[number];
+	type ChannelPreference = components['schemas']['ChannelPreference'];
+	type Preferences = Record<string, ChannelPreference>;
+
+	const criticalTypes = new Set([
+		'publish_failed',
+		'account_needs_attention',
+		'reply_failed',
+		'workspace_invite'
+	]);
+	const eventTypes = [
+		'post_published',
+		'publish_failed',
+		'account_needs_attention',
+		'new_engagement',
+		'new_message',
+		'reply_failed',
+		'workspace_invite'
+	];
+
 	let loading = $state(true);
 	let error = $state('');
 	let notifications = $state.raw<Notification[]>([]);
 	let unreadCount = $state(0);
+	let preferences = $state.raw<Preferences>({});
 	let loadedWorkspace = $state('');
+	let saving = $state(false);
 	let toast = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
 	let deleteDialogOpen = $state(false);
@@ -46,15 +68,21 @@
 		loading = true;
 		error = '';
 		const requestedWorkspace = workspaceId;
-		const notificationResponse = await client.GET('/notifications', {
-			params: { query: { workspace_id: requestedWorkspace, limit: 100 } }
-		});
+		const [notificationResponse, preferenceResponse] = await Promise.all([
+			client.GET('/notifications', {
+				params: { query: { workspace_id: requestedWorkspace, limit: 100 } }
+			}),
+			client.GET('/notifications/preferences')
+		]);
 		if (workspaceId !== requestedWorkspace) return;
 		if (notificationResponse.error) {
 			error = notificationResponse.error.detail || m.notifications_load_failed();
 		} else {
 			notifications = notificationResponse.data?.items ?? [];
 			unreadCount = notificationResponse.data?.unread_count ?? 0;
+		}
+		if (!preferenceResponse.error) {
+			preferences = preferenceResponse.data ?? {};
 		}
 		loading = false;
 	}
@@ -121,9 +149,50 @@
 		}
 	}
 
+	function updatePreference(eventType: string, enabled: boolean) {
+		const current = preferences[eventType] ?? { in_app: true };
+		preferences = {
+			...preferences,
+			[eventType]: { ...current, in_app: enabled }
+		};
+	}
+
+	async function savePreferences() {
+		saving = true;
+		const { data, error: apiError } = await client.PUT('/notifications/preferences', {
+			body: preferences
+		});
+		saving = false;
+		if (apiError) {
+			showToast(m.notifications_load_failed(), 'error');
+			return;
+		}
+		preferences = data ?? preferences;
+		showToast(m.notifications_preferences_saved(), 'success');
+	}
+
 	function showToast(message: string, tone: 'success' | 'error') {
 		toast = message;
 		toastTone = tone;
+	}
+
+	function eventLabel(eventType: string) {
+		switch (eventType) {
+			case 'post_published':
+				return m.notifications_event_post_published();
+			case 'publish_failed':
+				return m.notifications_event_publish_failed();
+			case 'account_needs_attention':
+				return m.notifications_event_account_needs_attention();
+			case 'new_engagement':
+				return m.notifications_event_new_engagement();
+			case 'new_message':
+				return m.notifications_event_new_message();
+			case 'reply_failed':
+				return m.notifications_event_reply_failed();
+			default:
+				return m.notifications_event_workspace_invite();
+		}
 	}
 
 	function dateLabel(value: string) {
@@ -158,17 +227,9 @@
 	loadingItems={6}
 >
 	{#snippet actions()}
-		<div class="flex flex-wrap gap-2">
-			<Button
-				variant="outline"
-				onclick={() => void goto(resolve('/settings?tab=notifications' as '/'))}
-			>
-				<SettingsIcon class="size-4" />{m.notifications_open_settings()}
-			</Button>
-			<Button variant="outline" onclick={() => void markAllRead()} disabled={unreadCount === 0}>
-				<CheckIcon class="size-4" />{m.notifications_mark_all_read()}
-			</Button>
-		</div>
+		<Button variant="outline" onclick={() => void markAllRead()} disabled={unreadCount === 0}>
+			<CheckIcon class="size-4" />{m.notifications_mark_all_read()}
+		</Button>
 	{/snippet}
 
 	<div class="space-y-8">
@@ -249,6 +310,44 @@
 				</div>
 			</section>
 		{/if}
+
+		<section aria-label={m.notifications_preferences()}>
+			<SectionHeader
+				title={m.notifications_preferences()}
+				description={m.notifications_critical_help()}
+			/>
+			<div class="mt-4 overflow-x-auto rounded-lg border">
+				<table class="w-full text-sm">
+					<thead class="border-b bg-muted/35 text-left">
+						<tr>
+							<th class="px-4 py-3 font-medium">{m.notifications_preferences()}</th>
+							<th class="w-28 px-4 py-3 text-center font-medium">{m.notifications_in_app()}</th>
+						</tr>
+					</thead>
+					<tbody class="divide-y">
+						{#each eventTypes as eventType (eventType)}
+							{@const preference = preferences[eventType] ?? { in_app: true }}
+							<tr>
+								<td class="px-4 py-3">{eventLabel(eventType)}</td>
+								<td class="px-4 py-3 text-center">
+									<Checkbox
+										checked={preference.in_app}
+										disabled={criticalTypes.has(eventType)}
+										aria-label={`${eventLabel(eventType)} · ${m.notifications_in_app()}`}
+										onCheckedChange={(checked) => updatePreference(eventType, checked)}
+									/>
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+			<div class="mt-3 flex justify-end">
+				<Button onclick={() => void savePreferences()} disabled={saving}>
+					{m.notifications_save_preferences()}
+				</Button>
+			</div>
+		</section>
 	</div>
 </PageContainer>
 

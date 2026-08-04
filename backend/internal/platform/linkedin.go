@@ -551,30 +551,6 @@ func (l *LinkedInAdapter) Publish(ctx context.Context, accessToken, accountID st
 	return l.createPost(ctx, accessToken, authorURN, apiVersion, req)
 }
 
-func (l *LinkedInAdapter) Repost(ctx context.Context, accessToken, targetAccountID string, req RepostRequest) (RepostResult, error) {
-	parent := strings.TrimSpace(req.ExternalID)
-	if parent == "" {
-		return RepostResult{}, fmt.Errorf("linkedin repost requires a source post id")
-	}
-	payload := map[string]interface{}{
-		"author":     linkedInAuthorURN(targetAccountID),
-		"commentary": "",
-		"visibility": "PUBLIC",
-		"distribution": map[string]interface{}{
-			"feedDistribution":               "MAIN_FEED",
-			"targetEntities":                 []interface{}{},
-			"thirdPartyDistributionChannels": []interface{}{},
-		},
-		"lifecycleState": "PUBLISHED",
-		"reshareContext": map[string]string{"parent": parent},
-	}
-	headers, err := DoJSONWithHeaders(ctx, http.MethodPost, "https://api.linkedin.com/rest/posts", payload, linkedinHeaders(accessToken, linkedInAPIVersion()))
-	if err != nil {
-		return RepostResult{}, fmt.Errorf("reposting on linkedin: %w", err)
-	}
-	return RepostResult{ExternalID: headers.Get("x-restli-id"), ExternalURL: req.ExternalURL}, nil
-}
-
 //nolint:gocyclo
 func (l *LinkedInAdapter) createPost(ctx context.Context, accessToken, authorURN, apiVersion string, req *PublishRequest) (string, error) {
 	visibility := firstNonEmptyString(settingString(req.Settings, "visibility"), "PUBLIC")

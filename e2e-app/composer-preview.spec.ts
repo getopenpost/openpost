@@ -49,7 +49,7 @@ test("composer renders account-specific renditions", async ({
           platform: "bluesky",
           account_id: "bsky-studio",
           account_username: "openpost_studio",
-          account_avatar_url: "https://cdn.example/image-editor.jpg",
+          account_avatar_url: "https://cdn.example/studio.jpg",
           instance_url: "",
           is_active: true,
           thread_replies_supported: false,

@@ -133,9 +133,7 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 		err = addPublishingFailureColumnsToPostDestinations(ctx, db)
 	case 41:
 		description = "publication editor backfill"
-		if err = ensurePublicationRepostOverride(ctx, db); err == nil {
-			err = backfillPublicationTextEditors(ctx, db)
-		}
+		err = backfillPublicationTextEditors(ctx, db)
 	case 51:
 		description = "optional password"
 		err = makeUserPasswordOptional(ctx, db)
@@ -151,154 +149,11 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 58:
 		description = "email verification"
 		err = ensureEmailVerificationUserField(ctx, db)
-	case 61:
-		description = "repost override"
-		err = ensurePublicationRepostOverride(ctx, db)
-	case 62:
-		description = "media collections to tags"
-		err = ensureMediaTagMigration(ctx, db)
-	case 63:
-		description = "editor names"
-		err = ensureEditorNameMigration(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
-}
-
-func ensureMediaTagMigration(ctx context.Context, db *bun.DB) error {
-	for _, table := range []string{"media_collections", "media_collection_items", "media_tags", "media_tag_assignments"} {
-		exists, err := migrationTableExists(ctx, db, table)
-		if err != nil || !exists {
-			return err
-		}
-	}
-	statements := []string{
-		`INSERT INTO media_tags (id, workspace_id, name, normalized_name, created_at)
-		 SELECT c.id, c.workspace_id, c.name, LOWER(TRIM(c.name)), c.created_at
-		 FROM media_collections c
-		 WHERE NOT EXISTS (
-			 SELECT 1 FROM media_tags t
-			 WHERE t.workspace_id = c.workspace_id AND t.normalized_name = LOWER(TRIM(c.name))
-		 )
-		 ON CONFLICT DO NOTHING`,
-		`INSERT INTO media_tag_assignments (tag_id, media_id, created_at)
-		 SELECT t.id, i.media_id, i.created_at
-		 FROM media_collection_items i
-		 JOIN media_collections c ON c.id = i.collection_id
-		 JOIN media_tags t ON t.workspace_id = c.workspace_id AND t.normalized_name = LOWER(TRIM(c.name))
-		 ON CONFLICT DO NOTHING`,
-	}
-	for _, statement := range statements {
-		if _, err := db.ExecContext(ctx, statement); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func ensureEditorNameMigration(ctx context.Context, db *bun.DB) error {
-	for _, migrate := range []func(context.Context, *bun.DB) error{
-		migrateRenamedInstanceSettings,
-		migrateEditorMediaSources,
-		migrateVideoEditingMode,
-		migrateFounderBillingPlan,
-	} {
-		if err := migrate(ctx, db); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func migrateRenamedInstanceSettings(ctx context.Context, db *bun.DB) error {
-	instanceSettingsExist, err := migrationTableExists(ctx, db, "instance_settings")
-	if err != nil || !instanceSettingsExist {
-		return err
-	}
-	for _, names := range [][2]string{
-		{"OPENPOST_STUDIO_ENABLED", "OPENPOST_IMAGE_EDITOR_ENABLED"},
-		{"OPENPOST_STUDIO_MODEL_BASE_URL", "OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL"},
-		{"OPENPOST_VIDEO_STUDIO_ENABLED", "OPENPOST_VIDEO_EDITOR_ENABLED"},
-		{"OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID", "OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID"},
-		{"OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID", "OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID"},
-	} {
-		if _, err := db.ExecContext(ctx, `DELETE FROM instance_settings
-				WHERE key = ? AND EXISTS (SELECT 1 FROM instance_settings WHERE key = ?)`, names[0], names[1]); err != nil {
-			return err
-		}
-		if _, err := db.ExecContext(ctx, "UPDATE instance_settings SET key = ? WHERE key = ?", names[1], names[0]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func migrateEditorMediaSources(ctx context.Context, db *bun.DB) error {
-	mediaExist, err := migrationTableExists(ctx, db, "media_attachments")
-	if err != nil || !mediaExist {
-		return err
-	}
-	for _, names := range [][2]string{
-		{"studio_export", "image_editor_export"},
-		{"studio_edit", "image_editor_edit"},
-		{"video_studio_source", "video_editor_source"},
-		{"video_studio_export", "video_editor_export"},
-	} {
-		if _, err := db.ExecContext(ctx, "UPDATE media_attachments SET source = ? WHERE source = ?", names[1], names[0]); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func migrateVideoEditingMode(ctx context.Context, db *bun.DB) error {
-	videoProjectsExist, err := migrationTableExists(ctx, db, "video_projects")
-	if err != nil || !videoProjectsExist {
-		return err
-	}
-	_, err = db.ExecContext(ctx, `UPDATE video_projects
-			SET document_json = REPLACE(document_json, '"editing_mode":"studio"', '"editing_mode":"editor"')
-			WHERE document_json LIKE '%"editing_mode":"studio"%'`)
-	return err
-}
-
-func migrateFounderBillingPlan(ctx context.Context, db *bun.DB) error {
-	for _, table := range []string{"billing_subscriptions", "billing_checkout_attempts"} {
-		exists, tableErr := migrationTableExists(ctx, db, table)
-		if tableErr != nil {
-			return tableErr
-		}
-		if !exists {
-			continue
-		}
-		if _, tableErr = db.ExecContext(ctx, "UPDATE "+table+" SET plan_id = 'founder' WHERE plan_id = 'creator'"); tableErr != nil {
-			return tableErr
-		}
-	}
-
-	subscriptionsExist, err := migrationTableExists(ctx, db, "billing_subscriptions")
-	if err != nil || !subscriptionsExist {
-		return err
-	}
-	_, err = db.ExecContext(ctx, `UPDATE billing_subscriptions
-		SET entitlement_snapshot = REPLACE(entitlement_snapshot, '"plan_id":"creator"', '"plan_id":"founder"')
-		WHERE entitlement_snapshot LIKE '%"plan_id":"creator"%'`)
-	return err
-}
-
-func ensurePublicationRepostOverride(ctx context.Context, db *bun.DB) error {
-	exists, err := migrationTableExists(ctx, db, "publications")
-	if err != nil || !exists {
-		return err
-	}
-	present, err := migrationColumnExists(ctx, db, "publications", "repost_override_json")
-	if err != nil || present {
-		return err
-	}
-	_, err = db.ExecContext(ctx, `ALTER TABLE publications ADD COLUMN repost_override_json TEXT NOT NULL DEFAULT '{"mode":"inherit"}'`)
-	return err
 }
 
 func ensureEmailVerificationUserField(ctx context.Context, db *bun.DB) error {

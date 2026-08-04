@@ -116,7 +116,7 @@ func (h *StockMediaHandler) RegisterRoutes(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/stock-media/providers",
 		Summary:     "List configured stock media providers",
-		Tags:        []string{tagVideoEditor},
+		Tags:        []string{tagVideoStudio},
 	}, func(context.Context, *struct{}) (*ListStockProvidersOutput, error) {
 		out := &ListStockProvidersOutput{}
 		out.Body.Enabled = h.enabled && len(h.adapters) > 0
@@ -137,7 +137,7 @@ func (h *StockMediaHandler) RegisterRoutes(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/stock-media/search",
 		Summary:     "Search configured stock photo and video providers",
-		Tags:        []string{tagVideoEditor},
+		Tags:        []string{tagVideoStudio},
 		Errors:      []int{400, 404, 429, 502, 503},
 	}, func(ctx context.Context, input *SearchStockMediaInput) (*SearchStockMediaOutput, error) {
 		if !h.allow(ctx, "search", stockSearchLimit) {
@@ -172,7 +172,7 @@ func (h *StockMediaHandler) RegisterRoutes(api huma.API) {
 		Method:      http.MethodPost,
 		Path:        "/stock-media/selections",
 		Summary:     "Resolve a selected stock asset and record provider attribution events",
-		Tags:        []string{tagVideoEditor},
+		Tags:        []string{tagVideoStudio},
 		Errors:      []int{400, 404, 429, 502, 503},
 	}, func(ctx context.Context, input *SelectStockMediaInput) (*SelectStockMediaOutput, error) {
 		if !h.allow(ctx, "selection", stockSelectionLimit) {

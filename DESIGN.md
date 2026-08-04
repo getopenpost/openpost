@@ -151,19 +151,19 @@ Public pages use a wider 80rem frame and larger responsive section spacing. Docu
 
 Use the established 4px spacing family, but vary it by hierarchy: tight within controls and metadata groups, moderate within sections, generous between major public-page ideas. Prefer `gap` for sibling relationships.
 
-### OpenPost Image Editor
+### Studio
 
-OpenPost Image Editor is an immersive, task-specific workspace inside OpenPost rather than a general design product. It keeps the OpenPost type, semantic colors, compact controls, and restrained orange selection signal. The central pasteboard stays dark and neutral in both themes so the page remains the visual focus.
+Studio is an immersive, task-specific workspace inside OpenPost rather than a general design product. It keeps the OpenPost type, semantic colors, compact controls, and restrained orange selection signal. The central pasteboard stays dark and neutral in both themes so the page remains the visual focus.
 
 Desktop uses a compact menu bar, tool rail, asset pane, one active canvas, Layers and Properties panes, and an ordered page strip. Phones use the same document model with a short top bar, a horizontal bottom tool rail, one contextual sheet at a time, a full-height Layers sheet, and a collapsible page strip. Coarse-pointer actions remain at least 44px. Two-finger input pans or zooms the canvas; one-finger input transforms the selected layer.
 
-The DOM-based Layers tree and Properties controls are the accessible equivalents of direct canvas editing. Every persistent change runs through the command system, exposes undo and redo, and announces saves, conflicts, exports, uploads, camera state, and background-removal state. OpenPost Image Editor uses a scoped `.image-editor-theme`; it does not copy another editor's CSS, generated utilities, or trade dress.
+The DOM-based Layers tree and Properties controls are the accessible equivalents of direct canvas editing. Every persistent change runs through the command system, exposes undo and redo, and announces saves, conflicts, exports, uploads, camera state, and background-removal state. Studio uses a scoped `.studio-theme`; it does not copy another editor's CSS, generated utilities, or trade dress.
 
-### OpenPost Video Editor
+### Video Studio
 
-OpenPost Video Editor uses a four-zone editing model: compact project controls at the top, grouped creation tools and assets on the left, one dominant preview in the center, and selection-specific inspector tabs on the right. The timeline spans the full workspace and owns playback position; its ruler is the seek control, so a second progress slider must not compete with it. Orange marks the active family, property tab, playhead, and primary Export action against warm-black editing surfaces.
+Video Studio uses a four-zone editing model: compact project controls at the top, grouped creation tools and assets on the left, one dominant preview in the center, and selection-specific inspector tabs on the right. The timeline spans the full workspace and owns playback position; its ruler is the seek control, so a second progress slider must not compete with it. Orange marks the active family, property tab, playhead, and primary Export action against warm-black editing surfaces.
 
-Keep inspector settings contextual. Clip selection exposes Video, Audio, Speed, Animation, and Adjustments; overlays, captions, and audio items expose only their relevant tabs. Phones replace both side panels with one bottom tool dock and one contextual sheet while preserving the same timeline and project document. Quick Cut remains the explicit stream-copy path and Full Editor remains the composed edit path.
+Keep inspector settings contextual. Clip selection exposes Video, Audio, Speed, Animation, and Adjustments; overlays, captions, and audio items expose only their relevant tabs. Phones replace both side panels with one bottom tool dock and one contextual sheet while preserving the same timeline and project document. Quick Cut remains the explicit stream-copy path and Full Studio remains the composed edit path.
 
 Keep editor copy quiet. Use short labels, values, and direct actions in the default workspace; do not repeat the active tool as a panel heading or add routine reassurance below self-explanatory controls. Reserve inline prose for errors, permissions, destructive consequences, required attribution, and limitations that change what the creator can do. Put optional technical detail in a tooltip or disclosure.
 
@@ -211,7 +211,7 @@ The base corner is gently rounded at 12px. Controls usually resolve to the 10px 
 - **Style:** 36px standard height, medium corners, full input border, and a faint tonal fill.
 - **Focus:** Semantic border plus a visible 2px ring.
 - **Error / Disabled:** Error uses Failure Red border and ring; disabled controls retain legible text while clearly reducing emphasis.
-- **Implementation:** Use the shared Shadcn-svelte `Input`, `Textarea`, `Select`/`AppSelect`, `Checkbox`, `RadioGroup`, `Slider`, and related primitives in the app, public OpenPost Image Editor, and marketing tools. Native controls belong only inside those shared implementations.
+- **Implementation:** Use the shared Shadcn-svelte `Input`, `Textarea`, `Select`/`AppSelect`, `Checkbox`, `RadioGroup`, `Slider`, and related primitives in the app, public Studio, and marketing tools. Native controls belong only inside those shared implementations.
 - **Embedded editors:** When a parent surface owns the complete boundary, the shared `Textarea` may use `unstyled` so default field chrome does not leak into the editor. The text-and-thread composer and media alt-text overlay are intentional examples; ordinary forms keep the default treatment.
 
 ### Navigation

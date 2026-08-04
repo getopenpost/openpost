@@ -1480,268 +1480,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/image-editor/brand-kit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the workspace OpenPost Image Editor brand kit */
-        get: operations["get-image-editor-brand-kit"];
-        /** Create or update the workspace OpenPost Image Editor brand kit */
-        put: operations["update-image-editor-brand-kit"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/designs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List OpenPost Image Editor designs */
-        get: operations["list-image-editor-designs"];
-        put?: never;
-        /** Create an OpenPost Image Editor design */
-        post: operations["create-image-editor-design"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/designs/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get an OpenPost Image Editor design */
-        get: operations["get-image-editor-design"];
-        put?: never;
-        post?: never;
-        /** Move an OpenPost Image Editor design to trash */
-        delete: operations["delete-image-editor-design"];
-        options?: never;
-        head?: never;
-        /** Save an OpenPost Image Editor design with optimistic concurrency */
-        patch: operations["update-image-editor-design"];
-        trace?: never;
-    };
-    "/image-editor/designs/{id}/duplicate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Duplicate an OpenPost Image Editor design */
-        post: operations["duplicate-image-editor-design"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/designs/{id}/favorite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /** Toggle an OpenPost Image Editor design favorite */
-        patch: operations["toggle-image-editor-design-favorite"];
-        trace?: never;
-    };
-    "/image-editor/designs/{id}/revisions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List OpenPost Image Editor design recovery revisions and checkpoints */
-        get: operations["list-image-editor-design-revisions"];
-        put?: never;
-        /** Create a named OpenPost Image Editor design checkpoint */
-        post: operations["create-image-editor-design-checkpoint"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/designs/{id}/revisions/{revision_id}/restore": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Restore an OpenPost Image Editor design revision as a new head */
-        post: operations["restore-image-editor-design-revision"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List OpenPost Image Editor presets and runtime configuration */
-        get: operations["list-image-editor-presets"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/public-templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List built-in OpenPost Image Editor templates available without a workspace */
-        get: operations["list-public-image-editor-templates"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/return-tokens": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a one-time OpenPost Image Editor composer return token */
-        post: operations["create-image-editor-return-token"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/return-tokens/{token}/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Store ordered OpenPost Image Editor exports for a composer return */
-        post: operations["complete-image-editor-return-token"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/return-tokens/{token}/consume": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Consume a completed OpenPost Image Editor composer return token */
-        post: operations["consume-image-editor-return-token"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List built-in and workspace OpenPost Image Editor templates */
-        get: operations["list-image-editor-templates"];
-        put?: never;
-        /** Save an OpenPost Image Editor design as a workspace template */
-        post: operations["create-image-editor-template"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/image-editor/templates/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a workspace OpenPost Image Editor template */
-        delete: operations["delete-image-editor-template"];
-        options?: never;
-        head?: never;
-        /** Replace a workspace OpenPost Image Editor template snapshot */
-        patch: operations["update-image-editor-template"];
-        trace?: never;
-    };
-    "/image-editor/templates/{id}/instantiate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create an OpenPost Image Editor design from a template */
-        post: operations["instantiate-image-editor-template"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/jobs": {
         parameters: {
             query?: never;
@@ -1821,6 +1559,59 @@ export interface paths {
         put?: never;
         /** Delete multiple media attachments at once */
         post: operations["batch-delete-media"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List media collections */
+        get: operations["list-media-collections"];
+        put?: never;
+        /** Create a media collection */
+        post: operations["create-media-collection"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/media/collections/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete a media collection without deleting media */
+        delete: operations["delete-media-collection"];
+        options?: never;
+        head?: never;
+        /** Rename or recolor a media collection */
+        patch: operations["update-media-collection"];
+        trace?: never;
+    };
+    "/media/collections/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a media collection's items */
+        put: operations["replace-media-collection-items"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2857,41 +2648,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/repost-account-grants/{grant_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Revoke a cross-workspace repost account grant */
-        delete: operations["revoke-repost-account-grant"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/repost-automation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get workspace repost rules and available accounts */
-        get: operations["get-repost-automation"];
-        /** Replace workspace repost rules */
-        put: operations["save-repost-automation"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/stock-media/providers": {
         parameters: {
             query?: never;
@@ -2943,15 +2699,139 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/video-editor/config": {
+    "/studio/brand-kit": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get OpenPost Video Editor browser limits and optional local model manifest */
-        get: operations["get-video-editor-config"];
+        /** Get the workspace Studio brand kit */
+        get: operations["get-studio-brand-kit"];
+        /** Create or update the workspace Studio brand kit */
+        put: operations["update-studio-brand-kit"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/designs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Studio designs */
+        get: operations["list-studio-designs"];
+        put?: never;
+        /** Create a Studio design */
+        post: operations["create-studio-design"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/designs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a Studio design */
+        get: operations["get-studio-design"];
+        put?: never;
+        post?: never;
+        /** Move a Studio design to trash */
+        delete: operations["delete-studio-design"];
+        options?: never;
+        head?: never;
+        /** Save a Studio design with optimistic concurrency */
+        patch: operations["update-studio-design"];
+        trace?: never;
+    };
+    "/studio/designs/{id}/duplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Duplicate a Studio design */
+        post: operations["duplicate-studio-design"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/designs/{id}/favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Toggle a Studio design favorite */
+        patch: operations["toggle-studio-design-favorite"];
+        trace?: never;
+    };
+    "/studio/designs/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Studio design recovery revisions and checkpoints */
+        get: operations["list-studio-design-revisions"];
+        put?: never;
+        /** Create a named Studio design checkpoint */
+        post: operations["create-studio-design-checkpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/designs/{id}/revisions/{revision_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a Studio design revision as a new head */
+        post: operations["restore-studio-design-revision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/studio/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List OpenPost Studio presets and runtime configuration */
+        get: operations["list-studio-presets"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2960,69 +2840,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/video-editor/projects": {
+    "/studio/public-templates": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List cloud-saved OpenPost Video Editor projects */
-        get: operations["list-video-editor-projects"];
-        put?: never;
-        /** Save a local OpenPost Video Editor project to OpenPost */
-        post: operations["create-video-editor-project"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/video-editor/projects/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a cloud-saved OpenPost Video Editor project */
-        get: operations["get-video-editor-project"];
-        put?: never;
-        post?: never;
-        /** Move an OpenPost Video Editor project to trash */
-        delete: operations["delete-video-editor-project"];
-        options?: never;
-        head?: never;
-        /** Save an OpenPost Video Editor project with optimistic concurrency */
-        patch: operations["update-video-editor-project"];
-        trace?: never;
-    };
-    "/video-editor/projects/{id}/checkpoints": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create a named OpenPost Video Editor checkpoint */
-        post: operations["create-video-editor-project-checkpoint"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/video-editor/projects/{id}/revisions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List OpenPost Video Editor recovery revisions and checkpoints */
-        get: operations["list-video-editor-project-revisions"];
+        /** List built-in Studio templates available without a workspace */
+        get: operations["list-public-studio-templates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3031,7 +2857,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/video-editor/projects/{id}/revisions/{revision_id}/restore": {
+    "/studio/return-tokens": {
         parameters: {
             query?: never;
             header?: never;
@@ -3040,15 +2866,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Restore an OpenPost Video Editor revision as a new head */
-        post: operations["restore-video-editor-project-revision"];
+        /** Create a one-time Studio composer return token */
+        post: operations["create-studio-return-token"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/video-editor/return-tokens": {
+    "/studio/return-tokens/{token}/complete": {
         parameters: {
             query?: never;
             header?: never;
@@ -3057,15 +2883,15 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create a one-time OpenPost Video Editor composer return token */
-        post: operations["create-video-editor-return-token"];
+        /** Store ordered Studio exports for a composer return */
+        post: operations["complete-studio-return-token"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/video-editor/return-tokens/{token}/complete": {
+    "/studio/return-tokens/{token}/consume": {
         parameters: {
             query?: never;
             header?: never;
@@ -3074,32 +2900,33 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Store OpenPost Video Editor variant-to-rendition export assignments */
-        post: operations["complete-video-editor-return-token"];
+        /** Consume a completed Studio composer return token */
+        post: operations["consume-studio-return-token"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/video-editor/return-tokens/{token}/consume": {
+    "/studio/templates": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** List built-in and workspace Studio templates */
+        get: operations["list-studio-templates"];
         put?: never;
-        /** Consume completed OpenPost Video Editor export assignments once */
-        post: operations["consume-video-editor-return-token"];
+        /** Save a Studio design as a workspace template */
+        post: operations["create-studio-template"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/video-editor/sync-plan": {
+    "/studio/templates/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -3108,8 +2935,199 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Estimate and deduplicate an explicit OpenPost Video Editor cloud sync */
-        post: operations["plan-video-editor-sync"];
+        post?: never;
+        /** Delete a workspace Studio template */
+        delete: operations["delete-studio-template"];
+        options?: never;
+        head?: never;
+        /** Replace a workspace Studio template snapshot */
+        patch: operations["update-studio-template"];
+        trace?: never;
+    };
+    "/studio/templates/{id}/instantiate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a Studio design from a template */
+        post: operations["instantiate-studio-template"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Video Studio browser limits and optional local model manifest */
+        get: operations["get-video-studio-config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List cloud-saved Video Studio projects */
+        get: operations["list-video-studio-projects"];
+        put?: never;
+        /** Save a local Video Studio project to OpenPost */
+        post: operations["create-video-studio-project"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a cloud-saved Video Studio project */
+        get: operations["get-video-studio-project"];
+        put?: never;
+        post?: never;
+        /** Move a Video Studio project to trash */
+        delete: operations["delete-video-studio-project"];
+        options?: never;
+        head?: never;
+        /** Save a Video Studio project with optimistic concurrency */
+        patch: operations["update-video-studio-project"];
+        trace?: never;
+    };
+    "/video-studio/projects/{id}/checkpoints": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a named Video Studio checkpoint */
+        post: operations["create-video-studio-project-checkpoint"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/projects/{id}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Video Studio recovery revisions and checkpoints */
+        get: operations["list-video-studio-project-revisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/projects/{id}/revisions/{revision_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore a Video Studio revision as a new head */
+        post: operations["restore-video-studio-project-revision"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/return-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a one-time Video Studio composer return token */
+        post: operations["create-video-studio-return-token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/return-tokens/{token}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Store Video Studio variant-to-rendition export assignments */
+        post: operations["complete-video-studio-return-token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/return-tokens/{token}/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Consume completed Video Studio export assignments once */
+        post: operations["consume-video-studio-return-token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/video-studio/sync-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Estimate and deduplicate an explicit Video Studio cloud sync */
+        post: operations["plan-video-studio-sync"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3460,20 +3478,6 @@ export interface components {
             organization_id?: string;
             role: string;
             timezone: string;
-        };
-        AccountOption: {
-            avatar_url?: string;
-            cross_workspace: boolean;
-            grant_active: boolean;
-            grant_required: boolean;
-            id: string;
-            instance_url?: string;
-            platform: string;
-            supports_repost: boolean;
-            unavailable_reason?: string;
-            username: string;
-            workspace_id: string;
-            workspace_name: string;
         };
         AccountOverview: {
             account_supported: boolean;
@@ -4004,7 +4008,6 @@ export interface components {
             revoked_sessions: number;
         };
         ChannelPreference: {
-            email: boolean;
             in_app: boolean;
         };
         ClientError: {
@@ -4078,25 +4081,6 @@ export interface components {
             /** @description Selected account, Page, or organization IDs. LinkedIn supports connecting several identities from one grant. */
             selection_ids?: string[] | null;
         };
-        CompleteImageEditorReturnTokenInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteImageEditorReturnTokenInputBody.json
-             */
-            readonly $schema?: string;
-            design_id: string;
-            media_ids: string[] | null;
-        };
-        CompleteImageEditorReturnTokenOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteImageEditorReturnTokenOutputBody.json
-             */
-            readonly $schema?: string;
-            return_url: string;
-        };
         CompleteMediaUploadSessionInputBody: {
             /**
              * Format: uri
@@ -4106,6 +4090,25 @@ export interface components {
             readonly $schema?: string;
             /** @description Workspace ID */
             workspace_id: string;
+        };
+        CompleteStudioReturnTokenInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CompleteStudioReturnTokenInputBody.json
+             */
+            readonly $schema?: string;
+            design_id: string;
+            media_ids: string[] | null;
+        };
+        CompleteStudioReturnTokenOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CompleteStudioReturnTokenOutputBody.json
+             */
+            readonly $schema?: string;
+            return_url: string;
         };
         CompleteVideoReturnTokenOutputBody: {
             /**
@@ -4140,11 +4143,11 @@ export interface components {
             /** @description Six digit authenticator code */
             code: string;
         };
-        ConsumeImageEditorReturnTokenOutputBody: {
+        ConsumeStudioReturnTokenOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConsumeImageEditorReturnTokenOutputBody.json
+             * @example https://example.com/schemas/ConsumeStudioReturnTokenOutputBody.json
              */
             readonly $schema?: string;
             constraints: {
@@ -4301,7 +4304,7 @@ export interface components {
             billing_period: "monthly" | "annual";
             /** @description Organization ID */
             organization_id?: string;
-            /** @description Plan ID: starter, founder, pro, team, or agency */
+            /** @description Plan ID: starter, creator, pro, team, or agency */
             plan_id: string;
             /** @description Workspace ID */
             workspace_id?: string;
@@ -4317,72 +4320,6 @@ export interface components {
             organization_id?: string;
             /** @description Workspace ID */
             workspace_id?: string;
-        };
-        CreateImageEditorCheckpointInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorCheckpointInputBody.json
-             */
-            readonly $schema?: string;
-            name: string;
-        };
-        CreateImageEditorDesignInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorDesignInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description Stable client request ID used to make design creation idempotent */
-            client_request_id?: string;
-            /** Format: int64 */
-            height_px: number;
-            preset_key: string;
-            source_media_id?: string;
-            title: string;
-            /** Format: int64 */
-            width_px: number;
-            workspace_id: string;
-        };
-        CreateImageEditorReturnTokenInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorReturnTokenInputBody.json
-             */
-            readonly $schema?: string;
-            constraints: {
-                [key: string]: unknown;
-            };
-            /** Format: int64 */
-            max_selection: number;
-            purpose: string;
-            return_url: string;
-            workspace_id: string;
-        };
-        CreateImageEditorReturnTokenOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorReturnTokenOutputBody.json
-             */
-            readonly $schema?: string;
-            expires_at: string;
-            token: string;
-        };
-        CreateImageEditorTemplateInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorTemplateInputBody.json
-             */
-            readonly $schema?: string;
-            category: string;
-            document: components["schemas"]["ImageEditorDocumentPayload"];
-            name: string;
-            preview_media_id?: string;
-            workspace_id: string;
         };
         CreateMCPOAuthAuthorizationInputBody: {
             /**
@@ -4422,6 +4359,17 @@ export interface components {
             /** @description URL the browser should redirect to after authorization */
             redirect_url: string;
         };
+        CreateMediaCollectionInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateMediaCollectionInputBody.json
+             */
+            readonly $schema?: string;
+            color: string;
+            name: string;
+            workspace_id: string;
+        };
         CreateMediaTagInputBody: {
             /**
              * Format: uri
@@ -4448,9 +4396,9 @@ export interface components {
             asset_kind?: "library" | "brand_asset" | "brand_font" | "design_preview" | "template_preview";
             /** @description Optional SHA-256 used to reuse an identical ready asset in this workspace */
             client_sha256?: string;
-            /** @description Producing OpenPost Image Editor design ID */
+            /** @description Producing Studio design ID */
             design_document_id?: string;
-            /** @description Producing OpenPost Image Editor page ID */
+            /** @description Producing Studio page ID */
             design_page_id?: string;
             /** @description Original filename */
             filename: string;
@@ -4467,12 +4415,10 @@ export interface components {
              * @description Media provenance
              * @enum {string}
              */
-            source?: "upload" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import";
+            source?: "upload" | "camera" | "studio_export" | "studio_edit" | "background_removal" | "video_studio_source" | "video_studio_export" | "stock_import";
             /** @description License and creator provenance for a selected stock asset */
             stock_provenance?: components["schemas"]["StockMediaProvenance"];
-            /** @description Optional tag to assign to this upload */
-            tag_id?: string;
-            /** @description Producing OpenPost Video Editor project ID */
+            /** @description Producing Video Studio project ID */
             video_project_id?: string;
             /** @description Workspace ID */
             workspace_id: string;
@@ -4508,7 +4454,7 @@ export interface components {
              * @enum {string}
              */
             billing_period: "monthly" | "annual";
-            /** @description Plan ID: starter, founder, pro, team, or agency */
+            /** @description Plan ID: starter, creator, pro, team, or agency */
             plan_id: string;
         };
         CreatePostInputBody: {
@@ -4623,8 +4569,6 @@ export interface components {
             };
             /** @description Explicit platform/account renditions */
             renditions?: components["schemas"]["RenditionInput"][] | null;
-            /** @description Optional per-publication repost override */
-            repost_override?: components["schemas"]["Override"];
             /**
              * Format: date-time
              * @description Optional schedule time
@@ -4641,6 +4585,72 @@ export interface components {
             /** @description Internal publication title */
             title: string;
             /** @description Workspace ID */
+            workspace_id: string;
+        };
+        CreateStudioCheckpointInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateStudioCheckpointInputBody.json
+             */
+            readonly $schema?: string;
+            name: string;
+        };
+        CreateStudioDesignInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateStudioDesignInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Stable client request ID used to make design creation idempotent */
+            client_request_id?: string;
+            /** Format: int64 */
+            height_px: number;
+            preset_key: string;
+            source_media_id?: string;
+            title: string;
+            /** Format: int64 */
+            width_px: number;
+            workspace_id: string;
+        };
+        CreateStudioReturnTokenInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateStudioReturnTokenInputBody.json
+             */
+            readonly $schema?: string;
+            constraints: {
+                [key: string]: unknown;
+            };
+            /** Format: int64 */
+            max_selection: number;
+            purpose: string;
+            return_url: string;
+            workspace_id: string;
+        };
+        CreateStudioReturnTokenOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateStudioReturnTokenOutputBody.json
+             */
+            readonly $schema?: string;
+            expires_at: string;
+            token: string;
+        };
+        CreateStudioTemplateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateStudioTemplateInputBody.json
+             */
+            readonly $schema?: string;
+            category: string;
+            document: components["schemas"]["StudioDocumentPayload"];
+            name: string;
+            preview_media_id?: string;
             workspace_id: string;
         };
         CreateTextPostDraftInputBody: {
@@ -4841,20 +4851,11 @@ export interface components {
             readonly $schema?: string;
             deleted: boolean;
         };
-        DeleteImageEditorDesignOutputBody: {
+        DeleteMediaCollectionOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteImageEditorDesignOutputBody.json
-             */
-            readonly $schema?: string;
-            deleted: boolean;
-        };
-        DeleteImageEditorTemplateOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteImageEditorTemplateOutputBody.json
+             * @example https://example.com/schemas/DeleteMediaCollectionOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -4917,6 +4918,24 @@ export interface components {
             readonly $schema?: string;
             /** @description Whether the server must restart before adapter changes apply */
             requires_restart: boolean;
+        };
+        DeleteStudioDesignOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DeleteStudioDesignOutputBody.json
+             */
+            readonly $schema?: string;
+            deleted: boolean;
+        };
+        DeleteStudioTemplateOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DeleteStudioTemplateOutputBody.json
+             */
+            readonly $schema?: string;
+            deleted: boolean;
         };
         DeleteVariantsOutputBody: {
             /**
@@ -5060,7 +5079,7 @@ export interface components {
             audio_tracks: components["schemas"]["AudioTrack"][] | null;
             caption_tracks: components["schemas"]["CaptionTrack"][] | null;
             /** @enum {string} */
-            editing_mode?: "quick-cut" | "editor";
+            editing_mode?: "quick-cut" | "studio";
             export_defaults: components["schemas"]["ExportDefaults"];
             markers: components["schemas"]["TimelineMarker"][] | null;
             primary_sequence: components["schemas"]["PrimarySequenceClip"][] | null;
@@ -5408,19 +5427,6 @@ export interface components {
             /** Format: int64 */
             week_start: number;
         };
-        GrantResponse: {
-            created_at: string;
-            /** @enum {string} */
-            direction: "outbound" | "inbound";
-            id: string;
-            platform: string;
-            source_workspace_id: string;
-            source_workspace_name: string;
-            target_account_id: string;
-            target_username: string;
-            target_workspace_id: string;
-            target_workspace_name: string;
-        };
         "Health-checkResponse": {
             /**
              * Format: uri
@@ -5452,437 +5458,6 @@ export interface components {
             provider_id: string;
             /** Format: date-time */
             verified_at?: string;
-        };
-        ImageEditorBrandAsset: {
-            id?: string;
-            media_id: string;
-            name: string;
-            /** @enum {string} */
-            role: "primary_logo" | "secondary_logo" | "mark" | "watermark";
-        };
-        ImageEditorBrandColor: {
-            id: string;
-            name: string;
-            value: string;
-        };
-        ImageEditorBrandFont: {
-            css_family?: string;
-            family: string;
-            id?: string;
-            license_acknowledged?: boolean;
-            license_acknowledged_at?: string;
-            license_acknowledged_by?: string;
-            media_id: string;
-            /** @enum {string} */
-            style: "normal" | "italic";
-            /** Format: int64 */
-            weight: number;
-        };
-        ImageEditorBrandKitResponse: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorBrandKitResponse.json
-             */
-            readonly $schema?: string;
-            assets: components["schemas"]["ImageEditorBrandAsset"][] | null;
-            backgrounds: string[] | null;
-            can_edit: boolean;
-            colors: components["schemas"]["ImageEditorBrandColor"][] | null;
-            exists: boolean;
-            fonts: components["schemas"]["ImageEditorBrandFont"][] | null;
-            id?: string;
-            name: string;
-            /** Format: int64 */
-            revision: number;
-            text_styles: components["schemas"]["ImageEditorBrandTextStyle"][] | null;
-            updated_at?: string;
-            workspace_id: string;
-        };
-        ImageEditorBrandTextStyle: {
-            color: string;
-            font_asset_id?: string;
-            font_family: string;
-            /** Format: double */
-            font_size: number;
-            font_style: string;
-            /** Format: int64 */
-            font_weight: number;
-            id: string;
-            /** Format: double */
-            letter_spacing: number;
-            /** Format: double */
-            line_height: number;
-            name: string;
-        };
-        ImageEditorCrop: {
-            /** Format: double */
-            height: number;
-            /** Format: double */
-            width: number;
-            /** Format: double */
-            x: number;
-            /** Format: double */
-            y: number;
-        };
-        ImageEditorDesignSummary: {
-            cover_preview_media_id?: string;
-            created_at: string;
-            /** Format: int64 */
-            height_px: number;
-            id: string;
-            is_favorite: boolean;
-            /** Format: int64 */
-            page_count: number;
-            preset_key: string;
-            /** Format: int64 */
-            revision: number;
-            title: string;
-            updated_at: string;
-            /** Format: int64 */
-            width_px: number;
-        };
-        ImageEditorDocumentPayload: {
-            brand_kit_id?: string;
-            /** Format: int64 */
-            brand_kit_revision: number;
-            export_defaults: components["schemas"]["ImageEditorExportDefaults"];
-            /** Format: int64 */
-            height_px: number;
-            pages: components["schemas"]["ImageEditorPagePayload"][] | null;
-            preset_key: string;
-            /** Format: int64 */
-            schema_version: number;
-            title: string;
-            /** Format: int64 */
-            width_px: number;
-        };
-        ImageEditorDocumentResponse: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorDocumentResponse.json
-             */
-            readonly $schema?: string;
-            can_edit: boolean;
-            cover_preview_media_id?: string;
-            created_at: string;
-            created_by_id: string;
-            document: components["schemas"]["ImageEditorDocumentPayload"];
-            id: string;
-            /** Format: int64 */
-            revision: number;
-            updated_at: string;
-            workspace_id: string;
-        };
-        ImageEditorEraseMask: {
-            /** Format: double */
-            source_height: number;
-            /** Format: double */
-            source_width: number;
-            spans: components["schemas"]["ImageEditorPaintSpan"][] | null;
-            strokes: components["schemas"]["ImageEditorEraseStroke"][] | null;
-        };
-        ImageEditorEraseStroke: {
-            points: components["schemas"]["ImageEditorPaintPoint"][] | null;
-            /** Format: double */
-            size: number;
-        };
-        ImageEditorExportDefaults: {
-            /** @enum {string} */
-            format: "png" | "jpeg" | "webp";
-            matte_color: string;
-            /** Format: double */
-            quality: number;
-        };
-        ImageEditorGradientStop: {
-            color: string;
-            /** Format: double */
-            offset: number;
-        };
-        ImageEditorGradientValue: {
-            end: components["schemas"]["ImageEditorPaintPoint"];
-            reverse: boolean;
-            start: components["schemas"]["ImageEditorPaintPoint"];
-            stops: components["schemas"]["ImageEditorGradientStop"][] | null;
-            /** @enum {string} */
-            type: "linear" | "radial" | "angle" | "reflected" | "diamond";
-        };
-        ImageEditorImageAdjustments: {
-            /** Format: double */
-            blur: number;
-            /** Format: double */
-            brightness: number;
-            /** Format: double */
-            contrast: number;
-            /** Format: double */
-            exposure: number;
-            /** Format: double */
-            highlights: number;
-            /** Format: double */
-            hue: number;
-            /** Format: double */
-            saturation: number;
-            /** Format: double */
-            shadows: number;
-            /** Format: double */
-            temperature: number;
-            /** Format: double */
-            tint: number;
-            /** Format: double */
-            vibrance: number;
-        };
-        ImageEditorImageValue: {
-            adjustments: components["schemas"]["ImageEditorImageAdjustments"];
-            crop: components["schemas"]["ImageEditorCrop"];
-            /** @enum {string} */
-            fit: "cover" | "contain" | "stretch";
-            intrinsic_pending?: boolean;
-            media_id: string;
-            /** Format: int64 */
-            source_height: number;
-            /** Format: int64 */
-            source_width: number;
-        };
-        ImageEditorLayer: {
-            effects?: components["schemas"]["ImageEditorLayerEffects"];
-            erase_mask?: components["schemas"]["ImageEditorEraseMask"];
-            id: string;
-            image?: components["schemas"]["ImageEditorImageValue"];
-            locked: boolean;
-            mask?: components["schemas"]["ImageEditorLayerMask"];
-            name: string;
-            /** Format: double */
-            opacity: number;
-            paint?: components["schemas"]["ImageEditorPaintValue"];
-            parent_id?: string;
-            shape?: components["schemas"]["ImageEditorShapeValue"];
-            text?: components["schemas"]["ImageEditorTextValue"];
-            transform: components["schemas"]["ImageEditorTransform"];
-            /** @enum {string} */
-            type: "text" | "image" | "shape" | "paint" | "group";
-            visible: boolean;
-        };
-        ImageEditorLayerEffects: {
-            /** @enum {string} */
-            blend_mode: "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "soft_light";
-            drop_shadow?: components["schemas"]["ImageEditorShadowEffect"];
-            inner_shadow?: components["schemas"]["ImageEditorShadowEffect"];
-            stroke?: components["schemas"]["ImageEditorStrokeEffect"];
-        };
-        ImageEditorLayerMask: {
-            /** Format: double */
-            inset: number;
-            /** Format: double */
-            radius: number;
-            /** @enum {string} */
-            shape: "rectangle" | "rounded_rectangle" | "circle" | "ellipse" | "diamond";
-        };
-        ImageEditorPageBackground: {
-            color?: string;
-            gradient?: components["schemas"]["ImageEditorGradientValue"];
-            image?: components["schemas"]["ImageEditorPageBackgroundImage"];
-            /** Format: double */
-            opacity: number;
-            /** @enum {string} */
-            type: "transparent" | "solid" | "gradient" | "image";
-        };
-        ImageEditorPageBackgroundImage: {
-            /** @enum {string} */
-            fit: "cover" | "contain" | "stretch";
-            media_id: string;
-        };
-        ImageEditorPagePayload: {
-            background?: components["schemas"]["ImageEditorPageBackground"];
-            background_color: string;
-            id: string;
-            latest_export_media_id?: string;
-            layers: components["schemas"]["ImageEditorLayer"][] | null;
-            name: string;
-            preview_media_id?: string;
-        };
-        ImageEditorPaintPoint: {
-            /** Format: double */
-            x: number;
-            /** Format: double */
-            y: number;
-        };
-        ImageEditorPaintSpan: {
-            /** Format: double */
-            width: number;
-            /** Format: double */
-            x: number;
-            /** Format: double */
-            y: number;
-        };
-        ImageEditorPaintValue: {
-            color: string;
-            gradient?: components["schemas"]["ImageEditorGradientValue"];
-            /** @enum {string} */
-            kind: "stroke" | "fill" | "gradient";
-            /** Format: double */
-            opacity: number;
-            points: components["schemas"]["ImageEditorPaintPoint"][] | null;
-            /** Format: double */
-            size: number;
-            /** Format: double */
-            source_height: number;
-            /** Format: double */
-            source_width: number;
-            spans: components["schemas"]["ImageEditorPaintSpan"][] | null;
-        };
-        ImageEditorPreset: {
-            /**
-             * @description Default export format
-             * @enum {string}
-             */
-            default_format: "png" | "jpeg" | "webp";
-            /**
-             * Format: int64
-             * @description Canvas height in pixels
-             */
-            height_px: number;
-            /** @description Stable preset key */
-            key: string;
-            /** @description User-visible preset name */
-            name: string;
-            /** @description Compatible provider content profiles */
-            profiles: string[] | null;
-            /**
-             * Format: int64
-             * @description Canvas width in pixels
-             */
-            width_px: number;
-        };
-        ImageEditorPresetOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorPresetOutputBody.json
-             */
-            readonly $schema?: string;
-            background_model_base_url: string;
-            enabled: boolean;
-            presets: components["schemas"]["ImageEditorPreset"][] | null;
-            /** Format: int64 */
-            schema_version: number;
-        };
-        ImageEditorRevisionSummary: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorRevisionSummary.json
-             */
-            readonly $schema?: string;
-            created_at: string;
-            expires_at?: string;
-            id: string;
-            kind: string;
-            name?: string;
-            /** Format: int64 */
-            revision: number;
-        };
-        ImageEditorShadowEffect: {
-            /** Format: double */
-            angle: number;
-            /** Format: double */
-            blur: number;
-            color: string;
-            /** Format: double */
-            distance: number;
-            /** Format: double */
-            opacity: number;
-        };
-        ImageEditorShapeValue: {
-            fill: string;
-            /** @enum {string} */
-            kind: "rectangle" | "rounded_rectangle" | "ellipse" | "line";
-            /** Format: double */
-            radius: number;
-            stroke: string;
-            /** Format: double */
-            stroke_width: number;
-        };
-        ImageEditorStrokeEffect: {
-            color: string;
-            /** Format: double */
-            opacity: number;
-            /** @enum {string} */
-            position: "inside" | "center" | "outside";
-            /** Format: double */
-            width: number;
-        };
-        ImageEditorTemplateResponse: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorTemplateResponse.json
-             */
-            readonly $schema?: string;
-            built_in: boolean;
-            category: string;
-            created_at?: string;
-            document: components["schemas"]["ImageEditorDocumentPayload"];
-            id: string;
-            name: string;
-            preset_key: string;
-            preview_media_id?: string;
-            updated_at?: string;
-            workspace_id?: string;
-        };
-        ImageEditorTextCurve: {
-            /** Format: double */
-            offset: number;
-            reverse: boolean;
-            /** Format: double */
-            strength: number;
-            /** @enum {string} */
-            type: "none" | "arc_up" | "arc_down" | "wave" | "circle" | "ellipse";
-        };
-        ImageEditorTextShadow: {
-            /** Format: double */
-            blur: number;
-            color: string;
-            /** Format: double */
-            offset_x: number;
-            /** Format: double */
-            offset_y: number;
-        };
-        ImageEditorTextValue: {
-            align: string;
-            color: string;
-            curve?: components["schemas"]["ImageEditorTextCurve"];
-            font_asset_id?: string;
-            font_family: string;
-            /** Format: double */
-            font_size: number;
-            font_style: string;
-            /** Format: int64 */
-            font_weight: number;
-            highlight_color?: string;
-            /** Format: double */
-            letter_spacing: number;
-            /** Format: double */
-            line_height: number;
-            shadow: components["schemas"]["ImageEditorTextShadow"];
-            stroke_color?: string;
-            /** Format: double */
-            stroke_width: number;
-            text: string;
-        };
-        ImageEditorTransform: {
-            flip_x: boolean;
-            flip_y: boolean;
-            /** Format: double */
-            height: number;
-            /** Format: double */
-            rotation: number;
-            /** Format: double */
-            width: number;
-            /** Format: double */
-            x: number;
-            /** Format: double */
-            y: number;
         };
         InstanceDailyMetric: {
             /**
@@ -6064,11 +5639,11 @@ export interface components {
              */
             workspace_count: number;
         };
-        InstantiateImageEditorTemplateInputBody: {
+        InstantiateStudioTemplateInputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InstantiateImageEditorTemplateInputBody.json
+             * @example https://example.com/schemas/InstantiateStudioTemplateInputBody.json
              */
             readonly $schema?: string;
             title: string;
@@ -6102,36 +5677,15 @@ export interface components {
             /** @description Job type */
             type: string;
         };
-        ListImageEditorDesignsOutputBody: {
+        ListMediaCollectionsOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListImageEditorDesignsOutputBody.json
+             * @example https://example.com/schemas/ListMediaCollectionsOutputBody.json
              */
             readonly $schema?: string;
             can_edit: boolean;
-            designs: components["schemas"]["ImageEditorDesignSummary"][] | null;
-            /** Format: int64 */
-            total: number;
-        };
-        ListImageEditorRevisionsOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListImageEditorRevisionsOutputBody.json
-             */
-            readonly $schema?: string;
-            revisions: components["schemas"]["ImageEditorRevisionSummary"][] | null;
-        };
-        ListImageEditorTemplatesOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListImageEditorTemplatesOutputBody.json
-             */
-            readonly $schema?: string;
-            can_edit: boolean;
-            templates: components["schemas"]["ImageEditorTemplateResponse"][] | null;
+            collections: components["schemas"]["MediaCollectionResponse"][] | null;
         };
         ListMediaOutputBody: {
             /**
@@ -6158,14 +5712,14 @@ export interface components {
             can_edit: boolean;
             tags: components["schemas"]["MediaTagResponse"][] | null;
         };
-        ListPublicImageEditorTemplatesOutputBody: {
+        ListPublicStudioTemplatesOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListPublicImageEditorTemplatesOutputBody.json
+             * @example https://example.com/schemas/ListPublicStudioTemplatesOutputBody.json
              */
             readonly $schema?: string;
-            templates: components["schemas"]["ImageEditorTemplateResponse"][] | null;
+            templates: components["schemas"]["StudioTemplateResponse"][] | null;
         };
         ListStockProvidersOutputBody: {
             /**
@@ -6176,6 +5730,37 @@ export interface components {
             readonly $schema?: string;
             enabled: boolean;
             providers: components["schemas"]["StockProviderResponse"][] | null;
+        };
+        ListStudioDesignsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListStudioDesignsOutputBody.json
+             */
+            readonly $schema?: string;
+            can_edit: boolean;
+            designs: components["schemas"]["StudioDesignSummary"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
+        ListStudioRevisionsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListStudioRevisionsOutputBody.json
+             */
+            readonly $schema?: string;
+            revisions: components["schemas"]["StudioRevisionSummary"][] | null;
+        };
+        ListStudioTemplatesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListStudioTemplatesOutputBody.json
+             */
+            readonly $schema?: string;
+            can_edit: boolean;
+            templates: components["schemas"]["StudioTemplateResponse"][] | null;
         };
         ListVideoProjectRevisionsOutputBody: {
             /**
@@ -6255,6 +5840,22 @@ export interface components {
             /** @description Server configuration name */
             name: string;
         };
+        MediaCollectionResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/MediaCollectionResponse.json
+             */
+            readonly $schema?: string;
+            color: string;
+            created_at: string;
+            id: string;
+            /** Format: int64 */
+            item_count: number;
+            name: string;
+            updated_at: string;
+            workspace_id: string;
+        };
         MediaConstraint: {
             allowed_mimes: string[] | null;
             aspect_ratios?: string[] | null;
@@ -6292,15 +5893,17 @@ export interface components {
             bit_rate: number;
             /** @description Whether media can be deleted */
             can_delete: boolean;
+            /** @description Collection IDs containing this media */
+            collections: string[] | null;
             /** @description Detected video color space */
             color_space?: string;
             /** @description Detected media container */
             container_format?: string;
             /** @description Creation time */
             created_at: string;
-            /** @description Producing OpenPost Image Editor design */
+            /** @description Producing Studio design */
             design_document_id?: string;
-            /** @description Producing OpenPost Image Editor page */
+            /** @description Producing Studio page */
             design_page_id?: string;
             /**
              * Format: int64
@@ -6374,7 +5977,7 @@ export interface components {
             video_codec?: string;
             /** @description Detected video codec profile */
             video_profile?: string;
-            /** @description Producing OpenPost Video Editor project */
+            /** @description Producing Video Studio project */
             video_project_id?: string;
             /**
              * Format: int64
@@ -6450,9 +6053,9 @@ export interface components {
             asset_kind: string;
             /** @description Whether an existing media attachment was reused */
             deduped: boolean;
-            /** @description Producing OpenPost Image Editor design ID */
+            /** @description Producing Studio design ID */
             design_document_id?: string;
-            /** @description Producing OpenPost Image Editor page ID */
+            /** @description Producing Studio page ID */
             design_page_id?: string;
             /** @description Media ID */
             id: string;
@@ -6480,7 +6083,7 @@ export interface components {
             source: string;
             /** @description URL to access the media */
             url: string;
-            /** @description Producing OpenPost Video Editor project ID */
+            /** @description Producing Video Studio project ID */
             video_project_id?: string;
         };
         MediaUsageItem: {
@@ -6827,17 +6430,6 @@ export interface components {
             current_seats: number;
             members: components["schemas"]["OrganizationMemberResponse"][] | null;
         };
-        Override: {
-            /**
-             * @description Use workspace rules, disable reposts, or use this post's custom rule
-             * @enum {string}
-             */
-            mode: "inherit" | "off" | "custom";
-            /** @description Custom timing and engagement gates */
-            rule?: components["schemas"]["Rule"];
-            /** @description Target accounts for a custom override */
-            target_account_ids?: string[] | null;
-        };
         Overview: {
             /**
              * Format: uri
@@ -6893,21 +6485,21 @@ export interface components {
             action: string;
             password: string;
         };
-        PlanVideoEditorSyncInputBody: {
+        PlanVideoStudioSyncInputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PlanVideoEditorSyncInputBody.json
+             * @example https://example.com/schemas/PlanVideoStudioSyncInputBody.json
              */
             readonly $schema?: string;
             project_id?: string;
-            sources: components["schemas"]["VideoEditorSyncSource"][] | null;
+            sources: components["schemas"]["VideoStudioSyncSource"][] | null;
         };
-        PlanVideoEditorSyncOutputBody: {
+        PlanVideoStudioSyncOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PlanVideoEditorSyncOutputBody.json
+             * @example https://example.com/schemas/PlanVideoStudioSyncOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -6915,8 +6507,8 @@ export interface components {
             allowed: boolean;
             missing_source_ids: string[] | null;
             reason: string | null;
-            reused: components["schemas"]["VideoEditorSyncReuse"][] | null;
-            storage: components["schemas"]["VideoEditorSyncStorage"];
+            reused: components["schemas"]["VideoStudioSyncReuse"][] | null;
+            storage: components["schemas"]["VideoStudioSyncStorage"];
         };
         Policy: {
             /**
@@ -6935,26 +6527,6 @@ export interface components {
             password_login_allowed: boolean;
             provider_ids: string[] | null;
             require_token_reauth: boolean;
-        };
-        PolicyInput: {
-            enabled: boolean;
-            id?: string;
-            name: string;
-            rule: components["schemas"]["Rule"];
-            /** @description Empty means every compatible source account in this workspace */
-            source_account_ids?: string[] | null;
-            target_account_ids: string[] | null;
-        };
-        PolicyResponse: {
-            created_at?: string;
-            enabled: boolean;
-            id?: string;
-            name: string;
-            rule: components["schemas"]["Rule"];
-            /** @description Empty means every compatible source account in this workspace */
-            source_account_ids?: string[] | null;
-            target_account_ids: string[] | null;
-            updated_at?: string;
         };
         PollCLIAuthInputBody: {
             /**
@@ -7163,19 +6735,6 @@ export interface components {
             utc_minute: number;
             /** @description Workspace ID */
             workspace_id: string;
-        };
-        PreferenceSettings: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PreferenceSettings.json
-             */
-            readonly $schema?: string;
-            email_address: string;
-            email_available: boolean;
-            preferences: {
-                [key: string]: components["schemas"]["ChannelPreference"];
-            };
         };
         PrimarySequenceClip: {
             audio: components["schemas"]["ClipAudioSettings"];
@@ -7554,7 +7113,6 @@ export interface components {
                 [key: string]: unknown;
             };
             renditions: components["schemas"]["RenditionResponse"][] | null;
-            repost_override: components["schemas"]["Override"];
             /** Format: int64 */
             revision: number;
             scheduled_at?: string;
@@ -7630,8 +7188,6 @@ export interface components {
             };
             /** @description Replacement destination renditions saved in the same transaction */
             renditions?: components["schemas"]["RenditionInput"][] | null;
-            /** @description Replace the per-publication repost override */
-            repost_override?: components["schemas"]["Override"];
             /**
              * Format: date-time
              * @description Optional schedule time
@@ -7866,6 +7422,30 @@ export interface components {
             title: string;
             url?: string;
         };
+        ReplaceMediaCollectionItemsInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ReplaceMediaCollectionItemsInputBody.json
+             */
+            readonly $schema?: string;
+            media_ids: string[] | null;
+            /**
+             * @default replace
+             * @enum {string}
+             */
+            mode: "replace" | "add" | "remove";
+        };
+        ReplaceMediaCollectionItemsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ReplaceMediaCollectionItemsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            count: number;
+        };
         ReplaceMediaTagItemsInputBody: {
             /**
              * Format: uri
@@ -7912,15 +7492,6 @@ export interface components {
             settings?: {
                 [key: string]: unknown;
             };
-        };
-        RepostGrantOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RepostGrantOutputBody.json
-             */
-            readonly $schema?: string;
-            message: string;
         };
         RequestPasswordResetInputBody: {
             /**
@@ -8091,11 +7662,11 @@ export interface components {
             key: string;
             settings: components["schemas"]["SettingDefinition"][] | null;
         };
-        RestoreImageEditorRevisionInputBody: {
+        RestoreStudioRevisionInputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RestoreImageEditorRevisionInputBody.json
+             * @example https://example.com/schemas/RestoreStudioRevisionInputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -8153,50 +7724,6 @@ export interface components {
             readonly $schema?: string;
             revoked: boolean;
         };
-        Rule: {
-            /**
-             * Format: int64
-             * @description Wait after publishing before the first eligibility check
-             */
-            delay_seconds: number;
-            /**
-             * Format: int64
-             * @description How long OpenPost may wait for engagement gates
-             */
-            evaluation_window_seconds: number;
-            /**
-             * Format: int64
-             * @description Minimum comments; zero disables this gate
-             */
-            min_comments: number;
-            /**
-             * Format: int64
-             * @description Minimum likes; zero disables this gate
-             */
-            min_likes: number;
-            /**
-             * Format: int64
-             * @description Minimum reposts or shares; zero disables this gate
-             */
-            min_reposts: number;
-            /**
-             * Format: int64
-             * @description Minimum views; zero disables this gate
-             */
-            min_views: number;
-            /**
-             * Format: int64
-             * @description Consecutive unchanged analytics checks required
-             */
-            plateau_checks: number;
-            /** @description Wait until stored engagement has stopped changing */
-            require_plateau: boolean;
-            /**
-             * @description Require all configured thresholds or any one
-             * @enum {string}
-             */
-            threshold_mode: "all" | "any";
-        };
         SaveInstanceSettingsInputBody: {
             /**
              * Format: uri
@@ -8241,18 +7768,6 @@ export interface components {
             existed: boolean;
             /** @description Whether the server must restart before adapter changes apply */
             requires_restart: boolean;
-        };
-        SaveRepostSettingsInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SaveRepostSettingsInputBody.json
-             */
-            readonly $schema?: string;
-            /** @description Complete replacement set of workspace repost rules */
-            policies: components["schemas"]["PolicyInput"][] | null;
-            /** @description Workspace ID */
-            workspace_id: string;
         };
         SaveTextPostDraftInputBody: {
             /**
@@ -8493,20 +8008,6 @@ export interface components {
             type: string;
             unavailable_reason?: string;
         };
-        SettingsResponse: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SettingsResponse.json
-             */
-            readonly $schema?: string;
-            accounts: components["schemas"]["AccountOption"][] | null;
-            can_manage: boolean;
-            grants: components["schemas"]["GrantResponse"][] | null;
-            policies: components["schemas"]["PolicyResponse"][] | null;
-            supported_platforms: string[] | null;
-            workspace_id: string;
-        };
         SetupTOTPInputBody: {
             /**
              * Format: uri
@@ -8619,6 +8120,437 @@ export interface components {
             provider_url: string;
             videos: boolean;
         };
+        StudioBrandAsset: {
+            id?: string;
+            media_id: string;
+            name: string;
+            /** @enum {string} */
+            role: "primary_logo" | "secondary_logo" | "mark" | "watermark";
+        };
+        StudioBrandColor: {
+            id: string;
+            name: string;
+            value: string;
+        };
+        StudioBrandFont: {
+            css_family?: string;
+            family: string;
+            id?: string;
+            license_acknowledged?: boolean;
+            license_acknowledged_at?: string;
+            license_acknowledged_by?: string;
+            media_id: string;
+            /** @enum {string} */
+            style: "normal" | "italic";
+            /** Format: int64 */
+            weight: number;
+        };
+        StudioBrandKitResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/StudioBrandKitResponse.json
+             */
+            readonly $schema?: string;
+            assets: components["schemas"]["StudioBrandAsset"][] | null;
+            backgrounds: string[] | null;
+            can_edit: boolean;
+            colors: components["schemas"]["StudioBrandColor"][] | null;
+            exists: boolean;
+            fonts: components["schemas"]["StudioBrandFont"][] | null;
+            id?: string;
+            name: string;
+            /** Format: int64 */
+            revision: number;
+            text_styles: components["schemas"]["StudioBrandTextStyle"][] | null;
+            updated_at?: string;
+            workspace_id: string;
+        };
+        StudioBrandTextStyle: {
+            color: string;
+            font_asset_id?: string;
+            font_family: string;
+            /** Format: double */
+            font_size: number;
+            font_style: string;
+            /** Format: int64 */
+            font_weight: number;
+            id: string;
+            /** Format: double */
+            letter_spacing: number;
+            /** Format: double */
+            line_height: number;
+            name: string;
+        };
+        StudioCrop: {
+            /** Format: double */
+            height: number;
+            /** Format: double */
+            width: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
+        StudioDesignSummary: {
+            cover_preview_media_id?: string;
+            created_at: string;
+            /** Format: int64 */
+            height_px: number;
+            id: string;
+            is_favorite: boolean;
+            /** Format: int64 */
+            page_count: number;
+            preset_key: string;
+            /** Format: int64 */
+            revision: number;
+            title: string;
+            updated_at: string;
+            /** Format: int64 */
+            width_px: number;
+        };
+        StudioDocumentPayload: {
+            brand_kit_id?: string;
+            /** Format: int64 */
+            brand_kit_revision: number;
+            export_defaults: components["schemas"]["StudioExportDefaults"];
+            /** Format: int64 */
+            height_px: number;
+            pages: components["schemas"]["StudioPagePayload"][] | null;
+            preset_key: string;
+            /** Format: int64 */
+            schema_version: number;
+            title: string;
+            /** Format: int64 */
+            width_px: number;
+        };
+        StudioDocumentResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/StudioDocumentResponse.json
+             */
+            readonly $schema?: string;
+            can_edit: boolean;
+            cover_preview_media_id?: string;
+            created_at: string;
+            created_by_id: string;
+            document: components["schemas"]["StudioDocumentPayload"];
+            id: string;
+            /** Format: int64 */
+            revision: number;
+            updated_at: string;
+            workspace_id: string;
+        };
+        StudioEraseMask: {
+            /** Format: double */
+            source_height: number;
+            /** Format: double */
+            source_width: number;
+            spans: components["schemas"]["StudioPaintSpan"][] | null;
+            strokes: components["schemas"]["StudioEraseStroke"][] | null;
+        };
+        StudioEraseStroke: {
+            points: components["schemas"]["StudioPaintPoint"][] | null;
+            /** Format: double */
+            size: number;
+        };
+        StudioExportDefaults: {
+            /** @enum {string} */
+            format: "png" | "jpeg" | "webp";
+            matte_color: string;
+            /** Format: double */
+            quality: number;
+        };
+        StudioGradientStop: {
+            color: string;
+            /** Format: double */
+            offset: number;
+        };
+        StudioGradientValue: {
+            end: components["schemas"]["StudioPaintPoint"];
+            reverse: boolean;
+            start: components["schemas"]["StudioPaintPoint"];
+            stops: components["schemas"]["StudioGradientStop"][] | null;
+            /** @enum {string} */
+            type: "linear" | "radial" | "angle" | "reflected" | "diamond";
+        };
+        StudioImageAdjustments: {
+            /** Format: double */
+            blur: number;
+            /** Format: double */
+            brightness: number;
+            /** Format: double */
+            contrast: number;
+            /** Format: double */
+            exposure: number;
+            /** Format: double */
+            highlights: number;
+            /** Format: double */
+            hue: number;
+            /** Format: double */
+            saturation: number;
+            /** Format: double */
+            shadows: number;
+            /** Format: double */
+            temperature: number;
+            /** Format: double */
+            tint: number;
+            /** Format: double */
+            vibrance: number;
+        };
+        StudioImageValue: {
+            adjustments: components["schemas"]["StudioImageAdjustments"];
+            crop: components["schemas"]["StudioCrop"];
+            /** @enum {string} */
+            fit: "cover" | "contain" | "stretch";
+            intrinsic_pending?: boolean;
+            media_id: string;
+            /** Format: int64 */
+            source_height: number;
+            /** Format: int64 */
+            source_width: number;
+        };
+        StudioLayer: {
+            effects?: components["schemas"]["StudioLayerEffects"];
+            erase_mask?: components["schemas"]["StudioEraseMask"];
+            id: string;
+            image?: components["schemas"]["StudioImageValue"];
+            locked: boolean;
+            mask?: components["schemas"]["StudioLayerMask"];
+            name: string;
+            /** Format: double */
+            opacity: number;
+            paint?: components["schemas"]["StudioPaintValue"];
+            parent_id?: string;
+            shape?: components["schemas"]["StudioShapeValue"];
+            text?: components["schemas"]["StudioTextValue"];
+            transform: components["schemas"]["StudioTransform"];
+            /** @enum {string} */
+            type: "text" | "image" | "shape" | "paint" | "group";
+            visible: boolean;
+        };
+        StudioLayerEffects: {
+            /** @enum {string} */
+            blend_mode: "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "soft_light";
+            drop_shadow?: components["schemas"]["StudioShadowEffect"];
+            inner_shadow?: components["schemas"]["StudioShadowEffect"];
+            stroke?: components["schemas"]["StudioStrokeEffect"];
+        };
+        StudioLayerMask: {
+            /** Format: double */
+            inset: number;
+            /** Format: double */
+            radius: number;
+            /** @enum {string} */
+            shape: "rectangle" | "rounded_rectangle" | "circle" | "ellipse" | "diamond";
+        };
+        StudioPageBackground: {
+            color?: string;
+            gradient?: components["schemas"]["StudioGradientValue"];
+            image?: components["schemas"]["StudioPageBackgroundImage"];
+            /** Format: double */
+            opacity: number;
+            /** @enum {string} */
+            type: "transparent" | "solid" | "gradient" | "image";
+        };
+        StudioPageBackgroundImage: {
+            /** @enum {string} */
+            fit: "cover" | "contain" | "stretch";
+            media_id: string;
+        };
+        StudioPagePayload: {
+            background?: components["schemas"]["StudioPageBackground"];
+            background_color: string;
+            id: string;
+            latest_export_media_id?: string;
+            layers: components["schemas"]["StudioLayer"][] | null;
+            name: string;
+            preview_media_id?: string;
+        };
+        StudioPaintPoint: {
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
+        StudioPaintSpan: {
+            /** Format: double */
+            width: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
+        StudioPaintValue: {
+            color: string;
+            gradient?: components["schemas"]["StudioGradientValue"];
+            /** @enum {string} */
+            kind: "stroke" | "fill" | "gradient";
+            /** Format: double */
+            opacity: number;
+            points: components["schemas"]["StudioPaintPoint"][] | null;
+            /** Format: double */
+            size: number;
+            /** Format: double */
+            source_height: number;
+            /** Format: double */
+            source_width: number;
+            spans: components["schemas"]["StudioPaintSpan"][] | null;
+        };
+        StudioPreset: {
+            /**
+             * @description Default export format
+             * @enum {string}
+             */
+            default_format: "png" | "jpeg" | "webp";
+            /**
+             * Format: int64
+             * @description Canvas height in pixels
+             */
+            height_px: number;
+            /** @description Stable preset key */
+            key: string;
+            /** @description User-visible preset name */
+            name: string;
+            /** @description Compatible provider content profiles */
+            profiles: string[] | null;
+            /**
+             * Format: int64
+             * @description Canvas width in pixels
+             */
+            width_px: number;
+        };
+        StudioPresetOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/StudioPresetOutputBody.json
+             */
+            readonly $schema?: string;
+            background_model_base_url: string;
+            enabled: boolean;
+            presets: components["schemas"]["StudioPreset"][] | null;
+            /** Format: int64 */
+            schema_version: number;
+        };
+        StudioRevisionSummary: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/StudioRevisionSummary.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            expires_at?: string;
+            id: string;
+            kind: string;
+            name?: string;
+            /** Format: int64 */
+            revision: number;
+        };
+        StudioShadowEffect: {
+            /** Format: double */
+            angle: number;
+            /** Format: double */
+            blur: number;
+            color: string;
+            /** Format: double */
+            distance: number;
+            /** Format: double */
+            opacity: number;
+        };
+        StudioShapeValue: {
+            fill: string;
+            /** @enum {string} */
+            kind: "rectangle" | "rounded_rectangle" | "ellipse" | "line";
+            /** Format: double */
+            radius: number;
+            stroke: string;
+            /** Format: double */
+            stroke_width: number;
+        };
+        StudioStrokeEffect: {
+            color: string;
+            /** Format: double */
+            opacity: number;
+            /** @enum {string} */
+            position: "inside" | "center" | "outside";
+            /** Format: double */
+            width: number;
+        };
+        StudioTemplateResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/StudioTemplateResponse.json
+             */
+            readonly $schema?: string;
+            built_in: boolean;
+            category: string;
+            created_at?: string;
+            document: components["schemas"]["StudioDocumentPayload"];
+            id: string;
+            name: string;
+            preset_key: string;
+            preview_media_id?: string;
+            updated_at?: string;
+            workspace_id?: string;
+        };
+        StudioTextCurve: {
+            /** Format: double */
+            offset: number;
+            reverse: boolean;
+            /** Format: double */
+            strength: number;
+            /** @enum {string} */
+            type: "none" | "arc_up" | "arc_down" | "wave" | "circle" | "ellipse";
+        };
+        StudioTextShadow: {
+            /** Format: double */
+            blur: number;
+            color: string;
+            /** Format: double */
+            offset_x: number;
+            /** Format: double */
+            offset_y: number;
+        };
+        StudioTextValue: {
+            align: string;
+            color: string;
+            curve?: components["schemas"]["StudioTextCurve"];
+            font_asset_id?: string;
+            font_family: string;
+            /** Format: double */
+            font_size: number;
+            font_style: string;
+            /** Format: int64 */
+            font_weight: number;
+            highlight_color?: string;
+            /** Format: double */
+            letter_spacing: number;
+            /** Format: double */
+            line_height: number;
+            shadow: components["schemas"]["StudioTextShadow"];
+            stroke_color?: string;
+            /** Format: double */
+            stroke_width: number;
+            text: string;
+        };
+        StudioTransform: {
+            flip_x: boolean;
+            flip_y: boolean;
+            /** Format: double */
+            height: number;
+            /** Format: double */
+            rotation: number;
+            /** Format: double */
+            width: number;
+            /** Format: double */
+            x: number;
+            /** Format: double */
+            y: number;
+        };
         SubmitFeedbackInputBody: {
             /**
              * Format: uri
@@ -8702,8 +8634,6 @@ export interface components {
             };
             /** @description Replacement destination renditions */
             renditions?: components["schemas"]["RenditionInput"][] | null;
-            /** @description Per-publication repost override */
-            repost_override?: components["schemas"]["Override"];
             /**
              * Format: date-time
              * @description Optional schedule time
@@ -8766,11 +8696,11 @@ export interface components {
             /** Format: int64 */
             time_us: number;
         };
-        ToggleImageEditorDesignFavoriteOutputBody: {
+        ToggleStudioDesignFavoriteOutputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ToggleImageEditorDesignFavoriteOutputBody.json
+             * @example https://example.com/schemas/ToggleStudioDesignFavoriteOutputBody.json
              */
             readonly $schema?: string;
             is_favorite: boolean;
@@ -8795,46 +8725,15 @@ export interface components {
             /** @description New account slug. Use lowercase letters, numbers, and hyphens. */
             slug: string;
         };
-        UpdateImageEditorBrandKitInputBody: {
+        UpdateMediaCollectionInputBody: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateImageEditorBrandKitInputBody.json
+             * @example https://example.com/schemas/UpdateMediaCollectionInputBody.json
              */
             readonly $schema?: string;
-            assets: components["schemas"]["ImageEditorBrandAsset"][] | null;
-            backgrounds: string[] | null;
-            colors: components["schemas"]["ImageEditorBrandColor"][] | null;
-            fonts: components["schemas"]["ImageEditorBrandFont"][] | null;
+            color: string;
             name: string;
-            text_styles: components["schemas"]["ImageEditorBrandTextStyle"][] | null;
-            workspace_id: string;
-        };
-        UpdateImageEditorDesignInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateImageEditorDesignInputBody.json
-             */
-            readonly $schema?: string;
-            cover_preview_media_id?: string;
-            document: components["schemas"]["ImageEditorDocumentPayload"];
-            /** Format: int64 */
-            expected_revision: number;
-            /** @enum {string} */
-            recovery_reason?: "idle" | "export" | "close";
-        };
-        UpdateImageEditorTemplateInputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateImageEditorTemplateInputBody.json
-             */
-            readonly $schema?: string;
-            category: string;
-            document: components["schemas"]["ImageEditorDocumentPayload"];
-            name: string;
-            preview_media_id?: string;
         };
         UpdateMediaFavoriteOutputBody: {
             /**
@@ -8965,6 +8864,47 @@ export interface components {
              * @enum {string}
              */
             state: "current" | "update_available" | "stale" | "unavailable" | "disabled" | "development";
+        };
+        UpdateStudioBrandKitInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateStudioBrandKitInputBody.json
+             */
+            readonly $schema?: string;
+            assets: components["schemas"]["StudioBrandAsset"][] | null;
+            backgrounds: string[] | null;
+            colors: components["schemas"]["StudioBrandColor"][] | null;
+            fonts: components["schemas"]["StudioBrandFont"][] | null;
+            name: string;
+            text_styles: components["schemas"]["StudioBrandTextStyle"][] | null;
+            workspace_id: string;
+        };
+        UpdateStudioDesignInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateStudioDesignInputBody.json
+             */
+            readonly $schema?: string;
+            cover_preview_media_id?: string;
+            document: components["schemas"]["StudioDocumentPayload"];
+            /** Format: int64 */
+            expected_revision: number;
+            /** @enum {string} */
+            recovery_reason?: "idle" | "export" | "close";
+        };
+        UpdateStudioTemplateInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/UpdateStudioTemplateInputBody.json
+             */
+            readonly $schema?: string;
+            category: string;
+            document: components["schemas"]["StudioDocumentPayload"];
+            name: string;
+            preview_media_id?: string;
         };
         UpdateVideoProjectInputBody: {
             /**
@@ -9209,74 +9149,6 @@ export interface components {
             /** @description Pending MFA challenge token */
             mfa_token: string;
         };
-        VideoEditorConfigOutputBody: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/VideoEditorConfigOutputBody.json
-             */
-            readonly $schema?: string;
-            enabled: boolean;
-            limits: components["schemas"]["VideoEditorLimits"];
-            model_manifest: components["schemas"]["VideoEditorModelManifestItem"][] | null;
-            /** Format: int64 */
-            schema_version: number;
-            stock_providers: string[] | null;
-        };
-        VideoEditorLimits: {
-            /** Format: int64 */
-            max_document_bytes: number;
-            /** Format: int64 */
-            max_duration_seconds: number;
-            /** Format: int64 */
-            max_export_fps: number;
-            /** Format: int64 */
-            max_export_height: number;
-            /** Format: int64 */
-            max_export_width: number;
-            /** Format: int64 */
-            max_sources: number;
-        };
-        VideoEditorModelManifestItem: {
-            fingerprint: string;
-            id: string;
-            /** @enum {string} */
-            kind: "transcription" | "vad" | "reframing";
-            license_name: string;
-            license_reference: string;
-            license_url: string;
-            required_backends: string[] | null;
-            resumable: boolean;
-            /** Format: int64 */
-            runtime_bytes_wasm: number;
-            /** Format: int64 */
-            runtime_bytes_webgpu: number;
-            sha256: string;
-            /** Format: int64 */
-            size_bytes: number;
-            url: string;
-            version: string;
-        };
-        VideoEditorSyncReuse: {
-            media_id: string;
-            source_id: string;
-        };
-        VideoEditorSyncSource: {
-            mime_type: string;
-            original_name: string;
-            sha256: string;
-            /** Format: int64 */
-            size_bytes: number;
-            source_id: string;
-        };
-        VideoEditorSyncStorage: {
-            /** Format: int64 */
-            limit_bytes: number | null;
-            /** Format: int64 */
-            remaining_bytes: number | null;
-            /** Format: int64 */
-            used_bytes: number;
-        };
         VideoEffect: {
             keyframes?: components["schemas"]["NumericKeyframe"][] | null;
             /** @enum {string} */
@@ -9410,6 +9282,74 @@ export interface components {
             readonly $schema?: string;
             exports: components["schemas"]["VideoReturnExport"][] | null;
             project_id: string;
+        };
+        VideoStudioConfigOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/VideoStudioConfigOutputBody.json
+             */
+            readonly $schema?: string;
+            enabled: boolean;
+            limits: components["schemas"]["VideoStudioLimits"];
+            model_manifest: components["schemas"]["VideoStudioModelManifestItem"][] | null;
+            /** Format: int64 */
+            schema_version: number;
+            stock_providers: string[] | null;
+        };
+        VideoStudioLimits: {
+            /** Format: int64 */
+            max_document_bytes: number;
+            /** Format: int64 */
+            max_duration_seconds: number;
+            /** Format: int64 */
+            max_export_fps: number;
+            /** Format: int64 */
+            max_export_height: number;
+            /** Format: int64 */
+            max_export_width: number;
+            /** Format: int64 */
+            max_sources: number;
+        };
+        VideoStudioModelManifestItem: {
+            fingerprint: string;
+            id: string;
+            /** @enum {string} */
+            kind: "transcription" | "vad" | "reframing";
+            license_name: string;
+            license_reference: string;
+            license_url: string;
+            required_backends: string[] | null;
+            resumable: boolean;
+            /** Format: int64 */
+            runtime_bytes_wasm: number;
+            /** Format: int64 */
+            runtime_bytes_webgpu: number;
+            sha256: string;
+            /** Format: int64 */
+            size_bytes: number;
+            url: string;
+            version: string;
+        };
+        VideoStudioSyncReuse: {
+            media_id: string;
+            source_id: string;
+        };
+        VideoStudioSyncSource: {
+            mime_type: string;
+            original_name: string;
+            sha256: string;
+            /** Format: int64 */
+            size_bytes: number;
+            source_id: string;
+        };
+        VideoStudioSyncStorage: {
+            /** Format: int64 */
+            limit_bytes: number | null;
+            /** Format: int64 */
+            remaining_bytes: number | null;
+            /** Format: int64 */
+            used_bytes: number;
         };
         VideoVariant: {
             background_color: string;
@@ -14399,1368 +14339,6 @@ export interface operations {
             };
         };
     };
-    "get-image-editor-brand-kit": {
-        parameters: {
-            query: {
-                workspace_id: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorBrandKitResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "update-image-editor-brand-kit": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateImageEditorBrandKitInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorBrandKitResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-image-editor-designs": {
-        parameters: {
-            query: {
-                workspace_id: string;
-                search?: string;
-                limit?: number;
-                offset?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListImageEditorDesignsOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "create-image-editor-design": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateImageEditorDesignInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "get-image-editor-design": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "delete-image-editor-design": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteImageEditorDesignOutputBody"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "update-image-editor-design": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateImageEditorDesignInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "duplicate-image-editor-design": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "toggle-image-editor-design-favorite": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ToggleImageEditorDesignFavoriteOutputBody"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-image-editor-design-revisions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListImageEditorRevisionsOutputBody"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "create-image-editor-design-checkpoint": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateImageEditorCheckpointInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorRevisionSummary"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "restore-image-editor-design-revision": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                revision_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RestoreImageEditorRevisionInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-image-editor-presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorPresetOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-public-image-editor-templates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListPublicImageEditorTemplatesOutputBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "create-image-editor-return-token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateImageEditorReturnTokenInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CreateImageEditorReturnTokenOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "complete-image-editor-return-token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CompleteImageEditorReturnTokenInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["CompleteImageEditorReturnTokenOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "consume-image-editor-return-token": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConsumeImageEditorReturnTokenOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-image-editor-templates": {
-        parameters: {
-            query: {
-                workspace_id: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ListImageEditorTemplatesOutputBody"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "create-image-editor-template": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateImageEditorTemplateInputBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorTemplateResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "delete-image-editor-template": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["DeleteImageEditorTemplateOutputBody"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "update-image-editor-template": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateImageEditorTemplateInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorTemplateResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "instantiate-image-editor-template": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["InstantiateImageEditorTemplateInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageEditorDocumentResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "list-jobs": {
         parameters: {
             query?: {
@@ -15943,7 +14521,7 @@ export interface operations {
                 filter?: string;
                 /** @description Sort: newest, oldest, name, size, recently_used */
                 sort?: string;
-                /** @description Search filename, alt text, and tag */
+                /** @description Search filename, alt text, tag, and collection */
                 search?: string;
                 /** @description Filter by dominant media type */
                 type?: string;
@@ -15953,12 +14531,10 @@ export interface operations {
                 asset_kind?: string;
                 /** @description Filter: square, portrait, landscape */
                 aspect?: string;
-                /** @description Filter by one tag ID */
+                /** @description Filter by collection ID */
+                collection_id?: string;
+                /** @description Filter by tag ID */
                 tag_id?: string;
-                /** @description Comma-separated tag IDs; media must have every selected tag */
-                tag_ids?: string;
-                /** @description Only media that has no tags */
-                untagged?: boolean;
                 min_width?: number;
                 min_height?: number;
                 max_width?: number;
@@ -16076,6 +14652,171 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-media-collections": {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMediaCollectionsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-media-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMediaCollectionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaCollectionResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-media-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteMediaCollectionOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-media-collection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateMediaCollectionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MediaCollectionResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "replace-media-collection-items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceMediaCollectionItemsInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplaceMediaCollectionItemsOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -16987,7 +15728,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreferenceSettings"];
+                    "application/json": {
+                        [key: string]: components["schemas"]["ChannelPreference"];
+                    };
                 };
             };
             /** @description Error */
@@ -17022,7 +15765,9 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PreferenceSettings"];
+                    "application/json": {
+                        [key: string]: components["schemas"]["ChannelPreference"];
+                    };
                 };
             };
             /** @description Error */
@@ -20079,178 +18824,6 @@ export interface operations {
             };
         };
     };
-    "revoke-repost-account-grant": {
-        parameters: {
-            query: {
-                /** @description Workspace requesting revocation */
-                workspace_id: string;
-            };
-            header?: never;
-            path: {
-                /** @description Grant ID */
-                grant_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RepostGrantOutputBody"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "get-repost-automation": {
-        parameters: {
-            query: {
-                /** @description Workspace ID */
-                workspace_id: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsResponse"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "save-repost-automation": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveRepostSettingsInputBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SettingsResponse"];
-                };
-            };
-            /** @description Bad Request */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Forbidden */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Unprocessable Entity */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-            /** @description Internal Server Error */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "list-stock-media-providers": {
         parameters: {
             query?: never;
@@ -20458,7 +19031,777 @@ export interface operations {
             };
         };
     };
-    "get-video-editor-config": {
+    "get-studio-brand-kit": {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioBrandKitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-studio-brand-kit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudioBrandKitInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioBrandKitResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-studio-designs": {
+        parameters: {
+            query: {
+                workspace_id: string;
+                search?: string;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListStudioDesignsOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-studio-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudioDesignInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-studio-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioDocumentResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-studio-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteStudioDesignOutputBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-studio-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudioDesignInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "duplicate-studio-design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioDocumentResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "toggle-studio-design-favorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ToggleStudioDesignFavoriteOutputBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-studio-design-revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListStudioRevisionsOutputBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-studio-design-checkpoint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudioCheckpointInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioRevisionSummary"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "restore-studio-design-revision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                revision_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreStudioRevisionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-studio-presets": {
         parameters: {
             query?: never;
             header?: never;
@@ -20473,7 +19816,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VideoEditorConfigOutputBody"];
+                    "application/json": components["schemas"]["StudioPresetOutputBody"];
                 };
             };
             /** @description Error */
@@ -20487,7 +19830,599 @@ export interface operations {
             };
         };
     };
-    "list-video-editor-projects": {
+    "list-public-studio-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListPublicStudioTemplatesOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-studio-return-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudioReturnTokenInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateStudioReturnTokenOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "complete-studio-return-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteStudioReturnTokenInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompleteStudioReturnTokenOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "consume-studio-return-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumeStudioReturnTokenOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-studio-templates": {
+        parameters: {
+            query: {
+                workspace_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListStudioTemplatesOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-studio-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateStudioTemplateInputBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioTemplateResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-studio-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeleteStudioTemplateOutputBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-studio-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStudioTemplateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioTemplateResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "instantiate-studio-template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstantiateStudioTemplateInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StudioDocumentResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-video-studio-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VideoStudioConfigOutputBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-video-studio-projects": {
         parameters: {
             query: {
                 workspace_id: string;
@@ -20548,7 +20483,7 @@ export interface operations {
             };
         };
     };
-    "create-video-editor-project": {
+    "create-video-studio-project": {
         parameters: {
             query?: never;
             header?: never;
@@ -20608,7 +20543,7 @@ export interface operations {
             };
         };
     };
-    "get-video-editor-project": {
+    "get-video-studio-project": {
         parameters: {
             query?: never;
             header?: never;
@@ -20666,7 +20601,7 @@ export interface operations {
             };
         };
     };
-    "delete-video-editor-project": {
+    "delete-video-studio-project": {
         parameters: {
             query?: never;
             header?: never;
@@ -20724,7 +20659,7 @@ export interface operations {
             };
         };
     };
-    "update-video-editor-project": {
+    "update-video-studio-project": {
         parameters: {
             query?: never;
             header?: never;
@@ -20804,7 +20739,7 @@ export interface operations {
             };
         };
     };
-    "create-video-editor-project-checkpoint": {
+    "create-video-studio-project-checkpoint": {
         parameters: {
             query?: never;
             header?: never;
@@ -20875,7 +20810,7 @@ export interface operations {
             };
         };
     };
-    "list-video-editor-project-revisions": {
+    "list-video-studio-project-revisions": {
         parameters: {
             query?: never;
             header?: never;
@@ -20933,7 +20868,7 @@ export interface operations {
             };
         };
     };
-    "restore-video-editor-project-revision": {
+    "restore-video-studio-project-revision": {
         parameters: {
             query?: never;
             header?: never;
@@ -21014,7 +20949,7 @@ export interface operations {
             };
         };
     };
-    "create-video-editor-return-token": {
+    "create-video-studio-return-token": {
         parameters: {
             query?: never;
             header?: never;
@@ -21074,7 +21009,7 @@ export interface operations {
             };
         };
     };
-    "complete-video-editor-return-token": {
+    "complete-video-studio-return-token": {
         parameters: {
             query?: never;
             header?: never;
@@ -21154,7 +21089,7 @@ export interface operations {
             };
         };
     };
-    "consume-video-editor-return-token": {
+    "consume-video-studio-return-token": {
         parameters: {
             query?: never;
             header?: never;
@@ -21230,7 +21165,7 @@ export interface operations {
             };
         };
     };
-    "plan-video-editor-sync": {
+    "plan-video-studio-sync": {
         parameters: {
             query?: never;
             header: {
@@ -21242,7 +21177,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PlanVideoEditorSyncInputBody"];
+                "application/json": components["schemas"]["PlanVideoStudioSyncInputBody"];
             };
         };
         responses: {
@@ -21252,7 +21187,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["PlanVideoEditorSyncOutputBody"];
+                    "application/json": components["schemas"]["PlanVideoStudioSyncOutputBody"];
                 };
             };
             /** @description Bad Request */

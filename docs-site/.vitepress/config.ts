@@ -1,4 +1,3 @@
-import { resolveDocsSocial } from '@openpost/social-images';
 import { defineConfig } from 'vitepress';
 
 // Default to root-path hosting so custom-domain deployments work without extra config.
@@ -28,7 +27,6 @@ const userDocsSidebar = [
 			{ text: 'Destination Options', link: '/usage/destination-options' },
 			{ text: 'Threads', link: '/usage/threads' },
 			{ text: 'Scheduling', link: '/usage/scheduling' },
-			{ text: 'Auto Reposts', link: '/usage/auto-reposts' },
 			{ text: 'Analytics', link: '/usage/analytics' },
 			{ text: 'Media Library', link: '/usage/media-library' },
 			{ text: 'OpenPost Studio', link: '/usage/studio' },
@@ -176,6 +174,10 @@ export default defineConfig({
 	lastUpdated: true,
 	head: [
 		['link', { rel: 'icon', href: `${docsBase}assets/brand/icon.svg` }],
+		['meta', { property: 'og:type', content: 'website' }],
+		['meta', { property: 'og:title', content: 'OpenPost' }],
+		['meta', { property: 'og:description', content: 'Draft, adapt, schedule, and automate social posts with the managed OpenPost app or the same self-hosted product.' }],
+		['meta', { property: 'og:image', content: `${docsBase}assets/brand/og-image.png` }],
 		[
 			'script',
 			{
@@ -185,35 +187,6 @@ export default defineConfig({
 			},
 		],
 	],
-	transformHead({ page, pageData }) {
-		const frontmatterDescription = pageData.frontmatter.description;
-		const social = resolveDocsSocial({
-			page,
-			title: pageData.title,
-			description:
-				typeof frontmatterDescription === 'string' ? frontmatterDescription : undefined,
-		});
-		const image = social.imageUrl;
-		return [
-			['link', { rel: 'canonical', href: social.canonical }],
-			['meta', { property: 'og:site_name', content: 'OpenPost Docs' }],
-			['meta', { property: 'og:type', content: 'website' }],
-			['meta', { property: 'og:title', content: social.socialTitle }],
-			['meta', { property: 'og:description', content: social.description }],
-			['meta', { property: 'og:url', content: social.canonical }],
-			['meta', { property: 'og:image', content: image }],
-			['meta', { property: 'og:image:secure_url', content: image }],
-			['meta', { property: 'og:image:type', content: 'image/png' }],
-			['meta', { property: 'og:image:width', content: '1200' }],
-			['meta', { property: 'og:image:height', content: '630' }],
-			['meta', { property: 'og:image:alt', content: social.imageAlt }],
-			['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-			['meta', { name: 'twitter:title', content: social.socialTitle }],
-			['meta', { name: 'twitter:description', content: social.description }],
-			['meta', { name: 'twitter:image', content: image }],
-			['meta', { name: 'twitter:image:alt', content: social.imageAlt }],
-		];
-	},
 	themeConfig: {
 		logo: '/assets/brand/icon.svg',
 		nav: [

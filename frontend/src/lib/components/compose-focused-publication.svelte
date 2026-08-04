@@ -19,7 +19,6 @@
 	import ComposerPublishActions from './composer-publish-actions.svelte';
 	import SaveIndicator from './save-indicator.svelte';
 	import ComposerScheduleDialog from './composer-schedule-dialog.svelte';
-	import ComposerRepostControl from './composer-repost-control.svelte';
 	import ComposerValidationMenu from './composer-validation-menu.svelte';
 	import DestinationSettingsDialog from './destination-settings-dialog.svelte';
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
@@ -72,17 +71,14 @@
 	import Trash2Icon from 'lucide-svelte/icons/trash-2';
 	import XIcon from 'lucide-svelte/icons/x';
 	import { m } from '$lib/paraglide/messages';
-	import {
-		consumeImageEditorReturnToken,
-		createImageEditorReturnToken
-	} from '$lib/image-editor/api';
-	import { consumeVideoReturnToken, createVideoReturnToken } from '$lib/video-editor/api';
+	import { consumeStudioReturnToken, createStudioReturnToken } from '$lib/studio/api';
+	import { consumeVideoReturnToken, createVideoReturnToken } from '$lib/video-studio/api';
 	import {
 		clearComposerRecovery,
 		loadComposerRecovery,
 		storeComposerRecovery
-	} from '$lib/image-editor/recovery';
-	import type { ComposerRecoverySnapshot, ImageEditorMediaItem } from '$lib/image-editor/types';
+	} from '$lib/studio/recovery';
+	import type { ComposerRecoverySnapshot, StudioMediaItem } from '$lib/studio/types';
 	import { parseDraftConflict, type DraftConflictProblem } from '$lib/draft-conflict';
 	import { SerializedSaveQueue } from '$lib/serialized-save-queue';
 	import { effectiveVideoConstraints } from '$lib/video/constraints';
@@ -114,7 +110,7 @@
 		includeInCanonical?: boolean;
 	}
 
-	interface FocusedImageEditorSnapshotPayload {
+	interface FocusedStudioSnapshotPayload {
 		mode: ComposerModeKey;
 		publication_id: string;
 		selected_workspace_id: string;
@@ -130,7 +126,6 @@
 		selected_date?: string;
 		selected_time: string | null;
 		picker_purpose: 'media' | 'thumbnail';
-		repost_override: components['schemas']['Override'];
 	}
 
 	interface Props {
@@ -159,7 +154,6 @@
 
 	let publicationId = $state('');
 	let revision = $state(1);
-	let repostOverride = $state<components['schemas']['Override']>({ mode: 'inherit' });
 	let hydratedPublicationId = $state('');
 	let selectedWorkspaceId = $state('');
 	let accounts = $state<SocialAccount[]>([]);
@@ -364,8 +358,8 @@
 			workspaceCtx.currentWorkspace?.id ||
 			'';
 		await loadInitialData();
-		await restoreImageEditorReturn();
-		await restoreVideoEditorReturn();
+		await restoreStudioReturn();
+		await restoreVideoStudioReturn();
 	});
 
 	onMount(() => {
@@ -586,7 +580,6 @@
 		hydratedPublicationId = publication.id;
 		publicationId = publication.id;
 		revision = publication.revision;
-		repostOverride = publication.repost_override ?? { mode: 'inherit' };
 		selectedWorkspaceId = publication.workspace_id;
 		fields = fieldsFromPublication(publication);
 		media = (publication.media ?? []).map(mediaSummaryToFocusedMedia);
@@ -742,7 +735,6 @@
 		destinationOptionsRequestSequence += 1;
 		nextSlotRequestSequence += 1;
 		publicationId = '';
-		repostOverride = { mode: 'inherit' };
 		accounts = [];
 		selectedAccountIds = [];
 		providerReadiness = [];
@@ -1062,7 +1054,7 @@
 		return fields[key] ?? '';
 	}
 
-	function focusedMediaFromLibrary(item: ImageEditorMediaItem): FocusedMedia {
+	function focusedMediaFromLibrary(item: StudioMediaItem): FocusedMedia {
 		return {
 			id: item.id,
 			mime_type: item.mime_type,
@@ -1073,7 +1065,7 @@
 		};
 	}
 
-	function setFocusedMediaSelection(ids: string[], items: ImageEditorMediaItem[]) {
+	function setFocusedMediaSelection(ids: string[], items: StudioMediaItem[]) {
 		const libraryByID = new Map(items.map((item) => [item.id, item]));
 		const existingByID = new Map(media.map((item) => [item.id, item]));
 		media = ids.slice(0, composerMediaLimit).map((id) => {
@@ -1100,7 +1092,7 @@
 		mediaPickerOpen = true;
 	}
 
-	async function applyFocusedMediaPicker(ids: string[], items: ImageEditorMediaItem[]) {
+	async function applyFocusedMediaPicker(ids: string[], items: StudioMediaItem[]) {
 		if (mediaPickerPurpose === 'thumbnail') {
 			const id = ids[0] ?? '';
 			const item = items.find((candidate) => candidate.id === id);
@@ -1203,7 +1195,7 @@
 		}
 	}
 
-	async function openImageEditorFromFocusedComposer() {
+	async function openStudioFromFocusedComposer() {
 		if (!selectedWorkspaceId) return;
 		mediaPickerOpen = false;
 		clearAutoSaveTimer();
@@ -1218,10 +1210,10 @@
 				: $page.url,
 			$page.url
 		);
-		returnURL.searchParams.delete('image_editor_return');
+		returnURL.searchParams.delete('studio_return');
 		const maxSelection = mediaPickerPurpose === 'thumbnail' ? 1 : composerMediaLimit;
 		const purpose = mediaPickerPurpose === 'thumbnail' ? 'thumbnail' : 'post_media';
-		const token = await createImageEditorReturnToken({
+		const token = await createStudioReturnToken({
 			workspace_id: selectedWorkspaceId,
 			return_url: `${returnURL.pathname}${returnURL.search}`,
 			purpose,
@@ -1254,31 +1246,30 @@
 				segment_settings_by_account: $state.snapshot(segmentSettingsByAccount),
 				selected_date: selectedDate?.toString(),
 				selected_time: selectedTime,
-				picker_purpose: mediaPickerPurpose,
-				repost_override: $state.snapshot(repostOverride)
-			} satisfies FocusedImageEditorSnapshotPayload
+				picker_purpose: mediaPickerPurpose
+			} satisfies FocusedStudioSnapshotPayload
 		};
 		storeComposerRecovery(token.token, snapshot);
 		await goto(
 			resolve(
-				`/image-editor/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}` as '/'
+				`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}` as '/'
 			)
 		);
 	}
 
-	async function restoreImageEditorReturn() {
+	async function restoreStudioReturn() {
 		if (!$page?.url) return;
-		const token = $page.url.searchParams.get('image_editor_return');
+		const token = $page.url.searchParams.get('studio_return');
 		if (!token) return;
 		const cleanURL = new URL($page.url);
-		cleanURL.searchParams.delete('image_editor_return');
+		cleanURL.searchParams.delete('studio_return');
 		replaceState(resolve(`${cleanURL.pathname}${cleanURL.search}` as '/'), {});
 		try {
 			const snapshot = loadComposerRecovery(token);
-			const result = await consumeImageEditorReturnToken(token);
+			const result = await consumeStudioReturnToken(token);
 			let purpose: 'media' | 'thumbnail' = result.purpose === 'thumbnail' ? 'thumbnail' : 'media';
 			if (snapshot?.workspace_id === result.workspace_id) {
-				const payload = snapshot.payload as FocusedImageEditorSnapshotPayload;
+				const payload = snapshot.payload as FocusedStudioSnapshotPayload;
 				publicationId = payload.publication_id;
 				selectedWorkspaceId = payload.selected_workspace_id;
 				selectedAccountIds = [...payload.selected_account_ids];
@@ -1296,7 +1287,6 @@
 					selectedDate = new CalendarDate(year, month, day);
 				}
 				selectedTime = payload.selected_time;
-				repostOverride = structuredClone(payload.repost_override ?? { mode: 'inherit' });
 			}
 
 			if (purpose === 'thumbnail') {
@@ -1317,12 +1307,12 @@
 			const autosaveSnapshot = saveSnapshot();
 			await saveDraftAutomatically(autosaveSnapshot);
 			clearComposerRecovery(token);
-			success = `${result.media_ids.length} OpenPost Image Editor ${result.media_ids.length === 1 ? 'export' : 'exports'} added.`;
+			success = `${result.media_ids.length} Studio ${result.media_ids.length === 1 ? 'export' : 'exports'} added.`;
 		} catch (cause) {
 			error =
 				cause instanceof Error
-					? `${cause.message} Your OpenPost Image Editor exports are still available in Media.`
-					: 'OpenPost Image Editor exports are still available in Media.';
+					? `${cause.message} Your Studio exports are still available in Media.`
+					: 'Studio exports are still available in Media.';
 		}
 	}
 
@@ -1340,7 +1330,7 @@
 		}[ratio] as 'portrait' | 'feed-portrait' | 'square' | 'landscape';
 	}
 
-	async function openVideoEditorFromFocusedComposer() {
+	async function openVideoStudioFromFocusedComposer() {
 		if (
 			!selectedWorkspaceId ||
 			!['story', 'short_video', 'video'].includes(mode) ||
@@ -1372,7 +1362,7 @@
 			resolve(`/publications/${encodeURIComponent(savedPublicationID)}` as '/'),
 			$page.url
 		);
-		returnURL.searchParams.delete('video_editor_return');
+		returnURL.searchParams.delete('video_studio_return');
 		const token = await createVideoReturnToken({
 			workspace_id: selectedWorkspaceId,
 			return_url: `${returnURL.pathname}${returnURL.search}`,
@@ -1414,9 +1404,8 @@
 				segment_settings_by_account: $state.snapshot(segmentSettingsByAccount),
 				selected_date: selectedDate?.toString(),
 				selected_time: selectedTime,
-				picker_purpose: 'media',
-				repost_override: $state.snapshot(repostOverride)
-			} satisfies FocusedImageEditorSnapshotPayload
+				picker_purpose: 'media'
+			} satisfies FocusedStudioSnapshotPayload
 		};
 		storeComposerRecovery(token.token, snapshot);
 		const query = new URLSearchParams({
@@ -1427,21 +1416,21 @@
 			variant_renditions: JSON.stringify(variantRenditions)
 		});
 		if (media[0]?.id) query.set('source_media', media[0].id);
-		await goto(resolve(`/video-editor/new?${query.toString()}` as '/'));
+		await goto(resolve(`/video-studio/new?${query.toString()}` as '/'));
 	}
 
-	async function restoreVideoEditorReturn() {
+	async function restoreVideoStudioReturn() {
 		if (!$page?.url) return;
-		const token = $page.url.searchParams.get('video_editor_return');
+		const token = $page.url.searchParams.get('video_studio_return');
 		if (!token) return;
 		const cleanURL = new URL($page.url);
-		cleanURL.searchParams.delete('video_editor_return');
+		cleanURL.searchParams.delete('video_studio_return');
 		replaceState(resolve(`${cleanURL.pathname}${cleanURL.search}` as '/'), {});
 		try {
 			const snapshot = loadComposerRecovery(token);
 			const result = await consumeVideoReturnToken(token);
 			if (snapshot?.workspace_id === result.workspace_id) {
-				const payload = snapshot.payload as FocusedImageEditorSnapshotPayload;
+				const payload = snapshot.payload as FocusedStudioSnapshotPayload;
 				publicationId = payload.publication_id;
 				selectedWorkspaceId = payload.selected_workspace_id;
 				selectedAccountIds = [...payload.selected_account_ids];
@@ -1458,7 +1447,6 @@
 					selectedDate = new CalendarDate(year, month, day);
 				}
 				selectedTime = payload.selected_time;
-				repostOverride = structuredClone(payload.repost_override ?? { mode: 'inherit' });
 			}
 
 			const renditionAccounts = new SvelteMap<string, string>();
@@ -1486,12 +1474,12 @@
 			await persistPublication();
 			lastSavedSnapshot = saveSnapshot();
 			clearComposerRecovery(token);
-			success = m.video_editor_return_success({ count: returnedMedia.length });
+			success = m.video_studio_return_success({ count: returnedMedia.length });
 		} catch (cause) {
 			error =
 				cause instanceof Error
-					? `${cause.message} ${m.video_editor_return_recovery()}`
-					: m.video_editor_return_recovery();
+					? `${cause.message} ${m.video_studio_return_recovery()}`
+					: m.video_studio_return_recovery();
 		}
 	}
 
@@ -2151,10 +2139,7 @@
 	}
 
 	function saveSnapshot(): string {
-		return JSON.stringify({
-			publication: publicationPayload(),
-			repost_override: repostOverride
-		});
+		return JSON.stringify(publicationPayload());
 	}
 
 	function markAutoSaveBaseline() {
@@ -2281,8 +2266,7 @@
 						: { clear_schedule: true }),
 					metadata: payload.metadata,
 					segments: payload.segments,
-					renditions: payload.renditions,
-					repost_override: $state.snapshot(repostOverride)
+					renditions: payload.renditions
 				}
 			});
 			if (updateError) {
@@ -2299,7 +2283,7 @@
 		}
 
 		const { data, error: createError } = await client.POST('/publications', {
-			body: { ...payload, repost_override: $state.snapshot(repostOverride) }
+			body: payload
 		});
 		if (createError) throw new Error(createError.detail || m.compose_create_publication_failed());
 		if (
@@ -2574,14 +2558,6 @@
 					{#if accounts.length > 0}
 						<ComposerValidationMenu issues={globalIssues} class="md:size-8" />
 					{/if}
-					<ComposerRepostControl
-						workspaceID={selectedWorkspaceId}
-						sourcePlatforms={[
-							...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
-						]}
-						bind:value={repostOverride}
-						disabled={!selectedWorkspaceId || saving || autoSaving}
-					/>
 				</div>
 
 				<ComposerPublishActions
@@ -2923,9 +2899,9 @@
 	purpose={mediaPickerPurpose === 'thumbnail' ? 'thumbnail' : 'post_media'}
 	videoConstraints={mediaPickerPurpose === 'thumbnail' ? [] : selectedVideoConstraints}
 	onConfirm={applyFocusedMediaPicker}
-	onCreate={openImageEditorFromFocusedComposer}
+	onCreate={openStudioFromFocusedComposer}
 	onCreateVideo={['story', 'short_video', 'video'].includes(mode)
-		? openVideoEditorFromFocusedComposer
+		? openVideoStudioFromFocusedComposer
 		: undefined}
 />
 

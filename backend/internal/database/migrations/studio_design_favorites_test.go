@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsAddsImageEditorDesignFavorites(t *testing.T) {
+func TestRunMigrationsAddsStudioDesignFavorites(t *testing.T) {
 	t.Parallel()
 
 	db := newPostVariantsTestDB(t)
@@ -21,7 +21,7 @@ func TestRunMigrationsAddsImageEditorDesignFavorites(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", Name: "OpenPost Image Editor"}).Exec(ctx)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", Name: "Studio"}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.User{
 		ID:           "user-1",

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -442,43 +441,6 @@ func (b *BlueskyAdapter) Publish(ctx context.Context, accessToken, accountID str
 		"_root": getParentRoot(req.ReplyToID),
 	})
 	return string(externalID), nil
-}
-
-func (b *BlueskyAdapter) Repost(ctx context.Context, accessToken, targetAccountID string, req RepostRequest) (RepostResult, error) {
-	var source struct {
-		URI string `json:"uri"`
-		CID string `json:"cid"`
-	}
-	if err := json.Unmarshal([]byte(req.ExternalID), &source); err != nil || source.URI == "" || source.CID == "" {
-		return RepostResult{}, fmt.Errorf("bluesky repost requires the source uri and cid")
-	}
-	payload := map[string]interface{}{
-		"repo":       targetAccountID,
-		"collection": "app.bsky.feed.repost",
-		"record": map[string]interface{}{
-			bskyRecordTypeField: "app.bsky.feed.repost",
-			"subject": map[string]string{
-				"uri": source.URI,
-				"cid": source.CID,
-			},
-			"createdAt": time.Now().UTC().Format(time.RFC3339Nano),
-		},
-	}
-	respBody, err := DoJSON(ctx, http.MethodPost, b.pdsURL+"/xrpc/com.atproto.repo.createRecord", payload, map[string]string{
-		headerAuthorization: bearerPrefix + accessToken,
-	})
-	if err != nil {
-		return RepostResult{}, fmt.Errorf("reposting on bluesky: %w", err)
-	}
-	var result struct {
-		URI string `json:"uri"`
-		CID string `json:"cid"`
-	}
-	if err := json.Unmarshal(respBody, &result); err != nil {
-		return RepostResult{}, fmt.Errorf("decoding bluesky repost: %w", err)
-	}
-	externalID, _ := json.Marshal(map[string]string{"uri": result.URI, "cid": result.CID})
-	return RepostResult{ExternalID: string(externalID), ExternalURL: req.ExternalURL}, nil
 }
 
 func (b *BlueskyAdapter) buildPostRecord(_ string, req *PublishRequest, createdAt time.Time) (map[string]interface{}, error) {

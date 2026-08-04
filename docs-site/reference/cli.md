@@ -395,7 +395,7 @@ openpost billing
 
 Create an OpenPost checkout URL for the active workspace
 
-Create an OpenPost checkout URL with an embedded Whop payment form. Plan IDs are starter, founder, pro, team, or agency.
+Create an OpenPost checkout URL with an embedded Whop payment form. Plan IDs are starter, creator, pro, team, or agency.
 
 **Usage**
 

@@ -321,7 +321,7 @@
         </section>
         <section class="side-card follow-card">
           <h2>Who to follow</h2>
-          {@render followRow("OpenPost Image Editor Notes", "studionotes", "#2563eb")}
+          {@render followRow("Studio Notes", "studionotes", "#2563eb")}
           {@render followRow("Ari Santos", "arisantos", "#db2777")}
           {@render followRow("The Web", "theweb", "#ca8a04")}
         </section>
@@ -420,7 +420,7 @@
       </aside>
       <section class="facebook-feed">
         <div class="facebook-stories" aria-hidden="true">
-          {#each ["Create story", "Maya", "Ari", "OpenPost Image Editor"] as story, index (story)}
+          {#each ["Create story", "Maya", "Ari", "Studio"] as story, index (story)}
             <div
               style={`--story-tone: ${["#1877f2", "#7c3aed", "#db2777", "#0f766e"][index]}`}
             >
@@ -449,7 +449,7 @@
         <div class="contacts-heading"><h2>Contacts</h2><Video /><Search /><MoreHorizontal /></div>
         {@render followRow("Maya Chen", "Online", "#7c3aed")}
         {@render followRow("Ari Santos", "Online", "#db2777")}
-        {@render followRow("OpenPost Image Editor Notes", "Online", "#2563eb")}
+        {@render followRow("Studio Notes", "Online", "#2563eb")}
         {@render followRow("Open Design", "Online", "#0f766e")}
       </aside>
       {@render mobileNav()}
@@ -507,7 +507,7 @@
             ><b>Switch</b>
           </div>
           <div class="suggested-heading"><h2>Suggested for you</h2><b>See all</b></div>
-          {@render followRow("OpenPost Image Editor Notes", "studionotes", "#2563eb")}
+          {@render followRow("Studio Notes", "studionotes", "#2563eb")}
           {@render followRow("Maya Chen", "mayac", "#7c3aed")}
           {@render followRow("Open Design", "opendesign", "#0f766e")}
           <p class="native-footer" aria-hidden="true">
@@ -569,7 +569,7 @@
                     "Behind the scenes: launch day",
                     "Weekly product and design notes",
                   ][index]}</strong
-                ><small>OpenPost Image Editor</small><small
+                ><small>Open Studio</small><small
                   >{index + 3}K views · {index + 1} days ago</small
                 ></div
               >
@@ -658,7 +658,7 @@
         {@render followRow("OpenPost", "Creator", "#5865f2")}
         {@render followRow("Maya", "Online", "#7c3aed")}
         {@render followRow("Ari", "Online", "#db2777")}
-        {@render followRow("OpenPost Image Editor Bot", "BOT", "#0f766e")}
+        {@render followRow("Studio Bot", "BOT", "#0f766e")}
       </aside>
     </div>
   {:else}

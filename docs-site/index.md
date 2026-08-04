@@ -23,8 +23,8 @@ features:
     details: See scheduled, published, failed, and retryable posts in the app.
   - title: Analytics and replies
     details: Track available account and post results, reply to comments, and use the inbox for supported accounts.
-  - title: Media and OpenPost Image Editor
-    details: Reuse saved media or make still images and carousel pages in OpenPost Image Editor.
+  - title: Media and Studio
+    details: Reuse saved media or make still images and carousel pages in OpenPost Studio.
   - title: API, CLI, and MCP
     details: Use OpenPost from scripts and AI tools without sharing your social account keys.
   - title: One product workflow
@@ -72,7 +72,7 @@ New to OpenPost? Read the [user guide](/usage/), [watch the product demo](https:
 
 ## Choose the right docs
 
-- **[User docs](/usage/)** cover the web app, CLI, and MCP. Learn how to connect accounts, write account versions, schedule posts, track results, use OpenPost Image Editor, and manage replies.
+- **[User docs](/usage/)** cover the web app, CLI, and MCP. Learn how to connect accounts, write account versions, schedule posts, track results, use Studio, and manage replies.
 - **[Self-hosting docs](/self-hosting/)** cover setup, social app keys, storage, backups, upgrades, and fixes.
 - **[Developer docs](/development/)** cover the code, API, tests, platform links, billing, MCP, and releases.
 

@@ -2,19 +2,19 @@
 
 This page lists the most common core and provider variables. Use [Environment Variables](/configuration/environment-variables) for required values, defaults, file-backed configuration, legacy aliases, and complete deployment notes.
 
-## OpenPost Image Editor
+## Studio
 
 | Variable                         | Default          | Purpose                                                                                          |
 | -------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------ |
-| `OPENPOST_IMAGE_EDITOR_ENABLED`        | `true`           | Enable the OpenPost Image Editor UI and API. Disabling it leaves the Media library operational.                 |
-| `OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL` | `/image-editor-models` | Serve the pinned background-removal model and runtime from another operator-controlled base URL. |
+| `OPENPOST_STUDIO_ENABLED`        | `true`           | Enable the Studio UI and API. Disabling it leaves the Media library operational.                 |
+| `OPENPOST_STUDIO_MODEL_BASE_URL` | `/studio-models` | Serve the pinned background-removal model and runtime from another operator-controlled base URL. |
 
-## OpenPost Video Editor and stock media
+## Video Studio and stock media
 
 | Variable                        | Default                | Purpose                                                                                        |
 | ------------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `OPENPOST_VIDEO_EDITOR_ENABLED` | `false`                | Enable the private-beta OpenPost Video Editor routes and APIs. Local projects remain browser-owned.     |
-| `OPENPOST_VIDEO_MODEL_BASE_URL` | `/video-editor-models` | Serve the pinned local transcription and voice-detection files from another operator base URL. |
+| `OPENPOST_VIDEO_STUDIO_ENABLED` | `false`                | Enable the private-beta Video Studio routes and APIs. Local projects remain browser-owned.     |
+| `OPENPOST_VIDEO_MODEL_BASE_URL` | `/video-studio-models` | Serve the pinned local transcription and voice-detection files from another operator base URL. |
 | `OPENPOST_STOCK_MEDIA_ENABLED`  | `false`                | Enable the public, rate-limited stock search API for providers with configured server keys.    |
 | `OPENPOST_PEXELS_API_KEY`       | empty                  | Server-only Pexels photo and video API key.                                                    |
 | `OPENPOST_UNSPLASH_ACCESS_KEY`  | empty                  | Server-only Unsplash photo API access key.                                                     |
@@ -39,7 +39,7 @@ This page lists the most common core and provider variables. Use [Environment Va
 | `OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD` | `200000`  | Estimated X post-create cost with a URL, in millionths of a US dollar.        |
 | `OPENPOST_PROVIDER_USAGE_RETENTION_DAYS`        | `180`     | Immutable provider-cost event retention; the current month is never pruned.   |
 
-Most variables loaded through the main backend config loader can also be loaded from `<VARIABLE>_FILE`; direct env values win over file-backed values. Instance admins can manage the optional account, email, authentication, OpenPost Image Editor, feedback, provider behavior, and provider-app values from **Settings → Instance → Configuration**. Environment values remain authoritative over encrypted database settings. Legacy aliases support the same suffix, for example `DATABASE_URL_FILE`, `JWT_SECRET_FILE`, and `ENCRYPTION_KEY_FILE`. Adapter-only variables read directly by provider code, such as `META_GRAPH_API_VERSION`, do not currently support `_FILE` variants.
+Most variables loaded through the main backend config loader can also be loaded from `<VARIABLE>_FILE`; direct env values win over file-backed values. Instance admins can manage the optional account, email, authentication, Studio, feedback, provider behavior, and provider-app values from **Settings → Instance → Configuration**. Environment values remain authoritative over encrypted database settings. Legacy aliases support the same suffix, for example `DATABASE_URL_FILE`, `JWT_SECRET_FILE`, and `ENCRYPTION_KEY_FILE`. Adapter-only variables read directly by provider code, such as `META_GRAPH_API_VERSION`, do not currently support `_FILE` variants.
 
 | Variable                                        | Purpose                                                                                           |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------- |
@@ -94,8 +94,8 @@ Most variables loaded through the main backend config loader can also be loaded 
 | `OPENPOST_WHOP_CHECKOUT_RETURN_URL`             | OpenPost return URL after checkout                                                                  |
 | `OPENPOST_WHOP_STARTER_MONTHLY_PLAN_ID`         | Whop Starter monthly plan ID                                                                        |
 | `OPENPOST_WHOP_STARTER_ANNUAL_PLAN_ID`          | Whop Starter annual plan ID                                                                         |
-| `OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID`         | Whop Founder monthly plan ID                                                                        |
-| `OPENPOST_WHOP_FOUNDER_ANNUAL_PLAN_ID`          | Whop Founder annual plan ID                                                                         |
+| `OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID`         | Whop Creator monthly plan ID                                                                        |
+| `OPENPOST_WHOP_CREATOR_ANNUAL_PLAN_ID`          | Whop Creator annual plan ID                                                                         |
 | `OPENPOST_WHOP_PRO_MONTHLY_PLAN_ID`             | Whop Pro monthly plan ID                                                                            |
 | `OPENPOST_WHOP_PRO_ANNUAL_PLAN_ID`              | Whop Pro annual plan ID                                                                             |
 | `OPENPOST_WHOP_TEAM_MONTHLY_PLAN_ID`            | Whop Team monthly plan ID                                                                           |

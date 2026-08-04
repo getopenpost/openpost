@@ -36,7 +36,7 @@ export default defineConfig({
         'OPENPOST_JWT_SECRET="0123456789abcdef0123456789abcdef"',
         'OPENPOST_ENCRYPTION_KEY="0123456789abcdef0123456789abcdef"',
         "OPENPOST_DISABLE_REGISTRATIONS=false",
-        "OPENPOST_VIDEO_EDITOR_ENABLED=true",
+        "OPENPOST_VIDEO_STUDIO_ENABLED=true",
         `OPENPOST_APP_URL="${baseURL}"`,
         "go run ./cmd/openpost",
       ].join(" "),

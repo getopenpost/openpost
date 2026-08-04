@@ -331,7 +331,7 @@ type CreateBillingCheckoutInput struct {
 	Body struct {
 		WorkspaceID    string `json:"workspace_id,omitempty" doc:"Workspace ID"`
 		OrganizationID string `json:"organization_id,omitempty" doc:"Organization ID"`
-		PlanID         string `json:"plan_id" doc:"Plan ID: starter, founder, pro, team, or agency"`
+		PlanID         string `json:"plan_id" doc:"Plan ID: starter, creator, pro, team, or agency"`
 		BillingPeriod  string `json:"billing_period,omitempty" doc:"Billing period: monthly or annual" enum:"monthly,annual" default:"monthly"`
 		AffiliateCode  string `json:"affiliate_code,omitempty" doc:"Optional Whop affiliate code carried into checkout"`
 	}
@@ -437,7 +437,7 @@ func (h *BillingHandler) createPortalSession(ctx context.Context, input *CreateB
 type CreateOrganizationBillingCheckoutInput struct {
 	PathID string `path:"id" doc:"Organization ID"`
 	Body   struct {
-		PlanID        string `json:"plan_id" doc:"Plan ID: starter, founder, pro, team, or agency"`
+		PlanID        string `json:"plan_id" doc:"Plan ID: starter, creator, pro, team, or agency"`
 		BillingPeriod string `json:"billing_period,omitempty" doc:"Billing period: monthly or annual" enum:"monthly,annual" default:"monthly"`
 		AffiliateCode string `json:"affiliate_code,omitempty" doc:"Optional Whop affiliate code carried into checkout"`
 	}

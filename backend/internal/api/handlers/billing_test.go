@@ -101,10 +101,10 @@ func newBillingAPITestServer(t *testing.T) *billingTestServer {
 		AppURL:     "https://app.openpost.test",
 		ReturnURL:  "https://app.openpost.test/checkout?status=success",
 		Plans: map[string]billing.PlanConfig{
-			"founder": {
-				ProviderPlanIDs: billing.ProviderPlanIDs{Monthly: "plan_founder_month", Annual: "plan_founder_year"},
-				MonthlyPriceUSD: 25,
-				AnnualPriceUSD:  250,
+			"creator": {
+				ProviderPlanIDs: billing.ProviderPlanIDs{Monthly: "plan_creator_month", Annual: "plan_creator_year"},
+				MonthlyPriceUSD: 29,
+				AnnualPriceUSD:  290,
 				Limits: map[entitlements.LimitKey]int64{
 					entitlements.LimitScheduledPostsMonthly: 500,
 					entitlements.LimitSocialAccounts:        6,
@@ -261,11 +261,11 @@ func TestCreateBillingCheckoutRoute(t *testing.T) {
 	t.Parallel()
 
 	srv := newBillingAPITestServer(t)
-	srv.client.response = `{"id":"ch_1","purchase_url":"https://whop.test/checkout/ch_1","plan":{"id":"plan_founder_year"}}`
+	srv.client.response = `{"id":"ch_1","purchase_url":"https://whop.test/checkout/ch_1","plan":{"id":"plan_creator_year"}}`
 
 	resp := srv.postJSON(t, "/api/v1/billing/checkout", map[string]any{
 		"workspace_id":   "ws-1",
-		"plan_id":        "founder",
+		"plan_id":        "creator",
 		"billing_period": "annual",
 	})
 
@@ -273,16 +273,16 @@ func TestCreateBillingCheckoutRoute(t *testing.T) {
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "ch_1", out["id"])
-	require.Equal(t, "https://app.openpost.test/checkout?billing_period=annual&plan=founder&session_id=ch_1", out["url"])
-	require.Equal(t, "plan_founder_year", out["provider_plan_id"])
-	require.Equal(t, float64(250), out["price_usd"])
+	require.Equal(t, "https://app.openpost.test/checkout?billing_period=annual&plan=creator&session_id=ch_1", out["url"])
+	require.Equal(t, "plan_creator_year", out["provider_plan_id"])
+	require.Equal(t, float64(290), out["price_usd"])
 	require.Len(t, srv.client.requests, 1)
 	req := srv.client.requests[0]
 	require.Equal(t, "/api/v1/checkout_configurations", req.Path)
 	require.Equal(t, "biz_1", req.Body["company_id"])
-	require.Equal(t, "plan_founder_year", req.Body["plan_id"])
+	require.Equal(t, "plan_creator_year", req.Body["plan_id"])
 	metadata := req.Body["metadata"].(map[string]any)
-	require.Equal(t, "founder", metadata["plan_id"])
+	require.Equal(t, "creator", metadata["plan_id"])
 	require.Equal(t, "org_ws-1", metadata["organization_id"])
 	require.Equal(t, "ws-1", metadata["workspace_id"])
 }
@@ -298,7 +298,7 @@ func TestBillingMutationsRequireWorkspaceAdmin(t *testing.T) {
 
 	checkout := srv.postJSON(t, "/api/v1/billing/checkout", map[string]any{
 		"workspace_id": "ws-1",
-		"plan_id":      "founder",
+		"plan_id":      "creator",
 	})
 	portal := srv.postJSON(t, "/api/v1/billing/portal", map[string]any{
 		"workspace_id": "ws-1",
@@ -316,13 +316,13 @@ func TestCreateBillingCheckoutRouteReturns503WhenWhopIsNotConfigured(t *testing.
 		APIBaseURL: "https://api.whop.test/api/v1",
 		AccountID:  "biz_1",
 		Plans: map[string]billing.PlanConfig{
-			"founder": {ProviderPlanIDs: billing.ProviderPlanIDs{Monthly: "plan_founder_month"}},
+			"creator": {ProviderPlanIDs: billing.ProviderPlanIDs{Monthly: "plan_creator_month"}},
 		},
 	})
 
 	resp := srv.postJSON(t, "/api/v1/billing/checkout", map[string]any{
 		"workspace_id": "ws-1",
-		"plan_id":      "founder",
+		"plan_id":      "creator",
 	})
 
 	require.Equal(t, http.StatusServiceUnavailable, resp.Code, resp.Body.String())
@@ -359,7 +359,7 @@ func TestGetBillingStatusRouteWithSubscriptionAndUsage(t *testing.T) {
 		ProviderCustomerID:     "cus-1",
 		ProviderSubscriptionID: "sub-1",
 		Status:                 "active",
-		PlanID:                 "founder",
+		PlanID:                 "creator",
 		EntitlementSnapshot:    `{"limits":{"scheduled_posts_monthly":500,"social_accounts":6}}`,
 		CurrentPeriodEnd:       time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
 	}).Exec(ctx)
@@ -379,7 +379,7 @@ func TestGetBillingStatusRouteWithSubscriptionAndUsage(t *testing.T) {
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "whop", out["provider"])
 	require.Equal(t, "active", out["status"])
-	require.Equal(t, "founder", out["plan_id"])
+	require.Equal(t, "creator", out["plan_id"])
 	require.Equal(t, "2026-07-30T12:00:00Z", out["current_period_end"])
 	limits := out["limits"].(map[string]any)
 	require.Equal(t, float64(500), limits["scheduled_posts_monthly"])
@@ -529,7 +529,7 @@ func TestCreateBillingPortalRoute(t *testing.T) {
 		ProviderSubscriptionID: "mem_1",
 		ProviderManageURL:      "https://whop.test/manage/mem_1",
 		Status:                 "active",
-		PlanID:                 "founder",
+		PlanID:                 "creator",
 	}).Exec(t.Context())
 	require.NoError(t, err)
 

@@ -165,13 +165,9 @@ test("communications and notifications stay usable across desktop and phone layo
       await route.fulfill({
         contentType: "application/json",
         json: {
-          preferences: {
-            post_published: { in_app: true, email: false },
-            new_engagement: { in_app: true, email: false },
-            new_message: { in_app: true, email: false },
-          },
-          email_available: true,
-          email_address: "communications@example.com",
+          post_published: { in_app: true },
+          new_engagement: { in_app: true },
+          new_message: { in_app: true },
         },
       });
       return;
@@ -198,41 +194,6 @@ test("communications and notifications stay usable across desktop and phone layo
       },
     });
   });
-
-  await page.route("**/api/v1/workspaces**", async (route) => {
-    if (route.request().method() !== "GET") {
-      await route.continue();
-      return;
-    }
-    await route.fulfill({
-      contentType: "application/json",
-      json: [
-        {
-          id: workspace.id,
-          name: "Communications E2E",
-          created_at: "2026-07-01T00:00:00Z",
-          updated_at: "2026-07-01T00:00:00Z",
-        },
-      ],
-    });
-  });
-
-  await page.route(
-    `**/api/v1/workspaces/${workspace.id}/settings`,
-    async (route) => {
-      if (route.request().method() !== "GET") {
-        await route.continue();
-        return;
-      }
-      await route.fulfill({
-        contentType: "application/json",
-        json: {
-          timezone: "UTC",
-          week_start: 1,
-        },
-      });
-    },
-  );
 
   await page.setViewportSize({ width: 1280, height: 820 });
   await page.goto(`/engagement?workspace=${workspace.id}`);
@@ -330,12 +291,8 @@ test("communications and notifications stay usable across desktop and phone layo
     page.getByRole("heading", { name: "Notifications" }),
   ).toBeVisible();
   await expect(page.getByText("New message from Ada")).toBeVisible();
-  await page.getByRole("button", { name: "Notification settings" }).click();
   await expect(
-    page.getByRole("heading", { name: "Notifications" }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Delivery by event" }),
+    page.getByRole("heading", { name: "Notification preferences" }),
   ).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });

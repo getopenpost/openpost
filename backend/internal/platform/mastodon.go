@@ -298,48 +298,6 @@ func (m *MastodonAdapter) Publish(ctx context.Context, accessToken, _ string, re
 	return statusResp.ID, nil
 }
 
-func (m *MastodonAdapter) Repost(ctx context.Context, accessToken, _ string, req RepostRequest) (RepostResult, error) {
-	statusID := strings.TrimSpace(req.ExternalID)
-	if req.SourceInstanceURL != "" && strings.TrimRight(req.SourceInstanceURL, "/") != strings.TrimRight(m.instanceURL, "/") {
-		if strings.TrimSpace(req.ExternalURL) == "" {
-			return RepostResult{}, fmt.Errorf("mastodon cross-instance repost requires the source status url")
-		}
-		endpoint := m.instanceURL + "/api/v2/search?q=" + url.QueryEscape(req.ExternalURL) + "&type=statuses&resolve=true&limit=1"
-		body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, map[string]string{
-			headerAuthorization: bearerPrefix + accessToken,
-		})
-		if err != nil {
-			return RepostResult{}, fmt.Errorf("resolving mastodon status: %w", err)
-		}
-		var result struct {
-			Statuses []struct {
-				ID string `json:"id"`
-			} `json:"statuses"`
-		}
-		if err := json.Unmarshal(body, &result); err != nil || len(result.Statuses) == 0 {
-			return RepostResult{}, fmt.Errorf("mastodon source status was not found on the target instance")
-		}
-		statusID = result.Statuses[0].ID
-	}
-	if statusID == "" {
-		return RepostResult{}, fmt.Errorf("mastodon repost requires a source status id")
-	}
-	body, err := DoRequest(ctx, http.MethodPost, m.instanceURL+"/api/v1/statuses/"+url.PathEscape(statusID)+"/reblog", nil, map[string]string{
-		headerAuthorization: bearerPrefix + accessToken,
-	})
-	if err != nil {
-		return RepostResult{}, fmt.Errorf("reposting on mastodon: %w", err)
-	}
-	var result struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return RepostResult{}, fmt.Errorf("decoding mastodon repost: %w", err)
-	}
-	return RepostResult{ExternalID: result.ID, ExternalURL: result.URL}, nil
-}
-
 func buildMastodonStatusForm(req *PublishRequest) (url.Values, error) {
 	formValues := url.Values{}
 	formValues.Set("status", ContentWithSettingURL(req.Content, req.Settings))

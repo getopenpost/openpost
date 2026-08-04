@@ -18,10 +18,10 @@ let
       pkgs.pnpm
     ];
     text = ''
-      # The editor and composer program now exceeds a 1GB heap during the
-      # type-aware ESLint pass. Keep the heap bounded for small runners while
-      # leaving enough room for the complete frontend lint graph.
-      export NODE_OPTIONS="--max-old-space-size=2048"
+      # Cap V8 heap at 1GB to keep the runner's OOM in check on
+      # small-memory hosts (3–4GB). The default Node heap is ~1.7GB
+      # and svelte-check / vite / paraglide will reliably OOM it.
+      export NODE_OPTIONS="--max-old-space-size=1024"
       cd "${config.git.root}"
       pnpm --filter @openpost/web lint
     '';
@@ -71,7 +71,7 @@ let
       pkgs.pnpm
     ];
     text = ''
-      # OpenPost Video Editor adds the Transformers.js and ONNX worker graphs to the
+      # Video Studio adds the Transformers.js and ONNX worker graphs to the
       # production build. Keep the V8 heap bounded while leaving enough room
       # for Vite to transform those lazy chunks and adapter-static to finish.
       export NODE_OPTIONS="--max-old-space-size=4096"

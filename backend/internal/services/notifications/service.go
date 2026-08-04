@@ -12,12 +12,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/uptrace/bun"
 )
 
 const (
-	JobTypeEmailDelivery      = "notification_email"
 	TypePostPublished         = "post_published"
 	TypePublishFailed         = "publish_failed"
 	TypeAccountNeedsAttention = "account_needs_attention"
@@ -36,27 +34,20 @@ var criticalInApp = map[string]bool{
 
 type ChannelPreference struct {
 	InApp bool `json:"in_app"`
-	Email bool `json:"email"`
 }
 
 type Preferences map[string]ChannelPreference
 
 func DefaultPreferences() Preferences {
 	return Preferences{
-		TypePostPublished:         {InApp: true, Email: false},
-		TypePublishFailed:         {InApp: true, Email: true},
-		TypeAccountNeedsAttention: {InApp: true, Email: false},
-		TypeNewEngagement:         {InApp: true, Email: false},
-		TypeNewMessage:            {InApp: true, Email: false},
-		TypeReplyFailed:           {InApp: true, Email: true},
-		TypeWorkspaceInvite:       {InApp: true, Email: true},
+		TypePostPublished:         {InApp: true},
+		TypePublishFailed:         {InApp: true},
+		TypeAccountNeedsAttention: {InApp: true},
+		TypeNewEngagement:         {InApp: true},
+		TypeNewMessage:            {InApp: true},
+		TypeReplyFailed:           {InApp: true},
+		TypeWorkspaceInvite:       {InApp: true},
 	}
-}
-
-type PreferenceSettings struct {
-	Preferences    Preferences `json:"preferences"`
-	EmailAvailable bool        `json:"email_available"`
-	EmailAddress   string      `json:"email_address"`
 }
 
 type CreateInput struct {
@@ -78,30 +69,16 @@ type NotificationPage struct {
 }
 
 type Service struct {
-	db        *bun.DB
-	sender    passwordmail.Sender
-	publicURL string
-	now       func() time.Time
+	db  *bun.DB
+	now func() time.Time
 }
 
-type Options struct {
-	Sender    passwordmail.Sender
-	PublicURL string
-}
-
-func NewService(db *bun.DB, options ...Options) *Service {
-	service := &Service{db: db, now: func() time.Time { return time.Now().UTC() }}
-	if len(options) > 0 {
-		service.sender = options[0].Sender
-		service.publicURL = strings.TrimRight(strings.TrimSpace(options[0].PublicURL), "/")
-	}
-	return service
+func NewService(db *bun.DB) *Service {
+	return &Service{db: db, now: func() time.Time { return time.Now().UTC() }}
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) error {
-	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
-		return s.CreateWithDB(ctx, tx, input)
-	})
+	return s.CreateWithDB(ctx, s.db, input)
 }
 
 // CreateWithDB lets callers write an attention notification in the same
@@ -115,9 +92,7 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 		return err
 	}
 	preference := preferences[input.Type]
-	deliverInApp := preference.InApp || criticalInApp[input.Type]
-	deliverEmail := preference.Email && s.sender != nil
-	if !deliverInApp && !deliverEmail {
+	if !preference.InApp && !criticalInApp[input.Type] {
 		return nil
 	}
 	payloadValues := make(map[string]any, len(input.Payload)+1)
@@ -132,113 +107,24 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 	if err != nil {
 		return fmt.Errorf("encode notification payload: %w", err)
 	}
-	if deliverInApp {
-		notification := &models.UserNotification{
-			ID:          uuid.NewString(),
-			UserID:      input.UserID,
-			WorkspaceID: input.WorkspaceID,
-			Type:        input.Type,
-			Title:       strings.TrimSpace(input.Title),
-			Body:        strings.TrimSpace(input.Body),
-			Href:        strings.TrimSpace(input.Href),
-			PayloadJSON: string(payload),
-			DedupKey:    strings.TrimSpace(input.DedupKey),
-			CreatedAt:   s.now(),
-		}
-		query := db.NewInsert().Model(notification)
-		if notification.DedupKey != "" {
-			query = query.On("CONFLICT DO NOTHING")
-		}
-		if _, err := query.Exec(ctx); err != nil {
-			return err
-		}
+	notification := &models.UserNotification{
+		ID:          uuid.NewString(),
+		UserID:      input.UserID,
+		WorkspaceID: input.WorkspaceID,
+		Type:        input.Type,
+		Title:       strings.TrimSpace(input.Title),
+		Body:        strings.TrimSpace(input.Body),
+		Href:        strings.TrimSpace(input.Href),
+		PayloadJSON: string(payload),
+		DedupKey:    strings.TrimSpace(input.DedupKey),
+		CreatedAt:   s.now(),
 	}
-	if !deliverEmail {
-		return nil
+	query := db.NewInsert().Model(notification)
+	if notification.DedupKey != "" {
+		query = query.On("CONFLICT DO NOTHING")
 	}
-	return s.enqueueEmailWithDB(ctx, db, input)
-}
-
-type emailDeliveryJob struct {
-	DeliveryID string `json:"delivery_id"`
-	UserID     string `json:"user_id"`
-	Type       string `json:"type"`
-	Title      string `json:"title"`
-	Body       string `json:"body"`
-	Href       string `json:"href,omitempty"`
-}
-
-func (s *Service) enqueueEmailWithDB(ctx context.Context, db bun.IDB, input CreateInput) error {
-	jobID := uuid.NewString()
-	if dedupKey := strings.TrimSpace(input.DedupKey); dedupKey != "" {
-		jobID = uuid.NewSHA1(uuid.NameSpaceOID, []byte(input.UserID+"\x00"+dedupKey)).String()
-	}
-	href := strings.TrimSpace(input.Href)
-	if !isSafeLocalNotificationHref(href) {
-		href = ""
-	}
-	payload, err := json.Marshal(emailDeliveryJob{
-		DeliveryID: jobID,
-		UserID:     input.UserID,
-		Type:       input.Type,
-		Title:      strings.TrimSpace(input.Title),
-		Body:       strings.TrimSpace(input.Body),
-		Href:       href,
-	})
-	if err != nil {
-		return fmt.Errorf("encode notification email job: %w", err)
-	}
-	job := &models.Job{
-		ID: jobID, Type: JobTypeEmailDelivery, Payload: string(payload), Status: "pending",
-		RunAt: s.now(), MaxAttempts: 5,
-	}
-	_, err = db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
+	_, err = query.Exec(ctx)
 	return err
-}
-
-func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error {
-	if jobType != JobTypeEmailDelivery {
-		return fmt.Errorf("unsupported notification job type %q", jobType)
-	}
-	if s.sender == nil {
-		return fmt.Errorf("notification email delivery is not configured")
-	}
-	var job emailDeliveryJob
-	if err := json.Unmarshal([]byte(payload), &job); err != nil {
-		return fmt.Errorf("decode notification email job: %w", err)
-	}
-	preferences, err := s.GetPreferences(ctx, job.UserID)
-	if err != nil {
-		return err
-	}
-	if !preferences[job.Type].Email {
-		return nil
-	}
-	var email string
-	err = s.db.NewSelect().Model((*models.User)(nil)).
-		Column("email").Where("id = ?", job.UserID).Scan(ctx, &email)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("load notification email recipient: %w", err)
-	}
-	actionURL := ""
-	if job.Href != "" && s.publicURL != "" {
-		actionURL = s.publicURL + job.Href
-	}
-	preferencesURL := ""
-	if s.publicURL != "" {
-		preferencesURL = s.publicURL + "/settings?tab=notifications"
-	}
-	return s.sender.SendNotification(ctx, passwordmail.NotificationMessage{
-		Recipient:      email,
-		Title:          job.Title,
-		Body:           job.Body,
-		ActionURL:      actionURL,
-		PreferencesURL: preferencesURL,
-		IdempotencyKey: "notification-" + job.DeliveryID,
-	})
 }
 
 func (s *Service) List(ctx context.Context, userID, workspaceID, cursor string, limit int) (NotificationPage, error) {
@@ -320,23 +206,6 @@ func (s *Service) GetPreferences(ctx context.Context, userID string) (Preference
 	return s.getPreferences(ctx, s.db, userID)
 }
 
-func (s *Service) GetPreferenceSettings(ctx context.Context, userID string) (PreferenceSettings, error) {
-	preferences, err := s.GetPreferences(ctx, userID)
-	if err != nil {
-		return PreferenceSettings{}, err
-	}
-	var email string
-	if err := s.db.NewSelect().Model((*models.User)(nil)).
-		Column("email").Where("id = ?", userID).Scan(ctx, &email); err != nil {
-		return PreferenceSettings{}, err
-	}
-	return PreferenceSettings{
-		Preferences:    preferences,
-		EmailAvailable: s.sender != nil,
-		EmailAddress:   strings.TrimSpace(email),
-	}, nil
-}
-
 func (s *Service) getPreferences(ctx context.Context, db bun.IDB, userID string) (Preferences, error) {
 	preferences := DefaultPreferences()
 	var row models.UserNotificationPreference
@@ -347,29 +216,15 @@ func (s *Service) getPreferences(ctx context.Context, db bun.IDB, userID string)
 	if err != nil {
 		return nil, err
 	}
-	type storedChannelPreference struct {
-		InApp *bool `json:"in_app"`
-		Email *bool `json:"email"`
-	}
-	var stored map[string]storedChannelPreference
+	var stored Preferences
 	if err := json.Unmarshal([]byte(row.PreferencesJSON), &stored); err != nil {
 		return nil, fmt.Errorf("decode notification preferences: %w", err)
 	}
 	for eventType, value := range stored {
-		preference, allowed := preferences[eventType]
-		if !allowed {
-			continue
-		}
-		if value.InApp != nil {
-			preference.InApp = *value.InApp
-		}
-		if value.Email != nil {
-			preference.Email = *value.Email
-		}
 		if criticalInApp[eventType] {
-			preference.InApp = true
+			value.InApp = true
 		}
-		preferences[eventType] = preference
+		preferences[eventType] = value
 	}
 	return preferences, nil
 }

@@ -746,88 +746,8 @@ type Publication struct {
 	ActualRunAt     time.Time `bun:"actual_run_at,nullzero" json:"actual_run_at"`
 	MetadataJSON    string    `bun:"metadata_json,notnull,default:'{}'" json:"metadata_json"`
 	ReleasePlanJSON string    `bun:"release_plan_json,notnull,default:'{}'" json:"release_plan_json"` // legacy mirror until old post flows are removed
-	RepostOverride  string    `bun:"repost_override_json,notnull,default:'{}'" json:"repost_override_json"`
 	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
-}
-
-// RepostPolicy is a workspace-owned rule that turns a published rendition into
-// a native provider repost after its time and engagement gates are satisfied.
-type RepostPolicy struct {
-	bun.BaseModel `bun:"table:repost_policies"`
-
-	ID                      string    `bun:",pk" json:"id"`
-	WorkspaceID             string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	Name                    string    `bun:",notnull" json:"name"`
-	Enabled                 bool      `bun:",notnull,default:true" json:"enabled"`
-	DelaySeconds            int       `bun:"delay_seconds,notnull,default:86400" json:"delay_seconds"`
-	EvaluationWindowSeconds int       `bun:"evaluation_window_seconds,notnull,default:604800" json:"evaluation_window_seconds"`
-	ThresholdMode           string    `bun:"threshold_mode,notnull,default:'all'" json:"threshold_mode"`
-	MinLikes                int64     `bun:"min_likes,notnull,default:0" json:"min_likes"`
-	MinComments             int64     `bun:"min_comments,notnull,default:0" json:"min_comments"`
-	MinReposts              int64     `bun:"min_reposts,notnull,default:0" json:"min_reposts"`
-	MinViews                int64     `bun:"min_views,notnull,default:0" json:"min_views"`
-	RequirePlateau          bool      `bun:"require_plateau,notnull,default:false" json:"require_plateau"`
-	PlateauChecks           int       `bun:"plateau_checks,notnull,default:2" json:"plateau_checks"`
-	CreatedByID             string    `bun:"created_by,notnull" json:"created_by"`
-	UpdatedByID             string    `bun:"updated_by,notnull" json:"updated_by"`
-	CreatedAt               time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt               time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
-}
-
-// RepostPolicyAccount assigns source and target accounts to a policy. Empty
-// source assignments mean every compatible source account in the workspace.
-type RepostPolicyAccount struct {
-	bun.BaseModel `bun:"table:repost_policy_accounts"`
-
-	PolicyID        string `bun:"policy_id,pk" json:"policy_id"`
-	SocialAccountID string `bun:"social_account_id,pk" json:"social_account_id"`
-	Role            string `bun:",pk" json:"role"`
-}
-
-// RepostAccountGrant explicitly permits one workspace to use an account owned
-// by another workspace as a repost target. The target workspace can revoke it.
-type RepostAccountGrant struct {
-	bun.BaseModel `bun:"table:repost_account_grants"`
-
-	ID                string    `bun:",pk" json:"id"`
-	SourceWorkspaceID string    `bun:"source_workspace_id,notnull" json:"source_workspace_id"`
-	TargetWorkspaceID string    `bun:"target_workspace_id,notnull" json:"target_workspace_id"`
-	TargetAccountID   string    `bun:"target_account_id,notnull" json:"target_account_id"`
-	CreatedByID       string    `bun:"created_by,notnull" json:"created_by"`
-	RevokedByID       string    `bun:"revoked_by,nullzero" json:"revoked_by,omitempty"`
-	RevokedAt         time.Time `bun:"revoked_at,nullzero" json:"revoked_at,omitempty"`
-	CreatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
-}
-
-// RepostExecution is the durable state machine for one source rendition and
-// target account. The rule snapshot makes in-flight behavior auditable and
-// independent from later settings edits.
-type RepostExecution struct {
-	bun.BaseModel `bun:"table:repost_executions"`
-
-	ID               string    `bun:",pk" json:"id"`
-	WorkspaceID      string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	PublicationID    string    `bun:"publication_id,notnull" json:"publication_id"`
-	RenditionID      string    `bun:"rendition_id,notnull,unique:rendition_target" json:"rendition_id"`
-	SourceAccountID  string    `bun:"source_account_id,notnull" json:"source_account_id"`
-	TargetAccountID  string    `bun:"target_account_id,notnull,unique:rendition_target" json:"target_account_id"`
-	PolicyID         string    `bun:"policy_id,nullzero" json:"policy_id,omitempty"`
-	RuleSnapshotJSON string    `bun:"rule_snapshot_json,notnull,default:'{}'" json:"rule_snapshot_json"`
-	Status           string    `bun:",notnull,default:'pending'" json:"status"`
-	EligibleAfter    time.Time `bun:"eligible_after,notnull" json:"eligible_after"`
-	DeadlineAt       time.Time `bun:"deadline_at,notnull" json:"deadline_at"`
-	NextCheckAt      time.Time `bun:"next_check_at,nullzero" json:"next_check_at"`
-	CheckCount       int       `bun:"check_count,notnull,default:0" json:"check_count"`
-	LastMetricsJSON  string    `bun:"last_metrics_json,notnull,default:'{}'" json:"last_metrics_json"`
-	ExternalID       string    `bun:"external_id,notnull,default:''" json:"external_id,omitempty"`
-	ExternalURL      string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
-	ErrorCode        string    `bun:"error_code,notnull,default:''" json:"error_code,omitempty"`
-	ErrorMessage     string    `bun:"error_message,notnull,default:''" json:"error_message,omitempty"`
-	CompletedAt      time.Time `bun:"completed_at,nullzero" json:"completed_at,omitempty"`
-	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // PublicationSegment is an ordered canonical content unit. A post has one
@@ -1263,7 +1183,7 @@ type MediaAttachment struct {
 	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
-// DesignDocument is the persisted Image Editor document head. Its pages are stored
+// DesignDocument is the persisted Studio document head. Its pages are stored
 // separately so saving or loading a large multi-page design remains bounded.
 type DesignDocument struct {
 	bun.BaseModel `bun:"table:design_documents"`
@@ -1348,7 +1268,7 @@ type DesignReturnToken struct {
 	ConsumedAt      time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
 }
 
-// VideoProject is the small cloud-synced head for a local-first OpenPost Video Editor
+// VideoProject is the small cloud-synced head for a local-first Video Studio
 // project. Source bytes remain normal Media library assets and are linked
 // through VideoProjectAsset.
 type VideoProject struct {

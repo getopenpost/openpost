@@ -249,7 +249,7 @@
 	{#if !capturedURL}
 		<div class="grid grid-cols-[1fr_auto] gap-2">
 			<label class="grid gap-1 text-xs text-muted-foreground">
-				<span>{m.image_editor_camera()}</span>
+				<span>{m.studio_camera()}</span>
 				<AppSelect
 					bind:value={selectedDeviceID}
 					onValueChange={() => void startCamera()}

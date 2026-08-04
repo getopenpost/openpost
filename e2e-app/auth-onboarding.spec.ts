@@ -87,6 +87,7 @@ test("email signup confirms a six-digit code before onboarding", async ({
   );
 
   await page.goto("/register");
+  await page.getByLabel("Username").fill("verify-person");
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm Password").fill(password);
@@ -119,7 +120,7 @@ test("email signup confirms a six-digit code before onboarding", async ({
 
   await page.getByLabel("Verification code").fill("654321");
   await page.getByRole("button", { name: "Verify email" }).click();
-  await expect(page).toHaveURL(/\/onboarding/);
+  await expect(page).toHaveURL(/\/onboarding$/);
   expect(confirmationAttempts).toBe(2);
 });
 
@@ -129,16 +130,24 @@ test("registration routes first-time users through onboarding", async ({
 }) => {
   const unique = Date.now().toString(36);
   const email = `auth-onboarding-${unique}@example.com`;
+  const workspaceName = "Launch Workspace E2E";
+
   await routeBrowserRegistration(page, email);
   await page.goto("/register");
+  await page.getByLabel("Username").fill(`onboard-${unique}`);
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByLabel("Confirm Password").fill(password);
   await page.getByRole("button", { name: "Create Account" }).click();
 
-  await expect(page).toHaveURL(
-    /\/checkout\?plan=founder&billing_period=monthly$/,
-  );
+  await expect(page).toHaveURL(/\/onboarding$/);
+  await expect(
+    page.getByRole("heading", { name: "Welcome to OpenPost" }),
+  ).toBeVisible();
+  await page.getByLabel("Workspace name").fill(workspaceName);
+  await page.getByRole("button", { name: "Create workspace" }).click();
+
+  await expect(page).toHaveURL(/\/$/);
 
   expect(
     await page.evaluate(() => window.localStorage.getItem("token")),
@@ -148,7 +157,7 @@ test("registration routes first-time users through onboarding", async ({
   expect(workspaces.ok()).toBeTruthy();
   const workspaceBody = await workspaces.json();
   expect(workspaceBody).toEqual(
-    expect.arrayContaining([expect.objectContaining({ name: "My workspace" })]),
+    expect.arrayContaining([expect.objectContaining({ name: workspaceName })]),
   );
 });
 

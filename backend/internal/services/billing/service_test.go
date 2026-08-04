@@ -97,7 +97,7 @@ func signedWebhookHeaders(secret string, now time.Time, eventID string, body []b
 func testCatalog() map[string]PlanConfig {
 	return DefaultPlanCatalog(
 		ProviderPlanIDs{Monthly: "plan_starter_month", Annual: "plan_starter_year"},
-		ProviderPlanIDs{Monthly: "plan_founder_month", Annual: "plan_founder_year"},
+		ProviderPlanIDs{Monthly: "plan_creator_month", Annual: "plan_creator_year"},
 		ProviderPlanIDs{Monthly: "plan_pro_month", Annual: "plan_pro_year"},
 		ProviderPlanIDs{Monthly: "plan_team_month", Annual: "plan_team_year"},
 		ProviderPlanIDs{Monthly: "plan_agency_month", Annual: "plan_agency_year"},
@@ -108,7 +108,7 @@ func TestDefaultPlanCatalogUsesUSDPricesAndMonotonicSeatLimits(t *testing.T) {
 	t.Parallel()
 	catalog := testCatalog()
 	require.Equal(t, 15, catalog["starter"].MonthlyPriceUSD)
-	require.Equal(t, 250, catalog["founder"].AnnualPriceUSD)
+	require.Equal(t, 290, catalog["creator"].AnnualPriceUSD)
 	require.Equal(t, 199, catalog["agency"].MonthlyPriceUSD)
 	require.Equal(t, int64(1), catalog["pro"].Limits[entitlements.LimitTeamMembers])
 	require.Equal(t, int64(3), catalog["team"].Limits[entitlements.LimitTeamMembers])
@@ -119,7 +119,7 @@ func TestCreateCheckoutCreatesWhopConfigurationAndRecordsAttempt(t *testing.T) {
 	t.Parallel()
 	db := newBillingTestDB(t)
 	client := &fakeWhopHTTPClient{t: t, respond: func(*http.Request) (int, string) {
-		return http.StatusCreated, `{"id":"ch_1","purchase_url":"https://whop.com/checkout/ch_1","plan":{"id":"plan_founder_year"}}`
+		return http.StatusCreated, `{"id":"ch_1","purchase_url":"https://whop.com/checkout/ch_1","plan":{"id":"plan_creator_year"}}`
 	}}
 	now := time.Date(2026, 8, 4, 12, 0, 0, 0, time.UTC)
 	service := NewService(db, "", WhopConfig{
@@ -139,15 +139,15 @@ func TestCreateCheckoutCreatesWhopConfigurationAndRecordsAttempt(t *testing.T) {
 		WorkspaceID:    "ws-1",
 		UserID:         "user-1",
 		CustomerEmail:  "user@example.com",
-		PlanID:         "founder",
+		PlanID:         "creator",
 		BillingPeriod:  "annual",
-		AffiliateCode:  "founder-friend",
+		AffiliateCode:  "creator-friend",
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, "ch_1", result.ID)
-	require.Equal(t, "plan_founder_year", result.ProviderPlanID)
-	require.Equal(t, 250, result.PriceUSD)
+	require.Equal(t, "plan_creator_year", result.ProviderPlanID)
+	require.Equal(t, 290, result.PriceUSD)
 	require.Equal(t, now.AddDate(0, 0, TrialDays), result.TrialEndsAt)
 	require.Contains(t, result.URL, "https://app.openpost.test/checkout?")
 	require.Len(t, client.requests, 1)
@@ -155,11 +155,11 @@ func TestCreateCheckoutCreatesWhopConfigurationAndRecordsAttempt(t *testing.T) {
 	require.Equal(t, http.MethodPost, req.Method)
 	require.Equal(t, "/api/v1/checkout_configurations", req.Path)
 	require.Equal(t, "Bearer whop-token", req.Auth)
-	require.Contains(t, req.IdempotencyKey, "checkout:org-1:founder:annual")
+	require.Contains(t, req.IdempotencyKey, "checkout:org-1:creator:annual")
 	require.Equal(t, "biz_1", req.Body["company_id"])
-	require.Equal(t, "plan_founder_year", req.Body["plan_id"])
+	require.Equal(t, "plan_creator_year", req.Body["plan_id"])
 	require.Equal(t, "payment", req.Body["mode"])
-	require.Equal(t, "founder-friend", req.Body["affiliate_code"])
+	require.Equal(t, "creator-friend", req.Body["affiliate_code"])
 	metadata := req.Body["metadata"].(map[string]any)
 	require.Equal(t, "org-1", metadata["organization_id"])
 	require.Equal(t, "annual", metadata["billing_period"])
@@ -167,25 +167,25 @@ func TestCreateCheckoutCreatesWhopConfigurationAndRecordsAttempt(t *testing.T) {
 	var attempt models.BillingCheckoutAttempt
 	require.NoError(t, db.NewSelect().Model(&attempt).Where("checkout_configuration_id = ?", "ch_1").Scan(context.Background()))
 	require.Equal(t, "org-1", attempt.OrganizationID)
-	require.Equal(t, "founder", attempt.PlanID)
+	require.Equal(t, "creator", attempt.PlanID)
 	require.Equal(t, "annual", attempt.BillingPeriod)
 }
 
 func TestCreateCheckoutRejectsUnconfiguredWhopPlan(t *testing.T) {
 	t.Parallel()
 	service := NewService(nil, "", WhopConfig{APIKey: "key", AccountID: "biz_1", Plans: map[string]PlanConfig{}})
-	_, err := service.CreateCheckout(context.Background(), CreateCheckoutInput{OrganizationID: "org", CustomerEmail: "a@b.com", PlanID: "founder"})
+	_, err := service.CreateCheckout(context.Background(), CreateCheckoutInput{OrganizationID: "org", CustomerEmail: "a@b.com", PlanID: "creator"})
 	require.ErrorContains(t, err, "unknown billing plan")
 }
 
 func TestCreateCheckoutMissingPlanIDIsConfigurationError(t *testing.T) {
 	t.Parallel()
 	catalog := testCatalog()
-	catalog["founder"] = PlanConfig{MonthlyPriceUSD: 25, AnnualPriceUSD: 250}
+	catalog["creator"] = PlanConfig{MonthlyPriceUSD: 29, AnnualPriceUSD: 290}
 	service := NewService(nil, "", WhopConfig{APIKey: "key", AccountID: "biz_1", Plans: catalog})
-	_, err := service.CreateCheckout(context.Background(), CreateCheckoutInput{OrganizationID: "org", CustomerEmail: "a@b.com", PlanID: "founder"})
+	_, err := service.CreateCheckout(context.Background(), CreateCheckoutInput{OrganizationID: "org", CustomerEmail: "a@b.com", PlanID: "creator"})
 	require.True(t, IsConfigurationError(err))
-	require.ErrorContains(t, err, "OPENPOST_WHOP_FOUNDER_MONTHLY_PLAN_ID")
+	require.ErrorContains(t, err, "OPENPOST_WHOP_CREATOR_MONTHLY_PLAN_ID")
 }
 
 func TestWhopAPIURLAcceptsRootOrVersionedBaseURL(t *testing.T) {
@@ -227,8 +227,8 @@ func TestHandleJobFetchesCurrentWhopMembershipAndUpsertsSubscription(t *testing.
 			OrganizationID:          "org-1",
 			WorkspaceID:             "ws-1",
 			Provider:                ProviderWhop,
-			ProviderPlanID:          "plan_founder_month",
-			PlanID:                  "founder",
+			ProviderPlanID:          "plan_creator_month",
+			PlanID:                  "creator",
 			BillingPeriod:           "monthly",
 			Status:                  "created",
 			CreatedAt:               now,
@@ -242,7 +242,7 @@ func TestHandleJobFetchesCurrentWhopMembershipAndUpsertsSubscription(t *testing.
 			"id":"mem_1","status":"trialing","manage_url":"https://whop.com/manage/mem_1",
 			"checkout_configuration_id":"ch_1","renewal_period_end":"2026-08-18T12:00:00Z",
 			"cancel_at_period_end":false,"user":{"id":"user_whop_1","email":"user@example.com"},
-			"company":{"id":"biz_1"},"plan":{"id":"plan_founder_month"},"product":{"id":"prod_1"}
+			"company":{"id":"biz_1"},"plan":{"id":"plan_creator_month"},"product":{"id":"prod_1"}
 		}`
 	}}
 	service := NewService(db, "", WhopConfig{APIKey: "key", APIBaseURL: "https://api.whop.test/api/v1", Plans: testCatalog()})
@@ -256,7 +256,7 @@ func TestHandleJobFetchesCurrentWhopMembershipAndUpsertsSubscription(t *testing.
 	require.Equal(t, ProviderWhop, sub.Provider)
 	require.Equal(t, "mem_1", sub.ProviderSubscriptionID)
 	require.Equal(t, "trialing", sub.Status)
-	require.Equal(t, "founder", sub.PlanID)
+	require.Equal(t, "creator", sub.PlanID)
 	require.Equal(t, "https://whop.com/manage/mem_1", sub.ProviderManageURL)
 	require.Equal(t, time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC), sub.CurrentPeriodEnd)
 	require.Contains(t, sub.EntitlementSnapshot, "scheduled_posts_monthly")
@@ -278,7 +278,7 @@ func TestCreateCustomerPortalSessionUsesWhopManageURL(t *testing.T) {
 		ProviderSubscriptionID: "mem_1",
 		ProviderManageURL:      "https://whop.com/manage/mem_1",
 		Status:                 "active",
-		PlanID:                 "founder",
+		PlanID:                 "creator",
 	}).Exec(context.Background())
 	require.NoError(t, err)
 	service := NewService(db, "")

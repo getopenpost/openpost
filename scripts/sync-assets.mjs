@@ -3,7 +3,6 @@ import { existsSync } from "node:fs";
 import { setTimeout as delay } from "node:timers/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateSocialCatalog } from "./social-images/catalog.mjs";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(scriptDir, "..");
@@ -27,8 +26,6 @@ if (!existsSync(source)) {
 
 await acquireLock();
 try {
-  await generateSocialCatalog();
-
   for (const target of targets) {
     await rm(target, { recursive: true, force: true });
     await mkdir(path.dirname(target), { recursive: true });

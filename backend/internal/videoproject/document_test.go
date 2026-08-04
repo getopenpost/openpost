@@ -76,7 +76,7 @@ func TestValidateEditingModeAndTwoHourLimit(t *testing.T) {
 
 	document.EditingMode = "unknown"
 	require.ErrorContains(t, Validate(document, true), "editing mode")
-	document.EditingMode = "editor"
+	document.EditingMode = "studio"
 	source.DurationUS = 60*60*1_000_000 + 1
 	document.Sources["source"] = source
 	document.PrimarySequence[0].SourceOutUS = source.DurationUS

@@ -55,6 +55,15 @@
     content="Free browser tools for editing videos and images, previewing posts, checking character limits, splitting threads, checking handles, and planning a weekly schedule."
   />
   <link rel="canonical" href={`${siteUrl}/tools`} />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Free social media tools - OpenPost" />
+  <meta
+    property="og:description"
+    content="Preview, write, prepare, and plan a social post without creating an account."
+  />
+  <meta property="og:url" content={`${siteUrl}/tools`} />
+  <meta property="og:image" content={`${siteUrl}/assets/brand/og-image.png`} />
+  <meta name="twitter:card" content="summary_large_image" />
 </svelte:head>
 
 <section class="border-b py-14 sm:py-20">

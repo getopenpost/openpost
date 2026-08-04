@@ -11,14 +11,14 @@
 	import type { VideoPreparationProgress, VideoPreparationStage } from '$lib/video/types';
 	import { videoPreparationErrorMessage } from '$lib/video/errors';
 	import {
-		deleteImageEditorDesign,
-		duplicateImageEditorDesign,
-		listImageEditorDesigns,
-		loadImageEditorConfig,
-		toggleImageEditorDesignFavorite
-	} from '$lib/image-editor/api';
-	import type { ImageEditorDesignSummary } from '$lib/image-editor/types';
-	import { loadVideoEditorConfig } from '$lib/video-editor/api';
+		deleteStudioDesign,
+		duplicateStudioDesign,
+		listStudioDesigns,
+		loadStudioConfig,
+		toggleStudioDesignFavorite
+	} from '$lib/studio/api';
+	import type { StudioDesignSummary } from '$lib/studio/types';
+	import { loadVideoStudioConfig } from '$lib/video-studio/api';
 	import { clampMediaPage } from '$lib/media-pagination';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -36,15 +36,7 @@
 	import CameraCapture from '$lib/components/camera-capture.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaOrganizationDialog from '$lib/components/media-organization-dialog.svelte';
-	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
-	import MediaTagPicker from '$lib/components/media-tag-picker.svelte';
 	import VideoEditorDialog from '$lib/components/video-editor-dialog.svelte';
-	import {
-		createMediaTag,
-		listMediaTags,
-		updateMediaTagItems,
-		type MediaTag
-	} from '$lib/media-tags';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
 	import ImageIcon from 'lucide-svelte/icons/image';
 	import VideoIcon from 'lucide-svelte/icons/video';
@@ -64,7 +56,7 @@
 	import PlusIcon from 'lucide-svelte/icons/plus';
 	import ListIcon from 'lucide-svelte/icons/list';
 	import SlidersHorizontalIcon from 'lucide-svelte/icons/sliders-horizontal';
-	import FileAudioIcon from 'lucide-svelte/icons/file-audio';
+	import FolderPlusIcon from 'lucide-svelte/icons/folder-plus';
 	import XIcon from 'lucide-svelte/icons/x';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -101,7 +93,23 @@
 		parent_media_id?: string;
 		design_document_id?: string;
 		design_page_id?: string;
+		collections: string[];
 		tags: string[];
+	}
+
+	interface MediaCollection {
+		id: string;
+		workspace_id: string;
+		name: string;
+		color: string;
+		item_count: number;
+	}
+
+	interface MediaTag {
+		id: string;
+		workspace_id: string;
+		name: string;
+		item_count: number;
 	}
 
 	interface MediaUsage {
@@ -122,7 +130,7 @@
 	type LibraryDeletionRequest =
 		| { kind: 'single'; media: MediaItem }
 		| { kind: 'batch'; ids: string[] }
-		| { kind: 'design'; design: ImageEditorDesignSummary };
+		| { kind: 'design'; design: StudioDesignSummary };
 
 	let workspaces = $derived<Workspace[]>(workspaceCtx.workspaces);
 	let selectedWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
@@ -143,8 +151,8 @@
 	let search = $state('');
 	let mediaType = $state('all');
 	let source = $state('all');
-	let selectedTagIDs = $state.raw<string[]>([]);
-	let showUntagged = $state(false);
+	let collectionID = $state('');
+	let tagID = $state('');
 	let aspect = $state('all');
 	let minWidth = $state(0);
 	let minHeight = $state(0);
@@ -153,8 +161,9 @@
 	let dateFrom = $state('');
 	let dateTo = $state('');
 	let layoutMode = $state<'grid' | 'list'>('grid');
-	let designs = $state<ImageEditorDesignSummary[]>([]);
-	let videoEditorEnabled = $state(false);
+	let designs = $state<StudioDesignSummary[]>([]);
+	let videoStudioEnabled = $state(false);
+	let collections = $state<MediaCollection[]>([]);
 	let tags = $state<MediaTag[]>([]);
 	let hubLoading = $state(false);
 	let cameraDialogOpen = $state(false);
@@ -162,15 +171,15 @@
 	let organizationDialogOpen = $state(false);
 	let filterDialogOpen = $state(false);
 	let selectionOrganizationDialogOpen = $state(false);
+	let batchCollectionID = $state('');
 	let batchTagID = $state('');
 	let organizationSaving = $state(false);
 	let storageUsage = $state({ used_bytes: 0, asset_count: 0, internal_bytes: 0, limit_bytes: 0 });
-	let imageEditorEnabled = $state(true);
+	let studioEnabled = $state(true);
 	let mediaCanEdit = $state(false);
 
 	let uploadDialogOpen = $state(false);
 	let uploadLoading = $state(false);
-	let uploadDragging = $state(false);
 	let uploadError = $state('');
 	let uploadFiles = $state.raw<File[]>([]);
 	let uploadProgress = $state.raw<VideoPreparationProgress | null>(null);
@@ -216,13 +225,13 @@
 	}
 
 	function deletionTitle(request: LibraryDeletionRequest | null) {
-		if (request?.kind === 'design') return m.image_editor_design_delete_title();
+		if (request?.kind === 'design') return m.studio_design_delete_title();
 		if (request?.kind === 'batch') return m.media_delete_batch_title();
 		return m.media_delete_title();
 	}
 
 	function deletionDescription(request: LibraryDeletionRequest | null) {
-		if (request?.kind === 'design') return m.image_editor_design_delete_body();
+		if (request?.kind === 'design') return m.studio_design_delete_body();
 		if (request?.kind === 'batch') {
 			return request.ids.length === 1
 				? m.media_delete_batch_body_one()
@@ -260,7 +269,7 @@
 	}
 
 	function mediaViewKey() {
-		return `${selectedWorkspaceId}:${filter}:${sort}:${search}:${mediaType}:${source}:${selectedTagIDs.join(',')}:${showUntagged}:${aspect}:${minWidth}:${minHeight}:${maxWidth}:${maxHeight}:${dateFrom}:${dateTo}:${currentPage}`;
+		return `${selectedWorkspaceId}:${filter}:${sort}:${search}:${mediaType}:${source}:${collectionID}:${tagID}:${aspect}:${minWidth}:${minHeight}:${maxWidth}:${maxHeight}:${dateFrom}:${dateTo}:${currentPage}`;
 	}
 
 	async function loadWorkspaces() {
@@ -301,8 +310,8 @@
 						search,
 						type: mediaType,
 						source,
-						tag_ids: selectedTagIDs.join(','),
-						untagged: showUntagged,
+						collection_id: collectionID,
+						tag_id: tagID,
 						aspect,
 						min_width: minWidth,
 						min_height: minHeight,
@@ -335,28 +344,25 @@
 		}
 	}
 
-	async function loadImageEditorHub(workspaceID = selectedWorkspaceId) {
+	async function loadStudioHub(workspaceID = selectedWorkspaceId) {
 		if (!workspaceID) return;
 		hubLoading = true;
 		try {
-			const config = await loadImageEditorConfig();
-			imageEditorEnabled = config.enabled;
-			const [tagResult, storageResult] = await Promise.all([
-				listMediaTags(workspaceID),
+			const config = await loadStudioConfig();
+			studioEnabled = config.enabled;
+			const [collectionResult, tagResult, storageResult] = await Promise.all([
+				client.GET('/media/collections', {
+					params: { query: { workspace_id: workspaceID } }
+				}),
+				client.GET('/media/tags', { params: { query: { workspace_id: workspaceID } } }),
 				client.GET('/media/storage', { params: { query: { workspace_id: workspaceID } } })
 			]);
-			tags = tagResult.tags;
-			mediaCanEdit = tagResult.canEdit;
-			const validTagIDs = new Set(tagResult.tags.map((tag) => tag.id));
-			const nextSelected = selectedTagIDs.filter((id) => validTagIDs.has(id));
-			if (nextSelected.length !== selectedTagIDs.length) {
-				selectedTagIDs = nextSelected;
-				currentPage = 0;
-				void loadMedia(workspaceID);
-			}
+			collections = (collectionResult.data?.collections ?? []) as MediaCollection[];
+			tags = (tagResult.data?.tags ?? []) as MediaTag[];
+			mediaCanEdit = Boolean(collectionResult.data?.can_edit);
 			if (storageResult.data) storageUsage = storageResult.data;
-			if (imageEditorEnabled) {
-				const designResult = await listImageEditorDesigns(workspaceID);
+			if (studioEnabled) {
+				const designResult = await listStudioDesigns(workspaceID);
 				designs = designResult.designs;
 			} else {
 				designs = [];
@@ -368,11 +374,11 @@
 		}
 	}
 
-	async function loadVideoEditorState(): Promise<void> {
+	async function loadVideoStudioState(): Promise<void> {
 		try {
-			videoEditorEnabled = (await loadVideoEditorConfig()).enabled;
+			videoStudioEnabled = (await loadVideoStudioConfig()).enabled;
 		} catch {
-			videoEditorEnabled = false;
+			videoStudioEnabled = false;
 		}
 	}
 
@@ -380,8 +386,8 @@
 		filter = 'all';
 		mediaType = 'all';
 		source = 'all';
-		selectedTagIDs = [];
-		showUntagged = false;
+		collectionID = '';
+		tagID = '';
 		aspect = 'all';
 		minWidth = 0;
 		minHeight = 0;
@@ -397,45 +403,6 @@
 		resetAssetFilters();
 	}
 
-	function changeTagFilters(tagIDs: string[], untagged: boolean) {
-		selectedTagIDs = tagIDs;
-		showUntagged = untagged;
-		currentPage = 0;
-		void loadMedia();
-	}
-
-	async function toggleMediaTag(mediaID: string, tagID: string, selected: boolean): Promise<void> {
-		await updateMediaTagItems(tagID, [mediaID], selected ? 'add' : 'remove');
-		const item = mediaItems.find((media) => media.id === mediaID);
-		if (item) {
-			item.tags = selected
-				? [...new Set([...item.tags, tagID])]
-				: item.tags.filter((id) => id !== tagID);
-		}
-		if (selectedMedia?.id === mediaID) {
-			selectedMedia.tags = selected
-				? [...new Set([...selectedMedia.tags, tagID])]
-				: selectedMedia.tags.filter((id) => id !== tagID);
-		}
-		await loadImageEditorHub();
-	}
-
-	async function createAndAssignTag(mediaID: string, name: string): Promise<void> {
-		const tag = await createMediaTag(selectedWorkspaceId, name);
-		await updateMediaTagItems(tag.id, [mediaID], 'add');
-		await loadImageEditorHub();
-		const item = mediaItems.find((media) => media.id === mediaID);
-		if (item) item.tags = [...new Set([...item.tags, tag.id])];
-		if (selectedMedia?.id === mediaID) {
-			selectedMedia.tags = [...new Set([...selectedMedia.tags, tag.id])];
-		}
-	}
-
-	function uploadTagID(): string | undefined {
-		if (!showUntagged && selectedTagIDs.length === 1) return selectedTagIDs[0];
-		return undefined;
-	}
-
 	function applyAssetFilters() {
 		currentPage = 0;
 		filterDialogOpen = false;
@@ -445,12 +412,7 @@
 	async function saveCameraPhoto(file: File) {
 		cameraUploading = true;
 		try {
-			await uploadMediaFile({
-				workspaceId: selectedWorkspaceId,
-				file,
-				source: 'camera',
-				tagId: uploadTagID()
-			});
+			await uploadMediaFile({ workspaceId: selectedWorkspaceId, file, source: 'camera' });
 			cameraDialogOpen = false;
 			await loadMedia();
 			notify(m.media_photo_saved(), 'success');
@@ -476,14 +438,11 @@
 		}
 	}
 
-	async function toggleDesignFavorite(design: ImageEditorDesignSummary) {
+	async function toggleDesignFavorite(design: StudioDesignSummary) {
 		try {
-			design.is_favorite = await toggleImageEditorDesignFavorite(design.id);
+			design.is_favorite = await toggleStudioDesignFavorite(design.id);
 		} catch (cause) {
-			notify(
-				cause instanceof Error ? cause.message : m.image_editor_design_favorite_failed(),
-				'error'
-			);
+			notify(cause instanceof Error ? cause.message : m.studio_design_favorite_failed(), 'error');
 		}
 	}
 
@@ -496,31 +455,46 @@
 		isSelectionMode = false;
 	}
 
-	async function assignSelectedOrganization(mode: 'add' | 'remove' = 'add') {
-		const id = batchTagID;
+	async function assignSelectedOrganization(
+		kind: 'collection' | 'tag',
+		mode: 'add' | 'remove' = 'add'
+	) {
+		const id = kind === 'collection' ? batchCollectionID : batchTagID;
 		const mediaIDs = Array.from(selectedMediaIds);
 		if (!id || mediaIDs.length === 0) return;
 		organizationSaving = true;
 		try {
-			const result = await client.PUT('/media/tags/{id}/items', {
-				params: { path: { id } },
-				body: { media_ids: mediaIDs, mode } as never
-			});
+			const result =
+				kind === 'collection'
+					? await client.PUT('/media/collections/{id}/items', {
+							params: { path: { id } },
+							body: { media_ids: mediaIDs, mode } as never
+						})
+					: await client.PUT('/media/tags/{id}/items', {
+							params: { path: { id } },
+							body: { media_ids: mediaIDs, mode } as never
+						});
 			if (result.error) throw new Error(result.error.detail);
-			await Promise.all([loadMedia(), loadImageEditorHub()]);
+			await Promise.all([loadMedia(), loadStudioHub()]);
 			notify(
 				mode === 'remove'
 					? m.media_organization_removed({
 							count: mediaIDs.length,
-							kind: m.media_organization_tag()
+							kind:
+								kind === 'collection'
+									? m.media_organization_collection()
+									: m.media_organization_tag()
 						})
-					: m.media_organization_tagged({ count: mediaIDs.length }),
+					: kind === 'collection'
+						? m.media_organization_collected({ count: mediaIDs.length })
+						: m.media_organization_tagged({ count: mediaIDs.length }),
 				'success'
 			);
 			selectedMediaIds.clear();
 			isSelectionMode = false;
 			selectionOrganizationDialogOpen = false;
-			batchTagID = '';
+			if (kind === 'collection') batchCollectionID = '';
+			else batchTagID = '';
 		} catch (cause) {
 			notify(cause instanceof Error ? cause.message : m.media_assets_organize_failed(), 'error');
 		} finally {
@@ -540,7 +514,7 @@
 		deleteDialogOpen = true;
 	}
 
-	function requestDeleteDesign(design: ImageEditorDesignSummary) {
+	function requestDeleteDesign(design: StudioDesignSummary) {
 		deletionRequest = { kind: 'design', design };
 		deleteDialogOpen = true;
 	}
@@ -598,16 +572,13 @@
 		}
 	}
 
-	async function deleteDesign(design: ImageEditorDesignSummary) {
+	async function deleteDesign(design: StudioDesignSummary) {
 		try {
-			await deleteImageEditorDesign(design.id);
+			await deleteStudioDesign(design.id);
 			designs = designs.filter((candidate) => candidate.id !== design.id);
-			notify(m.image_editor_design_deleted(), 'success');
+			notify(m.studio_design_deleted(), 'success');
 		} catch (cause) {
-			notify(
-				cause instanceof Error ? cause.message : m.image_editor_design_delete_failed(),
-				'error'
-			);
+			notify(cause instanceof Error ? cause.message : m.studio_design_delete_failed(), 'error');
 		}
 	}
 
@@ -644,7 +615,7 @@
 		}
 	}
 
-	function openMediaInImageEditor(media: MediaItem, action = '') {
+	function openMediaInStudio(media: MediaItem, action = '') {
 		const query = new URLSearchParams({
 			workspace: selectedWorkspaceId,
 			source_media: media.id,
@@ -653,16 +624,16 @@
 			height: String(media.height || 1080)
 		});
 		if (action) query.set('action', action);
-		void goto(resolve(`/image-editor/new?${query.toString()}` as '/'));
+		void goto(resolve(`/studio/new?${query.toString()}` as '/'));
 	}
 
-	function openMediaInVideoEditor(media: MediaItem) {
+	function openMediaInVideoStudio(media: MediaItem) {
 		const query = new URLSearchParams({
 			mode: 'media',
 			source_media: media.id,
 			source_name: media.original_filename
 		});
-		void goto(resolve(`/video-editor/new?${query.toString()}` as '/'));
+		void goto(resolve(`/video-studio/new?${query.toString()}` as '/'));
 	}
 
 	async function duplicateMedia(media: MediaItem) {
@@ -678,9 +649,8 @@
 			await uploadMediaFile({
 				workspaceId: selectedWorkspaceId,
 				file: duplicated,
-				source: 'image_editor_edit',
-				parentMediaId: media.id,
-				tagId: uploadTagID()
+				source: 'studio_edit',
+				parentMediaId: media.id
 			});
 			await loadMedia();
 			notify(m.media_duplicated(), 'success');
@@ -761,7 +731,9 @@
 		selectedMedia = null;
 	}
 
-	function selectUploadFiles(selectedFiles: File[]): void {
+	function handleUploadSelection(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const selectedFiles = Array.from(input.files ?? []);
 		const supportedFiles = selectedFiles.filter(isSupportedMediaFile);
 		uploadError = '';
 		if (supportedFiles.length !== selectedFiles.length) {
@@ -777,26 +749,6 @@
 			uploadVideoEditorFile = supportedFiles[0];
 			uploadVideoEditorOpen = true;
 		}
-	}
-
-	function handleUploadSelection(event: Event): void {
-		const input = event.currentTarget as HTMLInputElement;
-		selectUploadFiles(Array.from(input.files ?? []));
-	}
-
-	function handleUploadDrop(event: DragEvent): void {
-		event.preventDefault();
-		uploadDragging = false;
-		if (uploadLoading) return;
-		selectUploadFiles(Array.from(event.dataTransfer?.files ?? []));
-	}
-
-	function handleUploadDragLeave(event: DragEvent): void {
-		const nextTarget = event.relatedTarget;
-		if (nextTarget instanceof Node && event.currentTarget instanceof Node) {
-			if (event.currentTarget.contains(nextTarget)) return;
-		}
-		uploadDragging = false;
 	}
 
 	function attachUploadInput(input: HTMLInputElement) {
@@ -862,7 +814,6 @@
 					await uploadMediaFile({
 						workspaceId: selectedWorkspaceId,
 						file,
-						tagId: uploadTagID(),
 						signal: uploadController.signal,
 						onProgress: (progress) => {
 							uploadProgress = {
@@ -930,14 +881,11 @@
 
 	async function duplicateDesign(id: string): Promise<void> {
 		try {
-			await duplicateImageEditorDesign(id);
-			await loadImageEditorHub();
-			notify(m.image_editor_design_duplicated(), 'success');
+			await duplicateStudioDesign(id);
+			await loadStudioHub();
+			notify(m.studio_design_duplicated(), 'success');
 		} catch (cause) {
-			notify(
-				cause instanceof Error ? cause.message : m.image_editor_design_duplicate_failed(),
-				'error'
-			);
+			notify(cause instanceof Error ? cause.message : m.studio_design_duplicate_failed(), 'error');
 		}
 	}
 
@@ -949,18 +897,14 @@
 		return mimeType.startsWith('video/');
 	}
 
-	function isAudio(mimeType: string): boolean {
-		return mimeType.startsWith('audio/');
-	}
-
 	function mediaSourceLabel(value: string): string {
 		switch (value) {
 			case 'camera':
 				return m.media_camera();
-			case 'image_editor_export':
-				return m.media_image_editor_exports();
-			case 'image_editor_edit':
-				return m.media_image_editor_edits();
+			case 'studio_export':
+				return m.media_studio_exports();
+			case 'studio_edit':
+				return m.media_studio_edits();
 			case 'background_removal':
 				return m.media_background_removal();
 			default:
@@ -1002,9 +946,6 @@
 		if (mimeType === 'image/gif') return 'gif';
 		if (mimeType === 'video/mp4') return 'mp4';
 		if (mimeType === 'video/webm') return 'webm';
-		if (mimeType === 'audio/mpeg') return 'mp3';
-		if (mimeType === 'audio/wav') return 'wav';
-		if (mimeType === 'audio/ogg') return 'ogg';
 		return 'bin';
 	}
 
@@ -1036,8 +977,6 @@
 		const workspace = workspaces.find((candidate) => candidate.id === value);
 		if (!workspace) return;
 		currentPage = 0;
-		selectedTagIDs = [];
-		showUntagged = false;
 		await workspaceCtx.setWorkspace(workspace);
 	}
 
@@ -1081,7 +1020,7 @@
 			replaceState(resolve(`${next.pathname}${next.search}` as '/'), {});
 		}
 		void loadWorkspaces();
-		void loadVideoEditorState();
+		void loadVideoStudioState();
 	});
 
 	onMount(() => {
@@ -1105,7 +1044,7 @@
 		const workspaceID = selectedWorkspaceId;
 		untrack(() => {
 			void loadMedia(workspaceID);
-			void loadImageEditorHub(workspaceID);
+			void loadStudioHub(workspaceID);
 		});
 	});
 
@@ -1120,8 +1059,8 @@
 			filter !== 'all',
 			mediaType !== 'all',
 			source !== 'all',
-			selectedTagIDs.length > 0,
-			showUntagged,
+			Boolean(collectionID),
+			Boolean(tagID),
 			aspect !== 'all',
 			minWidth > 0,
 			minHeight > 0,
@@ -1135,8 +1074,8 @@
 		[
 			mediaType !== 'all',
 			source !== 'all',
-			selectedTagIDs.length > 0,
-			showUntagged,
+			Boolean(collectionID),
+			Boolean(tagID),
 			aspect !== 'all',
 			minWidth > 0,
 			minHeight > 0,
@@ -1147,7 +1086,7 @@
 		].filter(Boolean).length
 	);
 	const visibleDesigns = $derived(
-		imageEditorEnabled &&
+		studioEnabled &&
 			!isSelectionMode &&
 			currentPage === 0 &&
 			activeDetailFilterCount === 0 &&
@@ -1241,13 +1180,11 @@
 						<CameraIcon />
 						{m.media_take_photo()}
 					</DropdownMenu.Item>
-					{#if imageEditorEnabled}
+					{#if studioEnabled}
 						<DropdownMenu.Item
 							onclick={() =>
 								goto(
-									resolve(
-										`/image-editor/new?workspace=${encodeURIComponent(selectedWorkspaceId)}` as '/'
-									)
+									resolve(`/studio/new?workspace=${encodeURIComponent(selectedWorkspaceId)}` as '/')
 								)}
 						>
 							<PaletteIcon />
@@ -1270,15 +1207,6 @@
 			onDismiss={() => (error = '')}
 		/>
 	{/if}
-
-	<MediaTagFilter
-		{tags}
-		selectedIds={selectedTagIDs}
-		untagged={showUntagged}
-		canEdit={mediaCanEdit}
-		onChange={changeTagFilters}
-		onManage={() => (organizationDialogOpen = true)}
-	/>
 
 	<form
 		class="flex gap-2"
@@ -1317,23 +1245,7 @@
 	</form>
 
 	<div class="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-center">
-		<div class="flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
-			{#each [{ value: 'all', label: m.media_all_types() }, { value: 'image', label: m.media_images() }, { value: 'video', label: m.media_videos() }, { value: 'audio', label: m.media_audio() }] as typeFilter (typeFilter.value)}
-				<Button
-					variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}
-					size="sm"
-					class="min-w-11 shrink-0 rounded-full"
-					onclick={() => {
-						mediaType = typeFilter.value;
-						currentPage = 0;
-						void loadMedia();
-					}}
-				>
-					{typeFilter.label}
-				</Button>
-			{/each}
-		</div>
-		<div class="flex min-w-0 gap-1 overflow-x-auto sm:border-l sm:pl-2">
+		<div class="flex min-w-0 gap-1 overflow-x-auto">
 			{#each quickFilters as quickFilter (quickFilter.value)}
 				<Button
 					variant={filter === quickFilter.value ? 'secondary' : 'ghost'}
@@ -1413,8 +1325,8 @@
 					disabled={selectedMediaIds.size === 0}
 					onclick={() => (selectionOrganizationDialogOpen = true)}
 				>
-					<TagIcon />
-					{m.media_manage_tags()}
+					<FolderPlusIcon />
+					{m.media_organize()}
 				</Button>
 				<Button
 					variant="ghost"
@@ -1486,7 +1398,7 @@
 						{#snippet child({ props })}
 							<a
 								{...props}
-								href={resolve(`/image-editor/${design.id}` as '/')}
+								href={resolve(`/studio/${design.id}` as '/')}
 								data-library-kind="design"
 								class="group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none {layoutMode ===
 								'list'
@@ -1542,10 +1454,10 @@
 						<ContextMenu.Content class={libraryContextContentClass}>
 							<ContextMenu.Item
 								class={libraryContextItemClass}
-								onclick={() => goto(resolve(`/image-editor/${design.id}` as '/'))}
+								onclick={() => goto(resolve(`/studio/${design.id}` as '/'))}
 							>
 								<ExternalLinkIcon class="size-4" />
-								{m.image_editor_open_design()}
+								{m.studio_open_design()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
 								class={libraryContextItemClass}
@@ -1553,7 +1465,7 @@
 								onclick={() => duplicateDesign(design.id)}
 							>
 								<Grid2X2Icon class="size-4" />
-								{m.image_editor_duplicate_design()}
+								{m.studio_duplicate_design()}
 							</ContextMenu.Item>
 							<ContextMenu.Item
 								class={libraryContextItemClass}
@@ -1673,13 +1585,9 @@
 											loading="lazy"
 											class="size-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
 										/>
-									{:else if isAudio(media.mime_type)}
-										<div class="flex size-full items-center justify-center">
-											<FileAudioIcon class="size-10 text-muted-foreground/50" />
-										</div>
 									{:else}
 										<div class="flex size-full items-center justify-center">
-											<ImageIcon class="size-10 text-muted-foreground/40" />
+											<VideoIcon class="size-10 text-muted-foreground/40" />
 										</div>
 									{/if}
 
@@ -1725,35 +1633,6 @@
 									<p class="mt-0.5 truncate text-xs text-muted-foreground">
 										{formatSize(media.size)} · {formatDate(media.created_at)}
 									</p>
-									<div class="mt-2 flex min-w-0 flex-wrap items-center gap-1">
-										{#each media.tags.slice(0, 2) as tagID (tagID)}
-											{@const tag = tags.find((item) => item.id === tagID)}
-											{#if tag}
-												<Button
-													variant="secondary"
-													size="xs"
-													class="h-7 max-w-32 rounded-full px-2"
-													onclick={() => changeTagFilters([tag.id], false)}
-												>
-													<span class="truncate">#{tag.name}</span>
-												</Button>
-											{/if}
-										{/each}
-										{#if media.tags.length > 2}
-											<span class="px-1 text-xs text-muted-foreground"
-												>+{media.tags.length - 2}</span
-											>
-										{/if}
-										{#if mediaCanEdit}
-											<MediaTagPicker
-												{tags}
-												selectedIds={media.tags}
-												canEdit={mediaCanEdit}
-												onToggle={(tagID, selected) => toggleMediaTag(media.id, tagID, selected)}
-												onCreate={(name) => createAndAssignTag(media.id, name)}
-											/>
-										{/if}
-									</div>
 								</div>
 							</div>
 						{/snippet}
@@ -1764,29 +1643,29 @@
 								<ExternalLinkIcon class="size-4" />
 								{m.media_details()}
 							</ContextMenu.Item>
-							{#if isImage(media.mime_type) && mediaCanEdit && imageEditorEnabled}
+							{#if isImage(media.mime_type) && mediaCanEdit && studioEnabled}
 								<ContextMenu.Item
 									class={libraryContextItemClass}
-									onclick={() => openMediaInImageEditor(media)}
+									onclick={() => openMediaInStudio(media)}
 								>
 									<PaletteIcon class="size-4" />
-									{m.media_edit_image_editor()}
+									{m.media_edit_studio()}
 								</ContextMenu.Item>
 								<ContextMenu.Item
 									class={libraryContextItemClass}
-									onclick={() => openMediaInImageEditor(media, 'remove-background')}
+									onclick={() => openMediaInStudio(media, 'remove-background')}
 								>
 									<ImageIcon class="size-4" />
-									{m.image_editor_remove_background()}
+									{m.studio_remove_background()}
 								</ContextMenu.Item>
 							{/if}
-							{#if isVideo(media.mime_type) && mediaCanEdit && videoEditorEnabled}
+							{#if isVideo(media.mime_type) && mediaCanEdit && videoStudioEnabled}
 								<ContextMenu.Item
 									class={libraryContextItemClass}
-									onclick={() => openMediaInVideoEditor(media)}
+									onclick={() => openMediaInVideoStudio(media)}
 								>
 									<VideoIcon class="size-4" />
-									{m.media_edit_video_editor()}
+									{m.media_edit_video_studio()}
 								</ContextMenu.Item>
 							{/if}
 							{#if mediaCanEdit}
@@ -1795,7 +1674,7 @@
 									onclick={() => duplicateMedia(media)}
 								>
 									<Grid2X2Icon class="size-4" />
-									{m.image_editor_duplicate()}
+									{m.studio_duplicate()}
 								</ContextMenu.Item>
 							{/if}
 							<ContextMenu.Item
@@ -1871,8 +1750,7 @@
 					options={[
 						{ value: 'all', label: m.media_all_types() },
 						{ value: 'image', label: m.media_images() },
-						{ value: 'video', label: m.media_videos() },
-						{ value: 'audio', label: m.media_audio() }
+						{ value: 'video', label: m.media_videos() }
 					]}
 					class="h-11 w-full"
 				/>
@@ -1885,8 +1763,8 @@
 						{ value: 'all', label: m.media_all_sources() },
 						{ value: 'upload', label: m.media_uploads() },
 						{ value: 'camera', label: m.media_camera() },
-						{ value: 'image_editor_export', label: m.media_image_editor_exports() },
-						{ value: 'image_editor_edit', label: m.media_image_editor_edits() },
+						{ value: 'studio_export', label: m.media_studio_exports() },
+						{ value: 'studio_edit', label: m.media_studio_edits() },
 						{ value: 'background_removal', label: m.media_background_removal() }
 					]}
 					class="h-11 w-full"
@@ -1901,6 +1779,36 @@
 						{ value: 'square', label: m.media_square() },
 						{ value: 'portrait', label: m.media_portrait() },
 						{ value: 'landscape', label: m.media_landscape() }
+					]}
+					class="h-11 w-full"
+				/>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_collection()}</span>
+				<AppSelect
+					value={collectionID || 'all'}
+					onValueChange={(value) => (collectionID = value === 'all' ? '' : value)}
+					options={[
+						{ value: 'all', label: m.media_all_collections() },
+						...collections.map((collection) => ({
+							value: collection.id,
+							label: `${collection.name} (${collection.item_count})`
+						}))
+					]}
+					class="h-11 w-full"
+				/>
+			</label>
+			<label class="grid gap-1.5 text-sm font-medium">
+				<span>{m.media_tag()}</span>
+				<AppSelect
+					value={tagID || 'all'}
+					onValueChange={(value) => (tagID = value === 'all' ? '' : value)}
+					options={[
+						{ value: 'all', label: m.media_all_tags() },
+						...tags.map((tag) => ({
+							value: tag.id,
+							label: `${tag.name} (${tag.item_count})`
+						}))
 					]}
 					class="h-11 w-full"
 				/>
@@ -1971,6 +1879,35 @@
 		</Dialog.Header>
 		<div class="space-y-5 py-2">
 			<div class="space-y-2">
+				<label for="batch-collection" class="text-sm font-medium">{m.media_collection()}</label>
+				<div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+					<AppSelect
+						id="batch-collection"
+						bind:value={batchCollectionID}
+						placeholder={m.media_choose_collection()}
+						options={collections.map((collection) => ({
+							value: collection.id,
+							label: collection.name
+						}))}
+						class="h-11 min-w-0"
+					/>
+					<Button
+						variant="outline"
+						disabled={!batchCollectionID || organizationSaving}
+						onclick={() => assignSelectedOrganization('collection')}
+					>
+						{m.media_add()}
+					</Button>
+					<Button
+						variant="ghost"
+						disabled={!batchCollectionID || organizationSaving}
+						onclick={() => assignSelectedOrganization('collection', 'remove')}
+					>
+						{m.media_remove()}
+					</Button>
+				</div>
+			</div>
+			<div class="space-y-2">
 				<label for="batch-tag" class="text-sm font-medium">{m.media_tag()}</label>
 				<div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
 					<AppSelect
@@ -1983,14 +1920,14 @@
 					<Button
 						variant="outline"
 						disabled={!batchTagID || organizationSaving}
-						onclick={() => assignSelectedOrganization()}
+						onclick={() => assignSelectedOrganization('tag')}
 					>
 						{m.media_add()}
 					</Button>
 					<Button
 						variant="ghost"
 						disabled={!batchTagID || organizationSaving}
-						onclick={() => assignSelectedOrganization('remove')}
+						onclick={() => assignSelectedOrganization('tag', 'remove')}
 					>
 						{m.media_remove()}
 					</Button>
@@ -2010,9 +1947,9 @@
 <MediaOrganizationDialog
 	bind:open={organizationDialogOpen}
 	workspaceId={selectedWorkspaceId}
+	{collections}
 	{tags}
-	onChanged={() => loadImageEditorHub()}
-	onNotify={notify}
+	onChanged={() => loadStudioHub()}
 />
 
 <!-- Upload Dialog -->
@@ -2032,27 +1969,18 @@
 			<Input
 				id="file-upload"
 				type="file"
-				accept="image/*,video/*,audio/*"
+				accept="image/*,video/*"
 				multiple
 				class="peer sr-only !size-px !p-0"
 				onchange={handleUploadSelection}
 				{@attach attachUploadInput}
 			/>
 			<label
-				class="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:bg-muted/40 {uploadDragging
-					? 'border-primary bg-primary/5'
-					: ''}"
+				class="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:bg-muted/40"
 				for="file-upload"
-				ondragenter={(event) => {
-					event.preventDefault();
-					if (!uploadLoading) uploadDragging = true;
-				}}
-				ondragover={(event) => event.preventDefault()}
-				ondragleave={handleUploadDragLeave}
-				ondrop={handleUploadDrop}
 			>
 				<UploadIcon class="mb-3 size-8 text-muted-foreground" />
-				<p class="text-sm font-medium">{m.media_drop_prompt()}</p>
+				<p class="text-sm font-medium">{m.media_select_files()}</p>
 				<p class="mt-1 text-sm text-muted-foreground">{m.media_upload_batch_hint()}</p>
 			</label>
 
@@ -2166,12 +2094,6 @@
 							muted
 							playsinline
 						></video>
-					{:else if isAudio(selectedMedia.mime_type)}
-						<div class="flex aspect-[4/3] flex-col items-center justify-center gap-4 p-5">
-							<FileAudioIcon class="size-12 text-muted-foreground" />
-							<audio src={getAuthenticatedMediaURL(selectedMedia.url)} class="w-full" controls
-							></audio>
-						</div>
 					{/if}
 					<figcaption class="border-t px-3 py-2 text-xs text-muted-foreground">
 						{selectedMedia.width || '—'} × {selectedMedia.height || '—'} ·
@@ -2197,7 +2119,7 @@
 								<dt class="text-xs text-muted-foreground">{m.media_design()}</dt>
 								<dd class="mt-0.5">
 									<a
-										href={resolve(`/image-editor/${selectedMedia.design_document_id}` as '/')}
+										href={resolve(`/studio/${selectedMedia.design_document_id}` as '/')}
 										class="font-medium text-primary hover:underline"
 									>
 										{m.media_open_design()}
@@ -2252,29 +2174,26 @@
 								</div>
 							{/if}
 						{/if}
-						<div class="sm:col-span-2">
-							<dt class="text-xs text-muted-foreground">{m.media_tags()}</dt>
-							<dd class="mt-1.5 flex flex-wrap items-center gap-1.5">
-								{#each selectedMedia.tags as tagID (tagID)}
-									{@const tag = tags.find((item) => item.id === tagID)}
-									{#if tag}
-										<span class="rounded-full bg-secondary px-2.5 py-1 text-xs font-medium"
-											>#{tag.name}</span
-										>
-									{/if}
-								{/each}
-								{#if mediaCanEdit}
-									<MediaTagPicker
-										{tags}
-										selectedIds={selectedMedia.tags}
-										canEdit
-										onToggle={(tagID, selected) =>
-											toggleMediaTag(selectedMedia!.id, tagID, selected)}
-										onCreate={(name) => createAndAssignTag(selectedMedia!.id, name)}
-									/>
-								{/if}
-							</dd>
-						</div>
+						{#if selectedMedia.collections.length}
+							<div>
+								<dt class="text-xs text-muted-foreground">{m.media_collections()}</dt>
+								<dd class="mt-0.5">
+									{selectedMedia.collections
+										.map((id) => collections.find((item) => item.id === id)?.name || id)
+										.join(', ')}
+								</dd>
+							</div>
+						{/if}
+						{#if selectedMedia.tags.length}
+							<div>
+								<dt class="text-xs text-muted-foreground">{m.media_tags()}</dt>
+								<dd class="mt-0.5">
+									{selectedMedia.tags
+										.map((id) => tags.find((item) => item.id === id)?.name || id)
+										.join(', ')}
+								</dd>
+							</div>
+						{/if}
 					</dl>
 					<div class="space-y-2">
 						<label for="media-detail-alt-text" class="block text-sm font-medium">
@@ -2302,43 +2221,39 @@
 				</div>
 			</div>
 			<div class="flex flex-wrap gap-2 border-y py-3">
-				{#if isImage(selectedMedia.mime_type) && mediaCanEdit && imageEditorEnabled}
-					<Button
-						variant="outline"
-						size="sm"
-						onclick={() => openMediaInImageEditor(selectedMedia!)}
-					>
+				{#if isImage(selectedMedia.mime_type) && mediaCanEdit && studioEnabled}
+					<Button variant="outline" size="sm" onclick={() => openMediaInStudio(selectedMedia!)}>
 						<PaletteIcon />
-						{m.media_edit_image_editor()}
+						{m.media_edit_studio()}
 					</Button>
 					<Button
 						variant="outline"
 						size="sm"
-						onclick={() => openMediaInImageEditor(selectedMedia!, 'remove-background')}
+						onclick={() => openMediaInStudio(selectedMedia!, 'remove-background')}
 					>
 						<ImageIcon />
-						{m.image_editor_remove_background()}
+						{m.studio_remove_background()}
 					</Button>
 				{/if}
-				{#if isVideo(selectedMedia.mime_type) && mediaCanEdit && videoEditorEnabled}
+				{#if isVideo(selectedMedia.mime_type) && mediaCanEdit && videoStudioEnabled}
 					<Button
 						variant="outline"
 						size="sm"
-						onclick={() => openMediaInVideoEditor(selectedMedia!)}
+						onclick={() => openMediaInVideoStudio(selectedMedia!)}
 					>
 						<VideoIcon />
-						{m.media_edit_video_editor()}
+						{m.media_edit_video_studio()}
 					</Button>
 				{/if}
 				{#if mediaCanEdit}
 					<Button variant="outline" size="sm" onclick={() => duplicateMedia(selectedMedia!)}>
 						<Grid2X2Icon />
-						{m.image_editor_duplicate()}
+						{m.studio_duplicate()}
 					</Button>
 				{/if}
 				<Button variant="outline" size="sm" onclick={() => downloadMedia(selectedMedia!)}>
 					<DownloadIcon />
-					{m.image_editor_download()}
+					{m.studio_download()}
 				</Button>
 				{#if mediaCanEdit}
 					<Button

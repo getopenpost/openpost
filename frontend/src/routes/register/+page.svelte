@@ -13,7 +13,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { onboardingPathForPlan } from '$lib/billing';
 	import { safeSameOriginRedirect } from '$lib/redirects';
-	import { trackPublicImageEditorEvent } from '$lib/image-editor/public-telemetry';
+	import { trackPublicStudioEvent } from '$lib/studio/public-telemetry';
 	import { onMount } from 'svelte';
 	import { client, type AuthConfiguration } from '$lib/api/client';
 	import type { OIDCProvider } from '$lib/api/client';
@@ -97,8 +97,8 @@
 		const result = await auth.register({ email, password, acceptedLegal });
 
 		if (result.success) {
-			if (safeSameOriginRedirect(page.url, '').startsWith('/image-editor/local_design_')) {
-				trackPublicImageEditorEvent('image_editor_signup_completed', { source: 'editor' });
+			if (safeSameOriginRedirect(page.url, '').startsWith('/studio/local_design_')) {
+				trackPublicStudioEvent('studio_signup_completed', { source: 'editor' });
 			}
 			goto(resolve(registrationTarget() as '/'));
 		} else if (result.requiresEmailVerification && result.emailVerificationID) {

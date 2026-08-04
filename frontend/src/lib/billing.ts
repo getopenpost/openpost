@@ -1,4 +1,4 @@
-export const hostedPlanIDs = ['starter', 'founder', 'pro', 'team', 'agency'] as const;
+export const hostedPlanIDs = ['starter', 'creator', 'pro', 'team', 'agency'] as const;
 export const billingPeriods = ['monthly', 'annual'] as const;
 
 export type HostedPlanID = (typeof hostedPlanIDs)[number];
@@ -26,11 +26,11 @@ export const hostedPlans: readonly HostedPlan[] = [
 		limits: ['3 social accounts', '100 scheduled posts / month', '1 GB media']
 	},
 	{
-		id: 'founder',
-		name: 'Founder',
+		id: 'creator',
+		name: 'Creator',
 		description: 'Run your company’s content across more channels.',
-		monthlyPriceUSD: 25,
-		annualPriceUSD: 250,
+		monthlyPriceUSD: 29,
+		annualPriceUSD: 290,
 		featured: true,
 		bestFor: 'Solo founders publishing consistently',
 		limits: ['6 social accounts', '500 scheduled posts / month', '5 GB media']
@@ -86,7 +86,7 @@ export function billingPeriodFromSearchParams(searchParams: URLSearchParams): Bi
 }
 
 export function hostedPlanByID(planID: string | null | undefined): HostedPlan {
-	const normalized = normalizeHostedPlanID(planID) || 'founder';
+	const normalized = normalizeHostedPlanID(planID) || 'creator';
 	return hostedPlans.find((plan) => plan.id === normalized) ?? hostedPlans[1];
 }
 
@@ -103,7 +103,7 @@ export function checkoutPathForPlan(
 	planID: string | null | undefined,
 	period: string | null | undefined = 'monthly'
 ): string {
-	const plan = normalizeHostedPlanID(planID) || 'founder';
+	const plan = normalizeHostedPlanID(planID) || 'creator';
 	const query = new URLSearchParams({
 		plan,
 		billing_period: normalizeBillingPeriod(period)

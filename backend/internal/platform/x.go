@@ -677,28 +677,6 @@ func (x *XAdapter) Publish(ctx context.Context, accessToken, _ string, req *Publ
 	return result.Data.ID, nil
 }
 
-func (x *XAdapter) Repost(ctx context.Context, accessToken, targetAccountID string, req RepostRequest) (RepostResult, error) {
-	if strings.TrimSpace(targetAccountID) == "" || strings.TrimSpace(req.ExternalID) == "" {
-		return RepostResult{}, fmt.Errorf("x repost requires a target account and source post id")
-	}
-	body, err := jsonMarshal(map[string]string{"tweet_id": req.ExternalID})
-	if err != nil {
-		return RepostResult{}, fmt.Errorf("marshaling X repost: %w", err)
-	}
-	_, err = x.doSignedRequest(
-		ctx,
-		accessToken,
-		http.MethodPost,
-		x.apiURL("/2/users/"+url.PathEscape(targetAccountID)+"/retweets"),
-		bytes.NewReader(body),
-		map[string]string{headerContentType: contentTypeJSON},
-	)
-	if err != nil {
-		return RepostResult{}, fmt.Errorf("reposting on X: %w", err)
-	}
-	return RepostResult{ExternalID: req.ExternalID, ExternalURL: req.ExternalURL}, nil
-}
-
 func buildXTweetPayload(req *PublishRequest) (map[string]interface{}, error) {
 	payload := map[string]interface{}{
 		jsonFieldText: ContentWithSettingURL(req.Content, req.Settings),

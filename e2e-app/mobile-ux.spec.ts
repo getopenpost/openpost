@@ -294,17 +294,17 @@ test("attached media controls stay touch accessible on mobile and desktop", asyn
   await authenticatePage(page, auth.token);
 
   await page.goto("/media");
-  await page.getByRole("button", { name: "Add media" }).first().click();
-  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
-  await uploadDialog.locator('input[type="file"]').first().setInputFiles({
+  await page.getByRole("button", { name: "Upload" }).first().click();
+  await page.locator("#file-upload").setInputFiles({
     name: "mobile-actions.png",
     mimeType: "image/png",
     buffer: Buffer.concat([tinyPNG, Buffer.from(unique)]),
   });
-  await uploadDialog
-    .getByRole("button", { name: "Upload 1 file", exact: true })
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Upload" })
     .click();
-  await expect(uploadDialog).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 });
 
   const mediaResponse = await request.get(
     `/api/v1/media?workspace_id=${workspace.id}`,

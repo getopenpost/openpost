@@ -182,55 +182,6 @@ describe('OpenPost Image Editor rotation gestures', () => {
 	});
 });
 
-describe('OpenPost Image Editor multi-selection movement', () => {
-	it('does not snap an active selection against its own relative child coordinates', () => {
-		const adapter = new OpenPostFabricAdapter({
-			canvas: {} as HTMLCanvasElement,
-			document: { width_px: 1080, height_px: 1080 } as ImageEditorDocument,
-			page: {
-				id: 'page',
-				name: 'Page 1',
-				background_color: '#ffffff',
-				layers: []
-			},
-			readOnly: false,
-			onSelection: () => undefined,
-			onTransform: () => undefined,
-			onTextChange: () => undefined
-		});
-		const child = {
-			__imageEditorLayerID: 'text',
-			left: 105,
-			top: 105,
-			getScaledWidth: () => 80,
-			getScaledHeight: () => 40
-		};
-		const selection = {
-			left: 100,
-			top: 100,
-			getScaledWidth: () => 200,
-			getScaledHeight: () => 160,
-			getObjects: () => [child]
-		};
-		const canvas = {
-			getZoom: () => 1,
-			getObjects: () => [child],
-			remove: () => undefined
-		};
-		const internals = adapter as unknown as {
-			fabric: object;
-			canvas: typeof canvas;
-			snapObject(target: typeof selection): void;
-		};
-		internals.fabric = {};
-		internals.canvas = canvas;
-
-		internals.snapObject(selection);
-
-		expect(selection).toMatchObject({ left: 100, top: 100 });
-	});
-});
-
 describe('OpenPost Image Editor resize snapping', () => {
 	it('snaps a horizontal resize to the document edge', () => {
 		const snapped = snapImageEditorResize(

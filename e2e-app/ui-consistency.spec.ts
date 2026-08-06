@@ -354,17 +354,17 @@ test("media card actions use a context menu on a portrait screen", async ({
   await expectConsistentPageFrame(page);
 
   const filename = `touch-actions-${seed}.png`;
-  await page.getByRole("button", { name: "Add media" }).first().click();
-  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
-  await uploadDialog.locator('input[type="file"]').first().setInputFiles({
+  await page.getByRole("button", { name: "Upload" }).first().click();
+  await page.locator("#file-upload").setInputFiles({
     name: filename,
     mimeType: "image/png",
     buffer: Buffer.concat([tinyPNG, Buffer.from(seed)]),
   });
-  await uploadDialog
-    .getByRole("button", { name: "Upload 1 file", exact: true })
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Upload" })
     .click();
-  await expect(uploadDialog).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 });
   await expect(page.getByText(filename)).toBeVisible();
 
   const selectControl = page.getByRole("button", {

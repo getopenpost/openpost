@@ -92,39 +92,6 @@ func TestManualTrashBlocksActivePublicationReference(t *testing.T) {
 	require.False(t, trashed)
 }
 
-func TestManualTrashAllowsFailedPublicationReferences(t *testing.T) {
-	t.Parallel()
-
-	db := newMediaLifecycleTestDB(t)
-	service := NewService(db, nil)
-	_, err := db.Exec("INSERT INTO media_attachments (id, workspace_id, retention_class, created_at) VALUES ('media-1', 'workspace-1', 'library', ?)", time.Now().UTC())
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO posts (id, workspace_id, status) VALUES ('post-1', 'workspace-1', 'failed')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO post_media (post_id, media_id) VALUES ('post-1', 'media-1')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO post_variants (id, post_id, media_ids) VALUES ('variant-1', 'post-1', '[\"media-1\"]')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO publications (id, workspace_id, status) VALUES ('publication-1', 'workspace-1', 'failed')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO publication_segments (id, publication_id) VALUES ('segment-1', 'publication-1')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO publication_segment_media (segment_id, media_id) VALUES ('segment-1', 'media-1')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO renditions (id, publication_id, status) VALUES ('rendition-1', 'publication-1', 'ready')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO rendition_media (rendition_id, media_id) VALUES ('rendition-1', 'media-1')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO rendition_segments (id, rendition_id) VALUES ('rendition-segment-1', 'rendition-1')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO rendition_segment_media (rendition_segment_id, media_id) VALUES ('rendition-segment-1', 'media-1')")
-	require.NoError(t, err)
-
-	trashed, err := service.TrashManual(context.Background(), "media-1", "workspace-1")
-	require.NoError(t, err)
-	require.True(t, trashed)
-}
-
 func TestManualTrashAllowsTaggedLibraryMedia(t *testing.T) {
 	t.Parallel()
 

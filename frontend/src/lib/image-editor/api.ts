@@ -202,7 +202,7 @@ export async function loadImageEditorBrandKit(workspaceID: string): Promise<Imag
 export async function saveImageEditorBrandKit(
 	kit: Pick<
 		ImageEditorBrandKit,
-		'workspace_id' | 'name' | 'colors' | 'text_styles' | 'backgrounds' | 'fonts'
+		'workspace_id' | 'name' | 'colors' | 'text_styles' | 'backgrounds' | 'assets' | 'fonts'
 	>
 ): Promise<ImageEditorBrandKit> {
 	const { data, error } = await client.PUT('/image-editor/brand-kit', {
@@ -212,6 +212,11 @@ export async function saveImageEditorBrandKit(
 			colors: kit.colors as never,
 			text_styles: kit.text_styles as never,
 			backgrounds: kit.backgrounds,
+			assets: kit.assets.map((asset) => ({
+				media_id: asset.media_id,
+				role: asset.role,
+				name: asset.name
+			})),
 			fonts: kit.fonts.map((font) => ({
 				media_id: font.media_id,
 				family: font.family,

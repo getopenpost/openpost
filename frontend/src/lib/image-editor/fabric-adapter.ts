@@ -838,11 +838,6 @@ export class OpenPostFabricAdapter {
 	private snapObject(target?: FabricObject): void {
 		if (!target || !this.canvas || !this.fabric) return;
 		this.clearGuides();
-		const selectionMembers = new Set(
-			!target.__imageEditorLayerID && 'getObjects' in target
-				? (target as FabricObject & { getObjects(): FabricObject[] }).getObjects()
-				: []
-		);
 		const zoom = Math.max(this.canvas.getZoom(), 0.01);
 		const threshold = SNAP_SCREEN_PX / zoom;
 		const width = target.getScaledWidth();
@@ -850,12 +845,7 @@ export class OpenPostFabricAdapter {
 		const candidatesX = [0, this.document.width_px / 2, this.document.width_px];
 		const candidatesY = [0, this.document.height_px / 2, this.document.height_px];
 		for (const object of this.canvas.getObjects() as FabricObject[]) {
-			if (
-				object === target ||
-				selectionMembers.has(object) ||
-				!object.__imageEditorLayerID ||
-				this.guideObjects.includes(object)
-			)
+			if (object === target || !object.__imageEditorLayerID || this.guideObjects.includes(object))
 				continue;
 			const left = object.left ?? 0;
 			const top = object.top ?? 0;

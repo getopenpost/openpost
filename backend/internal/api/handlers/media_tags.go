@@ -119,6 +119,13 @@ type ImageEditorBrandTextStyle struct {
 	LetterSpacing float64 `json:"letter_spacing"`
 }
 
+type ImageEditorBrandAsset struct {
+	ID      string `json:"id,omitempty"`
+	MediaID string `json:"media_id"`
+	Role    string `json:"role" enum:"primary_logo,secondary_logo,mark,watermark"`
+	Name    string `json:"name"`
+}
+
 type ImageEditorBrandFont struct {
 	ID                    string `json:"id,omitempty"`
 	MediaID               string `json:"media_id"`
@@ -141,6 +148,7 @@ type ImageEditorBrandKitResponse struct {
 	Colors      []ImageEditorBrandColor     `json:"colors"`
 	TextStyles  []ImageEditorBrandTextStyle `json:"text_styles"`
 	Backgrounds []string                    `json:"backgrounds"`
+	Assets      []ImageEditorBrandAsset     `json:"assets"`
 	Fonts       []ImageEditorBrandFont      `json:"fonts"`
 	UpdatedAt   string                      `json:"updated_at,omitempty"`
 }
@@ -160,6 +168,7 @@ type UpdateImageEditorBrandKitInput struct {
 		Colors      []ImageEditorBrandColor     `json:"colors"`
 		TextStyles  []ImageEditorBrandTextStyle `json:"text_styles"`
 		Backgrounds []string                    `json:"backgrounds"`
+		Assets      []ImageEditorBrandAsset     `json:"assets"`
 		Fonts       []ImageEditorBrandFont      `json:"fonts"`
 	}
 }
@@ -665,7 +674,10 @@ func (h *ImageEditorHandler) updateBrandKit(ctx context.Context, input *UpdateIm
 	if err := validateImageEditorBrandKit(input.Body.Colors, input.Body.TextStyles, input.Body.Backgrounds); err != nil {
 		return nil, huma.Error400BadRequest(err.Error())
 	}
-	mediaIDs := make([]string, 0, len(input.Body.Fonts))
+	mediaIDs := make([]string, 0, len(input.Body.Assets)+len(input.Body.Fonts))
+	for _, asset := range input.Body.Assets {
+		mediaIDs = append(mediaIDs, asset.MediaID)
+	}
 	for _, font := range input.Body.Fonts {
 		if !font.LicenseAcknowledged {
 			return nil, huma.Error400BadRequest("confirm that you may use each uploaded font")
@@ -772,8 +784,31 @@ func (h *ImageEditorHandler) updateBrandKit(ctx context.Context, input *UpdateIm
 				return err
 			}
 		}
+		if _, err := tx.NewDelete().Model((*models.BrandAsset)(nil)).Where("brand_kit_id = ?", kit.ID).Exec(txCtx); err != nil {
+			return err
+		}
 		if _, err := tx.NewDelete().Model((*models.BrandFont)(nil)).Where("brand_kit_id = ?", kit.ID).Exec(txCtx); err != nil {
 			return err
+		}
+		for _, item := range input.Body.Assets {
+			asset := &models.BrandAsset{
+				ID:         uuid.NewString(),
+				BrandKitID: kit.ID,
+				MediaID:    item.MediaID,
+				Role:       item.Role,
+				Name:       strings.TrimSpace(item.Name),
+				CreatedAt:  now,
+			}
+			if _, err := tx.NewInsert().Model(asset).Exec(txCtx); err != nil {
+				return err
+			}
+			if _, err := tx.NewUpdate().Model((*models.MediaAttachment)(nil)).
+				Set("retention_class = ?", "library").
+				Set("asset_kind = ?", "library").
+				Where("id = ? AND workspace_id = ?", item.MediaID, input.Body.WorkspaceID).
+				Exec(txCtx); err != nil {
+				return err
+			}
 		}
 		for _, item := range input.Body.Fonts {
 			font := &models.BrandFont{
@@ -817,6 +852,7 @@ func (h *ImageEditorHandler) loadBrandKit(ctx context.Context, workspaceID strin
 		Colors:      []ImageEditorBrandColor{},
 		TextStyles:  []ImageEditorBrandTextStyle{},
 		Backgrounds: []string{},
+		Assets:      []ImageEditorBrandAsset{},
 		Fonts:       []ImageEditorBrandFont{},
 	}
 	var kit models.BrandKit
@@ -835,6 +871,15 @@ func (h *ImageEditorHandler) loadBrandKit(ctx context.Context, workspaceID strin
 	_ = json.Unmarshal([]byte(kit.ColorsJSON), &response.Colors)
 	_ = json.Unmarshal([]byte(kit.TextStylesJSON), &response.TextStyles)
 	_ = json.Unmarshal([]byte(kit.BackgroundsJSON), &response.Backgrounds)
+	var assets []models.BrandAsset
+	if err := h.db.NewSelect().Model(&assets).Where("brand_kit_id = ?", kit.ID).OrderExpr("created_at ASC").Scan(ctx); err != nil {
+		return response, huma.Error500InternalServerError("failed to load OpenPost Image Editor brand assets")
+	}
+	for _, asset := range assets {
+		response.Assets = append(response.Assets, ImageEditorBrandAsset{
+			ID: asset.ID, MediaID: asset.MediaID, Role: asset.Role, Name: asset.Name,
+		})
+	}
 	var fonts []models.BrandFont
 	if err := h.db.NewSelect().Model(&fonts).Where("brand_kit_id = ?", kit.ID).OrderExpr("family ASC, weight ASC").Scan(ctx); err != nil {
 		return response, huma.Error500InternalServerError("failed to load OpenPost Image Editor brand fonts")

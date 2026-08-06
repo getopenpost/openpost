@@ -284,7 +284,7 @@ export class ImageEditorController {
 		const layer: ImageEditorLayer = {
 			id: imageEditorID('layer'),
 			type: 'text',
-			name: m.image_editor_new_text(),
+			name: 'Text',
 			visible: true,
 			locked: false,
 			opacity: 1,
@@ -295,7 +295,7 @@ export class ImageEditorController {
 				this.document.height_px * 0.42
 			),
 			text: {
-				text: m.image_editor_new_text(),
+				text: 'Add your text',
 				font_family: 'Geist Variable',
 				font_weight: 700,
 				font_style: 'normal',

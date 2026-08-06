@@ -2,15 +2,19 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { untrack } from 'svelte';
+	import Uppy from '@uppy/core';
+	import Webcam from '@uppy/webcam';
+	import ImageEditor from '@uppy/image-editor';
+	import Dashboard from '@uppy/svelte/dashboard';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
-	import MediaUploadDialog from './media-upload-dialog.svelte';
+	import StockMediaBrowser from './stock-media-browser.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
-	import type { MediaUploadResult } from '$lib/media-upload-client';
+	import { uploadMediaFile } from '$lib/media-upload-client';
 	import { listImageEditorMedia } from '$lib/image-editor/api';
 	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
 	import { listMediaTags, type MediaTag } from '$lib/media-tags';
@@ -22,8 +26,22 @@
 	import PaletteIcon from 'lucide-svelte/icons/palette';
 	import CheckIcon from 'lucide-svelte/icons/check';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
+	import ArrowLeftIcon from 'lucide-svelte/icons/arrow-left';
 	import { m } from '$lib/paraglide/messages';
-	import type { VideoConstraint } from '$lib/video/types';
+	import { videoPreparationErrorMessage } from '$lib/video/errors';
+	import type {
+		VideoConstraint,
+		VideoPreparationProgress,
+		VideoPreparationStage
+	} from '$lib/video/types';
+	import type { StockAsset } from '$lib/video-editor/api';
+	import type { StockMediaProvenance } from '@openpost/video-project';
+	import '@uppy/core/css/style.min.css';
+	import '@uppy/dashboard/css/style.min.css';
+	import '@uppy/webcam/css/style.min.css';
+	import '@uppy/image-editor/css/style.min.css';
+	import '@uppy/svelte/css/style.css';
+	import '@uppy/svelte/css/image-editor.css';
 
 	let {
 		open = $bindable(false),
@@ -38,11 +56,9 @@
 		desktopSize = 'default',
 		presentation = 'dialog',
 		initialMode = 'library',
-		initialFiles = [],
 		autoConfirmUploads = false,
 		videoConstraints = [],
 		onConfirm,
-		onInitialFilesConsumed,
 		onCreate,
 		onCreateVideo
 	}: {
@@ -58,24 +74,23 @@
 		desktopSize?: 'default' | 'compact';
 		presentation?: 'dialog' | 'sheet';
 		initialMode?: 'library' | 'upload' | 'stock';
-		initialFiles?: File[];
 		autoConfirmUploads?: boolean;
 		videoConstraints?: VideoConstraint[];
 		onConfirm: (mediaIDs: string[], media: ImageEditorMediaItem[]) => void | Promise<void>;
-		onInitialFilesConsumed?: () => void;
 		onCreate?: () => void | Promise<void>;
 		onCreateVideo?: () => void | Promise<void>;
 	} = $props();
 
+	let mode = $state<'library' | 'upload' | 'stock'>('library');
 	let media = $state<ImageEditorMediaItem[]>([]);
 	let selectedIDs = $state.raw<string[]>([]);
 	let search = $state('');
-	let loading = $state(true);
+	let loading = $state(false);
 	let actionLoading = $state(false);
 	let error = $state('');
 	let loadedForWorkspace = $state('');
-	let uploadDialogOpen = $state(false);
-	let uploadInitialSource = $state<'upload' | 'stock'>('upload');
+	let uploadProgress = $state<VideoPreparationProgress | null>(null);
+	let uploadController: AbortController | null = null;
 	let tags = $state<MediaTag[]>([]);
 	let selectedTagIDs = $state.raw<string[]>([]);
 	let showUntagged = $state(false);
@@ -97,12 +112,35 @@
 				: m.media_empty_library_body()
 	);
 
+	const uppy = new Uppy<Record<string, unknown>, { id?: string }>({
+		autoProceed: false
+	})
+		.use(Webcam, {
+			modes: ['picture'],
+			mirror: true
+		})
+		.use(ImageEditor, {
+			actions: {
+				cropSquare: true,
+				cropWidescreen: true,
+				cropWidescreenVertical: true,
+				rotate: true,
+				zoomIn: true,
+				zoomOut: true
+			}
+		});
+
+	uppy.addUploader(uploadWithUppy);
+	uppy.on('restriction-failed', (_file, cause) => {
+		error = cause.message || m.media_picker_upload_failed();
+	});
+
 	function initializePicker() {
 		untrack(() => {
 			selectedIDs = [...currentSelection];
+			mode = initialMode;
 			error = '';
-			uploadInitialSource = initialMode === 'stock' ? 'stock' : 'upload';
-			uploadDialogOpen = initialMode !== 'library' || initialFiles.length > 0;
+			uppy.cancelAll();
 			if (loadedForWorkspace !== workspaceId) {
 				selectedTagIDs = [];
 				showUntagged = false;
@@ -111,6 +149,22 @@
 			void Promise.all([loadMedia(), loadTags()]);
 		});
 	}
+
+	$effect(() => {
+		uppy.setOptions({
+			restrictions: {
+				...uppy.opts.restrictions,
+				maxNumberOfFiles: maxSelection,
+				allowedFileTypes: accept
+			}
+		});
+	});
+
+	$effect(() => {
+		return () => {
+			uppy.destroy();
+		};
+	});
 
 	async function loadTags(): Promise<void> {
 		if (!workspaceId) return;
@@ -229,20 +283,136 @@
 		}
 	}
 
-	async function handleUploaded(results: MediaUploadResult[]): Promise<void> {
-		await Promise.all([loadMedia(), loadTags()]);
-		const uploadedIDs = results.map((item) => item.id).filter(Boolean);
-		selectedIDs = multiple
-			? [...new Set([...selectedIDs, ...uploadedIDs])].slice(0, maxSelection)
-			: uploadedIDs.slice(0, 1);
-		if (!autoConfirmUploads) return;
-		await onConfirm(
-			selectedIDs,
-			selectedIDs
-				.map((id) => media.find((item) => item.id === id))
-				.filter((item): item is ImageEditorMediaItem => Boolean(item))
-		);
-		open = false;
+	async function performUploads(
+		files: File[],
+		options: { source?: 'upload' | 'stock_import'; provenance?: StockMediaProvenance } = {}
+	): Promise<string[]> {
+		if (files.length === 0) return [];
+		actionLoading = true;
+		error = '';
+		uploadController = new AbortController();
+		const uploadedIDs: string[] = [];
+		try {
+			for (const file of files) {
+				uploadProgress = {
+					stage: file.type.startsWith('video/') ? 'inspecting' : 'uploading',
+					fraction: 0,
+					message: ''
+				};
+				const uploaded = await uploadMediaFile({
+					workspaceId,
+					file,
+					source: options.source ?? 'upload',
+					retentionClass: purpose === 'media_library' ? 'library' : 'temporary',
+					stockProvenance: options.provenance,
+					tagId: uploadTagID(),
+					videoConstraints,
+					onProgress: (progress) => (uploadProgress = progress),
+					signal: uploadController.signal
+				});
+				selectedIDs = [...selectedIDs, uploaded.id];
+				uploadedIDs.push(uploaded.id);
+			}
+			await Promise.all([loadMedia(), loadTags()]);
+			mode = 'library';
+			return uploadedIDs;
+		} catch (cause) {
+			if (cause instanceof DOMException && cause.name === 'AbortError') {
+				error = '';
+				return [];
+			}
+			error = videoPreparationErrorMessage(cause, m.media_picker_upload_failed());
+			return [];
+		} finally {
+			actionLoading = false;
+			uploadProgress = null;
+			uploadController = null;
+		}
+	}
+
+	async function uploadWithUppy(fileIDs: string[]): Promise<void> {
+		const files = fileIDs.flatMap((id) => {
+			const file = uppy.getFile(id);
+			if (!(file.data instanceof Blob)) return [];
+			return [
+				file.data instanceof File
+					? file.data
+					: new File([file.data], file.name, { type: file.type || 'application/octet-stream' })
+			];
+		});
+		const uploadedIDs = await performUploads(files);
+		if (uploadedIDs.length !== files.length) {
+			const cause = new Error(error || m.media_picker_upload_failed());
+			for (const id of fileIDs) uppy.emit('upload-error', uppy.getFile(id), cause);
+			throw cause;
+		}
+		for (const [index, id] of fileIDs.entries()) {
+			uppy.emit('upload-success', uppy.getFile(id), {
+				status: 200,
+				body: { id: uploadedIDs[index] },
+				uploadURL: undefined
+			});
+		}
+		if (autoConfirmUploads) {
+			await onConfirm(
+				uploadedIDs,
+				uploadedIDs
+					.map((id) => media.find((item) => item.id === id))
+					.filter((item): item is ImageEditorMediaItem => Boolean(item))
+			);
+			open = false;
+		}
+	}
+
+	function stockProvenance(asset: StockAsset): StockMediaProvenance {
+		return {
+			provider: asset.provider,
+			external_id: asset.external_id,
+			source_url: asset.source_url,
+			creator_name: asset.creator_name,
+			creator_url: asset.creator_url,
+			license_name: asset.license_name,
+			license_url: asset.license_url,
+			attribution_text: asset.attribution_text
+		};
+	}
+
+	async function addStockMedia(file: File, asset: StockAsset): Promise<void> {
+		const uploadedIDs = await performUploads([file], {
+			source: 'stock_import',
+			provenance: stockProvenance(asset)
+		});
+		if (uploadedIDs.length === 0) return;
+		if (autoConfirmUploads) {
+			await onConfirm(
+				uploadedIDs,
+				uploadedIDs
+					.map((id) => media.find((item) => item.id === id))
+					.filter((item): item is ImageEditorMediaItem => Boolean(item))
+			);
+			open = false;
+		}
+	}
+
+	function cancelUpload() {
+		uploadController?.abort();
+	}
+
+	function uploadStage(stage: VideoPreparationStage): string {
+		switch (stage) {
+			case 'inspecting':
+				return m.video_upload_inspecting();
+			case 'remuxing':
+				return m.video_upload_remuxing();
+			case 'compressing':
+				return m.video_upload_compressing();
+			case 'uploading':
+				return m.video_upload_uploading();
+			case 'finalizing':
+				return m.video_upload_finalizing();
+			case 'processing':
+				return m.video_upload_processing();
+		}
 	}
 
 	async function createDesign(): Promise<void> {
@@ -283,205 +453,237 @@
 </script>
 
 {#snippet pickerBody()}
-	<div
-		class={[
-			'grid grid-cols-2 gap-2 border-b px-4 py-3',
-			showCreate && onCreateVideo
-				? 'sm:grid-cols-4'
-				: showCreate
-					? 'sm:grid-cols-3'
-					: 'sm:grid-cols-2'
-		]}
-	>
-		<Button
-			variant="outline"
-			class="min-h-11"
-			disabled={actionLoading || selectedIDs.length >= maxSelection}
-			onclick={() => {
-				uploadInitialSource = 'upload';
-				uploadDialogOpen = true;
-			}}
+	{#if mode === 'library'}
+		<div
+			class={[
+				'grid grid-cols-2 gap-2 border-b px-4 py-3',
+				showCreate && onCreateVideo
+					? 'sm:grid-cols-5'
+					: showCreate
+						? 'sm:grid-cols-4'
+						: 'sm:grid-cols-2'
+			]}
 		>
-			<UploadIcon />
-			{m.image_editor_upload_camera()}
-		</Button>
-		<Button
-			variant="outline"
-			class="min-h-11"
-			disabled={actionLoading || selectedIDs.length >= maxSelection}
-			onclick={() => {
-				uploadInitialSource = 'stock';
-				uploadDialogOpen = true;
-			}}
-		>
-			<ImageIcon />
-			{m.video_editor_stock()}
-		</Button>
-		{#if showCreate}
 			<Button
 				variant="outline"
-				class="min-h-11 max-sm:col-span-2"
+				class="min-h-11"
 				disabled={actionLoading}
-				onclick={createDesign}
+				onclick={() => (mode = 'upload')}
 			>
-				<PaletteIcon />
-				{m.media_picker_create()}
+				<UploadIcon />
+				{m.image_editor_upload_camera()}
 			</Button>
-		{/if}
-		{#if onCreateVideo}
-			<Button variant="outline" class="min-h-11" disabled={actionLoading} onclick={createVideo}>
-				<VideoIcon />
-				{m.media_picker_create_video()}
+			<Button
+				variant="outline"
+				class="min-h-11"
+				disabled={actionLoading}
+				onclick={() => (mode = 'stock')}
+			>
+				<ImageIcon />
+				{m.video_editor_stock()}
 			</Button>
-		{/if}
-	</div>
-
-	<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-		{#if typeFilters.length > 1}
-			<div class="mb-2 flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
-				{#each [{ value: 'all' as const, label: m.media_all_types() }, ...typeFilters] as typeFilter (typeFilter.value)}
-					<Button
-						variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}
-						size="sm"
-						class="min-w-11 shrink-0 rounded-full"
-						onclick={() => {
-							mediaType = typeFilter.value;
-							void loadMedia();
-						}}
-					>
-						{typeFilter.label}
-					</Button>
-				{/each}
-			</div>
-		{/if}
-		<div class="mb-3 overflow-x-auto pb-1">
-			<MediaTagFilter
-				{tags}
-				selectedIds={selectedTagIDs}
-				untagged={showUntagged}
-				onChange={changeTagFilters}
-			/>
+			{#if showCreate}
+				<Button
+					variant="outline"
+					class="min-h-11 max-sm:col-span-2"
+					disabled={actionLoading}
+					onclick={createDesign}
+				>
+					<PaletteIcon />
+					{m.media_picker_create()}
+				</Button>
+			{/if}
+			{#if onCreateVideo}
+				<Button variant="outline" class="min-h-11" disabled={actionLoading} onclick={createVideo}>
+					<VideoIcon />
+					{m.media_picker_create_video()}
+				</Button>
+			{/if}
 		</div>
-		<form
-			class="mb-3 flex flex-wrap gap-2"
-			onsubmit={(event) => {
-				event.preventDefault();
-				void loadMedia();
-			}}
-		>
-			<div class="relative min-w-48 flex-1">
-				<SearchIcon
-					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+
+		<div class="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+			{#if typeFilters.length > 1}
+				<div class="mb-2 flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
+					{#each [{ value: 'all' as const, label: m.media_all_types() }, ...typeFilters] as typeFilter (typeFilter.value)}
+						<Button
+							variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}
+							size="sm"
+							class="min-w-11 shrink-0 rounded-full"
+							onclick={() => {
+								mediaType = typeFilter.value;
+								void loadMedia();
+							}}
+						>
+							{typeFilter.label}
+						</Button>
+					{/each}
+				</div>
+			{/if}
+			<div class="mb-3 overflow-x-auto pb-1">
+				<MediaTagFilter
+					{tags}
+					selectedIds={selectedTagIDs}
+					untagged={showUntagged}
+					onChange={changeTagFilters}
 				/>
-				<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
 			</div>
-			<AppSelect
-				value={sort}
-				onValueChange={(value) => {
-					sort = value as typeof sort;
+			<form
+				class="mb-3 flex flex-wrap gap-2"
+				onsubmit={(event) => {
+					event.preventDefault();
 					void loadMedia();
 				}}
-				options={[
-					{ value: 'newest', label: m.media_sort_newest() },
-					{ value: 'oldest', label: m.media_sort_oldest() },
-					{ value: 'name', label: m.media_sort_name() },
-					{ value: 'size', label: m.media_sort_size() },
-					{ value: 'recently_used', label: m.media_recently_used() }
-				]}
-				class="h-10 w-36"
-			/>
-			<Button
-				variant="outline"
-				type="submit"
-				size="icon"
-				aria-label={m.media_picker_search_action()}
 			>
-				{#if loading}<LoaderIcon class="animate-spin" />{:else}<SearchIcon />{/if}
-			</Button>
-		</form>
-		{#if loading && media.length === 0}
-			<div class="flex min-h-48 items-center justify-center text-muted-foreground">
-				<LoaderIcon class="mr-2 size-5 animate-spin" />
-				{m.media_picker_loading()}
-			</div>
-		{:else if media.length === 0}
-			<div
-				class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center"
-			>
-				<ImageIcon class="mb-3 size-8 text-muted-foreground" />
-				<p class="font-medium">{emptyTitle}</p>
-				<p class="mt-1 text-sm text-muted-foreground">{emptyBody}</p>
-			</div>
-		{:else}
-			<div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
-				{#each media as item (item.id)}
-					<button
-						type="button"
-						class="group relative aspect-square overflow-hidden rounded-lg border bg-muted text-left focus-visible:ring-2 focus-visible:ring-ring {selectedIDs.includes(
-							item.id
-						)
-							? 'ring-2 ring-primary'
-							: ''}"
-						onclick={() => toggleMedia(item.id)}
-						aria-pressed={selectedIDs.includes(item.id)}
-						aria-label={m.media_picker_select_item({ name: item.original_filename })}
-					>
-						{#if item.mime_type.startsWith('video/')}
-							{#if item.thumbnail_url || item.poster_thumbnail_url}
+				<div class="relative min-w-48 flex-1">
+					<SearchIcon
+						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input bind:value={search} class="pl-9" placeholder={m.media_picker_search()} />
+				</div>
+				<AppSelect
+					value={sort}
+					onValueChange={(value) => {
+						sort = value as typeof sort;
+						void loadMedia();
+					}}
+					options={[
+						{ value: 'newest', label: m.media_sort_newest() },
+						{ value: 'oldest', label: m.media_sort_oldest() },
+						{ value: 'name', label: m.media_sort_name() },
+						{ value: 'size', label: m.media_sort_size() },
+						{ value: 'recently_used', label: m.media_recently_used() }
+					]}
+					class="h-10 w-36"
+				/>
+				<Button
+					variant="outline"
+					type="submit"
+					size="icon"
+					aria-label={m.media_picker_search_action()}
+				>
+					{#if loading}<LoaderIcon class="animate-spin" />{:else}<SearchIcon />{/if}
+				</Button>
+			</form>
+			{#if loading && media.length === 0}
+				<div class="flex min-h-48 items-center justify-center text-muted-foreground">
+					<LoaderIcon class="mr-2 size-5 animate-spin" />
+					{m.media_picker_loading()}
+				</div>
+			{:else if media.length === 0}
+				<div
+					class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center"
+				>
+					<ImageIcon class="mb-3 size-8 text-muted-foreground" />
+					<p class="font-medium">{emptyTitle}</p>
+					<p class="mt-1 text-sm text-muted-foreground">{emptyBody}</p>
+				</div>
+			{:else}
+				<div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
+					{#each media as item (item.id)}
+						<button
+							type="button"
+							class="group relative aspect-square overflow-hidden rounded-lg border bg-muted text-left focus-visible:ring-2 focus-visible:ring-ring {selectedIDs.includes(
+								item.id
+							)
+								? 'ring-2 ring-primary'
+								: ''}"
+							onclick={() => toggleMedia(item.id)}
+							aria-pressed={selectedIDs.includes(item.id)}
+							aria-label={m.media_picker_select_item({ name: item.original_filename })}
+						>
+							{#if item.mime_type.startsWith('video/')}
+								{#if item.thumbnail_url || item.poster_thumbnail_url}
+									<img
+										src={getAuthenticatedMediaURL(
+											item.thumbnail_url || item.poster_thumbnail_url || ''
+										)}
+										alt={item.alt_text || item.original_filename}
+										class="size-full object-cover transition-transform group-hover:scale-[1.02]"
+										loading="lazy"
+									/>
+								{:else}
+									<div class="flex size-full items-center justify-center">
+										{#if item.processing_status === 'processing'}
+											<LoaderIcon class="size-6 animate-spin text-muted-foreground" />
+										{:else}
+											<VideoIcon class="size-7 text-muted-foreground" />
+										{/if}
+									</div>
+								{/if}
+								<span
+									class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-background/90 shadow-sm"
+								>
+									<VideoIcon class="size-3.5" />
+								</span>
+							{:else if item.mime_type.startsWith('image/')}
 								<img
-									src={getAuthenticatedMediaURL(
-										item.thumbnail_url || item.poster_thumbnail_url || ''
-									)}
+									src={getAuthenticatedMediaURL(item.thumbnail_url || item.url)}
 									alt={item.alt_text || item.original_filename}
 									class="size-full object-cover transition-transform group-hover:scale-[1.02]"
 									loading="lazy"
 								/>
 							{:else}
-								<div class="flex size-full items-center justify-center">
-									{#if item.processing_status === 'processing'}
-										<LoaderIcon class="size-6 animate-spin text-muted-foreground" />
-									{:else}
-										<VideoIcon class="size-7 text-muted-foreground" />
-									{/if}
+								<div class="flex size-full flex-col items-center justify-center gap-2 p-2">
+									<FileAudioIcon class="size-7 text-muted-foreground" />
+									<span class="line-clamp-2 text-center text-xs text-muted-foreground">
+										{item.original_filename}
+									</span>
 								</div>
 							{/if}
-							<span
-								class="absolute bottom-2 left-2 flex size-7 items-center justify-center rounded-full bg-background/90 shadow-sm"
-							>
-								<VideoIcon class="size-3.5" />
-							</span>
-						{:else if item.mime_type.startsWith('image/')}
-							<img
-								src={getAuthenticatedMediaURL(item.thumbnail_url || item.url)}
-								alt={item.alt_text || item.original_filename}
-								class="size-full object-cover transition-transform group-hover:scale-[1.02]"
-								loading="lazy"
-							/>
-						{:else}
-							<div class="flex size-full flex-col items-center justify-center gap-2 p-2">
-								<FileAudioIcon class="size-7 text-muted-foreground" />
-								<span class="line-clamp-2 text-center text-xs text-muted-foreground">
-									{item.original_filename}
+							{#if selectedIDs.includes(item.id)}
+								<span
+									class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
+								>
+									<CheckIcon class="size-4" />
 								</span>
-							</div>
-						{/if}
-						{#if selectedIDs.includes(item.id)}
-							<span
-								class="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
-							>
-								<CheckIcon class="size-4" />
-							</span>
-							<span
-								class="absolute right-2 bottom-2 rounded bg-background/90 px-2 py-1 text-xs font-medium"
-							>
-								{selectedIDs.indexOf(item.id) + 1}
-							</span>
-						{/if}
-					</button>
-				{/each}
+								<span
+									class="absolute right-2 bottom-2 rounded bg-background/90 px-2 py-1 text-xs font-medium"
+								>
+									{selectedIDs.indexOf(item.id) + 1}
+								</span>
+							{/if}
+						</button>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{:else if mode === 'upload'}
+		<div class="min-h-0 flex-1 overflow-y-auto p-4">
+			<Button variant="ghost" class="mb-3" onclick={() => (mode = 'library')}>
+				<ArrowLeftIcon />
+				{m.media_picker_back_to_library()}
+			</Button>
+			<div class="overflow-hidden rounded-xl border bg-muted/15 p-2">
+				<Dashboard
+					{uppy}
+					plugins={['Webcam', 'ImageEditor']}
+					props={{
+						inline: true,
+						height: 420,
+						width: '100%',
+						proudlyDisplayPoweredByUppy: false,
+						hideProgressDetails: false,
+						note: accept.join(', ')
+					}}
+				/>
 			</div>
-		{/if}
-	</div>
+		</div>
+	{:else}
+		<div class="min-h-0 flex-1 overflow-y-auto p-4">
+			<Button variant="ghost" class="mb-3" onclick={() => (mode = 'library')}>
+				<ArrowLeftIcon />
+				{m.media_picker_back_to_library()}
+			</Button>
+			<StockMediaBrowser
+				accept={mimeTypeAllowed('image') && mimeTypeAllowed('video')
+					? 'both'
+					: mimeTypeAllowed('video')
+						? 'video'
+						: 'photo'}
+				onSelect={addStockMedia}
+			/>
+		</div>
+	{/if}
 
 	{#if error}
 		<div
@@ -491,13 +693,36 @@
 			{error}
 		</div>
 	{/if}
-	<div class="flex flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
-		<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
-		<Button onclick={confirm} disabled={actionLoading || selectedIDs.length === 0}>
-			{#if actionLoading}<LoaderIcon class="animate-spin" />{/if}
-			{m.media_picker_add_media()}
-		</Button>
-	</div>
+	{#if uploadProgress}
+		<div class="mx-4 mb-3 space-y-2 rounded-lg border bg-muted/20 px-3 py-3" aria-live="polite">
+			<div class="flex items-center justify-between gap-3">
+				<p class="text-sm font-medium">
+					{m.video_upload_progress({
+						stage: uploadStage(uploadProgress.stage),
+						percent: Math.round(uploadProgress.fraction * 100)
+					})}
+				</p>
+				<Button type="button" variant="ghost" size="sm" onclick={cancelUpload}>
+					{m.video_upload_cancel()}
+				</Button>
+			</div>
+			<div class="h-2 overflow-hidden rounded-full bg-muted">
+				<div
+					class="h-full rounded-full bg-primary transition-[width]"
+					style:width={`${Math.round(uploadProgress.fraction * 100)}%`}
+				></div>
+			</div>
+		</div>
+	{/if}
+	{#if mode === 'library'}
+		<div class="flex flex-col-reverse gap-2 border-t px-4 py-3 sm:flex-row sm:justify-end">
+			<Button variant="ghost" onclick={() => (open = false)}>{m.common_cancel()}</Button>
+			<Button onclick={confirm} disabled={actionLoading || selectedIDs.length === 0}>
+				{#if actionLoading}<LoaderIcon class="animate-spin" />{/if}
+				{m.media_picker_add_media()}
+			</Button>
+		</div>
+	{/if}
 {/snippet}
 
 {#if presentation === 'sheet'}
@@ -538,19 +763,3 @@
 		</Dialog.Content>
 	</Dialog.Root>
 {/if}
-
-<MediaUploadDialog
-	bind:open={uploadDialogOpen}
-	{workspaceId}
-	{accept}
-	maxFiles={Math.max(1, maxSelection - selectedIDs.length)}
-	retentionClass={purpose === 'media_library' ? 'library' : 'temporary'}
-	tagId={uploadTagID()}
-	{videoConstraints}
-	initialSource={uploadInitialSource}
-	{initialFiles}
-	showLibrary
-	onOpenLibrary={() => undefined}
-	{onInitialFilesConsumed}
-	onUploaded={handleUploaded}
-/>

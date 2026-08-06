@@ -876,12 +876,7 @@
 		if (isMarqueeTool(tool)) marqueeSlotTool = tool;
 		if (isFillTool(tool)) fillSlotTool = tool;
 		if (isEraserTool(tool)) eraserSlotTool = tool;
-		if (tool === 'text') {
-			editor.addText();
-			queueMicrotask(() => {
-				if (editor.activeTool === 'text') editor.activeTool = 'select';
-			});
-		}
+		if (tool === 'text') editor.addText();
 		if (tool === 'image' || tool === 'camera') {
 			editor.leftPanel = 'media';
 			if (window.innerWidth < 1024) mobileSheet = 'assets';
@@ -1016,17 +1011,11 @@
 			z: 'zoom'
 		};
 		if (key === 'u') {
-			event.preventDefault();
 			insertShape(shapeSlotKind);
 			return;
 		}
-		if (key === 'm') {
-			event.preventDefault();
-			setTool(event.shiftKey ? 'ellipse_marquee' : 'marquee');
-		} else if (tools[key]) {
-			event.preventDefault();
-			setTool(tools[key]);
-		}
+		if (key === 'm') setTool(event.shiftKey ? 'ellipse_marquee' : 'marquee');
+		else if (tools[key]) setTool(tools[key]);
 		if (key === 'f') focusedCanvas = !focusedCanvas;
 	}
 

@@ -2211,7 +2211,7 @@ func replaceTextPostMediaTx(
 	postID string,
 	mediaIDs []string,
 ) error {
-	previousMediaIDs := make([]string, 0, len(mediaIDs))
+	var previousMediaIDs []string
 	if err := tx.NewSelect().
 		Model((*models.PostMedia)(nil)).
 		Column("media_id").

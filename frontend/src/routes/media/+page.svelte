@@ -7,7 +7,9 @@
 	import { SvelteSet } from 'svelte/reactivity';
 	import { client, type Workspace } from '$lib/api/client';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
-	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
+	import { isSupportedMediaFile, uploadMediaFile } from '$lib/media-upload-client';
+	import type { VideoPreparationProgress, VideoPreparationStage } from '$lib/video/types';
+	import { videoPreparationErrorMessage } from '$lib/video/errors';
 	import { loadImageEditorConfig } from '$lib/image-editor/api';
 	import { loadVideoEditorConfig } from '$lib/video-editor/api';
 	import { clampMediaPage } from '$lib/media-pagination';
@@ -17,18 +19,19 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import * as Select from '$lib/components/ui/select';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
-	import RenameDialog from '$lib/components/rename-dialog.svelte';
-	import MediaUploadDialog from '$lib/components/media-upload-dialog.svelte';
+	import CameraCapture from '$lib/components/camera-capture.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaOrganizationDialog from '$lib/components/media-organization-dialog.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import MediaTagPicker from '$lib/components/media-tag-picker.svelte';
+	import VideoEditorDialog from '$lib/components/video-editor-dialog.svelte';
 	import {
 		createMediaTag,
 		listMediaTags,
@@ -40,12 +43,14 @@
 	import VideoIcon from 'lucide-svelte/icons/video';
 	import HeartIcon from 'lucide-svelte/icons/heart';
 	import TrashIcon from 'lucide-svelte/icons/trash-2';
+	import UploadIcon from 'lucide-svelte/icons/upload';
 	import DownloadIcon from 'lucide-svelte/icons/download';
 	import ExternalLinkIcon from 'lucide-svelte/icons/external-link';
 	import CheckIcon from 'lucide-svelte/icons/check';
 	import ChevronLeftIcon from 'lucide-svelte/icons/chevron-left';
 	import ChevronRightIcon from 'lucide-svelte/icons/chevron-right';
 	import Grid2X2Icon from 'lucide-svelte/icons/grid-2x2';
+	import CameraIcon from 'lucide-svelte/icons/camera';
 	import PaletteIcon from 'lucide-svelte/icons/palette';
 	import SearchIcon from 'lucide-svelte/icons/search';
 	import TagIcon from 'lucide-svelte/icons/tag';
@@ -55,7 +60,6 @@
 	import FileAudioIcon from 'lucide-svelte/icons/file-audio';
 	import XIcon from 'lucide-svelte/icons/x';
 	import RotateCcwIcon from 'lucide-svelte/icons/rotate-ccw';
-	import PencilIcon from 'lucide-svelte/icons/pencil';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
@@ -150,6 +154,8 @@
 	let videoEditorEnabled = $state(false);
 	let tags = $state<MediaTag[]>([]);
 	let hubLoading = $state(false);
+	let cameraDialogOpen = $state(false);
+	let cameraUploading = $state(false);
 	let organizationDialogOpen = $state(false);
 	let filterDialogOpen = $state(false);
 	let selectionOrganizationDialogOpen = $state(false);
@@ -160,6 +166,15 @@
 	let mediaCanEdit = $state(false);
 
 	let uploadDialogOpen = $state(false);
+	let uploadLoading = $state(false);
+	let uploadDragging = $state(false);
+	let uploadError = $state('');
+	let uploadFiles = $state.raw<File[]>([]);
+	let uploadProgress = $state.raw<VideoPreparationProgress | null>(null);
+	let uploadController: AbortController | null = null;
+	let uploadInput: HTMLInputElement | null = null;
+	let uploadVideoEditorOpen = $state(false);
+	let uploadVideoEditorFile = $state<File | null>(null);
 
 	let usageDialogOpen = $state(false);
 	let selectedMedia = $state<MediaItem | null>(null);
@@ -167,11 +182,8 @@
 	let usageLoading = $state(false);
 	let usageError = $state('');
 	let usageRequestSequence = 0;
-	let deletionBlockedByUsage = $state(false);
 	let detailAltText = $state('');
 	let detailSaving = $state(false);
-	let renameDialogOpen = $state(false);
-	let mediaToRename = $state.raw<MediaItem | null>(null);
 
 	let deleteDialogOpen = $state(false);
 	let deletionRequest = $state.raw<LibraryDeletionRequest | null>(null);
@@ -396,7 +408,6 @@
 				: selectedMedia.tags.filter((id) => id !== tagID);
 		}
 		await loadImageEditorHub();
-		if (selected && lifecycleView === 'temporary') await loadMedia();
 	}
 
 	async function createAndAssignTag(mediaID: string, name: string): Promise<void> {
@@ -408,7 +419,6 @@
 		if (selectedMedia?.id === mediaID) {
 			selectedMedia.tags = [...new Set([...selectedMedia.tags, tag.id])];
 		}
-		if (lifecycleView === 'temporary') await loadMedia();
 	}
 
 	function uploadTagID(): string | undefined {
@@ -422,10 +432,23 @@
 		void loadMedia();
 	}
 
-	async function handleLibraryUploaded(results: MediaUploadResult[]): Promise<void> {
-		await Promise.all([loadMedia(), loadImageEditorHub()]);
-		notify(uploadedCountLabel(results.length), 'success');
-		soundPreferences.play('success');
+	async function saveCameraPhoto(file: File) {
+		cameraUploading = true;
+		try {
+			await uploadMediaFile({
+				workspaceId: selectedWorkspaceId,
+				file,
+				source: 'camera',
+				tagId: uploadTagID()
+			});
+			cameraDialogOpen = false;
+			await loadMedia();
+			notify(m.media_photo_saved(), 'success');
+		} catch (cause) {
+			notify(cause instanceof Error ? cause.message : m.media_photo_save_failed(), 'error');
+		} finally {
+			cameraUploading = false;
+		}
 	}
 
 	async function toggleFavorite(mediaId: string) {
@@ -437,9 +460,6 @@
 			const item = mediaItems.find((m) => m.id === mediaId);
 			if (item) {
 				item.is_favorite = data?.is_favorite ?? !item.is_favorite;
-			}
-			if (lifecycleView === 'temporary' || (filter === 'favorites' && !data?.is_favorite)) {
-				await loadMedia();
 			}
 		} catch (e) {
 			notify((e as Error).message, 'error');
@@ -488,11 +508,6 @@
 	}
 
 	function requestDeleteMedia(media: MediaItem) {
-		if (!canDeleteMedia(media)) {
-			deletionBlockedByUsage = true;
-			void showUsage(media);
-			return;
-		}
 		deletionRequest = { kind: 'single', media };
 		deleteDialogOpen = true;
 	}
@@ -690,31 +705,6 @@
 		}
 	}
 
-	function requestRenameMedia(media: MediaItem): void {
-		mediaToRename = media;
-		if (usageDialogOpen) handleUsageDialogOpenChange(false);
-		renameDialogOpen = true;
-	}
-
-	async function renameMedia(filename: string): Promise<void> {
-		if (!mediaToRename) return;
-		const mediaID = mediaToRename.id;
-		const { error: updateError } = await client.PATCH('/media/{id}', {
-			params: { path: { id: mediaID } },
-			body: { original_filename: filename }
-		});
-		if (updateError) throw new Error(updateError.detail || m.media_rename_failed());
-
-		const current = mediaItems.find((media) => media.id === mediaID);
-		const extension = mediaToRename.original_filename.match(/\.[^.]+$/u)?.[0] ?? '';
-		const nextFilename =
-			/\.[^.]+$/u.test(filename) || !extension ? filename : `${filename}${extension}`;
-		if (current) current.original_filename = nextFilename;
-		if (selectedMedia?.id === mediaID) selectedMedia.original_filename = nextFilename;
-		mediaToRename.original_filename = nextFilename;
-		notify(m.media_renamed(), 'success');
-	}
-
 	async function retryVideoAnalysis(media: MediaItem): Promise<void> {
 		try {
 			const { error: retryError } = await client.POST('/media/{id}/analysis/retry', {
@@ -739,7 +729,139 @@
 		usageError = '';
 		mediaUsage = [];
 		selectedMedia = null;
-		deletionBlockedByUsage = false;
+	}
+
+	function selectUploadFiles(selectedFiles: File[]): void {
+		const supportedFiles = selectedFiles.filter(isSupportedMediaFile);
+		uploadError = '';
+		if (supportedFiles.length !== selectedFiles.length) {
+			uploadError = m.media_select_file_error();
+		}
+		if (supportedFiles.length > 10) {
+			uploadFiles = [];
+			uploadError = m.media_max_files_error();
+			return;
+		}
+		uploadFiles = supportedFiles;
+		if (supportedFiles.length === 1 && isVideo(supportedFiles[0].type)) {
+			uploadVideoEditorFile = supportedFiles[0];
+			uploadVideoEditorOpen = true;
+		}
+	}
+
+	function handleUploadSelection(event: Event): void {
+		const input = event.currentTarget as HTMLInputElement;
+		selectUploadFiles(Array.from(input.files ?? []));
+	}
+
+	function handleUploadDrop(event: DragEvent): void {
+		event.preventDefault();
+		uploadDragging = false;
+		if (uploadLoading) return;
+		selectUploadFiles(Array.from(event.dataTransfer?.files ?? []));
+	}
+
+	function handleUploadDragLeave(event: DragEvent): void {
+		const nextTarget = event.relatedTarget;
+		if (nextTarget instanceof Node && event.currentTarget instanceof Node) {
+			if (event.currentTarget.contains(nextTarget)) return;
+		}
+		uploadDragging = false;
+	}
+
+	function attachUploadInput(input: HTMLInputElement) {
+		uploadInput = input;
+		return () => {
+			if (uploadInput === input) uploadInput = null;
+		};
+	}
+
+	function useEditedLibraryVideo(file: File) {
+		uploadFiles = [file];
+		uploadVideoEditorFile = null;
+	}
+
+	function uploadStage(stage: VideoPreparationStage): string {
+		switch (stage) {
+			case 'inspecting':
+				return m.video_upload_inspecting();
+			case 'remuxing':
+				return m.video_upload_remuxing();
+			case 'compressing':
+				return m.video_upload_compressing();
+			case 'uploading':
+				return m.video_upload_uploading();
+			case 'finalizing':
+				return m.video_upload_finalizing();
+			case 'processing':
+				return m.video_upload_processing();
+		}
+	}
+
+	function cancelLibraryUpload() {
+		uploadController?.abort();
+		if (!uploadLoading) {
+			uploadDialogOpen = false;
+			uploadFiles = [];
+			if (uploadInput) uploadInput.value = '';
+		}
+	}
+
+	async function handleUpload() {
+		if (!selectedWorkspaceId) return;
+		uploadLoading = true;
+		uploadError = '';
+
+		const files = uploadFiles.filter(isSupportedMediaFile);
+		if (files.length === 0) {
+			uploadError = m.media_select_file_error();
+			uploadLoading = false;
+			return;
+		}
+		if (files.length > 10) {
+			uploadError = m.media_max_files_error();
+			uploadLoading = false;
+			return;
+		}
+
+		try {
+			uploadController = new AbortController();
+			const uploaded = [];
+			for (const [index, file] of files.entries()) {
+				uploaded.push(
+					await uploadMediaFile({
+						workspaceId: selectedWorkspaceId,
+						file,
+						tagId: uploadTagID(),
+						signal: uploadController.signal,
+						onProgress: (progress) => {
+							uploadProgress = {
+								...progress,
+								fraction: Math.min(1, (index + progress.fraction) / files.length)
+							};
+						}
+					})
+				);
+			}
+
+			uploadDialogOpen = false;
+			uploadFiles = [];
+			if (uploadInput) uploadInput.value = '';
+			notify(uploadedCountLabel(uploaded.length), 'success');
+			soundPreferences.play('success');
+			await loadMedia();
+		} catch (cause) {
+			if (cause instanceof DOMException && cause.name === 'AbortError') {
+				uploadError = '';
+				return;
+			}
+			uploadError = videoPreparationErrorMessage(cause, m.media_select_file_error());
+			soundPreferences.play('error');
+		} finally {
+			uploadLoading = false;
+			uploadProgress = null;
+			uploadController = null;
+		}
 	}
 
 	function formatSize(bytes: number): string {
@@ -936,6 +1058,12 @@
 		});
 	});
 
+	const quickFilters = $derived([
+		{ value: 'all', label: m.media_filter_all() },
+		{ value: 'favorites', label: m.media_filter_favorites() },
+		{ value: 'unused', label: m.media_filter_unused() }
+	]);
+
 	const activeFilterCount = $derived(
 		[
 			filter !== 'all',
@@ -954,7 +1082,6 @@
 	);
 	const activeDetailFilterCount = $derived(
 		[
-			filter === 'unused',
 			mediaType !== 'all',
 			source !== 'all',
 			selectedTagIDs.length > 0,
@@ -1030,10 +1157,26 @@
 			</Select.Root>
 		{/if}
 		{#if mediaCanEdit && lifecycleView !== 'trash'}
-			<Button class="gap-2" onclick={() => (uploadDialogOpen = true)}>
-				<PlusIcon class="size-4" />
-				{m.media_picker_add_media()}
-			</Button>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button {...props} class="gap-2">
+							<PlusIcon class="size-4" />
+							{m.media_create()}
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end" class="w-48">
+					<DropdownMenu.Item onclick={() => (uploadDialogOpen = true)}>
+						<UploadIcon />
+						{m.media_upload_title()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={() => (cameraDialogOpen = true)}>
+						<CameraIcon />
+						{m.media_take_photo()}
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		{/if}
 	{/snippet}
 
@@ -1049,11 +1192,7 @@
 		/>
 	{/if}
 
-	<nav
-		class="flex gap-1 overflow-x-auto pb-3"
-		aria-label={m.media_lifecycle_navigation()}
-		data-testid="media-lifecycle-tabs"
-	>
+	<nav class="flex gap-1 overflow-x-auto border-b pb-3" aria-label="Media lifecycle">
 		{#each [{ value: 'library' as const, label: m.media_lifecycle_library() }, { value: 'temporary' as const, label: m.media_lifecycle_temporary() }, { value: 'trash' as const, label: m.media_lifecycle_trash() }] as view (view.value)}
 			<Button
 				variant={lifecycleView === view.value ? 'secondary' : 'ghost'}
@@ -1070,64 +1209,85 @@
 		{/each}
 	</nav>
 
-	<div class="flex flex-col gap-2 pb-4 md:flex-row md:items-center" data-testid="media-filter-bar">
-		<form
-			class="flex min-w-0 flex-1 gap-2"
-			onsubmit={(event) => {
-				event.preventDefault();
-				applyAssetFilters();
-			}}
+	{#if lifecycleView !== 'trash'}
+		<MediaTagFilter
+			{tags}
+			selectedIds={selectedTagIDs}
+			untagged={showUntagged}
+			canEdit={mediaCanEdit}
+			onChange={changeTagFilters}
+			onManage={() => (organizationDialogOpen = true)}
+		/>
+	{/if}
+
+	<form
+		class="flex gap-2"
+		onsubmit={(event) => {
+			event.preventDefault();
+			applyAssetFilters();
+		}}
+	>
+		<div class="relative min-w-0 flex-1">
+			<SearchIcon
+				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+			/>
+			<Input
+				class="h-11 pr-3 pl-9"
+				bind:value={search}
+				placeholder={m.media_search_filename_alt()}
+			/>
+		</div>
+		<Button
+			type="button"
+			variant={activeDetailFilterCount > 0 ? 'secondary' : 'outline'}
+			class="h-11 min-w-11 shrink-0 sm:w-auto"
+			aria-label={m.media_filters()}
+			onclick={() => (filterDialogOpen = true)}
 		>
-			<div class="relative min-w-0 flex-1">
-				<SearchIcon
-					class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-				/>
-				<Input
-					class="h-11 pr-3 pl-9"
-					bind:value={search}
-					placeholder={m.media_search_filename_alt()}
-				/>
-			</div>
-			<Button
-				type="submit"
-				variant="outline"
-				size="icon"
-				aria-label={m.media_picker_search_action()}
-			>
-				<SearchIcon />
-			</Button>
-		</form>
-		<div class="flex min-w-0 items-center gap-1.5 overflow-x-auto">
-			{#if lifecycleView === 'library'}
-				<Button
-					variant={filter === 'favorites' ? 'secondary' : 'ghost'}
-					size="sm"
-					class="shrink-0"
-					onclick={() => changeFilter(filter === 'favorites' ? 'all' : 'favorites')}
+			<SlidersHorizontalIcon />
+			<span class="hidden sm:inline">{m.media_filters()}</span>
+			{#if activeDetailFilterCount > 0}
+				<span
+					class="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
 				>
-					<HeartIcon fill={filter === 'favorites' ? 'currentColor' : 'none'} />
-					{m.media_filter_favorites()}
-				</Button>
+					{activeDetailFilterCount}
+				</span>
 			{/if}
-			<Button
-				type="button"
-				variant={activeDetailFilterCount > 0 ? 'secondary' : 'outline'}
-				class="h-11 shrink-0"
-				aria-label={m.media_filters()}
-				onclick={() => (filterDialogOpen = true)}
-			>
-				<SlidersHorizontalIcon />
-				<span>{m.media_filters()}</span>
-				{#if activeDetailFilterCount > 0}
-					<span
-						class="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-					>
-						{activeDetailFilterCount}
-					</span>
-				{/if}
-			</Button>
+		</Button>
+	</form>
+
+	<div class="flex flex-col gap-2 border-b pb-4 sm:flex-row sm:items-center">
+		<div class="flex min-w-0 gap-1 overflow-x-auto" aria-label={m.media_type()}>
+			{#each [{ value: 'all', label: m.media_all_types() }, { value: 'image', label: m.media_images() }, { value: 'video', label: m.media_videos() }, { value: 'audio', label: m.media_audio() }] as typeFilter (typeFilter.value)}
+				<Button
+					variant={mediaType === typeFilter.value ? 'secondary' : 'ghost'}
+					size="sm"
+					class="min-w-11 shrink-0 rounded-full"
+					onclick={() => {
+						mediaType = typeFilter.value;
+						currentPage = 0;
+						void loadMedia();
+					}}
+				>
+					{typeFilter.label}
+				</Button>
+			{/each}
+		</div>
+		<div class="flex min-w-0 gap-1 overflow-x-auto sm:border-l sm:pl-2">
+			{#each quickFilters as quickFilter (quickFilter.value)}
+				<Button
+					variant={filter === quickFilter.value ? 'secondary' : 'ghost'}
+					size="sm"
+					class="min-w-11 shrink-0"
+					onclick={() => changeFilter(quickFilter.value)}
+				>
+					{quickFilter.label}
+				</Button>
+			{/each}
+		</div>
+		<div class="flex shrink-0 items-center justify-between gap-1.5 sm:ml-auto sm:justify-start">
 			<Select.Root type="single" value={sort} onValueChange={changeSort}>
-				<Select.Trigger class="h-11 w-[7.75rem] text-sm">
+				<Select.Trigger class="h-10 w-[7.75rem] text-sm">
 					{sort === 'newest'
 						? m.media_sort_newest()
 						: sort === 'oldest'
@@ -1155,7 +1315,7 @@
 			>
 				{#if layoutMode === 'grid'}<ListIcon />{:else}<Grid2X2Icon />{/if}
 			</Button>
-			{#if mediaCanEdit && mediaItems.length > 0 && !isSelectionMode && lifecycleView !== 'trash'}
+			{#if mediaCanEdit && mediaItems.length > 0 && !isSelectionMode}
 				<Button variant="outline" size="sm" class="h-11" onclick={() => (isSelectionMode = true)}>
 					{m.media_select()}
 				</Button>
@@ -1245,20 +1405,10 @@
 		{:else}
 			<EmptyState
 				icon={ImageIcon}
-				title={lifecycleView === 'library'
-					? m.media_empty_title()
-					: lifecycleView === 'temporary'
-						? m.media_lifecycle_temporary()
-						: m.media_lifecycle_trash()}
-				description={lifecycleView === 'library'
-					? m.media_empty_library_body()
-					: lifecycleView === 'temporary'
-						? m.media_lifecycle_temporary_body()
-						: m.media_lifecycle_trash_body()}
-				actionLabel={lifecycleView === 'library' && mediaCanEdit
-					? m.media_upload_action()
-					: undefined}
-				onAction={lifecycleView === 'library' ? () => (uploadDialogOpen = true) : undefined}
+				title={m.media_empty_title()}
+				description={m.media_empty_library_body()}
+				actionLabel={mediaCanEdit ? m.media_upload_action() : undefined}
+				onAction={() => (uploadDialogOpen = true)}
 				variant="dashed"
 				size="lg"
 			/>
@@ -1408,19 +1558,12 @@
 										</span>
 									{/if}
 
-									{#if mediaCanEdit && !isSelectionMode && lifecycleView !== 'trash'}
-										<Button
-											variant="secondary"
-											size="icon-sm"
-											class="absolute top-2 right-2 z-10 bg-background/90 shadow-sm"
-											aria-label={media.is_favorite ? m.media_unfavorite() : m.media_favorite()}
-											onclick={(event) => {
-												event.stopPropagation();
-												void toggleFavorite(media.id);
-											}}
+									{#if media.is_favorite}
+										<div
+											class="absolute bottom-2 left-2 rounded-full bg-background/90 p-1.5 shadow-sm"
 										>
-											<HeartIcon class={media.is_favorite ? 'fill-primary text-primary' : ''} />
-										</Button>
+											<HeartIcon class="size-3.5 fill-red-500 text-red-500" />
+										</div>
 									{/if}
 								</div>
 
@@ -1449,6 +1592,36 @@
 											<RotateCcwIcon />
 											{m.media_trash_restore()}
 										</Button>
+									{:else}
+										<div class="mt-2 flex min-w-0 flex-wrap items-center gap-1">
+											{#each media.tags.slice(0, 2) as tagID (tagID)}
+												{@const tag = tags.find((item) => item.id === tagID)}
+												{#if tag}
+													<Button
+														variant="secondary"
+														size="xs"
+														class="h-7 max-w-32 rounded-full px-2"
+														onclick={() => changeTagFilters([tag.id], false)}
+													>
+														<span class="truncate">#{tag.name}</span>
+													</Button>
+												{/if}
+											{/each}
+											{#if media.tags.length > 2}
+												<span class="px-1 text-xs text-muted-foreground"
+													>+{media.tags.length - 2}</span
+												>
+											{/if}
+											{#if mediaCanEdit}
+												<MediaTagPicker
+													{tags}
+													selectedIds={media.tags}
+													canEdit={mediaCanEdit}
+													onToggle={(tagID, selected) => toggleMediaTag(media.id, tagID, selected)}
+													onCreate={(name) => createAndAssignTag(media.id, name)}
+												/>
+											{/if}
+										</div>
 									{/if}
 								</div>
 							</div>
@@ -1498,13 +1671,6 @@
 								{#if mediaCanEdit}
 									<ContextMenu.Item
 										class={libraryContextItemClass}
-										onclick={() => requestRenameMedia(media)}
-									>
-										<PencilIcon class="size-4" />
-										{m.common_rename()}
-									</ContextMenu.Item>
-									<ContextMenu.Item
-										class={libraryContextItemClass}
 										onclick={() => duplicateMedia(media)}
 									>
 										<Grid2X2Icon class="size-4" />
@@ -1527,7 +1693,7 @@
 										{media.is_favorite ? m.media_unfavorite() : m.media_favorite()}
 									</ContextMenu.Item>
 								{/if}
-								{#if mediaCanEdit}
+								{#if mediaCanEdit && canDeleteMedia(media)}
 									<ContextMenu.Separator class="my-1 h-px bg-border" />
 									<ContextMenu.Item
 										class="{libraryContextItemClass} text-destructive data-highlighted:text-destructive"
@@ -1579,22 +1745,9 @@
 		</Dialog.Header>
 		<div class="grid gap-4 py-2 sm:grid-cols-2">
 			<label class="grid gap-1.5 text-sm font-medium">
-				<span>{m.media_filter_usage()}</span>
-				<AppSelect
-					bind:value={filter}
-					options={[
-						{ value: 'all', label: m.media_filter_all() },
-						{ value: 'unused', label: m.media_filter_unused() },
-						{ value: 'favorites', label: m.media_filter_favorites() }
-					]}
-					class="h-11 w-full"
-				/>
-			</label>
-			<label class="grid gap-1.5 text-sm font-medium">
 				<span>{m.media_type()}</span>
 				<AppSelect
 					bind:value={mediaType}
-					ariaLabel={m.media_type()}
 					options={[
 						{ value: 'all', label: m.media_all_types() },
 						{ value: 'image', label: m.media_images() },
@@ -1633,25 +1786,6 @@
 				/>
 			</label>
 		</div>
-		{#if lifecycleView !== 'trash'}
-			<div class="space-y-2 border-t pt-4">
-				<p class="text-sm font-medium">{m.media_tags()}</p>
-				<MediaTagFilter
-					{tags}
-					selectedIds={selectedTagIDs}
-					untagged={showUntagged}
-					canEdit={mediaCanEdit}
-					onChange={(tagIDs, untagged) => {
-						selectedTagIDs = tagIDs;
-						showUntagged = untagged;
-					}}
-					onManage={() => {
-						filterDialogOpen = false;
-						organizationDialogOpen = true;
-					}}
-				/>
-			</div>
-		{/if}
 		<details class="border-y py-1">
 			<summary class="flex min-h-11 cursor-pointer items-center text-sm font-medium">
 				{m.media_dimensions_date()}
@@ -1761,16 +1895,125 @@
 	onNotify={notify}
 />
 
-<MediaUploadDialog
-	bind:open={uploadDialogOpen}
-	workspaceId={selectedWorkspaceId}
-	maxFiles={10}
-	retentionClass="library"
-	tagId={uploadTagID()}
-	showLibrary
-	onOpenLibrary={() => undefined}
-	onUploaded={handleLibraryUploaded}
+<!-- Upload Dialog -->
+<Dialog.Root bind:open={uploadDialogOpen}>
+	<Dialog.Content
+		class="sm:max-w-md"
+		showCloseButton={!uploadLoading}
+		onInteractOutside={(event) => uploadLoading && event.preventDefault()}
+		onEscapeKeydown={(event) => uploadLoading && event.preventDefault()}
+	>
+		<Dialog.Header>
+			<Dialog.Title>{m.media_upload_title()}</Dialog.Title>
+			<Dialog.Description>{m.media_upload_description()}</Dialog.Description>
+		</Dialog.Header>
+
+		<div class="space-y-4 py-4">
+			<Input
+				id="file-upload"
+				type="file"
+				accept="image/*,video/*,audio/*"
+				multiple
+				class="peer sr-only !size-px !p-0"
+				onchange={handleUploadSelection}
+				{@attach attachUploadInput}
+			/>
+			<label
+				class="flex min-h-48 cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed p-6 text-center transition-colors peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-focus-visible:outline-none hover:bg-muted/40 {uploadDragging
+					? 'border-primary bg-primary/5'
+					: ''}"
+				for="file-upload"
+				ondragenter={(event) => {
+					event.preventDefault();
+					if (!uploadLoading) uploadDragging = true;
+				}}
+				ondragover={(event) => event.preventDefault()}
+				ondragleave={handleUploadDragLeave}
+				ondrop={handleUploadDrop}
+			>
+				<UploadIcon class="mb-3 size-8 text-muted-foreground" />
+				<p class="text-sm font-medium">{m.media_drop_prompt()}</p>
+				<p class="mt-1 text-sm text-muted-foreground">{m.media_upload_batch_hint()}</p>
+			</label>
+
+			{#if uploadFiles.length > 0}
+				<div class="rounded-lg border bg-muted/20 px-3 py-2">
+					<p class="text-sm font-medium">
+						{uploadFiles.length === 1
+							? uploadFiles[0].name
+							: m.media_selected_files({ count: uploadFiles.length })}
+					</p>
+					{#if uploadFiles.length === 1}
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{formatSize(uploadFiles[0].size)}
+						</p>
+					{/if}
+				</div>
+			{/if}
+
+			{#if uploadError}
+				<InlineNotice
+					tone="error"
+					message={uploadError}
+					dismissLabel={m.common_dismiss()}
+					onDismiss={() => (uploadError = '')}
+				/>
+			{/if}
+
+			{#if uploadProgress}
+				<div class="space-y-2" aria-live="polite">
+					<div class="flex items-center justify-between gap-3">
+						<p class="text-sm font-medium">
+							{m.video_upload_progress({
+								stage: uploadStage(uploadProgress.stage),
+								percent: Math.round(uploadProgress.fraction * 100)
+							})}
+						</p>
+						<Button type="button" variant="ghost" size="sm" onclick={cancelLibraryUpload}>
+							{m.video_upload_cancel()}
+						</Button>
+					</div>
+					<div class="h-2 overflow-hidden rounded-full bg-muted">
+						<div
+							class="h-full rounded-full bg-primary transition-[width]"
+							style:width={`${Math.round(uploadProgress.fraction * 100)}%`}
+						></div>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<Dialog.Footer>
+			<Button variant="outline" onclick={cancelLibraryUpload}>{m.common_cancel()}</Button>
+			<Button onclick={handleUpload} disabled={uploadLoading || uploadFiles.length === 0}>
+				{#if uploadLoading}
+					<LoaderIcon class="mr-2 size-4 animate-spin" />
+				{/if}
+				{m.media_upload_action()}
+			</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>
+
+<VideoEditorDialog
+	bind:open={uploadVideoEditorOpen}
+	file={uploadVideoEditorFile}
+	onConfirm={useEditedLibraryVideo}
+	onSkip={useEditedLibraryVideo}
 />
+
+<Dialog.Root bind:open={cameraDialogOpen}>
+	<Dialog.Content class="sm:max-w-2xl">
+		<Dialog.Header>
+			<Dialog.Title>{m.media_take_photo()}</Dialog.Title>
+			<Dialog.Description>{m.media_camera_body()}</Dialog.Description>
+		</Dialog.Header>
+		<CameraCapture onCapture={saveCameraPhoto} onCancel={() => (cameraDialogOpen = false)} />
+		{#if cameraUploading}
+			<p class="text-sm text-muted-foreground" aria-live="polite">{m.media_saving_photo()}</p>
+		{/if}
+	</Dialog.Content>
+</Dialog.Root>
 
 <!-- Usage Dialog -->
 <Dialog.Root open={usageDialogOpen} onOpenChange={handleUsageDialogOpenChange}>
@@ -1783,9 +2026,6 @@
 				{/if}
 			</Dialog.Description>
 		</Dialog.Header>
-		{#if deletionBlockedByUsage}
-			<InlineNotice tone="info" message={m.media_delete_active_work_body()} />
-		{/if}
 
 		{#if selectedMedia}
 			<div class="grid items-start gap-6 py-2 md:grid-cols-[18rem_minmax(0,1fr)]">
@@ -1971,10 +2211,6 @@
 					</Button>
 				{/if}
 				{#if mediaCanEdit}
-					<Button variant="outline" size="sm" onclick={() => requestRenameMedia(selectedMedia!)}>
-						<PencilIcon />
-						{m.common_rename()}
-					</Button>
 					<Button variant="outline" size="sm" onclick={() => duplicateMedia(selectedMedia!)}>
 						<Grid2X2Icon />
 						{m.image_editor_duplicate()}
@@ -1988,6 +2224,8 @@
 					<Button
 						variant="destructive"
 						size="sm"
+						disabled={!canDeleteMedia(selectedMedia)}
+						title={!canDeleteMedia(selectedMedia) ? m.media_delete_blocked() : undefined}
 						onclick={() => requestDeleteMedia(selectedMedia!)}
 					>
 						<TrashIcon />
@@ -2055,15 +2293,6 @@
 		</Dialog.Footer>
 	</Dialog.Content>
 </Dialog.Root>
-
-<RenameDialog
-	bind:open={renameDialogOpen}
-	title={m.media_rename()}
-	description={m.media_rename_body()}
-	label={m.media_filename()}
-	initialValue={mediaToRename?.original_filename ?? ''}
-	onConfirm={renameMedia}
-/>
 
 <style>
 	.media-card-control {

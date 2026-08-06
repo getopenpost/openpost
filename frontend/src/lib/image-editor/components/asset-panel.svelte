@@ -4,7 +4,7 @@
 	import { listImageEditorMedia, loadImageEditorBrandKit } from '../api';
 	import { loadImageEditorBrandFonts } from '../fonts';
 	import { listGuestImageEditorMedia, storeGuestImageEditorMedia } from '../local-persistence';
-	import type { ImageEditorMediaItem } from '../types';
+	import type { ImageEditorBrandKit, ImageEditorMediaItem } from '../types';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -34,6 +34,7 @@
 	let { guestMode = false }: { guestMode?: boolean } = $props();
 	const editor = useImageEditor();
 	let media = $state<ImageEditorMediaItem[]>([]);
+	let brand = $state<ImageEditorBrandKit | null>(null);
 	let loading = $state(false);
 	let error = $state('');
 	let search = $state('');
@@ -69,6 +70,7 @@
 		try {
 			if (guestMode) {
 				media = await listGuestImageEditorMedia(editor.id);
+				brand = null;
 				editor.setBrandKit(null);
 				return;
 			}
@@ -78,6 +80,7 @@
 				listMediaTags(editor.workspaceID)
 			]);
 			media = nextMedia;
+			brand = nextBrand;
 			tags = tagState.tags;
 			editor.setBrandKit(nextBrand);
 			await loadImageEditorBrandFonts(nextBrand);
@@ -147,6 +150,14 @@
 			height: item.height,
 			name: item.original_filename
 		});
+	}
+
+	function addBrandAsset(asset: NonNullable<ImageEditorBrandKit>['assets'][number]): void {
+		if (editor.backgroundImagePickerActive) {
+			editor.setPageBackgroundImage(asset.media_id);
+			return;
+		}
+		editor.addImage({ id: asset.media_id, name: asset.name || asset.role });
 	}
 
 	function startMediaDrag(
@@ -431,6 +442,37 @@
 				{m.common_loading()}
 			</div>
 		{:else}
+			{#if brand?.assets.length}
+				<section class="mb-4">
+					<h3 class="mb-2 text-xs font-semibold">{m.image_editor_brand_assets()}</h3>
+					<div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-1.5">
+						{#each brand.assets as asset (asset.id)}
+							<button
+								type="button"
+								class="group overflow-hidden rounded-md border bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+								onclick={() => addBrandAsset(asset)}
+								draggable={editor.canEdit}
+								ondragstart={(event) =>
+									startMediaDrag(
+										event,
+										{ id: asset.media_id, name: asset.name || asset.role },
+										getAuthenticatedMediaURL(`/media/${asset.media_id}/thumb/md`)
+									)}
+								ondragend={finishMediaDrag}
+								disabled={!editor.canEdit}
+								title={asset.name || asset.role}
+							>
+								<MediaPreviewImage
+									mediaId={asset.media_id}
+									alt={asset.name || asset.role}
+									class="aspect-square w-full object-contain p-1.5 transition-transform group-hover:scale-[1.03]"
+								/>
+							</button>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
 			<section>
 				<h3 class="mb-2 text-xs font-semibold">{m.image_editor_all_media()}</h3>
 				{#if media.length > 0}

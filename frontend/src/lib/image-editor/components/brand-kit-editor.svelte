@@ -2,6 +2,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
+	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import { uploadMediaFile } from '$lib/media-upload-client';
@@ -10,6 +11,7 @@
 	import ImageEditorColorPicker from './image-editor-color-picker.svelte';
 	import ImageEditorFontPicker from './image-editor-font-picker.svelte';
 	import type {
+		ImageEditorBrandAsset,
 		ImageEditorBrandColor,
 		ImageEditorBrandFont,
 		ImageEditorBrandKit,
@@ -20,6 +22,7 @@
 	import TrashIcon from 'lucide-svelte/icons/trash-2';
 	import UploadIcon from 'lucide-svelte/icons/upload';
 	import PaletteIcon from 'lucide-svelte/icons/palette';
+	import ImageIcon from 'lucide-svelte/icons/image';
 	import TypeIcon from 'lucide-svelte/icons/type';
 	import { m } from '$lib/paraglide/messages';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
@@ -42,8 +45,10 @@
 	let colors = $state.raw<ImageEditorBrandColor[]>([]);
 	let backgrounds = $state.raw<EditableBackground[]>([]);
 	let textStyles = $state.raw<ImageEditorBrandTextStyle[]>([]);
+	let assets = $state.raw<ImageEditorBrandAsset[]>([]);
 	let fonts = $state.raw<ImageEditorBrandFont[]>([]);
 	let saving = $state(false);
+	let uploadingAsset = $state(false);
 	let uploadingFont = $state(false);
 	let error = $state('');
 	let success = $state('');
@@ -53,7 +58,9 @@
 	let fontLicenseAcknowledged = $state(false);
 	let savedSnapshot = $state('');
 	const unsavedChanges = getOptionalUnsavedChanges();
-	const editorSnapshot = $derived(JSON.stringify({ name, colors, backgrounds, textStyles, fonts }));
+	const editorSnapshot = $derived(
+		JSON.stringify({ name, colors, backgrounds, textStyles, assets, fonts })
+	);
 	const dirty = $derived(Boolean(savedSnapshot) && editorSnapshot !== savedSnapshot);
 
 	function initializeEditor() {
@@ -72,7 +79,8 @@
 			font_family:
 				fonts.find((font) => font.media_id === style.font_asset_id)?.css_family || style.font_family
 		}));
-		savedSnapshot = JSON.stringify({ name, colors, backgrounds, textStyles, fonts });
+		assets = structuredClone($state.snapshot(kit.assets));
+		savedSnapshot = JSON.stringify({ name, colors, backgrounds, textStyles, assets, fonts });
 		void loadImageEditorBrandFonts(kit).catch(() => {
 			// A failed preview does not prevent the user from replacing or removing the font.
 		});
@@ -160,6 +168,34 @@
 		return `OpenPostBrand_${mediaID.replaceAll('-', '')}`;
 	}
 
+	async function uploadBrandAsset(file: File | undefined) {
+		if (!file) return;
+		uploadingAsset = true;
+		error = '';
+		try {
+			const uploaded = await uploadMediaFile({
+				workspaceId: kit.workspace_id,
+				file,
+				source: 'upload',
+				assetKind: 'library',
+				retentionClass: 'library'
+			});
+			assets = [
+				...assets,
+				{
+					id: crypto.randomUUID(),
+					media_id: uploaded.id,
+					role: assets.length === 0 ? 'primary_logo' : 'secondary_logo',
+					name: file.name.replace(/\.[^.]+$/, '')
+				}
+			];
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.brand_asset_upload_failed();
+		} finally {
+			uploadingAsset = false;
+		}
+	}
+
 	async function uploadBrandFont(file: File | undefined) {
 		if (!file) return;
 		if (!fontFamily.trim()) {
@@ -239,6 +275,7 @@
 				colors,
 				text_styles: textStyles,
 				backgrounds: backgrounds.map((background) => background.value),
+				assets,
 				fonts
 			});
 			onSaved(saved);
@@ -258,7 +295,7 @@
 			{success}
 		</p>{/if}
 
-	<div class="grid gap-10">
+	<div class="grid gap-10 lg:grid-cols-2 lg:gap-x-12">
 		<section class="space-y-5">
 			<div class="flex items-start gap-3">
 				<div
@@ -353,6 +390,97 @@
 					<PlusIcon />
 					{m.brand_add_background()}
 				</Button>
+			</div>
+		</section>
+
+		<section class="space-y-5">
+			<div class="flex items-start gap-3">
+				<div
+					class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+				>
+					<ImageIcon class="size-5" />
+				</div>
+				<div>
+					<h2 class="font-semibold">{m.brand_assets()}</h2>
+					<p class="mt-1 text-sm text-muted-foreground">{m.brand_assets_description()}</p>
+				</div>
+			</div>
+			<div class="space-y-3">
+				{#if assets.length > 0}
+					<div class="divide-y rounded-xl border">
+						{#each assets as asset, index (asset.id)}
+							<div class="grid grid-cols-[4.5rem_minmax(0,1fr)_2.75rem] items-start gap-3 p-3">
+								<div
+									class="flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-muted/30 p-2"
+								>
+									<MediaPreviewImage
+										mediaId={asset.media_id}
+										alt={asset.name || asset.role}
+										class="max-h-full max-w-full object-contain"
+									/>
+								</div>
+								<div class="grid min-w-0 gap-2">
+									<Input
+										class="min-h-10"
+										value={asset.name}
+										placeholder={m.brand_asset_name()}
+										aria-label={m.brand_asset_name()}
+										oninput={(event) =>
+											(assets = assets.map((item, itemIndex) =>
+												itemIndex === index ? { ...item, name: event.currentTarget.value } : item
+											))}
+									/>
+									<AppSelect
+										value={asset.role}
+										ariaLabel={m.brand_asset_role()}
+										onValueChange={(value) =>
+											(assets = assets.map((item, itemIndex) =>
+												itemIndex === index
+													? {
+															...item,
+															role: value as ImageEditorBrandAsset['role']
+														}
+													: item
+											))}
+										options={[
+											{ value: 'primary_logo', label: m.brand_primary_logo() },
+											{ value: 'secondary_logo', label: m.brand_secondary_logo() },
+											{ value: 'mark', label: m.brand_mark() },
+											{ value: 'watermark', label: m.brand_watermark() }
+										]}
+										class="h-10 min-w-0"
+									/>
+								</div>
+								<Button
+									variant="ghost"
+									size="icon"
+									class="size-11"
+									aria-label={m.brand_remove_asset()}
+									onclick={() => (assets = assets.filter((_, itemIndex) => itemIndex !== index))}
+								>
+									<TrashIcon />
+								</Button>
+							</div>
+						{/each}
+					</div>
+				{/if}
+				<label
+					class="flex min-h-16 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed px-4 text-center text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-muted/40"
+				>
+					{#if uploadingAsset}
+						<LoaderIcon class="animate-spin" />
+					{:else}
+						<UploadIcon />
+					{/if}
+					{m.brand_upload_asset()}
+					<Input
+						type="file"
+						class="sr-only !size-px !p-0"
+						accept="image/png,image/jpeg,image/webp,image/avif"
+						disabled={uploadingAsset}
+						onchange={(event) => uploadBrandAsset(event.currentTarget.files?.[0])}
+					/>
+				</label>
 			</div>
 		</section>
 	</div>

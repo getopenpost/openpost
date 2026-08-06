@@ -10,10 +10,6 @@ const tinyPNG = Buffer.from(
   "base64",
 );
 
-const tinySVG = Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"><rect width="32" height="18" fill="#f97316"/></svg>',
-);
-
 const ffmpegAvailable = (() => {
   try {
     execFileSync("ffmpeg", ["-version"]);
@@ -61,68 +57,6 @@ function createVideoFixture(): Buffer {
   }
 }
 
-function emptyVideoProjectDocument(title: string) {
-  return {
-    schema_version: 1,
-    title,
-    timebase: {
-      ticks_per_second: 1_000_000,
-      fps_numerator: 30,
-      fps_denominator: 1,
-    },
-    sources: {},
-    primary_sequence: [],
-    visual_tracks: [],
-    audio_tracks: [],
-    caption_tracks: [],
-    variants: [
-      {
-        id: "portrait",
-        name: "Portrait",
-        width: 1080,
-        height: 1920,
-        safe_area: { top: 0, right: 0, bottom: 0, left: 0 },
-        background_color: "#000000",
-      },
-      {
-        id: "feed-portrait",
-        name: "Feed portrait",
-        width: 1080,
-        height: 1350,
-        safe_area: { top: 0, right: 0, bottom: 0, left: 0 },
-        background_color: "#000000",
-      },
-      {
-        id: "square",
-        name: "Square",
-        width: 1080,
-        height: 1080,
-        safe_area: { top: 0, right: 0, bottom: 0, left: 0 },
-        background_color: "#000000",
-      },
-      {
-        id: "landscape",
-        name: "Landscape",
-        width: 1920,
-        height: 1080,
-        safe_area: { top: 0, right: 0, bottom: 0, left: 0 },
-        background_color: "#000000",
-      },
-    ],
-    markers: [],
-    export_defaults: {
-      variant_ids: ["portrait"],
-      format: "mp4",
-      video_codec: "avc",
-      audio_codec: "aac",
-      frame_rate: { numerator: 30, denominator: 1 },
-      video_bitrate: 8_000_000,
-      audio_bitrate: 128_000,
-      loudness_normalization: false,
-    },
-  };
-}
-
 test("media library uploads and lists a local media file", async ({
   page,
   request,
@@ -146,36 +80,27 @@ test("media library uploads and lists a local media file", async ({
   await expect(
     page.getByRole("navigation", { name: "Media sections" }),
   ).toHaveCount(0);
-  await expect(page.getByTestId("media-lifecycle-tabs")).toHaveCSS(
-    "border-bottom-width",
-    "0px",
-  );
-  await expect(page.getByTestId("media-filter-bar")).toHaveCSS(
-    "border-bottom-width",
-    "0px",
-  );
   await expect(page.getByText("No media found")).toBeVisible();
 
-  await page.getByRole("button", { name: "Add media", exact: true }).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Upload media" }).click();
   await expect(
-    page.getByRole("dialog", { name: "Upload media" }),
+    page.getByRole("dialog", { name: "Upload Media" }),
   ).toBeVisible();
-  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
-  await uploadDialog.locator('input[type="file"]').first().setInputFiles({
-    name: "launch-card.svg",
-    mimeType: "image/svg+xml",
-    buffer: tinySVG,
+  await page.locator("#file-upload").setInputFiles({
+    name: "launch-card.png",
+    mimeType: "image/png",
+    buffer: tinyPNG,
   });
-  await uploadDialog
-    .getByRole("button", { name: "Upload 1 file", exact: true })
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Upload" })
     .click();
 
   await expect(
     page.locator("[data-sonner-toast]").filter({ hasText: "Uploaded 1 file" }),
   ).toBeVisible();
-  await expect(
-    page.getByTestId("media-library-grid").getByText("launch-card.png"),
-  ).toBeVisible();
+  await expect(page.getByText("launch-card.png")).toBeVisible();
   await expect(
     page
       .getByTestId("page-header")
@@ -220,26 +145,8 @@ test("media library uploads and lists a local media file", async ({
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   const assetCard = page.locator('[data-library-kind="asset"]');
   await assetCard.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-  const renameDialog = page.getByRole("dialog", { name: "Rename media" });
-  await renameDialog.getByLabel("Filename").fill("renamed-launch-card");
-  await renameDialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(assetCard.getByText("renamed-launch-card.png")).toBeVisible();
-
-  const renamedMedia = await request.get(
-    `/api/v1/media?workspace_id=${workspaceBody.id}`,
-    { headers: { Authorization: `Bearer ${auth.token}` } },
-  );
-  expect(renamedMedia.ok()).toBeTruthy();
-  expect((await renamedMedia.json()).media[0].original_filename).toBe(
-    "renamed-launch-card.png",
-  );
-
-  await assetCard.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Favorite", exact: true }).click();
-  await expect(
-    assetCard.getByRole("button", { name: "Remove from favorites" }),
-  ).toBeVisible();
+  await expect(assetCard.locator("svg.fill-red-500")).toBeVisible();
 
   await assetCard.click({ button: "right" });
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
@@ -249,60 +156,6 @@ test("media library uploads and lists a local media file", async ({
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(page.getByText("No media found")).toBeVisible();
-});
-
-test("editors renames cloud video projects from the context menu", async ({
-  page,
-  request,
-}) => {
-  const unique = Date.now().toString(36);
-  const auth = await registerUser(
-    request,
-    `editor-rename-${unique}@example.com`,
-  );
-  const workspace = await createWorkspace(
-    request,
-    auth.token,
-    "Editor Rename E2E",
-  );
-  const created = await request.post("/api/v1/video-editor/projects", {
-    headers: { Authorization: `Bearer ${auth.token}` },
-    data: {
-      workspace_id: workspace.id,
-      client_request_id: `editor-rename-${unique}`,
-      document: emptyVideoProjectDocument("Launch video"),
-    },
-  });
-  expect(created.ok()).toBeTruthy();
-  const project = (await created.json()) as { id: string };
-
-  await authenticatePage(page, auth.token);
-  await page.goto("/editors");
-  const projectCard = page.locator(
-    `a[href="/video-editor?cloud=${encodeURIComponent(project.id)}"]`,
-  );
-  await expect(
-    projectCard.getByText("Launch video", { exact: true }),
-  ).toBeVisible();
-  await projectCard.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Rename", exact: true }).click();
-  const renameDialog = page.getByRole("dialog", {
-    name: "Rename video project",
-  });
-  await renameDialog.getByLabel("Project name").fill("Launch recap");
-  await renameDialog.getByRole("button", { name: "Save", exact: true }).click();
-  await expect(
-    projectCard.getByText("Launch recap", { exact: true }),
-  ).toBeVisible();
-
-  const saved = await request.get(
-    `/api/v1/video-editor/projects/${project.id}`,
-    {
-      headers: { Authorization: `Bearer ${auth.token}` },
-    },
-  );
-  expect(saved.ok()).toBeTruthy();
-  expect((await saved.json()).document.title).toBe("Launch recap");
 });
 
 test("media tags combine with type filters while new uploads remain untagged", async ({
@@ -320,46 +173,32 @@ test("media tags combine with type filters while new uploads remain untagged", a
   await authenticatePage(page, auth.token);
   await page.goto("/media");
 
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await page
-    .getByRole("dialog", { name: "Filters" })
-    .getByRole("button", { name: "Manage tags", exact: true })
-    .last()
-    .click();
+  await page.getByRole("button", { name: "Manage tags" }).click();
   const tagDialog = page.getByRole("dialog", { name: "Manage tags" });
   await tagDialog.getByPlaceholder("Tag name").fill("Inbox");
   await tagDialog.getByRole("button", { name: "Create tag" }).click();
   await expect(tagDialog.getByText("Inbox", { exact: true })).toBeVisible();
   await tagDialog.getByRole("button", { name: "Close" }).click();
 
-  await page.getByRole("button", { name: "Add media", exact: true }).click();
-  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
-  await uploadDialog.locator('input[type="file"]').first().setInputFiles({
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Upload media" }).click();
+  await page.locator("#file-upload").setInputFiles({
     name: "tagged-launch.png",
     mimeType: "image/png",
     buffer: tinyPNG,
   });
-  await uploadDialog
-    .getByRole("button", { name: "Upload 1 file", exact: true })
+  await page
+    .getByRole("dialog", { name: "Upload Media" })
+    .getByRole("button", { name: "Upload" })
     .click();
   await expect(
     page.locator("[data-sonner-toast]").filter({ hasText: "Uploaded 1 file" }),
   ).toBeVisible();
-  await expect(
-    page.getByTestId("media-library-grid").getByText("tagged-launch.png"),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-  const initialFilterDialog = page.getByRole("dialog", { name: "Filters" });
-  const initialTagFilters = initialFilterDialog.locator(
-    '[aria-label="Filter media by tag"]',
-  );
+  await expect(page.getByText("tagged-launch.png")).toBeVisible();
+  const initialTagFilters = page.locator('[aria-label="Filter media by tag"]');
   await initialTagFilters.getByRole("button", { name: "Untagged" }).click();
-  await initialFilterDialog
-    .getByRole("button", { name: "Apply filters" })
-    .click();
-  await expect(
-    page.getByTestId("media-library-grid").getByText("tagged-launch.png"),
-  ).toBeVisible();
+  await expect(page.getByText("tagged-launch.png")).toBeVisible();
+  await initialTagFilters.getByRole("button", { name: "All tags" }).click();
 
   const tagsResponse = await request.get(
     `/api/v1/media/tags?workspace_id=${workspace.id}`,
@@ -407,36 +246,19 @@ test("media tags combine with type filters while new uploads remain untagged", a
   expect(assignResponse.ok()).toBeTruthy();
 
   await page.reload();
-  await expect(
-    page.getByTestId("media-library-grid").getByText("tagged-launch.png"),
-  ).toBeVisible();
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-  const filterDialog = page.getByRole("dialog", { name: "Filters" });
-  const tagFilters = filterDialog.locator('[aria-label="Filter media by tag"]');
+  await expect(page.getByText("tagged-launch.png")).toBeVisible();
+  const tagFilters = page.locator('[aria-label="Filter media by tag"]');
   await tagFilters.getByRole("button", { name: /Inbox/ }).click();
   await tagFilters.getByRole("button", { name: /Campaign/ }).click();
-  await filterDialog.getByRole("button", { name: "Apply filters" }).click();
-  await expect(
-    page.getByTestId("media-library-grid").getByText("tagged-launch.png"),
-  ).toBeVisible();
+  await expect(page.getByText("tagged-launch.png")).toBeVisible();
 
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
   await tagFilters.getByRole("button", { name: "Untagged" }).click();
-  await filterDialog.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.getByText("No media found")).toBeVisible();
-  await page.getByRole("button", { name: "Show all" }).click();
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await filterDialog.getByRole("button", { name: "Type" }).click();
-  await page.getByRole("option", { name: "Audio", exact: true }).click();
-  await filterDialog.getByRole("button", { name: "Apply filters" }).click();
+  await tagFilters.getByRole("button", { name: "All tags" }).click();
+  await page.getByRole("button", { name: "Audio", exact: true }).click();
   await expect(page.getByText("No media found")).toBeVisible();
-  await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await filterDialog.getByRole("button", { name: "Type" }).click();
-  await page.getByRole("option", { name: "Images", exact: true }).click();
-  await filterDialog.getByRole("button", { name: "Apply filters" }).click();
-  await expect(
-    page.getByTestId("media-library-grid").getByText("tagged-launch.png"),
-  ).toBeVisible();
+  await page.getByRole("button", { name: "Images", exact: true }).click();
+  await expect(page.getByText("tagged-launch.png")).toBeVisible();
 });
 
 test("video upload edits in the browser and becomes a verified media asset", async ({
@@ -462,17 +284,14 @@ test("video upload edits in the browser and becomes a verified media asset", asy
   await page.setViewportSize({ width: 1280, height: 800 });
   await authenticatePage(page, auth.token);
   await page.goto("/media");
-  await page.getByRole("button", { name: "Add media", exact: true }).click();
-  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
-  await uploadDialog.locator('input[type="file"]').first().setInputFiles({
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Upload media" }).click();
+  await page.locator("#file-upload").setInputFiles({
     name: "launch-video.mp4",
     mimeType: "video/mp4",
     buffer: createVideoFixture(),
   });
 
-  await uploadDialog
-    .getByRole("button", { name: "Upload 1 file", exact: true })
-    .click();
   const editor = page.getByRole("dialog", { name: "Edit video" });
   await expect(editor).toBeVisible();
   await expect(editor.getByText("160×90")).toBeVisible();
@@ -480,12 +299,13 @@ test("video upload edits in the browser and becomes a verified media asset", asy
   await editor.getByRole("button", { name: "Apply edit" }).click();
   await expect(editor).toBeHidden({ timeout: 30_000 });
 
+  const uploadDialog = page.getByRole("dialog", { name: "Upload Media" });
+  await expect(uploadDialog.getByText("launch-video-edited.mp4")).toBeVisible();
+  await uploadDialog.getByRole("button", { name: "Upload" }).click();
   await expect(
     page.locator("[data-sonner-toast]").filter({ hasText: "Uploaded 1 file" }),
   ).toBeVisible({ timeout: 60_000 });
-  await expect(
-    page.getByTestId("media-library-grid").getByText("launch-video-edited.mp4"),
-  ).toBeVisible();
+  await expect(page.getByText("launch-video-edited.mp4")).toBeVisible();
 
   const mediaResponse = await request.get(
     `/api/v1/media?workspace_id=${workspace.id}&type=video`,
@@ -510,15 +330,13 @@ test("video upload edits in the browser and becomes a verified media asset", asy
   expect(String(mediaBody.media[0].poster_thumbnail_url)).toContain("/poster");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Add media", exact: true }).click();
-  await uploadDialog.locator('input[type="file"]').first().setInputFiles({
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Upload media" }).click();
+  await page.locator("#file-upload").setInputFiles({
     name: "phone-video.mp4",
     mimeType: "video/mp4",
     buffer: createVideoFixture(),
   });
-  await uploadDialog
-    .getByRole("button", { name: "Upload 1 file", exact: true })
-    .click();
   await expect(editor).toBeVisible();
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
@@ -578,8 +396,83 @@ test("brand kit inputs keep focus while editing", async ({ page, request }) => {
   await fontSearch.pressSequentially("Geist", { delay: 20 });
   await expect(fontSearch).toBeFocused();
   await expect(fontSearch).toHaveValue("Geist");
-  await page
-    .getByRole("button", { name: "Geist Sans serif", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Geist Sans serif", exact: true }).click();
   await expect(fontFamily).toContainText("Geist");
+});
+
+test("brand assets fall back to the original file when no thumbnail exists", async ({
+  page,
+  request,
+}) => {
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(
+    request,
+    `brand-preview-${unique}@example.com`,
+  );
+  const workspace = (await createWorkspace(
+    request,
+    auth.token,
+    "Brand Preview E2E",
+  )) as { id: string };
+
+  const upload = await request.post("/api/v1/media/upload", {
+    headers: { Authorization: `Bearer ${auth.token}` },
+    multipart: {
+      workspace_id: workspace.id,
+      source: "upload",
+      asset_kind: "brand_asset",
+      file: {
+        name: "brand-mark.png",
+        mimeType: "image/png",
+        buffer: tinyPNG,
+      },
+    },
+  });
+  expect(upload.ok()).toBeTruthy();
+  const media = (await upload.json()) as { id: string };
+
+  const saveBrand = await request.put("/api/v1/image-editor/brand-kit", {
+    headers: { Authorization: `Bearer ${auth.token}` },
+    data: {
+      workspace_id: workspace.id,
+      name: "Brand Preview",
+      colors: [],
+      text_styles: [],
+      backgrounds: [],
+      assets: [
+        {
+          media_id: media.id,
+          role: "primary_logo",
+          name: "Brand mark",
+        },
+      ],
+      fonts: [],
+    },
+  });
+  expect(saveBrand.ok()).toBeTruthy();
+
+  await authenticatePage(page, auth.token);
+  await page.route(`**/media/${media.id}/thumb/md**`, async (route) => {
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: '{"error":"thumbnail not found"}',
+    });
+  });
+  await page.goto("/settings?tab=brand");
+
+  const preview = page.getByRole("img", { name: "Brand mark" }).first();
+  await expect(preview).toBeVisible();
+  await expect
+    .poll(() =>
+      preview.evaluate((image) =>
+        image instanceof HTMLImageElement
+          ? { width: image.naturalWidth, source: image.currentSrc }
+          : { width: 0, source: "" },
+      ),
+    )
+    .toEqual({
+      width: 1,
+      source: expect.stringMatching(new RegExp(`/media/${media.id}(?:\\?|$)`)),
+    });
 });

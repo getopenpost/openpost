@@ -368,8 +368,7 @@ type RestoreMediaOutput struct {
 type UpdateMediaInput struct {
 	PathID string `path:"id" doc:"Media ID"`
 	Body   struct {
-		AltText          *string `json:"alt_text,omitempty" doc:"Alt text for accessibility"`
-		OriginalFilename *string `json:"original_filename,omitempty" maxLength:"255" doc:"User-visible filename; the file extension cannot be changed"`
+		AltText string `json:"alt_text" doc:"Alt text for accessibility"`
 	}
 }
 
@@ -590,6 +589,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 					OR id IN (SELECT r.media_id FROM design_media_references r JOIN design_documents d ON d.id = r.design_document_id WHERE d.deleted_at IS NULL)
 					OR id IN (SELECT media_id FROM design_template_media_references)
 					OR id IN (SELECT a.media_id FROM video_project_assets a JOIN video_projects p ON p.id = a.video_project_id WHERE p.deleted_at IS NULL)
+					OR id IN (SELECT media_id FROM brand_assets)
 					OR id IN (SELECT media_id FROM brand_fonts)
 					OR id IN (SELECT cover_preview_media_id FROM design_documents WHERE cover_preview_media_id IS NOT NULL AND deleted_at IS NULL)
 					OR id IN (SELECT p.preview_media_id FROM design_pages p JOIN design_documents d ON d.id = p.design_document_id WHERE p.preview_media_id IS NOT NULL AND d.deleted_at IS NULL)
@@ -606,6 +606,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 				AND id NOT IN (SELECT r.media_id FROM design_media_references r JOIN design_documents d ON d.id = r.design_document_id WHERE d.deleted_at IS NULL)
 				AND id NOT IN (SELECT media_id FROM design_template_media_references)
 				AND id NOT IN (SELECT a.media_id FROM video_project_assets a JOIN video_projects p ON p.id = a.video_project_id WHERE p.deleted_at IS NULL)
+				AND id NOT IN (SELECT media_id FROM brand_assets)
 				AND id NOT IN (SELECT media_id FROM brand_fonts)
 				AND id NOT IN (SELECT cover_preview_media_id FROM design_documents WHERE cover_preview_media_id IS NOT NULL AND deleted_at IS NULL)
 				AND id NOT IN (SELECT p.preview_media_id FROM design_pages p JOIN design_documents d ON d.id = p.design_document_id WHERE p.preview_media_id IS NOT NULL AND d.deleted_at IS NULL)
@@ -1021,7 +1022,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		OperationID: "update-media",
 		Method:      http.MethodPatch,
 		Path:        "/media/{id}",
-		Summary:     "Update media metadata",
+		Summary:     "Update media metadata (alt text)",
 		Tags:        []string{tagMedia},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.authn)},
 		Errors:      []int{403, 404},
@@ -1041,23 +1042,8 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			return nil, err
 		}
 
-		columns := make([]string, 0, 2)
-		if input.Body.AltText != nil {
-			media.AltText = strings.TrimSpace(*input.Body.AltText)
-			columns = append(columns, "alt_text")
-		}
-		if input.Body.OriginalFilename != nil {
-			filename, filenameErr := normalizeMediaFilename(media.OriginalFilename, *input.Body.OriginalFilename)
-			if filenameErr != nil {
-				return nil, huma.Error400BadRequest(filenameErr.Error())
-			}
-			media.OriginalFilename = filename
-			columns = append(columns, "original_filename")
-		}
-		if len(columns) == 0 {
-			return nil, huma.Error400BadRequest("alt_text or original_filename is required")
-		}
-		_, err = h.db.NewUpdate().Model(&media).Column(columns...).Where("id = ?", input.PathID).Exec(ctx)
+		media.AltText = input.Body.AltText
+		_, err = h.db.NewUpdate().Model(&media).Column("alt_text").Where("id = ?", input.PathID).Exec(ctx)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to update media")
 		}
@@ -1807,9 +1793,6 @@ func detectedMediaMimeType(content []byte, fallback string) string {
 }
 
 func validateMediaAssetContent(assetKind, filename, declaredMimeType string, content []byte) error {
-	if isSVGMediaUpload(filename, declaredMimeType, content) {
-		return errors.New("SVG upload could not be processed")
-	}
 	if assetKind != "brand_font" {
 		return nil
 	}
@@ -1849,15 +1832,6 @@ func validateMediaAssetContent(assetKind, filename, declaredMimeType string, con
 		return fmt.Errorf("brand font MIME type does not match the %s file", formatName)
 	}
 	return nil
-}
-
-func isSVGMediaUpload(filename, declaredMimeType string, content []byte) bool {
-	if strings.EqualFold(strings.TrimSpace(declaredMimeType), "image/svg+xml") ||
-		strings.EqualFold(filepath.Ext(strings.TrimSpace(filename)), ".svg") {
-		return true
-	}
-	normalized := bytes.ToLower(bytes.TrimSpace(content))
-	return bytes.Contains(normalized, []byte("<svg"))
 }
 
 func (h *MediaHandler) markMediaUploadFailed(ctx context.Context, mediaID string) {
@@ -2233,7 +2207,7 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 		summary := summaries[mediaID]
 		for _, status := range posts {
 			summary.Total++
-			if mediaUsageStatusBlocks(status) {
+			if status != models.PostStatusPublished {
 				summary.Blocking++
 			}
 		}
@@ -2247,33 +2221,42 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 	for _, row := range renditionRows {
 		summary := summaries[row.MediaID]
 		summary.Total++
-		if mediaUsageStatusBlocks(row.Status) {
+		if row.Status != models.RenditionStatusPublished {
 			summary.Blocking++
 		}
 		summaries[row.MediaID] = summary
 	}
-	segmentQueries := []string{
-		`SELECT psm.media_id, p.id AS rendition_id, p.status
+	segmentQueries := []struct {
+		query           string
+		publishedStatus string
+	}{
+		{
+			query: `SELECT psm.media_id, p.id AS rendition_id, p.status
 				FROM publication_segment_media psm
 				JOIN publication_segments ps ON ps.id = psm.segment_id
 				JOIN publications p ON p.id = ps.publication_id
 				WHERE p.workspace_id = ? AND psm.media_id IN (?)`,
-		`SELECT rsm.media_id, r.id AS rendition_id, p.status
+			publishedStatus: models.PublicationStatusPublished,
+		},
+		{
+			query: `SELECT rsm.media_id, r.id AS rendition_id, r.status
 				FROM rendition_segment_media rsm
 				JOIN rendition_segments rs ON rs.id = rsm.rendition_segment_id
 				JOIN renditions r ON r.id = rs.rendition_id
 				JOIN publications p ON p.id = r.publication_id
 				WHERE p.workspace_id = ? AND rsm.media_id IN (?)`,
+			publishedStatus: models.RenditionStatusPublished,
+		},
 	}
-	for _, query := range segmentQueries {
+	for _, segmentQuery := range segmentQueries {
 		var rows []mediaRenditionUsageRow
-		if err := h.db.NewRaw(query, workspaceID, bun.List(mediaIDs)).Scan(ctx, &rows); err != nil && !isMissingOptionalMediaTable(err) {
+		if err := h.db.NewRaw(segmentQuery.query, workspaceID, bun.List(mediaIDs)).Scan(ctx, &rows); err != nil && !isMissingOptionalMediaTable(err) {
 			return nil, err
 		}
 		for _, row := range rows {
 			summary := summaries[row.MediaID]
 			summary.Total++
-			if mediaUsageStatusBlocks(row.Status) {
+			if row.Status != segmentQuery.publishedStatus {
 				summary.Blocking++
 			}
 			summaries[row.MediaID] = summary
@@ -2294,6 +2277,8 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 			JOIN video_projects p ON p.id = a.video_project_id
 			WHERE a.media_id IN (?) AND p.deleted_at IS NULL
 			GROUP BY a.media_id`,
+		`SELECT media_id, COUNT(*) AS usage_count FROM brand_assets
+			WHERE media_id IN (?) GROUP BY media_id`,
 		`SELECT media_id, COUNT(*) AS usage_count FROM brand_fonts
 			WHERE media_id IN (?) GROUP BY media_id`,
 	}
@@ -2347,33 +2332,6 @@ func (h *MediaHandler) mediaUsageSummaries(ctx context.Context, workspaceID stri
 	return summaries, nil
 }
 
-func mediaUsageStatusBlocks(status string) bool {
-	status = strings.ToLower(strings.TrimSpace(status))
-	return status != models.PostStatusPublished && status != models.PostStatusFailed
-}
-
-func normalizeMediaFilename(current, requested string) (string, error) {
-	name := strings.TrimSpace(requested)
-	if name == "" {
-		return "", errors.New("filename is required")
-	}
-	if len([]rune(name)) > 255 {
-		return "", errors.New("filename must be 255 characters or fewer")
-	}
-	if strings.ContainsAny(name, `/\\`) || strings.IndexFunc(name, func(r rune) bool { return r < 32 || r == 127 }) >= 0 {
-		return "", errors.New("filename cannot contain path separators or control characters")
-	}
-	currentExtension := filepath.Ext(strings.TrimSpace(current))
-	requestedExtension := filepath.Ext(name)
-	if currentExtension != "" && requestedExtension == "" {
-		return name + currentExtension, nil
-	}
-	if currentExtension != "" && !strings.EqualFold(currentExtension, requestedExtension) {
-		return "", errors.New("file extension cannot be changed")
-	}
-	return name, nil
-}
-
 func (h *MediaHandler) mediaPostUsage(ctx context.Context, workspaceID string, mediaIDs []string, targets map[string]struct{}, postUsage map[string]map[string]string) (map[string]map[string]string, error) {
 	var directRows []mediaPostUsageRow
 	if err := h.db.NewSelect().
@@ -2424,7 +2382,7 @@ func (h *MediaHandler) mediaRenditionUsageRows(ctx context.Context, workspaceID 
 		TableExpr("rendition_media AS rm").
 		ColumnExpr("rm.media_id").
 		ColumnExpr("r.id AS rendition_id").
-		ColumnExpr("p.status").
+		ColumnExpr("r.status").
 		Join("JOIN renditions AS r ON r.id = rm.rendition_id").
 		Join("JOIN publications AS p ON p.id = r.publication_id").
 		Where("p.workspace_id = ?", workspaceID).
@@ -2599,6 +2557,27 @@ func (h *MediaHandler) nonPostMediaUsage(ctx context.Context, workspaceID, media
 			ID:    template.ID,
 			Label: template.Name,
 		})
+	}
+
+	var brandAssets []struct {
+		ID   string `bun:"id"`
+		Name string `bun:"name"`
+		Role string `bun:"role"`
+	}
+	if err := h.db.NewSelect().
+		TableExpr("brand_assets AS a").
+		ColumnExpr("a.id, a.name, a.role").
+		Join("JOIN brand_kits AS k ON k.id = a.brand_kit_id").
+		Where("a.media_id = ? AND k.workspace_id = ?", mediaID, workspaceID).
+		Scan(ctx, &brandAssets); err != nil {
+		return nil, err
+	}
+	for _, asset := range brandAssets {
+		label := strings.TrimSpace(asset.Name)
+		if label == "" {
+			label = strings.ReplaceAll(asset.Role, "_", " ")
+		}
+		usage = append(usage, MediaUsageItem{Kind: "brand_asset", ID: asset.ID, Label: label})
 	}
 
 	var brandFonts []struct {

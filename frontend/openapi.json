@@ -5142,6 +5142,26 @@
 				],
 				"type": "object"
 			},
+			"ImageEditorBrandAsset": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"media_id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"role": {
+						"enum": ["primary_logo", "secondary_logo", "mark", "watermark"],
+						"type": "string"
+					}
+				},
+				"required": ["media_id", "role", "name"],
+				"type": "object"
+			},
 			"ImageEditorBrandColor": {
 				"additionalProperties": false,
 				"properties": {
@@ -5206,6 +5226,12 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"assets": {
+						"items": {
+							"$ref": "#/components/schemas/ImageEditorBrandAsset"
+						},
+						"type": ["array", "null"]
+					},
 					"backgrounds": {
 						"items": {
 							"type": "string"
@@ -5262,6 +5288,7 @@
 					"colors",
 					"text_styles",
 					"backgrounds",
+					"assets",
 					"fonts"
 				],
 				"type": "object"
@@ -13169,6 +13196,12 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"assets": {
+						"items": {
+							"$ref": "#/components/schemas/ImageEditorBrandAsset"
+						},
+						"type": ["array", "null"]
+					},
 					"backgrounds": {
 						"items": {
 							"type": "string"
@@ -13201,7 +13234,15 @@
 						"type": "string"
 					}
 				},
-				"required": ["workspace_id", "name", "colors", "text_styles", "backgrounds", "fonts"],
+				"required": [
+					"workspace_id",
+					"name",
+					"colors",
+					"text_styles",
+					"backgrounds",
+					"assets",
+					"fonts"
+				],
 				"type": "object"
 			},
 			"UpdateImageEditorDesignInputBody": {
@@ -13293,13 +13334,9 @@
 					"alt_text": {
 						"description": "Alt text for accessibility",
 						"type": "string"
-					},
-					"original_filename": {
-						"description": "User-visible filename; the file extension cannot be changed",
-						"maxLength": 255,
-						"type": "string"
 					}
 				},
+				"required": ["alt_text"],
 				"type": "object"
 			},
 			"UpdateMediaOutputBody": {
@@ -23798,7 +23835,7 @@
 						"description": "Internal Server Error"
 					}
 				},
-				"summary": "Update media metadata",
+				"summary": "Update media metadata (alt text)",
 				"tags": ["Media"]
 			}
 		},

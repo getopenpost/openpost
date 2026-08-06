@@ -19,7 +19,7 @@ func (failingDeleteStorage) Delete(string) error                    { return err
 func (failingDeleteStorage) GetURL(string) string                   { return "" }
 func (failingDeleteStorage) Open(string) (io.ReadCloser, error)     { return nil, errors.New("not found") }
 
-func TestMediaUsageSummaryAllowsTerminalPostUsage(t *testing.T) {
+func TestMediaUsageSummaryAllowsOnlyPublishedUsage(t *testing.T) {
 	t.Parallel()
 
 	db := createHandlerTestDB(t,
@@ -56,68 +56,7 @@ func TestMediaUsageSummaryAllowsTerminalPostUsage(t *testing.T) {
 
 	usage, err = handler.mediaUsageSummary(ctx, "ws-1", "failed-media")
 	require.NoError(t, err)
-	require.Equal(t, mediaUsageSummary{Total: 1, Blocking: 0}, usage)
-}
-
-func TestMediaUsageStatusBlocksOnlyActiveWork(t *testing.T) {
-	t.Parallel()
-
-	for _, status := range []string{
-		models.PostStatusDraft,
-		models.PostStatusScheduled,
-		models.PostStatusPublishing,
-		models.PublicationStatusReady,
-	} {
-		require.True(t, mediaUsageStatusBlocks(status), status)
-	}
-	for _, status := range []string{models.PostStatusPublished, models.PostStatusFailed} {
-		require.False(t, mediaUsageStatusBlocks(status), status)
-	}
-}
-
-func TestNormalizeMediaFilenamePreservesFormat(t *testing.T) {
-	t.Parallel()
-
-	name, err := normalizeMediaFilename("launch-card.png", "renamed launch card")
-	require.NoError(t, err)
-	require.Equal(t, "renamed launch card.png", name)
-
-	name, err = normalizeMediaFilename("launch-card.PNG", "renamed.PNG")
-	require.NoError(t, err)
-	require.Equal(t, "renamed.PNG", name)
-
-	_, err = normalizeMediaFilename("launch-card.png", "renamed.jpg")
-	require.EqualError(t, err, "file extension cannot be changed")
-
-	_, err = normalizeMediaFilename("launch-card.png", "folder/renamed.png")
-	require.EqualError(t, err, "filename cannot contain path separators or control characters")
-}
-
-func TestMediaUsageSummaryUsesTerminalPublicationStatusForRenditions(t *testing.T) {
-	t.Parallel()
-
-	db := createHandlerTestDB(t,
-		(*models.Publication)(nil),
-		(*models.Rendition)(nil),
-		(*models.RenditionMedia)(nil),
-		(*models.Post)(nil),
-		(*models.PostMedia)(nil),
-		(*models.PostVariant)(nil),
-	)
-	handler := &MediaHandler{db: db}
-	ctx := context.Background()
-	publication := &models.Publication{ID: "publication-1", WorkspaceID: "ws-1", Status: models.PublicationStatusFailed}
-	_, err := db.NewInsert().Model(publication).Exec(ctx)
-	require.NoError(t, err)
-	rendition := &models.Rendition{ID: "rendition-1", PublicationID: publication.ID, Status: models.RenditionStatusReady}
-	_, err = db.NewInsert().Model(rendition).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.RenditionMedia{RenditionID: rendition.ID, MediaID: "media-1"}).Exec(ctx)
-	require.NoError(t, err)
-
-	usage, err := handler.mediaUsageSummary(ctx, "ws-1", "media-1")
-	require.NoError(t, err)
-	require.Equal(t, mediaUsageSummary{Total: 1, Blocking: 0}, usage)
+	require.Equal(t, mediaUsageSummary{Total: 1, Blocking: 1}, usage)
 }
 
 func TestMediaUsageSummaryCountsVariantMediaAndDedupesByPost(t *testing.T) {

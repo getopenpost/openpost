@@ -281,6 +281,7 @@ func (s *Service) isOrganizedMedia(ctx context.Context, mediaID string, temporar
 
 func (s *Service) hasProtectedReference(ctx context.Context, mediaID string) (bool, error) {
 	protectedQueries := []string{
+		"SELECT COUNT(*) FROM brand_assets WHERE media_id = ?",
 		"SELECT COUNT(*) FROM brand_fonts WHERE media_id = ?",
 		"SELECT COUNT(*) FROM design_media_references r JOIN design_documents d ON d.id = r.design_document_id WHERE r.media_id = ? AND d.deleted_at IS NULL",
 		"SELECT COUNT(*) FROM design_template_media_references WHERE media_id = ?",
@@ -308,14 +309,15 @@ func (s *Service) hasProtectedReference(ctx context.Context, mediaID string) (bo
 
 func (s *Service) hasActivePublicationReference(ctx context.Context, mediaID string) (bool, error) {
 	activeQueries := []string{
-		"SELECT COUNT(*) FROM post_media pm JOIN posts p ON p.id = pm.post_id WHERE pm.media_id = ? AND p.status NOT IN (?, ?)",
-		"SELECT COUNT(*) FROM rendition_media rm JOIN renditions r ON r.id = rm.rendition_id JOIN publications p ON p.id = r.publication_id WHERE rm.media_id = ? AND p.status NOT IN (?, ?)",
-		"SELECT COUNT(*) FROM publication_segment_media psm JOIN publication_segments ps ON ps.id = psm.segment_id JOIN publications p ON p.id = ps.publication_id WHERE psm.media_id = ? AND p.status NOT IN (?, ?)",
-		"SELECT COUNT(*) FROM rendition_segment_media rsm JOIN rendition_segments rs ON rs.id = rsm.rendition_segment_id JOIN renditions r ON r.id = rs.rendition_id JOIN publications p ON p.id = r.publication_id WHERE rsm.media_id = ? AND p.status NOT IN (?, ?)",
+		"SELECT COUNT(*) FROM post_media pm JOIN posts p ON p.id = pm.post_id WHERE pm.media_id = ? AND p.status <> ?",
+		"SELECT COUNT(*) FROM rendition_media rm JOIN renditions r ON r.id = rm.rendition_id WHERE rm.media_id = ? AND r.status <> ?",
+		"SELECT COUNT(*) FROM publication_segment_media psm JOIN publication_segments ps ON ps.id = psm.segment_id JOIN publications p ON p.id = ps.publication_id WHERE psm.media_id = ? AND p.status <> ?",
+		"SELECT COUNT(*) FROM rendition_segment_media rsm JOIN rendition_segments rs ON rs.id = rsm.rendition_segment_id JOIN renditions r ON r.id = rs.rendition_id WHERE rsm.media_id = ? AND r.status <> ?",
 	}
-	for _, query := range activeQueries {
+	statuses := []string{models.PostStatusPublished, models.RenditionStatusPublished, models.PublicationStatusPublished, models.RenditionStatusPublished}
+	for index, query := range activeQueries {
 		var count int
-		if err := s.db.NewRaw(query, mediaID, models.PostStatusPublished, models.PostStatusFailed).Scan(ctx, &count); err != nil {
+		if err := s.db.NewRaw(query, mediaID, statuses[index]).Scan(ctx, &count); err != nil {
 			return false, err
 		}
 		if count > 0 {
@@ -335,7 +337,7 @@ func (s *Service) hasActiveVariantReference(ctx context.Context, workspaceID, me
 		return false, err
 	}
 	for _, variant := range variants {
-		if variant.Status == models.PostStatusPublished || variant.Status == models.PostStatusFailed {
+		if variant.Status == models.PostStatusPublished {
 			continue
 		}
 		var ids []string

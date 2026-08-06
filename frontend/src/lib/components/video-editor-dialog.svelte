@@ -20,7 +20,6 @@
 		allowedAspectRatios?: string[];
 		onConfirm: (file: File) => void | Promise<void>;
 		onSkip: (file: File) => void | Promise<void>;
-		onCancel?: () => void;
 	}
 
 	let {
@@ -28,8 +27,7 @@
 		file,
 		allowedAspectRatios = [],
 		onConfirm,
-		onSkip,
-		onCancel
+		onSkip
 	}: Props = $props();
 
 	let sourceURL = $state('');
@@ -48,7 +46,6 @@
 	let currentTime = $state(0);
 	let renderController: AbortController | null = null;
 	let probeSequence = 0;
-	let completing = false;
 
 	const aspectOptions = $derived.by(() => {
 		const requested = allowedAspectRatios.filter(parseAspect);
@@ -193,14 +190,9 @@
 	}
 
 	async function finish(output: File, skipped = false) {
-		completing = true;
 		open = false;
-		try {
-			if (skipped) await onSkip(output);
-			else await onConfirm(output);
-		} finally {
-			completing = false;
-		}
+		if (skipped) await onSkip(output);
+		else await onConfirm(output);
 	}
 
 	function closeEditor() {
@@ -209,14 +201,6 @@
 			return;
 		}
 		open = false;
-		onCancel?.();
-	}
-
-	function handleOpenChange(nextOpen: boolean) {
-		if (!nextOpen && open && !rendering && !completing) {
-			onCancel?.();
-		}
-		open = nextOpen;
 	}
 
 	function stageLabel(aspect: string): string {
@@ -267,7 +251,7 @@
 	}
 </script>
 
-<Dialog.Root {open} onOpenChange={handleOpenChange}>
+<Dialog.Root bind:open>
 	<Dialog.Content
 		class="grid max-h-dvh gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:max-w-4xl"
 		showCloseButton={!rendering}

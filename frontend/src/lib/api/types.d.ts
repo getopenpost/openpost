@@ -1945,7 +1945,7 @@ export interface paths {
         delete: operations["delete-media"];
         options?: never;
         head?: never;
-        /** Update media metadata */
+        /** Update media metadata (alt text) */
         patch: operations["update-media"];
         trace?: never;
     };
@@ -5575,6 +5575,13 @@ export interface components {
             /** Format: date-time */
             verified_at?: string;
         };
+        ImageEditorBrandAsset: {
+            id?: string;
+            media_id: string;
+            name: string;
+            /** @enum {string} */
+            role: "primary_logo" | "secondary_logo" | "mark" | "watermark";
+        };
         ImageEditorBrandColor: {
             id: string;
             name: string;
@@ -5600,6 +5607,7 @@ export interface components {
              * @example https://example.com/schemas/ImageEditorBrandKitResponse.json
              */
             readonly $schema?: string;
+            assets: components["schemas"]["ImageEditorBrandAsset"][] | null;
             backgrounds: string[] | null;
             can_edit: boolean;
             colors: components["schemas"]["ImageEditorBrandColor"][] | null;
@@ -9029,6 +9037,7 @@ export interface components {
              * @example https://example.com/schemas/UpdateImageEditorBrandKitInputBody.json
              */
             readonly $schema?: string;
+            assets: components["schemas"]["ImageEditorBrandAsset"][] | null;
             backgrounds: string[] | null;
             colors: components["schemas"]["ImageEditorBrandColor"][] | null;
             fonts: components["schemas"]["ImageEditorBrandFont"][] | null;
@@ -9080,9 +9089,7 @@ export interface components {
              */
             readonly $schema?: string;
             /** @description Alt text for accessibility */
-            alt_text?: string;
-            /** @description User-visible filename; the file extension cannot be changed */
-            original_filename?: string;
+            alt_text: string;
         };
         UpdateMediaOutputBody: {
             /**

@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { VideoProjectDocumentV1 } from '@openpost/video-project';
 	import { ContextMenu } from 'bits-ui';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -9,17 +8,10 @@
 		deleteImageEditorDesign,
 		duplicateImageEditorDesign,
 		listImageEditorDesigns,
-		loadImageEditorDesign,
-		saveImageEditorDesign,
 		toggleImageEditorDesignFavorite
 	} from '$lib/image-editor/api';
 	import type { ImageEditorDesignSummary } from '$lib/image-editor/types';
-	import {
-		getCloudVideoProject,
-		listCloudVideoProjects,
-		updateCloudVideoProject,
-		type CloudVideoProjectSummary
-	} from '$lib/video-editor/api';
+	import { listCloudVideoProjects, type CloudVideoProjectSummary } from '$lib/video-editor/api';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -27,7 +19,6 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
-	import RenameDialog from '$lib/components/rename-dialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import ClapperboardIcon from 'lucide-svelte/icons/clapperboard';
@@ -38,7 +29,6 @@
 	import CopyIcon from 'lucide-svelte/icons/copy';
 	import HeartIcon from 'lucide-svelte/icons/heart';
 	import TrashIcon from 'lucide-svelte/icons/trash-2';
-	import PencilIcon from 'lucide-svelte/icons/pencil';
 	import { m } from '$lib/paraglide/messages';
 
 	let loading = $state(true);
@@ -51,12 +41,6 @@
 	let designToDelete = $state.raw<ImageEditorDesignSummary | null>(null);
 	let designs = $state.raw<ImageEditorDesignSummary[]>([]);
 	let videoProjects = $state.raw<CloudVideoProjectSummary[]>([]);
-	let renameDialogOpen = $state(false);
-	let renameTarget = $state.raw<
-		| { kind: 'design'; item: ImageEditorDesignSummary }
-		| { kind: 'video'; item: CloudVideoProjectSummary }
-		| null
-	>(null);
 	let workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	let query = $derived(search.trim().toLowerCase());
 	let filteredDesigns = $derived(
@@ -142,60 +126,6 @@
 			);
 		} finally {
 			designToDelete = null;
-		}
-	}
-
-	function requestRenameDesign(design: ImageEditorDesignSummary): void {
-		renameTarget = { kind: 'design', item: design };
-		renameDialogOpen = true;
-	}
-
-	function requestRenameVideo(project: CloudVideoProjectSummary): void {
-		renameTarget = { kind: 'video', item: project };
-		renameDialogOpen = true;
-	}
-
-	async function renameProject(title: string): Promise<void> {
-		if (!renameTarget) return;
-		try {
-			if (renameTarget.kind === 'design') {
-				const current = await loadImageEditorDesign(renameTarget.item.id);
-				const updated = await saveImageEditorDesign(
-					current.id,
-					current.revision,
-					{ ...current.document, title },
-					current.cover_preview_media_id
-				);
-				designs = designs.map((design) =>
-					design.id === current.id
-						? {
-								...design,
-								title: updated.document.title,
-								revision: updated.revision,
-								updated_at: updated.updated_at
-							}
-						: design
-				);
-			} else {
-				const current = await getCloudVideoProject(renameTarget.item.id);
-				const updated = await updateCloudVideoProject(current.id, current.revision, {
-					...current.document,
-					title
-				} as unknown as VideoProjectDocumentV1);
-				videoProjects = videoProjects.map((project) =>
-					project.id === current.id
-						? {
-								...project,
-								title: updated.document.title,
-								revision: updated.revision,
-								updated_at: updated.updated_at
-							}
-						: project
-				);
-			}
-			notify(m.editors_renamed(), 'success');
-		} catch (cause) {
-			throw new Error(cause instanceof Error ? cause.message : m.editors_rename_failed());
 		}
 	}
 
@@ -312,14 +242,6 @@
 								<ContextMenu.Item
 									class={contextItemClass}
 									disabled={!canEdit}
-									onclick={() => requestRenameDesign(design)}
-								>
-									<PencilIcon class="size-4" />
-									{m.common_rename()}
-								</ContextMenu.Item>
-								<ContextMenu.Item
-									class={contextItemClass}
-									disabled={!canEdit}
 									onclick={() => duplicateDesign(design)}
 								>
 									<CopyIcon class="size-4" />
@@ -362,52 +284,31 @@
 			</div>
 			<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
 				{#each filteredVideos as project (project.id)}
-					<ContextMenu.Root>
-						<ContextMenu.Trigger>
-							{#snippet child({ props })}
-								<a
-									{...props}
-									class="grid grid-cols-[5rem_minmax(0,1fr)] overflow-hidden rounded-xl border bg-card hover:border-foreground/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-									href={resolve(`/video-editor?cloud=${encodeURIComponent(project.id)}` as '/')}
-								>
-									<div
-										class="flex aspect-square items-center justify-center overflow-hidden bg-neutral-900"
-									>
-										{#if project.cover_preview_media_id}
-											<img
-												class="size-full object-cover"
-												src={getAuthenticatedMediaURL(`/media/${project.cover_preview_media_id}`)}
-												alt=""
-											/>
-										{:else}<VideoIcon class="size-7 text-neutral-500" />{/if}
-									</div>
-									<div class="min-w-0 p-3">
-										<p class="truncate text-sm font-medium">{project.title}</p>
-										<p class="mt-1 text-xs text-muted-foreground">
-											{Math.round(project.duration_ms / 1000)}s · {project.source_count === 1
-												? m.editors_source_count_one({ count: project.source_count })
-												: m.editors_source_count_many({ count: project.source_count })}
-										</p>
-										<p class="mt-2 text-xs text-muted-foreground">
-											{formatDate(project.updated_at)}
-										</p>
-									</div>
-								</a>
-							{/snippet}
-						</ContextMenu.Trigger>
-						<ContextMenu.Portal>
-							<ContextMenu.Content class={contextContentClass}>
-								<ContextMenu.Item
-									class={contextItemClass}
-									disabled={!canEdit}
-									onclick={() => requestRenameVideo(project)}
-								>
-									<PencilIcon class="size-4" />
-									{m.common_rename()}
-								</ContextMenu.Item>
-							</ContextMenu.Content>
-						</ContextMenu.Portal>
-					</ContextMenu.Root>
+					<a
+						class="grid grid-cols-[5rem_minmax(0,1fr)] overflow-hidden rounded-xl border bg-card hover:border-foreground/25"
+						href={resolve(`/video-editor?cloud=${encodeURIComponent(project.id)}` as '/')}
+					>
+						<div
+							class="flex aspect-square items-center justify-center overflow-hidden bg-neutral-900"
+						>
+							{#if project.cover_preview_media_id}
+								<img
+									class="size-full object-cover"
+									src={getAuthenticatedMediaURL(`/media/${project.cover_preview_media_id}`)}
+									alt=""
+								/>
+							{:else}<VideoIcon class="size-7 text-neutral-500" />{/if}
+						</div>
+						<div class="min-w-0 p-3">
+							<p class="truncate text-sm font-medium">{project.title}</p>
+							<p class="mt-1 text-xs text-muted-foreground">
+								{Math.round(project.duration_ms / 1000)}s · {project.source_count === 1
+									? m.editors_source_count_one({ count: project.source_count })
+									: m.editors_source_count_many({ count: project.source_count })}
+							</p>
+							<p class="mt-2 text-xs text-muted-foreground">{formatDate(project.updated_at)}</p>
+						</div>
+					</a>
 				{/each}
 			</div>
 		</section>
@@ -419,18 +320,6 @@
 	title={m.image_editor_design_delete_title()}
 	description={m.image_editor_design_delete_body()}
 	onConfirm={confirmDelete}
-/>
-
-<RenameDialog
-	bind:open={renameDialogOpen}
-	title={renameTarget?.kind === 'video' ? m.editors_rename_video() : m.editors_rename_design()}
-	description={renameTarget?.kind === 'video'
-		? m.editors_rename_video_body()
-		: m.editors_rename_design_body()}
-	label={m.editors_project_name()}
-	initialValue={renameTarget?.item.title ?? ''}
-	maxLength={renameTarget?.kind === 'video' ? 200 : 160}
-	onConfirm={renameProject}
 />
 
 {#if toastMessage}

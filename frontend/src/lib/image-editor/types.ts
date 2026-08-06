@@ -329,6 +329,13 @@ export interface ImageEditorBrandTextStyle {
 	letter_spacing: number;
 }
 
+export interface ImageEditorBrandAsset {
+	id: string;
+	media_id: string;
+	role: 'primary_logo' | 'secondary_logo' | 'mark' | 'watermark';
+	name: string;
+}
+
 export interface ImageEditorBrandFont {
 	id: string;
 	media_id: string;
@@ -351,6 +358,7 @@ export interface ImageEditorBrandKit {
 	colors: ImageEditorBrandColor[];
 	text_styles: ImageEditorBrandTextStyle[];
 	backgrounds: string[];
+	assets: ImageEditorBrandAsset[];
 	fonts: ImageEditorBrandFont[];
 	updated_at?: string;
 }

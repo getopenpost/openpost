@@ -3,8 +3,6 @@ import type { components } from '$lib/api/types';
 import { getApiBase } from '$lib/stores/instance.svelte';
 import type { VideoConstraint, VideoPreparationProgress } from '$lib/video/types';
 import type { StockMediaProvenance } from '@openpost/video-project';
-import { isSVGFile, rasterizeSVGToPNG } from '$lib/media/svg-rasterize';
-import { m } from '$lib/paraglide/messages';
 
 export type MediaUploadResult = components['schemas']['MediaUploadResult'];
 
@@ -74,13 +72,6 @@ export async function uploadMediaFile({
 	signal
 }: UploadMediaFileOptions): Promise<MediaUploadResult> {
 	let uploadFile = file;
-	if (isSVGFile(file)) {
-		try {
-			uploadFile = await rasterizeSVGToPNG(file);
-		} catch {
-			throw new Error(m.media_svg_conversion_failed());
-		}
-	}
 	if (prepareVideo && (file.type.startsWith('video/') || looksLikeVideo(file.name))) {
 		const { prepareVideoForUpload } = await import('$lib/video/prepare');
 		const prepared = await prepareVideoForUpload(file, videoConstraints, onProgress, signal);

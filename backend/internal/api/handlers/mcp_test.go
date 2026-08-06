@@ -61,6 +61,7 @@ func newMCPTestServerWithEntitlement(t *testing.T, entitlement entitlements.Serv
 		(*models.DesignTemplate)(nil),
 		(*models.DesignTemplateMediaReference)(nil),
 		(*models.BrandKit)(nil),
+		(*models.BrandAsset)(nil),
 		(*models.BrandFont)(nil),
 		(*models.MediaCollection)(nil),
 		(*models.MediaCollectionItem)(nil),

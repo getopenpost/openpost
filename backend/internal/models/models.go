@@ -1528,6 +1528,17 @@ type BrandKit struct {
 	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
+type BrandAsset struct {
+	bun.BaseModel `bun:"table:brand_assets"`
+
+	ID         string    `bun:",pk" json:"id"`
+	BrandKitID string    `bun:"brand_kit_id,notnull" json:"brand_kit_id"`
+	MediaID    string    `bun:"media_id,notnull" json:"media_id"`
+	Role       string    `bun:",notnull" json:"role"`
+	Name       string    `bun:",notnull,default:''" json:"name"`
+	CreatedAt  time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 type BrandFont struct {
 	bun.BaseModel `bun:"table:brand_fonts"`
 

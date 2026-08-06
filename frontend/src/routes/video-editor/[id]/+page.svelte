@@ -4210,6 +4210,14 @@ FORM: CapCut-fluent four-zone workbench with a canvas-first default and expandab
 									</p>
 								{/if}
 							</section>
+							{#if brandKit?.assets.length}
+								<section class="space-y-2">
+									<h3 class="text-xs font-semibold">{m.image_editor_brand_assets()}</h3>
+									<Button href="/media" class="w-full" variant="outline" size="sm">
+										{m.video_editor_openpost_media()}
+									</Button>
+								</section>
+							{/if}
 							{#if !brandKit}
 								<Button
 									href={$auth.isAuthenticated

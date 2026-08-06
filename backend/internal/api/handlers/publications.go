@@ -1753,7 +1753,7 @@ func (h *PublicationHandler) replacePublicationSegments(
 	publication *models.Publication,
 	inputs []PublicationSegmentInput,
 ) error {
-	previousMediaIDs := make([]string, 0, len(inputs))
+	var previousMediaIDs []string
 	if err := tx.NewSelect().
 		TableExpr("publication_segment_media AS media").
 		ColumnExpr("media.media_id").
@@ -1851,8 +1851,8 @@ func (h *PublicationHandler) replacePublicationSegments(
 			return err
 		}
 	}
-	previousMediaIDs = append(previousMediaIDs, allPublicationMediaIDs(nil, inputs, nil)...)
-	return medialifecycle.TouchWithDB(ctx, tx, previousMediaIDs, now)
+	mediaIDs := append(previousMediaIDs, allPublicationMediaIDs(nil, inputs, nil)...)
+	return medialifecycle.TouchWithDB(ctx, tx, mediaIDs, now)
 }
 
 func syncPublicationFirstSegmentBodyTx(

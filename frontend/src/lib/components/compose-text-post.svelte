@@ -8,6 +8,7 @@
 	import type { components } from '$lib/api/types';
 	import { getApiBase } from '$lib/stores/instance.svelte';
 	import { getAuthenticatedMediaByID } from '$lib/media-url';
+	import { isSupportedMediaFile, uploadMediaFile } from '$lib/media-upload-client';
 	import {
 		MAX_COMPOSER_DRAFT_MEDIA,
 		mediaCapabilityItemsFromIds,
@@ -259,6 +260,7 @@
 	let destinationActionTargetIds = $state<string[]>([]);
 
 	let isDraggingFile = $state(false);
+	let isUploading = $state(false);
 
 	let mediaAltTexts = $state<Map<string, string>>(new Map());
 	let mediaMimeTypes = $state<Map<string, string>>(new Map());
@@ -269,7 +271,6 @@
 	let mediaSettingsByAccount = $state<Record<string, Record<string, Record<string, unknown>>>>({});
 	let mediaPickerOpen = $state(false);
 	let mediaPickerPostIndex = $state(0);
-	let mediaPickerInitialFiles = $state.raw<File[]>([]);
 	let resolvedCapabilities = $state<Record<string, ResolvedAccountCapability>>({});
 	let capabilityResolveLoading = $state(false);
 	let capabilityResolveError = $state('');
@@ -1520,7 +1521,6 @@
 	}
 
 	function openMediaPicker(postIndex: number) {
-		mediaPickerInitialFiles = [];
 		mediaPickerPostIndex = postIndex;
 		mediaPickerOpen = true;
 	}
@@ -2815,16 +2815,48 @@
 	// --------------------------------------------------------------------------
 	// Media
 	// --------------------------------------------------------------------------
-	function queueMediaFiles(files: FileList | File[], targetPostIndex = activePostIndex): void {
+	async function handleFileUpload(
+		files: FileList | File[],
+		targetPostIndex: number = activePostIndex
+	) {
 		if (!selectedWorkspaceId || isSubmitting) return;
-		const targetPost = posts[targetPostIndex];
-		if (!targetPost || getEditorMediaIdsForPost(targetPost).length >= composerMediaLimit) return;
-		mediaPickerPostIndex = targetPostIndex;
-		mediaPickerInitialFiles = Array.from(files).slice(
-			0,
-			Math.max(0, composerMediaLimit - getEditorMediaIdsForPost(targetPost).length)
-		);
-		mediaPickerOpen = true;
+
+		isUploading = true;
+		let uploadedCount = 0;
+		try {
+			for (const file of Array.from(files)) {
+				if (!isSupportedMediaFile(file)) continue;
+				const targetPost = posts[targetPostIndex];
+				if (!targetPost) break;
+				if (getEditorMediaIdsForPost(targetPost).length >= composerMediaLimit) break;
+
+				const data = await uploadMediaFile({
+					workspaceId: selectedWorkspaceId,
+					file,
+					retentionClass: 'temporary'
+				});
+				if (data.mime_type) {
+					const nextMimeTypes = new SvelteMap(mediaMimeTypes);
+					nextMimeTypes.set(data.id, data.mime_type);
+					mediaMimeTypes = nextMimeTypes;
+				}
+				if (typeof data.size === 'number') {
+					const nextSizes = new SvelteMap(mediaSizes);
+					nextSizes.set(data.id, data.size);
+					mediaSizes = nextSizes;
+				}
+				addMediaToPost(targetPostIndex, data.id);
+				uploadedCount++;
+				scheduleAutoSave();
+			}
+			if (uploadedCount > 0) soundPreferences.play('success');
+		} catch (e) {
+			console.error('Failed to upload media:', e);
+			error = (e as Error).message || m.compose_upload_failed();
+			soundPreferences.play('error');
+		} finally {
+			isUploading = false;
+		}
 	}
 
 	function handlePaste(e: ClipboardEvent, postIndex: number = activePostIndex) {
@@ -2840,7 +2872,7 @@
 		}
 		if (files.length > 0) {
 			e.preventDefault();
-			queueMediaFiles(files, postIndex);
+			handleFileUpload(files, postIndex);
 		}
 	}
 
@@ -2859,7 +2891,7 @@
 		isDraggingFile = false;
 		const files = e.dataTransfer?.files;
 		if (files && files.length > 0) {
-			queueMediaFiles(files, postIndex);
+			handleFileUpload(files, postIndex);
 		}
 	}
 
@@ -4055,6 +4087,14 @@
 													</div>
 												</div>
 											{/if}
+
+											{#if isUploading && activePostIndex === i}
+												<div
+													class="absolute inset-0 flex items-center justify-center bg-background/80"
+												>
+													<LoaderIcon class="h-5 w-5 animate-spin text-primary" />
+												</div>
+											{/if}
 										</div>
 
 										{#if i === 0 && showLinkInput}
@@ -4397,8 +4437,6 @@
 	maxSelection={composerMediaLimit}
 	multiple={composerMediaLimit > 1}
 	purpose={isThread ? 'thread_segment' : 'post_media'}
-	initialFiles={mediaPickerInitialFiles}
-	onInitialFilesConsumed={() => (mediaPickerInitialFiles = [])}
 	onConfirm={async (ids) => {
 		setEditorMediaIds(mediaPickerPostIndex, ids);
 		await hydrateMediaMetadata(selectedWorkspaceId, ids);

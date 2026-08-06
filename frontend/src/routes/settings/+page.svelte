@@ -20,6 +20,7 @@
 	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
 	import OrganizationSSOSettings from '$lib/components/organization-sso-settings.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
+	import MediaPreviewImage from '$lib/components/media-preview-image.svelte';
 	import MediaPicker from '$lib/components/media-picker.svelte';
 	import BrandKitEditor from '$lib/image-editor/components/brand-kit-editor.svelte';
 	import ImageEditorColorPicker from '$lib/image-editor/components/image-editor-color-picker.svelte';
@@ -3398,10 +3399,28 @@
 									</section>
 									<section class="space-y-4">
 										<div>
-											<h2 class="font-semibold">{m.brand_fonts()}</h2>
+											<h2 class="font-semibold">{m.media_logos_fonts()}</h2>
 											<p class="mt-1 text-sm text-muted-foreground">
-												{m.brand_fonts_description()}
+												{m.media_brand_assets_body()}
 											</p>
+										</div>
+										<div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+											{#each brandKit.assets as asset (asset.id)}
+												<div class="overflow-hidden rounded-xl border">
+													<div
+														class="flex aspect-square items-center justify-center bg-muted/20 p-3"
+													>
+														<MediaPreviewImage
+															mediaId={asset.media_id}
+															alt={asset.name || asset.role}
+															class="max-h-full max-w-full object-contain"
+														/>
+													</div>
+													<p class="truncate border-t px-3 py-2 text-xs">
+														{asset.name || asset.role}
+													</p>
+												</div>
+											{/each}
 										</div>
 										<div class="divide-y rounded-xl border">
 											{#each brandKit.fonts as font (font.id)}
@@ -3413,7 +3432,7 @@
 												</div>
 											{/each}
 										</div>
-										{#if brandKit.fonts.length === 0}
+										{#if brandKit.assets.length === 0 && brandKit.fonts.length === 0}
 											<p class="rounded-xl border border-dashed p-6 text-sm text-muted-foreground">
 												{m.image_editor_brand_empty()}
 											</p>

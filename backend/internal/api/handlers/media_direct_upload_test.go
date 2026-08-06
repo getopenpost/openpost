@@ -237,30 +237,6 @@ func TestValidateBrandFontContent(t *testing.T) {
 	require.NoError(t, validateMediaAssetContent("library", "notes.txt", "text/plain", []byte("notes")))
 }
 
-func TestValidateMediaAssetContentRejectsSVG(t *testing.T) {
-	t.Parallel()
-
-	svg := []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg" width="32" height="18"></svg>`)
-	for _, testCase := range []struct {
-		name     string
-		filename string
-		mimeType string
-		content  []byte
-	}{
-		{name: "mime type", filename: "mark", mimeType: "image/svg+xml", content: svg},
-		{name: "extension", filename: "mark.svg", mimeType: "application/octet-stream", content: svg},
-		{name: "content", filename: "mark", mimeType: "application/octet-stream", content: svg},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			require.ErrorContains(
-				t,
-				validateMediaAssetContent("library", testCase.filename, testCase.mimeType, testCase.content),
-				"could not be processed",
-			)
-		})
-	}
-}
-
 func TestCreateMediaUploadSessionReservesPendingMedia(t *testing.T) {
 	t.Parallel()
 

@@ -148,6 +148,17 @@ export async function searchStockMedia(input: {
 	query: string;
 	kind: 'photo' | 'video';
 	orientation?: 'landscape' | 'portrait' | 'square';
+	size?: 'small' | 'medium' | 'large';
+	color?: string;
+	locale?: string;
+	order?: 'relevant' | 'latest' | 'popular';
+	contentFilter?: 'low' | 'high';
+	collections?: string;
+	category?: string;
+	mediaSubtype?: 'all' | 'photo' | 'illustration' | 'vector';
+	editorsChoice?: boolean;
+	minWidth?: number;
+	minHeight?: number;
 	page?: number;
 	perPage?: number;
 }): Promise<StockSearchPage> {
@@ -158,6 +169,17 @@ export async function searchStockMedia(input: {
 				query: input.query,
 				kind: input.kind,
 				orientation: input.orientation,
+				size: input.size,
+				color: input.color,
+				locale: input.locale,
+				order: input.order,
+				content_filter: input.contentFilter,
+				collections: input.collections,
+				category: input.category,
+				media_subtype: input.mediaSubtype,
+				editors_choice: input.editorsChoice,
+				min_width: input.minWidth,
+				min_height: input.minHeight,
 				page: input.page ?? 1,
 				per_page: input.perPage ?? 24
 			}

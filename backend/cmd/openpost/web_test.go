@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -183,6 +184,65 @@ func TestManagedSpaRootExposesProductPricingAndPoliciesWithoutJavaScript(t *test
 	require.Equal(t, http.StatusOK, loginRec.Code)
 	require.Contains(t, loginRec.Body.String(), `name="openpost-edition" content="cloud"`)
 	require.NotContains(t, loginRec.Body.String(), `id="openpost-managed-public-home"`)
+}
+
+func TestManagedSpaHeadMatchesGetHeadersWithoutBody(t *testing.T) {
+	webFS := fstest.MapFS{
+		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
+	}
+	e := echo.New()
+	registerSpaRoutesWithProfileMetadata(
+		e,
+		webFS,
+		nil,
+		"https://app.openpost.social",
+		true,
+	)
+
+	getRec := httptest.NewRecorder()
+	e.ServeHTTP(getRec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
+	headRec := httptest.NewRecorder()
+	e.ServeHTTP(headRec, httptest.NewRequestWithContext(context.Background(), http.MethodHead, "/", nil))
+
+	require.Equal(t, getRec.Code, headRec.Code)
+	for _, header := range []string{"Content-Type", "Content-Length", "Cache-Control", "Pragma", "Expires"} {
+		require.Equal(t, getRec.Header().Get(header), headRec.Header().Get(header), header)
+	}
+	require.Equal(t, strconv.Itoa(getRec.Body.Len()), headRec.Header().Get("Content-Length"))
+	require.Empty(t, headRec.Body.String())
+}
+
+func TestSpaHeadPreservesRedirectsAPIIsolationAndStaticHeaders(t *testing.T) {
+	modTime := time.Date(2026, time.July, 27, 12, 0, 0, 0, time.UTC)
+	webFS := fstest.MapFS{
+		"index.html":                        {Data: []byte("<html>app</html>")},
+		"_app/immutable/chunks/app.hash.js": {Data: []byte("identity"), ModTime: modTime},
+	}
+	e := echo.New()
+	registerSpaRoutes(e, webFS)
+
+	tests := []struct {
+		name       string
+		path       string
+		status     int
+		headerName string
+		header     string
+	}{
+		{name: "legacy redirect", path: "/studio/new?legacy-route=1", status: http.StatusPermanentRedirect, headerName: "Location", header: "/image-editor/new?legacy-route=1"},
+		{name: "API path", path: "/api/missing", status: http.StatusNotFound},
+		{name: "immutable asset", path: "/_app/immutable/chunks/app.hash.js", status: http.StatusOK, headerName: "Cache-Control", header: "public, max-age=31536000, immutable"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequestWithContext(context.Background(), http.MethodHead, test.path, nil)
+			e.ServeHTTP(rec, req)
+
+			require.Equal(t, test.status, rec.Code)
+			require.Equal(t, test.header, rec.Header().Get(test.headerName))
+			require.Empty(t, rec.Body.String())
+		})
+	}
 }
 
 func TestSelfHostedSpaRootDoesNotAdvertiseManagedPlans(t *testing.T) {

@@ -59,14 +59,18 @@ func registerSpaRoutesWithProfileMetadata(
 			data = renderManagedEditionMetadata(data)
 		}
 		c.Response().Header().Set("Content-Type", "text/html")
+		c.Response().Header().Set("Content-Length", strconv.Itoa(len(data)))
 		c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		c.Response().Header().Set("Pragma", "no-cache")
 		c.Response().Header().Set("Expires", "0")
+		if c.Request().Method == http.MethodHead {
+			return c.NoContent(http.StatusOK)
+		}
 		_, err := c.Response().Write(data)
 		return err
 	}
 
-	e.GET("/u/:username", func(c echo.Context) error {
+	publicProfileHandler := func(c echo.Context) error {
 		indexData, _ := fs.ReadFile(webFS, "index.html")
 		metadata, found, err := loadPublicProfilePageMetadata(c.Request().Context(), db, c.Param("username"))
 		if err != nil {
@@ -76,9 +80,10 @@ func registerSpaRoutesWithProfileMetadata(
 			return writeHTML(c, renderPublicProfileHTML(indexData, nil, publicURL))
 		}
 		return writeHTML(c, renderPublicProfileHTML(indexData, &metadata, publicURL))
-	})
+	}
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/u/:username", publicProfileHandler)
 
-	e.GET("/*", func(c echo.Context) error {
+	spaHandler := func(c echo.Context) error {
 		reqPath := normalizedRequestPath(c.Request().URL)
 		if target, ok := legacyStudioRedirectTarget(c.Request().URL); ok {
 			return c.Redirect(http.StatusPermanentRedirect, target)
@@ -131,7 +136,8 @@ func registerSpaRoutesWithProfileMetadata(
 		}
 
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	})
+	}
+	e.Match([]string{http.MethodGet, http.MethodHead}, "/*", spaHandler)
 }
 
 func normalizedRequestPath(requestURL *url.URL) string {

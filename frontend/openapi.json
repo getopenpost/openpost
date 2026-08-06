@@ -12760,11 +12760,23 @@
 					"name": {
 						"type": "string"
 					},
+					"photo_filters": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
 					"photos": {
 						"type": "boolean"
 					},
 					"provider_url": {
 						"type": "string"
+					},
+					"video_filters": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
 					},
 					"videos": {
 						"type": "boolean"
@@ -29133,6 +29145,108 @@
 						"schema": {
 							"enum": ["landscape", "portrait", "square"],
 							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "size",
+						"schema": {
+							"enum": ["small", "medium", "large"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "color",
+						"schema": {
+							"maxLength": 80,
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "locale",
+						"schema": {
+							"maxLength": 12,
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "order",
+						"schema": {
+							"enum": ["relevant", "latest", "popular"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "content_filter",
+						"schema": {
+							"enum": ["low", "high"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "collections",
+						"schema": {
+							"maxLength": 500,
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "category",
+						"schema": {
+							"maxLength": 40,
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "media_subtype",
+						"schema": {
+							"enum": ["all", "photo", "illustration", "vector"],
+							"type": "string"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "editors_choice",
+						"schema": {
+							"type": "boolean"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "min_width",
+						"schema": {
+							"format": "int64",
+							"maximum": 20000,
+							"minimum": 0,
+							"type": "integer"
+						}
+					},
+					{
+						"explode": false,
+						"in": "query",
+						"name": "min_height",
+						"schema": {
+							"format": "int64",
+							"maximum": 20000,
+							"minimum": 0,
+							"type": "integer"
 						}
 					},
 					{

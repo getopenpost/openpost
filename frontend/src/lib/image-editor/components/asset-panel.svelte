@@ -520,6 +520,7 @@
 		accept={['image/*']}
 		maxSelection={1}
 		multiple={false}
+		purpose="media_library"
 		showCreate={false}
 		presentation="dialog"
 		desktopSize="default"
@@ -529,6 +530,7 @@
 		onConfirm={async (ids) => {
 			const id = ids[0];
 			if (!id) return;
+			await loadAll();
 			const item = media.find((entry) => entry.id === id);
 			if (item) addMedia(item);
 			else if (replaceMode && editor.selectedLayers[0]?.image) {
@@ -542,7 +544,6 @@
 				});
 				replaceMode = false;
 			} else editor.addImage({ id });
-			await loadAll();
 		}}
 	/>
 {/if}

@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
+const tinyPNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 test("legacy Studio URLs redirect to the OpenPost Image Editor", async ({
   page,
 }) => {
@@ -474,20 +479,40 @@ test("OpenPost Image Editor creates from an original template, adapts to mobile,
     name: "Add an image",
   });
   await expect(mediaSourceDialog).toBeVisible();
-  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
-  await expect(uploadDialog).toBeVisible();
   await expect(
-    uploadDialog.getByRole("button", { name: "Upload or camera" }),
+    mediaSourceDialog.getByRole("button", { name: "Device", exact: true }),
   ).toBeVisible();
   await expect(
-    uploadDialog.getByRole("button", { name: "Browse stock" }),
+    mediaSourceDialog.getByRole("button", { name: "Camera", exact: true }),
   ).toBeVisible();
-  await uploadDialog.getByRole("button", { name: "Library" }).click();
-  await expect(uploadDialog).toHaveCount(0);
   await expect(
     mediaSourceDialog.getByRole("button", { name: "Browse stock" }),
   ).toBeVisible();
-  await mediaSourceDialog.getByRole("button", { name: "Cancel" }).click();
+  await mediaSourceDialog.locator('input[type="file"]').setInputFiles({
+    name: "picker-library.png",
+    mimeType: "image/png",
+    buffer: tinyPNG,
+  });
+  await expect(mediaSourceDialog.locator('img[src^="blob:"]')).toHaveCount(1);
+  await mediaSourceDialog
+    .getByRole("button", { name: "Upload 1 file", exact: true })
+    .click();
+  await expect(mediaSourceDialog).toHaveCount(0, { timeout: 15_000 });
+  await expect(
+    page.getByRole("treeitem", { name: /picker-library\.png, image/ }),
+  ).toBeVisible();
+
+  await page.getByRole("button", { name: "Upload or camera" }).click();
+  const reopenedPicker = page.getByRole("dialog", { name: "Add an image" });
+  await reopenedPicker.getByRole("button", { name: "Library" }).click();
+  await expect(
+    reopenedPicker.getByRole("button", { name: "Select picker-library.png" }),
+  ).toBeVisible();
+  await reopenedPicker.getByRole("button", { name: "Cancel" }).click();
+  await page.keyboard.press("Delete");
+  await expect(
+    page.getByRole("treeitem", { name: /picker-library\.png, image/ }),
+  ).toHaveCount(0);
 
   const designCanvas = page.getByRole("application", {
     name: "Design canvas",
@@ -1274,9 +1299,10 @@ test("OpenPost Image Editor creates from an original template, adapts to mobile,
   await page.goto("/media");
   const libraryGrid = page.getByTestId("media-library-grid");
   await expect(libraryGrid.locator('[data-library-kind="asset"]')).toHaveCount(
-    1,
+    2,
   );
 
+  await expect(page.getByText("picker-library.png")).toBeVisible();
   await expect(page.getByText("quick-announcement-page-01.png")).toBeVisible();
   const exportedImage = page.getByRole("img", {
     name: "quick-announcement-page-01.png",

@@ -95,7 +95,10 @@
 
     test.exec = ''
       cd "${config.git.root}"
-      backend-test && frontend-test && (cd cli && go test ./...)
+      backend-test &&
+      frontend-test &&
+      bun run --filter @openpost/video-project test &&
+      (cd cli && go test ./...)
     '';
 
     verify.exec = ''
@@ -142,7 +145,10 @@
 
     # Compatibility alias for existing local workflows.
     test-all.exec = ''
-      backend-test && frontend-test && (cd cli && go test ./...)
+      backend-test &&
+      frontend-test &&
+      bun run --filter @openpost/video-project test &&
+      (cd cli && go test ./...)
     '';
 
     clean.exec = ''

@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added an OpenPost-native media chooser with device selection, drag and drop, file paste, camera capture, local image and video thumbnails, per-file size and progress, cancel and retry controls, and actionable validation and upload errors.
+- Added provider-aware stock-media filters for orientation, size, color, language, order, content safety, collections, image type, category, Editor's Choice, and minimum dimensions where each configured provider supports them.
+
+### Changed
+
+- Removed Uppy and moved the Media page, composer, Image Editor, Video Editor, workspace image, and profile-picture flows onto shared OpenPost controls; profile pictures now include a square crop preview and upload progress.
+- Combined Library, Device, Camera, Stock, and editor creation in one media-picker surface, with stock providers labeled by their actual photo and video support.
+- Reduced test-suite overhead by removing assertion-free and duplicate checks and by running viewport-independent marketing contracts once instead of once per browser size.
+- Added the standalone video-project unit suite to the default local and CI test gates.
+
+### Fixed
+
+- Made Image Editor, Video Editor, and workspace-image uploads use library retention so newly uploaded reusable media remains visible after the picker refreshes and reopens.
+- Corrected upload guidance to show the backend's actual 16 GiB video limit and 50 MB image and audio limit.
+
 ## [3.2.1] - 2026-08-06
 
 ### Added

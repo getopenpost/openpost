@@ -52,10 +52,10 @@ export function isCanonicalPlatformVideo(metadata: VideoMetadata): boolean {
 
 export function formatBytes(bytes: number): string {
 	if (!Number.isFinite(bytes)) return 'the platform limit';
-	if (bytes >= 1024 * 1024 * 1024) {
-		return `${Math.floor(bytes / (1024 * 1024 * 1024))} GB`;
-	}
-	return `${Math.floor(bytes / (1024 * 1024))} MB`;
+	if (bytes < 1024) return `${Math.max(0, Math.round(bytes))} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+	if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+	return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 function minimumPositive(values: Array<number | undefined>, fallback: number): number {

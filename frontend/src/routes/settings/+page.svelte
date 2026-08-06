@@ -2098,6 +2098,7 @@
 								accept={['image/*']}
 								maxSelection={1}
 								multiple={false}
+								purpose="media_library"
 								showCreate={false}
 								title={m.settings_workspace_image_url()}
 								onConfirm={(ids) => {

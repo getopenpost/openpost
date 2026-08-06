@@ -24,8 +24,13 @@ func NewUnsplash(key string, client *http.Client) *UnsplashAdapter {
 	return &UnsplashAdapter{key: strings.TrimSpace(key), client: Client(client)}
 }
 
-func (a *UnsplashAdapter) Key() string                { return "unsplash" }
-func (a *UnsplashAdapter) Capabilities() Capabilities { return Capabilities{Photos: true} }
+func (a *UnsplashAdapter) Key() string { return "unsplash" }
+func (a *UnsplashAdapter) Capabilities() Capabilities {
+	return Capabilities{
+		Photos:       true,
+		PhotoFilters: []string{"orientation", "color", "order", "content_filter", "collections"},
+	}
+}
 
 type unsplashPhoto struct {
 	ID          string `json:"id"`
@@ -65,7 +70,23 @@ func (a *UnsplashAdapter) Search(ctx context.Context, query SearchQuery) (Search
 		"per_page": []string{IntString(query.PerPage)},
 	}
 	if query.Orientation != "" {
-		values.Set("orientation", query.Orientation)
+		orientation := query.Orientation
+		if orientation == "square" {
+			orientation = "squarish"
+		}
+		values.Set("orientation", orientation)
+	}
+	if query.Color != "" {
+		values.Set("color", query.Color)
+	}
+	if query.Order != "" {
+		values.Set("order_by", query.Order)
+	}
+	if query.ContentFilter != "" {
+		values.Set("content_filter", query.ContentFilter)
+	}
+	if query.Collections != "" {
+		values.Set("collections", query.Collections)
 	}
 	var payload struct {
 		Total      int             `json:"total"`

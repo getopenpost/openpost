@@ -18,17 +18,30 @@ var (
 )
 
 type Capabilities struct {
-	Photos bool `json:"photos"`
-	Videos bool `json:"videos"`
-	Audio  bool `json:"audio"`
+	Photos       bool     `json:"photos"`
+	Videos       bool     `json:"videos"`
+	Audio        bool     `json:"audio"`
+	PhotoFilters []string `json:"photo_filters,omitempty"`
+	VideoFilters []string `json:"video_filters,omitempty"`
 }
 
 type SearchQuery struct {
-	Query       string
-	Kind        string
-	Orientation string
-	Page        int
-	PerPage     int
+	Query         string
+	Kind          string
+	Orientation   string
+	Size          string
+	Color         string
+	Locale        string
+	Order         string
+	ContentFilter string
+	Collections   string
+	Category      string
+	MediaSubtype  string
+	EditorsChoice bool
+	MinWidth      int
+	MinHeight     int
+	Page          int
+	PerPage       int
 }
 
 type Asset struct {
@@ -110,9 +123,7 @@ func Client(client *http.Client) *http.Client {
 }
 
 func NormalizeQuery(query SearchQuery) (SearchQuery, error) {
-	query.Query = strings.TrimSpace(query.Query)
-	query.Kind = strings.ToLower(strings.TrimSpace(query.Kind))
-	query.Orientation = strings.ToLower(strings.TrimSpace(query.Orientation))
+	query = normalizeSearchFilterValues(query)
 	if query.Query == "" || len([]rune(query.Query)) > 120 {
 		return query, errors.New("query must contain between 1 and 120 characters")
 	}
@@ -122,10 +133,11 @@ func NormalizeQuery(query SearchQuery) (SearchQuery, error) {
 	if query.Kind != "photo" && query.Kind != "video" {
 		return query, errors.New("kind must be photo or video")
 	}
-	switch query.Orientation {
-	case "", "landscape", "portrait", "square":
-	default:
-		return query, errors.New("orientation must be landscape, portrait, or square")
+	if err := validateSearchEnums(query); err != nil {
+		return query, err
+	}
+	if err := validateSearchFilterBounds(query); err != nil {
+		return query, err
 	}
 	if query.Page < 1 {
 		query.Page = 1
@@ -137,6 +149,72 @@ func NormalizeQuery(query SearchQuery) (SearchQuery, error) {
 		query.PerPage = 40
 	}
 	return query, nil
+}
+
+func normalizeSearchFilterValues(query SearchQuery) SearchQuery {
+	query.Query = strings.TrimSpace(query.Query)
+	query.Kind = strings.ToLower(strings.TrimSpace(query.Kind))
+	query.Orientation = strings.ToLower(strings.TrimSpace(query.Orientation))
+	query.Size = strings.ToLower(strings.TrimSpace(query.Size))
+	query.Color = strings.ToLower(strings.TrimSpace(query.Color))
+	query.Locale = strings.TrimSpace(query.Locale)
+	query.Order = strings.ToLower(strings.TrimSpace(query.Order))
+	query.ContentFilter = strings.ToLower(strings.TrimSpace(query.ContentFilter))
+	query.Collections = strings.TrimSpace(query.Collections)
+	query.Category = strings.ToLower(strings.TrimSpace(query.Category))
+	query.MediaSubtype = strings.ToLower(strings.TrimSpace(query.MediaSubtype))
+	return query
+}
+
+func validateSearchEnums(query SearchQuery) error {
+	checks := []struct {
+		value   string
+		allowed []string
+		message string
+	}{
+		{query.Orientation, []string{"landscape", "portrait", "square"}, "orientation must be landscape, portrait, or square"},
+		{query.Size, []string{"small", "medium", "large"}, "size must be small, medium, or large"},
+		{query.Order, []string{"relevant", "latest", "popular"}, "order must be relevant, latest, or popular"},
+		{query.ContentFilter, []string{"low", "high"}, "content filter must be low or high"},
+		{query.MediaSubtype, []string{"all", "photo", "illustration", "vector"}, "media subtype must be all, photo, illustration, or vector"},
+	}
+	for _, check := range checks {
+		if !validOptionalValue(check.value, check.allowed) {
+			return errors.New(check.message)
+		}
+	}
+	return nil
+}
+
+func validOptionalValue(value string, allowed []string) bool {
+	if value == "" {
+		return true
+	}
+	for _, candidate := range allowed {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+func validateSearchFilterBounds(query SearchQuery) error {
+	if len(query.Color) > 80 {
+		return errors.New("color filter is too long")
+	}
+	if len(query.Locale) > 12 {
+		return errors.New("locale is too long")
+	}
+	if len(query.Collections) > 500 {
+		return errors.New("collections filter is too long")
+	}
+	if len(query.Category) > 40 {
+		return errors.New("category filter is too long")
+	}
+	if query.MinWidth < 0 || query.MinWidth > 20000 || query.MinHeight < 0 || query.MinHeight > 20000 {
+		return errors.New("minimum dimensions must be between 0 and 20000 pixels")
+	}
+	return nil
 }
 
 func APIURL(base string, values url.Values) string {

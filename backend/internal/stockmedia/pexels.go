@@ -27,7 +27,11 @@ func NewPexels(key string, client *http.Client) *PexelsAdapter {
 
 func (a *PexelsAdapter) Key() string { return "pexels" }
 func (a *PexelsAdapter) Capabilities() Capabilities {
-	return Capabilities{Photos: true, Videos: true}
+	return Capabilities{
+		Photos: true, Videos: true,
+		PhotoFilters: []string{"orientation", "size", "color", "locale"},
+		VideoFilters: []string{"orientation", "size", "locale"},
+	}
 }
 
 type pexelsPhoto struct {
@@ -82,6 +86,15 @@ func (a *PexelsAdapter) Search(ctx context.Context, query SearchQuery) (SearchPa
 	}
 	if query.Orientation != "" {
 		values.Set("orientation", query.Orientation)
+	}
+	if query.Size != "" {
+		values.Set("size", query.Size)
+	}
+	if query.Kind == "photo" && query.Color != "" {
+		values.Set("color", query.Color)
+	}
+	if query.Locale != "" {
+		values.Set("locale", query.Locale)
 	}
 	var payload struct {
 		Page     int           `json:"page"`

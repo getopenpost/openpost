@@ -23,6 +23,47 @@ const ffmpegAvailable = (() => {
   }
 })();
 
+test("custom media chooser pastes a file with a local thumbnail and upload progress", async ({
+  page,
+  request,
+}) => {
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `media-paste-${unique}@example.com`);
+  await createWorkspace(request, auth.token, "Media Paste E2E");
+  await authenticatePage(page, auth.token);
+  await page.goto("/media");
+
+  await page.getByRole("button", { name: "Add media", exact: true }).click();
+  const uploadDialog = page.getByRole("dialog", { name: "Upload media" });
+  await page.evaluate(
+    ({ encoded }) => {
+      const bytes = Uint8Array.from(atob(encoded), (value) =>
+        value.charCodeAt(0),
+      );
+      const transfer = new DataTransfer();
+      transfer.items.add(
+        new File([bytes], "pasted-launch.png", { type: "image/png" }),
+      );
+      window.dispatchEvent(
+        new ClipboardEvent("paste", {
+          clipboardData: transfer,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    },
+    { encoded: tinyPNG.toString("base64") },
+  );
+
+  await expect(uploadDialog.getByText("pasted-launch.png")).toBeVisible();
+  await expect(uploadDialog.locator('img[src^="blob:"]')).toHaveCount(1);
+  await uploadDialog
+    .getByRole("button", { name: "Upload 1 file", exact: true })
+    .click();
+  await expect(uploadDialog).toHaveCount(0, { timeout: 15_000 });
+  await expect(page.getByText("pasted-launch.png")).toBeVisible();
+});
+
 function createVideoFixture(): Buffer {
   const directory = mkdtempSync(join(tmpdir(), "openpost-video-e2e-"));
   const filename = join(directory, "clip.mp4");

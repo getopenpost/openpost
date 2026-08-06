@@ -27,7 +27,11 @@ func NewPixabay(key string, client *http.Client) *PixabayAdapter {
 
 func (a *PixabayAdapter) Key() string { return "pixabay" }
 func (a *PixabayAdapter) Capabilities() Capabilities {
-	return Capabilities{Photos: true, Videos: true}
+	return Capabilities{
+		Photos: true, Videos: true,
+		PhotoFilters: []string{"orientation", "media_subtype", "category", "color", "order", "editors_choice", "min_dimensions", "locale"},
+		VideoFilters: []string{"orientation", "category", "order", "editors_choice", "min_dimensions", "locale"},
+	}
 }
 
 type pixabayImage struct {
@@ -82,9 +86,7 @@ func (a *PixabayAdapter) Search(ctx context.Context, query SearchQuery) (SearchP
 		"per_page":   []string{IntString(query.PerPage)},
 		"safesearch": []string{"true"},
 	}
-	if query.Orientation != "" && query.Orientation != "square" {
-		values.Set("orientation", query.Orientation)
-	}
+	applyPixabayFilters(values, query)
 	var raw json.RawMessage
 	if err := a.get(ctx, APIURL(endpoint, values), &raw); err != nil {
 		return SearchPage{}, err
@@ -119,6 +121,39 @@ func (a *PixabayAdapter) Search(ctx context.Context, query SearchQuery) (SearchP
 	}
 	result.HasMore = query.Page*query.PerPage < result.Total
 	return result, nil
+}
+
+func applyPixabayFilters(values url.Values, query SearchQuery) {
+	if query.Orientation != "" && query.Orientation != "square" {
+		orientation := map[string]string{"landscape": "horizontal", "portrait": "vertical"}[query.Orientation]
+		if orientation != "" {
+			values.Set("orientation", orientation)
+		}
+	}
+	if query.Kind == "photo" && query.MediaSubtype != "" {
+		values.Set("image_type", query.MediaSubtype)
+	}
+	if query.Category != "" {
+		values.Set("category", query.Category)
+	}
+	if query.Kind == "photo" && query.Color != "" {
+		values.Set("colors", query.Color)
+	}
+	if query.Order != "" {
+		values.Set("order", query.Order)
+	}
+	if query.EditorsChoice {
+		values.Set("editors_choice", "true")
+	}
+	if query.MinWidth > 0 {
+		values.Set("min_width", IntString(query.MinWidth))
+	}
+	if query.MinHeight > 0 {
+		values.Set("min_height", IntString(query.MinHeight))
+	}
+	if query.Locale != "" {
+		values.Set("lang", query.Locale)
+	}
 }
 
 func (a *PixabayAdapter) Resolve(ctx context.Context, externalID string) (ResolvedAsset, error) {

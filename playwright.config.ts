@@ -33,6 +33,7 @@ export default defineConfig({
     },
     {
       name: "mobile-chrome",
+      grepInvert: /@desktop/,
       use: { ...devices["Pixel 5"], ...chromiumUse },
     },
   ],

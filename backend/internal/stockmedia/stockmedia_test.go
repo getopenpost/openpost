@@ -40,6 +40,10 @@ func TestPexelsNormalizesPhotoAndKeepsCredentialServerSide(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		require.Equal(t, "pexels-secret", request.Header.Get("Authorization"))
 		require.Equal(t, "desk", request.URL.Query().Get("query"))
+		require.Equal(t, "portrait", request.URL.Query().Get("orientation"))
+		require.Equal(t, "large", request.URL.Query().Get("size"))
+		require.Equal(t, "blue", request.URL.Query().Get("color"))
+		require.Equal(t, "pt-BR", request.URL.Query().Get("locale"))
 		return response(http.StatusOK, `{
 			"page": 1,
 			"per_page": 1,
@@ -62,13 +66,59 @@ func TestPexelsNormalizesPhotoAndKeepsCredentialServerSide(t *testing.T) {
 	})}
 	adapter := NewPexels("pexels-secret", client)
 
-	page, err := adapter.Search(context.Background(), SearchQuery{Query: "desk", Kind: "photo"})
+	page, err := adapter.Search(context.Background(), SearchQuery{
+		Query: "desk", Kind: "photo", Orientation: "portrait", Size: "large", Color: "blue", Locale: "pt-BR",
+	})
 	require.NoError(t, err)
 	require.Len(t, page.Items, 1)
 	require.Equal(t, "photo:42", page.Items[0].ExternalID)
 	require.Equal(t, "Photo by A Creator on Pexels", page.Items[0].AttributionText)
 	encoded := page.Items[0].Title + page.Items[0].SourceURL + page.Items[0].PreviewURL
 	require.NotContains(t, encoded, "pexels-secret")
+}
+
+func TestUnsplashMapsProviderSpecificPhotoFilters(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		query := request.URL.Query()
+		require.Equal(t, "squarish", query.Get("orientation"))
+		require.Equal(t, "teal", query.Get("color"))
+		require.Equal(t, "latest", query.Get("order_by"))
+		require.Equal(t, "high", query.Get("content_filter"))
+		require.Equal(t, "123,456", query.Get("collections"))
+		return response(http.StatusOK, `{"total":0,"total_pages":0,"results":[]}`), nil
+	})}
+	adapter := NewUnsplash("unsplash-secret", client)
+
+	_, err := adapter.Search(context.Background(), SearchQuery{
+		Query: "desk", Kind: "photo", Orientation: "square", Color: "teal", Order: "latest",
+		ContentFilter: "high", Collections: "123,456",
+	})
+	require.NoError(t, err)
+}
+
+func TestPixabayMapsImageFiltersAndKeepsSafeSearch(t *testing.T) {
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		query := request.URL.Query()
+		require.Equal(t, "true", query.Get("safesearch"))
+		require.Equal(t, "horizontal", query.Get("orientation"))
+		require.Equal(t, "illustration", query.Get("image_type"))
+		require.Equal(t, "business", query.Get("category"))
+		require.Equal(t, "orange", query.Get("colors"))
+		require.Equal(t, "latest", query.Get("order"))
+		require.Equal(t, "true", query.Get("editors_choice"))
+		require.Equal(t, "1200", query.Get("min_width"))
+		require.Equal(t, "800", query.Get("min_height"))
+		require.Equal(t, "pt", query.Get("lang"))
+		return response(http.StatusOK, `{"totalHits":0,"hits":[]}`), nil
+	})}
+	adapter := NewPixabay("pixabay-secret", client)
+
+	_, err := adapter.Search(context.Background(), SearchQuery{
+		Query: "desk", Kind: "photo", Orientation: "landscape", MediaSubtype: "illustration",
+		Category: "business", Color: "orange", Order: "latest", EditorsChoice: true,
+		MinWidth: 1200, MinHeight: 800, Locale: "pt",
+	})
+	require.NoError(t, err)
 }
 
 func TestUnsplashSelectionTracksDownloadBeforeResolve(t *testing.T) {

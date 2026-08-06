@@ -69,13 +69,15 @@ func (h *StockMediaHandler) ProviderKeys() []string {
 }
 
 type StockProviderResponse struct {
-	Key         string `json:"key"`
-	Name        string `json:"name"`
-	ProviderURL string `json:"provider_url"`
-	Photos      bool   `json:"photos"`
-	Videos      bool   `json:"videos"`
-	Audio       bool   `json:"audio"`
-	Attribution string `json:"attribution"`
+	Key          string   `json:"key"`
+	Name         string   `json:"name"`
+	ProviderURL  string   `json:"provider_url"`
+	Photos       bool     `json:"photos"`
+	Videos       bool     `json:"videos"`
+	Audio        bool     `json:"audio"`
+	PhotoFilters []string `json:"photo_filters,omitempty"`
+	VideoFilters []string `json:"video_filters,omitempty"`
+	Attribution  string   `json:"attribution"`
 }
 
 type ListStockProvidersOutput struct {
@@ -86,12 +88,23 @@ type ListStockProvidersOutput struct {
 }
 
 type SearchStockMediaInput struct {
-	Provider    string `query:"provider" required:"true" enum:"pexels,unsplash,pixabay"`
-	Query       string `query:"query" required:"true" minLength:"1" maxLength:"120"`
-	Kind        string `query:"kind" default:"photo" enum:"photo,video"`
-	Orientation string `query:"orientation" enum:"landscape,portrait,square"`
-	Page        int    `query:"page" default:"1" minimum:"1" maximum:"500"`
-	PerPage     int    `query:"per_page" default:"24" minimum:"1" maximum:"40"`
+	Provider      string `query:"provider" required:"true" enum:"pexels,unsplash,pixabay"`
+	Query         string `query:"query" required:"true" minLength:"1" maxLength:"120"`
+	Kind          string `query:"kind" default:"photo" enum:"photo,video"`
+	Orientation   string `query:"orientation" enum:"landscape,portrait,square"`
+	Size          string `query:"size" enum:"small,medium,large"`
+	Color         string `query:"color" maxLength:"80"`
+	Locale        string `query:"locale" maxLength:"12"`
+	Order         string `query:"order" enum:"relevant,latest,popular"`
+	ContentFilter string `query:"content_filter" enum:"low,high"`
+	Collections   string `query:"collections" maxLength:"500"`
+	Category      string `query:"category" maxLength:"40"`
+	MediaSubtype  string `query:"media_subtype" enum:"all,photo,illustration,vector"`
+	EditorsChoice bool   `query:"editors_choice"`
+	MinWidth      int    `query:"min_width" minimum:"0" maximum:"20000"`
+	MinHeight     int    `query:"min_height" minimum:"0" maximum:"20000"`
+	Page          int    `query:"page" default:"1" minimum:"1" maximum:"500"`
+	PerPage       int    `query:"per_page" default:"24" minimum:"1" maximum:"40"`
 }
 
 type SearchStockMediaOutput struct {
@@ -126,6 +139,7 @@ func (h *StockMediaHandler) RegisterRoutes(api huma.API) {
 			out.Body.Providers = append(out.Body.Providers, StockProviderResponse{
 				Key: key, Name: stockProviderName(key), ProviderURL: stockProviderURL(key),
 				Photos: capabilities.Photos, Videos: capabilities.Videos, Audio: capabilities.Audio,
+				PhotoFilters: capabilities.PhotoFilters, VideoFilters: capabilities.VideoFilters,
 				Attribution: stockProviderAttribution(key),
 			})
 		}
@@ -149,6 +163,10 @@ func (h *StockMediaHandler) RegisterRoutes(api huma.API) {
 		}
 		query, err := stockmedia.NormalizeQuery(stockmedia.SearchQuery{
 			Query: input.Query, Kind: input.Kind, Orientation: input.Orientation,
+			Size: input.Size, Color: input.Color, Locale: input.Locale, Order: input.Order,
+			ContentFilter: input.ContentFilter, Collections: input.Collections,
+			Category: input.Category, MediaSubtype: input.MediaSubtype,
+			EditorsChoice: input.EditorsChoice, MinWidth: input.MinWidth, MinHeight: input.MinHeight,
 			Page: input.Page, PerPage: input.PerPage,
 		})
 		if err != nil {

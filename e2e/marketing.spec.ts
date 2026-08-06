@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { parseChangelog } from "../packages/changelog/src/index.js";
 
-test("marketing index links to the app and documentation", async ({ page }) => {
+test("marketing index links to the app and documentation @desktop", async ({ page }) => {
   await page.goto("/");
 
   await expect(page).toHaveTitle(
@@ -107,7 +107,7 @@ test("pricing presents Founder at the configured monthly and annual prices", asy
   );
 });
 
-test("security page states AI tool access accurately", async ({ page }) => {
+test("security page states AI tool access accurately @desktop", async ({ page }) => {
   await page.goto("/security");
 
   await expect(
@@ -179,7 +179,7 @@ test("marketing navigation uses the shared responsive menu patterns", async ({
   ).toHaveAttribute("href", "https://discord.gg/u2QwukmY4W");
 });
 
-test("marketing SEO routes expose the current public index", async ({
+test("marketing SEO routes expose the current public index @desktop", async ({
   request,
 }) => {
   const robots = await request.get("/robots.txt");
@@ -232,7 +232,7 @@ test("marketing SEO routes expose the current public index", async ({
   }
 });
 
-test("legal pages are public and describe Paddle billing", async ({ page }) => {
+test("legal pages are public and describe Paddle billing @desktop", async ({ page }) => {
   const pages = [
     { path: "/terms", heading: "Terms of Service" },
     { path: "/privacy", heading: "Privacy Policy" },
@@ -259,7 +259,7 @@ test("legal pages are public and describe Paddle billing", async ({ page }) => {
   ).toHaveAttribute("href", "/refunds");
 });
 
-test("free marketing tools produce useful output", async ({ page }) => {
+test("free marketing tools produce useful output @desktop", async ({ page }) => {
   await page.goto("/tools/multi-platform-character-counter");
   await page.waitForLoadState("networkidle");
   await page.getByRole("textbox", { name: "Post text" }).fill("hello");
@@ -328,7 +328,7 @@ test("free marketing tools produce useful output", async ({ page }) => {
   ).toHaveCount(2);
 });
 
-test("public changelog is generated from the canonical release record", async ({
+test("public changelog is generated from the canonical release record @desktop", async ({
   page,
 }) => {
   const canonicalSection = parseChangelog(

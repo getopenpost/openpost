@@ -3802,6 +3802,7 @@ FORM: CapCut-fluent four-zone workbench with a canvas-first default and expandab
 									workspaceId={workspaceCtx.currentWorkspace.id}
 									accept={['image/*', 'video/*', 'audio/*']}
 									maxSelection={20}
+									purpose="media_library"
 									showCreate={false}
 									title={m.media_library_title()}
 									onConfirm={importWorkspaceMedia}

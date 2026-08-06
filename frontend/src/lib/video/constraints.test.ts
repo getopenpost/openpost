@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { effectiveVideoConstraints, isCanonicalPlatformVideo } from './constraints';
+import { effectiveVideoConstraints, formatBytes, isCanonicalPlatformVideo } from './constraints';
 import type { VideoConstraint, VideoMetadata } from './types';
 
 function constraint(overrides: Partial<VideoConstraint> = {}): VideoConstraint {
@@ -50,5 +50,12 @@ describe('video constraints', () => {
 		expect(isCanonicalPlatformVideo(metadata)).toBe(true);
 		expect(isCanonicalPlatformVideo({ ...metadata, videoCodec: 'hevc' })).toBe(false);
 		expect(isCanonicalPlatformVideo({ ...metadata, audioCodec: 'opus' })).toBe(false);
+	});
+
+	it('keeps small file sizes meaningful in upload queues', () => {
+		expect(formatBytes(70)).toBe('70 B');
+		expect(formatBytes(1536)).toBe('1.5 KB');
+		expect(formatBytes(5 * 1024 * 1024)).toBe('5.0 MB');
+		expect(formatBytes(2 * 1024 * 1024 * 1024)).toBe('2.0 GB');
 	});
 });

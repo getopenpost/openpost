@@ -8838,8 +8838,10 @@ export interface components {
             audio: boolean;
             key: string;
             name: string;
+            photo_filters?: string[] | null;
             photos: boolean;
             provider_url: string;
+            video_filters?: string[] | null;
             videos: boolean;
         };
         SubmitFeedbackInputBody: {
@@ -20912,6 +20914,17 @@ export interface operations {
                 query: string;
                 kind?: "photo" | "video";
                 orientation?: "landscape" | "portrait" | "square";
+                size?: "small" | "medium" | "large";
+                color?: string;
+                locale?: string;
+                order?: "relevant" | "latest" | "popular";
+                content_filter?: "low" | "high";
+                collections?: string;
+                category?: string;
+                media_subtype?: "all" | "photo" | "illustration" | "vector";
+                editors_choice?: boolean;
+                min_width?: number;
+                min_height?: number;
                 page?: number;
                 per_page?: number;
             };

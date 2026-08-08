@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Route } from "@playwright/test";
 import {
   authenticatePage,
   createWorkspace,
@@ -216,13 +216,93 @@ test("Google signup lets existing accounts resume without onboarding checkout", 
   await page.getByRole("button", { name: "Continue with Google" }).click();
   const startURL = new URL((await startRequestPromise).url());
   expect(startURL.searchParams.get("return_path")).toBe(
-    `/register?plan=founder&billing_period=annual&redirect=${encodeURIComponent(destination)}`,
+    `/onboarding?plan=founder&billing_period=annual&redirect=${encodeURIComponent(destination)}&source=signup`,
   );
 
   await authenticatePage(page, auth.token);
   await page.goto(startURL.searchParams.get("return_path")!);
   await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
   await expect(page).not.toHaveURL(/\/checkout/);
+});
+
+test("Google signup keeps legal acceptance and onboarding in one continuation", async ({
+  page,
+  request,
+}) => {
+  const unique = Date.now().toString(36);
+  const email = `auth-google-new-${unique}@example.com`;
+  const auth = await registerUser(request, email);
+  await authenticatePage(page, auth.token);
+
+  let workspaceLoads = 0;
+  const requireLegalAcceptance = async (route: Route) => {
+    const response = await route.fetch();
+    const body = (await response.json()) as {
+      user?: Record<string, unknown>;
+      legal_acceptance_required?: boolean;
+    };
+    await route.fulfill({
+      response,
+      json: body.user
+        ? {
+            ...body,
+            user: { ...body.user, legal_acceptance_required: true },
+          }
+        : { ...body, legal_acceptance_required: true },
+    });
+  };
+  await page.route("**/api/v1/auth/session-state", requireLegalAcceptance);
+  await page.route("**/api/v1/auth/me", requireLegalAcceptance);
+  await page.route("**/api/v1/auth/config", (route) =>
+    route.fulfill({
+      json: {
+        registration_enabled: true,
+        password_reset_enabled: true,
+        email_verification_required: false,
+        legal_acceptance_required: true,
+        terms_url: "https://openpost.social/terms",
+        privacy_url: "https://openpost.social/privacy",
+      },
+    }),
+  );
+  await page.route("**/api/v1/auth/legal-acceptance", async (route) => {
+    await route.fulfill({
+      json: {
+        id: "user-google-new",
+        email,
+        username: "google-new",
+        display_name: "Google New",
+        avatar_url: "",
+        is_admin: false,
+        is_managed: false,
+        managed_organization_name: "",
+        has_password: false,
+        legal_acceptance_required: false,
+        email_verified: true,
+        public_profile_enabled: false,
+        created_at: "2026-08-08T10:00:00Z",
+      },
+    });
+  });
+  await page.route("**/api/v1/workspaces", async (route) => {
+    if (route.request().method() === "GET") workspaceLoads += 1;
+    await route.continue();
+  });
+
+  await page.goto(
+    "/onboarding?plan=founder&billing_period=annual&source=signup",
+  );
+  await expect(page).toHaveURL(/\/legal-acceptance\?redirect=/);
+  expect(new URL(page.url()).searchParams.get("redirect")).toBe(
+    "/onboarding?plan=founder&billing_period=annual&source=signup",
+  );
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Accept and continue" }).click();
+
+  await expect(page).toHaveURL(
+    /\/checkout\?plan=founder&billing_period=annual$/,
+  );
+  expect(workspaceLoads).toBeLessThanOrEqual(2);
 });
 
 test("signed-in startup never mounts the login form inside the app shell", async ({

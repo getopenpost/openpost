@@ -67,15 +67,9 @@
 	}
 
 	function oidcReturnTarget() {
-		const params = new URLSearchParams();
-		const plan = page.url.searchParams.get('plan');
-		const billingPeriod = page.url.searchParams.get('billing_period');
-		const redirect = safeSameOriginRedirect(page.url, '');
-		if (plan) params.set('plan', plan);
-		if (billingPeriod) params.set('billing_period', billingPeriod);
-		if (redirect) params.set('redirect', redirect);
-		const query = params.toString();
-		return query ? `/register?${query}` : '/register';
+		const target = new URL(registrationTarget(), page.url);
+		target.searchParams.set('source', 'signup');
+		return `${target.pathname}${target.search}`;
 	}
 
 	function loginTarget() {

@@ -48,6 +48,10 @@
 		return `/login?redirect=${encodeURIComponent(`${page.url.pathname}${page.url.search}`)}`;
 	}
 
+	function existingSignupTarget() {
+		return safeSameOriginRedirect(page.url);
+	}
+
 	onMount(() => {
 		const unsubscribe = auth.subscribe((state) => {
 			if (!state.isLoading && !authReady) {
@@ -71,6 +75,14 @@
 		try {
 			await workspaceCtx.initialize(preferredWorkspaceID || undefined);
 			if (requestSequence !== onboardingLoadSequence) return;
+			if (
+				workspaceCtx.workspaces.length > 0 &&
+				page.url.searchParams.get('source') === 'signup' &&
+				!preferredWorkspaceID
+			) {
+				await goto(resolve(existingSignupTarget() as '/'));
+				return;
+			}
 			if (workspaceCtx.workspaces.length > 0) {
 				await goto(resolve(afterOnboardingTarget() as '/'));
 				return;

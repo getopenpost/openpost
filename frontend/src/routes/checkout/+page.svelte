@@ -15,6 +15,7 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
 		billingPeriodFromSearchParams,
+		onboardingPathForPlan,
 		hostedPlanByID,
 		hostedPlanFromSearchParams,
 		hostedPlans,
@@ -274,7 +275,18 @@
 	onMount(() => {
 		selectedPlanID = hostedPlanFromSearchParams(page.url.searchParams) || 'founder';
 		billingPeriod = billingPeriodFromSearchParams(page.url.searchParams);
-		void workspaceCtx.initialize().then(() => {
+		const workspaceReady = workspaceCtx.currentWorkspace?.id
+			? Promise.resolve()
+			: workspaceCtx.initialize();
+		void workspaceReady.then(async () => {
+			if (!workspaceCtx.currentWorkspace?.id) {
+				const target = new URL(onboardingPathForPlan(selectedPlanID), page.url);
+				target.searchParams.set('billing_period', billingPeriod);
+				const redirect = safeSameOriginRedirect(page.url, '');
+				if (redirect) target.searchParams.set('redirect', redirect);
+				await goto(resolve(`${target.pathname}${target.search}` as '/'));
+				return;
+			}
 			if (page.url.searchParams.get('status') === 'success') {
 				void confirmSubscription();
 				return;

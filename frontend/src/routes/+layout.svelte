@@ -114,6 +114,9 @@
 	let onboardingCheckedPath = $state('');
 	let onboardingCheckInFlightForPath = $state('');
 	let ssoChallengeInFlight = $state(false);
+	let routeOwnsWorkspaceBootstrap = $derived(
+		currentPath === '/onboarding' || currentPath === '/checkout'
+	);
 
 	function authenticatedPublicTarget() {
 		const target = safeSameOriginRedirect($page.url);
@@ -140,6 +143,11 @@
 		return `${target.pathname}${target.search}`;
 	}
 
+	function legalAcceptanceTarget() {
+		const redirect = `${currentPath}${$page.url.search}`;
+		return `/legal-acceptance?redirect=${encodeURIComponent(redirect)}`;
+	}
+
 	let pendingRedirect = $derived.by(() => {
 		if (instance.isLoading || authState.isLoading) return null;
 
@@ -156,10 +164,15 @@
 		if (isPublicProfileRoute) return null;
 
 		if (authState.user?.legal_acceptance_required) {
-			return currentPath === '/legal-acceptance' ? null : '/legal-acceptance';
+			return currentPath === '/legal-acceptance' ? null : legalAcceptanceTarget();
 		}
-		if (currentPath === '/legal-acceptance') return '/';
-		if (!onboardingChecked) return null;
+		if (currentPath === '/legal-acceptance') {
+			const target = safeSameOriginRedirect($page.url);
+			return target === '/legal-acceptance' || target.startsWith('/legal-acceptance?')
+				? '/'
+				: target;
+		}
+		if (!onboardingChecked && !routeOwnsWorkspaceBootstrap) return null;
 
 		if (needsOnboarding) {
 			if (
@@ -321,7 +334,7 @@
 	}
 
 	$effect(() => {
-		if (isPublicProfileRoute) return;
+		if (isPublicProfileRoute || routeOwnsWorkspaceBootstrap) return;
 		if (
 			authState.isLoading ||
 			!authState.isAuthenticated ||
@@ -355,7 +368,7 @@
 <Toaster position="bottom-center" richColors closeButton />
 {#if isPreviewRoute}
 	{@render children()}
-{:else if instance.isLoading || authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
+{:else if instance.isLoading || authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeOwnsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
 	<AppLoading label={m.common_loading()} />
 {:else if !authState.isAuthenticated}
 	{#if !isPublicProfileRoute && !(currentPath === '/' && isManagedEdition) && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !currentPath.startsWith('/video-editor')}

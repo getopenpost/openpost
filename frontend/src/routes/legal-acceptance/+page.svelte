@@ -11,12 +11,19 @@
 	import { client, type AuthConfiguration } from '$lib/api/client';
 	import { auth } from '$lib/stores/auth';
 	import { m } from '$lib/paraglide/messages';
+	import { page } from '$app/state';
+	import { safeSameOriginRedirect } from '$lib/redirects';
 
 	let acceptedLegal = $state(false);
 	let loading = $state(false);
 	let configurationLoading = $state(true);
 	let error = $state('');
 	let authConfiguration = $state<AuthConfiguration | null>(null);
+
+	function completionTarget() {
+		const target = safeSameOriginRedirect(page.url);
+		return target === '/legal-acceptance' || target.startsWith('/legal-acceptance?') ? '/' : target;
+	}
 
 	onMount(async () => {
 		const { data, error: responseError } = await client.GET('/auth/config');
@@ -42,7 +49,7 @@
 			return;
 		}
 		auth.setUser(data);
-		await goto(resolve('/'));
+		await goto(resolve(completionTarget() as '/'));
 	}
 
 	async function signOut() {

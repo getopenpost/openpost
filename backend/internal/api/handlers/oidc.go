@@ -670,6 +670,9 @@ func (h *OIDCHandler) completeLoginCallback(
 	}
 	location := absoluteOpenPostURL(h.identity.PublicURL(), completion.Request.ReturnPath)
 	if !completion.Request.Native {
+		if authResponse.Body.User != nil && authResponse.Body.User.LegalAcceptanceRequired {
+			location = legalAcceptanceURL(h.identity.PublicURL(), completion.Request.ReturnPath)
+		}
 		return oidcRedirectWithCookies(
 			location,
 			expiredBinding,
@@ -851,4 +854,10 @@ func cookieFromString(raw string) *http.Cookie {
 
 func absoluteOpenPostURL(publicURL, returnPath string) string {
 	return strings.TrimRight(publicURL, "/") + identity.SafeReturnPath(returnPath)
+}
+
+func legalAcceptanceURL(publicURL, returnPath string) string {
+	query := url.Values{}
+	query.Set("redirect", identity.SafeReturnPath(returnPath))
+	return strings.TrimRight(publicURL, "/") + "/legal-acceptance?" + query.Encode()
 }

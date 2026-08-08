@@ -46,6 +46,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Set the monthly and annual `OPENPOST_PADDLE_<PLAN>_<PERIOD>_PRICE_ID` values for Starter, Founder, Pro, Team, and Agency.
 - [ ] Confirm the production API key and client token have live prefixes; never deploy sandbox credentials to the managed app.
 - [ ] Configure Paddle to send customer, subscription, and `transaction.completed` events to `/api/v1/billing/paddle/webhook`; send a signed test event and confirm it is stored once and reconciled through the billing job.
+- [ ] Set the minimum and maximum quantity to `1` for every Paddle plan price so buyers cannot add duplicate copies of a workspace subscription.
 - [ ] Before upgrading from Whop billing, migrate every active customer to Paddle and confirm the Paddle subscription is reconciled locally. Historical Whop rows do not grant entitlements after the upgrade.
 - [ ] Complete an embedded checkout smoke: plan and period selection, $0 trial start, return to OpenPost, local `trialing` status, and billing management URL.
 - [ ] Confirm a new hosted user can create the bootstrap workspace and is blocked from extra workspaces before checkout.

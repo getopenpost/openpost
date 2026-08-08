@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Preserve plan and destination context through Google signup and legal acceptance, remove duplicate workspace bootstrap redirects, and send existing Google users back to their intended destination instead of checkout.
+- Keep payment entry inside an OpenPost checkout dialog with the active theme and plan summary, while Paddle continues to securely host the sensitive payment fields.
+- Constrain hosted Paddle catalog prices to one subscription unit so checkout no longer offers duplicate copies of the same plan.
 
 ## [3.3.2] - 2026-08-06
 

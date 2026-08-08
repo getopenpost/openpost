@@ -601,7 +601,7 @@ test("plan selection from signup starts checkout after onboarding", async ({
           pri_team_annual: "$990.00",
           pri_agency_annual: "$1,990.00"
         };
-        const state = { environment: "", initialize: null, checkout: null };
+        const state = { environment: "", initialize: null, checkout: null, closed: false };
         window.__openpostPaddleTest = state;
         window.PaddleBillingV1 = {
           Initialized: false,
@@ -623,7 +623,14 @@ test("plan selection from signup starts checkout after onboarding", async ({
               }
             };
           },
-          Checkout: { open(options) { state.checkout = options; } }
+          Checkout: {
+            open(options) {
+              state.checkout = options;
+              state.closed = false;
+              queueMicrotask(() => state.initialize?.eventCallback?.({ name: "checkout.loaded" }));
+            },
+            close() { state.closed = true; }
+          }
         };
       })();`,
       });
@@ -675,6 +682,8 @@ test("plan selection from signup starts checkout after onboarding", async ({
   await page
     .getByRole("button", { name: "Continue to secure payment" })
     .click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
   const paddleState = await page.evaluate(
     () =>
       (
@@ -703,14 +712,19 @@ test("plan selection from signup starts checkout after onboarding", async ({
   expect(paddleState?.checkout?.customData?.checkout_id).toBe("chkat_e2e");
   expect(paddleState?.checkout?.customer?.email).toBe(email);
   expect(paddleState?.checkout?.settings).toMatchObject({
-    displayMode: "overlay",
+    displayMode: "inline",
     variant: "one-page",
+    frameTarget: "openpost-paddle-checkout",
+    frameInitialHeight: 560,
     locale: "en",
     successUrl:
       "http://127.0.0.1/checkout?plan=founder&billing_period=monthly&status=success",
   });
   expect(checkoutURL).toContain("/api/v1/billing/checkout");
   expect(checkoutBody?.plan_id).toBe("founder");
+
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 
   await page.getByRole("button", { name: /^Annual/ }).click();
   await page.getByRole("button", { name: "Monthly", exact: true }).click();
@@ -728,4 +742,26 @@ test("plan selection from signup starts checkout after onboarding", async ({
       document.documentElement.clientWidth,
   );
   expect(mobileOverflow).toBeLessThanOrEqual(1);
+
+  await page
+    .getByRole("button", { name: "Continue to secure payment" })
+    .click();
+  const mobileDialog = page.getByRole("dialog");
+  await expect(mobileDialog).toBeVisible();
+  await expect
+    .poll(
+      async () =>
+        (await mobileDialog.boundingBox())?.x ?? Number.POSITIVE_INFINITY,
+    )
+    .toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => (await mobileDialog.boundingBox())?.width ?? 0)
+    .toBeGreaterThanOrEqual(319);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(mobileDialog).toHaveCount(0);
 });

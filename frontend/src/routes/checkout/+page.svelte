@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -11,6 +11,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Card, CardContent } from '$lib/components/ui/card';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import {
@@ -25,6 +26,7 @@
 	import { safeSameOriginRedirect } from '$lib/redirects';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
+	import { mode } from 'mode-watcher';
 	import {
 		initializePaddle,
 		type Environments,
@@ -36,6 +38,7 @@
 	import LockIcon from 'lucide-svelte/icons/lock-keyhole';
 	import ShieldCheckIcon from 'lucide-svelte/icons/shield-check';
 	import SparklesIcon from 'lucide-svelte/icons/sparkles';
+	import XIcon from 'lucide-svelte/icons/x';
 
 	type BillingURL = components['schemas']['BillingURLResponse'];
 	type BillingStatus = components['schemas']['BillingStatusResponse'];
@@ -52,6 +55,8 @@
 	let stopped = false;
 	let paddlePromise: Promise<Paddle | undefined> | null = null;
 	let paddleConfiguration = '';
+	let paymentDialogOpen = $state(false);
+	let paymentFrameLoaded = $state(false);
 
 	let selectedPlan = $derived(hostedPlanByID(selectedPlanID));
 	let selectedPrice = $derived(localizedPrices[selectedPlanID] ?? '');
@@ -90,7 +95,20 @@
 	}
 
 	function handlePaddleEvent(event: PaddleEventData) {
+		if (event.name === 'checkout.loaded') {
+			paymentFrameLoaded = true;
+			checkoutState = 'ready';
+			return;
+		}
+		if (event.name === 'checkout.closed') {
+			paymentDialogOpen = false;
+			paymentFrameLoaded = false;
+			if (checkoutState === 'opening') checkoutState = 'ready';
+			return;
+		}
 		if (event.name === 'checkout.completed' && checkoutState !== 'confirming') {
+			paymentDialogOpen = false;
+			paymentFrameLoaded = false;
 			void confirmSubscription();
 			return;
 		}
@@ -203,7 +221,23 @@
 		}
 	}
 
-	function openPaddleCheckout() {
+	function closePaymentDialog() {
+		if (!paymentDialogOpen) return;
+		paymentDialogOpen = false;
+		paymentFrameLoaded = false;
+		paddle?.Checkout.close();
+		if (checkoutState === 'opening') checkoutState = 'ready';
+	}
+
+	function handlePaymentDialogChange(open: boolean) {
+		if (open) {
+			paymentDialogOpen = true;
+			return;
+		}
+		closePaymentDialog();
+	}
+
+	async function openPaddleCheckout() {
 		if (
 			!paddle ||
 			!checkout?.id ||
@@ -216,24 +250,28 @@
 			return;
 		}
 		checkoutState = 'opening';
+		paymentFrameLoaded = false;
+		paymentDialogOpen = true;
+		await tick();
+		if (!paymentDialogOpen || stopped) return;
 		paddle.Checkout.open({
 			items: [{ priceId: checkout.provider_price_id, quantity: 1 }],
 			customData: { checkout_id: checkout.id },
 			customer: { email: checkout.customer_email },
 			settings: {
-				displayMode: 'overlay',
+				displayMode: 'inline',
 				variant: 'one-page',
-				theme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+				theme: mode.current === 'dark' ? 'dark' : 'light',
 				locale: paddleLocale(),
 				allowLogout: false,
 				showAddDiscounts: true,
 				showAddTaxId: true,
+				frameTarget: 'openpost-paddle-checkout',
+				frameInitialHeight: 560,
+				frameStyle: 'width: 100%; min-width: 312px; background-color: transparent; border: none;',
 				successUrl: checkout.return_url
 			}
 		});
-		window.setTimeout(() => {
-			if (!stopped && checkoutState === 'opening') checkoutState = 'ready';
-		}, 500);
 	}
 
 	async function loadBillingStatus(): Promise<BillingStatus | null> {
@@ -296,6 +334,7 @@
 		return () => {
 			stopped = true;
 			requestSequence += 1;
+			paddle?.Checkout.close();
 		};
 	});
 </script>
@@ -500,7 +539,7 @@
 								class="w-full"
 								size="lg"
 								disabled={checkoutState !== 'ready' || !selectedPrice}
-								onclick={openPaddleCheckout}
+								onclick={() => void openPaddleCheckout()}
 							>
 								<LockIcon class="mr-2 size-4" />{checkoutState === 'opening'
 									? m.checkout_opening_secure()
@@ -530,3 +569,80 @@
 		{/if}
 	</div>
 </main>
+
+<Dialog.Root open={paymentDialogOpen} onOpenChange={handlePaymentDialogChange}>
+	<Dialog.Content
+		class="h-dvh max-h-dvh max-w-none gap-0 overflow-hidden rounded-none p-0 sm:h-auto sm:max-h-[min(92dvh,56rem)] sm:max-w-5xl sm:rounded-xl"
+		showCloseButton={false}
+		aria-busy={!paymentFrameLoaded}
+	>
+		<Dialog.Header class="shrink-0 border-b px-5 py-4 pr-16 sm:px-6 sm:py-5 sm:pr-16">
+			<div class="flex items-start justify-between gap-4">
+				<div class="min-w-0 space-y-1">
+					<Dialog.Title class="text-base font-semibold sm:text-lg"
+						>{m.checkout_secure()}</Dialog.Title
+					>
+					<Dialog.Description class="text-sm text-muted-foreground">
+						OpenPost {selectedPlan.name} · {m.checkout_trial()}
+					</Dialog.Description>
+				</div>
+				{#if selectedPrice}
+					<div class="shrink-0 text-right">
+						<p class="font-semibold">{selectedPrice}</p>
+						<p class="text-xs text-muted-foreground">
+							{billingPeriod === 'annual'
+								? m.checkout_billed_annually()
+								: m.checkout_billed_monthly()}
+						</p>
+					</div>
+				{/if}
+			</div>
+		</Dialog.Header>
+
+		<Button
+			variant="ghost"
+			size="icon"
+			class="absolute top-2.5 right-2.5 z-10 min-h-11 min-w-11 sm:top-3 sm:right-3"
+			onclick={closePaymentDialog}
+			aria-label={m.common_close()}
+		>
+			<XIcon class="size-5" />
+		</Button>
+
+		<div
+			class="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/25 px-0 py-3 sm:px-4 sm:py-4"
+		>
+			{#if checkoutState === 'error'}
+				<div class="mx-4 mb-3 sm:mx-0">
+					<InlineNotice tone="error" message={error} />
+				</div>
+			{/if}
+			<div
+				class="relative mx-auto min-h-[35rem] w-full max-w-4xl overflow-hidden bg-background sm:rounded-lg sm:ring-1 sm:ring-foreground/10"
+			>
+				{#if !paymentFrameLoaded}
+					<div
+						class="pointer-events-none absolute inset-0 z-10 grid content-start gap-5 bg-background p-5 sm:grid-cols-[minmax(0,0.85fr)_minmax(20rem,1.15fr)] sm:p-7"
+						role="status"
+					>
+						<span class="sr-only">{m.checkout_loading()}</span>
+						<div class="space-y-4">
+							<Skeleton class="h-28 w-full" />
+							<Skeleton class="h-36 w-full" />
+						</div>
+						<div class="space-y-4">
+							<Skeleton class="h-11 w-full" />
+							<Skeleton class="h-24 w-full" />
+							<Skeleton class="h-11 w-full" />
+							<Skeleton class="h-11 w-full" />
+						</div>
+					</div>
+				{/if}
+				<div
+					class="openpost-paddle-checkout min-h-[35rem] w-full"
+					data-testid="paddle-checkout-frame"
+				></div>
+			</div>
+		</div>
+	</Dialog.Content>
+</Dialog.Root>

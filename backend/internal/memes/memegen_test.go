@@ -536,6 +536,59 @@ func TestMemegenRenderPostsRawTextAndReturnsValidatedImage(t *testing.T) {
 	require.Equal(t, "aag", image.TemplateID)
 }
 
+func TestMemegenRenderRetriesTransientCanonicalDownload(t *testing.T) {
+	var downloads atomic.Int32
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/templates":
+			writeAAGCatalog(writer)
+		case "/images":
+			writer.Header().Set("Content-Type", "application/json")
+			writer.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(writer).Encode(map[string]string{"url": server.URL + "/result.png"})
+		case "/result.png":
+			if downloads.Add(1) == 1 {
+				writer.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			writer.Header().Set("Content-Type", "image/png")
+			_, _ = writer.Write(tinyPNG)
+		}
+	}))
+	t.Cleanup(server.Close)
+	provider := mustMemegenProvider(t, MemegenConfig{BaseURL: server.URL})
+
+	image, err := provider.Render(context.Background(), RenderRequest{TemplateID: "aag", Text: []string{"caption"}})
+	require.NoError(t, err)
+	require.Equal(t, tinyPNG, image.Data)
+	require.EqualValues(t, 2, downloads.Load())
+}
+
+func TestMemegenRenderDoesNotRetryPermanentCanonicalDownloadFailure(t *testing.T) {
+	var downloads atomic.Int32
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/templates":
+			writeAAGCatalog(writer)
+		case "/images":
+			writer.Header().Set("Content-Type", "application/json")
+			writer.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(writer).Encode(map[string]string{"url": server.URL + "/result.png"})
+		case "/result.png":
+			downloads.Add(1)
+			writer.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+	t.Cleanup(server.Close)
+	provider := mustMemegenProvider(t, MemegenConfig{BaseURL: server.URL})
+
+	_, err := provider.Render(context.Background(), RenderRequest{TemplateID: "aag", Text: []string{"caption"}})
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.EqualValues(t, 1, downloads.Load())
+}
+
 func TestMemegenRenderSerializesHTTPSOverlayReplacements(t *testing.T) {
 	overlays := []string{
 		"https://media.openpost.social/one.png?signature=first",

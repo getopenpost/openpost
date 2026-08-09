@@ -31,6 +31,8 @@ const (
 	defaultMemegenImageBytes     = 20 << 20
 	defaultMemegenMaxRedirects   = 3
 	memegenRefreshRetryDelay     = 30 * time.Second
+	memegenDownloadRetryDelay    = 150 * time.Millisecond
+	memegenDownloadAttempts      = 2
 	maxMemegenCaptionRunes       = 200
 	maxMemegenTextSegmentBytes   = 200
 	maxMemegenSearchRunes        = 120
@@ -630,6 +632,46 @@ func invalidRenderRequest() error {
 }
 
 func (p *MemegenProvider) downloadRender(ctx context.Context, renderURL *url.URL, extension string) ([]byte, string, error) {
+	var lastErr error
+	for attempt := 0; attempt < memegenDownloadAttempts; attempt++ {
+		data, mimeType, err := p.downloadRenderOnce(ctx, renderURL, extension)
+		if err == nil {
+			return data, mimeType, nil
+		}
+		lastErr = err
+		if attempt+1 >= memegenDownloadAttempts || !retryableMemegenDownload(err) {
+			break
+		}
+		timer := time.NewTimer(memegenDownloadRetryDelay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, "", providerError(ErrorKindUnavailable, "download", 0, 0, ctx.Err())
+		case <-timer.C:
+		}
+	}
+	return nil, "", lastErr
+}
+
+func retryableMemegenDownload(err error) bool {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var providerErr *ProviderError
+	if !errors.As(err, &providerErr) || providerErr.Operation != "download" || providerErr.Kind != ErrorKindUnavailable {
+		return false
+	}
+	switch providerErr.StatusCode {
+	case 0, http.StatusRequestTimeout, http.StatusTooEarly,
+		http.StatusInternalServerError, http.StatusBadGateway,
+		http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	default:
+		return false
+	}
+}
+
+func (p *MemegenProvider) downloadRenderOnce(ctx context.Context, renderURL *url.URL, extension string) ([]byte, string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, renderURL.String(), nil)
 	if err != nil {
 		return nil, "", providerError(ErrorKindUnsafeResponseURL, "download", 0, 0, nil)

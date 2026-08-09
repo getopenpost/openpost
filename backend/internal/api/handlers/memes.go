@@ -180,6 +180,7 @@ func (i mediaHandlerMemeImporter) ImportMeme(ctx context.Context, input MemeMedi
 		return models.MediaAttachment{}, false, errors.New("media handler is unavailable")
 	}
 	extension := normalizedMemeExtension(input.Extension)
+	var created models.MediaAttachment
 	result, err := i.handler.processUploadBytes(ctx, mediaUploadBytesInput{
 		WorkspaceID:      input.WorkspaceID,
 		Filename:         "meme-" + input.TemplateID + "." + extension,
@@ -191,9 +192,12 @@ func (i mediaHandlerMemeImporter) ImportMeme(ctx context.Context, input MemeMedi
 		AssetKind:        "library",
 		RetentionClass:   "library",
 		ParentMediaID:    input.ParentMediaID,
+		OnCreated: func(media models.MediaAttachment) {
+			created = media
+		},
 	})
 	if err != nil {
-		return models.MediaAttachment{}, false, err
+		return created, false, err
 	}
 	mediaID, _ := result["id"].(string)
 	deduped, _ := result["deduped"].(bool)
@@ -204,6 +208,9 @@ func (i mediaHandlerMemeImporter) ImportMeme(ctx context.Context, input MemeMedi
 	if err := i.handler.db.NewSelect().Model(&media).
 		Where("id = ? AND workspace_id = ?", mediaID, input.WorkspaceID).
 		Scan(ctx); err != nil {
+		if created.ID != "" {
+			return created, deduped, err
+		}
 		return models.MediaAttachment{}, deduped, err
 	}
 	return media, deduped, nil
@@ -213,7 +220,13 @@ func (i mediaHandlerMemeImporter) RollbackMeme(ctx context.Context, media models
 	if i.handler == nil {
 		return errors.New("media handler is unavailable")
 	}
-	return i.handler.deleteMedia(ctx, &media)
+	if err := i.handler.deleteMedia(ctx, &media); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return i.handler.deleteMediaFiles(&media)
+		}
+		return err
+	}
+	return nil
 }
 
 type MemeHandler struct {
@@ -722,6 +735,9 @@ func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*
 	})
 	releaseImport()
 	if err != nil {
+		if media.ID != "" && !deduped {
+			h.rollbackImportedMeme(ctx, media)
+		}
 		return nil, memeImportError(err)
 	}
 

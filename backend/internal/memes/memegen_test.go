@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -221,6 +222,109 @@ func TestMemegenCatalogUsesStaleCacheAndBacksOffAfterRefreshFailure(t *testing.T
 	require.EqualValues(t, 3, requests.Load())
 }
 
+func TestMemegenCatalogRefreshOutlivesCallerCancellationWithoutPoisoningCache(t *testing.T) {
+	tests := []struct {
+		name          string
+		callerContext func() (context.Context, context.CancelFunc)
+		trigger       func(context.CancelFunc)
+		expected      error
+	}{
+		{
+			name: "explicit cancellation",
+			callerContext: func() (context.Context, context.CancelFunc) {
+				return context.WithCancel(context.Background())
+			},
+			trigger:  func(cancel context.CancelFunc) { cancel() },
+			expected: context.Canceled,
+		},
+		{
+			name: "caller deadline",
+			callerContext: func() (context.Context, context.CancelFunc) {
+				return context.WithTimeout(context.Background(), 75*time.Millisecond)
+			},
+			trigger:  func(context.CancelFunc) {},
+			expected: context.DeadlineExceeded,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			started := make(chan struct{}, 1)
+			release := make(chan struct{})
+			var releaseOnce sync.Once
+			releaseUpstream := func() { releaseOnce.Do(func() { close(release) }) }
+			var requests atomic.Int32
+			var upstreamCanceled atomic.Bool
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				requests.Add(1)
+				select {
+				case started <- struct{}{}:
+				default:
+				}
+				select {
+				case <-release:
+					writeAAGCatalog(writer)
+				case <-request.Context().Done():
+					upstreamCanceled.Store(true)
+				}
+			}))
+			t.Cleanup(func() {
+				releaseUpstream()
+				server.Close()
+			})
+			provider := mustMemegenProvider(t, MemegenConfig{
+				BaseURL: server.URL, RequestTimeout: time.Second,
+			})
+
+			callerCtx, cancelCaller := test.callerContext()
+			t.Cleanup(cancelCaller)
+			firstDone := make(chan error, 1)
+			go func() {
+				_, err := provider.Templates(callerCtx)
+				firstDone <- err
+			}()
+			select {
+			case <-started:
+			case <-time.After(time.Second):
+				t.Fatal("catalog refresh did not start")
+			}
+			test.trigger(cancelCaller)
+
+			select {
+			case err := <-firstDone:
+				require.ErrorIs(t, err, ErrUnavailable)
+				require.ErrorIs(t, err, test.expected)
+			case <-time.After(2 * time.Second):
+				t.Fatal("canceled caller did not return promptly")
+			}
+
+			type catalogResult struct {
+				catalog Catalog
+				err     error
+			}
+			secondDone := make(chan catalogResult, 1)
+			go func() {
+				catalog, err := provider.Templates(context.Background())
+				secondDone <- catalogResult{catalog: catalog, err: err}
+			}()
+			releaseUpstream()
+
+			select {
+			case second := <-secondDone:
+				require.NoError(t, second.err)
+				require.Len(t, second.catalog.Templates, 1)
+			case <-time.After(2 * time.Second):
+				t.Fatal("shared catalog refresh did not complete")
+			}
+			require.EqualValues(t, 1, requests.Load())
+			require.False(t, upstreamCanceled.Load())
+			provider.cacheMu.RLock()
+			lastTryErr := provider.cache.lastTryErr
+			provider.cacheMu.RUnlock()
+			require.NoError(t, lastTryErr)
+		})
+	}
+}
+
 func TestMemegenCatalogBoundsAndMapsProviderErrors(t *testing.T) {
 	t.Run("body size", func(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
@@ -319,6 +423,72 @@ func TestMemegenCatalogHonorsProviderTimeout(t *testing.T) {
 	_, err := provider.Templates(context.Background())
 	require.ErrorIs(t, err, ErrUnavailable)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
+}
+
+func TestMemegenRenderPostHonorsRenderTimeout(t *testing.T) {
+	elapsed := make(chan time.Duration, 1)
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		switch request.URL.Path {
+		case "/templates":
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body: io.NopCloser(strings.NewReader(
+					`[{"id":"aag","name":"Ancient Aliens","lines":1,"overlays":0}]`)),
+				Request: request,
+			}, nil
+		case "/images":
+			startedAt := time.Now()
+			<-request.Context().Done()
+			elapsed <- time.Since(startedAt)
+			return nil, request.Context().Err()
+		default:
+			return nil, errors.New("unexpected Memegen test request")
+		}
+	})}
+	provider := mustMemegenProvider(t, MemegenConfig{
+		BaseURL:        "https://memegen.example",
+		Client:         client,
+		RequestTimeout: 10 * time.Millisecond,
+		RenderTimeout:  120 * time.Millisecond,
+	})
+
+	_, err := provider.Render(context.Background(), RenderRequest{TemplateID: "aag", Text: []string{"caption"}})
+	require.ErrorIs(t, err, ErrUnavailable)
+	select {
+	case duration := <-elapsed:
+		require.GreaterOrEqual(t, duration, 70*time.Millisecond)
+		require.Less(t, duration, time.Second)
+	case <-time.After(time.Second):
+		t.Fatal("render request did not observe its deadline")
+	}
+}
+
+func TestMemegenRenderPostDoesNotFollowRedirects(t *testing.T) {
+	var redirected atomic.Int32
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/templates":
+			writeAAGCatalog(writer)
+		case "/images":
+			http.Redirect(writer, request, server.URL+"/redirected", http.StatusTemporaryRedirect)
+		case "/redirected":
+			redirected.Add(1)
+			writer.Header().Set("Content-Type", "application/json")
+			writer.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(writer).Encode(map[string]string{"url": server.URL + "/result.png"})
+		case "/result.png":
+			writer.Header().Set("Content-Type", "image/png")
+			_, _ = writer.Write(tinyPNG)
+		}
+	}))
+	t.Cleanup(server.Close)
+	provider := mustMemegenProvider(t, MemegenConfig{BaseURL: server.URL})
+
+	_, err := provider.Render(context.Background(), RenderRequest{TemplateID: "aag", Text: []string{"caption"}})
+	require.ErrorIs(t, err, ErrUnavailable)
+	require.Zero(t, redirected.Load())
 }
 
 func TestMemegenRenderPostsRawTextAndReturnsValidatedImage(t *testing.T) {
@@ -577,6 +747,89 @@ func TestMemegenRenderRejectsRedirectOutsideAllowlist(t *testing.T) {
 
 	_, err := provider.Render(context.Background(), RenderRequest{TemplateID: "aag", Text: []string{"caption"}})
 	require.ErrorIs(t, err, ErrUnsafeResponseURL)
+}
+
+func TestMemegenRenderRedirectScopesAPIKeyToBaseHost(t *testing.T) {
+	provider := mustMemegenProvider(t, MemegenConfig{
+		BaseURL: "https://memegen.example", APIKey: "private-render-key",
+		AllowedRenderHosts: []string{"cdn.example"},
+	})
+	tests := []struct {
+		name        string
+		destination string
+		expectedKey string
+		expectedErr error
+	}{
+		{
+			name: "same host retains key", destination: "https://memegen.example/result.png",
+			expectedKey: "private-render-key",
+		},
+		{
+			name: "allowed cross host strips key", destination: "https://cdn.example/result.png",
+		},
+		{
+			name: "rejected cross host also strips key", destination: "https://attacker.example/result.png",
+			expectedErr: ErrUnsafeResponseURL,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			destination, err := url.Parse(test.destination)
+			require.NoError(t, err)
+			request := &http.Request{URL: destination, Header: make(http.Header)}
+			request.Header.Set("X-API-KEY", "private-render-key")
+			via := []*http.Request{{URL: provider.baseURL}}
+
+			err = provider.checkRenderRedirect(request, via)
+			if test.expectedErr == nil {
+				require.NoError(t, err)
+			} else {
+				require.ErrorIs(t, err, test.expectedErr)
+			}
+			require.Equal(t, test.expectedKey, request.Header.Get("X-API-KEY"))
+		})
+	}
+}
+
+func TestMemegenRenderDoesNotForwardAPIKeyToAllowedRedirectHost(t *testing.T) {
+	redirectedKey := make(chan string, 1)
+	cdn := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		redirectedKey <- request.Header.Get("X-API-KEY")
+		writer.Header().Set("Content-Type", "image/png")
+		_, _ = writer.Write(tinyPNG)
+	}))
+	t.Cleanup(cdn.Close)
+	cdnURL, err := url.Parse(cdn.URL)
+	require.NoError(t, err)
+
+	var server *httptest.Server
+	server = httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/templates":
+			writeAAGCatalog(writer)
+		case "/images":
+			writer.Header().Set("Content-Type", "application/json")
+			writer.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(writer).Encode(map[string]string{"url": server.URL + "/redirect"})
+		case "/redirect":
+			http.Redirect(writer, request, cdn.URL+"/result.png", http.StatusFound)
+		}
+	}))
+	t.Cleanup(server.Close)
+	provider := mustMemegenProvider(t, MemegenConfig{
+		BaseURL: server.URL, APIKey: "private-render-key", Client: server.Client(),
+		AllowedRenderHosts: []string{cdnURL.Host},
+	})
+
+	image, err := provider.Render(context.Background(), RenderRequest{TemplateID: "aag", Text: []string{"caption"}})
+	require.NoError(t, err)
+	require.Equal(t, tinyPNG, image.Data)
+	select {
+	case apiKey := <-redirectedKey:
+		require.Empty(t, apiKey)
+	case <-time.After(time.Second):
+		t.Fatal("allowed redirect host did not receive the image request")
+	}
 }
 
 func TestMemegenRenderBoundsSameOriginRedirects(t *testing.T) {

@@ -134,8 +134,10 @@ func (p *memeRollbackProbe) RollbackMeme(ctx context.Context, _ models.MediaAtta
 }
 
 type memeMemoryStorage struct {
-	mu      sync.Mutex
-	objects map[string][]byte
+	mu             sync.Mutex
+	objects        map[string][]byte
+	afterFirstSave func()
+	saveOnce       sync.Once
 }
 
 func (s *memeMemoryStorage) Driver() string { return "local" }
@@ -150,6 +152,9 @@ func (s *memeMemoryStorage) Save(id string, reader io.Reader) (string, error) {
 		s.objects = make(map[string][]byte)
 	}
 	s.objects[id] = data
+	if s.afterFirstSave != nil {
+		s.saveOnce.Do(s.afterFirstSave)
+	}
 	return id, nil
 }
 func (s *memeMemoryStorage) Delete(id string) error {
@@ -492,6 +497,52 @@ func TestMemeRenderRollsBackImportedMediaWhenRecipeInsertFails(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, response.Code, response.Body.String())
 	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("source = ?", "meme_generator").Count(t.Context())
 	require.NoError(t, err)
+	require.Zero(t, count)
+}
+
+func TestMemeRenderRollsBackMediaWhenPostInsertBookkeepingFails(t *testing.T) {
+	t.Parallel()
+
+	srv := newMemeHandlerTestServer(t, nil)
+	_, err := srv.db.Exec(`
+		CREATE TRIGGER fail_meme_usage_insert
+		BEFORE INSERT ON usage_counters
+		BEGIN
+			SELECT RAISE(FAIL, 'forced usage failure');
+		END;
+	`)
+	require.NoError(t, err)
+	response := srv.request(t, http.MethodPost, "/api/v1/memes/render", map[string]any{
+		"workspace_id": "ws-1", "template_id": "drake", "captions": []string{"one", "two"}, "format": "png",
+	})
+	require.Equal(t, http.StatusInternalServerError, response.Code, response.Body.String())
+	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("source = ?", "meme_generator").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count, "an import that fails after media insertion must not leave an attachment without a recipe")
+	srv.storage.mu.Lock()
+	remainingObjects := len(srv.storage.objects)
+	srv.storage.mu.Unlock()
+	require.Zero(t, remainingObjects, "compensation must also remove the generated image and thumbnails")
+}
+
+func TestMemeImportDeletesSavedBlobsWhenCancellationPreventsMediaInsert(t *testing.T) {
+	t.Parallel()
+
+	srv := newMemeHandlerTestServer(t, nil)
+	requestCtx, cancel := context.WithCancel(t.Context())
+	srv.storage.afterFirstSave = cancel
+	media, _, err := (mediaHandlerMemeImporter{handler: srv.mediaHandler}).ImportMeme(requestCtx, MemeMediaImport{
+		WorkspaceID: "ws-1", TemplateID: "drake", Extension: "png",
+		MIMEType: "image/png", Data: validMemePNG(t), AltText: "Test meme.",
+	})
+	require.Error(t, err)
+	require.Empty(t, media.ID)
+	srv.storage.mu.Lock()
+	remainingObjects := len(srv.storage.objects)
+	srv.storage.mu.Unlock()
+	require.Zero(t, remainingObjects, "a canceled insert must remove the saved image and thumbnails")
+	count, countErr := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("source = ?", "meme_generator").Count(t.Context())
+	require.NoError(t, countErr)
 	require.Zero(t, count)
 }
 

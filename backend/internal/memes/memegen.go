@@ -51,6 +51,12 @@ type memegenCache struct {
 	lastTryErr error
 }
 
+type memegenRefreshResult struct {
+	templates   []Template
+	refreshedAt time.Time
+	err         error
+}
+
 // MemegenProvider wraps the supported Memegen API surface. It never returns
 // the caption-bearing canonical render URL to callers.
 type MemegenProvider struct {
@@ -58,6 +64,7 @@ type MemegenProvider struct {
 	apiKey            string
 	configured        bool
 	apiClient         *http.Client
+	renderAPIClient   *http.Client
 	renderClient      *http.Client
 	requestTimeout    time.Duration
 	renderTimeout     time.Duration
@@ -107,6 +114,10 @@ func NewMemegenProvider(config MemegenConfig) (*MemegenProvider, error) {
 
 	provider.apiClient = cloneHTTPClient(config.Client, config.RequestTimeout)
 	provider.apiClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
+	provider.renderAPIClient = cloneHTTPClient(config.Client, config.RenderTimeout)
+	provider.renderAPIClient.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
 	provider.renderClient = cloneHTTPClient(config.Client, config.RenderTimeout)
@@ -215,10 +226,15 @@ func (p *MemegenProvider) Templates(ctx context.Context) (Catalog, error) {
 
 	select {
 	case p.refresh <- struct{}{}:
-		defer func() { <-p.refresh }()
 	case <-ctx.Done():
 		return Catalog{}, providerError(ErrorKindUnavailable, "catalog", 0, 0, ctx.Err())
 	}
+	releaseRefresh := true
+	defer func() {
+		if releaseRefresh {
+			<-p.refresh
+		}
+	}()
 
 	now = p.now()
 	if catalog, ok := p.cachedCatalog(now, p.cacheTTL); ok {
@@ -232,9 +248,36 @@ func (p *MemegenProvider) Templates(ctx context.Context) (Catalog, error) {
 		return Catalog{}, err
 	}
 
+	result := make(chan memegenRefreshResult, 1)
+	refreshCtx := context.WithoutCancel(ctx)
+	go p.refreshTemplates(refreshCtx, now, result)
+	releaseRefresh = false
+
+	select {
+	case <-ctx.Done():
+		return Catalog{}, providerError(ErrorKindUnavailable, "catalog", 0, 0, ctx.Err())
+	case refreshed := <-result:
+		if refreshed.err == nil {
+			return Catalog{Templates: cloneTemplates(refreshed.templates), RefreshedAt: refreshed.refreshedAt}, nil
+		}
+		if catalog, ok := p.cachedCatalog(refreshed.refreshedAt, p.staleTTL); ok {
+			catalog.Stale = true
+			return catalog, nil
+		}
+		return Catalog{}, refreshed.err
+	}
+}
+
+// refreshTemplates is owned by the provider rather than the browser request
+// that won the refresh lock. fetchTemplates still applies requestTimeout, so a
+// canceled caller can return promptly without canceling or globally poisoning
+// the one bounded refresh shared by other callers.
+func (p *MemegenProvider) refreshTemplates(ctx context.Context, attemptedAt time.Time, result chan<- memegenRefreshResult) {
+	defer func() { <-p.refresh }()
 	templates, err := p.fetchTemplates(ctx)
+
 	p.cacheMu.Lock()
-	p.cache.lastTryAt = now
+	p.cache.lastTryAt = attemptedAt
 	p.cache.lastTryErr = err
 	if err == nil {
 		byID := make(map[string]Template, len(templates))
@@ -243,21 +286,12 @@ func (p *MemegenProvider) Templates(ctx context.Context) (Catalog, error) {
 		}
 		p.cache.templates = cloneTemplates(templates)
 		p.cache.byID = byID
-		p.cache.fetchedAt = now
+		p.cache.fetchedAt = attemptedAt
 		p.cache.lastTryErr = nil
 	}
 	p.cacheMu.Unlock()
-	if err == nil {
-		return Catalog{Templates: cloneTemplates(templates), RefreshedAt: now}, nil
-	}
-	if ctx.Err() != nil {
-		return Catalog{}, err
-	}
-	if catalog, ok := p.cachedCatalog(now, p.staleTTL); ok {
-		catalog.Stale = true
-		return catalog, nil
-	}
-	return Catalog{}, err
+
+	result <- memegenRefreshResult{templates: templates, refreshedAt: attemptedAt, err: err}
 }
 
 func (p *MemegenProvider) TemplateImage(ctx context.Context, templateID string) (RenderedImage, error) {
@@ -418,7 +452,7 @@ func (p *MemegenProvider) Render(ctx context.Context, request RenderRequest) (Re
 	}
 	p.setAPIHeaders(req, "application/json")
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := p.apiClient.Do(req)
+	resp, err := p.renderAPIClient.Do(req)
 	if err != nil {
 		return RenderedImage{}, p.requestFailure(requestCtx, "render", err)
 	}
@@ -636,6 +670,9 @@ func (p *MemegenProvider) downloadRender(ctx context.Context, renderURL *url.URL
 }
 
 func (p *MemegenProvider) checkRenderRedirect(req *http.Request, via []*http.Request) error {
+	if p.baseURL == nil || !strings.EqualFold(req.URL.Host, p.baseURL.Host) {
+		req.Header.Del("X-API-KEY")
+	}
 	if len(via) >= p.maxRedirects {
 		return ErrUnsafeResponseURL
 	}

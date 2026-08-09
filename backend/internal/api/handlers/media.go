@@ -84,6 +84,10 @@ type mediaUploadBytesInput struct {
 	DesignPageID     string
 	VideoProjectID   string
 	StockProvenance  *videoproject.StockMediaProvenance
+	// OnCreated runs synchronously after a new media row is inserted and
+	// before later bookkeeping can fail. Callers that require compensation can
+	// retain the immutable attachment without changing existing call sites.
+	OnCreated func(models.MediaAttachment)
 }
 
 type mediaUploadInspection struct {
@@ -3365,7 +3369,13 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 				return mediaUploadMap(existing, true), nil
 			}
 		}
+		if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
+			log.Printf("failed to delete media files after record insertion failure for %s: %v", media.ID, deleteErr)
+		}
 		return nil, errors.New("failed to save media record")
+	}
+	if input.OnCreated != nil {
+		input.OnCreated(*media)
 	}
 	if err := h.addMediaTag(ctx, input.TagID, media.ID); err != nil {
 		_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)

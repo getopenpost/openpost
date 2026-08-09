@@ -133,7 +133,7 @@ This is external processing: the thumbnail and any relevant segment text leave t
 
 ## Meme generator
 
-The meme generator is off by default. When enabled, OpenPost loads Memegen's template catalog on the server, validates template IDs and caption counts, asks Memegen to render bounded image data, and immediately saves the chosen result in the workspace Media library. OpenPost saves an immutable recipe with captions, overlay media IDs, output format, catalog revision, and a safe template source link when one is available. Editing a saved meme creates a new linked media item; existing posts keep their original file.
+The meme generator is off by default. When enabled, OpenPost loads Memegen's template catalog on the server, validates template IDs and caption counts, asks Memegen to render bounded image data, and immediately saves the chosen result in the workspace Media library. OpenPost saves an immutable recipe with captions, overlay media IDs, output format, catalog revision, and a safe template source link when one is available.
 
 Manual template search, caption editing, preview, and rendering need only Memegen. AI suggestions also need `OPENROUTER_API_KEY`: OpenPost sends the idea and a bounded template shortlist to the configured model, validates its structured response, and leaves every caption editable before rendering. It does not send the full template catalog or save the original idea in the recipe.
 

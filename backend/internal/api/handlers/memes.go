@@ -33,6 +33,8 @@ import (
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/uptrace/bun"
+
+	// Register WebP decoding for bounded image-dimension validation.
 	_ "golang.org/x/image/webp"
 )
 
@@ -655,6 +657,7 @@ func (h *MemeHandler) getTemplateThumbnail(
 	return memeThumbnailOutput(entry), nil
 }
 
+//nolint:gocyclo // Keep authorization, admission, provider validation, and response shaping explicit at the API boundary.
 func (h *MemeHandler) generateSuggestions(ctx context.Context, input *GenerateMemeSuggestionsInput) (*GenerateMemeSuggestionsOutput, error) {
 	if err := h.requireWorkspaceAccess(ctx, input.Body.WorkspaceID, true); err != nil {
 		return nil, err
@@ -747,6 +750,7 @@ func (h *MemeHandler) previewMeme(ctx context.Context, input *PreviewMemeInput) 
 	return output, nil
 }
 
+//nolint:gocyclo // The save, recipe, and compensation branches stay together so partial success is handled in one place.
 func (h *MemeHandler) renderMeme(ctx context.Context, input *RenderMemeInput) (*RenderMemeOutput, error) {
 	if err := h.requireWorkspaceAccess(ctx, input.Body.WorkspaceID, true); err != nil {
 		return nil, err
@@ -950,6 +954,7 @@ func (h *MemeHandler) loadTemplate(ctx context.Context, templateID string) (meme
 	return memes.Catalog{}, memes.Template{}, huma.Error404NotFound("meme template not found")
 }
 
+//nolint:gocyclo // Each media safety bound is intentionally checked before issuing any public URL to the renderer.
 func (h *MemeHandler) resolveOverlayURLs(ctx context.Context, workspaceID string, mediaIDs []string) ([]string, error) {
 	if len(mediaIDs) == 0 {
 		return nil, nil
@@ -1066,7 +1071,7 @@ func memeSuggestionSearchQueries(idea string) []string {
 	}
 	add(idea)
 	for _, field := range strings.FieldsFunc(idea, func(current rune) bool {
-		return !(unicode.IsLetter(current) || unicode.IsNumber(current))
+		return !unicode.IsLetter(current) && !unicode.IsNumber(current)
 	}) {
 		if utf8.RuneCountInString(field) >= 3 {
 			add(field)

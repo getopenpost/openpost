@@ -69,7 +69,7 @@ func enrichTemplate(template Template) promptTemplate {
 		}
 	}
 
-	guidance := "Use each caption slot in the template's visual reading order."
+	var guidance string
 	switch template.LineCount {
 	case 1:
 		guidance = "Use one compact reaction, label, or punchline that works with the named visual."

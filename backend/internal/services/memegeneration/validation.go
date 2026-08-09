@@ -22,6 +22,7 @@ type normalizedInput struct {
 	Templates      []Template
 }
 
+//nolint:gocyclo // Strict boundary validation keeps every untrusted prompt field independently bounded.
 func normalizeInput(input Input) (normalizedInput, error) {
 	idea, err := normalizeInputText(input.Idea, MaxIdeaCharacters, true)
 	if err != nil || idea == "" {
@@ -86,6 +87,7 @@ func normalizeInput(input Input) (normalizedInput, error) {
 	}, nil
 }
 
+//nolint:gocyclo // Template metadata has independent structural and text bounds by design.
 func normalizeTemplate(input Template) (Template, error) {
 	id := strings.TrimSpace(input.ID)
 	if utf8.RuneCountInString(id) == 0 || utf8.RuneCountInString(id) > MaxTemplateIDCharacters || !templateIDPattern.MatchString(id) {
@@ -168,6 +170,7 @@ type providerResponse struct {
 	Candidates []Candidate `json:"candidates"`
 }
 
+//nolint:gocyclo // Provider JSON is validated field-by-field before any candidate reaches rendering.
 func parseAndValidateResponse(value string, input normalizedInput) ([]Candidate, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, invalidResponse("provider returned an empty response")

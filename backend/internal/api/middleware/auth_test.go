@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
@@ -36,11 +38,42 @@ func (f *fakeAuthenticator) AuthenticateBearer(_ context.Context, token string) 
 	return f.principal, f.err
 }
 
+type requestContextAuthenticator struct{}
+
+func (requestContextAuthenticator) AuthenticateBearer(ctx context.Context, _ string) (*Principal, error) {
+	return nil, ctx.Err()
+}
+
 func newEchoAuthed(auth Authenticator) *echo.Echo {
 	e := echo.New()
 	e.GET("/x", func(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	}, BearerMiddleware(auth))
+	return e
+}
+
+type humaAuthTestInput struct{}
+
+type humaAuthTestOutput struct {
+	Body struct {
+		OK bool `json:"ok"`
+	}
+}
+
+func newHumaAuthed(authenticator Authenticator, called *bool) *echo.Echo {
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	huma.Register(api, huma.Operation{
+		OperationID: "middleware-auth-test",
+		Method:      http.MethodGet,
+		Path:        "/auth-test",
+		Middlewares: huma.Middlewares{AuthMiddleware(api, authenticator)},
+	}, func(context.Context, *humaAuthTestInput) (*humaAuthTestOutput, error) {
+		*called = true
+		output := &humaAuthTestOutput{}
+		output.Body.OK = true
+		return output, nil
+	})
 	return e
 }
 
@@ -108,6 +141,87 @@ func TestBearerMiddleware_InvalidToken_Returns401(t *testing.T) {
 	}
 }
 
+func TestBearerMiddlewareCanceledRequestDoesNotReturnInvalidToken(t *testing.T) {
+	e := newEchoAuthed(requestContextAuthenticator{})
+	requestContext, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequestWithContext(requestContext, http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer op_cli_valid")
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	require.Empty(t, rec.Body.String())
+	require.NotContains(t, rec.Body.String(), "invalid or expired token")
+}
+
+func TestBearerMiddlewareAuthenticationTimeoutReturns503(t *testing.T) {
+	e := newEchoAuthed(&fakeAuthenticator{err: context.DeadlineExceeded})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/x", nil)
+	req.Header.Set("Authorization", "Bearer op_cli_valid")
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.Contains(t, rec.Body.String(), "authentication is temporarily unavailable")
+	require.NotContains(t, rec.Body.String(), "invalid or expired token")
+}
+
+func TestAuthMiddlewareCanceledSessionDoesNotReturnInvalidToken(t *testing.T) {
+	authService := auth.NewService("test-secret")
+	token, err := authService.GenerateTokenWithSession(
+		"user-1",
+		"user@example.com",
+		"session-1",
+		time.Now().UTC().Add(time.Hour),
+	)
+	require.NoError(t, err)
+
+	called := false
+	e := newHumaAuthed(NewJWTAuthenticatorWithSessions(authService, canceledSessionValidator{}), &called)
+	requestContext, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequestWithContext(requestContext, http.MethodGet, "/api/v1/auth-test", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	require.False(t, called)
+	require.Empty(t, rec.Body.String())
+	require.NotContains(t, rec.Body.String(), "invalid or expired token")
+}
+
+func TestAuthMiddlewareAuthenticationTimeoutReturns503(t *testing.T) {
+	called := false
+	e := newHumaAuthed(&fakeAuthenticator{err: context.DeadlineExceeded}, &called)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth-test", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "valid-looking-token"})
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	require.False(t, called)
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code)
+	require.Contains(t, rec.Body.String(), "authentication is temporarily unavailable")
+	require.NotContains(t, rec.Body.String(), "invalid or expired token")
+}
+
+func TestAuthMiddlewareInvalidTokenStillReturns401(t *testing.T) {
+	called := false
+	e := newHumaAuthed(&fakeAuthenticator{err: errors.New("invalid token")}, &called)
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/auth-test", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "invalid-token"})
+	rec := httptest.NewRecorder()
+
+	e.ServeHTTP(rec, req)
+
+	require.False(t, called)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	require.Contains(t, rec.Body.String(), "invalid or expired token")
+}
+
 func TestBearerMiddlewareRejectsMCPResourceToken(t *testing.T) {
 	auth := &fakeAuthenticator{principal: &Principal{
 		UserID:   "u",
@@ -149,6 +263,12 @@ type rejectingAuthenticator struct{}
 
 func (rejectingAuthenticator) AuthenticateBearer(_ context.Context, _ string) (*Principal, error) {
 	return nil, errors.New("invalid jwt")
+}
+
+type canceledSessionValidator struct{}
+
+func (canceledSessionValidator) ValidateSession(ctx context.Context, _, _ string) (*models.UserSession, error) {
+	return nil, ctx.Err()
 }
 
 func TestCompositeServicePreservesAPITokenScope(t *testing.T) {

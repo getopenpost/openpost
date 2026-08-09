@@ -158,6 +158,13 @@ func AuthMiddleware(api huma.API, authenticator Authenticator) func(ctx huma.Con
 		}
 		principal, err := authenticator.AuthenticateBearer(ctx.Context(), token)
 		if err != nil {
+			if ctx.Context().Err() != nil {
+				return
+			}
+			if isAuthenticationUnavailable(err) {
+				_ = huma.WriteErr(api, ctx, http.StatusServiceUnavailable, "authentication is temporarily unavailable")
+				return
+			}
 			_ = huma.WriteErr(api, ctx, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
@@ -398,6 +405,12 @@ func BearerMiddleware(authenticator Authenticator) echo.MiddlewareFunc {
 
 			principal, err := authenticator.AuthenticateBearer(c.Request().Context(), token)
 			if err != nil {
+				if c.Request().Context().Err() != nil {
+					return nil
+				}
+				if isAuthenticationUnavailable(err) {
+					return c.JSON(http.StatusServiceUnavailable, map[string]string{string(errorKey): "authentication is temporarily unavailable"})
+				}
 				return c.JSON(http.StatusUnauthorized, map[string]string{string(errorKey): "invalid or expired token"})
 			}
 			if !principalCanAccessREST(principal) {
@@ -425,6 +438,10 @@ func BearerMiddleware(authenticator Authenticator) echo.MiddlewareFunc {
 			return next(c)
 		}
 	}
+}
+
+func isAuthenticationUnavailable(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func requestAuthToken(authHeader, cookieHeader string) (string, bool) {

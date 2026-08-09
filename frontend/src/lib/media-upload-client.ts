@@ -20,7 +20,8 @@ export interface UploadMediaFileOptions {
 		| 'background_removal'
 		| 'video_editor_source'
 		| 'video_editor_export'
-		| 'stock_import';
+		| 'stock_import'
+		| 'meme_generator';
 	assetKind?: 'library' | 'brand_asset' | 'brand_font' | 'design_preview' | 'template_preview';
 	retentionClass?: 'library' | 'temporary';
 	tagId?: string;

@@ -10,11 +10,15 @@
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MediaTagFilter from '$lib/components/media-tag-filter.svelte';
 	import MediaAcquisitionPanel from './media-acquisition-panel.svelte';
+	import MemeGenerator from './meme-generator.svelte';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import type { MediaUploadResult } from '$lib/media-upload-client';
 	import { listImageEditorMedia } from '$lib/image-editor/api';
 	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
 	import { listMediaTags, type MediaTag } from '$lib/media-tags';
+	import { getLocaleTag } from '$lib/i18n';
+	import { listMemeTemplates } from '$lib/meme-generator/api';
+	import type { MemeOverlaySelection, MemeRenderResult } from '$lib/meme-generator/types';
 	import SearchIcon from 'lucide-svelte/icons/search';
 	import UploadIcon from 'lucide-svelte/icons/upload';
 	import CameraIcon from 'lucide-svelte/icons/camera';
@@ -23,6 +27,7 @@
 	import VideoIcon from 'lucide-svelte/icons/video';
 	import FileAudioIcon from 'lucide-svelte/icons/file-audio';
 	import PaletteIcon from 'lucide-svelte/icons/palette';
+	import LaughIcon from 'lucide-svelte/icons/laugh';
 	import CheckIcon from 'lucide-svelte/icons/check';
 	import LoaderIcon from 'lucide-svelte/icons/loader-2';
 	import { m } from '$lib/paraglide/messages';
@@ -38,6 +43,7 @@
 		title = m.media_picker_add_media(),
 		purpose = 'media_library',
 		showCreate = true,
+		enableMeme = false,
 		desktopSize = 'default',
 		presentation = 'dialog',
 		initialMode = 'library',
@@ -58,9 +64,10 @@
 		title?: string;
 		purpose?: string;
 		showCreate?: boolean;
+		enableMeme?: boolean;
 		desktopSize?: 'default' | 'compact';
 		presentation?: 'dialog' | 'sheet';
-		initialMode?: 'library' | 'upload' | 'stock';
+		initialMode?: 'library' | 'upload' | 'stock' | 'meme';
 		initialFiles?: File[];
 		autoConfirmUploads?: boolean;
 		videoConstraints?: VideoConstraint[];
@@ -77,7 +84,19 @@
 	let actionLoading = $state(false);
 	let error = $state('');
 	let loadedForWorkspace = $state('');
-	let pickerMode = $state<'library' | 'device' | 'camera' | 'stock'>('library');
+	let pickerMode = $state<'library' | 'device' | 'camera' | 'stock' | 'meme'>('library');
+	let overlayPickerOpen = $state(false);
+	let overlayPickerLoading = $state(false);
+	let overlayPickerError = $state('');
+	let overlayUploadOpen = $state(false);
+	let overlaySearch = $state('');
+	let overlayMedia = $state.raw<ImageEditorMediaItem[]>([]);
+	let overlayCurrentID = $state('');
+	let resolveOverlaySelection: ((selection: MemeOverlaySelection | null) => void) | undefined;
+	let memeAvailability = $state<'idle' | 'checking' | 'available' | 'unavailable' | 'degraded'>(
+		'idle'
+	);
+	let memeAvailabilityController: AbortController | undefined;
 	let tags = $state<MediaTag[]>([]);
 	let selectedTagIDs = $state.raw<string[]>([]);
 	let showUntagged = $state(false);
@@ -85,6 +104,17 @@
 	let sort = $state<'newest' | 'oldest' | 'name' | 'size' | 'recently_used'>('newest');
 	const canUseCamera = $derived(mimeTypeAllowed('image'));
 	const canUseStock = $derived(mimeTypeAllowed('image') || mimeTypeAllowed('video'));
+	const canProbeMeme = $derived(enableMeme && mimeTypeAllowed('image'));
+	const canUseMeme = $derived(
+		canProbeMeme && (memeAvailability === 'available' || memeAvailability === 'degraded')
+	);
+	const filteredOverlayMedia = $derived.by(() => {
+		const query = overlaySearch.trim().toLocaleLowerCase();
+		if (!query) return overlayMedia;
+		return overlayMedia.filter((item) =>
+			`${item.original_filename} ${item.alt_text}`.toLocaleLowerCase().includes(query)
+		);
+	});
 	const typeFilters = $derived(
 		[
 			{ value: 'image' as const, label: m.media_images(), allowed: mimeTypeAllowed('image') },
@@ -101,23 +131,66 @@
 				: m.media_empty_library_body()
 	);
 
-	function initializePicker() {
+	function initializePicker(): () => void {
 		untrack(() => {
 			selectedIDs = [...currentSelection];
 			error = '';
-			pickerMode =
+			const requestedMode =
 				initialFiles.length > 0 ? 'device' : initialMode === 'upload' ? 'device' : initialMode;
+			pickerMode = requestedMode === 'meme' && !canUseMeme ? 'library' : requestedMode;
 			if (loadedForWorkspace !== workspaceId) {
 				selectedTagIDs = [];
 				showUntagged = false;
 				mediaType = 'all';
 			}
 			void Promise.all([loadMedia(), loadTags()]);
+			void probeMemeAvailability();
 		});
+		return cancelMemeAvailabilityProbe;
 	}
 
 	function handleOpenChange(nextOpen: boolean): void {
-		if (nextOpen) initializePicker();
+		if (nextOpen) {
+			initializePicker();
+			return;
+		}
+		cancelMemeAvailabilityProbe();
+		if (resolveOverlaySelection) settleOverlayPicker(null);
+	}
+
+	async function probeMemeAvailability(): Promise<void> {
+		cancelMemeAvailabilityProbe();
+		if (!canProbeMeme || !workspaceId) {
+			memeAvailability = 'unavailable';
+			if (pickerMode === 'meme') pickerMode = 'library';
+			return;
+		}
+
+		if (memeAvailability !== 'available' && memeAvailability !== 'degraded') {
+			memeAvailability = 'checking';
+		}
+		const controller = new AbortController();
+		memeAvailabilityController = controller;
+		try {
+			const result = await listMemeTemplates({
+				workspaceId,
+				limit: 1,
+				signal: controller.signal
+			});
+			if (controller.signal.aborted || memeAvailabilityController !== controller) return;
+			memeAvailability = result.configured ? 'available' : 'unavailable';
+			if (!result.configured && pickerMode === 'meme') pickerMode = 'library';
+		} catch {
+			if (controller.signal.aborted || memeAvailabilityController !== controller) return;
+			memeAvailability = 'degraded';
+		} finally {
+			if (memeAvailabilityController === controller) memeAvailabilityController = undefined;
+		}
+	}
+
+	function cancelMemeAvailabilityProbe(): void {
+		memeAvailabilityController?.abort();
+		memeAvailabilityController = undefined;
 	}
 
 	async function loadTags(): Promise<void> {
@@ -256,6 +329,134 @@
 		return;
 	}
 
+	function memeMediaItem(result: MemeRenderResult['media']): ImageEditorMediaItem {
+		return {
+			id: result.id,
+			workspace_id: workspaceId,
+			mime_type: result.mime_type,
+			size: result.size,
+			original_filename: result.original_filename,
+			width: 0,
+			height: 0,
+			alt_text: result.alt_text,
+			is_favorite: false,
+			created_at: new Date().toISOString(),
+			url: result.url,
+			thumbnail_url: result.url,
+			usage_count: 0,
+			can_delete: true,
+			processing_status: result.processing_status,
+			processing_progress: result.processing_progress,
+			analysis_status: result.analysis_status,
+			analysis_error: result.analysis_error,
+			poster_thumbnail_url: result.poster_thumbnail_url,
+			duration_ms: 0,
+			frame_rate: 0,
+			source: result.source,
+			asset_kind: result.asset_kind,
+			parent_media_id: result.parent_media_id,
+			design_document_id: result.design_document_id,
+			design_page_id: result.design_page_id,
+			tags: []
+		};
+	}
+
+	async function handleMemeAttached(result: MemeRenderResult): Promise<void> {
+		const generated = memeMediaItem(result.media);
+		const nextIDs = multiple
+			? [...new Set([...selectedIDs, generated.id])].slice(0, maxSelection)
+			: [generated.id];
+		const selectedMedia = nextIDs
+			.map((id) => (id === generated.id ? generated : media.find((item) => item.id === id)))
+			.filter((item): item is ImageEditorMediaItem => Boolean(item));
+		await onConfirm(nextIDs, selectedMedia);
+		selectedIDs = nextIDs;
+		open = false;
+		void Promise.all([loadMedia(), loadTags()]);
+	}
+
+	async function pickMemeOverlay(
+		_index: number,
+		current: MemeOverlaySelection | null
+	): Promise<MemeOverlaySelection | null> {
+		if (resolveOverlaySelection) settleOverlayPicker(null);
+		overlayCurrentID = current?.media_id ?? '';
+		overlaySearch = '';
+		overlayPickerError = '';
+		overlayUploadOpen = false;
+		overlayPickerOpen = true;
+		const selection = new Promise<MemeOverlaySelection | null>((resolveSelection) => {
+			resolveOverlaySelection = resolveSelection;
+		});
+		void loadOverlayMedia();
+		return selection;
+	}
+
+	async function loadOverlayMedia(): Promise<void> {
+		overlayPickerLoading = true;
+		overlayPickerError = '';
+		try {
+			overlayMedia = (
+				await listImageEditorMedia(workspaceId, '', 'image', {
+					sort: 'recently_used'
+				})
+			).filter((item) => item.processing_status === 'ready' && item.analysis_status !== 'failed');
+		} catch (cause) {
+			overlayPickerError = cause instanceof Error ? cause.message : m.media_picker_load_failed();
+		} finally {
+			overlayPickerLoading = false;
+		}
+	}
+
+	function showOverlayUpload(): void {
+		overlayPickerError = '';
+		overlayUploadOpen = true;
+	}
+
+	function showOverlayLibrary(): void {
+		overlayUploadOpen = false;
+		void loadOverlayMedia();
+	}
+
+	async function handleOverlayUploaded(results: MediaUploadResult[]): Promise<void> {
+		const uploaded = results.at(-1);
+		if (!uploaded) return;
+		settleOverlaySelection({
+			media_id: uploaded.id,
+			preview_url: getAuthenticatedMediaURL(uploaded.url),
+			name: uploaded.original_filename
+		});
+		void Promise.all([loadMedia(), loadTags()]);
+	}
+
+	function settleOverlayPicker(item: ImageEditorMediaItem | null): void {
+		settleOverlaySelection(
+			item
+				? {
+						media_id: item.id,
+						preview_url: getAuthenticatedMediaURL(item.thumbnail_url || item.url),
+						name: item.original_filename
+					}
+				: null
+		);
+	}
+
+	function settleOverlaySelection(selection: MemeOverlaySelection | null): void {
+		const resolveSelection = resolveOverlaySelection;
+		resolveOverlaySelection = undefined;
+		overlayUploadOpen = false;
+		overlayPickerOpen = false;
+		resolveSelection?.(selection);
+	}
+
+	function handleOverlayPickerOpenChange(nextOpen: boolean): void {
+		if (nextOpen) {
+			overlayPickerOpen = true;
+			return;
+		}
+		settleOverlayPicker(null);
+	}
+
 	async function createDesign(): Promise<void> {
 		actionLoading = true;
 		error = '';
@@ -351,6 +552,20 @@
 			>
 				<ImageIcon />
 				{m.video_editor_stock()}
+			</Button>
+		{/if}
+		{#if canUseMeme}
+			<Button
+				variant={pickerMode === 'meme' ? 'secondary' : 'ghost'}
+				size="sm"
+				class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
+				role="tab"
+				aria-selected={pickerMode === 'meme'}
+				disabled={actionLoading || selectedIDs.length >= maxSelection}
+				onclick={() => (pickerMode = 'meme')}
+			>
+				<LaughIcon />
+				{m.media_picker_meme()}
 			</Button>
 		{/if}
 		{#if showCreate}
@@ -542,6 +757,15 @@
 				{m.media_picker_add_media()}
 			</Button>
 		</div>
+	{:else if pickerMode === 'meme'}
+		<div class="min-h-0 flex-1 overflow-y-auto p-4 sm:p-5">
+			<MemeGenerator
+				{workspaceId}
+				language={getLocaleTag()}
+				onPickOverlay={pickMemeOverlay}
+				onAttach={handleMemeAttached}
+			/>
+		</div>
 	{:else}
 		<div
 			class="min-h-0 flex-1 overflow-y-auto bg-gradient-to-b from-muted/5 to-transparent p-4 sm:p-5"
@@ -604,3 +828,102 @@
 		</Dialog.Content>
 	</Dialog.Root>
 {/if}
+
+<Dialog.Root bind:open={overlayPickerOpen} onOpenChange={handleOverlayPickerOpenChange}>
+	<Dialog.Content class="flex max-h-[min(42rem,calc(100dvh-2rem))] max-w-2xl flex-col gap-0 p-0">
+		<Dialog.Header class="border-b px-4 py-3 pr-14 text-left">
+			<Dialog.Title>{m.meme_generator_image_slots_heading()}</Dialog.Title>
+			<Dialog.Description>{m.meme_generator_choose_overlay_description()}</Dialog.Description>
+		</Dialog.Header>
+		<div class="min-h-0 flex-1 overflow-y-auto p-4">
+			{#if !overlayUploadOpen && overlayPickerError}
+				<div
+					class="mb-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+					role="alert"
+				>
+					{overlayPickerError}
+				</div>
+			{/if}
+			{#if overlayUploadOpen}
+				<MediaAcquisitionPanel
+					mode="device"
+					{workspaceId}
+					accept={['image/*']}
+					maxFiles={1}
+					retentionClass="library"
+					onUploaded={handleOverlayUploaded}
+				/>
+			{:else}
+				<div class="relative mb-3">
+					<SearchIcon
+						class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+					/>
+					<Input
+						bind:value={overlaySearch}
+						class="pl-9"
+						placeholder={m.media_picker_search()}
+						aria-label={m.media_picker_search()}
+					/>
+				</div>
+				{#if overlayPickerLoading}
+					<div class="flex min-h-48 items-center justify-center text-sm text-muted-foreground">
+						<LoaderIcon class="mr-2 size-5 animate-spin motion-reduce:animate-none" />
+						{m.media_picker_loading()}
+					</div>
+				{:else if filteredOverlayMedia.length === 0}
+					<div
+						class="flex min-h-48 flex-col items-center justify-center rounded-xl border border-dashed px-4 text-center"
+					>
+						<ImageIcon class="mb-3 size-8 text-muted-foreground" />
+						<p class="font-medium">{m.media_picker_no_match()}</p>
+						<p class="mt-1 text-sm text-muted-foreground">
+							{m.meme_generator_overlay_empty()}
+						</p>
+						<Button class="mt-4" variant="outline" onclick={showOverlayUpload}>
+							<UploadIcon />
+							{m.media_upload_device()}
+						</Button>
+					</div>
+				{:else}
+					<div class="grid grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2">
+						{#each filteredOverlayMedia as item (item.id)}
+							<Button
+								variant="ghost"
+								class="group relative aspect-square h-auto min-w-0 overflow-hidden rounded-lg border bg-muted p-0 {overlayCurrentID ===
+								item.id
+									? 'ring-2 ring-primary'
+									: ''}"
+								onclick={() => settleOverlayPicker(item)}
+								aria-label={m.media_picker_select_item({ name: item.original_filename })}
+							>
+								<img
+									src={getAuthenticatedMediaURL(item.thumbnail_url || item.url)}
+									alt={item.alt_text || item.original_filename}
+									class="size-full object-cover transition-transform group-hover:scale-[1.02]"
+									loading="lazy"
+								/>
+								{#if overlayCurrentID === item.id}
+									<span
+										class="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
+									>
+										<CheckIcon class="size-4" />
+									</span>
+								{/if}
+							</Button>
+						{/each}
+					</div>
+				{/if}
+			{/if}
+		</div>
+		<Dialog.Footer class="flex-row justify-between border-t px-4 py-3 sm:justify-between">
+			<Button
+				variant="outline"
+				onclick={overlayUploadOpen ? showOverlayLibrary : showOverlayUpload}
+			>
+				{#if overlayUploadOpen}<LibraryIcon />{:else}<UploadIcon />{/if}
+				{overlayUploadOpen ? m.media_picker_library() : m.media_upload_device()}
+			</Button>
+			<Button variant="ghost" onclick={() => settleOverlayPicker(null)}>{m.common_cancel()}</Button>
+		</Dialog.Footer>
+	</Dialog.Content>
+</Dialog.Root>

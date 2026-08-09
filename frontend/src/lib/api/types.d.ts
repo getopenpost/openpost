@@ -2037,6 +2037,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/memes/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render a meme preview without saving it */
+        post: operations["preview-meme"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memes/recipes/{media_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the immutable recipe for a generated meme */
+        get: operations["get-meme-recipe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memes/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render and save a meme */
+        post: operations["render-meme"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memes/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Generate meme template and caption suggestions */
+        post: operations["generate-meme-suggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memes/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List and search meme templates */
+        get: operations["list-meme-templates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/memes/templates/{template_id}/thumbnail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Load a proxied meme template thumbnail
+         * @description Returns a bounded OpenPost-proxied image so private Memegen hosts and server-only provider credentials are never exposed to the browser.
+         */
+        get: operations["get-meme-template-thumbnail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/messages": {
         parameters: {
             query?: never;
@@ -4568,7 +4673,7 @@ export interface components {
              * @description Media provenance
              * @enum {string}
              */
-            source?: "upload" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import";
+            source?: "upload" | "camera" | "image_editor_export" | "image_editor_edit" | "background_removal" | "video_editor_source" | "video_editor_export" | "stock_import" | "meme_generator";
             /** @description License and creator provenance for a selected stock asset */
             stock_provenance?: components["schemas"]["StockMediaProvenance"];
             /** @description Optional tag to assign to this upload */
@@ -5449,6 +5554,42 @@ export interface components {
             /** @description Model that generated the alternative text; empty when existing text was returned */
             model: string;
         };
+        GenerateMemeSuggestionsInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GenerateMemeSuggestionsInputBody.json
+             */
+            readonly $schema?: string;
+            /**
+             * Format: int64
+             * @description Number of distinct suggestions
+             * @default 3
+             */
+            count: number;
+            /** @description Topic or situation for the meme */
+            idea: string;
+            /** @description BCP 47 language tag; defaults to English */
+            language?: string;
+            /**
+             * @description Requested humor tone; defaults to witty
+             * @enum {string}
+             */
+            tone?: "witty" | "balanced" | "dry" | "sarcastic" | "playful";
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        GenerateMemeSuggestionsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GenerateMemeSuggestionsOutputBody.json
+             */
+            readonly $schema?: string;
+            candidates: components["schemas"]["MemeSuggestionCandidate"][] | null;
+            catalog_revision: string;
+            model: string;
+        };
         "Get-running-versionResponse": {
             /**
              * Format: uri
@@ -5530,6 +5671,18 @@ export interface components {
             count: number;
             /** @description Posts using this media */
             usage: components["schemas"]["MediaUsageItem"][] | null;
+        };
+        GetMemeTemplateThumbnailOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/GetMemeTemplateThumbnailOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Base64-encoded template thumbnail bytes */
+            data_base64: string;
+            mime_type: string;
+            template_id: string;
         };
         GetPromptCategoriesOutputBody: {
             /**
@@ -6327,6 +6480,20 @@ export interface components {
             can_edit: boolean;
             tags: components["schemas"]["MediaTagResponse"][] | null;
         };
+        ListMemeTemplatesOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListMemeTemplatesOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Whether AI meme suggestions are configured */
+            ai_configured: boolean;
+            catalog: components["schemas"]["MemeCatalogMetadata"];
+            /** @description Whether a meme renderer is configured */
+            configured: boolean;
+            templates: components["schemas"]["Template"][] | null;
+        };
         ListPublicImageEditorTemplatesOutputBody: {
             /**
              * Format: uri
@@ -6688,6 +6855,74 @@ export interface components {
             scheduled_at?: string;
             /** @description Post or design status */
             status?: string;
+        };
+        MemeCatalogMetadata: {
+            /** @description Configured meme renderer key */
+            provider_key?: string;
+            /** @description Time the provider catalog was refreshed */
+            refreshed_at?: string;
+            /**
+             * Format: int64
+             * @description Templates returned by this request
+             */
+            returned: number;
+            /** @description Stable digest of the normalized catalog snapshot */
+            revision?: string;
+            /** @description Whether a stale cached catalog is being served */
+            stale: boolean;
+            /**
+             * Format: int64
+             * @description Templates in the full cached catalog
+             */
+            total_templates: number;
+        };
+        MemeRecipeDocument: {
+            alt_text?: string;
+            captions: string[] | null;
+            catalog_revision: string;
+            format: string;
+            overlay_media_ids?: string[] | null;
+            parent_media_id?: string;
+            rendered_mime_type: string;
+            renderer_key: string;
+            /** Format: int64 */
+            schema_version: number;
+            template: components["schemas"]["MemeRecipeTemplateSnapshot"];
+        };
+        MemeRecipeResponse: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/MemeRecipeResponse.json
+             */
+            readonly $schema?: string;
+            catalog_revision?: string;
+            created_at: string;
+            created_by_id: string;
+            kind: string;
+            media_id: string;
+            recipe: components["schemas"]["MemeRecipeDocument"];
+            renderer_key: string;
+            template_id: string;
+            template_name: string;
+            template_source_url?: string;
+            workspace_id: string;
+        };
+        MemeRecipeTemplateSnapshot: {
+            id: string;
+            /** Format: int64 */
+            lines: number;
+            name: string;
+            /** Format: int64 */
+            overlays: number;
+            source_url?: string;
+        };
+        MemeSuggestionCandidate: {
+            alt_text: string;
+            caption_lines: string[] | null;
+            rationale: string;
+            template: components["schemas"]["Template"];
+            template_id: string;
         };
         MessageOutputBody: {
             /**
@@ -7367,6 +7602,40 @@ export interface components {
                 [key: string]: components["schemas"]["ChannelPreference"];
             };
         };
+        PreviewMemeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PreviewMemeInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Caption values in template order */
+            captions: string[] | null;
+            /**
+             * @description Rendered image format
+             * @default png
+             * @enum {string}
+             */
+            format: "png" | "jpg" | "jpeg" | "gif" | "webp";
+            /** @description Workspace media IDs for replaceable image slots */
+            overlay_media_ids?: string[] | null;
+            /** @description Memegen template ID */
+            template_id: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        PreviewMemeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PreviewMemeOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Base64-encoded rendered image bytes */
+            data_base64: string;
+            mime_type: string;
+            template_id: string;
+        };
         PrimarySequenceClip: {
             audio: components["schemas"]["ClipAudioSettings"];
             /** Format: int64 */
@@ -7970,6 +8239,42 @@ export interface components {
             current_password: string;
             /** @description One-time action-bound reauthentication grant */
             reauth_grant?: string;
+        };
+        RenderMemeInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RenderMemeInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Alternative text saved with the media */
+            alt_text?: string;
+            /** @description Caption values in template order */
+            captions: string[] | null;
+            /**
+             * @description Rendered image format
+             * @default png
+             * @enum {string}
+             */
+            format: "png" | "jpg" | "jpeg" | "gif" | "webp";
+            /** @description Workspace media IDs for replaceable image slots */
+            overlay_media_ids?: string[] | null;
+            /** @description Prior generated media when this is an edited version */
+            parent_media_id?: string;
+            /** @description Memegen template ID */
+            template_id: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        RenderMemeOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RenderMemeOutputBody.json
+             */
+            readonly $schema?: string;
+            media: components["schemas"]["MediaUploadResult"];
+            recipe: components["schemas"]["MemeRecipeResponse"];
         };
         RenditionInput: {
             /** @description Platform-specific body */
@@ -8964,6 +9269,25 @@ export interface components {
             published: number;
             reach: components["schemas"]["MetricSummary"];
             views: components["schemas"]["MetricSummary"];
+        };
+        Template: {
+            animated: boolean;
+            blank_url: string;
+            example: components["schemas"]["TemplateExample"];
+            id: string;
+            keywords: string[] | null;
+            /** Format: int64 */
+            lines: number;
+            name: string;
+            /** Format: int64 */
+            overlays: number;
+            search_terms: string[] | null;
+            source_url: string;
+            styles: string[] | null;
+        };
+        TemplateExample: {
+            text: string[] | null;
+            url: string;
         };
         TextPostPublicationInput: {
             /** @description Target audience */
@@ -17226,6 +17550,572 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "preview-meme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreviewMemeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewMemeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-meme-recipe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Generated media ID */
+                media_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemeRecipeResponse"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "render-meme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenderMemeInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RenderMemeOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "generate-meme-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GenerateMemeSuggestionsInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GenerateMemeSuggestionsOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Request Entity Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-meme-templates": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+                /** @description Template name, keyword, or example text */
+                q?: string;
+                /** @description Maximum templates to return */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListMemeTemplatesOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-meme-template-thumbnail": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+            };
+            header?: never;
+            path: {
+                /** @description Memegen template ID */
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GetMemeTemplateThumbnailOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

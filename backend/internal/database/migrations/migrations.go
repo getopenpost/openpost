@@ -6,6 +6,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
 	"path"
 	"regexp"
 	"sort"
@@ -31,6 +32,10 @@ type SchemaMigration struct {
 // RunMigrations executes all pending migrations in order.
 // Migration files must be named like: 001_description.sql, 002_description.sql, etc.
 func RunMigrations(db *bun.DB) error {
+	return runMigrations(db, migrationFiles)
+}
+
+func runMigrations(db *bun.DB, source fs.FS) error {
 	ctx := context.Background()
 
 	// Ensure migrations table exists
@@ -49,7 +54,7 @@ func RunMigrations(db *bun.DB) error {
 	}
 
 	// Read embedded migration files
-	entries, err := migrationFiles.ReadDir(".")
+	entries, err := fs.ReadDir(source, ".")
 	if err != nil {
 		return fmt.Errorf("failed to read migration files: %w", err)
 	}
@@ -63,7 +68,7 @@ func RunMigrations(db *bun.DB) error {
 		if err != nil {
 			return fmt.Errorf("invalid migration filename %q: %w", entry.Name(), err)
 		}
-		content, err := migrationFiles.ReadFile(entry.Name())
+		content, err := fs.ReadFile(source, entry.Name())
 		if err != nil {
 			return fmt.Errorf("failed to read migration %q: %w", entry.Name(), err)
 		}
@@ -77,6 +82,9 @@ func RunMigrations(db *bun.DB) error {
 	sort.Slice(migrations, func(i, j int) bool {
 		return migrations[i].version < migrations[j].version
 	})
+	if err := repairMigrationHistoryCollisions(ctx, db, appliedSet, migrations); err != nil {
+		return fmt.Errorf("migration history compatibility repair failed: %w", err)
+	}
 
 	// Run pending migrations inside transactions
 	for _, m := range migrations {
@@ -94,6 +102,70 @@ func RunMigrations(db *bun.DB) error {
 	}
 
 	return finalizeMigrations(ctx, db, appliedSet)
+}
+
+func repairMigrationHistoryCollisions(
+	ctx context.Context,
+	db *bun.DB,
+	appliedSet map[int64]bool,
+	migrations []migration,
+) error {
+	if !appliedSet[74] || !hasMigration(migrations, 74, "074_rendition_media_deliveries.sql") {
+		return nil
+	}
+
+	recipesExist, err := migrationTableExists(ctx, db, "media_generation_recipes")
+	if err != nil || !recipesExist {
+		return err
+	}
+	legacyProviderStatesExist, err := migrationTableExists(ctx, db, "provider_media_states")
+	if err != nil || !legacyProviderStatesExist {
+		return err
+	}
+	for _, table := range []string{
+		"post_media_deliveries",
+		"rendition_media_deliveries",
+		"rendition_media_delivery_relations",
+	} {
+		exists, tableErr := migrationTableExists(ctx, db, table)
+		if tableErr != nil {
+			return tableErr
+		}
+		if exists {
+			return nil
+		}
+	}
+
+	// A short-lived development build assigned 074 to media generation recipes.
+	// Current releases use 074 for rendition media deliveries and 077 for the
+	// recipe table. Remove only the colliding history row so the normal,
+	// transactional migration loop replays the real 074 while preserving the
+	// already-created recipe table and its data.
+	result, err := db.NewDelete().
+		Model((*SchemaMigration)(nil)).
+		Where("version = ?", 74).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("reset colliding migration 074: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("check colliding migration 074 reset: %w", err)
+	}
+	if rowsAffected != 1 {
+		return fmt.Errorf("reset colliding migration 074: expected one history row, removed %d", rowsAffected)
+	}
+	delete(appliedSet, 74)
+	return nil
+}
+
+func hasMigration(migrations []migration, version int64, name string) bool {
+	for _, item := range migrations {
+		if item.version == version && item.name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func finalizeMigrations(ctx context.Context, db *bun.DB, appliedSet map[int64]bool) error {

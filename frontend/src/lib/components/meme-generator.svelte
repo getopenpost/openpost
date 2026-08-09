@@ -44,9 +44,9 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	const MAX_TEMPLATE_LIMIT = 250;
 	const MAX_CACHED_THUMBNAILS = 32;
 	const MAX_CONCURRENT_THUMBNAILS = 2;
-	const MAX_CONCURRENT_CANDIDATE_PREVIEWS = 1;
 	const PREVIEW_DEBOUNCE_MS = 320;
 	const SUGGESTION_COUNT = 4;
+	type CandidatePreviewState = 'idle' | 'queued' | 'loading' | 'ready' | 'failed';
 
 	interface Props {
 		workspaceId: string;
@@ -93,7 +93,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	let hasRequestedSuggestions = $state(false);
 	let suggestionsError = $state('');
 	let candidatePreviews = $state.raw<Record<string, string>>({});
-	let candidatePreviewFailures = $state.raw<Record<string, true>>({});
+	let candidatePreviewStates = $state.raw<Record<string, CandidatePreviewState>>({});
 	let templateThumbnails = $state.raw<Record<string, string>>({});
 	let templateThumbnailFailures = $state.raw<Record<string, true>>({});
 	let thumbnailOrder: string[] = [];
@@ -246,6 +246,38 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 
 	function candidateKey(candidate: MemeSuggestionCandidate): string {
 		return `${candidate.template_id}:${candidate.caption_lines.join('\u001f')}`;
+	}
+
+	function candidatePreviewState(candidate: MemeSuggestionCandidate): CandidatePreviewState {
+		const key = candidateKey(candidate);
+		if (candidatePreviews[key]) return 'ready';
+		return candidatePreviewStates[key] ?? 'idle';
+	}
+
+	function setCandidatePreviewState(
+		candidateOrKey: MemeSuggestionCandidate | string,
+		state: CandidatePreviewState
+	): void {
+		const key = typeof candidateOrKey === 'string' ? candidateOrKey : candidateKey(candidateOrKey);
+		candidatePreviewStates = { ...candidatePreviewStates, [key]: state };
+	}
+
+	function resetInterruptedCandidatePreviews(): void {
+		let changed = false;
+		const nextStates = { ...candidatePreviewStates };
+		for (const [key, state] of Object.entries(nextStates)) {
+			if (state !== 'queued' && state !== 'loading') continue;
+			nextStates[key] = 'idle';
+			changed = true;
+		}
+		if (changed) candidatePreviewStates = nextStates;
+	}
+
+	function cancelCandidatePreviewLoads(): void {
+		const controller = candidatePreviewController;
+		candidatePreviewController = null;
+		controller?.abort();
+		resetInterruptedCandidatePreviews();
 	}
 
 	function templateForCandidate(candidate: MemeSuggestionCandidate): MemeTemplate | null {
@@ -402,14 +434,14 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 			return;
 		}
 		suggestionController?.abort();
-		candidatePreviewController?.abort();
+		cancelCandidatePreviewLoads();
 		const controller = new AbortController();
 		suggestionController = controller;
 		suggestionsLoading = true;
 		hasRequestedSuggestions = true;
 		suggestionsError = '';
 		candidatePreviews = {};
-		candidatePreviewFailures = {};
+		candidatePreviewStates = {};
 		try {
 			const result = await api.suggest({
 				workspaceId,
@@ -437,14 +469,19 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	}
 
 	async function loadSuggestionPreviews(candidates: MemeSuggestionCandidate[]): Promise<void> {
-		candidatePreviewController?.abort();
+		cancelCandidatePreviewLoads();
 		const controller = new AbortController();
 		candidatePreviewController = controller;
-		let candidateIndex = 0;
-		async function worker(): Promise<void> {
-			while (!controller.signal.aborted && candidateIndex < candidates.length) {
-				const candidate = candidates[candidateIndex++];
+		candidatePreviewStates = Object.fromEntries(
+			candidates.map((candidate) => [candidateKey(candidate), 'queued' as const])
+		);
+		try {
+			// Keep speculative rendering deliberately serial. Hosted renderers can be rate-limited,
+			// and selecting a candidate must be able to take over the single preview slot immediately.
+			for (const candidate of candidates) {
+				if (controller.signal.aborted) break;
 				const key = candidateKey(candidate);
+				setCandidatePreviewState(key, 'loading');
 				try {
 					const result = await api.preview({
 						workspaceId,
@@ -454,24 +491,72 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 						format: 'webp',
 						signal: controller.signal
 					});
-					if (!controller.signal.aborted) {
+					if (!controller.signal.aborted && candidatePreviewController === controller) {
 						candidatePreviews = {
 							...candidatePreviews,
 							[key]: memePreviewDataURL(result)
 						};
+						setCandidatePreviewState(key, 'ready');
 					}
 				} catch (cause) {
-					if (!controller.signal.aborted && !isAbortError(cause)) {
-						candidatePreviewFailures = { ...candidatePreviewFailures, [key]: true };
+					if (controller.signal.aborted || isAbortError(cause)) break;
+					if (candidatePreviewController === controller) {
+						setCandidatePreviewState(key, 'failed');
 					}
 				}
 			}
+		} finally {
+			if (candidatePreviewController === controller) {
+				candidatePreviewController = null;
+				resetInterruptedCandidatePreviews();
+			}
 		}
-		await Promise.all(
-			Array.from({ length: Math.min(MAX_CONCURRENT_CANDIDATE_PREVIEWS, candidates.length) }, () =>
-				worker()
-			)
-		);
+	}
+
+	async function loadCandidatePreview(candidate: MemeSuggestionCandidate): Promise<void> {
+		const template = templateForCandidate(candidate);
+		if (!template) {
+			setCandidatePreviewState(candidate, 'failed');
+			return;
+		}
+		cancelCandidatePreviewLoads();
+		const controller = new AbortController();
+		candidatePreviewController = controller;
+		const key = candidateKey(candidate);
+		setCandidatePreviewState(key, 'loading');
+		try {
+			const result = await api.preview({
+				workspaceId,
+				templateId: candidate.template_id,
+				captions: candidate.caption_lines,
+				overlayMediaIds: [],
+				format: 'webp',
+				signal: controller.signal
+			});
+			if (controller.signal.aborted || candidatePreviewController !== controller) return;
+			const preview = memePreviewDataURL(result);
+			candidatePreviews = { ...candidatePreviews, [key]: preview };
+			setCandidatePreviewState(key, 'ready');
+			if (candidateMatchesCurrentRecipe(candidate)) {
+				if (previewTimer) {
+					clearTimeout(previewTimer);
+					previewTimer = undefined;
+				}
+				previewController?.abort();
+				previewSequence += 1;
+				selectedPreview = preview;
+				previewedRevision = recipeRevision;
+				previewLoading = false;
+				previewError = '';
+			}
+		} catch (cause) {
+			if (controller.signal.aborted || isAbortError(cause)) return;
+			if (candidatePreviewController === controller) {
+				setCandidatePreviewState(key, 'failed');
+			}
+		} finally {
+			if (candidatePreviewController === controller) candidatePreviewController = null;
+		}
 	}
 
 	function normalizedCaptions(template: MemeTemplate, values: string[]): string[] {
@@ -479,7 +564,27 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		return Array.from({ length: lineCount }, (_, index) => values[index] ?? '');
 	}
 
+	function candidateMatchesCurrentRecipe(candidate: MemeSuggestionCandidate): boolean {
+		const template = templateForCandidate(candidate);
+		if (!template || selectedCandidate !== candidate || overlayMediaIDs().length > 0) return false;
+		const expectedCaptions = normalizedCaptions(template, candidate.caption_lines);
+		return (
+			captions.length === expectedCaptions.length &&
+			captions.every((caption, index) => caption === expectedCaptions[index])
+		);
+	}
+
+	function releaseSelectedCandidatePreview(): void {
+		if (!selectedCandidate) return;
+		const key = candidateKey(selectedCandidate);
+		if (!candidatePreviews[key] && candidatePreviewStates[key] === 'loading') {
+			setCandidatePreviewState(key, 'idle');
+		}
+	}
+
 	function selectTemplate(template: MemeTemplate, event?: MouseEvent): void {
+		releaseSelectedCandidatePreview();
+		cancelCandidatePreviewLoads();
 		selectRecipe(
 			template,
 			normalizedCaptions(template, template.example?.text ?? []),
@@ -494,8 +599,8 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 			suggestionsError = m.meme_generator_templates_failed();
 			return;
 		}
-		candidatePreviewController?.abort();
-		candidatePreviewController = null;
+		releaseSelectedCandidatePreview();
+		cancelCandidatePreviewLoads();
 		selectRecipe(
 			template,
 			normalizedCaptions(template, candidate.caption_lines),
@@ -527,6 +632,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		selectedPreview = candidatePreview || templateThumbnails[template.id] || '';
 		previewedRevision = candidatePreview ? recipeRevision : -1;
 		previewLoading = false;
+		if (candidate && !candidatePreview) setCandidatePreviewState(candidate, 'loading');
 		queueTemplateThumbnail(template.id);
 		previewError = '';
 		editorError = '';
@@ -544,6 +650,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		captions = captions.map((caption, candidateIndex) =>
 			candidateIndex === index ? target.value : caption
 		);
+		releaseSelectedCandidatePreview();
 		selectedCandidate = null;
 		pendingAttachment = null;
 		recipeRevision += 1;
@@ -584,6 +691,11 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		previewController = controller;
 		const sequence = ++previewSequence;
 		const revision = recipeRevision;
+		const previewCandidate =
+			selectedCandidate && candidateMatchesCurrentRecipe(selectedCandidate)
+				? selectedCandidate
+				: null;
+		const previewCandidateKey = previewCandidate ? candidateKey(previewCandidate) : '';
 		previewLoading = true;
 		previewError = '';
 		try {
@@ -604,10 +716,18 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 			}
 			selectedPreview = memePreviewDataURL(result);
 			previewedRevision = revision;
+			if (previewCandidateKey) {
+				candidatePreviews = {
+					...candidatePreviews,
+					[previewCandidateKey]: selectedPreview
+				};
+				setCandidatePreviewState(previewCandidateKey, 'ready');
+			}
 		} catch (cause) {
 			if (isAbortError(cause)) return;
 			if (sequence === previewSequence) {
 				previewError = cause instanceof Error ? cause.message : m.meme_generator_preview_failed();
+				if (previewCandidateKey) setCandidatePreviewState(previewCandidateKey, 'failed');
 			}
 		} finally {
 			if (sequence === previewSequence) previewLoading = false;
@@ -624,6 +744,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		try {
 			const selection = await onPickOverlay(index, overlaySelections[index] ?? null);
 			if (!selection) return;
+			releaseSelectedCandidatePreview();
 			overlaySelections = overlaySelections.map((current, candidateIndex) =>
 				candidateIndex === index ? selection : current
 			);
@@ -638,6 +759,7 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	}
 
 	function removeOverlay(index: number): void {
+		releaseSelectedCandidatePreview();
 		overlaySelections = overlaySelections.map((selection, candidateIndex) =>
 			candidateIndex >= index ? null : selection
 		);
@@ -816,61 +938,91 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 							<div class="candidate-grid">
 								{#each suggestions as candidate (candidateKey(candidate))}
 									{@const template = templateForCandidate(candidate)}
+									{@const previewState = candidatePreviewState(candidate)}
 									{#if template}
-										<Button
-											variant="ghost"
-											class="candidate-choice relative h-auto min-w-0 items-stretch justify-start overflow-hidden rounded-lg border p-2 text-left whitespace-normal md:h-auto {selectedTemplateID ===
+										<div
+											class="candidate-choice relative min-w-0 overflow-hidden rounded-lg border {selectedTemplateID ===
 												template.id && selectedCandidate === candidate
 												? 'border-primary bg-primary/6 ring-2 ring-primary/20'
 												: 'border-border bg-card hover:border-primary/45 hover:bg-muted/35'}"
-											onclick={(event) => selectCandidate(candidate, event)}
-											aria-pressed={selectedTemplateID === template.id &&
-												selectedCandidate === candidate}
-											aria-label={m.meme_generator_candidate_select({ name: template.name })}
 										>
-											<span class="block w-full">
-												<span
-													class="relative block aspect-[4/3] overflow-hidden rounded-md bg-muted"
-												>
-													{#if candidatePreviews[candidateKey(candidate)]}
-														<img
-															src={candidatePreviews[candidateKey(candidate)]}
-															alt=""
-															aria-hidden="true"
-															class="size-full object-contain"
-															loading="lazy"
-															decoding="async"
-														/>
-													{:else if candidatePreviewFailures[candidateKey(candidate)]}
-														<span
-															class="grid size-full place-items-center gap-1 text-xs text-muted-foreground"
-														>
-															<ImageIcon class="size-5" />
-															{m.media_preview_unavailable()}
-														</span>
-													{:else}
-														<Skeleton class="size-full" />
-													{/if}
-													{#if selectedTemplateID === template.id && selectedCandidate === candidate}
-														<span
-															class="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
-														>
-															<CheckIcon class="size-4" />
-															<span class="sr-only">{m.meme_generator_selected()}</span>
-														</span>
-													{/if}
+											<Button
+												variant="ghost"
+												class="h-auto w-full min-w-0 items-stretch justify-start rounded-none p-2 text-left whitespace-normal md:h-auto"
+												onclick={(event) => selectCandidate(candidate, event)}
+												aria-pressed={selectedTemplateID === template.id &&
+													selectedCandidate === candidate}
+												aria-label={m.meme_generator_candidate_select({ name: template.name })}
+											>
+												<span class="block w-full">
+													<span
+														class="relative block aspect-[4/3] overflow-hidden rounded-md bg-muted"
+													>
+														{#if candidatePreviews[candidateKey(candidate)]}
+															<img
+																src={candidatePreviews[candidateKey(candidate)]}
+																alt=""
+																aria-hidden="true"
+																class="size-full object-contain"
+																loading="lazy"
+																decoding="async"
+															/>
+														{:else if previewState === 'failed'}
+															<span
+																class="grid size-full place-items-center gap-1 px-3 text-center text-xs leading-4 text-muted-foreground"
+															>
+																<ImageIcon class="size-5" />
+																{m.meme_generator_candidate_preview_failed()}
+															</span>
+														{:else if previewState === 'queued' || previewState === 'loading'}
+															<Skeleton class="size-full" />
+															<span class="sr-only"
+																>{m.meme_generator_candidate_preview_loading()}</span
+															>
+														{:else}
+															<span
+																class="grid size-full place-items-center gap-1 px-3 text-center text-xs leading-4 text-muted-foreground"
+															>
+																<ImageIcon class="size-5" />
+																{m.meme_generator_candidate_preview_not_loaded()}
+															</span>
+														{/if}
+														{#if selectedTemplateID === template.id && selectedCandidate === candidate}
+															<span
+																class="absolute top-2 right-2 grid size-7 place-items-center rounded-full bg-primary text-primary-foreground"
+															>
+																<CheckIcon class="size-4" />
+																<span class="sr-only">{m.meme_generator_selected()}</span>
+															</span>
+														{/if}
+													</span>
+													<span class="mt-2 block truncate text-sm font-semibold"
+														>{template.name}</span
+													>
+													<span
+														class="mt-0.5 line-clamp-2 block text-xs leading-4 text-muted-foreground"
+													>
+														{candidate.rationale ||
+															candidate.caption_lines.filter(Boolean).join(' · ')}
+													</span>
 												</span>
-												<span class="mt-2 block truncate text-sm font-semibold"
-													>{template.name}</span
-												>
-												<span
-													class="mt-0.5 line-clamp-2 block text-xs leading-4 text-muted-foreground"
-												>
-													{candidate.rationale ||
-														candidate.caption_lines.filter(Boolean).join(' · ')}
-												</span>
-											</span>
-										</Button>
+											</Button>
+											{#if previewState === 'idle' || previewState === 'failed'}
+												<div class="border-t border-border p-1.5">
+													<Button
+														variant="ghost"
+														size="xs"
+														class="w-full"
+														onclick={() => void loadCandidatePreview(candidate)}
+													>
+														<RefreshIcon />
+														{previewState === 'failed'
+															? m.meme_generator_candidate_preview_retry()
+															: m.meme_generator_candidate_preview_load()}
+													</Button>
+												</div>
+											{/if}
+										</div>
 									{/if}
 								{/each}
 							</div>

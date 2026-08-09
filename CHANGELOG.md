@@ -17,6 +17,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- Kept AI meme suggestion previews recoverable when hosted rendering is slow or interrupted, retried one safe transient image download, and stopped canceled requests from appearing as expired sessions.
 - Made Starter, Founder, Pro, Team, and Agency selectable for monthly or annual billing across public pricing cards and comparisons, with plan-specific guidance and verified registration links at desktop and 320 px widths.
 - Made draft navigation reuse prefetched canonical publication and composer data, removed legacy and duplicate capability request waterfalls, bounded publication detail queries across destinations, stopped duplicate shell and Posts page loads, and kept the planner sidebar stable during background autosave refreshes.
 

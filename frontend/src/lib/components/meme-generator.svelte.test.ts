@@ -52,6 +52,11 @@ vi.mock('$lib/paraglide/messages', () => ({
 							'The meme was saved in Media, but it could not be attached. Try attaching it again.',
 						meme_generator_attach_retry: 'Try attaching again',
 						meme_generator_selected: 'Selected',
+						meme_generator_candidate_preview_loading: 'Loading preview',
+						meme_generator_candidate_preview_not_loaded: 'Preview not loaded',
+						meme_generator_candidate_preview_failed: 'Preview could not load',
+						meme_generator_candidate_preview_load: 'Load preview',
+						meme_generator_candidate_preview_retry: 'Try preview again',
 						meme_generator_preview_loading: 'Updating preview…',
 						meme_generator_caption_too_long:
 							'Shorten this caption. Some punctuation and emoji count as more than one character in Memegen.',
@@ -366,6 +371,97 @@ describe('MemeGenerator', () => {
 		const templateBox = templateButton.element().getBoundingClientRect();
 		expect(templateBox.width).toBeGreaterThan(160);
 		expect(templateBox.height).toBeGreaterThan(150);
+	});
+
+	it('recovers failed and canceled candidate previews without leaving cards pending', async () => {
+		await page.viewport(1280, 900);
+		const candidateTemplates = [
+			makeTemplate('first', 'First Template'),
+			makeTemplate('second', 'Second Template'),
+			makeTemplate('third', 'Third Template'),
+			makeTemplate('fourth', 'Fourth Template')
+		];
+		const candidates = candidateTemplates.map((candidateTemplate, index) => ({
+			template_id: candidateTemplate.id,
+			caption_lines: [`setup ${index + 1}`, `punchline ${index + 1}`],
+			alt_text: `${candidateTemplate.name} meme.`,
+			rationale: `Direction ${index + 1}`,
+			template: candidateTemplate
+		}));
+		const canceledBackgroundPreview = deferred<MemePreviewResult>();
+		const preview = vi
+			.fn()
+			.mockResolvedValueOnce(previewResult(candidates[0].caption_lines, 'first'))
+			.mockResolvedValueOnce(previewResult(candidates[1].caption_lines, 'second'))
+			.mockRejectedValueOnce(new Error('Temporary renderer failure'))
+			.mockImplementationOnce(({ signal }: { signal?: AbortSignal }) => {
+				signal?.addEventListener(
+					'abort',
+					() =>
+						canceledBackgroundPreview.reject(
+							new DOMException('Preview request canceled', 'AbortError')
+						),
+					{ once: true }
+				);
+				return canceledBackgroundPreview.promise;
+			})
+			.mockResolvedValueOnce(previewResult(candidates[3].caption_lines, 'fourth'))
+			.mockResolvedValueOnce(previewResult(candidates[2].caption_lines, 'third'));
+		const api = mockAPI({
+			suggest: vi.fn().mockResolvedValue({ candidates }),
+			preview
+		});
+		const screen = await render(MemeGenerator, {
+			props: { workspaceId: 'workspace-1', api, onAttach: vi.fn() }
+		});
+
+		await screen.getByLabelText('What should the meme say?').fill('Four preview states');
+		await screen.getByRole('button', { name: 'Generate ideas' }).click();
+		await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(4));
+
+		const firstCandidate = screen.getByRole('button', { name: 'Use First Template suggestion' });
+		const secondCandidate = screen.getByRole('button', {
+			name: 'Use Second Template suggestion'
+		});
+		await vi.waitFor(() => {
+			expect(firstCandidate.element().querySelector('img')).not.toBeNull();
+			expect(secondCandidate.element().querySelector('img')).not.toBeNull();
+		});
+		await expect.element(screen.getByText('Preview could not load')).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Try preview again' })).toBeVisible();
+		expect(screen.container.textContent).not.toContain('Preview pending');
+
+		await screen.getByRole('button', { name: 'Use Fourth Template suggestion' }).click();
+		await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(5));
+		expect(preview.mock.calls[3][0].signal?.aborted).toBe(true);
+		expect(preview.mock.calls[4][0]).toEqual(
+			expect.objectContaining({ templateId: 'fourth', captions: candidates[3].caption_lines })
+		);
+		await expect.element(screen.getByRole('button', { name: 'Render and attach' })).toBeEnabled();
+		await vi.waitFor(() =>
+			expect(
+				screen
+					.getByRole('button', { name: 'Use Fourth Template suggestion' })
+					.element()
+					.querySelector('img')
+			).not.toBeNull()
+		);
+
+		await screen.getByRole('button', { name: 'Try preview again' }).click();
+		await vi.waitFor(() => expect(preview).toHaveBeenCalledTimes(6));
+		expect(preview.mock.calls[5][0]).toEqual(
+			expect.objectContaining({ templateId: 'third', captions: candidates[2].caption_lines })
+		);
+		await vi.waitFor(() =>
+			expect(
+				screen
+					.getByRole('button', { name: 'Use Third Template suggestion' })
+					.element()
+					.querySelector('img')
+			).not.toBeNull()
+		);
+		await expect.element(screen.getByRole('button', { name: 'Render and attach' })).toBeEnabled();
+		expect(screen.container.textContent).not.toContain('Preview pending');
 	});
 
 	it('keeps an AI-only template editable after the candidate copy changes', async () => {

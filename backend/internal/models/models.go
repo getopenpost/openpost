@@ -1316,6 +1316,25 @@ type MediaAttachment struct {
 	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
+// MediaGenerationRecipe keeps the structured inputs used to create a media
+// attachment. Generated media stays immutable: editing a recipe creates a new
+// attachment and recipe, while ParentMediaID links it to the prior result.
+type MediaGenerationRecipe struct {
+	bun.BaseModel `bun:"table:media_generation_recipes"`
+
+	MediaID           string    `bun:"media_id,pk" json:"media_id"`
+	WorkspaceID       string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	CreatedByID       string    `bun:"created_by_id,nullzero" json:"created_by_id,omitempty"`
+	Kind              string    `bun:",notnull" json:"kind"`
+	RendererKey       string    `bun:"renderer_key,notnull" json:"renderer_key"`
+	TemplateID        string    `bun:"template_id,notnull" json:"template_id"`
+	TemplateName      string    `bun:"template_name,notnull,default:''" json:"template_name"`
+	TemplateSourceURL string    `bun:"template_source_url,notnull,default:''" json:"template_source_url,omitempty"`
+	CatalogRevision   string    `bun:"catalog_revision,notnull,default:''" json:"catalog_revision,omitempty"`
+	RecipeJSON        string    `bun:"recipe_json,notnull" json:"recipe_json"`
+	CreatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 // DesignDocument is the persisted Image Editor document head. Its pages are stored
 // separately so saving or loading a large multi-page design remains bounded.
 type DesignDocument struct {

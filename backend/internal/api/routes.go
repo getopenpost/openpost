@@ -7,6 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/handlers"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/memes"
 	"github.com/openpost/backend/internal/platform"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	"github.com/openpost/backend/internal/services/apitokens"
@@ -25,6 +26,7 @@ import (
 	"github.com/openpost/backend/internal/services/mcpoauth"
 	"github.com/openpost/backend/internal/services/mediasigner"
 	"github.com/openpost/backend/internal/services/mediastore"
+	"github.com/openpost/backend/internal/services/memegeneration"
 	"github.com/openpost/backend/internal/services/mfa"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/passwordmail"
@@ -48,6 +50,8 @@ type RouteDeps struct {
 	MediaStorage                 mediastore.BlobStorage
 	MediaSigner                  *mediasigner.Signer
 	ImageCaptioner               imagecaption.Captioner
+	MemeProvider                 memes.Provider
+	MemeSuggester                memegeneration.Suggester
 	PublicMediaVerifier          *publicurl.MediaVerifier
 	Entitlement                  entitlements.Service
 	TokenEncryptor               *servicecrypto.TokenEncryptor
@@ -105,6 +109,14 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	mediaHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	mediaHandler.RegisterRoutes(api)
 	mediaHandler.RegisterImageCaptionRoutes(api, deps.ImageCaptioner)
+	handlers.NewMemeHandler(
+		deps.DB,
+		deps.Authenticator,
+		mediaHandler,
+		deps.PublicMediaVerifier,
+		deps.MemeProvider,
+		deps.MemeSuggester,
+	).RegisterRoutes(api)
 	handlers.NewImageEditorHandler(
 		deps.DB,
 		deps.Authenticator,

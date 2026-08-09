@@ -42,6 +42,10 @@ type Config struct {
 	SupportEmail            string
 	OpenRouterAPIKey        string
 	ImageCaptionModel       string
+	MemeGeneratorEnabled    bool
+	MemegenBaseURL          string
+	MemegenAPIKey           string
+	MemeGenerationModel     string
 	ImageEditorEnabled      bool
 	ImageEditorModelBaseURL string
 	VideoModelBaseURL       string
@@ -186,6 +190,10 @@ func Load() *Config {
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
 		OpenRouterAPIKey:        strings.TrimSpace(getEnvDefault("OPENROUTER_API_KEY", "")),
 		ImageCaptionModel:       strings.TrimSpace(getEnvDefault("OPENPOST_IMAGE_CAPTION_MODEL", "openai/gpt-5.6-luna")),
+		MemeGeneratorEnabled:    getEnvBoolWithAliases(false, "OPENPOST_MEME_GENERATOR_ENABLED"),
+		MemegenBaseURL:          strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_MEMEGEN_URL", "https://api.memegen.link")), "/"),
+		MemegenAPIKey:           strings.TrimSpace(getEnvDefault("OPENPOST_MEMEGEN_API_KEY", "")),
+		MemeGenerationModel:     strings.TrimSpace(getEnvDefault("OPENPOST_MEME_GENERATION_MODEL", "openai/gpt-5.6-luna")),
 		ImageEditorEnabled: getEnvBoolWithAliases(
 			true,
 			"OPENPOST_IMAGE_EDITOR_ENABLED",

@@ -25,6 +25,7 @@ import (
 	apimiddleware "github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/config"
 	"github.com/openpost/backend/internal/database"
+	"github.com/openpost/backend/internal/memes"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/queue"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
@@ -45,6 +46,7 @@ import (
 	"github.com/openpost/backend/internal/services/mediaanalysis"
 	"github.com/openpost/backend/internal/services/mediasigner"
 	"github.com/openpost/backend/internal/services/mediastore"
+	"github.com/openpost/backend/internal/services/memegeneration"
 	"github.com/openpost/backend/internal/services/mfa"
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/passwordmail"
@@ -357,21 +359,45 @@ func main() {
 	mediaHandler.SetVideoProcessor(videoProcessingService)
 	profileHandler := handlers.NewProfileHandler(db, authenticator, storage)
 
-	var imageCaptioner imagecaption.Captioner
+	var generator ai.Generator
 	if cfg.OpenRouterAPIKey != "" {
-		generator, generatorErr := ai.NewOpenRouter(ai.OpenRouterConfig{
+		generator, err = ai.NewOpenRouter(ai.OpenRouterConfig{
 			APIKey:      cfg.OpenRouterAPIKey,
 			HTTPReferer: cfg.PublicURL,
 			XTitle:      "OpenPost",
 		})
-		if generatorErr != nil {
-			log.Fatalf("failed to initialize OpenRouter: %v", generatorErr)
+		if err != nil {
+			log.Fatalf("failed to initialize OpenRouter: %v", err)
 		}
+	}
+
+	var imageCaptioner imagecaption.Captioner
+	if generator != nil {
 		imageCaptioner, err = imagecaption.New(generator, cfg.ImageCaptionModel)
 		if err != nil {
 			log.Fatalf("failed to initialize automatic image captioning: %v", err)
 		}
 		log.Printf("Automatic image captioning enabled with model %s", cfg.ImageCaptionModel)
+	}
+
+	var memeProvider memes.Provider
+	var memeSuggester memegeneration.Suggester
+	if cfg.MemeGeneratorEnabled {
+		memeProvider, err = memes.NewMemegenProvider(memes.MemegenConfig{
+			BaseURL: cfg.MemegenBaseURL,
+			APIKey:  cfg.MemegenAPIKey,
+		})
+		if err != nil {
+			log.Fatalf("failed to initialize Memegen: %v", err)
+		}
+		if generator != nil {
+			memeSuggester, err = memegeneration.New(generator, cfg.MemeGenerationModel)
+			if err != nil {
+				log.Fatalf("failed to initialize AI meme suggestions: %v", err)
+			}
+			log.Printf("AI meme suggestions enabled with model %s", cfg.MemeGenerationModel)
+		}
+		log.Printf("Meme generator enabled with renderer %s", memeProvider.Key())
 	}
 
 	var feedbackDestination feedback.Destination
@@ -414,6 +440,7 @@ func main() {
 
 	apiGroup := e.Group("/api/v1")
 	apiGroup.Use(handlers.FeedbackBodyLimitMiddleware)
+	apiGroup.Use(handlers.MemeBodyLimitMiddleware)
 	humaConfig := huma.DefaultConfig("OpenPost API", "1.0.0")
 	api := humaecho.NewWithGroup(e, apiGroup, humaConfig)
 
@@ -476,6 +503,8 @@ func main() {
 		MediaStorage:              storage,
 		MediaSigner:               mediaSigner,
 		ImageCaptioner:            imageCaptioner,
+		MemeProvider:              memeProvider,
+		MemeSuggester:             memeSuggester,
 		Entitlement:               entitlementService,
 		TokenEncryptor:            tokenEncryptor,
 		TokenSource:               tokenManager,

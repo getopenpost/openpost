@@ -4,7 +4,7 @@ Media keeps your files, OpenPost Image Editor designs, templates, and brand item
 
 ## Assets
 
-The Assets view contains image, video, and audio uploads, camera photos, OpenPost Image Editor exports, edited copies, and images with the background removed. Search names, alt text, and tag names. Filter by one or more tags, untagged assets, media type, source, size, shape, or date.
+The Assets view contains image, video, and audio uploads, camera photos, generated memes, OpenPost Image Editor exports, edited copies, and images with the background removed. Search names, alt text, and tag names. Filter by one or more tags, untagged assets, media type, source, size, shape, or date.
 
 Use tags for flexible organization: one file can have several tags, and choosing several tag filters shows files that have all of them. Select files to add or remove a tag, mark favorites, or delete a group. Deleting a tag does not delete its files.
 
@@ -21,9 +21,12 @@ Each post editor uses the same media picker:
 - **Library** uses a saved file without uploading another copy.
 - **Upload** adds a file from your device.
 - **Camera** captures a still image after browser permission.
+- **Meme** searches the configured Memegen catalog, lets you fill every caption and replaceable image slot, and saves the rendered result in Media.
 - **Create** saves your post and opens [OpenPost Image Editor](/usage/image-editor).
 
 OpenPost keeps files in the order you choose. It checks the file types and count against the rules for all selected accounts.
+
+If AI suggestions are configured, describe the joke and choose a tone to get several editable template and caption options. OpenPost sends only the idea and a bounded template shortlist to the configured model. Rendering uses the configured Memegen service. Review the result, alt text, template source, and your right to publish the template before attaching it. Instance setup and external-processing details are in [Environment Variables](/configuration/environment-variables#meme-generator).
 
 ### Automatic alt text
 

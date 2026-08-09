@@ -19,6 +19,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Configure a reverse proxy with HTTPS before connecting OAuth providers.
 - [ ] Align reverse-proxy and CDN request-body limits with the largest video you accept, and disable request buffering for streamed uploads.
 - [ ] Decide whether to enable automatic image alt text. If enabled, store `OPENROUTER_API_KEY` through `OPENROUTER_API_KEY_FILE` and review OpenRouter and model provider privacy and retention terms.
+- [ ] Decide whether to enable the meme generator. If enabled, review Memegen's privacy, content, template-rights, watermark, rate-limit, and output terms; prefer a private service for unpublished drafts, and use `OPENPOST_MEMEGEN_API_KEY_FILE` for a hosted key.
 - [ ] Confirm `GET /api/v1/health` returns `{"status":"ok"}`.
 - [ ] Confirm `GET /api/v1/ready` returns `{"status":"ready","database":"ok"}`.
 - [ ] Confirm `openpost instance health --instance <public-url>` succeeds against the public URL.

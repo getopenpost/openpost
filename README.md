@@ -53,6 +53,7 @@ OpenPost helps solo founders turn launches, product updates, lessons, and ideas 
 - **Track real platform numbers.** Keep account growth and post results while treating views, impressions, and reach as different metrics.
 - **Repost posts that earn attention.** Set native repost rules for selected accounts, wait for minimum engagement or stable growth, and override the rules on any post.
 - **Make still images.** Use OpenPost Image Editor without an account for local exports with no watermark, or save designs with workspace media and brand items.
+- **Make memes from the composer.** When an operator enables Memegen, search community templates, edit every caption or image slot, optionally ask AI for several structured drafts, and save the selected result in Media with its recipe.
 - **Draft image descriptions.** When an operator configures OpenRouter, OpenPost can fill shared alt text when users add an image that has none; users can review or replace it before publishing.
 - **Make social videos locally.** OpenPost Video Editor can stream-copy combined or per-section cuts without transcoding, or open the complete desktop or touch editor for four social formats, local transcript editing, effects, recording, proxies, and watermark-free export.
 - **Keep brands separate.** Workspaces isolate accounts, media, schedules, members, and automation access.

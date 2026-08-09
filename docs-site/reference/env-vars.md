@@ -16,6 +16,15 @@ This page lists the most common core and provider variables. Use [Environment Va
 | `OPENROUTER_API_KEY`               | empty                 | Server-only OpenRouter key that enables automatic alt text for images without saved alt text; supports `_FILE`. |
 | `OPENPOST_IMAGE_CAPTION_MODEL`     | `openai/gpt-5.6-luna` | Model used with a 400px JPEG thumbnail and up to 1,000 characters of relevant post or thread segment text.     |
 
+## Meme generator
+
+| Variable                          | Default                       | Purpose                                                                                           |
+| --------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------- |
+| `OPENPOST_MEME_GENERATOR_ENABLED` | `false`                       | Enable authenticated Memegen template search, previews, rendering, and saved generation recipes. |
+| `OPENPOST_MEMEGEN_URL`            | `https://api.memegen.link`    | Hosted or operator-controlled Memegen API base URL.                                               |
+| `OPENPOST_MEMEGEN_API_KEY`        | empty                         | Optional server-only Memegen key; supports `_FILE`.                                               |
+| `OPENPOST_MEME_GENERATION_MODEL`  | `openai/gpt-5.6-luna`         | OpenRouter model used only for optional template and caption suggestions.                         |
+
 ## OpenPost Video Editor and stock media
 
 | Variable                        | Default                | Purpose                                                                                             |
@@ -71,6 +80,10 @@ Most variables loaded through the main backend config loader can also be loaded 
 | `OPENPOST_UPDATE_CHECK_ENABLED`                 | Enable read-only stable release checks for self-hosted instance admins                            |
 | `OPENROUTER_API_KEY`                            | Enable server-side automatic image alt text; supports `_FILE`                                     |
 | `OPENPOST_IMAGE_CAPTION_MODEL`                  | OpenRouter model ID for automatic image alt text                                                   |
+| `OPENPOST_MEME_GENERATOR_ENABLED`               | Enable authenticated Memegen template and rendering APIs                                           |
+| `OPENPOST_MEMEGEN_URL`                          | Hosted or self-hosted Memegen API base URL                                                         |
+| `OPENPOST_MEMEGEN_API_KEY`                      | Optional server-only Memegen API key; supports `_FILE`                                             |
+| `OPENPOST_MEME_GENERATION_MODEL`                | OpenRouter model ID for optional meme suggestions                                                  |
 | `OPENPOST_JWT_SECRET`                           | JWT signing secret                                                                                |
 | `OPENPOST_ENCRYPTION_KEY`                       | OAuth token encryption secret                                                                     |
 | `OPENPOST_AUTH_GOOGLE_CLIENT_ID`                | Google OAuth client ID for first-party sign-in and linking                                        |

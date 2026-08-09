@@ -357,6 +357,7 @@ func TestMemeSuggestionsRanksBoundedTemplatesAndReturnsMetadata(t *testing.T) {
 		}
 	}
 	require.Equal(t, []string{"no", "yes"}, drakeTemplate.ExampleLines)
+	require.Equal(t, []string{"rejected option", "preferred option"}, drakeTemplate.Semantics.CaptionRoles)
 	require.LessOrEqual(t, len(received.Templates), memegeneration.MaxCandidateTemplates)
 
 	var output GenerateMemeSuggestionsOutput
@@ -365,6 +366,26 @@ func TestMemeSuggestionsRanksBoundedTemplatesAndReturnsMetadata(t *testing.T) {
 	require.Len(t, output.Body.Candidates, 2)
 	require.Equal(t, "Drake Hotline Bling", output.Body.Candidates[0].Template.Name)
 	require.True(t, strings.HasPrefix(output.Body.CatalogRevision, "sha256:"))
+}
+
+func TestMemeSuggestionFallbackPrefersReviewedDiverseTemplates(t *testing.T) {
+	t.Parallel()
+
+	provider := &memeProviderStub{available: true, catalog: memes.Catalog{Templates: []memes.Template{
+		{ID: "zzz", Name: "Alphabetical filler", Lines: 2},
+		{ID: "doge", Name: "Doge", Lines: 2},
+		{ID: "cmm", Name: "Change My Mind", Lines: 1},
+		{ID: "db", Name: "Distracted Boyfriend", Lines: 3},
+		{ID: "drake", Name: "Drakeposting", Lines: 2},
+	}}}
+	handler := &MemeHandler{provider: provider}
+
+	_, shortlist, err := handler.rankSuggestionTemplates(t.Context(), "qzxv unmatched premise", 4)
+	require.NoError(t, err)
+	require.Len(t, shortlist, 5)
+	require.Equal(t, []string{"drake", "db", "cmm", "doge", "zzz"}, []string{
+		shortlist[0].ID, shortlist[1].ID, shortlist[2].ID, shortlist[3].ID, shortlist[4].ID,
+	})
 }
 
 func TestMemePreviewResolvesWorkspaceOverlayToHTTPSAndDoesNotPersist(t *testing.T) {

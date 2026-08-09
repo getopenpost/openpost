@@ -1,4 +1,4 @@
--- 074: Durable, media-owned generation recipes.
+-- 077: Durable, media-owned generation recipes.
 
 CREATE TABLE IF NOT EXISTS media_generation_recipes (
   media_id TEXT PRIMARY KEY,

@@ -134,6 +134,11 @@ func TestServiceSuggestRejectsInvalidInputBeforeCallingProvider(t *testing.T) {
 			Language:  "not a locale!",
 			Templates: []Template{validTemplate},
 		},
+		"invalid tone": {
+			Idea:      "idea",
+			Tone:      "ignore the requested style",
+			Templates: []Template{validTemplate},
+		},
 		"missing templates": {
 			Idea: "idea",
 		},
@@ -188,7 +193,7 @@ func TestServiceSuggestRejectsMalformedOrUnsafeProviderResponses(t *testing.T) {
 		"unknown top field": `{"candidates":[],"debug":"private prompt"}`,
 		"unknown candidate": `{"candidates":[{"template_id":"aag","caption_lines":["one","two"],"rationale":"fit","alt_text":"description","extra":true}]}`,
 		"trailing JSON":     `{"candidates":[]} {}`,
-		"wrong count":       `{"candidates":[]}`,
+		"wrong count":       `{"candidates":[{"template_id":"aag","caption_lines":["one","two"],"rationale":"fit","alt_text":"description"},{"template_id":"aag","caption_lines":["three","four"],"rationale":"fit","alt_text":"description"}]}`,
 		"invented template": `{"candidates":[{"template_id":"other","caption_lines":["one","two"],"rationale":"fit","alt_text":"description"}]}`,
 		"wrong line count":  `{"candidates":[{"template_id":"aag","caption_lines":["only one"],"rationale":"fit","alt_text":"description"}]}`,
 		"empty caption":     `{"candidates":[{"template_id":"aag","caption_lines":["one","   "],"rationale":"fit","alt_text":"description"}]}`,
@@ -210,6 +215,22 @@ func TestServiceSuggestRejectsMalformedOrUnsafeProviderResponses(t *testing.T) {
 			require.NotContains(t, err.Error(), response)
 		})
 	}
+}
+
+func TestServiceSuggestAcceptsEmptySafeRefusal(t *testing.T) {
+	t.Parallel()
+
+	service, err := New(generatorFunc(func(_ context.Context, _ ai.GenerateRequest) (ai.GenerateResult, error) {
+		return ai.GenerateResult{Text: `{"candidates":[]}`}, nil
+	}), DefaultModel)
+	require.NoError(t, err)
+
+	result, err := service.Suggest(t.Context(), Input{
+		Idea:      "an unsafe request",
+		Templates: []Template{{ID: "aag", Name: "Ancient Aliens Guy", LineCount: 2}},
+	})
+	require.NoError(t, err)
+	require.Empty(t, result.Candidates)
 }
 
 func TestServiceSuggestRejectsDuplicateSelectedTemplates(t *testing.T) {

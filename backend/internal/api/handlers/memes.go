@@ -65,6 +65,57 @@ const (
 	memeRecipeSchemaVersion          = 1
 )
 
+// Keep the no-match fallback useful and visually varied. Memegen's catalog is
+// normalized alphabetically, which is stable for browsing but would otherwise
+// make every unrelated AI prompt see only the first few template names.
+var preferredMemeSuggestionTemplateIDs = []string{
+	"drake", "db", "cmm", "doge", "blb", "both", "fry", "disastergirl",
+	"bihw", "dbg", "bus", "aag", "rollsafe", "stonks", "astronaut", "gru",
+	"success", "wonka", "oprah", "chair", "3hd", "sad-obama",
+}
+
+// Memegen supplies positional caption examples but not explicit rhetorical
+// roles. A small reviewed dossier prevents the model from reversing the joke
+// on common templates while the generic path still supports the full catalog.
+var memeTemplateSemantics = map[string]memegeneration.SemanticHint{
+	"aag": {
+		Meaning:      "An overconfident speaker jumps from weak evidence to an absurd explanation.",
+		CaptionRoles: []string{"observation or weak evidence", "absurd confident conclusion"},
+	},
+	"bihw": {
+		Meaning:      "A modest result is acknowledged with sincere, understated pride.",
+		CaptionRoles: []string{"small or imperfect achievement", "earnest qualification that it still counts"},
+	},
+	"blb": {
+		Meaning:      "An ordinary setup leads to an unusually unlucky outcome.",
+		CaptionRoles: []string{"ordinary setup", "bad-luck payoff"},
+	},
+	"both": {
+		Meaning:      "A forced choice is rejected because combining both options is better or funnier.",
+		CaptionRoles: []string{"two presented alternatives", "why not both punchline"},
+	},
+	"bus": {
+		Meaning:      "Two people in the same situation interpret it through opposite outlooks.",
+		CaptionRoles: []string{"pessimistic framing", "optimistic framing"},
+	},
+	"cmm": {
+		Meaning:      "A concise debatable opinion is presented as a challenge.",
+		CaptionRoles: []string{"specific provocative claim"},
+	},
+	"dbg": {
+		Meaning:      "An appealing expectation is immediately contrasted with a disappointing reality.",
+		CaptionRoles: []string{"expectation", "reality"},
+	},
+	"disastergirl": {
+		Meaning:      "A calm observer appears to have secretly caused or planned the surrounding problem.",
+		CaptionRoles: []string{"the problem or chaos", "quietly culpable punchline"},
+	},
+	"drake": {
+		Meaning:      "The first option is rejected and the second option is enthusiastically preferred.",
+		CaptionRoles: []string{"rejected option", "preferred option"},
+	},
+}
+
 type memeConcurrencyLimiter struct {
 	mu          sync.Mutex
 	global      chan struct{}
@@ -331,7 +382,7 @@ type GenerateMemeSuggestionsInput struct {
 	Body struct {
 		WorkspaceID string `json:"workspace_id" required:"true" doc:"Workspace ID"`
 		Idea        string `json:"idea" required:"true" minLength:"1" maxLength:"1000" doc:"Topic or situation for the meme"`
-		Tone        string `json:"tone,omitempty" maxLength:"100" doc:"Requested humor tone; defaults to witty"`
+		Tone        string `json:"tone,omitempty" maxLength:"100" enum:"witty,balanced,dry,sarcastic,playful" doc:"Requested humor tone; defaults to witty"`
 		Language    string `json:"language,omitempty" maxLength:"35" doc:"BCP 47 language tag; defaults to English"`
 		Count       int    `json:"count,omitempty" default:"3" minimum:"1" maximum:"4" doc:"Number of distinct suggestions"`
 	}
@@ -979,6 +1030,17 @@ func (h *MemeHandler) rankSuggestionTemplates(ctx context.Context, idea string, 
 			break
 		}
 	}
+	byID := make(map[string]memes.Template, len(fullCatalog.Templates))
+	for _, template := range fullCatalog.Templates {
+		byID[template.ID] = template
+	}
+	preferred := make([]memes.Template, 0, len(preferredMemeSuggestionTemplateIDs))
+	for _, templateID := range preferredMemeSuggestionTemplateIDs {
+		if template, ok := byID[templateID]; ok {
+			preferred = append(preferred, template)
+		}
+	}
+	appendTemplates(preferred)
 	appendTemplates(fullCatalog.Templates)
 	if len(shortlist) < count {
 		return memes.Catalog{}, nil, huma.Error503ServiceUnavailable("not enough compatible meme templates are available")
@@ -1042,7 +1104,7 @@ func memeGenerationTemplate(template memes.Template) memegeneration.Template {
 	return memegeneration.Template{
 		ID: template.ID, Name: truncateMemeText(template.Name, memegeneration.MaxTemplateNameCharacters),
 		LineCount: template.Lines, OverlayCount: min(template.Overlays, memegeneration.MaxTemplateOverlays),
-		Keywords: keywords, ExampleLines: exampleLines,
+		Keywords: keywords, ExampleLines: exampleLines, Semantics: memeTemplateSemantics[template.ID],
 	}
 }
 

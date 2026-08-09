@@ -34,6 +34,11 @@ func normalizeInput(input Input) (normalizedInput, error) {
 	if tone == "" {
 		tone = "witty"
 	}
+	switch tone {
+	case "witty", "balanced", "dry", "sarcastic", "playful":
+	default:
+		return normalizedInput{}, invalidInput("tone must be witty, balanced, dry, sarcastic, or playful")
+	}
 
 	languageValue := strings.TrimSpace(input.Language)
 	if languageValue == "" {
@@ -179,6 +184,12 @@ func parseAndValidateResponse(value string, input normalizedInput) ([]Candidate,
 	}
 	if err := ensureJSONEnd(decoder); err != nil {
 		return nil, invalidResponse("provider response contained trailing data")
+	}
+	// The prompt permits an empty list as the single safe refusal shape. It is
+	// returned to the UI as “no usable ideas” instead of misclassifying a valid
+	// refusal as a broken provider response.
+	if len(response.Candidates) == 0 {
+		return []Candidate{}, nil
 	}
 	if len(response.Candidates) != input.CandidateCount {
 		return nil, invalidResponse("provider returned the wrong number of candidates")

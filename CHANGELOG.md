@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove the legacy Umami loader from the documentation build now that the shared PostHog telemetry client owns that surface.
+
 ## [3.9.3] - 2026-08-11
 
 ### Fixed

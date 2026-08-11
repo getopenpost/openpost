@@ -26,7 +26,7 @@
     "check:image-policy": "bun test scripts/check-image-policy.test.mjs scripts/image-evidence.test.mjs && bun scripts/check-image-policy.mjs",
     "check:mcp-registry": "bun test scripts/check-mcp-registry.test.mjs && bun scripts/check-mcp-registry.mjs",
     "check:contracts": "bun scripts/check-contracts.mjs",
-    "check:docs": "bun test scripts/check-doc-links.test.mjs && bun scripts/check-doc-links.mjs",
+    "check:docs": "bun test scripts/check-doc-links.test.mjs scripts/check-doc-telemetry.test.mjs && bun scripts/check-doc-links.mjs",
     "check:release-version": "bun test scripts/next-release-version.test.mjs scripts/release-manifest.test.mjs scripts/release-assets.test.mjs scripts/release-lifecycle.test.mjs scripts/ci-artifacts.test.mjs scripts/release-asset-upload.test.mjs scripts/release-ci-contract.test.mjs scripts/release-surfaces.test.mjs && bun scripts/release-surfaces.mjs",
     "check:app-routes": "bun test scripts/generate-app-route-manifest.test.mjs && bun scripts/generate-app-route-manifest.mjs --check",
     "check:public-routes": "bun test scripts/check-marketing-route-manifest.test.mjs && bun scripts/check-marketing-route-manifest.mjs",

@@ -1,6 +1,6 @@
 # Pinned Bun supplies the package manager without replacing Node for external
 # executable shebangs in the frontend build.
-FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS bun-toolchain
+FROM oven/bun:1.3.14-alpine@sha256:5acc90a93e91ff07bf72aa90a7c9f0fa189765aec90b47bdbf2152d2196383c0 AS bun-toolchain
 
 # Build stage for frontend. Vite and SvelteKit run on this real Node runtime;
 # Bun continues to own the frozen install, lockfile, and package scripts.

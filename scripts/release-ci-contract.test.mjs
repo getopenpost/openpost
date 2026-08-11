@@ -13,6 +13,7 @@ const cacheContract = readFileSync(
 const dockerfile = readFileSync("docker/Dockerfile", "utf8");
 const imageEvidence = readFileSync("scripts/image-evidence.mjs", "utf8");
 const localRelease = readFileSync("scripts/release.mjs", "utf8");
+const marketingPlaywright = readFileSync("playwright.config.ts", "utf8");
 const smoke = readFileSync("scripts/smoke-production-image.sh", "utf8");
 const releaseAssetUpload = readFileSync(
   "scripts/release-asset-upload.sh",
@@ -321,6 +322,7 @@ test("CI builds web surfaces once and browser jobs consume those artifacts", () 
     /--build-context frontend_artifact=backend\/cmd\/openpost\/public/,
   );
   assert.doesNotMatch(frontend, /verify:frontend-build-cache/);
+  assert.match(marketingPlaywright, /wrangler pages dev dist/u);
 });
 
 test("CI invokes repository timing helpers portably", () => {

@@ -10,6 +10,9 @@ const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const chromiumUse = chromiumExecutablePath
   ? { launchOptions: { executablePath: chromiumExecutablePath } }
   : {};
+const webServerCommand = usePrebuiltArtifact
+  ? `cd marketing-site && bunx wrangler pages dev dist --ip ${host} --port ${port} --compatibility-date 2026-08-06`
+  : `bun run marketing:build && bun run --filter @openpost/site preview --host ${host} --port ${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -22,7 +25,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: `${usePrebuiltArtifact ? "" : "bun run marketing:build && "}bun run --filter @openpost/site preview --host ${host} --port ${port}`,
+    command: webServerCommand,
     url: baseURL,
     reuseExistingServer,
     timeout: 120_000,

@@ -24,6 +24,7 @@ const generatedPaths = [
   defaultSourceDirectory,
   defaultDestinationDirectory,
   path.join(repositoryRoot, "frontend/.svelte-kit"),
+  path.join(repositoryRoot, "frontend/project.inlang/.gitignore"),
   path.join(repositoryRoot, "frontend/src/lib/paraglide"),
   path.join(repositoryRoot, "frontend/static/assets"),
 ];

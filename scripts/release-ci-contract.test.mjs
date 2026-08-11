@@ -346,6 +346,7 @@ test("cache equivalence is conditional in CI and independently scheduled", () =>
     frontendCacheProof,
     /turbo\(\[\.\.\.common, "--force"\]\)/u,
   );
+  assert.match(frontendCacheProof, /frontend\/project\.inlang\/\.gitignore/u);
 });
 
 test("ordinary release preparation delegates exhaustive correctness to candidate CI", () => {

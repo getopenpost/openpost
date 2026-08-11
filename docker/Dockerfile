@@ -4,7 +4,7 @@ FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb44
 
 # Build stage for frontend. Vite and SvelteKit run on this real Node runtime;
 # Bun continues to own the frozen install, lockfile, and package scripts.
-FROM node:24.19.0-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS frontend-builder
+FROM node:26.7.0-alpine3.24@sha256:aadf416b2cdce311a8811ba3f0608a61b77dbf997500e2eafe781b51f6a0b019 AS frontend-builder
 
 COPY --from=bun-toolchain /usr/local/bin/bun /usr/local/bin/bun
 RUN test "$(command -v node)" = "/usr/local/bin/node" && \

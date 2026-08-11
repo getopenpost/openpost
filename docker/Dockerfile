@@ -1,38 +1,7 @@
-# Pinned Bun supplies the package manager without replacing Node for external
-# executable shebangs in the frontend build.
-FROM oven/bun:1.3.11-alpine@sha256:7ed9f74c326d1c260abe247ac423ccbf5ac92af62bb442d515d1f92f21e8ea9b AS bun-toolchain
-
-# Build stage for frontend. Vite and SvelteKit run on this real Node runtime;
-# Bun continues to own the frozen install, lockfile, and package scripts.
-FROM node:24.19.0-alpine3.24@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1ad43 AS frontend-builder
-
-COPY --from=bun-toolchain /usr/local/bin/bun /usr/local/bin/bun
-RUN test "$(command -v node)" = "/usr/local/bin/node" && \
-    node --version && bun --version
-
-WORKDIR /app
-
-# Copy workspace manifests first for dependency caching.
-COPY package.json bun.lock bunfig.toml turbo.json ./
-COPY frontend/package.json ./frontend/
-COPY docs-site/package.json ./docs-site/
-COPY marketing-site/package.json ./marketing-site/
-COPY packages/changelog/package.json ./packages/changelog/
-COPY packages/legal-policy/package.json ./packages/legal-policy/
-COPY packages/social-images/package.json ./packages/social-images/
-COPY packages/social-preview/package.json ./packages/social-preview/
-COPY packages/telemetry/package.json ./packages/telemetry/
-COPY packages/video-project/package.json ./packages/video-project/
-RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --frozen-lockfile --filter @openpost/web
-
-COPY frontend/ ./frontend/
-COPY packages/social-preview/ ./packages/social-preview/
-COPY packages/telemetry/ ./packages/telemetry/
-COPY packages/video-project/ ./packages/video-project/
-COPY assets/ ./assets/
-COPY scripts/asset-surfaces.mjs scripts/asset-surfaces.ts scripts/sync-assets.mjs scripts/frontend-vite-build.mjs scripts/generate-app-route-manifest.mjs scripts/precompress-static.mjs scripts/posthog-source-maps.ts ./scripts/
-RUN bun run --filter @openpost/web build
+# The caller supplies the validated, canonical frontend directory as a named
+# BuildKit context. CI builds this once, tests it, uploads it, and embeds the
+# same bytes here instead of invoking Vite again.
+FROM frontend_artifact AS frontend-builder
 
 # Build stage for backend
 FROM golang:1.26.5-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS backend-builder
@@ -53,7 +22,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY backend/ ./backend/
 COPY provider-certification/public-claims.json ./provider-certification/public-claims.json
 # Package the frontend-owned build output at the backend embed boundary.
-COPY --from=frontend-builder /app/frontend/build ./backend/cmd/openpost/public
+COPY --from=frontend-builder / ./backend/cmd/openpost/public
 
 RUN provider_claims_sha256="$(sha256sum provider-certification/public-claims.json | cut -d ' ' -f1)" && \
     provider_claim_count="$(jq -er '.claims | length' provider-certification/public-claims.json)" && \

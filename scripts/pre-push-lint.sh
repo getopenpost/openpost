@@ -1,11 +1,5 @@
 #!/usr/bin/env bash
-# Pre-push gate: runs a fast local lint subset before branch pushes.
-#
-# This is intentionally redundant with the pre-commit hooks (which
-# only fire on staged files matching the hook's `files` regex) and
-# with the CI workflow. The point is to catch likely failures on the
-# developer's machine without running the full check/test/build matrix
-# on every push.
+# Pre-push gate: checks formatting only for files in the pushed range.
 #
 # Installed automatically by devenv on shell entry. See devenv.nix
 # `enterShell` and AGENTS.md for the rationale.
@@ -13,6 +7,8 @@
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
+
+push_lines="$(cat)"
 
 is_tag_only_push() {
   local saw_ref=0
@@ -24,8 +20,20 @@ is_tag_only_push() {
       refs/tags/*) ;;
       *) return 1 ;;
     esac
-  done
+  done <<< "$push_lines"
 
+  [ "$saw_ref" -eq 1 ]
+}
+
+is_deletion_only_push() {
+  local saw_ref=0
+  local local_ref="" local_sha="" remote_ref="" remote_sha=""
+  local zero="0000000000000000000000000000000000000000"
+  while IFS=" " read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref$local_sha$remote_ref$remote_sha" ]; do
+    [ -n "$local_ref$local_sha$remote_ref$remote_sha" ] || continue
+    saw_ref=1
+    [ "$local_sha" = "$zero" ] || return 1
+  done <<< "$push_lines"
   [ "$saw_ref" -eq 1 ]
 }
 
@@ -44,24 +52,50 @@ if is_tag_only_push; then
   exit 0
 fi
 
-echo "pre-push-lint: running fast lint gate..."
+if is_deletion_only_push; then
+  echo "pre-push-lint: deletion-only push detected, skipping"
+  exit 0
+fi
+
+echo "pre-push-lint: checking changed-file formatting..."
 
 denv_lint() {
-  if command -v devenv >/dev/null 2>&1; then
-    devenv shell --quiet -- bash -c 'backend-format-check && backend-lint && frontend-lint'
-  else
-    # Fallback: run the underlying commands directly. Used when the
-    # developer hasn't entered the devenv shell (e.g. CI machines).
-    (
-      unformatted=$(cd backend && find . -path './.devenv' -prune -o -type f -name '*.go' -exec gofmt -l {} +)
-      if [ -n "$unformatted" ]; then
-        echo "$unformatted"
-        exit 1
-      fi
+  local local_ref="" local_sha="" remote_ref="" remote_sha=""
+  local zero="0000000000000000000000000000000000000000"
+  local range="" file=""
+  local -a changed=() go_files=() prettier_files=()
 
-      (cd backend && golangci-lint run --build-tags dev ./...)
-      bun run --filter @openpost/web lint
-    )
+  while IFS=" " read -r local_ref local_sha remote_ref remote_sha || [ -n "$local_ref$local_sha$remote_ref$remote_sha" ]; do
+    [ -n "$local_ref$local_sha$remote_ref$remote_sha" ] || continue
+    [ "$local_sha" != "$zero" ] || continue
+    if [ "$remote_sha" = "$zero" ]; then
+      range="$(git merge-base "$local_sha" "origin/main" 2>/dev/null || git rev-list --max-parents=0 "$local_sha" | tail -1)..$local_sha"
+    else
+      range="$remote_sha..$local_sha"
+    fi
+    while IFS= read -r file; do
+      [ -n "$file" ] && changed+=("$file")
+    done < <(git diff --name-only --diff-filter=ACMR "$range")
+  done <<< "$push_lines"
+
+  for file in "${changed[@]-}"; do
+    [ -n "$file" ] || continue
+    [ -f "$file" ] || continue
+    case "$file" in
+      backend/*.go|backend/**/*.go|cli/*.go|cli/**/*.go) go_files+=("$file") ;;
+    esac
+    case "$file" in
+      *.js|*.mjs|*.cjs|*.ts|*.svelte|*.json|*.css|*.md|*.yml|*.yaml) prettier_files+=("$file") ;;
+    esac
+  done
+
+  if [ -n "${go_files[*]-}" ]; then
+    local unformatted
+    unformatted="$(gofmt -l "${go_files[@]}")"
+    [ -z "$unformatted" ] || { printf '%s\n' "$unformatted"; return 1; }
+  fi
+  if [ -n "${prettier_files[*]-}" ]; then
+    bunx prettier --check "${prettier_files[@]}"
   fi
 }
 

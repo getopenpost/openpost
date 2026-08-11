@@ -73,19 +73,11 @@ export function validateImagePolicy(inputs, now = new Date()) {
   }
 
   const buildBases = policy.build_bases;
-  if (!Array.isArray(buildBases) || buildBases.length !== 3) {
-    problems.push("exactly three pinned production build bases are required");
+  if (!Array.isArray(buildBases) || buildBases.length !== 1) {
+    problems.push("exactly one pinned production build base is required");
   } else {
-    const expectedStages = new Set([
-      "bun-toolchain",
-      "frontend-builder",
-      "backend-builder",
-    ]);
-    const expectedBasePrefixes = new Map([
-      ["bun-toolchain", "oven/bun:"],
-      ["frontend-builder", "node:"],
-      ["backend-builder", "golang:"],
-    ]);
+    const expectedStages = new Set(["backend-builder"]);
+    const expectedBasePrefixes = new Map([["backend-builder", "golang:"]]);
     for (const buildBase of buildBases) {
       if (!expectedStages.delete(buildBase.stage)) {
         problems.push(`unexpected or repeated build stage ${buildBase.stage}`);
@@ -158,30 +150,24 @@ export function validateImagePolicy(inputs, now = new Date()) {
   if (!inputs.dockerfile.includes(`FROM ${base.reference} AS runtime`)) {
     problems.push("Dockerfile runtime FROM does not match image-policy.json");
   }
-  for (const assetScript of ["asset-surfaces.mjs", "asset-surfaces.ts"]) {
-    if (!inputs.dockerfile.includes(assetScript)) {
-      problems.push(`Dockerfile frontend stage is missing ${assetScript}`);
-    }
-  }
   if (
+    !inputs.dockerfile.includes("FROM frontend_artifact AS frontend-builder") ||
     !inputs.dockerfile.includes(
-      "COPY --from=bun-toolchain /usr/local/bin/bun /usr/local/bin/bun",
-    ) ||
-    inputs.dockerfile.includes("bun-node-fallback-bin")
+      "COPY --from=frontend-builder / ./backend/cmd/openpost/public",
+    )
   ) {
     problems.push(
-      "Dockerfile frontend stage must copy only the pinned Bun executable",
+      "Dockerfile must embed the caller-supplied canonical frontend artifact",
     );
   }
   if (
-    !inputs.dockerfile.includes(
-      'test "$(command -v node)" = "/usr/local/bin/node"',
+    !inputs.ci.includes(
+      "--build-context frontend_artifact=backend/cmd/openpost/public",
     ) ||
-    !inputs.dockerfile.includes("node --version && bun --version") ||
-    !inputs.dockerfile.includes("bun run --filter @openpost/web build")
+    inputs.dockerfile.includes("bun run --filter @openpost/web build")
   ) {
     problems.push(
-      "frontend build must verify real Node while Bun owns install and scripts",
+      "candidate image must consume the CI-built frontend without rebuilding it",
     );
   }
   const digest = String(base.reference ?? "").split("@", 2)[1] ?? "";

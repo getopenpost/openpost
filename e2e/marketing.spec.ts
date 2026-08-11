@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { parseChangelog } from "../packages/changelog/src/index.js";
+import {
+  formatLegalDate,
+  legalPolicy,
+  managedService,
+} from "../packages/legal-policy/src/index.js";
 
 test("marketing index links to the app and documentation @desktop", async ({
   page,
@@ -731,9 +736,21 @@ test("legal and trust pages expose current managed-service facts @desktop", asyn
   page,
 }) => {
   const pages = [
-    { path: "/terms", heading: "Terms of Service", version: "2026-08-05" },
-    { path: "/privacy", heading: "Privacy Policy", version: "2026-08-09" },
-    { path: "/refunds", heading: "Refund Policy", version: "2026-08-05" },
+    {
+      path: "/terms",
+      heading: "Terms of Service",
+      version: legalPolicy.terms.version,
+    },
+    {
+      path: "/privacy",
+      heading: "Privacy Policy",
+      version: legalPolicy.privacy.version,
+    },
+    {
+      path: "/refunds",
+      heading: "Refund Policy",
+      version: legalPolicy.refunds.version,
+    },
   ];
 
   for (const legalPage of pages) {
@@ -776,9 +793,13 @@ test("legal and trust pages expose current managed-service facts @desktop", asyn
       level: 1,
     }),
   ).toBeVisible();
-  await expect(page.getByText("9 August 2026", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("9 November 2026", { exact: true }),
+    page.getByText(formatLegalDate(managedService.reviewed_on), { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(formatLegalDate(managedService.next_review_on), {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByText("Falkenstein, Germany (FSN1)").first(),

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-08-09",
-  "next_review_on": "2026-11-09",
+  "reviewed_on": "2026-08-11",
+  "next_review_on": "2026-11-11",
   "summary_notice": "This plain-language summary is a guide, not a replacement for the Privacy Policy. If it differs from the full policy, the full policy controls.",
   "summary_points": [
     "The managed service stores the account, workspace, publishing, media, security, billing, and support data needed to provide OpenPost.",
@@ -331,16 +331,17 @@
     },
     {
       "id": "website-analytics",
-      "category": "Marketing and documentation website analytics",
-      "owner": "Managed OpenPost service",
-      "purpose": "Measure anonymous public-site traffic and selected product-interest events without advertising profiles or cross-site tracking.",
-      "includes": "Cookie-free Umami page views, referrer URL, browser, operating system, device type, country, and selected interaction events.",
-      "duration": "The live Umami database has no configured age-based event purge. Daily Umami database recovery copies are removed after they are more than seven days old.",
-      "deletion_trigger": "Operator deletion or retirement of the analytics property for live data; the first daily backup run after a recovery copy passes seven days for backup data.",
-      "exceptions": "The tracker does not set an analytics cookie, identify signed-in OpenPost users, or track people across websites. Country and device facts are derived by Umami and are not tied to an OpenPost account.",
+      "category": "Product, marketing, documentation, and service telemetry",
+      "owner": "Managed OpenPost service and PostHog",
+      "purpose": "Measure public-site use, understand product workflows, diagnose failures, and improve the managed service without advertising profiles, cross-site tracking, or session replay.",
+      "includes": "Cookieless page views and selected interaction events on the public sites; opaque user, workspace, publication, rendition, and job identifiers for managed product events; browser and service version, environment, route template, status, error type, and sanitized exception context. OpenPost does not send email addresses, names, usernames, post text, media, request bodies, credentials, query strings, or raw URLs as telemetry properties.",
+      "duration": "Managed PostHog event data is configured for a maximum 12-month retention window. OpenPost does not keep a separate telemetry copy after PostHog deletes or expires the event data.",
+      "deletion_trigger": "Expiry under the managed PostHog retention window, operator deletion of an event or person, a supported account-deletion request for linked identified data, or retirement of the analytics project.",
+      "exceptions": "Marketing and documentation traffic remains anonymous and personless. The managed app and backend use the same opaque OpenPost user ID after sign-in so product events and service outcomes can be joined. Browser persistence is memory-only; autocapture, session replay, console capture, network bodies, and advertising tracking are disabled.",
       "evidence": [
-        "marketing-site/src/app.html",
-        "docs-site/.vitepress/config.ts"
+        "packages/telemetry/src/index.ts",
+        "backend/internal/telemetry/telemetry.go",
+        "docs-site/configuration/telemetry.md"
       ]
     },
     {

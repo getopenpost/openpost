@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { capturePostHogEvent } from '$lib/posthog-capture';
+	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { ContextMenu } from 'bits-ui';
@@ -2348,7 +2348,7 @@
 				exportSuccessfulByPage = {};
 				suppressSavedAnnouncementUntil = Date.now() + 5_000;
 				statusAnnouncement = m.image_editor_export_downloaded();
-				capturePostHogEvent('image_design_exported', {
+				captureTelemetryEvent('image design exported', {
 					mode: 'download',
 					pages: rendered.length
 				});
@@ -2409,7 +2409,7 @@
 			if (exportMode === 'attach') {
 				if (!returnToken) throw new Error(m.image_editor_attach_missing());
 				const returnURL = await completeImageEditorReturnToken(returnToken, editor.id, mediaIDs);
-				capturePostHogEvent('image_design_exported', {
+				captureTelemetryEvent('image design exported', {
 					mode: exportMode,
 					pages: mediaIDs.length
 				});
@@ -2424,7 +2424,7 @@
 			}
 			exportDialogOpen = false;
 			clearExportResumeLedger();
-			capturePostHogEvent('image_design_exported', {
+			captureTelemetryEvent('image design exported', {
 				mode: exportMode,
 				pages: mediaIDs.length
 			});

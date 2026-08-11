@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
-	import { capturePostHogEvent } from '$lib/posthog-capture';
+	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { fade, fly } from 'svelte/transition';
 	import { page } from '$app/stores';
 	import { beforeNavigate, goto, replaceState } from '$app/navigation';
@@ -3627,10 +3627,17 @@
 				);
 			}
 
-			capturePostHogEvent(publishNow ? 'post_published' : 'post_scheduled', {
-				account_count: selectedAccountIds.length,
-				is_thread: isThread
-			});
+			if (publishNow) {
+				captureTelemetryEvent('publication publish requested', {
+					account_count: selectedAccountIds.length,
+					is_thread: isThread
+				});
+			} else {
+				captureTelemetryEvent('publication schedule requested', {
+					account_count: selectedAccountIds.length,
+					is_thread: isThread
+				});
+			}
 			success = publishNow ? m.compose_publishing_now() : m.compose_scheduled_success();
 			soundPreferences.play('success');
 			if (!publishNow) void celebrateSchedule();

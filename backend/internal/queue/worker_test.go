@@ -16,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/tokenmanager"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -170,12 +171,17 @@ func TestWorkerFailsUnknownJobTypes(t *testing.T) {
 	require.NoError(t, err)
 
 	worker := NewWorker(db, "worker-test", time.Second, nil, nil, stubStorage{})
+	recorder := &telemetry.MemoryRecorder{}
+	worker.SetTelemetry(recorder)
 	require.True(t, worker.processNextJobIfAvailable(t.Context()))
 
 	stored := new(models.Job)
 	require.NoError(t, db.NewSelect().Model(stored).Where("id = ?", job.ID).Scan(t.Context()))
 	require.Equal(t, jobStatusFailed, stored.Status)
 	require.Contains(t, stored.LastError, "unsupported job type")
+	require.Len(t, recorder.Exceptions, 1)
+	require.Equal(t, "unknown_job", recorder.Exceptions[0].Properties["job_type"])
+	require.NotContains(t, recorder.Exceptions[0].Properties, "payload")
 }
 
 func TestWorkerProcessesDurableStorageDeletion(t *testing.T) {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { capturePostHogEvent } from '$lib/posthog-capture';
+	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -209,10 +209,6 @@
 			if (sequence !== requestSequence || stopped) return;
 			localizedPrices = nextPrices;
 			checkout = data;
-			capturePostHogEvent('checkout_started', {
-				billing_period: billingPeriod,
-				plan: selectedPlanID
-			});
 			await openPaddleCheckout(instance, data);
 		} catch (caught) {
 			if (sequence !== requestSequence || stopped) return;
@@ -250,6 +246,10 @@
 					'width: 100%; min-width: 312px; background-color: #ffffff; color-scheme: light; border: none;',
 				successUrl: data.return_url
 			}
+		});
+		captureTelemetryEvent('billing checkout opened', {
+			billing_period: billingPeriod,
+			plan_id: selectedPlanID
 		});
 	}
 

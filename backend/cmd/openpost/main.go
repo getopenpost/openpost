@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -62,6 +65,7 @@ import (
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/services/usage"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/telemetry"
 )
 
 var version = "dev"
@@ -108,8 +112,22 @@ func main() {
 	if err := cfg.ValidateRuntime(); err != nil {
 		log.Fatal(err)
 	}
-
+	telemetryRecorder, err := telemetry.New(telemetry.Config{
+		Enabled:         cfg.TelemetryEnabled,
+		ProjectToken:    cfg.PostHogProjectToken,
+		Endpoint:        cfg.PostHogAPIHost,
+		BrowserEndpoint: cfg.PostHogBrowserHost,
+		UIHost:          cfg.PostHogUIHost,
+		Environment:     cfg.TelemetryEnvironment,
+		Edition:         cfg.Edition,
+		Version:         version,
+		Revision:        runningBuildRevision(),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	e := echo.New()
+	e.Use(echo.WrapMiddleware(telemetryRecorder.WrapHTTP))
 	e.Use(middleware.RequestID())
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogLatency:      true,
@@ -142,13 +160,15 @@ func main() {
 		},
 	}))
 	e.Use(middleware.Recover())
+	e.Use(capturePanics(telemetryRecorder))
 	e.Use(middleware.Secure())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins:     cfg.CORSOrigins,
 		AllowMethods:     []string{http.MethodGet, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodOptions},
-		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAuthorization, "MCP-Protocol-Version", "Mcp-Session-Id", "Last-Event-ID"},
+		AllowHeaders:     []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAuthorization, "MCP-Protocol-Version", "Mcp-Session-Id", "Last-Event-ID", "X-PostHog-Distinct-ID", "X-PostHog-Session-ID"},
 		AllowCredentials: true,
 	}))
+	installTelemetryErrorHandler(e, telemetryRecorder)
 
 	authService := auth.NewService(cfg.JWTSecret)
 	googleIssuer := ""
@@ -355,6 +375,7 @@ func main() {
 		log.Printf("Registered provider adapter: %s", entry.Key)
 	}
 	publishSvc.SetProviderReadiness(providerReadinessService)
+	publishSvc.SetTelemetry(telemetryRecorder)
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
 	repostService := repostservice.NewService(db, tokenManager)
@@ -473,6 +494,7 @@ func main() {
 	worker.SetNotificationService(notificationService)
 	worker.SetRepostService(repostService)
 	worker.SetVideoProcessingService(videoProcessingService)
+	worker.SetTelemetry(telemetryRecorder)
 	if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 		log.Fatalf("failed to schedule pending video analysis: %v", err)
 	}
@@ -496,6 +518,7 @@ func main() {
 	profileHandler.RegisterLegacyRoutes(e)
 	billingHandler := handlers.NewBillingHandler(billingService, db, authenticator)
 	billingHandler.SetUsage(usageService)
+	billingHandler.SetTelemetry(telemetryRecorder)
 	billingHandler.RegisterRoutes(e)
 
 	e.GET("/openapi.json", func(c echo.Context) error {
@@ -605,6 +628,7 @@ func main() {
 		AppVersion:                   version,
 		AppRevision:                  runningBuildRevision(),
 		Edition:                      cfg.Edition,
+		Telemetry:                    telemetryRecorder,
 		MediaHandler:                 mediaHandler,
 		PublicMediaVerifier:          publicMediaVerifier,
 		ProfileHandler:               profileHandler,
@@ -645,12 +669,14 @@ func main() {
 			signal.Stop(sigCh)
 			worker.Stop()
 			wg.Wait()
+			closeTelemetry(telemetryRecorder)
 			log.Printf("Server error: %v", err)
 			return
 		}
 		cancel()
 		worker.Stop()
 		wg.Wait()
+		closeTelemetry(telemetryRecorder)
 		log.Println("Server stopped")
 		return
 	}
@@ -670,7 +696,74 @@ func main() {
 	}
 
 	wg.Wait()
+	closeTelemetry(telemetryRecorder)
 	log.Println("Server stopped")
+}
+
+func closeTelemetry(recorder telemetry.Recorder) {
+	if closeErr := recorder.Close(); closeErr != nil {
+		log.Printf("PostHog shutdown failed: %v", closeErr)
+	}
+}
+
+const telemetryPanicCapturedKey = "openpost.telemetry.panic-captured"
+
+func capturePanics(recorder telemetry.Recorder) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) (err error) {
+			defer func() {
+				if recovered := recover(); recovered != nil {
+					c.Set(telemetryPanicCapturedKey, true)
+					captureErr := recorder.CaptureException(c.Request().Context(), telemetry.Exception{
+						Title:       "OpenPost request panic",
+						Description: "An HTTP request panicked",
+						Properties: map[string]any{
+							"method":         c.Request().Method,
+							"route":          normalizedRequestRoute(c.Path()),
+							"request_id":     c.Response().Header().Get(echo.HeaderXRequestID),
+							"panic_type":     fmt.Sprintf("%T", recovered),
+							"error_boundary": "http_panic",
+						},
+					})
+					if captureErr != nil {
+						log.Printf("Failed to enqueue request panic telemetry: %v", captureErr)
+					}
+					panic(recovered)
+				}
+			}()
+			return next(c)
+		}
+	}
+}
+
+func installTelemetryErrorHandler(e *echo.Echo, recorder telemetry.Recorder) {
+	defaultHandler := e.DefaultHTTPErrorHandler
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		status := http.StatusInternalServerError
+		var httpError *echo.HTTPError
+		if errors.As(err, &httpError) {
+			status = httpError.Code
+		}
+		panicCaptured, _ := c.Get(telemetryPanicCapturedKey).(bool)
+		if status >= http.StatusInternalServerError && !panicCaptured {
+			captureErr := recorder.CaptureException(c.Request().Context(), telemetry.Exception{
+				Title:       "OpenPost HTTP " + strconv.Itoa(status),
+				Description: "An HTTP request failed",
+				Properties: map[string]any{
+					"method":         c.Request().Method,
+					"route":          normalizedRequestRoute(c.Path()),
+					"status":         status,
+					"request_id":     c.Response().Header().Get(echo.HeaderXRequestID),
+					"error_type":     telemetry.ErrorType(err),
+					"error_boundary": "http_error",
+				},
+			})
+			if captureErr != nil {
+				log.Printf("Failed to enqueue HTTP error telemetry: %v", captureErr)
+			}
+		}
+		defaultHandler(err, c)
+	}
 }
 
 func runningBuildRevision() string {

@@ -2,6 +2,7 @@ import createClient from 'openapi-fetch';
 import type { paths, components } from './types';
 import { getApiBase } from '$lib/stores/instance.svelte';
 import { feedbackDiagnostics } from '$lib/feedback-diagnostics';
+import { telemetryRequestHeaders } from '@openpost/telemetry';
 
 // Re-export schema types for convenience
 export type User = components['schemas']['UserProfile'];
@@ -29,6 +30,9 @@ function createApiClient() {
 	c.use({
 		async onRequest({ request }) {
 			feedbackDiagnostics.recordRequestStart(request);
+			for (const [name, value] of Object.entries(telemetryRequestHeaders())) {
+				request.headers.set(name, value);
+			}
 			if (token) {
 				request.headers.set('Authorization', `Bearer ${token}`);
 			}

@@ -7,7 +7,7 @@ FORM: Operate surface; no template carousel, hidden permissions, automatic uploa
 -->
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { capturePostHogEvent } from '$lib/posthog-capture';
+	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { resolve } from '$app/paths';
@@ -156,7 +156,7 @@ FORM: Operate surface; no template carousel, hidden permissions, automatic uploa
 			const saved = await saveLocalVideoProject(project);
 			await removeProjectFile(stored.path);
 			temporaryPath = '';
-			capturePostHogEvent('video_project_created', { source: 'openpost_media' });
+			captureTelemetryEvent('video project created', { source: 'openpost_media' });
 			await openProject(saved.id);
 		} catch (cause) {
 			if (temporaryPath) await removeProjectFile(temporaryPath).catch(() => undefined);
@@ -194,7 +194,7 @@ FORM: Operate surface; no template carousel, hidden permissions, automatic uploa
 				undefined,
 				editingMode
 			);
-			capturePostHogEvent('video_project_created', {
+			captureTelemetryEvent('video project created', {
 				source: 'files',
 				editing_mode: editingMode,
 				file_count: files.length
@@ -219,7 +219,10 @@ FORM: Operate surface; no template carousel, hidden permissions, automatic uploa
 		error = '';
 		try {
 			const project = await createBlankLocalVideoProject();
-			capturePostHogEvent('video_project_created', { source: 'blank', editing_mode: editingMode });
+			captureTelemetryEvent('video project created', {
+				source: 'blank',
+				editing_mode: editingMode
+			});
 			await openProject(project.id);
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.video_editor_create_failed();
@@ -293,7 +296,7 @@ FORM: Operate surface; no template carousel, hidden permissions, automatic uploa
 			await addRecordingToProject(recordingProject, manifest, { cameraLayout });
 			const saved = await saveLocalVideoProject(recordingProject);
 			await deleteRecordingManifest(manifest.id);
-			capturePostHogEvent('video_project_created', {
+			captureTelemetryEvent('video project created', {
 				source: 'recording',
 				editing_mode: editingMode
 			});
@@ -341,7 +344,10 @@ FORM: Operate surface; no template carousel, hidden permissions, automatic uploa
 				}
 			});
 			const saved = await saveLocalVideoProject(project);
-			capturePostHogEvent('video_project_created', { source: 'stock', editing_mode: editingMode });
+			captureTelemetryEvent('video project created', {
+				source: 'stock',
+				editing_mode: editingMode
+			});
 			await openProject(saved.id);
 		} catch (cause) {
 			await deleteLocalVideoProject(project.id);

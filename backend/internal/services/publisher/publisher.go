@@ -30,6 +30,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/usage"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
 
@@ -55,6 +56,7 @@ type Service struct {
 	notifications                *notifications.Service
 	reposts                      RepostScheduler
 	readiness                    *providerreadiness.Service
+	telemetry                    telemetry.Recorder
 }
 
 type RepostScheduler interface {
@@ -113,6 +115,10 @@ func (s *Service) SetRepostScheduler(service RepostScheduler) {
 
 func (s *Service) SetProviderReadiness(service *providerreadiness.Service) {
 	s.readiness = service
+}
+
+func (s *Service) SetTelemetry(recorder telemetry.Recorder) {
+	s.telemetry = recorder
 }
 
 func (s *Service) SetProvider(platformName string, adapter platform.Adapter) {
@@ -410,6 +416,13 @@ func (s *Service) HandlePublishPublicationJob(ctx context.Context, jobPayload st
 				"retryable":   failure.Retryable,
 				"retry":       wasRetry,
 			})
+			s.captureRenditionEvent(ctx, telemetry.EventRenditionFailed, publication, &rendition, map[string]any{
+				"error_kind":  failure.Kind,
+				"error_code":  failure.Code,
+				"http_status": failure.HTTPStatus,
+				"retryable":   failure.Retryable,
+				"retry":       wasRetry,
+			}, "", time.Time{})
 			continue
 		}
 	}
@@ -671,6 +684,7 @@ func (s *Service) publishRendition(
 	if externalURL == "" {
 		externalURL = publisherExternalURL(externalID)
 	}
+	publishedAt := time.Now().UTC()
 	if _, err := s.db.NewUpdate().Model(rendition).
 		Set("status = ?", models.RenditionStatusPublished).
 		Set("external_id = ?", externalID).
@@ -682,7 +696,7 @@ func (s *Service) publishRendition(
 		Set("error_retryable = ?", false).
 		Set("error_retry_at = NULL").
 		Set("error_action = ''").
-		Set("updated_at = ?", time.Now().UTC()).
+		Set("updated_at = ?", publishedAt).
 		Where("id = ?", rendition.ID).
 		Exec(ctx); err != nil {
 		return fmt.Errorf("updating rendition status: %w", err)
@@ -693,6 +707,7 @@ func (s *Service) publishRendition(
 		"external_id":  externalID,
 		"external_url": externalURL,
 	})
+	s.captureRenditionEvent(ctx, telemetry.EventRenditionPublished, publication, rendition, nil, rendition.ID, publishedAt)
 	s.scheduleReposts(ctx, rendition.ID)
 	return nil
 }
@@ -882,6 +897,7 @@ func (s *Service) publishRenditionSegments(
 		})
 	}
 
+	publishedAt := time.Now().UTC()
 	if _, err := s.db.NewUpdate().Model(rendition).
 		Set("status = ?", models.RenditionStatusPublished).
 		Set("external_id = ?", rootExternalID).
@@ -893,13 +909,50 @@ func (s *Service) publishRenditionSegments(
 		Set("error_retryable = ?", false).
 		Set("error_retry_at = NULL").
 		Set("error_action = ''").
-		Set("updated_at = ?", time.Now().UTC()).
+		Set("updated_at = ?", publishedAt).
 		Where("id = ?", rendition.ID).
 		Exec(ctx); err != nil {
 		return fmt.Errorf("updating segmented rendition status: %w", err)
 	}
+	s.captureRenditionEvent(ctx, telemetry.EventRenditionPublished, publication, rendition, map[string]any{
+		"segment_count": len(segments),
+	}, rendition.ID, publishedAt)
 	s.scheduleReposts(ctx, rendition.ID)
 	return nil
+}
+
+func (s *Service) captureRenditionEvent(
+	ctx context.Context,
+	eventName string,
+	publication *models.Publication,
+	rendition *models.Rendition,
+	properties map[string]any,
+	eventUUID string,
+	timestamp time.Time,
+) {
+	if s.telemetry == nil || publication == nil || rendition == nil {
+		return
+	}
+	if properties == nil {
+		properties = map[string]any{}
+	}
+	properties["publication_id"] = publication.ID
+	properties["rendition_id"] = rendition.ID
+	properties["platform"] = rendition.Platform
+	properties["profile"] = rendition.Profile
+	properties["output_profile"] = rendition.OutputProfile
+	properties["intent"] = publication.Intent
+	properties["content_profile"] = publication.ContentProfile
+	if err := s.telemetry.Capture(ctx, telemetry.Event{
+		Name:        eventName,
+		DistinctID:  publication.CreatedByID,
+		WorkspaceID: publication.WorkspaceID,
+		UUID:        eventUUID,
+		Timestamp:   timestamp,
+		Properties:  properties,
+	}); err != nil {
+		log.Printf("[Publisher] failed to enqueue rendition telemetry: %v", err)
+	}
 }
 
 func (s *Service) scheduleReposts(ctx context.Context, renditionID string) {

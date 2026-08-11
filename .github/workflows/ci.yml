@@ -120,6 +120,16 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
+      - name: Build app source maps for PostHog
+        if: github.event_name == 'push'
+        env:
+          POSTHOG_SOURCEMAPS_ENABLED: ${{ secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: bun run --filter @openpost/web build
       - run: bunx playwright install --with-deps chromium
       - run: bun run --filter @openpost/web test
       - run: bun run --filter @openpost/video-project test
@@ -145,8 +155,34 @@ jobs:
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bun install --frozen-lockfile
-      - run: bun run marketing:build
-      - run: bun run docs:build
+      - name: Build marketing site
+        env:
+          VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
+          VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+          VITE_OPENPOST_ENVIRONMENT: production
+          VITE_OPENPOST_REVISION: ${{ github.sha }}
+          POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: bun run marketing:build
+      - name: Build documentation site
+        env:
+          VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
+          VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
+          VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+          VITE_OPENPOST_ENVIRONMENT: production
+          VITE_OPENPOST_REVISION: ${{ github.sha }}
+          POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
+          POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
+          POSTHOG_PROJECT_ID: ${{ vars.POSTHOG_PROJECT_ID }}
+          POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: bun run docs:build
 
   browser:
     name: Browser suites

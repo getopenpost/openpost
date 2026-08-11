@@ -44,7 +44,7 @@ test("official policy documents use explicit independent acceptance rules", () =
 });
 
 test("effective dates format from the canonical ISO value", () => {
-  assert.equal(formatPolicyEffectiveDate(legalPolicy.privacy), "9 August 2026");
+  assert.equal(formatPolicyEffectiveDate(legalPolicy.privacy), "11 August 2026");
   assert.equal(formatLegalDate("2026-08-05"), "5 August 2026");
   assert.throws(() => formatLegalDate("not-a-date"), /invalid legal date/u);
 });
@@ -60,6 +60,7 @@ test("managed-service disclosure accounts for every reviewed data path", () => {
     managedService.providers.map(({ id }) => id),
     [
       "hetzner",
+      "posthog",
       "cloudflare",
       "purelymail",
       "paddle",

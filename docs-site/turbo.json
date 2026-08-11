@@ -10,9 +10,11 @@
         "$TURBO_ROOT$/docs-site/public/openapi.json",
         "$TURBO_ROOT$/scripts/asset-surfaces.mjs",
         "$TURBO_ROOT$/scripts/asset-surfaces.ts",
-        "$TURBO_ROOT$/scripts/sync-assets.mjs"
+        "$TURBO_ROOT$/scripts/sync-assets.mjs",
+        "$TURBO_ROOT$/scripts/posthog-source-maps.ts"
       ],
-      "outputs": [".vitepress/dist/**"]
+      "outputs": [".vitepress/dist/**"],
+      "env": ["VITE_POSTHOG_PROJECT_TOKEN", "VITE_POSTHOG_API_HOST", "VITE_POSTHOG_UI_HOST", "VITE_OPENPOST_ENVIRONMENT", "VITE_OPENPOST_VERSION", "VITE_OPENPOST_REVISION", "POSTHOG_SOURCEMAPS_ENABLED", "POSTHOG_PROJECT_ID", "POSTHOG_UI_HOST", "OPENPOST_RELEASE_VERSION", "GITHUB_SHA", "GITHUB_RUN_ID"]
     }
   }
 }

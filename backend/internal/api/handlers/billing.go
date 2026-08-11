@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -19,14 +20,16 @@ import (
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/usage"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
 
 type BillingHandler struct {
-	billing *billing.Service
-	db      *bun.DB
-	auth    middleware.Authenticator
-	usage   *usage.Service
+	billing   *billing.Service
+	db        *bun.DB
+	auth      middleware.Authenticator
+	usage     *usage.Service
+	telemetry telemetry.Recorder
 }
 
 func NewBillingHandler(billingService *billing.Service, deps ...any) *BillingHandler {
@@ -49,6 +52,10 @@ func (h *BillingHandler) SetUsage(service *usage.Service) {
 	if service != nil {
 		h.usage = service
 	}
+}
+
+func (h *BillingHandler) SetTelemetry(recorder telemetry.Recorder) {
+	h.telemetry = recorder
 }
 
 type PaddleWebhookOutput struct {
@@ -410,6 +417,7 @@ func (h *BillingHandler) createCheckout(ctx context.Context, input *CreateBillin
 	if err != nil {
 		return nil, billingAPIError(err)
 	}
+	h.captureCheckoutCreated(ctx, userID, organizationID, workspaceID, result)
 	return &BillingURLOutput{Body: checkoutResponse(result)}, nil
 }
 
@@ -483,7 +491,34 @@ func (h *BillingHandler) createOrganizationCheckout(ctx context.Context, input *
 	if err != nil {
 		return nil, billingAPIError(err)
 	}
+	h.captureCheckoutCreated(ctx, userID, input.PathID, "", result)
 	return &BillingURLOutput{Body: checkoutResponse(result)}, nil
+}
+
+func (h *BillingHandler) captureCheckoutCreated(
+	ctx context.Context,
+	userID string,
+	organizationID string,
+	workspaceID string,
+	result billing.CheckoutResult,
+) {
+	if h.telemetry == nil {
+		return
+	}
+	if err := h.telemetry.Capture(ctx, telemetry.Event{
+		Name:        telemetry.EventBillingCheckoutCreated,
+		DistinctID:  userID,
+		WorkspaceID: workspaceID,
+		Properties: map[string]any{
+			"checkout_id":     result.ID,
+			"organization_id": organizationID,
+			"plan_id":         result.PlanID,
+			"billing_period":  result.BillingPeriod,
+			"provider":        "paddle",
+		},
+	}); err != nil {
+		log.Printf("Failed to enqueue billing checkout telemetry: %v", err)
+	}
 }
 
 func checkoutResponse(result billing.CheckoutResult) BillingURLResponse {

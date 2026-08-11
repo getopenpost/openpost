@@ -54,6 +54,10 @@ export const docsPageCatalog = Object.freeze([
     "title": "Provider Applications"
   },
   {
+    "page": "configuration/telemetry.md",
+    "title": "Product telemetry and error tracking"
+  },
+  {
     "page": "configuration/update-status.md",
     "title": "Update Status"
   },

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { captureTelemetryEvent } from '@openpost/telemetry';
+  import { Button } from "$lib/components/ui/button";
   import {
     ArrowRight,
     Check,
@@ -55,15 +57,14 @@
         </li>
       </ul>
 
-      <a
+      <Button
         href={imageEditorURL}
-        data-umami-event="public-image-editor-open"
-        data-umami-event-source="marketing-tool"
+        onclick={() => captureTelemetryEvent('public editor opened', { editor: 'image', source: 'marketing_tool' })}
         class="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring mt-8 inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-lg px-5 font-medium transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Open the free editor
         <ArrowRight class="size-4" />
-      </a>
+      </Button>
       <p class="text-muted-foreground mt-3 text-xs leading-5">
         Local work stays on this device. You can move a design to an OpenPost
         workspace later.

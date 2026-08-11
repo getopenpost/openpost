@@ -41,6 +41,7 @@
     "@openpost/legal-policy": "workspace:*",
     "@openpost/social-images": "workspace:*",
     "@openpost/social-preview": "workspace:*",
+    "@openpost/telemetry": "workspace:*",
     "clsx": "^2.1.1",
     "@lucide/svelte": "^0.577.0",
     "mode-watcher": "^1.1.0",

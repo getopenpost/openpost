@@ -6,6 +6,7 @@
       "name": "openpost",
       "devDependencies": {
         "@playwright/test": "^1.61.1",
+        "@posthog/rollup-plugin": "1.4.7",
         "knip": "6.32.0",
         "turbo": "^2.6.3",
       },
@@ -14,6 +15,7 @@
       "name": "@openpost/docs",
       "devDependencies": {
         "@openpost/social-images": "workspace:*",
+        "@openpost/telemetry": "workspace:*",
         "typescript": "latest",
         "vitepress": "latest",
         "vitepress-openapi": "^0.1.20",
@@ -38,6 +40,7 @@
         "@imgly/background-removal": "1.7.0",
         "@noble/hashes": "1.8.0",
         "@openpost/social-preview": "workspace:*",
+        "@openpost/telemetry": "workspace:*",
         "@openpost/video-project": "workspace:*",
         "@paddle/paddle-js": "^1.6.4",
         "@tanstack/table-core": "^8.21.3",
@@ -56,7 +59,6 @@
         "mode-watcher": "^1.1.0",
         "onnxruntime-web": "1.21.0",
         "openapi-fetch": "^0.17.0",
-        "posthog-js": "^1.407.2",
         "svelte-reorderable-list": "^1.0.5",
         "svelte-sonner": "^1.1.1",
         "svelte-toolbelt": "0.10.6",
@@ -115,6 +117,7 @@
         "@openpost/legal-policy": "workspace:*",
         "@openpost/social-images": "workspace:*",
         "@openpost/social-preview": "workspace:*",
+        "@openpost/telemetry": "workspace:*",
         "clsx": "^2.1.1",
         "mode-watcher": "^1.1.0",
         "react": "^19.2.8",
@@ -164,6 +167,16 @@
       },
       "peerDependencies": {
         "svelte": "^5.0.0",
+      },
+    },
+    "packages/telemetry": {
+      "name": "@openpost/telemetry",
+      "dependencies": {
+        "posthog-js": "^1.407.2",
+      },
+      "devDependencies": {
+        "typescript": "^5.9.3",
+        "vitest": "^4.1.10",
       },
     },
     "packages/video-project": {
@@ -722,6 +735,8 @@
 
     "@openpost/social-preview": ["@openpost/social-preview@workspace:packages/social-preview"],
 
+    "@openpost/telemetry": ["@openpost/telemetry@workspace:packages/telemetry"],
+
     "@openpost/video-project": ["@openpost/video-project@workspace:packages/video-project"],
 
     "@openpost/web": ["@openpost/web@workspace:frontend"],
@@ -820,7 +835,13 @@
 
     "@posthog/browser-common": ["@posthog/browser-common@0.4.0", "", { "dependencies": { "@posthog/core": "^1.46.8", "@posthog/types": "^1.402.0" } }, "sha512-W9DCGVks15docUMPvJ2nd8NS16Gn74bsGWuaeg31beEKFSjdW8wvnQ1ETY6WSql5pYxZb3GdJmEUZVVstKSrBQ=="],
 
+    "@posthog/cli": ["@posthog/cli@0.7.34", "", { "dependencies": { "detect-libc": "^2.1.2" }, "bin": { "posthog-cli": "run-posthog-cli.js" } }, "sha512-wrRwj0FhbypW01TLpFRo1HkPBrwZHKP2tFE9xI4NTb84yMKZnXy49ibBdbImktJ5NbW7ndeWidOCZx+2Lkk7/Q=="],
+
     "@posthog/core": ["@posthog/core@1.46.9", "", { "dependencies": { "@posthog/types": "^1.402.2" } }, "sha512-EXO6y5ih+jBkTCpUCuYgQmajuDZuvy6vMvflkub6pLQyi0GPlCPWVSvZZkOeQw9e2MxoD5GteeGCt9R8+UJ/yQ=="],
+
+    "@posthog/plugin-utils": ["@posthog/plugin-utils@1.1.2", "", { "dependencies": { "cross-spawn": "^7.0.6" } }, "sha512-CS/14cMmny9NN/LHAb4QZdW3TfxhbKzsfyVYMCjsRdE0IKMTrXMr0cPRZxwczsN6VnWvVoy2Dd5wcG6RrIjlYA=="],
+
+    "@posthog/rollup-plugin": ["@posthog/rollup-plugin@1.4.7", "", { "dependencies": { "@posthog/cli": "~0.7.21", "@posthog/plugin-utils": "^1.1.2" }, "peerDependencies": { "rollup": ">= 4.0.0" } }, "sha512-bJgQLKZ5gkq79PBGTNqC8S6OAE8QtNIPYbvHnoboIh8qoZ0PS7RRpxuunoeOflxrHxpnM0Id9OxvrkGKJ2JE6w=="],
 
     "@posthog/types": ["@posthog/types@1.402.2", "", {}, "sha512-ZZTiS4dLwF4/D0YTzS3gGSLFnhuNOY5yu4d9VGS9trGe5GW6FjIXo20p18K5BPW2RZSYSld8sdnSAY3AUXleUQ=="],
 
@@ -2793,6 +2814,8 @@
     "@ionic/utils-terminal/tslib": ["tslib@2.8.1", "", {}, "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w=="],
 
     "@openpost/site/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
+
+    "@openpost/telemetry/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@openpost/video-project/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 

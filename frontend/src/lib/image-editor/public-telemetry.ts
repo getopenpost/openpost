@@ -1,3 +1,5 @@
+import { captureTelemetryEvent, type TelemetryEventName } from '@openpost/telemetry';
+
 export type PublicImageEditorEvent =
 	| 'image_editor_public_view'
 	| 'image_editor_design_started'
@@ -7,11 +9,15 @@ export type PublicImageEditorEvent =
 	| 'image_editor_signup_completed'
 	| 'image_editor_workspace_import_completed';
 
-type UmamiWindow = Window & {
-	umami?: {
-		track(name: string, data?: Record<string, string | number | boolean>): void;
-	};
-};
+const postHogEventNames = {
+	image_editor_public_view: 'public image editor viewed',
+	image_editor_design_started: 'public image design started',
+	image_editor_meaningful_edit: 'public image editor meaningful edit',
+	image_editor_export_completed: 'public image export completed',
+	image_editor_signup_clicked: 'public image editor signup clicked',
+	image_editor_signup_completed: 'public image editor signup completed',
+	image_editor_workspace_import_completed: 'public image workspace import completed'
+} as const satisfies Record<PublicImageEditorEvent, TelemetryEventName>;
 
 export function trackPublicImageEditorEvent(
 	name: PublicImageEditorEvent,
@@ -23,7 +29,7 @@ export function trackPublicImageEditorEvent(
 			['string', 'number', 'boolean'].includes(typeof value)
 		)
 	);
-	(window as UmamiWindow).umami?.track(name, safeData);
+	captureTelemetryEvent(postHogEventNames[name], safeData);
 	window.dispatchEvent(
 		new CustomEvent('openpost:public-image-editor-event', { detail: { name, data: safeData } })
 	);

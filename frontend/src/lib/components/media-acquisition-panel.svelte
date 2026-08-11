@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { capturePostHogEvent } from '$lib/posthog-capture';
+	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -220,7 +220,7 @@
 				if (result) completed.push(result);
 			}
 			if (completed.length > 0) {
-				capturePostHogEvent('media_uploaded', { count: completed.length, source: 'upload' });
+				captureTelemetryEvent('media uploaded', { count: completed.length, source: 'upload' });
 				await onUploaded(completed, {
 					allSucceeded: queue.length > 0 && queue.every((item) => item.status === 'success')
 				});
@@ -286,7 +286,7 @@
 		try {
 			const result = await uploadOne(item);
 			if (result) {
-				capturePostHogEvent('media_uploaded', { count: 1, source: 'camera' });
+				captureTelemetryEvent('media uploaded', { count: 1, source: 'camera' });
 				await onUploaded([result], { allSucceeded: true });
 			} else error = queue.find((candidate) => candidate.id === item.id)?.error || '';
 		} finally {
@@ -305,7 +305,7 @@
 		try {
 			const result = await uploadOne(item);
 			if (result) {
-				capturePostHogEvent('media_uploaded', { count: 1, source: 'stock_import' });
+				captureTelemetryEvent('media uploaded', { count: 1, source: 'stock_import' });
 				await onUploaded([result], { allSucceeded: true });
 			} else error = queue.find((candidate) => candidate.id === item.id)?.error || '';
 		} finally {

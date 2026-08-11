@@ -3367,6 +3367,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/telemetry/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get browser telemetry configuration
+         * @description Returns only the browser-safe project token and ingestion hosts. Self-hosted telemetry is disabled unless the operator enables it.
+         */
+        get: operations["get-telemetry-config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/version": {
         parameters: {
             query?: never;
@@ -4524,6 +4544,30 @@ export interface components {
             intent?: "production" | "certification_test";
             /** @description Workspace ID */
             workspace_id: string;
+        };
+        BrowserConfig: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/BrowserConfig.json
+             */
+            readonly $schema?: string;
+            /** @description PostHog browser ingestion endpoint or proxy */
+            api_host?: string;
+            /** @description Configured OpenPost edition */
+            edition: string;
+            /** @description Whether browser telemetry is enabled for this OpenPost instance */
+            enabled: boolean;
+            /** @description Deployment environment attached to telemetry */
+            environment: string;
+            /** @description Browser-safe PostHog project token */
+            project_token?: string;
+            /** @description Running OpenPost source revision */
+            revision: string;
+            /** @description PostHog user interface host used for generated links */
+            ui_host?: string;
+            /** @description Running OpenPost version */
+            version: string;
         };
         CLIAuthDecisionOutputBody: {
             /**
@@ -24308,6 +24352,35 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-telemetry-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrowserConfig"];
+                };
+            };
+            /** @description Error */
+            default: {
                 headers: {
                     [name: string]: unknown;
                 };

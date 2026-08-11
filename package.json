@@ -65,6 +65,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
+    "@posthog/rollup-plugin": "1.4.7",
     "knip": "6.32.0",
     "turbo": "^2.6.3"
   },

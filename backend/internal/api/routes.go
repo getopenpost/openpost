@@ -37,6 +37,7 @@ import (
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
 	"github.com/openpost/backend/internal/services/updatestatus"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
 
@@ -92,6 +93,7 @@ type RouteDeps struct {
 	AppVersion                   string
 	AppRevision                  string
 	Edition                      string
+	Telemetry                    telemetry.Recorder
 
 	MediaHandler    *handlers.MediaHandler
 	BillingHandler  *handlers.BillingHandler
@@ -241,6 +243,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)
 	publicationHandler.SetRepostService(deps.RepostService)
 	publicationHandler.SetProviderReadiness(deps.ProviderReadinessService)
+	publicationHandler.SetTelemetry(deps.Telemetry)
 	publicationHandler.RegisterRoutes(api)
 	handlers.NewSocialSetHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)
@@ -351,6 +354,26 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		Version:  deps.AppVersion,
 		Revision: deps.AppRevision,
 		Edition:  deps.Edition,
+	})
+	RegisterTelemetryConfig(api, deps.Telemetry)
+}
+
+func RegisterTelemetryConfig(api huma.API, recorder telemetry.Recorder) {
+	huma.Register(api, huma.Operation{
+		OperationID: "get-telemetry-config",
+		Method:      http.MethodGet,
+		Path:        "/telemetry/config",
+		Summary:     "Get browser telemetry configuration",
+		Description: "Returns only the browser-safe project token and ingestion hosts. Self-hosted telemetry is disabled unless the operator enables it.",
+		Tags:        []string{"System"},
+	}, func(_ context.Context, _ *struct{}) (*struct {
+		Body telemetry.BrowserConfig
+	}, error) {
+		config := telemetry.BrowserConfig{}
+		if recorder != nil {
+			config = recorder.PublicConfig()
+		}
+		return &struct{ Body telemetry.BrowserConfig }{Body: config}, nil
 	})
 }
 

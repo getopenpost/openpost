@@ -25,6 +25,7 @@ import (
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/videoprocessing"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 )
 
@@ -59,6 +60,7 @@ type BackgroundWorker struct {
 	notifications  *notifications.Service
 	reposts        *repostservice.Service
 	video          *videoprocessing.Service
+	telemetry      telemetry.Recorder
 	executors      map[jobregistry.ExecutionKind]jobExecutor
 	done           chan struct{}
 }
@@ -133,6 +135,10 @@ func (w *BackgroundWorker) SetVideoProcessingService(service *videoprocessing.Se
 		}
 		return w.video.HandleJob(ctx, job.Type, job.Payload)
 	}
+}
+
+func (w *BackgroundWorker) SetTelemetry(recorder telemetry.Recorder) {
+	w.telemetry = recorder
 }
 
 func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Service, tokens *tokenmanager.TokenManager, storage mediastore.BlobStorage) *BackgroundWorker {
@@ -414,6 +420,25 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 		Where("id = ?", job.ID).
 		Exec(ctx); dbErr != nil {
 		log.Printf("[Worker %s] failed to update job %s status: %v\n", w.workerID, job.ID, dbErr)
+		return
+	}
+	if job.Status == jobStatusFailed && w.telemetry != nil {
+		captureErr := w.telemetry.CaptureException(ctx, telemetry.Exception{
+			DistinctID:  "job:" + job.ID,
+			Title:       "OpenPost " + job.Type + " job failed",
+			Description: "A durable background job reached a terminal failure",
+			Properties: map[string]any{
+				"job_id":         job.ID,
+				"job_type":       job.Type,
+				"attempts":       job.Attempts,
+				"max_attempts":   job.MaxAttempts,
+				"error_type":     telemetry.ErrorType(processErr),
+				"error_boundary": "background_job",
+			},
+		})
+		if captureErr != nil {
+			log.Printf("[Worker %s] failed to enqueue terminal job telemetry: %v\n", w.workerID, captureErr)
+		}
 	}
 }
 

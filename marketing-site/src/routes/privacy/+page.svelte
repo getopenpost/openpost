@@ -133,10 +133,12 @@
         platform replies, access tokens, post text, or direct messages.
       </li>
       <li>
-        <strong>Website analytics data:</strong> anonymous page views, referrer URLs,
-        browser, operating system, device type, country, and selected interaction
-        events from openpost.social and docs.openpost.social. The website tracker
-        does not use cookies, identify visitors, or track people across websites.
+        <strong>Product and website telemetry:</strong> cookieless public page views
+        and selected interactions; opaque signed-in user and workspace identifiers;
+        product and service events; release, route-template, status, and sanitized
+        error facts. We do not send post content, media, request bodies, credentials,
+        email addresses, names, usernames, query strings, or raw URLs as telemetry
+        properties.
       </li>
       <li>
         <strong>Brand font records:</strong> custom WOFF2, TTF, or OTF files, family
@@ -390,11 +392,13 @@
       workspace only when processing succeeds.
     </p>
     <p>
-      The marketing and documentation sites use self-hosted, cookie-free Umami
-      analytics to measure anonymous traffic and selected interactions. They do
-      not use advertising trackers, identify visitors, or track people across
-      websites. The hosted application does not load this website analytics
-      tracker. The privacy-enhanced YouTube player is loaded only when you open
+      The managed app, service, marketing site, and documentation site use
+      PostHog EU Cloud for product, service, error, and website telemetry. Public
+      traffic remains cookieless and personless. The signed-in app and backend use
+      the same opaque OpenPost user ID to join product actions to service outcomes.
+      Browser persistence is memory-only; autocapture, session replay, console
+      capture, network bodies, advertising profiles, and cross-site tracking are
+      disabled. The privacy-enhanced YouTube player is loaded only when you open
       the product demo; YouTube may then process device and playback data.
     </p>
     <p>

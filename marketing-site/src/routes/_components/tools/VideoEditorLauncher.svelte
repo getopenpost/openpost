@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { captureTelemetryEvent } from '@openpost/telemetry';
   import {
     ArrowRight,
     Captions,
@@ -64,8 +65,7 @@
 
       <Button
         href={videoEditorURL}
-        data-umami-event="public-video-editor-open"
-        data-umami-event-source="marketing-tool"
+        onclick={() => captureTelemetryEvent('public editor opened', { editor: 'video', source: 'marketing_tool' })}
         class="mt-8 inline-flex min-h-11 w-fit items-center justify-center gap-2 rounded-lg bg-primary px-5 font-medium text-primary-foreground transition hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none"
       >
         Open OpenPost Video Editor

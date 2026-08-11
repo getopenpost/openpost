@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"slices"
@@ -29,6 +30,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/openpost/backend/internal/services/publicurl"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 )
@@ -59,6 +61,7 @@ type PublicationHandler struct {
 	publicMedia *publicurl.MediaVerifier
 	reposts     *repostservice.Service
 	readiness   *providerreadiness.Service
+	telemetry   telemetry.Recorder
 	// beforeQueueTransaction is a deterministic concurrency seam for tests.
 	// Production constructors leave it nil.
 	beforeQueueTransaction func(context.Context) error
@@ -79,6 +82,10 @@ func (h *PublicationHandler) SetRepostService(service *repostservice.Service) {
 
 func (h *PublicationHandler) SetProviderReadiness(service *providerreadiness.Service) {
 	h.readiness = service
+}
+
+func (h *PublicationHandler) SetTelemetry(recorder telemetry.Recorder) {
+	h.telemetry = recorder
 }
 
 func NewPublicationHandler(db *bun.DB, authenticator middleware.Authenticator, entitlement entitlements.Service) *PublicationHandler {
@@ -1201,6 +1208,7 @@ func (h *PublicationHandler) schedulePublication(api huma.API) {
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to enqueue publication")
 		}
+		h.capturePublicationEvent(ctx, telemetry.EventPublicationScheduled, userID, input.PathID, jobID)
 		return actionMessage("publication scheduled", jobID), nil
 	})
 }
@@ -1228,8 +1236,51 @@ func (h *PublicationHandler) publishNow(api huma.API) {
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to enqueue publication")
 		}
+		h.capturePublicationEvent(ctx, telemetry.EventPublicationQueued, userID, input.PathID, jobID)
 		return actionMessage("publication queued", jobID), nil
 	})
+}
+
+func (h *PublicationHandler) capturePublicationEvent(
+	ctx context.Context,
+	eventName string,
+	userID string,
+	publicationID string,
+	jobID string,
+) {
+	if h.telemetry == nil {
+		return
+	}
+	publication := new(models.Publication)
+	if err := h.db.NewSelect().Model(publication).
+		Column("workspace_id", "intent", "content_profile").
+		Where("id = ?", publicationID).
+		Scan(ctx); err != nil {
+		log.Printf("Failed to load publication telemetry context: %v", err)
+		return
+	}
+	destinationCount, err := h.db.NewSelect().Model((*models.Rendition)(nil)).
+		Where("publication_id = ?", publicationID).
+		Count(ctx)
+	if err != nil {
+		log.Printf("Failed to count publication telemetry destinations: %v", err)
+		return
+	}
+	if err := h.telemetry.Capture(ctx, telemetry.Event{
+		Name:        eventName,
+		DistinctID:  userID,
+		WorkspaceID: publication.WorkspaceID,
+		UUID:        jobID,
+		Properties: map[string]any{
+			"publication_id":    publicationID,
+			"job_id":            jobID,
+			"intent":            publication.Intent,
+			"content_profile":   publication.ContentProfile,
+			"destination_count": destinationCount,
+		},
+	}); err != nil {
+		log.Printf("Failed to enqueue publication telemetry: %v", err)
+	}
 }
 
 func (h *PublicationHandler) retryRendition(api huma.API) {

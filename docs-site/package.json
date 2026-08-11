@@ -11,6 +11,7 @@
   },
   "devDependencies": {
     "@openpost/social-images": "workspace:*",
+    "@openpost/telemetry": "workspace:*",
     "typescript": "latest",
     "vitepress": "latest",
     "vitepress-openapi": "^0.1.20"

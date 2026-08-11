@@ -3,7 +3,8 @@
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores/auth';
-	import { beforeNavigate, goto } from '$app/navigation';
+	import { afterNavigate, beforeNavigate, goto } from '$app/navigation';
+	import { captureTelemetryPageView } from '@openpost/telemetry';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
 	import * as Sidebar from '$lib/components/ui/sidebar';
@@ -28,6 +29,7 @@
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { setUnsavedChanges, UnsavedChangesContext } from '$lib/unsaved-changes.svelte';
 	import PublicHome from './_components/PublicHome.svelte';
+	import { initializeAppTelemetry } from '$lib/telemetry';
 
 	let { children } = $props();
 	const unsavedChanges = setUnsavedChanges(new UnsavedChangesContext());
@@ -37,6 +39,10 @@
 		if (navigation.type === 'leave') return;
 		if (currentPath === '/settings' && navigation.to?.url.pathname === '/settings') return;
 		if (!unsavedChanges.confirmDiscard()) navigation.cancel();
+	});
+
+	afterNavigate((navigation) => {
+		captureTelemetryPageView(navigation.to?.route.id ?? '/unknown');
 	});
 
 	function warnBeforeUnload(event: BeforeUnloadEvent) {
@@ -210,6 +216,7 @@
 		feedbackDiagnostics.initialize();
 		soundPreferences.initialize();
 		instance.initialize();
+		void initializeAppTelemetry();
 		auth.initialize({ optional: isPublicRoute });
 		if (!IS_CAPACITOR) return;
 		let removeURLListener: (() => Promise<void>) | undefined;

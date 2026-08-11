@@ -1822,6 +1822,52 @@
 				"required": ["workspace_id", "handle", "app_password"],
 				"type": "object"
 			},
+			"BrowserConfig": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/BrowserConfig.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"api_host": {
+						"description": "PostHog browser ingestion endpoint or proxy",
+						"type": "string"
+					},
+					"edition": {
+						"description": "Configured OpenPost edition",
+						"type": "string"
+					},
+					"enabled": {
+						"description": "Whether browser telemetry is enabled for this OpenPost instance",
+						"type": "boolean"
+					},
+					"environment": {
+						"description": "Deployment environment attached to telemetry",
+						"type": "string"
+					},
+					"project_token": {
+						"description": "Browser-safe PostHog project token",
+						"type": "string"
+					},
+					"revision": {
+						"description": "Running OpenPost source revision",
+						"type": "string"
+					},
+					"ui_host": {
+						"description": "PostHog user interface host used for generated links",
+						"type": "string"
+					},
+					"version": {
+						"description": "Running OpenPost version",
+						"type": "string"
+					}
+				},
+				"required": ["enabled", "environment", "edition", "version", "revision"],
+				"type": "object"
+			},
 			"CLIAuthDecisionOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -33663,6 +33709,36 @@
 				},
 				"summary": "Resolve a selected stock asset and record provider attribution events",
 				"tags": ["OpenPost Video Editor"]
+			}
+		},
+		"/telemetry/config": {
+			"get": {
+				"description": "Returns only the browser-safe project token and ingestion hosts. Self-hosted telemetry is disabled unless the operator enables it.",
+				"operationId": "get-telemetry-config",
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/BrowserConfig"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"default": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Error"
+					}
+				},
+				"summary": "Get browser telemetry configuration",
+				"tags": ["System"]
 			}
 		},
 		"/version": {

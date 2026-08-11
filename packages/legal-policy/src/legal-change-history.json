@@ -1,8 +1,18 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-08-09",
+  "reviewed_on": "2026-08-11",
   "scope": "This register records material changes to the official hosted-service legal documents. Spelling, formatting, and link corrections that do not change meaning are not separate entries.",
   "entries": [
+    {
+      "document": "privacy",
+      "version": "2026-08-11",
+      "effective_date": "2026-08-11",
+      "url": "https://openpost.social/privacy",
+      "changes": [
+        "Replaced the prior public-site-only Umami disclosure with the managed PostHog product, service, website, documentation, and error telemetry boundary.",
+        "Documented opaque signed-in identifiers, cookieless public analytics, memory-only browser persistence, disabled replay and autocapture, excluded content and credentials, retention, and the PostHog EU Cloud subprocessor."
+      ]
+    },
     {
       "document": "privacy",
       "version": "2026-08-09",

@@ -4,6 +4,12 @@
 	import { resolveMarketingSocial } from '@openpost/social-images';
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount } from 'svelte';
+	import { afterNavigate } from '$app/navigation';
+	import {
+		captureTelemetryPageView,
+		configureTelemetry,
+		installGlobalErrorCapture
+	} from '@openpost/telemetry';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import MarketingFooter from './_components/MarketingFooter.svelte';
 	import MarketingNav from './_components/MarketingNav.svelte';
@@ -12,7 +18,25 @@
 	const social = $derived(resolveMarketingSocial(page.url.pathname));
 	const socialImage = $derived(social.imageUrl);
 
-	onMount(() => soundPreferences.initialize());
+	afterNavigate((navigation) => {
+		captureTelemetryPageView(navigation.to?.url.pathname ?? window.location.pathname);
+	});
+
+	onMount(() => {
+		soundPreferences.initialize();
+		configureTelemetry({
+			enabled: Boolean(import.meta.env.VITE_POSTHOG_PROJECT_TOKEN && import.meta.env.VITE_POSTHOG_API_HOST),
+			projectToken: import.meta.env.VITE_POSTHOG_PROJECT_TOKEN,
+			apiHost: import.meta.env.VITE_POSTHOG_API_HOST,
+			uiHost: import.meta.env.VITE_POSTHOG_UI_HOST,
+			environment: import.meta.env.VITE_OPENPOST_ENVIRONMENT || 'production',
+			edition: 'public',
+			version: import.meta.env.VITE_OPENPOST_VERSION,
+			revision: import.meta.env.VITE_OPENPOST_REVISION,
+			surface: 'marketing'
+		});
+		return installGlobalErrorCapture();
+	});
 </script>
 
 <svelte:head>

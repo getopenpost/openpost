@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { capturePostHogEvent } from '$lib/posthog-capture';
+	import { captureTelemetryEvent } from '@openpost/telemetry';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { client } from '$lib/api/client';
@@ -96,7 +96,7 @@
 
 	function showDirectSuccess() {
 		viewState = 'direct_success';
-		capturePostHogEvent('social_account_connected', { account_count: 1, platform });
+		captureTelemetryEvent('social account connected', { account_count: 1, platform });
 		void celebrateFirstAccount(1);
 	}
 
@@ -161,7 +161,7 @@
 			}
 
 			viewState = 'selection_success';
-			capturePostHogEvent('social_account_connected', { account_count: selectedCount, platform });
+			captureTelemetryEvent('social account connected', { account_count: selectedCount, platform });
 			void celebrateFirstAccount(Math.max(selectedCount, 1));
 		} catch (requestError) {
 			error = transportErrorMessage(requestError, m.accounts_callback_selection_save_failed());

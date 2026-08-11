@@ -11,10 +11,20 @@
 				"$TURBO_ROOT$/scripts/sync-assets.mjs",
 				"$TURBO_ROOT$/scripts/frontend-vite-build.mjs",
 				"$TURBO_ROOT$/scripts/generate-app-route-manifest.mjs",
-				"$TURBO_ROOT$/scripts/precompress-static.mjs"
+				"$TURBO_ROOT$/scripts/precompress-static.mjs",
+				"$TURBO_ROOT$/scripts/posthog-source-maps.ts"
 			],
 			"outputs": ["build/**"],
-			"env": ["NODE_OPTIONS", "VITE_APP_MODE"]
+			"env": [
+				"NODE_OPTIONS",
+				"VITE_APP_MODE",
+				"POSTHOG_SOURCEMAPS_ENABLED",
+				"POSTHOG_PROJECT_ID",
+				"POSTHOG_UI_HOST",
+				"OPENPOST_RELEASE_VERSION",
+				"GITHUB_SHA",
+				"GITHUB_RUN_ID"
+			]
 		}
 	}
 }

@@ -63,6 +63,12 @@ var configTestEnvKeys = []string{
 	"OPENPOST_FEEDBACK_DESTINATION_URL",
 	"OPENPOST_FEEDBACK_RECIPIENT",
 	"OPENPOST_FEEDBACK_SUPPORT_URL",
+	"OPENPOST_TELEMETRY_ENABLED",
+	"OPENPOST_POSTHOG_PROJECT_TOKEN",
+	"OPENPOST_POSTHOG_API_HOST",
+	"OPENPOST_POSTHOG_BROWSER_HOST",
+	"OPENPOST_POSTHOG_UI_HOST",
+	"OPENPOST_TELEMETRY_ENVIRONMENT",
 	"OPENPOST_UPDATE_CHECK_ENABLED",
 	"OPENPOST_OIDC_ISSUER",
 	"OPENPOST_OIDC_CLIENT_ID",
@@ -444,6 +450,10 @@ func TestLoadSupportsFileBackedEnvValues(t *testing.T) {
 	t.Setenv("OPENPOST_PADDLE_CLIENT_TOKEN_FILE", writeEnvFile(t, "paddle-client-token", "test_client_token\n"))
 	t.Setenv("OPENPOST_PADDLE_WEBHOOK_SECRET_FILE", writeEnvFile(t, "paddle-webhook-secret", "pdl_webhook_secret\n"))
 	t.Setenv("OPENPOST_PADDLE_CHECKOUT_RETURN_URL_FILE", writeEnvFile(t, "paddle-return-url", "https://app.openpost.social/checkout?status=success\n"))
+	t.Setenv("OPENPOST_POSTHOG_PROJECT_TOKEN_FILE", writeEnvFile(t, "posthog-project-token", "phc_test\n"))
+	t.Setenv("OPENPOST_POSTHOG_API_HOST_FILE", writeEnvFile(t, "posthog-api-host", "https://eu.i.posthog.com\n"))
+	t.Setenv("OPENPOST_POSTHOG_BROWSER_HOST_FILE", writeEnvFile(t, "posthog-browser-host", "https://e.openpost.social\n"))
+	t.Setenv("OPENPOST_POSTHOG_UI_HOST_FILE", writeEnvFile(t, "posthog-ui-host", "https://eu.posthog.com\n"))
 	for _, plan := range []string{"STARTER", "FOUNDER", "PRO", "TEAM", "AGENCY"} {
 		t.Setenv("OPENPOST_PADDLE_"+plan+"_MONTHLY_PRICE_ID_FILE", writeEnvFile(t, strings.ToLower(plan)+"-monthly", "pri_"+strings.ToLower(plan)+"_monthly\n"))
 		t.Setenv("OPENPOST_PADDLE_"+plan+"_ANNUAL_PRICE_ID_FILE", writeEnvFile(t, strings.ToLower(plan)+"-annual", "pri_"+strings.ToLower(plan)+"_annual\n"))
@@ -741,7 +751,30 @@ func validCloudRuntimeConfig() *Config {
 		SMTPHost:                    "smtp.example.com",
 		SMTPPort:                    587,
 		SMTPFrom:                    "OpenPost <openpost@example.com>",
+		TelemetryEnabled:            true,
+		PostHogProjectToken:         "phc_test",
+		PostHogAPIHost:              "https://eu.i.posthog.com",
+		PostHogBrowserHost:          "https://e.example.com",
+		PostHogUIHost:               "https://eu.posthog.com",
+		TelemetryEnvironment:        "test",
 	}
+}
+
+func TestLoadDisablesTelemetryByDefaultForSelfHostedInstances(t *testing.T) {
+	cfg := Load()
+	require.Equal(t, EditionSelfHost, cfg.Edition)
+	require.False(t, cfg.TelemetryEnabled)
+	require.Equal(t, "selfhost", cfg.TelemetryEnvironment)
+}
+
+func TestLoadEnablesTelemetryByDefaultForCloudInstances(t *testing.T) {
+	t.Setenv("OPENPOST_EDITION", EditionCloud)
+	t.Setenv("OPENPOST_POSTHOG_API_HOST", "https://eu.i.posthog.com/")
+	cfg := Load()
+	require.True(t, cfg.TelemetryEnabled)
+	require.Equal(t, "https://eu.i.posthog.com", cfg.PostHogAPIHost)
+	require.Equal(t, cfg.PostHogAPIHost, cfg.PostHogBrowserHost)
+	require.Equal(t, "production", cfg.TelemetryEnvironment)
 }
 
 func TestLoadPaddlePrimitives(t *testing.T) {

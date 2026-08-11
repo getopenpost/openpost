@@ -1,9 +1,11 @@
 import { resolveDocsSocial } from '@openpost/social-images';
 import { defineConfig } from 'vitepress';
+import { postHogSourceMaps } from '../../scripts/posthog-source-maps';
 
 // Default to root-path hosting so custom-domain deployments work without extra config.
 // Repository-path deployments (for example, GitHub Pages at /openpost/) should set OPENPOST_DOCS_BASE explicitly.
 const docsBase = process.env.OPENPOST_DOCS_BASE?.trim() || '/';
+const sourceMaps = postHogSourceMaps('docs');
 
 const userDocsSidebar = [
 	{
@@ -91,6 +93,7 @@ const selfHostingSidebar = [
 		items: [
 			{ text: 'Overview', link: '/configuration/overview' },
 			{ text: 'Environment Variables', link: '/configuration/environment-variables' },
+			{ text: 'Product Telemetry', link: '/configuration/telemetry' },
 			{ text: 'Provider Applications', link: '/configuration/provider-applications' },
 			{ text: 'Update Status', link: '/configuration/update-status' },
 			{ text: 'User Feedback', link: '/configuration/feedback' },
@@ -175,6 +178,10 @@ const developmentSidebar = [
 ];
 
 export default defineConfig({
+	vite: {
+		plugins: sourceMaps.plugins,
+		build: { sourcemap: sourceMaps.enabled ? 'hidden' : false },
+	},
 	title: 'OpenPost',
 	description: 'Draft, adapt, schedule, and automate social posts with the managed OpenPost app or the same self-hosted product.',
 	base: docsBase,

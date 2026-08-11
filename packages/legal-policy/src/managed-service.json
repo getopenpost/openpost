@@ -1,17 +1,17 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-08-09",
-  "next_review_on": "2026-11-09",
+  "reviewed_on": "2026-08-11",
+  "next_review_on": "2026-11-11",
   "contact": "openpost@rgo.pt",
   "change_notice": "OpenPost updates this register before a new service starts receiving managed customer data. When a change materially affects the Privacy Policy, OpenPost also advances the policy version and gives an in-service or email notice when appropriate.",
   "stores": [
     {
       "id": "primary-host",
-      "name": "Application, database, logs, and website analytics",
+      "name": "Application, database, and logs",
       "provider": "Hetzner Online GmbH",
       "location": "Falkenstein, Germany (FSN1)",
-      "data": "Accounts, workspaces, drafts, schedules, encrypted social credentials, billing status, operational logs, and cookie-free Umami website analytics.",
-      "retention": "Active service data is kept while needed to provide the account and for the legal, security, and dispute periods described in the Privacy Policy. Managed host journals are size-bounded to 50 MiB of persistent storage and 10 MiB of runtime storage rather than kept for a fixed number of days. The live Umami database has no configured age-based event purge; daily Umami recovery copies are pruned after they become more than seven days old.",
+      "data": "Accounts, workspaces, drafts, schedules, encrypted social credentials, billing status, and operational logs.",
+      "retention": "Active service data is kept while needed to provide the account and for the legal, security, and dispute periods described in the Privacy Policy. Managed host journals are size-bounded to 50 MiB of persistent storage and 10 MiB of runtime storage rather than kept for a fixed number of days.",
       "protection": "The host uses key-only SSH, blocks direct root and password login, and limits database and service access to the application and operator boundary."
     },
     {
@@ -48,13 +48,28 @@
       "name": "Hetzner Online GmbH",
       "role": "subprocessor",
       "use": "required",
-      "purpose": "Runs the managed application host, PostgreSQL database, local recovery copies, operational logs, and self-hosted Umami analytics.",
+      "purpose": "Runs the managed application host, PostgreSQL database, local recovery copies, and operational logs.",
       "data": "The service data stored or processed by the managed application, plus limited infrastructure metadata.",
       "location": "Falkenstein, Germany (FSN1).",
       "transfer": "The primary customer-data host is in Germany. Hetzner states that data remains in the EU unless it identifies another transfer.",
       "source_urls": [
         "https://docs.hetzner.com/general/infrastructure-and-availability/data-centers-and-connection/",
         "https://www.hetzner.com/legal/privacy-policy/"
+      ]
+    },
+    {
+      "id": "posthog",
+      "name": "PostHog, Inc.",
+      "role": "subprocessor",
+      "use": "required",
+      "purpose": "Receives managed product, public-site, service, and error telemetry so OpenPost can measure use, diagnose failures, and improve the hosted service.",
+      "data": "Cookieless public-site events; opaque managed-service user and workspace identifiers; product and service events; browser, service, release, route-template, status, and sanitized error context. OpenPost does not enable session replay or send post content, media, credentials, request bodies, email addresses, names, usernames, query strings, or raw URLs as telemetry properties.",
+      "location": "PostHog EU Cloud in Frankfurt, Germany.",
+      "transfer": "OpenPost selects PostHog's EU Cloud. PostHog describes its GDPR commitments and international-transfer safeguards in its privacy and GDPR documentation.",
+      "source_urls": [
+        "https://posthog.com/privacy",
+        "https://posthog.com/docs/privacy/gdpr-compliance",
+        "https://posthog.com/docs/privacy/data-collection"
       ]
     },
     {

@@ -61,6 +61,12 @@ type Config struct {
 	FeedbackDestinationURL  string
 	FeedbackRecipient       string
 	FeedbackSupportURL      string
+	TelemetryEnabled        bool
+	PostHogProjectToken     string
+	PostHogAPIHost          string
+	PostHogBrowserHost      string
+	PostHogUIHost           string
+	TelemetryEnvironment    string
 	UpdateCheckEnabled      bool
 	OIDCIssuer              string
 	OIDCClientID            string
@@ -165,6 +171,8 @@ func Load() *Config {
 	// deployed.
 	frontendURL := strings.TrimRight(getEnvWithFallbacks("OPENPOST_APP_URL", "http://localhost:8080", "OPENPOST_FRONTEND_URL"), "/")
 	edition := getEnvEnum("OPENPOST_EDITION", EditionSelfHost, EditionSelfHost, EditionCloud)
+	telemetryEnabledByDefault, telemetryEnvironment := telemetryDefaults(edition)
+	postHogAPIHost := strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_POSTHOG_API_HOST", "")), "/")
 	legalRequired := edition == EditionCloud
 	defaultTermsURL := ""
 	defaultPrivacyURL := ""
@@ -227,6 +235,14 @@ func Load() *Config {
 		FeedbackDestinationURL: getEnvDefault("OPENPOST_FEEDBACK_DESTINATION_URL", ""),
 		FeedbackRecipient:      getEnvDefault("OPENPOST_FEEDBACK_RECIPIENT", ""),
 		FeedbackSupportURL:     getEnvDefault("OPENPOST_FEEDBACK_SUPPORT_URL", "https://github.com/rodrgds/openpost/issues/new"),
+		TelemetryEnabled:       getEnvBoolWithAliases(telemetryEnabledByDefault, "OPENPOST_TELEMETRY_ENABLED"),
+		PostHogProjectToken:    strings.TrimSpace(getEnvDefault("OPENPOST_POSTHOG_PROJECT_TOKEN", "")),
+		PostHogAPIHost:         postHogAPIHost,
+		PostHogBrowserHost: strings.TrimRight(strings.TrimSpace(
+			getEnvDefault("OPENPOST_POSTHOG_BROWSER_HOST", postHogAPIHost),
+		), "/"),
+		PostHogUIHost:          strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_POSTHOG_UI_HOST", "")), "/"),
+		TelemetryEnvironment:   strings.TrimSpace(getEnvDefault("OPENPOST_TELEMETRY_ENVIRONMENT", telemetryEnvironment)),
 		UpdateCheckEnabled:     getEnvBoolWithAliases(true, "OPENPOST_UPDATE_CHECK_ENABLED"),
 		OIDCIssuer:             strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_ISSUER", "")),
 		OIDCClientID:           strings.TrimSpace(getEnvDefault("OPENPOST_OIDC_CLIENT_ID", "")),
@@ -358,6 +374,13 @@ func Load() *Config {
 	warnOnPlaceholderURL(cfg)
 
 	return cfg
+}
+
+func telemetryDefaults(edition string) (bool, string) {
+	if edition == EditionCloud {
+		return true, "production"
+	}
+	return false, "selfhost"
 }
 
 func resolveMediaURL(mediaURL, publicURL string) string {
@@ -509,6 +532,7 @@ func (c *Config) ValidateRuntime() error {
 	missing = append(missing, c.missingCloudAccountConfig()...)
 	missing = append(missing, c.invalidCloudImageCaptionConfig()...)
 	missing = append(missing, c.invalidCloudCORSConfig()...)
+	missing = append(missing, c.missingCloudTelemetryConfig()...)
 	if c.XMonthlyBudgetMicrousd < 0 {
 		missing = append(missing, "OPENPOST_X_MONTHLY_BUDGET_MICROUSD >= 0")
 	}
@@ -525,6 +549,25 @@ func (c *Config) ValidateRuntime() error {
 		return fmt.Errorf("OPENPOST_EDITION=cloud requires: %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+func (c *Config) missingCloudTelemetryConfig() []string {
+	missing := make([]string, 0, 5)
+	if !c.TelemetryEnabled {
+		missing = append(missing, "OPENPOST_TELEMETRY_ENABLED=true")
+	}
+	for key, value := range map[string]string{
+		"OPENPOST_POSTHOG_PROJECT_TOKEN": c.PostHogProjectToken,
+		"OPENPOST_POSTHOG_API_HOST":      c.PostHogAPIHost,
+		"OPENPOST_POSTHOG_BROWSER_HOST":  c.PostHogBrowserHost,
+		"OPENPOST_POSTHOG_UI_HOST":       c.PostHogUIHost,
+	} {
+		if strings.TrimSpace(value) == "" {
+			missing = append(missing, key)
+		}
+	}
+	sort.Strings(missing)
+	return missing
 }
 
 func (c *Config) invalidCloudImageCaptionConfig() []string {

@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Added one privacy-limited PostHog telemetry layer across the app, backend, marketing site, and documentation, with explicit browser intent events, authoritative server outcomes, background-job and request error capture, opaque identity, runtime self-host configuration, and release-linked source maps.
+
+### Changed
+
+- Replaced the public Umami tracker with cookieless, memory-only PostHog analytics; disabled autocapture, session replay, console and network-body capture, advertising profiles, and cross-site identity; and updated the hosted Privacy Policy and subprocessor register for the managed telemetry boundary.
+
 ### Fixed
 
 - Normalized publication authorization times to database precision so immediate publishes cannot fail before reaching a provider, and surfaced terminal preflight failures as failed instead of leaving them scheduled and pending.

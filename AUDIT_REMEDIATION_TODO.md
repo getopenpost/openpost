@@ -1100,7 +1100,7 @@ Candidate decisions under this registry:
 
 ### LEGAL-005 — Revalidate Paddle and managed-service legal assertions
 
-- [ ] **Problem — External verification required:** Merchant-of-Record, tax documents, refund/withdrawal rules, customer portal behavior, controller identity, transfer safeguards, Umami configuration, and material-change process cannot be proven from repository source alone.
+- [ ] **Problem — External verification required:** Merchant-of-Record, tax documents, refund/withdrawal rules, customer portal behavior, controller identity, transfer safeguards, PostHog project configuration, and material-change process cannot be proven from repository source alone.
 - **Fix:** review the live Paddle account/config/contracts, deployed analytics/configuration, and applicable legal advice; record evidence and review date; update Terms/Privacy/Refunds and billing UX together.
 - **Done when:** every assertion has current provider/deployment/legal evidence and a named review owner; checkout and portal behavior match the documents.
 - **Evidence:** `marketing-site/src/routes/terms/+page.svelte:161`, `marketing-site/src/routes/refunds/+page.svelte:40`, `marketing-site/src/routes/privacy/+page.svelte:205`.
@@ -1251,7 +1251,7 @@ These cannot be closed from repository source alone:
 - [ ] Verify database and media backup encryption boundary, retention, access, deletion, monitoring, off-host resilience, and restore evidence without printing secrets.
 - [ ] Verify live Paddle Merchant-of-Record configuration, tax/VAT/customer documents, invoices, portal deep links, discounts, refunds, cancellation, failed-payment recovery, and withdrawal terms.
 - [ ] Verify controller/company identity, residency, every managed subprocessor, transfer basis, support/human access, incident process/history wording, and legal review dates.
-- [ ] Verify Umami deployment/configuration matches the Privacy claim.
+- [ ] Verify the managed PostHog EU project, cookieless hashing, disabled IP capture and replay, 12-month maximum retention, ingestion proxy, and public Privacy claims before enabling production telemetry; then retire the old Umami service and its stored data under the prior policy.
 - [ ] Obtain recorded permission and current-use evidence for every customer logo, testimonial, count, “Used by,” team, milestone, backer, or origin claim.
 - [ ] Decide whether independent pentest/audit work is funded; publish scope and date only after completion. Do not add SOC 2, ISO, GDPR, or pentest badges without proof.
 - [ ] Reverify Pinterest, GBP, and Reddit access tiers, policies, limits, deadlines, quotas, permitted origins, retention, and approval evidence immediately before implementation and every certification renewal.

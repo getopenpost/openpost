@@ -25,6 +25,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Use `/api/v1/health` for process liveness and `/api/v1/ready` for traffic admission, rollouts, and dependency-aware monitoring.
 - [ ] Confirm `openpost instance health --instance <public-url>` succeeds against the public URL.
 - [ ] Capture `openpost instance diagnostics --instance <public-url> --json` for the launch/support handoff.
+- [ ] Decide whether to enable PostHog telemetry. Self-hosted instances keep it disabled unless the operator explicitly chooses an operator-owned project and updates their privacy notice.
 
 ## Self-Hosted Storage
 
@@ -54,6 +55,11 @@ changes live in [Developer Docs](/development/).
 - [ ] Complete an embedded checkout smoke: plan and period selection, $0 trial start, return to OpenPost, local `trialing` status, and billing management URL.
 - [ ] Confirm a new hosted user can create the bootstrap workspace and is blocked from extra workspaces before checkout.
 - [ ] Confirm team invitations are blocked once active members plus pending invites reach the plan limit.
+- [ ] Configure one EU PostHog production project for the app, backend, marketing site, and documentation; use separate staging and development projects.
+- [ ] Disable PostHog IP capture, autocapture, session replay, console capture, and network bodies; enable cookieless server hashing and set event retention to no more than 12 months.
+- [ ] Set the PostHog project token and server, browser, and UI hosts; keep the personal API key only in CI source-map upload secrets.
+- [ ] Verify `GET /api/v1/telemetry/config` exposes only the browser-safe project token and ingestion configuration.
+- [ ] Verify a browser intent event, a server outcome event, and one sanitized test exception arrive without content, credentials, email, names, query strings, or raw URLs.
 
 ## Providers
 

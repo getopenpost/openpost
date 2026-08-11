@@ -13,14 +13,14 @@ test("the official manifest generates the backend policy constants", async () =>
   const manifest = await readLegalPolicyManifest();
   const generated = renderLegalPolicyGo(manifest);
   assert.match(generated, /TermsVersion\s+= "2026-08-05"/u);
-  assert.match(generated, /PrivacyVersion\s+= "2026-08-09"/u);
+  assert.match(generated, /PrivacyVersion\s+= "2026-08-11"/u);
   assert.match(generated, /RefundsRequiresAcceptance\s+= false/u);
   assert.equal(
     renderLegalPolicyEnv(manifest),
     "OPENPOST_TERMS_URL=https://openpost.social/terms\n" +
       "OPENPOST_PRIVACY_URL=https://openpost.social/privacy\n" +
       "OPENPOST_TERMS_VERSION=2026-08-05\n" +
-      "OPENPOST_PRIVACY_VERSION=2026-08-09\n",
+      "OPENPOST_PRIVACY_VERSION=2026-08-11\n",
   );
 });
 

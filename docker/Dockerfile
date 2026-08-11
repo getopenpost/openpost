@@ -21,15 +21,17 @@ COPY packages/changelog/package.json ./packages/changelog/
 COPY packages/legal-policy/package.json ./packages/legal-policy/
 COPY packages/social-images/package.json ./packages/social-images/
 COPY packages/social-preview/package.json ./packages/social-preview/
+COPY packages/telemetry/package.json ./packages/telemetry/
 COPY packages/video-project/package.json ./packages/video-project/
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install --frozen-lockfile --filter @openpost/web
 
 COPY frontend/ ./frontend/
 COPY packages/social-preview/ ./packages/social-preview/
+COPY packages/telemetry/ ./packages/telemetry/
 COPY packages/video-project/ ./packages/video-project/
 COPY assets/ ./assets/
-COPY scripts/asset-surfaces.mjs scripts/asset-surfaces.ts scripts/sync-assets.mjs scripts/frontend-vite-build.mjs scripts/generate-app-route-manifest.mjs scripts/precompress-static.mjs ./scripts/
+COPY scripts/asset-surfaces.mjs scripts/asset-surfaces.ts scripts/sync-assets.mjs scripts/frontend-vite-build.mjs scripts/generate-app-route-manifest.mjs scripts/precompress-static.mjs scripts/posthog-source-maps.ts ./scripts/
 RUN bun run --filter @openpost/web build
 
 # Build stage for backend

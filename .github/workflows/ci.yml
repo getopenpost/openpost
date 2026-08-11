@@ -71,7 +71,7 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
-      - run: scripts/ci-timing-summary.sh start policy
+      - run: bash scripts/ci-timing-summary.sh start policy
       - run: bun install --frozen-lockfile
       - name: Check generated contracts and repository policy
         run: |
@@ -92,7 +92,7 @@ jobs:
           bun run check:ui-consistency
           bun run check:contracts
       - if: always()
-        run: scripts/ci-timing-summary.sh finish policy
+        run: bash scripts/ci-timing-summary.sh finish policy
 
   backend-lint:
     name: Backend and CLI lint
@@ -107,7 +107,7 @@ jobs:
           cache-dependency-path: |
             backend/go.sum
             cli/go.sum
-      - run: scripts/ci-timing-summary.sh start backend-lint
+      - run: bash scripts/ci-timing-summary.sh start backend-lint
       - name: Check Go formatting
         run: |
           unformatted=$(find backend cli -path '*/.devenv' -prune -o -type f -name '*.go' -exec gofmt -l {} +)
@@ -125,7 +125,7 @@ jobs:
           working-directory: cli
           args: ./...
       - if: always()
-        run: scripts/ci-timing-summary.sh finish backend-lint
+        run: bash scripts/ci-timing-summary.sh finish backend-lint
 
   frontend-quality:
     name: Svelte lint and checks
@@ -142,7 +142,7 @@ jobs:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
-      - run: scripts/ci-timing-summary.sh start frontend-quality
+      - run: bash scripts/ci-timing-summary.sh start frontend-quality
       - run: bun install --frozen-lockfile
       - if: needs.plan.outputs.frontend == 'true'
         run: |
@@ -151,7 +151,7 @@ jobs:
       - if: needs.plan.outputs.marketing == 'true'
         run: bun run --filter @openpost/site check
       - if: always()
-        run: scripts/ci-timing-summary.sh finish frontend-quality
+        run: bash scripts/ci-timing-summary.sh finish frontend-quality
 
   backend:
     name: Backend tests
@@ -208,7 +208,7 @@ jobs:
           path: .turbo/cache
           key: turbo-frontend-${{ runner.os }}-${{ hashFiles('bun.lock', 'turbo.json', 'frontend/turbo.json') }}-${{ github.sha }}
           restore-keys: turbo-frontend-${{ runner.os }}-${{ hashFiles('bun.lock', 'turbo.json', 'frontend/turbo.json') }}-
-      - run: scripts/ci-timing-summary.sh start frontend-build
+      - run: bash scripts/ci-timing-summary.sh start frontend-build
       - run: bun install --frozen-lockfile
       - if: needs.plan.outputs.frontend == 'true'
         run: bun run --filter @openpost/web test
@@ -236,7 +236,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - if: always()
-        run: scripts/ci-timing-summary.sh finish frontend-build
+        run: bash scripts/ci-timing-summary.sh finish frontend-build
 
   marketing-build:
     name: Marketing build

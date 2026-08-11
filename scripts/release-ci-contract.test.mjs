@@ -319,6 +319,12 @@ test("CI builds web surfaces once and browser jobs consume those artifacts", () 
   assert.doesNotMatch(frontend, /verify:frontend-build-cache/);
 });
 
+test("CI invokes repository timing helpers portably", () => {
+  const invocations = ci.match(/bash scripts\/ci-timing-summary\.sh/gmu) ?? [];
+  assert.equal(invocations.length, 8);
+  assert.doesNotMatch(ci, /run: scripts\/ci-timing-summary\.sh/u);
+});
+
 test("cache equivalence is conditional in CI and independently scheduled", () => {
   const cacheJob = workflowJob(ci, "cache-contract");
   assert.match(cacheJob, /needs\.plan\.outputs\.cache_contract == 'true'/);

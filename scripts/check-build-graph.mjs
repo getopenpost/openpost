@@ -164,22 +164,17 @@ requireCondition(
 );
 requireIncludes(
   dockerfile,
-  "/app/frontend/build",
-  "production image frontend copy",
+  "FROM frontend_artifact AS frontend-builder",
+  "production image frontend artifact context",
 );
 requireIncludes(
   dockerfile,
-  "bun run --filter @openpost/web build",
-  "production image frontend build",
-);
-requireIncludes(
-  dockerfile,
-  "scripts/frontend-vite-build.mjs",
-  "production image frontend build memory contract",
+  "COPY --from=frontend-builder / ./backend/cmd/openpost/public",
+  "production image frontend artifact copy",
 );
 requireCondition(
-  !dockerfile.includes("ENV NODE_OPTIONS="),
-  "production image must use the package-owned frontend build memory contract",
+  !dockerfile.includes("bun run --filter @openpost/web build"),
+  "production image must not rebuild the canonical frontend artifact",
 );
 requireIncludes(
   frontendPackage.scripts.build,
@@ -193,15 +188,11 @@ requireIncludes(
   "Devenv frontend build",
 );
 requireIncludes(ci, "bun run check:build-graph", "CI quality contract");
-requireIncludes(
-  ci,
-  "bun run verify:frontend-build-cache -- --keep-output",
-  "CI frontend cache proof",
-);
+requireIncludes(ci, 'OPENPOST_E2E_PREBUILT: "1"', "CI browser artifact reuse");
 requireIncludes(
   appPlaywright,
-  "bun run frontend:build",
-  "application browser build",
+  "OPENPOST_E2E_PREBUILT",
+  "application browser prebuilt-artifact switch",
 );
 
 const dryRun = spawnSync("bunx", ["turbo", "run", "build", "--dry=json"], {

@@ -5,6 +5,7 @@ const host = "127.0.0.1";
 const baseURL = `http://${host}:${port}`;
 const reuseExistingServer =
   process.env.OPENPOST_MARKETING_E2E_REUSE_SERVER === "1";
+const usePrebuiltArtifact = process.env.OPENPOST_E2E_PREBUILT === "1";
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const chromiumUse = chromiumExecutablePath
   ? { launchOptions: { executablePath: chromiumExecutablePath } }
@@ -21,7 +22,7 @@ export default defineConfig({
     trace: "on-first-retry",
   },
   webServer: {
-    command: `bun run marketing:build && bun run --filter @openpost/site preview --host ${host} --port ${port}`,
+    command: `${usePrebuiltArtifact ? "" : "bun run marketing:build && "}bun run --filter @openpost/site preview --host ${host} --port ${port}`,
     url: baseURL,
     reuseExistingServer,
     timeout: 120_000,

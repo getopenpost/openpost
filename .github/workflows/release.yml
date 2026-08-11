@@ -24,6 +24,7 @@ jobs:
       ci_run_id: ${{ steps.candidate.outputs.run_id }}
       candidate_artifact: ${{ steps.artifacts.outputs.candidate }}
       frontend_artifact: ${{ steps.artifacts.outputs.frontend }}
+      android_artifact: ${{ steps.artifacts.outputs.android }}
       digest: ${{ steps.image.outputs.digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -65,8 +66,15 @@ jobs:
             --repository "$GITHUB_REPOSITORY" \
             --run-id "$CI_RUN_ID" \
             --prefix "frontend-public-${GITHUB_SHA}-")"
-          echo "candidate=$candidate" >> "$GITHUB_OUTPUT"
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          android="$(bun scripts/ci-artifacts.mjs resolve \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$CI_RUN_ID" \
+            --prefix "android-unsigned-${GITHUB_SHA}-")"
+          {
+            echo "candidate=$candidate"
+            echo "frontend=$frontend"
+            echo "android=$android"
+          } >> "$GITHUB_OUTPUT"
       - name: Download the candidate release manifest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -241,6 +249,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     needs: [verify-candidate, prepare-draft]
     permissions:
+      actions: read
       contents: write
     strategy:
       matrix:
@@ -271,30 +280,23 @@ jobs:
             "openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
 
   build-android:
-    name: Build Android APK
+    name: Sign Android candidate
     runs-on: ubuntu-latest
     needs: [verify-candidate, prepare-draft]
     permissions:
+      actions: read
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
-        with:
-          java-version: "21"
-          distribution: temurin
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: |
-            ~/.bun/install/cache
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: android-${{ runner.os }}-${{ hashFiles('bun.lock', 'frontend/android/**/*.gradle*', 'frontend/android/gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: android-${{ runner.os }}-
-      - run: bun install --frozen-lockfile
-      - run: bun run --filter @openpost/web build:capacitor
+      - name: Download the unsigned APK built by candidate CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
+          ANDROID_ARTIFACT: ${{ needs.verify-candidate.outputs.android_artifact }}
+        run: |
+          gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ANDROID_ARTIFACT" --dir candidate-android
+          cd candidate-android
+          sha256sum --check openpost-app-android-unsigned.sha256
       - name: Check signing secret
         id: signing
         env:
@@ -306,23 +308,27 @@ jobs:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           clean=$(printf '%s' "$KEYSTORE_B64" | sed -e 's/^"//;s/"$//' -e "s/^'//;s/'$//" -e 's/^data:[^,]*,//' -e 's/\\n//g' -e 's/\\r//g' | tr -d '\n\r\t ')
-          printf '%s' "$clean" | base64 -d > frontend/android/app/release-keystore.jks
-      - name: Build signed APK
+          printf '%s' "$clean" | base64 -d > release-keystore.jks
+      - name: Sign the verified candidate APK
         if: steps.signing.outputs.has_keystore == 'true'
-        working-directory: frontend/android
-        run: ./gradlew assembleRelease -PRELEASE_STORE_FILE=release-keystore.jks -PRELEASE_STORE_PASSWORD="${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" -PRELEASE_KEY_ALIAS="${{ secrets.ANDROID_KEY_ALIAS }}" -PRELEASE_KEY_PASSWORD="${{ secrets.ANDROID_KEY_PASSWORD }}"
-      - name: Build unsigned APK
-        if: steps.signing.outputs.has_keystore != 'true'
-        working-directory: frontend/android
-        run: ./gradlew assembleRelease
-      - name: Prepare APK
-        shell: bash
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          if [[ "${{ steps.signing.outputs.has_keystore }}" == true ]]; then
-            cp frontend/android/app/build/outputs/apk/release/app-release.apk openpost-app-android.apk
-          else
-            cp frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android.apk
-          fi
+          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          [[ -x "$apksigner" ]]
+          "$apksigner" sign \
+            --ks release-keystore.jks \
+            --ks-pass env:STORE_PASSWORD \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass env:KEY_PASSWORD \
+            --out openpost-app-android.apk \
+            candidate-android/openpost-app-android-unsigned.apk
+          "$apksigner" verify --verbose --print-certs openpost-app-android.apk
+      - name: Preserve the verified unsigned APK when signing is not configured
+        if: steps.signing.outputs.has_keystore != 'true'
+        run: cp candidate-android/openpost-app-android-unsigned.apk openpost-app-android.apk
       - name: Upload the Android APK to the draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -5,6 +5,7 @@ const host = "127.0.0.1";
 const baseURL = `http://${host}:${port}`;
 const dbPath = `/tmp/openpost-app-e2e-${port}.db`;
 const reuseExistingServer = process.env.OPENPOST_APP_E2E_REUSE_SERVER === "1";
+const usePrebuiltArtifact = process.env.OPENPOST_E2E_PREBUILT === "1";
 const workers = Number(process.env.OPENPOST_APP_E2E_WORKERS ?? 2);
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 const chromiumUse = {
@@ -30,7 +31,7 @@ export default defineConfig({
   webServer: {
     command: [
       `rm -f ${dbPath}`,
-      "bun run frontend:build",
+      ...(usePrebuiltArtifact ? [] : ["bun run frontend:build"]),
       [
         "cd backend &&",
         `OPENPOST_PORT=${port}`,

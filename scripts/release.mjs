@@ -115,13 +115,19 @@ async function plan() {
 }
 
 async function preflight() {
-  await requireLocalReleaseHost();
+  run(["devenv", "shell", "--", "doctor"]);
   requireCommand("gh");
   verifyGitHubReleaseAccess();
   await verifyProductionReady();
   console.log(
-    "release:preflight: disk, Docker, GitHub, workflows, secrets, and production are ready",
+    "release:preflight: worktree, GitHub, workflows, secrets, and production are ready",
   );
+}
+
+function checkReleaseContracts() {
+  run(["bun", "run", "check:release-version"]);
+  run(["bun", "run", "check:changelog"]);
+  run(["bun", "run", "check:provider-certification"]);
 }
 
 async function check() {
@@ -169,6 +175,8 @@ async function check() {
         "build",
         "--platform",
         imagePlatform,
+        "--build-context",
+        "frontend_artifact=backend/cmd/openpost/public",
         "--file",
         "docker/Dockerfile",
         "--tag",
@@ -275,7 +283,7 @@ async function prepare(commitMessage) {
   const originalChangelog = await readFile(changelogPath);
   run(["bun", "scripts/prepare-release-changelog.mjs", tag]);
   try {
-    await check();
+    checkReleaseContracts();
   } catch (error) {
     await Bun.write(changelogPath, originalChangelog);
     throw error;

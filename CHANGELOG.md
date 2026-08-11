@@ -4,6 +4,10 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Made GitHub candidate CI the release correctness authority, planned pull-request checks from the fail-closed release-surface registry, split independent lint and browser work, reused SHA-addressed web artifacts in Playwright and the production image, enabled GitHub-backed Turbo caches, moved the frontend cache proof off the ordinary critical path, reduced pre-push checks to changed-file formatting, and moved Android compilation into candidate CI so tag releases only verify and sign the retained APK.
+
 ### Fixed
 
 - Invoked the draft-asset upload helper through Bash and recorded its executable mode so release runners cannot reject it before its bounded retries run.

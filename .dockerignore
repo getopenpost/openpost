@@ -22,7 +22,7 @@ docs/
 !docs-site/**/*.md
 LICENSE
 
-# Frontend build artifacts (rebuilt in container)
+# Frontend build artifacts (supplied through a separate named BuildKit context)
 node_modules/
 **/node_modules/
 frontend/.svelte-kit/
@@ -31,7 +31,7 @@ frontend/android/.gradle/
 frontend/android/app/build/
 frontend/android/app/src/main/assets/public/
 
-# Backend runtime and build artifacts (rebuilt or unused in container)
+# Backend runtime and build artifacts (rebuilt or supplied separately)
 backend/openpost
 backend/cmd/openpost/public/
 backend/coverage.out

@@ -38,38 +38,31 @@ test("production build stages cannot drift back to mutable tags", () => {
     {
       ...inputs,
       dockerfile: inputs.dockerfile.replace(
-        /oven\/bun:1\.3\.11-alpine@sha256:[a-f0-9]{64}/u,
-        "oven/bun:1.3.11-alpine",
+        /golang:1\.26\.5-alpine@sha256:[a-f0-9]{64}/u,
+        "golang:1.26.5-alpine",
       ),
     },
     new Date("2026-08-09T00:00:00Z"),
   );
-  assert.ok(problems.some((problem) => problem.includes("bun-toolchain")));
+  assert.ok(problems.some((problem) => problem.includes("backend-builder")));
 });
 
-test("the production frontend cannot drift back to Bun's node fallback shim", () => {
+test("the production image cannot rebuild a second frontend artifact", () => {
   const inputs = imagePolicyInputs();
   const problems = validateImagePolicy(
     {
       ...inputs,
-      dockerfile: inputs.dockerfile
-        .replace(
-          "COPY --from=bun-toolchain /usr/local/bin/bun /usr/local/bin/bun",
-          "COPY --from=bun-toolchain /usr/local/bun-node-fallback-bin /usr/local/bun-node-fallback-bin",
-        )
-        .replace(
-          'test "$(command -v node)" = "/usr/local/bin/node"',
-          "bun --version",
-        ),
+      dockerfile: inputs.dockerfile.replace(
+        "FROM frontend_artifact AS frontend-builder",
+        "FROM node:latest AS frontend-builder\nRUN bun run --filter @openpost/web build",
+      ),
     },
     new Date("2026-08-09T00:00:00Z"),
   );
   assert.ok(
-    problems.some((problem) => problem.includes("copy only the pinned Bun")),
+    problems.some((problem) => problem.includes("canonical frontend artifact")),
   );
-  assert.ok(
-    problems.some((problem) => problem.includes("verify real Node")),
-  );
+  assert.ok(problems.some((problem) => problem.includes("without rebuilding")));
 });
 
 test("smoke and release proof fail when OCI health or public readiness is omitted", () => {
@@ -125,9 +118,8 @@ test("each scan step and the only image push are checked in their own scope", ()
           "severity: CRITICAL,HIGH",
         )
         .replace(
-          "          docker buildx build \\",
-          '          docker push "$image"\n          docker buildx build ' +
-            "\\",
+          "          docker buildx build --load",
+          '          docker push "$image"\n          docker buildx build --load',
         ),
     },
     new Date("2026-08-09T00:00:00Z"),

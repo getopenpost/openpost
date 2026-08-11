@@ -6,6 +6,10 @@ import { expectedReleaseAssets } from "./release-assets.mjs";
 
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
 const release = readFileSync(".github/workflows/release.yml", "utf8");
+const cacheContract = readFileSync(
+  ".github/workflows/cache-contract.yml",
+  "utf8",
+);
 const dockerfile = readFileSync("docker/Dockerfile", "utf8");
 const imageEvidence = readFileSync("scripts/image-evidence.mjs", "utf8");
 const localRelease = readFileSync("scripts/release.mjs", "utf8");
@@ -263,18 +267,75 @@ test("candidate CI embeds one stable version and exact-revision manifest", () =>
     /name: frontend-public-\$\{\{ github\.sha \}\}-\$\{\{ github\.run_attempt \}\}/,
   );
   assert.match(release, /candidate_artifact:[\s\S]*frontend_artifact:/);
+  assert.match(release, /frontend_artifact:[\s\S]*android_artifact:/);
   assert.match(
     release,
     /ci-artifacts\.mjs resolve[\s\S]*--prefix "release-manifest-\$\{GITHUB_SHA\}-"[\s\S]*ci-artifacts\.mjs resolve[\s\S]*--prefix "frontend-public-\$\{GITHUB_SHA\}-"/,
   );
   assert.match(release, /--name "\$CANDIDATE_ARTIFACT"/);
   assert.match(release, /--name "\$FRONTEND_ARTIFACT"/);
+  assert.match(release, /--prefix "android-unsigned-\$\{GITHUB_SHA\}-"/);
+  const android = workflowJob(release, "build-android");
+  assert.match(
+    android,
+    /sha256sum --check openpost-app-android-unsigned\.sha256/,
+  );
+  assert.match(android, /apksigner[\s\S]*sign[\s\S]*apksigner[\s\S]*verify/);
+  assert.doesNotMatch(android, /build:capacitor|assembleRelease|gradlew/);
   assert.doesNotMatch(release, /CI_RUN_ATTEMPT|ci_run_attempt/);
   assert.match(
     localRelease,
     /resolveRunArtifact\([\s\S]*prefix: `release-manifest-\$\{revision\}-`/,
   );
   assert.doesNotMatch(ci, /overwrite: true/);
+});
+
+test("CI builds web surfaces once and browser jobs consume those artifacts", () => {
+  const frontend = workflowJob(ci, "frontend-build");
+  const marketing = workflowJob(ci, "marketing-build");
+  const docs = workflowJob(ci, "docs-build");
+  const appBrowser = workflowJob(ci, "browser-app");
+  const marketingBrowser = workflowJob(ci, "browser-marketing");
+  const docsBrowser = workflowJob(ci, "browser-docs");
+  const image = workflowJob(ci, "image");
+
+  assert.match(frontend, /name: frontend-public-/);
+  assert.match(marketing, /name: marketing-static-/);
+  assert.match(docs, /name: docs-static-/);
+  for (const [job, artifact] of [
+    [appBrowser, "frontend-public-"],
+    [marketingBrowser, "marketing-static-"],
+    [docsBrowser, "docs-static-"],
+  ]) {
+    assert.match(job, /actions\/download-artifact@/);
+    assert.match(job, new RegExp(artifact, "u"));
+    assert.match(job, /OPENPOST_E2E_PREBUILT: "1"/);
+  }
+  assertJobNeeds(image, ["frontend-build"]);
+  assert.match(
+    image,
+    /--build-context frontend_artifact=backend\/cmd\/openpost\/public/,
+  );
+  assert.doesNotMatch(frontend, /verify:frontend-build-cache/);
+});
+
+test("cache equivalence is conditional in CI and independently scheduled", () => {
+  const cacheJob = workflowJob(ci, "cache-contract");
+  assert.match(cacheJob, /needs\.plan\.outputs\.cache_contract == 'true'/);
+  assert.match(cacheJob, /verify:frontend-build-cache/);
+  assert.match(cacheContract, /schedule:[\s\S]*cron:/);
+  assert.match(cacheContract, /workflow_dispatch:/);
+  assert.match(cacheContract, /verify:frontend-build-cache/);
+});
+
+test("ordinary release preparation delegates exhaustive correctness to candidate CI", () => {
+  const prepareStart = localRelease.indexOf("async function prepare(");
+  const promoteStart = localRelease.indexOf("async function promote(");
+  const prepare = localRelease.slice(prepareStart, promoteStart);
+  assert.match(prepare, /checkReleaseContracts\(\)/);
+  assert.doesNotMatch(prepare, /await check\(\)|devenv[\s\S]*verify|test:e2e/);
+  assert.match(prepare, /await waitForCI\(revision\)/);
+  assert.match(localRelease, /async function check\(\)[\s\S]*test:e2e:app/);
 });
 
 test("promotion verifies metadata before pinning the verified digest", () => {

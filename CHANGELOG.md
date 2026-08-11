@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Remove the legacy Umami loader from the documentation build now that the shared PostHog telemetry client owns that surface.
+- Bound each GitHub release asset upload so a stalled transfer is terminated and retried instead of blocking image promotion and production deployment indefinitely.
 
 ## [3.9.3] - 2026-08-11
 

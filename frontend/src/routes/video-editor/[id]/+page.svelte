@@ -7,6 +7,7 @@ FORM: CapCut-fluent four-zone workbench with a canvas-first default and expandab
 -->
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
+	import { capturePostHogEvent } from '$lib/posthog-capture';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
@@ -3462,6 +3463,10 @@ FORM: CapCut-fluent four-zone workbench with a canvas-first default and expandab
 			) as Partial<Record<VariantID, string>>;
 			exportFile = files[variantID] ?? files[variants[0]!] ?? null;
 			exportURL = exportFile ? (exportURLs[variantID] ?? exportURLs[variants[0]!] ?? '') : '';
+			capturePostHogEvent('video_export_completed', {
+				format: returnToken ? 'mp4' : exportFormat,
+				variant_count: variants.length
+			});
 			exportProgress = 1;
 		} catch (cause) {
 			recordFailure(cause, 'export.render');

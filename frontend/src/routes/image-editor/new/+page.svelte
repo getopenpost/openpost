@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { capturePostHogEvent } from '$lib/posthog-capture';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/stores';
@@ -84,6 +85,9 @@
 				preset_key: key,
 				...(key === 'custom' ? { width_px: customWidth, height_px: customHeight } : {})
 			});
+			capturePostHogEvent('image_design_created', {
+				source: key === 'custom' ? 'custom' : 'preset'
+			});
 			await openDesign(design.id);
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.image_editor_create_failed();
@@ -97,6 +101,7 @@
 		error = '';
 		try {
 			const design = await instantiateImageEditorTemplate(template.id, workspaceID);
+			capturePostHogEvent('image_design_created', { source: 'template' });
 			await openDesign(design.id);
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.image_editor_template_use_failed();
@@ -118,6 +123,7 @@
 				height_px: sourceSize.height,
 				source_media_id: sourceMediaID
 			});
+			capturePostHogEvent('image_design_created', { source: 'media' });
 			await openDesign(design.id);
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.image_editor_media_open_failed();

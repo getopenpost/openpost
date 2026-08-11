@@ -40,7 +40,33 @@ function createAuthStore() {
 		isAuthenticated: false
 	});
 	let activeUserID: string | null = null;
+	let identityVersion = 0;
+
+	const resetPostHog = () => {
+		if (!browser) return;
+		const version = identityVersion;
+		void import('posthog-js').then(({ default: posthog }) => {
+			if (version === identityVersion) posthog.reset();
+		});
+	};
+
+	const identifyPostHogUser = (user: User, resetFirst = false) => {
+		if (!browser) return;
+		const version = identityVersion;
+		void import('posthog-js').then(({ default: posthog }) => {
+			if (version !== identityVersion || activeUserID !== user.id) return;
+			if (resetFirst) posthog.reset();
+			posthog.identify(user.id, {
+				email: user.email,
+				name: user.display_name,
+				username: user.username
+			});
+		});
+	};
+
 	const clearAccountState = () => {
+		identityVersion += 1;
+		if (activeUserID !== null) resetPostHog();
 		activeUserID = null;
 		notificationInbox.clear();
 		setToken(null);
@@ -51,9 +77,12 @@ function createAuthStore() {
 			clearAccountState();
 			return;
 		}
+		const isAccountSwitch = activeUserID !== null && activeUserID !== user.id;
+		if (isAccountSwitch) identityVersion += 1;
 		if (activeUserID !== user.id) notificationInbox.clear();
 		activeUserID = user.id;
 		set({ user, isLoading: false, isAuthenticated: true });
+		identifyPostHogUser(user, isAccountSwitch);
 	};
 
 	return {

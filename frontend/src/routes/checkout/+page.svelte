@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { capturePostHogEvent } from '$lib/posthog-capture';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -208,6 +209,10 @@
 			if (sequence !== requestSequence || stopped) return;
 			localizedPrices = nextPrices;
 			checkout = data;
+			capturePostHogEvent('checkout_started', {
+				billing_period: billingPeriod,
+				plan: selectedPlanID
+			});
 			await openPaddleCheckout(instance, data);
 		} catch (caught) {
 			if (sequence !== requestSequence || stopped) return;

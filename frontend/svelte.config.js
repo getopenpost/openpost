@@ -11,7 +11,10 @@ const config = {
 			// Adapter-wide compression would also duplicate the large image-editor model files.
 			precompress: false,
 			strict: true
-		})
+		}),
+		paths: {
+			relative: false
+		}
 	},
 	vitePlugin: {
 		dynamicCompileOptions: ({ filename }) =>

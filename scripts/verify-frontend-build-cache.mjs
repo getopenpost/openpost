@@ -122,7 +122,9 @@ try {
 let proofError;
 try {
   await preserveGeneratedPaths();
-  turbo([...common, "--force"]);
+  // The proof cache starts empty, so this is already a guaranteed miss. Avoid
+  // --force here: forced tasks are not a portable cache-seeding contract.
+  turbo(common);
   const cleanSource = await artifactManifest(defaultSourceDirectory);
   await packageFrontend();
   const cleanPackaged = await artifactManifest(defaultDestinationDirectory);

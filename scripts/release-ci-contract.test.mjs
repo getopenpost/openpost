@@ -14,6 +14,10 @@ const dockerfile = readFileSync("docker/Dockerfile", "utf8");
 const imageEvidence = readFileSync("scripts/image-evidence.mjs", "utf8");
 const localRelease = readFileSync("scripts/release.mjs", "utf8");
 const marketingPlaywright = readFileSync("playwright.config.ts", "utf8");
+const frontendCacheProof = readFileSync(
+  "scripts/verify-frontend-build-cache.mjs",
+  "utf8",
+);
 const smoke = readFileSync("scripts/smoke-production-image.sh", "utf8");
 const releaseAssetUpload = readFileSync(
   "scripts/release-asset-upload.sh",
@@ -338,6 +342,10 @@ test("cache equivalence is conditional in CI and independently scheduled", () =>
   assert.match(cacheContract, /schedule:[\s\S]*cron:/);
   assert.match(cacheContract, /workflow_dispatch:/);
   assert.match(cacheContract, /verify:frontend-build-cache/);
+  assert.doesNotMatch(
+    frontendCacheProof,
+    /turbo\(\[\.\.\.common, "--force"\]\)/u,
+  );
 });
 
 test("ordinary release preparation delegates exhaustive correctness to candidate CI", () => {

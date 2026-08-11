@@ -6,7 +6,7 @@
 	import CameraCapture from '$lib/components/camera-capture.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { getApiBase } from '$lib/stores/instance.svelte';
-	import { getToken } from '$lib/api/client';
+	import { applyAPIRequestHeaders } from '$lib/api/client';
 	import { formatBytes } from '$lib/video/constraints';
 	import CameraIcon from '@lucide/svelte/icons/camera';
 	import ImageIcon from '@lucide/svelte/icons/image';
@@ -154,8 +154,9 @@
 			const xhr = new XMLHttpRequest();
 			xhr.open('POST', `${getApiBase()}/auth/profile/avatar`);
 			xhr.withCredentials = true;
-			const token = getToken();
-			if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+			for (const [name, value] of applyAPIRequestHeaders(new Headers())) {
+				xhr.setRequestHeader(name, value);
+			}
 			const abort = () => xhr.abort();
 			signal.addEventListener('abort', abort, { once: true });
 			const cleanup = () => signal.removeEventListener('abort', abort);

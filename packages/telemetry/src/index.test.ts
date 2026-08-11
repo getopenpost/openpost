@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BrowserTelemetry, type BrowserTelemetryConfig } from './index';
+import {
+	applyTelemetryRequestHeaders,
+	BrowserTelemetry,
+	type BrowserTelemetryConfig
+} from './index';
 
 class FakeSDK {
 	initialized: Array<{ token: string; options: Record<string, unknown> }> = [];
@@ -9,6 +13,8 @@ class FakeSDK {
 	registered: Record<string, unknown>[] = [];
 	resetCount = 0;
 	optOutCount = 0;
+	distinctID = 'browser-user-1';
+	sessionID = 'session-1';
 
 	init(token: string, options: Record<string, unknown>) { this.initialized.push({ token, options }); }
 	capture(event: string, properties?: Record<string, unknown>) { this.events.push({ event, properties }); }
@@ -17,6 +23,8 @@ class FakeSDK {
 	register(properties: Record<string, unknown>) { this.registered.push(properties); }
 	reset() { this.resetCount += 1; }
 	opt_out_capturing() { this.optOutCount += 1; }
+	get_distinct_id() { return this.distinctID; }
+	get_session_id() { return this.sessionID; }
 }
 
 const configuredApp: BrowserTelemetryConfig = {
@@ -85,5 +93,37 @@ describe('BrowserTelemetry', () => {
 		expect(sdk.exceptions[0]?.error.message).not.toContain('secret');
 		expect(sdk.exceptions[0]?.error.message).not.toContain('user@example.com');
 		expect(sdk.exceptions[0]?.error.message).not.toContain('https://example.com');
+	});
+
+	it('redacts raw stack URLs while retaining safe source-map asset paths', () => {
+		const sdk = new FakeSDK();
+		const subject = new BrowserTelemetry(sdk, () => true);
+		subject.configure(configuredApp);
+		const error = new Error('Navigation failed');
+		error.stack = [
+			'Error: Navigation failed',
+			'    at load (https://app.openpost.social/_app/immutable/chunks/app.ABC123.js:12:3?token=secret)',
+			'    at reset (https://example.com/reset/path-secret:4:2)'
+		].join('\n');
+
+		subject.captureException(error);
+
+		const stack = sdk.exceptions[0]?.error.stack ?? '';
+		expect(stack).toContain('/_app/immutable/chunks/app.ABC123.js:12:3');
+		expect(stack).toContain('[redacted-url]');
+		expect(stack).not.toContain('app.openpost.social');
+		expect(stack).not.toContain('path-secret');
+		expect(stack).not.toContain('token=secret');
+	});
+
+	it('applies browser correlation headers to shared request transports', () => {
+		const headers = applyTelemetryRequestHeaders(new Headers({ Authorization: 'Bearer token' }), {
+			'X-PostHog-Distinct-ID': 'browser-user-1',
+			'X-PostHog-Session-ID': 'session-1'
+		});
+
+		expect(headers.get('Authorization')).toBe('Bearer token');
+		expect(headers.get('X-PostHog-Distinct-ID')).toBe('browser-user-1');
+		expect(headers.get('X-PostHog-Session-ID')).toBe('session-1');
 	});
 });

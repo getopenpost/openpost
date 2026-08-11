@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
 - Prevented repeated desktop or mobile New post actions from orphaning the replacement composer's account-loading state, so the Social Set and platform controls no longer disappear behind a permanent loading indicator.
+- Preserved PostHog exception structure while adding application context, removed sensitive absolute URLs from browser stacks without dropping static source-map locations, propagated browser correlation through raw media transports, and added the marketing SvelteKit error boundary.
 - Normalized publication authorization times to database precision so immediate publishes cannot fail before reaching a provider, and surfaced terminal preflight failures as failed instead of leaving them scheduled and pending.
 - Scoped the Posts page totals and pagination to the selected Scheduled, Published, Failed, or Drafts tab instead of showing whole-history counts beside a filtered tab.
 - Removed the three-item cap from the desktop draft planner, made long draft lists scroll, grouped Editors, Accounts, and Settings consistently, and added a compact animated collapse control for the lower workspace navigation.

@@ -106,19 +106,11 @@ func New(config Config) (Recorder, error) {
 	}
 
 	client, err := posthog.NewWithConfig(config.ProjectToken, posthog.Config{
-		Endpoint:        config.Endpoint,
-		DisableGeoIP:    posthog.Ptr(true),
-		ShutdownTimeout: 5 * time.Second,
-		DefaultEventProperties: posthog.Properties{
-			"surface":                 "backend",
-			"environment":             config.Environment,
-			"edition":                 config.Edition,
-			"version":                 config.Version,
-			"revision":                config.Revision,
-			"service":                 "openpost",
-			"$process_person_profile": false,
-		},
-		Callback: deliveryCallback{},
+		Endpoint:               config.Endpoint,
+		DisableGeoIP:           posthog.Ptr(true),
+		ShutdownTimeout:        5 * time.Second,
+		DefaultEventProperties: defaultEventProperties(config),
+		Callback:               deliveryCallback{},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("initialize PostHog telemetry: %w", err)
@@ -169,6 +161,11 @@ func (r *postHogRecorder) Capture(ctx context.Context, event Event) error {
 func (r *noopRecorder) Capture(context.Context, Event) error { return nil }
 
 func (r *postHogRecorder) CaptureException(ctx context.Context, exception Exception) error {
+	message := newExceptionMessage(exception, r.config, time.Now().UTC())
+	return posthog.EnqueueWithContext(ctx, r.client, message)
+}
+
+func newExceptionMessage(exception Exception, config Config, timestamp time.Time) posthog.Exception {
 	title := strings.TrimSpace(exception.Title)
 	if title == "" {
 		title = "OpenPost error"
@@ -178,16 +175,35 @@ func (r *postHogRecorder) CaptureException(ctx context.Context, exception Except
 		description = "An OpenPost operation failed"
 	}
 	message := posthog.NewDefaultException(
-		time.Now().UTC(),
+		timestamp,
 		exceptionDistinctID(exception.DistinctID, exception.WorkspaceID),
 		title,
 		description,
 	)
-	message.Properties = posthog.Properties(copyProperties(exception.Properties))
+	// posthog-go stores the title, description, stack trace, and debug images
+	// outside Properties. Adding OpenPost context here must not replace those
+	// SDK-owned exception fields.
+	properties := copyProperties(exception.Properties)
+	for key, value := range defaultEventProperties(config) {
+		properties[key] = value
+	}
+	message.Properties = posthog.Properties(properties)
 	if exception.WorkspaceID != "" {
 		message.Properties["workspace_id"] = exception.WorkspaceID
 	}
-	return posthog.EnqueueWithContext(ctx, r.client, message)
+	return message
+}
+
+func defaultEventProperties(config Config) posthog.Properties {
+	return posthog.Properties{
+		"surface":                 "backend",
+		"environment":             config.Environment,
+		"edition":                 config.Edition,
+		"version":                 config.Version,
+		"revision":                config.Revision,
+		"service":                 "openpost",
+		"$process_person_profile": false,
+	}
 }
 
 func (r *noopRecorder) CaptureException(context.Context, Exception) error { return nil }

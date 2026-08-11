@@ -24,7 +24,11 @@ describe('media-upload-client', () => {
 	});
 
 	it('sends OpenPost credentials only to instance-hosted upload targets', () => {
-		const openPostHeaders = new Headers({ Authorization: 'Bearer op_cli_secret' });
+		const openPostHeaders = new Headers({
+			Authorization: 'Bearer op_cli_secret',
+			'X-PostHog-Distinct-ID': 'browser-user-1',
+			'X-PostHog-Session-ID': 'session-1'
+		});
 		const internal = directUploadRequestPolicy(
 			'/api/v1/media/upload-session/media-1/content',
 			{ 'Content-Type': 'video/mp4' },
@@ -33,6 +37,8 @@ describe('media-upload-client', () => {
 		expect(internal.isExternal).toBe(false);
 		expect(internal.withCredentials).toBe(true);
 		expect(internal.headers.get('Authorization')).toBe('Bearer op_cli_secret');
+		expect(internal.headers.get('X-PostHog-Distinct-ID')).toBe('browser-user-1');
+		expect(internal.headers.get('X-PostHog-Session-ID')).toBe('session-1');
 
 		const external = directUploadRequestPolicy(
 			'https://bucket.example/media-1',
@@ -48,6 +54,8 @@ describe('media-upload-client', () => {
 		expect(external.withCredentials).toBe(false);
 		expect(external.headers.has('Authorization')).toBe(false);
 		expect(external.headers.has('Cookie')).toBe(false);
+		expect(external.headers.has('X-PostHog-Distinct-ID')).toBe(false);
+		expect(external.headers.has('X-PostHog-Session-ID')).toBe(false);
 		expect(external.headers.get('Content-Type')).toBe('video/mp4');
 		expect(external.headers.get('x-amz-meta-workspace')).toBe('ws-1');
 

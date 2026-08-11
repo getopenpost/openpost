@@ -6,7 +6,12 @@
 	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { MediaQuery, SvelteMap, SvelteSet } from 'svelte/reactivity';
-	import { client, type SocialAccount, type Workspace, getToken } from '$lib/api/client';
+	import {
+		applyAPIRequestHeaders,
+		client,
+		type SocialAccount,
+		type Workspace
+	} from '$lib/api/client';
 	import { loadCapabilityCatalog, loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
 	import { getApiBase } from '$lib/stores/instance.svelte';
@@ -2749,14 +2754,13 @@
 		if (!workspaceId || missingIds.length === 0) return;
 
 		try {
-			const token = getToken();
 			const resp = await fetch(
 				`${getApiBase()}/media/metadata?workspace_id=${encodeURIComponent(
 					workspaceId
 				)}&media_ids=${encodeURIComponent(missingIds.join(','))}`,
 				{
 					credentials: 'include',
-					headers: token ? { Authorization: `Bearer ${token}` } : {}
+					headers: applyAPIRequestHeaders(new Headers())
 				}
 			);
 			if (!resp.ok) return;

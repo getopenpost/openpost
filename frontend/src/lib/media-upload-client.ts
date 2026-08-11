@@ -1,4 +1,4 @@
-import { getToken } from '$lib/api/client';
+import { applyAPIRequestHeaders } from '$lib/api/client';
 import type { components } from '$lib/api/types';
 import { getApiBase } from '$lib/stores/instance.svelte';
 import type { VideoConstraint, VideoPreparationProgress } from '$lib/video/types';
@@ -378,13 +378,9 @@ function apiURL(path: string): string {
 }
 
 function apiHeaders(json: boolean): Headers {
-	const headers = new Headers();
+	const headers = applyAPIRequestHeaders(new Headers());
 	if (json) {
 		headers.set('Content-Type', 'application/json');
-	}
-	const token = getToken();
-	if (token) {
-		headers.set('Authorization', `Bearer ${token}`);
 	}
 	return headers;
 }

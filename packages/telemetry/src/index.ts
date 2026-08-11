@@ -250,6 +250,16 @@ export function telemetryRequestHeaders(): Record<string, string> {
 	return telemetry.requestHeaders();
 }
 
+export function applyTelemetryRequestHeaders(
+	headers: Headers,
+	requestHeaders: Record<string, string> = telemetryRequestHeaders()
+): Headers {
+	for (const [name, value] of Object.entries(requestHeaders)) {
+		headers.set(name, value);
+	}
+	return headers;
+}
+
 export function installGlobalErrorCapture(): () => void {
 	if (typeof window === 'undefined') return () => undefined;
 	const onError = (event: ErrorEvent) => {
@@ -306,7 +316,24 @@ function scrubPropertyString(value: string): string {
 }
 
 function scrubStack(value: string): string {
-	return scrubSensitiveText(value).replace(/(https?:\/\/[^\s?#)\]}]+)[?#][^\s)\]}]+/gi, '$1');
+	return scrubSensitiveText(value.replace(/https?:\/\/[^\s)\]}]+/gi, scrubStackURL));
+}
+
+function scrubStackURL(value: string): string {
+	const withoutQueryOrFragment = value.replace(/[?#].*$/, '');
+	try {
+		const pathname = new URL(withoutQueryOrFragment).pathname;
+		if (
+			/^\/(?:_app\/immutable|assets)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(
+				pathname
+			)
+		) {
+			return pathname;
+		}
+	} catch {
+		// Invalid absolute URLs are redacted below.
+	}
+	return '[redacted-url]';
 }
 
 function scrubSensitiveText(value: string): string {

@@ -10,6 +10,11 @@ const paraglidePlugin = paraglideVitePlugin({
 	project: './project.inlang',
 	outdir: './src/lib/paraglide'
 }) as unknown as PluginOption;
+// $env/static/public throws a build-time error if these keys are absent entirely (not just
+// falsy), so give environments without PostHog configured (CI, self-host builds) an empty
+// default; real values still take precedence when set.
+process.env.PUBLIC_POSTHOG_PROJECT_TOKEN ??= '';
+process.env.PUBLIC_POSTHOG_HOST ??= '';
 const usesPrecompiledParaglide = process.env.OPENPOST_PARAGLIDE_PRECOMPILED === '1';
 const chromiumExecutablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
 

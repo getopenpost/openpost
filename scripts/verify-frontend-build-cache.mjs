@@ -109,31 +109,8 @@ const common = [
   "errors-only",
 ];
 
-try {
-  await mkdir(lockDirectory);
-} catch (error) {
-  await rm(cacheDirectory, { recursive: true, force: true });
-  if (error?.code === "EEXIST") {
-    throw new Error("Another frontend cache proof is already running");
-  }
-  throw error;
-}
-
-let proofError;
-try {
-  await preserveGeneratedPaths();
-  // The proof cache starts empty, so this is already a guaranteed miss. Avoid
-  // --force here: forced tasks are not a portable cache-seeding contract.
-  turbo(common);
-  const cleanSource = await artifactManifest(defaultSourceDirectory);
-  await packageFrontend();
-  const cleanPackaged = await artifactManifest(defaultDestinationDirectory);
-  if (JSON.stringify(cleanPackaged) !== JSON.stringify(cleanSource)) {
-    throw new Error("Clean frontend packaging changed the artifact");
-  }
-
-  await clearProofOutputs();
-  const dry = JSON.parse(
+function dryBuild() {
+  return JSON.parse(
     turbo(
       [
         "run",
@@ -147,12 +124,65 @@ try {
       { capture: true },
     ),
   );
+}
+
+function changedTaskInputs(before, after) {
+  const changes = [];
+  const beforeTasks = new Map(before.tasks.map((task) => [task.taskId, task]));
+  for (const task of after.tasks) {
+    const previous = beforeTasks.get(task.taskId);
+    if (!previous || previous.hash === task.hash) continue;
+    const previousInputs = previous.inputs ?? {};
+    const currentInputs = task.inputs ?? {};
+    const paths = new Set([
+      ...Object.keys(previousInputs),
+      ...Object.keys(currentInputs),
+    ]);
+    const changed = [...paths]
+      .filter(
+        (pathname) => previousInputs[pathname] !== currentInputs[pathname],
+      )
+      .sort();
+    changes.push(
+      `${task.taskId} ${previous.hash} -> ${task.hash}: ${changed.join(", ") || "non-file task metadata"}`,
+    );
+  }
+  return changes;
+}
+
+try {
+  await mkdir(lockDirectory);
+} catch (error) {
+  await rm(cacheDirectory, { recursive: true, force: true });
+  if (error?.code === "EEXIST") {
+    throw new Error("Another frontend cache proof is already running");
+  }
+  throw error;
+}
+
+let proofError;
+try {
+  await preserveGeneratedPaths();
+  const pristine = dryBuild();
+  // The proof cache starts empty, so this is already a guaranteed miss. Avoid
+  // --force here: forced tasks are not a portable cache-seeding contract.
+  turbo(common);
+  const cleanSource = await artifactManifest(defaultSourceDirectory);
+  await packageFrontend();
+  const cleanPackaged = await artifactManifest(defaultDestinationDirectory);
+  if (JSON.stringify(cleanPackaged) !== JSON.stringify(cleanSource)) {
+    throw new Error("Clean frontend packaging changed the artifact");
+  }
+
+  await clearProofOutputs();
+  const dry = dryBuild();
   const frontendTask = dry.tasks.find(
     (task) => task.taskId === "@openpost/web#build",
   );
   if (frontendTask?.cache?.status !== "HIT") {
+    const changes = changedTaskInputs(pristine, dry);
     throw new Error(
-      `Expected the second frontend build to restore from cache, received ${frontendTask?.cache?.status ?? "no status"}`,
+      `Expected the second frontend build to restore from cache, received ${frontendTask?.cache?.status ?? "no status"}. Changed task inputs: ${changes.join("; ") || "none"}`,
     );
   }
 

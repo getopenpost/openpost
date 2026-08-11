@@ -210,6 +210,7 @@ jobs:
           restore-keys: turbo-frontend-${{ runner.os }}-${{ hashFiles('bun.lock', 'turbo.json', 'frontend/turbo.json') }}-
       - run: bash scripts/ci-timing-summary.sh start frontend-build
       - run: bun install --frozen-lockfile
+      - run: bunx playwright install --with-deps chromium
       - if: needs.plan.outputs.frontend == 'true'
         run: bun run --filter @openpost/web test
       - if: needs.plan.outputs.frontend == 'true'

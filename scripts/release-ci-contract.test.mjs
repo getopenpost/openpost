@@ -300,6 +300,10 @@ test("CI builds web surfaces once and browser jobs consume those artifacts", () 
   const image = workflowJob(ci, "image");
 
   assert.match(frontend, /name: frontend-public-/);
+  assert.ok(
+    frontend.indexOf("playwright install --with-deps chromium") <
+      frontend.indexOf("bun run --filter @openpost/web test"),
+  );
   assert.match(marketing, /name: marketing-static-/);
   assert.match(docs, /name: docs-static-/);
   for (const [job, artifact] of [

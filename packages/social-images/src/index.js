@@ -1,4 +1,7 @@
 import { docsPageCatalog } from "./docs-catalog.js";
+import { docsRouteFromPage } from "./docs-route.js";
+
+export { docsRouteFromPage } from "./docs-route.js";
 
 export const marketingSiteUrl = "https://openpost.social";
 export const docsSiteUrl = "https://docs.openpost.social";
@@ -379,15 +382,6 @@ export function resolveMarketingSocial(pathname) {
   return { ...resolved, imageUrl: socialImageUrl(resolved) };
 }
 
-export function docsRouteFromPage(page) {
-  const normalized = page.replace(/\\/g, "/").replace(/^\/+/, "");
-  if (normalized === "index.md") return "/";
-  const withoutExtension = normalized.replace(/\.md$/, "");
-  return withoutExtension.endsWith("/index")
-    ? `/${withoutExtension.slice(0, -"/index".length)}/`
-    : `/${withoutExtension}`;
-}
-
 export function docsImageKey(page) {
   const route = docsRouteFromPage(page).replace(/^\/+|\/+$/g, "");
   return route ? route.replaceAll("/", "--") : "home";
@@ -459,7 +453,14 @@ export function resolveDocsSocial({ page, title, description }) {
 }
 
 export const docsSocialEntries = Object.freeze(
-  docsPageCatalog.map(({ page, title }) => resolveDocsSocial({ page, title })),
+  docsPageCatalog.map((entry) => ({
+    ...resolveDocsSocial(entry),
+    page: entry.page,
+    route: entry.route,
+    agentRepresentation: entry.agentRepresentation,
+    agentDiscovery: entry.agentDiscovery,
+    agentCorpus: entry.agentCorpus,
+  })),
 );
 
 const socialById = new Map(

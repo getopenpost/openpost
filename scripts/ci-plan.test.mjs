@@ -11,8 +11,15 @@ test("documentation-only changes run only documentation and policy checks", () =
   assert.equal(plan.documentation, true);
   assert.equal(plan.backend, false);
   assert.equal(plan.frontend, false);
+  assert.equal(plan.marketing, false);
   assert.equal(plan.image, false);
   assert.equal(plan.android, false);
+});
+
+test("documentation catalogue changes run both public builds", () => {
+  const plan = planCI(["packages/social-images/src/docs-catalog.js"], manifest);
+  assert.equal(plan.documentation, true);
+  assert.equal(plan.marketing, true);
 });
 
 test("frontend changes run the application build, browser, image, and Android paths", () => {

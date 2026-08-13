@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { load as parseYaml } from "js-yaml";
 import { parse, parseFragment } from "parse5";
 import {
+  docsSiteUrl,
   docsSocialEntries,
   marketingAgentMarkdownUrl,
   marketingRouteManifest,
@@ -17,7 +18,7 @@ const generatedNotice =
   "<!-- Generated from the canonical OpenPost public page. Do not edit this build artifact. -->";
 const maximumRepresentationBytes = 256 * 1024;
 const privateRoutePattern =
-  /\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
+  /^\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
 const privateApplicationOrigins = new Set(["https://app.openpost.social"]);
 const publicContentOrigins = new Set(["https://openpost.social", "https://docs.openpost.social"]);
 const productionArtifactURLs = new Set([
@@ -81,6 +82,27 @@ function marketingHTMLArtifact(routePath) {
 function marketingMarkdownArtifact(routePath) {
   return routePath === "/" ? "index.md" : `${routePath.slice(1)}.md`;
 }
+
+function documentationHTMLArtifact(page) {
+  return page.replace(/\.md$/u, ".html");
+}
+
+const documentationDiscoverySections = [
+  ["user-guide", "User guide", "Create, schedule, publish, and review work in the OpenPost app."],
+  ["providers", "Providers", "Check destination setup, capabilities, limits, and readiness."],
+  ["cli", "CLI", "Use a terminal or automation job with a running OpenPost instance."],
+  ["mcp", "MCP", "Connect an AI assistant with explicit scopes and human review."],
+  ["installation", "Installation", "Install OpenPost using a supported deployment path."],
+  ["self-hosting", "Self-hosting", "Run and maintain the complete OpenPost service."],
+  [
+    "configuration",
+    "Configuration",
+    "Configure storage, URLs, providers, and production settings.",
+  ],
+  ["operations", "Operations", "Monitor, back up, update, and troubleshoot an OpenPost instance."],
+  ["api", "API", "Read the API guide and follow its authoritative OpenAPI JSON contract."],
+  ["development", "Development", "Understand, test, contribute to, and release OpenPost."],
+];
 
 function attribute(node, name) {
   return node.attrs?.find((candidate) => candidate.name === name)?.value;
@@ -225,7 +247,10 @@ function representation({ title, description, canonical, body }) {
     throw new Error(`page metadata requires title, description, and canonical URL`);
   }
   const cleanedBody = cleanMarkdown(body);
-  if ((cleanedBody.match(/^# /gmu) ?? []).length !== 1) {
+  const h1Count = withoutFencedContent(cleanedBody)
+    .split("\n")
+    .filter((line) => /^# /u.test(line)).length;
+  if (h1Count !== 1) {
     throw new Error(`${canonical}: generated representation must contain exactly one H1`);
   }
   return cleanMarkdown(`${generatedNotice}
@@ -273,12 +298,44 @@ function parseFrontmatter(source) {
   return { data: parseYaml(match[1]) ?? {}, body: source.slice(match[0].length) };
 }
 
+function mapFenceAwareLines(source, transform) {
+  let fenced = false;
+  return source
+    .split("\n")
+    .map((line) => {
+      const fenceDelimiter = /^\s*(?:```|~~~)/u.test(line);
+      if (fenceDelimiter) {
+        fenced = !fenced;
+      }
+      return transform(line, fenced, fenceDelimiter);
+    })
+    .join("\n");
+}
+
+function mapOutsideFences(source, transform) {
+  return mapFenceAwareLines(source, (line, fenced, fenceDelimiter) =>
+    fenced || fenceDelimiter ? line : transform(line),
+  );
+}
+
+function withoutFencedContent(source) {
+  return mapFenceAwareLines(source, (line, fenced, fenceDelimiter) =>
+    fenced || fenceDelimiter ? "" : line,
+  );
+}
+
 function rewriteMarkdownLinks(source, canonical) {
-  return source.replace(/(!?\[[^\]]*\])\(([^)\s]+)([^)]*)\)/gu, (_match, label, target, suffix) => {
-    if (target.startsWith("#") || /^(?:mailto:|tel:)/u.test(target))
-      return `${label}(${target}${suffix})`;
-    return `${label}(${absoluteUrl(target, canonical)}${suffix})`;
-  });
+  return mapOutsideFences(source, (line) =>
+    line.replace(/(!?\[[^\]]*\])\(([^)\s]+)([^)]*)\)/gu, (_match, label, target, suffix) => {
+      if (target.startsWith("#") || /^(?:mailto:|tel:)/u.test(target))
+        return `${label}(${target}${suffix})`;
+      const resolved = absoluteUrl(target, canonical);
+      if (privateApplicationOrigins.has(new URL(resolved).origin)) {
+        return label.replace(/^!?\[|\]$/gu, "");
+      }
+      return `${label}(${resolved}${suffix})`;
+    }),
+  );
 }
 
 function normalizeContainers(source) {
@@ -321,8 +378,9 @@ function documentationRepresentation(source, page) {
       if (feature?.title) sections.push(`## ${feature.title}\n\n${feature.details ?? ""}`);
     }
   }
+  const bodyWithoutSourceHeading = maintainedBody.replace(/^\s*#\s+.+(?:\n+|$)/u, "");
   const normalizedBody = rewriteMarkdownLinks(
-    normalizeRawHtml(normalizeContainers(maintainedBody), page.canonical),
+    normalizeRawHtml(normalizeContainers(bodyWithoutSourceHeading), page.canonical),
     page.canonical,
   );
   sections.push(normalizedBody);
@@ -369,6 +427,19 @@ function validateDiscovery(projection, generatedPages) {
     );
     throw new Error(`duplicate output path: ${duplicate.outputPath}`);
   }
+  const canonicalRoutes = new Set(
+    generatedPages.map((page) => normalizedPublicURL(page.canonical)),
+  );
+  if (canonicalRoutes.size !== generatedPages.length) {
+    const duplicate = generatedPages.find(
+      (page, index) =>
+        generatedPages.findIndex(
+          (candidate) =>
+            normalizedPublicURL(candidate.canonical) === normalizedPublicURL(page.canonical),
+        ) !== index,
+    );
+    throw new Error(`duplicate canonical route: ${duplicate.canonical}`);
+  }
   const artifactURLs = new Set(
     generatedPages.map(
       (page) => new URL(page.outputPath, new URL(page.canonical).origin + "/").href,
@@ -407,7 +478,7 @@ function normalizedPublicURL(value) {
 }
 
 function markdownLinks(markdown) {
-  return markdown.matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/gu);
+  return withoutFencedContent(markdown).matchAll(/!?\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/gu);
 }
 
 function validateRepresentationLinks(
@@ -634,33 +705,88 @@ export const productionProjections = {
   documentation: {
     surface: "documentation",
     outputDirectory: path.join(repositoryRoot, "docs-site/.vitepress/dist"),
-    pages: [
-      {
-        sourcePath: path.join(repositoryRoot, "docs-site/index.md"),
-        discoveryHTMLPath: path.join(repositoryRoot, "docs-site/.vitepress/dist/index.html"),
-        outputPath: "index.md",
-        canonical: "https://docs.openpost.social/",
-        title: "OpenPost Documentation",
-        description:
-          "Draft, adapt, schedule, and automate social posts with the managed OpenPost app or the same self-hosted product.",
-      },
+    pages: docsSocialEntries
+      .filter((entry) => entry.agentRepresentation.membership === "ordinary")
+      .map((entry) => ({
+        sourcePath: path.join(repositoryRoot, "docs-site", entry.page),
+        discoveryHTMLPath: path.join(
+          repositoryRoot,
+          "docs-site/.vitepress/dist",
+          documentationHTMLArtifact(entry.page),
+        ),
+        outputPath: entry.page,
+        page: entry.page,
+        route: entry.route,
+        catalog: entry,
+        canonical: entry.canonical,
+        title: entry.socialTitle,
+        description: entry.description,
+      })),
+    knownCanonicalURLs: [
+      ...docsSocialEntries.map((entry) => entry.canonical),
+      ...marketingRouteManifest.map((entry) => entry.canonical),
+      "https://docs.openpost.social/openapi.json",
     ],
+    knownArtifactURLs: [
+      "https://openpost.social/index.md",
+      "https://docs.openpost.social/openapi.json",
+    ],
+    fragmentSources: docsSocialEntries.map((entry) => ({
+      canonical: entry.canonical,
+      sourcePath: path.join(
+        repositoryRoot,
+        "docs-site/.vitepress/dist",
+        documentationHTMLArtifact(entry.page),
+      ),
+    })),
     discovery: {
       title: "OpenPost Documentation",
       description:
         "User, provider, self-hosting, CLI, MCP, operations, and developer documentation for OpenPost.",
       links: [
-        {
-          title: "OpenPost documentation home",
-          description: "Choose the documentation section that matches your work.",
-          url: "https://docs.openpost.social/index.md",
-        },
+        ...docsSocialEntries
+          .filter(
+            (entry) => entry.page === "index.md" && entry.agentDiscovery.membership === "primary",
+          )
+          .map((entry) => ({
+            title: "OpenPost documentation home",
+            description: entry.description,
+            url: new URL(entry.page, `${docsSiteUrl}/`).href,
+            classification: entry.agentDiscovery.membership,
+          })),
         {
           title: "OpenPost product overview",
           description: "See the public product overview and managed product path.",
           url: "https://openpost.social/index.md",
+          classification: "optional",
         },
       ],
+      sections: documentationDiscoverySections.map(([key, title, description]) => ({
+        title,
+        description,
+        links: [
+          ...docsSocialEntries
+            .filter(
+              (entry) =>
+                entry.agentDiscovery.membership === "primary" &&
+                entry.agentDiscovery.section === key,
+            )
+            .map((entry) => ({
+              title: entry.socialTitle,
+              description: entry.description,
+              url: new URL(entry.page, `${docsSiteUrl}/`).href,
+            })),
+          ...(key === "api"
+            ? [
+                {
+                  title: "OpenAPI JSON",
+                  description: "Use the authoritative machine-readable HTTP API contract.",
+                  url: "https://docs.openpost.social/openapi.json",
+                },
+              ]
+            : []),
+        ],
+      })),
     },
   },
 };

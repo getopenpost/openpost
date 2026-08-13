@@ -1,4 +1,4 @@
-import { docsSiteUrl, resolveDocsSocial } from "@openpost/social-images";
+import { docsSiteUrl, docsSocialEntries, resolveDocsSocial } from "@openpost/social-images";
 import { defineConfig } from "vitepress";
 import { postHogSourceMaps } from "../../scripts/posthog-source-maps";
 
@@ -209,6 +209,7 @@ export default defineConfig({
   title: "OpenPost",
   description:
     "Draft, adapt, schedule, and automate social posts with the managed OpenPost app or the same self-hosted product.",
+  sitemap: { hostname: docsSiteUrl },
   base: docsBase,
   cleanUrls: true,
   lastUpdated: true,
@@ -221,28 +222,30 @@ export default defineConfig({
       description: typeof frontmatterDescription === "string" ? frontmatterDescription : undefined,
     });
     const image = social.imageUrl;
-    const agentDiscovery =
-      page === "index.md"
+    const agentPage = docsSocialEntries.find((entry) => entry.page === page);
+    const agentDiscovery = [
+      ...(agentPage?.agentRepresentation.membership === "ordinary"
         ? [
             [
               "link",
               {
                 rel: "alternate",
                 type: "text/markdown",
-                href: `${docsSiteUrl}/index.md`,
-              },
-            ],
-            [
-              "link",
-              {
-                rel: "alternate",
-                type: "text/plain",
-                href: `${docsSiteUrl}/llms.txt`,
-                title: "llms.txt",
+                href: new URL(agentPage.page, `${docsSiteUrl}/`).href,
               },
             ],
           ]
-        : [];
+        : []),
+      [
+        "link",
+        {
+          rel: "alternate",
+          type: "text/plain",
+          href: `${docsSiteUrl}/llms.txt`,
+          title: "llms.txt",
+        },
+      ],
+    ];
     return [
       ["link", { rel: "canonical", href: social.canonical }],
       ...agentDiscovery,

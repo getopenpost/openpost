@@ -3,370 +3,1397 @@
 export const docsPageCatalog = Object.freeze([
   {
     "page": "cli/authentication.md",
-    "title": "Sign In From the CLI"
+    "title": "Sign In From the CLI",
+    "description": "The CLI signs in to a running OpenPost server over HTTPS.",
+    "route": "/cli/authentication",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "cli/automation.md",
-    "title": "Automate the CLI"
+    "title": "Automate the CLI",
+    "description": "You can use the CLI in CI, cron, and deploy jobs without a browser.",
+    "route": "/cli/automation",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "cli/index.md",
-    "title": "OpenPost CLI"
+    "title": "OpenPost CLI",
+    "description": "The OpenPost CLI controls a running OpenPost instance from a terminal or automation job.",
+    "route": "/cli/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "cli"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "cli/installation.md",
-    "title": "CLI Installation"
+    "title": "CLI Installation",
+    "description": "Install the OpenPost CLI when you want to manage a running OpenPost instance from a terminal or automation job.",
+    "route": "/cli/installation",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "cli/posting.md",
-    "title": "Posting with the CLI"
+    "title": "Posting with the CLI",
+    "description": "Create posts, threads, account-specific renditions, schedules, and media attachments from the OpenPost CLI.",
+    "route": "/cli/posting",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/cors-and-urls.md",
-    "title": "CORS And URLs"
+    "title": "CORS And URLs",
+    "description": "These settings solve many deployment problems when they are set correctly.",
+    "route": "/configuration/cors-and-urls",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/database.md",
-    "title": "Database"
+    "title": "Database",
+    "description": "OpenPost uses SQLite by default when you run it yourself.",
+    "route": "/configuration/database",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/environment-variables.md",
-    "title": "Environment Variables"
+    "title": "Environment Variables",
+    "description": "This page summarizes the env vars used by the backend.",
+    "route": "/configuration/environment-variables",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/feedback.md",
-    "title": "User Feedback"
+    "title": "User Feedback",
+    "description": "OpenPost can show authenticated users a report form for bugs, ideas, and questions.",
+    "route": "/configuration/feedback",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/media-storage.md",
-    "title": "Media Storage"
+    "title": "Media Storage",
+    "description": "OpenPost stores media on the local file system by default.",
+    "route": "/configuration/media-storage",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/overview.md",
-    "title": "Configuration Overview"
+    "title": "Configuration Overview",
+    "description": "Configure the database, media storage, public URLs, provider applications, updates, feedback, and telemetry.",
+    "route": "/configuration/overview",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "configuration"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/production-checklist.md",
-    "title": "Production Checklist"
+    "title": "Production Checklist",
+    "description": "Use this page before putting a real OpenPost instance behind a public domain.",
+    "route": "/configuration/production-checklist",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/provider-applications.md",
-    "title": "Provider Applications"
+    "title": "Provider Applications",
+    "description": "A provider application identifies the OpenPost installation to a social network during OAuth.",
+    "route": "/configuration/provider-applications",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/telemetry.md",
-    "title": "Product telemetry and error tracking"
+    "title": "Product telemetry and error tracking",
+    "description": "OpenPost can send privacy-limited product, service, website, documentation, and error events to PostHog.",
+    "route": "/configuration/telemetry",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "configuration/update-status.md",
-    "title": "Update Status"
+    "title": "Update Status",
+    "description": "OpenPost can show self-hosted instance admins whether a newer stable release is available.",
+    "route": "/configuration/update-status",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/analytics.md",
-    "title": "Analytics Architecture"
+    "title": "Analytics Architecture",
+    "description": "Analytics is an optional platform feature, not part of the core publishing adapter.",
+    "route": "/development/analytics",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/api-reference.md",
-    "title": "API Reference"
+    "title": "API Reference",
+    "description": "Explore the OpenPost HTTP API in the rendered reference or use its authoritative OpenAPI JSON contract.",
+    "route": "/development/api-reference",
+    "agentRepresentation": {
+      "membership": "special",
+      "reason": "The client-only OpenAPI viewer needs maintained explanatory Markdown."
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "excluded",
+      "reason": "OpenAPI remains authoritative JSON."
+    }
   },
   {
     "page": "development/api-tokens.md",
-    "title": "API Tokens"
+    "title": "API Tokens",
+    "description": "OpenPost API tokens are account credentials for the REST API, MCP clients, the CLI, and automation.",
+    "route": "/development/api-tokens",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/architecture.md",
-    "title": "Architecture"
+    "title": "Architecture",
+    "description": "HTTP routes are defined with Huma whenever they are part of the typed product API.",
+    "route": "/development/architecture",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/backend.md",
-    "title": "Backend"
+    "title": "Backend",
+    "description": "The backend uses Echo for HTTP handling, Huma for OpenAPI generation, and Bun ORM for database access.",
+    "route": "/development/backend",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/background-jobs.md",
-    "title": "Background Jobs"
+    "title": "Background Jobs",
+    "description": "OpenPost uses durable background jobs stored in the configured database.",
+    "route": "/development/background-jobs",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/billing-and-usage.md",
-    "title": "Billing And Usage Foundation"
+    "title": "Billing And Usage Foundation",
+    "description": "Managed OpenPost billing uses saved plan limits and durable usage counters.",
+    "route": "/development/billing-and-usage",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/compatibility-policy.md",
-    "title": "API and schema compatibility"
+    "title": "API and schema compatibility",
+    "description": "OpenPost does not remove a public API or stored-data contract because repository search reports no caller.",
+    "route": "/development/compatibility-policy",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/contributing.md",
-    "title": "Contributing"
+    "title": "Contributing",
+    "description": "Start with the development setup, then run the smallest relevant root gates while working and bun run verify before a pull request.",
+    "route": "/development/contributing",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/frontend.md",
-    "title": "Frontend"
+    "title": "Frontend",
+    "description": "The frontend is a SvelteKit app using Svelte 5 runes, TailwindCSS, Paraglide for i18n, and typed API access generated from the backend OpenAPI spec.",
+    "route": "/development/frontend",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/image-editor-completeness.md",
-    "title": "Image Editor Completeness Checklist"
+    "title": "Image Editor Completeness Checklist",
+    "description": "This is the implementation contract for bringing the OpenPost Image Editor to a complete, polished editing experience.",
+    "route": "/development/image-editor-completeness",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/index.md",
-    "title": "Developer Docs"
+    "title": "Developer Docs",
+    "description": "Find the architecture, setup, API, frontend, backend, testing, contribution, and release documentation for OpenPost.",
+    "route": "/development/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "development"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/mcp.md",
-    "title": "MCP And ChatGPT App"
+    "title": "MCP And ChatGPT App",
+    "description": "This page is for MCP implementation and protocol details.",
+    "route": "/development/mcp",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/platform-adapters.md",
-    "title": "Platform Adapters"
+    "title": "Platform Adapters",
+    "description": "Provider integrations live under backend/internal/platform/.",
+    "route": "/development/platform-adapters",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/production-readiness.md",
-    "title": "Production Architecture and Checks"
+    "title": "Production Architecture and Checks",
+    "description": "OpenPost uses one product core for the managed app and self-hosted servers.",
+    "route": "/development/production-readiness",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/releases.md",
-    "title": "Releases and Versioning"
+    "title": "Releases and Versioning",
+    "description": "OpenPost follows Semantic Versioning 2.0.0 and derives the normal release bump from Conventional Commits.",
+    "route": "/development/releases",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/setup.md",
-    "title": "Development Setup"
+    "title": "Development Setup",
+    "description": "OpenPost's root Devenv configuration pins Go, Bun, Node, and the supporting tools used by the repository.",
+    "route": "/development/setup",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/testing.md",
-    "title": "Testing"
+    "title": "Testing",
+    "description": "Run the project-owned root commands so local checks match CI.",
+    "route": "/development/testing",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "development/third-party-notices.md",
-    "title": "Third-Party Notices"
+    "title": "Third-Party Notices",
+    "description": "The quantized background-removal model, WASM files, and their notices ship under frontend/static/image-editor-models/.",
+    "route": "/development/third-party-notices",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "excluded",
+      "reason": "Third-party legal notices stay outside the corpus."
+    }
   },
   {
     "page": "guide/concepts.md",
-    "title": "Concepts"
+    "title": "Concepts",
+    "description": "These terms appear in the app and docs.",
+    "route": "/guide/concepts",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "guide/quickstart.md",
-    "title": "Quickstart"
+    "title": "Quickstart",
+    "description": "This is the fastest path to a working OpenPost instance.",
+    "route": "/guide/quickstart",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "guide/what-is-openpost.md",
-    "title": "What Is OpenPost?"
+    "title": "What Is OpenPost?",
+    "description": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, then publish it everywhere from one place.",
+    "route": "/guide/what-is-openpost",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "guide/why-selfhost.md",
-    "title": "When Self-Hosting Fits"
+    "title": "When Self-Hosting Fits",
+    "description": "OpenPost offers the same product as a managed app and an open-source server.",
+    "route": "/guide/why-selfhost",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "index.md",
-    "title": "OpenPost"
+    "title": "OpenPost",
+    "description": "The all-in-one content team for solo founders, from first draft to every destination.",
+    "route": "/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/android.md",
-    "title": "Android App"
+    "title": "Android App",
+    "description": "OpenPost ships an Android app built with Capacitor.",
+    "route": "/installation/android",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/binary.md",
-    "title": "Single Binary"
+    "title": "Single Binary",
+    "description": "OpenPost can run as a single Go binary with the frontend embedded into the executable.",
+    "route": "/installation/binary",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/build-from-source.md",
-    "title": "Build From Source"
+    "title": "Build From Source",
+    "description": "Use this path when you want to build OpenPost yourself.",
+    "route": "/installation/build-from-source",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/docker-compose.md",
-    "title": "Docker Compose"
+    "title": "Docker Compose",
+    "description": "Docker Compose is the recommended installation path for long-running OpenPost deployments.",
+    "route": "/installation/docker-compose",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "installation"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/docker-run.md",
-    "title": "Docker Run"
+    "title": "Docker Run",
+    "description": "docker run is useful for quick testing.",
+    "route": "/installation/docker-run",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/nix-module.md",
-    "title": "Nix Module"
+    "title": "Nix Module",
+    "description": "OpenPost can also run through a NixOS module.",
+    "route": "/installation/nix-module",
+    "agentRepresentation": {
+      "membership": "special",
+      "reason": "The generated Nix module include must be expanded first."
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "installation/reverse-proxy.md",
-    "title": "Reverse Proxy"
+    "title": "Reverse Proxy",
+    "description": "HTTPS and a stable public URL matter for social network sign-in, passkeys, MCP sign-in, and public media links.",
+    "route": "/installation/reverse-proxy",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "mcp/index.md",
-    "title": "Use OpenPost With an AI Assistant"
+    "title": "Use OpenPost With an AI Assistant",
+    "description": "MCP lets AI tools work with your OpenPost account.",
+    "route": "/mcp/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "mcp"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "operations/backups.md",
-    "title": "Backups"
+    "title": "Backups",
+    "description": "The managed OpenPost service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host.",
+    "route": "/operations/backups",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "operations/container-image.md",
-    "title": "Container Image Support and Assurance"
+    "title": "Container Image Support and Assurance",
+    "description": "The published OpenPost container image supports linux/amd64 only.",
+    "route": "/operations/container-image",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "operations/health-checks.md",
-    "title": "Health Checks"
+    "title": "Health Checks",
+    "description": "OpenPost exposes separate liveness and readiness endpoints.",
+    "route": "/operations/health-checks",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "operations"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "operations/logs.md",
-    "title": "Logs"
+    "title": "Logs",
+    "description": "Each HTTP request log includes both the requested path and the normalized matched route, such as /api/v1/publications/:id.",
+    "route": "/operations/logs",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "operations/troubleshooting.md",
-    "title": "Troubleshooting"
+    "title": "Troubleshooting",
+    "description": "Diagnose startup, database, media, provider, publishing, and delivery problems on a self-hosted OpenPost instance.",
+    "route": "/operations/troubleshooting",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "operations/upgrades.md",
-    "title": "Upgrades"
+    "title": "Upgrades",
+    "description": "OpenPost uses SemVer.",
+    "route": "/operations/upgrades",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/bluesky.md",
-    "title": "Bluesky"
+    "title": "Bluesky",
+    "description": "Bluesky is the simplest provider to enable.",
+    "route": "/providers/bluesky",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/discord.md",
-    "title": "Discord Webhooks"
+    "title": "Discord Webhooks",
+    "description": "Discord uses an incoming webhook link instead of OAuth.",
+    "route": "/providers/discord",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/facebook.md",
-    "title": "Facebook"
+    "title": "Facebook",
+    "description": "Facebook Pages uses Meta OAuth, asks the user to choose a Page, and stores the selected Page access token.",
+    "route": "/providers/facebook",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/instagram.md",
-    "title": "Instagram"
+    "title": "Instagram",
+    "description": "Configure Meta OAuth and publish images, carousels, Stories, and Reels to an Instagram professional account.",
+    "route": "/providers/instagram",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/launch-matrix.md",
-    "title": "Provider Readiness and Launch Gate"
+    "title": "Provider Readiness and Launch Gate",
+    "description": "OpenPost keeps provider implementation, setup, evidence, approval, and runtime control as separate facts.",
+    "route": "/providers/launch-matrix",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/linkedin.md",
-    "title": "LinkedIn"
+    "title": "LinkedIn",
+    "description": "LinkedIn uses OAuth 2.0 and has more approval friction than most other providers.",
+    "route": "/providers/linkedin",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/mastodon.md",
-    "title": "Mastodon"
+    "title": "Mastodon",
+    "description": "OpenPost rejects custom Mastodon hosts that resolve to private, loopback, link-local, multicast, or otherwise local addresses.",
+    "route": "/providers/mastodon",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/overview.md",
-    "title": "Platform Overview"
+    "title": "Platform Overview",
+    "description": "Compare provider setup, implemented formats, account requirements, limits, and live-verification needs.",
+    "route": "/providers/overview",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "providers"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/platform-limits.md",
-    "title": "Platform Implementations & Limitations"
+    "title": "Platform Implementations & Limitations",
+    "description": "A social network may offer a feature that OpenPost has not implemented.",
+    "route": "/providers/platform-limits",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/roadmap.md",
-    "title": "Platform Roadmap"
+    "title": "Platform Roadmap",
+    "description": "OpenPost connects to social networks through the web app, CLI, HTTP API, MCP, and ChatGPT-style clients.",
+    "route": "/providers/roadmap",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/threads.md",
-    "title": "Threads"
+    "title": "Threads",
+    "description": "Threads supports text, single media, replies, and 2-20 item media carousels, but the media URL requirement makes deployment details matter.",
+    "route": "/providers/threads",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/tiktok.md",
-    "title": "TikTok"
+    "title": "TikTok",
+    "description": "TikTok supports video and photo posts through OAuth and the Content Posting API.",
+    "route": "/providers/tiktok",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/troubleshooting.md",
-    "title": "Provider Troubleshooting"
+    "title": "Provider Troubleshooting",
+    "description": "The report checks server health, setup, tokens, and the current workspace.",
+    "route": "/providers/troubleshooting",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/x.md",
-    "title": "X"
+    "title": "X",
+    "description": "OpenPost currently uses X OAuth 1.0a end-to-end.",
+    "route": "/providers/x",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "providers/youtube.md",
-    "title": "YouTube"
+    "title": "YouTube",
+    "description": "YouTube supports Shorts and long-form video uploads.",
+    "route": "/providers/youtube",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "reference/api.md",
-    "title": "API Reference"
+    "title": "API Reference",
+    "description": "Find the rendered HTTP API reference and the authoritative OpenAPI JSON contract generated from the Huma routes.",
+    "route": "/reference/api",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "api"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "reference/callback-urls.md",
-    "title": "Callback URLs"
+    "title": "Callback URLs",
+    "description": "Mastodon uses the OOB flow by default and exchanges the pasted authorization code through /api/v1/accounts/mastodon/exchange.",
+    "route": "/reference/callback-urls",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "reference/cli.md",
-    "title": "CLI Reference"
+    "title": "CLI Reference",
+    "description": "This page is generated from the Cobra command tree.",
+    "route": "/reference/cli",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "excluded",
+      "reason": "The generated CLI reference is repetitive in a combined corpus."
+    }
   },
   {
     "page": "reference/docker-compose.md",
-    "title": "Docker Compose Reference"
+    "title": "Docker Compose Reference",
+    "description": "Copy the production Docker Compose service, storage, environment, and health-check configuration for OpenPost.",
+    "route": "/reference/docker-compose",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "reference/env-vars.md",
-    "title": "Environment Variables"
+    "title": "Environment Variables",
+    "description": "This page lists the most common core and provider variables.",
+    "route": "/reference/env-vars",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "reference/surface-parity.md",
-    "title": "Product Surface Parity"
+    "title": "Product Surface Parity",
+    "description": "OpenPost exposes one backend through several purpose-built clients.",
+    "route": "/reference/surface-parity",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "self-hosting/index.md",
-    "title": "Self-Hosting Docs"
+    "title": "Self-Hosting Docs",
+    "description": "Use these docs when you run OpenPost on your own server.",
+    "route": "/self-hosting/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "self-hosting"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/account-security.md",
-    "title": "Account Security"
+    "title": "Account Security",
+    "description": "Open Settings → Account → Security to manage your password, authenticator app, recovery codes, passkeys, linked sign-in identities, and active browser sessions.",
+    "route": "/usage/account-security",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/accounts.md",
-    "title": "Accounts"
+    "title": "Accounts",
+    "description": "Connected accounts are the social accounts inside a workspace.",
+    "route": "/usage/accounts",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/agent-assisted-publishing.md",
-    "title": "Agent-Assisted, Human-Reviewed Publishing"
+    "title": "Agent-Assisted, Human-Reviewed Publishing",
+    "description": "An AI tool can prepare posts through MCP without seeing your social account keys.",
+    "route": "/usage/agent-assisted-publishing",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/analytics.md",
-    "title": "Analytics"
+    "title": "Analytics",
+    "description": "OpenPost saves the account and post numbers that each platform provides.",
+    "route": "/usage/analytics",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/auto-reposts.md",
-    "title": "Auto Reposts"
+    "title": "Auto Reposts",
+    "description": "Auto repost rules let a connected account use its network's native repost action after one of your posts publishes.",
+    "route": "/usage/auto-reposts",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/communications.md",
-    "title": "Engagement, Inbox, and Notifications"
+    "title": "Engagement, Inbox, and Notifications",
+    "description": "OpenPost checks social networks in the background and saves the results.",
+    "route": "/usage/communications",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/composing-posts.md",
-    "title": "Composing Posts"
+    "title": "Composing Posts",
+    "description": "OpenPost uses one text-and-thread composer for every publication.",
+    "route": "/usage/composing-posts",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/destination-options.md",
-    "title": "Account Options"
+    "title": "Account Options",
+    "description": "The editor starts with the kind of post you want to make.",
+    "route": "/usage/destination-options",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/image-editor.md",
-    "title": "OpenPost Image Editor"
+    "title": "OpenPost Image Editor",
+    "description": "OpenPost Image Editor is OpenPost's still-image editor for social posts, carousel pages, and slideshow images.",
+    "route": "/usage/image-editor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/index.md",
-    "title": "User Docs"
+    "title": "User Docs",
+    "description": "Learn how to connect accounts, create account versions, schedule publications, track results, and manage replies and messages.",
+    "route": "/usage/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "user-guide"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/media-library.md",
-    "title": "Media"
+    "title": "Media",
+    "description": "Media keeps your files, OpenPost Image Editor designs, templates, and brand items in one place.",
+    "route": "/usage/media-library",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/scheduling.md",
-    "title": "Scheduling"
+    "title": "Scheduling",
+    "description": "OpenPost saves scheduled posts in its database, so they survive a server restart.",
+    "route": "/usage/scheduling",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/settings.md",
-    "title": "Settings"
+    "title": "Settings",
+    "description": "OpenPost groups settings by who or what they affect.",
+    "route": "/usage/settings",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/studio.md",
-    "title": "OpenPost Studio"
+    "title": "OpenPost Studio",
+    "description": "OpenPost Studio is the editing area for images and video.",
+    "route": "/usage/studio",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/threads.md",
-    "title": "Threads"
+    "title": "Threads",
+    "description": "Threads let you publish multi-post sequences in order.",
+    "route": "/usage/threads",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/video-editor.md",
-    "title": "OpenPost Video Editor"
+    "title": "OpenPost Video Editor",
+    "description": "OpenPost Video Editor is a local-first editor for social videos and recordings up to two hours.",
+    "route": "/usage/video-editor",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   },
   {
     "page": "usage/workspaces.md",
-    "title": "Workspaces"
+    "title": "Workspaces",
+    "description": "Use a workspace to keep one brand, client, or project separate.",
+    "route": "/usage/workspaces",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included"
+    }
   }
 ]);

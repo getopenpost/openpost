@@ -1,3 +1,7 @@
+---
+description: Copy the production Docker Compose service, storage, environment, and health-check configuration for OpenPost.
+---
+
 # Docker Compose Reference
 
 ```yaml

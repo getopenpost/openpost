@@ -1,3 +1,7 @@
+---
+description: Configure the database, media storage, public URLs, provider applications, updates, feedback, and telemetry.
+---
+
 # Configuration Overview
 
 OpenPost settings fall into these groups:

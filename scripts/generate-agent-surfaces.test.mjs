@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 
 import { parse } from "parse5";
-import { marketingRouteManifest } from "../packages/social-images/src/index.js";
+import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
 import { comparisonEvidenceRegister } from "../marketing-site/src/routes/_comparison-evidence.ts";
 import { comparisons, platforms } from "../marketing-site/src/routes/_marketing.ts";
 import { generateAgentSurface, productionProjections } from "./generate-agent-surfaces.mjs";
@@ -69,6 +69,20 @@ function markdownPlainText(markdown) {
     .replace(/^[#>|-]+\s*/gmu, "")
     .replace(/\s+/gu, " ")
     .trim();
+}
+
+function markdownOutsideFences(markdown) {
+  let fenced = false;
+  return markdown
+    .split("\n")
+    .filter((line) => {
+      if (/^\s*(?:```|~~~)/u.test(line)) {
+        fenced = !fenced;
+        return false;
+      }
+      return !fenced;
+    })
+    .join("\n");
 }
 
 const marketingHTML = `<!doctype html>
@@ -139,6 +153,26 @@ test("marketing production projection covers every eligible route from canonical
   );
   for (const route of representedRoutes) {
     assert.match(route.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
+  }
+});
+
+test("documentation production projection covers every ordinary catalog page", () => {
+  const eligible = docsSocialEntries.filter(
+    (entry) => entry.agentRepresentation.membership === "ordinary",
+  );
+  assert.deepEqual(
+    productionProjections.documentation.pages.map((page) => page.page),
+    eligible.map((entry) => entry.page),
+  );
+  assert.equal(
+    new Set(productionProjections.documentation.pages.map((page) => page.outputPath)).size,
+    eligible.length,
+  );
+  for (const page of productionProjections.documentation.pages) {
+    assert.equal(page.outputPath, page.page);
+    assert.equal(page.route, page.catalog.route);
+    assert.equal(page.title, page.catalog.socialTitle);
+    assert.equal(page.description, page.catalog.description);
   }
 });
 
@@ -360,7 +394,41 @@ services:
   assert.match(markdown, /\[Read the user guide\]\(https:\/\/docs\.openpost\.social\/usage\/\)/);
   assert.match(markdown, /^> \*\*Managed plans\*\*$/m);
   assert.match(markdown, /\[User docs\]\(https:\/\/docs\.openpost\.social\/usage\/\)/);
-  assert.match(markdown, /^  openpost:\n    image: ghcr\.io\/rodrgds\/openpost:latest$/m);
+  assert.match(markdown, /^  openpost:\n    image: ghcr\.io\/getopenpost\/openpost:latest$/m);
+});
+
+test("documentation projection keeps one canonical heading for an ordinary source page", async () => {
+  const directory = await fixtureDirectory();
+  const sourcePath = path.join(directory, "accounts.md");
+  await writeFile(
+    sourcePath,
+    "# Accounts\n\nConnect each destination account to the current workspace. [Open settings](https://app.openpost.social/settings).\n\n```md\n# Keep this shell comment.\n[Literal example](/kept-relative)\n```\n",
+  );
+  await generateAgentSurface({
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: [
+      {
+        sourcePath,
+        outputPath: "accounts.md",
+        canonical: "https://docs.openpost.social/usage/accounts",
+        title: "Accounts",
+        description: "Connect social accounts to OpenPost.",
+      },
+    ],
+    discovery: {
+      title: "OpenPost Documentation",
+      description: "OpenPost product and operating documentation.",
+      links: [],
+    },
+  });
+  const markdown = await readFile(path.join(directory, "accounts.md"), "utf8");
+  assert.equal((markdown.match(/^# Accounts$/gmu) ?? []).length, 1);
+  assert.match(markdown, /^# Accounts$/mu);
+  assert.match(markdown, /^# Keep this shell comment\.$/mu);
+  assert.match(markdown, /\[Literal example\]\(\/kept-relative\)/u);
+  assert.match(markdown, /Open settings/u);
+  assert.doesNotMatch(markdown, /app\.openpost\.social/u);
 });
 
 test("projection validation rejects unsafe or incomplete production contracts", async () => {
@@ -388,6 +456,27 @@ test("projection validation rejects unsafe or incomplete production contracts", 
   await assert.rejects(
     generateAgentSurface({ ...base, pages: [...base.pages, ...base.pages] }),
     /duplicate output path: index\.md/,
+  );
+  const docsSource = path.join(directory, "duplicate-source.md");
+  await writeFile(docsSource, "# Public guide\n\nOne maintained page.\n");
+  await assert.rejects(
+    generateAgentSurface({
+      surface: "documentation",
+      outputDirectory: directory,
+      pages: ["first.md", "second.md"].map((outputPath) => ({
+        sourcePath: docsSource,
+        outputPath,
+        canonical: "https://docs.openpost.social/guide",
+        title: "Public guide",
+        description: "One maintained page.",
+      })),
+      discovery: {
+        title: "Documentation",
+        description: "Public documentation.",
+        links: [],
+      },
+    }),
+    /duplicate canonical route: https:\/\/docs\.openpost\.social\/guide/u,
   );
   await assert.rejects(
     generateAgentSurface({
@@ -540,7 +629,7 @@ test(
 
     const docsConfig = await readFile(path.join(root, "docs-site/.vitepress/config.ts"), "utf8");
     assert.match(docsConfig, /type: "text\/markdown"/);
-    assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/index\.md`/);
+    assert.match(docsConfig, /new URL\(agentPage\.page, `\$\{docsSiteUrl\}\/`\)\.href/u);
     assert.match(docsConfig, /type: "text\/plain"/);
     assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/llms\.txt`/);
 
@@ -554,7 +643,7 @@ test(
       },
       {
         directory: path.join(root, "docs-site/.vitepress/dist"),
-        canonical: "https://docs.openpost.social/",
+        canonical: "https://docs.openpost.social",
         discoveryTarget: "https://docs.openpost.social/index.md",
       },
     ]) {
@@ -680,6 +769,79 @@ test(
       }
     }
     assert.equal((pricing.match(/^\| Limit \|/gmu) ?? []).length, 1);
+
+    const docsDirectory = path.join(root, "docs-site/.vitepress/dist");
+    const docsDiscovery = await readFile(path.join(docsDirectory, "llms.txt"), "utf8");
+    const ordinaryDocs = docsSocialEntries.filter(
+      (entry) => entry.agentRepresentation.membership === "ordinary",
+    );
+    const firstDocsArtifacts = new Map();
+    for (const entry of ordinaryDocs) {
+      const html = await readFile(
+        path.join(docsDirectory, entry.page.replace(/\.md$/u, ".html")),
+        "utf8",
+      );
+      const markdown = await readFile(path.join(docsDirectory, entry.page), "utf8");
+      firstDocsArtifacts.set(entry.page, markdown);
+      assert.ok(
+        html.includes(
+          `rel="alternate" type="text/markdown" href="${new URL(entry.page, "https://docs.openpost.social/").href}"`,
+        ),
+      );
+      assert.match(
+        html,
+        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpost\.social\/llms\.txt"/u,
+      );
+      assert.ok(markdown.includes(`\nTitle: ${entry.socialTitle}\n`));
+      assert.ok(markdown.includes(`\nDescription: ${entry.description}\n`));
+      assert.ok(markdown.includes(`\nCanonical: ${entry.canonical}\n`));
+      assert.ok(markdown.includes(`\n# ${entry.socialTitle}\n`));
+      assert.doesNotMatch(
+        markdownOutsideFences(markdown),
+        /\]\((?:\/|\.\.\/|\.\/|https:\/\/app\.openpost\.social)/u,
+      );
+    }
+
+    for (const [key, title] of [
+      ["user-guide", "User guide"],
+      ["providers", "Providers"],
+      ["cli", "CLI"],
+      ["mcp", "MCP"],
+      ["installation", "Installation"],
+      ["self-hosting", "Self-hosting"],
+      ["configuration", "Configuration"],
+      ["operations", "Operations"],
+      ["api", "API"],
+      ["development", "Development"],
+    ]) {
+      assert.match(docsDiscovery, new RegExp(`^## ${title}$`, "m"));
+      const entry = docsSocialEntries.find((candidate) => candidate.agentDiscovery.section === key);
+      assert.ok(entry);
+      assert.ok(docsDiscovery.includes(new URL(entry.page, "https://docs.openpost.social/").href));
+    }
+    assert.match(
+      docsDiscovery,
+      /\[OpenAPI JSON\]\(https:\/\/docs\.openpost\.social\/openapi\.json\)/u,
+    );
+    for (const entry of docsSocialEntries.filter(
+      (candidate) => candidate.agentDiscovery.membership === "unlisted",
+    )) {
+      assert.equal(
+        docsDiscovery.includes(`(${new URL(entry.page, "https://docs.openpost.social/").href})`),
+        false,
+      );
+    }
+    const docsSitemap = await readFile(path.join(docsDirectory, "sitemap.xml"), "utf8");
+    assert.doesNotMatch(docsSitemap, /\.md(?:<|$)/u);
+    assert.deepEqual(
+      [...docsSitemap.matchAll(/<loc>([^<]+)<\/loc>/gu)].map((match) => match[1]).toSorted(),
+      docsSocialEntries.map((entry) => new URL(entry.canonical).href).toSorted(),
+    );
+
+    await generateAgentSurface(productionProjections.documentation);
+    for (const [outputPath, first] of firstDocsArtifacts) {
+      assert.equal(await readFile(path.join(docsDirectory, outputPath), "utf8"), first);
+    }
 
     await generateAgentSurface(productionProjections.marketing);
     for (const [outputPath, first] of firstArtifacts) {

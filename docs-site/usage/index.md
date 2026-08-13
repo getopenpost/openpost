@@ -1,3 +1,7 @@
+---
+description: Learn how to connect accounts, create account versions, schedule publications, track results, and manage replies and messages.
+---
+
 # User Docs
 
 Use these docs to connect accounts, write account versions, schedule posts, track results, work with replies and messages, use the CLI, or let an AI tool help through MCP.

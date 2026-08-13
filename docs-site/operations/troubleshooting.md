@@ -1,3 +1,7 @@
+---
+description: Diagnose startup, database, media, provider, publishing, and delivery problems on a self-hosted OpenPost instance.
+---
+
 # Troubleshooting
 
 ## App does not start

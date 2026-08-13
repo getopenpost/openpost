@@ -1,3 +1,7 @@
+---
+description: Find the rendered HTTP API reference and the authoritative OpenAPI JSON contract generated from the Huma routes.
+---
+
 # API Reference
 
 The full OpenAPI reference now lives in the developer docs:

@@ -42,12 +42,34 @@ export interface MarketingRouteEntry extends SocialEntry {
   };
 }
 
+export type DocumentationDiscoverySection =
+  | "user-guide"
+  | "providers"
+  | "cli"
+  | "mcp"
+  | "installation"
+  | "self-hosting"
+  | "configuration"
+  | "operations"
+  | "api"
+  | "development";
+
+export interface DocumentationPageEntry extends SocialEntry {
+  page: string;
+  route: string;
+  agentRepresentation: { membership: "ordinary" } | { membership: "special"; reason: string };
+  agentDiscovery:
+    | { membership: "primary"; section?: DocumentationDiscoverySection }
+    | { membership: "optional" | "unlisted"; section?: DocumentationDiscoverySection };
+  agentCorpus: { membership: "included" } | { membership: "excluded"; reason: string };
+}
+
 export const marketingSiteUrl: "https://openpost.social";
 export const docsSiteUrl: "https://docs.openpost.social";
 export const socialRendererVersion: string;
 export const marketingRouteManifest: readonly MarketingRouteEntry[];
 export const marketingSocialEntries: readonly MarketingRouteEntry[];
-export const docsSocialEntries: readonly SocialEntry[];
+export const docsSocialEntries: readonly DocumentationPageEntry[];
 
 export function socialImageUrl(entry: Pick<SocialEntry, "id">): string;
 export function resolveSocialImageEntry(id: string): SocialEntry;

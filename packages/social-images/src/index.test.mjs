@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assertUniqueDocumentationRoutes } from "../../../scripts/social-images/catalog.mjs";
 import { docsPageCatalog } from "./docs-catalog.js";
 import {
   docsSocialEntries,
@@ -98,5 +99,55 @@ test("docs routes and image keys match VitePress output paths", () => {
 test("every generated docs card has a unique, server-resolvable catalog id", () => {
   assert.equal(docsSocialEntries.length, docsPageCatalog.length);
   assert.equal(new Set(docsSocialEntries.map((entry) => entry.id)).size, docsSocialEntries.length);
-  for (const entry of docsSocialEntries) assert.equal(resolveSocialImageEntry(entry.id), entry);
+  for (const [index, entry] of docsSocialEntries.entries()) {
+    const page = docsPageCatalog[index];
+    assert.equal(resolveSocialImageEntry(entry.id), entry);
+    assert.equal(entry.page, page.page);
+    assert.equal(entry.route, page.route);
+    assert.equal(entry.route, docsRouteFromPage(page.page));
+    assert.equal(entry.description, page.description);
+    assert.deepEqual(entry.agentRepresentation, page.agentRepresentation);
+    assert.deepEqual(entry.agentDiscovery, page.agentDiscovery);
+    assert.deepEqual(entry.agentCorpus, page.agentCorpus);
+    assert.match(page.route, /^\/(?:$|[^.]*(?:\/$)?)/u);
+    assert.match(page.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
+    assert.match(page.agentRepresentation.membership, /^(?:ordinary|special)$/u);
+    assert.match(page.agentCorpus.membership, /^(?:included|excluded)$/u);
+  }
+
+  const entrypoints = docsPageCatalog.filter(
+    (page) => page.agentDiscovery.membership === "primary" && page.agentDiscovery.section,
+  );
+  assert.deepEqual(entrypoints.map((page) => page.agentDiscovery.section).toSorted(), [
+    "api",
+    "cli",
+    "configuration",
+    "development",
+    "installation",
+    "mcp",
+    "operations",
+    "providers",
+    "self-hosting",
+    "user-guide",
+  ]);
+  assert.deepEqual(docsPageCatalog.find((page) => page.page === "index.md").agentDiscovery, {
+    membership: "primary",
+  });
+  assert.equal(
+    docsPageCatalog.find((page) => page.page === "reference/docker-compose.md").description,
+    "Copy the production Docker Compose service, storage, environment, and health-check configuration for OpenPost.",
+  );
+  assert.equal(
+    docsPageCatalog.some((page) => page.description.endsWith("…")),
+    false,
+  );
+  assertUniqueDocumentationRoutes(docsPageCatalog);
+  assert.throws(
+    () =>
+      assertUniqueDocumentationRoutes([
+        { page: "ordinary.md", route: "/collision" },
+        { page: "special.md", route: "/collision/" },
+      ]),
+    /duplicate documentation route/u,
+  );
 });

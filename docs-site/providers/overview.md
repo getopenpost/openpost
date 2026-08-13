@@ -1,3 +1,7 @@
+---
+description: Compare provider setup, implemented formats, account requirements, limits, and live-verification needs.
+---
+
 # Platform Overview
 
 OAuth and social app setup cause many connection errors. Use this guide as you turn on each network.

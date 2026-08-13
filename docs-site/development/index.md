@@ -1,3 +1,7 @@
+---
+description: Find the architecture, setup, API, frontend, backend, testing, contribution, and release documentation for OpenPost.
+---
+
 # Developer Docs
 
 Use these docs when you are changing OpenPost itself: backend routes, platform adapters, frontend components, generated clients, MCP tools, billing infrastructure, database migrations, tests, or release behavior.

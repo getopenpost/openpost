@@ -1,3 +1,7 @@
+---
+description: Configure Meta OAuth and publish images, carousels, Stories, and Reels to an Instagram professional account.
+---
+
 # Instagram
 
 Instagram professional publishing uses Meta OAuth, asks the user to choose a Business or Creator account connected to a Facebook Page, and stores the selected Page access token.

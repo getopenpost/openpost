@@ -1,3 +1,7 @@
+---
+description: Create posts, threads, account-specific renditions, schedules, and media attachments from the OpenPost CLI.
+---
+
 # Posting with the CLI
 
 Use `openpost post` for quick post drafts, `openpost thread` for markdown threads, `openpost publication` for account-specific renditions and formats, and `openpost media` for attachments. Drafts from all three creation commands open in the unified publication composer.

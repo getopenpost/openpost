@@ -4373,6 +4373,9 @@ export interface components {
             activation_publication_id?: string;
             job_id?: string;
             message: string;
+            publication_id?: string;
+            /** @description Exact destination outcomes after this action */
+            renditions?: components["schemas"]["RenditionActionOutcome"][] | null;
             /** Format: int64 */
             revision?: number;
             workspace_activated?: boolean;
@@ -9370,6 +9373,14 @@ export interface components {
             readonly $schema?: string;
             media: components["schemas"]["MediaUploadResult"];
             recipe: components["schemas"]["MemeRecipeResponse"];
+        };
+        RenditionActionOutcome: {
+            delivery?: components["schemas"]["ProviderDeliveryResponse"];
+            id: string;
+            platform: string;
+            social_account_id: string;
+            status: string;
+            target_key: string;
         };
         RenditionInput: {
             /** @description Platform-specific body */

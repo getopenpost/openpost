@@ -13,6 +13,8 @@ import (
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -685,6 +687,119 @@ func TestSchedulePublicationRollsBackJobAndStatesTogether(t *testing.T) {
 	var rendition models.Rendition
 	require.NoError(t, db.NewSelect().Model(&rendition).Where("id = ?", "rendition-1").Scan(ctx))
 	require.Equal(t, models.RenditionStatusDraft, rendition.Status)
+}
+
+func TestSchedulePublicationReturnsEveryDestinationOutcome(t *testing.T) {
+	db := createHandlerTestDB(t,
+		(*models.WorkspaceMember)(nil),
+		(*models.Publication)(nil),
+		(*models.Rendition)(nil),
+		(*models.MediaAttachment)(nil),
+		(*models.RenditionMedia)(nil),
+		(*models.Job)(nil),
+		(*models.ProviderDelivery)(nil),
+	)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-outcomes", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		Title: "Destination outcomes", ContentProfile: models.ContentProfileShortText,
+		SourceText: "Schedule every destination", SourceContent: "Schedule every destination",
+		Status: models.PublicationStatusDraft, ScheduledAt: now.Add(time.Hour), Revision: 1,
+		MetadataJSON: "{}", ReleasePlanJSON: "{}", CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	seedHandlerAccount(t, db, "account-x", "x")
+	seedHandlerAccount(t, db, "account-secondary", "bluesky")
+	seedHandlerRendition(t, db, "rendition-x", "publication-outcomes", "account-x", "x", "Schedule every destination", models.RenditionStatusDraft)
+	seedHandlerRendition(t, db, "rendition-secondary", "publication-outcomes", "account-secondary", "bluesky", "Schedule every destination", models.RenditionStatusDraft)
+	_, err = db.NewInsert().Model(&models.ProviderDelivery{
+		ID: "delivery-old-failure", WorkspaceID: "workspace-1", PublicationID: "publication-outcomes",
+		RenditionID: "rendition-x", SocialAccountID: "account-x", TargetKey: "x", Provider: "x",
+		State: providerwrite.DeliveryRejected, CurrentAttemptID: "attempt-old", CurrentAttemptNumber: 1,
+		CurrentAttemptCreatedAt: now.Add(-time.Hour), RetrySafety: string(platform.PublishRetrySafe),
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-outcomes/schedule", bytes.NewBufferString(`{"expected_revision":1}`))
+	req.Header.Set("Authorization", "Bearer web-token")
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+	e.ServeHTTP(resp, req)
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var out struct {
+		PublicationID string              `json:"publication_id"`
+		Renditions    []RenditionResponse `json:"renditions"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "publication-outcomes", out.PublicationID)
+	require.Len(t, out.Renditions, 2)
+	outcomes := map[string]RenditionResponse{}
+	for _, outcome := range out.Renditions {
+		outcomes[outcome.ID] = outcome
+	}
+	require.Equal(t, "account-secondary", outcomes["rendition-secondary"].SocialAccountID)
+	require.Equal(t, models.RenditionStatusScheduled, outcomes["rendition-secondary"].Status)
+	require.Equal(t, "account-x", outcomes["rendition-x"].SocialAccountID)
+	require.Equal(t, models.RenditionStatusScheduled, outcomes["rendition-x"].Status)
+	require.NotNil(t, outcomes["rendition-x"].Delivery)
+	require.Equal(t, providerwrite.RecoveryNone, outcomes["rendition-x"].Delivery.RecoveryAction)
+}
+
+func TestPublishNowReturnsDestinationOutcome(t *testing.T) {
+	db := createHandlerTestDB(t,
+		(*models.WorkspaceMember)(nil),
+		(*models.Publication)(nil),
+		(*models.Rendition)(nil),
+		(*models.MediaAttachment)(nil),
+		(*models.RenditionMedia)(nil),
+		(*models.Job)(nil),
+	)
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-submit-outcomes", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		Title: "Submit outcome", ContentProfile: models.ContentProfileShortText,
+		SourceText: "Submit this destination", SourceContent: "Submit this destination",
+		Status: models.PublicationStatusDraft, Revision: 1, MetadataJSON: "{}", ReleasePlanJSON: "{}",
+		CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	seedHandlerAccount(t, db, "account-submit", "x")
+	seedHandlerRendition(t, db, "rendition-submit", "publication-submit-outcomes", "account-submit", "x", "Submit this destination", models.RenditionStatusDraft)
+
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	newReadyPublicationHandler(t, db, testAuthenticator{}).RegisterRoutes(api)
+	req := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/publications/publication-submit-outcomes/publish-now", bytes.NewBufferString(`{"expected_revision":1}`))
+	req.Header.Set("Authorization", "Bearer web-token")
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+	e.ServeHTTP(resp, req)
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var out struct {
+		PublicationID string              `json:"publication_id"`
+		Renditions    []RenditionResponse `json:"renditions"`
+	}
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "publication-submit-outcomes", out.PublicationID)
+	require.Len(t, out.Renditions, 1)
+	require.Equal(t, "account-submit", out.Renditions[0].SocialAccountID)
+	require.Equal(t, models.RenditionStatusScheduled, out.Renditions[0].Status)
 }
 
 func TestMCPPublicationScheduleSemanticsMatchREST(t *testing.T) {

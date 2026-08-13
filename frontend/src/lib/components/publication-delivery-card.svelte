@@ -15,11 +15,13 @@
 
 	let {
 		rendition,
+		destinationLabel,
 		retrying = false,
 		onRetry,
 		onManualResolution
 	}: {
 		rendition: Rendition;
+		destinationLabel?: string;
 		retrying?: boolean;
 		onRetry: (renditionID: string) => void | Promise<void>;
 		onManualResolution?: (renditionID: string) => void | Promise<void>;
@@ -56,7 +58,10 @@
 <article class="flex min-w-0 items-start gap-3 rounded-xl border bg-card p-4">
 	<PlatformIcon platform={rendition.platform} class="mt-0.5 size-5 shrink-0" />
 	<div class="min-w-0 flex-1">
-		<p class="font-medium">{getPlatformName(rendition.platform)}</p>
+		<p class="font-medium">{destinationLabel || getPlatformName(rendition.platform)}</p>
+		{#if destinationLabel}
+			<p class="mt-0.5 text-xs text-muted-foreground">{getPlatformName(rendition.platform)}</p>
+		{/if}
 		<p class="mt-0.5 text-sm text-muted-foreground">
 			{statusLabel(delivery?.state || rendition.status)}
 		</p>
@@ -89,7 +94,7 @@
 		{:else if delivery?.terminal_reason}
 			<p class="mt-1 text-sm text-destructive">{delivery.terminal_reason}</p>
 		{/if}
-		{#if delivery?.recovery_action === 'retry'}
+		{#if rendition.status === 'failed' && delivery?.recovery_action === 'retry'}
 			<Button class="mt-3" size="sm" disabled={retrying} onclick={() => onRetry(rendition.id)}>
 				{retrying ? m.common_loading() : m.publication_delivery_retry()}
 			</Button>

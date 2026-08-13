@@ -1908,6 +1908,8 @@
 	"publication_delivery_review_destination": "Rever destino",
 	"publication_delivery_retry_queued": "Nova tentativa do destino em fila.",
 	"publication_delivery_retry_failed": "Não foi possível colocar a nova tentativa do destino em fila.",
+	"composer_delivery_outcomes": "Resultados por destino",
+	"composer_delivery_summary": "Com êxito: {succeeded} · pendentes: {pending} · falharam: {failed} · precisam de revisão: {manual}",
 	"publication_view_on_platform": "Ver no {platform}",
 	"compose_post_type": "Tipo de publicação",
 	"compose_group_write": "Escrever",

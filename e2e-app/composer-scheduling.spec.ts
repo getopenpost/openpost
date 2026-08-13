@@ -47,6 +47,49 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   let publicationPayload: PostPayload | undefined;
   let scheduleAttempts = 0;
   let injectChangedDestinationValidation = true;
+  let retryQueued = false;
+
+  const destinationOutcomes = () => [
+    {
+      id: "rendition-live",
+      social_account_id: "account-live",
+      target_key: "live",
+      platform: "youtube",
+      status: "published",
+      delivery: { state: "live", recovery_action: "none" },
+    },
+    {
+      id: "rendition-pending",
+      social_account_id: "bluesky-main",
+      target_key: "bluesky",
+      platform: "bluesky",
+      status: "scheduled",
+      delivery: { state: "queued", recovery_action: "none" },
+    },
+    {
+      id: "rendition-retry",
+      social_account_id: "account-retry",
+      target_key: "x",
+      platform: "x",
+      status: retryQueued ? "scheduled" : "failed",
+      delivery: retryQueued
+        ? { state: "queued", recovery_action: "none" }
+        : {
+            state: "rejected",
+            error_kind: "provider_http",
+            error_code: "rate_limited",
+            recovery_action: "retry",
+          },
+    },
+    {
+      id: "rendition-ambiguous",
+      social_account_id: "account-ambiguous",
+      target_key: "threads",
+      platform: "threads",
+      status: "failed",
+      delivery: { state: "ambiguous", recovery_action: "reconcile" },
+    },
+  ];
 
   const auth = await registerUser(request, email);
   const workspaceBody = await createWorkspace(request, auth.token, "Composer Scheduling E2E");
@@ -268,8 +311,33 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
       await route.fulfill({ contentType: "application/json", json: {} });
       return;
     }
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        contentType: "application/json",
+        json: { id: "publication-schedule", renditions: destinationOutcomes() },
+      });
+      return;
+    }
     await route.continue();
   });
+
+  await page.route(
+    "**/api/v1/publications/publication-schedule/renditions/account-retry/retry?**",
+    async (route) => {
+      const retryOutcome = destinationOutcomes().find(
+        (outcome) => outcome.id === "rendition-retry",
+      );
+      expect(retryOutcome).toMatchObject({
+        status: "failed",
+        delivery: { recovery_action: "retry" },
+      });
+      retryQueued = true;
+      await route.fulfill({
+        contentType: "application/json",
+        json: { message: "destination retry queued", job_id: "retry-job" },
+      });
+    },
+  );
   await page.route("**/api/v1/publications/publication-schedule/renditions", async (route) => {
     if (route.request().method() === "PUT") {
       publicationPayload = {
@@ -330,6 +398,8 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
           job_id: "job-publication-schedule",
           workspace_activated: true,
           activation_publication_id: "publication-schedule",
+          publication_id: "publication-schedule",
+          renditions: destinationOutcomes(),
         },
       });
       return;
@@ -344,6 +414,8 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   await expect(page.getByRole("button", { name: "Save draft" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Need inspiration?" })).toBeVisible();
   await page.getByLabel("Post text").fill(postContent);
+  await page.getByRole("button", { name: "Add post" }).click();
+  await page.getByLabel("Post text").nth(1).fill("The second post keeps the outcome panel shared.");
   await expect(page.getByRole("button", { name: "Publish now" })).toBeDisabled();
   await page.getByTestId("composer-account-control").click();
   await expect(page.getByTestId("composer-account-row")).toContainText(
@@ -394,7 +466,7 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   await expect(quickSchedule.locator(".lucide-send")).toBeVisible();
   await quickSchedule.click();
 
-  await expect(page.getByLabel("Post text")).toBeFocused();
+  await expect(page.getByLabel("Post text").first()).toBeFocused();
   await expect(page.getByText("Fix the blocking issues before scheduling.")).toBeVisible();
   const validationControl = page.getByTestId("composer-validation-control");
   await validationControl.click();
@@ -409,13 +481,33 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   await quickSchedule.click();
 
   await expect(page.getByText("Scheduled!", { exact: true })).toBeVisible();
-  const activation = page.getByTestId("workspace-activation-completion");
-  await expect(activation).toContainText("Workspace activated");
-  await expect(activation.getByRole("link", { name: "View publication" })).toHaveAttribute(
+  const outcomes = page.getByTestId("composer-delivery-feedback");
+  await expect(outcomes).toContainText("Workspace activated");
+  await expect(outcomes).toContainText("1 succeeded · 1 pending · 1 failed · 1 need review");
+  await expect(outcomes.getByText("Live", { exact: true })).toBeVisible();
+  await expect(outcomes.getByRole("paragraph").filter({ hasText: /^YouTube$/u })).toBeVisible();
+  await expect(outcomes.getByText("Queued", { exact: true })).toBeVisible();
+  await expect(outcomes.getByText("provider_http · rate_limited")).toBeVisible();
+  await expect(
+    outcomes.getByText("OpenPost is checking the provider before another send."),
+  ).toBeVisible();
+  await expect(outcomes.getByRole("link", { name: "View publication" })).toHaveAttribute(
     "href",
     "/publications/publication-schedule",
   );
-  await expect(activation.getByRole("button", { name: "Create another" })).toBeVisible();
+  await expect(quickSchedule).toBeDisabled();
+  await outcomes.getByRole("button", { name: "Retry destination" }).click();
+  await expect(outcomes.getByText("Queued", { exact: true })).toHaveCount(2);
+  await expect(outcomes.getByRole("button", { name: "Retry destination" })).toHaveCount(0);
+
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(outcomes).toBeVisible();
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+    ).toBeFalsy();
+  }
+  await expect(page.getByTestId("workspace-activation-completion")).toHaveCount(0);
   await expect(page.getByTestId("workspace-setup-guide-composer")).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-celebrating-schedule", "true");
   await expect.poll(() => publicationPayload).toBeTruthy();
@@ -423,7 +515,7 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
 
   expect(publicationPayload).toMatchObject({
     workspace_id: workspaceBody.id,
-    content_profile: "short_text",
+    content_profile: "thread",
     source_text: postContent,
     renditions: [
       expect.objectContaining({
@@ -447,7 +539,7 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   expect(publicationPayload?.scheduled_at).toBeTruthy();
   expect(new Date(publicationPayload?.scheduled_at ?? "").toString()).not.toBe("Invalid Date");
 
-  await activation.getByRole("button", { name: "Create another" }).click();
-  await expect(activation).toHaveCount(0);
+  await outcomes.getByRole("button", { name: "Create another" }).click();
+  await expect(outcomes).toHaveCount(0);
   await expect(page.getByLabel("Post text")).toHaveValue("");
 });

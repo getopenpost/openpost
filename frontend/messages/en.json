@@ -1908,6 +1908,8 @@
 	"publication_delivery_review_destination": "Review destination",
 	"publication_delivery_retry_queued": "Destination retry queued.",
 	"publication_delivery_retry_failed": "Could not queue the destination retry.",
+	"composer_delivery_outcomes": "Destination outcomes",
+	"composer_delivery_summary": "{succeeded} succeeded · {pending} pending · {failed} failed · {manual} need review",
 	"publication_view_on_platform": "View on {platform}",
 	"compose_post_type": "Post type",
 	"compose_group_write": "Write",

@@ -33,6 +33,7 @@
 	import SocialSetControl from './social-set-control.svelte';
 	import ComposerRequiredFields from './composer-required-fields.svelte';
 	import ComposerPublishActions from './composer-publish-actions.svelte';
+	import ComposerDeliveryFeedback from './composer-delivery-feedback.svelte';
 	import SaveIndicator from './save-indicator.svelte';
 	import ComposerScheduleDialog from './composer-schedule-dialog.svelte';
 	import ComposerRepostControl from './composer-repost-control.svelte';
@@ -194,6 +195,7 @@
 	};
 	type DestinationOption = components['schemas']['DestinationOption'];
 	type ValidationIssue = components['schemas']['ValidationIssue'];
+	type DeliveryOutcome = components['schemas']['RenditionActionOutcome'];
 
 	type PersistedVariant = {
 		social_account_id: string;
@@ -282,6 +284,9 @@
 	let lastInitializedPublicationId = $state<string | null>(null);
 	let isSaving = $state(false);
 	let isSubmitting = $state(false);
+	let deliveryPublicationID = $state('');
+	let deliveryFeedback = $state.raw<DeliveryOutcome[]>([]);
+	let retryingDeliveryRenditionID = $state('');
 	let isDeleting = $state(false);
 	let showDeleteConfirm = $state(false);
 	let error = $state('');
@@ -469,6 +474,9 @@
 		selectedAccountIds
 			.map((id) => accounts.find((account) => account.id === id))
 			.filter((account): account is SocialAccount => Boolean(account))
+	);
+	const deliveryAccountLabels = $derived.by(() =>
+		Object.fromEntries(accounts.map((account) => [account.id, accountLabel(account)]))
 	);
 	// Keep drafts permissive so one attachment can transition into a provider's
 	// multi-image profile. Destination-specific limits are resolved and block
@@ -3599,6 +3607,8 @@
 		clearAutoSaveTimer();
 		error = '';
 		success = '';
+		deliveryFeedback = [];
+		deliveryPublicationID = '';
 
 		if (!selectedWorkspaceId) {
 			error = m.compose_please_select_workspace();
@@ -3732,6 +3742,8 @@
 			if (action?.workspace_activated && action.activation_publication_id) {
 				activationPublicationID = action.activation_publication_id;
 			}
+			deliveryPublicationID = action?.publication_id || targetPublicationID;
+			deliveryFeedback = action?.renditions ?? [];
 
 			if (publishNow) {
 				captureTelemetryEvent('publication publish requested', {
@@ -3757,7 +3769,7 @@
 			);
 			ui.refreshWorkspaceSetup();
 
-			if (activationPublicationID) {
+			if (activationPublicationID || deliveryFeedback.length > 0) {
 				// Keep the completion actions available until the author chooses where to go next.
 			} else if (isEditMode && onSuccess) {
 				setTimeout(() => onSuccess(), 800);
@@ -3776,6 +3788,49 @@
 				await focusComposerIssue(issueToFocusAfterSubmit);
 			}
 		}
+	}
+
+	async function retryDeliveryRendition(renditionID: string) {
+		const rendition = deliveryFeedback.find((item) => item.id === renditionID);
+		if (!deliveryPublicationID || !rendition) return;
+		retryingDeliveryRenditionID = renditionID;
+		error = '';
+		try {
+			const { error: retryError } = await client.POST(
+				'/publications/{id}/renditions/{account_id}/retry',
+				{
+					params: {
+						path: {
+							id: deliveryPublicationID,
+							account_id: rendition.social_account_id
+						},
+						query: { target_key: rendition.target_key }
+					}
+				}
+			);
+			if (retryError) throw new Error(m.publication_delivery_retry_failed());
+			const { data, error: loadError } = await client.GET('/publications/{id}', {
+				params: { path: { id: deliveryPublicationID } }
+			});
+			if (loadError || !data) throw new Error(m.publication_edit_load_failed());
+			deliveryFeedback = data.renditions ?? [];
+			success = m.publication_delivery_retry_queued();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.publication_delivery_retry_failed();
+		} finally {
+			retryingDeliveryRenditionID = '';
+		}
+	}
+
+	function resetAfterDeliveryFeedback() {
+		deliveryFeedback = [];
+		deliveryPublicationID = '';
+		activationPublicationID = '';
+		if (isEditMode) {
+			onSuccess?.();
+			return;
+		}
+		resetAfterSuccessfulPublication();
 	}
 
 	// --------------------------------------------------------------------------
@@ -4727,7 +4782,7 @@
 							: m.compose_schedule_next_slot()}
 						publishLabel={m.compose_publish_now()}
 						deleteLabel={m.common_delete()}
-						busy={isSubmitting || isSaving}
+						busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
 						deleting={isDeleting}
 						quickScheduleBusy={suggestingSlot}
 						scheduleSelected={Boolean(selectedDate && selectedTime)}
@@ -4874,7 +4929,7 @@
 							: m.compose_schedule_next_slot()}
 						publishLabel={m.compose_publish_now()}
 						deleteLabel={m.common_delete()}
-						busy={isSubmitting || isSaving}
+						busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
 						deleting={isDeleting}
 						quickScheduleBusy={suggestingSlot}
 						scheduleSelected={Boolean(selectedDate && selectedTime)}
@@ -4989,17 +5044,33 @@
 	<div class="flex flex-1 overflow-hidden">
 		<!-- Compose Column -->
 		<div class="flex flex-1 flex-col overflow-y-auto">
-			{#if activationPublicationID}
+			{#if activationPublicationID && deliveryFeedback.length === 0}
 				<WorkspaceActivationCompletion
 					publicationID={activationPublicationID}
-					onCreateAnother={() => {
-						activationPublicationID = '';
-						if (isEditMode) {
-							onSuccess?.();
-						} else {
-							resetAfterSuccessfulPublication();
-						}
+					onCreateAnother={resetAfterDeliveryFeedback}
+				/>
+			{/if}
+			{#if deliveryPublicationID && deliveryFeedback.length > 0}
+				<ComposerDeliveryFeedback
+					publicationID={deliveryPublicationID}
+					renditions={deliveryFeedback}
+					accountLabels={deliveryAccountLabels}
+					workspaceActivated={Boolean(activationPublicationID)}
+					retryingRenditionID={retryingDeliveryRenditionID}
+					onRetry={retryDeliveryRendition}
+					onManualResolution={(renditionID) => {
+						const accountID = deliveryFeedback.find(
+							(rendition) => rendition.id === renditionID
+						)?.social_account_id;
+						return goto(
+							resolve(
+								(accountID
+									? `/settings?tab=accounts&account_id=${encodeURIComponent(accountID)}`
+									: '/settings?tab=accounts') as '/'
+							)
+						);
 					}}
+					onCreateAnother={resetAfterDeliveryFeedback}
 				/>
 			{/if}
 			<div class="mx-auto w-full max-w-2xl px-3 py-4 md:px-6 md:py-6">

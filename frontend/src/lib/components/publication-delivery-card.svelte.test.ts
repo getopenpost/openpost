@@ -59,6 +59,25 @@ it('attaches retryable failure evidence and retry to the exact destination', asy
 	expect(onRetry).toHaveBeenCalledWith('rendition-1');
 });
 
+it('does not offer a stale retry after the destination has been queued again', async () => {
+	const screen = await render(PublicationDeliveryCard, {
+		rendition: {
+			...baseRendition,
+			status: 'scheduled',
+			delivery: {
+				target_key: 'x',
+				state: 'rejected',
+				recovery_action: 'retry'
+			}
+		},
+		onRetry: vi.fn()
+	});
+
+	await expect
+		.element(screen.getByRole('button', { name: 'Retry destination' }))
+		.not.toBeInTheDocument();
+});
+
 it('does not offer replay while an ambiguous attempt is being reconciled', async () => {
 	const screen = await render(PublicationDeliveryCard, {
 		rendition: {

@@ -304,11 +304,13 @@ type PublicationEventsOutput struct {
 
 type ActionOutput struct {
 	Body struct {
-		Message                 string `json:"message"`
-		JobID                   string `json:"job_id,omitempty"`
-		Revision                int    `json:"revision,omitempty"`
-		WorkspaceActivated      bool   `json:"workspace_activated,omitempty"`
-		ActivationPublicationID string `json:"activation_publication_id,omitempty"`
+		Message                 string                   `json:"message"`
+		JobID                   string                   `json:"job_id,omitempty"`
+		Revision                int                      `json:"revision,omitempty"`
+		PublicationID           string                   `json:"publication_id,omitempty"`
+		Renditions              []RenditionActionOutcome `json:"renditions,omitempty" doc:"Exact destination outcomes after this action"`
+		WorkspaceActivated      bool                     `json:"workspace_activated,omitempty"`
+		ActivationPublicationID string                   `json:"activation_publication_id,omitempty"`
 	}
 }
 
@@ -394,6 +396,15 @@ type ProviderDeliveryResponse struct {
 	RecoveryAction          string `json:"recovery_action" enum:"none,retry,reconcile,manual_resolution"`
 	LastReconciledAt        string `json:"last_reconciled_at,omitempty"`
 	NextReconciliationAt    string `json:"next_reconciliation_at,omitempty"`
+}
+
+type RenditionActionOutcome struct {
+	ID              string                    `json:"id"`
+	SocialAccountID string                    `json:"social_account_id"`
+	TargetKey       string                    `json:"target_key"`
+	Platform        string                    `json:"platform"`
+	Status          string                    `json:"status"`
+	Delivery        *ProviderDeliveryResponse `json:"delivery,omitempty"`
 }
 
 type RenditionSegmentResponse struct {
@@ -1241,7 +1252,7 @@ func (h *PublicationHandler) schedulePublication(api huma.API) {
 			return nil, publicationMutationHTTPError(err, "failed to enqueue publication")
 		}
 		h.capturePublicationEvent(ctx, telemetry.EventPublicationScheduled, userID, input.PathID, result.JobID)
-		return enqueueActionMessage("publication scheduled", result), nil
+		return enqueueActionMessage("publication scheduled", input.PathID, result), nil
 	})
 }
 
@@ -1269,7 +1280,7 @@ func (h *PublicationHandler) publishNow(api huma.API) {
 			return nil, publicationMutationHTTPError(err, "failed to enqueue publication")
 		}
 		h.capturePublicationEvent(ctx, telemetry.EventPublicationQueued, userID, input.PathID, result.JobID)
-		return enqueueActionMessage("publication queued", result), nil
+		return enqueueActionMessage("publication queued", input.PathID, result), nil
 	})
 }
 
@@ -3331,6 +3342,10 @@ func (h *PublicationHandler) queuePublicationWithRunAt(
 		if err := h.markPublicationQueuedTx(txCtx, tx, publication, runAt, now); err != nil {
 			return err
 		}
+		result.Renditions, err = h.loadRenditionActionOutcomes(txCtx, tx, publicationID)
+		if err != nil {
+			return err
+		}
 		activation := &models.WorkspaceActivation{
 			ID: "activation:" + publication.WorkspaceID, WorkspaceID: publication.WorkspaceID,
 			PublicationID: publication.ID, CreatedAt: now,
@@ -3366,6 +3381,40 @@ func (h *PublicationHandler) queuePublicationWithRunAt(
 		return publicationEnqueueResult{}, err
 	}
 	return result, nil
+}
+
+func (h *PublicationHandler) loadRenditionActionOutcomes(
+	ctx context.Context,
+	db bun.IDB,
+	publicationID string,
+) ([]RenditionActionOutcome, error) {
+	var renditions []models.Rendition
+	if err := db.NewSelect().Model(&renditions).
+		Where("publication_id = ?", publicationID).
+		Order("created_at ASC", "id ASC").
+		Scan(ctx); err != nil {
+		return nil, err
+	}
+	deliveries, err := providerwrite.LoadCurrentDeliveries(ctx, db, []string{publicationID})
+	if err != nil {
+		return nil, err
+	}
+	outcomes := make([]RenditionActionOutcome, 0, len(renditions))
+	for _, rendition := range renditions {
+		outcome := RenditionActionOutcome{
+			ID: rendition.ID, SocialAccountID: rendition.SocialAccountID,
+			TargetKey: rendition.TargetKey, Platform: rendition.Platform, Status: rendition.Status,
+		}
+		if delivery, ok := deliveries[rendition.ID]; ok {
+			outcome.Delivery = providerDeliveryResponse(delivery)
+			if outcome.Delivery.RecoveryAction == providerwrite.RecoveryRetry &&
+				rendition.Status != models.RenditionStatusFailed {
+				outcome.Delivery.RecoveryAction = providerwrite.RecoveryNone
+			}
+		}
+		outcomes = append(outcomes, outcome)
+	}
+	return outcomes, nil
 }
 
 func (h *PublicationHandler) requirePublicationReadiness(
@@ -4202,8 +4251,14 @@ func actionMessage(message, jobID string) *ActionOutput {
 	return resp
 }
 
-func enqueueActionMessage(message string, result publicationEnqueueResult) *ActionOutput {
+func enqueueActionMessage(
+	message,
+	publicationID string,
+	result publicationEnqueueResult,
+) *ActionOutput {
 	resp := actionMessage(message, result.JobID)
+	resp.Body.PublicationID = publicationID
+	resp.Body.Renditions = result.Renditions
 	resp.Body.WorkspaceActivated = result.NewlyActivated
 	if result.NewlyActivated {
 		resp.Body.ActivationPublicationID = result.ActivationPublicationID

@@ -24,7 +24,11 @@ The composer interprets dates and times in the workspace timezone. You can:
 
 The publication time applies to every destination by default. To stagger delivery, open a destination tab, expand **Advanced delivery**, and set its schedule override. OpenPost keeps the publication grouped in Calendar and Activity while each rendition runs at its own time and records its own result.
 
+After you schedule or submit, the composer keeps a result for each destination on screen. It identifies destinations that succeeded, remain pending, failed, or need review. Use **Retry destination** only when OpenPost offers it, or open **View publication** to inspect the complete delivery state before another action.
+
 For API, CLI, and MCP users: setting `scheduled_at` on a draft does not schedule it by itself. The schedule action creates the required destination jobs and marks the publication and renditions as scheduled. Clearing the schedule returns them to draft, removes destination schedule overrides, and keeps old success and error history.
+
+The schedule and immediate-publish HTTP responses include `publication_id` and `renditions`. Each rendition carries the canonical destination status and delivery evidence instead of inheriting one aggregate action result.
 
 Configure the workspace timezone, week start, reusable posting slots, and optional natural posting delay in **Settings → Workspace**.
 

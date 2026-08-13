@@ -34,6 +34,7 @@ type publicationApplication struct {
 
 type publicationEnqueueResult struct {
 	JobID                   string
+	Renditions              []RenditionActionOutcome
 	ActivationID            string
 	ActivationPublicationID string
 	NewlyActivated          bool

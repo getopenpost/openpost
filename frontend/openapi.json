@@ -1144,6 +1144,16 @@
 					"message": {
 						"type": "string"
 					},
+					"publication_id": {
+						"type": "string"
+					},
+					"renditions": {
+						"description": "Exact destination outcomes after this action",
+						"items": {
+							"$ref": "#/components/schemas/RenditionActionOutcome"
+						},
+						"type": ["array", "null"]
+					},
 					"revision": {
 						"format": "int64",
 						"type": "integer"
@@ -12421,6 +12431,31 @@
 					}
 				},
 				"required": ["media", "recipe"],
+				"type": "object"
+			},
+			"RenditionActionOutcome": {
+				"additionalProperties": false,
+				"properties": {
+					"delivery": {
+						"$ref": "#/components/schemas/ProviderDeliveryResponse"
+					},
+					"id": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"social_account_id": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string"
+					},
+					"target_key": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "social_account_id", "target_key", "platform", "status"],
 				"type": "object"
 			},
 			"RenditionInput": {

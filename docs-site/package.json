@@ -1,0 +1,21 @@
+{
+  "name": "@openpost/docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:openapi": "bun ../scripts/copy-docs-openapi.mjs",
+    "sync:assets": "bun ../scripts/sync-assets.mjs --surface docs",
+    "build": "bun run docs:build",
+    "docs:dev": "bun run prepare:openapi && bun run sync:assets && vitepress dev --host 0.0.0.0 --port 4174",
+    "docs:build": "bun run prepare:openapi && bun run sync:assets && vitepress build && bun scripts/check-social-metadata-output.mjs",
+    "docs:preview": "vitepress preview --host 0.0.0.0 --port 4174"
+  },
+  "devDependencies": {
+    "@openpost/social-images": "workspace:*",
+    "@openpost/telemetry": "workspace:*",
+    "@posthog/rollup-plugin": "1.4.7",
+    "typescript": "latest",
+    "vitepress": "latest",
+    "vitepress-openapi": "^0.1.20"
+  }
+}

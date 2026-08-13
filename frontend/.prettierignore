@@ -1,0 +1,16 @@
+# Package Managers
+package-lock.json
+bun.lock
+yarn.lock
+bun.lockb
+
+# Miscellaneous
+/static/
+/android/
+
+# Generated files
+src/lib/api/types.d.ts
+.devenv/
+
+# Paraglide / inlang local artifacts (only settings.json is tracked)
+project.inlang/

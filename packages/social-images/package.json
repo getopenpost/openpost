@@ -1,0 +1,11 @@
+{
+  "name": "@openpost/social-images",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  }
+}

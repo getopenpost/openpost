@@ -5,10 +5,12 @@ import { fileURLToPath } from "node:url";
 
 import { load as parseYaml } from "js-yaml";
 import { parse, parseFragment } from "parse5";
+import { marketingRouteManifest } from "../packages/social-images/src/index.js";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const generatedNotice =
   "<!-- Generated from the canonical OpenPost public page. Do not edit this build artifact. -->";
+const maximumRepresentationBytes = 256 * 1024;
 const privateRoutePattern =
   /\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
 const privateApplicationOrigins = new Set(["https://app.openpost.social"]);
@@ -17,6 +19,64 @@ const productionArtifactURLs = new Set([
   "https://openpost.social/index.md",
   "https://docs.openpost.social/index.md",
 ]);
+const ignoredMarketingTags = new Set([
+  "audio",
+  "button",
+  "canvas",
+  "form",
+  "input",
+  "label",
+  "nav",
+  "noscript",
+  "option",
+  "script",
+  "select",
+  "source",
+  "style",
+  "svg",
+  "template",
+  "textarea",
+  "video",
+]);
+const transparentMarketingTags = new Set([
+  "abbr",
+  "address",
+  "article",
+  "aside",
+  "dd",
+  "del",
+  "details",
+  "div",
+  "dl",
+  "dt",
+  "figcaption",
+  "figure",
+  "footer",
+  "header",
+  "hr",
+  "ins",
+  "kbd",
+  "main",
+  "mark",
+  "s",
+  "samp",
+  "section",
+  "small",
+  "span",
+  "sub",
+  "sup",
+  "time",
+  "u",
+  "var",
+]);
+
+function marketingHTMLArtifact(routePath) {
+  return routePath === "/" ? "index.html" : `${routePath.slice(1)}.html`;
+}
+
+function marketingMarkdownArtifact(routePath) {
+  return routePath === "/" ? "index.md" : `${routePath.slice(1)}.md`;
+}
 
 function attribute(node, name) {
   return node.attrs?.find((candidate) => candidate.name === name)?.value;
@@ -76,15 +136,20 @@ function renderTable(node, canonical) {
   if (rows.length === 0) return "";
   const width = Math.max(...rows.map((row) => row.length));
   const normalized = rows.map((row) => [...row, ...Array(width - row.length).fill("")]);
-  return `${normalized.map((row) => `| ${row.join(" | ")} |`).join("\n")}\n| ${Array(width).fill("---").join(" | ")} |\n\n`;
+  const [header, ...body] = normalized;
+  const lines = [
+    `| ${header.join(" | ")} |`,
+    `| ${Array(width).fill("---").join(" | ")} |`,
+    ...body.map((row) => `| ${row.join(" | ")} |`),
+  ];
+  return `\n\n${lines.join("\n")}\n\n`;
 }
 
 function renderNode(node, canonical, listDepth = 0) {
   if (node.nodeName === "#text") return (node.value ?? "").replace(/\s+/gu, " ");
   const tag = node.tagName;
-  if (!tag || ["script", "style", "svg", "button", "form", "nav", "template"].includes(tag)) {
-    return tag ? "" : renderNodes(children(node), canonical, listDepth);
-  }
+  if (!tag) return renderNodes(children(node), canonical, listDepth);
+  if (ignoredMarketingTags.has(tag)) return "";
   if (/^h[1-6]$/u.test(tag)) {
     return `\n\n${"#".repeat(Number(tag[1]))} ${renderNodes(children(node), canonical).trim()}\n\n`;
   }
@@ -113,6 +178,7 @@ function renderNode(node, canonical, listDepth = 0) {
   }
   if (tag === "ul" || tag === "ol") {
     return `\n${children(node)
+      .filter((child) => child.tagName === "li")
       .map((child) => renderNode(child, canonical, listDepth))
       .join("")}\n`;
   }
@@ -125,7 +191,8 @@ function renderNode(node, canonical, listDepth = 0) {
   }
   if (tag === "table") return renderTable(node, canonical);
   if (tag === "summary") return `\n\n**${renderNodes(children(node), canonical).trim()}**\n\n`;
-  return renderNodes(children(node), canonical, listDepth);
+  if (transparentMarketingTags.has(tag)) return renderNodes(children(node), canonical, listDepth);
+  throw new Error(`${canonical}: unsupported meaning-bearing <${tag}>`);
 }
 
 function renderNodes(nodes, canonical, listDepth = 0) {
@@ -157,10 +224,23 @@ Source: [${canonical}](${canonical})
 ${cleanedBody}`);
 }
 
-function marketingRepresentation(source) {
+function marketingRepresentation(source, page) {
   const document = parse(source);
   const metadata = headMetadata(document);
   if (metadata.canonical) metadata.canonical = new URL(metadata.canonical).href;
+  if (page.route) {
+    const routeCanonical = new URL(page.route.canonical).href;
+    for (const field of ["title", "description"]) {
+      if (metadata[field] !== page.route[field]) {
+        throw new Error(
+          `${routeCanonical}: rendered ${field} does not match canonical route metadata`,
+        );
+      }
+    }
+    if (metadata.canonical !== routeCanonical) {
+      throw new Error(`${routeCanonical}: rendered canonical URL does not match route metadata`);
+    }
+  }
   const main = element(document, "main");
   if (!main)
     throw new Error(`${metadata.canonical ?? "marketing page"}: missing semantic main content`);
@@ -236,10 +316,18 @@ function documentationRepresentation(source, page) {
 }
 
 function discoveryDocument(discovery) {
-  const links = discovery.links
-    .map((link) => `- [${link.title}](${link.url}): ${link.description}`)
+  const line = (link) => `- [${link.title}](${link.url}): ${link.description}`;
+  const primary = discovery.links
+    .filter((link) => (link.classification ?? "primary") === "primary")
+    .map(line)
     .join("\n");
-  return cleanMarkdown(`# ${discovery.title}\n\n> ${discovery.description}\n\n${links}`);
+  const optional = discovery.links
+    .filter((link) => link.classification === "optional")
+    .map(line)
+    .join("\n");
+  const sections = [`# ${discovery.title}`, `> ${discovery.description}`, primary];
+  if (optional) sections.push(`## Optional\n\n${optional}`);
+  return cleanMarkdown(sections.filter(Boolean).join("\n\n"));
 }
 
 async function requireSource(sourcePath) {
@@ -265,6 +353,9 @@ function validateDiscovery(projection, generatedPages) {
     ),
   );
   for (const link of projection.discovery.links) {
+    if (!new Set(["primary", "optional"]).has(link.classification ?? "primary")) {
+      throw new Error(`invalid discovery classification for ${link.url}`);
+    }
     const url = new URL(link.url);
     if (privateApplicationOrigins.has(url.origin) || privateRoutePattern.test(url.pathname)) {
       throw new Error(`discovery link exposes a private application route: ${link.url}`);
@@ -321,11 +412,14 @@ export async function generateAgentSurface(projection) {
     const source = await readFile(page.sourcePath, "utf8");
     const rendered =
       projection.surface === "marketing"
-        ? marketingRepresentation(source)
+        ? marketingRepresentation(source, page)
         : documentationRepresentation(source, page);
     const generated = { ...page, ...rendered };
     if (privateRoutePattern.test(new URL(generated.canonical).pathname)) {
       throw new Error(`generated page exposes a private application route: ${generated.canonical}`);
+    }
+    if (Buffer.byteLength(generated.markdown, "utf8") > maximumRepresentationBytes) {
+      throw new Error(`${generated.canonical}: representation exceeds 256 KiB`);
     }
     if (page.discoveryHTMLPath) {
       await requireSource(page.discoveryHTMLPath);
@@ -353,26 +447,41 @@ export const productionProjections = {
   marketing: {
     surface: "marketing",
     outputDirectory: path.join(repositoryRoot, "marketing-site/dist"),
-    pages: [
-      {
-        sourcePath: path.join(repositoryRoot, "marketing-site/dist/index.html"),
-        outputPath: "index.md",
-      },
-    ],
+    pages: marketingRouteManifest
+      .filter((route) => route.agentRepresentation === "static")
+      .map((route) => ({
+        sourcePath: path.join(
+          repositoryRoot,
+          "marketing-site/dist",
+          marketingHTMLArtifact(route.path),
+        ),
+        outputPath: marketingMarkdownArtifact(route.path),
+        route,
+      })),
     discovery: {
       title: "OpenPost",
       description: "Create, adapt, schedule, and track social content from one workspace.",
       links: [
-        {
-          title: "OpenPost overview",
-          description: "Understand the product workflow, managed plans, and ways to get started.",
-          url: "https://openpost.social/index.md",
-        },
+        ...marketingRouteManifest
+          .filter(
+            (route) =>
+              route.agentRepresentation === "static" && route.agentDiscovery !== "unlisted",
+          )
+          .map((route) => ({
+            title: route.path === "/" ? "OpenPost overview" : route.title,
+            description: route.description,
+            url: new URL(
+              marketingMarkdownArtifact(route.path),
+              `${new URL(route.canonical).origin}/`,
+            ).href,
+            classification: route.agentDiscovery,
+          })),
         {
           title: "OpenPost documentation",
           description:
             "Read the user, provider, self-hosting, CLI, MCP, and developer documentation.",
           url: "https://docs.openpost.social/index.md",
+          classification: "primary",
         },
       ],
     },

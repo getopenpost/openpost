@@ -1,19 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { formatPolicyEffectiveDate, legalPolicy } from '@openpost/legal-policy';
-	import { siteUrl } from '../_marketing';
 
 	const effectiveDate = formatPolicyEffectiveDate(legalPolicy.refunds);
 </script>
-
-<svelte:head>
-	<title>Refund Policy - OpenPost</title>
-	<meta
-		name="description"
-		content="How to cancel an OpenPost subscription, request a refund, report a billing error, and exercise mandatory consumer rights."
-	/>
-	<link rel="canonical" href={`${siteUrl}/refunds`} />
-</svelte:head>
 
 <header class="border-b py-14 sm:py-20">
 	<div class="reading-shell">

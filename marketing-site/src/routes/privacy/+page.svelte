@@ -8,7 +8,6 @@
 		privacyInventory,
 		type LegalPolicyKey
 	} from '@openpost/legal-policy';
-	import { siteUrl } from '../_marketing';
 
 	const effectiveDate = formatPolicyEffectiveDate(legalPolicy.privacy);
 	const inventoryReviewedOn = formatLegalDate(privacyInventory.reviewed_on);
@@ -33,15 +32,6 @@
 		return '/privacy' as const;
 	}
 </script>
-
-<svelte:head>
-	<title>Privacy Policy - OpenPost</title>
-	<meta
-		name="description"
-		content="How OpenPost collects, uses, shares, protects, exports, and deletes personal data for the hosted service."
-	/>
-	<link rel="canonical" href={`${siteUrl}/privacy`} />
-</svelte:head>
 
 <header class="border-b py-14 sm:py-20">
 	<div class="reading-shell">

@@ -16,7 +16,7 @@
 	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { formatLegalDate, securityAssurance } from '@openpost/legal-policy';
-	import { githubUrl, siteUrl } from '../_marketing';
+	import { githubUrl } from '../_marketing';
 
 	const assuranceReviewedOn = formatLegalDate(securityAssurance.reviewed_on);
 
@@ -66,15 +66,6 @@
 		} as const;
 	}
 </script>
-
-<svelte:head>
-	<title>Security controls and responsibilities - OpenPost</title>
-	<meta
-		name="description"
-		content="How OpenPost encrypts social account keys, limits API and AI access, and protects sign-in sessions."
-	/>
-	<link rel="canonical" href={`${siteUrl}/security`} />
-</svelte:head>
 
 <section class="border-b py-16 sm:py-24">
 	<div class="marketing-shell">

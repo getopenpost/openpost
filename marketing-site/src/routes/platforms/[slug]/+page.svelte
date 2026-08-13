@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import PlatformPreview from '../_components/PlatformPreview.svelte';
-	import { getPlatform, managedSignupUrl, siteUrl } from '../../_marketing';
+	import { getPlatform, managedSignupUrl } from '../../_marketing';
 
 	const slug = $derived(page.params.slug ?? '');
 	const platform = $derived.by(() => {
@@ -15,15 +15,6 @@
 	});
 	const requiresProviderApproval = $derived(platform.requiresProviderApproval);
 </script>
-
-<svelte:head>
-	<title>{platform.name} implementation and certification - OpenPost</title>
-	<meta
-		name="description"
-		content={`${platform.description} See formats, setup needs, limits, and live-test notes.`}
-	/>
-	<link rel="canonical" href={`${siteUrl}/platforms/${platform.slug}`} />
-</svelte:head>
 
 <section class="border-b py-10 sm:py-16 lg:py-20">
 	<div class="marketing-shell">

@@ -17,6 +17,9 @@
 	let { children } = $props();
 	const social = $derived(resolveMarketingSocial(page.url.pathname));
 	const socialImage = $derived(social.imageUrl);
+	const markdownHref = $derived(
+		social.path === '/' ? `${social.canonical}/index.md` : `${social.canonical}.md`
+	);
 
 	afterNavigate((navigation) => {
 		captureTelemetryPageView(navigation.to?.url.pathname ?? window.location.pathname);
@@ -42,6 +45,19 @@
 </script>
 
 <svelte:head>
+	<title>{social.title}</title>
+	<meta name="description" content={social.description} />
+	<link rel="canonical" href={social.canonical} />
+	{#if social.agentRepresentation === 'static'}
+		<link rel="alternate" type="text/markdown" href={markdownHref} />
+	{/if}
+	<link
+		rel="alternate"
+		type="text/plain"
+		href="https://openpost.social/llms.txt"
+		title="llms.txt"
+	/>
+	<meta name="robots" content="index, follow" />
 	<meta property="og:site_name" content="OpenPost" />
 	<meta property="og:type" content="website" />
 	<meta property="og:title" content={social.socialTitle} />

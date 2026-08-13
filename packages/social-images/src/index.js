@@ -98,6 +98,8 @@ const staticMarketingEntries = [
       "OpenPost helps solo founders create, adapt, schedule, and track content from one workspace.",
     label: "The content team for companies of one",
     kind: "home",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "1.0",
   },
   {
@@ -109,6 +111,8 @@ const staticMarketingEntries = [
       "See OpenPost composing, scheduling, media, analytics, conversations, teams, automation, and self-hosting with current limits.",
     label: "Product features",
     kind: "workflow",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.9",
   },
   {
@@ -120,6 +124,8 @@ const staticMarketingEntries = [
       "Compare managed OpenPost plans with clear limits for workspaces, accounts, posts, media, and seats.",
     label: "Managed plans",
     kind: "workflow",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.9",
   },
   {
@@ -131,6 +137,8 @@ const staticMarketingEntries = [
       "See formats, account needs, limits, and live-test notes for every platform in OpenPost.",
     label: `${platformNames.length} publishing destinations`,
     kind: "platforms",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.9",
   },
   {
@@ -141,6 +149,8 @@ const staticMarketingEntries = [
     description: "Compare OpenPost with established publishing tools using reviewed product facts.",
     label: "Honest comparisons",
     kind: "compare-index",
+    agentRepresentation: "static",
+    agentDiscovery: "optional",
     priority: "0.8",
   },
   {
@@ -151,6 +161,8 @@ const staticMarketingEntries = [
     description: "Preview, write, prepare, edit, and plan social content in your browser.",
     label: "OpenPost free tools",
     kind: "tools-index",
+    agentRepresentation: "static",
+    agentDiscovery: "optional",
     priority: "0.8",
   },
   {
@@ -162,6 +174,8 @@ const staticMarketingEntries = [
       "Answers about OpenPost setup, providers, billing, privacy, publishing failures, and self-hosting.",
     label: "Frequently asked questions",
     kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.7",
   },
   {
@@ -173,6 +187,8 @@ const staticMarketingEntries = [
       "See how OpenPost encrypts account keys, limits tool access, and protects sign-in sessions.",
     label: "Security",
     kind: "security",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.7",
   },
   {
@@ -184,6 +200,8 @@ const staticMarketingEntries = [
       "The reviewed data locations, service providers, international transfers, and human production-access facts for managed OpenPost.",
     label: "Managed service trust register",
     kind: "security",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.6",
   },
   {
@@ -194,6 +212,8 @@ const staticMarketingEntries = [
     description: "Run the complete AGPL OpenPost service yourself or use the managed product.",
     label: "Open source",
     kind: "open-source",
+    agentRepresentation: "static",
+    agentDiscovery: "primary",
     priority: "0.7",
   },
   {
@@ -205,6 +225,8 @@ const staticMarketingEntries = [
       "Read recent product, publishing, security, OpenPost Image Editor, CLI, and MCP changes.",
     label: "Changelog",
     kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: "unlisted",
     priority: "0.6",
   },
   {
@@ -216,6 +238,8 @@ const staticMarketingEntries = [
       "How OpenPost collects, uses, shares, protects, exports, and deletes hosted-service data.",
     label: "Legal",
     kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: "unlisted",
     priority: "0.4",
   },
   {
@@ -227,6 +251,8 @@ const staticMarketingEntries = [
       "Terms for hosted accounts, plans, connected networks, publishing, and acceptable use.",
     label: "Legal",
     kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: "unlisted",
     priority: "0.4",
   },
   {
@@ -238,6 +264,8 @@ const staticMarketingEntries = [
       "How to cancel, request a refund, report a billing error, and use mandatory consumer rights.",
     label: "Legal",
     kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: "unlisted",
     priority: "0.4",
   },
 ];
@@ -250,6 +278,8 @@ const platformEntries = platformNames.map(([slug, name]) => ({
   description: `See how OpenPost handles ${name} formats, setup needs, limits, and live-test notes.`,
   label: "Destination guide",
   kind: "platform",
+  agentRepresentation: "platform",
+  agentDiscovery: "optional",
   subject: name,
   platform: slug,
   priority: "0.7",
@@ -264,6 +294,8 @@ const comparisonEntries = comparisonNames.map(([slug, name]) => ({
     "Compare publishing workflow, automation, hosting, product scope, and current pricing models.",
   label: "Reviewed comparison",
   kind: "comparison",
+  agentRepresentation: "comparison",
+  agentDiscovery: "optional",
   subject: name,
   priority: "0.6",
 }));
@@ -276,6 +308,8 @@ const toolEntries = toolPages.map((tool) => ({
   description: tool.description,
   label: "Free browser tool",
   kind: "tool",
+  agentRepresentation: "tool",
+  agentDiscovery: "optional",
   subject: tool.name,
   priority: "0.6",
 }));

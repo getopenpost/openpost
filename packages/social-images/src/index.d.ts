@@ -31,6 +31,8 @@ export interface SocialEntry {
 
 export interface MarketingRouteEntry extends SocialEntry {
   priority: string;
+  agentRepresentation: "static" | "platform" | "comparison" | "tool";
+  agentDiscovery: "primary" | "optional" | "unlisted";
 }
 
 export const marketingSiteUrl: "https://openpost.social";

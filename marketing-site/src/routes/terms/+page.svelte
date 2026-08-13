@@ -1,19 +1,9 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { formatPolicyEffectiveDate, legalPolicy } from '@openpost/legal-policy';
-	import { siteUrl } from '../_marketing';
 
 	const effectiveDate = formatPolicyEffectiveDate(legalPolicy.terms);
 </script>
-
-<svelte:head>
-	<title>Terms of Service - OpenPost</title>
-	<meta
-		name="description"
-		content="Terms for accounts, plans, connected social networks, publishing, and use of the hosted OpenPost service."
-	/>
-	<link rel="canonical" href={`${siteUrl}/terms`} />
-</svelte:head>
 
 <header class="border-b py-14 sm:py-20">
 	<div class="reading-shell">

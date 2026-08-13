@@ -18,7 +18,7 @@ FORM: A focused product demonstration paced between dark studio stages, light wo
 	import PostizSocialLogo from './_components/PostizSocialLogo.svelte';
 	import PricingShowcase from './_components/PricingShowcase.svelte';
 	import ScrollReveal from './_components/ScrollReveal.svelte';
-	import { faqs, managedSignupUrl, platforms, siteUrl } from './_marketing';
+	import { faqs, managedSignupUrl, platforms } from './_marketing';
 
 	const productStories = [
 		{
@@ -49,23 +49,6 @@ FORM: A focused product demonstration paced between dark studio stages, light wo
 
 	const shortFaqs = faqs.slice(0, 4);
 </script>
-
-<svelte:head>
-	<title>OpenPost - The all-in-one content team for solo founders</title>
-	<meta
-		name="description"
-		content="Create better content, adapt it for every platform, and publish it everywhere from one workspace."
-	/>
-	<link rel="canonical" href={siteUrl} />
-	<link rel="alternate" type="text/markdown" href="https://openpost.social/index.md" />
-	<link
-		rel="alternate"
-		type="text/plain"
-		href="https://openpost.social/llms.txt"
-		title="llms.txt"
-	/>
-	<meta name="robots" content="index, follow" />
-</svelte:head>
 
 <section class="hero overflow-hidden">
 	<div class="marketing-shell relative pt-16 pb-9 text-center sm:pt-24 sm:pb-11 lg:pt-28">

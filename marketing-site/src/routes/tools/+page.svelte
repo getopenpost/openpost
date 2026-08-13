@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { ArrowRight, LockKeyhole } from '@lucide/svelte';
-	import { siteUrl, tools } from '../_marketing';
+	import { tools } from '../_marketing';
 
 	const groups = [
 		{
@@ -43,15 +43,6 @@
 			.filter((tool): tool is (typeof tools)[number] => Boolean(tool));
 	}
 </script>
-
-<svelte:head>
-	<title>Free social media tools - OpenPost</title>
-	<meta
-		name="description"
-		content="Free browser tools for editing videos and images, previewing posts, checking character limits, splitting threads, checking handles, and planning a weekly schedule."
-	/>
-	<link rel="canonical" href={`${siteUrl}/tools`} />
-</svelte:head>
 
 <section class="border-b py-14 sm:py-20">
 	<div class="marketing-shell grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">

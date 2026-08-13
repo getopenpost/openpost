@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ArrowRight, CheckCircle2, ExternalLink } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { githubUrl, siteUrl } from '../_marketing';
+	import { githubUrl } from '../_marketing';
 
 	type ChangelogPageData = {
 		sections: Array<{
@@ -18,15 +18,6 @@
 
 	let { data }: { data: ChangelogPageData } = $props();
 </script>
-
-<svelte:head>
-	<title>OpenPost changelog</title>
-	<meta
-		name="description"
-		content="Recent OpenPost changes to account security, the post editor, mobile and desktop use, social network publishing, CLI, and MCP."
-	/>
-	<link rel="canonical" href={`${siteUrl}/changelog`} />
-</svelte:head>
 
 <section class="border-b py-16 sm:py-24">
 	<div class="marketing-shell">

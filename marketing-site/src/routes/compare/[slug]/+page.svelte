@@ -9,8 +9,7 @@
 		comparisons,
 		getComparison,
 		managedSignupUrl,
-		selfHostingDocsUrl,
-		siteUrl
+		selfHostingDocsUrl
 	} from '../../_marketing';
 
 	const slug = $derived(page.params.slug ?? '');
@@ -36,15 +35,6 @@
 		return { href: new URL(href).href } as const;
 	}
 </script>
-
-<svelte:head>
-	<title>OpenPost vs {comparison.name}: an honest comparison</title>
-	<meta
-		name="description"
-		content={`${comparison.verdict} Facts reviewed ${comparison.reviewedAt}.`}
-	/>
-	<link rel="canonical" href={`${siteUrl}/compare/${comparison.slug}`} />
-</svelte:head>
 
 <section class="border-b py-16 sm:py-24">
 	<div class="marketing-shell">

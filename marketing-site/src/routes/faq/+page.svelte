@@ -6,7 +6,6 @@
 		discordCommunityUrl,
 		faqCategories,
 		faqs,
-		siteUrl,
 		supportEmail,
 		supportMailUrl
 	} from '../_marketing';
@@ -19,15 +18,6 @@
 		return { href: href.startsWith('/') ? resolve(href as '/') : href };
 	}
 </script>
-
-<svelte:head>
-	<title>OpenPost FAQ</title>
-	<meta
-		name="description"
-		content="Answers about OpenPost setup, providers, plans, billing, privacy, failures, and self-hosting, with direct links to current product guidance."
-	/>
-	<link rel="canonical" href={`${siteUrl}/faq`} />
-</svelte:head>
 
 <section class="faq-hero border-b">
 	<div class="marketing-shell grid gap-10 py-16 sm:py-24 lg:grid-cols-[1fr_21rem] lg:items-end">

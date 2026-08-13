@@ -16,8 +16,7 @@
 		githubUrl,
 		managedAccessSummary,
 		managedSignupUrl,
-		selfHostingDocsUrl,
-		siteUrl
+		selfHostingDocsUrl
 	} from '../_marketing';
 
 	const licenseUrl = `${githubUrl}/blob/main/LICENSE`;
@@ -70,15 +69,6 @@
 		}
 	] as const;
 </script>
-
-<svelte:head>
-	<title>Open source and self-hosting - OpenPost</title>
-	<meta
-		name="description"
-		content="Use the managed OpenPost app or run the open-source Go service on your own server."
-	/>
-	<link rel="canonical" href={`${siteUrl}/open-source`} />
-</svelte:head>
 
 <section class="border-b py-16 sm:py-24">
 	<div class="marketing-shell">

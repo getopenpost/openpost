@@ -13,8 +13,7 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 		featureGroups,
 		managedSignupUrl,
 		platforms,
-		publicProviderCertification,
-		siteUrl
+		publicProviderCertification
 	} from '../_marketing';
 
 	function isExternal(href: string) {
@@ -25,15 +24,6 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 		return { href: href.startsWith('/') ? resolve(href as '/') : href };
 	}
 </script>
-
-<svelte:head>
-	<title>OpenPost features</title>
-	<meta
-		name="description"
-		content="See how OpenPost handles composing, scheduling, media, analytics, conversations, teams, automation, and self-hosting—with current limits and proof."
-	/>
-	<link rel="canonical" href={`${siteUrl}/features`} />
-</svelte:head>
 
 <section class="features-hero border-b">
 	<div class="marketing-shell grid gap-12 py-16 sm:py-24 lg:grid-cols-[1fr_24rem] lg:items-end">

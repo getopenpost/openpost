@@ -2,7 +2,6 @@
 	import { resolve } from '$app/paths';
 	import { managedService } from '@openpost/legal-policy';
 	import { ExternalLink, Mail, ShieldCheck } from '@lucide/svelte';
-	import { siteUrl } from '../_marketing';
 
 	type Provider = (typeof managedService.providers)[number];
 	type HumanAccessKey = keyof typeof managedService.human_access;
@@ -58,15 +57,6 @@
 		} as const;
 	}
 </script>
-
-<svelte:head>
-	<title>Managed service trust and data locations - OpenPost</title>
-	<meta
-		name="description"
-		content="The reviewed data locations, service providers, international transfers, and human production-access facts for managed OpenPost."
-	/>
-	<link rel="canonical" href={`${siteUrl}/trust`} />
-</svelte:head>
 
 <header class="border-b py-14 sm:py-20">
 	<div class="marketing-shell grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-end">

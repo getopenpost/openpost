@@ -73,9 +73,11 @@ Analytics, comments, and inbox reads use optional adapter interfaces. They do no
 
 ### Agent-readable public content
 
-The marketing and documentation production builds each generate an `index.md` representation of their canonical homepage and a concise `llms.txt`. Canonical HTML advertises both files. Sitemaps continue to list only canonical HTML pages.
+The marketing production build generates a `.md` representation for every static product, pricing, platform-index, comparison-index, tool-index, FAQ, security, trust, open-source, changelog, and legal page. The documentation build generates the documentation homepage representation. Canonical HTML advertises each available representation and the site `llms.txt`; sitemaps continue to list only canonical HTML pages.
 
-`scripts/generate-agent-surfaces.mjs` owns the shared generation and validation contract. Each site invokes only its own projection, and generated files stay in ignored build output. Run the focused contract test with `bun test scripts/generate-agent-surfaces.test.mjs`, then use `bun run build -- marketing` or `bun run build -- docs` to inspect the exact production artifacts.
+The marketing route manifest owns stable page titles, descriptions, canonical URLs, representation groups, and discovery classes. The marketing `llms.txt` prioritizes the product overview, features, pricing, platform index, FAQ, security, trust, open-source path, and documentation. Comparison and browser-tool indexes are optional entries. Changelog and legal representations remain available at explicit `.md` URLs but are not listed in `llms.txt`.
+
+`scripts/generate-agent-surfaces.mjs` owns the shared generation and validation contract. Marketing representations preserve semantic prose, links, tables, and informative images from prerendered `<main>` content while excluding navigation and interactive controls. Unknown meaning-bearing markup, metadata drift, duplicate outputs, broken discovery links, private routes, and representations over 256 KiB fail the build. Each site invokes only its own projection, and generated files stay in ignored build output. Run the focused contract test with `bun test scripts/generate-agent-surfaces.test.mjs`, then use `bun run build -- marketing` or `bun run build -- docs` to inspect the exact production artifacts.
 
 This content covers public product and operating information only. Do not add authenticated application state, Workspace data, OpenAPI conversions, or MCP protocol conversions to these outputs.
 

@@ -2,7 +2,7 @@
 	import { resolve } from '$app/paths';
 	import { ArrowRight, Waypoints } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { comparisons, managedSignupUrl, selfHostingDocsUrl, siteUrl } from '../_marketing';
+	import { comparisons, managedSignupUrl, selfHostingDocsUrl } from '../_marketing';
 
 	const evidenceReview = comparisons[0];
 
@@ -15,15 +15,6 @@
 		}).format(new Date(`${value}T00:00:00Z`));
 	}
 </script>
-
-<svelte:head>
-	<title>Compare OpenPost with social scheduling tools</title>
-	<meta
-		name="description"
-		content="Compare OpenPost with Buffer, Hootsuite, Typefully, Postiz, Post Bridge, and Mixpost using current official product sources."
-	/>
-	<link rel="canonical" href={`${siteUrl}/compare`} />
-</svelte:head>
 
 <section class="border-b py-16 sm:py-24">
 	<div class="marketing-shell">

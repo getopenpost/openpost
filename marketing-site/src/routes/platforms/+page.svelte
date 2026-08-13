@@ -2,7 +2,7 @@
 	import { ArrowRight, ShieldAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import { managedSignupUrl, platforms, siteUrl } from '../_marketing';
+	import { managedSignupUrl, platforms } from '../_marketing';
 
 	const approvalPlatforms = new Set<string>(
 		platforms
@@ -10,15 +10,6 @@
 			.map((platform) => platform.slug)
 	);
 </script>
-
-<svelte:head>
-	<title>Social platform implementation and certification - OpenPost</title>
-	<meta
-		name="description"
-		content="See OpenPost adapter implementations, exact managed certification claims, account needs, limits, and app review requirements."
-	/>
-	<link rel="canonical" href={`${siteUrl}/platforms`} />
-</svelte:head>
 
 <section class="border-b py-14 sm:py-20 lg:py-24">
 	<div class="marketing-shell grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">

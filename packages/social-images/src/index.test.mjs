@@ -28,6 +28,8 @@ test("marketing social entries have unique paths, keys, and complete image metad
     assert.equal(resolveSocialImageEntry(entry.id), entry);
     assert.match(entry.canonical, /^https:\/\/openpost\.social(?:\/|$)/);
     assert.match(entry.priority, /^(?:1\.0|0\.[0-9])$/u);
+    assert.match(entry.agentRepresentation, /^(?:static|platform|comparison|tool)$/u);
+    assert.match(entry.agentDiscovery, /^(?:primary|optional|unlisted)$/u);
     assert.ok(entry.socialTitle.length <= 72, `${entry.key} social title is too long`);
     assert.ok(entry.description.length <= 160, `${entry.key} description is too long`);
     paths.add(entry.path);

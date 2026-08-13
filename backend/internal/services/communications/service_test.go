@@ -836,3 +836,53 @@ func uniqueStrings(values []string) map[string]struct{} {
 	}
 	return result
 }
+
+func TestListConversationsCursorReachesEveryRecordWithoutGapsOrDuplicates(t *testing.T) {
+	db := communicationsTestDB(t)
+	ctx := t.Context()
+	timestamp := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
+	conversations := make([]models.Conversation, 0, 235)
+	for index := range 235 {
+		conversations = append(conversations, models.Conversation{
+			ID: fmt.Sprintf("conversation-%03d", index), WorkspaceID: "workspace-1",
+			SocialAccountID: "account-1", Platform: "bluesky",
+			RemoteConversationID: fmt.Sprintf("remote-%03d", index), LastMessageAt: timestamp,
+			CreatedAt: timestamp, UpdatedAt: timestamp,
+		})
+	}
+	_, err := db.NewInsert().Model(&conversations).Exec(ctx)
+	require.NoError(t, err)
+	service := NewService(db, staticTokenSource{}, nil)
+
+	seen := make([]string, 0, len(conversations))
+	var cursor *ConversationCursor
+	for {
+		page, err := service.ListConversations(ctx, ConversationQuery{
+			WorkspaceID: "workspace-1", Platform: "bluesky", AccountID: "account-1",
+			Limit: 37, Cursor: cursor,
+		})
+		require.NoError(t, err)
+		for _, conversation := range page.Items {
+			seen = append(seen, conversation.ID)
+		}
+		if cursor == nil {
+			_, err = db.NewInsert().Model(&models.Conversation{
+				ID: "conversation-new", WorkspaceID: "workspace-1", SocialAccountID: "account-1",
+				Platform: "bluesky", RemoteConversationID: "remote-new",
+				LastMessageAt: timestamp.Add(time.Hour), CreatedAt: timestamp.Add(time.Hour),
+				UpdatedAt: timestamp.Add(time.Hour),
+			}).Exec(ctx)
+			require.NoError(t, err)
+		}
+		cursor = page.NextCursor
+		if cursor == nil {
+			break
+		}
+	}
+	require.Len(t, seen, 235)
+	require.Equal(t, len(seen), len(uniqueStrings(seen)))
+	require.NotContains(t, seen, "conversation-new")
+	for index, id := range seen {
+		require.Equal(t, fmt.Sprintf("conversation-%03d", 234-index), id)
+	}
+}

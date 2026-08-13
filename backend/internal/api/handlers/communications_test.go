@@ -32,3 +32,21 @@ func TestEngagementCursorIsOpaqueAndRejectsInvalidValues(t *testing.T) {
 		require.Error(t, err)
 	}
 }
+
+func TestConversationCursorIsOpaqueAndRejectsInvalidValues(t *testing.T) {
+	cursor := &communications.ConversationCursor{
+		OccurredAt: time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC),
+		ID:         "conversation-1",
+	}
+	encoded := encodeConversationCursor(cursor)
+	require.NotEmpty(t, encoded)
+	require.NotContains(t, encoded, "conversation-1")
+	parsed, err := parseConversationCursor(encoded)
+	require.NoError(t, err)
+	require.Equal(t, cursor, parsed)
+
+	for _, value := range []string{"not-a-cursor", "e30"} {
+		_, err := parseConversationCursor(value)
+		require.Error(t, err)
+	}
+}

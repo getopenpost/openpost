@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { resolve } from '$app/paths';
-	import { client } from '$lib/api/client';
+	import { client, type SocialAccount } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -17,6 +17,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import * as Select from '$lib/components/ui/select';
 	import InboxIcon from '@lucide/svelte/icons/inbox';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
@@ -30,6 +31,8 @@
 
 	let loading = $state(true);
 	let conversations = $state.raw<Conversation[]>([]);
+	let accounts = $state.raw<SocialAccount[]>([]);
+	let knownPlatforms = $state.raw<string[]>([]);
 	let messages = $state.raw<DirectMessage[]>([]);
 	let syncStates = $state.raw<SyncState[]>([]);
 	let selectedId = $state('');
@@ -37,12 +40,18 @@
 	let messageError = $state('');
 	let messageErrorReference = $state('');
 	let loadedWorkspace = $state('');
+	let loadedKey = $state('');
 	let dataWorkspaceId = $state('');
 	let loadingMessages = $state(false);
 	let refreshing = $state(false);
 	let sending = $state(false);
 	let replyBody = $state('');
 	let archived = $state(false);
+	let platformFilter = $state('');
+	let accountFilter = $state('');
+	let nextCursor = $state('');
+	let loadingMore = $state(false);
+	let pageError = $state('');
 	let toast = $state('');
 	let toastTone = $state<'success' | 'error'>('success');
 	let nowMs = $state(Date.now());
@@ -63,6 +72,9 @@
 	const initialLoading = $derived(
 		Boolean(workspaceId) && loading && dataWorkspaceId !== workspaceId
 	);
+	const loadKey = $derived(
+		`${workspaceId}:${platformFilter}:${accountFilter}:${archived ? 'archived' : 'active'}`
+	);
 
 	onMount(() => {
 		void workspaceCtx.initialize();
@@ -73,41 +85,106 @@
 	$effect(() => {
 		if (workspaceId && workspaceId !== loadedWorkspace) {
 			loadedWorkspace = workspaceId;
+			loadedKey = '';
+			conversations = [];
+			accounts = [];
+			knownPlatforms = [];
+			syncStates = [];
+			nextCursor = '';
+			pageError = '';
 			selectedId = '';
 			messages = [];
+			platformFilter = '';
+			accountFilter = '';
+		}
+	});
+
+	$effect(() => {
+		if (workspaceId && loadKey !== loadedKey) {
+			loadedKey = loadKey;
 			void loadConversations();
 		}
 	});
 
-	async function loadConversations() {
+	async function loadConversations(cursor = '', append = false) {
 		if (!workspaceId) return;
-		loading = true;
-		error = '';
-		const requestedWorkspace = workspaceId;
-		const { data, error: apiError } = await client.GET('/messages', {
-			params: {
-				query: {
-					workspace_id: requestedWorkspace,
-					archived,
-					limit: 100,
-					offset: 0
-				}
-			}
-		});
-		if (requestedWorkspace !== workspaceId) return;
-		if (apiError) {
-			error = apiError.detail || m.messages_load_failed();
-			conversations = [];
+		if (append) {
+			loadingMore = true;
+			pageError = '';
 		} else {
-			conversations = data?.items ?? [];
+			loading = true;
+			loadingMore = false;
+			error = '';
+			pageError = '';
+			nextCursor = '';
+		}
+		const requestedWorkspace = workspaceId;
+		const requestedKey = loadKey;
+		const [conversationResponse, accountResponse] = await Promise.all([
+			client.GET('/messages', {
+				params: {
+					query: {
+						workspace_id: requestedWorkspace,
+						platform: platformFilter || undefined,
+						account_id: accountFilter || undefined,
+						archived,
+						limit: 100,
+						cursor: cursor || undefined
+					}
+				}
+			}),
+			client.GET('/accounts', { params: { query: { workspace_id: requestedWorkspace } } })
+		]);
+		if (requestedWorkspace !== workspaceId || requestedKey !== loadKey) return;
+		const { data, error: apiError } = conversationResponse;
+		if (apiError) {
+			if (append) pageError = apiError.detail || m.messages_page_failed();
+			else error = apiError.detail || m.messages_load_failed();
+		} else {
+			const incoming = data?.items ?? [];
+			const selectedConversation = conversations.find((item) => item.id === selectedId);
+			conversations = sortConversations(
+				append
+					? appendConversations(conversations, incoming)
+					: selectedConversation && !incoming.some((item) => item.id === selectedConversation.id)
+						? [selectedConversation, ...incoming]
+						: incoming
+			);
+			nextCursor = data?.next_cursor ?? '';
 			syncStates = data?.sync_states ?? [];
+			if (!accountResponse.error) accounts = accountResponse.data ?? [];
+			knownPlatforms = [
+				...new Set([
+					...conversations.map((conversation) => conversation.platform),
+					...accounts.map((account) => account.platform)
+				])
+			].sort();
 			dataWorkspaceId = requestedWorkspace;
-			if (selectedId && !conversations.some((conversation) => conversation.id === selectedId)) {
-				selectedId = '';
-				messages = [];
+		}
+		if (append) loadingMore = false;
+		else loading = false;
+	}
+
+	function appendConversations(current: Conversation[], incoming: Conversation[]) {
+		const byID = new Map(current.map((conversation) => [conversation.id, conversation]));
+		for (const conversation of incoming) {
+			const existing = byID.get(conversation.id);
+			if (
+				!existing ||
+				new Date(conversation.updated_at).getTime() > new Date(existing.updated_at).getTime()
+			) {
+				byID.set(conversation.id, conversation);
 			}
 		}
-		loading = false;
+		return [...byID.values()];
+	}
+
+	function sortConversations(items: Conversation[]) {
+		return [...items].sort((left, right) => {
+			const leftTime = new Date(left.last_message_at || left.created_at).getTime();
+			const rightTime = new Date(right.last_message_at || right.created_at).getTime();
+			return rightTime - leftTime || right.id.localeCompare(left.id);
+		});
 	}
 
 	async function selectConversation(conversation: Conversation) {
@@ -166,10 +243,12 @@
 
 	async function setArchived(conversation: Conversation) {
 		if (!workspaceId) return;
+		const requestedWorkspace = workspaceId;
 		const { error: apiError } = await client.POST('/messages/{conversation_id}/state', {
 			params: { path: { conversation_id: conversation.id } },
 			body: { workspace_id: workspaceId, archived: !conversation.archived_at }
 		});
+		if (requestedWorkspace !== workspaceId) return;
 		if (apiError) {
 			showToast(m.messages_send_failed(), 'error');
 			return;
@@ -308,23 +387,74 @@
 			/>
 		{/each}
 
-		<label class="flex min-h-11 items-center gap-2 text-sm">
-			<Checkbox
-				checked={archived}
-				onCheckedChange={(checked) => {
-					archived = checked;
-					selectedId = '';
-					messages = [];
-					void loadConversations();
+		<div class="flex flex-wrap items-center gap-3">
+			<Select.Root
+				type="single"
+				value={platformFilter || 'all'}
+				onValueChange={(value) => {
+					platformFilter = value === 'all' ? '' : value;
+					const selectedAccount = accounts.find((account) => account.id === accountFilter);
+					if (selectedAccount && platformFilter && selectedAccount.platform !== platformFilter) {
+						accountFilter = '';
+					}
 				}}
-			/>
-			{m.engagement_archived()}
-		</label>
+			>
+				<Select.Trigger class="h-11 w-44 sm:h-9" aria-label={m.engagement_all_platforms()}>
+					{platformFilter ? getPlatformName(platformFilter) : m.engagement_all_platforms()}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{m.engagement_all_platforms()}</Select.Item>
+					{#each knownPlatforms as provider (provider)}
+						<Select.Item value={provider}>{getPlatformName(provider)}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<Select.Root
+				type="single"
+				value={accountFilter || 'all'}
+				onValueChange={(value) => (accountFilter = value === 'all' ? '' : value)}
+			>
+				<Select.Trigger class="h-11 w-48 sm:h-9" aria-label={m.engagement_all_accounts()}>
+					{#if accountFilter}
+						{@const selectedAccount = accounts.find((account) => account.id === accountFilter)}
+						{selectedAccount?.account_username ||
+							(selectedAccount
+								? getPlatformName(selectedAccount.platform)
+								: m.engagement_all_accounts())}
+					{:else}
+						{m.engagement_all_accounts()}
+					{/if}
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="all">{m.engagement_all_accounts()}</Select.Item>
+					{#each accounts.filter((account) => !platformFilter || account.platform === platformFilter) as account (account.id)}
+						<Select.Item value={account.id}>
+							{account.account_username || getPlatformName(account.platform)}
+						</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
+			<label class="flex min-h-11 items-center gap-2 text-sm">
+				<Checkbox
+					checked={archived}
+					onCheckedChange={(checked) => {
+						archived = checked;
+					}}
+				/>
+				{m.engagement_archived()}
+			</label>
+		</div>
 
 		{#if initialLoading}
 			<PageLoading layout="list" label={m.common_loading()} items={6} />
 		{:else if error}
-			<InlineNotice tone="error" message={error} />
+			<InlineNotice tone="error" message={error}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void loadConversations()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
 		{:else if conversations.length === 0}
 			<EmptyState
 				icon={InboxIcon}
@@ -336,7 +466,7 @@
 			<div
 				class="min-h-[34rem] overflow-hidden rounded-lg border bg-card transition-opacity lg:grid lg:grid-cols-[20rem_minmax(0,1fr)]"
 				class:opacity-70={loading}
-				aria-busy={loading}
+				aria-busy={loading || loadingMore}
 			>
 				<section
 					class={['border-r', selectedId ? 'hidden lg:block' : 'block']}
@@ -547,6 +677,29 @@
 					{/if}
 				</section>
 			</div>
+			{#if pageError}
+				<InlineNotice tone="error" message={pageError}>
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void loadConversations(nextCursor, true)}
+						>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{:else if nextCursor}
+				<div class="flex justify-center pt-2">
+					<Button
+						variant="outline"
+						disabled={loadingMore}
+						onclick={() => void loadConversations(nextCursor, true)}
+					>
+						{loadingMore ? m.common_loading() : m.messages_load_older_conversations()}
+					</Button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </PageContainer>

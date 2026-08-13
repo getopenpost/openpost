@@ -5252,6 +5252,7 @@ export interface components {
              */
             readonly $schema?: string;
             items: components["schemas"]["Conversation"][] | null;
+            next_cursor?: string;
             sync_states: components["schemas"]["MessageSyncState"][] | null;
             /** Format: int64 */
             total: number;
@@ -20851,6 +20852,8 @@ export interface operations {
                 archived?: boolean;
                 limit?: number;
                 offset?: number;
+                /** @description Opaque cursor for stable older-page pagination */
+                cursor?: string;
             };
             header?: never;
             path?: never;

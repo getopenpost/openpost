@@ -3218,6 +3218,8 @@
 	"messages_failed_status": "Failed",
 	"messages_send_failed": "OpenPost could not send this message.",
 	"messages_load_failed": "OpenPost could not load messages.",
+	"messages_page_failed": "OpenPost could not load older conversations.",
+	"messages_load_older_conversations": "Load older conversations",
 	"messages_mark_read_failed": "OpenPost could not mark this conversation as read. Select it again to retry.",
 	"messages_error_reference": "Request reference: {id}",
 	"messages_conversation_unavailable": "This conversation is no longer available in this workspace.",

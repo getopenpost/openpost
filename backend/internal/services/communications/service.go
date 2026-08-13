@@ -1638,31 +1638,77 @@ func (s *Service) SetEngagementState(ctx context.Context, workspaceID string, id
 	return err
 }
 
-func (s *Service) ListConversations(ctx context.Context, workspaceID, platformName, accountID string, archived bool, limit, offset int) ([]models.Conversation, int, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+type ConversationCursor struct {
+	OccurredAt time.Time
+	ID         string
+}
+
+type ConversationQuery struct {
+	WorkspaceID string
+	Platform    string
+	AccountID   string
+	Archived    bool
+	Limit       int
+	Offset      int
+	Cursor      *ConversationCursor
+}
+
+type ConversationPage struct {
+	Items      []models.Conversation
+	Total      int
+	NextCursor *ConversationCursor
+}
+
+func (s *Service) ListConversations(ctx context.Context, input ConversationQuery) (ConversationPage, error) {
+	if input.Limit <= 0 || input.Limit > 100 {
+		input.Limit = 50
 	}
 	base := func(query *bun.SelectQuery) *bun.SelectQuery {
-		query = query.Where("workspace_id = ?", workspaceID)
-		if platformName != "" {
-			query = query.Where("platform = ?", platformName)
+		query = query.Where("workspace_id = ?", input.WorkspaceID)
+		if input.Platform != "" {
+			query = query.Where("platform = ?", input.Platform)
 		}
-		if accountID != "" {
-			query = query.Where("social_account_id = ?", accountID)
+		if input.AccountID != "" {
+			query = query.Where("social_account_id = ?", input.AccountID)
 		}
-		if archived {
+		if input.Archived {
 			return query.Where("archived_at IS NOT NULL")
 		}
 		return query.Where("archived_at IS NULL")
 	}
 	count, err := base(s.db.NewSelect().Model((*models.Conversation)(nil))).Count(ctx)
 	if err != nil {
-		return nil, 0, err
+		return ConversationPage{}, err
 	}
 	var conversations []models.Conversation
-	err = base(s.db.NewSelect().Model(&conversations)).
-		Order("last_message_at DESC", "updated_at DESC").Limit(limit).Offset(max(0, offset)).Scan(ctx)
-	return conversations, count, err
+	query := base(s.db.NewSelect().Model(&conversations))
+	if input.Cursor != nil {
+		query = query.Where(
+			"(COALESCE(last_message_at, created_at) < ? OR (COALESCE(last_message_at, created_at) = ? AND id < ?))",
+			input.Cursor.OccurredAt, input.Cursor.OccurredAt, input.Cursor.ID,
+		)
+	}
+	query = query.OrderExpr("COALESCE(last_message_at, created_at) DESC").Order("id DESC")
+	if input.Cursor == nil {
+		query = query.Offset(max(0, input.Offset))
+	}
+	if err := query.Limit(input.Limit + 1).Scan(ctx); err != nil {
+		return ConversationPage{}, err
+	}
+	hasMore := len(conversations) > input.Limit
+	if hasMore {
+		conversations = conversations[:input.Limit]
+	}
+	page := ConversationPage{Items: conversations, Total: count}
+	if hasMore && len(conversations) > 0 {
+		last := conversations[len(conversations)-1]
+		occurredAt := last.LastMessageAt
+		if occurredAt.IsZero() {
+			occurredAt = last.CreatedAt
+		}
+		page.NextCursor = &ConversationCursor{OccurredAt: occurredAt, ID: last.ID}
+	}
+	return page, nil
 }
 
 func (s *Service) ListMessageSyncStates(ctx context.Context, workspaceID string) ([]models.CommunicationSyncState, error) {

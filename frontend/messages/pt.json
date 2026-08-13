@@ -3218,6 +3218,8 @@
 	"messages_failed_status": "Falhou",
 	"messages_send_failed": "O OpenPost não conseguiu enviar esta mensagem.",
 	"messages_load_failed": "O OpenPost não conseguiu carregar as mensagens.",
+	"messages_page_failed": "O OpenPost não conseguiu carregar conversas mais antigas.",
+	"messages_load_older_conversations": "Carregar conversas anteriores",
 	"messages_mark_read_failed": "O OpenPost não conseguiu marcar esta conversa como lida. Selecione-a novamente para tentar outra vez.",
 	"messages_error_reference": "Referência do pedido: {id}",
 	"messages_conversation_unavailable": "Esta conversa já não está disponível neste espaço de trabalho.",

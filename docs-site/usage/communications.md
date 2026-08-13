@@ -29,6 +29,8 @@ Inbox connectors are available for X, Bluesky, Facebook Pages, Instagram Profess
 
 The inbox saves conversations, messages, file links, send status, and reply deadlines. It does not save full platform replies or tokens. If a platform sends the same message ID twice, OpenPost saves it once.
 
+The conversation list loads older conversations in stable pages and keeps the active Workspace, platform, account, archive filter, and selected conversation. If an older page fails, the loaded list stays available with an in-place retry.
+
 Important provider behavior:
 
 - Facebook and Instagram replies are limited by Meta's active customer-service window. OpenPost blocks a send after the stored deadline.

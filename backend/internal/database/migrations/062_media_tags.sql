@@ -1,0 +1,2 @@
+-- 062: Convert existing media collections and their memberships into tags.
+-- The cross-dialect, partial-schema-safe work is implemented in migrations.go.

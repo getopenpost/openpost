@@ -1,0 +1,17 @@
+[install]
+linker = "hoisted"
+minimumReleaseAge = 259200
+minimumReleaseAgeExcludes = [
+  "@vitest/browser",
+  "@vitest/browser-playwright",
+  "brace-expansion",
+  "js-yaml",
+  "minimatch",
+  "postcss",
+  "sharp",
+  "tar",
+  "undici",
+  "uuid",
+  "vite",
+  "vitest",
+]

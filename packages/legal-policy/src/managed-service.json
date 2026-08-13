@@ -1,0 +1,262 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-08-11",
+  "next_review_on": "2026-11-11",
+  "contact": "openpost@rgo.pt",
+  "change_notice": "OpenPost updates this register before a new service starts receiving managed customer data. When a change materially affects the Privacy Policy, OpenPost also advances the policy version and gives an in-service or email notice when appropriate.",
+  "stores": [
+    {
+      "id": "primary-host",
+      "name": "Application, database, and logs",
+      "provider": "Hetzner Online GmbH",
+      "location": "Falkenstein, Germany (FSN1)",
+      "data": "Accounts, workspaces, drafts, schedules, encrypted social credentials, billing status, and operational logs.",
+      "retention": "Active service data is kept while needed to provide the account and for the legal, security, and dispute periods described in the Privacy Policy. Managed host journals are size-bounded to 50 MiB of persistent storage and 10 MiB of runtime storage rather than kept for a fixed number of days.",
+      "protection": "The host uses key-only SSH, blocks direct root and password login, and limits database and service access to the application and operator boundary."
+    },
+    {
+      "id": "recovery-copies",
+      "name": "Database and media recovery copies",
+      "provider": "Hetzner Online GmbH",
+      "location": "Falkenstein, Germany (FSN1)",
+      "data": "Daily PostgreSQL dumps, a synchronized media copy, and retained changed or deleted media versions.",
+      "retention": "Routine database dumps and changed or deleted media versions are pruned by the next daily run after they are more than 14 days old. Operator-created repair or incident snapshots are reviewed separately and kept only while needed for recovery, security, legal duties, fraud prevention, or legal claims.",
+      "protection": "Recovery files are root-owned and not served by the application. OpenPost does not add a separate application-level encryption layer to each artifact. A weekly restore drill validates the latest database copy and the media inventory."
+    },
+    {
+      "id": "media-objects",
+      "name": "Uploaded and generated media",
+      "provider": "Cloudflare, Inc. (R2)",
+      "location": "Cloudflare automatic placement; no jurisdiction restriction is configured",
+      "data": "Uploaded media, editor exports saved to Media, thumbnails, and object metadata.",
+      "retention": "Live objects follow account, workspace, trash, and media-retention rules. The separate host recovery copy follows the retention described above.",
+      "protection": "OpenPost uses authenticated HTTPS access and private storage credentials. Objects that must be fetched by a selected social network can receive a signed or public delivery URL."
+    },
+    {
+      "id": "browser-local",
+      "name": "Browser-local editor data",
+      "provider": "The user's browser and device",
+      "location": "The user's device",
+      "data": "Unsynced Image Editor recovery data and local Video Editor projects, sources, recordings, transcripts, analysis, models, and exports.",
+      "retention": "Data remains until the user deletes it, the product removes an expired local artifact, or site data is cleared.",
+      "protection": "This data is outside the managed cloud until the user chooses a cloud save, Media save, or composer handoff. Device and browser security remain the user's responsibility."
+    }
+  ],
+  "providers": [
+    {
+      "id": "hetzner",
+      "name": "Hetzner Online GmbH",
+      "role": "subprocessor",
+      "use": "required",
+      "purpose": "Runs the managed application host, PostgreSQL database, local recovery copies, and operational logs.",
+      "data": "The service data stored or processed by the managed application, plus limited infrastructure metadata.",
+      "location": "Falkenstein, Germany (FSN1).",
+      "transfer": "The primary customer-data host is in Germany. Hetzner states that data remains in the EU unless it identifies another transfer.",
+      "source_urls": [
+        "https://docs.hetzner.com/general/infrastructure-and-availability/data-centers-and-connection/",
+        "https://www.hetzner.com/legal/privacy-policy/"
+      ]
+    },
+    {
+      "id": "posthog",
+      "name": "PostHog, Inc.",
+      "role": "subprocessor",
+      "use": "required",
+      "purpose": "Receives managed product, public-site, service, and error telemetry so OpenPost can measure use, diagnose failures, and improve the hosted service.",
+      "data": "Cookieless public-site events; opaque managed-service user and workspace identifiers; product and service events; browser, service, release, route-template, status, and sanitized error context. OpenPost does not enable session replay or send post content, media, credentials, request bodies, email addresses, names, usernames, query strings, or raw URLs as telemetry properties.",
+      "location": "PostHog EU Cloud in Frankfurt, Germany.",
+      "transfer": "OpenPost selects PostHog's EU Cloud. PostHog describes its GDPR commitments and international-transfer safeguards in its privacy and GDPR documentation.",
+      "source_urls": [
+        "https://posthog.com/privacy",
+        "https://posthog.com/docs/privacy/gdpr-compliance",
+        "https://posthog.com/docs/privacy/data-collection"
+      ]
+    },
+    {
+      "id": "cloudflare",
+      "name": "Cloudflare, Inc.",
+      "role": "subprocessor",
+      "use": "required",
+      "purpose": "Stores media in R2 and delivers the public marketing and documentation sites and their static assets.",
+      "data": "Media objects and metadata; public-site request metadata such as IP address, user agent, requested URL, and timing.",
+      "location": "R2 uses automatic placement and is not restricted to one jurisdiction. Public-site delivery uses Cloudflare's global network.",
+      "transfer": "Cloudflare documents its international transfer mechanisms in its privacy policy and customer DPA.",
+      "source_urls": [
+        "https://developers.cloudflare.com/r2/reference/data-location/",
+        "https://developers.cloudflare.com/r2/reference/data-security/",
+        "https://www.cloudflare.com/cloudflare-customer-dpa/",
+        "https://www.cloudflare.com/privacypolicy/"
+      ]
+    },
+    {
+      "id": "purelymail",
+      "name": "Add Rabbit LLC (Purelymail)",
+      "role": "subprocessor",
+      "use": "required",
+      "purpose": "Sends account verification, password reset, security, and opted-in notification email.",
+      "data": "Recipient address, sender address, email content, and delivery metadata.",
+      "location": "Provider-operated Amazon Web Services infrastructure; OpenPost does not pin a region in its SMTP configuration.",
+      "transfer": "A managed-service transfer mechanism has not yet been recorded in this register. This is an open operator and legal review item.",
+      "source_urls": [
+        "https://purelymail.com/privacy",
+        "https://purelymail.com/docs/security"
+      ]
+    },
+    {
+      "id": "paddle",
+      "name": "Paddle group",
+      "role": "independent_controller_and_processor",
+      "use": "purchase_triggered",
+      "purpose": "Provides checkout, subscription management, payment processing, tax, fraud controls, refunds, and customer billing portals as Merchant of Record for Paddle orders.",
+      "data": "Account and transaction identifiers, contact and billing details, subscription state, tax information, fraud signals, and payment details entered directly into Paddle.",
+      "location": "Paddle lists controller entities in the United Kingdom, Ireland, United States, and Canada and uses further service providers.",
+      "transfer": "Paddle states that it uses Standard Contractual Clauses or other safeguards when a transfer is not covered by adequacy.",
+      "source_urls": [
+        "https://www.paddle.com/legal/privacy",
+        "https://www.paddle.com/legal/data-processing-addendum"
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter, Inc.",
+      "role": "subprocessor",
+      "use": "feature_triggered",
+      "purpose": "Routes an automatic image-description request after the user adds an image with no saved alternative text.",
+      "data": "A 400-pixel JPEG thumbnail, up to 1,000 characters of relevant draft context when present, locale, model, and request metadata. The original image is not sent.",
+      "location": "OpenRouter infrastructure; the managed request is restricted to a named EU model-hosting endpoint.",
+      "transfer": "The managed request denies provider data collection and requires a zero-data-retention endpoint. OpenRouter still keeps non-content request metadata as described in its policy.",
+      "source_urls": [
+        "https://openrouter.ai/docs/guides/privacy/data-collection",
+        "https://openrouter.ai/docs/guides/features/zdr",
+        "https://openrouter.ai/privacy/"
+      ]
+    },
+    {
+      "id": "microsoft-azure-ai",
+      "name": "Microsoft Azure",
+      "role": "subprocessor",
+      "use": "feature_triggered",
+      "purpose": "Hosts the managed automatic image-description model selected through OpenRouter.",
+      "data": "The same thumbnail, optional bounded draft context, and generation instructions sent through OpenRouter.",
+      "location": "European Union endpoint selected as azure/eu.",
+      "transfer": "The managed request disables fallbacks, denies data collection, and requires OpenRouter's zero-data-retention classification for this endpoint.",
+      "source_urls": [
+        "https://openrouter.ai/docs/guides/routing/provider-selection",
+        "https://openrouter.ai/api/v1/endpoints/zdr",
+        "https://privacy.microsoft.com/privacystatement"
+      ]
+    },
+    {
+      "id": "discord-feedback",
+      "name": "Discord Netherlands B.V. / Discord Inc.",
+      "role": "independent_service_provider",
+      "use": "feedback_triggered",
+      "purpose": "Receives feedback reports sent through the managed in-app feedback form.",
+      "data": "The report text, optional screenshot, category, app version, route, workspace-safe diagnostics, and delivery metadata that the user chooses to submit.",
+      "location": "Provider-controlled infrastructure; Discord identifies its EEA controller in the Netherlands and also operates in the United States.",
+      "transfer": "Discord's privacy policy describes its international processing. OpenPost does not claim a separate Discord DPA for this feedback path.",
+      "source_urls": ["https://discord.com/privacy"]
+    },
+    {
+      "id": "pexels",
+      "name": "Pexels",
+      "role": "user_requested_source",
+      "use": "feature_triggered",
+      "purpose": "Returns stock photo and video search results when the user searches the editor library.",
+      "data": "Search text, server request metadata, selection/download events required by the provider, and no OpenPost account credential.",
+      "location": "Provider-controlled infrastructure; no region is pinned by OpenPost.",
+      "transfer": "The user initiates the search; Pexels' privacy terms apply to its processing.",
+      "source_urls": ["https://www.pexels.com/privacy-policy/"]
+    },
+    {
+      "id": "pixabay",
+      "name": "Pixabay",
+      "role": "user_requested_source",
+      "use": "feature_triggered",
+      "purpose": "Returns stock image and video search results when the user searches the editor library.",
+      "data": "Search text, server request metadata, and no OpenPost account credential.",
+      "location": "Provider-controlled infrastructure; no region is pinned by OpenPost.",
+      "transfer": "The user initiates the search; Pixabay's privacy terms apply to its processing.",
+      "source_urls": ["https://pixabay.com/service/privacy/"]
+    },
+    {
+      "id": "unsplash",
+      "name": "Unsplash",
+      "role": "user_requested_source",
+      "use": "feature_triggered",
+      "purpose": "Returns stock photo search results when the user searches the editor library.",
+      "data": "Search text, server request metadata, selection/download events required by the provider, and no OpenPost account credential.",
+      "location": "Provider-controlled infrastructure; no region is pinned by OpenPost.",
+      "transfer": "The user initiates the search; Unsplash's privacy terms apply to its processing.",
+      "source_urls": ["https://unsplash.com/privacy"]
+    }
+  ],
+  "directed_recipients": [
+    {
+      "name": "Google",
+      "purpose": "Optional Google sign-in and user-directed YouTube connection, publishing, and analytics.",
+      "data": "Sign-in profile data or the YouTube account, content, media, and action the user selects.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://policies.google.com/privacy"
+    },
+    {
+      "name": "X",
+      "purpose": "User-directed account connection, publishing, replies, and analytics.",
+      "data": "The connected account and selected content, media, settings, and actions.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://x.com/en/privacy"
+    },
+    {
+      "name": "Bluesky",
+      "purpose": "User-directed account connection and publishing.",
+      "data": "The connected account and selected content, media, settings, and actions.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://bsky.social/about/support/privacy-policy"
+    },
+    {
+      "name": "LinkedIn",
+      "purpose": "User-directed account connection, publishing, replies, and analytics.",
+      "data": "The connected account or organization and selected content, media, settings, and actions.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://www.linkedin.com/legal/privacy-policy"
+    },
+    {
+      "name": "Meta (Facebook, Instagram, and Threads)",
+      "purpose": "User-directed account connection, publishing, replies, messages, and analytics for enabled Meta products.",
+      "data": "The connected account or page and selected content, media, settings, messages, and actions.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://www.facebook.com/privacy/policy/"
+    },
+    {
+      "name": "TikTok",
+      "purpose": "User-directed account connection, publishing, and analytics.",
+      "data": "The connected account and selected content, media, settings, and actions.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://www.tiktok.com/legal/page/eea/privacy-policy/en"
+    },
+    {
+      "name": "Discord",
+      "purpose": "User-directed webhook connection and publishing to the selected Discord destination.",
+      "data": "The webhook destination and selected content, media, settings, and actions.",
+      "location": "Provider-controlled and potentially global.",
+      "source_url": "https://discord.com/privacy"
+    },
+    {
+      "name": "Selected Mastodon server",
+      "purpose": "User-directed connection and publishing to the exact server the user selects.",
+      "data": "The connected account and selected content, media, settings, and actions.",
+      "location": "Set by the independent Mastodon server operator.",
+      "source_url": "https://docs.joinmastodon.org/user/run-your-own/"
+    }
+  ],
+  "human_access": {
+    "scope": "One named operator administers the managed production host. OpenPost has no separate support staff with standing server or database access.",
+    "authentication": "Production SSH accepts named public keys only, blocks password and keyboard-interactive login, blocks direct root login, and uses sudo for privileged work. At this review, one operator identity has four named device or maintenance-host keys.",
+    "routine_access": "Automated services handle ordinary operations. The operator does not routinely review drafts, media, messages, or connected-account data.",
+    "support_access": "A support request does not grant direct production access. The operator may inspect the minimum relevant records when a user requests help or when recovery, security, abuse, legal, or fraud work requires it.",
+    "approval": "There is no two-person approval control. The same named operator authorizes and performs production access.",
+    "logging": "System and service journals record authentication and service events within size-bounded storage. The host does not provide a complete command-level audit trail, so OpenPost does not claim one.",
+    "emergency": "Emergency access uses the same named keys, sudo boundary, and logging. There is no hidden bypass or shared support account.",
+    "review_and_revocation": "Authorized keys and production configuration are version-controlled. Access is reviewed when an operator device, maintenance host, role, or security configuration changes; obsolete keys are removed through the host deployment. No separate automated periodic access attestation exists."
+  }
+}

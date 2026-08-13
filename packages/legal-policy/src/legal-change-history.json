@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-08-11",
+  "scope": "This register records material changes to the official hosted-service legal documents. Spelling, formatting, and link corrections that do not change meaning are not separate entries.",
+  "entries": [
+    {
+      "document": "privacy",
+      "version": "2026-08-11",
+      "effective_date": "2026-08-11",
+      "url": "https://openpost.social/privacy",
+      "changes": [
+        "Replaced the prior public-site-only Umami disclosure with the managed PostHog product, service, website, documentation, and error telemetry boundary.",
+        "Documented opaque signed-in identifiers, cookieless public analytics, memory-only browser persistence, disabled replay and autocapture, excluded content and credentials, retention, and the PostHog EU Cloud subprocessor."
+      ]
+    },
+    {
+      "document": "privacy",
+      "version": "2026-08-09",
+      "effective_date": "2026-08-09",
+      "url": "https://openpost.social/privacy",
+      "changes": [
+        "Named the managed service's current data locations, service providers, user-directed recipients, and international-transfer facts.",
+        "Explained the managed human production-access boundary, routine recovery-copy window, and browser-local Image and Video Editor boundary.",
+        "Documented the automatic image-caption request, feedback recipient, stock-media providers, Paddle role, and current retention and browser-storage schedules."
+      ]
+    },
+    {
+      "document": "privacy",
+      "version": "2026-08-05",
+      "effective_date": "2026-08-05",
+      "url": "https://openpost.social/privacy",
+      "changes": [
+        "Replaced the prior billing disclosure with Paddle's Merchant of Record role and retained the boundary for prior payment-provider records.",
+        "Added the operator identity, Portugal contact facts, policy-version behavior, and hosted-versus-self-hosted scope."
+      ]
+    },
+    {
+      "document": "terms",
+      "version": "2026-08-05",
+      "effective_date": "2026-08-05",
+      "url": "https://openpost.social/terms",
+      "changes": [
+        "Added Paddle's Merchant of Record role, subscription and cancellation terms, the incorporated Refund Policy, and the operator and governing-law facts.",
+        "Clarified the hosted-service boundary and the acceptance version recorded by the application."
+      ]
+    },
+    {
+      "document": "refunds",
+      "version": "2026-08-05",
+      "effective_date": "2026-08-05",
+      "url": "https://openpost.social/refunds",
+      "changes": [
+        "Published the first separate Refund Policy incorporated into the Terms, including the standard request window, statutory-rights boundary, exclusions, and Paddle processing path."
+      ]
+    },
+    {
+      "document": "privacy",
+      "version": "2026-07-22",
+      "effective_date": "2026-07-22",
+      "url": "https://openpost.social/privacy",
+      "changes": [
+        "Published the first complete hosted-service Privacy Policy covering account, publishing, connected-account, security, billing, support, sharing, retention, browser storage, transfer, and user-rights categories."
+      ]
+    },
+    {
+      "document": "terms",
+      "version": "2026-07-22",
+      "effective_date": "2026-07-22",
+      "url": "https://openpost.social/terms",
+      "changes": [
+        "Published the first complete hosted-service Terms of Service covering accounts, acceptable use, customer content, connected services, paid plans, availability, liability, termination, and changes."
+      ]
+    }
+  ]
+}

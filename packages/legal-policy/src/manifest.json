@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "terms": {
+    "version": "2026-08-05",
+    "effective_date": "2026-08-05",
+    "url": "https://openpost.social/terms",
+    "requires_acceptance": true
+  },
+  "privacy": {
+    "version": "2026-08-11",
+    "effective_date": "2026-08-11",
+    "url": "https://openpost.social/privacy",
+    "requires_acceptance": true
+  },
+  "refunds": {
+    "version": "2026-08-05",
+    "effective_date": "2026-08-05",
+    "url": "https://openpost.social/refunds",
+    "requires_acceptance": false
+  }
+}

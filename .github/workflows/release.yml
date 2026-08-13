@@ -1,0 +1,500 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  BUN_VERSION: "1.3.11"
+
+permissions: {}
+
+jobs:
+  verify-candidate:
+    name: Verify exact release candidate
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      packages: read
+    outputs:
+      ci_run_id: ${{ steps.candidate.outputs.run_id }}
+      candidate_artifact: ${{ steps.artifacts.outputs.candidate }}
+      frontend_artifact: ${{ steps.artifacts.outputs.frontend }}
+      android_artifact: ${{ steps.artifacts.outputs.android }}
+      digest: ${{ steps.image.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Require successful CI for the tagged SHA
+        id: candidate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          candidate="$(gh run list \
+            --repo "$GITHUB_REPOSITORY" \
+            --workflow CI \
+            --commit "$GITHUB_SHA" \
+            --event push \
+            --limit 20 \
+            --json databaseId,conclusion \
+            --jq '[.[] | select(.conclusion == "success")][0].databaseId // empty')"
+          [[ -n "$candidate" ]] || {
+            echo "No successful CI run exists for tagged SHA $GITHUB_SHA." >&2
+            exit 1
+          }
+          [[ "$candidate" =~ ^[0-9]+$ ]]
+          echo "run_id=$candidate" >> "$GITHUB_OUTPUT"
+      - name: Resolve artifacts from their successful CI attempts
+        id: artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
+        shell: bash
+        run: |
+          candidate="$(bun scripts/ci-artifacts.mjs resolve \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$CI_RUN_ID" \
+            --prefix "release-manifest-${GITHUB_SHA}-")"
+          frontend="$(bun scripts/ci-artifacts.mjs resolve \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$CI_RUN_ID" \
+            --prefix "frontend-public-${GITHUB_SHA}-")"
+          android="$(bun scripts/ci-artifacts.mjs resolve \
+            --repository "$GITHUB_REPOSITORY" \
+            --run-id "$CI_RUN_ID" \
+            --prefix "android-unsigned-${GITHUB_SHA}-")"
+          {
+            echo "candidate=$candidate"
+            echo "frontend=$frontend"
+            echo "android=$android"
+          } >> "$GITHUB_OUTPUT"
+      - name: Download the candidate release manifest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ steps.candidate.outputs.run_id }}
+          CANDIDATE_ARTIFACT: ${{ steps.artifacts.outputs.candidate }}
+        run: |
+          gh run download "$CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$CANDIDATE_ARTIFACT" \
+            --dir candidate-release
+          bun scripts/release-manifest.mjs verify \
+            --manifest candidate-release/release-manifest.json \
+            --version "$GITHUB_REF_NAME" \
+            --revision "$GITHUB_SHA"
+          expected_repository="${REGISTRY}/${IMAGE_NAME,,}"
+          expected_tag="sha-${GITHUB_SHA}"
+          bun scripts/image-evidence.mjs verify \
+            --evidence candidate-release/openpost-image-evidence.json \
+            --repository "$expected_repository" \
+            --tag "$expected_tag" \
+            --revision "$GITHUB_SHA" \
+            --release-manifest candidate-release/release-manifest.json \
+            --sbom candidate-release/openpost-image.spdx.json \
+            --vulnerability-report candidate-release/openpost-image-trivy.json \
+            >/dev/null
+          jq -e '(.spdxVersion | startswith("SPDX-")) and (.packages | type == "array") and (.packages | length > 0)' candidate-release/openpost-image.spdx.json >/dev/null
+          jq -e '(.SchemaVersion // 0) >= 2 and (.Results | type == "array") and (.Results | length > 0)' candidate-release/openpost-image-trivy.json >/dev/null
+      - name: Verify the immutable candidate digest and manifest
+        id: image
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin >/dev/null
+          repository="${REGISTRY}/${IMAGE_NAME,,}"
+          digest="$(bun scripts/image-evidence.mjs verify \
+            --evidence candidate-release/openpost-image-evidence.json \
+            --repository "$repository" \
+            --tag "sha-${GITHUB_SHA}" \
+            --revision "$GITHUB_SHA" \
+            --release-manifest candidate-release/release-manifest.json \
+            --sbom candidate-release/openpost-image.spdx.json \
+            --vulnerability-report candidate-release/openpost-image-trivy.json)"
+          image="${repository}@${digest}"
+          docker pull "$image"
+          scripts/verify-image-release-manifest.sh \
+            "$image" candidate-release/release-manifest.json
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+  prepare-draft:
+    name: Prepare reusable draft release
+    runs-on: ubuntu-latest
+    needs: verify-candidate
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Download exact candidate image evidence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
+          CANDIDATE_ARTIFACT: ${{ needs.verify-candidate.outputs.candidate_artifact }}
+        run: |
+          gh run download "$CI_RUN_ID" \
+            --repo "$GITHUB_REPOSITORY" \
+            --name "$CANDIDATE_ARTIFACT" \
+            --dir candidate-release
+      - name: Create or verify the draft and upload candidate evidence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CANDIDATE_DIGEST: ${{ needs.verify-candidate.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          repository="${REGISTRY}/${IMAGE_NAME,,}"
+          verified_digest="$(bun scripts/image-evidence.mjs verify \
+            --evidence candidate-release/openpost-image-evidence.json \
+            --repository "$repository" \
+            --tag "sha-${GITHUB_SHA}" \
+            --revision "$GITHUB_SHA" \
+            --release-manifest candidate-release/release-manifest.json \
+            --sbom candidate-release/openpost-image.spdx.json \
+            --vulnerability-report candidate-release/openpost-image-trivy.json)"
+          [[ "$verified_digest" == "$CANDIDATE_DIGEST" ]]
+          bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          fetch_release() {
+            release_id="$(gh release view "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json databaseId \
+              --jq '.databaseId' 2>/dev/null || true)"
+            [[ "$release_id" =~ ^[0-9]+$ ]] || return 1
+            gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > draft-release.json
+          }
+          if ! fetch_release; then
+            if ! gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --draft \
+              --verify-tag \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file release-notes.md; then
+              echo "Draft creation raced with another attempt; validating the resulting release." >&2
+            fi
+            fetch_release
+          fi
+          bun scripts/release-lifecycle.mjs verify \
+            --release-json draft-release.json \
+            --tag "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --phase draft
+          gh release upload "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            candidate-release/release-manifest.json \
+            candidate-release/openpost-image-evidence.json \
+            candidate-release/openpost-image.spdx.json \
+            candidate-release/openpost-image-trivy.json
+          fetch_release
+          bun scripts/release-lifecycle.mjs verify \
+            --release-json draft-release.json \
+            --tag "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --phase draft
+
+  build-binaries:
+    name: Build server (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [verify-candidate, prepare-draft]
+    permissions:
+      actions: read
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - { os: linux, arch: amd64, runner: ubuntu-latest, ext: "" }
+          - { os: darwin, arch: arm64, runner: macos-latest, ext: "" }
+          - { os: windows, arch: amd64, runner: ubuntu-latest, ext: ".exe" }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Download frontend built by candidate CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
+          FRONTEND_ARTIFACT: ${{ needs.verify-candidate.outputs.frontend_artifact }}
+        run: gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$FRONTEND_ARTIFACT" --dir backend/cmd/openpost/public
+      - name: Build binary
+        shell: bash
+        run: |
+          cd backend
+          if [[ "${{ matrix.os }}" == windows ]]; then
+            CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
+          else
+            CGO_ENABLED=1 go build -buildvcs=false -ldflags="-s -w -X main.version=${GITHUB_REF_NAME} -X main.commit=${GITHUB_SHA}" -o ../openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
+          fi
+      - name: Upload server binary to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          bash scripts/release-asset-upload.sh \
+            "openpost-server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+
+  build-cli:
+    name: Build CLI (${{ matrix.os }}-${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    needs: [verify-candidate, prepare-draft]
+    permissions:
+      actions: read
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - { os: linux, arch: amd64, runner: ubuntu-latest, ext: "" }
+          - { os: linux, arch: arm64, runner: ubuntu-latest, ext: "" }
+          - { os: darwin, arch: arm64, runner: macos-latest, ext: "" }
+          - { os: windows, arch: amd64, runner: ubuntu-latest, ext: ".exe" }
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.sum
+      - name: Build CLI binaries
+        shell: bash
+        run: |
+          cd cli
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} go build -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o ../openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/openpost-mcp
+      - name: Upload CLI and MCP binaries to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          bash scripts/release-asset-upload.sh \
+            "openpost-cli-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}" \
+            "openpost-mcp-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
+
+  build-android:
+    name: Sign Android candidate
+    runs-on: ubuntu-latest
+    needs: [verify-candidate, prepare-draft]
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Download the unsigned APK built by candidate CI
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CI_RUN_ID: ${{ needs.verify-candidate.outputs.ci_run_id }}
+          ANDROID_ARTIFACT: ${{ needs.verify-candidate.outputs.android_artifact }}
+        run: |
+          gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ANDROID_ARTIFACT" --dir candidate-android
+          cd candidate-android
+          sha256sum --check openpost-app-android-unsigned.sha256
+      - name: Check signing secret
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: echo "has_keystore=$([[ -n "$KEYSTORE_B64" ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - name: Decode keystore
+        if: steps.signing.outputs.has_keystore == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          clean=$(printf '%s' "$KEYSTORE_B64" | sed -e 's/^"//;s/"$//' -e "s/^'//;s/'$//" -e 's/^data:[^,]*,//' -e 's/\\n//g' -e 's/\\r//g' | tr -d '\n\r\t ')
+          printf '%s' "$clean" | base64 -d > release-keystore.jks
+      - name: Sign the verified candidate APK
+        if: steps.signing.outputs.has_keystore == 'true'
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          apksigner="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          [[ -x "$apksigner" ]]
+          "$apksigner" sign \
+            --ks release-keystore.jks \
+            --ks-pass env:STORE_PASSWORD \
+            --ks-key-alias "$KEY_ALIAS" \
+            --key-pass env:KEY_PASSWORD \
+            --out openpost-app-android.apk \
+            candidate-android/openpost-app-android-unsigned.apk
+          "$apksigner" verify --verbose --print-certs openpost-app-android.apk
+      - name: Refuse to publish an unsigned Android application
+        if: steps.signing.outputs.has_keystore != 'true'
+        run: |
+          echo "Android release signing credentials are required for the installable release asset." >&2
+          exit 1
+      - name: Upload the Android APK to the draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          bash scripts/release-asset-upload.sh openpost-app-android.apk
+
+  promote-image:
+    name: Promote tested image
+    runs-on: ubuntu-latest
+    needs:
+      [
+        verify-candidate,
+        prepare-draft,
+        build-binaries,
+        build-cli,
+        build-android,
+      ]
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      digest: ${{ steps.promote.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Require every draft release asset before promotion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
+          [[ "$release_id" =~ ^[0-9]+$ ]]
+          gh api "repos/${GITHUB_REPOSITORY}/releases/${release_id}" > draft-release.json
+          bun scripts/release-lifecycle.mjs verify \
+            --release-json draft-release.json \
+            --tag "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --phase complete-draft
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add release tags without rebuilding
+        id: promote
+        env:
+          SOURCE_DIGEST: ${{ needs.verify-candidate.outputs.digest }}
+        shell: bash
+        run: |
+          source_image="${REGISTRY}/${IMAGE_NAME}@${SOURCE_DIGEST}"
+          docker buildx imagetools create \
+            --prefer-index=false \
+            --tag "${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME}" \
+            --tag "${REGISTRY}/${IMAGE_NAME}:latest" \
+            "$source_image"
+          promoted_digest="$(docker buildx imagetools inspect "${REGISTRY}/${IMAGE_NAME}:${GITHUB_REF_NAME}" | awk '$1 == "Digest:" { print $2; exit }')"
+          [[ "$promoted_digest" == "$SOURCE_DIGEST" ]] || {
+            echo "Promoted digest $promoted_digest does not match verified candidate $SOURCE_DIGEST." >&2
+            exit 1
+          }
+          echo "digest=$SOURCE_DIGEST" >> "$GITHUB_OUTPUT"
+
+  deploy-production:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    needs: promote-image
+    timeout-minutes: 10
+    steps:
+      - name: Trigger the verified VPS deployment
+        env:
+          DEPLOY_WEBHOOK_SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+          IMAGE_DIGEST: ${{ needs.promote-image.outputs.digest }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          payload=$(printf '{"repository":"%s","sha":"%s","tag":"%s","digest":"%s"}' \
+            "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$IMAGE_DIGEST")
+          signature=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$DEPLOY_WEBHOOK_SECRET" | awk '{print "sha256=" $2}')
+          response=$(curl --fail-with-body --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 300 \
+            -H 'Content-Type: application/json' \
+            -H "X-Hub-Signature-256: $signature" \
+            --data "$payload" \
+            https://webhooks.rgo.pt/hooks/deploy-openpost)
+          printf '%s\n' "$response"
+          grep -q "DEPLOY_OK openpost ${GITHUB_SHA}" <<<"$response"
+      - name: Verify public readiness, version, and revision
+        shell: bash
+        run: |
+          for _ in $(seq 1 60); do
+            info=$(curl --fail --silent --connect-timeout 2 --max-time 5 https://app.openpost.social/api/v1/version 2>/dev/null || true)
+            ready=$(curl --fail --silent --connect-timeout 2 --max-time 5 https://app.openpost.social/api/v1/ready 2>/dev/null || true)
+            revision=$(jq -r '.revision // empty' <<<"$info" 2>/dev/null || true)
+            version=$(jq -r '.version // empty' <<<"$info" 2>/dev/null || true)
+            readiness=$(jq -r '.status // empty' <<<"$ready" 2>/dev/null || true)
+            database=$(jq -r '.database // empty' <<<"$ready" 2>/dev/null || true)
+            [[ "$revision" == "$GITHUB_SHA" && "$version" == "$GITHUB_REF_NAME" && "$readiness" == ready && "$database" == ok ]] && exit 0
+            sleep 5
+          done
+          echo "Production did not become ready at $GITHUB_REF_NAME revision $GITHUB_SHA." >&2
+          exit 1
+
+  publish-release:
+    name: Publish complete deployed release
+    runs-on: ubuntu-latest
+    needs:
+      [
+        prepare-draft,
+        build-binaries,
+        build-cli,
+        build-android,
+        promote-image,
+        deploy-production,
+      ]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Verify the exact asset set and publish the draft
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          bun scripts/release-notes.mjs "$GITHUB_REF_NAME" > release-notes.md
+          release_id="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json databaseId --jq '.databaseId')"
+          [[ "$release_id" =~ ^[0-9]+$ ]]
+          fetch_release() {
+            curl --fail --silent --show-error \
+              --connect-timeout 10 \
+              --max-time 30 \
+              --output release.json \
+              -H 'Accept: application/vnd.github+json' \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              -H 'X-GitHub-Api-Version: 2022-11-28' \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/${release_id}"
+          }
+          fetch_release
+          bun scripts/release-lifecycle.mjs verify \
+            --release-json release.json \
+            --tag "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --phase complete-draft
+          cp release.json release-before.json
+          gh release edit "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --latest \
+            --verify-tag
+          fetch_release
+          bun scripts/release-lifecycle.mjs transition \
+            --before-json release-before.json \
+            --after-json release.json \
+            --tag "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md \
+            --from complete-draft \
+            --to published

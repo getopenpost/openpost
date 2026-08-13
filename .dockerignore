@@ -1,0 +1,67 @@
+# Git
+.git
+.gitignore
+
+# Nix
+flake.nix
+flake.lock
+devenv.nix
+devenv.yaml
+.envrc
+.devenv/
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Documentation
+docs/
+*.md
+!docs-site/**/*.md
+LICENSE
+
+# Frontend build artifacts (supplied through a separate named BuildKit context)
+node_modules/
+**/node_modules/
+frontend/.svelte-kit/
+frontend/build/
+frontend/android/.gradle/
+frontend/android/app/build/
+frontend/android/app/src/main/assets/public/
+
+# Backend runtime and build artifacts (rebuilt or supplied separately)
+backend/openpost
+backend/cmd/openpost/public/
+backend/coverage.out
+backend/media/
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Docker
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile
+.dockerignore
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Tests
+**/test/
+**/__tests__/
+**/*.test.*
+**/*.spec.*
+
+# Vitest examples (already removed but in case)
+frontend/src/lib/vitest-examples/

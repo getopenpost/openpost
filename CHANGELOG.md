@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Every platform and comparison page now publishes a build-generated Markdown representation with canonical metadata, provider limits or comparison evidence, HTML alternate discovery, and optional `llms.txt` sections derived from the marketing route manifest.
 - Marketing and documentation production builds now generate deterministic homepage Markdown and `llms.txt` discovery files from canonical public sources, advertise them from canonical HTML, and keep sitemaps HTML-only.
 - Replaced the frontend formatting and general JavaScript lint passes with Oxfmt and Oxlint, retained ESLint for Svelte template rules, upgraded production builds to Vite 8 and Rolldown, cached independent frontend quality tasks with Turbo, parallelized safe repository checks and tests, and reused the shared Go cache for local backend builds.
 - Replaced the overlapping package, Devenv, CI, hook, and release command graphs with one root task registry for formatting, linting, checks, tests, builds, verification, and release subcommands; added consistent surface scopes and policy selectors; removed obsolete aliases; and made CI and local release checks call the same tasks.

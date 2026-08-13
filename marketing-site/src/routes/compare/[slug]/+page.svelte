@@ -4,6 +4,7 @@
 	import { error } from '@sveltejs/kit';
 	import { ArrowLeft, ArrowRight, CheckCircle2, ExternalLink, Scale } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { resolveMarketingSocial } from '@openpost/social-images';
 	import ClaimEvidence from '../_components/ClaimEvidence.svelte';
 	import {
 		comparisons,
@@ -22,6 +23,7 @@
 	const otherComparisons = $derived(
 		comparisons.filter((item) => item.slug !== comparison.slug).slice(0, 3)
 	);
+	const routeMetadata = $derived(resolveMarketingSocial(page.url.pathname));
 
 	function formatDate(value: string) {
 		return new Intl.DateTimeFormat('en', {
@@ -38,11 +40,8 @@
 </script>
 
 <svelte:head>
-	<title>OpenPost vs {comparison.name}: an honest comparison</title>
-	<meta
-		name="description"
-		content={`${comparison.verdict} Facts reviewed ${comparison.reviewedAt}.`}
-	/>
+	<title>{routeMetadata.title}</title>
+	<meta name="description" content={routeMetadata.description} />
 	<link rel="canonical" href={`${siteUrl}/compare/${comparison.slug}`} />
 </svelte:head>
 
@@ -118,7 +117,7 @@
 			<p class="section-label">Side by side</p>
 			<h2 class="marketing-heading mt-4">Compare the parts that matter to your choice.</h2>
 		</div>
-		<div class="mt-10 divide-y border-y lg:hidden">
+		<div data-agent-exclude class="mt-10 divide-y border-y lg:hidden">
 			{#each comparison.rows as row (row.area)}
 				<article class="py-6">
 					<h3 class="font-semibold">{row.area}</h3>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import './layout.css';
 	import { page } from '$app/state';
-	import { resolveMarketingSocial } from '@openpost/social-images';
+	import { marketingAgentMarkdownUrl, resolveMarketingSocial } from '@openpost/social-images';
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount } from 'svelte';
 	import { afterNavigate } from '$app/navigation';
@@ -17,6 +17,7 @@
 	let { children } = $props();
 	const social = $derived(resolveMarketingSocial(page.url.pathname));
 	const socialImage = $derived(social.imageUrl);
+	const agentMarkdown = $derived(marketingAgentMarkdownUrl(social));
 
 	afterNavigate((navigation) => {
 		captureTelemetryPageView(navigation.to?.url.pathname ?? window.location.pathname);
@@ -58,6 +59,15 @@
 	<meta name="twitter:description" content={social.description} />
 	<meta name="twitter:image" content={socialImage} />
 	<meta name="twitter:image:alt" content={social.imageAlt} />
+	{#if agentMarkdown}
+		<link rel="alternate" type="text/markdown" href={agentMarkdown} />
+		<link
+			rel="alternate"
+			type="text/plain"
+			href="https://openpost.social/llms.txt"
+			title="llms.txt"
+		/>
+	{/if}
 </svelte:head>
 
 <ModeWatcher

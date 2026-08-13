@@ -57,13 +57,6 @@ FORM: A focused product demonstration paced between dark studio stages, light wo
 		content="Create better content, adapt it for every platform, and publish it everywhere from one workspace."
 	/>
 	<link rel="canonical" href={siteUrl} />
-	<link rel="alternate" type="text/markdown" href="https://openpost.social/index.md" />
-	<link
-		rel="alternate"
-		type="text/plain"
-		href="https://openpost.social/llms.txt"
-		title="llms.txt"
-	/>
 	<meta name="robots" content="index, follow" />
 </svelte:head>
 

@@ -6,6 +6,7 @@ import {
   docsImageKey,
   docsRouteFromPage,
   marketingPrerenderEntries,
+  marketingAgentMarkdownUrl,
   marketingRouteManifest,
   marketingSocialEntries,
   resolveDocsSocial,
@@ -44,6 +45,15 @@ test("the public route manifest owns social, sitemap, and prerender metadata", (
     ["buffer", "hootsuite", "typefully", "postiz", "post-bridge", "mixpost"],
   );
   assert.equal(marketingPrerenderEntries("/tools").length, 8);
+  assert.equal(
+    marketingAgentMarkdownUrl(resolveMarketingSocial("/")),
+    "https://openpost.social/index.md",
+  );
+  assert.equal(
+    marketingAgentMarkdownUrl(resolveMarketingSocial("/platforms/x")),
+    "https://openpost.social/platforms/x.md",
+  );
+  assert.equal(marketingAgentMarkdownUrl(resolveMarketingSocial("/pricing")), undefined);
   assert.throws(
     () => marketingPrerenderEntries("/pricing"),
     /Unknown marketing prerender section/u,

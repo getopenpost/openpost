@@ -98,6 +98,7 @@ const staticMarketingEntries = [
       "OpenPost helps solo founders create, adapt, schedule, and track content from one workspace.",
     label: "The content team for companies of one",
     kind: "home",
+    agentDiscovery: { membership: "primary" },
     priority: "1.0",
   },
   {
@@ -250,6 +251,7 @@ const platformEntries = platformNames.map(([slug, name]) => ({
   description: `See how OpenPost handles ${name} formats, setup needs, limits, and live-test notes.`,
   label: "Destination guide",
   kind: "platform",
+  agentDiscovery: { membership: "optional", section: "platforms" },
   subject: name,
   platform: slug,
   priority: "0.7",
@@ -264,6 +266,7 @@ const comparisonEntries = comparisonNames.map(([slug, name]) => ({
     "Compare publishing workflow, automation, hosting, product scope, and current pricing models.",
   label: "Reviewed comparison",
   kind: "comparison",
+  agentDiscovery: { membership: "optional", section: "comparisons" },
   subject: name,
   priority: "0.6",
 }));
@@ -324,6 +327,11 @@ export function normalizeMarketingPath(pathname) {
 export function canonicalMarketingUrl(pathname) {
   const path = normalizeMarketingPath(pathname);
   return path === "/" ? marketingSiteUrl : `${marketingSiteUrl}${path}`;
+}
+
+export function marketingAgentMarkdownUrl(entry) {
+  if (!entry.agentDiscovery) return undefined;
+  return entry.path === "/" ? `${marketingSiteUrl}/index.md` : `${entry.canonical}.md`;
 }
 
 export function resolveMarketingSocial(pathname) {

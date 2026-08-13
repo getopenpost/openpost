@@ -4,6 +4,7 @@
 	import { ArrowLeft, ArrowRight, ExternalLink, Info, ShieldAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import { resolveMarketingSocial } from '@openpost/social-images';
 	import PlatformPreview from '../_components/PlatformPreview.svelte';
 	import { getPlatform, managedSignupUrl, siteUrl } from '../../_marketing';
 
@@ -14,14 +15,12 @@
 		return found;
 	});
 	const requiresProviderApproval = $derived(platform.requiresProviderApproval);
+	const routeMetadata = $derived(resolveMarketingSocial(page.url.pathname));
 </script>
 
 <svelte:head>
-	<title>{platform.name} implementation and certification - OpenPost</title>
-	<meta
-		name="description"
-		content={`${platform.description} See formats, setup needs, limits, and live-test notes.`}
-	/>
+	<title>{routeMetadata.title}</title>
+	<meta name="description" content={routeMetadata.description} />
 	<link rel="canonical" href={`${siteUrl}/platforms/${platform.slug}`} />
 </svelte:head>
 
@@ -92,7 +91,7 @@
 					</Button>
 				</div>
 			</div>
-			<div class="grid place-items-center rounded-2xl bg-muted/25 p-3 sm:p-6">
+			<div data-agent-exclude class="grid place-items-center rounded-2xl bg-muted/25 p-3 sm:p-6">
 				<PlatformPreview {platform} />
 			</div>
 		</div>
@@ -113,7 +112,7 @@
 			</p>
 		</div>
 
-		<div class="mt-10 grid gap-3 md:hidden">
+		<div data-agent-exclude class="mt-10 grid gap-3 md:hidden">
 			{#each platform.formats as format (format.name)}
 				<article class="rounded-xl border bg-card p-5">
 					<h3 class="font-semibold">{format.name}</h3>
@@ -155,6 +154,18 @@
 				</tbody>
 			</table>
 		</div>
+
+		<div class="mt-8 border-t pt-6">
+			<h3 class="text-sm font-semibold">Provider limits and scope</h3>
+			<ul class="mt-4 grid gap-2 text-sm leading-6 text-muted-foreground sm:grid-cols-2">
+				{#each platform.limits as limit (limit)}
+					<li class="flex gap-2">
+						<span aria-hidden="true" class="text-primary">•</span>
+						<span>{limit}</span>
+					</li>
+				{/each}
+			</ul>
+		</div>
 	</div>
 </section>
 
@@ -169,6 +180,7 @@
 				{#each platform.setup as step, index (step)}
 					<li class="grid grid-cols-[2rem_1fr] gap-4 border-b py-5">
 						<span
+							data-agent-exclude
 							class="grid size-8 place-items-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
 						>
 							{index + 1}

@@ -73,9 +73,9 @@ Analytics, comments, and inbox reads use optional adapter interfaces. They do no
 
 ### Agent-readable public content
 
-The marketing and documentation production builds each generate an `index.md` representation of their canonical homepage and a concise `llms.txt`. Canonical HTML advertises both files. Sitemaps continue to list only canonical HTML pages.
+The marketing and documentation production builds each generate an `index.md` representation of their canonical homepage and a concise `llms.txt`. The marketing build also generates one `.md` representation for every platform and comparison page. Its `llms.txt` groups those pages into optional sections derived from the canonical marketing route manifest. Canonical HTML advertises the available representation and `llms.txt`. Sitemaps continue to list only canonical HTML pages.
 
-`scripts/generate-agent-surfaces.mjs` owns the shared generation and validation contract. Each site invokes only its own projection, and generated files stay in ignored build output. Run the focused contract test with `bun test scripts/generate-agent-surfaces.test.mjs`, then use `bun run build -- marketing` or `bun run build -- docs` to inspect the exact production artifacts.
+`scripts/generate-agent-surfaces.mjs` owns the shared generation and validation contract. Marketing route metadata owns discovery membership and section placement. Page source may mark illustrative or duplicate responsive content with `data-agent-exclude`. Unknown meaning-bearing HTML, broken internal links, duplicate output paths, and missing canonical sources stop generation with a page-specific error. Each site invokes only its own projection, and generated files stay in ignored build output. Run the focused contract test with `bun test scripts/generate-agent-surfaces.test.mjs`, then use `bun run build -- marketing` or `bun run build -- docs` to inspect the exact production artifacts.
 
 This content covers public product and operating information only. Do not add authenticated application state, Workspace data, OpenAPI conversions, or MCP protocol conversions to these outputs.
 

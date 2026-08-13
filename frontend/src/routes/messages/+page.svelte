@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import type { Attachment as SvelteAttachment } from 'svelte/attachments';
 	import { resolve } from '$app/paths';
 	import { client, type SocialAccount } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
@@ -43,6 +44,11 @@
 	let loadedKey = $state('');
 	let dataWorkspaceId = $state('');
 	let loadingMessages = $state(false);
+	let loadingOlderMessages = $state(false);
+	let olderMessageError = $state('');
+	let messageNextCursor = $state('');
+	let messageRequest = 0;
+	let messageViewport = $state<HTMLElement>();
 	let refreshing = $state(false);
 	let sending = $state(false);
 	let replyBody = $state('');
@@ -94,6 +100,9 @@
 			pageError = '';
 			selectedId = '';
 			messages = [];
+			messageNextCursor = '';
+			olderMessageError = '';
+			messageRequest += 1;
 			platformFilter = '';
 			accountFilter = '';
 		}
@@ -193,11 +202,21 @@
 		await Promise.all([loadMessages(conversation.id), markConversationRead(conversation)]);
 	}
 
-	async function loadMessages(conversationId: string) {
+	async function loadMessages(conversationId: string, cursor = '', prepend = false) {
 		if (!workspaceId) return;
-		loadingMessages = true;
-		messageError = '';
-		messageErrorReference = '';
+		const requestedWorkspace = workspaceId;
+		const requestID = ++messageRequest;
+		if (prepend) {
+			loadingOlderMessages = true;
+			olderMessageError = '';
+		} else {
+			loadingMessages = true;
+			loadingOlderMessages = false;
+			messageError = '';
+			messageErrorReference = '';
+			olderMessageError = '';
+			messageNextCursor = '';
+		}
 		const {
 			data,
 			error: apiError,
@@ -205,24 +224,96 @@
 		} = await client.GET('/messages/{conversation_id}', {
 			params: {
 				path: { conversation_id: conversationId },
-				query: { workspace_id: workspaceId, limit: 200, offset: 0 }
+				query: { workspace_id: requestedWorkspace, limit: 200, cursor: cursor || undefined }
 			}
 		});
-		if (selectedId !== conversationId) return;
+		if (
+			requestID !== messageRequest ||
+			selectedId !== conversationId ||
+			workspaceId !== requestedWorkspace
+		)
+			return;
 		if (apiError) {
-			messageError =
-				apiError.status === 404
-					? m.messages_conversation_unavailable()
-					: apiError.detail || m.messages_load_failed();
-			if (apiError.status !== undefined && apiError.status >= 500) {
-				messageErrorReference = response.headers.get('x-request-id') ?? '';
+			if (prepend) {
+				olderMessageError = apiError.detail || m.messages_older_page_failed();
+			} else {
+				messageError =
+					apiError.status === 404
+						? m.messages_conversation_unavailable()
+						: apiError.detail || m.messages_load_failed();
+				if (apiError.status !== undefined && apiError.status >= 500) {
+					messageErrorReference = response.headers.get('x-request-id') ?? '';
+				}
+				messages = [];
 			}
-			messages = [];
 		} else {
-			messages = data ?? [];
+			const incoming = data?.items ?? [];
+			const anchor = prepend ? messageVisibleAnchor() : null;
+			messages = prepend ? mergeMessages(incoming, messages) : incoming;
+			messageNextCursor = data?.next_cursor ?? '';
+			await tick();
+			if (prepend && anchor) restoreMessageVisibleAnchor(anchor);
+			else if (!prepend) messageViewport?.scrollTo({ top: messageViewport.scrollHeight });
 		}
-		loadingMessages = false;
+		if (prepend) loadingOlderMessages = false;
+		else loadingMessages = false;
 	}
+
+	function loadOlderMessages() {
+		if (!selectedId || !messageNextCursor || loadingOlderMessages || olderMessageError) return;
+		void loadMessages(selectedId, messageNextCursor, true);
+	}
+
+	function retryOlderMessages() {
+		olderMessageError = '';
+		loadOlderMessages();
+	}
+
+	function mergeMessages(older: DirectMessage[], current: DirectMessage[]) {
+		const byID = new Map(older.map((message) => [message.id, message]));
+		for (const message of current) byID.set(message.id, message);
+		return [...byID.values()].sort((left, right) => {
+			const leftTime = new Date(left.remote_created_at || left.created_at).getTime();
+			const rightTime = new Date(right.remote_created_at || right.created_at).getTime();
+			return (
+				leftTime - rightTime ||
+				left.created_at.localeCompare(right.created_at) ||
+				left.id.localeCompare(right.id)
+			);
+		});
+	}
+
+	function messageVisibleAnchor(): { id: string; top: number } | null {
+		if (!messageViewport) return null;
+		const viewportBounds = messageViewport.getBoundingClientRect();
+		for (const element of messageViewport.querySelectorAll<HTMLElement>('[data-message-id]')) {
+			const bounds = element.getBoundingClientRect();
+			if (bounds.bottom > viewportBounds.top && bounds.top < viewportBounds.bottom) {
+				return { id: element.dataset.messageId ?? '', top: bounds.top };
+			}
+		}
+		return null;
+	}
+
+	function restoreMessageVisibleAnchor(anchor: { id: string; top: number }) {
+		if (!messageViewport || !anchor.id) return;
+		const element = messageViewport.querySelector<HTMLElement>(
+			`[data-message-id="${CSS.escape(anchor.id)}"]`
+		);
+		if (element) messageViewport.scrollTop += element.getBoundingClientRect().top - anchor.top;
+	}
+
+	const observeOlderMessages: SvelteAttachment<HTMLElement> = (element) => {
+		if (!('IntersectionObserver' in window)) return;
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) loadOlderMessages();
+			},
+			{ root: messageViewport, rootMargin: '120px 0px 0px' }
+		);
+		observer.observe(element);
+		return () => observer.disconnect();
+	};
 
 	async function markConversationRead(conversation: Conversation) {
 		if (!workspaceId || conversation.unread_count === 0) return;
@@ -271,7 +362,7 @@
 			showToast(apiError.detail || m.messages_send_failed(), 'error');
 			return;
 		}
-		if (data) messages = [...messages, data];
+		if (data) messages = mergeMessages([], [...messages, data]);
 		replyBody = '';
 		showToast(m.messages_queued(), 'success');
 	}
@@ -527,7 +618,7 @@
 
 				<section
 					class={selectedId
-						? 'flex min-h-[34rem] flex-col'
+						? 'flex max-h-[42rem] min-h-[34rem] flex-col'
 						: 'hidden lg:flex lg:items-center lg:justify-center'}
 				>
 					{#if selected}
@@ -557,7 +648,9 @@
 
 						<div
 							class="flex flex-1 flex-col gap-3 overflow-y-auto bg-muted/15 p-3 sm:p-5"
-							aria-busy={loadingMessages}
+							aria-busy={loadingMessages || loadingOlderMessages}
+							bind:this={messageViewport}
+							data-testid="message-history"
 						>
 							{#if messageError}
 								<InlineNotice tone="error" message={messageError}>
@@ -580,8 +673,33 @@
 							{:else if loadingMessages}
 								<p class="text-sm text-muted-foreground">{m.common_loading()}</p>
 							{:else}
+								{#if messageNextCursor || olderMessageError}
+									<div class="flex flex-col items-center gap-2" {@attach observeOlderMessages}>
+										{#if olderMessageError}
+											<InlineNotice tone="error" message={olderMessageError}>
+												{#snippet actions()}
+													<Button variant="outline" size="sm" onclick={retryOlderMessages}>
+														{m.common_retry()}
+													</Button>
+												{/snippet}
+											</InlineNotice>
+										{:else}
+											<Button
+												variant="outline"
+												size="sm"
+												disabled={loadingOlderMessages}
+												onclick={loadOlderMessages}
+											>
+												{loadingOlderMessages
+													? m.common_loading()
+													: m.messages_load_older_messages()}
+											</Button>
+										{/if}
+									</div>
+								{/if}
 								{#each messages as message (message.id)}
 									<div
+										data-message-id={message.id}
 										class={[
 											'flex',
 											message.direction === 'outbound' ? 'justify-end' : 'justify-start'

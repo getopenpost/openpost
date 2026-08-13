@@ -31,6 +31,8 @@ The inbox saves conversations, messages, file links, send status, and reply dead
 
 The conversation list loads older conversations in stable pages and keeps the active Workspace, platform, account, archive filter, and selected conversation. If an older page fails, the loaded list stays available with an in-place retry.
 
+Open a conversation to start with its newest saved messages. As you approach the top, OpenPost loads older messages in stable pages and keeps the message you were reading in the same place. **Load older messages** provides the same action for keyboard and assistive technology users. A failed older page leaves the active history in place so you can retry it. New messages and late responses from another conversation or Workspace do not reorder or replace the history you have open.
+
 Important provider behavior:
 
 - Facebook and Instagram replies are limited by Meta's active customer-service window. OpenPost blocks a send after the stored deadline.

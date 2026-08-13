@@ -117,9 +117,15 @@ type ListMessagesInput struct {
 	WorkspaceID    string `query:"workspace_id" required:"true"`
 	Limit          int    `query:"limit" default:"100" minimum:"1" maximum:"200"`
 	Offset         int    `query:"offset" default:"0" minimum:"0"`
+	Cursor         string `query:"cursor" doc:"Opaque cursor for stable older-page pagination"`
 }
 
-type ListMessagesOutput struct{ Body []models.DirectMessage }
+type MessagePage struct {
+	Items      []models.DirectMessage `json:"items"`
+	NextCursor string                 `json:"next_cursor,omitempty"`
+}
+
+type ListMessagesOutput struct{ Body MessagePage }
 
 type SendMessageInput struct {
 	ConversationID string `path:"conversation_id"`
@@ -228,6 +234,46 @@ func parseConversationCursor(value string) (*communications.ConversationCursor, 
 	}
 	return &communications.ConversationCursor{
 		OccurredAt: cursor.OccurredAt.UTC(), ID: cursor.ID,
+	}, nil
+}
+
+type messageCursorPayload struct {
+	OccurredAt time.Time `json:"occurred_at"`
+	CreatedAt  time.Time `json:"created_at"`
+	ID         string    `json:"id"`
+}
+
+func encodeMessageCursor(cursor *communications.MessageCursor) string {
+	if cursor == nil {
+		return ""
+	}
+	payload, err := json.Marshal(messageCursorPayload{
+		OccurredAt: cursor.OccurredAt.UTC(), CreatedAt: cursor.CreatedAt.UTC(), ID: cursor.ID,
+	})
+	if err != nil {
+		return ""
+	}
+	return base64.RawURLEncoding.EncodeToString(payload)
+}
+
+func parseMessageCursor(value string) (*communications.MessageCursor, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(value)
+	if err != nil {
+		return nil, err
+	}
+	var cursor messageCursorPayload
+	if err := json.Unmarshal(payload, &cursor); err != nil {
+		return nil, err
+	}
+	if cursor.OccurredAt.IsZero() || cursor.CreatedAt.IsZero() || strings.TrimSpace(cursor.ID) == "" {
+		return nil, errors.New("message cursor is incomplete")
+	}
+	return &communications.MessageCursor{
+		OccurredAt: cursor.OccurredAt.UTC(), CreatedAt: cursor.CreatedAt.UTC(), ID: cursor.ID,
 	}, nil
 }
 
@@ -358,7 +404,14 @@ func (h *CommunicationsHandler) RegisterRoutes(api huma.API) {
 		if err := h.requireWorkspace(ctx, input.WorkspaceID, false); err != nil {
 			return nil, err
 		}
-		items, err := h.service.ListMessages(ctx, input.WorkspaceID, input.ConversationID, input.Limit, input.Offset)
+		cursor, err := parseMessageCursor(input.Cursor)
+		if err != nil || (cursor != nil && input.Offset != 0) {
+			return nil, huma.Error400BadRequest("invalid message cursor")
+		}
+		page, err := h.service.ListMessages(ctx, communications.MessageQuery{
+			WorkspaceID: input.WorkspaceID, ConversationID: input.ConversationID,
+			Limit: input.Limit, Offset: input.Offset, Cursor: cursor,
+		})
 		if err != nil {
 			if errors.Is(err, communications.ErrConversationNotFound) {
 				return nil, huma.Error404NotFound("conversation not found")
@@ -366,7 +419,9 @@ func (h *CommunicationsHandler) RegisterRoutes(api huma.API) {
 			log.Printf("failed to load conversation %s in workspace %s: %v", input.ConversationID, input.WorkspaceID, err)
 			return nil, huma.Error500InternalServerError("failed to load conversation")
 		}
-		return &ListMessagesOutput{Body: items}, nil
+		return &ListMessagesOutput{Body: MessagePage{
+			Items: page.Items, NextCursor: encodeMessageCursor(page.NextCursor),
+		}}, nil
 	})
 
 	huma.Register(api, huma.Operation{

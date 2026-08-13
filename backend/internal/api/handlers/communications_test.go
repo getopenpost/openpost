@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"testing"
 	"time"
 
@@ -47,6 +48,24 @@ func TestConversationCursorIsOpaqueAndRejectsInvalidValues(t *testing.T) {
 
 	for _, value := range []string{"not-a-cursor", "e30"} {
 		_, err := parseConversationCursor(value)
+		require.Error(t, err)
+	}
+}
+
+func TestMessageCursorIsOpaqueAndRejectsInvalidValues(t *testing.T) {
+	cursor := &communications.MessageCursor{
+		OccurredAt: time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC),
+		CreatedAt:  time.Date(2026, 8, 10, 12, 0, 1, 0, time.UTC),
+		ID:         "message-1",
+	}
+	encoded := encodeMessageCursor(cursor)
+	require.NotContains(t, encoded, "message-1")
+	parsed, err := parseMessageCursor(encoded)
+	require.NoError(t, err)
+	require.Equal(t, cursor, parsed)
+
+	for _, value := range []string{"not-base64", base64.RawURLEncoding.EncodeToString([]byte(`{"id":"message-1"}`))} {
+		_, err := parseMessageCursor(value)
 		require.Error(t, err)
 	}
 }

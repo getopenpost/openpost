@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Messages now loads older conversation history near the top with stable cursor pages, an accessible manual control, exact reading-position preservation, deduplication, and stale-request protection across new messages, conversations, and Workspaces.
 - Messages now reaches complete conversation history with stable cursor pages, deduplicated appends that keep newer records, preserved filters and selection, and in-place first-page and older-page retries.
 - Engagement now reaches complete saved history with stable cursor pages, in-place retries, deduplicated appends, and a searchable, paged Publication filter that keeps older selections.
 - Every platform and comparison page now publishes a build-generated Markdown representation with canonical metadata, provider limits or comparison evidence, HTML alternate discovery, and optional `llms.txt` sections derived from the marketing route manifest.

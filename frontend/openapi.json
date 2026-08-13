@@ -9078,6 +9078,29 @@
 				"required": ["message"],
 				"type": "object"
 			},
+			"MessagePage": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/MessagePage.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/DirectMessage"
+						},
+						"type": ["array", "null"]
+					},
+					"next_cursor": {
+						"type": "string"
+					}
+				},
+				"required": ["items"],
+				"type": "object"
+			},
 			"MessageSyncState": {
 				"additionalProperties": false,
 				"properties": {
@@ -29231,6 +29254,16 @@
 							"minimum": 0,
 							"type": "integer"
 						}
+					},
+					{
+						"description": "Opaque cursor for stable older-page pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable older-page pagination",
+							"type": "string"
+						}
 					}
 				],
 				"responses": {
@@ -29238,10 +29271,7 @@
 						"content": {
 							"application/json": {
 								"schema": {
-									"items": {
-										"$ref": "#/components/schemas/DirectMessage"
-									},
-									"type": ["array", "null"]
+									"$ref": "#/components/schemas/MessagePage"
 								}
 							}
 						},

@@ -1723,29 +1723,71 @@ func (s *Service) ListMessageSyncStates(ctx context.Context, workspaceID string)
 	return states, err
 }
 
-func (s *Service) ListMessages(ctx context.Context, workspaceID, conversationID string, limit, offset int) ([]models.DirectMessage, error) {
-	if limit <= 0 || limit > 200 {
-		limit = 100
+type MessageCursor struct {
+	OccurredAt time.Time
+	CreatedAt  time.Time
+	ID         string
+}
+
+type MessageQuery struct {
+	WorkspaceID    string
+	ConversationID string
+	Limit          int
+	Offset         int
+	Cursor         *MessageCursor
+}
+
+type MessagePage struct {
+	Items      []models.DirectMessage
+	NextCursor *MessageCursor
+}
+
+func (s *Service) ListMessages(ctx context.Context, input MessageQuery) (MessagePage, error) {
+	if input.Limit <= 0 || input.Limit > 200 {
+		input.Limit = 100
 	}
+	page := MessagePage{Items: make([]models.DirectMessage, 0, input.Limit)}
 	exists, err := s.db.NewSelect().Model((*models.Conversation)(nil)).
-		Where("id = ? AND workspace_id = ?", conversationID, workspaceID).
+		Where("id = ? AND workspace_id = ?", input.ConversationID, input.WorkspaceID).
 		Exists(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("check conversation: %w", err)
+		return page, fmt.Errorf("check conversation: %w", err)
 	}
 	if !exists {
-		return nil, ErrConversationNotFound
+		return page, ErrConversationNotFound
 	}
-	var messages []models.DirectMessage
-	err = s.db.NewSelect().Model(&messages).
+	query := s.db.NewSelect().Model(&page.Items).
 		Join("JOIN conversations AS conversation ON conversation.id = direct_message.conversation_id").
-		Where("direct_message.conversation_id = ? AND conversation.workspace_id = ?", conversationID, workspaceID).
-		OrderExpr("COALESCE(direct_message.remote_created_at, direct_message.created_at) ASC").
-		Limit(limit).Offset(max(0, offset)).Scan(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list conversation messages: %w", err)
+		Where("direct_message.conversation_id = ? AND conversation.workspace_id = ?", input.ConversationID, input.WorkspaceID)
+	if input.Cursor != nil {
+		query = query.Where(`(
+			COALESCE(direct_message.remote_created_at, direct_message.created_at) < ? OR
+			(COALESCE(direct_message.remote_created_at, direct_message.created_at) = ? AND direct_message.created_at < ?) OR
+			(COALESCE(direct_message.remote_created_at, direct_message.created_at) = ? AND direct_message.created_at = ? AND direct_message.id < ?)
+		)`, input.Cursor.OccurredAt, input.Cursor.OccurredAt, input.Cursor.CreatedAt,
+			input.Cursor.OccurredAt, input.Cursor.CreatedAt, input.Cursor.ID)
 	}
-	return messages, nil
+	err = query.
+		OrderExpr("COALESCE(direct_message.remote_created_at, direct_message.created_at) DESC").
+		OrderExpr("direct_message.created_at DESC").
+		OrderExpr("direct_message.id DESC").
+		Limit(input.Limit + 1).Offset(max(0, input.Offset)).Scan(ctx)
+	if err != nil {
+		return page, fmt.Errorf("list conversation messages: %w", err)
+	}
+	if len(page.Items) > input.Limit {
+		page.Items = page.Items[:input.Limit]
+		last := page.Items[len(page.Items)-1]
+		occurredAt := last.RemoteCreatedAt
+		if occurredAt.IsZero() {
+			occurredAt = last.CreatedAt
+		}
+		page.NextCursor = &MessageCursor{OccurredAt: occurredAt, CreatedAt: last.CreatedAt, ID: last.ID}
+	}
+	for left, right := 0, len(page.Items)-1; left < right; left, right = left+1, right-1 {
+		page.Items[left], page.Items[right] = page.Items[right], page.Items[left]
+	}
+	return page, nil
 }
 
 func (s *Service) SetConversationState(ctx context.Context, workspaceID, conversationID string, read, archived *bool) error {

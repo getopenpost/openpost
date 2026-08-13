@@ -366,14 +366,71 @@ func TestListMessagesOrdersStoredMessagesByProviderTime(t *testing.T) {
 	require.NoError(t, err)
 
 	service := NewService(db, staticTokenSource{}, nil)
-	got, err := service.ListMessages(ctx, "workspace-1", conversation.ID, 100, 0)
+	page, err := service.ListMessages(ctx, MessageQuery{WorkspaceID: "workspace-1", ConversationID: conversation.ID, Limit: 100})
 	require.NoError(t, err)
-	require.Len(t, got, 2)
-	require.Equal(t, "message-earlier", got[0].ID)
-	require.Equal(t, "message-later", got[1].ID)
+	require.Len(t, page.Items, 2)
+	require.Equal(t, "message-earlier", page.Items[0].ID)
+	require.Equal(t, "message-later", page.Items[1].ID)
+	require.Nil(t, page.NextCursor)
 
-	_, err = service.ListMessages(ctx, "workspace-2", conversation.ID, 100, 0)
+	_, err = service.ListMessages(ctx, MessageQuery{WorkspaceID: "workspace-2", ConversationID: conversation.ID, Limit: 100})
 	require.ErrorIs(t, err, ErrConversationNotFound)
+}
+
+func TestListMessagesCursorReachesEveryRecordWithoutGapsOrDuplicates(t *testing.T) {
+	db := communicationsTestDB(t)
+	ctx := t.Context()
+	timestamp := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
+	conversation := &models.Conversation{
+		ID: "conversation-1", WorkspaceID: "workspace-1", SocialAccountID: "account-1",
+		Platform: "bluesky", RemoteConversationID: "remote-conversation-1",
+		CreatedAt: timestamp, UpdatedAt: timestamp,
+	}
+	_, err := db.NewInsert().Model(conversation).Exec(ctx)
+	require.NoError(t, err)
+	messages := make([]models.DirectMessage, 0, 235)
+	for index := range 235 {
+		messages = append(messages, models.DirectMessage{
+			ID: fmt.Sprintf("message-%03d", index), WorkspaceID: "workspace-1",
+			ConversationID: conversation.ID, Direction: "inbound", Body: fmt.Sprintf("Message %d", index),
+			RemoteCreatedAt: timestamp, CreatedAt: timestamp, UpdatedAt: timestamp,
+		})
+	}
+	_, err = db.NewInsert().Model(&messages).Exec(ctx)
+	require.NoError(t, err)
+	service := NewService(db, staticTokenSource{}, nil)
+
+	seen := make([]string, 0, len(messages))
+	var cursor *MessageCursor
+	for {
+		page, err := service.ListMessages(ctx, MessageQuery{
+			WorkspaceID: "workspace-1", ConversationID: conversation.ID, Limit: 37, Cursor: cursor,
+		})
+		require.NoError(t, err)
+		pageIDs := make([]string, 0, len(page.Items))
+		for _, message := range page.Items {
+			pageIDs = append(pageIDs, message.ID)
+		}
+		seen = append(pageIDs, seen...)
+		if cursor == nil {
+			_, err = db.NewInsert().Model(&models.DirectMessage{
+				ID: "message-new", WorkspaceID: "workspace-1", ConversationID: conversation.ID,
+				Direction: "inbound", Body: "Concurrent arrival", RemoteCreatedAt: timestamp.Add(time.Hour),
+				CreatedAt: timestamp.Add(time.Hour), UpdatedAt: timestamp.Add(time.Hour),
+			}).Exec(ctx)
+			require.NoError(t, err)
+		}
+		cursor = page.NextCursor
+		if cursor == nil {
+			break
+		}
+	}
+	require.Len(t, seen, 235)
+	require.Equal(t, len(seen), len(uniqueStrings(seen)))
+	require.NotContains(t, seen, "message-new")
+	for index, id := range seen {
+		require.Equal(t, fmt.Sprintf("message-%03d", index), id)
+	}
 }
 
 func TestMessageSyncAlwaysChecksNewestPageWhileBackfilling(t *testing.T) {

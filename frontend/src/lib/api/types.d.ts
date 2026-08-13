@@ -7869,6 +7869,16 @@ export interface components {
             readonly $schema?: string;
             message: string;
         };
+        MessagePage: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/MessagePage.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["DirectMessage"][] | null;
+            next_cursor?: string;
+        };
         MessageSyncState: {
             error_code: string;
             error_message: string;
@@ -20887,6 +20897,8 @@ export interface operations {
                 workspace_id: string;
                 limit?: number;
                 offset?: number;
+                /** @description Opaque cursor for stable older-page pagination */
+                cursor?: string;
             };
             header?: never;
             path: {
@@ -20902,7 +20914,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["DirectMessage"][] | null;
+                    "application/json": components["schemas"]["MessagePage"];
                 };
             };
             /** @description Error */

@@ -4,7 +4,7 @@
 FROM frontend_artifact AS frontend-builder
 
 # Build stage for backend
-FROM golang:1.26.6-alpine@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df AS backend-builder
+FROM golang:1.27rc2-alpine@sha256:dcbb18cc5fa1082364dc6aa95224b6b55429d09cbb9631a053d8064c1c367300 AS backend-builder
 
 ARG VERSION=dev
 ARG COMMIT=unknown

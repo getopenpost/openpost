@@ -178,6 +178,27 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
       },
     });
   });
+  await page.route(`**/api/v1/workspaces/${workspaceBody.id}/setup`, async (route) => {
+    const activated = scheduleAttempts >= 2;
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        activated,
+        visible: !activated,
+        completed_steps: activated ? 4 : 3,
+        total_steps: 4,
+        next_step: activated ? undefined : "publication",
+        next_action: activated ? undefined : "create_publication",
+        action_href: activated ? undefined : "/",
+        steps: [
+          { id: "workspace", completed: true },
+          { id: "destination", completed: true },
+          { id: "composition", completed: true },
+          { id: "publication", completed: activated },
+        ],
+      },
+    });
+  });
   await page.route("**/api/v1/posts/draft", async (route) => {
     const body = route.request().postDataJSON() as {
       publication?: PostPayload;
@@ -307,6 +328,8 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
         json: {
           message: "Publication scheduled",
           job_id: "job-publication-schedule",
+          workspace_activated: true,
+          activation_publication_id: "publication-schedule",
         },
       });
       return;
@@ -386,6 +409,14 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   await quickSchedule.click();
 
   await expect(page.getByText("Scheduled!", { exact: true })).toBeVisible();
+  const activation = page.getByTestId("workspace-activation-completion");
+  await expect(activation).toContainText("Workspace activated");
+  await expect(activation.getByRole("link", { name: "View publication" })).toHaveAttribute(
+    "href",
+    "/publications/publication-schedule",
+  );
+  await expect(activation.getByRole("button", { name: "Create another" })).toBeVisible();
+  await expect(page.getByTestId("workspace-setup-guide-composer")).toHaveCount(0);
   await expect(page.locator("html")).toHaveAttribute("data-celebrating-schedule", "true");
   await expect.poll(() => publicationPayload).toBeTruthy();
   await expect.poll(() => scheduleAttempts).toBe(2);
@@ -415,4 +446,8 @@ test("composer uses the exact immediate and scheduled readiness decisions", asyn
   expect(publicationPayload?.source_url ?? "").toBe("");
   expect(publicationPayload?.scheduled_at).toBeTruthy();
   expect(new Date(publicationPayload?.scheduled_at ?? "").toString()).not.toBe("Invalid Date");
+
+  await activation.getByRole("button", { name: "Create another" }).click();
+  await expect(activation).toHaveCount(0);
+  await expect(page.getByLabel("Post text")).toHaveValue("");
 });

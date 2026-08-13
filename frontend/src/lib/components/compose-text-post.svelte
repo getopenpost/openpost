@@ -3762,24 +3762,7 @@
 			} else if (isEditMode && onSuccess) {
 				setTimeout(() => onSuccess(), 800);
 			} else {
-				pasteMediaUploadQueue.reset();
-				posts = [makeEmptyPost()];
-				activePostIndex = 0;
-				draftId = null;
-				publicationId = '';
-				lastSavedSnapshot = '';
-				lastSavedScheduleAt = '';
-				variants = new Map();
-				activeVariantAccountId = null;
-				linkUrl = '';
-				settingsByAccount = {};
-				segmentSettingsByPost = {};
-				mediaSettingsByAccount = {};
-				resolvedCapabilities = {};
-				validationIssues = [];
-				selectedDate = undefined;
-				selectedTime = null;
-				randomDelayOverride = 'default';
+				resetAfterSuccessfulPublication();
 				onSuccess?.();
 				setTimeout(() => (success = ''), 3000);
 			}
@@ -4608,6 +4591,27 @@
 			compositionClaimPendingWorkspaceIDs.delete(workspaceID);
 		}
 	}
+
+	function resetAfterSuccessfulPublication() {
+		pasteMediaUploadQueue.reset();
+		posts = [makeEmptyPost()];
+		activePostIndex = 0;
+		draftId = null;
+		publicationId = '';
+		lastSavedSnapshot = '';
+		lastSavedScheduleAt = '';
+		variants = new Map();
+		activeVariantAccountId = null;
+		linkUrl = '';
+		settingsByAccount = {};
+		segmentSettingsByPost = {};
+		mediaSettingsByAccount = {};
+		resolvedCapabilities = {};
+		validationIssues = [];
+		selectedDate = undefined;
+		selectedTime = null;
+		randomDelayOverride = 'default';
+	}
 </script>
 
 <!-- ====================================================================== -->
@@ -4990,7 +4994,11 @@
 					publicationID={activationPublicationID}
 					onCreateAnother={() => {
 						activationPublicationID = '';
-						if (isEditMode) onSuccess?.();
+						if (isEditMode) {
+							onSuccess?.();
+						} else {
+							resetAfterSuccessfulPublication();
+						}
 					}}
 				/>
 			{/if}

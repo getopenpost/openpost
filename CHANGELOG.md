@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Proved the complete first-use cohort from verified signup through Workspace Activation with deterministic email, Paddle, and destination adapters, recovery and role coverage, responsive and presentation checks, and clean browser-console assertions.
 - Replaced the frontend formatting and general JavaScript lint passes with Oxfmt and Oxlint, retained ESLint for Svelte template rules, upgraded production builds to Vite 8 and Rolldown, cached independent frontend quality tasks with Turbo, parallelized safe repository checks and tests, and reused the shared Go cache for local backend builds.
 - Replaced the overlapping package, Devenv, CI, hook, and release command graphs with one root task registry for formatting, linting, checks, tests, builds, verification, and release subcommands; added consistent surface scopes and policy selectors; removed obsolete aliases; and made CI and local release checks call the same tasks.
 - Updated the transitive Nano ID security pin so the exhaustive release dependency audit passes without the high-severity zero-size custom-generator advisory.
@@ -21,6 +22,7 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+- "Create another" after first Activation now opens a clean composer instead of retaining the published text and draft identity.
 - Made direct documentation builds restore their ignored OpenAPI inputs from the tracked canonical spec before VitePress starts, so clean deployment checkouts cannot depend on generated local files.
 
 ## [3.11.0] - 2026-08-12

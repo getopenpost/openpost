@@ -29,7 +29,7 @@ export interface SocialEntry {
   platform?: string;
   agentDiscovery?: {
     membership: "primary" | "optional" | "unlisted";
-    section?: "platforms" | "comparisons";
+    section?: "platforms" | "comparisons" | "tools";
   };
 }
 
@@ -38,7 +38,7 @@ export interface MarketingRouteEntry extends SocialEntry {
   agentRepresentation: "static" | "platform" | "comparison" | "tool";
   agentDiscovery: {
     membership: "primary" | "optional" | "unlisted";
-    section?: "platforms" | "comparisons";
+    section?: "platforms" | "comparisons" | "tools";
   };
 }
 

@@ -309,7 +309,7 @@ const toolEntries = toolPages.map((tool) => ({
   label: "Free browser tool",
   kind: "tool",
   agentRepresentation: "tool",
-  agentDiscovery: { membership: "optional" },
+  agentDiscovery: { membership: "optional", section: "tools" },
   subject: tool.name,
   priority: "0.6",
 }));
@@ -361,7 +361,7 @@ export function canonicalMarketingUrl(pathname) {
 }
 
 export function marketingAgentMarkdownUrl(entry) {
-  if (!entry.agentDiscovery || entry.agentRepresentation === "tool") return undefined;
+  if (!entry.agentDiscovery) return undefined;
   return entry.path === "/" ? `${marketingSiteUrl}/index.md` : `${entry.canonical}.md`;
 }
 

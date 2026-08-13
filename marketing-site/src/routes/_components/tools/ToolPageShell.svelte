@@ -8,7 +8,12 @@
 		eyebrow?: string;
 		title: string;
 		description: string;
-		privacyNote?: string;
+		audience: string;
+		inputs: readonly string[];
+		outputs: readonly string[];
+		limits: readonly string[];
+		privacyBehavior: string;
+		nextStep: string;
 		children: Snippet;
 	}
 
@@ -16,7 +21,12 @@
 		eyebrow = 'Free tool',
 		title,
 		description,
-		privacyNote = 'Your draft stays in this browser. Nothing is uploaded.',
+		audience,
+		inputs,
+		outputs,
+		limits,
+		privacyBehavior,
+		nextStep,
 		children
 	}: Props = $props();
 </script>
@@ -42,16 +52,52 @@
 			</p>
 			<p class="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground">
 				<LockKeyhole class="size-4 text-primary" />
-				{privacyNote}
+				{privacyBehavior}
 			</p>
 		</div>
 	</div>
 
-	<div class="marketing-shell pb-14 sm:pb-20">
+	<div
+		class="marketing-shell grid gap-6 pb-10 sm:grid-cols-2 lg:grid-cols-3"
+		data-agent-include="tool-explanation"
+	>
+		<section>
+			<h2 class="text-lg font-semibold">Who this is for</h2>
+			<p class="mt-2 text-sm leading-6 text-muted-foreground">{audience}</p>
+		</section>
+		<section>
+			<h2 class="text-lg font-semibold">Inputs</h2>
+			<ul class="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
+				{#each inputs as input (input)}<li>{input}</li>{/each}
+			</ul>
+		</section>
+		<section>
+			<h2 class="text-lg font-semibold">Outputs</h2>
+			<ul class="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
+				{#each outputs as output (output)}<li>{output}</li>{/each}
+			</ul>
+		</section>
+		<section>
+			<h2 class="text-lg font-semibold">Limits</h2>
+			<ul class="mt-2 list-disc space-y-1 pl-5 text-sm leading-6 text-muted-foreground">
+				{#each limits as limit (limit)}<li>{limit}</li>{/each}
+			</ul>
+		</section>
+		<section>
+			<h2 class="text-lg font-semibold">Privacy</h2>
+			<p class="mt-2 text-sm leading-6 text-muted-foreground">{privacyBehavior}</p>
+		</section>
+		<section>
+			<h2 class="text-lg font-semibold">Next step</h2>
+			<p class="mt-2 text-sm leading-6 text-muted-foreground">{nextStep}</p>
+		</section>
+	</div>
+
+	<div class="marketing-shell pb-14 sm:pb-20" data-agent-exclude="interactive-tool">
 		{@render children()}
 	</div>
 
-	<div class="border-t bg-muted/25">
+	<div class="border-t bg-muted/25" data-agent-exclude="application-cta">
 		<div
 			class="marketing-shell flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between"
 		>

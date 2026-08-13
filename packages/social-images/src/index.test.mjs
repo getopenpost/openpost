@@ -61,7 +61,7 @@ test("the public route manifest owns social, sitemap, and prerender metadata", (
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/tools/thread-splitter")),
-    undefined,
+    "https://openpost.social/tools/thread-splitter.md",
   );
   assert.throws(
     () => marketingPrerenderEntries("/pricing"),

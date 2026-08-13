@@ -127,9 +127,7 @@ test("marketing production projection emits deterministic homepage Markdown and 
 });
 
 test("marketing production projection covers every eligible route from canonical metadata", () => {
-  const representedRoutes = marketingRouteManifest.filter(
-    (entry) => entry.agentRepresentation !== "tool",
-  );
+  const representedRoutes = marketingRouteManifest;
   assert.ok(representedRoutes.length > 1);
   assert.deepEqual(
     productionProjections.marketing.pages.map((page) => page.route.path),
@@ -143,6 +141,53 @@ test("marketing production projection covers every eligible route from canonical
     assert.match(route.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
   }
 });
+
+test(
+  "marketing production artifacts preserve every browser tool explanation without controls",
+  { timeout: 180_000 },
+  async () => {
+    const root = path.resolve(import.meta.dirname, "..");
+    await ensureProductionBuilds(root);
+    const outputDirectory = path.join(root, "marketing-site/dist");
+    const discovery = await readFile(path.join(outputDirectory, "llms.txt"), "utf8");
+    const routes = marketingRouteManifest.filter((entry) => entry.kind === "tool");
+
+    assert.equal(routes.length, 8);
+    assert.match(discovery, /^## Optional browser tools$/m);
+    for (const route of routes) {
+      const relative = route.path.slice(1);
+      const html = await readFile(path.join(outputDirectory, `${relative}.html`), "utf8");
+      const markdown = await readFile(path.join(outputDirectory, `${relative}.md`), "utf8");
+
+      assert.match(html, /data-agent-exclude="interactive-tool"/u);
+      assert.match(markdown, /^## Who this is for$/m);
+      assert.match(markdown, /^## Inputs$/m);
+      assert.match(markdown, /^## Outputs$/m);
+      assert.match(markdown, /^## Limits$/m);
+      assert.match(markdown, /^## Privacy$/m);
+      assert.match(markdown, /^## Next step$/m);
+      assert.doesNotMatch(
+        markdown,
+        /<(?:textarea|select|button)|data-sveltekit|onclick|Example dates use next week/u,
+      );
+      assert.match(discovery, new RegExp(`\\(${route.canonical.replaceAll(".", "\\.")}\\.md\\)`));
+    }
+
+    const video = await readFile(
+      path.join(outputDirectory, "tools/social-media-video-editor.md"),
+      "utf8",
+    );
+    const image = await readFile(
+      path.join(outputDirectory, "tools/social-media-image-editor.md"),
+      "utf8",
+    );
+    for (const editor of [video, image]) {
+      assert.match(editor, /This page describes the editor/u);
+      assert.match(editor, /guest editor/u);
+      assert.doesNotMatch(editor, /One timeline, four frames|No account or watermark/u);
+    }
+  },
+);
 
 test("marketing projection rejects unsupported meaning-bearing markup with the route", async () => {
   const directory = await fixtureDirectory();

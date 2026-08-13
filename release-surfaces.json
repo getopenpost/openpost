@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "surfaces": {
+    "application": {
+      "description": "Server, web application, CLI, shared runtime packages, and application browser coverage",
+      "prefixes": ["backend/", "cli/", "e2e-app/", "frontend/", "packages/"],
+      "paths": ["playwright.app.config.ts"]
+    },
+    "marketing": {
+      "description": "Public marketing site, public social assets, and marketing browser coverage",
+      "prefixes": [
+        "e2e/",
+        "marketing-site/",
+        "packages/changelog/",
+        "packages/legal-policy/",
+        "packages/social-images/",
+        "packages/social-preview/",
+        "social-assets/"
+      ],
+      "paths": ["marketing-claims.json", "playwright.config.ts"]
+    },
+    "documentation": {
+      "description": "Product, operator, contributor, policy, and generated documentation",
+      "prefixes": [
+        "docs-site/",
+        "docs/",
+        "e2e-docs/",
+        "packages/social-images/"
+      ],
+      "paths": [
+        "AGENTS.md",
+        "AUDIT_REMEDIATION_TODO.md",
+        "CHANGELOG.md",
+        "CODE_OF_CONDUCT.md",
+        "CONTRIBUTING.md",
+        "CONTEXT.md",
+        "DESIGN.md",
+        "PRODUCT.md",
+        "README.md",
+        "ROADMAP.md",
+        "SECURITY.md",
+        "THIRD_PARTY_NOTICES.md",
+        "playwright.docs.config.ts"
+      ]
+    },
+    "delivery": {
+      "description": "Build, test, image, deployment, release, certification, and repository environment contracts",
+      "prefixes": [
+        ".github/",
+        "docker/",
+        "provider-certification/",
+        "scripts/"
+      ],
+      "paths": [
+        ".dockerignore",
+        ".env.example",
+        ".envrc",
+        "bun.lock",
+        "bunfig.toml",
+        "compatibility-surfaces.json",
+        "devenv.lock",
+        "devenv.nix",
+        "devenv.yaml",
+        "docker-compose.yml",
+        "knip.jsonc",
+        "package.json",
+        "release-surfaces.json",
+        "turbo.json"
+      ]
+    },
+    "launch": {
+      "description": "Reviewable launch campaign templates and distribution evidence",
+      "prefixes": ["launch-kit/"]
+    },
+    "agent-tools": {
+      "description": "Repository-owned agent instructions, skills, hooks, and design-audit tooling",
+      "prefixes": [".agents/", ".codex/", ".impeccable/", "skills/"],
+      "paths": [
+        ".github/copilot-instructions.md",
+        "server.json",
+        "skills-lock.json"
+      ]
+    },
+    "shared-assets": {
+      "description": "Canonical assets copied into one or more shipped web surfaces",
+      "prefixes": ["assets/"]
+    },
+    "repository": {
+      "description": "Repository behavior and licensing with no standalone runtime owner",
+      "paths": [".gitattributes", ".gitignore", "LICENSE"]
+    }
+  },
+  "exemptions": [
+    {
+      "prefix": "references/",
+      "reason": "Git-ignored source-reference checkout placeholders are not shipped or released"
+    }
+  ]
+}

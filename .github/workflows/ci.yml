@@ -166,7 +166,7 @@ jobs:
           cache-dependency-path: backend/go.sum
       - working-directory: backend
         run: go test -tags dev -coverprofile=coverage.out ./...
-      - uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4.6.0
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           files: backend/coverage.out
           fail_ci_if_error: false
@@ -230,7 +230,7 @@ jobs:
           else
             bun run frontend:build
           fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: frontend-public-${{ github.sha }}-${{ github.run_attempt }}
           path: backend/cmd/openpost/public
@@ -282,7 +282,7 @@ jobs:
           else
             bun run marketing:build
           fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: marketing-static-${{ github.sha }}-${{ github.run_attempt }}
           path: marketing-site/dist
@@ -333,7 +333,7 @@ jobs:
           else
             bunx turbo run build --filter @openpost/docs
           fi
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: docs-static-${{ github.sha }}-${{ github.run_attempt }}
           path: docs-site/.vitepress/dist
@@ -486,7 +486,7 @@ jobs:
       - run: |
           cp frontend/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           sha256sum openpost-app-android-unsigned.apk > openpost-app-android-unsigned.sha256
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-unsigned-${{ github.sha }}-${{ github.run_attempt }}
           path: |
@@ -514,7 +514,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Log in to GHCR
         if: github.event_name == 'push'
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
@@ -568,7 +568,7 @@ jobs:
           jq -e '(.spdxVersion | startswith("SPDX-")) and (.packages | type == "array") and (.packages | length > 0)' openpost-image.spdx.json >/dev/null
           jq -e '(.SchemaVersion // 0) >= 2 and (.Results | type == "array") and (.Results | length > 0)' openpost-image-trivy.json >/dev/null
       - name: Retain final-image diagnostic evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-diagnostics-${{ github.sha }}-${{ github.run_attempt }}
           path: |
@@ -601,7 +601,7 @@ jobs:
           [[ "$digest" == sha256:* ]] || { echo "Published candidate did not resolve to a registry digest." >&2; exit 1; }
           bun scripts/image-evidence.mjs create --repository "$repository" --tag "sha-${GITHUB_SHA}" --revision "$GITHUB_SHA" --digest "$digest" --release-manifest release-manifest.json --sbom openpost-image.spdx.json --vulnerability-report openpost-image-trivy.json --output openpost-image-evidence.json
       - name: Upload exact candidate evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: github.event_name == 'push'
         with:
           name: release-manifest-${{ github.sha }}-${{ github.run_attempt }}

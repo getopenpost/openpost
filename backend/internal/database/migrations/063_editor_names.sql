@@ -1,0 +1,3 @@
+-- 063: Use editor names for canonical settings, media provenance, and video project modes.
+-- Existing externally configured Studio environment variables remain temporary read aliases.
+-- The cross-dialect, partial-schema-safe updates are implemented in migrations.go.

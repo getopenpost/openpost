@@ -1,0 +1,19 @@
+{
+  "name": "@openpost/legal-policy",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./legal-change-history.json": "./src/legal-change-history.json",
+    "./manifest.json": "./src/manifest.json",
+    "./managed-service.json": "./src/managed-service.json",
+    "./privacy-inventory.json": "./src/privacy-inventory.json",
+    "./security-assurance.json": "./src/security-assurance.json"
+  },
+  "scripts": {
+    "test": "bun test src/index.test.mjs"
+  }
+}

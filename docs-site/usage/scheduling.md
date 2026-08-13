@@ -1,0 +1,41 @@
+# Scheduling
+
+OpenPost saves scheduled posts in its database, so they survive a server restart. The same saved record keeps the shared content, account versions, media, time, and status.
+
+## Plan from Calendar
+
+Calendar has month and week views. Filter it by workspace, platform, and status:
+
+- **Scheduled** items show when they should run and can be moved.
+- **Published** items show when they ran and cannot be moved.
+
+Select an empty future day to start a post with that date and time. On desktop, drag a scheduled item to another future day or time. On a phone or tablet, open the item and use its time controls.
+
+Calendar, Activity, and the side planner show the same posts. Each text post, thread, Story, short video, or video appears once and opens in the right editor.
+
+## Choose a time in the composer
+
+The composer interprets dates and times in the workspace timezone. You can:
+
+- choose an exact future date and time;
+- request the next free slot from the workspace posting schedule;
+- save a time while the post stays a draft; or
+- choose **Schedule**, which checks the post and saves the posting job.
+
+The publication time applies to every destination by default. To stagger delivery, open a destination tab, expand **Advanced delivery**, and set its schedule override. OpenPost keeps the publication grouped in Calendar and Activity while each rendition runs at its own time and records its own result.
+
+For API, CLI, and MCP users: setting `scheduled_at` on a draft does not schedule it by itself. The schedule action creates the required destination jobs and marks the publication and renditions as scheduled. Clearing the schedule returns them to draft, removes destination schedule overrides, and keeps old success and error history.
+
+Configure the workspace timezone, week start, reusable posting slots, and optional natural posting delay in **Settings → Workspace**.
+
+## Delivery and recovery
+
+OpenPost runs saved jobs from its database, so scheduled posts survive restarts without Redis. SQLite is the self-hosted default. The hosted service uses PostgreSQL.
+
+Use **Activity** to see drafts and scheduled, published, or failed posts. A failed account keeps the platform error and the next action. Fix the account, content, API limit, or platform issue before you retry.
+
+## What to watch
+
+- Keep the workspace timezone correct before creating schedules.
+- OpenPost checks platform limits and account access again when you schedule or publish.
+- A platform outage can leave an account failed or waiting for another try. Check Activity instead of assuming the post went live.

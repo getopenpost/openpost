@@ -1,0 +1,46 @@
+export type AssetSurface = "frontend" | "docs" | "marketing";
+
+export const publishedProviderAssetSlugs = [
+  "x",
+  "mastodon",
+  "bluesky",
+  "linkedin",
+  "threads",
+  "facebook",
+  "instagram",
+  "tiktok",
+  "youtube",
+  "discord",
+] as const;
+
+export const assetSurfaceManifest = {
+  frontend: ["brand/icon.svg"],
+  docs: ["brand/icon.svg", "brand/logo-docs.svg", "screenshots/main-dark.png"],
+  marketing: [
+    "ai-logos/chatgpt.png",
+    "ai-logos/claude.png",
+    "brand/fonts/Geist-Regular.ttf",
+    "brand/fonts/Geist-SemiBold.ttf",
+    "brand/fonts/Manrope-SemiBold.ttf",
+    "brand/logo.svg",
+    "brand/og-image.png",
+    ...publishedProviderAssetSlugs.map((slug) => `logos/${slug}.svg`),
+    "postiz-socials/Bluesky.svg",
+    "postiz-socials/Discord.svg",
+    "postiz-socials/Facebook.svg",
+    "postiz-socials/Instagram.svg",
+    "postiz-socials/Linkedin.svg",
+    "postiz-socials/Mastodon.svg",
+    "postiz-socials/Threads.svg",
+    "postiz-socials/TikTok.svg",
+    "postiz-socials/X.svg",
+    "postiz-socials/Youtube.svg",
+    "screenshots/accounts-dark.png",
+    "screenshots/main-dark.png",
+    "screenshots/media-dark.png",
+    "screenshots/settings-dark.png",
+    "testimonial-portraits/jordan-ellis.webp",
+    "testimonial-portraits/maya-ribeiro.webp",
+    "testimonial-portraits/priya-nair.webp",
+  ],
+} as const satisfies Record<AssetSurface, readonly string[]>;

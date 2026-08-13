@@ -1,0 +1,143 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-08-09",
+  "next_review_on": "2026-11-09",
+  "assurance_boundary": {
+    "statement": "OpenPost does not claim SOC 2 or ISO 27001 certification, an independent security audit, or an independent penetration-test report. No current certification, audit report, or penetration-test report is published for reliance.",
+    "published_certifications": [],
+    "published_independent_reports": []
+  },
+  "incident_history": {
+    "status": "no_public_entries",
+    "statement": "OpenPost currently has no incident entries in this public register. This means no incident has been disclosed here; it is not a guarantee that no security or privacy event has ever occurred.",
+    "publication_commitment": "When the operator confirms a material managed-service incident, OpenPost will add the date, affected service and data, customer action, and remediation status when disclosure is lawful and does not increase risk.",
+    "entries": []
+  },
+  "control_matrix": [
+    {
+      "id": "identity-access",
+      "control": "Identity, sessions, roles, and workspace access",
+      "application": "Hashes passwords, supports TOTP and passkeys, records revocable browser sessions, and enforces organization, workspace, scope, and action checks.",
+      "managed_service": "Configures hosted identity options, preserves the break-glass administrator boundary, and responds to verified account or access incidents.",
+      "self_hosted_operator": "Chooses identity providers and administrator accounts, protects recovery access, reviews members and sessions, and removes access promptly.",
+      "customer_or_provider": "Users protect their sign-in methods and devices. A selected identity provider controls its own authentication and account-recovery process.",
+      "evidence": [
+        "backend/internal/services/auth/auth.go",
+        "backend/internal/services/sessions/service.go",
+        "backend/internal/services/identity/service.go",
+        "backend/internal/api/middleware/auth.go"
+      ]
+    },
+    {
+      "id": "credential-protection",
+      "control": "Social credentials and application secrets",
+      "application": "Encrypts stored social tokens, TOTP secrets, OIDC client secrets, and saved provider-app secrets with AES-256-GCM; API-family bearer tokens are stored as hashes.",
+      "managed_service": "Supplies and protects the encryption key and hosted provider credentials outside the image and repository and limits production access to the disclosed operator boundary.",
+      "self_hosted_operator": "Generates, stores, rotates, backs up, and restricts the encryption key, JWT secret, social app credentials, and email or storage credentials.",
+      "customer_or_provider": "Users revoke connections or access tokens they no longer need. Social and identity providers protect and can revoke their provider-side credentials.",
+      "evidence": [
+        "backend/internal/services/crypto/encrypt.go",
+        "backend/internal/services/apitokens/service.go",
+        "backend/internal/config/config.go",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    },
+    {
+      "id": "network-host",
+      "control": "TLS, host, database, media, and network boundary",
+      "application": "Uses secure cookie attributes on HTTPS, validates trusted origins and redirect targets, and accesses database and media through configured service boundaries.",
+      "managed_service": "Terminates public TLS, keeps direct host and database access inside the disclosed operator boundary, and configures the current managed data locations and providers.",
+      "self_hosted_operator": "Places OpenPost behind correctly configured TLS, restricts database and media access, patches the host and reverse proxy, and chooses where data is stored.",
+      "customer_or_provider": "Hosting, network, storage, and social providers secure the infrastructure and endpoints they control under their own terms.",
+      "evidence": [
+        "backend/internal/api/handlers/auth.go",
+        "backend/internal/config/config.go",
+        "docs-site/configuration/production-checklist.md",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    },
+    {
+      "id": "production-access",
+      "control": "Human production access",
+      "application": "Enforces authenticated role and workspace checks. Submitting a support request does not change the user's application authorization.",
+      "managed_service": "Uses the named key-only operator and sudo boundary described in the trust register. Routine application work is automated; exceptional access is limited to the stated support, recovery, security, abuse, legal, or fraud purpose.",
+      "self_hosted_operator": "Defines who can reach the host, database, media, logs, and backups; applies least privilege; reviews keys; and records access at the level its risk requires.",
+      "customer_or_provider": "Customers choose workspace members and roles. Infrastructure providers control their own privileged-access programs.",
+      "evidence": [
+        "backend/internal/api/middleware/auth.go",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    },
+    {
+      "id": "backup-recovery",
+      "control": "Backups, restore, retention, and deletion",
+      "application": "Provides scoped deletion flows and durable media-cleanup jobs while protecting active publication, library, favorite, tag, template, and brand references.",
+      "managed_service": "Makes the disclosed daily database and media recovery copies, prunes routine recovery history after 14 days, and performs the stated restore drill.",
+      "self_hosted_operator": "Chooses backup location and retention, protects required secrets with the backup, tests restoration, and fulfills deletion obligations for its installation.",
+      "customer_or_provider": "Customers resolve shared ownership and active billing blockers before account deletion and control provider-side content separately.",
+      "evidence": [
+        "backend/internal/api/handlers/account_lifecycle.go",
+        "backend/internal/services/medialifecycle/service.go",
+        "docs-site/operations/backups.md",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    },
+    {
+      "id": "software-release",
+      "control": "Dependency, release, and vulnerability checks",
+      "application": "Pins supported toolchains and dependencies and includes formatting, lint, test, race, vulnerability, secret, workflow, browser, image, and restart-smoke gates in the release process.",
+      "managed_service": "Deploys an immutable image only after the release workflow succeeds and verifies readiness and the exact running revision, with rollback when readiness fails.",
+      "self_hosted_operator": "Tracks supported releases, evaluates security notices, updates the application and host, and verifies its own deployment and rollback path.",
+      "customer_or_provider": "Dependency and infrastructure providers publish fixes for the components they maintain; customers report suspected vulnerabilities privately.",
+      "evidence": [
+        "scripts/security-check.sh",
+        "scripts/release.mjs",
+        ".github/workflows/ci.yml",
+        ".github/workflows/release.yml",
+        "SECURITY.md"
+      ]
+    },
+    {
+      "id": "logs-monitoring",
+      "control": "Operational logs, health, and monitoring",
+      "application": "Emits service and authentication events, exposes readiness and version endpoints, and keeps provider responses and secrets out of normalized analytics and communication records.",
+      "managed_service": "Uses size-bounded system and service journals and public readiness and revision checks. It does not claim a complete command-level operator audit trail.",
+      "self_hosted_operator": "Chooses log access, retention, alerts, and monitoring and must avoid collecting secrets or more customer content than its operating need requires.",
+      "customer_or_provider": "Infrastructure and social providers keep separate logs under their own controls; customers review their account and provider activity where available.",
+      "evidence": [
+        "backend/internal/api/routes.go",
+        "backend/internal/services/analytics/service.go",
+        "backend/internal/services/communications/service.go",
+        "docs-site/operations/logs.md",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    },
+    {
+      "id": "incident-response",
+      "control": "Vulnerability and incident response",
+      "application": "Provides a private security contact and keeps durable state needed to investigate failed jobs, authentication, and provider writes without intentionally storing reusable plaintext tokens in those records.",
+      "managed_service": "Triages private reports, contains and repairs confirmed incidents, preserves only necessary evidence, notifies affected customers or authorities when required, and maintains the public incident wording on this page.",
+      "self_hosted_operator": "Owns detection, containment, evidence, recovery, notifications, and post-incident work for its installation and coordinates with OpenPost when a product flaw is involved.",
+      "customer_or_provider": "Report suspected OpenPost flaws privately, rotate exposed credentials, follow incident instructions, and contact the relevant provider when the event is provider-side.",
+      "evidence": [
+        "SECURITY.md",
+        "backend/internal/models/models.go",
+        "backend/internal/services/identity/admin.go",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    },
+    {
+      "id": "external-services",
+      "control": "Social networks, subprocessors, and user-requested services",
+      "application": "Routes user-authorized provider actions through capability-specific adapters; automatic image captions use a generated thumbnail and bounded context.",
+      "managed_service": "Publishes reviewed data-location, provider, transfer, and human-access facts and updates the register before a new service receives managed customer data.",
+      "self_hosted_operator": "Chooses and configures its hosting, email, storage, AI, analytics, social apps, and optional services and publishes disclosures required for its users.",
+      "customer_or_provider": "Customers choose social, identity, stock-media, and AI-triggering actions. Each selected provider controls its service, API, logs, and provider-side data.",
+      "evidence": [
+        "backend/internal/platform/adapter.go",
+        "backend/internal/ai/openrouter.go",
+        "packages/legal-policy/src/managed-service.json"
+      ]
+    }
+  ]
+}

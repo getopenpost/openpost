@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "reviewed_on": "2026-08-12",
+  "next_review_on": "2026-11-12",
+  "owner": "openpost@rgo.pt",
+  "claims": [],
+  "illustrative_material": [
+    {
+      "id": "creator-workflows",
+      "source": "marketing-site/src/routes/_components/CreatorStories.svelte",
+      "label": "Illustrative workflows",
+      "description": "Fictional workflow examples with generated portraits; they are not testimonials or customer identities."
+    }
+  ]
+}

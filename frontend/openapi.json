@@ -5354,6 +5354,9 @@
 						},
 						"type": ["array", "null"]
 					},
+					"next_cursor": {
+						"type": "string"
+					},
 					"sync_states": {
 						"items": {
 							"$ref": "#/components/schemas/EngagementSyncState"
@@ -24692,6 +24695,16 @@
 							"minimum": 0,
 							"type": "integer"
 						}
+					},
+					{
+						"description": "Opaque cursor for stable older-page pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable older-page pagination",
+							"type": "string"
+						}
 					}
 				],
 				"responses": {
@@ -32459,6 +32472,16 @@
 						"name": "content_profile",
 						"schema": {
 							"description": "Optional content profile filter",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Case-insensitive title or source-text search",
+						"explode": false,
+						"in": "query",
+						"name": "search",
+						"schema": {
+							"description": "Case-insensitive title or source-text search",
 							"type": "string"
 						}
 					},

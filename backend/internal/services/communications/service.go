@@ -1313,27 +1313,76 @@ func (s *Service) sendMessageThroughFence(
 	}, nil)
 }
 
-func (s *Service) ListEngagement(ctx context.Context, workspaceID, platformName, accountID, publicationID string, unreadOnly, archived bool, limit, offset int) ([]models.EngagementItem, int, error) {
-	if limit <= 0 || limit > 100 {
-		limit = 50
+type EngagementCursor struct {
+	OccurredAt time.Time
+	CreatedAt  time.Time
+	ID         string
+}
+
+type EngagementQuery struct {
+	WorkspaceID   string
+	Platform      string
+	AccountID     string
+	PublicationID string
+	UnreadOnly    bool
+	Archived      bool
+	Limit         int
+	Offset        int
+	Cursor        *EngagementCursor
+}
+
+type EngagementPage struct {
+	Items      []models.EngagementItem
+	Total      int
+	NextCursor *EngagementCursor
+}
+
+const engagementOccurredAtSQL = "COALESCE(remote_created_at, created_at)"
+
+func (s *Service) ListEngagement(ctx context.Context, input EngagementQuery) (EngagementPage, error) {
+	if input.Limit <= 0 || input.Limit > 100 {
+		input.Limit = 50
 	}
-	query := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id = ?", workspaceID)
-	query = engagementFilters(query, platformName, accountID, publicationID, unreadOnly, archived)
+	query := s.db.NewSelect().Model((*models.EngagementItem)(nil)).Where("workspace_id = ?", input.WorkspaceID)
+	query = engagementFilters(query, input.Platform, input.AccountID, input.PublicationID, input.UnreadOnly, input.Archived)
 	count, err := query.Count(ctx)
 	if err != nil {
-		return nil, 0, err
+		return EngagementPage{}, err
 	}
 	var items []models.EngagementItem
-	query = s.db.NewSelect().Model(&items).Where("workspace_id = ?", workspaceID)
-	query = engagementFilters(query, platformName, accountID, publicationID, unreadOnly, archived)
-	err = query.Order("remote_created_at DESC", "created_at DESC").Limit(limit).Offset(max(0, offset)).Scan(ctx)
+	query = s.db.NewSelect().Model(&items).Where("workspace_id = ?", input.WorkspaceID)
+	query = engagementFilters(query, input.Platform, input.AccountID, input.PublicationID, input.UnreadOnly, input.Archived)
+	if input.Cursor != nil {
+		query = query.Where(
+			"("+engagementOccurredAtSQL+" < ? OR ("+engagementOccurredAtSQL+" = ? AND (created_at < ? OR (created_at = ? AND id < ?))))",
+			input.Cursor.OccurredAt, input.Cursor.OccurredAt, input.Cursor.CreatedAt, input.Cursor.CreatedAt, input.Cursor.ID,
+		)
+	}
+	query = query.OrderExpr(engagementOccurredAtSQL+" DESC").Order("created_at DESC", "id DESC")
+	if input.Cursor == nil {
+		query = query.Offset(max(0, input.Offset))
+	}
+	err = query.Limit(input.Limit + 1).Scan(ctx)
 	if err != nil {
-		return nil, 0, err
+		return EngagementPage{}, err
+	}
+	hasMore := len(items) > input.Limit
+	if hasMore {
+		items = items[:input.Limit]
 	}
 	if err := s.hydrateEngagementProviderURLs(ctx, items); err != nil {
-		return nil, 0, err
+		return EngagementPage{}, err
 	}
-	return items, count, nil
+	page := EngagementPage{Items: items, Total: count}
+	if hasMore && len(items) > 0 {
+		last := items[len(items)-1]
+		occurredAt := last.RemoteCreatedAt
+		if occurredAt.IsZero() {
+			occurredAt = last.CreatedAt
+		}
+		page.NextCursor = &EngagementCursor{OccurredAt: occurredAt, CreatedAt: last.CreatedAt, ID: last.ID}
+	}
+	return page, nil
 }
 
 func (s *Service) hydrateEngagementProviderURLs(ctx context.Context, items []models.EngagementItem) error {

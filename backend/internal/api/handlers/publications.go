@@ -208,6 +208,7 @@ type ListPublicationsInput struct {
 	Status         string `query:"status" doc:"Optional status filter"`
 	ActivityBucket string `query:"activity_bucket" enum:"scheduled,published,failed,draft" doc:"Optional Posts activity bucket filter"`
 	ContentProfile string `query:"content_profile" doc:"Optional content profile filter"`
+	Search         string `query:"search" doc:"Case-insensitive title or source-text search"`
 	Cursor         string `query:"cursor" doc:"Opaque cursor for stable newest-first pagination"`
 	CreatedFrom    string `query:"created_from" doc:"Include publications created at or after this RFC3339 timestamp"`
 	CreatedBefore  string `query:"created_before" doc:"Include publications created before this RFC3339 timestamp"`

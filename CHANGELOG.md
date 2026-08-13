@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Engagement now reaches complete saved history with stable cursor pages, in-place retries, deduplicated appends, and a searchable, paged Publication filter that keeps older selections.
 - Marketing and documentation production builds now generate deterministic homepage Markdown and `llms.txt` discovery files from canonical public sources, advertise them from canonical HTML, and keep sitemaps HTML-only.
 - Proved the complete first-use cohort from verified signup through Workspace Activation with deterministic email, Paddle, and destination adapters, recovery and role coverage, responsive and presentation checks, and clean browser-console assertions.
 - Replaced the frontend formatting and general JavaScript lint passes with Oxfmt and Oxlint, retained ESLint for Svelte template rules, upgraded production builds to Vite 8 and Rolldown, cached independent frontend quality tasks with Turbo, parallelized safe repository checks and tests, and reused the shared Go cache for local backend builds.

@@ -7,7 +7,7 @@
 	Responsive: One column at every width, with controls wrapping into touch-safe rows on phones.
 -->
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { client, type SocialAccount } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
@@ -38,6 +38,7 @@
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import HeartIcon from '@lucide/svelte/icons/heart';
 	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
+	import DestinationOptionCombobox from '$lib/components/destination-option-combobox.svelte';
 
 	type EngagementItem = components['schemas']['EngagementItem'];
 	type EngagementSyncState = components['schemas']['EngagementSyncState'];
@@ -56,7 +57,18 @@
 	let knownPlatforms = $state.raw<string[]>([]);
 	let accounts = $state.raw<SocialAccount[]>([]);
 	let publications = $state.raw<Publication[]>([]);
+	let selectedPublication = $state.raw<Publication | null>(null);
+	let publicationCursor = $state('');
+	let publicationSearch = $state('');
+	let publicationLoading = $state(false);
+	let publicationError = $state('');
+	let publicationRequest = 0;
+	let publicationSearchTimer: ReturnType<typeof setTimeout> | undefined;
+	let publicationWorkspaceId = $state('');
 	let syncStates = $state.raw<EngagementSyncState[]>([]);
+	let nextCursor = $state('');
+	let loadingMore = $state(false);
+	let pageError = $state('');
 	let accountFilter = $state('');
 	let publicationFilter = $state('');
 	let replyItemId = $state('');
@@ -137,6 +149,22 @@
 			.map((group) => ({ ...group, items: orderThread(group.items) }))
 			.toSorted((left, right) => right.newest - left.newest);
 	});
+	const publicationOptions = $derived.by(() => {
+		const options = publications.map((publication) => ({
+			value: publication.id,
+			label: publicationLabel(publication)
+		}));
+		if (
+			selectedPublication &&
+			!options.some((option) => option.value === selectedPublication?.id)
+		) {
+			options.unshift({
+				value: selectedPublication.id,
+				label: publicationLabel(selectedPublication)
+			});
+		}
+		return [{ value: '', label: m.engagement_all_posts() }, ...options];
+	});
 
 	onMount(() => void workspaceCtx.initialize());
 
@@ -147,12 +175,33 @@
 		}
 	});
 
-	async function loadEngagement() {
+	$effect(() => {
+		if (workspaceId && workspaceId !== publicationWorkspaceId) {
+			publicationWorkspaceId = workspaceId;
+			publications = [];
+			selectedPublication = null;
+			publicationFilter = '';
+			publicationCursor = '';
+			publicationSearch = '';
+			void loadPublications('', true);
+		}
+	});
+
+	async function loadEngagement(cursor = '', append = false) {
 		if (!workspaceId) return;
-		loading = true;
-		error = '';
+		const visibleAnchor = append ? engagementVisibleAnchor() : null;
+		if (append) {
+			loadingMore = true;
+			pageError = '';
+		} else {
+			loading = true;
+			loadingMore = false;
+			error = '';
+			pageError = '';
+			nextCursor = '';
+		}
 		const requestedKey = loadKey;
-		const [engagementResponse, accountResponse, publicationResponse] = await Promise.all([
+		const [engagementResponse, accountResponse] = await Promise.all([
 			client.GET('/engagement', {
 				params: {
 					query: {
@@ -163,25 +212,28 @@
 						unread_only: unreadOnly,
 						archived,
 						limit: 100,
-						offset: 0
+						cursor: cursor || undefined
 					}
 				}
 			}),
-			client.GET('/accounts', { params: { query: { workspace_id: workspaceId } } }),
-			client.GET('/publications', {
-				params: { query: { workspace_id: workspaceId, limit: 200, offset: 0 } }
-			})
+			client.GET('/accounts', { params: { query: { workspace_id: workspaceId } } })
 		]);
 		if (requestedKey !== loadKey) return;
 		const { data, error: apiError } = engagementResponse;
 		if (apiError) {
-			error = apiError.detail || m.engagement_load_failed();
+			if (append) pageError = apiError.detail || m.engagement_page_failed();
+			else error = apiError.detail || m.engagement_load_failed();
 		} else {
-			items = data?.items ?? [];
+			const incoming = data?.items ?? [];
+			items = append ? appendUniqueByID(items, incoming) : incoming;
+			if (visibleAnchor) {
+				await tick();
+				restoreEngagementVisibleAnchor(visibleAnchor);
+			}
 			total = data?.total ?? 0;
+			nextCursor = data?.next_cursor ?? '';
 			syncStates = data?.sync_states ?? [];
 			accounts = accountResponse.error ? [] : (accountResponse.data ?? []);
-			publications = publicationResponse.error ? [] : (publicationResponse.data ?? []);
 			dataWorkspaceId = workspaceId;
 			knownPlatforms = [
 				...new Set([
@@ -191,7 +243,69 @@
 				])
 			].sort();
 		}
-		loading = false;
+		if (append) loadingMore = false;
+		else loading = false;
+	}
+
+	async function loadPublications(search: string, reset: boolean) {
+		if (!workspaceId) return;
+		const requestID = ++publicationRequest;
+		publicationLoading = true;
+		publicationError = '';
+		if (reset) publicationCursor = '';
+		const cursor = reset ? '' : publicationCursor;
+		const response = await client.GET('/publications', {
+			params: {
+				query: {
+					workspace_id: workspaceId,
+					search: search || undefined,
+					limit: 50,
+					cursor: cursor || undefined
+				}
+			}
+		});
+		if (requestID !== publicationRequest) return;
+		publicationLoading = false;
+		if (response.error) {
+			publicationError = response.error.detail || m.engagement_publications_failed();
+			return;
+		}
+		const incoming = response.data ?? [];
+		publications = reset ? incoming : appendUniqueByID(publications, incoming);
+		publicationCursor = response.response.headers.get('X-Next-Cursor') ?? '';
+	}
+
+	function searchPublications(search: string) {
+		publicationSearch = search;
+		if (publicationSearchTimer) clearTimeout(publicationSearchTimer);
+		publicationSearchTimer = setTimeout(() => void loadPublications(search, true), 250);
+	}
+
+	function selectPublication(value: string) {
+		publicationFilter = value;
+		selectedPublication = publications.find((publication) => publication.id === value) ?? null;
+	}
+
+	function appendUniqueByID<T extends { id: string }>(current: T[], incoming: T[]): T[] {
+		return [...new Map([...current, ...incoming].map((item) => [item.id, item])).values()];
+	}
+
+	function engagementVisibleAnchor(): { id: string; top: number } | null {
+		for (const element of document.querySelectorAll<HTMLElement>('[data-engagement-id]')) {
+			const bounds = element.getBoundingClientRect();
+			if (bounds.bottom > 0 && bounds.top < window.innerHeight) {
+				return { id: element.dataset.engagementId ?? '', top: bounds.top };
+			}
+		}
+		return null;
+	}
+
+	function restoreEngagementVisibleAnchor(anchor: { id: string; top: number }) {
+		if (!anchor.id) return;
+		const element = document.querySelector<HTMLElement>(
+			`[data-engagement-id="${CSS.escape(anchor.id)}"]`
+		);
+		if (element) window.scrollBy({ top: element.getBoundingClientRect().top - anchor.top });
 	}
 
 	async function refresh() {
@@ -539,26 +653,26 @@
 					{/each}
 				</Select.Content>
 			</Select.Root>
-			<Select.Root
-				type="single"
-				value={publicationFilter || 'all'}
-				onValueChange={(value) => (publicationFilter = value === 'all' ? '' : value)}
-			>
-				<Select.Trigger class="h-11 max-w-80 min-w-52 sm:h-9" aria-label={m.engagement_all_posts()}>
-					{publicationFilter
-						? publicationLabel(
-								publications.find((publication) => publication.id === publicationFilter) ??
-									({} as Publication)
-							)
-						: m.engagement_all_posts()}
-				</Select.Trigger>
-				<Select.Content>
-					<Select.Item value="all">{m.engagement_all_posts()}</Select.Item>
-					{#each publications as publication (publication.id)}
-						<Select.Item value={publication.id}>{publicationLabel(publication)}</Select.Item>
-					{/each}
-				</Select.Content>
-			</Select.Root>
+			<DestinationOptionCombobox
+				id="engagement-publication-filter"
+				value={publicationFilter}
+				label={m.engagement_all_posts()}
+				placeholder={m.engagement_all_posts()}
+				searchPlaceholder={m.engagement_search_posts()}
+				emptyLabel={m.engagement_no_posts_found()}
+				loadingLabel={m.common_loading()}
+				options={publicationOptions}
+				loading={publicationLoading}
+				hasMore={Boolean(publicationCursor)}
+				loadMoreLabel={m.engagement_load_older_posts()}
+				error={publicationError}
+				retryLabel={m.common_retry()}
+				class="max-w-80 min-w-52 sm:h-9"
+				onValueChange={selectPublication}
+				onSearch={searchPublications}
+				onLoadMore={() => void loadPublications(publicationSearch, false)}
+				onRetry={() => void loadPublications(publicationSearch, !publicationCursor)}
+			/>
 			<label class="flex min-h-11 items-center gap-2 text-sm">
 				<Checkbox bind:checked={unreadOnly} />
 				{m.engagement_unread_only()}
@@ -576,7 +690,13 @@
 		{#if initialLoading}
 			<PageLoading layout="list" label={m.common_loading()} items={5} />
 		{:else if error}
-			<InlineNotice tone="error" message={error} />
+			<InlineNotice tone="error" message={error}>
+				{#snippet actions()}
+					<Button variant="outline" size="sm" onclick={() => void loadEngagement()}>
+						{m.common_retry()}
+					</Button>
+				{/snippet}
+			</InlineNotice>
 		{/if}
 		{#if !initialLoading && items.length === 0 && !error}
 			<EmptyState
@@ -586,7 +706,11 @@
 				variant="muted"
 			/>
 		{:else if !initialLoading && items.length > 0}
-			<div class="space-y-4 transition-opacity" class:opacity-70={loading} aria-busy={loading}>
+			<div
+				class="space-y-4 transition-opacity"
+				class:opacity-70={loading}
+				aria-busy={loading || loadingMore}
+			>
 				{#each groupedItems as group (group.key)}
 					{@const firstItem = group.items[0]}
 					<section class="overflow-hidden rounded-lg border bg-card">
@@ -629,6 +753,7 @@
 								)}
 								{@const attachments = item.attachments ?? []}
 								<article
+									data-engagement-id={item.id}
 									class={[
 										'p-4 sm:p-5',
 										!isRead && 'bg-primary/[0.025]',
@@ -787,6 +912,29 @@
 					</section>
 				{/each}
 			</div>
+			{#if pageError}
+				<InlineNotice tone="error" message={pageError}>
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void loadEngagement(nextCursor, true)}
+						>
+							{m.common_retry()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{:else if nextCursor}
+				<div class="flex justify-center pt-2">
+					<Button
+						variant="outline"
+						disabled={loadingMore}
+						onclick={() => void loadEngagement(nextCursor, true)}
+					>
+						{loadingMore ? m.common_loading() : m.engagement_load_older()}
+					</Button>
+				</div>
+			{/if}
 		{/if}
 	</div>
 </PageContainer>

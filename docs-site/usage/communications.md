@@ -17,7 +17,9 @@ The Engagement page brings comments and replies from supported posts into one li
 | Instagram Professional | Yes  | Yes   | No   | Yes              | Yes                    |
 | YouTube                | Yes  | Yes   | No   | Moderate         | Yes                    |
 
-The page groups replies under the OpenPost post and connected account. You can filter by platform, account, post, read state, and archive state. Each item keeps safe file links, edit and delete state, and a link to the post on the social network. OpenPost does not save full platform replies or file contents.
+The page groups replies under the OpenPost post and connected account. You can filter by platform, account, post, read state, and archive state. The post filter searches saved Publications and loads older results in pages. Select **Load older** below the Engagement list to reach the complete saved history. A failed first page or older page stays in place with a retry action. Successfully loaded pages keep the active filters, open reply form, and visible reply position.
+
+Each item keeps safe file links, edit and delete state, and a link to the post on the social network. OpenPost does not save full platform replies or file contents.
 
 OpenPost checks new posts more often and older posts less often. It keeps the last good data if a platform reports a permission error, API limit, unsupported action, or short outage. Replies and moderation run as saved background jobs, not during a page load. OpenPost only shows Like for X and Mastodon because those are the verified like actions.
 

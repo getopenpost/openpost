@@ -6263,6 +6263,7 @@ export interface components {
              */
             readonly $schema?: string;
             items: components["schemas"]["EngagementItem"][] | null;
+            next_cursor?: string;
             sync_states: components["schemas"]["EngagementSyncState"][] | null;
             /** Format: int64 */
             total: number;
@@ -17440,6 +17441,8 @@ export interface operations {
                 archived?: boolean;
                 limit?: number;
                 offset?: number;
+                /** @description Opaque cursor for stable older-page pagination */
+                cursor?: string;
             };
             header?: never;
             path?: never;
@@ -23449,6 +23452,8 @@ export interface operations {
                 activity_bucket?: "scheduled" | "published" | "failed" | "draft";
                 /** @description Optional content profile filter */
                 content_profile?: string;
+                /** @description Case-insensitive title or source-text search */
+                search?: string;
                 /** @description Opaque cursor for stable newest-first pagination */
                 cursor?: string;
                 /** @description Include publications created at or after this RFC3339 timestamp */

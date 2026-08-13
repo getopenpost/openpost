@@ -25,7 +25,13 @@
 		disabled = false,
 		class: className,
 		onValueChange,
-		onSearch
+		onSearch,
+		hasMore = false,
+		loadMoreLabel = '',
+		onLoadMore,
+		error = '',
+		retryLabel = '',
+		onRetry
 	}: {
 		id: string;
 		value: string;
@@ -40,6 +46,12 @@
 		class?: string;
 		onValueChange: (value: string) => void;
 		onSearch?: (search: string) => void;
+		hasMore?: boolean;
+		loadMoreLabel?: string;
+		onLoadMore?: () => void;
+		error?: string;
+		retryLabel?: string;
+		onRetry?: () => void;
 	} = $props();
 
 	let open = $state(false);
@@ -120,6 +132,22 @@
 							</Command.Item>
 						{/each}
 					</Command.Group>
+					{#if error}
+						<div class="border-t p-2 text-xs text-destructive" role="alert">
+							<p class="mb-2">{error}</p>
+							{#if onRetry}
+								<Button variant="outline" size="sm" class="w-full" onclick={onRetry}>
+									{retryLabel}
+								</Button>
+							{/if}
+						</div>
+					{:else if hasMore && onLoadMore}
+						<div class="border-t p-2">
+							<Button variant="ghost" size="sm" class="w-full" onclick={onLoadMore}>
+								{loadMoreLabel}
+							</Button>
+						</div>
+					{/if}
 				{/if}
 			</Command.List>
 		</Command.Root>

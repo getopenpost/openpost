@@ -188,6 +188,14 @@ func publicationListQuery(
 	if input.ContentProfile != "" {
 		query = query.Where("publication.content_profile = ?", input.ContentProfile)
 	}
+	if search := strings.TrimSpace(input.Search); search != "" {
+		pattern := "%" + escapeLikePattern(strings.ToLower(search)) + "%"
+		query = query.Where(
+			"(LOWER(publication.title) LIKE ? ESCAPE '\\' OR LOWER(publication.source_text) LIKE ? ESCAPE '\\')",
+			pattern,
+			pattern,
+		)
+	}
 	if !ranges.createdFrom.IsZero() {
 		query = query.Where("publication.created_at >= ?", ranges.createdFrom)
 	}
@@ -205,6 +213,12 @@ func publicationListQuery(
 			Where(publicationCalendarOccurrenceSQL+" < ?", ranges.calendarBefore)
 	}
 	return query
+}
+
+func escapeLikePattern(value string) string {
+	value = strings.ReplaceAll(value, "\\", "\\\\")
+	value = strings.ReplaceAll(value, "%", "\\%")
+	return strings.ReplaceAll(value, "_", "\\_")
 }
 
 func publicationActivityBucketQuery(query *bun.SelectQuery, bucket string) *bun.SelectQuery {

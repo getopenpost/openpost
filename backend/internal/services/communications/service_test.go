@@ -739,11 +739,11 @@ func TestEngagementPersistenceIgnoresRepliesFromConnectedAccount(t *testing.T) {
 	}).Exec(ctx)
 	require.NoError(t, err)
 
-	items, total, err := service.ListEngagement(ctx, account.WorkspaceID, "", "", "", false, false, 50, 0)
+	page, err := service.ListEngagement(ctx, EngagementQuery{WorkspaceID: account.WorkspaceID, Limit: 50})
 	require.NoError(t, err)
-	require.Equal(t, 1, total, "previously stored own replies must be hidden from Engagement")
-	require.Len(t, items, 1)
-	require.Equal(t, "reply-by-someone-else", items[0].RemoteID)
+	require.Equal(t, 1, page.Total, "previously stored own replies must be hidden from Engagement")
+	require.Len(t, page.Items, 1)
+	require.Equal(t, "reply-by-someone-else", page.Items[0].RemoteID)
 }
 
 func TestEngagementReactionUpdatesAvailableInverseAction(t *testing.T) {
@@ -777,4 +777,62 @@ func TestEngagementReactionUpdatesAvailableInverseAction(t *testing.T) {
 	require.False(t, stored.CanLike)
 	require.True(t, stored.CanUnlike)
 	require.NoError(t, service.QueueEngagementAction(ctx, stored.ID, "unlike", "", "user-1"))
+}
+
+func TestListEngagementCursorReachesEveryRecordWithoutGapsOrDuplicates(t *testing.T) {
+	db := communicationsTestDB(t)
+	ctx := t.Context()
+	createdAt := time.Date(2026, 8, 10, 12, 0, 0, 0, time.UTC)
+	items := make([]models.EngagementItem, 0, 235)
+	for index := range 235 {
+		items = append(items, models.EngagementItem{
+			ID: fmt.Sprintf("engagement-%03d", index), WorkspaceID: "workspace-1",
+			RenditionID: "rendition-1", SocialAccountID: "account-1", Platform: "x",
+			RemoteID: fmt.Sprintf("remote-%03d", index), Body: "Reply", LastSeenAt: createdAt,
+			RemoteCreatedAt: createdAt, CreatedAt: createdAt, UpdatedAt: createdAt,
+		})
+	}
+	_, err := db.NewInsert().Model(&items).Exec(ctx)
+	require.NoError(t, err)
+	service := NewService(db, staticTokenSource{}, nil)
+
+	seen := make([]string, 0, len(items))
+	var cursor *EngagementCursor
+	for {
+		page, err := service.ListEngagement(ctx, EngagementQuery{
+			WorkspaceID: "workspace-1", Limit: 37, Cursor: cursor,
+		})
+		require.NoError(t, err)
+		for _, item := range page.Items {
+			seen = append(seen, item.ID)
+		}
+		if cursor == nil {
+			_, err = db.NewInsert().Model(&models.EngagementItem{
+				ID: "engagement-new", WorkspaceID: "workspace-1", RenditionID: "rendition-1",
+				SocialAccountID: "account-1", Platform: "x", RemoteID: "remote-new", Body: "New reply",
+				LastSeenAt: createdAt.Add(time.Hour), RemoteCreatedAt: createdAt.Add(time.Hour),
+				CreatedAt: createdAt.Add(time.Hour), UpdatedAt: createdAt.Add(time.Hour),
+			}).Exec(ctx)
+			require.NoError(t, err)
+		}
+		cursor = page.NextCursor
+		if cursor == nil {
+			break
+		}
+	}
+
+	require.Len(t, seen, 235)
+	require.Equal(t, len(seen), len(uniqueStrings(seen)))
+	require.NotContains(t, seen, "engagement-new")
+	for index, id := range seen {
+		require.Equal(t, fmt.Sprintf("engagement-%03d", 234-index), id)
+	}
+}
+
+func uniqueStrings(values []string) map[string]struct{} {
+	result := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		result[value] = struct{}{}
+	}
+	return result
 }

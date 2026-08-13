@@ -21,6 +21,10 @@ func TestRunMigrationsCreatesProviderDeliveryProjection(t *testing.T) {
 	require.Contains(t, schema, "'provider_scheduled'")
 	require.Contains(t, schema, "'manual_resolution'")
 	require.Contains(t, schema, "UNIQUE (rendition_id, target_key)")
+	require.Contains(t, schema, "retry_safety TEXT NOT NULL DEFAULT 'never'")
+	require.Contains(t, schema, "safe_error_class TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, schema, "safe_error_code TEXT NOT NULL DEFAULT ''")
+	require.Contains(t, schema, "error_http_status INTEGER NOT NULL DEFAULT 0")
 	require.Contains(t, schema, "FOREIGN KEY (current_attempt_id) REFERENCES provider_write_attempts(id) ON DELETE CASCADE")
 
 	var indexCount int

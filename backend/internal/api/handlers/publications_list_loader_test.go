@@ -110,6 +110,7 @@ func TestLoadPublicationResponsesUsesFixedQueryCount(t *testing.T) {
 		RenditionID: "rendition-1", SocialAccountID: "account-1", TargetKey: "x", Provider: "x",
 		State: "processing", CurrentAttemptID: "attempt-1", CurrentAttemptNumber: 1,
 		CurrentAttemptCreatedAt: now, NextReconciliationAt: now.Add(time.Minute), CreatedAt: now, UpdatedAt: now,
+		RetrySafety: "reconcile_only", SafeErrorClass: "provider_processing", SafeErrorCode: "still_processing",
 	}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&[]models.RenditionMedia{
@@ -168,6 +169,9 @@ func TestLoadPublicationResponsesUsesFixedQueryCount(t *testing.T) {
 	require.Equal(t, "media-1", responses[0].Segments[0].Media[0].ID)
 	require.Equal(t, "rendition-1", responses[0].Renditions[0].ID)
 	require.Equal(t, "processing", responses[0].Renditions[0].Delivery.State)
+	require.Equal(t, "reconcile", responses[0].Renditions[0].Delivery.RecoveryAction)
+	require.Equal(t, "provider_processing", responses[0].Renditions[0].Delivery.ErrorKind)
+	require.Equal(t, "still_processing", responses[0].Renditions[0].Delivery.ErrorCode)
 	require.Equal(t, "rendition-segment-1", responses[0].Renditions[0].Segments[0].ID)
 	require.Equal(t, "media-1", responses[0].Renditions[0].Segments[0].Media[0].ID)
 	require.Equal(t, "post-2", responses[1].TextPostID)

@@ -8754,10 +8754,18 @@ export interface components {
             current_attempt_id: string;
             /** Format: int64 */
             current_attempt_number: number;
+            /** @description Safe normalized provider failure code */
+            error_code?: string;
+            /** Format: int64 */
+            error_http_status?: number;
+            /** @description Safe normalized provider failure class */
+            error_kind?: string;
             external_id?: string;
             external_url?: string;
             last_reconciled_at?: string;
             next_reconciliation_at?: string;
+            /** @enum {string} */
+            recovery_action: "none" | "retry" | "reconcile" | "manual_resolution";
             state: string;
             target_key: string;
             terminal_reason?: string;

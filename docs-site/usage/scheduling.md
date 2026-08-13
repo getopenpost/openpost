@@ -32,6 +32,10 @@ Configure the workspace timezone, week start, reusable posting slots, and option
 
 OpenPost runs saved jobs from its database, so scheduled posts survive restarts without Redis. SQLite is the self-hosted default. The hosted service uses PostgreSQL.
 
+Open a Publication to inspect every destination Rendition separately. Each destination keeps one exact outcome: queued, submitted, processing at the provider, scheduled at the provider, live, rejected, awaiting reconciliation, or requiring manual resolution. The detail includes the latest attempt time and safe normalized failure code when one is available. OpenPost does not store or display raw provider responses because they can include sensitive data.
+
+**Retry destination** appears only after the provider write is known to be safe to repeat. OpenPost does not offer retry after an ambiguous write because another send could create a duplicate. It checks supported providers first; when it cannot reconcile the result, use **Review destination** to inspect the connected account and confirm the provider result before taking another action.
+
 Use **Activity** to see drafts and scheduled, published, or failed posts. A failed account keeps the platform error and the next action. Fix the account, content, API limit, or platform issue before you retry.
 
 ## What to watch

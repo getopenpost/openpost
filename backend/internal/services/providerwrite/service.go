@@ -497,6 +497,10 @@ func (s *Service) syncDeliveryTx(
 		CurrentAttemptCreatedAt: attempt.CreatedAt,
 		ExternalID:              attempt.ExternalID,
 		ExternalURL:             attempt.ExternalURL,
+		RetrySafety:             attempt.RetrySafety,
+		SafeErrorClass:          attempt.SafeErrorClass,
+		SafeErrorCode:           attempt.SafeErrorCode,
+		ErrorHTTPStatus:         attempt.ErrorHTTPStatus,
 		NextReconciliationAt:    attempt.ReconcileAfter,
 		CreatedAt:               now,
 		UpdatedAt:               now,
@@ -520,10 +524,14 @@ func (s *Service) syncDeliveryTx(
 		Set("current_attempt_created_at = EXCLUDED.current_attempt_created_at").
 		Set("external_id = EXCLUDED.external_id").
 		Set("external_url = EXCLUDED.external_url").
+		Set("retry_safety = EXCLUDED.retry_safety").
+		Set("safe_error_class = EXCLUDED.safe_error_class").
+		Set("safe_error_code = EXCLUDED.safe_error_code").
+		Set("error_http_status = EXCLUDED.error_http_status").
 		Set("next_reconciliation_at = EXCLUDED.next_reconciliation_at").
 		Set("updated_at = EXCLUDED.updated_at").
 		Where(
-			"? < EXCLUDED.current_attempt_created_at OR (? = EXCLUDED.current_attempt_created_at AND ? <= EXCLUDED.current_attempt_id)",
+			"? < EXCLUDED.current_attempt_created_at OR (? = EXCLUDED.current_attempt_created_at AND ? = EXCLUDED.current_attempt_id)",
 			bun.Ident(targetAlias+".current_attempt_created_at"),
 			bun.Ident(targetAlias+".current_attempt_created_at"),
 			bun.Ident(targetAlias+".current_attempt_id"),

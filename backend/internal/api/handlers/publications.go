@@ -388,6 +388,10 @@ type ProviderDeliveryResponse struct {
 	CurrentAttemptCreatedAt string `json:"current_attempt_created_at"`
 	ExternalID              string `json:"external_id,omitempty"`
 	ExternalURL             string `json:"external_url,omitempty"`
+	ErrorKind               string `json:"error_kind,omitempty" doc:"Safe normalized provider failure class"`
+	ErrorCode               string `json:"error_code,omitempty" doc:"Safe normalized provider failure code"`
+	ErrorHTTPStatus         int    `json:"error_http_status,omitempty"`
+	RecoveryAction          string `json:"recovery_action" enum:"none,retry,reconcile,manual_resolution"`
 	LastReconciledAt        string `json:"last_reconciled_at,omitempty"`
 	NextReconciliationAt    string `json:"next_reconciliation_at,omitempty"`
 }
@@ -3964,6 +3968,10 @@ func providerDeliveryResponse(delivery models.ProviderDelivery) *ProviderDeliver
 		CurrentAttemptCreatedAt: delivery.CurrentAttemptCreatedAt.UTC().Format(time.RFC3339Nano),
 		ExternalID:              delivery.ExternalID,
 		ExternalURL:             delivery.ExternalURL,
+		ErrorKind:               delivery.SafeErrorClass,
+		ErrorCode:               delivery.SafeErrorCode,
+		ErrorHTTPStatus:         delivery.ErrorHTTPStatus,
+		RecoveryAction:          providerwrite.DeliveryRecoveryAction(delivery),
 		LastReconciledAt:        formatOptionalTime(delivery.LastReconciledAt),
 		NextReconciliationAt:    formatOptionalTime(delivery.NextReconciliationAt),
 	}

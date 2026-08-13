@@ -1533,8 +1533,8 @@ type ProviderWriteAttempt struct {
 }
 
 // ProviderDelivery is the current projection of one exact provider target.
-// Attempts remain the immutable/fenced history; this row is advanced only by
-// an equal or newer attempt number.
+// Attempts remain the immutable/fenced history; this row advances only to a
+// later-created attempt, while reconciliation may update the same attempt.
 type ProviderDelivery struct {
 	bun.BaseModel `bun:"table:provider_deliveries"`
 
@@ -1552,6 +1552,10 @@ type ProviderDelivery struct {
 	CurrentAttemptCreatedAt time.Time `bun:"current_attempt_created_at,notnull" json:"current_attempt_created_at"`
 	ExternalID              string    `bun:"external_id,notnull,default:''" json:"external_id,omitempty"`
 	ExternalURL             string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
+	RetrySafety             string    `bun:"retry_safety,notnull,default:'never'" json:"retry_safety"`
+	SafeErrorClass          string    `bun:"safe_error_class,notnull,default:''" json:"safe_error_class,omitempty"`
+	SafeErrorCode           string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
+	ErrorHTTPStatus         int       `bun:"error_http_status,notnull,default:0" json:"error_http_status,omitempty"`
 	LastReconciledAt        time.Time `bun:"last_reconciled_at,nullzero" json:"last_reconciled_at,omitempty"`
 	NextReconciliationAt    time.Time `bun:"next_reconciliation_at,nullzero" json:"next_reconciliation_at,omitempty"`
 	CreatedAt               time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`

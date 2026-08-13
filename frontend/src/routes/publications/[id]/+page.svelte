@@ -3,21 +3,20 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { loadPublicationDetail } from '$lib/api/performance-cache';
+	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import PublicationHistory from '$lib/components/publication-history.svelte';
 	import ComposeTextPost from '$lib/components/compose-text-post.svelte';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { getPlatformName } from '$lib/utils';
 	import { getLocaleTag } from '$lib/i18n';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 
 	type Publication = components['schemas']['PublicationResponse'];
@@ -27,10 +26,16 @@
 	let requestedPublicationId = $state('');
 	let publicationRequestSequence = 0;
 	let historyOpen = $state(false);
+	let retryingRenditionID = $state('');
+	let recoveryMessage = $state('');
+	let recoveryFailed = $state(false);
 
 	const publicationId = $derived(page.params.id);
 	const readOnlyPublication = $derived(
-		publication?.status === 'published' || publication?.status === 'publishing'
+		publication?.status === 'published' ||
+			publication?.status === 'publishing' ||
+			publication?.status === 'failed' ||
+			publication?.renditions?.some((rendition) => rendition.delivery !== undefined)
 	);
 
 	function statusLabel(status: string) {
@@ -41,18 +46,6 @@
 		return m.activity_status_draft();
 	}
 
-	function deliveryStatusLabel(state: string) {
-		if (state === 'queued') return m.publication_delivery_queued();
-		if (state === 'submitted') return m.publication_delivery_submitted();
-		if (state === 'processing') return m.publication_delivery_processing();
-		if (state === 'provider_scheduled') return m.publication_delivery_provider_scheduled();
-		if (state === 'live') return m.publication_delivery_live();
-		if (state === 'rejected') return m.publication_delivery_rejected();
-		if (state === 'ambiguous') return m.publication_delivery_ambiguous();
-		if (state === 'manual_resolution') return m.publication_delivery_manual_resolution();
-		return statusLabel(state);
-	}
-
 	function formatDateTime(value: string) {
 		return new Intl.DateTimeFormat(getLocaleTag(), {
 			dateStyle: 'medium',
@@ -60,12 +53,12 @@
 		}).format(new Date(value));
 	}
 
-	async function loadPublication(id: string) {
+	async function loadPublication(id: string, force = false) {
 		const requestSequence = ++publicationRequestSequence;
 		hasLoaded = false;
 		error = '';
 		try {
-			const data = await loadPublicationDetail(id);
+			const data = await loadPublicationDetail(id, force);
 			if (requestSequence !== publicationRequestSequence || publicationId !== id) return;
 			publication = data;
 		} catch (err) {
@@ -80,6 +73,44 @@
 	async function handleSuccess() {
 		ui.triggerRefresh();
 		goto(resolve('/'));
+	}
+
+	async function retryRendition(renditionID: string) {
+		const rendition = publication?.renditions?.find((item) => item.id === renditionID);
+		if (!publication || !rendition) return;
+		retryingRenditionID = renditionID;
+		recoveryMessage = '';
+		recoveryFailed = false;
+		try {
+			const { error: retryError } = await client.POST(
+				'/publications/{id}/renditions/{account_id}/retry',
+				{
+					params: {
+						path: { id: publication.id, account_id: rendition.social_account_id },
+						query: { target_key: rendition.target_key }
+					}
+				}
+			);
+			if (retryError) throw new Error(m.publication_delivery_retry_failed());
+			recoveryMessage = m.publication_delivery_retry_queued();
+			await loadPublication(publication.id, true);
+		} catch {
+			recoveryFailed = true;
+			recoveryMessage = m.publication_delivery_retry_failed();
+		} finally {
+			retryingRenditionID = '';
+		}
+	}
+
+	async function reviewDestination(renditionID: string) {
+		const accountID = publication?.renditions?.find(
+			(rendition) => rendition.id === renditionID
+		)?.social_account_id;
+		await goto(
+			resolve(
+				accountID ? `/settings?tab=accounts&account_id=${accountID}` : '/settings?tab=accounts'
+			)
+		);
 	}
 
 	$effect(() => {
@@ -130,7 +161,12 @@
 		{/snippet}
 
 		<div class="space-y-6">
-			<InlineNotice tone="info" message={m.publication_published_editing_explanation()} />
+			{#if publication.status !== 'failed'}
+				<InlineNotice tone="info" message={m.publication_published_editing_explanation()} />
+			{/if}
+			{#if recoveryMessage}
+				<InlineNotice tone={recoveryFailed ? 'error' : 'info'} message={recoveryMessage} />
+			{/if}
 
 			<section class="rounded-xl border bg-card p-4 sm:p-6">
 				<div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -159,44 +195,12 @@
 				</h2>
 				<div class="grid gap-3 sm:grid-cols-2">
 					{#each publication.renditions ?? [] as rendition (rendition.id)}
-						{@const externalURL = rendition.delivery?.external_url || rendition.external_url}
-						<div class="flex min-w-0 items-start gap-3 rounded-xl border bg-card p-4">
-							<PlatformIcon platform={rendition.platform} class="mt-0.5 size-5 shrink-0" />
-							<div class="min-w-0 flex-1">
-								<p class="font-medium">{getPlatformName(rendition.platform)}</p>
-								<p class="mt-0.5 text-sm text-muted-foreground">
-									{rendition.delivery
-										? deliveryStatusLabel(rendition.delivery.state)
-										: statusLabel(rendition.status)}
-								</p>
-								{#if rendition.target_key}
-									<p class="mt-1 font-mono text-xs break-all text-muted-foreground">
-										{m.publication_delivery_target({ target: rendition.target_key })}
-									</p>
-								{/if}
-								{#if rendition.error_message}
-									<p class="mt-2 text-sm text-destructive">{rendition.error_message}</p>
-								{:else if rendition.delivery?.terminal_reason}
-									<p class="mt-2 text-sm text-destructive">
-										{rendition.delivery.terminal_reason}
-									</p>
-								{/if}
-							</div>
-							{#if externalURL}
-								<Button
-									href={externalURL}
-									target="_blank"
-									rel="noreferrer"
-									variant="ghost"
-									size="icon"
-									aria-label={m.publication_view_on_platform({
-										platform: getPlatformName(rendition.platform)
-									})}
-								>
-									<ExternalLinkIcon class="size-4" />
-								</Button>
-							{/if}
-						</div>
+						<PublicationDeliveryCard
+							{rendition}
+							retrying={retryingRenditionID === rendition.id}
+							onRetry={retryRendition}
+							onManualResolution={reviewDestination}
+						/>
 					{/each}
 				</div>
 			</section>

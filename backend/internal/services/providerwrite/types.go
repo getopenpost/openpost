@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 )
 
@@ -28,7 +29,29 @@ const (
 	DeliveryRejected          = "rejected"
 	DeliveryAmbiguous         = "ambiguous"
 	DeliveryManualResolution  = "manual_resolution"
+
+	RecoveryNone             = "none"
+	RecoveryRetry            = "retry"
+	RecoveryReconcile        = "reconcile"
+	RecoveryManualResolution = "manual_resolution"
 )
+
+func DeliveryRecoveryAction(delivery models.ProviderDelivery) string {
+	switch delivery.State {
+	case DeliveryRejected:
+		if delivery.RetrySafety == string(platform.PublishRetrySafe) ||
+			delivery.RetrySafety == string(platform.PublishRetryIdempotent) {
+			return RecoveryRetry
+		}
+	case DeliveryProcessing, DeliveryAmbiguous:
+		if delivery.RetrySafety == string(platform.PublishRetryReconcileOnly) {
+			return RecoveryReconcile
+		}
+	case DeliveryManualResolution:
+		return RecoveryManualResolution
+	}
+	return RecoveryNone
+}
 
 var (
 	ErrOutcomeAmbiguous = errors.New("provider write outcome is ambiguous; OpenPost will not replay it")

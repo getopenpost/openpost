@@ -331,7 +331,7 @@ func TestOlderAttemptCannotOverwriteNewerDeliveryProjection(t *testing.T) {
 	base := time.Date(2026, 8, 12, 10, 0, 0, 0, time.UTC)
 	attempts := []models.ProviderWriteAttempt{
 		{
-			ID: "attempt-old", OperationID: "old-operation", AttemptNumber: 4,
+			ID: "z-attempt-old", OperationID: "old-operation", AttemptNumber: 4,
 			WorkspaceID: "workspace-1", PublicationID: "publication-1", RenditionID: "rendition-1",
 			SocialAccountID: "account-1", TargetKey: "x", Provider: "x", Operation: "publish",
 			PayloadFingerprint: "sha256:old", Status: StatusAmbiguous,
@@ -339,28 +339,82 @@ func TestOlderAttemptCannotOverwriteNewerDeliveryProjection(t *testing.T) {
 			ExternalID: "external-old", CreatedAt: base, UpdatedAt: base,
 		},
 		{
-			ID: "attempt-new", OperationID: "new-operation", AttemptNumber: 1,
+			ID: "a-attempt-new", OperationID: "new-operation", AttemptNumber: 1,
 			WorkspaceID: "workspace-1", PublicationID: "publication-1", RenditionID: "rendition-1",
 			SocialAccountID: "account-1", TargetKey: "x", Provider: "x", Operation: "publish",
 			PayloadFingerprint: "sha256:new", Status: StatusAccepted,
 			SubmissionState: string(platform.PublishSubmissionAccepted), RetrySafety: string(platform.PublishRetryNever),
-			ExternalID: "external-new", CreatedAt: base.Add(time.Minute), UpdatedAt: base.Add(time.Minute),
+			ExternalID: "external-new", CreatedAt: base, UpdatedAt: base,
 		},
 	}
 	_, err := db.NewInsert().Model(&attempts).Exec(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, db.RunInTx(t.Context(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		return service.syncDeliveryTx(ctx, tx, "attempt-new", false)
+		return service.syncDeliveryTx(ctx, tx, "a-attempt-new", false)
 	}))
 	require.NoError(t, db.RunInTx(t.Context(), &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
-		return service.syncDeliveryTx(ctx, tx, "attempt-old", false)
+		return service.syncDeliveryTx(ctx, tx, "z-attempt-old", false)
 	}))
 
 	delivery := loadProviderDelivery(t, db, attempts[0].RenditionID)
-	require.Equal(t, "attempt-new", delivery.CurrentAttemptID)
+	require.Equal(t, "a-attempt-new", delivery.CurrentAttemptID)
 	require.Equal(t, 1, delivery.CurrentAttemptNumber, "attempt numbers are operation-local and cannot fence across operations")
 	require.Equal(t, DeliveryLive, delivery.State)
 	require.Equal(t, "external-new", delivery.ExternalID)
+	require.Equal(t, string(platform.PublishRetryNever), delivery.RetrySafety)
+	require.Empty(t, delivery.SafeErrorClass)
+}
+
+func TestDeliveryProjectionKeepsSafeFailureAndRecoveryEvidence(t *testing.T) {
+	db := newProviderDeliveryTestDB(t)
+	service := New(db)
+	input := providerWriteTestInput(t, "delivery-safe-failure")
+	input.PublicationID = "publication-1"
+	input.RenditionID = "rendition-1"
+
+	_, err := service.Execute(t.Context(), input, func(_ context.Context, control *Control) (platform.PublishResult, error) {
+		require.NoError(t, control.Begin(platform.PublishResult{RetrySafety: platform.PublishRetrySafe}))
+		return platform.PublishResult{RetrySafety: platform.PublishRetrySafe}, &platform.HTTPError{
+			StatusCode: 429,
+			Code:       "rate_limited",
+		}
+	}, nil)
+	require.Error(t, err)
+
+	delivery := loadProviderDelivery(t, db, input.RenditionID)
+	require.Equal(t, DeliveryRejected, delivery.State)
+	require.Equal(t, string(platform.PublishRetrySafe), delivery.RetrySafety)
+	require.Equal(t, "provider_rejected", delivery.SafeErrorClass)
+	require.Equal(t, "rate_limited", delivery.SafeErrorCode)
+	require.Equal(t, 429, delivery.ErrorHTTPStatus)
+}
+
+func TestDeliveryProjectionUsesTheExactTargetOutcomeVocabulary(t *testing.T) {
+	testCases := []struct {
+		name     string
+		attempt  models.ProviderWriteAttempt
+		state    string
+		recovery string
+	}{
+		{name: "queued", attempt: models.ProviderWriteAttempt{Status: StatusPrepared}, state: DeliveryQueued, recovery: RecoveryNone},
+		{name: "submitted", attempt: models.ProviderWriteAttempt{Status: StatusSending}, state: DeliverySubmitted, recovery: RecoveryNone},
+		{name: "processing", attempt: models.ProviderWriteAttempt{Status: StatusSending, SubmissionState: string(platform.PublishSubmissionPending), RetrySafety: string(platform.PublishRetryReconcileOnly)}, state: DeliveryProcessing, recovery: RecoveryReconcile},
+		{name: "provider scheduled", attempt: models.ProviderWriteAttempt{Status: StatusAccepted, ProviderState: "scheduled"}, state: DeliveryProviderScheduled, recovery: RecoveryNone},
+		{name: "live", attempt: models.ProviderWriteAttempt{Status: StatusAccepted}, state: DeliveryLive, recovery: RecoveryNone},
+		{name: "rejected safe", attempt: models.ProviderWriteAttempt{Status: StatusDefiniteFailure, RetrySafety: string(platform.PublishRetrySafe)}, state: DeliveryRejected, recovery: RecoveryRetry},
+		{name: "ambiguous", attempt: models.ProviderWriteAttempt{Status: StatusAmbiguous, ProviderReference: "provider-ref", RetrySafety: string(platform.PublishRetryReconcileOnly)}, state: DeliveryAmbiguous, recovery: RecoveryReconcile},
+		{name: "manual resolution", attempt: models.ProviderWriteAttempt{Status: StatusAmbiguous, RetrySafety: string(platform.PublishRetryNever)}, state: DeliveryManualResolution, recovery: RecoveryManualResolution},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			state := deliveryState(testCase.attempt)
+			recovery := DeliveryRecoveryAction(models.ProviderDelivery{
+				State: state, RetrySafety: testCase.attempt.RetrySafety,
+			})
+			require.Equal(t, testCase.state, state)
+			require.Equal(t, testCase.recovery, recovery)
+		})
+	}
 }
 
 func nilSafeSend(context.Context, *Control) (platform.PublishResult, error) {

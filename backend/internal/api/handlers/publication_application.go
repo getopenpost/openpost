@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -12,10 +13,12 @@ import (
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/drafts"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	postservice "github.com/openpost/backend/internal/services/posts"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/uptrace/bun"
 )
@@ -330,8 +333,9 @@ func (commands publicationApplication) RetryRendition(
 	if rendition.Status != models.RenditionStatusFailed {
 		return "", huma.Error409Conflict("only a failed destination can be retried")
 	}
-	if !rendition.ErrorRetryable {
-		return "", huma.Error409Conflict("this failure requires the recommended account or content action")
+	delivery, err := loadSafeRetryDelivery(ctx, commands.handler.db, rendition)
+	if err != nil {
+		return "", err
 	}
 
 	jobID := commands.newID()
@@ -344,9 +348,51 @@ func (commands publicationApplication) RetryRendition(
 		"authorization_scheduled_at": now.Format(time.RFC3339Nano),
 	})
 	err = commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if delivery != nil && !sameSafeRetryDelivery(txCtx, tx, rendition, *delivery) {
+			return huma.Error409Conflict("the delivery outcome changed; review it before another send")
+		}
 		return commands.retryRenditionTx(txCtx, tx, publication, &rendition, jobID, batchID, payload, now)
 	})
 	return jobID, err
+}
+
+func loadSafeRetryDelivery(ctx context.Context, db bun.IDB, rendition models.Rendition) (*models.ProviderDelivery, error) {
+	var delivery models.ProviderDelivery
+	err := db.NewSelect().Model(&delivery).Where("rendition_id = ?", rendition.ID).
+		Where("target_key = ?", rendition.TargetKey).Scan(ctx)
+	if err == nil {
+		if providerwrite.DeliveryRecoveryAction(delivery) != providerwrite.RecoveryRetry {
+			return nil, huma.Error409Conflict("this delivery outcome must be reconciled or resolved manually before another send")
+		}
+		return &delivery, nil
+	}
+	if isMissingProviderDeliveryTable(err) && rendition.ErrorRetryable {
+		return nil, nil
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, huma.Error409Conflict("this destination has no confirmed safe delivery outcome to retry")
+	}
+	if isMissingProviderDeliveryTable(err) {
+		return nil, huma.Error409Conflict("this failure requires the recommended account or content action")
+	}
+	return nil, huma.Error500InternalServerError("failed to load destination delivery outcome")
+}
+
+func sameSafeRetryDelivery(ctx context.Context, db bun.IDB, rendition models.Rendition, expected models.ProviderDelivery) bool {
+	var current models.ProviderDelivery
+	err := db.NewSelect().Model(&current).Where("rendition_id = ?", rendition.ID).
+		Where("target_key = ?", rendition.TargetKey).Scan(ctx)
+	return err == nil && current.CurrentAttemptID == expected.CurrentAttemptID &&
+		providerwrite.DeliveryRecoveryAction(current) == providerwrite.RecoveryRetry
+}
+
+func isMissingProviderDeliveryTable(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such table: provider_deliveries") ||
+		(strings.Contains(message, `relation "provider_deliveries"`) && strings.Contains(message, "does not exist"))
 }
 
 func (commands publicationApplication) retryRenditionTx(
@@ -378,7 +424,7 @@ func (commands publicationApplication) retryRenditionTx(
 		Set("status = ?", models.RenditionStatusScheduled).
 		Set("error_retry_at = NULL").Set("updated_at = ?", now).
 		Where("id = ?", rendition.ID).Where("status = ?", models.RenditionStatusFailed).
-		Where("error_retryable = ?", true).Exec(ctx)
+		Exec(ctx)
 	if err != nil {
 		return err
 	}
@@ -457,10 +503,12 @@ func (commands publicationApplication) RetryFailedRenditions(
 		}
 		var retryRenditions []models.Rendition
 		if err := tx.NewSelect().Model(&retryRenditions).
-			Where("publication_id = ?", publication.ID).
-			Where("status = ?", models.RenditionStatusFailed).
-			Where("error_retryable = ?", true).
-			Order("created_at ASC", "id ASC").
+			Join("JOIN provider_deliveries AS delivery ON delivery.rendition_id = rendition.id AND delivery.target_key = rendition.target_key").
+			Where("rendition.publication_id = ?", publication.ID).
+			Where("rendition.status = ?", models.RenditionStatusFailed).
+			Where("delivery.state = ?", providerwrite.DeliveryRejected).
+			Where("delivery.retry_safety IN (?, ?)", platform.PublishRetrySafe, platform.PublishRetryIdempotent).
+			Order("rendition.created_at ASC", "rendition.id ASC").
 			Scan(txCtx); err != nil {
 			return err
 		}
@@ -479,9 +527,8 @@ func (commands publicationApplication) RetryFailedRenditions(
 			Set("status = ?", models.RenditionStatusScheduled).
 			Set("error_retry_at = NULL").
 			Set("updated_at = ?", now).
-			Where("publication_id = ?", publication.ID).
+			Where("id IN (?)", bun.List(retryRenditionIDs)).
 			Where("status = ?", models.RenditionStatusFailed).
-			Where("error_retryable = ?", true).
 			Exec(txCtx)
 		if err != nil {
 			return err

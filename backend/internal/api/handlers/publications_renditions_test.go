@@ -79,6 +79,7 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 		(*models.Rendition)(nil),
 		(*models.Job)(nil),
 		(*models.PublicationLifecycleEvent)(nil),
+		(*models.ProviderDelivery)(nil),
 	)
 	ctx := context.Background()
 	now := time.Date(2026, time.July, 27, 9, 0, 0, 0, time.UTC)
@@ -109,18 +110,18 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 	_, err = db.NewInsert().Model(&[]models.Rendition{
 		{
 			ID: "published-rendition", PublicationID: "publication-1", SocialAccountID: "account-1",
-			Platform: "x", Profile: models.ContentProfileShortText, Body: "Launch", SettingsJSON: "{}",
+			Platform: "x", TargetKey: "x", Profile: models.ContentProfileShortText, Body: "Launch", SettingsJSON: "{}",
 			Status: models.RenditionStatusPublished,
 		},
 		{
 			ID: "retryable-rendition", PublicationID: "publication-1", SocialAccountID: "account-2",
-			Platform: "mastodon", Profile: models.ContentProfileShortText, Body: "Launch", SettingsJSON: "{}",
+			Platform: "mastodon", TargetKey: "mastodon", Profile: models.ContentProfileShortText, Body: "Launch", SettingsJSON: "{}",
 			Status: models.RenditionStatusFailed, ErrorKind: "network", ErrorRetryable: true,
 		},
 		{
 			ID: "permanent-rendition", PublicationID: "publication-1", SocialAccountID: "account-3",
-			Platform: "linkedin", Profile: models.ContentProfileShortText, Body: "Launch", SettingsJSON: "{}",
-			Status: models.RenditionStatusFailed, ErrorKind: "validation", ErrorRetryable: false,
+			Platform: "linkedin", TargetKey: "linkedin", Profile: models.ContentProfileShortText, Body: "Launch", SettingsJSON: "{}",
+			Status: models.RenditionStatusFailed, ErrorKind: "network", ErrorRetryable: true,
 		},
 	}).Exec(ctx)
 	require.NoError(t, err)
@@ -134,6 +135,21 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 	require.NoError(t, db.NewSelect().Model(&insertedRetryable).Where("id = ?", "retryable-rendition").Scan(ctx))
 	require.True(t, insertedRetryable.ErrorRetryable)
 	require.Equal(t, models.RenditionStatusFailed, insertedRetryable.Status)
+	_, err = db.NewInsert().Model(&[]models.ProviderDelivery{
+		{
+			ID: "delivery-retryable", WorkspaceID: "workspace-1", PublicationID: "publication-1",
+			RenditionID: "retryable-rendition", SocialAccountID: "account-2", TargetKey: "mastodon", Provider: "mastodon",
+			State: providerwrite.DeliveryRejected, CurrentAttemptID: "attempt-retryable", CurrentAttemptNumber: 1,
+			CurrentAttemptCreatedAt: now, RetrySafety: "safe", CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "delivery-ambiguous", WorkspaceID: "workspace-1", PublicationID: "publication-1",
+			RenditionID: "permanent-rendition", SocialAccountID: "account-3", TargetKey: "linkedin", Provider: "linkedin",
+			State: providerwrite.DeliveryAmbiguous, CurrentAttemptID: "attempt-ambiguous", CurrentAttemptNumber: 1,
+			CurrentAttemptCreatedAt: now, RetrySafety: "reconcile_only", CreatedAt: now, UpdatedAt: now,
+		},
+	}).Exec(ctx)
+	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Job{
 		ID:          "old-pending-job",
 		Type:        jobTypePublishPublication,
@@ -576,6 +592,7 @@ func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) 
 		(*models.Rendition)(nil),
 		(*models.Job)(nil),
 		(*models.Post)(nil),
+		(*models.ProviderDelivery)(nil),
 	)
 	ctx := context.Background()
 	now := time.Now().UTC()
@@ -607,18 +624,20 @@ func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) 
 			ID:              "transient-rendition",
 			PublicationID:   "publication-1",
 			SocialAccountID: "account-transient",
+			TargetKey:       "x",
 			Platform:        "x",
 			Profile:         models.ContentProfileShortText,
 			Body:            "Retry",
 			Status:          models.RenditionStatusFailed,
 			ErrorKind:       "rate_limited",
-			ErrorRetryable:  true,
+			ErrorRetryable:  false,
 			ErrorAction:     "retry",
 		},
 		{
 			ID:              "permanent-rendition",
 			PublicationID:   "publication-1",
 			SocialAccountID: "account-permanent",
+			TargetKey:       "x",
 			Platform:        "x",
 			Profile:         models.ContentProfileShortText,
 			Body:            "Edit first",
@@ -629,11 +648,19 @@ func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) 
 		},
 	}).Exec(ctx)
 	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&[]models.ProviderDelivery{
+		{
+			ID: "delivery-transient", WorkspaceID: "workspace-1", PublicationID: "publication-1",
+			RenditionID: "transient-rendition", SocialAccountID: "account-transient", TargetKey: "x", Provider: "x",
+			State: providerwrite.DeliveryRejected, CurrentAttemptID: "attempt-transient", CurrentAttemptNumber: 1,
+			CurrentAttemptCreatedAt: now, RetrySafety: "safe", CreatedAt: now, UpdatedAt: now,
+		},
+	}).Exec(ctx)
+	require.NoError(t, err)
 
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
-
 	retryReq := httptest.NewRequestWithContext(
 		ctx,
 		http.MethodPost,

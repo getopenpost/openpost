@@ -12,6 +12,10 @@
 	import { getPlatformName } from '$lib/utils';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		accountManagementReturnHref,
+		clearAccountManagementContinuation
+	} from '$lib/account-management-route';
 	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
 
 	type Selection = components['schemas']['AccountSelectionResponse'];
@@ -148,7 +152,8 @@
 
 			viewState = 'loading';
 			if (!data.open_fresh_composer) {
-				await goto(resolve('/settings?tab=accounts'));
+				await goto(resolve(accountManagementReturnHref() as '/'));
+				clearAccountManagementContinuation();
 				return;
 			}
 			const query = new URLSearchParams({
@@ -175,13 +180,13 @@
 	}
 
 	function goToAccounts() {
-		goto(resolve('/settings?tab=accounts'));
+		goto(resolve(accountManagementReturnHref() as '/'));
+		clearAccountManagementContinuation();
 	}
 
 	function returnToAccounts(workspaceID: string) {
-		const query = new URLSearchParams({ tab: 'accounts', oauth_status: 'failed' });
-		if (workspaceID) query.set('workspace_id', workspaceID);
-		void goto(resolve(`/settings?${query.toString()}`));
+		void goto(resolve(accountManagementReturnHref(undefined, 'failed', workspaceID) as '/'));
+		clearAccountManagementContinuation();
 	}
 
 	function optionTitle(option: SelectionOption) {

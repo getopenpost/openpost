@@ -11,6 +11,8 @@ Connected accounts are the social accounts inside a workspace.
 
 If you cancel authorization or the provider cannot finish the connection, OpenPost returns to account management with a retry message. Refreshing or signing in again does not create a separate setup state; the Workspace setup guide reads current subscription, destination, first-composition, and Publication data.
 
+Account management is available directly at `/accounts` and inside **Settings → Social accounts**. Both views use the same Workspace-scoped controls and preserve the current URL while you work. OAuth cancellation and error feedback is shown once on the view you return to, then removed from the URL so refresh and browser history do not repeat stale feedback.
+
 ## Notes
 
 - OpenPost stores provider tokens, app passwords, and webhook credentials encrypted at rest. One saved authorization can serve several destinations, such as a LinkedIn member and the organizations that member manages.

@@ -278,3 +278,78 @@ test("accounts page fails closed and retries an unavailable readiness lookup", a
   await expect(page.getByTestId("provider-readiness-bluesky")).toHaveCount(0);
   expect(requestCount).toBe(2);
 });
+
+for (const viewport of [
+  { name: "desktop", width: 1280, height: 800 },
+  { name: "phone", width: 390, height: 844 },
+  { name: "compact phone", width: 320, height: 568 },
+] as const) {
+  test(`direct and Settings account management keep navigation and feedback stable on ${viewport.name}`, async ({
+    page,
+    request,
+  }) => {
+    await page.setViewportSize(viewport);
+    const consoleErrors: string[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("pageerror", (error) => consoleErrors.push(error.message));
+
+    const unique = `${viewport.width}-${Date.now().toString(36)}`;
+    const auth = await registerUser(request, `accounts-routing-${unique}@example.com`);
+    const workspace = await createWorkspace(request, auth.token, `Accounts routing ${unique}`);
+    await authenticatePage(page, auth.token);
+
+    await page.goto(`/accounts?oauth_status=cancelled&workspace_id=${workspace.id}`);
+    await expect(page).toHaveURL(/\/accounts$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Social accounts" })).toBeVisible();
+    await expect(
+      page.getByText("Connection cancelled. Choose a destination to try again."),
+    ).toBeVisible();
+    await page.waitForLoadState("networkidle");
+
+    await page.reload();
+    await expect(page).toHaveURL(/\/accounts$/);
+    await expect(page.getByText(/Connection cancelled/)).toHaveCount(0);
+    await page.waitForLoadState("networkidle");
+
+    await page.goto(`/settings?tab=accounts&oauth_status=failed&workspace_id=${workspace.id}`);
+    await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Social accounts" })).toBeVisible();
+    await expect(
+      page.getByText(
+        "OpenPost could not connect that destination. Check the provider setup and try again.",
+      ),
+    ).toBeVisible();
+    await expect(page.locator("h1")).toHaveCount(1);
+    await page.waitForLoadState("networkidle");
+
+    await page.goBack();
+    await expect(page).toHaveURL(/\/accounts$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Social accounts" })).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    await page.goForward();
+    await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
+    await page.waitForLoadState("networkidle");
+
+    const settingsSearch = page.getByLabel("Search settings");
+    await settingsSearch.focus();
+    await page.keyboard.type("social");
+    await expect(settingsSearch).toHaveValue("social");
+    await page.goto("/accounts");
+    const connectBluesky = page
+      .getByTestId("provider-card-bluesky")
+      .getByRole("button", { name: "Connect" });
+    await connectBluesky.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("dialog", { name: /connect bluesky/i })).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+        ),
+      )
+      .toBe(true);
+    expect(consoleErrors).toEqual([]);
+  });
+}

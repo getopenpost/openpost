@@ -9,6 +9,10 @@
 	import StandaloneShell from '$lib/components/standalone-shell.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		accountManagementReturnHref,
+		clearAccountManagementContinuation
+	} from '$lib/account-management-route';
 
 	let code = $state('');
 	let serverName = $state('');
@@ -17,12 +21,14 @@
 	let loading = $state(false);
 	let error = $state('');
 	let pageLoading = $state(true);
+	let cancelHref = $state('/settings?tab=accounts');
 
 	onMount(() => {
 		const params = new URLSearchParams(window.location.search);
 		const storedWorkspace = localStorage.getItem('oauth_workspace_id');
 		const storedServer = localStorage.getItem('oauth_mastodon_server');
 		const storedInstanceURL = localStorage.getItem('oauth_mastodon_instance_url');
+		cancelHref = accountManagementReturnHref();
 
 		if (storedWorkspace) workspaceId = storedWorkspace;
 		if (storedServer) serverName = storedServer;
@@ -67,10 +73,8 @@
 			}
 			pageLoading = true;
 			if (!data.open_fresh_composer) {
-				await goto(resolve('/settings?tab=accounts'));
-				localStorage.removeItem('oauth_workspace_id');
-				localStorage.removeItem('oauth_mastodon_server');
-				localStorage.removeItem('oauth_mastodon_instance_url');
+				await goto(resolve(accountManagementReturnHref() as '/'));
+				clearAccountManagementContinuation();
 				return;
 			}
 			const query = new URLSearchParams({
@@ -78,13 +82,10 @@
 				account_ids: data.account_id
 			});
 			await goto(resolve(`/?${query.toString()}` as '/'));
-			localStorage.removeItem('oauth_workspace_id');
-			localStorage.removeItem('oauth_mastodon_server');
-			localStorage.removeItem('oauth_mastodon_instance_url');
+			clearAccountManagementContinuation();
 		} catch (e) {
-			const query = new URLSearchParams({ tab: 'accounts', oauth_status: 'failed' });
-			query.set('workspace_id', workspaceId);
-			await goto(resolve(`/settings?${query.toString()}`));
+			await goto(resolve(accountManagementReturnHref(undefined, 'failed', workspaceId) as '/'));
+			clearAccountManagementContinuation();
 		} finally {
 			loading = false;
 		}
@@ -132,9 +133,7 @@
 			{/if}
 
 			<div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-				<Button href={resolve('/settings?tab=accounts')} variant="outline"
-					>{m.common_cancel()}</Button
-				>
+				<Button href={resolve(cancelHref as '/')} variant="outline">{m.common_cancel()}</Button>
 				<Button type="submit" disabled={loading}>
 					{loading
 						? m.accounts_mastodon_callback_connecting()

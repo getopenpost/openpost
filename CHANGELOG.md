@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Direct and Settings-embedded social account management now share one explicitly configured Workspace component, while each route keeps its own authentication, OAuth continuation, URL cleanup, and one-time feedback without redirect flashes.
 - Moved the canonical source, release links, installation commands, support URLs, badges, and container image namespace to the `getopenpost` GitHub organization while retaining the published MCP Registry identifier for compatibility.
 - Messages now loads older conversation history near the top with stable cursor pages, an accessible manual control, exact reading-position preservation, deduplication, and stale-request protection across new messages, conversations, and Workspaces.
 - Messages now reaches complete conversation history with stable cursor pages, deduplicated appends that keep newer records, preserved filters and selection, and in-place first-page and older-page retries.

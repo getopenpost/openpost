@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { auth } from '$lib/stores/auth';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -14,7 +14,17 @@
 	import WorkspaceTeamSettings from '$lib/components/workspace-team-settings.svelte';
 	import InstanceConfiguration from '$lib/components/instance-configuration.svelte';
 	import InstanceAdminUsers from '$lib/components/instance-admin-users.svelte';
-	import AccountsPage from '../accounts/+page.svelte';
+	import AccountManagement from '$lib/components/account-management.svelte';
+	import type {
+		AccountManagementContinuation,
+		AccountManagementFeedback
+	} from '$lib/account-management';
+	import {
+		interpretAccountManagementURL,
+		presentAccountManagementFeedback,
+		rememberAccountManagementContinuation
+	} from '$lib/account-management-route';
+	import { ui } from '$lib/stores/ui.svelte';
 	import RepostAutomationSettings from '$lib/components/repost-automation-settings.svelte';
 	import BrandSettingsTab from '$lib/components/settings/BrandSettingsTab.svelte';
 	import InstanceSettingsTab from '$lib/components/settings/InstanceSettingsTab.svelte';
@@ -31,6 +41,15 @@
 
 	const authState = $derived($auth);
 	let destructiveDialogOpen = $state(false);
+	let accountFeedback = $state<AccountManagementFeedback | null>(null);
+	let handledAccountURL = '';
+
+	const accountLinks = {
+		createPublicationHref: '/',
+		createWorkspaceHref: '/',
+		billingHref: '/settings?tab=plan',
+		mastodonCallbackHref: '/accounts/mastodon/callback'
+	};
 
 	const settingsTabs = $derived<SettingsTabID[]>([
 		'profile',
@@ -132,6 +151,42 @@
 		return value && isSettingsTab(value) ? value : 'general';
 	}
 
+	$effect(() => {
+		const url = page.url;
+		const href = `${url.pathname}${url.search}${url.hash}`;
+		if (activeSettingsTab !== 'accounts' || href === handledAccountURL) return;
+		handledAccountURL = href;
+		void initializeAccountsURL(new URL(url));
+	});
+
+	async function initializeAccountsURL(url: URL) {
+		const interpreted = interpretAccountManagementURL(url);
+		accountFeedback = presentAccountManagementFeedback(interpreted.feedback);
+		if (interpreted.cleanHref !== `${url.pathname}${url.search}${url.hash}`) {
+			handledAccountURL = interpreted.cleanHref;
+			replaceState(resolve(interpreted.cleanHref as '/'), {});
+		}
+		try {
+			if (
+				interpreted.workspaceID &&
+				workspaceCtx.currentWorkspace?.id !== interpreted.workspaceID
+			) {
+				await workspaceCtx.initialize(interpreted.workspaceID);
+			}
+		} catch (error) {
+			console.error('Failed to restore OAuth workspace:', error);
+		}
+	}
+
+	function continueAccountConnection(continuation: AccountManagementContinuation) {
+		rememberAccountManagementContinuation(continuation, 'settings');
+		if (continuation.kind === 'external-oauth') {
+			window.location.assign(continuation.url);
+			return;
+		}
+		void goto(resolve(continuation.href as '/'));
+	}
+
 	async function deleteCurrentWorkspace() {
 		const workspace = workspaceCtx.currentWorkspace;
 		if (!workspace) return;
@@ -194,7 +249,16 @@
 
 				<section id="accounts" class:hidden={activeSettingsTab !== 'accounts'} class="scroll-mt-24">
 					{#if activeSettingsTab === 'accounts'}
-						<AccountsPage />
+						<AccountManagement
+							mode="settings"
+							workspace={workspaceCtx.currentWorkspace}
+							workspaces={workspaceCtx.workspaces}
+							links={accountLinks}
+							feedback={accountFeedback}
+							onFeedbackDismiss={() => (accountFeedback = null)}
+							onContinue={continueAccountConnection}
+							onAccountsChanged={() => ui.refreshWorkspaceSetup()}
+						/>
 					{/if}
 				</section>
 

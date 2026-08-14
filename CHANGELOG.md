@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Proved the collaboration-and-safety cohort across truthful invitation recovery, atomic Workspace and Organization deletion, accepted ownership transfer, permission-safe audit exports, and responsive, localized Daily email and temporary Mute controls.
 - Bounded the local Turbo task cache at 512 MiB through the serialized root task runner and Devenv cache tools, and stopped persisting revision-specific Turbo build archives in GitHub Actions, preventing local growth and cumulative CI cache generations while retaining recent local cache hits.
 - Organization Owners can now select and permanently delete any owned Organization without Workspace access after a complete preview, exact-name confirmation, and recent authentication; unconfirmed Paddle subscriptions, outstanding checkouts, pending ownership transfer, provider-scheduled work, other provider work, and cleanup remain explicit blockers, canceled checkouts cannot resume and retain an opaque boundary that terminates late Paddle subscriptions, failure is atomic, affected access, credentials, current and evidenced historical invitation email Jobs, ownership-expiry or notification Jobs end on success, and only content-free lifecycle and required billing evidence remains.
 - Updated `golang.org/x/image` to 0.45.0 to fix excessive memory allocation while validating VP8L images.

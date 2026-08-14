@@ -73,6 +73,7 @@
 </script>
 
 <nav
+	data-slot="mobile-bottom-nav"
 	class="fixed inset-x-0 bottom-0 z-30 border-t bg-background/96 px-2 pt-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] backdrop-blur-md md:hidden"
 	aria-label={m.sidebar_primary_navigation()}
 >

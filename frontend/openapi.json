@@ -9343,6 +9343,59 @@
 				"required": ["value", "measured"],
 				"type": "object"
 			},
+			"Mute": {
+				"additionalProperties": false,
+				"properties": {
+					"ends_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"scope": {
+						"enum": ["account", "workspace"],
+						"type": "string"
+					},
+					"starts_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					},
+					"workspace_name": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "scope", "starts_at", "ends_at"],
+				"type": "object"
+			},
+			"MuteCreate": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/MuteCreate.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"ends_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"scope": {
+						"enum": ["account", "workspace"],
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["scope", "ends_at"],
+				"type": "object"
+			},
 			"NextAvailableSlotOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -10952,6 +11005,12 @@
 					"email_available": {
 						"type": "boolean"
 					},
+					"mutes": {
+						"items": {
+							"$ref": "#/components/schemas/Mute"
+						},
+						"type": ["array", "null"]
+					},
 					"preferences": {
 						"additionalProperties": {
 							"$ref": "#/components/schemas/ChannelPreference"
@@ -10965,7 +11024,8 @@
 					"email_address",
 					"digest_time",
 					"digest_timezone",
-					"digest_configured"
+					"digest_configured",
+					"mutes"
 				],
 				"type": "object"
 			},
@@ -30625,6 +30685,148 @@
 				"tags": ["Notifications"]
 			}
 		},
+		"/notifications/mutes": {
+			"post": {
+				"description": "Creates or replaces the current account-wide or Workspace-specific Mute. In-app notifications remain immediate and Transactional email always bypasses Mutes.",
+				"operationId": "create-notification-mute",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/MuteCreate"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PreferenceSettings"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Pause optional notification email temporarily",
+				"tags": ["Notifications"]
+			}
+		},
+		"/notifications/mutes/{id}": {
+			"delete": {
+				"description": "Ends an existing Mute. Repeating the request for that Mute is safe and returns the current authoritative preferences.",
+				"operationId": "end-notification-mute",
+				"parameters": [
+					{
+						"description": "Mute ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Mute ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/PreferenceSettings"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "End a notification Mute now",
+				"tags": ["Notifications"]
+			}
+		},
 		"/notifications/preferences": {
 			"get": {
 				"operationId": "get-notification-preferences",
@@ -30639,7 +30841,7 @@
 						},
 						"description": "OK"
 					},
-					"default": {
+					"403": {
 						"content": {
 							"application/problem+json": {
 								"schema": {
@@ -30647,7 +30849,17 @@
 								}
 							}
 						},
-						"description": "Error"
+						"description": "Forbidden"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
 					}
 				},
 				"summary": "Get notification delivery preferences",
@@ -30676,7 +30888,7 @@
 						},
 						"description": "OK"
 					},
-					"default": {
+					"400": {
 						"content": {
 							"application/problem+json": {
 								"schema": {
@@ -30684,7 +30896,37 @@
 								}
 							}
 						},
-						"description": "Error"
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
 					}
 				},
 				"summary": "Update notification delivery preferences",

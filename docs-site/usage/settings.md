@@ -32,6 +32,9 @@ Account settings follow your user login across every workspace.
 - CLI devices and API tokens
 - MCP and ChatGPT App tokens/activity
 - Per-topic email frequency and the saved daily digest time and timezone
+- Temporary account-wide and selected-Workspace email Mutes with exact end times
+
+The Notifications page shows the same active Mutes and end-now action, so you can inspect or stop a Mute while reviewing notification history.
 
 Use an `mcp:read` token limited to one workspace when an AI tool only needs to read OpenPost. Use `mcp:full` only when it must create or change drafts and account versions, upload media, schedule, publish, cancel, reply, or moderate. You can remove either token. Check recent activity and remove access when the tool no longer needs it.
 

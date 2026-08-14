@@ -1499,23 +1499,42 @@ type UserNotificationPreference struct {
 	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
+// UserNotificationMute is a temporary overlay on a user's saved optional
+// notification preferences. Account Mutes use an empty WorkspaceID; ending or
+// expiry never rewrites the underlying channel or frequency choices.
+type UserNotificationMute struct {
+	bun.BaseModel `bun:"table:user_notification_mutes"`
+
+	ID          string    `bun:",pk" json:"id"`
+	UserID      string    `bun:"user_id,notnull" json:"user_id"`
+	Scope       string    `bun:",notnull" json:"scope"`
+	WorkspaceID string    `bun:"workspace_id,nullzero" json:"workspace_id,omitempty"`
+	StartsAt    time.Time `bun:"starts_at,notnull" json:"starts_at"`
+	EndsAt      time.Time `bun:"ends_at,notnull" json:"ends_at"`
+	EndedAt     time.Time `bun:"ended_at,nullzero" json:"ended_at,omitempty"`
+	CreatedAt   time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt   time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
 // UserNotificationDigestItem is one optional email fact waiting for its
 // user's configured daily delivery window. Content is rendered only through
 // the same escaped notification-email boundary as immediate mail.
 type UserNotificationDigestItem struct {
 	bun.BaseModel `bun:"table:user_notification_digest_items"`
 
-	ID               string    `bun:",pk" json:"id"`
-	UserID           string    `bun:"user_id,notnull" json:"user_id"`
-	Type             string    `bun:",notnull" json:"type"`
-	Title            string    `bun:",notnull" json:"title"`
-	Body             string    `bun:",notnull,default:''" json:"body"`
-	Href             string    `bun:",notnull,default:''" json:"href"`
-	DedupKey         string    `bun:"dedup_key,notnull,default:''" json:"-"`
-	DeliveryWindowAt time.Time `bun:"delivery_window_at,notnull" json:"delivery_window_at"`
-	DeliveryID       string    `bun:"delivery_id,notnull,default:''" json:"delivery_id,omitempty"`
-	DeliveredAt      time.Time `bun:"delivered_at,nullzero" json:"delivered_at,omitempty"`
-	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	ID                  string    `bun:",pk" json:"id"`
+	UserID              string    `bun:"user_id,notnull" json:"user_id"`
+	WorkspaceID         string    `bun:"workspace_id,notnull,default:''" json:"workspace_id,omitempty"`
+	WorkspaceScopeKnown bool      `bun:"workspace_scope_known,notnull,default:false" json:"workspace_scope_known"`
+	Type                string    `bun:",notnull" json:"type"`
+	Title               string    `bun:",notnull" json:"title"`
+	Body                string    `bun:",notnull,default:''" json:"body"`
+	Href                string    `bun:",notnull,default:''" json:"href"`
+	DedupKey            string    `bun:"dedup_key,notnull,default:''" json:"-"`
+	DeliveryWindowAt    time.Time `bun:"delivery_window_at,notnull" json:"delivery_window_at"`
+	DeliveryID          string    `bun:"delivery_id,notnull,default:''" json:"delivery_id,omitempty"`
+	DeliveredAt         time.Time `bun:"delivered_at,nullzero" json:"delivered_at,omitempty"`
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 type PublicationLifecycleEvent struct {

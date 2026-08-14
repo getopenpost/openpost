@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/apitokens"
 	notificationservice "github.com/openpost/backend/internal/services/notifications"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -34,6 +36,7 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 		(*models.UserNotification)(nil),
 		(*models.UserNotificationPreference)(nil),
 		(*models.UserNotificationDigestItem)(nil),
+		(*models.UserNotificationMute)(nil),
 		(*models.Job)(nil),
 	)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
@@ -42,6 +45,136 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewNotificationHandler(db, auth, notificationservice.NewService(db)).RegisterRoutes(api)
 	return &notificationTestServer{echo: e, db: db}
+}
+
+func TestNotificationMuteAPIValidatesScopeAuthorizationAndEndsEarly(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServer(t)
+	server.seed(t)
+	endsAt := time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339)
+
+	unauthorized := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/mutes", map[string]any{
+		"scope": "workspace", "workspace_id": "workspace-outside", "ends_at": endsAt,
+	}, "web-token")
+	require.Equal(t, http.StatusForbidden, unauthorized.Code, unauthorized.Body.String())
+
+	created := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/mutes", map[string]any{
+		"scope": "workspace", "workspace_id": "workspace-1", "ends_at": endsAt,
+	}, "web-token")
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	require.Contains(t, created.Body.String(), `"scope":"workspace"`)
+	require.Contains(t, created.Body.String(), `"workspace_name":"One"`)
+	var body struct {
+		Mutes []struct {
+			ID string `json:"id"`
+		} `json:"mutes"`
+	}
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &body))
+	require.Len(t, body.Mutes, 1)
+
+	ended := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/notifications/mutes/"+body.Mutes[0].ID, nil, "web-token")
+	require.Equal(t, http.StatusOK, ended.Code, ended.Body.String())
+	require.Contains(t, ended.Body.String(), `"mutes":[]`)
+}
+
+func TestNotificationMuteAPIRejectsPastAndMismatchedScopes(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServer(t)
+	server.seed(t)
+
+	for _, body := range []map[string]any{
+		{"scope": "account", "workspace_id": "workspace-1", "ends_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+		{"scope": "workspace", "ends_at": time.Now().UTC().Add(time.Hour).Format(time.RFC3339)},
+		{"scope": "account", "ends_at": time.Now().UTC().Add(-time.Minute).Format(time.RFC3339)},
+	} {
+		response := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/mutes", body, "web-token")
+		require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
+}
+
+func TestNotificationMuteAPIHonorsCLIAndAPIWorkspaceBindings(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServerWithAuthenticator(t, workspaceTestAuthenticator{
+		"bound-cli": {
+			UserID: "user-1", Email: "one@example.com", Scope: apitokens.ScopeCLI, WorkspaceID: "workspace-1",
+		},
+		"bound-api": {
+			UserID: "user-1", Email: "one@example.com", Scope: apitokens.ScopeAPIWrite, WorkspaceID: "workspace-1",
+		},
+	})
+	server.seed(t)
+	endsAt := time.Now().UTC().Add(2 * time.Hour).Format(time.RFC3339)
+
+	for _, test := range []struct {
+		name  string
+		token string
+		body  map[string]any
+		want  int
+	}{
+		{name: "CLI account scope", token: "bound-cli", body: map[string]any{"scope": "account", "ends_at": endsAt}, want: http.StatusForbidden},
+		{name: "CLI other Workspace", token: "bound-cli", body: map[string]any{"scope": "workspace", "workspace_id": "workspace-2", "ends_at": endsAt}, want: http.StatusForbidden},
+		{name: "CLI bound Workspace", token: "bound-cli", body: map[string]any{"scope": "workspace", "workspace_id": "workspace-1", "ends_at": endsAt}, want: http.StatusOK},
+		{name: "API bound Workspace", token: "bound-api", body: map[string]any{"scope": "workspace", "workspace_id": "workspace-1", "ends_at": endsAt}, want: http.StatusOK},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			response := jsonRequest(t, server.echo, http.MethodPost, "/api/v1/notifications/mutes", test.body, test.token)
+			require.Equal(t, test.want, response.Code, response.Body.String())
+		})
+	}
+	var workspaceMute models.UserNotificationMute
+	require.NoError(t, server.db.NewSelect().Model(&workspaceMute).
+		Where("user_id = ? AND scope = ? AND workspace_id = ?", "user-1", notificationservice.MuteScopeWorkspace, "workspace-1").
+		Scan(t.Context()))
+
+	var account models.UserNotificationMute
+	accountEndsAt := time.Now().UTC().Add(time.Hour)
+	account = models.UserNotificationMute{
+		ID: "account-mute", UserID: "user-1", Scope: string(notificationservice.MuteScopeAccount),
+		StartsAt: time.Now().UTC(), EndsAt: accountEndsAt, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}
+	_, err := server.db.NewInsert().Model(&account).Exec(t.Context())
+	require.NoError(t, err)
+	ended := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/notifications/mutes/"+account.ID, nil, "bound-cli")
+	require.Equal(t, http.StatusForbidden, ended.Code, ended.Body.String())
+	otherWorkspace := models.UserNotificationMute{
+		ID: "other-workspace-mute", UserID: "user-1", Scope: string(notificationservice.MuteScopeWorkspace), WorkspaceID: "workspace-2",
+		StartsAt: time.Now().UTC(), EndsAt: accountEndsAt, CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
+	}
+	_, err = server.db.NewInsert().Model(&otherWorkspace).Exec(t.Context())
+	require.NoError(t, err)
+
+	scopedResponse := jsonRequest(t, server.echo, http.MethodGet, "/api/v1/notifications/preferences", nil, "bound-api")
+	require.Equal(t, http.StatusOK, scopedResponse.Code, scopedResponse.Body.String())
+	var scoped struct {
+		Preferences  map[string]any `json:"preferences"`
+		EmailAddress string         `json:"email_address"`
+		DigestTime   string         `json:"digest_time"`
+		Mutes        []struct {
+			ID          string `json:"id"`
+			WorkspaceID string `json:"workspace_id"`
+		} `json:"mutes"`
+	}
+	require.NoError(t, json.Unmarshal(scopedResponse.Body.Bytes(), &scoped))
+	require.Empty(t, scoped.Preferences)
+	require.Empty(t, scoped.EmailAddress)
+	require.Empty(t, scoped.DigestTime)
+	require.Equal(t, []struct {
+		ID          string `json:"id"`
+		WorkspaceID string `json:"workspace_id"`
+	}{{ID: workspaceMute.ID, WorkspaceID: "workspace-1"}}, scoped.Mutes)
+	require.NotContains(t, scopedResponse.Body.String(), account.ID)
+	require.NotContains(t, scopedResponse.Body.String(), otherWorkspace.ID)
+
+	endedBound := jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/notifications/mutes/"+workspaceMute.ID, nil, "bound-api")
+	require.Equal(t, http.StatusOK, endedBound.Code, endedBound.Body.String())
+	require.NotContains(t, endedBound.Body.String(), account.ID)
+	require.NotContains(t, endedBound.Body.String(), otherWorkspace.ID)
+	ended = jsonRequest(t, server.echo, http.MethodDelete, "/api/v1/notifications/mutes/"+otherWorkspace.ID, nil, "bound-cli")
+	require.Equal(t, http.StatusForbidden, ended.Code, ended.Body.String())
+	updated := jsonRequest(t, server.echo, http.MethodPut, "/api/v1/notifications/preferences", map[string]any{
+		"preferences": map[string]any{}, "digest_time": "09:00", "digest_timezone": "UTC",
+	}, "bound-cli")
+	require.Equal(t, http.StatusForbidden, updated.Code, updated.Body.String())
 }
 
 func TestNotificationPreferenceAPIStoresDailyWindowAndRejectsInvalidCombinations(t *testing.T) {

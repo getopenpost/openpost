@@ -34,6 +34,33 @@ async function switchWorkspace(page: Page, from: TestWorkspace, to: TestWorkspac
   await expect(workspaceButton).toContainText(to.name);
 }
 
+function boxesOverlap(
+  first: { x: number; y: number; width: number; height: number } | null,
+  second: { x: number; y: number; width: number; height: number } | null,
+) {
+  if (!first || !second) return true;
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
+}
+
+async function expectMobileActionInViewport(page: Page, action: ReturnType<Page["locator"]>) {
+  await action.scrollIntoViewIfNeeded();
+  await expect(action).toBeInViewport();
+  const actionBox = await action.boundingBox();
+  const viewport = page.viewportSize();
+  expect(actionBox).not.toBeNull();
+  expect(viewport).not.toBeNull();
+  expect(actionBox!.y).toBeGreaterThanOrEqual(0);
+  expect(actionBox!.y + actionBox!.height).toBeLessThanOrEqual(viewport!.height);
+  const navigation = page.locator('[data-slot="mobile-bottom-nav"]');
+  await expect(navigation).toBeVisible();
+  expect(boxesOverlap(actionBox, await navigation.boundingBox())).toBe(false);
+}
+
 test("notification bulk actions stay in the selected workspace and preserve state on failure", async ({
   page,
   request,
@@ -115,6 +142,11 @@ test("notification bulk actions stay in the selected workspace and preserve stat
           next_cursor: "",
         },
       });
+      return;
+    }
+
+    if (path.endsWith("/notifications/preferences")) {
+      await route.fallback();
       return;
     }
 
@@ -231,6 +263,134 @@ test("notification bulk actions stay in the selected workspace and preserve stat
   await expect(page.getByText("Account-wide invitation")).toHaveCount(0);
   await expect(page.getByText("Campaign publication failed")).toHaveCount(0);
   await expect(inbox.getByText("0 unread notifications")).toBeVisible();
+});
+
+test("temporary Mutes remain exact and operable on the Notifications route at supported widths", async ({
+  page,
+  request,
+}, testInfo) => {
+  const consoleErrors: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `notification-mutes-${unique}@example.com`);
+  const workspace = (await createWorkspace(
+    request,
+    auth.token,
+    `Mute workspace ${unique}`,
+  )) as TestWorkspace;
+  const headers = { Authorization: `Bearer ${auth.token}` };
+  const accountEnd = "2035-08-16T17:45:00-04:00";
+  const workspaceEnd = "2035-08-16T23:15:00+02:00";
+
+  expect(
+    (
+      await request.post("/api/v1/notifications/mutes", {
+        headers,
+        data: { scope: "account", ends_at: accountEnd },
+      })
+    ).ok(),
+  ).toBe(true);
+  expect(
+    (
+      await request.post("/api/v1/notifications/mutes", {
+        headers,
+        data: { scope: "workspace", workspace_id: workspace.id, ends_at: workspaceEnd },
+      })
+    ).ok(),
+  ).toBe(true);
+
+  const settingsResponse = await request.get("/api/v1/notifications/preferences", { headers });
+  expect(settingsResponse.ok()).toBe(true);
+  const settings = (await settingsResponse.json()) as {
+    mutes: Array<{ scope: string; workspace_id?: string; ends_at: string }>;
+  };
+  expect(settings.mutes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ scope: "account", ends_at: "2035-08-16T21:45:00Z" }),
+      expect.objectContaining({
+        scope: "workspace",
+        workspace_id: workspace.id,
+        ends_at: "2035-08-16T21:15:00Z",
+      }),
+    ]),
+  );
+
+  await authenticatePage(page, auth.token);
+  await page.addInitScript((currentWorkspace) => {
+    localStorage.setItem("openpost_current_workspace", JSON.stringify(currentWorkspace));
+  }, workspace);
+
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("/notifications");
+    const activeMutes = page.getByRole("list", { name: "Active Mutes" });
+    await expect(activeMutes.getByText("All workspaces", { exact: true })).toBeVisible();
+    await expect(activeMutes.getByText(`${workspace.name} only`, { exact: true })).toBeVisible();
+    await expect(activeMutes.getByText(/^Optional email paused until /)).toHaveCount(2);
+    const notificationStart = page.getByRole("button", { name: "Start Mute" });
+    const notificationEnd = activeMutes.getByRole("button", { name: "End now" }).first();
+    const endTimeBox = await page.getByLabel("End time").boundingBox();
+    expect(endTimeBox?.height).toBeGreaterThanOrEqual(44);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    if (width < 768) {
+      await expectMobileActionInViewport(page, notificationStart);
+      await expectMobileActionInViewport(page, notificationEnd);
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(`notification-mutes-${width}.png`),
+      fullPage: true,
+    });
+
+    await page.goto("/settings?tab=notifications");
+    const settingsMutes = page.getByRole("list", { name: "Active Mutes" });
+    await expect(settingsMutes.getByText("All workspaces", { exact: true })).toBeVisible();
+    await expect(settingsMutes.getByText(`${workspace.name} only`, { exact: true })).toBeVisible();
+    const startMute = page.getByRole("button", { name: "Start Mute" });
+    const endNow = settingsMutes.getByRole("button", { name: "End now" }).first();
+    const savePreferences = page.getByRole("button", { name: "Save preferences" });
+    await expect(startMute).toBeVisible();
+    await expect(endNow).toBeVisible();
+    await expect(savePreferences).toBeVisible();
+    expect(boxesOverlap(await startMute.boundingBox(), await savePreferences.boundingBox())).toBe(
+      false,
+    );
+    expect(boxesOverlap(await endNow.boundingBox(), await savePreferences.boundingBox())).toBe(
+      false,
+    );
+    if (width < 768) {
+      await expectMobileActionInViewport(page, startMute);
+      await expectMobileActionInViewport(page, endNow);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    await page.screenshot({
+      path: testInfo.outputPath(`settings-notification-mutes-${width}.png`),
+      fullPage: true,
+    });
+    if (width < 768) {
+      await expectMobileActionInViewport(page, savePreferences);
+      await page.screenshot({
+        path: testInfo.outputPath(`settings-notification-mutes-save-${width}.png`),
+        fullPage: true,
+      });
+    }
+  }
+
+  const workspaceMute = page.getByRole("listitem").filter({ hasText: `${workspace.name} only` });
+  await workspaceMute.getByRole("button", { name: "End now" }).click();
+  await expect(workspaceMute).toHaveCount(0);
+  await expect(
+    page.getByRole("list", { name: "Active Mutes" }).getByText("All workspaces", { exact: true }),
+  ).toBeVisible();
+  expect(consoleErrors).toEqual([]);
+  expect(pageErrors).toEqual([]);
 });
 
 test("notification feed shares live state, retries failed cursors, and exposes accessible semantics", async ({

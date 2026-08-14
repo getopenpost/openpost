@@ -256,7 +256,10 @@
 					class="scroll-mt-24"
 				>
 					{#if activeSettingsTab === 'notifications'}
-						<NotificationPreferences />
+						<NotificationPreferences
+							workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
+							workspaceName={workspaceCtx.currentWorkspace?.name ?? ''}
+						/>
 					{/if}
 				</section>
 

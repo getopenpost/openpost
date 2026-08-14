@@ -17,6 +17,7 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
+	import NotificationMutes from '$lib/components/notification-mutes.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
@@ -26,6 +27,9 @@
 	type ChannelPreference = components['schemas']['ChannelPreference'];
 	type Preferences = Record<string, ChannelPreference>;
 	type EmailFrequency = 'off' | 'immediate' | 'daily';
+
+	let { workspaceID = '', workspaceName = '' }: { workspaceID?: string; workspaceName?: string } =
+		$props();
 
 	const eventGroups = $derived(notificationTopicGroups());
 
@@ -176,6 +180,8 @@
 			icon={BellRingIcon}
 		/>
 
+		<NotificationMutes {workspaceID} {workspaceName} />
+
 		{#if emailAvailable}
 			<p class="text-sm text-muted-foreground">
 				{m.notifications_email_recipient({ email: emailAddress })}
@@ -300,6 +306,7 @@
 		<p class="text-xs leading-5 text-muted-foreground">{m.notifications_critical_help()}</p>
 
 		<SettingsFormFooter
+			sticky={false}
 			label={m.notifications_save_preferences()}
 			savingLabel={m.notifications_saving_preferences()}
 			{saving}

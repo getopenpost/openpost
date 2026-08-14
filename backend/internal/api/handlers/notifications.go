@@ -48,6 +48,14 @@ type UpdateNotificationPreferencesInput struct {
 	Body notifications.PreferenceUpdate
 }
 
+type CreateNotificationMuteInput struct {
+	Body notifications.MuteCreate
+}
+
+type EndNotificationMuteInput struct {
+	ID string `path:"id" doc:"Mute ID"`
+}
+
 func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-notifications",
@@ -123,13 +131,8 @@ func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 		Summary:     "Get notification delivery preferences",
 		Tags:        []string{tagNotifications},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-	}, func(ctx context.Context, _ *struct{}) (*NotificationPreferencesOutput, error) {
-		settings, err := h.service.GetPreferenceSettings(ctx, middleware.GetUserID(ctx))
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to load notification preferences")
-		}
-		return &NotificationPreferencesOutput{Body: settings}, nil
-	})
+		Errors:      []int{403, 500},
+	}, h.getNotificationPreferences)
 
 	huma.Register(api, huma.Operation{
 		OperationID: "update-notification-preferences",
@@ -138,16 +141,92 @@ func (h *NotificationHandler) RegisterRoutes(api huma.API) {
 		Summary:     "Update notification delivery preferences",
 		Tags:        []string{tagNotifications},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-	}, func(ctx context.Context, input *UpdateNotificationPreferencesInput) (*NotificationPreferencesOutput, error) {
-		settings, err := h.service.UpdatePreferenceSettings(ctx, middleware.GetUserID(ctx), input.Body)
-		if errors.Is(err, notifications.ErrInvalidPreferences) {
-			return nil, huma.Error400BadRequest("invalid notification preferences")
+		Errors:      []int{400, 403, 500},
+	}, h.updateNotificationPreferences)
+
+	h.registerMuteRoutes(api)
+}
+
+func (h *NotificationHandler) getNotificationPreferences(ctx context.Context, _ *struct{}) (*NotificationPreferencesOutput, error) {
+	settings, err := h.service.GetPreferenceSettingsForActor(ctx, notificationMuteActor(ctx))
+	if errors.Is(err, notifications.ErrMuteWorkspaceAccess) {
+		return nil, huma.Error403Forbidden("workspace access required")
+	} else if err != nil {
+		return nil, huma.Error500InternalServerError("failed to load notification preferences")
+	}
+	return &NotificationPreferencesOutput{Body: settings}, nil
+}
+
+func (h *NotificationHandler) updateNotificationPreferences(ctx context.Context, input *UpdateNotificationPreferencesInput) (*NotificationPreferencesOutput, error) {
+	settings, err := h.service.UpdatePreferenceSettings(ctx, notificationMuteActor(ctx), input.Body)
+	if errors.Is(err, notifications.ErrInvalidPreferences) {
+		return nil, huma.Error400BadRequest("invalid notification preferences")
+	}
+	if errors.Is(err, notifications.ErrMuteWorkspaceAccess) {
+		return nil, huma.Error403Forbidden("workspace-bound credentials cannot change account notification preferences")
+	}
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to save notification preferences")
+	}
+	return &NotificationPreferencesOutput{Body: settings}, nil
+}
+
+func (h *NotificationHandler) registerMuteRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "create-notification-mute",
+		Method:      http.MethodPost,
+		Path:        "/notifications/mutes",
+		Summary:     "Pause optional notification email temporarily",
+		Description: "Creates or replaces the current account-wide or Workspace-specific Mute. In-app notifications remain immediate and Transactional email always bypasses Mutes.",
+		Tags:        []string{tagNotifications},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 500},
+	}, func(ctx context.Context, input *CreateNotificationMuteInput) (*NotificationPreferencesOutput, error) {
+		actor := notificationMuteActor(ctx)
+		if _, err := h.service.CreateMute(ctx, actor, input.Body); errors.Is(err, notifications.ErrInvalidMute) {
+			return nil, huma.Error400BadRequest("invalid notification mute")
+		} else if errors.Is(err, notifications.ErrMuteWorkspaceAccess) {
+			return nil, huma.Error403Forbidden("workspace access required")
+		} else if err != nil {
+			return nil, huma.Error500InternalServerError("failed to create notification mute")
 		}
+		settings, err := h.service.GetPreferenceSettingsForActor(ctx, actor)
 		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to save notification preferences")
+			return nil, huma.Error500InternalServerError("failed to load notification preferences")
 		}
 		return &NotificationPreferencesOutput{Body: settings}, nil
 	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "end-notification-mute",
+		Method:      http.MethodDelete,
+		Path:        "/notifications/mutes/{id}",
+		Summary:     "End a notification Mute now",
+		Description: "Ends an existing Mute. Repeating the request for that Mute is safe and returns the current authoritative preferences.",
+		Tags:        []string{tagNotifications},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{403, 404, 500},
+	}, func(ctx context.Context, input *EndNotificationMuteInput) (*NotificationPreferencesOutput, error) {
+		actor := notificationMuteActor(ctx)
+		if err := h.service.EndMute(ctx, actor, input.ID); errors.Is(err, notifications.ErrMuteNotFound) {
+			return nil, huma.Error404NotFound("notification mute not found")
+		} else if errors.Is(err, notifications.ErrMuteWorkspaceAccess) {
+			return nil, huma.Error403Forbidden("workspace access required")
+		} else if err != nil {
+			return nil, huma.Error500InternalServerError("failed to end notification mute")
+		}
+		settings, err := h.service.GetPreferenceSettingsForActor(ctx, actor)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to load notification preferences")
+		}
+		return &NotificationPreferencesOutput{Body: settings}, nil
+	})
+}
+
+func notificationMuteActor(ctx context.Context) notifications.MuteActor {
+	return notifications.MuteActor{
+		UserID: middleware.GetUserID(ctx), WorkspaceBindingID: middleware.GetWorkspaceID(ctx),
+	}
 }
 
 func (h *NotificationHandler) requireWorkspaceAccess(ctx context.Context, workspaceID string) error {

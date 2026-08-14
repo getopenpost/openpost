@@ -12,6 +12,7 @@
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import NotificationMutes from '$lib/components/notification-mutes.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -261,6 +262,7 @@
 	{/snippet}
 
 	<div class="space-y-8">
+		<NotificationMutes workspaceID={workspaceId} {workspaceName} />
 		{#if inbox.error}
 			<InlineNotice tone="error" message={inbox.error || m.notifications_load_failed()}>
 				{#snippet actions()}

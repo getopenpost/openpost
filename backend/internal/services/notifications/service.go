@@ -16,6 +16,7 @@ import (
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/transactionalmail"
+	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/uptrace/bun"
 )
 
@@ -47,6 +48,9 @@ const (
 var (
 	ErrInvalidCursor          = errors.New("invalid notification cursor")
 	ErrInvalidPreferences     = errors.New("invalid notification preferences")
+	ErrInvalidMute            = errors.New("invalid notification mute")
+	ErrMuteWorkspaceAccess    = errors.New("notification mute workspace access denied")
+	ErrMuteNotFound           = errors.New("notification mute not found")
 	errWorkspaceScopeRequired = errors.New("notification workspace scope is required")
 )
 
@@ -108,12 +112,44 @@ type PreferenceSettings struct {
 	DigestTime       string      `json:"digest_time" example:"09:00"`
 	DigestTimezone   string      `json:"digest_timezone" example:"Europe/Lisbon"`
 	DigestConfigured bool        `json:"digest_configured"`
+	Mutes            []Mute      `json:"mutes"`
 }
 
 type PreferenceUpdate struct {
 	Preferences    Preferences `json:"preferences"`
 	DigestTime     string      `json:"digest_time" pattern:"^[0-2][0-9]:[0-5][0-9]$"`
 	DigestTimezone string      `json:"digest_timezone"`
+}
+
+type MuteScope string
+
+const (
+	MuteScopeAccount   MuteScope = "account"
+	MuteScopeWorkspace MuteScope = "workspace"
+)
+
+func (scope MuteScope) valid() bool {
+	return scope == MuteScopeAccount || scope == MuteScopeWorkspace
+}
+
+type MuteCreate struct {
+	Scope       MuteScope `json:"scope" enum:"account,workspace"`
+	WorkspaceID string    `json:"workspace_id,omitempty"`
+	EndsAt      time.Time `json:"ends_at" format:"date-time"`
+}
+
+type MuteActor struct {
+	UserID             string
+	WorkspaceBindingID string
+}
+
+type Mute struct {
+	ID            string    `json:"id"`
+	Scope         MuteScope `json:"scope" enum:"account,workspace"`
+	WorkspaceID   string    `json:"workspace_id,omitempty"`
+	WorkspaceName string    `json:"workspace_name,omitempty"`
+	StartsAt      time.Time `json:"starts_at"`
+	EndsAt        time.Time `json:"ends_at"`
 }
 
 type CreateInput struct {
@@ -173,6 +209,11 @@ type Service struct {
 	now       func() time.Time
 	// beforeDigestPreferenceLock is a deterministic concurrency seam for tests.
 	beforeDigestPreferenceLock func()
+	// beforeOptionalMuteCheck is a deterministic producer-boundary seam for tests.
+	beforeOptionalMuteCheck func()
+	// Mute persistence seams let contention tests prove final durable state.
+	beforeMuteCreatePersist func()
+	beforeMuteEndPersist    func()
 }
 
 type Options struct {
@@ -189,6 +230,174 @@ func NewService(db *bun.DB, options ...Options) *Service {
 		service.publicURL = strings.TrimRight(strings.TrimSpace(options[0].PublicURL), "/")
 	}
 	return service
+}
+
+func (s *Service) CreateMute(ctx context.Context, actor MuteActor, input MuteCreate) (Mute, error) {
+	now := s.now().UTC()
+	userID, input, err := normalizeMuteCreate(actor, input, now)
+	if err != nil {
+		return Mute{}, err
+	}
+	if err := s.authorizeMuteCreate(ctx, actor, userID, input); err != nil {
+		return Mute{}, err
+	}
+	id := uuid.NewSHA1(uuid.NameSpaceOID, []byte("notification-mute\x00"+userID+"\x00"+string(input.Scope)+"\x00"+input.WorkspaceID)).String()
+	row := &models.UserNotificationMute{
+		ID: id, UserID: userID, Scope: string(input.Scope), WorkspaceID: input.WorkspaceID,
+		StartsAt: now, EndsAt: input.EndsAt, CreatedAt: now, UpdatedAt: now,
+	}
+	if s.beforeMuteCreatePersist != nil {
+		s.beforeMuteCreatePersist()
+	}
+	_, err = s.db.NewInsert().Model(row).
+		On("CONFLICT (id) DO UPDATE").
+		Set("starts_at = EXCLUDED.starts_at").
+		Set("ends_at = EXCLUDED.ends_at").
+		Set("ended_at = NULL").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	if err != nil {
+		return Mute{}, err
+	}
+	return s.muteView(ctx, s.db, *row)
+}
+
+func normalizeMuteCreate(actor MuteActor, input MuteCreate, now time.Time) (string, MuteCreate, error) {
+	userID := strings.TrimSpace(actor.UserID)
+	input.Scope = MuteScope(strings.TrimSpace(string(input.Scope)))
+	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
+	input.EndsAt = input.EndsAt.UTC()
+	if userID == "" || !input.EndsAt.After(now) ||
+		(input.Scope == MuteScopeAccount && input.WorkspaceID != "") ||
+		(input.Scope == MuteScopeWorkspace && input.WorkspaceID == "") || !input.Scope.valid() {
+		return "", MuteCreate{}, ErrInvalidMute
+	}
+	return userID, input, nil
+}
+
+func (s *Service) authorizeMuteCreate(ctx context.Context, actor MuteActor, userID string, input MuteCreate) error {
+	workspaceBindingID := strings.TrimSpace(actor.WorkspaceBindingID)
+	if workspaceBindingID != "" && (input.Scope != MuteScopeWorkspace || input.WorkspaceID != workspaceBindingID) {
+		return ErrMuteWorkspaceAccess
+	}
+	if input.Scope != MuteScopeWorkspace {
+		return nil
+	}
+	allowed, err := workspaceaccess.Allows(ctx, s.db, input.WorkspaceID, userID)
+	if err != nil {
+		return err
+	}
+	if !allowed {
+		return ErrMuteWorkspaceAccess
+	}
+	return nil
+}
+
+func (s *Service) EndMute(ctx context.Context, actor MuteActor, muteID string) error {
+	now := s.now().UTC()
+	userID := strings.TrimSpace(actor.UserID)
+	workspaceBindingID := strings.TrimSpace(actor.WorkspaceBindingID)
+	var mute models.UserNotificationMute
+	if err := s.db.NewSelect().Model(&mute).
+		Where("id = ? AND user_id = ?", strings.TrimSpace(muteID), userID).
+		Scan(ctx); errors.Is(err, sql.ErrNoRows) {
+		return ErrMuteNotFound
+	} else if err != nil {
+		return err
+	}
+	if workspaceBindingID != "" && (MuteScope(mute.Scope) != MuteScopeWorkspace || mute.WorkspaceID != workspaceBindingID) {
+		return ErrMuteWorkspaceAccess
+	}
+	if !mute.EndedAt.IsZero() || !mute.EndsAt.After(now) {
+		return nil
+	}
+	if s.beforeMuteEndPersist != nil {
+		s.beforeMuteEndPersist()
+	}
+	_, err := s.db.NewUpdate().Model((*models.UserNotificationMute)(nil)).
+		Set("ended_at = ?", now).Set("updated_at = ?", now).
+		Where("id = ? AND user_id = ? AND ended_at IS NULL AND ends_at > ?", strings.TrimSpace(muteID), strings.TrimSpace(userID), now).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	// Another EndMute may have won after the read. Ending an existing Mute is
+	// idempotent so retries and concurrent transports converge safely.
+	return nil
+}
+
+func (s *Service) ResolveEffectiveMute(ctx context.Context, userID, workspaceID string) (Mute, error) {
+	var row models.UserNotificationMute
+	workspaceID = strings.TrimSpace(workspaceID)
+	query := s.scopedActiveMuteQuery(s.db, userID, workspaceID, true, s.now().UTC()).Model(&row)
+	if workspaceID != "" {
+		query = query.
+			OrderExpr("CASE WHEN scope = ? AND workspace_id = ? THEN 0 ELSE 1 END", MuteScopeWorkspace, workspaceID)
+	}
+	query = query.Order("ends_at DESC").Limit(1)
+	if err := query.Scan(ctx); errors.Is(err, sql.ErrNoRows) {
+		return Mute{}, nil
+	} else if err != nil {
+		return Mute{}, err
+	}
+	return s.muteView(ctx, s.db, row)
+}
+
+func (s *Service) scopedActiveMuteQuery(db bun.IDB, userID, workspaceID string, workspaceKnown bool, now time.Time) *bun.SelectQuery {
+	query := db.NewSelect().Model((*models.UserNotificationMute)(nil)).
+		Where("user_id = ? AND ended_at IS NULL AND starts_at <= ? AND ends_at > ?", strings.TrimSpace(userID), now, now)
+	if !workspaceKnown {
+		return query
+	}
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return query.Where("scope = ?", MuteScopeAccount)
+	}
+	return query.Where("scope = ? OR (scope = ? AND workspace_id = ?)", MuteScopeAccount, MuteScopeWorkspace, workspaceID)
+}
+
+func (s *Service) isMutedWithDB(ctx context.Context, db bun.IDB, userID, workspaceID string, workspaceKnown bool) (bool, error) {
+	return s.scopedActiveMuteQuery(db, userID, workspaceID, workspaceKnown, s.now().UTC()).Exists(ctx)
+}
+
+func (s *Service) listActiveMutes(ctx context.Context, db bun.IDB, userID, workspaceBindingID string) ([]Mute, error) {
+	var rows []models.UserNotificationMute
+	query := s.scopedActiveMuteQuery(db, userID, "", false, s.now().UTC()).Model(&rows)
+	if workspaceBindingID = strings.TrimSpace(workspaceBindingID); workspaceBindingID != "" {
+		query = query.Where("scope = ? AND workspace_id = ?", MuteScopeWorkspace, workspaceBindingID)
+	}
+	if err := query.
+		OrderExpr("CASE WHEN scope = ? THEN 0 ELSE 1 END", MuteScopeAccount).
+		Order("ends_at ASC", "id ASC").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	mutes := make([]Mute, 0, len(rows))
+	for _, row := range rows {
+		view, err := s.muteView(ctx, db, row)
+		if err != nil {
+			return nil, err
+		}
+		if MuteScope(row.Scope) == MuteScopeWorkspace && view.WorkspaceName == "" {
+			continue
+		}
+		mutes = append(mutes, view)
+	}
+	return mutes, nil
+}
+
+func (s *Service) muteView(ctx context.Context, db bun.IDB, row models.UserNotificationMute) (Mute, error) {
+	view := Mute{ID: row.ID, Scope: MuteScope(row.Scope), WorkspaceID: row.WorkspaceID, StartsAt: row.StartsAt, EndsAt: row.EndsAt}
+	if MuteScope(row.Scope) != MuteScopeWorkspace || row.WorkspaceID == "" {
+		return view, nil
+	}
+	err := db.NewSelect().Model((*models.Workspace)(nil)).Column("name").
+		Where("id = ?", row.WorkspaceID).
+		Where("EXISTS (SELECT 1 FROM workspace_members AS member WHERE member.workspace_id = workspace.id AND member.user_id = ? AND member.status = ?)", row.UserID, models.WorkspaceMemberStatusActive).
+		Scan(ctx, &view.WorkspaceName)
+	if errors.Is(err, sql.ErrNoRows) {
+		return view, nil
+	}
+	return view, err
 }
 
 func (s *Service) Create(ctx context.Context, input CreateInput) error {
@@ -209,7 +418,10 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 	}
 	preference := preferences[input.Type]
 	deliverInApp := preference.InApp || criticalInApp[input.Type]
-	deliverEmail := preference.EmailFrequency != EmailFrequencyOff && s.sender != nil && !input.SuppressEmail
+	deliverEmail, err := s.shouldDeliverOptionalEmail(ctx, db, input, preference)
+	if err != nil {
+		return err
+	}
 	if !deliverInApp && !deliverEmail {
 		return nil
 	}
@@ -225,6 +437,25 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 		return s.enqueueDigestItemWithDB(ctx, db, input)
 	}
 	return s.enqueueEmailWithDB(ctx, db, input)
+}
+
+func (s *Service) shouldDeliverOptionalEmail(
+	ctx context.Context,
+	db bun.IDB,
+	input CreateInput,
+	preference ChannelPreference,
+) (bool, error) {
+	if preference.EmailFrequency == EmailFrequencyOff || s.sender == nil || input.SuppressEmail {
+		return false, nil
+	}
+	if transactionalEmail[input.Type] {
+		return true, nil
+	}
+	if s.beforeOptionalMuteCheck != nil {
+		s.beforeOptionalMuteCheck()
+	}
+	muted, err := s.isMutedWithDB(ctx, db, input.UserID, input.WorkspaceID, true)
+	return !muted, err
 }
 
 func (s *Service) storeInAppNotification(ctx context.Context, db bun.IDB, input CreateInput) error {
@@ -261,20 +492,22 @@ func (s *Service) storeInAppNotification(ctx context.Context, db bun.IDB, input 
 }
 
 type emailDeliveryJob struct {
-	DeliveryID       string    `json:"delivery_id"`
-	Classification   string    `json:"classification,omitempty"`
-	UserID           string    `json:"user_id,omitempty"`
-	Type             string    `json:"type,omitempty"`
-	Title            string    `json:"title,omitempty"`
-	Body             string    `json:"body,omitempty"`
-	Href             string    `json:"href,omitempty"`
-	Recipient        string    `json:"recipient,omitempty"`
-	WorkspaceName    string    `json:"workspace_name,omitempty"`
-	InviterName      string    `json:"inviter_name,omitempty"`
-	Role             string    `json:"role,omitempty"`
-	AcceptURLEnc     []byte    `json:"accept_url_encrypted,omitempty"`
-	ExpiresAt        time.Time `json:"expires_at,omitempty"`
-	DeliveryWindowAt time.Time `json:"delivery_window_at,omitempty"`
+	DeliveryID          string    `json:"delivery_id"`
+	Classification      string    `json:"classification,omitempty"`
+	UserID              string    `json:"user_id,omitempty"`
+	WorkspaceID         string    `json:"workspace_id,omitempty"`
+	WorkspaceScopeKnown bool      `json:"workspace_scope_known,omitempty"`
+	Type                string    `json:"type,omitempty"`
+	Title               string    `json:"title,omitempty"`
+	Body                string    `json:"body,omitempty"`
+	Href                string    `json:"href,omitempty"`
+	Recipient           string    `json:"recipient,omitempty"`
+	WorkspaceName       string    `json:"workspace_name,omitempty"`
+	InviterName         string    `json:"inviter_name,omitempty"`
+	Role                string    `json:"role,omitempty"`
+	AcceptURLEnc        []byte    `json:"accept_url_encrypted,omitempty"`
+	ExpiresAt           time.Time `json:"expires_at,omitempty"`
+	DeliveryWindowAt    time.Time `json:"delivery_window_at,omitempty"`
 }
 
 func (s *Service) EnqueueWorkspaceInvitation(ctx context.Context, input WorkspaceInvitationEmailInput) (EmailDelivery, error) {
@@ -460,13 +693,15 @@ func (s *Service) enqueueEmailWithDB(ctx context.Context, db bun.IDB, input Crea
 		classification = EmailClassificationRequired
 	}
 	payload, err := json.Marshal(emailDeliveryJob{
-		DeliveryID:     jobID,
-		Classification: classification,
-		UserID:         input.UserID,
-		Type:           input.Type,
-		Title:          strings.TrimSpace(input.Title),
-		Body:           strings.TrimSpace(input.Body),
-		Href:           href,
+		DeliveryID:          jobID,
+		Classification:      classification,
+		UserID:              input.UserID,
+		WorkspaceID:         strings.TrimSpace(input.WorkspaceID),
+		WorkspaceScopeKnown: true,
+		Type:                input.Type,
+		Title:               strings.TrimSpace(input.Title),
+		Body:                strings.TrimSpace(input.Body),
+		Href:                href,
 	})
 	if err != nil {
 		return fmt.Errorf("encode notification email job: %w", err)
@@ -509,7 +744,7 @@ func (s *Service) enqueueDigestItemWithDB(ctx context.Context, db bun.IDB, input
 		href = ""
 	}
 	item := &models.UserNotificationDigestItem{
-		ID: itemID, UserID: input.UserID, Type: input.Type,
+		ID: itemID, UserID: input.UserID, WorkspaceID: strings.TrimSpace(input.WorkspaceID), WorkspaceScopeKnown: true, Type: input.Type,
 		Title: strings.TrimSpace(input.Title), Body: strings.TrimSpace(input.Body), Href: href,
 		DedupKey: dedupKey, DeliveryWindowAt: windowAt, CreatedAt: s.now(),
 	}
@@ -579,17 +814,15 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 	if job.Classification == EmailClassificationDailyDigest {
 		return s.handleDailyDigestEmail(ctx, job)
 	}
-	if job.Classification != EmailClassificationRequired {
-		preferences, err := s.GetPreferences(ctx, job.UserID)
-		if err != nil {
-			return err
-		}
-		if preferences[job.Type].EmailFrequency != EmailFrequencyImmediate {
-			return nil
-		}
+	deliver, err := s.shouldDeliverImmediateJob(ctx, job)
+	if err != nil {
+		return err
+	}
+	if !deliver {
+		return nil
 	}
 	var email string
-	err := s.db.NewSelect().Model((*models.User)(nil)).
+	err = s.db.NewSelect().Model((*models.User)(nil)).
 		Column("email").Where("id = ?", job.UserID).Scan(ctx, &email)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
@@ -613,6 +846,21 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 		PreferencesURL: preferencesURL,
 		IdempotencyKey: "notification-" + job.DeliveryID,
 	})
+}
+
+func (s *Service) shouldDeliverImmediateJob(ctx context.Context, job emailDeliveryJob) (bool, error) {
+	if job.Classification == EmailClassificationRequired {
+		return true, nil
+	}
+	preferences, err := s.GetPreferences(ctx, job.UserID)
+	if err != nil {
+		return false, err
+	}
+	if preferences[job.Type].EmailFrequency != EmailFrequencyImmediate {
+		return false, nil
+	}
+	muted, err := s.isMutedWithDB(ctx, s.db, job.UserID, job.WorkspaceID, job.WorkspaceScopeKnown)
+	return !muted, err
 }
 
 func (s *Service) handleDailyDigestEmail(ctx context.Context, job emailDeliveryJob) error {
@@ -668,6 +916,9 @@ func (s *Service) loadDailyDigestItems(
 	if _, err = pendingDelete.Where("type NOT IN (?)", bun.List(dailyTypes)).Exec(ctx); err != nil {
 		return nil, 0, fmt.Errorf("discard disabled notification digest items: %w", err)
 	}
+	if err = s.discardMutedDigestItems(ctx, userID, deliveryID, windowAt); err != nil {
+		return nil, 0, fmt.Errorf("discard muted notification digest items: %w", err)
+	}
 	claimed, err := s.db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).
 		Where("user_id = ? AND delivery_id = ? AND delivered_at IS NULL", userID, deliveryID).Count(ctx)
 	if err != nil {
@@ -694,6 +945,38 @@ func (s *Service) loadDailyDigestItems(
 		return nil, 0, fmt.Errorf("load notification digest items: %w", err)
 	}
 	return items, total, nil
+}
+
+func (s *Service) discardMutedDigestItems(ctx context.Context, userID, deliveryID string, windowAt time.Time) error {
+	var candidates []models.UserNotificationDigestItem
+	if err := s.db.NewSelect().Model(&candidates).
+		Column("id", "workspace_id", "workspace_scope_known").
+		Where("user_id = ? AND delivery_window_at = ? AND delivered_at IS NULL", userID, windowAt).
+		Where("delivery_id = '' OR delivery_id = ?", deliveryID).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	mutedByScope := map[string]bool{}
+	mutedIDs := make([]string, 0)
+	for _, item := range candidates {
+		key := fmt.Sprintf("%t\x00%s", item.WorkspaceScopeKnown, item.WorkspaceID)
+		muted, found := mutedByScope[key]
+		if !found {
+			var err error
+			muted, err = s.isMutedWithDB(ctx, s.db, userID, item.WorkspaceID, item.WorkspaceScopeKnown)
+			if err != nil {
+				return err
+			}
+			mutedByScope[key] = muted
+		}
+		if muted {
+			mutedIDs = append(mutedIDs, item.ID)
+		}
+	}
+	if len(mutedIDs) == 0 {
+		return nil
+	}
+	_, err := s.db.NewDelete().Model((*models.UserNotificationDigestItem)(nil)).Where("id IN (?)", bun.List(mutedIDs)).Exec(ctx)
+	return err
 }
 
 func renderDailyDigestBody(items []models.UserNotificationDigestItem, total int) string {
@@ -855,6 +1138,26 @@ func (s *Service) GetPreferenceSettings(ctx context.Context, userID string) (Pre
 	return s.getPreferenceSettings(ctx, s.db, userID)
 }
 
+func (s *Service) GetPreferenceSettingsForActor(ctx context.Context, actor MuteActor) (PreferenceSettings, error) {
+	userID := strings.TrimSpace(actor.UserID)
+	workspaceBindingID := strings.TrimSpace(actor.WorkspaceBindingID)
+	if workspaceBindingID == "" {
+		return s.getPreferenceSettings(ctx, s.db, userID)
+	}
+	allowed, err := workspaceaccess.Allows(ctx, s.db, workspaceBindingID, userID)
+	if err != nil {
+		return PreferenceSettings{}, err
+	}
+	if !allowed {
+		return PreferenceSettings{}, ErrMuteWorkspaceAccess
+	}
+	mutes, err := s.listActiveMutes(ctx, s.db, userID, workspaceBindingID)
+	if err != nil {
+		return PreferenceSettings{}, err
+	}
+	return PreferenceSettings{Preferences: Preferences{}, Mutes: mutes}, nil
+}
+
 func (s *Service) getPreferenceSettings(ctx context.Context, db bun.IDB, userID string) (PreferenceSettings, error) {
 	preferences, err := s.getPreferences(ctx, db, userID)
 	if err != nil {
@@ -882,9 +1185,14 @@ func (s *Service) getPreferenceSettings(ctx context.Context, db bun.IDB, userID 
 		}
 		digestConfigured = row.DigestConfigured
 	}
+	mutes, err := s.listActiveMutes(ctx, db, userID, "")
+	if err != nil {
+		return PreferenceSettings{}, err
+	}
 	return PreferenceSettings{
 		Preferences: preferences, EmailAvailable: s.sender != nil, EmailAddress: strings.TrimSpace(email),
 		DigestTime: digestTime, DigestTimezone: digestTimezone, DigestConfigured: digestConfigured,
+		Mutes: mutes,
 	}, nil
 }
 
@@ -1022,13 +1330,17 @@ func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferen
 	if err != nil {
 		return nil, err
 	}
-	settings, err := s.UpdatePreferenceSettings(ctx, userID, PreferenceUpdate{
+	settings, err := s.UpdatePreferenceSettings(ctx, MuteActor{UserID: userID}, PreferenceUpdate{
 		Preferences: preferences, DigestTime: current.DigestTime, DigestTimezone: current.DigestTimezone,
 	})
 	return settings.Preferences, err
 }
 
-func (s *Service) UpdatePreferenceSettings(ctx context.Context, userID string, update PreferenceUpdate) (PreferenceSettings, error) {
+func (s *Service) UpdatePreferenceSettings(ctx context.Context, actor MuteActor, update PreferenceUpdate) (PreferenceSettings, error) {
+	userID := strings.TrimSpace(actor.UserID)
+	if strings.TrimSpace(actor.WorkspaceBindingID) != "" {
+		return PreferenceSettings{}, ErrMuteWorkspaceAccess
+	}
 	allowed := DefaultPreferences()
 	clean := DefaultPreferences()
 	for eventType, value := range update.Preferences {

@@ -431,7 +431,7 @@ func TestRegisteredInvitationKeepsRawTokenOutOfNotificationAndAuditRecords(t *te
 	service, db := newTeamTestService(t, 10)
 	for _, model := range []any{
 		(*models.Job)(nil), (*models.UserNotification)(nil), (*models.UserNotificationPreference)(nil),
-		(*models.UserNotificationDigestItem)(nil),
+		(*models.UserNotificationDigestItem)(nil), (*models.UserNotificationMute)(nil),
 	} {
 		_, err := db.NewCreateTable().Model(model).Exec(t.Context())
 		require.NoError(t, err)

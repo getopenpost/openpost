@@ -2614,6 +2614,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications/mutes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pause optional notification email temporarily
+         * @description Creates or replaces the current account-wide or Workspace-specific Mute. In-app notifications remain immediate and Transactional email always bypasses Mutes.
+         */
+        post: operations["create-notification-mute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/mutes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End a notification Mute now
+         * @description Ends an existing Mute. Repeating the request for that Mute is safe and returns the current authoritative preferences.
+         */
+        delete: operations["end-notification-mute"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/notifications/preferences": {
         parameters: {
             query?: never;
@@ -8096,6 +8136,30 @@ export interface components {
             /** Format: int64 */
             value: number;
         };
+        Mute: {
+            /** Format: date-time */
+            ends_at: string;
+            id: string;
+            /** @enum {string} */
+            scope: "account" | "workspace";
+            /** Format: date-time */
+            starts_at: string;
+            workspace_id?: string;
+            workspace_name?: string;
+        };
+        MuteCreate: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/MuteCreate.json
+             */
+            readonly $schema?: string;
+            /** Format: date-time */
+            ends_at: string;
+            /** @enum {string} */
+            scope: "account" | "workspace";
+            workspace_id?: string;
+        };
         NextAvailableSlotOutputBody: {
             /**
              * Format: uri
@@ -8796,6 +8860,7 @@ export interface components {
             digest_timezone: string;
             email_address: string;
             email_available: boolean;
+            mutes: components["schemas"]["Mute"][] | null;
             preferences: {
                 [key: string]: components["schemas"]["ChannelPreference"];
             };
@@ -21656,6 +21721,125 @@ export interface operations {
             };
         };
     };
+    "create-notification-mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MuteCreate"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceSettings"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "end-notification-mute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Mute ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreferenceSettings"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-notification-preferences": {
         parameters: {
             query?: never;
@@ -21674,8 +21858,17 @@ export interface operations {
                     "application/json": components["schemas"]["PreferenceSettings"];
                 };
             };
-            /** @description Error */
-            default: {
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -21707,8 +21900,35 @@ export interface operations {
                     "application/json": components["schemas"]["PreferenceSettings"];
                 };
             };
-            /** @description Error */
-            default: {
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

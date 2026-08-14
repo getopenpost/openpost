@@ -114,6 +114,7 @@ var restReadOperations = operationSet(
 	"validate-publication",
 	"list-posting-schedules",
 	"get-next-available-slot",
+	"get-notification-preferences",
 )
 
 var restWriteOperations = operationSet(
@@ -138,6 +139,8 @@ var restWriteOperations = operationSet(
 	"create-posting-schedule",
 	"update-posting-schedule",
 	"delete-posting-schedule",
+	"create-notification-mute",
+	"end-notification-mute",
 )
 
 // Legacy Echo routes remain denied to scoped REST tokens unless they are

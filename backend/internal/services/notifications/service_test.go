@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -31,9 +32,12 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	ctx := context.Background()
 	for _, model := range []any{
 		(*models.User)(nil),
+		(*models.Workspace)(nil),
+		(*models.WorkspaceMember)(nil),
 		(*models.UserNotification)(nil),
 		(*models.UserNotificationPreference)(nil),
 		(*models.UserNotificationDigestItem)(nil),
+		(*models.UserNotificationMute)(nil),
 		(*models.Job)(nil),
 		(*models.WorkspaceInvitation)(nil),
 		(*models.WorkspaceInvitationDeliveryEvent)(nil),
@@ -46,7 +50,390 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "one@example.com", PasswordHash: "hash"}).Exec(ctx)
 	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", Name: "One"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive}).Exec(ctx)
+	require.NoError(t, err)
 	return db
+}
+
+func TestNotificationMutesResolveWorkspaceBeforeAccountAndExpireWithoutChangingPreferences(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{Sender: &recordingNotificationSender{}})
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	before, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}},
+		DigestTime:  "09:00", DigestTimezone: "Europe/Lisbon",
+	})
+	require.NoError(t, err)
+
+	account, err := service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(8 * time.Hour)})
+	require.NoError(t, err)
+	workspace, err := service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(2 * time.Hour)})
+	require.NoError(t, err)
+
+	effective, err := service.ResolveEffectiveMute(t.Context(), "user-1", "workspace-1")
+	require.NoError(t, err)
+	require.Equal(t, workspace.ID, effective.ID, "the most specific active Mute wins")
+	effective, err = service.ResolveEffectiveMute(t.Context(), "user-1", "workspace-2")
+	require.NoError(t, err)
+	require.Equal(t, account.ID, effective.ID)
+
+	now = now.Add(3 * time.Hour)
+	effective, err = service.ResolveEffectiveMute(t.Context(), "user-1", "workspace-1")
+	require.NoError(t, err)
+	require.Equal(t, account.ID, effective.ID, "the account Mute applies after the Workspace Mute expires")
+	require.NoError(t, service.EndMute(t.Context(), MuteActor{UserID: "user-1"}, account.ID))
+	effective, err = service.ResolveEffectiveMute(t.Context(), "user-1", "workspace-1")
+	require.NoError(t, err)
+	require.Empty(t, effective.ID)
+
+	after, err := service.GetPreferenceSettings(t.Context(), "user-1")
+	require.NoError(t, err)
+	require.Equal(t, before.Preferences, after.Preferences)
+	require.Equal(t, before.DigestTime, after.DigestTime)
+	require.Equal(t, before.DigestTimezone, after.DigestTimezone)
+}
+
+func TestWorkspaceMuteCreationRequiresActiveMembershipInTheService(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "workspace-2", Name: "Other organization"}).Exec(t.Context())
+	require.NoError(t, err)
+
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{
+		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-2", EndsAt: time.Now().Add(time.Hour),
+	})
+	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "unknown-user"}, MuteCreate{
+		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: time.Now().Add(time.Hour),
+	})
+	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
+}
+
+func TestWorkspaceBoundActorCannotUpdateAccountPreferencesInTheService(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{
+		UserID: "user-1", WorkspaceBindingID: "workspace-1",
+	}, PreferenceUpdate{
+		Preferences: Preferences{
+			TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyImmediate},
+		},
+		DigestTime: "09:00", DigestTimezone: "UTC",
+	})
+	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
+
+	count, err := db.NewSelect().Model((*models.UserNotificationPreference)(nil)).
+		Where("user_id = ?", "user-1").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count, "a rejected Workspace-bound write must not create account preferences")
+}
+
+func TestWorkspaceBoundMuteActorCannotCrossItsCredentialBoundary(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	now := time.Now().UTC()
+	bound := MuteActor{UserID: "user-1", WorkspaceBindingID: "workspace-1"}
+
+	_, err := service.CreateMute(t.Context(), bound, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(time.Hour)})
+	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
+	_, err = service.CreateMute(t.Context(), bound, MuteCreate{
+		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-2", EndsAt: now.Add(time.Hour),
+	})
+	require.ErrorIs(t, err, ErrMuteWorkspaceAccess)
+
+	account, err := service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{
+		Scope: MuteScopeAccount, EndsAt: now.Add(time.Hour),
+	})
+	require.NoError(t, err)
+	require.ErrorIs(t, service.EndMute(t.Context(), bound, account.ID), ErrMuteWorkspaceAccess)
+
+	workspace, err := service.CreateMute(t.Context(), bound, MuteCreate{
+		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(time.Hour),
+	})
+	require.NoError(t, err)
+	scoped, err := service.GetPreferenceSettingsForActor(t.Context(), bound)
+	require.NoError(t, err)
+	require.Empty(t, scoped.Preferences)
+	require.Len(t, scoped.Mutes, 1)
+	require.Equal(t, workspace.ID, scoped.Mutes[0].ID)
+	require.Equal(t, workspace.WorkspaceID, scoped.Mutes[0].WorkspaceID)
+	require.NoError(t, service.EndMute(t.Context(), bound, workspace.ID))
+}
+
+func TestNotificationMutesSuppressOptionalEmailButKeepInAppAndTransactionalDelivery(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender, PublicURL: "https://app.openpost.test"})
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyImmediate}},
+		DigestTime:  "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(time.Hour)})
+	require.NoError(t, err)
+
+	require.NoError(t, service.Create(t.Context(), CreateInput{
+		UserID: "user-1", WorkspaceID: "workspace-1", Type: TypeNewMessage,
+		Title: "Optional message", DedupKey: "message:muted",
+	}))
+	inApp, err := db.NewSelect().Model((*models.UserNotification)(nil)).Where("dedup_key = ?", "message:muted").Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, inApp, "in-app delivery stays immediate")
+	jobs, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, jobs, "optional immediate email is paused")
+
+	require.NoError(t, service.Create(t.Context(), CreateInput{
+		UserID: "user-1", WorkspaceID: "workspace-1", Type: TypeSecurityAction,
+		Title: "Security action", DedupKey: "security:required",
+	}))
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Scan(t.Context()))
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Len(t, sender.messages, 1, "Transactional email bypasses Mutes")
+}
+
+func TestMuteCreatedAfterQueueSuppressesOptionalImmediateDelivery(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender})
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyImmediate}},
+		DigestTime:  "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.Create(t.Context(), CreateInput{
+		UserID: "user-1", WorkspaceID: "workspace-1", Type: TypeNewMessage,
+		Title: "Queued before Mute", DedupKey: "message:queued-before-mute",
+	}))
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Scan(t.Context()))
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(time.Hour)})
+	require.NoError(t, err)
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Empty(t, sender.messages)
+}
+
+func TestLegacyOptionalEmailWithoutWorkspaceScopeIsConservativelyMuted(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender})
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyImmediate}},
+		DigestTime:  "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(time.Hour)})
+	require.NoError(t, err)
+	legacy, err := json.Marshal(map[string]any{
+		"delivery_id": "legacy", "user_id": "user-1", "type": TypeNewMessage, "title": "Legacy queued email",
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.HandleJob(t.Context(), JobTypeEmailDelivery, string(legacy)))
+	require.Empty(t, sender.messages)
+}
+
+func TestOptionalProducerRechecksMuteWhenCreateReplaceOrEndRacesIt(t *testing.T) {
+	for _, action := range []string{"create", "replace", "end"} {
+		t.Run(action, func(t *testing.T) {
+			db := notificationsTestDB(t)
+			service := NewService(db, Options{Sender: &recordingNotificationSender{}})
+			now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+			service.now = func() time.Time { return now }
+			_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyImmediate}}, DigestTime: "09:00", DigestTimezone: "UTC"})
+			require.NoError(t, err)
+			var mute Mute
+			if action != "create" {
+				mute, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(time.Hour)})
+				require.NoError(t, err)
+			}
+			paused, resume := make(chan struct{}), make(chan struct{})
+			service.beforeOptionalMuteCheck = func() { close(paused); <-resume }
+			result := make(chan error, 1)
+			go func() {
+				result <- service.CreateWithDB(t.Context(), db, CreateInput{UserID: "user-1", WorkspaceID: "workspace-1", Type: TypeNewMessage, Title: action, DedupKey: "race:" + action})
+			}()
+			<-paused
+			switch action {
+			case "create":
+				_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(time.Hour)})
+			case "replace":
+				_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(2 * time.Hour)})
+			case "end":
+				err = service.EndMute(t.Context(), MuteActor{UserID: "user-1"}, mute.ID)
+			}
+			require.NoError(t, err)
+			close(resume)
+			require.NoError(t, <-result)
+			jobs, countErr := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
+			require.NoError(t, countErr)
+			if action == "end" {
+				require.Equal(t, 1, jobs)
+			} else {
+				require.Zero(t, jobs)
+			}
+		})
+	}
+}
+
+func TestWorkspaceMuteSuppressesAnAlreadyQueuedDailyItemAtDelivery(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}},
+		DigestTime:  "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.Create(t.Context(), CreateInput{
+		UserID: "user-1", WorkspaceID: "workspace-1", Type: TypeNewMessage,
+		Title: "Queued digest item", DedupKey: "message:daily-before-mute",
+	}))
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Where("type = ?", JobTypeEmailDelivery).Scan(t.Context()))
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{
+		Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(4 * time.Hour),
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Empty(t, sender.messages)
+	pending, err := db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, pending, "muted items are discarded rather than sent after expiry")
+}
+
+func TestLegacyDigestItemWithoutWorkspaceScopeIsConservativelyMuted(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}, DigestTime: "09:00", DigestTimezone: "UTC"})
+	require.NoError(t, err)
+	require.NoError(t, service.Create(t.Context(), CreateInput{UserID: "user-1", WorkspaceID: "workspace-1", Type: TypeNewMessage, Title: "Legacy", DedupKey: "legacy:digest"}))
+	_, err = db.NewUpdate().Model((*models.UserNotificationDigestItem)(nil)).Set("workspace_id = ''").Set("workspace_scope_known = FALSE").Where("dedup_key = ?", "legacy:digest").Exec(t.Context())
+	require.NoError(t, err)
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Scan(t.Context()))
+	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeWorkspace, WorkspaceID: "workspace-1", EndsAt: now.Add(4 * time.Hour)})
+	require.NoError(t, err)
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Empty(t, sender.messages)
+}
+
+func TestCreatingTheSameMuteScopeReplacesItUsingAbsoluteInstants(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	firstEnd := time.Date(2026, 8, 14, 16, 0, 0, 0, time.FixedZone("west", -4*60*60))
+	first, err := service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeAccount, EndsAt: firstEnd})
+	require.NoError(t, err)
+	secondEnd := now.Add(10 * time.Hour)
+	second, err := service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{Scope: MuteScopeAccount, EndsAt: secondEnd})
+	require.NoError(t, err)
+	require.Equal(t, first.ID, second.ID)
+	require.Equal(t, secondEnd, second.EndsAt)
+	count, err := db.NewSelect().Model((*models.UserNotificationMute)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
+func TestSameMuteCreateAndEndContentionPersistsTheLastMutation(t *testing.T) {
+	for _, test := range []struct {
+		name        string
+		pauseCreate bool
+	}{
+		{name: "create persists last", pauseCreate: true},
+		{name: "end persists last", pauseCreate: false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := notificationsTestDB(t)
+			service := NewService(db)
+			now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+			service.now = func() time.Time { return now }
+			actor := MuteActor{UserID: "user-1"}
+			initial, err := service.CreateMute(t.Context(), actor, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(time.Hour)})
+			require.NoError(t, err)
+
+			paused, resume := make(chan struct{}), make(chan struct{})
+			if test.pauseCreate {
+				service.beforeMuteCreatePersist = func() { close(paused); <-resume }
+			} else {
+				service.beforeMuteEndPersist = func() { close(paused); <-resume }
+			}
+			firstResult := make(chan error, 1)
+			if test.pauseCreate {
+				go func() {
+					_, createErr := service.CreateMute(t.Context(), actor, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(2 * time.Hour)})
+					firstResult <- createErr
+				}()
+			} else {
+				go func() { firstResult <- service.EndMute(t.Context(), actor, initial.ID) }()
+			}
+			<-paused
+			if test.pauseCreate {
+				require.NoError(t, service.EndMute(t.Context(), actor, initial.ID))
+			} else {
+				_, err = service.CreateMute(t.Context(), actor, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(2 * time.Hour)})
+				require.NoError(t, err)
+			}
+			close(resume)
+			require.NoError(t, <-firstResult)
+
+			effective, err := service.ResolveEffectiveMute(t.Context(), "user-1", "")
+			require.NoError(t, err)
+			if test.pauseCreate {
+				require.Equal(t, initial.ID, effective.ID)
+				require.Equal(t, now.Add(2*time.Hour), effective.EndsAt)
+			} else {
+				require.Empty(t, effective.ID)
+			}
+		})
+	}
+}
+
+func TestConcurrentAndRepeatedEndMuteAreIdempotent(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	actor := MuteActor{UserID: "user-1"}
+	mute, err := service.CreateMute(t.Context(), actor, MuteCreate{Scope: MuteScopeAccount, EndsAt: now.Add(time.Hour)})
+	require.NoError(t, err)
+
+	start := make(chan struct{})
+	results := make(chan error, 2)
+	for range 2 {
+		go func() {
+			<-start
+			results <- service.EndMute(t.Context(), actor, mute.ID)
+		}()
+	}
+	close(start)
+	require.NoError(t, <-results)
+	require.NoError(t, <-results)
+	require.NoError(t, service.EndMute(t.Context(), actor, mute.ID), "a retry of an existing ended Mute stays successful")
+
+	var stored models.UserNotificationMute
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", mute.ID).Scan(t.Context()))
+	require.Equal(t, now, stored.EndedAt)
+	effective, err := service.ResolveEffectiveMute(t.Context(), "user-1", "")
+	require.NoError(t, err)
+	require.Empty(t, effective.ID)
 }
 
 func TestDailyNotificationEmailBatchesOneUserWindowAndAdvancesAfterConfirmedSend(t *testing.T) {
@@ -55,7 +442,7 @@ func TestDailyNotificationEmailBatchesOneUserWindowAndAdvancesAfterConfirmedSend
 	service := NewService(db, Options{Sender: sender, PublicURL: "https://app.openpost.test"})
 	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
-	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: Preferences{
 			TypePostPublished: {InApp: true, EmailFrequency: EmailFrequencyDaily},
 			TypeNewMessage:    {InApp: true, EmailFrequency: EmailFrequencyDaily},
@@ -101,7 +488,7 @@ func TestConcurrentDailyNotificationProducersKeepOneWindowJob(t *testing.T) {
 	db := notificationsTestDB(t)
 	service := NewService(db, Options{Sender: &recordingNotificationSender{}})
 	service.now = func() time.Time { return time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC) }
-	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}},
 		DigestTime:  "09:00", DigestTimezone: "UTC",
 	})
@@ -139,7 +526,7 @@ func TestDigestPreferenceChangeMovesUnclaimedItemsToTheNewWindow(t *testing.T) {
 	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	daily := Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}
-	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: daily, DigestTime: "09:00", DigestTimezone: "UTC",
 	})
 	require.NoError(t, err)
@@ -147,7 +534,7 @@ func TestDigestPreferenceChangeMovesUnclaimedItemsToTheNewWindow(t *testing.T) {
 		UserID: "user-1", Type: TypeNewMessage, Title: "Queued", DedupKey: "message:reschedule",
 	}))
 
-	_, err = service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err = service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: daily, DigestTime: "16:45", DigestTimezone: "Europe/Lisbon",
 	})
 	require.NoError(t, err)
@@ -167,7 +554,7 @@ func TestDigestProducerRechecksScheduleAfterConcurrentPreferenceChange(t *testin
 	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
 	daily := Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}
-	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: daily, DigestTime: "09:00", DigestTimezone: "UTC",
 	})
 	require.NoError(t, err)
@@ -188,7 +575,7 @@ func TestDigestProducerRechecksScheduleAfterConcurrentPreferenceChange(t *testin
 		})
 	}()
 	<-producerPaused
-	_, err = service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err = service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: daily, DigestTime: "16:45", DigestTimezone: "Europe/Lisbon",
 	})
 	require.NoError(t, err)
@@ -206,7 +593,7 @@ func TestDigestDeliveryAdvancesOnlyItsClaimedSnapshot(t *testing.T) {
 	service := NewService(db, Options{Sender: sender})
 	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
 	service.now = func() time.Time { return now }
-	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}},
 		DigestTime:  "09:00", DigestTimezone: "UTC",
 	})
@@ -267,7 +654,7 @@ func TestNotificationPreferenceSettingsValidateFrequenciesAndTimezone(t *testing
 		"transactional off": {Preferences: Preferences{TypeWorkspaceInvite: {InApp: true, EmailFrequency: EmailFrequencyOff}}, DigestTime: "09:00", DigestTimezone: "UTC"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", update)
+			_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, update)
 			require.ErrorIs(t, err, ErrInvalidPreferences)
 		})
 	}
@@ -276,7 +663,7 @@ func TestNotificationPreferenceSettingsValidateFrequenciesAndTimezone(t *testing
 func TestPreferenceSettingsKeepExistingDigestChoice(t *testing.T) {
 	db := notificationsTestDB(t)
 	service := NewService(db)
-	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+	_, err := service.UpdatePreferenceSettings(t.Context(), MuteActor{UserID: "user-1"}, PreferenceUpdate{
 		Preferences: DefaultPreferences(), DigestTime: "16:45", DigestTimezone: "America/New_York",
 	})
 	require.NoError(t, err)

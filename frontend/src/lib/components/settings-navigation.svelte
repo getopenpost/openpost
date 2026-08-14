@@ -44,7 +44,8 @@
 			? [
 					{ id: 'instance', label: m.settings_instance() },
 					{ id: 'configuration', label: m.settings_configuration() },
-					{ id: 'users', label: m.settings_instance_users() }
+					{ id: 'users', label: m.settings_instance_users() },
+					{ id: 'instance-audit', label: m.settings_instance_audit_title() }
 				]
 			: []
 	);

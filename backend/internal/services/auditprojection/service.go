@@ -81,22 +81,23 @@ type AuditChangedField struct {
 	Current  string `json:"current,omitempty"`
 }
 
-type OrganizationAuditResource struct {
-	Type        ResourceType `json:"type"`
-	ID          string       `json:"id,omitempty"`
-	WorkspaceID string       `json:"workspace_id,omitempty"`
+type AuditResource struct {
+	Type           ResourceType `json:"type"`
+	ID             string       `json:"id,omitempty"`
+	OrganizationID string       `json:"organization_id,omitempty"`
+	WorkspaceID    string       `json:"workspace_id,omitempty"`
 }
 
-type OrganizationAuditEvent struct {
-	ID                        string                    `json:"id"`
-	Source                    Source                    `json:"source"`
-	ActorUserID               string                    `json:"actor_user_id,omitempty"`
-	EffectiveActorUserID      string                    `json:"effective_actor_user_id,omitempty"`
-	Action                    string                    `json:"action"`
-	OrganizationAuditResource OrganizationAuditResource `json:"resource"`
-	Result                    Result                    `json:"result"`
-	ChangedFields             []AuditChangedField       `json:"changed_fields"`
-	OccurredAt                time.Time                 `json:"occurred_at"`
+type AuditEvent struct {
+	ID                   string              `json:"id"`
+	Source               Source              `json:"source"`
+	ActorUserID          string              `json:"actor_user_id,omitempty"`
+	EffectiveActorUserID string              `json:"effective_actor_user_id,omitempty"`
+	Action               string              `json:"action"`
+	Resource             AuditResource       `json:"resource"`
+	Result               Result              `json:"result"`
+	ChangedFields        []AuditChangedField `json:"changed_fields"`
+	OccurredAt           time.Time           `json:"occurred_at"`
 }
 
 type Cursor struct {
@@ -119,7 +120,7 @@ type Query struct {
 }
 
 type Page struct {
-	Items      []OrganizationAuditEvent
+	Items      []AuditEvent
 	NextCursor *Cursor
 }
 
@@ -128,18 +129,32 @@ type Service struct{ db *bun.DB }
 func NewService(db *bun.DB) *Service { return &Service{db: db} }
 
 func (s *Service) List(ctx context.Context, input Query) (Page, error) {
+	if strings.TrimSpace(input.OrganizationID) == "" {
+		return Page{}, errors.New("organization audit scope is required")
+	}
+	return s.list(ctx, input)
+}
+
+// ListInstance projects the same safe audit vocabulary across the whole
+// instance. Authorization belongs at the HTTP boundary; this read model never
+// grants access by itself.
+func (s *Service) ListInstance(ctx context.Context, input Query) (Page, error) {
+	return s.list(ctx, input)
+}
+
+func (s *Service) list(ctx context.Context, input Query) (Page, error) {
 	limit := input.Limit
 	if limit <= 0 || limit > 200 {
 		limit = 50
 	}
 	if input.Result != "" && input.Result != ResultSucceeded && input.Result != ResultFailed && input.Result != ResultPending {
-		return Page{Items: []OrganizationAuditEvent{}}, nil
+		return Page{Items: []AuditEvent{}}, nil
 	}
 
-	items := make([]OrganizationAuditEvent, 0, limit*len(sourceResourceTypes))
+	items := make([]AuditEvent, 0, limit*len(sourceResourceTypes))
 	loaders := []struct {
 		source Source
-		load   func(context.Context, Query, int) ([]OrganizationAuditEvent, error)
+		load   func(context.Context, Query, int) ([]AuditEvent, error)
 	}{
 		{SourceIdentity, s.listIdentity},
 		{SourceWorkspaceAccess, s.listWorkspaceAccess},
@@ -160,6 +175,9 @@ func (s *Service) List(ctx context.Context, input Query) (Page, error) {
 		}
 		items = append(items, projected...)
 	}
+	if err := s.annotateOrganizations(ctx, items, input.OrganizationID); err != nil {
+		return Page{}, err
+	}
 
 	sort.Slice(items, func(i, j int) bool { return eventNewer(items[i], items[j]) })
 	page := Page{Items: items}
@@ -171,28 +189,67 @@ func (s *Service) List(ctx context.Context, input Query) (Page, error) {
 	return page, nil
 }
 
-func (s *Service) listIdentity(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listIdentity(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	if input.WorkspaceID != "" {
-		return []OrganizationAuditEvent{}, nil
+		return []AuditEvent{}, nil
 	}
 	var rows []models.IdentityAuditEvent
-	query := s.db.NewSelect().Model(&rows).
-		Where("(organization_id = ? OR (COALESCE(organization_id, '') = '' AND provider_id IN (SELECT id FROM identity_providers WHERE organization_id = ?)))", input.OrganizationID, input.OrganizationID).
-		OrderExpr("created_at DESC, id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("(organization_id = ? OR (COALESCE(organization_id, '') = '' AND provider_id IN (SELECT id FROM identity_providers WHERE organization_id = ?)))", input.OrganizationID, input.OrganizationID)
+	}
 	query = applyCommonSQLFilters(query, "created_at", "actor_user_id", "action", SourceIdentity, input)
 	query = applyIdentityResourceFilter(query, input.ResourceType)
 	if err := scan(ctx, query); err != nil {
 		return nil, err
 	}
-	return projectAndFilter(rows, input, projectIdentity), nil
+	items := projectAndFilter(rows, input, projectIdentity)
+	if err := s.annotateIdentityOrganizations(ctx, rows, items); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-func (s *Service) listWorkspaceAccess(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) annotateIdentityOrganizations(ctx context.Context, rows []models.IdentityAuditEvent, items []AuditEvent) error {
+	providerIDs := make([]string, 0)
+	for _, row := range rows {
+		if row.OrganizationID == "" && row.ProviderID != "" {
+			providerIDs = append(providerIDs, row.ProviderID)
+		}
+	}
+	if len(providerIDs) == 0 {
+		return nil
+	}
+	var providers []models.IdentityProvider
+	if err := s.db.NewSelect().Model(&providers).Column("id", "organization_id").Where("id IN (?)", bun.List(providerIDs)).Scan(ctx); err != nil {
+		return err
+	}
+	organizationByProvider := make(map[string]string, len(providers))
+	for _, provider := range providers {
+		organizationByProvider[provider.ID] = provider.OrganizationID
+	}
+	organizationByEvent := make(map[string]string, len(rows))
+	for _, row := range rows {
+		if row.OrganizationID == "" {
+			organizationByEvent[row.ID] = organizationByProvider[row.ProviderID]
+		}
+	}
+	for index := range items {
+		if items[index].Resource.OrganizationID == "" {
+			items[index].Resource.OrganizationID = organizationByEvent[items[index].ID]
+		}
+	}
+	return nil
+}
+
+func (s *Service) listWorkspaceAccess(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	var rows []models.WorkspaceAccessAuditEvent
 	query := s.db.NewSelect().Model(&rows).
 		Join("JOIN workspaces AS workspace ON workspace.id = workspace_access_audit_event.workspace_id").
-		Where("workspace.organization_id = ?", input.OrganizationID).
 		OrderExpr("workspace_access_audit_event.created_at DESC, workspace_access_audit_event.id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
+	}
 	query = applyWorkspaceFilter(query, "workspace_access_audit_event.workspace_id", input)
 	query = applyCommonSQLFilters(query, "workspace_access_audit_event.created_at", "workspace_access_audit_event.actor_user_id", "workspace_access_audit_event.action", SourceWorkspaceAccess, input)
 	switch input.ResourceType {
@@ -207,10 +264,10 @@ func (s *Service) listWorkspaceAccess(ctx context.Context, input Query, limit in
 	return projectAndFilter(rows, input, projectWorkspaceAccess), nil
 }
 
-func (s *Service) listImpersonation(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listImpersonation(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	if input.Result != "" && input.Result != ResultSucceeded ||
 		input.Action != "" && input.Action != "impersonation.grant_created" && input.Action != "impersonation.session_created" {
-		return []OrganizationAuditEvent{}, nil
+		return []AuditEvent{}, nil
 	}
 	created, err := s.listImpersonationKind(ctx, input, limit, false)
 	if err != nil {
@@ -223,18 +280,20 @@ func (s *Service) listImpersonation(ctx context.Context, input Query, limit int)
 	return filterProjected(append(created, consumed...), input), nil
 }
 
-func (s *Service) listImpersonationKind(ctx context.Context, input Query, limit int, consumed bool) ([]OrganizationAuditEvent, error) {
+func (s *Service) listImpersonationKind(ctx context.Context, input Query, limit int, consumed bool) ([]AuditEvent, error) {
 	suffix, action, occurredColumn := ":created", "impersonation.grant_created", "user_impersonation_grant.created_at"
 	var rows []models.UserImpersonationGrant
-	query := s.db.NewSelect().Model(&rows).
-		Join("JOIN user_impersonation_grant_organizations AS scope ON scope.grant_id = user_impersonation_grant.id").
-		Where("scope.organization_id = ?", input.OrganizationID)
+	query := s.db.NewSelect().Model(&rows)
+	if input.OrganizationID != "" {
+		query = query.Join("JOIN user_impersonation_grant_organizations AS scope ON scope.grant_id = user_impersonation_grant.id").
+			Where("scope.organization_id = ?", input.OrganizationID)
+	}
 	if consumed {
 		suffix, action, occurredColumn = ":consumed", "impersonation.session_created", "user_impersonation_grant.used_at"
 		query = query.Where("user_impersonation_grant.used_at IS NOT NULL")
 	}
 	if input.Action != "" && input.Action != action {
-		return []OrganizationAuditEvent{}, nil
+		return []AuditEvent{}, nil
 	}
 	query = query.OrderExpr(occurredColumn + " DESC, user_impersonation_grant.id DESC").Limit(limit)
 	if input.ActorUserID != "" {
@@ -245,7 +304,7 @@ func (s *Service) listImpersonationKind(ctx context.Context, input Query, limit 
 	if err := scan(ctx, query); err != nil {
 		return nil, err
 	}
-	items := make([]OrganizationAuditEvent, 0, len(rows))
+	items := make([]AuditEvent, 0, len(rows))
 	for _, row := range rows {
 		occurred := row.CreatedAt
 		if consumed {
@@ -256,16 +315,18 @@ func (s *Service) listImpersonationKind(ctx context.Context, input Query, limit 
 	return items, nil
 }
 
-func (s *Service) listBilling(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listBilling(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	var rows []models.BillingCheckoutAttempt
-	query := s.db.NewSelect().Model(&rows).Where("organization_id = ?", input.OrganizationID).
-		OrderExpr("updated_at DESC, checkout_attempt_id DESC").Limit(limit)
+	query := s.db.NewSelect().Model(&rows).OrderExpr("updated_at DESC, checkout_attempt_id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("organization_id = ?", input.OrganizationID)
+	}
 	query = applyWorkspaceFilter(query, "workspace_id", input)
 	query = applyTimeRange(query, "updated_at", input)
 	query = applySourceCursor(query, "updated_at", "checkout_attempt_id", SourceBilling, input.Cursor)
 	if input.Action != "" {
 		if !strings.HasPrefix(input.Action, "billing.checkout.") {
-			return []OrganizationAuditEvent{}, nil
+			return []AuditEvent{}, nil
 		}
 		query = query.Where("status = ?", strings.TrimPrefix(input.Action, "billing.checkout."))
 	}
@@ -279,18 +340,20 @@ func (s *Service) listBilling(ctx context.Context, input Query, limit int) ([]Or
 	return projectAndFilter(rows, input, projectBilling), nil
 }
 
-func (s *Service) listMCP(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listMCP(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	var rows []models.MCPToolCall
 	query := s.db.NewSelect().Model(&rows).
 		Join("JOIN workspaces AS workspace ON workspace.id = mcp_tool_call.workspace_id").
-		Where("workspace.organization_id = ?", input.OrganizationID).
 		OrderExpr("mcp_tool_call.created_at DESC, mcp_tool_call.id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
+	}
 	query = applyWorkspaceFilter(query, "mcp_tool_call.workspace_id", input)
 	query = applyTimeRange(query, "mcp_tool_call.created_at", input)
 	query = applySourceCursor(query, "mcp_tool_call.created_at", "mcp_tool_call.id", SourceMCP, input.Cursor)
 	if input.Action != "" {
 		if !strings.HasPrefix(input.Action, "mcp.") {
-			return []OrganizationAuditEvent{}, nil
+			return []AuditEvent{}, nil
 		}
 		query = query.Where("mcp_tool_call.tool_name = ?", strings.TrimPrefix(input.Action, "mcp."))
 	}
@@ -304,9 +367,9 @@ func (s *Service) listMCP(ctx context.Context, input Query, limit int) ([]Organi
 	return projectAndFilter(rows, input, projectMCP), nil
 }
 
-func (s *Service) listPublicationLifecycle(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listPublicationLifecycle(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	if input.ActorUserID != "" {
-		return []OrganizationAuditEvent{}, nil
+		return []AuditEvent{}, nil
 	}
 	var rows []models.PublicationLifecycleEvent
 	query := s.workspaceEvidenceQuery(&rows, "publication_lifecycle_event", SourcePublicationLifecycle, input, limit)
@@ -320,21 +383,23 @@ func (s *Service) listPublicationLifecycle(ctx context.Context, input Query, lim
 	return projectAndFilter(rows, input, projectPublicationLifecycle), nil
 }
 
-func (s *Service) listPublicationAuthorization(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listPublicationAuthorization(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	if input.Result != "" && input.Result != ResultSucceeded {
-		return []OrganizationAuditEvent{}, nil
+		return []AuditEvent{}, nil
 	}
 	var rows []models.PublicationAuthorization
 	query := s.db.NewSelect().Model(&rows).
 		Join("JOIN workspaces AS workspace ON workspace.id = publication_authorization.workspace_id").
-		Where("workspace.organization_id = ?", input.OrganizationID).
 		OrderExpr("publication_authorization.confirmed_at DESC, publication_authorization.id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
+	}
 	query = applyWorkspaceFilter(query, "publication_authorization.workspace_id", input)
 	query = applyTimeRange(query, "publication_authorization.confirmed_at", input)
 	query = applySourceCursor(query, "publication_authorization.confirmed_at", "publication_authorization.id", SourcePublicationAuthorization, input.Cursor)
 	if input.Action != "" {
 		if !strings.HasPrefix(input.Action, "publication.authorization.") {
-			return []OrganizationAuditEvent{}, nil
+			return []AuditEvent{}, nil
 		}
 		query = query.Where("publication_authorization.action = ?", strings.TrimPrefix(input.Action, "publication.authorization."))
 	}
@@ -347,15 +412,15 @@ func (s *Service) listPublicationAuthorization(ctx context.Context, input Query,
 	return projectAndFilter(rows, input, projectPublicationAuthorization), nil
 }
 
-func (s *Service) listProviderWrite(ctx context.Context, input Query, limit int) ([]OrganizationAuditEvent, error) {
+func (s *Service) listProviderWrite(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
 	if input.ActorUserID != "" {
-		return []OrganizationAuditEvent{}, nil
+		return []AuditEvent{}, nil
 	}
 	var rows []models.ProviderWriteAttempt
 	query := s.workspaceEvidenceQuery(&rows, "provider_write_attempt", SourceProviderWrite, input, limit)
 	if input.Action != "" {
 		if !strings.HasPrefix(input.Action, "provider_write.") {
-			return []OrganizationAuditEvent{}, nil
+			return []AuditEvent{}, nil
 		}
 		query = query.Where("provider_write_attempt.operation = ?", strings.TrimPrefix(input.Action, "provider_write."))
 	}
@@ -368,9 +433,11 @@ func (s *Service) listProviderWrite(ctx context.Context, input Query, limit int)
 
 func (s *Service) workspaceEvidenceQuery(model any, alias string, source Source, input Query, limit int) *bun.SelectQuery {
 	query := s.db.NewSelect().Model(model).
-		Join("JOIN workspaces AS workspace ON workspace.id = "+alias+".workspace_id").
-		Where("workspace.organization_id = ?", input.OrganizationID).
+		Join("JOIN workspaces AS workspace ON workspace.id = " + alias + ".workspace_id").
 		OrderExpr(alias + ".created_at DESC, " + alias + ".id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("workspace.organization_id = ?", input.OrganizationID)
+	}
 	query = applyWorkspaceFilter(query, alias+".workspace_id", input)
 	query = applyTimeRange(query, alias+".created_at", input)
 	return applySourceCursor(query, alias+".created_at", alias+".id", source, input.Cursor)
@@ -451,7 +518,7 @@ func applySourceCursor(query *bun.SelectQuery, createdColumn, idColumn string, s
 	return query.Where("("+createdColumn+" < ? OR ("+createdColumn+" = ? AND "+idColumn+" < ?))", cursor.OccurredAt.UTC(), cursor.OccurredAt.UTC(), cursor.ID)
 }
 
-func projectIdentity(row models.IdentityAuditEvent) OrganizationAuditEvent {
+func projectIdentity(row models.IdentityAuditEvent) AuditEvent {
 	resourceType := identityResourceType(row.Action)
 	resourceID := row.ProviderID
 	if resourceID == "" && (resourceType == ResourceIdentity || resourceType == ResourceSession || resourceType == ResourceReauthentication) {
@@ -468,10 +535,12 @@ func projectIdentity(row models.IdentityAuditEvent) OrganizationAuditEvent {
 			changed = append(changed, AuditChangedField{Field: "domain", Current: domain})
 		}
 	}
-	return newEvent(row.ID, SourceIdentity, row.ActorUserID, "", row.Action, resourceType, resourceID, "", ResultSucceeded, changed, row.CreatedAt)
+	event := newEvent(row.ID, SourceIdentity, row.ActorUserID, "", row.Action, resourceType, resourceID, "", ResultSucceeded, changed, row.CreatedAt)
+	event.Resource.OrganizationID = row.OrganizationID
+	return event
 }
 
-func projectWorkspaceAccess(row models.WorkspaceAccessAuditEvent) OrganizationAuditEvent {
+func projectWorkspaceAccess(row models.WorkspaceAccessAuditEvent) AuditEvent {
 	resourceType, resourceID := ResourceWorkspaceMember, row.SubjectUserID
 	if strings.HasPrefix(row.Action, "invitation.") {
 		resourceType, resourceID = ResourceWorkspaceInvitation, row.InvitationID
@@ -483,47 +552,78 @@ func projectWorkspaceAccess(row models.WorkspaceAccessAuditEvent) OrganizationAu
 	return newEvent(row.ID, SourceWorkspaceAccess, row.ActorUserID, "", row.Action, resourceType, resourceID, row.WorkspaceID, ResultSucceeded, changed, row.CreatedAt)
 }
 
-func projectImpersonation(row models.UserImpersonationGrant, suffix, action string, occurred time.Time) OrganizationAuditEvent {
+func projectImpersonation(row models.UserImpersonationGrant, suffix, action string, occurred time.Time) AuditEvent {
 	return newEvent(row.ID+suffix, SourceImpersonation, row.AdminUserID, row.TargetUserID, action, ResourceImpersonation, row.ID, "", ResultSucceeded, nil, occurred)
 }
 
-func projectBilling(row models.BillingCheckoutAttempt) OrganizationAuditEvent {
-	return newEvent(row.CheckoutAttemptID, SourceBilling, row.UserID, "", "billing.checkout."+safeActionPart(row.Status), ResourceBilling, row.CheckoutAttemptID, row.WorkspaceID, resultFromStatus(row.Status), nil, row.UpdatedAt)
+func projectBilling(row models.BillingCheckoutAttempt) AuditEvent {
+	event := newEvent(row.CheckoutAttemptID, SourceBilling, row.UserID, "", "billing.checkout."+safeActionPart(row.Status), ResourceBilling, row.CheckoutAttemptID, row.WorkspaceID, resultFromStatus(row.Status), nil, row.UpdatedAt)
+	event.Resource.OrganizationID = row.OrganizationID
+	return event
 }
 
-func projectMCP(row models.MCPToolCall) OrganizationAuditEvent {
+func (s *Service) annotateOrganizations(ctx context.Context, items []AuditEvent, scopedOrganizationID string) error {
+	workspaceIDs := make([]string, 0)
+	for index := range items {
+		if items[index].Resource.OrganizationID == "" && scopedOrganizationID != "" {
+			items[index].Resource.OrganizationID = scopedOrganizationID
+		}
+		if items[index].Resource.OrganizationID == "" && items[index].Resource.WorkspaceID != "" {
+			workspaceIDs = append(workspaceIDs, items[index].Resource.WorkspaceID)
+		}
+	}
+	if len(workspaceIDs) == 0 {
+		return nil
+	}
+	var workspaces []models.Workspace
+	if err := s.db.NewSelect().Model(&workspaces).Column("id", "organization_id").Where("id IN (?)", bun.List(workspaceIDs)).Scan(ctx); err != nil {
+		return err
+	}
+	organizationByWorkspace := make(map[string]string, len(workspaces))
+	for _, workspace := range workspaces {
+		organizationByWorkspace[workspace.ID] = workspace.OrganizationID
+	}
+	for index := range items {
+		if items[index].Resource.OrganizationID == "" {
+			items[index].Resource.OrganizationID = organizationByWorkspace[items[index].Resource.WorkspaceID]
+		}
+	}
+	return nil
+}
+
+func projectMCP(row models.MCPToolCall) AuditEvent {
 	return newEvent(row.ID, SourceMCP, row.UserID, "", "mcp."+safeActionPart(row.ToolName), ResourceMCPToolCall, row.ID, row.WorkspaceID, resultFromStatus(row.Status), nil, row.CreatedAt)
 }
 
-func projectPublicationLifecycle(row models.PublicationLifecycleEvent) OrganizationAuditEvent {
+func projectPublicationLifecycle(row models.PublicationLifecycleEvent) AuditEvent {
 	return newEvent(row.ID, SourcePublicationLifecycle, "", "", safeAction(row.Type, "publication.lifecycle"), ResourcePublication, row.PublicationID, row.WorkspaceID, resultFromStatus(row.Status), nil, row.CreatedAt)
 }
 
-func projectPublicationAuthorization(row models.PublicationAuthorization) OrganizationAuditEvent {
+func projectPublicationAuthorization(row models.PublicationAuthorization) AuditEvent {
 	return newEvent(row.ID, SourcePublicationAuthorization, row.ActorUserID, "", "publication.authorization."+safeActionPart(row.Action), ResourcePublicationAuthorization, row.ID, row.WorkspaceID, ResultSucceeded, nil, row.ConfirmedAt)
 }
 
-func projectProviderWrite(row models.ProviderWriteAttempt) OrganizationAuditEvent {
+func projectProviderWrite(row models.ProviderWriteAttempt) AuditEvent {
 	return newEvent(row.ID, SourceProviderWrite, "", "", "provider_write."+safeActionPart(row.Operation), ResourceProviderWrite, row.ID, row.WorkspaceID, resultFromStatus(row.Status), nil, row.CreatedAt)
 }
 
-func newEvent(id string, source Source, actor, effectiveActor, action string, resourceType ResourceType, resourceID, workspaceID string, result Result, changed []AuditChangedField, occurred time.Time) OrganizationAuditEvent {
+func newEvent(id string, source Source, actor, effectiveActor, action string, resourceType ResourceType, resourceID, workspaceID string, result Result, changed []AuditChangedField, occurred time.Time) AuditEvent {
 	if changed == nil {
 		changed = []AuditChangedField{}
 	}
-	return OrganizationAuditEvent{ID: id, Source: source, ActorUserID: actor, EffectiveActorUserID: effectiveActor, Action: action, OrganizationAuditResource: OrganizationAuditResource{Type: resourceType, ID: resourceID, WorkspaceID: workspaceID}, Result: result, ChangedFields: changed, OccurredAt: occurred.UTC()}
+	return AuditEvent{ID: id, Source: source, ActorUserID: actor, EffectiveActorUserID: effectiveActor, Action: action, Resource: AuditResource{Type: resourceType, ID: resourceID, WorkspaceID: workspaceID}, Result: result, ChangedFields: changed, OccurredAt: occurred.UTC()}
 }
 
-func projectAndFilter[T any](rows []T, input Query, project func(T) OrganizationAuditEvent) []OrganizationAuditEvent {
-	items := make([]OrganizationAuditEvent, 0, len(rows))
+func projectAndFilter[T any](rows []T, input Query, project func(T) AuditEvent) []AuditEvent {
+	items := make([]AuditEvent, 0, len(rows))
 	for _, row := range rows {
 		items = append(items, project(row))
 	}
 	return filterProjected(items, input)
 }
 
-func filterProjected(items []OrganizationAuditEvent, input Query) []OrganizationAuditEvent {
-	result := make([]OrganizationAuditEvent, 0, len(items))
+func filterProjected(items []AuditEvent, input Query) []AuditEvent {
+	result := make([]AuditEvent, 0, len(items))
 	for _, item := range items {
 		if !matchesProjectedEvent(item, input) {
 			continue
@@ -533,11 +633,11 @@ func filterProjected(items []OrganizationAuditEvent, input Query) []Organization
 	return result
 }
 
-func matchesProjectedEvent(item OrganizationAuditEvent, input Query) bool {
-	return optionalStringMatches(input.WorkspaceID, item.OrganizationAuditResource.WorkspaceID) &&
+func matchesProjectedEvent(item AuditEvent, input Query) bool {
+	return optionalStringMatches(input.WorkspaceID, item.Resource.WorkspaceID) &&
 		optionalStringMatches(input.ActorUserID, item.ActorUserID) &&
 		optionalStringMatches(input.Action, item.Action) &&
-		(input.ResourceType == "" || item.OrganizationAuditResource.Type == input.ResourceType) &&
+		(input.ResourceType == "" || item.Resource.Type == input.ResourceType) &&
 		(input.Result == "" || item.Result == input.Result) &&
 		(input.From.IsZero() || !item.OccurredAt.Before(input.From)) &&
 		(input.Before.IsZero() || item.OccurredAt.Before(input.Before)) &&
@@ -642,7 +742,7 @@ func compactChangedFields(fields []AuditChangedField) []AuditChangedField {
 	return result
 }
 
-func eventOlderThanCursor(item OrganizationAuditEvent, cursor Cursor) bool {
+func eventOlderThanCursor(item AuditEvent, cursor Cursor) bool {
 	if !item.OccurredAt.Equal(cursor.OccurredAt) {
 		return item.OccurredAt.Before(cursor.OccurredAt)
 	}
@@ -652,7 +752,7 @@ func eventOlderThanCursor(item OrganizationAuditEvent, cursor Cursor) bool {
 	return item.ID < cursor.ID
 }
 
-func eventNewer(left, right OrganizationAuditEvent) bool {
+func eventNewer(left, right AuditEvent) bool {
 	if !left.OccurredAt.Equal(right.OccurredAt) {
 		return left.OccurredAt.After(right.OccurredAt)
 	}

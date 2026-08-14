@@ -16,22 +16,28 @@
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 
-	type AuditEvent = components['schemas']['OrganizationAuditEvent'];
+	type AuditEvent = components['schemas']['AuditEvent'];
 	type Organization = components['schemas']['OrganizationResponse'];
 	type AuditQuery = NonNullable<
 		operations['list-organization-audit-events']['parameters']['query']
 	>;
+	type InstanceAuditQuery = NonNullable<
+		operations['list-instance-audit-events']['parameters']['query']
+	>;
 	type ResourceType = AuditQuery['resource_type'];
+	type AuditResult = AuditQuery['result'];
 
 	interface Props {
 		organizationID: string;
 		active?: boolean;
+		instanceWide?: boolean;
 	}
-	let { organizationID, active = false }: Props = $props();
+	let { organizationID, active = false, instanceWide = false }: Props = $props();
 	let organizations = $state.raw<Organization[]>([]);
 	let organizationsLoaded = $state(false);
 	let organizationsLoading = $state(false);
 	let selectedOrganizationID = $state('');
+	let instanceOrganizationID = $state('');
 	let items = $state.raw<AuditEvent[]>([]);
 	let nextCursor = $state('');
 	let loading = $state(false);
@@ -42,11 +48,39 @@
 	let action = $state('');
 	let actorUserID = $state('');
 	let resourceType = $state<ResourceType | ''>('');
+	let resultFilter = $state<AuditResult | ''>('');
 	let workspaceID = $state('');
 	let from = $state('');
 	let before = $state('');
-	let loadedOrganizationID = '';
+	let loadedScopeKey = '';
 	let requestSequence = 0;
+	const scope = $derived(
+		instanceWide
+			? {
+					key: 'instance',
+					testID: 'instance-audit-settings',
+					eventsTestID: 'instance-audit-events',
+					title: m.settings_instance_audit_title(),
+					description: m.settings_instance_audit_description(),
+					privacyNotice: m.settings_instance_audit_privacy_notice(),
+					accessError: m.settings_instance_audit_admin_required(),
+					loadError: m.settings_instance_audit_load_failed(),
+					exportError: m.settings_instance_audit_export_failed(),
+					filenameScope: 'instance'
+				}
+			: {
+					key: selectedOrganizationID,
+					testID: 'organization-audit-settings',
+					eventsTestID: 'organization-audit-events',
+					title: m.settings_audit_title(),
+					description: m.settings_audit_description(),
+					privacyNotice: m.settings_audit_privacy_notice(),
+					accessError: m.settings_audit_owner_required(),
+					loadError: m.settings_audit_load_failed(),
+					exportError: m.settings_audit_export_failed(),
+					filenameScope: 'organization'
+				}
+	);
 
 	const resourceOptions = $derived([
 		{ value: '', label: m.settings_audit_all_resources() },
@@ -69,21 +103,28 @@
 		},
 		{ value: 'provider_write', label: m.settings_audit_resource_provider_write() }
 	]);
+	const resultOptions = $derived([
+		{ value: '', label: m.settings_audit_all_results() },
+		{ value: 'succeeded', label: m.settings_audit_result_succeeded() },
+		{ value: 'failed', label: m.settings_audit_result_failed() },
+		{ value: 'pending', label: m.settings_audit_result_pending() }
+	]);
 	const organizationOptions = $derived(
 		organizations.map((organization) => ({ value: organization.id, label: organization.name }))
 	);
 
 	$effect(() => {
-		if (active && !organizationsLoaded && !organizationsLoading) void loadOrganizations();
+		if (!instanceWide && active && !organizationsLoaded && !organizationsLoading)
+			void loadOrganizations();
 	});
 
 	$effect(() => {
-		const target = selectedOrganizationID;
-		if (!active || !target || loadedOrganizationID === target) return;
-		loadedOrganizationID = target;
+		const target = scope.key;
+		if (!active || !target || loadedScopeKey === target) return;
+		loadedScopeKey = target;
 		items = [];
 		nextCursor = '';
-		void loadAudit(false, target);
+		void loadAudit(false, instanceWide ? '' : target);
 	});
 
 	async function loadOrganizations() {
@@ -110,27 +151,35 @@
 			actor_user_id: actorUserID.trim() || undefined,
 			action: action.trim() || undefined,
 			resource_type: resourceType || undefined,
+			result: resultFilter || undefined,
 			from: from ? new Date(from).toISOString() : undefined,
 			before: before ? new Date(before).toISOString() : undefined,
 			cursor: cursor || undefined,
 			limit: 50
 		};
 	}
+	function instanceFilterQuery(cursor = ''): InstanceAuditQuery {
+		return { ...filterQuery(cursor), organization_id: instanceOrganizationID.trim() || undefined };
+	}
 
 	async function loadAudit(append: boolean, target = selectedOrganizationID) {
-		if (!target) return;
+		if (!instanceWide && !target) return;
 		const sequence = ++requestSequence;
 		if (append) loadingMore = true;
 		else loading = true;
 		error = '';
 		ownerRequired = false;
-		const result = await client.GET('/organizations/{id}/audit-events', {
-			params: { path: { id: target }, query: filterQuery(append ? nextCursor : '') }
-		});
+		const result = instanceWide
+			? await client.GET('/admin/audit-events', {
+					params: { query: instanceFilterQuery(append ? nextCursor : '') }
+				})
+			: await client.GET('/organizations/{id}/audit-events', {
+					params: { path: { id: target }, query: filterQuery(append ? nextCursor : '') }
+				});
 		if (sequence !== requestSequence) return;
 		if (result.error || !result.data) {
 			ownerRequired = result.response.status === 403;
-			error = ownerRequired ? m.settings_audit_owner_required() : m.settings_audit_load_failed();
+			error = ownerRequired ? scope.accessError : scope.loadError;
 		} else {
 			items = append ? [...items, ...(result.data.items ?? [])] : (result.data.items ?? []);
 			nextCursor = result.data.next_cursor ?? '';
@@ -145,38 +194,51 @@
 		void loadAudit(false);
 	}
 	function resetFilters() {
+		instanceOrganizationID = '';
 		action = '';
 		actorUserID = '';
 		resourceType = '';
+		resultFilter = '';
 		workspaceID = '';
 		from = '';
 		before = '';
 		applyFilters();
 	}
 	async function exportAudit(format: 'json' | 'csv') {
-		if (!selectedOrganizationID || exporting) return;
+		if ((!instanceWide && !selectedOrganizationID) || exporting) return;
 		exporting = format;
 		error = '';
 		try {
-			const params = {
+			const organizationParams = {
 				path: { id: selectedOrganizationID },
 				query: { ...filterQuery(), limit: undefined, cursor: undefined }
 			};
-			const result =
-				format === 'json'
-					? await client.GET('/organizations/{id}/audit-events/export.json', { params })
+			const instanceParams = {
+				query: { ...instanceFilterQuery(), limit: undefined, cursor: undefined }
+			};
+			const result = instanceWide
+				? format === 'json'
+					? await client.GET('/admin/audit-events/export.json', { params: instanceParams })
+					: await client.GET('/admin/audit-events/export.csv', {
+							params: instanceParams,
+							parseAs: 'text'
+						})
+				: format === 'json'
+					? await client.GET('/organizations/{id}/audit-events/export.json', {
+							params: organizationParams
+						})
 					: await client.GET('/organizations/{id}/audit-events/export.csv', {
-							params,
+							params: organizationParams,
 							parseAs: 'text'
 						});
 			if (result.error || result.data === undefined) throw new Error('audit export failed');
 			const payload =
 				format === 'json' ? JSON.stringify(result.data, null, 2) : String(result.data);
 			const mime = format === 'json' ? 'application/json' : 'text/csv';
-			const filename = `openpost-organization-audit-${new Date().toISOString().slice(0, 10)}.${format}`;
+			const filename = `openpost-${scope.filenameScope}-audit-${new Date().toISOString().slice(0, 10)}.${format}`;
 			await saveExport(new Blob([payload], { type: mime }), filename);
 		} catch {
-			error = m.settings_audit_export_failed();
+			error = scope.exportError;
 		} finally {
 			exporting = '';
 		}
@@ -214,14 +276,19 @@
 	}
 </script>
 
-<div class="space-y-6" data-testid="organization-audit-settings">
-	<SectionHeader
-		title={m.settings_audit_title()}
-		description={m.settings_audit_description()}
-		icon={HistoryIcon}
-	/>
-	<InlineNotice tone="info" message={m.settings_audit_privacy_notice()} />
-	{#if organizationOptions.length > 1}
+<div class="space-y-6" data-testid={scope.testID}>
+	<SectionHeader title={scope.title} description={scope.description} icon={HistoryIcon} />
+	<InlineNotice tone="info" message={scope.privacyNotice} />
+	{#if instanceWide}
+		<div class="max-w-md space-y-2">
+			<Label for="instance-audit-organization">{m.settings_audit_organization()}</Label>
+			<Input
+				id="instance-audit-organization"
+				bind:value={instanceOrganizationID}
+				placeholder={m.settings_instance_audit_organization_hint()}
+			/>
+		</div>
+	{:else if organizationOptions.length > 1}
 		<div class="max-w-md space-y-2">
 			<Label for="audit-organization">{m.settings_audit_organization()}</Label>
 			<AppSelect
@@ -268,6 +335,13 @@
 				/>
 			</div>
 			<div class="space-y-2">
+				<Label for="audit-result-filter">{m.settings_audit_result()}</Label><AppSelect
+					id="audit-result-filter"
+					bind:value={resultFilter}
+					options={resultOptions}
+				/>
+			</div>
+			<div class="space-y-2">
 				<Label for="audit-from">{m.settings_audit_from()}</Label><Input
 					id="audit-from"
 					type="datetime-local"
@@ -294,7 +368,7 @@
 		<Button
 			variant="outline"
 			size="sm"
-			disabled={!selectedOrganizationID || Boolean(exporting)}
+			disabled={(!instanceWide && !selectedOrganizationID) || Boolean(exporting)}
 			onclick={() => void exportAudit('json')}
 			data-testid="audit-export-json"
 			><DownloadIcon class="size-4" />{m.settings_audit_export_json()}</Button
@@ -302,7 +376,7 @@
 		<Button
 			variant="outline"
 			size="sm"
-			disabled={!selectedOrganizationID || Boolean(exporting)}
+			disabled={(!instanceWide && !selectedOrganizationID) || Boolean(exporting)}
 			onclick={() => void exportAudit('csv')}
 			data-testid="audit-export-csv"
 			><DownloadIcon class="size-4" />{m.settings_audit_export_csv()}</Button
@@ -324,7 +398,7 @@
 			{m.settings_audit_empty()}
 		</p>
 	{:else}
-		<div class="space-y-3" aria-live="polite" data-testid="organization-audit-events">
+		<div class="space-y-3" aria-live="polite" data-testid={scope.eventsTestID}>
 			{#each items as event (event.source + event.id)}
 				<Card.Root
 					><Card.Content class="space-y-3 p-4">
@@ -340,6 +414,12 @@
 							>
 						</div>
 						<dl class="grid gap-2 text-sm sm:grid-cols-2">
+							{#if instanceWide && event.resource.organization_id}<div>
+									<dt class="text-xs text-muted-foreground">
+										{m.settings_audit_organization()}
+									</dt>
+									<dd class="break-all">{event.resource.organization_id}</dd>
+								</div>{/if}
 							<div>
 								<dt class="text-xs text-muted-foreground">{m.settings_audit_actor()}</dt>
 								<dd class="break-all">{event.actor_user_id || m.settings_audit_system_actor()}</dd>

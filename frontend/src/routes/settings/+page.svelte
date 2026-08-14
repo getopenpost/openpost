@@ -66,14 +66,19 @@
 		'sso',
 		'audit',
 		'plan',
-		...(authState.user?.is_admin ? (['instance', 'configuration', 'users'] as const) : [])
+		...(authState.user?.is_admin
+			? (['instance', 'configuration', 'users', 'instance-audit'] as const)
+			: [])
 	]);
 
 	const activeSettingsTab = $derived.by(() => {
 		const requested = normalizeSettingsTab(
 			page.url.searchParams.get('tab') || page.url.hash.replace(/^#/, '') || null
 		);
-		return (requested === 'instance' || requested === 'configuration' || requested === 'users') &&
+		return (requested === 'instance' ||
+			requested === 'configuration' ||
+			requested === 'users' ||
+			requested === 'instance-audit') &&
 			!authState.user?.is_admin
 			? 'general'
 			: requested;
@@ -110,6 +115,7 @@
 		if (activeSettingsTab === 'instance') return m.settings_instance();
 		if (activeSettingsTab === 'configuration') return m.settings_configuration();
 		if (activeSettingsTab === 'users') return m.settings_instance_users();
+		if (activeSettingsTab === 'instance-audit') return m.settings_instance_audit_title();
 		if (activeSettingsTab === 'members') return m.settings_team_members();
 		if (activeSettingsTab === 'sso') return m.settings_sso();
 		if (activeSettingsTab === 'audit') return m.settings_audit_title();
@@ -129,6 +135,7 @@
 		if (activeSettingsTab === 'instance') return m.settings_instance_description();
 		if (activeSettingsTab === 'configuration') return m.settings_configuration_description();
 		if (activeSettingsTab === 'users') return m.settings_instance_users_page_description();
+		if (activeSettingsTab === 'instance-audit') return m.settings_instance_audit_description();
 		if (activeSettingsTab === 'members') return m.settings_members_description();
 		if (activeSettingsTab === 'sso') return m.settings_sso_description();
 		if (activeSettingsTab === 'audit') return m.settings_audit_description();
@@ -279,6 +286,16 @@
 					<section id="users" class:hidden={activeSettingsTab !== 'users'} class="scroll-mt-24">
 						{#if activeSettingsTab === 'users'}
 							<InstanceAdminUsers />
+						{/if}
+					</section>
+
+					<section
+						id="instance-audit"
+						class:hidden={activeSettingsTab !== 'instance-audit'}
+						class="scroll-mt-24"
+					>
+						{#if activeSettingsTab === 'instance-audit'}
+							<OrganizationAuditSettings organizationID="" active instanceWide />
 						{/if}
 					</section>
 

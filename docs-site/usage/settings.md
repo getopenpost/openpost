@@ -118,6 +118,14 @@ Instance settings are available only to instance administrators.
 - **Overview** shows account growth, publishing activity, and the running release.
 - **Configuration** manages optional account policy, authentication, email delivery, OpenPost Image Editor, feedback, provider behavior, and OAuth provider applications.
 - **Users** shows instance-wide account, plan, access, and activity details.
+- **Instance audit** uses the Organization audit vocabulary across every Organization. Filter by Organization, Workspace, actor, action, resource, result, or time, then export the same safe facts as JSON or CSV.
+
+The instance audit requires an unscoped instance-administrator browser session.
+Organization Owners, Workspace members, and API, CLI, or MCP credentials cannot
+open it, even when a credential belongs to an instance administrator. The
+projection names actor and effective actor separately and keeps success,
+failure, and pending results explicit. Organization and Workspace IDs provide
+scope without granting access to their content.
 
 The Configuration screen identifies whether each value comes from the environment, an encrypted admin override, or the application default. Instance administrators can replace an allowlisted environment-backed value. Before and after saving, the screen names the environment source and clearly labels that the admin value will override or is overriding it. Removing the admin override restores the environment value or default after a server restart. Database, encryption, network, and storage settings remain deployment-only because OpenPost needs them before this screen can load.
 

@@ -112,3 +112,89 @@ func TestOrganizationAuditRejectsCrossOrganizationWorkspaceFilter(t *testing.T) 
 	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 	require.NotContains(t, response.Body.String(), "Outside")
 }
+
+func TestInstanceAdministratorCanFilterAndExportInstanceAuditEvidence(t *testing.T) {
+	authenticator := workspaceTestAuthenticator{
+		"admin-session": {UserID: "admin-1", Email: "admin@example.com", SessionID: "session-1"},
+	}
+	srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), authenticator)
+	now := time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC)
+	for _, row := range []any{
+		&models.User{ID: "admin-1", Email: "admin@example.com", IsAdmin: true, CreatedAt: now},
+		&models.Organization{ID: "org-1", Name: "One", CreatedAt: now},
+		&models.Organization{ID: "org-2", Name: "Two", CreatedAt: now},
+		&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "One", CreatedAt: now},
+		&models.Workspace{ID: "ws-2", OrganizationID: "org-2", Name: "Two", CreatedAt: now},
+		&models.IdentityProvider{ID: "provider-1", OrganizationID: "org-1", Issuer: "https://identity.example", Name: "Identity", ClientID: "client"},
+		&models.IdentityAuditEvent{ID: "identity-1", OrganizationID: "org-1", ActorUserID: "actor-1", Action: "policy.updated", Detail: "required", CreatedAt: now},
+		&models.IdentityAuditEvent{ID: "identity-inferred", ProviderID: "provider-1", ActorUserID: "actor-1", Action: "identity.unlinked", Detail: "secret-token", CreatedAt: now.Add(-30 * time.Second)},
+		&models.WorkspaceAccessAuditEvent{ID: "access-2", WorkspaceID: "ws-2", ActorUserID: "actor-2", SubjectEmail: "private@example.com", Action: "member.removed", CreatedAt: now.Add(-time.Minute)},
+	} {
+		_, err := srv.db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	all := srv.getJSON(t, "/api/v1/admin/audit-events", "admin-session")
+	require.Equal(t, http.StatusOK, all.Code, all.Body.String())
+	require.Contains(t, all.Body.String(), `"organization_id":"org-1"`)
+	require.Contains(t, all.Body.String(), `"organization_id":"org-2"`)
+	require.Contains(t, all.Body.String(), `"id":"identity-inferred"`)
+	require.Contains(t, all.Body.String(), `"organization_id":"org-1"`)
+	require.NotContains(t, all.Body.String(), "private@example.com")
+	require.NotContains(t, all.Body.String(), "secret-token")
+
+	filtered := srv.getJSON(t, "/api/v1/admin/audit-events?organization_id=org-2&workspace_id=ws-2&result=succeeded", "admin-session")
+	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
+	require.Contains(t, filtered.Body.String(), "access-2")
+	require.NotContains(t, filtered.Body.String(), "identity-1")
+
+	exported := srv.getJSON(t, "/api/v1/admin/audit-events/export.csv?organization_id=org-2", "admin-session")
+	require.Equal(t, http.StatusOK, exported.Code, exported.Body.String())
+	require.Contains(t, exported.Body.String(), "organization_id")
+	require.Contains(t, exported.Body.String(), "org-2")
+
+	jsonExport := srv.getJSON(t, "/api/v1/admin/audit-events/export.json?organization_id=org-1", "admin-session")
+	require.Equal(t, http.StatusOK, jsonExport.Code, jsonExport.Body.String())
+	require.Contains(t, jsonExport.Body.String(), `"id":"identity-inferred"`)
+	require.Contains(t, jsonExport.Body.String(), `"organization_id":"org-1"`)
+	require.NotContains(t, jsonExport.Body.String(), "secret-token")
+}
+
+func TestInstanceAuditRejectsNonAdminsOwnersAndScopedCredentials(t *testing.T) {
+	authenticator := workspaceTestAuthenticator{
+		"ordinary-session":       {UserID: "ordinary-1", Email: "ordinary@example.com", SessionID: "session-ordinary"},
+		"workspace-role-session": {UserID: "workspace-1", Email: "workspace@example.com", SessionID: "session-workspace"},
+		"owner-session":          {UserID: "owner-1", Email: "owner@example.com", SessionID: "session-owner"},
+		"admin-token":            {UserID: "admin-1", Email: "admin@example.com"},
+		"scoped-admin":           {UserID: "admin-1", Email: "admin@example.com", WorkspaceID: "ws-1", TokenID: "token-1"},
+	}
+	srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), authenticator)
+	now := time.Now().UTC()
+	for _, row := range []any{
+		&models.User{ID: "ordinary-1", Email: "ordinary@example.com", CreatedAt: now},
+		&models.User{ID: "workspace-1", Email: "workspace@example.com", CreatedAt: now},
+		&models.User{ID: "owner-1", Email: "owner@example.com", CreatedAt: now},
+		&models.User{ID: "admin-1", Email: "admin@example.com", IsAdmin: true, CreatedAt: now},
+		&models.Organization{ID: "org-1", Name: "One", CreatedAt: now},
+		&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "One", CreatedAt: now},
+		&models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "workspace-1", Role: models.WorkspaceRoleAdmin, Status: "active", CreatedAt: now},
+		&models.OrganizationMember{OrganizationID: "org-1", UserID: "owner-1", Role: models.OrganizationRoleOwner, CreatedAt: now},
+	} {
+		_, err := srv.db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	for token, detail := range map[string]string{
+		"ordinary-session":       "instance admin role required",
+		"workspace-role-session": "instance admin role required",
+		"owner-session":          "instance admin role required",
+		"admin-token":            "browser session",
+		"scoped-admin":           "browser session",
+	} {
+		for _, path := range []string{"/api/v1/admin/audit-events", "/api/v1/admin/audit-events/export.json"} {
+			response := srv.getJSON(t, path, token)
+			require.Equal(t, http.StatusForbidden, response.Code, "%s %s: %s", token, path, response.Body.String())
+			require.Contains(t, response.Body.String(), detail)
+		}
+	}
+}

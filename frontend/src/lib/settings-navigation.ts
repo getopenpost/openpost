@@ -6,6 +6,7 @@ export const settingsTabIDs = [
 	'instance',
 	'configuration',
 	'users',
+	'instance-audit',
 	'general',
 	'brand',
 	'accounts',

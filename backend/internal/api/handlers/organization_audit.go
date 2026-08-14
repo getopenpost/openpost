@@ -18,9 +18,8 @@ import (
 	"github.com/openpost/backend/internal/services/auditprojection"
 )
 
-type OrganizationAuditInput struct {
-	PathID       string `path:"id" doc:"Organization ID"`
-	WorkspaceID  string `query:"workspace_id" doc:"Restrict evidence to one Workspace in the Organization"`
+type AuditFilterInput struct {
+	WorkspaceID  string `query:"workspace_id" doc:"Restrict evidence to one Workspace"`
 	ActorUserID  string `query:"actor_user_id" doc:"Restrict evidence to one opaque actor user ID"`
 	Action       string `query:"action" maxLength:"100" doc:"Restrict evidence to one exact domain action"`
 	ResourceType string `query:"resource_type" enum:"provider,policy,domain,session,identity,reauthentication,identity_configuration,workspace_member,workspace_invitation,impersonation,billing,mcp_tool_call,publication,publication_authorization,provider_write" doc:"Restrict evidence to one resource type"`
@@ -31,9 +30,50 @@ type OrganizationAuditInput struct {
 	Limit        int    `query:"limit" minimum:"1" maximum:"200" default:"50" doc:"Maximum events to return"`
 }
 
+type OrganizationAuditInput struct {
+	PathID string `path:"id" doc:"Organization ID"`
+	AuditFilterInput
+}
+
+type InstanceAuditInput struct {
+	OrganizationID string `query:"organization_id" doc:"Restrict evidence to one Organization"`
+	AuditFilterInput
+}
+
+type AuditPage struct {
+	Items      []auditprojection.AuditEvent `json:"items"`
+	NextCursor string                       `json:"next_cursor,omitempty"`
+}
+
+type AuditOutput struct {
+	Body AuditPage
+}
+
+// OrganizationAuditResource and OrganizationAuditEvent preserve the public
+// Organization audit schema names introduced with the scoped audit endpoint.
+// The instance endpoint uses the neutral auditprojection schemas above.
+type OrganizationAuditResource struct {
+	Type           auditprojection.ResourceType `json:"type"`
+	ID             string                       `json:"id,omitempty"`
+	OrganizationID string                       `json:"organization_id,omitempty"`
+	WorkspaceID    string                       `json:"workspace_id,omitempty"`
+}
+
+type OrganizationAuditEvent struct {
+	ID                   string                              `json:"id"`
+	Source               auditprojection.Source              `json:"source"`
+	ActorUserID          string                              `json:"actor_user_id,omitempty"`
+	EffectiveActorUserID string                              `json:"effective_actor_user_id,omitempty"`
+	Action               string                              `json:"action"`
+	Resource             OrganizationAuditResource           `json:"resource"`
+	Result               auditprojection.Result              `json:"result"`
+	ChangedFields        []auditprojection.AuditChangedField `json:"changed_fields"`
+	OccurredAt           time.Time                           `json:"occurred_at"`
+}
+
 type OrganizationAuditPage struct {
-	Items      []auditprojection.OrganizationAuditEvent `json:"items"`
-	NextCursor string                                   `json:"next_cursor,omitempty"`
+	Items      []OrganizationAuditEvent `json:"items"`
+	NextCursor string                   `json:"next_cursor,omitempty"`
 }
 
 type OrganizationAuditOutput struct {
@@ -41,10 +81,21 @@ type OrganizationAuditOutput struct {
 }
 
 type OrganizationAuditJSONExport struct {
-	FormatVersion  string                                   `json:"format_version"`
-	OrganizationID string                                   `json:"organization_id"`
-	GeneratedAt    time.Time                                `json:"generated_at"`
-	Items          []auditprojection.OrganizationAuditEvent `json:"items"`
+	FormatVersion  string                   `json:"format_version"`
+	OrganizationID string                   `json:"organization_id"`
+	GeneratedAt    time.Time                `json:"generated_at"`
+	Items          []OrganizationAuditEvent `json:"items"`
+}
+
+type InstanceAuditJSONExport struct {
+	FormatVersion string                       `json:"format_version"`
+	GeneratedAt   time.Time                    `json:"generated_at"`
+	Items         []auditprojection.AuditEvent `json:"items"`
+}
+
+type InstanceAuditJSONExportOutput struct {
+	ContentDisposition string                  `header:"Content-Disposition"`
+	Body               InstanceAuditJSONExport `json:"body"`
 }
 
 type OrganizationAuditJSONExportOutput struct {
@@ -58,7 +109,7 @@ type OrganizationAuditCSVExportOutput struct {
 	Body               []byte
 }
 
-type organizationAuditCursorPayload struct {
+type auditCursorPayload struct {
 	OccurredAt time.Time              `json:"occurred_at"`
 	Source     auditprojection.Source `json:"source"`
 	ID         string                 `json:"id"`
@@ -81,7 +132,7 @@ func (h *WorkspaceHandler) ListOrganizationAudit(api huma.API) {
 			return nil, huma.Error500InternalServerError("failed to project organization audit evidence")
 		}
 		return &OrganizationAuditOutput{Body: OrganizationAuditPage{
-			Items: page.Items, NextCursor: encodeOrganizationAuditCursor(page.NextCursor),
+			Items: organizationAuditEvents(page.Items), NextCursor: encodeAuditCursor(page.NextCursor),
 		}}, nil
 	})
 }
@@ -97,13 +148,13 @@ func (h *WorkspaceHandler) ExportOrganizationAudit(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		items, err := h.collectOrganizationAuditExport(ctx, query)
+		items, err := collectAuditExport(ctx, query, h.audit.List)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to export organization audit evidence")
 		}
 		return &OrganizationAuditJSONExportOutput{
 			ContentDisposition: fmt.Sprintf("attachment; filename=%q", "openpost-organization-audit-"+time.Now().UTC().Format("2006-01-02")+".json"),
-			Body:               OrganizationAuditJSONExport{FormatVersion: "1", OrganizationID: input.PathID, GeneratedAt: time.Now().UTC(), Items: items},
+			Body:               OrganizationAuditJSONExport{FormatVersion: "1", OrganizationID: input.PathID, GeneratedAt: time.Now().UTC(), Items: organizationAuditEvents(items)},
 		}, nil
 	})
 
@@ -122,11 +173,11 @@ func (h *WorkspaceHandler) ExportOrganizationAudit(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		items, err := h.collectOrganizationAuditExport(ctx, query)
+		items, err := collectAuditExport(ctx, query, h.audit.List)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to export organization audit evidence")
 		}
-		body, err := organizationAuditCSV(items)
+		body, err := auditCSV(items)
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to encode organization audit evidence")
 		}
@@ -136,6 +187,143 @@ func (h *WorkspaceHandler) ExportOrganizationAudit(api huma.API) {
 			Body:               body,
 		}, nil
 	})
+}
+
+func (h *WorkspaceHandler) ListInstanceAudit(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "list-instance-audit-events", Method: http.MethodGet,
+		Path: "/admin/audit-events", Summary: "List permission-safe instance audit evidence",
+		Description: "Projects consequential evidence across the instance without exposing Workspace content, emails, secrets, credentials, invitation links, or provider payloads. Requires an unscoped instance-administrator browser session.",
+		Tags:        []string{tagWorkspaces}, Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors: []int{400, 403, 500},
+	}, func(ctx context.Context, input *InstanceAuditInput) (*AuditOutput, error) {
+		query, err := h.authorizedInstanceAuditQuery(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		page, err := h.audit.ListInstance(ctx, query)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to project instance audit evidence")
+		}
+		return &AuditOutput{Body: AuditPage{Items: page.Items, NextCursor: encodeAuditCursor(page.NextCursor)}}, nil
+	})
+}
+
+func (h *WorkspaceHandler) ExportInstanceAudit(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "export-instance-audit-events-json", Method: http.MethodGet,
+		Path: "/admin/audit-events/export.json", Summary: "Export permission-safe instance audit evidence as JSON",
+		Tags: []string{tagWorkspaces}, Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)}, Errors: []int{400, 403, 500},
+	}, func(ctx context.Context, input *InstanceAuditInput) (*InstanceAuditJSONExportOutput, error) {
+		query, err := h.authorizedInstanceAuditQuery(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		items, err := collectAuditExport(ctx, query, h.audit.ListInstance)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to export instance audit evidence")
+		}
+		return &InstanceAuditJSONExportOutput{
+			ContentDisposition: fmt.Sprintf("attachment; filename=%q", "openpost-instance-audit-"+time.Now().UTC().Format("2006-01-02")+".json"),
+			Body:               InstanceAuditJSONExport{FormatVersion: "1", GeneratedAt: time.Now().UTC(), Items: items},
+		}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "export-instance-audit-events-csv", Method: http.MethodGet,
+		Path: "/admin/audit-events/export.csv", Summary: "Export permission-safe instance audit evidence as CSV",
+		Tags: []string{tagWorkspaces}, Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)}, Errors: []int{400, 403, 500},
+		Responses: map[string]*huma.Response{"200": {Description: "CSV audit export", Content: map[string]*huma.MediaType{"text/csv": {Schema: &huma.Schema{Type: "string", Format: "binary"}}}}},
+	}, func(ctx context.Context, input *InstanceAuditInput) (*OrganizationAuditCSVExportOutput, error) {
+		query, err := h.authorizedInstanceAuditQuery(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		items, err := collectAuditExport(ctx, query, h.audit.ListInstance)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to export instance audit evidence")
+		}
+		body, err := auditCSV(items)
+		if err != nil {
+			return nil, huma.Error500InternalServerError("failed to encode instance audit evidence")
+		}
+		return &OrganizationAuditCSVExportOutput{ContentType: "text/csv; charset=utf-8", ContentDisposition: fmt.Sprintf("attachment; filename=%q", "openpost-instance-audit-"+time.Now().UTC().Format("2006-01-02")+".csv"), Body: body}, nil
+	})
+}
+
+func (h *WorkspaceHandler) authorizedInstanceAuditQuery(ctx context.Context, input *InstanceAuditInput) (auditprojection.Query, error) {
+	if err := requireBrowserSessionInstanceAdmin(ctx, h.db); err != nil {
+		return auditprojection.Query{}, err
+	}
+	from, err := parseOrganizationAuditTime(input.From)
+	if err != nil {
+		return auditprojection.Query{}, huma.Error400BadRequest("from must be an RFC 3339 timestamp")
+	}
+	before, err := parseOrganizationAuditTime(input.Before)
+	if err != nil {
+		return auditprojection.Query{}, huma.Error400BadRequest("before must be an RFC 3339 timestamp")
+	}
+	if !from.IsZero() && !before.IsZero() && !from.Before(before) {
+		return auditprojection.Query{}, huma.Error400BadRequest("from must be earlier than before")
+	}
+	cursor, err := decodeAuditCursor(input.Cursor)
+	if err != nil {
+		return auditprojection.Query{}, huma.Error400BadRequest("invalid instance audit cursor")
+	}
+	organizationID := strings.TrimSpace(input.OrganizationID)
+	workspaceID := strings.TrimSpace(input.WorkspaceID)
+	if organizationID != "" {
+		exists, err := h.db.NewSelect().Model((*models.Organization)(nil)).Where("id = ?", organizationID).Exists(ctx)
+		if err != nil {
+			return auditprojection.Query{}, huma.Error500InternalServerError("failed to validate audit organization filter")
+		}
+		if !exists {
+			return auditprojection.Query{}, huma.Error400BadRequest("unknown organization filter")
+		}
+	}
+	if workspaceID != "" {
+		workspace := new(models.Workspace)
+		err := h.db.NewSelect().Model(workspace).Column("id", "organization_id").Where("id = ?", workspaceID).Scan(ctx)
+		if err != nil {
+			return auditprojection.Query{}, huma.Error400BadRequest("unknown workspace filter")
+		}
+		if organizationID != "" && workspace.OrganizationID != organizationID {
+			return auditprojection.Query{}, huma.Error400BadRequest("workspace filter is outside the organization")
+		}
+	}
+	return auditprojection.Query{OrganizationID: organizationID, WorkspaceID: workspaceID, ActorUserID: strings.TrimSpace(input.ActorUserID), Action: strings.TrimSpace(input.Action), ResourceType: auditprojection.ResourceType(strings.TrimSpace(input.ResourceType)), Result: auditprojection.Result(strings.TrimSpace(input.Result)), From: from, Before: before, Limit: input.Limit, Cursor: cursor}, nil
+}
+
+func collectAuditExport(ctx context.Context, query auditprojection.Query, list func(context.Context, auditprojection.Query) (auditprojection.Page, error)) ([]auditprojection.AuditEvent, error) {
+	query.Limit, query.Cursor = 200, nil
+	items := []auditprojection.AuditEvent{}
+	for {
+		page, err := list(ctx, query)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, page.Items...)
+		if page.NextCursor == nil {
+			return items, nil
+		}
+		query.Cursor = page.NextCursor
+	}
+}
+
+func organizationAuditEvents(items []auditprojection.AuditEvent) []OrganizationAuditEvent {
+	projected := make([]OrganizationAuditEvent, len(items))
+	for index, item := range items {
+		projected[index] = OrganizationAuditEvent{
+			ID: item.ID, Source: item.Source, ActorUserID: item.ActorUserID,
+			EffectiveActorUserID: item.EffectiveActorUserID, Action: item.Action,
+			Resource: OrganizationAuditResource{
+				Type: item.Resource.Type, ID: item.Resource.ID,
+				OrganizationID: item.Resource.OrganizationID, WorkspaceID: item.Resource.WorkspaceID,
+			},
+			Result: item.Result, ChangedFields: item.ChangedFields, OccurredAt: item.OccurredAt,
+		}
+	}
+	return projected
 }
 
 func (h *WorkspaceHandler) authorizedOrganizationAuditQuery(ctx context.Context, input *OrganizationAuditInput) (auditprojection.Query, error) {
@@ -160,7 +348,7 @@ func (h *WorkspaceHandler) authorizedOrganizationAuditQuery(ctx context.Context,
 	if !from.IsZero() && !before.IsZero() && !from.Before(before) {
 		return auditprojection.Query{}, huma.Error400BadRequest("from must be earlier than before")
 	}
-	cursor, err := decodeOrganizationAuditCursor(input.Cursor)
+	cursor, err := decodeAuditCursor(input.Cursor)
 	if err != nil {
 		return auditprojection.Query{}, huma.Error400BadRequest("invalid organization audit cursor")
 	}
@@ -183,35 +371,18 @@ func (h *WorkspaceHandler) authorizedOrganizationAuditQuery(ctx context.Context,
 	}, nil
 }
 
-func (h *WorkspaceHandler) collectOrganizationAuditExport(ctx context.Context, query auditprojection.Query) ([]auditprojection.OrganizationAuditEvent, error) {
-	query.Limit = 200
-	query.Cursor = nil
-	items := []auditprojection.OrganizationAuditEvent{}
-	for {
-		page, err := h.audit.List(ctx, query)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, page.Items...)
-		if page.NextCursor == nil {
-			return items, nil
-		}
-		query.Cursor = page.NextCursor
-	}
-}
-
-func encodeOrganizationAuditCursor(cursor *auditprojection.Cursor) string {
+func encodeAuditCursor(cursor *auditprojection.Cursor) string {
 	if cursor == nil {
 		return ""
 	}
-	payload, err := json.Marshal(organizationAuditCursorPayload{OccurredAt: cursor.OccurredAt.UTC(), Source: cursor.Source, ID: cursor.ID})
+	payload, err := json.Marshal(auditCursorPayload{OccurredAt: cursor.OccurredAt.UTC(), Source: cursor.Source, ID: cursor.ID})
 	if err != nil {
 		return ""
 	}
 	return base64.RawURLEncoding.EncodeToString(payload)
 }
 
-func decodeOrganizationAuditCursor(value string) (*auditprojection.Cursor, error) {
+func decodeAuditCursor(value string) (*auditprojection.Cursor, error) {
 	if strings.TrimSpace(value) == "" {
 		return nil, nil
 	}
@@ -219,7 +390,7 @@ func decodeOrganizationAuditCursor(value string) (*auditprojection.Cursor, error
 	if err != nil {
 		return nil, err
 	}
-	var cursor organizationAuditCursorPayload
+	var cursor auditCursorPayload
 	if err := json.Unmarshal(payload, &cursor); err != nil {
 		return nil, err
 	}
@@ -240,10 +411,10 @@ func parseOrganizationAuditTime(value string) (time.Time, error) {
 	return parsed.UTC(), nil
 }
 
-func organizationAuditCSV(items []auditprojection.OrganizationAuditEvent) ([]byte, error) {
+func auditCSV(items []auditprojection.AuditEvent) ([]byte, error) {
 	var buffer bytes.Buffer
 	writer := csv.NewWriter(&buffer)
-	if err := writer.Write([]string{"occurred_at", "actor_user_id", "effective_actor_user_id", "action", "resource_type", "resource_id", "workspace_id", "result", "changed_fields"}); err != nil {
+	if err := writer.Write([]string{"occurred_at", "actor_user_id", "effective_actor_user_id", "action", "resource_type", "resource_id", "organization_id", "workspace_id", "result", "changed_fields"}); err != nil {
 		return nil, err
 	}
 	for _, item := range items {
@@ -253,7 +424,7 @@ func organizationAuditCSV(items []auditprojection.OrganizationAuditEvent) ([]byt
 		}
 		if err := writer.Write([]string{
 			item.OccurredAt.UTC().Format(time.RFC3339Nano), item.ActorUserID, item.EffectiveActorUserID,
-			item.Action, string(item.OrganizationAuditResource.Type), item.OrganizationAuditResource.ID, item.OrganizationAuditResource.WorkspaceID,
+			item.Action, string(item.Resource.Type), item.Resource.ID, item.Resource.OrganizationID, item.Resource.WorkspaceID,
 			string(item.Result), string(changed),
 		}); err != nil {
 			return nil, err

@@ -61,13 +61,13 @@ func TestListProjectsSafeOrganizationAndWorkspaceEvidence(t *testing.T) {
 	require.Equal(t, []string{"access-1", "identity-1", "identity-inferred", "identity-secret"}, []string{page.Items[0].ID, page.Items[1].ID, page.Items[2].ID, page.Items[3].ID})
 	require.Equal(t, "admin-1", page.Items[0].ActorUserID)
 	require.Empty(t, page.Items[0].EffectiveActorUserID, "domain evidence does not identify a distinct effective actor")
-	require.Equal(t, ResourceWorkspaceMember, page.Items[0].OrganizationAuditResource.Type)
-	require.Equal(t, "member-1", page.Items[0].OrganizationAuditResource.ID)
+	require.Equal(t, ResourceWorkspaceMember, page.Items[0].Resource.Type)
+	require.Equal(t, "member-1", page.Items[0].Resource.ID)
 	require.Equal(t, []AuditChangedField{{Field: "role", Previous: "viewer", Current: "editor"}}, page.Items[0].ChangedFields)
 	require.Equal(t, []AuditChangedField{{Field: "mode", Current: "required"}}, page.Items[1].ChangedFields)
 	require.Empty(t, page.Items[3].ChangedFields, "free-form identity detail must not be projected")
 	for _, item := range page.Items {
-		require.NotContains(t, item.OrganizationAuditResource.ID, "@")
+		require.NotContains(t, item.Resource.ID, "@")
 		for _, field := range item.ChangedFields {
 			require.NotContains(t, field.Current, "secret-token")
 		}
@@ -126,19 +126,19 @@ func TestListProjectsConsequentialDomainEvidenceAndTrueEffectiveActor(t *testing
 	page, err := NewService(db).List(t.Context(), Query{OrganizationID: "org-1", Limit: 20})
 	require.NoError(t, err)
 	require.Len(t, page.Items, 7)
-	byID := map[string]OrganizationAuditEvent{}
+	byID := map[string]AuditEvent{}
 	for _, item := range page.Items {
 		byID[item.ID] = item
 	}
 	require.Equal(t, "admin-1", byID["grant-1:created"].ActorUserID)
 	require.Equal(t, "target-1", byID["grant-1:created"].EffectiveActorUserID)
 	require.Equal(t, "target-1", byID["grant-1:consumed"].EffectiveActorUserID)
-	require.Equal(t, ResourceImpersonation, byID["grant-1:created"].OrganizationAuditResource.Type)
+	require.Equal(t, ResourceImpersonation, byID["grant-1:created"].Resource.Type)
 	require.Empty(t, byID["mcp-1"].EffectiveActorUserID)
-	require.Equal(t, ResourceBilling, byID["checkout-1"].OrganizationAuditResource.Type)
-	require.Equal(t, ResourcePublication, byID["life-1"].OrganizationAuditResource.Type)
-	require.Equal(t, ResourcePublicationAuthorization, byID["authz-1"].OrganizationAuditResource.Type)
-	require.Equal(t, ResourceProviderWrite, byID["write-1"].OrganizationAuditResource.Type)
+	require.Equal(t, ResourceBilling, byID["checkout-1"].Resource.Type)
+	require.Equal(t, ResourcePublication, byID["life-1"].Resource.Type)
+	require.Equal(t, ResourcePublicationAuthorization, byID["authz-1"].Resource.Type)
+	require.Equal(t, ResourceProviderWrite, byID["write-1"].Resource.Type)
 	encoded, err := json.Marshal(page.Items)
 	require.NoError(t, err)
 	require.NotContains(t, string(encoded), "private post content")
@@ -178,4 +178,45 @@ func TestListUsesFrozenOrganizationScopeForImpersonationEvidence(t *testing.T) {
 	orgTwo, err := NewService(db).List(t.Context(), Query{OrganizationID: "org-2", Limit: 10})
 	require.NoError(t, err)
 	require.Empty(t, orgTwo.Items, "current or future membership must not infer grant scope")
+}
+
+func TestListInstanceProjectsEveryOrganizationWithoutChangingOrganizationScope(t *testing.T) {
+	db := newProjectionTestDB(t)
+	now := time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC)
+	for _, row := range []any{
+		&models.Organization{ID: "org-1", Name: "One", CreatedAt: now},
+		&models.Organization{ID: "org-2", Name: "Two", CreatedAt: now},
+		&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "One", CreatedAt: now},
+		&models.Workspace{ID: "ws-2", OrganizationID: "org-2", Name: "Two", CreatedAt: now},
+		&models.IdentityProvider{ID: "provider-1", OrganizationID: "org-1", Issuer: "https://identity.example", Name: "Identity", ClientID: "client"},
+		&models.IdentityAuditEvent{ID: "identity-1", OrganizationID: "org-1", ActorUserID: "actor-1", Action: "policy.updated", Detail: "required", CreatedAt: now},
+		&models.IdentityAuditEvent{ID: "identity-inferred", ProviderID: "provider-1", ActorUserID: "actor-1", Action: "identity.unlinked", CreatedAt: now.Add(-30 * time.Second)},
+		&models.IdentityAuditEvent{ID: "identity-2", OrganizationID: "org-2", ActorUserID: "actor-2", Action: "provider.saved", Detail: "secret", CreatedAt: now.Add(-time.Minute)},
+		&models.WorkspaceAccessAuditEvent{ID: "access-2", WorkspaceID: "ws-2", ActorUserID: "actor-2", SubjectEmail: "private@example.com", Action: "member.removed", CreatedAt: now.Add(-2 * time.Minute)},
+	} {
+		_, err := db.NewInsert().Model(row).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	service := NewService(db)
+	instance, err := service.ListInstance(t.Context(), Query{Limit: 10})
+	require.NoError(t, err)
+	require.Equal(t, []string{"identity-1", "identity-inferred", "identity-2", "access-2"}, []string{instance.Items[0].ID, instance.Items[1].ID, instance.Items[2].ID, instance.Items[3].ID})
+	require.Equal(t, "org-1", instance.Items[0].Resource.OrganizationID)
+	require.Equal(t, "org-1", instance.Items[1].Resource.OrganizationID)
+	require.Equal(t, "org-2", instance.Items[2].Resource.OrganizationID)
+	require.Equal(t, "org-2", instance.Items[3].Resource.OrganizationID)
+
+	filtered, err := service.ListInstance(t.Context(), Query{OrganizationID: "org-2", Limit: 10})
+	require.NoError(t, err)
+	require.Equal(t, []string{"identity-2", "access-2"}, []string{filtered.Items[0].ID, filtered.Items[1].ID})
+
+	owner, err := service.List(t.Context(), Query{OrganizationID: "org-1", Limit: 10})
+	require.NoError(t, err)
+	require.Equal(t, []string{"identity-1", "identity-inferred"}, []string{owner.Items[0].ID, owner.Items[1].ID})
+	require.NotContains(t, owner.Items, "identity-2")
+	encoded, err := json.Marshal(instance.Items)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "private@example.com")
+	require.NotContains(t, string(encoded), "secret")
 }

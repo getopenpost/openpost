@@ -75,6 +75,8 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 	handler.ListWorkspaceAccessAudit(api)
 	handler.ListOrganizationAudit(api)
 	handler.ExportOrganizationAudit(api)
+	handler.ListInstanceAudit(api)
+	handler.ExportInstanceAudit(api)
 	handler.AcceptWorkspaceInvitation(api)
 	handler.GetWorkspaceSetup(api)
 	handler.StartWorkspaceComposition(api)

@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Organization Owners can now page, filter, and export one permission-safe audit projection over identity, Workspace access, Organization-scoped impersonation, billing checkout, MCP, Publication lifecycle and authorization, and provider-write evidence without gaining Workspace content access or exposing emails, content, secrets, tokens, invitation links, credentials, or raw provider responses. Owners who are not Workspace members can use the audit UI, and Android exports use authenticated requests.
 - Proved the complete daily-workflow cohort across paged Engagement and Messages history, request races and retries, all eight exact Rendition outcomes, and responsive, localized Accounts and Paddle billing journeys.
 - Marketing and documentation builds now prove one complete public delivery contract across every eligible HTML and Markdown route, including prerendered meaning, discovery, safety, deterministic output, cache planning, size limits, and explicit artifact content types.
 - Composer destination controls now retain a usable mobile scroll area when first-use guidance is present.

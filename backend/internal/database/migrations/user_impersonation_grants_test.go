@@ -37,6 +37,14 @@ func TestRunMigrationsCreatesUserImpersonationGrantSchema(t *testing.T) {
 		).
 		Scan(ctx, &indexCount))
 	require.Equal(t, 3, indexCount)
+
+	var scopeSchema string
+	require.NoError(t, db.QueryRowContext(
+		ctx,
+		"SELECT sql FROM sqlite_master WHERE name = 'user_impersonation_grant_organizations'",
+	).Scan(&scopeSchema))
+	require.Contains(t, scopeSchema, "PRIMARY KEY (grant_id, organization_id)")
+	require.Contains(t, scopeSchema, "FOREIGN KEY (grant_id) REFERENCES user_impersonation_grants(id) ON DELETE CASCADE")
 }
 
 func TestRunMigrationsImpersonationGrantForeignKeysCascade(t *testing.T) {

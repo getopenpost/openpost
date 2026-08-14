@@ -461,7 +461,27 @@ func (h *InstanceAdminHandler) createImpersonationLink(
 		CreatedUserAgent: middleware.GetUserAgent(ctx),
 		CreatedAt:        now,
 	}
-	if _, err := h.db.NewInsert().Model(grant).Exec(ctx); err != nil {
+	if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if _, err := tx.NewInsert().Model(grant).Exec(txCtx); err != nil {
+			return err
+		}
+		var organizationIDs []string
+		if err := tx.NewSelect().Model((*models.OrganizationMember)(nil)).
+			Column("organization_id").
+			Where("user_id = ?", target.ID).
+			Scan(txCtx, &organizationIDs); err != nil {
+			return err
+		}
+		if len(organizationIDs) == 0 {
+			return nil
+		}
+		scopes := make([]models.UserImpersonationGrantOrganization, 0, len(organizationIDs))
+		for _, organizationID := range organizationIDs {
+			scopes = append(scopes, models.UserImpersonationGrantOrganization{GrantID: grant.ID, OrganizationID: organizationID})
+		}
+		_, err := tx.NewInsert().Model(&scopes).Exec(txCtx)
+		return err
+	}); err != nil {
 		return nil, huma.Error500InternalServerError("failed to store impersonation link")
 	}
 

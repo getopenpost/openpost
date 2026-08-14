@@ -282,6 +282,8 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	workspaceHandler.DeleteWorkspace(api)
 	workspaceHandler.ListOrganizations(api)
 	workspaceHandler.ListOrganizationTeam(api)
+	workspaceHandler.ListOrganizationAudit(api)
+	workspaceHandler.ExportOrganizationAudit(api)
 	workspaceHandler.ListWorkspaceTeam(api)
 	workspaceHandler.CreateWorkspaceInvitation(api)
 	workspaceHandler.ResendWorkspaceInvitation(api)

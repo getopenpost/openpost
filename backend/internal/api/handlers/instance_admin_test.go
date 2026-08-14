@@ -64,6 +64,7 @@ func newInstanceAdminTestServer(
 		(*models.BillingSubscription)(nil),
 		(*models.UserSession)(nil),
 		(*models.UserImpersonationGrant)(nil),
+		(*models.UserImpersonationGrantOrganization)(nil),
 	)
 	now := time.Date(2026, time.July, 28, 12, 0, 0, 0, time.UTC)
 	users := []models.User{
@@ -312,6 +313,10 @@ func TestInstanceAdminCreatesAndConsumesOneUseImpersonationLink(t *testing.T) {
 	require.Equal(t, "user-1", grant.AdminUserID)
 	require.Equal(t, "user-2", grant.TargetUserID)
 	require.True(t, grant.UsedAt.IsZero())
+	var scope models.UserImpersonationGrantOrganization
+	require.NoError(t, srv.db.NewSelect().Model(&scope).Scan(t.Context()))
+	require.Equal(t, grant.ID, scope.GrantID)
+	require.Equal(t, "organization-1", scope.OrganizationID)
 
 	consumeResp := srv.post(
 		t,

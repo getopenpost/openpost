@@ -13,6 +13,7 @@ export const settingsTabIDs = [
 	'schedule',
 	'members',
 	'sso',
+	'audit',
 	'plan'
 ] as const;
 

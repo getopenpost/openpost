@@ -89,6 +89,28 @@ required SSO does not support organization-wide app tokens. Keep an
 MFA-protected local instance administrator in
 `OPENPOST_SSO_BREAK_GLASS_EMAILS` before enforcing SSO.
 
+### Organization audit evidence
+
+The **Organization audit** tab is available only to the Organization Owner. It
+combines permission-safe evidence from identity and access administration,
+impersonation grants scoped to the Organization when created, billing checkout, MCP calls, Publication lifecycle and
+authorization, and provider writes. An Owner can select an Organization even
+when they are not a member of one of its Workspaces. Organization ownership
+allows the Owner to inspect this administrative evidence across the
+Organization; it does not grant access to a Workspace's Publications, media,
+messages, or other content.
+
+Filter by exact action, opaque actor ID, Workspace ID, resource type, or time.
+Use **Load older evidence** to continue through stable pages. JSON and CSV
+exports apply the same filters as the visible list. The app downloads exports
+through the authenticated API, including in the Android wrapper.
+
+The view and both exports include actor and effective actor IDs, action,
+resource, result, time, and allowlisted changed fields such as role, access
+state, SSO mode, or a verified Organization domain. They exclude user email
+addresses, authored content, tokens, invitation links, credentials, arbitrary
+identity detail, and raw provider responses.
+
 ## Instance
 
 Instance settings are available only to instance administrators.

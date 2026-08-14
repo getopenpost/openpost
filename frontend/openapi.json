@@ -1523,6 +1523,22 @@
 				],
 				"type": "object"
 			},
+			"AuditChangedField": {
+				"additionalProperties": false,
+				"properties": {
+					"current": {
+						"type": "string"
+					},
+					"field": {
+						"type": "string"
+					},
+					"previous": {
+						"type": "string"
+					}
+				},
+				"required": ["field"],
+				"type": "object"
+			},
 			"AuthConfigurationOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -9829,6 +9845,121 @@
 					}
 				},
 				"required": ["value", "label"],
+				"type": "object"
+			},
+			"OrganizationAuditEvent": {
+				"additionalProperties": false,
+				"properties": {
+					"action": {
+						"type": "string"
+					},
+					"actor_user_id": {
+						"type": "string"
+					},
+					"changed_fields": {
+						"items": {
+							"$ref": "#/components/schemas/AuditChangedField"
+						},
+						"type": ["array", "null"]
+					},
+					"effective_actor_user_id": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"occurred_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"resource": {
+						"$ref": "#/components/schemas/OrganizationAuditResource"
+					},
+					"result": {
+						"type": "string"
+					},
+					"source": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"source",
+					"action",
+					"resource",
+					"result",
+					"changed_fields",
+					"occurred_at"
+				],
+				"type": "object"
+			},
+			"OrganizationAuditJSONExport": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/OrganizationAuditJSONExport.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"format_version": {
+						"type": "string"
+					},
+					"generated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/OrganizationAuditEvent"
+						},
+						"type": ["array", "null"]
+					},
+					"organization_id": {
+						"type": "string"
+					}
+				},
+				"required": ["format_version", "organization_id", "generated_at", "items"],
+				"type": "object"
+			},
+			"OrganizationAuditPage": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/OrganizationAuditPage.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/OrganizationAuditEvent"
+						},
+						"type": ["array", "null"]
+					},
+					"next_cursor": {
+						"type": "string"
+					}
+				},
+				"required": ["items"],
+				"type": "object"
+			},
+			"OrganizationAuditResource": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"type": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": ["type"],
 				"type": "object"
 			},
 			"OrganizationMemberResponse": {
@@ -29817,6 +29948,580 @@
 					}
 				},
 				"summary": "List organizations for the current user",
+				"tags": ["Workspaces"]
+			}
+		},
+		"/organizations/{id}/audit-events": {
+			"get": {
+				"description": "Projects consequential Organization and Workspace evidence without exposing Workspace content, secrets, credentials, invitation links, or provider payloads. Requires the Organization Owner.",
+				"operationId": "list-organization-audit-events",
+				"parameters": [
+					{
+						"description": "Organization ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Organization ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one Workspace in the Organization",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"schema": {
+							"description": "Restrict evidence to one Workspace in the Organization",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one opaque actor user ID",
+						"explode": false,
+						"in": "query",
+						"name": "actor_user_id",
+						"schema": {
+							"description": "Restrict evidence to one opaque actor user ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one exact domain action",
+						"explode": false,
+						"in": "query",
+						"name": "action",
+						"schema": {
+							"description": "Restrict evidence to one exact domain action",
+							"maxLength": 100,
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one resource type",
+						"explode": false,
+						"in": "query",
+						"name": "resource_type",
+						"schema": {
+							"description": "Restrict evidence to one resource type",
+							"enum": [
+								"provider",
+								"policy",
+								"domain",
+								"session",
+								"identity",
+								"reauthentication",
+								"identity_configuration",
+								"workspace_member",
+								"workspace_invitation",
+								"impersonation",
+								"billing",
+								"mcp_tool_call",
+								"publication",
+								"publication_authorization",
+								"provider_write"
+							],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one result",
+						"explode": false,
+						"in": "query",
+						"name": "result",
+						"schema": {
+							"description": "Restrict evidence to one result",
+							"enum": ["succeeded", "failed", "pending"],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Inclusive RFC 3339 start time",
+						"explode": false,
+						"in": "query",
+						"name": "from",
+						"schema": {
+							"description": "Inclusive RFC 3339 start time",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Exclusive RFC 3339 end time",
+						"explode": false,
+						"in": "query",
+						"name": "before",
+						"schema": {
+							"description": "Exclusive RFC 3339 end time",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable older-page pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable older-page pagination",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Maximum events to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 50,
+							"description": "Maximum events to return",
+							"format": "int64",
+							"maximum": 200,
+							"minimum": 1,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OrganizationAuditPage"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List permission-safe Organization audit evidence",
+				"tags": ["Workspaces"]
+			}
+		},
+		"/organizations/{id}/audit-events/export.csv": {
+			"get": {
+				"operationId": "export-organization-audit-events-csv",
+				"parameters": [
+					{
+						"description": "Organization ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Organization ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one Workspace in the Organization",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"schema": {
+							"description": "Restrict evidence to one Workspace in the Organization",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one opaque actor user ID",
+						"explode": false,
+						"in": "query",
+						"name": "actor_user_id",
+						"schema": {
+							"description": "Restrict evidence to one opaque actor user ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one exact domain action",
+						"explode": false,
+						"in": "query",
+						"name": "action",
+						"schema": {
+							"description": "Restrict evidence to one exact domain action",
+							"maxLength": 100,
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one resource type",
+						"explode": false,
+						"in": "query",
+						"name": "resource_type",
+						"schema": {
+							"description": "Restrict evidence to one resource type",
+							"enum": [
+								"provider",
+								"policy",
+								"domain",
+								"session",
+								"identity",
+								"reauthentication",
+								"identity_configuration",
+								"workspace_member",
+								"workspace_invitation",
+								"impersonation",
+								"billing",
+								"mcp_tool_call",
+								"publication",
+								"publication_authorization",
+								"provider_write"
+							],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one result",
+						"explode": false,
+						"in": "query",
+						"name": "result",
+						"schema": {
+							"description": "Restrict evidence to one result",
+							"enum": ["succeeded", "failed", "pending"],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Inclusive RFC 3339 start time",
+						"explode": false,
+						"in": "query",
+						"name": "from",
+						"schema": {
+							"description": "Inclusive RFC 3339 start time",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Exclusive RFC 3339 end time",
+						"explode": false,
+						"in": "query",
+						"name": "before",
+						"schema": {
+							"description": "Exclusive RFC 3339 end time",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable older-page pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable older-page pagination",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Maximum events to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 50,
+							"description": "Maximum events to return",
+							"format": "int64",
+							"maximum": 200,
+							"minimum": 1,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"text/csv": {
+								"schema": {
+									"contentMediaType": "application/octet-stream",
+									"format": "binary",
+									"type": "string"
+								}
+							}
+						},
+						"description": "CSV audit export",
+						"headers": {
+							"Content-Disposition": {
+								"schema": {
+									"type": "string"
+								}
+							},
+							"Content-Type": {
+								"schema": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Export permission-safe Organization audit evidence as CSV",
+				"tags": ["Workspaces"]
+			}
+		},
+		"/organizations/{id}/audit-events/export.json": {
+			"get": {
+				"operationId": "export-organization-audit-events-json",
+				"parameters": [
+					{
+						"description": "Organization ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Organization ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one Workspace in the Organization",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"schema": {
+							"description": "Restrict evidence to one Workspace in the Organization",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one opaque actor user ID",
+						"explode": false,
+						"in": "query",
+						"name": "actor_user_id",
+						"schema": {
+							"description": "Restrict evidence to one opaque actor user ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one exact domain action",
+						"explode": false,
+						"in": "query",
+						"name": "action",
+						"schema": {
+							"description": "Restrict evidence to one exact domain action",
+							"maxLength": 100,
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one resource type",
+						"explode": false,
+						"in": "query",
+						"name": "resource_type",
+						"schema": {
+							"description": "Restrict evidence to one resource type",
+							"enum": [
+								"provider",
+								"policy",
+								"domain",
+								"session",
+								"identity",
+								"reauthentication",
+								"identity_configuration",
+								"workspace_member",
+								"workspace_invitation",
+								"impersonation",
+								"billing",
+								"mcp_tool_call",
+								"publication",
+								"publication_authorization",
+								"provider_write"
+							],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Restrict evidence to one result",
+						"explode": false,
+						"in": "query",
+						"name": "result",
+						"schema": {
+							"description": "Restrict evidence to one result",
+							"enum": ["succeeded", "failed", "pending"],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Inclusive RFC 3339 start time",
+						"explode": false,
+						"in": "query",
+						"name": "from",
+						"schema": {
+							"description": "Inclusive RFC 3339 start time",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Exclusive RFC 3339 end time",
+						"explode": false,
+						"in": "query",
+						"name": "before",
+						"schema": {
+							"description": "Exclusive RFC 3339 end time",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Opaque cursor for stable older-page pagination",
+						"explode": false,
+						"in": "query",
+						"name": "cursor",
+						"schema": {
+							"description": "Opaque cursor for stable older-page pagination",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Maximum events to return",
+						"explode": false,
+						"in": "query",
+						"name": "limit",
+						"schema": {
+							"default": 50,
+							"description": "Maximum events to return",
+							"format": "int64",
+							"maximum": 200,
+							"minimum": 1,
+							"type": "integer"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OrganizationAuditJSONExport"
+								}
+							}
+						},
+						"description": "OK",
+						"headers": {
+							"Content-Disposition": {
+								"schema": {
+									"type": "string"
+								}
+							}
+						}
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Export permission-safe Organization audit evidence as JSON",
 				"tags": ["Workspaces"]
 			}
 		},

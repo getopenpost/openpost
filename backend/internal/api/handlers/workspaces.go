@@ -16,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/queue"
+	"github.com/openpost/backend/internal/services/auditprojection"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/medialifecycle"
@@ -32,6 +33,7 @@ type WorkspaceHandler struct {
 	notifications *notifications.Service
 	team          *workspaceteam.Service
 	setup         *setupprojection.Service
+	audit         *auditprojection.Service
 	hosted        bool
 	frontendURL   string
 }
@@ -45,7 +47,7 @@ func NewWorkspaceHandler(db *bun.DB, authenticator middleware.Authenticator, ent
 	return &WorkspaceHandler{
 		db: db, auth: authenticator, entitlement: entitlementService,
 		team:  workspaceteam.NewService(db, entitlementService, nil),
-		setup: setupprojection.NewService(db), hosted: hosted,
+		setup: setupprojection.NewService(db), audit: auditprojection.NewService(db), hosted: hosted,
 	}
 }
 

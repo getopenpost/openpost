@@ -60,6 +60,10 @@ _Avoid_: Marketing notification, product update
 A temporary account-wide or Workspace-specific pause layered over optional notification preferences. It expires without changing the user's saved channel or frequency choices.
 _Avoid_: Unsubscribe, disable notifications
 
+**Audit evidence**:
+Permission-safe facts projected from consequential domain actions for administrative inspection. It does not drive business state and excludes content, secrets, credentials, invitation links, and raw provider data.
+_Avoid_: Generic event, activity log
+
 **Release candidate**:
 One exact revision that passed candidate CI and carries a matching release manifest. It may advance through draft, complete draft, deployed, and published evidence without being rebuilt.
 _Avoid_: Build, latest image

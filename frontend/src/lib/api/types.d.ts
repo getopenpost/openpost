@@ -2612,6 +2612,60 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{id}/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List permission-safe Organization audit evidence
+         * @description Projects consequential Organization and Workspace evidence without exposing Workspace content, secrets, credentials, invitation links, or provider payloads. Requires the Organization Owner.
+         */
+        get: operations["list-organization-audit-events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{id}/audit-events/export.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export permission-safe Organization audit evidence as CSV */
+        get: operations["export-organization-audit-events-csv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{id}/audit-events/export.json": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export permission-safe Organization audit evidence as JSON */
+        get: operations["export-organization-audit-events-json"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{id}/billing/checkout": {
         parameters: {
             query?: never;
@@ -4509,6 +4563,11 @@ export interface components {
             speed: number;
             /** Format: int64 */
             timeline_start_us: number;
+        };
+        AuditChangedField: {
+            current?: string;
+            field: string;
+            previous?: string;
         };
         AuthConfigurationOutputBody: {
             /**
@@ -8180,6 +8239,46 @@ export interface components {
         Option: {
             label: string;
             value: string;
+        };
+        OrganizationAuditEvent: {
+            action: string;
+            actor_user_id?: string;
+            changed_fields: components["schemas"]["AuditChangedField"][] | null;
+            effective_actor_user_id?: string;
+            id: string;
+            /** Format: date-time */
+            occurred_at: string;
+            resource: components["schemas"]["OrganizationAuditResource"];
+            result: string;
+            source: string;
+        };
+        OrganizationAuditJSONExport: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/OrganizationAuditJSONExport.json
+             */
+            readonly $schema?: string;
+            format_version: string;
+            /** Format: date-time */
+            generated_at: string;
+            items: components["schemas"]["OrganizationAuditEvent"][] | null;
+            organization_id: string;
+        };
+        OrganizationAuditPage: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/OrganizationAuditPage.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["OrganizationAuditEvent"][] | null;
+            next_cursor?: string;
+        };
+        OrganizationAuditResource: {
+            id?: string;
+            type: string;
+            workspace_id?: string;
         };
         OrganizationMemberResponse: {
             /** @description User email */
@@ -21294,6 +21393,243 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-organization-audit-events": {
+        parameters: {
+            query?: {
+                /** @description Restrict evidence to one Workspace in the Organization */
+                workspace_id?: string;
+                /** @description Restrict evidence to one opaque actor user ID */
+                actor_user_id?: string;
+                /** @description Restrict evidence to one exact domain action */
+                action?: string;
+                /** @description Restrict evidence to one resource type */
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                /** @description Restrict evidence to one result */
+                result?: "succeeded" | "failed" | "pending";
+                /** @description Inclusive RFC 3339 start time */
+                from?: string;
+                /** @description Exclusive RFC 3339 end time */
+                before?: string;
+                /** @description Opaque cursor for stable older-page pagination */
+                cursor?: string;
+                /** @description Maximum events to return */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationAuditPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "export-organization-audit-events-csv": {
+        parameters: {
+            query?: {
+                /** @description Restrict evidence to one Workspace in the Organization */
+                workspace_id?: string;
+                /** @description Restrict evidence to one opaque actor user ID */
+                actor_user_id?: string;
+                /** @description Restrict evidence to one exact domain action */
+                action?: string;
+                /** @description Restrict evidence to one resource type */
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                /** @description Restrict evidence to one result */
+                result?: "succeeded" | "failed" | "pending";
+                /** @description Inclusive RFC 3339 start time */
+                from?: string;
+                /** @description Exclusive RFC 3339 end time */
+                before?: string;
+                /** @description Opaque cursor for stable older-page pagination */
+                cursor?: string;
+                /** @description Maximum events to return */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV audit export */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    "Content-Type"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "export-organization-audit-events-json": {
+        parameters: {
+            query?: {
+                /** @description Restrict evidence to one Workspace in the Organization */
+                workspace_id?: string;
+                /** @description Restrict evidence to one opaque actor user ID */
+                actor_user_id?: string;
+                /** @description Restrict evidence to one exact domain action */
+                action?: string;
+                /** @description Restrict evidence to one resource type */
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                /** @description Restrict evidence to one result */
+                result?: "succeeded" | "failed" | "pending";
+                /** @description Inclusive RFC 3339 start time */
+                from?: string;
+                /** @description Exclusive RFC 3339 end time */
+                before?: string;
+                /** @description Opaque cursor for stable older-page pagination */
+                cursor?: string;
+                /** @description Maximum events to return */
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationAuditJSONExport"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -278,6 +278,15 @@ type UserImpersonationGrant struct {
 	CreatedAt         time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
+// UserImpersonationGrantOrganization freezes the Organizations whose data an
+// impersonated user could access when an instance administrator creates a grant.
+type UserImpersonationGrantOrganization struct {
+	bun.BaseModel `bun:"table:user_impersonation_grant_organizations"`
+
+	GrantID        string `bun:"grant_id,pk"`
+	OrganizationID string `bun:"organization_id,pk"`
+}
+
 type IdentityProvider struct {
 	bun.BaseModel `bun:"table:identity_providers"`
 

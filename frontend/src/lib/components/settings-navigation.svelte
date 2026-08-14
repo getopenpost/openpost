@@ -36,7 +36,8 @@
 	]);
 	const organizationDestinations = $derived<SettingsDestination[]>([
 		{ id: 'plan', label: m.settings_plan() },
-		{ id: 'sso', label: m.settings_sso() }
+		{ id: 'sso', label: m.settings_sso() },
+		{ id: 'audit', label: m.settings_audit_title() }
 	]);
 	const instanceDestinations = $derived<SettingsDestination[]>(
 		showInstance

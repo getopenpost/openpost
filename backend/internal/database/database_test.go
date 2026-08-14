@@ -92,3 +92,17 @@ func TestCreateSchemaRunsPublicationMigration(t *testing.T) {
 		Scan(ctx, &videoCodecColumnCount))
 	require.Equal(t, 1, videoCodecColumnCount)
 }
+
+func TestCreateSchemaLetsMigrationOwnImpersonationOrganizationConstraints(t *testing.T) {
+	db, err := InitDBWithDriver("sqlite", "file:"+t.Name()+"?mode=memory&cache=private")
+	require.NoError(t, err)
+	defer db.Close()
+	require.NoError(t, CreateSchema(db))
+
+	var schema string
+	require.NoError(t, db.QueryRow(
+		"SELECT sql FROM sqlite_master WHERE name = 'user_impersonation_grant_organizations'",
+	).Scan(&schema))
+	require.Contains(t, schema, "FOREIGN KEY (grant_id) REFERENCES user_impersonation_grants(id) ON DELETE CASCADE")
+	require.Contains(t, schema, "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE")
+}

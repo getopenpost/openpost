@@ -11,6 +11,7 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
 	import OrganizationSSOSettings from '$lib/components/organization-sso-settings.svelte';
+	import OrganizationAuditSettings from '$lib/components/organization-audit-settings.svelte';
 	import WorkspaceTeamSettings from '$lib/components/workspace-team-settings.svelte';
 	import InstanceConfiguration from '$lib/components/instance-configuration.svelte';
 	import InstanceAdminUsers from '$lib/components/instance-admin-users.svelte';
@@ -63,6 +64,7 @@
 		'schedule',
 		'members',
 		'sso',
+		'audit',
 		'plan',
 		...(authState.user?.is_admin ? (['instance', 'configuration', 'users'] as const) : [])
 	]);
@@ -79,7 +81,9 @@
 
 	const settingsLoadingVariant = $derived.by(() => {
 		if (activeSettingsTab === 'profile') return 'profile' as const;
-		if (['members', 'sso', 'plan', 'security', 'notifications'].includes(activeSettingsTab)) {
+		if (
+			['members', 'sso', 'audit', 'plan', 'security', 'notifications'].includes(activeSettingsTab)
+		) {
 			return 'cards' as const;
 		}
 		if (
@@ -108,6 +112,7 @@
 		if (activeSettingsTab === 'users') return m.settings_instance_users();
 		if (activeSettingsTab === 'members') return m.settings_team_members();
 		if (activeSettingsTab === 'sso') return m.settings_sso();
+		if (activeSettingsTab === 'audit') return m.settings_audit_title();
 		if (activeSettingsTab === 'plan') return m.settings_plan();
 		if (activeSettingsTab === 'schedule') return m.settings_schedule();
 		if (activeSettingsTab === 'brand') return m.media_brand();
@@ -126,6 +131,7 @@
 		if (activeSettingsTab === 'users') return m.settings_instance_users_page_description();
 		if (activeSettingsTab === 'members') return m.settings_members_description();
 		if (activeSettingsTab === 'sso') return m.settings_sso_description();
+		if (activeSettingsTab === 'audit') return m.settings_audit_description();
 		if (activeSettingsTab === 'plan') return m.settings_plan_description();
 		if (activeSettingsTab === 'schedule') return m.settings_schedule_description();
 		if (activeSettingsTab === 'brand') return m.media_brand_description();
@@ -209,13 +215,14 @@
 	title={activeSettingsTitle}
 	description={activeSettingsDescription}
 	icon={SettingsIcon}
-	loading={!workspaceCtx.currentWorkspace || workspaceCtx.settingsLoading}
+	loading={activeSettingsTab !== 'audit' &&
+		(!workspaceCtx.currentWorkspace || workspaceCtx.settingsLoading)}
 	loadingMessage={m.settings_loading_workspace()}
 	loadingLayout="settings"
 	loadingVariant={settingsLoadingVariant}
 	loadingItems={8}
 >
-	{#if workspaceCtx.settingsError}
+	{#if workspaceCtx.settingsError && activeSettingsTab !== 'audit'}
 		<InlineNotice tone="error" message={m.settings_workspace_load_failed()}>
 			{#snippet actions()}
 				<Button variant="outline" size="sm" onclick={() => void workspaceCtx.loadSettings()}>
@@ -313,6 +320,13 @@
 					<OrganizationSSOSettings
 						organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
 						active={activeSettingsTab === 'sso'}
+					/>
+				</section>
+
+				<section id="audit" class:hidden={activeSettingsTab !== 'audit'} class="scroll-mt-24">
+					<OrganizationAuditSettings
+						organizationID={workspaceCtx.currentWorkspace?.organization_id ?? ''}
+						active={activeSettingsTab === 'audit'}
 					/>
 				</section>
 

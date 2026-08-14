@@ -25,6 +25,10 @@ func createTestDB(t *testing.T) *bun.DB {
 
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	// Initialize schema
+	for _, model := range []any{(*models.Organization)(nil), (*models.Workspace)(nil)} {
+		_, err = db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
+		require.NoError(t, err)
+	}
 	_, err = db.NewCreateTable().
 		Model((*models.OAuthGrant)(nil)).
 		IfNotExists().
@@ -55,7 +59,12 @@ func createTestDB(t *testing.T) *bun.DB {
 }
 
 func seedWorkspaceMember(t *testing.T, db *bun.DB, workspaceID, userID string) {
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-" + workspaceID, Name: workspaceID, CreatedAt: now, UpdatedAt: now}).On("CONFLICT DO NOTHING").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: workspaceID, OrganizationID: "organization-" + workspaceID, Name: workspaceID, CreatedAt: now}).On("CONFLICT DO NOTHING").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{
 		WorkspaceID: workspaceID,
 		UserID:      userID,
 		Role:        "admin",

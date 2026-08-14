@@ -76,10 +76,18 @@ func newGrantSQLiteDB(t *testing.T) *bun.DB {
 
 func createGrantConcurrencyTables(t *testing.T, db *bun.DB) {
 	t.Helper()
-	for _, model := range []interface{}{(*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil)} {
+	for _, model := range []interface{}{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.OAuthGrant)(nil), (*models.SocialAccount)(nil), (*models.Job)(nil)} {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context())
 		require.NoError(t, err)
 	}
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Tokens", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&[]models.Workspace{
+		{ID: "workspace-1", OrganizationID: "org-1", Name: "One", CreatedAt: now},
+		{ID: "workspace-2", OrganizationID: "org-1", Name: "Two", CreatedAt: now},
+	}).Exec(t.Context())
+	require.NoError(t, err)
 }
 
 func seedSharedGrant(t *testing.T, db *bun.DB, encryptor *crypto.TokenEncryptor) {

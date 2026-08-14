@@ -14,7 +14,9 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/lifecycle"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/providerwrite"
+	"github.com/uptrace/bun"
 )
 
 const (
@@ -543,8 +545,21 @@ func (s *Service) enqueueExecution(ctx context.Context, executionID, jobType str
 	if err != nil {
 		return err
 	}
-	err = s.enqueue(ctx, jobType, string(payload), runAt)
-	return err
+	job, err := jobregistry.NewJob(jobType, string(payload), runAt)
+	if err != nil {
+		return err
+	}
+	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var workspaceID string
+		if err := tx.NewSelect().Model((*models.RepostExecution)(nil)).Column("workspace_id").Where("id = ?", executionID).Scan(txCtx, &workspaceID); err != nil {
+			return err
+		}
+		if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
+			return err
+		}
+		_, err := tx.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(txCtx)
+		return err
+	})
 }
 
 func (s *Service) enqueue(ctx context.Context, jobType, payload string, runAt time.Time) error {

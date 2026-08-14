@@ -21,7 +21,15 @@
 	import TrashIcon from '@lucide/svelte/icons/trash';
 	import { getTimezoneLabel, timezones } from '../../../routes/settings/settings-data';
 
-	let { onDelete }: { onDelete: () => void } = $props();
+	let {
+		onDelete,
+		organizationOwner = false,
+		onDeleteOrganization
+	}: {
+		onDelete: () => void;
+		organizationOwner?: boolean;
+		onDeleteOrganization?: () => void;
+	} = $props();
 	let imagePickerOpen = $state(false);
 	let brandColors = $state.raw<ImageEditorBrandKit['colors']>([]);
 	let loadedWorkspaceID = '';
@@ -186,6 +194,19 @@
 			<Button variant="destructive" class="shrink-0" onclick={onDelete}>
 				{m.workspace_delete_confirm()}
 			</Button>
+		</div>
+	{/if}
+	{#if organizationOwner && onDeleteOrganization}
+		<div
+			class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+		>
+			<div>
+				<p class="text-sm font-medium text-destructive">{m.organization_delete_title()}</p>
+				<p class="text-sm text-muted-foreground">{m.organization_delete_description()}</p>
+			</div>
+			<Button variant="destructive" class="shrink-0" onclick={onDeleteOrganization}
+				>{m.organization_delete_confirm()}</Button
+			>
 		</div>
 	{/if}
 </section>

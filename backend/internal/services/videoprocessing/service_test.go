@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/models"
@@ -73,7 +74,11 @@ func TestAnalyzeJobPersistsMetadataAndPoster(t *testing.T) {
 }
 
 func insertVideoFixture(ctx context.Context, db *bun.DB, savedPath string) error {
-	if _, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(ctx); err != nil {
+	now := time.Now().UTC()
+	if _, err := db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "Video", CreatedAt: now, UpdatedAt: now}).Exec(ctx); err != nil {
+		return err
+	}
+	if _, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", OrganizationID: "org-1", Name: "Launch"}).Exec(ctx); err != nil {
 		return err
 	}
 	_, err := db.NewInsert().Model(&models.MediaAttachment{

@@ -2757,6 +2757,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently delete an Organization and all of its Workspaces
+         * @description Atomically deletes the complete Organization boundary after current-Owner authorization, exact canonical-name confirmation, recent authentication, and a final blocker check. Required content-free billing and audit evidence remains.
+         */
+        delete: operations["delete-organization"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{id}/audit-events": {
         parameters: {
             query?: never;
@@ -2811,6 +2831,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/organizations/{id}/billing-checkout-attempts/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cancel pending local Paddle checkout attempts
+         * @description Cancels checkout attempts that have not produced a Paddle subscription so an Organization Owner can resolve a deletion blocker without waiting.
+         */
+        delete: operations["cancel-organization-checkout-attempts"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{id}/billing/checkout": {
         parameters: {
             query?: never;
@@ -2854,6 +2894,26 @@ export interface paths {
         };
         /** Get organization billing status */
         get: operations["get-organization-billing-status"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{id}/deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview permanent Organization deletion
+         * @description Lists every owned Workspace, the local Paddle state, pending external work, access effects, retained evidence, irreversible loss, and every current blocker. Only the current Organization Owner can inspect it.
+         */
+        get: operations["get-organization-deletion-preview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5060,6 +5120,16 @@ export interface components {
              */
             readonly $schema?: string;
             canceled: boolean;
+        };
+        CancelOrganizationCheckoutAttemptsOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CancelOrganizationCheckoutAttemptsOutputBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            canceled: number;
         };
         CapabilitiesOutputBody: {
             /**
@@ -8570,6 +8640,60 @@ export interface components {
             organization_id?: string;
             type: string;
             workspace_id?: string;
+        };
+        OrganizationDeletionInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/OrganizationDeletionInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Exact canonical Organization name */
+            confirm_name: string;
+            /** @description Current account password */
+            current_password?: string;
+            /** @description One-time grant for organization.delete */
+            reauth_grant?: string;
+        };
+        OrganizationDeletionOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/OrganizationDeletionOutputBody.json
+             */
+            readonly $schema?: string;
+            deleted: boolean;
+        };
+        OrganizationDeletionPendingWork: {
+            /** Format: int64 */
+            pending_cleanup_jobs: number;
+            /** Format: int64 */
+            pending_jobs: number;
+            /** Format: int64 */
+            pending_provider_writes: number;
+        };
+        OrganizationDeletionPreview: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/OrganizationDeletionPreview.json
+             */
+            readonly $schema?: string;
+            access_effects: ("organization_memberships" | "workspace_memberships" | "organization_credentials")[] | null;
+            /** @description Latest local Paddle subscription state, or none */
+            billing_state: string;
+            blockers: components["schemas"]["WorkspaceDeletionBlocker"][] | null;
+            irreversible_loss: ("workspaces" | "content" | "connected_accounts" | "media" | "settings")[] | null;
+            organization_id: string;
+            organization_name: string;
+            pending_work: components["schemas"]["OrganizationDeletionPendingWork"];
+            recovery_possible: boolean;
+            retained: ("required_audit_evidence" | "required_billing_evidence")[] | null;
+            workspaces: components["schemas"]["OrganizationDeletionWorkspace"][] | null;
+        };
+        OrganizationDeletionWorkspace: {
+            workspace_id: string;
+            workspace_name: string;
         };
         OrganizationMemberResponse: {
             /** @description User email */
@@ -12846,7 +12970,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "organization" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -12923,7 +13047,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "organization" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -13002,7 +13126,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "organization" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -22391,6 +22515,96 @@ export interface operations {
             };
         };
     };
+    "delete-organization": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrganizationDeletionInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationDeletionOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-organization-audit-events": {
         parameters: {
             query?: {
@@ -22401,7 +22615,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "organization" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -22479,7 +22693,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "organization" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -22559,7 +22773,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "organization" | "workspace" | "workspace_member" | "workspace_invitation" | "organization_ownership_transfer" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -22601,6 +22815,65 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "cancel-organization-checkout-attempts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelOrganizationCheckoutAttemptsOutputBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -22803,6 +23076,74 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-organization-deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Organization ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OrganizationDeletionPreview"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -17,7 +17,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/queue"
 	"github.com/openpost/backend/internal/services/billing"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/identity"
@@ -254,7 +253,6 @@ func (h *BillingHandler) confirmFirstWorkspacePurchase(ctx context.Context, inpu
 		return nil, billingAPIError(err)
 	}
 	if confirmation.Created {
-		_ = queue.ScheduleMediaCleanup(h.db, confirmation.Workspace.ID) //nolint:errcheck
 		h.captureFirstWorkspaceConfirmed(ctx, userID, confirmation, choice)
 		h.captureCheckoutCreated(ctx, userID, confirmation.OrganizationID, confirmation.Workspace.ID, confirmation.Checkout)
 	}

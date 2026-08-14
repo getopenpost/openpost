@@ -17,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/lifecycle"
 	"github.com/openpost/backend/internal/services/notifications"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/uptrace/bun"
 )
@@ -77,7 +78,7 @@ func (s *Service) SetProvider(name string, adapter platform.Adapter) {
 
 func (s *Service) ScheduleSweep(ctx context.Context, runAt time.Time) error {
 	payload, _ := json.Marshal(map[string]string{"scheduled_for": runAt.UTC().Truncate(time.Minute).Format(time.RFC3339)})
-	_, err := s.enqueue(ctx, JobTypeSweep, string(payload), runAt)
+	_, err := s.enqueue(ctx, "", JobTypeSweep, string(payload), runAt)
 	return err
 }
 
@@ -205,7 +206,7 @@ func (s *Service) RefreshWorkspace(ctx context.Context, workspaceID string, forc
 			continue
 		}
 		payload, _ := json.Marshal(subjectJob{ID: rendition.ID})
-		inserted, enqueueErr := s.enqueue(ctx, JobTypeEngagementSync, string(payload), now)
+		inserted, enqueueErr := s.enqueue(ctx, workspaceID, JobTypeEngagementSync, string(payload), now)
 		if enqueueErr != nil {
 			return queued, enqueueErr
 		}
@@ -236,7 +237,7 @@ func (s *Service) RefreshWorkspace(ctx context.Context, workspaceID string, forc
 			continue
 		}
 		payload, _ := json.Marshal(subjectJob{ID: account.ID})
-		inserted, enqueueErr := s.enqueue(ctx, JobTypeMessagesSync, string(payload), now)
+		inserted, enqueueErr := s.enqueue(ctx, workspaceID, JobTypeMessagesSync, string(payload), now)
 		if enqueueErr != nil {
 			return queued, enqueueErr
 		}
@@ -729,7 +730,7 @@ func (s *Service) QueueEngagementAction(ctx context.Context, itemID, action, mes
 		return fmt.Errorf("unsupported engagement action %q", action)
 	}
 	payload, _ := json.Marshal(engagementActionJob{ItemID: itemID, Action: action, Message: strings.TrimSpace(message), UserID: userID})
-	_, err := s.enqueue(ctx, JobTypeEngagementAct, string(payload), s.now())
+	_, err := s.enqueue(ctx, item.WorkspaceID, JobTypeEngagementAct, string(payload), s.now())
 	return err
 }
 
@@ -737,7 +738,9 @@ func (s *Service) QueueEngagementAction(ctx context.Context, itemID, action, mes
 // same durable, one-attempt provider-write path as the communications inbox.
 // The opaque provider comment ID and reply body stay in the application job
 // payload; provider_write_attempts stores only their digest.
-func QueueProviderCommentAction(ctx context.Context, db bun.IDB, input ProviderCommentActionInput) (string, error) {
+//
+//nolint:gocyclo // Validation and the fenced ownership query intentionally stay at this transport-independent boundary.
+func QueueProviderCommentAction(ctx context.Context, db *bun.DB, input ProviderCommentActionInput) (string, error) {
 	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
 	input.PublicationID = strings.TrimSpace(input.PublicationID)
 	input.RenditionID = strings.TrimSpace(input.RenditionID)
@@ -762,21 +765,6 @@ func QueueProviderCommentAction(ctx context.Context, db bun.IDB, input ProviderC
 	default:
 		return "", fmt.Errorf("unsupported provider comment action %q", input.Action)
 	}
-	var ownerCount int
-	if err := db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("renditions AS rendition").
-		Join("JOIN publications AS publication ON publication.id = rendition.publication_id").
-		Join("JOIN social_accounts AS account ON account.id = rendition.social_account_id").
-		Where("publication.id = ? AND publication.workspace_id = ?", input.PublicationID, input.WorkspaceID).
-		Where("rendition.id = ? AND rendition.social_account_id = ?", input.RenditionID, input.SocialAccountID).
-		Where("account.workspace_id = publication.workspace_id AND account.is_active = ?", true).
-		Scan(ctx, &ownerCount); err != nil {
-		return "", fmt.Errorf("validate provider comment action owner: %w", err)
-	}
-	if ownerCount != 1 {
-		return "", fmt.Errorf("provider comment action target does not belong to the publication workspace")
-	}
 	jobID := uuid.NewString()
 	payload, err := json.Marshal(engagementActionJob{
 		JobID: jobID, WorkspaceID: input.WorkspaceID, PublicationID: input.PublicationID,
@@ -787,7 +775,27 @@ func QueueProviderCommentAction(ctx context.Context, db bun.IDB, input ProviderC
 	if err != nil {
 		return "", fmt.Errorf("encode provider comment action: %w", err)
 	}
-	if err := enqueueProviderCommentJob(ctx, db, jobID, string(payload)); err != nil {
+	if err := db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if err := organizationguard.LockWorkspace(txCtx, tx, input.WorkspaceID); err != nil {
+			return err
+		}
+		var ownerCount int
+		if err := tx.NewSelect().
+			ColumnExpr("COUNT(*)").
+			TableExpr("renditions AS rendition").
+			Join("JOIN publications AS publication ON publication.id = rendition.publication_id").
+			Join("JOIN social_accounts AS account ON account.id = rendition.social_account_id").
+			Where("publication.id = ? AND publication.workspace_id = ?", input.PublicationID, input.WorkspaceID).
+			Where("rendition.id = ? AND rendition.social_account_id = ?", input.RenditionID, input.SocialAccountID).
+			Where("account.workspace_id = publication.workspace_id AND account.is_active = ?", true).
+			Scan(txCtx, &ownerCount); err != nil {
+			return fmt.Errorf("validate provider comment action owner: %w", err)
+		}
+		if ownerCount != 1 {
+			return fmt.Errorf("provider comment action target does not belong to the publication workspace")
+		}
+		return enqueueProviderCommentJob(txCtx, tx, jobID, string(payload))
+	}); err != nil {
 		return "", fmt.Errorf("queue provider comment action: %w", err)
 	}
 	return jobID, nil
@@ -1194,6 +1202,9 @@ func (s *Service) QueueMessage(ctx context.Context, conversationID, body string)
 		return nil, err
 	}
 	if err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if err := organizationguard.LockWorkspace(txCtx, tx, conversation.WorkspaceID); err != nil {
+			return err
+		}
 		if _, err := tx.NewInsert().Model(message).Exec(txCtx); err != nil {
 			return err
 		}
@@ -1876,17 +1887,27 @@ func (s *Service) recordState(ctx context.Context, capability, subjectType, subj
 	return err
 }
 
-func (s *Service) enqueue(ctx context.Context, jobType, payload string, runAt time.Time) (bool, error) {
+func (s *Service) enqueue(ctx context.Context, workspaceID, jobType, payload string, runAt time.Time) (bool, error) {
 	job, err := jobregistry.NewJob(jobType, payload, runAt)
 	if err != nil {
 		return false, err
 	}
-	result, err := s.db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
-	if err != nil {
-		return false, err
-	}
-	rows, err := result.RowsAffected()
-	return rows > 0, err
+	var inserted bool
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if workspaceID != "" {
+			if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
+				return err
+			}
+		}
+		result, err := tx.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		rows, err := result.RowsAffected()
+		inserted = rows > 0
+		return err
+	})
+	return inserted, err
 }
 
 func (s *Service) notify(ctx context.Context, userID, workspaceID, eventType, title, body, href string) error {

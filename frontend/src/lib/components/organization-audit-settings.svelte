@@ -84,6 +84,7 @@
 
 	const resourceOptions = $derived([
 		{ value: '', label: m.settings_audit_all_resources() },
+		{ value: 'organization', label: m.settings_audit_resource_organization() },
 		{ value: 'workspace', label: m.settings_audit_resource_workspace() },
 		{ value: 'workspace_member', label: m.settings_audit_resource_workspace_member() },
 		{ value: 'workspace_invitation', label: m.settings_audit_resource_workspace_invitation() },

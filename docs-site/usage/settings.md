@@ -126,6 +126,49 @@ all nomination actions until a successful refresh.
 Database upgrades apply migration 097 automatically. It adds ownership transfer
 and audit state; no operator action is required.
 
+### Delete an Organization permanently
+
+Only the current Organization Owner can delete it. Open **Settings → Ownership**,
+select any Organization you own, and choose **Delete Organization** to load a
+current preview. This route remains available when you do not belong to one of
+the Organization's Workspaces. **Settings → General** provides the same action
+for the current Workspace's Organization. The preview names
+every owned Workspace, shows the local Paddle subscription state and counts
+pending provider writes, durable Jobs, and cleanup Jobs. It also explains the
+access that ends, the limited evidence retained, the data lost permanently, and
+every blocker.
+
+Resolve every subscription state other than `canceled` and wait for Paddle to
+confirm that terminal state. Use **Cancel pending checkout** in the deletion
+preview for attempts that have not produced a Paddle subscription. OpenPost
+then rejects any attempt to reopen that checkout and retains its opaque ID as a
+billing boundary. If an already-open Paddle checkout completes late, OpenPost
+uses that boundary to cancel the new subscription immediately, including after
+Organization deletion. Revoke or complete
+a pending ownership transfer. Publishing, provider-scheduled work, provider,
+and cleanup work must reach a safe terminal state. OpenPost adds no separate
+waiting period after these blockers are resolved.
+
+Deletion requires the exact canonical Organization name and recent password,
+passkey, or linked-identity authentication. The server locks the Organization
+and repeats the Owner, name, billing, transfer, and external-work checks in the
+same transaction that removes all owned Workspaces, memberships, scoped
+credentials, Jobs, media records, and provider-write state. A failed request
+rolls back the complete transaction and leaves the dialog and Organization
+available.
+
+Success ends affected Organization and Workspace access immediately. OpenPost
+keeps one content-free lifecycle record with the Organization ID and canonical
+name, actor, Workspace count, final local billing state, action, and time for
+instance-administrator audit. It also keeps required billing reconciliation
+evidence after a canceled checkout is resolved: the opaque checkout and
+Organization IDs, provider name, opaque subscription ID, cancellation time,
+and resolution time. OpenPost does not currently expire this content-free
+evidence. It does not retain deleted content, provider
+credentials, invitation links, or media in that record. Blob deletion runs from
+durable cleanup Jobs created by the successful transaction. The Organization
+and its Workspaces cannot be recovered.
+
 ### Organization audit evidence
 
 The **Organization audit** tab is available only to the Organization Owner. It

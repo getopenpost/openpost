@@ -243,6 +243,8 @@ func communicationsTestDB(t *testing.T) *bun.DB {
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
 	for _, model := range []any{
+		(*models.Organization)(nil),
+		(*models.Workspace)(nil),
 		(*models.SocialAccount)(nil),
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
@@ -254,6 +256,14 @@ func communicationsTestDB(t *testing.T) *bun.DB {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
 		require.NoError(t, err)
 	}
+	now := time.Now().UTC()
+	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Studio", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&[]models.Workspace{
+		{ID: "workspace-1", OrganizationID: "organization-1", Name: "Primary", CreatedAt: now},
+		{ID: "workspace-2", OrganizationID: "organization-1", Name: "Secondary", CreatedAt: now},
+	}).Exec(ctx)
+	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `
 CREATE TABLE conversations (
 	id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, social_account_id TEXT NOT NULL,

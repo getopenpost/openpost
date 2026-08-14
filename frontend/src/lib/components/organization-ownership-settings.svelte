@@ -7,10 +7,12 @@
 	import { Label } from '$lib/components/ui/label';
 	import * as Select from '$lib/components/ui/select';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import OrganizationDeleteDialog from '$lib/components/organization-delete-dialog.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import KeyRoundIcon from '@lucide/svelte/icons/key-round';
 
 	type Member = components['schemas']['OrganizationMemberResponse'];
@@ -29,6 +31,7 @@
 	let organizationLoadGeneration = 0;
 	let loading = $state(false),
 		busy = $state(false),
+		deleteDialogOpen = $state(false),
 		pendingStateAvailable = $state(false),
 		error = $state('');
 	let organizationID = $state(''),
@@ -191,6 +194,18 @@
 		transfer = null;
 		showToast(m.settings_ownership_revoked());
 	}
+	async function deleteOrganization(confirmation: {
+		confirmName: string;
+		currentPassword: string;
+		reauthGrant?: string;
+	}) {
+		const deletedID = organizationID;
+		await workspaceCtx.deleteOrganization(deletedID, confirmation);
+		organizations = organizations.filter((organization) => organization.id !== deletedID);
+		organizationID = organizations[0]?.id ?? '';
+		loadedOrganizationID = '';
+		showToast(m.organization_delete_success());
+	}
 </script>
 
 {#if loading}<PageLoading layout="settings" variant="cards" label={m.common_loading()} items={2} />
@@ -284,5 +299,24 @@
 						>{busy ? m.common_saving() : m.settings_ownership_initiate()}</Button
 					>
 				</form>{/if}
+			{#if isOwner}<div
+					class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+				>
+					<div>
+						<p class="text-sm font-medium text-destructive">{m.organization_delete_title()}</p>
+						<p class="text-sm text-muted-foreground">{m.organization_delete_description()}</p>
+					</div>
+					<Button variant="destructive" class="shrink-0" onclick={() => (deleteDialogOpen = true)}
+						>{m.organization_delete_confirm()}</Button
+					>
+				</div>{/if}
 		{/if}
 	</div>{/if}
+
+<OrganizationDeleteDialog
+	bind:open={deleteDialogOpen}
+	{organizationID}
+	{organizationName}
+	hasPassword={passwordUsable}
+	onConfirm={deleteOrganization}
+/>

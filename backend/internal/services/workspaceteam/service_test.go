@@ -366,7 +366,10 @@ func TestInvitationQueuesTransactionalEmailForUnregisteredRecipient(t *testing.T
 	require.NotEqual(t, invitation.EmailDeliveryJobID, resent.EmailDeliveryJobID)
 	jobCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", notifications.JobTypeEmailDelivery).Count(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, 2, jobCount, "each rotated invitation secret gets exactly one durable delivery")
+	require.Equal(t, 1, jobCount, "resend removes the obsolete delivery before storing the rotated invitation")
+	oldJobCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("id = ?", invitation.EmailDeliveryJobID).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, oldJobCount)
 }
 
 func TestResendCrashStateAndStaleDeliveryCompletionStayTruthful(t *testing.T) {

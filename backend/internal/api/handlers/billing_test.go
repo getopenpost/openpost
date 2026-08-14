@@ -45,6 +45,10 @@ func (c *billingPaddleClient) GetSubscription(context.Context, *paddle.GetSubscr
 	return nil, fmt.Errorf("unexpected subscription request")
 }
 
+func (c *billingPaddleClient) CancelSubscription(context.Context, *paddle.CancelSubscriptionRequest) (*paddle.Subscription, error) {
+	return nil, fmt.Errorf("unexpected subscription cancellation request")
+}
+
 func (c *billingPaddleClient) GetTransaction(context.Context, *paddle.GetTransactionRequest) (*paddle.Transaction, error) {
 	return nil, fmt.Errorf("unexpected transaction request")
 }

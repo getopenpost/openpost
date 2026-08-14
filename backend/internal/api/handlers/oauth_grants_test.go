@@ -19,11 +19,17 @@ import (
 func TestDisconnectDestinationAndRevokeSharedGrantHaveDistinctImpact(t *testing.T) {
 	ctx := context.Background()
 	db := createHandlerTestDB(t,
+		(*models.Organization)(nil),
+		(*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil),
 		(*models.Job)(nil),
 	)
-	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "OAuth"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "OAuth"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{
 		WorkspaceID: "workspace-1",
 		UserID:      "user-1",
 		Role:        models.WorkspaceRoleAdmin,

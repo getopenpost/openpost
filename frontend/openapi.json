@@ -2177,6 +2177,26 @@
 				"required": ["canceled"],
 				"type": "object"
 			},
+			"CancelOrganizationCheckoutAttemptsOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/schemas/CancelOrganizationCheckoutAttemptsOutputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"canceled": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["canceled"],
+				"type": "object"
+			},
 			"CapabilitiesOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -10207,6 +10227,160 @@
 					}
 				},
 				"required": ["type"],
+				"type": "object"
+			},
+			"OrganizationDeletionInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/OrganizationDeletionInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"confirm_name": {
+						"description": "Exact canonical Organization name",
+						"minLength": 1,
+						"type": "string"
+					},
+					"current_password": {
+						"description": "Current account password",
+						"type": "string"
+					},
+					"reauth_grant": {
+						"description": "One-time grant for organization.delete",
+						"type": "string"
+					}
+				},
+				"required": ["confirm_name"],
+				"type": "object"
+			},
+			"OrganizationDeletionOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/OrganizationDeletionOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"],
+				"type": "object"
+			},
+			"OrganizationDeletionPendingWork": {
+				"additionalProperties": false,
+				"properties": {
+					"pending_cleanup_jobs": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pending_jobs": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"pending_provider_writes": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["pending_provider_writes", "pending_jobs", "pending_cleanup_jobs"],
+				"type": "object"
+			},
+			"OrganizationDeletionPreview": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/OrganizationDeletionPreview.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"access_effects": {
+						"items": {
+							"enum": [
+								"organization_memberships",
+								"workspace_memberships",
+								"organization_credentials"
+							],
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"billing_state": {
+						"description": "Latest local Paddle subscription state, or none",
+						"type": "string"
+					},
+					"blockers": {
+						"items": {
+							"$ref": "#/components/schemas/WorkspaceDeletionBlocker"
+						},
+						"type": ["array", "null"]
+					},
+					"irreversible_loss": {
+						"items": {
+							"enum": ["workspaces", "content", "connected_accounts", "media", "settings"],
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"organization_id": {
+						"type": "string"
+					},
+					"organization_name": {
+						"type": "string"
+					},
+					"pending_work": {
+						"$ref": "#/components/schemas/OrganizationDeletionPendingWork"
+					},
+					"recovery_possible": {
+						"type": "boolean"
+					},
+					"retained": {
+						"items": {
+							"enum": ["required_audit_evidence", "required_billing_evidence"],
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"workspaces": {
+						"items": {
+							"$ref": "#/components/schemas/OrganizationDeletionWorkspace"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"organization_id",
+					"organization_name",
+					"workspaces",
+					"billing_state",
+					"pending_work",
+					"access_effects",
+					"retained",
+					"irreversible_loss",
+					"recovery_possible",
+					"blockers"
+				],
+				"type": "object"
+			},
+			"OrganizationDeletionWorkspace": {
+				"additionalProperties": false,
+				"properties": {
+					"workspace_id": {
+						"type": "string"
+					},
+					"workspace_name": {
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "workspace_name"],
 				"type": "object"
 			},
 			"OrganizationMemberResponse": {
@@ -19265,6 +19439,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"organization",
 								"workspace",
 								"workspace_member",
 								"workspace_invitation",
@@ -19451,6 +19626,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"organization",
 								"workspace",
 								"workspace_member",
 								"workspace_invitation",
@@ -19651,6 +19827,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"organization",
 								"workspace",
 								"workspace_member",
 								"workspace_invitation",
@@ -31429,6 +31606,118 @@
 				"tags": ["Workspaces"]
 			}
 		},
+		"/organizations/{id}": {
+			"delete": {
+				"description": "Atomically deletes the complete Organization boundary after current-Owner authorization, exact canonical-name confirmation, recent authentication, and a final blocker check. Required content-free billing and audit evidence remains.",
+				"operationId": "delete-organization",
+				"parameters": [
+					{
+						"description": "Organization ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Organization ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/OrganizationDeletionInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OrganizationDeletionOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Permanently delete an Organization and all of its Workspaces",
+				"tags": ["Organizations"]
+			}
+		},
 		"/organizations/{id}/audit-events": {
 			"get": {
 				"description": "Projects consequential Organization and Workspace evidence without exposing Workspace content, secrets, credentials, invitation links, or provider payloads. Requires the Organization Owner.",
@@ -31490,6 +31779,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"organization",
 								"workspace",
 								"workspace_member",
 								"workspace_invitation",
@@ -31676,6 +31966,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"organization",
 								"workspace",
 								"workspace_member",
 								"workspace_invitation",
@@ -31876,6 +32167,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"organization",
 								"workspace",
 								"workspace_member",
 								"workspace_invitation",
@@ -32007,6 +32299,78 @@
 				},
 				"summary": "Export permission-safe Organization audit evidence as JSON",
 				"tags": ["Workspaces"]
+			}
+		},
+		"/organizations/{id}/billing-checkout-attempts/pending": {
+			"delete": {
+				"description": "Cancels checkout attempts that have not produced a Paddle subscription so an Organization Owner can resolve a deletion blocker without waiting.",
+				"operationId": "cancel-organization-checkout-attempts",
+				"parameters": [
+					{
+						"description": "Organization ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Organization ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CancelOrganizationCheckoutAttemptsOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Cancel pending local Paddle checkout attempts",
+				"tags": ["Organizations"]
 			}
 		},
 		"/organizations/{id}/billing/checkout": {
@@ -32268,6 +32632,88 @@
 				},
 				"summary": "Get organization billing status",
 				"tags": ["Billing"]
+			}
+		},
+		"/organizations/{id}/deletion-preview": {
+			"get": {
+				"description": "Lists every owned Workspace, the local Paddle state, pending external work, access effects, retained evidence, irreversible loss, and every current blocker. Only the current Organization Owner can inspect it.",
+				"operationId": "get-organization-deletion-preview",
+				"parameters": [
+					{
+						"description": "Organization ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Organization ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/OrganizationDeletionPreview"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Preview permanent Organization deletion",
+				"tags": ["Organizations"]
 			}
 		},
 		"/organizations/{id}/ownership-transfer": {

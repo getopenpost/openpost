@@ -32,6 +32,7 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	ctx := context.Background()
 	for _, model := range []any{
 		(*models.User)(nil),
+		(*models.Organization)(nil),
 		(*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil),
 		(*models.UserNotification)(nil),
@@ -50,7 +51,12 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "one@example.com", PasswordHash: "hash"}).Exec(ctx)
 	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", Name: "One"}).Exec(ctx)
+	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Notifications"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&[]models.Workspace{
+		{ID: "workspace-1", OrganizationID: "organization-1", Name: "One"},
+		{ID: "workspace-2", OrganizationID: "organization-1", Name: "Other organization"},
+	}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin, Status: models.WorkspaceMemberStatusActive}).Exec(ctx)
 	require.NoError(t, err)
@@ -99,7 +105,7 @@ func TestNotificationMutesResolveWorkspaceBeforeAccountAndExpireWithoutChangingP
 func TestWorkspaceMuteCreationRequiresActiveMembershipInTheService(t *testing.T) {
 	db := notificationsTestDB(t)
 	service := NewService(db)
-	_, err := db.NewInsert().Model(&models.Workspace{ID: "workspace-2", Name: "Other organization"}).Exec(t.Context())
+	_, err := db.NewUpdate().Model((*models.Workspace)(nil)).Set("name = ?", "Other organization").Where("id = ?", "workspace-2").Exec(t.Context())
 	require.NoError(t, err)
 
 	_, err = service.CreateMute(t.Context(), MuteActor{UserID: "user-1"}, MuteCreate{
@@ -816,7 +822,7 @@ func TestWorkspaceInvitationEmailIsTransactionalDurableAndRecipientIndependent(t
 		"Transactional access email is not an optional preference")
 
 	delivery, err := service.EnqueueWorkspaceInvitation(ctx, WorkspaceInvitationEmailInput{
-		InvitationID: "invitation-1", Recipient: "new-person@example.com",
+		InvitationID: "invitation-1", WorkspaceID: "workspace-1", Recipient: "new-person@example.com",
 		WorkspaceName: "Launch team", InviterName: "Ada Lovelace", Role: "editor",
 		ExpiresAt: now.Add(7 * 24 * time.Hour), RawToken: "op_inv_private-token",
 		DeliveryKey: "invitation-1:2026-08-14T12:00:00Z",
@@ -852,7 +858,7 @@ func TestWorkspaceInvitationEmailReportsProviderUnavailableWithoutQueueing(t *te
 	service := NewService(db, Options{PublicURL: "https://app.openpost.test"})
 
 	delivery, err := service.EnqueueWorkspaceInvitation(t.Context(), WorkspaceInvitationEmailInput{
-		InvitationID: "invitation-1", Recipient: "person@example.com",
+		InvitationID: "invitation-1", WorkspaceID: "workspace-1", Recipient: "person@example.com",
 		WorkspaceName: "Launch team", InviterName: "Ada", Role: "viewer",
 		ExpiresAt: time.Now().UTC().Add(time.Hour), RawToken: "op_inv_private-token",
 		DeliveryKey: "delivery-1",
@@ -933,7 +939,7 @@ func TestWorkspaceInvitationProviderFailureDoesNotExposeAcceptanceSecret(t *test
 		PublicURL: "https://app.openpost.test",
 	})
 	delivery, err := service.EnqueueWorkspaceInvitation(t.Context(), WorkspaceInvitationEmailInput{
-		InvitationID: "invitation-1", Recipient: "person@example.com",
+		InvitationID: "invitation-1", WorkspaceID: "workspace-1", Recipient: "person@example.com",
 		WorkspaceName: "Launch", InviterName: "Ada", Role: "viewer",
 		ExpiresAt: time.Now().UTC().Add(time.Hour), RawToken: "op_inv_private-token",
 		DeliveryKey: "delivery-1",

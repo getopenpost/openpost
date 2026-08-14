@@ -1456,6 +1456,9 @@ func (h *PublicationHandler) queueRenditionReply(
 		}
 	}
 	err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if err := lockOrganizationForPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
+			return err
+		}
 		if err := lockPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
 			return err
 		}
@@ -3571,6 +3574,9 @@ func (h *PublicationHandler) replacePublicationJobsTx(
 	policyMode string,
 	intent providerreadiness.ExecutionIntent,
 ) (string, error) {
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return "", err
+	}
 	if err := lockPublicationMutationTx(ctx, tx, publicationID); err != nil {
 		return "", err
 	}
@@ -3648,6 +3654,33 @@ func (h *PublicationHandler) replacePublicationJobsTx(
 	return jobID, nil
 }
 
+func lockOrganizationForPublicationMutationTx(ctx context.Context, tx bun.Tx, publicationID string) error {
+	var organizationID string
+	if err := tx.NewSelect().TableExpr("publications AS publication").ColumnExpr("workspace.organization_id").Join("JOIN workspaces AS workspace ON workspace.id = publication.workspace_id").Where("publication.id = ?", publicationID).Scan(ctx, &organizationID); err != nil {
+		if missingOrganizationBoundaryFixture(err) {
+			return nil
+		}
+		return err
+	}
+	if strings.TrimSpace(organizationID) == "" {
+		return nil
+	}
+	result, err := tx.NewUpdate().Model((*models.Organization)(nil)).Set("name = name").Where("id = ?", organizationID).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if count, _ := result.RowsAffected(); count != 1 {
+		return fmt.Errorf("organization changed while scheduling the Publication")
+	}
+	return nil
+}
+
+func missingOrganizationBoundaryFixture(err error) bool {
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "no such table: organizations") || strings.Contains(message, "no such table: workspaces") || strings.Contains(message, "no such table: publications") ||
+		(strings.Contains(message, "relation") && strings.Contains(message, "does not exist") && (strings.Contains(message, "organizations") || strings.Contains(message, "workspaces") || strings.Contains(message, "publications")))
+}
+
 func insertPublicationJobTx(
 	ctx context.Context,
 	tx bun.Tx,
@@ -3655,6 +3688,9 @@ func insertPublicationJobTx(
 	runAt time.Time,
 	intent providerreadiness.ExecutionIntent,
 ) (string, error) {
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publicationID); err != nil {
+		return "", err
+	}
 	payload := map[string]string{
 		"publication_id":             publicationID,
 		"authorization_batch_id":     authorizationBatchID,

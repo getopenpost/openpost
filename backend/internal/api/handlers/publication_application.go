@@ -406,6 +406,9 @@ func (commands publicationApplication) retryRenditionTx(
 	payload string,
 	now time.Time,
 ) error {
+	if err := lockOrganizationForPublicationMutationTx(ctx, tx, publication.ID); err != nil {
+		return err
+	}
 	if err := lockPublicationMutationTx(ctx, tx, publication.ID); err != nil {
 		return err
 	}
@@ -493,6 +496,9 @@ func (commands publicationApplication) RetryFailedRenditions(
 		"authorization_scheduled_at": now.Format(time.RFC3339Nano),
 	})
 	err = commands.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if err := lockOrganizationForPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
+			return err
+		}
 		if err := lockPublicationMutationTx(txCtx, tx, publication.ID); err != nil {
 			return err
 		}

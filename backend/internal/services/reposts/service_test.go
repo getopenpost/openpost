@@ -68,7 +68,7 @@ func TestCustomOverrideSchedulesEvaluatesAndExecutes(t *testing.T) {
 	db := repostTestDB(t)
 	ctx := context.Background()
 	now := time.Now().UTC().Add(-time.Minute)
-	workspace := models.Workspace{ID: "workspace-1", Name: "Launch"}
+	workspace := models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Launch"}
 	user := models.User{ID: "user-1", Email: "user@example.com"}
 	require.NoError(t, insertModels(ctx, db, &workspace, &user, &models.WorkspaceMember{WorkspaceID: workspace.ID, UserID: user.ID, Role: models.WorkspaceRoleAdmin}))
 	source := models.SocialAccount{ID: "source", WorkspaceID: workspace.ID, Slug: "source", Platform: "x", AccountID: "source-provider", AccountUsername: "source", AccessTokenEnc: []byte("token"), IsActive: true}
@@ -129,8 +129,8 @@ func TestCrossWorkspaceOverrideRequiresGrant(t *testing.T) {
 	db := repostTestDB(t)
 	ctx := context.Background()
 	user := models.User{ID: "user-1", Email: "user@example.com"}
-	sourceWorkspace := models.Workspace{ID: "source-workspace", Name: "Source"}
-	targetWorkspace := models.Workspace{ID: "target-workspace", Name: "Target"}
+	sourceWorkspace := models.Workspace{ID: "source-workspace", OrganizationID: "organization-1", Name: "Source"}
+	targetWorkspace := models.Workspace{ID: "target-workspace", OrganizationID: "organization-1", Name: "Target"}
 	require.NoError(t, insertModels(ctx, db, &user, &sourceWorkspace, &targetWorkspace,
 		&models.WorkspaceMember{WorkspaceID: sourceWorkspace.ID, UserID: user.ID, Role: models.WorkspaceRoleEditor}))
 	target := models.SocialAccount{ID: "target", WorkspaceID: targetWorkspace.ID, Slug: "target", Platform: "x", AccountID: "target-provider", AccessTokenEnc: []byte("token"), IsActive: true}
@@ -151,7 +151,7 @@ func repostTestDB(t *testing.T) *bun.DB {
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
 	for _, model := range []any{
-		(*models.Workspace)(nil), (*models.User)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil),
+		(*models.Organization)(nil), (*models.Workspace)(nil), (*models.User)(nil), (*models.WorkspaceMember)(nil), (*models.SocialAccount)(nil),
 		(*models.Publication)(nil), (*models.Rendition)(nil), (*models.RepostPolicy)(nil), (*models.RepostPolicyAccount)(nil),
 		(*models.RepostAccountGrant)(nil), (*models.RepostExecution)(nil), (*models.AnalyticsSyncState)(nil),
 		(*models.UsageCounter)(nil),
@@ -160,6 +160,8 @@ func repostTestDB(t *testing.T) *bun.DB {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(ctx)
 		require.NoError(t, err)
 	}
+	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Reposts", CreatedByID: "user-1", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(ctx)
+	require.NoError(t, err)
 	return db
 }
 

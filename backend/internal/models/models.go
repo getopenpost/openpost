@@ -646,6 +646,21 @@ type WorkspaceLifecycleAuditEvent struct {
 	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
+// OrganizationLifecycleAuditEvent survives Organization removal and contains
+// only the minimum permission-safe evidence needed by instance administrators.
+type OrganizationLifecycleAuditEvent struct {
+	bun.BaseModel `bun:"table:organization_lifecycle_audit_events"`
+
+	ID               string    `bun:",pk" json:"id"`
+	OrganizationID   string    `bun:"organization_id,notnull" json:"organization_id"`
+	OrganizationName string    `bun:"organization_name,notnull" json:"organization_name"`
+	WorkspaceCount   int       `bun:"workspace_count,notnull" json:"workspace_count"`
+	BillingState     string    `bun:"billing_state,notnull,default:'none'" json:"billing_state"`
+	ActorUserID      string    `bun:"actor_user_id,nullzero" json:"actor_user_id,omitempty"`
+	Action           string    `bun:",notnull" json:"action"`
+	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 type UsageCounter struct {
 	bun.BaseModel `bun:"table:usage_counters"`
 
@@ -765,6 +780,21 @@ type BillingCheckoutAttempt struct {
 	ReturnConsumedAt       time.Time `bun:"return_consumed_at,nullzero" json:"-"`
 	CreatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 	UpdatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// BillingCheckoutCancellation is the content-free provider reconciliation
+// boundary retained when a checkout is canceled. It deliberately has no
+// Organization foreign key so a late Paddle completion can still be canceled
+// after the Organization has been removed.
+type BillingCheckoutCancellation struct {
+	bun.BaseModel `bun:"table:billing_checkout_cancellations"`
+
+	CheckoutAttemptID      string    `bun:",pk" json:"checkout_attempt_id"`
+	OrganizationID         string    `bun:",notnull" json:"organization_id"`
+	Provider               string    `bun:",notnull,default:'paddle'" json:"provider"`
+	ProviderSubscriptionID string    `bun:",notnull,default:''" json:"provider_subscription_id,omitempty"`
+	CanceledAt             time.Time `bun:",notnull" json:"canceled_at"`
+	ResolvedAt             time.Time `bun:",nullzero" json:"resolved_at,omitempty"`
 }
 
 type BillingCustomer struct {

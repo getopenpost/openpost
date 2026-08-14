@@ -33,6 +33,27 @@ const (
 	statusScheduled = "scheduled"
 )
 
+func lockOrganizationForLegacyWorkspaceMutationTx(ctx context.Context, tx bun.Tx, workspaceID string) error {
+	var organizationID string
+	if err := tx.NewSelect().Model((*models.Workspace)(nil)).Column("organization_id").Where("id = ?", workspaceID).Scan(ctx, &organizationID); err != nil {
+		if missingOrganizationBoundaryFixture(err) {
+			return nil
+		}
+		return err
+	}
+	if strings.TrimSpace(organizationID) == "" {
+		return nil
+	}
+	result, err := tx.NewUpdate().Model((*models.Organization)(nil)).Set("name = name").Where("id = ?", organizationID).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if count, _ := result.RowsAffected(); count != 1 {
+		return fmt.Errorf("organization changed while scheduling the Post")
+	}
+	return nil
+}
+
 var (
 	errPostScheduleFuture = errors.New("scheduled_at must be in the future")
 	errPostRunAtFuture    = errors.New("random delay must keep actual_run_at in the future")
@@ -518,6 +539,9 @@ func (h *PostHandler) CreatePost(api huma.API) {
 		}
 
 		err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			if err := lockOrganizationForLegacyWorkspaceMutationTx(txCtx, tx, post.WorkspaceID); err != nil {
+				return err
+			}
 			if _, err := tx.NewInsert().Model(post).Exec(txCtx); err != nil {
 				return err
 			}
@@ -1355,6 +1379,9 @@ func (h *PostHandler) CreateThread(api huma.API) {
 		}
 
 		err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			if err := lockOrganizationForLegacyWorkspaceMutationTx(txCtx, tx, posts[0].WorkspaceID); err != nil {
+				return err
+			}
 			for _, post := range posts {
 				if _, err := tx.NewInsert().Model(post).Exec(txCtx); err != nil {
 					return err
@@ -2514,6 +2541,9 @@ func (h *PostHandler) UpdatePost(api huma.API) {
 				return err
 			}
 			post = *current
+			if err := lockOrganizationForLegacyWorkspaceMutationTx(txCtx, tx, post.WorkspaceID); err != nil {
+				return err
+			}
 
 			willBeScheduled := post.Status == statusScheduled
 			if input.Body.ScheduledAt != nil {

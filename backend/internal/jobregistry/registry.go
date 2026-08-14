@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/uptrace/bun"
 )
 
@@ -138,7 +139,13 @@ func EnqueueMediaCleanup(ctx context.Context, db bun.IDB, workspaceID string, ru
 	job.ScopeID = identity.ScopeID
 	job.DedupeKey = identity.DedupeKey
 	for attempt := 0; ; attempt++ {
-		id, created, err := enqueueMediaCleanupOnce(ctx, db, job)
+		var id string
+		var created bool
+		err := organizationguard.WithWorkspace(ctx, db, workspaceID, func(txCtx context.Context, fenced bun.IDB) error {
+			var enqueueErr error
+			id, created, enqueueErr = enqueueMediaCleanupOnce(txCtx, fenced, job)
+			return enqueueErr
+		})
 		if err == nil {
 			return id, created, nil
 		}

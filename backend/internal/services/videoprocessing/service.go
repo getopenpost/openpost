@@ -17,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/mediaanalysis"
 	"github.com/openpost/backend/internal/services/mediastore"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/uptrace/bun"
 )
 
@@ -56,26 +57,39 @@ func (s *Service) EnqueueAnalysis(ctx context.Context, mediaID string) error {
 		return fmt.Errorf("encode media analysis job: %w", err)
 	}
 	jobID := analysisJobID(mediaID)
+	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var workspaceID string
+		if err := tx.NewSelect().Model((*models.MediaAttachment)(nil)).Column("workspace_id").Where("id = ?", mediaID).Scan(txCtx, &workspaceID); err != nil {
+			return err
+		}
+		if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
+			return err
+		}
+		return enqueueAnalysisJob(txCtx, tx, jobID, string(payload))
+	})
+}
+
+func enqueueAnalysisJob(ctx context.Context, db bun.IDB, jobID, payload string) error {
 	var existing models.Job
-	err = s.db.NewSelect().Model(&existing).Where("id = ?", jobID).Scan(ctx)
+	err := db.NewSelect().Model(&existing).Where("id = ?", jobID).Scan(ctx)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):
-		job, newJobErr := jobregistry.NewJob(JobTypeAnalyze, string(payload), time.Now().UTC())
+		job, newJobErr := jobregistry.NewJob(JobTypeAnalyze, payload, time.Now().UTC())
 		if newJobErr != nil {
 			return newJobErr
 		}
 		job.ID = jobID
-		_, err = s.db.NewInsert().Model(job).Ignore().Exec(ctx)
+		_, err = db.NewInsert().Model(job).Ignore().Exec(ctx)
 		return err
 	case err != nil:
 		return err
 	case existing.Status == statusPending || existing.Status == statusProcessing:
 		return nil
 	default:
-		_, err = s.db.NewUpdate().
+		_, err = db.NewUpdate().
 			Model((*models.Job)(nil)).
 			Set("type = ?", JobTypeAnalyze).
-			Set("payload = ?", string(payload)).
+			Set("payload = ?", payload).
 			Set("status = ?", statusPending).
 			Set("run_at = ?", time.Now().UTC()).
 			Set("attempts = 0").

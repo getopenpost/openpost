@@ -4623,6 +4623,9 @@ func (h *MCPHandler) schedulePost(ctx context.Context, userID string, args map[s
 
 	actor, _ := publicationauth.ActorFromContext(ctx)
 	err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if err := lockOrganizationForLegacyWorkspaceMutationTx(txCtx, tx, post.WorkspaceID); err != nil {
+			return err
+		}
 		if _, err := tx.NewInsert().Model(post).Exec(txCtx); err != nil {
 			return err
 		}
@@ -4688,6 +4691,9 @@ func (h *MCPHandler) scheduleDraft(ctx context.Context, userID string, args map[
 	err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		mutation, err := h.lockMCPTextPostMutation(txCtx, tx, post.ID, input.ExpectedRevision)
 		if err != nil {
+			return err
+		}
+		if err := lockOrganizationForLegacyWorkspaceMutationTx(txCtx, tx, mutation.Post.WorkspaceID); err != nil {
 			return err
 		}
 		mutation.Post.Status = statusScheduled

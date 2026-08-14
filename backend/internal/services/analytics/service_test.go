@@ -500,6 +500,11 @@ func newAnalyticsTestDB(t *testing.T) *bun.DB {
 	db, err := database.InitDB("file:" + t.Name() + "?mode=memory&cache=shared")
 	require.NoError(t, err)
 	require.NoError(t, database.CreateSchema(db))
+	now := time.Now().UTC()
+	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Analytics", CreatedByID: "user-1", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Analytics", CreatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 	return db
 }

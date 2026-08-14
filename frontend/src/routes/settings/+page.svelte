@@ -9,6 +9,9 @@
 	import SettingsNavigation from '$lib/components/settings-navigation.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import WorkspaceDeleteDialog from '$lib/components/workspace-delete-dialog.svelte';
+	import OrganizationDeleteDialog from '$lib/components/organization-delete-dialog.svelte';
+	import { client } from '$lib/api/client';
+	import type { components } from '$lib/api/types';
 	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
 	import OrganizationSSOSettings from '$lib/components/organization-sso-settings.svelte';
 	import OrganizationAuditSettings from '$lib/components/organization-audit-settings.svelte';
@@ -43,6 +46,9 @@
 
 	const authState = $derived($auth);
 	let destructiveDialogOpen = $state(false);
+	let organizationDeleteDialogOpen = $state(false);
+	let currentOrganization = $state<components['schemas']['OrganizationResponse'] | null>(null);
+	let organizationRequestSequence = 0;
 	let accountFeedback = $state<AccountManagementFeedback | null>(null);
 	let handledAccountURL = '';
 
@@ -52,6 +58,19 @@
 		billingHref: '/settings?tab=plan',
 		mastodonCallbackHref: '/accounts/mastodon/callback'
 	};
+
+	async function loadCurrentOrganization(organizationID: string) {
+		const sequence = ++organizationRequestSequence;
+		const { data } = await client.GET('/organizations');
+		if (sequence !== organizationRequestSequence) return;
+		currentOrganization = data?.find((organization) => organization.id === organizationID) ?? null;
+	}
+
+	$effect(() => {
+		const organizationID = workspaceCtx.currentWorkspace?.organization_id ?? '';
+		currentOrganization = null;
+		if (organizationID) void loadCurrentOrganization(organizationID);
+	});
 
 	const activeSettingsTab = $derived(
 		normalizeSettingsTab(
@@ -114,6 +133,18 @@
 		if (!workspace) return;
 		await workspaceCtx.deleteWorkspace(workspace.id, confirmation);
 		showToast(m.workspace_delete_success());
+		await goto(resolve('/'));
+	}
+
+	async function deleteCurrentOrganization(confirmation: {
+		confirmName: string;
+		currentPassword: string;
+		reauthGrant?: string;
+	}) {
+		const organizationID = workspaceCtx.currentWorkspace?.organization_id;
+		if (!organizationID) return;
+		await workspaceCtx.deleteOrganization(organizationID, confirmation);
+		showToast(m.organization_delete_success());
 		await goto(resolve('/'));
 	}
 </script>
@@ -229,7 +260,11 @@
 				{/if}
 
 				{#if activeSettingsTab === 'general'}
-					<WorkspacePreferencesSettings onDelete={() => (destructiveDialogOpen = true)} />
+					<WorkspacePreferencesSettings
+						onDelete={() => (destructiveDialogOpen = true)}
+						organizationOwner={currentOrganization?.role === 'owner'}
+						onDeleteOrganization={() => (organizationDeleteDialogOpen = true)}
+					/>
 				{/if}
 
 				<section id="team" class:hidden={activeSettingsTab !== 'members'} class="scroll-mt-24">
@@ -309,4 +344,14 @@
 	workspaceName={workspaceCtx.currentWorkspace?.name ?? ''}
 	hasPassword={Boolean(authState.user?.password_usable)}
 	onConfirm={deleteCurrentWorkspace}
+/>
+
+<OrganizationDeleteDialog
+	bind:open={organizationDeleteDialogOpen}
+	organizationID={currentOrganization?.id ?? workspaceCtx.currentWorkspace?.organization_id ?? ''}
+	organizationName={currentOrganization?.name ??
+		workspaceCtx.currentWorkspace?.organization_name ??
+		''}
+	hasPassword={Boolean(authState.user?.password_usable)}
+	onConfirm={deleteCurrentOrganization}
 />

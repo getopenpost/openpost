@@ -15,6 +15,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/uptrace/bun"
 )
 
@@ -64,7 +65,7 @@ func (s *Service) ScheduleSweep(ctx context.Context, runAt time.Time) error {
 	if err != nil {
 		return fmt.Errorf("encode analytics sweep: %w", err)
 	}
-	_, err = s.enqueue(ctx, JobTypeSweep, string(payload), runAt)
+	_, err = s.enqueue(ctx, "", JobTypeSweep, string(payload), runAt)
 	return err
 }
 
@@ -191,7 +192,7 @@ func (s *Service) enqueueAccountJob(ctx context.Context, account models.SocialAc
 	if err != nil {
 		return false, fmt.Errorf("encode analytics account job: %w", err)
 	}
-	return s.enqueue(ctx, JobTypeAccountSync, string(payload), now)
+	return s.enqueue(ctx, account.WorkspaceID, JobTypeAccountSync, string(payload), now)
 }
 
 func (s *Service) listAnalyticsRenditions(ctx context.Context, workspaceID string, force bool, now time.Time) ([]models.Rendition, error) {
@@ -283,7 +284,7 @@ func (s *Service) enqueueRenditionJob(
 	if err != nil {
 		return false, fmt.Errorf("encode analytics rendition job: %w", err)
 	}
-	return s.enqueue(ctx, JobTypeRenditionSync, string(payload), now)
+	return s.enqueue(ctx, account.WorkspaceID, JobTypeRenditionSync, string(payload), now)
 }
 
 func (s *Service) syncAccount(ctx context.Context, accountID string) error {
@@ -648,20 +649,30 @@ func (s *Service) loadState(ctx context.Context, subjectType, subjectID string) 
 	return &state, err
 }
 
-func (s *Service) enqueue(ctx context.Context, jobType, payload string, runAt time.Time) (bool, error) {
+func (s *Service) enqueue(ctx context.Context, workspaceID, jobType, payload string, runAt time.Time) (bool, error) {
 	job, err := jobregistry.NewJob(jobType, payload, runAt)
 	if err != nil {
 		return false, err
 	}
-	result, err := s.db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
+	var inserted bool
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if workspaceID != "" {
+			if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
+				return err
+			}
+		}
+		result, err := tx.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		rows, err := result.RowsAffected()
+		inserted = rows > 0
+		return err
+	})
 	if err != nil {
 		return false, fmt.Errorf("enqueue %s: %w", jobType, err)
 	}
-	inserted, err := result.RowsAffected()
-	if err != nil {
-		return false, fmt.Errorf("inspect enqueued %s: %w", jobType, err)
-	}
-	return inserted > 0, nil
+	return inserted, nil
 }
 
 func (s *Service) analyticsAdapter(account models.SocialAccount) platform.AnalyticsAdapter {

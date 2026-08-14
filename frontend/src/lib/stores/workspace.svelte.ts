@@ -7,7 +7,8 @@ export type WorkspaceContextErrorCode =
 	| 'load-settings'
 	| 'settings-not-ready'
 	| 'save-settings'
-	| 'delete-workspace';
+	| 'delete-workspace'
+	| 'delete-organization';
 
 export class WorkspaceContextError extends Error {
 	constructor(
@@ -413,6 +414,34 @@ export class WorkspaceContext {
 		this.workspaces = this.workspaces.filter((workspace) => workspace.id !== workspaceID);
 		const fallback = this.workspaces[0] ?? null;
 		if (this.currentWorkspace?.id === workspaceID) {
+			this.clearWorkspaceState();
+			if (fallback) await this.setWorkspace(fallback);
+		}
+	}
+
+	async deleteOrganization(
+		organizationID: string,
+		confirmation: { confirmName: string; currentPassword: string; reauthGrant?: string }
+	): Promise<void> {
+		const { error } = await client.DELETE('/organizations/{id}', {
+			params: { path: { id: organizationID } },
+			body: {
+				confirm_name: confirmation.confirmName,
+				current_password: confirmation.currentPassword,
+				reauth_grant: confirmation.reauthGrant
+			}
+		});
+		if (error) {
+			throw new WorkspaceContextError(
+				'delete-organization',
+				error.detail || m.organization_delete_failed()
+			);
+		}
+		this.workspaces = this.workspaces.filter(
+			(workspace) => workspace.organization_id !== organizationID
+		);
+		const fallback = this.workspaces[0] ?? null;
+		if (this.currentWorkspace?.organization_id === organizationID) {
 			this.clearWorkspaceState();
 			if (fallback) await this.setWorkspace(fallback);
 		}

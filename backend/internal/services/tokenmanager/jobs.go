@@ -2,11 +2,13 @@ package tokenmanager
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"time"
 
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/uptrace/bun"
 )
 
@@ -43,15 +45,6 @@ func scheduleRefreshJob(ctx context.Context, db *bun.DB, target refreshJobPayloa
 	}
 	payload := string(payloadBytes)
 
-	if _, err := db.NewDelete().
-		Model((*models.Job)(nil)).
-		Where("type = ?", jobregistry.TypeRefreshToken).
-		Where("status = ?", "pending").
-		Where("payload = ?", payload).
-		Exec(ctx); err != nil {
-		return err
-	}
-
 	runAt := expiresAt.Add(-refreshLeadTime)
 	now := time.Now().UTC()
 	if runAt.Before(now) {
@@ -63,8 +56,35 @@ func scheduleRefreshJob(ctx context.Context, db *bun.DB, target refreshJobPayloa
 		return err
 	}
 
-	_, err = db.NewInsert().Model(job).Exec(ctx)
-	return err
+	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		workspaceID, err := refreshTargetWorkspace(txCtx, tx, target)
+		if err != nil {
+			return err
+		}
+		if err := organizationguard.LockWorkspace(txCtx, tx, workspaceID); err != nil {
+			return err
+		}
+		if _, err := tx.NewDelete().Model((*models.Job)(nil)).
+			Where("type = ?", jobregistry.TypeRefreshToken).
+			Where("status = ?", "pending").
+			Where("payload = ?", payload).
+			Exec(txCtx); err != nil {
+			return err
+		}
+		_, err = tx.NewInsert().Model(job).Exec(txCtx)
+		return err
+	})
+}
+
+func refreshTargetWorkspace(ctx context.Context, db bun.IDB, target refreshJobPayload) (string, error) {
+	var workspaceID string
+	query := db.NewSelect()
+	if target.GrantID != "" {
+		query = query.Model((*models.OAuthGrant)(nil)).Column("workspace_id").Where("id = ?", target.GrantID)
+	} else {
+		query = query.Model((*models.SocialAccount)(nil)).Column("workspace_id").Where("id = ?", target.AccountID)
+	}
+	return workspaceID, query.Scan(ctx, &workspaceID)
 }
 
 func CancelGrantRefreshJobs(ctx context.Context, db bun.IDB, grantID string) error {

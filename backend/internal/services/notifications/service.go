@@ -14,6 +14,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/organizationguard"
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/transactionalmail"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
@@ -173,6 +174,7 @@ type CreateInput struct {
 
 type WorkspaceInvitationEmailInput struct {
 	InvitationID  string
+	WorkspaceID   string
 	Recipient     string
 	WorkspaceName string
 	InviterName   string
@@ -418,6 +420,11 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 	if strings.TrimSpace(input.UserID) == "" || strings.TrimSpace(input.Type) == "" {
 		return fmt.Errorf("notification user and type are required")
 	}
+	if workspaceID := strings.TrimSpace(input.WorkspaceID); workspaceID != "" {
+		if err := organizationguard.LockWorkspace(ctx, db, workspaceID); err != nil {
+			return err
+		}
+	}
 	preferences, err := s.getPreferences(ctx, db, input.UserID)
 	if err != nil {
 		return err
@@ -499,6 +506,7 @@ func (s *Service) storeInAppNotification(ctx context.Context, db bun.IDB, input 
 
 type emailDeliveryJob struct {
 	DeliveryID          string            `json:"delivery_id"`
+	InvitationID        string            `json:"invitation_id,omitempty"`
 	Classification      string            `json:"classification,omitempty"`
 	UserID              string            `json:"user_id,omitempty"`
 	WorkspaceID         string            `json:"workspace_id,omitempty"`
@@ -518,7 +526,13 @@ type emailDeliveryJob struct {
 }
 
 func (s *Service) EnqueueWorkspaceInvitation(ctx context.Context, input WorkspaceInvitationEmailInput) (EmailDelivery, error) {
-	return s.enqueueWorkspaceInvitation(ctx, s.db, input)
+	var delivery EmailDelivery
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var err error
+		delivery, err = s.enqueueWorkspaceInvitation(txCtx, tx, input)
+		return err
+	})
+	return delivery, err
 }
 
 // EnqueueWorkspaceInvitationTx stores an invitation email in the caller's
@@ -535,6 +549,15 @@ func (s *Service) enqueueWorkspaceInvitation(ctx context.Context, db bun.IDB, in
 	if !workspaceInvitationEmailInputValid(input) {
 		return EmailDelivery{Status: EmailDeliveryFailed}, fmt.Errorf("workspace invitation delivery facts are required")
 	}
+	workspaceID := strings.TrimSpace(input.WorkspaceID)
+	if workspaceID == "" {
+		if err := db.NewSelect().Model((*models.WorkspaceInvitation)(nil)).Column("workspace_id").Where("id = ?", input.InvitationID).Scan(ctx, &workspaceID); err != nil {
+			return EmailDelivery{Status: EmailDeliveryFailed}, err
+		}
+	}
+	if err := organizationguard.LockWorkspace(ctx, db, workspaceID); err != nil {
+		return EmailDelivery{Status: EmailDeliveryFailed}, err
+	}
 	if !publicHTTPURLValid(s.publicURL) {
 		return EmailDelivery{Status: EmailDeliveryUnavailable}, nil
 	}
@@ -545,7 +568,7 @@ func (s *Service) enqueueWorkspaceInvitation(ctx context.Context, db bun.IDB, in
 	}
 	jobID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("workspace-invitation\x00"+input.DeliveryKey)).String()
 	payload, err := json.Marshal(emailDeliveryJob{
-		DeliveryID: jobID, Classification: EmailClassificationTransactional,
+		DeliveryID: jobID, InvitationID: strings.TrimSpace(input.InvitationID), Classification: EmailClassificationTransactional,
 		Recipient: strings.TrimSpace(input.Recipient), WorkspaceName: strings.TrimSpace(input.WorkspaceName),
 		InviterName: strings.TrimSpace(input.InviterName), Role: strings.TrimSpace(input.Role),
 		AcceptURLEnc: acceptURLEnc, ExpiresAt: input.ExpiresAt,

@@ -27,6 +27,7 @@ func newProjectionTestDB(t *testing.T) *bun.DB {
 		(*models.IdentityAuditEvent)(nil), (*models.WorkspaceAccessAuditEvent)(nil),
 		(*models.OrganizationOwnershipAuditEvent)(nil),
 		(*models.WorkspaceLifecycleAuditEvent)(nil),
+		(*models.OrganizationLifecycleAuditEvent)(nil),
 		(*models.UserImpersonationGrant)(nil), (*models.BillingCheckoutAttempt)(nil),
 		(*models.UserImpersonationGrantOrganization)(nil),
 		(*models.MCPToolCall)(nil), (*models.PublicationLifecycleEvent)(nil),
@@ -36,6 +37,19 @@ func newProjectionTestDB(t *testing.T) *bun.DB {
 		require.NoError(t, err)
 	}
 	return db
+}
+
+func TestListInstanceProjectsRetainedOrganizationDeletionEvidence(t *testing.T) {
+	db := newProjectionTestDB(t)
+	now := time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC)
+	_, err := db.NewInsert().Model(&models.OrganizationLifecycleAuditEvent{ID: "organization-deletion", OrganizationID: "deleted-org", OrganizationName: "OpenPost Studio", WorkspaceCount: 2, BillingState: "canceled", ActorUserID: "owner", Action: "organization.deleted", CreatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	page, err := NewService(db).ListInstance(t.Context(), Query{OrganizationID: "deleted-org", ResourceType: ResourceOrganization, Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, SourceOrganizationLifecycle, page.Items[0].Source)
+	require.Equal(t, AuditResource{Type: ResourceOrganization, ID: "deleted-org", OrganizationID: "deleted-org"}, page.Items[0].Resource)
+	require.Equal(t, []AuditChangedField{{Field: "name", Previous: "OpenPost Studio"}, {Field: "workspace_count", Previous: "2"}, {Field: "billing_state", Previous: "canceled"}}, page.Items[0].ChangedFields)
 }
 
 func TestListProjectsRetainedWorkspaceDeletionEvidence(t *testing.T) {

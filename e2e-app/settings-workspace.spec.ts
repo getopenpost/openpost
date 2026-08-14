@@ -198,6 +198,74 @@ test("workspace settings delete the active workspace and keep another", async ({
   expect(body.map((workspace: { id: string }) => workspace.id)).not.toContain(doomed.id);
 });
 
+test("Organization Owner reviews and permanently deletes the complete Organization", async ({
+  page,
+  request,
+}) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `organization-delete-${unique}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, "Organization Deletion E2E");
+  await authenticatePage(page, auth.token);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(`/settings?tab=general&workspace=${workspace.id}`);
+
+  await page.getByRole("button", { name: "Delete Organization" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading", { name: "Delete this Organization?" })).toBeVisible();
+  await expect(dialog.getByText("Organization Deletion E2E", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Billing state: No subscription")).toBeVisible();
+  await expect(dialog.getByText("Provider writes: 0")).toBeVisible();
+  await expect(dialog.getByText("Other external jobs: 0")).toBeVisible();
+  await expect(dialog.getByText("Cleanup jobs: 0")).toBeVisible();
+  await expect(dialog.getByText("Access removed")).toBeVisible();
+  await expect(dialog.getByText("Organization membership for every member")).toBeVisible();
+  await expect(
+    dialog.getByText("Publications, drafts, schedules, analytics, and messages"),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText("Minimum audit evidence without deleted content or credentials"),
+  ).toBeVisible();
+  await expect(dialog.getByText(/cannot be recovered/)).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 760 });
+  await expect(dialog).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await dialog
+    .getByLabel("Enter Organization Deletion E2E exactly")
+    .fill("Organization Deletion E2E");
+  await dialog.getByLabel("Current password").fill("wrong-password");
+  const rejectedDeletion = page.waitForResponse(
+    (response) =>
+      response.request().method() === "DELETE" &&
+      response.url().endsWith(`/api/v1/organizations/${workspace.organization_id}`),
+  );
+  await dialog.getByRole("button", { name: "Delete Organization" }).click();
+  expect((await rejectedDeletion).status()).toBe(401);
+  await expect(dialog.getByText("recent reauthentication is required")).toBeVisible();
+  expect(consoleErrors).toEqual([
+    "Failed to load resource: the server responded with a status of 401 (Unauthorized)",
+  ]);
+  consoleErrors.length = 0;
+  await dialog.getByLabel("Current password").fill(password);
+  await dialog.getByRole("button", { name: "Delete Organization" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  const organizations = await request.get("/api/v1/organizations", {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  });
+  expect(organizations.ok()).toBeTruthy();
+  expect((await organizations.json()).map((item: { id: string }) => item.id)).not.toContain(
+    workspace.organization_id,
+  );
+  expect(consoleErrors).toEqual([]);
+});
+
 test("workspace settings warn before leaving and save the shared workspace color", async ({
   page,
   request,

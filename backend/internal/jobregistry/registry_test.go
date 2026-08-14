@@ -74,7 +74,14 @@ func TestEnqueueMediaCleanupIsIdempotentOnlyWhileTheChainIsActive(t *testing.T) 
 	require.NoError(t, err)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
-	_, err = db.NewCreateTable().Model((*models.Job)(nil)).Exec(context.Background())
+	for _, model := range []any{(*models.Organization)(nil), (*models.Workspace)(nil), (*models.Job)(nil)} {
+		_, err = db.NewCreateTable().Model(model).Exec(context.Background())
+		require.NoError(t, err)
+	}
+	now := time.Now().UTC()
+	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Media", CreatedAt: now, UpdatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "workspace-1", OrganizationID: "organization-1", Name: "Media", CreatedAt: now}).Exec(t.Context())
 	require.NoError(t, err)
 	require.NoError(t, EnsureActiveDedupeIndex(context.Background(), db))
 

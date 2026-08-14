@@ -47,6 +47,7 @@ func newMCPTestServerWithEntitlement(t *testing.T, entitlement entitlements.Serv
 	db := createHandlerTestDB(
 		t,
 		(*models.User)(nil),
+		(*models.Organization)(nil),
 		(*models.Workspace)(nil),
 		(*models.WorkspaceActivation)(nil),
 		(*models.ProductAnalyticsEvent)(nil),
@@ -90,9 +91,11 @@ func newMCPTestServerWithEntitlement(t *testing.T, entitlement entitlements.Serv
 		CreatedAt: time.Date(2026, 6, 30, 9, 0, 0, 0, time.UTC),
 	}).Exec(ctx)
 	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Agent", CreatedByID: "user-1"}).Exec(ctx)
+	require.NoError(t, err)
 	workspaces := []models.Workspace{
-		{ID: "ws-1", Name: "Launch", CreatedAt: time.Date(2026, 6, 30, 10, 0, 0, 0, time.UTC)},
-		{ID: "ws-2", Name: "Personal", CreatedAt: time.Date(2026, 6, 30, 11, 0, 0, 0, time.UTC)},
+		{ID: "ws-1", OrganizationID: "organization-1", Name: "Launch", CreatedAt: time.Date(2026, 6, 30, 10, 0, 0, 0, time.UTC)},
+		{ID: "ws-2", OrganizationID: "organization-1", Name: "Personal", CreatedAt: time.Date(2026, 6, 30, 11, 0, 0, 0, time.UTC)},
 	}
 	_, err = db.NewInsert().Model(&workspaces).Exec(ctx)
 	require.NoError(t, err)

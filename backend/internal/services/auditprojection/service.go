@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ const (
 	SourceIdentity                 Source = "identity"
 	SourceImpersonation            Source = "impersonation"
 	SourceMCP                      Source = "mcp"
+	SourceOrganizationLifecycle    Source = "organization_lifecycle"
 	SourceOrganizationOwnership    Source = "organization_ownership"
 	SourcePublicationAuthorization Source = "publication_authorization"
 	SourcePublicationLifecycle     Source = "publication_lifecycle"
@@ -46,6 +48,7 @@ const (
 	ResourceIdentityConfiguration         ResourceType = "identity_configuration"
 	ResourceImpersonation                 ResourceType = "impersonation"
 	ResourceMCPToolCall                   ResourceType = "mcp_tool_call"
+	ResourceOrganization                  ResourceType = "organization"
 	ResourceOrganizationOwnershipTransfer ResourceType = "organization_ownership_transfer"
 	ResourcePolicy                        ResourceType = "policy"
 	ResourceProvider                      ResourceType = "provider"
@@ -73,6 +76,7 @@ var sourceResourceTypes = map[Source]map[ResourceType]struct{}{
 	SourceIdentity:                 {ResourceProvider: {}, ResourcePolicy: {}, ResourceDomain: {}, ResourceSession: {}, ResourceIdentity: {}, ResourceReauthentication: {}, ResourceIdentityConfiguration: {}},
 	SourceImpersonation:            {ResourceImpersonation: {}},
 	SourceMCP:                      {ResourceMCPToolCall: {}},
+	SourceOrganizationLifecycle:    {ResourceOrganization: {}},
 	SourceOrganizationOwnership:    {ResourceOrganizationOwnershipTransfer: {}},
 	SourcePublicationAuthorization: {ResourcePublicationAuthorization: {}},
 	SourcePublicationLifecycle:     {ResourcePublication: {}},
@@ -163,6 +167,7 @@ func (s *Service) list(ctx context.Context, input Query) (Page, error) {
 		load   func(context.Context, Query, int) ([]AuditEvent, error)
 	}{
 		{SourceIdentity, s.listIdentity},
+		{SourceOrganizationLifecycle, s.listOrganizationLifecycle},
 		{SourceOrganizationOwnership, s.listOrganizationOwnership},
 		{SourceWorkspaceAccess, s.listWorkspaceAccess},
 		{SourceWorkspaceLifecycle, s.listWorkspaceLifecycle},
@@ -214,6 +219,22 @@ func (s *Service) listOrganizationOwnership(ctx context.Context, input Query, li
 		return nil, err
 	}
 	return projectAndFilter(rows, input, projectOrganizationOwnership), nil
+}
+
+func (s *Service) listOrganizationLifecycle(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
+	if input.WorkspaceID != "" {
+		return []AuditEvent{}, nil
+	}
+	var rows []models.OrganizationLifecycleAuditEvent
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("organization_id = ?", input.OrganizationID)
+	}
+	query = applyCommonSQLFilters(query, "created_at", "actor_user_id", "action", SourceOrganizationLifecycle, input)
+	if err := scan(ctx, query); err != nil {
+		return nil, err
+	}
+	return projectAndFilter(rows, input, projectOrganizationLifecycle), nil
 }
 
 func (s *Service) listWorkspaceLifecycle(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
@@ -611,6 +632,12 @@ func projectOrganizationOwnership(row models.OrganizationOwnershipAuditEvent) Au
 		[]AuditChangedField{{Field: "nominee_user_id", Current: row.NomineeUserID}},
 		row.CreatedAt,
 	)
+	event.Resource.OrganizationID = row.OrganizationID
+	return event
+}
+
+func projectOrganizationLifecycle(row models.OrganizationLifecycleAuditEvent) AuditEvent {
+	event := newEvent(row.ID, SourceOrganizationLifecycle, row.ActorUserID, "", row.Action, ResourceOrganization, row.OrganizationID, "", ResultSucceeded, []AuditChangedField{{Field: "name", Previous: row.OrganizationName}, {Field: "workspace_count", Previous: fmt.Sprintf("%d", row.WorkspaceCount)}, {Field: "billing_state", Previous: safeEnum(row.BillingState, "none", "active", "trialing", "past_due", "paused", "canceled", "cancelled")}}, row.CreatedAt)
 	event.Resource.OrganizationID = row.OrganizationID
 	return event
 }

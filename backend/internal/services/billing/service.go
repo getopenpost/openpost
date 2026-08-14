@@ -35,6 +35,7 @@ var (
 )
 
 var errConfiguration = errors.New("billing provider is not configured")
+var errCanceledCheckoutReconciliation = errors.New("checkout was canceled during Paddle reconciliation")
 
 func IsConfigurationError(err error) bool {
 	return errors.Is(err, errConfiguration)
@@ -46,20 +47,22 @@ func configurationError(format string, args ...any) error {
 
 type PaddleAPI interface {
 	GetSubscription(context.Context, *paddle.GetSubscriptionRequest) (*paddle.Subscription, error)
+	CancelSubscription(context.Context, *paddle.CancelSubscriptionRequest) (*paddle.Subscription, error)
 	GetTransaction(context.Context, *paddle.GetTransactionRequest) (*paddle.Transaction, error)
 	GetCustomer(context.Context, *paddle.GetCustomerRequest) (*paddle.Customer, error)
 	CreateCustomerPortalSession(context.Context, *paddle.CreateCustomerPortalSessionRequest) (*paddle.CustomerPortalSession, error)
 }
 
 type Service struct {
-	db                   *bun.DB
-	webhookSecret        string
-	purchaseChoiceSecret []byte
-	verifier             *paddle.WebhookVerifier
-	now                  func() time.Time
-	paddle               PaddleConfig
-	api                  PaddleAPI
-	apiInitErr           error
+	db                      *bun.DB
+	webhookSecret           string
+	purchaseChoiceSecret    []byte
+	verifier                *paddle.WebhookVerifier
+	now                     func() time.Time
+	paddle                  PaddleConfig
+	api                     PaddleAPI
+	apiInitErr              error
+	beforeSubscriptionApply func()
 }
 
 type PaddleConfig struct {
@@ -257,6 +260,9 @@ func (s *Service) createFirstWorkspace(ctx context.Context, tx bun.Tx, input Con
 			return FirstWorkspaceConfirmation{}, err
 		}
 	}
+	if _, _, err := jobregistry.EnqueueMediaCleanup(ctx, tx, workspace.ID, time.Time{}); err != nil {
+		return FirstWorkspaceConfirmation{}, err
+	}
 	checkout, err := s.CreateCheckoutWithDB(ctx, tx, CreateCheckoutInput{
 		OrganizationID: organizationID, WorkspaceID: workspace.ID, UserID: input.UserID,
 		CustomerEmail: input.CustomerEmail, PlanID: input.Choice.PlanID, BillingPeriod: input.Choice.BillingPeriod,
@@ -349,6 +355,9 @@ func (s *Service) ResumeCheckout(ctx context.Context, db bun.IDB, attemptID, use
 		Where("provider = ?", ProviderPaddle).
 		Scan(ctx); err != nil {
 		return CheckoutResult{}, attempt, err
+	}
+	if attempt.Status != "created" || attempt.ProviderSubscriptionID != "" {
+		return CheckoutResult{}, attempt, fmt.Errorf("checkout attempt is no longer available")
 	}
 	providerPriceID, err := s.planFor(attempt.PlanID, attempt.BillingPeriod)
 	if err != nil || providerPriceID != attempt.ProviderPriceID {
@@ -921,6 +930,10 @@ func (s *Service) reconcileSubscription(ctx context.Context, subscription *paddl
 	if subscription == nil || strings.TrimSpace(subscription.ID) == "" {
 		return fmt.Errorf("paddle subscription payload missing id")
 	}
+	terminated, err := s.terminateCanceledCheckoutSubscription(ctx, subscription, fallbackCustom)
+	if err != nil || terminated {
+		return err
+	}
 	providerUpdatedAt, err := parseRequiredPaddleTime("paddle subscription updated_at", subscription.UpdatedAt)
 	if err != nil {
 		return err
@@ -974,23 +987,98 @@ func (s *Service) reconcileSubscription(ctx context.Context, subscription *paddl
 		model.PastDueSince = providerUpdatedAt
 	}
 
-	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		applied, err := upsertSubscription(txCtx, tx, model)
-		if err != nil {
-			return err
-		}
-		if applied && resolved.Attempt.CheckoutAttemptID != "" {
-			if _, err := tx.NewUpdate().Model((*models.BillingCheckoutAttempt)(nil)).
-				Set("status = ?", status).
-				Set("provider_subscription_id = ?", subscription.ID).
-				Set("updated_at = ?", now).
-				Where("checkout_attempt_id = ?", resolved.Attempt.CheckoutAttemptID).
-				Exec(txCtx); err != nil {
-				return fmt.Errorf("updating Paddle checkout attempt: %w", err)
-			}
-		}
-		return nil
+	if s.beforeSubscriptionApply != nil {
+		s.beforeSubscriptionApply()
+	}
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return applySubscriptionReconciliation(txCtx, tx, model, resolved.Attempt, status, subscription.ID, now)
 	})
+	if errors.Is(err, errCanceledCheckoutReconciliation) {
+		_, terminateErr := s.terminateCanceledCheckoutSubscription(ctx, subscription, fallbackCustom)
+		return terminateErr
+	}
+	return err
+}
+
+func (s *Service) terminateCanceledCheckoutSubscription(ctx context.Context, subscription *paddle.Subscription, fallbackCustom paddle.CustomData) (bool, error) {
+	customData := subscription.CustomData
+	if len(customData) == 0 {
+		customData = fallbackCustom
+	}
+	checkoutID := customDataString(customData, "checkout_id")
+	if checkoutID == "" {
+		return false, nil
+	}
+	var cancellation models.BillingCheckoutCancellation
+	err := s.db.NewSelect().Model(&cancellation).
+		Where("checkout_attempt_id = ? AND provider = ?", checkoutID, ProviderPaddle).
+		Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("loading canceled Paddle checkout boundary: %w", err)
+	}
+	if subscription.Status != paddle.SubscriptionStatusCanceled {
+		if s.api == nil {
+			return true, configurationError("Paddle API is required to terminate a late canceled-checkout subscription")
+		}
+		immediately := paddle.EffectiveFromImmediately
+		if _, err := s.api.CancelSubscription(ctx, &paddle.CancelSubscriptionRequest{
+			SubscriptionID: subscription.ID,
+			EffectiveFrom:  &immediately,
+		}); err != nil {
+			return true, fmt.Errorf("canceling late Paddle subscription for canceled checkout: %w", err)
+		}
+	}
+	if _, err := s.db.NewUpdate().Model((*models.BillingCheckoutCancellation)(nil)).
+		Set("provider_subscription_id = ?", subscription.ID).
+		Set("resolved_at = ?", s.now().UTC()).
+		Where("checkout_attempt_id = ?", checkoutID).
+		Exec(ctx); err != nil {
+		return true, fmt.Errorf("recording canceled Paddle checkout resolution: %w", err)
+	}
+	return true, nil
+}
+
+func applySubscriptionReconciliation(ctx context.Context, tx bun.Tx, model *models.BillingSubscription, attempt models.BillingCheckoutAttempt, status, providerSubscriptionID string, now time.Time) error {
+	result, err := tx.NewUpdate().Model((*models.Organization)(nil)).Set("name = name").Where("id = ?", attempt.OrganizationID).Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("locking Organization for Paddle reconciliation: %w", err)
+	}
+	if count, _ := result.RowsAffected(); count != 1 {
+		return fmt.Errorf("subscription references a deleted Organization")
+	}
+	canceled, err := tx.NewSelect().Model((*models.BillingCheckoutCancellation)(nil)).
+		Where("checkout_attempt_id = ?", attempt.CheckoutAttemptID).Exists(ctx)
+	if err != nil {
+		return fmt.Errorf("rechecking canceled checkout boundary: %w", err)
+	}
+	if !canceled {
+		canceled, err = tx.NewSelect().Model((*models.BillingCheckoutAttempt)(nil)).
+			Where("checkout_attempt_id = ? AND status = ?", attempt.CheckoutAttemptID, "canceled").Exists(ctx)
+		if err != nil {
+			return fmt.Errorf("rechecking Paddle checkout status: %w", err)
+		}
+	}
+	if canceled {
+		return errCanceledCheckoutReconciliation
+	}
+	applied, err := upsertSubscription(ctx, tx, model)
+	if err != nil {
+		return err
+	}
+	if applied && attempt.CheckoutAttemptID != "" {
+		if _, err := tx.NewUpdate().Model((*models.BillingCheckoutAttempt)(nil)).
+			Set("status = ?", status).
+			Set("provider_subscription_id = ?", providerSubscriptionID).
+			Set("updated_at = ?", now).
+			Where("checkout_attempt_id = ?", attempt.CheckoutAttemptID).
+			Exec(ctx); err != nil {
+			return fmt.Errorf("updating Paddle checkout attempt: %w", err)
+		}
+	}
+	return nil
 }
 
 func subscriptionCatalogIDs(subscription *paddle.Subscription) (string, string) {

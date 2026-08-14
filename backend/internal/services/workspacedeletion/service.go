@@ -2,9 +2,12 @@ package workspacedeletion
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -66,13 +69,22 @@ type Preview struct {
 }
 
 type Service struct {
-	db       *bun.DB
-	auth     *auth.Service
-	identity *identity.Service
+	db        *bun.DB
+	auth      *auth.Service
+	identity  *identity.Service
+	decryptor AcceptURLDecryptor
 }
 
-func NewService(db *bun.DB, authService *auth.Service, identityService *identity.Service) *Service {
-	return &Service{db: db, auth: authService, identity: identityService}
+type AcceptURLDecryptor interface {
+	Decrypt([]byte) (string, error)
+}
+
+func NewService(db *bun.DB, authService *auth.Service, identityService *identity.Service, decryptors ...AcceptURLDecryptor) *Service {
+	service := &Service{db: db, auth: authService, identity: identityService}
+	if len(decryptors) > 0 {
+		service.decryptor = decryptors[0]
+	}
+	return service
 }
 
 func (s *Service) Preview(ctx context.Context, workspaceID string, actor Actor) (Preview, error) {
@@ -168,7 +180,7 @@ func (s *Service) deleteInTransaction(ctx context.Context, tx bun.Tx, workspace 
 	if _, err := tx.NewInsert().Model(event).Exec(ctx); err != nil {
 		return err
 	}
-	return DeleteWorkspaceData(ctx, tx, []string{workspace.ID})
+	return DeleteWorkspaceData(ctx, tx, []string{workspace.ID}, s.decryptor)
 }
 
 func (s *Service) authorizeOwner(ctx context.Context, workspaceID string, actor Actor) (*models.Workspace, error) {
@@ -271,7 +283,7 @@ func (s *Service) jobBlockers(ctx context.Context, db deletionDB, workspaceID st
 	if err != nil {
 		return false, false, err
 	}
-	references, err := loadDeletionReferences(ctx, db, []string{workspaceID}, objectKeys)
+	references, err := loadDeletionReferences(ctx, db, []string{workspaceID}, objectKeys, s.decryptor)
 	if err != nil {
 		return false, false, err
 	}
@@ -282,7 +294,7 @@ func (s *Service) jobBlockers(ctx context.Context, db deletionDB, workspaceID st
 	writes, cleanup := false, false
 	now := time.Now().UTC()
 	for _, job := range jobs {
-		if _, ok := references[job.ScopeID]; !ok && !JobPayloadReferences(job.Payload, references) {
+		if !jobReferences(job, references) {
 			continue
 		}
 		if job.Type == jobregistry.TypeStorageDelete || (job.Type == jobregistry.TypeMediaCleanup && (job.Status == jobregistry.StatusProcessing || !job.RunAt.After(now))) {
@@ -295,9 +307,18 @@ func (s *Service) jobBlockers(ctx context.Context, db deletionDB, workspaceID st
 }
 
 func storedObjectKeys(ctx context.Context, db deletionDB, workspaceID string) ([]string, error) {
+	return StoredObjectKeys(ctx, db, []string{workspaceID})
+}
+
+// StoredObjectKeys returns the durable blob keys owned by the supplied
+// Workspaces so their database rows and cleanup jobs can be committed together.
+func StoredObjectKeys(ctx context.Context, db deletionDB, workspaceIDs []string) ([]string, error) {
 	keys := map[string]struct{}{}
 	var media []models.MediaAttachment
-	if err := db.NewSelect().Model(&media).Column("file_path", "thumbnail_object_key", "thumbnails").Where("workspace_id = ?", workspaceID).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+	if len(workspaceIDs) == 0 {
+		return []string{}, nil
+	}
+	if err := db.NewSelect().Model(&media).Column("file_path", "thumbnail_object_key", "thumbnails").Where("workspace_id IN (?)", bun.List(workspaceIDs)).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
 	}
 	for _, item := range media {
@@ -327,11 +348,100 @@ func storedObjectKeys(ctx context.Context, db deletionDB, workspaceID string) ([
 	return ordered, nil
 }
 
-type deletionIDs struct{ posts, publications, renditions, accounts, media, conversations, messages []string }
+type PendingWork struct {
+	ProviderWrites int `json:"pending_provider_writes"`
+	Jobs           int `json:"pending_jobs"`
+	CleanupJobs    int `json:"pending_cleanup_jobs"`
+}
+
+func InspectPendingWorkWithReferences(ctx context.Context, db deletionDB, workspaceIDs []string, extraReferences map[string]struct{}, decryptors ...AcceptURLDecryptor) (PendingWork, error) {
+	result := PendingWork{}
+	if len(workspaceIDs) == 0 && len(extraReferences) == 0 {
+		return result, nil
+	}
+	count, err := pendingProviderWriteCount(ctx, db, workspaceIDs)
+	if err != nil {
+		return result, err
+	}
+	result.ProviderWrites = count
+	keys, err := StoredObjectKeys(ctx, db, workspaceIDs)
+	if err != nil {
+		return result, err
+	}
+	references, err := loadDeletionReferences(ctx, db, workspaceIDs, keys, firstDecryptor(decryptors))
+	if err != nil {
+		return result, err
+	}
+	for reference := range extraReferences {
+		references[reference] = struct{}{}
+	}
+	result.Jobs, result.CleanupJobs, err = inspectReferencedJobs(ctx, db, references)
+	if err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func pendingProviderWriteCount(ctx context.Context, db deletionDB, workspaceIDs []string) (int, error) {
+	if len(workspaceIDs) == 0 {
+		return 0, nil
+	}
+	return db.NewSelect().Model((*models.ProviderWriteAttempt)(nil)).
+		Where("workspace_id IN (?)", bun.List(workspaceIDs)).
+		Where("status IN (?) OR (status = ? AND LOWER(provider_state) = ?)", bun.List([]string{"prepared", "sending", "ambiguous"}), "accepted", "scheduled").
+		Count(ctx)
+}
+
+func inspectReferencedJobs(ctx context.Context, db deletionDB, references map[string]struct{}) (int, int, error) {
+	var jobs []models.Job
+	if err := db.NewSelect().Model(&jobs).Where("status IN (?)", bun.List([]string{"pending", "processing"})).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, err
+	}
+	pending, cleanup := 0, 0
+	now := time.Now().UTC()
+	for _, job := range jobs {
+		if !jobReferences(job, references) {
+			continue
+		}
+		if job.Type == jobregistry.TypeStorageDelete || (job.Type == jobregistry.TypeMediaCleanup && (job.Status == jobregistry.StatusProcessing || !job.RunAt.After(now))) {
+			cleanup++
+		} else if job.Type != jobregistry.TypeMediaCleanup {
+			pending++
+		}
+	}
+	return pending, cleanup, nil
+}
+
+func OrganizationBillingReferences(ctx context.Context, db deletionDB, organizationID string) (map[string]struct{}, error) {
+	refs := map[string]struct{}{}
+	var subscriptionIDs []string
+	if err := db.NewSelect().Model((*models.BillingSubscription)(nil)).Column("provider_subscription_id").Where("organization_id = ? AND provider_subscription_id != ''", organizationID).Scan(ctx, &subscriptionIDs); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	var attempts []struct {
+		CheckoutAttemptID      string `bun:"checkout_attempt_id"`
+		ProviderSubscriptionID string `bun:"provider_subscription_id"`
+	}
+	if err := db.NewSelect().Table("billing_checkout_attempts").Column("checkout_attempt_id", "provider_subscription_id").Where("organization_id = ?", organizationID).Scan(ctx, &attempts); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for _, id := range subscriptionIDs {
+		refs[id] = struct{}{}
+	}
+	for _, attempt := range attempts {
+		refs[attempt.CheckoutAttemptID] = struct{}{}
+		if attempt.ProviderSubscriptionID != "" {
+			refs[attempt.ProviderSubscriptionID] = struct{}{}
+		}
+	}
+	return refs, nil
+}
+
+type deletionIDs struct{ posts, publications, renditions, accounts, media, conversations, messages, invitations []string }
 
 func loadDeletionIDs(ctx context.Context, db deletionDB, workspaceIDs []string) (deletionIDs, error) {
 	ids := deletionIDs{}
-	for _, scan := range []struct{ model, dest any }{{(*models.Post)(nil), &ids.posts}, {(*models.Publication)(nil), &ids.publications}, {(*models.SocialAccount)(nil), &ids.accounts}, {(*models.MediaAttachment)(nil), &ids.media}, {(*models.Conversation)(nil), &ids.conversations}, {(*models.DirectMessage)(nil), &ids.messages}} {
+	for _, scan := range []struct{ model, dest any }{{(*models.Post)(nil), &ids.posts}, {(*models.Publication)(nil), &ids.publications}, {(*models.SocialAccount)(nil), &ids.accounts}, {(*models.MediaAttachment)(nil), &ids.media}, {(*models.Conversation)(nil), &ids.conversations}, {(*models.DirectMessage)(nil), &ids.messages}, {(*models.WorkspaceInvitation)(nil), &ids.invitations}} {
 		if err := db.NewSelect().Model(scan.model).Column("id").Where("workspace_id IN (?)", bun.List(workspaceIDs)).Scan(ctx, scan.dest); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return ids, err
 		}
@@ -344,18 +454,126 @@ func loadDeletionIDs(ctx context.Context, db deletionDB, workspaceIDs []string) 
 	return ids, nil
 }
 
-func loadDeletionReferences(ctx context.Context, db deletionDB, workspaceIDs, objectKeys []string) (map[string]struct{}, error) {
+//nolint:gocyclo // Every reference source must remain visible in the deletion inventory.
+func loadDeletionReferences(ctx context.Context, db deletionDB, workspaceIDs, objectKeys []string, decryptor AcceptURLDecryptor) (map[string]struct{}, error) {
 	ids, err := loadDeletionIDs(ctx, db, workspaceIDs)
 	if err != nil {
 		return nil, err
 	}
 	refs := map[string]struct{}{}
-	for _, values := range [][]string{workspaceIDs, ids.posts, ids.publications, ids.renditions, ids.accounts, ids.media, ids.conversations, ids.messages, objectKeys} {
+	for _, values := range [][]string{workspaceIDs, ids.posts, ids.publications, ids.renditions, ids.accounts, ids.media, ids.conversations, ids.messages, ids.invitations, objectKeys} {
 		for _, id := range values {
 			refs[id] = struct{}{}
 		}
 	}
+	var invitationJobIDs []string
+	if err := db.NewSelect().Model((*models.WorkspaceInvitation)(nil)).Column("email_delivery_job_id").Where("workspace_id IN (?) AND email_delivery_job_id != ''", bun.List(workspaceIDs)).Scan(ctx, &invitationJobIDs); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for _, id := range invitationJobIDs {
+		refs[id] = struct{}{}
+	}
+	if len(ids.invitations) > 0 {
+		var historicalDeliveryIDs []string
+		if err := db.NewSelect().Model((*models.WorkspaceInvitationDeliveryEvent)(nil)).
+			Column("delivery_id").
+			Where("invitation_id IN (?)", bun.List(ids.invitations)).
+			Scan(ctx, &historicalDeliveryIDs); err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
+		for _, id := range historicalDeliveryIDs {
+			refs[id] = struct{}{}
+		}
+		legacyJobIDs, err := legacyInvitationDeliveryJobIDs(ctx, db, ids.invitations, decryptor)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range legacyJobIDs {
+			refs[id] = struct{}{}
+		}
+	}
+	var subscriptionIDs []string
+	if err := db.NewSelect().Model((*models.BillingSubscription)(nil)).Column("provider_subscription_id").Where("workspace_id IN (?) AND provider_subscription_id != ''", bun.List(workspaceIDs)).Scan(ctx, &subscriptionIDs); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	var checkoutReferences []struct {
+		CheckoutAttemptID      string `bun:"checkout_attempt_id"`
+		ProviderSubscriptionID string `bun:"provider_subscription_id"`
+	}
+	if err := db.NewSelect().Table("billing_checkout_attempts").Column("checkout_attempt_id", "provider_subscription_id").Where("workspace_id IN (?)", bun.List(workspaceIDs)).Scan(ctx, &checkoutReferences); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	for _, id := range subscriptionIDs {
+		refs[id] = struct{}{}
+	}
+	for _, attempt := range checkoutReferences {
+		refs[attempt.CheckoutAttemptID] = struct{}{}
+		if attempt.ProviderSubscriptionID != "" {
+			refs[attempt.ProviderSubscriptionID] = struct{}{}
+		}
+	}
 	return refs, nil
+}
+
+//nolint:gocyclo // Each legacy-field and cryptographic boundary check must fail closed.
+func legacyInvitationDeliveryJobIDs(ctx context.Context, db deletionDB, invitationIDs []string, decryptor AcceptURLDecryptor) ([]string, error) {
+	if decryptor == nil {
+		return []string{}, nil
+	}
+	type invitationBoundary struct {
+		ID string `bun:"id"`
+	}
+	var boundaries []invitationBoundary
+	if err := db.NewSelect().TableExpr("workspace_invitations AS invitation").
+		ColumnExpr("invitation.id").
+		Where("invitation.id IN (?)", bun.List(invitationIDs)).Scan(ctx, &boundaries); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	var jobs []models.Job
+	if err := db.NewSelect().Model(&jobs).Column("id", "payload").Where("type = ?", jobregistry.TypeNotificationEmail).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	jobIDs := []string{}
+	for _, job := range jobs {
+		var payload struct {
+			InvitationID string `json:"invitation_id"`
+			WorkspaceID  string `json:"workspace_id"`
+			DeliveryID   string `json:"delivery_id"`
+			AcceptURLEnc []byte `json:"accept_url_encrypted"`
+		}
+		if json.Unmarshal([]byte(job.Payload), &payload) != nil || payload.InvitationID != "" || payload.WorkspaceID != "" || len(payload.AcceptURLEnc) == 0 {
+			continue
+		}
+		acceptURL, err := decryptor.Decrypt(payload.AcceptURLEnc)
+		if err != nil {
+			continue
+		}
+		parsed, err := url.Parse(acceptURL)
+		if err != nil || strings.TrimSpace(parsed.Query().Get("token")) == "" {
+			continue
+		}
+		tokenHash := hashInvitationToken(parsed.Query().Get("token"))
+		for _, boundary := range boundaries {
+			expectedID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("workspace-invitation\x00"+boundary.ID+":"+tokenHash)).String()
+			if job.ID == expectedID && (payload.DeliveryID == "" || payload.DeliveryID == expectedID) {
+				jobIDs = append(jobIDs, job.ID)
+				break
+			}
+		}
+	}
+	return jobIDs, nil
+}
+
+func hashInvitationToken(token string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(token)))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+func firstDecryptor(decryptors []AcceptURLDecryptor) AcceptURLDecryptor {
+	if len(decryptors) == 0 {
+		return nil
+	}
+	return decryptors[0]
 }
 
 const StorageCleanupBatchSize = queue.StorageDeleteMaxKeys
@@ -382,12 +600,12 @@ func EnqueueStorageCleanup(ctx context.Context, tx bun.Tx, objectKeys []string) 
 	return jobIDs, nil
 }
 
-func DeleteWorkspaceData(ctx context.Context, tx bun.Tx, workspaceIDs []string) error {
+func DeleteWorkspaceData(ctx context.Context, tx bun.Tx, workspaceIDs []string, decryptors ...AcceptURLDecryptor) error {
 	ids, err := loadDeletionIDs(ctx, tx, workspaceIDs)
 	if err != nil {
 		return err
 	}
-	references, err := loadDeletionReferences(ctx, tx, workspaceIDs, nil)
+	references, err := loadDeletionReferences(ctx, tx, workspaceIDs, nil, firstDecryptor(decryptors))
 	if err != nil {
 		return err
 	}
@@ -416,6 +634,7 @@ func deletionPlan(workspaceIDs []string, ids deletionIDs) []modelDeletion {
 	deletions = appendDeletions(deletions, ids.posts, "post_id IN (?)", (*models.PostMediaDelivery)(nil), (*models.PostDestination)(nil), (*models.PostMedia)(nil), (*models.PostVariant)(nil), (*models.ThreadDraft)(nil))
 	deletions = appendDeletions(deletions, ids.accounts, "social_account_id IN (?)", (*models.PostMediaDelivery)(nil), (*models.RenditionMediaDelivery)(nil))
 	deletions = appendDeletions(deletions, ids.media, "media_id IN (?)", (*models.PostMediaDelivery)(nil), (*models.RenditionMediaDelivery)(nil), (*models.PostMedia)(nil), (*models.PublicationAsset)(nil), (*models.RenditionMedia)(nil))
+	deletions = appendDeletions(deletions, ids.invitations, "invitation_id IN (?)", (*models.WorkspaceInvitationDeliveryEvent)(nil))
 	deletions = appendDeletions(deletions, workspaceIDs, "workspace_id IN (?)", (*models.Post)(nil), (*models.Publication)(nil), (*models.SocialAccount)(nil), (*models.MediaAttachment)(nil), (*models.PostingSchedule)(nil), (*models.Prompt)(nil), (*models.UsageCounter)(nil), (*models.OAuthAccountSelection)(nil), (*models.XOAuthRequestToken)(nil), (*models.WorkspaceFirstConnection)(nil), (*models.WorkspaceFirstComposition)(nil), (*models.WorkspaceInvitation)(nil), (*models.WorkspaceMember)(nil), (*models.UserNotification)(nil), (*models.MCPToolCall)(nil))
 	return appendDeletions(deletions, workspaceIDs, "id IN (?)", (*models.Workspace)(nil))
 }
@@ -434,7 +653,7 @@ func DeleteJobsReferencing(ctx context.Context, tx bun.Tx, refs map[string]struc
 		return err
 	}
 	for _, job := range jobs {
-		if _, ok := refs[job.ScopeID]; !ok && !JobPayloadReferences(job.Payload, refs) {
+		if !jobReferences(job, refs) {
 			continue
 		}
 		if _, err := tx.NewDelete().Model((*models.Job)(nil)).Where("id = ?", job.ID).Exec(ctx); err != nil {
@@ -443,6 +662,17 @@ func DeleteJobsReferencing(ctx context.Context, tx bun.Tx, refs map[string]struc
 	}
 	return nil
 }
+
+func jobReferences(job models.Job, refs map[string]struct{}) bool {
+	if _, ok := refs[job.ID]; ok {
+		return true
+	}
+	if _, ok := refs[job.ScopeID]; ok {
+		return true
+	}
+	return JobPayloadReferences(job.Payload, refs)
+}
+
 func JobPayloadReferences(raw string, refs map[string]struct{}) bool {
 	var payload any
 	if json.Unmarshal([]byte(raw), &payload) != nil {

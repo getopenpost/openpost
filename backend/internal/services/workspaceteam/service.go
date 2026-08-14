@@ -442,9 +442,8 @@ func (s *Service) rotateInvitation(
 		} else if err != nil {
 			return err
 		}
-		retryAt := invitation.LastSentAt.Add(InvitationResendDelay)
-		if !invitation.LastSentAt.IsZero() && retryAt.After(now) {
-			return rateLimitError("invitation can be resent after "+retryAt.Format(time.RFC3339), retryAt)
+		if err := ensureInvitationResendReady(invitation, now); err != nil {
+			return err
 		}
 		if err := enforceInvitationResendLimit(txCtx, tx, invitation, actorUserID, now); err != nil {
 			return err
@@ -462,6 +461,7 @@ func (s *Service) rotateInvitation(
 			}
 		}
 		previousTokenHash := invitation.TokenHash
+		previousDeliveryJobID := invitation.EmailDeliveryJobID
 		invitation.TokenHash = tokenHash
 		invitation.ExpiresAt = now.Add(InvitationLifetime)
 		invitation.LastSentAt = now
@@ -482,6 +482,9 @@ func (s *Service) rotateInvitation(
 		if updated != 1 {
 			return rateLimitError("invitation resend is already in progress; try again after "+now.Add(InvitationResendDelay).Format(time.RFC3339), now.Add(InvitationResendDelay))
 		}
+		if err := deletePreviousInvitationDelivery(txCtx, tx, previousDeliveryJobID); err != nil {
+			return err
+		}
 		if _, err := tx.NewInsert().Model(&models.WorkspaceInvitationResend{
 			ID: uuid.NewString(), InvitationID: invitation.ID, ActorUserID: actorUserID, ResentAt: now,
 		}).Exec(txCtx); err != nil {
@@ -497,6 +500,22 @@ func (s *Service) rotateInvitation(
 		return models.WorkspaceInvitation{}, err
 	}
 	return invitation, nil
+}
+
+func deletePreviousInvitationDelivery(ctx context.Context, tx bun.Tx, jobID string) error {
+	if jobID == "" {
+		return nil
+	}
+	_, err := tx.NewDelete().Model((*models.Job)(nil)).Where("id = ?", jobID).Exec(ctx)
+	return err
+}
+
+func ensureInvitationResendReady(invitation models.WorkspaceInvitation, now time.Time) error {
+	retryAt := invitation.LastSentAt.Add(InvitationResendDelay)
+	if !invitation.LastSentAt.IsZero() && retryAt.After(now) {
+		return rateLimitError("invitation can be resent after "+retryAt.Format(time.RFC3339), retryAt)
+	}
+	return nil
 }
 
 func enforceInvitationResendLimit(
@@ -1113,6 +1132,7 @@ func (s *Service) finishInvitationDelivery(ctx context.Context, invitation *mode
 			}
 			delivery, err := s.notifications.EnqueueWorkspaceInvitationTx(txCtx, tx, notifications.WorkspaceInvitationEmailInput{
 				InvitationID:  invitation.ID,
+				WorkspaceID:   workspace.ID,
 				Recipient:     invitation.Email,
 				WorkspaceName: workspace.Name,
 				InviterName:   inviterName,

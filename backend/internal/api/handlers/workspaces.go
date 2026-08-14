@@ -11,14 +11,15 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/queue"
 	"github.com/openpost/backend/internal/services/auditprojection"
 	authservice "github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/medialifecycle"
 	"github.com/openpost/backend/internal/services/notifications"
+	"github.com/openpost/backend/internal/services/organizationdeletion"
 	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/setupprojection"
 	"github.com/openpost/backend/internal/services/workspacedeletion"
@@ -27,17 +28,18 @@ import (
 )
 
 type WorkspaceHandler struct {
-	db            *bun.DB
-	auth          middleware.Authenticator
-	entitlement   entitlements.Service
-	notifications *notifications.Service
-	team          *workspaceteam.Service
-	setup         *setupprojection.Service
-	audit         *auditprojection.Service
-	deletion      *workspacedeletion.Service
-	hosted        bool
-	frontendURL   string
-	inviteLimiter *ratelimit.Limiter
+	db                   *bun.DB
+	auth                 middleware.Authenticator
+	entitlement          entitlements.Service
+	notifications        *notifications.Service
+	team                 *workspaceteam.Service
+	setup                *setupprojection.Service
+	audit                *auditprojection.Service
+	deletion             *workspacedeletion.Service
+	organizationDeletion *organizationdeletion.Service
+	hosted               bool
+	frontendURL          string
+	inviteLimiter        *ratelimit.Limiter
 }
 
 const (
@@ -69,8 +71,9 @@ func (h *WorkspaceHandler) SetNotificationService(service *notifications.Service
 	h.team = workspaceteam.NewService(h.db, h.entitlement, service)
 }
 
-func (h *WorkspaceHandler) SetSensitiveActionServices(authService *authservice.Service, identityService *identity.Service) {
-	h.deletion = workspacedeletion.NewService(h.db, authService, identityService)
+func (h *WorkspaceHandler) SetSensitiveActionServices(authService *authservice.Service, identityService *identity.Service, decryptors ...workspacedeletion.AcceptURLDecryptor) {
+	h.deletion = workspacedeletion.NewService(h.db, authService, identityService, decryptors...)
+	h.organizationDeletion = organizationdeletion.NewService(h.db, authService, identityService, decryptors...)
 }
 
 type CreateWorkspaceInput struct {
@@ -185,6 +188,54 @@ type GetWorkspaceDeletionPreviewInput struct {
 
 type GetWorkspaceDeletionPreviewOutput struct {
 	Body WorkspaceDeletionPreview
+}
+
+type OrganizationDeletionInput struct {
+	PathID string `path:"id" doc:"Organization ID"`
+	Body   struct {
+		ConfirmName     string `json:"confirm_name" minLength:"1" doc:"Exact canonical Organization name"`
+		CurrentPassword string `json:"current_password,omitempty" doc:"Current account password"`
+		ReauthGrant     string `json:"reauth_grant,omitempty" doc:"One-time grant for organization.delete"`
+	}
+}
+
+type OrganizationDeletionOutput struct {
+	Body struct {
+		Deleted bool `json:"deleted"`
+	}
+}
+type OrganizationDeletionPreviewInput struct {
+	PathID string `path:"id" doc:"Organization ID"`
+}
+type OrganizationDeletionWorkspace struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+}
+type OrganizationDeletionPendingWork struct {
+	PendingProviderWrites int `json:"pending_provider_writes"`
+	PendingJobs           int `json:"pending_jobs"`
+	PendingCleanupJobs    int `json:"pending_cleanup_jobs"`
+}
+type OrganizationDeletionPreview struct {
+	OrganizationID   string                          `json:"organization_id"`
+	OrganizationName string                          `json:"organization_name"`
+	Workspaces       []OrganizationDeletionWorkspace `json:"workspaces"`
+	BillingState     string                          `json:"billing_state" doc:"Latest local Paddle subscription state, or none"`
+	PendingWork      OrganizationDeletionPendingWork `json:"pending_work"`
+	AccessEffects    []string                        `json:"access_effects" enum:"organization_memberships,workspace_memberships,organization_credentials"`
+	Retained         []string                        `json:"retained" enum:"required_audit_evidence,required_billing_evidence"`
+	IrreversibleLoss []string                        `json:"irreversible_loss" enum:"workspaces,content,connected_accounts,media,settings"`
+	RecoveryPossible bool                            `json:"recovery_possible"`
+	Blockers         []WorkspaceDeletionBlocker      `json:"blockers"`
+}
+type OrganizationDeletionPreviewOutput struct{ Body OrganizationDeletionPreview }
+type CancelOrganizationCheckoutAttemptsInput struct {
+	PathID string `path:"id" doc:"Organization ID"`
+}
+type CancelOrganizationCheckoutAttemptsOutput struct {
+	Body struct {
+		Canceled int64 `json:"canceled"`
+	}
 }
 
 type OrganizationResponse struct {
@@ -426,30 +477,13 @@ func (h *WorkspaceHandler) CreateWorkspace(api huma.API) {
 			UpdatedAt:   now,
 		}
 
-		err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-			if organization != nil {
-				if _, err := tx.NewInsert().Model(organization).Exec(txCtx); err != nil {
-					return err
-				}
-			}
-			if organizationMember != nil {
-				if _, err := tx.NewInsert().Model(organizationMember).Exec(txCtx); err != nil {
-					return err
-				}
-			}
-			if _, err := tx.NewInsert().Model(workspace).Exec(txCtx); err != nil {
-				return err
-			}
-			if _, err := tx.NewInsert().Model(member).Exec(txCtx); err != nil {
-				return err
-			}
-			return nil
-		})
+		err := h.insertWorkspaceBoundary(ctx, organization, organizationMember, workspace, member, userID)
 		if err != nil {
+			if errors.Is(err, errOrganizationChangedDuringWorkspaceCreation) {
+				return nil, huma.Error409Conflict("Organization access changed; review the Workspace destination and try again")
+			}
 			return nil, huma.Error500InternalServerError("failed to create workspace")
 		}
-		_ = queue.ScheduleMediaCleanup(h.db, workspace.ID) //nolint:errcheck
-
 		resp := &CreateWorkspaceOutput{}
 		resp.Body.WorkspaceID = workspace.ID
 		resp.Body.OrganizationID = workspace.OrganizationID
@@ -457,6 +491,56 @@ func (h *WorkspaceHandler) CreateWorkspace(api huma.API) {
 		resp.Body.WorkspaceCreatedAt = workspace.CreatedAt.Format(time.RFC3339)
 		return resp, nil
 	})
+}
+
+var errOrganizationChangedDuringWorkspaceCreation = errors.New("organization changed during workspace creation")
+
+func (h *WorkspaceHandler) insertWorkspaceBoundary(ctx context.Context, organization *models.Organization, organizationMember *models.OrganizationMember, workspace *models.Workspace, member *models.WorkspaceMember, userID string) error {
+	return h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if organization != nil {
+			if _, err := tx.NewInsert().Model(organization).Exec(txCtx); err != nil {
+				return err
+			}
+		}
+		if organizationMember != nil {
+			if _, err := tx.NewInsert().Model(organizationMember).Exec(txCtx); err != nil {
+				return err
+			}
+		}
+		if organization == nil {
+			if err := lockOrganizationForWorkspaceCreation(txCtx, tx, workspace.OrganizationID, userID); err != nil {
+				return err
+			}
+		}
+		if _, err := tx.NewInsert().Model(workspace).Exec(txCtx); err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(member).Exec(txCtx); err != nil {
+			return err
+		}
+		if _, _, err := jobregistry.EnqueueMediaCleanup(txCtx, tx, workspace.ID, time.Time{}); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func lockOrganizationForWorkspaceCreation(ctx context.Context, tx bun.Tx, organizationID, userID string) error {
+	result, err := tx.NewUpdate().Model((*models.Organization)(nil)).Set("name = name").Where("id = ?", organizationID).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if count, _ := result.RowsAffected(); count != 1 {
+		return errOrganizationChangedDuringWorkspaceCreation
+	}
+	adminCount, err := tx.NewSelect().Model((*models.OrganizationMember)(nil)).Where("organization_id = ? AND user_id = ? AND role IN (?)", organizationID, userID, bun.List([]string{models.OrganizationRoleOwner, models.OrganizationRoleAdmin})).Count(ctx)
+	if err != nil {
+		return err
+	}
+	if adminCount != 1 {
+		return errOrganizationChangedDuringWorkspaceCreation
+	}
+	return nil
 }
 
 func (h *WorkspaceHandler) preferredOrganizationForNewWorkspace(ctx context.Context, userID string) (string, error) {
@@ -1181,6 +1265,110 @@ func (h *WorkspaceHandler) DeleteWorkspace(api huma.API) {
 			Deleted bool `json:"deleted"`
 		}{Deleted: true}}, nil
 	})
+}
+
+func (h *WorkspaceHandler) GetOrganizationDeletionPreview(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "get-organization-deletion-preview",
+		Method:      http.MethodGet,
+		Path:        "/organizations/{id}/deletion-preview",
+		Summary:     "Preview permanent Organization deletion",
+		Description: "Lists every owned Workspace, the local Paddle state, pending external work, access effects, retained evidence, irreversible loss, and every current blocker. Only the current Organization Owner can inspect it.",
+		Tags:        []string{"Organizations"},
+		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+	}, func(ctx context.Context, input *OrganizationDeletionPreviewInput) (*OrganizationDeletionPreviewOutput, error) {
+		if h.organizationDeletion == nil {
+			return nil, huma.Error500InternalServerError("Organization deletion is not configured")
+		}
+		preview, err := h.organizationDeletion.Preview(ctx, input.PathID, organizationDeletionActor(ctx))
+		if err != nil {
+			return nil, organizationDeletionError(err)
+		}
+		body := OrganizationDeletionPreview{OrganizationID: preview.OrganizationID, OrganizationName: preview.OrganizationName, BillingState: preview.BillingState, AccessEffects: preview.AccessEffects, Retained: preview.Retained, IrreversibleLoss: preview.IrreversibleLoss, RecoveryPossible: preview.RecoveryPossible, Blockers: make([]WorkspaceDeletionBlocker, 0, len(preview.Blockers))}
+		body.Workspaces = make([]OrganizationDeletionWorkspace, 0, len(preview.Workspaces))
+		for _, workspace := range preview.Workspaces {
+			body.Workspaces = append(body.Workspaces, OrganizationDeletionWorkspace{WorkspaceID: workspace.ID, WorkspaceName: workspace.Name})
+		}
+		body.PendingWork = OrganizationDeletionPendingWork{PendingProviderWrites: preview.PendingWork.ProviderWrites, PendingJobs: preview.PendingWork.Jobs, PendingCleanupJobs: preview.PendingWork.CleanupJobs}
+		for _, blocker := range preview.Blockers {
+			body.Blockers = append(body.Blockers, WorkspaceDeletionBlocker{Code: blocker.Code, Message: blocker.Message})
+		}
+		return &OrganizationDeletionPreviewOutput{Body: body}, nil
+	})
+}
+
+func (h *WorkspaceHandler) DeleteOrganization(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "delete-organization",
+		Method:      http.MethodDelete,
+		Path:        "/organizations/{id}",
+		Summary:     "Permanently delete an Organization and all of its Workspaces",
+		Description: "Atomically deletes the complete Organization boundary after current-Owner authorization, exact canonical-name confirmation, recent authentication, and a final blocker check. Required content-free billing and audit evidence remains.",
+		Tags:        []string{"Organizations"},
+		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+	}, func(ctx context.Context, input *OrganizationDeletionInput) (*OrganizationDeletionOutput, error) {
+		if h.organizationDeletion == nil {
+			return nil, huma.Error500InternalServerError("Organization deletion is not configured")
+		}
+		err := h.organizationDeletion.Delete(ctx, input.PathID, organizationDeletionActor(ctx), organizationdeletion.Confirmation{CanonicalName: input.Body.ConfirmName, CurrentPassword: input.Body.CurrentPassword, ReauthGrant: input.Body.ReauthGrant})
+		if err != nil {
+			return nil, organizationDeletionError(err)
+		}
+		output := &OrganizationDeletionOutput{}
+		output.Body.Deleted = true
+		return output, nil
+	})
+}
+
+func (h *WorkspaceHandler) CancelOrganizationCheckoutAttempts(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "cancel-organization-checkout-attempts",
+		Method:      http.MethodDelete,
+		Path:        "/organizations/{id}/billing-checkout-attempts/pending",
+		Summary:     "Cancel pending local Paddle checkout attempts",
+		Description: "Cancels checkout attempts that have not produced a Paddle subscription so an Organization Owner can resolve a deletion blocker without waiting.",
+		Tags:        []string{"Organizations"},
+		Errors:      []int{http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+	}, func(ctx context.Context, input *CancelOrganizationCheckoutAttemptsInput) (*CancelOrganizationCheckoutAttemptsOutput, error) {
+		if h.organizationDeletion == nil {
+			return nil, huma.Error500InternalServerError("Organization deletion is not configured")
+		}
+		canceled, err := h.organizationDeletion.CancelPendingCheckouts(ctx, input.PathID, organizationDeletionActor(ctx))
+		if err != nil {
+			return nil, organizationDeletionError(err)
+		}
+		output := &CancelOrganizationCheckoutAttemptsOutput{}
+		output.Body.Canceled = canceled
+		return output, nil
+	})
+}
+
+func organizationDeletionActor(ctx context.Context) organizationdeletion.Actor {
+	return organizationdeletion.Actor{UserID: middleware.GetUserID(ctx), SessionID: middleware.GetSessionID(ctx), TokenID: middleware.GetTokenID(ctx), WorkspaceBindingID: middleware.GetWorkspaceID(ctx)}
+}
+
+func organizationDeletionError(err error) error {
+	var useCaseErr *organizationdeletion.UseCaseError
+	if !errors.As(err, &useCaseErr) {
+		return huma.Error500InternalServerError("failed to process Organization deletion")
+	}
+	switch useCaseErr.Kind {
+	case organizationdeletion.ErrorInvalid:
+		return huma.Error400BadRequest(useCaseErr.Message)
+	case organizationdeletion.ErrorAuth:
+		return huma.Error401Unauthorized(useCaseErr.Message)
+	case organizationdeletion.ErrorForbidden:
+		return huma.Error403Forbidden(useCaseErr.Message)
+	case organizationdeletion.ErrorNotFound:
+		return huma.Error404NotFound(useCaseErr.Message)
+	case organizationdeletion.ErrorConflict:
+		return huma.Error409Conflict(useCaseErr.Message)
+	default:
+		return huma.Error500InternalServerError("failed to process Organization deletion")
+	}
 }
 
 func workspaceDeletionActor(ctx context.Context) workspacedeletion.Actor {

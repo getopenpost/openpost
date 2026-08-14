@@ -154,6 +154,7 @@ func newCommentsTestServer(t *testing.T, providers map[string]platform.Adapter) 
 	t.Helper()
 
 	db := createHandlerTestDB(t,
+		(*models.Organization)(nil),
 		(*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil),
 		(*models.SocialAccount)(nil),
@@ -164,7 +165,9 @@ func newCommentsTestServer(t *testing.T, providers map[string]platform.Adapter) 
 		(*models.Job)(nil),
 	)
 	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Comments"}).Exec(ctx)
+	_, err := db.NewInsert().Model(&models.Organization{ID: "organization-1", Name: "Comments"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", OrganizationID: "organization-1", Name: "Comments"}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(ctx)
 	require.NoError(t, err)

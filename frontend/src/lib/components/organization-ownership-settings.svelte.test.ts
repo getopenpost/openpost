@@ -77,6 +77,7 @@ describe('OrganizationOwnershipSettings', () => {
 			active: true
 		});
 		await expect.element(screen.getByText(/beta-owner@example.com/)).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Delete Organization' })).toBeVisible();
 		expect(mocks.get).toHaveBeenCalledWith('/organizations/{id}/team', {
 			params: { path: { id: 'org-beta' } }
 		});

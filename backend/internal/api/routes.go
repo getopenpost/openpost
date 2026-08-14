@@ -275,10 +275,12 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	mcpOAuthHandler.RegisterAPIRoutes(api)
 
 	workspaceHandler := handlers.NewWorkspaceHandler(deps.DB, deps.Authenticator, deps.Entitlement)
+	workspaceHandler.SetSensitiveActionServices(deps.AuthService, deps.IdentityService)
 	workspaceHandler.SetFrontendURL(deps.FrontendURL)
 	workspaceHandler.SetNotificationService(deps.NotificationService)
 	workspaceHandler.CreateWorkspace(api)
 	workspaceHandler.ListWorkspaces(api)
+	workspaceHandler.GetWorkspaceDeletionPreview(api)
 	workspaceHandler.DeleteWorkspace(api)
 	workspaceHandler.ListOrganizations(api)
 	workspaceHandler.ListOrganizationTeam(api)

@@ -392,9 +392,17 @@ export class WorkspaceContext {
 		}
 	}
 
-	async deleteWorkspace(workspaceID: string): Promise<void> {
+	async deleteWorkspace(
+		workspaceID: string,
+		confirmation: { confirmName: string; currentPassword: string; reauthGrant?: string }
+	): Promise<void> {
 		const { error } = await client.DELETE('/workspaces/{id}', {
-			params: { path: { id: workspaceID } }
+			params: { path: { id: workspaceID } },
+			body: {
+				confirm_name: confirmation.confirmName,
+				current_password: confirmation.currentPassword,
+				reauth_grant: confirmation.reauthGrant
+			}
 		});
 		if (error) {
 			throw new WorkspaceContextError(

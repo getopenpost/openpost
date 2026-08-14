@@ -15,12 +15,11 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/middleware"
-	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/queue"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/mediastore"
+	"github.com/openpost/backend/internal/services/workspacedeletion"
 	"github.com/uptrace/bun"
 )
 
@@ -818,7 +817,7 @@ func (h *AccountLifecycleHandler) deleteDatabaseRecords(
 			return err
 		}
 		var err error
-		cleanupJobIDs, err = enqueueStorageCleanup(txCtx, tx, objectKeys)
+		cleanupJobIDs, err = workspacedeletion.EnqueueStorageCleanup(txCtx, tx, objectKeys)
 		if err != nil {
 			return err
 		}
@@ -826,7 +825,7 @@ func (h *AccountLifecycleHandler) deleteDatabaseRecords(
 			return err
 		}
 		if len(workspaceIDs) > 0 {
-			if err := deleteWorkspaceData(txCtx, tx, workspaceIDs); err != nil {
+			if err := workspacedeletion.DeleteWorkspaceData(txCtx, tx, workspaceIDs); err != nil {
 				return err
 			}
 		}
@@ -877,33 +876,6 @@ func transferInstanceAdministration(ctx context.Context, tx bun.Tx, userID, succ
 		return errors.New("instance administrator successor changed; review account deletion again")
 	}
 	return nil
-}
-
-const storageCleanupBatchSize = queue.StorageDeleteMaxKeys
-
-func enqueueStorageCleanup(ctx context.Context, tx bun.Tx, objectKeys []string) ([]string, error) {
-	if len(objectKeys) == 0 {
-		return nil, nil
-	}
-	jobIDs := make([]string, 0, (len(objectKeys)+storageCleanupBatchSize-1)/storageCleanupBatchSize)
-	for start := 0; start < len(objectKeys); start += storageCleanupBatchSize {
-		end := min(start+storageCleanupBatchSize, len(objectKeys))
-		payload, err := json.Marshal(struct {
-			Keys []string `json:"keys"`
-		}{Keys: objectKeys[start:end]})
-		if err != nil {
-			return nil, err
-		}
-		job, err := jobregistry.NewJob(jobregistry.TypeStorageDelete, string(payload), time.Now().UTC())
-		if err != nil {
-			return nil, err
-		}
-		if _, err := tx.NewInsert().Model(job).Exec(ctx); err != nil {
-			return nil, err
-		}
-		jobIDs = append(jobIDs, job.ID)
-	}
-	return jobIDs, nil
 }
 
 func transferRetainedOrganizations(ctx context.Context, tx bun.Tx, userID string, successors map[string]string) error {
@@ -984,7 +956,7 @@ func deleteUserScopedData(ctx context.Context, tx bun.Tx, userID string) error {
 			return err
 		}
 	}
-	if err := deleteJobsReferencing(ctx, tx, map[string]struct{}{userID: {}}); err != nil {
+	if err := workspacedeletion.DeleteJobsReferencing(ctx, tx, map[string]struct{}{userID: {}}); err != nil {
 		return err
 	}
 	for _, model := range []any{
@@ -1019,175 +991,4 @@ func deleteUserRow(ctx context.Context, tx bun.Tx, userID string) error {
 		return fmt.Errorf("delete user: expected one row")
 	}
 	return nil
-}
-
-type workspaceDeletionIDs struct {
-	posts        []string
-	publications []string
-	renditions   []string
-	accounts     []string
-	media        []string
-}
-
-type modelDeletion struct {
-	model any
-	where string
-	args  []any
-}
-
-func deleteWorkspaceData(ctx context.Context, tx bun.Tx, workspaceIDs []string) error {
-	ids, err := loadWorkspaceDeletionIDs(ctx, tx, workspaceIDs)
-	if err != nil {
-		return err
-	}
-	if err := deleteJobsReferencing(ctx, tx, ids.jobReferences(workspaceIDs)); err != nil {
-		return err
-	}
-	for _, deletion := range workspaceDeletionPlan(workspaceIDs, ids) {
-		if _, err := tx.NewDelete().Model(deletion.model).Where(deletion.where, deletion.args...).Exec(ctx); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func loadWorkspaceDeletionIDs(ctx context.Context, tx bun.Tx, workspaceIDs []string) (workspaceDeletionIDs, error) {
-	ids := workspaceDeletionIDs{}
-	for _, scan := range []struct {
-		model any
-		dest  any
-	}{
-		{(*models.Post)(nil), &ids.posts},
-		{(*models.Publication)(nil), &ids.publications},
-		{(*models.SocialAccount)(nil), &ids.accounts},
-		{(*models.MediaAttachment)(nil), &ids.media},
-	} {
-		if err := tx.NewSelect().Model(scan.model).Column("id").
-			Where("workspace_id IN (?)", bun.List(workspaceIDs)).Scan(ctx, scan.dest); !isNoRowsOrNil(err) {
-			return ids, err
-		}
-	}
-	if len(ids.publications) > 0 {
-		if err := tx.NewSelect().Model((*models.Rendition)(nil)).Column("id").
-			Where("publication_id IN (?)", bun.List(ids.publications)).Scan(ctx, &ids.renditions); !isNoRowsOrNil(err) {
-			return ids, err
-		}
-	}
-	return ids, nil
-}
-
-func (ids workspaceDeletionIDs) jobReferences(workspaceIDs []string) map[string]struct{} {
-	references := make(map[string]struct{}, len(workspaceIDs)+len(ids.posts)+len(ids.publications)+len(ids.accounts)+len(ids.media))
-	for _, values := range [][]string{workspaceIDs, ids.posts, ids.publications, ids.accounts, ids.media} {
-		for _, id := range values {
-			references[id] = struct{}{}
-		}
-	}
-	return references
-}
-
-func workspaceDeletionPlan(workspaceIDs []string, ids workspaceDeletionIDs) []modelDeletion {
-	deletions := []modelDeletion{}
-	deletions = appendIDDeletions(deletions, workspaceIDs, "workspace_id IN (?)",
-		(*models.AnalyticsAccountSnapshot)(nil),
-		(*models.AnalyticsRenditionSnapshot)(nil),
-		(*models.AnalyticsSyncState)(nil))
-	deletions = appendIDDeletions(deletions, ids.renditions, "rendition_id IN (?)",
-		(*models.RenditionMediaDelivery)(nil),
-		(*models.RenditionMedia)(nil))
-	deletions = appendIDDeletions(deletions, ids.publications, "publication_id IN (?)",
-		(*models.PublicationAsset)(nil),
-		(*models.PublicationAuthorization)(nil),
-		(*models.PublicationLifecycleEvent)(nil),
-		(*models.Rendition)(nil))
-	deletions = appendIDDeletions(deletions, ids.posts, "post_id IN (?)",
-		(*models.PostMediaDelivery)(nil),
-		(*models.PostDestination)(nil),
-		(*models.PostMedia)(nil),
-		(*models.PostVariant)(nil),
-		(*models.ThreadDraft)(nil))
-	deletions = appendIDDeletions(deletions, ids.accounts, "social_account_id IN (?)",
-		(*models.PostMediaDelivery)(nil),
-		(*models.RenditionMediaDelivery)(nil))
-	deletions = appendIDDeletions(deletions, ids.media, "media_id IN (?)",
-		(*models.PostMediaDelivery)(nil),
-		(*models.RenditionMediaDelivery)(nil),
-		(*models.PostMedia)(nil),
-		(*models.PublicationAsset)(nil),
-		(*models.RenditionMedia)(nil))
-	deletions = appendIDDeletions(deletions, workspaceIDs, "workspace_id IN (?)",
-		(*models.Post)(nil),
-		(*models.Publication)(nil),
-		(*models.SocialAccount)(nil),
-		(*models.MediaAttachment)(nil),
-		(*models.PostingSchedule)(nil),
-		(*models.Prompt)(nil),
-		(*models.UsageCounter)(nil),
-		(*models.OAuthAccountSelection)(nil),
-		(*models.XOAuthRequestToken)(nil),
-		(*models.WorkspaceFirstConnection)(nil),
-		(*models.WorkspaceFirstComposition)(nil),
-		(*models.WorkspaceInvitation)(nil),
-		(*models.WorkspaceMember)(nil),
-		(*models.UserNotification)(nil),
-		(*models.MCPToolCall)(nil))
-	return appendIDDeletions(deletions, workspaceIDs, "id IN (?)", (*models.Workspace)(nil))
-}
-
-func appendIDDeletions(deletions []modelDeletion, ids []string, where string, modelsToDelete ...any) []modelDeletion {
-	if len(ids) == 0 {
-		return deletions
-	}
-	for _, model := range modelsToDelete {
-		deletions = append(deletions, modelDeletion{
-			model: model,
-			where: where,
-			args:  []any{bun.List(ids)},
-		})
-	}
-	return deletions
-}
-func deleteJobsReferencing(ctx context.Context, tx bun.Tx, references map[string]struct{}) error {
-	var jobs []models.Job
-	if err := tx.NewSelect().Model(&jobs).Column("id", "payload").Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return err
-	}
-	for _, job := range jobs {
-		if !jobPayloadReferences(job.Payload, references) {
-			continue
-		}
-		if _, err := tx.NewDelete().Model((*models.Job)(nil)).Where("id = ?", job.ID).Exec(ctx); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func jobPayloadReferences(raw string, references map[string]struct{}) bool {
-	var payload any
-	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
-		return false
-	}
-	var containsReference func(any) bool
-	containsReference = func(value any) bool {
-		switch typed := value.(type) {
-		case string:
-			_, ok := references[typed]
-			return ok
-		case []any:
-			for _, item := range typed {
-				if containsReference(item) {
-					return true
-				}
-			}
-		case map[string]any:
-			for _, item := range typed {
-				if containsReference(item) {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	return containsReference(payload)
 }

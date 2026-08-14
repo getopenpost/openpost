@@ -78,3 +78,28 @@ again; removal deletes the workspace membership instead.
 
 The access history records invitation, role, status, and removal changes. Only
 active workspace admins can view it.
+
+## Delete a Workspace permanently
+
+Only the Organization Owner can delete a Workspace. Open **Settings → General**
+and choose **Delete workspace** to inspect the current deletion preview. The
+preview lists the content and access that will be removed, the billing, audit,
+tax, or legal records that may remain, whether recovery is possible, and every
+blocker that must be resolved first.
+
+Deletion is permanent. OpenPost requires the exact current Workspace name and a
+recent password, passkey, or linked sign-in check. The server checks ownership
+before deletion, then repeats the name and blocker checks inside the deletion
+transaction. Accepting a browser confirmation by itself never deletes data.
+
+An Organization must keep at least one Workspace. An active billing subscription
+assigned to the Workspace, an unfinished provider write, or an active cleanup
+job also blocks deletion. Follow the blocker text to create another Workspace,
+move or cancel billing, or wait for the pending work to reach a safe outcome.
+If deletion fails, the dialog keeps the entered name and the current Workspace
+selected, and OpenPost does not remove its data.
+
+After successful deletion, OpenPost records Organization-scoped audit evidence
+with the Workspace ID, canonical name, actor, and time. That evidence remains
+available to the Organization Owner even though the Workspace and its content
+cannot be recovered.

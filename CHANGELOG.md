@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Permanent Workspace deletion now shows exact removal, retention, recovery, and lifecycle-blocker facts; requires the Organization Owner, the canonical Workspace name, and recent authentication; rechecks blockers atomically; preserves dialog and data state on failure; and retains Organization-scoped audit evidence after success.
 - Added a read-only deployment proof for the public Markdown surfaces that binds the clean reviewed Git revision to both Cloudflare Pages builds by full commit hash, exact local and live artifacts, discovery and native-interface behavior, and a separate 24-hour AI crawl observation. The documentation full corpus now links only to explicit generated Markdown or intentional native machine assets.
 - Instance administrators can now page, filter, and export the same permission-safe audit vocabulary across every Organization, while Organization Owner boundaries remain unchanged and ordinary users, Workspace roles, scoped tokens, and other non-browser credentials cannot request instance-wide evidence.
 - Added a deterministic Cloudflare plan for both public hosts. It uses the route catalogues to redirect known paths and select Markdown only for exact requests, checks Free-plan limits before changes, inspects conflicts without writing, records apply evidence, and generates a reviewable rollback.

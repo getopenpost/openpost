@@ -25,6 +25,7 @@ const (
 	SourcePublicationLifecycle     Source = "publication_lifecycle"
 	SourceProviderWrite            Source = "provider_write"
 	SourceWorkspaceAccess          Source = "workspace_access"
+	SourceWorkspaceLifecycle       Source = "workspace_lifecycle"
 )
 
 type Result string
@@ -53,6 +54,7 @@ const (
 	ResourceSession                  ResourceType = "session"
 	ResourceWorkspaceInvitation      ResourceType = "workspace_invitation"
 	ResourceWorkspaceMember          ResourceType = "workspace_member"
+	ResourceWorkspace                ResourceType = "workspace"
 )
 
 var identityResourcePrefixes = map[ResourceType]string{
@@ -73,6 +75,7 @@ var sourceResourceTypes = map[Source]map[ResourceType]struct{}{
 	SourcePublicationLifecycle:     {ResourcePublication: {}},
 	SourceProviderWrite:            {ResourceProviderWrite: {}},
 	SourceWorkspaceAccess:          {ResourceWorkspaceMember: {}, ResourceWorkspaceInvitation: {}},
+	SourceWorkspaceLifecycle:       {ResourceWorkspace: {}},
 }
 
 type AuditChangedField struct {
@@ -158,6 +161,7 @@ func (s *Service) list(ctx context.Context, input Query) (Page, error) {
 	}{
 		{SourceIdentity, s.listIdentity},
 		{SourceWorkspaceAccess, s.listWorkspaceAccess},
+		{SourceWorkspaceLifecycle, s.listWorkspaceLifecycle},
 		{SourceImpersonation, s.listImpersonation},
 		{SourceBilling, s.listBilling},
 		{SourceMCP, s.listMCP},
@@ -187,6 +191,20 @@ func (s *Service) list(ctx context.Context, input Query) (Page, error) {
 		page.NextCursor = &Cursor{OccurredAt: last.OccurredAt, Source: last.Source, ID: last.ID}
 	}
 	return page, nil
+}
+
+func (s *Service) listWorkspaceLifecycle(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
+	var rows []models.WorkspaceLifecycleAuditEvent
+	query := s.db.NewSelect().Model(&rows).OrderExpr("created_at DESC, id DESC").Limit(limit)
+	if input.OrganizationID != "" {
+		query = query.Where("organization_id = ?", input.OrganizationID)
+	}
+	query = applyWorkspaceFilter(query, "workspace_id", input)
+	query = applyCommonSQLFilters(query, "created_at", "actor_user_id", "action", SourceWorkspaceLifecycle, input)
+	if err := scan(ctx, query); err != nil {
+		return nil, err
+	}
+	return projectAndFilter(rows, input, projectWorkspaceLifecycle), nil
 }
 
 func (s *Service) listIdentity(ctx context.Context, input Query, limit int) ([]AuditEvent, error) {
@@ -550,6 +568,12 @@ func projectWorkspaceAccess(row models.WorkspaceAccessAuditEvent) AuditEvent {
 		{Field: "status", Previous: safeStatus(row.PreviousStatus), Current: safeStatus(row.Status)},
 	})
 	return newEvent(row.ID, SourceWorkspaceAccess, row.ActorUserID, "", row.Action, resourceType, resourceID, row.WorkspaceID, ResultSucceeded, changed, row.CreatedAt)
+}
+
+func projectWorkspaceLifecycle(row models.WorkspaceLifecycleAuditEvent) AuditEvent {
+	event := newEvent(row.ID, SourceWorkspaceLifecycle, row.ActorUserID, "", row.Action, ResourceWorkspace, row.WorkspaceID, row.WorkspaceID, ResultSucceeded, []AuditChangedField{{Field: "name", Previous: row.WorkspaceName}}, row.CreatedAt)
+	event.Resource.OrganizationID = row.OrganizationID
+	return event
 }
 
 func projectImpersonation(row models.UserImpersonationGrant, suffix, action string, occurred time.Time) AuditEvent {

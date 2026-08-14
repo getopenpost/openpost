@@ -570,6 +570,20 @@ type WorkspaceAccessAuditEvent struct {
 	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
+// WorkspaceLifecycleAuditEvent retains permission-safe evidence after the
+// Workspace and its content have been permanently removed.
+type WorkspaceLifecycleAuditEvent struct {
+	bun.BaseModel `bun:"table:workspace_lifecycle_audit_events"`
+
+	ID             string    `bun:",pk" json:"id"`
+	OrganizationID string    `bun:"organization_id,notnull" json:"organization_id"`
+	WorkspaceID    string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	WorkspaceName  string    `bun:"workspace_name,notnull" json:"workspace_name"`
+	ActorUserID    string    `bun:"actor_user_id,nullzero" json:"actor_user_id,omitempty"`
+	Action         string    `bun:",notnull" json:"action"`
+	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 type UsageCounter struct {
 	bun.BaseModel `bun:"table:usage_counters"`
 

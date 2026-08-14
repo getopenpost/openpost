@@ -183,15 +183,7 @@
 				<p class="text-sm font-medium text-destructive">{m.workspace_delete_title()}</p>
 				<p class="text-sm text-muted-foreground">{m.workspace_delete_description()}</p>
 			</div>
-			<Button
-				variant="destructive"
-				class="shrink-0"
-				disabled={workspaceCtx.workspaces.length <= 1}
-				title={workspaceCtx.workspaces.length <= 1
-					? m.workspace_delete_only_workspace()
-					: undefined}
-				onclick={onDelete}
-			>
+			<Button variant="destructive" class="shrink-0" onclick={onDelete}>
 				{m.workspace_delete_confirm()}
 			</Button>
 		</div>

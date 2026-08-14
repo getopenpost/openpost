@@ -4803,6 +4803,33 @@
 				"required": ["deleted"],
 				"type": "object"
 			},
+			"DeleteWorkspaceInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DeleteWorkspaceInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"confirm_name": {
+						"description": "Exact canonical Workspace name",
+						"minLength": 1,
+						"type": "string"
+					},
+					"current_password": {
+						"description": "Current account password",
+						"type": "string"
+					},
+					"reauth_grant": {
+						"description": "One-time grant for workspace.delete",
+						"type": "string"
+					}
+				},
+				"required": ["confirm_name"],
+				"type": "object"
+			},
 			"DeleteWorkspaceOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -17464,6 +17491,69 @@
 				"required": ["id", "workspace_id", "action", "created_at"],
 				"type": "object"
 			},
+			"WorkspaceDeletionBlocker": {
+				"additionalProperties": false,
+				"properties": {
+					"code": {
+						"type": "string"
+					},
+					"message": {
+						"type": "string"
+					}
+				},
+				"required": ["code", "message"],
+				"type": "object"
+			},
+			"WorkspaceDeletionPreview": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/WorkspaceDeletionPreview.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"blockers": {
+						"items": {
+							"$ref": "#/components/schemas/WorkspaceDeletionBlocker"
+						},
+						"type": ["array", "null"]
+					},
+					"recovery_possible": {
+						"type": "boolean"
+					},
+					"removed": {
+						"items": {
+							"enum": ["access", "content", "connected_assets"],
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"retained": {
+						"items": {
+							"enum": ["required_records"],
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"workspace_id": {
+						"type": "string"
+					},
+					"workspace_name": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"workspace_id",
+					"workspace_name",
+					"removed",
+					"retained",
+					"recovery_possible",
+					"blockers"
+				],
+				"type": "object"
+			},
 			"WorkspaceInvitationResponse": {
 				"additionalProperties": false,
 				"properties": {
@@ -18936,6 +19026,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"workspace",
 								"workspace_member",
 								"workspace_invitation",
 								"impersonation",
@@ -19120,6 +19211,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"workspace",
 								"workspace_member",
 								"workspace_invitation",
 								"impersonation",
@@ -19318,6 +19410,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"workspace",
 								"workspace_member",
 								"workspace_invitation",
 								"impersonation",
@@ -30706,6 +30799,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"workspace",
 								"workspace_member",
 								"workspace_invitation",
 								"impersonation",
@@ -30890,6 +30984,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"workspace",
 								"workspace_member",
 								"workspace_invitation",
 								"impersonation",
@@ -31088,6 +31183,7 @@
 								"identity",
 								"reauthentication",
 								"identity_configuration",
+								"workspace",
 								"workspace_member",
 								"workspace_invitation",
 								"impersonation",
@@ -37814,7 +37910,7 @@
 		},
 		"/workspaces/{id}": {
 			"delete": {
-				"description": "Permanently deletes the workspace, its members, invitations, posts, publications, social accounts, media, schedules, prompts, and analytics. Requires a workspace admin role and at least one other workspace.",
+				"description": "Permanently deletes the Workspace and its content only after Organization Owner authorization, exact canonical-name confirmation, recent authentication, and lifecycle-blocker checks. Billing and required audit records remain.",
 				"operationId": "delete-workspace",
 				"parameters": [
 					{
@@ -37828,6 +37924,16 @@
 						}
 					}
 				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/DeleteWorkspaceInputBody"
+							}
+						}
+					},
+					"required": true
+				},
 				"responses": {
 					"200": {
 						"content": {
@@ -37838,6 +37944,26 @@
 							}
 						},
 						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
 					},
 					"403": {
 						"content": {
@@ -37890,7 +38016,7 @@
 						"description": "Internal Server Error"
 					}
 				},
-				"summary": "Delete a workspace and its content",
+				"summary": "Permanently delete a Workspace and its content",
 				"tags": ["Workspaces"]
 			}
 		},
@@ -37980,6 +38106,78 @@
 					}
 				},
 				"summary": "List workspace access changes",
+				"tags": ["Workspaces"]
+			}
+		},
+		"/workspaces/{id}/deletion-preview": {
+			"get": {
+				"description": "Explains permanent data loss, retained records, recovery, and current lifecycle blockers. Only the Organization Owner can inspect this preview.",
+				"operationId": "get-workspace-deletion-preview",
+				"parameters": [
+					{
+						"description": "Workspace ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/WorkspaceDeletionPreview"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Preview permanent Workspace deletion",
 				"tags": ["Workspaces"]
 			}
 		},

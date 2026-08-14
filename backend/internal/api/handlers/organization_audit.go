@@ -22,7 +22,7 @@ type AuditFilterInput struct {
 	WorkspaceID  string `query:"workspace_id" doc:"Restrict evidence to one Workspace"`
 	ActorUserID  string `query:"actor_user_id" doc:"Restrict evidence to one opaque actor user ID"`
 	Action       string `query:"action" maxLength:"100" doc:"Restrict evidence to one exact domain action"`
-	ResourceType string `query:"resource_type" enum:"provider,policy,domain,session,identity,reauthentication,identity_configuration,workspace_member,workspace_invitation,impersonation,billing,mcp_tool_call,publication,publication_authorization,provider_write" doc:"Restrict evidence to one resource type"`
+	ResourceType string `query:"resource_type" enum:"provider,policy,domain,session,identity,reauthentication,identity_configuration,workspace,workspace_member,workspace_invitation,impersonation,billing,mcp_tool_call,publication,publication_authorization,provider_write" doc:"Restrict evidence to one resource type"`
 	Result       string `query:"result" enum:"succeeded,failed,pending" doc:"Restrict evidence to one result"`
 	From         string `query:"from" doc:"Inclusive RFC 3339 start time"`
 	Before       string `query:"before" doc:"Exclusive RFC 3339 end time"`

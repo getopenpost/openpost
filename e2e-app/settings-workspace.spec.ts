@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import { authenticatePage, createWorkspace, password, registerUser } from "./helpers";
 
 test("workspace repost rules save thresholds, delays, and cross-workspace targets", async ({
   page,
@@ -137,14 +137,54 @@ test("workspace settings delete the active workspace and keep another", async ({
   const unique = Date.now().toString(36);
   const auth = await registerUser(request, `workspace-delete-${unique}@example.com`);
   const doomed = await createWorkspace(request, auth.token, "Doomed Workspace");
-  const keeper = await createWorkspace(request, auth.token, "Keeper Workspace");
+  const keeperResponse = await request.post("/api/v1/workspaces", {
+    headers: { Authorization: `Bearer ${auth.token}` },
+    data: { name: "Keeper Workspace", organization_id: doomed.organization_id },
+  });
+  expect(keeperResponse.ok()).toBeTruthy();
+  const keeper = await keeperResponse.json();
   await authenticatePage(page, auth.token);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/settings?tab=general&workspace=${doomed.id}`);
 
+  const renameResponse = await request.patch(`/api/v1/workspaces/${doomed.id}/settings`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+    data: { name: "Canonical Workspace" },
+  });
+  expect(renameResponse.ok()).toBeTruthy();
+
   await page.getByRole("button", { name: "Delete workspace" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "Delete this workspace?" })).toBeVisible();
+  await expect(dialog.getByText("Removed permanently")).toBeVisible();
+  await expect(dialog.getByText("Retained records")).toBeVisible();
+  await expect(
+    dialog.getByText("This Workspace cannot be recovered after deletion."),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 320, height: 760 });
+  await expect(dialog).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await dialog.getByLabel("Enter Canonical Workspace exactly").fill("Canonical Workspace");
+  await dialog.getByLabel("Current password").fill("wrong-password");
+  await dialog.getByRole("button", { name: "Delete workspace" }).click();
+  await expect(dialog.getByText("recent reauthentication is required")).toBeVisible();
+  await expect(dialog.getByLabel("Enter Canonical Workspace exactly")).toHaveValue(
+    "Canonical Workspace",
+  );
+  await expect(dialog).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("workspace")).toBe(doomed.id);
+
+  const retainedAfterFailure = await request.get(`/api/v1/workspaces`, {
+    headers: { Authorization: `Bearer ${auth.token}` },
+  });
+  expect(
+    (await retainedAfterFailure.json()).map((workspace: { id: string }) => workspace.id),
+  ).toContain(doomed.id);
+
+  await dialog.getByLabel("Current password").fill(password);
   await dialog.getByRole("button", { name: "Delete workspace" }).click();
 
   await expect(page).toHaveURL(/\/$/);

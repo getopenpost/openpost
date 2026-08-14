@@ -8,7 +8,7 @@
 	import PageContainer from '$lib/components/page-container.svelte';
 	import SettingsNavigation from '$lib/components/settings-navigation.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import WorkspaceDeleteDialog from '$lib/components/workspace-delete-dialog.svelte';
 	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
 	import OrganizationSSOSettings from '$lib/components/organization-sso-settings.svelte';
 	import OrganizationAuditSettings from '$lib/components/organization-audit-settings.svelte';
@@ -200,17 +200,16 @@
 		void goto(resolve(continuation.href as '/'));
 	}
 
-	async function deleteCurrentWorkspace() {
+	async function deleteCurrentWorkspace(confirmation: {
+		confirmName: string;
+		currentPassword: string;
+		reauthGrant?: string;
+	}) {
 		const workspace = workspaceCtx.currentWorkspace;
 		if (!workspace) return;
-		try {
-			await workspaceCtx.deleteWorkspace(workspace.id);
-			showToast(m.workspace_delete_success());
-			await goto(resolve('/'));
-		} catch (error) {
-			showToast(m.workspace_delete_failed(), 'error');
-			console.error('Failed to delete workspace:', error);
-		}
+		await workspaceCtx.deleteWorkspace(workspace.id, confirmation);
+		showToast(m.workspace_delete_success());
+		await goto(resolve('/'));
 	}
 </script>
 
@@ -381,10 +380,10 @@
 	{/if}
 </PageContainer>
 
-<DestructiveConfirmDialog
+<WorkspaceDeleteDialog
 	bind:open={destructiveDialogOpen}
-	title={m.workspace_delete_title()}
-	description={m.workspace_delete_description()}
-	confirmLabel={m.workspace_delete_confirm()}
+	workspaceID={workspaceCtx.currentWorkspace?.id ?? ''}
+	workspaceName={workspaceCtx.currentWorkspace?.name ?? ''}
+	hasPassword={Boolean(authState.user?.password_usable)}
 	onConfirm={deleteCurrentWorkspace}
 />

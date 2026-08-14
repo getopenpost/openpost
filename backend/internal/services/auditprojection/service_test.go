@@ -25,6 +25,7 @@ func newProjectionTestDB(t *testing.T) *bun.DB {
 		(*models.Organization)(nil), (*models.OrganizationMember)(nil), (*models.Workspace)(nil),
 		(*models.IdentityProvider)(nil),
 		(*models.IdentityAuditEvent)(nil), (*models.WorkspaceAccessAuditEvent)(nil),
+		(*models.WorkspaceLifecycleAuditEvent)(nil),
 		(*models.UserImpersonationGrant)(nil), (*models.BillingCheckoutAttempt)(nil),
 		(*models.UserImpersonationGrantOrganization)(nil),
 		(*models.MCPToolCall)(nil), (*models.PublicationLifecycleEvent)(nil),
@@ -34,6 +35,26 @@ func newProjectionTestDB(t *testing.T) *bun.DB {
 		require.NoError(t, err)
 	}
 	return db
+}
+
+func TestListProjectsRetainedWorkspaceDeletionEvidence(t *testing.T) {
+	db := newProjectionTestDB(t)
+	now := time.Date(2026, time.August, 14, 12, 0, 0, 0, time.UTC)
+	_, err := db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "One", CreatedAt: now}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceLifecycleAuditEvent{
+		ID: "deletion-1", OrganizationID: "org-1", WorkspaceID: "deleted-ws", WorkspaceName: "Editorial",
+		ActorUserID: "owner-1", Action: "workspace.deleted", CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	page, err := NewService(db).List(t.Context(), Query{OrganizationID: "org-1", WorkspaceID: "deleted-ws", ResourceType: ResourceWorkspace, Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, page.Items, 1)
+	require.Equal(t, SourceWorkspaceLifecycle, page.Items[0].Source)
+	require.Equal(t, "workspace.deleted", page.Items[0].Action)
+	require.Equal(t, AuditResource{Type: ResourceWorkspace, ID: "deleted-ws", OrganizationID: "org-1", WorkspaceID: "deleted-ws"}, page.Items[0].Resource)
+	require.Equal(t, []AuditChangedField{{Field: "name", Previous: "Editorial"}}, page.Items[0].ChangedFields)
 }
 
 func TestListProjectsSafeOrganizationAndWorkspaceEvidence(t *testing.T) {

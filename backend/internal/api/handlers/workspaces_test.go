@@ -49,6 +49,7 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 		(*models.Publication)(nil),
 		(*models.WorkspaceInvitation)(nil),
 		(*models.WorkspaceAccessAuditEvent)(nil),
+		(*models.WorkspaceLifecycleAuditEvent)(nil),
 		(*models.IdentityAuditEvent)(nil),
 		(*models.IdentityProvider)(nil),
 		(*models.UserImpersonationGrant)(nil),

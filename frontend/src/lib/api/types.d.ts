@@ -3848,8 +3848,8 @@ export interface paths {
         put?: never;
         post?: never;
         /**
-         * Delete a workspace and its content
-         * @description Permanently deletes the workspace, its members, invitations, posts, publications, social accounts, media, schedules, prompts, and analytics. Requires a workspace admin role and at least one other workspace.
+         * Permanently delete a Workspace and its content
+         * @description Permanently deletes the Workspace and its content only after Organization Owner authorization, exact canonical-name confirmation, recent authentication, and lifecycle-blocker checks. Billing and required audit records remain.
          */
         delete: operations["delete-workspace"];
         options?: never;
@@ -3869,6 +3869,26 @@ export interface paths {
          * @description Returns the newest role, member-state, invitation, and removal events. Requires an active workspace administrator.
          */
         get: operations["list-workspace-access-audit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workspaces/{id}/deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview permanent Workspace deletion
+         * @description Explains permanent data loss, retained records, recovery, and current lifecycle blockers. Only the Organization Owner can inspect this preview.
+         */
+        get: operations["get-workspace-deletion-preview"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6157,6 +6177,20 @@ export interface components {
              */
             readonly $schema?: string;
             deleted: boolean;
+        };
+        DeleteWorkspaceInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DeleteWorkspaceInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Exact canonical Workspace name */
+            confirm_name: string;
+            /** @description Current account password */
+            current_password?: string;
+            /** @description One-time grant for workspace.delete */
+            reauth_grant?: string;
         };
         DeleteWorkspaceOutputBody: {
             /**
@@ -11569,6 +11603,24 @@ export interface components {
             subject_user_id?: string;
             workspace_id: string;
         };
+        WorkspaceDeletionBlocker: {
+            code: string;
+            message: string;
+        };
+        WorkspaceDeletionPreview: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/WorkspaceDeletionPreview.json
+             */
+            readonly $schema?: string;
+            blockers: components["schemas"]["WorkspaceDeletionBlocker"][] | null;
+            recovery_possible: boolean;
+            removed: ("access" | "content" | "connected_assets")[] | null;
+            retained: "required_records"[] | null;
+            workspace_id: string;
+            workspace_name: string;
+        };
         WorkspaceInvitationResponse: {
             /**
              * Format: uri
@@ -12584,7 +12636,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -12661,7 +12713,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -12740,7 +12792,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -21753,7 +21805,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -21831,7 +21883,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -21911,7 +21963,7 @@ export interface operations {
                 /** @description Restrict evidence to one exact domain action */
                 action?: string;
                 /** @description Restrict evidence to one resource type */
-                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
+                resource_type?: "provider" | "policy" | "domain" | "session" | "identity" | "reauthentication" | "identity_configuration" | "workspace" | "workspace_member" | "workspace_invitation" | "impersonation" | "billing" | "mcp_tool_call" | "publication" | "publication_authorization" | "provider_write";
                 /** @description Restrict evidence to one result */
                 result?: "succeeded" | "failed" | "pending";
                 /** @description Inclusive RFC 3339 start time */
@@ -27018,7 +27070,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteWorkspaceInputBody"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -27027,6 +27083,24 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeleteWorkspaceOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
             /** @description Forbidden */
@@ -27098,6 +27172,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkspaceAccessAuditResponse"][] | null;
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-workspace-deletion-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Workspace ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceDeletionPreview"];
                 };
             };
             /** @description Forbidden */

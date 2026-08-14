@@ -85,6 +85,30 @@ test("requires each Markdown artifact to name its exact canonical HTML URL", () 
       ),
     /does not name its exact canonical URL/u,
   );
+  assert.equal(
+    assertCanonicalProvenance(
+      "Canonical: https://openpost.social/\n",
+      "https://openpost.social",
+      "index.md",
+    ),
+    "Canonical: https://openpost.social/",
+  );
+  for (const normalizedButNotExact of [
+    "https://docs.openpost.social/usage/./composing-posts",
+    "https://DOCS.openpost.social/usage/composing-posts",
+    "https://docs.openpost.social:443/usage/composing-posts",
+    "not a URL",
+  ]) {
+    assert.throws(
+      () =>
+        assertCanonicalProvenance(
+          `Canonical: ${normalizedButNotExact}\n`,
+          "https://docs.openpost.social/usage/composing-posts",
+          "usage/composing-posts.md",
+        ),
+      /does not name its exact canonical URL/u,
+    );
+  }
 });
 
 test("requires a bounded observation-only 24-hour AI crawl snapshot", () => {

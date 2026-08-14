@@ -117,8 +117,15 @@ export function assertLocalRevision({ head, status }, revision) {
 }
 
 export function assertCanonicalProvenance(markdown, canonical, relativePath) {
-  const provenance = `Canonical: ${canonical}`;
-  if (!markdown.split("\n").includes(provenance)) {
+  const provenanceLines = markdown.split("\n").filter((line) => line.startsWith("Canonical: "));
+  const provenance = provenanceLines[0];
+  const actualCanonical = provenance?.slice("Canonical: ".length);
+  const bareOrigin = canonical.match(/^(https?:\/\/[^/?#]+)\/?$/u)?.[1];
+  const matchesCanonical =
+    actualCanonical === canonical ||
+    (bareOrigin !== undefined &&
+      (actualCanonical === bareOrigin || actualCanonical === `${bareOrigin}/`));
+  if (provenanceLines.length !== 1 || !matchesCanonical) {
     throw new Error(`${relativePath} does not name its exact canonical URL ${canonical}`);
   }
   return provenance;

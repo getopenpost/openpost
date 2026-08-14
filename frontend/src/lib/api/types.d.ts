@@ -5071,7 +5071,8 @@ export interface components {
             revoked_sessions: number;
         };
         ChannelPreference: {
-            email: boolean;
+            /** @enum {string} */
+            email_frequency: "off" | "immediate" | "daily";
             in_app: boolean;
         };
         CheckResult: {
@@ -8754,8 +8755,26 @@ export interface components {
              * @example https://example.com/schemas/PreferenceSettings.json
              */
             readonly $schema?: string;
+            digest_configured: boolean;
+            /** @example 09:00 */
+            digest_time: string;
+            /** @example Europe/Lisbon */
+            digest_timezone: string;
             email_address: string;
             email_available: boolean;
+            preferences: {
+                [key: string]: components["schemas"]["ChannelPreference"];
+            };
+        };
+        PreferenceUpdate: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PreferenceUpdate.json
+             */
+            readonly $schema?: string;
+            digest_time: string;
+            digest_timezone: string;
             preferences: {
                 [key: string]: components["schemas"]["ChannelPreference"];
             };
@@ -21623,9 +21642,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: components["schemas"]["ChannelPreference"];
-                };
+                "application/json": components["schemas"]["PreferenceUpdate"];
             };
         };
         responses: {

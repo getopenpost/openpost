@@ -8,6 +8,7 @@
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
+	import { notificationTopicIcon, notificationTopicLabel } from '$lib/notification-topics';
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
@@ -16,27 +17,12 @@
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import BellIcon from '@lucide/svelte/icons/bell';
-	import CheckCircleIcon from '@lucide/svelte/icons/check-circle-2';
 	import CheckIcon from '@lucide/svelte/icons/check-check';
-	import CircleAlertIcon from '@lucide/svelte/icons/circle-alert';
-	import MailIcon from '@lucide/svelte/icons/mail';
-	import MessageCircleIcon from '@lucide/svelte/icons/message-circle';
-	import ReplyIcon from '@lucide/svelte/icons/reply';
 	import SettingsIcon from '@lucide/svelte/icons/settings-2';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import UserPlusIcon from '@lucide/svelte/icons/user-plus';
-	import UserRoundXIcon from '@lucide/svelte/icons/user-round-x';
 
 	type NotificationAction = NonNullable<Notification['actions']>[number];
 	type ReadFilter = 'all' | 'unread' | 'read';
-	type NotificationType =
-		| 'post_published'
-		| 'publish_failed'
-		| 'account_needs_attention'
-		| 'new_engagement'
-		| 'new_message'
-		| 'reply_failed'
-		| 'workspace_invite';
 
 	interface NotificationGroup {
 		key: string;
@@ -167,48 +153,6 @@
 
 	function isSafeLocalHref(href: string | undefined): href is string {
 		return Boolean(href?.startsWith('/') && !href.startsWith('//') && !href.startsWith('/\\'));
-	}
-
-	function notificationTypeLabel(type: string): string {
-		switch (type as NotificationType) {
-			case 'post_published':
-				return m.notifications_event_post_published();
-			case 'publish_failed':
-				return m.notifications_event_publish_failed();
-			case 'account_needs_attention':
-				return m.notifications_event_account_needs_attention();
-			case 'new_engagement':
-				return m.notifications_event_new_engagement();
-			case 'new_message':
-				return m.notifications_event_new_message();
-			case 'reply_failed':
-				return m.notifications_event_reply_failed();
-			case 'workspace_invite':
-				return m.notifications_event_workspace_invite();
-			default:
-				return m.notifications_type_unknown();
-		}
-	}
-
-	function notificationTypeIcon(type: string) {
-		switch (type as NotificationType) {
-			case 'post_published':
-				return CheckCircleIcon;
-			case 'publish_failed':
-				return CircleAlertIcon;
-			case 'account_needs_attention':
-				return UserRoundXIcon;
-			case 'new_engagement':
-				return MessageCircleIcon;
-			case 'new_message':
-				return MailIcon;
-			case 'reply_failed':
-				return ReplyIcon;
-			case 'workspace_invite':
-				return UserPlusIcon;
-			default:
-				return BellIcon;
-		}
 	}
 
 	function groupNotifications(notifications: Notification[]): NotificationGroup[] {
@@ -412,8 +356,8 @@
 								</h2>
 								<div class="divide-y rounded-lg border bg-card">
 									{#each group.items as notification (notification.id)}
-										{@const TypeIcon = notificationTypeIcon(notification.type)}
-										{@const typeLabel = notificationTypeLabel(notification.type)}
+										{@const TypeIcon = notificationTopicIcon(notification.type)}
+										{@const typeLabel = notificationTopicLabel(notification.type)}
 										{@const fullTime = fullDateLabel(notification.created_at)}
 										<article
 											class={[

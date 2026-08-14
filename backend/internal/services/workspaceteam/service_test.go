@@ -431,6 +431,7 @@ func TestRegisteredInvitationKeepsRawTokenOutOfNotificationAndAuditRecords(t *te
 	service, db := newTeamTestService(t, 10)
 	for _, model := range []any{
 		(*models.Job)(nil), (*models.UserNotification)(nil), (*models.UserNotificationPreference)(nil),
+		(*models.UserNotificationDigestItem)(nil),
 	} {
 		_, err := db.NewCreateTable().Model(model).Exec(t.Context())
 		require.NoError(t, err)
@@ -442,7 +443,7 @@ func TestRegisteredInvitationKeepsRawTokenOutOfNotificationAndAuditRecords(t *te
 		PublicURL: "https://app.openpost.test",
 	})
 	_, err := service.notifications.UpdatePreferences(t.Context(), "invitee-1", notifications.Preferences{
-		notifications.TypeWorkspaceInvite: {InApp: false, Email: false},
+		notifications.TypeWorkspaceInvite: {InApp: true, EmailFrequency: notifications.EmailFrequencyImmediate},
 	})
 	require.NoError(t, err)
 

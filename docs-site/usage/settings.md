@@ -31,6 +31,7 @@ Account settings follow your user login across every workspace.
 - Active browser sessions
 - CLI devices and API tokens
 - MCP and ChatGPT App tokens/activity
+- Per-topic email frequency and the saved daily digest time and timezone
 
 Use an `mcp:read` token limited to one workspace when an AI tool only needs to read OpenPost. Use `mcp:full` only when it must create or change drafts and account versions, upload media, schedule, publish, cancel, reply, or moderate. You can remove either token. Check recent activity and remove access when the tool no longer needs it.
 

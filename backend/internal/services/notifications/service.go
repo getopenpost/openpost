@@ -28,6 +28,9 @@ const (
 	TypeNewMessage                   = "new_message"
 	TypeReplyFailed                  = "reply_failed"
 	TypeWorkspaceInvite              = "workspace_invite"
+	TypeSecurityAction               = "security_action"
+	TypeAccessChanged                = "access_changed"
+	TypeCriticalBilling              = "critical_billing"
 	EmailDeliveryQueued              = "queued"
 	EmailDeliveryCreated             = "created"
 	EmailDeliveryUnavailable         = "unavailable"
@@ -35,12 +38,15 @@ const (
 	EmailDeliverySent                = "sent"
 	EmailDeliveryDelivered           = "delivered"
 	EmailClassificationTransactional = "transactional"
+	EmailClassificationRequired      = "required_notification"
+	EmailClassificationDailyDigest   = "daily_digest"
 
 	visibleWorkspaceNotifications = "(workspace_id = ? OR workspace_id = '')"
 )
 
 var (
 	ErrInvalidCursor          = errors.New("invalid notification cursor")
+	ErrInvalidPreferences     = errors.New("invalid notification preferences")
 	errWorkspaceScopeRequired = errors.New("notification workspace scope is required")
 )
 
@@ -49,35 +55,65 @@ var criticalInApp = map[string]bool{
 	TypeAccountNeedsAttention: true,
 	TypeReplyFailed:           true,
 	TypeWorkspaceInvite:       true,
+	TypeSecurityAction:        true,
+	TypeAccessChanged:         true,
+	TypeCriticalBilling:       true,
 }
 
 var transactionalEmail = map[string]bool{
 	TypeWorkspaceInvite: true,
+	TypeSecurityAction:  true,
+	TypeAccessChanged:   true,
+	TypeCriticalBilling: true,
+}
+
+type EmailFrequency string
+
+const (
+	EmailFrequencyOff       EmailFrequency = "off"
+	EmailFrequencyImmediate EmailFrequency = "immediate"
+	EmailFrequencyDaily     EmailFrequency = "daily"
+)
+
+func (frequency EmailFrequency) valid() bool {
+	return frequency == EmailFrequencyOff || frequency == EmailFrequencyImmediate || frequency == EmailFrequencyDaily
 }
 
 type ChannelPreference struct {
-	InApp bool `json:"in_app"`
-	Email bool `json:"email"`
+	InApp          bool           `json:"in_app"`
+	EmailFrequency EmailFrequency `json:"email_frequency" enum:"off,immediate,daily"`
 }
 
 type Preferences map[string]ChannelPreference
 
 func DefaultPreferences() Preferences {
 	return Preferences{
-		TypePostPublished:         {InApp: true, Email: false},
-		TypePublishFailed:         {InApp: true, Email: true},
-		TypeAccountNeedsAttention: {InApp: true, Email: false},
-		TypeNewEngagement:         {InApp: true, Email: false},
-		TypeNewMessage:            {InApp: true, Email: false},
-		TypeReplyFailed:           {InApp: true, Email: true},
-		TypeWorkspaceInvite:       {InApp: true, Email: true},
+		TypePostPublished:         {InApp: true, EmailFrequency: EmailFrequencyOff},
+		TypePublishFailed:         {InApp: true, EmailFrequency: EmailFrequencyImmediate},
+		TypeAccountNeedsAttention: {InApp: true, EmailFrequency: EmailFrequencyOff},
+		TypeNewEngagement:         {InApp: true, EmailFrequency: EmailFrequencyOff},
+		TypeNewMessage:            {InApp: true, EmailFrequency: EmailFrequencyOff},
+		TypeReplyFailed:           {InApp: true, EmailFrequency: EmailFrequencyImmediate},
+		TypeWorkspaceInvite:       {InApp: true, EmailFrequency: EmailFrequencyImmediate},
+		TypeSecurityAction:        {InApp: true, EmailFrequency: EmailFrequencyImmediate},
+		TypeAccessChanged:         {InApp: true, EmailFrequency: EmailFrequencyImmediate},
+		TypeCriticalBilling:       {InApp: true, EmailFrequency: EmailFrequencyImmediate},
 	}
 }
 
 type PreferenceSettings struct {
+	Preferences      Preferences `json:"preferences"`
+	EmailAvailable   bool        `json:"email_available"`
+	EmailAddress     string      `json:"email_address"`
+	DigestTime       string      `json:"digest_time" example:"09:00"`
+	DigestTimezone   string      `json:"digest_timezone" example:"Europe/Lisbon"`
+	DigestConfigured bool        `json:"digest_configured"`
+}
+
+type PreferenceUpdate struct {
 	Preferences    Preferences `json:"preferences"`
-	EmailAvailable bool        `json:"email_available"`
-	EmailAddress   string      `json:"email_address"`
+	DigestTime     string      `json:"digest_time" pattern:"^[0-2][0-9]:[0-5][0-9]$"`
+	DigestTimezone string      `json:"digest_timezone"`
 }
 
 type CreateInput struct {
@@ -135,6 +171,8 @@ type Service struct {
 	encryptor *servicecrypto.TokenEncryptor
 	publicURL string
 	now       func() time.Time
+	// beforeDigestPreferenceLock is a deterministic concurrency seam for tests.
+	beforeDigestPreferenceLock func()
 }
 
 type Options struct {
@@ -171,10 +209,25 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 	}
 	preference := preferences[input.Type]
 	deliverInApp := preference.InApp || criticalInApp[input.Type]
-	deliverEmail := emailDeliveryEnabled(preference, s.sender, input.SuppressEmail)
+	deliverEmail := preference.EmailFrequency != EmailFrequencyOff && s.sender != nil && !input.SuppressEmail
 	if !deliverInApp && !deliverEmail {
 		return nil
 	}
+	if deliverInApp {
+		if err := s.storeInAppNotification(ctx, db, input); err != nil {
+			return err
+		}
+	}
+	if !deliverEmail {
+		return nil
+	}
+	if preference.EmailFrequency == EmailFrequencyDaily && !transactionalEmail[input.Type] {
+		return s.enqueueDigestItemWithDB(ctx, db, input)
+	}
+	return s.enqueueEmailWithDB(ctx, db, input)
+}
+
+func (s *Service) storeInAppNotification(ctx context.Context, db bun.IDB, input CreateInput) error {
 	payloadValues := make(map[string]any, len(input.Payload)+1)
 	for key, value := range input.Payload {
 		payloadValues[key] = value
@@ -187,51 +240,41 @@ func (s *Service) CreateWithDB(ctx context.Context, db bun.IDB, input CreateInpu
 	if err != nil {
 		return fmt.Errorf("encode notification payload: %w", err)
 	}
-	if deliverInApp {
-		notification := &models.UserNotification{
-			ID:          uuid.NewString(),
-			UserID:      input.UserID,
-			WorkspaceID: input.WorkspaceID,
-			Type:        input.Type,
-			Title:       strings.TrimSpace(input.Title),
-			Body:        strings.TrimSpace(input.Body),
-			Href:        strings.TrimSpace(input.Href),
-			PayloadJSON: string(payload),
-			DedupKey:    strings.TrimSpace(input.DedupKey),
-			CreatedAt:   s.now(),
-		}
-		query := db.NewInsert().Model(notification)
-		if notification.DedupKey != "" {
-			query = query.On("CONFLICT DO NOTHING")
-		}
-		if _, err := query.Exec(ctx); err != nil {
-			return err
-		}
+	notification := &models.UserNotification{
+		ID:          uuid.NewString(),
+		UserID:      input.UserID,
+		WorkspaceID: input.WorkspaceID,
+		Type:        input.Type,
+		Title:       strings.TrimSpace(input.Title),
+		Body:        strings.TrimSpace(input.Body),
+		Href:        strings.TrimSpace(input.Href),
+		PayloadJSON: string(payload),
+		DedupKey:    strings.TrimSpace(input.DedupKey),
+		CreatedAt:   s.now(),
 	}
-	if !deliverEmail {
-		return nil
+	query := db.NewInsert().Model(notification)
+	if notification.DedupKey != "" {
+		query = query.On("CONFLICT DO NOTHING")
 	}
-	return s.enqueueEmailWithDB(ctx, db, input)
-}
-
-func emailDeliveryEnabled(preference ChannelPreference, sender passwordmail.Sender, suppressed bool) bool {
-	return preference.Email && sender != nil && !suppressed
+	_, err = query.Exec(ctx)
+	return err
 }
 
 type emailDeliveryJob struct {
-	DeliveryID     string    `json:"delivery_id"`
-	Classification string    `json:"classification,omitempty"`
-	UserID         string    `json:"user_id,omitempty"`
-	Type           string    `json:"type,omitempty"`
-	Title          string    `json:"title,omitempty"`
-	Body           string    `json:"body,omitempty"`
-	Href           string    `json:"href,omitempty"`
-	Recipient      string    `json:"recipient,omitempty"`
-	WorkspaceName  string    `json:"workspace_name,omitempty"`
-	InviterName    string    `json:"inviter_name,omitempty"`
-	Role           string    `json:"role,omitempty"`
-	AcceptURLEnc   []byte    `json:"accept_url_encrypted,omitempty"`
-	ExpiresAt      time.Time `json:"expires_at,omitempty"`
+	DeliveryID       string    `json:"delivery_id"`
+	Classification   string    `json:"classification,omitempty"`
+	UserID           string    `json:"user_id,omitempty"`
+	Type             string    `json:"type,omitempty"`
+	Title            string    `json:"title,omitempty"`
+	Body             string    `json:"body,omitempty"`
+	Href             string    `json:"href,omitempty"`
+	Recipient        string    `json:"recipient,omitempty"`
+	WorkspaceName    string    `json:"workspace_name,omitempty"`
+	InviterName      string    `json:"inviter_name,omitempty"`
+	Role             string    `json:"role,omitempty"`
+	AcceptURLEnc     []byte    `json:"accept_url_encrypted,omitempty"`
+	ExpiresAt        time.Time `json:"expires_at,omitempty"`
+	DeliveryWindowAt time.Time `json:"delivery_window_at,omitempty"`
 }
 
 func (s *Service) EnqueueWorkspaceInvitation(ctx context.Context, input WorkspaceInvitationEmailInput) (EmailDelivery, error) {
@@ -412,13 +455,18 @@ func (s *Service) enqueueEmailWithDB(ctx context.Context, db bun.IDB, input Crea
 	if !isSafeLocalNotificationHref(href) {
 		href = ""
 	}
+	classification := ""
+	if transactionalEmail[input.Type] {
+		classification = EmailClassificationRequired
+	}
 	payload, err := json.Marshal(emailDeliveryJob{
-		DeliveryID: jobID,
-		UserID:     input.UserID,
-		Type:       input.Type,
-		Title:      strings.TrimSpace(input.Title),
-		Body:       strings.TrimSpace(input.Body),
-		Href:       href,
+		DeliveryID:     jobID,
+		Classification: classification,
+		UserID:         input.UserID,
+		Type:           input.Type,
+		Title:          strings.TrimSpace(input.Title),
+		Body:           strings.TrimSpace(input.Body),
+		Href:           href,
 	})
 	if err != nil {
 		return fmt.Errorf("encode notification email job: %w", err)
@@ -430,6 +478,88 @@ func (s *Service) enqueueEmailWithDB(ctx context.Context, db bun.IDB, input Crea
 	job.ID = jobID
 	_, err = db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
 	return err
+}
+
+func (s *Service) enqueueDigestItemWithDB(ctx context.Context, db bun.IDB, input CreateInput) error {
+	if s.beforeDigestPreferenceLock != nil {
+		s.beforeDigestPreferenceLock()
+	}
+	settings, err := s.lockPreferenceSettings(ctx, db, input.UserID)
+	if err != nil {
+		return err
+	}
+	preference := settings.Preferences[input.Type]
+	if preference.EmailFrequency == EmailFrequencyOff {
+		return nil
+	}
+	if preference.EmailFrequency == EmailFrequencyImmediate {
+		return s.enqueueEmailWithDB(ctx, db, input)
+	}
+	windowAt, err := nextDigestWindow(s.now(), settings.DigestTime, settings.DigestTimezone)
+	if err != nil {
+		return err
+	}
+	dedupKey := strings.TrimSpace(input.DedupKey)
+	itemID := uuid.NewString()
+	if dedupKey != "" {
+		itemID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("notification-digest-item\x00"+input.UserID+"\x00"+dedupKey)).String()
+	}
+	href := strings.TrimSpace(input.Href)
+	if !isSafeLocalNotificationHref(href) {
+		href = ""
+	}
+	item := &models.UserNotificationDigestItem{
+		ID: itemID, UserID: input.UserID, Type: input.Type,
+		Title: strings.TrimSpace(input.Title), Body: strings.TrimSpace(input.Body), Href: href,
+		DedupKey: dedupKey, DeliveryWindowAt: windowAt, CreatedAt: s.now(),
+	}
+	if _, err := db.NewInsert().Model(item).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
+		return fmt.Errorf("store notification digest item: %w", err)
+	}
+	return s.enqueueDigestJobWithDB(ctx, db, input.UserID, windowAt)
+}
+
+func (s *Service) enqueueDigestJobWithDB(ctx context.Context, db bun.IDB, userID string, windowAt time.Time) error {
+	jobID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("notification-digest\x00"+userID+"\x00"+windowAt.Format(time.RFC3339Nano))).String()
+	payload, err := json.Marshal(emailDeliveryJob{
+		DeliveryID: jobID, Classification: EmailClassificationDailyDigest,
+		UserID: userID, DeliveryWindowAt: windowAt,
+	})
+	if err != nil {
+		return fmt.Errorf("encode notification digest job: %w", err)
+	}
+	job, err := jobregistry.NewJob(JobTypeEmailDelivery, string(payload), windowAt)
+	if err != nil {
+		return err
+	}
+	job.ID = jobID
+	_, err = db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
+	return err
+}
+
+func nextDigestWindow(now time.Time, digestTime, timezone string) (time.Time, error) {
+	hour, minute, err := parseDigestTime(digestTime)
+	if err != nil {
+		return time.Time{}, err
+	}
+	location, err := time.LoadLocation(strings.TrimSpace(timezone))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%w: digest timezone is invalid", ErrInvalidPreferences)
+	}
+	localNow := now.In(location)
+	window := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), hour, minute, 0, 0, location)
+	if !window.After(localNow) {
+		window = time.Date(localNow.Year(), localNow.Month(), localNow.Day()+1, hour, minute, 0, 0, location)
+	}
+	return window.UTC(), nil
+}
+
+func parseDigestTime(value string) (int, int, error) {
+	parsed, err := time.Parse("15:04", strings.TrimSpace(value))
+	if err != nil || parsed.Format("15:04") != strings.TrimSpace(value) {
+		return 0, 0, fmt.Errorf("%w: digest time must use HH:MM", ErrInvalidPreferences)
+	}
+	return parsed.Hour(), parsed.Minute(), nil
 }
 
 func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error {
@@ -446,15 +576,20 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 	if job.Classification == EmailClassificationTransactional {
 		return s.handleWorkspaceInvitationEmail(ctx, job)
 	}
-	preferences, err := s.GetPreferences(ctx, job.UserID)
-	if err != nil {
-		return err
+	if job.Classification == EmailClassificationDailyDigest {
+		return s.handleDailyDigestEmail(ctx, job)
 	}
-	if !preferences[job.Type].Email {
-		return nil
+	if job.Classification != EmailClassificationRequired {
+		preferences, err := s.GetPreferences(ctx, job.UserID)
+		if err != nil {
+			return err
+		}
+		if preferences[job.Type].EmailFrequency != EmailFrequencyImmediate {
+			return nil
+		}
 	}
 	var email string
-	err = s.db.NewSelect().Model((*models.User)(nil)).
+	err := s.db.NewSelect().Model((*models.User)(nil)).
 		Column("email").Where("id = ?", job.UserID).Scan(ctx, &email)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
@@ -478,6 +613,123 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 		PreferencesURL: preferencesURL,
 		IdempotencyKey: "notification-" + job.DeliveryID,
 	})
+}
+
+func (s *Service) handleDailyDigestEmail(ctx context.Context, job emailDeliveryJob) error {
+	if strings.TrimSpace(job.UserID) == "" || job.DeliveryWindowAt.IsZero() {
+		return errors.New("daily digest user and delivery window are required")
+	}
+	items, total, err := s.loadDailyDigestItems(ctx, job.UserID, job.DeliveryID, job.DeliveryWindowAt)
+	if err != nil || total == 0 {
+		return err
+	}
+	var email string
+	if err := s.db.NewSelect().Model((*models.User)(nil)).Column("email").Where("id = ?", job.UserID).Scan(ctx, &email); errors.Is(err, sql.ErrNoRows) {
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("load notification digest recipient: %w", err)
+	}
+	body := renderDailyDigestBody(items, total)
+	preferencesURL := ""
+	if s.publicURL != "" {
+		preferencesURL = s.publicURL + "/settings?tab=notifications"
+	}
+	if err := s.sender.SendNotification(ctx, passwordmail.NotificationMessage{
+		Recipient: email, Title: "Your daily OpenPost digest", Body: body,
+		PreferencesURL: preferencesURL, IdempotencyKey: "notification-digest-" + job.DeliveryID,
+	}); err != nil {
+		return err
+	}
+	_, err = s.db.NewUpdate().Model((*models.UserNotificationDigestItem)(nil)).
+		Set("delivered_at = ?", s.now()).
+		Where("user_id = ? AND delivery_id = ? AND delivered_at IS NULL", job.UserID, job.DeliveryID).
+		Exec(ctx)
+	return err
+}
+
+func (s *Service) loadDailyDigestItems(
+	ctx context.Context,
+	userID string,
+	deliveryID string,
+	windowAt time.Time,
+) ([]models.UserNotificationDigestItem, int, error) {
+	preferences, err := s.GetPreferences(ctx, userID)
+	if err != nil {
+		return nil, 0, err
+	}
+	dailyTypes := dailyEmailTypes(preferences)
+	pendingDelete := s.db.NewDelete().Model((*models.UserNotificationDigestItem)(nil)).
+		Where("user_id = ? AND delivery_window_at = ? AND delivered_at IS NULL", userID, windowAt).
+		Where("delivery_id = '' OR delivery_id = ?", deliveryID)
+	if len(dailyTypes) == 0 {
+		_, err = pendingDelete.Exec(ctx)
+		return nil, 0, err
+	}
+	if _, err = pendingDelete.Where("type NOT IN (?)", bun.List(dailyTypes)).Exec(ctx); err != nil {
+		return nil, 0, fmt.Errorf("discard disabled notification digest items: %w", err)
+	}
+	claimed, err := s.db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).
+		Where("user_id = ? AND delivery_id = ? AND delivered_at IS NULL", userID, deliveryID).Count(ctx)
+	if err != nil {
+		return nil, 0, fmt.Errorf("inspect notification digest claim: %w", err)
+	}
+	if claimed == 0 {
+		if _, err = s.db.NewUpdate().Model((*models.UserNotificationDigestItem)(nil)).
+			Set("delivery_id = ?", deliveryID).
+			Where("user_id = ? AND delivery_window_at = ? AND delivered_at IS NULL AND delivery_id = ''", userID, windowAt).
+			Where("type IN (?)", bun.List(dailyTypes)).Exec(ctx); err != nil {
+			return nil, 0, fmt.Errorf("claim notification digest items: %w", err)
+		}
+	}
+	pending := s.db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).
+		Where("user_id = ? AND delivery_id = ? AND delivered_at IS NULL", userID, deliveryID)
+	total, err := pending.Count(ctx)
+	if err != nil || total == 0 {
+		return nil, total, err
+	}
+	var items []models.UserNotificationDigestItem
+	if err = s.db.NewSelect().Model(&items).
+		Where("user_id = ? AND delivery_id = ? AND delivered_at IS NULL", userID, deliveryID).
+		Order("created_at ASC", "id ASC").Limit(20).Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, 0, fmt.Errorf("load notification digest items: %w", err)
+	}
+	return items, total, nil
+}
+
+func renderDailyDigestBody(items []models.UserNotificationDigestItem, total int) string {
+	const maxBodyRunes = 1900
+	var builder strings.Builder
+	for index, item := range items {
+		line := fmt.Sprintf("%d. %s", index+1, truncateRunes(strings.Join(strings.Fields(item.Title), " "), 120))
+		if body := strings.TrimSpace(item.Body); body != "" {
+			line += " — " + truncateRunes(strings.Join(strings.Fields(body), " "), 240)
+		}
+		if index > 0 {
+			line = "\n" + line
+		}
+		if len([]rune(builder.String()+line)) > maxBodyRunes {
+			break
+		}
+		builder.WriteString(line)
+	}
+	shown := strings.Count(builder.String(), "\n") + 1
+	if total > shown {
+		remaining := total - shown
+		if remaining == 1 {
+			builder.WriteString("\n1 more notification is included in this digest.")
+		} else {
+			fmt.Fprintf(&builder, "\n%d more notifications are included in this digest.", remaining)
+		}
+	}
+	return builder.String()
+}
+
+func truncateRunes(value string, limit int) string {
+	characters := []rune(value)
+	if len(characters) <= limit {
+		return value
+	}
+	return string(characters[:limit-1]) + "…"
 }
 
 func (s *Service) handleWorkspaceInvitationEmail(ctx context.Context, job emailDeliveryJob) error {
@@ -600,20 +852,63 @@ func (s *Service) GetPreferences(ctx context.Context, userID string) (Preference
 }
 
 func (s *Service) GetPreferenceSettings(ctx context.Context, userID string) (PreferenceSettings, error) {
-	preferences, err := s.GetPreferences(ctx, userID)
+	return s.getPreferenceSettings(ctx, s.db, userID)
+}
+
+func (s *Service) getPreferenceSettings(ctx context.Context, db bun.IDB, userID string) (PreferenceSettings, error) {
+	preferences, err := s.getPreferences(ctx, db, userID)
 	if err != nil {
 		return PreferenceSettings{}, err
 	}
 	var email string
-	if err := s.db.NewSelect().Model((*models.User)(nil)).
+	if err := db.NewSelect().Model((*models.User)(nil)).
 		Column("email").Where("id = ?", userID).Scan(ctx, &email); err != nil {
 		return PreferenceSettings{}, err
 	}
+	var row models.UserNotificationPreference
+	err = db.NewSelect().Model(&row).Where("user_id = ?", userID).Scan(ctx)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return PreferenceSettings{}, err
+	}
+	digestTime := "09:00"
+	digestTimezone := "UTC"
+	digestConfigured := false
+	if err == nil {
+		if strings.TrimSpace(row.DigestTime) != "" {
+			digestTime = row.DigestTime
+		}
+		if strings.TrimSpace(row.DigestTimezone) != "" {
+			digestTimezone = row.DigestTimezone
+		}
+		digestConfigured = row.DigestConfigured
+	}
 	return PreferenceSettings{
-		Preferences:    preferences,
-		EmailAvailable: s.sender != nil,
-		EmailAddress:   strings.TrimSpace(email),
+		Preferences: preferences, EmailAvailable: s.sender != nil, EmailAddress: strings.TrimSpace(email),
+		DigestTime: digestTime, DigestTimezone: digestTimezone, DigestConfigured: digestConfigured,
 	}, nil
+}
+
+// lockPreferenceSettings establishes one per-user serialization point for
+// digest producers and preference updates. The no-op update takes a row lock
+// on PostgreSQL and a write lock on SQLite, including for users who had no
+// saved preference row before this transaction.
+func (s *Service) lockPreferenceSettings(ctx context.Context, db bun.IDB, userID string) (PreferenceSettings, error) {
+	encoded, err := json.Marshal(DefaultPreferences())
+	if err != nil {
+		return PreferenceSettings{}, err
+	}
+	seed := &models.UserNotificationPreference{
+		UserID: userID, PreferencesJSON: string(encoded), DigestTime: "09:00",
+		DigestTimezone: "UTC", DigestConfigured: false, UpdatedAt: s.now(),
+	}
+	if _, err := db.NewInsert().Model(seed).On("CONFLICT (user_id) DO NOTHING").Exec(ctx); err != nil {
+		return PreferenceSettings{}, fmt.Errorf("ensure notification preferences: %w", err)
+	}
+	if _, err := db.NewUpdate().Model((*models.UserNotificationPreference)(nil)).
+		Set("user_id = user_id").Where("user_id = ?", userID).Exec(ctx); err != nil {
+		return PreferenceSettings{}, fmt.Errorf("lock notification preferences: %w", err)
+	}
+	return s.getPreferenceSettings(ctx, db, userID)
 }
 
 func (s *Service) getPreferences(ctx context.Context, db bun.IDB, userID string) (Preferences, error) {
@@ -627,8 +922,9 @@ func (s *Service) getPreferences(ctx context.Context, db bun.IDB, userID string)
 		return nil, err
 	}
 	type storedChannelPreference struct {
-		InApp *bool `json:"in_app"`
-		Email *bool `json:"email"`
+		InApp          *bool          `json:"in_app"`
+		Email          *bool          `json:"email"`
+		EmailFrequency EmailFrequency `json:"email_frequency"`
 	}
 	var stored map[string]storedChannelPreference
 	if err := json.Unmarshal([]byte(row.PreferencesJSON), &stored); err != nil {
@@ -642,14 +938,20 @@ func (s *Service) getPreferences(ctx context.Context, db bun.IDB, userID string)
 		if value.InApp != nil {
 			preference.InApp = *value.InApp
 		}
-		if value.Email != nil {
-			preference.Email = *value.Email
+		if value.EmailFrequency.valid() {
+			preference.EmailFrequency = value.EmailFrequency
+		} else if value.Email != nil {
+			if *value.Email {
+				preference.EmailFrequency = EmailFrequencyImmediate
+			} else {
+				preference.EmailFrequency = EmailFrequencyOff
+			}
 		}
 		if criticalInApp[eventType] {
 			preference.InApp = true
 		}
 		if transactionalEmail[eventType] {
-			preference.Email = true
+			preference.EmailFrequency = EmailFrequencyImmediate
 		}
 		preferences[eventType] = preference
 	}
@@ -716,30 +1018,118 @@ func notificationActions(payloadJSON string) []models.NotificationAction {
 }
 
 func (s *Service) UpdatePreferences(ctx context.Context, userID string, preferences Preferences) (Preferences, error) {
-	allowed := DefaultPreferences()
-	clean := DefaultPreferences()
-	for eventType, value := range preferences {
-		if _, ok := allowed[eventType]; !ok {
-			continue
-		}
-		if criticalInApp[eventType] {
-			value.InApp = true
-		}
-		if transactionalEmail[eventType] {
-			value.Email = true
-		}
-		clean[eventType] = value
-	}
-	encoded, err := json.Marshal(clean)
+	current, err := s.GetPreferenceSettings(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
+	settings, err := s.UpdatePreferenceSettings(ctx, userID, PreferenceUpdate{
+		Preferences: preferences, DigestTime: current.DigestTime, DigestTimezone: current.DigestTimezone,
+	})
+	return settings.Preferences, err
+}
+
+func (s *Service) UpdatePreferenceSettings(ctx context.Context, userID string, update PreferenceUpdate) (PreferenceSettings, error) {
+	allowed := DefaultPreferences()
+	clean := DefaultPreferences()
+	for eventType, value := range update.Preferences {
+		if _, ok := allowed[eventType]; !ok {
+			return PreferenceSettings{}, fmt.Errorf("%w: unknown notification topic %q", ErrInvalidPreferences, eventType)
+		}
+		if !value.EmailFrequency.valid() {
+			return PreferenceSettings{}, fmt.Errorf("%w: email frequency for %s is invalid", ErrInvalidPreferences, eventType)
+		}
+		if criticalInApp[eventType] {
+			if !value.InApp {
+				return PreferenceSettings{}, fmt.Errorf("%w: in-app delivery for %s must remain immediate", ErrInvalidPreferences, eventType)
+			}
+		}
+		if transactionalEmail[eventType] {
+			if value.EmailFrequency != EmailFrequencyImmediate {
+				return PreferenceSettings{}, fmt.Errorf("%w: transactional email for %s must remain immediate", ErrInvalidPreferences, eventType)
+			}
+		}
+		clean[eventType] = value
+	}
+	if _, _, err := parseDigestTime(update.DigestTime); err != nil {
+		return PreferenceSettings{}, err
+	}
+	if _, err := time.LoadLocation(strings.TrimSpace(update.DigestTimezone)); err != nil {
+		return PreferenceSettings{}, fmt.Errorf("%w: digest timezone is invalid", ErrInvalidPreferences)
+	}
+	encoded, err := json.Marshal(clean)
+	if err != nil {
+		return PreferenceSettings{}, err
+	}
 	now := s.now()
-	row := &models.UserNotificationPreference{UserID: userID, PreferencesJSON: string(encoded), UpdatedAt: now}
-	_, err = s.db.NewInsert().Model(row).
-		On("CONFLICT (user_id) DO UPDATE").
-		Set("preferences_json = EXCLUDED.preferences_json").
-		Set("updated_at = EXCLUDED.updated_at").
-		Exec(ctx)
-	return clean, err
+	row := &models.UserNotificationPreference{
+		UserID: userID, PreferencesJSON: string(encoded), DigestTime: strings.TrimSpace(update.DigestTime),
+		DigestTimezone: strings.TrimSpace(update.DigestTimezone), DigestConfigured: true, UpdatedAt: now,
+	}
+	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if _, err := s.lockPreferenceSettings(ctx, tx, userID); err != nil {
+			return err
+		}
+		if _, err := tx.NewInsert().Model(row).
+			On("CONFLICT (user_id) DO UPDATE").
+			Set("preferences_json = EXCLUDED.preferences_json").
+			Set("digest_time = EXCLUDED.digest_time").
+			Set("digest_timezone = EXCLUDED.digest_timezone").
+			Set("digest_configured = EXCLUDED.digest_configured").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx); err != nil {
+			return err
+		}
+		return s.reschedulePendingDigests(ctx, tx, userID, clean, update.DigestTime, update.DigestTimezone)
+	})
+	if err != nil {
+		return PreferenceSettings{}, err
+	}
+	return s.GetPreferenceSettings(ctx, userID)
+}
+
+func (s *Service) reschedulePendingDigests(
+	ctx context.Context,
+	db bun.IDB,
+	userID string,
+	preferences Preferences,
+	digestTime string,
+	digestTimezone string,
+) error {
+	dailyTypes := dailyEmailTypes(preferences)
+	pendingDelete := db.NewDelete().Model((*models.UserNotificationDigestItem)(nil)).
+		Where("user_id = ? AND delivered_at IS NULL AND delivery_id = ''", userID)
+	if len(dailyTypes) == 0 {
+		_, err := pendingDelete.Exec(ctx)
+		return err
+	}
+	if _, err := pendingDelete.Where("type NOT IN (?)", bun.List(dailyTypes)).Exec(ctx); err != nil {
+		return fmt.Errorf("discard disabled notification digest items: %w", err)
+	}
+	count, err := db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).
+		Where("user_id = ? AND delivered_at IS NULL AND delivery_id = ''", userID).
+		Where("type IN (?)", bun.List(dailyTypes)).Count(ctx)
+	if err != nil || count == 0 {
+		return err
+	}
+	windowAt, err := nextDigestWindow(s.now(), digestTime, digestTimezone)
+	if err != nil {
+		return err
+	}
+	if _, err = db.NewUpdate().Model((*models.UserNotificationDigestItem)(nil)).
+		Set("delivery_window_at = ?", windowAt).
+		Where("user_id = ? AND delivered_at IS NULL AND delivery_id = ''", userID).
+		Where("type IN (?)", bun.List(dailyTypes)).Exec(ctx); err != nil {
+		return fmt.Errorf("reschedule notification digest items: %w", err)
+	}
+	return s.enqueueDigestJobWithDB(ctx, db, userID, windowAt)
+}
+
+func dailyEmailTypes(preferences Preferences) []string {
+	types := make([]string, 0, len(preferences))
+	for eventType, preference := range preferences {
+		if preference.EmailFrequency == EmailFrequencyDaily {
+			types = append(types, eventType)
+		}
+	}
+	return types
 }

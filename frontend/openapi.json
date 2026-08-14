@@ -2575,14 +2575,15 @@
 			"ChannelPreference": {
 				"additionalProperties": false,
 				"properties": {
-					"email": {
-						"type": "boolean"
+					"email_frequency": {
+						"enum": ["off", "immediate", "daily"],
+						"type": "string"
 					},
 					"in_app": {
 						"type": "boolean"
 					}
 				},
-				"required": ["in_app", "email"],
+				"required": ["in_app", "email_frequency"],
 				"type": "object"
 			},
 			"CheckResult": {
@@ -10907,6 +10908,17 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"digest_configured": {
+						"type": "boolean"
+					},
+					"digest_time": {
+						"examples": ["09:00"],
+						"type": "string"
+					},
+					"digest_timezone": {
+						"examples": ["Europe/Lisbon"],
+						"type": "string"
+					},
 					"email_address": {
 						"type": "string"
 					},
@@ -10920,7 +10932,41 @@
 						"type": "object"
 					}
 				},
-				"required": ["preferences", "email_available", "email_address"],
+				"required": [
+					"preferences",
+					"email_available",
+					"email_address",
+					"digest_time",
+					"digest_timezone",
+					"digest_configured"
+				],
+				"type": "object"
+			},
+			"PreferenceUpdate": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/PreferenceUpdate.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"digest_time": {
+						"pattern": "^[0-2][0-9]:[0-5][0-9]$",
+						"type": "string"
+					},
+					"digest_timezone": {
+						"type": "string"
+					},
+					"preferences": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/ChannelPreference"
+						},
+						"type": "object"
+					}
+				},
+				"required": ["preferences", "digest_time", "digest_timezone"],
 				"type": "object"
 			},
 			"PreviewMemeInputBody": {
@@ -30520,10 +30566,7 @@
 					"content": {
 						"application/json": {
 							"schema": {
-								"additionalProperties": {
-									"$ref": "#/components/schemas/ChannelPreference"
-								},
-								"type": "object"
+								"$ref": "#/components/schemas/PreferenceUpdate"
 							}
 						}
 					},

@@ -32,6 +32,9 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 		(*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil),
 		(*models.UserNotification)(nil),
+		(*models.UserNotificationPreference)(nil),
+		(*models.UserNotificationDigestItem)(nil),
+		(*models.Job)(nil),
 	)
 	t.Cleanup(func() { require.NoError(t, db.Close()) })
 
@@ -39,6 +42,34 @@ func newNotificationTestServerWithAuthenticator(t *testing.T, auth middleware.Au
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewNotificationHandler(db, auth, notificationservice.NewService(db)).RegisterRoutes(api)
 	return &notificationTestServer{echo: e, db: db}
+}
+
+func TestNotificationPreferenceAPIStoresDailyWindowAndRejectsInvalidCombinations(t *testing.T) {
+	t.Parallel()
+	server := newNotificationTestServer(t)
+	server.seed(t)
+
+	valid := jsonRequest(t, server.echo, http.MethodPut, "/api/v1/notifications/preferences", map[string]any{
+		"preferences": map[string]any{
+			"new_message":      map[string]any{"in_app": true, "email_frequency": "daily"},
+			"workspace_invite": map[string]any{"in_app": true, "email_frequency": "immediate"},
+		},
+		"digest_time": "09:15", "digest_timezone": "Europe/Lisbon",
+	}, "web-token")
+	require.Equal(t, http.StatusOK, valid.Code, valid.Body.String())
+	require.Contains(t, valid.Body.String(), `"email_frequency":"daily"`)
+	require.Contains(t, valid.Body.String(), `"digest_time":"09:15"`)
+	require.Contains(t, valid.Body.String(), `"digest_timezone":"Europe/Lisbon"`)
+
+	invalid := jsonRequest(t, server.echo, http.MethodPut, "/api/v1/notifications/preferences", map[string]any{
+		"preferences": map[string]any{
+			"workspace_invite": map[string]any{"in_app": true, "email_frequency": "daily"},
+		},
+		"digest_time": "09:15", "digest_timezone": "Europe/Lisbon",
+	}, "web-token")
+	require.Equal(t, http.StatusBadRequest, invalid.Code, invalid.Body.String())
+	require.Contains(t, invalid.Body.String(), "invalid notification preferences")
+	require.NotContains(t, invalid.Body.String(), "workspace_invite")
 }
 
 func (s *notificationTestServer) seed(t *testing.T) {

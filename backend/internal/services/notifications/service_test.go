@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -23,6 +25,7 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	t.Helper()
 	sqldb, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=memory&cache=shared", uuid.NewString()))
 	require.NoError(t, err)
+	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
@@ -30,6 +33,7 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 		(*models.User)(nil),
 		(*models.UserNotification)(nil),
 		(*models.UserNotificationPreference)(nil),
+		(*models.UserNotificationDigestItem)(nil),
 		(*models.Job)(nil),
 		(*models.WorkspaceInvitation)(nil),
 		(*models.WorkspaceInvitationDeliveryEvent)(nil),
@@ -43,6 +47,267 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 	_, err = db.NewInsert().Model(&models.User{ID: "user-1", Email: "one@example.com", PasswordHash: "hash"}).Exec(ctx)
 	require.NoError(t, err)
 	return db
+}
+
+func TestDailyNotificationEmailBatchesOneUserWindowAndAdvancesAfterConfirmedSend(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender, PublicURL: "https://app.openpost.test"})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: Preferences{
+			TypePostPublished: {InApp: true, EmailFrequency: EmailFrequencyDaily},
+			TypeNewMessage:    {InApp: true, EmailFrequency: EmailFrequencyDaily},
+		},
+		DigestTime: "09:00", DigestTimezone: "Europe/Lisbon",
+	})
+	require.NoError(t, err)
+
+	for _, input := range []CreateInput{
+		{UserID: "user-1", Type: TypePostPublished, Title: "Published <safely>", Body: "Mastodon & Bluesky", DedupKey: "publication:1"},
+		{UserID: "user-1", Type: TypeNewMessage, Title: "New message", Body: "Read it", DedupKey: "message:1"},
+	} {
+		require.NoError(t, service.Create(t.Context(), input))
+		require.NoError(t, service.Create(t.Context(), input), "replayed producers must remain idempotent")
+	}
+
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", JobTypeEmailDelivery).Scan(t.Context()))
+	require.Len(t, jobs, 1)
+	require.Equal(t, time.Date(2026, 8, 14, 8, 0, 0, 0, time.UTC), jobs[0].RunAt)
+	require.Equal(t, 5, jobs[0].MaxAttempts)
+
+	sender.err = errors.New("temporary provider failure")
+	require.Error(t, service.HandleJob(t.Context(), jobs[0].Type, jobs[0].Payload))
+	undelivered, err := db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).Where("delivered_at IS NULL").Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 2, undelivered, "a failed send must not advance the batch")
+
+	sender.err = nil
+	require.NoError(t, service.HandleJob(t.Context(), jobs[0].Type, jobs[0].Payload))
+	require.Len(t, sender.messages, 2)
+	digest := sender.messages[1]
+	require.Equal(t, "Your daily OpenPost digest", digest.Title)
+	require.Contains(t, digest.Body, "Published <safely>")
+	require.Contains(t, digest.Body, "New message")
+	require.Equal(t, "notification-digest-"+jobs[0].ID, digest.IdempotencyKey)
+	undelivered, err = db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).Where("delivered_at IS NULL").Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, undelivered)
+}
+
+func TestConcurrentDailyNotificationProducersKeepOneWindowJob(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{Sender: &recordingNotificationSender{}})
+	service.now = func() time.Time { return time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC) }
+	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}},
+		DigestTime:  "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+
+	const producers = 12
+	errorsByProducer := make(chan error, producers)
+	var wait sync.WaitGroup
+	for index := range producers {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			errorsByProducer <- service.Create(t.Context(), CreateInput{
+				UserID: "user-1", Type: TypeNewMessage, Title: fmt.Sprintf("Message %d", index),
+				DedupKey: fmt.Sprintf("message:%d", index),
+			})
+		}()
+	}
+	wait.Wait()
+	close(errorsByProducer)
+	for err := range errorsByProducer {
+		require.NoError(t, err)
+	}
+	jobs, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", JobTypeEmailDelivery).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, jobs)
+	items, err := db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, producers, items)
+}
+
+func TestDigestPreferenceChangeMovesUnclaimedItemsToTheNewWindow(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{Sender: &recordingNotificationSender{}})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	daily := Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}
+	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: daily, DigestTime: "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.Create(t.Context(), CreateInput{
+		UserID: "user-1", Type: TypeNewMessage, Title: "Queued", DedupKey: "message:reschedule",
+	}))
+
+	_, err = service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: daily, DigestTime: "16:45", DigestTimezone: "Europe/Lisbon",
+	})
+	require.NoError(t, err)
+	var item models.UserNotificationDigestItem
+	require.NoError(t, db.NewSelect().Model(&item).Scan(t.Context()))
+	require.Equal(t, time.Date(2026, 8, 14, 15, 45, 0, 0, time.UTC), item.DeliveryWindowAt)
+
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", JobTypeEmailDelivery).Order("run_at ASC").Scan(t.Context()))
+	require.Len(t, jobs, 2)
+	require.Equal(t, time.Date(2026, 8, 14, 15, 45, 0, 0, time.UTC), jobs[1].RunAt)
+}
+
+func TestDigestProducerRechecksScheduleAfterConcurrentPreferenceChange(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{Sender: &recordingNotificationSender{}})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	daily := Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}
+	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: daily, DigestTime: "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+
+	producerPaused := make(chan struct{})
+	resumeProducer := make(chan struct{})
+	service.beforeDigestPreferenceLock = func() {
+		close(producerPaused)
+		<-resumeProducer
+	}
+	producerResult := make(chan error, 1)
+	go func() {
+		// A caller-owned transaction uses the same row lock in production. Passing
+		// the DB here lets this SQLite test pause the producer after its stale read.
+		producerResult <- service.CreateWithDB(t.Context(), db, CreateInput{
+			UserID: "user-1", Type: TypeNewMessage, Title: "Concurrent",
+			DedupKey: "message:concurrent-settings",
+		})
+	}()
+	<-producerPaused
+	_, err = service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: daily, DigestTime: "16:45", DigestTimezone: "Europe/Lisbon",
+	})
+	require.NoError(t, err)
+	close(resumeProducer)
+	require.NoError(t, <-producerResult)
+
+	var item models.UserNotificationDigestItem
+	require.NoError(t, db.NewSelect().Model(&item).Where("dedup_key = ?", "message:concurrent-settings").Scan(t.Context()))
+	require.Equal(t, time.Date(2026, 8, 14, 15, 45, 0, 0, time.UTC), item.DeliveryWindowAt)
+}
+
+func TestDigestDeliveryAdvancesOnlyItsClaimedSnapshot(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{Sender: sender})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}},
+		DigestTime:  "09:00", DigestTimezone: "UTC",
+	})
+	require.NoError(t, err)
+	require.NoError(t, service.Create(t.Context(), CreateInput{
+		UserID: "user-1", Type: TypeNewMessage, Title: "Claimed", DedupKey: "message:claimed",
+	}))
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Where("type = ?", JobTypeEmailDelivery).Scan(t.Context()))
+	sender.onNotification = func(passwordmail.NotificationMessage) {
+		_, insertErr := db.NewInsert().Model(&models.UserNotificationDigestItem{
+			ID: "late-item", UserID: "user-1", Type: TypeNewMessage, Title: "Too late",
+			DedupKey: "message:late", DeliveryWindowAt: job.RunAt, CreatedAt: now,
+		}).Exec(t.Context())
+		require.NoError(t, insertErr)
+	}
+
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	var late models.UserNotificationDigestItem
+	require.NoError(t, db.NewSelect().Model(&late).Where("id = ?", "late-item").Scan(t.Context()))
+	require.True(t, late.DeliveredAt.IsZero())
+	require.Empty(t, late.DeliveryID)
+}
+
+func TestTransactionalNotificationClassesRemainImmediate(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{Sender: &recordingNotificationSender{}})
+	now := time.Date(2026, 8, 14, 7, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	for _, eventType := range []string{TypeSecurityAction, TypeAccessChanged, TypeWorkspaceInvite, TypeCriticalBilling} {
+		preference := DefaultPreferences()[eventType]
+		require.True(t, preference.InApp, eventType)
+		require.Equal(t, EmailFrequencyImmediate, preference.EmailFrequency, eventType)
+		require.NoError(t, service.Create(t.Context(), CreateInput{
+			UserID: "user-1", Type: eventType, Title: "Required action", DedupKey: "transactional:" + eventType,
+		}))
+	}
+	count, err := db.NewSelect().Model((*models.UserNotificationDigestItem)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", JobTypeEmailDelivery).Scan(t.Context()))
+	require.Len(t, jobs, 4)
+	for _, job := range jobs {
+		require.Equal(t, now, job.RunAt)
+		require.Contains(t, job.Payload, `"classification":"required_notification"`)
+	}
+}
+
+func TestNotificationPreferenceSettingsValidateFrequenciesAndTimezone(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+
+	for name, update := range map[string]PreferenceUpdate{
+		"unknown frequency": {Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: "weekly"}}, DigestTime: "09:00", DigestTimezone: "UTC"},
+		"invalid time":      {Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}, DigestTime: "9am", DigestTimezone: "UTC"},
+		"invalid timezone":  {Preferences: Preferences{TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyDaily}}, DigestTime: "09:00", DigestTimezone: "Mars/Olympus"},
+		"transactional off": {Preferences: Preferences{TypeWorkspaceInvite: {InApp: true, EmailFrequency: EmailFrequencyOff}}, DigestTime: "09:00", DigestTimezone: "UTC"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", update)
+			require.ErrorIs(t, err, ErrInvalidPreferences)
+		})
+	}
+}
+
+func TestPreferenceSettingsKeepExistingDigestChoice(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	_, err := service.UpdatePreferenceSettings(t.Context(), "user-1", PreferenceUpdate{
+		Preferences: DefaultPreferences(), DigestTime: "16:45", DigestTimezone: "America/New_York",
+	})
+	require.NoError(t, err)
+
+	settings, err := service.GetPreferenceSettings(t.Context(), "user-1")
+	require.NoError(t, err)
+	require.Equal(t, "16:45", settings.DigestTime)
+	require.Equal(t, "America/New_York", settings.DigestTimezone)
+	require.True(t, settings.DigestConfigured)
+
+	_, err = service.UpdatePreferences(t.Context(), "user-1", Preferences{
+		TypeNewMessage: {InApp: true, EmailFrequency: EmailFrequencyOff},
+	})
+	require.NoError(t, err)
+	settings, err = service.GetPreferenceSettings(t.Context(), "user-1")
+	require.NoError(t, err)
+	require.Equal(t, "16:45", settings.DigestTime)
+	require.Equal(t, "America/New_York", settings.DigestTimezone)
+}
+
+func TestDailyDigestBodyBoundsContentAndAccountsForEveryItem(t *testing.T) {
+	items := make([]models.UserNotificationDigestItem, 25)
+	for index := range items {
+		items[index] = models.UserNotificationDigestItem{
+			Title: strings.Repeat("unsafe <title> & ", 20),
+			Body:  strings.Repeat("long body ", 80),
+		}
+	}
+	body := renderDailyDigestBody(items[:20], len(items))
+	require.LessOrEqual(t, len([]rune(body)), 2_000)
+	require.Contains(t, body, "more notifications are included in this digest")
 }
 
 func TestInvitationDeliveryCallbackIsIdempotentAndGenerationSafe(t *testing.T) {
@@ -120,6 +385,7 @@ type recordingNotificationSender struct {
 	messages           []passwordmail.NotificationMessage
 	invitationMessages []transactionalmail.WorkspaceInvitationMessage
 	err                error
+	onNotification     func(passwordmail.NotificationMessage)
 }
 
 func (s *recordingNotificationSender) SendPasswordReset(_ context.Context, _ passwordmail.ResetMessage) error {
@@ -132,6 +398,9 @@ func (s *recordingNotificationSender) SendEmailVerification(_ context.Context, _
 
 func (s *recordingNotificationSender) SendNotification(_ context.Context, message passwordmail.NotificationMessage) error {
 	s.messages = append(s.messages, message)
+	if s.onNotification != nil {
+		s.onNotification(message)
+	}
 	return s.err
 }
 
@@ -152,11 +421,11 @@ func TestWorkspaceInvitationEmailIsTransactionalDurableAndRecipientIndependent(t
 	ctx := context.Background()
 
 	preferences, err := service.UpdatePreferences(ctx, "user-1", Preferences{
-		TypeWorkspaceInvite: {InApp: false, Email: false},
+		TypeWorkspaceInvite: {InApp: true, EmailFrequency: EmailFrequencyImmediate},
 	})
 	require.NoError(t, err)
 	require.True(t, preferences[TypeWorkspaceInvite].InApp)
-	require.True(t, preferences[TypeWorkspaceInvite].Email,
+	require.Equal(t, EmailFrequencyImmediate, preferences[TypeWorkspaceInvite].EmailFrequency,
 		"Transactional access email is not an optional preference")
 
 	delivery, err := service.EnqueueWorkspaceInvitation(ctx, WorkspaceInvitationEmailInput{
@@ -280,8 +549,7 @@ func TestNotificationPreferencesSuppressOptionalButKeepCritical(t *testing.T) {
 	ctx := context.Background()
 
 	preferences, err := service.UpdatePreferences(ctx, "user-1", Preferences{
-		TypeNewMessage:    {InApp: false},
-		TypePublishFailed: {InApp: false},
+		TypeNewMessage: {InApp: false, EmailFrequency: EmailFrequencyOff},
 	})
 	require.NoError(t, err)
 	require.False(t, preferences[TypeNewMessage].InApp)
@@ -312,8 +580,8 @@ func TestLegacyNotificationPreferencesAdoptNewEmailDefaults(t *testing.T) {
 
 	preferences, err := NewService(db).GetPreferences(ctx, "user-1")
 	require.NoError(t, err)
-	require.True(t, preferences[TypePublishFailed].Email)
-	require.False(t, preferences[TypePostPublished].Email)
+	require.Equal(t, EmailFrequencyImmediate, preferences[TypePublishFailed].EmailFrequency)
+	require.Equal(t, EmailFrequencyOff, preferences[TypePostPublished].EmailFrequency)
 	require.False(t, preferences[TypePostPublished].InApp)
 }
 
@@ -325,8 +593,8 @@ func TestNotificationEmailDeliveryIsDurableDeduplicatedAndPreferenceAware(t *tes
 	service.now = func() time.Time { return now }
 	ctx := context.Background()
 
-	require.True(t, DefaultPreferences()[TypePublishFailed].Email)
-	require.False(t, DefaultPreferences()[TypePostPublished].Email)
+	require.Equal(t, EmailFrequencyImmediate, DefaultPreferences()[TypePublishFailed].EmailFrequency)
+	require.Equal(t, EmailFrequencyOff, DefaultPreferences()[TypePostPublished].EmailFrequency)
 	input := CreateInput{
 		UserID: "user-1", Type: TypePublishFailed, Title: "Publication failed",
 		Body: "OpenPost could not publish to Mastodon.", Href: "/activity?publication=publication-1",
@@ -350,10 +618,10 @@ func TestNotificationEmailDeliveryIsDurableDeduplicatedAndPreferenceAware(t *tes
 	}}, sender.messages)
 
 	preferences, err := service.UpdatePreferences(ctx, "user-1", Preferences{
-		TypePublishFailed: {InApp: true, Email: false},
+		TypePublishFailed: {InApp: true, EmailFrequency: EmailFrequencyOff},
 	})
 	require.NoError(t, err)
-	require.False(t, preferences[TypePublishFailed].Email)
+	require.Equal(t, EmailFrequencyOff, preferences[TypePublishFailed].EmailFrequency)
 	require.NoError(t, service.HandleJob(ctx, jobs[0].Type, jobs[0].Payload))
 	require.Len(t, sender.messages, 1)
 }
@@ -365,7 +633,7 @@ func TestNotificationCanDeliverEmailWithoutCreatingOptionalInAppItem(t *testing.
 	ctx := context.Background()
 
 	_, err := service.UpdatePreferences(ctx, "user-1", Preferences{
-		TypePostPublished: {InApp: false, Email: true},
+		TypePostPublished: {InApp: false, EmailFrequency: EmailFrequencyImmediate},
 	})
 	require.NoError(t, err)
 	require.NoError(t, service.Create(ctx, CreateInput{

@@ -1477,9 +1477,31 @@ type NotificationAction struct {
 type UserNotificationPreference struct {
 	bun.BaseModel `bun:"table:user_notification_preferences"`
 
-	UserID          string    `bun:"user_id,pk" json:"user_id"`
-	PreferencesJSON string    `bun:"preferences_json,notnull,default:'{}'" json:"preferences_json"`
-	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	UserID           string    `bun:"user_id,pk" json:"user_id"`
+	PreferencesJSON  string    `bun:"preferences_json,notnull,default:'{}'" json:"preferences_json"`
+	DigestTime       string    `bun:"digest_time,notnull,default:'09:00'" json:"digest_time"`
+	DigestTimezone   string    `bun:"digest_timezone,notnull,default:''" json:"digest_timezone"`
+	DigestConfigured bool      `bun:"digest_configured,notnull,default:false" json:"digest_configured"`
+	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// UserNotificationDigestItem is one optional email fact waiting for its
+// user's configured daily delivery window. Content is rendered only through
+// the same escaped notification-email boundary as immediate mail.
+type UserNotificationDigestItem struct {
+	bun.BaseModel `bun:"table:user_notification_digest_items"`
+
+	ID               string    `bun:",pk" json:"id"`
+	UserID           string    `bun:"user_id,notnull" json:"user_id"`
+	Type             string    `bun:",notnull" json:"type"`
+	Title            string    `bun:",notnull" json:"title"`
+	Body             string    `bun:",notnull,default:''" json:"body"`
+	Href             string    `bun:",notnull,default:''" json:"href"`
+	DedupKey         string    `bun:"dedup_key,notnull,default:''" json:"-"`
+	DeliveryWindowAt time.Time `bun:"delivery_window_at,notnull" json:"delivery_window_at"`
+	DeliveryID       string    `bun:"delivery_id,notnull,default:''" json:"delivery_id,omitempty"`
+	DeliveredAt      time.Time `bun:"delivered_at,nullzero" json:"delivered_at,omitempty"`
+	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 type PublicationLifecycleEvent struct {

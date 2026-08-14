@@ -822,6 +822,10 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 	if job.Classification == EmailClassificationDailyDigest {
 		return s.handleDailyDigestEmail(ctx, job)
 	}
+	return s.handleImmediateEmail(ctx, job)
+}
+
+func (s *Service) handleImmediateEmail(ctx context.Context, job emailDeliveryJob) error {
 	deliver, err := s.shouldDeliverImmediateJob(ctx, job)
 	if err != nil {
 		return err

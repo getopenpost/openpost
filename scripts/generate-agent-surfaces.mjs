@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -17,6 +17,8 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const generatedNotice =
   "<!-- Generated from the canonical OpenPost public page. Do not edit this build artifact. -->";
 const maximumRepresentationBytes = 256 * 1024;
+const corpusWarningBytes = 1024 * 1024;
+const maximumCorpusBytes = 2 * 1024 * 1024;
 const privateRoutePattern =
   /^\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
 const privateApplicationOrigins = new Set(["https://app.openpost.social"]);
@@ -103,6 +105,9 @@ const documentationDiscoverySections = [
   ["api", "API", "Read the API guide and follow its authoritative OpenAPI JSON contract."],
   ["development", "Development", "Understand, test, contribute to, and release OpenPost."],
 ];
+const documentationSectionTitles = new Map(
+  documentationDiscoverySections.map(([key, title]) => [key, title]),
+);
 
 function attribute(node, name) {
   return node.attrs?.find((candidate) => candidate.name === name)?.value;
@@ -338,23 +343,134 @@ function rewriteMarkdownLinks(source, canonical) {
   );
 }
 
-function normalizeContainers(source) {
-  return source.replace(
-    /^:::\s*(?:info|tip|warning|danger|details)\s*(.*)\n([\s\S]*?)^:::\s*$/gmu,
-    (_all, label, body) => {
-      const lines = body.trim().split("\n");
-      return [`> **${label || "Note"}**`, ">", ...lines.map((line) => `> ${line}`)].join("\n");
-    },
-  );
+function normalizeContainers(source, sourcePath) {
+  const defaultLabels = {
+    danger: "Danger",
+    details: "Details",
+    info: "Info",
+    tip: "Tip",
+    warning: "Warning",
+  };
+  return transformOutsideFencedBlocks(source, (plainSource) => {
+    const normalized = plainSource.replace(
+      /^:::[ \t]*(info|tip|warning|danger|details)(?:[ \t]+([^\n]*?))?[ \t]*\r?\n([\s\S]*?)^:::[ \t]*$/gimu,
+      (_all, type, label, body) => {
+        const lines = body.trim().split("\n");
+        const title = label?.trim() || defaultLabels[type.toLowerCase()];
+        return [`> **${title}**`, ">", ...lines.map((line) => `> ${line}`)].join("\n");
+      },
+    );
+    const unsupported = normalized.match(/^:::[ \t]*([^\s\n]+)?[^\n]*$/mu);
+    if (unsupported) {
+      throw new Error(
+        `${sourcePath}: unsupported VitePress container ::: ${unsupported[1] ?? "(unclosed directive)"}`,
+      );
+    }
+    return normalized;
+  });
 }
 
-function normalizeRawHtml(source, canonical) {
-  return source.replace(/<p>\s*<img\s+[\s\S]*?<\/p>/gu, (html) =>
-    renderNodes(children(parseFragment(html)), canonical).trim(),
-  );
+function normalizeMaintainedClientOnly(source) {
+  return source.replace(/<ClientOnly>\s*<OASpec\s+hideBranding\s*\/>\s*<\/ClientOnly>/gu, "");
 }
 
-function documentationRepresentation(source, page) {
+function transformOutsideFencedBlocks(source, transform) {
+  const lines = source.split("\n");
+  const output = [];
+  let plain = [];
+  let fenced = false;
+  const flush = () => {
+    if (plain.length > 0) output.push(transform(plain.join("\n")));
+    plain = [];
+  };
+  for (const line of lines) {
+    if (/^\s*(?:```|~~~)/u.test(line)) {
+      if (!fenced) flush();
+      output.push(line);
+      fenced = !fenced;
+    } else if (fenced) {
+      output.push(line);
+    } else {
+      plain.push(line);
+    }
+  }
+  flush();
+  return output.join("\n");
+}
+
+function normalizeRawHtml(source, canonical, sourcePath) {
+  return transformOutsideFencedBlocks(source, (plainSource) => {
+    let markerPrefix = "\u{e000}OPENPOST_INLINE_CODE_";
+    while (plainSource.includes(markerPrefix)) markerPrefix = `\u{e000}${markerPrefix}`;
+    const inlineCode = [];
+    let normalized = plainSource.replace(/`[^`\n]+`/gu, (code) => {
+      inlineCode.push(code);
+      return `${markerPrefix}${inlineCode.length - 1}\u{e001}`;
+    });
+    normalized = normalized.replace(/<!--[\s\S]*?-->/gu, "");
+    const supportedBlock =
+      /<(p|section|div|aside|details|table|ul|ol|blockquote|figure)(?:\s[^>]*)?>[\s\S]*?<\/\1>/giu;
+    let previous;
+    do {
+      previous = normalized;
+      normalized = normalized.replace(supportedBlock, (html) =>
+        renderNodes(children(parseFragment(html)), canonical).trim(),
+      );
+    } while (normalized !== previous);
+    normalized = normalized.replace(/<(?:img|br)\b[^>]*>/giu, (html) =>
+      renderNodes(children(parseFragment(html)), canonical).trim(),
+    );
+    const unsupported = normalized.match(/<\/?([A-Za-z][\w-]*)\b[^>]*>/u);
+    if (unsupported) {
+      throw new Error(
+        `${sourcePath}: unsupported meaning-bearing <${unsupported[1].toLowerCase()}>`,
+      );
+    }
+    for (const [index, code] of inlineCode.entries()) {
+      normalized = normalized.replaceAll(`${markerPrefix}${index}\u{e001}`, code);
+    }
+    return normalized;
+  });
+}
+
+async function expandControlledIncludes(source, sourcePath, sourceRoot, stack = []) {
+  const includePattern = /<!--@include:\s+([^\s{}]+)\s*-->/gu;
+  let expanded = "";
+  let cursor = 0;
+  for (const match of source.matchAll(includePattern)) {
+    expanded += source.slice(cursor, match.index);
+    const includeReference = match[1];
+    const includePath = path.resolve(path.dirname(sourcePath), includeReference);
+    const resolvedRoot = await realpath(sourceRoot);
+    const resolvedInclude = await realpath(includePath).catch(() => includePath);
+    if (
+      resolvedInclude !== resolvedRoot &&
+      !resolvedInclude.startsWith(`${resolvedRoot}${path.sep}`)
+    ) {
+      throw new Error(
+        `${sourcePath}: controlled include escapes the documentation root: ${includeReference}`,
+      );
+    }
+    if (stack.includes(resolvedInclude)) {
+      throw new Error(`${sourcePath}: controlled include cycle: ${includeReference}`);
+    }
+    await requireSource(resolvedInclude);
+    const included = await readFile(resolvedInclude, "utf8");
+    expanded += await expandControlledIncludes(included, resolvedInclude, sourceRoot, [
+      ...stack,
+      resolvedInclude,
+    ]);
+    cursor = match.index + match[0].length;
+  }
+  expanded += source.slice(cursor);
+  if (/<!--@include:/u.test(expanded)) {
+    throw new Error(`${sourcePath}: unsupported controlled include directive`);
+  }
+  return expanded;
+}
+
+async function documentationRepresentation(source, page, sourceRoot) {
+  source = await expandControlledIncludes(source, page.sourcePath, sourceRoot);
   const { data, body: maintainedBody } = parseFrontmatter(source);
   const hero = data.hero ?? {};
   const sections = [`# ${hero.name ?? page.title}`];
@@ -380,7 +496,11 @@ function documentationRepresentation(source, page) {
   }
   const bodyWithoutSourceHeading = maintainedBody.replace(/^\s*#\s+.+(?:\n+|$)/u, "");
   const normalizedBody = rewriteMarkdownLinks(
-    normalizeRawHtml(normalizeContainers(bodyWithoutSourceHeading), page.canonical),
+    normalizeRawHtml(
+      normalizeContainers(normalizeMaintainedClientOnly(bodyWithoutSourceHeading), page.sourcePath),
+      page.canonical,
+      page.sourcePath,
+    ),
     page.canonical,
   );
   sections.push(normalizedBody);
@@ -408,6 +528,62 @@ function discoveryDocument(discovery) {
   return cleanMarkdown(
     `# ${discovery.title}\n\n> ${discovery.description}\n\n${renderLinks(primary)}${optional.length ? `\n\n## Optional\n\n${renderLinks(optional)}` : ""}${sections ? `\n\n${sections}` : ""}`,
   );
+}
+
+function demoteCorpusHeadings(source) {
+  return mapOutsideFences(source, (line) =>
+    line.replace(
+      /^(#{1,6})\s+/u,
+      (_match, markers) => `${"#".repeat(Math.min(6, markers.length + 2))} `,
+    ),
+  );
+}
+
+function corpusPageBody(page) {
+  const headingStart = page.markdown.search(/^# /mu);
+  if (headingStart < 0) throw new Error(`${page.canonical}: corpus source has no page heading`);
+  const body = page.markdown.slice(headingStart).replace(/^# .+(?:\n+|$)/u, "");
+  return demoteCorpusHeadings(body).trim();
+}
+
+function corpusDocument(corpus, generatedPages) {
+  const includedBySection = new Map();
+  for (const page of generatedPages) {
+    const policy = page.catalog?.agentCorpus;
+    if (!policy) throw new Error(`${page.canonical}: missing canonical corpus metadata`);
+    if (policy.membership === "excluded") {
+      if (!policy.reason?.trim()) {
+        throw new Error(`${page.canonical}: corpus exclusion requires a reason`);
+      }
+      continue;
+    }
+    if (policy.membership !== "included" || !documentationSectionTitles.has(policy.section)) {
+      throw new Error(`${page.canonical}: invalid canonical corpus metadata`);
+    }
+    const pages = includedBySection.get(policy.section) ?? [];
+    pages.push(page);
+    includedBySection.set(policy.section, pages);
+  }
+
+  const sections = documentationDiscoverySections.flatMap(([key, title]) => {
+    const pages = includedBySection.get(key) ?? [];
+    if (pages.length === 0) return [];
+    return [
+      `## ${title}\n\n${pages
+        .map((page) => {
+          const body = corpusPageBody(page);
+          return `### ${page.title}\n\nSource: [${page.canonical}](${page.canonical})${body ? `\n\n${body}` : ""}`;
+        })
+        .join("\n\n")}`,
+    ];
+  });
+  return cleanMarkdown(`# ${corpus.title}
+
+> This documentation-only file is an OpenPost convenience artifact for reading the selected public documentation as one bounded corpus.
+>
+> It is not part of the llms.txt v2 proposal. Use llms.txt for the discovery index and each page's canonical URL for current source provenance.
+
+${sections.join("\n\n")}`);
 }
 
 async function requireSource(sourcePath) {
@@ -518,7 +694,7 @@ function htmlFragments(source) {
   );
 }
 
-async function verifyWrittenArtifacts(projection, generatedPages) {
+async function verifyWrittenArtifacts(projection, generatedPages, corpus) {
   for (const page of generatedPages) {
     const output = await readFile(path.join(projection.outputDirectory, page.outputPath), "utf8");
     if (output !== page.markdown) {
@@ -528,6 +704,15 @@ async function verifyWrittenArtifacts(projection, generatedPages) {
   const discovery = await readFile(path.join(projection.outputDirectory, "llms.txt"), "utf8");
   if (discovery !== discoveryDocument(projection.discovery)) {
     throw new Error("generated llms.txt does not match its canonical discovery metadata");
+  }
+  if (corpus !== undefined) {
+    const writtenCorpus = await readFile(
+      path.join(projection.outputDirectory, "llms-full.txt"),
+      "utf8",
+    );
+    if (writtenCorpus !== corpus) {
+      throw new Error("generated llms-full.txt does not match its canonical corpus metadata");
+    }
   }
 }
 
@@ -569,13 +754,22 @@ export async function generateAgentSurface(projection) {
     const rendered =
       projection.surface === "marketing"
         ? marketingRepresentation(source, page)
-        : documentationRepresentation(source, page);
+        : await documentationRepresentation(
+            source,
+            page,
+            projection.sourceRoot ?? path.dirname(page.sourcePath),
+          );
     const generated = { ...page, ...rendered };
     if (privateRoutePattern.test(new URL(generated.canonical).pathname)) {
       throw new Error(`generated page exposes a private application route: ${generated.canonical}`);
     }
     if (Buffer.byteLength(generated.markdown, "utf8") > maximumRepresentationBytes) {
-      throw new Error(`${generated.canonical}: representation exceeds 256 KiB`);
+      const exception = page.catalog?.agentRepresentation?.sizeException;
+      if (exception?.reviewed !== true || !exception.reason?.trim()) {
+        throw new Error(
+          `${generated.canonical}: representation exceeds 256 KiB without a reviewed exception`,
+        );
+      }
     }
     if (page.discoveryHTMLPath) {
       await requireSource(page.discoveryHTMLPath);
@@ -607,7 +801,21 @@ export async function generateAgentSurface(projection) {
     discoveryDocument(projection.discovery),
     "utf8",
   );
-  await verifyWrittenArtifacts(projection, generatedPages);
+  let corpus;
+  if (projection.corpus) {
+    corpus = corpusDocument(projection.corpus, generatedPages);
+    const corpusBytes = Buffer.byteLength(corpus, "utf8");
+    if (corpusBytes >= maximumCorpusBytes) {
+      throw new Error(`documentation llms-full.txt reaches or exceeds 2 MiB`);
+    }
+    if (corpusBytes > corpusWarningBytes) {
+      (projection.warn ?? console.warn)(
+        `documentation llms-full.txt exceeds 1 MiB (${corpusBytes} bytes)`,
+      );
+    }
+    await writeFile(path.join(projection.outputDirectory, "llms-full.txt"), corpus, "utf8");
+  }
+  await verifyWrittenArtifacts(projection, generatedPages, corpus);
   return generatedPages;
 }
 
@@ -704,6 +912,8 @@ export const productionProjections = {
   },
   documentation: {
     surface: "documentation",
+    sourceRoot: path.join(repositoryRoot, "docs-site"),
+    corpus: { title: "OpenPost Documentation Full Corpus" },
     outputDirectory: path.join(repositoryRoot, "docs-site/.vitepress/dist"),
     pages: docsSocialEntries
       .filter((entry) => entry.agentRepresentation.membership === "ordinary")
@@ -730,6 +940,7 @@ export const productionProjections = {
     knownArtifactURLs: [
       "https://openpost.social/index.md",
       "https://docs.openpost.social/openapi.json",
+      "https://docs.openpost.social/llms-full.txt",
     ],
     fragmentSources: docsSocialEntries.map((entry) => ({
       canonical: entry.canonical,
@@ -758,6 +969,13 @@ export const productionProjections = {
           title: "OpenPost product overview",
           description: "See the public product overview and managed product path.",
           url: "https://openpost.social/index.md",
+          classification: "optional",
+        },
+        {
+          title: "OpenPost documentation full corpus",
+          description:
+            "Read the selected public documentation as one bounded OpenPost convenience artifact.",
+          url: "https://docs.openpost.social/llms-full.txt",
           classification: "optional",
         },
       ],

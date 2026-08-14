@@ -245,6 +245,15 @@ export default defineConfig({
           title: "llms.txt",
         },
       ],
+      [
+        "link",
+        {
+          rel: "alternate",
+          type: "text/plain",
+          href: `${docsSiteUrl}/llms-full.txt`,
+          title: "OpenPost documentation full corpus",
+        },
+      ],
     ];
     return [
       ["link", { rel: "canonical", href: social.canonical }],

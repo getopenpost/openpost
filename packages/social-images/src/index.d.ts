@@ -57,11 +57,18 @@ export type DocumentationDiscoverySection =
 export interface DocumentationPageEntry extends SocialEntry {
   page: string;
   route: string;
-  agentRepresentation: { membership: "ordinary" } | { membership: "special"; reason: string };
+  agentRepresentation:
+    | {
+        membership: "ordinary";
+        sizeException?: { reviewed: true; reason: string };
+      }
+    | { membership: "special"; reason: string };
   agentDiscovery:
     | { membership: "primary"; section?: DocumentationDiscoverySection }
     | { membership: "optional" | "unlisted"; section?: DocumentationDiscoverySection };
-  agentCorpus: { membership: "included" } | { membership: "excluded"; reason: string };
+  agentCorpus:
+    | { membership: "included"; section: DocumentationDiscoverySection }
+    | { membership: "excluded"; reason: string };
 }
 
 export const marketingSiteUrl: "https://openpost.social";

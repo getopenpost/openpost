@@ -176,6 +176,24 @@ test("documentation production projection covers every ordinary catalog page", (
   }
 });
 
+test("API reference keeps its interactive viewer and publishes maintained no-JavaScript content", async () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const source = await readFile(path.join(root, "docs-site/development/api-reference.md"), "utf8");
+  const entry = docsSocialEntries.find(
+    (candidate) => candidate.page === "development/api-reference.md",
+  );
+
+  assert.equal(entry?.agentRepresentation.membership, "ordinary");
+  assert.ok(
+    productionProjections.documentation.pages.some(
+      (page) => page.page === "development/api-reference.md",
+    ),
+  );
+  assert.match(source, /^# API Reference$/m);
+  assert.match(source, /\[authoritative OpenAPI JSON\]\(\/openapi\.json\)/u);
+  assert.match(source, /<ClientOnly>[\s\S]*<OASpec hideBranding \/>[\s\S]*<\/ClientOnly>/u);
+});
+
 test(
   "marketing production artifacts preserve every browser tool explanation without controls",
   { timeout: 180_000 },
@@ -262,6 +280,62 @@ test("marketing projection enforces the individual representation size ceiling",
     }),
     /https:\/\/openpost\.social\/: representation exceeds 256 KiB/u,
   );
+});
+
+test("documentation size exceptions require reviewed canonical metadata", async () => {
+  const directory = await fixtureDirectory();
+  const sourcePath = path.join(directory, "large.md.source");
+  await writeFile(sourcePath, `# Large guide\n\n${"A".repeat(256 * 1024)}\n`);
+  const page = {
+    sourcePath,
+    outputPath: "large.md",
+    canonical: "https://docs.openpost.social/development/large-guide",
+    title: "Large guide",
+    description: "A deliberately large reviewed guide.",
+  };
+  const projection = {
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: [page],
+    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+  };
+
+  await assert.rejects(
+    generateAgentSurface(projection),
+    /large-guide: representation exceeds 256 KiB without a reviewed exception/u,
+  );
+  await assert.rejects(
+    generateAgentSurface({
+      ...projection,
+      pages: [
+        {
+          ...page,
+          catalog: {
+            agentRepresentation: { membership: "ordinary", sizeException: { reviewed: false } },
+          },
+        },
+      ],
+    }),
+    /large-guide: representation exceeds 256 KiB without a reviewed exception/u,
+  );
+  await generateAgentSurface({
+    ...projection,
+    pages: [
+      {
+        ...page,
+        catalog: {
+          agentRepresentation: {
+            membership: "ordinary",
+            sizeException: {
+              reviewed: true,
+              reason: "The guide is one maintained semantic unit.",
+            },
+          },
+        },
+      },
+    ],
+  });
+  assert.ok(Buffer.byteLength(await readFile(path.join(directory, "large.md"))) > 256 * 1024);
 });
 
 test("marketing projection rejects rendered metadata that drifts from its canonical route", async () => {
@@ -429,6 +503,241 @@ test("documentation projection keeps one canonical heading for an ordinary sourc
   assert.match(markdown, /\[Literal example\]\(\/kept-relative\)/u);
   assert.match(markdown, /Open settings/u);
   assert.doesNotMatch(markdown, /app\.openpost\.social/u);
+});
+
+test("documentation projection expands controlled includes from the owning source", async () => {
+  const directory = await fixtureDirectory();
+  const sourcePath = path.join(directory, "installation.md.source");
+  const includePath = path.join(directory, "module.md");
+  await writeFile(
+    sourcePath,
+    "# Installation\n\nUse the reviewed module below.\n\n<!--@include: ./module.md-->\n",
+  );
+  await writeFile(includePath, "## Module\n\n```nix\nservices.openpost.enable = true;\n```\n");
+
+  const projection = {
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: [
+      {
+        sourcePath,
+        outputPath: "installation.md",
+        canonical: "https://docs.openpost.social/installation/module",
+        title: "Installation",
+        description: "Install OpenPost with a reviewed module.",
+      },
+    ],
+    discovery: {
+      title: "OpenPost Documentation",
+      description: "OpenPost product and operating documentation.",
+      links: [],
+    },
+  };
+
+  await generateAgentSurface(projection);
+  const first = await readFile(path.join(directory, "installation.md"), "utf8");
+  await generateAgentSurface(projection);
+
+  assert.equal(await readFile(path.join(directory, "installation.md"), "utf8"), first);
+  assert.match(first, /^## Module$/m);
+  assert.match(first, /services\.openpost\.enable = true;/u);
+  assert.doesNotMatch(first, /@include/u);
+});
+
+test("documentation projection normalizes supported VitePress and raw HTML constructs", async () => {
+  const directory = await fixtureDirectory();
+  const sourcePath = path.join(directory, "providers.md.source");
+  await writeFile(
+    sourcePath,
+    `# Providers
+
+::: warning Provider review
+The provider must approve the application.
+:::
+
+::: details Why approval matters
+Publishing stays disabled until approval is complete.
+:::
+
+::: tip
+Reconnect the account after adding scopes.
+:::
+
+<section><p>Keep the <strong>provider outcome</strong> visible.</p><ul><li>Ready</li><li>Blocked</li></ul></section>
+
+OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
+`,
+  );
+  const projection = {
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: [
+      {
+        sourcePath,
+        outputPath: "providers.md",
+        canonical: "https://docs.openpost.social/providers/overview",
+        title: "Providers",
+        description: "Review provider requirements and outcomes.",
+      },
+    ],
+    discovery: { title: "Documentation", description: "Provider documentation.", links: [] },
+  };
+
+  await generateAgentSurface(projection);
+  const markdown = await readFile(path.join(directory, "providers.md"), "utf8");
+  assert.match(markdown, /^> \*\*Provider review\*\*$/m);
+  assert.match(markdown, /^> \*\*Why approval matters\*\*$/m);
+  assert.match(markdown, /^> \*\*Tip\*\*$/m);
+  assert.match(markdown, /OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose\./u);
+  assert.match(markdown, /Keep the \*\*provider outcome\*\* visible\./u);
+  assert.match(markdown, /- Ready\n- Blocked/u);
+  assert.doesNotMatch(markdown, /:::|<section|<strong|<ul|<li/u);
+
+  await writeFile(
+    sourcePath,
+    "# Providers\n\n<ProviderStatus>Approval is required.</ProviderStatus>\n",
+  );
+  await assert.rejects(
+    generateAgentSurface(projection),
+    /providers\.md\.source: unsupported meaning-bearing <providerstatus>/u,
+  );
+
+  await writeFile(sourcePath, "# Providers\n\n::: tabs\nProvider A\n::: tab Provider B\n:::\n");
+  await assert.rejects(
+    generateAgentSurface(projection),
+    /providers\.md\.source: unsupported VitePress container ::: tabs/u,
+  );
+});
+
+test("documentation full corpus groups selected pages with provenance and no repeated wrappers", async () => {
+  const directory = await fixtureDirectory();
+  const includedSource = path.join(directory, "accounts.md.source");
+  const excludedSource = path.join(directory, "notices.md.source");
+  await writeFile(
+    includedSource,
+    "# Accounts\n\nConnect a destination.\n\n## Review\n\nCheck access.\n",
+  );
+  await writeFile(excludedSource, "# Notices\n\nLegal notice body must stay separate.\n");
+  const page = (overrides) => ({
+    outputPath: path.basename(overrides.page),
+    canonical: `https://docs.openpost.social/${overrides.page.replace(/\.md$/u, "")}`,
+    title: overrides.title,
+    description: `${overrides.title} documentation.`,
+    ...overrides,
+  });
+
+  await generateAgentSurface({
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: [
+      page({
+        page: "usage/accounts.md",
+        sourcePath: includedSource,
+        title: "Accounts",
+        catalog: { agentCorpus: { membership: "included", section: "user-guide" } },
+      }),
+      page({
+        page: "development/notices.md",
+        sourcePath: excludedSource,
+        title: "Notices",
+        catalog: {
+          agentCorpus: { membership: "excluded", reason: "Legal text stays separate." },
+        },
+      }),
+    ],
+    corpus: { title: "OpenPost Documentation Full Corpus" },
+    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+  });
+
+  const corpus = await readFile(path.join(directory, "llms-full.txt"), "utf8");
+  assert.match(corpus, /^# OpenPost Documentation Full Corpus$/m);
+  assert.match(corpus, /OpenPost convenience artifact/u);
+  assert.match(corpus, /not part of the llms\.txt v2 proposal/u);
+  assert.match(corpus, /^## User guide$/m);
+  assert.match(corpus, /^### Accounts$/m);
+  assert.match(
+    corpus,
+    /^Source: \[https:\/\/docs\.openpost\.social\/usage\/accounts\]\(https:\/\/docs\.openpost\.social\/usage\/accounts\)$/m,
+  );
+  assert.match(corpus, /^#### Review$/m);
+  assert.doesNotMatch(
+    corpus,
+    /Notices|Legal notice body|Generated from|^Title:|^Description:|^Canonical:/m,
+  );
+});
+
+test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async () => {
+  const directory = await fixtureDirectory();
+  const pages = [];
+  for (let index = 0; index < 10; index += 1) {
+    const sourcePath = path.join(directory, `large-${index}.md.source`);
+    await writeFile(sourcePath, `# Large ${index}\n\n${String(index).repeat(225 * 1024)}\n`);
+    pages.push({
+      sourcePath,
+      outputPath: `large-${index}.md`,
+      canonical: `https://docs.openpost.social/development/large-${index}`,
+      title: `Large ${index}`,
+      description: `Large documentation page ${index}.`,
+      catalog: { agentCorpus: { membership: "included", section: "development" } },
+    });
+  }
+  const warnings = [];
+  const projection = {
+    surface: "documentation",
+    outputDirectory: directory,
+    pages: pages.slice(0, 5),
+    corpus: { title: "OpenPost Documentation Full Corpus" },
+    warn: (message) => warnings.push(message),
+    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+  };
+
+  await generateAgentSurface(projection);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /exceeds 1 MiB/u);
+  assert.ok(
+    Buffer.byteLength(await readFile(path.join(directory, "llms-full.txt"))) < 2 * 1024 * 1024,
+  );
+
+  await assert.rejects(
+    generateAgentSurface({ ...projection, pages }),
+    /llms-full\.txt reaches or exceeds 2 MiB/u,
+  );
+
+  const exactDirectory = await fixtureDirectory();
+  const exactSource = path.join(exactDirectory, "exact.md.source");
+  await writeFile(exactSource, "# Exact boundary\n\nA\n");
+  const exactProjection = {
+    surface: "documentation",
+    outputDirectory: exactDirectory,
+    pages: [
+      {
+        sourcePath: exactSource,
+        outputPath: "exact.md",
+        canonical: "https://docs.openpost.social/development/exact-boundary",
+        title: "Exact boundary",
+        description: "Exact corpus boundary fixture.",
+        catalog: {
+          agentRepresentation: {
+            membership: "ordinary",
+            sizeException: { reviewed: true, reason: "Boundary fixture." },
+          },
+          agentCorpus: { membership: "included", section: "development" },
+        },
+      },
+    ],
+    corpus: { title: "OpenPost Documentation Full Corpus" },
+    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+  };
+  await generateAgentSurface(exactProjection);
+  const oneByteCorpusSize = Buffer.byteLength(
+    await readFile(path.join(exactDirectory, "llms-full.txt")),
+  );
+  const paddingBytes = 2 * 1024 * 1024 - oneByteCorpusSize;
+  await writeFile(exactSource, `# Exact boundary\n\nA${"A".repeat(paddingBytes)}\n`);
+  await assert.rejects(
+    generateAgentSurface(exactProjection),
+    /llms-full\.txt reaches or exceeds 2 MiB/u,
+  );
 });
 
 test("projection validation rejects unsafe or incomplete production contracts", async () => {
@@ -632,6 +941,7 @@ test(
     assert.match(docsConfig, /new URL\(agentPage\.page, `\$\{docsSiteUrl\}\/`\)\.href/u);
     assert.match(docsConfig, /type: "text\/plain"/);
     assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/llms\.txt`/);
+    assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/llms-full\.txt`/);
 
     await ensureProductionBuilds(root);
 
@@ -772,6 +1082,7 @@ test(
 
     const docsDirectory = path.join(root, "docs-site/.vitepress/dist");
     const docsDiscovery = await readFile(path.join(docsDirectory, "llms.txt"), "utf8");
+    const docsCorpus = await readFile(path.join(docsDirectory, "llms-full.txt"), "utf8");
     const ordinaryDocs = docsSocialEntries.filter(
       (entry) => entry.agentRepresentation.membership === "ordinary",
     );
@@ -790,6 +1101,10 @@ test(
       );
       assert.match(
         html,
+        /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpost\.social\/llms-full\.txt"/u,
+      );
+      assert.match(
+        html,
         /rel="alternate" type="text\/plain" href="https:\/\/docs\.openpost\.social\/llms\.txt"/u,
       );
       assert.ok(markdown.includes(`\nTitle: ${entry.socialTitle}\n`));
@@ -800,6 +1115,7 @@ test(
         markdownOutsideFences(markdown),
         /\]\((?:\/|\.\.\/|\.\/|https:\/\/app\.openpost\.social)/u,
       );
+      assert.doesNotMatch(markdown, /<!--@include:/u);
     }
 
     for (const [key, title] of [
@@ -823,6 +1139,34 @@ test(
       docsDiscovery,
       /\[OpenAPI JSON\]\(https:\/\/docs\.openpost\.social\/openapi\.json\)/u,
     );
+    assert.match(
+      docsDiscovery,
+      /\[OpenPost documentation full corpus\]\(https:\/\/docs\.openpost\.social\/llms-full\.txt\)/u,
+    );
+    assert.ok(Buffer.byteLength(docsCorpus, "utf8") < 1024 * 1024);
+    assert.match(docsCorpus, /OpenPost convenience artifact/u);
+    assert.match(docsCorpus, /not part of the llms\.txt v2 proposal/u);
+    assert.doesNotMatch(
+      docsCorpus,
+      /Generated from the canonical|^Title:|^Description:|^Canonical:/m,
+    );
+    assert.doesNotMatch(docsCorpus, /"openapi"\s*:\s*"3\./u);
+    assert.doesNotMatch(
+      docsCorpus,
+      /^### (?:Privacy Policy|Terms of Service|Refund Policy|Changelog)$/m,
+    );
+    for (const entry of docsSocialEntries) {
+      const provenance = `Source: [${entry.canonical}](${entry.canonical})`;
+      if (entry.agentCorpus.membership === "included") {
+        assert.ok(docsCorpus.includes(provenance), `${entry.page} is missing from llms-full.txt`);
+      } else {
+        assert.equal(
+          docsCorpus.includes(provenance),
+          false,
+          `${entry.page} must stay out of llms-full.txt: ${entry.agentCorpus.reason}`,
+        );
+      }
+    }
     for (const entry of docsSocialEntries.filter(
       (candidate) => candidate.agentDiscovery.membership === "unlisted",
     )) {

@@ -115,27 +115,47 @@ const discoveryEntrypoints = new Map([
   ["development/index.md", "development"],
 ]);
 
-const specialRepresentations = new Map([
-  [
-    "development/api-reference.md",
-    "The client-only OpenAPI viewer needs maintained explanatory Markdown.",
-  ],
-  ["installation/nix-module.md", "The generated Nix module include must be expanded first."],
-]);
-
 const corpusExclusions = new Map([
   ["development/api-reference.md", "OpenAPI remains authoritative JSON."],
   ["development/third-party-notices.md", "Third-party legal notices stay outside the corpus."],
   ["reference/cli.md", "The generated CLI reference is repetitive in a combined corpus."],
 ]);
 
+const reviewedRepresentationSizeExceptions = new Map();
+
+function corpusSection(page) {
+  if (page === "index.md" || page.startsWith("guide/") || page.startsWith("usage/")) {
+    return "user-guide";
+  }
+  const topLevel = page.split("/", 1)[0];
+  if (topLevel === "reference") return "api";
+  if (
+    [
+      "providers",
+      "cli",
+      "mcp",
+      "installation",
+      "self-hosting",
+      "configuration",
+      "operations",
+      "development",
+    ].includes(topLevel)
+  ) {
+    return topLevel;
+  }
+  throw new Error(`${page}: documentation page needs a corpus section`);
+}
+
 function pagePolicy(page) {
   const section = discoveryEntrypoints.get(page);
-  const specialReason = specialRepresentations.get(page);
   const corpusReason = corpusExclusions.get(page);
+  const sizeExceptionReason = reviewedRepresentationSizeExceptions.get(page);
   return {
-    agentRepresentation: specialReason
-      ? { membership: "special", reason: specialReason }
+    agentRepresentation: sizeExceptionReason
+      ? {
+          membership: "ordinary",
+          sizeException: { reviewed: true, reason: sizeExceptionReason },
+        }
       : { membership: "ordinary" },
     agentDiscovery: section
       ? { membership: "primary", section }
@@ -144,7 +164,7 @@ function pagePolicy(page) {
         : { membership: "unlisted" },
     agentCorpus: corpusReason
       ? { membership: "excluded", reason: corpusReason }
-      : { membership: "included" },
+      : { membership: "included", section: corpusSection(page) },
   };
 }
 

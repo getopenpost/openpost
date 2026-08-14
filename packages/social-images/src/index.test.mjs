@@ -151,3 +151,30 @@ test("every generated docs card has a unique, server-resolvable catalog id", () 
     /duplicate documentation route/u,
   );
 });
+
+test("documentation corpus policy is complete canonical metadata", () => {
+  const sections = new Set([
+    "user-guide",
+    "providers",
+    "cli",
+    "mcp",
+    "installation",
+    "self-hosting",
+    "configuration",
+    "operations",
+    "api",
+    "development",
+  ]);
+  for (const page of docsPageCatalog) {
+    if (page.agentCorpus.membership === "included") {
+      assert.ok(sections.has(page.agentCorpus.section), `${page.page} needs a corpus section`);
+      continue;
+    }
+    assert.ok(page.agentCorpus.reason.trim(), `${page.page} exclusion needs a reason`);
+    assert.equal(
+      page.agentDiscovery.membership,
+      "unlisted",
+      `${page.page} must not be indexed while excluded from the corpus`,
+    );
+  }
+});

@@ -13,7 +13,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "cli"
     }
   },
   {
@@ -28,7 +29,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "cli"
     }
   },
   {
@@ -44,7 +46,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "cli"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "cli"
     }
   },
   {
@@ -59,7 +62,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "cli"
     }
   },
   {
@@ -74,7 +78,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "cli"
     }
   },
   {
@@ -89,7 +94,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -104,7 +110,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -119,7 +126,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -134,7 +142,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -149,7 +158,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -165,7 +175,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "configuration"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -180,7 +191,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -195,7 +207,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -210,7 +223,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -225,7 +239,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "configuration"
     }
   },
   {
@@ -240,7 +255,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -249,8 +265,7 @@ export const docsPageCatalog = Object.freeze([
     "description": "Explore the OpenPost HTTP API in the rendered reference or use its authoritative OpenAPI JSON contract.",
     "route": "/development/api-reference",
     "agentRepresentation": {
-      "membership": "special",
-      "reason": "The client-only OpenAPI viewer needs maintained explanatory Markdown."
+      "membership": "ordinary"
     },
     "agentDiscovery": {
       "membership": "unlisted"
@@ -272,7 +287,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -287,7 +303,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -302,7 +319,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -317,7 +335,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -332,7 +351,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -347,7 +367,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -362,7 +383,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -377,7 +399,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -392,7 +415,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -408,7 +432,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "development"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -423,7 +448,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -438,7 +464,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -453,7 +480,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -468,7 +496,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -483,7 +512,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -498,7 +528,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "development"
     }
   },
   {
@@ -529,7 +560,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -544,7 +576,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -559,7 +592,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -574,7 +608,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -589,7 +624,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "primary"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -604,7 +640,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -619,7 +656,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -634,7 +672,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -650,7 +689,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "installation"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -665,7 +705,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -674,14 +715,14 @@ export const docsPageCatalog = Object.freeze([
     "description": "OpenPost can also run through a NixOS module.",
     "route": "/installation/nix-module",
     "agentRepresentation": {
-      "membership": "special",
-      "reason": "The generated Nix module include must be expanded first."
+      "membership": "ordinary"
     },
     "agentDiscovery": {
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -696,7 +737,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "installation"
     }
   },
   {
@@ -712,7 +754,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "mcp"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "mcp"
     }
   },
   {
@@ -727,7 +770,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "operations"
     }
   },
   {
@@ -742,7 +786,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "operations"
     }
   },
   {
@@ -758,7 +803,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "operations"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "operations"
     }
   },
   {
@@ -773,7 +819,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "operations"
     }
   },
   {
@@ -788,7 +835,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "operations"
     }
   },
   {
@@ -803,7 +851,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "operations"
     }
   },
   {
@@ -818,7 +867,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -833,7 +883,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -848,7 +899,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -863,7 +915,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -878,7 +931,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -893,7 +947,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -908,7 +963,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -924,7 +980,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "providers"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -939,7 +996,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -954,7 +1012,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -969,7 +1028,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -984,7 +1044,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -999,7 +1060,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -1014,7 +1076,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -1029,7 +1092,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "providers"
     }
   },
   {
@@ -1045,7 +1109,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "api"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "api"
     }
   },
   {
@@ -1060,7 +1125,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "api"
     }
   },
   {
@@ -1091,7 +1157,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "api"
     }
   },
   {
@@ -1106,7 +1173,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "api"
     }
   },
   {
@@ -1121,7 +1189,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "api"
     }
   },
   {
@@ -1137,7 +1206,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "self-hosting"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "self-hosting"
     }
   },
   {
@@ -1152,7 +1222,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1167,7 +1238,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1182,7 +1254,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1197,7 +1270,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1212,7 +1286,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1227,7 +1302,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1242,7 +1318,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1257,7 +1334,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1272,7 +1350,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1288,7 +1367,8 @@ export const docsPageCatalog = Object.freeze([
       "section": "user-guide"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1303,7 +1383,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1318,7 +1399,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1333,7 +1415,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1348,7 +1431,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1363,7 +1447,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1378,7 +1463,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   },
   {
@@ -1393,7 +1479,8 @@ export const docsPageCatalog = Object.freeze([
       "membership": "unlisted"
     },
     "agentCorpus": {
-      "membership": "included"
+      "membership": "included",
+      "section": "user-guide"
     }
   }
 ]);

@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Documentation builds now expand controlled includes, normalize supported VitePress and raw HTML, publish useful no-JavaScript API guidance, and generate a bounded, provenance-preserving `llms-full.txt` convenience corpus from reviewed catalogue policy.
 - Updated CI and release images to Go 1.26.6 for the latest standard-library security fixes, provisioned Nix before repository policy checks, and made partial browser-job reruns reuse the newest canonical build artifact.
 - Direct and Settings-embedded social account management now share one explicitly configured Workspace component, while each route keeps its own authentication, OAuth continuation, URL cleanup, and one-time feedback without redirect flashes.
 - Moved the canonical source, release links, installation commands, support URLs, badges, and container image namespace to the `getopenpost` GitHub organization while retaining the published MCP Registry identifier for compatibility.

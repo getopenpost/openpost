@@ -111,24 +111,8 @@ func (s *Service) Initiate(ctx context.Context, input InitiateInput) (Transfer, 
 		}
 		return Transfer{}, cause
 	}
-	credential := Credential{UserID: input.ActorUserID, SessionID: input.ActorSessionID, TokenID: input.ActorTokenID, WorkspaceID: input.ActorWorkspaceID}
-	if err := requireBrowserCredential(credential); err != nil {
+	if err := s.authorizeInitiation(ctx, input); err != nil {
 		return fail(err)
-	}
-	if err := s.requireOrganizationAccess(ctx, input.OrganizationID, Credential{UserID: input.ActorUserID, SessionID: input.ActorSessionID, TokenID: input.ActorTokenID}); err != nil {
-		return fail(err)
-	}
-	if _, err := validateInitiation(ctx, s.db, input); err != nil {
-		return fail(err)
-	}
-	if s.reauth == nil {
-		return fail(ErrReauthUnavailable)
-	}
-	if strings.TrimSpace(input.ReauthGrant) == "" {
-		return fail(ErrReauthRequired)
-	}
-	if err := s.reauth.ConsumeReauthGrant(ctx, input.ReauthGrant, input.ActorUserID, input.ActorSessionID, ReauthAction); err != nil {
-		return fail(ErrReauthRequired)
 	}
 	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		organizationName, err := validateInitiation(txCtx, tx, input)
@@ -173,6 +157,29 @@ func (s *Service) Initiate(ctx context.Context, input InitiateInput) (Transfer, 
 	}
 	transfer, err := s.getForOrganization(ctx, input.OrganizationID, input.ActorUserID)
 	return transfer, err
+}
+
+func (s *Service) authorizeInitiation(ctx context.Context, input InitiateInput) error {
+	credential := Credential{UserID: input.ActorUserID, SessionID: input.ActorSessionID, TokenID: input.ActorTokenID, WorkspaceID: input.ActorWorkspaceID}
+	if err := requireBrowserCredential(credential); err != nil {
+		return err
+	}
+	if err := s.requireOrganizationAccess(ctx, input.OrganizationID, Credential{UserID: input.ActorUserID, SessionID: input.ActorSessionID, TokenID: input.ActorTokenID}); err != nil {
+		return err
+	}
+	if _, err := validateInitiation(ctx, s.db, input); err != nil {
+		return err
+	}
+	if s.reauth == nil {
+		return ErrReauthUnavailable
+	}
+	if strings.TrimSpace(input.ReauthGrant) == "" {
+		return ErrReauthRequired
+	}
+	if err := s.reauth.ConsumeReauthGrant(ctx, input.ReauthGrant, input.ActorUserID, input.ActorSessionID, ReauthAction); err != nil {
+		return ErrReauthRequired
+	}
+	return nil
 }
 
 func (s *Service) RecordInitiationFailure(ctx context.Context, input InitiateInput) error {

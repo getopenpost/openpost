@@ -64,6 +64,7 @@ const checks = {
     bunTest("scripts/cloudflare-edge-plan.test.mjs"),
     bunTest("scripts/check-marketing-route-manifest.test.mjs"),
     bunTest("scripts/generate-agent-surfaces.test.mjs"),
+    bunTest("scripts/public-deployment-proof.test.mjs"),
     bun("scripts/check-marketing-route-manifest.mjs"),
   ]),
   "legal-policy": stage("legal policy", [

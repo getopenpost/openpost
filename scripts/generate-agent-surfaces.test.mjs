@@ -900,7 +900,7 @@ test("documentation full corpus groups selected pages with provenance and no rep
   const excludedSource = path.join(directory, "notices.md.source");
   await writeFile(
     includedSource,
-    "# Accounts\n\nConnect a destination.\n\n## Review\n\nCheck access.\n",
+    "# Accounts\n\nConnect a destination. See [Review](https://docs.openpost.social/usage/accounts#review) or [watch a video](https://youtu.be/example).\n\n![Dashboard](https://docs.openpost.social/assets/screenshots/main-dark.png)\n\n## Review\n\nCheck access.\n",
   );
   await writeFile(excludedSource, "# Notices\n\nLegal notice body must stay separate.\n");
   const page = (overrides) => ({
@@ -942,8 +942,17 @@ test("documentation full corpus groups selected pages with provenance and no rep
   assert.match(corpus, /^### Accounts$/m);
   assert.match(
     corpus,
-    /^Source: \[https:\/\/docs\.openpost\.social\/usage\/accounts\]\(https:\/\/docs\.openpost\.social\/usage\/accounts\)$/m,
+    /^Source: \[https:\/\/docs\.openpost\.social\/accounts\.md\]\(https:\/\/docs\.openpost\.social\/accounts\.md\)$/m,
   );
+  assert.match(
+    corpus,
+    /See \[Review\]\(https:\/\/docs\.openpost\.social\/accounts\.md#review\) or watch a video\./u,
+  );
+  assert.match(
+    corpus,
+    /!\[Dashboard\]\(https:\/\/docs\.openpost\.social\/assets\/screenshots\/main-dark\.png\)/u,
+  );
+  assert.doesNotMatch(corpus, /youtu\.be/u);
   assert.match(corpus, /^#### Review$/m);
   assert.doesNotMatch(
     corpus,
@@ -1649,7 +1658,8 @@ test(
       /^### (?:Privacy Policy|Terms of Service|Refund Policy|Changelog)$/m,
     );
     for (const entry of docsSocialEntries) {
-      const provenance = `Source: [${entry.canonical}](${entry.canonical})`;
+      const artifact = new URL(entry.page, "https://docs.openpost.social/").href;
+      const provenance = `Source: [${artifact}](${artifact})`;
       if (entry.agentCorpus.membership === "included") {
         assert.ok(docsCorpus.includes(provenance), `${entry.page} is missing from llms-full.txt`);
       } else {

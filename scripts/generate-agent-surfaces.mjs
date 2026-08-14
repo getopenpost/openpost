@@ -582,14 +582,39 @@ function demoteCorpusHeadings(source) {
   );
 }
 
-function corpusPageBody(page) {
+function corpusArtifactURL(page) {
+  return new URL(page.outputPath, new URL(page.canonical).origin + "/").href;
+}
+
+function corpusLinks(markdown, page, artifactsByCanonical) {
+  return mapOutsideFences(markdown, (line) =>
+    line.replace(
+      /(!?)\[([^\]]*)\]\(([^)\s]+)(?:\s+[^)]*)?\)/gu,
+      (_match, imageMarker, label, target) => {
+        const url = new URL(target, page.canonical);
+        const artifact = artifactsByCanonical.get(normalizedPublicURL(url.href));
+        if (artifact) return `${imageMarker}[${label}](${artifact}${url.hash})`;
+        const intentionalNative =
+          publicContentOrigins.has(url.origin) &&
+          (url.pathname.startsWith("/assets/") || url.pathname === "/openapi.json");
+        if (intentionalNative) return `${imageMarker}[${label}](${url.href})`;
+        return label;
+      },
+    ),
+  );
+}
+
+function corpusPageBody(page, artifactsByCanonical) {
   const headingStart = page.markdown.search(/^# /mu);
   if (headingStart < 0) throw new Error(`${page.canonical}: corpus source has no page heading`);
   const body = page.markdown.slice(headingStart).replace(/^# .+(?:\n+|$)/u, "");
-  return demoteCorpusHeadings(body).trim();
+  return corpusLinks(demoteCorpusHeadings(body), page, artifactsByCanonical).trim();
 }
 
 function corpusDocument(corpus, generatedPages) {
+  const artifactsByCanonical = new Map(
+    generatedPages.map((page) => [normalizedPublicURL(page.canonical), corpusArtifactURL(page)]),
+  );
   const includedBySection = new Map();
   for (const page of generatedPages) {
     const policy = page.catalog?.agentCorpus;
@@ -614,8 +639,9 @@ function corpusDocument(corpus, generatedPages) {
     return [
       `## ${title}\n\n${pages
         .map((page) => {
-          const body = corpusPageBody(page);
-          return `### ${page.title}\n\nSource: [${page.canonical}](${page.canonical})${body ? `\n\n${body}` : ""}`;
+          const body = corpusPageBody(page, artifactsByCanonical);
+          const source = corpusArtifactURL(page);
+          return `### ${page.title}\n\nSource: [${source}](${source})${body ? `\n\n${body}` : ""}`;
         })
         .join("\n\n")}`,
     ];

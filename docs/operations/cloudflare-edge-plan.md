@@ -60,10 +60,21 @@ export OPENPOST_CLOUDFLARE_MARKETING_ZONE_ID='...'
 export OPENPOST_CLOUDFLARE_DOCUMENTATION_ZONE_ID='...'
 ```
 
+For deployment proof, create a separate temporary API token restricted to the
+owning account with only Cloudflare Pages Read. Copy the account ID from the
+Cloudflare dashboard or `wrangler whoami`, then supply both only in the operator
+shell:
+
+```sh
+export OPENPOST_CLOUDFLARE_PAGES_API_TOKEN='...'
+export OPENPOST_CLOUDFLARE_ACCOUNT_ID='...'
+```
+
 Do not put these values in repository files, shell history, CI variables used
 by ordinary builds, command arguments, or evidence. Revoke the temporary token
-after the operation. The commands report logical zone names and environment
-variable names, never token or zone-ID values.
+after the related inspection, apply, rollback, or proof operation. The commands
+report logical resource names and environment variable names, never token,
+zone-ID, or account-ID values.
 
 ## Inspect and apply
 
@@ -116,6 +127,81 @@ operator change stops rollback instead of overwriting that work. If a phase did
 not exist before apply, rollback restores an empty phase entry point. Inspect
 again and retain the before, after, rollback, command output, and
 exact repository revision in the private operator record.
+
+## Explicit surface deployment proof
+
+The marketing and documentation Pages projects use the repository's Git-backed
+delivery. Let that integration build the reviewed `main` revision. Do not upload
+a second local build over it. After both production deployments finish, run the
+two local production builds and save the read-only Pages deployment lists:
+
+```sh
+bun run build -- marketing
+bun run build -- docs
+bunx wrangler pages deployment list --project-name openpost-marketing --environment production --json > /tmp/openpost-marketing-deployments.json
+bunx wrangler pages deployment list --project-name openpost-docs --environment production --json > /tmp/openpost-docs-deployments.json
+
+reviewed_revision="$(git rev-parse HEAD)"
+reviewed_source="${reviewed_revision:0:7}"
+marketing_deployment_id="$(
+  jq -r --arg source "$reviewed_source" \
+    'map(select(.Source == $source))[0].Id' \
+    /tmp/openpost-marketing-deployments.json
+)"
+documentation_deployment_id="$(
+  jq -r --arg source "$reviewed_source" \
+    'map(select(.Source == $source))[0].Id' \
+    /tmp/openpost-docs-deployments.json
+)"
+
+curl --fail --silent --show-error \
+  --header "Authorization: Bearer $OPENPOST_CLOUDFLARE_PAGES_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$OPENPOST_CLOUDFLARE_ACCOUNT_ID/pages/projects/openpost-marketing/deployments/$marketing_deployment_id" \
+  > /tmp/openpost-marketing-deployment.json
+curl --fail --silent --show-error \
+  --header "Authorization: Bearer $OPENPOST_CLOUDFLARE_PAGES_API_TOKEN" \
+  "https://api.cloudflare.com/client/v4/accounts/$OPENPOST_CLOUDFLARE_ACCOUNT_ID/pages/projects/openpost-docs/deployments/$documentation_deployment_id" \
+  > /tmp/openpost-docs-deployment.json
+```
+
+The list output contains only an abbreviated source reference. The deployment
+detail responses are required because they include the full commit hash, clean
+source state, branch, environment, and final deployment stage. Keep the API
+token and all response files outside the repository.
+
+Record a separate 24-hour AI Crawl Control observation with `observed_at`,
+`window_start`, `window_end`, `window_hours: 24`, the two hostnames, request and
+response-status counts, the data source, method, next owner, and next review.
+Cloudflare exposes the dashboard data through its
+[GraphQL Analytics API](https://developers.cloudflare.com/ai-crawl-control/reference/graphql-api/).
+Set `user_agent_matching_spoofable` to `true`,
+`crawler_identity_proven` to `false`, and `release_kpi` to `false`. The window
+timestamps must span exactly 24 hours, both host-count and response-status
+totals must equal the request count, and `observed_at` cannot precede the window
+end.
+
+Then bind the reviewed revision to both Pages deployments and the live hosts:
+
+```sh
+bun scripts/public-deployment-proof.mjs prove \
+  --revision "$(git rev-parse HEAD)" \
+  --marketing-deployment /tmp/openpost-marketing-deployment.json \
+  --documentation-deployment /tmp/openpost-docs-deployment.json \
+  --ai-crawl-snapshot /secure/operator-evidence/ai-crawl-24h.json \
+  --output /secure/operator-evidence/public-agent-surfaces.json
+```
+
+Run the command from the clean reviewed commit after both public builds. It
+rejects a different or modified local checkout and any deployment detail that
+does not report the same full commit hash, a clean `main` source, production,
+and a successful final stage. The command is read-only apart from its output
+file. It proves every generated
+Markdown page against the local build, immutable Pages deployment, and canonical
+host. It also checks discovery files, the full corpus, representative HTML
+alternates, HTML-only sitemaps, canonical redirects, query isolation, real 404s,
+OpenAPI JSON, the native MCP boundary, and asset media types. The report keeps
+local build success, Pages artifact acceptance, live behavior, deployed source
+revision, and the AI crawl observation as separate evidence.
 
 ## Live acceptance
 

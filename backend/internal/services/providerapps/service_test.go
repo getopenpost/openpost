@@ -3,7 +3,6 @@ package providerapps
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -247,6 +246,5 @@ func TestDeleteProviderAppRemovesRow(t *testing.T) {
 	require.NoError(t, db.NewSelect().Model((*models.ProviderApp)(nil)).ColumnExpr("COUNT(*)").Scan(ctx, &count))
 	require.Equal(t, 0, count)
 
-	err = service.DeleteProviderApp(ctx, created.ID)
-	require.True(t, errors.Is(err, ErrNotFound))
+	require.NoError(t, service.DeleteProviderApp(ctx, created.ID))
 }

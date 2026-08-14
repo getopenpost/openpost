@@ -2,6 +2,11 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Button } from '$lib/components/ui/button';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import {
+		completeDestructiveAction,
+		type DestructiveActionOutcome
+	} from '$lib/destructive-action-outcome';
 	import { m } from '$lib/paraglide/messages';
 
 	interface Props {
@@ -10,7 +15,8 @@
 		description: string;
 		confirmLabel?: string;
 		cancelLabel?: string;
-		onConfirm: () => void | Promise<void>;
+		onConfirm: () => DestructiveActionOutcome | Promise<DestructiveActionOutcome>;
+		returnFocus?: HTMLElement | null;
 	}
 
 	let {
@@ -19,17 +25,32 @@
 		description,
 		confirmLabel = m.common_delete(),
 		cancelLabel = m.common_cancel(),
-		onConfirm
+		onConfirm,
+		returnFocus = null
 	}: Props = $props();
 
 	let pending = $state(false);
+	let failure = $state('');
+
+	$effect(() => {
+		if (!open) failure = '';
+	});
 
 	async function confirm() {
 		if (pending) return;
 		pending = true;
+		failure = '';
 		try {
-			await onConfirm();
+			const outcome = await onConfirm();
+			if (!outcome.ok) {
+				failure = outcome.message || m.app_destructive_action_failed();
+				return;
+			}
 			open = false;
+			await completeDestructiveAction(outcome, returnFocus);
+		} catch (error) {
+			failure =
+				error instanceof Error && error.message ? error.message : m.app_destructive_action_failed();
 		} finally {
 			pending = false;
 		}
@@ -42,6 +63,7 @@
 			<Dialog.Title>{title}</Dialog.Title>
 			<Dialog.Description>{description}</Dialog.Description>
 		</Dialog.Header>
+		{#if failure}<InlineNotice tone="error" message={failure} />{/if}
 		<Dialog.Footer>
 			<Button
 				variant="outline"

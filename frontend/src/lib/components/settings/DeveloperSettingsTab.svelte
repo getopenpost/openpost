@@ -10,6 +10,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
@@ -73,8 +74,12 @@
 		revokeDialogOpen = true;
 	}
 
-	async function confirmTokenRevocation() {
-		if (pendingTokenID) await revokeAPIToken(pendingTokenID);
+	async function confirmTokenRevocation(): Promise<DestructiveActionOutcome> {
+		if (!pendingTokenID) return { ok: false };
+		const ok = await revokeAPIToken(pendingTokenID);
+		const message = ok ? undefined : apiTokenError;
+		if (!ok) apiTokenError = '';
+		return { ok, message };
 	}
 
 	function apiTokenScopeLabel(value: string) {
@@ -132,7 +137,6 @@
 		} catch (e) {
 			if (requestSequence !== apiTokensRequestSequence || authState.user?.id !== userID) return;
 			apiTokensLoadError = (e as Error).message;
-			if (loadedAPITokensUserID === userID) loadedAPITokensUserID = '';
 		} finally {
 			if (requestSequence === apiTokensRequestSequence) {
 				apiTokensRequestUserID = '';
@@ -152,7 +156,6 @@
 			mcpActivity = data as MCPActivityItem[];
 		} catch (e) {
 			mcpActivityError = (e as Error).message;
-			mcpActivity = [];
 		} finally {
 			mcpActivityLoading = false;
 		}
@@ -229,8 +232,10 @@
 			if (err) throw new Error(err.detail || m.settings_action_failed());
 			await loadAPITokens();
 			notify(m.settings_token_revoked());
+			return true;
 		} catch (e) {
 			apiTokenError = (e as Error).message;
+			return false;
 		} finally {
 			apiTokenBusy = false;
 		}
@@ -554,9 +559,9 @@
 		</div>
 	{/if}
 
-	{#if mcpActivityLoading}
+	{#if mcpActivityLoading && mcpActivity.length === 0}
 		<PageLoading layout="list" label={m.common_loading()} items={2} />
-	{:else if mcpActivity.length === 0}
+	{:else if mcpActivity.length === 0 && !mcpActivityError}
 		<p
 			data-testid="mcp-activity-empty"
 			class="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground"

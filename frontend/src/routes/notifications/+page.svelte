@@ -16,6 +16,7 @@
 	import NotificationMutes from '$lib/components/notification-mutes.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { Button } from '$lib/components/ui/button';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import BellIcon from '@lucide/svelte/icons/bell';
@@ -88,16 +89,18 @@
 		return result.ok;
 	}
 
-	async function deleteAll() {
+	async function deleteAll(): Promise<DestructiveActionOutcome> {
 		const requestedWorkspace = workspaceId;
-		if (!requestedWorkspace || bulkActionPending) return;
+		if (!requestedWorkspace || bulkActionPending) return { ok: false };
 		bulkActionPending = 'delete';
 		const result = await notificationInbox.deleteNotifications(requestedWorkspace, { all: true });
-		if (workspaceId === requestedWorkspace) {
-			if (result.ok) announce(m.notifications_delete_all_success());
-			else showToast(m.notifications_delete_all_failed(), 'error');
-		}
 		bulkActionPending = '';
+		const ok = result.ok && workspaceId === requestedWorkspace;
+		return {
+			ok,
+			message: ok ? undefined : m.notifications_delete_all_failed(),
+			successMessage: ok ? m.notifications_delete_all_success() : undefined
+		};
 	}
 
 	async function openNotification(notification: Notification) {

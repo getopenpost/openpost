@@ -3,6 +3,7 @@
 	import { client } from '$lib/api/client';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
@@ -298,28 +299,36 @@
 		}
 	}
 
-	async function deleteProvider() {
-		if (!deleteTarget?.deletable) return;
+	async function deleteProvider(): Promise<DestructiveActionOutcome> {
+		if (!deleteTarget?.deletable) return { ok: false };
+		const deletedID = deleteTarget.id;
 		try {
-			const deletedID = deleteTarget.id;
 			const { error: deleteError } = await client.DELETE('/admin/provider-apps/{id}', {
 				params: { path: { id: deletedID } }
 			});
 			if (deleteError) {
-				error = deleteError.detail ?? m.settings_configuration_provider_delete_failed();
-				return;
+				return {
+					ok: false,
+					message: deleteError.detail ?? m.settings_configuration_provider_delete_failed()
+				};
 			}
+			providerApps = providerApps.filter((provider) => provider.id !== deletedID);
+			if (editingProviderID === deletedID) resetProviderForm();
+			deleteTarget = null;
+		} catch {
+			return { ok: false, message: m.settings_configuration_provider_delete_failed() };
+		}
+		try {
 			const { data, error: reloadError } = await client.GET('/admin/provider-apps');
 			if (reloadError) {
 				error = reloadError.detail ?? m.settings_configuration_load_failed();
-				return;
+				return { ok: true, successMessage: m.settings_configuration_provider_deleted() };
 			}
 			providerApps = data ?? [];
-			if (editingProviderID === deletedID) resetProviderForm();
-			deleteTarget = null;
-			showToast(m.settings_configuration_provider_deleted(), 'success');
+			return { ok: true, successMessage: m.settings_configuration_provider_deleted() };
 		} catch {
-			error = m.settings_configuration_provider_delete_failed();
+			error = m.settings_configuration_load_failed();
+			return { ok: true, successMessage: m.settings_configuration_provider_deleted() };
 		}
 	}
 

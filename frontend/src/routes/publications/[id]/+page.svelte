@@ -72,7 +72,7 @@
 
 	async function handleSuccess() {
 		ui.triggerRefresh();
-		goto(resolve('/'));
+		await goto(resolve('/'));
 	}
 
 	async function retryRendition(renditionID: string) {

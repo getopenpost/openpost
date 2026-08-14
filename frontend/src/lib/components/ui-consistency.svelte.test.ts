@@ -88,7 +88,7 @@ describe('shared page states', () => {
 	});
 
 	it('requires an explicit action before confirming destructive work', async () => {
-		const onConfirm = vi.fn();
+		const onConfirm = vi.fn(() => ({ ok: true }));
 		const screen = await render(DestructiveConfirmDialog, {
 			open: true,
 			title: 'Delete this item?',
@@ -100,5 +100,21 @@ describe('shared page states', () => {
 		await expect.element(screen.getByText('This action cannot be undone.')).toBeVisible();
 		await screen.getByRole('button', { name: 'Delete' }).click();
 		expect(onConfirm).toHaveBeenCalledOnce();
+	});
+
+	it('keeps destructive confirmation open when the action reports failure', async () => {
+		const onConfirm = vi.fn(async () => ({ ok: false, message: 'The server rejected deletion.' }));
+		const screen = await render(DestructiveConfirmDialog, {
+			open: true,
+			title: 'Delete all notifications?',
+			description: 'This action cannot be undone.',
+			onConfirm
+		});
+
+		await screen.getByRole('button', { name: 'Delete' }).click();
+
+		expect(onConfirm).toHaveBeenCalledOnce();
+		await expect.element(screen.getByRole('dialog')).toBeVisible();
+		await expect.element(screen.getByText('The server rejected deletion.')).toBeVisible();
 	});
 });

@@ -3,6 +3,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Button } from '$lib/components/ui/button';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
@@ -34,6 +35,7 @@
 	let open = $state(false);
 	let deleteDialogOpen = $state(false);
 	let postToDelete = $state.raw<Publication | null>(null);
+	let deleteReturnFocus = $state<HTMLElement | null>(null);
 	let loadRequestSequence = 0;
 
 	const currentDate = $derived<DateValue | undefined>(ui.dayPostsDate);
@@ -212,9 +214,9 @@
 		);
 	}
 
-	async function handleDelete() {
+	async function handleDelete(): Promise<DestructiveActionOutcome> {
 		const post = postToDelete;
-		if (!post) return;
+		if (!post) return { ok: false };
 		try {
 			const { error: responseError } = await client.DELETE('/publications/{id}', {
 				params: {
@@ -229,8 +231,17 @@
 				scopes: ['activity', 'calendar', 'drafts'],
 				dateKeys: dateStr ? [dateStr] : []
 			});
+			postToDelete = null;
+			return {
+				ok: true,
+				successMessage: m.day_posts_delete_success(),
+				returnFocus: deleteReturnFocus
+			};
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.day_posts_delete_failed();
+			return {
+				ok: false,
+				message: cause instanceof Error ? cause.message : m.day_posts_delete_failed()
+			};
 		}
 	}
 </script>
@@ -239,7 +250,7 @@
 	<Sheet.Content side="right" class="w-full! p-0 sm:max-w-lg!" data-testid="day-posts-drawer">
 		<Sheet.Header class="border-b px-4 py-4 pr-14 sm:px-5">
 			<div class="flex items-center justify-between gap-3">
-				<div class="min-w-0">
+				<div bind:this={deleteReturnFocus} tabindex="-1" class="min-w-0 outline-none">
 					<Sheet.Title class="truncate text-base font-semibold">{formattedDate}</Sheet.Title>
 					<Sheet.Description class="mt-1 text-sm">
 						{m.calendar_day_posts_summary({ count: posts.length })}

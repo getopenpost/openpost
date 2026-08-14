@@ -13,7 +13,9 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import TemplatePreview from '$lib/image-editor/components/template-preview.svelte';
@@ -35,11 +37,13 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	import PaletteIcon from '@lucide/svelte/icons/palette';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import { m } from '$lib/paraglide/messages';
+	import { showToast } from '$lib/toast';
 
 	let authState = $derived($auth);
 	let loading = $state(true);
 	let creating = $state('');
 	let error = $state('');
+	let loadError = $state('');
 	let enabled = $state(true);
 	let presets = $state.raw<ImageEditorPreset[]>([]);
 	let templates = $state.raw<ImageEditorTemplate[]>([]);
@@ -49,6 +53,9 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	let fileInput = $state<HTMLInputElement | null>(null);
 	let pendingDelete = $state<LocalImageEditorDesign | null>(null);
 	let deleteDialogOpen = $state(false);
+	let pageHeading = $state<HTMLHeadingElement | null>(null);
+	let recentHeading = $state<HTMLHeadingElement | null>(null);
+	let deleteReturnFocus = $state<HTMLElement | null>(null);
 
 	onMount(() => {
 		void initialize();
@@ -56,7 +63,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 
 	async function initialize(): Promise<void> {
 		loading = true;
-		error = '';
+		loadError = '';
 		try {
 			const [config, publicTemplates, localDesigns] = await Promise.all([
 				loadImageEditorConfig(),
@@ -71,7 +78,7 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 				returning_guest: localDesigns.length > 0
 			});
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
+			loadError = cause instanceof Error ? cause.message : m.image_editor_public_load_failed();
 		} finally {
 			loading = false;
 		}
@@ -160,14 +167,17 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 
 	function requestDelete(design: LocalImageEditorDesign): void {
 		pendingDelete = design;
+		deleteReturnFocus = recentDesigns.length > 1 ? recentHeading : pageHeading;
 		deleteDialogOpen = true;
 	}
 
-	async function deleteDesign(): Promise<void> {
-		if (!pendingDelete) return;
+	async function deleteDesign(): Promise<DestructiveActionOutcome> {
+		if (!pendingDelete) return { ok: false };
 		await deleteGuestImageEditorDesign(pendingDelete.id);
 		recentDesigns = recentDesigns.filter((design) => design.id !== pendingDelete?.id);
 		pendingDelete = null;
+		showToast(m.image_editor_public_deleted(), 'success');
+		return { ok: true };
 	}
 
 	function presetName(preset: ImageEditorPreset): string {
@@ -259,7 +269,11 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	<main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
 		<div class="max-w-3xl">
 			<p class="text-sm font-medium text-primary">{m.image_editor_public_free_tool()}</p>
-			<h1 class="mt-2 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+			<h1
+				bind:this={pageHeading}
+				tabindex="-1"
+				class="mt-2 text-3xl leading-tight font-semibold tracking-tight text-balance outline-none sm:text-4xl"
+			>
 				{m.image_editor_public_heading()}
 			</h1>
 			<p class="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
@@ -294,10 +308,15 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 		{/if}
 
 		{#if loading}
-			<div class="flex min-h-[50dvh] items-center justify-center text-muted-foreground">
-				<LoaderIcon class="mr-2 size-5 animate-spin" />
-				{m.image_editor_load()}
+			<div class="mt-10">
+				<PageLoading layout="gallery" label={m.image_editor_load()} items={8} />
 			</div>
+		{:else if loadError}
+			<InlineNotice tone="error" message={loadError} class="mt-10 max-w-3xl">
+				{#snippet actions()}
+					<Button size="sm" onclick={() => void initialize()}>{m.common_retry()}</Button>
+				{/snippet}
+			</InlineNotice>
 		{:else if !enabled}
 			<div class="mt-10 max-w-xl rounded-xl border bg-card p-6">
 				<PaletteIcon class="size-7 text-muted-foreground" />
@@ -311,7 +330,12 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 				<section class="mt-12" aria-labelledby="recent-designs-heading">
 					<div class="mb-4 flex items-end justify-between gap-4">
 						<div>
-							<h2 id="recent-designs-heading" class="text-lg font-semibold">
+							<h2
+								bind:this={recentHeading}
+								id="recent-designs-heading"
+								tabindex="-1"
+								class="text-lg font-semibold outline-none"
+							>
 								{m.image_editor_public_recent()}
 							</h2>
 							<p class="mt-1 text-sm text-muted-foreground">
@@ -472,4 +496,5 @@ FORM: Operate surface extending the established OpenPost Image Editor start scre
 	title={m.image_editor_public_delete_title()}
 	description={m.image_editor_public_delete_description()}
 	onConfirm={deleteDesign}
+	returnFocus={deleteReturnFocus}
 />

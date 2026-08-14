@@ -243,14 +243,13 @@ test("notification bulk actions stay in the selected workspace and preserve stat
     ),
   ).toBeVisible();
   await dialog.getByRole("button", { name: "Delete this inbox history" }).click();
-  await expect(page.getByText("OpenPost could not delete this inbox history.")).toBeVisible();
-  await expect(dialog).toBeHidden();
+  await expect(dialog.getByText("OpenPost could not delete this inbox history.")).toBeVisible();
+  await expect(dialog).toBeVisible();
   await expect(page.getByText("Campaign publication failed")).toBeVisible();
   await expect(inbox.getByText("1 unread notifications")).toBeVisible();
   await expect(page.getByRole("link", { name: "Notifications, 1 unread" })).toBeVisible();
 
-  await inbox.getByRole("button", { name: "Delete this inbox history" }).click();
-  await page.getByRole("dialog").getByRole("button", { name: "Delete this inbox history" }).click();
+  await dialog.getByRole("button", { name: "Delete this inbox history" }).click();
   await expect(page.getByText("You're all caught up")).toBeVisible();
   await expect(page.getByRole("link", { name: "Notifications, 0 unread" })).toBeVisible();
   expect(deleteRequests).toEqual([

@@ -16,6 +16,7 @@
 	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
 	import { formatAccountHandle, getPlatformName, getPlatformColor } from '$lib/utils';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
@@ -61,6 +62,7 @@
 	let accounts = $state<SocialAccount[]>([]);
 	let accountsLoading = $state(false);
 	let accountsLoadError = $state('');
+	let accountsWorkspaceID = '';
 	let accountsRequestSequence = 0;
 
 	let providerEntries = $state.raw<ProviderEntry[]>([]);
@@ -173,9 +175,11 @@
 		const requestSequence = ++accountsRequestSequence;
 		const isCurrentRequest = () =>
 			requestSequence === accountsRequestSequence && selectedWorkspaceId === workspaceID;
+		const workspaceChanged = accountsWorkspaceID !== workspaceID;
+		accountsWorkspaceID = workspaceID;
 		accountsLoading = true;
 		accountsLoadError = '';
-		accounts = [];
+		if (workspaceChanged) accounts = [];
 		try {
 			const { data, error: err } = await client.GET('/accounts', {
 				params: { query: { workspace_id: workspaceID } }
@@ -203,7 +207,6 @@
 			console.error('Failed to load account providers:', e);
 			providersLoadError =
 				e instanceof Error && e.message ? e.message : m.accounts_providers_load_failed();
-			providerEntries = [];
 		} finally {
 			providersLoading = false;
 		}
@@ -261,9 +264,9 @@
 			: m.accounts_remove_connection();
 	}
 
-	async function confirmAccountRemoval() {
+	async function confirmAccountRemoval(): Promise<DestructiveActionOutcome> {
 		const action = accountRemovalAction;
-		if (!action) return;
+		if (!action) return { ok: false };
 		const account = action.account;
 		const count = grantDestinationCount(account);
 		try {
@@ -282,28 +285,23 @@
 			if (result.error) throw new Error(result.error.detail || fallback);
 			await loadAccounts();
 			onAccountsChanged();
-			if (action.kind === 'disconnect-destination') {
-				showToast(
-					m.accounts_destination_disconnected_success({ account: accountDisplayName(account) }),
-					undefined,
-					'neutral'
-				);
-			} else if (count > 1) {
-				showToast(m.accounts_authorization_removed_success({ count }), undefined, 'neutral');
-			} else {
-				showToast(
-					m.accounts_connection_removed_success({ account: accountDisplayName(account) }),
-					undefined,
-					'neutral'
-				);
-			}
+			const successMessage =
+				action.kind === 'disconnect-destination'
+					? m.accounts_destination_disconnected_success({ account: accountDisplayName(account) })
+					: count > 1
+						? m.accounts_authorization_removed_success({ count })
+						: m.accounts_connection_removed_success({ account: accountDisplayName(account) });
+			return { ok: true, successMessage };
 		} catch (e) {
-			error =
-				e instanceof Error && e.message
-					? e.message
-					: action.kind === 'disconnect-destination'
-						? m.accounts_disconnect_failed()
-						: m.accounts_remove_authorization_failed();
+			return {
+				ok: false,
+				message:
+					e instanceof Error && e.message
+						? e.message
+						: action.kind === 'disconnect-destination'
+							? m.accounts_disconnect_failed()
+							: m.accounts_remove_authorization_failed()
+			};
 		}
 	}
 
@@ -936,9 +934,10 @@
 								{/snippet}
 							</InlineNotice>
 						</div>
-					{:else if accountsLoading}
+					{/if}
+					{#if accountsLoading && accounts.length === 0}
 						<PageLoading layout="grid" label={m.common_loading()} items={3} />
-					{:else if !accounts || accounts.length === 0}
+					{:else if !accountsLoadError && (!accounts || accounts.length === 0)}
 						<EmptyState
 							icon={UsersIcon}
 							title={m.accounts_empty_title()}
@@ -1060,9 +1059,10 @@
 									{/snippet}
 								</InlineNotice>
 							</div>
-						{:else if providersLoading}
+						{/if}
+						{#if providersLoading && providerEntries.length === 0}
 							<PageLoading layout="grid" label={m.common_loading()} items={4} />
-						{:else}
+						{:else if providerEntries.length > 0}
 							<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
 								{#each connectionProviderEntries as provider (providerKey(provider))}
 									<div

@@ -112,6 +112,7 @@
 	import { requestDestructiveAction } from '$lib/destructive-action';
 	import AppToast from './app-toast.svelte';
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import DraftConflictDialog from './draft-conflict-dialog.svelte';
 	import PromptApplyDialog from './prompt-apply-dialog.svelte';
 	import MediaPicker from './media-picker.svelte';
@@ -244,7 +245,7 @@
 		initialAccountIds?: string[];
 		onHandoffSelected?: () => void;
 		onSuccess?: () => void;
-		onDeleted?: () => void;
+		onDeleted?: () => void | Promise<void>;
 		onDraftCreated?: (id: string) => void;
 		onThreadStateChange?: (isThread: boolean) => void;
 	}
@@ -3436,8 +3437,8 @@
 		return !draftConflict && getSaveSnapshot() === lastSavedSnapshot;
 	}
 
-	async function deleteDraft() {
-		if ((!draftId && !publicationOnlyEdit) || isDeleting) return;
+	async function deleteDraft(): Promise<DestructiveActionOutcome> {
+		if ((!draftId && !publicationOnlyEdit) || isDeleting) return { ok: false };
 		clearAutoSaveTimer();
 		isDeleting = true;
 		error = '';
@@ -3483,17 +3484,22 @@
 			selectedTime = null;
 			randomDelayOverride = 'default';
 			showDeleteConfirm = false;
-			onDeleted?.();
+			await onDeleted?.();
+			return {
+				ok: true,
+				successMessage: m.compose_delete_success(),
+				returnFocus: document.getElementById('post-textarea-0')
+			};
 		} catch (e) {
-			error = (e as Error).message || m.compose_delete_post_failed();
 			soundPreferences.play('error');
+			return { ok: false, message: (e as Error).message || m.compose_delete_post_failed() };
 		} finally {
 			isDeleting = false;
 		}
 	}
 
 	function requestDraftDelete(event: MouseEvent) {
-		return requestDestructiveAction(event, () => (showDeleteConfirm = true), deleteDraft);
+		void requestDestructiveAction(event, () => (showDeleteConfirm = true), deleteDraft);
 	}
 
 	async function saveEditedPost(navigateOnSuccess = true): Promise<boolean> {
@@ -4225,12 +4231,13 @@
 		applyPromptContent(prompt);
 	}
 
-	function confirmApplyPrompt() {
+	function confirmApplyPrompt(): DestructiveActionOutcome {
 		const prompt = pendingPromptToApply;
-		if (!prompt) return;
-		if (!applyPromptContent(prompt)) return;
+		if (!prompt) return { ok: false };
+		if (!applyPromptContent(prompt)) return { ok: false };
 		pendingPromptToApply = null;
 		promptApplyDialogOpen = false;
+		return { ok: true };
 	}
 
 	function cancelApplyPrompt() {

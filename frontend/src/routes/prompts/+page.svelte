@@ -13,6 +13,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -52,6 +53,7 @@
 	let deleteDialogOpen = $state(false);
 	let promptToDelete = $state.raw<Prompt | null>(null);
 	let promptsRequestSequence = 0;
+	let loadedPromptsKey = '';
 	let categoriesRequested = false;
 
 	interface PromptsQueryParams {
@@ -65,6 +67,13 @@
 	) {
 		if (!workspaceID) return;
 		const requestSequence = ++promptsRequestSequence;
+		const queryKey = `${workspaceID}:${category}`;
+		const queryChanged = loadedPromptsKey !== queryKey;
+		loadedPromptsKey = queryKey;
+		if (queryChanged) {
+			prompts = [];
+			hasLoaded = false;
+		}
 		loading = true;
 		error = '';
 		try {
@@ -82,7 +91,6 @@
 			if (requestSequence !== promptsRequestSequence) return;
 			console.error('Failed to load prompts:', e);
 			error = (e as Error).message || m.prompts_load_failed();
-			prompts = [];
 		} finally {
 			if (requestSequence === promptsRequestSequence) {
 				loading = false;
@@ -141,20 +149,18 @@
 		deleteDialogOpen = true;
 	}
 
-	async function deletePrompt() {
+	async function deletePrompt(): Promise<DestructiveActionOutcome> {
 		const prompt = promptToDelete;
-		if (!prompt) return;
+		if (!prompt) return { ok: false };
 		try {
 			const { error: err } = await client.DELETE('/prompts/{id}', {
 				params: { path: { id: prompt.id } }
 			});
 			if (err) throw err;
-			toastTone = 'success';
-			toastMessage = m.prompts_deleted();
 			await loadPrompts();
+			return { ok: true, successMessage: m.prompts_deleted() };
 		} catch (e) {
-			toastTone = 'error';
-			toastMessage = (e as Error).message || m.prompts_delete_failed();
+			return { ok: false, message: (e as Error).message || m.prompts_delete_failed() };
 		}
 	}
 
@@ -220,7 +226,7 @@
 	loadingActionCount={3}
 >
 	{#snippet actions()}
-		{#if loadingCategories}
+		{#if loadingCategories && categories.length === 0}
 			<Skeleton class="h-9 w-32" />
 		{:else}
 			<Select.Root
@@ -271,7 +277,10 @@
 		{/if}
 
 		<!-- Prompts Grid -->
-		{#if loading && hasLoaded}
+		{#if loading && prompts.length > 0}
+			<span class="sr-only" role="status">{m.common_loading()}</span>
+		{/if}
+		{#if loading && prompts.length === 0}
 			<PageLoading layout="grid" label={m.common_loading()} items={8} />
 		{:else if !error && prompts.length === 0}
 			<EmptyState
@@ -384,7 +393,7 @@
 						<div class="space-y-2">
 							<label class="text-sm font-medium" for="prompt-category">{m.prompts_category()}</label
 							>
-							{#if loadingCategories}
+							{#if loadingCategories && categories.length === 0}
 								<Skeleton class="h-9 w-full" />
 							{:else}
 								<Select.Root

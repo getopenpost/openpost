@@ -15,6 +15,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import AccountDataCard from '$lib/components/account-data-card.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import {
@@ -135,12 +136,25 @@
 		return m.settings_revoke();
 	}
 
-	async function confirmDestructiveAction() {
+	async function confirmDestructiveAction(): Promise<DestructiveActionOutcome> {
 		const action = destructiveAction;
-		if (!action) return;
-		if (action.kind === 'session') return revokeAuthSession(action.session);
-		if (action.kind === 'identity') return unlinkIdentity(action.identity.id);
-		return disableTOTP();
+		if (!action) return { ok: false };
+		if (action.kind === 'session') {
+			const ok = await revokeAuthSession(action.session);
+			const message = ok ? undefined : authSessionsError;
+			if (!ok) authSessionsError = '';
+			return { ok, message };
+		}
+		if (action.kind === 'identity') {
+			const ok = await unlinkIdentity(action.identity.id);
+			const message = ok ? undefined : securityError;
+			if (!ok) securityError = '';
+			return { ok, message };
+		}
+		const ok = await disableTOTP();
+		const message = ok ? undefined : securityError;
+		if (!ok) securityError = '';
+		return { ok, message };
 	}
 
 	function securityMethodLabel(method: string) {
@@ -318,7 +332,7 @@
 				providerID: reauthProviderID,
 				hasPasskey: passkeyCount > 0
 			});
-			if (grant === null) return;
+			if (grant === null) return false;
 			const result = await client.DELETE('/auth/oidc/identities/{identity_id}', {
 				params: { path: { identity_id: identityID } },
 				body: { reauth_grant: grant }
@@ -332,8 +346,10 @@
 			identityPassword = '';
 			await loadSecurityStatus();
 			notify(m.settings_identity_unlinked());
+			return true;
 		} catch (e) {
 			securityError = (e as Error).message || m.settings_identity_unlink_failed();
+			return false;
 		} finally {
 			identityBusy = '';
 		}
@@ -347,7 +363,6 @@
 			if (err || !data) throw new Error(err?.detail || m.settings_action_failed());
 			authSessions = data as AuthSessionSummary[];
 		} catch (e) {
-			authSessions = [];
 			authSessionsError = (e as Error).message;
 		} finally {
 			authSessionsLoading = false;
@@ -365,12 +380,14 @@
 			if (data?.revoked_current || session.current) {
 				await auth.logout();
 				await goto(resolve('/login' as '/'));
-				return;
+				return true;
 			}
 			await loadAuthSessions();
 			notify(m.settings_session_revoked());
+			return true;
 		} catch (e) {
 			authSessionsError = (e as Error).message;
+			return false;
 		} finally {
 			authSessionBusyID = '';
 		}
@@ -632,7 +649,7 @@
 						providerID: reauthProviderID,
 						hasPasskey: passkeyCount > 0
 					});
-			if (grant === null) return;
+			if (grant === null) return false;
 			const { data, error: err } = await client.POST('/auth/security/totp/disable', {
 				body: {
 					current_password: totpCurrentPassword,
@@ -645,8 +662,10 @@
 			recoveryCodesRemaining = null;
 			clearRecoveryCodeStage();
 			notify(m.settings_authenticator_disabled_notice());
+			return true;
 		} catch (e) {
 			securityError = (e as Error).message;
+			return false;
 		} finally {
 			securityBusy = false;
 		}
@@ -952,9 +971,9 @@
 				<InlineNotice tone="error" message={authSessionsError} class="mb-3" />
 			{/if}
 
-			{#if authSessionsLoading}
+			{#if authSessionsLoading && authSessions.length === 0}
 				<PageLoading layout="list" label={m.common_loading()} items={2} />
-			{:else if authSessions.length === 0}
+			{:else if authSessions.length === 0 && !authSessionsError}
 				<p class="rounded-md border bg-muted/20 p-4 text-sm text-muted-foreground">
 					{m.settings_no_sessions()}
 				</p>

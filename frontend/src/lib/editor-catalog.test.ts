@@ -6,7 +6,8 @@ import {
 	EditorCatalogRequestGate,
 	editorCatalogKey,
 	emptyEditorCatalog,
-	mergeEditorCatalogItems
+	mergeEditorCatalogItems,
+	resolveEditorCatalogSurface
 } from './editor-catalog';
 
 function design(id: string): ImageEditorDesignSummary {
@@ -39,6 +40,39 @@ function video(id: string): CloudVideoProjectSummary {
 }
 
 describe('editor catalog state', () => {
+	it('keeps initial failures mutually exclusive with the empty catalog', () => {
+		expect(
+			resolveEditorCatalogSurface({
+				loading: false,
+				error: 'Workspace unavailable',
+				designCount: 0,
+				videoCount: 0
+			})
+		).toBe('error');
+	});
+
+	it('retains loaded catalog context when a refresh fails', () => {
+		expect(
+			resolveEditorCatalogSurface({
+				loading: false,
+				error: 'Refresh failed',
+				designCount: 1,
+				videoCount: 0
+			})
+		).toBe('content');
+	});
+
+	it('retains loaded catalog context while a retry is pending', () => {
+		expect(
+			resolveEditorCatalogSurface({
+				loading: true,
+				error: '',
+				designCount: 1,
+				videoCount: 0
+			})
+		).toBe('content');
+	});
+
 	it('keys cached results by workspace and normalized server search', () => {
 		expect(editorCatalogKey('workspace-a', ' Launch ')).toBe(
 			editorCatalogKey('workspace-a', 'launch')

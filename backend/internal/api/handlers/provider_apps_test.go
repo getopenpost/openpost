@@ -291,7 +291,7 @@ func TestProviderAppAdminRejectsUnsupportedProvider(t *testing.T) {
 	require.Contains(t, resp.Body.String(), "instance_url is only supported for mastodon")
 }
 
-func TestProviderAppAdminDeletesRows(t *testing.T) {
+func TestProviderAppAdminDeletionIsIdempotent(t *testing.T) {
 	t.Parallel()
 
 	srv := newProviderAppAdminTestServer(t, true)
@@ -316,7 +316,7 @@ func TestProviderAppAdminDeletesRows(t *testing.T) {
 	require.Empty(t, list)
 
 	deleteResp = srv.requestJSON(t, http.MethodDelete, "/api/v1/admin/provider-apps/"+created.App.ID, nil)
-	require.Equal(t, http.StatusNotFound, deleteResp.Code, deleteResp.Body.String())
+	require.Equal(t, http.StatusOK, deleteResp.Code, deleteResp.Body.String())
 }
 
 func TestProviderAppAdminShowsEnvironmentAppsAsLockedAndRejectsOverrides(t *testing.T) {

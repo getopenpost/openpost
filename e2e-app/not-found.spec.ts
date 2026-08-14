@@ -34,7 +34,7 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
 
   expect(response?.status()).toBe(404);
   await expect(page.getByTestId("app-error-page")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeFocused();
   await expect(page.getByText("HTTP 404")).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenPost home" })).toBeVisible();
   await expect(page.getByRole("link", { name: "New post" })).toBeVisible();
@@ -45,35 +45,107 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
     "href",
     "https://docs.openpost.social/usage/",
   );
-  await expect(page.getByRole("link", { name: "Contact support" })).toHaveAttribute(
-    "href",
-    "mailto:openpost@rgo.pt",
-  );
+  await expect(page.getByRole("link", { name: "Contact support" })).toHaveCount(0);
+
+  const reload = await page.reload();
+  expect(reload?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeFocused();
 
   expect((await request.get("/publications/example")).status()).toBe(200);
   expect((await request.get("/calendar-export")).status()).toBe(404);
   expect(errors).toEqual([]);
 });
 
-test("client navigation and a 320px viewport preserve the same recovery path", async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 800 });
+test("client navigation preserves localized recovery at supported phone presentations", async ({
+  page,
+}) => {
   const errors = captureBrowserErrors(page);
-  await page.goto("/login");
-  await page.evaluate((target) => {
-    const link = document.createElement("a");
-    link.href = target;
-    link.textContent = "Open missing route";
-    link.dataset.testid = "client-missing-route";
-    document.body.append(link);
-  }, missingPath);
-  await page.getByTestId("client-missing-route").click();
+  const scenarios = [
+    { width: 390, height: 844, locale: "en", theme: "dark", heading: "Page not found" },
+    { width: 320, height: 800, locale: "pt", theme: "light", heading: "Página não encontrada" },
+  ] as const;
 
-  await expect(page).toHaveURL(new RegExp(`${missingPath}$`));
-  await expect(page.getByTestId("app-error-page")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - window.innerWidth,
-  );
-  expect(overflow).toBeLessThanOrEqual(1);
+  for (const scenario of scenarios) {
+    await page.setViewportSize(scenario);
+    await page.context().addCookies([
+      {
+        name: "PARAGLIDE_LOCALE",
+        value: scenario.locale,
+        domain: "127.0.0.1",
+        path: "/",
+        sameSite: "Lax",
+      },
+    ]);
+    await page.goto("/login");
+    await page.evaluate(
+      (theme) => localStorage.setItem("mode-watcher-mode", theme),
+      scenario.theme,
+    );
+    await page.reload();
+    await page.evaluate((target) => {
+      const link = document.createElement("a");
+      link.href = target;
+      link.textContent = "Open missing route";
+      link.dataset.testid = "client-missing-route";
+      document.body.append(link);
+    }, missingPath);
+    await page.getByTestId("client-missing-route").click();
+
+    await expect(page).toHaveURL(new RegExp(`${missingPath}$`));
+    await expect(page.getByRole("heading", { name: scenario.heading })).toBeFocused();
+    if (scenario.theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
+    else await expect(page.locator("html")).not.toHaveClass(/dark/);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(1);
+    const backBox = await page
+      .getByRole("button", { name: scenario.locale === "pt" ? "Voltar" : "Back" })
+      .boundingBox();
+    expect(backBox?.height).toBeGreaterThanOrEqual(44);
+  }
+  expect(errors).toEqual([]);
+});
+
+test("the error boundary reports offline state and restores the underlying recovery in place", async ({
+  page,
+}) => {
+  const errors = captureBrowserErrors(page);
+  await page.addInitScript(() => {
+    (window as typeof window & { __openpostOnline?: boolean }).__openpostOnline = false;
+    Object.defineProperty(navigator, "onLine", {
+      configurable: true,
+      get: () =>
+        (window as typeof window & { __openpostOnline?: boolean }).__openpostOnline ?? true,
+    });
+  });
+
+  const response = await page.goto(missingPath);
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { name: "You are offline" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Try again" })).toBeDisabled();
+  await expect(page.getByRole("link", { name: "Contact support" })).toHaveCount(0);
+
+  await page.evaluate(() => {
+    (window as typeof window & { __openpostOnline?: boolean }).__openpostOnline = true;
+    window.dispatchEvent(new Event("online"));
+  });
+
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("an unauthenticated standalone page retains its context while offline", async ({ page }) => {
+  const errors = captureBrowserErrors(page);
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+  });
+
+  await page.goto("/login");
+
+  await expect(page.getByRole("heading", { name: "Sign In" })).toBeVisible();
+  await expect(page.getByRole("status")).toContainText("You are offline.");
+  await expect(page.getByText("Reconnect to continue using OpenPost.")).toBeVisible();
   expect(errors).toEqual([]);
 });

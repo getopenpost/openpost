@@ -31,16 +31,17 @@
 		isAbortError,
 		mergeEditorCatalogItems,
 		normalizeEditorCatalogQuery,
+		resolveEditorCatalogSurface,
 		type EditorCatalogItemKind,
 		type EditorCatalogSnapshot
 	} from '$lib/editor-catalog';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import PageContainer from '$lib/components/page-container.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import RenameDialog from '$lib/components/rename-dialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -84,6 +85,7 @@
 	let toastTone = $state<'neutral' | 'success' | 'error'>('neutral');
 	let deleteDialogOpen = $state(false);
 	let deleteTarget = $state.raw<DeleteTarget | null>(null);
+	let catalogReturnFocus = $state<HTMLElement | null>(null);
 	let renameDialogOpen = $state(false);
 	let renameTarget = $state.raw<RenameTarget | null>(null);
 	let workspaceInitializationPending = $state(!workspaceCtx.currentWorkspace);
@@ -94,6 +96,14 @@
 	let activeCatalogKey = $derived(editorCatalogKey(workspaceID, query));
 	let hasMoreDesigns = $derived(catalog.designOffset < catalog.designTotal);
 	let hasMoreVideos = $derived(catalog.videoOffset < catalog.videoTotal);
+	let catalogSurface = $derived(
+		resolveEditorCatalogSurface({
+			loading: catalog.loading,
+			error: catalog.error,
+			designCount: catalog.designs.length,
+			videoCount: catalog.videoProjects.length
+		})
+	);
 
 	onMount(() => {
 		if (!workspaceCtx.currentWorkspace) {
@@ -192,7 +202,7 @@
 	}
 
 	function retryCatalog(): void {
-		if (workspaceID) void refreshCurrentCatalog(false);
+		if (workspaceID) void refreshCurrentCatalog(true);
 		else void initializeWorkspace();
 	}
 
@@ -426,7 +436,7 @@
 		deleteDialogOpen = true;
 	}
 
-	async function confirmDelete(): Promise<void> {
+	async function confirmDelete(): Promise<DestructiveActionOutcome> {
 		const target = deleteTarget;
 		if (
 			!target ||
@@ -434,7 +444,7 @@
 			target.key !== activeCatalogKey ||
 			(target.kind === 'design' ? !catalog.canEditDesigns : !catalog.canEditVideos)
 		) {
-			return;
+			return { ok: false };
 		}
 		const itemKey = pendingDeleteKey(target.workspaceID, target.kind, target.item.id);
 		pendingDeletes.add(itemKey);
@@ -449,13 +459,15 @@
 			catalogCache.invalidateWorkspace(target.workspaceID);
 			if (workspaceID === target.workspaceID) {
 				await refreshCurrentCatalog(true);
-				notify(
+			}
+			if (deleteTarget === target) deleteTarget = null;
+			return {
+				ok: true,
+				successMessage:
 					target.kind === 'design'
 						? m.image_editor_design_deleted()
-						: m.editors_delete_cloud_video_success(),
-					'success'
-				);
-			}
+						: m.editors_delete_cloud_video_success()
+			};
 		} catch (cause) {
 			pendingDeletes.delete(itemKey);
 			catalogCache.restore(rollback);
@@ -463,18 +475,16 @@
 				const restored = catalogCache.read(target.workspaceID, query);
 				if (activeCatalogKey === target.key && restored) catalog = catalogView(restored);
 				else await refreshCurrentCatalog(true);
-				notify(
-					errorMessage(
-						cause,
-						target.kind === 'design'
-							? m.image_editor_design_delete_failed()
-							: m.editors_delete_cloud_video_failed()
-					),
-					'error'
-				);
 			}
-		} finally {
-			if (deleteTarget === target) deleteTarget = null;
+			return {
+				ok: false,
+				message: errorMessage(
+					cause,
+					target.kind === 'design'
+						? m.image_editor_design_delete_failed()
+						: m.editors_delete_cloud_video_failed()
+				)
+			};
 		}
 	}
 
@@ -570,23 +580,28 @@
 	title={m.editors_title()}
 	description={m.editors_description()}
 	icon={ClapperboardIcon}
-	loading={catalog.loading}
+	loading={catalogSurface === 'loading'}
 	loadingMessage={m.editors_loading()}
+	loadingLayout="gallery"
+	loadingItems={8}
 >
 	{#snippet actions()}
-		<div class="flex flex-wrap gap-2">
-			<Button variant="outline" onclick={() => goto(resolve('/video-editor'))}>
-				<VideoIcon />
-				{m.editors_new_video()}
-			</Button>
-			<Button
-				onclick={() =>
-					goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
-			>
-				<PlusIcon />
-				{m.editors_new_design()}
-			</Button>
-		</div>
+		{#if catalogSurface !== 'error'}
+			<div class="flex flex-wrap gap-2">
+				<Button variant="outline" onclick={() => goto(resolve('/video-editor'))}>
+					<VideoIcon />
+					{m.editors_new_video()}
+				</Button>
+				<Button
+					disabled={!workspaceID}
+					onclick={() =>
+						goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
+				>
+					<PlusIcon />
+					{m.editors_new_design()}
+				</Button>
+			</div>
+		{/if}
 	{/snippet}
 
 	{#if catalog.error}
@@ -597,21 +612,22 @@
 		</InlineNotice>
 	{/if}
 
-	<div class="relative">
-		<SearchIcon
-			class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-		/>
-		<Input
-			bind:value={search}
-			class="h-11 pl-9"
-			placeholder={m.editors_search()}
-			aria-label={m.editors_search()}
-		/>
-	</div>
+	{#if catalogSurface !== 'error'}
+		<div class="relative">
+			<SearchIcon
+				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+			/>
+			<Input
+				bind:ref={catalogReturnFocus}
+				bind:value={search}
+				class="h-11 pl-9"
+				placeholder={m.editors_search()}
+				aria-label={m.editors_search()}
+			/>
+		</div>
+	{/if}
 
-	{#if catalog.loading}
-		<PageLoading layout="gallery" label={m.editors_loading()} items={8} />
-	{:else if catalog.designs.length === 0 && catalog.videoProjects.length === 0}
+	{#if catalogSurface === 'empty'}
 		<EmptyState
 			icon={ClapperboardIcon}
 			title={query ? m.editors_no_match() : m.editors_empty()}
@@ -621,7 +637,7 @@
 				goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
 			variant="dashed"
 		/>
-	{:else}
+	{:else if catalogSurface === 'content'}
 		<section
 			class="space-y-3"
 			aria-labelledby="editor-catalog-designs-heading"
@@ -836,6 +852,7 @@
 		? m.editors_delete_cloud_video_body()
 		: m.image_editor_design_delete_body()}
 	onConfirm={confirmDelete}
+	returnFocus={catalogReturnFocus}
 />
 
 <RenameDialog

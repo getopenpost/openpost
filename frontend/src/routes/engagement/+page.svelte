@@ -23,6 +23,7 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Popover from '$lib/components/ui/popover';
@@ -364,22 +365,29 @@
 
 	async function queueAction(
 		item: EngagementItem,
-		action: 'reply' | 'hide' | 'delete' | 'like' | 'unlike'
+		action: 'reply' | 'hide' | 'delete' | 'like' | 'unlike',
+		announce = true
 	) {
-		if (!workspaceId) return;
+		if (!workspaceId) return false;
 		actionInFlight = item.id;
-		const { error: apiError } = await client.POST('/engagement/{item_id}/actions', {
-			params: { path: { item_id: item.id } },
-			body: {
-				workspace_id: workspaceId,
-				action,
-				message: action === 'reply' ? replyBody.trim() : undefined
+		try {
+			const { error: apiError } = await client.POST('/engagement/{item_id}/actions', {
+				params: { path: { item_id: item.id } },
+				body: {
+					workspace_id: workspaceId,
+					action,
+					message: action === 'reply' ? replyBody.trim() : undefined
+				}
+			});
+			if (apiError) {
+				if (announce) showToast(apiError.detail || m.engagement_action_failed(), 'error');
+				return false;
 			}
-		});
-		actionInFlight = '';
-		if (apiError) {
-			showToast(apiError.detail || m.engagement_action_failed(), 'error');
-			return;
+		} catch {
+			if (announce) showToast(m.engagement_action_failed(), 'error');
+			return false;
+		} finally {
+			actionInFlight = '';
 		}
 		if (action === 'reply') {
 			replyItemId = '';
@@ -394,7 +402,8 @@
 			);
 		}
 		await setState(item, { read: true }, false);
-		showToast(m.engagement_action_queued(), 'success');
+		if (announce) showToast(m.engagement_action_queued(), 'success');
+		return true;
 	}
 
 	function showToast(message: string, tone: 'neutral' | 'success' | 'error') {
@@ -408,11 +417,17 @@
 		confirmDialogOpen = true;
 	}
 
-	async function confirmProviderAction() {
+	async function confirmProviderAction(): Promise<DestructiveActionOutcome> {
 		const item = confirmItem;
 		const action = confirmAction;
-		confirmItem = null;
-		if (item) await queueAction(item, action);
+		if (!item) return { ok: false };
+		const completed = await queueAction(item, action, false);
+		if (completed) confirmItem = null;
+		return {
+			ok: completed,
+			message: completed ? undefined : m.engagement_action_failed(),
+			successMessage: completed ? m.engagement_action_queued() : undefined
+		};
 	}
 
 	function authorLabel(item: EngagementItem) {

@@ -24,6 +24,7 @@
 	import { feedbackDiagnostics } from '$lib/feedback-diagnostics';
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
 	import BillingRecoveryNotice from '$lib/components/billing-recovery-notice.svelte';
+	import ConnectivityNotice from '$lib/components/connectivity-notice.svelte';
 	import { captureWebReauthGrant, storeReauthGrant } from '$lib/auth/reauth';
 	import { client } from '$lib/api/client';
 	import { Toaster } from '$lib/components/ui/sonner';
@@ -387,6 +388,7 @@
 
 {#if !isPreviewRoute}<ModeWatcher />{/if}
 <Toaster position="bottom-center" richColors closeButton />
+{#if !isPreviewRoute && !isErrorRoute}<ConnectivityNotice />{/if}
 {#if isPreviewRoute}
 	{@render children()}
 {:else if instance.isLoading || authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeSkipsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}

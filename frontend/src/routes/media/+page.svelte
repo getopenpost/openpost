@@ -23,6 +23,12 @@
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
+	import {
+		MediaBatchDeletionRejected,
+		remainingMediaDeletionIDs,
+		requestRecoverableMediaBatchDeletion
+	} from '$lib/media-batch-deletion';
 	import RenameDialog from '$lib/components/rename-dialog.svelte';
 	import MediaUploadDialog from '$lib/components/media-upload-dialog.svelte';
 	import AppSelect from '$lib/components/app-select.svelte';
@@ -109,11 +115,6 @@
 		scheduled_at: string;
 	}
 
-	interface BatchDeleteResult {
-		deleted: number;
-		failed_ids: string[];
-	}
-
 	type LibraryDeletionRequest =
 		| { kind: 'single'; media: MediaItem }
 		| { kind: 'batch'; ids: string[] };
@@ -128,6 +129,7 @@
 	let mediaItems = $state<MediaItem[]>([]);
 	let mediaLoading = $state(false);
 	let mediaRequestSequence = 0;
+	let loadedMediaViewKey = '';
 	let totalCount = $state(0);
 	let currentPage = $state(0);
 	const pageSize = 40;
@@ -244,8 +246,26 @@
 		}
 	}
 
-	function mediaViewKey() {
-		return `${selectedWorkspaceId}:${lifecycleView}:${filter}:${sort}:${appliedSearch}:${mediaType}:${source}:${selectedTagIDs.join(',')}:${showUntagged}:${aspect}:${minWidth}:${minHeight}:${maxWidth}:${maxHeight}:${dateFrom}:${dateTo}:${currentPage}`;
+	function mediaViewKey(workspaceID = selectedWorkspaceId) {
+		return JSON.stringify([
+			workspaceID,
+			lifecycleView,
+			filter,
+			sort,
+			appliedSearch,
+			mediaType,
+			source,
+			selectedTagIDs,
+			showUntagged,
+			aspect,
+			minWidth,
+			minHeight,
+			maxWidth,
+			maxHeight,
+			dateFrom,
+			dateTo,
+			currentPage
+		]);
 	}
 
 	async function loadWorkspaces() {
@@ -267,11 +287,19 @@
 			mediaLoading = false;
 			mediaItems = [];
 			totalCount = 0;
+			loadedMediaViewKey = '';
 			return;
 		}
+		const requestKey = mediaViewKey(workspaceID);
 		const requestSequence = ++mediaRequestSequence;
 		const isCurrentRequest = () =>
-			requestSequence === mediaRequestSequence && selectedWorkspaceId === workspaceID;
+			requestSequence === mediaRequestSequence &&
+			selectedWorkspaceId === workspaceID &&
+			mediaViewKey(workspaceID) === requestKey;
+		if (loadedMediaViewKey !== requestKey) {
+			mediaItems = [];
+			totalCount = 0;
+		}
 		mediaLoading = true;
 		error = '';
 		selectedMediaIds.clear();
@@ -312,10 +340,10 @@
 			}
 			mediaItems = (data?.media ?? []) as unknown as MediaItem[];
 			totalCount = nextTotalCount;
+			loadedMediaViewKey = requestKey;
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			error = (e as Error).message;
-			mediaItems = [];
 		} finally {
 			if (isCurrentRequest()) mediaLoading = false;
 		}
@@ -520,32 +548,6 @@
 		deleteDialogOpen = true;
 	}
 
-	async function deleteMedia(mediaId: string) {
-		const requestViewKey = mediaViewKey();
-		try {
-			const { error: err } = await client.DELETE('/media/{id}', {
-				params: { path: { id: mediaId } }
-			});
-			if (err) throw new Error(err.detail || m.media_delete_failed());
-			if (requestViewKey === mediaViewKey()) {
-				const nextTotalCount = Math.max(0, totalCount - 1);
-				const clampedPage = clampMediaPage(currentPage, nextTotalCount, pageSize);
-				totalCount = nextTotalCount;
-				if (clampedPage !== currentPage) {
-					currentPage = clampedPage;
-					await loadMedia();
-				} else {
-					mediaItems = mediaItems.filter((m) => m.id !== mediaId);
-				}
-			} else {
-				await loadMedia();
-			}
-			notify(deletedCountLabel(1), 'success');
-		} catch (e) {
-			notify((e as Error).message, 'error');
-		}
-	}
-
 	async function restoreMedia(mediaId: string) {
 		try {
 			const { error: err } = await client.POST('/media/{id}/restore', {
@@ -560,40 +562,66 @@
 	}
 
 	async function deleteSelectedBatch(ids: string[]) {
-		if (ids.length === 0) return;
+		if (ids.length === 0) {
+			return { ok: false, remainingIDs: ids, message: m.media_deleted_none() };
+		}
 		try {
-			const { data, error: err } = await client.POST('/media/batch-delete', {
-				body: { media_ids: ids }
+			const result = await requestRecoverableMediaBatchDeletion(ids, async (requestedIDs) => {
+				const { data, error: err } = await client.POST('/media/batch-delete', {
+					body: { media_ids: requestedIDs }
+				});
+				if (err) {
+					throw new MediaBatchDeletionRejected(err.detail || m.media_delete_failed());
+				}
+				return data ?? { deleted: 0, failed_ids: requestedIDs };
 			});
-			if (err) throw new Error(err.detail || m.media_delete_failed());
-
-			const result = (data ?? { deleted: 0, failed_ids: ids }) as BatchDeleteResult;
+			const remainingIDs = remainingMediaDeletionIDs(ids, result);
 			await loadMedia();
 
-			const failedCount = Math.max(result.failed_ids?.length ?? 0, ids.length - result.deleted);
+			const failedCount = remainingIDs.length;
 			if (result.deleted === 0) {
-				notify(m.media_deleted_none(), 'error');
+				return { ok: false, remainingIDs, message: m.media_deleted_none() };
 			} else if (failedCount > 0) {
-				notify(
-					m.media_deleted_partial({ deleted: result.deleted, failed: failedCount }),
-					'neutral'
-				);
-			} else {
-				notify(deletedCountLabel(result.deleted), 'success');
+				return {
+					ok: false,
+					remainingIDs,
+					message: m.media_deleted_partial({ deleted: result.deleted, failed: failedCount })
+				};
 			}
+			return {
+				ok: true,
+				remainingIDs: [],
+				successMessage: deletedCountLabel(result.deleted)
+			};
 		} catch (e) {
-			notify((e as Error).message, 'error');
+			return {
+				ok: false,
+				remainingIDs: ids,
+				message: (e as Error).message || m.media_delete_failed()
+			};
 		}
 	}
 
-	async function confirmLibraryDeletion() {
+	async function confirmLibraryDeletion(): Promise<DestructiveActionOutcome> {
 		const request = deletionRequest;
-		if (!request) return;
+		if (!request) return { ok: false };
 		if (request.kind === 'single') {
-			await deleteMedia(request.media.id);
-			return;
+			const outcome = await deleteSelectedBatch([request.media.id]);
+			return {
+				ok: outcome.ok,
+				message: outcome.message,
+				successMessage: outcome.successMessage
+			};
 		}
-		await deleteSelectedBatch(request.ids);
+		const outcome = await deleteSelectedBatch(request.ids);
+		if (!outcome.ok && deletionRequest === request) {
+			deletionRequest = { kind: 'batch', ids: outcome.remainingIDs };
+		}
+		return {
+			ok: outcome.ok,
+			message: outcome.message,
+			successMessage: outcome.successMessage
+		};
 	}
 
 	async function downloadMedia(media: MediaItem) {

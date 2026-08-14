@@ -15,7 +15,9 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -57,12 +59,14 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 	import ShieldIcon from '@lucide/svelte/icons/shield-check';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
+	import { showToast } from '$lib/toast';
 
 	let authState = $derived($auth);
 	let loading = $state(true);
 	let creating = $state(false);
 	let enabled = $state(true);
 	let error = $state('');
+	let loadError = $state('');
 	let recentProjects = $state.raw<LocalVideoProject[]>([]);
 	let capabilities = $state<VideoEditorCapabilities | null>(null);
 	let persistentStorage = $state<boolean | undefined>(undefined);
@@ -72,7 +76,14 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 	let storageMessageTone = $state<'success' | 'warning'>('success');
 	let pendingDelete = $state<LocalVideoProject | null>(null);
 	let deleteDialogOpen = $state(false);
+	let pageHeading = $state<HTMLHeadingElement | null>(null);
+	let recentHeading = $state<HTMLHeadingElement | null>(null);
+	let deleteReturnFocus = $state<HTMLElement | null>(null);
 	let cloudProjects = $state.raw<CloudVideoProjectSummary[]>([]);
+	let cloudLoading = $state(false);
+	let cloudLoadError = $state('');
+	let cloudWorkspaceID = '';
+	let cloudRequestSequence = 0;
 	let openingCloudID = $state('');
 	type TemplateID = 'clean-captions' | 'product-demo' | 'talking-head' | 'announcement';
 	const templates: Array<{
@@ -108,7 +119,7 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 
 	async function initialize(): Promise<void> {
 		loading = true;
-		error = '';
+		loadError = '';
 		try {
 			await auth.initialize({ optional: true });
 			const [config, localProjects, detected, persisted, storage] = await Promise.all([
@@ -129,21 +140,47 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 							quota: formatBytes(storage.quota_bytes)
 						})
 					: m.video_editor_storage_unknown();
-			if ($auth.isAuthenticated) {
-				await workspaceCtx.initialize();
-				const workspaceID = workspaceCtx.currentWorkspace?.id;
-				if (workspaceID) {
-					const cloud = await listCloudVideoProjects(workspaceID);
-					const mirrored = new Set(localProjects.map((project) => project.cloud_project_id));
-					cloudProjects = cloud.projects.filter((project) => !mirrored.has(project.id));
-					const requestedCloudProject = page.url.searchParams.get('cloud');
-					if (requestedCloudProject) await openCloudProject(requestedCloudProject);
-				}
-			}
+			if ($auth.isAuthenticated) await loadCloudProjects(localProjects, true);
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.video_editor_load_failed();
+			loadError = cause instanceof Error ? cause.message : m.video_editor_load_failed();
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadCloudProjects(
+		localProjects = recentProjects,
+		openRequestedProject = false
+	): Promise<void> {
+		const request = ++cloudRequestSequence;
+		cloudLoading = true;
+		cloudLoadError = '';
+		try {
+			await workspaceCtx.initialize();
+			const workspaceID = workspaceCtx.currentWorkspace?.id ?? '';
+			if (!workspaceID) {
+				cloudProjects = [];
+				cloudWorkspaceID = '';
+				return;
+			}
+			if (cloudWorkspaceID !== workspaceID) cloudProjects = [];
+			cloudWorkspaceID = workspaceID;
+			const cloud = await listCloudVideoProjects(workspaceID);
+			if (request !== cloudRequestSequence || cloudWorkspaceID !== workspaceID) return;
+			const mirrored = new Set(localProjects.map((project) => project.cloud_project_id));
+			cloudProjects = cloud.projects.filter((project) => !mirrored.has(project.id));
+			const requestedCloudProject = openRequestedProject
+				? page.url.searchParams.get('cloud')
+				: null;
+			if (requestedCloudProject) await openCloudProject(requestedCloudProject);
+		} catch (cause) {
+			if (request !== cloudRequestSequence) return;
+			cloudLoadError =
+				cause instanceof Error && cause.message
+					? cause.message
+					: m.video_editor_cloud_projects_load_failed();
+		} finally {
+			if (request === cloudRequestSequence) cloudLoading = false;
 		}
 	}
 
@@ -180,14 +217,17 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 
 	function requestDelete(project: LocalVideoProject): void {
 		pendingDelete = project;
+		deleteReturnFocus = recentHeading ?? pageHeading;
 		deleteDialogOpen = true;
 	}
 
-	async function confirmDelete(): Promise<void> {
-		if (!pendingDelete) return;
+	async function confirmDelete(): Promise<DestructiveActionOutcome> {
+		if (!pendingDelete) return { ok: false };
 		await deleteLocalVideoProject(pendingDelete.id);
 		recentProjects = recentProjects.filter((project) => project.id !== pendingDelete?.id);
 		pendingDelete = null;
+		showToast(m.video_editor_project_deleted(), 'success');
+		return { ok: true };
 	}
 
 	function projectDuration(project: LocalVideoProject): string {
@@ -317,7 +357,11 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 	<main class="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
 		<div class="max-w-3xl">
 			<p class="text-sm font-medium text-primary">{m.video_editor_free_tool()}</p>
-			<h1 class="mt-2 text-3xl leading-tight font-semibold tracking-tight text-balance sm:text-4xl">
+			<h1
+				bind:this={pageHeading}
+				tabindex="-1"
+				class="mt-2 text-3xl leading-tight font-semibold tracking-tight text-balance outline-none sm:text-4xl"
+			>
 				{m.video_editor_heading()}
 			</h1>
 			<p class="mt-3 max-w-2xl text-base leading-7 text-muted-foreground">
@@ -330,10 +374,15 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 		</div>
 
 		{#if loading}
-			<div class="mt-10 flex items-center gap-2 text-sm text-muted-foreground" role="status">
-				<LoaderIcon class="size-4 animate-spin" />
-				{m.video_editor_loading()}
+			<div class="mt-10">
+				<PageLoading layout="grid" label={m.video_editor_loading()} items={8} />
 			</div>
+		{:else if loadError}
+			<InlineNotice tone="error" message={loadError} class="mt-10 max-w-3xl">
+				{#snippet actions()}
+					<Button size="sm" onclick={() => void initialize()}>{m.common_retry()}</Button>
+				{/snippet}
+			</InlineNotice>
 		{:else}
 			<div class="mt-8 space-y-4">
 				{#if error}<InlineNotice tone="error" message={error} />{/if}
@@ -490,7 +539,14 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 
 			<section class="mt-10" aria-labelledby="recent-heading">
 				<div>
-					<h2 id="recent-heading" class="text-lg font-semibold">{m.video_editor_recent()}</h2>
+					<h2
+						bind:this={recentHeading}
+						id="recent-heading"
+						tabindex="-1"
+						class="text-lg font-semibold outline-none"
+					>
+						{m.video_editor_recent()}
+					</h2>
 					<p class="mt-1 text-sm text-muted-foreground">{m.video_editor_recent_description()}</p>
 				</div>
 				{#if recentProjects.length === 0}
@@ -557,13 +613,33 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 							{m.video_editor_cloud_projects_description()}
 						</p>
 					</div>
-					{#if cloudProjects.length === 0}
+					{#if cloudLoadError}
+						<InlineNotice tone="error" message={cloudLoadError} class="mt-4">
+							{#snippet actions()}
+								<Button size="sm" onclick={() => void loadCloudProjects(recentProjects, true)}>
+									{m.common_retry()}
+								</Button>
+							{/snippet}
+						</InlineNotice>
+					{/if}
+					{#if cloudLoading && cloudProjects.length === 0}
+						<div class="mt-4">
+							<PageLoading
+								layout="list"
+								label={m.video_editor_cloud_projects_loading()}
+								items={3}
+							/>
+						</div>
+					{:else if cloudProjects.length === 0 && !cloudLoadError}
 						<div
 							class="mt-4 rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground"
 						>
 							{m.video_editor_cloud_empty()}
 						</div>
-					{:else}
+					{:else if cloudProjects.length > 0}
+						{#if cloudLoading}
+							<span class="sr-only" role="status">{m.video_editor_cloud_projects_loading()}</span>
+						{/if}
 						<div class="mt-4 divide-y rounded-lg border">
 							{#each cloudProjects as project (project.id)}
 								<div class="flex items-center gap-4 p-3 sm:p-4">
@@ -606,4 +682,5 @@ FORM: Operate surface extending the OpenPost Video Editor start screen; no water
 	title={m.video_editor_delete_title()}
 	description={m.video_editor_delete_body()}
 	onConfirm={confirmDelete}
+	returnFocus={deleteReturnFocus}
 />

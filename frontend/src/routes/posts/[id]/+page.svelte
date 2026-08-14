@@ -60,7 +60,7 @@
 	});
 
 	async function handleSuccess() {
-		goto(resolve('/'));
+		await goto(resolve('/'));
 	}
 </script>
 

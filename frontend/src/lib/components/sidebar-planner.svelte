@@ -10,8 +10,9 @@
 	import type { components } from '$lib/api/types';
 	import { workspaceClock } from '$lib/components/compose/schedule-timezone';
 	import { buildRollingCalendarWeeks } from '$lib/components/sidebar-rolling-calendar';
-	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { publicationInvalidationForWorkspace } from '$lib/publication-invalidation';
@@ -42,10 +43,11 @@
 	let dayCounts = $state.raw(new SvelteMap<string, number>());
 	let drafts = $state.raw<PlannerDraft[]>([]);
 	let loadingDrafts = $state(true);
+	let draftsError = $state('');
 	let deleteDraftDialogOpen = $state(false);
 	let draftPendingDelete = $state<PlannerDraft | null>(null);
 	let deletingDraftId = $state('');
-	let draftDeleteError = $state('');
+	let draftDeleteReturnFocus = $state<HTMLElement | null>(null);
 	let overviewRequest = 0;
 	let draftsRequest = 0;
 	let overviewWorkspaceKey = '';
@@ -183,6 +185,7 @@
 		if (!currentWorkspaceId) {
 			drafts = [];
 			draftsWorkspaceId = '';
+			draftsError = '';
 			loadingDrafts = false;
 			return;
 		}
@@ -191,7 +194,8 @@
 			drafts = [];
 			draftsWorkspaceId = currentWorkspaceId;
 		}
-		loadingDrafts = workspaceChanged || drafts.length === 0;
+		draftsError = '';
+		loadingDrafts = true;
 
 		try {
 			const publicationResult = await client.GET('/publications', {
@@ -205,12 +209,17 @@
 				}
 			});
 			if (request !== draftsRequest) return;
-			const publications = publicationResult.error ? [] : (publicationResult.data ?? []);
+			if (publicationResult.error) {
+				throw new Error(publicationResult.error.detail || m.sidebar_drafts_load_failed());
+			}
+			const publications = publicationResult.data ?? [];
 			drafts = publications
 				.map(publicationDraft)
 				.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
-		} catch {
-			// A refresh failure must not replace useful drafts with an empty state.
+		} catch (cause) {
+			if (request !== draftsRequest) return;
+			draftsError =
+				cause instanceof Error && cause.message ? cause.message : m.sidebar_drafts_load_failed();
 		} finally {
 			if (request === draftsRequest) loadingDrafts = false;
 		}
@@ -237,15 +246,13 @@
 
 	function requestDraftDelete(event: MouseEvent, draft: PlannerDraft) {
 		draftPendingDelete = draft;
-		draftDeleteError = '';
-		return requestDestructiveAction(event, () => (deleteDraftDialogOpen = true), deleteDraft);
+		void requestDestructiveAction(event, () => (deleteDraftDialogOpen = true), deleteDraft);
 	}
 
-	async function deleteDraft() {
+	async function deleteDraft(): Promise<DestructiveActionOutcome> {
 		const draft = draftPendingDelete;
-		if (!draft || deletingDraftId) return;
+		if (!draft || deletingDraftId) return { ok: false };
 		deletingDraftId = draft.id;
-		draftDeleteError = '';
 		try {
 			const { error } = await client.DELETE('/publications/{id}', {
 				params: {
@@ -263,12 +270,19 @@
 				scopes: ['activity', 'calendar', 'drafts']
 			});
 			if (page.url.pathname === draft.href) onNavigate('/');
+			draftPendingDelete = null;
+			return {
+				ok: true,
+				successMessage: m.sidebar_delete_draft_success(),
+				returnFocus: draftDeleteReturnFocus
+			};
 		} catch (error) {
-			draftDeleteError = error instanceof Error ? error.message : m.sidebar_delete_draft_failed();
-			void loadDrafts(workspaceId);
+			return {
+				ok: false,
+				message: error instanceof Error ? error.message : m.sidebar_delete_draft_failed()
+			};
 		} finally {
 			deletingDraftId = '';
-			draftPendingDelete = null;
 		}
 	}
 
@@ -466,7 +480,10 @@
 	<section class="flex min-h-0 flex-1 flex-col px-2 pt-2">
 		<div class="mb-1 flex h-7 shrink-0 items-center justify-between px-2">
 			<div class="flex items-center gap-1.5">
-				<span class="text-xs font-medium tracking-[0.1em] text-sidebar-foreground/52 uppercase"
+				<span
+					bind:this={draftDeleteReturnFocus}
+					tabindex="-1"
+					class="text-xs font-medium tracking-[0.1em] text-sidebar-foreground/52 uppercase outline-none"
 					>{m.sidebar_drafts()}</span
 				>
 				{#if !loadingDrafts && drafts.length > 0}
@@ -482,7 +499,21 @@
 			</button>
 		</div>
 
-		{#if loadingDrafts}
+		{#if draftsError}
+			<InlineNotice tone="error" message={draftsError} class="mx-1 mb-1">
+				{#snippet actions()}
+					<button
+						type="button"
+						class="min-h-9 rounded-md px-2 text-xs font-medium underline underline-offset-4 focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+						onclick={() => void loadDrafts(workspaceId)}
+					>
+						{m.common_retry()}
+					</button>
+				{/snippet}
+			</InlineNotice>
+		{/if}
+
+		{#if loadingDrafts && drafts.length === 0}
 			<div class="space-y-1 px-1 py-1" aria-label={m.sidebar_drafts_loading()}>
 				{#each [1, 2, 3] as placeholder (placeholder)}
 					<div class="flex h-9 items-center gap-2 px-1.5">
@@ -491,7 +522,7 @@
 					</div>
 				{/each}
 			</div>
-		{:else if drafts.length === 0}
+		{:else if !draftsError && drafts.length === 0}
 			<button
 				type="button"
 				class="flex w-full items-start gap-2 rounded-md px-2 py-2.5 text-left hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
@@ -502,7 +533,7 @@
 					>{m.sidebar_drafts_autosave_empty()}</span
 				>
 			</button>
-		{:else}
+		{:else if drafts.length > 0}
 			<ul
 				class="sidebar-planner-scrollbar min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pr-1"
 				data-testid="sidebar-draft-list"
@@ -586,15 +617,6 @@
 	description={m.compose_delete_draft_body()}
 	onConfirm={deleteDraft}
 />
-
-{#if draftDeleteError}
-	<AppToast
-		message={draftDeleteError}
-		tone="error"
-		dismissLabel={m.common_dismiss()}
-		onDismiss={() => (draftDeleteError = '')}
-	/>
-{/if}
 
 <style>
 	.sidebar-calendar-scrollbar,

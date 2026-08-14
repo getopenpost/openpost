@@ -8,6 +8,8 @@
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
+	import { runDestructiveSequence } from '$lib/destructive-action';
 	import { client } from '$lib/api/client';
 	import { getLocaleTag } from '$lib/i18n';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
@@ -57,8 +59,10 @@
 		removeTimeDialogOpen = true;
 	}
 
-	async function confirmRemoveTimeRow() {
-		if (pendingTimeRow) await removeTimeRow(pendingTimeRow);
+	async function confirmRemoveTimeRow(): Promise<DestructiveActionOutcome> {
+		if (!pendingTimeRow) return { ok: false };
+		const result = await removeTimeRow(pendingTimeRow);
+		return result;
 	}
 
 	async function saveSettings() {
@@ -179,10 +183,11 @@
 	async function loadSchedules(workspaceID = workspaceCtx.currentWorkspace?.id ?? '') {
 		if (!workspaceID) return;
 		const requestSequence = ++scheduleRequestSequence;
+		const workspaceChanged = loadedScheduleWorkspaceID !== workspaceID;
 		loadedScheduleWorkspaceID = workspaceID;
 		loadingSchedules = true;
 		scheduleError = '';
-		schedules = [];
+		if (workspaceChanged) schedules = [];
 		try {
 			const { data, error: err } = await client.GET('/posting-schedules', {
 				params: { query: { workspace_id: workspaceID } }
@@ -192,8 +197,6 @@
 			schedules = data;
 		} catch (e) {
 			if (requestSequence !== scheduleRequestSequence || !isCurrentWorkspace(workspaceID)) return;
-			loadedScheduleWorkspaceID = '';
-			schedules = [];
 			scheduleError = (e as Error).message || m.settings_schedule_load_failed();
 			console.error('Failed to load schedules:', e);
 		} finally {
@@ -301,21 +304,37 @@
 		}
 	}
 
-	async function removeTimeRow(row: ScheduleRow) {
-		try {
-			for (const schedule of Object.values(row.days)) {
-				if (schedule) {
-					const { error: err } = await client.DELETE('/posting-schedules/{id}', {
-						params: { path: { id: schedule.id } }
-					});
-					if (err) throw err;
-				}
+	async function removeTimeRow(row: ScheduleRow): Promise<DestructiveActionOutcome> {
+		const targets = Object.values(row.days).filter((schedule): schedule is PostingSchedule =>
+			Boolean(schedule)
+		);
+		const outcome = await runDestructiveSequence(targets, async (schedule) => {
+			const { error: err, response } = await client.DELETE('/posting-schedules/{id}', {
+				params: { path: { id: schedule.id } }
+			});
+			if (err && response.status !== 404) throw err;
+		});
+		if (outcome.error) {
+			const remainingIDs = new Set(outcome.remaining.map((schedule) => schedule.id));
+			if (pendingTimeRow === row) {
+				pendingTimeRow = {
+					...row,
+					days: Object.fromEntries(
+						Object.entries(row.days).filter(
+							([, schedule]) => schedule && remainingIDs.has(schedule.id)
+						)
+					)
+				};
 			}
 			await loadSchedules();
-			notify(m.settings_time_removed());
-		} catch (e) {
-			notify((e as Error).message || m.settings_action_failed(), 'error');
+			const message =
+				(outcome.error as { detail?: string; message?: string }).detail ||
+				(outcome.error as Error).message ||
+				m.settings_action_failed();
+			return { ok: false, message };
 		}
+		await loadSchedules();
+		return { ok: true, successMessage: m.settings_time_removed() };
 	}
 
 	function toggleNewDay(dayOfWeek: number) {
@@ -493,9 +512,10 @@
 				</Button>
 			{/snippet}
 		</InlineNotice>
-	{:else if loadingSchedules}
+	{/if}
+	{#if loadingSchedules && scheduleRows.length === 0}
 		<PageLoading layout="list" label={m.common_loading()} items={3} />
-	{:else if scheduleRows.length === 0}
+	{:else if !scheduleError && scheduleRows.length === 0}
 		<div class="rounded-xl border px-4 py-10 text-center text-sm text-muted-foreground">
 			{m.settings_no_posting_times()}
 		</div>

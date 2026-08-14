@@ -17,6 +17,7 @@ export interface EditorCatalogSnapshot {
 }
 
 export type EditorCatalogItemKind = 'design' | 'video';
+export type EditorCatalogSurface = 'loading' | 'error' | 'empty' | 'content';
 
 type CatalogItem = ImageEditorDesignSummary | CloudVideoProjectSummary;
 
@@ -59,6 +60,18 @@ export function emptyEditorCatalog(workspaceID: string, query: string): EditorCa
 		canEditDesigns: false,
 		canEditVideos: false
 	};
+}
+
+export function resolveEditorCatalogSurface(input: {
+	loading: boolean;
+	error: string;
+	designCount: number;
+	videoCount: number;
+}): EditorCatalogSurface {
+	if (input.designCount > 0 || input.videoCount > 0) return 'content';
+	if (input.loading) return 'loading';
+	if (input.error) return 'error';
+	return 'empty';
 }
 
 export function mergeEditorCatalogItems<T extends { id: string }>(

@@ -149,20 +149,14 @@ func (s *Service) DeleteProviderApp(ctx context.Context, id string) error {
 	if id == "" {
 		return ValidationError{Message: "provider app id is required"}
 	}
-	result, err := s.db.NewDelete().
+	_, err := s.db.NewDelete().
 		Model((*models.ProviderApp)(nil)).
 		Where("id = ?", id).
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to delete provider app: %w", err)
 	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to inspect provider app deletion: %w", err)
-	}
-	if rows == 0 {
-		return ErrNotFound
-	}
+	// The desired state already holds when a delete is replayed after its response was lost.
 	return nil
 }
 

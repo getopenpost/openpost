@@ -7,6 +7,7 @@
 	} from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from './inline-notice.svelte';
 	import PlatformIcon from './platform-icon.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -190,8 +191,8 @@
 		}
 	}
 
-	async function deleteSet() {
-		if (!editorId || deleting) return;
+	async function deleteSet(): Promise<DestructiveActionOutcome> {
+		if (!editorId || deleting) return { ok: false };
 		deleting = true;
 		error = '';
 		try {
@@ -207,8 +208,12 @@
 			startNewSet();
 			invalidateWorkspaceSocialSets(workspaceId);
 			await loadSets(true);
+			return { ok: true };
 		} catch (cause) {
-			error = cause instanceof Error ? cause.message : m.social_set_delete_failed();
+			return {
+				ok: false,
+				message: cause instanceof Error ? cause.message : m.social_set_delete_failed()
+			};
 		} finally {
 			deleting = false;
 		}
@@ -241,9 +246,11 @@
 		onToggle?.(account);
 	}
 
-	function confirmCustomAccountRemoval() {
-		if (pendingCustomAccount) onToggle?.(pendingCustomAccount);
+	function confirmCustomAccountRemoval(): DestructiveActionOutcome {
+		if (!pendingCustomAccount) return { ok: false };
+		onToggle?.(pendingCustomAccount);
 		pendingCustomAccount = null;
+		return { ok: true };
 	}
 </script>
 

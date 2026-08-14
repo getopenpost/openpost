@@ -8,6 +8,7 @@
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
@@ -202,8 +203,8 @@
 		revokeDialogOpen = true;
 	}
 
-	async function revokeGrant() {
-		if (!grantToRevoke) return;
+	async function revokeGrant(): Promise<DestructiveActionOutcome> {
+		if (!grantToRevoke) return { ok: false };
 		const { error } = await client.DELETE('/repost-account-grants/{grant_id}', {
 			params: {
 				path: { grant_id: grantToRevoke.id },
@@ -211,11 +212,10 @@
 			}
 		});
 		if (error) {
-			showToast(error.detail || m.repost_revoke_failed(), 'error');
-			return;
+			return { ok: false, message: error.detail || m.repost_revoke_failed() };
 		}
-		showToast(m.repost_access_revoked());
 		await loadSettings();
+		return { ok: true, successMessage: m.repost_access_revoked() };
 	}
 
 	function normalizePolicy(policy: components['schemas']['PolicyResponse']): RepostPolicy {

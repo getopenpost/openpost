@@ -3,6 +3,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Input } from '$lib/components/ui/input';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import { createMediaTag, deleteMediaTag, updateMediaTag, type MediaTag } from '$lib/media-tags';
 	import HashIcon from '@lucide/svelte/icons/hash';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
@@ -70,13 +71,14 @@
 		deleteDialogOpen = true;
 	}
 
-	async function confirmDelete(): Promise<void> {
-		if (!pendingDelete) return;
+	async function confirmDelete(): Promise<DestructiveActionOutcome> {
+		if (!pendingDelete) return { ok: false };
 		await deleteMediaTag(pendingDelete.id);
 		if (editingId === pendingDelete.id) resetForm();
 		pendingDelete = null;
 		await onChanged();
 		onNotify?.(m.media_tag_deleted(), 'success');
+		return { ok: true };
 	}
 </script>
 

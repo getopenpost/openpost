@@ -4,6 +4,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
+	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
@@ -233,14 +234,16 @@
 				body: update
 			});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return;
+			if (workspaceID !== targetWorkspaceID) return false;
 			await reloadAfterMutation(targetWorkspaceID);
 			if (update.role) showToast(m.settings_member_role_updated());
 			if (update.status === 'inactive') showToast(m.settings_member_deactivated());
 			if (update.status === 'active') showToast(m.settings_member_reactivated());
 			if (member.user_id === currentUserID) await onMembershipChanged();
+			return true;
 		} catch (error) {
 			if (workspaceID === targetWorkspaceID) actionError = (error as Error).message;
+			return false;
 		} finally {
 			busyKey = '';
 		}
@@ -255,15 +258,17 @@
 				params: { path: { id: targetWorkspaceID, user_id: member.user_id } }
 			});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return;
+			if (workspaceID !== targetWorkspaceID) return false;
 			showToast(m.settings_member_removed());
 			if (member.user_id === currentUserID) {
 				await onMembershipChanged();
-				return;
+				return true;
 			}
 			await reloadAfterMutation(targetWorkspaceID);
+			return true;
 		} catch (error) {
 			if (workspaceID === targetWorkspaceID) actionError = (error as Error).message;
+			return false;
 		} finally {
 			busyKey = '';
 		}
@@ -303,11 +308,13 @@
 				params: { path: { id: targetWorkspaceID, invitation_id: invitation.id } }
 			});
 			if (error) throw new Error(error.detail || m.settings_action_failed());
-			if (workspaceID !== targetWorkspaceID) return;
+			if (workspaceID !== targetWorkspaceID) return false;
 			await reloadAfterMutation(targetWorkspaceID);
 			showToast(m.settings_invitation_revoked());
+			return true;
 		} catch (error) {
 			if (workspaceID === targetWorkspaceID) actionError = (error as Error).message;
+			return false;
 		} finally {
 			busyKey = '';
 		}
@@ -329,14 +336,25 @@
 		destructiveOpen = true;
 	}
 
-	async function confirmDestructiveAction() {
+	async function confirmDestructiveAction(): Promise<DestructiveActionOutcome> {
 		const action = destructiveAction;
-		if (!action) return;
-		if (action.kind === 'revoke') await revokeInvitation(action.invitation);
-		if (action.kind === 'deactivate') {
-			await updateMember(action.member, { status: 'inactive' });
+		if (!action) return { ok: false };
+		if (action.kind === 'revoke') {
+			const ok = await revokeInvitation(action.invitation);
+			const message = ok ? undefined : actionError;
+			if (!ok) actionError = '';
+			return { ok, message };
 		}
-		if (action.kind === 'remove') await removeMember(action.member);
+		if (action.kind === 'deactivate') {
+			const ok = await updateMember(action.member, { status: 'inactive' });
+			const message = ok ? undefined : actionError;
+			if (!ok) actionError = '';
+			return { ok, message };
+		}
+		const ok = await removeMember(action.member);
+		const message = ok ? undefined : actionError;
+		if (!ok) actionError = '';
+		return { ok, message };
 	}
 
 	function destructiveTitle() {

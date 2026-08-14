@@ -338,6 +338,10 @@ type BatchDeleteMediaOutput struct {
 	}
 }
 
+func mediaBatchDeletionAlreadyComplete(media models.MediaAttachment) bool {
+	return !media.TrashedAt.IsZero()
+}
+
 type UpdateMediaFavoriteInput struct {
 	PathID string `path:"id" doc:"Media ID"`
 }
@@ -953,6 +957,11 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 
 			if err := h.ensureMediaWorkspaceEditAccess(ctx, userID, media.WorkspaceID); err != nil {
 				failedIDs = append(failedIDs, mediaID)
+				continue
+			}
+			if mediaBatchDeletionAlreadyComplete(media) {
+				// Replays after a lost response are successful when the requested state already holds.
+				deleted++
 				continue
 			}
 

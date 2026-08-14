@@ -52,6 +52,7 @@ func newTeamTestService(t *testing.T, seatLimit int64) (*Service, *bun.DB) {
 	for _, model := range []any{
 		(*models.User)(nil), (*models.Organization)(nil), (*models.OrganizationMember)(nil), (*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil), (*models.WorkspaceInvitation)(nil),
+		(*models.WorkspaceInvitationResend)(nil),
 		(*models.WorkspaceAccessAuditEvent)(nil),
 	} {
 		_, err := db.NewCreateTable().Model(model).Exec(t.Context())
@@ -171,6 +172,8 @@ func TestInvitationResendRevocationAcceptanceAndSearch(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, "invitee@example.com", invitation.Email)
+	resendNow := service.now().Add(InvitationResendDelay)
+	service.now = func() time.Time { return resendNow }
 
 	resent, newToken, err := service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
 	require.NoError(t, err)
@@ -198,6 +201,129 @@ func TestInvitationResendRevocationAcceptanceAndSearch(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, team.Members, 1)
 	require.Equal(t, "invitee-1", team.Members[0].UserID)
+}
+
+func TestResendRequiresCooldownAndReturnsExactRetryTime(t *testing.T) {
+	service, _ := newTeamTestService(t, 10)
+	invitation, _, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1", Email: "person@example.com", Role: models.WorkspaceRoleViewer,
+	})
+	require.NoError(t, err)
+
+	_, _, err = service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
+	require.Equal(t, ErrorRateLimited, ErrorKindOf(err))
+	require.Equal(t, service.now().Add(InvitationResendDelay), RetryAtOf(err))
+}
+
+func TestResendHourlyLimitIsDurableAndReturnsExactRetryTime(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	invitation, _, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1", Email: "person@example.com", Role: models.WorkspaceRoleViewer,
+	})
+	require.NoError(t, err)
+	initialSentAt := invitation.LastSentAt
+	current := initialSentAt
+	service.now = func() time.Time { return current }
+
+	for attempt := 1; attempt <= InvitationResendLimit; attempt++ {
+		current = initialSentAt.Add(time.Duration(attempt) * InvitationResendDelay)
+		invitation, _, err = service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
+		require.NoError(t, err)
+	}
+	resendCount, err := db.NewSelect().Model((*models.WorkspaceInvitationResend)(nil)).
+		Where("invitation_id = ? AND actor_user_id = ?", invitation.ID, "admin-1").
+		Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, InvitationResendLimit, resendCount)
+
+	// Audit records are evidence, not business state. Removing them must not reset the throttle.
+	_, err = db.NewDelete().Model((*models.WorkspaceAccessAuditEvent)(nil)).
+		Where("invitation_id = ? AND action = ?", invitation.ID, ActionInvitationResent).
+		Exec(t.Context())
+	require.NoError(t, err)
+	current = current.Add(InvitationResendDelay)
+	_, _, err = service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
+	require.Equal(t, ErrorRateLimited, ErrorKindOf(err))
+	require.Equal(t, initialSentAt.Add(InvitationResendDelay+InvitationResendWindow), RetryAtOf(err))
+}
+
+func TestConcurrentInvitationResendsRotateOneSecret(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	invitation, oldToken, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1", Email: "person@example.com", Role: models.WorkspaceRoleViewer,
+	})
+	require.NoError(t, err)
+	service.now = func() time.Time { return invitation.LastSentAt.Add(InvitationResendDelay) }
+
+	const attempts = 8
+	start := make(chan struct{})
+	results := make(chan error, attempts)
+	tokens := make(chan string, attempts)
+	var workers sync.WaitGroup
+	workers.Add(attempts)
+	for range attempts {
+		go func() {
+			defer workers.Done()
+			<-start
+			_, token, resendErr := service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
+			results <- resendErr
+			if resendErr == nil {
+				tokens <- token
+			}
+		}()
+	}
+	close(start)
+	workers.Wait()
+	close(results)
+	close(tokens)
+
+	succeeded := 0
+	for resendErr := range results {
+		if resendErr == nil {
+			succeeded++
+			continue
+		}
+		require.Equal(t, ErrorRateLimited, ErrorKindOf(resendErr))
+	}
+	require.Equal(t, 1, succeeded)
+	require.Len(t, tokens, 1)
+	newToken := <-tokens
+	require.NotEqual(t, oldToken, newToken)
+	_, err = service.FindInvitationByToken(t.Context(), oldToken)
+	require.Equal(t, ErrorNotFound, ErrorKindOf(err))
+	stored, err := service.FindInvitationByToken(t.Context(), newToken)
+	require.NoError(t, err)
+	require.Equal(t, invitation.ID, stored.ID)
+
+	auditCount, err := db.NewSelect().Model((*models.WorkspaceAccessAuditEvent)(nil)).
+		Where("invitation_id = ? AND action = ?", invitation.ID, ActionInvitationResent).
+		Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, auditCount)
+}
+
+func TestInvitationLifecycleIncludesTerminalAndDeliveryTruth(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	now := service.now()
+	rows := []models.WorkspaceInvitation{
+		{ID: "created", WorkspaceID: "workspace-1", Email: "created@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: "hash-created", ExpiresAt: now.Add(time.Hour), EmailDeliveryStatus: notifications.EmailDeliveryCreated, CreatedAt: now},
+		{ID: "delivered", WorkspaceID: "workspace-1", Email: "delivered@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: "hash-delivered", ExpiresAt: now.Add(time.Hour), EmailDeliveryStatus: notifications.EmailDeliveryDelivered, CreatedAt: now},
+		{ID: "accepted", WorkspaceID: "workspace-1", Email: "accepted@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: "hash-accepted", ExpiresAt: now.Add(time.Hour), AcceptedAt: now, EmailDeliveryStatus: notifications.EmailDeliveryDelivered, CreatedAt: now},
+		{ID: "revoked", WorkspaceID: "workspace-1", Email: "revoked@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: "hash-revoked", ExpiresAt: now.Add(time.Hour), RevokedAt: now, EmailDeliveryStatus: notifications.EmailDeliverySent, CreatedAt: now},
+	}
+	_, err := db.NewInsert().Model(&rows).Exec(t.Context())
+	require.NoError(t, err)
+
+	team, err := service.List(t.Context(), "workspace-1", "admin-1", Filters{})
+	require.NoError(t, err)
+	statuses := map[string]string{}
+	for _, invitation := range team.Invitations {
+		statuses[invitation.ID] = invitation.Status
+	}
+	require.Equal(t, "created", statuses["created"])
+	require.Equal(t, "delivered", statuses["delivered"])
+	require.Equal(t, "accepted", statuses["accepted"])
+	require.Equal(t, "revoked", statuses["revoked"])
 }
 
 func TestInvitationQueuesTransactionalEmailForUnregisteredRecipient(t *testing.T) {
@@ -231,6 +357,8 @@ func TestInvitationQueuesTransactionalEmailForUnregisteredRecipient(t *testing.T
 	require.Equal(t, "not-registered@example.com", sender.messages[0].Recipient)
 	require.Equal(t, "Team", sender.messages[0].WorkspaceName)
 	require.Equal(t, "admin@example.com", sender.messages[0].InviterName)
+	resendNow := service.now().Add(InvitationResendDelay)
+	service.now = func() time.Time { return resendNow }
 
 	resent, _, err := service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
 	require.NoError(t, err)
@@ -260,22 +388,30 @@ func TestResendCrashStateAndStaleDeliveryCompletionStayTruthful(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, notifications.EmailDeliveryQueued, invitation.EmailDeliveryStatus)
+	previousCallbackAt := service.now().Add(-time.Minute)
+	_, err = db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
+		Set("email_delivery_updated_at = ?", previousCallbackAt).
+		Where("id = ?", invitation.ID).
+		Exec(t.Context())
+	require.NoError(t, err)
 
 	rawToken, tokenHash, err := GenerateInvitationToken()
 	require.NoError(t, err)
+	rotateNow := service.now().Add(InvitationResendDelay)
 	rotated, err := service.rotateInvitation(
 		t.Context(), "workspace-1", invitation.ID, "admin-1", tokenHash,
-		entitlements.Decision{Allowed: true, Unlimited: true}, service.now(),
+		entitlements.Decision{Allowed: true, Unlimited: true}, rotateNow,
 	)
 	require.NoError(t, err)
-	require.Equal(t, notifications.EmailDeliveryUnavailable, rotated.EmailDeliveryStatus,
+	require.Equal(t, notifications.EmailDeliveryCreated, rotated.EmailDeliveryStatus,
 		"a crash before enqueue must not leave the invalidated email marked sent or queued")
 	require.Empty(t, rotated.EmailDeliveryJobID)
 
 	var stored models.WorkspaceInvitation
 	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", rotated.ID).Scan(t.Context()))
-	require.Equal(t, notifications.EmailDeliveryUnavailable, stored.EmailDeliveryStatus)
+	require.Equal(t, notifications.EmailDeliveryCreated, stored.EmailDeliveryStatus)
 	require.Empty(t, stored.EmailDeliveryJobID)
+	require.True(t, stored.EmailDeliveryUpdatedAt.IsZero())
 
 	jobCountBefore, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
 	require.NoError(t, err)

@@ -11492,10 +11492,12 @@ export interface components {
             /** @description Invited email */
             email: string;
             /**
-             * @description Truthful state of the latest Transactional invitation email
+             * @description Truthful transport outcome for the latest Transactional invitation email. Sent means provider accepted; Delivered requires an authenticated callback.
              * @enum {string}
              */
-            email_delivery_status: "queued" | "sent" | "failed" | "unavailable";
+            email_delivery_status: "created" | "queued" | "sent" | "delivered" | "failed" | "unavailable";
+            /** @description Provider callback time for the latest terminal delivery outcome */
+            email_delivery_updated_at?: string;
             /** @description Invitation expiry time */
             expires_at: string;
             /** @description Invitation ID */
@@ -11509,10 +11511,10 @@ export interface components {
             /** @description Workspace role to grant */
             role: string;
             /**
-             * @description Current invitation state
+             * @description Current invitation lifecycle, with terminal invitation state taking precedence over email delivery state
              * @enum {string}
              */
-            status: "pending" | "expired";
+            status: "created" | "queued" | "sent" | "delivered" | "delivery_failed" | "delivery_unavailable" | "expired" | "revoked" | "accepted";
             /** @description Workspace ID */
             workspace_id: string;
         };
@@ -27479,8 +27481,8 @@ export interface operations {
                 q?: string;
                 /** @description Filter by role */
                 role?: "all" | "admin" | "editor" | "viewer";
-                /** @description Filter by access state */
-                status?: "all" | "active" | "inactive" | "pending" | "expired";
+                /** @description Filter by member access or exact invitation lifecycle state */
+                status?: "all" | "active" | "inactive" | "pending" | "created" | "queued" | "sent" | "delivered" | "delivery_failed" | "delivery_unavailable" | "expired" | "revoked" | "accepted";
             };
             header?: never;
             path: {

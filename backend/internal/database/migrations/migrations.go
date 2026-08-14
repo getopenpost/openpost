@@ -382,11 +382,27 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 		err = ensurePublicationRepostOverride(ctx, db)
 	case 62, 63, 64, 66, 71, 73, 74, 75, 76, 77, 78, 80, 81, 82, 83:
 		return prepareRecentMigration(ctx, db, migration)
+	case 96:
+		description = "workspace invitation delivery outcomes"
+		err = ensureWorkspaceInvitationDeliveryUpdatedAt(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
+}
+
+func ensureWorkspaceInvitationDeliveryUpdatedAt(ctx context.Context, db *bun.DB) error {
+	exists, err := migrationTableExists(ctx, db, "workspace_invitations")
+	if err != nil || !exists {
+		return err
+	}
+	present, err := migrationColumnExists(ctx, db, "workspace_invitations", "email_delivery_updated_at")
+	if err != nil || present {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `ALTER TABLE workspace_invitations ADD COLUMN email_delivery_updated_at TIMESTAMP`)
+	return err
 }
 
 func ensurePostUpdatedAtColumn(ctx context.Context, db *bun.DB) error {

@@ -537,20 +537,47 @@ type WorkspaceMember struct {
 type WorkspaceInvitation struct {
 	bun.BaseModel `bun:"table:workspace_invitations"`
 
-	ID                  string    `bun:",pk" json:"id"`
-	WorkspaceID         string    `bun:",notnull" json:"workspace_id"`
-	Email               string    `bun:",notnull" json:"email"`
-	Role                string    `bun:",notnull,default:'editor'" json:"role"`
-	InvitedByUserID     string    `bun:",notnull" json:"invited_by_user_id"`
-	AcceptedByUserID    string    `bun:",nullzero" json:"accepted_by_user_id"`
-	TokenHash           string    `bun:",unique,notnull" json:"-"`
-	ExpiresAt           time.Time `bun:",notnull" json:"expires_at"`
-	AcceptedAt          time.Time `bun:",nullzero" json:"accepted_at"`
-	RevokedAt           time.Time `bun:",nullzero" json:"revoked_at"`
-	LastSentAt          time.Time `bun:"last_sent_at,nullzero" json:"last_sent_at"`
-	EmailDeliveryStatus string    `bun:"email_delivery_status,notnull,default:'unavailable'" json:"email_delivery_status"`
-	EmailDeliveryJobID  string    `bun:"email_delivery_job_id,notnull,default:''" json:"-"`
-	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	ID                     string    `bun:",pk" json:"id"`
+	WorkspaceID            string    `bun:",notnull" json:"workspace_id"`
+	Email                  string    `bun:",notnull" json:"email"`
+	Role                   string    `bun:",notnull,default:'editor'" json:"role"`
+	InvitedByUserID        string    `bun:",notnull" json:"invited_by_user_id"`
+	AcceptedByUserID       string    `bun:",nullzero" json:"accepted_by_user_id"`
+	TokenHash              string    `bun:",unique,notnull" json:"-"`
+	ExpiresAt              time.Time `bun:",notnull" json:"expires_at"`
+	AcceptedAt             time.Time `bun:",nullzero" json:"accepted_at"`
+	RevokedAt              time.Time `bun:",nullzero" json:"revoked_at"`
+	LastSentAt             time.Time `bun:"last_sent_at,nullzero" json:"last_sent_at"`
+	EmailDeliveryStatus    string    `bun:"email_delivery_status,notnull,default:'unavailable'" json:"email_delivery_status"`
+	EmailDeliveryJobID     string    `bun:"email_delivery_job_id,notnull,default:''" json:"-"`
+	EmailDeliveryUpdatedAt time.Time `bun:"email_delivery_updated_at,nullzero" json:"email_delivery_updated_at,omitempty"`
+	CreatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+// WorkspaceInvitationDeliveryEvent is redacted callback evidence. It records
+// only provider event identity and OpenPost delivery references, never an
+// address, invitation secret, provider payload, or response body.
+type WorkspaceInvitationDeliveryEvent struct {
+	bun.BaseModel `bun:"table:workspace_invitation_delivery_events"`
+
+	EventID      string    `bun:"event_id,pk" json:"event_id"`
+	InvitationID string    `bun:"invitation_id,notnull" json:"invitation_id"`
+	DeliveryID   string    `bun:"delivery_id,notnull" json:"delivery_id"`
+	Outcome      string    `bun:",notnull" json:"outcome"`
+	OccurredAt   time.Time `bun:"occurred_at,notnull" json:"occurred_at"`
+	CreatedAt    time.Time `bun:"created_at,nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
+// WorkspaceInvitationResend is short-lived domain state for durable,
+// per-administrator resend throttling. It is separate from audit evidence so
+// audit retention and projection cannot change invitation behavior.
+type WorkspaceInvitationResend struct {
+	bun.BaseModel `bun:"table:workspace_invitation_resends"`
+
+	ID           string    `bun:",pk" json:"id"`
+	InvitationID string    `bun:"invitation_id,notnull" json:"invitation_id"`
+	ActorUserID  string    `bun:"actor_user_id,notnull" json:"actor_user_id"`
+	ResentAt     time.Time `bun:"resent_at,notnull" json:"resent_at"`
 }
 
 type WorkspaceAccessAuditEvent struct {

@@ -109,7 +109,12 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
   await expect(invitationCard).toContainText("Email delivery unavailable");
   await expect(invitationCard).toContainText("Resend to queue another email");
   await invitationCard.getByRole("button", { name: "Resend" }).click();
-  await expect(page.getByText("Invitation resent with a new link.")).toBeVisible();
+  await expect(page.getByTestId("team-error")).toContainText("invitation can be resent after");
+  const expectedRateLimitConsoleError = consoleErrors.findIndex((message) =>
+    message.includes("429 (Too Many Requests)"),
+  );
+  expect(expectedRateLimitConsoleError).toBeGreaterThanOrEqual(0);
+  consoleErrors.splice(expectedRateLimitConsoleError, 1);
   await invitationCard.getByRole("button", { name: "Remove access" }).click();
   const revokeDialog = page.getByRole("dialog");
   await expect(
@@ -117,6 +122,8 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
   ).toBeVisible();
   await revokeDialog.getByRole("button", { name: "Remove access" }).click();
   await expect(page.getByText("Invitation canceled")).toBeVisible();
+  await expect(invitationCard).toContainText("Revoked");
+  await expect(invitationCard.getByRole("button", { name: "Resend" })).toHaveCount(0);
 
   const unauthorized = await request.patch(
     `/api/v1/workspaces/${workspace.id}/members/${adminProfile.id}`,
@@ -136,10 +143,58 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
   ).toBeVisible();
   await expect(page.getByTestId("team-invite-email")).toHaveCount(0);
 
+  await page.unroute(`**/api/v1/workspaces/${workspace.id}/team*`);
+  await page.route(`**/api/v1/workspaces/${workspace.id}/team*`, async (route) => {
+    const upstream = await route.fetch();
+    const team = await upstream.json();
+    const timestamp = new Date().toISOString();
+    team.invitations.push(
+      {
+        id: "browser-sent",
+        workspace_id: workspace.id,
+        email: "provider-accepted@example.com",
+        role: "viewer",
+        invited_by_user_id: adminProfile.id,
+        expires_at: timestamp,
+        last_sent_at: timestamp,
+        email_delivery_status: "sent",
+        status: "sent",
+        created_at: timestamp,
+      },
+      {
+        id: "browser-delivered",
+        workspace_id: workspace.id,
+        email: "delivery-confirmed@example.com",
+        role: "editor",
+        invited_by_user_id: adminProfile.id,
+        expires_at: timestamp,
+        last_sent_at: timestamp,
+        email_delivery_status: "delivered",
+        status: "delivered",
+        created_at: timestamp,
+      },
+    );
+    await route.fulfill({ response: upstream, json: team });
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await expect(page.getByText("Email accepted by the provider")).toBeVisible();
+  await expect(page.getByText("Email delivery confirmed")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("workspace-invitation-outcomes-390.png"),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 320, height: 760 });
   await expect(page.getByTestId("team-members-list")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  await page.screenshot({
+    path: testInfo.outputPath("workspace-invitation-outcomes-320.png"),
+    fullPage: true,
+  });
   expect(consoleErrors).toEqual([]);
 });

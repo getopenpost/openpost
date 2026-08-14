@@ -18,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/workspaceteam"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -48,6 +49,7 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 		(*models.WorkspaceFirstComposition)(nil),
 		(*models.Publication)(nil),
 		(*models.WorkspaceInvitation)(nil),
+		(*models.WorkspaceInvitationResend)(nil),
 		(*models.WorkspaceAccessAuditEvent)(nil),
 		(*models.IdentityAuditEvent)(nil),
 		(*models.IdentityProvider)(nil),
@@ -884,7 +886,7 @@ func TestAcceptWorkspaceInvitationAddsWorkspaceMember(t *testing.T) {
 	oldAddressResp := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{
 		"token": oldAddressInviteToken,
 	}, "invite-token")
-	require.Equal(t, http.StatusForbidden, oldAddressResp.Code, oldAddressResp.Body.String())
+	require.Equal(t, http.StatusConflict, oldAddressResp.Code, oldAddressResp.Body.String())
 
 	scopedResp := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{
 		"token": rawInviteToken,
@@ -908,6 +910,35 @@ func TestAcceptWorkspaceInvitationAddsWorkspaceMember(t *testing.T) {
 	require.NoError(t, srv.db.NewSelect().Model(&invitation).Where("id = ?", "invite-1").Scan(ctx))
 	require.Equal(t, "user-1", invitation.AcceptedByUserID)
 	require.False(t, invitation.AcceptedAt.IsZero())
+}
+
+func TestInvalidInvitationAcceptanceUsesOneSafeResponse(t *testing.T) {
+	authenticator := workspaceTestAuthenticator{
+		"invitee-token": {UserID: "invitee-1", Email: "invitee@example.com"},
+	}
+	srv := newWorkspaceTestServerWithAuthenticator(t, entitlements.NewSelfHostedService(), authenticator)
+	seedWorkspaceUserAndMember(t, srv.db, "admin-1", "admin@example.com", models.WorkspaceRoleAdmin)
+	_, err := srv.db.NewInsert().Model(&models.User{ID: "invitee-1", Email: "invitee@example.com"}).Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	rows := []models.WorkspaceInvitation{
+		{ID: "wrong-email", WorkspaceID: "ws-1", Email: "other@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: hashWorkspaceInvitationToken("op_inv_wrong_email"), ExpiresAt: now.Add(time.Hour), CreatedAt: now},
+		{ID: "expired", WorkspaceID: "ws-1", Email: "invitee@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: hashWorkspaceInvitationToken("op_inv_expired_link"), ExpiresAt: now.Add(-time.Hour), CreatedAt: now},
+		{ID: "revoked", WorkspaceID: "ws-1", Email: "invitee@example.com", Role: "viewer", InvitedByUserID: "admin-1", TokenHash: hashWorkspaceInvitationToken("op_inv_revoked_link"), ExpiresAt: now.Add(time.Hour), RevokedAt: now, CreatedAt: now},
+	}
+	_, err = srv.db.NewInsert().Model(&rows).Exec(t.Context())
+	require.NoError(t, err)
+
+	var expectedBody string
+	for _, token := range []string{"op_inv_unknown_link", "op_inv_wrong_email", "op_inv_expired_link", "op_inv_revoked_link"} {
+		response := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{"token": token}, "invitee-token")
+		require.Equal(t, http.StatusConflict, response.Code, response.Body.String())
+		if expectedBody == "" {
+			expectedBody = response.Body.String()
+		} else {
+			require.Equal(t, expectedBody, response.Body.String())
+		}
+	}
 }
 
 func TestWorkspaceMemberLifecycleEndpointsEnforceRolesAndLastAdmin(t *testing.T) {
@@ -992,6 +1023,10 @@ func TestResendInvitationRotatesLinkAndRevokedInviteCannotBeAccepted(t *testing.
 	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
 	var first WorkspaceInvitationResponse
 	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &first))
+	_, err = srv.db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
+		Set("last_sent_at = ?", time.Now().UTC().Add(-workspaceteam.InvitationResendDelay)).
+		Where("id = ?", first.ID).Exec(t.Context())
+	require.NoError(t, err)
 
 	resent := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+first.ID+"/resend", map[string]string{}, "admin-token")
 	require.Equal(t, http.StatusOK, resent.Code, resent.Body.String())
@@ -1007,7 +1042,7 @@ func TestResendInvitationRotatesLinkAndRevokedInviteCannotBeAccepted(t *testing.
 	require.Equal(t, http.StatusOK, revoked.Code, revoked.Body.String())
 	accepted := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{"token": secondToken}, "invitee-token")
 	require.Equal(t, http.StatusConflict, accepted.Code)
-	require.Contains(t, accepted.Body.String(), "revoked")
+	require.Contains(t, accepted.Body.String(), "cannot be accepted")
 }
 
 func TestResendInvitationAppliesPerInvitationAbuseControl(t *testing.T) {
@@ -1023,12 +1058,21 @@ func TestResendInvitationAppliesPerInvitationAbuseControl(t *testing.T) {
 	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &invitation))
 
 	for attempt := 0; attempt < 5; attempt++ {
+		_, err := srv.db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
+			Set("last_sent_at = ?", time.Now().UTC().Add(-workspaceteam.InvitationResendDelay)).
+			Where("id = ?", invitation.ID).Exec(t.Context())
+		require.NoError(t, err)
 		response := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID+"/resend", map[string]string{}, "web-token")
 		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 	}
+	_, err := srv.db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
+		Set("last_sent_at = ?", time.Now().UTC().Add(-workspaceteam.InvitationResendDelay)).
+		Where("id = ?", invitation.ID).Exec(t.Context())
+	require.NoError(t, err)
 	limited := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID+"/resend", map[string]string{}, "web-token")
 	require.Equal(t, http.StatusTooManyRequests, limited.Code, limited.Body.String())
 	require.Contains(t, limited.Body.String(), "resend limit reached")
+	require.Contains(t, limited.Body.String(), "try again after")
 }
 
 func TestCreateInvitationAppliesPerWorkspaceAbuseControl(t *testing.T) {

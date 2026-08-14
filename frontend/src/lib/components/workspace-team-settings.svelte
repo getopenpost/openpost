@@ -26,7 +26,8 @@
 	import UsersIcon from '@lucide/svelte/icons/users';
 
 	type WorkspaceRole = 'admin' | 'editor' | 'viewer';
-	type TeamStatus = 'all' | 'active' | 'inactive' | 'pending' | 'expired';
+	type InvitationStatus = WorkspaceInvitation['status'];
+	type TeamStatus = 'all' | 'active' | 'inactive' | 'pending' | InvitationStatus;
 	type DestructiveAction =
 		| { kind: 'revoke'; invitation: WorkspaceInvitation }
 		| { kind: 'deactivate'; member: TeamMember }
@@ -70,10 +71,18 @@
 	const draftDirty = $derived(Boolean(inviteEmail.trim()) || inviteRole !== 'editor');
 	const normalizedSearch = $derived(search.trim().toLocaleLowerCase());
 	const filteredMembers = $derived.by(() => {
-		if (!team || statusFilter === 'pending' || statusFilter === 'expired') return [];
+		if (
+			!team ||
+			(statusFilter !== 'all' && statusFilter !== 'active' && statusFilter !== 'inactive')
+		)
+			return [];
 		return team.members.filter((member) => {
 			if (roleFilter !== 'all' && member.role !== roleFilter) return false;
-			if (statusFilter !== 'all' && member.status !== statusFilter) return false;
+			if (
+				(statusFilter === 'active' || statusFilter === 'inactive') &&
+				member.status !== statusFilter
+			)
+				return false;
 			return !normalizedSearch || member.email.toLocaleLowerCase().includes(normalizedSearch);
 		});
 	});
@@ -81,7 +90,13 @@
 		if (!team || statusFilter === 'active' || statusFilter === 'inactive') return [];
 		return team.invitations.filter((invitation) => {
 			if (roleFilter !== 'all' && invitation.role !== roleFilter) return false;
-			if (statusFilter !== 'all' && invitation.status !== statusFilter) return false;
+			if (statusFilter === 'pending' && !invitationCanRecover(invitation.status)) return false;
+			if (
+				statusFilter !== 'all' &&
+				statusFilter !== 'pending' &&
+				invitation.status !== statusFilter
+			)
+				return false;
 			return !normalizedSearch || invitation.email.toLocaleLowerCase().includes(normalizedSearch);
 		});
 	});
@@ -93,12 +108,26 @@
 		{ value: 'viewer', label: roleLabel('viewer') }
 	]);
 	const editableRoleOptions = $derived(roleOptions.slice(1));
+	const invitationStatusOptions = $derived([
+		{ value: 'created', label: m.settings_invitation_status_created() },
+		{ value: 'queued', label: m.settings_invitation_status_queued() },
+		{ value: 'sent', label: m.settings_invitation_status_sent() },
+		{ value: 'delivered', label: m.settings_invitation_status_delivered() },
+		{ value: 'delivery_failed', label: m.settings_invitation_status_delivery_failed() },
+		{
+			value: 'delivery_unavailable',
+			label: m.settings_invitation_status_delivery_unavailable()
+		},
+		{ value: 'expired', label: m.settings_invitation_status_expired() },
+		{ value: 'revoked', label: m.settings_invitation_status_revoked() },
+		{ value: 'accepted', label: m.settings_invitation_status_accepted() }
+	] satisfies Array<{ value: InvitationStatus; label: string }>);
 	const statusOptions = $derived([
 		{ value: 'all', label: m.settings_team_all_statuses() },
 		{ value: 'active', label: m.settings_member_status_active() },
 		{ value: 'inactive', label: m.settings_member_status_inactive() },
 		{ value: 'pending', label: m.settings_invitation_status_pending() },
-		{ value: 'expired', label: m.settings_invitation_status_expired() }
+		...invitationStatusOptions
 	]);
 
 	$effect(() => {
@@ -341,6 +370,13 @@
 
 	function invitationDelivery(status: WorkspaceInvitation['email_delivery_status']) {
 		switch (status) {
+			case 'created':
+				return {
+					label: m.settings_invitation_delivery_created(),
+					createdMessage: m.settings_invite_delivery_queued(),
+					tone: 'success' as const,
+					needsAction: false
+				};
 			case 'queued':
 				return {
 					label: m.settings_invitation_delivery_queued(),
@@ -351,6 +387,13 @@
 			case 'sent':
 				return {
 					label: m.settings_invitation_delivery_sent(),
+					createdMessage: m.settings_invite_delivery_sent(),
+					tone: 'success' as const,
+					needsAction: false
+				};
+			case 'delivered':
+				return {
+					label: m.settings_invitation_delivery_delivered(),
 					createdMessage: m.settings_invite_delivery_sent(),
 					tone: 'success' as const,
 					needsAction: false
@@ -370,6 +413,17 @@
 					needsAction: true
 				};
 		}
+	}
+
+	function invitationStatusLabel(status: InvitationStatus) {
+		return (
+			invitationStatusOptions.find((option) => option.value === status)?.label ??
+			m.settings_invitation_status_pending()
+		);
+	}
+
+	function invitationCanRecover(status: InvitationStatus) {
+		return status !== 'accepted' && status !== 'revoked';
 	}
 
 	function formatDate(value: string) {
@@ -687,12 +741,10 @@
 									<span
 										class="inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-medium"
 									>
-										{invitation.status === 'expired'
-											? m.settings_invitation_status_expired()
-											: m.settings_invitation_status_pending()}
+										{invitationStatusLabel(invitation.status)}
 									</span>
 								</div>
-								{#if canManage}
+								{#if canManage && invitationCanRecover(invitation.status)}
 									<div class="mt-3 flex flex-wrap justify-end gap-1 border-t pt-3">
 										<Button
 											type="button"

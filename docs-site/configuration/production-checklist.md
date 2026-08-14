@@ -14,6 +14,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Set `OPENPOST_APP_URL` to the public HTTPS app origin.
 - [ ] Set `OPENPOST_PUBLIC_URL` to the same public HTTPS app origin unless you have a specific split-origin reason.
 - [ ] Configure `OPENPOST_EMAIL_PROVIDER`, `OPENPOST_EMAIL_FROM`, and that provider's credentials; verify signup, password-reset, and one opted-in operational notification without logging codes or secrets.
+- [ ] If the mail provider can report delivery, set `OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET`, configure `POST /api/v1/email/delivery/webhook`, and verify **Sent** changes to **Delivered** only after a signed callback.
 - [ ] If Google login is enabled, register the exact `/api/v1/auth/oidc/google/callback` URL and store `OPENPOST_AUTH_GOOGLE_CLIENT_SECRET` through a file-backed secret.
 - [ ] Keep `OPENPOST_EXTRA_CORS_ORIGINS` explicit and do not use `*`.
 - [ ] Configure a reverse proxy with HTTPS before connecting OAuth providers.

@@ -20,8 +20,11 @@ import (
 )
 
 const (
-	InvitationTokenPrefix = "op_inv"
-	InvitationLifetime    = 7 * 24 * time.Hour
+	InvitationTokenPrefix  = "op_inv"
+	InvitationLifetime     = 7 * 24 * time.Hour
+	InvitationResendDelay  = time.Minute
+	InvitationResendLimit  = 5
+	InvitationResendWindow = time.Hour
 
 	ActionInvitationCreated  = "invitation.created"
 	ActionInvitationResent   = "invitation.resent"
@@ -36,22 +39,36 @@ const (
 type ErrorKind string
 
 const (
-	ErrorNotFound  ErrorKind = "not_found"
-	ErrorForbidden ErrorKind = "forbidden"
-	ErrorConflict  ErrorKind = "conflict"
-	ErrorPayment   ErrorKind = "payment_required"
-	ErrorInvalid   ErrorKind = "invalid"
+	ErrorNotFound    ErrorKind = "not_found"
+	ErrorForbidden   ErrorKind = "forbidden"
+	ErrorConflict    ErrorKind = "conflict"
+	ErrorPayment     ErrorKind = "payment_required"
+	ErrorInvalid     ErrorKind = "invalid"
+	ErrorRateLimited ErrorKind = "rate_limited"
 )
 
 type LifecycleError struct {
 	Kind    ErrorKind
 	Message string
+	RetryAt time.Time
 }
 
 func (e *LifecycleError) Error() string { return e.Message }
 
 func lifecycleError(kind ErrorKind, message string) error {
 	return &LifecycleError{Kind: kind, Message: message}
+}
+
+func rateLimitError(message string, retryAt time.Time) error {
+	return &LifecycleError{Kind: ErrorRateLimited, Message: message, RetryAt: retryAt.UTC()}
+}
+
+func RetryAtOf(err error) time.Time {
+	var lifecycleErr *LifecycleError
+	if errors.As(err, &lifecycleErr) {
+		return lifecycleErr.RetryAt
+	}
+	return time.Time{}
 }
 
 func ErrorKindOf(err error) ErrorKind {
@@ -132,7 +149,8 @@ func (s *Service) List(ctx context.Context, workspaceID, userID string, filters 
 	}
 
 	now := s.now()
-	invitations, err := s.listInvitations(ctx, workspaceID, filters, now)
+	canManage := member.Role == models.WorkspaceRoleAdmin
+	invitations, err := s.listInvitations(ctx, workspaceID, filters, now, canManage)
 	if err != nil {
 		return Team{}, err
 	}
@@ -143,7 +161,7 @@ func (s *Service) List(ctx context.Context, workspaceID, userID string, filters 
 	}
 	return Team{
 		Members: members, Invitations: invitations, CurrentSeats: currentSeats,
-		CanManage: member.Role == models.WorkspaceRoleAdmin,
+		CanManage: canManage,
 	}, nil
 }
 
@@ -175,19 +193,15 @@ func (s *Service) listMembers(ctx context.Context, workspaceID string, filters F
 	return members, nil
 }
 
-func (s *Service) listInvitations(ctx context.Context, workspaceID string, filters Filters, now time.Time) ([]Invitation, error) {
+func (s *Service) listInvitations(ctx context.Context, workspaceID string, filters Filters, now time.Time, includeTerminal bool) ([]Invitation, error) {
 	rows := []models.WorkspaceInvitation{}
 	if !statusIncludesInvitations(filters.Status) {
 		return []Invitation{}, nil
 	}
 
-	query := s.db.NewSelect().Model(&rows).
-		Where("workspace_id = ? AND accepted_at IS NULL AND revoked_at IS NULL", workspaceID)
-	switch filters.Status {
-	case "pending":
-		query = query.Where("expires_at > ?", now)
-	case "expired":
-		query = query.Where("expires_at <= ?", now)
+	query := s.db.NewSelect().Model(&rows).Where("workspace_id = ?", workspaceID)
+	if !includeTerminal {
+		query = query.Where("accepted_at IS NULL AND revoked_at IS NULL")
 	}
 	if filters.Role != "" && filters.Role != "all" {
 		query = query.Where("role = ?", filters.Role)
@@ -208,9 +222,9 @@ func (s *Service) listInvitations(ctx context.Context, workspaceID string, filte
 			}
 			row.EmailDeliveryStatus = deliveryStatus
 		}
-		status := "pending"
-		if !row.ExpiresAt.After(now) {
-			status = "expired"
+		status := InvitationLifecycleStatus(row, now)
+		if !invitationStatusMatchesFilter(status, filters.Status) {
+			continue
 		}
 		invitations = append(invitations, Invitation{WorkspaceInvitation: row, Status: status})
 	}
@@ -228,11 +242,44 @@ func statusIncludesMembers(status string) bool {
 
 func statusIncludesInvitations(status string) bool {
 	switch status {
-	case "", "all", "pending", "expired":
+	case "", "all", "pending", "created", "queued", "sent", "delivered", "delivery_failed", "delivery_unavailable", "expired", "revoked", "accepted":
 		return true
 	default:
 		return false
 	}
+}
+
+func InvitationLifecycleStatus(invitation models.WorkspaceInvitation, now time.Time) string {
+	if !invitation.AcceptedAt.IsZero() {
+		return "accepted"
+	}
+	if !invitation.RevokedAt.IsZero() {
+		return "revoked"
+	}
+	if !invitation.ExpiresAt.After(now) {
+		return "expired"
+	}
+	switch invitation.EmailDeliveryStatus {
+	case notifications.EmailDeliveryCreated, notifications.EmailDeliveryQueued,
+		notifications.EmailDeliverySent, notifications.EmailDeliveryDelivered:
+		return invitation.EmailDeliveryStatus
+	case notifications.EmailDeliveryFailed:
+		return "delivery_failed"
+	case notifications.EmailDeliveryUnavailable:
+		return "delivery_unavailable"
+	default:
+		return "created"
+	}
+}
+
+func invitationStatusMatchesFilter(status, filter string) bool {
+	if filter == "" || filter == "all" {
+		return true
+	}
+	if filter == "pending" {
+		return status != "expired" && status != "revoked" && status != "accepted"
+	}
+	return status == filter
 }
 
 func (s *Service) Invite(ctx context.Context, input InviteInput) (models.WorkspaceInvitation, string, error) {
@@ -256,7 +303,7 @@ func (s *Service) Invite(ctx context.Context, input InviteInput) (models.Workspa
 		ID: uuid.NewString(), WorkspaceID: input.WorkspaceID, Email: input.Email,
 		Role: input.Role, InvitedByUserID: input.ActorUserID, TokenHash: tokenHash,
 		ExpiresAt: now.Add(InvitationLifetime), LastSentAt: now, CreatedAt: now,
-		EmailDeliveryStatus: notifications.EmailDeliveryUnavailable,
+		EmailDeliveryStatus: notifications.EmailDeliveryCreated,
 	}
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		return s.createInvitation(txCtx, tx, input, invitation, seatDecision, now)
@@ -395,6 +442,13 @@ func (s *Service) rotateInvitation(
 		} else if err != nil {
 			return err
 		}
+		retryAt := invitation.LastSentAt.Add(InvitationResendDelay)
+		if !invitation.LastSentAt.IsZero() && retryAt.After(now) {
+			return rateLimitError("invitation can be resent after "+retryAt.Format(time.RFC3339), retryAt)
+		}
+		if err := enforceInvitationResendLimit(txCtx, tx, invitation, actorUserID, now); err != nil {
+			return err
+		}
 		// A still-pending invitation already reserves its seat. Resending an
 		// expired invitation makes it pending again, so reserve that seat under
 		// the same workspace lock used by invites and member reactivation.
@@ -407,15 +461,30 @@ func (s *Service) rotateInvitation(
 				return lifecycleError(ErrorPayment, seatDecisionReason(seatDecision, currentSeats))
 			}
 		}
+		previousTokenHash := invitation.TokenHash
 		invitation.TokenHash = tokenHash
 		invitation.ExpiresAt = now.Add(InvitationLifetime)
 		invitation.LastSentAt = now
 		invitation.InvitedByUserID = actorUserID
-		invitation.EmailDeliveryStatus = notifications.EmailDeliveryUnavailable
+		invitation.EmailDeliveryStatus = notifications.EmailDeliveryCreated
 		invitation.EmailDeliveryJobID = ""
-		if _, err := tx.NewUpdate().Model(&invitation).
-			Column("token_hash", "expires_at", "last_sent_at", "invited_by_user_id", "email_delivery_status", "email_delivery_job_id").
-			WherePK().Exec(txCtx); err != nil {
+		invitation.EmailDeliveryUpdatedAt = time.Time{}
+		result, err := tx.NewUpdate().Model(&invitation).
+			Column("token_hash", "expires_at", "last_sent_at", "invited_by_user_id", "email_delivery_status", "email_delivery_job_id", "email_delivery_updated_at").
+			WherePK().Where("token_hash = ?", previousTokenHash).Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		updated, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if updated != 1 {
+			return rateLimitError("invitation resend is already in progress; try again after "+now.Add(InvitationResendDelay).Format(time.RFC3339), now.Add(InvitationResendDelay))
+		}
+		if _, err := tx.NewInsert().Model(&models.WorkspaceInvitationResend{
+			ID: uuid.NewString(), InvitationID: invitation.ID, ActorUserID: actorUserID, ResentAt: now,
+		}).Exec(txCtx); err != nil {
 			return err
 		}
 		return insertAudit(txCtx, tx, models.WorkspaceAccessAuditEvent{
@@ -428,6 +497,35 @@ func (s *Service) rotateInvitation(
 		return models.WorkspaceInvitation{}, err
 	}
 	return invitation, nil
+}
+
+func enforceInvitationResendLimit(
+	ctx context.Context,
+	db bun.IDB,
+	invitation models.WorkspaceInvitation,
+	actorUserID string,
+	now time.Time,
+) error {
+	windowStart := now.Add(-InvitationResendWindow)
+	if _, err := db.NewDelete().Model((*models.WorkspaceInvitationResend)(nil)).
+		Where("invitation_id = ? AND actor_user_id = ? AND resent_at <= ?", invitation.ID, actorUserID, windowStart).
+		Exec(ctx); err != nil {
+		return err
+	}
+	recent := []models.WorkspaceInvitationResend{}
+	err := db.NewSelect().Model(&recent).
+		Where("invitation_id = ? AND actor_user_id = ? AND resent_at > ?", invitation.ID, actorUserID, windowStart).
+		Order("resent_at ASC").
+		Limit(InvitationResendLimit).
+		Scan(ctx)
+	if err != nil {
+		return err
+	}
+	if len(recent) < InvitationResendLimit {
+		return nil
+	}
+	retryAt := recent[0].ResentAt.Add(InvitationResendWindow)
+	return rateLimitError("invitation resend limit reached; try again after "+retryAt.Format(time.RFC3339), retryAt)
 }
 
 func (s *Service) RevokeInvitation(ctx context.Context, workspaceID, invitationID, actorUserID string) error {

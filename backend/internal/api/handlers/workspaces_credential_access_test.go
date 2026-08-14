@@ -372,6 +372,7 @@ func newWorkspaceCredentialAccessTestServer(
 		(*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil),
 		(*models.WorkspaceInvitation)(nil),
+		(*models.WorkspaceInvitationResend)(nil),
 		(*models.WorkspaceAccessAuditEvent)(nil),
 		(*models.IdentityProvider)(nil),
 		(*models.OrganizationSSOPolicy)(nil),

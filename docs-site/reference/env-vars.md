@@ -78,6 +78,7 @@ Most variables loaded through the main backend config loader can also be loaded 
 | `OPENPOST_RESEND_API_KEY`                       | Resend API key                                                                                    |
 | `OPENPOST_CLOUDFLARE_EMAIL_ACCOUNT_ID`          | Cloudflare account ID for Email Service                                                           |
 | `OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN`           | Cloudflare Email Service API token                                                                |
+| `OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET`        | HMAC secret for authenticated invitation delivery callbacks                                       |
 | `OPENPOST_FEEDBACK_ENABLED`                     | Enable the configured authenticated feedback form                                                 |
 | `OPENPOST_FEEDBACK_DESTINATION_URL`             | Server-only Discord-compatible webhook                                                            |
 | `OPENPOST_FEEDBACK_RECIPIENT`                   | Recipient label disclosed to users                                                                |

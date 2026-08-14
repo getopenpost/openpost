@@ -522,6 +522,7 @@ func main() {
 	billingHandler.SetUsage(usageService)
 	billingHandler.SetTelemetry(telemetryRecorder)
 	billingHandler.RegisterRoutes(e)
+	handlers.NewEmailDeliveryWebhookHandler(notificationService, cfg.EmailDeliveryWebhookSecret).RegisterRoutes(e)
 
 	e.GET("/openapi.json", func(c echo.Context) error {
 		spec := api.OpenAPI()

@@ -17377,8 +17377,12 @@
 						"type": "string"
 					},
 					"email_delivery_status": {
-						"description": "Truthful state of the latest Transactional invitation email",
-						"enum": ["queued", "sent", "failed", "unavailable"],
+						"description": "Truthful transport outcome for the latest Transactional invitation email. Sent means provider accepted; Delivered requires an authenticated callback.",
+						"enum": ["created", "queued", "sent", "delivered", "failed", "unavailable"],
+						"type": "string"
+					},
+					"email_delivery_updated_at": {
+						"description": "Provider callback time for the latest terminal delivery outcome",
 						"type": "string"
 					},
 					"expires_at": {
@@ -17406,8 +17410,18 @@
 						"type": "string"
 					},
 					"status": {
-						"description": "Current invitation state",
-						"enum": ["pending", "expired"],
+						"description": "Current invitation lifecycle, with terminal invitation state taking precedence over email delivery state",
+						"enum": [
+							"created",
+							"queued",
+							"sent",
+							"delivered",
+							"delivery_failed",
+							"delivery_unavailable",
+							"expired",
+							"revoked",
+							"accepted"
+						],
 						"type": "string"
 					},
 					"workspace_id": {
@@ -38169,14 +38183,28 @@
 						}
 					},
 					{
-						"description": "Filter by access state",
+						"description": "Filter by member access or exact invitation lifecycle state",
 						"explode": false,
 						"in": "query",
 						"name": "status",
 						"schema": {
 							"default": "all",
-							"description": "Filter by access state",
-							"enum": ["all", "active", "inactive", "pending", "expired"],
+							"description": "Filter by member access or exact invitation lifecycle state",
+							"enum": [
+								"all",
+								"active",
+								"inactive",
+								"pending",
+								"created",
+								"queued",
+								"sent",
+								"delivered",
+								"delivery_failed",
+								"delivery_unavailable",
+								"expired",
+								"revoked",
+								"accepted"
+							],
 							"type": "string"
 						}
 					}

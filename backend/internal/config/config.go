@@ -80,12 +80,13 @@ type Config struct {
 	GoogleAuthClientID      string
 	GoogleAuthClientSecret  string
 
-	EmailVerificationRequired bool
-	EmailProvider             string
-	EmailFrom                 string
-	ResendAPIKey              string
-	CloudflareEmailAccountID  string
-	CloudflareEmailAPIToken   string
+	EmailVerificationRequired  bool
+	EmailProvider              string
+	EmailFrom                  string
+	ResendAPIKey               string
+	CloudflareEmailAccountID   string
+	CloudflareEmailAPIToken    string
+	EmailDeliveryWebhookSecret string
 
 	SMTPHost       string
 	SMTPPort       int
@@ -261,12 +262,13 @@ func Load() *Config {
 		GoogleAuthClientID:     strings.TrimSpace(getEnvDefault("OPENPOST_AUTH_GOOGLE_CLIENT_ID", "")),
 		GoogleAuthClientSecret: getEnvDefault("OPENPOST_AUTH_GOOGLE_CLIENT_SECRET", ""),
 
-		EmailVerificationRequired: getEnvBoolWithAliases(edition == EditionCloud, "OPENPOST_EMAIL_VERIFICATION_REQUIRED"),
-		EmailProvider:             getEnvEnum("OPENPOST_EMAIL_PROVIDER", "", "smtp", "resend", "cloudflare"),
-		EmailFrom:                 strings.TrimSpace(getEnvDefault("OPENPOST_EMAIL_FROM", "")),
-		ResendAPIKey:              getEnvDefault("OPENPOST_RESEND_API_KEY", ""),
-		CloudflareEmailAccountID:  strings.TrimSpace(getEnvDefault("OPENPOST_CLOUDFLARE_EMAIL_ACCOUNT_ID", "")),
-		CloudflareEmailAPIToken:   getEnvDefault("OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN", ""),
+		EmailVerificationRequired:  getEnvBoolWithAliases(edition == EditionCloud, "OPENPOST_EMAIL_VERIFICATION_REQUIRED"),
+		EmailProvider:              getEnvEnum("OPENPOST_EMAIL_PROVIDER", "", "smtp", "resend", "cloudflare"),
+		EmailFrom:                  strings.TrimSpace(getEnvDefault("OPENPOST_EMAIL_FROM", "")),
+		ResendAPIKey:               getEnvDefault("OPENPOST_RESEND_API_KEY", ""),
+		CloudflareEmailAccountID:   strings.TrimSpace(getEnvDefault("OPENPOST_CLOUDFLARE_EMAIL_ACCOUNT_ID", "")),
+		CloudflareEmailAPIToken:    getEnvDefault("OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN", ""),
+		EmailDeliveryWebhookSecret: getEnvDefault("OPENPOST_EMAIL_DELIVERY_WEBHOOK_SECRET", ""),
 
 		SMTPHost:       getEnvDefault("OPENPOST_SMTP_HOST", ""),
 		SMTPPort:       getEnvInt("OPENPOST_SMTP_PORT", 587),

@@ -191,6 +191,7 @@ const developmentSidebar = [
       { text: "Releases and Versioning", link: "/development/releases" },
       { text: "MCP And ChatGPT App", link: "/development/mcp" },
       { text: "Billing And Usage", link: "/development/billing-and-usage" },
+      { text: "Invitation Delivery Callbacks", link: "/development/invitation-delivery-callbacks" },
       {
         text: "Production Architecture",
         link: "/development/production-readiness",

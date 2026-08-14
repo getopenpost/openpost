@@ -27,8 +27,11 @@ Workspace roles have separate permissions:
 - **Editor** can create and change workspace content, but cannot manage access.
 - **Viewer** has read-only workspace access.
 
-Use the team search and role or status filters to find accepted members and
-pending or expired invitations.
+Use the team search and role or status filters to find accepted members and any
+invitation. Invitation state shows Created, Queued, Sent, Delivered, Delivery
+failed, Copy link only, Expired, Revoked, or Accepted. **Sent** means the email
+provider accepted the request. Only an authenticated delivery callback can mark
+it **Delivered**.
 
 ### Invite someone
 
@@ -45,7 +48,10 @@ configured email provider and Workspace invitation controls still apply. If
 email is unavailable or cannot be queued, Settings keeps the pending invitation
 and its reserved seat, shows the failure, and leaves the copy link available.
 Resend rotates the secret and queues a new delivery without creating another
-active invitation.
+active invitation. OpenPost permits one resend per minute and five per hour for
+each invitation and administrator. A limited response includes the exact UTC
+time when the administrator can try again. Concurrent resends use one atomic
+generation change, so only one request can replace the current link.
 
 The invited user must sign in with the invited email address before accepting
 the link. Accepted invites add the user to the workspace immediately and open
@@ -57,6 +63,9 @@ Pending invitations count toward team seats until they are accepted, revoked, or
 expire. An admin can resend an invitation to rotate its secret and extend its
 expiry, or revoke it to free the reserved seat. Only the newest link returned by
 a resend can be accepted.
+
+Expired, revoked, unknown, and wrong-email links return the same safe acceptance
+error. This avoids revealing whether an email address or invitation exists.
 
 OpenPost stores only the invitation token hash on the invitation. The raw token
 is limited to the acceptance link returned once. Durable email jobs encrypt that

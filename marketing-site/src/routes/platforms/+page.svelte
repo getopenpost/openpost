@@ -42,8 +42,8 @@
 		<div class="grid gap-2 border-b pb-5 sm:grid-cols-[0.65fr_1.35fr] sm:items-end">
 			<h2 class="text-2xl font-semibold tracking-[-0.025em]">Social platforms</h2>
 			<p class="text-sm leading-6 text-muted-foreground">
-				An implemented adapter is not a managed certification claim. Each row reports the current
-				claim state from the release manifest.
+				An implemented adapter is not a Hosted service certification claim. Each row reports the
+				current claim state from the release manifest.
 			</p>
 		</div>
 
@@ -68,7 +68,7 @@
 							>
 								{platform.managedCertificationState === 'exact_claims_current'
 									? `${platform.certifiedOutputProfiles.length} exact certified format${platform.certifiedOutputProfiles.length === 1 ? '' : 's'}`
-									: 'No current managed claim'}
+									: 'No current Hosted service claim'}
 							</span>
 							{#if approvalPlatforms.has(platform.slug)}
 								<span

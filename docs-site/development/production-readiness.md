@@ -1,14 +1,14 @@
 # Production Architecture and Checks
 
-OpenPost uses one product core for the managed app and self-hosted servers. This page records the current architecture and the checks needed before a release or public campaign.
+OpenPost uses one product core for the Hosted service and self-hosted deployments. This page records the current architecture and the checks needed before a release or public campaign.
 
 ## Product and public sites
 
 - **OpenPost** is the product name.
-- The official service is the **managed app**.
+- The official operated product is the **Hosted service**.
 - `openpost.social` is the marketing site.
 - `docs.openpost.social` is the docs site.
-- `app.openpost.social` is the managed app.
+- `app.openpost.social` is the Hosted service.
 - The self-hosted server uses the same AGPL application code.
 
 ## Shared architecture
@@ -24,11 +24,11 @@ Keep production secrets, social app keys, monitoring, backups, and private opera
 
 ## Billing and limits
 
-- The managed app opens Paddle's one-page checkout inside OpenPost. Paddle acts as Merchant of Record for payment processing, tax, receipts, refunds, and subscription management.
+- The Hosted service opens Paddle's one-page checkout inside OpenPost. Paddle acts as Merchant of Record for payment processing, tax, receipts, refunds, and subscription management.
 - OpenPost saves current Paddle customer and subscription mirrors plus plan limits in its own database. Normal API requests do not call Paddle.
 - Limits cover workspaces, members, social accounts, posts, media, schedules, and provider writes.
 - Self-hosted mode has permissive defaults unless the operator changes them.
-- The managed app creates one workspace before checkout. Every plan begins with a card-required 14-day trial; an active or trialing membership is required to connect social accounts, upload media, schedule, or publish.
+- The Hosted service creates one workspace before checkout. Every plan begins with a card-required 14-day trial; an active or trialing membership is required to connect social accounts, upload media, schedule, or publish.
 - The public prices and limits live in `marketing-site/src/routes/_marketing.ts`.
 
 ## Social networks
@@ -66,16 +66,16 @@ Analytics, comments, and inbox reads use optional adapter interfaces. They do no
 ## Public copy and docs
 
 - `CHANGELOG.md` is the source for the public changelog and GitHub release notes.
-- Marketing includes product, platform, pricing, security, open-source, comparison, changelog, and free-tool pages.
+- Marketing includes product, platform, pricing, security, self-hosted, open-source, comparison, changelog, and free-tool pages.
 - The sitemap must include every current public page, platform guide, comparison, and tool.
 - User docs explain the product. Self-hosting docs explain server work. Developer docs explain the code and contracts.
 - Keep claims about access, limits, app review, and live tests with the relevant social network page.
 
 ### Agent-readable public content
 
-The marketing production build generates a `.md` representation for every static product, pricing, platform-index, comparison-index, tool-index, browser-tool, FAQ, security, trust, open-source, changelog, and legal page. The documentation build generates one for every ordinary maintained page. Canonical HTML advertises each available representation and the documentation discovery index; sitemaps list only canonical HTML pages.
+The marketing production build generates a `.md` representation for every static product, pricing, platform-index, comparison-index, tool-index, browser-tool, FAQ, security, trust, self-hosted, open-source, changelog, and legal page. The documentation build generates one for every ordinary maintained page. Canonical HTML advertises each available representation and the documentation discovery index; sitemaps list only canonical HTML pages.
 
-The marketing route manifest owns stable page titles, descriptions, canonical URLs, representation groups, and discovery classes. The marketing `llms.txt` prioritizes the product overview, features, pricing, platform index, FAQ, security, trust, open-source path, and documentation. Comparison and browser-tool indexes are optional entries. Platform, comparison, and browser-tool detail pages appear in their own optional sections. Changelog and legal representations remain available at explicit `.md` URLs but are not listed in `llms.txt`.
+The marketing route manifest owns stable page titles, descriptions, canonical URLs, representation groups, and discovery classes. The marketing `llms.txt` prioritizes the product overview, features, pricing, platform index, FAQ, security, trust, self-hosted path, open-source path, and documentation. Comparison and browser-tool indexes are optional entries. Platform, comparison, and browser-tool detail pages appear in their own optional sections. Changelog and legal representations remain available at explicit `.md` URLs but are not listed in `llms.txt`.
 
 The generated documentation catalogue is the checked-in contract shared by both public builds. It derives each page's title and concise description from the maintained Markdown and records its canonical route, representation policy, discovery class, and full-corpus membership. `bun run check -- social-images` rejects drift through the root verification interface. An ordinary documentation prose change runs documentation checks only; a catalogue change runs both public surfaces.
 

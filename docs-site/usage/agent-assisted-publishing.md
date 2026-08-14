@@ -94,6 +94,6 @@ After OpenPost runs the post, save the result for each account:
 
 Use the [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/launch-kit) for a reusable brief, sample prompt, five account versions, a review list, and a result template.
 
-## Managed app access
+## Hosted service access
 
-Managed plans start at $15 per month and include a card-required 14-day trial. OpenPost shows the renewal price and date before you start. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.
+Hosted service plans start at $15 per month and include a card-required 14-day trial. OpenPost shows the renewal price and date before you start. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.

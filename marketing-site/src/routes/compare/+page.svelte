@@ -31,7 +31,7 @@
 					large-company controls. These guides show the differences.
 				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
-					<Button href={managedSignupUrl} size="lg">Try the managed app</Button>
+					<Button href={managedSignupUrl} size="lg">Try OpenPost</Button>
 					<Button href={selfHostingDocsUrl} variant="outline" size="lg">Self-host OpenPost</Button>
 				</div>
 			</div>

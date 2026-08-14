@@ -4,7 +4,7 @@ description: Configure the database, media storage, public URLs, provider applic
 
 # Configuration Overview
 
-Use this page when configuring a self-hosted or managed OpenPost instance.
+Use this page when configuring a self-hosted deployment or the Hosted service.
 
 This overview does not replace the complete environment-variable and provider-application references.
 

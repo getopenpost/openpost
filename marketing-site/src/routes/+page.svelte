@@ -152,13 +152,13 @@ FORM: A focused product demonstration paced between dark studio stages, light wo
 <section class="section-pad marketing-rule border-t bg-muted/18" aria-labelledby="pricing-title">
 	<div class="marketing-shell">
 		<ScrollReveal class="mx-auto max-w-3xl text-center">
-			<p class="section-label">Managed plans</p>
+			<p class="section-label">Hosted service plans</p>
 			<h2 id="pricing-title" class="marketing-heading mx-auto mt-4">Pick your plan.</h2>
 		</ScrollReveal>
 
 		<div class="mt-12"><PricingShowcase compact /></div>
 		<div class="mt-7 text-center">
-			<Button href="/pricing" variant="outline">Compare all managed plans</Button>
+			<Button href="/pricing" variant="outline">Compare all Hosted service plans</Button>
 		</div>
 	</div>
 </section>

@@ -5,7 +5,7 @@
 ## Campaign
 
 - **Working name:** OpenPost launched OpenPost
-- **Primary action:** `[WATCH THE NEW DEMO / USE THE MANAGED APP / SELF-HOST]`
+- **Primary action:** `[WATCH THE NEW DEMO / USE THE HOSTED SERVICE / SELF-HOST]`
 - **Audience:** solo founders who need to turn what they are building into consistent content without hiring a content team
 - **Core problem:** AI can prepare content quickly, but provider credentials, account-specific formatting, mutation approval, and publishing outcomes need an inspectable boundary
 
@@ -17,7 +17,7 @@ The founder brings a launch, product update, lesson, or idea. OpenPost keeps the
 
 An authorized agent can inspect workspace context and prepare destination-specific work through MCP without receiving provider credentials. A person reviews the campaign in OpenPost before allowing a state-changing operation. The durable queue keeps scheduled work, published outcomes, failures, and retries visible.
 
-Use the managed app or self-host the same AGPL product as one binary or container. SQLite and local media are the defaults, and Redis is not required.
+Use the Hosted service or self-host the same AGPL product as one binary or container. SQLite and local media are the defaults, and Redis is not required.
 
 ## Suggested hook
 
@@ -38,9 +38,9 @@ If any destination remains unverified, use a claim that does not imply publicati
 - MCP tokens are revocable, can be limited to one workspace, and have recent activity visible in Settings.
 - Base content and account-specific renditions remain editable in the web app.
 - Publishing uses a durable database-backed queue with visible lifecycle and failure state.
-- Managed and self-hosted editions are the same AGPL product.
+- Hosted service and self-hosted deployments are the same AGPL product.
 - Self-hosting uses one Go binary or container, SQLite and local media by default, and no required Redis service.
-- Managed publishing starts at $15/month and includes a card-required 14-day trial.
+- Hosted service publishing starts at $15/month and includes a card-required 14-day trial.
 - A hosted registration creates one workspace before checkout, but connecting accounts, uploading media, scheduling, publishing, and other provider writes need an active or trialing Paddle subscription.
 
 ## Claims the campaign must not use without evidence

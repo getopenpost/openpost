@@ -1049,7 +1049,7 @@ export const productionProjections = {
           })),
         {
           title: "OpenPost product overview",
-          description: "See the public product overview and managed product path.",
+          description: "See the public product overview and Hosted service path.",
           url: "https://openpost.social/index.md",
           classification: "optional",
         },

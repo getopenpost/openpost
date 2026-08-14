@@ -6,7 +6,7 @@ AI can help prepare a release, but it should not flatten every community into th
 
 OpenPost lets an authorized agent inspect a selected workspace and prepare destination-specific renditions through MCP. I review the account, copy, media, alt text, and schedule in the web app before approving what enters the queue.
 
-The managed app and self-hosted edition use the same AGPL code. A self-hosted installation can run as one Go binary or container with SQLite and local media by default; Redis is not required.
+The Hosted service and self-hosted deployment use the same AGPL code. A self-hosted installation can run as one Go binary or container with SQLite and local media by default; Redis is not required.
 
 Provider differences remain visible, including Mastodon instance limits and media behavior.
 

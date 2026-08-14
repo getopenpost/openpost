@@ -86,7 +86,7 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 					<dd>{platforms.length}</dd>
 				</div>
 				<div>
-					<dt>Current exact managed claims</dt>
+					<dt>Current exact Hosted service claims</dt>
 					<dd>{publicProviderCertification.currentClaimCount}</dd>
 				</div>
 			</dl>
@@ -103,7 +103,7 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 			</h2>
 			<p class="marketing-copy mt-5">
 				Product scope comes from the current application and documentation. Provider implementation
-				does not become a managed-service availability claim without current certification evidence.
+				does not become a Hosted service availability claim without current certification evidence.
 			</p>
 		</div>
 
@@ -200,7 +200,7 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 				id="provider-boundary-title"
 				class="mt-4 text-3xl font-semibold tracking-[-0.035em] text-balance"
 			>
-				Implementation and current managed availability are different facts.
+				Implementation and current Hosted service availability are different facts.
 			</h2>
 		</div>
 		<div>
@@ -224,8 +224,8 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 			Start with the limits you need now.
 		</h2>
 		<p class="marketing-copy mx-auto mt-5">
-			Every managed plan includes the publishing workflow. Workspaces, connected accounts, scheduled
-			posts, media storage, seats, and team roles determine which plan fits.
+			Every Hosted service plan includes the publishing workflow. Workspaces, connected accounts,
+			scheduled posts, media storage, seats, and team roles determine which plan fits.
 		</p>
 		<div class="mt-8 flex flex-wrap justify-center gap-3">
 			<Button href="/pricing" size="lg">Compare every plan</Button>

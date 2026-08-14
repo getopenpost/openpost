@@ -45,7 +45,7 @@ account provider catalogue, capability resolution, and the MCP
 formats; the attached readiness decision says whether the exact operation may
 run now.
 
-## Current managed-service claims
+## Current Hosted service claims
 
 The canonical
 [`provider-certification/public-claims.json`](https://github.com/getopenpost/openpost/blob/main/provider-certification/public-claims.json)
@@ -55,7 +55,7 @@ is the only source for public provider-format certification claims.
 
 The checked-in public certification manifest contains **0 exact provider-format claims**.
 
-No managed provider-format certification claim is current. Implementation descriptions do not assert managed availability.
+No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.
 <!-- provider-certification:end -->
 
 The release manifest binds that file's exact SHA-256 digest, schema version,
@@ -63,7 +63,7 @@ and claim count. A build, adapter, configured credential, mocked test, or manual
 checklist cannot add a claim.
 
 The provider pages document implemented OpenPost code paths and configuration
-requirements. They are not evidence that a particular managed deployment,
+requirements. They are not evidence that a particular Hosted service deployment,
 provider app, account, format, or policy mode is currently live-certified.
 
 ## Recording certification evidence

@@ -41,7 +41,7 @@ openpost [flags]
 | ---------------------- | ---------------------------------------------------- |
 | `openpost account`     | Manage connected social accounts                     |
 | `openpost auth`        | Authenticate with an OpenPost instance               |
-| `openpost billing`     | Manage billing for the managed app                   |
+| `openpost billing`     | Manage Hosted service billing                        |
 | `openpost completion`  | Generate shell completion script                     |
 | `openpost instance`    | Manage OpenPost instance profiles                    |
 | `openpost jobs`        | List background jobs                                 |
@@ -360,7 +360,7 @@ openpost auth token revoke &lt;id&gt;
 
 ### `openpost billing`
 
-Manage billing for the managed app
+Manage Hosted service billing
 
 Inspect billing status and create hosted checkout or customer portal URLs for the active workspace.
 

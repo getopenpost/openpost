@@ -8,7 +8,7 @@ OAuth and social app setup cause many connection errors. Use this guide as you t
 
 ## Current social network connections
 
-The table below is an implementation and setup inventory. It is not a managed-service readiness claim. The Accounts page reads `GET /api/v1/accounts/providers`, which now uses the same evidence-based projection as scheduling and the publisher instead of treating adapter registration as availability.
+The table below is an implementation and setup inventory. It is not a Hosted service readiness claim. The Accounts page reads `GET /api/v1/accounts/providers`, which now uses the same evidence-based projection as scheduling and the publisher instead of treating adapter registration as availability.
 
 | Network   | Sign-in method         | Server setup                                    | Status       | Notes                                                                      |
 | --------- | ---------------------- | ----------------------------------------------- | ------------ | -------------------------------------------------------------------------- |
@@ -31,7 +31,7 @@ Working code and app keys do not prove that a real account can publish each post
 
 The checked-in public certification manifest contains **0 exact provider-format claims**.
 
-No managed provider-format certification claim is current. Implementation descriptions do not assert managed availability.
+No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.
 <!-- provider-certification:end -->
 
 Social app keys can come from older environment variables, `OPENPOST_PROVIDER_APPS` JSON, or encrypted rows managed in **Settings → Instance → Configuration → Provider apps**. Environment-defined apps are read-only in the interface and win over matching database rows. Matching database fallbacks remain visible and can be deleted while the environment app stays active.
@@ -44,7 +44,7 @@ If connection or publishing fails, use [Provider Troubleshooting](/providers/tro
 
 ## Support matrix
 
-This matrix reflects implemented OpenPost code paths, not the full theoretical capability of each provider API and not current managed-service certification.
+This matrix reflects implemented OpenPost code paths, not the full theoretical capability of each provider API and not current Hosted service certification.
 
 | Platform  | Text posts | Image posts | Threads / replies           | Scheduled posts | Video posts                                                     | Account versions | Analytics                                            |
 | --------- | ---------- | ----------- | --------------------------- | --------------- | --------------------------------------------------------------- | ---------------- | ---------------------------------------------------- |

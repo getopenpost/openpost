@@ -1,8 +1,17 @@
 # Self-Hosting Docs
 
-Use these docs when you run OpenPost on your own server. They cover setup, web addresses, secrets, social network apps, backups, and updates.
+Use these docs when you operate OpenPost on your own infrastructure. Self-hosting has no software fee, but it is not a Hosted service plan or a zero-price tier of the Hosted service. You pay for your infrastructure and any provider or third-party services you use.
 
-These pages assume that you manage the server. You should know how to set environment variables, save data outside a container, run a reverse proxy, and make backups.
+These pages assume that you manage the server, public HTTPS origin, access controls, secrets, database, media storage, monitoring, backups, upgrades, and incident response. You also support the people who use your deployment and maintain its privacy, retention, and recovery practices.
+
+## Responsibility boundary
+
+- **Infrastructure and data:** you choose and secure the server, database, media storage, logs, network, and data locations.
+- **Upgrades and backups:** you track releases and security notices, apply updates, back up the database, media, and required secrets together, and test restores.
+- **Provider projects:** you create and maintain social network projects, callback URLs, permissions, reviews, API access, and provider budgets. OpenPost still sends requested content and access tokens to those networks.
+- **Support:** OpenPost publishes documentation, source code, a public issue tracker, and community help. A self-hosted operator handles deployment availability, user support, incidents, and operator-specific configuration.
+
+Review the [OpenPost source](https://github.com/getopenpost/openpost), [security policy](https://github.com/getopenpost/openpost/blob/main/SECURITY.md), and current [releases](https://github.com/getopenpost/openpost/releases) before exposing an instance to users.
 
 ## Install
 

@@ -87,7 +87,7 @@
 						>Report a vulnerability</Button
 					>
 					<Button href={resolve('/trust')} variant="outline" size="lg">
-						Review managed-service access
+						Review Hosted service access
 						<ArrowRight data-icon="inline-end" />
 					</Button>
 				</div>
@@ -203,12 +203,12 @@
 		<div class="max-w-3xl">
 			<p class="section-label">Control and responsibility matrix</p>
 			<h2 class="mt-4 text-3xl font-semibold text-balance">
-				Managed and self-hosted deployments divide work differently.
+				Hosted service and self-hosted deployments divide work differently.
 			</h2>
 			<p class="mt-4 text-sm leading-6 text-muted-foreground">
-				The application provides product controls. The managed operator runs the hosted environment.
-				A self-hosted operator replaces that managed boundary. Customers and selected providers
-				still control their own accounts, devices, and services. Current managed locations,
+				The application provides product controls. OpenPost runs the Hosted service environment. A
+				self-hosted operator replaces that Hosted service boundary. Customers and selected providers
+				still control their own accounts, devices, and services. Current Hosted service locations,
 				providers, and human access are listed in the <a
 					class="focus-ring rounded-sm font-medium text-primary underline underline-offset-4"
 					href={resolve('/trust')}>trust register</a
@@ -222,13 +222,14 @@
 		>
 			<table class="min-w-[96rem] border-collapse text-left text-sm">
 				<caption class="sr-only">
-					Security controls and responsibilities for managed and self-hosted OpenPost deployments
+					Security controls and responsibilities for Hosted service and self-hosted OpenPost
+					deployments
 				</caption>
 				<thead class="bg-muted/50">
 					<tr>
 						<th class="w-64 border-b p-4 font-semibold" scope="col">Control</th>
 						<th class="w-80 border-b p-4 font-semibold" scope="col">Application</th>
-						<th class="w-80 border-b p-4 font-semibold" scope="col">Managed service</th>
+						<th class="w-80 border-b p-4 font-semibold" scope="col">Hosted service</th>
 						<th class="w-80 border-b p-4 font-semibold" scope="col">Self-hosted operator</th>
 						<th class="w-80 border-b p-4 font-semibold" scope="col">Customer or provider</th>
 					</tr>

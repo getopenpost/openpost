@@ -2,19 +2,19 @@
 
 Use this page when checking implemented formats and safe provider limits.
 
-OpenPost includes publishing implementations for X, Mastodon, Bluesky, Threads, LinkedIn, Facebook Pages, Instagram Professional accounts, TikTok, YouTube, and Discord webhooks. An implementation is not a managed-service certification claim. App review, the right account type, public media links, runtime controls, and current local and live tests remain separate gates.
+OpenPost includes publishing implementations for X, Mastodon, Bluesky, Threads, LinkedIn, Facebook Pages, Instagram Professional accounts, TikTok, YouTube, and Discord webhooks. An implementation is not a Hosted service certification claim. App review, the right account type, public media links, runtime controls, and current local and live tests remain separate gates.
 
 A social network may offer a feature that OpenPost has not implemented. The table describes current code paths and where an app review, server setting, or live account test still matters.
 
 Limits reviewed against official provider documentation on 2026-08-03. Connected-account or instance limits override these safe defaults where OpenPost can resolve them.
 
-## Managed certification projection
+## Hosted service certification projection
 
 <!-- provider-certification:begin -->
 
 The checked-in public certification manifest contains **0 exact provider-format claims**.
 
-No managed provider-format certification claim is current. Implementation descriptions do not assert managed availability.
+No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.
 <!-- provider-certification:end -->
 
 ## Current implementations

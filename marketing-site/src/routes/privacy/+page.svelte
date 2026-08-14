@@ -54,7 +54,7 @@
 			<a
 				href={resolve('/trust')}
 				class="focus-ring inline-flex min-h-11 items-center rounded-md text-primary"
-				>Managed service trust register</a
+				>Hosted service trust register</a
 			>
 		</div>
 	</div>
@@ -230,7 +230,7 @@
 			cross-context behavioral advertising.
 		</p>
 		<p>
-			The dated <a href={resolve('/trust')}>managed service trust register</a>
+			The dated <a href={resolve('/trust')}>Hosted service trust register</a>
 			names current data locations, service providers, user-directed recipients, international-transfer
 			facts, and the human production-access boundary.
 		</p>
@@ -258,16 +258,16 @@
 
 		<h2>7. Retention and deletion</h2>
 		<p>
-			The schedule below states who operates each managed data category, why it is kept, its current
-			duration, and the event that deletes it or ends its use. “No general age-based purge” means
-			the database does not currently delete that category merely because it reached a fixed age.
-			Authorization can still expire before a row is physically removed.
+			The schedule below states who operates each Hosted service data category, why it is kept, its
+			current duration, and the event that deletes it or ends its use. “No general age-based purge”
+			means the database does not currently delete that category merely because it reached a fixed
+			age. Authorization can still expire before a row is physically removed.
 		</p>
 		<p>
 			You can download an account export or request permanent deletion from account settings.
 			Deletion can be delayed when you must first transfer shared ownership, cancel active billing,
 			or preserve the last required instance administrator. Primary account and personal workspace
-			data are removed when deletion completes. The managed service makes daily database and media
+			data are removed when deletion completes. The Hosted service makes daily database and media
 			recovery copies in root-restricted operator storage. Routine database dumps and changed or
 			deleted media versions are pruned by a daily job after they become more than 14 days old. A
 			copy can therefore remain until the next daily run. Operator-created repair or incident
@@ -280,11 +280,11 @@
 		<div
 			class="not-prose my-8 overflow-x-auto rounded-xl border"
 			role="region"
-			aria-label="Managed-service retention schedule"
+			aria-label="Hosted service retention schedule"
 		>
 			<table class="min-w-[76rem] border-collapse text-left text-sm">
 				<caption class="sr-only">
-					Managed-service data retention schedule and deletion triggers
+					Hosted service data retention schedule and deletion triggers
 				</caption>
 				<thead class="bg-muted/50">
 					<tr>
@@ -336,12 +336,12 @@
 			result is uploaded to the selected workspace only when processing succeeds.
 		</p>
 		<p>
-			The managed app, service, marketing site, and documentation site use PostHog EU Cloud for
-			product, service, error, and website telemetry. Public traffic remains cookieless and
-			personless. The signed-in app and backend use the same opaque OpenPost user ID to join product
-			actions to service outcomes. Browser persistence is memory-only; autocapture, session replay,
-			console capture, network bodies, advertising profiles, and cross-site tracking are disabled.
-			The privacy-enhanced YouTube player is loaded only when you open the product demo; YouTube may
+			The Hosted service, marketing site, and documentation site use PostHog EU Cloud for product,
+			service, error, and website telemetry. Public traffic remains cookieless and personless. The
+			signed-in app and backend use the same opaque OpenPost user ID to join product actions to
+			service outcomes. Browser persistence is memory-only; autocapture, session replay, console
+			capture, network bodies, advertising profiles, and cross-site tracking are disabled. The
+			privacy-enhanced YouTube player is loaded only when you open the product demo; YouTube may
 			then process device and playback data.
 		</p>
 		<p>
@@ -407,7 +407,7 @@
 			Your selected social networks and some service providers may process data outside Portugal or
 			the European Economic Area. When OpenPost controls a transfer and a safeguard is required, it
 			must use an adequacy decision, contractual safeguards, or another lawful transfer method. The
-			managed service trust register states the current provider-specific facts and any unresolved
+			Hosted service trust register states the current provider-specific facts and any unresolved
 			documentation gap. Publishing to a social network is also a transfer that you choose.
 		</p>
 

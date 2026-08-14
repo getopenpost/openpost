@@ -10,12 +10,12 @@ OpenPost manages encrypted provider-application rows for `x`, `mastodon`, `linke
 
 Provider console access, app review, callback registration, and the client credentials belong to the operator of the OpenPost instance.
 
-| Deployment               | Responsible party                                                                                                                                                                                      | Recommended credential source                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| OpenPost-managed service | The service operator owns the production provider projects, approvals, callbacks, and deployment secrets. Workspace users and workspace administrators do not provide the shared provider application. | Deployment secret storage exposed through legacy provider variables or `OPENPOST_PROVIDER_APPS_FILE`. |
-| Self-hosted instance     | The self-hosted operator owns each provider project and grants instance-admin access only to people trusted to manage instance secrets.                                                                | Either deployment secret storage or encrypted database rows managed in the app or API.                |
+| Deployment              | Responsible party                                                                                                                                                                                      | Recommended credential source                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| OpenPost Hosted service | The service operator owns the production provider projects, approvals, callbacks, and deployment secrets. Workspace users and workspace administrators do not provide the shared provider application. | Deployment secret storage exposed through legacy provider variables or `OPENPOST_PROVIDER_APPS_FILE`. |
+| Self-hosted instance    | The self-hosted operator owns each provider project and grants instance-admin access only to people trusted to manage instance secrets.                                                                | Either deployment secret storage or encrypted database rows managed in the app or API.                |
 
-OpenPost does not use the edition setting to remove the encrypted database API. An instance administrator on either edition can manage database fallback rows. On a managed deployment, an operator-owned environment entry remains authoritative, so an instance administrator cannot replace it through the database API.
+OpenPost does not use the edition setting to remove the encrypted database API. An instance administrator on either edition can manage database fallback rows. On the Hosted service, an operator-owned environment entry remains authoritative, so an instance administrator cannot replace it through the database API.
 
 ## Where to configure an app
 

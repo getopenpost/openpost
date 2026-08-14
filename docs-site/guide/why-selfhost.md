@@ -1,6 +1,6 @@
 # When Self-Hosting Fits
 
-OpenPost offers the same product as a managed app and an open-source server. Self-hosting lets you choose where the app runs and where it stores data. You also take care of the server.
+OpenPost is one product with two deployment paths. The Hosted service is operated by OpenPost. A self-hosted deployment runs on infrastructure you control and stores OpenPost data where you choose.
 
 ## What You Control
 
@@ -26,11 +26,11 @@ Plan for these server tasks:
 
 The default setup stays small: one Go binary or container, SQLite, local media, and saved background jobs. Redis is not required. You can use PostgreSQL and S3-compatible storage for a larger setup.
 
-## Choose the Managed App When
+## Choose the Hosted Service When
 
-Use the managed app if you want OpenPost without maintaining its server, backups, TLS, and upgrades. It is also simpler when you do not need a custom server setup or code changes.
+Use the Hosted service if you want OpenPost without maintaining its server, backups, TLS, and upgrades. It is also simpler when you do not need a custom server setup or code changes.
 
-Managed plans start at $15 per month and include a card-required 14-day trial. OpenPost shows the renewal price and date before you start. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.
+Hosted service plans start at $15 per month and include a card-required 14-day trial. OpenPost shows the renewal price and date before you start. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.
 
 ## Choose Self-Hosting When
 
@@ -42,6 +42,6 @@ Self-hosting is a good fit when you:
 - need custom storage, networking, or social app settings;
 - accept the server work and cost.
 
-The self-hosted edition has no software fee. Server and social network API costs still apply.
+Self-hosting has no software fee. It is not a Hosted service plan or a zero-price Hosted service tier. Server and social network API costs still apply.
 
 Start with the [self-hosting guide](/self-hosting/) for deployment steps and the [security policy](https://github.com/getopenpost/openpost/blob/main/SECURITY.md) for production guidance.

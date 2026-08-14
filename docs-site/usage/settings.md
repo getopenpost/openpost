@@ -57,7 +57,7 @@ Organization settings group collaboration and hosted billing.
 - Workspace team members, active or inactive access, pending invitations, and
   access history
 - Seat usage
-- Managed app plan, usage, checkout, and billing links
+- Hosted service plan, usage, checkout, and billing links
 - OIDC identity providers, verified domains, SSO enforcement, provider assurance, and machine-token policy
 
 Invite people from **Settings -> Organization**. Pending invitations reserve

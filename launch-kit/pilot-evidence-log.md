@@ -9,7 +9,7 @@ Recruit ten relevant people before the broad launch. Prefer technical founders, 
 Observe the complete path:
 
 1. understand the product and security boundary;
-2. choose managed or self-hosted access with correct pricing expectations;
+2. choose Hosted service or self-hosted access with correct pricing expectations;
 3. connect at least two relevant destinations;
 4. create a canonical post and distinct renditions;
 5. review and schedule or publish;
@@ -41,7 +41,7 @@ Copy this section once per participant.
 
 - Date and researcher: `[VALUE]`
 - Role and use case: `[VALUE]`
-- Managed or self-hosted path: `[VALUE]`
+- Hosted service or self-hosted path: `[VALUE]`
 - What they expected before first use: `[VALUE]`
 - Time to understand the agent/provider-credential boundary: `[VALUE]`
 - Accounts attempted and connected: `[VALUE]`

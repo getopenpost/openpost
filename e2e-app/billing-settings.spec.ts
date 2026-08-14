@@ -396,7 +396,7 @@ test("instance admins can review usage, users, and update status", async ({ page
 
   const status = page.getByTestId("instance-update-status");
   await expect(status).toContainText(
-    "OpenPost Cloud uses managed releases, so self-hosted release checks do not apply.",
+    "The Hosted service uses managed releases, so self-hosted release checks do not apply.",
   );
   await expect(status).toContainText("v1.27.9");
   await expect(status).toContainText("Configured release checks");

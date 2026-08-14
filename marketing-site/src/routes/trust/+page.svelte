@@ -61,12 +61,12 @@
 <header class="border-b py-14 sm:py-20">
 	<div class="marketing-shell grid gap-8 lg:grid-cols-[1fr_18rem] lg:items-end">
 		<div class="max-w-4xl">
-			<p class="section-label">Managed service trust register</p>
+			<p class="section-label">Hosted service trust register</p>
 			<h1 class="mt-4 max-w-4xl text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
-				Where managed OpenPost data is stored and processed.
+				Where Hosted service data is stored and processed.
 			</h1>
 			<p class="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
-				This register is for customers and operators reviewing the managed service boundary.
+				This register is for customers and operators reviewing the Hosted service boundary.
 			</p>
 			<p class="mt-3 max-w-3xl text-lg leading-8 text-muted-foreground">
 				This dated register names the infrastructure, optional services, user-directed recipients,
@@ -86,7 +86,7 @@
 	</div>
 </header>
 
-<section class="border-b" aria-label="Managed service at a glance">
+<section class="border-b" aria-label="Hosted service at a glance">
 	<div class="marketing-shell grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
 		<div class="py-6 sm:px-6 sm:first:pl-0">
 			<p class="text-sm font-semibold">Primary service data</p>
@@ -118,7 +118,7 @@
 			</h2>
 			<p class="mt-4 text-sm leading-6 text-muted-foreground">
 				Browser-local editor data is included so the boundary is explicit even before anything
-				reaches the managed service.
+				reaches the Hosted service.
 			</p>
 		</div>
 		<div class="divide-y border-y">

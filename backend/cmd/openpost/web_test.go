@@ -294,6 +294,7 @@ func TestManagedSpaRootExposesProductPricingAndPoliciesWithoutJavaScript(t *test
 	require.Contains(t, rootHTML, `name="openpost-edition" content="cloud"`)
 	require.Contains(t, rootHTML, `id="openpost-managed-public-home"`)
 	require.Contains(t, rootHTML, "Your content operation, together in one workspace.")
+	require.Contains(t, rootHTML, "Hosted service plans from")
 	require.Contains(t, rootHTML, "Starter")
 	require.Contains(t, rootHTML, "$15")
 	require.Contains(t, rootHTML, "Agency")

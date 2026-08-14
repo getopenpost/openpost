@@ -56,7 +56,7 @@
 					<p class="inline-flex items-start gap-2">
 						<Info class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
 						<span>
-							<strong class="font-medium text-foreground">Managed certification:</strong>
+							<strong class="font-medium text-foreground">Hosted service certification:</strong>
 							{platform.managedCertificationDetail}
 						</span>
 					</p>

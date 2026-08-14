@@ -42,6 +42,7 @@ test("marketing social entries have unique paths, keys, and complete image metad
 test("the public route manifest owns social, sitemap, and prerender metadata", () => {
   assert.equal(marketingSocialEntries, marketingRouteManifest);
   assert.equal(resolveMarketingSocial("/trust").key, "trust");
+  assert.equal(resolveMarketingSocial("/self-hosted").key, "self-hosted");
   assert.deepEqual(marketingPrerenderEntries("/platforms")[0], { slug: "x" });
   assert.deepEqual(
     marketingPrerenderEntries("/compare").map(({ slug }) => slug),
@@ -59,6 +60,10 @@ test("the public route manifest owns social, sitemap, and prerender metadata", (
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/pricing")),
     "https://openpost.social/pricing.md",
+  );
+  assert.equal(
+    marketingAgentMarkdownUrl(resolveMarketingSocial("/self-hosted")),
+    "https://openpost.social/self-hosted.md",
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/tools/thread-splitter")),

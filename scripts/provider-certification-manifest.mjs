@@ -107,7 +107,7 @@ export function renderPublicClaimProjection(manifest) {
   ];
   if (claims.length === 0) {
     lines.push(
-      "No managed provider-format certification claim is current. Implementation descriptions do not assert managed availability.",
+      "No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.",
     );
   } else {
     lines.push("Current exact claims:");

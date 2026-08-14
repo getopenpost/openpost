@@ -65,6 +65,8 @@ OpenPost helps solo founders turn launches, product updates, lessons, and ideas 
 
 OpenPost does not include a CRM, ad manager, social listening, or large-company benchmarks.
 
+OpenPost is one product with a Hosted service and a Self-hosted deployment path. Self-hosting has no software fee, but it is not a zero-price Hosted service plan: the operator owns infrastructure, upgrades, backups, provider projects, data practices, and user support. [Review the complete self-hosting boundary](https://openpost.social/self-hosted).
+
 <table>
   <tr>
     <td width="50%">
@@ -84,13 +86,13 @@ OpenPost does not include a CRM, ad manager, social listening, or large-company 
 
 OpenPost includes adapters for X, Mastodon, Bluesky, LinkedIn profiles and Organization Pages, Threads, Facebook Pages, Instagram Business and Creator accounts, TikTok, YouTube, and Discord webhooks.
 
-An adapter is implementation evidence, not proof that a managed provider or format is ready. App review, effective setup, exact account access and scopes, API limits, policy mode, public media, runtime controls, and current local/live certification are separate gates.
+An adapter is implementation evidence, not proof that a Hosted service provider or format is ready. App review, effective setup, exact account access and scopes, API limits, policy mode, public media, runtime controls, and current local/live certification are separate gates.
 
 <!-- provider-certification:begin -->
 
 The checked-in public certification manifest contains **0 exact provider-format claims**.
 
-No managed provider-format certification claim is current. Implementation descriptions do not assert managed availability.
+No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.
 <!-- provider-certification:end -->
 
 See the [readiness and launch gate](https://docs.openpost.social/providers/launch-matrix) and [implementation table](https://docs.openpost.social/providers/platform-limits).
@@ -111,7 +113,7 @@ The default Compose setup stores the SQLite database and uploaded media in one D
 
 [Read the self-hosting quickstart →](https://docs.openpost.social/guide/quickstart)
 
-Prefer not to operate it yourself? [Use the managed app](https://app.openpost.social).
+Prefer not to operate it yourself? [Use the Hosted service](https://app.openpost.social).
 
 ## Scheduled posts survive restarts
 

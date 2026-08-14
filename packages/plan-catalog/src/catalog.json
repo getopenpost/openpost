@@ -5,6 +5,12 @@
     "card_required": true,
     "due_today_usd": 0
   },
+  "self_hosted": {
+    "software_fee_usd": 0,
+    "documentation_url": "https://docs.openpost.social/self-hosting/",
+    "production_checklist_url": "https://docs.openpost.social/configuration/production-checklist",
+    "source_url": "https://github.com/getopenpost/openpost"
+  },
   "plans": [
     {
       "id": "starter",

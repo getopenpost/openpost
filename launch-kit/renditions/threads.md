@@ -8,7 +8,7 @@ The part I care about is what happens next: which account gets it, how the copy 
 
 OpenPost gives the agent workspace context without handing it social-provider credentials. I can review every rendition in the web app, then approve the exact schedule that enters one visible queue.
 
-Managed or self-hosted. Same AGPL product.
+Hosted service or self-hosted. Same AGPL product.
 
 https://openpost.social
 

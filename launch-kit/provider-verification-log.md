@@ -12,7 +12,7 @@ Implemented, configured, and live-verified are separate states:
 
 - Campaign: `[CAMPAIGN NAME]`
 - OpenPost version or commit: `[VERSION]`
-- Instance: `[MANAGED OR SELF-HOSTED; DO NOT RECORD SECRETS]`
+- Instance: `[HOSTED SERVICE OR SELF-HOSTED; DO NOT RECORD SECRETS]`
 - Verification window: `[START]` to `[END]`
 - Reviewer: `[NAME]`
 

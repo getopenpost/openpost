@@ -416,8 +416,8 @@ func renderManagedPublicHomeHTML(indexData []byte, publicURL string) []byte {
 			<nav class="oph-navlinks" aria-label="Account navigation"><a class="oph-link" href="/login">Sign in</a><a class="oph-button" href="/register?plan=founder">Start 14-day trial</a></nav>
 		</header>
 		<section class="oph-shell oph-hero" aria-labelledby="openpost-public-title">
-			<div><p class="oph-kicker">OpenPost managed app</p><h1 id="openpost-public-title">Your content operation, together in one workspace.</h1><p class="oph-lede">Create one source, adapt it for each social platform, schedule every destination, and review publishing results without splitting the work across separate tools.</p><div class="oph-actions"><a class="oph-button" href="/register?plan=founder">Start 14-day trial</a><a class="oph-link" href="https://openpost.social/pricing">View full pricing</a></div></div>
-			<div class="oph-price"><p class="oph-price-label">Managed plans from</p><strong>$15<span>/month</span></strong><p class="oph-note">Every plan starts with a 14-day free trial. A card is required. Cancel before the first charge.</p></div>
+			<div><p class="oph-kicker">OpenPost</p><h1 id="openpost-public-title">Your content operation, together in one workspace.</h1><p class="oph-lede">Create one source, adapt it for each social platform, schedule every destination, and review publishing results without splitting the work across separate tools.</p><div class="oph-actions"><a class="oph-button" href="/register?plan=founder">Start 14-day trial</a><a class="oph-link" href="https://openpost.social/pricing">View full pricing</a></div></div>
+			<div class="oph-price"><p class="oph-price-label">Hosted service plans from</p><strong>$15<span>/month</span></strong><p class="oph-note">Every plan starts with a 14-day free trial. A card is required. Cancel before the first charge.</p></div>
 		</section>
 		<section class="oph-shell oph-features" aria-label="What OpenPost includes">
 			<div class="oph-feature"><h2>Create and adapt</h2><p>Keep the source idea and each platform-specific version together.</p></div>

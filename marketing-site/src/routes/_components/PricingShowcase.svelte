@@ -72,7 +72,7 @@
 		{billingAnnouncement}
 	</p>
 
-	<div class="purchase-summary" aria-label="Managed plan purchase terms">
+	<div class="purchase-summary" aria-label="Hosted service plan purchase terms">
 		<p>
 			<strong>Before checkout:</strong>
 			{managedPaymentExpectation} OpenPost shows the renewal date and price before you start. Cancel or

@@ -28,7 +28,7 @@ function evidence(basis: ClaimBasis, qualifier: string, sources: readonly ClaimS
 const openPostEvidence = {
 	Publishing: evidence(
 		'Direct source',
-		'Current OpenPost managed and self-hosted publishing workflow; provider and account rules still apply.',
+		'Current OpenPost Hosted service and self-hosted publishing workflow; provider and account rules still apply.',
 		[source('OpenPost composing guide', 'https://docs.openpost.social/usage/composing-posts')]
 	),
 	'Analytics and engagement': evidence(
@@ -59,7 +59,7 @@ const openPostEvidence = {
 			source('OpenPost communications guide', 'https://docs.openpost.social/usage/communications')
 		]
 	),
-	Hosting: evidence('Direct source', 'Current managed and self-hosted deployment options.', [
+	Hosting: evidence('Direct source', 'Current Hosted service and self-hosted deployment options.', [
 		source('OpenPost self-hosting guide', 'https://docs.openpost.social/self-hosting/')
 	]),
 	'Platforms and account versions': evidence(
@@ -79,7 +79,7 @@ const openPostEvidence = {
 	),
 	'Network breadth': evidence(
 		'Direct source',
-		'Implemented provider catalogue; implementation is not a current managed-service certification claim.',
+		'Implemented provider catalogue; implementation is not a current Hosted service certification claim.',
 		[source('OpenPost provider limits', 'https://docs.openpost.social/providers/platform-limits')]
 	),
 	'Product scope': evidence('Direct source', 'Current product and workspace documentation.', [
@@ -105,7 +105,7 @@ const openPostEvidence = {
 	),
 	'Product model': evidence(
 		'Direct source',
-		'Current AGPL edition and managed or self-hosted deployment choices.',
+		'Current AGPL edition and Hosted service or self-hosted deployment choices.',
 		[
 			source('OpenPost source', 'https://github.com/getopenpost/openpost'),
 			source('OpenPost self-hosting guide', 'https://docs.openpost.social/self-hosting/')

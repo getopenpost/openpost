@@ -21,7 +21,7 @@ Use this checklist after the agent prepares the campaign and before any scheduli
 ## Campaign facts
 
 - [ ] Product, pricing, license, deployment, and security claims match current source and docs.
-- [ ] Managed access states the card-required 14-day trial, exact renewal price and date, and bootstrap workspace limit.
+- [ ] Hosted service access states the card-required 14-day trial, exact renewal price and date, and bootstrap workspace limit.
 - [ ] Testimonials, customer names, metrics, and comparison claims have evidence and permission.
 - [ ] The agent did not invent users, results, published URLs, or provider verification.
 - [ ] Links resolve to the intended current pages.

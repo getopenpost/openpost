@@ -3,7 +3,7 @@
 	import ArrowRight from '@lucide/svelte/icons/arrow-right';
 	import { Button } from '$lib/components/ui/button';
 	import PricingShowcase from '../_components/PricingShowcase.svelte';
-	import { faqs, plans, supportMailUrl } from '../_marketing';
+	import { faqs, plans, selfHostedDeploymentSummary, supportMailUrl } from '../_marketing';
 
 	let billingPeriod = $state<'monthly' | 'annual'>('monthly');
 	const pricingFaqs = faqs.filter((faq) => faq.category === 'billing');
@@ -43,11 +43,11 @@
 	<div class="marketing-shell text-center">
 		<p class="section-label">Simple pricing</p>
 		<h1>Choose your plan.</h1>
-		<p>This page is for founders, teams, and agencies choosing a managed OpenPost plan.</p>
+		<p>This page is for founders, teams, and agencies choosing a Hosted service plan.</p>
 		<p>Every plan includes the complete publishing workflow. Choose the limits that fit.</p>
 		<p>
-			Managed plans cap workspaces, social accounts, scheduled posts, media storage, and included
-			seats at the values listed below.
+			Hosted service plans cap workspaces, social accounts, scheduled posts, media storage, and
+			included seats at the values listed below.
 		</p>
 	</div>
 </section>
@@ -55,6 +55,32 @@
 <section id="plans" class="plans-section scroll-mt-20">
 	<div class="marketing-shell">
 		<PricingShowcase bind:billingPeriod />
+	</div>
+</section>
+
+<section
+	class="self-hosted-section border-y"
+	aria-labelledby="self-hosted-title"
+	aria-label="Self-hosted deployment"
+>
+	<div class="marketing-shell self-hosted-grid">
+		<div>
+			<p class="section-label">Deployment alternative</p>
+			<h2 id="self-hosted-title">Run OpenPost yourself.</h2>
+			<p>
+				Self-hosting has <strong>no software fee</strong>. It is a deployment you operate, not a
+				Hosted service plan or a free tier of the Hosted service.
+			</p>
+		</div>
+		<div class="self-hosted-action">
+			<p class="self-hosted-price">
+				{selfHostedDeploymentSummary.softwareFee} <span>software fee</span>
+			</p>
+			<p>You pay for your infrastructure and any provider API use.</p>
+			<a class="focus-ring" href="/self-hosted">
+				Review self-hosting <ArrowRight data-icon="inline-end" />
+			</a>
+		</div>
 	</div>
 </section>
 
@@ -191,6 +217,63 @@
 
 	.plans-section {
 		padding-block: clamp(3.5rem, 7vw, 7rem);
+	}
+
+	.self-hosted-section {
+		padding-block: clamp(3.5rem, 7vw, 6rem);
+		background: color-mix(in oklch, var(--muted) 24%, var(--background));
+	}
+
+	.self-hosted-grid {
+		display: grid;
+		gap: 2rem;
+	}
+
+	.self-hosted-grid h2 {
+		margin-top: 1rem;
+		font-size: clamp(2.2rem, 4vw, 3.6rem);
+		font-weight: 700;
+		line-height: 1;
+		letter-spacing: -0.04em;
+	}
+
+	.self-hosted-grid > div:first-child > p:last-child,
+	.self-hosted-action > p {
+		margin-top: 1rem;
+		max-width: 42rem;
+		color: var(--muted-foreground);
+		line-height: 1.65;
+	}
+
+	.self-hosted-action {
+		padding: clamp(1.25rem, 4vw, 2rem);
+		border: 1px solid var(--border);
+		border-radius: 1rem;
+		background: var(--card);
+	}
+
+	.self-hosted-action .self-hosted-price {
+		margin-top: 0;
+		color: var(--foreground);
+		font-size: 2rem;
+		font-weight: 700;
+	}
+
+	.self-hosted-price span {
+		font-size: 0.9rem;
+		font-weight: 500;
+		color: var(--muted-foreground);
+	}
+
+	.self-hosted-action a {
+		display: inline-flex;
+		min-height: 2.75rem;
+		align-items: center;
+		gap: 0.45rem;
+		margin-top: 1.5rem;
+		border-radius: 0.5rem;
+		color: var(--primary);
+		font-weight: 650;
 	}
 
 	.included-section {
@@ -420,6 +503,11 @@
 	}
 
 	@media (min-width: 48rem) {
+		.self-hosted-grid {
+			grid-template-columns: minmax(0, 1.3fr) minmax(18rem, 0.7fr);
+			align-items: center;
+		}
+
 		.included-grid {
 			grid-template-columns: 0.8fr 1.2fr;
 			align-items: start;

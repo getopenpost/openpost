@@ -709,8 +709,8 @@ features:
     details: See what published and what needs attention.
 ---
 
-::: info Managed plans
-Managed plans start at $15 per month.
+::: info Hosted service plans
+Hosted service plans start at $15 per month.
 :::
 
 ## Choose the right docs
@@ -756,7 +756,7 @@ services:
   assert.match(markdown, /^Publish everywhere\.$/m);
   assert.match(markdown, /^## Clear outcomes$/m);
   assert.match(markdown, /\[Read the user guide\]\(https:\/\/docs\.openpost\.social\/usage\/\)/);
-  assert.match(markdown, /^> \*\*Managed plans\*\*$/m);
+  assert.match(markdown, /^> \*\*Hosted service plans\*\*$/m);
   assert.match(markdown, /\[User docs\]\(https:\/\/docs\.openpost\.social\/usage\/\)/);
   assert.match(markdown, /^  openpost:\n    image: ghcr\.io\/getopenpost\/openpost:latest$/m);
 });
@@ -1766,7 +1766,7 @@ test(
       assert.equal((markdown.match(/^# /gm) ?? []).length, 1);
       assert.doesNotMatch(
         markdown,
-        /All comparisons|custom reply text for this account|Keep comparing|Navigation noise|Other tools worth checking|Try OpenPost|Try the managed app/u,
+        /All comparisons|custom reply text for this account|Keep comparing|Navigation noise|Other tools worth checking|Try OpenPost|Try the Hosted service/u,
       );
       assert.match(discovery, new RegExp(`\(${markdownURL.replaceAll(".", "\\.")}\)`));
 
@@ -1774,7 +1774,7 @@ test(
         const platform = platforms.find((candidate) => candidate.slug === entry.platform);
         assert.ok(platform, `${entry.path} must have canonical provider facts`);
         assert.match(markdown, /\*\*Implemented:\*\*/u);
-        assert.match(markdown, /\*\*Managed certification:\*\*/u);
+        assert.match(markdown, /\*\*Hosted service certification:\*\*/u);
         assert.match(markdown, /^## What can still block a post\.$/m);
         assert.ok(markdown.includes(platform.implementationDetail));
         assert.ok(markdown.includes(platform.managedCertificationDetail));

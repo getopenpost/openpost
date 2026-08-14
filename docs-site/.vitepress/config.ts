@@ -209,7 +209,7 @@ export default defineConfig({
   },
   title: "OpenPost",
   description:
-    "Draft, adapt, schedule, and automate social posts with the managed OpenPost app or the same self-hosted product.",
+    "Draft, adapt, schedule, and automate social posts with the OpenPost Hosted service or the same self-hosted product.",
   sitemap: { hostname: docsSiteUrl },
   base: docsBase,
   cleanUrls: true,

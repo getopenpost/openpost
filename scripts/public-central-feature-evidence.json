@@ -7,7 +7,7 @@
   "schedule": {
     "title": "See what is drafted, scheduled, running, published, or failed.",
     "outcome": "Choose an exact time or a saved weekly slot, then follow the publication and every account result from the calendar and activity views.",
-    "boundary": "Managed plans set monthly scheduled-post limits. Provider outages, review rules, and account access can still block a destination."
+    "boundary": "Hosted service plans set monthly scheduled-post limits. Provider outages, review rules, and account access can still block a destination."
   },
   "media-editing": {
     "title": "Keep reusable assets beside the tools that prepare them.",
@@ -22,7 +22,7 @@
   "teams": {
     "title": "Separate brands and clients without separating the publishing system.",
     "outcome": "Keep accounts, media, schedules, automation, and member access inside an explicit workspace boundary, with plan usage enforced for its organization.",
-    "boundary": "Team roles are included on Team and Agency managed plans. Included seats and workspace counts vary by plan."
+    "boundary": "Team roles are included on the Team and Agency Hosted service plans. Included seats and workspace counts vary by plan."
   },
   "automation": {
     "title": "Use the same workspace rules from HTTP, the CLI, or an AI tool.",

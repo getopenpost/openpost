@@ -49,7 +49,7 @@ from an older Git revision remains usable only when this exact contract digest
 is unchanged and exact-revision matching is not required. Evidence never moves
 between subjects.
 
-Managed production publication requires current local and live evidence. The
+Hosted service publication requires current local and live evidence. The
 first evidence cannot exist before a test runs, so the privileged
 `certification_test` intent deliberately bypasses both prior local and prior
 live proof. It bypasses no execution safety gate: configuration, approval or
@@ -60,8 +60,8 @@ intent so the worker repeats the same decision immediately before a provider
 call. A certification test can execute but can never create a public claim.
 
 Self-hosted execution still requires effective configuration and exact account
-authorization, but does not require OpenPost's managed-service approval or
-certification records. It is never projected as a managed public claim. A
+authorization, but does not require OpenPost's Hosted service approval or
+certification records. It is never projected as a Hosted service public claim. A
 healthy result stays quiet. Missing or unsafe facts project to a specific
 blocked state; they never default to ready.
 
@@ -127,12 +127,12 @@ Reviewed 2026-08-09.
 <!-- provider-certification:begin -->
 The checked-in public certification manifest contains **0 exact provider-format claims**.
 
-No managed provider-format certification claim is current. Implementation descriptions do not assert managed availability.
+No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.
 <!-- provider-certification:end -->
 
 The repository contains no checked-in live evidence and migration 077 never
 creates any. Provider tables in product documentation describe implemented code
-paths, not a certified managed-service claim. The launch matrix, runtime API,
+paths, not a certified Hosted service claim. The launch matrix, runtime API,
 MCP, and CLI expose the independent evidence dimensions and the exact effective
 state.
 

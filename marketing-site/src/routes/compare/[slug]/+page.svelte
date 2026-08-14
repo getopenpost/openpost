@@ -53,7 +53,7 @@
 				</h1>
 				<p class="marketing-copy mt-6">{comparison.openPostAngle}</p>
 				<div class="mt-8 flex flex-wrap gap-3">
-					<Button href={managedSignupUrl} size="lg" data-agent-exclude>Try the managed app</Button>
+					<Button href={managedSignupUrl} size="lg" data-agent-exclude>Try OpenPost</Button>
 					<Button href={selfHostingDocsUrl} variant="outline" size="lg">Self-host OpenPost</Button>
 				</div>
 			</div>

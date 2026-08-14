@@ -10,7 +10,7 @@ hero:
     alt: OpenPost logo
   actions:
     - theme: brand
-      text: Use the managed app
+      text: Use OpenPost
       link: https://app.openpost.social
     - theme: alt
       text: Read the user guide
@@ -31,8 +31,8 @@ features:
     details: Plan, create, adapt, schedule, and track every destination in one place.
 ---
 
-::: info Managed plans
-Managed plans start at $15 per month. Every plan includes a card-required 14-day trial. OpenPost shows the renewal price and date before you start, and you can cancel from billing settings before the first charge.
+::: info Hosted service plans
+Hosted service plans start at $15 per month. Every plan includes a card-required 14-day trial. OpenPost shows the renewal price and date before you start, and you can cancel from billing settings before the first charge. Self-hosting is a separate operator-run deployment with no software fee, not a zero-price Hosted service tier.
 :::
 
 Provider access and available formats still depend on account type, permissions, review, and current provider support.

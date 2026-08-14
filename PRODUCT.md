@@ -16,11 +16,11 @@ OpenPost helps solo founders turn launches, product updates, lessons, and ideas 
 
 ## Positioning
 
-OpenPost is the all-in-one content team for solo founders. It sits above a basic scheduler: the product keeps the source idea, destination-specific copy and media, reusable assets, calendar, publishing status, analytics, and replies in one system. The managed product is the primary experience. Source access and self-hosting remain deployment options, not the lead customer promise.
+OpenPost is the all-in-one content team for solo founders. It sits above a basic scheduler: the product keeps the source idea, destination-specific copy and media, reusable assets, calendar, publishing status, analytics, and replies in one system. The Hosted service is the primary experience. Source access and self-hosting remain deployment options, not the lead customer promise.
 
 ## Operating Context
 
-Users move between composing, adapting destination renditions, managing connected accounts and reusable media, planning a calendar, and inspecting scheduled or completed jobs. Small teams share workspaces and roles. Automation uses the same workspace and account boundaries through the API, CLI, and MCP server. Operators may run the managed app or configure their own domain, storage, database, and provider applications.
+Users move between composing, adapting destination renditions, managing connected accounts and reusable media, planning a calendar, and inspecting scheduled or completed jobs. Small teams share workspaces and roles. Automation uses the same workspace and account boundaries through the API, CLI, and MCP server. Users may choose the Hosted service, while self-hosted operators configure their own domain, storage, database, and provider applications.
 
 The SvelteKit interface is embedded in the Go binary and also packaged as a Capacitor Android wrapper. The wrapper uses the same responsive web interface rather than a separate native design language.
 
@@ -57,7 +57,7 @@ The established identity uses Workshop Orange (`#B74C05`) as its product signal,
 1. **Start with the founder's work.** Help users turn what they are building and learning into useful content before asking them to manage a calendar.
 2. **Preserve provider truth.** Show destination capabilities, validation, and caveats instead of flattening them into one false promise.
 3. **Make outcomes inspectable.** Draft, schedule, queue, publish, failure, and retry state must remain understandable.
-4. **Use one coherent product.** Managed, self-hosted, browser, Android, API, CLI, and MCP surfaces should share terms and behavior.
+4. **Use one coherent product.** Hosted service, self-hosted, browser, Android, API, CLI, and MCP surfaces should share terms and behavior.
 5. **Earn trust through consistency.** Reuse established patterns for page chrome, loading, empty, success, error, and destructive states.
 
 ## Accessibility & Inclusion

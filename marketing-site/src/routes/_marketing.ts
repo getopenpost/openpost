@@ -1,4 +1,4 @@
-import { planCatalog, purchaseTerms } from '@openpost/plan-catalog';
+import { planCatalog, purchaseTerms, selfHostedDeployment } from '@openpost/plan-catalog';
 import { PLATFORM_LIMITS } from '../../../frontend/src/lib/platform-limits';
 import publicClaimManifest from '../../../provider-certification/public-claims.json';
 import { attachComparisonEvidence } from './_comparison-evidence';
@@ -34,6 +34,7 @@ export const navItems = [
 ] as const;
 
 export const resourceItems = [
+	{ label: 'Self-hosted', href: '/self-hosted' },
 	{ label: 'Platforms', href: '/platforms' },
 	{ label: 'Compare', href: '/compare' },
 	{ label: 'FAQ', href: '/faq' },
@@ -42,6 +43,13 @@ export const resourceItems = [
 	{ label: 'Changelog', href: '/changelog' },
 	{ label: 'Developers', href: developerDocsUrl }
 ] as const;
+
+export const selfHostedDeploymentSummary = {
+	softwareFee: `$${selfHostedDeployment.software_fee_usd}`,
+	docsUrl: selfHostedDeployment.documentation_url,
+	productionChecklistUrl: selfHostedDeployment.production_checklist_url,
+	sourceUrl: selfHostedDeployment.source_url
+} as const;
 
 const dueToday = `$${purchaseTerms.due_today_usd.toLocaleString('en-US')}`;
 export const managedCardRequirement = purchaseTerms.card_required
@@ -56,8 +64,8 @@ export const publicProviderCertification = {
 	currentClaimCount: publicClaimManifest.claims.length,
 	summary:
 		publicClaimManifest.claims.length === 0
-			? 'No exact managed provider-format certification claim is current.'
-			: `${publicClaimManifest.claims.length} exact managed provider-format certification claim${publicClaimManifest.claims.length === 1 ? ' is' : 's are'} current.`
+			? 'No exact Hosted service provider-format certification claim is current.'
+			: `${publicClaimManifest.claims.length} exact Hosted service provider-format certification claim${publicClaimManifest.claims.length === 1 ? ' is' : 's are'} current.`
 } as const;
 
 const formatUSD = (value: number) => `$${value.toLocaleString('en-US')}`;
@@ -122,7 +130,7 @@ export const featureGroups = [
 			'Safe failures can be retried without re-publishing successful destinations.'
 		],
 		limit:
-			'Managed plans set monthly scheduled-post limits. Provider outages, review rules, and account access can still block a destination.',
+			'Hosted service plans set monthly scheduled-post limits. Provider outages, review rules, and account access can still block a destination.',
 		proof: {
 			kind: 'docs',
 			label: 'Scheduling and publication status guide',
@@ -182,10 +190,10 @@ export const featureGroups = [
 		scope: [
 			'Workspace roles control who can view, edit, publish, manage members, or administer the workspace.',
 			'Invitations and membership changes stay tied to the invited email and active workspace.',
-			'Team includes three seats and Agency includes five. Each managed plan sets its own workspace limit.'
+			'Team includes three seats and Agency includes five. Each Hosted service plan sets its own workspace limit.'
 		],
 		limit:
-			'Team roles are included on Team and Agency managed plans. Included seats and workspace counts vary by plan.',
+			'Team roles are included on the Team and Agency Hosted service plans. Included seats and workspace counts vary by plan.',
 		proof: {
 			kind: 'image',
 			src: '/assets/screenshots/settings-dark.png',
@@ -781,7 +789,7 @@ export const platforms = platformImplementations.map((platform) => {
 		managedCertificationDetail:
 			certifiedOutputProfiles.length > 0
 				? `${certifiedOutputProfiles.length} exact provider-format certification claim${certifiedOutputProfiles.length === 1 ? ' is' : 's are'} current.`
-				: 'No managed provider-format certification claim is current.'
+				: 'No Hosted service provider-format certification claim is current.'
 	};
 });
 
@@ -845,12 +853,12 @@ const comparisonDrafts = [
 		verdict:
 			'Choose Buffer for its long-running hosted service, analytics, and community tools. Choose OpenPost for source access, self-hosting, or simpler control over each post.',
 		pricing:
-			'Buffer offers Free, Essentials, and Team plans and prices paid use by channel. OpenPost prices managed plans by workspace, account, post, media, and seat limits.',
+			'Buffer offers Free, Essentials, and Team plans and prices paid use by channel. OpenPost prices Hosted service plans by workspace, account, post, media, and seat limits.',
 		chooseOpenPost: [
 			'You want AI tools to use access that you can limit and remove instead of social account keys.',
 			'You want AGPL source code and a supported self-host option.',
 			'You want drafts, account versions, post status, and errors in one place.',
-			'You prefer workspace-based managed plans to per-channel pricing.'
+			'You prefer workspace-based Hosted service plans to per-channel pricing.'
 		],
 		chooseThem: [
 			'You need mature analytics, ideas, and community engagement today.',
@@ -876,7 +884,7 @@ const comparisonDrafts = [
 			},
 			{
 				area: 'Hosting and source',
-				openpost: 'AGPL-3.0-only source, managed app, or self-hosted deployment.',
+				openpost: 'AGPL-3.0-only source, Hosted service, or self-hosted deployment.',
 				competitor: 'Hosted proprietary service.'
 			}
 		],
@@ -901,7 +909,7 @@ const comparisonDrafts = [
 		verdict:
 			'Choose Hootsuite if a large team needs social listening, reports, and strict company controls. Choose OpenPost if you mainly need publishing, comments, inboxes, and automation.',
 		pricing:
-			'Hootsuite sells Standard, Professional, and Advanced plans per user, plus custom Enterprise plans. OpenPost publishes fixed monthly managed-app prices and explicit usage limits.',
+			'Hootsuite sells Standard, Professional, and Advanced plans per user, plus custom Enterprise plans. OpenPost publishes fixed monthly Hosted service prices and explicit usage limits.',
 		chooseOpenPost: [
 			'You want to review account versions and results when an AI tool helps with a post.',
 			'Your main work is writing, adapting, scheduling, and checking posts.',
@@ -934,7 +942,7 @@ const comparisonDrafts = [
 			},
 			{
 				area: 'Hosting',
-				openpost: 'Managed app or a small self-hosted service.',
+				openpost: 'Hosted service or a small self-hosted service.',
 				competitor: 'Hosted service with large-company plans, support, and compliance options.'
 			}
 		],
@@ -958,7 +966,7 @@ const comparisonDrafts = [
 		verdict:
 			'Choose Typefully for its polished writing and review tools. Choose OpenPost for self-hosting, public source code, or a small Go service.',
 		pricing:
-			'Typefully sells hosted creator and team plans. OpenPost sells managed plans and also provides the complete server under AGPL-3.0-only.',
+			'Typefully sells hosted creator and team plans. OpenPost sells Hosted service plans and also provides the complete server under AGPL-3.0-only.',
 		chooseOpenPost: [
 			'You want AI tools to use OpenPost access instead of your social account keys.',
 			'You require source access or want to run the publishing service yourself.',
@@ -989,7 +997,7 @@ const comparisonDrafts = [
 			},
 			{
 				area: 'Hosting and source',
-				openpost: 'AGPL-licensed source plus managed and self-hosted options.',
+				openpost: 'AGPL-licensed source plus Hosted service and self-hosted options.',
 				competitor: 'Hosted proprietary service.'
 			}
 		],
@@ -1048,7 +1056,7 @@ const comparisonDrafts = [
 			{
 				area: 'Self-hosting',
 				openpost: 'Single Go binary or container; SQLite by default; no Redis required.',
-				competitor: 'Open-source self-hosting and a managed service with more required parts.'
+				competitor: 'Open-source self-hosting and a hosted service with more required parts.'
 			}
 		],
 		sources: [
@@ -1076,7 +1084,7 @@ const comparisonDrafts = [
 		verdict:
 			'Choose Post Bridge for simple hosted scheduling. Choose OpenPost for source access, self-hosting, reply threads, or clearer post results.',
 		pricing:
-			'Post Bridge requires a paid plan and lists API access as a $5 monthly add-on. OpenPost includes API, CLI, and MCP access on every managed plan.',
+			'Post Bridge requires a paid plan and lists API access as a $5 monthly add-on. OpenPost includes API, CLI, and MCP access on every Hosted service plan.',
 		chooseOpenPost: [
 			'You want AI and script access that you can remove without sharing social account keys.',
 			'You want public AGPL source code and a self-host option.',
@@ -1107,7 +1115,7 @@ const comparisonDrafts = [
 			},
 			{
 				area: 'Threads and hosting',
-				openpost: 'Reply threads on supported networks; managed or self-hosted.',
+				openpost: 'Reply threads on supported networks; Hosted service or self-hosted.',
 				competitor:
 					'Official help says X and Threads thread scheduling is not currently supported; hosted service only.'
 			}
@@ -1135,11 +1143,11 @@ const comparisonDrafts = [
 		bestFor:
 			'Laravel teams that want a larger self-hosted product, one-time paid editions, analytics, and unlimited team access.',
 		openPostAngle:
-			'Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a managed app, one Go binary, and no required Redis server.',
+			'Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a Hosted service, one Go binary, and no required Redis server.',
 		verdict:
-			'Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a managed app, a smaller server, and one open-source edition.',
+			'Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a Hosted service, a smaller server, and one open-source edition.',
 		pricing:
-			'Mixpost offers a free Lite edition and one-time Pro and Enterprise licences. OpenPost offers the full AGPL server at no software charge plus monthly managed-app plans.',
+			'Mixpost offers a free Lite edition and one-time Pro and Enterprise licences. OpenPost offers the full AGPL server at no software charge plus monthly Hosted service plans.',
 		chooseOpenPost: [
 			'You want AI access, account review, and post results in one focused product.',
 			'You want to start with the hosted app while keeping a self-host option.',
@@ -1153,7 +1161,7 @@ const comparisonDrafts = [
 		rows: [
 			{
 				area: 'Product model',
-				openpost: 'One AGPL edition, available as a managed app or self-hosted server.',
+				openpost: 'One AGPL edition, available as a Hosted service or self-hosted server.',
 				competitor: 'Free open-source Lite plus one-time paid Pro and Enterprise editions.'
 			},
 			{
@@ -1201,7 +1209,7 @@ export const faqs = [
 		category: 'billing',
 		question: 'How does the free trial work?',
 		answer:
-			'Every managed plan starts with 14 days free. A card is required. OpenPost shows the exact renewal price and date before you start, and you can cancel from billing settings before the first charge.',
+			'Every Hosted service plan starts with 14 days free. A card is required. OpenPost shows the exact renewal price and date before you start, and you can cancel from billing settings before the first charge.',
 		learnMore: { label: 'See plans and limits', href: '/pricing' }
 	},
 	{

@@ -487,7 +487,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/production-readiness.md",
     "title": "Production Architecture and Checks",
-    "description": "OpenPost uses one product core for the managed app and self-hosted servers.",
+    "description": "OpenPost uses one product core for the Hosted service and self-hosted deployments.",
     "route": "/development/production-readiness",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -615,7 +615,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "guide/why-selfhost.md",
     "title": "When Self-Hosting Fits",
-    "description": "OpenPost offers the same product as a managed app and an open-source server.",
+    "description": "OpenPost is one product with two deployment paths.",
     "route": "/guide/why-selfhost",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -777,7 +777,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "operations/backups.md",
     "title": "Backups",
-    "description": "This page is for managed-service and self-hosted operators planning backup and restore work.",
+    "description": "This page is for Hosted service and self-hosted operators planning backup and restore work.",
     "route": "/operations/backups",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1212,7 +1212,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "self-hosting/index.md",
     "title": "Self-Hosting Docs",
-    "description": "Use these docs when you run OpenPost on your own server.",
+    "description": "Use these docs when you operate OpenPost on your own infrastructure.",
     "route": "/self-hosting/",
     "agentRepresentation": {
       "membership": "ordinary"

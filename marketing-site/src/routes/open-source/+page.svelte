@@ -46,14 +46,14 @@
 
 	const choices = [
 		{
-			name: 'Managed OpenPost',
+			name: 'Hosted service',
 			bestFor: 'People who want to publish without operating a server.',
 			items: [
 				'We handle hosting and updates for you',
 				'AI, API, CLI, and web access follow the same workspace rules',
 				managedAccessSummary
 			],
-			cta: 'Try the managed app',
+			cta: 'Try OpenPost',
 			href: managedSignupUrl
 		},
 		{
@@ -80,8 +80,8 @@
 					This page is for operators and developers evaluating the open-source deployment path.
 				</p>
 				<p class="marketing-copy mt-6">
-					Use the managed app or deploy the AGPL-licensed server yourself. Both use the same posting
-					tools, account settings, and status tracking.
+					Use the Hosted service or deploy the AGPL-licensed server yourself. Both use the same
+					posting tools, account settings, and status tracking.
 				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
 					<Button href={githubUrl} size="lg">
@@ -135,7 +135,7 @@
 					<Button
 						href={choice.href}
 						class="mt-8 self-start"
-						variant={choice.name === 'Managed OpenPost' ? 'default' : 'outline'}
+						variant={choice.name === 'Hosted service' ? 'default' : 'outline'}
 					>
 						{choice.cta}
 					</Button>

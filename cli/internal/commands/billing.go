@@ -13,7 +13,7 @@ import (
 func newBillingCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "billing",
-		Short: "Manage billing for the managed app",
+		Short: "Manage Hosted service billing",
 		Long:  "Inspect billing status and create hosted checkout or customer portal URLs for the active workspace.",
 	}
 	cmd.AddCommand(newBillingStatusCmd())

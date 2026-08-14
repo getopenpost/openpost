@@ -22,7 +22,7 @@ Read-only MCP access can be limited with `mcp:read`. Creating drafts or scheduli
 
 ## Post 5/5
 
-Use the managed app or self-host the same AGPL product as one binary or container. SQLite is the default. Redis is not required.
+Use the Hosted service or self-host the same AGPL product as one binary or container. SQLite is the default. Redis is not required.
 
 https://openpost.social (5/5)
 

@@ -5,15 +5,15 @@
   },
   "https://openpost.social/features": {
     "audience": "This page is for founders and teams evaluating the complete OpenPost workflow.",
-    "boundary": "Product scope comes from the current application and documentation. Provider implementation does not become a managed-service availability claim without current certification evidence."
+    "boundary": "Product scope comes from the current application and documentation. Provider implementation does not become a Hosted service availability claim without current certification evidence."
   },
   "https://openpost.social/pricing": {
-    "audience": "This page is for founders, teams, and agencies choosing a managed OpenPost plan.",
-    "boundary": "Managed plans cap workspaces, social accounts, scheduled posts, media storage, and included seats at the values listed below."
+    "audience": "This page is for founders, teams, and agencies choosing a Hosted service plan.",
+    "boundary": "Self-hosting has no software fee. It is a deployment you operate, not a Hosted service plan or a free tier of the Hosted service."
   },
   "https://openpost.social/platforms": {
     "audience": "This index is for operators deciding which social accounts to connect. Every network has different formats, permissions, and media rules. OpenPost keeps those differences visible in the editor and platform guides.",
-    "boundary": "An implemented adapter is not a managed certification claim. Each row reports the current claim state from the release manifest."
+    "boundary": "An implemented adapter is not a Hosted service certification claim. Each row reports the current claim state from the release manifest."
   },
   "https://openpost.social/compare": {
     "audience": "This page is for founders and teams comparing social publishing tools.",
@@ -32,8 +32,12 @@
     "boundary": "OpenPost does not claim SOC 2 or ISO 27001 certification, an independent security audit, or an independent penetration-test report."
   },
   "https://openpost.social/trust": {
-    "audience": "This register is for customers and operators reviewing the managed service boundary.",
+    "audience": "This register is for customers and operators reviewing the Hosted service boundary.",
     "boundary": "It does not make a certification claim."
+  },
+  "https://openpost.social/self-hosted": {
+    "audience": "Run the complete AGPL-licensed product on a server you control. You choose the data location and deployment settings, and you own the service work described below.",
+    "boundary": "Self-hosting is not a Hosted service plan or a zero-price Hosted service tier. You pay for infrastructure and any social network or third-party services you use."
   },
   "https://openpost.social/open-source": {
     "audience": "This page is for operators and developers evaluating the open-source deployment path.",
@@ -116,8 +120,8 @@
     "boundary": "Official help says X and Threads thread scheduling is not currently supported; hosted service only."
   },
   "https://openpost.social/compare/mixpost": {
-    "audience": "Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a managed app, a smaller server, and one open-source edition.",
-    "boundary": "Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a managed app, one Go binary, and no required Redis server."
+    "audience": "Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a Hosted service, a smaller server, and one open-source edition.",
+    "boundary": "Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a Hosted service, one Go binary, and no required Redis server."
   },
   "https://openpost.social/tools/social-media-video-editor": {
     "audience": "Creators who need to cut, caption, record, or reframe a social video before publishing.",
@@ -192,7 +196,7 @@
     "boundary": "OpenPost requires ffmpeg and ffprobe on PATH to verify uploaded videos and create posters. The official Docker image includes both tools, and the project Devenv supplies them for development. Install FFmpeg separately when running the standalone binary. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed."
   },
   "https://docs.openpost.social/configuration/overview": {
-    "audience": "Use this page when configuring a self-hosted or managed OpenPost instance.",
+    "audience": "Use this page when configuring a self-hosted deployment or the Hosted service.",
     "boundary": "This overview does not replace the complete environment-variable and provider-application references."
   },
   "https://docs.openpost.social/configuration/production-checklist": {
@@ -204,7 +208,7 @@
     "boundary": "The service operator owns the production provider projects, approvals, callbacks, and deployment secrets. Workspace users and workspace administrators do not provide the shared provider application."
   },
   "https://docs.openpost.social/configuration/telemetry": {
-    "audience": "OpenPost can send privacy-limited product, service, website, documentation, and error events to PostHog. The managed OpenPost service enables this integration. Self-hosted installations leave it disabled unless their operator explicitly configures an operator-owned PostHog project.",
+    "audience": "OpenPost can send privacy-limited product, service, website, documentation, and error events to PostHog. The Hosted service enables this integration. Self-hosted installations leave it disabled unless their operator explicitly configures an operator-owned PostHog project.",
     "boundary": "Self-hosted installations leave it disabled unless their operator explicitly configures an operator-owned PostHog project."
   },
   "https://docs.openpost.social/configuration/update-status": {
@@ -237,7 +241,7 @@
   },
   "https://docs.openpost.social/development/billing-and-usage": {
     "audience": "This page is for contributors changing hosted billing, entitlements, or usage accounting.",
-    "boundary": "Managed OpenPost billing uses saved plan limits and durable usage counters. The backend does not call Paddle on normal API requests."
+    "boundary": "Hosted service billing uses saved plan limits and durable usage counters. The backend does not call Paddle on normal API requests."
   },
   "https://docs.openpost.social/development/compatibility-policy": {
     "audience": "This page is for contributors deprecating or removing public API and stored-data contracts.",
@@ -301,10 +305,10 @@
   },
   "https://docs.openpost.social/guide/what-is-openpost": {
     "audience": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, then publish it everywhere from one place. Start with one shared draft, then change the text, media, format, and settings for each connected account.",
-    "boundary": "An active or trialing plan is required to connect social accounts, upload media, schedule, or publish."
+    "boundary": "An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service."
   },
   "https://docs.openpost.social/guide/why-selfhost": {
-    "audience": "OpenPost offers the same product as a managed app and an open-source server. Self-hosting lets you choose where the app runs and where it stores data. You also take care of the server.",
+    "audience": "OpenPost is one product with two deployment paths. The Hosted service is operated by OpenPost. A self-hosted deployment runs on infrastructure you control and stores OpenPost data where you choose.",
     "boundary": "OpenPost still sends content and access tokens to each social network when it carries out your request. Self-hosting changes who runs OpenPost. It does not remove the social networks."
   },
   "https://docs.openpost.social": {
@@ -344,8 +348,8 @@
     "boundary": "Use mcp:read when an assistant only needs to view data. OpenPost blocks all changes made with this token. Use mcp:full when an assistant needs to create, change, schedule, or publish posts. Limit the token to one workspace when you can. Check every account and approve each publish action."
   },
   "https://docs.openpost.social/operations/backups": {
-    "audience": "This page is for managed-service and self-hosted operators planning backup and restore work.",
-    "boundary": "The managed OpenPost service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host. The directory is not public or application-served. The deployment configuration restricts its directory and newly created file modes, validates database compression before an atomic rename, disables SSH password and direct root login, and grants the named operator access through authorized SSH keys and sudo. Application users, support requests, and the OpenPost container do not receive backup-directory access."
+    "audience": "This page is for Hosted service and self-hosted operators planning backup and restore work.",
+    "boundary": "The Hosted service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host. The directory is not public or application-served. The deployment configuration restricts its directory and newly created file modes, validates database compression before an atomic rename, disables SSH password and direct root login, and grants the named operator access through authorized SSH keys and sudo. Application users, support requests, and the OpenPost container do not receive backup-directory access."
   },
   "https://docs.openpost.social/operations/container-image": {
     "audience": "The image's OCI health check calls /api/v1/health. This proves that the HTTP process is alive without turning a database outage into a container restart loop. Traffic gates, deployment rollouts, and dependency-aware monitors call /api/v1/ready, which returns 503 when the database probe fails. See Health Checks for the complete operator policy.",
@@ -397,7 +401,7 @@
   },
   "https://docs.openpost.social/providers/overview": {
     "audience": "OAuth and social app setup cause many connection errors. Use this guide as you turn on each network.",
-    "boundary": "The table below is an implementation and setup inventory. It is not a managed-service readiness claim."
+    "boundary": "The table below is an implementation and setup inventory. It is not a Hosted service readiness claim."
   },
   "https://docs.openpost.social/providers/platform-limits": {
     "audience": "Use this page when checking implemented formats and safe provider limits.",
@@ -452,8 +456,8 @@
     "boundary": "all clients still use the same workspace authorization, validation, quota, and audit rules."
   },
   "https://docs.openpost.social/self-hosting/": {
-    "audience": "Use these docs when you run OpenPost on your own server. They cover setup, web addresses, secrets, social network apps, backups, and updates.",
-    "boundary": "If you only need to use the product, start with User Docs."
+    "audience": "Use these docs when you operate OpenPost on your own infrastructure.",
+    "boundary": "A self-hosted operator handles deployment availability, user support, incidents, and operator-specific configuration."
   },
   "https://docs.openpost.social/usage/account-security": {
     "audience": "Open Settings → Account → Security to manage your password, authenticator app, recovery codes, passkeys, linked sign-in identities, and active browser sessions. These settings belong to your login and apply in every workspace.",

@@ -38,7 +38,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Back up database files, media files, and secrets together.
 - [ ] Run at least one test restore before relying on the backup.
 
-## Managed Or Hosted Operators
+## Hosted Service Operators
 
 - [ ] Set `OPENPOST_EDITION=cloud`.
 - [ ] Set `OPENPOST_DATABASE_DRIVER=postgres`.
@@ -49,7 +49,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Verify the S3 bucket lifecycle policy and object access model before launch.
 - [ ] Set `OPENPOST_PADDLE_API_KEY`, `OPENPOST_PADDLE_ENVIRONMENT=production`, `OPENPOST_PADDLE_CLIENT_TOKEN`, `OPENPOST_PADDLE_WEBHOOK_SECRET`, and `OPENPOST_PADDLE_CHECKOUT_RETURN_URL`.
 - [ ] Set the monthly and annual `OPENPOST_PADDLE_<PLAN>_<PERIOD>_PRICE_ID` values for Starter, Founder, Pro, Team, and Agency.
-- [ ] Confirm the production API key and client token have live prefixes; never deploy sandbox credentials to the managed app.
+- [ ] Confirm the production API key and client token have live prefixes; never deploy sandbox credentials to the Hosted service.
 - [ ] Configure Paddle to send customer, subscription, and `transaction.completed` events to `/api/v1/billing/paddle/webhook`; send a signed test event and confirm it is stored once and reconciled through the billing job.
 - [ ] Set the minimum and maximum quantity to `1` for every Paddle plan price so buyers cannot add duplicate copies of a workspace subscription.
 - [ ] Before upgrading from Whop billing, migrate every active customer to Paddle and confirm the Paddle subscription is reconciled locally. Historical Whop rows do not grant entitlements after the upgrade.

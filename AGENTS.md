@@ -6,7 +6,7 @@ This file is always loaded. Keep it useful and compact. Code and config are the 
 
 OpenPost is an all-in-one social publishing workspace. It helps solo founders, creators, teams, and agencies turn ideas into channel-ready content, publish it, and track what happened.
 
-The main user is a solo founder without a content team. The app should remove repeat work without hiding provider rules or publishing state. Managed OpenPost is the main product. Self-hosting is a deployment option, not a separate product.
+The main user is a solo founder without a content team. The app should remove repeat work without hiding provider rules or publishing state. The Hosted service is the main product. Self-hosting is a deployment option, not a separate product.
 
 ## Core product
 

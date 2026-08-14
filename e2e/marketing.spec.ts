@@ -140,6 +140,14 @@ test("pricing makes every plan selectable for monthly and annual billing", async
 
   await page.goto("/pricing");
 
+  const selfHosted = page.locator('section[aria-label="Self-hosted deployment"]');
+  await expect(selfHosted).toContainText("no software fee");
+  await expect(selfHosted).toContainText("not a Hosted service plan");
+  await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
+    "href",
+    "/self-hosted",
+  );
+
   await expect(page.getByText("Paddle is the Merchant of Record")).toBeVisible();
   await expect(page.getByRole("link", { name: "Refund policy" })).toHaveAttribute(
     "href",
@@ -210,6 +218,54 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   );
 });
 
+test("self-hosted path states the complete operator boundary without JavaScript", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+
+  await page.goto("/self-hosted");
+  await expect(
+    page.getByRole("heading", { name: "Operate OpenPost on your infrastructure." }),
+  ).toBeVisible();
+  await expect(page.getByText("No software fee", { exact: true })).toBeVisible();
+  for (const heading of [
+    "Infrastructure and data",
+    "Upgrades and backups",
+    "Provider projects",
+    "Support boundary",
+  ]) {
+    await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+  }
+  await expect(page.getByRole("link", { name: "Open the deployment guide" })).toHaveAttribute(
+    "href",
+    "https://docs.openpost.social/self-hosting/",
+  );
+  await expect(page.getByRole("link", { name: "View source on GitHub" })).toHaveAttribute(
+    "href",
+    "https://github.com/getopenpost/openpost",
+  );
+  await expect(page.getByRole("link", { name: "Review the production checklist" })).toHaveAttribute(
+    "href",
+    "https://docs.openpost.social/configuration/production-checklist",
+  );
+
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole("heading", { name: "Support boundary" })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+
+  await page.setViewportSize({ width: 320, height: 720 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await context.close();
+});
+
 test("features and FAQ expose complete, qualified product guidance", async ({ page }) => {
   const initialViewport = page.viewportSize() ?? { width: 1280, height: 720 };
   const reviewViewport =
@@ -225,13 +281,13 @@ test("features and FAQ expose complete, qualified product guidance", async ({ pa
   ).toBeVisible();
   await expect(page.locator("[data-feature-station]")).toHaveCount(6);
   await expect(page.getByText("Implemented adapters")).toBeVisible();
-  await expect(page.getByText("Current exact managed claims")).toBeVisible();
+  await expect(page.getByText("Current exact Hosted service claims")).toBeVisible();
   await expect(
-    page.getByText("No exact managed provider-format certification claim is current."),
+    page.getByText("No exact Hosted service provider-format certification claim is current."),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", {
-      name: "Implementation and current managed availability are different facts.",
+      name: "Implementation and current Hosted service availability are different facts.",
     }),
   ).toBeVisible();
   await expect(page.getByRole("link", { name: "Compare every plan" })).toHaveAttribute(
@@ -362,7 +418,7 @@ test("marketing decision routes remain console-clean", async ({ page }) => {
   });
   page.on("pageerror", (error) => errors.push(error.message));
 
-  for (const route of ["/features", "/faq", "/pricing", "/compare/buffer"]) {
+  for (const route of ["/features", "/faq", "/pricing", "/self-hosted", "/compare/buffer"]) {
     await page.goto(route);
     await page.waitForLoadState("networkidle");
   }
@@ -643,7 +699,7 @@ test("marketing SEO routes expose the current public index @desktop", async ({ r
   }
 });
 
-test("legal and trust pages expose current managed-service facts @desktop", async ({ page }) => {
+test("legal and trust pages expose current Hosted service facts @desktop", async ({ page }) => {
   const pages = [
     {
       path: "/terms",
@@ -682,16 +738,18 @@ test("legal and trust pages expose current managed-service facts @desktop", asyn
     }),
   ).toBeVisible();
   await expect(
-    page.getByRole("link", {
-      name: "Managed service trust register",
-      exact: true,
-    }),
+    page
+      .getByRole("link", {
+        name: "Hosted service trust register",
+        exact: true,
+      })
+      .first(),
   ).toHaveAttribute("href", /^(?:\.\/|\/)trust$/);
 
   await page.goto("/trust");
   await expect(
     page.getByRole("heading", {
-      name: "Where managed OpenPost data is stored and processed.",
+      name: "Where Hosted service data is stored and processed.",
       level: 1,
     }),
   ).toBeVisible();

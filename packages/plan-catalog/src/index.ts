@@ -33,11 +33,18 @@ export interface PlanCatalog {
     card_required: boolean;
     due_today_usd: number;
   };
+  self_hosted: {
+    software_fee_usd: 0;
+    documentation_url: string;
+    production_checklist_url: string;
+    source_url: string;
+  };
   plans: HostedPlanDefinition[];
 }
 
 export const planCatalog = rawCatalog as PlanCatalog;
 export const purchaseTerms = planCatalog.purchase_terms;
+export const selfHostedDeployment = planCatalog.self_hosted;
 
 const planByID = new Map(planCatalog.plans.map((plan) => [plan.id, plan]));
 

@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { billingPeriods, hostedPlanDefinition, hostedPlanIDs, planCatalog } from "./index";
+import {
+  billingPeriods,
+  hostedPlanDefinition,
+  hostedPlanIDs,
+  planCatalog,
+  selfHostedDeployment,
+} from "./index";
 
 describe("plan catalogue", () => {
   it("defines every hosted plan and billing period without an implicit fallback", () => {
@@ -18,5 +24,15 @@ describe("plan catalogue", () => {
       expect(plan.monthly_price_usd).toBeGreaterThan(0);
       expect(plan.annual_price_usd).toBeGreaterThan(plan.monthly_price_usd);
     }
+  });
+
+  it("keeps self-hosting outside the hosted plan catalogue", () => {
+    expect(selfHostedDeployment).toEqual({
+      software_fee_usd: 0,
+      documentation_url: "https://docs.openpost.social/self-hosting/",
+      production_checklist_url: "https://docs.openpost.social/configuration/production-checklist",
+      source_url: "https://github.com/getopenpost/openpost",
+    });
+    expect(planCatalog.plans).not.toContainEqual(expect.objectContaining({ id: "self-hosted" }));
   });
 });

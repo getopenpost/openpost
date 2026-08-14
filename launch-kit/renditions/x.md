@@ -6,7 +6,7 @@ AI can draft posts. It should not publish them blind.
 
 OpenPost lets an agent prepare account-specific versions without receiving provider credentials. You review each destination, then approve what enters the queue.
 
-Managed or self-hosted: https://openpost.social
+Hosted service or self-hosted: https://openpost.social
 
 `[ATTACH THE VERIFIED DEMO VIDEO]`
 

@@ -1,12 +1,12 @@
 # Backups
 
-This page is for managed-service and self-hosted operators planning backup and restore work.
+This page is for Hosted service and self-hosted operators planning backup and restore work.
 
-## Managed-service boundary
+## Hosted service boundary
 
-The managed OpenPost service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host. The directory is not public or application-served. The deployment configuration restricts its directory and newly created file modes, validates database compression before an atomic rename, disables SSH password and direct root login, and grants the named operator access through authorized SSH keys and `sudo`. Application users, support requests, and the OpenPost container do not receive backup-directory access.
+The Hosted service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host. The directory is not public or application-served. The deployment configuration restricts its directory and newly created file modes, validates database compression before an atomic rename, disables SSH password and direct root login, and grants the named operator access through authorized SSH keys and `sudo`. Application users, support requests, and the OpenPost container do not receive backup-directory access.
 
-OpenPost does not add a separate application-level encryption layer to each managed backup artifact. Do not describe those artifacts as encrypted. There is no artifact-encryption key to rotate or recover. The application encryption key is still required to use encrypted provider credentials after a restore and is stored separately through the host's secret-management configuration. Transport to R2 uses its HTTPS endpoint; local Postgres dumps and the local media copy remain inside the host boundary. Provider-managed infrastructure controls do not change this application-level statement.
+OpenPost does not add a separate application-level encryption layer to each Hosted service backup artifact. Do not describe those artifacts as encrypted. There is no artifact-encryption key to rotate or recover. The application encryption key is still required to use encrypted provider credentials after a restore and is stored separately through the host's secret-management configuration. Transport to R2 uses its HTTPS endpoint; local Postgres dumps and the local media copy remain inside the host boundary. Provider-managed infrastructure controls do not change this application-level statement.
 
 Routine database dumps and changed or deleted media versions are pruned by daily jobs after they become more than 14 days old, so removal occurs on the first daily run after that threshold. The current media mirror follows the live bucket; an object removed from the live bucket moves into a dated version directory before that version expires. Operator-created repair, migration, or incident snapshots are not routine backups. They require a stated recovery, security, or legal purpose and a separate review and deletion decision when that purpose ends; the routine filename-based job does not silently delete them.
 

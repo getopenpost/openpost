@@ -1,6 +1,6 @@
 # Product telemetry and error tracking
 
-OpenPost can send privacy-limited product, service, website, documentation, and error events to PostHog. The managed OpenPost service enables this integration. Self-hosted installations leave it disabled unless their operator explicitly configures an operator-owned PostHog project.
+OpenPost can send privacy-limited product, service, website, documentation, and error events to PostHog. The Hosted service enables this integration. Self-hosted installations leave it disabled unless their operator explicitly configures an operator-owned PostHog project.
 
 OpenPost uses both PostHog SDKs because they observe different facts:
 
@@ -36,7 +36,7 @@ Before enabling telemetry, configure the PostHog project to:
 - disable IP capture;
 - retain events for no more than 12 months;
 - keep session replay and automatic browser exception capture disabled;
-- use the EU Cloud project when operating the official managed service.
+- use the EU Cloud project when operating the official Hosted service.
 
 Changing that boundary requires a privacy review and a matching policy update before deployment.
 
@@ -53,9 +53,9 @@ OPENPOST_POSTHOG_UI_HOST=https://eu.posthog.com
 OPENPOST_TELEMETRY_ENVIRONMENT=production
 ```
 
-`OPENPOST_POSTHOG_API_HOST` is the direct server-side ingestion endpoint. `OPENPOST_POSTHOG_BROWSER_HOST` may be a first-party reverse proxy. Cloud mode defaults to the managed `https://cool.openpost.social` proxy; self-hosted deployments fall back to the direct API host unless the operator sets a proxy. A browser proxy must forward PostHog ingestion and static asset paths and support `GET` and `POST`. Keep `OPENPOST_POSTHOG_UI_HOST` set to the real PostHog UI host.
+`OPENPOST_POSTHOG_API_HOST` is the direct server-side ingestion endpoint. `OPENPOST_POSTHOG_BROWSER_HOST` may be a first-party reverse proxy. Cloud mode defaults to the Hosted service `https://cool.openpost.social` proxy; self-hosted deployments fall back to the direct API host unless the operator sets a proxy. A browser proxy must forward PostHog ingestion and static asset paths and support `GET` and `POST`. Keep `OPENPOST_POSTHOG_UI_HOST` set to the real PostHog UI host.
 
-The browser reads its safe runtime configuration from `GET /api/v1/telemetry/config`. This lets one static OpenPost bundle work in the managed service and in self-hosted installations without compiling the managed-service token into every binary.
+The browser reads its safe runtime configuration from `GET /api/v1/telemetry/config`. This lets one static OpenPost bundle work in the Hosted service and in self-hosted installations without compiling the Hosted service token into every binary.
 
 ## Marketing and documentation
 
@@ -70,7 +70,7 @@ VITE_OPENPOST_VERSION=3.4.0
 VITE_OPENPOST_REVISION=<git-revision>
 ```
 
-Use one PostHog production project across the app, backend, marketing site, and documentation so acquisition and product adoption can be analyzed together. Use separate projects for development and staging. Every event includes a stable `surface` and environment so queries can still separate them. Production public-site builds stop with an error when the project token, exact managed proxy host, or EU UI host is missing.
+Use one PostHog production project across the app, backend, marketing site, and documentation so acquisition and product adoption can be analyzed together. Use separate projects for development and staging. Every event includes a stable `surface` and environment so queries can still separate them. Production public-site builds stop with an error when the project token, exact Hosted service proxy host, or EU UI host is missing.
 
 The browser rewrites PostHog-owned page lifecycle and Web Vitals URL properties to the route template already captured by OpenPost. It removes query strings, fragments, raw dynamic route values, and referrer paths before delivery.
 

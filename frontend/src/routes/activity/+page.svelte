@@ -12,7 +12,8 @@
 	import PageContainer from '$lib/components/page-container.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
+	import { deliveryRecoveryAction, deliveryStateLabel } from '$lib/delivery-presentation';
 	import CalendarIcon from '@lucide/svelte/icons/calendar-days';
 	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
 	import XCircleIcon from '@lucide/svelte/icons/circle-x';
@@ -109,8 +110,11 @@
 			}
 		>();
 		for (const post of failedPosts) {
-			for (const destination of post.destinations.filter((item) => item.status === 'failed')) {
-				const key = `${destination.social_account_id}:${destination.error_action || 'edit'}:${destination.error_code || destination.error_kind || 'failed'}`;
+			for (const destination of post.destinations.filter((item) =>
+				['retry', 'manual_resolution'].includes(deliveryRecoveryAction(item.delivery, item.status))
+			)) {
+				const recovery = deliveryRecoveryAction(destination.delivery, destination.status);
+				const key = `${destination.social_account_id}:${recovery}:${destination.delivery?.error_code || destination.delivery?.error_kind || 'failed'}`;
 				const group = groups.get(key) ?? {
 					key,
 					label: destinationName(destination),
@@ -122,16 +126,15 @@
 				groups.set(key, group);
 			}
 		}
-		const priority: Record<string, number> = {
-			reconnect: 0,
-			billing: 1,
-			open_provider: 2,
-			retry: 3
-		};
+		const priority: Record<string, number> = { manual_resolution: 0, retry: 1 };
 		return [...groups.values()].toSorted(
 			(left, right) =>
-				(priority[left.sampleDestination.error_action ?? ''] ?? 4) -
-				(priority[right.sampleDestination.error_action ?? ''] ?? 4)
+				(priority[
+					deliveryRecoveryAction(left.sampleDestination.delivery, left.sampleDestination.status)
+				] ?? 2) -
+				(priority[
+					deliveryRecoveryAction(right.sampleDestination.delivery, right.sampleDestination.status)
+				] ?? 2)
 		);
 	});
 	const drafts = $derived(
@@ -478,39 +481,19 @@
 		);
 	}
 
-	function destinationStatusLabel(status: string) {
-		switch (status) {
-			case 'success':
-			case 'published':
-				return m.activity_destination_published();
-			case 'failed':
-				return m.activity_destination_failed();
-			case 'skipped':
-				return m.activity_destination_skipped();
-			default:
-				return m.activity_destination_pending();
-		}
-	}
-
-	function destinationStatusClass(status: string) {
-		switch (status) {
-			case 'success':
-			case 'published':
-				return 'text-emerald-700 dark:text-emerald-300';
-			case 'failed':
-				return 'text-destructive';
-			default:
-				return 'text-muted-foreground';
-		}
+	function destinationState(destination: ActivityDestination) {
+		return destination.delivery?.state || destination.status;
 	}
 
 	function destinationSummary(post: ActivityItem) {
 		const destinations = post.destinations ?? [];
 		return m.activity_delivery_summary({
 			published: destinations.filter((destination) =>
-				['success', 'published'].includes(destination.status)
+				['success', 'published', 'live'].includes(destinationState(destination))
 			).length,
-			failed: destinations.filter((destination) => destination.status === 'failed').length
+			failed: destinations.filter((destination) =>
+				['failed', 'rejected', 'manual_resolution'].includes(destinationState(destination))
+			).length
 		});
 	}
 
@@ -526,7 +509,9 @@
 				'',
 				`${m.activity_report_destination()}: ${destinationName(destination)} (${destination.platform})`
 			);
-			lines.push(`${m.activity_report_status()}: ${destinationStatusLabel(destination.status)}`);
+			lines.push(
+				`${m.activity_report_status()}: ${deliveryStateLabel(destinationState(destination))}`
+			);
 			if (destination.error_message) {
 				lines.push(`${m.activity_report_reason()}: ${destination.error_message}`);
 			}
@@ -547,26 +532,19 @@
 	}
 
 	function destinationActionLabel(destination: ActivityDestination) {
-		switch (destination.error_action) {
+		switch (deliveryRecoveryAction(destination.delivery, destination.status)) {
 			case 'retry':
-				return m.activity_retry_destination();
-			case 'reconnect':
-				return m.activity_reconnect_account();
-			case 'billing':
-				return m.activity_open_billing();
-			case 'open_provider':
-				return m.activity_review_account();
+				return m.publication_delivery_retry();
+			case 'manual_resolution':
+				return m.publication_delivery_review_destination();
 			default:
-				return m.common_edit();
+				return '';
 		}
 	}
 
 	async function runDestinationAction(post: ActivityItem, destination: ActivityDestination) {
-		if (
-			destination.error_action === 'retry' &&
-			destination.error_retryable &&
-			post.publication_id
-		) {
+		const recovery = deliveryRecoveryAction(destination.delivery, destination.status);
+		if (recovery === 'retry' && post.publication_id) {
 			const key = `${post.id}:${destination.social_account_id}:${destination.target_key}`;
 			retryingDestination = key;
 			error = '';
@@ -598,15 +576,12 @@
 			}
 			return;
 		}
-		if (destination.error_action === 'reconnect' || destination.error_action === 'open_provider') {
-			await goto(resolve('/settings?tab=accounts'));
+		if (recovery === 'manual_resolution') {
+			await goto(
+				resolve(`/settings?tab=accounts&account_id=${destination.social_account_id}` as '/')
+			);
 			return;
 		}
-		if (destination.error_action === 'billing') {
-			await goto(resolve('/settings?tab=billing#billing'));
-			return;
-		}
-		await goto(resolve(post.href as '/'));
 	}
 </script>
 
@@ -636,77 +611,50 @@
 						<p class="mt-1.5 max-w-[72ch] text-sm leading-6 text-foreground/92">
 							{truncate(postText(post))}
 						</p>
-						{#if post.destinations?.length && post.status !== 'failed'}
-							<div class="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
-								{#each post.destinations as destination (destination.social_account_id)}
-									<span class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-										<PlatformIcon platform={destination.platform} class="size-3.5" />
-										<span>{destinationName(destination)}</span>
-										<span class={destinationStatusClass(destination.status)}
-											>· {destinationStatusLabel(destination.status)}</span
-										>
-									</span>
-								{/each}
-							</div>
-						{:else if post.destinations?.length}
+						{#if post.destinations?.length}
 							<div
-								class="mt-3 max-w-2xl rounded-md border border-destructive/15 bg-destructive/[0.035]"
+								class={[
+									'mt-3 max-w-2xl rounded-md border',
+									post.status === 'failed'
+										? 'border-destructive/15 bg-destructive/[0.035]'
+										: 'border-border bg-card'
+								]}
 							>
-								<div
-									class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
-								>
-									<div>
-										<p class="text-xs font-medium">{m.activity_delivery_details()}</p>
-										<p class="text-xs text-muted-foreground">{destinationSummary(post)}</p>
-									</div>
-									<Button
-										variant="ghost"
-										size="sm"
-										class="h-8 text-xs"
-										onclick={() => copyDeliveryReport(post)}
+								{#if post.status === 'failed'}
+									<div
+										class="flex flex-wrap items-center justify-between gap-2 border-b border-destructive/10 px-3 py-2"
 									>
-										{#if copiedReportPostID === post.id}
-											<CheckCircleIcon class="mr-1.5 size-3.5 text-emerald-600" />
-											{m.activity_report_copied()}
-										{:else}
-											<CopyIcon class="mr-1.5 size-3.5" />
-											{m.activity_copy_report()}
-										{/if}
-									</Button>
-								</div>
+										<div>
+											<p class="text-xs font-medium">{m.activity_delivery_details()}</p>
+											<p class="text-xs text-muted-foreground">{destinationSummary(post)}</p>
+										</div>
+										<Button
+											variant="ghost"
+											size="sm"
+											class="h-8 text-xs"
+											onclick={() => copyDeliveryReport(post)}
+										>
+											{#if copiedReportPostID === post.id}
+												<CheckCircleIcon class="mr-1.5 size-3.5 text-emerald-600" />
+												{m.activity_report_copied()}
+											{:else}
+												<CopyIcon class="mr-1.5 size-3.5" />
+												{m.activity_copy_report()}
+											{/if}
+										</Button>
+									</div>
+								{/if}
 								<div class="divide-y divide-border/70 px-3">
 									{#each post.destinations as destination (destination.social_account_id)}
-										<div class="flex items-start gap-2.5 py-2.5 text-xs">
-											<PlatformIcon
-												platform={destination.platform}
-												class="mt-0.5 size-4 shrink-0"
-											/>
-											<div class="min-w-0 flex-1">
-												<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-													<span class="font-medium">{destinationName(destination)}</span>
-													<span class={destinationStatusClass(destination.status)}
-														>{destinationStatusLabel(destination.status)}</span
-													>
-												</div>
-												{#if destination.status === 'failed'}
-													<p class="mt-1 leading-5 text-destructive/90">
-														{m.activity_failure_reason({
-															reason: destination.error_message || m.activity_unknown_failure()
-														})}
-													</p>
-													<Button
-														variant="link"
-														size="sm"
-														class="mt-1 h-auto min-h-8 px-0 text-xs"
-														disabled={retryingDestination ===
-															`${post.id}:${destination.social_account_id}:${destination.target_key}`}
-														onclick={() => runDestinationAction(post, destination)}
-													>
-														{destinationActionLabel(destination)}
-													</Button>
-												{/if}
-											</div>
-										</div>
+										<PublicationDeliveryCard
+											rendition={destination}
+											destinationLabel={destinationName(destination)}
+											variant="compact"
+											retrying={retryingDestination ===
+												`${post.id}:${destination.social_account_id}:${destination.target_key}`}
+											onRetry={() => runDestinationAction(post, destination)}
+											onManualResolution={() => runDestinationAction(post, destination)}
+										/>
 									{/each}
 								</div>
 							</div>

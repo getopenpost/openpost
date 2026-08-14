@@ -8919,6 +8919,14 @@ export interface components {
             name?: string;
             origin?: string;
         };
+        PublicationLifecycleDestination: {
+            label: string;
+            platform: string;
+            rendition_id: string;
+            social_account_id: string;
+            status: string;
+            target_key: string;
+        };
         PublicationLifecycleError: {
             action?: string;
             code?: string;
@@ -8932,6 +8940,8 @@ export interface components {
             actor: components["schemas"]["PublicationLifecycleActor"];
             changed_domains?: string[] | null;
             created_at: string;
+            delivery?: components["schemas"]["ProviderDeliveryResponse"];
+            destination?: components["schemas"]["PublicationLifecycleDestination"];
             /** Format: int64 */
             destination_count?: number;
             error?: components["schemas"]["PublicationLifecycleError"];
@@ -8944,6 +8954,7 @@ export interface components {
             scheduled_at?: string;
             status: string;
             summary: string;
+            superseded: boolean;
             type: string;
             workspace_id: string;
         };

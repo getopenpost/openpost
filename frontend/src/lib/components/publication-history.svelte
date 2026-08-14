@@ -1,54 +1,43 @@
 <script lang="ts">
 	import { client } from '$lib/api/client';
+	import type { components } from '$lib/api/types';
 	import { Button } from '$lib/components/ui/button';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import { getLocaleTag } from '$lib/i18n';
 	import { m } from '$lib/paraglide/messages';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { getPlatformName } from '$lib/utils';
 	import { untrack } from 'svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import CheckIcon from '@lucide/svelte/icons/circle-check';
 	import ClockIcon from '@lucide/svelte/icons/clock-3';
 	import HistoryIcon from '@lucide/svelte/icons/history';
 	import XIcon from '@lucide/svelte/icons/circle-x';
 
-	type HistoryActor = {
-		kind: 'user' | 'automation' | 'system';
-		name?: string;
-		origin?: string;
-	};
-
-	type HistoryError = {
-		message?: string;
-		kind?: string;
-		code?: string;
-		http_status?: number;
-		retryable: boolean;
-		action?: string;
-	};
-
-	type PublicationHistoryEvent = {
-		id: string;
-		type: string;
-		status: string;
-		summary: string;
-		actor: HistoryActor;
-		platform?: string;
-		changed_domains?: string[];
-		revision?: number;
-		scheduled_at?: string;
-		destination_count?: number;
-		error?: HistoryError;
-		created_at: string;
-	};
+	type PublicationHistoryEvent = components['schemas']['PublicationLifecycleEventResponse'];
+	type HistoryActor = components['schemas']['PublicationLifecycleActor'];
+	type TimelineItem =
+		| { kind: 'event'; id: string; occurredAt: string; event: PublicationHistoryEvent }
+		| { kind: 'delivery'; id: string; occurredAt: string; event: PublicationHistoryEvent };
 
 	let {
 		publicationId,
 		headingLevel = 2,
-		showHeading = true
-	}: { publicationId: string; headingLevel?: 2 | 3; showHeading?: boolean } = $props();
+		showHeading = true,
+		retryingRenditionID = '',
+		onRetry,
+		onManualResolution
+	}: {
+		publicationId: string;
+		headingLevel?: 2 | 3;
+		showHeading?: boolean;
+		retryingRenditionID?: string;
+		onRetry?: (renditionID: string) => void | Promise<void>;
+		onManualResolution?: (renditionID: string) => void | Promise<void>;
+	} = $props();
 	let events = $state.raw<PublicationHistoryEvent[]>([]);
 	let nextCursor = $state('');
 	let loading = $state(true);
@@ -56,6 +45,31 @@
 	let error = $state('');
 	let requestedPublicationId = '';
 	let requestSequence = 0;
+	const timelineItems = $derived.by(() => {
+		const renditionIDs = new SvelteSet<string>();
+		const items: TimelineItem[] = events.map((event) => ({
+			kind: 'event',
+			id: `event:${event.id}`,
+			occurredAt: event.created_at,
+			event
+		}));
+		for (const event of events) {
+			const renditionID = event.destination?.rendition_id;
+			if (!renditionID || !event.delivery || renditionIDs.has(renditionID)) continue;
+			renditionIDs.add(renditionID);
+			items.push({
+				kind: 'delivery',
+				id: `delivery:${renditionID}`,
+				occurredAt: event.delivery.last_reconciled_at || event.delivery.current_attempt_created_at,
+				event
+			});
+		}
+		return items.toSorted((left, right) => {
+			const chronological = Date.parse(right.occurredAt) - Date.parse(left.occurredAt);
+			if (chronological !== 0) return chronological;
+			return left.kind === 'delivery' ? -1 : 1;
+		});
+	});
 
 	$effect(() => {
 		const id = publicationId;
@@ -82,7 +96,7 @@
 				throw new Error(response.error?.detail || m.activity_failed_load());
 			}
 			if (request !== requestSequence || publicationId !== id) return;
-			const page = response.data as unknown as PublicationHistoryEvent[];
+			const page = response.data;
 			if (append) {
 				const existingIDs = new Set(events.map((event) => event.id));
 				events = [...events, ...page.filter((event) => !existingIDs.has(event.id))];
@@ -147,6 +161,12 @@
 				return '';
 		}
 	}
+
+	async function retryCurrentDestination(renditionID: string) {
+		if (!onRetry) return;
+		await onRetry(renditionID);
+		await loadHistory(publicationId, '', false);
+	}
 </script>
 
 <section
@@ -183,67 +203,118 @@
 			<InlineNotice tone="error" message={error} class="mb-3" />
 		{/if}
 		<ol class="relative space-y-0 border-l border-border pl-5">
-			{#each events as event (event.id)}
-				<li class="relative pb-5 last:pb-0">
-					<span
-						class={[
-							'absolute top-0.5 -left-[1.7rem] flex size-5 items-center justify-center rounded-full ring-4 ring-background',
-							statusTone(event.status)
-						]}
-						aria-hidden="true"
-					>
-						{#if event.status === 'failed'}
-							<XIcon class="size-3" />
-						{:else if event.status === 'succeeded'}
-							<CheckIcon class="size-3" />
-						{:else}
+			{#each timelineItems as item (item.id)}
+				{@const event = item.event}
+				{#if item.kind === 'delivery' && event.destination && event.delivery}
+					<li class="relative pb-5 last:pb-0">
+						<span
+							class="absolute top-0.5 -left-[1.7rem] flex size-5 items-center justify-center rounded-full bg-muted text-muted-foreground ring-4 ring-background"
+							aria-hidden="true"
+						>
 							<ClockIcon class="size-3" />
-						{/if}
-					</span>
-					<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-						<p class="text-sm font-medium">{event.summary}</p>
-						{#if event.platform}
-							<span class="inline-flex items-center gap-1 text-xs text-muted-foreground">
-								<PlatformIcon platform={event.platform} class="size-3.5" />
-								{getPlatformName(event.platform)}
-							</span>
-						{/if}
-					</div>
-					<p class="mt-1 text-xs text-muted-foreground">
-						<span>{actorLabel(event.actor)}</span>
-						<span aria-hidden="true"> · </span>
-						<time datetime={event.created_at} title={new Date(event.created_at).toISOString()}>
-							{exactDateTime(event.created_at)}
+						</span>
+						<p class="text-xs font-medium text-muted-foreground">
+							{m.publication_history_effective_outcome()}
+						</p>
+						<time
+							class="mt-1 block text-xs text-muted-foreground"
+							datetime={item.occurredAt}
+							title={new Date(item.occurredAt).toISOString()}
+						>
+							{exactDateTime(item.occurredAt)}
 						</time>
-					</p>
-					{#if eventDetails(event).length > 0}
-						<p class="mt-1 text-xs text-muted-foreground">{eventDetails(event).join(' · ')}</p>
-					{/if}
-					{#if event.scheduled_at}
-						<p class="mt-1 text-xs text-muted-foreground">
-							{m.activity_report_scheduled()}:
-							<time
-								datetime={event.scheduled_at}
-								title={new Date(event.scheduled_at).toISOString()}
-							>
-								{exactDateTime(event.scheduled_at)}
-							</time>
-						</p>
-					{/if}
-					{#if event.error}
-						<p class="mt-2 text-sm text-destructive">
-							{event.error.message ||
-								event.error.code ||
-								event.error.kind ||
-								m.activity_unknown_failure()}
-						</p>
-						{#if errorActionLabel(event.error.action)}
-							<p class="mt-1 text-xs font-medium text-destructive">
-								{errorActionLabel(event.error.action)}
+						<PublicationDeliveryCard
+							rendition={{
+								id: event.destination.rendition_id,
+								platform: event.destination.platform,
+								target_key: event.destination.target_key,
+								status: event.destination.status,
+								delivery: event.delivery
+							}}
+							destinationLabel={event.destination.label}
+							variant="compact"
+							retrying={retryingRenditionID === event.destination.rendition_id}
+							onRetry={onRetry ? retryCurrentDestination : undefined}
+							{onManualResolution}
+						/>
+					</li>
+				{:else}
+					<li class="relative pb-5 last:pb-0">
+						<span
+							class={[
+								'absolute top-0.5 -left-[1.7rem] flex size-5 items-center justify-center rounded-full ring-4 ring-background',
+								statusTone(event.status)
+							]}
+							aria-hidden="true"
+						>
+							{#if event.status === 'failed'}
+								<XIcon class="size-3" />
+							{:else if event.status === 'succeeded'}
+								<CheckIcon class="size-3" />
+							{:else}
+								<ClockIcon class="size-3" />
+							{/if}
+						</span>
+						<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+							<p class="text-sm font-medium">{event.summary}</p>
+							{#if event.destination}
+								<span class="inline-flex items-center gap-1 text-xs text-muted-foreground">
+									<PlatformIcon platform={event.destination.platform} class="size-3.5" />
+									{event.destination.label} · {getPlatformName(event.destination.platform)}
+								</span>
+							{:else if event.platform}
+								<span class="inline-flex items-center gap-1 text-xs text-muted-foreground">
+									<PlatformIcon platform={event.platform} class="size-3.5" />
+									{getPlatformName(event.platform)}
+								</span>
+							{/if}
+						</div>
+						{#if event.destination?.target_key}
+							<p class="mt-1 font-mono text-xs break-all text-muted-foreground">
+								{m.publication_delivery_target({ target: event.destination.target_key })}
 							</p>
 						{/if}
-					{/if}
-				</li>
+						<p class="mt-1 text-xs text-muted-foreground">
+							<span>{actorLabel(event.actor)}</span>
+							<span aria-hidden="true"> · </span>
+							<time datetime={event.created_at} title={new Date(event.created_at).toISOString()}>
+								{exactDateTime(event.created_at)}
+							</time>
+						</p>
+						{#if eventDetails(event).length > 0}
+							<p class="mt-1 text-xs text-muted-foreground">{eventDetails(event).join(' · ')}</p>
+						{/if}
+						{#if event.scheduled_at}
+							<p class="mt-1 text-xs text-muted-foreground">
+								{m.activity_report_scheduled()}:
+								<time
+									datetime={event.scheduled_at}
+									title={new Date(event.scheduled_at).toISOString()}
+								>
+									{exactDateTime(event.scheduled_at)}
+								</time>
+							</p>
+						{/if}
+						{#if event.error}
+							<p class="mt-2 text-sm text-destructive">
+								{event.error.message ||
+									event.error.code ||
+									event.error.kind ||
+									m.activity_unknown_failure()}
+							</p>
+							{#if errorActionLabel(event.error.action)}
+								<p class="mt-1 text-xs font-medium text-destructive">
+									{errorActionLabel(event.error.action)}
+								</p>
+							{/if}
+						{/if}
+						{#if event.superseded}
+							<p class="mt-2 text-xs font-medium text-muted-foreground">
+								{m.publication_history_superseded()}
+							</p>
+						{/if}
+					</li>
+				{/if}
 			{/each}
 		</ol>
 		{#if nextCursor}

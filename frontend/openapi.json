@@ -11470,6 +11470,38 @@
 				"required": ["kind"],
 				"type": "object"
 			},
+			"PublicationLifecycleDestination": {
+				"additionalProperties": false,
+				"properties": {
+					"label": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"rendition_id": {
+						"type": "string"
+					},
+					"social_account_id": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string"
+					},
+					"target_key": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"rendition_id",
+					"social_account_id",
+					"target_key",
+					"platform",
+					"label",
+					"status"
+				],
+				"type": "object"
+			},
 			"PublicationLifecycleError": {
 				"additionalProperties": false,
 				"properties": {
@@ -11511,6 +11543,12 @@
 					"created_at": {
 						"type": "string"
 					},
+					"delivery": {
+						"$ref": "#/components/schemas/ProviderDeliveryResponse"
+					},
+					"destination": {
+						"$ref": "#/components/schemas/PublicationLifecycleDestination"
+					},
 					"destination_count": {
 						"format": "int64",
 						"type": "integer"
@@ -11543,6 +11581,9 @@
 					"summary": {
 						"type": "string"
 					},
+					"superseded": {
+						"type": "boolean"
+					},
 					"type": {
 						"type": "string"
 					},
@@ -11558,6 +11599,7 @@
 					"status",
 					"summary",
 					"actor",
+					"superseded",
 					"created_at"
 				],
 				"type": "object"

@@ -74,6 +74,85 @@ func TestListPublicationEventsReturnsLifecycleEvents(t *testing.T) {
 	require.Equal(t, "created", events[1].Type)
 }
 
+func TestListPublicationEventsIdentifiesExactDestinationAndMarksOlderOutcomesSuperseded(t *testing.T) {
+	db := createHandlerTestDB(t,
+		(*models.Workspace)(nil),
+		(*models.WorkspaceMember)(nil),
+		(*models.Publication)(nil),
+		(*models.SocialAccount)(nil),
+		(*models.Rendition)(nil),
+		(*models.ProviderDelivery)(nil),
+		(*models.PublicationLifecycleEvent)(nil),
+	)
+	ctx := context.Background()
+	now := time.Date(2026, time.August, 14, 10, 0, 0, 0, time.UTC)
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Events"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-1", WorkspaceID: "ws-1", CreatedByID: "user-1", Title: "Launch",
+		ContentProfile: models.ContentProfileShortText, SourceText: "Launch", SourceContent: "Launch",
+		Status: models.PublicationStatusScheduled, CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.SocialAccount{
+		ID: "account-1", WorkspaceID: "ws-1", Slug: "launch-team", Platform: "x", AccountID: "provider-account-1",
+		AccessTokenEnc: []byte("encrypted-token"),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Rendition{
+		ID: "rendition-1", PublicationID: "publication-1", SocialAccountID: "account-1",
+		TargetKey: "x:community:founders", Platform: "x", Status: models.RenditionStatusFailed,
+		ErrorMessage: "The current attempt failed for a different reason.", ErrorKind: "provider_http",
+		ErrorCode: "account_suspended", ErrorRetryable: true, ErrorAction: "retry",
+		SettingsJSON: "{}", CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.ProviderDelivery{
+		ID: "delivery-1", WorkspaceID: "ws-1", PublicationID: "publication-1", RenditionID: "rendition-1",
+		SocialAccountID: "account-1", TargetKey: "x:community:founders", Provider: "x", State: "rejected",
+		CurrentAttemptID: "attempt-2", CurrentAttemptNumber: 2, CurrentAttemptCreatedAt: now.Add(-time.Hour),
+		RetrySafety: "safe", SafeErrorClass: "provider_http", SafeErrorCode: "account_suspended",
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.PublicationLifecycleEvent{
+		ID: "event-old-failure", WorkspaceID: "ws-1", PublicationID: "publication-1", RenditionID: "rendition-1",
+		Type: lifecycle.EventFailed, Status: lifecycle.StatusFailed, MetadataJSON: `{"platform":"x","error_kind":"provider_http","error_code":"rate_limited"}`,
+		CreatedAt: now.Add(-2 * time.Hour),
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewPublicationHandler(db, testAuthenticator{}, entitlements.NewSelfHostedService()).RegisterRoutes(api)
+	req := httptest.NewRequestWithContext(ctx, http.MethodGet, "/api/v1/publications/publication-1/events", nil)
+	req.Header.Set("Authorization", "Bearer web-token")
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	var events []PublicationLifecycleEventResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &events))
+	require.Len(t, events, 2)
+	failed := events[0]
+	require.NotNil(t, failed.Destination)
+	require.Equal(t, "account-1", failed.Destination.SocialAccountID)
+	require.Equal(t, "x:community:founders", failed.Destination.TargetKey)
+	require.Equal(t, "launch-team", failed.Destination.Label)
+	require.Equal(t, models.RenditionStatusFailed, failed.Destination.Status)
+	require.NotNil(t, failed.Delivery)
+	require.Equal(t, "rejected", failed.Delivery.State)
+	require.Equal(t, "account_suspended", failed.Delivery.ErrorCode)
+	require.Equal(t, 2, failed.Delivery.CurrentAttemptNumber)
+	require.True(t, failed.Superseded)
+	require.NotNil(t, failed.Error)
+	require.Equal(t, "rate_limited", failed.Error.Code)
+	require.Empty(t, failed.Error.Message)
+	require.Empty(t, failed.Error.Action)
+}
+
 func TestListPublicationEventsPaginatesSafeActorAttributedHistory(t *testing.T) {
 	db := createHandlerTestDB(t,
 		(*models.User)(nil),

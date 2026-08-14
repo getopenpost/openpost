@@ -14,6 +14,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/drafts"
 	"github.com/openpost/backend/internal/services/lifecycle"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/uptrace/bun"
 )
 
@@ -180,11 +181,27 @@ func (h *PublicationHandler) loadLifecycleHistoryItems(
 	if err != nil {
 		return nil, err
 	}
+	accounts, err := h.loadHistoryAccounts(ctx, renditions)
+	if err != nil {
+		return nil, err
+	}
+	deliveries, err := providerwrite.LoadCurrentDeliveries(ctx, h.db, []string{publication.ID})
+	if err != nil {
+		return nil, err
+	}
 	items := make([]publicationHistoryItem, 0, len(events))
 	for _, event := range events {
 		metadata := publicationHistoryMetadata(event.MetadataJSON)
 		authorization := authorizations[historyMetadataString(metadata, "authorization_batch_id")]
-		response := sanitizedLifecycleEvent(event, metadata, authorization, renditions[event.RenditionID])
+		rendition := renditions[event.RenditionID]
+		response := sanitizedLifecycleEvent(
+			event,
+			metadata,
+			authorization,
+			rendition,
+			accounts[rendition.SocialAccountID],
+			deliveries[event.RenditionID],
+		)
 		items = append(items, publicationHistoryItem{
 			response: response,
 			rank:     publicationHistoryLifecycleRank,
@@ -250,6 +267,8 @@ func sanitizedLifecycleEvent(
 	metadata map[string]any,
 	authorization publicationHistoryAuthorization,
 	rendition models.Rendition,
+	account models.SocialAccount,
+	delivery models.ProviderDelivery,
 ) PublicationLifecycleEventResponse {
 	eventType := strings.TrimSpace(event.Type)
 	status := normalizedLifecycleStatus(event.Status)
@@ -283,14 +302,37 @@ func sanitizedLifecycleEvent(
 	if !authorization.ScheduledAt.IsZero() {
 		response.ScheduledAt = authorization.ScheduledAt.UTC().Format(time.RFC3339Nano)
 	}
+	if rendition.ID != "" {
+		response.Destination = &PublicationLifecycleDestination{
+			RenditionID: rendition.ID, SocialAccountID: rendition.SocialAccountID,
+			TargetKey: rendition.TargetKey, Platform: rendition.Platform,
+			Label: historyDestinationLabel(account, rendition), Status: rendition.Status,
+		}
+	}
+	if delivery.ID != "" {
+		response.Delivery = providerDeliveryResponse(delivery)
+		if response.Delivery.RecoveryAction == providerwrite.RecoveryRetry &&
+			rendition.Status != models.RenditionStatusFailed {
+			response.Delivery.RecoveryAction = providerwrite.RecoveryNone
+		}
+		response.Superseded = delivery.CurrentAttemptCreatedAt.After(event.CreatedAt)
+	}
 	if eventType == lifecycle.EventFailed || status == lifecycle.StatusFailed {
+		currentFailure := lifecycleFailureMatchesCurrent(
+			rendition,
+			delivery,
+			metadata,
+			response.Superseded,
+		)
 		response.Error = &PublicationLifecycleError{
-			Message:    safeCurrentRenditionError(rendition),
 			Kind:       historyMetadataString(metadata, "error_kind"),
 			Code:       historyMetadataString(metadata, "error_code"),
 			HTTPStatus: historyMetadataInt(metadata, "http_status"),
 			Retryable:  historyMetadataBool(metadata, "retryable"),
-			Action:     rendition.ErrorAction,
+		}
+		if currentFailure {
+			response.Error.Message = safeCurrentRenditionError(rendition)
+			response.Error.Action = rendition.ErrorAction
 		}
 	}
 	return response
@@ -305,7 +347,19 @@ func publicationLifecycleEventResponse(event models.PublicationLifecycleEvent) P
 		publicationHistoryMetadata(event.MetadataJSON),
 		publicationHistoryAuthorization{},
 		models.Rendition{},
+		models.SocialAccount{},
+		models.ProviderDelivery{},
 	)
+}
+
+func historyDestinationLabel(account models.SocialAccount, rendition models.Rendition) string {
+	if value := strings.TrimSpace(account.Slug); value != "" {
+		return value
+	}
+	if value := strings.TrimSpace(account.AccountUsername); value != "" {
+		return "@" + strings.TrimPrefix(value, "@")
+	}
+	return publicationFirstNonEmpty(rendition.Platform, rendition.TargetKey)
 }
 
 func lifecycleSummary(eventType, policyMode string) string {
@@ -444,6 +498,34 @@ func (h *PublicationHandler) loadHistoryRenditions(
 	return out, nil
 }
 
+func (h *PublicationHandler) loadHistoryAccounts(
+	ctx context.Context,
+	renditions map[string]models.Rendition,
+) (map[string]models.SocialAccount, error) {
+	ids := make([]string, 0, len(renditions))
+	for _, rendition := range renditions {
+		if rendition.SocialAccountID != "" {
+			ids = append(ids, rendition.SocialAccountID)
+		}
+	}
+	ids = uniqueNonEmpty(ids)
+	if len(ids) == 0 {
+		return map[string]models.SocialAccount{}, nil
+	}
+	var rows []models.SocialAccount
+	if err := h.db.NewSelect().Model(&rows).Where("id IN (?)", bun.List(ids)).Scan(ctx); err != nil {
+		if isMissingPublicationHistoryTable(err) {
+			return map[string]models.SocialAccount{}, nil
+		}
+		return nil, err
+	}
+	out := make(map[string]models.SocialAccount, len(rows))
+	for _, row := range rows {
+		out[row.ID] = row
+	}
+	return out, nil
+}
+
 func (h *PublicationHandler) loadPublicationHistoryActorNames(
 	ctx context.Context,
 	items []publicationHistoryItem,
@@ -521,6 +603,24 @@ func safeCurrentRenditionError(rendition models.Rendition) string {
 		return ""
 	}
 	return strings.TrimSpace(rendition.ErrorMessage)
+}
+
+func lifecycleFailureMatchesCurrent(
+	rendition models.Rendition,
+	delivery models.ProviderDelivery,
+	metadata map[string]any,
+	superseded bool,
+) bool {
+	if superseded || rendition.Status != models.RenditionStatusFailed {
+		return false
+	}
+	if delivery.ID == "" {
+		return true
+	}
+	eventKind := historyMetadataString(metadata, "error_kind")
+	eventCode := historyMetadataString(metadata, "error_code")
+	return (eventKind == "" || eventKind == delivery.SafeErrorClass) &&
+		(eventCode == "" || eventCode == delivery.SafeErrorCode)
 }
 
 func applyStringPublicationHistoryCursor(

@@ -18,7 +18,7 @@ vi.mock('$lib/paraglide/messages', () => ({
 					publication_delivery_manual_resolution_help:
 						'Confirm whether the post exists before taking another action.',
 					publication_delivery_review_destination: 'Review destination',
-					publication_delivery_attempted: `Attempted ${params?.date}`,
+					publication_delivery_attempt_number: `Provider attempt ${params?.number} · ${params?.date}`,
 					publication_delivery_failure_detail: `${params?.kind} · ${params?.code}`
 				})[String(key)] ?? String(key)
 		}
@@ -54,7 +54,7 @@ it('attaches retryable failure evidence and retry to the exact destination', asy
 
 	await expect.element(screen.getByText('Rejected')).toBeVisible();
 	await expect.element(screen.getByText(/provider_http.*rate_limited/)).toBeVisible();
-	await expect.element(screen.getByText(/Attempted/)).toBeVisible();
+	await expect.element(screen.getByText(/Provider attempt 2/)).toBeVisible();
 	await screen.getByRole('button', { name: 'Retry destination' }).click();
 	expect(onRetry).toHaveBeenCalledWith('rendition-1');
 });
@@ -128,5 +128,26 @@ it('offers explicit review instead of replay for a manual-resolution outcome', a
 	expect(onManualResolution).toHaveBeenCalledWith('rendition-1');
 	await expect
 		.element(screen.getByRole('button', { name: 'Retry destination' }))
+		.not.toBeInTheDocument();
+});
+
+it('does not render an inert review control when the caller cannot resolve the outcome', async () => {
+	const screen = await render(PublicationDeliveryCard, {
+		rendition: {
+			...baseRendition,
+			delivery: {
+				target_key: 'x',
+				state: 'manual_resolution',
+				current_attempt_id: 'attempt-4',
+				current_attempt_number: 4,
+				current_attempt_created_at: '2026-08-13T10:00:00Z',
+				recovery_action: 'manual_resolution'
+			}
+		}
+	});
+
+	await expect.element(screen.getByText('Manual review required')).toBeVisible();
+	await expect
+		.element(screen.getByRole('button', { name: 'Review destination' }))
 		.not.toBeInTheDocument();
 });

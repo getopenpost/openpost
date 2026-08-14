@@ -205,7 +205,12 @@
 				</div>
 			</section>
 
-			<PublicationHistory publicationId={publication.id} />
+			<PublicationHistory
+				publicationId={publication.id}
+				{retryingRenditionID}
+				onRetry={retryRendition}
+				onManualResolution={reviewDestination}
+			/>
 		</div>
 	</PageContainer>
 {:else if publication}
@@ -234,7 +239,14 @@
 					class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
 					data-testid="publication-history-scroll"
 				>
-					<PublicationHistory publicationId={publication.id} headingLevel={3} showHeading={false} />
+					<PublicationHistory
+						publicationId={publication.id}
+						headingLevel={3}
+						showHeading={false}
+						{retryingRenditionID}
+						onRetry={retryRendition}
+						onManualResolution={reviewDestination}
+					/>
 				</div>
 			</Sheet.Content>
 		</Sheet.Root>

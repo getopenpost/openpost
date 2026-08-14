@@ -40,7 +40,9 @@ Open a Publication to inspect every destination Rendition separately. Each desti
 
 **Retry destination** appears only after the provider write is known to be safe to repeat. OpenPost does not offer retry after an ambiguous write because another send could create a duplicate. It checks supported providers first; when it cannot reconcile the result, use **Review destination** to inspect the connected account and confirm the provider result before taking another action.
 
-Use **Activity** to see drafts and scheduled, published, or failed posts. A failed account keeps the platform error and the next action. Fix the account, content, API limit, or platform issue before you retry.
+Use **Activity** to see drafts and scheduled, published, or failed posts. Activity and Publication detail use the same state, provider-attempt evidence, reconciliation timing, and safe recovery action for each exact account and target.
+
+Publication history records when each lifecycle event occurred and names its destination. It also separates that occurrence from the latest effective destination outcome. When a later provider attempt replaces an older failure, the older event remains in the timeline as an earlier outcome and cannot look current. Retry and manual-review controls follow the latest effective outcome, not the historical event.
 
 ## What to watch
 

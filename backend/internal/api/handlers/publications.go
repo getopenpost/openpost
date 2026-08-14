@@ -461,21 +461,33 @@ type MediaSummary struct {
 }
 
 type PublicationLifecycleEventResponse struct {
-	ID               string                     `json:"id"`
-	WorkspaceID      string                     `json:"workspace_id"`
-	PublicationID    string                     `json:"publication_id"`
-	RenditionID      string                     `json:"rendition_id,omitempty"`
-	Type             string                     `json:"type"`
-	Status           string                     `json:"status"`
-	Summary          string                     `json:"summary"`
-	Actor            PublicationLifecycleActor  `json:"actor"`
-	Platform         string                     `json:"platform,omitempty"`
-	ChangedDomains   []string                   `json:"changed_domains,omitempty"`
-	Revision         int                        `json:"revision,omitempty"`
-	ScheduledAt      string                     `json:"scheduled_at,omitempty"`
-	DestinationCount int                        `json:"destination_count,omitempty"`
-	Error            *PublicationLifecycleError `json:"error,omitempty"`
-	CreatedAt        string                     `json:"created_at"`
+	ID               string                           `json:"id"`
+	WorkspaceID      string                           `json:"workspace_id"`
+	PublicationID    string                           `json:"publication_id"`
+	RenditionID      string                           `json:"rendition_id,omitempty"`
+	Type             string                           `json:"type"`
+	Status           string                           `json:"status"`
+	Summary          string                           `json:"summary"`
+	Actor            PublicationLifecycleActor        `json:"actor"`
+	Platform         string                           `json:"platform,omitempty"`
+	ChangedDomains   []string                         `json:"changed_domains,omitempty"`
+	Revision         int                              `json:"revision,omitempty"`
+	ScheduledAt      string                           `json:"scheduled_at,omitempty"`
+	DestinationCount int                              `json:"destination_count,omitempty"`
+	Destination      *PublicationLifecycleDestination `json:"destination,omitempty"`
+	Delivery         *ProviderDeliveryResponse        `json:"delivery,omitempty"`
+	Superseded       bool                             `json:"superseded"`
+	Error            *PublicationLifecycleError       `json:"error,omitempty"`
+	CreatedAt        string                           `json:"created_at"`
+}
+
+type PublicationLifecycleDestination struct {
+	RenditionID     string `json:"rendition_id"`
+	SocialAccountID string `json:"social_account_id"`
+	TargetKey       string `json:"target_key"`
+	Platform        string `json:"platform"`
+	Label           string `json:"label"`
+	Status          string `json:"status"`
 }
 
 type PublicationLifecycleActor struct {

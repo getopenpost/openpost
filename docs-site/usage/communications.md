@@ -1,5 +1,7 @@
 # Engagement, Inbox, and Notifications
 
+This page is for people reviewing and responding to saved engagement and messages in a Workspace.
+
 OpenPost checks social networks in the background and saves the results. The Engagement and Messages pages read saved data, so a slow or unavailable network does not block the page.
 
 ## Engagement

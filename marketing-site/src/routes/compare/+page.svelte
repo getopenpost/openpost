@@ -22,6 +22,9 @@
 			<div class="max-w-4xl">
 				<p class="section-label">Compare</p>
 				<h1 class="marketing-title mt-5">Choose the tool that fits your work.</h1>
+				<p class="mt-5 text-sm font-medium text-foreground">
+					This page is for founders and teams comparing social publishing tools.
+				</p>
 				<p class="marketing-copy mt-6">
 					OpenPost lets you write once, tailor each account version, review it, and schedule it.
 					Other products may offer stronger writing, customer care, social listening, or

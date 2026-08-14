@@ -43,7 +43,12 @@
 	<div class="marketing-shell text-center">
 		<p class="section-label">Simple pricing</p>
 		<h1>Choose your plan.</h1>
+		<p>This page is for founders, teams, and agencies choosing a managed OpenPost plan.</p>
 		<p>Every plan includes the complete publishing workflow. Choose the limits that fit.</p>
+		<p>
+			Managed plans cap workspaces, social accounts, scheduled posts, media storage, and included
+			seats at the values listed below.
+		</p>
 	</div>
 </section>
 

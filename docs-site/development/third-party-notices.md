@@ -1,5 +1,7 @@
 # Third-Party Notices
 
+This page is for operators and contributors reviewing vendored browser assets and their licences.
+
 OpenPost Image Editor uses these pinned runtime dependencies:
 
 - **Fabric.js 7.4.0** for interactive canvas objects, transforms, filters, and offscreen rendering. OpenPost persists its own versioned document schema rather than Fabric JSON.

@@ -2,6 +2,8 @@
 
 Analytics is an optional platform feature, not part of the core publishing adapter. Publishing, analytics, comments, and inboxes use separate interfaces so a network can support only the features its API allows.
 
+This page is for contributors changing analytics collection, storage, or presentation boundaries.
+
 ## Boundaries
 
 `platform.AnalyticsAdapter` is optional and declares account and content support plus required scopes. Its methods return normalized counters. Missing keys mean “not reported”; zero means the provider returned a measured zero.

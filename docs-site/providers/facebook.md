@@ -1,5 +1,7 @@
 # Facebook
 
+This page is for operators configuring Facebook and users connecting a Page.
+
 Facebook Pages uses Meta OAuth, asks the user to choose a Page, and stores the selected Page access token.
 
 ## Requirements

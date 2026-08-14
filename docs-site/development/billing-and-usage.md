@@ -1,5 +1,7 @@
 # Billing And Usage Foundation
 
+This page is for contributors changing hosted billing, entitlements, or usage accounting.
+
 Managed OpenPost billing uses saved plan limits and durable usage counters. The backend does not call Paddle on normal API requests.
 
 ## Current pieces

@@ -66,6 +66,9 @@
 				Where managed OpenPost data is stored and processed.
 			</h1>
 			<p class="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+				This register is for customers and operators reviewing the managed service boundary.
+			</p>
+			<p class="mt-3 max-w-3xl text-lg leading-8 text-muted-foreground">
 				This dated register names the infrastructure, optional services, user-directed recipients,
 				and human access boundary for app.openpost.social. It does not make a certification claim.
 			</p>

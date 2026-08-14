@@ -1,5 +1,7 @@
 # Bluesky
 
+This page is for users connecting a Bluesky account.
+
 Bluesky is the simplest provider to enable.
 
 ## What you need

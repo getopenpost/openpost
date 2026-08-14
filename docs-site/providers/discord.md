@@ -1,5 +1,7 @@
 # Discord Webhooks
 
+This page is for operators configuring Discord and users connecting a channel webhook.
+
 Discord uses an incoming webhook link instead of OAuth. In **Accounts**, choose **Discord**, paste the link, and connect it. OpenPost checks the webhook and encrypts the full link before saving it.
 
 Create a webhook in the target Discord channel under **Integrations → Webhooks**. Treat its URL like a password. Anyone who has it can post to that channel.

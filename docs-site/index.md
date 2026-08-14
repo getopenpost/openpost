@@ -35,6 +35,8 @@ features:
 Managed plans start at $15 per month. Every plan includes a card-required 14-day trial. OpenPost shows the renewal price and date before you start, and you can cancel from billing settings before the first charge.
 :::
 
+Provider access and available formats still depend on account type, permissions, review, and current provider support.
+
 <p>
   <img
     src="/assets/screenshots/main-dark.png"

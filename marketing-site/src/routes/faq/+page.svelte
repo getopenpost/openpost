@@ -24,6 +24,9 @@
 		<div class="max-w-4xl">
 			<p class="section-label">FAQ</p>
 			<h1 class="marketing-title mt-5">Know the boundary before you start.</h1>
+			<p class="mt-5 text-sm font-medium text-foreground">
+				This page is for people checking OpenPost setup, publishing, billing, and access rules.
+			</p>
 			<p class="marketing-copy mt-7">
 				These answers cover the questions that change setup, publishing, billing, or access. Each
 				answer points to the maintained page when more detail matters.

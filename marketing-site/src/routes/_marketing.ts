@@ -1,18 +1,3 @@
-import {
-	BarChart3,
-	CalendarCheck2,
-	CheckCircle2,
-	Clapperboard,
-	Code2,
-	Clock3,
-	FileText,
-	GitBranch,
-	Image,
-	Images,
-	MessageSquareText,
-	PanelTop,
-	UsersRound
-} from '@lucide/svelte';
 import { planCatalog, purchaseTerms } from '@openpost/plan-catalog';
 import { PLATFORM_LIMITS } from '../../../frontend/src/lib/platform-limits';
 import publicClaimManifest from '../../../provider-certification/public-claims.json';
@@ -123,8 +108,7 @@ export const featureGroups = [
 			alt: 'OpenPost publication composer with destination-specific versions'
 		},
 		docsUrl: 'https://docs.openpost.social/usage/composing-posts',
-		next: { label: 'See destination guides', href: '/platforms' },
-		icon: Images
+		next: { label: 'See destination guides', href: '/platforms' }
 	},
 	{
 		id: 'schedule',
@@ -145,8 +129,7 @@ export const featureGroups = [
 			href: 'https://docs.openpost.social/usage/scheduling'
 		},
 		docsUrl: 'https://docs.openpost.social/usage/scheduling',
-		next: { label: 'Compare plan limits', href: '/pricing#limits' },
-		icon: CalendarCheck2
+		next: { label: 'Compare plan limits', href: '/pricing#limits' }
 	},
 	{
 		id: 'media-editing',
@@ -167,8 +150,7 @@ export const featureGroups = [
 			alt: 'OpenPost media library with reusable assets'
 		},
 		docsUrl: 'https://docs.openpost.social/usage/studio',
-		next: { label: 'Open the free editors', href: '/tools' },
-		icon: Image
+		next: { label: 'Open the free editors', href: '/tools' }
 	},
 	{
 		id: 'analytics-inbox',
@@ -189,8 +171,7 @@ export const featureGroups = [
 			href: 'https://docs.openpost.social/usage/analytics'
 		},
 		docsUrl: 'https://docs.openpost.social/usage/communications',
-		next: { label: 'Check provider scope', href: '/platforms' },
-		icon: BarChart3
+		next: { label: 'Check provider scope', href: '/platforms' }
 	},
 	{
 		id: 'teams',
@@ -211,8 +192,7 @@ export const featureGroups = [
 			alt: 'OpenPost workspace and account settings'
 		},
 		docsUrl: 'https://docs.openpost.social/usage/workspaces',
-		next: { label: 'Compare seats and workspaces', href: '/pricing#limits' },
-		icon: UsersRound
+		next: { label: 'Compare seats and workspaces', href: '/pricing#limits' }
 	},
 	{
 		id: 'automation',
@@ -233,8 +213,7 @@ export const featureGroups = [
 			href: 'https://docs.openpost.social/usage/agent-assisted-publishing'
 		},
 		docsUrl: developerDocsUrl,
-		next: { label: 'Review self-hosting', href: selfHostingDocsUrl },
-		icon: Code2
+		next: { label: 'Review self-hosting', href: selfHostingDocsUrl }
 	}
 ] as const;
 
@@ -811,54 +790,46 @@ export const tools = [
 		slug: 'social-media-video-editor',
 		name: 'Social media video editor',
 		description:
-			'Stream-copy combined or per-section cuts without transcoding, or use the complete desktop or touch editor for four social formats, captions, effects, and recording.',
-		icon: Clapperboard
+			'Stream-copy combined or per-section cuts without transcoding, or use the complete desktop or touch editor for four social formats, captions, effects, and recording.'
 	},
 	{
 		slug: 'social-media-image-editor',
 		name: 'Social media image editor',
 		description:
-			'Create posts, carousel pages, Story slides, and thumbnails in a full browser editor with clean exports.',
-		icon: Images
+			'Create posts, carousel pages, Story slides, and thumbnails in a full browser editor with clean exports.'
 	},
 	{
 		slug: 'multi-platform-character-counter',
 		name: 'Multi-platform character counter',
 		description:
-			'Paste once and compare one draft against the limits and counting rules for ten social networks.',
-		icon: FileText
+			'Paste once and compare one draft against the limits and counting rules for ten social networks.'
 	},
 	{
 		slug: 'post-preview-generator',
 		name: 'Post preview generator',
 		description:
-			'Preview a post and its media on each selected social network before you schedule it.',
-		icon: PanelTop
+			'Preview a post and its media on each selected social network before you schedule it.'
 	},
 	{
 		slug: 'thread-splitter',
 		name: 'Thread splitter',
-		description: 'Split long copy into a thread that fits the platform and is easy to review.',
-		icon: GitBranch
+		description: 'Split long copy into a thread that fits the platform and is easy to review.'
 	},
 	{
 		slug: 'fediverse-handle-checker',
 		name: 'Fediverse handle checker',
 		description:
-			'Check Mastodon-style and Bluesky-style handles before adding them to launch plans.',
-		icon: CheckCircle2
+			'Check Mastodon-style and Bluesky-style handles before adding them to launch plans.'
 	},
 	{
 		slug: 'linkedin-text-formatter',
 		name: 'LinkedIn text formatter',
-		description: 'Prepare readable LinkedIn copy with lightweight formatting and length awareness.',
-		icon: MessageSquareText
+		description: 'Prepare readable LinkedIn copy with lightweight formatting and length awareness.'
 	},
 	{
 		slug: 'best-time-to-post-calculator',
 		name: 'Timezone posting planner',
-		description: 'Turn your timezone and weekly plan into posting times you can reuse.',
-		icon: Clock3
+		description: 'Turn your timezone and weekly plan into posting times you can reuse.'
 	}
 ] as const;
 

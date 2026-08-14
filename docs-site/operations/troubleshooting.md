@@ -4,6 +4,8 @@ description: Diagnose startup, database, media, provider, publishing, and delive
 
 # Troubleshooting
 
+Diagnose startup, database, media, provider, publishing, and delivery problems on a self-hosted OpenPost instance.
+
 ## App does not start
 
 Symptoms: container exits or the binary returns immediately.

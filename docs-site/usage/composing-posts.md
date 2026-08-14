@@ -1,5 +1,7 @@
 # Composing Posts
 
+This page is for people creating a Publication in the composer.
+
 OpenPost uses one text-and-thread composer for every publication. Add another post to create a thread. Media and connected accounts determine each destination's format.
 
 The Workspace setup guide advances when you enter non-empty text, attach media, or intentionally add a thread post. Opening or focusing the composer, choosing a destination, and saving an empty draft do not count as starting a composition. This progress is stored once per Workspace and remains complete after refresh.

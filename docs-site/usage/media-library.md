@@ -1,5 +1,7 @@
 # Media
 
+This page is for people organizing reusable media and editor assets in a Workspace.
+
 Media keeps your files, OpenPost Image Editor designs, templates, and brand items in one place.
 
 ## Assets

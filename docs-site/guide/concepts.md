@@ -1,6 +1,10 @@
 # Concepts
 
+Use this page when you need the product terms used by the app and documentation.
+
 These terms appear in the app and docs.
+
+These definitions do not override provider rules, account permissions, or plan limits.
 
 ## Workspace
 

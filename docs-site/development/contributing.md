@@ -1,5 +1,7 @@
 # Contributing
 
+This page is for contributors preparing a change to OpenPost.
+
 Start with the [development setup](/development/setup), then run the smallest relevant root gates while working and `bun run verify` before a pull request.
 
 ## Project rules
@@ -13,3 +15,9 @@ Start with the [development setup](/development/setup), then run the smallest re
 - Never commit credentials, provider tokens, local dotenv files, or production data.
 
 Repository-specific architecture and agent guidance live in [`AGENTS.md`](https://github.com/getopenpost/openpost/blob/main/AGENTS.md). The root [contributor guide](https://github.com/getopenpost/openpost/blob/main/CONTRIBUTING.md) contains the short setup and pull-request checklist.
+
+## Public source and artifact contract
+
+Marketing pages and maintained documentation are the canonical sources for public content. Their production builds invoke `scripts/generate-agent-surfaces.mjs` to add one explicit Markdown representation per eligible route, the host's `llms.txt`, and the documentation-only `llms-full.txt`. Generated public artifacts stay in ignored build output. Edit the owning page or catalogue instead of a generated file.
+
+The marketing route manifest and generated documentation catalogue own route identity and policy. See [production readiness](/development/production-readiness#agent-readable-public-content) for the complete artifact contract, CI behavior, and root verification commands.

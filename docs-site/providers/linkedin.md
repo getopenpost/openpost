@@ -1,5 +1,7 @@
 # LinkedIn
 
+This page is for operators configuring LinkedIn and users connecting a member profile or Organization Page.
+
 LinkedIn uses OAuth 2.0 and has more approval friction than most other providers.
 
 ## What you need

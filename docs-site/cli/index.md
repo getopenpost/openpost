@@ -2,6 +2,10 @@
 
 The OpenPost CLI controls a running OpenPost instance from a terminal or automation job. It talks to the same `/api/v1` HTTP API as the web app, authenticates with revocable API tokens, and never reads the server database directly.
 
+The CLI never bypasses server authorization, validation, quota, or audit checks.
+
+This page is for people using OpenPost from a terminal, script, CI job, or scheduled task.
+
 Use it when you want to:
 
 - Create drafts, scheduled posts, and threads from scripts

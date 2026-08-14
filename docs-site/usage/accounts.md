@@ -1,5 +1,7 @@
 # Accounts
 
+Use this page when you want to connect or manage social accounts in a Workspace.
+
 Connected accounts are the social accounts inside a workspace.
 
 ## Common flow

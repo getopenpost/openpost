@@ -1,5 +1,7 @@
 # X
 
+This page is for operators configuring X and users connecting an account.
+
 ## What you need
 
 - X developer app

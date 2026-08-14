@@ -1,5 +1,7 @@
 # Reverse Proxy
 
+This page is for operators placing OpenPost behind a reverse proxy.
+
 HTTPS and a stable public URL matter for social network sign-in, passkeys, MCP sign-in, and public media links.
 
 ## Why it matters

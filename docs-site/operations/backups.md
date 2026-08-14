@@ -1,5 +1,7 @@
 # Backups
 
+This page is for managed-service and self-hosted operators planning backup and restore work.
+
 ## Managed-service boundary
 
 The managed OpenPost service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host. The directory is not public or application-served. The deployment configuration restricts its directory and newly created file modes, validates database compression before an atomic rename, disables SSH password and direct root login, and grants the named operator access through authorized SSH keys and `sudo`. Application users, support requests, and the OpenPost container do not receive backup-directory access.

@@ -329,6 +329,18 @@ function withoutFencedContent(source) {
   );
 }
 
+function validateRepresentationSafety(markdown, canonical) {
+  const exposed = withoutFencedContent(markdown);
+  if (/\b(?:data-sveltekit(?:-[\w-]+)?|__sveltekit(?:_[\w-]+)?|__NEXT_DATA__)\b/iu.test(exposed)) {
+    throw new Error(`${canonical}: generated representation contains serialized application state`);
+  }
+  if (/<script\b|<!--@include:|^:::[ \t]/imu.test(exposed)) {
+    throw new Error(
+      `${canonical}: generated representation contains an unresolved source construct`,
+    );
+  }
+}
+
 function rewriteMarkdownLinks(source, canonical) {
   return mapOutsideFences(source, (line) =>
     line.replace(/(!?\[[^\]]*\])\(([^)\s]+)([^)]*)\)/gu, (_match, label, target, suffix) => {
@@ -763,6 +775,7 @@ export async function generateAgentSurface(projection) {
     if (privateRoutePattern.test(new URL(generated.canonical).pathname)) {
       throw new Error(`generated page exposes a private application route: ${generated.canonical}`);
     }
+    validateRepresentationSafety(generated.markdown, generated.canonical);
     if (Buffer.byteLength(generated.markdown, "utf8") > maximumRepresentationBytes) {
       const exception = page.catalog?.agentRepresentation?.sizeException;
       if (exception?.reviewed !== true || !exception.reason?.trim()) {

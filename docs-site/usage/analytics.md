@@ -1,5 +1,7 @@
 # Analytics
 
+Use this page when reviewing saved account and Publication results.
+
 OpenPost saves the account and post numbers that each platform provides. The Analytics page reads saved data, so it does not wait for each platform to reply.
 
 ## What the page shows

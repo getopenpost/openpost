@@ -1,5 +1,7 @@
 # TikTok
 
+This page is for operators configuring TikTok and users connecting an account.
+
 TikTok supports video and photo posts through OAuth and the Content Posting API.
 
 ## What you need

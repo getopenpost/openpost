@@ -2,6 +2,8 @@
 
 Install the OpenPost CLI when you want to manage a running OpenPost instance from a terminal or automation job.
 
+Other operating systems and architectures do not have a maintained release binary.
+
 ## Install from GitHub Releases
 
 The install script downloads the latest matching `openpost-cli-*` release asset and installs it as `openpost`:

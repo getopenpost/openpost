@@ -1,5 +1,7 @@
 # Android App
 
+This page is for Android users installing OpenPost and connecting it to a self-hosted instance.
+
 OpenPost ships an Android app built with Capacitor. It wraps the same SvelteKit frontend as the web app, so it connects to your self-hosted OpenPost instance instead of a separate mobile backend.
 
 ## Install from a Release

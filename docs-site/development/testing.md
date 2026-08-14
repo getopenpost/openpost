@@ -2,6 +2,8 @@
 
 Run the project-owned root commands so local checks match CI.
 
+This page is for contributors choosing the smallest reliable gate for a change.
+
 ```bash
 bun run check
 bun run lint

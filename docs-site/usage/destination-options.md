@@ -1,5 +1,7 @@
 # Account Options
 
+This page is for people tailoring one Publication for each selected social account.
+
 The editor starts with the kind of post you want to make. It then finds the right format for each social network.
 
 - **Post type** is Post, Thread, Story, Short video, or Video.

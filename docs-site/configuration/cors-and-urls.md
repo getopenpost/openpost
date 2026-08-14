@@ -1,5 +1,7 @@
 # CORS And URLs
 
+This page is for operators configuring public URLs and allowed browser origins.
+
 These settings solve many deployment problems when they are set correctly.
 
 ## `OPENPOST_APP_URL`

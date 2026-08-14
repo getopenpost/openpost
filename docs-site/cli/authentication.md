@@ -1,5 +1,7 @@
 # Sign In From the CLI
 
+This page is for people signing the OpenPost CLI in from a browser, remote server, or automation job.
+
 The CLI signs in to a running OpenPost server over HTTPS. It never sees your password, TOTP code, passkey, or social account keys.
 
 ## Sign in with a browser

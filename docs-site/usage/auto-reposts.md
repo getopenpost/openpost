@@ -1,5 +1,7 @@
 # Auto Reposts
 
+This page is for people configuring native same-network repost rules after publication.
+
 Auto repost rules let a connected account use its network's native repost action after one of your posts publishes. OpenPost supports native reposts on X, Mastodon, Bluesky, and LinkedIn. The source and target must be on the same network. OpenPost does not copy the post to a different network.
 
 ## Create a workspace rule

@@ -22,6 +22,12 @@ test("documentation catalogue changes run both public builds", () => {
   assert.equal(plan.marketing, true);
 });
 
+test("shared Agent-readable generator changes run both public builds", () => {
+  const plan = planCI(["scripts/generate-agent-surfaces.mjs"], manifest);
+  assert.equal(plan.documentation, true);
+  assert.equal(plan.marketing, true);
+});
+
 test("frontend changes run the application build, browser, image, and Android paths", () => {
   const plan = planCI(["frontend/src/routes/+page.svelte"], manifest);
   assert.equal(plan.application, true);

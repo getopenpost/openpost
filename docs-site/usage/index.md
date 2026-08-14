@@ -6,6 +6,8 @@ description: Learn how to connect accounts, create account versions, schedule pu
 
 Use these docs to connect accounts, write account versions, schedule posts, track results, work with replies and messages, use the CLI, or let an AI tool help through MCP.
 
+Provider data, formats, and actions remain limited by the connected account and provider.
+
 For a visual introduction, [watch the OpenPost product demo](https://youtu.be/_mZf3HzQaN8).
 
 ## Web app

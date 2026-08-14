@@ -1,5 +1,7 @@
 # Mastodon
 
+This page is for operators configuring Mastodon and users connecting a custom or preconfigured instance.
+
 Mastodon can be connected in two ways:
 
 - **Custom instance from the Accounts screen:** enter a public instance such as `mastodon.social`. OpenPost registers an app with that instance, encrypts the client secret, and reuses it for later connections.

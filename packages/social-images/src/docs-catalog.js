@@ -4,7 +4,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "cli/authentication.md",
     "title": "Sign In From the CLI",
-    "description": "The CLI signs in to a running OpenPost server over HTTPS.",
+    "description": "This page is for people signing the OpenPost CLI in from a browser, remote server, or automation job.",
     "route": "/cli/authentication",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -85,7 +85,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "configuration/cors-and-urls.md",
     "title": "CORS And URLs",
-    "description": "These settings solve many deployment problems when they are set correctly.",
+    "description": "This page is for operators configuring public URLs and allowed browser origins.",
     "route": "/configuration/cors-and-urls",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -117,7 +117,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "configuration/environment-variables.md",
     "title": "Environment Variables",
-    "description": "This page summarizes the env vars used by the backend.",
+    "description": "This reference is for operators configuring an OpenPost instance.",
     "route": "/configuration/environment-variables",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -133,7 +133,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "configuration/feedback.md",
     "title": "User Feedback",
-    "description": "OpenPost can show authenticated users a report form for bugs, ideas, and questions.",
+    "description": "This page is for operators configuring feedback delivery, diagnostics, and privacy limits.",
     "route": "/configuration/feedback",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -149,7 +149,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "configuration/media-storage.md",
     "title": "Media Storage",
-    "description": "OpenPost stores media on the local file system by default.",
+    "description": "This page is for operators choosing local or S3-compatible media storage.",
     "route": "/configuration/media-storage",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -198,7 +198,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "configuration/provider-applications.md",
     "title": "Provider Applications",
-    "description": "A provider application identifies the OpenPost installation to a social network during OAuth.",
+    "description": "This page is for operators configuring provider OAuth applications.",
     "route": "/configuration/provider-applications",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -294,7 +294,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/architecture.md",
     "title": "Architecture",
-    "description": "HTTP routes are defined with Huma whenever they are part of the typed product API.",
+    "description": "This page is for contributors changing OpenPost's system boundaries.",
     "route": "/development/architecture",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -326,7 +326,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/background-jobs.md",
     "title": "Background Jobs",
-    "description": "OpenPost uses durable background jobs stored in the configured database.",
+    "description": "This page is for contributors changing durable background work.",
     "route": "/development/background-jobs",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -342,7 +342,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/billing-and-usage.md",
     "title": "Billing And Usage Foundation",
-    "description": "Managed OpenPost billing uses saved plan limits and durable usage counters.",
+    "description": "This page is for contributors changing hosted billing, entitlements, or usage accounting.",
     "route": "/development/billing-and-usage",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -358,7 +358,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/compatibility-policy.md",
     "title": "API and schema compatibility",
-    "description": "OpenPost does not remove a public API or stored-data contract because repository search reports no caller.",
+    "description": "This page is for contributors deprecating or removing public API and stored-data contracts.",
     "route": "/development/compatibility-policy",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -374,7 +374,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/contributing.md",
     "title": "Contributing",
-    "description": "Start with the development setup, then run the smallest relevant root gates while working and bun run verify before a pull request.",
+    "description": "This page is for contributors preparing a change to OpenPost.",
     "route": "/development/contributing",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -406,7 +406,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/image-editor-completeness.md",
     "title": "Image Editor Completeness Checklist",
-    "description": "This is the implementation contract for bringing the OpenPost Image Editor to a complete, polished editing experience.",
+    "description": "This checklist is for contributors reviewing Image Editor completeness.",
     "route": "/development/image-editor-completeness",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -455,7 +455,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/platform-adapters.md",
     "title": "Platform Adapters",
-    "description": "Provider integrations live under backend/internal/platform/.",
+    "description": "This page is for contributors adding or changing a provider adapter.",
     "route": "/development/platform-adapters",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -503,7 +503,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/setup.md",
     "title": "Development Setup",
-    "description": "OpenPost's root Devenv configuration pins Go, Bun, Node, and the supporting tools used by the repository.",
+    "description": "This page is for contributors setting up the OpenPost repository.",
     "route": "/development/setup",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -535,7 +535,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "development/third-party-notices.md",
     "title": "Third-Party Notices",
-    "description": "The quantized background-removal model, WASM files, and their notices ship under frontend/static/image-editor-models/.",
+    "description": "This page is for operators and contributors reviewing vendored browser assets and their licences.",
     "route": "/development/third-party-notices",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -551,7 +551,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "guide/concepts.md",
     "title": "Concepts",
-    "description": "These terms appear in the app and docs.",
+    "description": "Use this page when you need the product terms used by the app and documentation.",
     "route": "/guide/concepts",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -631,7 +631,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "installation/android.md",
     "title": "Android App",
-    "description": "OpenPost ships an Android app built with Capacitor.",
+    "description": "This page is for Android users installing OpenPost and connecting it to a self-hosted instance.",
     "route": "/installation/android",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -696,7 +696,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "installation/docker-run.md",
     "title": "Docker Run",
-    "description": "docker run is useful for quick testing.",
+    "description": "Use docker run when you are an operator doing a quick test.",
     "route": "/installation/docker-run",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -728,7 +728,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "installation/reverse-proxy.md",
     "title": "Reverse Proxy",
-    "description": "HTTPS and a stable public URL matter for social network sign-in, passkeys, MCP sign-in, and public media links.",
+    "description": "This page is for operators placing OpenPost behind a reverse proxy.",
     "route": "/installation/reverse-proxy",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -761,7 +761,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "operations/backups.md",
     "title": "Backups",
-    "description": "The managed OpenPost service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host.",
+    "description": "This page is for managed-service and self-hosted operators planning backup and restore work.",
     "route": "/operations/backups",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -858,7 +858,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/bluesky.md",
     "title": "Bluesky",
-    "description": "Bluesky is the simplest provider to enable.",
+    "description": "This page is for users connecting a Bluesky account.",
     "route": "/providers/bluesky",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -874,7 +874,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/discord.md",
     "title": "Discord Webhooks",
-    "description": "Discord uses an incoming webhook link instead of OAuth.",
+    "description": "This page is for operators configuring Discord and users connecting a channel webhook.",
     "route": "/providers/discord",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -890,7 +890,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/facebook.md",
     "title": "Facebook",
-    "description": "Facebook Pages uses Meta OAuth, asks the user to choose a Page, and stores the selected Page access token.",
+    "description": "This page is for operators configuring Facebook and users connecting a Page.",
     "route": "/providers/facebook",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -922,7 +922,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/launch-matrix.md",
     "title": "Provider Readiness and Launch Gate",
-    "description": "OpenPost keeps provider implementation, setup, evidence, approval, and runtime control as separate facts.",
+    "description": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
     "route": "/providers/launch-matrix",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -938,7 +938,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/linkedin.md",
     "title": "LinkedIn",
-    "description": "LinkedIn uses OAuth 2.0 and has more approval friction than most other providers.",
+    "description": "This page is for operators configuring LinkedIn and users connecting a member profile or Organization Page.",
     "route": "/providers/linkedin",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -954,7 +954,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/mastodon.md",
     "title": "Mastodon",
-    "description": "OpenPost rejects custom Mastodon hosts that resolve to private, loopback, link-local, multicast, or otherwise local addresses.",
+    "description": "This page is for operators configuring Mastodon and users connecting a custom or preconfigured instance.",
     "route": "/providers/mastodon",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -987,7 +987,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/platform-limits.md",
     "title": "Platform Implementations & Limitations",
-    "description": "A social network may offer a feature that OpenPost has not implemented.",
+    "description": "Use this page when checking implemented formats and safe provider limits.",
     "route": "/providers/platform-limits",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1019,7 +1019,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/threads.md",
     "title": "Threads",
-    "description": "Threads supports text, single media, replies, and 2-20 item media carousels, but the media URL requirement makes deployment details matter.",
+    "description": "This page is for operators configuring Threads and users connecting an account.",
     "route": "/providers/threads",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1035,7 +1035,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/tiktok.md",
     "title": "TikTok",
-    "description": "TikTok supports video and photo posts through OAuth and the Content Posting API.",
+    "description": "This page is for operators configuring TikTok and users connecting an account.",
     "route": "/providers/tiktok",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1067,7 +1067,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/x.md",
     "title": "X",
-    "description": "OpenPost currently uses X OAuth 1.0a end-to-end.",
+    "description": "This page is for operators configuring X and users connecting an account.",
     "route": "/providers/x",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1083,7 +1083,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "providers/youtube.md",
     "title": "YouTube",
-    "description": "YouTube supports Shorts and long-form video uploads.",
+    "description": "This page is for operators configuring YouTube and users connecting a channel.",
     "route": "/providers/youtube",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1116,7 +1116,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "reference/callback-urls.md",
     "title": "Callback URLs",
-    "description": "Mastodon uses the OOB flow by default and exchanges the pasted authorization code through /api/v1/accounts/mastodon/exchange.",
+    "description": "This reference is for operators registering provider and identity callback URLs.",
     "route": "/reference/callback-urls",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1164,7 +1164,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "reference/env-vars.md",
     "title": "Environment Variables",
-    "description": "This page lists the most common core and provider variables.",
+    "description": "This reference is for operators looking up common environment variables.",
     "route": "/reference/env-vars",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1180,7 +1180,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "reference/surface-parity.md",
     "title": "Product Surface Parity",
-    "description": "OpenPost exposes one backend through several purpose-built clients.",
+    "description": "This reference is for contributors and automation authors choosing an OpenPost client surface.",
     "route": "/reference/surface-parity",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1229,7 +1229,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/accounts.md",
     "title": "Accounts",
-    "description": "Connected accounts are the social accounts inside a workspace.",
+    "description": "Use this page when you want to connect or manage social accounts in a Workspace.",
     "route": "/usage/accounts",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1261,7 +1261,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/analytics.md",
     "title": "Analytics",
-    "description": "OpenPost saves the account and post numbers that each platform provides.",
+    "description": "Use this page when reviewing saved account and Publication results.",
     "route": "/usage/analytics",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1277,7 +1277,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/auto-reposts.md",
     "title": "Auto Reposts",
-    "description": "Auto repost rules let a connected account use its network's native repost action after one of your posts publishes.",
+    "description": "This page is for people configuring native same-network repost rules after publication.",
     "route": "/usage/auto-reposts",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1293,7 +1293,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/communications.md",
     "title": "Engagement, Inbox, and Notifications",
-    "description": "OpenPost checks social networks in the background and saves the results.",
+    "description": "This page is for people reviewing and responding to saved engagement and messages in a Workspace.",
     "route": "/usage/communications",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1309,7 +1309,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/composing-posts.md",
     "title": "Composing Posts",
-    "description": "OpenPost uses one text-and-thread composer for every publication.",
+    "description": "This page is for people creating a Publication in the composer.",
     "route": "/usage/composing-posts",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1325,7 +1325,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/destination-options.md",
     "title": "Account Options",
-    "description": "The editor starts with the kind of post you want to make.",
+    "description": "This page is for people tailoring one Publication for each selected social account.",
     "route": "/usage/destination-options",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1374,7 +1374,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/media-library.md",
     "title": "Media",
-    "description": "Media keeps your files, OpenPost Image Editor designs, templates, and brand items in one place.",
+    "description": "This page is for people organizing reusable media and editor assets in a Workspace.",
     "route": "/usage/media-library",
     "agentRepresentation": {
       "membership": "ordinary"
@@ -1438,7 +1438,7 @@ export const docsPageCatalog = Object.freeze([
   {
     "page": "usage/threads.md",
     "title": "Threads",
-    "description": "Threads let you publish multi-post sequences in order.",
+    "description": "This page is for people creating ordered multi-post sequences.",
     "route": "/usage/threads",
     "agentRepresentation": {
       "membership": "ordinary"

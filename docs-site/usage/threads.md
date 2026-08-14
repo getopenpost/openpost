@@ -1,5 +1,7 @@
 # Threads
 
+This page is for people creating ordered multi-post sequences.
+
 Threads let you publish multi-post sequences in order.
 
 ## How they work

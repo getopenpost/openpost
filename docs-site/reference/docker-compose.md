@@ -4,6 +4,8 @@ description: Copy the production Docker Compose service, storage, environment, a
 
 # Docker Compose Reference
 
+This reference is for operators preparing a persistent OpenPost service with explicit storage, secrets, and health checks.
+
 ```yaml
 services:
   openpost:

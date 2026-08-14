@@ -1,0 +1,32 @@
+{
+  "compose": {
+    "title": "Keep one source idea and make each destination version fit.",
+    "outcome": "Write the shared publication once, then change text, media, schedule, and provider settings for each selected account before it leaves OpenPost.",
+    "boundary": "Available formats, text rules, media rules, and settings still depend on the connected account and provider."
+  },
+  "schedule": {
+    "title": "See what is drafted, scheduled, running, published, or failed.",
+    "outcome": "Choose an exact time or a saved weekly slot, then follow the publication and every account result from the calendar and activity views.",
+    "boundary": "Managed plans set monthly scheduled-post limits. Provider outages, review rules, and account access can still block a destination."
+  },
+  "media-editing": {
+    "title": "Keep reusable assets beside the tools that prepare them.",
+    "outcome": "Store media with alt text and metadata, create still designs in OpenPost Image Editor, or prepare clips in OpenPost Video Editor before returning the result to a draft.",
+    "boundary": "Video editing needs a compatible browser, and every publishing destination still enforces its own size, duration, codec, and aspect-ratio rules."
+  },
+  "analytics-inbox": {
+    "title": "Review available results and replies without calling providers on page load.",
+    "outcome": "Inspect stored account and post snapshots, then handle supported comments, replies, alerts, and opted-in inbox messages from the same workspace.",
+    "boundary": "Coverage depends on provider permissions and the connected account. OpenPost does not provide social listening or cross-industry benchmarks."
+  },
+  "teams": {
+    "title": "Separate brands and clients without separating the publishing system.",
+    "outcome": "Keep accounts, media, schedules, automation, and member access inside an explicit workspace boundary, with plan usage enforced for its organization.",
+    "boundary": "Team roles are included on Team and Agency managed plans. Included seats and workspace counts vary by plan."
+  },
+  "automation": {
+    "title": "Use the same workspace rules from HTTP, the CLI, or an AI tool.",
+    "outcome": "Create scoped tokens for scripts and MCP clients, inspect operations before executing them, or run the complete service on infrastructure you control.",
+    "boundary": "Automation still follows plan quotas, token scopes, workspace roles, provider readiness, and destination validation."
+  }
+}

@@ -59,6 +59,9 @@ FORM: A focused product demonstration paced between dark studio stages, light wo
 			Create better content, adapt it for every platform,<br class="hidden sm:block" /> and publish it
 			everywhere from one workspace.
 		</p>
+		<p class="hero-enter hero-enter-2 mx-auto mt-4 max-w-2xl text-sm text-white/70">
+			This page is for solo founders evaluating one workspace for social publishing.
+		</p>
 		<div class="hero-enter hero-enter-3 mt-8 flex justify-center">
 			<Button href={managedSignupUrl} size="lg" class="hero-cta">
 				Hop on

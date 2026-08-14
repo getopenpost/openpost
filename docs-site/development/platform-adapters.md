@@ -1,5 +1,7 @@
 # Platform Adapters
 
+This page is for contributors adding or changing a provider adapter.
+
 Provider integrations live under `backend/internal/platform/`.
 
 ## Current adapters

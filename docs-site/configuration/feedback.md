@@ -1,5 +1,7 @@
 # User Feedback
 
+This page is for operators configuring feedback delivery, diagnostics, and privacy limits.
+
 OpenPost can show authenticated users a report form for bugs, ideas, and questions. It is disabled by default and has no hardcoded destination.
 
 ## Configure a destination

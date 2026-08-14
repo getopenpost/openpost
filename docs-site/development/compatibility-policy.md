@@ -1,5 +1,7 @@
 # API and schema compatibility
 
+This page is for contributors deprecating or removing public API and stored-data contracts.
+
 OpenPost does not remove a public API or stored-data contract because repository search reports no caller. API-token clients, older CLI versions, MCP bridges, and automation tools can use a route without appearing in the current source tree.
 
 [`compatibility-surfaces.json`](https://github.com/getopenpost/openpost/blob/main/compatibility-surfaces.json) is the machine-checked retirement registry. It records the owner, exact introduction commit and release, current decision, replacement, migration path, notice state, normalized route evidence, consumer review, and earliest removal facts for each candidate.

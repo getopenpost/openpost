@@ -2,6 +2,8 @@
 
 Use this path when you want to build OpenPost yourself.
 
+This path requires the repository's pinned Devenv toolchain and enough local resources to build the web and Go projects.
+
 ## Set up the project
 
 ```bash

@@ -1,6 +1,6 @@
 # Docker Run
 
-`docker run` is useful for quick testing. For persistent long-running installs, prefer [Docker Compose](/installation/docker-compose).
+Use `docker run` when you are an operator doing a quick test. For persistent long-running installs, prefer [Docker Compose](/installation/docker-compose).
 
 The published image supports `linux/amd64` only. The explicit `--platform` below prevents the host architecture from being mistaken for published support. See [Container Image Support and Assurance](/operations/container-image).
 

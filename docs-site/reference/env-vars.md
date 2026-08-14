@@ -1,5 +1,7 @@
 # Environment Variables
 
+This reference is for operators looking up common environment variables.
+
 This page lists the most common core and provider variables. Use [Environment Variables](/configuration/environment-variables) for required values, defaults, file-backed configuration, legacy aliases, and complete deployment notes.
 
 ## OpenPost Image Editor

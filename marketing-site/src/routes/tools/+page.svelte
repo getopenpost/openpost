@@ -1,6 +1,17 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { ArrowRight, LockKeyhole } from '@lucide/svelte';
+	import {
+		ArrowRight,
+		CheckCircle2,
+		Clapperboard,
+		Clock3,
+		FileText,
+		GitBranch,
+		Images,
+		LockKeyhole,
+		MessageSquareText,
+		PanelTop
+	} from '@lucide/svelte';
 	import { tools } from '../_marketing';
 
 	const groups = [
@@ -37,6 +48,17 @@
 		'best-time-to-post-calculator': 'Build and export a weekly plan'
 	};
 
+	const toolIcons: Record<(typeof tools)[number]['slug'], typeof Images> = {
+		'social-media-video-editor': Clapperboard,
+		'social-media-image-editor': Images,
+		'multi-platform-character-counter': FileText,
+		'post-preview-generator': PanelTop,
+		'thread-splitter': GitBranch,
+		'fediverse-handle-checker': CheckCircle2,
+		'linkedin-text-formatter': MessageSquareText,
+		'best-time-to-post-calculator': Clock3
+	};
+
 	function toolsForGroup(slugs: readonly string[]) {
 		return slugs
 			.map((slug) => tools.find((tool) => tool.slug === slug))
@@ -55,7 +77,8 @@
 			</h1>
 		</div>
 		<div>
-			<p class="marketing-copy">
+			<p class="marketing-copy">This page is for creators preparing a post before signing up.</p>
+			<p class="marketing-copy mt-3">
 				Preview posts, check limits, split copy, prepare media, and plan a weekly schedule in your
 				browser.
 			</p>
@@ -84,7 +107,7 @@
 				</div>
 				<div>
 					{#each toolsForGroup(group.slugs) as tool (tool.slug)}
-						{@const Icon = tool.icon}
+						{@const Icon = toolIcons[tool.slug]}
 						<a
 							href={resolve(`/tools/${tool.slug}`)}
 							class="focus-ring group grid min-h-32 gap-4 border-b py-6 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-6"

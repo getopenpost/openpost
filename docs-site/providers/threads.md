@@ -1,5 +1,7 @@
 # Threads
 
+This page is for operators configuring Threads and users connecting an account.
+
 Threads supports text, single media, replies, and 2-20 item media carousels, but the media URL requirement makes deployment details matter.
 
 ## What you need

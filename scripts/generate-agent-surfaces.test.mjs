@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -8,12 +8,18 @@ import test from "node:test";
 import { parse } from "parse5";
 import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
 import { comparisonEvidenceRegister } from "../marketing-site/src/routes/_comparison-evidence.ts";
-import { comparisons, platforms } from "../marketing-site/src/routes/_marketing.ts";
+import { comparisons, featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
 import { generateAgentSurface, productionProjections } from "./generate-agent-surfaces.mjs";
+import centralFeatureEvidence from "./public-central-feature-evidence.json" with { type: "json" };
+import noJavaScriptEvidence from "./public-no-javascript-evidence.json" with { type: "json" };
 
-async function runRootTask(root, ...arguments_) {
+async function runRootTask(root, arguments_, environment = {}) {
   await new Promise((resolve, reject) => {
-    const child = spawn("bun", ["run", ...arguments_], { cwd: root, stdio: "inherit" });
+    const child = spawn("bun", ["run", ...arguments_], {
+      cwd: root,
+      env: { ...process.env, ...environment },
+      stdio: "inherit",
+    });
     child.once("error", reject);
     child.once("exit", (code) =>
       code === 0 ? resolve() : reject(new Error(`bun run ${arguments_.join(" ")} exited ${code}`)),
@@ -25,14 +31,238 @@ let productionBuildPromise;
 
 function ensureProductionBuilds(root) {
   productionBuildPromise ??= (async () => {
-    await runRootTask(root, "build", "--", "marketing");
-    await runRootTask(root, "build", "--", "docs");
+    await runRootTask(root, ["build", "--", "marketing"], { TURBO_FORCE: "true" });
+    await runRootTask(root, ["build", "--", "docs"], { TURBO_FORCE: "true" });
   })();
   return productionBuildPromise;
 }
 
 async function fixtureDirectory() {
   return mkdtemp(path.join(os.tmpdir(), "openpost-agent-surface-"));
+}
+
+async function filesWithSuffix(directory, suffix, root = directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const pathname = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...(await filesWithSuffix(pathname, suffix, root)));
+    else if (entry.isFile() && entry.name.endsWith(suffix)) {
+      files.push(path.relative(root, pathname).split(path.sep).join("/"));
+    }
+  }
+  return files.toSorted();
+}
+
+async function artifactSnapshot(directory, relativePaths) {
+  return new Map(
+    await Promise.all(
+      relativePaths.map(async (relativePath) => [
+        relativePath,
+        await readFile(path.join(directory, relativePath)),
+      ]),
+    ),
+  );
+}
+
+async function assertArtifactSnapshot(directory, snapshot) {
+  for (const [relativePath, expected] of snapshot) {
+    assert.deepEqual(
+      await readFile(path.join(directory, relativePath)),
+      expected,
+      `${relativePath} changed when its surface was generated twice from identical sources`,
+    );
+  }
+}
+
+function deterministicSemanticHTML(node) {
+  if (node.nodeName === "#comment") {
+    const comment = node.data.trim();
+    const isFrameworkMarker =
+      /^(?:|\$s\d+|\[-?\d*|\]|\|)$/u.test(comment) ||
+      (/^[a-z0-9]{7}$/iu.test(comment) && /\d/u.test(comment));
+    if (isFrameworkMarker) return undefined;
+  }
+  if (node.nodeName === "#comment") return { comment: node.data };
+  if (node.tagName === "script") {
+    const source = documentAttribute(node, "src") ?? "";
+    const body = (node.childNodes ?? []).map((child) => child.value ?? "").join("");
+    if (
+      /\/(?:_app\/immutable|assets\/app\.)/u.test(source) ||
+      /(?:__sveltekit_|__VP_HASH_MAP__|\/_app\/immutable\/)/u.test(body)
+    )
+      return undefined;
+  }
+  if (
+    node.tagName === "link" &&
+    ["modulepreload", "preload", "stylesheet"].includes(documentAttribute(node, "rel")) &&
+    /(?:\/_app\/immutable\/|\/assets\/(?:app|chunks\/theme|style)[.-])/u.test(
+      documentAttribute(node, "href") ?? "",
+    )
+  )
+    return undefined;
+  if (node.nodeName === "#text") return { text: node.value };
+
+  return {
+    node: node.tagName ?? node.nodeName,
+    attributes: (node.attrs ?? [])
+      .filter(({ name }) => name !== "data-svelte-h" && !/^data-v-[0-9a-f]{8}(?:-s)?$/u.test(name))
+      .map(({ name, value }) => [name, value])
+      .toSorted(([left], [right]) => left.localeCompare(right)),
+    children: (node.childNodes ?? [])
+      .map(deterministicSemanticHTML)
+      .filter((child) => child !== undefined),
+    templateContent: node.content ? deterministicSemanticHTML(node.content) : undefined,
+  };
+}
+
+async function semanticHTMLSnapshot(directory, relativePaths) {
+  return new Map(
+    await Promise.all(
+      relativePaths.map(async (relativePath) => {
+        const document = parse(await readFile(path.join(directory, relativePath), "utf8"));
+        return [relativePath, deterministicSemanticHTML(document)];
+      }),
+    ),
+  );
+}
+
+test("semantic HTML determinism retains maintained documents and ignores only framework runtime hashes", () => {
+  const normalize = (source) => deterministicSemanticHTML(parse(source));
+  const maintained = `<!doctype html><html><head>
+    <link rel="stylesheet" href="/maintained.css">
+    <style>.notice { color: red; }</style>
+    <script type="application/ld+json">{"name":"OpenPost"}</script>
+  </head><body data-v-owner="maintained"><!-- maintained note --><!--license--><!--[owner note]--><template><p>Maintained fallback</p></template></body></html>`;
+  for (const [kind, changed] of [
+    ["linked stylesheet", maintained.replace("/maintained.css", "/changed.css")],
+    ["inline style", maintained.replace("color: red", "color: blue")],
+    ["JSON-LD", maintained.replace('"OpenPost"', '"Changed"')],
+    ["maintained comment", maintained.replace("maintained note", "changed note")],
+    ["seven-character comment", maintained.replace("license", "credits")],
+    ["bracketed comment", maintained.replace("owner note", "reviewed note")],
+    ["maintained data attribute", maintained.replace("data-v-owner", "data-v-reviewer")],
+    ["template fallback", maintained.replace("Maintained fallback", "Changed fallback")],
+  ]) {
+    assert.notDeepEqual(
+      normalize(changed),
+      normalize(maintained),
+      `${kind} drift must be detected`,
+    );
+  }
+
+  const frameworkBuildA = `${maintained}<link rel="stylesheet" href="/_app/immutable/assets/0.A.css">
+    <link rel="modulepreload" href="/assets/chunks/theme.A.js">
+    <!--12qhfyh--><!--$s1--><!--[0--><p data-v-0394ad82>Runtime scoped</p>
+    <script src="/assets/app.A.js"></script>
+    <script>window.__VP_HASH_MAP__={"index.md":"A"}</script>`;
+  const frameworkBuildB = `${maintained}<link rel="stylesheet" href="/_app/immutable/assets/0.B.css">
+    <link rel="modulepreload" href="/assets/chunks/theme.B.js">
+    <!--1cjcgu2--><!--$s2--><!--[7--><p data-v-a3976bdc>Runtime scoped</p>
+    <script src="/assets/app.B.js"></script>
+    <script>window.__VP_HASH_MAP__={"index.md":"B"}</script>`;
+  assert.deepEqual(normalize(frameworkBuildB), normalize(frameworkBuildA));
+});
+
+function documentDescendants(node) {
+  return [node, ...(node.childNodes ?? []).flatMap(documentDescendants)];
+}
+
+function documentAttribute(node, name) {
+  return node.attrs?.find((attribute) => attribute.name === name)?.value;
+}
+
+function documentText(node) {
+  if (node.nodeName === "#text") return node.value ?? "";
+  if (
+    [
+      "button",
+      "form",
+      "input",
+      "nav",
+      "script",
+      "select",
+      "style",
+      "template",
+      "textarea",
+    ].includes(node.tagName)
+  )
+    return "";
+  return (node.childNodes ?? []).map(documentText).join("");
+}
+
+function productionHTMLContract(
+  source,
+  { canonical, description: expectedDescription, evidence, title, home = false },
+) {
+  const document = parse(source);
+  const nodes = documentDescendants(document);
+  const head = nodes.find((node) => node.tagName === "head");
+  const headNodes = documentDescendants(head);
+  const content = nodes.find(
+    (node) =>
+      node.tagName === "main" ||
+      (home && documentAttribute(node, "class")?.split(/\s+/u).includes("VPHome")),
+  );
+  const contentNodes = documentDescendants(content);
+  const canonicalLink = headNodes.find(
+    (node) => node.tagName === "link" && documentAttribute(node, "rel") === "canonical",
+  );
+  const description = headNodes.find(
+    (node) => node.tagName === "meta" && documentAttribute(node, "name") === "description",
+  );
+  const contentText = documentText(content).replace(/\s+/gu, " ").trim();
+  const expectedSummary = expectedDescription.replace(/\s+/gu, " ").trim();
+  const metadataDescription = documentAttribute(description, "content")
+    ?.replace(/\s+/gu, " ")
+    .trim();
+
+  assert.equal(
+    documentText(headNodes.find((node) => node.tagName === "title")),
+    title,
+    `${canonical} must keep its canonical title before hydration`,
+  );
+  assert.equal(
+    metadataDescription,
+    expectedSummary,
+    `${canonical} must keep its owner-reviewed summary in HTML metadata before hydration`,
+  );
+  assert.equal(documentAttribute(canonicalLink, "href"), canonical);
+  const headings = contentNodes.filter((node) => node.tagName === "h1");
+  assert.equal(headings.length, 1, `${canonical} must expose one H1 before hydration`);
+  assert.ok(
+    documentText(headings[0]).replace(/\s+/gu, " ").trim(),
+    `${canonical} must explain what the page is before hydration`,
+  );
+  assert.ok(
+    contentText.includes(evidence.audience),
+    `${canonical} must visibly identify who the page serves before hydration`,
+  );
+  assert.ok(
+    contentNodes.filter(
+      (node) =>
+        ["dd", "li", "p", "td"].includes(node.tagName) &&
+        documentText(node).replace(/\s+/gu, " ").trim().length >= 40,
+    ).length >= 2,
+    `${canonical} must visibly explain what the page provides before hydration`,
+  );
+  assert.ok(
+    contentText.includes(evidence.boundary),
+    `${canonical} must visibly state an important limit or boundary before hydration`,
+  );
+  assert.ok(
+    contentText.length >= 300,
+    `${canonical} must provide substantive guidance and important limits before hydration`,
+  );
+  assert.ok(
+    contentNodes.some(
+      (node) =>
+        node.tagName === "a" &&
+        documentAttribute(node, "href") &&
+        documentText(node).replace(/\s+/gu, " ").trim(),
+    ),
+    `${canonical} must provide a public continuation before hydration`,
+  );
+  return { headNodes };
 }
 
 function legalTextChunks(html) {
@@ -838,6 +1068,32 @@ test("projection validation rejects unsafe or incomplete production contracts", 
   );
 
   await writeFile(
+    docsSource,
+    "# Public guide\n\nUseful public instructions. data-sveltekit-fetched={workspace: privateState}\n",
+  );
+  await assert.rejects(
+    generateAgentSurface({
+      surface: "documentation",
+      outputDirectory: directory,
+      pages: [
+        {
+          sourcePath: docsSource,
+          outputPath: "guide.md",
+          canonical: "https://docs.openpost.social/guide",
+          title: "Public guide",
+          description: "Useful public instructions.",
+        },
+      ],
+      discovery: {
+        title: "Documentation",
+        description: "Public documentation.",
+        links: [],
+      },
+    }),
+    /https:\/\/docs\.openpost\.social\/guide: generated representation contains serialized application state/u,
+  );
+
+  await writeFile(
     htmlPath,
     marketingHTML.replace(
       '<a href="/features">See the features</a>',
@@ -913,17 +1169,58 @@ test(
   { timeout: 180_000 },
   async () => {
     const root = path.resolve(import.meta.dirname, "..");
-    const marketingPackage = JSON.parse(
-      await readFile(path.join(root, "marketing-site/package.json"), "utf8"),
+    const eligibleCanonicals = [
+      ...marketingRouteManifest.map((route) => route.canonical),
+      ...docsSocialEntries
+        .filter((entry) => entry.agentRepresentation.membership === "ordinary")
+        .map((entry) => entry.canonical),
+    ].toSorted();
+    assert.deepEqual(
+      Object.keys(noJavaScriptEvidence).toSorted(),
+      eligibleCanonicals,
+      "the reviewed no-JavaScript evidence contract must own every eligible route exactly once",
     );
-    const docsPackage = JSON.parse(
-      await readFile(path.join(root, "docs-site/package.json"), "utf8"),
+    for (const [canonical, evidence] of Object.entries(noJavaScriptEvidence)) {
+      assert.notEqual(
+        evidence.audience,
+        evidence.boundary,
+        `${canonical} must use distinct evidence for its audience and boundary`,
+      );
+    }
+    const turboPlan = JSON.parse(
+      execFileSync(
+        "bunx",
+        [
+          "turbo",
+          "run",
+          "build",
+          "--dry=json",
+          "--filter=@openpost/site",
+          "--filter=@openpost/docs",
+        ],
+        { cwd: root, encoding: "utf8" },
+      ),
     );
-    assert.match(
-      marketingPackage.scripts.build,
-      /generate-agent-surfaces\.mjs --surface marketing/,
-    );
-    assert.match(docsPackage.scripts.build, /generate-agent-surfaces\.mjs --surface documentation/);
+    const plannedTasks = new Map(turboPlan.tasks.map((task) => [task.taskId, task]));
+    const publicBuilds = [
+      ["marketing", "@openpost/site#build", "dist/**"],
+      ["documentation", "@openpost/docs#build", ".vitepress/dist/**"],
+    ];
+    for (const [surface, taskID, output] of publicBuilds) {
+      const task = plannedTasks.get(taskID);
+      assert.ok(
+        Object.keys(task.inputs).includes("../scripts/generate-agent-surfaces.mjs"),
+        `${surface} cache key must include the shared generator`,
+      );
+      assert.ok(
+        task.outputs.includes(output),
+        `${surface} cache must restore the complete public artifact`,
+      );
+      assert.ok(
+        task.dependencies.includes("@openpost/social-images#check"),
+        `${surface} build must follow the shared route catalogue check`,
+      );
+    }
 
     const marketingLayout = await readFile(
       path.join(root, "marketing-site/src/routes/+layout.svelte"),
@@ -944,6 +1241,37 @@ test(
     assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/llms-full\.txt`/);
 
     await ensureProductionBuilds(root);
+
+    for (const [surface, headersPath, expected] of [
+      [
+        "marketing",
+        path.join(root, "marketing-site/dist/_headers"),
+        [
+          "/*.md",
+          "  Content-Type: text/markdown; charset=utf-8",
+          "/llms.txt",
+          "  Content-Type: text/plain; charset=utf-8",
+        ],
+      ],
+      [
+        "documentation",
+        path.join(root, "docs-site/.vitepress/dist/_headers"),
+        [
+          "/*.md",
+          "  Content-Type: text/markdown; charset=utf-8",
+          "/llms.txt",
+          "  Content-Type: text/plain; charset=utf-8",
+          "/llms-full.txt",
+          "  Content-Type: text/plain; charset=utf-8",
+        ],
+      ],
+    ]) {
+      assert.deepEqual(
+        (await readFile(headersPath, "utf8")).trim().split("\n"),
+        expected,
+        `${surface} build must declare truthful public artifact content types`,
+      );
+    }
 
     for (const production of [
       {
@@ -972,25 +1300,75 @@ test(
       assert.match(discovery, new RegExp(production.discoveryTarget.replaceAll(".", "\\.")));
     }
 
-    const staticRoutes = marketingRouteManifest.filter(
-      (entry) => entry.agentRepresentation === "static",
-    );
     const marketingDirectory = path.join(root, "marketing-site/dist");
-    const firstArtifacts = new Map();
-    for (const route of staticRoutes) {
+    const expectedMarketingMarkdown = marketingRouteManifest.map((route) =>
+      route.path === "/" ? "index.md" : `${route.path.slice(1)}.md`,
+    );
+    const expectedMarketingHTML = marketingRouteManifest.map((route) =>
+      route.path === "/" ? "index.html" : `${route.path.slice(1)}.html`,
+    );
+    assert.deepEqual(
+      await filesWithSuffix(marketingDirectory, ".md"),
+      expectedMarketingMarkdown.toSorted(),
+      "every manifest-owned marketing route must have one Markdown artifact and no stale alias",
+    );
+    assert.deepEqual(
+      await filesWithSuffix(marketingDirectory, ".html"),
+      ["404.html", ...expectedMarketingHTML].toSorted(),
+      "every manifest-owned marketing route must have one HTML artifact and no stale alias",
+    );
+    const firstMarketingSurface = await artifactSnapshot(marketingDirectory, [
+      "_headers",
+      "llms.txt",
+      "sitemap.xml",
+      ...expectedMarketingMarkdown,
+    ]);
+    const firstMarketingHTML = await semanticHTMLSnapshot(
+      marketingDirectory,
+      expectedMarketingHTML,
+    );
+    for (const route of marketingRouteManifest) {
       const outputPath = route.path === "/" ? "index.md" : `${route.path.slice(1)}.md`;
+      const htmlPath = route.path === "/" ? "index.html" : `${route.path.slice(1)}.html`;
+      const html = await readFile(path.join(marketingDirectory, htmlPath), "utf8");
       const markdown = await readFile(path.join(marketingDirectory, outputPath), "utf8");
-      firstArtifacts.set(outputPath, markdown);
+      const { headNodes } = productionHTMLContract(html, {
+        canonical: route.canonical,
+        description: route.description,
+        evidence: noJavaScriptEvidence[route.canonical],
+        title: route.title,
+      });
+      assert.ok(
+        headNodes.some(
+          (node) =>
+            node.tagName === "link" &&
+            documentAttribute(node, "rel") === "alternate" &&
+            documentAttribute(node, "type") === "text/markdown" &&
+            documentAttribute(node, "href") ===
+              new URL(outputPath, "https://openpost.social/").href,
+        ),
+        `${route.canonical} must advertise its explicit Markdown artifact`,
+      );
       assert.match(markdown, new RegExp(`^Title: ${route.title.replaceAll("$", "\\$")}$`, "m"));
+      assert.ok(markdown.includes(`\nDescription: ${route.description}\n`));
       assert.match(
         markdown,
         new RegExp(`^Canonical: ${route.canonical.replaceAll(".", "\\.")}/?$`, "m"),
       );
       assert.equal((markdown.match(/^# /gm) ?? []).length, 1);
       assert.ok(Buffer.byteLength(markdown, "utf8") <= 256 * 1024);
-      assert.doesNotMatch(markdown, /<script|data-sveltekit|Navigation noise/u);
-      assert.doesNotMatch(markdown, /\]\((?:\/|\.\.\/|\.\/)/u);
+      assert.ok(markdownPlainText(markdown).length >= 300);
+      assert.doesNotMatch(
+        markdownOutsideFences(markdown),
+        /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]/imu,
+      );
+      assert.doesNotMatch(markdown, /Navigation noise|https:\/\/app\.openpost\.social/u);
+      assert.doesNotMatch(markdownOutsideFences(markdown), /\]\((?:\/|\.\.\/|\.\/)/u);
     }
+
+    const staticRoutes = marketingRouteManifest.filter(
+      (entry) => entry.agentRepresentation === "static",
+    );
 
     const marketingDiscovery = await readFile(path.join(marketingDirectory, "llms.txt"), "utf8");
     for (const route of staticRoutes.filter(
@@ -1067,6 +1445,19 @@ test(
       features,
       /!\[OpenPost publication composer with destination-specific versions\]\(https:\/\/openpost\.social\/assets\/screenshots\/main-dark\.png\)/u,
     );
+    assert.deepEqual(
+      featureGroups.map(({ id }) => id).toSorted(),
+      Object.keys(centralFeatureEvidence).toSorted(),
+      "the reviewed central-feature contract must own every feature group exactly once",
+    );
+    for (const [featureID, evidence] of Object.entries(centralFeatureEvidence)) {
+      for (const claim of [evidence.title, evidence.outcome, evidence.boundary]) {
+        assert.ok(
+          features.includes(claim),
+          `features.md must preserve the reviewed ${featureID} product claim: ${claim}`,
+        );
+      }
+    }
     for (const policy of ["privacy", "terms", "refunds"]) {
       const html = await readFile(path.join(marketingDirectory, `${policy}.html`), "utf8");
       const markdown = await readFile(path.join(marketingDirectory, `${policy}.md`), "utf8");
@@ -1086,14 +1477,39 @@ test(
     const ordinaryDocs = docsSocialEntries.filter(
       (entry) => entry.agentRepresentation.membership === "ordinary",
     );
-    const firstDocsArtifacts = new Map();
+    const expectedDocsMarkdown = ordinaryDocs.map((entry) => entry.page);
+    const expectedDocsHTML = expectedDocsMarkdown.map((page) => page.replace(/\.md$/u, ".html"));
+    assert.deepEqual(
+      await filesWithSuffix(docsDirectory, ".md"),
+      expectedDocsMarkdown.toSorted(),
+      "every catalogue-owned documentation route must have one Markdown artifact and no stale alias",
+    );
+    assert.deepEqual(
+      await filesWithSuffix(docsDirectory, ".html"),
+      ["404.html", ...expectedDocsHTML].toSorted(),
+      "every catalogue-owned documentation route must have one HTML artifact and no stale alias",
+    );
+    const firstDocsSurface = await artifactSnapshot(docsDirectory, [
+      "_headers",
+      "llms-full.txt",
+      "llms.txt",
+      "sitemap.xml",
+      ...expectedDocsMarkdown,
+    ]);
+    const firstDocsHTML = await semanticHTMLSnapshot(docsDirectory, expectedDocsHTML);
     for (const entry of ordinaryDocs) {
       const html = await readFile(
         path.join(docsDirectory, entry.page.replace(/\.md$/u, ".html")),
         "utf8",
       );
       const markdown = await readFile(path.join(docsDirectory, entry.page), "utf8");
-      firstDocsArtifacts.set(entry.page, markdown);
+      productionHTMLContract(html, {
+        canonical: entry.canonical,
+        description: entry.description,
+        evidence: noJavaScriptEvidence[entry.canonical],
+        title: entry.page === "index.md" ? entry.socialTitle : `${entry.socialTitle} | OpenPost`,
+        home: entry.page === "index.md",
+      });
       assert.ok(
         html.includes(
           `rel="alternate" type="text/markdown" href="${new URL(entry.page, "https://docs.openpost.social/").href}"`,
@@ -1111,11 +1527,16 @@ test(
       assert.ok(markdown.includes(`\nDescription: ${entry.description}\n`));
       assert.ok(markdown.includes(`\nCanonical: ${entry.canonical}\n`));
       assert.ok(markdown.includes(`\n# ${entry.socialTitle}\n`));
+      assert.equal((markdownOutsideFences(markdown).match(/^# /gmu) ?? []).length, 1);
+      assert.ok(markdownPlainText(markdown).length >= 300);
+      if (!entry.agentRepresentation.sizeException) {
+        assert.ok(Buffer.byteLength(markdown, "utf8") <= 256 * 1024);
+      }
+      assert.doesNotMatch(markdownOutsideFences(markdown), /\]\((?:\/|\.\.\/|\.\/)/u);
       assert.doesNotMatch(
         markdownOutsideFences(markdown),
-        /\]\((?:\/|\.\.\/|\.\/|https:\/\/app\.openpost\.social)/u,
+        /<script|data-sveltekit|__sveltekit|<!--@include:|^:::[ \t]|\]\(https:\/\/app\.openpost\.social/imu,
       );
-      assert.doesNotMatch(markdown, /<!--@include:/u);
     }
 
     for (const [key, title] of [
@@ -1182,15 +1603,16 @@ test(
       docsSocialEntries.map((entry) => new URL(entry.canonical).href).toSorted(),
     );
 
-    await generateAgentSurface(productionProjections.documentation);
-    for (const [outputPath, first] of firstDocsArtifacts) {
-      assert.equal(await readFile(path.join(docsDirectory, outputPath), "utf8"), first);
-    }
+    await runRootTask(root, ["build", "--", "docs"], { TURBO_FORCE: "true" });
+    await assertArtifactSnapshot(docsDirectory, firstDocsSurface);
+    assert.deepEqual(await semanticHTMLSnapshot(docsDirectory, expectedDocsHTML), firstDocsHTML);
 
-    await generateAgentSurface(productionProjections.marketing);
-    for (const [outputPath, first] of firstArtifacts) {
-      assert.equal(await readFile(path.join(marketingDirectory, outputPath), "utf8"), first);
-    }
+    await runRootTask(root, ["build", "--", "marketing"], { TURBO_FORCE: "true" });
+    await assertArtifactSnapshot(marketingDirectory, firstMarketingSurface);
+    assert.deepEqual(
+      await semanticHTMLSnapshot(marketingDirectory, expectedMarketingHTML),
+      firstMarketingHTML,
+    );
   },
 );
 

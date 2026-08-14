@@ -1,5 +1,7 @@
 # Platform Implementations & Limitations
 
+Use this page when checking implemented formats and safe provider limits.
+
 OpenPost includes publishing implementations for X, Mastodon, Bluesky, Threads, LinkedIn, Facebook Pages, Instagram Professional accounts, TikTok, YouTube, and Discord webhooks. An implementation is not a managed-service certification claim. App review, the right account type, public media links, runtime controls, and current local and live tests remain separate gates.
 
 A social network may offer a feature that OpenPost has not implemented. The table describes current code paths and where an app review, server setting, or live account test still matters.

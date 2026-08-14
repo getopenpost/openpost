@@ -1,5 +1,7 @@
 # Environment Variables
 
+This reference is for operators configuring an OpenPost instance.
+
 This page summarizes the env vars used by the backend. Some values in `.env.example` are recommended deployment examples; code defaults may differ.
 
 ## File-backed values

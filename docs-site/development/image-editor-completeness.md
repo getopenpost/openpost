@@ -1,5 +1,7 @@
 # Image Editor Completeness Checklist
 
+This checklist is for contributors reviewing Image Editor completeness.
+
 Reviewed: 2026-08-07
 
 This is the implementation contract for bringing the OpenPost Image Editor to a

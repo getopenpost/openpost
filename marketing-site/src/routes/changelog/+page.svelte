@@ -24,9 +24,13 @@
 		<div class="max-w-4xl">
 			<p class="section-label">Changelog</p>
 			<h1 class="marketing-title mt-5">What changed, in plain language.</h1>
+			<p class="mt-5 text-sm font-medium text-foreground">
+				This page is for users and operators reviewing changes before an update.
+			</p>
 			<p class="marketing-copy mt-6">
 				This page is generated from the repository changelog, the same record used for release
-				notes. Open the source file for every fix and migration detail.
+				notes. This summary does not replace the complete fixes and migration details in the source
+				file.
 			</p>
 			<div class="mt-8 flex flex-wrap gap-3">
 				<Button href={`${githubUrl}/blob/main/CHANGELOG.md`} size="lg">

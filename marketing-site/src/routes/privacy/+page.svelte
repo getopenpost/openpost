@@ -42,6 +42,9 @@
 		<p class="mt-5 text-lg leading-8 text-muted-foreground">
 			What the hosted OpenPost service processes, why it does so, and the choices available to you.
 		</p>
+		<p class="mt-4 text-sm font-medium">
+			This policy is for people who use or evaluate the hosted OpenPost service.
+		</p>
 		<div class="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium">
 			<a
 				href={resolve('/security')}

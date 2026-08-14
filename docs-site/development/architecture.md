@@ -1,5 +1,7 @@
 # Architecture
 
+This page is for contributors changing OpenPost's system boundaries.
+
 ## Frontend
 
 - SvelteKit

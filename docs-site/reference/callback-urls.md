@@ -1,5 +1,7 @@
 # Callback URLs
 
+This reference is for operators registering provider and identity callback URLs.
+
 | Provider      | Local callback                                             | Production callback                                          |
 | ------------- | ---------------------------------------------------------- | ------------------------------------------------------------ |
 | X             | `http://localhost:8080/api/v1/accounts/x/callback`         | `https://your-domain.com/api/v1/accounts/x/callback`         |

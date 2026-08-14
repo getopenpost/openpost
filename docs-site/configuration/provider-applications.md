@@ -1,5 +1,7 @@
 # Provider Applications
 
+This page is for operators configuring provider OAuth applications.
+
 A provider application identifies the OpenPost installation to a social network during OAuth. It is instance configuration, not a user's connected social-account token and not an OpenPost API or CLI token.
 
 OpenPost manages encrypted provider-application rows for `x`, `mastodon`, `linkedin`, `threads`, `facebook`, `instagram`, `tiktok`, and `youtube`. Bluesky users connect with an app password, and Discord users connect a webhook, so the administrator API rejects both.

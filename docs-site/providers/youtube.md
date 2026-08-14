@@ -1,5 +1,7 @@
 # YouTube
 
+This page is for operators configuring YouTube and users connecting a channel.
+
 YouTube supports Shorts and long-form video uploads. It uses Google OAuth, asks the user to choose a channel, and stores the Google refresh token for scheduled uploads.
 
 ## Requirements

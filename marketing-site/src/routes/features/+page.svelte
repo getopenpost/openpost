@@ -7,7 +7,18 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 -->
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { ArrowRight, Check, ExternalLink, ShieldCheck } from '@lucide/svelte';
+	import {
+		ArrowRight,
+		BarChart3,
+		CalendarCheck2,
+		Check,
+		Code2,
+		ExternalLink,
+		Image,
+		Images,
+		ShieldCheck,
+		UsersRound
+	} from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		featureGroups,
@@ -23,6 +34,15 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 	function linkAttributes(href: string) {
 		return { href: href.startsWith('/') ? resolve(href as '/') : href };
 	}
+
+	const featureIcons: Record<(typeof featureGroups)[number]['id'], typeof Images> = {
+		compose: Images,
+		schedule: CalendarCheck2,
+		'media-editing': Image,
+		'analytics-inbox': BarChart3,
+		teams: UsersRound,
+		automation: Code2
+	};
 </script>
 
 <section class="features-hero border-b">
@@ -30,6 +50,9 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 		<div class="max-w-4xl">
 			<p class="section-label">Features</p>
 			<h1 class="marketing-title mt-5">One system for the whole publishing job.</h1>
+			<p class="mt-5 text-sm font-medium text-foreground">
+				This page is for founders and teams evaluating the complete OpenPost workflow.
+			</p>
 			<p class="marketing-copy mt-7">
 				Create a source idea, adapt it for each account, prepare the media, schedule the work,
 				inspect the result, and keep the same boundaries when a teammate or tool helps.
@@ -86,7 +109,7 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 
 		<div class="feature-rail">
 			{#each featureGroups as feature (feature.id)}
-				{@const Icon = feature.icon}
+				{@const Icon = featureIcons[feature.id]}
 				<article
 					id={feature.id}
 					class="feature-station scroll-mt-28"

@@ -23,8 +23,9 @@
 		</div>
 		<div>
 			<p class="marketing-copy">
-				Every network has different formats, permissions, and media rules. OpenPost keeps those
-				differences visible in the editor and platform guides.
+				This index is for operators deciding which social accounts to connect. Every network has
+				different formats, permissions, and media rules. OpenPost keeps those differences visible in
+				the editor and platform guides.
 			</p>
 			<div class="mt-7 flex flex-wrap gap-3">
 				<Button href={managedSignupUrl} size="lg">Try OpenPost</Button>

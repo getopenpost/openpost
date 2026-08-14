@@ -15,6 +15,9 @@
 			How cancellations, refund requests, billing errors, and consumer rights work for the hosted
 			OpenPost service.
 		</p>
+		<p class="mt-4 text-sm font-medium">
+			This policy is for hosted OpenPost customers reviewing cancellation and refund terms.
+		</p>
 		<a href={resolve('/pricing')} class="mt-5 inline-flex text-sm font-medium text-primary"
 			>Pricing</a
 		>

@@ -1,5 +1,7 @@
 # Media Storage
 
+This page is for operators choosing local or S3-compatible media storage.
+
 OpenPost stores media on the local file system by default. It can also use S3 or R2 storage.
 
 ## Video processing dependency

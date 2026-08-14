@@ -1,5 +1,7 @@
 # Development Setup
 
+This page is for contributors setting up the OpenPost repository.
+
 OpenPost's root Devenv configuration pins Go, Bun, Node, and the supporting
 tools used by the repository. On Hermes, provision Nix, Devenv, direnv, and the
 direnv shell hook through the durable host configuration so they return after a

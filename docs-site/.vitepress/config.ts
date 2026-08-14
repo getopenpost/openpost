@@ -214,6 +214,13 @@ export default defineConfig({
   cleanUrls: true,
   lastUpdated: true,
   head: [["link", { rel: "icon", href: `${docsBase}assets/brand/icon.svg` }]],
+  transformPageData(pageData) {
+    const entry = docsSocialEntries.find((candidate) => candidate.page === pageData.relativePath);
+    if (entry && typeof pageData.frontmatter.description !== "string") {
+      pageData.frontmatter.description = entry.description;
+      pageData.description = entry.description;
+    }
+  },
   transformHead({ page, pageData }) {
     const frontmatterDescription = pageData.frontmatter.description;
     const social = resolveDocsSocial({

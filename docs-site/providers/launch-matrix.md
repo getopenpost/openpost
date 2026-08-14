@@ -1,5 +1,7 @@
 # Provider Readiness and Launch Gate
 
+This page is for operators and release reviewers deciding whether a provider-format claim is current.
+
 OpenPost keeps provider implementation, setup, evidence, approval, and runtime
 control as separate facts. An adapter in the binary proves only that code
 exists. It does not make a provider or format ready, connectable, publishable,

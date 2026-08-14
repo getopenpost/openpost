@@ -75,10 +75,15 @@ test("renders ordered exact Markdown selection rules from canonical catalogues",
     assert.match(cache.expression, /http\.request\.method in \{"GET" "HEAD"\}/u);
     assert.doesNotMatch(cache.expression, /headers\["accept"\]|text\/markdown/u);
     assert.deepEqual(cache.action_parameters.vary.headers.accept, {
-      action: "normalize",
-      media_types: ["text/html", "text/markdown"],
+      action: "passthrough",
     });
     const headers = zone.rules.http_response_headers_transform[0].action_parameters.headers;
+    const responseExpression = zone.rules.http_response_headers_transform[0].expression;
+    assert.match(responseExpression, /http\.response\.code eq 200/u);
+    assert.match(
+      responseExpression,
+      /http\.response\.content_type\.media_type eq "text\/markdown"/u,
+    );
     assert.deepEqual(headers["Content-Type"], {
       operation: "set",
       value: "text/markdown; charset=utf-8",
@@ -123,6 +128,31 @@ test("rejects Free-plan count and expression limits before an API call", async (
   assert.throws(
     () => validateCloudflarePlan(tooManyOriginHeaders),
     /101 Pages header rules exceed Cloudflare Free limit 100/u,
+  );
+});
+
+test("rejects cache normalization that merges rejected Accept values with exact Markdown", () => {
+  const plan = samplePlan();
+  plan.zones[0].rules.http_request_cache_settings[0].action_parameters.vary.headers.accept = {
+    action: "normalize",
+    media_types: ["text/html", "text/markdown"],
+  };
+  assert.throws(
+    () => validateCloudflarePlan(plan),
+    /Accept cache variance must use exact passthrough/u,
+  );
+});
+
+test("rejects response transforms that would relabel an HTML fallback as Markdown", () => {
+  const plan = samplePlan();
+  const responseRule = plan.zones[0].rules.http_response_headers_transform[0];
+  responseRule.expression = responseRule.expression.replace(
+    ' and http.response.content_type.media_type eq "text/markdown"',
+    "",
+  );
+  assert.throws(
+    () => validateCloudflarePlan(plan),
+    /Markdown response transform must require a successful Markdown origin response/u,
   );
 });
 

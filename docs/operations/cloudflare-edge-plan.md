@@ -30,11 +30,18 @@ characters. The generated plan uses this Cloudflare execution order:
    weighted, wildcard, parameterized, truncated, and internally spaced values
    do not qualify.
 3. `http_request_cache_settings` enables `Vary` handling for `Accept` on every
-   canonical `GET` and `HEAD`, with only `text/html` and `text/markdown`
-   normalization. It covers HTML requests as well as exact Markdown requests so
-   the first cached representation cannot become a shared, non-varying entry.
+   canonical `GET` and `HEAD` and uses the exact request value as the cache
+   variant. It covers HTML requests as well as exact Markdown requests so the
+   first cached representation cannot become a shared, non-varying entry.
+   Exact-value passthrough is required here: Cloudflare's media-type
+   normalization removes parameters and quality weights, which would collapse
+   rejected values such as `text/markdown; charset=utf-8` and
+   `text/markdown;q=0.5` onto the accepted `text/markdown` cache variant.
 4. `http_response_headers_transform` sets the selected response to
-   `text/markdown; charset=utf-8` and returns `Vary: Accept`.
+   `text/markdown; charset=utf-8` and returns `Vary: Accept` only when the
+   rewritten origin response is successful and already identifies itself as
+   Markdown. Missing artifacts and HTML error fallbacks keep their actual
+   status and content type.
 
 Cloudflare evaluates cache variance from the origin response. The public builds
 therefore generate `Vary: Accept` for every catalogue-owned canonical HTML path

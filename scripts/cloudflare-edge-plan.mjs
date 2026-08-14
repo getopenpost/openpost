@@ -30,6 +30,8 @@ function pathSet(paths, field = "http.request.uri.path") {
 }
 
 const safeRepresentationMethod = 'http.request.method in {"GET" "HEAD"}';
+const successfulMarkdownResponse =
+  'http.response.code eq 200 and http.response.content_type.media_type eq "text/markdown"';
 const exactMarkdownAccept = [
   "not http.request.headers.truncated",
   'len(http.request.headers["accept"]) eq 1',
@@ -125,6 +127,7 @@ function rewriteRules(zone, routes) {
 
 function representationRules(zone, routes) {
   const markdownExpression = expressionFor(zone.hostname, routes, { raw: true });
+  const markdownResponseExpression = `${markdownExpression} and ${successfulMarkdownResponse}`;
   const representationExpression = expressionFor(zone.hostname, routes, {
     raw: true,
     exactMarkdown: false,
@@ -142,8 +145,7 @@ function representationRules(zone, routes) {
             default: { action: "bypass" },
             headers: {
               accept: {
-                action: "normalize",
-                media_types: ["text/html", "text/markdown"],
+                action: "passthrough",
               },
             },
           },
@@ -154,7 +156,7 @@ function representationRules(zone, routes) {
       rule(
         `${zone.key}:markdown-response`,
         "Identify internally selected Markdown and declare its cache variance",
-        markdownExpression,
+        markdownResponseExpression,
         "rewrite",
         {
           headers: {
@@ -277,6 +279,24 @@ export function validateCloudflarePlan(plan) {
     throw new Error("Cloudflare phases are not in the required execution order");
   }
   for (const zone of plan.zones) {
+    for (const cacheRule of zone.rules.http_request_cache_settings ?? []) {
+      const accept = cacheRule.action_parameters?.vary?.headers?.accept;
+      if (accept?.action !== "passthrough" || Object.keys(accept).some((key) => key !== "action")) {
+        throw new Error(`${zone.hostname} Accept cache variance must use exact passthrough`);
+      }
+    }
+    for (const responseRule of zone.rules.http_response_headers_transform ?? []) {
+      if (
+        !responseRule.expression.includes("http.response.code eq 200") ||
+        !responseRule.expression.includes(
+          'http.response.content_type.media_type eq "text/markdown"',
+        )
+      ) {
+        throw new Error(
+          `${zone.hostname} Markdown response transform must require a successful Markdown origin response`,
+        );
+      }
+    }
     const [problem] = capacityProblems(plan, zone.rules, zone.key, zone.origin_headers);
     if (problem) {
       throw new Error(`${zone.hostname} ${problem.reason}`);

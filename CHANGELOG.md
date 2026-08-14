@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Fixed Cloudflare edge cache variance so parameterized and weighted Markdown requests cannot reuse the exact Markdown representation, and kept HTML fallbacks from being mislabeled when a Markdown artifact is unavailable.
 - Added a read-only deployment proof for the public Markdown surfaces that binds the clean reviewed Git revision to both Cloudflare Pages builds by full commit hash, exact local and live artifacts, discovery and native-interface behavior, and a separate 24-hour AI crawl observation. The documentation full corpus now links only to explicit generated Markdown or intentional native machine assets.
 - Instance administrators can now page, filter, and export the same permission-safe audit vocabulary across every Organization, while Organization Owner boundaries remain unchanged and ordinary users, Workspace roles, scoped tokens, and other non-browser credentials cannot request instance-wide evidence.
 - Added a deterministic Cloudflare plan for both public hosts. It uses the route catalogues to redirect known paths and select Markdown only for exact requests, checks Free-plan limits before changes, inspects conflicts without writing, records apply evidence, and generates a reviewable rollback.

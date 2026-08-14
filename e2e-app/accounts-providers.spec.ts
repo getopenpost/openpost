@@ -299,8 +299,12 @@ for (const viewport of [
     const auth = await registerUser(request, `accounts-routing-${unique}@example.com`);
     const workspace = await createWorkspace(request, auth.token, `Accounts routing ${unique}`);
     await authenticatePage(page, auth.token);
+    if (viewport.width === 390) {
+      await page.addInitScript(() => localStorage.setItem("mode-watcher-mode", "dark"));
+    }
 
     await page.goto(`/accounts?oauth_status=cancelled&workspace_id=${workspace.id}`);
+    if (viewport.width === 390) await expect(page.locator("html")).toHaveClass(/dark/);
     await expect(page).toHaveURL(/\/accounts$/);
     await expect(page.getByRole("heading", { level: 1, name: "Social accounts" })).toBeVisible();
     await expect(

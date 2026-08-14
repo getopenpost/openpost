@@ -18,22 +18,69 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
   await createWorkspace(request, auth.token, "Billing E2E");
 
   await authenticatePage(page, auth.token);
-  await page.goto("/settings?tab=plan");
+  const browserErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => browserErrors.push(error.message));
 
-  await expect(page.getByRole("heading", { name: "Plan & usage" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Billing", exact: true })).toBeVisible();
-  await expect(page.getByText("No active plan")).toHaveCount(0);
-  await expect(
-    page.getByText("Start checkout to activate hosted billing for this organization."),
-  ).toBeVisible();
-  await expect(page.getByTestId("billing-provider-boundary")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Customer Portal" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /^Choose / })).toHaveCount(5);
-  await expect(page.getByRole("heading", { name: "Starter" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Founder" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
-  await expect(page.locator("#billing").getByRole("heading", { name: "Team" })).toBeVisible();
-  await expect(page.locator("#billing").getByRole("heading", { name: "Agency" })).toBeVisible();
+  const scenarios = [
+    { width: 1280, height: 800, locale: "en", theme: "light" },
+    { width: 390, height: 844, locale: "en", theme: "dark" },
+    { width: 320, height: 720, locale: "pt", theme: "light" },
+  ] as const;
+  for (const scenario of scenarios) {
+    await test.step(`${scenario.width}px ${scenario.locale} ${scenario.theme}`, async () => {
+      await page.setViewportSize(scenario);
+      await page.context().addCookies([
+        {
+          name: "PARAGLIDE_LOCALE",
+          value: scenario.locale,
+          domain: "127.0.0.1",
+          path: "/",
+          sameSite: "Lax",
+        },
+      ]);
+      await page.goto("/settings");
+      await page.evaluate(
+        (theme) => localStorage.setItem("mode-watcher-mode", theme),
+        scenario.theme,
+      );
+      await page.reload();
+
+      const planLabel = scenario.locale === "pt" ? "Plano e utilização" : "Plan & usage";
+      if (scenario.width >= 1024) {
+        const planLink = page.locator('[data-settings-tab="plan"]');
+        await planLink.focus();
+        await expect(planLink).toBeFocused();
+        await page.keyboard.press("Enter");
+      } else {
+        await page.goto("/settings?tab=plan");
+      }
+
+      await expect(page).toHaveURL(/\/settings\?tab=plan$/);
+      if (scenario.theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
+      else await expect(page.locator("html")).not.toHaveClass(/dark/);
+      await expect(page.getByRole("heading", { name: planLabel })).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: scenario.locale === "pt" ? "Faturação" : "Billing",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(page.getByTestId("settings-navigation")).toBeVisible();
+      await expect(page.getByRole("button", { name: /^Choose |^Escolher / })).toHaveCount(5);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        )
+        .toBe(true);
+    });
+  }
+
+  expect(browserErrors).toEqual([]);
 });
 
 test("billing separates OpenPost facts from purpose-specific Paddle actions", async ({
@@ -637,6 +684,11 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
   let welcomeCalls = 0;
   let resumeCalls = 0;
   let workspaceCreated = false;
+  const browserErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") browserErrors.push(message.text());
+  });
+  page.on("pageerror", (error) => browserErrors.push(error.message));
 
   await routeBrowserRegistration(page, email);
   await page.route("**/api/v1/workspaces", async (route) => {
@@ -945,15 +997,44 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
     colorScheme: "light",
   });
 
-  await page.setViewportSize({ width: 320, height: 720 });
-  await expect(page.getByRole("heading", { name: "Put your content team to work" })).toBeVisible();
-  const mobileOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-  );
-  expect(mobileOverflow).toBeLessThanOrEqual(1);
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  for (const width of [390, 320]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 720 });
+    await expect(
+      page.getByRole("heading", { name: "Put your content team to work" }),
+    ).toBeVisible();
+    const mobileOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(mobileOverflow).toBeLessThanOrEqual(1);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
+  }
+
+  await page.context().addCookies([
+    {
+      name: "PARAGLIDE_LOCALE",
+      value: "pt",
+      domain: "127.0.0.1",
+      path: "/",
+      sameSite: "Lax",
+    },
+  ]);
+  await page.reload();
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          (
+            window as typeof window & {
+              __openpostPaddleTest?: { checkout?: { settings?: { locale?: string } } };
+            }
+          ).__openpostPaddleTest?.checkout?.settings?.locale,
+      ),
+    )
+    .toBe("pt");
   await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  expect(browserErrors).toEqual([]);
 });

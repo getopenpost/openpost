@@ -48,6 +48,7 @@
         ".oxfmtrc.json",
         "bun.lock",
         "bunfig.toml",
+        "cloudflare/edge-plan.json",
         "compatibility-surfaces.json",
         "devenv.lock",
         "devenv.nix",

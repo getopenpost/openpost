@@ -62,6 +62,7 @@ const checks = {
   ]),
   "public-routes": stage("public routes", [
     bunTest(
+      "scripts/cloudflare-edge-plan.test.mjs",
       "scripts/check-marketing-route-manifest.test.mjs",
       "scripts/generate-agent-surfaces.test.mjs",
     ),

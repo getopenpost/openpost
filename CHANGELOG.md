@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Added a deterministic Cloudflare plan for both public hosts. It uses the route catalogues to redirect known paths and select Markdown only for exact requests, checks Free-plan limits before changes, inspects conflicts without writing, records apply evidence, and generates a reviewable rollback.
 - Proved the complete daily-workflow cohort across paged Engagement and Messages history, request races and retries, all eight exact Rendition outcomes, and responsive, localized Accounts and Paddle billing journeys.
 - Marketing and documentation builds now prove one complete public delivery contract across every eligible HTML and Markdown route, including prerendered meaning, discovery, safety, deterministic output, cache planning, size limits, and explicit artifact content types.
 - Composer destination controls now retain a usable mobile scroll area when first-use guidance is present.

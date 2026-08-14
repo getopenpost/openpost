@@ -9,7 +9,11 @@ import { parse } from "parse5";
 import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
 import { comparisonEvidenceRegister } from "../marketing-site/src/routes/_comparison-evidence.ts";
 import { comparisons, featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
-import { generateAgentSurface, productionProjections } from "./generate-agent-surfaces.mjs";
+import {
+  generateAgentSurface,
+  productionProjections,
+  renderOriginVaryHeaders,
+} from "./generate-agent-surfaces.mjs";
 import centralFeatureEvidence from "./public-central-feature-evidence.json" with { type: "json" };
 import noJavaScriptEvidence from "./public-no-javascript-evidence.json" with { type: "json" };
 
@@ -40,6 +44,42 @@ function ensureProductionBuilds(root) {
 async function fixtureDirectory() {
   return mkdtemp(path.join(os.tmpdir(), "openpost-agent-surface-"));
 }
+
+test("origin Vary headers cover only canonical HTML and explicit Markdown within Pages limits", () => {
+  const base = [
+    "/*.md",
+    "  Content-Type: text/markdown; charset=utf-8",
+    "  Vary: Accept",
+    "/llms.txt",
+    "  Content-Type: text/plain; charset=utf-8",
+    "",
+  ].join("\n");
+  const pages = [
+    { canonical: "https://openpost.social/" },
+    { canonical: "https://openpost.social/features" },
+  ];
+  const rendered = renderOriginVaryHeaders(base, pages);
+
+  assert.match(
+    rendered,
+    /\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8\n  Vary: Accept/u,
+  );
+  assert.match(rendered, /\n\/\n  Vary: Accept\n/u);
+  assert.match(rendered, /\n\/features\n  Vary: Accept\n/u);
+  assert.doesNotMatch(rendered, /\/assets|\/unknown/u);
+  assert.equal(renderOriginVaryHeaders(rendered, pages), rendered);
+
+  assert.throws(
+    () =>
+      renderOriginVaryHeaders(
+        base,
+        Array.from({ length: 99 }, (_, index) => ({
+          canonical: `https://openpost.social/page-${index}`,
+        })),
+      ),
+    /uses 101 rules; Free limit is 100/u,
+  );
+});
 
 async function filesWithSuffix(directory, suffix, root = directory) {
   const files = [];
@@ -1242,35 +1282,52 @@ test(
 
     await ensureProductionBuilds(root);
 
-    for (const [surface, headersPath, expected] of [
+    for (const [surface, headersPath, canonicalPaths, plainTextPaths] of [
       [
         "marketing",
         path.join(root, "marketing-site/dist/_headers"),
-        [
-          "/*.md",
-          "  Content-Type: text/markdown; charset=utf-8",
-          "/llms.txt",
-          "  Content-Type: text/plain; charset=utf-8",
-        ],
+        marketingRouteManifest
+          .filter((route) =>
+            ["static", "platform", "comparison", "tool"].includes(route.agentRepresentation),
+          )
+          .map((route) => new URL(route.canonical).pathname),
+        ["/llms.txt"],
       ],
       [
         "documentation",
         path.join(root, "docs-site/.vitepress/dist/_headers"),
-        [
-          "/*.md",
-          "  Content-Type: text/markdown; charset=utf-8",
-          "/llms.txt",
-          "  Content-Type: text/plain; charset=utf-8",
-          "/llms-full.txt",
-          "  Content-Type: text/plain; charset=utf-8",
-        ],
+        docsSocialEntries.map((entry) => new URL(entry.canonical).pathname),
+        ["/llms.txt", "/llms-full.txt"],
       ],
     ]) {
-      assert.deepEqual(
-        (await readFile(headersPath, "utf8")).trim().split("\n"),
-        expected,
-        `${surface} build must declare truthful public artifact content types`,
+      const headers = await readFile(headersPath, "utf8");
+      assert.match(
+        headers,
+        /\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8\n  Vary: Accept/u,
+        `${surface} Markdown artifacts must vary at the origin`,
       );
+      for (const pathname of plainTextPaths) {
+        assert.ok(
+          headers.includes(`${pathname}\n  Content-Type: text/plain; charset=utf-8`),
+          `${surface} must keep ${pathname} plain text`,
+        );
+      }
+      for (const pathname of canonicalPaths) {
+        assert.ok(
+          headers.includes(`${pathname}\n  Vary: Accept`),
+          `${surface} must vary canonical ${pathname} at the origin`,
+        );
+      }
+      assert.ok(
+        headers.split("\n").filter((line) => line && !/^\s/u.test(line) && !line.startsWith("#"))
+          .length <= 100,
+        `${surface} must stay within the Pages _headers Free limit`,
+      );
+      assert.ok(
+        headers.split("\n").every((line) => line.length <= 2000),
+        `${surface} must stay within the Pages _headers line limit`,
+      );
+      assert.doesNotMatch(headers, /\n\/assets(?:\/|\*)|\n\/unknown/u);
     }
 
     for (const production of [

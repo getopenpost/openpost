@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "owner": "OpenPost public-surface operators",
+  "rule_ref_prefix": "openpost:markdown:",
+  "api_base_url": "https://api.cloudflare.com/client/v4",
+  "limits": {
+    "expression_characters": 4096,
+    "pages_header_rules": 100,
+    "pages_header_line_characters": 2000,
+    "single_redirect_rules": 10,
+    "transform_rules": 10,
+    "cache_rules": 10
+  },
+  "phases": [
+    "http_request_dynamic_redirect",
+    "http_request_transform",
+    "http_request_cache_settings",
+    "http_response_headers_transform"
+  ],
+  "zones": [
+    {
+      "key": "marketing",
+      "hostname": "openpost.social",
+      "zone_id_env": "OPENPOST_CLOUDFLARE_MARKETING_ZONE_ID",
+      "pages_base_header_rules": 2,
+      "route_source": "marketingRouteManifest"
+    },
+    {
+      "key": "documentation",
+      "hostname": "docs.openpost.social",
+      "zone_id_env": "OPENPOST_CLOUDFLARE_DOCUMENTATION_ZONE_ID",
+      "pages_base_header_rules": 3,
+      "route_source": "docsPageCatalog"
+    }
+  ]
+}

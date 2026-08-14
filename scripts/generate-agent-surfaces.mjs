@@ -19,6 +19,9 @@ const generatedNotice =
 const maximumRepresentationBytes = 256 * 1024;
 const corpusWarningBytes = 1024 * 1024;
 const maximumCorpusBytes = 2 * 1024 * 1024;
+const maximumPagesHeaderRules = 100;
+const maximumPagesHeaderLineCharacters = 2000;
+const generatedVaryHeaderMarker = "# OpenPost canonical Vary rules (generated)";
 const privateRoutePattern =
   /^\/(?:login|register|onboarding|checkout|organizations|workspaces|publications|renditions|media|settings|billing|oauth|api)(?:[/.?#]|$)/iu;
 const privateApplicationOrigins = new Set(["https://app.openpost.social"]);
@@ -45,6 +48,34 @@ const ignoredMarketingTags = new Set([
   "textarea",
   "video",
 ]);
+
+function headerRuleCount(contents) {
+  return contents.split("\n").filter((line) => line && !/^\s/u.test(line) && !line.startsWith("#"))
+    .length;
+}
+
+export function renderOriginVaryHeaders(baseHeaders, pages) {
+  const [operatorHeaders] = baseHeaders.split(`\n${generatedVaryHeaderMarker}\n`, 1);
+  const canonicalPaths = [...new Set(pages.map((page) => new URL(page.canonical).pathname))].sort(
+    (left, right) => (left < right ? -1 : left > right ? 1 : 0),
+  );
+  const blocks = canonicalPaths.map((pathname) => `${pathname}\n  Vary: Accept`).join("\n");
+  const rendered = `${operatorHeaders.trimEnd()}\n${generatedVaryHeaderMarker}\n${blocks}\n`;
+  const count = headerRuleCount(rendered);
+  if (count > maximumPagesHeaderRules) {
+    throw new Error(
+      `Cloudflare Pages _headers uses ${count} rules; Free limit is ${maximumPagesHeaderRules}`,
+    );
+  }
+  for (const line of rendered.split("\n")) {
+    if (line.length > maximumPagesHeaderLineCharacters) {
+      throw new Error(
+        `Cloudflare Pages _headers line uses ${line.length} characters; limit is ${maximumPagesHeaderLineCharacters}`,
+      );
+    }
+  }
+  return rendered;
+}
 const transparentMarketingTags = new Set([
   "abbr",
   "address",
@@ -828,6 +859,16 @@ export async function generateAgentSurface(projection) {
     }
     await writeFile(path.join(projection.outputDirectory, "llms-full.txt"), corpus, "utf8");
   }
+  const headersPath = path.join(projection.outputDirectory, "_headers");
+  try {
+    await writeFile(
+      headersPath,
+      renderOriginVaryHeaders(await readFile(headersPath, "utf8"), generatedPages),
+      "utf8",
+    );
+  } catch (error) {
+    if (error.code !== "ENOENT" || projection.originHeadersRequired) throw error;
+  }
   await verifyWrittenArtifacts(projection, generatedPages, corpus);
   return generatedPages;
 }
@@ -835,6 +876,7 @@ export async function generateAgentSurface(projection) {
 export const productionProjections = {
   marketing: {
     surface: "marketing",
+    originHeadersRequired: true,
     outputDirectory: path.join(repositoryRoot, "marketing-site/dist"),
     pages: marketingRouteManifest
       .filter((route) =>
@@ -925,6 +967,7 @@ export const productionProjections = {
   },
   documentation: {
     surface: "documentation",
+    originHeadersRequired: true,
     sourceRoot: path.join(repositoryRoot, "docs-site"),
     corpus: { title: "OpenPost Documentation Full Corpus" },
     outputDirectory: path.join(repositoryRoot, "docs-site/.vitepress/dist"),

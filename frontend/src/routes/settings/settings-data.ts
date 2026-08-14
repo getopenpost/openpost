@@ -251,7 +251,7 @@ export interface MCPActivityItem {
 	client_scope?: string;
 	client_token_prefix?: string;
 	tool_name: string;
-	status: string;
+	status?: string;
 	error_message?: string;
 	duration_ms: number;
 	created_at: string;
@@ -264,6 +264,7 @@ export interface BillingStatus {
 	organization_id: string;
 	workspace_id: string;
 	provider?: string;
+	billing_contact_email?: string;
 	status: string;
 	plan_id?: string;
 	current_period_end?: string;
@@ -271,9 +272,9 @@ export interface BillingStatus {
 	access_restricted: boolean;
 	past_due_since?: string;
 	cancel_at_period_end: boolean;
-	limits: Record<string, number>;
-	usage: Record<string, number>;
-	period_start: string;
+	limits?: Record<string, number>;
+	usage?: Record<string, number>;
+	period_start?: string;
 	provider_costs: ProviderCostSummary[] | null;
 }
 

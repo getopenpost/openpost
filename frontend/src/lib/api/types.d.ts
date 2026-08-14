@@ -4651,6 +4651,8 @@ export interface components {
             readonly $schema?: string;
             /** @description Whether failed payment currently restricts paid-plan access */
             access_restricted: boolean;
+            /** @description Billing contact email from the latest Paddle customer snapshot */
+            billing_contact_email?: string;
             /** @description Whether the current user may manage organization billing */
             can_manage_billing: boolean;
             /** @description Whether the subscription cancels at period end */
@@ -4658,7 +4660,7 @@ export interface components {
             /** @description Current billing period end */
             current_period_end?: string;
             /** @description Entitlement limits from the local subscription snapshot */
-            limits: {
+            limits?: {
                 [key: string]: number;
             };
             /** @description Organization ID */
@@ -4666,17 +4668,17 @@ export interface components {
             /** @description Canonical Paddle time when the current past-due state began */
             past_due_since?: string;
             /** @description UTC month start for the usage counters */
-            period_start: string;
+            period_start?: string;
             /** @description Plan ID */
             plan_id?: string;
             /** @description Billing provider */
             provider?: string;
             /** @description Confirmed hosted provider-cost estimates and unresolved reservations, separate from the product subscription */
             provider_costs: components["schemas"]["ProviderCostSummary"][] | null;
-            /** @description Subscription status */
-            status: string;
-            /** @description Current-month product usage counters */
-            usage: {
+            /** @description Subscription status from the latest Paddle snapshot */
+            status?: string;
+            /** @description Current-month product usage counters for a mirrored subscription */
+            usage?: {
                 [key: string]: number;
             };
             /** @description Workspace ID */
@@ -4707,12 +4709,16 @@ export interface components {
             };
             /** @description Paddle price ID for the selected plan and period */
             provider_price_id?: string;
+            /** @description Requested Paddle portal destination */
+            purpose?: string;
             /** @description OpenPost URL used after Paddle checkout completes */
             return_url?: string;
             /** @description Expected end of the 14-day trial */
             trial_ends_at?: string;
             /** @description OpenPost checkout URL or short-lived Paddle customer portal URL */
             url?: string;
+            /** @description Whether Paddle omitted the purpose-specific link and OpenPost returned the generic portal */
+            used_generic_fallback?: boolean;
             /** @description Workspace bound to this checkout attempt */
             workspace_id?: string;
         };
@@ -5329,7 +5335,7 @@ export interface components {
              * @default manage
              * @enum {string}
              */
-            purpose: "manage" | "update_payment_method";
+            purpose: "manage" | "update_payment_method" | "cancel_subscription" | "invoices" | "billing_details";
             /** @description Workspace ID */
             workspace_id?: string;
         };
@@ -21369,7 +21375,10 @@ export interface operations {
     };
     "create-organization-billing-portal-session": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Portal destination */
+                purpose?: "manage" | "update_payment_method" | "cancel_subscription" | "invoices" | "billing_details";
+            };
             header?: never;
             path: {
                 /** @description Organization ID */

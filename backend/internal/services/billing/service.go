@@ -404,8 +404,10 @@ func (s *Service) priceIDsForPeriod(period string) map[string]string {
 }
 
 type CustomerPortalResult struct {
-	ID  string
-	URL string
+	ID                  string
+	URL                 string
+	Purpose             CustomerPortalPurpose
+	UsedGenericFallback bool
 }
 
 type CustomerPortalPurpose string
@@ -413,6 +415,9 @@ type CustomerPortalPurpose string
 const (
 	CustomerPortalPurposeManage              CustomerPortalPurpose = "manage"
 	CustomerPortalPurposeUpdatePaymentMethod CustomerPortalPurpose = "update_payment_method"
+	CustomerPortalPurposeCancelSubscription  CustomerPortalPurpose = "cancel_subscription"
+	CustomerPortalPurposeInvoices            CustomerPortalPurpose = "invoices"
+	CustomerPortalPurposeBillingDetails      CustomerPortalPurpose = "billing_details"
 )
 
 type CreateCustomerPortalInput struct {
@@ -458,11 +463,13 @@ func (s *Service) CreateCustomerPortalSession(ctx context.Context, input CreateC
 	if strings.TrimSpace(session.CustomerID) != subscription.ProviderCustomerID {
 		return CustomerPortalResult{}, fmt.Errorf("paddle customer portal response customer does not match subscription")
 	}
-	portalURL, err := customerPortalURL(session, subscription.ProviderSubscriptionID, purpose)
+	portalURL, usedGenericFallback, err := customerPortalURL(session, subscription.ProviderSubscriptionID, purpose)
 	if err != nil {
 		return CustomerPortalResult{}, err
 	}
-	return CustomerPortalResult{ID: session.ID, URL: portalURL}, nil
+	return CustomerPortalResult{
+		ID: session.ID, URL: portalURL, Purpose: purpose, UsedGenericFallback: usedGenericFallback,
+	}, nil
 }
 
 func normalizeCustomerPortalPurpose(purpose CustomerPortalPurpose) (CustomerPortalPurpose, error) {
@@ -470,35 +477,49 @@ func normalizeCustomerPortalPurpose(purpose CustomerPortalPurpose) (CustomerPort
 		return CustomerPortalPurposeManage, nil
 	}
 	switch purpose {
-	case CustomerPortalPurposeManage, CustomerPortalPurposeUpdatePaymentMethod:
+	case CustomerPortalPurposeManage,
+		CustomerPortalPurposeUpdatePaymentMethod,
+		CustomerPortalPurposeCancelSubscription,
+		CustomerPortalPurposeInvoices,
+		CustomerPortalPurposeBillingDetails:
 		return purpose, nil
 	default:
 		return "", fmt.Errorf("unsupported customer portal purpose %q", purpose)
 	}
 }
 
-func customerPortalURL(session *paddle.CustomerPortalSession, subscriptionID string, purpose CustomerPortalPurpose) (string, error) {
+func customerPortalURL(session *paddle.CustomerPortalSession, subscriptionID string, purpose CustomerPortalPurpose) (string, bool, error) {
+	overviewURL := strings.TrimSpace(session.URLs.General.Overview)
 	if purpose == CustomerPortalPurposeManage {
-		if value := strings.TrimSpace(session.URLs.General.Overview); value != "" {
-			return value, nil
+		if overviewURL != "" {
+			return overviewURL, false, nil
 		}
-		return "", fmt.Errorf("paddle customer portal response missing overview URL")
+		return "", false, fmt.Errorf("paddle customer portal response missing overview URL")
 	}
 
 	var matchingURL string
-	for _, links := range session.URLs.Subscriptions {
-		if strings.TrimSpace(links.ID) != subscriptionID {
-			continue
+	if purpose == CustomerPortalPurposeUpdatePaymentMethod || purpose == CustomerPortalPurposeCancelSubscription {
+		for _, links := range session.URLs.Subscriptions {
+			if strings.TrimSpace(links.ID) != subscriptionID {
+				continue
+			}
+			if matchingURL != "" {
+				return "", false, fmt.Errorf("paddle customer portal response contains duplicate subscription links")
+			}
+			if purpose == CustomerPortalPurposeUpdatePaymentMethod {
+				matchingURL = strings.TrimSpace(links.UpdateSubscriptionPaymentMethod)
+			} else {
+				matchingURL = strings.TrimSpace(links.CancelSubscription)
+			}
 		}
-		if matchingURL != "" {
-			return "", fmt.Errorf("paddle customer portal response contains duplicate subscription links")
-		}
-		matchingURL = strings.TrimSpace(links.UpdateSubscriptionPaymentMethod)
 	}
-	if matchingURL == "" {
-		return "", fmt.Errorf("paddle customer portal response missing payment-method update URL for subscription")
+	if matchingURL != "" {
+		return matchingURL, false, nil
 	}
-	return matchingURL, nil
+	if overviewURL != "" {
+		return overviewURL, true, nil
+	}
+	return "", false, fmt.Errorf("paddle customer portal response missing purpose-specific and overview URLs")
 }
 
 func (s *Service) ensureAPI() error {

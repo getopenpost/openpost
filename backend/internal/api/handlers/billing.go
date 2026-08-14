@@ -374,20 +374,21 @@ type GetBillingStatusInput struct {
 }
 
 type BillingStatusResponse struct {
-	OrganizationID    string                      `json:"organization_id" doc:"Organization ID"`
-	WorkspaceID       string                      `json:"workspace_id" doc:"Workspace ID"`
-	Provider          string                      `json:"provider,omitempty" doc:"Billing provider"`
-	Status            string                      `json:"status" doc:"Subscription status"`
-	CanManageBilling  bool                        `json:"can_manage_billing" doc:"Whether the current user may manage organization billing"`
-	AccessRestricted  bool                        `json:"access_restricted" doc:"Whether failed payment currently restricts paid-plan access"`
-	PastDueSince      string                      `json:"past_due_since,omitempty" doc:"Canonical Paddle time when the current past-due state began"`
-	PlanID            string                      `json:"plan_id,omitempty" doc:"Plan ID"`
-	CurrentPeriodEnd  string                      `json:"current_period_end,omitempty" doc:"Current billing period end"`
-	CancelAtPeriodEnd bool                        `json:"cancel_at_period_end" doc:"Whether the subscription cancels at period end"`
-	Limits            map[string]int64            `json:"limits" doc:"Entitlement limits from the local subscription snapshot"`
-	Usage             map[string]int64            `json:"usage" doc:"Current-month product usage counters"`
-	PeriodStart       string                      `json:"period_start" doc:"UTC month start for the usage counters"`
-	ProviderCosts     []usage.ProviderCostSummary `json:"provider_costs" doc:"Confirmed hosted provider-cost estimates and unresolved reservations, separate from the product subscription"`
+	OrganizationID      string                      `json:"organization_id" doc:"Organization ID"`
+	WorkspaceID         string                      `json:"workspace_id" doc:"Workspace ID"`
+	Provider            string                      `json:"provider,omitempty" doc:"Billing provider"`
+	Status              string                      `json:"status,omitempty" doc:"Subscription status from the latest Paddle snapshot"`
+	CanManageBilling    bool                        `json:"can_manage_billing" doc:"Whether the current user may manage organization billing"`
+	AccessRestricted    bool                        `json:"access_restricted" doc:"Whether failed payment currently restricts paid-plan access"`
+	PastDueSince        string                      `json:"past_due_since,omitempty" doc:"Canonical Paddle time when the current past-due state began"`
+	PlanID              string                      `json:"plan_id,omitempty" doc:"Plan ID"`
+	CurrentPeriodEnd    string                      `json:"current_period_end,omitempty" doc:"Current billing period end"`
+	CancelAtPeriodEnd   bool                        `json:"cancel_at_period_end" doc:"Whether the subscription cancels at period end"`
+	Limits              map[string]int64            `json:"limits,omitempty" doc:"Entitlement limits from the local subscription snapshot"`
+	Usage               map[string]int64            `json:"usage,omitempty" doc:"Current-month product usage counters for a mirrored subscription"`
+	PeriodStart         string                      `json:"period_start,omitempty" doc:"UTC month start for the usage counters"`
+	ProviderCosts       []usage.ProviderCostSummary `json:"provider_costs" doc:"Confirmed hosted provider-cost estimates and unresolved reservations, separate from the product subscription"`
+	BillingContactEmail string                      `json:"billing_contact_email,omitempty" doc:"Billing contact email from the latest Paddle customer snapshot"`
 }
 
 type BillingStatusOutput struct {
@@ -444,11 +445,7 @@ func (h *BillingHandler) billingStatusForOrganization(
 	response := BillingStatusResponse{
 		OrganizationID:   organizationID,
 		WorkspaceID:      workspaceID,
-		Status:           "none",
 		CanManageBilling: canManageBilling,
-		Limits:           map[string]int64{},
-		Usage:            usageSnapshotToStrings(usageSnapshot),
-		PeriodStart:      usage.MonthStart(now).Format(time.RFC3339),
 		ProviderCosts:    providerCosts,
 	}
 
@@ -474,6 +471,8 @@ func (h *BillingHandler) billingStatusForOrganization(
 
 	response.Provider = sub.Provider
 	response.Status = sub.Status
+	response.Usage = usageSnapshotToStrings(usageSnapshot)
+	response.PeriodStart = usage.MonthStart(now).Format(time.RFC3339)
 	response.AccessRestricted = strings.EqualFold(sub.Status, "past_due")
 	response.PlanID = sub.PlanID
 	response.CancelAtPeriodEnd = sub.CancelAtPeriodEnd
@@ -488,6 +487,19 @@ func (h *BillingHandler) billingStatusForOrganization(
 		return nil, huma.Error500InternalServerError("failed to parse billing entitlements")
 	}
 	response.Limits = limits
+	var billingContactEmail string
+	err = h.db.NewSelect().
+		Model((*models.BillingCustomer)(nil)).
+		Column("email").
+		Where("provider = ?", sub.Provider).
+		Where("provider_customer_id = ?", sub.ProviderCustomerID).
+		Scan(ctx, &billingContactEmail)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, huma.Error500InternalServerError("failed to load Paddle billing contact")
+	}
+	if err == nil {
+		response.BillingContactEmail = strings.TrimSpace(billingContactEmail)
+	}
 	return &BillingStatusOutput{Body: response}, nil
 }
 
@@ -580,18 +592,20 @@ type CreateBillingCheckoutInput struct {
 }
 
 type BillingURLResponse struct {
-	URL             string            `json:"url,omitempty" doc:"OpenPost checkout URL or short-lived Paddle customer portal URL"`
-	ID              string            `json:"id,omitempty" doc:"OpenPost checkout attempt or Paddle portal session ID"`
-	ProviderPriceID string            `json:"provider_price_id,omitempty" doc:"Paddle price ID for the selected plan and period"`
-	PriceIDs        map[string]string `json:"price_ids,omitempty" doc:"Paddle price IDs for localized previews in the selected billing period"`
-	PlanID          string            `json:"plan_id,omitempty" doc:"OpenPost plan ID"`
-	BillingPeriod   string            `json:"billing_period,omitempty" doc:"Selected billing period"`
-	TrialEndsAt     string            `json:"trial_ends_at,omitempty" doc:"Expected end of the 14-day trial"`
-	ReturnURL       string            `json:"return_url,omitempty" doc:"OpenPost URL used after Paddle checkout completes"`
-	ClientToken     string            `json:"client_token,omitempty" doc:"Browser-safe Paddle.js client token"`
-	Environment     string            `json:"environment,omitempty" doc:"Explicit Paddle.js environment: sandbox or production"`
-	CustomerEmail   string            `json:"customer_email,omitempty" doc:"Authenticated customer's checkout email"`
-	WorkspaceID     string            `json:"workspace_id,omitempty" doc:"Workspace bound to this checkout attempt"`
+	URL                 string            `json:"url,omitempty" doc:"OpenPost checkout URL or short-lived Paddle customer portal URL"`
+	ID                  string            `json:"id,omitempty" doc:"OpenPost checkout attempt or Paddle portal session ID"`
+	ProviderPriceID     string            `json:"provider_price_id,omitempty" doc:"Paddle price ID for the selected plan and period"`
+	PriceIDs            map[string]string `json:"price_ids,omitempty" doc:"Paddle price IDs for localized previews in the selected billing period"`
+	PlanID              string            `json:"plan_id,omitempty" doc:"OpenPost plan ID"`
+	BillingPeriod       string            `json:"billing_period,omitempty" doc:"Selected billing period"`
+	TrialEndsAt         string            `json:"trial_ends_at,omitempty" doc:"Expected end of the 14-day trial"`
+	ReturnURL           string            `json:"return_url,omitempty" doc:"OpenPost URL used after Paddle checkout completes"`
+	ClientToken         string            `json:"client_token,omitempty" doc:"Browser-safe Paddle.js client token"`
+	Environment         string            `json:"environment,omitempty" doc:"Explicit Paddle.js environment: sandbox or production"`
+	CustomerEmail       string            `json:"customer_email,omitempty" doc:"Authenticated customer's checkout email"`
+	WorkspaceID         string            `json:"workspace_id,omitempty" doc:"Workspace bound to this checkout attempt"`
+	Purpose             string            `json:"purpose,omitempty" doc:"Requested Paddle portal destination"`
+	UsedGenericFallback *bool             `json:"used_generic_fallback,omitempty" doc:"Whether Paddle omitted the purpose-specific link and OpenPost returned the generic portal"`
 }
 
 type ResumeBillingCheckoutInput struct {
@@ -705,7 +719,7 @@ type CreateBillingPortalInput struct {
 	Body struct {
 		WorkspaceID    string `json:"workspace_id,omitempty" doc:"Workspace ID"`
 		OrganizationID string `json:"organization_id,omitempty" doc:"Organization ID"`
-		Purpose        string `json:"purpose,omitempty" doc:"Portal destination" enum:"manage,update_payment_method" default:"manage"`
+		Purpose        string `json:"purpose,omitempty" doc:"Portal destination" enum:"manage,update_payment_method,cancel_subscription,invoices,billing_details" default:"manage"`
 	}
 }
 
@@ -738,7 +752,7 @@ func (h *BillingHandler) createPortalSession(ctx context.Context, input *CreateB
 	if err != nil {
 		return nil, billingAPIError(err)
 	}
-	return &BillingURLOutput{Body: BillingURLResponse{ID: result.ID, URL: result.URL}}, nil
+	return &BillingURLOutput{Body: portalResponse(result)}, nil
 }
 
 type CreateOrganizationBillingCheckoutInput struct {
@@ -824,7 +838,8 @@ func checkoutResponse(result billing.CheckoutResult) BillingURLResponse {
 }
 
 type CreateOrganizationBillingPortalInput struct {
-	PathID string `path:"id" doc:"Organization ID"`
+	PathID  string `path:"id" doc:"Organization ID"`
+	Purpose string `query:"purpose" enum:"manage,update_payment_method,cancel_subscription,invoices,billing_details" default:"manage" doc:"Portal destination"`
 }
 
 func (h *BillingHandler) createOrganizationPortalSession(ctx context.Context, input *CreateOrganizationBillingPortalInput) (*BillingURLOutput, error) {
@@ -837,11 +852,20 @@ func (h *BillingHandler) createOrganizationPortalSession(ctx context.Context, in
 	}
 	result, err := h.billing.CreateCustomerPortalSession(ctx, billing.CreateCustomerPortalInput{
 		OrganizationID: input.PathID,
+		Purpose:        billing.CustomerPortalPurpose(input.Purpose),
 	})
 	if err != nil {
 		return nil, billingAPIError(err)
 	}
-	return &BillingURLOutput{Body: BillingURLResponse{ID: result.ID, URL: result.URL}}, nil
+	return &BillingURLOutput{Body: portalResponse(result)}, nil
+}
+
+func portalResponse(result billing.CustomerPortalResult) BillingURLResponse {
+	usedGenericFallback := result.UsedGenericFallback
+	return BillingURLResponse{
+		ID: result.ID, URL: result.URL, Purpose: string(result.Purpose),
+		UsedGenericFallback: &usedGenericFallback,
+	}
 }
 
 func billingAPIError(err error) error {

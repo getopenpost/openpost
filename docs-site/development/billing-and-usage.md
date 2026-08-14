@@ -96,6 +96,12 @@ This integration replaces Whop billing. Before upgrading an existing cloud deplo
 
 Checkout endpoints return `503` when Paddle is missing required configuration such as `OPENPOST_PADDLE_CLIENT_TOKEN`, an explicit environment, or a monthly/annual price ID. User input errors, such as an unknown OpenPost plan ID, remain `400`.
 
+## Billing data and portal boundary
+
+The billing status API reads the local Paddle subscription and customer mirrors plus OpenPost usage counters. It returns the billing contact only when a Paddle customer snapshot contains an email. It does not synthesize missing plan, status, date, limit, contact, or amount facts. OpenPost has no dedicated payment-method, card, invoice, or receipt records. Raw provider payloads remain available for reconciliation and audit, but the product does not parse them into locally managed payment methods or invoice documents.
+
+Portal requests accept `manage`, `update_payment_method`, `cancel_subscription`, `invoices`, or `billing_details`. Paddle currently returns purpose-specific subscription URLs for payment-method updates and cancellation. The service verifies that such a URL belongs to the local subscription. Invoices and billing details use Paddle's general portal because Paddle does not expose purpose-specific URLs for them. A missing exact link also falls back to the general URL. The response reports `used_generic_fallback`, and every request creates a new temporary session whose URL is not persisted.
+
 The browser sends only the opaque checkout attempt ID in Paddle custom data. It initializes Paddle.js with the server-selected environment, asks Paddle `PricePreview` for localized totals, and mounts Paddle's one-page inline checkout directly in the standalone OpenPost checkout page. OpenPost owns the surrounding plan summary, responsive layout, loading and error states, and a contrast-safe light payment canvas; Paddle continues to own the sensitive payment fields and final localized totals.
 
 Set both the minimum and maximum quantity to `1` on every Paddle plan price. OpenPost subscriptions are workspace plans rather than per-seat line items, so allowing Paddle's default maximum of `100` exposes an invalid quantity stepper at checkout.
@@ -106,7 +112,7 @@ Webhooks may be duplicated or arrive out of order. The worker therefore retrieve
 
 Paddle changes an automatically collected subscription to `past_due` after a failed payment and runs the recovery schedule configured for the Paddle account. OpenPost does not invent a payment deadline because retry timing and the final action can differ by account. It records when the current canonical `past_due` state began, restricts paid-plan actions immediately, and shows the issue to every affected organization member.
 
-Organization owners and admins can start recovery in one action. OpenPost creates a new Paddle portal session for each click, requests links for the exact local subscription, verifies that Paddle returned the same customer and subscription, and returns only the temporary `update_subscription_payment_method` URL. The URL is never stored. Members without billing permission see the same account-wide state and are told to contact an organization owner or admin.
+Organization owners and admins can start recovery in one action. OpenPost creates a new Paddle portal session for each click, requests links for the exact local subscription, and verifies that Paddle returned the same customer. It returns the exact temporary `update_subscription_payment_method` URL when Paddle provides one, or the new general portal URL as a safe fallback. The URL is never stored. Members without billing permission see the same account-wide state and are told to contact an organization owner or admin.
 
 Paddle remains the source of truth after the payment method changes. The notice stays visible until a signed webhook job fetches a strictly newer canonical subscription with `active` status. That recovery clears `past_due_since` and restores paid-plan access. A stale or repeated `past_due` event cannot reinstate the failure after the newer active snapshot has been saved.
 

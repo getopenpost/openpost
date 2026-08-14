@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -435,6 +436,24 @@ func TestCreateCustomerPortalSessionReturnsFreshPaddleURL(t *testing.T) {
 	require.Equal(t, 2, api.portalCalls, "every action must mint a new temporary Paddle portal session")
 }
 
+func TestBillingMirrorHasNoDedicatedPaymentMethodOrInvoiceColumns(t *testing.T) {
+	t.Parallel()
+	db := newBillingTestDB(t)
+	for _, table := range []string{"billing_customers", "billing_subscriptions"} {
+		var columns []struct {
+			Name string `bun:"name"`
+		}
+		require.NoError(t, db.NewRaw("SELECT name FROM pragma_table_info(?)", table).Scan(context.Background(), &columns))
+		for _, column := range columns {
+			name := strings.ToLower(column.Name)
+			require.NotContains(t, name, "card")
+			require.NotContains(t, name, "payment_method")
+			require.NotContains(t, name, "invoice")
+			require.NotContains(t, name, "receipt")
+		}
+	}
+}
+
 func TestCreateCustomerPortalSessionReturnsExactPaymentRecoveryURL(t *testing.T) {
 	t.Parallel()
 	db := newBillingTestDB(t)
@@ -472,7 +491,45 @@ func TestCreateCustomerPortalSessionReturnsExactPaymentRecoveryURL(t *testing.T)
 	require.Equal(t, []string{"sub_1"}, api.portalInput.SubscriptionIDs)
 }
 
-func TestCreateCustomerPortalSessionRejectsMismatchedRecoveryLink(t *testing.T) {
+func TestCreateCustomerPortalSessionMapsPurposeLinksAndFallsBackToOverview(t *testing.T) {
+	t.Parallel()
+	db := newBillingTestDB(t)
+	_, err := db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID: "org-1", Provider: ProviderPaddle, ProviderCustomerID: "ctm_1",
+		ProviderSubscriptionID: "sub_1", Status: "active", PlanID: "founder",
+	}).Exec(context.Background())
+	require.NoError(t, err)
+	api := &fakePaddleAPI{portal: &paddle.CustomerPortalSession{
+		ID: "cpls_1", CustomerID: "ctm_1",
+		URLs: paddle.CustomerPortalSessionURLs{
+			General: paddle.CustomerPortalSessionGeneralURLs{Overview: "https://customer-portal.paddle.com/overview?token=fresh"},
+			Subscriptions: []paddle.CustomerPortalSessionSubscriptionURLs{{
+				ID: "sub_1", CancelSubscription: "https://customer-portal.paddle.com/cancel?token=fresh",
+			}},
+		},
+	}}
+	service := NewService(db, "")
+	service.SetPaddleClientForTest(api)
+
+	cancel, err := service.CreateCustomerPortalSession(context.Background(), CreateCustomerPortalInput{
+		OrganizationID: "org-1", Purpose: CustomerPortalPurposeCancelSubscription,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "https://customer-portal.paddle.com/cancel?token=fresh", cancel.URL)
+	require.False(t, cancel.UsedGenericFallback)
+
+	for _, purpose := range []CustomerPortalPurpose{CustomerPortalPurposeInvoices, CustomerPortalPurposeBillingDetails, CustomerPortalPurposeUpdatePaymentMethod} {
+		result, portalErr := service.CreateCustomerPortalSession(context.Background(), CreateCustomerPortalInput{
+			OrganizationID: "org-1", Purpose: purpose,
+		})
+		require.NoError(t, portalErr)
+		require.Equal(t, "https://customer-portal.paddle.com/overview?token=fresh", result.URL)
+		require.True(t, result.UsedGenericFallback)
+		require.Equal(t, purpose, result.Purpose)
+	}
+}
+
+func TestCreateCustomerPortalSessionFallsBackWhenRecoveryLinkDoesNotMatch(t *testing.T) {
 	t.Parallel()
 	db := newBillingTestDB(t)
 	_, err := db.NewInsert().Model(&models.BillingSubscription{
@@ -488,19 +545,22 @@ func TestCreateCustomerPortalSessionRejectsMismatchedRecoveryLink(t *testing.T) 
 	api := &fakePaddleAPI{portal: &paddle.CustomerPortalSession{
 		ID:         "cpls_1",
 		CustomerID: "ctm_1",
-		URLs: paddle.CustomerPortalSessionURLs{Subscriptions: []paddle.CustomerPortalSessionSubscriptionURLs{
-			{ID: "sub_other", UpdateSubscriptionPaymentMethod: "https://customer-portal.paddle.com/wrong"},
-		}},
+		URLs: paddle.CustomerPortalSessionURLs{
+			General:       paddle.CustomerPortalSessionGeneralURLs{Overview: "https://customer-portal.paddle.com/overview?token=fresh"},
+			Subscriptions: []paddle.CustomerPortalSessionSubscriptionURLs{{ID: "sub_other", UpdateSubscriptionPaymentMethod: "https://customer-portal.paddle.com/wrong"}},
+		},
 	}}
 	service := NewService(db, "")
 	service.SetPaddleClientForTest(api)
 
-	_, err = service.CreateCustomerPortalSession(context.Background(), CreateCustomerPortalInput{
+	result, err := service.CreateCustomerPortalSession(context.Background(), CreateCustomerPortalInput{
 		OrganizationID: "org-1",
 		Purpose:        CustomerPortalPurposeUpdatePaymentMethod,
 	})
 
-	require.ErrorContains(t, err, "missing payment-method update URL for subscription")
+	require.NoError(t, err)
+	require.Equal(t, "https://customer-portal.paddle.com/overview?token=fresh", result.URL)
+	require.True(t, result.UsedGenericFallback)
 }
 
 func TestReconcileSubscriptionPreservesCanonicalRecoveryOrder(t *testing.T) {

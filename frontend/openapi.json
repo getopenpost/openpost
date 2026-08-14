@@ -1799,6 +1799,10 @@
 						"description": "Whether failed payment currently restricts paid-plan access",
 						"type": "boolean"
 					},
+					"billing_contact_email": {
+						"description": "Billing contact email from the latest Paddle customer snapshot",
+						"type": "string"
+					},
 					"can_manage_billing": {
 						"description": "Whether the current user may manage organization billing",
 						"type": "boolean"
@@ -1847,7 +1851,7 @@
 						"type": ["array", "null"]
 					},
 					"status": {
-						"description": "Subscription status",
+						"description": "Subscription status from the latest Paddle snapshot",
 						"type": "string"
 					},
 					"usage": {
@@ -1855,7 +1859,7 @@
 							"format": "int64",
 							"type": "integer"
 						},
-						"description": "Current-month product usage counters",
+						"description": "Current-month product usage counters for a mirrored subscription",
 						"type": "object"
 					},
 					"workspace_id": {
@@ -1866,13 +1870,9 @@
 				"required": [
 					"organization_id",
 					"workspace_id",
-					"status",
 					"can_manage_billing",
 					"access_restricted",
 					"cancel_at_period_end",
-					"limits",
-					"usage",
-					"period_start",
 					"provider_costs"
 				],
 				"type": "object"
@@ -1922,6 +1922,10 @@
 						"description": "Paddle price ID for the selected plan and period",
 						"type": "string"
 					},
+					"purpose": {
+						"description": "Requested Paddle portal destination",
+						"type": "string"
+					},
 					"return_url": {
 						"description": "OpenPost URL used after Paddle checkout completes",
 						"type": "string"
@@ -1933,6 +1937,10 @@
 					"url": {
 						"description": "OpenPost checkout URL or short-lived Paddle customer portal URL",
 						"type": "string"
+					},
+					"used_generic_fallback": {
+						"description": "Whether Paddle omitted the purpose-specific link and OpenPost returned the generic portal",
+						"type": "boolean"
 					},
 					"workspace_id": {
 						"description": "Workspace bound to this checkout attempt",
@@ -3381,7 +3389,13 @@
 					"purpose": {
 						"default": "manage",
 						"description": "Portal destination",
-						"enum": ["manage", "update_payment_method"],
+						"enum": [
+							"manage",
+							"update_payment_method",
+							"cancel_subscription",
+							"invoices",
+							"billing_details"
+						],
 						"type": "string"
 					},
 					"workspace_id": {
@@ -29866,6 +29880,24 @@
 						"required": true,
 						"schema": {
 							"description": "Organization ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Portal destination",
+						"explode": false,
+						"in": "query",
+						"name": "purpose",
+						"schema": {
+							"default": "manage",
+							"description": "Portal destination",
+							"enum": [
+								"manage",
+								"update_payment_method",
+								"cancel_subscription",
+								"invoices",
+								"billing_details"
+							],
 							"type": "string"
 						}
 					}

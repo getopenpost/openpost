@@ -23,7 +23,7 @@ describe('billing recovery', () => {
 		expect(requiresBillingRecovery(undefined)).toBe(false);
 	});
 
-	it('builds the exact one-action payment recovery request', () => {
+	it('builds purpose-specific portal requests', () => {
 		expect(billingPortalBody('workspace-1', 'update_payment_method')).toEqual({
 			workspace_id: 'workspace-1',
 			purpose: 'update_payment_method'
@@ -31,6 +31,18 @@ describe('billing recovery', () => {
 		expect(billingPortalBody('workspace-1')).toEqual({
 			workspace_id: 'workspace-1',
 			purpose: 'manage'
+		});
+		expect(billingPortalBody('workspace-1', 'invoices')).toEqual({
+			workspace_id: 'workspace-1',
+			purpose: 'invoices'
+		});
+		expect(billingPortalBody('workspace-1', 'billing_details')).toEqual({
+			workspace_id: 'workspace-1',
+			purpose: 'billing_details'
+		});
+		expect(billingPortalBody('workspace-1', 'cancel_subscription')).toEqual({
+			workspace_id: 'workspace-1',
+			purpose: 'cancel_subscription'
 		});
 	});
 

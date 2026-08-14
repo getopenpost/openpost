@@ -64,11 +64,19 @@ access history. OpenPost blocks any change that would leave the workspace
 without an active admin. Inactive members cannot open the workspace and do not
 consume a seat.
 
+### Plan and billing ownership
+
+**Settings → Plan & usage** separates the facts OpenPost can show from the tasks Paddle owns. OpenPost shows its latest Paddle-backed plan, subscription status, billing contact, renewal or end date, and entitlement limits. It also shows OpenPost product usage for the current month. A fact stays hidden when the relevant provider snapshot does not contain it.
+
+Paddle manages payment methods, invoices, receipts, discounts, tax, cancellation, and billing details. OpenPost does not manage or display card details, invoice copies, or receipts. Organization owners and administrators can open each Paddle task from **Plan & usage**. OpenPost asks Paddle for an exact payment-method or cancellation link. Invoice and billing-detail tasks, or an unavailable exact link, open a newly created general Paddle portal session instead. OpenPost never stores the temporary portal URL.
+
+Plan cards show OpenPost's USD list-price estimates. Paddle shows the localized amount, discounts, and tax before checkout is confirmed. OpenPost does not present a subscription amount as final unless it has provider-backed amount data.
+
 ### Failed-payment recovery
 
 When Paddle reports the organization subscription as `past_due`, OpenPost shows the same payment notice throughout the authenticated app and in **Settings → Plan & usage**. Paid-plan access remains restricted until a newer Paddle subscription snapshot confirms recovery.
 
-Every member can see the notice, but only an organization owner or administrator can open billing recovery. Select **Update payment method** to create a fresh Paddle customer-portal link for the exact subscription. OpenPost does not store or reuse that temporary link. If you are a member, ask an organization owner or administrator to complete the update.
+Every member can see the notice, but only an organization owner or administrator can open billing recovery. Select **Update payment method** to create a fresh Paddle customer-portal link for the exact subscription. If Paddle does not return that exact link, OpenPost opens a new general portal session. OpenPost does not store or reuse either temporary link. If you are a member, ask an organization owner or administrator to complete the update.
 
 Paddle controls retry timing and whether an unrecovered subscription is canceled. OpenPost does not show an estimated deadline. Return to OpenPost after updating the payment method; the notice clears after Paddle confirms that the subscription is active again.
 

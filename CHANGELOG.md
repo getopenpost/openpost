@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Split the billing page into Paddle-backed subscription facts, OpenPost usage, and Paddle-managed payment tasks; added verified billing-contact display, purpose-specific payment and cancellation links with a fresh generic portal fallback, qualified list-price estimates, and kept payment methods and invoice documents managed in Paddle.
 - Updated CI and release images to Go 1.26.6 for the latest standard-library security fixes, provisioned Nix before repository policy checks, and made partial browser-job reruns reuse the newest canonical build artifact.
 - Direct and Settings-embedded social account management now share one explicitly configured Workspace component, while each route keeps its own authentication, OAuth continuation, URL cleanup, and one-time feedback without redirect flashes.
 - Moved the canonical source, release links, installation commands, support URLs, badges, and container image namespace to the `getopenpost` GitHub organization while retaining the published MCP Registry identifier for compatibility.

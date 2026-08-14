@@ -22,7 +22,11 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
 
   await expect(page.getByRole("heading", { name: "Plan & usage" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Billing", exact: true })).toBeVisible();
-  await expect(page.getByText("No active plan")).toBeVisible();
+  await expect(page.getByText("No active plan")).toHaveCount(0);
+  await expect(
+    page.getByText("Start checkout to activate hosted billing for this organization."),
+  ).toBeVisible();
+  await expect(page.getByTestId("billing-provider-boundary")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Customer Portal" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: /^Choose / })).toHaveCount(5);
   await expect(page.getByRole("heading", { name: "Starter" })).toBeVisible();
@@ -30,6 +34,89 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
   await expect(page.getByRole("heading", { name: "Pro" })).toBeVisible();
   await expect(page.locator("#billing").getByRole("heading", { name: "Team" })).toBeVisible();
   await expect(page.locator("#billing").getByRole("heading", { name: "Agency" })).toBeVisible();
+});
+
+test("billing separates OpenPost facts from purpose-specific Paddle actions", async ({
+  page,
+  request,
+}) => {
+  const unique = Date.now().toString(36);
+  const auth = await registerUser(request, `billing-boundary-${unique}@example.com`);
+  const workspace = await createWorkspace(request, auth.token, `Billing boundary ${unique}`);
+  const portalPurposes: string[] = [];
+
+  await page.route("**/api/v1/billing/status?**", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      json: {
+        organization_id: workspace.organization_id,
+        workspace_id: workspace.id,
+        provider: "paddle",
+        status: "active",
+        plan_id: "founder",
+        billing_contact_email: "billing-owner@example.com",
+        current_period_end: "2026-09-01T00:00:00Z",
+        can_manage_billing: true,
+        access_restricted: false,
+        cancel_at_period_end: false,
+        limits: { scheduled_posts_monthly: 500 },
+        usage: { scheduled_posts_monthly: 12 },
+        period_start: "2026-08-01T00:00:00Z",
+        provider_costs: [],
+      },
+    }),
+  );
+  await page.route("**/api/v1/organizations/*/billing/portal?**", async (route) => {
+    const purpose = new URL(route.request().url()).searchParams.get("purpose") ?? "";
+    portalPurposes.push(purpose);
+    if (purpose === "cancel_subscription") {
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        json: { detail: "Paddle portal is temporarily unavailable" },
+      });
+      return;
+    }
+    await route.fulfill({
+      contentType: "application/json",
+      json: {
+        url: `/settings?tab=plan&paddle=${purpose}`,
+        purpose,
+        used_generic_fallback: purpose === "invoices" || purpose === "billing_details",
+      },
+    });
+  });
+
+  await authenticatePage(page, auth.token);
+  await page.goto("/settings?tab=plan");
+  const boundary = page.getByTestId("billing-provider-boundary");
+  await expect(boundary).toContainText("OpenPost plan facts");
+  await expect(boundary).toContainText("billing-owner@example.com");
+  await expect(boundary).toContainText("Managed by Paddle");
+  await expect(boundary).toContainText(
+    "Payment methods and invoice documents stay managed in Paddle",
+  );
+  await page.getByText("Compare or change plan").click();
+  await expect(page.getByText("These are OpenPost's USD list-price estimates.")).toBeVisible();
+
+  for (const [button, purpose] of [
+    ["Update payment method", "update_payment_method"],
+    ["View invoices and receipts", "invoices"],
+    ["Update billing details", "billing_details"],
+  ] as const) {
+    await boundary.getByRole("button", { name: button }).click();
+    await expect(page).toHaveURL(new RegExp(`paddle=${purpose}`));
+    await page.goto("/settings?tab=plan");
+  }
+
+  await boundary.getByRole("button", { name: "Cancel subscription" }).click();
+  await expect(page.getByText("Paddle portal is temporarily unavailable")).toBeVisible();
+  expect(portalPurposes).toEqual([
+    "update_payment_method",
+    "invoices",
+    "billing_details",
+    "cancel_subscription",
+  ]);
 });
 
 test("settings keeps hosted X costs separate from product usage", async ({ page, request }) => {

@@ -121,6 +121,7 @@ func newBillingCredentialTestServer(
 		(*models.WorkspaceMember)(nil),
 		(*models.APIToken)(nil),
 		(*models.BillingSubscription)(nil),
+		(*models.BillingCustomer)(nil),
 		(*models.UsageCounter)(nil),
 		(*models.ProviderUsageEvent)(nil),
 		(*models.ProviderUsageReservation)(nil),

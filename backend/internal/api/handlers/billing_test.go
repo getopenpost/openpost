@@ -68,6 +68,7 @@ func newBillingHandlerTestServer(t *testing.T, secret string, now time.Time) *bi
 		(*models.OrganizationMember)(nil),
 		(*models.Workspace)(nil),
 		(*models.BillingSubscription)(nil),
+		(*models.BillingCustomer)(nil),
 		(*models.BillingWebhookEvent)(nil),
 		(*models.Job)(nil),
 	)
@@ -271,6 +272,7 @@ func newBillingAPITestServerWithPaddleConfig(t *testing.T, client *billingPaddle
 		(*models.Workspace)(nil),
 		(*models.WorkspaceMember)(nil),
 		(*models.BillingSubscription)(nil),
+		(*models.BillingCustomer)(nil),
 		(*models.BillingCheckoutAttempt)(nil),
 		(*models.Job)(nil),
 		(*models.UsageCounter)(nil),
@@ -515,12 +517,15 @@ func TestGetBillingStatusRouteWithoutSubscription(t *testing.T) {
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "ws-1", out["workspace_id"])
-	require.Equal(t, "none", out["status"])
+	require.NotContains(t, out, "status")
 	require.Equal(t, true, out["can_manage_billing"])
 	require.Equal(t, false, out["access_restricted"])
-	require.Equal(t, map[string]any{}, out["limits"])
-	require.Equal(t, map[string]any{}, out["usage"])
-	require.NotEmpty(t, out["period_start"])
+	require.NotContains(t, out, "limits")
+	require.NotContains(t, out, "usage")
+	require.NotContains(t, out, "period_start")
+	require.NotContains(t, out, "billing_contact_email")
+	require.NotContains(t, out, "payment_method")
+	require.NotContains(t, out, "invoices")
 }
 
 func TestGetBillingStatusRouteWithSubscriptionAndUsage(t *testing.T) {
@@ -538,6 +543,10 @@ func TestGetBillingStatusRouteWithSubscriptionAndUsage(t *testing.T) {
 		PlanID:                 "founder",
 		EntitlementSnapshot:    `{"limits":{"scheduled_posts_monthly":500,"social_accounts":6}}`,
 		CurrentPeriodEnd:       time.Date(2026, 7, 30, 12, 0, 0, 0, time.UTC),
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.BillingCustomer{
+		Provider: billing.ProviderPaddle, ProviderCustomerID: "cus-1", Email: "billing-owner@example.com",
 	}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = srv.db.NewInsert().Model(&models.UsageCounter{
@@ -559,6 +568,7 @@ func TestGetBillingStatusRouteWithSubscriptionAndUsage(t *testing.T) {
 	require.Equal(t, true, out["can_manage_billing"])
 	require.Equal(t, false, out["access_restricted"])
 	require.Equal(t, "2026-07-30T12:00:00Z", out["current_period_end"])
+	require.Equal(t, "billing-owner@example.com", out["billing_contact_email"])
 	limits := out["limits"].(map[string]any)
 	require.Equal(t, float64(500), limits["scheduled_posts_monthly"])
 	require.Equal(t, float64(6), limits["social_accounts"])
@@ -728,7 +738,7 @@ func TestGetBillingStatusSeparatesHostedProviderCostFromProductUsage(t *testing.
 	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
 	var out map[string]any
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
-	require.Equal(t, map[string]any{}, out["usage"])
+	require.NotContains(t, out, "usage")
 	providerCosts := out["provider_costs"].([]any)
 	require.Len(t, providerCosts, 1)
 	xCost := providerCosts[0].(map[string]any)
@@ -772,6 +782,8 @@ func TestCreateBillingPortalRoute(t *testing.T) {
 	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
 	require.Equal(t, "cpls_1", out["id"])
 	require.Equal(t, "https://customer-portal.paddle.com/overview?token=fresh", out["url"])
+	require.Equal(t, "manage", out["purpose"])
+	require.Equal(t, false, out["used_generic_fallback"])
 	require.Equal(t, 1, srv.client.portalRequests)
 	require.Equal(t, "ctm_1", srv.client.portalInput.CustomerID)
 	require.Equal(t, []string{"sub_1"}, srv.client.portalInput.SubscriptionIDs)
@@ -811,6 +823,38 @@ func TestCreateOrganizationBillingPortalRouteKeepsEmptyBodyCompatible(t *testing
 
 	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
 	require.Equal(t, 1, srv.client.portalRequests)
+}
+
+func TestOrganizationBillingAdminCanUsePurposeLinkWithoutWorkspaceAdminRole(t *testing.T) {
+	t.Parallel()
+
+	srv := newBillingAPITestServer(t)
+	srv.client.portal = &paddle.CustomerPortalSession{
+		ID: "cpls_cancel", CustomerID: "ctm_1",
+		URLs: paddle.CustomerPortalSessionURLs{Subscriptions: []paddle.CustomerPortalSessionSubscriptionURLs{{
+			ID: "sub_1", CancelSubscription: "https://customer-portal.paddle.com/cancel?token=fresh",
+		}}},
+	}
+	_, err := srv.db.NewUpdate().Model((*models.WorkspaceMember)(nil)).
+		Set("role = ?", models.WorkspaceRoleViewer).
+		Where("workspace_id = ? AND user_id = ?", "ws-1", "user-1").Exec(t.Context())
+	require.NoError(t, err)
+	_, err = srv.db.NewInsert().Model(&models.BillingSubscription{
+		OrganizationID: "org_ws-1", WorkspaceID: "ws-1", Provider: billing.ProviderPaddle,
+		ProviderCustomerID: "ctm_1", ProviderSubscriptionID: "sub_1", Status: "active", PlanID: "founder",
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/organizations/org_ws-1/billing/portal?purpose=cancel_subscription", nil)
+	req.Header.Set("Authorization", "Bearer web-token")
+	resp := httptest.NewRecorder()
+	srv.echo.ServeHTTP(resp, req)
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var body map[string]any
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &body))
+	require.Equal(t, "cancel_subscription", body["purpose"])
+	require.Equal(t, "https://customer-portal.paddle.com/cancel?token=fresh", body["url"])
 }
 
 func TestPastDueBillingStatusAndPaymentRecoveryRoute(t *testing.T) {

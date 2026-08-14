@@ -209,14 +209,13 @@
 		billingPortalBusy = true;
 		billingError = '';
 		try {
-			const { data, error: err } =
-				purpose === 'update_payment_method' || !organizationID
-					? await client.POST('/billing/portal', {
-							body: billingPortalBody(workspaceID, purpose)
-						})
-					: await client.POST('/organizations/{id}/billing/portal', {
-							params: { path: { id: organizationID } }
-						});
+			const { data, error: err } = organizationID
+				? await client.POST('/organizations/{id}/billing/portal', {
+						params: { path: { id: organizationID }, query: { purpose } }
+					})
+				: await client.POST('/billing/portal', {
+						body: billingPortalBody(workspaceID, purpose)
+					});
 			if (err || !data?.url) throw new Error(err?.detail || m.settings_action_failed());
 			if (!isCurrentBillingTarget(workspaceID, organizationID)) return;
 			window.location.assign(data.url);
@@ -293,7 +292,9 @@
 			['active', 'trialing'].includes((billingStatus.status ?? '').toLowerCase())
 		)
 	);
-	const hasBillingSubscription = $derived(Boolean(billingStatus?.plan_id));
+	const hasBillingSubscription = $derived(
+		Boolean(billingStatus?.provider && billingStatus.plan_id)
+	);
 	const billingRecoveryRequired = $derived(requiresBillingRecovery(billingStatus));
 	const requestedBillingPlan = $derived.by(() => {
 		const planID = hostedPlanFromSearchParams(page.url.searchParams);
@@ -301,12 +302,12 @@
 	});
 	const monthlyBillingUsageRows = $derived.by(() => {
 		if (!billingStatus) return [];
-		return Object.entries(billingStatus.limits)
+		return Object.entries(billingStatus.limits ?? {})
 			.filter(([metric]) => metric.endsWith('_monthly'))
 			.map(([metric, limit]) => ({
 				metric,
 				label: billingMetricLabel(metric),
-				current: billingStatus?.usage[metric] ?? 0,
+				current: billingStatus?.usage?.[metric] ?? 0,
 				limit
 			}));
 	});
@@ -377,106 +378,165 @@
 		<PageLoading layout="grid" label={m.common_loading()} items={2} />
 	</div>
 {:else if billingStatus}
-	{#if billingRecoveryRequired}
-		<InlineNotice tone="error" class="mb-4">
-			<div data-testid="billing-recovery-card">
-				<p class="font-semibold">{m.settings_billing_recovery_title()}</p>
-				<p class="mt-1 leading-6">{m.settings_billing_recovery_body()}</p>
-				{#if billingStatus.past_due_since}
-					<p class="mt-1 text-xs">
-						{m.billing_recovery_notice_since({
-							date: formatDateTime(billingStatus.past_due_since)
-						})}
+	{#if hasBillingSubscription}
+		{#if billingRecoveryRequired}
+			<InlineNotice tone="error" class="mb-4">
+				<div data-testid="billing-recovery-card">
+					<p class="font-semibold">{m.settings_billing_recovery_title()}</p>
+					<p class="mt-1 leading-6">{m.settings_billing_recovery_body()}</p>
+					{#if billingStatus.past_due_since}
+						<p class="mt-1 text-xs">
+							{m.billing_recovery_notice_since({
+								date: formatDateTime(billingStatus.past_due_since)
+							})}
+						</p>
+					{/if}
+					<p class="mt-1 text-sm font-medium">
+						{billingStatus.can_manage_billing
+							? m.settings_billing_recovery_confirmation()
+							: m.billing_recovery_notice_member_action()}
+					</p>
+					{#if billingStatus.can_manage_billing}
+						<Button
+							variant="destructive"
+							class="mt-3 w-full sm:w-auto"
+							onclick={() => void openBillingPortal('update_payment_method')}
+							disabled={billingPortalBusy}
+						>
+							{#if billingPortalBusy}
+								<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
+							{/if}
+							{m.billing_recovery_update_payment_method()}
+						</Button>
+					{/if}
+				</div>
+			</InlineNotice>
+		{/if}
+
+		<div class="mb-4 grid gap-3 lg:grid-cols-2" data-testid="billing-provider-boundary">
+			<div class="rounded-lg border bg-muted/20 p-4">
+				<h3 class="font-semibold">{m.settings_openpost_billing_facts()}</h3>
+				<p class="mt-1 text-sm text-muted-foreground">
+					{m.settings_openpost_billing_facts_body()}
+				</p>
+				{#if billingStatus.billing_contact_email}
+					<dl class="mt-3 text-sm">
+						<dt class="text-muted-foreground">{m.settings_billing_contact()}</dt>
+						<dd class="font-medium break-all">{billingStatus.billing_contact_email}</dd>
+					</dl>
+				{/if}
+			</div>
+			<div class="rounded-lg border bg-background p-4">
+				<h3 class="font-semibold">{m.settings_paddle_manages()}</h3>
+				<p class="mt-1 text-sm text-muted-foreground">{m.settings_paddle_manages_body()}</p>
+				{#if billingStatus.can_manage_billing && hasBillingSubscription}
+					<div class="mt-3 flex flex-wrap gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void openBillingPortal('update_payment_method')}
+							disabled={billingPortalBusy}
+						>
+							{m.settings_update_payment_method()}
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void openBillingPortal('invoices')}
+							disabled={billingPortalBusy}
+						>
+							{m.settings_view_invoices_receipts()}
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onclick={() => void openBillingPortal('billing_details')}
+							disabled={billingPortalBusy}
+						>
+							{m.settings_update_billing_details()}
+						</Button>
+						<Button
+							variant="destructive"
+							size="sm"
+							onclick={() => void openBillingPortal('cancel_subscription')}
+							disabled={billingPortalBusy}
+						>
+							{m.settings_cancel_subscription()}
+						</Button>
+					</div>
+				{:else if hasBillingSubscription}
+					<p class="mt-3 text-sm font-medium">{m.settings_billing_owner_action()}</p>
+				{/if}
+			</div>
+		</div>
+
+		<div class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+			<div class="rounded-lg border bg-muted/20 p-4">
+				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+					{m.settings_current_plan()}
+				</p>
+				<div class="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
+					<p class="text-2xl font-semibold">
+						{currentBillingPlan?.name ?? (billingStatus.plan_id || m.settings_no_active_plan())}
+					</p>
+					<p class="pb-1 text-sm text-muted-foreground">
+						{billingStatusLabel(billingStatus.status ?? '')}
+					</p>
+				</div>
+				{#if billingStatus.current_period_end}
+					<p class="mt-2 text-sm text-muted-foreground">
+						{m.settings_billing_period_ends({ date: formatDate(billingStatus.current_period_end) })}
+						{#if billingStatus.cancel_at_period_end}
+							· {m.settings_billing_cancels_after_period()}
+						{/if}
+					</p>
+				{:else if hasActiveBillingPlan}
+					<p class="mt-2 text-sm text-muted-foreground">
+						{m.settings_active_plan()}
+					</p>
+				{:else}
+					<p class="mt-2 text-sm text-muted-foreground">
+						{m.settings_start_checkout()}
 					</p>
 				{/if}
-				<p class="mt-1 text-sm font-medium">
-					{billingStatus.can_manage_billing
-						? m.settings_billing_recovery_confirmation()
-						: m.billing_recovery_notice_member_action()}
+			</div>
+
+			<div class="rounded-lg border bg-muted/20 p-4">
+				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+					{m.settings_usage_month()}
 				</p>
-				{#if billingStatus.can_manage_billing}
-					<Button
-						variant="destructive"
-						class="mt-3 w-full sm:w-auto"
-						onclick={() => void openBillingPortal('update_payment_method')}
-						disabled={billingPortalBusy}
-					>
-						{#if billingPortalBusy}
-							<LoaderIcon class="mr-2 h-4 w-4 animate-spin" />
-						{/if}
-						{m.billing_recovery_update_payment_method()}
-					</Button>
+				{#if monthlyBillingUsageRows.length}
+					<div class="mt-3 grid gap-3 sm:grid-cols-2">
+						{#each monthlyBillingUsageRows as row (row.metric)}
+							<div>
+								<div class="mb-1 flex items-center justify-between gap-2 text-sm">
+									<span>{row.label}</span>
+									<span class="text-muted-foreground">
+										{formatBillingValue(row.metric, row.current)} / {formatBillingValue(
+											row.metric,
+											row.limit
+										)}
+									</span>
+								</div>
+								<div class="h-2 overflow-hidden rounded-full bg-muted">
+									<div
+										class="h-full rounded-full bg-primary"
+										style:width={`${Math.min(100, Math.round((row.current / Math.max(row.limit, 1)) * 100))}%`}
+									></div>
+								</div>
+							</div>
+						{/each}
+					</div>
+				{:else}
+					<p class="mt-2 text-sm text-muted-foreground">
+						{m.settings_usage_empty()}
+					</p>
 				{/if}
 			</div>
-		</InlineNotice>
+		</div>
+	{:else}
+		<InlineNotice tone="info" message={m.settings_start_checkout()} class="mb-4" />
 	{/if}
-
-	<div class="mb-4 grid gap-3 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-		<div class="rounded-lg border bg-muted/20 p-4">
-			<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-				{m.settings_current_plan()}
-			</p>
-			<div class="mt-2 flex flex-wrap items-end gap-x-3 gap-y-1">
-				<p class="text-2xl font-semibold">
-					{currentBillingPlan?.name ?? (billingStatus.plan_id || m.settings_no_active_plan())}
-				</p>
-				<p class="pb-1 text-sm text-muted-foreground">
-					{billingStatusLabel(billingStatus.status)}
-				</p>
-			</div>
-			{#if billingStatus.current_period_end}
-				<p class="mt-2 text-sm text-muted-foreground">
-					{m.settings_billing_period_ends({
-						date: formatDate(billingStatus.current_period_end)
-					})}
-					{#if billingStatus.cancel_at_period_end}
-						· {m.settings_billing_cancels_after_period()}
-					{/if}
-				</p>
-			{:else if hasActiveBillingPlan}
-				<p class="mt-2 text-sm text-muted-foreground">
-					{m.settings_active_plan()}
-				</p>
-			{:else}
-				<p class="mt-2 text-sm text-muted-foreground">
-					{m.settings_start_checkout()}
-				</p>
-			{/if}
-		</div>
-
-		<div class="rounded-lg border bg-muted/20 p-4">
-			<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-				{m.settings_usage_month()}
-			</p>
-			{#if monthlyBillingUsageRows.length}
-				<div class="mt-3 grid gap-3 sm:grid-cols-2">
-					{#each monthlyBillingUsageRows as row (row.metric)}
-						<div>
-							<div class="mb-1 flex items-center justify-between gap-2 text-sm">
-								<span>{row.label}</span>
-								<span class="text-muted-foreground">
-									{formatBillingValue(row.metric, row.current)} / {formatBillingValue(
-										row.metric,
-										row.limit
-									)}
-								</span>
-							</div>
-							<div class="h-2 overflow-hidden rounded-full bg-muted">
-								<div
-									class="h-full rounded-full bg-primary"
-									style:width={`${Math.min(100, Math.round((row.current / Math.max(row.limit, 1)) * 100))}%`}
-								></div>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{:else}
-				<p class="mt-2 text-sm text-muted-foreground">
-					{m.settings_usage_empty()}
-				</p>
-			{/if}
-		</div>
-	</div>
 
 	{#if providerCosts.length}
 		<div class="mb-4 rounded-lg border bg-background p-4" data-testid="provider-cost-usage">
@@ -589,6 +649,9 @@
 		{hasActiveBillingPlan ? m.settings_compare_plan() : m.settings_choose_plan()}
 	</summary>
 	<div class="mt-4 grid gap-3 lg:grid-cols-3">
+		<p class="text-sm text-muted-foreground lg:col-span-3">
+			{m.settings_plan_price_estimate_note()}
+		</p>
 		{#each billingPlans as plan (plan.id)}
 			<article
 				class={`rounded-lg border p-4 ${plan.featured ? 'border-primary bg-primary/5 shadow-sm' : 'bg-background'}`}

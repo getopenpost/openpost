@@ -1,4 +1,6 @@
-export type BillingPortalPurpose = 'manage' | 'update_payment_method';
+import type { components } from '$lib/api/types';
+
+export type BillingPortalPurpose = components['schemas']['CreateBillingPortalInputBody']['purpose'];
 
 export interface BillingRecoveryStatus {
 	workspace_id: string;

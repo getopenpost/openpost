@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/services/transactionalmail"
 )
 
 const defaultTimeout = 15 * time.Second
@@ -141,6 +143,18 @@ func (s *SMTPSender) SendNotification(ctx context.Context, message NotificationM
 		return fmt.Errorf("invalid notification recipient: %w", err)
 	}
 	content, err := notificationContent(message)
+	if err != nil {
+		return err
+	}
+	return s.send(ctx, recipient, buildTextEmail(s.from, recipient, content))
+}
+
+func (s *SMTPSender) SendWorkspaceInvitation(ctx context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
+	recipient, err := mail.ParseAddress(strings.TrimSpace(message.Recipient))
+	if err != nil {
+		return fmt.Errorf("invalid workspace invitation recipient: %w", err)
+	}
+	content, err := workspaceInvitationContent(message)
 	if err != nil {
 		return err
 	}

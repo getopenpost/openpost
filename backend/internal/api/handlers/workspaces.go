@@ -20,6 +20,7 @@ import (
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/medialifecycle"
 	"github.com/openpost/backend/internal/services/notifications"
+	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/setupprojection"
 	"github.com/openpost/backend/internal/services/workspaceteam"
 	"github.com/uptrace/bun"
@@ -34,7 +35,13 @@ type WorkspaceHandler struct {
 	setup         *setupprojection.Service
 	hosted        bool
 	frontendURL   string
+	inviteLimiter *ratelimit.Limiter
 }
+
+const (
+	workspaceInvitationCreateLimit = 20
+	workspaceInvitationResendLimit = 5
+)
 
 func NewWorkspaceHandler(db *bun.DB, authenticator middleware.Authenticator, entitlement ...entitlements.Service) *WorkspaceHandler {
 	entitlementService := entitlements.Service(entitlements.NewSelfHostedService())
@@ -45,7 +52,7 @@ func NewWorkspaceHandler(db *bun.DB, authenticator middleware.Authenticator, ent
 	return &WorkspaceHandler{
 		db: db, auth: authenticator, entitlement: entitlementService,
 		team:  workspaceteam.NewService(db, entitlementService, nil),
-		setup: setupprojection.NewService(db), hosted: hosted,
+		setup: setupprojection.NewService(db), hosted: hosted, inviteLimiter: ratelimit.New(),
 	}
 }
 
@@ -184,20 +191,20 @@ type WorkspaceMemberResponse struct {
 }
 
 type WorkspaceInvitationResponse struct {
-	ID               string  `json:"id" doc:"Invitation ID"`
-	WorkspaceID      string  `json:"workspace_id" doc:"Workspace ID"`
-	Email            string  `json:"email" doc:"Invited email"`
-	Role             string  `json:"role" doc:"Workspace role to grant"`
-	InvitedByUserID  string  `json:"invited_by_user_id" doc:"Inviting user ID"`
-	AcceptedByUserID *string `json:"accepted_by_user_id,omitempty" doc:"Accepting user ID"`
-	Token            string  `json:"token,omitempty" doc:"Raw invite token returned once on creation"`
-	AcceptURL        string  `json:"accept_url,omitempty" doc:"Browser URL that accepts the invitation"`
-	ExpiresAt        string  `json:"expires_at" doc:"Invitation expiry time"`
-	AcceptedAt       *string `json:"accepted_at,omitempty" doc:"When the invitation was accepted"`
-	RevokedAt        *string `json:"revoked_at,omitempty" doc:"When the invitation was revoked"`
-	LastSentAt       string  `json:"last_sent_at" doc:"When the invitation was most recently sent"`
-	Status           string  `json:"status" enum:"pending,expired" doc:"Current invitation state"`
-	CreatedAt        string  `json:"created_at" doc:"Invitation creation time"`
+	ID                  string  `json:"id" doc:"Invitation ID"`
+	WorkspaceID         string  `json:"workspace_id" doc:"Workspace ID"`
+	Email               string  `json:"email" doc:"Invited email"`
+	Role                string  `json:"role" doc:"Workspace role to grant"`
+	InvitedByUserID     string  `json:"invited_by_user_id" doc:"Inviting user ID"`
+	AcceptedByUserID    *string `json:"accepted_by_user_id,omitempty" doc:"Accepting user ID"`
+	AcceptURL           string  `json:"accept_url,omitempty" doc:"Browser URL that accepts the invitation"`
+	ExpiresAt           string  `json:"expires_at" doc:"Invitation expiry time"`
+	AcceptedAt          *string `json:"accepted_at,omitempty" doc:"When the invitation was accepted"`
+	RevokedAt           *string `json:"revoked_at,omitempty" doc:"When the invitation was revoked"`
+	LastSentAt          string  `json:"last_sent_at" doc:"When the invitation was most recently sent"`
+	EmailDeliveryStatus string  `json:"email_delivery_status" enum:"queued,sent,failed,unavailable" doc:"Truthful state of the latest Transactional invitation email"`
+	Status              string  `json:"status" enum:"pending,expired" doc:"Current invitation state"`
+	CreatedAt           string  `json:"created_at" doc:"Invitation creation time"`
 }
 
 type WorkspaceTeamOutput struct {
@@ -462,7 +469,7 @@ func (h *WorkspaceHandler) ListWorkspaceTeam(api huma.API) {
 
 		resp := &WorkspaceTeamOutput{}
 		resp.Body.Members = workspaceMemberResponses(team.Members)
-		resp.Body.Invitations = workspaceTeamInvitationResponses(team.Invitations, "", "")
+		resp.Body.Invitations = workspaceTeamInvitationResponses(team.Invitations)
 		resp.Body.CurrentSeats = team.CurrentSeats
 		resp.Body.CanManage = team.CanManage
 		return resp, nil
@@ -561,13 +568,21 @@ func (h *WorkspaceHandler) CreateWorkspaceInvitation(api huma.API) {
 		Tags:          []string{tagWorkspaces},
 		DefaultStatus: http.StatusOK,
 		Middlewares:   huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:        []int{400, 402, 403, 404, 409},
+		Errors:        []int{400, 402, 403, 404, 409, 429},
 	}, func(ctx context.Context, input *CreateWorkspaceInvitationInput) (*CreateWorkspaceInvitationOutput, error) {
-		if err := h.requireWorkspaceAdmin(ctx, input.PathID, middleware.GetUserID(ctx)); err != nil {
+		actorUserID := middleware.GetUserID(ctx)
+		if err := h.requireWorkspaceAdmin(ctx, input.PathID, actorUserID); err != nil {
 			return nil, err
 		}
+		if h.inviteLimiter != nil && !h.inviteLimiter.Allow(
+			"workspace-invitation-create:"+input.PathID+":"+actorUserID,
+			workspaceInvitationCreateLimit,
+			time.Hour,
+		) {
+			return nil, huma.Error429TooManyRequests("workspace invitation limit reached; try again later")
+		}
 		invitation, token, err := h.team.Invite(ctx, workspaceteam.InviteInput{
-			WorkspaceID: input.PathID, ActorUserID: middleware.GetUserID(ctx),
+			WorkspaceID: input.PathID, ActorUserID: actorUserID,
 			Email: input.Body.Email, Role: input.Body.Role,
 		})
 		if err != nil {
@@ -575,7 +590,7 @@ func (h *WorkspaceHandler) CreateWorkspaceInvitation(api huma.API) {
 		}
 
 		resp := &CreateWorkspaceInvitationOutput{}
-		resp.Body = workspaceInvitationResponse(invitation, token, h.acceptWorkspaceInvitationURL(token), "pending")
+		resp.Body = workspaceInvitationResponse(invitation, h.acceptWorkspaceInvitationURL(token), "pending")
 		return resp, nil
 	})
 }
@@ -612,17 +627,25 @@ func (h *WorkspaceHandler) ResendWorkspaceInvitation(api huma.API) {
 		Description: "Rotates the invitation secret and returns the new invitation URL once.",
 		Tags:        []string{tagWorkspaces},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{403, 404, 409},
+		Errors:      []int{403, 404, 409, 429},
 	}, func(ctx context.Context, input *ResendWorkspaceInvitationInput) (*ResendWorkspaceInvitationOutput, error) {
-		if err := h.requireWorkspaceAdmin(ctx, input.PathID, middleware.GetUserID(ctx)); err != nil {
+		actorUserID := middleware.GetUserID(ctx)
+		if err := h.requireWorkspaceAdmin(ctx, input.PathID, actorUserID); err != nil {
 			return nil, err
 		}
-		invitation, token, err := h.team.ResendInvitation(ctx, input.PathID, input.InvitationID, middleware.GetUserID(ctx))
+		if h.inviteLimiter != nil && !h.inviteLimiter.Allow(
+			"workspace-invitation-resend:"+input.PathID+":"+input.InvitationID+":"+actorUserID,
+			workspaceInvitationResendLimit,
+			time.Hour,
+		) {
+			return nil, huma.Error429TooManyRequests("invitation resend limit reached; try again later")
+		}
+		invitation, token, err := h.team.ResendInvitation(ctx, input.PathID, input.InvitationID, actorUserID)
 		if err != nil {
 			return nil, workspaceTeamHTTPError(err, "failed to resend workspace invitation")
 		}
 		return &ResendWorkspaceInvitationOutput{Body: workspaceInvitationResponse(
-			invitation, token, h.acceptWorkspaceInvitationURL(token), "pending",
+			invitation, h.acceptWorkspaceInvitationURL(token), "pending",
 		)}, nil
 	})
 }
@@ -1162,29 +1185,29 @@ func (h *WorkspaceHandler) workspaceStoredObjectKeys(ctx context.Context, worksp
 	return ordered, nil
 }
 
-func workspaceInvitationResponse(invitation models.WorkspaceInvitation, rawToken, acceptURL, status string) WorkspaceInvitationResponse {
+func workspaceInvitationResponse(invitation models.WorkspaceInvitation, acceptURL, status string) WorkspaceInvitationResponse {
 	return WorkspaceInvitationResponse{
-		ID:               invitation.ID,
-		WorkspaceID:      invitation.WorkspaceID,
-		Email:            invitation.Email,
-		Role:             invitation.Role,
-		InvitedByUserID:  invitation.InvitedByUserID,
-		AcceptedByUserID: optionalString(invitation.AcceptedByUserID),
-		Token:            rawToken,
-		AcceptURL:        acceptURL,
-		ExpiresAt:        invitation.ExpiresAt.UTC().Format(time.RFC3339),
-		AcceptedAt:       optionalTime(invitation.AcceptedAt),
-		RevokedAt:        optionalTime(invitation.RevokedAt),
-		LastSentAt:       formatRequiredTime(invitation.LastSentAt, invitation.CreatedAt),
-		Status:           status,
-		CreatedAt:        invitation.CreatedAt.UTC().Format(time.RFC3339),
+		ID:                  invitation.ID,
+		WorkspaceID:         invitation.WorkspaceID,
+		Email:               invitation.Email,
+		Role:                invitation.Role,
+		InvitedByUserID:     invitation.InvitedByUserID,
+		AcceptedByUserID:    optionalString(invitation.AcceptedByUserID),
+		AcceptURL:           acceptURL,
+		ExpiresAt:           invitation.ExpiresAt.UTC().Format(time.RFC3339),
+		AcceptedAt:          optionalTime(invitation.AcceptedAt),
+		RevokedAt:           optionalTime(invitation.RevokedAt),
+		LastSentAt:          formatRequiredTime(invitation.LastSentAt, invitation.CreatedAt),
+		EmailDeliveryStatus: invitation.EmailDeliveryStatus,
+		Status:              status,
+		CreatedAt:           invitation.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 
-func workspaceTeamInvitationResponses(invitations []workspaceteam.Invitation, rawToken, acceptURL string) []WorkspaceInvitationResponse {
+func workspaceTeamInvitationResponses(invitations []workspaceteam.Invitation) []WorkspaceInvitationResponse {
 	out := make([]WorkspaceInvitationResponse, 0, len(invitations))
 	for _, invitation := range invitations {
-		out = append(out, workspaceInvitationResponse(invitation.WorkspaceInvitation, rawToken, acceptURL, invitation.Status))
+		out = append(out, workspaceInvitationResponse(invitation.WorkspaceInvitation, "", invitation.Status))
 	}
 	return out
 }

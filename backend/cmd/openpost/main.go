@@ -384,7 +384,7 @@ func main() {
 	repostService.SetUsage(usageService)
 	repostService.SetEntitlement(entitlementService)
 	notificationService := notifications.NewService(db, notifications.Options{
-		Sender: authMailSender, PublicURL: cfg.PublicURL,
+		Sender: authMailSender, Encryptor: tokenEncryptor, PublicURL: cfg.PublicURL,
 	})
 	publishSvc.SetNotificationService(notificationService)
 	publishSvc.SetRepostScheduler(repostService)

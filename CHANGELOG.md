@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Workspace invitations now queue one branded, expiring Transactional email for registered and unregistered recipients, bypass optional notification preferences, keep secrets out of ordinary notification and audit records, and preserve a truthful copy-link fallback when delivery is unavailable or fails. Database upgrades apply migration 094 automatically to add delivery state to existing invitations; no operator action is required.
 - Proved the complete daily-workflow cohort across paged Engagement and Messages history, request races and retries, all eight exact Rendition outcomes, and responsive, localized Accounts and Paddle billing journeys.
 - Marketing and documentation builds now prove one complete public delivery contract across every eligible HTML and Markdown route, including prerendered meaning, discovery, safety, deterministic output, cache planning, size limits, and explicit artifact content types.
 - Composer destination controls now retain a usable mobile scroll area when first-use guidance is present.

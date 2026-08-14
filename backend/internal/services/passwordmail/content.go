@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/openpost/backend/internal/services/transactionalmail"
 )
 
 var verificationCodePattern = regexp.MustCompile(`^[0-9]{6}$`)
@@ -99,6 +101,43 @@ func notificationContent(message NotificationMessage) (messageContent, error) {
 		Text:    strings.Join(textParts, "\n\n") + "\n",
 		HTML:    strings.Join(htmlParts, ""),
 	}, nil
+}
+
+func workspaceInvitationContent(message transactionalmail.WorkspaceInvitationMessage) (messageContent, error) {
+	workspaceName := strings.Join(strings.Fields(strings.TrimSpace(message.WorkspaceName)), " ")
+	if workspaceName == "" {
+		return messageContent{}, fmt.Errorf("workspace name is required")
+	}
+	inviterName := strings.Join(strings.Fields(strings.TrimSpace(message.InviterName)), " ")
+	if inviterName == "" {
+		return messageContent{}, fmt.Errorf("workspace invitation inviter is required")
+	}
+	role := strings.ToLower(strings.TrimSpace(message.Role))
+	roleLabel := map[string]string{"admin": "Administrator", "editor": "Editor", "viewer": "Viewer"}[role]
+	if roleLabel == "" {
+		return messageContent{}, fmt.Errorf("workspace invitation role is invalid")
+	}
+	acceptURL, err := absoluteHTTPURL(message.AcceptURL)
+	if err != nil || acceptURL == "" {
+		return messageContent{}, fmt.Errorf("invalid workspace invitation acceptance URL")
+	}
+	if message.ExpiresAt.IsZero() {
+		return messageContent{}, fmt.Errorf("workspace invitation expiry is required")
+	}
+	expires := message.ExpiresAt.UTC().Format(time.RFC1123)
+	subject := "You are invited to " + workspaceName + " on OpenPost"
+	text := inviterName + " invited you to join " + workspaceName + " on OpenPost.\n\n" +
+		"Role: " + roleLabel + "\n" +
+		"Accept the invitation:\n" + acceptURL + "\n\n" +
+		"This single-use link expires at " + expires + ".\n" +
+		"If you were not expecting this invitation, you can ignore this email.\n"
+	htmlBody := `<p><strong>` + html.EscapeString(inviterName) + `</strong> invited you to join <strong>` +
+		html.EscapeString(workspaceName) + `</strong> on OpenPost.</p>` +
+		`<p>Role: ` + html.EscapeString(roleLabel) + `</p>` +
+		`<p><a href="` + html.EscapeString(acceptURL) + `">Accept invitation</a></p>` +
+		`<p>This single-use link expires at ` + html.EscapeString(expires) + `.</p>` +
+		`<p>If you were not expecting this invitation, you can ignore this email.</p>`
+	return messageContent{Subject: subject, Text: text, HTML: htmlBody}, nil
 }
 
 func absoluteHTTPURL(value string) (string, error) {

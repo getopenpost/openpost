@@ -528,18 +528,20 @@ type WorkspaceMember struct {
 type WorkspaceInvitation struct {
 	bun.BaseModel `bun:"table:workspace_invitations"`
 
-	ID               string    `bun:",pk" json:"id"`
-	WorkspaceID      string    `bun:",notnull" json:"workspace_id"`
-	Email            string    `bun:",notnull" json:"email"`
-	Role             string    `bun:",notnull,default:'editor'" json:"role"`
-	InvitedByUserID  string    `bun:",notnull" json:"invited_by_user_id"`
-	AcceptedByUserID string    `bun:",nullzero" json:"accepted_by_user_id"`
-	TokenHash        string    `bun:",unique,notnull" json:"-"`
-	ExpiresAt        time.Time `bun:",notnull" json:"expires_at"`
-	AcceptedAt       time.Time `bun:",nullzero" json:"accepted_at"`
-	RevokedAt        time.Time `bun:",nullzero" json:"revoked_at"`
-	LastSentAt       time.Time `bun:"last_sent_at,nullzero" json:"last_sent_at"`
-	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	ID                  string    `bun:",pk" json:"id"`
+	WorkspaceID         string    `bun:",notnull" json:"workspace_id"`
+	Email               string    `bun:",notnull" json:"email"`
+	Role                string    `bun:",notnull,default:'editor'" json:"role"`
+	InvitedByUserID     string    `bun:",notnull" json:"invited_by_user_id"`
+	AcceptedByUserID    string    `bun:",nullzero" json:"accepted_by_user_id"`
+	TokenHash           string    `bun:",unique,notnull" json:"-"`
+	ExpiresAt           time.Time `bun:",notnull" json:"expires_at"`
+	AcceptedAt          time.Time `bun:",nullzero" json:"accepted_at"`
+	RevokedAt           time.Time `bun:",nullzero" json:"revoked_at"`
+	LastSentAt          time.Time `bun:"last_sent_at,nullzero" json:"last_sent_at"`
+	EmailDeliveryStatus string    `bun:"email_delivery_status,notnull,default:'unavailable'" json:"email_delivery_status"`
+	EmailDeliveryJobID  string    `bun:"email_delivery_job_id,notnull,default:''" json:"-"`
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
 type WorkspaceAccessAuditEvent struct {

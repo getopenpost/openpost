@@ -10,12 +10,37 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
+	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/notifications"
+	"github.com/openpost/backend/internal/services/passwordmail"
+	"github.com/openpost/backend/internal/services/transactionalmail"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/sqliteshim"
 )
+
+type teamInvitationSender struct {
+	messages []transactionalmail.WorkspaceInvitationMessage
+}
+
+func (s *teamInvitationSender) SendPasswordReset(context.Context, passwordmail.ResetMessage) error {
+	return nil
+}
+
+func (s *teamInvitationSender) SendEmailVerification(context.Context, passwordmail.VerificationMessage) error {
+	return nil
+}
+
+func (s *teamInvitationSender) SendNotification(context.Context, passwordmail.NotificationMessage) error {
+	return nil
+}
+
+func (s *teamInvitationSender) SendWorkspaceInvitation(_ context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
+	s.messages = append(s.messages, message)
+	return nil
+}
 
 func newTeamTestService(t *testing.T, seatLimit int64) (*Service, *bun.DB) {
 	t.Helper()
@@ -173,6 +198,170 @@ func TestInvitationResendRevocationAcceptanceAndSearch(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, team.Members, 1)
 	require.Equal(t, "invitee-1", team.Members[0].UserID)
+}
+
+func TestInvitationQueuesTransactionalEmailForUnregisteredRecipient(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	_, err := db.NewCreateTable().Model((*models.Job)(nil)).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewCreateTable().Model((*models.UserNotification)(nil)).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewCreateTable().Model((*models.UserNotificationPreference)(nil)).Exec(t.Context())
+	require.NoError(t, err)
+	sender := &teamInvitationSender{}
+	service.notifications = notifications.NewService(db, notifications.Options{
+		Sender: sender, Encryptor: servicecrypto.NewTokenEncryptor("invitation-test-key"),
+		PublicURL: "https://app.openpost.test",
+	})
+
+	invitation, rawToken, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1",
+		Email: "not-registered@example.com", Role: models.WorkspaceRoleEditor,
+	})
+	require.NoError(t, err)
+	require.Equal(t, notifications.EmailDeliveryQueued, invitation.EmailDeliveryStatus)
+	require.NotEmpty(t, invitation.EmailDeliveryJobID)
+	require.NotEmpty(t, rawToken)
+
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Where("id = ?", invitation.EmailDeliveryJobID).Scan(t.Context()))
+	require.NotContains(t, job.Payload, invitation.TokenHash)
+	require.NoError(t, service.notifications.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Len(t, sender.messages, 1)
+	require.Equal(t, "not-registered@example.com", sender.messages[0].Recipient)
+	require.Equal(t, "Team", sender.messages[0].WorkspaceName)
+	require.Equal(t, "admin@example.com", sender.messages[0].InviterName)
+
+	resent, _, err := service.ResendInvitation(t.Context(), "workspace-1", invitation.ID, "admin-1")
+	require.NoError(t, err)
+	require.Equal(t, notifications.EmailDeliveryQueued, resent.EmailDeliveryStatus)
+	require.NotEqual(t, invitation.EmailDeliveryJobID, resent.EmailDeliveryJobID)
+	jobCount, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", notifications.JobTypeEmailDelivery).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 2, jobCount, "each rotated invitation secret gets exactly one durable delivery")
+}
+
+func TestResendCrashStateAndStaleDeliveryCompletionStayTruthful(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	for _, model := range []any{
+		(*models.Job)(nil), (*models.UserNotification)(nil), (*models.UserNotificationPreference)(nil),
+	} {
+		_, err := db.NewCreateTable().Model(model).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	service.notifications = notifications.NewService(db, notifications.Options{
+		Sender: &teamInvitationSender{}, Encryptor: servicecrypto.NewTokenEncryptor("invitation-test-key"),
+		PublicURL: "https://app.openpost.test",
+	})
+
+	invitation, _, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1",
+		Email: "person@example.com", Role: models.WorkspaceRoleViewer,
+	})
+	require.NoError(t, err)
+	require.Equal(t, notifications.EmailDeliveryQueued, invitation.EmailDeliveryStatus)
+
+	rawToken, tokenHash, err := GenerateInvitationToken()
+	require.NoError(t, err)
+	rotated, err := service.rotateInvitation(
+		t.Context(), "workspace-1", invitation.ID, "admin-1", tokenHash,
+		entitlements.Decision{Allowed: true, Unlimited: true}, service.now(),
+	)
+	require.NoError(t, err)
+	require.Equal(t, notifications.EmailDeliveryUnavailable, rotated.EmailDeliveryStatus,
+		"a crash before enqueue must not leave the invalidated email marked sent or queued")
+	require.Empty(t, rotated.EmailDeliveryJobID)
+
+	var stored models.WorkspaceInvitation
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", rotated.ID).Scan(t.Context()))
+	require.Equal(t, notifications.EmailDeliveryUnavailable, stored.EmailDeliveryStatus)
+	require.Empty(t, stored.EmailDeliveryJobID)
+
+	jobCountBefore, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	stale := rotated
+	stale.TokenHash = "superseded-generation"
+	err = service.finishInvitationDelivery(t.Context(), &stale, "op_inv_superseded", true)
+	require.Equal(t, ErrorConflict, ErrorKindOf(err))
+	jobCountAfter, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, jobCountBefore, jobCountAfter, "a stale generation must roll back its delivery job")
+
+	require.NoError(t, service.finishInvitationDelivery(t.Context(), &rotated, rawToken, true))
+	require.Equal(t, notifications.EmailDeliveryQueued, rotated.EmailDeliveryStatus)
+}
+
+func TestRegisteredInvitationKeepsRawTokenOutOfNotificationAndAuditRecords(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	for _, model := range []any{
+		(*models.Job)(nil), (*models.UserNotification)(nil), (*models.UserNotificationPreference)(nil),
+	} {
+		_, err := db.NewCreateTable().Model(model).Exec(t.Context())
+		require.NoError(t, err)
+	}
+	seedTeamUser(t, db, "invitee-1", "registered@example.com")
+	sender := &teamInvitationSender{}
+	service.notifications = notifications.NewService(db, notifications.Options{
+		Sender: sender, Encryptor: servicecrypto.NewTokenEncryptor("invitation-test-key"),
+		PublicURL: "https://app.openpost.test",
+	})
+	_, err := service.notifications.UpdatePreferences(t.Context(), "invitee-1", notifications.Preferences{
+		notifications.TypeWorkspaceInvite: {InApp: false, Email: false},
+	})
+	require.NoError(t, err)
+
+	invitation, rawToken, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1",
+		Email: "registered@example.com", Role: models.WorkspaceRoleAdmin,
+	})
+	require.NoError(t, err)
+	require.Equal(t, notifications.EmailDeliveryQueued, invitation.EmailDeliveryStatus,
+		"Transactional delivery bypasses the recipient's optional email preference")
+
+	var inApp models.UserNotification
+	require.NoError(t, db.NewSelect().Model(&inApp).Where("user_id = ?", "invitee-1").Scan(t.Context()))
+	require.NotContains(t, inApp.Title, rawToken)
+	require.NotContains(t, inApp.Body, rawToken)
+	require.NotContains(t, inApp.Href, rawToken)
+	require.NotContains(t, inApp.PayloadJSON, rawToken)
+
+	var audit models.WorkspaceAccessAuditEvent
+	require.NoError(t, db.NewSelect().Model(&audit).Where("invitation_id = ?", invitation.ID).Scan(t.Context()))
+	require.NotContains(t, fmt.Sprintf("%+v", audit), rawToken)
+}
+
+func TestInvitationEnqueueFailureKeepsOneInvitationAndCopyToken(t *testing.T) {
+	service, db := newTeamTestService(t, 10)
+	sender := &teamInvitationSender{}
+	service.notifications = notifications.NewService(db, notifications.Options{
+		Sender: sender, Encryptor: servicecrypto.NewTokenEncryptor("invitation-test-key"),
+		PublicURL: "https://app.openpost.test",
+	})
+
+	invitation, rawToken, err := service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1",
+		Email: "person@example.com", Role: models.WorkspaceRoleViewer,
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, rawToken, "the one-time copy-link token remains actionable")
+	require.Equal(t, notifications.EmailDeliveryFailed, invitation.EmailDeliveryStatus)
+	require.Empty(t, invitation.EmailDeliveryJobID)
+
+	count, err := db.NewSelect().Model((*models.WorkspaceInvitation)(nil)).
+		Where("workspace_id = ? AND email = ? AND revoked_at IS NULL", "workspace-1", "person@example.com").
+		Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+	team, err := service.List(t.Context(), "workspace-1", "admin-1", Filters{})
+	require.NoError(t, err)
+	require.Len(t, team.Invitations, 1)
+	require.Equal(t, notifications.EmailDeliveryFailed, team.Invitations[0].EmailDeliveryStatus)
+
+	_, _, err = service.Invite(t.Context(), InviteInput{
+		WorkspaceID: "workspace-1", ActorUserID: "admin-1",
+		Email: "person@example.com", Role: models.WorkspaceRoleViewer,
+	})
+	require.Equal(t, ErrorConflict, ErrorKindOf(err))
 }
 
 func TestConcurrentInvitationsCannotExceedSeatLimit(t *testing.T) {

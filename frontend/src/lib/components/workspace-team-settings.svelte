@@ -60,6 +60,7 @@
 	let statusFilter = $state<TeamStatus>('all');
 	let busyKey = $state('');
 	let createdInviteURL = $state('');
+	let createdInviteDeliveryStatus = $state<WorkspaceInvitation['email_delivery_status'] | ''>('');
 	let destructiveOpen = $state(false);
 	let destructiveAction = $state.raw<DestructiveAction | null>(null);
 	let requestSequence = 0;
@@ -111,16 +112,19 @@
 		void loadTeam(nextWorkspaceID);
 	});
 
-	async function loadTeam(targetWorkspaceID = workspaceID) {
+	async function loadTeam(targetWorkspaceID = workspaceID, preserveCurrent = false) {
 		if (!targetWorkspaceID) return;
 		const sequence = ++requestSequence;
 		loadedWorkspaceID = targetWorkspaceID;
 		loading = true;
 		loadError = '';
 		actionError = '';
-		team = null;
-		auditEvents = [];
-		createdInviteURL = '';
+		if (!preserveCurrent) {
+			team = null;
+			auditEvents = [];
+			createdInviteURL = '';
+			createdInviteDeliveryStatus = '';
+		}
 		try {
 			const { data, error } = await client.GET('/workspaces/{id}/team', {
 				params: { path: { id: targetWorkspaceID } }
@@ -164,6 +168,7 @@
 		busyKey = 'invite';
 		actionError = '';
 		createdInviteURL = '';
+		createdInviteDeliveryStatus = '';
 		try {
 			const { data, error } = await client.POST('/workspaces/{id}/invitations', {
 				params: { path: { id: targetWorkspaceID } },
@@ -171,12 +176,13 @@
 			});
 			if (error || !data) throw new Error(error?.detail || m.settings_action_failed());
 			if (workspaceID !== targetWorkspaceID) return;
-			const invitation = data as WorkspaceInvitation;
+			const invitation = data;
 			const nextInviteURL = invitation.accept_url || '';
 			inviteEmail = '';
 			inviteRole = 'editor';
-			await reloadAfterMutation(targetWorkspaceID);
 			createdInviteURL = nextInviteURL;
+			createdInviteDeliveryStatus = invitation.email_delivery_status;
+			await reloadAfterMutation(targetWorkspaceID);
 			showToast(m.settings_invite_created());
 		} catch (error) {
 			if (workspaceID === targetWorkspaceID) actionError = (error as Error).message;
@@ -239,6 +245,7 @@
 		busyKey = `invitation:${invitation.id}`;
 		actionError = '';
 		createdInviteURL = '';
+		createdInviteDeliveryStatus = '';
 		try {
 			const { data, error } = await client.POST(
 				'/workspaces/{id}/invitations/{invitation_id}/resend',
@@ -246,9 +253,10 @@
 			);
 			if (error || !data) throw new Error(error?.detail || m.settings_action_failed());
 			if (workspaceID !== targetWorkspaceID) return;
-			const nextInviteURL = (data as WorkspaceInvitation).accept_url || '';
-			await reloadAfterMutation(targetWorkspaceID);
+			const nextInviteURL = data.accept_url || '';
 			createdInviteURL = nextInviteURL;
+			createdInviteDeliveryStatus = data.email_delivery_status;
+			await reloadAfterMutation(targetWorkspaceID);
 			showToast(m.settings_invitation_resent());
 		} catch (error) {
 			if (workspaceID === targetWorkspaceID) actionError = (error as Error).message;
@@ -278,7 +286,7 @@
 
 	async function reloadAfterMutation(targetWorkspaceID: string) {
 		loadedWorkspaceID = '';
-		await loadTeam(targetWorkspaceID);
+		await loadTeam(targetWorkspaceID, true);
 	}
 
 	async function copyInviteURL() {
@@ -329,6 +337,39 @@
 		if (role === 'admin') return m.settings_role_admin_description();
 		if (role === 'viewer') return m.settings_role_viewer_description();
 		return m.settings_role_editor_description();
+	}
+
+	function invitationDelivery(status: WorkspaceInvitation['email_delivery_status']) {
+		switch (status) {
+			case 'queued':
+				return {
+					label: m.settings_invitation_delivery_queued(),
+					createdMessage: m.settings_invite_delivery_queued(),
+					tone: 'success' as const,
+					needsAction: false
+				};
+			case 'sent':
+				return {
+					label: m.settings_invitation_delivery_sent(),
+					createdMessage: m.settings_invite_delivery_sent(),
+					tone: 'success' as const,
+					needsAction: false
+				};
+			case 'failed':
+				return {
+					label: m.settings_invitation_delivery_failed(),
+					createdMessage: m.settings_invite_delivery_failed(),
+					tone: 'warning' as const,
+					needsAction: true
+				};
+			default:
+				return {
+					label: m.settings_invitation_delivery_unavailable(),
+					createdMessage: m.settings_invite_delivery_unavailable(),
+					tone: 'warning' as const,
+					needsAction: true
+				};
+		}
 	}
 
 	function formatDate(value: string) {
@@ -385,7 +426,12 @@
 	<div data-testid="team-load-error" class="mb-4">
 		<InlineNotice tone="error" message={loadError}>
 			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={() => void loadTeam()} disabled={loading}>
+				<Button
+					variant="outline"
+					size="sm"
+					onclick={() => void loadTeam(workspaceID, Boolean(createdInviteURL))}
+					disabled={loading}
+				>
 					{m.common_retry()}
 				</Button>
 			{/snippet}
@@ -444,23 +490,24 @@
 	{/if}
 
 	{#if createdInviteURL}
-		<div
-			data-testid="team-invite-link"
-			data-feedback-redact
-			class="mb-5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4"
-		>
-			<p class="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-				{m.settings_invite_link_ready()}
-			</p>
-			<div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-				<p class="min-w-0 flex-1 rounded-md bg-background px-3 py-2 font-mono text-xs break-all">
-					{createdInviteURL}
+		<div data-testid="team-invite-link" data-feedback-redact>
+			<InlineNotice
+				tone={invitationDelivery(createdInviteDeliveryStatus || 'unavailable').tone}
+				class="mb-5"
+			>
+				<p class="font-medium">
+					{invitationDelivery(createdInviteDeliveryStatus || 'unavailable').createdMessage}
 				</p>
-				<Button type="button" variant="outline" size="sm" onclick={copyInviteURL}>
-					<CopyIcon class="size-4" />
-					{m.common_copy()}
-				</Button>
-			</div>
+				<div class="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+					<p class="min-w-0 flex-1 rounded-md bg-background px-3 py-2 font-mono text-xs break-all">
+						{createdInviteURL}
+					</p>
+					<Button type="button" variant="outline" size="sm" onclick={copyInviteURL}>
+						<CopyIcon class="size-4" />
+						{m.common_copy()}
+					</Button>
+				</div>
+			</InlineNotice>
 		</div>
 	{/if}
 
@@ -620,6 +667,22 @@
 												date: formatDate(invitation.last_sent_at)
 											})}
 										</p>
+										<p
+											data-testid={`invitation-email-delivery-${invitation.id}`}
+											class={[
+												'mt-1 text-xs font-medium',
+												invitationDelivery(invitation.email_delivery_status).needsAction
+													? 'text-amber-700 dark:text-amber-300'
+													: 'text-muted-foreground'
+											]}
+										>
+											{invitationDelivery(invitation.email_delivery_status).label}
+										</p>
+										{#if invitationDelivery(invitation.email_delivery_status).needsAction}
+											<p class="mt-1 text-xs text-muted-foreground">
+												{m.settings_invitation_delivery_action()}
+											</p>
+										{/if}
 									</div>
 									<span
 										class="inline-flex w-fit rounded-full border px-2 py-0.5 text-xs font-medium"

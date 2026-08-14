@@ -3,6 +3,7 @@ package notifications
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -10,7 +11,9 @@ import (
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
+	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/passwordmail"
+	"github.com/openpost/backend/internal/services/transactionalmail"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -41,8 +44,9 @@ func notificationsTestDB(t *testing.T) *bun.DB {
 }
 
 type recordingNotificationSender struct {
-	messages []passwordmail.NotificationMessage
-	err      error
+	messages           []passwordmail.NotificationMessage
+	invitationMessages []transactionalmail.WorkspaceInvitationMessage
+	err                error
 }
 
 func (s *recordingNotificationSender) SendPasswordReset(_ context.Context, _ passwordmail.ResetMessage) error {
@@ -56,6 +60,128 @@ func (s *recordingNotificationSender) SendEmailVerification(_ context.Context, _
 func (s *recordingNotificationSender) SendNotification(_ context.Context, message passwordmail.NotificationMessage) error {
 	s.messages = append(s.messages, message)
 	return s.err
+}
+
+func (s *recordingNotificationSender) SendWorkspaceInvitation(_ context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
+	s.invitationMessages = append(s.invitationMessages, message)
+	return s.err
+}
+
+func TestWorkspaceInvitationEmailIsTransactionalDurableAndRecipientIndependent(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{}
+	service := NewService(db, Options{
+		Sender: sender, Encryptor: servicecrypto.NewTokenEncryptor("invitation-test-key"),
+		PublicURL: "https://app.openpost.test/",
+	})
+	now := time.Date(2026, 8, 14, 12, 0, 0, 0, time.UTC)
+	service.now = func() time.Time { return now }
+	ctx := context.Background()
+
+	preferences, err := service.UpdatePreferences(ctx, "user-1", Preferences{
+		TypeWorkspaceInvite: {InApp: false, Email: false},
+	})
+	require.NoError(t, err)
+	require.True(t, preferences[TypeWorkspaceInvite].InApp)
+	require.True(t, preferences[TypeWorkspaceInvite].Email,
+		"Transactional access email is not an optional preference")
+
+	delivery, err := service.EnqueueWorkspaceInvitation(ctx, WorkspaceInvitationEmailInput{
+		InvitationID: "invitation-1", Recipient: "new-person@example.com",
+		WorkspaceName: "Launch team", InviterName: "Ada Lovelace", Role: "editor",
+		ExpiresAt: now.Add(7 * 24 * time.Hour), RawToken: "op_inv_private-token",
+		DeliveryKey: "invitation-1:2026-08-14T12:00:00Z",
+	})
+	require.NoError(t, err)
+	require.Equal(t, EmailDeliveryQueued, delivery.Status)
+	require.NotEmpty(t, delivery.JobID)
+
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", JobTypeEmailDelivery).Scan(ctx))
+	require.Len(t, jobs, 1)
+	require.Contains(t, jobs[0].Payload, `"classification":"transactional"`)
+	require.NotContains(t, jobs[0].Payload, `"raw_token"`)
+	require.NotContains(t, jobs[0].Payload, `"token_hash"`)
+	require.NotContains(t, jobs[0].Payload, "op_inv_private-token")
+
+	require.NoError(t, service.HandleJob(ctx, jobs[0].Type, jobs[0].Payload))
+	require.Equal(t, []transactionalmail.WorkspaceInvitationMessage{{
+		Recipient: "new-person@example.com", WorkspaceName: "Launch team",
+		InviterName: "Ada Lovelace", Role: "editor",
+		AcceptURL:      "https://app.openpost.test/invite?token=op_inv_private-token",
+		ExpiresAt:      now.Add(7 * 24 * time.Hour),
+		IdempotencyKey: "notification-" + jobs[0].ID,
+	}}, sender.invitationMessages)
+
+	count, err := db.NewSelect().Model((*models.UserNotification)(nil)).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, count, "transactional email content must not be persisted as an in-app notification")
+}
+
+func TestWorkspaceInvitationEmailReportsProviderUnavailableWithoutQueueing(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db, Options{PublicURL: "https://app.openpost.test"})
+
+	delivery, err := service.EnqueueWorkspaceInvitation(t.Context(), WorkspaceInvitationEmailInput{
+		InvitationID: "invitation-1", Recipient: "person@example.com",
+		WorkspaceName: "Launch team", InviterName: "Ada", Role: "viewer",
+		ExpiresAt: time.Now().UTC().Add(time.Hour), RawToken: "op_inv_private-token",
+		DeliveryKey: "delivery-1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, EmailDeliveryUnavailable, delivery.Status)
+	require.Empty(t, delivery.JobID)
+
+	count, err := db.NewSelect().Model((*models.Job)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+}
+
+func TestWorkspaceInvitationEmailProjectsDurableProviderOutcome(t *testing.T) {
+	db := notificationsTestDB(t)
+	service := NewService(db)
+	job := &models.Job{
+		ID: "invite-job", Type: JobTypeEmailDelivery, Payload: `{}`,
+		Status: "pending", RunAt: time.Now().UTC(), MaxAttempts: 5,
+	}
+	_, err := db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	status, err := service.ResolveEmailDeliveryStatus(t.Context(), job.ID, EmailDeliveryUnavailable)
+	require.NoError(t, err)
+	require.Equal(t, EmailDeliveryQueued, status)
+	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", "completed").Where("id = ?", job.ID).Exec(t.Context())
+	require.NoError(t, err)
+	status, err = service.ResolveEmailDeliveryStatus(t.Context(), job.ID, EmailDeliveryUnavailable)
+	require.NoError(t, err)
+	require.Equal(t, EmailDeliverySent, status)
+	_, err = db.NewUpdate().Model((*models.Job)(nil)).Set("status = ?", "failed").Where("id = ?", job.ID).Exec(t.Context())
+	require.NoError(t, err)
+	status, err = service.ResolveEmailDeliveryStatus(t.Context(), job.ID, EmailDeliveryUnavailable)
+	require.NoError(t, err)
+	require.Equal(t, EmailDeliveryFailed, status)
+}
+
+func TestWorkspaceInvitationProviderFailureDoesNotExposeAcceptanceSecret(t *testing.T) {
+	db := notificationsTestDB(t)
+	sender := &recordingNotificationSender{err: errors.New("provider echoed op_inv_private-token")}
+	service := NewService(db, Options{
+		Sender: sender, Encryptor: servicecrypto.NewTokenEncryptor("invitation-test-key"),
+		PublicURL: "https://app.openpost.test",
+	})
+	delivery, err := service.EnqueueWorkspaceInvitation(t.Context(), WorkspaceInvitationEmailInput{
+		InvitationID: "invitation-1", Recipient: "person@example.com",
+		WorkspaceName: "Launch", InviterName: "Ada", Role: "viewer",
+		ExpiresAt: time.Now().UTC().Add(time.Hour), RawToken: "op_inv_private-token",
+		DeliveryKey: "delivery-1",
+	})
+	require.NoError(t, err)
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Where("id = ?", delivery.JobID).Scan(t.Context()))
+
+	err = service.HandleJob(t.Context(), job.Type, job.Payload)
+	require.EqualError(t, err, "workspace invitation email delivery failed")
+	require.NotContains(t, err.Error(), "op_inv_private-token")
 }
 
 func TestNotificationDedupKeyIsIdempotent(t *testing.T) {

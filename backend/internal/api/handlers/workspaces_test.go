@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -752,8 +754,10 @@ func TestCreateWorkspaceInvitationEnforcesTeamMemberQuota(t *testing.T) {
 	var firstOut map[string]any
 	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &firstOut))
 	require.Equal(t, "teammate@example.com", firstOut["email"])
-	require.Regexp(t, `^op_inv_`, firstOut["token"])
-	require.Equal(t, "https://app.openpost.test/invite?token="+firstOut["token"].(string), firstOut["accept_url"])
+	require.NotContains(t, firstOut, "token")
+	acceptURL, err := url.Parse(firstOut["accept_url"].(string))
+	require.NoError(t, err)
+	require.Regexp(t, `^op_inv_`, acceptURL.Query().Get("token"))
 
 	second := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations", map[string]string{
 		"email": "second@example.com",
@@ -808,8 +812,8 @@ func TestListWorkspaceTeamReturnsMembersAndPendingInvites(t *testing.T) {
 			Role  string `json:"role"`
 		} `json:"members"`
 		Invitations []struct {
-			Email string `json:"email"`
-			Token string `json:"token"`
+			Email               string `json:"email"`
+			EmailDeliveryStatus string `json:"email_delivery_status"`
 		} `json:"invitations"`
 		CurrentSeats int64 `json:"current_seats"`
 	}
@@ -818,7 +822,7 @@ func TestListWorkspaceTeamReturnsMembersAndPendingInvites(t *testing.T) {
 	require.Equal(t, "user@example.com", out.Members[0].Email)
 	require.Len(t, out.Invitations, 1)
 	require.Equal(t, "teammate@example.com", out.Invitations[0].Email)
-	require.Empty(t, out.Invitations[0].Token)
+	require.Equal(t, "unavailable", out.Invitations[0].EmailDeliveryStatus)
 	require.Equal(t, int64(2), out.CurrentSeats)
 }
 
@@ -983,12 +987,59 @@ func TestResendInvitationRotatesLinkAndRevokedInviteCannotBeAccepted(t *testing.
 	require.Equal(t, http.StatusOK, resent.Code, resent.Body.String())
 	var second WorkspaceInvitationResponse
 	require.NoError(t, json.Unmarshal(resent.Body.Bytes(), &second))
-	require.NotEqual(t, first.Token, second.Token)
 	require.NotEqual(t, first.AcceptURL, second.AcceptURL)
+	secondAcceptURL, err := url.Parse(second.AcceptURL)
+	require.NoError(t, err)
+	secondToken := secondAcceptURL.Query().Get("token")
+	require.NotEmpty(t, secondToken)
 
 	revoked := srv.deleteJSON(t, "/api/v1/workspaces/ws-1/invitations/"+first.ID, "admin-token")
 	require.Equal(t, http.StatusOK, revoked.Code, revoked.Body.String())
-	accepted := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{"token": second.Token}, "invitee-token")
+	accepted := srv.postJSON(t, "/api/v1/workspace-invitations/accept", map[string]string{"token": secondToken}, "invitee-token")
 	require.Equal(t, http.StatusConflict, accepted.Code)
 	require.Contains(t, accepted.Body.String(), "revoked")
+}
+
+func TestResendInvitationAppliesPerInvitationAbuseControl(t *testing.T) {
+	t.Parallel()
+	srv := newWorkspaceTestServer(t, nil)
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "admin@example.com", models.WorkspaceRoleAdmin)
+
+	created := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations", map[string]string{
+		"email": "invitee@example.com", "role": "viewer",
+	}, "web-token")
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	var invitation WorkspaceInvitationResponse
+	require.NoError(t, json.Unmarshal(created.Body.Bytes(), &invitation))
+
+	for attempt := 0; attempt < 5; attempt++ {
+		response := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID+"/resend", map[string]string{}, "web-token")
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+	limited := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID+"/resend", map[string]string{}, "web-token")
+	require.Equal(t, http.StatusTooManyRequests, limited.Code, limited.Body.String())
+	require.Contains(t, limited.Body.String(), "resend limit reached")
+}
+
+func TestCreateInvitationAppliesPerWorkspaceAbuseControl(t *testing.T) {
+	t.Parallel()
+	srv := newWorkspaceTestServer(t, nil)
+	seedWorkspaceUserAndMember(t, srv.db, "user-1", "admin@example.com", models.WorkspaceRoleAdmin)
+
+	for attempt := 0; attempt < workspaceInvitationCreateLimit; attempt++ {
+		created := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations", map[string]string{
+			"email": fmt.Sprintf("invitee-%d@example.com", attempt), "role": "viewer",
+		}, "web-token")
+		require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+		var invitation WorkspaceInvitationResponse
+		require.NoError(t, json.Unmarshal(created.Body.Bytes(), &invitation))
+
+		revoked := srv.deleteJSON(t, "/api/v1/workspaces/ws-1/invitations/"+invitation.ID, "web-token")
+		require.Equal(t, http.StatusOK, revoked.Code, revoked.Body.String())
+	}
+	limited := srv.postJSON(t, "/api/v1/workspaces/ws-1/invitations", map[string]string{
+		"email": "limited@example.com", "role": "viewer",
+	}, "web-token")
+	require.Equal(t, http.StatusTooManyRequests, limited.Code, limited.Body.String())
+	require.Contains(t, limited.Body.String(), "invitation limit reached")
 }

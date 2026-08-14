@@ -11,6 +11,8 @@ import (
 	"net/mail"
 	"net/url"
 	"strings"
+
+	"github.com/openpost/backend/internal/services/transactionalmail"
 )
 
 const (
@@ -71,6 +73,14 @@ func (s *ResendSender) SendEmailVerification(ctx context.Context, message Verifi
 
 func (s *ResendSender) SendNotification(ctx context.Context, message NotificationMessage) error {
 	content, err := notificationContent(message)
+	if err != nil {
+		return err
+	}
+	return s.send(ctx, message.Recipient, message.IdempotencyKey, content)
+}
+
+func (s *ResendSender) SendWorkspaceInvitation(ctx context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
+	content, err := workspaceInvitationContent(message)
 	if err != nil {
 		return err
 	}
@@ -153,6 +163,14 @@ func (s *CloudflareSender) SendEmailVerification(ctx context.Context, message Ve
 
 func (s *CloudflareSender) SendNotification(ctx context.Context, message NotificationMessage) error {
 	content, err := notificationContent(message)
+	if err != nil {
+		return err
+	}
+	return s.send(ctx, message.Recipient, content)
+}
+
+func (s *CloudflareSender) SendWorkspaceInvitation(ctx context.Context, message transactionalmail.WorkspaceInvitationMessage) error {
+	content, err := workspaceInvitationContent(message)
 	if err != nil {
 		return err
 	}

@@ -288,22 +288,7 @@ export interface TeamMember {
 	deactivated_at?: string;
 }
 
-export interface WorkspaceInvitation {
-	id: string;
-	workspace_id: string;
-	email: string;
-	role: string;
-	invited_by_user_id: string;
-	accepted_by_user_id?: string;
-	token?: string;
-	accept_url?: string;
-	expires_at: string;
-	accepted_at?: string;
-	revoked_at?: string;
-	last_sent_at: string;
-	status: 'pending' | 'expired';
-	created_at: string;
-}
+export type WorkspaceInvitation = components['schemas']['WorkspaceInvitationResponse'];
 
 export interface WorkspaceTeam {
 	members: TeamMember[];

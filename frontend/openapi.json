@@ -17245,6 +17245,11 @@
 						"description": "Invited email",
 						"type": "string"
 					},
+					"email_delivery_status": {
+						"description": "Truthful state of the latest Transactional invitation email",
+						"enum": ["queued", "sent", "failed", "unavailable"],
+						"type": "string"
+					},
 					"expires_at": {
 						"description": "Invitation expiry time",
 						"type": "string"
@@ -17274,10 +17279,6 @@
 						"enum": ["pending", "expired"],
 						"type": "string"
 					},
-					"token": {
-						"description": "Raw invite token returned once on creation",
-						"type": "string"
-					},
 					"workspace_id": {
 						"description": "Workspace ID",
 						"type": "string"
@@ -17291,6 +17292,7 @@
 					"invited_by_user_id",
 					"expires_at",
 					"last_sent_at",
+					"email_delivery_status",
 					"status",
 					"created_at"
 				],
@@ -36680,6 +36682,16 @@
 						},
 						"description": "Unprocessable Entity"
 					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
 					"500": {
 						"content": {
 							"application/problem+json": {
@@ -36862,6 +36874,16 @@
 							}
 						},
 						"description": "Unprocessable Entity"
+					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
 					},
 					"500": {
 						"content": {

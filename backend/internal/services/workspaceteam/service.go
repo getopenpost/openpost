@@ -201,6 +201,13 @@ func (s *Service) listInvitations(ctx context.Context, workspaceID string, filte
 
 	invitations := make([]Invitation, 0, len(rows))
 	for _, row := range rows {
+		if s.notifications != nil {
+			deliveryStatus, err := s.notifications.ResolveEmailDeliveryStatus(ctx, row.EmailDeliveryJobID, row.EmailDeliveryStatus)
+			if err != nil {
+				return nil, fmt.Errorf("resolve workspace invitation email delivery: %w", err)
+			}
+			row.EmailDeliveryStatus = deliveryStatus
+		}
 		status := "pending"
 		if !row.ExpiresAt.After(now) {
 			status = "expired"
@@ -249,11 +256,15 @@ func (s *Service) Invite(ctx context.Context, input InviteInput) (models.Workspa
 		ID: uuid.NewString(), WorkspaceID: input.WorkspaceID, Email: input.Email,
 		Role: input.Role, InvitedByUserID: input.ActorUserID, TokenHash: tokenHash,
 		ExpiresAt: now.Add(InvitationLifetime), LastSentAt: now, CreatedAt: now,
+		EmailDeliveryStatus: notifications.EmailDeliveryUnavailable,
 	}
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		return s.createInvitation(txCtx, tx, input, invitation, seatDecision, now)
 	})
 	if err != nil {
+		return models.WorkspaceInvitation{}, "", err
+	}
+	if err := s.finishInvitationDelivery(ctx, &invitation, rawToken, false); err != nil {
 		return models.WorkspaceInvitation{}, "", err
 	}
 	return invitation, rawToken, nil
@@ -303,14 +314,11 @@ func (s *Service) createInvitation(
 	if _, err := tx.NewInsert().Model(&invitation).Exec(ctx); err != nil {
 		return err
 	}
-	if err := insertAudit(ctx, tx, models.WorkspaceAccessAuditEvent{
+	return insertAudit(ctx, tx, models.WorkspaceAccessAuditEvent{
 		WorkspaceID: input.WorkspaceID, ActorUserID: input.ActorUserID,
 		InvitationID: invitation.ID, SubjectEmail: input.Email,
 		Action: ActionInvitationCreated, Role: input.Role, Status: "pending", CreatedAt: now,
-	}); err != nil {
-		return err
-	}
-	return s.notifyInvitation(ctx, tx, invitation, false)
+	})
 }
 
 func revokeExpiredInvitations(ctx context.Context, tx bun.Tx, workspaceID, email string, now time.Time) error {
@@ -356,8 +364,27 @@ func (s *Service) ResendInvitation(ctx context.Context, workspaceID, invitationI
 		return models.WorkspaceInvitation{}, "", fmt.Errorf("generate invitation token: %w", err)
 	}
 	now := s.now()
+	invitation, err := s.rotateInvitation(ctx, workspaceID, invitationID, actorUserID, tokenHash, seatDecision, now)
+	if err != nil {
+		return models.WorkspaceInvitation{}, "", err
+	}
+	if err := s.finishInvitationDelivery(ctx, &invitation, rawToken, true); err != nil {
+		return models.WorkspaceInvitation{}, "", err
+	}
+	return invitation, rawToken, nil
+}
+
+func (s *Service) rotateInvitation(
+	ctx context.Context,
+	workspaceID string,
+	invitationID string,
+	actorUserID string,
+	tokenHash string,
+	seatDecision entitlements.Decision,
+	now time.Time,
+) (models.WorkspaceInvitation, error) {
 	var invitation models.WorkspaceInvitation
-	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		if err := s.lockWorkspaceAndRequireAdmin(txCtx, tx, workspaceID, actorUserID); err != nil {
 			return err
 		}
@@ -384,24 +411,23 @@ func (s *Service) ResendInvitation(ctx context.Context, workspaceID, invitationI
 		invitation.ExpiresAt = now.Add(InvitationLifetime)
 		invitation.LastSentAt = now
 		invitation.InvitedByUserID = actorUserID
+		invitation.EmailDeliveryStatus = notifications.EmailDeliveryUnavailable
+		invitation.EmailDeliveryJobID = ""
 		if _, err := tx.NewUpdate().Model(&invitation).
-			Column("token_hash", "expires_at", "last_sent_at", "invited_by_user_id").
+			Column("token_hash", "expires_at", "last_sent_at", "invited_by_user_id", "email_delivery_status", "email_delivery_job_id").
 			WherePK().Exec(txCtx); err != nil {
 			return err
 		}
-		if err := insertAudit(txCtx, tx, models.WorkspaceAccessAuditEvent{
+		return insertAudit(txCtx, tx, models.WorkspaceAccessAuditEvent{
 			WorkspaceID: workspaceID, ActorUserID: actorUserID, InvitationID: invitation.ID,
 			SubjectEmail: invitation.Email, Action: ActionInvitationResent,
 			Role: invitation.Role, Status: "pending", CreatedAt: now,
-		}); err != nil {
-			return err
-		}
-		return s.notifyInvitation(txCtx, tx, invitation, true)
+		})
 	})
 	if err != nil {
-		return models.WorkspaceInvitation{}, "", err
+		return models.WorkspaceInvitation{}, err
 	}
-	return invitation, rawToken, nil
+	return invitation, nil
 }
 
 func (s *Service) RevokeInvitation(ctx context.Context, workspaceID, invitationID, actorUserID string) error {
@@ -966,32 +992,110 @@ func insertAudit(ctx context.Context, db bun.IDB, event models.WorkspaceAccessAu
 	return err
 }
 
-func (s *Service) notifyInvitation(ctx context.Context, tx bun.Tx, invitation models.WorkspaceInvitation, resent bool) error {
+func (s *Service) finishInvitationDelivery(ctx context.Context, invitation *models.WorkspaceInvitation, rawToken string, resent bool) error {
+	status := notifications.EmailDeliveryUnavailable
+	jobID := ""
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if s.notifications == nil {
+			return s.updateInvitationDelivery(txCtx, tx, invitation, status, jobID)
+		}
+		var workspace models.Workspace
+		var inviter models.User
+		workspaceErr := tx.NewSelect().Model(&workspace).Column("id", "name").Where("id = ?", invitation.WorkspaceID).Scan(txCtx)
+		inviterErr := tx.NewSelect().Model(&inviter).Column("id", "email", "display_name").Where("id = ?", invitation.InvitedByUserID).Scan(txCtx)
+		if workspaceErr != nil || inviterErr != nil {
+			status = notifications.EmailDeliveryFailed
+		} else {
+			inviterName := strings.TrimSpace(inviter.DisplayName)
+			if inviterName == "" {
+				inviterName = inviter.Email
+			}
+			if _, err := tx.ExecContext(txCtx, "SAVEPOINT workspace_invitation_email_enqueue"); err != nil {
+				return fmt.Errorf("start workspace invitation email enqueue: %w", err)
+			}
+			delivery, err := s.notifications.EnqueueWorkspaceInvitationTx(txCtx, tx, notifications.WorkspaceInvitationEmailInput{
+				InvitationID:  invitation.ID,
+				Recipient:     invitation.Email,
+				WorkspaceName: workspace.Name,
+				InviterName:   inviterName,
+				Role:          invitation.Role,
+				ExpiresAt:     invitation.ExpiresAt,
+				RawToken:      rawToken,
+				DeliveryKey:   invitation.ID + ":" + invitation.TokenHash,
+			})
+			status, jobID = delivery.Status, delivery.JobID
+			if err != nil {
+				if _, rollbackErr := tx.ExecContext(txCtx, "ROLLBACK TO SAVEPOINT workspace_invitation_email_enqueue"); rollbackErr != nil {
+					return fmt.Errorf("roll back workspace invitation email enqueue: %w", rollbackErr)
+				}
+				status, jobID = notifications.EmailDeliveryFailed, ""
+			}
+			if _, err := tx.ExecContext(txCtx, "RELEASE SAVEPOINT workspace_invitation_email_enqueue"); err != nil {
+				return fmt.Errorf("finish workspace invitation email enqueue: %w", err)
+			}
+		}
+		return s.updateInvitationDelivery(txCtx, tx, invitation, status, jobID)
+	})
+	if err != nil {
+		return err
+	}
+	invitation.EmailDeliveryStatus = status
+	invitation.EmailDeliveryJobID = jobID
+	_ = s.notifyInvitation(ctx, *invitation, resent)
+	return nil
+}
+
+func (s *Service) updateInvitationDelivery(
+	ctx context.Context,
+	db bun.IDB,
+	invitation *models.WorkspaceInvitation,
+	status string,
+	jobID string,
+) error {
+	result, err := db.NewUpdate().Model((*models.WorkspaceInvitation)(nil)).
+		Set("email_delivery_status = ?", status).
+		Set("email_delivery_job_id = ?", jobID).
+		Where("id = ? AND token_hash = ?", invitation.ID, invitation.TokenHash).Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("persist workspace invitation delivery state: %w", err)
+	}
+	updated, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read workspace invitation delivery update: %w", err)
+	}
+	if updated != 1 {
+		return lifecycleError(ErrorConflict, "invitation was resent again")
+	}
+	return nil
+}
+
+func (s *Service) notifyInvitation(ctx context.Context, invitation models.WorkspaceInvitation, resent bool) error {
 	if s.notifications == nil {
 		return nil
 	}
 	var user models.User
-	if err := tx.NewSelect().Model(&user).Where("LOWER(email) = ?", invitation.Email).Scan(ctx); errors.Is(err, sql.ErrNoRows) {
+	if err := s.db.NewSelect().Model(&user).Where("LOWER(email) = ?", invitation.Email).Scan(ctx); errors.Is(err, sql.ErrNoRows) {
 		return nil
 	} else if err != nil {
 		return err
 	}
 	var workspace models.Workspace
-	if err := tx.NewSelect().Model(&workspace).Column("id", "name").Where("id = ?", invitation.WorkspaceID).Scan(ctx); err != nil {
+	if err := s.db.NewSelect().Model(&workspace).Column("id", "name").Where("id = ?", invitation.WorkspaceID).Scan(ctx); err != nil {
 		return err
 	}
 	dedupKey := "workspace-invitation:" + invitation.ID
 	if resent {
 		dedupKey += ":" + invitation.LastSentAt.UTC().Format(time.RFC3339Nano)
 	}
-	return s.notifications.CreateWithDB(ctx, tx, notifications.CreateInput{
+	return s.notifications.Create(ctx, notifications.CreateInput{
 		// The invitee does not have workspace access yet, so this notification
 		// must remain visible outside any workspace-scoped notification feed.
 		UserID: user.ID,
 		Type:   notifications.TypeWorkspaceInvite, Title: "Workspace invitation",
 		Body: "You were invited to " + workspace.Name + ".",
 		Href: "/invite?id=" + invitation.ID, DedupKey: dedupKey,
-		Actions: []models.NotificationAction{{Label: "Review invitation", Href: "/invite?id=" + invitation.ID, Kind: "primary"}},
+		Actions:       []models.NotificationAction{{Label: "Review invitation", Href: "/invite?id=" + invitation.ID, Kind: "primary"}},
+		SuppressEmail: true,
 	})
 }
 

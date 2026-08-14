@@ -100,9 +100,10 @@ func exerciseWorkspaceAccessLifecycleMigration(t *testing.T, db *bun.DB, concurr
 	require.Equal(t, models.WorkspaceMemberStatusActive, member.Status)
 	require.False(t, member.CreatedAt.IsZero())
 	require.False(t, member.UpdatedAt.IsZero())
-	var legacyInvitation models.WorkspaceInvitation
-	require.NoError(t, db.NewSelect().Model(&legacyInvitation).Where("id = ?", "legacy-invite").Scan(ctx))
-	require.False(t, legacyInvitation.LastSentAt.IsZero())
+	var legacyInvitationLastSentAt time.Time
+	require.NoError(t, db.NewSelect().Table("workspace_invitations").
+		Column("last_sent_at").Where("id = ?", "legacy-invite").Scan(ctx, &legacyInvitationLastSentAt))
+	require.False(t, legacyInvitationLastSentAt.IsZero())
 
 	_, err = db.NewInsert().Model(&models.WorkspaceAccessAuditEvent{
 		ID: "audit-1", WorkspaceID: "workspace-1", ActorUserID: "admin-1",

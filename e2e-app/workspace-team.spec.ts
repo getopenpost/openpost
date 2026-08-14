@@ -4,7 +4,8 @@ import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 test("workspace admins manage the complete member and invitation lifecycle", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
+  test.slow();
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
@@ -28,9 +29,12 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
   });
   expect(invitationResponse.ok()).toBeTruthy();
   const invitation = await invitationResponse.json();
+  expect(invitation.token).toBeUndefined();
+  const invitationToken = new URL(invitation.accept_url).searchParams.get("token");
+  expect(invitationToken).toBeTruthy();
   const acceptanceResponse = await request.post("/api/v1/workspace-invitations/accept", {
     headers: { Authorization: `Bearer ${member.token}` },
-    data: { token: invitation.token },
+    data: { token: invitationToken },
   });
   expect(acceptanceResponse.ok()).toBeTruthy();
 
@@ -70,13 +74,40 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
   await page.getByLabel("Filter by status").click();
   await page.getByRole("option", { name: "All statuses" }).click();
   const pendingEmail = `pending-${unique}@example.com`;
+  let failNextTeamReload = false;
+  await page.route(`**/api/v1/workspaces/${workspace.id}/team*`, async (route) => {
+    if (!failNextTeamReload) return route.continue();
+    failNextTeamReload = false;
+    await route.fulfill({
+      status: 503,
+      contentType: "application/problem+json",
+      body: JSON.stringify({ detail: "Temporary team reload failure" }),
+    });
+  });
   await page.getByTestId("team-invite-email").fill(pendingEmail);
+  failNextTeamReload = true;
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByTestId("team-invite-link")).toBeVisible();
+  await expect(page.getByTestId("team-invite-link")).toContainText(
+    "Email delivery is not configured",
+  );
+  await expect(page.getByTestId("team-load-error")).toContainText("Temporary team reload failure");
+  await page.screenshot({
+    path: testInfo.outputPath("workspace-invitation-fallback.png"),
+    fullPage: true,
+  });
+  await page.getByTestId("team-load-error").getByRole("button").click();
+  const expectedReloadConsoleError = consoleErrors.findIndex((message) =>
+    message.includes("503 (Service Unavailable)"),
+  );
+  expect(expectedReloadConsoleError).toBeGreaterThanOrEqual(0);
+  consoleErrors.splice(expectedReloadConsoleError, 1);
   const invitationCard = page
     .getByTestId("team-invitations-list")
     .locator("div.rounded-md.border")
     .filter({ hasText: pendingEmail });
+  await expect(invitationCard).toContainText("Email delivery unavailable");
+  await expect(invitationCard).toContainText("Resend to queue another email");
   await invitationCard.getByRole("button", { name: "Resend" }).click();
   await expect(page.getByText("Invitation resent with a new link.")).toBeVisible();
   await invitationCard.getByRole("button", { name: "Remove access" }).click();

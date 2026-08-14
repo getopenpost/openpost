@@ -35,7 +35,17 @@ pending or expired invitations.
 1. Open Settings.
 2. Open the Organization tab.
 3. Use the Team section to enter the collaborator email and role.
-4. Copy the generated invite link and send it to the collaborator.
+4. Check the invitation email state. OpenPost queues one expiring Transactional
+   email whether or not the recipient already has an account.
+5. Copy the one-time invite link as a fallback while it is visible.
+
+Invitation email includes the Workspace, inviter, role, expiry, and acceptance
+link. Optional notification preferences do not suppress access email. The
+configured email provider and Workspace invitation controls still apply. If
+email is unavailable or cannot be queued, Settings keeps the pending invitation
+and its reserved seat, shows the failure, and leaves the copy link available.
+Resend rotates the secret and queues a new delivery without creating another
+active invitation.
 
 The invited user must sign in with the invited email address before accepting
 the link. Accepted invites add the user to the workspace immediately and open
@@ -47,6 +57,12 @@ Pending invitations count toward team seats until they are accepted, revoked, or
 expire. An admin can resend an invitation to rotate its secret and extend its
 expiry, or revoke it to free the reserved seat. Only the newest link returned by
 a resend can be accepted.
+
+OpenPost stores only the invitation token hash on the invitation. The raw token
+is limited to the acceptance link returned once. Durable email jobs encrypt that
+link with the application encryption key and decrypt it only in the delivery
+worker. The token is not returned as a separate API field and is excluded from
+the team list, access history, logs, and telemetry.
 
 ### Change accepted access
 

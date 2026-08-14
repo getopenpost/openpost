@@ -13,6 +13,7 @@ type Limiter struct {
 
 type bucket struct {
 	windowStart time.Time
+	window      time.Duration
 	count       int
 	lastSeen    time.Time
 }
@@ -47,6 +48,7 @@ func (l *Limiter) Allow(key string, limit int, window time.Duration) bool {
 	if !ok || now.Sub(current.windowStart) >= window {
 		l.buckets[key] = &bucket{
 			windowStart: now,
+			window:      window,
 			count:       1,
 			lastSeen:    now,
 		}
@@ -64,7 +66,7 @@ func (l *Limiter) Allow(key string, limit int, window time.Duration) bool {
 
 func (l *Limiter) cleanup(now time.Time) {
 	for key, b := range l.buckets {
-		if now.Sub(b.lastSeen) > cleanupTimeout {
+		if now.Sub(b.windowStart) >= b.window && now.Sub(b.lastSeen) > cleanupTimeout {
 			delete(l.buckets, key)
 		}
 	}

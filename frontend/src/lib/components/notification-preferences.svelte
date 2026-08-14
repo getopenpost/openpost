@@ -23,6 +23,7 @@
 		'workspace_invite'
 	]);
 	const defaultEmailTypes = new Set(['publish_failed', 'reply_failed', 'workspace_invite']);
+	const transactionalEmailTypes = new Set(['workspace_invite']);
 	const eventGroups = $derived([
 		{
 			id: 'publishing',
@@ -205,7 +206,7 @@
 									<span class="inline-flex min-h-11 min-w-11 items-center justify-center">
 										<Checkbox
 											checked={preference.email}
-											disabled={!emailAvailable}
+											disabled={!emailAvailable || transactionalEmailTypes.has(eventType)}
 											aria-label={`${eventLabel(eventType)} · ${m.notifications_email()}`}
 											onCheckedChange={(checked) => updatePreference(eventType, 'email', checked)}
 										/>
@@ -254,7 +255,7 @@
 									>
 										<Checkbox
 											checked={preference.email}
-											disabled={!emailAvailable}
+											disabled={!emailAvailable || transactionalEmailTypes.has(eventType)}
 											aria-label={`${eventLabel(eventType)} · ${m.notifications_email()}`}
 											onCheckedChange={(checked) => updatePreference(eventType, 'email', checked)}
 										/>

@@ -11392,6 +11392,11 @@ export interface components {
             created_at: string;
             /** @description Invited email */
             email: string;
+            /**
+             * @description Truthful state of the latest Transactional invitation email
+             * @enum {string}
+             */
+            email_delivery_status: "queued" | "sent" | "failed" | "unavailable";
             /** @description Invitation expiry time */
             expires_at: string;
             /** @description Invitation ID */
@@ -11409,8 +11414,6 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "expired";
-            /** @description Raw invite token returned once on creation */
-            token?: string;
             /** @description Workspace ID */
             workspace_id: string;
         };
@@ -26549,6 +26552,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Internal Server Error */
             500: {
                 headers: {
@@ -26682,6 +26694,15 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

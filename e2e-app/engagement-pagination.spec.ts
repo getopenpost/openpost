@@ -131,9 +131,10 @@ test("Engagement reaches every older item and keeps filters and selections durin
   });
 
   await page.goto(`/engagement?workspace=${workspace.id}`);
+  const engagementMain = page.locator("#main-content");
   await page.getByText("Unread only", { exact: true }).click();
   await expect(page.getByText("Initial engagement failed")).toBeVisible();
-  await page.getByRole("button", { name: "Try again" }).click();
+  await engagementMain.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByText("Reply 0", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "All accounts" }).click();
   await page.getByRole("option", { name: "openpost.example" }).click();
@@ -151,7 +152,7 @@ test("Engagement reaches every older item and keeps filters and selections durin
   await page.getByRole("button", { name: "Load older", exact: true }).click();
   await expect(page.getByText("Older engagement failed")).toBeVisible();
   await expect(page.getByPlaceholder("Write a reply…")).toBeVisible();
-  await page.getByRole("button", { name: "Try again" }).click();
+  await engagementMain.getByRole("button", { name: "Try again" }).click();
   await expect(page.getByText("Reply 199", { exact: true })).toBeVisible();
   await expect(readingAnchor).toBeInViewport();
   await page.getByRole("button", { name: "Load older", exact: true }).click();
@@ -170,7 +171,10 @@ test("Engagement reaches every older item and keeps filters and selections durin
   await page.getByPlaceholder("Search posts").fill("Launch note 1");
   await expect(page.getByText("Post search failed")).toBeVisible();
   await expect(publicationFilter).toContainText("Launch note 219");
-  await page.getByRole("button", { name: "Try again" }).click();
+  await page
+    .getByRole("listbox", { name: "Suggestions..." })
+    .getByRole("button", { name: "Try again" })
+    .click();
   await expect(page.getByRole("option", { name: "Launch note 1", exact: true })).toBeVisible();
   await expect(publicationFilter).toContainText("Launch note 219");
 });

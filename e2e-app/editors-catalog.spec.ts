@@ -241,14 +241,10 @@ test("cloud delete confirms policy, rolls failures back, and refreshes the works
   await expect(projectCard).toHaveCount(0);
   releaseFailure();
   await expect(projectCard).toBeVisible();
-  await expect(page.getByText("Cloud storage is temporarily unavailable.")).toBeVisible();
+  await expect(dialog.getByText("Cloud storage is temporarily unavailable.")).toBeVisible();
 
-  await projectCard.click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
-  await page
-    .getByRole("dialog", { name: "Delete cloud project?" })
-    .getByRole("button", { name: "Delete", exact: true })
-    .click();
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
   await expect(projectCard).toHaveCount(0);
   await expect(page.getByText("Cloud video project moved to trash.")).toBeVisible();
 });

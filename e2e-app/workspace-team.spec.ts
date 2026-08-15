@@ -89,11 +89,11 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByTestId("team-invite-link")).toBeVisible();
   await expect(page.getByTestId("team-invite-link")).toContainText(
-    "Email delivery is not configured",
+    "Invitation email queued. Copy this link as a fallback.",
   );
   await expect(page.getByTestId("team-load-error")).toContainText("Temporary team reload failure");
   await page.screenshot({
-    path: testInfo.outputPath("workspace-invitation-fallback.png"),
+    path: testInfo.outputPath("workspace-invitation-queued-fallback.png"),
     fullPage: true,
   });
   await page.getByTestId("team-load-error").getByRole("button").click();
@@ -106,8 +106,8 @@ test("workspace admins manage the complete member and invitation lifecycle", asy
     .getByTestId("team-invitations-list")
     .locator("div.rounded-md.border")
     .filter({ hasText: pendingEmail });
-  await expect(invitationCard).toContainText("Email delivery unavailable");
-  await expect(invitationCard).toContainText("Resend to queue another email");
+  await expect(invitationCard).toContainText("Email queued");
+  await expect(invitationCard).toContainText("Queued");
   await invitationCard.getByRole("button", { name: "Resend" }).click();
   await expect(page.getByTestId("team-error")).toContainText("invitation can be resent after");
   const expectedRateLimitConsoleError = consoleErrors.findIndex((message) =>

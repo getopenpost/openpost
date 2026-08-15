@@ -239,7 +239,10 @@ test("signup through Activation is one resumable, accessible browser journey", a
     `/publications/${published.publication_id}`,
   );
   const closeToast = page.getByRole("button", { name: "Close toast" });
-  if (await closeToast.isVisible()) await closeToast.click();
+  if (await closeToast.isVisible()) {
+    await closeToast.click();
+    await expect(closeToast).toHaveCount(0);
+  }
   await expectNoSeriousAccessibilityViolations(page);
 
   const persisted = await page

@@ -354,7 +354,7 @@
 										>{authState.user?.email}</span
 									>
 								</div>
-								<MoreHorizontalIcon class="ms-auto size-4 text-sidebar-foreground/52" />
+								<MoreHorizontalIcon class="ms-auto size-4 text-sidebar-foreground/70" />
 							</Sidebar.MenuButton>
 						{/snippet}
 					</DropdownMenu.Trigger>

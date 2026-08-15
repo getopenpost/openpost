@@ -410,7 +410,7 @@
 			</span>
 			<button
 				type="button"
-				class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs text-sidebar-foreground/52 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+				class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 				onclick={() => openPlannerDay(plannerToday)}
 			>
 				{m.common_today()}
@@ -430,7 +430,7 @@
 					{#each rollingWeeks[0] ?? [] as day (day.key)}
 						<span
 							role="columnheader"
-							class="text-center text-xs font-normal text-sidebar-foreground/52"
+							class="text-center text-xs font-normal text-sidebar-foreground/70"
 						>
 							{formatWeekday(day.date)}
 						</span>
@@ -483,7 +483,7 @@
 				<span
 					bind:this={draftDeleteReturnFocus}
 					tabindex="-1"
-					class="text-xs font-medium tracking-[0.1em] text-sidebar-foreground/52 uppercase outline-none"
+					class="text-xs font-medium tracking-[0.1em] text-sidebar-foreground/70 uppercase outline-none"
 					>{m.sidebar_drafts()}</span
 				>
 				{#if !loadingDrafts && drafts.length > 0}
@@ -492,7 +492,7 @@
 			</div>
 			<button
 				type="button"
-				class="rounded-sm px-1.5 py-1 text-xs font-medium text-sidebar-foreground/58 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+				class="rounded-sm px-1.5 py-1 text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 				onclick={() => onNavigate('/activity?tab=drafts')}
 			>
 				{m.sidebar_view_all()}
@@ -529,7 +529,7 @@
 				onclick={() => onNavigate('/')}
 			>
 				<FileTextIcon class="mt-0.5 size-3.5 shrink-0 text-sidebar-foreground/38" />
-				<span class="text-xs leading-4 text-sidebar-foreground/52"
+				<span class="text-xs leading-4 text-sidebar-foreground/70"
 					>{m.sidebar_drafts_autosave_empty()}</span
 				>
 			</button>
@@ -563,7 +563,7 @@
 												>{draft.title}</span
 											>
 											<span
-												class="flex items-center gap-1 text-[11px] leading-4 text-sidebar-foreground/45"
+												class="flex items-center gap-1 text-[11px] leading-4 text-sidebar-foreground/70"
 											>
 												<span>{formatDraftTimestamp(draft.createdAt)}</span>
 												{#if draft.isThread}

@@ -25,6 +25,8 @@ var configTestEnvKeys = []string{
 	"OPENPOST_FRONTEND_URL",
 	"OPENPOST_PUBLIC_URL",
 	"OPENPOST_EDITION",
+	"OPENPOST_APP_E2E_HOSTED_SIGNUP",
+	"OPENPOST_APP_E2E_DELIVERY_PROJECTION",
 	"OPENPOST_DATABASE_DRIVER",
 	"OPENPOST_DATABASE_PATH",
 	"OPENPOST_DB_PATH",
@@ -129,6 +131,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_S3_PUBLIC_BASE_URL",
 	"OPENPOST_S3_FORCE_PATH_STYLE",
 	"OPENPOST_PADDLE_API_KEY",
+	"OPENPOST_PADDLE_API_BASE_URL",
 	"OPENPOST_PADDLE_ENVIRONMENT",
 	"OPENPOST_PADDLE_CLIENT_TOKEN",
 	"OPENPOST_PADDLE_WEBHOOK_SECRET",
@@ -780,7 +783,10 @@ func TestLoadEnablesTelemetryByDefaultForCloudInstances(t *testing.T) {
 
 func TestLoadPaddlePrimitives(t *testing.T) {
 	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_E2E_HOSTED_SIGNUP", "true")
+	t.Setenv("OPENPOST_APP_E2E_DELIVERY_PROJECTION", "true")
 	t.Setenv("OPENPOST_PADDLE_API_KEY", "pdl_sdbx_token")
+	t.Setenv("OPENPOST_PADDLE_API_BASE_URL", "http://127.0.0.1:18182/paddle/")
 	t.Setenv("OPENPOST_PADDLE_ENVIRONMENT", "sandbox")
 	t.Setenv("OPENPOST_PADDLE_CLIENT_TOKEN", "test_client_token")
 	t.Setenv("OPENPOST_PADDLE_WEBHOOK_SECRET", "pdl_webhook_secret")
@@ -792,7 +798,10 @@ func TestLoadPaddlePrimitives(t *testing.T) {
 
 	cfg := Load()
 
+	require.True(t, cfg.AppE2EHostedSignup)
+	require.True(t, cfg.AppE2EDeliveryProjection)
 	require.Equal(t, "pdl_sdbx_token", cfg.PaddleAPIKey)
+	require.Equal(t, "http://127.0.0.1:18182/paddle", cfg.PaddleAPIBaseURL)
 	require.Equal(t, "sandbox", cfg.PaddleEnvironment)
 	require.Equal(t, "test_client_token", cfg.PaddleClientToken)
 	require.Equal(t, "pdl_webhook_secret", cfg.PaddleWebhookSecret)

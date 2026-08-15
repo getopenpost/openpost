@@ -22,3 +22,10 @@
 	{#snippet infoIcon()}<InfoIcon class="size-4" />{/snippet}
 	{#snippet warningIcon()}<TriangleAlertIcon class="size-4" />{/snippet}
 </Sonner>
+
+<style>
+	:global([data-sonner-toaster][data-sonner-theme='light']),
+	:global([data-sonner-toaster][data-sonner-theme='dark']) {
+		--success-text: var(--success-foreground);
+	}
+</style>

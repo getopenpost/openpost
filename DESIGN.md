@@ -3,19 +3,21 @@ name: OpenPost
 description: Technical-minimal publishing workspace with warm orange signals and precise shared chrome.
 colors:
   primary: "oklch(0.55 0.155 45)"
-  primary-dark-theme: "oklch(0.6 0.14 45)"
+  primary-dark-theme: "oklch(0.66 0.14 45)"
   canvas: "oklch(0.985 0.002 80)"
   canvas-dark: "oklch(0.145 0.008 55)"
   surface: "oklch(1 0 0)"
   surface-dark: "oklch(0.2 0.01 50)"
   ink: "oklch(0.2 0.01 50)"
   ink-dark: "oklch(0.92 0.005 85)"
-  muted-ink: "oklch(0.55 0.015 55)"
+  muted-ink: "oklch(0.52 0.015 55)"
   muted-ink-dark: "oklch(0.65 0.015 55)"
   border: "oklch(0.9 0.005 80)"
   border-dark: "oklch(0.25 0.015 55)"
   danger: "oklch(0.57 0.22 25)"
   danger-dark: "oklch(0.6 0.2 25)"
+  success-ink: "oklch(0.42 0.12 160)"
+  success-ink-dark: "oklch(0.75 0.13 155)"
   docs-cta-shadow: "oklch(0.5 0.15 45 / 0.18)"
 typography:
   wordmark:
@@ -127,6 +129,7 @@ Warm neutrals carry most of the interface; orange is a scarce product signal. Ev
 - **Toolmark Gray** (`muted-ink`, `muted-ink-dark`): Supporting text, metadata, placeholders, and inactive navigation.
 - **Hairline Warmth** (`border`, `border-dark`): Dividers, control boundaries, and low-contrast structure.
 - **Failure Red** (`danger`, `danger-dark`): Destructive actions and genuine error state only.
+- **Success Green** (`success-ink`, `success-ink-dark`): Confirmed success text and icons.
 - **Docs CTA Shadow** (`docs-cta-shadow`): A translucent orange lift reserved for the documentation home action.
 
 **The One Signal Rule.** Orange marks the next action or current selection. It is not a background decoration and should remain visually scarce.

@@ -23,62 +23,64 @@ type MastodonServerConfig struct {
 }
 
 type Config struct {
-	Edition                 string
-	Port                    string
-	DatabaseDriver          string
-	DatabasePath            string
-	DatabaseURL             string
-	JWTSecret               string
-	EncryptionKey           string
-	DisableRegistrations    bool
-	PublicProfilesEnabled   bool
-	FrontendURL             string
-	PublicURL               string
-	CORSOrigins             []string
-	WebAuthnRPID            string
-	LegalAcceptanceRequired bool
-	TermsURL                string
-	PrivacyURL              string
-	TermsVersion            string
-	PrivacyVersion          string
-	SupportEmail            string
-	OpenRouterAPIKey        string
-	ImageCaptionModel       string
-	ImageCaptionProvider    string
-	ImageCaptionRequireZDR  bool
-	MemeGeneratorEnabled    bool
-	MemegenBaseURL          string
-	MemegenAPIKey           string
-	MemeGenerationModel     string
-	ImageEditorEnabled      bool
-	ImageEditorModelBaseURL string
-	VideoModelBaseURL       string
-	StockMediaEnabled       bool
-	PexelsAPIKey            string
-	UnsplashAccessKey       string
-	PixabayAPIKey           string
-	FeedbackEnabled         bool
-	FeedbackDestinationURL  string
-	FeedbackRecipient       string
-	FeedbackSupportURL      string
-	TelemetryEnabled        bool
-	PostHogProjectToken     string
-	PostHogAPIHost          string
-	PostHogBrowserHost      string
-	PostHogUIHost           string
-	TelemetryEnvironment    string
-	UpdateCheckEnabled      bool
-	OIDCIssuer              string
-	OIDCClientID            string
-	OIDCClientSecret        string
-	OIDCName                string
-	OIDCScopes              []string
-	OIDCJITEnabled          bool
-	OIDCBootstrapAllowlist  []string
-	OIDCBreakGlassEmails    []string
-	OIDCNativeCallbackURL   string
-	GoogleAuthClientID      string
-	GoogleAuthClientSecret  string
+	Edition                  string
+	AppE2EHostedSignup       bool
+	AppE2EDeliveryProjection bool
+	Port                     string
+	DatabaseDriver           string
+	DatabasePath             string
+	DatabaseURL              string
+	JWTSecret                string
+	EncryptionKey            string
+	DisableRegistrations     bool
+	PublicProfilesEnabled    bool
+	FrontendURL              string
+	PublicURL                string
+	CORSOrigins              []string
+	WebAuthnRPID             string
+	LegalAcceptanceRequired  bool
+	TermsURL                 string
+	PrivacyURL               string
+	TermsVersion             string
+	PrivacyVersion           string
+	SupportEmail             string
+	OpenRouterAPIKey         string
+	ImageCaptionModel        string
+	ImageCaptionProvider     string
+	ImageCaptionRequireZDR   bool
+	MemeGeneratorEnabled     bool
+	MemegenBaseURL           string
+	MemegenAPIKey            string
+	MemeGenerationModel      string
+	ImageEditorEnabled       bool
+	ImageEditorModelBaseURL  string
+	VideoModelBaseURL        string
+	StockMediaEnabled        bool
+	PexelsAPIKey             string
+	UnsplashAccessKey        string
+	PixabayAPIKey            string
+	FeedbackEnabled          bool
+	FeedbackDestinationURL   string
+	FeedbackRecipient        string
+	FeedbackSupportURL       string
+	TelemetryEnabled         bool
+	PostHogProjectToken      string
+	PostHogAPIHost           string
+	PostHogBrowserHost       string
+	PostHogUIHost            string
+	TelemetryEnvironment     string
+	UpdateCheckEnabled       bool
+	OIDCIssuer               string
+	OIDCClientID             string
+	OIDCClientSecret         string
+	OIDCName                 string
+	OIDCScopes               []string
+	OIDCJITEnabled           bool
+	OIDCBootstrapAllowlist   []string
+	OIDCBreakGlassEmails     []string
+	OIDCNativeCallbackURL    string
+	GoogleAuthClientID       string
+	GoogleAuthClientSecret   string
 
 	EmailVerificationRequired  bool
 	EmailProvider              string
@@ -133,6 +135,7 @@ type Config struct {
 	S3ForcePathStyle  bool
 
 	PaddleAPIKey                string
+	PaddleAPIBaseURL            string
 	PaddleEnvironment           string
 	PaddleClientToken           string
 	PaddleWebhookSecret         string
@@ -314,7 +317,10 @@ func Load() *Config {
 		S3PublicBaseURL:   strings.TrimRight(getEnvDefault("OPENPOST_S3_PUBLIC_BASE_URL", ""), "/"),
 		S3ForcePathStyle:  getEnvBoolWithAliases(false, "OPENPOST_S3_FORCE_PATH_STYLE"),
 
+		AppE2EHostedSignup:          getEnvBoolWithAliases(false, "OPENPOST_APP_E2E_HOSTED_SIGNUP"),
+		AppE2EDeliveryProjection:    getEnvBoolWithAliases(false, "OPENPOST_APP_E2E_DELIVERY_PROJECTION"),
 		PaddleAPIKey:                getEnvDefault("OPENPOST_PADDLE_API_KEY", ""),
+		PaddleAPIBaseURL:            strings.TrimRight(strings.TrimSpace(getEnvDefault("OPENPOST_PADDLE_API_BASE_URL", "")), "/"),
 		PaddleEnvironment:           strings.ToLower(strings.TrimSpace(getEnvDefault("OPENPOST_PADDLE_ENVIRONMENT", ""))),
 		PaddleClientToken:           getEnvDefault("OPENPOST_PADDLE_CLIENT_TOKEN", ""),
 		PaddleWebhookSecret:         getEnvDefault("OPENPOST_PADDLE_WEBHOOK_SECRET", ""),

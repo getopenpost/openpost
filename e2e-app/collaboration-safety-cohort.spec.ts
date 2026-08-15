@@ -1,21 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import { expectNoSeriousAccessibilityViolations } from "./accessibility";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
-
-type NotificationPreferenceResponse = {
-  preferences: Record<string, { in_app: boolean; email_frequency: "off" | "immediate" | "daily" }>;
-  digest_time: string;
-  digest_timezone: string;
-  digest_configured: boolean;
-  email_available: boolean;
-  email_address: string;
-  mutes: Array<{
-    id: string;
-    scope: "account" | "workspace";
-    workspace_id?: string;
-    workspace_name?: string;
-    ends_at: string;
-  }>;
-};
 
 const scenarios = [
   {
@@ -133,24 +118,17 @@ test("Daily preferences and overlapping Mutes remain one operable settings journ
   }
 
   const savedRequests: Array<{ digest_time: string; digest_timezone: string }> = [];
-  await page.route("**/api/v1/notifications/preferences", async (route) => {
-    const upstream = await route.fetch();
-    const response = (await upstream.json()) as NotificationPreferenceResponse;
-    if (route.request().method() === "PUT") {
-      const body = route.request().postDataJSON() as {
+  page.on("request", (request) => {
+    if (
+      new URL(request.url()).pathname === "/api/v1/notifications/preferences" &&
+      request.method() === "PUT"
+    ) {
+      const body = request.postDataJSON() as {
         digest_time: string;
         digest_timezone: string;
       };
       savedRequests.push(body);
     }
-    await route.fulfill({
-      response: upstream,
-      json: {
-        ...response,
-        email_available: true,
-        email_address: `collaboration-safety-${unique}@example.com`,
-      },
-    });
   });
   await authenticatePage(page, auth.token);
   await page.addInitScript((currentWorkspace) => {
@@ -234,6 +212,7 @@ test("Daily preferences and overlapping Mutes remain one operable settings journ
           () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
         ),
       ).toBe(true);
+      await expectNoSeriousAccessibilityViolations(page);
       await page.screenshot({
         path: testInfo.outputPath(`collaboration-safety-${scenario.width}-${scenario.locale}.png`),
         fullPage: true,

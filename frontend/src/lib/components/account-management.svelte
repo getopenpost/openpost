@@ -705,10 +705,6 @@
 			return null;
 		}
 
-		if (mastodonProviders.some(isCustomMastodonProvider)) {
-			return { instanceURL: instance };
-		}
-
 		const instanceHost = mastodonHost(instance);
 		const configuredProvider = mastodonProviders.find(
 			(provider) =>
@@ -717,6 +713,10 @@
 		);
 		if (configuredProvider) {
 			return { serverName: configuredProvider.name || configuredProvider.instance_url };
+		}
+
+		if (mastodonProviders.some(isCustomMastodonProvider)) {
+			return { instanceURL: instance };
 		}
 
 		mastodonError = m.accounts_mastodon_instance_unavailable();

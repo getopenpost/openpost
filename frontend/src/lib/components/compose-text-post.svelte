@@ -287,6 +287,25 @@
 	let isSubmitting = $state(false);
 	let deliveryPublicationID = $state('');
 	let deliveryFeedback = $state.raw<DeliveryOutcome[]>([]);
+	function exposeReorderHandles(node: HTMLElement) {
+		function normalizeItems() {
+			for (const item of node.querySelectorAll<HTMLElement>('[data-reorderable-item]')) {
+				item.setAttribute('role', 'listitem');
+				item.removeAttribute('aria-grabbed');
+				item.setAttribute('tabindex', '-1');
+			}
+		}
+
+		const observer = new MutationObserver(normalizeItems);
+		observer.observe(node, {
+			attributes: true,
+			attributeFilter: ['aria-grabbed'],
+			childList: true,
+			subtree: true
+		});
+		normalizeItems();
+		return { destroy: () => observer.disconnect() };
+	}
 	let retryingDeliveryRenditionID = $state('');
 	let isDeleting = $state(false);
 	let showDeleteConfirm = $state(false);
@@ -5312,7 +5331,7 @@
 				{/if}
 
 				<!-- Posts -->
-				<div class="space-y-0">
+				<div class="space-y-0" use:exposeReorderHandles>
 					<ReorderableList
 						items={posts}
 						getKey={(post) => post.key}
@@ -5677,7 +5696,7 @@
 												: 'pointer-events-none opacity-0'}"
 										>
 											{#if isThread}<span
-													class="text-xs font-medium text-muted-foreground/60 tabular-nums"
+													class="text-xs font-medium text-muted-foreground tabular-nums"
 													>#{i + 1}</span
 												>{/if}
 
@@ -5735,7 +5754,7 @@
 																	transform="rotate(-90 10 10)"
 																/>
 															</svg>
-															<span class="text-xs text-muted-foreground/60 tabular-nums"
+															<span class="text-xs text-muted-foreground tabular-nums"
 																>{editorUsage.count}/{editorUsage.limit}</span
 															>
 														</div>
@@ -5770,7 +5789,7 @@
 
 											<button
 												type="button"
-												class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs text-muted-foreground/60 transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
+												class="-mx-2 flex min-h-11 items-center gap-1.5 px-2 text-xs text-muted-foreground transition-colors hover:text-foreground md:mx-0 md:min-h-7 md:px-0"
 												onclick={addPost}
 											>
 												<PlusIcon class="h-3 w-3" />{m.compose_add_post()}

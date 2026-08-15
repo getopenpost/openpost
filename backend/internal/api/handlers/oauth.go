@@ -405,7 +405,7 @@ func (h *OAuthHandler) getMastodonProvider(ctx context.Context, serverName, inst
 	}
 	adapter, err := h.getProvider(mastodonProvider, serverName)
 	if err == nil {
-		return adapter, serverName, nil
+		return adapter, mastodonInstanceURL(adapter), nil
 	}
 	if h.mastodonApps != nil && strings.Contains(serverName, "://") {
 		return h.getDynamicMastodonProvider(ctx, serverName)

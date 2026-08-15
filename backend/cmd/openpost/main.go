@@ -212,6 +212,7 @@ func main() {
 	sessionService := sessions.NewService(db)
 	billingService := billing.NewService(db, cfg.PaddleWebhookSecret, billing.PaddleConfig{
 		APIKey:               cfg.PaddleAPIKey,
+		APIBaseURL:           cfg.PaddleAPIBaseURL,
 		Environment:          cfg.PaddleEnvironment,
 		ClientToken:          cfg.PaddleClientToken,
 		AppURL:               cfg.FrontendURL,
@@ -526,6 +527,9 @@ func main() {
 	billingHandler.SetTelemetry(telemetryRecorder)
 	billingHandler.RegisterRoutes(e)
 	handlers.NewEmailDeliveryWebhookHandler(notificationService, cfg.EmailDeliveryWebhookSecret).RegisterRoutes(e)
+	if err := registerE2EDeliveryProjection(e, db, authenticator, cfg.AppE2EDeliveryProjection); err != nil {
+		log.Fatalf("failed to configure E2E delivery projection: %v", err)
+	}
 
 	e.GET("/openapi.json", func(c echo.Context) error {
 		spec := api.OpenAPI()
@@ -592,7 +596,7 @@ func main() {
 		EmailVerificationService:  emailVerificationService,
 		EmailChangeService:        emailChangeService,
 		EmailVerificationRequired: cfg.EmailVerificationRequired,
-		PurchaseChoiceRequired:    cfg.Edition == config.EditionCloud,
+		PurchaseChoiceRequired:    cfg.Edition == config.EditionCloud || cfg.AppE2EHostedSignup,
 		PublicProfilesEnabled:     cfg.PublicProfilesEnabled,
 		AccountPolicy: handlers.AccountPolicy{
 			Required:       cfg.LegalAcceptanceRequired,

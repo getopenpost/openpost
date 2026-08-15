@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Proved the complete UX program through one combined browser and integration matrix covering the first-use journey, daily work, collaboration and safety, local recovery, responsive presentations, themes, locales, keyboard and announced state, automated serious and critical accessibility checks, clean console output, and synchronized Self-hosted claims. Reconciled the audit-remediation backlog to remove the completed UX work and retain external status infrastructure as a separate deferred boundary.
 - Split Cloudflare edge changes into a read-only preparation and a separate apply that requires the reviewed forward-plan and prepared-operation digests, so operators can inspect the live snapshot and exact rollback before any production write.
 - Published a dedicated Self-hosted product path with an explicit no-software-fee boundary outside Hosted service plans, complete operator responsibilities, current deployment and source links, responsive no-JavaScript HTML, and an agent-readable Markdown representation.
 - Completed local application-state recovery with distinct offline, forbidden, not-found, rejected-request, and server-error guidance; in-place connection recovery; focused and announced error states; and destructive confirmations that retain only unfinished targets and remain open when an operation does not complete. Media and provider-configuration deletion are idempotent so a retry can safely reconcile a response lost after commit.

@@ -26,6 +26,7 @@
     "capture:product-screenshots": "OPENPOST_UPDATE_PRODUCT_SCREENSHOTS=1 OPENPOST_APP_E2E_PORT=18181 playwright test --config playwright.app.config.ts e2e-app/product-screenshots.spec.ts --workers=1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "^1.61.1",
     "js-yaml": "4.3.1",
     "knip": "6.32.0",

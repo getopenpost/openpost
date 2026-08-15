@@ -1,4 +1,5 @@
 import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
+import { expectNoSeriousAccessibilityViolations } from "./accessibility";
 
 const missingPath = "/route-that-openpost-does-not-have";
 
@@ -35,6 +36,7 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
   expect(response?.status()).toBe(404);
   await expect(page.getByTestId("app-error-page")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Page not found" })).toBeFocused();
+  await expectNoSeriousAccessibilityViolations(page);
   await expect(page.getByText("HTTP 404")).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenPost home" })).toBeVisible();
   await expect(page.getByRole("link", { name: "New post" })).toBeVisible();
@@ -103,6 +105,7 @@ test("client navigation preserves localized recovery at supported phone presenta
       .getByRole("button", { name: scenario.locale === "pt" ? "Voltar" : "Back" })
       .boundingBox();
     expect(backBox?.height).toBeGreaterThanOrEqual(44);
+    await expectNoSeriousAccessibilityViolations(page);
   }
   expect(errors).toEqual([]);
 });
@@ -125,6 +128,7 @@ test("the error boundary reports offline state and restores the underlying recov
   await expect(page.getByRole("heading", { name: "You are offline" })).toBeFocused();
   await expect(page.getByRole("button", { name: "Try again" })).toBeDisabled();
   await expect(page.getByRole("link", { name: "Contact support" })).toHaveCount(0);
+  await expectNoSeriousAccessibilityViolations(page);
 
   await page.evaluate(() => {
     (window as typeof window & { __openpostOnline?: boolean }).__openpostOnline = true;

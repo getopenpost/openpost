@@ -20,6 +20,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGetMastodonProviderReturnsConfiguredInstanceURL(t *testing.T) {
+	const instanceURL = "https://social.example"
+	handler := &OAuthHandler{providers: map[string]platform.Adapter{
+		"mastodon:OpenPost E2E": platform.NewMastodonAdapter(
+			"client", "secret", "https://openpost.example/callback", instanceURL,
+		),
+	}}
+
+	adapter, readinessInstanceURL, err := handler.getMastodonProvider(
+		context.Background(), "OpenPost E2E", "",
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, adapter)
+	require.Equal(t, instanceURL, readinessInstanceURL)
+}
+
 func TestGetAuthURLRegistersDynamicMastodonInstance(t *testing.T) {
 	ctx := context.Background()
 	db := createHandlerTestDB(t,

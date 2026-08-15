@@ -41,7 +41,7 @@ export function deliveryRecoveryAction(
 
 export function deliveryStatusClass(state: string) {
 	if (state === 'live' || state === 'published' || state === 'success') {
-		return 'text-emerald-700 dark:text-emerald-300';
+		return 'text-emerald-800 dark:text-emerald-300';
 	}
 	if (state === 'rejected' || state === 'failed' || state === 'manual_resolution') {
 		return 'text-destructive';

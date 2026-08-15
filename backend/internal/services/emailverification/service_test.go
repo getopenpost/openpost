@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -23,11 +24,15 @@ func TestVerificationCodesAreHashedAttemptLimitedAndSingleUse(t *testing.T) {
 	require.Regexp(t, `^[0-9]{6}$`, pending.Code)
 	require.NotEqual(t, pending.Code, pending.Challenge.CodeHash)
 
+	// Pick a wrong code that is guaranteed to differ from the generated code
+	// so the retry path is deterministic. The code is a 6-digit string, so
+	// swapping digits keeps it well-formed while always being a mismatch.
+	wrongCode := strings.ReplaceAll(pending.Code, pending.Code[:1], "0")
+	if pending.Code[0] == '0' {
+		wrongCode = "111111"
+	}
 	for attempt := 1; attempt <= MaxAttempts; attempt++ {
-		_, err = service.Verify(context.Background(), pending.Challenge.ID, "999999")
-		if pending.Code == "999999" {
-			t.Skip("generated code matched the intentionally wrong test code")
-		}
+		_, err = service.Verify(context.Background(), pending.Challenge.ID, wrongCode)
 		if attempt == MaxAttempts {
 			require.ErrorIs(t, err, ErrTooManyAttempts)
 		} else {

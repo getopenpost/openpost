@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+- Split Cloudflare edge changes into a read-only preparation and a separate apply that requires the reviewed forward-plan and prepared-operation digests, so operators can inspect the live snapshot and exact rollback before any production write.
 - Published a dedicated Self-hosted product path with an explicit no-software-fee boundary outside Hosted service plans, complete operator responsibilities, current deployment and source links, responsive no-JavaScript HTML, and an agent-readable Markdown representation.
 - Completed local application-state recovery with distinct offline, forbidden, not-found, rejected-request, and server-error guidance; in-place connection recovery; focused and announced error states; and destructive confirmations that retain only unfinished targets and remain open when an operation does not complete. Media and provider-configuration deletion are idempotent so a retry can safely reconcile a response lost after commit.
 - Proved the collaboration-and-safety cohort across truthful invitation recovery, atomic Workspace and Organization deletion, accepted ownership transfer, permission-safe audit exports, and responsive, localized Daily email and temporary Mute controls.

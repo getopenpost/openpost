@@ -436,39 +436,10 @@ async function writeEvidence(directory, name, value) {
   await writeFile(path.join(directory, name), stableJSON(value), { flag: "wx" });
 }
 
-export async function applyCloudflarePlan({
-  plan = buildCloudflareEdgePlan(),
-  client,
-  confirmedDigest,
-  evidenceDirectory,
-}) {
-  validateCloudflarePlan(plan);
-  const digest = planDigest(plan);
-  if (confirmedDigest !== digest) {
-    throw new Error(`apply confirmation digest must equal ${digest}`);
-  }
-  if (!evidenceDirectory) throw new Error("apply requires an evidence directory");
-  const inspection = await inspectCloudflarePlan({ plan, client });
-  await writeEvidence(evidenceDirectory, "before.json", inspection);
-  if (inspection.conflicts.length) {
-    throw new Error(
-      `apply stopped: ${inspection.conflicts.length} unmanaged conflict(s); review before.json`,
-    );
-  }
-
-  // Re-read every phase before the first write so a stale inspection cannot overwrite operator work.
-  for (const entry of inspection.entries) {
-    const current = await client.getEntrypoint(entry.zone, entry.phase, entry.zone_id_env);
-    if (!sameSnapshot(current, entry.current)) {
-      throw new Error(
-        `${entry.zone} ${entry.phase} changed after inspection; no mutation performed`,
-      );
-    }
-  }
-
+function rollbackPlanForInspection(plan, inspection) {
   const rollbackPlan = {
     schema_version: 1,
-    plan_digest: digest,
+    plan_digest: planDigest(plan),
     operations: inspection.entries
       .filter((entry) => entry.changed)
       .map((entry) => ({
@@ -486,7 +457,129 @@ export async function applyCloudflarePlan({
       })),
   };
   rollbackPlan.digest = planDigest(rollbackPlan);
+  return rollbackPlan;
+}
+
+export async function prepareCloudflarePlan({
+  plan = buildCloudflareEdgePlan(),
+  client,
+  evidenceDirectory,
+}) {
+  validateCloudflarePlan(plan);
+  if (!evidenceDirectory) throw new Error("prepare requires an evidence directory");
+  const before = await inspectCloudflarePlan({ plan, client });
+  await writeEvidence(evidenceDirectory, "before.json", before);
+  if (before.conflicts.length) {
+    throw new Error(
+      `prepare stopped: ${before.conflicts.length} unmanaged conflict(s); review before.json`,
+    );
+  }
+  const rollbackPlan = rollbackPlanForInspection(plan, before);
+  const prepared = {
+    schema_version: 1,
+    plan_digest: planDigest(plan),
+    before_digest: planDigest(before),
+    rollback_digest: rollbackPlan.digest,
+    before,
+    rollback_plan: rollbackPlan,
+  };
+  prepared.digest = planDigest(prepared);
   await writeEvidence(evidenceDirectory, "rollback-plan.json", rollbackPlan);
+  await writeEvidence(evidenceDirectory, "prepared-operation.json", prepared);
+  return prepared;
+}
+
+function validatePreparedOperation(plan, prepared) {
+  if (!prepared || typeof prepared !== "object") {
+    throw new Error("apply requires a prepared operation reviewed before mutation");
+  }
+  if (prepared.schema_version !== 1 || prepared.digest !== planDigest(prepared)) {
+    throw new Error("prepared operation digest is invalid");
+  }
+  const digest = planDigest(plan);
+  if (
+    prepared.plan_digest !== digest ||
+    !prepared.before ||
+    prepared.before.schema_version !== 1 ||
+    prepared.before.plan_digest !== digest
+  ) {
+    throw new Error(`prepared operation does not match current plan ${digest}`);
+  }
+  if (prepared.before_digest !== planDigest(prepared.before)) {
+    throw new Error("prepared operation before-state digest is invalid");
+  }
+  if (
+    !prepared.rollback_plan ||
+    prepared.rollback_plan.schema_version !== 1 ||
+    prepared.rollback_digest !== prepared.rollback_plan.digest ||
+    prepared.rollback_plan.digest !== planDigest(prepared.rollback_plan)
+  ) {
+    throw new Error("prepared operation rollback digest is invalid");
+  }
+  if (prepared.before.conflicts?.length) {
+    throw new Error("prepared operation contains unmanaged conflicts");
+  }
+  const expectedEntries = plan.zones.flatMap((zone) =>
+    plan.phases.map(({ phase }) => ({ zone, phase })),
+  );
+  if (prepared.before.entries?.length !== expectedEntries.length) {
+    throw new Error("prepared operation does not cover every planned phase");
+  }
+  for (const { zone, phase } of expectedEntries) {
+    const matches = prepared.before.entries.filter(
+      (entry) => entry.zone === zone.key && entry.phase === phase,
+    );
+    if (matches.length !== 1) {
+      throw new Error(`prepared operation must contain one ${zone.key} ${phase} entry`);
+    }
+    const [entry] = matches;
+    const desired = phaseBody(zone, phase, entry.current);
+    if (
+      entry.hostname !== zone.hostname ||
+      entry.zone_id_env !== zone.zone_id_env ||
+      entry.changed !== !sameWritableState(entry.current, desired) ||
+      stableJSON(entry.desired) !== stableJSON(desired)
+    ) {
+      throw new Error(`prepared operation ${zone.key} ${phase} desired state is invalid`);
+    }
+  }
+  const expectedRollback = rollbackPlanForInspection(plan, prepared.before);
+  if (stableJSON(prepared.rollback_plan) !== stableJSON(expectedRollback)) {
+    throw new Error("prepared operation rollback does not restore its captured before state");
+  }
+  return prepared.before;
+}
+
+export async function applyCloudflarePlan({
+  plan = buildCloudflareEdgePlan(),
+  client,
+  preparedOperation,
+  confirmedPlanDigest,
+  confirmedPreparationDigest,
+  evidenceDirectory,
+}) {
+  validateCloudflarePlan(plan);
+  const digest = planDigest(plan);
+  if (confirmedPlanDigest !== digest) {
+    throw new Error(`apply plan confirmation digest must equal ${digest}`);
+  }
+  const inspection = validatePreparedOperation(plan, preparedOperation);
+  if (confirmedPreparationDigest !== preparedOperation.digest) {
+    throw new Error(`apply preparation confirmation digest must equal ${preparedOperation.digest}`);
+  }
+  if (!evidenceDirectory) throw new Error("apply requires an evidence directory");
+
+  // Re-read every phase before the first write so a reviewed snapshot cannot overwrite later work.
+  for (const entry of inspection.entries) {
+    const current = await client.getEntrypoint(entry.zone, entry.phase, entry.zone_id_env);
+    if (!sameSnapshot(current, entry.current)) {
+      throw new Error(
+        `${entry.zone} ${entry.phase} changed after preparation; no mutation performed`,
+      );
+    }
+  }
+
+  const rollbackPlan = preparedOperation.rollback_plan;
 
   let changed = 0;
   let after;
@@ -676,12 +769,34 @@ async function main() {
     if (report.conflicts.length) process.exitCode = 2;
     return;
   }
+  if (command === "prepare") {
+    const evidenceDirectory = option("--evidence");
+    const result = await prepareCloudflarePlan({
+      plan,
+      client: operatorClient(),
+      evidenceDirectory,
+    });
+    process.stdout.write(
+      stableJSON({
+        plan_digest: result.plan_digest,
+        preparation_digest: result.digest,
+        rollback_digest: result.rollback_digest,
+      }),
+    );
+    return;
+  }
   if (command === "apply") {
+    const file = option("--file");
+    if (!file) throw new Error("apply requires --file PREPARED_OPERATION");
+    const preparedFile = path.resolve(file);
+    const preparedOperation = JSON.parse(await readFile(preparedFile, "utf8"));
     const result = await applyCloudflarePlan({
       plan,
       client: operatorClient(),
-      confirmedDigest: option("--confirm"),
-      evidenceDirectory: option("--evidence"),
+      preparedOperation,
+      confirmedPlanDigest: option("--confirm-plan"),
+      confirmedPreparationDigest: option("--confirm-preparation"),
+      evidenceDirectory: path.dirname(preparedFile),
     });
     process.stdout.write(stableJSON(result));
     return;
@@ -699,7 +814,7 @@ async function main() {
     return;
   }
   throw new Error(
-    "usage: cloudflare-edge-plan.mjs render [--output FILE] | inspect | apply --confirm DIGEST --evidence DIR | rollback --file FILE --confirm DIGEST",
+    "usage: cloudflare-edge-plan.mjs render [--output FILE] | inspect | prepare --evidence DIR | apply --file PREPARED_OPERATION --confirm-plan DIGEST --confirm-preparation DIGEST | rollback --file FILE --confirm DIGEST",
   );
 }
 

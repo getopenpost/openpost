@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import * as edgePlan from "./cloudflare-edge-plan.mjs";
 import {
   applyCloudflarePlan,
   buildCloudflareEdgePlan,
@@ -19,6 +20,23 @@ const samplePlan = () =>
     marketingRoutes: ["/", "/features", "/tools/example"],
     documentationRoutes: ["/", "/usage/", "/usage/accounts"],
   });
+
+async function preparedApplyArgs({ plan, client, evidenceDirectory }) {
+  const directory = evidenceDirectory ?? (await mkdtemp(path.join(os.tmpdir(), "openpost-edge-")));
+  const preparedOperation = await edgePlan.prepareCloudflarePlan({
+    plan,
+    client,
+    evidenceDirectory: directory,
+  });
+  return {
+    plan,
+    client,
+    evidenceDirectory: directory,
+    preparedOperation,
+    confirmedPlanDigest: planDigest(plan),
+    confirmedPreparationDigest: preparedOperation.digest,
+  };
+}
 
 test("renders ordered exact Markdown selection rules from canonical catalogues", () => {
   const plan = samplePlan();
@@ -255,7 +273,97 @@ test("inspection fails closed on every unmanaged rule in an owned phase", async 
   assert.equal(report.conflicts.length, 8);
 });
 
-test("apply requires the rendered digest, fails closed on conflicts, and is idempotent", async () => {
+test("prepare captures a reviewable rollback without mutating Cloudflare", async () => {
+  const evidenceDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-edge-"));
+  let reads = 0;
+  let writes = 0;
+  const prepared = await edgePlan.prepareCloudflarePlan({
+    plan: samplePlan(),
+    evidenceDirectory,
+    client: {
+      getEntrypoint: async () => {
+        reads += 1;
+        return null;
+      },
+      putEntrypoint: async () => {
+        writes += 1;
+      },
+    },
+  });
+
+  assert.equal(reads, 8);
+  assert.equal(writes, 0);
+  assert.equal(prepared.plan_digest, planDigest(samplePlan()));
+  assert.equal(prepared.before_digest, planDigest(prepared.before));
+  assert.equal(prepared.rollback_digest, prepared.rollback_plan.digest);
+  assert.equal(prepared.digest, planDigest(prepared));
+  assert.deepEqual(
+    JSON.parse(await readFile(path.join(evidenceDirectory, "prepared-operation.json"), "utf8")),
+    prepared,
+  );
+});
+
+test("apply cannot bypass review by materializing its own rollback", async () => {
+  let writes = 0;
+  await assert.rejects(
+    applyCloudflarePlan({
+      plan: samplePlan(),
+      confirmedPlanDigest: planDigest(samplePlan()),
+      evidenceDirectory: await mkdtemp(path.join(os.tmpdir(), "openpost-edge-")),
+      client: {
+        getEntrypoint: async () => null,
+        putEntrypoint: async () => {
+          writes += 1;
+        },
+      },
+    }),
+    /prepared operation/u,
+  );
+  assert.equal(writes, 0);
+});
+
+test("apply binds the reviewed snapshot and rollback before any Cloudflare request", async () => {
+  const plan = samplePlan();
+  let reads = 0;
+  let writes = 0;
+  const client = {
+    getEntrypoint: async () => {
+      reads += 1;
+      return null;
+    },
+    putEntrypoint: async () => {
+      writes += 1;
+    },
+  };
+  const args = await preparedApplyArgs({ plan, client });
+  reads = 0;
+
+  const changedAfterReview = structuredClone(args.preparedOperation);
+  changedAfterReview.before.entries[0].current = { description: "changed", rules: [] };
+  await assert.rejects(
+    applyCloudflarePlan({ ...args, preparedOperation: changedAfterReview }),
+    /prepared operation digest is invalid/u,
+  );
+
+  const inconsistentRollback = structuredClone(args.preparedOperation);
+  inconsistentRollback.rollback_plan.operations[0].before.description = "not captured";
+  inconsistentRollback.rollback_plan.digest = planDigest(inconsistentRollback.rollback_plan);
+  inconsistentRollback.rollback_digest = inconsistentRollback.rollback_plan.digest;
+  inconsistentRollback.digest = planDigest(inconsistentRollback);
+  await assert.rejects(
+    applyCloudflarePlan({
+      ...args,
+      preparedOperation: inconsistentRollback,
+      confirmedPreparationDigest: inconsistentRollback.digest,
+    }),
+    /rollback does not restore its captured before state/u,
+  );
+
+  assert.equal(reads, 0);
+  assert.equal(writes, 0);
+});
+
+test("apply requires both reviewed digests and is idempotent", async () => {
   const plan = samplePlan();
   const evidenceDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-edge-"));
   const state = new Map();
@@ -275,18 +383,21 @@ test("apply requires the rendered digest, fails closed on conflicts, and is idem
     },
   };
 
+  const firstArgs = await preparedApplyArgs({ plan, client, evidenceDirectory });
+
   await assert.rejects(
-    applyCloudflarePlan({ plan, client, evidenceDirectory, confirmedDigest: "wrong" }),
-    /confirmation digest/u,
+    applyCloudflarePlan({ ...firstArgs, confirmedPlanDigest: "wrong" }),
+    /plan confirmation digest/u,
   );
   assert.equal(writes.length, 0);
 
-  const first = await applyCloudflarePlan({
-    plan,
-    client,
-    evidenceDirectory,
-    confirmedDigest: planDigest(plan),
-  });
+  await assert.rejects(
+    applyCloudflarePlan({ ...firstArgs, confirmedPreparationDigest: "wrong" }),
+    /preparation confirmation digest/u,
+  );
+  assert.equal(writes.length, 0);
+
+  const first = await applyCloudflarePlan(firstArgs);
   assert.equal(first.changed, 8);
   assert.equal(writes.length, 8);
   for (const [, , body] of writes) {
@@ -298,12 +409,7 @@ test("apply requires the rendered digest, fails closed on conflicts, and is idem
   assert.equal(rollback.operations.length, 8);
   assert.ok(rollback.digest);
 
-  const second = await applyCloudflarePlan({
-    plan,
-    client,
-    evidenceDirectory: await mkdtemp(path.join(os.tmpdir(), "openpost-edge-")),
-    confirmedDigest: planDigest(plan),
-  });
+  const second = await applyCloudflarePlan(await preparedApplyArgs({ plan, client }));
   assert.equal(second.changed, 0);
   assert.equal(writes.length, 8);
 });
@@ -325,15 +431,8 @@ test("apply fences every phase immediately before mutation and rollback restores
       return state.get(`${zone}:${phase}`);
     },
   };
-  await assert.rejects(
-    applyCloudflarePlan({
-      plan,
-      client,
-      evidenceDirectory: await mkdtemp(path.join(os.tmpdir(), "openpost-edge-")),
-      confirmedDigest: planDigest(plan),
-    }),
-    /changed after inspection/u,
-  );
+  const applyArgs = await preparedApplyArgs({ plan, client });
+  await assert.rejects(applyCloudflarePlan(applyArgs), /changed after preparation/u);
   assert.equal(writes.length, 0);
 
   const rollbackPlan = {
@@ -382,13 +481,9 @@ test("apply stops and restores prior updates when a later phase changes before i
       return state.get(`${zone}:${phase}`);
     },
   };
+  const applyArgs = await preparedApplyArgs({ plan, client });
   await assert.rejects(
-    applyCloudflarePlan({
-      plan,
-      client,
-      evidenceDirectory: await mkdtemp(path.join(os.tmpdir(), "openpost-edge-")),
-      confirmedDigest: planDigest(plan),
-    }),
+    applyCloudflarePlan(applyArgs),
     /failed after 1 phase update.*restored 1.*changed immediately before its update/u,
   );
   assert.equal(writes.length, 2);
@@ -484,15 +579,8 @@ test("apply restores already changed phases when a later Cloudflare write fails"
       return next;
     },
   };
-  await assert.rejects(
-    applyCloudflarePlan({
-      plan,
-      client,
-      evidenceDirectory: await mkdtemp(path.join(os.tmpdir(), "openpost-edge-")),
-      confirmedDigest: planDigest(plan),
-    }),
-    /failed after 1 phase update.*restored 1/u,
-  );
+  const applyArgs = await preparedApplyArgs({ plan, client });
+  await assert.rejects(applyCloudflarePlan(applyArgs), /failed after 1 phase update.*restored 1/u);
   assert.equal(writes.length, 3);
   assert.match(writes[2][2].description, /^Empty phase restored/u);
 });
@@ -521,13 +609,9 @@ test("apply recovery refuses to overwrite concurrent changes on an applied phase
       return next;
     },
   };
+  const applyArgs = await preparedApplyArgs({ plan, client, evidenceDirectory });
   await assert.rejects(
-    applyCloudflarePlan({
-      plan,
-      client,
-      evidenceDirectory,
-      confirmedDigest: planDigest(plan),
-    }),
+    applyCloudflarePlan(applyArgs),
     /restored 0.*current state no longer matches.*restore skipped/u,
   );
   assert.equal(writes.length, 2);
@@ -556,13 +640,9 @@ test("apply restores every changed phase if after-state evidence cannot be colle
     },
   };
   const evidenceDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-edge-"));
+  const applyArgs = await preparedApplyArgs({ plan, client, evidenceDirectory });
   await assert.rejects(
-    applyCloudflarePlan({
-      plan,
-      client,
-      evidenceDirectory,
-      confirmedDigest: planDigest(plan),
-    }),
+    applyCloudflarePlan(applyArgs),
     /failed after 8 phase update.*restored 8.*after inspection unavailable/u,
   );
   assert.equal(writes.length, 16);
@@ -590,13 +670,9 @@ test("apply records mismatched after-state evidence and restores every changed p
     },
   };
   const evidenceDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-edge-"));
+  const applyArgs = await preparedApplyArgs({ plan, client, evidenceDirectory });
   await assert.rejects(
-    applyCloudflarePlan({
-      plan,
-      client,
-      evidenceDirectory,
-      confirmedDigest: planDigest(plan),
-    }),
+    applyCloudflarePlan(applyArgs),
     /failed after 8 phase update.*restored 8.*8 unsettled phase/u,
   );
   assert.equal(writes.length, 16);

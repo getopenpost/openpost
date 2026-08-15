@@ -83,7 +83,7 @@ after the related inspection, apply, rollback, or proof operation. The commands
 report logical resource names and environment variable names, never token,
 zone-ID, or account-ID values.
 
-## Inspect and apply
+## Inspect, prepare, and apply
 
 Inspection performs only Rulesets API `GET` requests:
 
@@ -92,29 +92,49 @@ bun scripts/cloudflare-edge-plan.mjs inspect > /tmp/openpost-edge-inspection.jso
 ```
 
 Review every current and desired phase. Exit status `2` means an unmanaged rule
-occupies a phase owned by this plan. Resolve that ownership explicitly; apply
+occupies a phase owned by this plan. Resolve that ownership explicitly; prepare
 stops on every reported conflict.
 
-Render again immediately before applying and copy its digest. Use a new,
-operator-owned evidence directory:
+Use a new, operator-owned evidence directory. Render the forward plan, then
+prepare the operation from live state:
+
+```sh
+evidence_directory=/secure/operator-evidence/openpost-edge-YYYYMMDD
+install -d -m 0700 "$evidence_directory"
+bun scripts/cloudflare-edge-plan.mjs render \
+  --output "$evidence_directory/forward-plan.json"
+bun scripts/cloudflare-edge-plan.mjs prepare \
+  --evidence "$evidence_directory"
+```
+
+Prepare performs only Rulesets API `GET` requests. It writes immutable
+`before.json`, `rollback-plan.json`, and `prepared-operation.json` files. The
+prepared-operation digest binds the forward plan, complete live snapshot, and
+rollback digest. If an unmanaged rule shares an owned phase, prepare records the
+inspection and stops without creating an operation that can be applied.
+
+Review all four files and the exact repository revision. After the operator
+explicitly authorizes both reported digests, apply the reviewed operation:
 
 ```sh
 bun scripts/cloudflare-edge-plan.mjs apply \
-  --confirm 'sha256:REVIEWED_DIGEST' \
-  --evidence /secure/operator-evidence/openpost-edge-YYYYMMDD
+  --file "$evidence_directory/prepared-operation.json" \
+  --confirm-plan 'sha256:REVIEWED_FORWARD_DIGEST' \
+  --confirm-preparation 'sha256:REVIEWED_PREPARATION_DIGEST'
 ```
 
-Apply validates the plan before inspection, captures `before.json`, re-reads all
-eight phase entry points before the first write, and compares each changed phase
-again immediately before its update. Any new rule or version stops the apply.
-It writes each phase's complete mutable description and rule list. Stable rule refs make
-an unchanged apply a no-op. It records `after.json`, checks that every phase now
-matches the reviewed plan, and writes a reviewable `rollback-plan.json`. If a
-later phase update or the final inspection fails, it checks each applied phase
-before restoring it and records `failure.json`. Recovery skips a phase that no
-longer matches the applied state so it cannot overwrite concurrent operator
-work. Treat every skipped restore or API error as an incident and use the
-captured evidence to reconcile the current state before choosing a next step.
+Apply rejects a missing, modified, stale, or incompletely confirmed prepared
+operation before writing. It re-reads all eight phase entry points before the
+first write and compares each changed phase again immediately before its
+update. Any new rule or version stops the apply. It writes each phase's complete
+mutable description and rule list. Stable rule refs make a newly prepared,
+unchanged apply a no-op. It records `after.json` and checks that every phase now
+matches the reviewed plan. If a later phase update or the final inspection
+fails, it checks each applied phase before restoring it and records
+`failure.json`. Recovery skips a phase that no longer matches the applied state
+so it cannot overwrite concurrent operator work. Treat every skipped restore
+or API error as an incident and use the captured evidence to reconcile the
+current state before choosing a next step.
 
 ## Roll back
 
@@ -127,9 +147,10 @@ bun scripts/cloudflare-edge-plan.mjs rollback \
   --confirm 'sha256:REVIEWED_ROLLBACK_DIGEST'
 ```
 
-The rollback file contains only phases changed by apply. Before any write, the
-command checks that every phase still matches its captured applied state. It
-checks each phase's version again immediately before restoring it. Any later
+The rollback file contains only phases that the prepared operation would
+change. Before any write, the command checks that every phase still matches its
+captured applied state. It checks each phase's version again immediately before
+restoring it. Any later
 operator change stops rollback instead of overwriting that work. If a phase did
 not exist before apply, rollback restores an empty phase entry point. Inspect
 again and retain the before, after, rollback, command output, and

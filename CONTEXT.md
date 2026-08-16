@@ -28,6 +28,22 @@ _Avoid_: Administrator, Workspace administrator, co-owner
 The content and collaboration boundary within an Organization. A user needs explicit Workspace membership to access its content.
 _Avoid_: Organization, tenant
 
+**Workspace access**:
+The authorization decision for an actor in one Workspace. It combines credential scope, Organization identity policy, active Workspace membership, and the access level required by the action.
+_Avoid_: Workspace membership, Organization affiliation
+
+**Composer session**:
+The browser-side editing workflow for one Publication in one Workspace. It may continue through an OpenPost Image Editor or OpenPost Video Editor handoff, but it does not continue across a Workspace change.
+_Avoid_: Draft, Publication
+
+**Engagement**:
+A provider interaction attached to a published Rendition, such as a comment, reply, or reaction.
+_Avoid_: Message, communication
+
+**Messaging**:
+A direct provider conversation attached to a connected social account rather than a Publication or Rendition.
+_Avoid_: Engagement, communication
+
 **Managed identity**:
 A user identity governed by an Organization's authentication or access policy.
 _Avoid_: Managed user, hosted user

@@ -95,30 +95,26 @@ func reciprocityScore(followers, following int) float64 {
 	if following < 0 {
 		following = 0
 	}
-	den := float64(followers+following) + 1
-	ratio := float64(followers) / den // 0-1, higher when more followers than following
-
-	// Smoothed: apply slight log scaling for follower count magnitude?
-	// Use ratio directly but boost a bit for moderate followers
-	smoothed := ratio
-	// If both zero, neutral 0.5
-	if followers == 0 && following == 0 {
-		smoothed = 0.5
+	// Balanced following-to-followers relationship is ideal.
+	// Celebrity (followers>>following) and mass-follow (following>>followers) are both penalized.
+	// Use log-ratio gaussian centered at 0 (balanced). Smooth, no discontinuity.
+	a := float64(followers + 1)
+	b := float64(following + 1)
+	logRatio := math.Log(a / b) // 0 balanced, positive celebrity, negative mass-follow
+	sigma := 1.2
+	score := math.Exp(-(logRatio * logRatio) / (2 * sigma * sigma))
+	// Slight boost for reasonable absolute scale: very tiny accounts slightly less attractive
+	// but do not reintroduce celebrity bias. Scale adjustment is small.
+	if followers < 5 && following < 5 {
+		score *= 0.85
 	}
-
-	// Mass-follow spam penalty: high following with low followers
-	if following > 2000 && followers < 500 && ratio < 0.2 {
-		smoothed *= 0.4
-	} else if following > 1000 && followers < 200 && ratio < 0.15 {
-		smoothed *= 0.5
+	if score < 0 {
+		score = 0
 	}
-	if smoothed < 0 {
-		smoothed = 0
+	if score > 1 {
+		score = 1
 	}
-	if smoothed > 1 {
-		smoothed = 1
-	}
-	return smoothed
+	return score
 }
 
 func profileQualityScore(c platform.GrowthCandidate) float64 {

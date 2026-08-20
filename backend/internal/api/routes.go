@@ -7,6 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/handlers"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/services/accountfeatures"
 	"github.com/openpost/backend/internal/memes"
 	"github.com/openpost/backend/internal/platform"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
@@ -362,6 +363,13 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	oauthHandler.UpdateAccount(api)
 	oauthHandler.DisconnectAccount(api)
 	oauthHandler.RevokeAccountGrant(api)
+
+	afhService := accountfeatures.NewService(deps.DB, oauthHandler.ProviderMap(), nil)
+	afhHandler := handlers.NewAccountFeaturesHandler(afhService, deps.Authenticator)
+	afhHandler.ReadFeatures(api)
+	afhHandler.SaveFeatures(api)
+	oauthHandler.SetAccountFeaturesService(afhService)
+	oauthHandler.SetProviderRegistrars(append(deps.ProviderRegistrars, afhService.SetProvider)...)
 
 	RegisterHealth(api, deps.DB)
 	RegisterVersion(api, BuildInfo{

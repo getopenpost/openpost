@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +21,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	account_saver "github.com/openpost/backend/internal/services/account_saver"
+	"github.com/openpost/backend/internal/services/accountfeatures"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/mastodonapps"
@@ -50,6 +50,7 @@ type OAuthHandler struct {
 	auth                         middleware.Authenticator
 	disableLinkedInThreadReplies bool
 	accountSaver                 *account_saver.AccountSaver
+	accountFeatures              *accountfeatures.Service
 	mastodonApps                 *mastodonapps.Service
 	oauthStates                  *oauthstate.Store
 	readiness                    *providerreadiness.Service
@@ -148,6 +149,14 @@ func (h *OAuthHandler) SetProviderRegistrars(registrars ...func(string, platform
 
 func (h *OAuthHandler) SetTelemetry(recorder telemetry.Recorder) {
 	h.telemetry = recorder
+}
+
+func (h *OAuthHandler) SetAccountFeaturesService(svc *accountfeatures.Service) {
+	h.accountFeatures = svc
+}
+
+func (h *OAuthHandler) ProviderMap() map[string]platform.Adapter {
+	return h.providers
 }
 
 type MastodonServerInfo struct {
@@ -1819,8 +1828,36 @@ func (h *OAuthHandler) ListAccounts(api huma.API) {
 				grantCounts[account.OAuthGrantID]++
 			}
 		}
+		// Resolve messaging shim via accountfeatures when available
+		messagingEnabled := map[string]bool{}
+		messagingSupported := map[string]bool{}
+		if h.accountFeatures != nil && len(accounts) > 0 {
+			ids := make([]string, len(accounts))
+			for i, a := range accounts {
+				ids[i] = a.ID
+			}
+			actor := workspaceActor(ctx, userID)
+			if features, err := h.accountFeatures.Read(ctx, input.WorkspaceID, actor, ids); err == nil {
+				for _, f := range features {
+					if f.Feature == accountfeatures.FeatureMessaging {
+						messagingSupported[f.SocialAccountID] = f.Supported
+						messagingEnabled[f.SocialAccountID] = f.EffectiveEnabled
+					}
+				}
+			}
+		}
 		for i, acc := range accounts {
 			response[i] = accountResponse(acc, h.disableLinkedInThreadReplies)
+			if h.accountFeatures != nil {
+				if sup, ok := messagingSupported[acc.ID]; ok {
+					response[i].MessagingSupported = sup
+				}
+				if en, ok := messagingEnabled[acc.ID]; ok {
+					response[i].MessagesEnabled = en
+				} else if _, ok := messagingSupported[acc.ID]; ok {
+					response[i].MessagesEnabled = false
+				}
+			}
 			response[i].GrantDestinationCount = max(grantCounts[acc.OAuthGrantID], 1)
 			response[i].SharedGrant = response[i].GrantDestinationCount > 1
 		}
@@ -1848,17 +1885,45 @@ func (h *OAuthHandler) UpdateAccount(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		capabilityState := map[string]string{}
-		_ = json.Unmarshal([]byte(account.CapabilityState), &capabilityState)
-		if input.Body.MessagesEnabled != nil {
+		// Handle messaging shim via accountfeatures when available
+		if input.Body.MessagesEnabled != nil && h.accountFeatures != nil {
+			// Validate support via service before saving
+			actor := workspaceActor(ctx, middleware.GetUserID(ctx))
+			features, err := h.accountFeatures.Read(ctx, account.WorkspaceID, actor, []string{account.ID})
+			if err != nil {
+				return nil, huma.Error500InternalServerError("failed to resolve feature support")
+			}
+			supported := false
+			for _, f := range features {
+				if f.Feature == accountfeatures.FeatureMessaging {
+					supported = f.Supported
+				}
+			}
+			if *input.Body.MessagesEnabled && !supported {
+				return nil, huma.Error400BadRequest("messages are not supported for this provider")
+			}
+			if _, err := h.accountFeatures.BatchSave(ctx, account.WorkspaceID, actor, []accountfeatures.ChoiceInput{{
+				AccountID: account.ID,
+				Feature:   accountfeatures.FeatureMessaging,
+				Enabled:   *input.Body.MessagesEnabled,
+				Source:    "legacy_patch",
+			}}); err != nil {
+				return nil, huma.Error400BadRequest(err.Error())
+			}
+			// Continue to slug update without touching capability_state
+		} else if input.Body.MessagesEnabled != nil {
+			// Fallback legacy path when service not wired (tests without service)
+			capabilityState := map[string]string{}
+			_ = json.Unmarshal([]byte(account.CapabilityState), &capabilityState)
 			if *input.Body.MessagesEnabled && !accountMessagingSupported(account.Platform) {
 				return nil, huma.Error400BadRequest("messages are not supported for this provider")
 			}
-			capabilityState["messages_enabled"] = strconv.FormatBool(*input.Body.MessagesEnabled)
-		}
-		encodedCapabilityState, err := json.Marshal(capabilityState)
-		if err != nil {
-			return nil, huma.Error500InternalServerError("failed to encode account capabilities")
+			capabilityState["messages_enabled"] = strings.TrimSpace(fmt.Sprintf("%t", *input.Body.MessagesEnabled))
+			encoded, _ := json.Marshal(capabilityState)
+			account.CapabilityState = string(encoded)
+			if _, err := h.db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("capability_state_json = ?", string(encoded)).Where("id = ?", account.ID).Exec(ctx); err != nil {
+				return nil, huma.Error500InternalServerError("failed to update account")
+			}
 		}
 
 		var existing models.SocialAccount
@@ -1879,15 +1944,29 @@ func (h *OAuthHandler) UpdateAccount(api huma.API) {
 		if _, err := h.db.NewUpdate().
 			Model((*models.SocialAccount)(nil)).
 			Set("slug = ?", slug).
-			Set("capability_state_json = ?", string(encodedCapabilityState)).
 			Where("id = ?", account.ID).
 			Exec(ctx); err != nil {
 			return nil, huma.Error500InternalServerError("failed to update account")
 		}
 
 		account.Slug = slug
-		account.CapabilityState = string(encodedCapabilityState)
-		return &UpdateAccountOutput{Body: accountResponse(account, h.disableLinkedInThreadReplies)}, nil
+		// Refresh account copy
+		if err := h.db.NewSelect().Model(&account).Where("id = ?", account.ID).Scan(ctx); err != nil {
+			return nil, huma.Error500InternalServerError("failed to fetch account")
+		}
+		resp := accountResponse(account, h.disableLinkedInThreadReplies)
+		if h.accountFeatures != nil {
+			actor := workspaceActor(ctx, middleware.GetUserID(ctx))
+			if features, err := h.accountFeatures.Read(ctx, account.WorkspaceID, actor, []string{account.ID}); err == nil {
+				for _, f := range features {
+					if f.Feature == accountfeatures.FeatureMessaging {
+						resp.MessagingSupported = f.Supported
+						resp.MessagesEnabled = f.EffectiveEnabled
+					}
+				}
+			}
+		}
+		return &UpdateAccountOutput{Body: resp}, nil
 	})
 }
 

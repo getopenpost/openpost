@@ -551,6 +551,19 @@ func encodeCapabilityState(state map[string]string) (string, time.Time, error) {
 	if len(state) == 0 {
 		return "{}", time.Time{}, nil
 	}
+	if _, ok := state["messages_enabled"]; ok {
+		filtered := make(map[string]string, len(state))
+		for k, v := range state {
+			if k == "messages_enabled" {
+				continue
+			}
+			filtered[k] = v
+		}
+		state = filtered
+		if len(state) == 0 {
+			return "{}", time.Time{}, nil
+		}
+	}
 	encoded, err := json.Marshal(state)
 	if err != nil {
 		return "", time.Time{}, fmt.Errorf("encoding account capability state: %w", err)

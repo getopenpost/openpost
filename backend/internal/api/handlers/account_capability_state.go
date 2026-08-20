@@ -23,6 +23,22 @@ func persistAccountCapabilityState(
 	if db == nil || strings.TrimSpace(accountID) == "" || len(result.State) == 0 {
 		return nil
 	}
+	// Preference data must survive capability refresh and reconnect. Never
+	// persist messaging choice inside capability_state_json; it lives in
+	// account_features.
+	if _, ok := result.State["messages_enabled"]; ok {
+		filtered := make(map[string]string, len(result.State))
+		for k, v := range result.State {
+			if k == "messages_enabled" {
+				continue
+			}
+			filtered[k] = v
+		}
+		result.State = filtered
+		if len(result.State) == 0 {
+			return nil
+		}
+	}
 	encoded, err := json.Marshal(result.State)
 	if err != nil {
 		return err

@@ -4,6 +4,7 @@ export type PrimaryNavigationItem = {
 		| 'calendar'
 		| 'posts'
 		| 'communications'
+		| 'growth'
 		| 'analytics'
 		| 'media'
 		| 'editors'
@@ -24,6 +25,13 @@ export const primaryNavigation: PrimaryNavigationItem[] = [
 		label: 'Inbox',
 		href: '/engagement',
 		match: ['/engagement', '/messages'],
+		mobile: false
+	},
+	{
+		id: 'growth',
+		label: 'Grow',
+		href: '/grow',
+		match: ['/grow'],
 		mobile: false
 	},
 	{

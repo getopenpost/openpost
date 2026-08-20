@@ -14,6 +14,7 @@
 	import WorkspaceMenuItems from './workspace-menu-items.svelte';
 	import AnalyticsIcon from '@lucide/svelte/icons/chart-no-axes-combined';
 	import CommunicationsIcon from '@lucide/svelte/icons/messages-square';
+	import GrowIcon from '@lucide/svelte/icons/user-round-plus';
 	import EditorsIcon from '@lucide/svelte/icons/clapperboard';
 	import BellIcon from '@lucide/svelte/icons/bell';
 	import AccountsIcon from '@lucide/svelte/icons/users';
@@ -142,6 +143,19 @@
 			>
 				<BellIcon class="size-4 text-muted-foreground" />
 				{m.notifications_heading()}
+			</a>
+		{/snippet}
+	</DropdownMenu.Item>
+	<DropdownMenu.Item>
+		{#snippet child({ props })}
+			<a
+				{...props}
+				class={[props.class, 'min-h-11 gap-3']}
+				href={resolve('/grow' as '/')}
+				onclick={onNavigate}
+			>
+				<GrowIcon class="size-4 text-muted-foreground" />
+				{m.sidebar_grow()}
 			</a>
 		{/snippet}
 	</DropdownMenu.Item>

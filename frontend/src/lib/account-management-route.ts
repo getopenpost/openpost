@@ -88,3 +88,45 @@ export function clearAccountManagementContinuation() {
 	localStorage.removeItem('oauth_mastodon_server');
 	localStorage.removeItem('oauth_mastodon_instance_url');
 }
+
+export interface AccountSetupState {
+	workspaceID: string;
+	accountIDs: string[];
+	newAccountIDs: string[];
+	openFreshComposer: boolean;
+}
+
+export function accountSetupHref(state: AccountSetupState): string {
+	const params = new URLSearchParams();
+	params.set('workspace_id', state.workspaceID);
+	if (state.accountIDs.length) params.set('account_ids', state.accountIDs.join(','));
+	if (state.newAccountIDs.length) params.set('new_account_ids', state.newAccountIDs.join(','));
+	if (state.openFreshComposer) params.set('open_fresh_composer', 'true');
+	return `/accounts/setup?${params.toString()}`;
+}
+
+export function interpretAccountSetupURL(url: URL): AccountSetupState | null {
+	const workspaceID = url.searchParams.get('workspace_id') ?? '';
+	if (!workspaceID) return null;
+	const accountIDs = (url.searchParams.get('account_ids') ?? '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	const newAccountIDs = (url.searchParams.get('new_account_ids') ?? '')
+		.split(',')
+		.map((s) => s.trim())
+		.filter(Boolean);
+	const openFreshComposer = url.searchParams.get('open_fresh_composer') === 'true';
+	return { workspaceID, accountIDs, newAccountIDs, openFreshComposer };
+}
+
+export function continuationHrefForNormalizedConnection(state: AccountSetupState & { featureSetupRequired: boolean }): string {
+	if (state.featureSetupRequired && state.newAccountIDs.length > 0) {
+		return accountSetupHref(state);
+	}
+	if (state.openFreshComposer) {
+		const q = new URLSearchParams({ workspace_id: state.workspaceID, account_ids: state.accountIDs.join(',') });
+		return `/?${q.toString()}`;
+	}
+	return accountManagementReturnHref();
+}

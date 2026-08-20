@@ -18,8 +18,11 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import { formatAccountHandle, getPlatformName, getPlatformColor } from '$lib/utils';
+		import { formatAccountHandle, getPlatformName, getPlatformColor } from '$lib/utils';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
+	import { goto } from '$app/navigation';
+	import { resolveAppPath } from '$lib/app-path';
+	import { accountSetupHref } from '$lib/account-management-route';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { m } from '$lib/paraglide/messages';
@@ -413,7 +416,7 @@
 		}
 		try {
 			const { data, error: err } = await client.GET('/accounts/{platform}/auth-url', {
-				params: { path: { platform: 'x' }, query: { workspace_id: selectedWorkspaceId } }
+				params: { path: { platform: 'x' }, query: { workspace_id: selectedWorkspaceId, account_management_mode: mode } }
 			});
 			if (err) throw new Error(err.detail || m.accounts_x_connection_start_failed());
 			if (!data?.url) throw new Error(m.accounts_x_connection_start_failed());
@@ -442,7 +445,8 @@
 				query: {
 					workspace_id: selectedWorkspaceId,
 					server_name: options.serverName,
-					instance_url: options.instanceURL
+					instance_url: options.instanceURL,
+					account_management_mode: mode
 				}
 			}
 		});
@@ -495,7 +499,7 @@
 		blueskyError = '';
 
 		try {
-			const { error: err } = await client.POST('/accounts/bluesky/login', {
+			const { data, error: err } = await client.POST('/accounts/bluesky/login', {
 				body: {
 					workspace_id: selectedWorkspaceId,
 					handle: blueskyHandle.trim(),
@@ -504,6 +508,19 @@
 			});
 			if (err) throw new Error(err.detail || m.accounts_login_failed());
 			blueskyModalOpen = false;
+			if (data?.feature_setup_required && data.new_account_ids?.length) {
+				await goto(
+					resolveAppPath(
+						accountSetupHref({
+							workspaceID: data.workspace_id,
+							accountIDs: data.account_ids ?? [],
+							newAccountIDs: data.new_account_ids ?? [],
+							openFreshComposer: data.open_fresh_composer
+						})
+					)
+				);
+				return;
+			}
 			await loadAccounts();
 			onAccountsChanged();
 		} catch (e) {
@@ -536,7 +553,7 @@
 		discordLoading = true;
 		discordError = '';
 		try {
-			const { error: err } = await client.POST('/accounts/discord/webhook', {
+			const { data, error: err } = await client.POST('/accounts/discord/webhook', {
 				body: {
 					workspace_id: selectedWorkspaceId,
 					webhook_url: discordWebhookUrl.trim()
@@ -544,6 +561,19 @@
 			});
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
 			discordModalOpen = false;
+			if (data?.feature_setup_required && data.new_account_ids?.length) {
+				await goto(
+					resolveAppPath(
+						accountSetupHref({
+							workspaceID: data.workspace_id,
+							accountIDs: data.account_ids ?? [],
+							newAccountIDs: data.new_account_ids ?? [],
+							openFreshComposer: data.open_fresh_composer
+						})
+					)
+				);
+				return;
+			}
 			await loadAccounts();
 			onAccountsChanged();
 		} catch (requestError) {
@@ -567,7 +597,7 @@
 			const { data, error: err } = await client.GET('/accounts/{platform}/auth-url', {
 				params: {
 					path: { platform },
-					query: { workspace_id: selectedWorkspaceId }
+					query: { workspace_id: selectedWorkspaceId, account_management_mode: mode }
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
@@ -798,7 +828,8 @@
 		const query = {
 			workspace_id: selectedWorkspaceId,
 			server_name: options.serverName,
-			instance_url: options.instanceURL
+			instance_url: options.instanceURL,
+			account_management_mode: mode
 		};
 
 		try {

@@ -13,6 +13,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import {
 		accountManagementReturnHref,
+		accountSetupHref,
 		clearAccountManagementContinuation
 	} from '$lib/account-management-route';
 	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
@@ -153,6 +154,20 @@
 			}
 			if (!data?.workspace_id || !data.account_ids?.length) {
 				error = m.accounts_callback_selection_save_failed();
+				return;
+			}
+
+			if (data.feature_setup_required && data.new_account_ids?.length) {
+				await navigate(
+					resolveAppPath(
+						accountSetupHref({
+							workspaceID: data.workspace_id,
+							accountIDs: data.account_ids,
+							newAccountIDs: data.new_account_ids,
+							openFreshComposer: data.open_fresh_composer
+						})
+					)
+				);
 				return;
 			}
 

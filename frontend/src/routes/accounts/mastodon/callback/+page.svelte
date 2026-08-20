@@ -12,6 +12,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import {
 		accountManagementReturnHref,
+		accountSetupHref,
 		clearAccountManagementContinuation
 	} from '$lib/account-management-route';
 
@@ -72,6 +73,19 @@
 			if (!data?.workspace_id || !data.account_id) {
 				throw new Error(m.accounts_mastodon_callback_exchange_failed());
 			}
+			if (data.feature_setup_required && data.new_account_ids?.length) {
+				await goto(
+					resolveAppPath(
+						accountSetupHref({
+							workspaceID: data.workspace_id,
+							accountIDs: data.account_ids ?? [data.account_id],
+							newAccountIDs: data.new_account_ids ?? [],
+							openFreshComposer: data.open_fresh_composer
+						})
+					)
+				);
+				return;
+			}
 			pageLoading = true;
 			if (!data.open_fresh_composer) {
 				await goto(resolveAppPath(accountManagementReturnHref()));
@@ -80,7 +94,7 @@
 			}
 			const query = new URLSearchParams({
 				workspace_id: data.workspace_id,
-				account_ids: data.account_id
+				account_ids: (data.account_ids ?? [data.account_id]).join(',')
 			});
 			await goto(resolveAppPath(`/?${query.toString()}`));
 			clearAccountManagementContinuation();

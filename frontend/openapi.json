@@ -131,6 +131,24 @@
 						"description": "OpenPost destination account ID",
 						"type": "string"
 					},
+					"account_ids": {
+						"description": "All connected OpenPost account IDs",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"feature_setup_required": {
+						"description": "Whether feature setup is required for new accounts",
+						"type": "boolean"
+					},
+					"new_account_ids": {
+						"description": "Genuinely new OpenPost account IDs",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
 					"open_fresh_composer": {
 						"description": "Whether this is the Workspace's first connected destination",
 						"type": "boolean"
@@ -140,7 +158,14 @@
 						"type": "string"
 					}
 				},
-				"required": ["workspace_id", "account_id", "open_fresh_composer"],
+				"required": [
+					"workspace_id",
+					"account_id",
+					"account_ids",
+					"new_account_ids",
+					"open_fresh_composer",
+					"feature_setup_required"
+				],
 				"type": "object"
 			},
 			"AccountDeletionImpact": {
@@ -959,6 +984,10 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"feature_setup_required": {
+						"description": "Whether feature setup is required for new accounts",
+						"type": "boolean"
+					},
 					"grant_destination_count": {
 						"description": "Number of active destinations using this provider authorization",
 						"format": "int64",
@@ -989,6 +1018,13 @@
 						"description": "Whether OpenPost has a messaging connector for this provider",
 						"type": "boolean"
 					},
+					"new_account_ids": {
+						"description": "Genuinely new OpenPost account IDs",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
 					"open_fresh_composer": {
 						"description": "Whether these are the Workspace's first connected destinations",
 						"type": "boolean"
@@ -1017,7 +1053,9 @@
 				"required": [
 					"workspace_id",
 					"account_ids",
+					"new_account_ids",
 					"open_fresh_composer",
+					"feature_setup_required",
 					"id",
 					"slug",
 					"platform",
@@ -18201,8 +18239,15 @@
 					"required": true
 				},
 				"responses": {
-					"204": {
-						"description": "No Content"
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountConnectionResponse"
+								}
+							}
+						},
+						"description": "OK"
 					},
 					"400": {
 						"content": {
@@ -18263,8 +18308,15 @@
 					"required": true
 				},
 				"responses": {
-					"204": {
-						"description": "No Content"
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccountConnectionResponse"
+								}
+							}
+						},
+						"description": "OK"
 					},
 					"400": {
 						"content": {
@@ -19151,6 +19203,17 @@
 							"default": "production",
 							"description": "Typed execution intent; certification_test requires an unscoped instance administrator",
 							"enum": ["production", "certification_test"],
+							"type": "string"
+						}
+					},
+					{
+						"description": "Where the user started the connection flow",
+						"explode": false,
+						"in": "query",
+						"name": "account_management_mode",
+						"schema": {
+							"description": "Where the user started the connection flow",
+							"enum": ["direct", "settings"],
 							"type": "string"
 						}
 					}

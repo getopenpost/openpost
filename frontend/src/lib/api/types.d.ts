@@ -4338,6 +4338,12 @@ export interface components {
             readonly $schema?: string;
             /** @description OpenPost destination account ID */
             account_id: string;
+            /** @description All connected OpenPost account IDs */
+            account_ids: string[] | null;
+            /** @description Whether feature setup is required for new accounts */
+            feature_setup_required: boolean;
+            /** @description Genuinely new OpenPost account IDs */
+            new_account_ids: string[] | null;
             /** @description Whether this is the Workspace's first connected destination */
             open_fresh_composer: boolean;
             /** @description Workspace receiving the connected destination */
@@ -4629,6 +4635,8 @@ export interface components {
              * @description When account-specific publishing limits were last verified
              */
             capability_checked_at?: string;
+            /** @description Whether feature setup is required for new accounts */
+            feature_setup_required: boolean;
             /**
              * Format: int64
              * @description Number of active destinations using this provider authorization
@@ -4649,6 +4657,8 @@ export interface components {
             messages_enabled: boolean;
             /** @description Whether OpenPost has a messaging connector for this provider */
             messaging_supported: boolean;
+            /** @description Genuinely new OpenPost account IDs */
+            new_account_ids: string[] | null;
             /** @description Whether these are the Workspace's first connected destinations */
             open_fresh_composer: boolean;
             /** @description Platform name */
@@ -12145,12 +12155,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AccountConnectionResponse"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -12203,12 +12215,14 @@ export interface operations {
             };
         };
         responses: {
-            /** @description No Content */
-            204: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AccountConnectionResponse"];
+                };
             };
             /** @description Bad Request */
             400: {
@@ -12865,6 +12879,8 @@ export interface operations {
                 instance_url?: string;
                 /** @description Typed execution intent; certification_test requires an unscoped instance administrator */
                 intent?: "production" | "certification_test";
+                /** @description Where the user started the connection flow */
+                account_management_mode?: "direct" | "settings";
             };
             header?: never;
             path: {

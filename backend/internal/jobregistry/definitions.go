@@ -29,6 +29,8 @@ const (
 	TypeRepostEvaluate          = "repost_evaluate"
 	TypeRepostExecute           = "repost_execute"
 	TypeMediaAnalyze            = "media_analyze"
+	TypeGrowthDiscovery         = "growth_discovery"
+	TypeGrowthFollow            = "growth_follow"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -50,6 +52,7 @@ const (
 	ExecuteOrganizationOwnership ExecutionKind = "organization_ownership"
 	ExecuteRepost                ExecutionKind = "repost"
 	ExecuteVideo                 ExecutionKind = "video"
+	ExecuteGrowth                ExecutionKind = "growth"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -130,6 +133,10 @@ var definitions = map[string]Definition{
 	TypeRepostExecute: providerWriteDefinition(TypeRepostExecute, ExecuteRepost,
 		"The provider repost failed. OpenPost did not retry because the provider result may be ambiguous."),
 	TypeMediaAnalyze: definition(TypeMediaAnalyze, 3, ExecuteVideo, FailureDefault, RecoveryRequeue),
+	TypeGrowthDiscovery: providerReadDefinition(TypeGrowthDiscovery, 3, ExecuteGrowth, RecoveryRequeue,
+		"Growth discovery failed. OpenPost will retry when the failure is temporary.", ""),
+	TypeGrowthFollow: providerWriteDefinition(TypeGrowthFollow, ExecuteGrowth,
+		"The provider follow failed. OpenPost did not retry because the provider result may be ambiguous."),
 }
 
 func definition(jobType string, attempts int, execution ExecutionKind, failure FailurePolicy, recovery RecoveryPolicy) Definition {

@@ -7,7 +7,7 @@ FORM: Flat bordered cards in Workshop list grammar, centered page-container rhyt
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -31,7 +31,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		isSyncBusy,
 		syncErrorKind,
 		growthRankBucket,
-		growthMutualBucket
+		growthMutualBucket,
+		StaleGuard,
+		terminalRemovalDelay
 	} from '$lib/growth-helpers';
 	import type { RecommendationView, SyncStateView } from '$lib/growth-helpers';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
@@ -41,6 +43,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 
 	type SocialAccount = components['schemas']['AccountResponse'];
+	type FollowUpdateView = components['schemas']['FollowUpdateView'];
 
 	let accounts = $state.raw<SocialAccount[]>([]);
 	let selectedAccountID = $state<string | null>(null);
@@ -55,18 +58,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let inlineActionHandler: (() => void) | null = $state(null);
 	let toastMessage = $state('');
 	let toastTone = $state<'neutral' | 'success' | 'error'>('neutral');
-	let dataRequestSeq = 0;
-	let accountRequestSeq = 0;
-	let pollTimer: ReturnType<typeof setInterval> | null = null;
-	let generationShown = $state<string>('');
-	let openedCaptured = $state(false);
+	const growthGuard = new StaleGuard();
+	const accountsGuard = new StaleGuard();
+	let pendingSessionIds = $state.raw<Set<string>>(new Set());
+	let terminalTimers = $state.raw<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+	const shownGenerations = new Set<string>();
+	const openedWorkspaces = new Set<string>();
 
 	const localeTag = $derived(getLocaleTag());
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const selectedAccount = $derived(
 		selectedAccountID ? accounts.find((a) => a.id === selectedAccountID) : undefined
 	);
-	const platformName = $derived(selectedAccount ? getPlatformName(selectedAccount.platform) : '');
 	const busy = $derived(isSyncBusy(syncState));
 	const hasPendingFollow = $derived(items.some((i) => i.follow_state === 'pending'));
 	const lastSuccessAt = $derived(syncState?.last_success_at ?? null);
@@ -76,75 +79,34 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	const neverGenerated = $derived(!loading && !noCompatible && compatible.length > 0 && !syncState);
 	const showGrid = $derived(!loading && !noCompatible && !neverGenerated);
 	const isEmptyAfterSuccess = $derived(
-		showGrid && items.length === 0 && syncState?.status === 'success'
+		showGrid && items.length === 0 && syncState?.status === 'ok'
 	);
 	const lastUpdatedText = $derived(
 		lastSuccessAt ? m.grow_last_updated({ date: formatDate(lastSuccessAt) }) : ''
 	);
 
-	// effects: workspace change
-	$effect(() => {
-		const wid = workspaceID;
-		if (wid) {
-			void loadAccounts(wid);
-		}
-	});
+	function clearTerminalTimers() {
+		for (const t of terminalTimers.values()) clearTimeout(t);
+		if (terminalTimers.size) terminalTimers = new Map();
+	}
 
-	// Effect for account selection -> load growth
-	$effect(() => {
-		const wid = workspaceID;
-		const acc = selectedAccountID;
-		if (wid && acc) {
-			void loadGrowth(wid, acc);
-		}
-	});
+	function resetGrowthForSwitch() {
+		growthGuard.next();
+		clearTerminalTimers();
+		items = [];
+		syncState = null;
+		currentGenerationID = '';
+		inlineMessage = '';
+		pendingSessionIds = new Set();
+		loading = true;
+	}
 
-	// Polling effect
-	$effect(() => {
-		const shouldPoll = shouldPollSync(syncState, hasPendingFollow);
-		if (shouldPoll && workspaceID && selectedAccountID) {
-			startPolling();
-		} else {
-			stopPolling();
-		}
-	});
-
-	// Telemetry: growth opened once per workspace page visit after compatible accounts load
-	$effect(() => {
-		if (!accountsLoading && compatible.length >= 0 && workspaceID && !openedCaptured) {
-			openedCaptured = true;
-			captureTelemetryEvent('growth opened', { platform_count: compatible.length });
-		}
-	});
-
-	// Reset captured when workspace changes
-	$effect(() => {
-		void workspaceID;
-		openedCaptured = false;
-		generationShown = '';
-	});
-
-	// Capture recommendation shown once per generation
-	$effect(() => {
-		if (items.length > 0 && currentGenerationID && generationShown !== currentGenerationID) {
-			generationShown = currentGenerationID;
-			for (let idx = 0; idx < items.length; idx++) {
-				const rec = items[idx];
-				captureTelemetryEvent('growth recommendation shown', {
-					platform: rec.platform,
-					rank_bucket: growthRankBucket(idx + 1),
-					mutual_count_bucket: growthMutualBucket(rec.mutual_count),
-					follows_viewer: rec.follows_viewer
-				});
-			}
-		}
-	});
-
+	// Single owner for workspace -> accounts loading. Initialized once on mount, then reacts to workspace changes.
 	onMount(async () => {
 		try {
 			if (!workspaceCtx.currentWorkspace) await workspaceCtx.initialize();
 		} catch {
-			// workspace init failure handled via accounts load
+			// handled via accounts load
 		}
 		if (workspaceCtx.currentWorkspace?.id) {
 			await loadAccounts(workspaceCtx.currentWorkspace.id);
@@ -154,57 +116,76 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		}
 	});
 
-	onDestroy(() => {
-		stopPolling();
+	$effect(() => {
+		const wid = workspaceID;
+		if (!wid) return;
+		// This is the sole account loader; growth loading is owned by the account effect below.
+		void loadAccounts(wid);
 	});
 
-	function startPolling() {
-		stopPolling();
-		pollTimer = setInterval(() => {
-			if (workspaceID && selectedAccountID) {
-				void loadGrowth(workspaceID, selectedAccountID, true);
-			}
-		}, 5000);
-	}
+	$effect(() => {
+		const wid = workspaceID;
+		const acc = selectedAccountID;
+		if (!wid || !acc) return;
+		const accObj = accounts.find((a) => a.id === acc);
+		if (!accObj) return;
+		// Invalidate prior growth requests and terminal timers before fetching exact new key.
+		growthGuard.next();
+		clearTerminalTimers();
+		void loadGrowth(wid, acc);
+	});
 
-	function stopPolling() {
-		if (pollTimer) {
-			clearInterval(pollTimer);
-			pollTimer = null;
-		}
-	}
+	// Polling via one-shot timer owned by effect with cleanup
+	$effect(() => {
+		const shouldPoll = shouldPollSync(syncState, hasPendingFollow);
+		const wid = workspaceID;
+		const acc = selectedAccountID;
+		if (!shouldPoll || !wid || !acc) return;
+		const timer = setTimeout(() => {
+			void loadGrowth(wid, acc, true);
+		}, 5000);
+		return () => clearTimeout(timer);
+	});
+
+	// Telemetry: capture once per workspace after accounts settle
+	$effect(() => {
+		if (accountsLoading || !workspaceID) return;
+		if (openedWorkspaces.has(workspaceID)) return;
+		openedWorkspaces.add(workspaceID);
+		captureTelemetryEvent('growth opened', { platform_count: compatible.length });
+	});
+
+	// On workspace switch, clear shown generations for new workspace
+	$effect(() => {
+		void workspaceID;
+		// Keep openedWorkspaces as historical, but pendingSessionIds cleared on account switch already
+	});
 
 	async function loadAccounts(requestedWorkspaceID: string) {
-		const seq = ++accountRequestSeq;
+		const seq = accountsGuard.next();
 		accountsLoading = true;
 		try {
 			const response = await client.GET('/accounts', {
 				params: { query: { workspace_id: requestedWorkspaceID } }
 			});
-			if (seq !== accountRequestSeq) return;
+			if (accountsGuard.isStale(seq)) return;
 			if (response.error) throw new Error('load failed');
-			// SAFETY: AccountResponse is the typed OpenAPI response; list is already validated by the generated client.
 			const list = (response.data ?? []) as SocialAccount[];
+			// Ensure this response still belongs to current workspace
+			if (requestedWorkspaceID !== workspaceCtx.currentWorkspace?.id) return;
 			accounts = list;
 			const nextID = selectInitialAccount(list, selectedAccountID);
 			if (nextID !== selectedAccountID) {
+				resetGrowthForSwitch();
 				selectedAccountID = nextID;
-				// clear previous state on account switch
-				if (nextID) {
-					items = [];
-					syncState = null;
-					currentGenerationID = '';
-					inlineMessage = '';
-					loading = true;
-				} else {
+				if (!nextID) {
 					loading = false;
-					items = [];
-					syncState = null;
+					accountsLoading = false;
+					return;
 				}
 			}
 		} catch {
-			if (seq !== accountRequestSeq) return;
-			// preserve existing accounts where possible, but show inline notice
+			if (accountsGuard.isStale(seq)) return;
 			if (accounts.length === 0) {
 				inlineMessage = m.grow_load_failed();
 				inlineTone = 'error';
@@ -214,13 +195,15 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				};
 			}
 		} finally {
-			if (seq === accountRequestSeq) accountsLoading = false;
+			if (!accountsGuard.isStale(seq)) accountsLoading = false;
 			if (!selectedAccountID) loading = false;
 		}
 	}
 
 	async function loadGrowth(ws: string, acc: string, isPoll = false) {
-		const seq = ++dataRequestSeq;
+		const seq = growthGuard.next();
+		const requestKeyWs = ws;
+		const requestKeyAcc = acc;
 		if (!isPoll) {
 			loading = items.length === 0;
 			inlineMessage = '';
@@ -229,54 +212,105 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			const response = await client.GET('/growth', {
 				params: { query: { workspace_id: ws, account_id: acc } }
 			});
-			if (seq !== dataRequestSeq) return;
-			if (response.error) {
-				throw response.error;
-			}
-			// SAFETY: Growth list response shape matches the OpenAPI ListResult for this workspace/account query.
+			if (growthGuard.isStale(seq)) return;
+			// Guard against stale workspace/account responses
+			if (ws !== requestKeyWs || acc !== requestKeyAcc) return;
+			if (ws !== workspaceID || acc !== selectedAccountID) return;
+			if (response.error) throw response.error;
 			const data = response.data as {
 				items: RecommendationView[] | null;
 				sync_state: SyncStateView | null;
+				follow_updates: FollowUpdateView[] | null;
 			};
 			const newItems = data.items ?? [];
 			const newSync = data.sync_state ?? null;
-			// Preserve old items on error - here we have success so update
-			// Handle follow state transitions: if item was pending and now following/requested -> show briefly then remove
-			// We will detect following/requested and schedule removal
-			const previousItems = items;
+			const followUpdates = data.follow_updates ?? [];
 			syncState = newSync;
 			currentGenerationID = newSync?.current_generation_id ?? '';
-			// Handle follow transitions: keep pending items until polling confirms, then fade
-			// For following/requested, briefly keep visible then remove smoothly
-			// We implement removal after short delay to communicate state
-			const hasFollowingTransitions = newItems.some(
-				(it) => it.follow_state === 'following' || it.follow_state === 'requested'
-			);
-			if (hasFollowingTransitions) {
-				// Keep items but mark those with following/requested for removal after toast? We'll keep but filtered after delay
-				// To avoid layout chaos, remove after 1.2s with fade
-				const idsToRemove = new Set(
-					newItems
-						.filter((it) => it.follow_state === 'following' || it.follow_state === 'requested')
-						.map((it) => it.id)
-				);
-				// Update immediately to show Following/Requested state
-				items = newItems;
-				if (idsToRemove.size > 0) {
-					setTimeout(() => {
-						if (seq !== dataRequestSeq) return;
-						items = items.filter((it) => !idsToRemove.has(it.id));
-					}, 1200);
+
+			// Handle pending -> failed (failed stays in items with error)
+			const prevPendingIds = new Set(pendingSessionIds);
+			let mergedItems: RecommendationView[] = [...newItems];
+			let followToast: { handle: string } | null = null;
+
+			// Detect failed in newItems that were previously pending -> toast once
+			for (const it of mergedItems) {
+				if (it.follow_state === 'failed' && prevPendingIds.has(it.id)) {
+					followToast = { handle: `@${it.handle}` };
 				}
-			} else {
-				// Check for failed follow states: restore toast already handled via error? But if follow_state failed we keep
-				items = newItems;
 			}
 
-			// Handle sync error inline notices while preserving cards
+			// Build map for terminal updates
+			const updatesById = new Map(followUpdates.map((u) => [u.id, u]));
+			// For each pendingSessionId that has a terminal following/requested update, merge it briefly
+			const toShowTerminal: RecommendationView[] = [];
+			for (const pid of prevPendingIds) {
+				const upd = updatesById.get(pid);
+				if (upd && (upd.follow_state === 'following' || upd.follow_state === 'requested')) {
+					const prior = items.find((r) => r.id === pid);
+					// Reconstruct a minimal view for the terminal card using prior data + update state
+					if (prior) {
+						toShowTerminal.push({
+							...prior,
+							follow_state: upd.follow_state,
+							updated_at: upd.updated_at
+						} as RecommendationView);
+					}
+				}
+			}
+
+			if (toShowTerminal.length) {
+				// Show terminal cards briefly together with current items
+				mergedItems = [...mergedItems, ...toShowTerminal].sort((a, b) => 0);
+				items = mergedItems;
+				const delay = terminalRemovalDelay();
+				if (delay === 0) {
+					// Immediate removal without animation
+					const ids = new Set(toShowTerminal.map((r) => r.id));
+					items = items.filter((it) => !ids.has(it.id));
+					pendingSessionIds = new Set([...pendingSessionIds].filter((id) => !ids.has(id)));
+				} else {
+					for (const r of toShowTerminal) {
+						const existing = terminalTimers.get(r.id);
+						if (existing) clearTimeout(existing);
+						const timer = setTimeout(() => {
+							if (growthGuard.isStale(seq)) return;
+							// Only remove if still on same account
+							if (selectedAccountID !== acc || workspaceID !== ws) return;
+							items = items.filter((it) => it.id !== r.id);
+							const next = new Set(pendingSessionIds);
+							next.delete(r.id);
+							pendingSessionIds = next;
+							terminalTimers.delete(r.id);
+						}, delay);
+						terminalTimers.set(r.id, timer);
+					}
+				}
+			} else {
+				items = mergedItems;
+				// Prune pendingSessionIds that resolved to failed (now visible) or no longer pending
+				const stillPending = new Set<string>();
+				for (const id of pendingSessionIds) {
+					const found = mergedItems.find((it) => it.id === id);
+					if (found?.follow_state === 'pending') stillPending.add(id);
+				}
+				pendingSessionIds = stillPending;
+			}
+
+			if (followToast) {
+				toastMessage = m.grow_follow_failed({ handle: followToast.handle });
+				toastTone = 'error';
+				setTimeout(() => (toastMessage = ''), 3000);
+			}
+
+			// Inline notices: ok clears, otherwise map error kinds
 			if (newSync) {
 				const kind = syncErrorKind(newSync);
-				if (kind === 'rate_limited') {
+				if (newSync.status === 'ok') {
+					inlineMessage = '';
+					inlineActionLabel = '';
+					inlineActionHandler = null;
+				} else if (kind === 'rate_limited') {
 					const platformKey = selectedAccount ? selectedAccount.platform.toLowerCase() : '';
 					let msg = m.grow_rate_limited_generic();
 					if (platformKey.includes('bluesky')) msg = m.grow_rate_limited_bluesky();
@@ -299,34 +333,37 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					inlineActionHandler = () => {
 						if (workspaceID && selectedAccountID) void handleRefresh();
 					};
-				} else {
-					// clear inline if success and no busy
-					if (newSync.status === 'success') {
-						inlineMessage = '';
-						inlineActionLabel = '';
-						inlineActionHandler = null;
+				}
+			}
+
+			// Telemetry once per workspace:account:generation
+			if (mergedItems.length > 0 && currentGenerationID) {
+				const key = `${ws}:${acc}:${currentGenerationID}`;
+				if (!shownGenerations.has(key)) {
+					shownGenerations.add(key);
+					for (let idx = 0; idx < mergedItems.length; idx++) {
+						const rec = mergedItems[idx];
+						if (toShowTerminal.some((t) => t.id === rec.id)) continue;
+						captureTelemetryEvent('growth recommendation shown', {
+							platform: rec.platform,
+							rank_bucket: growthRankBucket(idx + 1),
+							mutual_count_bucket: growthMutualBucket(rec.mutual_count),
+							follows_viewer: rec.follows_viewer
+						});
 					}
 				}
 			}
+
 			loading = false;
-		} catch (err) {
-			if (seq !== dataRequestSeq) return;
-			// Preserve old cards where possible
-			if (items.length > 0) {
-				inlineMessage = m.grow_load_failed();
-				inlineTone = 'error';
-				inlineActionLabel = m.grow_load_failed_retry();
-				inlineActionHandler = () => {
-					if (workspaceID && selectedAccountID) void loadGrowth(workspaceID, selectedAccountID);
-				};
-			} else {
-				inlineMessage = m.grow_load_failed();
-				inlineTone = 'error';
-				inlineActionLabel = m.grow_load_failed_retry();
-				inlineActionHandler = () => {
-					if (workspaceID && selectedAccountID) void loadGrowth(workspaceID, selectedAccountID);
-				};
-			}
+		} catch {
+			if (growthGuard.isStale(seq)) return;
+			if (ws !== workspaceID || acc !== selectedAccountID) return;
+			inlineMessage = m.grow_load_failed();
+			inlineTone = 'error';
+			inlineActionLabel = m.grow_load_failed_retry();
+			inlineActionHandler = () => {
+				if (workspaceID && selectedAccountID) void loadGrowth(workspaceID, selectedAccountID);
+			};
 			loading = false;
 		}
 	}
@@ -339,11 +376,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				body: { workspace_id: workspaceID, account_id: selectedAccountID }
 			});
 			if (res.error) throw res.error;
-			// Mark busy optimistically
 			if (syncState) {
 				syncState = { ...syncState, status: 'queued' };
 			} else {
-				// SAFETY: Synthetic queued sync state mirrors the API SyncStateView for optimistic busy UI.
 				syncState = {
 					id: '',
 					workspace_id: workspaceID,
@@ -355,8 +390,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					updated_at: new Date().toISOString()
 				} as SyncStateView;
 			}
-			startPolling();
-			// polling will update
 		} catch {
 			toastMessage = m.grow_refresh_failed();
 			toastTone = 'error';
@@ -366,18 +399,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	async function handleFollow(id: string) {
 		if (!workspaceID) return;
-		// optimistic pending
 		const prev = items;
 		items = items.map((it) => (it.id === id ? { ...it, follow_state: 'pending' } : it));
+		const nextPending = new Set(pendingSessionIds);
+		nextPending.add(id);
+		pendingSessionIds = nextPending;
 		try {
 			const res = await client.POST('/growth/{recommendation_id}/follow', {
 				params: { path: { recommendation_id: id } },
 				body: { workspace_id: workspaceID }
 			});
 			if (res.error) throw res.error;
-			// keep pending, polling will resolve
 		} catch {
 			items = prev;
+			const pruned = new Set(pendingSessionIds);
+			pruned.delete(id);
+			pendingSessionIds = pruned;
 			const rec = prev.find((r) => r.id === id);
 			const handle = rec ? `@${rec.handle}` : '';
 			toastMessage = m.grow_follow_failed({ handle });
@@ -389,15 +426,24 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	async function handleDismiss(id: string) {
 		if (!workspaceID) return;
 		const prev = items;
-		const removed = prev.find((r) => r.id === id);
 		items = prev.filter((r) => r.id !== id);
+		// Also prune pending session and terminal timer if present
+		if (pendingSessionIds.has(id)) {
+			const next = new Set(pendingSessionIds);
+			next.delete(id);
+			pendingSessionIds = next;
+		}
+		const t = terminalTimers.get(id);
+		if (t) {
+			clearTimeout(t);
+			terminalTimers.delete(id);
+		}
 		try {
 			const res = await client.POST('/growth/{recommendation_id}/dismiss', {
 				params: { path: { recommendation_id: id } },
 				body: { workspace_id: workspaceID }
 			});
 			if (res.error) throw res.error;
-			// success stays removed
 		} catch {
 			items = prev;
 			toastMessage = m.grow_dismiss_failed();
@@ -415,7 +461,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			follows_viewer: rec.follows_viewer
 		});
 		if (rec.profile_url) {
-			window.open(rec.profile_url, '_blank', 'noreferrer');
+			window.open(rec.profile_url, '_blank', 'noopener,noreferrer');
 		}
 	}
 
@@ -474,7 +520,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					<Select.Root
 						type="single"
 						value={selectedAccountID ?? ''}
-						onValueChange={(v) => (selectedAccountID = v)}
+						onValueChange={(v) => {
+							resetGrowthForSwitch();
+							selectedAccountID = v;
+						}}
 					>
 						<Select.Trigger
 							id="grow-account-select"

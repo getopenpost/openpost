@@ -15,6 +15,19 @@ export interface BrowserTelemetryConfig {
 }
 
 export interface TelemetryEventMap {
+  "growth opened": { platform_count: number };
+  "growth recommendation shown": {
+    platform: string;
+    rank_bucket: string;
+    mutual_count_bucket: string;
+    follows_viewer: boolean;
+  };
+  "growth profile opened": {
+    platform: string;
+    rank_bucket: string;
+    mutual_count_bucket: string;
+    follows_viewer: boolean;
+  };
   "signup started": Record<string, never>;
   "publication publish requested": {
     account_count: number;
@@ -85,6 +98,14 @@ type BrowserCaptureEvent = {
 const maxPendingEvents = 100;
 const maxRememberedRouteTemplates = 100;
 const eventPropertyAllowlists: Record<TelemetryEventName, readonly string[]> = {
+  "growth opened": ["platform_count"],
+  "growth recommendation shown": [
+    "platform",
+    "rank_bucket",
+    "mutual_count_bucket",
+    "follows_viewer",
+  ],
+  "growth profile opened": ["platform", "rank_bucket", "mutual_count_bucket", "follows_viewer"],
   "signup started": [],
   "publication publish requested": ["account_count", "is_thread"],
   "publication schedule requested": ["account_count", "is_thread"],

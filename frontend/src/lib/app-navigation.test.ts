@@ -13,11 +13,23 @@ describe('primary application navigation', () => {
 			'Calendar',
 			'Posts',
 			'Inbox',
+			'Grow',
 			'Analytics',
 			'Media',
 			'Editors',
 			'Settings'
 		]);
+	});
+
+	it('places Grow between Inbox and Analytics and away from the mobile bar', () => {
+		const ids = primaryNavigation.map((item) => item.id);
+		expect(ids.indexOf('growth')).toBeGreaterThan(ids.indexOf('communications'));
+		expect(ids.indexOf('growth')).toBeLessThan(ids.indexOf('analytics'));
+		expect(primaryNavigation.find((item) => item.id === 'growth')).toMatchObject({
+			href: '/grow',
+			match: ['/grow'],
+			mobile: false
+		});
 	});
 
 	it('treats post details as part of Posts without claiming the composer root', () => {

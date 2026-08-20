@@ -58,16 +58,33 @@ export function shouldPollSync(
 	if (hasPendingFollow) return true;
 	if (!syncState) return false;
 	const s = syncState.status;
-	return s === 'queued' || s === 'refreshing' || s === 'pending';
+	return s === 'queued' || s === 'refreshing';
 }
 
 export function isSyncBusy(syncState: SyncStateView | null | undefined): boolean {
 	if (!syncState) return false;
-	return (
-		syncState.status === 'queued' ||
-		syncState.status === 'refreshing' ||
-		syncState.status === 'pending'
-	);
+	return syncState.status === 'queued' || syncState.status === 'refreshing';
+}
+
+export function isSyncOk(syncState: SyncStateView | null | undefined): boolean {
+	return syncState?.status === 'ok';
+}
+
+export const canonicalSyncStatuses = [
+	'idle',
+	'queued',
+	'refreshing',
+	'ok',
+	'permission_required',
+	'rate_limited',
+	'temporarily_unavailable',
+	'failed'
+] as const;
+
+export type CanonicalSyncStatus = (typeof canonicalSyncStatuses)[number];
+
+export function isCanonicalSyncStatus(status: string): status is CanonicalSyncStatus {
+	return (canonicalSyncStatuses as readonly string[]).includes(status);
 }
 
 export function syncErrorKind(
@@ -76,15 +93,17 @@ export function syncErrorKind(
 	if (!syncState) return null;
 	const code = (syncState.error_code ?? '').toLowerCase();
 	const status = syncState.status;
-	if (code.includes('rate') || code.includes('429')) return 'rate_limited';
+	if (code.includes('rate') || status === 'rate_limited' || code.includes('429'))
+		return 'rate_limited';
 	if (
 		code.includes('auth') ||
+		status === 'permission_required' ||
 		code.includes('permission') ||
 		code.includes('unauthorized') ||
 		code.includes('forbidden')
 	)
 		return 'auth';
-	if (status === 'failed' || status === 'error' || code) return 'failed';
+	if (status === 'failed' || status === 'temporarily_unavailable' || code) return 'failed';
 	return null;
 }
 
@@ -211,4 +230,13 @@ export class StaleGuard {
 	current(): number {
 		return this.seq;
 	}
+}
+
+export function prefersReducedMotion(): boolean {
+	if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+	return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+export function terminalRemovalDelay(): number {
+	return prefersReducedMotion() ? 0 : 1200;
 }

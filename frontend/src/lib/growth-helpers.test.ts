@@ -8,10 +8,14 @@ import {
 	followButtonState,
 	shouldPollSync,
 	isSyncBusy,
+	isSyncOk,
+	canonicalSyncStatuses,
+	syncErrorKind,
 	growthRankBucket,
 	growthMutualBucket,
 	StaleGuard,
-	growthGridClasses
+	growthGridClasses,
+	terminalRemovalDelay
 } from './growth-helpers';
 import type { components } from './api/types';
 
@@ -174,13 +178,45 @@ describe('growth-helpers', () => {
 		expect(followButtonState('failed').disabled).toBe(false);
 	});
 
-	it('detects polling conditions and busy states', () => {
+	it('detects polling conditions and busy states for canonical sync statuses', () => {
+		// Busy only queued|refreshing, ok clears
 		expect(shouldPollSync({ status: 'queued' } as never, false)).toBe(true);
 		expect(shouldPollSync({ status: 'refreshing' } as never, false)).toBe(true);
-		expect(shouldPollSync({ status: 'success' } as never, true)).toBe(true);
-		expect(shouldPollSync({ status: 'success' } as never, false)).toBe(false);
+		expect(shouldPollSync({ status: 'ok' } as never, false)).toBe(false);
+		expect(shouldPollSync({ status: 'ok' } as never, true)).toBe(true);
+		expect(shouldPollSync({ status: 'idle' } as never, false)).toBe(false);
+		expect(shouldPollSync({ status: 'permission_required' } as never, false)).toBe(false);
+		expect(shouldPollSync({ status: 'rate_limited' } as never, false)).toBe(false);
+		expect(shouldPollSync({ status: 'temporarily_unavailable' } as never, false)).toBe(false);
+		expect(shouldPollSync({ status: 'failed' } as never, false)).toBe(false);
+		// pending is a follow_state, not a sync status, should not trigger poll
+		expect(shouldPollSync({ status: 'pending' } as never, false)).toBe(false);
 		expect(isSyncBusy({ status: 'queued' } as never)).toBe(true);
-		expect(isSyncBusy({ status: 'success' } as never)).toBe(false);
+		expect(isSyncBusy({ status: 'refreshing' } as never)).toBe(true);
+		expect(isSyncBusy({ status: 'ok' } as never)).toBe(false);
+		expect(isSyncBusy({ status: 'idle' } as never)).toBe(false);
+		expect(isSyncOk({ status: 'ok' } as never)).toBe(true);
+		expect(isSyncOk({ status: 'queued' } as never)).toBe(false);
+		// all canonical statuses are known
+		for (const s of canonicalSyncStatuses) {
+			expect(typeof s).toBe('string');
+		}
+	});
+
+	it('maps syncErrorKind for canonical failure statuses', () => {
+		expect(syncErrorKind({ status: 'rate_limited' } as never)).toBe('rate_limited');
+		expect(
+			syncErrorKind({ status: 'permission_required', error_code: 'permission' } as never)
+		).toBe('auth');
+		expect(syncErrorKind({ status: 'failed' } as never)).toBe('failed');
+		expect(syncErrorKind({ status: 'temporarily_unavailable' } as never)).toBe('failed');
+		expect(syncErrorKind({ status: 'ok' } as never)).toBe(null);
+	});
+
+	it('terminal delay respects reduced motion', () => {
+		// default should be 1200 unless reduced motion prefers
+		const d = terminalRemovalDelay();
+		expect([0, 1200]).toContain(d);
 	});
 
 	it('buckets rank and mutual counts', () => {

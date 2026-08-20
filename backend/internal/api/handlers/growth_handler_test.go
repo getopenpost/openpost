@@ -19,7 +19,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func newGrowthTestServer(t *testing.T) (*growthTestServer, *growthservice.Service) {
+func newGrowthTestServer(t *testing.T) *growthTestServer {
 	t.Helper()
 	db := createHandlerTestDB(t,
 		(*models.Organization)(nil),
@@ -55,7 +55,7 @@ func newGrowthTestServer(t *testing.T) (*growthTestServer, *growthservice.Servic
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewGrowthHandler(svc, testAuthenticator{}).RegisterRoutes(api)
-	return &growthTestServer{echo: e, db: db, svc: svc}, svc
+	return &growthTestServer{echo: e, db: db, svc: svc}
 }
 
 type staticGrowthTokenSource struct{}
@@ -96,19 +96,19 @@ func (s *growthTestServer) request(t *testing.T, method, path string, body any, 
 }
 
 func TestGrowthListUnauthenticated(t *testing.T) {
-	srv, _ := newGrowthTestServer(t)
+	srv := newGrowthTestServer(t)
 	rec := srv.request(t, http.MethodGet, "/api/v1/growth?workspace_id=ws-1&account_id=acc-bluesky", nil, "")
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 }
 
 func TestGrowthListForbiddenForWrongWorkspace(t *testing.T) {
-	srv, _ := newGrowthTestServer(t)
+	srv := newGrowthTestServer(t)
 	rec := srv.request(t, http.MethodGet, "/api/v1/growth?workspace_id=ws-2&account_id=acc-bluesky", nil, "web-token")
 	require.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestGrowthListSuccess(t *testing.T) {
-	srv, _ := newGrowthTestServer(t)
+	srv := newGrowthTestServer(t)
 	rec := srv.request(t, http.MethodGet, "/api/v1/growth?workspace_id=ws-1&account_id=acc-bluesky", nil, "web-token")
 	require.Equal(t, http.StatusOK, rec.Code)
 	var out map[string]any
@@ -116,8 +116,7 @@ func TestGrowthListSuccess(t *testing.T) {
 }
 
 func TestGrowthRefreshSuccessAndFollowConflict(t *testing.T) {
-	// This thin test ensures the handler accepts valid refresh and follow routes; deeper logic is in service tests.
-	srv, _ := newGrowthTestServer(t)
+	srv := newGrowthTestServer(t)
 	refresh := srv.request(t, http.MethodPost, "/api/v1/growth/refresh", map[string]string{"workspace_id": "ws-1", "account_id": "acc-bluesky"}, "web-token")
 	require.Equal(t, http.StatusOK, refresh.Code)
 }

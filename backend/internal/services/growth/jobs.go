@@ -59,18 +59,6 @@ func decodeFollowPayload(payload string) (growthFollowPayload, error) {
 	return p, nil
 }
 
-func growthDiscoveryIdentity(payload string) (jobregistry.Identity, error) {
-	p, err := decodeDiscoveryPayload(payload)
-	if err != nil {
-		return jobregistry.Identity{}, err
-	}
-	return jobregistry.Identity{ScopeID: p.WorkspaceID, DedupeKey: "growth:" + p.SocialAccountID}, nil
-}
-
-func growthFollowIdentity(_ string) (jobregistry.Identity, error) {
-	return jobregistry.Identity{}, fmt.Errorf("growth follow has no dedupe identity")
-}
-
 // HandleJob routes durable jobs.
 func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error {
 	switch jobType {
@@ -91,6 +79,7 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 	}
 }
 
+//nolint:gocyclo // Discovery owns state recovery, provider reads, normalization, and the atomic generation swap.
 func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload) error {
 	state, err := s.loadSyncState(ctx, p.SocialAccountID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -175,7 +164,10 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 		}
 		normalized = append(normalized, n)
 	}
-	ranked := ScoreRanked(normalized)
+	ranked := scoreRanked(normalized)
+	if len(ranked) > discoveryTarget {
+		ranked = ranked[:discoveryTarget]
+	}
 
 	newGeneration := uuid.NewString()
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
@@ -206,10 +198,9 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 				followState := existing.FollowState
 				followCode := existing.FollowErrorCode
 				followMsg := existing.FollowErrorMessage
-				// Preserve only following, requested, and dismissed across generations; reset failed to idle.
-				if (followState == models.GrowthRecommendationFollowFollowing || followState == models.GrowthRecommendationFollowRequested) || !dismissed.IsZero() {
-					// keep terminal following/requested or dismissed
-				} else {
+				preserveFollowState := followState == models.GrowthRecommendationFollowFollowing ||
+					followState == models.GrowthRecommendationFollowRequested || !dismissed.IsZero()
+				if !preserveFollowState {
 					followState = models.GrowthRecommendationFollowIdle
 					followCode = ""
 					followMsg = ""

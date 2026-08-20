@@ -156,28 +156,23 @@ func (s *Service) QueueRefresh(ctx context.Context, actor workspaceaccess.ActorF
 	var jobID string
 	var isNewJob bool
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		var state models.GrowthSyncState
-		err := tx.NewSelect().Model(&state).Where("social_account_id = ?", acct.ID).Scan(txCtx)
-		if errors.Is(err, sql.ErrNoRows) {
-			state = models.GrowthSyncState{
-				ID:              uuid.NewString(),
-				WorkspaceID:     acct.WorkspaceID,
-				SocialAccountID: acct.ID,
-				Platform:        acct.Platform,
-				Status:          models.GrowthSyncStatusQueued,
-				LastAttemptedAt: now,
-				CreatedAt:       now,
-				UpdatedAt:       now,
-			}
-			if _, err := tx.NewInsert().Model(&state).Exec(txCtx); err != nil {
-				return err
-			}
-		} else if err != nil {
+		state := models.GrowthSyncState{
+			ID:              uuid.NewString(),
+			WorkspaceID:     acct.WorkspaceID,
+			SocialAccountID: acct.ID,
+			Platform:        acct.Platform,
+			Status:          models.GrowthSyncStatusQueued,
+			LastAttemptedAt: now,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if _, err := tx.NewInsert().Model(&state).
+			On("CONFLICT (social_account_id) DO UPDATE").
+			Set("status = EXCLUDED.status").
+			Set("last_attempted_at = EXCLUDED.last_attempted_at").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(txCtx); err != nil {
 			return err
-		} else {
-			if _, err := tx.NewUpdate().Model(&state).Set("status = ?", models.GrowthSyncStatusQueued).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(txCtx); err != nil {
-				return err
-			}
 		}
 		job, err := jobregistry.NewJob(jobregistry.TypeGrowthDiscovery, string(payloadBytes), now)
 		if err != nil {
@@ -278,6 +273,7 @@ type SyncStateView struct {
 	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
+//nolint:gocyclo // One DB-only read validates ownership, loads state, and projects stored recommendations.
 func (s *Service) List(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, socialAccountID string) (ListResult, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	socialAccountID = strings.TrimSpace(socialAccountID)
@@ -319,12 +315,8 @@ func (s *Service) List(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 		return ListResult{}, err
 	}
 	items := make([]RecommendationView, 0, len(rows))
-	for _, r := range rows {
-		view, err := recommendationToView(r)
-		if err != nil {
-			continue
-		}
-		items = append(items, view)
+	for _, row := range rows {
+		items = append(items, recommendationToView(row))
 	}
 	// Compact follow_updates for current-generation terminal following/requested
 	var terminalRows []models.GrowthRecommendation
@@ -355,7 +347,7 @@ func (s *Service) List(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 	return ListResult{Items: items, SyncState: syncView, FollowUpdates: followUpdates}, nil
 }
 
-func recommendationToView(r models.GrowthRecommendation) (RecommendationView, error) {
+func recommendationToView(r models.GrowthRecommendation) RecommendationView {
 	var mutuals []platform.GrowthMutualProfile
 	if strings.TrimSpace(r.MutualsJSON) != "" {
 		if err := json.Unmarshal([]byte(r.MutualsJSON), &mutuals); err != nil {
@@ -400,7 +392,7 @@ func recommendationToView(r models.GrowthRecommendation) (RecommendationView, er
 		LastSeenAt:         r.LastSeenAt,
 		CreatedAt:          r.CreatedAt,
 		UpdatedAt:          r.UpdatedAt,
-	}, nil
+	}
 }
 
 func syncStateToView(s *models.GrowthSyncState) *SyncStateView {
@@ -458,22 +450,26 @@ func (s *Service) Dismiss(ctx context.Context, actor workspaceaccess.ActorFacts,
 		return err
 	}
 	if s.telemetry != nil {
-		bucket := mutualCountBucket(rec.MutualCount)
+		properties := map[string]any{
+			"platform":            rec.Platform,
+			"mutual_count_bucket": mutualCountBucket(rec.MutualCount),
+		}
+		if bucket, rankErr := s.recommendationRankBucket(ctx, rec); rankErr == nil {
+			properties["rank_bucket"] = bucket
+		}
 		_ = s.telemetry.Capture(ctx, telemetry.Event{
 			Name:        telemetry.EventGrowthRecommendationDismissed,
 			DistinctID:  actor.UserID,
 			WorkspaceID: workspaceID,
-			Properties: map[string]any{
-				"platform":            rec.Platform,
-				"mutual_count_bucket": bucket,
-				"ranking_position":    0,
-			},
+			Properties:  properties,
 		})
 	}
 	return nil
 }
 
 // QueueFollow atomically sets pending, clears prior error, enqueues one growth_follow job.
+//
+//nolint:gocyclo // Follow queueing keeps authorization, ownership, state transition, and job insert in one boundary.
 func (s *Service) QueueFollow(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, recommendationID string) (string, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	recommendationID = strings.TrimSpace(recommendationID)
@@ -546,17 +542,42 @@ func (s *Service) QueueFollow(ctx context.Context, actor workspaceaccess.ActorFa
 		return "", err
 	}
 	if s.telemetry != nil {
-		bucket := mutualCountBucket(rec.MutualCount)
+		properties := map[string]any{
+			"platform":            rec.Platform,
+			"mutual_count_bucket": mutualCountBucket(rec.MutualCount),
+		}
+		if bucket, rankErr := s.recommendationRankBucket(ctx, rec); rankErr == nil {
+			properties["rank_bucket"] = bucket
+		}
 		_ = s.telemetry.Capture(ctx, telemetry.Event{
 			Name:        telemetry.EventGrowthFollowRequested,
 			DistinctID:  actor.UserID,
 			WorkspaceID: workspaceID,
-			Properties: map[string]any{
-				"platform":            rec.Platform,
-				"mutual_count_bucket": bucket,
-				"ranking_position":    0,
-			},
+			Properties:  properties,
 		})
 	}
 	return jobID, nil
+}
+
+func (s *Service) recommendationRankBucket(ctx context.Context, recommendation models.GrowthRecommendation) (string, error) {
+	query := s.db.NewSelect().Model((*models.GrowthRecommendation)(nil)).
+		Where("social_account_id = ? AND generation_id = ?", recommendation.SocialAccountID, recommendation.GenerationID).
+		Where("dismissed_at IS NULL").
+		Where("follow_state NOT IN (?, ?)", models.GrowthRecommendationFollowFollowing, models.GrowthRecommendationFollowRequested).
+		Where(`
+			score > ? OR
+			(score = ? AND mutual_count > ?) OR
+			(score = ? AND mutual_count = ? AND handle < ?) OR
+			(score = ? AND mutual_count = ? AND handle = ? AND remote_account_id < ?)
+		`,
+			recommendation.Score,
+			recommendation.Score, recommendation.MutualCount,
+			recommendation.Score, recommendation.MutualCount, recommendation.Handle,
+			recommendation.Score, recommendation.MutualCount, recommendation.Handle, recommendation.RemoteAccountID,
+		)
+	count, err := query.Count(ctx)
+	if err != nil {
+		return "", err
+	}
+	return growthRankBucket(count + 1), nil
 }

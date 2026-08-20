@@ -9,15 +9,6 @@ import (
 	"github.com/openpost/backend/internal/platform"
 )
 
-func isTerminalFollowState(state string) bool {
-	switch state {
-	case models.GrowthRecommendationFollowFollowing, models.GrowthRecommendationFollowRequested, models.GrowthRecommendationFollowFailed:
-		return true
-	default:
-		return false
-	}
-}
-
 func safeURL(raw string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" || len(raw) > 2048 {
@@ -113,13 +104,28 @@ func providerKeyForAccount(account models.SocialAccount) string {
 
 func mutualCountBucket(count int) string {
 	switch {
-	case count == 0:
+	case count <= 0:
 		return "0"
-	case count <= 2:
-		return "1-2"
-	case count <= 5:
-		return "3-5"
+	case count == 1:
+		return "1"
+	case count <= 3:
+		return "2-3"
+	case count <= 6:
+		return "4-6"
 	default:
-		return "6+"
+		return "7+"
+	}
+}
+
+func growthRankBucket(position int) string {
+	switch {
+	case position <= 3:
+		return "1-3"
+	case position <= 6:
+		return "4-6"
+	case position <= 10:
+		return "7-10"
+	default:
+		return "11+"
 	}
 }

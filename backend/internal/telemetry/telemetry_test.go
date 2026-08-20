@@ -87,6 +87,29 @@ func TestTelemetryContractRejectsUnknownEventsAndProperties(t *testing.T) {
 	require.Empty(t, recorder.Events)
 }
 
+func TestGrowthTelemetryAcceptsOnlySharedBuckets(t *testing.T) {
+	recorder := &MemoryRecorder{}
+	require.NoError(t, recorder.Capture(t.Context(), Event{
+		Name: EventGrowthRecommendationDismissed,
+		Properties: map[string]any{
+			"platform": "bluesky", "mutual_count_bucket": "4-6", "rank_bucket": "4-6",
+		},
+	}))
+	require.Error(t, recorder.Capture(t.Context(), Event{
+		Name: EventGrowthRecommendationDismissed,
+		Properties: map[string]any{
+			"platform": "bluesky", "mutual_count_bucket": "3-5", "rank_bucket": "4-6",
+		},
+	}))
+	require.Error(t, recorder.Capture(t.Context(), Event{
+		Name: EventGrowthFollowRequested,
+		Properties: map[string]any{
+			"platform": "bluesky", "mutual_count_bucket": "4-6", "rank_bucket": "0",
+		},
+	}))
+	require.Len(t, recorder.Events, 1)
+}
+
 func TestTelemetryContractRejectsSensitiveAllowedValues(t *testing.T) {
 	recorder := &MemoryRecorder{}
 	require.Error(t, recorder.Capture(context.Background(), Event{

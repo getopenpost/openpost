@@ -3,15 +3,19 @@ package growth
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
@@ -137,9 +141,11 @@ func createGrowthSchema(ctx context.Context, db *bun.DB) error {
 	return nil
 }
 
-func seedGrowthWorkspace(t *testing.T, db *bun.DB, workspaceID, userID, role string) {
+func seedGrowthWorkspace(t *testing.T, db *bun.DB, workspaceID, _ string, _ string) {
 	t.Helper()
 	ctx := context.Background()
+	userID := "user-1"
+	role := models.WorkspaceRoleEditor
 	now := time.Now().UTC()
 	_, err := db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "org", CreatedAt: now, UpdatedAt: now}).On("CONFLICT DO NOTHING").Exec(ctx)
 	require.NoError(t, err)
@@ -215,7 +221,7 @@ func TestSuccessfulAtomicGenerationSwapAndFailedRetainsOld(t *testing.T) {
 	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-1", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:viewer", IsActive: true, AccessTokenEnc: []byte("tok"), CreatedAt: now}).Exec(context.Background())
 	require.NoError(t, err)
 	adapter := &fakeGrowthAdapter{
-		discover: func(ctx context.Context, input platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+		discover: func(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
 			return []platform.GrowthCandidate{
 				{RemoteID: "remote-1", Handle: "alice", DisplayName: "Alice", Bio: "bio", AvatarURL: "https://cdn.test/a.jpg", ProfileURL: "https://bsky.app/profile/alice", FollowersCount: 10, FollowingCount: 5, MutualCount: 2, Signals: []string{"friends_of_friends"}},
 			}, nil
@@ -238,7 +244,7 @@ func TestSuccessfulAtomicGenerationSwapAndFailedRetainsOld(t *testing.T) {
 	require.NotEmpty(t, genA)
 
 	// Second refresh with different candidate set should atomically swap to generation B
-	adapter.discover = func(ctx context.Context, input platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+	adapter.discover = func(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
 		return []platform.GrowthCandidate{
 			{RemoteID: "remote-2", Handle: "bob", DisplayName: "Bob", Bio: "bio", AvatarURL: "https://cdn.test/b.jpg", ProfileURL: "https://bsky.app/profile/bob", FollowersCount: 20, FollowingCount: 5, MutualCount: 3, Signals: []string{"suggestion"}},
 		}, nil
@@ -257,7 +263,7 @@ func TestSuccessfulAtomicGenerationSwapAndFailedRetainsOld(t *testing.T) {
 	require.NotEqual(t, genA, res2.SyncState.CurrentGenerationID)
 
 	// Failed discovery retains old generation
-	adapter.discover = func(ctx context.Context, input platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+	adapter.discover = func(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
 		return nil, &platform.HTTPError{StatusCode: 500, Code: "provider_server"}
 	}
 	_, err = svc.QueueRefresh(context.Background(), actor, "ws-1", "acc-1")
@@ -284,7 +290,7 @@ func TestDismissalSurvivesAndFollowingDoesNotResurface(t *testing.T) {
 		{RemoteID: "remote-2", Handle: "bob", DisplayName: "Bob", FollowersCount: 10, FollowingCount: 5, Signals: []string{"suggestion"}},
 	}
 	adapter := &fakeGrowthAdapter{
-		discover: func(ctx context.Context, input platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+		discover: func(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
 			return candidates, nil
 		},
 	}
@@ -335,7 +341,7 @@ func TestProvider429AndRetryAfterState(t *testing.T) {
 	_, err := db.NewInsert().Model(&models.SocialAccount{ID: "acc-1", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:viewer", IsActive: true, AccessTokenEnc: []byte("tok"), CreatedAt: now}).Exec(context.Background())
 	require.NoError(t, err)
 	adapter := &fakeGrowthAdapter{
-		discover: func(ctx context.Context, input platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+		discover: func(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
 			return nil, &platform.HTTPError{StatusCode: 429, Code: "rate_limited"}
 		},
 	}
@@ -388,7 +394,7 @@ func TestFollowProviderWriteAndOneAttempt(t *testing.T) {
 	require.NoError(t, err)
 	followCalled := 0
 	adapter := &fakeGrowthAdapter{
-		follow: func(ctx context.Context, accessToken, viewerID, candidateID string) (platform.GrowthFollowResult, error) {
+		follow: func(_ context.Context, _, _, _ string) (platform.GrowthFollowResult, error) {
 			followCalled++
 			return platform.GrowthFollowResult{ProviderState: "following"}, nil
 		},
@@ -410,6 +416,125 @@ func TestFollowProviderWriteAndOneAttempt(t *testing.T) {
 	// Duplicate pending/terminal should be prevented
 	_, err = svc.QueueFollow(context.Background(), actor, "ws-1", recID)
 	require.ErrorIs(t, err, ErrConflict)
+}
+
+func TestConcurrentFirstRefreshUsesOneJob(t *testing.T) {
+	db := growthTestDB(t)
+	db.SetMaxOpenConns(1)
+	seedGrowthWorkspace(t, db, "ws-1", "user-1", models.WorkspaceRoleEditor)
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.SocialAccount{
+		ID: "acc-1", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:viewer",
+		IsActive: true, AccessTokenEnc: []byte("tok"), CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	svc := NewService(db, staticTokenSource{}, nil)
+	svc.SetProvider("bluesky", &fakeGrowthAdapter{})
+	actor := workspaceaccess.ActorFacts{UserID: "user-1"}
+	start := make(chan struct{})
+	ids := make([]string, 2)
+	errs := make([]error, 2)
+	var wait sync.WaitGroup
+	for index := range ids {
+		wait.Add(1)
+		go func(index int) {
+			defer wait.Done()
+			<-start
+			ids[index], errs[index] = svc.QueueRefresh(t.Context(), actor, "ws-1", "acc-1")
+		}(index)
+	}
+	close(start)
+	wait.Wait()
+
+	require.NoError(t, errs[0])
+	require.NoError(t, errs[1])
+	require.NotEmpty(t, ids[0])
+	require.Equal(t, ids[0], ids[1])
+	count, err := db.NewSelect().Model((*models.Job)(nil)).Where("type = ?", jobregistry.TypeGrowthDiscovery).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}
+
+func TestDiscoveryPersistsOnlyTopFortyCandidates(t *testing.T) {
+	db := growthTestDB(t)
+	seedGrowthWorkspace(t, db, "ws-1", "user-1", models.WorkspaceRoleEditor)
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.SocialAccount{
+		ID: "acc-1", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:viewer",
+		IsActive: true, AccessTokenEnc: []byte("tok"), CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	candidates := make([]platform.GrowthCandidate, 65)
+	for index := range candidates {
+		handle := fmt.Sprintf("person-%03d", 64-index)
+		candidates[index] = platform.GrowthCandidate{
+			RemoteID: "did:plc:" + handle, Handle: handle, DisplayName: handle,
+			Bio: "A complete profile", AvatarURL: "https://cdn.example/" + handle + ".jpg",
+			ProfileURL:     "https://bsky.app/profile/" + handle,
+			FollowersCount: 100, FollowingCount: 100, MutualCount: 2,
+			Signals: []string{"friends_of_friends"},
+		}
+	}
+	adapter := &fakeGrowthAdapter{discover: func(context.Context, platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+		return candidates, nil
+	}}
+	svc := NewService(db, staticTokenSource{}, nil)
+	svc.SetProvider("bluesky", adapter)
+	actor := workspaceaccess.ActorFacts{UserID: "user-1"}
+	_, err = svc.QueueRefresh(t.Context(), actor, "ws-1", "acc-1")
+	require.NoError(t, err)
+	var job models.Job
+	require.NoError(t, db.NewSelect().Model(&job).Where("type = ?", jobregistry.TypeGrowthDiscovery).Scan(t.Context()))
+	require.NoError(t, svc.HandleJob(t.Context(), job.Type, job.Payload))
+
+	result, err := svc.List(t.Context(), actor, "ws-1", "acc-1")
+	require.NoError(t, err)
+	require.Len(t, result.Items, discoveryTarget)
+	for index, item := range result.Items {
+		require.Equal(t, fmt.Sprintf("person-%03d", index), item.Handle)
+	}
+	count, err := db.NewSelect().Model((*models.GrowthRecommendation)(nil)).
+		Where("social_account_id = ? AND generation_id = ?", "acc-1", result.SyncState.CurrentGenerationID).
+		Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, discoveryTarget, count)
+}
+
+func TestGrowthTelemetryUsesRealRankAndSharedMutualBuckets(t *testing.T) {
+	db := growthTestDB(t)
+	seedGrowthWorkspace(t, db, "ws-1", "user-1", models.WorkspaceRoleEditor)
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.SocialAccount{
+		ID: "acc-1", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:viewer",
+		IsActive: true, AccessTokenEnc: []byte("tok"), CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.GrowthSyncState{
+		ID: "state-1", WorkspaceID: "ws-1", SocialAccountID: "acc-1", Platform: "bluesky",
+		Status: models.GrowthSyncStatusOK, CurrentGenerationID: "gen-1", CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	for index := 1; index <= 5; index++ {
+		_, err = db.NewInsert().Model(&models.GrowthRecommendation{
+			ID: fmt.Sprintf("rec-%d", index), WorkspaceID: "ws-1", SocialAccountID: "acc-1",
+			Platform: "bluesky", RemoteAccountID: fmt.Sprintf("remote-%d", index),
+			Handle: fmt.Sprintf("person-%d", index), MutualCount: 4, Score: float64(6 - index),
+			GenerationID: "gen-1", FollowState: models.GrowthRecommendationFollowIdle,
+			LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+		}).Exec(t.Context())
+		require.NoError(t, err)
+	}
+
+	recorder := &telemetry.MemoryRecorder{}
+	svc := NewService(db, staticTokenSource{}, recorder)
+	actor := workspaceaccess.ActorFacts{UserID: "user-1"}
+	require.NoError(t, svc.Dismiss(t.Context(), actor, "ws-1", "rec-4"))
+	require.Len(t, recorder.Events, 1)
+	require.Equal(t, "4-6", recorder.Events[0].Properties["rank_bucket"])
+	require.Equal(t, "4-6", recorder.Events[0].Properties["mutual_count_bucket"])
+	require.NotContains(t, recorder.Events[0].Properties, "ranking_position")
 }
 
 func TestJobPayloadValidation(t *testing.T) {

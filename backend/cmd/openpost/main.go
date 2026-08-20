@@ -43,6 +43,7 @@ import (
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/feedback"
+	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/imagecaption"
 	"github.com/openpost/backend/internal/services/instancesettings"
@@ -387,6 +388,7 @@ func main() {
 	repostService := repostservice.NewService(db, tokenManager)
 	repostService.SetUsage(usageService)
 	repostService.SetEntitlement(entitlementService)
+	growthService := growthservice.NewService(db, tokenManager, telemetryRecorder)
 	notificationService := notifications.NewService(db, notifications.Options{
 		EmailDelivery: authMailSender, Encryptor: tokenEncryptor, PublicURL: cfg.PublicURL,
 	})
@@ -405,6 +407,7 @@ func main() {
 			messagingService.SetProvider(name, messagingAdapter)
 		}
 		repostService.SetProvider(name, adapter)
+		growthService.SetProvider(name, adapter)
 	}
 
 	storage, err := mediastore.New(context.Background(), mediastore.Config{
@@ -509,6 +512,7 @@ func main() {
 	worker.SetOrganizationOwnershipService(organizationOwnershipService)
 	worker.SetRepostService(repostService)
 	worker.SetVideoProcessingService(videoProcessingService)
+	worker.SetGrowthService(growthService)
 	worker.SetTelemetry(telemetryRecorder)
 	if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 		log.Fatalf("failed to schedule pending video analysis: %v", err)
@@ -639,6 +643,7 @@ func main() {
 				}
 			},
 			repostService.SetProvider,
+			growthService.SetProvider,
 		},
 		MastodonAppService:           mastodonAppService,
 		FrontendURL:                  cfg.FrontendURL,
@@ -659,6 +664,7 @@ func main() {
 		MessagingService:             messagingService,
 		EngagementService:            engagementService,
 		RepostService:                repostService,
+		GrowthService:                growthService,
 		NotificationService:          notificationService,
 		OrganizationOwnershipService: organizationOwnershipService,
 		UpdateStatusService:          updateStatusService,

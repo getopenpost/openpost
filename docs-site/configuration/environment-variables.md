@@ -118,11 +118,11 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 | `OPENPOST_FEEDBACK_RECIPIENT` | Required when feedback is enabled | empty | Plain recipient name shown to users before they send a report, such as `OpenPost team` or `Example operator`. |
 | `OPENPOST_FEEDBACK_SUPPORT_URL` | No | OpenPost GitHub new-issue URL | HTTPS support link shown when the report form is disabled. Query strings and fragments are removed. |
 | `OPENPOST_UPDATE_CHECK_ENABLED` | No | `true` | Enables the read-only stable release check for self-hosted instance admins. Cloud mode never checks. |
-| `OPENPOST_PADDLE_API_KEY` | Required in cloud mode | empty | Server-only Paddle API key used to reconcile customers and subscriptions and create portal sessions. |
-| `OPENPOST_PADDLE_ENVIRONMENT` | Required in cloud mode | empty | Explicit Paddle environment: `sandbox` or `production`. API-key and client-token prefixes must match. |
-| `OPENPOST_PADDLE_CLIENT_TOKEN` | Required in cloud mode | empty | Browser-safe Paddle.js client token used for localized price previews and checkout. |
-| `OPENPOST_PADDLE_WEBHOOK_SECRET` | Required in cloud mode | empty | Paddle notification destination secret used to verify raw webhook requests. |
-| `OPENPOST_PADDLE_CHECKOUT_RETURN_URL` | No | `<OPENPOST_APP_URL>/checkout?status=success` | OpenPost success URL supplied to Paddle checkout. |
+| `OPENPOST_PADDLE_API_KEY` | Required in cloud mode | empty | Server-only Paddle API key used to reconcile customers and subscriptions and create portal sessions. Backend-only; set `OPENPOST_PADDLE_*` in the backend process environment. Bare `PADDLE_*` is ignored and triggers a startup warning with the ignored names (no values). |
+| `OPENPOST_PADDLE_ENVIRONMENT` | Required in cloud mode | empty | Explicit Paddle environment: `sandbox` or `production`. API-key and client-token prefixes must match. Backend-only; bare `PADDLE_*` is ignored. |
+| `OPENPOST_PADDLE_CLIENT_TOKEN` | Required in cloud mode | empty | Browser-safe Paddle.js client token used for localized price previews and checkout. Backend-only. |
+| `OPENPOST_PADDLE_WEBHOOK_SECRET` | Required in cloud mode | empty | Paddle notification destination secret used to verify raw webhook requests. Backend-only. |
+| `OPENPOST_PADDLE_CHECKOUT_RETURN_URL` | No | `<OPENPOST_APP_URL>/checkout?status=success` | OpenPost success URL supplied to Paddle checkout. Backend-only. |
 | `OPENPOST_PADDLE_STARTER_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Starter monthly price ID. |
 | `OPENPOST_PADDLE_STARTER_ANNUAL_PRICE_ID` | Required in cloud mode | empty | Paddle Starter annual price ID. |
 | `OPENPOST_PADDLE_FOUNDER_MONTHLY_PRICE_ID` | Required in cloud mode | empty | Paddle Founder monthly price ID. |

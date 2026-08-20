@@ -385,6 +385,7 @@ func Load() *Config {
 	)
 
 	warnOnPlaceholderURL(cfg)
+	warnOnIgnoredPaddleVars()
 
 	return cfg
 }
@@ -787,6 +788,49 @@ func (c *Config) invalidCloudCORSConfig() []string {
 		}
 	}
 	return nil
+}
+
+// warnOnIgnoredPaddleVars detects bare PADDLE_* variables that look
+// configured but are never read by the backend. The backend only consumes
+// OPENPOST_PADDLE_* from the backend process environment. A root-level
+// PADDLE_API_KEY or PADDLE_SANDBOX_API_KEY therefore has no effect and
+// creates a silent misconfiguration trap. This warning reports the exact
+// ignored names without printing values.
+func warnOnIgnoredPaddleVars() {
+	ignored := ignoredBarePaddleVars()
+	if len(ignored) == 0 {
+		return
+	}
+	log.Printf("============================================================")
+	log.Printf("WARNING: ignored Paddle variables without OPENPOST_ prefix:")
+	log.Printf("         %s", strings.Join(ignored, ", "))
+	log.Printf("         The backend only reads OPENPOST_PADDLE_* from the")
+	log.Printf("         backend process environment (backend/.env for local")
+	log.Printf("         devenv, or the container environment for Docker).")
+	log.Printf("         Rename these to OPENPOST_PADDLE_* in that single")
+	log.Printf("         runtime location. Bare PADDLE_* is never consumed.")
+	log.Printf("============================================================")
+}
+
+func ignoredBarePaddleVars() []string {
+	var out []string
+	for _, env := range os.Environ() {
+		key := strings.SplitN(env, "=", 2)[0]
+		if key == "" {
+			continue
+		}
+		if strings.HasPrefix(key, "OPENPOST_PADDLE_") {
+			continue
+		}
+		if strings.HasPrefix(key, "OPENPOST_APP_E2E_PADDLE_") {
+			continue
+		}
+		if strings.HasPrefix(key, "PADDLE_") {
+			out = append(out, key)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // warnOnPlaceholderURL emits a loud startup warning when the operator is

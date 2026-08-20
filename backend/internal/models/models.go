@@ -2357,9 +2357,9 @@ type GrowthRecommendation struct {
 
 	ID                 string    `bun:",pk" json:"id"`
 	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull,unique:growth_account_remote" json:"social_account_id"`
 	Platform           string    `bun:",notnull" json:"platform"`
-	RemoteAccountID    string    `bun:"remote_account_id,notnull" json:"remote_account_id"`
+	RemoteAccountID    string    `bun:"remote_account_id,notnull,unique:growth_account_remote" json:"remote_account_id"`
 	Handle             string    `bun:",notnull,default:''" json:"handle"`
 	DisplayName        string    `bun:"display_name,notnull,default:''" json:"display_name"`
 	Bio                string    `bun:",notnull,default:''" json:"bio"`
@@ -2388,7 +2388,7 @@ type GrowthSyncState struct {
 
 	ID                  string    `bun:",pk" json:"id"`
 	WorkspaceID         string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SocialAccountID     string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	SocialAccountID     string    `bun:"social_account_id,notnull,unique" json:"social_account_id"`
 	Platform            string    `bun:",notnull" json:"platform"`
 	Status              string    `bun:",notnull,default:'idle'" json:"status"`
 	ErrorCode           string    `bun:"error_code,notnull,default:''" json:"error_code"`

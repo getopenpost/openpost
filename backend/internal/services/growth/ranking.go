@@ -145,20 +145,7 @@ func RankCandidates(cands []platform.GrowthCandidate) []platform.GrowthCandidate
 	for _, c := range cands {
 		scored = append(scored, scoredCandidate{candidate: c, score: ScoreCandidate(c)})
 	}
-	sort.Slice(scored, func(i, j int) bool {
-		if scored[i].score != scored[j].score {
-			return scored[i].score > scored[j].score
-		}
-		if scored[i].candidate.MutualCount != scored[j].candidate.MutualCount {
-			return scored[i].candidate.MutualCount > scored[j].candidate.MutualCount
-		}
-		hi := strings.ToLower(strings.TrimSpace(scored[i].candidate.Handle))
-		hj := strings.ToLower(strings.TrimSpace(scored[j].candidate.Handle))
-		if hi != hj {
-			return hi < hj
-		}
-		return scored[i].candidate.RemoteID < scored[j].candidate.RemoteID
-	})
+	sortScoredCandidates(scored)
 	out := make([]platform.GrowthCandidate, 0, len(scored))
 	for _, s := range scored {
 		out = append(out, s.candidate)
@@ -166,12 +153,16 @@ func RankCandidates(cands []platform.GrowthCandidate) []platform.GrowthCandidate
 	return out
 }
 
-// ScoreRanked returns candidates with scores computed; used by service to persist scores.
-func ScoreRanked(cands []platform.GrowthCandidate) []scoredCandidate {
+func scoreRanked(cands []platform.GrowthCandidate) []scoredCandidate {
 	scored := make([]scoredCandidate, 0, len(cands))
 	for _, c := range cands {
 		scored = append(scored, scoredCandidate{candidate: c, score: ScoreCandidate(c)})
 	}
+	sortScoredCandidates(scored)
+	return scored
+}
+
+func sortScoredCandidates(scored []scoredCandidate) {
 	sort.Slice(scored, func(i, j int) bool {
 		if scored[i].score != scored[j].score {
 			return scored[i].score > scored[j].score
@@ -186,5 +177,4 @@ func ScoreRanked(cands []platform.GrowthCandidate) []scoredCandidate {
 		}
 		return scored[i].candidate.RemoteID < scored[j].candidate.RemoteID
 	})
-	return scored
 }

@@ -47,16 +47,18 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 	EventWorkspaceActivated:            propertySet(),
 	EventGrowthRefreshRequested:        propertySet("platform"),
 	EventGrowthRefreshCompleted:        propertySet("platform", "recommendation_count"),
-	EventGrowthRecommendationDismissed: propertySet("platform", "mutual_count_bucket", "ranking_position"),
-	EventGrowthFollowRequested:         propertySet("platform", "mutual_count_bucket", "ranking_position"),
+	EventGrowthRecommendationDismissed: propertySet("platform", "mutual_count_bucket", "rank_bucket"),
+	EventGrowthFollowRequested:         propertySet("platform", "mutual_count_bucket", "rank_bucket"),
 	EventGrowthFollowSucceeded:         propertySet("platform", "follow_state"),
 	EventGrowthFollowFailed:            propertySet("platform", "follow_state", "error_class"),
 }
 
 var firstUsePropertyValues = map[string]map[string]struct{}{
-	"plan_id":        propertySet("starter", "founder", "pro", "team", "agency"),
-	"billing_period": propertySet("monthly", "annual"),
-	"provider":       propertySet("paddle"),
+	"plan_id":             propertySet("starter", "founder", "pro", "team", "agency"),
+	"billing_period":      propertySet("monthly", "annual"),
+	"provider":            propertySet("paddle"),
+	"mutual_count_bucket": propertySet("0", "1", "2-3", "4-6", "7+"),
+	"rank_bucket":         propertySet("1-3", "4-6", "7-10", "11+"),
 	"platform": propertySet(
 		"bluesky", "facebook", "instagram", "linkedin", "mastodon", "pinterest",
 		"reddit", "threads", "tiktok", "x", "youtube",

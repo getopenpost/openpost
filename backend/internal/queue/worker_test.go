@@ -22,6 +22,23 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
+func TestGrowthDiscoveryFailureHonorsProviderRetryAfter(t *testing.T) {
+	worker := &BackgroundWorker{}
+	job := &models.Job{Type: jobregistry.TypeGrowthDiscovery}
+	failure := worker.classifyJobFailure(t.Context(), job, &platform.HTTPError{
+		StatusCode: 429,
+		Code:       "rate_limited",
+		RetryAfter: 17 * time.Second,
+	})
+	require.True(t, failure.retryable)
+	require.Equal(t, 17*time.Second, failure.retryAfter)
+
+	definition, ok := jobregistry.Lookup(jobregistry.TypeGrowthDiscovery)
+	require.True(t, ok)
+	require.Equal(t, 3, definition.DefaultMaxAttempts)
+	require.Equal(t, jobregistry.RecoveryRequeue, definition.Recovery)
+}
+
 type stubStorage struct{}
 
 func (stubStorage) Driver() string                         { return "test" }

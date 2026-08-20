@@ -30,6 +30,9 @@
 	const platformKey = $derived(getPlatformKey(recommendation.platform));
 	const platformName = $derived(getPlatformName(recommendation.platform));
 	const followState = $derived(followButtonState(recommendation.follow_state));
+	const handle = $derived(
+		recommendation.handle?.startsWith('@') ? recommendation.handle : `@${recommendation.handle}`
+	);
 	const followLabel = $derived(
 		followState.labelKey === 'grow_follow'
 			? m.grow_follow()
@@ -38,6 +41,21 @@
 				: followState.labelKey === 'grow_requested'
 					? m.grow_requested()
 					: m.grow_following()
+	);
+	const followAriaLabel = $derived(
+		followState.labelKey === 'grow_follow'
+			? m.grow_follow_label({ handle })
+			: followState.labelKey === 'grow_following_progress'
+				? m.grow_following_progress_label({ handle })
+				: followState.labelKey === 'grow_requested'
+					? m.grow_requested_label({ handle })
+					: m.grow_following_label({ handle })
+	);
+	const followersFollowersFollowingA11y = $derived(
+		m.grow_followers_following_label({
+			followers: formatCount(recommendation.followers_count, localeTag),
+			following: formatCount(recommendation.following_count, localeTag)
+		})
 	);
 
 	const mutualCopy = $derived(
@@ -75,10 +93,6 @@
 			if (key === 'grow_reason_popular') return m.grow_reason_popular();
 			return '';
 		})
-	);
-
-	const handle = $derived(
-		recommendation.handle?.startsWith('@') ? recommendation.handle : `@${recommendation.handle}`
 	);
 
 	const hasBio = $derived(Boolean(recommendation.bio?.trim()));
@@ -155,7 +169,7 @@
 
 	<div
 		class="flex items-center gap-2 text-xs leading-4 text-muted-foreground"
-		aria-label={`${formatCount(recommendation.followers_count, localeTag)} followers, ${formatCount(recommendation.following_count, localeTag)} following`}
+		aria-label={followersFollowersFollowingA11y}
 	>
 		<span class="tabular-nums"
 			>{m.grow_followers_count({
@@ -171,7 +185,7 @@
 	</div>
 
 	{#if reasonChips.length > 0}
-		<div class="flex flex-wrap gap-1.5" aria-label="Reasons">
+		<div class="flex flex-wrap gap-1.5" aria-label={m.grow_reasons_label()}>
 			{#each reasonChips as chip (chip.key)}
 				<span
 					class="inline-flex items-center rounded-md border bg-muted px-2 py-1 text-xs leading-none font-medium text-muted-foreground"
@@ -189,7 +203,7 @@
 			class="min-h-11 flex-1 md:min-h-9"
 			disabled={followState.disabled}
 			onclick={handleFollow}
-			aria-label={followState.disabled ? `${followLabel} ${handle}` : `Follow ${handle}`}
+			aria-label={followAriaLabel}
 		>
 			{followLabel}
 		</Button>
@@ -215,11 +229,3 @@
 		</Button>
 	</div>
 </article>
-
-<style>
-	@media (pointer: coarse) {
-		:global(button) {
-			min-height: 44px;
-		}
-	}
-</style>

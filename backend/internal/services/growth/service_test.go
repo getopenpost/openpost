@@ -10,6 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
@@ -400,7 +401,8 @@ func TestFollowProviderWriteAndOneAttempt(t *testing.T) {
 	require.NotEmpty(t, jobID)
 	var job models.Job
 	require.NoError(t, db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(context.Background()))
-	require.NoError(t, svc.HandleJob(context.Background(), job.Type, job.Payload))
+	ctx := providerwrite.WithJobExecution(context.Background(), job.ID, 1, time.Now().UTC())
+	require.NoError(t, svc.HandleJob(ctx, job.Type, job.Payload))
 	var updated models.GrowthRecommendation
 	require.NoError(t, db.NewSelect().Model(&updated).Where("id = ?", recID).Scan(context.Background()))
 	require.Equal(t, models.GrowthRecommendationFollowFollowing, updated.FollowState)

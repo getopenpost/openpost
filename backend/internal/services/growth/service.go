@@ -132,6 +132,7 @@ func (s *Service) growthFollowerForAccount(acct models.SocialAccount) (platform.
 }
 
 // QueueRefresh requires edit access and a live supported account, dedupes active jobs, marks sync state queued.
+// The sync-state update and job dedupe are atomic in one transaction so a crash cannot leave queued with no job.
 func (s *Service) QueueRefresh(ctx context.Context, actor workspaceaccess.ActorFacts, workspaceID, socialAccountID string) (string, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
 	socialAccountID = strings.TrimSpace(socialAccountID)
@@ -145,80 +146,93 @@ func (s *Service) QueueRefresh(ctx context.Context, actor workspaceaccess.ActorF
 	if err != nil {
 		return "", err
 	}
-	// Verify provider exists
 	if _, err := s.growthDiscovererForAccount(acct); err != nil {
 		return "", err
 	}
-
-	// Ensure sync state exists
 	now := s.now()
-	var state models.GrowthSyncState
-	err = s.db.NewSelect().Model(&state).Where("social_account_id = ?", acct.ID).Scan(ctx)
-	if errors.Is(err, sql.ErrNoRows) {
-		state = models.GrowthSyncState{
-			ID:              uuid.NewString(),
-			WorkspaceID:     acct.WorkspaceID,
-			SocialAccountID: acct.ID,
-			Platform:        acct.Platform,
-			Status:          models.GrowthSyncStatusQueued,
-			LastAttemptedAt: now,
-			CreatedAt:       now,
-			UpdatedAt:       now,
-		}
-		if _, err := s.db.NewInsert().Model(&state).Exec(ctx); err != nil {
-			return "", err
-		}
-	} else if err != nil {
-		return "", err
-	} else {
-		// Do not erase prior generation; just mark queued
-		if _, err := s.db.NewUpdate().Model(&state).Set("status = ?", models.GrowthSyncStatusQueued).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(ctx); err != nil {
-			return "", err
-		}
-	}
-
 	payloadMap := growthDiscoveryPayload{WorkspaceID: workspaceID, SocialAccountID: socialAccountID, ActorUserID: strings.TrimSpace(actor.UserID)}
 	payloadBytes, _ := json.Marshal(payloadMap)
-	// Active-job dedupe identity: scope workspace_id, key growth:<social_account_id>
 	identity := jobregistry.Identity{ScopeID: workspaceID, DedupeKey: "growth:" + acct.ID}
-	// Try to insert job with ON CONFLICT DO NOTHING; if exists return existing id
-	job, err := jobregistry.NewJob(jobregistry.TypeGrowthDiscovery, string(payloadBytes), now)
-	if err != nil {
-		return "", err
-	}
-	job.ScopeID = identity.ScopeID
-	job.DedupeKey = identity.DedupeKey
-	result, err := s.db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
-	if err != nil {
-		return "", err
-	}
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return "", err
-	}
-	if rows == 1 {
-		if s.telemetry != nil {
-			_ = s.telemetry.Capture(ctx, telemetry.Event{
-				Name:        telemetry.EventGrowthRefreshRequested,
-				DistinctID:  actor.UserID,
-				WorkspaceID: workspaceID,
-				Properties:  map[string]any{"platform": acct.Platform},
-			})
+	var jobID string
+	var isNewJob bool
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var state models.GrowthSyncState
+		err := tx.NewSelect().Model(&state).Where("social_account_id = ?", acct.ID).Scan(txCtx)
+		if errors.Is(err, sql.ErrNoRows) {
+			state = models.GrowthSyncState{
+				ID:              uuid.NewString(),
+				WorkspaceID:     acct.WorkspaceID,
+				SocialAccountID: acct.ID,
+				Platform:        acct.Platform,
+				Status:          models.GrowthSyncStatusQueued,
+				LastAttemptedAt: now,
+				CreatedAt:       now,
+				UpdatedAt:       now,
+			}
+			if _, err := tx.NewInsert().Model(&state).Exec(txCtx); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		} else {
+			if _, err := tx.NewUpdate().Model(&state).Set("status = ?", models.GrowthSyncStatusQueued).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(txCtx); err != nil {
+				return err
+			}
 		}
-		return job.ID, nil
-	}
-	// Load existing pending/processing job
-	var existing models.Job
-	if err := s.db.NewSelect().Model(&existing).Where("type = ? AND scope_id = ? AND dedupe_key = ? AND status IN (?, ?)", jobregistry.TypeGrowthDiscovery, identity.ScopeID, identity.DedupeKey, jobregistry.StatusPending, jobregistry.StatusProcessing).Limit(1).Scan(ctx); err != nil {
+		job, err := jobregistry.NewJob(jobregistry.TypeGrowthDiscovery, string(payloadBytes), now)
+		if err != nil {
+			return err
+		}
+		job.ScopeID = identity.ScopeID
+		job.DedupeKey = identity.DedupeKey
+		result, err := tx.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(txCtx)
+		if err != nil {
+			return err
+		}
+		rows, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rows == 1 {
+			jobID = job.ID
+			isNewJob = true
+			return nil
+		}
+		var existing models.Job
+		if err := tx.NewSelect().Model(&existing).Where("type = ? AND scope_id = ? AND dedupe_key = ? AND status IN (?, ?)", jobregistry.TypeGrowthDiscovery, identity.ScopeID, identity.DedupeKey, jobregistry.StatusPending, jobregistry.StatusProcessing).Limit(1).Scan(txCtx); err != nil {
+			return err
+		}
+		jobID = existing.ID
+		return nil
+	})
+	if err != nil {
 		return "", err
 	}
-	return existing.ID, nil
+	if isNewJob && s.telemetry != nil {
+		_ = s.telemetry.Capture(ctx, telemetry.Event{
+			Name:        telemetry.EventGrowthRefreshRequested,
+			DistinctID:  actor.UserID,
+			WorkspaceID: workspaceID,
+			Properties:  map[string]any{"platform": acct.Platform},
+		})
+	}
+	return jobID, nil
 }
 
 // ListResult is the DB-only page read.
 type ListResult struct {
-	Items     []RecommendationView `json:"items"`
-	SyncState *SyncStateView       `json:"sync_state"`
+	Items         []RecommendationView `json:"items"`
+	SyncState     *SyncStateView       `json:"sync_state"`
+	FollowUpdates []FollowUpdateView   `json:"follow_updates"`
+}
+
+type FollowUpdateView struct {
+	ID                 string    `json:"id"`
+	FollowState        string    `json:"follow_state" enum:"following,requested"`
+	FollowErrorCode    string    `json:"follow_error_code,omitempty"`
+	FollowErrorMessage string    `json:"follow_error_message,omitempty"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	GenerationID       string    `json:"generation_id"`
 }
 
 type RecommendationView struct {
@@ -241,7 +255,7 @@ type RecommendationView struct {
 	Signals            []string                       `json:"signals"`
 	Score              float64                        `json:"score"`
 	GenerationID       string                         `json:"generation_id"`
-	FollowState        string                         `json:"follow_state"`
+	FollowState        string                         `json:"follow_state" enum:"idle,pending,following,requested,failed"`
 	FollowErrorCode    string                         `json:"follow_error_code,omitempty"`
 	FollowErrorMessage string                         `json:"follow_error_message,omitempty"`
 	LastSeenAt         time.Time                      `json:"last_seen_at"`
@@ -254,7 +268,7 @@ type SyncStateView struct {
 	WorkspaceID         string     `json:"workspace_id"`
 	SocialAccountID     string     `json:"social_account_id"`
 	Platform            string     `json:"platform"`
-	Status              string     `json:"status"`
+	Status              string     `json:"status" enum:"idle,queued,refreshing,ok,permission_required,rate_limited,temporarily_unavailable,failed"`
 	ErrorCode           string     `json:"error_code,omitempty"`
 	ErrorMessage        string     `json:"error_message,omitempty"`
 	CurrentGenerationID string     `json:"current_generation_id"`
@@ -284,21 +298,19 @@ func (s *Service) List(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 	// Load sync state
 	var state models.GrowthSyncState
 	if err := s.db.NewSelect().Model(&state).Where("social_account_id = ?", acct.ID).Scan(ctx); errors.Is(err, sql.ErrNoRows) {
-		// no state yet, return empty
-		return ListResult{Items: []RecommendationView{}, SyncState: nil}, nil
+		return ListResult{Items: []RecommendationView{}, SyncState: nil, FollowUpdates: []FollowUpdateView{}}, nil
 	} else if err != nil {
 		return ListResult{}, err
 	}
 	syncView := syncStateToView(&state)
 	if state.CurrentGenerationID == "" {
-		return ListResult{Items: []RecommendationView{}, SyncState: syncView}, nil
+		return ListResult{Items: []RecommendationView{}, SyncState: syncView, FollowUpdates: []FollowUpdateView{}}, nil
 	}
 	var rows []models.GrowthRecommendation
 	if err := s.db.NewSelect().Model(&rows).
 		Where("social_account_id = ? AND generation_id = ?", acct.ID, state.CurrentGenerationID).
 		Where("dismissed_at IS NULL").
 		Where("follow_state NOT IN (?, ?)", models.GrowthRecommendationFollowFollowing, models.GrowthRecommendationFollowRequested).
-		// Also exclude dismissed; following/requested filtered per spec (failed still visible to show error)
 		Order("score DESC").
 		Order("mutual_count DESC").
 		Order("handle ASC").
@@ -314,7 +326,33 @@ func (s *Service) List(ctx context.Context, actor workspaceaccess.ActorFacts, wo
 		}
 		items = append(items, view)
 	}
-	return ListResult{Items: items, SyncState: syncView}, nil
+	// Compact follow_updates for current-generation terminal following/requested
+	var terminalRows []models.GrowthRecommendation
+	if err := s.db.NewSelect().Model(&terminalRows).
+		Where("social_account_id = ? AND generation_id = ?", acct.ID, state.CurrentGenerationID).
+		Where("dismissed_at IS NULL").
+		Where("follow_state IN (?, ?)", models.GrowthRecommendationFollowFollowing, models.GrowthRecommendationFollowRequested).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ListResult{}, err
+	}
+	followUpdates := make([]FollowUpdateView, 0, len(terminalRows))
+	for _, r := range terminalRows {
+		followUpdates = append(followUpdates, FollowUpdateView{
+			ID:                 r.ID,
+			FollowState:        r.FollowState,
+			FollowErrorCode:    r.FollowErrorCode,
+			FollowErrorMessage: r.FollowErrorMessage,
+			UpdatedAt:          r.UpdatedAt,
+			GenerationID:       r.GenerationID,
+		})
+	}
+	if followUpdates == nil {
+		followUpdates = []FollowUpdateView{}
+	}
+	if items == nil {
+		items = []RecommendationView{}
+	}
+	return ListResult{Items: items, SyncState: syncView, FollowUpdates: followUpdates}, nil
 }
 
 func recommendationToView(r models.GrowthRecommendation) (RecommendationView, error) {
@@ -421,9 +459,6 @@ func (s *Service) Dismiss(ctx context.Context, actor workspaceaccess.ActorFacts,
 	}
 	if s.telemetry != nil {
 		bucket := mutualCountBucket(rec.MutualCount)
-		// Need ranking position - compute via current generation ordering (best effort)
-		pos := 0 // omit exact position without extra query; set 0
-		_ = pos
 		_ = s.telemetry.Capture(ctx, telemetry.Event{
 			Name:        telemetry.EventGrowthRecommendationDismissed,
 			DistinctID:  actor.UserID,
@@ -469,24 +504,23 @@ func (s *Service) QueueFollow(ctx context.Context, actor workspaceaccess.ActorFa
 	if acct.Platform != "bluesky" && acct.Platform != "mastodon" {
 		return "", ErrUnsupported
 	}
-	// Prevent duplicate pending/terminal follows
-	if rec.FollowState == models.GrowthRecommendationFollowPending || rec.FollowState == models.GrowthRecommendationFollowFollowing || rec.FollowState == models.GrowthRecommendationFollowRequested || rec.FollowState == models.GrowthRecommendationFollowFailed {
+	if rec.FollowState == models.GrowthRecommendationFollowPending || rec.FollowState == models.GrowthRecommendationFollowFollowing || rec.FollowState == models.GrowthRecommendationFollowRequested {
 		return "", ErrConflict
 	}
 	if !rec.DismissedAt.IsZero() {
 		return "", ErrConflict
 	}
 	now := s.now()
-	// Atomic update + enqueue
 	var jobID string
 	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		// Re-check with lock via select? Use update with condition
 		result, err := tx.NewUpdate().Model(&rec).
 			Set("follow_state = ?", models.GrowthRecommendationFollowPending).
 			Set("follow_error_code = ''").
 			Set("follow_error_message = ''").
 			Set("updated_at = ?", now).
-			Where("id = ? AND workspace_id = ? AND follow_state = ?", rec.ID, rec.WorkspaceID, models.GrowthRecommendationFollowIdle).
+			Where("id = ? AND workspace_id = ?", rec.ID, rec.WorkspaceID).
+			Where("dismissed_at IS NULL").
+			Where("follow_state IN (?, ?)", models.GrowthRecommendationFollowIdle, models.GrowthRecommendationFollowFailed).
 			Exec(txCtx)
 		if err != nil {
 			return err

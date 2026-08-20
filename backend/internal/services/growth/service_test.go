@@ -53,12 +53,15 @@ func (f *fakeGrowthAdapter) FollowGrowthCandidate(ctx context.Context, accessTok
 
 func growthTestDB(t *testing.T) *bun.DB {
 	t.Helper()
-	sqldb, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=shared")
+	sqldb, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=shared&_busy_timeout=5000&_journal_mode=WAL")
 	require.NoError(t, err)
+	sqldb.SetMaxOpenConns(1)
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	t.Cleanup(func() { _ = db.Close() })
 	ctx := context.Background()
 	_, err = db.ExecContext(ctx, "PRAGMA foreign_keys = ON")
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, "PRAGMA busy_timeout = 5000")
 	require.NoError(t, err)
 	require.NoError(t, createGrowthSchema(ctx, db))
 	return db

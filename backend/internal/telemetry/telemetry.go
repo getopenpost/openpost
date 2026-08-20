@@ -47,8 +47,8 @@ var eventPropertyAllowlists = map[string]map[string]struct{}{
 	EventWorkspaceActivated:            propertySet(),
 	EventGrowthRefreshRequested:        propertySet("platform"),
 	EventGrowthRefreshCompleted:        propertySet("platform", "recommendation_count"),
-	EventGrowthRecommendationDismissed: propertySet("platform", "mutual_count_bucket", "ranking_position"),
-	EventGrowthFollowRequested:         propertySet("platform", "mutual_count_bucket", "ranking_position"),
+	EventGrowthRecommendationDismissed: propertySet("platform", "mutual_count_bucket", "rank_bucket"),
+	EventGrowthFollowRequested:         propertySet("platform", "mutual_count_bucket", "rank_bucket"),
 	EventGrowthFollowSucceeded:         propertySet("platform", "follow_state"),
 	EventGrowthFollowFailed:            propertySet("platform", "follow_state", "error_class"),
 }

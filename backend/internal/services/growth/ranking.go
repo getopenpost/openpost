@@ -139,26 +139,32 @@ func profileQualityScore(c platform.GrowthCandidate) float64 {
 	return score
 }
 
+func compareScored(a, b scoredCandidate) bool {
+	if a.score != b.score {
+		return a.score > b.score
+	}
+	if a.candidate.MutualCount != b.candidate.MutualCount {
+		return a.candidate.MutualCount > b.candidate.MutualCount
+	}
+	hi := strings.ToLower(strings.TrimSpace(a.candidate.Handle))
+	hj := strings.ToLower(strings.TrimSpace(b.candidate.Handle))
+	if hi != hj {
+		return hi < hj
+	}
+	return a.candidate.RemoteID < b.candidate.RemoteID
+}
+
+func sortScored(scored []scoredCandidate) {
+	sort.Slice(scored, func(i, j int) bool { return compareScored(scored[i], scored[j]) })
+}
+
 // RankCandidates scores and sorts candidates deterministically.
 func RankCandidates(cands []platform.GrowthCandidate) []platform.GrowthCandidate {
 	scored := make([]scoredCandidate, 0, len(cands))
 	for _, c := range cands {
 		scored = append(scored, scoredCandidate{candidate: c, score: ScoreCandidate(c)})
 	}
-	sort.Slice(scored, func(i, j int) bool {
-		if scored[i].score != scored[j].score {
-			return scored[i].score > scored[j].score
-		}
-		if scored[i].candidate.MutualCount != scored[j].candidate.MutualCount {
-			return scored[i].candidate.MutualCount > scored[j].candidate.MutualCount
-		}
-		hi := strings.ToLower(strings.TrimSpace(scored[i].candidate.Handle))
-		hj := strings.ToLower(strings.TrimSpace(scored[j].candidate.Handle))
-		if hi != hj {
-			return hi < hj
-		}
-		return scored[i].candidate.RemoteID < scored[j].candidate.RemoteID
-	})
+	sortScored(scored)
 	out := make([]platform.GrowthCandidate, 0, len(scored))
 	for _, s := range scored {
 		out = append(out, s.candidate)
@@ -172,19 +178,6 @@ func ScoreRanked(cands []platform.GrowthCandidate) []scoredCandidate {
 	for _, c := range cands {
 		scored = append(scored, scoredCandidate{candidate: c, score: ScoreCandidate(c)})
 	}
-	sort.Slice(scored, func(i, j int) bool {
-		if scored[i].score != scored[j].score {
-			return scored[i].score > scored[j].score
-		}
-		if scored[i].candidate.MutualCount != scored[j].candidate.MutualCount {
-			return scored[i].candidate.MutualCount > scored[j].candidate.MutualCount
-		}
-		hi := strings.ToLower(strings.TrimSpace(scored[i].candidate.Handle))
-		hj := strings.ToLower(strings.TrimSpace(scored[j].candidate.Handle))
-		if hi != hj {
-			return hi < hj
-		}
-		return scored[i].candidate.RemoteID < scored[j].candidate.RemoteID
-	})
+	sortScored(scored)
 	return scored
 }

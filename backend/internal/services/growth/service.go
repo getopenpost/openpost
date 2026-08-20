@@ -156,28 +156,18 @@ func (s *Service) QueueRefresh(ctx context.Context, actor workspaceaccess.ActorF
 	var jobID string
 	var isNewJob bool
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		var state models.GrowthSyncState
-		err := tx.NewSelect().Model(&state).Where("social_account_id = ?", acct.ID).Scan(txCtx)
-		if errors.Is(err, sql.ErrNoRows) {
-			state = models.GrowthSyncState{
-				ID:              uuid.NewString(),
-				WorkspaceID:     acct.WorkspaceID,
-				SocialAccountID: acct.ID,
-				Platform:        acct.Platform,
-				Status:          models.GrowthSyncStatusQueued,
-				LastAttemptedAt: now,
-				CreatedAt:       now,
-				UpdatedAt:       now,
-			}
-			if _, err := tx.NewInsert().Model(&state).Exec(txCtx); err != nil {
-				return err
-			}
-		} else if err != nil {
+		state := models.GrowthSyncState{
+			ID:              uuid.NewString(),
+			WorkspaceID:     acct.WorkspaceID,
+			SocialAccountID: acct.ID,
+			Platform:        acct.Platform,
+			Status:          models.GrowthSyncStatusQueued,
+			LastAttemptedAt: now,
+			CreatedAt:       now,
+			UpdatedAt:       now,
+		}
+		if _, err := tx.NewInsert().Model(&state).On("CONFLICT (social_account_id) DO UPDATE").Set("status = EXCLUDED.status").Set("last_attempted_at = EXCLUDED.last_attempted_at").Set("updated_at = EXCLUDED.updated_at").Exec(txCtx); err != nil {
 			return err
-		} else {
-			if _, err := tx.NewUpdate().Model(&state).Set("status = ?", models.GrowthSyncStatusQueued).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(txCtx); err != nil {
-				return err
-			}
 		}
 		job, err := jobregistry.NewJob(jobregistry.TypeGrowthDiscovery, string(payloadBytes), now)
 		if err != nil {
@@ -453,6 +443,10 @@ func (s *Service) Dismiss(ctx context.Context, actor workspaceaccess.ActorFacts,
 	if !rec.DismissedAt.IsZero() {
 		return nil
 	}
+	rank, err := recommendationRankBucket(ctx, s.db, rec)
+	if err != nil {
+		rank = "11+"
+	}
 	now := s.now()
 	if _, err := s.db.NewUpdate().Model(&rec).Set("dismissed_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(ctx); err != nil {
 		return err
@@ -466,7 +460,7 @@ func (s *Service) Dismiss(ctx context.Context, actor workspaceaccess.ActorFacts,
 			Properties: map[string]any{
 				"platform":            rec.Platform,
 				"mutual_count_bucket": bucket,
-				"ranking_position":    0,
+				"rank_bucket":         rank,
 			},
 		})
 	}
@@ -510,9 +504,13 @@ func (s *Service) QueueFollow(ctx context.Context, actor workspaceaccess.ActorFa
 	if !rec.DismissedAt.IsZero() {
 		return "", ErrConflict
 	}
+	rank, err := recommendationRankBucket(ctx, s.db, rec)
+	if err != nil {
+		rank = "11+"
+	}
 	now := s.now()
 	var jobID string
-	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 		result, err := tx.NewUpdate().Model(&rec).
 			Set("follow_state = ?", models.GrowthRecommendationFollowPending).
 			Set("follow_error_code = ''").
@@ -554,7 +552,7 @@ func (s *Service) QueueFollow(ctx context.Context, actor workspaceaccess.ActorFa
 			Properties: map[string]any{
 				"platform":            rec.Platform,
 				"mutual_count_bucket": bucket,
-				"ranking_position":    0,
+				"rank_bucket":         rank,
 			},
 		})
 	}

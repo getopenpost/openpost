@@ -176,6 +176,9 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 		normalized = append(normalized, n)
 	}
 	ranked := ScoreRanked(normalized)
+	if len(ranked) > discoveryTarget {
+		ranked = ranked[:discoveryTarget]
+	}
 
 	newGeneration := uuid.NewString()
 	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {

@@ -1,12 +1,14 @@
 package growth
 
 import (
+	"context"
 	"errors"
 	"net/url"
 	"strings"
 
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	"github.com/uptrace/bun"
 )
 
 func isTerminalFollowState(state string) bool {
@@ -115,11 +117,51 @@ func mutualCountBucket(count int) string {
 	switch {
 	case count == 0:
 		return "0"
-	case count <= 2:
-		return "1-2"
-	case count <= 5:
-		return "3-5"
+	case count == 1:
+		return "1"
+	case count <= 3:
+		return "2-3"
+	case count <= 6:
+		return "4-6"
 	default:
-		return "6+"
+		return "7+"
 	}
+}
+
+func rankBucket(position int) string {
+	if position <= 3 {
+		return "1-3"
+	}
+	if position <= 6 {
+		return "4-6"
+	}
+	if position <= 10 {
+		return "7-10"
+	}
+	return "11+"
+}
+
+func recommendationRankBucket(ctx context.Context, db bun.IDB, rec models.GrowthRecommendation) (string, error) {
+	if rec.GenerationID == "" {
+		return "11+", nil
+	}
+	var rows []models.GrowthRecommendation
+	if err := db.NewSelect().Model(&rows).
+		Where("social_account_id = ? AND generation_id = ?", rec.SocialAccountID, rec.GenerationID).
+		Where("dismissed_at IS NULL").
+		Where("follow_state NOT IN (?, ?)", models.GrowthRecommendationFollowFollowing, models.GrowthRecommendationFollowRequested).
+		Order("score DESC").
+		Order("mutual_count DESC").
+		Order("handle ASC").
+		Order("remote_account_id ASC").
+		Scan(ctx); err != nil {
+		return "", err
+	}
+	for idx, r := range rows {
+		if r.ID == rec.ID {
+			return rankBucket(idx + 1), nil
+		}
+	}
+	// If not found among visible, fall back to order among all generation (dismissed excluded anyway)
+	return "11+", nil
 }

@@ -7,8 +7,7 @@ FORM: Flat bordered cards in Workshop list grammar, centered page-container rhyt
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script lang="ts">
-	/* eslint-disable anti-slop/require-safety-comment-for-type-assertion */
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -91,6 +90,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (terminalTimers.size) terminalTimers = new Map();
 	}
 
+	onDestroy(clearTerminalTimers);
+
 	function resetGrowthForSwitch() {
 		growthGuard.next();
 		clearTerminalTimers();
@@ -171,7 +172,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			});
 			if (accountsGuard.isStale(seq)) return;
 			if (response.error) throw new Error('load failed');
-			const list = (response.data ?? []) as SocialAccount[];
+			const list = response.data ?? [];
 			// Ensure this response still belongs to current workspace
 			if (requestedWorkspaceID !== workspaceCtx.currentWorkspace?.id) return;
 			accounts = list;
@@ -218,11 +219,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			if (ws !== requestKeyWs || acc !== requestKeyAcc) return;
 			if (ws !== workspaceID || acc !== selectedAccountID) return;
 			if (response.error) throw response.error;
-			const data = response.data as {
-				items: RecommendationView[] | null;
-				sync_state: SyncStateView | null;
-				follow_updates: FollowUpdateView[] | null;
-			};
+			const data = response.data;
+			if (!data) throw new Error('missing growth data');
 			const newItems = data.items ?? [];
 			const newSync = data.sync_state ?? null;
 			const followUpdates = data.follow_updates ?? [];
@@ -255,7 +253,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							...prior,
 							follow_state: upd.follow_state,
 							updated_at: upd.updated_at
-						} as RecommendationView);
+						});
 					}
 				}
 			}
@@ -380,6 +378,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			if (syncState) {
 				syncState = { ...syncState, status: 'queued' };
 			} else {
+				// SAFETY: queued optimistic sync_state mirrors SyncStateView shape; server will reconcile on next load.
 				syncState = {
 					id: '',
 					workspace_id: workspaceID,

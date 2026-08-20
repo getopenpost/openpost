@@ -7,6 +7,7 @@ import type { components } from '$lib/api/types';
 type RecommendationView = components['schemas']['RecommendationView'];
 
 function rec(overrides: Partial<RecommendationView> = {}): RecommendationView {
+	// SAFETY: overrides are partial RecommendationView in tests; defaults fill required fields.
 	return {
 		id: 'r1',
 		workspace_id: 'ws-1',
@@ -24,9 +25,11 @@ function rec(overrides: Partial<RecommendationView> = {}): RecommendationView {
 		mutual_count: 2,
 		mutual_exact: true,
 		mutuals: [
-			{ RemoteID: '1', Handle: 'theo', DisplayName: 'Theo', AvatarURL: '' },
-			{ RemoteID: '2', Handle: 'jane2', DisplayName: 'Jane', AvatarURL: '' }
-		] as never,
+			// SAFETY: test fixture mutuaLs match GrowthMutualProfile shape; minimal fields sufficient for card rendering.
+			{ RemoteID: '1', Handle: 'theo', DisplayName: 'Theo', AvatarURL: '' } as never,
+			// SAFETY: test fixture mutuaLs match GrowthMutualProfile shape; minimal fields sufficient for card rendering.
+			{ RemoteID: '2', Handle: 'jane2', DisplayName: 'Jane', AvatarURL: '' } as never
+		],
 		signals: ['friends_of_friends'],
 		score: 1,
 		follow_state: 'idle',
@@ -71,8 +74,9 @@ describe('GrowthProfileCard', () => {
 			onDismiss: vi.fn(),
 			onOpenProfile: vi.fn()
 		});
-		const btn = screen.getByRole('button', { name: /Following…/i });
+		const btn = screen.getByRole('button', { name: 'Following @jane' });
 		await expect.element(btn).toBeDisabled();
+		await expect.element(btn).toHaveTextContent('Following…');
 	});
 
 	it('shows Requested disabled when requested', async () => {

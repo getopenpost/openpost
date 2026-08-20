@@ -26,6 +26,7 @@
 	import PostsIcon from '@lucide/svelte/icons/files';
 	import CommunicationsIcon from '@lucide/svelte/icons/messages-square';
 	import AnalyticsIcon from '@lucide/svelte/icons/chart-no-axes-combined';
+	import GrowthIcon from '@lucide/svelte/icons/user-round-plus';
 	import MediaIcon from '@lucide/svelte/icons/images';
 	import EditorsIcon from '@lucide/svelte/icons/clapperboard';
 	import AccountsIcon from '@lucide/svelte/icons/users';
@@ -61,12 +62,12 @@
 	);
 	const sidebarNavigationItems = $derived(
 		navigationItems.filter((item) =>
-			['calendar', 'posts', 'communications', 'analytics', 'media'].includes(item.id)
+			['calendar', 'posts', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
 		)
 	);
 	const workspaceNavigationItems = $derived([
 		...navigationItems.filter((item) =>
-			['calendar', 'posts', 'communications', 'analytics', 'media'].includes(item.id)
+			['calendar', 'posts', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
 		)
 	]);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
@@ -86,6 +87,8 @@
 				return PostsIcon;
 			case 'analytics':
 				return AnalyticsIcon;
+			case 'growth':
+				return GrowthIcon;
 			case 'communications':
 				return CommunicationsIcon;
 			case 'media':
@@ -109,6 +112,8 @@
 				return m.sidebar_activity();
 			case 'analytics':
 				return m.sidebar_analytics();
+			case 'growth':
+				return m.sidebar_grow();
 			case 'communications':
 				return m.sidebar_communications();
 			case 'media':

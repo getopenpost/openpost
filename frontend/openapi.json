@@ -5663,6 +5663,97 @@
 				"required": ["method", "path", "status", "duration_ms", "timestamp"],
 				"type": "object"
 			},
+			"FeatureStateResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"availability": {
+						"description": "Availability state",
+						"enum": ["available", "unsupported", "missing_scope", "plan_restricted"],
+						"type": "string"
+					},
+					"decided_at": {
+						"description": "When decision was made",
+						"type": "string"
+					},
+					"decided_by_user_id": {
+						"description": "User who decided",
+						"type": "string"
+					},
+					"effective_enabled": {
+						"description": "Effective enabled state (fail-closed)",
+						"type": "boolean"
+					},
+					"feature": {
+						"description": "Feature key",
+						"enum": ["messaging", "engagement", "analytics", "grow"],
+						"type": "string"
+					},
+					"missing_scopes": {
+						"description": "Provider scopes missing for this feature",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"platform": {
+						"description": "Provider key",
+						"type": "string"
+					},
+					"reason_code": {
+						"description": "Stable reason code",
+						"enum": ["available", "unsupported", "missing_scope", "plan_restricted"],
+						"type": "string"
+					},
+					"required_scopes": {
+						"description": "Required provider scopes for this feature",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"social_account_id": {
+						"description": "Social account ID",
+						"type": "string"
+					},
+					"source": {
+						"description": "Source of decision",
+						"type": "string"
+					},
+					"stored_enabled": {
+						"description": "Stored enabled value",
+						"type": "boolean"
+					},
+					"stored_exists": {
+						"description": "Whether a choice has been stored",
+						"type": "boolean"
+					},
+					"supported": {
+						"description": "Whether provider supports this feature",
+						"type": "boolean"
+					},
+					"unavailable_reason": {
+						"description": "Why feature is unavailable",
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": [
+					"workspace_id",
+					"social_account_id",
+					"platform",
+					"feature",
+					"supported",
+					"availability",
+					"reason_code",
+					"stored_exists",
+					"stored_enabled",
+					"effective_enabled"
+				],
+				"type": "object"
+			},
 			"FinishPasskeyLoginInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -8015,6 +8106,30 @@
 					}
 				},
 				"required": ["workspace_id", "title"],
+				"type": "object"
+			},
+			"Item": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"description": "Account ID",
+						"type": "string"
+					},
+					"enabled": {
+						"description": "Enabled value",
+						"type": "boolean"
+					},
+					"feature": {
+						"description": "Feature key",
+						"enum": ["messaging", "engagement", "analytics", "grow"],
+						"type": "string"
+					},
+					"source": {
+						"description": "Decision source",
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "feature", "enabled"],
 				"type": "object"
 			},
 			"JobResponse": {
@@ -14219,6 +14334,31 @@
 				"required": ["provider"],
 				"type": "object"
 			},
+			"SaveAccountFeaturesInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/SaveAccountFeaturesInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"choices": {
+						"description": "Choices to save (complete batch)",
+						"items": {
+							"$ref": "#/components/schemas/Item"
+						},
+						"type": ["array", "null"]
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "choices"],
+				"type": "object"
+			},
 			"SaveInstanceSettingsInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -17826,6 +17966,182 @@
 	},
 	"openapi": "3.1.0",
 	"paths": {
+		"/account-features": {
+			"get": {
+				"operationId": "read-account-features",
+				"parameters": [
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Comma-separated account IDs",
+						"explode": false,
+						"in": "query",
+						"name": "account_ids",
+						"required": true,
+						"schema": {
+							"description": "Comma-separated account IDs",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/FeatureStateResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Read feature settings for selected accounts",
+				"tags": ["Accounts"]
+			},
+			"post": {
+				"operationId": "save-account-features",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SaveAccountFeaturesInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/FeatureStateResponse"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Save a complete batch of feature choices",
+				"tags": ["Accounts"]
+			}
+		},
 		"/accounts": {
 			"get": {
 				"operationId": "list-accounts",

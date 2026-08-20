@@ -4,6 +4,24 @@
  */
 
 export interface paths {
+    "/account-features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read feature settings for selected accounts */
+        get: operations["read-account-features"];
+        put?: never;
+        /** Save a complete batch of feature choices */
+        post: operations["save-account-features"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts": {
         parameters: {
             query?: never;
@@ -6705,6 +6723,49 @@ export interface components {
             status: number;
             timestamp: string;
         };
+        FeatureStateResponse: {
+            /**
+             * @description Availability state
+             * @enum {string}
+             */
+            availability: "available" | "unsupported" | "missing_scope" | "plan_restricted";
+            /** @description When decision was made */
+            decided_at?: string;
+            /** @description User who decided */
+            decided_by_user_id?: string;
+            /** @description Effective enabled state (fail-closed) */
+            effective_enabled: boolean;
+            /**
+             * @description Feature key
+             * @enum {string}
+             */
+            feature: "messaging" | "engagement" | "analytics" | "grow";
+            /** @description Provider scopes missing for this feature */
+            missing_scopes?: string[] | null;
+            /** @description Provider key */
+            platform: string;
+            /**
+             * @description Stable reason code
+             * @enum {string}
+             */
+            reason_code: "available" | "unsupported" | "missing_scope" | "plan_restricted";
+            /** @description Required provider scopes for this feature */
+            required_scopes?: string[] | null;
+            /** @description Social account ID */
+            social_account_id: string;
+            /** @description Source of decision */
+            source?: string;
+            /** @description Stored enabled value */
+            stored_enabled: boolean;
+            /** @description Whether a choice has been stored */
+            stored_exists: boolean;
+            /** @description Whether provider supports this feature */
+            supported: boolean;
+            /** @description Why feature is unavailable */
+            unavailable_reason?: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
         FinishPasskeyLoginInputBody: {
             /**
              * Format: uri
@@ -7683,6 +7744,19 @@ export interface components {
             readonly $schema?: string;
             title: string;
             workspace_id: string;
+        };
+        Item: {
+            /** @description Account ID */
+            account_id: string;
+            /** @description Enabled value */
+            enabled: boolean;
+            /**
+             * @description Feature key
+             * @enum {string}
+             */
+            feature: "messaging" | "engagement" | "analytics" | "grow";
+            /** @description Decision source */
+            source?: string;
         };
         JobResponse: {
             /**
@@ -10378,6 +10452,18 @@ export interface components {
             provider: string;
             provider_environment?: string;
         };
+        SaveAccountFeaturesInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SaveAccountFeaturesInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Choices to save (complete batch) */
+            choices: components["schemas"]["Item"][] | null;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
         SaveInstanceSettingsInputBody: {
             /**
              * Format: uri
@@ -11875,6 +11961,145 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "read-account-features": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+                /** @description Comma-separated account IDs */
+                account_ids: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureStateResponse"][] | null;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "save-account-features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveAccountFeaturesInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureStateResponse"][] | null;
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-accounts": {
         parameters: {
             query: {

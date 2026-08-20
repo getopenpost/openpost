@@ -17,6 +17,7 @@ import (
 	billingservice "github.com/openpost/backend/internal/services/billing"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/feedback"
+	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/medialifecycle"
 	"github.com/openpost/backend/internal/services/mediastore"
 	messagingservice "github.com/openpost/backend/internal/services/messaging"
@@ -63,6 +64,7 @@ type BackgroundWorker struct {
 	organizationOwnership *organizationownership.Service
 	reposts               *repostservice.Service
 	video                 *videoprocessing.Service
+	growth                *growthservice.Service
 	telemetry             telemetry.Recorder
 	executors             map[jobregistry.ExecutionKind]jobExecutor
 	done                  chan struct{}
@@ -157,6 +159,16 @@ func (w *BackgroundWorker) SetVideoProcessingService(service *videoprocessing.Se
 			return fmt.Errorf("video processing is not configured")
 		}
 		return w.video.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetGrowthService(service *growthservice.Service) {
+	w.growth = service
+	w.executors[jobregistry.ExecuteGrowth] = func(ctx context.Context, job *models.Job) error {
+		if w.growth == nil {
+			return fmt.Errorf("growth is not configured")
+		}
+		return w.growth.HandleJob(ctx, job.Type, job.Payload)
 	}
 }
 

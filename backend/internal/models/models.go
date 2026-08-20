@@ -2333,6 +2333,73 @@ type ThreadDraft struct {
 	UpdatedAt time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
+const (
+	GrowthRecommendationFollowIdle      = "idle"
+	GrowthRecommendationFollowPending   = "pending"
+	GrowthRecommendationFollowFollowing = "following"
+	GrowthRecommendationFollowRequested = "requested"
+	GrowthRecommendationFollowFailed    = "failed"
+)
+
+const (
+	GrowthSyncStatusIdle                   = "idle"
+	GrowthSyncStatusQueued                 = "queued"
+	GrowthSyncStatusRefreshing             = "refreshing"
+	GrowthSyncStatusOK                     = "ok"
+	GrowthSyncStatusPermissionRequired     = "permission_required"
+	GrowthSyncStatusRateLimited            = "rate_limited"
+	GrowthSyncStatusTemporarilyUnavailable = "temporarily_unavailable"
+	GrowthSyncStatusFailed                 = "failed"
+)
+
+type GrowthRecommendation struct {
+	bun.BaseModel `bun:"table:growth_recommendations"`
+
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	RemoteAccountID    string    `bun:"remote_account_id,notnull" json:"remote_account_id"`
+	Handle             string    `bun:",notnull,default:''" json:"handle"`
+	DisplayName        string    `bun:"display_name,notnull,default:''" json:"display_name"`
+	Bio                string    `bun:",notnull,default:''" json:"bio"`
+	AvatarURL          string    `bun:"avatar_url,notnull,default:''" json:"avatar_url"`
+	ProfileURL         string    `bun:"profile_url,notnull,default:''" json:"profile_url"`
+	FollowersCount     int       `bun:"followers_count,notnull,default:0" json:"followers_count"`
+	FollowingCount     int       `bun:"following_count,notnull,default:0" json:"following_count"`
+	MutualCount        int       `bun:"mutual_count,notnull,default:0" json:"mutual_count"`
+	MutualsJSON        string    `bun:"mutuals_json,notnull,default:'[]'" json:"-"`
+	MutualExact        bool      `bun:"mutual_exact,notnull,default:false" json:"mutual_exact"`
+	FollowsViewer      bool      `bun:"follows_viewer,notnull,default:false" json:"follows_viewer"`
+	SignalsJSON        string    `bun:"signals_json,notnull,default:'[]'" json:"-"`
+	Score              float64   `bun:"score,notnull,default:0" json:"score"`
+	GenerationID       string    `bun:"generation_id,notnull" json:"generation_id"`
+	DismissedAt        time.Time `bun:"dismissed_at,nullzero" json:"dismissed_at,omitempty"`
+	FollowState        string    `bun:"follow_state,notnull,default:'idle'" json:"follow_state"`
+	FollowErrorCode    string    `bun:"follow_error_code,notnull,default:''" json:"follow_error_code,omitempty"`
+	FollowErrorMessage string    `bun:"follow_error_message,notnull,default:''" json:"follow_error_message,omitempty"`
+	LastSeenAt         time.Time `bun:"last_seen_at,notnull" json:"last_seen_at"`
+	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+type GrowthSyncState struct {
+	bun.BaseModel `bun:"table:growth_sync_states"`
+
+	ID                  string    `bun:",pk" json:"id"`
+	WorkspaceID         string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID     string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform            string    `bun:",notnull" json:"platform"`
+	Status              string    `bun:",notnull,default:'idle'" json:"status"`
+	ErrorCode           string    `bun:"error_code,notnull,default:''" json:"error_code"`
+	ErrorMessage        string    `bun:"error_message,notnull,default:''" json:"error_message"`
+	CurrentGenerationID string    `bun:"current_generation_id,notnull,default:''" json:"current_generation_id"`
+	LastAttemptedAt     time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at,omitempty"`
+	LastSuccessAt       time.Time `bun:"last_success_at,nullzero" json:"last_success_at,omitempty"`
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
 // Prompt represents a writing prompt for content inspiration.
 type Prompt struct {
 	bun.BaseModel `bun:"table:prompts"`

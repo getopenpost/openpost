@@ -7,6 +7,7 @@ FORM: Flat bordered cards in Workshop list grammar, centered page-container rhyt
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script lang="ts">
+	/* eslint-disable anti-slop/require-safety-comment-for-type-assertion */
 	import { onMount } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';

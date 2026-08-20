@@ -4989,6 +4989,42 @@
 				"required": ["workspace_id", "webhook_url"],
 				"type": "object"
 			},
+			"DismissGrowthInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DismissGrowthInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
+				"type": "object"
+			},
+			"DismissGrowthOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DismissGrowthOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"status": {
+						"description": "Dismiss status",
+						"type": "string"
+					}
+				},
+				"required": ["status"],
+				"type": "object"
+			},
 			"Document": {
 				"additionalProperties": false,
 				"properties": {
@@ -5694,6 +5730,50 @@
 				"required": ["challenge_id", "name", "credential"],
 				"type": "object"
 			},
+			"FollowGrowthInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/FollowGrowthInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
+				"type": "object"
+			},
+			"FollowGrowthOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/FollowGrowthOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"job_id": {
+						"description": "Queued job ID",
+						"type": "string"
+					},
+					"message": {
+						"description": "Human readable message",
+						"type": "string"
+					},
+					"status": {
+						"description": "Pending follow status",
+						"type": "string"
+					}
+				},
+				"required": ["job_id", "status", "message"],
+				"type": "object"
+			},
 			"GenerateMediaAltTextInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -6119,6 +6199,25 @@
 					"direction",
 					"created_at"
 				],
+				"type": "object"
+			},
+			"GrowthMutualProfile": {
+				"additionalProperties": false,
+				"properties": {
+					"AvatarURL": {
+						"type": "string"
+					},
+					"DisplayName": {
+						"type": "string"
+					},
+					"Handle": {
+						"type": "string"
+					},
+					"RemoteID": {
+						"type": "string"
+					}
+				},
+				"required": ["RemoteID", "Handle", "DisplayName", "AvatarURL"],
 				"type": "object"
 			},
 			"Health-checkResponse": {
@@ -8117,6 +8216,29 @@
 					}
 				},
 				"required": ["templates"],
+				"type": "object"
+			},
+			"ListResult": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ListResult.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"items": {
+						"items": {
+							"$ref": "#/components/schemas/RecommendationView"
+						},
+						"type": ["array", "null"]
+					},
+					"sync_state": {
+						"$ref": "#/components/schemas/SyncStateView"
+					}
+				},
+				"required": ["items", "sync_state"],
 				"type": "object"
 			},
 			"ListStockProvidersOutputBody": {
@@ -12345,6 +12467,125 @@
 				"required": ["grant", "expires_in"],
 				"type": "object"
 			},
+			"RecommendationView": {
+				"additionalProperties": false,
+				"properties": {
+					"avatar_url": {
+						"type": "string"
+					},
+					"bio": {
+						"type": "string"
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"display_name": {
+						"type": "string"
+					},
+					"follow_error_code": {
+						"type": "string"
+					},
+					"follow_error_message": {
+						"type": "string"
+					},
+					"follow_state": {
+						"type": "string"
+					},
+					"followers_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"following_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"follows_viewer": {
+						"type": "boolean"
+					},
+					"generation_id": {
+						"type": "string"
+					},
+					"handle": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"last_seen_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"mutual_count": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"mutual_exact": {
+						"type": "boolean"
+					},
+					"mutuals": {
+						"items": {
+							"$ref": "#/components/schemas/GrowthMutualProfile"
+						},
+						"type": ["array", "null"]
+					},
+					"platform": {
+						"type": "string"
+					},
+					"profile_url": {
+						"type": "string"
+					},
+					"remote_account_id": {
+						"type": "string"
+					},
+					"score": {
+						"format": "double",
+						"type": "number"
+					},
+					"signals": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"social_account_id": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"social_account_id",
+					"platform",
+					"remote_account_id",
+					"handle",
+					"display_name",
+					"bio",
+					"avatar_url",
+					"profile_url",
+					"followers_count",
+					"following_count",
+					"mutual_count",
+					"mutuals",
+					"mutual_exact",
+					"follows_viewer",
+					"signals",
+					"score",
+					"generation_id",
+					"follow_state",
+					"last_seen_at",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
 			"RecoveryCodeSensitiveActionInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -12510,6 +12751,54 @@
 					}
 				},
 				"required": ["status", "queued"],
+				"type": "object"
+			},
+			"RefreshGrowthInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/RefreshGrowthInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_id": {
+						"description": "Connected social account ID",
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "account_id"],
+				"type": "object"
+			},
+			"RefreshGrowthOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/RefreshGrowthOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"job_id": {
+						"description": "Queued job ID",
+						"type": "string"
+					},
+					"message": {
+						"description": "Human readable message",
+						"type": "string"
+					},
+					"status": {
+						"description": "Queued status",
+						"type": "string"
+					}
+				},
+				"required": ["job_id", "status", "message"],
 				"type": "object"
 			},
 			"RegisterInputBody": {
@@ -15042,6 +15331,62 @@
 					}
 				},
 				"required": ["followers", "engagement", "views", "impressions", "reach", "published"],
+				"type": "object"
+			},
+			"SyncStateView": {
+				"additionalProperties": false,
+				"properties": {
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"current_generation_id": {
+						"type": "string"
+					},
+					"error_code": {
+						"type": "string"
+					},
+					"error_message": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"last_attempted_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"last_success_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"social_account_id": {
+						"type": "string"
+					},
+					"status": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"social_account_id",
+					"platform",
+					"status",
+					"current_generation_id",
+					"created_at",
+					"updated_at"
+				],
 				"type": "object"
 			},
 			"Template": {
@@ -25674,6 +26019,374 @@
 				},
 				"summary": "Get feedback privacy and destination settings",
 				"tags": ["Feedback"]
+			}
+		},
+		"/growth": {
+			"get": {
+				"description": "Returns DB-only growth recommendations for one connected social account. Growth recommendations belong to one social_account_id, not merely a workspace.",
+				"operationId": "list-growth-recommendations",
+				"parameters": [
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Connected social account ID",
+						"explode": false,
+						"in": "query",
+						"name": "account_id",
+						"required": true,
+						"schema": {
+							"description": "Connected social account ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ListResult"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "List growth recommendations",
+				"tags": ["Growth"]
+			}
+		},
+		"/growth/refresh": {
+			"post": {
+				"description": "Queues a durable discovery job for one social account. Uses provider reads with retry/requeue. Does not block on provider.",
+				"operationId": "refresh-growth-recommendations",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/RefreshGrowthInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/RefreshGrowthOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Queue growth discovery refresh",
+				"tags": ["Growth"]
+			}
+		},
+		"/growth/{recommendation_id}/dismiss": {
+			"post": {
+				"description": "Locally dismisses a recommendation. Dismissed items never reappear after refresh.",
+				"operationId": "dismiss-growth-recommendation",
+				"parameters": [
+					{
+						"description": "Growth recommendation ID",
+						"in": "path",
+						"name": "recommendation_id",
+						"required": true,
+						"schema": {
+							"description": "Growth recommendation ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/DismissGrowthInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DismissGrowthOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Dismiss a growth recommendation",
+				"tags": ["Growth"]
+			}
+		},
+		"/growth/{recommendation_id}/follow": {
+			"post": {
+				"description": "Queues a one-attempt provider write through the durable providerwrite fence. Never retries ambiguous writes.",
+				"operationId": "follow-growth-recommendation",
+				"parameters": [
+					{
+						"description": "Growth recommendation ID",
+						"in": "path",
+						"name": "recommendation_id",
+						"required": true,
+						"schema": {
+							"description": "Growth recommendation ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/FollowGrowthInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/FollowGrowthOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Follow a recommended account",
+				"tags": ["Growth"]
 			}
 		},
 		"/health": {

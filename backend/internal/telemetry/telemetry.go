@@ -14,31 +14,43 @@ import (
 )
 
 const (
-	EventPublicationScheduled   = "publication scheduled"
-	EventPublicationQueued      = "publication queued"
-	EventRenditionPublished     = "rendition published"
-	EventRenditionFailed        = "rendition failed"
-	EventBillingCheckoutCreated = "billing checkout created"
-	EventSignupCompleted        = "signup completed"
-	EventPlanConfirmed          = "plan confirmed"
-	EventWorkspaceCreated       = "workspace created"
-	EventCheckoutCompleted      = "checkout completed"
-	EventDestinationConnected   = "destination connected"
-	EventWorkspaceActivated     = "workspace activated"
+	EventPublicationScheduled          = "publication scheduled"
+	EventPublicationQueued             = "publication queued"
+	EventRenditionPublished            = "rendition published"
+	EventRenditionFailed               = "rendition failed"
+	EventBillingCheckoutCreated        = "billing checkout created"
+	EventSignupCompleted               = "signup completed"
+	EventPlanConfirmed                 = "plan confirmed"
+	EventWorkspaceCreated              = "workspace created"
+	EventCheckoutCompleted             = "checkout completed"
+	EventDestinationConnected          = "destination connected"
+	EventWorkspaceActivated            = "workspace activated"
+	EventGrowthRefreshRequested        = "growth refresh requested"
+	EventGrowthRefreshCompleted        = "growth refresh completed"
+	EventGrowthRecommendationDismissed = "growth recommendation dismissed"
+	EventGrowthFollowRequested         = "growth follow requested"
+	EventGrowthFollowSucceeded         = "growth follow succeeded"
+	EventGrowthFollowFailed            = "growth follow failed"
 )
 
 var eventPropertyAllowlists = map[string]map[string]struct{}{
-	EventPublicationScheduled:   propertySet("publication_id", "job_id", "intent", "content_profile", "destination_count"),
-	EventPublicationQueued:      propertySet("publication_id", "job_id", "intent", "content_profile", "destination_count"),
-	EventRenditionPublished:     propertySet("publication_id", "rendition_id", "platform", "profile", "output_profile", "intent", "content_profile", "segment_count"),
-	EventRenditionFailed:        propertySet("publication_id", "rendition_id", "platform", "profile", "output_profile", "intent", "content_profile", "error_kind", "error_code", "http_status", "retryable", "retry"),
-	EventBillingCheckoutCreated: propertySet("checkout_id", "organization_id", "plan_id", "billing_period", "provider"),
-	EventSignupCompleted:        propertySet(),
-	EventPlanConfirmed:          propertySet("plan_id", "billing_period"),
-	EventWorkspaceCreated:       propertySet(),
-	EventCheckoutCompleted:      propertySet("plan_id", "billing_period"),
-	EventDestinationConnected:   propertySet("platform", "account_count"),
-	EventWorkspaceActivated:     propertySet(),
+	EventPublicationScheduled:          propertySet("publication_id", "job_id", "intent", "content_profile", "destination_count"),
+	EventPublicationQueued:             propertySet("publication_id", "job_id", "intent", "content_profile", "destination_count"),
+	EventRenditionPublished:            propertySet("publication_id", "rendition_id", "platform", "profile", "output_profile", "intent", "content_profile", "segment_count"),
+	EventRenditionFailed:               propertySet("publication_id", "rendition_id", "platform", "profile", "output_profile", "intent", "content_profile", "error_kind", "error_code", "http_status", "retryable", "retry"),
+	EventBillingCheckoutCreated:        propertySet("checkout_id", "organization_id", "plan_id", "billing_period", "provider"),
+	EventSignupCompleted:               propertySet(),
+	EventPlanConfirmed:                 propertySet("plan_id", "billing_period"),
+	EventWorkspaceCreated:              propertySet(),
+	EventCheckoutCompleted:             propertySet("plan_id", "billing_period"),
+	EventDestinationConnected:          propertySet("platform", "account_count"),
+	EventWorkspaceActivated:            propertySet(),
+	EventGrowthRefreshRequested:        propertySet("platform"),
+	EventGrowthRefreshCompleted:        propertySet("platform", "recommendation_count"),
+	EventGrowthRecommendationDismissed: propertySet("platform", "mutual_count_bucket", "ranking_position"),
+	EventGrowthFollowRequested:         propertySet("platform", "mutual_count_bucket", "ranking_position"),
+	EventGrowthFollowSucceeded:         propertySet("platform", "follow_state"),
+	EventGrowthFollowFailed:            propertySet("platform", "follow_state", "error_class"),
 }
 
 var firstUsePropertyValues = map[string]map[string]struct{}{

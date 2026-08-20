@@ -217,6 +217,14 @@ func finalizeRecentMigrations(
 			return fmt.Errorf("account identity and public profile migration failed: %w", err)
 		}
 	}
+	if appliedSet[106] {
+		if err := ensureAccountFeatureSchema(ctx, db); err != nil {
+			return fmt.Errorf("account feature schema migration failed: %w", err)
+		}
+		if err := backfillAccountFeatures(ctx, db); err != nil {
+			return fmt.Errorf("account feature backfill migration failed: %w", err)
+		}
+	}
 	if !appliedSet[82] {
 		return nil
 	}
@@ -2005,6 +2013,111 @@ func rebuildSQLiteMediaAttachmentsWithoutGlobalHashUnique(ctx context.Context, d
 		}
 		return nil
 	})
+}
+
+func ensureAccountFeatureSchema(ctx context.Context, db *bun.DB) error {
+	exists, err := migrationTableExists(ctx, db, "account_features")
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("account_features is missing after migration 106")
+	}
+	return nil
+}
+
+func backfillAccountFeatures(ctx context.Context, db *bun.DB) error {
+	exists, err := migrationTableExists(ctx, db, "social_accounts")
+	if err != nil || !exists {
+		return err
+	}
+	exists, err = migrationTableExists(ctx, db, "account_features")
+	if err != nil || !exists {
+		return err
+	}
+	var accounts []models.SocialAccount
+	if err := db.NewSelect().Model(&accounts).Order("created_at ASC", "id ASC").Scan(ctx); err != nil {
+		return err
+	}
+	if len(accounts) == 0 {
+		return nil
+	}
+	growSources := make(map[string]bool)
+	if tableExists, _ := migrationTableExists(ctx, db, "growth_sync_states"); tableExists {
+		var ids []string
+		if err := db.NewSelect().Table("growth_sync_states").Column("social_account_id").Scan(ctx, &ids); err == nil {
+			for _, id := range ids {
+				growSources[id] = true
+			}
+		}
+	}
+	if tableExists, _ := migrationTableExists(ctx, db, "growth_recommendations"); tableExists {
+		var ids []string
+		if err := db.NewSelect().Table("growth_recommendations").Column("social_account_id").Scan(ctx, &ids); err == nil {
+			for _, id := range ids {
+				growSources[id] = true
+			}
+		}
+	}
+	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		now := time.Now().UTC()
+		for _, acc := range accounts {
+			messagingEnabled := false
+			if acc.CapabilityState != "" {
+				var state map[string]string
+				if json.Unmarshal([]byte(acc.CapabilityState), &state) == nil && state["messages_enabled"] == "true" {
+					messagingEnabled = true
+				}
+			}
+			analyticsEnabled := analyticsPlatformSupported(acc.Platform, acc.CapabilityState)
+			engagementEnabled := engagementPlatformSupported(acc.Platform)
+			growEnabled := growSources[acc.ID]
+			features := map[string]bool{
+				"messaging":  messagingEnabled,
+				"analytics":  analyticsEnabled,
+				"engagement": engagementEnabled,
+				"grow":       growEnabled,
+			}
+			for feature, enabled := range features {
+				row := &models.AccountFeature{
+					SocialAccountID: acc.ID,
+					WorkspaceID:     acc.WorkspaceID,
+					Feature:         feature,
+					Enabled:         enabled,
+					Source:          "migration_backfill",
+					DecidedAt:       now,
+				}
+				_, err := tx.NewInsert().Model(row).On("CONFLICT (social_account_id, feature) DO NOTHING").Exec(txCtx)
+				if err != nil {
+					return fmt.Errorf("backfill account feature %s %s: %w", acc.ID, feature, err)
+				}
+			}
+		}
+		return nil
+	})
+}
+
+func analyticsPlatformSupported(platform, capabilityState string) bool {
+	switch platform {
+	case "x", "bluesky", "mastodon", "facebook", "instagram", "threads", "youtube", "tiktok":
+		return true
+	case "linkedin":
+		if strings.Contains(capabilityState, "community_management") {
+			return false
+		}
+		return true
+	default:
+		return false
+	}
+}
+
+func engagementPlatformSupported(platform string) bool {
+	switch platform {
+	case "facebook", "instagram", "linkedin", "threads", "mastodon", "bluesky", "x", "youtube":
+		return true
+	default:
+		return false
+	}
 }
 
 var (

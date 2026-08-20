@@ -138,6 +138,7 @@ func CreateSchema(db *bun.DB) error {
 		(*models.PostingSchedule)(nil),
 		(*models.Prompt)(nil),
 		(*models.ThreadDraft)(nil),
+		(*models.AccountFeature)(nil),
 	}
 	for _, model := range m {
 		if _, err := db.NewCreateTable().Model(model).IfNotExists().Exec(ctx); err != nil {

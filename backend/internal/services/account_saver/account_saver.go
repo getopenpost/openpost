@@ -194,6 +194,7 @@ func (s *AccountSaver) SaveAccountsFromInputs(ctx context.Context, inputs []Save
 			account.ID = uuid.New().String()
 			account.CreatedAt = now
 		}
+		account.IsNewlyInserted = existing == nil
 
 		baseSlug := defaultSlug(input.PlatformName, input.AccountUsername, input.AccountID, input.InstanceURL)
 		if existing == nil || (usedSlugs[account.Slug] != "" && usedSlugs[account.Slug] != account.ID) {

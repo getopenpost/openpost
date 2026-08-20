@@ -1038,7 +1038,8 @@ type SocialAccount struct {
 	IsActive     bool      `bun:",default:true" json:"is_active"`
 	ErrorMessage string    `json:"error_message"`
 	CreatedAt    time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	ClaimedFirst bool      `bun:"-" json:"-"`
+	ClaimedFirst     bool `bun:"-" json:"-"`
+	IsNewlyInserted  bool `bun:"-" json:"-"`
 }
 
 type WorkspaceFirstConnection struct {

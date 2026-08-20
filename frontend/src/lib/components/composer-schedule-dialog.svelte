@@ -7,6 +7,7 @@
 	import { Input } from '$lib/components/ui/input';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
+	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import { parseNaturalScheduleInput } from './compose/schedule-language';
@@ -54,6 +55,7 @@
 
 	let scheduleInput = $state('');
 	let inputError = $state('');
+	let advancedOpen = $state(false);
 	const desktopCalendar = new MediaQuery('min-width: 768px');
 	const effectiveRandomDelayMinutes = $derived.by(() => {
 		if (randomDelayOverride === 'default') return defaultRandomDelayMinutes;
@@ -157,6 +159,9 @@
 		</Dialog.Header>
 
 		<div data-testid="schedule-dialog-body" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+			{#if !canSchedule}
+				<InlineNotice tone="warning" message={m.compose_schedule_needs_destination()} />
+			{/if}
 			<form
 				class="space-y-2"
 				onsubmit={(event) => {
@@ -175,44 +180,57 @@
 				{/if}
 			</form>
 
-			<div class="grid gap-2 sm:grid-cols-3">
-				<Button
-					type="button"
-					variant="secondary"
-					class="h-10 justify-center gap-2"
-					onclick={onSuggest}
-					disabled={suggesting}
-				>
-					{#if suggesting}
-						<LoaderIcon class="size-4 animate-spin" />
-					{:else}
-						<ArrowRightIcon class="size-4" />
-					{/if}
-					{m.compose_next_free_slot()}
-				</Button>
-				<Button
-					type="button"
-					variant="secondary"
-					class="h-10 justify-center"
-					onclick={selectTomorrow}
-				>
-					{m.compose_tomorrow_time({ time: '09:00' })}
-				</Button>
-				<Button
-					type="button"
-					variant="secondary"
-					class="h-10 justify-center"
-					onclick={selectInThreeHours}
-				>
-					{m.compose_in_three_hours()}
-				</Button>
+			<div class="space-y-2">
+				<p class="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+					{m.compose_quick_schedule()}
+				</p>
+				<div class="grid gap-2 sm:grid-cols-3">
+					<Button
+						type="button"
+						variant="secondary"
+						class="h-10 justify-center gap-2"
+						onclick={onSuggest}
+						disabled={suggesting || !canSchedule}
+					>
+						{#if suggesting}
+							<LoaderIcon class="size-4 animate-spin" />
+						{:else}
+							<ArrowRightIcon class="size-4" />
+						{/if}
+						{m.compose_next_free_slot()}
+					</Button>
+					<Button
+						type="button"
+						variant="secondary"
+						class="h-10 justify-center"
+						onclick={selectTomorrow}
+						disabled={!canSchedule}
+					>
+						{m.compose_tomorrow_time({ time: '09:00' })}
+					</Button>
+					<Button
+						type="button"
+						variant="secondary"
+						class="h-10 justify-center"
+						onclick={selectInThreeHours}
+						disabled={!canSchedule}
+					>
+						{m.compose_in_three_hours()}
+					</Button>
+				</div>
 			</div>
 
-			<div
-				class="overflow-hidden rounded-lg border bg-muted/15 md:grid md:grid-cols-[minmax(0,1fr)_9rem]"
-			>
-				<div class="flex justify-center p-3 md:p-4">
-					<Calendar
+			<details class="group rounded-lg border" open={canSchedule ? advancedOpen : false} ontoggle={(e) => (advancedOpen = (e.currentTarget as HTMLDetailsElement).open)}>
+				<summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+					<span>{m.compose_choose_date_time()}</span>
+					<span class="text-xs text-muted-foreground group-open:hidden">{m.common_edit()}</span>
+				</summary>
+				<div class="border-t p-3">
+					<div
+					class="overflow-hidden rounded-lg border bg-muted/15 md:grid md:grid-cols-[minmax(0,1fr)_9rem]"
+				>
+					<div class="flex justify-center p-3 md:p-4">
+						<Calendar
 						type="single"
 						bind:value={selectedDate}
 						minValue={workspaceClock(timezone).date}
@@ -250,9 +268,16 @@
 					</div>
 				</div>
 			</div>
+					</div>
+				</details>
 
 			{#if randomDelayOptions.length > 0}
-				<div class="rounded-lg border bg-muted/10 p-3">
+				<details class="group rounded-lg border bg-muted/10">
+					<summary class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+						<span>{m.compose_randomize_time()}</span>
+						<span class="text-xs font-normal text-muted-foreground" >{formatRandomDelay(effectiveRandomDelayMinutes)}</span>
+					</summary>
+					<div class="border-t p-3">
 					<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 						<div class="space-y-1">
 							<div class="text-sm font-medium">{m.compose_randomize_time()}</div>
@@ -285,9 +310,10 @@
 									<Select.Item value={String(minutes)}>{formatRandomDelay(minutes)}</Select.Item>
 								{/each}
 							</Select.Content>
-						</Select.Root>
+							</Select.Root>
+						</div>
 					</div>
-				</div>
+				</details>
 			{/if}
 
 			<div class="flex flex-wrap items-center justify-between gap-3 text-sm">

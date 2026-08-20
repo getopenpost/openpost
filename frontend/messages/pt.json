@@ -4379,5 +4379,9 @@
 	"media_trash_restore_failed": "Não foi possível restaurar este media.",
 	"media_trash_purge_date": "Eliminação permanente em {date}",
 	"settings_media_lifecycle_title": "Ciclo de vida dos media temporários",
-	"settings_media_lifecycle_body": "Os media específicos de publicações passam para o Lixo depois da publicação final bem-sucedida ou após 14 dias sem uso. O Lixo é removido permanentemente após sete dias. Favoritos, etiquetas, funções de marca, rascunhos, agendamentos, novas tentativas e projetos de editor mantêm os media protegidos."
+	"settings_media_lifecycle_body": "Os media específicos de publicações passam para o Lixo depois da publicação final bem-sucedida ou após 14 dias sem uso. O Lixo é removido permanentemente após sete dias. Favoritos, etiquetas, funções de marca, rascunhos, agendamentos, novas tentativas e projetos de editor mantêm os media protegidos.",
+	"compose_schedule_needs_destination": "Conecte um destino antes de agendar. O calendário fica disponível após escolher onde publicar.",
+	"compose_quick_schedule": "Opções rápidas",
+	"compose_choose_date_time": "Escolha data e horário",
+	"settings_danger_zone": "Zona de perigo"
 }

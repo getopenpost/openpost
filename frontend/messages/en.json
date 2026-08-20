@@ -4379,5 +4379,9 @@
 	"media_trash_restore_failed": "Could not restore this media.",
 	"media_trash_purge_date": "Deletes permanently {date}",
 	"settings_media_lifecycle_title": "Temporary media lifecycle",
-	"settings_media_lifecycle_body": "Post-specific media moves to Trash after its final successful publication, or after 14 days without use. Trash is permanently removed after seven days. Favorites, tags, brand roles, drafts, schedules, retries, and editor projects keep their media safe."
+	"settings_media_lifecycle_body": "Post-specific media moves to Trash after its final successful publication, or after 14 days without use. Trash is permanently removed after seven days. Favorites, tags, brand roles, drafts, schedules, retries, and editor projects keep their media safe.",
+	"compose_schedule_needs_destination": "Connect a destination before scheduling. The calendar and time slots stay available after you choose where to publish.",
+	"compose_quick_schedule": "Quick options",
+	"compose_choose_date_time": "Choose a date and time",
+	"settings_danger_zone": "Danger zone"
 }

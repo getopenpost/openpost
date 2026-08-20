@@ -831,7 +831,10 @@
 		aria-labelledby="recovery-codes-title"
 	>
 		<div class="space-y-1">
-			<h4 id="recovery-codes-title" class="font-medium">
+			<p class="text-xs font-medium tracking-wide text-amber-700 uppercase dark:text-amber-300">
+				{recoveryCodeFlow === 'setup' ? m.settings_totp_setup_step_recovery() : m.settings_recovery_codes_regenerate_title()}
+			</p>
+			<h4 id="recovery-codes-title" class="text-base font-semibold">
 				{recoveryCodeFlow === 'setup'
 					? m.settings_recovery_codes_setup_title()
 					: m.settings_recovery_codes_regenerate_title()}
@@ -900,7 +903,15 @@
 			</div>
 		</div>
 
-		<div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+		<div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+			<Button
+				type="button"
+				variant="ghost"
+				onclick={discardRecoveryCodeStage}
+				disabled={securityBusy}
+			>
+				{m.settings_discard_recovery_codes()}
+			</Button>
 			<Button
 				type="button"
 				onclick={() => void activateRecoveryCodes()}
@@ -910,15 +921,10 @@
 					? m.settings_enable_authenticator()
 					: m.settings_replace_recovery_codes()}
 			</Button>
-			<Button
-				type="button"
-				variant="ghost"
-				onclick={discardRecoveryCodeStage}
-				disabled={securityBusy}
-			>
-				{m.settings_discard_recovery_codes()}
-			</Button>
 		</div>
+		<p class="text-xs text-muted-foreground">
+			{m.settings_recovery_codes_saved_help()}
+		</p>
 	</div>
 {/snippet}
 
@@ -1021,13 +1027,19 @@
 			{/if}
 		</div>
 
-		<div class="rounded-lg border p-4" data-testid="email-change-card">
-			<div class="mb-4">
-				<h3 class="font-medium">{m.settings_change_email()}</h3>
-				<p class="mt-1 text-sm leading-6 text-muted-foreground">
-					{m.settings_change_email_description()}
-				</p>
-			</div>
+		<details class="group rounded-lg border" data-testid="email-change-card" open={Boolean(emailChangePending)}>
+			<summary class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+				<div>
+					<h3 class="font-medium">{m.settings_change_email()}</h3>
+					<p class="mt-1 text-sm leading-6 text-muted-foreground">
+						{m.settings_change_email_description()}
+					</p>
+				</div>
+				<span class="ml-4 shrink-0 text-xs text-muted-foreground group-open:hidden"
+					>{m.common_edit()}</span
+				>
+			</summary>
+			<div class="border-t p-4">
 			<div class="mb-4 rounded-md border bg-muted/20 px-3 py-2">
 				<p class="text-xs text-muted-foreground">{m.settings_email_address()}</p>
 				<p class="mt-1 text-sm font-medium break-all">
@@ -1125,18 +1137,25 @@
 			{#if emailChangeError}
 				<InlineNotice tone="error" message={emailChangeError} class="mt-4" />
 			{/if}
-		</div>
-
-		<div class="rounded-lg border p-4">
-			<div class="mb-4">
-				<h3 class="flex items-center gap-2 font-medium">
-					<KeyRoundIcon class="h-4 w-4 text-muted-foreground" />
-					{m.settings_linked_identities()}
-				</h3>
-				<p class="mt-1 text-sm text-muted-foreground">
-					{m.settings_linked_identities_body()}
-				</p>
 			</div>
+		</details>
+
+		<details class="group rounded-lg border p-4" open={linkedIdentities.length > 0 || unlinkedProviders.length > 0}>
+			<summary class="flex cursor-pointer list-none items-center justify-between focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+				<div>
+					<h3 class="flex items-center gap-2 font-medium">
+						<KeyRoundIcon class="h-4 w-4 text-muted-foreground" />
+						{m.settings_linked_identities()}
+					</h3>
+					<p class="mt-1 text-sm text-muted-foreground">
+						{m.settings_linked_identities_body()}
+					</p>
+				</div>
+				<span class="ml-4 shrink-0 text-xs text-muted-foreground group-open:hidden"
+					>{m.common_edit()}</span
+				>
+			</summary>
+			<div class="pt-4">
 			<InlineNotice tone="info" message={m.settings_linked_identities_boundary()} class="mb-4" />
 
 			{#if passwordReauthUsable && (linkedIdentities.length || unlinkedProviders.length)}
@@ -1206,7 +1225,8 @@
 			{:else if linkedIdentities.length === 0}
 				<p class="text-sm text-muted-foreground">{m.settings_no_linkable_identities()}</p>
 			{/if}
-		</div>
+			</div>
+		</details>
 
 		<div class="grid gap-4 lg:grid-cols-2">
 			<div class="rounded-lg border p-4" data-testid="authenticator-security-card">
@@ -1290,21 +1310,27 @@
 					</div>
 				{:else}
 					<div class="space-y-3">
-						<div class="rounded-md border bg-muted/20 px-3 py-3" data-testid="totp-setup-steps">
-							<p class="mb-2 text-sm font-medium">
-								{m.settings_totp_setup_steps_label()}
-							</p>
-							<ol
-								class="list-decimal space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground marker:font-medium marker:text-foreground"
-							>
-								<li>{m.settings_totp_setup_step_choose()}</li>
-								<li>{m.settings_totp_setup_step_reauth()}</li>
-								<li>{m.settings_totp_setup_step_add()}</li>
-								<li>{m.settings_totp_setup_step_code()}</li>
-								<li>{m.settings_totp_setup_step_recovery()}</li>
-								<li>{m.settings_totp_setup_step_complete()}</li>
-							</ol>
-						</div>
+						{#if !totpSetupChallengeId && recoveryCodeFlow !== 'setup'}
+							<details class="rounded-md border bg-muted/20 px-3 py-3" data-testid="totp-setup-steps">
+								<summary class="cursor-pointer list-none text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+									{m.settings_totp_setup_steps_label()}
+								</summary>
+								<ol
+									class="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-5 text-muted-foreground marker:font-medium marker:text-foreground"
+								>
+									<li>{m.settings_totp_setup_step_choose()}</li>
+									<li>{m.settings_totp_setup_step_reauth()}</li>
+									<li>{m.settings_totp_setup_step_add()}</li>
+									<li>{m.settings_totp_setup_step_code()}</li>
+									<li>{m.settings_totp_setup_step_recovery()}</li>
+									<li>{m.settings_totp_setup_step_complete()}</li>
+								</ol>
+							</details>
+						{:else}
+							<div class="rounded-md border bg-muted/20 px-3 py-2 text-xs text-muted-foreground" data-testid="totp-setup-steps">
+								{m.settings_totp_setup_step_add()} → {m.settings_totp_setup_step_code()} → {m.settings_totp_setup_step_recovery()}
+							</div>
+						{/if}
 						{#if totpSetupError}
 							<InlineNotice tone="error" message={totpSetupError} />
 						{/if}

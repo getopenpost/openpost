@@ -185,31 +185,35 @@
 			{m.settings_manage_accounts()}
 		</Button>
 	</div>
-	{#if workspaceCtx.currentWorkspace?.role === 'admin'}
-		<div
-			class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
-		>
-			<div>
-				<p class="text-sm font-medium text-destructive">{m.workspace_delete_title()}</p>
-				<p class="text-sm text-muted-foreground">{m.workspace_delete_description()}</p>
+	{#if workspaceCtx.currentWorkspace?.role === 'admin' || (organizationOwner && onDeleteOrganization)}
+		<details class="group rounded-lg border border-destructive/30">
+			<summary class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+				<span class="text-sm font-medium text-destructive">{m.settings_danger_zone()}</span>
+				<span class="text-xs text-muted-foreground group-open:hidden">{m.common_edit()}</span>
+			</summary>
+			<div class="space-y-3 border-t p-4">
+				{#if workspaceCtx.currentWorkspace?.role === 'admin'}
+					<div class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p class="text-sm font-medium text-destructive">{m.workspace_delete_title()}</p>
+							<p class="text-sm text-muted-foreground">{m.workspace_delete_description()}</p>
+						</div>
+						<Button variant="destructive" class="shrink-0" onclick={onDelete}>
+							{m.workspace_delete_confirm()}
+						</Button>
+					</div>
+				{/if}
+				{#if organizationOwner && onDeleteOrganization}
+					<div class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p class="text-sm font-medium text-destructive">{m.organization_delete_title()}</p>
+							<p class="text-sm text-muted-foreground">{m.organization_delete_description()}</p>
+						</div>
+						<Button variant="destructive" class="shrink-0" onclick={onDeleteOrganization} >{m.organization_delete_confirm()}</Button>
+					</div>
+				{/if}
 			</div>
-			<Button variant="destructive" class="shrink-0" onclick={onDelete}>
-				{m.workspace_delete_confirm()}
-			</Button>
-		</div>
-	{/if}
-	{#if organizationOwner && onDeleteOrganization}
-		<div
-			class="flex flex-col gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 sm:flex-row sm:items-center sm:justify-between"
-		>
-			<div>
-				<p class="text-sm font-medium text-destructive">{m.organization_delete_title()}</p>
-				<p class="text-sm text-muted-foreground">{m.organization_delete_description()}</p>
-			</div>
-			<Button variant="destructive" class="shrink-0" onclick={onDeleteOrganization}
-				>{m.organization_delete_confirm()}</Button
-			>
-		</div>
+		</details>
 	{/if}
 </section>
 
@@ -265,14 +269,22 @@
 	</div>
 </section>
 
-<section id="media-cleanup" class="scroll-mt-24 space-y-4">
-	<SectionHeader title={m.settings_media_cleanup()} icon={ImageIcon} class="mb-4" />
-	<div class="rounded-xl border bg-muted/25 p-4">
-		<p class="text-sm font-medium">{m.settings_media_lifecycle_title()}</p>
-		<p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-			{m.settings_media_lifecycle_body()}
-		</p>
-	</div>
+<section id="media-cleanup" class="scroll-mt-24">
+	<details class="group rounded-xl border">
+		<summary class="flex cursor-pointer list-none items-center justify-between p-4 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+			<div class="flex items-center gap-3">
+				<ImageIcon class="size-4 text-muted-foreground" />
+				<span class="text-sm font-medium">{m.settings_media_cleanup()}</span>
+			</div>
+			<span class="text-xs text-muted-foreground group-open:hidden">{m.common_edit()}</span>
+		</summary>
+		<div class="border-t p-4">
+			<p class="text-sm font-medium">{m.settings_media_lifecycle_title()}</p>
+			<p class="mt-1 text-sm leading-relaxed text-muted-foreground">
+				{m.settings_media_lifecycle_body()}
+			</p>
+		</div>
+	</details>
 </section>
 
 <SettingsFormFooter

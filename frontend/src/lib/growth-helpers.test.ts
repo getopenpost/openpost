@@ -225,8 +225,10 @@ describe('growth-helpers', () => {
 		expect(growthRankBucket(9)).toBe('7-10');
 		expect(growthRankBucket(15)).toBe('11+');
 		expect(growthMutualBucket(0)).toBe('0');
+		expect(growthMutualBucket(1)).toBe('1');
 		expect(growthMutualBucket(2)).toBe('2-3');
-		expect(growthMutualBucket(10)).toBe('7+');
+		expect(growthMutualBucket(4)).toBe('4-6');
+		expect(growthMutualBucket(7)).toBe('7+');
 	});
 
 	it('StaleGuard ignores out-of-order responses', () => {

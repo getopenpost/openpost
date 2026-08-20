@@ -47,7 +47,9 @@
 	}
 
 	const moreActive = $derived(
-		pathname === '/analytics' ||
+		pathname === '/grow' ||
+			pathname.startsWith('/grow/') ||
+			pathname === '/analytics' ||
 			pathname.startsWith('/analytics/') ||
 			pathname === '/engagement' ||
 			pathname.startsWith('/engagement/') ||

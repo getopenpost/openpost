@@ -71,8 +71,9 @@ describe('GrowthProfileCard', () => {
 			onDismiss: vi.fn(),
 			onOpenProfile: vi.fn()
 		});
-		const btn = screen.getByRole('button', { name: /Following…/i });
+		const btn = screen.getByRole('button', { name: 'Following @jane' });
 		await expect.element(btn).toBeDisabled();
+		await expect.element(btn).toHaveTextContent('Following…');
 	});
 
 	it('shows Requested disabled when requested', async () => {

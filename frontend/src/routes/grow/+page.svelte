@@ -7,8 +7,7 @@ FORM: Flat bordered cards in Workshop list grammar, centered page-container rhyt
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
 <script lang="ts">
-	/* eslint-disable anti-slop/require-safety-comment-for-type-assertion */
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
@@ -44,7 +43,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 
 	type SocialAccount = components['schemas']['AccountResponse'];
-	type FollowUpdateView = components['schemas']['FollowUpdateView'];
 
 	let accounts = $state.raw<SocialAccount[]>([]);
 	let selectedAccountID = $state<string | null>(null);
@@ -59,19 +57,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	let inlineActionHandler: (() => void) | null = $state(null);
 	let toastMessage = $state('');
 	let toastTone = $state<'neutral' | 'success' | 'error'>('neutral');
+	let refreshQueued = $state(false);
 	const growthGuard = new StaleGuard();
 	const accountsGuard = new StaleGuard();
 	let pendingSessionIds = $state.raw<Set<string>>(new Set());
-	let terminalTimers = $state.raw<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+	let destroyed = false;
 	const shownGenerations = new Set<string>();
 	const openedWorkspaces = new Set<string>();
+	let accountsWorkspaceID = '';
 
 	const localeTag = $derived(getLocaleTag());
 	const workspaceID = $derived(workspaceCtx.currentWorkspace?.id ?? '');
 	const selectedAccount = $derived(
 		selectedAccountID ? accounts.find((a) => a.id === selectedAccountID) : undefined
 	);
-	const busy = $derived(isSyncBusy(syncState));
+	const busy = $derived(refreshQueued || isSyncBusy(syncState));
 	const hasPendingFollow = $derived(items.some((i) => i.follow_state === 'pending'));
 	const lastSuccessAt = $derived(syncState?.last_success_at ?? null);
 	const compatible = $derived(compatibleAccounts(accounts));
@@ -86,41 +86,39 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		lastSuccessAt ? m.grow_last_updated({ date: formatDate(lastSuccessAt) }) : ''
 	);
 
-	function clearTerminalTimers() {
-		for (const t of terminalTimers.values()) clearTimeout(t);
-		if (terminalTimers.size) terminalTimers = new Map();
-	}
-
 	function resetGrowthForSwitch() {
 		growthGuard.next();
-		clearTerminalTimers();
 		items = [];
 		syncState = null;
 		currentGenerationID = '';
 		inlineMessage = '';
 		pendingSessionIds = new Set();
+		refreshQueued = false;
 		loading = true;
 	}
 
-	// Single owner for workspace -> accounts loading. Initialized once on mount, then reacts to workspace changes.
 	onMount(async () => {
 		try {
 			if (!workspaceCtx.currentWorkspace) await workspaceCtx.initialize();
 		} catch {
-			// handled via accounts load
-		}
-		if (workspaceCtx.currentWorkspace?.id) {
-			await loadAccounts(workspaceCtx.currentWorkspace.id);
-		} else {
 			accountsLoading = false;
 			loading = false;
 		}
 	});
 
+	onDestroy(() => {
+		destroyed = true;
+	});
+
 	$effect(() => {
 		const wid = workspaceID;
-		if (!wid) return;
-		// This is the sole account loader; growth loading is owned by the account effect below.
+		if (!wid || wid === accountsWorkspaceID) return;
+		accountsWorkspaceID = wid;
+		accountsGuard.next();
+		resetGrowthForSwitch();
+		accounts = [];
+		selectedAccountID = null;
+		accountsLoading = true;
 		void loadAccounts(wid);
 	});
 
@@ -130,15 +128,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (!wid || !acc) return;
 		const accObj = accounts.find((a) => a.id === acc);
 		if (!accObj) return;
-		// Invalidate prior growth requests and terminal timers before fetching exact new key.
 		growthGuard.next();
-		clearTerminalTimers();
 		void loadGrowth(wid, acc);
 	});
 
 	// Polling via one-shot timer owned by effect with cleanup
 	$effect(() => {
-		const shouldPoll = shouldPollSync(syncState, hasPendingFollow);
+		const shouldPoll = refreshQueued || shouldPollSync(syncState, hasPendingFollow);
 		const wid = workspaceID;
 		const acc = selectedAccountID;
 		if (!shouldPoll || !wid || !acc) return;
@@ -156,12 +152,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		captureTelemetryEvent('growth opened', { platform_count: compatible.length });
 	});
 
-	// On workspace switch, clear shown generations for new workspace
-	$effect(() => {
-		void workspaceID;
-		// Keep openedWorkspaces as historical, but pendingSessionIds cleared on account switch already
-	});
-
 	async function loadAccounts(requestedWorkspaceID: string) {
 		const seq = accountsGuard.next();
 		accountsLoading = true;
@@ -171,7 +161,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			});
 			if (accountsGuard.isStale(seq)) return;
 			if (response.error) throw new Error('load failed');
-			const list = (response.data ?? []) as SocialAccount[];
+			const list = response.data ?? [];
 			// Ensure this response still belongs to current workspace
 			if (requestedWorkspaceID !== workspaceCtx.currentWorkspace?.id) return;
 			accounts = list;
@@ -203,8 +193,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
 	async function loadGrowth(ws: string, acc: string, isPoll = false) {
 		const seq = growthGuard.next();
-		const requestKeyWs = ws;
-		const requestKeyAcc = acc;
+		const requestKey = `${ws}:${acc}`;
 		if (!isPoll) {
 			loading = items.length === 0;
 			inlineMessage = '';
@@ -214,19 +203,14 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 				params: { query: { workspace_id: ws, account_id: acc } }
 			});
 			if (growthGuard.isStale(seq)) return;
-			// Guard against stale workspace/account responses
-			if (ws !== requestKeyWs || acc !== requestKeyAcc) return;
-			if (ws !== workspaceID || acc !== selectedAccountID) return;
-			if (response.error) throw response.error;
-			const data = response.data as {
-				items: RecommendationView[] | null;
-				sync_state: SyncStateView | null;
-				follow_updates: FollowUpdateView[] | null;
-			};
+			if (`${workspaceID}:${selectedAccountID ?? ''}` !== requestKey) return;
+			if (response.error || !response.data) throw response.error;
+			const data = response.data;
 			const newItems = data.items ?? [];
 			const newSync = data.sync_state ?? null;
 			const followUpdates = data.follow_updates ?? [];
 			syncState = newSync;
+			refreshQueued = newSync?.status === 'queued' || newSync?.status === 'refreshing';
 			currentGenerationID = newSync?.current_generation_id ?? '';
 
 			// Handle pending -> failed (failed stays in items with error)
@@ -255,38 +239,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 							...prior,
 							follow_state: upd.follow_state,
 							updated_at: upd.updated_at
-						} as RecommendationView);
+						});
 					}
 				}
 			}
 
 			if (toShowTerminal.length) {
-				// Show terminal cards briefly together with current items
-				mergedItems = [...mergedItems, ...toShowTerminal].sort((a, b) => 0);
+				mergedItems = [...mergedItems, ...toShowTerminal];
 				items = mergedItems;
 				const delay = terminalRemovalDelay();
-				if (delay === 0) {
-					// Immediate removal without animation
-					const ids = new Set(toShowTerminal.map((r) => r.id));
-					items = items.filter((it) => !ids.has(it.id));
-					pendingSessionIds = new Set([...pendingSessionIds].filter((id) => !ids.has(id)));
-				} else {
-					for (const r of toShowTerminal) {
-						const existing = terminalTimers.get(r.id);
-						if (existing) clearTimeout(existing);
-						const timer = setTimeout(() => {
-							if (growthGuard.isStale(seq)) return;
-							// Only remove if still on same account
-							if (selectedAccountID !== acc || workspaceID !== ws) return;
-							items = items.filter((it) => it.id !== r.id);
-							const next = new Set(pendingSessionIds);
-							next.delete(r.id);
-							pendingSessionIds = next;
-							terminalTimers.delete(r.id);
-						}, delay);
-						terminalTimers.set(r.id, timer);
-					}
+				if (delay > 0) {
+					await new Promise<void>((resolve) => window.setTimeout(resolve, delay));
 				}
+				if (destroyed || selectedAccountID !== acc || workspaceID !== ws) return;
+				const terminalIDs = new Set(toShowTerminal.map((item) => item.id));
+				items = items.filter((item) => !terminalIDs.has(item.id));
+				pendingSessionIds = new Set([...pendingSessionIds].filter((id) => !terminalIDs.has(id)));
 			} else {
 				items = mergedItems;
 				// Prune pendingSessionIds that resolved to failed (now visible) or no longer pending
@@ -370,8 +338,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	}
 
 	async function handleRefresh() {
-		if (!workspaceID || !selectedAccountID) return;
-		if (busy) return;
+		if (!workspaceID || !selectedAccountID || busy) return;
+		growthGuard.next();
+		refreshQueued = true;
 		try {
 			const res = await client.POST('/growth/refresh', {
 				body: { workspace_id: workspaceID, account_id: selectedAccountID }
@@ -380,18 +349,21 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 			if (syncState) {
 				syncState = { ...syncState, status: 'queued' };
 			} else {
-				syncState = {
+				const now = new Date().toISOString();
+				const queuedState: SyncStateView = {
 					id: '',
 					workspace_id: workspaceID,
 					social_account_id: selectedAccountID,
 					platform: selectedAccount?.platform ?? '',
 					status: 'queued',
 					current_generation_id: currentGenerationID,
-					created_at: new Date().toISOString(),
-					updated_at: new Date().toISOString()
-				} as SyncStateView;
+					created_at: now,
+					updated_at: now
+				};
+				syncState = queuedState;
 			}
 		} catch {
+			refreshQueued = false;
 			toastMessage = m.grow_refresh_failed();
 			toastTone = 'error';
 			setTimeout(() => (toastMessage = ''), 3000);
@@ -428,16 +400,10 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		if (!workspaceID) return;
 		const prev = items;
 		items = prev.filter((r) => r.id !== id);
-		// Also prune pending session and terminal timer if present
 		if (pendingSessionIds.has(id)) {
 			const next = new Set(pendingSessionIds);
 			next.delete(id);
 			pendingSessionIds = next;
-		}
-		const t = terminalTimers.get(id);
-		if (t) {
-			clearTimeout(t);
-			terminalTimers.delete(id);
 		}
 		try {
 			const res = await client.POST('/growth/{recommendation_id}/dismiss', {

@@ -207,7 +207,10 @@ func TestMediaBearerQueryAuthorizationAndCachePolicy(t *testing.T) {
 	_, err := fmt.Sscanf(signedResponse.Header().Get("Cache-Control"), "public, max-age=%d", &signedMaxAge)
 	require.NoError(t, err)
 	require.Greater(t, signedMaxAge, int64(0))
-	require.LessOrEqual(t, signedMaxAge, expiresAt.Unix()-time.Now().UTC().Unix())
+	// Use captured assertion time with one-second tolerance: the signed max-age is computed from
+	// expiresAt at request time, but time.Now() here may have crossed a second boundary.
+	assertNow := time.Now().UTC()
+	require.LessOrEqual(t, signedMaxAge, expiresAt.Unix()-assertNow.Unix()+1)
 	require.Equal(t, "https://app.openpost.test", signedResponse.Header().Get(echo.HeaderAccessControlAllowOrigin))
 	require.Equal(t, "Origin", signedResponse.Header().Get(echo.HeaderVary))
 }

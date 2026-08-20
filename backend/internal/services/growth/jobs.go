@@ -96,6 +96,7 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return err
 	}
+	now := s.now()
 	if state == nil {
 		acct, err := s.resolveAccount(ctx, p.WorkspaceID, p.SocialAccountID)
 		if err != nil {
@@ -107,11 +108,33 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 			SocialAccountID: acct.ID,
 			Platform:        acct.Platform,
 			Status:          models.GrowthSyncStatusRefreshing,
+			LastAttemptedAt: now,
+			CreatedAt:       now,
+			UpdatedAt:       now,
 		}
-	}
-	now := s.now()
-	if _, err := s.db.NewUpdate().Model(state).Set("status = ?", models.GrowthSyncStatusRefreshing).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(ctx); err != nil {
-		return fmt.Errorf("mark growth refreshing: %w", err)
+		err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			_, err := tx.NewInsert().Model(state).On("CONFLICT DO NOTHING").Exec(txCtx)
+			if err != nil {
+				return err
+			}
+			reloaded, reloadErr := s.loadSyncState(txCtx, p.SocialAccountID)
+			if reloadErr != nil {
+				return reloadErr
+			}
+			*state = *reloaded
+			_, err = tx.NewUpdate().Model(state).Set("status = ?", models.GrowthSyncStatusRefreshing).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(txCtx)
+			if err != nil {
+				return fmt.Errorf("mark growth refreshing: %w", err)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		if _, err := s.db.NewUpdate().Model(state).Set("status = ?", models.GrowthSyncStatusRefreshing).Set("last_attempted_at = ?", now).Set("updated_at = ?", now).WherePK().Exec(ctx); err != nil {
+			return fmt.Errorf("mark growth refreshing: %w", err)
+		}
 	}
 
 	account, err := s.resolveAccount(ctx, p.WorkspaceID, p.SocialAccountID)
@@ -183,8 +206,9 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 				followState := existing.FollowState
 				followCode := existing.FollowErrorCode
 				followMsg := existing.FollowErrorMessage
-				if isTerminalFollowState(followState) || !dismissed.IsZero() {
-					// keep terminal/dismissed state
+				// Preserve only following, requested, and dismissed across generations; reset failed to idle.
+				if (followState == models.GrowthRecommendationFollowFollowing || followState == models.GrowthRecommendationFollowRequested) || !dismissed.IsZero() {
+					// keep terminal following/requested or dismissed
 				} else {
 					followState = models.GrowthRecommendationFollowIdle
 					followCode = ""
@@ -300,6 +324,10 @@ func (s *Service) recordDiscoveryFailure(ctx context.Context, state *models.Grow
 }
 
 func (s *Service) handleFollow(ctx context.Context, p growthFollowPayload) error {
+	exec, ok := providerwrite.JobExecutionFromContext(ctx)
+	if !ok || exec.ID == "" {
+		return fmt.Errorf("growth follow requires durable job execution context")
+	}
 	var rec models.GrowthRecommendation
 	if err := s.db.NewSelect().Model(&rec).Where("id = ? AND workspace_id = ?", p.RecommendationID, p.WorkspaceID).Scan(ctx); err != nil {
 		return err
@@ -320,16 +348,13 @@ func (s *Service) handleFollow(ctx context.Context, p growthFollowPayload) error
 	}
 
 	fingerprint, err := providerwrite.Fingerprint("growth_follow_v1", map[string]string{
-		"workspace_id": p.WorkspaceID, "recommendation_id": p.RecommendationID, "remote_id": rec.RemoteAccountID,
+		"workspace_id": rec.WorkspaceID, "social_account_id": account.ID, "remote_account_id": rec.RemoteAccountID, "action": "growth_follow",
 	})
 	if err != nil {
 		return s.persistFollowFailure(ctx, &rec, "failed", "fingerprint_error", "could not fingerprint")
 	}
-	operationID := "growth_follow:" + rec.ID
-	jobID := ""
-	if exec, ok := providerwrite.JobExecutionFromContext(ctx); ok {
-		jobID = exec.ID
-	}
+	operationID := "growth_follow:" + exec.ID
+	jobID := exec.ID
 	input := providerwrite.Input{
 		OperationID: operationID, JobID: jobID, WorkspaceID: rec.WorkspaceID,
 		SocialAccountID: account.ID, TargetKey: providerKeyForAccount(account),

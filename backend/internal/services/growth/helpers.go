@@ -2,6 +2,7 @@ package growth
 
 import (
 	"errors"
+	"net/url"
 	"strings"
 
 	"github.com/openpost/backend/internal/models"
@@ -19,16 +20,39 @@ func isTerminalFollowState(state string) bool {
 
 func safeURL(raw string) string {
 	raw = strings.TrimSpace(raw)
-	if raw == "" {
+	if raw == "" || len(raw) > 2048 {
 		return ""
 	}
-	if len(raw) > 2048 {
+	parsed, err := parseAndValidateHTTPSURL(raw)
+	if err != nil {
 		return ""
 	}
-	if !(strings.HasPrefix(raw, "https://") || strings.HasPrefix(raw, "http://")) {
-		return ""
+	return parsed
+}
+
+func parseAndValidateHTTPSURL(raw string) (string, error) {
+	u, err := parseURL(raw)
+	if err != nil {
+		return "", err
 	}
-	return raw
+	if u.Scheme != "https" {
+		return "", errors.New("https required")
+	}
+	if u.Host == "" {
+		return "", errors.New("host required")
+	}
+	if u.User != nil {
+		return "", errors.New("credentials not allowed")
+	}
+	return u.String(), nil
+}
+
+func parseURL(raw string) (*url.URL, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	return parsed, nil
 }
 
 func boundedText(s string, limit int) string {

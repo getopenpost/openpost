@@ -5774,6 +5774,33 @@
 				"required": ["job_id", "status", "message"],
 				"type": "object"
 			},
+			"FollowUpdateView": {
+				"additionalProperties": false,
+				"properties": {
+					"follow_error_code": {
+						"type": "string"
+					},
+					"follow_error_message": {
+						"type": "string"
+					},
+					"follow_state": {
+						"enum": ["following", "requested"],
+						"type": "string"
+					},
+					"generation_id": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					}
+				},
+				"required": ["id", "follow_state", "updated_at", "generation_id"],
+				"type": "object"
+			},
 			"GenerateMediaAltTextInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -8228,6 +8255,12 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"follow_updates": {
+						"items": {
+							"$ref": "#/components/schemas/FollowUpdateView"
+						},
+						"type": ["array", "null"]
+					},
 					"items": {
 						"items": {
 							"$ref": "#/components/schemas/RecommendationView"
@@ -8238,7 +8271,7 @@
 						"$ref": "#/components/schemas/SyncStateView"
 					}
 				},
-				"required": ["items", "sync_state"],
+				"required": ["items", "sync_state", "follow_updates"],
 				"type": "object"
 			},
 			"ListStockProvidersOutputBody": {
@@ -12490,6 +12523,7 @@
 						"type": "string"
 					},
 					"follow_state": {
+						"enum": ["idle", "pending", "following", "requested", "failed"],
 						"type": "string"
 					},
 					"followers_count": {
@@ -15367,6 +15401,16 @@
 						"type": "string"
 					},
 					"status": {
+						"enum": [
+							"idle",
+							"queued",
+							"refreshing",
+							"ok",
+							"permission_required",
+							"rate_limited",
+							"temporarily_unavailable",
+							"failed"
+						],
 						"type": "string"
 					},
 					"updated_at": {

@@ -6767,6 +6767,16 @@ export interface components {
             /** @description Pending follow status */
             status: string;
         };
+        FollowUpdateView: {
+            follow_error_code?: string;
+            follow_error_message?: string;
+            /** @enum {string} */
+            follow_state: "following" | "requested";
+            generation_id: string;
+            id: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         GenerateMediaAltTextInputBody: {
             /**
              * Format: uri
@@ -7791,6 +7801,7 @@ export interface components {
              * @example https://example.com/schemas/ListResult.json
              */
             readonly $schema?: string;
+            follow_updates: components["schemas"]["FollowUpdateView"][] | null;
             items: components["schemas"]["RecommendationView"][] | null;
             sync_state: components["schemas"]["SyncStateView"];
         };
@@ -9625,7 +9636,8 @@ export interface components {
             display_name: string;
             follow_error_code?: string;
             follow_error_message?: string;
-            follow_state: string;
+            /** @enum {string} */
+            follow_state: "idle" | "pending" | "following" | "requested" | "failed";
             /** Format: int64 */
             followers_count: number;
             /** Format: int64 */
@@ -10843,7 +10855,8 @@ export interface components {
             last_success_at?: string;
             platform: string;
             social_account_id: string;
-            status: string;
+            /** @enum {string} */
+            status: "idle" | "queued" | "refreshing" | "ok" | "permission_required" | "rate_limited" | "temporarily_unavailable" | "failed";
             /** Format: date-time */
             updated_at: string;
             workspace_id: string;

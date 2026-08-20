@@ -15,6 +15,20 @@ If you cancel authorization or the provider cannot finish the connection, OpenPo
 
 Account management is available directly at `/accounts` and inside **Settings → Social accounts**. Both views use the same Workspace-scoped controls and preserve the current URL while you work. OAuth cancellation and error feedback is shown once on the view you return to, then removed from the URL so refresh and browser history do not repeat stale feedback.
 
+## Optional features per connected account
+
+Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. Each feature starts off for a newly connected account.
+
+After a new connection, OpenPost shows the features that this account supports. You can enable any of them, keep all off, and change them later in Account details. The setup page may group Direct messages and Comments and replies under an Inbox heading, but OpenPost saves and enforces them as separate choices.
+
+Enabling a feature queues an initial durable refresh for that account. Disabling a feature stops future provider reads and writes for that account without deleting previously collected messages, replies, metrics, or recommendations and without revoking provider authorization. Use provider settings or account removal to revoke provider authorization.
+
+Whether a feature is available depends on three distinct facts: provider support for that account, required provider scopes, and plan access. An unsupported feature is omitted. A missing scope tells you to reconnect with additional permission. A plan restriction stays a billing matter and does not imply that reconnecting will fix it.
+
+Grow shows recommendations for eligible accounts and never follows any account automatically. Each follow remains an explicit action and requires Grow to stay enabled.
+
+Existing accounts keep their current behavior after upgrade. Previous Inbox opt-ins become Direct messages choices, current Analytics and Engagement behavior remains enabled, Grow becomes enabled only where OpenPost already has stored Grow sync state for that account, and other accounts receive explicit off choices so the prompt does not appear on routine reauthorization.
+
 ## Notes
 
 - OpenPost stores provider tokens, app passwords, and webhook credentials encrypted at rest. One saved authorization can serve several destinations, such as a LinkedIn member and the organizations that member manages.

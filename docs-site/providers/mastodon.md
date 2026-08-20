@@ -61,11 +61,20 @@ MASTODON_SERVERS='[
 
 ## Analytics
 
-OpenPost collects follower, following, and post totals from the connected instance. It also collects favourites, replies, and reblogs for published posts and thread segments. Instance software and policy determine which counters are returned.
+Analytics is an optional feature per connected Mastodon account. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects follower, following, and post totals from the connected instance and favourites, replies, and reblogs for published posts and thread segments when enabled. Instance software and policy determine which counters are returned. Disabling Analytics stops future Mastodon analytics collection without deleting stored metrics or revoking authorization.
 
 ## Comments and inbox
 
-OpenPost can list replies, send replies, favourite or unfavourite replies, and delete replies posted by the connected account. You can turn on inbox collection for direct-visibility posts. Mastodon direct posts are not end-to-end encrypted; mentioned accounts and involved servers can read them.
+Direct messages and Comments and replies are separate optional features per connected Mastodon account. Each starts off for a new account. Enable them after connection or in Account details.
+
+- Comments and replies: OpenPost can list replies, send replies, favourite or unfavourite replies, and delete replies posted by the connected account when enabled. Disabling it stops future Mastodon comment collection and reply actions without deleting stored replies or revoking authorization.
+- Direct messages: OpenPost can collect direct-visibility posts when enabled. Mastodon direct posts are not end-to-end encrypted; mentioned accounts and involved servers can read them. Disabling it stops future message collection without deleting stored messages or revoking authorization.
+
+Availability for each feature depends on provider support, required scopes, and plan access as distinct facts.
+
+## Grow
+
+Grow is an optional feature per connected Mastodon account. It starts off for a new account. Enable it after connection or in Account details to discover candidates and follow them through OpenPost. Disabling Grow stops future discovery and follow checks without deleting stored recommendations or revoking authorization. OpenPost never follows automatically, each follow remains an explicit action and requires Grow to stay enabled.
 
 ## Notes
 

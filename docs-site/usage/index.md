@@ -23,8 +23,9 @@ The web app is the main place to work.
 - [Threads](/usage/threads) covers multi-post sequences.
 - [Scheduling](/usage/scheduling) covers posting times, status, and errors.
 - [Auto Reposts](/usage/auto-reposts) covers native repost rules, engagement gates, delays, per-post overrides, and cross-workspace account access.
-- [Analytics](/usage/analytics) covers account growth, post results, platform access, and update times.
-- [Engagement, Inbox, and Notifications](/usage/communications) covers comments, replies, messages, and alerts.
+- [Analytics](/usage/analytics) covers account growth, post results, platform access, and update times. Analytics is an optional feature per connected account and starts off.
+- [Engagement, Inbox, and Notifications](/usage/communications) covers comments, replies, messages, and alerts. Direct messages and Comments and replies are separate optional features per connected account and start off.
+- [Grow](/usage/grow) covers recommendations for Bluesky and Mastodon. Grow is an optional feature per connected account, starts off, and never follows automatically.
 - [Media](/usage/media-library) covers reusable files, designs, templates, brand items, tags, file sources, use checks, and safe cleanup.
 - [OpenPost Studio](/usage/studio) helps you choose between the image and video editing workflows.
 - [OpenPost Image Editor](/usage/image-editor) covers the no-account editor, multi-page still-image designs, saved versions, background removal, export, and return to the post editor.

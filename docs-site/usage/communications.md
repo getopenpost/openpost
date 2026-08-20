@@ -4,7 +4,11 @@ This page is for people reviewing and responding to saved engagement and message
 
 OpenPost checks social networks in the background and saves the results. The Engagement and Messages pages read saved data, so a slow or unavailable network does not block the page.
 
+Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. Each feature starts off for a newly connected account. Choose them after connection or in Account details. Disabling a feature stops future provider reads and writes without deleting history or revoking provider authorization. Provider support, required scopes, and plan access remain distinct. Grow never follows automatically. Existing accounts keep their current behavior after upgrade.
+
 ## Engagement
+
+Comments and replies is an optional feature per connected account. It starts off for a newly connected account. Enable it after connection or in Account details to let OpenPost collect replies for eligible published Renditions. Disabling it stops future collection and provider actions for that account without deleting stored replies and without revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Existing accounts keep current Engagement behavior after upgrade.
 
 The Engagement page brings comments and replies from supported posts into one list. It only shows the actions that each platform supports.
 
@@ -27,7 +31,7 @@ OpenPost checks new posts more often and older posts less often. It keeps the la
 
 ## Unified inbox
 
-Inbox connectors are available for X, Bluesky, Facebook Pages, Instagram Professional accounts, and Mastodon direct-visibility posts. Each connected account starts with inbox sync **off**. An editor must opt in from the account details screen before OpenPost collects conversations.
+Inbox connects Direct messages and Comments and replies as two separate per-account choices that may appear together under an Inbox heading. Direct messages is an optional feature per connected account and starts off for a newly connected account. Enable it after connection or in Account details to let OpenPost collect conversations and send messages for that account. Disabling it stops future message collection and sending for that account without deleting stored messages and without revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Existing Inbox opt-ins become Direct messages choices after upgrade, and other accounts receive explicit off choices. Inbox connectors for Direct messages are available for X, Bluesky, Facebook Pages, Instagram Professional accounts, and Mastodon direct-visibility posts.
 
 The inbox saves conversations, messages, file links, send status, and reply deadlines. It does not save full platform replies or tokens. If a platform sends the same message ID twice, OpenPost saves it once.
 
@@ -42,7 +46,7 @@ Important provider behavior:
 - Bluesky chat requires an app-password session.
 - X requires the app and connected account to have direct-message access.
 
-OpenPost now checks supported platform APIs on a timer. Messaging stays separate from publishing, so more inbox platforms and file types can be added later.
+OpenPost only checks supported platform APIs for accounts where the feature is enabled, and it checks the effective state again before a Job contacts the provider. Direct messages and Comments and replies are enforced separately. Messaging stays separate from publishing, so more inbox platforms and file types can be added later.
 
 ## Personal notifications
 

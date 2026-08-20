@@ -37,11 +37,16 @@ OpenPost streams images and videos to X through the OAuth 1.0a media upload API.
 
 ## Analytics
 
-OpenPost stores account followers, following, and post totals, plus published-post likes, replies, reposts, quotes, bookmarks, and impressions. These reads use the same OAuth 1.0a account connection and remain subject to X API access and limits.
+Analytics is an optional feature per connected X account. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects account followers, following, and post totals plus published-post likes, replies, reposts, quotes, bookmarks, and impressions when enabled. These reads use the same OAuth 1.0a account connection and remain subject to X API access and limits. Disabling Analytics stops future X analytics collection without deleting stored metrics or revoking authorization.
 
 ## Comments and inbox
 
-OpenPost can list replies, send replies, like or unlike replies, and delete replies posted by the connected account. You can also turn on inbox collection for direct messages. The X app and account must have Direct Messages access, and an older connection may need to be reconnected.
+Direct messages and Comments and replies are separate optional features per connected X account. Each starts off for a new account. Enable them after connection or in Account details.
+
+- Comments and replies: OpenPost can list replies, send replies, like or unlike replies, and delete replies posted by the connected account when enabled. Disabling it stops future X comment collection and reply actions without deleting stored replies or revoking authorization.
+- Direct messages: OpenPost can collect and send direct messages when enabled. The X app and account must have Direct Messages access, and an older connection may need to be reconnected. Disabling it stops future message collection and sending without deleting stored messages or revoking authorization.
+
+Grow is not available for X. Availability for each supported feature depends on provider support, required scopes, and plan access as distinct facts.
 
 ## Local development callback
 

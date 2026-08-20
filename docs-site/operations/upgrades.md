@@ -19,3 +19,7 @@ docker compose logs -f openpost
 - If you want to lock down signups after setup, set `OPENPOST_DISABLE_REGISTRATIONS=true` before or after the upgrade and restart OpenPost.
 - Check `/api/v1/ready`
 - Check scheduled posts, Activity, and recent logs
+
+## Optional account features after upgrade
+
+Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. New accounts start with each feature off and the setup step shows only supported features. Existing accounts keep their current behavior: previous Inbox opt-ins become Direct messages choices, current Analytics and Engagement behavior remains enabled, Grow becomes enabled only where OpenPost already has stored Grow sync state, and other accounts receive explicit off choices so the prompt does not appear on routine reauthorization.

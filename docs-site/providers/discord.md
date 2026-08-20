@@ -20,6 +20,10 @@ OpenPost sends the text and files together and saves the Discord message ID. Use
 
 OpenPost only accepts HTTPS webhook links on Discord domains. It rejects unsafe or fake links.
 
+## Optional features
+
+Discord webhooks do not support Direct messages, Comments and replies, Analytics, or Grow. OpenPost only publishes through the webhook. These per-account optional features remain unavailable for Discord even when enabled elsewhere.
+
 ## Limits
 
 Discord sets the upload limit for the server or account that owns the webhook. OpenPost checks the file count and uses a safe 10 MiB limit, but Discord can enforce a different limit.

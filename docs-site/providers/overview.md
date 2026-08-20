@@ -59,6 +59,10 @@ This matrix reflects implemented OpenPost code paths, not the full theoretical c
 | YouTube   | No         | No          | Comment replies             | Yes             | One Short or video with title, description, and privacy options | Yes              | Channel and video numbers                            |
 | Discord   | Yes        | Yes         | Reply links between parts   | Yes             | Yes, within the webhook's file-size limit                       | Yes              | No analytics                                         |
 
+Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. Each feature starts off for a newly connected account. Enable supported features after connection or in Account details. Disabling a feature stops future provider reads and writes without deleting stored history or revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Grow never follows automatically. Existing accounts keep their current behavior after upgrade. Use each provider page to see which optional features that provider supports.
+
+Grow discovery and follow are available only for Bluesky and Mastodon. Inbox Direct messages are available for X, Bluesky, Facebook Pages, Instagram Professional accounts, and Mastodon. Engagement Comments and replies are available for X, Mastodon, Bluesky, LinkedIn, Threads, Facebook Pages, Instagram, and YouTube. Analytics is available for X, Mastodon, Bluesky, LinkedIn, Threads, Facebook, Instagram, TikTok, and YouTube. Discord webhooks support none of these optional features.
+
 ## Notes for each network
 
 - **X:** Requires an X developer app with OAuth 1.0a user auth enabled and matching callback URLs.
@@ -74,6 +78,6 @@ This matrix reflects implemented OpenPost code paths, not the full theoretical c
 
 Social network API rules, access, request limits, and app review can change. Check that network's docs if a feature stops working.
 
-See [Analytics](/usage/analytics) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage.
+See [Analytics](/usage/analytics) for collection timing, metric definitions, reconnect requirements, and provider-specific coverage. See [Accounts](/usage/accounts), [Engagement, Inbox, and Notifications](/usage/communications), and [Grow](/usage/grow) for the per-account optional feature model.
 
 Native auto reposts are currently available for X, Mastodon, Bluesky, and LinkedIn. OpenPost reposts only within the source network; it never turns a repost into a copied post on another network. See [Auto Reposts](/usage/auto-reposts) for rule and account-access details.

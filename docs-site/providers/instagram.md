@@ -51,9 +51,12 @@ If `redirect_uri` is omitted, OpenPost derives it from `OPENPOST_APP_URL`.
 - Publishes a single video URL as a Reel.
 - Lets you choose a Reel cover frame or upload a separate cover image from destination settings.
 - Publishes 2-10 media items as a carousel when multiple compatible media items are attached.
-- Publishes Stories and lists, replies to, hides, and deletes eligible comments.
-- Supports opt-in inbox collection and replies within Meta's reply window.
+- Publishes Stories and lists, replies to, hides, and deletes eligible comments when Comments and replies is enabled for that account.
+- Supports inbox collection for Direct messages when enabled and replies within Meta's reply window. Direct messages and Comments and replies are separate per-account choices that start off.
+- Grow is not available for Instagram.
 - Supports scheduling and platform variants through the normal OpenPost post flow.
+
+Direct messages, Comments and replies, and Analytics are optional and per connected account. Disabling a feature stops future provider reads and writes without deleting history or revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.
 
 ## Current Limits
 
@@ -64,7 +67,7 @@ If `redirect_uri` is omitted, OpenPost derives it from `OPENPOST_APP_URL`.
 
 ## Analytics
 
-OpenPost collects account followers and media count, plus post likes, comments, and the views, reach, saves, and shares that Meta returns for the media type. Reconnect accounts created before `instagram_manage_insights` was added.
+Analytics is an optional feature per connected Instagram account. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects account followers and media count plus post likes, comments, and the views, reach, saves, and shares that Meta returns for the media type when enabled. Reconnect accounts created before `instagram_manage_insights` was added. Disabling Analytics stops future Instagram analytics collection without deleting stored metrics or revoking authorization.
 
 ## Troubleshooting
 

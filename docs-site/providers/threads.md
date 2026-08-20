@@ -28,11 +28,11 @@ For a carousel, OpenPost prepares each media item before it publishes the full c
 
 ## Comments
 
-OpenPost can list replies, send replies, and hide replies. The Threads API path in OpenPost does not delete replies. Threads messages are not part of the OpenPost inbox.
+Comments and replies is an optional feature per connected Threads account. It starts off for a new account. Enable it after connection or in Account details. OpenPost can list replies, send replies, and hide replies when enabled. The Threads API path in OpenPost does not delete replies. Threads does not support Direct messages in OpenPost, and Grow is not available for Threads. Disabling Comments and replies stops future Threads comment collection and reply actions without deleting stored replies or revoking authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.
 
 ## Analytics
 
-OpenPost collects follower counts and supported post views, likes, replies, reposts, quotes, and shares. Accounts connected before `threads_manage_insights` was added must be reconnected before collection can start.
+Analytics is an optional feature per connected Threads account. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects follower counts and supported post views, likes, replies, reposts, quotes, and shares when enabled. Accounts connected before `threads_manage_insights` was added must be reconnected before collection can start. Disabling Analytics stops future Threads analytics collection without deleting stored metrics or revoking authorization.
 
 ## Location tags
 

@@ -40,7 +40,9 @@ Example `OPENPOST_PROVIDER_APPS` entry:
 
 ## Analytics
 
-OpenPost uses `user.info.stats` for follower, following, likes, and video totals. It uses `video.list` for published-video likes, comments, shares, and views. Reconnect accounts created before these scopes were added.
+Analytics is an optional feature per connected TikTok account. It starts off for a new account. Enable it after connection or in Account details. OpenPost uses `user.info.stats` for follower, following, likes, and video totals and `video.list` for published-video likes, comments, shares, and views when enabled. Reconnect accounts created before these scopes were added. Disabling Analytics stops future TikTok analytics collection without deleting stored metrics or revoking authorization.
+
+Direct messages, Comments and replies, and Grow are not available for TikTok. Analytics availability depends on provider support, required scopes, and plan access as distinct facts.
 
 ## Common issues
 

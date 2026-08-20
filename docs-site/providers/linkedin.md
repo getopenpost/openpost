@@ -32,7 +32,7 @@ OpenPost defaults `LINKEDIN_API_VERSION` to the previous calendar month to avoid
 
 LinkedIn thread child posts are implemented as comments on the first post rather than native threaded posts.
 
-OpenPost can list comments, send replies, and delete comments where LinkedIn grants access. LinkedIn messages are not part of the OpenPost inbox.
+Comments and replies is an optional feature per connected LinkedIn account. It starts off for a new account. Enable it after connection or in Account details. OpenPost can list comments, send replies, and delete comments where LinkedIn grants access when enabled. LinkedIn does not support Direct messages in OpenPost, and Grow is not available for LinkedIn. Disabling Comments and replies stops future LinkedIn comment collection and reply actions without deleting stored replies or revoking authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.
 
 ## Media caveat
 
@@ -40,12 +40,12 @@ OpenPost uses LinkedIn's Images API for images and Videos API for videos. Video 
 
 ## Analytics
 
-LinkedIn analytics require Community Management API access, so the operator must turn on Organization support and use an approved app. With that access:
+Analytics is an optional feature per connected LinkedIn account. It starts off for a new account. Enable it after connection or in Account details. LinkedIn analytics require Community Management API access, so the operator must turn on Organization support and use an approved app. With that access and when enabled:
 
 - personal profiles can return followers plus post impressions, reach, reactions, comments, reposts, saves, and link clicks;
 - Organization Pages can return followers plus the post numbers that LinkedIn provides.
 
-The connected account also needs `r_member_profileAnalytics` and `r_member_postAnalytics` for profile analytics or `rw_organization_admin` for Organization Page analytics.
+The connected account also needs `r_member_profileAnalytics` and `r_member_postAnalytics` for profile analytics or `rw_organization_admin` for Organization Page analytics. Disabling Analytics stops future LinkedIn analytics collection without deleting stored metrics or revoking authorization.
 
 ## Common issues
 

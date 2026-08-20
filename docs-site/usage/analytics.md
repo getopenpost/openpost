@@ -2,7 +2,9 @@
 
 Use this page when reviewing saved account and Publication results.
 
-OpenPost saves the account and post numbers that each platform provides. The Analytics page reads saved data, so it does not wait for each platform to reply.
+Analytics is an optional feature per connected account. It starts off for a newly connected account. Enable it after connection or in Account details to let OpenPost collect account and Publication metrics for that account. Disabling it stops future account and Rendition metric collection for that account without deleting stored metrics and without revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Existing accounts keep current Analytics behavior after upgrade. The Analytics page reads saved data, so it does not wait for each platform to reply.
+
+OpenPost saves the account and post numbers that each platform provides when the feature is enabled.
 
 ## What the page shows
 
@@ -19,7 +21,7 @@ A missing number is not shown as zero. Platforms define these numbers in differe
 
 ## Collection timing
 
-OpenPost updates analytics in the background. No Redis service is required.
+OpenPost updates analytics in the background for accounts where the feature is enabled. No Redis service is required.
 
 - Account numbers start with one update per day.
 - Posts under 6 hours old update each hour.
@@ -44,10 +46,10 @@ If the numbers do not change, OpenPost checks less often, up to eight times the 
 | TikTok                          | Followers, following, likes, videos | Likes, comments, shares, views                                                                                                                   | Requires `user.info.stats` and `video.list`.                                                      |
 | YouTube                         | Subscribers, videos, channel views  | Video views, likes, comments                                                                                                                     | Hidden subscriber counts may be unavailable.                                                      |
 
-You may need to reconnect Instagram, Threads, or TikTok accounts that were added before OpenPost requested analytics access. OpenPost keeps the last good result while you restore access.
+You may need to reconnect Instagram, Threads, or TikTok accounts that were added before OpenPost requested analytics access. OpenPost keeps the last good result while you restore access. A plan restriction is shown separately and does not imply that reconnecting will fix billing access.
 
 ## Stored data
 
 OpenPost saves the numbers it needs and their update status. Analytics records do not store full platform replies, access tokens, post text, or direct messages.
 
-Analytics and the inbox are separate. The opt-in inbox can collect messages from X, Bluesky, Facebook Pages, Instagram, and Mastodon. See [Engagement, Inbox, and Notifications](/usage/communications).
+Analytics, Direct messages, Comments and replies, and Grow are separate per-account choices. The opt-in inbox can collect Direct messages from X, Bluesky, Facebook Pages, Instagram, and Mastodon when enabled. See [Engagement, Inbox, and Notifications](/usage/communications) and [Accounts](/usage/accounts). Grow shows recommendations for eligible accounts and never follows automatically.

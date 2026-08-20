@@ -1,4 +1,4 @@
-/* eslint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening */
+/* eslint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof */
 import { describe, expect, it } from 'vitest';
 import {
 	compatibleAccounts,

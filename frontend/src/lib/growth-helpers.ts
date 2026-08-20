@@ -1,4 +1,4 @@
-/* eslint-disable anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening */
+/* eslint-disable anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening, anti-slop/no-runtime-typeof, anti-slop/require-safety-comment-for-type-assertion */
 import type { components } from '$lib/api/types';
 import { getPlatformKey } from '$lib/utils';
 

@@ -20,6 +20,7 @@ import (
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/feedback"
+	growthservice "github.com/openpost/backend/internal/services/growth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/openpost/backend/internal/services/imagecaption"
 	"github.com/openpost/backend/internal/services/instancesettings"
@@ -97,6 +98,7 @@ type RouteDeps struct {
 	OrganizationOwnershipService *organizationownership.Service
 	UpdateStatusService          *updatestatus.Service
 	ProviderReadinessService     *providerreadiness.Service
+	GrowthService                *growthservice.Service
 	AppVersion                   string
 	AppRevision                  string
 	Edition                      string
@@ -263,6 +265,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	handlers.NewAnalyticsHandler(deps.DB, deps.Authenticator, deps.AnalyticsService).RegisterRoutes(api)
 	handlers.NewEngagementMessagingHandler(deps.Authenticator, deps.MessagingService, deps.EngagementService).RegisterRoutes(api)
 	handlers.NewNotificationHandler(deps.DB, deps.Authenticator, deps.NotificationService).RegisterRoutes(api)
+	handlers.NewGrowthHandler(deps.GrowthService, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewInstanceAdminHandler(
 		deps.DB,
 		deps.Authenticator,

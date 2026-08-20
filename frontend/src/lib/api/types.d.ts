@@ -1853,6 +1853,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/growth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List growth recommendations
+         * @description Returns DB-only growth recommendations for one connected social account. Growth recommendations belong to one social_account_id, not merely a workspace.
+         */
+        get: operations["list-growth-recommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/growth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Queue growth discovery refresh
+         * @description Queues a durable discovery job for one social account. Uses provider reads with retry/requeue. Does not block on provider.
+         */
+        post: operations["refresh-growth-recommendations"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/growth/{recommendation_id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a growth recommendation
+         * @description Locally dismisses a recommendation. Dismissed items never reappear after refresh.
+         */
+        post: operations["dismiss-growth-recommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/growth/{recommendation_id}/follow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Follow a recommended account
+         * @description Queues a one-attempt provider write through the durable providerwrite fence. Never retries ambiguous writes.
+         */
+        post: operations["follow-growth-recommendation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -6354,6 +6434,26 @@ export interface components {
             /** @description Workspace ID */
             workspace_id: string;
         };
+        DismissGrowthInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DismissGrowthInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        DismissGrowthOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DismissGrowthOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Dismiss status */
+            status: string;
+        };
         Document: {
             audio_tracks: components["schemas"]["AudioTrack"][] | null;
             caption_tracks: components["schemas"]["CaptionTrack"][] | null;
@@ -6643,6 +6743,30 @@ export interface components {
             /** @description Optional passkey label */
             name: string;
         };
+        FollowGrowthInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FollowGrowthInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        FollowGrowthOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FollowGrowthOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Queued job ID */
+            job_id: string;
+            /** @description Human readable message */
+            message: string;
+            /** @description Pending follow status */
+            status: string;
+        };
         GenerateMediaAltTextInputBody: {
             /**
              * Format: uri
@@ -6851,6 +6975,12 @@ export interface components {
             target_username: string;
             target_workspace_id: string;
             target_workspace_name: string;
+        };
+        GrowthMutualProfile: {
+            AvatarURL: string;
+            DisplayName: string;
+            Handle: string;
+            RemoteID: string;
         };
         "Health-checkResponse": {
             /**
@@ -7653,6 +7783,16 @@ export interface components {
              */
             readonly $schema?: string;
             templates: components["schemas"]["ImageEditorTemplateResponse"][] | null;
+        };
+        ListResult: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ListResult.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["RecommendationView"][] | null;
+            sync_state: components["schemas"]["SyncStateView"];
         };
         ListStockProvidersOutputBody: {
             /**
@@ -9477,6 +9617,40 @@ export interface components {
             expires_in: number;
             grant: string;
         };
+        RecommendationView: {
+            avatar_url: string;
+            bio: string;
+            /** Format: date-time */
+            created_at: string;
+            display_name: string;
+            follow_error_code?: string;
+            follow_error_message?: string;
+            follow_state: string;
+            /** Format: int64 */
+            followers_count: number;
+            /** Format: int64 */
+            following_count: number;
+            follows_viewer: boolean;
+            generation_id: string;
+            handle: string;
+            id: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: int64 */
+            mutual_count: number;
+            mutual_exact: boolean;
+            mutuals: components["schemas"]["GrowthMutualProfile"][] | null;
+            platform: string;
+            profile_url: string;
+            remote_account_id: string;
+            /** Format: double */
+            score: number;
+            signals: string[] | null;
+            social_account_id: string;
+            /** Format: date-time */
+            updated_at: string;
+            workspace_id: string;
+        };
         RecoveryCodeSensitiveActionInputBody: {
             /**
              * Format: uri
@@ -9566,6 +9740,32 @@ export interface components {
             queued: number;
             /** @enum {string} */
             status: "queued" | "failed" | "unavailable";
+        };
+        RefreshGrowthInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RefreshGrowthInputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Connected social account ID */
+            account_id: string;
+            /** @description Workspace ID */
+            workspace_id: string;
+        };
+        RefreshGrowthOutputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/RefreshGrowthOutputBody.json
+             */
+            readonly $schema?: string;
+            /** @description Queued job ID */
+            job_id: string;
+            /** @description Human readable message */
+            message: string;
+            /** @description Queued status */
+            status: string;
         };
         RegisterInputBody: {
             /**
@@ -10629,6 +10829,24 @@ export interface components {
             published: number;
             reach: components["schemas"]["MetricSummary"];
             views: components["schemas"]["MetricSummary"];
+        };
+        SyncStateView: {
+            /** Format: date-time */
+            created_at: string;
+            current_generation_id: string;
+            error_code?: string;
+            error_message?: string;
+            id: string;
+            /** Format: date-time */
+            last_attempted_at?: string;
+            /** Format: date-time */
+            last_success_at?: string;
+            platform: string;
+            social_account_id: string;
+            status: string;
+            /** Format: date-time */
+            updated_at: string;
+            workspace_id: string;
         };
         Template: {
             animated: boolean;
@@ -18127,6 +18345,298 @@ export interface operations {
             };
             /** @description Error */
             default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-growth-recommendations": {
+        parameters: {
+            query: {
+                /** @description Workspace ID */
+                workspace_id: string;
+                /** @description Connected social account ID */
+                account_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResult"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "refresh-growth-recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshGrowthInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RefreshGrowthOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "dismiss-growth-recommendation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Growth recommendation ID */
+                recommendation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissGrowthInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DismissGrowthOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "follow-growth-recommendation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Growth recommendation ID */
+                recommendation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FollowGrowthInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowGrowthOutputBody"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
                 headers: {
                     [name: string]: unknown;
                 };

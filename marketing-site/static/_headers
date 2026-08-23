@@ -3,3 +3,5 @@
   Vary: Accept
 /llms.txt
   Content-Type: text/plain; charset=utf-8
+/robots.txt
+  Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference

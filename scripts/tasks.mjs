@@ -75,6 +75,7 @@ const checks = {
   "public-routes": stage("public routes", [
     bunTest("scripts/cloudflare-edge-plan.test.mjs"),
     bunTest("scripts/check-marketing-route-manifest.test.mjs"),
+    bunTest("scripts/marketing-agent-readiness.test.mjs"),
     bunTest("scripts/generate-agent-surfaces.test.mjs"),
     bunTest("scripts/public-deployment-proof.test.mjs"),
     bun("scripts/check-marketing-route-manifest.mjs"),
@@ -400,6 +401,7 @@ function testPlan(requestedScope, requestedOptions) {
   const marketing = stage("marketing tests", [
     bunTest(
       "scripts/check-marketing-route-manifest.test.mjs",
+      "scripts/marketing-agent-readiness.test.mjs",
       "scripts/marketing-claims.test.mjs",
       "scripts/legal-policy-manifest.test.mjs",
     ),

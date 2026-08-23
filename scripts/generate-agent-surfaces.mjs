@@ -555,9 +555,11 @@ async function documentationRepresentation(source, page, sourceRoot) {
   };
 }
 
-function discoveryDocument(discovery) {
+export function discoveryDocument(discovery) {
   const renderLinks = (links) =>
     links.map((link) => `- [${link.title}](${link.url}): ${link.description}`).join("\n");
+  const renderGuidance = (title, items) =>
+    items?.length ? `## ${title}\n\n${items.map((item) => `- ${item}`).join("\n")}` : "";
   const primary = discovery.links.filter(
     (link) => (link.classification ?? "primary") === "primary",
   );
@@ -568,8 +570,14 @@ function discoveryDocument(discovery) {
         `## ${section.title}\n\n${section.description ? `> ${section.description}\n\n` : ""}${renderLinks(section.links)}`,
     )
     .join("\n\n");
+  const guidance = [
+    renderGuidance("When to use OpenPost", discovery.whenToUse),
+    renderGuidance("When OpenPost is not a fit", discovery.whenNotToUse),
+  ]
+    .filter(Boolean)
+    .join("\n\n");
   return cleanMarkdown(
-    `# ${discovery.title}\n\n> ${discovery.description}\n\n${renderLinks(primary)}${optional.length ? `\n\n## Optional\n\n${renderLinks(optional)}` : ""}${sections ? `\n\n${sections}` : ""}`,
+    `# ${discovery.title}\n\n> ${discovery.description}${guidance ? `\n\n${guidance}` : ""}\n\n${renderLinks(primary)}${optional.length ? `\n\n## Optional\n\n${renderLinks(optional)}` : ""}${sections ? `\n\n${sections}` : ""}`,
   );
 }
 
@@ -920,6 +928,14 @@ export const productionProjections = {
     knownCanonicalURLs: [
       ...marketingRouteManifest.map((entry) => entry.canonical),
       ...docsSocialEntries.map((entry) => entry.canonical),
+      "https://docs.openpost.social/openapi.json",
+    ],
+    knownArtifactURLs: [
+      "https://docs.openpost.social/index.md",
+      "https://docs.openpost.social/openapi.json",
+      "https://docs.openpost.social/cli/index.md",
+      "https://docs.openpost.social/mcp/index.md",
+      "https://docs.openpost.social/usage/agent-assisted-publishing.md",
     ],
     fragmentSources: marketingRouteManifest.map((route) => ({
       canonical: route.canonical,
@@ -932,6 +948,17 @@ export const productionProjections = {
     discovery: {
       title: "OpenPost",
       description: "Create, adapt, schedule, and track social content from one workspace.",
+      whenToUse: [
+        "Use OpenPost to turn product work, launches, updates, lessons, and ideas into destination-specific social content.",
+        "Use it to draft, schedule, publish, and track work across supported social networks from one workspace.",
+        "Use its HTTP API, CLI, or MCP server when software or an AI assistant needs scoped access to the same publishing system.",
+        "Use the complete open-source service when you need to run the application on infrastructure you control.",
+      ],
+      whenNotToUse: [
+        "OpenPost is not a social network, public feed, social-listening service, or general search index of social posts.",
+        "It does not bypass social-network approval, permissions, formats, limits, outages, or account readiness.",
+        "It is not a substitute for human review of facts, rights, account selection, media, alt text, timing, or an agent's proposed change.",
+      ],
       links: [
         ...marketingRouteManifest
           .filter(
@@ -954,6 +981,38 @@ export const productionProjections = {
         },
       ],
       sections: [
+        {
+          title: "Developer and agent interfaces",
+          description:
+            "Choose the maintained interface that matches the client, then follow its token and workspace boundaries.",
+          links: [
+            {
+              title: "OpenPost developer entry point",
+              description: "Choose the HTTP API, CLI, or MCP server for the job.",
+              url: "https://openpost.social/developers.md",
+            },
+            {
+              title: "OpenAPI JSON",
+              description: "Use the authoritative OpenAPI 3.1 HTTP API contract.",
+              url: "https://docs.openpost.social/openapi.json",
+            },
+            {
+              title: "OpenPost CLI",
+              description: "Use a terminal, script, CI job, cron job, or deploy process.",
+              url: "https://docs.openpost.social/cli/index.md",
+            },
+            {
+              title: "OpenPost MCP server",
+              description: "Connect an AI assistant with explicit read and change scopes.",
+              url: "https://docs.openpost.social/mcp/index.md",
+            },
+            {
+              title: "Agent-assisted publishing",
+              description: "Follow the human-reviewed workflow for agent-prepared publishing work.",
+              url: "https://docs.openpost.social/usage/agent-assisted-publishing.md",
+            },
+          ],
+        },
         {
           title: "Optional platforms",
           description: "Destination-specific formats, setup needs, limits, and readiness notes.",
@@ -1036,6 +1095,16 @@ export const productionProjections = {
       title: "OpenPost Documentation",
       description:
         "User, provider, self-hosting, CLI, MCP, operations, and developer documentation for OpenPost.",
+      whenToUse: [
+        "Use the user guide for work in the OpenPost web or mobile app.",
+        "Use provider guides to check setup, supported formats, limits, and current readiness.",
+        "Use the CLI, MCP, or API sections for automation and agent access.",
+        "Use installation, configuration, self-hosting, and operations sections to run an OpenPost instance.",
+      ],
+      whenNotToUse: [
+        "Do not treat documentation as proof that a social provider or exact account can publish a format today; check current readiness and run the documented live test.",
+        "Do not use public docs to infer private workspace data, tokens, connected accounts, drafts, schedules, or publishing results.",
+      ],
       links: [
         ...docsSocialEntries
           .filter(

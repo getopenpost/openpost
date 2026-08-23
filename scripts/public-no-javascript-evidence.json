@@ -43,6 +43,18 @@
     "audience": "This page is for operators and developers evaluating the open-source deployment path.",
     "boundary": "AGPL-3.0-only"
   },
+  "https://openpost.social/developers": {
+    "audience": "OpenPost exposes one publishing system through a typed HTTP API, a CLI, and an MCP server.",
+    "boundary": "Every call stays inside an authenticated OpenPost workspace."
+  },
+  "https://openpost.social/about": {
+    "audience": "OpenPost helps solo founders and small teams turn the work they are already doing into channel-ready content, publish it across supported networks, and track what happened.",
+    "boundary": "The Hosted service is the main product. Self-hosting remains a complete deployment option."
+  },
+  "https://openpost.social/contact": {
+    "audience": "Use private email for account, billing, privacy, or security details. Use the community or public repository for questions and reports that can help other people.",
+    "boundary": "Do not send passwords, social tokens, recovery codes, or payment-card details."
+  },
   "https://openpost.social/changelog": {
     "audience": "This page is for users and operators reviewing changes before an update.",
     "boundary": "This summary does not replace the complete fixes and migration details in the source file."

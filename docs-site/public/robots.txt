@@ -1,0 +1,7 @@
+# OpenPost permits search, AI input, model training, and attributed reference use of public documentation.
+Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference
+
+User-agent: *
+Allow: /
+
+Sitemap: https://docs.openpost.social/sitemap.xml

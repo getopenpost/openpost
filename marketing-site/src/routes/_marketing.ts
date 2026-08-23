@@ -16,6 +16,13 @@ export const billingSettingsUrl = `${appUrl}/settings?tab=billing#billing`;
 export const userDocsUrl = 'https://docs.openpost.social/usage/';
 export const selfHostingDocsUrl = 'https://docs.openpost.social/self-hosting/';
 export const developerDocsUrl = 'https://docs.openpost.social/development/';
+export const apiGuideUrl = 'https://docs.openpost.social/development/api-reference';
+export const openApiUrl = 'https://docs.openpost.social/openapi.json';
+export const cliDocsUrl = 'https://docs.openpost.social/cli/';
+export const mcpDocsUrl = 'https://docs.openpost.social/mcp/';
+export const apiTokenDocsUrl = 'https://docs.openpost.social/development/api-tokens';
+export const agentPublishingDocsUrl =
+	'https://docs.openpost.social/usage/agent-assisted-publishing';
 export const docsUrl = userDocsUrl;
 export const githubUrl = 'https://github.com/getopenpost/openpost';
 export const siteUrl = 'https://openpost.social';
@@ -34,14 +41,16 @@ export const navItems = [
 ] as const;
 
 export const resourceItems = [
+	{ label: 'Developers', href: '/developers' },
+	{ label: 'About', href: '/about' },
+	{ label: 'Contact', href: '/contact' },
 	{ label: 'Self-hosted', href: '/self-hosted' },
 	{ label: 'Platforms', href: '/platforms' },
 	{ label: 'Compare', href: '/compare' },
 	{ label: 'FAQ', href: '/faq' },
 	{ label: 'Security', href: '/security' },
 	{ label: 'Trust register', href: '/trust' },
-	{ label: 'Changelog', href: '/changelog' },
-	{ label: 'Developers', href: developerDocsUrl }
+	{ label: 'Changelog', href: '/changelog' }
 ] as const;
 
 export const selfHostedDeploymentSummary = {

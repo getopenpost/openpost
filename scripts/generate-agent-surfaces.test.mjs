@@ -10,6 +10,7 @@ import { docsSocialEntries, marketingRouteManifest } from "../packages/social-im
 import { comparisonEvidenceRegister } from "../marketing-site/src/routes/_comparison-evidence.ts";
 import { comparisons, featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
 import {
+  discoveryDocument,
   generateAgentSurface,
   productionProjections,
   renderOriginVaryHeaders,
@@ -400,6 +401,8 @@ test("marketing production projection emits deterministic homepage Markdown and 
     discovery: {
       title: "OpenPost",
       description: "Create, adapt, and publish from one workspace.",
+      whenToUse: ["Use OpenPost for destination-specific publishing."],
+      whenNotToUse: ["Do not use OpenPost as a social network."],
       links: [
         {
           title: "OpenPost overview",
@@ -427,7 +430,24 @@ test("marketing production projection emits deterministic homepage Markdown and 
   assert.match(firstMarkdown, /\[See the features\]\(https:\/\/openpost\.social\/features\)/);
   assert.doesNotMatch(firstMarkdown, /Navigation noise|privateState/);
   assert.match(firstDiscovery, /^# OpenPost$/m);
+  assert.match(firstDiscovery, /^## When to use OpenPost$/m);
+  assert.match(firstDiscovery, /Use OpenPost for destination-specific publishing\./u);
+  assert.match(firstDiscovery, /^## When OpenPost is not a fit$/m);
+  assert.match(firstDiscovery, /Do not use OpenPost as a social network\./u);
   assert.match(firstDiscovery, /\[OpenPost overview\]\(https:\/\/openpost\.social\/index\.md\)/);
+});
+
+test("production discovery gives agents direct interface guidance", () => {
+  const marketing = discoveryDocument(productionProjections.marketing.discovery);
+  const documentation = discoveryDocument(productionProjections.documentation.discovery);
+
+  assert.match(marketing, /^## When to use OpenPost$/m);
+  assert.match(marketing, /^## When OpenPost is not a fit$/m);
+  assert.match(marketing, /https:\/\/docs\.openpost\.social\/openapi\.json/u);
+  assert.match(marketing, /https:\/\/docs\.openpost\.social\/cli\/index\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpost\.social\/mcp\/index\.md/u);
+  assert.match(marketing, /https:\/\/openpost\.social\/developers\.md/u);
+  assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 
 test("marketing production projection covers every eligible route from canonical metadata", () => {

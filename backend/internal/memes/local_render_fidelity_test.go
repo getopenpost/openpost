@@ -115,12 +115,104 @@ func TestBuiltinMaxGIFFramesIsTwenty(t *testing.T) {
 	t.Parallel()
 
 	require.Equal(t, 20, builtinMaxGIFFrames)
-	frames := selectedBuiltinGIFFrames(40)
-	require.LessOrEqual(t, len(frames), 21, "40 total frames should be sampled to <=20+1")
-	require.Equal(t, 0, frames[0])
-	require.Equal(t, 39, frames[len(frames)-1])
+	cases := []int{21, 40, 100, 60, 25}
+	for _, total := range cases {
+		frames := selectedBuiltinGIFFrames(total)
+		require.Len(t, frames, builtinMaxGIFFrames, "total %d should yield exactly %d frames", total, builtinMaxGIFFrames)
+		require.Equal(t, 0, frames[0], "total %d first frame", total)
+		require.Equal(t, total-1, frames[len(frames)-1], "total %d last frame", total)
+		for i := 1; i < len(frames); i++ {
+			require.Greater(t, frames[i], frames[i-1], "frames must be strictly increasing for total %d", total)
+		}
+	}
 	frames2 := selectedBuiltinGIFFrames(10)
 	require.Len(t, frames2, 10)
+	framesExact := selectedBuiltinGIFFrames(20)
+	require.Len(t, framesExact, 20)
+}
+
+func TestBuiltinYAdjust(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		rows     int
+		isImpact bool
+		want     float64
+	}{
+		{1, false, 1.5},
+		{2, false, 1.25},
+		{2, true, 1.1},
+		{3, false, 1.1},
+		{3, true, 1.1},
+		{4, false, 1.1},
+	}
+	for _, c := range cases {
+		require.InDelta(t, c.want, builtinYAdjust(c.rows, c.isImpact), 0.0001, "rows %d impact %v", c.rows, c.isImpact)
+	}
+}
+
+func TestBuiltinDescenderOffset(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 0, builtinDescenderOffset("hello", 100))
+	require.Equal(t, 5, builtinDescenderOffset("great", 100))
+	require.Equal(t, 0, builtinDescenderOffset("HELLO", 100))
+	require.Equal(t, 0, builtinDescenderOffset("abc", 100))
+	require.Equal(t, 10, builtinDescenderOffset("happy", 200))
+	require.Equal(t, 5, builtinDescenderOffset("joggy", 100))
+}
+
+func TestBuiltinRowSpacing(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		offset int
+		rows   int
+		want   int
+	}{
+		{-100, 2, 25},
+		{-90, 3, 15},
+		{0, 2, 0},
+		{-50, 1, 25},
+	}
+	for _, c := range cases {
+		require.Equal(t, c.want, builtinRowSpacing(c.offset, c.rows))
+	}
+}
+
+func TestBuiltinAlignX(t *testing.T) {
+	t.Parallel()
+
+	require.Equal(t, 50, builtinAlignX(200, 100, "center"))
+	require.Equal(t, 0, builtinAlignX(100, 120, "center"))
+	require.Equal(t, 2, builtinAlignX(200, 100, "left"))
+	require.Equal(t, 1, builtinAlignX(50, 10, "left"))
+	require.Equal(t, 50, builtinAlignX(200, 100, ""))
+}
+
+func TestBuiltinStrokeForField(t *testing.T) {
+	t.Parallel()
+
+	fillBlack := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+	w, col := builtinStrokeForField("black", fillBlack, 24, false)
+	require.Equal(t, 1, w)
+	require.Equal(t, color.NRGBA{R: 255, G: 255, B: 255, A: 128}, col)
+
+	fillWhite := color.NRGBA{R: 255, G: 255, B: 255, A: 255}
+	w, col = builtinStrokeForField("white", fillWhite, 24, false)
+	require.Equal(t, 2, w)
+	require.Equal(t, color.NRGBA{R: 0, G: 0, B: 0, A: 255}, col)
+
+	w, col = builtinStrokeForField("#ff0000", color.NRGBA{R: 255, G: 0, B: 0, A: 255}, 24, false)
+	require.Equal(t, 1, w)
+	require.Equal(t, color.NRGBA{R: 0, G: 0, B: 0, A: 255}, col)
+
+	w, col = builtinStrokeForField("#ff000080", color.NRGBA{R: 255, G: 0, B: 0, A: 128}, 24, false)
+	require.Equal(t, 1, w)
+	require.Equal(t, uint8(128), col.A)
+
+	w, _ = builtinStrokeForField("white", fillWhite, 12, false)
+	require.Equal(t, 1, w)
 }
 
 func TestWatermarkRemainsAbsent(t *testing.T) {

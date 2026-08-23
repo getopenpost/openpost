@@ -242,28 +242,30 @@ func (p *BuiltinProvider) drawBuiltinCaption(canvas *image.NRGBA, field builtinT
 	}
 	layer := image.NewNRGBA(image.Rect(0, 0, width, height))
 	fill := parseBuiltinColor(field.Color)
-	stroke := color.NRGBA{A: fill.A}
-	if fill.R < 48 && fill.G < 48 && fill.B < 48 {
-		stroke = color.NRGBA{R: 255, G: 255, B: 255, A: 180}
-	}
-	strokeWidth := min(3, max(1, layout.size/12))
+	strokeWidth, strokeFill := builtinStrokeForField(field.Color, fill, layout.size, false)
+	isImpact := builtinIsImpactFont(field.Font)
+	rows := len(layout.lines)
+	yAdjust := builtinYAdjust(rows, isImpact)
 	metrics := layout.face.Metrics()
 	lineHeight := metrics.Height.Ceil()
-	totalHeight := lineHeight * len(layout.lines)
-	baseline := (height-totalHeight)/2 + metrics.Ascent.Ceil()
+	textHeight := lineHeight * rows
+	descender := builtinDescenderOffset(layout.lines[rows-1], textHeight)
+	// Port upstream get_text_offset: vertical centering uses textHeight/yAdjust and descender.
+	effectiveHeight := int(float64(textHeight) / yAdjust)
+	baselineTop := (height-effectiveHeight)/2 + metrics.Ascent.Ceil()
+	// Row spacing mirrors PIL spacing = -offsetY/(rows*2). OffsetY approximates -(height-effective)/2, so spacing ~ (height-effective)/(rows*4*yAdjust) simplified to small extra.
+	offsetY := -(height-effectiveHeight)/2 + descender
+	spacing := builtinRowSpacing(offsetY, rows)
 	for row, line := range layout.lines {
 		lineWidth := xfont.MeasureString(layout.face, line).Ceil()
-		x := max(0, (width-lineWidth)/2)
-		if field.Align == "left" {
-			x = max(1, width/70)
-		}
-		y := baseline + row*lineHeight
+		x := builtinAlignX(width, lineWidth, field.Align)
+		y := baselineTop + descender + row*(lineHeight+spacing)
 		for dy := -strokeWidth; dy <= strokeWidth; dy++ {
 			for dx := -strokeWidth; dx <= strokeWidth; dx++ {
 				if dx*dx+dy*dy > strokeWidth*strokeWidth {
 					continue
 				}
-				drawBuiltinString(layer, layout.face, line, x+dx, y+dy, stroke)
+				drawBuiltinString(layer, layout.face, line, x+dx, y+dy, strokeFill)
 			}
 		}
 		drawBuiltinString(layer, layout.face, line, x, y, fill)
@@ -275,6 +277,78 @@ func (p *BuiltinProvider) drawBuiltinCaption(canvas *image.NRGBA, field builtinT
 	y := int(float64(canvas.Bounds().Dy()) * field.AnchorY)
 	stddraw.Draw(canvas, image.Rect(x, y, x+layer.Bounds().Dx(), y+layer.Bounds().Dy()), layer, layer.Bounds().Min, stddraw.Over)
 	return nil
+}
+
+func builtinIsImpactFont(name string) bool {
+	return strings.EqualFold(strings.TrimSpace(name), "impact")
+}
+
+func builtinYAdjust(rows int, isImpact bool) float64 {
+	if rows >= 3 {
+		return 1.1
+	}
+	if rows == 2 && isImpact {
+		return 1.1
+	}
+	return 1 + float64(3-rows)*0.25
+}
+
+func builtinDescenderOffset(lastLine string, textHeight int) int {
+	for _, r := range lastLine {
+		if r == 'g' || r == 'j' || r == 'p' || r == 'q' || r == 'y' {
+			return textHeight / 20
+		}
+	}
+	return 0
+}
+
+func builtinRowSpacing(offsetY int, rows int) int {
+	if rows <= 0 {
+		return 0
+	}
+	return -offsetY / (rows * 2)
+}
+
+func builtinAlignX(width, lineWidth int, align string) int {
+	if strings.EqualFold(strings.TrimSpace(align), "left") {
+		return max(1, width/70)
+	}
+	return max(0, (width-lineWidth)/2)
+}
+
+func builtinStrokeForField(colorStr string, fill color.NRGBA, fontSize int, thick bool) (int, color.NRGBA) {
+	normalized := strings.TrimSpace(strings.ToLower(colorStr))
+	baseWidth := min(3, max(1, fontSize/12))
+	if normalized == "black" {
+		return 1, color.NRGBA{R: 255, G: 255, B: 255, A: 128}
+	}
+	if strings.HasPrefix(normalized, "#") {
+		width := 1
+		if thick {
+			width = 2
+		}
+		stroke := color.NRGBA{R: 0, G: 0, B: 0, A: 255}
+		if len(normalized) >= 9 {
+			hex := strings.TrimPrefix(normalized, "#")
+			if len(hex) == 8 {
+				var a uint8
+				if _, err := fmt.Sscanf(hex[6:8], "%02x", &a); err == nil {
+					stroke.A = a
+				}
+			}
+		}
+		if width < 1 {
+			width = 1
+		}
+		if width > 3 {
+			width = 3
+		}
+		if baseWidth > width && !thick {
+			// keep upstream color but clamp width to computed base when not thick? Upstream keeps width 1 for non-thick hex.
+		}
+		return width, stroke
+	}
+	return baseWidth, color.NRGBA{R: 0, G: 0, B: 0, A: 255}
 }
 
 func drawBuiltinString(target stddraw.Image, face xfont.Face, value string, x, baseline int, source color.Color) {
@@ -614,14 +688,26 @@ func selectedBuiltinGIFFrames(total int) []int {
 		}
 		return result
 	}
-	step := int(math.Ceil(float64(total) / builtinMaxGIFFrames))
-	result := make([]int, 0, builtinMaxGIFFrames+1)
-	for index := 0; index < total; index += step {
-		result = append(result, index)
+	result := make([]int, builtinMaxGIFFrames)
+	step := float64(total-1) / float64(builtinMaxGIFFrames-1)
+	for index := 0; index < builtinMaxGIFFrames; index++ {
+		pos := int(math.Round(float64(index) * step))
+		if pos < 0 {
+			pos = 0
+		}
+		if pos >= total {
+			pos = total - 1
+		}
+		if index > 0 && pos <= result[index-1] {
+			pos = result[index-1] + 1
+			if pos >= total {
+				pos = total - 1
+			}
+		}
+		result[index] = pos
 	}
-	if result[len(result)-1] != total-1 {
-		result = append(result, total-1)
-	}
+	result[0] = 0
+	result[builtinMaxGIFFrames-1] = total - 1
 	return result
 }
 

@@ -18,6 +18,7 @@
 		committing?: boolean;
 		mediaActionId?: string;
 		onCommit: () => void;
+		onReset?: () => void;
 		onMediaAction?: (item: PostBuilderMediaPlanItem) => void;
 	}
 
@@ -27,17 +28,20 @@
 		committing = false,
 		mediaActionId = '',
 		onCommit,
+		onReset,
 		onMediaAction
 	}: Props = $props();
 
 	const claimsNeedingReview = $derived(
-		(result.claims ?? []).filter((claim) => claim.status !== 'verified')
+		(result.claims ?? []).filter((claim) => claim.status !== 'supported')
 	);
 
 	function claimLabel(claim: PostBuilderClaim): string {
-		if (claim.status === 'verified') return copy.verified;
-		if (claim.status === 'unsupported') return copy.unsupported;
-		return copy.needsReview;
+		if (claim.status === 'supported') return copy.supported;
+		if (claim.status === 'user_asserted') return copy.userAsserted;
+		if (claim.status === 'opinion') return copy.opinion;
+		if (claim.status === 'parody') return copy.parody;
+		return copy.needsVerification;
 	}
 
 	function destinationStatusClass(
@@ -49,7 +53,15 @@
 	}
 
 	function mediaActionLabel(item: PostBuilderMediaPlanItem): string {
-		return item.action === 'meme' ? copy.makeMeme : copy.createVisual;
+		if (item.action === 'meme') return copy.makeMeme;
+		if (item.action === 'video_editor') {
+			return item.treatment === 'edit_existing_video' ? copy.editVideo : copy.createVideo;
+		}
+		return item.treatment === 'annotate_source' ? copy.annotateSource : copy.createVisual;
+	}
+
+	function planTerm(value: string | undefined): string | undefined {
+		return value?.trim().replaceAll('_', ' ') || undefined;
 	}
 </script>
 
@@ -129,9 +141,20 @@
 												: copy.needsReview}
 									</span>
 								</div>
-								{#if decision.formatLabel || decision.reason || decision.mediaTreatment}
+								{#if decision.preview}
+									<p class="mt-1 line-clamp-2 text-sm leading-5 break-words">
+										{decision.preview}
+									</p>
+								{/if}
+								{#if decision.formatLabel || decision.objective || decision.archetype || decision.reason || decision.mediaTreatment}
 									<p class="mt-0.5 text-xs leading-5 text-muted-foreground">
-										{[decision.formatLabel, decision.reason, decision.mediaTreatment]
+										{[
+											decision.formatLabel,
+											planTerm(decision.objective),
+											planTerm(decision.archetype),
+											decision.reason,
+											decision.mediaTreatment
+										]
 											.filter(Boolean)
 											.join(' · ')}
 									</p>
@@ -159,10 +182,7 @@
 						{#each claimsNeedingReview as claim (claim.id)}
 							<li class="text-xs leading-5">
 								<p>{claim.text}</p>
-								<p
-									class="text-muted-foreground"
-									class:text-destructive={claim.status === 'unsupported'}
-								>
+								<p class="text-muted-foreground">
 									{claimLabel(claim)}{claim.sourceLabel ? ` · ${claim.sourceLabel}` : ''}
 								</p>
 							</li>
@@ -178,14 +198,17 @@
 						{#each result.mediaPlan as item (item.id)}
 							<li class="flex items-start justify-between gap-3">
 								<span class="min-w-0">
-									{item.platform ? `${item.platform}: ` : ''}{item.label}
+									<span>{item.platform ? `${item.platform}: ` : ''}{item.label}</span>
+									{#if item.sourceLabel}
+										<span class="block text-[11px]">{item.sourceLabel}</span>
+									{/if}
 								</span>
 								{#if item.action && onMediaAction}
 									<Button
 										type="button"
 										variant="outline"
 										size="sm"
-										class="h-7 shrink-0 px-2 text-xs"
+										class="h-11 shrink-0 px-2 text-xs md:h-7"
 										disabled={committing}
 										onclick={() => onMediaAction?.(item)}
 									>
@@ -205,7 +228,12 @@
 		</div>
 	</div>
 
-	<div class="flex justify-end border-t p-4 sm:p-5">
+	<div class="flex flex-col-reverse gap-2 border-t p-4 sm:flex-row sm:justify-end sm:p-5">
+		{#if onReset}
+			<Button type="button" variant="ghost" disabled={committing} onclick={onReset}>
+				{copy.buildAnother}
+			</Button>
+		{/if}
 		<Button type="button" size="lg" disabled={committing} onclick={onCommit}>
 			{#if committing}
 				<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />

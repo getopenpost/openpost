@@ -33,6 +33,9 @@ export const DEFAULT_VOICE_PROFILES_COPY: VoiceProfilesCopy = {
 	advancedDescription:
 		'Add language preferences, limits, examples, and accepted edits when you have them.',
 	languageHeading: 'Language and opinions',
+	preferredLanguage: 'Preferred language',
+	preferredLanguageDescription: 'The language or locale this voice normally uses.',
+	preferredLanguagePlaceholder: 'English (Portugal)',
 	vocabulary: 'Natural vocabulary',
 	vocabularyDescription: 'Words this voice uses without forcing them into every post.',
 	vocabularyPlaceholder: 'Ship, draft, provider',

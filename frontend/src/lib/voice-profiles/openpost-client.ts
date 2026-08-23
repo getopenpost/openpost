@@ -133,6 +133,7 @@ function assignmentBody(
 function definitionBody(definition: VoiceProfileDefinition): WireVoiceDefinition {
 	return {
 		identity_summary: definition.identitySummary,
+		preferred_language: definition.preferredLanguage,
 		traits: definition.traits,
 		vocabulary: definition.vocabulary,
 		recurring_expressions: definition.recurringExpressions,
@@ -171,6 +172,7 @@ function mapVoiceProfile(profile: WireVoiceProfile): VoiceProfile {
 function mapDefinition(definition: WireVoiceDefinition): VoiceProfileDefinition {
 	return {
 		identitySummary: definition.identity_summary ?? '',
+		preferredLanguage: definition.preferred_language ?? '',
 		traits: definition.traits ?? [],
 		vocabulary: definition.vocabulary ?? [],
 		recurringExpressions: definition.recurring_expressions ?? [],

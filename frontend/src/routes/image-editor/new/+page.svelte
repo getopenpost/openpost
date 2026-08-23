@@ -45,6 +45,9 @@
 	let sourceWidth = $derived(Number($page.url.searchParams.get('width') || 0));
 	let sourceHeight = $derived(Number($page.url.searchParams.get('height') || 0));
 	let initialAction = $derived($page.url.searchParams.get('action') || '');
+	let builderBrief = $derived(
+		($page.url.searchParams.get('builder_brief') || '').trim().slice(0, 160)
+	);
 
 	onMount(() => {
 		void initialize();
@@ -88,7 +91,7 @@
 		error = '';
 		try {
 			const input: CreateImageEditorDesignInput = {
-				title: m.image_editor_untitled_design(),
+				title: builderBrief || m.image_editor_untitled_design(),
 				preset_key: key
 			};
 			if (key === 'custom') {
@@ -126,9 +129,11 @@
 		const sourceSize = fitSourceSize(sourceWidth, sourceHeight);
 		try {
 			const design = await createImageEditorDesign(workspaceID, {
-				title: sourceName
-					? m.image_editor_image_edit_title({ name: sourceName.replace(/\.[^.]+$/, '') })
-					: m.image_editor_media_edit_title(),
+				title:
+					builderBrief ||
+					(sourceName
+						? m.image_editor_image_edit_title({ name: sourceName.replace(/\.[^.]+$/, '') })
+						: m.image_editor_media_edit_title()),
 				preset_key: 'custom',
 				width_px: sourceSize.width,
 				height_px: sourceSize.height,

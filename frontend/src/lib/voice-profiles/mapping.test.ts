@@ -4,6 +4,7 @@ import {
 	emptyVoiceProfileDefinition,
 	normalizeVoiceProfileDraft,
 	replaceVoiceProfile,
+	resolveVoiceProfileSelection,
 	updateVoiceProfileInput,
 	validateVoiceProfileDraft,
 	voiceProfileAssignmentMap,
@@ -53,6 +54,7 @@ describe('voice profile draft mapping', () => {
 				definition: {
 					...emptyVoiceProfileDefinition(),
 					identitySummary: ' Technical founder ',
+					preferredLanguage: ' English (Portugal) ',
 					traits: [' Direct ', 'direct', ' Technical '],
 					examples: [{ text: ' A real post ', platform: ' X ' }, { text: ' ' }],
 					corrections: [{ original: ' ', preferred: ' ' }],
@@ -65,6 +67,7 @@ describe('voice profile draft mapping', () => {
 			name: 'Rodrigo',
 			definition: {
 				identitySummary: 'Technical founder',
+				preferredLanguage: 'English (Portugal)',
 				traits: ['Direct', 'Technical'],
 				examples: [{ text: 'A real post', platform: 'X', whyItFits: undefined }],
 				corrections: [],
@@ -113,14 +116,24 @@ describe('voice profile draft mapping', () => {
 	});
 
 	it('uses a normalized fingerprint and counts concrete guidance', () => {
-		const left = draft({ definition: { ...emptyVoiceProfileDefinition(), traits: ['Direct'] } });
+		const left = draft({
+			definition: {
+				...emptyVoiceProfileDefinition(),
+				traits: ['Direct'],
+				preferredLanguage: ' English '
+			}
+		});
 		const right = draft({
 			name: 'Rodrigo',
-			definition: { ...emptyVoiceProfileDefinition(), traits: [' Direct '] }
+			definition: {
+				...emptyVoiceProfileDefinition(),
+				traits: [' Direct '],
+				preferredLanguage: 'English'
+			}
 		});
 
 		expect(voiceProfileDraftFingerprint(left)).toBe(voiceProfileDraftFingerprint(right));
-		expect(voiceProfileGuidanceCount(right.definition)).toBe(1);
+		expect(voiceProfileGuidanceCount(right.definition)).toBe(2);
 	});
 });
 
@@ -150,5 +163,14 @@ describe('voice profile collection mapping', () => {
 		);
 
 		expect(values.map((item) => item.id)).toEqual(['voice-1', 'voice-2', 'voice-3']);
+	});
+
+	it('keeps a valid selection and otherwise chooses the default profile', () => {
+		const profiles = [profile(), profile({ id: 'voice-2', name: 'OpenPost', isDefault: false })];
+
+		expect(resolveVoiceProfileSelection(profiles, 'voice-2')).toBe('voice-2');
+		expect(resolveVoiceProfileSelection(profiles, '')).toBe('voice-1');
+		expect(resolveVoiceProfileSelection(profiles, 'missing')).toBe('voice-1');
+		expect(resolveVoiceProfileSelection([], 'missing')).toBe('');
 	});
 });

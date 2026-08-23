@@ -187,6 +187,21 @@
 							<h3 id="voice-language-heading" class="text-sm font-semibold">
 								{copy.languageHeading}
 							</h3>
+							<div class="max-w-md space-y-2">
+								<Label for="voice-preferred-language">{copy.preferredLanguage}</Label>
+								<Input
+									id="voice-preferred-language"
+									value={draft.definition.preferredLanguage}
+									placeholder={copy.preferredLanguagePlaceholder}
+									maxlength={80}
+									disabled={busy}
+									oninput={(event) =>
+										changeDefinition({ preferredLanguage: event.currentTarget.value })}
+								/>
+								<p class="text-xs leading-5 text-muted-foreground">
+									{copy.preferredLanguageDescription}
+								</p>
+							</div>
 							<div class="grid gap-4 md:grid-cols-2">
 								<MultiValueField
 									id="voice-vocabulary"

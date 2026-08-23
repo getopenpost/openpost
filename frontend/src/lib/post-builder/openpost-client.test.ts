@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { components } from '$lib/api/types';
 import { createOpenPostBuilderClient } from './openpost-client';
 
 function apiResult<TData>(data: TData, status = 200) {
@@ -10,14 +11,33 @@ function apiClient(GET = vi.fn(), POST = vi.fn()) {
 	return { GET, POST } as never;
 }
 
-function buildResponse() {
-	return {
+function buildResponse(resultSources?: components['schemas']['ResolvedSource'][]) {
+	const assets: Array<{ media_id: string; role: string; may_publish: boolean }> = [];
+	const sources: Array<{ id: string; kind: string; label: string }> = [];
+	const directionMedia: components['schemas']['MediaPlan'] = {
+		treatment: 'none',
+		brief: 'No media.',
+		role: 'none'
+	};
+	const destinationMedia: components['schemas']['MediaPlan'] = {
+		treatment: 'meme',
+		brief: 'Use the diff screenshot.',
+		role: 'attention'
+	};
+	const destinationClaims: Array<{
+		text: string;
+		status: string;
+		source_refs: string[];
+	}> = [];
+	const response = {
 		id: 'build-1',
 		workspace_id: 'workspace-1',
 		state: 'ready',
 		phase: 'ready',
 		revision: 4,
+		assets,
 		input: {
+			sources,
 			destinations: [
 				{
 					account_id: 'account-1',
@@ -40,15 +60,20 @@ function buildResponse() {
 						status: 'user_asserted',
 						source_refs: ['idea']
 					}
-				]
+				],
+				media: directionMedia
 			},
 			destinations: [
 				{
 					account_id: 'account-1',
 					platform: 'x',
+					objective: 'shares',
+					archetype: 'technical_opinion',
 					output_profile: 'x.thread',
+					preview: 'Deleting code was the feature.',
 					warnings: [],
-					media: { treatment: 'meme', brief: 'Use the diff screenshot.' }
+					claims: destinationClaims,
+					media: destinationMedia
 				}
 			],
 			review_flags: [
@@ -61,6 +86,8 @@ function buildResponse() {
 			]
 		}
 	};
+	if (!resultSources) return response;
+	return { ...response, result: { ...response.result, sources: resultSources } };
 }
 
 function buildInput(sourceText = 'I removed a large feature.') {
@@ -98,10 +125,13 @@ describe('OpenPost publication builder API client', () => {
 					expect.objectContaining({
 						accountLabel: '@rodrigo',
 						status: 'needs_review',
-						formatLabel: 'x.thread'
+						formatLabel: 'x.thread',
+						objective: 'shares',
+						archetype: 'technical_opinion',
+						preview: 'Deleting code was the feature.'
 					})
 				],
-				claims: [expect.objectContaining({ status: 'needs_review' })],
+				claims: [expect.objectContaining({ status: 'user_asserted' })],
 				mediaPlan: [
 					expect.objectContaining({
 						action: 'meme',
@@ -125,6 +155,104 @@ describe('OpenPost publication builder API client', () => {
 		);
 	});
 
+	it('keeps the strictest duplicate claim status and maps source-aware media actions', async () => {
+		const response = buildResponse([
+			{ id: 'media:image-1', kind: 'image', label: 'safe-diff.png', publishable: true },
+			{ id: 'media:video-1', kind: 'video', label: 'safe-demo.mp4', publishable: true }
+		]);
+		response.assets = [
+			{ media_id: 'image-decoy', role: 'context', may_publish: true },
+			{ media_id: 'image-1', role: 'evidence', may_publish: true },
+			{ media_id: 'video-1', role: 'artifact', may_publish: true }
+		];
+		response.input.sources = [
+			{ id: 'media:image-decoy', kind: 'image', label: 'decoy.png' },
+			{ id: 'media:image-1', kind: 'image', label: 'diff.png' },
+			{ id: 'media:video-1', kind: 'video', label: 'demo.mp4' }
+		];
+		response.result.direction.claims = [
+			{ text: 'The product is faster', status: 'supported', source_refs: ['media:image-1'] }
+		];
+		response.result.direction.media = {
+			treatment: 'annotate_source',
+			brief: 'Circle the removed panel.',
+			role: 'proof',
+			source_ref: 'media:image-1'
+		};
+		response.result.destinations[0].claims = [
+			{
+				text: '  The product   is faster  ',
+				status: 'needs_verification',
+				source_refs: ['benchmark']
+			}
+		];
+		response.result.destinations[0].media = {
+			treatment: 'edit_existing_video',
+			brief: 'Cut this to the feature reveal.',
+			role: 'demo',
+			source_ref: 'media:video-1'
+		};
+		const post = vi.fn().mockResolvedValue(apiResult(response));
+		const api = createOpenPostBuilderClient({
+			client: apiClient(vi.fn(), post),
+			createIdempotencyKey: () => 'publication-builder:media'
+		});
+
+		const result = await api.create(buildInput());
+
+		expect(result.result?.claims).toEqual([
+			expect.objectContaining({
+				status: 'needs_verification',
+				sourceLabel: 'safe-diff.png, benchmark'
+			})
+		]);
+		expect(result.result?.mediaPlan).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					treatment: 'annotate_source',
+					action: undefined,
+					sourceMediaId: 'image-1',
+					sourceLabel: 'safe-diff.png'
+				}),
+				expect.objectContaining({
+					action: 'video_editor',
+					sourceMediaId: 'video-1',
+					sourceLabel: 'safe-demo.mp4'
+				})
+			])
+		);
+	});
+
+	it('shows the exact source for direct media use without inventing an editor action', async () => {
+		const response = buildResponse();
+		response.assets = [{ media_id: 'document-1', role: 'evidence', may_publish: true }];
+		response.input.sources = [
+			{ id: 'media:document-1', kind: 'document', label: 'release-notes.pdf' }
+		];
+		response.result.direction.media = {
+			treatment: 'use_source',
+			brief: 'Attach the release notes.',
+			role: 'evidence',
+			source_ref: 'media:document-1'
+		};
+		const post = vi.fn().mockResolvedValue(apiResult(response));
+		const api = createOpenPostBuilderClient({
+			client: apiClient(vi.fn(), post),
+			createIdempotencyKey: () => 'publication-builder:direct-source'
+		});
+
+		const result = await api.create(buildInput());
+
+		expect(result.result?.mediaPlan).toContainEqual(
+			expect.objectContaining({
+				treatment: 'use_source',
+				sourceMediaId: 'document-1',
+				sourceLabel: 'release-notes.pdf',
+				action: undefined
+			})
+		);
+	});
+
 	it('reuses one idempotency key until the form changes', async () => {
 		const post = vi.fn().mockResolvedValue(apiResult(buildResponse()));
 		const createKey = vi
@@ -142,6 +270,27 @@ describe('OpenPost publication builder API client', () => {
 
 		expect(post.mock.calls.map(([, options]) => options.params.header['Idempotency-Key'])).toEqual([
 			'publication-builder:first',
+			'publication-builder:first',
+			'publication-builder:second'
+		]);
+	});
+
+	it('starts a new logical submission after the ready result is reset', async () => {
+		const post = vi.fn().mockResolvedValue(apiResult(buildResponse()));
+		const createKey = vi
+			.fn()
+			.mockReturnValueOnce('publication-builder:first')
+			.mockReturnValueOnce('publication-builder:second');
+		const api = createOpenPostBuilderClient({
+			client: apiClient(vi.fn(), post),
+			createIdempotencyKey: createKey
+		});
+
+		await api.create(buildInput());
+		api.resetSubmission('workspace-1');
+		await api.create(buildInput());
+
+		expect(post.mock.calls.map(([, options]) => options.params.header['Idempotency-Key'])).toEqual([
 			'publication-builder:first',
 			'publication-builder:second'
 		]);

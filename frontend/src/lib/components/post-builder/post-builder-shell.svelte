@@ -101,6 +101,7 @@
 		onRefreshDiscover?: () => void;
 		onLoadMoreOpportunities?: () => void;
 		onRunChange?: (run: PostBuilderRun) => void;
+		onReset?: () => void;
 		onCommit?: (result: PostBuilderCommitResult) => void | Promise<void>;
 		onMediaAction?: (
 			result: PostBuilderCommitResult,
@@ -160,6 +161,7 @@
 		onRefreshDiscover,
 		onLoadMoreOpportunities,
 		onRunChange,
+		onReset,
 		onCommit,
 		onMediaAction,
 		onError
@@ -366,6 +368,16 @@
 			operation = '';
 			mediaActionId = '';
 		}
+	}
+
+	function resetBuild(): void {
+		if (operation || runActive) return;
+		stopWatching();
+		run = null;
+		resumedRunId = '';
+		mediaActionId = '';
+		localError = '';
+		onReset?.();
 	}
 
 	function changeBuilderMode(next: string): void {
@@ -714,6 +726,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					committing={operation === 'committing'}
 					{mediaActionId}
 					onCommit={commitBuild}
+					onReset={resetBuild}
 					onMediaAction={onMediaAction ? commitForMedia : undefined}
 				/>
 			{/if}

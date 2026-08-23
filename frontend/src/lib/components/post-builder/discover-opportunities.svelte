@@ -106,7 +106,7 @@
 										href={opportunity.sourceURL}
 										target="_blank"
 										rel="noreferrer"
-										class="inline-flex min-h-8 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+										class="inline-flex min-h-11 items-center gap-1 text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline md:min-h-8"
 									>
 										{opportunity.sourceLabel}
 										<ExternalLinkIcon class="size-3" />
@@ -144,7 +144,7 @@
 												type="button"
 												variant="ghost"
 												size="sm"
-												class={`h-auto min-h-8 border border-border px-2 py-1 text-left text-xs leading-4 whitespace-normal text-muted-foreground hover:border-primary/50 hover:text-foreground ${angleSelected ? 'border-primary bg-primary/10 text-primary' : ''}`}
+												class={`h-auto min-h-11 border border-border px-2 py-1 text-left text-xs leading-4 whitespace-normal text-muted-foreground hover:border-primary/50 hover:text-foreground md:min-h-8 ${angleSelected ? 'border-primary bg-primary/10 text-primary' : ''}`}
 												disabled={disabled || !onSelectAngle}
 												onclick={() => onSelectAngle?.(opportunity, angle)}
 												aria-label={`${angleSelected ? copy.selectedAngle : copy.chooseAngle}: ${angle.label}`}

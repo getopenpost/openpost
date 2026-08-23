@@ -11,6 +11,7 @@ import type {
 export function emptyVoiceProfileDefinition(): VoiceProfileDefinition {
 	return {
 		identitySummary: '',
+		preferredLanguage: '',
 		traits: [],
 		vocabulary: [],
 		recurringExpressions: [],
@@ -53,6 +54,7 @@ export function normalizeVoiceProfileDraft(draft: VoiceProfileDraft): VoiceProfi
 		name: draft.name.trim(),
 		definition: {
 			identitySummary: draft.definition.identitySummary.trim(),
+			preferredLanguage: draft.definition.preferredLanguage.trim(),
 			traits: normalizeList(draft.definition.traits),
 			vocabulary: normalizeList(draft.definition.vocabulary),
 			recurringExpressions: normalizeList(draft.definition.recurringExpressions),
@@ -112,6 +114,7 @@ export function voiceProfileDraftFingerprint(draft: VoiceProfileDraft): string {
 export function voiceProfileGuidanceCount(definition: VoiceProfileDefinition): number {
 	return [
 		definition.identitySummary,
+		definition.preferredLanguage,
 		definition.humor,
 		definition.formality,
 		...definition.traits,
@@ -166,6 +169,14 @@ export function voiceProfileAssignmentMap(
 		}
 	}
 	return assignments;
+}
+
+export function resolveVoiceProfileSelection(
+	profiles: VoiceProfile[],
+	selectedProfileId: string
+): string {
+	if (profiles.some((profile) => profile.id === selectedProfileId)) return selectedProfileId;
+	return profiles.find((profile) => profile.isDefault)?.id ?? '';
 }
 
 export function replaceVoiceProfile(profiles: VoiceProfile[], next: VoiceProfile): VoiceProfile[] {

@@ -19,7 +19,6 @@ type WireVoiceDefinition = components['schemas']['Definition'];
 type WireVoiceProfile = components['schemas']['VoiceProfile'];
 type WireClaim = components['schemas']['Claim'];
 type WireMediaPlan = components['schemas']['MediaPlan'];
-type WireBuildResult = components['schemas']['BuildResult'];
 type WirePublicationBuild = components['schemas']['Build'];
 type WireDiscoveryResult = components['schemas']['DiscoveryResult'];
 
@@ -39,6 +38,7 @@ export interface DiscoverPostBuilderInput {
 
 export interface OpenPostBuilderClient extends PostBuilderClient {
 	availability(options?: PostBuilderClientOptions): Promise<PostBuilderAvailability>;
+	resetSubmission(workspaceId: string): void;
 	listVoices(workspaceId: string, options?: PostBuilderClientOptions): Promise<VoiceProfile[]>;
 	discover(
 		input: DiscoverPostBuilderInput,
@@ -149,6 +149,10 @@ export function createOpenPostBuilderClient(
 	}
 
 	return {
+		resetSubmission(workspaceId) {
+			submissions.delete(workspaceId);
+			removeStoredSubmission(workspaceId);
+		},
 		async availability(options) {
 			const { data, error, response } = await apiClient.GET('/auth/config', {
 				signal: options?.signal
@@ -326,6 +330,9 @@ function mapBuildResult(build: WirePublicationBuild): NonNullable<PostBuilderRun
 				status: destinationFlags.length > 0 ? 'needs_review' : 'included',
 				reason: reasons.join(' '),
 				formatLabel: destination.output_profile,
+				objective: destination.objective,
+				archetype: destination.archetype,
+				preview: destination.preview?.trim() || undefined,
 				mediaTreatment: mediaPlanLabel(destination.media)
 			} satisfies PostBuilderDestinationDecision;
 		}),
@@ -341,8 +348,9 @@ function mapBuildResult(build: WirePublicationBuild): NonNullable<PostBuilderRun
 		...(result.direction?.claims ?? []),
 		...(result.destinations ?? []).flatMap((destination) => destination.claims ?? [])
 	];
-	const claims = uniqueClaims(allClaims);
-	const mediaPlan = uniqueMediaPlans(result);
+	const sourceLabels = new Map(buildSources(build).map((source) => [source.id, source.label]));
+	const claims = uniqueClaims(allClaims, sourceLabels);
+	const mediaPlan = uniqueMediaPlans(build);
 	const voiceNames = [
 		...new Set(
 			(build.input?.destinations ?? [])
@@ -366,30 +374,65 @@ function mapBuildResult(build: WirePublicationBuild): NonNullable<PostBuilderRun
 	};
 }
 
-function uniqueClaims(claims: WireClaim[]): PostBuilderClaim[] {
-	const seen = new Set<string>();
-	const output: PostBuilderClaim[] = [];
+function uniqueClaims(claims: WireClaim[], sourceLabels: Map<string, string>): PostBuilderClaim[] {
+	const unique = new Map<
+		string,
+		{ text: string; status: PostBuilderClaim['status']; sourceLabels: Set<string> }
+	>();
 	for (const claim of claims) {
 		const text = claim.text?.trim();
-		const key = text?.toLocaleLowerCase();
-		if (!text || !key || seen.has(key)) continue;
-		seen.add(key);
-		output.push({
-			id: `claim-${output.length + 1}`,
-			text,
-			status: mapClaimStatus(claim.status),
-			sourceLabel: claim.source_refs?.join(', ')
-		});
+		const key = text?.replaceAll(/\s+/g, ' ').toLocaleLowerCase();
+		if (!text || !key) continue;
+		const status = mapClaimStatus(claim.status);
+		const current = unique.get(key);
+		if (!current) {
+			unique.set(key, {
+				text,
+				status,
+				sourceLabels: new Set(
+					(claim.source_refs ?? []).map((source) => sourceLabels.get(source) ?? source)
+				)
+			});
+			continue;
+		}
+		if (claimStatusPriority(status) > claimStatusPriority(current.status)) {
+			current.status = status;
+		}
+		for (const source of claim.source_refs ?? []) {
+			current.sourceLabels.add(sourceLabels.get(source) ?? source);
+		}
 	}
-	return output;
+	return [...unique.values()].map((claim, index) => ({
+		id: `claim-${index + 1}`,
+		text: claim.text,
+		status: claim.status,
+		sourceLabel: claim.sourceLabels.size > 0 ? [...claim.sourceLabels].join(', ') : undefined
+	}));
 }
 
 function mapClaimStatus(status: string): PostBuilderClaim['status'] {
-	if (status === 'supported') return 'verified';
-	return 'needs_review';
+	if (
+		status === 'supported' ||
+		status === 'user_asserted' ||
+		status === 'opinion' ||
+		status === 'parody' ||
+		status === 'needs_verification'
+	) {
+		return status;
+	}
+	return 'needs_verification';
 }
 
-function uniqueMediaPlans(result: WireBuildResult): PostBuilderMediaPlanItem[] {
+function claimStatusPriority(status: PostBuilderClaim['status']): number {
+	if (status === 'needs_verification') return 4;
+	if (status === 'user_asserted') return 3;
+	if (status === 'opinion' || status === 'parody') return 2;
+	return 1;
+}
+
+function uniqueMediaPlans(build: WirePublicationBuild): PostBuilderMediaPlanItem[] {
+	const result = build.result;
+	if (!result) return [];
 	const plans = [
 		{ platform: '', accountId: '', media: result.direction?.media },
 		...(result.destinations ?? []).map((destination) => ({
@@ -407,6 +450,7 @@ function uniqueMediaPlans(result: WireBuildResult): PostBuilderMediaPlanItem[] {
 		if (seen.has(key)) continue;
 		seen.add(key);
 		const treatment = plan.media?.treatment?.trim();
+		const source = mediaPlanSource(build, treatment, plan.media?.source_ref);
 		output.push({
 			id: `media-${output.length + 1}`,
 			accountId: plan.accountId || undefined,
@@ -414,7 +458,9 @@ function uniqueMediaPlans(result: WireBuildResult): PostBuilderMediaPlanItem[] {
 			label,
 			treatment,
 			brief: plan.media?.brief?.trim() || undefined,
-			action: mediaPlanAction(treatment),
+			action: plan.accountId ? mediaPlanAction(treatment) : undefined,
+			sourceMediaId: source?.id,
+			sourceLabel: source?.label,
 			status: 'planned'
 		});
 	}
@@ -425,10 +471,47 @@ function mediaPlanAction(
 	treatment: string | undefined
 ): PostBuilderMediaPlanItem['action'] | undefined {
 	if (treatment === 'meme') return 'meme';
-	if (treatment === 'statement_card' || treatment === 'carousel' || treatment === 'concept_image') {
+	if (
+		treatment === 'annotate_source' ||
+		treatment === 'statement_card' ||
+		treatment === 'carousel' ||
+		treatment === 'concept_image'
+	) {
 		return 'image_editor';
 	}
+	if (treatment === 'short_video_script' || treatment === 'edit_existing_video') {
+		return 'video_editor';
+	}
 	return undefined;
+}
+
+function mediaPlanSource(
+	build: WirePublicationBuild,
+	treatment: string | undefined,
+	sourceRef: string | undefined
+): { id: string; label: string } | undefined {
+	const allowedKinds =
+		treatment === 'annotate_source'
+			? ['image']
+			: treatment === 'edit_existing_video'
+				? ['video']
+				: treatment === 'use_source'
+					? ['image', 'audio', 'video', 'document']
+					: [];
+	const normalizedRef = sourceRef?.trim();
+	if (allowedKinds.length === 0 || !normalizedRef?.startsWith('media:')) return undefined;
+	const assetIds = new Set((build.assets ?? []).map((asset) => asset.media_id));
+	const source = buildSources(build).find(
+		(candidate) => candidate.id === normalizedRef && allowedKinds.includes(candidate.kind)
+	);
+	const id = normalizedRef.slice('media:'.length).trim();
+	return source && id && assetIds.has(id) ? { id, label: source.label } : undefined;
+}
+
+function buildSources(
+	build: WirePublicationBuild
+): Array<components['schemas']['ResolvedSource'] | components['schemas']['SourceMaterial']> {
+	return build.result?.sources ?? build.input.sources ?? [];
 }
 
 function mediaPlanLabel(media: WireMediaPlan | undefined): string | undefined {
@@ -479,6 +562,7 @@ function mapVoiceProfile(profile: WireVoiceProfile): VoiceProfile {
 function mapVoiceDefinition(definition: WireVoiceDefinition): VoiceProfileDefinition {
 	return {
 		identitySummary: definition.identity_summary ?? '',
+		preferredLanguage: definition.preferred_language ?? '',
 		traits: definition.traits ?? [],
 		vocabulary: definition.vocabulary ?? [],
 		recurringExpressions: definition.recurring_expressions ?? [],

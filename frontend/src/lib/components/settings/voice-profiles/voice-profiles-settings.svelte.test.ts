@@ -13,6 +13,7 @@ function profile(overrides: Partial<VoiceProfile> = {}): VoiceProfile {
 		schemaVersion: 1,
 		definition: {
 			identitySummary: 'A technical founder who writes from first-hand experience.',
+			preferredLanguage: 'English (Portugal)',
 			traits: ['Direct', 'Technical'],
 			vocabulary: [],
 			recurringExpressions: [],
@@ -69,6 +70,9 @@ describe('VoiceProfilesSettings', () => {
 
 		await screen.getByRole('button', { name: /Advanced voice details/ }).click();
 
+		await expect
+			.element(screen.getByLabelText('Preferred language'))
+			.toHaveValue('English (Portugal)');
 		await expect.element(screen.getByText('Representative examples')).toBeVisible();
 		await expect.element(screen.getByText('Accepted corrections')).toBeVisible();
 		await expect.element(screen.getByText('Interview answers')).toBeVisible();

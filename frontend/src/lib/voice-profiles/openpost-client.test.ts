@@ -22,6 +22,7 @@ function profile(overrides: Partial<WireVoiceProfile> = {}): WireVoiceProfile {
 		updated_at: '2026-08-23T10:00:00Z',
 		definition: {
 			identity_summary: 'A technical founder.',
+			preferred_language: 'English (Portugal)',
 			traits: ['Direct'],
 			recurring_expressions: ['The practical part is...'],
 			forbidden_phrases: ['Game changer'],
@@ -59,6 +60,7 @@ describe('OpenPost Voice Profiles API client', () => {
 				assignedAccountIds: ['account-1'],
 				definition: expect.objectContaining({
 					identitySummary: 'A technical founder.',
+					preferredLanguage: 'English (Portugal)',
 					recurringExpressions: ['The practical part is...'],
 					forbiddenPhrases: ['Game changer'],
 					examples: [
@@ -105,6 +107,7 @@ describe('OpenPost Voice Profiles API client', () => {
 		const definition = {
 			...emptyVoiceProfileDefinition(),
 			identitySummary: 'A technical founder.',
+			preferredLanguage: 'English (Portugal)',
 			traits: ['Direct']
 		};
 

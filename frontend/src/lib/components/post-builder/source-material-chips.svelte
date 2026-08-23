@@ -70,7 +70,7 @@
 					{/if}
 					{#if onPublishChange && ['image', 'video', 'audio', 'document'].includes(source.kind)}
 						<label
-							class="mt-1 inline-flex min-h-7 items-center gap-2 text-xs text-muted-foreground"
+							class="mt-1 inline-flex min-h-11 items-center gap-2 text-xs text-muted-foreground md:min-h-7"
 						>
 							<Checkbox
 								checked={source.mayPublish ?? false}
@@ -87,7 +87,7 @@
 						variant="ghost"
 						size="icon-sm"
 						class="-mr-1 shrink-0 text-muted-foreground"
-						disabled={disabled || status === 'processing'}
+						{disabled}
 						onclick={() => onRemove?.(source)}
 						aria-label={`${copy.removeSource}: ${source.label}`}
 					>

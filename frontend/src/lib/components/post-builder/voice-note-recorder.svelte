@@ -17,6 +17,7 @@
 	const maximumSeconds = 300;
 	let { open = $bindable(false), disabled = false, onSave }: Props = $props();
 	let recording = $state(false);
+	let starting = $state(false);
 	let uploading = $state(false);
 	let elapsedSeconds = $state(0);
 	let error = $state('');
@@ -25,6 +26,8 @@
 	let chunks: Blob[] = [];
 	let timer: ReturnType<typeof setInterval> | null = null;
 	let saveAfterStop = false;
+	let permissionRequest = 0;
+	let destroyed = false;
 
 	const elapsedLabel = $derived(
 		`${Math.floor(elapsedSeconds / 60)}:${String(elapsedSeconds % 60).padStart(2, '0')}`
@@ -38,13 +41,20 @@
 	}
 
 	async function start(): Promise<void> {
-		if (recording || uploading || disabled) return;
+		if (starting || recording || uploading || disabled) return;
 		error = '';
+		const request = ++permissionRequest;
+		starting = true;
 		try {
 			if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
 				throw new Error(m.post_builder_record_unsupported());
 			}
-			stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			const acquiredStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			if (request !== permissionRequest || destroyed || !open) {
+				for (const track of acquiredStream.getTracks()) track.stop();
+				return;
+			}
+			stream = acquiredStream;
 			chunks = [];
 			const mimeType = preferredMimeType();
 			recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -64,11 +74,14 @@
 				if (elapsedSeconds >= maximumSeconds) stop(true);
 			}, 1000);
 		} catch (cause) {
+			if (request !== permissionRequest || destroyed || !open) return;
 			cleanup();
 			error =
 				cause instanceof Error && cause.message
 					? cause.message
 					: m.post_builder_record_permission();
+		} finally {
+			if (request === permissionRequest) starting = false;
 		}
 	}
 
@@ -122,11 +135,15 @@
 			elapsedSeconds = 0;
 			return;
 		}
+		permissionRequest += 1;
+		starting = false;
 		if (recording) stop(false);
 		else cleanup();
 	}
 
 	onDestroy(() => {
+		destroyed = true;
+		permissionRequest += 1;
 		if (recording) stop(false);
 		cleanup();
 	});
@@ -157,10 +174,15 @@
 					{m.post_builder_record_stop()}
 				</Button>
 			{:else}
-				<Button type="button" class="mt-5" disabled={uploading || disabled} onclick={start}>
-					{#if uploading}
+				<Button
+					type="button"
+					class="mt-5"
+					disabled={starting || uploading || disabled}
+					onclick={start}
+				>
+					{#if starting || uploading}
 						<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
-						{m.post_builder_record_uploading()}
+						{starting ? m.post_builder_record_starting() : m.post_builder_record_uploading()}
 					{:else}
 						<MicIcon class="size-4" />
 						{m.post_builder_record_start()}

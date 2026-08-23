@@ -17,6 +17,7 @@ export interface VoiceProfileInterviewAnswer {
 
 export interface VoiceProfileDefinition {
 	identitySummary: string;
+	preferredLanguage: string;
 	traits: string[];
 	vocabulary: string[];
 	recurringExpressions: string[];
@@ -152,6 +153,9 @@ export interface VoiceProfilesCopy {
 	advancedHeading: string;
 	advancedDescription: string;
 	languageHeading: string;
+	preferredLanguage: string;
+	preferredLanguageDescription: string;
+	preferredLanguagePlaceholder: string;
 	vocabulary: string;
 	vocabularyDescription: string;
 	vocabularyPlaceholder: string;

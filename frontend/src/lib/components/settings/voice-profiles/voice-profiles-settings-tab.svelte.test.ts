@@ -15,6 +15,7 @@ function profile(): VoiceProfile {
 		assignedAccountIds: [],
 		definition: {
 			identitySummary: 'A technical founder.',
+			preferredLanguage: 'English (Portugal)',
 			traits: ['Direct'],
 			vocabulary: [],
 			recurringExpressions: [],

@@ -130,6 +130,11 @@
 		parseComposerHandoffPayload,
 		type ComposerHandoffPayload
 	} from '$lib/composer/handoff-payload';
+	import {
+		clearBuilderMediaHandoff,
+		parseBuilderMediaHandoff,
+		type BuilderMediaHandoff
+	} from '$lib/composer/builder-media-handoff';
 	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
 	import type { DraftConflictProblem } from '$lib/draft-conflict';
 	import {
@@ -1971,24 +1976,26 @@
 		mediaPickerOpen = true;
 	}
 
-	type BuilderMediaHandoff = { kind: 'meme' | 'image'; brief: string };
-
 	function takeBuilderMediaHandoff(): BuilderMediaHandoff | null {
 		if (!$page?.url) return null;
-		const kind = $page.url.searchParams.get('builder_media');
-		if (kind !== 'meme' && kind !== 'image') return null;
-		const brief = ($page.url.searchParams.get('builder_media_brief') ?? '').trim().slice(0, 1000);
-		const clean = new URL($page.url);
-		clean.searchParams.delete('builder_media');
-		clean.searchParams.delete('builder_media_brief');
+		const handoff = parseBuilderMediaHandoff($page.url);
+		if (!handoff) return null;
+		const clean = clearBuilderMediaHandoff($page.url);
 		replaceState(resolveAppPath(`${clean.pathname}${clean.search}${clean.hash}`), {});
-		return { kind, brief };
+		return handoff;
 	}
 
 	async function openBuilderMediaHandoff(): Promise<void> {
 		if (!selectedWorkspaceId) return;
 		const handoff = takeBuilderMediaHandoff();
 		if (!handoff) return;
+		if (handoff.accountId && !selectedAccountIds.includes(handoff.accountId)) {
+			error = m.compose_choose_account_blocker();
+			return;
+		}
+		if (handoff.accountId) {
+			editAccountVersion(handoff.accountId);
+		}
 		mediaPickerPostIndex = activePostIndex;
 		if (handoff.kind === 'meme') {
 			mediaPickerInitialFiles = [];
@@ -1999,7 +2006,18 @@
 		}
 
 		try {
-			await openImageEditorFromComposer();
+			if (handoff.kind === 'video') {
+				await openVideoEditorFromComposer(
+					handoff.sourceMediaId ? { id: handoff.sourceMediaId } : undefined,
+					handoff.brief
+				);
+				return;
+			}
+			await openImageEditorFromComposer({
+				sourceMediaId: handoff.sourceMediaId,
+				sourceLabel: handoff.sourceLabel,
+				brief: handoff.brief
+			});
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.media_picker_image_editor_failed();
 		}
@@ -2120,7 +2138,9 @@
 		if (!saved) throw new Error(error || m.compose_save_draft_failed());
 	}
 
-	async function openImageEditorFromComposer() {
+	async function openImageEditorFromComposer(
+		options: { sourceMediaId?: string; sourceLabel?: string; brief?: string } = {}
+	) {
 		if (!selectedWorkspaceId) return;
 		mediaPickerOpen = false;
 		await requireSavedComposerBeforeHandoff();
@@ -2153,11 +2173,14 @@
 			expires_at: token.expires_at,
 			payload: composerHandoffPayload()
 		});
-		await goto(
-			resolveAppPath(
-				`/image-editor/new?workspace=${encodeURIComponent(selectedWorkspaceId)}&return_token=${encodeURIComponent(token.token)}`
-			)
-		);
+		const query = new URLSearchParams({
+			workspace: selectedWorkspaceId,
+			return_token: token.token
+		});
+		if (options.sourceMediaId) query.set('source_media', options.sourceMediaId);
+		if (options.sourceLabel) query.set('source_name', options.sourceLabel);
+		if (options.brief) query.set('builder_brief', options.brief.slice(0, 160));
+		await goto(resolveAppPath(`/image-editor/new?${query.toString()}`));
 	}
 
 	async function restoreImageEditorReturn() {
@@ -2215,7 +2238,10 @@
 		return data;
 	}
 
-	async function openVideoEditorFromComposer(selectedVideo?: MediaPickerVideoSelection) {
+	async function openVideoEditorFromComposer(
+		selectedVideo?: Pick<MediaPickerVideoSelection, 'id'>,
+		brief = ''
+	) {
 		if (!selectedWorkspaceId) return;
 		mediaPickerOpen = false;
 		await requireSavedComposerBeforeHandoff();
@@ -2225,6 +2251,7 @@
 			return: publication?.id ?? publicationId
 		});
 		if (selectedVideo) query.set('source', `media:${selectedVideo.id}`);
+		if (brief.trim()) query.set('name', brief.trim().slice(0, 160));
 		await goto(resolveAppPath(`/video-editor/new?${query.toString()}`));
 	}
 

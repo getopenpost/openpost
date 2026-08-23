@@ -14,6 +14,7 @@
 	import type { SocialAccount } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
 	import type { ImageEditorMediaItem } from '$lib/image-editor/types';
+	import { createBuilderMediaHandoffSearch } from '$lib/composer/builder-media-handoff';
 	import { uploadMediaFile, type MediaUploadResult } from '$lib/media-upload-client';
 	import {
 		createOpenPostBuilderClient,
@@ -28,7 +29,7 @@
 		type PostBuilderRun,
 		type PostBuilderSource
 	} from '$lib/post-builder';
-	import type { VoiceProfile } from '$lib/voice-profiles';
+	import { resolveVoiceProfileSelection, type VoiceProfile } from '$lib/voice-profiles';
 	import { getPlatformKey, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 	import PostBuilderShell from './post-builder-shell.svelte';
@@ -154,7 +155,7 @@
 			);
 			selectedAccountIds = accounts.map((account) => account.id);
 			voices = loadedVoices;
-			voiceProfileId = loadedVoices.find((profile) => profile.isDefault)?.id ?? '';
+			voiceProfileId = resolveVoiceProfileSelection(loadedVoices, voiceProfileId);
 		} catch (cause) {
 			if (controller.signal.aborted) return;
 			contextError =
@@ -391,6 +392,12 @@
 		localStorage.setItem(runStorageKey(), run.id);
 	}
 
+	function handleReset(): void {
+		localStorage.removeItem(runStorageKey());
+		initialRunId = '';
+		client.resetSubmission(workspaceId);
+	}
+
 	async function handleCommit(result: PostBuilderCommitResult): Promise<void> {
 		localStorage.removeItem(runStorageKey());
 		prefetchDraftComposerData(result.publicationId, workspaceId);
@@ -403,9 +410,14 @@
 	): Promise<void> {
 		localStorage.removeItem(runStorageKey());
 		prefetchDraftComposerData(result.publicationId, workspaceId);
-		const query = new URLSearchParams({
-			builder_media: item.action === 'meme' ? 'meme' : 'image',
-			builder_media_brief: (item.brief || item.label).slice(0, 1000)
+		const builderMedia =
+			item.action === 'meme' ? 'meme' : item.action === 'video_editor' ? 'video' : 'image';
+		const query = createBuilderMediaHandoffSearch({
+			kind: builderMedia,
+			brief: item.brief || item.label,
+			accountId: item.accountId,
+			sourceMediaId: item.sourceMediaId,
+			sourceLabel: item.sourceLabel
 		});
 		await goto(
 			`${resolveAppPath(`/publications/${encodeURIComponent(result.publicationId)}`)}?${query}`
@@ -449,9 +461,14 @@
 			/>
 		</div>
 	{:else}
-		<Button type="button" variant="outline" class="justify-start" disabled>
-			<UsersIcon class="size-4" />
-			{m.post_builder_no_native_destinations()}
+		<Button
+			type="button"
+			variant="outline"
+			class="h-auto min-h-11 w-full min-w-0 justify-start py-2 text-left leading-snug whitespace-normal"
+			disabled
+		>
+			<UsersIcon class="size-4 shrink-0" />
+			<span class="min-w-0">{m.post_builder_no_native_destinations()}</span>
 		</Button>
 	{/if}
 {/snippet}
@@ -525,6 +542,7 @@
 	onSelectOpportunityAngle={selectOpportunityAngle}
 	onRefreshDiscover={discover}
 	onRunChange={handleRunChange}
+	onReset={handleReset}
 	onCommit={handleCommit}
 	onMediaAction={handleMediaAction}
 />

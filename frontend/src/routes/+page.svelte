@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { onDestroy, onMount } from 'svelte';
 	import ComposeShell from '$lib/components/compose-shell.svelte';
 	import PageLoading from '$lib/components/page-loading.svelte';
@@ -7,10 +8,12 @@
 	import { CreationModeSwitch, PostBuilderPage } from '$lib/components/post-builder';
 	import {
 		createOpenPostBuilderClient,
+		hasComposerIntent,
 		localizedPostBuilderCopy,
 		type PostBuilderCreationMode
 	} from '$lib/post-builder';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
 
 	const builderClient = createOpenPostBuilderClient();
@@ -22,6 +25,13 @@
 	let creationMode = $state<PostBuilderCreationMode>('manual');
 	let availabilityController: AbortController | null = null;
 
+	function shouldOpenManualComposer(): boolean {
+		return hasComposerIntent(page.url, {
+			activeDraftId: ui.activeComposerDraftId,
+			hasPendingPrompt: Boolean(ui.pendingPrompt)
+		});
+	}
+
 	onMount(() => {
 		const controller = new AbortController();
 		availabilityController = controller;
@@ -31,7 +41,8 @@
 				if (controller.signal.aborted) return;
 				builderEnabled = availability.builderEnabled;
 				discoveryEnabled = availability.discoveryEnabled;
-				creationMode = availability.builderEnabled ? 'builder' : 'manual';
+				creationMode =
+					availability.builderEnabled && !shouldOpenManualComposer() ? 'builder' : 'manual';
 			})
 			.catch(() => {
 				if (controller.signal.aborted) return;

@@ -117,10 +117,18 @@ export interface PostBuilderDestinationDecision {
 	status: PostBuilderDestinationDecisionStatus;
 	reason?: string;
 	formatLabel?: string;
+	objective?: string;
+	archetype?: string;
+	preview?: string;
 	mediaTreatment?: string;
 }
 
-export type PostBuilderClaimStatus = 'verified' | 'needs_review' | 'unsupported';
+export type PostBuilderClaimStatus =
+	| 'supported'
+	| 'user_asserted'
+	| 'opinion'
+	| 'parody'
+	| 'needs_verification';
 
 export interface PostBuilderClaim {
 	id: string;
@@ -136,7 +144,9 @@ export interface PostBuilderMediaPlanItem {
 	label: string;
 	treatment?: string;
 	brief?: string;
-	action?: 'meme' | 'image_editor';
+	action?: 'meme' | 'image_editor' | 'video_editor';
+	sourceMediaId?: string;
+	sourceLabel?: string;
 	status?: 'planned' | 'generating' | 'ready' | 'skipped';
 }
 
@@ -242,6 +252,7 @@ export interface PostBuilderCopy {
 	coreThesis: string;
 	reviewInComposer: string;
 	openingComposer: string;
+	buildAnother: string;
 	angle: string;
 	goal: string;
 	audience: string;
@@ -251,14 +262,20 @@ export interface PostBuilderCopy {
 	mediaPlan: string;
 	makeMeme: string;
 	createVisual: string;
+	annotateSource: string;
+	createVideo: string;
+	editVideo: string;
 	preparingMedia: string;
 	evidenceOnly: string;
 	mayPublish: string;
 	included: string;
 	skipped: string;
 	needsReview: string;
-	verified: string;
-	unsupported: string;
+	supported: string;
+	userAsserted: string;
+	opinion: string;
+	parody: string;
+	needsVerification: string;
 	noClaimsNeedReview: string;
 	workspaceRequired: string;
 	sourceRequired: string;

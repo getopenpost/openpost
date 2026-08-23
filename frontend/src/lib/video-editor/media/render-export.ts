@@ -451,8 +451,9 @@ export async function renderMultiTrackVideo(
 
 	report(options, 'preparing', 0, totalFrames);
 
+	const transitions = timeline?.transitions ?? [];
 	const mixEntries = sliceMixEntries(
-		planMixdown(items, tracks, fps),
+		planMixdown(items, tracks, fps, transitions),
 		startFrame / fps,
 		endFrame / fps
 	);
@@ -595,8 +596,9 @@ export async function renderTimelineAudio(
 	const fullDuration = outputDurationFrames(items);
 	const startFrame = Math.max(0, Math.floor(options.range?.startFrame ?? 0));
 	const endFrame = Math.min(fullDuration, Math.ceil(options.range?.endFrame ?? fullDuration));
+	const transitions = project.timeline?.transitions ?? [];
 	const entries = sliceMixEntries(
-		planMixdown(items, tracks, fps),
+		planMixdown(items, tracks, fps, transitions),
 		startFrame / fps,
 		endFrame / fps
 	);

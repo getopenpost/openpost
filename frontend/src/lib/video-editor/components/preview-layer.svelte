@@ -17,7 +17,12 @@
 	import { scopeSamples } from '$lib/video-editor/effects/scope-samples.svelte';
 	import { selectCuesAtFrame } from '$lib/video-editor/media/render-plan';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
-	import { previewItemVolume } from '$lib/video-editor/preview/playback-settings';
+	import {
+		previewItemVolume,
+		previewItemVolumeWithFade
+	} from '$lib/video-editor/preview/playback-settings';
+	import { audioCrossfadeGainAtFrame } from '$lib/video-editor/audio/transition-crossfade';
+	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { renderSubtitleRaster, renderTextItemRaster } from '$lib/video-editor/media/text-raster';
 	import type { ItemEffect } from '$lib/video-editor/effects/types';
 	import type { RegisterPreviewSource } from '$lib/video-editor/preview/source-provider';
@@ -126,7 +131,7 @@
 			? selectCuesAtFrame(resolved.cues ?? [], timelineStore.currentFrame)[0]
 			: undefined
 	);
-	const previewVolume = $derived(
+	const basePreviewVolume = $derived(
 		previewItemVolume(
 			resolved,
 			timelineStore.tracks,
@@ -134,6 +139,15 @@
 			previewPlaybackSettings.muted
 		)
 	);
+	const crossfadeGain = $derived(
+		audioCrossfadeGainAtFrame(
+			resolved,
+			timelineStore.currentFrame,
+			transitionsStore.list,
+			timelineStore.itemById
+		)
+	);
+	const previewVolume = $derived(previewItemVolumeWithFade(basePreviewVolume, crossfadeGain));
 
 	function paintRaster(canvas: HTMLCanvasElement): void {
 		if (resolved.type !== 'text' && resolved.type !== 'subtitle') return;

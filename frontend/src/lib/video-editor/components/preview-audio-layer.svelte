@@ -7,12 +7,17 @@
 	import { resolveAnimatedItemAt } from '$lib/video-editor/timeline/animated-properties';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
 	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
-	import { previewItemVolume } from '$lib/video-editor/preview/playback-settings';
+	import {
+		previewItemVolume,
+		previewItemVolumeWithFade
+	} from '$lib/video-editor/preview/playback-settings';
+	import { audioCrossfadeGainAtFrame } from '$lib/video-editor/audio/transition-crossfade';
+	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 
 	let { item, url }: { item: TimelineItem; url?: string | null } = $props();
 	let audio = $state<HTMLAudioElement | null>(null);
 	const resolved = $derived(resolveAnimatedItemAt(item, timelineStore.currentFrame));
-	const volume = $derived(
+	const baseVolume = $derived(
 		previewItemVolume(
 			resolved,
 			timelineStore.tracks,
@@ -20,6 +25,15 @@
 			previewPlaybackSettings.muted
 		)
 	);
+	const crossfadeGain = $derived(
+		audioCrossfadeGainAtFrame(
+			resolved,
+			timelineStore.currentFrame,
+			transitionsStore.list,
+			timelineStore.itemById
+		)
+	);
+	const volume = $derived(previewItemVolumeWithFade(baseVolume, crossfadeGain));
 
 	$effect(() => {
 		const media = audio;

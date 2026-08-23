@@ -30,6 +30,10 @@ export function previewItemVolume(
 	return clampMonitorVolume((item.volume ?? 1) * (track.volume ?? 1) * monitorVolume);
 }
 
+export function previewItemVolumeWithFade(baseGain: number, crossfadeGain: number): number {
+	return clampMonitorVolume(baseGain * crossfadeGain);
+}
+
 export function buildFrameFileName(frame: number, fps: number, totalFrames: number): string {
 	const safeFrame = Math.max(0, Math.round(frame));
 	const safeFps = Number.isFinite(fps) && fps > 0 ? fps : 30;

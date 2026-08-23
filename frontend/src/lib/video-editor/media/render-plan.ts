@@ -16,6 +16,7 @@ import type {
 } from '../project/types';
 import { activeValueAt } from '../timeline/actions/keyframes';
 import { resolveTransitionWindow } from '../timeline/transition-planner';
+import { audioCrossfadeGainAtFrame } from '../audio/transition-crossfade';
 
 /** One scheduled clip in the offline audio mixdown. */
 export interface MixEntry {
@@ -76,9 +77,11 @@ const AUDIO_BEARING_TYPES: ReadonlySet<TimelineItem['type']> = new Set(['video',
 export function planMixdown(
 	items: TimelineItem[],
 	tracks: TimelineTrack[],
-	fps: number
+	fps: number,
+	transitions: TimelineTransition[] = []
 ): MixEntry[] {
 	const trackById = new Map(tracks.map((track) => [track.id, track]));
+	const itemsById = new Map(items.map((item) => [item.id, item]));
 	const anySolo = tracks.some((track) => track.solo);
 	const entries: MixEntry[] = [];
 	for (const item of items) {
@@ -94,17 +97,45 @@ export function planMixdown(
 			sourceOffsetSeconds: (item.sourceStart ?? 0) / sourceFps,
 			playbackRate: speed,
 			durationSeconds: item.durationInFrames / fps,
-			gainPoints: volumeGainPoints(item, track.volume ?? 1, fps)
+			gainPoints: volumeGainPoints(item, track.volume ?? 1, fps, transitions, itemsById)
 		});
 	}
 	return entries;
 }
 
-function volumeGainPoints(item: TimelineItem, trackVolume: number, fps: number): GainPoint[] {
+function volumeGainPoints(
+	item: TimelineItem,
+	trackVolume: number,
+	fps: number,
+	transitions: TimelineTransition[] = [],
+	itemsById: Map<string, TimelineItem> = new Map()
+): GainPoint[] {
 	const baseGain = (item.volume ?? 1) * trackVolume;
 	const track = item.keyframes?.volume;
 	if (!track || track.frames.length === 0) {
-		return [{ whenSeconds: item.from / fps, value: baseGain }];
+		// Single-point clips still need exact endpoint crossfades at window boundaries.
+		// Emit per-frame points when transitions touch this clip so the automation
+		// can hit 1→0 and 0→1 exactly.
+		const needsPerFrame = transitions.some((t) => {
+			const from = itemsById.get(t.fromItemId);
+			const to = itemsById.get(t.toItemId);
+			if (!from || !to) return false;
+			const window = resolveTransitionWindow(t, from, to);
+			if (!window) return false;
+			return (
+				item.id === t.fromItemId ||
+				item.id === t.toItemId ||
+				isLinkedParticipant(item, t, itemsById)
+			);
+		});
+		if (!needsPerFrame) return [{ whenSeconds: item.from / fps, value: baseGain }];
+		const points: GainPoint[] = [];
+		for (let frame = 0; frame <= item.durationInFrames; frame++) {
+			const whenSeconds = Math.round(((item.from + frame) / fps) * 1000) / 1000;
+			const crossfade = audioCrossfadeGainAtFrame(item, item.from + frame, transitions, itemsById);
+			points.push({ whenSeconds, value: baseGain * crossfade });
+		}
+		return points;
 	}
 	const points: GainPoint[] = [];
 	const seen = new Set<number>();
@@ -114,9 +145,35 @@ function volumeGainPoints(item: TimelineItem, trackVolume: number, fps: number):
 		const whenSeconds = Math.round(((item.from + frame) / fps) * 1000) / 1000;
 		if (seen.has(whenSeconds)) continue;
 		seen.add(whenSeconds);
-		points.push({ whenSeconds, value: animated });
+		const crossfade = audioCrossfadeGainAtFrame(item, item.from + frame, transitions, itemsById);
+		points.push({ whenSeconds, value: animated * crossfade });
 	}
 	return points.length > 0 ? points : [{ whenSeconds: item.from / fps, value: baseGain }];
+}
+
+function isLinkedParticipant(
+	item: TimelineItem,
+	transition: TimelineTransition,
+	itemsById: Map<string, TimelineItem>
+): boolean {
+	if (!item.linkedGroupId) return false;
+	const from = itemsById.get(transition.fromItemId);
+	const to = itemsById.get(transition.toItemId);
+	if (
+		from &&
+		item.linkedGroupId === from.linkedGroupId &&
+		item.from === from.from &&
+		item.durationInFrames === from.durationInFrames
+	)
+		return true;
+	if (
+		to &&
+		item.linkedGroupId === to.linkedGroupId &&
+		item.from === to.from &&
+		item.durationInFrames === to.durationInFrames
+	)
+		return true;
+	return false;
 }
 
 /**

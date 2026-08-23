@@ -1,0 +1,58 @@
+{
+  "name": "@openpost/n8n-nodes-openpost",
+  "version": "0.1.0-alpha.0",
+  "description": "Official n8n community node for OpenPost publishing automation.",
+  "keywords": [
+    "n8n",
+    "n8n-community-node-package",
+    "openpost",
+    "publishing",
+    "social-media"
+  ],
+  "homepage": "https://openpost.dev",
+  "license": "MIT",
+  "author": {
+    "name": "OpenPost",
+    "email": "support@openpost.dev"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openpost/openpost.git",
+    "directory": "packages/n8n-nodes-openpost"
+  },
+  "files": [
+    "dist",
+    "icons",
+    "README.md",
+    "LICENSE",
+    "docs/selected-contract-report.md"
+  ],
+  "type": "module",
+  "main": "dist/nodes/OpenPost/OpenPost.node.js",
+  "types": "dist/nodes/OpenPost/OpenPost.node.d.ts",
+  "scripts": {
+    "build": "n8n-node build",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "n8n-node dev",
+    "lint": "n8n-node lint",
+    "test": "bun test ./test",
+    "prepack": "bun ../../scripts/generate-selected-automation-contract.mjs --check && bun run check && bun run test && bun run build"
+  },
+  "devDependencies": {
+    "@n8n/node-cli": "0.44.3",
+    "n8n-workflow": "2.16.0",
+    "typescript": "7.0.2"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/OpenPostApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/OpenPost/OpenPost.node.js"
+    ]
+  }
+}

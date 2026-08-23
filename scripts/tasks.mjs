@@ -25,6 +25,14 @@ const browserScopes = ["e2e", "e2e-app", "e2e-docs"];
 
 const checks = {
   contracts: stage("generated contracts", [bun("scripts/check-contracts.mjs")]),
+  "n8n-package": stage("n8n package", [
+    bunTest("scripts/generate-selected-automation-contract.test.mjs"),
+    bun("scripts/generate-selected-automation-contract.mjs", "--check"),
+    commandStep("bun", "run", "check", { cwd: "packages/n8n-nodes-openpost" }),
+    commandStep("bun", "run", "test", { cwd: "packages/n8n-nodes-openpost" }),
+    commandStep("bun", "run", "lint", { cwd: "packages/n8n-nodes-openpost" }),
+    commandStep("bun", "run", "build", { cwd: "packages/n8n-nodes-openpost" }),
+  ]),
   "build-graph": stage("build graph", [
     bunTest(
       "scripts/build-graph.test.mjs",

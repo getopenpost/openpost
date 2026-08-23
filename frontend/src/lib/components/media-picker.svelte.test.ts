@@ -96,7 +96,10 @@ function templateResult(configured = true): MemeTemplateListResult {
 	};
 }
 
-function renderPicker(enableMeme: boolean) {
+function renderPicker(
+	enableMeme: boolean,
+	options: { initialMode?: 'library' | 'meme'; memeInitialIdea?: string } = {}
+) {
 	return render(MediaPicker, {
 		props: {
 			open: true,
@@ -106,6 +109,8 @@ function renderPicker(enableMeme: boolean) {
 			multiple: true,
 			showCreate: false,
 			enableMeme,
+			initialMode: options.initialMode,
+			memeInitialIdea: options.memeInitialIdea,
 			services,
 			onConfirm: vi.fn()
 		}
@@ -212,6 +217,19 @@ describe('MediaPicker meme source', () => {
 		} finally {
 			releaseWidth();
 		}
+	});
+
+	it('opens Meme directly with a supplied builder brief', async () => {
+		const brief = 'A deploy that removed 15,000 lines and made the product more stable.';
+		const screen = await renderPicker(true, {
+			initialMode: 'meme',
+			memeInitialIdea: brief
+		});
+
+		await expect.element(screen.getByRole('heading', { name: 'Make a meme' })).toBeVisible();
+		await expect
+			.element(screen.getByRole('textbox', { name: 'What should the meme be about?' }))
+			.toHaveValue(brief);
 	});
 
 	it('uses the desktop viewport for a full Meme workbench', async () => {

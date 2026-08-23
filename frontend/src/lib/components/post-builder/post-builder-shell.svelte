@@ -8,7 +8,6 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import SlidersIcon from '@lucide/svelte/icons/sliders-horizontal';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
-	import SquarePenIcon from '@lucide/svelte/icons/square-pen';
 	import UserIcon from '@lucide/svelte/icons/user-round';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import WandIcon from '@lucide/svelte/icons/wand-sparkles';
@@ -30,6 +29,7 @@
 		type PostBuilderCopy,
 		type PostBuilderCreationMode,
 		type PostBuilderDirection,
+		type PostBuilderMediaPlanItem,
 		type PostBuilderMode,
 		type PostBuilderOpportunity,
 		type PostBuilderOpportunityAngle,
@@ -43,6 +43,7 @@
 	import BuildResultSummary from './build-result-summary.svelte';
 	import DiscoverOpportunities from './discover-opportunities.svelte';
 	import SourceMaterialChips from './source-material-chips.svelte';
+	import CreationModeSwitch from './creation-mode-switch.svelte';
 
 	type ControlSnippet = Snippet<[PostBuilderControlContext]>;
 
@@ -60,6 +61,8 @@
 		discoverLoading?: boolean;
 		discoverError?: string;
 		discoverHasMore?: boolean;
+		discoverEnabled?: boolean;
+		showCreationModeSwitch?: boolean;
 		selectedAccountIds?: string[];
 		socialSetId?: string;
 		destinationLabel?: string;
@@ -84,6 +87,7 @@
 		onRecord?: () => void;
 		onAddContext?: () => void;
 		onRemoveSource?: (source: PostBuilderSource) => void;
+		onSourcePublishChange?: (source: PostBuilderSource, mayPublish: boolean) => void;
 		onOpenDestinations?: () => void;
 		onOpenVoice?: () => void;
 		onOpenDirection?: () => void;
@@ -97,7 +101,11 @@
 		onRefreshDiscover?: () => void;
 		onLoadMoreOpportunities?: () => void;
 		onRunChange?: (run: PostBuilderRun) => void;
-		onCommit?: (result: PostBuilderCommitResult) => void;
+		onCommit?: (result: PostBuilderCommitResult) => void | Promise<void>;
+		onMediaAction?: (
+			result: PostBuilderCommitResult,
+			item: PostBuilderMediaPlanItem
+		) => void | Promise<void>;
 		onError?: (error: Error) => void;
 	}
 
@@ -115,6 +123,8 @@
 		discoverLoading = false,
 		discoverError = '',
 		discoverHasMore = false,
+		discoverEnabled = true,
+		showCreationModeSwitch = true,
 		selectedAccountIds = [],
 		socialSetId = '',
 		destinationLabel = 'Choose destinations',
@@ -139,6 +149,7 @@
 		onRecord,
 		onAddContext,
 		onRemoveSource,
+		onSourcePublishChange,
 		onOpenDestinations,
 		onOpenVoice,
 		onOpenDirection,
@@ -150,6 +161,7 @@
 		onLoadMoreOpportunities,
 		onRunChange,
 		onCommit,
+		onMediaAction,
 		onError
 	}: Props = $props();
 
@@ -170,6 +182,8 @@
 	let watchController: AbortController | null = null;
 	let operationController: AbortController | null = null;
 	let watchSequence = 0;
+	let resumedRunId = '';
+	let mediaActionId = $state('');
 
 	const runActive = $derived(postBuilderRunIsActive(run));
 	const runReady = $derived(run?.phase === 'ready' && Boolean(run.result));
@@ -300,7 +314,7 @@
 	}
 
 	async function retryBuild(): Promise<void> {
-		if (!run || operation) return;
+		if (!run || run.canRetry !== true || operation) return;
 		operation = 'retrying';
 		localError = '';
 		stopWatching();
@@ -326,7 +340,7 @@
 		operationController = controller;
 		try {
 			const result = await client.commit(run.id, { signal: controller.signal });
-			onCommit?.(result);
+			await onCommit?.(result);
 		} catch (cause) {
 			reportError(cause);
 		} finally {
@@ -335,20 +349,35 @@
 		}
 	}
 
-	function changeCreationMode(next: string): void {
-		if (next !== 'builder' && next !== 'manual') return;
-		onCreationModeChange?.(next);
+	async function commitForMedia(item: PostBuilderMediaPlanItem): Promise<void> {
+		if (!run || !runReady || !item.action || !onMediaAction || operation) return;
+		operation = 'committing';
+		mediaActionId = item.id;
+		localError = '';
+		const controller = new AbortController();
+		operationController = controller;
+		try {
+			const result = await client.commit(run.id, { signal: controller.signal });
+			await onMediaAction(result, item);
+		} catch (cause) {
+			reportError(cause);
+		} finally {
+			if (operationController === controller) operationController = null;
+			operation = '';
+			mediaActionId = '';
+		}
 	}
 
 	function changeBuilderMode(next: string): void {
 		if (next !== 'source' && next !== 'discover') return;
+		if (next === 'discover' && !discoverEnabled) return;
 		mode = next;
 		localError = '';
 		onModeChange?.(next);
 	}
 
-	function handleSourceInput(event: Event): void {
-		const value = (event.currentTarget as HTMLTextAreaElement).value;
+	function handleSourceInput(event: Event & { currentTarget: HTMLTextAreaElement }): void {
+		const value = event.currentTarget.value;
 		sourceText = value;
 		localError = '';
 		onSourceTextChange?.(value);
@@ -379,12 +408,17 @@
 		onSelectOpportunityAngle?.(opportunity, angle);
 	}
 
+	$effect(() => {
+		const nextRunId = initialRunId.trim();
+		if (!nextRunId || nextRunId === resumedRunId || run?.id === nextRunId) return;
+		resumedRunId = nextRunId;
+		void resumeRun(nextRunId);
+	});
+
 	onMount(() => {
 		if (run && postBuilderRunIsActive(run)) {
 			startWatching(run);
-			return;
 		}
-		if (initialRunId && (!run || run.id !== initialRunId)) void resumeRun(initialRunId);
 	});
 
 	onDestroy(() => {
@@ -406,26 +440,17 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	class="mx-auto flex w-full max-w-6xl flex-1 flex-col px-4 py-5 sm:px-6 sm:py-6 lg:px-8"
 	data-testid="post-builder-shell"
 >
-	<div class="flex justify-center">
-		<Tabs.Root
-			value={creationMode}
-			onValueChange={changeCreationMode}
-			aria-label={copy.creationModeLabel}
-		>
-			<Tabs.List class="grid w-64 grid-cols-2">
-				<Tabs.Trigger value="builder">
-					<SparklesIcon class="size-3.5" />
-					{copy.builderMode}
-				</Tabs.Trigger>
-				<Tabs.Trigger value="manual">
-					<SquarePenIcon class="size-3.5" />
-					{copy.manualMode}
-				</Tabs.Trigger>
-			</Tabs.List>
-		</Tabs.Root>
-	</div>
+	{#if showCreationModeSwitch}
+		<div class="flex justify-center">
+			<CreationModeSwitch
+				value={creationMode}
+				{copy}
+				onChange={(next) => onCreationModeChange?.(next)}
+			/>
+		</div>
+	{/if}
 
-	<header class="mt-5">
+	<header class={showCreationModeSwitch ? 'mt-5' : ''}>
 		<h1 class="text-xl font-semibold tracking-tight">{copy.pageTitle}</h1>
 		<p class="mt-1 max-w-2xl text-sm leading-6 text-muted-foreground">{copy.pageDescription}</p>
 	</header>
@@ -433,14 +458,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	<div class="mt-5">
 		<Tabs.Root value={mode} onValueChange={changeBuilderMode}>
 			<Tabs.List variant="line" aria-label={copy.builderInputModeLabel}>
-				<Tabs.Trigger value="source" class="px-2.5">
+				<Tabs.Trigger value="source" class="px-2.5" disabled={formLocked}>
 					<FileTextIcon class="size-3.5" />
 					{copy.fromSourceMode}
 				</Tabs.Trigger>
-				<Tabs.Trigger value="discover" class="px-2.5">
-					<LayoutGridIcon class="size-3.5" />
-					{copy.discoverMode}
-				</Tabs.Trigger>
+				{#if discoverEnabled}
+					<Tabs.Trigger value="discover" class="px-2.5" disabled={formLocked}>
+						<LayoutGridIcon class="size-3.5" />
+						{copy.discoverMode}
+					</Tabs.Trigger>
+				{/if}
 			</Tabs.List>
 		</Tabs.Root>
 	</div>
@@ -476,7 +503,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 								id="post-builder-source"
 								value={sourceText}
 								unstyled
-								class="min-h-44 w-full resize-y px-3 py-3 text-base leading-7 outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-48"
+								class="min-h-44 w-full resize-y bg-transparent px-3 py-3 text-base leading-7 text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-48"
 								placeholder={copy.sourcePlaceholder}
 								maxlength={maxSourceCharacters > 0 ? maxSourceCharacters : undefined}
 								disabled={formLocked}
@@ -540,6 +567,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 									{copy}
 									disabled={formLocked}
 									onRemove={onRemoveSource}
+									onPublishChange={onSourcePublishChange}
 								/>
 							</div>
 						{/if}
@@ -640,19 +668,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						</div>
 					{:else if run?.phase === 'cancelled'}
 						<div class="mt-3">
-							<InlineNotice tone="info" message={run.message || copy.buildCancelled}>
-								{#snippet actions()}
-									<Button
-										type="button"
-										variant="ghost"
-										size="sm"
-										disabled={Boolean(operation)}
-										onclick={retryBuild}
-									>
-										{copy.retryBuild}
-									</Button>
-								{/snippet}
-							</InlineNotice>
+							<InlineNotice tone="info" message={run.message || copy.buildCancelled} />
 						</div>
 					{/if}
 
@@ -696,7 +712,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 					result={run.result}
 					{copy}
 					committing={operation === 'committing'}
+					{mediaActionId}
 					onCommit={commitBuild}
+					onMediaAction={onMediaAction ? commitForMedia : undefined}
 				/>
 			{/if}
 

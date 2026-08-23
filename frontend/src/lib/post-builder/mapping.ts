@@ -33,7 +33,9 @@ const phaseProgress = {
 	understanding: 22,
 	planning: 44,
 	drafting: 68,
+	reviewing: 84,
 	preparing_media: 88,
+	opening_composer: 96,
 	ready: 100,
 	failed: 100,
 	cancelled: 100
@@ -55,7 +57,7 @@ export function uniqueValues(values: string[]): string[] {
 export function normalizePostBuilderDirection(
 	direction: PostBuilderDirection | undefined
 ): PostBuilderDirection {
-	if (!direction) return { research: 'auto', destinationStrategy: 'selected' };
+	if (!direction) return { research: 'auto', destinationStrategy: 'recommend' };
 	return {
 		goal: trimOptional(direction.goal),
 		audience: trimOptional(direction.audience),
@@ -64,7 +66,7 @@ export function normalizePostBuilderDirection(
 		media: trimOptional(direction.media),
 		length: trimOptional(direction.length),
 		research: direction.research ?? 'auto',
-		destinationStrategy: direction.destinationStrategy ?? 'selected'
+		destinationStrategy: direction.destinationStrategy ?? 'recommend'
 	};
 }
 
@@ -86,11 +88,23 @@ export function validatePostBuilderDraft(
 }
 
 export function createPostBuilderRunInput(input: PostBuilderDraftInput): CreatePostBuilderRunInput {
+	const readySources = input.sources.filter(sourceIsReady);
 	const request: CreatePostBuilderRunInput = {
 		workspaceId: input.workspaceId.trim(),
 		mode: input.mode,
 		sourceText: input.sourceText.trim(),
-		sourceIds: uniqueValues(input.sources.filter(sourceIsReady).map((source) => source.id)),
+		contextUrls: uniqueValues(
+			readySources
+				.filter((source) => source.kind === 'link')
+				.map((source) => source.url ?? source.id)
+		),
+		assets: readySources
+			.filter((source) => ['image', 'video', 'audio', 'document'].includes(source.kind))
+			.map((source) => ({
+				mediaId: source.id.trim(),
+				role: source.role ?? 'evidence',
+				mayPublish: source.mayPublish ?? false
+			})),
 		accountIds: uniqueValues(input.selectedAccountIds),
 		direction: normalizePostBuilderDirection(input.direction)
 	};
@@ -112,7 +126,9 @@ export function postBuilderRunIsActive(run: PostBuilderRun | null | undefined): 
 			run.phase === 'understanding' ||
 			run.phase === 'planning' ||
 			run.phase === 'drafting' ||
-			run.phase === 'preparing_media')
+			run.phase === 'reviewing' ||
+			run.phase === 'preparing_media' ||
+			run.phase === 'opening_composer')
 	);
 }
 
@@ -140,7 +156,7 @@ export function postBuilderDirectionLabel(direction: PostBuilderDirection | unde
 	const strategyIsManual =
 		direction.research === 'off' ||
 		direction.research === 'required' ||
-		direction.destinationStrategy === 'curated';
+		direction.destinationStrategy === 'require_all';
 	const changes = manualFields + (strategyIsManual ? 1 : 0);
 	return changes === 0 ? 'Auto' : `${changes} ${changes === 1 ? 'choice' : 'choices'}`;
 }

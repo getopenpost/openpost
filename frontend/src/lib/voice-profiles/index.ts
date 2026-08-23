@@ -1,6 +1,5 @@
-export * from './client';
 export * from './copy';
-export * from './mapping';
 export * from './localized-copy';
+export * from './mapping';
 export * from './openpost-client';
 export * from './types';

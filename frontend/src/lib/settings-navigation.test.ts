@@ -31,5 +31,23 @@ describe('settings destination registry', () => {
 		expect(normalizeSettingsTab('billing', false)).toBe('plan');
 		expect(normalizeSettingsTab('team', false)).toBe('members');
 		expect(normalizeSettingsTab('social-accounts', false)).toBe('accounts');
+		expect(normalizeSettingsTab('voice-profiles', false)).toBe('voices');
+	});
+
+	it('keeps reusable voices in workspace settings beside brand and accounts', () => {
+		const workspaceDestinations = getSettingsDestinations(false).filter(
+			(destination) => destination.group === 'workspace'
+		);
+		const voiceIndex = workspaceDestinations.findIndex(
+			(destination) => destination.id === 'voices'
+		);
+
+		expect(voiceIndex).toBeGreaterThan(0);
+		expect(workspaceDestinations[voiceIndex - 1]?.id).toBe('brand');
+		expect(workspaceDestinations[voiceIndex + 1]?.id).toBe('accounts');
+		expect(workspaceDestinations[voiceIndex]).toMatchObject({
+			loadingVariant: 'form',
+			title: 'Voice profiles'
+		});
 	});
 });

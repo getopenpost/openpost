@@ -12,6 +12,8 @@
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import PublicationHistory from '$lib/components/publication-history.svelte';
 	import ComposeTextPost from '$lib/components/compose-text-post.svelte';
+	import BuilderPublicationContext from '$lib/components/builder-publication-context.svelte';
+	import { parseBuilderContext } from '$lib/composer/builder-context';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -37,6 +39,7 @@
 			publication?.status === 'failed' ||
 			publication?.renditions?.some((rendition) => rendition.delivery !== undefined)
 	);
+	const builderContext = $derived(parseBuilderContext(publication?.metadata));
 
 	function statusLabel(status: string) {
 		if (status === 'published') return m.activity_status_published();
@@ -221,6 +224,13 @@
 				{m.image_editor_version_history()}
 			</Button>
 		</div>
+		{#if builderContext}
+			<BuilderPublicationContext
+				context={builderContext}
+				goal={publication.goal}
+				audience={publication.audience}
+			/>
+		{/if}
 		<ComposeTextPost
 			initialPublication={publication}
 			onSuccess={handleSuccess}

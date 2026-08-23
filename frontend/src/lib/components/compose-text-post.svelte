@@ -348,6 +348,8 @@
 	let mediaSettingsByAccount = $state<Record<string, Record<string, ComposerSettings>>>({});
 	let mediaPickerOpen = $state(false);
 	let mediaPickerPostIndex = $state(0);
+	let mediaPickerInitialMode = $state<'upload' | 'meme'>('upload');
+	let mediaPickerMemeInitialIdea = $state('');
 	let mediaPickerInitialFiles = $state.raw<File[]>([]);
 	let resolvedCapabilities = $state<Record<string, ResolvedAccountCapabilityWithReadiness>>({});
 	let capabilityResolveLoading = $state(false);
@@ -1962,9 +1964,45 @@
 		const post = posts[postIndex];
 		const target = post ? pasteMediaTargetForPost(post) : null;
 		if (target && pasteMediaUploadsForTarget(target).length > 0) return;
+		mediaPickerInitialMode = 'upload';
+		mediaPickerMemeInitialIdea = '';
 		mediaPickerInitialFiles = [];
 		mediaPickerPostIndex = postIndex;
 		mediaPickerOpen = true;
+	}
+
+	type BuilderMediaHandoff = { kind: 'meme' | 'image'; brief: string };
+
+	function takeBuilderMediaHandoff(): BuilderMediaHandoff | null {
+		if (!$page?.url) return null;
+		const kind = $page.url.searchParams.get('builder_media');
+		if (kind !== 'meme' && kind !== 'image') return null;
+		const brief = ($page.url.searchParams.get('builder_media_brief') ?? '').trim().slice(0, 1000);
+		const clean = new URL($page.url);
+		clean.searchParams.delete('builder_media');
+		clean.searchParams.delete('builder_media_brief');
+		replaceState(resolveAppPath(`${clean.pathname}${clean.search}${clean.hash}`), {});
+		return { kind, brief };
+	}
+
+	async function openBuilderMediaHandoff(): Promise<void> {
+		if (!selectedWorkspaceId) return;
+		const handoff = takeBuilderMediaHandoff();
+		if (!handoff) return;
+		mediaPickerPostIndex = activePostIndex;
+		if (handoff.kind === 'meme') {
+			mediaPickerInitialFiles = [];
+			mediaPickerInitialMode = 'meme';
+			mediaPickerMemeInitialIdea = handoff.brief;
+			mediaPickerOpen = true;
+			return;
+		}
+
+		try {
+			await openImageEditorFromComposer();
+		} catch (cause) {
+			error = cause instanceof Error ? cause.message : m.media_picker_image_editor_failed();
+		}
 	}
 
 	function composerHandoffReturnURL(): URL {
@@ -2413,6 +2451,7 @@
 		void (async () => {
 			await initializeComposer();
 			await restoreImageEditorReturn();
+			await openBuilderMediaHandoff();
 		})();
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -3580,6 +3619,8 @@
 		const pasteTarget = pasteMediaTargetForPost(targetPost);
 		if (pasteTarget && pasteMediaUploadsForTarget(pasteTarget).length > 0) return;
 		mediaPickerPostIndex = targetPostIndex;
+		mediaPickerInitialMode = 'upload';
+		mediaPickerMemeInitialIdea = '';
 		mediaPickerInitialFiles = Array.from(files).slice(
 			0,
 			Math.max(0, composerMediaLimit - getEditorMediaIdsForPost(targetPost).length)
@@ -5402,7 +5443,8 @@
 	purpose={isThread ? 'thread_segment' : 'post_media'}
 	enableMeme
 	autoConfirmUploads
-	initialMode="upload"
+	initialMode={mediaPickerInitialMode}
+	memeInitialIdea={mediaPickerMemeInitialIdea}
 	initialFiles={mediaPickerInitialFiles}
 	onInitialFilesConsumed={() => (mediaPickerInitialFiles = [])}
 	onConfirm={async (ids) => {

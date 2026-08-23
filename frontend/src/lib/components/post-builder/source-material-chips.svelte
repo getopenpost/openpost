@@ -8,6 +8,7 @@
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import XIcon from '@lucide/svelte/icons/x';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import type { IconComponent } from '$lib/component-types';
 	import type {
 		PostBuilderCopy,
@@ -20,9 +21,10 @@
 		copy: PostBuilderCopy;
 		disabled?: boolean;
 		onRemove?: (source: PostBuilderSource) => void;
+		onPublishChange?: (source: PostBuilderSource, mayPublish: boolean) => void;
 	}
 
-	let { sources, copy, disabled = false, onRemove }: Props = $props();
+	let { sources, copy, disabled = false, onRemove, onPublishChange }: Props = $props();
 
 	function sourceIcon(kind: PostBuilderSourceKind): IconComponent {
 		if (kind === 'link') return LinkIcon;
@@ -65,6 +67,18 @@
 						>
 							{source.error || source.detail}
 						</p>
+					{/if}
+					{#if onPublishChange && ['image', 'video', 'audio', 'document'].includes(source.kind)}
+						<label
+							class="mt-1 inline-flex min-h-7 items-center gap-2 text-xs text-muted-foreground"
+						>
+							<Checkbox
+								checked={source.mayPublish ?? false}
+								disabled={disabled || status !== 'ready'}
+								onCheckedChange={(checked) => onPublishChange?.(source, checked === true)}
+							/>
+							{source.mayPublish ? copy.mayPublish : copy.evidenceOnly}
+						</label>
 					{/if}
 				</div>
 				{#if onRemove && source.removable !== false}

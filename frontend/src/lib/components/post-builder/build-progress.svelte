@@ -28,6 +28,14 @@
 					? 2
 					: 3
 	);
+	const currentMessage = $derived(
+		run.message ||
+			(run.phase === 'reviewing'
+				? copy.reviewingDraft
+				: run.phase === 'opening_composer'
+					? copy.openingComposer
+					: steps[currentStep])
+	);
 </script>
 
 <section
@@ -48,7 +56,7 @@
 				</h2>
 			</div>
 			<p class="mt-1 text-sm leading-5 text-muted-foreground">
-				{run.message || steps[currentStep]}
+				{currentMessage}
 			</p>
 		</div>
 		{#if onCancel && run.canCancel !== false}

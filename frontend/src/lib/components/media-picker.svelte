@@ -54,6 +54,7 @@
 		desktopSize = 'default',
 		presentation = 'dialog',
 		initialMode = 'library',
+		memeInitialIdea = '',
 		initialFiles = [],
 		autoConfirmUploads = false,
 		videoConstraints = [],
@@ -82,6 +83,7 @@
 		desktopSize?: 'default' | 'compact';
 		presentation?: 'dialog' | 'sheet';
 		initialMode?: 'library' | 'upload' | 'stock' | 'meme';
+		memeInitialIdea?: string;
 		initialFiles?: File[];
 		autoConfirmUploads?: boolean;
 		videoConstraints?: VideoConstraint[];
@@ -105,6 +107,7 @@
 	let error = $state('');
 	let loadedForWorkspace = $state('');
 	let pickerMode = $state<'library' | 'device' | 'camera' | 'stock' | 'meme'>('library');
+	let pendingInitialMeme = $state(false);
 	let overlayPickerOpen = $state(false);
 	let overlayPickerLoading = $state(false);
 	let overlayPickerError = $state('');
@@ -171,7 +174,8 @@
 			error = '';
 			const requestedMode =
 				initialFiles.length > 0 ? 'device' : initialMode === 'upload' ? 'device' : initialMode;
-			pickerMode = requestedMode === 'meme' && !canUseMeme ? 'library' : requestedMode;
+			pendingInitialMeme = requestedMode === 'meme' && !canUseMeme;
+			pickerMode = pendingInitialMeme ? 'library' : requestedMode;
 			if (loadedForWorkspace !== workspaceId) {
 				selectedTagIDs = [];
 				showUntagged = false;
@@ -189,13 +193,21 @@
 			return;
 		}
 		cancelMemeAvailabilityProbe();
+		pendingInitialMeme = false;
 		if (resolveOverlaySelection) settleOverlayPicker(null);
+	}
+
+	function selectPickerMode(nextMode: typeof pickerMode): void {
+		pendingInitialMeme = false;
+		pickerMode = nextMode;
+		if (nextMode === 'library') void loadMedia();
 	}
 
 	async function probeMemeAvailability(): Promise<void> {
 		cancelMemeAvailabilityProbe();
 		if (!canProbeMeme || !workspaceId) {
 			memeAvailability = 'unavailable';
+			pendingInitialMeme = false;
 			if (pickerMode === 'meme') pickerMode = 'library';
 			return;
 		}
@@ -213,10 +225,14 @@
 			});
 			if (controller.signal.aborted || memeAvailabilityController !== controller) return;
 			memeAvailability = result.configured ? 'available' : 'unavailable';
+			if (result.configured && pendingInitialMeme) pickerMode = 'meme';
+			pendingInitialMeme = false;
 			if (!result.configured && pickerMode === 'meme') pickerMode = 'library';
 		} catch {
 			if (controller.signal.aborted || memeAvailabilityController !== controller) return;
 			memeAvailability = 'degraded';
+			if (pendingInitialMeme) pickerMode = 'meme';
+			pendingInitialMeme = false;
 		} finally {
 			if (memeAvailabilityController === controller) memeAvailabilityController = undefined;
 		}
@@ -540,10 +556,7 @@
 			class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
 			role="tab"
 			aria-selected={pickerMode === 'library'}
-			onclick={() => {
-				pickerMode = 'library';
-				void loadMedia();
-			}}
+			onclick={() => selectPickerMode('library')}
 		>
 			<LibraryIcon />
 			{m.media_picker_library()}
@@ -555,7 +568,7 @@
 			role="tab"
 			aria-selected={pickerMode === 'device'}
 			disabled={actionLoading || selectedIDs.length >= maxSelection}
-			onclick={() => (pickerMode = 'device')}
+			onclick={() => selectPickerMode('device')}
 		>
 			<UploadIcon />
 			{m.media_upload_device()}
@@ -568,7 +581,7 @@
 				role="tab"
 				aria-selected={pickerMode === 'camera'}
 				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => (pickerMode = 'camera')}
+				onclick={() => selectPickerMode('camera')}
 			>
 				<CameraIcon />
 				{m.media_camera()}
@@ -582,7 +595,7 @@
 				role="tab"
 				aria-selected={pickerMode === 'stock'}
 				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => (pickerMode = 'stock')}
+				onclick={() => selectPickerMode('stock')}
 			>
 				<ImageIcon />
 				{m.stock_media()}
@@ -596,7 +609,7 @@
 				role="tab"
 				aria-selected={pickerMode === 'meme'}
 				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => (pickerMode = 'meme')}
+				onclick={() => selectPickerMode('meme')}
 			>
 				<LaughIcon />
 				{m.media_picker_meme()}
@@ -797,6 +810,7 @@
 				{workspaceId}
 				api={services.memeAPI}
 				language={getLocaleTag()}
+				initialIdea={memeInitialIdea}
 				onPickOverlay={pickMemeOverlay}
 				onAttach={handleMemeAttached}
 			/>

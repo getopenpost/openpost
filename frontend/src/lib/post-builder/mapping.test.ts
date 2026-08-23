@@ -56,8 +56,19 @@ describe('post builder input mapping', () => {
 			createPostBuilderRunInput(
 				sourceDraft({
 					sources: [
-						{ id: ' source-1 ', kind: 'note', label: 'Notes' },
-						{ id: 'source-1', kind: 'text', label: 'Duplicate notes' },
+						{
+							id: 'source-1',
+							kind: 'link',
+							label: 'Release notes',
+							url: ' https://example.com/release '
+						},
+						{
+							id: ' media-1 ',
+							kind: 'image',
+							label: 'Screenshot',
+							role: 'artifact',
+							mayPublish: true
+						},
 						{ id: 'source-2', kind: 'link', label: 'Failed link', status: 'failed' },
 						{ id: 'source-3', kind: 'audio', label: 'Voice note', status: 'processing' }
 					],
@@ -68,14 +79,15 @@ describe('post builder input mapping', () => {
 						goal: ' Start discussion ',
 						tone: ' ',
 						research: 'required',
-						destinationStrategy: 'curated'
+						destinationStrategy: 'require_all'
 					}
 				})
 			)
 		).toMatchObject({
 			workspaceId: 'workspace-1',
 			sourceText: 'A real product update',
-			sourceIds: ['source-1'],
+			contextUrls: ['https://example.com/release'],
+			assets: [{ mediaId: 'media-1', role: 'artifact', mayPublish: true }],
 			accountIds: ['account-1', 'account-2'],
 			socialSetId: 'set-1',
 			voiceProfileId: 'voice-1',
@@ -83,7 +95,7 @@ describe('post builder input mapping', () => {
 				goal: 'Start discussion',
 				tone: undefined,
 				research: 'required',
-				destinationStrategy: 'curated'
+				destinationStrategy: 'require_all'
 			}
 		});
 	});

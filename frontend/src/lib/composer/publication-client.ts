@@ -109,6 +109,8 @@ export function publicationDraft(publication: Publication): PublicationDraft {
 		creation_preset: parseCreationPreset(publication.creation_preset),
 		content_profile: publication.content_profile,
 		source_text: publication.source_text,
+		goal: publication.goal,
+		audience: publication.audience,
 		metadata: publication.metadata,
 		segments: (publication.segments ?? []).map(publicationSegmentInput),
 		renditions: (publication.renditions ?? []).map(renditionInput),

@@ -31,6 +31,7 @@
 	import ScheduleSettingsTab from '$lib/components/settings/ScheduleSettingsTab.svelte';
 	import SecuritySettingsTab from '$lib/components/settings/SecuritySettingsTab.svelte';
 	import WorkspacePreferencesSettings from '$lib/components/settings/WorkspacePreferencesSettings.svelte';
+	import { VoiceProfilesSettingsTab } from '$lib/components/settings/voice-profiles';
 	import WorkspaceDeleteDialog from '$lib/components/workspace-delete-dialog.svelte';
 	import WorkspaceTeamSettings from '$lib/components/workspace-team-settings.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -166,6 +167,12 @@
 					<WorkspacePreferencesSettings onDelete={() => (destructiveDialogOpen = true)} />
 				{:else if activeSettingsTab === 'brand'}
 					<BrandSettingsTab workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} active />
+				{:else if activeSettingsTab === 'voices'}
+					<VoiceProfilesSettingsTab
+						workspaceId={workspaceCtx.currentWorkspace?.id ?? ''}
+						active
+						canEdit={Boolean(authState.isAuthenticated && workspaceCtx.currentWorkspace?.can_edit)}
+					/>
 				{:else if activeSettingsTab === 'accounts'}
 					<AccountManagement
 						mode="settings"

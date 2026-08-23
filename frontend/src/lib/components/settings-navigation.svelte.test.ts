@@ -24,6 +24,9 @@ describe('SettingsNavigation', () => {
 		await expect
 			.element(navigation.getByRole('link', { name: 'General', exact: true }))
 			.toBeVisible();
+		await expect
+			.element(navigation.getByRole('link', { name: 'Voice profiles', exact: true }))
+			.toHaveAttribute('href', '/settings?tab=voices');
 		expect(await navigation.getByRole('link', { name: 'Profile', exact: true }).all()).toHaveLength(
 			0
 		);

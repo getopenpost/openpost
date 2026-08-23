@@ -65,6 +65,14 @@ const settingsDestinationDefinitions = [
 		loadingVariant: 'form'
 	},
 	{
+		id: 'voices',
+		group: 'workspace',
+		label: m.settings_voice_profiles,
+		description: m.settings_voice_profiles_description,
+		loadingVariant: 'form',
+		aliases: ['voice', 'voice-profiles']
+	},
+	{
 		id: 'accounts',
 		group: 'workspace',
 		label: m.accounts_heading,

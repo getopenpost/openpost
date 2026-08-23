@@ -17,10 +17,13 @@ export interface PostBuilderSource {
 	id: string;
 	kind: PostBuilderSourceKind;
 	label: string;
+	url?: string;
 	detail?: string;
 	status?: PostBuilderSourceStatus;
 	error?: string;
 	removable?: boolean;
+	role?: 'context' | 'evidence' | 'artifact';
+	mayPublish?: boolean;
 }
 
 export interface PostBuilderStarterIdea {
@@ -47,6 +50,7 @@ export interface PostBuilderOpportunity {
 	whyRelevant?: string;
 	sourceLabel?: string;
 	sourceURL?: string;
+	sourceURLs?: string[];
 	publishedAt?: string;
 	angles?: PostBuilderOpportunityAngle[];
 	treatments?: PostBuilderOpportunityTreatment[];
@@ -54,7 +58,7 @@ export interface PostBuilderOpportunity {
 
 export type PostBuilderResearchMode = 'auto' | 'off' | 'required';
 
-export type PostBuilderDestinationStrategy = 'selected' | 'curated';
+export type PostBuilderDestinationStrategy = 'recommend' | 'require_all';
 
 export interface PostBuilderDirection {
 	goal?: string;
@@ -71,7 +75,8 @@ export interface CreatePostBuilderRunInput {
 	workspaceId: string;
 	mode: PostBuilderMode;
 	sourceText: string;
-	sourceIds: string[];
+	contextUrls: string[];
+	assets: PostBuilderAssetInput[];
 	opportunityId?: string;
 	opportunityAngleId?: string;
 	socialSetId?: string;
@@ -80,12 +85,20 @@ export interface CreatePostBuilderRunInput {
 	direction: PostBuilderDirection;
 }
 
+export interface PostBuilderAssetInput {
+	mediaId: string;
+	role: 'context' | 'evidence' | 'artifact';
+	mayPublish: boolean;
+}
+
 export type PostBuilderRunPhase =
 	| 'queued'
 	| 'understanding'
 	| 'planning'
 	| 'drafting'
+	| 'reviewing'
 	| 'preparing_media'
+	| 'opening_composer'
 	| 'ready'
 	| 'failed'
 	| 'cancelled';
@@ -121,6 +134,9 @@ export interface PostBuilderMediaPlanItem {
 	accountId?: string;
 	platform?: string;
 	label: string;
+	treatment?: string;
+	brief?: string;
+	action?: 'meme' | 'image_editor';
 	status?: 'planned' | 'generating' | 'ready' | 'skipped';
 }
 
@@ -217,6 +233,7 @@ export interface PostBuilderCopy {
 	selectOpportunity: string;
 	selectedOpportunity: string;
 	buildProgressHeading: string;
+	reviewingDraft: string;
 	buildCancelled: string;
 	cancelBuild: string;
 	retryBuild: string;
@@ -232,6 +249,11 @@ export interface PostBuilderCopy {
 	destinationPlan: string;
 	claimReview: string;
 	mediaPlan: string;
+	makeMeme: string;
+	createVisual: string;
+	preparingMedia: string;
+	evidenceOnly: string;
+	mayPublish: string;
 	included: string;
 	skipped: string;
 	needsReview: string;

@@ -5,16 +5,30 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-circle';
 	import { Button } from '$lib/components/ui/button';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import type { PostBuilderClaim, PostBuilderCopy, PostBuilderResult } from '$lib/post-builder';
+	import type {
+		PostBuilderClaim,
+		PostBuilderCopy,
+		PostBuilderMediaPlanItem,
+		PostBuilderResult
+	} from '$lib/post-builder';
 
 	interface Props {
 		result: PostBuilderResult;
 		copy: PostBuilderCopy;
 		committing?: boolean;
+		mediaActionId?: string;
 		onCommit: () => void;
+		onMediaAction?: (item: PostBuilderMediaPlanItem) => void;
 	}
 
-	let { result, copy, committing = false, onCommit }: Props = $props();
+	let {
+		result,
+		copy,
+		committing = false,
+		mediaActionId = '',
+		onCommit,
+		onMediaAction
+	}: Props = $props();
 
 	const claimsNeedingReview = $derived(
 		(result.claims ?? []).filter((claim) => claim.status !== 'verified')
@@ -32,6 +46,10 @@
 		if (status === 'included') return 'text-emerald-700 dark:text-emerald-300';
 		if (status === 'needs_review') return 'text-amber-700 dark:text-amber-300';
 		return 'text-muted-foreground';
+	}
+
+	function mediaActionLabel(item: PostBuilderMediaPlanItem): string {
+		return item.action === 'meme' ? copy.makeMeme : copy.createVisual;
 	}
 </script>
 
@@ -156,9 +174,30 @@
 			{#if result.mediaPlan?.length}
 				<div>
 					<h3 class="text-sm font-semibold">{copy.mediaPlan}</h3>
-					<ul class="mt-2 space-y-1.5 text-xs leading-5 text-muted-foreground">
+					<ul class="mt-2 space-y-2 text-xs leading-5 text-muted-foreground">
 						{#each result.mediaPlan as item (item.id)}
-							<li>{item.platform ? `${item.platform}: ` : ''}{item.label}</li>
+							<li class="flex items-start justify-between gap-3">
+								<span class="min-w-0">
+									{item.platform ? `${item.platform}: ` : ''}{item.label}
+								</span>
+								{#if item.action && onMediaAction}
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										class="h-7 shrink-0 px-2 text-xs"
+										disabled={committing}
+										onclick={() => onMediaAction?.(item)}
+									>
+										{#if mediaActionId === item.id}
+											<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" />
+											{copy.preparingMedia}
+										{:else}
+											{mediaActionLabel(item)}
+										{/if}
+									</Button>
+								{/if}
+							</li>
 						{/each}
 					</ul>
 				</div>

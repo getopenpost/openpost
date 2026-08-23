@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "ES2022",
-    "moduleResolution": "Bundler",
+    "module": "commonjs",
+    "moduleResolution": "node",
     "strict": true,
     "declaration": true,
     "sourceMap": true,

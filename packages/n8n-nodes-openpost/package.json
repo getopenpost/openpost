@@ -27,7 +27,6 @@
     "LICENSE",
     "docs/selected-contract-report.md"
   ],
-  "type": "module",
   "main": "dist/nodes/OpenPost/OpenPost.node.js",
   "types": "dist/nodes/OpenPost/OpenPost.node.d.ts",
   "scripts": {
@@ -40,14 +39,14 @@
   },
   "devDependencies": {
     "@n8n/node-cli": "0.44.3",
-    "n8n-workflow": "2.16.0",
-    "typescript": "7.0.2"
+    "n8n-workflow": "2.35.3",
+    "typescript": "5.9.2"
   },
   "peerDependencies": {
     "n8n-workflow": "*"
   },
   "engines": {
-    "node": ">=22.16"
+    "node": ">=22.22"
   },
   "n8n": {
     "n8nNodesApiVersion": 1,

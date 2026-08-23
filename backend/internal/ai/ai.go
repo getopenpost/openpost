@@ -47,6 +47,20 @@ type File struct {
 	Filename string
 }
 
+// Audio contains source audio for a multimodal request. The adapter validates
+// the declared format before it sends any bytes.
+type Audio struct {
+	Data     []byte
+	MIMEType string
+}
+
+// Video contains source video for a multimodal request. Callers must apply
+// feature-specific byte and duration limits before Generate.
+type Video struct {
+	Data     []byte
+	MIMEType string
+}
+
 type WebSearchContext string
 
 const (
@@ -73,6 +87,8 @@ type GenerateRequest struct {
 	UserPrompt      string
 	Images          []Image
 	Files           []File
+	Audio           []Audio
+	Videos          []Video
 	WebSearch       WebSearchConfig
 	MaxOutputTokens int64
 	ReasoningEffort ReasoningEffort

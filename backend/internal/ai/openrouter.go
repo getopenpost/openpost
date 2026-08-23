@@ -161,7 +161,7 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 	if model == "" {
 		return components.ChatRequest{}, errors.New("AI model is required")
 	}
-	if strings.TrimSpace(request.UserPrompt) == "" && len(request.Images) == 0 && len(request.Files) == 0 {
+	if strings.TrimSpace(request.UserPrompt) == "" && len(request.Images) == 0 && len(request.Files) == 0 && len(request.Audio) == 0 && len(request.Videos) == 0 {
 		return components.ChatRequest{}, errors.New("AI user prompt, image, or file is required")
 	}
 	if request.MaxOutputTokens < 0 {
@@ -179,7 +179,7 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 		}))
 	}
 
-	content := make([]components.ChatContentItems, 0, len(request.Images)+len(request.Files)+1)
+	content := make([]components.ChatContentItems, 0, len(request.Images)+len(request.Files)+len(request.Audio)+len(request.Videos)+1)
 	if userPrompt := strings.TrimSpace(request.UserPrompt); userPrompt != "" {
 		content = append(content, components.CreateChatContentItemsText(components.ChatContentText{Text: userPrompt}))
 	}
@@ -194,6 +194,20 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 		item, err := openRouterFileContent(file)
 		if err != nil {
 			return components.ChatRequest{}, fmt.Errorf("AI file %d: %w", index+1, err)
+		}
+		content = append(content, item)
+	}
+	for index, audio := range request.Audio {
+		item, err := openRouterAudioContent(audio)
+		if err != nil {
+			return components.ChatRequest{}, fmt.Errorf("AI audio %d: %w", index+1, err)
+		}
+		content = append(content, item)
+	}
+	for index, video := range request.Videos {
+		item, err := openRouterVideoContent(video)
+		if err != nil {
+			return components.ChatRequest{}, fmt.Errorf("AI video %d: %w", index+1, err)
 		}
 		content = append(content, item)
 	}
@@ -283,6 +297,44 @@ func openRouterFileContent(file File) (components.ChatContentItems, error) {
 			FileData: &dataURL,
 			Filename: &filename,
 		},
+	}), nil
+}
+
+func openRouterAudioContent(audio Audio) (components.ChatContentItems, error) {
+	if len(audio.Data) == 0 {
+		return components.ChatContentItems{}, errors.New("data is required")
+	}
+	mediaType, err := normalizedMIMEType(audio.MIMEType)
+	if err != nil || !strings.HasPrefix(mediaType, "audio/") {
+		return components.ChatContentItems{}, errors.New("valid audio MIME type is required")
+	}
+	format, ok := map[string]string{
+		"audio/aac": "aac", "audio/aiff": "aiff", "audio/flac": "flac",
+		"audio/m4a": "m4a", "audio/mp4": "m4a", "audio/mpeg": "mp3",
+		"audio/ogg": "ogg", "audio/wav": "wav", "audio/x-aiff": "aiff",
+		"audio/x-m4a": "m4a", "audio/x-wav": "wav",
+	}[mediaType]
+	if !ok {
+		return components.ChatContentItems{}, errors.New("supported audio MIME type is required")
+	}
+	return components.CreateChatContentItemsInputAudio(components.ChatContentAudio{
+		InputAudio: components.ChatContentAudioInputAudio{
+			Data:   base64.StdEncoding.EncodeToString(audio.Data),
+			Format: format,
+		},
+	}), nil
+}
+
+func openRouterVideoContent(video Video) (components.ChatContentItems, error) {
+	if len(video.Data) == 0 {
+		return components.ChatContentItems{}, errors.New("data is required")
+	}
+	mediaType, err := normalizedMIMEType(video.MIMEType)
+	if err != nil || !strings.HasPrefix(mediaType, "video/") {
+		return components.ChatContentItems{}, errors.New("valid video MIME type is required")
+	}
+	return components.CreateChatContentItemsVideoURL(components.ChatContentVideo{
+		VideoURL: components.ChatContentVideoInput{URL: encodeDataURL(mediaType, video.Data)},
 	}), nil
 }
 

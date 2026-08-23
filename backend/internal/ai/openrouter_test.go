@@ -185,6 +185,35 @@ func TestOpenRouterGenerateSendsFileAndBoundedWebSearch(t *testing.T) {
 	}, received["tools"])
 }
 
+func TestOpenRouterGenerateSendsAudioAndVideoSources(t *testing.T) {
+	request, err := buildOpenRouterRequest(GenerateRequest{
+		Model:  "openai/gpt-5.6-luna",
+		Audio:  []Audio{{Data: []byte("voice"), MIMEType: "audio/mpeg"}},
+		Videos: []Video{{Data: []byte("clip"), MIMEType: "video/mp4"}},
+	}, "", true)
+	require.NoError(t, err)
+	require.Len(t, request.Messages, 1)
+
+	encoded, err := json.Marshal(request.Messages[0])
+	require.NoError(t, err)
+	var message map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &message))
+	content := message["content"].([]any)
+	require.Equal(t, map[string]any{
+		"type": "input_audio",
+		"input_audio": map[string]any{
+			"data":   "dm9pY2U=",
+			"format": "mp3",
+		},
+	}, content[0])
+	require.Equal(t, map[string]any{
+		"type": "video_url",
+		"video_url": map[string]any{
+			"url": "data:video/mp4;base64,Y2xpcA==",
+		},
+	}, content[1])
+}
+
 func TestOpenRouterGenerateRejectsEmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -303,6 +332,22 @@ func TestOpenRouterGenerateValidatesFilesBeforeRequest(t *testing.T) {
 			require.NotContains(t, err.Error(), "private-file-body")
 		})
 	}
+}
+
+func TestOpenRouterGenerateValidatesAudioAndVideoBeforeRequest(t *testing.T) {
+	_, err := buildOpenRouterRequest(GenerateRequest{
+		Model: "openai/gpt-5.6-luna",
+		Audio: []Audio{{Data: []byte("private-audio"), MIMEType: "audio/unknown"}},
+	}, "", false)
+	require.EqualError(t, err, "AI audio 1: supported audio MIME type is required")
+	require.NotContains(t, err.Error(), "private-audio")
+
+	_, err = buildOpenRouterRequest(GenerateRequest{
+		Model:  "openai/gpt-5.6-luna",
+		Videos: []Video{{Data: []byte("private-video"), MIMEType: "text/plain"}},
+	}, "", false)
+	require.EqualError(t, err, "AI video 1: valid video MIME type is required")
+	require.NotContains(t, err.Error(), "private-video")
 }
 
 func TestOpenRouterGenerateValidatesWebSearchBeforeRequest(t *testing.T) {

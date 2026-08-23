@@ -16,6 +16,18 @@ _Avoid_: Post record, campaign
 One destination-specific form of a Publication, bound to a connected social account and output profile.
 _Avoid_: Variant, cross-post
 
+**Publication Build**:
+A durable, source-first AI run that prepares a reviewed Publication package. It owns source references, a Voice Profile snapshot, direction, candidate destinations, progress, and validated native Renditions until the user sends it to the composer.
+_Avoid_: Campaign, AI post, draft Publication
+
+**Voice Profile**:
+A reusable Workspace writing identity assigned to accounts. It owns stable voice traits, views, examples, and limits, while each destination adapter owns platform behavior.
+_Avoid_: Brand voice setting, platform style
+
+**Content opportunity**:
+A cited, current subject with several selectable angles and destination treatments. It can seed a Publication Build but is not a generated post.
+_Avoid_: Trend, ready-to-post content
+
 **Organization**:
 The billing, identity-policy, and administration boundary that owns one or more Workspaces. Organization membership alone does not grant access to Workspace content.
 _Avoid_: Workspace, team

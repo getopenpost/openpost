@@ -8,6 +8,7 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 
 - A **Publication** is the user-visible post; it owns the source idea, schedule, status, and destination outputs.
 - A **Rendition** is one destination-specific version: per-account text, media, format, timing, and provider settings.
+- A **Publication Build** is a durable source-to-package run; a **Voice Profile** is a reusable Workspace identity that destination adapters apply without copying platform style into the identity.
 - The composer (posts, threads, stories, short videos, videos), Social Sets, shared Media library, Image and Video Editors, calendar and durable queue, analytics/engagement/inbox, and Workspaces make up the product.
 - The web app, native mobile app, HTTP API, CLI, and MCP server share the same terms, permissions, and workspace boundaries.
 
@@ -38,6 +39,7 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 - Video Editor on-canvas gestures keep drafts out of undo history and commit once on release. Animated position uses versioned vector keys with temporal easing and spatial Bezier tangents; legacy scalar X/Y tracks promote lazily on the first vector edit.
 - CLI, MCP, API, and product surfaces share terms, permissions, and boundaries. Public contract changes are acceptable when deliberate and UX-improving; change the source, then regenerate.
 - AI features use maintained SDKs behind a small provider-neutral boundary (`backend/internal/ai/`); reuse the shared model and config choices instead of adding per-feature models.
+- The Publication Builder resolves URLs and Workspace media in a durable job, snapshots effective Voice Profiles, directs one factual package, drafts only through native platform adapters, reviews strict JSON, and commits once through the normal Publication application. Discover returns cited opportunities and never drafts or publishes by itself.
 - Meme Maker embeds a pinned template catalog and renders in process; captions and workspace overlay bytes stay server-side, while optional AI suggestions receive only bounded written template semantics. Refresh the audited snapshot with `scripts/sync-meme-catalog.mjs <pinned-checkout>`.
 - Video Editor GPU effects share one WebGL2 ping-pong compositor; use point-scatter vertex passes for exact cross-texel writes that a fragment pass cannot express.
 - Video Editor adjustment layers are timed, non-rendering items; preview and export apply their enabled effects, top-first, to active visual items on higher-order tracks.

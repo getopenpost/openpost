@@ -102,10 +102,10 @@ A destination may expand one canonical idea into several thread segments. Its
 capability checks use the actual rendition segments, not the canonical segment
 count. The builder never pads the canonical Publication with fake segments.
 
-The worker only prepares a validated package. An authenticated commit action
-creates the Publication and links it to the build. The UI commits automatically
-after a successful build and then opens `/publications/{id}`. Repeating commit
-returns the same Publication.
+The worker only prepares a validated package. The UI first shows the route,
+claim review, destination plan, and media choices. An authenticated commit
+action creates the Publication and links it to the build after the user chooses
+to review it in the composer. Repeating commit returns the same Publication.
 
 The editable composer shows one compact, collapsible Builder summary with the
 direction, effective voice, destination decisions, claims to check, and media

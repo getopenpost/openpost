@@ -27,6 +27,9 @@ The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile a
 ## Capabilities and Constraints
 
 - One publication model supports shared source content plus independently valid account renditions while the text-and-thread composer keeps its spacious writing canvas. Post, Thread, Story, Short video, and Video are starter presets; each destination owns its format, text, media, schedule override, and provider settings.
+- The source-first Publication Builder turns notes, public links, and Workspace media into one reviewed package with native LinkedIn, X, Mastodon, Bluesky, and Threads Renditions. It runs durably, shows claims and media jobs before handoff, and always ends in the normal composer for review.
+- Reusable Voice Profiles keep one person or brand consistent across assigned accounts. Destination adapters add platform behavior without flattening identities into one generic social style.
+- Discover returns current, cited content opportunities with selectable angles and destination treatments. It uses the chosen Voice Profile and recent Publications to improve relevance and avoid repeats, but it never creates a post until the user chooses an angle.
 - Social Sets save format-independent account groups and optional account format defaults. New drafts snapshot their selected destinations so later set edits do not change scheduled work.
 - Publications can be scheduled through a durable database-backed queue, with visible draft, scheduled, published, failed, and retry states.
 - Workspaces organize accounts, media, prompts, schedules, members, billing, and usage limits.

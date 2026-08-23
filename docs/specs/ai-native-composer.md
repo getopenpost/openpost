@@ -124,6 +124,9 @@ destinations, recent Publications, and current primary sources. A card contains
 why it fits, several angles, a short hook, source links, and recommended platform
 treatments. Choosing a card fills the normal Builder. Discover never creates or
 publishes a post on its own and never labels stale model memory as a trend.
+OpenPost loads every cited page through the same guarded public-source path before
+showing an opportunity. Build from source uses only the evidence the user supplied;
+live web research stays in Discover and never adds unrequested facts to a build.
 
 ## Media contract
 
@@ -132,6 +135,13 @@ media, a source artifact, annotation, a meme, a statement card, a carousel, a
 concept image, or a video treatment. Costly generation waits for the user's
 choice. Existing Meme Maker, Image Editor, Video Editor, Media library, and
 destination media overrides remain the asset-producing seams.
+
+Source-bound jobs name one exact source that the user allowed OpenPost to use.
+`use_source` attaches that asset only to the Renditions that selected it.
+`annotate_source` and `edit_existing_video` pass it to the right editor as input;
+the raw input is not added to the draft beside the finished export. Ready build
+results persist only a safe source index with IDs, kinds, labels, and publication
+permission. Extracted page text and media bytes never enter that index.
 
 ## Acceptance bar
 

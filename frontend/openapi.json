@@ -7537,6 +7537,13 @@
 			"JobResponse": {
 				"additionalProperties": false,
 				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["/api/v1/schemas/JobResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
 					"attempts": {
 						"description": "Number of attempts",
 						"format": "int64",
@@ -26944,6 +26951,87 @@
 				},
 				"summary": "List recent background jobs",
 				"tags": ["Jobs"]
+			}
+		},
+		"/jobs/{id}": {
+			"get": {
+				"operationId": "get-job",
+				"parameters": [
+					{
+						"description": "Job ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Job ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/JobResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					}
+				},
+				"summary": "Get a background job",
+				"tags": ["Jobs"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"result": {
+						"id_path": "$.id"
+					},
+					"retry": "transient"
+				}
 			}
 		},
 		"/mcp/activity": {

@@ -149,6 +149,7 @@ var operations = []Operation{
 	read("validate-publication", ExposureAlpha),
 	readDisabled("list-posting-schedules"),
 	read("get-next-available-slot", ExposureAlpha),
+	readResult("get-job", ExposureAlpha, ResultExtraction{IDPath: "$.id"}),
 	readDisabled("get-notification-preferences"),
 
 	write("create-publication", ExposureAlpha, EffectLocalMutation),
@@ -191,6 +192,12 @@ func readPaged(operationID string, exposure Exposure) Operation {
 	operation := read(operationID, exposure)
 	page := *cursorPage
 	operation.Pagination = &page
+	return operation
+}
+
+func readResult(operationID string, exposure Exposure, result ResultExtraction) Operation {
+	operation := read(operationID, exposure)
+	operation.Result = result
 	return operation
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/labstack/echo/v4"
 	echoMiddleware "github.com/labstack/echo/v4/middleware"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/idempotency"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/entitlements"
@@ -386,7 +387,8 @@ type RetryMediaAnalysisOutput struct {
 }
 
 type CreateMediaUploadSessionInput struct {
-	Body struct {
+	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"Replay key scoped to the caller, Workspace, and operation"`
+	Body           struct {
 		WorkspaceID      string                `json:"workspace_id" doc:"Workspace ID"`
 		Filename         string                `json:"filename" doc:"Original filename"`
 		MimeType         string                `json:"mime_type,omitempty" doc:"Declared MIME type"`
@@ -413,12 +415,14 @@ type DirectMediaUploadTarget struct {
 }
 
 type CreateMediaUploadSessionOutput struct {
-	Body struct {
-		MediaID     string                  `json:"media_id" doc:"Pending media ID"`
-		Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
-		CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
-		Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
-	}
+	Body CreateMediaUploadSessionResponse
+}
+
+type CreateMediaUploadSessionResponse struct {
+	MediaID     string                  `json:"media_id" doc:"Pending media ID"`
+	Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
+	CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
+	Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
 }
 
 type CompleteMediaUploadSessionInput struct {
@@ -1143,6 +1147,24 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 		if err := h.ensureMediaWorkspaceEditAccess(ctx, userID, workspaceID); err != nil {
 			return nil, err
 		}
+		var idempotencyRequest *idempotency.Request
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, requestErr := mutationIdempotencyRequest(ctx, workspaceID, "create-media-upload-session", input.IdempotencyKey)
+			if requestErr != nil {
+				return nil, requestErr
+			}
+			request.RequestHash, requestErr = idempotency.Hash(input.Body)
+			if requestErr != nil {
+				return nil, huma.Error400BadRequest("failed to normalize upload request")
+			}
+			if replay, found, replayErr := idempotency.Replay[CreateMediaUploadSessionResponse](ctx, h.db, request); found || replayErr != nil {
+				if replayErr != nil {
+					return nil, publicationMutationHTTPError(replayErr, "failed to replay media upload session")
+				}
+				return &CreateMediaUploadSessionOutput{Body: replay.Value}, nil
+			}
+			idempotencyRequest = &request
+		}
 
 		filename := cleanUploadFilename(input.Body.Filename)
 		if filename == "" {
@@ -1199,21 +1221,30 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			return nil, err
 		}
 		if reusable != nil {
+			response := CreateMediaUploadSessionResponse{MediaID: reusable.ID, Deduped: true}
+			if idempotencyRequest != nil {
+				idempotencyRequest.ResourceID = reusable.ID
+				result, executeErr := idempotency.Execute(ctx, h.db, *idempotencyRequest, func(txCtx context.Context, tx bun.Tx) (CreateMediaUploadSessionResponse, error) {
+					if err := h.persistStockMediaProvenanceWithDB(txCtx, tx, reusable.ID, input.Body.StockProvenance); err != nil {
+						return CreateMediaUploadSessionResponse{}, huma.Error500InternalServerError("failed to save stock media provenance")
+					}
+					if err := h.addMediaTagWithDB(txCtx, tx, tagID, reusable.ID); err != nil {
+						return CreateMediaUploadSessionResponse{}, err
+					}
+					return response, nil
+				})
+				if executeErr != nil {
+					return nil, publicationMutationHTTPError(executeErr, "failed to reserve media upload")
+				}
+				return &CreateMediaUploadSessionOutput{Body: result.Value}, nil
+			}
 			if err := h.persistStockMediaProvenance(ctx, reusable.ID, input.Body.StockProvenance); err != nil {
 				return nil, huma.Error500InternalServerError("failed to save stock media provenance")
 			}
 			if err := h.addMediaTag(ctx, tagID, reusable.ID); err != nil {
 				return nil, err
 			}
-			return &CreateMediaUploadSessionOutput{Body: struct {
-				MediaID     string                  `json:"media_id" doc:"Pending media ID"`
-				Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
-				CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
-				Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
-			}{
-				MediaID: reusable.ID,
-				Deduped: true,
-			}}, nil
+			return &CreateMediaUploadSessionOutput{Body: response}, nil
 		}
 
 		mediaID := uuid.New().String()
@@ -1267,24 +1298,7 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			LastUsedAt:         now,
 			CreatedAt:          now,
 		}
-		if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
-			return nil, huma.Error500InternalServerError("failed to reserve media upload")
-		}
-		if err := h.addMediaTag(ctx, tagID, media.ID); err != nil {
-			_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)
-			return nil, err
-		}
-		if err := h.persistStockMediaProvenance(ctx, media.ID, input.Body.StockProvenance); err != nil {
-			_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
-			return nil, huma.Error500InternalServerError("failed to save stock media provenance")
-		}
-
-		return &CreateMediaUploadSessionOutput{Body: struct {
-			MediaID     string                  `json:"media_id" doc:"Pending media ID"`
-			Upload      DirectMediaUploadTarget `json:"upload" doc:"Streaming upload request details"`
-			CompleteURL string                  `json:"complete_url" doc:"API path to call after the upload succeeds"`
-			Deduped     bool                    `json:"deduped" doc:"Whether an identical ready workspace asset was reused"`
-		}{
+		response := CreateMediaUploadSessionResponse{
 			MediaID: mediaID,
 			Upload: DirectMediaUploadTarget{
 				Method:    session.Method,
@@ -1295,7 +1309,35 @@ func (h *MediaHandler) RegisterRoutes(api huma.API) {
 			},
 			CompleteURL: "/api/v1/media/upload-session/" + mediaID + "/complete",
 			Deduped:     false,
-		}}, nil
+		}
+		persist := func(persistCtx context.Context, db bun.IDB) error {
+			if _, err := db.NewInsert().Model(media).Exec(persistCtx); err != nil {
+				return huma.Error500InternalServerError("failed to reserve media upload")
+			}
+			if err := h.addMediaTagWithDB(persistCtx, db, tagID, media.ID); err != nil {
+				return err
+			}
+			if err := h.persistStockMediaProvenanceWithDB(persistCtx, db, media.ID, input.Body.StockProvenance); err != nil {
+				return huma.Error500InternalServerError("failed to save stock media provenance")
+			}
+			return nil
+		}
+		if idempotencyRequest != nil {
+			idempotencyRequest.ResourceID = media.ID
+			result, executeErr := idempotency.Execute(ctx, h.db, *idempotencyRequest, func(txCtx context.Context, tx bun.Tx) (CreateMediaUploadSessionResponse, error) {
+				return response, persist(txCtx, tx)
+			})
+			if executeErr != nil {
+				return nil, publicationMutationHTTPError(executeErr, "failed to reserve media upload")
+			}
+			return &CreateMediaUploadSessionOutput{Body: result.Value}, nil
+		}
+		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			return persist(txCtx, tx)
+		}); err != nil {
+			return nil, err
+		}
+		return &CreateMediaUploadSessionOutput{Body: response}, nil
 	})
 
 	huma.Register(api, huma.Operation{
@@ -1370,6 +1412,10 @@ func (h *MediaHandler) resolveMediaUploadTag(ctx context.Context, workspaceID, r
 }
 
 func (h *MediaHandler) addMediaTag(ctx context.Context, tagID, mediaID string) error {
+	return h.addMediaTagWithDB(ctx, h.db, tagID, mediaID)
+}
+
+func (h *MediaHandler) addMediaTagWithDB(ctx context.Context, db bun.IDB, tagID, mediaID string) error {
 	if tagID == "" || mediaID == "" {
 		return nil
 	}
@@ -1378,10 +1424,12 @@ func (h *MediaHandler) addMediaTag(ctx context.Context, tagID, mediaID string) e
 		MediaID:   mediaID,
 		CreatedAt: time.Now().UTC(),
 	}
-	if _, err := h.db.NewInsert().Model(assignment).On("CONFLICT (tag_id, media_id) DO NOTHING").Exec(ctx); err != nil {
+	if _, err := db.NewInsert().Model(assignment).On("CONFLICT (tag_id, media_id) DO NOTHING").Exec(ctx); err != nil {
 		return huma.Error500InternalServerError("failed to tag media")
 	}
-	if err := medialifecycle.NewService(h.db, h.storage).Promote(ctx, mediaID); err != nil {
+	if _, err := db.NewUpdate().Model((*models.MediaAttachment)(nil)).
+		Set("retention_class = ?", medialifecycle.RetentionLibrary).
+		Where("id = ?", mediaID).Exec(ctx); err != nil {
 		return huma.Error500InternalServerError("failed to keep tagged media in the library")
 	}
 	return nil
@@ -1998,6 +2046,15 @@ func (h *MediaHandler) persistStockMediaProvenance(
 	mediaID string,
 	provenance *StockMediaProvenance,
 ) error {
+	return h.persistStockMediaProvenanceWithDB(ctx, h.db, mediaID, provenance)
+}
+
+func (h *MediaHandler) persistStockMediaProvenanceWithDB(
+	ctx context.Context,
+	db bun.IDB,
+	mediaID string,
+	provenance *StockMediaProvenance,
+) error {
 	if provenance == nil {
 		return nil
 	}
@@ -2013,7 +2070,7 @@ func (h *MediaHandler) persistStockMediaProvenance(
 		AttributionText: strings.TrimSpace(provenance.AttributionText),
 		ImportedAt:      time.Now().UTC(),
 	}
-	_, err := h.db.NewInsert().Model(record).On("CONFLICT (media_id) DO NOTHING").Exec(ctx)
+	_, err := db.NewInsert().Model(record).On("CONFLICT (media_id) DO NOTHING").Exec(ctx)
 	return err
 }
 

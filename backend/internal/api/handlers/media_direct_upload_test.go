@@ -36,6 +36,7 @@ type fakeDirectUploadStorage struct {
 	objects   map[string][]byte
 	deleted   []string
 	lastInput mediastore.DirectUploadInput
+	sessions  int
 }
 
 func newFakeDirectUploadStorage() *fakeDirectUploadStorage {
@@ -74,6 +75,7 @@ func (s *fakeDirectUploadStorage) Open(id string) (io.ReadCloser, error) {
 }
 
 func (s *fakeDirectUploadStorage) CreateDirectUploadSession(_ context.Context, input mediastore.DirectUploadInput) (*mediastore.DirectUploadSession, error) {
+	s.sessions++
 	s.lastInput = input
 	return &mediastore.DirectUploadSession{
 		Method: http.MethodPut,
@@ -184,6 +186,41 @@ func TestCreateMediaUploadSessionSupportsLocalStreaming(t *testing.T) {
 	upload := out["upload"].(map[string]any)
 	require.Equal(t, http.MethodPut, upload["method"])
 	require.Equal(t, "/api/v1/media/upload-session/"+mediaID+"/content", upload["url"])
+}
+
+func TestCreateMediaUploadSessionIdempotencyReplaysTheReservedTarget(t *testing.T) {
+	t.Parallel()
+
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	createIdempotencyRecordTable(t, srv.db)
+	body := map[string]any{
+		"workspace_id": "ws-1",
+		"filename":     "launch.png",
+		"mime_type":    "image/png",
+		"size":         12,
+	}
+	create := func() *httptest.ResponseRecorder {
+		var payload bytes.Buffer
+		require.NoError(t, json.NewEncoder(&payload).Encode(body))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/media/upload-session", &payload)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer web-token")
+		req.Header.Set("Idempotency-Key", "workflow-item-7")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		return rec
+	}
+
+	first := create()
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	replay := create()
+	require.Equal(t, http.StatusOK, replay.Code, replay.Body.String())
+	require.JSONEq(t, first.Body.String(), replay.Body.String())
+	require.Equal(t, 1, storage.sessions)
+	mediaCount, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, mediaCount)
 }
 
 type zeroMediaReader struct{}

@@ -16,6 +16,10 @@ func TestCatalogFailsClosedAndKeepsAccessSeparateFromExposure(t *testing.T) {
 	require.Equal(t, EffectLocalMutation, create.Effect)
 	require.Equal(t, RetryIdempotentTransient, create.Retry)
 	require.Equal(t, IdempotencyRequired, create.Idempotency)
+	completeUpload, ok := Lookup("complete-media-upload-session")
+	require.True(t, ok)
+	require.Equal(t, IdempotencyNatural, completeUpload.Idempotency)
+	require.Equal(t, RetryTransient, completeUpload.Retry)
 
 	deleteMedia, ok := Lookup("delete-media")
 	require.True(t, ok)

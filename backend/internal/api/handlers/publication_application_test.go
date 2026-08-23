@@ -14,6 +14,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
+	"github.com/openpost/backend/internal/idempotency"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/providerreadiness"
@@ -21,6 +22,74 @@ import (
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPublicationApplicationReplaysEnqueueActionsWithoutCreatingAnotherJob(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name        string
+		operationID string
+		scheduled   bool
+	}{
+		{name: "schedule", operationID: "schedule-publication", scheduled: true},
+		{name: "publish now", operationID: "publish-publication-now"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			srv := newMCPTestServer(t)
+			createIdempotencyRecordTable(t, srv.db)
+			ctx := context.Background()
+			handler := srv.handler.publicationHandler()
+			input := CreatePublicationBody{
+				WorkspaceID: "ws-1", ContentProfile: models.ContentProfileShortText,
+				SourceText: "One durable queue mutation", SocialAccountIDs: []string{"account-1"},
+			}
+			if test.scheduled {
+				scheduledAt := time.Now().UTC().Add(2 * time.Hour)
+				input.ScheduledAt = &scheduledAt
+			}
+			publication, err := handler.publicationApplication().Create(ctx, "user-1", input)
+			require.NoError(t, err)
+
+			request := idempotency.Request{
+				PrincipalID: "token:workflow-token", WorkspaceID: "ws-1",
+				OperationID: test.operationID, Key: "upstream-event-42",
+				ExpiresAt: time.Now().UTC().Add(time.Hour),
+			}
+			commands := handler.publicationApplicationForTesting()
+			var first, replay publicationEnqueueResult
+			var replayed bool
+			if test.scheduled {
+				first, replayed, err = commands.ScheduleIdempotent(
+					ctx, "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction, request,
+				)
+				require.NoError(t, err)
+				require.False(t, replayed)
+				replay, replayed, err = commands.ScheduleIdempotent(
+					ctx, "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction, request,
+				)
+			} else {
+				first, replayed, err = commands.PublishNowIdempotent(
+					ctx, "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction, request,
+				)
+				require.NoError(t, err)
+				require.False(t, replayed)
+				replay, replayed, err = commands.PublishNowIdempotent(
+					ctx, "user-1", publication.ID, 1, providerreadiness.ExecutionIntentProduction, request,
+				)
+			}
+			require.NoError(t, err)
+			require.True(t, replayed)
+			require.Equal(t, first, replay)
+			require.NotEmpty(t, first.JobID)
+
+			jobCount, err := srv.db.NewSelect().Model((*models.Job)(nil)).
+				Where("scope_id = ?", publication.ID).Count(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 1, jobCount)
+		})
+	}
+}
 
 func TestPublicationApplicationKeepsRESTAndMCPUpdateParity(t *testing.T) {
 	t.Parallel()

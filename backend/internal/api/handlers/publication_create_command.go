@@ -93,26 +93,49 @@ func (command publicationApplication) persistCreate(
 	ctx context.Context,
 	publication *models.Publication,
 	prepared preparedPublicationCreate,
-) error {
-	return command.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(publication).Exec(txCtx); err != nil {
-			return fmt.Errorf("insert publication: %w", err)
-		}
-		segments, err := command.handler.insertPublicationSegments(txCtx, tx, publication, prepared.input.Segments)
-		if err != nil {
-			return err
-		}
-		return command.handler.insertRenditions(
-			txCtx,
-			tx,
-			publication,
-			segments,
-			prepared.input.Segments,
-			prepared.input.Renditions,
-			prepared.input.Media,
-			prepared.accounts,
-		)
+) (PublicationResponse, error) {
+	var response PublicationResponse
+	err := command.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var err error
+		response, err = command.persistCreateTx(txCtx, tx, publication, prepared)
+		return err
 	})
+	return response, err
+}
+
+func (command publicationApplication) persistCreateTx(
+	ctx context.Context,
+	tx bun.Tx,
+	publication *models.Publication,
+	prepared preparedPublicationCreate,
+) (PublicationResponse, error) {
+	if _, err := tx.NewInsert().Model(publication).Exec(ctx); err != nil {
+		return PublicationResponse{}, fmt.Errorf("insert publication: %w", err)
+	}
+	segments, err := command.handler.insertPublicationSegments(ctx, tx, publication, prepared.input.Segments)
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	if err := command.handler.insertRenditions(
+		ctx,
+		tx,
+		publication,
+		segments,
+		prepared.input.Segments,
+		prepared.input.Renditions,
+		prepared.input.Media,
+		prepared.accounts,
+	); err != nil {
+		return PublicationResponse{}, err
+	}
+	responses, err := command.handler.loadPublicationResponsesWithDB(ctx, tx, []models.Publication{*publication})
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	if len(responses) != 1 {
+		return PublicationResponse{}, errors.New("failed to load created publication")
+	}
+	return responses[0], nil
 }
 
 func normalizePublicationCreateBody(input *CreatePublicationBody) {

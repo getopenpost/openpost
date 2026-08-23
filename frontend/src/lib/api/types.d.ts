@@ -5612,11 +5612,11 @@ export interface components {
             /** @description Workspace ID */
             workspace_id: string;
         };
-        CreateMediaUploadSessionOutputBody: {
+        CreateMediaUploadSessionResponse: {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example /api/v1/schemas/CreateMediaUploadSessionOutputBody.json
+             * @example /api/v1/schemas/CreateMediaUploadSessionResponse.json
              */
             readonly $schema?: string;
             /** @description API path to call after the upload succeeds */
@@ -20092,7 +20092,10 @@ export interface operations {
     "create-media-upload-session": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -20108,7 +20111,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CreateMediaUploadSessionOutputBody"];
+                    "application/json": components["schemas"]["CreateMediaUploadSessionResponse"];
                 };
             };
             /** @description Bad Request */
@@ -24256,7 +24259,10 @@ export interface operations {
     "create-publication": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -24366,7 +24372,10 @@ export interface operations {
     "update-publication": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description Publication ID */
                 id: string;
@@ -24484,7 +24493,10 @@ export interface operations {
     "cancel-publication": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description Publication ID */
                 id: string;
@@ -24622,7 +24634,10 @@ export interface operations {
     "publish-publication-now": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description Publication ID */
                 id: string;
@@ -24658,7 +24673,10 @@ export interface operations {
     "upsert-publication-renditions": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description Publication ID */
                 id: string;
@@ -24862,7 +24880,10 @@ export interface operations {
     "retry-failed-publication-renditions": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description Publication ID */
                 id: string;
@@ -24939,7 +24960,10 @@ export interface operations {
     "schedule-publication": {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                /** @description Replay key scoped to the caller, Workspace, and operation */
+                "Idempotency-Key"?: string;
+            };
             path: {
                 /** @description Publication ID */
                 id: string;

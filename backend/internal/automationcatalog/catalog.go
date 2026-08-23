@@ -41,6 +41,7 @@ type IdempotencyPolicy string
 
 const (
 	IdempotencyNone     IdempotencyPolicy = "none"
+	IdempotencyNatural  IdempotencyPolicy = "natural"
 	IdempotencyOptional IdempotencyPolicy = "optional"
 	IdempotencyRequired IdempotencyPolicy = "required"
 )
@@ -160,7 +161,7 @@ var operations = []Operation{
 	writeDisabled("retry-publication-rendition", EffectExternalAction),
 	write("retry-failed-publication-renditions", ExposureAlpha, EffectExternalAction),
 	write("create-media-upload-session", ExposureAlpha, EffectLocalMutation),
-	write("complete-media-upload-session", ExposureAlpha, EffectLocalMutation),
+	writeNaturallyIdempotent("complete-media-upload-session", ExposureAlpha, EffectLocalMutation),
 	writeDisabled("update-media", EffectLocalMutation),
 	writeDisabled("delete-media", EffectDestructive),
 	writeDisabled("batch-delete-media", EffectDestructive),
@@ -211,6 +212,14 @@ func writeDisabled(operationID string, effect Effect) Operation {
 		OperationID: operationID,
 		Access:      AccessWrite, Exposure: ExposureDisabled, Effect: effect,
 		Retry: RetryNever, Idempotency: IdempotencyNone,
+	}
+}
+
+func writeNaturallyIdempotent(operationID string, exposure Exposure, effect Effect) Operation {
+	return Operation{
+		OperationID: operationID,
+		Access:      AccessWrite, Exposure: exposure, Effect: effect,
+		Retry: RetryTransient, Idempotency: IdempotencyNatural,
 	}
 }
 

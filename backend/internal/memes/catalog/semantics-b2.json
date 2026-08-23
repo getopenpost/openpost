@@ -1,0 +1,399 @@
+[
+  {
+    "id": "jw",
+    "visual": "Chris Pratt in sharp right foreground and Bryce Dallas Howard blurred left background in bright hallway, wide captions frame the upper and lower thirds over the scene.",
+    "meaning": "Pairs a naive question about creating something risky with a flat, understatement warning that it was probably not a good idea, channeling Jurassic World's reckless science.",
+    "mechanism": "understated_warning",
+    "caption_roles": [
+      "naive question about a risky creation",
+      "deadpan verdict that it was probably not a good idea"
+    ],
+    "tags": ["jurassic-world", "warning", "understatement", "reaction"]
+  },
+  {
+    "id": "keanu",
+    "visual": "Keanu Reeves close-up with hand on face and tousled hair, bold captions occupy bands above and below the portrait.",
+    "meaning": "Poses a stoned pseudo-philosophical what-if that twists a mundane fact into a conspiracy, mocking weed-fueled deep thoughts.",
+    "mechanism": "conspiracy_what_if",
+    "caption_roles": [
+      "what if setup posing a stoned premise",
+      "absurdist conspiratorial twist"
+    ],
+    "tags": ["keanu", "conspiracy", "stoned", "philosophy"]
+  },
+  {
+    "id": "kermit",
+    "visual": "Kermit the Frog sipping Lipton tea on a windowsill, bold captions span above and below the puppet.",
+    "meaning": "Delivers a petty observation then shrugs with but that's none of my business, using politeness to veil shade.",
+    "mechanism": "shady_disclaimer",
+    "caption_roles": [
+      "petty observation or setup remark",
+      "but that's none of my business dismissal"
+    ],
+    "tags": ["kermit", "tea", "shade", "dismissal"]
+  },
+  {
+    "id": "khaby-lame",
+    "visual": "Two stacked panels of Khaby Lame in blue Italy jacket, blank caption boxes fill the left half of each row beside his deadpan and shrug gestures.",
+    "meaning": "Contrasts an overcomplicated life hack on top with a trivially simple solution below, the shrug conveying it's that simple.",
+    "mechanism": "overcomplication_mockery",
+    "caption_roles": [
+      "overcomplicated problem or premise on the upper left",
+      "obvious simple solution on the lower left"
+    ],
+    "tags": ["khaby-lame", "reaction", "simple", "mockery"]
+  },
+  {
+    "id": "kk",
+    "visual": "Red karate gi teen in fighting pose layered over faint enlarged face, captions stretch across upper and lower edges.",
+    "meaning": "Escalates a minor slight into disproportionate martial violence brag, the ghostly double portrait heightening awkward toughness.",
+    "mechanism": "absurd_escalation",
+    "caption_roles": [
+      "minor provocation or slight",
+      "violent disproportionate retaliation"
+    ],
+    "tags": ["karate", "escalation", "tough-guy", "parody"]
+  },
+  {
+    "id": "kombucha",
+    "visual": "Woman in split view grimacing left and looking pleasantly surprised right, caption bands cover the left and right upper quadrants.",
+    "meaning": "Captures trying something with immediate disgust then reluctant reassessment, showing ambivalent first impression shifting to approval.",
+    "mechanism": "ambivalent_reaction",
+    "caption_roles": [
+      "initial hesitant or disgusted reaction on the left",
+      "reconsidered pleasant reaction on the right"
+    ],
+    "tags": ["kombucha", "reaction", "try", "ambivalence"]
+  },
+  {
+    "id": "kramer",
+    "visual": "Two stacked red-lit shots of Jerry asking and Kramer answering through a doorway, a wide blank band separates the panels center.",
+    "meaning": "Features Jerry asking what's going on in there and Kramer's deadpan answer revealing a mundane, often lewd misunderstanding bathed in red haze.",
+    "mechanism": "misunderstanding_reveal",
+    "caption_roles": [
+      "Kramer's question setup spoken by Jerry in the upper exchange",
+      "matter-of-fact explanation from Kramer in the lower response"
+    ],
+    "tags": ["seinfeld", "kramer", "misunderstanding", "reveal"]
+  },
+  {
+    "id": "leo",
+    "visual": "Leonardo DiCaprio in Great Gatsby suit strutting with champagne, captions frame wide bands above and below his walk.",
+    "meaning": "Pairs a confident swagger with a self-aware confession of having no idea what you're doing, celebrating clueless confidence.",
+    "mechanism": "clueless_strut",
+    "caption_roles": [
+      "swagger setup or occasion",
+      "admission of having no idea what you are doing"
+    ],
+    "tags": ["leonardo-dicaprio", "swagger", "confident", "clueless"]
+  },
+  {
+    "id": "light",
+    "visual": "Mufasa and young Simba viewed from behind on Pride Rock overlooking savanna sunset, captions span above and in warm light below.",
+    "meaning": "Mufasa tells Simba everything the light touches is theirs, then forbids the shadowy forbidden area, used to lionize allowed territory versus off-limits zone.",
+    "mechanism": "forbidden_territory",
+    "caption_roles": [
+      "grand claim about everything the light touches",
+      "warning about the shadowy place that must never be visited"
+    ],
+    "tags": ["lion-king", "mufasa", "kingdom", "forbidden"]
+  },
+  {
+    "id": "live",
+    "visual": "Bill O'Reilly mid-rant at news desk, bold captions occupy bands above and below the studio shot.",
+    "meaning": "Builds from a blank or ranting setup to the explosive do it live demand, capturing frustration boiling into reckless live action.",
+    "mechanism": "frustrated_outburst",
+    "caption_roles": [
+      "frustrated setup or blank tension",
+      "do it live exasperated payoff"
+    ],
+    "tags": ["bill-oreilly", "rant", "frustration", "live"]
+  },
+  {
+    "id": "ll",
+    "visual": "Green lizard on branch with mouth open and paw dangling, captions sit in wide bands above and below the reptile.",
+    "meaning": "Uses the lizard's hhhehehe laugh to mock an awkward or mischievous moment, implying smug amusement at someone else's discomfort.",
+    "mechanism": "smug_laugh",
+    "caption_roles": [
+      "situation being witnessed from above",
+      "hhhehehe smug laugh payoff"
+    ],
+    "tags": ["lizard", "laugh", "smug", "awkward"]
+  },
+  {
+    "id": "lrv",
+    "visual": "Bearded warrior in fur helmet shouting while holding laundry, bold captions span upper and lower thirds over the figure.",
+    "meaning": "Parodies epic demands applied to mundane laundry complaints, turning do the laundry they said into a Viking battle cry.",
+    "mechanism": "mundane_epic",
+    "caption_roles": [
+      "encouraging setup about the chore",
+      "disillusioned punchline about the reality"
+    ],
+    "tags": ["viking", "laundry", "expectation", "rant"]
+  },
+  {
+    "id": "made",
+    "visual": "Three-row stick-figure comic: two figures sharing a round object on top, single holder middle, smiling holder bottom with speech bubbles scattered above and center.",
+    "meaning": "A maker proudly declares i made this, another questions authorship, then reclaims credit, satirizing ownership and creative pride.",
+    "mechanism": "ownership_dispute",
+    "caption_roles": [
+      "collective owner label floating lower left of the upper pair",
+      "audience label floating lower right of the upper pair",
+      "proud declaration inside the upper left bubble",
+      "questioning reply inside the upper right bubble",
+      "reaffirmed proud declaration inside the lower bubble"
+    ],
+    "tags": ["stick-figure", "ownership", "creation", "meta"]
+  },
+  {
+    "id": "mb",
+    "visual": "Purple Member Berries clustered on a branch, bold captions frame the top and bottom over the South Park characters.",
+    "meaning": "Berries chirp member in a nostalgic high, used to mock rose-tinted nostalgia that remembers a franchise or past fondly.",
+    "mechanism": "nostalgia_bait",
+    "caption_roles": [
+      "member prompt placed above the berries",
+      "beloved past subject remembered below"
+    ],
+    "tags": ["south-park", "nostalgia", "remember", "member-berries"]
+  },
+  {
+    "id": "michael-scott",
+    "visual": "Michael Scott outdoors with hands raised and mouth agape in horror, captions occupy wide bands above and below the figure.",
+    "meaning": "Channels The Office's no god no desperate plea where a simple mistake spirals into existential dread and exaggerated denial.",
+    "mechanism": "existential_plea",
+    "caption_roles": [
+      "shocked setup line cried from above",
+      "escalating nooooo prolongation below"
+    ],
+    "tags": ["the-office", "michael-scott", "horror", "reaction"]
+  },
+  {
+    "id": "midwit",
+    "visual": "IQ bell curve with wojak left, crying brainlet top center, and hooded chad right over blue distribution, three caption zones float over each figure.",
+    "meaning": "Low and high IQ agree on a simple take while the midwit in the middle overthinks with agonizing nuance, mocking pretentious complexity.",
+    "mechanism": "bell_curve_irony",
+    "caption_roles": [
+      "simple take from the low IQ figure on the left",
+      "overcomplicated anguished take from the central midwit",
+      "identical simple take from the high IQ figure on the right"
+    ],
+    "tags": ["iq", "bell-curve", "midwit", "irony"]
+  },
+  {
+    "id": "millers",
+    "visual": "Four-panel grid from We're the Millers with three shocked faces and one confused boy in bottom right, each panel has a centered lower caption box.",
+    "meaning": "Escalating pay reveals converge on the punchline you guys are getting paid, contrasting exploited expectations with naive discovery of compensation.",
+    "mechanism": "pay_reveal",
+    "caption_roles": [
+      "blank shock placeholder over the upper left man",
+      "high pay boast from the upper right woman",
+      "middle pay comparison from the lower left woman",
+      "confused you guys are getting paid question from the lower right boy"
+    ],
+    "tags": ["we-are-the-millers", "pay", "shock", "reveal"]
+  },
+  {
+    "id": "mini-keanu",
+    "visual": "Small Keanu Reeves tucked into a hedge or bushes peeking out, bold captions span wide bands above and below the scene.",
+    "meaning": "Uses tiny Keanu hiding while waiting for a moment to interrupt, expressing patient anticipation for a small opportunity.",
+    "mechanism": "patient_hiding",
+    "caption_roles": [
+      "innocent waiting context above the hedge",
+      "small desired opportunity held back below"
+    ],
+    "tags": ["keanu", "waiting", "patient", "relatable"]
+  },
+  {
+    "id": "mmm",
+    "visual": "Toddler Marvin with pouty lip and red shirt staring aside, captions sit above and below his portrait.",
+    "meaning": "Labels a tiny mistake as triggering an outsized sulking reaction, embodying minor mistake Marvin's melodramatic regret.",
+    "mechanism": "minor_mistake_melodrama",
+    "caption_roles": [
+      "trivial error or misstep described above",
+      "exaggerated remorse that follows below"
+    ],
+    "tags": ["minor-mistake", "marvin", "regret", "relatable"]
+  },
+  {
+    "id": "money",
+    "visual": "Philip Fry from Futurama thrusting cash forward with intense eyes, bold captions fill upper and lower bands over the character.",
+    "meaning": "Expresses impulsive buying desire with shut up and take my money, celebrating overwhelming enthusiasm for a product or offer.",
+    "mechanism": "enthusiastic_purchase",
+    "caption_roles": [
+      "shut up and setup demand above",
+      "take my money payoff below"
+    ],
+    "tags": ["futurama", "money", "enthusiasm", "purchase"]
+  },
+  {
+    "id": "mordor",
+    "visual": "Boromir seated at Council of Elrond with somber gaze, bold captions span bands above and below his portrait.",
+    "meaning": "Declares one does not simply walk into a difficult place, framing a task as deceptively hard with faux epic gravitas.",
+    "mechanism": "false_simplicity",
+    "caption_roles": [
+      "one does not simply opener above",
+      "forbidding destination or task below"
+    ],
+    "tags": ["lord-of-the-rings", "boromir", "difficulty", "warning"]
+  },
+  {
+    "id": "morpheus",
+    "visual": "Morpheus in black coat and sunglasses holding pose in Matrix, captions occupy wide bands above and below the figure.",
+    "meaning": "Opens with what if I told you then delivers a mind-blowing revelation that reframes reality, mocking conspiratorial profundity.",
+    "mechanism": "revelation_setup",
+    "caption_roles": [
+      "what if I told you premise above",
+      "mind-bending revelation below"
+    ],
+    "tags": ["matrix", "morpheus", "revelation", "conspiracy"]
+  },
+  {
+    "id": "mouth",
+    "visual": "Golden retriever in orange bandana sitting in restaurant with a hand gently holding its muzzle, three caption boxes float upper left, upper right, and lower left.",
+    "meaning": "Contrasts eager presentation, excited buy-in, and internal panic of those knowing delivery is impossible while the dog remains politely restrained.",
+    "mechanism": "restrained_panic",
+    "caption_roles": [
+      "presenter facade labeled on the upper left near the mouth holder",
+      "enthusiastic client reaction on the upper right near the bystanders",
+      "anxious implementer knowledge on the lower left beside the dog"
+    ],
+    "tags": ["dog", "restraint", "presentation", "anxiety"]
+  },
+  {
+    "id": "mw",
+    "visual": "George Zimmer in tuxedo with hand gesture beside Men's Wearhouse backdrop, bold captions span above and below the portrait.",
+    "meaning": "Seals a promise with i guarantee it, using the suits salesman assurance to humorously endorse a claim.",
+    "mechanism": "solemn_guarantee",
+    "caption_roles": [
+      "promise or claim placed above the figure",
+      "i guarantee it affirmation placed below"
+    ],
+    "tags": ["mens-wearhouse", "guarantee", "promise", "endorsement"]
+  },
+  {
+    "id": "nails",
+    "visual": "Gray-haired man crouched on a sandy beach hammering nails into wet sand at the water's edge, three angled caption blocks float skewered across the scene.",
+    "meaning": "Shows a futile effort hammering nails into sand that the surf immediately erases, mocking attempts to formalize ineffable or fluid concepts.",
+    "mechanism": "futile_formalization",
+    "caption_roles": [
+      "concrete anchor concept angled upper left over the beach",
+      "attempted formal system angled lower center over the sand",
+      "ineffable reality angled mid-right that defies capture"
+    ],
+    "tags": ["beach", "futile", "language", "absurd"]
+  },
+  {
+    "id": "nice",
+    "visual": "Bill Murray on golf course in bucket hat with smirk, bold captions span upper and lower bands over the green.",
+    "meaning": "Shrugs at a disastrous situation but notes a tiny consolation and declares which is nice, finding hollow optimism in failure.",
+    "mechanism": "hollow_consolation",
+    "caption_roles": [
+      "disastrous setup or blank tension above",
+      "so I got that goin for me which is nice consolation below"
+    ],
+    "tags": ["caddyshack", "bill-murray", "optimism", "consolation"]
+  },
+  {
+    "id": "noah",
+    "visual": "Noah from Family Guy surrounded by three hybrids: elephant-penguin, penguin-elephant, and another mix on ark interior, captions label each hybrid and a bottom verdict.",
+    "meaning": "Labels similar terms with absurd hybrid animals then asks what the hell is this for the portmanteau that mixes both, mocking confusing blended concepts.",
+    "mechanism": "portmanteau_confusion",
+    "caption_roles": [
+      "first base term label over the small blue hybrid",
+      "second base term label over the tall blue hybrid",
+      "blended portmanteau label over the small tuxedo hybrid",
+      "what the hell is this exclamation spanning the bottom"
+    ],
+    "tags": ["family-guy", "portmanteau", "hybrid", "confusion"]
+  },
+  {
+    "id": "noidea",
+    "visual": "Close-up of a bewildered woman in a classroom with vacant eyes, bold captions frame the portrait above and below.",
+    "meaning": "Confesses to having no idea what is going on while trying to look composed, celebrating impostor syndrome in formal settings.",
+    "mechanism": "feigned_composure",
+    "caption_roles": [
+      "i have no idea setup placed above",
+      "what I'm doing confession placed below"
+    ],
+    "tags": ["confused", "impostor", "relatable", "reaction"]
+  },
+  {
+    "id": "ntot",
+    "visual": "Three-panel comic of a smiling dog with collar, captions angled upper left, upper middle, and bold upper right over each panel's head.",
+    "meaning": "Dog pleads to throw, explodes when told no take, insisting only throw, satirizing single-minded obsession with one action.",
+    "mechanism": "obsessive_demand",
+    "caption_roles": [
+      "polite please throw request angled at the first panel",
+      "emphatic no take refusal angled at the second panel",
+      "shouting only throw demand across the third panel"
+    ],
+    "tags": ["dog", "throw", "obsession", "persistence"]
+  },
+  {
+    "id": "oag",
+    "visual": "Woman with wide smile and intense eyes staring forward in dark room, bold captions span top and bottom over the portrait.",
+    "meaning": "Presents clingy, obsessive possessiveness disguised as affection, exaggerating jealous monitoring for dark humor.",
+    "mechanism": "possessive_obsession",
+    "caption_roles": [
+      "possessive setup or threat placed above",
+      "creepy follow-through placed below"
+    ],
+    "tags": ["possessive", "obsession", "creepy", "reaction"]
+  },
+  {
+    "id": "officespace",
+    "visual": "Bill Lumbergh smirking with coffee mug in Office Space, bold captions sit in wide bands above and below his portrait.",
+    "meaning": "Delivers a passive-aggressive corporate request with yeah that would be great, masking compulsion as polite suggestion.",
+    "mechanism": "passive_aggressive_request",
+    "caption_roles": [
+      "yeah hesitant setup above the manager",
+      "that would be great veiled demand below"
+    ],
+    "tags": ["office-space", "lumbergh", "passive-aggressive", "work"]
+  },
+  {
+    "id": "older",
+    "visual": "Meme screenshot of Obi-Wan and starfield commander with surprised face, bold captions occupy upper and lower bands over the scene.",
+    "meaning": "Declares it's an older code but it checks out, lending grudging legitimacy to something dated yet still acceptable.",
+    "mechanism": "grudging_validation",
+    "caption_roles": [
+      "it's an older code sir claim above",
+      "but it checks out validation below"
+    ],
+    "tags": ["star-wars", "validation", "older", "approval"]
+  },
+  {
+    "id": "oprah",
+    "visual": "Oprah Winfrey arms wide shouting with ecstatic audience behind, bold captions frame wide bands above and below the stage.",
+    "meaning": "Parodies Oprah's you get a you get a giveaway where everyone receives the same exaggerated prize for comedic generosity.",
+    "mechanism": "universal_giveaway",
+    "caption_roles": [
+      "you get a setup targeting a group above",
+      "everyone gets payoff proclaimed below"
+    ],
+    "tags": ["oprah", "giveaway", "everyone-gets", "generosity"]
+  },
+  {
+    "id": "panik-kalm-panik",
+    "visual": "Three-row meme man grid with left column blank caption areas and right column showing panik, kalm, panik faces with hands on head variations.",
+    "meaning": "Escalates panic, then false calm after a reassuring thought, then renewed panic when a worse implication hits, tracking anxiety oscillation.",
+    "mechanism": "anxiety_oscillation",
+    "caption_roles": [
+      "initial alarming trigger beside the upper panik face",
+      "reassuring calm justification beside the middle kalm face",
+      "twist that reestablishes panic beside the lower panik face"
+    ],
+    "tags": ["panik", "kalm", "anxiety", "reaction"]
+  },
+  {
+    "id": "patrick",
+    "visual": "Two stacked cartoon stills of Patrick Star pushing and then pouting among shocked fish crowd, wide captions cover the upper strip and lower strip.",
+    "meaning": "Quotes Patrick's is mayonnaise an instrument clueless suggestion to push the problem elsewhere, capturing naive deflection of responsibility.",
+    "mechanism": "naive_deflection",
+    "caption_roles": [
+      "absurd let's push it elsewhere proposal spanning the upper scene",
+      "dismissive somewhere else push continuation spanning the lower scene"
+    ],
+    "tags": ["spongebob", "patrick", "deflection", "absurd"]
+  }
+]

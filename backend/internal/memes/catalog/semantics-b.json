@@ -1,0 +1,562 @@
+[
+  {
+    "id": "feelsgood",
+    "visual": "Pepe the Frog with a smug closed-mouth smile leaning on a surface; captions sit as white bars across the very top and very bottom over the image.",
+    "meaning": "Signals smug satisfaction after a questionable or petty win. Top sets up a transgressive act, bottom delivers the self-satisfied payoff that it felt good anyway.",
+    "mechanism": "smug_reaction_payoff",
+    "caption_roles": ["provocative setup action", "smug payoff declaration"],
+    "tags": ["pepe", "smug", "reaction", "satisfaction"]
+  },
+  {
+    "id": "fetch",
+    "visual": "Regina George from Mean Girls with blonde hair mid-speech; captions occupy full-width bands at top and bottom over the scene.",
+    "meaning": "Mocks a forced trend or phrase that refuses to catch on. Top quotes the attempt to make something happen, bottom declares its inevitable failure.",
+    "mechanism": "dismissive_refrain",
+    "caption_roles": ["forced trend being pushed", "inevitable failure punchline"],
+    "tags": ["mean-girls", "trend", "dismissal"]
+  },
+  {
+    "id": "fine",
+    "visual": "Cartoon dog sitting at a table drinking coffee while flames engulf the room; captions span the top and bottom edges above and below the dog.",
+    "meaning": "Denial as coping mechanism. Pretending everything is okay while the surroundings are clearly disastrous.",
+    "mechanism": "ironic_denial",
+    "caption_roles": ["ominous or empty setup line", "reassuring denial punchline"],
+    "tags": ["dog", "fire", "denial", "coping"]
+  },
+  {
+    "id": "firsttry",
+    "visual": "Young boy in a gym with arms raised in celebration; captions sit in white top and bottom bars over the image.",
+    "meaning": "Celebrates an unlikely immediate success or beginner luck. Top sets context, bottom delivers the triumphant first-try claim.",
+    "mechanism": "beginners_luck_brag",
+    "caption_roles": ["attempt context or buildup", "triumphant first-try claim"],
+    "tags": ["celebration", "success", "brag"]
+  },
+  {
+    "id": "fmr",
+    "visual": "Man facepalming with exasperated expression in close-up; captions in white top and bottom bands framing the face.",
+    "meaning": "Self-deprecating resignation after a predictable self-inflicted embarrassment. Invites pity for a dumb situation you put yourself in.",
+    "mechanism": "self_pity_punchline",
+    "caption_roles": ["embarrassing scenario setup", "resigned fuck-me-right punchline"],
+    "tags": ["facepalm", "embarrassment", "resignation"]
+  },
+  {
+    "id": "friends",
+    "visual": "Interior with three figures labeled by position: standing figure near doorway up top, seated figure lower left, mirrored seated figure lower right.",
+    "meaning": "Jokes that two opposed groups are actually united by a shared enemy or trait embodied by the third figure.",
+    "mechanism": "unexpected_alliance",
+    "caption_roles": ["standing observer asking about friendship", "left-seated faction label", "right-seated rival revealed as allied"],
+    "tags": ["alliance", "enemies", "comparison"]
+  },
+  {
+    "id": "fry",
+    "visual": "Philip J. Fry from Futurama squinting skeptically; captions occupy full-width top and bottom bands.",
+    "meaning": "Expresses suspicious uncertainty between two interpretations. Top poses a doubtful scenario, bottom offers the alternative interpretation.",
+    "mechanism": "uncertain_dichotomy",
+    "caption_roles": ["uncertain premise with not sure if", "alternative interpretation"],
+    "tags": ["futurama", "squint", "doubt", "suspicion"]
+  },
+  {
+    "id": "fwp",
+    "visual": "Woman crying with hand on forehead in distress; captions sit in white bands at top and bottom.",
+    "meaning": "Mocks trivial complaints framed as suffering. Highlights privileged problems that are not real hardships.",
+    "mechanism": "privileged_complaint",
+    "caption_roles": ["trivial privileged complaint", "self-aware first-world punchline"],
+    "tags": ["complaint", "privilege", "cry"]
+  },
+  {
+    "id": "gandalf",
+    "visual": "Gandalf from Lord of the Rings looking confused with mouth slightly open; captions span top and bottom edges.",
+    "meaning": "Conveys bewildered lack of memory or understanding. Used when something is unrecognizable or nonsensical to the speaker.",
+    "mechanism": "confused_reaction",
+    "caption_roles": ["optional bewildered setup", "confused admission of no memory"],
+    "tags": ["gandalf", "confusion", "reaction"]
+  },
+  {
+    "id": "gb",
+    "visual": "Four vertical panels of a glowing brain against space, increasing in intensity from dim to cosmic; captions overlay each panel from top to bottom.",
+    "meaning": "Satirizes escalating intellectualization where simple ideas are reframed as galaxy-brain enlightenment, often peaking in absurdity.",
+    "mechanism": "escalating_enlightenment",
+    "caption_roles": ["basic naive take", "slightly clever take", "overly elaborate take", "absurd transcendental take"],
+    "tags": ["brain", "galaxy", "escalation", "intelligence"]
+  },
+  {
+    "id": "gears",
+    "visual": "Peter Griffin from Family Guy at a table looking annoyed; captions sit in white bands at top and bottom.",
+    "meaning": "Rants about a pet peeve. Top announces that something grinds your gears, bottom specifies the irritating habit.",
+    "mechanism": "pet_peeve_rant",
+    "caption_roles": ["grinds-my-gears setup line", "specific annoyance punchline"],
+    "tags": ["family-guy", "annoyance", "rant"]
+  },
+  {
+    "id": "genie",
+    "visual": "Genie lamp with smoke implying a wish scene; captions in white bands at top and bottom over the image.",
+    "meaning": "Subverts a wish with ironic wordplay where the granted wish backfires due to literal or punny fulfillment.",
+    "mechanism": "wish_twist",
+    "caption_roles": ["grandiose wish setup", "ironic limited payoff"],
+    "tags": ["genie", "wish", "irony"]
+  },
+  {
+    "id": "ggg",
+    "visual": "Smiling bearded man in a knit cap facing camera; captions occupy top and bottom white bands.",
+    "meaning": "Celebrates an unexpectedly considerate person where you expect rudeness. Top sets a situation where someone could be selfish, bottom shows the wholesome twist.",
+    "mechanism": "wholesome_subversion",
+    "caption_roles": ["potentially selfish setup situation", "considerate good-guy payoff"],
+    "tags": ["good-guy", "wholesome", "consideration"]
+  },
+  {
+    "id": "glasses",
+    "visual": "Spider-Man holding up Peter Parker's glasses to his face; captions split horizontally, top half and bottom half centered.",
+    "meaning": "Contrast between a virtuous public statement and a hypocritical or self-deprecating reality revealed by putting on the glasses.",
+    "mechanism": "virtuous_versus_hypocritical",
+    "caption_roles": ["idealistic public statement behind glasses", "self-incriminating reality without glasses"],
+    "tags": ["spiderman", "glasses", "hypocrisy", "contrast"]
+  },
+  {
+    "id": "gone",
+    "visual": "Character waving hand dismissively with a smug look; captions in white bands at top and bottom.",
+    "meaning": "Highlights money or resources disappearing instantly after a promise to save or invest. Sets up an investment then snaps it away.",
+    "mechanism": "instant_loss",
+    "caption_roles": ["promise to save or invest", "swift disappearance punchline"],
+    "tags": ["south-park", "money", "loss"]
+  },
+  {
+    "id": "grave",
+    "visual": "Grant Gustin kneeling beside Oliver Queen's grave slab in a cemetery; captions sit angled on the stone, on the kneeler, and on the standing figure.",
+    "meaning": "Mourns that a broader value was buried by a narrower cause. Grave labels the victim, bottom figures label the mourned ideal and the blamed culprit.",
+    "mechanism": "grave_blame",
+    "caption_roles": ["epitaph on the gravestone", "mourner labeling what was lost", "standing figure labeling what killed it"],
+    "tags": ["grave", "mourn", "blame", "arrowverse"]
+  },
+  {
+    "id": "gru",
+    "visual": "Four-panel Gru's Plan whiteboard: top-left Gru pointing, top-right blank board, bottom-left Gru, bottom-right dejected; captions centered in each quadrant.",
+    "meaning": "Shows a plan that fails at the final step when reality mirrors the expected failure. First three panels build the plan, last repeats the failure as outcome.",
+    "mechanism": "four_panel_plan_fail",
+    "caption_roles": ["initial step or goal", "second step", "third step leading to expectation", "identical failed outcome"],
+    "tags": ["gru", "plan", "expectation", "failure"]
+  },
+  {
+    "id": "grumpycat",
+    "visual": "Grumpy Cat staring sternly at camera with downturned mouth; captions in white bands at top and bottom.",
+    "meaning": "Delivers a grumpy, pessimistic retort where a hopeful platitude is immediately undercut by cynicism.",
+    "mechanism": "cynical_undercut",
+    "caption_roles": ["hopeful setup line", "grumpy cynical punchline"],
+    "tags": ["cat", "grumpy", "cynical", "pessimism"]
+  },
+  {
+    "id": "hagrid",
+    "visual": "Hagrid from Harry Potter with a guilty half-smile outdoors; captions span top and bottom edges.",
+    "meaning": "Regret after accidentally revealing too much. Used when you overshare or leak a secret and instantly regret it.",
+    "mechanism": "accidental_reveal",
+    "caption_roles": ["optional setup for the slip", "regretful admission of misspeaking"],
+    "tags": ["hagrid", "harry-potter", "regret", "slip"]
+  },
+  {
+    "id": "handshake",
+    "visual": "Two exaggerated muscular arms meeting in an epic handshake in center; captions angled along each forearm and centered at top.",
+    "meaning": "Shows two disparate groups or tastes united by a shared love for a third thing. Arms are the tribes, handshake is their common ground.",
+    "mechanism": "object_label_handshake",
+    "caption_roles": ["left arm faction label", "right arm faction label", "center shared interest bridging them"],
+    "tags": ["handshake", "agreement", "object-label", "common-ground"]
+  },
+  {
+    "id": "happening",
+    "visual": "Reporter Ron Paul with excited wide eyes, text top and bottom framing his face.",
+    "meaning": "Hypes that a long-awaited event is finally unfolding. Used to celebrate anticipated news breaking.",
+    "mechanism": "anticipation_payoff",
+    "caption_roles": ["empty or anticipatory top line", "excited declaration that it is happening"],
+    "tags": ["ron-paul", "hype", "event"]
+  },
+  {
+    "id": "harold",
+    "visual": "Older man Harold smiling painfully while holding a coffee mug; captions in white bands at top and bottom.",
+    "meaning": "Masks inner pain with a forced smile. Top sets a stressful public context, bottom is the polite smile that hides discomfort.",
+    "mechanism": "pain_behind_smile",
+    "caption_roles": ["stressful situation setup", "forced-smile punchline"],
+    "tags": ["harold", "pain", "forced-smile", "reaction"]
+  },
+  {
+    "id": "headaches",
+    "visual": "Diagram of a head with pain zones highlighted; single caption centered low over the head illustration.",
+    "meaning": "Labels a specific headache location as metaphor for a recurring annoyance. The caption names the cause of the headache.",
+    "mechanism": "labeled_anatomy_metaphor",
+    "caption_roles": ["annoyance labeled as headache type"],
+    "tags": ["headache", "diagram", "annoyance"]
+  },
+  {
+    "id": "hipster",
+    "visual": "Hipster barista with glasses, beanie, and flannel looking smug; captions in top and bottom white bands.",
+    "meaning": "Mocks pretentious or contradictory hipster behavior. Top states the cool claim, bottom reveals the hypocritical or gatekeeping follow-through.",
+    "mechanism": "pretentious_hypocrisy",
+    "caption_roles": ["pretentious setup action", "hypocritical gatekeeping punchline"],
+    "tags": ["hipster", "barista", "pretentious", "irony"]
+  },
+  {
+    "id": "home",
+    "visual": "Three-row text-driven meme with a large illustration below; three caption lines stack from top down above the image, then the food-at-home image.",
+    "meaning": "Jokes that homemade alternatives are absurdly inferior or cursed compared to the requested restaurant or store item.",
+    "mechanism": "expectation_vs_cursed_reality",
+    "caption_roles": ["request to stop for food", "parental refusal we have food at home", "reveal of cursed food-at-home entity"],
+    "tags": ["food", "expectation", "cursed", "home"]
+  },
+  {
+    "id": "icanhas",
+    "visual": "Wide-eyed tabby cat looking directly at camera; captions in white bands at top and bottom.",
+    "meaning": "Lolspeak request for something cute or absurd. Frames a desire in broken cat English for comedic begging.",
+    "mechanism": "lolspeak_request",
+    "caption_roles": ["lolspeak request opening", "desired object punchline"],
+    "tags": ["cat", "lolspeak", "cheezburger", "cute"]
+  },
+  {
+    "id": "imsorry",
+    "visual": "Man in patriotic clothing with an indignant expression; captions span top and bottom.",
+    "meaning": "Sarcastically apologizes for assuming American norms apply, calling out unfamiliar or un-American behavior.",
+    "mechanism": "mock_patriotic_apology",
+    "caption_roles": ["feigned apology setup", "patriotic expectation punchline"],
+    "tags": ["america", "sarcasm", "patriotism"]
+  },
+  {
+    "id": "inigo",
+    "visual": "Inigo Montoya from The Princess Bride holding a sword and speaking intensely; captions at top and bottom.",
+    "meaning": "Corrects misuse of a word or concept. Top quotes the repeated misuse, bottom pedantically denies its meaning.",
+    "mechanism": "pedantic_correction",
+    "caption_roles": ["quoted misuse repeated", "correction that it does not mean what they think"],
+    "tags": ["princess-bride", "correction", "pedantic"]
+  },
+  {
+    "id": "interesting",
+    "visual": "The Most Interesting Man in the World holding a beer with a confident smirk, dark background; captions at top and bottom.",
+    "meaning": "Gives worldly advice with a suave twist. Top establishes a habit of restraint, bottom delivers the interesting-man recommendation.",
+    "mechanism": "suave_recommendation",
+    "caption_roles": ["restraint setup i do not always", "worldly stay-interesting punchline"],
+    "tags": ["dos-equis", "suave", "advice"]
+  },
+  {
+    "id": "ive",
+    "visual": "Jony Ive in white background with minimalist Apple aesthetic; captions in white top and bottom bands.",
+    "meaning": "Parodies Jony Ive's minimalist design narration where a tiny tweak is presented as magical, inevitable innovation.",
+    "mechanism": "minimalist_design_parody",
+    "caption_roles": ["minimal design change setup", "reverent you'll-love-it payoff"],
+    "tags": ["jony-ive", "apple", "design", "minimalism"]
+  },
+  {
+    "id": "iw",
+    "visual": "Gleaming timber wolf snarling against a stylized flame background; captions in white top and bottom bands.",
+    "meaning": "Presents an insanely reckless or hardcore course of action as wolf-like daring. Top states the norm, bottom breaks it dangerously.",
+    "mechanism": "insane_bravado",
+    "caption_roles": ["conventional approach setup", "insanely reckless alternative"],
+    "tags": ["wolf", "insanity", "hardcore", "bravado"]
+  },
+  {
+    "id": "jd",
+    "visual": "18th-century self-portrait of Joseph Ducreux pointing with a wry smirk; captions at top and bottom.",
+    "meaning": "Reframes modern slang or rap bravado in archaic diction. Top shows a modern flex, bottom translates it as refined disregard.",
+    "mechanism": "archaic_rap_translation",
+    "caption_roles": ["modern boast to be archaically reframed", "archaic dismissal punchline"],
+    "tags": ["archaic", "rap", "portrait", "translation"]
+  },
+  {
+    "id": "jetpack",
+    "visual": "Man with a jetpack hovering away over a field looking back; captions at top and bottom over the sky.",
+    "meaning": "Nopes out of an awkward or compromised situation. Captions explain what is being abandoned while the figure literally flees.",
+    "mechanism": "abrupt_exit",
+    "caption_roles": ["awkward situation label", "dismissive nothing-to-do punchline"],
+    "tags": ["jetpack", "exit", "escape", "awkward"]
+  },
+  {
+    "id": "jim",
+    "visual": "Jim Halpert from The Office pointing at a whiteboard inside an office, two text boxes on the board: upper smaller header and larger lower body.",
+    "meaning": "Reassures that an uncool or guilty pleasure is valid. Top poses a permissive rule, bottom affirms self-acceptance if it makes you happy.",
+    "mechanism": "reassuring_whiteboard",
+    "caption_roles": ["permissive premise on upper board", "affirming elaboration on lower board"],
+    "tags": ["office", "jim", "wholesome", "reassurance"]
+  },
+  {
+    "id": "joker",
+    "visual": "Heath Ledger's Joker in the interrogation scene leaning forward menacingly; captions at top and bottom.",
+    "meaning": "Presents a nihilistically simple dark solution. Top sets a problem, bottom offers the Joker's murderously straightforward answer.",
+    "mechanism": "nihilistic_solution",
+    "caption_roles": ["problem setup line", "simple dark solution punchline"],
+    "tags": ["joker", "batman", "dark", "solution"]
+  },
+  {
+    "id": "jw",
+    "visual": "Jeff Goldblum as Ian Malcolm from Jurassic Park looking concerned; captions at top and bottom.",
+    "meaning": "Warns that an idea was pursued without considering consequences. Top quotes the questionable act, bottom delivers the probably-not-a-good-idea judgment.",
+    "mechanism": "hubris_warning",
+    "caption_roles": ["questionable achievement setup", "judgmental probably-not-a-good-idea response"],
+    "tags": ["jurassic-park", "warning", "hubris"]
+  },
+  {
+    "id": "keanu",
+    "visual": "Keanu Reeves looking concerned with hand to forehead; captions at top and bottom white bands.",
+    "meaning": "Posits a pseudo-profound stoner conspiracy thought as if it were a deep what-if revelation.",
+    "mechanism": "stoner_conspiracy",
+    "caption_roles": ["what-if conspiratorial premise", "absurd stoner conclusion"],
+    "tags": ["keanu", "conspiracy", "stoner", "what-if"]
+  },
+  {
+    "id": "kermit",
+    "visual": "Kermit the Frog sipping tea with a judgmental sideways glance; captions occupy top and bottom bands.",
+    "meaning": "Delivers a shady observation then feigns innocence. Top states the tea-spilling critique, bottom retreats with none-of-my-business.",
+    "mechanism": "shade_then_deflect",
+    "caption_roles": ["shady observation setup", "deflective none-of-my-business sip"],
+    "tags": ["kermit", "tea", "shade", "sarcasm"]
+  },
+  {
+    "id": "khaby-lame",
+    "visual": "Two-panel Khaby Lame shrug: top panel facepalm/exasperated, bottom panel open palms shrug; captions left of each portrait.",
+    "meaning": "Mocks overcomplicated life hacks by showing the obvious simple solution with a deadpan shrug.",
+    "mechanism": "obvious_solution_shrug",
+    "caption_roles": ["overcomplicated problem presentation", "exasperated simple solution shrug"],
+    "tags": ["khaby", "shrug", "simple", "life-hack"]
+  },
+  {
+    "id": "kk",
+    "visual": "Young boy in martial arts stance outdoors looking intense; captions in white bands at top and narrow bottom.",
+    "meaning": "Escalates a trivial childhood slight into violent revenge fantasy. Top names the petty offense, bottom delivers disproportionate retaliation.",
+    "mechanism": "petty_escalation",
+    "caption_roles": ["minor offense suffered", "disproportionate vengeful response"],
+    "tags": ["karate", "revenge", "petty", "escalation"]
+  },
+  {
+    "id": "kombucha",
+    "visual": "Split face of Kombucha Girl: left half looking disgusted, right half trying to like it; captions centered over each half at top.",
+    "meaning": "Shows hesitant ambivalence. Both captions state similar trying, but the visuals convey growing discomfort then reluctant acceptance.",
+    "mechanism": "ambivalent_reaction_split",
+    "caption_roles": ["first impression caption over disgusted side", "second try caption over hopeful side"],
+    "tags": ["kombucha", "reaction", "ambivalence", "try"]
+  },
+  {
+    "id": "kramer",
+    "visual": "Doorway interior from Seinfeld with Kramer peeking in; captions top near ceiling and bottom over the scene.",
+    "meaning": "Recreates a Seinfeld scene where an absurd conspiracy is explained deadpan then accepted. Top asks what's happening, bottom gives the ridiculous answer.",
+    "mechanism": "seinfeld_exposition",
+    "caption_roles": ["baffled what-is-going-on question", "deadpan absurd explanation"],
+    "tags": ["seinfeld", "kramer", "absurd", "explanation"]
+  },
+  {
+    "id": "leo",
+    "visual": "Leonardo DiCaprio strutting confidently with a drink in hand, blurred crowd behind; captions at top and bottom.",
+    "meaning": "Brags while appearing aimlessly confident. Top states cluelessness, bottom shows swagger anyway.",
+    "mechanism": "confident_cluelessness",
+    "caption_roles": ["clueless admission setup", "swaggering despite-it payoff"],
+    "tags": ["leo", "swagger", "confident", "strut"]
+  },
+  {
+    "id": "light",
+    "visual": "Lion King sunrise with Mufasa and young Simba on Pride Rock overlooking the savanna; captions at top and bottom.",
+    "meaning": "Marks a boundary between the safe known world and a forbidden shadowy place. Top labels the kingdom, bottom warns never to go beyond.",
+    "mechanism": "kingdom_vs_forbidden",
+    "caption_roles": ["proud kingdom definition covering light", "warning about the shadowy forbidden place"],
+    "tags": ["lion-king", "mufasa", "kingdom", "forbidden"]
+  },
+  {
+    "id": "live",
+    "visual": "Bill O'Reilly mid-rant with finger pointing, news studio background; captions at top and bottom white bands.",
+    "meaning": "Captures frustrated demand to just do it live without preparation. Used when impatience overrides planning.",
+    "mechanism": "frustrated_live_demand",
+    "caption_roles": ["frustrated preamble", "do-it-live climactic demand"],
+    "tags": ["bill-oreilly", "live", "rant", "impatient"]
+  },
+  {
+    "id": "ll",
+    "visual": "Small lizard with mouth open appearing to laugh on dark background; captions at top and bottom.",
+    "meaning": "Creepy or awkward laugh after an odd statement. Top sets context, bottom is the unsettling hhhehehe laugh.",
+    "mechanism": "creepy_laugh",
+    "caption_roles": ["awkward setup line", "creepy laugh punchline"],
+    "tags": ["lizard", "laugh", "creepy", "awkward"]
+  },
+  {
+    "id": "lrv",
+    "visual": "Bearded Viking man holding laundry basket in a laundry room looking intense; captions at top and bottom.",
+    "meaning": "Presents mundane chores as epic Viking conquest phrased like and they said it would be fun.",
+    "mechanism": "mundane_as_epic",
+    "caption_roles": ["they-said-it-would-be-fun setup", "it-will-be-fun payoff"],
+    "tags": ["viking", "laundry", "mundane", "epic"]
+  },
+  {
+    "id": "made",
+    "visual": "Fix It Felix style comic with five labeled characters around a scene: two large figures top left and right, three smaller dialog bubbles.",
+    "meaning": "Satirizes authorship disputes where everyone claims they made something. Panels chain I made this versus you made this claims.",
+    "mechanism": "authorship_chain",
+    "caption_roles": ["boastful creator label top left", "audience challenger label top right", "first speaker I made this", "skeptical you made this retort", "reaffirmed I made this claim bottom"],
+    "tags": ["authorship", "claim", "comic", "dispute"]
+  },
+  {
+    "id": "mb",
+    "visual": "Purple Member Berries characters from South Park clustered together; captions at top and bottom white bands.",
+    "meaning": "Nostalgia-baiting that asks do you remember when things were better, often with a dark edge.",
+    "mechanism": "nostalgia_bait",
+    "caption_roles": ["member-berries coaxing setup", "nostalgic reference punchline"],
+    "tags": ["south-park", "member-berries", "nostalgia"]
+  },
+  {
+    "id": "michael-scott",
+    "visual": "Michael Scott from The Office screaming with hands on head in distress; captions span top and bottom edges.",
+    "meaning": "Expresses panicked denial and melodramatic refusal. Top declares no god no, bottom prolongs the wailing.",
+    "mechanism": "melodramatic_refusal",
+    "caption_roles": ["panicked no-god-no setup", "prolonged wailing payoff"],
+    "tags": ["office", "michael-scott", "panic", "refusal"]
+  },
+  {
+    "id": "midwit",
+    "visual": "Three figures on an IQ bell curve: low IQ smiling left, midwit anxious center, high IQ smiling right; captions near each figure.",
+    "meaning": "Mocks middle-brow overthinking where simple wisdom is rejected by the midwit but re-embraced by the genuinely wise.",
+    "mechanism": "midwit_overthinking",
+    "caption_roles": ["low-IQ simple acceptance left", "midwit anxious overcomplicated objection top", "high-IQ simple acceptance right"],
+    "tags": ["iq", "bell-curve", "midwit", "overthinking"]
+  },
+  {
+    "id": "millers",
+    "visual": "Four men in a car from We're the Millers looking shocked at each other; captions split into four quadrants across middle and bottom.",
+    "meaning": "Highlights pay disparity revelation where each person discovers others earn more, culminating in the unpaid punchline.",
+    "mechanism": "pay_disparity_reveal",
+    "caption_roles": ["upper left high earner complaint", "upper right mid earner shock", "lower left lower earner shock", "lower right unpaid punchline you-guys-are-getting-paid"],
+    "tags": ["millers", "pay", "disparity", "shock"]
+  },
+  {
+    "id": "mini-keanu",
+    "visual": "Tiny Keanu Reeves figure sitting alone on a staircase looking small and contemplative; captions span top and bottom.",
+    "meaning": "Frames a small, patient, or awkward waiting moment as if you were a tiny Keanu quietly enduring.",
+    "mechanism": "small_patient_wait",
+    "caption_roles": ["anticipatory waiting setup", "mundane yearning punchline"],
+    "tags": ["keanu", "mini", "waiting", "patience"]
+  },
+  {
+    "id": "mmm",
+    "visual": "Young boy with an awkward uncomfortable smile outdoors; captions at top and bottom white bands.",
+    "meaning": "Highlights a minor mistake blown out of proportion where a small error leads to lingering embarrassment.",
+    "mechanism": "minor_mistake_anxiety",
+    "caption_roles": ["embarrassing small mistake setup", "awkward consequence punchline"],
+    "tags": ["awkward", "mistake", "embarrassment"]
+  },
+  {
+    "id": "money",
+    "visual": "Philip J. Fry from Futurama holding money and shouting eagerly; captions at top and bottom.",
+    "meaning": "Enthusiastically demands to pay for something desirable. Used when a product or idea is instantly worth buying.",
+    "mechanism": "enthusiastic_purchase",
+    "caption_roles": ["shut-up setup demand", "take-my-money payoff"],
+    "tags": ["futurama", "money", "purchase", "enthusiasm"]
+  },
+  {
+    "id": "mordor",
+    "visual": "Boromir from Lord of the Rings raising hand in warning with a stern face; captions span top and bottom.",
+    "meaning": "Warns that something seemingly simple is actually perilous or complex. Frames a naive plan with ominous caution.",
+    "mechanism": "ominous_warning",
+    "caption_roles": ["one-does-not-simply setup", "perilous destination punchline"],
+    "tags": ["boromir", "mordor", "warning", "difficulty"]
+  },
+  {
+    "id": "morpheus",
+    "visual": "Morpheus from The Matrix leaning forward with sunglasses reflecting, offering a revelation; captions at top and bottom.",
+    "meaning": "Poses a mind-bending what-if revelation. Top asks what if I told you, bottom delivers the unsettling truth.",
+    "mechanism": "revelation_offer",
+    "caption_roles": ["what-if-I-told-you setup", "unsettling revelation punchline"],
+    "tags": ["matrix", "morpheus", "revelation", "what-if"]
+  },
+  {
+    "id": "mouth",
+    "visual": "Woman firmly holding a dog's snout shut while the dog looks tense; captions positioned top left, top right, and bottom left around the figures.",
+    "meaning": "Shows forced silence where one party prevents another from speaking while a third party speaks freely.",
+    "mechanism": "forced_silence",
+    "caption_roles": ["presenter forced to stay silent top left", "oblivious enthusiast top right", "suppressed knowledgeable party bottom"],
+    "tags": ["dog", "silence", "suppression", "meeting"]
+  },
+  {
+    "id": "mw",
+    "visual": "George Zimmer from Men's Wearhouse in a suit looking earnest to camera; captions at top and bottom white bands.",
+    "meaning": "Gives a sincere guarantee for a product or promise. Top sets the appealing claim, bottom seals it with I guarantee it.",
+    "mechanism": "earnest_guarantee",
+    "caption_roles": ["appealing promise setup", "I-guarantee-it seal"],
+    "tags": ["guarantee", "suit", "promise"]
+  },
+  {
+    "id": "nails",
+    "visual": "Man on a beach hammering nails pointlessly into sand near the surf; captions angled over the beach scene, one small near center.",
+    "meaning": "Mocks futile or performative effort and ineffable concepts. Labels the actor, the flawed tool, and the ineffable target.",
+    "mechanism": "futile_effort_allegory",
+    "caption_roles": ["performative actor hammering", "flawed tool or language label", "ineffable universe target center"],
+    "tags": ["beach", "futile", "performative", "allegory"]
+  },
+  {
+    "id": "nice",
+    "visual": "Bill Murray as Carl Spackler in Caddyshack smiling wryly outdoors; captions occupy top and bottom white bands.",
+    "meaning": "Finds a silver lining in a mediocre situation. Top may set the disappointment, bottom reframes it with so I got that going for me.",
+    "mechanism": "silver_lining",
+    "caption_roles": ["optional disappointment setup", "which-is-nice silver lining punchline"],
+    "tags": ["bill-murray", "caddyshack", "silver-lining", "optimism"]
+  },
+  {
+    "id": "noah",
+    "visual": "Family Guy split scene with Noah figures: top right, bottom right, bottom left illustrations plus a large bottom question band.",
+    "meaning": "Mocks confusing hybrid urban design that is neither street nor road. First three panels label the hybrids, fourth asks what the hell is this.",
+    "mechanism": "hybrid_confusion",
+    "caption_roles": ["street archetype top right", "road archetype bottom right", "confused hybrid stroad bottom left", "bewildered what-the-hell question band"],
+    "tags": ["family-guy", "stroad", "urban", "confusion"]
+  },
+  {
+    "id": "noidea",
+    "visual": "Golden retriever dog sitting on a chair in a graduation cap looking confused; captions at top and bottom.",
+    "meaning": "Admits complete cluelessness while trying to appear competent. Used for impostor syndrome moments.",
+    "mechanism": "clueless_confession",
+    "caption_roles": ["I-have-no-idea admission setup", "what-I-am-doing continuation"],
+    "tags": ["dog", "clueless", "impostor", "confusion"]
+  },
+  {
+    "id": "ntot",
+    "visual": "Kid holding a ball while a dog eagerly leaps with speech bubbles; captions angled top left small, middle, and bold upper right.",
+    "meaning": "Plays the demanding dog that refuses to fetch back. Captions alternate pleading throw versus emphatic no take only throw.",
+    "mechanism": "demanding_pet",
+    "caption_roles": ["pleading pls-throw request", "emphatic no-take refusal", "bold only-throw demand"],
+    "tags": ["dog", "throw", "demand", "pet"]
+  },
+  {
+    "id": "oag",
+    "visual": "Young woman with wide staring eyes and a tight smile facing camera; captions at top and bottom white bands.",
+    "meaning": "Portrays obsessively clingy or stalkerish girlfriend behavior. Top sets占有 surveillance, bottom escalates the neediness.",
+    "mechanism": "clingy_obsession",
+    "caption_roles": ["possessive surveillance setup", "creepy obsessive payoff"],
+    "tags": ["girlfriend", "obsessive", "clingy", "stalking"]
+  },
+  {
+    "id": "officespace",
+    "visual": "Bill Lumbergh from Office Space smirking with a coffee mug; captions at top and bottom white bands.",
+    "meaning": "Delivers a passive-aggressive corporate request framed as that would be great. Top softens, bottom is the actual demand.",
+    "mechanism": "passive_aggressive_request",
+    "caption_roles": ["hedged yeah setup", "that-would-be-great demand"],
+    "tags": ["office-space", "lumbergh", "passive-aggressive", "corporate"]
+  },
+  {
+    "id": "older",
+    "visual": "Obi-Wan Kenobi looking serious in a dim corridor; captions occupy top and bottom white bands framing his face.",
+    "meaning": "Validates an older meme or method as still correct. Top acknowledges age, bottom confirms it still checks out.",
+    "mechanism": "older_but_valid",
+    "caption_roles": ["older-code acknowledgment setup", "but-it-checks-out validation"],
+    "tags": ["obi-wan", "star-wars", "validation", "older"]
+  },
+  {
+    "id": "oprah",
+    "visual": "Oprah Winfrey shouting excitedly with arms outstretched to a screaming audience; captions at top and bottom.",
+    "meaning": "Celebrates indiscriminate giveaway where everyone gets the same thing. Top announces the prize, bottom shouts you get one.",
+    "mechanism": "enthusiastic_giveaway",
+    "caption_roles": ["giveaway announcement setup", "you-get-a punchline"],
+    "tags": ["oprah", "giveaway", "everyone", "excitement"]
+  },
+  {
+    "id": "panik-kalm-panik",
+    "visual": "Three stacked panels of a simple drawn figure: top panicked, middle calm with glasses and finger raised, bottom panicked again; captions occupy each horizontal strip on the left.",
+    "meaning": "Shows anxiety cycling from panic to false reassurance back to renewed panic when a darker implication lands.",
+    "mechanism": "panic_kalm_panic_cycle",
+    "caption_roles": ["initial panicked trigger", "false calming rationalization", "renewed panic realization"],
+    "tags": ["panic", "kalm", "anxiety", "cycle"]
+  },
+  {
+    "id": "patrick",
+    "visual": "SpongeBob and Patrick with Patrick pushing a question; captions sit in top and bottom white bands.",
+    "meaning": "Mockingly suggests pushing an unwanted task onto someone else. Top proposes dumping the work, bottom is the dismissive destination.",
+    "mechanism": "deflect_responsibility",
+    "caption_roles": ["unwanted task to offload setup", "push-it-somewhere-else target punchline"],
+    "tags": ["patrick", "spongebob", "deflect", "lazy"]
+  }
+]

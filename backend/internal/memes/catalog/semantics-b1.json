@@ -1,0 +1,394 @@
+[
+  {
+    "id": "feelsgood",
+    "visual": "Green Pepe frog with smug half-smile centered in portrait, bold captions form horizontal bands above and below the face.",
+    "meaning": "Celebrates a quietly satisfying or smugly indulgent moment with the catchphrase feels good man, used for smug self-satisfaction or guilty pleasure.",
+    "mechanism": "smug_satisfaction",
+    "caption_roles": [
+      "setup context or blank tension placed above the frog",
+      "feels good payoff affirmation placed below the frog"
+    ],
+    "tags": ["pepe", "smug", "satisfaction", "reaction"]
+  },
+  {
+    "id": "fetch",
+    "visual": "Gretchen Wieners from Mean Girls with blonde hair in pink, captions span horizontal bands above and below the character.",
+    "meaning": "Dismisses a forced trend or slang that will never catch on, quoting Mean Girls to mock someone pushing an unwanted idea.",
+    "mechanism": "trend_rejection",
+    "caption_roles": [
+      "stop trying to make fetch happen reprimand placed above the character",
+      "it is not going to happen verdict placed below the character"
+    ],
+    "tags": ["mean-girls", "fetch", "rejection", "reaction"]
+  },
+  {
+    "id": "fine",
+    "visual": "Wide-eyed cartoon dog in hat sipping coffee at a table while the room burns around him, captions sit above and below the scene.",
+    "meaning": "Pretends everything is fine while chaos engulfs you, using cheerful denial to cope with disaster or burnout.",
+    "mechanism": "denial_coping",
+    "caption_roles": [
+      "blank setup or stressed context placed above the burning room",
+      "this is fine deadpan reassurance placed below the dog"
+    ],
+    "tags": ["this-is-fine", "denial", "coping", "burnout"]
+  },
+  {
+    "id": "firsttry",
+    "visual": "Character celebrating with arms raised against a bright background, captions form horizontal bands above and below the figure.",
+    "meaning": "Mocks beginner luck or ironic instant success, claiming something difficult was nailed on the very first attempt.",
+    "mechanism": "ironic_triumph",
+    "caption_roles": [
+      "setup context or blank tension placed above the celebrant",
+      "first try exclamation placed below the figure"
+    ],
+    "tags": ["first-try", "success", "irony", "celebration"]
+  },
+  {
+    "id": "fmr",
+    "visual": "Two women side-eyeing the camera with embarrassed expressions, captions span horizontal bands above and below the pair.",
+    "meaning": "Shares an awkward self-deprecating moment where everyone relates to the cringe, punctuated by the rueful punchline fuck me, right.",
+    "mechanism": "cringe_solidarity",
+    "caption_roles": [
+      "relatable awkward setup placed above the pair",
+      "fuck me right rueful punchline placed below the pair"
+    ],
+    "tags": ["awkward", "cringe", "relatable", "reaction"]
+  },
+  {
+    "id": "friends",
+    "visual": "Star Trek scene with three labeled crew members angled on the bridge, captions sit near each character in visual order.",
+    "meaning": "Labels three groups where two would not be seen as friends but share opposition to the third, highlighting alliance of opposites.",
+    "mechanism": "unlikely_alliance",
+    "caption_roles": [
+      "first faction label angled over the upper character",
+      "second faction label angled over the lower left character",
+      "common adversary label over the lower right character"
+    ],
+    "tags": ["star-trek", "alliance", "label", "politics"]
+  },
+  {
+    "id": "fry",
+    "visual": "Philip J. Fry from Futurama squinting suspiciously, bold captions form bands above and below his face.",
+    "meaning": "Voices uncertain suspicion by weighing two competing explanations, framing doubt as not sure if trolling or just stupid.",
+    "mechanism": "suspicious_doubt",
+    "caption_roles": [
+      "not sure if opener describing one interpretation above Fry",
+      "or alternative interpretation punchline below Fry"
+    ],
+    "tags": ["futurama", "suspicion", "doubt", "reaction"]
+  },
+  {
+    "id": "fwp",
+    "visual": "Crying woman with hand on forehead in distress, captions span horizontal bands above and below the portrait.",
+    "meaning": "Laments a trivial inconvenience as if it were a serious hardship, satirizing privileged complaints as first world problems.",
+    "mechanism": "privileged_complaint",
+    "caption_roles": [
+      "minor luxury setup that should not matter above the woman",
+      "exaggerated distress payoff below the woman"
+    ],
+    "tags": ["first-world-problems", "privilege", "complaint", "satire"]
+  },
+  {
+    "id": "gandalf",
+    "visual": "Gandalf with wide-eyed confused expression in Middle-earth robes, captions sit in horizontal bands above and below him.",
+    "meaning": "Expresses bewildered disorientation about an unfamiliar place or topic, quoting I have no memory of this place.",
+    "mechanism": "confused_disorientation",
+    "caption_roles": [
+      "blank setup or confused context placed above Gandalf",
+      "i have no memory of this place bewilderment placed below Gandalf"
+    ],
+    "tags": ["gandalf", "confused", "lotr", "reaction"]
+  },
+  {
+    "id": "gb",
+    "visual": "Four vertically stacked panels showing a figure with increasingly glowing brain, captions sit centered in each tier from dim to cosmic.",
+    "meaning": "Escalates ideas from obvious to absurdly galaxy-brain enlightened, satirizing pseudo-profound intellectual one-upmanship.",
+    "mechanism": "escalating_enlightenment",
+    "caption_roles": [
+      "basic take for the dim brain in the top tier",
+      "slightly clever take for the glowing brain in the second tier",
+      "overthought take for the radiant brain in the third tier",
+      "absurd galaxy-brain revelation in the bottom tier"
+    ],
+    "tags": ["galaxy-brain", "escalation", "intellectual", "satire"]
+  },
+  {
+    "id": "gears",
+    "visual": "Peter Griffin as Family Guy character gripping steering wheel with annoyed face, captions span horizontal bands above and below.",
+    "meaning": "Rants about a pet peeve with the lead-in you know what really grinds my gears, delivering the irritant as the punchline.",
+    "mechanism": "pet_peeve_rant",
+    "caption_roles": [
+      "you know what really grinds my gears opener placed above Peter",
+      "specific irritant punchline placed below Peter"
+    ],
+    "tags": ["family-guy", "pet-peeve", "rant", "reaction"]
+  },
+  {
+    "id": "genie",
+    "visual": "Blue genie emerging from lamp with comic expression, captions form horizontal bands above and below the genie.",
+    "meaning": "Juxtaposes phenomenal cosmic power with an ironic limitation, highlighting a grandiose promise undercut by a petty constraint.",
+    "mechanism": "power_vs_limitation",
+    "caption_roles": [
+      "phenomenal cosmic power boast placed above the genie",
+      "itty bitty limitation punchline placed below the genie"
+    ],
+    "tags": ["genie", "aladdin", "irony", "wish"]
+  },
+  {
+    "id": "ggg",
+    "visual": "Smiling young man in beanie with warm lighting, friendly portrait framed by captions above and below.",
+    "meaning": "Praises unexpectedly considerate behavior that subverts a selfish expectation, celebrating the good guy move.",
+    "mechanism": "wholesome_subversion",
+    "caption_roles": [
+      "selfish expectation setup placed above the smiling man",
+      "considerate good-guy payoff placed below the man"
+    ],
+    "tags": ["good-guy-greg", "wholesome", "considerate", "praise"]
+  },
+  {
+    "id": "glasses",
+    "visual": "Two-panel Peter Parker comparison with and without glasses, captions sit on the right half aligned to each Peter pose.",
+    "meaning": "Contrasts a virtuous statement while wearing glasses with a debauched confession after removing them, revealing hidden truth.",
+    "mechanism": "glasses_reveal",
+    "caption_roles": [
+      "wholesome claim attributed to the glasses-wearing Peter on the upper right",
+      "cynical true desire revealed by the glasses-free Peter on the lower right"
+    ],
+    "tags": ["spider-man", "glasses", "reveal", "hypocrisy"]
+  },
+  {
+    "id": "gone",
+    "visual": "South Park banker with hands raised in a vault, captions frame horizontal bands above and below the character.",
+    "meaning": "Builds expectation of an investment or deposit then wipes it out with and its gone, mocking instant loss or squandering.",
+    "mechanism": "instant_loss",
+    "caption_roles": [
+      "earnest investment setup placed above the banker",
+      "and its gone loss punchline placed below the banker"
+    ],
+    "tags": ["south-park", "gone", "loss", "investment"]
+  },
+  {
+    "id": "grave",
+    "visual": "Grant Gustin as The Flash kneeling beside Oliver Queen tombstone in a cemetery, three angled labels hover over stone and figures.",
+    "meaning": "Mourns the death of an abstract concept while a culprit looks on awkwardly, blaming society for killing the ideal.",
+    "mechanism": "mourning_blame",
+    "caption_roles": [
+      "ideal being mourned inscribed on the angled tombstone",
+      "mourner label angled over the kneeling figure",
+      "culprit label angled over the standing figure seen from behind"
+    ],
+    "tags": ["flash", "grave", "mourning", "blame"]
+  },
+  {
+    "id": "gru",
+    "visual": "Four-panel Gru presentation with planning board behind him, captions sit centered in each quadrant over the board and Gru.",
+    "meaning": "Lays out a seemingly sound three-step plan where the final step repeats the failure, highlighting a futile loop.",
+    "mechanism": "futile_plan",
+    "caption_roles": [
+      "step one setup on the upper left board panel",
+      "step two action on the upper right board panel",
+      "step three failure on the lower left board panel",
+      "identical futile outcome on the lower right board panel"
+    ],
+    "tags": ["gru", "plan", "despicable-me", "failure"]
+  },
+  {
+    "id": "grumpycat",
+    "visual": "Grumpy Cat with stern downturned mouth staring forward, captions form horizontal bands above and below the cat.",
+    "meaning": "Delivers a dour, misanthropic quip in a deadpan feline voice, pairing an observation with a grumpy negation.",
+    "mechanism": "grumpy_quip",
+    "caption_roles": [
+      "setup observation or wish placed above the cat",
+      "grumpy negation or dismissal placed below the cat"
+    ],
+    "tags": ["grumpy-cat", "grumpy", "misanthropy", "reaction"]
+  },
+  {
+    "id": "hagrid",
+    "visual": "Rubeus Hagrid with long beard looking sheepish indoors, captions span horizontal bands above and below his face.",
+    "meaning": "Captures blurting a secret and instantly regretting it, quoting I should not have said that for accidental disclosure.",
+    "mechanism": "accidental_disclosure",
+    "caption_roles": [
+      "secret blurted or blank tension placed above Hagrid",
+      "i should not have said that regret placed below Hagrid"
+    ],
+    "tags": ["harry-potter", "hagrid", "secret", "regret"]
+  },
+  {
+    "id": "handshake",
+    "visual": "Two muscular arms clasping in an epic Predator-style handshake, labels sit along each arm and centered above the grip.",
+    "meaning": "Shows two disparate groups agreeing on a shared love or hate, united by the handshake in the middle.",
+    "mechanism": "common_ground",
+    "caption_roles": [
+      "first faction label angled along the left arm",
+      "second faction label angled along the right arm",
+      "shared interest that unites them centered above the handshake"
+    ],
+    "tags": ["handshake", "agreement", "common-ground", "label"]
+  },
+  {
+    "id": "happening",
+    "visual": "Ron Paul with excited raised eyebrows at a podium, captions span horizontal bands above and below the figure.",
+    "meaning": "Hypes that a long-awaited event is finally unfolding, using breathless anticipation for dramatic or ironic payoff.",
+    "mechanism": "hyped_anticipation",
+    "caption_roles": [
+      "anticipatory context or blank tension placed above the figure",
+      "its happening exclamation placed below the figure"
+    ],
+    "tags": ["ron-paul", "happening", "anticipation", "reaction"]
+  },
+  {
+    "id": "harold",
+    "visual": "Older man Harold with pained forced smile holding a phone, captions form horizontal bands above and below his face.",
+    "meaning": "Masks inner suffering behind a strained smile, pairing a normal setup with hidden pain humor.",
+    "mechanism": "painful_smile",
+    "caption_roles": [
+      "outwardly normal situation placed above Harold",
+      "hidden pain punchline placed below Harold"
+    ],
+    "tags": ["harold", "hide-the-pain", "cringe", "reaction"]
+  },
+  {
+    "id": "headaches",
+    "visual": "Medical head diagram with migraine zones shaded across forehead and temples, single label centered below the illustration.",
+    "meaning": "Jokes that a specific stressful cause is literally a headache type, mapping annoyance to pain location.",
+    "mechanism": "stress_as_headache",
+    "caption_roles": [
+      "stressor labeled as the headache type centered below the head diagram"
+    ],
+    "tags": ["headache", "stress", "diagram", "relatable"]
+  },
+  {
+    "id": "hipster",
+    "visual": "Hipster barista with knit cap and beard holding coffee, captions span horizontal bands above and below the portrait.",
+    "meaning": "Mocks pretentious hipster contradiction where professed values are betrayed by snobbish behavior.",
+    "mechanism": "pretentious_contradiction",
+    "caption_roles": [
+      "hipster claim or setup placed above the barista",
+      "snobbish undercut placed below the barista"
+    ],
+    "tags": ["hipster", "irony", "pretentious", "satire"]
+  },
+  {
+    "id": "home",
+    "visual": "Three-row meme with spoken dialogue on top and a chaotic food photo below; captions left-aligned in the upper rows over white space.",
+    "meaning": "Contrasts a craving for tasty outside food with the disappointing reality of food at home, using expectation versus sad reality.",
+    "mechanism": "expectation_vs_reality",
+    "caption_roles": [
+      "can we get food request line at the top row",
+      "we have food at home retort in the middle row",
+      "food at home label over the chaotic photo in the bottom row"
+    ],
+    "tags": ["food-at-home", "disappointment", "expectation", "mom"]
+  },
+  {
+    "id": "icanhas",
+    "visual": "Happy gray cat with wide mouth asking for food, captions span horizontal bands above and below the cat.",
+    "meaning": "Uses broken lolcat English to cutely beg for something, phrasing desire as I can has cheezburger.",
+    "mechanism": "lolcat_request",
+    "caption_roles": [
+      "i can has opener describing the desired object above the cat",
+      "object of desire or question placed below the cat"
+    ],
+    "tags": ["lolcat", "cheezburger", "cat", "cute"]
+  },
+  {
+    "id": "imsorry",
+    "visual": "Randy Marsh from South Park with leaf blower gesturing indignantly, captions span horizontal bands above and below.",
+    "meaning": "Delivers sarcastic patriotic outrage as if free speech or freedom entitles any behavior, quoting I thought this was America.",
+    "mechanism": "mock_patriotism",
+    "caption_roles": [
+      "oh im sorry opener with mock apology above Randy",
+      "i thought this was america indignant defense below Randy"
+    ],
+    "tags": ["south-park", "america", "freedom", "satire"]
+  },
+  {
+    "id": "inigo",
+    "visual": "Inigo Montoya with sword held ready and intense stare, captions span horizontal bands above and below the duelist.",
+    "meaning": "Corrects someone who keeps misusing a word, quoting you keep using that word I do not think it means what you think it means.",
+    "mechanism": "word_misuse_correction",
+    "caption_roles": [
+      "you keep using that word accusation placed above Inigo",
+      "i do not think it means what you think it means correction below Inigo"
+    ],
+    "tags": ["princess-bride", "inigo", "word-misuse", "correction"]
+  },
+  {
+    "id": "interesting",
+    "visual": "Most Interesting Man in black suit holding beer with confident smirk, captions frame horizontal bands above and below him.",
+    "meaning": "Opens with I dont always but when I do, praising a nuanced or dryly superior choice with suave hyperbole.",
+    "mechanism": "suave_generalization",
+    "caption_roles": [
+      "i dont always setup condition placed above the man",
+      "when I do punchline preference placed below the man"
+    ],
+    "tags": ["dos-equis", "interesting-man", "suave", "advice"]
+  },
+  {
+    "id": "ive",
+    "visual": "Jony Ive in white background with minimalist Apple product aesthetic, captions span horizontal bands above and below.",
+    "meaning": "Parodies Jony Ive minimalist design reverence, framing any tweak as a lovingly crafted redesign.",
+    "mechanism": "minimalist_parody",
+    "caption_roles": [
+      "we think or setup musing placed above the product shot",
+      "youll love it loving affirmation placed below the product"
+    ],
+    "tags": ["jony-ive", "apple", "design", "parody"]
+  },
+  {
+    "id": "iw",
+    "visual": "Snarling wolf with high contrast forest background, captions form horizontal bands above and below the predator.",
+    "meaning": "Pairs a mundane act with an unhinged hardcore extreme, as if an insanity wolf would take it to violent excess.",
+    "mechanism": "hardcore_escalation",
+    "caption_roles": [
+      "mundane action setup placed above the wolf",
+      "insanely extreme escalation placed below the wolf"
+    ],
+    "tags": ["insanity-wolf", "hardcore", "extreme", "edgy"]
+  },
+  {
+    "id": "jd",
+    "visual": "18th-century self-portrait of Joseph Ducreux pointing with anachronistic style, captions span horizontal bands above and below.",
+    "meaning": "Rewrites modern slang as archaic rap lyrics, using the pointing aristocrat to deliver deliberately verbose rhymes.",
+    "mechanism": "archaic_rap",
+    "caption_roles": [
+      "first line of archaic rap placed above the portrait",
+      "second line punchline placed below the portrait"
+    ],
+    "tags": ["archaic-rap", "ducreux", "pointing", "parody"]
+  },
+  {
+    "id": "jetpack",
+    "visual": "Man with jetpack hovering and looking away nonchalantly, captions span horizontal bands above and below the figure.",
+    "meaning": "Feigns nonchalance while conspicuously leaving, implying nothing to do here as you jet away from drama.",
+    "mechanism": "nonchalant_exit",
+    "caption_roles": [
+      "nothing to do here dismissal placed above the jetpack figure",
+      "cool departure justification or blank tension placed below the figure"
+    ],
+    "tags": ["jetpack", "nonchalant", "exit", "reaction"]
+  },
+  {
+    "id": "jim",
+    "visual": "Jim Halpert smirking while pointing to a whiteboard inside The Office, captions sit inside the top and bottom board sections.",
+    "meaning": "Stages a smug whiteboard explanation where an obvious or pedantic correction is presented as a lesson.",
+    "mechanism": "smug_explanation",
+    "caption_roles": [
+      "setup claim or misconception written on the upper whiteboard",
+      "corrective punchline written on the lower whiteboard"
+    ],
+    "tags": ["the-office", "jim", "whiteboard", "explanation"]
+  },
+  {
+    "id": "joker",
+    "visual": "Heath Ledger Joker in dark suit with smeared makeup leaning forward, captions form horizontal bands above and below his face.",
+    "meaning": "Offers a deadpan simple solution to kill the Batman, using the Joker simplicity to propose an absurdly direct fix.",
+    "mechanism": "sinister_simplicity",
+    "caption_roles": [
+      "its simple opener placed above the Joker",
+      "kill the batman blunt solution placed below the Joker"
+    ],
+    "tags": ["joker", "batman", "simple", "dark-humor"]
+  }
+]

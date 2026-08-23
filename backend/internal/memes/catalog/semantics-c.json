@@ -1,0 +1,1132 @@
+[
+  {
+    "id": "perfection",
+    "visual": "Three stacked stills of the same villain with images on left and captions on right; each row shows an actor photo with dismissive text above the final ideal row.",
+    "meaning": "Compares flawed or commercial versions against a humble favored version, with the character rejecting impostors until the authentic choice is declared perfect.",
+    "mechanism": "tiered_rejection",
+    "caption_roles": [
+      "flawed first portrayal name",
+      "dismissive first rejection line",
+      "second flawed portrayal name",
+      "repeat dismissal line",
+      "ideal humble portrayal name",
+      "final perfection verdict"
+    ],
+    "tags": [
+      "star wars",
+      "casting",
+      "perfection",
+      "elitism"
+    ]
+  },
+  {
+    "id": "persian",
+    "visual": "Fluffy white Persian cat wearing a crown guards a doorway; captions span top and bottom over the cat's stern face and threshold framing.",
+    "meaning": "The cat stands as a judgmental room guardian; setup describes a vulnerable moment and punchline gives the imagined hostile reaction of the gatekeeper.",
+    "mechanism": "guardian_reaction",
+    "caption_roles": [
+      "vulnerable setup situation",
+      "judgmental guardian punchline"
+    ],
+    "tags": [
+      "cat",
+      "guardian",
+      "reaction",
+      "relatable"
+    ]
+  },
+  {
+    "id": "philosoraptor",
+    "visual": "Pensive velociraptor with claw on chin against dark background; captions occupy top and bottom with space for the raptor centered.",
+    "meaning": "Poses a pseudo-philosophical question in setup and follows with a witty logical twist that exposes absurdity or wordplay.",
+    "mechanism": "pseudo_philosophy",
+    "caption_roles": [
+      "philosophical premise",
+      "witty logical twist"
+    ],
+    "tags": [
+      "dinosaur",
+      "philosophy",
+      "wordplay"
+    ]
+  },
+  {
+    "id": "pigeon",
+    "visual": "Anime man gestures at a butterfly in foreground; labels sit over the man, over the butterfly, and large caption along the bottom.",
+    "meaning": "Labels misidentify two things and asks a confused question, mocking confident misclassification or overuse of jargon.",
+    "mechanism": "misidentification",
+    "caption_roles": [
+      "observer identity label on character",
+      "misidentified object label on butterfly",
+      "confused identification question"
+    ],
+    "tags": [
+      "anime",
+      "misidentification",
+      "jargon",
+      "confusion"
+    ]
+  },
+  {
+    "id": "pooh",
+    "visual": "Split image: casual Winnie the Pooh top half and tuxedo-clad Pooh bottom half on armchair; two caption bands centered top and bottom.",
+    "meaning": "Contrasts an ordinary version of an item or phrase with a pretentious fancy rebrand, implying unnecessary elegance.",
+    "mechanism": "fancy_rebrand",
+    "caption_roles": [
+      "ordinary item name",
+      "pretentious elegant renaming"
+    ],
+    "tags": [
+      "pooh",
+      "fancy",
+      "contrast",
+      "rebrand"
+    ]
+  },
+  {
+    "id": "pool",
+    "visual": "Woman lounging poolside ignoring a child splashing in water; labels placed over mother, over distant crowd, and over the struggling child.",
+    "meaning": "Shows neglected urgent issue while attention is on trivial distractions, satirizing misplaced priorities.",
+    "mechanism": "neglected_priority",
+    "caption_roles": [
+      "ignored urgent subject near foreground",
+      "distracting preferred subject",
+      "neglectful authority figure"
+    ],
+    "tags": [
+      "pool",
+      "neglect",
+      "priority",
+      "distraction"
+    ]
+  },
+  {
+    "id": "prop3",
+    "visual": "Michigan proposal poster with three campaign figures; single angled caption centered across the middle over the poster.",
+    "meaning": "Dismisses a confusing or extreme idea by labeling it directly as too confusing or extreme to consider.",
+    "mechanism": "blanket_dismissal",
+    "caption_roles": [
+      "dismissed proposal or idea label"
+    ],
+    "tags": [
+      "michigan",
+      "politics",
+      "dismissal",
+      "confusing"
+    ]
+  },
+  {
+    "id": "ptj",
+    "visual": "Two-panel Friends scene with Phoebe teaching Joey; eight small caption slots in two columns track their line-by-line repetition across frames.",
+    "meaning": "Joey repeats Phoebe word by word and then comically ruins the punchline with a literal or stubborn final line.",
+    "mechanism": "repetitive_echo",
+    "caption_roles": [
+      "joey first syllable repetition left",
+      "phoebe first syllable echo right",
+      "joey second syllable left",
+      "phoebe second echo right",
+      "joey third segment left",
+      "phoebe third echo right",
+      "full instruction line left",
+      "stubborn literal finale right"
+    ],
+    "tags": [
+      "friends",
+      "repetition",
+      "teaching",
+      "literal"
+    ]
+  },
+  {
+    "id": "puffin",
+    "visual": "Puffin with outstretched wing on icy rock, beak open; captions occupy top banner and bottom banner around bird.",
+    "meaning": "States an unpopular opinion as setup and delivers the socially awkward punchline that makes the opinion unpopular.",
+    "mechanism": "unpopular_opinion",
+    "caption_roles": [
+      "unpopular opinion premise",
+      "awkward justification punchline"
+    ],
+    "tags": [
+      "puffin",
+      "unpopular",
+      "opinion",
+      "confession"
+    ]
+  },
+  {
+    "id": "red",
+    "visual": "Ed from Cowboy Bebop smirks while seated; captions fill top and bottom bars with space over character's face.",
+    "meaning": "One person questions if an activity is today's plan and the other eagerly confirms the confrontation, framing petty provocation as ritual.",
+    "mechanism": "feigned_challenge",
+    "caption_roles": [
+      "provocative are-we-doing-this setup",
+      "eager confrontation confirmation"
+    ],
+    "tags": [
+      "cowboy bebop",
+      "challenge",
+      "provocation"
+    ]
+  },
+  {
+    "id": "regret",
+    "visual": "Man mid-air jumping into water or off ledge with regretful expression; captions sit at top and prominent bottom over action.",
+    "meaning": "Shows an impulsive decision followed immediately by the classic realization that it was a terrible idea.",
+    "mechanism": "instant_regret",
+    "caption_roles": [
+      "impulsive action setup",
+      "immediate regret punchline"
+    ],
+    "tags": [
+      "regret",
+      "impulsive",
+      "mistake"
+    ]
+  },
+  {
+    "id": "remembers",
+    "visual": "Elderly man with glasses and Pepperidge Farm loaf smiling; captions sit top and bottom framing his nostalgic face.",
+    "meaning": "Asks if you remember a past trend or event, answering that Pepperidge Farm remembers, to mock forgetting or nostalgia.",
+    "mechanism": "nostalgic_recall",
+    "caption_roles": [
+      "nostalgic question about the past",
+      "pepperidge farm remembers punchline"
+    ],
+    "tags": [
+      "pepperidge farm",
+      "nostalgia",
+      "memory"
+    ]
+  },
+  {
+    "id": "reveal",
+    "visual": "Four-panel Scooby-Doo unmasking: villain close-up, chase reveal line, hero close-up, surprise declaration; captions over faces and banner.",
+    "meaning": "Cheap villain is unmasked to reveal a trusted hero underneath, feigning shock at an obvious or conspiratorial identity.",
+    "mechanism": "unmasking_twist",
+    "caption_roles": [
+      "masked villain identity label",
+      "unmasking challenge line",
+      "unmasked hero identity label",
+      "feigned shock confirmation"
+    ],
+    "tags": [
+      "scooby doo",
+      "unmasking",
+      "parody",
+      "conspiracy"
+    ]
+  },
+  {
+    "id": "right",
+    "visual": "Anakin and Padme dialogue in bedroom; labels over each character top and speech bubbles for short exchange twice, ending on assurance.",
+    "meaning": "Proposes a naive change for the better and seeks reassurance twice, ironically echoing a known tragic turn toward villainy.",
+    "mechanism": "naive_reassurance",
+    "caption_roles": [
+      "anakin figure label",
+      "padme figure label",
+      "naive proposal to change world",
+      "first are-we-doing-right question",
+      "repeated ominous reassurance"
+    ],
+    "tags": [
+      "star wars",
+      "naive",
+      "change",
+      "irony"
+    ]
+  },
+  {
+    "id": "rollsafe",
+    "visual": "Man tapping temple and smirking with dark background; captions span top and bottom around his knowing expression.",
+    "meaning": "Presents a problem then a flawed clever trick that technically avoids the problem while creating a worse or absurd outcome.",
+    "mechanism": "flawed_logic",
+    "caption_roles": [
+      "problem or restriction setup",
+      "technically-correct absurd workaround"
+    ],
+    "tags": [
+      "roll safe",
+      "clever",
+      "loophole",
+      "logic"
+    ]
+  },
+  {
+    "id": "sad-biden",
+    "visual": "Joe Biden looking down sadly with hand on chin on dark vignette; captions occupy top and bottom bars.",
+    "meaning": "Uses a disappointed Biden to guilt or mock someone for not voting or participating, playing on sad politician trope.",
+    "mechanism": "guilt_appeal",
+    "caption_roles": [
+      "sad biden identifier setup",
+      "disappointed voting appeal punchline"
+    ],
+    "tags": [
+      "biden",
+      "sad",
+      "voting",
+      "guilt"
+    ]
+  },
+  {
+    "id": "sad-boehner",
+    "visual": "John Boehner looking somber with orange tone; captions occupy top and bottom bars around his frown.",
+    "meaning": "Mirrors sad-Biden format with Boehner to sarcastically mourn civic disengagement or imagined disappointment.",
+    "mechanism": "guilt_appeal",
+    "caption_roles": [
+      "sad boehner identifier setup",
+      "disappointed civic punchline"
+    ],
+    "tags": [
+      "boehner",
+      "sad",
+      "politics",
+      "voting"
+    ]
+  },
+  {
+    "id": "sad-bush",
+    "visual": "George W. Bush looking down pensively outdoors; captions occupy top and bottom bars framing him.",
+    "meaning": "Variant of sad-politician format using Bush to mockingly signal disappointment about participation or relevance.",
+    "mechanism": "guilt_appeal",
+    "caption_roles": [
+      "sad bush identifier setup",
+      "disappointed expectation punchline"
+    ],
+    "tags": [
+      "bush",
+      "sad",
+      "politics",
+      "guilt"
+    ]
+  },
+  {
+    "id": "sad-clinton",
+    "visual": "Bill Clinton with sad eyes and slight frown against dark background; captions sit top and bottom.",
+    "meaning": "Same guilt trope with Clinton, implying the political figure mourns your inaction or indifference.",
+    "mechanism": "guilt_appeal",
+    "caption_roles": [
+      "sad clinton identifier setup",
+      "disappointed appeal punchline"
+    ],
+    "tags": [
+      "clinton",
+      "sad",
+      "politics",
+      "guilt"
+    ]
+  },
+  {
+    "id": "sad-obama",
+    "visual": "Barack Obama looking down with solemn expression against dark vignette; captions frame top and bottom.",
+    "meaning": "Uses disappointed Obama to chastise or ironically guilt someone for not voting or caring.",
+    "mechanism": "guilt_appeal",
+    "caption_roles": [
+      "sad obama identifier setup",
+      "disappointed voting punchline"
+    ],
+    "tags": [
+      "obama",
+      "sad",
+      "politics",
+      "guilt"
+    ]
+  },
+  {
+    "id": "sadfrog",
+    "visual": "Sad frog with drooping eyes centered; captions span top and bottom with large negative space around the frog.",
+    "meaning": "Expresses mild dejection or empathy after a minor failure, delivering the deadpan feels-bad-man sentiment.",
+    "mechanism": "empathetic_sadness",
+    "caption_roles": [
+      "melancholic setup context",
+      "feels bad man punchline"
+    ],
+    "tags": [
+      "pepe",
+      "sad",
+      "feels",
+      "dejection"
+    ]
+  },
+  {
+    "id": "saltbae",
+    "visual": "Chef Salt Bae sprinkling salt with bent arm over dish; captions occupy top and bottom bars above and below action.",
+    "meaning": "Applies an extravagantly flamboyant finishing touch to a mundane act, implying excessive style over substance.",
+    "mechanism": "flamboyant_finish",
+    "caption_roles": [
+      "mundane action setup",
+      "extravagant sprinkle exaggeration"
+    ],
+    "tags": [
+      "salt bae",
+      "flamboyant",
+      "seasoning",
+      "style"
+    ]
+  },
+  {
+    "id": "same",
+    "visual": "Pam from The Office presents two pictures to corporate woman; two angled captions hover over images and center quote sits below.",
+    "meaning": "Presents two superficially different things as identical, with authority figure declaring they are the same picture to mock false equivalence.",
+    "mechanism": "false_equivalence",
+    "caption_roles": [
+      "first image descriptor on left picture",
+      "second image descriptor on right picture",
+      "authority declaration of sameness"
+    ],
+    "tags": [
+      "the office",
+      "same picture",
+      "equivalence",
+      "comparison"
+    ]
+  },
+  {
+    "id": "sarcasticbear",
+    "visual": "Bear in woods with awkward grin; captions span top and bottom framing the bear's sarcastic expression.",
+    "meaning": "Uses feigned politeness to deliver a sarcastic jab at a naive or annoying social behavior.",
+    "mechanism": "sarcastic_agreement",
+    "caption_roles": [
+      "polite sarcastic setup",
+      "mocking reveal punchline"
+    ],
+    "tags": [
+      "bear",
+      "sarcastic",
+      "mocking",
+      "polite"
+    ]
+  },
+  {
+    "id": "say",
+    "visual": "Lisa with cue cards on Simpsons stage and Bart with mouth open; two comic-style captions centered over each character.",
+    "meaning": "Someone demands the expected catchphrase and the other reluctantly delivers it, mocking forced callbacks or repetition.",
+    "mechanism": "forced_catchphrase",
+    "caption_roles": [
+      "off-screen demand for iconic line",
+      "reluctant delivered catchphrase"
+    ],
+    "tags": [
+      "simpsons",
+      "bart",
+      "catchphrase",
+      "demand"
+    ]
+  },
+  {
+    "id": "sb",
+    "visual": "Brain image with visible lobes centered; captions span top and bottom framing the brain illustration.",
+    "meaning": "Shows the brain undermining its owner with intrusive thoughts or counterproductive logic, blaming scumbag brain.",
+    "mechanism": "self_sabotage",
+    "caption_roles": [
+      "intrusive thought setup",
+      "self-sabotaging punchline"
+    ],
+    "tags": [
+      "brain",
+      "scumbag",
+      "self-sabotage",
+      "intrusive"
+    ]
+  },
+  {
+    "id": "scc",
+    "visual": "Stoner-looking man with wide eyes looking upward; captions occupy top and bottom bars around his sudden epiphany.",
+    "meaning": "Delivers a sudden stoner-like clarity where an obvious realization or pun hits all at once with exaggerated intensity.",
+    "mechanism": "sudden_clarity",
+    "caption_roles": [
+      "sudden realization setup",
+      "clarifying epiphany punchline"
+    ],
+    "tags": [
+      "clarity",
+      "stoner",
+      "realization",
+      "epiphany"
+    ]
+  },
+  {
+    "id": "seagull",
+    "visual": "Inhaling seagull with open beak against sky; two caption bars top and bottom amplify the deep inhale and scream.",
+    "meaning": "Builds tension with a quiet inhale setup then unleashes a distorted screaming meme chant for chaotic loud humor.",
+    "mechanism": "inhale_scream",
+    "caption_roles": [
+      "quiet inhale build-up",
+      "deafening scream lyric"
+    ],
+    "tags": [
+      "seagull",
+      "inhale",
+      "scream",
+      "shrek"
+    ]
+  },
+  {
+    "id": "sf",
+    "visual": "Seal with solemn face staring upward in spotlight; captions span top and bottom framing the doomed seal.",
+    "meaning": "Captions describe a minor mistake with impending parental or fated doom, sealed by the seal's resigned dread.",
+    "mechanism": "sealed_fate",
+    "caption_roles": [
+      "minor transgression setup",
+      "impending doom realization"
+    ],
+    "tags": [
+      "seal",
+      "fate",
+      "doom",
+      "regret"
+    ]
+  },
+  {
+    "id": "sk",
+    "visual": "African child leaning forward skeptically with dark background; captions span top and bottom around face.",
+    "meaning": "Questions a privileged or naive assumption with a skeptical third-world perspective that reframes waste as survival.",
+    "mechanism": "skeptical_reframe",
+    "caption_roles": [
+      "naive privileged claim",
+      "skeptical poverty-aware retort"
+    ],
+    "tags": [
+      "skeptical",
+      "third world",
+      "poverty",
+      "reframe"
+    ]
+  },
+  {
+    "id": "ski",
+    "visual": "Ski instructor with sunglasses and snow gear smirking; captions span top and bottom over snowy face.",
+    "meaning": "Forebodes a bad time if you do the described action, using the instructor's deadpan warning as cautionary punchline.",
+    "mechanism": "ominous_warning",
+    "caption_roles": [
+      "risky action setup",
+      "you gonna have a bad time warning"
+    ],
+    "tags": [
+      "ski",
+      "south park",
+      "warning",
+      "bad time"
+    ]
+  },
+  {
+    "id": "slap",
+    "visual": "Will Smith slapping Chris Rock on stage split diagonal; captions sit angled over slapper and centered over target.",
+    "meaning": "Labels the slap as an abrupt consequence and the slapped figure as the annoying trigger, visualizing cause and effect.",
+    "mechanism": "cause_and_slap",
+    "caption_roles": [
+      "provocative trigger label over slapped figure",
+      "abrupt consequence label over slapper action"
+    ],
+    "tags": [
+      "will smith",
+      "slap",
+      "oscar",
+      "consequence"
+    ]
+  },
+  {
+    "id": "snek",
+    "visual": "Skeptical snake coiled with narrow eyes on leaf litter; captions span top and bottom framing reptile.",
+    "meaning": "Watches something suspicious with narrowed suspicion, building paranoia about a small moving detail already checked.",
+    "mechanism": "suspicious_observation",
+    "caption_roles": [
+      "already-checked detail setup",
+      "paranoid movement punchline"
+    ],
+    "tags": [
+      "snake",
+      "skeptical",
+      "paranoia",
+      "suspicion"
+    ]
+  },
+  {
+    "id": "soa",
+    "visual": "Harbor seal looking up expectantly underwater; captions span top and bottom around seal with large empty center.",
+    "meaning": "Marks a small satisfying achievement as seal-approved, giving modest success an official cute endorsement.",
+    "mechanism": "approving_seal",
+    "caption_roles": [
+      "satisfying setup achievement",
+      "seal of approval punchline"
+    ],
+    "tags": [
+      "seal",
+      "approval",
+      "satisfaction",
+      "cute"
+    ]
+  },
+  {
+    "id": "sohappy",
+    "visual": "Young girl crying with hands near face in indoor scene; captions span top and bottom framing her emotional face.",
+    "meaning": "Expresses hypothetical joy if a condition were met, while the crying face ironically shows distress about not having it.",
+    "mechanism": "conditional_longing",
+    "caption_roles": [
+      "hypothetical condition setup",
+      "i would be so happy payoff"
+    ],
+    "tags": [
+      "crying",
+      "happy",
+      "conditional",
+      "longing"
+    ]
+  },
+  {
+    "id": "sohot",
+    "visual": "Mugatu from Zoolander with pursed lips posing; captions span top and bottom framing fashion pose.",
+    "meaning": "Declares something as fashionable right now with ironic hype, echoing the film's absurd fashion satire.",
+    "mechanism": "fashion_hype",
+    "caption_roles": [
+      "trendy item setup",
+      "so hot right now declaration"
+    ],
+    "tags": [
+      "zoolander",
+      "fashion",
+      "mugatu",
+      "hype"
+    ]
+  },
+  {
+    "id": "soup-nazi",
+    "visual": "Soup Nazi scowling behind deli counter holding ladle; captions span top and bottom over kitchen scene.",
+    "meaning": "Denies someone a desired thing with the authoritarian no soup for you line, mocking rigid gatekeeping.",
+    "mechanism": "authoritarian_denial",
+    "caption_roles": [
+      "denied request or user setup",
+      "no soup for you denial punchline"
+    ],
+    "tags": [
+      "seinfeld",
+      "soup",
+      "denial",
+      "gatekeeping"
+    ]
+  },
+  {
+    "id": "sparta",
+    "visual": "Leonidas in helmet mid-kick against sky; captions span top and bottom over dramatic stance.",
+    "meaning": "Builds a dramatic is-this... setup then kicks with the emphatic Sparta line to reject or exalt forcefully.",
+    "mechanism": "dramatic_kick",
+    "caption_roles": [
+      "dramatic setup premise",
+      "sparta emphatic payoff"
+    ],
+    "tags": [
+      "300",
+      "sparta",
+      "leonidas",
+      "dramatic"
+    ]
+  },
+  {
+    "id": "spiderman",
+    "visual": "Two Spider-Men pointing at each other in split mirrored pose; two small caption bands top-left and bottom-center over pointing figures.",
+    "meaning": "Shows two parties accusing each other of the same thing, highlighting hypocrisy or mutual identity confusion.",
+    "mechanism": "mutual_accusation",
+    "caption_roles": [
+      "left spider accusing label",
+      "right spider accused label"
+    ],
+    "tags": [
+      "spiderman",
+      "pointing",
+      "hypocrisy",
+      "mutual"
+    ]
+  },
+  {
+    "id": "spirit",
+    "visual": "Fake Spirit Halloween package with costume window; captions form large title top-left and four bullet lines below with Includes header.",
+    "meaning": "Mocks a cheap or offensive costume concept by listing its hilariously empty or terrible contents.",
+    "mechanism": "parody_costume",
+    "caption_roles": [
+      "parody costume name title",
+      "includes header label",
+      "first bullet content",
+      "second bullet content",
+      "third bullet content"
+    ],
+    "tags": [
+      "halloween",
+      "spirit",
+      "costume",
+      "parody"
+    ]
+  },
+  {
+    "id": "spongebob",
+    "visual": "Mocking Spongebob with crossed arms and goofy face; captions span top and bottom with alternating normal and mocking case.",
+    "meaning": "States a sincere quote then repeats it in alternating capitals to mock or dismiss the original statement.",
+    "mechanism": "mocking_mimicry",
+    "caption_roles": [
+      "original sincere statement",
+      "alternating-case mocking repetition"
+    ],
+    "tags": [
+      "spongebob",
+      "mocking",
+      "mimicry",
+      "sarcasm"
+    ]
+  },
+  {
+    "id": "ss",
+    "visual": "Scumbag Steve in sideways cap and jacket smirking; captions span top and bottom framing his persona.",
+    "meaning": "Setup shows a seemingly helpful act then reveals the selfish scumbag twist that exploits the situation.",
+    "mechanism": "selfish_twist",
+    "caption_roles": [
+      "seemingly generous setup",
+      "selfish scumbag punchline"
+    ],
+    "tags": [
+      "scumbag steve",
+      "selfish",
+      "exploit",
+      "jerk"
+    ]
+  },
+  {
+    "id": "stew",
+    "visual": "Carl Weezer with hand raised indoors; captions occupy top and small bottom band with stew line emphasized.",
+    "meaning": "Uses the absurdly sincere compliment about having a stew going to celebrate low-effort or chaotic accomplishment.",
+    "mechanism": "absurd_compliment",
+    "caption_roles": [
+      "context setup premise",
+      "you got a stew going compliment"
+    ],
+    "tags": [
+      "jimmy neutron",
+      "stew",
+      "absurd",
+      "compliment"
+    ]
+  },
+  {
+    "id": "stonks",
+    "visual": "Meme Man in suit smiling before stock chart with upward arrow; captions span top and bottom around figure and graph.",
+    "meaning": "Ironic business decision presented as genius despite being absurd or loss-making, holding up stonks as fake success.",
+    "mechanism": "ironic_profit",
+    "caption_roles": [
+      "absurd business premise setup",
+      "stonks ironic payoff"
+    ],
+    "tags": [
+      "meme man",
+      "stonks",
+      "stocks",
+      "ironic"
+    ]
+  },
+  {
+    "id": "stop",
+    "visual": "Six-panel SpongeBob dialogue grid with Patrick, Squidward voices; colored boxes hold each line in reading order left to right.",
+    "meaning": "Builds a literal misunderstanding that escalates to a HO-HO-HO scare, ending with a plea to stop scaring the victim.",
+    "mechanism": "literal_misunderstanding",
+    "caption_roles": [
+      "claustrophobic claim line",
+      "what does that mean question",
+      "literal santa fear misdefinition",
+      "correction denial line",
+      "scary ho ho ho shout",
+      "stop scaring plea"
+    ],
+    "tags": [
+      "spongebob",
+      "patrick",
+      "misunderstanding",
+      "scare"
+    ]
+  },
+  {
+    "id": "stop-it",
+    "visual": "Jordan Peele sweating and looking stressed on couch; captions span top and bottom framing his tense face.",
+    "meaning": "Tells someone to stop an obsessive behavior and get help, framing the action as unhealthy compulsion.",
+    "mechanism": "compulsive_intervention",
+    "caption_roles": [
+      "obsessive behavior to stop",
+      "get some help directive"
+    ],
+    "tags": [
+      "jordan peele",
+      "stop",
+      "help",
+      "compulsive"
+    ]
+  },
+  {
+    "id": "success",
+    "visual": "Toddler clenching fist on beach with determined face; captions span top and bottom framing triumph.",
+    "meaning": "Describes a setback then a tiny workaround success that feels huge despite small scale.",
+    "mechanism": "small_victory",
+    "caption_roles": [
+      "minor setback setup",
+      "unexpected tiny success payoff"
+    ],
+    "tags": [
+      "success kid",
+      "triumph",
+      "small win",
+      "relief"
+    ]
+  },
+  {
+    "id": "tenguy",
+    "visual": "Disheveled stoner guy with eyes half-closed looking upward; captions span top and bottom around dazed face.",
+    "meaning": "Gives a high-logic correlation as if brilliant insight while stating a mundane non sequitur with stoner reasoning.",
+    "mechanism": "stoner_logic",
+    "caption_roles": [
+      "stoner observation setup",
+      "mundane non sequitur punchline"
+    ],
+    "tags": [
+      "10 guy",
+      "stoner",
+      "logic",
+      "high"
+    ]
+  },
+  {
+    "id": "toohigh",
+    "visual": "Jimmy McMillan with gloves and intense expression at debate; captions span top and bottom bars over face.",
+    "meaning": "Highlights a price or barrier that is excessively high using the emphatic declaration it is too damn high.",
+    "mechanism": "emphatic_complaint",
+    "caption_roles": [
+      "price or barrier setup premise",
+      "too damn high emphatic payoff"
+    ],
+    "tags": [
+      "rent",
+      "jimmy mcmillan",
+      "expensive",
+      "complaint"
+    ]
+  },
+  {
+    "id": "touch",
+    "visual": "Principal Skinner looking concerned in Simpsons classroom; two centered captions midway and bottom over desk scene.",
+    "meaning": "Questions being out of touch then deflects blame to children being wrong, satirizing denial of personal obsolescence.",
+    "mechanism": "deflective_denial",
+    "caption_roles": [
+      "am i out of touch anxiety",
+      "no children are wrong deflection"
+    ],
+    "tags": [
+      "simpsons",
+      "skinner",
+      "out of touch",
+      "denial"
+    ]
+  },
+  {
+    "id": "tried",
+    "visual": "Blue star sticker with smiling face and gold YOU TRIED ribbon; captions span top and bottom framing award.",
+    "meaning": "Awards a consolation prize for a failed but earnest attempt, sarcastically celebrating minimal effort.",
+    "mechanism": "consolation_award",
+    "caption_roles": [
+      "attempt acknowledgment setup",
+      "you tried consolation payoff"
+    ],
+    "tags": [
+      "star",
+      "try",
+      "consolation",
+      "participation"
+    ]
+  },
+  {
+    "id": "trump",
+    "visual": "Donald Trump gesturing with open mouth at podium; captions span top and bottom framing speech.",
+    "meaning": "Frames an exaggerated boastful claim as if spoken by Trump, often with superlative or hyperbolic self-praise.",
+    "mechanism": "hyperbolic_boast",
+    "caption_roles": [
+      "grandiose claim setup",
+      "maybe ever intensifier punchline"
+    ],
+    "tags": [
+      "trump",
+      "boast",
+      "politics",
+      "hyperbole"
+    ]
+  },
+  {
+    "id": "ugandanknuck",
+    "visual": "Red Ugandan Knuckles figure with squint eyes on grass; captions span top and bottom over character.",
+    "meaning": "Asks the ritual do you know de wey phrase to mock false authority or claiming insider knowledge clumsily.",
+    "mechanism": "insider_test",
+    "caption_roles": [
+      "searching setup premise",
+      "do you know de wey challenge"
+    ],
+    "tags": [
+      "uganda",
+      "knuckles",
+      "wey",
+      "vrchat"
+    ]
+  },
+  {
+    "id": "vince",
+    "visual": "Three vertical Vince McMahon reaction faces showing increasing excitement; three caption slots stacked on the left column.",
+    "meaning": "Lists options in ascending excitement where the final mundane option gets the most intense reaction for ironic escalation.",
+    "mechanism": "escalating_excitement",
+    "caption_roles": [
+      "mild option with neutral face",
+      "better option with growing grin",
+      "mundane favorite with ecstatic face"
+    ],
+    "tags": [
+      "vince",
+      "reaction",
+      "escalation",
+      "excitement"
+    ]
+  },
+  {
+    "id": "wallet",
+    "visual": "SpongeBob wallet dispute at Goofy Goober with three characters across counters; eight speech-style captions interleave dialogue beats.",
+    "meaning": "Recreates the wallet identity confusion dialogue to label an absurd logical fallacy where ownership is assumed from finding.",
+    "mechanism": "identity_confusion",
+    "caption_roles": [
+      "are you identity question",
+      "yup confirmation reply",
+      "is this yours verification",
+      "yup second confirmation",
+      "flawed found-ownership logic",
+      "makes sense agreement",
+      "then take it offer",
+      "denial punchline its not mine"
+    ],
+    "tags": [
+      "spongebob",
+      "patrick",
+      "wallet",
+      "logic"
+    ]
+  },
+  {
+    "id": "waygd",
+    "visual": "Shoulder shrug man outdoors with hands up; captions span top and bottom framing indifferent gesture.",
+    "meaning": "Resigned acceptance of an annoying situation with the shrug and what are ya gonna do fatalism.",
+    "mechanism": "resigned_shrug",
+    "caption_roles": [
+      "resigned situation setup",
+      "what are ya gonna do payoff"
+    ],
+    "tags": [
+      "shrug",
+      "resigned",
+      "fatalism",
+      "acceptance"
+    ]
+  },
+  {
+    "id": "wddth",
+    "visual": "Wakanda soldier crossing arms in X gesture; captions occupy top bar and stylized bottom banner over formation.",
+    "meaning": "Identifies a disliked social behavior as something collective we do not do here, asserting a boundary with cultural reference.",
+    "mechanism": "boundary_assertion",
+    "caption_roles": [
+      "unwanted behavior scenario setup",
+      "we dont do that here boundary declaration"
+    ],
+    "tags": [
+      "black panther",
+      "wakanda",
+      "boundary",
+      "norm"
+    ]
+  },
+  {
+    "id": "whatyear",
+    "visual": "Rob Schneider with shocked face and period wig in desert; captions span top and bottom around surprised expression.",
+    "meaning": "Feigns waking up disoriented after time has passed and asks what year it is to mock being outdated or out of loop.",
+    "mechanism": "temporal_disorientation",
+    "caption_roles": [
+      "disorientation context setup",
+      "what year is it question"
+    ],
+    "tags": [
+      "time",
+      "disorientation",
+      "shock",
+      "dated"
+    ]
+  },
+  {
+    "id": "winter",
+    "visual": "Ned Stark looking concerned with fur collar in winter setting; captions span top and bottom framing stark warning.",
+    "meaning": "Forebodes an approaching hardship or deadline with brace-yourself winter warning borrowing Game of Thrones dread.",
+    "mechanism": "ominous_foreshadowing",
+    "caption_roles": [
+      "prepare yourself setup warning",
+      "winter is coming payoff"
+    ],
+    "tags": [
+      "game of thrones",
+      "ned stark",
+      "winter",
+      "foreshadowing"
+    ]
+  },
+  {
+    "id": "wishes",
+    "visual": "Genie emerging with arms crossed before ornate lamp; single centered caption near lamp balances composition.",
+    "meaning": "States a literal wish that will backfire through genie logic, inviting twist on wording.",
+    "mechanism": "literal_wish",
+    "caption_roles": [
+      "single literal wish statement"
+    ],
+    "tags": [
+      "genie",
+      "wish",
+      "literal",
+      "lamp"
+    ]
+  },
+  {
+    "id": "wkh",
+    "visual": "Two Eric Andre men in suits shouting accusatorily; third caption is bold yellow banner question across bottom.",
+    "meaning": "Blames an absurd or innocent figure for a major event, with the punchline asking why that unlikely actor would do it.",
+    "mechanism": "absurd_blame",
+    "caption_roles": [
+      "victim or event label on left accuser",
+      "falsely accused figure on right accuser",
+      "why would they do this question banner"
+    ],
+    "tags": [
+      "eric andre",
+      "blame",
+      "conspiracy",
+      "absurd"
+    ]
+  },
+  {
+    "id": "woman-cat",
+    "visual": "Left: two women yelling and pointing at dinner; right: white cat at table with confused face; captions centered over each side.",
+    "meaning": "Contrasts an emotional human argument with a dismissive or confused cat reaction, proxying overreaction vs indifference.",
+    "mechanism": "yelling_vs_indifference",
+    "caption_roles": [
+      "angry yelling human argument label",
+      "confused indifferent cat reaction label"
+    ],
+    "tags": [
+      "woman",
+      "cat",
+      "argument",
+      "reaction"
+    ]
+  },
+  {
+    "id": "wonka",
+    "visual": "Gene Wilder as Wonka with condescending smile leaning forward; captions span top and bottom framing smug expression.",
+    "meaning": "Repeats the listener's claim then delivers a passive-aggressive condescending retort that undermines it.",
+    "mechanism": "condescending_rebuttal",
+    "caption_roles": [
+      "naive claim to mock setup",
+      "condescending tell me more retort"
+    ],
+    "tags": [
+      "wonka",
+      "condescending",
+      "sarcasm",
+      "elitist"
+    ]
+  },
+  {
+    "id": "worst",
+    "visual": "Hospital scene with cast reacting to patient and Atlas shrugging; captions centered mid and bottom near characters.",
+    "meaning": "Reframes a bad day as merely the worst day of your life so far, darkly implying worse is coming while comforting.",
+    "mechanism": "dark_reassurance",
+    "caption_roles": [
+      "worst day complaint setup",
+      "so far ominous reassurance"
+    ],
+    "tags": [
+      "meme",
+      "worst",
+      "reassurance",
+      "dark"
+    ]
+  },
+  {
+    "id": "xy",
+    "visual": "Book of Shel Silverstein-style illustration with clutter; captions span top and bottom with large illustration center.",
+    "meaning": "Celebrates excessive accumulation of a category with the X all the Y phrasing, implying obsessive collection.",
+    "mechanism": "excessive_collection",
+    "caption_roles": [
+      "excessive category setup",
+      "all the things hyperbolic payoff"
+    ],
+    "tags": [
+      "all the things",
+      "collection",
+      "excess",
+      "hyperbole"
+    ]
+  },
+  {
+    "id": "yallgot",
+    "visual": "Dave Chappelle as Tyrone Biggums leaning forward; captions span top and bottom framing craving expression.",
+    "meaning": "Begs for more of a desired addictive item using the craving format to show insatiable demand.",
+    "mechanism": "craving_request",
+    "caption_roles": [
+      "yall got any more setup plea",
+      "desired item punchline"
+    ],
+    "tags": [
+      "chappelle",
+      "craving",
+      "request",
+      "addiction"
+    ]
+  },
+  {
+    "id": "yodawg",
+    "visual": "Xzibit smiling beside car interior; captions span top and bottom framing host's recursive pitch.",
+    "meaning": "Nests something inside itself recursively like yo dawg we put an X in your Y, mocking excessive layering.",
+    "mechanism": "recursive_nesting",
+    "caption_roles": [
+      "recursive setup premise",
+      "yo dawg nested punchline"
+    ],
+    "tags": [
+      "xzibit",
+      "yo dawg",
+      "recursive",
+      "nesting"
+    ]
+  },
+  {
+    "id": "yuno",
+    "visual": "Y U No Guy with bold face and hands gripping speech; captions span top and bottom around frustrated face.",
+    "meaning": "Frustratedly asks why someone fails to do an obvious sensible action, demanding accountability through rage.",
+    "mechanism": "frustrated_plea",
+    "caption_roles": [
+      "y u no frustrated setup",
+      "demanded sensible action punchline"
+    ],
+    "tags": [
+      "y u no",
+      "rage",
+      "frustrated",
+      "demand"
+    ]
+  },
+  {
+    "id": "zero-wing",
+    "visual": "CATS leader shouting on bridge with space backdrop; single pale golden caption stretched across lower third.",
+    "meaning": "Quotes the infamous broken translation all your base are belong to us to mock engrish or total conquest claim.",
+    "mechanism": "mistranslation_meme",
+    "caption_roles": [
+      "all your base engrish declaration"
+    ],
+    "tags": [
+      "zero wing",
+      "all your base",
+      "translation",
+      "engrish"
+    ]
+  }
+]

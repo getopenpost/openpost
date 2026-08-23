@@ -107,6 +107,7 @@ var restReadOperations = operationSet(
 	"get-media-usage",
 	"list-publications",
 	"get-publication",
+	"get-publication-build",
 	"list-publication-events",
 	"validate-publication",
 	"list-posting-schedules",
@@ -146,6 +147,11 @@ var restWriteOperations = operationSet(
 	"set-default-voice-profile",
 	"delete-voice-profile",
 	"assign-account-voice-profile",
+	"create-publication-build",
+	"retry-publication-build",
+	"cancel-publication-build",
+	"commit-publication-build",
+	"discover-publication-opportunities",
 )
 
 // Legacy Echo routes remain denied to scoped REST tokens unless they are

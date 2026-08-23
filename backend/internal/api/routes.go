@@ -38,6 +38,8 @@ import (
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
+	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
@@ -73,6 +75,8 @@ type RouteDeps struct {
 	EmailVerificationRequired    bool
 	PurchaseChoiceRequired       bool
 	PublicProfilesEnabled        bool
+	ContentBuilderEnabled        bool
+	ContentDiscoveryEnabled      bool
 	AccountPolicy                handlers.AccountPolicy
 	Providers                    map[string]platform.Adapter
 	ProviderApps                 []platform.AppConfig
@@ -106,6 +110,8 @@ type RouteDeps struct {
 	AppRevision                  string
 	Edition                      string
 	Telemetry                    telemetry.Recorder
+	PublicationBuilder           *publicationbuilder.Application
+	PublicationDiscovery         publicationdiscovery.Discoverer
 
 	MediaHandler    *handlers.MediaHandler
 	BillingHandler  *handlers.BillingHandler
@@ -171,6 +177,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	authHandler.SetPasswordResetSender(deps.PasswordResetSender, deps.PublicURL)
 	authHandler.SetEmailVerification(deps.EmailVerificationService, deps.EmailVerificationSender, deps.EmailVerificationRequired)
 	authHandler.SetPublicProfilesEnabled(deps.PublicProfilesEnabled)
+	authHandler.SetContentAIAvailability(deps.ContentBuilderEnabled, deps.ContentDiscoveryEnabled)
 	authHandler.SetAccountPolicy(deps.AccountPolicy)
 	authHandler.SetIdentityService(deps.IdentityService)
 	authHandler.SetPurchaseChoices(deps.BillingService, deps.PurchaseChoiceRequired)
@@ -255,6 +262,10 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationHandler.SetProviderReadiness(deps.ProviderReadinessService)
 	publicationHandler.SetTelemetry(deps.Telemetry)
 	publicationHandler.RegisterRoutes(api)
+	publicationBuildHandler := handlers.NewPublicationBuildHandler(deps.DB, deps.Authenticator, deps.PublicationBuilder)
+	publicationBuildHandler.SetPublicationApplication(publicationHandler.Application())
+	publicationBuildHandler.RegisterRoutes(api)
+	handlers.NewPublicationDiscoveryHandler(deps.DB, deps.Authenticator, deps.PublicationDiscovery).RegisterRoutes(api)
 	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewSocialSetHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)

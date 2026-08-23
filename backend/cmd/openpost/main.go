@@ -61,10 +61,13 @@ import (
 	"github.com/openpost/backend/internal/services/passwordmail"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
+	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
+	"github.com/openpost/backend/internal/services/sourcecontext"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/services/usage"
@@ -453,9 +456,19 @@ func main() {
 	mediaHandler.SetVideoProcessor(videoProcessingService)
 	profileHandler := handlers.NewProfileHandler(db, authenticator, storage)
 
-	var generator ai.Generator
+	var contentGenerator ai.Generator
+	var imageCaptionGenerator ai.Generator
 	if cfg.OpenRouterAPIKey != "" {
-		generator, err = ai.NewOpenRouter(ai.OpenRouterConfig{
+		contentGenerator, err = ai.NewOpenRouter(ai.OpenRouterConfig{
+			APIKey:      cfg.OpenRouterAPIKey,
+			HTTPReferer: cfg.PublicURL,
+			XTitle:      "OpenPost",
+			Timeout:     90 * time.Second,
+		})
+		if err != nil {
+			log.Fatalf("failed to initialize OpenRouter content generator: %v", err)
+		}
+		imageCaptionGenerator, err = ai.NewOpenRouter(ai.OpenRouterConfig{
 			APIKey:      cfg.OpenRouterAPIKey,
 			HTTPReferer: cfg.PublicURL,
 			XTitle:      "OpenPost",
@@ -468,8 +481,8 @@ func main() {
 	}
 
 	var imageCaptioner imagecaption.Captioner
-	if generator != nil {
-		imageCaptioner, err = imagecaption.New(generator, cfg.ImageCaptionModel)
+	if imageCaptionGenerator != nil {
+		imageCaptioner, err = imagecaption.New(imageCaptionGenerator, cfg.ImageCaptionModel)
 		if err != nil {
 			log.Fatalf("failed to initialize automatic image captioning: %v", err)
 		}
@@ -488,14 +501,53 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to initialize built-in meme catalog: %v", err)
 		}
-		if generator != nil {
-			memeSuggester, err = memegeneration.New(generator, cfg.MemeGenerationModel)
+		if contentGenerator != nil {
+			memeSuggester, err = memegeneration.New(contentGenerator, cfg.MemeGenerationModel)
 			if err != nil {
 				log.Fatalf("failed to initialize AI meme suggestions: %v", err)
 			}
 			log.Printf("AI meme suggestions enabled with model %s", cfg.MemeGenerationModel)
 		}
 		log.Printf("Meme generator enabled with renderer %s", memeProvider.Key())
+	}
+
+	var publicationBuilderApplication *publicationbuilder.Application
+	if contentGenerator != nil && cfg.ContentBuilderModel != "" {
+		packageBuilder, builderErr := publicationbuilder.New(contentGenerator, publicationbuilder.Config{
+			Model: cfg.ContentBuilderModel,
+		})
+		if builderErr != nil {
+			log.Fatalf("failed to initialize publication builder: %v", builderErr)
+		}
+		sourceLoader, sourceErr := sourcecontext.New(sourcecontext.Config{})
+		if sourceErr != nil {
+			log.Fatalf("failed to initialize publication source loader: %v", sourceErr)
+		}
+		publicationBuilderApplication, builderErr = publicationbuilder.NewApplication(
+			db,
+			packageBuilder,
+			publicationbuilder.ApplicationConfig{
+				Model:        cfg.ContentBuilderModel,
+				SourceLoader: sourceLoader,
+				AssetLoader:  publicationbuilder.NewMediaAssetLoader(db, storage),
+			},
+		)
+		if builderErr != nil {
+			log.Fatalf("failed to initialize durable publication builder: %v", builderErr)
+		}
+		log.Printf("AI publication builder enabled with model %s", cfg.ContentBuilderModel)
+	}
+
+	var publicationDiscoveryService publicationdiscovery.Discoverer
+	if contentGenerator != nil && cfg.ContentDiscoveryModel != "" {
+		discovery, discoveryErr := publicationdiscovery.New(contentGenerator, publicationdiscovery.Config{
+			Model: cfg.ContentDiscoveryModel,
+		})
+		if discoveryErr != nil {
+			log.Fatalf("failed to initialize publication discovery: %v", discoveryErr)
+		}
+		publicationDiscoveryService = discovery
+		log.Printf("AI publication discovery enabled with model %s", cfg.ContentDiscoveryModel)
 	}
 
 	var feedbackDestination feedback.Destination
@@ -527,6 +579,7 @@ func main() {
 	worker.SetRepostService(repostService)
 	worker.SetVideoProcessingService(videoProcessingService)
 	worker.SetGrowthService(growthService)
+	worker.SetPublicationBuilderService(publicationBuilderApplication)
 	worker.SetTelemetry(telemetryRecorder)
 	if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 		log.Fatalf("failed to schedule pending video analysis: %v", err)
@@ -631,6 +684,8 @@ func main() {
 		EmailVerificationRequired: cfg.EmailVerificationRequired,
 		PurchaseChoiceRequired:    cfg.Edition == config.EditionCloud || cfg.AppE2EHostedSignup,
 		PublicProfilesEnabled:     cfg.PublicProfilesEnabled,
+		ContentBuilderEnabled:     publicationBuilderApplication != nil,
+		ContentDiscoveryEnabled:   publicationDiscoveryService != nil,
 		AccountPolicy: handlers.AccountPolicy{
 			Required:       cfg.LegalAcceptanceRequired,
 			TermsURL:       cfg.TermsURL,
@@ -687,6 +742,8 @@ func main() {
 		AppRevision:                  runningBuildRevision(),
 		Edition:                      cfg.Edition,
 		Telemetry:                    telemetryRecorder,
+		PublicationBuilder:           publicationBuilderApplication,
+		PublicationDiscovery:         publicationDiscoveryService,
 		MediaHandler:                 mediaHandler,
 		PublicMediaVerifier:          publicMediaVerifier,
 		ProfileHandler:               profileHandler,

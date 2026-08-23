@@ -64,6 +64,8 @@ type AuthHandler struct {
 	mfaRecovery               *mfarecovery.Service
 	registrationsDisabled     bool
 	publicProfilesEnabled     bool
+	contentBuilderEnabled     bool
+	contentDiscoveryEnabled   bool
 	limiter                   *ratelimit.Limiter
 	passwordResetSender       passwordmail.PasswordResetSender
 	emailVerification         *emailverification.Service
@@ -103,6 +105,11 @@ func NewAuthHandler(
 
 func (h *AuthHandler) SetPublicProfilesEnabled(enabled bool) {
 	h.publicProfilesEnabled = enabled
+}
+
+func (h *AuthHandler) SetContentAIAvailability(builderEnabled, discoveryEnabled bool) {
+	h.contentBuilderEnabled = builderEnabled
+	h.contentDiscoveryEnabled = discoveryEnabled
 }
 
 func (h *AuthHandler) SetSessionService(sessionService *sessions.Service) {

@@ -11,14 +11,16 @@ This page lists the most common core and provider variables. Use [Environment Va
 | `OPENPOST_IMAGE_EDITOR_ENABLED`        | `true`                 | Enable the OpenPost Image Editor UI and API. Disabling it leaves the Media library operational.  |
 | `OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL` | `/image-editor-models` | Serve the pinned background-removal model and runtime from another operator-controlled base URL. |
 
-## Automatic image alt text
+## AI content and automatic image alt text
 
-| Variable                             | Default               | Purpose                                                                                                         |
-| ------------------------------------ | --------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `OPENROUTER_API_KEY`                 | empty                 | Server-only OpenRouter key that enables automatic alt text for images without saved alt text; supports `_FILE`. |
-| `OPENPOST_IMAGE_CAPTION_MODEL`       | `openai/gpt-5.6-luna` | Model used with a 400px JPEG thumbnail and up to 1,000 characters of relevant post or thread segment text.      |
-| `OPENPOST_IMAGE_CAPTION_PROVIDER`    | empty                 | Optional exact OpenRouter provider slug allowed for automatic image alt text.                                   |
-| `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR` | `false`               | Require a zero-data-retention endpoint for automatic image alt text.                                            |
+| Variable                             | Default               | Purpose                                                                                                                                         |
+| ------------------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENROUTER_API_KEY`                 | empty                 | Server-only OpenRouter key that enables the Publication Builder, Discover, AI meme suggestions, and automatic image alt text; supports `_FILE`. |
+| `OPENPOST_CONTENT_BUILDER_MODEL`     | `openai/gpt-5.6-luna` | Model used to direct, draft, and review destination-native publication packages.                                                                |
+| `OPENPOST_CONTENT_DISCOVERY_MODEL`   | `openai/gpt-5.6-luna` | Model used with bounded web search to return cited content opportunities.                                                                       |
+| `OPENPOST_IMAGE_CAPTION_MODEL`       | `openai/gpt-5.6-luna` | Model used with a 400px JPEG thumbnail and up to 1,000 characters of relevant post or thread segment text.                                      |
+| `OPENPOST_IMAGE_CAPTION_PROVIDER`    | empty                 | Optional exact OpenRouter provider slug allowed for automatic image alt text.                                                                   |
+| `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR` | `false`               | Require a zero-data-retention endpoint for automatic image alt text.                                                                            |
 
 ## Meme maker
 
@@ -84,7 +86,9 @@ Most variables loaded through the main backend config loader can also be loaded 
 | `OPENPOST_FEEDBACK_SUPPORT_URL`                 | Fallback support URL                                                                              |
 | `OPENPOST_UPDATE_CHECK_ENABLED`                 | Enable read-only stable release checks for self-hosted instance admins                            |
 | `OPENPOST_CONNECTORS_FILE`                      | Absolute path to the self-hosted custom connector registry                                        |
-| `OPENROUTER_API_KEY`                            | Enable server-side automatic image alt text; supports `_FILE`                                     |
+| `OPENROUTER_API_KEY`                            | Enable server-side AI content and automatic image alt text; supports `_FILE`                      |
+| `OPENPOST_CONTENT_BUILDER_MODEL`                | OpenRouter model ID for source-first, destination-native publication building                     |
+| `OPENPOST_CONTENT_DISCOVERY_MODEL`              | OpenRouter model ID for cited content opportunity discovery                                       |
 | `OPENPOST_IMAGE_CAPTION_MODEL`                  | OpenRouter model ID for automatic image alt text                                                  |
 | `OPENPOST_IMAGE_CAPTION_PROVIDER`               | Exact OpenRouter provider slug allowed for automatic image alt text                               |
 | `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR`            | Require a zero-data-retention endpoint for automatic image alt text                               |

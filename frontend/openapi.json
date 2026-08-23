@@ -1215,6 +1215,25 @@
 				"required": ["message"],
 				"type": "object"
 			},
+			"Angle": {
+				"additionalProperties": false,
+				"properties": {
+					"approach": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"label": {
+						"type": "string"
+					},
+					"thesis": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "label", "thesis", "approach"],
+				"type": "object"
+			},
 			"AppendProviderApprovalReviewInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -1482,6 +1501,28 @@
 				],
 				"type": "object"
 			},
+			"AssignVoiceProfileInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/AssignVoiceProfileInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"voice_profile_id": {
+						"description": "Voice Profile override; empty restores Workspace inheritance",
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
+				"type": "object"
+			},
 			"AuditChangedField": {
 				"additionalProperties": false,
 				"properties": {
@@ -1596,6 +1637,12 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"content_builder_enabled": {
+						"type": "boolean"
+					},
+					"content_discovery_enabled": {
+						"type": "boolean"
+					},
 					"email_verification_required": {
 						"type": "boolean"
 					},
@@ -1635,6 +1682,8 @@
 					"password_reset_enabled",
 					"email_verification_required",
 					"public_profiles_enabled",
+					"content_builder_enabled",
+					"content_discovery_enabled",
 					"legal_acceptance_required",
 					"purchase_choice_required"
 				],
@@ -2107,6 +2156,162 @@
 				"required": ["enabled", "environment", "edition", "version", "revision"],
 				"type": "object"
 			},
+			"Build": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/Build.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"assets": {
+						"items": {
+							"$ref": "#/components/schemas/BuildAsset"
+						},
+						"type": ["array", "null"]
+					},
+					"context_urls": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"error_code": {
+						"type": "string"
+					},
+					"error_message": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"input": {
+						"$ref": "#/components/schemas/BuildInput"
+					},
+					"phase": {
+						"type": "string"
+					},
+					"publication_id": {
+						"type": "string"
+					},
+					"result": {
+						"$ref": "#/components/schemas/BuildResult"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"social_set_id": {
+						"type": "string"
+					},
+					"state": {
+						"type": "string"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"voice_profile_id": {
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"state",
+					"phase",
+					"revision",
+					"input",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"BuildAsset": {
+				"additionalProperties": false,
+				"properties": {
+					"may_publish": {
+						"default": false,
+						"type": "boolean"
+					},
+					"media_id": {
+						"type": "string"
+					},
+					"role": {
+						"type": "string"
+					}
+				},
+				"required": ["media_id", "role", "may_publish"],
+				"type": "object"
+			},
+			"BuildInput": {
+				"additionalProperties": false,
+				"properties": {
+					"destination_policy": {
+						"type": "string"
+					},
+					"destinations": {
+						"items": {
+							"$ref": "#/components/schemas/Destination"
+						},
+						"type": ["array", "null"]
+					},
+					"direction": {
+						"$ref": "#/components/schemas/DirectionInput"
+					},
+					"idea": {
+						"type": "string"
+					},
+					"sources": {
+						"items": {
+							"$ref": "#/components/schemas/SourceMaterial"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["idea", "destinations", "direction", "destination_policy"],
+				"type": "object"
+			},
+			"BuildResult": {
+				"additionalProperties": false,
+				"properties": {
+					"canonical_text": {
+						"type": "string"
+					},
+					"destinations": {
+						"items": {
+							"$ref": "#/components/schemas/DestinationPlan"
+						},
+						"type": ["array", "null"]
+					},
+					"direction": {
+						"$ref": "#/components/schemas/DirectorPlan"
+					},
+					"review_flags": {
+						"items": {
+							"$ref": "#/components/schemas/ReviewFlag"
+						},
+						"type": ["array", "null"]
+					},
+					"skipped": {
+						"items": {
+							"$ref": "#/components/schemas/SkippedDestination"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["canonical_text", "direction", "destinations", "skipped", "review_flags"],
+				"type": "object"
+			},
 			"CLIAuthDecisionOutputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -2413,6 +2618,25 @@
 				"required": ["kind", "outcome", "completed_at"],
 				"type": "object"
 			},
+			"Claim": {
+				"additionalProperties": false,
+				"properties": {
+					"source_refs": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"status": {
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": ["text", "status"],
+				"type": "object"
+			},
 			"ClientError": {
 				"additionalProperties": false,
 				"properties": {
@@ -2537,6 +2761,28 @@
 					"can_hide",
 					"can_delete"
 				],
+				"type": "object"
+			},
+			"CommitPublicationBuildOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CommitPublicationBuildOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"href": {
+						"description": "Composer path for review and editing",
+						"type": "string"
+					},
+					"publication_id": {
+						"description": "Draft Publication created from the approved build",
+						"type": "string"
+					}
+				},
+				"required": ["publication_id", "href"],
 				"type": "object"
 			},
 			"CompleteAccountSelectionInputBody": {
@@ -3143,6 +3389,25 @@
 					}
 				},
 				"required": ["items", "total", "sync_states"],
+				"type": "object"
+			},
+			"Correction": {
+				"additionalProperties": false,
+				"properties": {
+					"lesson": {
+						"description": "Optional general lesson from the edit",
+						"type": "string"
+					},
+					"original": {
+						"description": "Generated or draft wording that did not fit",
+						"type": "string"
+					},
+					"preferred": {
+						"description": "Accepted replacement wording",
+						"type": "string"
+					}
+				},
+				"required": ["original", "preferred"],
 				"type": "object"
 			},
 			"CreateAPITokenInputBody": {
@@ -3852,6 +4117,72 @@
 				"required": ["workspace_id", "title", "content_profile", "source_text"],
 				"type": "object"
 			},
+			"CreatePublicationBuildBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreatePublicationBuildBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_ids": {
+						"description": "Candidate connected account IDs",
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 20,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"assets": {
+						"description": "Stored Workspace media used as source evidence",
+						"items": {
+							"$ref": "#/components/schemas/BuildAsset"
+						},
+						"maxItems": 10,
+						"type": ["array", "null"]
+					},
+					"context_urls": {
+						"description": "Public HTTP or HTTPS sources loaded by the guarded background worker",
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 10,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"destination_policy": {
+						"description": "Allow the director to skip weak destinations or require every candidate",
+						"enum": ["recommend", "require_all"],
+						"type": "string"
+					},
+					"direction": {
+						"$ref": "#/components/schemas/DirectionInput",
+						"description": "Optional outcome, audience, angle, tone, and media direction"
+					},
+					"idea": {
+						"description": "Idea, note, update, or Markdown source text",
+						"maxLength": 20000,
+						"type": "string"
+					},
+					"social_set_id": {
+						"description": "Optional Social Set candidate snapshot",
+						"type": "string"
+					},
+					"voice_profile_id": {
+						"description": "Optional build-level Voice Profile override",
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace that owns the source material and destinations",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
+				"type": "object"
+			},
 			"CreatePurchaseChoiceInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -3934,6 +4265,38 @@
 					}
 				},
 				"required": ["url", "expires_at"],
+				"type": "object"
+			},
+			"CreateVoiceProfileInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/CreateVoiceProfileInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"definition": {
+						"$ref": "#/components/schemas/Definition",
+						"description": "Identity facts and representative writing"
+					},
+					"is_default": {
+						"description": "Make this the Workspace default",
+						"type": "boolean"
+					},
+					"name": {
+						"description": "Reusable Voice Profile name",
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "name", "definition"],
 				"type": "object"
 			},
 			"CreateWorkspaceInputBody": {
@@ -4042,6 +4405,101 @@
 					}
 				},
 				"required": ["state", "executable", "connectable", "publishable", "advertisable", "facts"],
+				"type": "object"
+			},
+			"Definition": {
+				"additionalProperties": false,
+				"properties": {
+					"boundaries": {
+						"description": "Tone or identity boundaries",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"corrections": {
+						"description": "Accepted edits that explain how the voice should change a draft",
+						"items": {
+							"$ref": "#/components/schemas/Correction"
+						},
+						"type": ["array", "null"]
+					},
+					"disliked_patterns": {
+						"description": "Writing patterns this voice avoids",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"examples": {
+						"description": "Representative writing examples",
+						"items": {
+							"$ref": "#/components/schemas/Example"
+						},
+						"type": ["array", "null"]
+					},
+					"expertise": {
+						"description": "Subjects the voice can discuss from experience",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"forbidden_phrases": {
+						"description": "Phrases this voice must not use",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"formality": {
+						"description": "Formality style and limits",
+						"type": "string"
+					},
+					"humor": {
+						"description": "Humor style and limits",
+						"type": "string"
+					},
+					"identity_summary": {
+						"description": "Short description of the person or brand behind the voice",
+						"type": "string"
+					},
+					"interview_answers": {
+						"description": "Optional answers used to learn opinions and phrasing",
+						"items": {
+							"$ref": "#/components/schemas/InterviewAnswer"
+						},
+						"type": ["array", "null"]
+					},
+					"opinions": {
+						"description": "Established views the builder may draw on",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"recurring_expressions": {
+						"description": "Expressions that sound natural in this voice",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"traits": {
+						"description": "Stable voice traits",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"vocabulary": {
+						"description": "Words the voice naturally uses",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					}
+				},
 				"type": "object"
 			},
 			"DeleteAccountInputBody": {
@@ -4211,6 +4669,23 @@
 				"required": ["requires_restart"],
 				"type": "object"
 			},
+			"DeleteVoiceProfileOutputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DeleteVoiceProfileOutputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"deleted": {
+						"type": "boolean"
+					}
+				},
+				"required": ["deleted"],
+				"type": "object"
+			},
 			"DeleteWorkspaceInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -4319,6 +4794,47 @@
 				},
 				"type": "object"
 			},
+			"Destination": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"allowed_output_profiles": {
+						"items": {
+							"$ref": "#/components/schemas/OutputProfile"
+						},
+						"type": ["array", "null"]
+					},
+					"label": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"voice": {
+						"$ref": "#/components/schemas/VoiceSnapshot"
+					}
+				},
+				"required": ["account_id", "platform", "label", "allowed_output_profiles", "voice"],
+				"type": "object"
+			},
+			"DestinationDecision": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"include": {
+						"type": "boolean"
+					},
+					"reason": {
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "include", "reason"],
+				"type": "object"
+			},
 			"DestinationFormat": {
 				"additionalProperties": false,
 				"properties": {
@@ -4372,6 +4888,70 @@
 					}
 				},
 				"required": ["options"],
+				"type": "object"
+			},
+			"DestinationPlan": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"archetype": {
+						"type": "string"
+					},
+					"claims": {
+						"items": {
+							"$ref": "#/components/schemas/Claim"
+						},
+						"type": ["array", "null"]
+					},
+					"follow_up_notes": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"media": {
+						"$ref": "#/components/schemas/MediaPlan"
+					},
+					"objective": {
+						"type": "string"
+					},
+					"output_profile": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"preview": {
+						"type": "string"
+					},
+					"segments": {
+						"items": {
+							"$ref": "#/components/schemas/SegmentPlan"
+						},
+						"type": ["array", "null"]
+					},
+					"warnings": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": [
+					"account_id",
+					"platform",
+					"objective",
+					"archetype",
+					"output_profile",
+					"preview",
+					"segments",
+					"media",
+					"claims",
+					"warnings",
+					"follow_up_notes"
+				],
 				"type": "object"
 			},
 			"Diagnostics": {
@@ -4518,6 +5098,84 @@
 				],
 				"type": "object"
 			},
+			"DirectionInput": {
+				"additionalProperties": false,
+				"properties": {
+					"angle": {
+						"type": "string"
+					},
+					"audience": {
+						"type": "string"
+					},
+					"media_preference": {
+						"type": "string"
+					},
+					"outcome": {
+						"type": "string"
+					},
+					"tone_adjustment": {
+						"type": "string"
+					}
+				},
+				"type": "object"
+			},
+			"DirectorPlan": {
+				"additionalProperties": false,
+				"properties": {
+					"angle": {
+						"type": "string"
+					},
+					"audience": {
+						"type": "string"
+					},
+					"canonical_text": {
+						"type": "string"
+					},
+					"claims": {
+						"items": {
+							"$ref": "#/components/schemas/Claim"
+						},
+						"type": ["array", "null"]
+					},
+					"destinations": {
+						"items": {
+							"$ref": "#/components/schemas/DestinationDecision"
+						},
+						"type": ["array", "null"]
+					},
+					"factual_kernel": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"media": {
+						"$ref": "#/components/schemas/MediaPlan"
+					},
+					"outcome": {
+						"type": "string"
+					},
+					"route": {
+						"type": "string"
+					},
+					"thesis": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"canonical_text",
+					"factual_kernel",
+					"thesis",
+					"outcome",
+					"audience",
+					"angle",
+					"route",
+					"claims",
+					"media",
+					"destinations"
+				],
+				"type": "object"
+			},
 			"DisableTOTPInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -4572,6 +5230,93 @@
 				"required": ["workspace_id", "webhook_url"],
 				"type": "object"
 			},
+			"DiscoverPublicationOpportunitiesInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": [
+							"https://example.com/schemas/DiscoverPublicationOpportunitiesInputBody.json"
+						],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"audience": {
+						"description": "People the opportunities should matter to",
+						"maxLength": 500,
+						"type": "string"
+					},
+					"focus": {
+						"description": "Optional subject, project, niche, or current objective",
+						"maxLength": 1000,
+						"type": "string"
+					},
+					"limit": {
+						"default": 6,
+						"description": "Maximum opportunity cards to return",
+						"format": "int64",
+						"maximum": 8,
+						"minimum": 1,
+						"type": "integer"
+					},
+					"platforms": {
+						"description": "Selected native destination platforms",
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 5,
+						"minItems": 1,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"recent_publications": {
+						"description": "Recent Publications used only to avoid repetition",
+						"items": {
+							"$ref": "#/components/schemas/RecentPublicationSummary"
+						},
+						"maxItems": 30,
+						"type": ["array", "null"]
+					},
+					"voice_profile_id": {
+						"description": "Optional Workspace Voice Profile; defaults to the Workspace identity",
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace whose editor is requesting opportunities",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "platforms"],
+				"type": "object"
+			},
+			"DiscoveryResult": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/DiscoveryResult.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"generated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"model": {
+						"type": "string"
+					},
+					"opportunities": {
+						"items": {
+							"$ref": "#/components/schemas/Opportunity"
+						},
+						"type": ["array", "null"]
+					}
+				},
+				"required": ["generated_at", "model", "opportunities"],
+				"type": "object"
+			},
 			"DismissGrowthInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -4619,6 +5364,29 @@
 					}
 				},
 				"required": ["name", "is_current_user"],
+				"type": "object"
+			},
+			"EffectiveProfile": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/EffectiveProfile.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_id": {
+						"type": "string"
+					},
+					"profile": {
+						"$ref": "#/components/schemas/VoiceProfile"
+					},
+					"source": {
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "source", "profile"],
 				"type": "object"
 			},
 			"EmailChangeStatusOutputBody": {
@@ -5008,6 +5776,25 @@
 						"type": "string"
 					}
 				},
+				"type": "object"
+			},
+			"Example": {
+				"additionalProperties": false,
+				"properties": {
+					"platform": {
+						"description": "Optional source platform, used as provenance rather than a style rule",
+						"type": "string"
+					},
+					"text": {
+						"description": "Representative text",
+						"type": "string"
+					},
+					"why_it_fits": {
+						"description": "Why this example represents the voice",
+						"type": "string"
+					}
+				},
+				"required": ["text"],
 				"type": "object"
 			},
 			"ExchangeCodeInputBody": {
@@ -7526,6 +8313,21 @@
 				"required": ["workspace_id", "title"],
 				"type": "object"
 			},
+			"InterviewAnswer": {
+				"additionalProperties": false,
+				"properties": {
+					"answer": {
+						"description": "Answer in the profile owner's own words",
+						"type": "string"
+					},
+					"question": {
+						"description": "Interview question",
+						"type": "string"
+					}
+				},
+				"required": ["question", "answer"],
+				"type": "object"
+			},
 			"Item": {
 				"additionalProperties": false,
 				"properties": {
@@ -8245,6 +9047,22 @@
 					"tags",
 					"retention_class"
 				],
+				"type": "object"
+			},
+			"MediaPlan": {
+				"additionalProperties": false,
+				"properties": {
+					"brief": {
+						"type": "string"
+					},
+					"role": {
+						"type": "string"
+					},
+					"treatment": {
+						"type": "string"
+					}
+				},
+				"required": ["treatment", "role", "brief"],
 				"type": "object"
 			},
 			"MediaSummary": {
@@ -9473,6 +10291,59 @@
 				"required": ["reauth_grant"],
 				"type": "object"
 			},
+			"Opportunity": {
+				"additionalProperties": false,
+				"properties": {
+					"angles": {
+						"items": {
+							"$ref": "#/components/schemas/Angle"
+						},
+						"type": ["array", "null"]
+					},
+					"hook": {
+						"type": "string"
+					},
+					"id": {
+						"type": "string"
+					},
+					"platform_treatments": {
+						"items": {
+							"$ref": "#/components/schemas/PlatformTreatment"
+						},
+						"type": ["array", "null"]
+					},
+					"signal_date": {
+						"type": "string"
+					},
+					"sources": {
+						"items": {
+							"$ref": "#/components/schemas/SourceCitation"
+						},
+						"type": ["array", "null"]
+					},
+					"title": {
+						"type": "string"
+					},
+					"why_it_fits": {
+						"type": "string"
+					},
+					"why_now": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"title",
+					"why_it_fits",
+					"why_now",
+					"signal_date",
+					"hook",
+					"angles",
+					"sources",
+					"platform_treatments"
+				],
+				"type": "object"
+			},
 			"Option": {
 				"additionalProperties": false,
 				"properties": {
@@ -9824,6 +10695,24 @@
 				"required": ["members", "current_seats"],
 				"type": "object"
 			},
+			"OutputProfile": {
+				"additionalProperties": false,
+				"properties": {
+					"key": {
+						"type": "string"
+					},
+					"max_segments": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"text_limit": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["key", "text_limit", "max_segments"],
+				"type": "object"
+			},
 			"Override": {
 				"additionalProperties": false,
 				"properties": {
@@ -10058,6 +10947,28 @@
 					}
 				},
 				"required": ["pending"],
+				"type": "object"
+			},
+			"PlatformTreatment": {
+				"additionalProperties": false,
+				"properties": {
+					"format": {
+						"type": "string"
+					},
+					"media": {
+						"type": "string"
+					},
+					"objective": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"rationale": {
+						"type": "string"
+					}
+				},
+				"required": ["platform", "objective", "format", "rationale", "media"],
 				"type": "object"
 			},
 			"Policy": {
@@ -11836,6 +12747,41 @@
 				"required": ["grant", "expires_in"],
 				"type": "object"
 			},
+			"RecentPublicationSummary": {
+				"additionalProperties": false,
+				"properties": {
+					"platforms": {
+						"description": "Platforms that received the Publication",
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 5,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"published_at": {
+						"description": "When this recent Publication was published or created",
+						"format": "date-time",
+						"type": "string"
+					},
+					"summary": {
+						"description": "Short factual summary of what the Publication said",
+						"maxLength": 800,
+						"type": "string"
+					},
+					"topics": {
+						"description": "Topics already covered",
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 12,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					}
+				},
+				"required": ["published_at", "summary"],
+				"type": "object"
+			},
 			"RecommendationView": {
 				"additionalProperties": false,
 				"properties": {
@@ -13025,6 +13971,38 @@
 				"required": ["id"],
 				"type": "object"
 			},
+			"ResolveEffectiveVoiceProfilesInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/ResolveEffectiveVoiceProfilesInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"account_ids": {
+						"description": "Connected account IDs in requested order",
+						"items": {
+							"type": "string"
+						},
+						"maxItems": 100,
+						"minItems": 1,
+						"type": ["array", "null"],
+						"uniqueItems": true
+					},
+					"publication_voice_profile_id": {
+						"description": "Temporary Publication-level override",
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "account_ids"],
+				"type": "object"
+			},
 			"ResolvedAccountCapability": {
 				"additionalProperties": false,
 				"properties": {
@@ -13356,6 +14334,25 @@
 					}
 				},
 				"required": ["media_id", "processing_status", "analysis_status"],
+				"type": "object"
+			},
+			"ReviewFlag": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"field": {
+						"type": "string"
+					},
+					"message": {
+						"type": "string"
+					},
+					"severity": {
+						"type": "string"
+					}
+				},
+				"required": ["field", "severity", "message"],
 				"type": "object"
 			},
 			"Revoke-organization-ownership-transferResponse": {
@@ -13763,6 +14760,22 @@
 				"required": ["user", "totp_enabled", "passkeys", "methods"],
 				"type": "object"
 			},
+			"SegmentPlan": {
+				"additionalProperties": false,
+				"properties": {
+					"body": {
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					}
+				},
+				"required": ["body"],
+				"type": "object"
+			},
 			"SelectStockMediaInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -13843,6 +14856,30 @@
 					}
 				},
 				"required": ["workspace_id"],
+				"type": "object"
+			},
+			"SetDefaultVoiceProfileInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/SetDefaultVoiceProfileInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expected_revision": {
+						"description": "Revision loaded by the editor",
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "expected_revision"],
 				"type": "object"
 			},
 			"SetEngagementStateInputBody": {
@@ -14183,6 +15220,22 @@
 				"required": ["challenge_id", "manual_entry_key", "otpauth_url", "qr_code_data_url"],
 				"type": "object"
 			},
+			"SkippedDestination": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"reason": {
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "platform", "reason"],
+				"type": "object"
+			},
 			"SocialSetAccountInput": {
 				"additionalProperties": false,
 				"properties": {
@@ -14268,6 +15321,50 @@
 					"created_at",
 					"updated_at"
 				],
+				"type": "object"
+			},
+			"SourceCitation": {
+				"additionalProperties": false,
+				"properties": {
+					"primary": {
+						"type": "boolean"
+					},
+					"published_at": {
+						"type": "string"
+					},
+					"publisher": {
+						"type": "string"
+					},
+					"supports": {
+						"type": "string"
+					},
+					"title": {
+						"type": "string"
+					},
+					"url": {
+						"type": "string"
+					}
+				},
+				"required": ["title", "url", "publisher", "published_at", "supports", "primary"],
+				"type": "object"
+			},
+			"SourceMaterial": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"label": {
+						"type": "string"
+					},
+					"text": {
+						"type": "string"
+					}
+				},
+				"required": ["id", "kind", "label"],
 				"type": "object"
 			},
 			"StartCLIAuthInputBody": {
@@ -15249,6 +16346,40 @@
 				],
 				"type": "object"
 			},
+			"UpdateVoiceProfileInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/UpdateVoiceProfileInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"definition": {
+						"$ref": "#/components/schemas/Definition",
+						"description": "Replacement identity facts and representative writing"
+					},
+					"expected_revision": {
+						"description": "Revision loaded by the editor",
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"name": {
+						"description": "Reusable Voice Profile name",
+						"maxLength": 80,
+						"minLength": 1,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace ID",
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id", "expected_revision", "name", "definition"],
+				"type": "object"
+			},
 			"UpdateWorkspaceMemberInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -15751,6 +16882,128 @@
 					}
 				},
 				"required": ["width", "height", "pixel_ratio"],
+				"type": "object"
+			},
+			"VoiceDefinition": {
+				"additionalProperties": false,
+				"properties": {
+					"avoidances": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"examples": {
+						"items": {
+							"$ref": "#/components/schemas/VoiceExample"
+						},
+						"type": ["array", "null"]
+					},
+					"guidance": {
+						"type": "string"
+					},
+					"identity": {
+						"type": "string"
+					},
+					"language": {
+						"type": "string"
+					}
+				},
+				"type": "object"
+			},
+			"VoiceExample": {
+				"additionalProperties": false,
+				"properties": {
+					"body": {
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					}
+				},
+				"required": ["body"],
+				"type": "object"
+			},
+			"VoiceProfile": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/VoiceProfile.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"assigned_account_ids": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
+					"created_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"definition": {
+						"$ref": "#/components/schemas/Definition"
+					},
+					"id": {
+						"type": "string"
+					},
+					"is_default": {
+						"type": "boolean"
+					},
+					"name": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"schema_version": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"updated_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"workspace_id": {
+						"type": "string"
+					}
+				},
+				"required": [
+					"id",
+					"workspace_id",
+					"name",
+					"is_default",
+					"revision",
+					"schema_version",
+					"definition",
+					"assigned_account_ids",
+					"created_at",
+					"updated_at"
+				],
+				"type": "object"
+			},
+			"VoiceSnapshot": {
+				"additionalProperties": false,
+				"properties": {
+					"definition": {
+						"$ref": "#/components/schemas/VoiceDefinition"
+					},
+					"id": {
+						"type": "string"
+					},
+					"name": {
+						"type": "string"
+					},
+					"revision": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["definition"],
 				"type": "object"
 			},
 			"WorkspaceAccessAuditResponse": {
@@ -33297,6 +34550,563 @@
 				"tags": ["Profiles"]
 			}
 		},
+		"/publication-builds": {
+			"post": {
+				"operationId": "create-publication-build",
+				"parameters": [
+					{
+						"description": "Stable key for one logical build request",
+						"in": "header",
+						"name": "Idempotency-Key",
+						"required": true,
+						"schema": {
+							"description": "Stable key for one logical build request",
+							"maxLength": 160,
+							"minLength": 8,
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreatePublicationBuildBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Build"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Build destination-native posts",
+				"tags": ["Publication Builds"]
+			}
+		},
+		"/publication-builds/{id}": {
+			"get": {
+				"operationId": "get-publication-build",
+				"parameters": [
+					{
+						"description": "Publication build ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Publication build ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Build"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Get a publication build",
+				"tags": ["Publication Builds"]
+			}
+		},
+		"/publication-builds/{id}/cancel": {
+			"post": {
+				"operationId": "cancel-publication-build",
+				"parameters": [
+					{
+						"description": "Publication build ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Publication build ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Build"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Cancel a publication build",
+				"tags": ["Publication Builds"]
+			}
+		},
+		"/publication-builds/{id}/commit": {
+			"post": {
+				"operationId": "commit-publication-build",
+				"parameters": [
+					{
+						"description": "Publication build ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Publication build ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CommitPublicationBuildOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Send a ready build to the composer",
+				"tags": ["Publication Builds"]
+			}
+		},
+		"/publication-builds/{id}/retry": {
+			"post": {
+				"operationId": "retry-publication-build",
+				"parameters": [
+					{
+						"description": "Publication build ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Publication build ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Build"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Retry a failed publication build",
+				"tags": ["Publication Builds"]
+			}
+		},
+		"/publication-opportunities/discover": {
+			"post": {
+				"description": "Returns cited research cards with selectable angles and platform treatments. It never drafts or publishes a post.",
+				"operationId": "discover-publication-opportunities",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/DiscoverPublicationOpportunitiesInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DiscoveryResult"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"401": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unauthorized"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					},
+					"504": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Gateway Timeout"
+					}
+				},
+				"summary": "Discover current content opportunities",
+				"tags": ["Publication Discovery"]
+			}
+		},
 		"/publications": {
 			"get": {
 				"operationId": "list-publications",
@@ -35783,6 +37593,838 @@
 				},
 				"summary": "Running version",
 				"tags": ["System"]
+			}
+		},
+		"/voice-profile-assignments/{account_id}": {
+			"put": {
+				"description": "An empty profile ID restores Workspace inheritance.",
+				"operationId": "assign-account-voice-profile",
+				"parameters": [
+					{
+						"description": "Connected social account ID",
+						"in": "path",
+						"name": "account_id",
+						"required": true,
+						"schema": {
+							"description": "Connected social account ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/AssignVoiceProfileInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/EffectiveProfile"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Set an account Voice Profile override",
+				"tags": ["Voice Profiles"]
+			}
+		},
+		"/voice-profiles": {
+			"get": {
+				"operationId": "list-voice-profiles",
+				"parameters": [
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/VoiceProfile"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "List Voice Profiles",
+				"tags": ["Voice Profiles"]
+			},
+			"post": {
+				"operationId": "create-voice-profile",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateVoiceProfileInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VoiceProfile"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Create a Voice Profile",
+				"tags": ["Voice Profiles"]
+			}
+		},
+		"/voice-profiles/effective": {
+			"post": {
+				"description": "Resolves Publication override, account override, then Workspace default in that order.",
+				"operationId": "resolve-effective-voice-profiles",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ResolveEffectiveVoiceProfilesInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"items": {
+										"$ref": "#/components/schemas/EffectiveProfile"
+									},
+									"type": ["array", "null"]
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Resolve effective Voice Profiles",
+				"tags": ["Voice Profiles"]
+			}
+		},
+		"/voice-profiles/{id}": {
+			"delete": {
+				"description": "The Workspace default cannot be deleted. Assigned accounts return to Workspace inheritance.",
+				"operationId": "delete-voice-profile",
+				"parameters": [
+					{
+						"description": "Voice Profile ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Voice Profile ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Revision loaded by the editor",
+						"explode": false,
+						"in": "query",
+						"name": "expected_revision",
+						"schema": {
+							"description": "Revision loaded by the editor",
+							"format": "int64",
+							"minimum": 1,
+							"type": "integer"
+						}
+					},
+					{
+						"description": "Explicit deletion confirmation",
+						"explode": false,
+						"in": "query",
+						"name": "confirm",
+						"schema": {
+							"description": "Explicit deletion confirmation",
+							"type": "boolean"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeleteVoiceProfileOutputBody"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Delete a Voice Profile",
+				"tags": ["Voice Profiles"]
+			},
+			"get": {
+				"operationId": "get-voice-profile",
+				"parameters": [
+					{
+						"description": "Voice Profile ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Voice Profile ID",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Workspace ID",
+						"explode": false,
+						"in": "query",
+						"name": "workspace_id",
+						"required": true,
+						"schema": {
+							"description": "Workspace ID",
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VoiceProfile"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Get a Voice Profile",
+				"tags": ["Voice Profiles"]
+			},
+			"put": {
+				"operationId": "update-voice-profile",
+				"parameters": [
+					{
+						"description": "Voice Profile ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Voice Profile ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateVoiceProfileInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VoiceProfile"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Replace a Voice Profile",
+				"tags": ["Voice Profiles"]
+			}
+		},
+		"/voice-profiles/{id}/default": {
+			"post": {
+				"operationId": "set-default-voice-profile",
+				"parameters": [
+					{
+						"description": "Voice Profile ID",
+						"in": "path",
+						"name": "id",
+						"required": true,
+						"schema": {
+							"description": "Voice Profile ID",
+							"type": "string"
+						}
+					}
+				],
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SetDefaultVoiceProfileInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/VoiceProfile"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"404": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Not Found"
+					},
+					"409": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Conflict"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Set the Workspace default Voice Profile",
+				"tags": ["Voice Profiles"]
 			}
 		},
 		"/workspace-invitations/accept": {

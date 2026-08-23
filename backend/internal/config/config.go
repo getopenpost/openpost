@@ -45,6 +45,8 @@ type Config struct {
 	PrivacyVersion           string
 	SupportEmail             string
 	OpenRouterAPIKey         string
+	ContentBuilderModel      string
+	ContentDiscoveryModel    string
 	ImageCaptionModel        string
 	ImageCaptionProvider     string
 	ImageCaptionRequireZDR   bool
@@ -213,6 +215,8 @@ func Load() *Config {
 		PrivacyVersion:          getEnvDefault("OPENPOST_PRIVACY_VERSION", defaultPrivacyVersion),
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
 		OpenRouterAPIKey:        strings.TrimSpace(getEnvDefault("OPENROUTER_API_KEY", "")),
+		ContentBuilderModel:     strings.TrimSpace(getEnvDefault("OPENPOST_CONTENT_BUILDER_MODEL", "openai/gpt-5.6-luna")),
+		ContentDiscoveryModel:   strings.TrimSpace(getEnvDefault("OPENPOST_CONTENT_DISCOVERY_MODEL", "openai/gpt-5.6-luna")),
 		ImageCaptionModel:       strings.TrimSpace(getEnvDefault("OPENPOST_IMAGE_CAPTION_MODEL", "openai/gpt-5.6-luna")),
 		ImageCaptionProvider:    strings.TrimSpace(getEnvDefault("OPENPOST_IMAGE_CAPTION_PROVIDER", "")),
 		ImageCaptionRequireZDR:  getEnvBoolWithAliases(false, "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR"),

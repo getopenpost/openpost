@@ -45,6 +45,8 @@ var configTestEnvKeys = []string{
 	"OPENPOST_PRIVACY_VERSION",
 	"OPENPOST_SUPPORT_EMAIL",
 	"OPENROUTER_API_KEY",
+	"OPENPOST_CONTENT_BUILDER_MODEL",
+	"OPENPOST_CONTENT_DISCOVERY_MODEL",
 	"OPENPOST_IMAGE_CAPTION_MODEL",
 	"OPENPOST_IMAGE_CAPTION_PROVIDER",
 	"OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR",
@@ -177,6 +179,8 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Empty(t, cfg.PaddleClientToken)
 	require.Empty(t, cfg.PaddleWebhookSecret)
 	require.Empty(t, cfg.OpenRouterAPIKey)
+	require.Equal(t, "openai/gpt-5.6-luna", cfg.ContentBuilderModel)
+	require.Equal(t, "openai/gpt-5.6-luna", cfg.ContentDiscoveryModel)
 	require.Equal(t, "openai/gpt-5.6-luna", cfg.ImageCaptionModel)
 	require.Empty(t, cfg.ImageCaptionProvider)
 	require.False(t, cfg.ImageCaptionRequireZDR)
@@ -194,6 +198,16 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Equal(t, int64(200_000), cfg.XPostCreateWithURLCostMicrousd)
 	require.Equal(t, 180, cfg.ProviderUsageRetentionDays)
 	require.Equal(t, "https://openpost.example.com/media", cfg.MediaURL)
+}
+
+func TestLoadContentAIConfiguration(t *testing.T) {
+	t.Setenv("OPENPOST_CONTENT_BUILDER_MODEL", " openai/gpt-5.6-sol ")
+	t.Setenv("OPENPOST_CONTENT_DISCOVERY_MODEL", " openai/gpt-5.6-luna-online ")
+
+	cfg := Load()
+
+	require.Equal(t, "openai/gpt-5.6-sol", cfg.ContentBuilderModel)
+	require.Equal(t, "openai/gpt-5.6-luna-online", cfg.ContentDiscoveryModel)
 }
 
 func TestLoadImageCaptionConfigurationSupportsFileBackedSecret(t *testing.T) {

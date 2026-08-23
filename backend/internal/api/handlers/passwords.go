@@ -50,6 +50,8 @@ type AuthConfigurationOutput struct {
 		PasswordResetEnabled      bool   `json:"password_reset_enabled"`
 		EmailVerificationRequired bool   `json:"email_verification_required"`
 		PublicProfilesEnabled     bool   `json:"public_profiles_enabled"`
+		ContentBuilderEnabled     bool   `json:"content_builder_enabled"`
+		ContentDiscoveryEnabled   bool   `json:"content_discovery_enabled"`
 		LegalAcceptanceRequired   bool   `json:"legal_acceptance_required"`
 		PurchaseChoiceRequired    bool   `json:"purchase_choice_required"`
 		TermsURL                  string `json:"terms_url,omitempty"`
@@ -120,6 +122,8 @@ func (h *AuthHandler) Configuration(api huma.API) {
 		out.Body.PasswordResetEnabled = h.passwordResetSender != nil
 		out.Body.EmailVerificationRequired = h.emailVerificationRequired
 		out.Body.PublicProfilesEnabled = h.publicProfilesEnabled
+		out.Body.ContentBuilderEnabled = h.contentBuilderEnabled
+		out.Body.ContentDiscoveryEnabled = h.contentDiscoveryEnabled
 		out.Body.LegalAcceptanceRequired = h.accountPolicy.Required
 		out.Body.PurchaseChoiceRequired = h.purchaseChoiceRequired
 		out.Body.TermsURL = h.accountPolicy.TermsURL

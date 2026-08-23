@@ -106,6 +106,8 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 | `OPENPOST_UNSPLASH_ACCESS_KEY` | No | empty | Server-only Unsplash access key for photo search and required selection tracking. |
 | `OPENPOST_PIXABAY_API_KEY` | No | empty | Server-only Pixabay API key for image and video search. |
 | `OPENROUTER_API_KEY` | No | empty | Server-only OpenRouter key that enables the Publication Builder, Discover, AI meme suggestions, and automatic image alt text. Supports `OPENROUTER_API_KEY_FILE`. |
+| `OPENPOST_CONTENT_AI_PROVIDER` | No | image-caption provider | Exact OpenRouter provider slug allowed for the Publication Builder, Discover, and AI meme suggestions. The managed service requires `azure/eu`. |
+| `OPENPOST_CONTENT_AI_REQUIRE_ZDR` | No | image-caption ZDR policy | Require OpenRouter to use zero-data-retention endpoints for AI content features. The managed service requires `true`. |
 | `OPENPOST_CONTENT_BUILDER_MODEL` | No | `openai/gpt-5.6-luna` | OpenRouter model used to direct, draft, and review destination-native publication packages. Set an empty value to disable the Builder while keeping other AI features available. |
 | `OPENPOST_CONTENT_DISCOVERY_MODEL` | No | `openai/gpt-5.6-luna` | OpenRouter model used with bounded web search to return current, cited content opportunities. Set an empty value to disable Discover. |
 | `OPENPOST_IMAGE_CAPTION_MODEL` | No | `openai/gpt-5.6-luna` | OpenRouter model ID used for automatic image alt text. |

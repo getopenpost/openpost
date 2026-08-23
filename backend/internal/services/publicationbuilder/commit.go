@@ -187,6 +187,7 @@ func publicationCreateCommand(
 		"builder": map[string]any{
 			"build_id":         buildID,
 			"voice_profile_id": request.VoiceProfileID,
+			"voices":           publicationVoiceSummaries(request.Input.Destinations),
 			"route":            result.Direction.Route,
 			"thesis":           result.Direction.Thesis,
 			"angle":            result.Direction.Angle,
@@ -217,6 +218,19 @@ func publicationCreateCommand(
 		command.SourceURL = request.ContextURLs[0]
 	}
 	return command
+}
+
+func publicationVoiceSummaries(destinations []Destination) []map[string]any {
+	voices := make([]map[string]any, 0, len(destinations))
+	for _, destination := range destinations {
+		voices = append(voices, map[string]any{
+			"account_id": destination.AccountID,
+			"id":         destination.Voice.ID,
+			"name":       destination.Voice.Name,
+			"revision":   destination.Voice.Revision,
+		})
+	}
+	return voices
 }
 
 func publishableBuildMedia(assets []BuildAsset) []publicationservice.PublicationMediaInput {

@@ -464,6 +464,8 @@ func main() {
 			HTTPReferer: cfg.PublicURL,
 			XTitle:      "OpenPost",
 			Timeout:     90 * time.Second,
+			Provider:    cfg.ContentAIProvider,
+			RequireZDR:  cfg.ContentAIRequireZDR,
 		})
 		if err != nil {
 			log.Fatalf("failed to initialize OpenRouter content generator: %v", err)

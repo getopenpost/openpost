@@ -24,6 +24,20 @@ func (fn packageBuilderFunc) Build(ctx context.Context, input BuildInput) (Build
 	return fn(ctx, input)
 }
 
+type progressPackageBuilderFunc func(context.Context, BuildInput, func(string) error) (BuildResult, error)
+
+func (fn progressPackageBuilderFunc) Build(context.Context, BuildInput) (BuildResult, error) {
+	return BuildResult{}, errors.New("progress-aware builder fallback must not run")
+}
+
+func (fn progressPackageBuilderFunc) BuildWithProgress(
+	ctx context.Context,
+	input BuildInput,
+	report func(string) error,
+) (BuildResult, error) {
+	return fn(ctx, input, report)
+}
+
 type assetLoaderFunc func(context.Context, string, []BuildAsset) (LoadedAssets, error)
 
 func (fn assetLoaderFunc) Load(ctx context.Context, workspaceID string, assets []BuildAsset) (LoadedAssets, error) {
@@ -159,6 +173,54 @@ func TestApplicationEnqueueIsIdempotentAndBuildsDurably(t *testing.T) {
 	require.Equal(t, 1, publications.createCalls, "a committed build must not create another Publication")
 }
 
+func TestApplicationStopsAtTheNextPhaseAfterCancellation(t *testing.T) {
+	db := newBuilderApplicationTestDB(t)
+	now := time.Date(2026, 8, 23, 13, 0, 0, 0, time.UTC)
+	buildID := ""
+	application, err := NewApplication(db, progressPackageBuilderFunc(func(
+		ctx context.Context,
+		_ BuildInput,
+		report func(string) error,
+	) (BuildResult, error) {
+		require.NoError(t, report(BuildPhaseDrafting))
+		_, updateErr := db.NewUpdate().Model((*BuildRecord)(nil)).
+			Set("state = ?", BuildStateCancelled).
+			Set("phase = ?", BuildPhaseCancelled).
+			Where("id = ?", buildID).
+			Exec(ctx)
+		require.NoError(t, updateErr)
+		err := report(BuildPhaseReviewing)
+		require.ErrorIs(t, err, errBuildStopped)
+		return BuildResult{}, err
+	}), ApplicationConfig{
+		Model: "test-model", Now: func() time.Time { return now },
+		AuthorizeStored: func(context.Context, workspaceaccess.StoredAuthority) error { return nil },
+	})
+	require.NoError(t, err)
+
+	build, _, err := application.Enqueue(t.Context(), CreateBuildRequest{
+		WorkspaceID: "workspace-1", CreatedByID: "user-1", IdempotencyKey: "cancel-progress",
+		Authority: workspaceaccess.StoredAuthority{UserID: "user-1", WorkspaceID: "workspace-1", AssuredAt: now},
+		Input: BuildInput{
+			Idea: "A real source idea.",
+			Destinations: []Destination{{
+				AccountID: "x-1", Platform: "x",
+				AllowedOutputProfiles: []OutputProfile{{Key: "x.short_text", TextLimit: 280, MaxSegments: 1}},
+			}},
+		},
+	})
+	require.NoError(t, err)
+	buildID = build.ID
+	payload, err := EncodeBuildJobPayload(build.ID)
+	require.NoError(t, err)
+	require.NoError(t, application.HandleJob(t.Context(), jobregistry.TypePublicationBuild, payload))
+
+	cancelled, err := application.Get(t.Context(), "user-1", build.ID)
+	require.NoError(t, err)
+	require.Equal(t, BuildStateCancelled, cancelled.State)
+	require.Equal(t, BuildPhaseCancelled, cancelled.Phase)
+}
+
 func TestPublicationCreateCommandKeepsOneCanonicalSourceAndNativeThreads(t *testing.T) {
 	t.Parallel()
 
@@ -167,6 +229,10 @@ func TestPublicationCreateCommandKeepsOneCanonicalSourceAndNativeThreads(t *test
 		"workspace-1",
 		persistedBuildRequest{
 			SocialSetID: "founder-accounts", VoiceProfileID: "rodrigo",
+			Input: BuildInput{Destinations: []Destination{
+				{AccountID: "x-1", Voice: VoiceSnapshot{ID: "rodrigo", Name: "Rodrigo", Revision: 3}},
+				{AccountID: "linkedin-1", Voice: VoiceSnapshot{ID: "rodrigo", Name: "Rodrigo", Revision: 3}},
+			}},
 			Assets: []BuildAsset{
 				{MediaID: "proof", Role: "evidence", MayPublish: true},
 				{MediaID: "private-note", Role: "context", MayPublish: false},
@@ -207,6 +273,11 @@ func TestPublicationCreateCommandKeepsOneCanonicalSourceAndNativeThreads(t *test
 	require.True(t, *command.Renditions[0].Segments[0].MediaInherited)
 	require.False(t, *command.Renditions[0].Segments[1].MediaInherited)
 	require.False(t, *command.Renditions[1].Segments[0].MediaInherited)
+	builderMetadata := command.Metadata["builder"].(map[string]any)
+	require.Equal(t, []map[string]any{
+		{"account_id": "x-1", "id": "rodrigo", "name": "Rodrigo", "revision": 3},
+		{"account_id": "linkedin-1", "id": "rodrigo", "name": "Rodrigo", "revision": 3},
+	}, builderMetadata["voices"])
 }
 
 func newBuilderApplicationTestDB(t *testing.T) *bun.DB {

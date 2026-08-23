@@ -20,7 +20,7 @@ var platformPolicies = map[string]platformPolicy{
 		Platform:   "x",
 		Objectives: []string{"shares", "conversation", "follows", "clicks"},
 		Archetypes: []string{"artifact_joke", "product_demo", "technical_opinion", "analogy", "taxonomy", "explainer"},
-		Guidance:   "Remove dead setup. Prefer exact artifacts, interfaces, commands, results, and demos. Keep current references at zero unless the source supplies them. Do not polish away natural rhythm or force a joke. A thread must earn every extra segment.",
+		Guidance:   "Remove dead setup. Prefer exact artifacts, interfaces, commands, results, and demos. Make the subject and useful point clear enough to stand alone before any link. Keep current references at zero unless the source supplies them. Do not hide a needed link in an automatic reply, imitate fixed ranking weights, or turn an algorithm window into a posting rule. Do not polish away natural rhythm or force a joke. A thread must earn every extra segment.",
 	},
 	"mastodon": {
 		Platform:   "mastodon",

@@ -45,6 +45,8 @@ type Config struct {
 	PrivacyVersion           string
 	SupportEmail             string
 	OpenRouterAPIKey         string
+	ContentAIProvider        string
+	ContentAIRequireZDR      bool
 	ContentBuilderModel      string
 	ContentDiscoveryModel    string
 	ImageCaptionModel        string
@@ -215,6 +217,8 @@ func Load() *Config {
 		PrivacyVersion:          getEnvDefault("OPENPOST_PRIVACY_VERSION", defaultPrivacyVersion),
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
 		OpenRouterAPIKey:        strings.TrimSpace(getEnvDefault("OPENROUTER_API_KEY", "")),
+		ContentAIProvider:       strings.TrimSpace(getEnvWithFallbacks("OPENPOST_CONTENT_AI_PROVIDER", "", "OPENPOST_IMAGE_CAPTION_PROVIDER")),
+		ContentAIRequireZDR:     getEnvBoolWithAliases(false, "OPENPOST_CONTENT_AI_REQUIRE_ZDR", "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR"),
 		ContentBuilderModel:     strings.TrimSpace(getEnvDefault("OPENPOST_CONTENT_BUILDER_MODEL", "openai/gpt-5.6-luna")),
 		ContentDiscoveryModel:   strings.TrimSpace(getEnvDefault("OPENPOST_CONTENT_DISCOVERY_MODEL", "openai/gpt-5.6-luna")),
 		ImageCaptionModel:       strings.TrimSpace(getEnvDefault("OPENPOST_IMAGE_CAPTION_MODEL", "openai/gpt-5.6-luna")),
@@ -551,6 +555,7 @@ func (c *Config) ValidateRuntime() error {
 	missing := append(c.missingCloudDataPlaneConfig(), c.missingCloudBillingConfig()...)
 	missing = append(missing, c.missingCloudAccountConfig()...)
 	missing = append(missing, c.invalidCloudImageCaptionConfig()...)
+	missing = append(missing, c.invalidCloudContentAIConfig()...)
 	missing = append(missing, c.invalidCloudCORSConfig()...)
 	missing = append(missing, c.missingCloudTelemetryConfig()...)
 	if c.XMonthlyBudgetMicrousd < 0 {
@@ -600,6 +605,20 @@ func (c *Config) invalidCloudImageCaptionConfig() []string {
 	}
 	if !c.ImageCaptionRequireZDR {
 		invalid = append(invalid, "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR=true")
+	}
+	return invalid
+}
+
+func (c *Config) invalidCloudContentAIConfig() []string {
+	if strings.TrimSpace(c.OpenRouterAPIKey) == "" {
+		return nil
+	}
+	var invalid []string
+	if c.ContentAIProvider != "azure/eu" {
+		invalid = append(invalid, "OPENPOST_CONTENT_AI_PROVIDER=azure/eu")
+	}
+	if !c.ContentAIRequireZDR {
+		invalid = append(invalid, "OPENPOST_CONTENT_AI_REQUIRE_ZDR=true")
 	}
 	return invalid
 }

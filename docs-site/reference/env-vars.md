@@ -16,6 +16,8 @@ This page lists the most common core and provider variables. Use [Environment Va
 | Variable                             | Default               | Purpose                                                                                                                                         |
 | ------------------------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `OPENROUTER_API_KEY`                 | empty                 | Server-only OpenRouter key that enables the Publication Builder, Discover, AI meme suggestions, and automatic image alt text; supports `_FILE`. |
+| `OPENPOST_CONTENT_AI_PROVIDER`       | image-caption policy  | Optional exact OpenRouter provider slug for Builder, Discover, and AI meme suggestions.                                                         |
+| `OPENPOST_CONTENT_AI_REQUIRE_ZDR`    | image-caption policy  | Require a zero-data-retention endpoint for Builder, Discover, and AI meme suggestions.                                                          |
 | `OPENPOST_CONTENT_BUILDER_MODEL`     | `openai/gpt-5.6-luna` | Model used to direct, draft, and review destination-native publication packages.                                                                |
 | `OPENPOST_CONTENT_DISCOVERY_MODEL`   | `openai/gpt-5.6-luna` | Model used with bounded web search to return cited content opportunities.                                                                       |
 | `OPENPOST_IMAGE_CAPTION_MODEL`       | `openai/gpt-5.6-luna` | Model used with a 400px JPEG thumbnail and up to 1,000 characters of relevant post or thread segment text.                                      |
@@ -87,6 +89,8 @@ Most variables loaded through the main backend config loader can also be loaded 
 | `OPENPOST_UPDATE_CHECK_ENABLED`                 | Enable read-only stable release checks for self-hosted instance admins                            |
 | `OPENPOST_CONNECTORS_FILE`                      | Absolute path to the self-hosted custom connector registry                                        |
 | `OPENROUTER_API_KEY`                            | Enable server-side AI content and automatic image alt text; supports `_FILE`                      |
+| `OPENPOST_CONTENT_AI_PROVIDER`                  | Exact OpenRouter provider slug for AI content features                                            |
+| `OPENPOST_CONTENT_AI_REQUIRE_ZDR`               | Require zero-data-retention endpoints for AI content features                                     |
 | `OPENPOST_CONTENT_BUILDER_MODEL`                | OpenRouter model ID for source-first, destination-native publication building                     |
 | `OPENPOST_CONTENT_DISCOVERY_MODEL`              | OpenRouter model ID for cited content opportunity discovery                                       |
 | `OPENPOST_IMAGE_CAPTION_MODEL`                  | OpenRouter model ID for automatic image alt text                                                  |

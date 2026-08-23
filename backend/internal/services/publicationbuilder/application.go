@@ -46,6 +46,7 @@ var (
 	ErrBuildNotFound       = errors.New("publication build not found")
 	ErrIdempotencyConflict = errors.New("idempotency key was already used for a different build request")
 	ErrBuildNotRetryable   = errors.New("publication build is not retryable")
+	errBuildStopped        = errors.New("publication build stopped")
 )
 
 type PackageBuilder interface {
@@ -362,6 +363,9 @@ func (application *Application) HandleJob(ctx context.Context, jobType, payload 
 		return application.fail(ctx, &record, "invalid_source", "The selected source material is not usable.", err)
 	}
 	if err := application.setPhase(ctx, record.ID, BuildPhaseDirecting); err != nil {
+		if errors.Is(err, errBuildStopped) {
+			return nil
+		}
 		return err
 	}
 	var result BuildResult
@@ -373,6 +377,9 @@ func (application *Application) HandleJob(ctx context.Context, jobType, payload 
 		result, err = application.builder.Build(ctx, input)
 	}
 	if err != nil {
+		if errors.Is(err, errBuildStopped) {
+			return nil
+		}
 		return application.fail(ctx, &record, "generation_failed", "OpenPost could not build this post. You can retry it.", err)
 	}
 	resultJSON, err := json.Marshal(result)
@@ -463,11 +470,24 @@ func (application *Application) claim(ctx context.Context, buildID string) (bool
 }
 
 func (application *Application) setPhase(ctx context.Context, buildID, phase string) error {
-	_, err := application.db.NewUpdate().Model((*BuildRecord)(nil)).
+	if phase != BuildPhaseDirecting && phase != BuildPhaseDrafting && phase != BuildPhaseReviewing {
+		return fmt.Errorf("unsupported publication build phase %q", phase)
+	}
+	result, err := application.db.NewUpdate().Model((*BuildRecord)(nil)).
 		Set("phase = ?", phase).Set("updated_at = ?", application.now().UTC()).
 		Where("id = ? AND state = ?", buildID, BuildStateBuilding).
 		Exec(ctx)
-	return err
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errBuildStopped
+	}
+	return nil
 }
 
 func (application *Application) resolveSources(ctx context.Context, workspaceID string, request persistedBuildRequest, input *BuildInput) error {

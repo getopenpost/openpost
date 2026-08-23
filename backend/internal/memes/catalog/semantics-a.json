@@ -1,0 +1,1137 @@
+[
+  {
+    "id": "3hd",
+    "visual": "Three-headed dragon with each head snarling toward a horizontal caption band centered over its neck, three bands span left to right.",
+    "meaning": "Ranks three options by preference using dragon heads; fierce heads signal liked choices while the weakest head carries the disliked or joke option.",
+    "mechanism": "ranked_preference",
+    "caption_roles": [
+      "favored option for the dominant left head",
+      "middle-tier option for the central head",
+      "least favored or rejected option for the right head"
+    ],
+    "tags": [
+      "dragon",
+      "ranking",
+      "preference",
+      "tier-list"
+    ]
+  },
+  {
+    "id": "aag",
+    "visual": "Giorgio Tsoukalos with wild hair gesturing, wide caption bars above and below the portrait frame.",
+    "meaning": "Presents an absurd explanation and attributes it to aliens, mocking pseudo-history logic where any mystery is solved by extraterrestrials.",
+    "mechanism": "absurd_explanation",
+    "caption_roles": [
+      "mundane setup or observation placed above the figure",
+      "aliens punchline placed below the figure"
+    ],
+    "tags": [
+      "aliens",
+      "conspiracy",
+      "ancient-aliens",
+      "reaction"
+    ]
+  },
+  {
+    "id": "ackbar",
+    "visual": "Admiral Ackbar shouting close-up from Star Wars, captions frame the portrait above and below.",
+    "meaning": "Warns that a seemingly good situation is a trap, using Ackbar's famous line to flag bait, scams, or hidden downsides.",
+    "mechanism": "trap_warning",
+    "caption_roles": [
+      "decoy scenario that looks appealing",
+      "reveal that it is a trap"
+    ],
+    "tags": [
+      "star-wars",
+      "warning",
+      "trap",
+      "reaction"
+    ]
+  },
+  {
+    "id": "afraid",
+    "visual": "Andy from Toy Story with awkward strained smile, captions sit above and below the face.",
+    "meaning": "Confesses ignorance about something popular but feeling too embarrassed to ask now, playing on social anxiety about being out of the loop.",
+    "mechanism": "social_anxiety",
+    "caption_roles": [
+      "thing the speaker pretends to understand",
+      "admission of being too afraid to ask for clarification"
+    ],
+    "tags": [
+      "awkward",
+      "anxiety",
+      "confession",
+      "relatable"
+    ]
+  },
+  {
+    "id": "agnes",
+    "visual": "Agnes Harkness winking slyly from WandaVision, two caption bands frame the portrait.",
+    "meaning": "Pairs an innocent statement with a knowing wink that implies mischief, conspiracy, or guilty knowledge behind the words.",
+    "mechanism": "knowing_wink",
+    "caption_roles": [
+      "innocent claim or posture above Agnes",
+      "winking subtext that undercuts the claim below"
+    ],
+    "tags": [
+      "wanda-vision",
+      "sly",
+      "conspiracy",
+      "wink"
+    ]
+  },
+  {
+    "id": "aint-got-time",
+    "visual": "Sweet Brown interview close-up wearing headscarf, bold captions above and below her face.",
+    "meaning": "Dismisses something trivial with the catchphrase that nobody has time for it, elevating exasperation into a punchline.",
+    "mechanism": "dismissive_catchphrase",
+    "caption_roles": [
+      "subject being dismissed placed above",
+      "ain't nobody got time payoff placed below"
+    ],
+    "tags": [
+      "sweet-brown",
+      "dismissal",
+      "catchphrase",
+      "reaction"
+    ]
+  },
+  {
+    "id": "ams",
+    "visual": "Harbor seal with wide eyes centered, captions occupy bands above and below the animal.",
+    "meaning": "Sets up a mundane situation then delivers an awkward social cringe that makes everyone uncomfortable.",
+    "mechanism": "awkward_moment",
+    "caption_roles": [
+      "setup describing the normal situation",
+      "awkward interruption that ruins the moment"
+    ],
+    "tags": [
+      "awkward",
+      "seal",
+      "cringe",
+      "relatable"
+    ]
+  },
+  {
+    "id": "ants",
+    "visual": "Archer saying line with intense expression, captions frame the upper and lower edges.",
+    "meaning": "Warns that a careless action will inevitably cause an unwanted pest-like consequence, phrasing consequence as ants.",
+    "mechanism": "cause_and_consequence",
+    "caption_roles": [
+      "provocative question about wanting the outcome",
+      "deadpan cause that guarantees ants"
+    ],
+    "tags": [
+      "archer",
+      "warning",
+      "consequence",
+      "ants"
+    ]
+  },
+  {
+    "id": "apcr",
+    "visual": "Redneck man with cap flagged in front of American flag, captions above and below.",
+    "meaning": "Juxtaposes a progressive admission with a lingering stereotype punchline to show incomplete enlightenment played for irony.",
+    "mechanism": "contradictory_confession",
+    "caption_roles": [
+      "progressive or tolerant statement above",
+      "stereotypical undercut that follows below"
+    ],
+    "tags": [
+      "redneck",
+      "irony",
+      "confession",
+      "politics"
+    ]
+  },
+  {
+    "id": "astronaut",
+    "visual": "Two astronauts viewing Earth, one with gun behind the other, four caption zones float over the figures and planet.",
+    "meaning": "One astronaut learns a naive truth and is immediately silenced by the other who reveals it was always that way, darkly comic conspiracy twist.",
+    "mechanism": "conspiracy_reveal",
+    "caption_roles": [
+      "naive realization spoken by the front astronaut",
+      "always has been affirmation from the gunman",
+      "label for the front astronaut figure",
+      "label for Earth below"
+    ],
+    "tags": [
+      "astronaut",
+      "conspiracy",
+      "always-has-been",
+      "reveal"
+    ]
+  },
+  {
+    "id": "atis",
+    "visual": "Woman laughing and hand-gesturing outdoors, captions sit above and below the portrait.",
+    "meaning": "Sets up a story as if quoting and then I said, delivering a sassy or absurd follow-up line as the punchline.",
+    "mechanism": "setup_punchline",
+    "caption_roles": [
+      "and then I said opener or quote setup",
+      "sassy retort that follows"
+    ],
+    "tags": [
+      "sassy",
+      "story",
+      "punchline",
+      "reaction"
+    ]
+  },
+  {
+    "id": "away",
+    "visual": "Jeff Goldblum as Ian Malcolm seated in Jurassic Park, captions frame the portrait above and below.",
+    "meaning": "Quotes life finds a way to celebrate resilience or inevitability where something persists despite obstacles.",
+    "mechanism": "triumphant_quote",
+    "caption_roles": [
+      "life ellipsis opener above",
+      "finds a way payoff below"
+    ],
+    "tags": [
+      "jurassic-park",
+      "life-finds-a-way",
+      "optimism",
+      "quote"
+    ]
+  },
+  {
+    "id": "awesome",
+    "visual": "Penguin with suave walk against blue backdrop, captions above and below the bird.",
+    "meaning": "Celebrates a smooth social win where an awkward move unexpectedly becomes charming.",
+    "mechanism": "social_win",
+    "caption_roles": [
+      "slight misstep or setup above",
+      "unexpectedly cool outcome below"
+    ],
+    "tags": [
+      "penguin",
+      "awesome",
+      "social",
+      "win"
+    ]
+  },
+  {
+    "id": "awesome-awkward",
+    "visual": "Penguin split orange and blue showing cool then cringe posture, captions above and below.",
+    "meaning": "Starts with a confident win then immediately undercuts it with an awkward follow-up failure.",
+    "mechanism": "win_then_fail",
+    "caption_roles": [
+      "initial social win above",
+      "immediate awkward stumble below"
+    ],
+    "tags": [
+      "penguin",
+      "awkward",
+      "win-fail",
+      "cringe"
+    ]
+  },
+  {
+    "id": "awkward",
+    "visual": "Penguin looking sideways against blue, captions above and below the figure.",
+    "meaning": "Describes a relatable social stumble where good intentions collapse into embarrassment.",
+    "mechanism": "social_fail",
+    "caption_roles": [
+      "attempt at normal interaction above",
+      "cringeworthy failure below"
+    ],
+    "tags": [
+      "penguin",
+      "awkward",
+      "cringe",
+      "relatable"
+    ]
+  },
+  {
+    "id": "awkward-awesome",
+    "visual": "Penguin with blue left half and orange right half mid-stride, captions frame above and below.",
+    "meaning": "Opens with an embarrassing blunder that accidentally produces a heroic or admired result.",
+    "mechanism": "fail_then_win",
+    "caption_roles": [
+      "embarrassing blunder above",
+      "surprisingly positive consequence below"
+    ],
+    "tags": [
+      "penguin",
+      "awkward",
+      "redemption",
+      "win"
+    ]
+  },
+  {
+    "id": "bad",
+    "visual": "Dr. Zoidberg shouting from Futurama, captions above and below the character.",
+    "meaning": "Mock-shames the viewer for poor taste, using Zoidberg's judgmental line to jokingly declare something bad.",
+    "mechanism": "mock_shaming",
+    "caption_roles": [
+      "target being judged above",
+      "and you should feel bad verdict below"
+    ],
+    "tags": [
+      "futurama",
+      "shame",
+      "judgment",
+      "critique"
+    ]
+  },
+  {
+    "id": "badchoice",
+    "visual": "Ron Burgundy in bathrobe holding coffee looking regretful, captions above and below.",
+    "meaning": "Labels a choice as instantly regretted after the consequence hits, quoting Anchorman's milk was a bad choice.",
+    "mechanism": "instant_regret",
+    "caption_roles": [
+      "the indulged substance or decision above",
+      "was a bad choice confirmation below"
+    ],
+    "tags": [
+      "anchorman",
+      "regret",
+      "bad-choice",
+      "reaction"
+    ]
+  },
+  {
+    "id": "balloon",
+    "visual": "Child chasing red balloon that drifts away, three labels float over child, balloon, and distant figure.",
+    "meaning": "Shows desires or opportunities escaping as soon as they are pursued, the balloon representing elusive goals.",
+    "mechanism": "elusive_desire",
+    "caption_roles": [
+      "pursuer identity over the running child",
+      "desired object labeled on the balloon",
+      "distractor or holder pulling the balloon away"
+    ],
+    "tags": [
+      "balloon",
+      "opportunity",
+      "rejection",
+      "chase"
+    ]
+  },
+  {
+    "id": "bd",
+    "visual": "Overweight man with fedora smirking indoors, captions above and below his portrait.",
+    "meaning": "Mimics neckbeard self-justification where excuses mask insecurity, presented satirically.",
+    "mechanism": "self_justification",
+    "caption_roles": [
+      "self-deprecating excuse or struggle above",
+      "vainglorious rationalization below"
+    ],
+    "tags": [
+      "butthurt-dweller",
+      "excuse",
+      "satire",
+      "neckbeard"
+    ]
+  },
+  {
+    "id": "because",
+    "visual": "Will Smith as Agent J leaning forward explaining, captions above and below the vehicle interior.",
+    "meaning": "Uses a pointed just because statement to call out stereotyping or flawed assumptions with mock lecturing.",
+    "mechanism": "deadpan_lecture",
+    "caption_roles": [
+      "flawed assumption being quoted above",
+      "because rebuke that dismantles it below"
+    ],
+    "tags": [
+      "men-in-black",
+      "lecture",
+      "stereotype",
+      "rebuke"
+    ]
+  },
+  {
+    "id": "bender",
+    "visual": "Bender from Futurama smug with cigar, captions frame above and below the robot.",
+    "meaning": "Declares building a personal alternative that includes blackjack and hookers, riffing on going your own way in excess.",
+    "mechanism": "exaggerated_alternative",
+    "caption_roles": [
+      "i am building my own project declaration above",
+      "with blackjack and hookers extravagance below"
+    ],
+    "tags": [
+      "futurama",
+      "bender",
+      "alternative",
+      "parody"
+    ]
+  },
+  {
+    "id": "bihw",
+    "visual": "Farmer with hands on plow in field, captions above and below the landscape.",
+    "meaning": "Finds humble pride in a small imperfect reward, celebrating that modest results still count as honest work.",
+    "mechanism": "humble_brag",
+    "caption_roles": [
+      "self-deprecating note that it is not much above",
+      "but it is honest work affirmation below"
+    ],
+    "tags": [
+      "farmer",
+      "honest-work",
+      "humble",
+      "wholesome"
+    ]
+  },
+  {
+    "id": "bilbo",
+    "visual": "Bilbo holding the One Ring close, captions centered middle and near bottom over the dim interior.",
+    "meaning": "Captures tempted rationalization about keeping something precious despite knowing you should let it go.",
+    "mechanism": "tempted_rationalization",
+    "caption_roles": [
+      "hesitant justification for keeping it in the middle",
+      "why should I not keep it dare near the bottom"
+    ],
+    "tags": [
+      "lord-of-the-rings",
+      "bilbo",
+      "temptation",
+      "rationalization"
+    ]
+  },
+  {
+    "id": "biw",
+    "visual": "Baby in wolf hoodie with fierce pose, captions above and below the child.",
+    "meaning": "Pairs an ordinary act with an insanely extreme escalation, as if a baby were an unhinged wolf.",
+    "mechanism": "insane_escalation",
+    "caption_roles": [
+      "mundane action placed above the figure",
+      "wildly disproportionate intensifier below"
+    ],
+    "tags": [
+      "insanity-wolf",
+      "baby",
+      "escalation",
+      "edgy"
+    ]
+  },
+  {
+    "id": "blb",
+    "visual": "Yearbook photo of redhead boy with vest and awkward smile, captions above and below.",
+    "meaning": "Sets up a normal situation then delivers relentless bad luck that subverts the expectation.",
+    "mechanism": "bad_luck_twist",
+    "caption_roles": [
+      "ordinary setup above the portrait",
+      "unlucky outcome that follows below"
+    ],
+    "tags": [
+      "bad-luck",
+      "misfortune",
+      "yearbook",
+      "irony"
+    ]
+  },
+  {
+    "id": "boat",
+    "visual": "Wide-eyed cat at table with stark lighting, captions frame above and below the cat.",
+    "meaning": "Expresses a sudden, anxious escape fantasy where buying a boat solves overwhelming stress.",
+    "mechanism": "anxious_escapism",
+    "caption_roles": [
+      "stressful trigger or blank tension above",
+      "i should buy a boat escape thought below"
+    ],
+    "tags": [
+      "cat",
+      "anxiety",
+      "escapism",
+      "boat"
+    ]
+  },
+  {
+    "id": "bongo",
+    "visual": "White cat tapping table like bongos, two narrow caption boxes stacked on the left half.",
+    "meaning": "Contrasts trivial sounds that are ignored while sleeping with the annoying sound that forces waking, drummed for comic effect.",
+    "mechanism": "contrast_drumming",
+    "caption_roles": [
+      "quiet sound that fails to wake on the upper left",
+      "loud sound that does wake on the lower left"
+    ],
+    "tags": [
+      "bongo-cat",
+      "sleep",
+      "contrast",
+      "reaction"
+    ]
+  },
+  {
+    "id": "both",
+    "visual": "El Dorado character with arms out questioning, captions above and below the jungle scene.",
+    "meaning": "Resolves a forced either-or choice by cheekily demanding both options at once.",
+    "mechanism": "false_dilemma_resolution",
+    "caption_roles": [
+      "binary choice presented above the scene",
+      "why not both retort below"
+    ],
+    "tags": [
+      "el-dorado",
+      "choice",
+      "both",
+      "dilemma"
+    ]
+  },
+  {
+    "id": "box",
+    "visual": "Brad Pitt yelling beside a box in Se7en rain scene, captions above and below the frame.",
+    "meaning": "Dramatizes horrified curiosity about an unseen box content, used for dread or mystery reveals.",
+    "mechanism": "horrified_reveal",
+    "caption_roles": [
+      "context or blank tension above",
+      "what is in the box exclamation below"
+    ],
+    "tags": [
+      "se7en",
+      "horror",
+      "mystery",
+      "reaction"
+    ]
+  },
+  {
+    "id": "bs",
+    "visual": "Shark and presenter in shallow water mock-serious, captions above and below the ocean scene.",
+    "meaning": "Delivers a deadpan bullshark pun where the shark embodies a weak excuse, playing on bullshit.",
+    "mechanism": "pun_reveal",
+    "caption_roles": [
+      "feigned surprise setup above the water",
+      "you caught me again punchline below"
+    ],
+    "tags": [
+      "shark",
+      "pun",
+      "bullshit",
+      "joke"
+    ]
+  },
+  {
+    "id": "bus",
+    "visual": "Two men on a bus seated behind each other, labels float over the front and rear passengers.",
+    "meaning": "Compares two similar entities where placement on the bus implies hierarchy or preference, rear is coveted.",
+    "mechanism": "seated_comparison",
+    "caption_roles": [
+      "label for the man in the back seat",
+      "label for the man in the front seat"
+    ],
+    "tags": [
+      "bus",
+      "comparison",
+      "comparison-meme",
+      "label"
+    ]
+  },
+  {
+    "id": "buzz",
+    "visual": "Buzz Lightyear gesturing excitedly with clones behind, captions mark top band and lower band.",
+    "meaning": "Declares that a single example multiplies everywhere, cloning the subject into an omnipresent craze.",
+    "mechanism": "ubiquity_hyperbole",
+    "caption_roles": [
+      "singular subject named above the crowd",
+      "subject everywhere refrain below the crowd"
+    ],
+    "tags": [
+      "buzz-lightyear",
+      "everywhere",
+      "ubiquity",
+      "toy-story"
+    ]
+  },
+  {
+    "id": "cake",
+    "visual": "Milton from Office Space with stapler at office, captions above and below the character.",
+    "meaning": "Voices disappointed expectation where a promised small reward never arrives, echoing Milton's cake line.",
+    "mechanism": "disappointed_expectation",
+    "caption_roles": [
+      "silent expectation or blank setup above",
+      "i was told there would be cake lament below"
+    ],
+    "tags": [
+      "office-space",
+      "milton",
+      "disappointment",
+      "expectation"
+    ]
+  },
+  {
+    "id": "captain",
+    "visual": "Barkhad Abdi as pirate captain on a ship, captions above and below the close-up.",
+    "meaning": "Seizes authority with the iconic line to claim control of a situation, often humorously.",
+    "mechanism": "power_grab",
+    "caption_roles": [
+      "look at me beckoning above",
+      "i am the captain now declaration below"
+    ],
+    "tags": [
+      "captain-phillips",
+      "authority",
+      "power",
+      "quote"
+    ]
+  },
+  {
+    "id": "captain-america",
+    "visual": "Captain America close-up in elevator fight setup, three caption bands over the tense cabin.",
+    "meaning": "Stages a dad joke where one person asks a setup and the punchline is a groan-worthy pun.",
+    "mechanism": "dad_joke_setup",
+    "caption_roles": [
+      "pun setup line near the top of the elevator",
+      "listener response in the middle",
+      "pun payoff on the right side"
+    ],
+    "tags": [
+      "captain-america",
+      "dad-joke",
+      "elevator",
+      "pun"
+    ]
+  },
+  {
+    "id": "cb",
+    "visual": "Shy bear with hands clasped in forest, captions above and below the bear.",
+    "meaning": "Admits an uncomfortable secret with feigned innocence, using cute bear to soften the confession.",
+    "mechanism": "awkward_confession",
+    "caption_roles": [
+      "confession opener above the bear",
+      "shameful detail below the bear"
+    ],
+    "tags": [
+      "confession-bear",
+      "secret",
+      "confession",
+      "awkward"
+    ]
+  },
+  {
+    "id": "cbb",
+    "visual": "Bugs Bunny in communist hat with hammer and sickle backdrop, captions above and below.",
+    "meaning": "Communizes a possession by declaring it belongs to everyone, mocking our memes communal irony.",
+    "mechanism": "communal_claim",
+    "caption_roles": [
+      "original owner or context above the rabbit",
+      "our memes collective claim below"
+    ],
+    "tags": [
+      "bugs-bunny",
+      "communist",
+      "our-memes",
+      "parody"
+    ]
+  },
+  {
+    "id": "cbg",
+    "visual": "Comic Book Guy from Simpsons with arms folded, captions above and below the store scene.",
+    "meaning": "Delivers snobbish dismissal as worst thing ever, channeling nerdy gatekeeping critique.",
+    "mechanism": "snobbish_dismissal",
+    "caption_roles": [
+      "subject being judged above the counter",
+      "worst thing ever verdict below"
+    ],
+    "tags": [
+      "simpsons",
+      "comic-book-guy",
+      "worst-ever",
+      "gatekeeping"
+    ]
+  },
+  {
+    "id": "center",
+    "visual": "Derek Zoolander looking confused at a tiny model center, captions above and below his portrait.",
+    "meaning": "Mocks something absurdly small or underwhelming by asking what is this, a center for ants.",
+    "mechanism": "scale_mockery",
+    "caption_roles": [
+      "what is this question above",
+      "a center for ants answer below"
+    ],
+    "tags": [
+      "zoolander",
+      "ants",
+      "scale",
+      "mockery"
+    ]
+  },
+  {
+    "id": "ch",
+    "visual": "Captain Hindsight with glowing eyes gesturing, captions frame above and below the hero.",
+    "meaning": "States obvious after-the-fact advice that is uselessly correct, satirizing hindsight experts.",
+    "mechanism": "hindsight_advice",
+    "caption_roles": [
+      "situation that went wrong above",
+      "obvious thing you should have done below"
+    ],
+    "tags": [
+      "south-park",
+      "hindsight",
+      "advice",
+      "satire"
+    ]
+  },
+  {
+    "id": "chair",
+    "visual": "American Chopper argument with five escalating panels around a workbench, labels occupy each panel.",
+    "meaning": "Shows a debate that escalates irrationally where agreement is rejected due to labeling, satirizing bad-faith argument loops.",
+    "mechanism": "escalating_argument",
+    "caption_roles": [
+      "reasonable proposal in the upper left panel",
+      "dismissive ideological rejection upper right",
+      "evidence counter in the middle left",
+      "moving goalpost rebuttal middle right",
+      "exasperated compromise lower left",
+      "final refusal lower right"
+    ],
+    "tags": [
+      "american-chopper",
+      "argument",
+      "debate",
+      "escalation"
+    ]
+  },
+  {
+    "id": "cheems",
+    "visual": "Cheems Shiba Inu with swollen cheeks looking anxious, captions above and below the dog.",
+    "meaning": "Narrates naive optimism that everything is fine before inevitable chaos, using broken English for humor.",
+    "mechanism": "doomed_optimism",
+    "caption_roles": [
+      "calm before the storm optimism above",
+      "nothing will go wrong assurance below"
+    ],
+    "tags": [
+      "cheems",
+      "doge",
+      "optimism",
+      "doom"
+    ]
+  },
+  {
+    "id": "chosen",
+    "visual": "Obi-Wan shouting at Anakin on Mustafar, captions frame above and below the duel scene.",
+    "meaning": "Lamosts betrayal by reminding someone they were expected to be the hero but chose the villain path.",
+    "mechanism": "betrayal_lament",
+    "caption_roles": [
+      "you were the chosen one accusation above",
+      "how you fell follow-up below"
+    ],
+    "tags": [
+      "star-wars",
+      "betrayal",
+      "chosen-one",
+      "lament"
+    ]
+  },
+  {
+    "id": "cmm",
+    "visual": "Steven Crowder seated at a table with Change My Mind sign angled on the tabletop.",
+    "meaning": "Invites debate by posting a provocative hot take on the sign, daring others to change the mind.",
+    "mechanism": "hot_take_challenge",
+    "caption_roles": [
+      "provocative statement written across the angled sign"
+    ],
+    "tags": [
+      "change-my-mind",
+      "debate",
+      "hot-take",
+      "challenge"
+    ]
+  },
+  {
+    "id": "country",
+    "visual": "Dr. Nick Riviera with arms raised in hospital, captions above and below the character.",
+    "meaning": "Reacts with naive delight to an absurd American contradiction, as if any nonsense is celebrated.",
+    "mechanism": "naive_patriotism",
+    "caption_roles": [
+      "absurd contradiction posed above",
+      "what a country punchline below"
+    ],
+    "tags": [
+      "simpsons",
+      "dr-nick",
+      "america",
+      "irony"
+    ]
+  },
+  {
+    "id": "crazypills",
+    "visual": "Will Ferrell as Mugatu looking bewildered in Zoolander, captions above and below his face.",
+    "meaning": "Questions reality when everyone else acts insane, feeling like you are the only sane one on crazy pills.",
+    "mechanism": "gaslight_confusion",
+    "caption_roles": [
+      "bewildering observation above",
+      "i feel like i am taking crazy pills conclusion below"
+    ],
+    "tags": [
+      "zoolander",
+      "crazy-pills",
+      "confusion",
+      "reaction"
+    ]
+  },
+  {
+    "id": "crow",
+    "visual": "Two crows perched face to face with comic speech bubbles near each bird.",
+    "meaning": "One crow heckles the other to get better material, mocking repetitive caw jokes as bad stand-up.",
+    "mechanism": "heckling_duo",
+    "caption_roles": [
+      "performer crow caw setup near the upper left bird",
+      "heckler crow retort near the lower right bird"
+    ],
+    "tags": [
+      "crow",
+      "heckle",
+      "material",
+      "comic"
+    ]
+  },
+  {
+    "id": "crowd",
+    "visual": "Bar crowd roaring after a soccer goal, two caption zones angle over the cheering fans.",
+    "meaning": "Celebrates a trivial technical or everyday win with the ecstasy of a stadium goal.",
+    "mechanism": "overcelebration",
+    "caption_roles": [
+      "mundane trigger like a deploy placed over the left crowd",
+      "euphoric success outcome over the right crowd"
+    ],
+    "tags": [
+      "soccer",
+      "celebration",
+      "overreaction",
+      "bar"
+    ]
+  },
+  {
+    "id": "cryingfloor",
+    "visual": "Person sobbing face-down on carpet floor, captions above and below the figure.",
+    "meaning": "Pairs superficial coping advice with breakdown on the floor, humor through dramatic despair.",
+    "mechanism": "dramatic_despair",
+    "caption_roles": [
+      "reassuring or dismissive line above the body",
+      "melodramatic collapse line below"
+    ],
+    "tags": [
+      "crying",
+      "floor",
+      "despair",
+      "relatable"
+    ]
+  },
+  {
+    "id": "db",
+    "visual": "Boy checking out another woman while girlfriend glares on a city street, labels near each person.",
+    "meaning": "Shows temptation by labeling the distraction, the tempted, and the ignored partner for betrayal humor.",
+    "mechanism": "temptation_triangle",
+    "caption_roles": [
+      "desired temptation label over the passing woman",
+      "tempted party label over the boyfriend",
+      "neglected partner label over the girlfriend"
+    ],
+    "tags": [
+      "distracted-boyfriend",
+      "temptation",
+      "label",
+      "relationship"
+    ]
+  },
+  {
+    "id": "dbg",
+    "visual": "Black guy split face left surprised right pensive, captions occupy stacked left halves.",
+    "meaning": "Juxtaposes expectation versus disappointing reality, top is hope and bottom is letdown.",
+    "mechanism": "expectation_vs_reality",
+    "caption_roles": [
+      "hopeful expectation written in the upper half",
+      "disappointing reality written in the lower half"
+    ],
+    "tags": [
+      "expectation",
+      "reality",
+      "disappointment",
+      "reaction"
+    ]
+  },
+  {
+    "id": "dg",
+    "visual": "Same distracted-boyfriend street photo from the girlfriend perspective, labels hover over each figure.",
+    "meaning": "Reframes the boyfriend meme from the distracted girlfriend angle, still mapping temptation and neglect.",
+    "mechanism": "temptation_triangle",
+    "caption_roles": [
+      "temptation label over the distant woman",
+      "distracted figure label near the boyfriend",
+      "overlooked partner label near the girlfriend"
+    ],
+    "tags": [
+      "distracted-girlfriend",
+      "temptation",
+      "label",
+      "gender-swap"
+    ]
+  },
+  {
+    "id": "disastergirl",
+    "visual": "Little girl smirking before a burning house, captions frame above and below the scene.",
+    "meaning": "Implies gleeful responsibility for chaos, as if the girl caused the disaster behind her.",
+    "mechanism": "mischievous_arson",
+    "caption_roles": [
+      "innocent premise above the fire",
+      "just as I planned glee below"
+    ],
+    "tags": [
+      "disaster",
+      "smirk",
+      "chaos",
+      "irony"
+    ]
+  },
+  {
+    "id": "dodgson",
+    "visual": "Wayne Knight as Nedry with Jurassic Park coat, captions span upper left and lower right around the portrait.",
+    "meaning": "Dismisses a named concern as irrelevant because nobody cares, quoting Jurassic Park mock surprise.",
+    "mechanism": "dismissive_nobody_cares",
+    "caption_roles": [
+      "we have got subject here announcement",
+      "see nobody cares dismissal"
+    ],
+    "tags": [
+      "jurassic-park",
+      "dismissal",
+      "nobody-cares",
+      "dodgson"
+    ]
+  },
+  {
+    "id": "doge",
+    "visual": "Shiba Inu doge with multicolor Comic Sans phrases floating, captions above and below the dog.",
+    "meaning": "Speaks in broken internal monologue wow such meme, celebrating absurd cute awe.",
+    "mechanism": "broken_monologue",
+    "caption_roles": [
+      "upper scattered modifier phrase over the dog",
+      "lower scattered modifier phrase below the dog"
+    ],
+    "tags": [
+      "doge",
+      "shiba",
+      "wow",
+      "meme"
+    ]
+  },
+  {
+    "id": "dragon",
+    "visual": "Meme wizard offering a dragon with a small speech bubble near the wizard.",
+    "meaning": "Grants a wish that unexpectedly appears as a dragon, literalizing careful what you wish for wordplay.",
+    "mechanism": "literal_wish",
+    "caption_roles": [
+      "wished-for desire written inside the small bubble"
+    ],
+    "tags": [
+      "dragon",
+      "wish",
+      "genie",
+      "literal"
+    ]
+  },
+  {
+    "id": "drake",
+    "visual": "Drake in two stacked panels gesturing no on top and yes below, captions fill each panel.",
+    "meaning": "Contrasts a rejected option on top with a preferred alternative below, showing clear preference.",
+    "mechanism": "preference_comparison",
+    "caption_roles": [
+      "rejected option captioned over the dismissive upper pose",
+      "approved option captioned over the pointing lower pose"
+    ],
+    "tags": [
+      "drake",
+      "preference",
+      "comparison",
+      "choice"
+    ]
+  },
+  {
+    "id": "drowning",
+    "visual": "Man drowning while another gives high five underwater, labels sit over each figure and dialogue.",
+    "meaning": "Mocks unhelpful me too replies where someone seeking help only gets empty solidarity.",
+    "mechanism": "unhelpful_solidarity",
+    "caption_roles": [
+      "person in distress label mid-water",
+      "unhelpful commenter label near the high-fiver",
+      "i have that problem too line near the bottom"
+    ],
+    "tags": [
+      "drowning",
+      "high-five",
+      "unhelpful",
+      "relatable"
+    ]
+  },
+  {
+    "id": "drunk",
+    "visual": "Baby in car seat with adult interrogation lighting, captions above and below the infant.",
+    "meaning": "Frames a baby as if drunk-failing a sobriety test, mixing innocence with adult intoxication humor.",
+    "mechanism": "incongruous_interrogation",
+    "caption_roles": [
+      "officer challenge placed above the baby",
+      "baby slurred excuse placed below"
+    ],
+    "tags": [
+      "drunk-baby",
+      "police",
+      "innocence",
+      "parody"
+    ]
+  },
+  {
+    "id": "ds",
+    "visual": "Angry guy pointing at screen with two equation boxes above and a wide caption below.",
+    "meaning": "Pits two factions in endless trivial argument while a third perspective dismisses both.",
+    "mechanism": "tribal_argument",
+    "caption_roles": [
+      "first side claim inside the left equation box",
+      "opposing claim inside the right equation box",
+      "exasperated dismissal spanning below the pointing man"
+    ],
+    "tags": [
+      "daily-struggle",
+      "argument",
+      "tribal",
+      "pointing"
+    ]
+  },
+  {
+    "id": "dsm",
+    "visual": "Creepy smiling man in dating profile frame, captions above and below the portrait.",
+    "meaning": "Twists a sweet compliment into a threatening dating-site murderer vibe for dark humor.",
+    "mechanism": "creepy_compliment",
+    "caption_roles": [
+      "ominous threat setup above the smile",
+      "unsettling as attractive as I do twist below"
+    ],
+    "tags": [
+      "creepy",
+      "dating",
+      "dark-humor",
+      "murderer"
+    ]
+  },
+  {
+    "id": "dwight",
+    "visual": "Dwight Schrute stern close-up at desk, captions frame above and below his face.",
+    "meaning": "Corrects a soft statement with a hyper-literal false fact, delivering Dwight's deadpan Schrute superiority.",
+    "mechanism": "false_correction",
+    "caption_roles": [
+      "naive claim or question above Dwight",
+      "false. authoritative correction below"
+    ],
+    "tags": [
+      "the-office",
+      "dwight",
+      "false-fact",
+      "correction"
+    ]
+  },
+  {
+    "id": "elf",
+    "visual": "Will Ferrell as Buddy shouting and James Caan seated sternly, captions above and below the confrontation.",
+    "meaning": "Accuses someone of living a lie, using the dramatic throne of lies line for mock condemnation.",
+    "mechanism": "dramatic_accusation",
+    "caption_roles": [
+      "empty setup or stare above the pair",
+      "you sit on a throne of lies condemnation below"
+    ],
+    "tags": [
+      "elf",
+      "throne-of-lies",
+      "accusation",
+      "movie"
+    ]
+  },
+  {
+    "id": "elmo",
+    "visual": "Elmo with fire and cocaine choice lines fanning out, five captions arc over each drug line and traps.",
+    "meaning": "Parodies the choose wisely meme where Elmo gleefully picks escalating vices, showing doomed temptation hierarchy.",
+    "mechanism": "vice_choice_spread",
+    "caption_roles": [
+      "least appealing option over the first line",
+      "middle decoy near Elmo chest",
+      "hard drug line over the active choice",
+      "hidden dread option over the bottom left",
+      "final consequence over the bottom right"
+    ],
+    "tags": [
+      "elmo",
+      "cocaine",
+      "choice",
+      "parody"
+    ]
+  },
+  {
+    "id": "ermg",
+    "visual": "Girl with braces and bleached hair holding books, captions above and below her portrait.",
+    "meaning": "Shouts an excited fangirl mispronunciation where Rs become ERM, celebrating meme enthusiasm through lisp parody.",
+    "mechanism": "excited_lisp",
+    "caption_roles": [
+      "excited subject announced above the girl",
+      "meme object garbled below"
+    ],
+    "tags": [
+      "ermahgerd",
+      "goosebumps",
+      "lisp",
+      "fangirl"
+    ]
+  },
+  {
+    "id": "exit",
+    "visual": "Highway with left exit ramp peeling off, labels sit on the straight highway, the exit sign, and the car swerving.",
+    "meaning": "Depicts avoiding the obvious good path to swerve onto a disastrous exit, showing self-sabotage.",
+    "mechanism": "self_sabotage_exit",
+    "caption_roles": [
+      "tempting but wrong exit label over the ramp sign",
+      "safe main road label over the straight lanes",
+      "vehicle representing the chooser swerving toward the exit"
+    ],
+    "tags": [
+      "exit",
+      "highway",
+      "choice",
+      "self-sabotage"
+    ]
+  },
+  {
+    "id": "fa",
+    "visual": "Rage face Forever Alone with teary eyes, captions above and below the white void face.",
+    "meaning": "Wallows in solitary loneliness where attempts at connection accentuate being forever alone.",
+    "mechanism": "lonely_lament",
+    "caption_roles": [
+      "loneliness setup claim above the face",
+      "alone punchline finishing below"
+    ],
+    "tags": [
+      "forever-alone",
+      "lonely",
+      "rage-face",
+      "sad"
+    ]
+  },
+  {
+    "id": "facepalm",
+    "visual": "Jean-Luc Picard facepalming in Enterprise chair, captions above and below the gesture.",
+    "meaning": "Expresses exasperated disappointment at sheer stupidity, using the iconic facepalm as nonverbal judgment.",
+    "mechanism": "exasperated_disappointment",
+    "caption_roles": [
+      "context for the frustration above the captain",
+      "i cannot even verdict below"
+    ],
+    "tags": [
+      "facepalm",
+      "picard",
+      "exasperation",
+      "disappointment"
+    ]
+  },
+  {
+    "id": "fbf",
+    "visual": "Unshaven frog slouching on couch, captions above and below the lazy figure.",
+    "meaning": "Confesses gross bachelor laziness where a lazy shortcut is rationalized as efficiency.",
+    "mechanism": "lazy_rationalization",
+    "caption_roles": [
+      "sloppy bachelor habit above the frog",
+      "self-justifying payoff below"
+    ],
+    "tags": [
+      "foul-bachelor-frog",
+      "lazy",
+      "bachelor",
+      "gross"
+    ]
+  }
+]

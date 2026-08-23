@@ -38,16 +38,20 @@ type VoiceSnapshot struct {
 }
 
 type SourceMaterial struct {
-	ID    string `json:"id"`
-	Kind  string `json:"kind"`
-	Label string `json:"label"`
-	Text  string `json:"text,omitempty"`
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Label       string `json:"label"`
+	MIMEType    string `json:"mime_type,omitempty"`
+	Text        string `json:"text,omitempty"`
+	Publishable bool   `json:"publishable,omitempty" doc:"Whether the user allowed this source asset to appear in the post"`
 }
 
 type OutputProfile struct {
-	Key         string `json:"key"`
-	TextLimit   int    `json:"text_limit"`
-	MaxSegments int    `json:"max_segments"`
+	Key           string   `json:"key"`
+	TextLimit     int      `json:"text_limit"`
+	MaxSegments   int      `json:"max_segments"`
+	MediaMaxCount int      `json:"media_max_count"`
+	AllowedMIMEs  []string `json:"allowed_mimes,omitempty"`
 }
 
 type Destination struct {
@@ -59,15 +63,16 @@ type Destination struct {
 }
 
 type BuildInput struct {
-	Idea              string            `json:"idea"`
-	Sources           []SourceMaterial  `json:"sources,omitempty"`
-	Images            []ai.Image        `json:"-"`
-	Files             []ai.File         `json:"-"`
-	Audio             []ai.Audio        `json:"-"`
-	Videos            []ai.Video        `json:"-"`
-	Destinations      []Destination     `json:"destinations"`
-	Direction         DirectionInput    `json:"direction"`
-	DestinationPolicy DestinationPolicy `json:"destination_policy"`
+	Idea              string              `json:"idea"`
+	Sources           []SourceMaterial    `json:"sources,omitempty"`
+	Parts             []ai.MultimodalPart `json:"-"`
+	Images            []ai.Image          `json:"-"`
+	Files             []ai.File           `json:"-"`
+	Audio             []ai.Audio          `json:"-"`
+	Videos            []ai.Video          `json:"-"`
+	Destinations      []Destination       `json:"destinations"`
+	Direction         DirectionInput      `json:"direction"`
+	DestinationPolicy DestinationPolicy   `json:"destination_policy"`
 }
 
 type Claim struct {
@@ -80,6 +85,16 @@ type MediaPlan struct {
 	Treatment string `json:"treatment"`
 	Role      string `json:"role"`
 	Brief     string `json:"brief"`
+	SourceRef string `json:"source_ref,omitempty" doc:"Exact source ID for source-bound media treatments"`
+}
+
+// ResolvedSource names one source that the finished package may reference.
+// It deliberately excludes extracted text and media bytes.
+type ResolvedSource struct {
+	ID          string `json:"id"`
+	Kind        string `json:"kind"`
+	Label       string `json:"label"`
+	Publishable bool   `json:"publishable"`
 }
 
 type DestinationDecision struct {
@@ -136,6 +151,7 @@ type ReviewFlag struct {
 
 type BuildResult struct {
 	CanonicalText string               `json:"canonical_text"`
+	Sources       []ResolvedSource     `json:"sources,omitempty"`
 	Direction     DirectorPlan         `json:"direction"`
 	Destinations  []DestinationPlan    `json:"destinations"`
 	Skipped       []SkippedDestination `json:"skipped"`

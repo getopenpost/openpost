@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/ai"
+	"github.com/openpost/backend/internal/services/sourcecontext"
 	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,21 @@ type discoveryGeneratorFunc func(context.Context, ai.GenerateRequest) (ai.Genera
 
 func (fn discoveryGeneratorFunc) Generate(ctx context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
 	return fn(ctx, request)
+}
+
+type discoverySourceLoaderFunc func(context.Context, string) (sourcecontext.Document, error)
+
+func (fn discoverySourceLoaderFunc) Load(ctx context.Context, rawURL string) (sourcecontext.Document, error) {
+	return fn(ctx, rawURL)
+}
+
+func discoveryTestConfig() Config {
+	return Config{
+		Model: "test-model",
+		SourceLoader: discoverySourceLoaderFunc(func(_ context.Context, rawURL string) (sourcecontext.Document, error) {
+			return sourcecontext.Document{Title: "Verified source title", CanonicalURL: rawURL, Text: "Verified source body."}, nil
+		}),
+	}
 }
 
 func TestDiscoverReturnsCitedPlanningCardsWithBoundedWebSearch(t *testing.T) {
@@ -39,7 +55,7 @@ func TestDiscoverReturnsCitedPlanningCardsWithBoundedWebSearch(t *testing.T) {
 
 		return ai.GenerateResult{Model: "resolved-model", Text: validDiscoveryJSON}, nil
 	})
-	service, err := New(generator, Config{Model: "test-model"})
+	service, err := New(generator, discoveryTestConfig())
 	require.NoError(t, err)
 	service.now = func() time.Time { return fixedNow }
 
@@ -69,7 +85,7 @@ func TestDiscoverRejectsPostDraftFieldsAndDoesNotLeakRawOutput(t *testing.T) {
 		`"hook": "A model release worth reading closely.", "post": "`+privateDraft+`"`, 1)
 	service, err := New(discoveryGeneratorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		return ai.GenerateResult{Text: malformed}, nil
-	}), Config{Model: "test-model"})
+	}), discoveryTestConfig())
 	require.NoError(t, err)
 	service.now = func() time.Time { return time.Date(2026, 8, 23, 14, 0, 0, 0, time.UTC) }
 
@@ -85,7 +101,7 @@ func TestDiscoverRejectsStaleMemoryPresentedAsCurrentEvidence(t *testing.T) {
 	stale := strings.Replace(validDiscoveryJSON, `"published_at": "2026-08-22"`, `"published_at": "2026-06-01"`, 1)
 	service, err := New(discoveryGeneratorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		return ai.GenerateResult{Text: stale}, nil
-	}), Config{Model: "test-model"})
+	}), discoveryTestConfig())
 	require.NoError(t, err)
 	service.now = func() time.Time { return time.Date(2026, 8, 23, 14, 0, 0, 0, time.UTC) }
 
@@ -101,7 +117,7 @@ func TestDiscoverValidatesCallerContextBeforeGeneration(t *testing.T) {
 	service, err := New(discoveryGeneratorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		called = true
 		return ai.GenerateResult{}, nil
-	}), Config{Model: "test-model"})
+	}), discoveryTestConfig())
 	require.NoError(t, err)
 	input := validDiscoveryInput()
 	input.Platforms = []string{"instagram"}
@@ -114,12 +130,48 @@ func TestDiscoverValidatesCallerContextBeforeGeneration(t *testing.T) {
 func TestNewRequiresGeneratorAndModel(t *testing.T) {
 	t.Parallel()
 
-	_, err := New(nil, Config{Model: "test-model"})
+	_, err := New(nil, discoveryTestConfig())
 	require.ErrorIs(t, err, ErrUnavailable)
+	config := discoveryTestConfig()
+	config.Model = ""
 	_, err = New(discoveryGeneratorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
 		return ai.GenerateResult{}, errors.New("not called")
-	}), Config{})
+	}), config)
 	require.ErrorIs(t, err, ErrUnavailable)
+}
+
+func TestDiscoverRejectsAnUnreachableGeneratedCitation(t *testing.T) {
+	t.Parallel()
+	config := discoveryTestConfig()
+	config.SourceLoader = discoverySourceLoaderFunc(func(context.Context, string) (sourcecontext.Document, error) {
+		return sourcecontext.Document{}, sourcecontext.ErrFetchFailed
+	})
+	service, err := New(discoveryGeneratorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
+		return ai.GenerateResult{Text: validDiscoveryJSON}, nil
+	}), config)
+	require.NoError(t, err)
+	service.now = func() time.Time { return time.Date(2026, 8, 23, 14, 0, 0, 0, time.UTC) }
+
+	_, err = service.Discover(t.Context(), validDiscoveryInput())
+	require.ErrorIs(t, err, ErrInvalidOutput)
+	require.NotContains(t, err.Error(), "openai.com")
+}
+
+func TestDiscoverPreservesCitationVerificationDeadline(t *testing.T) {
+	t.Parallel()
+	config := discoveryTestConfig()
+	config.SourceLoader = discoverySourceLoaderFunc(func(context.Context, string) (sourcecontext.Document, error) {
+		return sourcecontext.Document{}, context.DeadlineExceeded
+	})
+	service, err := New(discoveryGeneratorFunc(func(context.Context, ai.GenerateRequest) (ai.GenerateResult, error) {
+		return ai.GenerateResult{Text: validDiscoveryJSON}, nil
+	}), config)
+	require.NoError(t, err)
+	service.now = func() time.Time { return time.Date(2026, 8, 23, 14, 0, 0, 0, time.UTC) }
+
+	_, err = service.Discover(t.Context(), validDiscoveryInput())
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.NotErrorIs(t, err, ErrInvalidOutput)
 }
 
 func validDiscoveryInput() Input {

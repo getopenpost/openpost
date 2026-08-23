@@ -2,11 +2,13 @@ package publicationdiscovery
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/openpost/backend/internal/ai"
+	"github.com/openpost/backend/internal/services/sourcecontext"
 )
 
 const (
@@ -18,8 +20,9 @@ const (
 )
 
 type Config struct {
-	Model   string
-	Timeout time.Duration
+	Model        string
+	Timeout      time.Duration
+	SourceLoader sourcecontext.Loader
 }
 
 type Service struct {
@@ -27,6 +30,7 @@ type Service struct {
 	model     string
 	timeout   time.Duration
 	now       func() time.Time
+	sources   sourcecontext.Loader
 }
 
 func New(generator ai.Generator, config Config) (*Service, error) {
@@ -37,6 +41,9 @@ func New(generator ai.Generator, config Config) (*Service, error) {
 	if model == "" {
 		return nil, fmt.Errorf("%w: AI model is required", ErrUnavailable)
 	}
+	if config.SourceLoader == nil {
+		return nil, fmt.Errorf("%w: citation source loader is required", ErrUnavailable)
+	}
 	timeout := config.Timeout
 	if timeout <= 0 {
 		timeout = defaultTimeout
@@ -46,6 +53,7 @@ func New(generator ai.Generator, config Config) (*Service, error) {
 		model:     model,
 		timeout:   timeout,
 		now:       func() time.Time { return time.Now().UTC() },
+		sources:   config.SourceLoader,
 	}, nil
 }
 
@@ -90,11 +98,42 @@ func (service *Service) Discover(ctx context.Context, input Input) (Result, erro
 	if err != nil {
 		return Result{}, err
 	}
+	if err := service.verifyCitationSources(requestCtx, opportunities); err != nil {
+		return Result{}, err
+	}
 	model := strings.TrimSpace(generated.Model)
 	if model == "" {
 		model = service.model
 	}
 	return Result{GeneratedAt: now, Model: model, Opportunities: opportunities}, nil
+}
+
+func (service *Service) verifyCitationSources(ctx context.Context, opportunities []Opportunity) error {
+	documents := make(map[string]sourcecontext.Document)
+	for opportunityIndex := range opportunities {
+		for sourceIndex := range opportunities[opportunityIndex].Sources {
+			source := &opportunities[opportunityIndex].Sources[sourceIndex]
+			document, ok := documents[source.URL]
+			if !ok {
+				loaded, err := service.sources.Load(ctx, source.URL)
+				if err != nil {
+					if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+						return context.DeadlineExceeded
+					}
+					if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {
+						return context.Canceled
+					}
+					return fmt.Errorf("%w: cited source %d could not be verified", ErrInvalidOutput, sourceIndex+1)
+				}
+				document = loaded
+				documents[source.URL] = document
+			}
+			if title, titleErr := requiredText(document.Title, maxSourceTitle); titleErr == nil {
+				source.Title = title
+			}
+		}
+	}
+	return nil
 }
 
 var _ Discoverer = (*Service)(nil)

@@ -111,6 +111,36 @@ func TestPublicationDiscoveryHandlerSanitizesServiceFailures(t *testing.T) {
 	require.Equal(t, 1, stub.calls)
 }
 
+func TestPublicationDiscoveryHandlerBoundsPerUserBursts(t *testing.T) {
+	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
+	server := newPublicationDiscoveryTestServer(t, stub)
+	for range publicationDiscoveryRequestsPerMinute {
+		require.True(t, server.handler.limiter.Allow(
+			"publication-discovery:user-1",
+			publicationDiscoveryRequestsPerMinute,
+			time.Minute,
+		))
+	}
+
+	response := publicationDiscoveryRequest(t, server.echo, "web-token", publicationDiscoveryRequestBody())
+
+	require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
+	require.Zero(t, stub.calls)
+}
+
+func TestPublicationDiscoveryHandlerAllowsOneActiveRequestPerUser(t *testing.T) {
+	stub := &publicationDiscoveryStub{result: publicationDiscoveryHandlerResult()}
+	server := newPublicationDiscoveryTestServer(t, stub)
+	release, acquired := server.handler.requests.acquire("user-1")
+	require.True(t, acquired)
+	defer release()
+
+	response := publicationDiscoveryRequest(t, server.echo, "web-token", publicationDiscoveryRequestBody())
+
+	require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
+	require.Zero(t, stub.calls)
+}
+
 func TestPublicationDiscoveryHandlerRegistersWithoutRuntimeDependencies(t *testing.T) {
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
@@ -121,8 +151,9 @@ func TestPublicationDiscoveryHandlerRegistersWithoutRuntimeDependencies(t *testi
 }
 
 type publicationDiscoveryTestServer struct {
-	echo *echo.Echo
-	db   *bun.DB
+	echo    *echo.Echo
+	db      *bun.DB
+	handler *PublicationDiscoveryHandler
 }
 
 func newPublicationDiscoveryTestServer(
@@ -165,8 +196,9 @@ func newPublicationDiscoveryTestServer(
 
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewPublicationDiscoveryHandler(db, publicationDiscoveryAuthenticator{}, discoverer).RegisterRoutes(api)
-	return &publicationDiscoveryTestServer{echo: e, db: db}
+	handler := NewPublicationDiscoveryHandler(db, publicationDiscoveryAuthenticator{}, discoverer)
+	handler.RegisterRoutes(api)
+	return &publicationDiscoveryTestServer{echo: e, db: db, handler: handler}
 }
 
 func publicationDiscoveryRequest(

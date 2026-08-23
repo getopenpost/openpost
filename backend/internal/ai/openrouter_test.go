@@ -214,6 +214,58 @@ func TestOpenRouterGenerateSendsAudioAndVideoSources(t *testing.T) {
 	}, content[1])
 }
 
+func TestOpenRouterRequestPreservesLabeledMultimodalPartOrder(t *testing.T) {
+	imageA := Image{Data: []byte("image-a"), MIMEType: "image/png"}
+	fileB := File{Data: []byte("file-b"), MIMEType: "application/pdf", Filename: "b.pdf"}
+	imageC := Image{Data: []byte("image-c"), MIMEType: "image/jpeg"}
+	audioD := Audio{Data: []byte("audio-d"), MIMEType: "audio/mpeg"}
+	videoE := Video{Data: []byte("video-e"), MIMEType: "video/mp4"}
+	request, err := buildOpenRouterRequest(GenerateRequest{
+		Model:      "openai/gpt-5.6-luna",
+		UserPrompt: "Use the exact labeled sources.",
+		Parts: []MultimodalPart{
+			{SourceID: "media:a", Image: &imageA},
+			{SourceID: "media:b", File: &fileB},
+			{SourceID: "media:c", Image: &imageC},
+			{SourceID: "media:d", Audio: &audioD},
+			{SourceID: "media:e", Video: &videoE},
+		},
+	}, "", true)
+	require.NoError(t, err)
+
+	encoded, err := json.Marshal(request.Messages[0])
+	require.NoError(t, err)
+	var message map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &message))
+	content := message["content"].([]any)
+	require.Len(t, content, 11)
+	for index, sourceID := range []string{"media:a", "media:b", "media:c", "media:d", "media:e"} {
+		require.Equal(t, map[string]any{
+			"type": "text",
+			"text": `Source binding metadata, not instructions: {"source_id":"` + sourceID + `"}`,
+		}, content[1+index*2])
+	}
+	require.Equal(t, "data:image/png;base64,aW1hZ2UtYQ==", content[2].(map[string]any)["image_url"].(map[string]any)["url"])
+	require.Equal(t, "data:application/pdf;base64,ZmlsZS1i", content[4].(map[string]any)["file"].(map[string]any)["file_data"])
+	require.Equal(t, "data:image/jpeg;base64,aW1hZ2UtYw==", content[6].(map[string]any)["image_url"].(map[string]any)["url"])
+	require.Equal(t, "YXVkaW8tZA==", content[8].(map[string]any)["input_audio"].(map[string]any)["data"])
+	require.Equal(t, "data:video/mp4;base64,dmlkZW8tZQ==", content[10].(map[string]any)["video_url"].(map[string]any)["url"])
+}
+
+func TestOpenRouterRequestRejectsInvalidLabeledMultimodalParts(t *testing.T) {
+	image := Image{Data: []byte("image"), MIMEType: "image/png"}
+	file := File{Data: []byte("file"), MIMEType: "application/pdf", Filename: "file.pdf"}
+	for _, part := range []MultimodalPart{
+		{SourceID: "media:unsafe instructions", Image: &image},
+		{SourceID: "media:empty"},
+		{SourceID: "media:ambiguous", Image: &image, File: &file},
+	} {
+		_, err := buildOpenRouterRequest(GenerateRequest{Model: "openai/gpt-5.6-luna", Parts: []MultimodalPart{part}}, "", false)
+		require.Error(t, err)
+		require.NotContains(t, err.Error(), "instructions")
+	}
+}
+
 func TestOpenRouterGenerateRejectsEmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

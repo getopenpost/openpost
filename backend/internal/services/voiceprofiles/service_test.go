@@ -28,10 +28,14 @@ func TestProfileLifecycleKeepsOneRevisionedDefault(t *testing.T) {
 
 	company, err := service.Create(t.Context(), CreateInput{
 		WorkspaceID: "workspace-1", CreatedByID: "user-1", Name: "OpenPost",
-		Definition: Definition{IdentitySummary: " Product voice ", ForbiddenPhrases: []string{"Game changer"}},
+		Definition: Definition{
+			IdentitySummary: " Product voice ", PreferredLanguage: " English (Portugal) ",
+			ForbiddenPhrases: []string{"Game changer"},
+		},
 	})
 	require.NoError(t, err)
 	require.False(t, company.IsDefault)
+	require.Equal(t, "English (Portugal)", company.Definition.PreferredLanguage)
 
 	listed, err := service.List(t.Context(), "workspace-1")
 	require.NoError(t, err)
@@ -142,6 +146,11 @@ func TestDefinitionValidationBoundsAndRejectsCorruptStoredJSON(t *testing.T) {
 	_, err := service.Create(t.Context(), CreateInput{
 		WorkspaceID: "workspace-1", Name: "Too much",
 		Definition: Definition{IdentitySummary: strings.Repeat("x", maxIdentityCharacters+1)},
+	})
+	require.ErrorIs(t, err, ErrInvalidInput)
+	_, err = service.Create(t.Context(), CreateInput{
+		WorkspaceID: "workspace-1", Name: "Too much language",
+		Definition: Definition{PreferredLanguage: strings.Repeat("x", maxLanguageCharacters+1)},
 	})
 	require.ErrorIs(t, err, ErrInvalidInput)
 

@@ -19,6 +19,7 @@ import (
 	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/openpost/backend/internal/services/publicationauth"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	"github.com/uptrace/bun"
 )
@@ -155,12 +156,37 @@ func (commands publicationApplication) Create(
 	input CreatePublicationBody,
 ) (publicationResult PublicationResponse, err error) {
 	defer categorizePublicationError(&err)
+	return commands.create(ctx, userID, input, nil)
+}
+
+// CreateWithReadyMedia is the Publication Builder handoff. It locks and
+// rechecks the exact source assets in the same transaction that creates their
+// publication references, closing the gap with concurrent media Trash work.
+func (commands publicationApplication) CreateWithReadyMedia(
+	ctx context.Context,
+	userID string,
+	input CreatePublicationBody,
+	readyMediaIDs []string,
+) (publicationResult PublicationResponse, err error) {
+	defer categorizePublicationError(&err)
+	return commands.create(ctx, userID, input, readyMediaIDs)
+}
+
+func (commands publicationApplication) create(
+	ctx context.Context,
+	userID string,
+	input CreatePublicationBody,
+	readyMediaIDs []string,
+) (PublicationResponse, error) {
 	prepared, err := commands.prepareCreate(ctx, userID, input)
 	if err != nil {
 		return PublicationResponse{}, err
 	}
 	publication := publicationModelFromCreate(prepared.input, userID, prepared.repostOverrideJSON, prepared.now)
-	if err := commands.persistCreate(ctx, publication, prepared); err != nil {
+	if err := commands.persistCreate(ctx, publication, prepared, readyMediaIDs); err != nil {
+		if errors.Is(err, publicationbuilder.ErrBuildSourceUnavailable) {
+			return PublicationResponse{}, publicationservice.NewError(publicationservice.ErrorInvalidInput, err)
+		}
 		return PublicationResponse{}, fmt.Errorf("persist publication creation: %w", err)
 	}
 	return commands.handler.loadPublicationResponse(ctx, publication.ID, userID)

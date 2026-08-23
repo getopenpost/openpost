@@ -394,11 +394,141 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 107:
 		description = "drop retired video editor storage"
 		err = dropRetiredVideoProjectColumn(ctx, db)
+	case 110:
+		description = "AI-native composer durability"
+		err = ensureAINativeComposerHardeningSchema(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
+}
+
+func ensureAINativeComposerHardeningSchema(ctx context.Context, db *bun.DB) error {
+	buildsExist, err := migrationTableExists(ctx, db, "publication_builds")
+	if err != nil || !buildsExist {
+		return err
+	}
+	for _, column := range []struct {
+		name       string
+		definition string
+	}{
+		{name: "lease_token", definition: "TEXT NOT NULL DEFAULT ''"},
+		{name: "lease_expires_at", definition: "TIMESTAMP"},
+	} {
+		present, columnErr := migrationColumnExists(ctx, db, "publication_builds", column.name)
+		if columnErr != nil {
+			return columnErr
+		}
+		if present {
+			continue
+		}
+		if _, columnErr = db.ExecContext(
+			ctx,
+			"ALTER TABLE publication_builds ADD COLUMN "+column.name+" "+column.definition,
+		); columnErr != nil {
+			return columnErr
+		}
+	}
+
+	assetsExist, err := migrationTableExists(ctx, db, "publication_build_assets")
+	if err != nil || !assetsExist {
+		return err
+	}
+	switch db.Dialect().Name() {
+	case dialect.PG:
+		_, err = db.ExecContext(ctx, `
+			ALTER TABLE publication_build_assets
+			DROP CONSTRAINT IF EXISTS publication_build_assets_media_id_fkey,
+			ADD CONSTRAINT publication_build_assets_media_id_fkey
+			FOREIGN KEY (media_id) REFERENCES media_attachments(id) ON DELETE CASCADE
+		`)
+		return err
+	case dialect.SQLite:
+		return rebuildSQLitePublicationBuildAssetsWithCascade(ctx, db)
+	default:
+		return nil
+	}
+}
+
+func rebuildSQLitePublicationBuildAssetsWithCascade(ctx context.Context, db *bun.DB) error {
+	type sqliteForeignKey struct {
+		From     string `bun:"from"`
+		OnDelete string `bun:"on_delete"`
+	}
+	var foreignKeys []sqliteForeignKey
+	if err := db.NewSelect().
+		TableExpr("pragma_foreign_key_list(?)", "publication_build_assets").
+		Column("from", "on_delete").
+		Scan(ctx, &foreignKeys); err != nil {
+		return err
+	}
+	for _, foreignKey := range foreignKeys {
+		if foreignKey.From == "media_id" && strings.EqualFold(foreignKey.OnDelete, "CASCADE") {
+			return nil
+		}
+	}
+
+	var foreignKeysEnabled int
+	if err := db.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&foreignKeysEnabled); err != nil {
+		return err
+	}
+	if foreignKeysEnabled != 0 {
+		if _, err := db.ExecContext(ctx, "PRAGMA foreign_keys=OFF"); err != nil {
+			return err
+		}
+		defer func() {
+			_, _ = db.ExecContext(context.Background(), "PRAGMA foreign_keys=ON")
+		}()
+	}
+
+	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if _, err := tx.ExecContext(txCtx, "DROP TABLE IF EXISTS publication_build_assets_rebuild_110"); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(txCtx, `
+			CREATE TABLE publication_build_assets_rebuild_110 (
+				build_id TEXT NOT NULL,
+				media_id TEXT NOT NULL,
+				display_order INTEGER NOT NULL DEFAULT 0,
+				role TEXT NOT NULL DEFAULT 'context',
+				may_publish BOOLEAN NOT NULL DEFAULT FALSE,
+				created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+				PRIMARY KEY (build_id, media_id),
+				FOREIGN KEY (build_id) REFERENCES publication_builds(id) ON DELETE CASCADE,
+				FOREIGN KEY (media_id) REFERENCES media_attachments(id) ON DELETE CASCADE,
+				CHECK (role IN ('context', 'evidence', 'artifact')),
+				CHECK (display_order >= 0)
+			)
+		`); err != nil {
+			return fmt.Errorf("create hardened publication build assets table: %w", err)
+		}
+		if _, err := tx.ExecContext(txCtx, `
+			INSERT INTO publication_build_assets_rebuild_110 (
+				build_id, media_id, display_order, role, may_publish, created_at
+			)
+			SELECT build_id, media_id, display_order, role, may_publish, created_at
+			FROM publication_build_assets
+		`); err != nil {
+			return fmt.Errorf("copy publication build assets into hardened table: %w", err)
+		}
+		if _, err := tx.ExecContext(txCtx, "DROP TABLE publication_build_assets"); err != nil {
+			return fmt.Errorf("drop legacy publication build assets table: %w", err)
+		}
+		if _, err := tx.ExecContext(
+			txCtx,
+			"ALTER TABLE publication_build_assets_rebuild_110 RENAME TO publication_build_assets",
+		); err != nil {
+			return fmt.Errorf("rename hardened publication build assets table: %w", err)
+		}
+		if _, err := tx.ExecContext(txCtx, `
+			CREATE INDEX publication_build_assets_media_idx
+			ON publication_build_assets (media_id, build_id)
+		`); err != nil {
+			return fmt.Errorf("recreate publication build assets media index: %w", err)
+		}
+		return nil
+	})
 }
 
 func ensureWorkspaceInvitationDeliveryUpdatedAt(ctx context.Context, db *bun.DB) error {

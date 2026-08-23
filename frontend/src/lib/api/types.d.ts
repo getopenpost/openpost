@@ -5245,6 +5245,7 @@ export interface components {
             direction: components["schemas"]["DirectorPlan"];
             review_flags: components["schemas"]["ReviewFlag"][] | null;
             skipped: components["schemas"]["SkippedDestination"][] | null;
+            sources?: components["schemas"]["ResolvedSource"][] | null;
         };
         CLIAuthDecisionOutputBody: {
             /**
@@ -6252,6 +6253,8 @@ export interface components {
             interview_answers?: components["schemas"]["InterviewAnswer"][] | null;
             /** @description Established views the builder may draw on */
             opinions?: string[] | null;
+            /** @description Language or locale this voice normally writes in */
+            preferred_language?: string;
             /** @description Expressions that sound natural in this voice */
             recurring_expressions?: string[] | null;
             /** @description Stable voice traits */
@@ -8220,6 +8223,8 @@ export interface components {
         MediaPlan: {
             brief: string;
             role: string;
+            /** @description Exact source ID for source-bound media treatments */
+            source_ref?: string;
             treatment: string;
         };
         MediaSummary: {
@@ -8872,9 +8877,12 @@ export interface components {
             members: components["schemas"]["OrganizationMemberResponse"][] | null;
         };
         OutputProfile: {
+            allowed_mimes?: string[] | null;
             key: string;
             /** Format: int64 */
             max_segments: number;
+            /** Format: int64 */
+            media_max_count: number;
             /** Format: int64 */
             text_limit: number;
         };
@@ -10416,6 +10424,12 @@ export interface components {
             key: string;
             settings: components["schemas"]["SettingDefinition"][] | null;
         };
+        ResolvedSource: {
+            id: string;
+            kind: string;
+            label: string;
+            publishable: boolean;
+        };
         RestoreImageEditorRevisionInputBody: {
             /**
              * Format: uri
@@ -10880,6 +10894,9 @@ export interface components {
             id: string;
             kind: string;
             label: string;
+            mime_type?: string;
+            /** @description Whether the user allowed this source asset to appear in the post */
+            publishable?: boolean;
             text?: string;
         };
         StartCLIAuthInputBody: {
@@ -25033,6 +25050,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Internal Server Error */
             500: {
                 headers: {
@@ -25323,6 +25349,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
             /** @description Internal Server Error */
             500: {
                 headers: {
@@ -25394,6 +25429,15 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

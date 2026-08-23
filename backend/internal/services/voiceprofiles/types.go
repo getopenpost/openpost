@@ -23,6 +23,7 @@ var (
 // rules so one profile can represent the same person or brand on every network.
 type Definition struct {
 	IdentitySummary      string            `json:"identity_summary,omitempty" doc:"Short description of the person or brand behind the voice"`
+	PreferredLanguage    string            `json:"preferred_language,omitempty" doc:"Language or locale this voice normally writes in"`
 	Traits               []string          `json:"traits,omitempty" doc:"Stable voice traits"`
 	Vocabulary           []string          `json:"vocabulary,omitempty" doc:"Words the voice naturally uses"`
 	RecurringExpressions []string          `json:"recurring_expressions,omitempty" doc:"Expressions that sound natural in this voice"`

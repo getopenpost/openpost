@@ -719,7 +719,7 @@ func TestMemeRenderRejectsCrossWorkspaceParentBeforeCallingProvider(t *testing.T
 func TestMemeConcurrencyLimiterBoundsGlobalAndPerUserWork(t *testing.T) {
 	t.Parallel()
 
-	limiter := newMemeConcurrencyLimiter(2, 1)
+	limiter := newRequestConcurrencyLimiter(2, 1)
 	releaseA, ok := limiter.acquire("user-a")
 	require.True(t, ok)
 	_, ok = limiter.acquire("user-a")

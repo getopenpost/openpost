@@ -81,7 +81,7 @@ var preferredMemeSuggestionTemplateIDs = []string{
 	"success", "wonka", "oprah", "chair", "3hd", "sad-obama",
 }
 
-type memeConcurrencyLimiter struct {
+type requestConcurrencyLimiter struct {
 	mu          sync.Mutex
 	global      chan struct{}
 	perUser     int
@@ -121,14 +121,14 @@ func isMemeWritePath(path string) bool {
 	}
 }
 
-func newMemeConcurrencyLimiter(global, perUser int) *memeConcurrencyLimiter {
-	return &memeConcurrencyLimiter{
+func newRequestConcurrencyLimiter(global, perUser int) *requestConcurrencyLimiter {
+	return &requestConcurrencyLimiter{
 		global: make(chan struct{}, global), perUser: perUser,
 		activeUsers: make(map[string]int),
 	}
 }
 
-func (l *memeConcurrencyLimiter) acquire(userID string) (func(), bool) {
+func (l *requestConcurrencyLimiter) acquire(userID string) (func(), bool) {
 	if l == nil || strings.TrimSpace(userID) == "" {
 		return nil, false
 	}
@@ -245,10 +245,10 @@ type MemeHandler struct {
 	mediaStorage   mediastore.BlobStorage
 	importer       MemeMediaImporter
 	limiter        *ratelimit.Limiter
-	renders        *memeConcurrencyLimiter
-	imports        *memeConcurrencyLimiter
-	suggestions    *memeConcurrencyLimiter
-	thumbnails     *memeConcurrencyLimiter
+	renders        *requestConcurrencyLimiter
+	imports        *requestConcurrencyLimiter
+	suggestions    *requestConcurrencyLimiter
+	thumbnails     *requestConcurrencyLimiter
 	thumbnailMu    sync.Mutex
 	thumbnailCache map[string]memeThumbnailCacheEntry
 	thumbnailBytes int64
@@ -266,12 +266,12 @@ func NewMemeHandler(
 	handler := &MemeHandler{
 		db: db, auth: authn, provider: renderer, suggester: suggester,
 		limiter:     ratelimit.New(),
-		renders:     newMemeConcurrencyLimiter(4, 2),
-		imports:     newMemeConcurrencyLimiter(2, 1),
-		suggestions: newMemeConcurrencyLimiter(4, 1),
+		renders:     newRequestConcurrencyLimiter(4, 2),
+		imports:     newRequestConcurrencyLimiter(2, 1),
+		suggestions: newRequestConcurrencyLimiter(4, 1),
 		// Browsers can multiplex every image in one catalog page. Admit one full
 		// page per user while the global and request-rate limits bound bursts.
-		thumbnails: newMemeConcurrencyLimiter(
+		thumbnails: newRequestConcurrencyLimiter(
 			memeThumbnailGlobalConcurrency,
 			memeThumbnailPerUserConcurrency,
 		),

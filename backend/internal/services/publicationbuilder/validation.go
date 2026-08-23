@@ -36,6 +36,8 @@ var (
 	allowedClaimStatuses   = []string{"supported", "user_asserted", "opinion", "parody", "needs_verification"}
 	allowedMediaTreatments = []string{"none", "use_source", "annotate_source", "meme", "statement_card", "carousel", "concept_image", "short_video_script", "edit_existing_video"}
 	allowedDirectorRoutes  = []string{"artifact_led", "thesis_led"}
+	allowedSourceKinds     = []string{"text", "url", "image", "audio", "video", "document"}
+	publishableSourceKinds = []string{"image", "audio", "video", "document"}
 )
 
 func validateBuildInput(input BuildInput) error {
@@ -43,7 +45,7 @@ func validateBuildInput(input BuildInput) error {
 }
 
 func validateBuildInputWithStoredReferences(input BuildInput, hasStoredReferences bool) error {
-	if strings.TrimSpace(input.Idea) == "" && len(input.Sources) == 0 && len(input.Images) == 0 && len(input.Files) == 0 && len(input.Audio) == 0 && len(input.Videos) == 0 && !hasStoredReferences {
+	if strings.TrimSpace(input.Idea) == "" && len(input.Sources) == 0 && len(input.Parts) == 0 && len(input.Images) == 0 && len(input.Files) == 0 && len(input.Audio) == 0 && len(input.Videos) == 0 && !hasStoredReferences {
 		return errors.New("an idea or source is required")
 	}
 	if utf8.RuneCountInString(input.Idea) > maxIdeaCharacters {
@@ -58,10 +60,20 @@ func validateBuildInputWithStoredReferences(input BuildInput, hasStoredReference
 		if id == "" {
 			return errors.New("every source requires an id")
 		}
+		if id == "idea" {
+			return errors.New("source id idea is reserved for the supplied idea")
+		}
 		if _, exists := seenSources[id]; exists {
 			return fmt.Errorf("source id %q is repeated", id)
 		}
 		seenSources[id] = struct{}{}
+		kind := strings.ToLower(strings.TrimSpace(source.Kind))
+		if !slices.Contains(allowedSourceKinds, kind) {
+			return fmt.Errorf("source %q has an unsupported kind", id)
+		}
+		if source.Publishable && !slices.Contains(publishableSourceKinds, kind) {
+			return fmt.Errorf("source %q cannot be published", id)
+		}
 		if utf8.RuneCountInString(source.Text) > maxSourceCharacters {
 			return fmt.Errorf("source %q exceeds %d characters", id, maxSourceCharacters)
 		}
@@ -108,7 +120,13 @@ func decodeStrictJSON(text string, target any) error {
 	return nil
 }
 
-func validateDirector(plan DirectorPlan, destinations []Destination, sourceIDs map[string]struct{}, policy DestinationPolicy) error {
+func validateDirector(
+	plan DirectorPlan,
+	destinations []Destination,
+	sources sourceReferenceCatalog,
+	locked DirectionInput,
+	policy DestinationPolicy,
+) error {
 	if strings.TrimSpace(plan.CanonicalText) == "" || utf8.RuneCountInString(plan.CanonicalText) > maxCanonicalCharacters {
 		return errors.New("director canonical_text is missing or too long")
 	}
@@ -139,13 +157,27 @@ func validateDirector(plan DirectorPlan, destinations []Destination, sourceIDs m
 	if !slices.Contains(allowedDirectorRoutes, plan.Route) {
 		return fmt.Errorf("director selected unsupported route %q", plan.Route)
 	}
+	lockedFields := []struct {
+		name     string
+		expected string
+		actual   string
+	}{
+		{name: "outcome", expected: locked.Outcome, actual: plan.Outcome},
+		{name: "audience", expected: locked.Audience, actual: plan.Audience},
+		{name: "angle", expected: locked.Angle, actual: plan.Angle},
+	}
+	for _, field := range lockedFields {
+		if strings.TrimSpace(field.expected) != "" && strings.TrimSpace(field.actual) != strings.TrimSpace(field.expected) {
+			return fmt.Errorf("director changed locked %s", field.name)
+		}
+	}
 	if len(plan.Claims) > maxClaims {
 		return errors.New("director returned too many claims")
 	}
-	if err := validateClaims(plan.Claims, sourceIDs); err != nil {
+	if err := validateClaims(plan.Claims, sources); err != nil {
 		return fmt.Errorf("director claims: %w", err)
 	}
-	if err := validateMediaPlan(plan.Media); err != nil {
+	if err := validateMediaPlan(plan.Media, sources); err != nil {
 		return fmt.Errorf("director media: %w", err)
 	}
 	allowed := make(map[string]struct{}, len(destinations))
@@ -182,7 +214,7 @@ func validateDirector(plan DirectorPlan, destinations []Destination, sourceIDs m
 	return nil
 }
 
-func validateDestinationPlan(plan DestinationPlan, destination Destination, policy platformPolicy, sourceIDs map[string]struct{}) error {
+func validateDestinationPlan(plan DestinationPlan, destination Destination, policy platformPolicy, sources sourceReferenceCatalog) error {
 	if plan.AccountID != destination.AccountID {
 		return fmt.Errorf("adapter selected unknown account %q", plan.AccountID)
 	}
@@ -217,22 +249,61 @@ func validateDestinationPlan(plan DestinationPlan, destination Destination, poli
 	if len(plan.Claims) > maxClaims {
 		return errors.New("adapter returned too many claims")
 	}
-	if err := validateClaims(plan.Claims, sourceIDs); err != nil {
+	if err := validateClaims(plan.Claims, sources); err != nil {
 		return fmt.Errorf("adapter claims: %w", err)
 	}
 	if len(plan.Warnings) > maxWarningsPerDestination || len(plan.FollowUpNotes) > maxWarningsPerDestination {
 		return errors.New("adapter returned too many warnings or follow-up notes")
 	}
-	return validateMediaPlan(plan.Media)
+	if err := validateMediaPlan(plan.Media, sources); err != nil {
+		return err
+	}
+	if plan.Media.Treatment == "use_source" {
+		if err := validatePublishedSourceMedia(plan.Media, profile, sources); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func validateClaims(claims []Claim, sourceIDs map[string]struct{}) error {
+func validatePublishedSourceMedia(plan MediaPlan, profile OutputProfile, sources sourceReferenceCatalog) error {
+	if profile.MediaMaxCount < 1 {
+		return fmt.Errorf("output profile %q does not accept source media", profile.Key)
+	}
+	source, ok := sources[strings.TrimSpace(plan.SourceRef)]
+	if !ok {
+		return errors.New("source media is unavailable")
+	}
+	if !sourceMIMEAllowed(source, profile.AllowedMIMEs) {
+		return fmt.Errorf("output profile %q does not accept the selected source media", profile.Key)
+	}
+	return nil
+}
+
+func sourceMIMEAllowed(source sourceReference, allowed []string) bool {
+	if source.mimeType == "" {
+		return false
+	}
+	for _, candidate := range allowed {
+		candidate = strings.ToLower(strings.TrimSpace(candidate))
+		if candidate == source.mimeType ||
+			(strings.HasSuffix(candidate, "/*") && strings.HasPrefix(source.mimeType, strings.TrimSuffix(candidate, "*"))) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateClaims(claims []Claim, sources sourceReferenceCatalog) error {
 	for _, claim := range claims {
 		if strings.TrimSpace(claim.Text) == "" || !slices.Contains(allowedClaimStatuses, claim.Status) {
 			return errors.New("claim text or status is invalid")
 		}
+		if claim.Status == "supported" && len(claim.SourceRefs) == 0 {
+			return errors.New("supported claim requires at least one source reference")
+		}
 		for _, sourceID := range claim.SourceRefs {
-			if _, ok := sourceIDs[sourceID]; !ok {
+			if _, ok := sources[sourceID]; !ok {
 				return fmt.Errorf("claim references unknown source %q", sourceID)
 			}
 		}
@@ -240,12 +311,44 @@ func validateClaims(claims []Claim, sourceIDs map[string]struct{}) error {
 	return nil
 }
 
-func validateMediaPlan(plan MediaPlan) error {
+func validateMediaPlan(plan MediaPlan, sources sourceReferenceCatalog) error {
 	if !slices.Contains(allowedMediaTreatments, plan.Treatment) {
 		return fmt.Errorf("unsupported media treatment %q", plan.Treatment)
 	}
 	if strings.TrimSpace(plan.Role) == "" || strings.TrimSpace(plan.Brief) == "" {
 		return errors.New("media role and brief are required")
+	}
+	sourceRef := strings.TrimSpace(plan.SourceRef)
+	sourceBound := plan.Treatment == "use_source" || plan.Treatment == "annotate_source" || plan.Treatment == "edit_existing_video"
+	if !sourceBound {
+		if sourceRef != "" {
+			return errors.New("generated media treatment cannot select a source")
+		}
+		return nil
+	}
+	if sourceRef == "" {
+		return errors.New("source-bound media treatment requires source_ref")
+	}
+	source, ok := sources[sourceRef]
+	if !ok {
+		return fmt.Errorf("media references unknown source %q", sourceRef)
+	}
+	if !source.publishable {
+		return errors.New("source-bound media treatment requires a publishable source")
+	}
+	switch plan.Treatment {
+	case "annotate_source":
+		if source.kind != "image" {
+			return errors.New("annotate_source requires an image source")
+		}
+	case "edit_existing_video":
+		if source.kind != "video" {
+			return errors.New("edit_existing_video requires a video source")
+		}
+	case "use_source":
+		if !slices.Contains([]string{"image", "video", "audio", "document"}, source.kind) {
+			return errors.New("use_source requires a publishable media source")
+		}
 	}
 	return nil
 }

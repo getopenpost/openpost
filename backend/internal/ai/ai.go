@@ -61,6 +61,17 @@ type Video struct {
 	MIMEType string
 }
 
+// MultimodalPart binds one exact source identifier to one media payload.
+// Parts preserve caller order across media types. Adapters must send the
+// identifier as bounded metadata next to its payload, never as instructions.
+type MultimodalPart struct {
+	SourceID string
+	Image    *Image
+	File     *File
+	Audio    *Audio
+	Video    *Video
+}
+
 type WebSearchContext string
 
 const (
@@ -82,9 +93,12 @@ type WebSearchConfig struct {
 }
 
 type GenerateRequest struct {
-	Model           string
-	SystemPrompt    string
-	UserPrompt      string
+	Model        string
+	SystemPrompt string
+	UserPrompt   string
+	Parts        []MultimodalPart
+	// Images, Files, Audio, and Videos are legacy unlabeled inputs. New
+	// multi-source features should use Parts so identifiers and order survive.
 	Images          []Image
 	Files           []File
 	Audio           []Audio

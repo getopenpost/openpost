@@ -12,15 +12,28 @@ import (
 	"github.com/openpost/backend/internal/models"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
+	"github.com/uptrace/bun"
 )
 
-var ErrBuildNotReady = errors.New("publication build is not ready to commit")
+var (
+	ErrBuildNotReady          = errors.New("publication build is not ready to commit")
+	ErrBuildSourceUnavailable = errors.New("selected publication build source is unavailable")
+)
 
 // PublicationApplication is the narrow canonical seam needed to hand a ready
 // package to the normal composer.
 type PublicationApplication interface {
 	Create(context.Context, string, publicationservice.CreateCommand) (publicationservice.Publication, error)
 	Get(context.Context, string, string) (publicationservice.Publication, error)
+}
+
+type readyMediaPublicationApplication interface {
+	CreateWithReadyMedia(
+		context.Context,
+		string,
+		publicationservice.CreateCommand,
+		[]string,
+	) (publicationservice.Publication, error)
 }
 
 // Commit creates one deterministic draft Publication, then records the
@@ -69,6 +82,10 @@ func (application *Application) Commit(
 	if err := decodeStoredJSON(record.ResultJSON, &result); err != nil {
 		return Build{}, errors.New("saved publication build result is invalid")
 	}
+	selectedMediaIDs := selectedSourceMediaIDs(request.Assets, result)
+	if err := application.validateCommitSourceMedia(ctx, record.WorkspaceID, selectedMediaIDs); err != nil {
+		return Build{}, err
+	}
 
 	publicationID := deterministicPublicationID(buildID)
 	now := application.now().UTC()
@@ -83,13 +100,18 @@ func (application *Application) Commit(
 
 	publication, err := publications.Get(ctx, userID, publicationID)
 	if category, ok := publicationservice.CategoryOf(err); ok && category == publicationservice.ErrorNotFound {
-		publication, err = publications.Create(ctx, userID, publicationCreateCommand(
+		command := publicationCreateCommand(
 			publicationID,
 			record.WorkspaceID,
 			request,
 			result,
 			buildID,
-		))
+		)
+		if guarded, ok := publications.(readyMediaPublicationApplication); ok {
+			publication, err = guarded.CreateWithReadyMedia(ctx, userID, command, selectedMediaIDs)
+		} else {
+			publication, err = publications.Create(ctx, userID, command)
+		}
 		if err != nil {
 			// Another identical commit may have won the insert race.
 			if existing, getErr := publications.Get(ctx, userID, publicationID); getErr == nil {
@@ -133,6 +155,25 @@ func (application *Application) Commit(
 	return application.Get(ctx, userID, buildID)
 }
 
+func (application *Application) validateCommitSourceMedia(ctx context.Context, workspaceID string, mediaIDs []string) error {
+	if len(mediaIDs) == 0 {
+		return nil
+	}
+	count, err := application.db.NewSelect().Model((*models.MediaAttachment)(nil)).
+		Where("workspace_id = ?", workspaceID).
+		Where("processing_status = ?", "ready").
+		Where("trashed_at IS NULL").
+		Where("id IN (?)", bun.In(mediaIDs)).
+		Count(ctx)
+	if err != nil {
+		return fmt.Errorf("check publication build source media: %w", err)
+	}
+	if count != len(mediaIDs) {
+		return ErrBuildSourceUnavailable
+	}
+	return nil
+}
+
 func deterministicPublicationID(buildID string) string {
 	return uuid.NewSHA1(uuid.NameSpaceOID, []byte("openpost:publication-build:"+buildID)).String()
 }
@@ -145,24 +186,29 @@ func publicationCreateCommand(
 	buildID string,
 ) publicationservice.CreateCommand {
 	canonicalID := "builder-source"
-	media := publishableBuildMedia(request.Assets)
 	canonical := publicationservice.PublicationSegmentInput{
-		ID: canonicalID, Body: result.CanonicalText, Media: media,
+		ID: canonicalID, Body: result.CanonicalText,
 	}
 	renditions := make([]publicationservice.RenditionInput, 0, len(result.Destinations))
 	for _, destination := range result.Destinations {
+		destinationMedia := buildMediaForPlan(request.Assets, destination.Media)
 		segments := make([]publicationservice.RenditionSegmentInput, 0, len(destination.Segments))
 		for index, segment := range destination.Segments {
 			body := segment.Body
 			title := segment.Title
 			description := segment.Description
-			inheritMedia := index == 0 && mediaPlanUsesSource(destination.Media)
+			inheritMedia := false
+			segmentMedia := []publicationservice.PublicationMediaInput(nil)
+			if index == 0 {
+				segmentMedia = destinationMedia
+			}
 			segments = append(segments, publicationservice.RenditionSegmentInput{
 				PublicationSegmentID: canonicalID,
 				BodyOverride:         &body,
 				TitleOverride:        optionalTextOverride(title),
 				DescriptionOverride:  optionalTextOverride(description),
 				MediaInherited:       &inheritMedia,
+				Media:                segmentMedia,
 			})
 		}
 		body, title, description := "", "", ""
@@ -191,7 +237,7 @@ func publicationCreateCommand(
 			"route":            result.Direction.Route,
 			"thesis":           result.Direction.Thesis,
 			"angle":            result.Direction.Angle,
-			"claims":           result.Direction.Claims,
+			"claims":           aggregateBuildClaims(result),
 			"media":            result.Direction.Media,
 			"skipped":          result.Skipped,
 			"review_flags":     result.ReviewFlags,
@@ -210,14 +256,18 @@ func publicationCreateCommand(
 		Goal:           result.Direction.Outcome,
 		Audience:       result.Direction.Audience,
 		Metadata:       metadata,
-		Media:          media,
 		Segments:       []publicationservice.PublicationSegmentInput{canonical},
 		Renditions:     renditions,
 	}
-	if len(request.ContextURLs) > 0 {
-		command.SourceURL = request.ContextURLs[0]
-	}
 	return command
+}
+
+func aggregateBuildClaims(result BuildResult) []Claim {
+	claims := append([]Claim(nil), result.Direction.Claims...)
+	for _, destination := range result.Destinations {
+		claims = append(claims, destination.Claims...)
+	}
+	return claims
 }
 
 func publicationVoiceSummaries(destinations []Destination) []map[string]any {
@@ -233,30 +283,43 @@ func publicationVoiceSummaries(destinations []Destination) []map[string]any {
 	return voices
 }
 
-func publishableBuildMedia(assets []BuildAsset) []publicationservice.PublicationMediaInput {
-	media := make([]publicationservice.PublicationMediaInput, 0, len(assets))
+func buildMediaForPlan(assets []BuildAsset, plan MediaPlan) []publicationservice.PublicationMediaInput {
+	sourceRef := strings.TrimSpace(plan.SourceRef)
+	if plan.Treatment != "use_source" || !strings.HasPrefix(sourceRef, "media:") {
+		return nil
+	}
+	mediaID := strings.TrimSpace(strings.TrimPrefix(sourceRef, "media:"))
+	if mediaID == "" {
+		return nil
+	}
 	for _, asset := range assets {
-		if !asset.MayPublish {
+		if !asset.MayPublish || asset.MediaID != mediaID {
 			continue
 		}
-		media = append(media, publicationservice.PublicationMediaInput{
+		return []publicationservice.PublicationMediaInput{{
 			MediaID: asset.MediaID,
 			Role:    "attachment",
 			Settings: map[string]any{
 				"builder_source_role": asset.Role,
 			},
-		})
+		}}
 	}
-	return media
+	return nil
 }
 
-func mediaPlanUsesSource(plan MediaPlan) bool {
-	switch plan.Treatment {
-	case "use_source", "annotate_source", "edit_existing_video":
-		return true
-	default:
-		return false
+func selectedSourceMediaIDs(assets []BuildAsset, result BuildResult) []string {
+	seen := make(map[string]struct{}, len(result.Destinations))
+	mediaIDs := make([]string, 0, len(result.Destinations))
+	for _, destination := range result.Destinations {
+		for _, media := range buildMediaForPlan(assets, destination.Media) {
+			if _, duplicate := seen[media.MediaID]; duplicate {
+				continue
+			}
+			seen[media.MediaID] = struct{}{}
+			mediaIDs = append(mediaIDs, media.MediaID)
+		}
 	}
+	return mediaIDs
 }
 
 func optionalTextOverride(value string) *string {

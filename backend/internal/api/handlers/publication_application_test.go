@@ -17,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
@@ -130,6 +131,35 @@ func TestPublicationApplicationUsesOneMutationTimestamp(t *testing.T) {
 	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", publication.ID).Scan(ctx))
 	require.Equal(t, 2, stored.Revision)
 	require.True(t, stored.UpdatedAt.Equal(updatedAt))
+}
+
+func TestPublicationApplicationCreateWithReadyMediaRejectsATrashedBuilderSource(t *testing.T) {
+	t.Parallel()
+	srv := newMCPTestServer(t)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	media := &models.MediaAttachment{
+		ID: "builder-proof", WorkspaceID: "ws-1", FilePath: "builder-proof.png",
+		MimeType: "image/png", ProcessingStatus: "ready", TrashedAt: now, CreatedAt: now,
+	}
+	_, err := srv.db.NewInsert().Model(media).Exec(ctx)
+	require.NoError(t, err)
+
+	application := srv.handler.publicationHandler().publicationApplicationForTesting()
+	_, err = application.CreateWithReadyMedia(ctx, "user-1", CreatePublicationBody{
+		WorkspaceID:      "ws-1",
+		ContentProfile:   models.ContentProfileImagePost,
+		SourceText:       "A built post.",
+		SocialAccountIDs: []string{"account-1"},
+		Media:            []PublicationMediaInput{{MediaID: media.ID, Role: "attachment"}},
+	}, []string{media.ID})
+	require.ErrorIs(t, err, publicationbuilder.ErrBuildSourceUnavailable)
+	category, ok := publicationservice.CategoryOf(err)
+	require.True(t, ok)
+	require.Equal(t, publicationservice.ErrorInvalidInput, category)
+	publicationCount, countErr := srv.db.NewSelect().Model((*models.Publication)(nil)).Count(ctx)
+	require.NoError(t, countErr)
+	require.Zero(t, publicationCount)
 }
 
 func TestPublicationApplicationValidatesBeforeQueueMutation(t *testing.T) {

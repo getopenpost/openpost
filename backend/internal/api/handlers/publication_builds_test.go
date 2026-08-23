@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -17,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
@@ -123,16 +125,11 @@ func TestPublicationBuildCreateUsesSocialSetSubsetCapabilitiesAndStoredAuthority
 	require.Equal(t, "x.thread", destination.AllowedOutputProfiles[0].Key, "Social Set format should lead its frozen allowlist")
 	require.Equal(t, "default:ws-1", destination.Voice.ID)
 
-	var xThreadLimit int
-	for _, capability := range capabilities.All() {
-		if capability.Provider == capabilities.ProviderX && capability.OutputProfile == "x.thread" {
-			xThreadLimit = capability.TextLimit
-			break
-		}
-	}
-	require.NotZero(t, xThreadLimit)
-	require.Equal(t, xThreadLimit, destination.AllowedOutputProfiles[0].TextLimit)
+	require.Equal(t, platform.XStandardTextLimit, destination.AllowedOutputProfiles[0].TextLimit)
 	require.Equal(t, maxPublicationBuildThreadSegments, destination.AllowedOutputProfiles[0].MaxSegments)
+	require.Equal(t, 4, destination.AllowedOutputProfiles[0].MediaMaxCount)
+	require.Contains(t, destination.AllowedOutputProfiles[0].AllowedMIMEs, "image/png")
+	require.NotContains(t, destination.AllowedOutputProfiles[0].AllowedMIMEs, "application/pdf")
 
 	var record publicationbuilder.BuildRecord
 	require.NoError(t, server.db.NewSelect().Model(&record).Where("id = ?", build.ID).Scan(t.Context()))
@@ -191,6 +188,79 @@ func TestPublicationBuildCreateReturnsSameBuildAndRejectsIdempotencyConflict(t *
 	count, err := server.db.NewSelect().Model((*publicationbuilder.BuildRecord)(nil)).Count(t.Context())
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
+}
+
+func TestPublicationBuildCreateBoundsPerUserBursts(t *testing.T) {
+	server := newPublicationBuildTestServer(t)
+	for range publicationBuildRequestsPerMinute {
+		require.True(t, server.handler.limiter.Allow(
+			"publication-build:create:user-1",
+			publicationBuildRequestsPerMinute,
+			time.Minute,
+		))
+	}
+
+	response := server.request(
+		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "rate-limited-build", "web-token",
+	)
+
+	require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
+	count, err := server.db.NewSelect().Model((*publicationbuilder.BuildRecord)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+}
+
+func TestPublicationBuildCreateEnforcesDurableActiveBuildLimit(t *testing.T) {
+	server := newPublicationBuildTestServer(t)
+	for index := range 3 {
+		response := server.request(
+			t,
+			http.MethodPost,
+			"/api/v1/publication-builds",
+			publicationBuildRequest(nil),
+			fmt.Sprintf("active-build-%d", index),
+			"web-token",
+		)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+
+	response := server.request(
+		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "active-build-limit", "web-token",
+	)
+
+	require.Equal(t, http.StatusTooManyRequests, response.Code, response.Body.String())
+}
+
+func TestPublicationBuildRetryEnforcesDurableActiveBuildLimit(t *testing.T) {
+	server := newPublicationBuildTestServer(t)
+	failedResponse := server.request(
+		t, http.MethodPost, "/api/v1/publication-builds", publicationBuildRequest(nil), "failed-build", "web-token",
+	)
+	require.Equal(t, http.StatusOK, failedResponse.Code, failedResponse.Body.String())
+	failed := decodePublicationBuild(t, failedResponse)
+	_, err := server.db.NewUpdate().Model((*publicationbuilder.BuildRecord)(nil)).
+		Set("state = ?", publicationbuilder.BuildStateFailed).
+		Set("phase = ?", publicationbuilder.BuildPhaseFailed).
+		Where("id = ?", failed.ID).
+		Exec(t.Context())
+	require.NoError(t, err)
+	for index := range 3 {
+		response := server.request(
+			t,
+			http.MethodPost,
+			"/api/v1/publication-builds",
+			publicationBuildRequest(nil),
+			fmt.Sprintf("retry-active-%d", index),
+			"web-token",
+		)
+		require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	}
+
+	retry := server.request(
+		t, http.MethodPost, "/api/v1/publication-builds/"+failed.ID+"/retry", nil, "", "web-token",
+	)
+
+	require.Equal(t, http.StatusTooManyRequests, retry.Code, retry.Body.String())
 }
 
 func TestPublicationBuildCreateStoresReferencesWithoutFetchingThem(t *testing.T) {

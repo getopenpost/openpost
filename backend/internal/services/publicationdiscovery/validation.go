@@ -167,6 +167,7 @@ func validateAndNormalizeOutput(output generatedResult, input Input, now time.Ti
 		wantedPlatforms[platform] = struct{}{}
 	}
 	seenTitles := make(map[string]struct{}, len(output.Opportunities))
+	seenSourceURLs := make(map[string]struct{}, webSearchMaxResults)
 	opportunities := make([]Opportunity, 0, len(output.Opportunities))
 	for opportunityIndex, generated := range output.Opportunities {
 		title, err := requiredText(generated.Title, maxOpportunityTitle)
@@ -201,6 +202,12 @@ func validateAndNormalizeOutput(output generatedResult, input Input, now time.Ti
 		sources, err := normalizeSources(generated.Sources, now)
 		if err != nil {
 			return nil, err
+		}
+		for _, source := range sources {
+			seenSourceURLs[source.URL] = struct{}{}
+		}
+		if len(seenSourceURLs) > webSearchMaxResults {
+			return nil, invalidOutput("opportunities cite more sources than the bounded search returned")
 		}
 		treatments, err := normalizeTreatments(generated.PlatformTreatments, input.Platforms, wantedPlatforms)
 		if err != nil {

@@ -87,7 +87,7 @@ func (service *Service) BuildWithProgress(
 		if len(replacements) == 0 {
 			return BuildResult{}, errors.New("publication review rejected the generated package")
 		}
-		if err := applyReviewReplacements(destinationPlans, replacements, supported); err != nil {
+		if err := applyReviewReplacements(destinationPlans, replacements, supported, sourceReferenceCatalogFor(input)); err != nil {
 			return BuildResult{}, err
 		}
 		secondFlags, _, secondApproved, err := service.review(requestCtx, input, director, destinationPlans)
@@ -126,18 +126,19 @@ func (service *Service) direct(ctx context.Context, input BuildInput, supported 
 	}
 	generated, err := service.generator.Generate(ctx, ai.GenerateRequest{
 		Model: service.model, SystemPrompt: directorSystemPrompt, UserPrompt: prompt,
-		Images: input.Images, Files: input.Files, Audio: input.Audio, Videos: input.Videos,
+		Parts: input.Parts, Images: input.Images, Files: input.Files, Audio: input.Audio, Videos: input.Videos,
 		MaxOutputTokens: 4_000,
 		ReasoningEffort: ai.ReasoningEffortMedium,
 	})
 	if err != nil {
 		return DirectorPlan{}, fmt.Errorf("generate publication direction: %w", err)
 	}
+	service.recordGeneration(ctx, "director", "", generated)
 	var plan DirectorPlan
 	if err := decodeStrictJSON(generated.Text, &plan); err != nil {
 		return DirectorPlan{}, fmt.Errorf("validate publication direction: %w", err)
 	}
-	if err := validateDirector(plan, supported, sourceIDSet(input.Sources), input.DestinationPolicy); err != nil {
+	if err := validateDirector(plan, supported, sourceReferenceCatalogFor(input), input.Direction, input.DestinationPolicy); err != nil {
 		return DirectorPlan{}, fmt.Errorf("validate publication direction: %w", err)
 	}
 	return plan, nil
@@ -190,13 +191,14 @@ func (service *Service) draftDestinations(
 				results <- generatedPlan{index: index, err: fmt.Errorf("generate %s rendition: %w", destination.Platform, err)}
 				return
 			}
+			service.recordGeneration(ctx, "adapter", destination.AccountID, generated)
 			var plan DestinationPlan
 			if err := decodeStrictJSON(generated.Text, &plan); err != nil {
 				results <- generatedPlan{index: index, err: fmt.Errorf("validate %s rendition: %w", destination.Platform, err)}
 				return
 			}
 			plan.Platform = destination.Platform
-			if err := validateDestinationPlan(plan, destination, policy, sourceIDSet(input.Sources)); err != nil {
+			if err := validateDestinationPlan(plan, destination, policy, sourceReferenceCatalogFor(input)); err != nil {
 				results <- generatedPlan{index: index, err: fmt.Errorf("validate %s rendition: %w", destination.Platform, err)}
 				return
 			}
@@ -247,6 +249,7 @@ func (service *Service) review(
 	if err != nil {
 		return nil, nil, false, fmt.Errorf("review publication package: %w", err)
 	}
+	service.recordGeneration(ctx, "reviewer", "", generated)
 	var result reviewResult
 	if err := decodeStrictJSON(generated.Text, &result); err != nil {
 		return nil, nil, false, fmt.Errorf("validate publication review: %w", err)
@@ -257,7 +260,19 @@ func (service *Service) review(
 	return result.Flags, result.Replacements, result.Approved, nil
 }
 
-func applyReviewReplacements(plans []DestinationPlan, replacements []reviewReplacement, destinations []Destination) error {
+func (service *Service) recordGeneration(ctx context.Context, stage, accountID string, generated ai.GenerateResult) {
+	if strings.TrimSpace(generated.Model) == "" {
+		generated.Model = service.model
+	}
+	recordGeneration(ctx, stage, accountID, generated)
+}
+
+func applyReviewReplacements(
+	plans []DestinationPlan,
+	replacements []reviewReplacement,
+	destinations []Destination,
+	sources sourceReferenceCatalog,
+) error {
 	byAccount := make(map[string]int, len(plans))
 	destinationByAccount := make(map[string]Destination, len(destinations))
 	for index, plan := range plans {
@@ -282,7 +297,7 @@ func applyReviewReplacements(plans []DestinationPlan, replacements []reviewRepla
 		}
 		destination := destinationByAccount[replacement.AccountID]
 		policy, _ := policyFor(destination.Platform)
-		if err := validateDestinationPlan(plans[index], destination, policy, nil); err != nil {
+		if err := validateDestinationPlan(plans[index], destination, policy, sources); err != nil {
 			return fmt.Errorf("validate review replacement: %w", err)
 		}
 	}
@@ -306,11 +321,25 @@ func partitionDestinations(destinations []Destination) ([]Destination, []Skipped
 	return supported, skipped
 }
 
-func sourceIDSet(sources []SourceMaterial) map[string]struct{} {
-	result := make(map[string]struct{}, len(sources)+1)
-	result["idea"] = struct{}{}
-	for _, source := range sources {
-		result[source.ID] = struct{}{}
+type sourceReference struct {
+	kind        string
+	mimeType    string
+	publishable bool
+}
+
+type sourceReferenceCatalog map[string]sourceReference
+
+func sourceReferenceCatalogFor(input BuildInput) sourceReferenceCatalog {
+	result := make(sourceReferenceCatalog, len(input.Sources)+1)
+	if strings.TrimSpace(input.Idea) != "" {
+		result["idea"] = sourceReference{kind: "text"}
+	}
+	for _, source := range input.Sources {
+		result[source.ID] = sourceReference{
+			kind:        strings.ToLower(strings.TrimSpace(source.Kind)),
+			mimeType:    strings.ToLower(strings.TrimSpace(source.MIMEType)),
+			publishable: source.Publishable,
+		}
 	}
 	return result
 }

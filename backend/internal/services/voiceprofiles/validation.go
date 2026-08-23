@@ -12,6 +12,7 @@ const (
 	maxNameCharacters          = 80
 	maxDefinitionBytes         = 64 * 1024
 	maxIdentityCharacters      = 1200
+	maxLanguageCharacters      = 80
 	maxShortItems              = 40
 	maxShortItemCharacters     = 200
 	maxOpinionCharacters       = 600
@@ -40,6 +41,9 @@ func normalizeDefinition(input Definition) (Definition, string, error) {
 	var err error
 	if out.IdentitySummary, err = normalizeText(input.IdentitySummary, maxIdentityCharacters, true); err != nil {
 		return Definition{}, "", invalidDefinition("identity_summary")
+	}
+	if out.PreferredLanguage, err = normalizeText(input.PreferredLanguage, maxLanguageCharacters, false); err != nil {
+		return Definition{}, "", invalidDefinition("preferred_language")
 	}
 	if out.Traits, err = normalizeList(input.Traits, maxShortItems, maxShortItemCharacters); err != nil {
 		return Definition{}, "", invalidDefinition("traits")

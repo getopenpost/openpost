@@ -18,6 +18,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -78,6 +79,10 @@ import (
 
 var version = "dev"
 var commit = "unknown"
+
+func newWorkerID() string {
+	return "worker-" + uuid.NewString()
+}
 
 //nolint:gocyclo
 func main() {
@@ -513,6 +518,15 @@ func main() {
 		log.Printf("Meme generator enabled with renderer %s", memeProvider.Key())
 	}
 
+	var publicSourceLoader sourcecontext.Loader
+	if contentGenerator != nil && (cfg.ContentBuilderModel != "" || cfg.ContentDiscoveryModel != "") {
+		var sourceErr error
+		publicSourceLoader, sourceErr = sourcecontext.New(sourcecontext.Config{})
+		if sourceErr != nil {
+			log.Fatalf("failed to initialize public source loader: %v", sourceErr)
+		}
+	}
+
 	var publicationBuilderApplication *publicationbuilder.Application
 	if contentGenerator != nil && cfg.ContentBuilderModel != "" {
 		packageBuilder, builderErr := publicationbuilder.New(contentGenerator, publicationbuilder.Config{
@@ -521,16 +535,12 @@ func main() {
 		if builderErr != nil {
 			log.Fatalf("failed to initialize publication builder: %v", builderErr)
 		}
-		sourceLoader, sourceErr := sourcecontext.New(sourcecontext.Config{})
-		if sourceErr != nil {
-			log.Fatalf("failed to initialize publication source loader: %v", sourceErr)
-		}
 		publicationBuilderApplication, builderErr = publicationbuilder.NewApplication(
 			db,
 			packageBuilder,
 			publicationbuilder.ApplicationConfig{
 				Model:        cfg.ContentBuilderModel,
-				SourceLoader: sourceLoader,
+				SourceLoader: publicSourceLoader,
 				AssetLoader:  publicationbuilder.NewMediaAssetLoader(db, storage),
 			},
 		)
@@ -543,7 +553,7 @@ func main() {
 	var publicationDiscoveryService publicationdiscovery.Discoverer
 	if contentGenerator != nil && cfg.ContentDiscoveryModel != "" {
 		discovery, discoveryErr := publicationdiscovery.New(contentGenerator, publicationdiscovery.Config{
-			Model: cfg.ContentDiscoveryModel,
+			Model: cfg.ContentDiscoveryModel, SourceLoader: publicSourceLoader,
 		})
 		if discoveryErr != nil {
 			log.Fatalf("failed to initialize publication discovery: %v", discoveryErr)
@@ -569,7 +579,7 @@ func main() {
 		AppVersion: version,
 	}, feedbackDestination)
 
-	worker := queue.NewWorker(db, "worker-1", 1*time.Second, publishSvc, tokenManager, storage)
+	worker := queue.NewWorker(db, newWorkerID(), 1*time.Second, publishSvc, tokenManager, storage)
 	worker.SetFeedbackService(feedbackService)
 	worker.SetAnalyticsService(analyticsService)
 	worker.SetBillingService(billingService)

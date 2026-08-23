@@ -50,13 +50,13 @@ func (loader *MediaAssetLoader) Load(
 
 	ids := make([]string, 0, len(assets))
 	seen := make(map[string]struct{}, len(assets))
-	for _, asset := range assets {
+	for index, asset := range assets {
 		id := strings.TrimSpace(asset.MediaID)
 		if id == "" {
-			return LoadedAssets{}, errors.New("builder media source id is required")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source id is required"))
 		}
 		if _, duplicate := seen[id]; duplicate {
-			return LoadedAssets{}, errors.New("builder media source is repeated")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source is repeated"))
 		}
 		seen[id] = struct{}{}
 		ids = append(ids, id)
@@ -70,10 +70,7 @@ func (loader *MediaAssetLoader) Load(
 		Where("id IN (?)", bun.In(ids)).
 		Scan(ctx)
 	if err != nil {
-		return LoadedAssets{}, errors.New("builder media sources could not be loaded")
-	}
-	if len(rows) != len(ids) {
-		return LoadedAssets{}, errors.New("builder media source is missing or outside the Workspace")
+		return LoadedAssets{}, assetSourceFailure(0, errors.New("builder media sources could not be loaded"))
 	}
 	byID := make(map[string]models.MediaAttachment, len(rows))
 	for _, row := range rows {
@@ -84,57 +81,68 @@ func (loader *MediaAssetLoader) Load(
 	var totalBytes int64
 	for index, asset := range assets {
 		if err := ctx.Err(); err != nil {
-			return LoadedAssets{}, err
+			return LoadedAssets{}, assetSourceFailure(index, err)
 		}
-		media := byID[strings.TrimSpace(asset.MediaID)]
+		media, ok := byID[strings.TrimSpace(asset.MediaID)]
+		if !ok {
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source is missing or outside the Workspace"))
+		}
 		mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(media.MimeType))
 		if err != nil || !strings.Contains(mediaType, "/") {
-			return LoadedAssets{}, errors.New("builder media source has an invalid MIME type")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source has an invalid MIME type"))
 		}
 		mediaType = strings.ToLower(mediaType)
 		limit := builderAssetByteLimit(mediaType)
 		if media.Size < 0 || media.Size > limit || media.Size > maxBuilderAssetBytes {
-			return LoadedAssets{}, errors.New("builder media source exceeds its size limit")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source exceeds its size limit"))
 		}
 		if totalBytes+media.Size > maxBuilderAssetTotalBytes {
-			return LoadedAssets{}, errors.New("builder media sources exceed the total size limit")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media sources exceed the total size limit"))
 		}
 
 		reader, err := loader.storage.Open(media.FilePath)
 		if err != nil {
-			return LoadedAssets{}, errors.New("builder media source bytes are unavailable")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source bytes are unavailable"))
 		}
 		data, readErr := readBuilderAsset(reader, limit)
 		closeErr := reader.Close()
 		if readErr != nil {
-			return LoadedAssets{}, readErr
+			return LoadedAssets{}, assetSourceFailure(index, readErr)
 		}
 		if closeErr != nil {
-			return LoadedAssets{}, errors.New("builder media source could not be closed")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source could not be closed"))
 		}
 		totalBytes += int64(len(data))
 		if totalBytes > maxBuilderAssetTotalBytes {
-			return LoadedAssets{}, errors.New("builder media sources exceed the total size limit")
+			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media sources exceed the total size limit"))
 		}
 
 		filename := safeBuilderFilename(media.OriginalFilename, mediaType, index)
 		kind := builderAssetKind(mediaType)
 		output.Sources = append(output.Sources, SourceMaterial{
-			ID: "media:" + media.ID, Kind: kind, Label: filename,
-			Text: builderAssetDescription(media, asset, kind),
+			ID: "media:" + media.ID, Kind: kind, Label: filename, MIMEType: mediaType,
+			Text: builderAssetDescription(media, asset, kind), Publishable: asset.MayPublish,
 		})
 		switch kind {
 		case "image":
-			output.Images = append(output.Images, ai.Image{Data: data, MIMEType: mediaType, Detail: ai.ImageDetailHigh})
+			image := ai.Image{Data: data, MIMEType: mediaType, Detail: ai.ImageDetailHigh}
+			output.Parts = append(output.Parts, ai.MultimodalPart{SourceID: "media:" + media.ID, Image: &image})
 		case "audio":
-			output.Audio = append(output.Audio, ai.Audio{Data: data, MIMEType: mediaType})
+			audio := ai.Audio{Data: data, MIMEType: mediaType}
+			output.Parts = append(output.Parts, ai.MultimodalPart{SourceID: "media:" + media.ID, Audio: &audio})
 		case "video":
-			output.Videos = append(output.Videos, ai.Video{Data: data, MIMEType: mediaType})
+			video := ai.Video{Data: data, MIMEType: mediaType}
+			output.Parts = append(output.Parts, ai.MultimodalPart{SourceID: "media:" + media.ID, Video: &video})
 		default:
-			output.Files = append(output.Files, ai.File{Data: data, MIMEType: mediaType, Filename: filename})
+			file := ai.File{Data: data, MIMEType: mediaType, Filename: filename}
+			output.Parts = append(output.Parts, ai.MultimodalPart{SourceID: "media:" + media.ID, File: &file})
 		}
 	}
 	return output, nil
+}
+
+func assetSourceFailure(index int, cause error) error {
+	return &sourceResolutionError{kind: "asset", index: index + 1, cause: cause}
 }
 
 func builderAssetByteLimit(mediaType string) int64 {

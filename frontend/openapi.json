@@ -2307,6 +2307,12 @@
 							"$ref": "#/components/schemas/SkippedDestination"
 						},
 						"type": ["array", "null"]
+					},
+					"sources": {
+						"items": {
+							"$ref": "#/components/schemas/ResolvedSource"
+						},
+						"type": ["array", "null"]
 					}
 				},
 				"required": ["canonical_text", "direction", "destinations", "skipped", "review_flags"],
@@ -4477,6 +4483,10 @@
 							"type": "string"
 						},
 						"type": ["array", "null"]
+					},
+					"preferred_language": {
+						"description": "Language or locale this voice normally writes in",
+						"type": "string"
 					},
 					"recurring_expressions": {
 						"description": "Expressions that sound natural in this voice",
@@ -9058,6 +9068,10 @@
 					"role": {
 						"type": "string"
 					},
+					"source_ref": {
+						"description": "Exact source ID for source-bound media treatments",
+						"type": "string"
+					},
 					"treatment": {
 						"type": "string"
 					}
@@ -10698,10 +10712,20 @@
 			"OutputProfile": {
 				"additionalProperties": false,
 				"properties": {
+					"allowed_mimes": {
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
 					"key": {
 						"type": "string"
 					},
 					"max_segments": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"media_max_count": {
 						"format": "int64",
 						"type": "integer"
 					},
@@ -10710,7 +10734,7 @@
 						"type": "integer"
 					}
 				},
-				"required": ["key", "text_limit", "max_segments"],
+				"required": ["key", "text_limit", "max_segments", "media_max_count"],
 				"type": "object"
 			},
 			"Override": {
@@ -14273,6 +14297,25 @@
 				"required": ["key", "settings"],
 				"type": "object"
 			},
+			"ResolvedSource": {
+				"additionalProperties": false,
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"type": "string"
+					},
+					"label": {
+						"type": "string"
+					},
+					"publishable": {
+						"type": "boolean"
+					}
+				},
+				"required": ["id", "kind", "label", "publishable"],
+				"type": "object"
+			},
 			"RestoreImageEditorRevisionInputBody": {
 				"additionalProperties": false,
 				"properties": {
@@ -15359,6 +15402,13 @@
 					},
 					"label": {
 						"type": "string"
+					},
+					"mime_type": {
+						"type": "string"
+					},
+					"publishable": {
+						"description": "Whether the user allowed this source asset to appear in the post",
+						"type": "boolean"
 					},
 					"text": {
 						"type": "string"
@@ -34628,6 +34678,16 @@
 						},
 						"description": "Unprocessable Entity"
 					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
 					"500": {
 						"content": {
 							"application/problem+json": {
@@ -34972,6 +35032,16 @@
 						},
 						"description": "Unprocessable Entity"
 					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
+					},
 					"500": {
 						"content": {
 							"application/problem+json": {
@@ -35061,6 +35131,16 @@
 							}
 						},
 						"description": "Unprocessable Entity"
+					},
+					"429": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Too Many Requests"
 					},
 					"500": {
 						"content": {

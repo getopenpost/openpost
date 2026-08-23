@@ -3,6 +3,7 @@ package queue
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -15,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/crypto"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/stretchr/testify/require"
@@ -65,6 +67,12 @@ func (*recordingStorage) Open(string) (io.ReadCloser, error) {
 type emptyReader struct{}
 
 func (*emptyReader) Read([]byte) (int, error) { return 0, io.EOF }
+
+type queuePackageBuilder struct{}
+
+func (queuePackageBuilder) Build(context.Context, publicationbuilder.BuildInput) (publicationbuilder.BuildResult, error) {
+	return publicationbuilder.BuildResult{}, nil
+}
 
 type stubAdapter struct {
 	capability platform.RefreshCapability
@@ -208,6 +216,227 @@ func TestWorkerFailsUnknownJobTypes(t *testing.T) {
 	require.Len(t, recorder.Exceptions, 1)
 	require.Equal(t, "unknown_job", recorder.Exceptions[0].Properties["job_type"])
 	require.NotContains(t, recorder.Exceptions[0].Properties, "payload")
+}
+
+func TestWorkerDefersPublicationBuildWhileRuntimeIsUnavailable(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	job, err := jobregistry.NewJob(jobregistry.TypePublicationBuild, `{"build_id":"build-1"}`, now.Add(-time.Second))
+	require.NoError(t, err)
+	job.ScopeID = "build-1"
+	job.DedupeKey = "generate"
+	job.Attempts = 1
+	_, err = db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-test", time.Second, nil, nil, stubStorage{})
+	worker.SetPublicationBuilderService(nil)
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+
+	stored := new(models.Job)
+	require.NoError(t, db.NewSelect().Model(stored).Where("id = ?", job.ID).Scan(t.Context()))
+	require.Equal(t, jobStatusPending, stored.Status)
+	require.Equal(t, 1, stored.Attempts, "missing runtime must not consume a delivery attempt")
+	require.Equal(t, "Publication Builder is temporarily unavailable. OpenPost will retry when it is configured.", stored.LastError)
+	require.WithinDuration(t, time.Now().UTC().Add(publicationBuilderUnavailableRetry), stored.RunAt, 5*time.Second)
+}
+
+func TestWorkerDefersPublicationBuildWhileActiveSlotsAreFull(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	job, err := jobregistry.NewJob(jobregistry.TypePublicationBuild, `{"build_id":"build-capacity"}`, now.Add(-time.Second))
+	require.NoError(t, err)
+	job.ScopeID = "build-capacity"
+	job.DedupeKey = "generate"
+	job.Attempts = 1
+	_, err = db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-test", time.Second, nil, nil, stubStorage{})
+	worker.executors[jobregistry.ExecutePublicationBuild] = func(context.Context, *models.Job) error {
+		return publicationbuilder.ErrTooManyActiveBuilds
+	}
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+
+	stored := new(models.Job)
+	require.NoError(t, db.NewSelect().Model(stored).Where("id = ?", job.ID).Scan(t.Context()))
+	require.Equal(t, jobStatusPending, stored.Status)
+	require.Equal(t, 1, stored.Attempts)
+	require.Equal(t, "Publication Builder is waiting for an active build slot.", stored.LastError)
+	require.WithinDuration(t, time.Now().UTC().Add(publicationBuilderUnavailableRetry), stored.RunAt, 5*time.Second)
+}
+
+func TestWorkerDefersPublicationBuildWhileGenerationLeaseIsActive(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	now := time.Now().UTC()
+	job, err := jobregistry.NewJob(jobregistry.TypePublicationBuild, `{"build_id":"build-leased"}`, now.Add(-time.Second))
+	require.NoError(t, err)
+	job.ScopeID = "build-leased"
+	job.DedupeKey = "generate"
+	job.Attempts = 1
+	_, err = db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-test", time.Second, nil, nil, stubStorage{})
+	worker.executors[jobregistry.ExecutePublicationBuild] = func(context.Context, *models.Job) error {
+		return publicationbuilder.ErrBuildLeaseActive
+	}
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+
+	stored := new(models.Job)
+	require.NoError(t, db.NewSelect().Model(stored).Where("id = ?", job.ID).Scan(t.Context()))
+	require.Equal(t, jobStatusPending, stored.Status)
+	require.Equal(t, 1, stored.Attempts, "a duplicate delivery must not consume an attempt")
+	require.Equal(t, "Publication Builder is waiting for the active generation lease.", stored.LastError)
+	require.WithinDuration(t, time.Now().UTC().Add(publicationBuilderUnavailableRetry), stored.RunAt, 5*time.Second)
+}
+
+func TestWorkerTerminalPublicationBuildFailureClearsTheDomainLease(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	_, err := db.NewCreateTable().Model((*publicationbuilder.BuildRecord)(nil)).IfNotExists().Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	leaseExpiry := now.Add(time.Minute)
+	build := &publicationbuilder.BuildRecord{
+		ID: "build-terminal", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		State: publicationbuilder.BuildStateBuilding, Phase: publicationbuilder.BuildPhaseDrafting,
+		Revision: 1, IdempotencyKey: "terminal-build", RequestFingerprint: "fingerprint",
+		RequestJSON: `{}`, LeaseToken: "generation-lease", LeaseExpiresAt: &leaseExpiry,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = db.NewInsert().Model(build).Exec(t.Context())
+	require.NoError(t, err)
+	job, err := jobregistry.NewJob(jobregistry.TypePublicationBuild, `{"build_id":"build-terminal"}`, now.Add(-time.Second))
+	require.NoError(t, err)
+	job.ScopeID = build.ID
+	job.DedupeKey = "generate"
+	job.MaxAttempts = 1
+	_, err = db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	application, err := publicationbuilder.NewApplication(db, queuePackageBuilder{}, publicationbuilder.ApplicationConfig{})
+	require.NoError(t, err)
+	worker := NewWorker(db, "worker-test", time.Second, nil, nil, stubStorage{})
+	worker.SetPublicationBuilderService(application)
+	worker.executors[jobregistry.ExecutePublicationBuild] = func(context.Context, *models.Job) error {
+		return errors.New("private infrastructure failure detail")
+	}
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+
+	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(t.Context()))
+	require.Equal(t, jobStatusFailed, job.Status)
+	require.Equal(t, 1, job.Attempts)
+	require.NotContains(t, job.LastError, "private")
+	require.NoError(t, db.NewSelect().Model(build).WherePK().Scan(t.Context()))
+	require.Equal(t, publicationbuilder.BuildStateFailed, build.State)
+	require.Equal(t, publicationbuilder.BuildPhaseFailed, build.Phase)
+	require.Equal(t, "job_failed", build.ErrorCode)
+	require.Equal(t, "OpenPost could not complete this build. You can retry it.", build.ErrorMessage)
+	require.NotContains(t, build.ErrorMessage, "private")
+	require.Empty(t, build.LeaseToken)
+	require.True(t, build.LeaseExpiresAt == nil || build.LeaseExpiresAt.IsZero())
+}
+
+func TestWorkerCannotFailPublicationBuildAfterLosingItsJobLock(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	_, err := db.NewCreateTable().Model((*publicationbuilder.BuildRecord)(nil)).IfNotExists().Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Now().UTC()
+	leaseExpiry := now.Add(time.Minute)
+	build := &publicationbuilder.BuildRecord{
+		ID: "build-fenced", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		State: publicationbuilder.BuildStateBuilding, Phase: publicationbuilder.BuildPhaseDrafting,
+		Revision: 1, IdempotencyKey: "fenced-build", RequestFingerprint: "fingerprint",
+		RequestJSON: `{}`, LeaseToken: "generation-lease", LeaseExpiresAt: &leaseExpiry,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = db.NewInsert().Model(build).Exec(t.Context())
+	require.NoError(t, err)
+	job, err := jobregistry.NewJob(jobregistry.TypePublicationBuild, `{"build_id":"build-fenced"}`, now.Add(-time.Second))
+	require.NoError(t, err)
+	job.ScopeID = build.ID
+	job.DedupeKey = "generate"
+	job.MaxAttempts = 1
+	_, err = db.NewInsert().Model(job).Exec(t.Context())
+	require.NoError(t, err)
+
+	application, err := publicationbuilder.NewApplication(db, queuePackageBuilder{}, publicationbuilder.ApplicationConfig{})
+	require.NoError(t, err)
+	worker := NewWorker(db, "old-worker", time.Second, nil, nil, stubStorage{})
+	worker.SetPublicationBuilderService(application)
+	worker.executors[jobregistry.ExecutePublicationBuild] = func(ctx context.Context, _ *models.Job) error {
+		_, updateErr := db.NewUpdate().Model((*models.Job)(nil)).
+			Set("locked_by = ?", "new-worker").
+			Set("locked_at = ?", now.Add(time.Minute)).
+			Where("id = ?", job.ID).
+			Exec(ctx)
+		require.NoError(t, updateErr)
+		return errors.New("old worker failed after losing its fence")
+	}
+	require.True(t, worker.processNextJobIfAvailable(t.Context()))
+
+	require.NoError(t, db.NewSelect().Model(job).WherePK().Scan(t.Context()))
+	require.Equal(t, jobStatusProcessing, job.Status)
+	require.Equal(t, "new-worker", job.LockedBy)
+	require.NoError(t, db.NewSelect().Model(build).WherePK().Scan(t.Context()))
+	require.Equal(t, publicationbuilder.BuildStateBuilding, build.State)
+	require.Equal(t, "generation-lease", build.LeaseToken)
+}
+
+func TestWorkerCannotFinishJobAfterLosingItsLock(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name       string
+		executeErr error
+	}{
+		{name: "success"},
+		{name: "failure", executeErr: errors.New("safe executor failure")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := createTestDB(t)
+			now := time.Now().UTC()
+			job, err := jobregistry.NewJob(jobregistry.TypePublicationBuild, `{"build_id":"build-lock"}`, now)
+			require.NoError(t, err)
+			job.ScopeID = "build-lock"
+			job.DedupeKey = "generate"
+			job.Status = jobStatusProcessing
+			job.LockedAt = now
+			job.LockedBy = "old-worker"
+			_, err = db.NewInsert().Model(job).Exec(t.Context())
+			require.NoError(t, err)
+
+			worker := NewWorker(db, "old-worker", time.Second, nil, nil, stubStorage{})
+			worker.executors[jobregistry.ExecutePublicationBuild] = func(ctx context.Context, _ *models.Job) error {
+				_, updateErr := db.NewUpdate().Model((*models.Job)(nil)).
+					Set("locked_by = ?", "new-worker").
+					Set("locked_at = ?", now.Add(time.Minute)).
+					Where("id = ?", job.ID).
+					Exec(ctx)
+				require.NoError(t, updateErr)
+				return test.executeErr
+			}
+			worker.handleLockedJob(t.Context(), job)
+
+			stored := new(models.Job)
+			require.NoError(t, db.NewSelect().Model(stored).Where("id = ?", job.ID).Scan(t.Context()))
+			require.Equal(t, jobStatusProcessing, stored.Status)
+			require.Equal(t, "new-worker", stored.LockedBy)
+			require.Equal(t, now.Add(time.Minute).Unix(), stored.LockedAt.Unix())
+			require.Zero(t, stored.Attempts)
+			require.Empty(t, stored.LastError)
+		})
+	}
 }
 
 func TestWorkerProcessesDurableStorageDeletion(t *testing.T) {

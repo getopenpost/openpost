@@ -15,9 +15,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/ai"
 	"github.com/openpost/backend/internal/jobregistry"
+	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/sourcecontext"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
 
 const (
@@ -40,12 +42,17 @@ const (
 	BuildPhaseCancelled  = "cancelled"
 
 	maxIdempotencyKeyLength = 160
+	maxActiveBuildsPerUser  = 3
+	defaultBuildLease       = 10 * time.Minute
 )
 
 var (
 	ErrBuildNotFound       = errors.New("publication build not found")
 	ErrIdempotencyConflict = errors.New("idempotency key was already used for a different build request")
 	ErrBuildNotRetryable   = errors.New("publication build is not retryable")
+	ErrTooManyActiveBuilds = errors.New("too many active publication builds")
+	ErrRuntimeUnavailable  = errors.New("publication builder runtime is unavailable")
+	ErrBuildLeaseActive    = errors.New("publication build lease is active")
 	errBuildStopped        = errors.New("publication build stopped")
 )
 
@@ -69,6 +76,7 @@ type BuildAsset struct {
 
 type LoadedAssets struct {
 	Sources []SourceMaterial
+	Parts   []ai.MultimodalPart
 	Images  []ai.Image
 	Files   []ai.File
 	Audio   []ai.Audio
@@ -87,6 +95,7 @@ type ApplicationConfig struct {
 	SourceLoader    SourceLoader
 	AssetLoader     AssetLoader
 	AuthorizeStored StoredAuthorityFunc
+	LeaseDuration   time.Duration
 }
 
 type Application struct {
@@ -97,6 +106,7 @@ type Application struct {
 	sourceLoader    SourceLoader
 	assetLoader     AssetLoader
 	authorizeStored StoredAuthorityFunc
+	leaseDuration   time.Duration
 }
 
 type CreateBuildRequest struct {
@@ -136,6 +146,8 @@ type BuildRecord struct {
 	UpdatedAt          time.Time  `bun:",notnull"`
 	CompletedAt        *time.Time `bun:",nullzero"`
 	CancelledAt        *time.Time `bun:",nullzero"`
+	LeaseToken         string     `bun:",notnull,default:''"`
+	LeaseExpiresAt     *time.Time `bun:",nullzero"`
 }
 
 type Build struct {
@@ -187,6 +199,10 @@ func NewApplication(db *bun.DB, builder PackageBuilder, config ApplicationConfig
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
+	leaseDuration := config.LeaseDuration
+	if leaseDuration <= 0 {
+		leaseDuration = defaultBuildLease
+	}
 	authorize := config.AuthorizeStored
 	if authorize == nil {
 		authorizer := workspaceaccess.NewAuthorizer(db)
@@ -204,6 +220,7 @@ func NewApplication(db *bun.DB, builder PackageBuilder, config ApplicationConfig
 	return &Application{
 		db: db, builder: builder, model: strings.TrimSpace(config.Model), now: now,
 		sourceLoader: config.SourceLoader, assetLoader: config.AssetLoader, authorizeStored: authorize,
+		leaseDuration: leaseDuration,
 	}, nil
 }
 
@@ -256,9 +273,30 @@ func (application *Application) Enqueue(ctx context.Context, request CreateBuild
 		VoiceSnapshotJSON: voiceSnapshotJSON, ResultJSON: "{}", UsageJSON: "{}", Model: application.model,
 		CreatedAt: now, UpdatedAt: now,
 	}
-	created := false
+	var existing *BuildRecord
 	err = application.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		result, insertErr := tx.NewInsert().Model(record).On("CONFLICT DO NOTHING").Exec(txCtx)
+		if lockErr := lockBuildAdmission(txCtx, tx, application.db.Dialect().Name(), request.WorkspaceID); lockErr != nil {
+			return lockErr
+		}
+		prior, loadErr := loadByIdempotencyKey(txCtx, tx, request.WorkspaceID, request.CreatedByID, request.IdempotencyKey)
+		if loadErr == nil {
+			if prior.RequestFingerprint != fingerprint {
+				return ErrIdempotencyConflict
+			}
+			existing = &prior
+			return nil
+		}
+		if !errors.Is(loadErr, ErrBuildNotFound) {
+			return loadErr
+		}
+		active, countErr := countActiveBuilds(txCtx, tx, request.WorkspaceID, request.CreatedByID)
+		if countErr != nil {
+			return fmt.Errorf("count active publication builds: %w", countErr)
+		}
+		if active >= maxActiveBuildsPerUser {
+			return ErrTooManyActiveBuilds
+		}
+		result, insertErr := tx.NewInsert().Model(record).Exec(txCtx)
 		if insertErr != nil {
 			return fmt.Errorf("create publication build: %w", insertErr)
 		}
@@ -266,10 +304,9 @@ func (application *Application) Enqueue(ctx context.Context, request CreateBuild
 		if rowsErr != nil {
 			return fmt.Errorf("inspect publication build insert: %w", rowsErr)
 		}
-		if rows == 0 {
-			return nil
+		if rows != 1 {
+			return errors.New("publication build insert did not create one row")
 		}
-		created = true
 		if len(assets) > 0 {
 			assetRows := make([]buildAssetRecord, 0, len(assets))
 			for index, asset := range assets {
@@ -282,20 +319,13 @@ func (application *Application) Enqueue(ctx context.Context, request CreateBuild
 				return fmt.Errorf("record publication build sources: %w", assetErr)
 			}
 		}
-		return enqueueBuildJob(txCtx, tx, record.ID, now)
+		return ensureBuildJob(txCtx, tx, record.ID, now)
 	})
 	if err != nil {
 		return Build{}, false, err
 	}
-	if !created {
-		existing, loadErr := application.loadByIdempotencyKey(ctx, request.WorkspaceID, request.CreatedByID, request.IdempotencyKey)
-		if loadErr != nil {
-			return Build{}, false, loadErr
-		}
-		if existing.RequestFingerprint != fingerprint {
-			return Build{}, false, ErrIdempotencyConflict
-		}
-		build, decodeErr := decodeBuild(existing)
+	if existing != nil {
+		build, decodeErr := decodeBuild(*existing)
 		return build, false, decodeErr
 	}
 	build, err := decodeBuild(*record)
@@ -334,35 +364,38 @@ func (application *Application) HandleJob(ctx context.Context, jobType, payload 
 	if record.State == BuildStateReady || record.State == BuildStateCommitted || record.State == BuildStateCancelled {
 		return nil
 	}
-	var authority workspaceaccess.StoredAuthority
-	if err := decodeStoredJSON(record.AuthorityJSON, &authority); err != nil {
-		return application.fail(ctx, &record, "invalid_authority", "The saved build authority is invalid.", err)
-	}
-	if err := application.authorizeStored(ctx, authority); err != nil {
-		return application.fail(ctx, &record, "access_revoked", "Workspace access no longer allows this build.", err)
-	}
-	claimed, err := application.claim(ctx, record.ID)
+	leaseToken, claimed, err := application.claim(ctx, record.ID, record.WorkspaceID, record.CreatedByID)
 	if err != nil {
 		return err
 	}
 	if !claimed {
-		return nil
+		return ErrBuildLeaseActive
 	}
 	record.State = BuildStateBuilding
 	record.Phase = BuildPhaseSources
+	record.LeaseToken = leaseToken
+	buildCtx, trace := withGenerationTrace(ctx)
+
+	var authority workspaceaccess.StoredAuthority
+	if err := decodeStoredJSON(record.AuthorityJSON, &authority); err != nil {
+		return application.fail(ctx, &record, leaseToken, trace, "invalid_authority", "The saved build authority is invalid.", err)
+	}
+	if err := application.authorizeStored(ctx, authority); err != nil {
+		return application.fail(ctx, &record, leaseToken, trace, "access_revoked", "Workspace access no longer allows this build.", err)
+	}
 
 	var request persistedBuildRequest
 	if err := decodeStoredJSON(record.RequestJSON, &request); err != nil {
-		return application.fail(ctx, &record, "invalid_request", "The saved build request is invalid.", err)
+		return application.fail(ctx, &record, leaseToken, trace, "invalid_request", "The saved build request is invalid.", err)
 	}
 	input := request.Input
 	if err := application.resolveSources(ctx, record.WorkspaceID, request, &input); err != nil {
-		return application.fail(ctx, &record, "source_unavailable", "OpenPost could not read one of the selected sources.", err)
+		return application.fail(ctx, &record, leaseToken, trace, "source_unavailable", sourceFailureMessage(err), err)
 	}
 	if err := validateBuildInput(input); err != nil {
-		return application.fail(ctx, &record, "invalid_source", "The selected source material is not usable.", err)
+		return application.fail(ctx, &record, leaseToken, trace, "invalid_source", "The selected source material is not usable.", err)
 	}
-	if err := application.setPhase(ctx, record.ID, BuildPhaseDirecting); err != nil {
+	if err := application.setPhase(ctx, record.ID, leaseToken, BuildPhaseDirecting); err != nil {
 		if errors.Is(err, errBuildStopped) {
 			return nil
 		}
@@ -370,31 +403,40 @@ func (application *Application) HandleJob(ctx context.Context, jobType, payload 
 	}
 	var result BuildResult
 	if progressive, ok := application.builder.(progressPackageBuilder); ok {
-		result, err = progressive.BuildWithProgress(ctx, input, func(phase string) error {
-			return application.setPhase(ctx, record.ID, phase)
+		result, err = progressive.BuildWithProgress(buildCtx, input, func(phase string) error {
+			return application.setPhase(ctx, record.ID, leaseToken, phase)
 		})
 	} else {
-		result, err = application.builder.Build(ctx, input)
+		result, err = application.builder.Build(buildCtx, input)
 	}
 	if err != nil {
 		if errors.Is(err, errBuildStopped) {
 			return nil
 		}
-		return application.fail(ctx, &record, "generation_failed", "OpenPost could not build this post. You can retry it.", err)
+		return application.fail(ctx, &record, leaseToken, trace, "generation_failed", "OpenPost could not build this post. You can retry it.", err)
 	}
+	result.Sources = resolvedSourceIndex(input)
 	resultJSON, err := json.Marshal(result)
 	if err != nil {
-		return application.fail(ctx, &record, "result_encoding_failed", "OpenPost could not save the generated post.", err)
+		return application.fail(ctx, &record, leaseToken, trace, "result_encoding_failed", "OpenPost could not save the generated post.", err)
+	}
+	model, providerRequestID, usageJSON := trace.encoded()
+	if model == "" {
+		model = record.Model
 	}
 	now := application.now().UTC()
 	update, err := application.db.NewUpdate().Model((*BuildRecord)(nil)).
 		Set("state = ?", BuildStateReady).
 		Set("phase = ?", BuildPhaseReady).
 		Set("result_json = ?", string(resultJSON)).
+		Set("model = ?", model).
+		Set("provider_request_id = ?", providerRequestID).
+		Set("usage_json = ?", usageJSON).
 		Set("error_code = ''").Set("error_message = ''").
+		Set("lease_token = ''").Set("lease_expires_at = NULL").
 		Set("completed_at = ?", now).Set("updated_at = ?", now).
 		Set("revision = revision + 1").
-		Where("id = ? AND state = ?", record.ID, BuildStateBuilding).
+		Where("id = ? AND state = ? AND lease_token = ?", record.ID, BuildStateBuilding, leaseToken).
 		Exec(ctx)
 	if err != nil {
 		return fmt.Errorf("store publication build result: %w", err)
@@ -409,11 +451,34 @@ func (application *Application) HandleJob(ctx context.Context, jobType, payload 
 	return nil
 }
 
+func resolvedSourceIndex(input BuildInput) []ResolvedSource {
+	if strings.TrimSpace(input.Idea) == "" && len(input.Sources) == 0 {
+		return nil
+	}
+	resolved := make([]ResolvedSource, 0, len(input.Sources)+1)
+	if strings.TrimSpace(input.Idea) != "" {
+		resolved = append(resolved, ResolvedSource{ID: "idea", Kind: "text", Label: "Original idea"})
+	}
+	for _, source := range input.Sources {
+		if source.ID == "idea" {
+			continue
+		}
+		resolved = append(resolved, ResolvedSource{
+			ID:          source.ID,
+			Kind:        source.Kind,
+			Label:       source.Label,
+			Publishable: source.Publishable,
+		})
+	}
+	return resolved
+}
+
 func (application *Application) Cancel(ctx context.Context, userID, buildID string) (Build, error) {
 	now := application.now().UTC()
 	result, err := application.db.NewUpdate().Model((*BuildRecord)(nil)).
 		Set("state = ?", BuildStateCancelled).Set("phase = ?", BuildPhaseCancelled).
 		Set("cancelled_at = ?", now).Set("updated_at = ?", now).
+		Set("lease_token = ''").Set("lease_expires_at = NULL").
 		Set("revision = revision + 1").
 		Where("id = ? AND created_by_id = ?", strings.TrimSpace(buildID), strings.TrimSpace(userID)).
 		Where("state IN (?, ?, ?)", BuildStateQueued, BuildStateBuilding, BuildStateFailed).
@@ -429,11 +494,51 @@ func (application *Application) Cancel(ctx context.Context, userID, buildID stri
 }
 
 func (application *Application) Retry(ctx context.Context, userID, buildID string) (Build, error) {
+	userID = strings.TrimSpace(userID)
+	buildID = strings.TrimSpace(buildID)
+	var target BuildRecord
+	loadErr := application.db.NewSelect().Model(&target).
+		Column("workspace_id").
+		Where("id = ? AND created_by_id = ?", buildID, userID).
+		Scan(ctx)
+	if errors.Is(loadErr, sql.ErrNoRows) {
+		return Build{}, ErrBuildNotFound
+	}
+	if loadErr != nil {
+		return Build{}, fmt.Errorf("load publication build retry target: %w", loadErr)
+	}
 	now := application.now().UTC()
 	err := application.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if lockErr := lockBuildAdmission(txCtx, tx, application.db.Dialect().Name(), target.WorkspaceID); lockErr != nil {
+			return lockErr
+		}
+		var current BuildRecord
+		loadErr := tx.NewSelect().Model(&current).
+			Where("id = ? AND created_by_id = ?", buildID, userID).
+			Scan(txCtx)
+		if errors.Is(loadErr, sql.ErrNoRows) {
+			return ErrBuildNotFound
+		}
+		if loadErr != nil {
+			return loadErr
+		}
+		if current.State == BuildStateQueued {
+			return ensureBuildJob(txCtx, tx, buildID, now)
+		}
+		if current.State != BuildStateFailed {
+			return ErrBuildNotRetryable
+		}
+		active, countErr := countActiveBuilds(txCtx, tx, current.WorkspaceID, userID)
+		if countErr != nil {
+			return fmt.Errorf("count active publication builds for retry: %w", countErr)
+		}
+		if active >= maxActiveBuildsPerUser {
+			return ErrTooManyActiveBuilds
+		}
 		result, updateErr := tx.NewUpdate().Model((*BuildRecord)(nil)).
 			Set("state = ?", BuildStateQueued).Set("phase = ?", BuildPhaseQueued).
 			Set("error_code = ''").Set("error_message = ''").Set("updated_at = ?", now).
+			Set("lease_token = ''").Set("lease_expires_at = NULL").
 			Set("revision = revision + 1").
 			Where("id = ? AND created_by_id = ? AND state = ?", buildID, userID, BuildStateFailed).
 			Exec(txCtx)
@@ -447,7 +552,7 @@ func (application *Application) Retry(ctx context.Context, userID, buildID strin
 		if rows == 0 {
 			return ErrBuildNotRetryable
 		}
-		return enqueueBuildJob(txCtx, tx, buildID, now)
+		return requeueBuildJob(txCtx, tx, buildID, now)
 	})
 	if err != nil {
 		return Build{}, err
@@ -455,27 +560,82 @@ func (application *Application) Retry(ctx context.Context, userID, buildID strin
 	return application.Get(ctx, userID, buildID)
 }
 
-func (application *Application) claim(ctx context.Context, buildID string) (bool, error) {
-	now := application.now().UTC()
-	result, err := application.db.NewUpdate().Model((*BuildRecord)(nil)).
-		Set("state = ?", BuildStateBuilding).Set("phase = ?", BuildPhaseSources).
-		Set("updated_at = ?", now).Set("revision = revision + 1").
-		Where("id = ? AND state IN (?, ?)", buildID, BuildStateQueued, BuildStateFailed).
-		Exec(ctx)
+func (application *Application) claim(
+	ctx context.Context,
+	buildID string,
+	workspaceID string,
+	createdByID string,
+) (string, bool, error) {
+	leaseToken := uuid.NewString()
+	claimed := false
+	err := application.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		if lockErr := lockBuildAdmission(txCtx, tx, application.db.Dialect().Name(), workspaceID); lockErr != nil {
+			return lockErr
+		}
+		var current BuildRecord
+		loadErr := tx.NewSelect().Model(&current).
+			Column("state").
+			Where("id = ? AND workspace_id = ? AND created_by_id = ?", buildID, workspaceID, createdByID).
+			Scan(txCtx)
+		if errors.Is(loadErr, sql.ErrNoRows) {
+			return ErrBuildNotFound
+		}
+		if loadErr != nil {
+			return loadErr
+		}
+		if current.State == BuildStateFailed {
+			active, countErr := countActiveBuilds(txCtx, tx, workspaceID, createdByID)
+			if countErr != nil {
+				return fmt.Errorf("count active publication builds for recovery: %w", countErr)
+			}
+			if active >= maxActiveBuildsPerUser {
+				return ErrTooManyActiveBuilds
+			}
+		}
+		now := application.now().UTC()
+		result, updateErr := tx.NewUpdate().Model((*BuildRecord)(nil)).
+			Set("state = ?", BuildStateBuilding).Set("phase = ?", BuildPhaseSources).
+			Set("lease_token = ?", leaseToken).Set("lease_expires_at = ?", now.Add(application.leaseDuration)).
+			Set("updated_at = ?", now).Set("revision = revision + 1").
+			Where("id = ?", buildID).
+			Where(
+				"state IN (?, ?) OR (state = ? AND ((lease_expires_at IS NOT NULL AND lease_expires_at <= ?) OR (lease_expires_at IS NULL AND updated_at <= ?)))",
+				BuildStateQueued,
+				BuildStateFailed,
+				BuildStateBuilding,
+				now,
+				now.Add(-application.leaseDuration),
+			).
+			Exec(txCtx)
+		if updateErr != nil {
+			return fmt.Errorf("claim publication build: %w", updateErr)
+		}
+		rows, rowsErr := result.RowsAffected()
+		if rowsErr != nil {
+			return rowsErr
+		}
+		claimed = rows == 1
+		return nil
+	})
 	if err != nil {
-		return false, fmt.Errorf("claim publication build: %w", err)
+		return "", false, err
 	}
-	rows, err := result.RowsAffected()
-	return rows == 1, err
+	if !claimed {
+		return "", false, nil
+	}
+	return leaseToken, true, nil
 }
 
-func (application *Application) setPhase(ctx context.Context, buildID, phase string) error {
+func (application *Application) setPhase(ctx context.Context, buildID, leaseToken, phase string) error {
 	if phase != BuildPhaseDirecting && phase != BuildPhaseDrafting && phase != BuildPhaseReviewing {
 		return fmt.Errorf("unsupported publication build phase %q", phase)
 	}
+	now := application.now().UTC()
 	result, err := application.db.NewUpdate().Model((*BuildRecord)(nil)).
-		Set("phase = ?", phase).Set("updated_at = ?", application.now().UTC()).
-		Where("id = ? AND state = ?", buildID, BuildStateBuilding).
+		Set("phase = ?", phase).
+		Set("updated_at = ?", now).
+		Set("lease_expires_at = ?", now.Add(application.leaseDuration)).
+		Where("id = ? AND state = ? AND lease_token = ?", buildID, BuildStateBuilding, leaseToken).
 		Exec(ctx)
 	if err != nil {
 		return err
@@ -492,12 +652,12 @@ func (application *Application) setPhase(ctx context.Context, buildID, phase str
 
 func (application *Application) resolveSources(ctx context.Context, workspaceID string, request persistedBuildRequest, input *BuildInput) error {
 	if len(request.ContextURLs) > 0 && application.sourceLoader == nil {
-		return errors.New("public source loading is not configured")
+		return &sourceResolutionError{kind: "link", index: 1, cause: errors.New("public source loading is not configured")}
 	}
 	for index, rawURL := range request.ContextURLs {
 		document, err := application.sourceLoader.Load(ctx, rawURL)
 		if err != nil {
-			return err
+			return &sourceResolutionError{kind: "link", index: index + 1, cause: err}
 		}
 		input.Sources = append(input.Sources, SourceMaterial{
 			ID: fmt.Sprintf("url:%d", index+1), Kind: "url", Label: document.Title, Text: document.Text,
@@ -507,13 +667,18 @@ func (application *Application) resolveSources(ctx context.Context, workspaceID 
 		return nil
 	}
 	if application.assetLoader == nil {
-		return errors.New("source asset loading is not configured")
+		return &sourceResolutionError{kind: "asset", index: 1, cause: errors.New("source asset loading is not configured")}
 	}
 	loaded, err := application.assetLoader.Load(ctx, workspaceID, request.Assets)
 	if err != nil {
-		return err
+		var indexed *sourceResolutionError
+		if errors.As(err, &indexed) {
+			return err
+		}
+		return &sourceResolutionError{kind: "asset", index: 1, cause: err}
 	}
 	input.Sources = append(input.Sources, loaded.Sources...)
+	input.Parts = append(input.Parts, loaded.Parts...)
 	input.Images = append(input.Images, loaded.Images...)
 	input.Files = append(input.Files, loaded.Files...)
 	input.Audio = append(input.Audio, loaded.Audio...)
@@ -521,21 +686,100 @@ func (application *Application) resolveSources(ctx context.Context, workspaceID 
 	return nil
 }
 
-func (application *Application) fail(ctx context.Context, record *BuildRecord, code, message string, cause error) error {
-	now := application.now().UTC()
-	_, updateErr := application.db.NewUpdate().Model((*BuildRecord)(nil)).
-		Set("state = ?", BuildStateFailed).Set("phase = ?", BuildPhaseFailed).
-		Set("error_code = ?", code).Set("error_message = ?", message).
-		Set("updated_at = ?", now).Set("revision = revision + 1").
-		Where("id = ? AND state != ?", record.ID, BuildStateCancelled).
-		Exec(ctx)
-	if updateErr != nil {
-		return fmt.Errorf("%s: %w", message, updateErr)
-	}
-	return fmt.Errorf("%s: %w", message, cause)
+type sourceResolutionError struct {
+	kind  string
+	index int
+	cause error
 }
 
-func enqueueBuildJob(ctx context.Context, db bun.IDB, buildID string, runAt time.Time) error {
+func (failure *sourceResolutionError) Error() string {
+	return fmt.Sprintf("selected %s %d is unavailable", failure.kind, failure.index)
+}
+
+func (failure *sourceResolutionError) Unwrap() error { return failure.cause }
+
+func sourceFailureMessage(err error) string {
+	var failure *sourceResolutionError
+	if errors.As(err, &failure) {
+		return fmt.Sprintf("OpenPost could not read selected %s %d.", failure.kind, failure.index)
+	}
+	return "OpenPost could not read one of the selected sources."
+}
+
+type safeBuildJobError struct {
+	message string
+}
+
+func (failure *safeBuildJobError) Error() string { return failure.message }
+
+func (application *Application) fail(
+	ctx context.Context,
+	record *BuildRecord,
+	leaseToken string,
+	trace *generationTrace,
+	code string,
+	message string,
+	_ error,
+) error {
+	now := application.now().UTC()
+	model, providerRequestID, usageJSON := trace.encoded()
+	if model == "" {
+		model = record.Model
+	}
+	result, updateErr := application.db.NewUpdate().Model((*BuildRecord)(nil)).
+		Set("state = ?", BuildStateFailed).Set("phase = ?", BuildPhaseFailed).
+		Set("error_code = ?", code).Set("error_message = ?", message).
+		Set("model = ?", model).
+		Set("provider_request_id = ?", providerRequestID).
+		Set("usage_json = ?", usageJSON).
+		Set("lease_token = ''").Set("lease_expires_at = NULL").
+		Set("updated_at = ?", now).Set("revision = revision + 1").
+		Where("id = ? AND state = ? AND lease_token = ?", record.ID, BuildStateBuilding, leaseToken).
+		Exec(ctx)
+	if updateErr != nil {
+		return &safeBuildJobError{message: message}
+	}
+	rows, rowsErr := result.RowsAffected()
+	if rowsErr != nil {
+		return &safeBuildJobError{message: message}
+	}
+	if rows == 0 {
+		return nil
+	}
+	return &safeBuildJobError{message: message}
+}
+
+// MarkTerminalJobFailure moves an unfinished build out of the active set when
+// its durable job has exhausted retries. The caller supplies the transaction
+// that fences the terminal job update, so the queue and domain state change
+// together or not at all.
+func (application *Application) MarkTerminalJobFailure(ctx context.Context, db bun.IDB, payload string) error {
+	if application == nil || db == nil {
+		return errors.New("publication builder terminal failure handling is unavailable")
+	}
+	decoded, err := jobregistry.DecodePublicationBuildPayload(payload)
+	if err != nil {
+		// A malformed job has no trustworthy build identity. The queue may still
+		// terminate it without mutating any domain record.
+		return nil
+	}
+	now := application.now().UTC()
+	_, err = db.NewUpdate().Model((*BuildRecord)(nil)).
+		Set("state = ?", BuildStateFailed).
+		Set("phase = ?", BuildPhaseFailed).
+		Set("error_code = ?", "job_failed").
+		Set("error_message = ?", "OpenPost could not complete this build. You can retry it.").
+		Set("lease_token = ''").
+		Set("lease_expires_at = NULL").
+		Set("updated_at = ?", now).
+		Set("revision = revision + 1").
+		Where("id = ?", decoded.BuildID).
+		Where("state IN (?, ?)", BuildStateQueued, BuildStateBuilding).
+		Exec(ctx)
+	return err
+}
+
+func ensureBuildJob(ctx context.Context, db bun.IDB, buildID string, runAt time.Time) error {
 	payload, err := EncodeBuildJobPayload(buildID)
 	if err != nil {
 		return err
@@ -550,8 +794,58 @@ func enqueueBuildJob(ctx context.Context, db bun.IDB, buildID string, runAt time
 	}
 	job.ScopeID = identity.ScopeID
 	job.DedupeKey = identity.DedupeKey
-	_, err = db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx)
-	return err
+	active, err := db.NewSelect().Model((*models.Job)(nil)).
+		Where("type = ? AND scope_id = ? AND dedupe_key = ?", job.Type, job.ScopeID, job.DedupeKey).
+		Where("status IN (?, ?)", jobregistry.StatusPending, jobregistry.StatusProcessing).
+		Exists(ctx)
+	if err != nil {
+		return fmt.Errorf("inspect active publication build job: %w", err)
+	}
+	if active {
+		return nil
+	}
+	if _, err = db.NewInsert().Model(job).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
+		return fmt.Errorf("enqueue publication build job: %w", err)
+	}
+	active, err = db.NewSelect().Model((*models.Job)(nil)).
+		Where("type = ? AND scope_id = ? AND dedupe_key = ?", job.Type, job.ScopeID, job.DedupeKey).
+		Where("status IN (?, ?)", jobregistry.StatusPending, jobregistry.StatusProcessing).
+		Exists(ctx)
+	if err != nil {
+		return fmt.Errorf("verify publication build job: %w", err)
+	}
+	if !active {
+		return errors.New("publication build job is not runnable")
+	}
+	return nil
+}
+
+func requeueBuildJob(ctx context.Context, db bun.IDB, buildID string, runAt time.Time) error {
+	identity, err := jobregistry.PublicationBuildIdentity(buildID)
+	if err != nil {
+		return err
+	}
+	result, err := db.NewUpdate().Model((*models.Job)(nil)).
+		Set("status = ?", jobregistry.StatusPending).
+		Set("attempts = 0").
+		Set("last_error = ''").
+		Set("run_at = ?", runAt.UTC()).
+		Set("locked_at = NULL").
+		Set("locked_by = ''").
+		Where("type = ? AND scope_id = ? AND dedupe_key = ?", jobregistry.TypePublicationBuild, identity.ScopeID, identity.DedupeKey).
+		Where("status IN (?, ?)", jobregistry.StatusPending, jobregistry.StatusProcessing).
+		Exec(ctx)
+	if err != nil {
+		return fmt.Errorf("requeue publication build job: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("inspect publication build job requeue: %w", err)
+	}
+	if rows > 0 {
+		return nil
+	}
+	return ensureBuildJob(ctx, db, buildID, runAt)
 }
 
 func EncodeBuildJobPayload(buildID string) (string, error) {
@@ -582,15 +876,51 @@ func encodeBuildRequest(workspaceID string, request persistedBuildRequest) (stri
 	return string(requestOnly), "sha256:" + hex.EncodeToString(digest[:]), nil
 }
 
-func (application *Application) loadByIdempotencyKey(ctx context.Context, workspaceID, userID, key string) (BuildRecord, error) {
+func loadByIdempotencyKey(ctx context.Context, db bun.IDB, workspaceID, userID, key string) (BuildRecord, error) {
 	var record BuildRecord
-	err := application.db.NewSelect().Model(&record).
+	err := db.NewSelect().Model(&record).
 		Where("workspace_id = ? AND created_by_id = ? AND idempotency_key = ?", workspaceID, userID, key).
 		Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return BuildRecord{}, ErrBuildNotFound
 	}
 	return record, err
+}
+
+func countActiveBuilds(ctx context.Context, db bun.IDB, workspaceID, userID string) (int, error) {
+	return db.NewSelect().Model((*BuildRecord)(nil)).
+		Where("workspace_id = ? AND created_by_id = ?", workspaceID, userID).
+		Where("state IN (?, ?)", BuildStateQueued, BuildStateBuilding).
+		Count(ctx)
+}
+
+func lockBuildAdmission(ctx context.Context, tx bun.Tx, dialectName dialect.Name, workspaceID string) error {
+	if dialectName == dialect.PG {
+		var lockedID string
+		err := tx.NewSelect().Table("workspaces").Column("id").
+			Where("id = ?", workspaceID).
+			For("UPDATE").
+			Scan(ctx, &lockedID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return errors.New("publication build workspace is unavailable")
+		}
+		if err != nil {
+			return fmt.Errorf("lock publication build admission: %w", err)
+		}
+		return nil
+	}
+	result, err := tx.ExecContext(ctx, "UPDATE workspaces SET id = id WHERE id = ?", workspaceID)
+	if err != nil {
+		return fmt.Errorf("lock publication build admission: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("inspect publication build admission lock: %w", err)
+	}
+	if rows != 1 {
+		return errors.New("publication build workspace is unavailable")
+	}
+	return nil
 }
 
 func decodeBuild(record BuildRecord) (Build, error) {

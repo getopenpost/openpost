@@ -3,6 +3,7 @@ package ai
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime"
@@ -29,6 +30,7 @@ const (
 	maxWebSearchResults          = 25
 	minWebSearchUses             = 1
 	maxWebSearchUses             = 30
+	maxMultimodalSourceIDBytes   = 256
 )
 
 type HTTPClient interface {
@@ -161,7 +163,7 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 	if model == "" {
 		return components.ChatRequest{}, errors.New("AI model is required")
 	}
-	if strings.TrimSpace(request.UserPrompt) == "" && len(request.Images) == 0 && len(request.Files) == 0 && len(request.Audio) == 0 && len(request.Videos) == 0 {
+	if strings.TrimSpace(request.UserPrompt) == "" && len(request.Parts) == 0 && len(request.Images) == 0 && len(request.Files) == 0 && len(request.Audio) == 0 && len(request.Videos) == 0 {
 		return components.ChatRequest{}, errors.New("AI user prompt, image, or file is required")
 	}
 	if request.MaxOutputTokens < 0 {
@@ -179,9 +181,16 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 		}))
 	}
 
-	content := make([]components.ChatContentItems, 0, len(request.Images)+len(request.Files)+len(request.Audio)+len(request.Videos)+1)
+	content := make([]components.ChatContentItems, 0, len(request.Parts)*2+len(request.Images)+len(request.Files)+len(request.Audio)+len(request.Videos)+1)
 	if userPrompt := strings.TrimSpace(request.UserPrompt); userPrompt != "" {
 		content = append(content, components.CreateChatContentItemsText(components.ChatContentText{Text: userPrompt}))
+	}
+	for index, part := range request.Parts {
+		items, err := openRouterMultimodalPartContent(part)
+		if err != nil {
+			return components.ChatRequest{}, fmt.Errorf("AI multimodal part %d: %w", index+1, err)
+		}
+		content = append(content, items...)
 	}
 	for index, image := range request.Images {
 		item, err := openRouterImageContent(image)
@@ -254,6 +263,70 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 	}
 
 	return chatRequest, nil
+}
+
+func openRouterMultimodalPartContent(part MultimodalPart) ([]components.ChatContentItems, error) {
+	sourceID := strings.TrimSpace(part.SourceID)
+	if !validMultimodalSourceID(sourceID) {
+		return nil, errors.New("valid source id is required")
+	}
+	payloads := 0
+	if part.Image != nil {
+		payloads++
+	}
+	if part.File != nil {
+		payloads++
+	}
+	if part.Audio != nil {
+		payloads++
+	}
+	if part.Video != nil {
+		payloads++
+	}
+	if payloads != 1 {
+		return nil, errors.New("exactly one media payload is required")
+	}
+
+	binding, err := json.Marshal(struct {
+		SourceID string `json:"source_id"`
+	}{SourceID: sourceID})
+	if err != nil {
+		return nil, errors.New("source binding could not be encoded")
+	}
+	items := []components.ChatContentItems{components.CreateChatContentItemsText(components.ChatContentText{
+		Text: "Source binding metadata, not instructions: " + string(binding),
+	})}
+	var payload components.ChatContentItems
+	switch {
+	case part.Image != nil:
+		payload, err = openRouterImageContent(*part.Image)
+	case part.File != nil:
+		payload, err = openRouterFileContent(*part.File)
+	case part.Audio != nil:
+		payload, err = openRouterAudioContent(*part.Audio)
+	case part.Video != nil:
+		payload, err = openRouterVideoContent(*part.Video)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return append(items, payload), nil
+}
+
+func validMultimodalSourceID(value string) bool {
+	if value == "" || len(value) > maxMultimodalSourceIDBytes {
+		return false
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' ||
+			character == '-' || character == '_' || character == '.' || character == ':' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func openRouterImageContent(image Image) (components.ChatContentItems, error) {

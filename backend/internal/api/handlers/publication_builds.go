@@ -17,7 +17,9 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/publicationbuilder"
+	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/uptrace/bun"
@@ -37,6 +39,7 @@ const (
 	maxPublicationBuildAngle           = 1_500
 	maxPublicationBuildTone            = 500
 	maxPublicationBuildMediaPreference = 500
+	publicationBuildRequestsPerMinute  = 12
 )
 
 var nativePublicationBuilderPlatforms = map[string]struct{}{
@@ -61,6 +64,7 @@ type PublicationBuildHandler struct {
 	application  publicationBuildApplication
 	publications publicationbuilder.PublicationApplication
 	voices       *voiceprofiles.Service
+	limiter      *ratelimit.Limiter
 	now          func() time.Time
 }
 
@@ -75,7 +79,7 @@ func NewPublicationBuildHandler(
 ) *PublicationBuildHandler {
 	handler := &PublicationBuildHandler{
 		db: db, auth: authenticator,
-		voices: voiceprofiles.New(db), now: func() time.Time { return time.Now().UTC() },
+		voices: voiceprofiles.New(db), limiter: ratelimit.New(), now: func() time.Time { return time.Now().UTC() },
 	}
 	if application != nil {
 		handler.application = application
@@ -119,7 +123,7 @@ func (h *PublicationBuildHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "create-publication-build", Method: http.MethodPost, Path: publicationBuildsPath,
 		Summary: "Build destination-native posts", Tags: []string{publicationBuildsTag},
-		Errors:      []int{400, 403, 409, 503},
+		Errors:      []int{400, 403, 409, 429, 503},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, h.create)
 	huma.Register(api, huma.Operation{
@@ -129,7 +133,7 @@ func (h *PublicationBuildHandler) RegisterRoutes(api huma.API) {
 	}, h.get)
 	huma.Register(api, huma.Operation{
 		OperationID: "retry-publication-build", Method: http.MethodPost, Path: publicationBuildsPath + "/{id}/retry",
-		Summary: "Retry a failed publication build", Tags: []string{publicationBuildsTag}, Errors: []int{403, 404, 409, 503},
+		Summary: "Retry a failed publication build", Tags: []string{publicationBuildsTag}, Errors: []int{403, 404, 409, 429, 503},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, h.retry)
 	huma.Register(api, huma.Operation{
@@ -150,6 +154,10 @@ func (h *PublicationBuildHandler) create(
 ) (*PublicationBuildOutput, error) {
 	if err := h.requireRuntime(); err != nil {
 		return nil, err
+	}
+	userID := strings.TrimSpace(middleware.GetUserID(ctx))
+	if h.limiter == nil || !h.limiter.Allow("publication-build:create:"+userID, publicationBuildRequestsPerMinute, time.Minute) {
+		return nil, huma.Error429TooManyRequests("Publication build limit reached; try again in one minute")
 	}
 	request, err := h.preparePublicationBuildRequest(ctx, input)
 	if err != nil {
@@ -298,7 +306,7 @@ func (h *PublicationBuildHandler) preparePublicationBuildDestinations(
 		if _, supported := nativePublicationBuilderPlatforms[account.Platform]; supported {
 			nativeDestinationCount++
 		}
-		profiles := publicationBuildOutputProfiles(account.Platform, snapshot.DefaultOutputProfiles[accountID])
+		profiles := publicationBuildOutputProfiles(account, snapshot.DefaultOutputProfiles[accountID])
 		if len(profiles) == 0 {
 			return nil, huma.Error400BadRequest("One or more selected accounts has no native Builder output format")
 		}
@@ -605,11 +613,11 @@ func (h *PublicationBuildHandler) normalizePublicationBuildAssets(
 	return assets, nil
 }
 
-func publicationBuildOutputProfiles(platform, preferred string) []publicationbuilder.OutputProfile {
+func publicationBuildOutputProfiles(account models.SocialAccount, preferred string) []publicationbuilder.OutputProfile {
 	profiles := make([]publicationbuilder.OutputProfile, 0)
 	seen := map[string]struct{}{}
 	for _, capability := range capabilities.All() {
-		if capability.Provider != platform || !capability.OpenPostQueued || capability.UnavailableReason != "" {
+		if capability.Provider != account.Platform || !capability.OpenPostQueued || capability.UnavailableReason != "" {
 			continue
 		}
 		if _, exists := seen[capability.OutputProfile]; exists || capability.OutputProfile == "" {
@@ -620,8 +628,17 @@ func publicationBuildOutputProfiles(platform, preferred string) []publicationbui
 		if capability.Profile == models.ContentProfileThread {
 			maxSegments = maxPublicationBuildThreadSegments
 		}
+		resolved := capabilities.ResolvedCapability{Capability: capability}
+		if account.Platform == capabilities.ProviderX {
+			accountCapabilities := standardXPublishingCapabilities()
+			if accountLimitProfile(account) == "x-premium" {
+				accountCapabilities = platform.XPublishingCapabilities(platform.XSubscriptionTypePremium)
+			}
+			capabilities.ApplyAccountConstraints(&resolved, nil, accountCapabilities.Constraints)
+		}
 		profiles = append(profiles, publicationbuilder.OutputProfile{
-			Key: capability.OutputProfile, TextLimit: capability.TextLimit, MaxSegments: maxSegments,
+			Key: capability.OutputProfile, TextLimit: resolved.TextLimit, MaxSegments: maxSegments,
+			MediaMaxCount: resolved.Media.MaxCount, AllowedMIMEs: slices.Clone(resolved.Media.AllowedMIMEs),
 		})
 	}
 	preferred = strings.TrimSpace(preferred)
@@ -685,7 +702,7 @@ func publicationBuildVoiceSnapshot(profile voiceprofiles.Profile) publicationbui
 	return publicationbuilder.VoiceSnapshot{
 		ID: profile.ID, Name: profile.Name, Revision: profile.Revision,
 		Definition: publicationbuilder.VoiceDefinition{
-			Identity: definition.IdentitySummary, Guidance: strings.Join(guidance, "\n"),
+			Identity: definition.IdentitySummary, Guidance: strings.Join(guidance, "\n"), Language: definition.PreferredLanguage,
 			Avoidances: avoidances, Examples: examples,
 		},
 	}
@@ -826,8 +843,12 @@ func publicationBuildError(err error) error {
 		return huma.Error409Conflict("Idempotency-Key was already used for a different build request")
 	case errors.Is(err, publicationbuilder.ErrBuildNotRetryable):
 		return huma.Error409Conflict("Only failed publication builds can be retried")
+	case errors.Is(err, publicationbuilder.ErrTooManyActiveBuilds):
+		return huma.Error429TooManyRequests("Finish or cancel an active publication build before starting another")
 	case errors.Is(err, publicationbuilder.ErrBuildNotReady):
 		return huma.Error409Conflict("Only ready publication builds can be sent to the composer")
+	case errors.Is(err, publicationbuilder.ErrBuildSourceUnavailable):
+		return huma.Error409Conflict("A selected source is no longer available. Restore it or rebuild the post")
 	default:
 		return huma.Error503ServiceUnavailable("Publication Builder could not complete this request")
 	}

@@ -5,18 +5,21 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/publicationdiscovery"
+	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/uptrace/bun"
 )
 
 const (
-	publicationDiscoveryPath = "/publication-opportunities/discover"
-	publicationDiscoveryTag  = "Publication Discovery"
+	publicationDiscoveryPath              = "/publication-opportunities/discover"
+	publicationDiscoveryTag               = "Publication Discovery"
+	publicationDiscoveryRequestsPerMinute = 6
 )
 
 type PublicationDiscoveryHandler struct {
@@ -24,6 +27,8 @@ type PublicationDiscoveryHandler struct {
 	auth       middleware.Authenticator
 	discoverer publicationdiscovery.Discoverer
 	voices     *voiceprofiles.Service
+	limiter    *ratelimit.Limiter
+	requests   *requestConcurrencyLimiter
 }
 
 func NewPublicationDiscoveryHandler(
@@ -33,6 +38,7 @@ func NewPublicationDiscoveryHandler(
 ) *PublicationDiscoveryHandler {
 	return &PublicationDiscoveryHandler{
 		db: db, auth: authenticator, discoverer: discoverer, voices: voiceprofiles.New(db),
+		limiter: ratelimit.New(), requests: newRequestConcurrencyLimiter(4, 1),
 	}
 }
 
@@ -60,7 +66,7 @@ func (handler *PublicationDiscoveryHandler) RegisterRoutes(api huma.API) {
 		Summary:     "Discover current content opportunities",
 		Description: "Returns cited research cards with selectable angles and platform treatments. It never drafts or publishes a post.",
 		Tags:        []string{publicationDiscoveryTag},
-		Errors:      []int{400, 401, 403, 502, 503, 504},
+		Errors:      []int{400, 401, 403, 429, 502, 503, 504},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, handler.auth)},
 	}, handler.discover)
 }
@@ -87,6 +93,14 @@ func (handler *PublicationDiscoveryHandler) discover(
 	if !allowed {
 		return nil, huma.Error403Forbidden("workspace editor role required")
 	}
+	if handler.limiter == nil || !handler.limiter.Allow("publication-discovery:"+userID, publicationDiscoveryRequestsPerMinute, time.Minute) {
+		return nil, huma.Error429TooManyRequests("Publication discovery limit reached; try again in one minute")
+	}
+	release, acquired := handler.requests.acquire(userID)
+	if !acquired {
+		return nil, huma.Error429TooManyRequests("Another discovery request is still running; try again shortly")
+	}
+	defer release()
 
 	voice, err := handler.loadDiscoveryVoice(ctx, workspaceID, input.Body.VoiceProfileID)
 	if err != nil {

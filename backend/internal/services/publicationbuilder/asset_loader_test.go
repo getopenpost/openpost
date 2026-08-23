@@ -59,30 +59,48 @@ func TestMediaAssetLoaderPreservesSourceOrderAndModalities(t *testing.T) {
 		loaded.Sources[0].ID, loaded.Sources[1].ID, loaded.Sources[2].ID, loaded.Sources[3].ID,
 	})
 	require.Contains(t, loaded.Sources[0].Text, "approved for publication")
-	require.Len(t, loaded.Images, 1)
-	require.Len(t, loaded.Audio, 1)
-	require.Len(t, loaded.Videos, 1)
-	require.Len(t, loaded.Files, 1)
-	require.Equal(t, "brief.pdf", loaded.Files[0].Filename)
+	require.True(t, loaded.Sources[0].Publishable)
+	require.False(t, loaded.Sources[1].Publishable)
+	require.Equal(t, []string{"video/mp4", "application/pdf", "image/png", "audio/mpeg"}, []string{
+		loaded.Sources[0].MIMEType, loaded.Sources[1].MIMEType, loaded.Sources[2].MIMEType, loaded.Sources[3].MIMEType,
+	})
+	require.Len(t, loaded.Parts, 4)
+	require.Equal(t, []string{"media:video", "media:document", "media:image", "media:audio"}, []string{
+		loaded.Parts[0].SourceID, loaded.Parts[1].SourceID, loaded.Parts[2].SourceID, loaded.Parts[3].SourceID,
+	})
+	require.NotNil(t, loaded.Parts[0].Video)
+	require.NotNil(t, loaded.Parts[1].File)
+	require.Equal(t, "brief.pdf", loaded.Parts[1].File.Filename)
+	require.NotNil(t, loaded.Parts[2].Image)
+	require.NotNil(t, loaded.Parts[3].Audio)
+	require.Empty(t, loaded.Images)
+	require.Empty(t, loaded.Files)
+	require.Empty(t, loaded.Audio)
+	require.Empty(t, loaded.Videos)
 }
 
 func TestMediaAssetLoaderRejectsWorkspaceCrossingAndOversizedBytes(t *testing.T) {
 	db := newBuilderAssetTestDB(t)
 	rows := []models.MediaAttachment{
 		{ID: "outside", WorkspaceID: "workspace-2", FilePath: "outside", MimeType: "image/png", ProcessingStatus: "ready", Size: 1},
+		{ID: "first", WorkspaceID: "workspace-1", FilePath: "first", MimeType: "text/plain", ProcessingStatus: "ready", Size: 1},
 		{ID: "large", WorkspaceID: "workspace-1", FilePath: "large", MimeType: "application/pdf", ProcessingStatus: "ready", Size: 1},
 	}
 	_, err := db.NewInsert().Model(&rows).Exec(t.Context())
 	require.NoError(t, err)
 	loader := NewMediaAssetLoader(db, builderAssetStorage{data: map[string][]byte{
 		"outside": []byte("x"),
+		"first":   []byte("x"),
 		"large":   bytes.Repeat([]byte("x"), int(maxBuilderDocumentBytes)+1),
 	}})
 
 	_, err = loader.Load(t.Context(), "workspace-1", []BuildAsset{{MediaID: "outside"}})
-	require.ErrorContains(t, err, "outside the Workspace")
+	require.ErrorContains(t, errors.Unwrap(err), "outside the Workspace")
 	_, err = loader.Load(t.Context(), "workspace-1", []BuildAsset{{MediaID: "large"}})
-	require.ErrorContains(t, err, "size limit")
+	require.ErrorContains(t, errors.Unwrap(err), "size limit")
+	_, err = loader.Load(t.Context(), "workspace-1", []BuildAsset{{MediaID: "first"}, {MediaID: "large"}})
+	require.EqualError(t, err, "selected asset 2 is unavailable")
+	require.ErrorContains(t, errors.Unwrap(err), "size limit")
 }
 
 func newBuilderAssetTestDB(t *testing.T) *bun.DB {

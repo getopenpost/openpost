@@ -16,11 +16,16 @@ const generatedPaths = [
   "frontend/openapi.json",
   "frontend/src/lib/api/types.d.ts",
   "docs-site/reference/cli.md",
+  "packages/n8n-nodes-openpost/generated/selectedContract.ts",
+  "packages/n8n-nodes-openpost/nodes/OpenPost/v1/actions/generated/requestMappers.ts",
+  "packages/n8n-nodes-openpost/nodes/OpenPost/v1/descriptions/generated/descriptions.ts",
+  "packages/n8n-nodes-openpost/docs/selected-contract-report.md",
 ];
 const before = await generatedHashes();
 
 run("bun", ["scripts/sync-docs-openapi.mjs"]);
 run("bun", ["run", "--filter", "@openpost/web", "generate:types"]);
+run("bun", ["scripts/generate-selected-automation-contract.mjs"]);
 const after = await generatedHashes();
 const changed = generatedPaths.filter((file) => before.get(file) !== after.get(file));
 if (changed.length > 0) {
@@ -29,7 +34,7 @@ if (changed.length > 0) {
   process.exit(1);
 }
 
-console.log("Generated API, TypeScript, docs, and CLI contracts are current.");
+console.log("Generated API, TypeScript, docs, CLI, and selected automation contracts are current.");
 
 async function generatedHashes() {
   const entries = await Promise.all(

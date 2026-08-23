@@ -50,15 +50,15 @@ func TestAINativeComposerMigrationBackfillsVoiceAndEnforcesBuildIdentity(t *test
 	}
 	err = db.NewRaw("SELECT id, name, is_default FROM voice_profiles WHERE workspace_id = ?", "ws-1").Scan(ctx, &profile)
 	require.NoError(t, err)
-	require.Equal(t, "ws-1:default-voice", profile.ID)
-	require.Equal(t, "OpenPost voice", profile.Name)
+	require.Equal(t, "default:ws-1", profile.ID)
+	require.Equal(t, "OpenPost", profile.Name)
 	require.True(t, profile.IsDefault)
 
 	_, err = db.ExecContext(ctx, `INSERT INTO voice_profile_account_assignments
-		(social_account_id, workspace_id, voice_profile_id) VALUES ('account-1', 'ws-1', 'ws-1:default-voice')`)
+		(social_account_id, workspace_id, voice_profile_id) VALUES ('account-1', 'ws-1', 'default:ws-1')`)
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO voice_profile_account_assignments
-		(social_account_id, workspace_id, voice_profile_id) VALUES ('missing', 'ws-1', 'ws-1:default-voice')`)
+		(social_account_id, workspace_id, voice_profile_id) VALUES ('missing', 'ws-1', 'default:ws-1')`)
 	require.Error(t, err)
 
 	buildInsert := `INSERT INTO publication_builds

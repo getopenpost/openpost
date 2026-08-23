@@ -255,6 +255,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationHandler.SetProviderReadiness(deps.ProviderReadinessService)
 	publicationHandler.SetTelemetry(deps.Telemetry)
 	publicationHandler.RegisterRoutes(api)
+	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewSocialSetHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)
 	commentHandler := handlers.NewCommentHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenEncryptor)

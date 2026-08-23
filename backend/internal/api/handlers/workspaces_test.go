@@ -67,6 +67,7 @@ func newWorkspaceTestServerWithAuthenticator(t *testing.T, entitlement entitleme
 		(*models.SessionIdentityAssurance)(nil),
 		(*models.APIToken)(nil),
 	)
+	createVoiceProfileHandlerTables(t, db)
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewWorkspaceHandler(db, authenticator, entitlement)

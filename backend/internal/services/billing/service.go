@@ -18,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 )
@@ -259,6 +260,14 @@ func (s *Service) createFirstWorkspace(ctx context.Context, tx bun.Tx, input Con
 		if _, err := tx.NewInsert().Model(model).Exec(ctx); err != nil {
 			return FirstWorkspaceConfirmation{}, err
 		}
+	}
+	if _, err := voiceprofiles.SeedDefault(ctx, tx, voiceprofiles.DefaultSeed{
+		WorkspaceID: workspace.ID,
+		CreatedByID: input.UserID,
+		Name:        workspace.Name,
+		Now:         now,
+	}); err != nil {
+		return FirstWorkspaceConfirmation{}, err
 	}
 	if _, _, err := jobregistry.EnqueueMediaCleanup(ctx, tx, workspace.ID, time.Time{}); err != nil {
 		return FirstWorkspaceConfirmation{}, err

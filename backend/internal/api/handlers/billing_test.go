@@ -283,7 +283,9 @@ func newBillingAPITestServerWithPaddleConfig(t *testing.T, client *billingPaddle
 		(*models.ProviderUsageEvent)(nil),
 		(*models.ProviderUsageReservation)(nil),
 		(*models.ProviderUsagePeriodCounter)(nil),
+		(*models.SocialAccount)(nil),
 	)
+	createVoiceProfileHandlerTables(t, db)
 	ctx := context.Background()
 	_, err := db.NewInsert().Model(&models.User{
 		ID:           "user-1",

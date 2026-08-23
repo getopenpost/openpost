@@ -112,6 +112,9 @@ var restReadOperations = operationSet(
 	"list-posting-schedules",
 	"get-next-available-slot",
 	"get-notification-preferences",
+	"list-voice-profiles",
+	"get-voice-profile",
+	"resolve-effective-voice-profiles",
 )
 
 var restWriteOperations = operationSet(
@@ -138,6 +141,11 @@ var restWriteOperations = operationSet(
 	"delete-posting-schedule",
 	"create-notification-mute",
 	"end-notification-mute",
+	"create-voice-profile",
+	"update-voice-profile",
+	"set-default-voice-profile",
+	"delete-voice-profile",
+	"assign-account-voice-profile",
 )
 
 // Legacy Echo routes remain denied to scoped REST tokens unless they are

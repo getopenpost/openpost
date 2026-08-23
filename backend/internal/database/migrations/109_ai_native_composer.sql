@@ -37,14 +37,14 @@ INSERT INTO voice_profiles (
   created_by_id
 )
 SELECT
-  w.id || ':default-voice',
+  'default:' || w.id,
   w.id,
-  w.name || ' voice',
-  LOWER(w.name || ' voice'),
+  w.name,
+  LOWER(w.name),
   TRUE,
   1,
   1,
-  '{"identity":"","guidance":"","language":"auto","avoidances":[],"examples":[]}',
+  '{}',
   ''
 FROM workspaces AS w
 WHERE NOT EXISTS (

@@ -1,0 +1,40 @@
+// oxlint-disable
+/**
+ * Ported from FreeCut (MIT) - src/shared/timeline/transitions/register-builtins.ts
+ */
+/**
+ * Register Built-in Transitions
+ *
+ * Calls all renderer registration functions to populate the global registry.
+ * Called once at module load time.
+ */
+
+import { transitionRegistry } from './registry';
+import {
+	registerBasicTransitions,
+	registerMotionTransitions,
+	registerWipeTransitions,
+	registerSlideTransitions,
+	registerFlipTransitions,
+	registerMaskTransitions,
+	registerIrisTransitions,
+	registerShapeTransitions,
+	registerGpuTransitions
+} from './renderers';
+
+let registered = false;
+
+export function registerBuiltinTransitions(): void {
+	if (registered) return;
+	registered = true;
+
+	registerBasicTransitions(transitionRegistry);
+	registerMotionTransitions(transitionRegistry);
+	registerWipeTransitions(transitionRegistry);
+	registerSlideTransitions(transitionRegistry);
+	registerFlipTransitions(transitionRegistry);
+	registerMaskTransitions(transitionRegistry);
+	registerIrisTransitions(transitionRegistry);
+	registerShapeTransitions(transitionRegistry);
+	registerGpuTransitions(transitionRegistry);
+}

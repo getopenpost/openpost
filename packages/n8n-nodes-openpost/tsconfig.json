@@ -12,6 +12,6 @@
     "forceConsistentCasingInFileNames": true,
     "noEmitOnError": true
   },
-  "include": ["credentials/**/*.ts", "nodes/**/*.ts", "generated/**/*.ts"],
+  "include": ["credentials/**/*.ts", "nodes/**/*.ts"],
   "exclude": ["test", "dist"]
 }

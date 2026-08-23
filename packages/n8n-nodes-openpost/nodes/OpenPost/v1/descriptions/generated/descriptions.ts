@@ -3,235 +3,261 @@ import type { INodeProperties } from "n8n-workflow";
 
 export const generatedDescriptionProperties = [
   {
-    default: "workspace",
     displayName: "Resource",
     name: "resource",
+    type: "options",
     noDataExpression: true,
     options: [
-      {
-        name: "Workspace",
-        value: "workspace",
-      },
       {
         name: "Account",
         value: "account",
       },
       {
-        name: "Social Set",
-        value: "socialSet",
-      },
-      {
-        name: "Posting Schedule",
-        value: "postingSchedule",
+        name: "Job",
+        value: "job",
       },
       {
         name: "Media",
         value: "media",
       },
       {
+        name: "Posting Schedule",
+        value: "postingSchedule",
+      },
+      {
         name: "Publication",
         value: "publication",
       },
-    ],
-    type: "options",
-  },
-  {
-    default: "getMany",
-    displayName: "Operation",
-    displayOptions: {
-      show: {
-        resource: ["workspace"],
-      },
-    },
-    name: "operation",
-    noDataExpression: true,
-    options: [
       {
-        action: "Get Many Workspace",
-        name: "Get Many",
-        value: "getMany",
+        name: "Social Set",
+        value: "socialSet",
+      },
+      {
+        name: "Workspace",
+        value: "workspace",
       },
     ],
-    type: "options",
+    default: "account",
   },
   {
-    default: "getMany",
     displayName: "Operation",
+    name: "operation",
+    type: "options",
+    noDataExpression: true,
     displayOptions: {
       show: {
         resource: ["account"],
       },
     },
-    name: "operation",
-    noDataExpression: true,
     options: [
       {
-        action: "Get Many Account",
-        name: "Get Many",
-        value: "getMany",
-      },
-      {
-        action: "Get Destination Options Account",
+        action: "Get destination options account",
         name: "Get Destination Options",
         value: "getDestinationOptions",
       },
       {
-        action: "Get Provider Readiness Account",
-        name: "Get Provider Readiness",
-        value: "getProviderReadiness",
-      },
-    ],
-    type: "options",
-  },
-  {
-    default: "getMany",
-    displayName: "Operation",
-    displayOptions: {
-      show: {
-        resource: ["socialSet"],
-      },
-    },
-    name: "operation",
-    noDataExpression: true,
-    options: [
-      {
-        action: "Get Many Social Set",
+        action: "Get many accounts",
         name: "Get Many",
         value: "getMany",
       },
       {
-        action: "Get Social Set",
+        action: "Get provider readiness account",
+        name: "Get Provider Readiness",
+        value: "getProviderReadiness",
+      },
+    ],
+    default: "getDestinationOptions",
+  },
+  {
+    displayName: "Operation",
+    name: "operation",
+    type: "options",
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        resource: ["job"],
+      },
+    },
+    options: [
+      {
+        action: "Get a job",
         name: "Get",
         value: "get",
       },
     ],
-    type: "options",
+    default: "get",
   },
   {
-    default: "getNextAvailableSlot",
     displayName: "Operation",
-    displayOptions: {
-      show: {
-        resource: ["postingSchedule"],
-      },
-    },
     name: "operation",
-    noDataExpression: true,
-    options: [
-      {
-        action: "Get Next Available Slot Posting Schedule",
-        name: "Get Next Available Slot",
-        value: "getNextAvailableSlot",
-      },
-    ],
     type: "options",
-  },
-  {
-    default: "getMany",
-    displayName: "Operation",
+    noDataExpression: true,
     displayOptions: {
       show: {
         resource: ["media"],
       },
     },
-    name: "operation",
-    noDataExpression: true,
     options: [
       {
-        action: "Get Many Media",
+        action: "Get many media items",
         name: "Get Many",
         value: "getMany",
       },
       {
-        action: "Upload Binary Media",
+        action: "Upload binary media",
         name: "Upload Binary",
         value: "uploadBinary",
       },
     ],
-    type: "options",
+    default: "getMany",
   },
   {
-    default: "getMany",
     displayName: "Operation",
+    name: "operation",
+    type: "options",
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        resource: ["postingSchedule"],
+      },
+    },
+    options: [
+      {
+        action: "Get next available slot posting schedule",
+        name: "Get Next Available Slot",
+        value: "getNextAvailableSlot",
+      },
+    ],
+    default: "getNextAvailableSlot",
+  },
+  {
+    displayName: "Operation",
+    name: "operation",
+    type: "options",
+    noDataExpression: true,
     displayOptions: {
       show: {
         resource: ["publication"],
       },
     },
-    name: "operation",
-    noDataExpression: true,
     options: [
       {
-        action: "Get Many Publication",
-        name: "Get Many",
-        value: "getMany",
-      },
-      {
-        action: "Create Publication",
-        name: "Create",
-        value: "create",
-      },
-      {
-        action: "Get Publication",
-        name: "Get",
-        value: "get",
-      },
-      {
-        action: "Update Publication",
-        name: "Update",
-        value: "update",
-      },
-      {
-        action: "Set Renditions Publication",
-        name: "Set Renditions",
-        value: "setRenditions",
-      },
-      {
-        action: "Validate Publication",
-        name: "Validate",
-        value: "validate",
-      },
-      {
-        action: "Schedule Publication",
-        name: "Schedule",
-        value: "schedule",
-      },
-      {
-        action: "Cancel Publication",
+        action: "Cancel publication",
         name: "Cancel",
         value: "cancel",
       },
       {
-        action: "Publish Now Publication",
+        action: "Create publication",
+        name: "Create",
+        value: "create",
+      },
+      {
+        action: "Get a publication",
+        name: "Get",
+        value: "get",
+      },
+      {
+        action: "Get events publication",
+        name: "Get Events",
+        value: "getEvents",
+      },
+      {
+        action: "Get many publications",
+        name: "Get Many",
+        value: "getMany",
+      },
+      {
+        action: "Publish now publication",
         name: "Publish Now",
         value: "publishNow",
       },
       {
-        action: "Retry Failed Renditions Publication",
+        action: "Retry failed renditions publication",
         name: "Retry Failed Renditions",
         value: "retryFailedRenditions",
       },
       {
-        action: "Get Events Publication",
-        name: "Get Events",
-        value: "getEvents",
+        action: "Schedule publication",
+        name: "Schedule",
+        value: "schedule",
+      },
+      {
+        action: "Set renditions publication",
+        name: "Set Renditions",
+        value: "setRenditions",
+      },
+      {
+        action: "Update publication",
+        name: "Update",
+        value: "update",
+      },
+      {
+        action: "Validate publication",
+        name: "Validate",
+        value: "validate",
       },
     ],
-    type: "options",
+    default: "cancel",
   },
   {
+    displayName: "Operation",
+    name: "operation",
+    type: "options",
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        resource: ["socialSet"],
+      },
+    },
+    options: [
+      {
+        action: "Get a social set",
+        name: "Get",
+        value: "get",
+      },
+      {
+        action: "Get many social sets",
+        name: "Get Many",
+        value: "getMany",
+      },
+    ],
+    default: "get",
+  },
+  {
+    displayName: "Operation",
+    name: "operation",
+    type: "options",
+    noDataExpression: true,
+    displayOptions: {
+      show: {
+        resource: ["workspace"],
+      },
+    },
+    options: [
+      {
+        action: "Get many workspaces",
+        name: "Get Many",
+        value: "getMany",
+      },
+    ],
+    default: "getMany",
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Workspace ID.",
-    displayName: "Workspace",
     displayOptions: {
       show: {
-        operation: ["getMany"],
         resource: ["account"],
+        operation: ["getMany"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -247,23 +273,55 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Connected account ID.",
-    displayName: "Account",
     displayOptions: {
       show: {
-        operation: ["getDestinationOptions"],
         resource: ["account"],
+        operation: ["getDestinationOptions"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Account",
+    name: "accountId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["account"],
+        operation: ["getDestinationOptions"],
+      },
+    },
+    description: "Connected account ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -279,83 +337,49 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "accountId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: "",
-    description: "Optional provider region code.",
     displayName: "Region Code",
-    displayOptions: {
-      show: {
-        operation: ["getDestinationOptions"],
-        resource: ["account"],
-      },
-    },
     name: "regionCode",
-    required: false,
     type: "string",
-  },
-  {
     default: "",
-    description: "Optional provider language code.",
-    displayName: "Language",
     displayOptions: {
       show: {
+        resource: ["account"],
         operation: ["getDestinationOptions"],
-        resource: ["account"],
       },
     },
+    description: "Optional provider region code",
+  },
+  {
+    displayName: "Language",
     name: "language",
-    required: false,
     type: "string",
-  },
-  {
-    default: {
-      mode: "list",
-      value: "",
-    },
-    description: "Workspace ID.",
-    displayName: "Workspace",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["getProviderReadiness"],
         resource: ["account"],
+        operation: ["getDestinationOptions"],
       },
     },
-    modes: [
-      {
-        displayName: "From List",
-        name: "list",
-        type: "list",
-        typeOptions: {
-          searchListMethod: "searchWorkspaces",
-        },
-      },
-      {
-        displayName: "By ID",
-        name: "id",
-        type: "string",
-      },
-    ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
+    description: "Optional provider language code",
   },
   {
-    default: {
-      mode: "list",
-      value: "",
-    },
-    description: "Workspace ID.",
     displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
     displayOptions: {
       show: {
-        operation: ["getMany"],
-        resource: ["socialSet"],
+        resource: ["account"],
+        operation: ["getProviderReadiness"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -371,23 +395,87 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Social Set ID.",
-    displayName: "Social Set",
     displayOptions: {
       show: {
-        operation: ["get"],
         resource: ["socialSet"],
+        operation: ["getMany"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["socialSet"],
+        operation: ["get"],
+      },
+    },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Social Set",
+    name: "socialSetId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["socialSet"],
+        operation: ["get"],
+      },
+    },
+    description: "Social Set ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -403,23 +491,22 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "socialSetId",
-    required: true,
-    type: "resourceLocator",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Workspace ID.",
-    displayName: "Workspace",
     displayOptions: {
       show: {
-        operation: ["getNextAvailableSlot"],
         resource: ["postingSchedule"],
+        operation: ["getNextAvailableSlot"],
       },
     },
+    description: "Workspace ID",
     modes: [
       {
         displayName: "From List",
@@ -435,23 +522,23 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: false,
-    type: "resourceLocator",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Workspace ID.",
-    displayName: "Workspace",
     displayOptions: {
       show: {
-        operation: ["getMany"],
         resource: ["media"],
+        operation: ["getMany"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -467,51 +554,52 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: "",
-    description: "Filter by media title or filename.",
     displayName: "Search",
-    displayOptions: {
-      show: {
-        operation: ["getMany"],
-        resource: ["media"],
-      },
-    },
     name: "search",
-    required: false,
     type: "string",
-  },
-  {
-    default: 50,
-    description: "Maximum items to return.",
-    displayName: "Limit",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["getMany"],
         resource: ["media"],
+        operation: ["getMany"],
       },
     },
-    name: "limit",
-    required: false,
-    type: "number",
+    description: "Filter by media title or filename",
   },
   {
+    displayName: "Limit",
+    name: "limit",
+    type: "number",
+    default: 50,
+    displayOptions: {
+      show: {
+        resource: ["media"],
+        operation: ["getMany"],
+      },
+    },
+    description: "Max number of results to return",
+    typeOptions: {
+      minValue: 1,
+    },
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Workspace ID.",
-    displayName: "Workspace",
     displayOptions: {
       show: {
-        operation: ["uploadBinary"],
         resource: ["media"],
+        operation: ["uploadBinary"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -527,77 +615,71 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: "data",
-    description: "Name of the input binary property to upload.",
     displayName: "Binary Property",
-    displayOptions: {
-      show: {
-        operation: ["uploadBinary"],
-        resource: ["media"],
-      },
-    },
     name: "binaryPropertyName",
+    type: "string",
+    default: "data",
+    displayOptions: {
+      show: {
+        resource: ["media"],
+        operation: ["uploadBinary"],
+      },
+    },
+    description: "Name of the input binary property to upload",
     required: true,
-    type: "string",
   },
   {
-    default: "",
-    description: "Override the binary filename.",
     displayName: "File Name",
-    displayOptions: {
-      show: {
-        operation: ["uploadBinary"],
-        resource: ["media"],
-      },
-    },
     name: "fileName",
-    required: false,
     type: "string",
+    default: "",
+    displayOptions: {
+      show: {
+        resource: ["media"],
+        operation: ["uploadBinary"],
+      },
+    },
+    description: "Override the binary filename",
   },
   {
-    default: "",
-    description: "Override the binary MIME type.",
     displayName: "MIME Type",
-    displayOptions: {
-      show: {
-        operation: ["uploadBinary"],
-        resource: ["media"],
-      },
-    },
     name: "mimeType",
-    required: false,
     type: "string",
-  },
-  {
     default: "",
-    description: "Alt text for accessibility.",
-    displayName: "Alt Text",
     displayOptions: {
       show: {
-        operation: ["uploadBinary"],
         resource: ["media"],
+        operation: ["uploadBinary"],
       },
     },
-    name: "altText",
-    required: false,
-    type: "string",
+    description: "Override the binary MIME type",
   },
   {
-    default: "library",
-    description: "Retention Class.",
-    displayName: "Retention Class",
+    displayName: "Alt Text",
+    name: "altText",
+    type: "string",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["uploadBinary"],
         resource: ["media"],
+        operation: ["uploadBinary"],
       },
     },
+    description: "Alt text for accessibility",
+  },
+  {
+    displayName: "Retention Class",
     name: "retentionClass",
+    type: "options",
+    default: "library",
+    displayOptions: {
+      show: {
+        resource: ["media"],
+        operation: ["uploadBinary"],
+      },
+    },
     options: [
       {
         name: "Library",
@@ -608,60 +690,59 @@ export const generatedDescriptionProperties = [
         value: "temporary",
       },
     ],
-    required: false,
-    type: "options",
   },
   {
-    default: "library",
-    description: "Asset Kind.",
     displayName: "Asset Kind",
+    name: "assetKind",
+    type: "options",
+    default: "library",
     displayOptions: {
       show: {
-        operation: ["uploadBinary"],
         resource: ["media"],
+        operation: ["uploadBinary"],
       },
     },
-    name: "assetKind",
     options: [
+      {
+        name: "Brand Asset",
+        value: "brand_asset",
+      },
       {
         name: "Library",
         value: "library",
       },
-      {
-        name: "Brand asset",
-        value: "brand_asset",
-      },
     ],
-    required: false,
-    type: "options",
   },
   {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
     displayName: "Idempotency Key",
-    displayOptions: {
-      show: {
-        operation: ["uploadBinary"],
-        resource: ["media"],
-      },
-    },
     name: "idempotencyKey",
+    type: "string",
+    default: "",
     placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
+    displayOptions: {
+      show: {
+        resource: ["media"],
+        operation: ["uploadBinary"],
+      },
+    },
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Workspace ID.",
-    displayName: "Workspace",
     displayOptions: {
       show: {
-        operation: ["getMany"],
         resource: ["publication"],
+        operation: ["getMany"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -677,65 +758,65 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: "",
-    description: "Optional publication status filter.",
     displayName: "Status",
-    displayOptions: {
-      show: {
-        operation: ["getMany"],
-        resource: ["publication"],
-      },
-    },
     name: "status",
-    required: false,
     type: "string",
-  },
-  {
     default: "",
-    description: "Search title and source text.",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["getMany"],
+      },
+    },
+    description: "Optional publication status filter",
+  },
+  {
     displayName: "Search",
-    displayOptions: {
-      show: {
-        operation: ["getMany"],
-        resource: ["publication"],
-      },
-    },
     name: "search",
-    required: false,
     type: "string",
-  },
-  {
-    default: 50,
-    description: "Maximum items to return.",
-    displayName: "Limit",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["getMany"],
         resource: ["publication"],
+        operation: ["getMany"],
       },
     },
-    name: "limit",
-    required: false,
-    type: "number",
+    description: "Search title and source text",
   },
   {
+    displayName: "Limit",
+    name: "limit",
+    type: "number",
+    default: 50,
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["getMany"],
+      },
+    },
+    description: "Max number of results to return",
+    typeOptions: {
+      minValue: 1,
+    },
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Workspace ID.",
-    displayName: "Workspace",
     displayOptions: {
       show: {
-        operation: ["create"],
         resource: ["publication"],
+        operation: ["create"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -751,210 +832,234 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "workspaceId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: "",
-    description: "Internal publication title.",
     displayName: "Title",
+    name: "title",
+    type: "string",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["create"],
         resource: ["publication"],
+        operation: ["create"],
       },
     },
-    name: "title",
+    description: "Internal publication title",
     required: true,
-    type: "string",
   },
   {
-    default: "",
-    description: "Canonical source text.",
     displayName: "Source Text",
+    name: "sourceText",
+    type: "string",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["create"],
         resource: ["publication"],
+        operation: ["create"],
       },
     },
-    name: "sourceText",
+    description: "Canonical source text",
     required: true,
-    type: "string",
     typeOptions: {
       rows: 4,
     },
   },
   {
-    default: "default",
-    description: "Content profile saved with the Publication.",
     displayName: "Content Profile",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
     name: "contentProfile",
-    required: true,
-    type: "string",
-  },
-  {
-    default: "post",
-    description: "Creation Preset.",
-    displayName: "Creation Preset",
+    type: "options",
+    default: "short_text",
     displayOptions: {
       show: {
-        operation: ["create"],
         resource: ["publication"],
+        operation: ["create"],
       },
     },
-    name: "creationPreset",
     options: [
       {
-        name: "Post",
-        value: "post",
+        name: "Carousel",
+        value: "carousel",
       },
       {
-        name: "Thread",
-        value: "thread",
+        name: "Image Post",
+        value: "image_post",
+      },
+      {
+        name: "Link Share",
+        value: "link_share",
+      },
+      {
+        name: "Long Video",
+        value: "long_video",
+      },
+      {
+        name: "Short Text",
+        value: "short_text",
+      },
+      {
+        name: "Short Video",
+        value: "short_video",
       },
       {
         name: "Story",
         value: "story",
       },
       {
-        name: "Short video",
+        name: "Thread",
+        value: "thread",
+      },
+    ],
+  },
+  {
+    displayName: "Creation Preset",
+    name: "creationPreset",
+    type: "options",
+    default: "post",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
+    options: [
+      {
+        name: "Post",
+        value: "post",
+      },
+      {
+        name: "Short Video",
         value: "short_video",
+      },
+      {
+        name: "Story",
+        value: "story",
+      },
+      {
+        name: "Thread",
+        value: "thread",
       },
       {
         name: "Video",
         value: "video",
       },
     ],
-    required: false,
-    type: "options",
   },
   {
-    default: "",
-    description: "Comma-separated connected account IDs.",
     displayName: "Account IDs",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
     name: "accountIds",
-    required: false,
     type: "string",
+    default: "",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
+    description: "Comma-separated connected account IDs",
   },
   {
-    default: "",
-    description: "Comma-separated media IDs to attach in order.",
     displayName: "Media IDs",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
     name: "mediaIds",
-    required: false,
     type: "string",
+    default: "",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
+    description: "Comma-separated media IDs to attach in order",
   },
   {
-    default: "",
-    description: "Optional source URL.",
     displayName: "Source URL",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
     name: "sourceUrl",
-    required: false,
     type: "string",
-  },
-  {
     default: "",
-    description: "Optional ISO date-time schedule.",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
+    description: "Optional source URL",
+  },
+  {
     displayName: "Scheduled At",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
     name: "scheduledAt",
-    required: false,
-    type: "string",
-  },
-  {
-    default: 0,
-    description: "Optional random schedule delay in minutes.",
-    displayName: "Random Delay Minutes",
+    type: "dateTime",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["create"],
         resource: ["publication"],
+        operation: ["create"],
       },
     },
-    name: "randomDelayMinutes",
-    required: false,
-    type: "number",
+    description: "Optional publication date and time",
   },
   {
+    displayName: "Random Delay Minutes",
+    name: "randomDelayMinutes",
+    type: "number",
+    default: 0,
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
+    description: "Optional random schedule delay in minutes",
+  },
+  {
+    displayName: "Advanced JSON",
+    name: "advancedJson",
+    type: "json",
     default: "{}",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
     description:
       "Additional CreatePublicationBody fields. Native fields win over conflicting keys.",
-    displayName: "Advanced JSON",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
-    name: "advancedJson",
-    required: false,
-    type: "json",
   },
   {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
     displayName: "Idempotency Key",
-    displayOptions: {
-      show: {
-        operation: ["create"],
-        resource: ["publication"],
-      },
-    },
     name: "idempotencyKey",
+    type: "string",
+    default: "",
     placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["create"],
+      },
+    },
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["get"],
-        resource: ["publication"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
         name: "list",
         type: "list",
         typeOptions: {
-          searchListMethod: "searchPublications",
+          searchListMethod: "searchWorkspaces",
         },
       },
       {
@@ -963,23 +1068,23 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
-        operation: ["update"],
         resource: ["publication"],
+        operation: ["get"],
       },
     },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -995,111 +1100,203 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
     type: "resourceLocator",
-  },
-  {
-    default: 0,
-    description: "Revision loaded before updating.",
-    displayName: "Expected Revision",
+    default: {
+      mode: "list",
+      value: "",
+    },
     displayOptions: {
       show: {
-        operation: ["update"],
         resource: ["publication"],
+        operation: ["update"],
       },
     },
-    name: "expectedRevision",
+    description: "Workspace ID",
     required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["update"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchPublications",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Expected Revision",
+    name: "expectedRevision",
     type: "number",
+    default: 0,
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["update"],
+      },
+    },
+    description: "Revision loaded before updating",
+    required: true,
   },
   {
-    default: "",
-    description: "Internal publication title.",
     displayName: "Title",
+    name: "title",
+    type: "string",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["update"],
         resource: ["publication"],
+        operation: ["update"],
       },
     },
-    name: "title",
-    required: false,
-    type: "string",
+    description: "Internal publication title",
   },
   {
-    default: "",
-    description: "Canonical source text.",
     displayName: "Source Text",
+    name: "sourceText",
+    type: "string",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["update"],
         resource: ["publication"],
+        operation: ["update"],
       },
     },
-    name: "sourceText",
-    required: false,
-    type: "string",
+    description: "Canonical source text",
     typeOptions: {
       rows: 4,
     },
   },
   {
-    default: "",
-    description: "Optional ISO date-time schedule.",
     displayName: "Scheduled At",
+    name: "scheduledAt",
+    type: "dateTime",
+    default: "",
     displayOptions: {
       show: {
-        operation: ["update"],
         resource: ["publication"],
+        operation: ["update"],
       },
     },
-    name: "scheduledAt",
-    required: false,
-    type: "string",
+    description: "Optional publication date and time",
   },
   {
+    displayName: "Advanced JSON",
+    name: "advancedJson",
+    type: "json",
     default: "{}",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["update"],
+      },
+    },
     description:
       "Additional PublicationUpdateBody fields. Native fields win over conflicting keys.",
-    displayName: "Advanced JSON",
-    displayOptions: {
-      show: {
-        operation: ["update"],
-        resource: ["publication"],
-      },
-    },
-    name: "advancedJson",
-    required: false,
-    type: "json",
   },
   {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
     displayName: "Idempotency Key",
+    name: "idempotencyKey",
+    type: "string",
+    default: "",
+    placeholder: "Leave empty to use the n8n execution ID and item index",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
     displayOptions: {
       show: {
-        operation: ["update"],
         resource: ["publication"],
+        operation: ["update"],
       },
     },
-    name: "idempotencyKey",
-    placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
-        operation: ["setRenditions"],
         resource: ["publication"],
+        operation: ["setRenditions"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["setRenditions"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -1115,65 +1312,97 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: 0,
-    description: "Revision loaded before replacing renditions.",
     displayName: "Expected Revision",
+    name: "expectedRevision",
+    type: "number",
+    default: 0,
     displayOptions: {
       show: {
-        operation: ["setRenditions"],
         resource: ["publication"],
+        operation: ["setRenditions"],
       },
     },
-    name: "expectedRevision",
+    description: "Revision loaded before replacing renditions",
     required: true,
-    type: "number",
   },
   {
-    default: "{}",
-    description: "Array of RenditionInput objects.",
     displayName: "Renditions JSON",
-    displayOptions: {
-      show: {
-        operation: ["setRenditions"],
-        resource: ["publication"],
-      },
-    },
     name: "renditionsJson",
-    required: true,
     type: "json",
-  },
-  {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
-    displayName: "Idempotency Key",
+    default: "{}",
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["setRenditions"],
-        resource: ["publication"],
       },
     },
-    name: "idempotencyKey",
-    placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
+    description: "Array of RenditionInput objects",
+    required: true,
   },
   {
+    displayName: "Idempotency Key",
+    name: "idempotencyKey",
+    type: "string",
+    default: "",
+    placeholder: "Leave empty to use the n8n execution ID and item index",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["setRenditions"],
+      },
+    },
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["validate"],
-        resource: ["publication"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["validate"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -1189,30 +1418,30 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["schedule"],
-        resource: ["publication"],
       },
     },
+    description: "Workspace ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
         name: "list",
         type: "list",
         typeOptions: {
-          searchListMethod: "searchPublications",
+          searchListMethod: "searchWorkspaces",
         },
       },
       {
@@ -1221,51 +1450,115 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: 0,
-    description: "Revision saved before scheduling.",
-    displayName: "Expected Revision",
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["schedule"],
-        resource: ["publication"],
       },
     },
-    name: "expectedRevision",
+    description: "Publication ID",
     required: true,
-    type: "number",
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchPublications",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
   },
   {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
-    displayName: "Idempotency Key",
+    displayName: "Expected Revision",
+    name: "expectedRevision",
+    type: "number",
+    default: 0,
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["schedule"],
-        resource: ["publication"],
       },
     },
-    name: "idempotencyKey",
-    placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
+    description: "Revision saved before scheduling",
+    required: true,
   },
   {
+    displayName: "Idempotency Key",
+    name: "idempotencyKey",
+    type: "string",
+    default: "",
+    placeholder: "Leave empty to use the n8n execution ID and item index",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["schedule"],
+      },
+    },
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
-        operation: ["cancel"],
         resource: ["publication"],
+        operation: ["cancel"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["cancel"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -1281,51 +1574,83 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: 0,
-    description: "Revision saved before canceling.",
     displayName: "Expected Revision",
-    displayOptions: {
-      show: {
-        operation: ["cancel"],
-        resource: ["publication"],
-      },
-    },
     name: "expectedRevision",
-    required: true,
     type: "number",
-  },
-  {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
-    displayName: "Idempotency Key",
+    default: 0,
     displayOptions: {
       show: {
-        operation: ["cancel"],
         resource: ["publication"],
+        operation: ["cancel"],
       },
     },
-    name: "idempotencyKey",
-    placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
+    description: "Revision saved before canceling",
+    required: true,
   },
   {
+    displayName: "Idempotency Key",
+    name: "idempotencyKey",
+    type: "string",
+    default: "",
+    placeholder: "Leave empty to use the n8n execution ID and item index",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["cancel"],
+      },
+    },
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
-        operation: ["publishNow"],
         resource: ["publication"],
+        operation: ["publishNow"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["publishNow"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -1341,51 +1666,83 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: 0,
-    description: "Revision saved before publishing.",
     displayName: "Expected Revision",
-    displayOptions: {
-      show: {
-        operation: ["publishNow"],
-        resource: ["publication"],
-      },
-    },
     name: "expectedRevision",
-    required: true,
     type: "number",
-  },
-  {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
-    displayName: "Idempotency Key",
+    default: 0,
     displayOptions: {
       show: {
-        operation: ["publishNow"],
         resource: ["publication"],
+        operation: ["publishNow"],
       },
     },
-    name: "idempotencyKey",
-    placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
+    description: "Revision saved before publishing",
+    required: true,
   },
   {
+    displayName: "Idempotency Key",
+    name: "idempotencyKey",
+    type: "string",
+    default: "",
+    placeholder: "Leave empty to use the n8n execution ID and item index",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["publishNow"],
+      },
+    },
+  },
+  {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["retryFailedRenditions"],
-        resource: ["publication"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["retryFailedRenditions"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -1401,37 +1758,69 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: "",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
     displayName: "Idempotency Key",
+    name: "idempotencyKey",
+    type: "string",
+    default: "",
+    placeholder: "Leave empty to use the n8n execution ID and item index",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
     displayOptions: {
       show: {
-        operation: ["retryFailedRenditions"],
         resource: ["publication"],
+        operation: ["retryFailedRenditions"],
       },
     },
-    name: "idempotencyKey",
-    placeholder: "Leave empty to use the n8n execution ID and item index",
-    type: "string",
   },
   {
+    displayName: "Workspace",
+    name: "workspaceId",
+    type: "resourceLocator",
     default: {
       mode: "list",
       value: "",
     },
-    description: "Publication ID.",
-    displayName: "Publication",
     displayOptions: {
       show: {
+        resource: ["publication"],
         operation: ["getEvents"],
-        resource: ["publication"],
       },
     },
+    description: "Workspace ID",
+    required: true,
+    modes: [
+      {
+        displayName: "From List",
+        name: "list",
+        type: "list",
+        typeOptions: {
+          searchListMethod: "searchWorkspaces",
+        },
+      },
+      {
+        displayName: "By ID",
+        name: "id",
+        type: "string",
+      },
+    ],
+  },
+  {
+    displayName: "Publication",
+    name: "publicationId",
+    type: "resourceLocator",
+    default: {
+      mode: "list",
+      value: "",
+    },
+    displayOptions: {
+      show: {
+        resource: ["publication"],
+        operation: ["getEvents"],
+      },
+    },
+    description: "Publication ID",
+    required: true,
     modes: [
       {
         displayName: "From List",
@@ -1447,22 +1836,35 @@ export const generatedDescriptionProperties = [
         type: "string",
       },
     ],
-    name: "publicationId",
-    required: true,
-    type: "resourceLocator",
   },
   {
-    default: 50,
-    description: "Maximum events to return.",
     displayName: "Limit",
+    name: "limit",
+    type: "number",
+    default: 50,
     displayOptions: {
       show: {
-        operation: ["getEvents"],
         resource: ["publication"],
+        operation: ["getEvents"],
       },
     },
-    name: "limit",
-    required: false,
-    type: "number",
+    description: "Max number of results to return",
+    typeOptions: {
+      minValue: 1,
+    },
+  },
+  {
+    displayName: "Job ID",
+    name: "jobId",
+    type: "string",
+    default: "",
+    displayOptions: {
+      show: {
+        resource: ["job"],
+        operation: ["get"],
+      },
+    },
+    description: "OpenPost Job ID",
+    required: true,
   },
 ] satisfies INodeProperties[];

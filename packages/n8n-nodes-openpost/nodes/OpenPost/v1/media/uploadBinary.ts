@@ -94,13 +94,12 @@ export async function uploadBinaryMedia(
       url: completeUrl,
       headers: {
         Accept: "application/json",
-        "Idempotency-Key": `${input.idempotencyKey}:complete`,
       },
       body: { workspace_id: input.workspaceId },
       json: true,
       returnFullResponse: true,
     },
-    { idempotency: "required" },
+    { idempotency: "natural" },
   )) as IN8nHttpFullResponse;
   return complete.body;
 }

@@ -160,12 +160,7 @@ export const generatedActionRequestMappers = [
     idempotency: "none",
     method: "GET",
     operationIDs: ["list-social-sets"],
-    pagination: {
-      cursor_parameter: "cursor",
-      has_more_header: "X-Has-More",
-      next_cursor_header: "X-Next-Cursor",
-      style: "cursor",
-    },
+    pagination: null,
     path: "/social-sets",
     request: {
       bodyRequired: false,
@@ -280,10 +275,13 @@ export const generatedActionRequestMappers = [
     method: "GET",
     operationIDs: ["list-media"],
     pagination: {
-      cursor_parameter: "cursor",
-      has_more_header: "X-Has-More",
-      next_cursor_header: "X-Next-Cursor",
-      style: "cursor",
+      cursor_parameter: "",
+      has_more_header: "",
+      limit_parameter: "limit",
+      next_cursor_header: "",
+      offset_parameter: "offset",
+      style: "offset",
+      total_path: "total",
     },
     path: "/media",
     request: {
@@ -473,10 +471,17 @@ export const generatedActionRequestMappers = [
     request: {
       bodyRequired: true,
       bodySchemaRef: "#/components/schemas/CreateMediaUploadSessionInputBody",
-      parameters: [],
+      parameters: [
+        {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
+      ],
     },
     result: {
-      id_path: "media_id",
+      id_path: "id",
     },
     retry: "idempotent-transient",
     synthetic: true,
@@ -516,8 +521,11 @@ export const generatedActionRequestMappers = [
     pagination: {
       cursor_parameter: "cursor",
       has_more_header: "X-Has-More",
+      limit_parameter: "",
       next_cursor_header: "X-Next-Cursor",
+      offset_parameter: "",
       style: "cursor",
+      total_path: "",
     },
     path: "/publications",
     request: {
@@ -689,7 +697,14 @@ export const generatedActionRequestMappers = [
     request: {
       bodyRequired: true,
       bodySchemaRef: "#/components/schemas/CreatePublicationBody",
-      parameters: [],
+      parameters: [
+        {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
+      ],
     },
     result: {
       id_path: "id",
@@ -782,6 +797,12 @@ export const generatedActionRequestMappers = [
       bodySchemaRef: "#/components/schemas/PublicationUpdateBody",
       parameters: [
         {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
+        {
           in: "path",
           name: "id",
           required: true,
@@ -827,6 +848,12 @@ export const generatedActionRequestMappers = [
       bodyRequired: true,
       bodySchemaRef: "#/components/schemas/UpsertRenditionsInputBody",
       parameters: [
+        {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
         {
           in: "path",
           name: "id",
@@ -902,6 +929,12 @@ export const generatedActionRequestMappers = [
       bodySchemaRef: "#/components/schemas/PublicationMutationActionInputBody",
       parameters: [
         {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
+        {
           in: "path",
           name: "id",
           required: true,
@@ -941,6 +974,12 @@ export const generatedActionRequestMappers = [
       bodyRequired: true,
       bodySchemaRef: "#/components/schemas/PublicationMutationActionInputBody",
       parameters: [
+        {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
         {
           in: "path",
           name: "id",
@@ -982,6 +1021,12 @@ export const generatedActionRequestMappers = [
       bodySchemaRef: "#/components/schemas/PublicationMutationActionInputBody",
       parameters: [
         {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
+        {
           in: "path",
           name: "id",
           required: true,
@@ -1015,6 +1060,12 @@ export const generatedActionRequestMappers = [
       bodyRequired: false,
       bodySchemaRef: "",
       parameters: [
+        {
+          in: "header",
+          name: "Idempotency-Key",
+          required: false,
+          type: "string",
+        },
         {
           in: "path",
           name: "id",
@@ -1052,8 +1103,11 @@ export const generatedActionRequestMappers = [
     pagination: {
       cursor_parameter: "cursor",
       has_more_header: "X-Has-More",
+      limit_parameter: "",
       next_cursor_header: "X-Next-Cursor",
+      offset_parameter: "",
       style: "cursor",
+      total_path: "",
     },
     path: "/publications/{id}/events",
     request: {
@@ -1082,6 +1136,40 @@ export const generatedActionRequestMappers = [
     },
     result: {
       body_path: "",
+    },
+    retry: "transient",
+    synthetic: false,
+  },
+  {
+    actionKey: "job.get",
+    effect: "query",
+    fields: [
+      {
+        apiName: "job_id",
+        body: true,
+        location: "body",
+        name: "jobId",
+      },
+    ],
+    idempotency: "none",
+    method: "GET",
+    operationIDs: ["get-job"],
+    pagination: null,
+    path: "/jobs/{id}",
+    request: {
+      bodyRequired: false,
+      bodySchemaRef: "",
+      parameters: [
+        {
+          in: "path",
+          name: "id",
+          required: true,
+          type: "string",
+        },
+      ],
+    },
+    result: {
+      id_path: "$.id",
     },
     retry: "transient",
     synthetic: false,

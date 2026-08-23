@@ -59,5 +59,10 @@ describe("OpenPost binary upload", () => {
       "x-upload-token": "target-token",
     });
     expect(uploadCall?.options.headers.Authorization).toBeUndefined();
+    const completeCall = calls.find((call) =>
+      String(call.options.url).endsWith("/media/upload-session/session-1/complete"),
+    );
+    expect(completeCall?.authenticated).toBe(true);
+    expect(completeCall?.options.headers["Idempotency-Key"]).toBeUndefined();
   });
 });

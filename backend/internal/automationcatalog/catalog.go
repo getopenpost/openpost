@@ -51,6 +51,9 @@ type Pagination struct {
 	CursorParameter  string `json:"cursor_parameter,omitempty"`
 	NextCursorHeader string `json:"next_cursor_header,omitempty"`
 	HasMoreHeader    string `json:"has_more_header,omitempty"`
+	OffsetParameter  string `json:"offset_parameter,omitempty"`
+	LimitParameter   string `json:"limit_parameter,omitempty"`
+	TotalPath        string `json:"total_path,omitempty"`
 }
 
 type ResultExtraction struct {
@@ -93,6 +96,9 @@ func (operation Operation) Metadata() map[string]any {
 			"cursor_parameter":   operation.Pagination.CursorParameter,
 			"next_cursor_header": operation.Pagination.NextCursorHeader,
 			"has_more_header":    operation.Pagination.HasMoreHeader,
+			"offset_parameter":   operation.Pagination.OffsetParameter,
+			"limit_parameter":    operation.Pagination.LimitParameter,
+			"total_path":         operation.Pagination.TotalPath,
 		}
 	}
 	if operation.Result.BodyPath != "" || operation.Result.IDPath != "" || operation.Result.JobIDPath != "" {
@@ -109,7 +115,7 @@ func (operation Operation) Metadata() map[string]any {
 		metadata["result"] = result
 	}
 	if len(operation.Selectors) > 0 {
-		selectors := make([]map[string]any, 0, len(operation.Selectors))
+		selectors := make([]any, 0, len(operation.Selectors))
 		for _, selector := range operation.Selectors {
 			selectors = append(selectors, map[string]any{
 				"parameter":    selector.Parameter,
@@ -133,35 +139,37 @@ var cursorPage = &Pagination{
 var operations = []Operation{
 	read("list-workspaces", ExposureAlpha),
 	readDisabled("get-workspace-settings"),
-	read("list-accounts", ExposureAlpha),
+	withSelectors(read("list-accounts", ExposureAlpha), workspaceSelector()),
 	readDisabled("list-account-providers"),
-	read("get-account-destination-options", ExposureAlpha),
+	withSelectors(read("get-account-destination-options", ExposureAlpha), workspaceSelector(), accountSelector("account_id")),
 	readDisabled("search-account-publishing-options"),
-	read("get-provider-readiness", ExposureAlpha),
+	withSelectors(read("get-provider-readiness", ExposureAlpha), workspaceSelector()),
 	readDisabled("resolve-publishing-capabilities"),
-	readPaged("list-social-sets", ExposureAlpha),
-	read("get-social-set", ExposureAlpha),
-	readPaged("list-media", ExposureAlpha),
+	withSelectors(read("list-social-sets", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("get-social-set", ExposureAlpha), workspaceSelector(), socialSetSelector("id")),
+	withResult(withPagination(withSelectors(read("list-media", ExposureAlpha), workspaceSelector()), Pagination{
+		Style: "offset", OffsetParameter: "offset", LimitParameter: "limit", TotalPath: "total",
+	}), ResultExtraction{BodyPath: "media"}),
 	readDisabled("get-media-storage"),
 	readDisabled("get-media-usage"),
-	readPaged("list-publications", ExposureAlpha),
-	read("get-publication", ExposureAlpha),
-	readPaged("list-publication-events", ExposureAlpha),
-	read("validate-publication", ExposureAlpha),
+	withSelectors(readPaged("list-publications", ExposureAlpha), workspaceSelector()),
+	withSelectors(read("get-publication", ExposureAlpha), workspaceSelector(), publicationSelector("id")),
+	withSelectors(readPaged("list-publication-events", ExposureAlpha), workspaceSelector(), publicationSelector("id")),
+	withSelectors(read("validate-publication", ExposureAlpha), workspaceSelector(), publicationSelector("id")),
 	readDisabled("list-posting-schedules"),
-	read("get-next-available-slot", ExposureAlpha),
+	withSelectors(read("get-next-available-slot", ExposureAlpha), workspaceSelector()),
 	readResult("get-job", ExposureAlpha, ResultExtraction{IDPath: "$.id"}),
 	readDisabled("get-notification-preferences"),
 
-	write("create-publication", ExposureAlpha, EffectLocalMutation),
-	write("update-publication", ExposureAlpha, EffectLocalMutation),
-	write("upsert-publication-renditions", ExposureAlpha, EffectLocalMutation),
-	write("schedule-publication", ExposureAlpha, EffectLocalMutation),
-	write("cancel-publication", ExposureAlpha, EffectLocalMutation),
-	write("publish-publication-now", ExposureAlpha, EffectExternalAction),
+	withSelectors(write("create-publication", ExposureAlpha, EffectLocalMutation), workspaceSelector()),
+	withSelectors(write("update-publication", ExposureAlpha, EffectLocalMutation), workspaceSelector(), publicationSelector("id")),
+	withSelectors(write("upsert-publication-renditions", ExposureAlpha, EffectLocalMutation), workspaceSelector(), publicationSelector("id")),
+	withSelectors(write("schedule-publication", ExposureAlpha, EffectLocalMutation), workspaceSelector(), publicationSelector("id")),
+	withSelectors(write("cancel-publication", ExposureAlpha, EffectLocalMutation), workspaceSelector(), publicationSelector("id")),
+	withSelectors(write("publish-publication-now", ExposureAlpha, EffectExternalAction), workspaceSelector(), publicationSelector("id")),
 	writeDisabled("retry-publication-rendition", EffectExternalAction),
-	write("retry-failed-publication-renditions", ExposureAlpha, EffectExternalAction),
-	write("create-media-upload-session", ExposureAlpha, EffectLocalMutation),
+	withSelectors(write("retry-failed-publication-renditions", ExposureAlpha, EffectExternalAction), workspaceSelector(), publicationSelector("id")),
+	withSelectors(write("create-media-upload-session", ExposureAlpha, EffectLocalMutation), workspaceSelector()),
 	writeNaturallyIdempotent("complete-media-upload-session", ExposureAlpha, EffectLocalMutation),
 	writeDisabled("update-media", EffectLocalMutation),
 	writeDisabled("delete-media", EffectDestructive),
@@ -228,6 +236,37 @@ func writeNaturallyIdempotent(operationID string, exposure Exposure, effect Effe
 		Access:      AccessWrite, Exposure: exposure, Effect: effect,
 		Retry: RetryTransient, Idempotency: IdempotencyNatural,
 	}
+}
+
+func withResult(operation Operation, result ResultExtraction) Operation {
+	operation.Result = result
+	return operation
+}
+
+func withPagination(operation Operation, pagination Pagination) Operation {
+	operation.Pagination = &pagination
+	return operation
+}
+
+func withSelectors(operation Operation, selectors ...SelectorHint) Operation {
+	operation.Selectors = append(operation.Selectors, selectors...)
+	return operation
+}
+
+func workspaceSelector() SelectorHint {
+	return SelectorHint{Parameter: "workspace_id", OperationID: "list-workspaces", ValuePath: "id", LabelPath: "name"}
+}
+
+func accountSelector(parameter string) SelectorHint {
+	return SelectorHint{Parameter: parameter, OperationID: "list-accounts", ValuePath: "id", LabelPath: "account_username"}
+}
+
+func publicationSelector(parameter string) SelectorHint {
+	return SelectorHint{Parameter: parameter, OperationID: "list-publications", ValuePath: "id", LabelPath: "title"}
+}
+
+func socialSetSelector(parameter string) SelectorHint {
+	return SelectorHint{Parameter: parameter, OperationID: "list-social-sets", ValuePath: "id", LabelPath: "name"}
 }
 
 func indexOperations(items []Operation) map[string]Operation {

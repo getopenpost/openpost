@@ -5,7 +5,7 @@ import type {
   INodeType,
   INodeTypeDescription,
 } from "n8n-workflow";
-import { NodeConnectionTypes } from "n8n-workflow";
+import { NodeConnectionTypes, NodeOperationError } from "n8n-workflow";
 
 import { generatedDescriptionProperties } from "./descriptions/generated/descriptions";
 import {
@@ -15,6 +15,7 @@ import {
   nextCursorFromHeaders,
   normalizeNodeValue,
   idempotencyKey,
+  resultTotal,
 } from "./actions/mapper";
 import { toOpenPostNodeError } from "./errors";
 import { uploadBinaryMedia } from "./media/uploadBinary";
@@ -107,7 +108,9 @@ export class OpenPostV1 implements INodeType {
 
         const mapper = findRequestMapper(resource, operation);
         let cursor = "";
-        let page = 0;
+        let offset = 0;
+        let hasNextPage = true;
+        const seenCursors = new Set<string>();
         const returnAll = Boolean(this.getNodeParameter("returnAll", itemIndex, false));
         do {
           const request = buildOpenPostRequest({
@@ -116,6 +119,7 @@ export class OpenPostV1 implements INodeType {
             itemIndex,
             executionId,
             cursor,
+            offset,
             parameters: {
               get: (name: string, fallback?: unknown) =>
                 this.getNodeParameter(name, itemIndex, fallback),
@@ -124,18 +128,30 @@ export class OpenPostV1 implements INodeType {
           const response = await openPostApiRequest(this, request.options, {
             idempotency: mapper.idempotency,
           });
-          for (const result of extractResult(response.body, mapper.result)) {
+          const results = extractResult(response.body, mapper.result);
+          for (const result of results) {
             output.push({ json: asDataObject(result), pairedItem: { item: itemIndex } });
           }
-          cursor =
-            returnAll && mapper.pagination
-              ? nextCursorFromHeaders(
-                  response.headers as Record<string, unknown> | undefined,
-                  mapper.pagination.next_cursor_header,
-                )
-              : "";
-          page += 1;
-        } while (cursor && page < 100);
+          hasNextPage = false;
+          if (returnAll && mapper.pagination?.style === "cursor") {
+            cursor = nextCursorFromHeaders(
+              response.headers as Record<string, unknown> | undefined,
+              mapper.pagination.next_cursor_header,
+            );
+            if (cursor && seenCursors.has(cursor)) {
+              throw new NodeOperationError(
+                this.getNode(),
+                "OpenPost returned the same pagination cursor twice",
+              );
+            }
+            if (cursor) seenCursors.add(cursor);
+            hasNextPage = cursor !== "";
+          } else if (returnAll && mapper.pagination?.style === "offset") {
+            offset += results.length;
+            const total = resultTotal(response.body, mapper.pagination.total_path);
+            hasNextPage = results.length > 0 && total !== undefined && offset < total;
+          }
+        } while (hasNextPage);
       } catch (error) {
         if (!this.continueOnFail()) throw toOpenPostNodeError(this.getNode(), error);
         output.push({

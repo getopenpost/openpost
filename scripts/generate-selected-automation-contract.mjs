@@ -25,6 +25,7 @@ export const desiredActions = [
   }),
   action("account", "getDestinationOptions", "get-account-destination-options", {
     fields: [
+      workspaceField({ request: false }),
       accountField(),
       stringField("regionCode", "Region Code", "Optional provider region code."),
       stringField("language", "Language", "Optional provider language code."),
@@ -34,7 +35,9 @@ export const desiredActions = [
     fields: [workspaceField()],
   }),
   action("socialSet", "getMany", "list-social-sets", { fields: [workspaceField()] }),
-  action("socialSet", "get", "get-social-set", { fields: [socialSetField()] }),
+  action("socialSet", "get", "get-social-set", {
+    fields: [workspaceField({ request: false }), socialSetField()],
+  }),
   action("postingSchedule", "getNextAvailableSlot", "get-next-available-slot", {
     fields: [workspaceField({ required: false })],
   }),
@@ -75,7 +78,7 @@ export const desiredActions = [
           "Asset Kind",
           [
             ["Library", "library"],
-            ["Brand asset", "brand_asset"],
+            ["Brand Asset", "brand_asset"],
           ],
           "library",
         ),
@@ -99,11 +102,20 @@ export const desiredActions = [
         required: true,
         rows: 4,
       }),
-      stringField(
+      optionsField(
         "contentProfile",
         "Content Profile",
-        "Content profile saved with the Publication.",
-        { default: "default", required: true },
+        [
+          ["Short Text", "short_text"],
+          ["Thread", "thread"],
+          ["Link Share", "link_share"],
+          ["Image Post", "image_post"],
+          ["Carousel", "carousel"],
+          ["Story", "story"],
+          ["Short Video", "short_video"],
+          ["Long Video", "long_video"],
+        ],
+        "short_text",
       ),
       optionsField(
         "creationPreset",
@@ -112,7 +124,7 @@ export const desiredActions = [
           ["Post", "post"],
           ["Thread", "thread"],
           ["Story", "story"],
-          ["Short video", "short_video"],
+          ["Short Video", "short_video"],
           ["Video", "video"],
         ],
         "post",
@@ -120,7 +132,7 @@ export const desiredActions = [
       accountIdsField(),
       stringField("mediaIds", "Media IDs", "Comma-separated media IDs to attach in order."),
       stringField("sourceUrl", "Source URL", "Optional source URL."),
-      stringField("scheduledAt", "Scheduled At", "Optional ISO date-time schedule."),
+      dateTimeField("scheduledAt", "Scheduled At", "Optional publication date and time."),
       numberField(
         "randomDelayMinutes",
         "Random Delay Minutes",
@@ -134,9 +146,12 @@ export const desiredActions = [
       ),
     ],
   }),
-  action("publication", "get", "get-publication", { fields: [publicationField()] }),
+  action("publication", "get", "get-publication", {
+    fields: [workspaceField({ request: false }), publicationField()],
+  }),
   action("publication", "update", "update-publication", {
     fields: [
+      workspaceField({ request: false }),
       publicationField(),
       numberField(
         "expectedRevision",
@@ -147,7 +162,7 @@ export const desiredActions = [
       ),
       stringField("title", "Title", "Internal publication title."),
       stringField("sourceText", "Source Text", "Canonical source text.", { rows: 4 }),
-      stringField("scheduledAt", "Scheduled At", "Optional ISO date-time schedule."),
+      dateTimeField("scheduledAt", "Scheduled At", "Optional publication date and time."),
       jsonField(
         "advancedJson",
         "Advanced JSON",
@@ -157,6 +172,7 @@ export const desiredActions = [
   }),
   action("publication", "setRenditions", "upsert-publication-renditions", {
     fields: [
+      workspaceField({ request: false }),
       publicationField(),
       numberField(
         "expectedRevision",
@@ -170,9 +186,12 @@ export const desiredActions = [
       }),
     ],
   }),
-  action("publication", "validate", "validate-publication", { fields: [publicationField()] }),
+  action("publication", "validate", "validate-publication", {
+    fields: [workspaceField({ request: false }), publicationField()],
+  }),
   action("publication", "schedule", "schedule-publication", {
     fields: [
+      workspaceField({ request: false }),
       publicationField(),
       numberField(
         "expectedRevision",
@@ -185,6 +204,7 @@ export const desiredActions = [
   }),
   action("publication", "cancel", "cancel-publication", {
     fields: [
+      workspaceField({ request: false }),
       publicationField(),
       numberField(
         "expectedRevision",
@@ -197,6 +217,7 @@ export const desiredActions = [
   }),
   action("publication", "publishNow", "publish-publication-now", {
     fields: [
+      workspaceField({ request: false }),
       publicationField(),
       numberField(
         "expectedRevision",
@@ -208,10 +229,14 @@ export const desiredActions = [
     ],
   }),
   action("publication", "retryFailedRenditions", "retry-failed-publication-renditions", {
-    fields: [publicationField()],
+    fields: [workspaceField({ request: false }), publicationField()],
   }),
   action("publication", "getEvents", "list-publication-events", {
-    fields: [publicationField(), numberField("limit", "Limit", "Maximum events to return.", 50)],
+    fields: [
+      workspaceField({ request: false }),
+      publicationField(),
+      numberField("limit", "Limit", "Maximum events to return.", 50),
+    ],
   }),
   action("job", "get", "get-job", {
     fields: [stringField("jobId", "Job ID", "OpenPost Job ID.", { required: true })],
@@ -346,7 +371,7 @@ export async function writeSelectedContract(contract) {
   await Bun.write(
     path.join(descriptionsDirectory, "descriptions.ts"),
     generatedFile(
-      `import type { INodeProperties } from "n8n-workflow";\n\nexport const generatedDescriptionProperties = ${stableJson(buildDescriptionProperties(contract))} satisfies INodeProperties[];\n`,
+      `import type { INodeProperties } from "n8n-workflow";\n\nexport const generatedDescriptionProperties = ${JSON.stringify(buildDescriptionProperties(contract), null, 2)} satisfies INodeProperties[];\n`,
     ),
   );
 
@@ -429,6 +454,25 @@ function buildRequestContract(source) {
 function buildPaginationContract(source, findings) {
   const metadata = source.operation["x-openpost-automation"];
   if (!metadata?.pagination) return null;
+  if (metadata.pagination.style === "offset") {
+    for (const parameterName of [
+      metadata.pagination.offset_parameter,
+      metadata.pagination.limit_parameter,
+    ].filter(Boolean)) {
+      const exists = (source.operation.parameters ?? []).some(
+        (parameter) => parameter.in === "query" && parameter.name === parameterName,
+      );
+      if (!exists) {
+        findings.push({
+          severity: "warning",
+          code: "pagination-parameter-missing",
+          operation_id: source.operation.operationId,
+          message: `${source.operation.operationId} declares offset pagination metadata but has no ${parameterName} query parameter.`,
+        });
+      }
+    }
+    return metadata.pagination;
+  }
   const cursorParameter = metadata.pagination.cursor_parameter;
   const hasCursorParameter = (source.operation.parameters ?? []).some(
     (parameter) => parameter.in === "query" && parameter.name === cursorParameter,
@@ -496,10 +540,12 @@ function collectSelectorFindings(contractAction, findings) {
 }
 
 function buildDescriptionProperties(contract) {
-  const resources = unique(contract.actions.map((item) => item.resource)).map((resource) => ({
-    name: resourceLabels[resource] ?? titleCase(resource),
-    value: resource,
-  }));
+  const resources = unique(contract.actions.map((item) => item.resource))
+    .map((resource) => ({
+      name: resourceLabels[resource] ?? titleCase(resource),
+      value: resource,
+    }))
+    .sort((left, right) => left.name.localeCompare(right.name));
   const properties = [
     {
       displayName: "Resource",
@@ -514,10 +560,11 @@ function buildDescriptionProperties(contract) {
     const operations = contract.actions
       .filter((item) => item.resource === resource)
       .map((item) => ({
+        action: nodeActionDescription(item),
         name: item.operationLabel,
         value: item.operation,
-        action: `${item.operationLabel} ${resourceLabels[resource] ?? resource}`,
-      }));
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
     properties.push({
       displayName: "Operation",
       name: "operation",
@@ -545,13 +592,19 @@ function toNodeProperty(contractAction, field) {
     name: field.name,
     type: field.nodeType,
     default: field.default ?? defaultForType(field.nodeType),
-    required: field.required,
-    description: field.description,
     displayOptions: {
       show: { resource: [contractAction.resource], operation: [contractAction.operation] },
     },
   };
+  if (field.description && field.description !== field.displayName) {
+    base.description = field.description;
+  }
+  if (field.required) base.required = true;
   if (field.rows) base.typeOptions = { rows: field.rows };
+  if (field.name === "limit") {
+    base.description = "Max number of results to return";
+    base.typeOptions = { minValue: 1 };
+  }
   if (field.options) base.options = field.options.map(([name, value]) => ({ name, value }));
   if (field.selector) {
     base.type = "resourceLocator";
@@ -576,7 +629,7 @@ function idempotencyProperty(contractAction) {
     type: "string",
     default: "",
     placeholder: "Leave empty to use the n8n execution ID and item index",
-    description: "Use a stable upstream event ID when retrying a write across workflow executions.",
+    description: "Use a stable upstream event ID when retrying a write across workflow executions",
     displayOptions: {
       show: { resource: [contractAction.resource], operation: [contractAction.operation] },
     },
@@ -593,12 +646,14 @@ function buildRequestMappers(contract) {
     request: action.request,
     pagination: action.pagination,
     result: action.result,
-    fields: action.fields.map((field) => ({
-      name: field.name,
-      apiName: field.apiName,
-      location: field.location,
-      body: field.body,
-    })),
+    fields: action.fields
+      .filter((field) => field.request)
+      .map((field) => ({
+        name: field.name,
+        apiName: field.apiName,
+        location: field.location,
+        body: field.body,
+      })),
     retry: action.automation.retry,
     idempotency: action.automation.idempotency,
     effect: action.automation.effect,
@@ -706,6 +761,13 @@ function stringField(name, displayName, description, options = {}) {
   return field(name, snake(name), displayName, description, { nodeType: "string", ...options });
 }
 
+function dateTimeField(name, displayName, description, options = {}) {
+  return field(name, snake(name), displayName, description, {
+    nodeType: "dateTime",
+    ...options,
+  });
+}
+
 function numberField(name, displayName, description, defaultValue, options = {}) {
   return field(name, snake(name), displayName, description, {
     nodeType: "number",
@@ -715,9 +777,9 @@ function numberField(name, displayName, description, defaultValue, options = {})
 }
 
 function optionsField(name, displayName, options, defaultValue) {
-  return field(name, snake(name), displayName, `${displayName}.`, {
+  return field(name, snake(name), displayName, displayName, {
     nodeType: "options",
-    options,
+    options: [...options].sort((left, right) => left[0].localeCompare(right[0])),
     default: defaultValue,
   });
 }
@@ -736,7 +798,7 @@ function field(name, apiName, displayName, description, options = {}) {
     name,
     apiName,
     displayName,
-    description,
+    description: normalizeDescription(description),
     nodeType: options.nodeType ?? "string",
     default: options.default,
     required: Boolean(options.required),
@@ -745,7 +807,26 @@ function field(name, apiName, displayName, description, options = {}) {
     selector: options.selector,
     location: options.location ?? inferLocation(apiName),
     body: options.body ?? (options.location ?? inferLocation(apiName)) === "body",
+    request: options.request !== false,
   };
+}
+
+function normalizeDescription(value) {
+  const description = String(value).trim();
+  if (!description) return "";
+  if (description.slice(0, -1).includes(". ")) {
+    return description.endsWith(".") ? description : `${description}.`;
+  }
+  return description.replace(/\.$/, "");
+}
+
+function nodeActionDescription(action) {
+  const resource = (resourceLabels[action.resource] ?? action.resource).toLowerCase();
+  if (action.operation === "getMany") {
+    return action.resource === "media" ? "Get many media items" : `Get many ${resource}s`;
+  }
+  if (action.operation === "get") return `Get a ${resource}`;
+  return `${action.operationLabel.charAt(0)}${action.operationLabel.slice(1).toLowerCase()} ${resource}`;
 }
 
 function inferLocation(apiName) {

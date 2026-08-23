@@ -2,6 +2,8 @@
 
 Official n8n community node for OpenPost. The package is MIT licensed and calls the normal OpenPost `/api/v1` REST API with API tokens.
 
+> **Alpha status:** this source package is ready for test installs, but it has not been published to npm or accepted as an n8n verified community node. It requires Node.js 22.16 or newer.
+
 ## Credentials
 
 Create an OpenPost API token in OpenPost settings. For write workflows, prefer a workspace-bound `api:write` token named after the n8n workflow or instance.

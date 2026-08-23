@@ -20,6 +20,11 @@ func TestCatalogFailsClosedAndKeepsAccessSeparateFromExposure(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, IdempotencyNatural, completeUpload.Idempotency)
 	require.Equal(t, RetryTransient, completeUpload.Retry)
+	listMedia, ok := Lookup("list-media")
+	require.True(t, ok)
+	require.Equal(t, "offset", listMedia.Pagination.Style)
+	require.Equal(t, "media", listMedia.Result.BodyPath)
+	require.NotEmpty(t, listMedia.Selectors)
 
 	getJob, ok := Lookup("get-job")
 	require.True(t, ok)

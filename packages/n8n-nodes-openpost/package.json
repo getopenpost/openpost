@@ -46,6 +46,9 @@
   "peerDependencies": {
     "n8n-workflow": "*"
   },
+  "engines": {
+    "node": ">=22.16"
+  },
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": [

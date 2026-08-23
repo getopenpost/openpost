@@ -29,6 +29,7 @@ export function buildOpenPostRequest(input: {
   itemIndex: number;
   executionId: string;
   cursor?: string;
+  offset?: number;
 }): BuiltOpenPostRequest {
   const qs: IDataObject = {};
   const body: IDataObject = {};
@@ -57,6 +58,9 @@ export function buildOpenPostRequest(input: {
 
   if (input.cursor && input.mapper.pagination?.cursor_parameter) {
     qs[input.mapper.pagination.cursor_parameter] = input.cursor;
+  }
+  if (input.mapper.pagination?.style === "offset" && input.mapper.pagination.offset_parameter) {
+    qs[input.mapper.pagination.offset_parameter] = input.offset ?? 0;
   }
 
   applyKnownPublicationBody(input.mapper.actionKey, body, input.parameters);
@@ -115,6 +119,12 @@ export function nextCursorFromHeaders(
   return Array.isArray(value) ? String(value[0] ?? "") : String(value ?? "");
 }
 
+export function resultTotal(body: unknown, totalPath = "total"): number | undefined {
+  const value = getPath(body, totalPath);
+  const total = Number(value);
+  return Number.isFinite(total) && total >= 0 ? total : undefined;
+}
+
 export function shouldRetryOpenPost(input: {
   method: string;
   statusCode?: number;
@@ -124,7 +134,7 @@ export function shouldRetryOpenPost(input: {
   if (!input.statusCode) return true;
   if (![429, 502, 503, 504].includes(input.statusCode)) return false;
   if (["GET", "HEAD"].includes(input.method)) return true;
-  return input.idempotency === "required" || input.idempotency === "optional";
+  return ["required", "optional", "natural"].includes(input.idempotency);
 }
 
 export function idempotencyKey(

@@ -5,6 +5,8 @@ import {
   extractResult,
   idempotencyKey,
   nextCursorFromHeaders,
+  resultTotal,
+  shouldRetryOpenPost,
 } from "../../../../../nodes/OpenPost/v1/actions/mapper";
 import { findGeneratedAction } from "../../../../../nodes/OpenPost/v1/actions/generated/requestMappers";
 
@@ -57,9 +59,37 @@ describe("OpenPost request mapper", () => {
     expect(extractResult({ media: [{ id: "media-1" }] }, { body_path: "media" })).toEqual([
       { id: "media-1" },
     ]);
+    expect(resultTotal({ total: 73 }, "total")).toBe(73);
+  });
+
+  test("maps offset pagination without exposing an internal offset field", () => {
+    const mapper = findGeneratedAction("media", "getMany");
+    if (!mapper) throw new Error("missing mapper");
+    const request = buildOpenPostRequest({
+      baseUrl: "https://example.com",
+      mapper,
+      itemIndex: 0,
+      executionId: "exec-1",
+      offset: 50,
+      parameters: {
+        get(name, fallback) {
+          return ({ workspaceId: "ws-1", limit: 50 } as Record<string, unknown>)[name] ?? fallback;
+        },
+      },
+    });
+    expect(request.options.qs).toMatchObject({ workspace_id: "ws-1", limit: 50, offset: 50 });
   });
 
   test("honors explicit idempotency keys", () => {
     expect(idempotencyKey("event-1", "exec-1", "publication.create", 0)).toBe("event-1");
+  });
+
+  test("retries naturally idempotent completion requests only for transient failures", () => {
+    expect(shouldRetryOpenPost({ method: "POST", statusCode: 503, idempotency: "natural" })).toBe(
+      true,
+    );
+    expect(shouldRetryOpenPost({ method: "POST", statusCode: 409, idempotency: "natural" })).toBe(
+      false,
+    );
   });
 });

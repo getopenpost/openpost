@@ -12,6 +12,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/labstack/echo/v4"
+	"github.com/openpost/backend/internal/automationcatalog"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/auth"
@@ -71,16 +72,31 @@ func PrincipalCanAccessREST(principal *Principal, operationID ...string) bool {
 	case "", apitokens.ScopeCLI:
 		return true
 	case apitokens.ScopeAPIRead:
-		return operationAllowed(operationID, restReadOperations) ||
+		return catalogOperationAllowed(operationID, automationcatalog.AccessRead) ||
 			operationAllowed(operationID, legacyRESTReadOperations)
 	case apitokens.ScopeAPIWrite:
-		return operationAllowed(operationID, restReadOperations) ||
-			operationAllowed(operationID, restWriteOperations) ||
+		return catalogOperationAllowed(operationID, automationcatalog.AccessRead, automationcatalog.AccessWrite) ||
 			operationAllowed(operationID, legacyRESTReadOperations) ||
 			operationAllowed(operationID, legacyRESTWriteOperations)
 	default:
 		return false
 	}
+}
+
+func catalogOperationAllowed(operationIDs []string, allowed ...automationcatalog.Access) bool {
+	if len(operationIDs) != 1 {
+		return false
+	}
+	operation, ok := automationcatalog.Lookup(strings.TrimSpace(operationIDs[0]))
+	if !ok {
+		return false
+	}
+	for _, access := range allowed {
+		if operation.Access == access {
+			return true
+		}
+	}
+	return false
 }
 
 func operationAllowed(operationIDs []string, allowed map[string]struct{}) bool {
@@ -90,55 +106,6 @@ func operationAllowed(operationIDs []string, allowed map[string]struct{}) bool {
 	_, ok := allowed[strings.TrimSpace(operationIDs[0])]
 	return ok
 }
-
-var restReadOperations = operationSet(
-	"list-workspaces",
-	"get-workspace-settings",
-	"list-accounts",
-	"list-account-providers",
-	"get-account-destination-options",
-	"search-account-publishing-options",
-	"get-provider-readiness",
-	"resolve-publishing-capabilities",
-	"list-social-sets",
-	"get-social-set",
-	"list-media",
-	"get-media-storage",
-	"get-media-usage",
-	"list-publications",
-	"get-publication",
-	"list-publication-events",
-	"validate-publication",
-	"list-posting-schedules",
-	"get-next-available-slot",
-	"get-notification-preferences",
-)
-
-var restWriteOperations = operationSet(
-	"create-publication",
-	"update-publication",
-	"upsert-publication-renditions",
-	"schedule-publication",
-	"publish-publication-now",
-	"retry-publication-rendition",
-	"retry-failed-publication-renditions",
-	"create-media-upload-session",
-	"complete-media-upload-session",
-	"update-media",
-	"delete-media",
-	"batch-delete-media",
-	"restore-media",
-	"update-media-favorite",
-	"retry-media-analysis",
-	"create-social-set",
-	"update-social-set",
-	"delete-social-set",
-	"create-posting-schedule",
-	"update-posting-schedule",
-	"delete-posting-schedule",
-	"create-notification-mute",
-	"end-notification-mute",
-)
 
 // Legacy Echo routes remain denied to scoped REST tokens unless they are
 // named here and register the same operation ID with BearerMiddleware. The
@@ -154,8 +121,14 @@ var legacyRESTWriteOperations = operationSet(
 // operation allowlists. Keeping enumeration beside the authorization lookup
 // lets contract tests compare every entry with the registered Huma surface.
 func RESTScopeOperationCatalog() (read []string, write []string) {
-	read = operationIDs(restReadOperations)
-	write = operationIDs(restWriteOperations)
+	for _, operation := range automationcatalog.All() {
+		switch operation.Access {
+		case automationcatalog.AccessRead:
+			read = append(read, operation.OperationID)
+		case automationcatalog.AccessWrite:
+			write = append(write, operation.OperationID)
+		}
+	}
 	return read, write
 }
 

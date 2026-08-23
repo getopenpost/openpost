@@ -4115,7 +4115,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AcceptAccountPolicyInputBody.json
+             * @example /api/v1/schemas/AcceptAccountPolicyInputBody.json
              */
             readonly $schema?: string;
             /** @description Whether the user accepts the current Terms and acknowledges the Privacy Policy */
@@ -4125,7 +4125,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AcceptWorkspaceInvitationInputBody.json
+             * @example /api/v1/schemas/AcceptWorkspaceInvitationInputBody.json
              */
             readonly $schema?: string;
             /** @description Raw invitation token */
@@ -4135,7 +4135,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AcceptWorkspaceInvitationOutputBody.json
+             * @example /api/v1/schemas/AcceptWorkspaceInvitationOutputBody.json
              */
             readonly $schema?: string;
             accepted: boolean;
@@ -4146,7 +4146,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountConnectionResponse.json
+             * @example /api/v1/schemas/AccountConnectionResponse.json
              */
             readonly $schema?: string;
             /** @description OpenPost destination account ID */
@@ -4166,7 +4166,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountDeletionImpact.json
+             * @example /api/v1/schemas/AccountDeletionImpact.json
              */
             readonly $schema?: string;
             blockers: components["schemas"]["DeletionBlocker"][] | null;
@@ -4189,7 +4189,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountExport.json
+             * @example /api/v1/schemas/AccountExport.json
              */
             readonly $schema?: string;
             api_tokens: components["schemas"]["AccountExportToken"][] | null;
@@ -4369,7 +4369,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountReauthenticationInputBody.json
+             * @example /api/v1/schemas/AccountReauthenticationInputBody.json
              */
             readonly $schema?: string;
             /** @description Current account password */
@@ -4381,7 +4381,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountResponse.json
+             * @example /api/v1/schemas/AccountResponse.json
              */
             readonly $schema?: string;
             /** @description Account avatar URL */
@@ -4436,7 +4436,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountSelectionCompletionResponse.json
+             * @example /api/v1/schemas/AccountSelectionCompletionResponse.json
              */
             readonly $schema?: string;
             /** @description Account avatar URL */
@@ -4512,7 +4512,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AccountSelectionResponse.json
+             * @example /api/v1/schemas/AccountSelectionResponse.json
              */
             readonly $schema?: string;
             /**
@@ -4533,7 +4533,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AcknowledgeRecoveryCodesInputBody.json
+             * @example /api/v1/schemas/AcknowledgeRecoveryCodesInputBody.json
              */
             readonly $schema?: string;
             /** @description Recovery-code challenge ID */
@@ -4545,7 +4545,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ActionOutputBody.json
+             * @example /api/v1/schemas/ActionOutputBody.json
              */
             readonly $schema?: string;
             activation_publication_id?: string;
@@ -4562,7 +4562,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AppendProviderApprovalReviewInputBody.json
+             * @example /api/v1/schemas/AppendProviderApprovalReviewInputBody.json
              */
             readonly $schema?: string;
             app_fingerprint: string;
@@ -4584,7 +4584,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AppendProviderCertificationInputBody.json
+             * @example /api/v1/schemas/AppendProviderCertificationInputBody.json
              */
             readonly $schema?: string;
             approval_review_id: string;
@@ -4610,7 +4610,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AppendProviderRuntimeControlInputBody.json
+             * @example /api/v1/schemas/AppendProviderRuntimeControlInputBody.json
              */
             readonly $schema?: string;
             /** Format: date-time */
@@ -4626,7 +4626,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ApproveCLIAuthInputBody.json
+             * @example /api/v1/schemas/ApproveCLIAuthInputBody.json
              */
             readonly $schema?: string;
             device_code?: string;
@@ -4680,7 +4680,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AuditPage.json
+             * @example /api/v1/schemas/AuditPage.json
              */
             readonly $schema?: string;
             items: components["schemas"]["AuditEvent"][] | null;
@@ -4696,7 +4696,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AuthConfigurationOutputBody.json
+             * @example /api/v1/schemas/AuthConfigurationOutputBody.json
              */
             readonly $schema?: string;
             email_verification_required: boolean;
@@ -4715,7 +4715,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AuthOutputBody.json
+             * @example /api/v1/schemas/AuthOutputBody.json
              */
             readonly $schema?: string;
             /**
@@ -4743,7 +4743,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/AuthSessionStateOutputBody.json
+             * @example /api/v1/schemas/AuthSessionStateOutputBody.json
              */
             readonly $schema?: string;
             /** @description Whether the request has a valid OpenPost session */
@@ -4754,7 +4754,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BatchDeleteMediaInputBody.json
+             * @example /api/v1/schemas/BatchDeleteMediaInputBody.json
              */
             readonly $schema?: string;
             /** @description Array of media IDs to delete */
@@ -4764,7 +4764,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BatchDeleteMediaOutputBody.json
+             * @example /api/v1/schemas/BatchDeleteMediaOutputBody.json
              */
             readonly $schema?: string;
             /**
@@ -4779,7 +4779,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BeginEmailChangeInputBody.json
+             * @example /api/v1/schemas/BeginEmailChangeInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -4794,7 +4794,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BeginPasskeyLoginInputBody.json
+             * @example /api/v1/schemas/BeginPasskeyLoginInputBody.json
              */
             readonly $schema?: string;
             /** @description Pending MFA challenge token */
@@ -4804,7 +4804,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BeginPasskeyReauthInputBody.json
+             * @example /api/v1/schemas/BeginPasskeyReauthInputBody.json
              */
             readonly $schema?: string;
             /** @description Sensitive action the one-time grant authorizes */
@@ -4814,7 +4814,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BeginPasskeyRegistrationInputBody.json
+             * @example /api/v1/schemas/BeginPasskeyRegistrationInputBody.json
              */
             readonly $schema?: string;
             /** @description Current password for re-authentication */
@@ -4828,7 +4828,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BillingStatusResponse.json
+             * @example /api/v1/schemas/BillingStatusResponse.json
              */
             readonly $schema?: string;
             /** @description Whether failed payment currently restricts paid-plan access */
@@ -4870,7 +4870,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BillingURLResponse.json
+             * @example /api/v1/schemas/BillingURLResponse.json
              */
             readonly $schema?: string;
             /** @description Selected billing period */
@@ -4912,7 +4912,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BlueskyLoginInputBody.json
+             * @example /api/v1/schemas/BlueskyLoginInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -4936,7 +4936,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/BrowserConfig.json
+             * @example /api/v1/schemas/BrowserConfig.json
              */
             readonly $schema?: string;
             /** @description PostHog browser ingestion endpoint or proxy */
@@ -4960,7 +4960,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CLIAuthDecisionOutputBody.json
+             * @example /api/v1/schemas/CLIAuthDecisionOutputBody.json
              */
             readonly $schema?: string;
             ok: boolean;
@@ -4969,7 +4969,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CancelEmailChangeOutputBody.json
+             * @example /api/v1/schemas/CancelEmailChangeOutputBody.json
              */
             readonly $schema?: string;
             canceled: boolean;
@@ -4978,7 +4978,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CancelOrganizationCheckoutAttemptsOutputBody.json
+             * @example /api/v1/schemas/CancelOrganizationCheckoutAttemptsOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -4988,7 +4988,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CapabilitiesOutputBody.json
+             * @example /api/v1/schemas/CapabilitiesOutputBody.json
              */
             readonly $schema?: string;
             /** @description Provider/profile capability matrix */
@@ -5027,7 +5027,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ChangeNotificationsInputBody.json
+             * @example /api/v1/schemas/ChangeNotificationsInputBody.json
              */
             readonly $schema?: string;
             /** @description Apply to every workspace and account-wide notification visible in this inbox */
@@ -5041,7 +5041,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ChangePasswordInputBody.json
+             * @example /api/v1/schemas/ChangePasswordInputBody.json
              */
             readonly $schema?: string;
             /** @description Current password */
@@ -5055,7 +5055,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ChangePasswordOutputBody.json
+             * @example /api/v1/schemas/ChangePasswordOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -5085,7 +5085,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CommentActionOutputBody.json
+             * @example /api/v1/schemas/CommentActionOutputBody.json
              */
             readonly $schema?: string;
             id?: string;
@@ -5095,7 +5095,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CommentListResponse.json
+             * @example /api/v1/schemas/CommentListResponse.json
              */
             readonly $schema?: string;
             comments: components["schemas"]["CommentResponse"][] | null;
@@ -5104,7 +5104,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CommentReplyInputBody.json
+             * @example /api/v1/schemas/CommentReplyInputBody.json
              */
             readonly $schema?: string;
             /** @description Reply body */
@@ -5128,7 +5128,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteAccountSelectionInputBody.json
+             * @example /api/v1/schemas/CompleteAccountSelectionInputBody.json
              */
             readonly $schema?: string;
             /** @description Selected account, page, or channel ID. Retained for single-selection clients. */
@@ -5140,7 +5140,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteImageEditorReturnTokenInputBody.json
+             * @example /api/v1/schemas/CompleteImageEditorReturnTokenInputBody.json
              */
             readonly $schema?: string;
             design_id: string;
@@ -5150,7 +5150,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteImageEditorReturnTokenOutputBody.json
+             * @example /api/v1/schemas/CompleteImageEditorReturnTokenOutputBody.json
              */
             readonly $schema?: string;
             return_url: string;
@@ -5159,7 +5159,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteMediaUploadSessionInputBody.json
+             * @example /api/v1/schemas/CompleteMediaUploadSessionInputBody.json
              */
             readonly $schema?: string;
             /** @description Workspace ID */
@@ -5169,7 +5169,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CompleteOwnershipTransferInputBody.json
+             * @example /api/v1/schemas/CompleteOwnershipTransferInputBody.json
              */
             readonly $schema?: string;
             /** @description Ownership transfer ID */
@@ -5179,7 +5179,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmEmailChangeInputBody.json
+             * @example /api/v1/schemas/ConfirmEmailChangeInputBody.json
              */
             readonly $schema?: string;
             /** @description Six-digit code sent to the new address */
@@ -5189,7 +5189,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmEmailChangeOutputBody.json
+             * @example /api/v1/schemas/ConfirmEmailChangeOutputBody.json
              */
             readonly $schema?: string;
             /** @description Confirmed sign-in email address */
@@ -5204,7 +5204,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmEmailVerificationInputBody.json
+             * @example /api/v1/schemas/ConfirmEmailVerificationInputBody.json
              */
             readonly $schema?: string;
             /** @description Opaque email verification challenge ID */
@@ -5216,7 +5216,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmFirstWorkspacePurchaseInputBody.json
+             * @example /api/v1/schemas/ConfirmFirstWorkspacePurchaseInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5237,7 +5237,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmFirstWorkspacePurchaseOutputBody.json
+             * @example /api/v1/schemas/ConfirmFirstWorkspacePurchaseOutputBody.json
              */
             readonly $schema?: string;
             checkout: components["schemas"]["BillingURLResponse"];
@@ -5249,7 +5249,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConfirmTOTPSetupInputBody.json
+             * @example /api/v1/schemas/ConfirmTOTPSetupInputBody.json
              */
             readonly $schema?: string;
             /** @description TOTP setup challenge ID */
@@ -5261,7 +5261,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConsumeBillingCheckoutReturnOutputBody.json
+             * @example /api/v1/schemas/ConsumeBillingCheckoutReturnOutputBody.json
              */
             readonly $schema?: string;
             consumed: boolean;
@@ -5273,7 +5273,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConsumeImageEditorReturnTokenOutputBody.json
+             * @example /api/v1/schemas/ConsumeImageEditorReturnTokenOutputBody.json
              */
             readonly $schema?: string;
             constraints: {
@@ -5289,7 +5289,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConsumeUserImpersonationLinkInputBody.json
+             * @example /api/v1/schemas/ConsumeUserImpersonationLinkInputBody.json
              */
             readonly $schema?: string;
             /** @description One-use impersonation code from the URL fragment */
@@ -5299,7 +5299,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConsumeUserImpersonationLinkOutputBody.json
+             * @example /api/v1/schemas/ConsumeUserImpersonationLinkOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -5366,7 +5366,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ConversationPage.json
+             * @example /api/v1/schemas/ConversationPage.json
              */
             readonly $schema?: string;
             items: components["schemas"]["Conversation"][] | null;
@@ -5379,7 +5379,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateAPITokenInputBody.json
+             * @example /api/v1/schemas/CreateAPITokenInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5401,7 +5401,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateAPITokenOutputBody.json
+             * @example /api/v1/schemas/CreateAPITokenOutputBody.json
              */
             readonly $schema?: string;
             item: components["schemas"]["APITokenResponse"];
@@ -5412,7 +5412,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateBillingCheckoutInputBody.json
+             * @example /api/v1/schemas/CreateBillingCheckoutInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5434,7 +5434,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateBillingPortalInputBody.json
+             * @example /api/v1/schemas/CreateBillingPortalInputBody.json
              */
             readonly $schema?: string;
             /** @description Organization ID */
@@ -5452,7 +5452,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorCheckpointInputBody.json
+             * @example /api/v1/schemas/CreateImageEditorCheckpointInputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -5463,7 +5463,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorDesignInputBody.json
+             * @example /api/v1/schemas/CreateImageEditorDesignInputBody.json
              */
             readonly $schema?: string;
             /** @description Stable client request ID used to make design creation idempotent */
@@ -5481,7 +5481,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorReturnTokenInputBody.json
+             * @example /api/v1/schemas/CreateImageEditorReturnTokenInputBody.json
              */
             readonly $schema?: string;
             constraints: {
@@ -5497,7 +5497,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorReturnTokenOutputBody.json
+             * @example /api/v1/schemas/CreateImageEditorReturnTokenOutputBody.json
              */
             readonly $schema?: string;
             expires_at: string;
@@ -5507,7 +5507,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateImageEditorTemplateInputBody.json
+             * @example /api/v1/schemas/CreateImageEditorTemplateInputBody.json
              */
             readonly $schema?: string;
             category: string;
@@ -5520,7 +5520,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateMCPOAuthAuthorizationInputBody.json
+             * @example /api/v1/schemas/CreateMCPOAuthAuthorizationInputBody.json
              */
             readonly $schema?: string;
             /** @description Whether the user approved the MCP OAuth request */
@@ -5548,7 +5548,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateMCPOAuthAuthorizationOutputBody.json
+             * @example /api/v1/schemas/CreateMCPOAuthAuthorizationOutputBody.json
              */
             readonly $schema?: string;
             /** @description URL the browser should redirect to after authorization */
@@ -5558,7 +5558,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateMediaTagInputBody.json
+             * @example /api/v1/schemas/CreateMediaTagInputBody.json
              */
             readonly $schema?: string;
             name: string;
@@ -5568,7 +5568,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateMediaUploadSessionInputBody.json
+             * @example /api/v1/schemas/CreateMediaUploadSessionInputBody.json
              */
             readonly $schema?: string;
             /** @description Alt text for accessibility */
@@ -5616,7 +5616,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateMediaUploadSessionOutputBody.json
+             * @example /api/v1/schemas/CreateMediaUploadSessionOutputBody.json
              */
             readonly $schema?: string;
             /** @description API path to call after the upload succeeds */
@@ -5632,7 +5632,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateOrganizationBillingCheckoutInputBody.json
+             * @example /api/v1/schemas/CreateOrganizationBillingCheckoutInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5650,7 +5650,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreatePostingScheduleInputBody.json
+             * @example /api/v1/schemas/CreatePostingScheduleInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5692,7 +5692,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreatePromptInputBody.json
+             * @example /api/v1/schemas/CreatePromptInputBody.json
              */
             readonly $schema?: string;
             /** @description Prompt category */
@@ -5708,7 +5708,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreatePublicationBody.json
+             * @example /api/v1/schemas/CreatePublicationBody.json
              */
             readonly $schema?: string;
             /** @description Target audience */
@@ -5766,7 +5766,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreatePurchaseChoiceInputBody.json
+             * @example /api/v1/schemas/CreatePurchaseChoiceInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5783,7 +5783,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateSocialSetInputBody.json
+             * @example /api/v1/schemas/CreateSocialSetInputBody.json
              */
             readonly $schema?: string;
             /** @description Ordered connected accounts */
@@ -5799,7 +5799,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateUserImpersonationLinkOutputBody.json
+             * @example /api/v1/schemas/CreateUserImpersonationLinkOutputBody.json
              */
             readonly $schema?: string;
             /** @description Link expiration time */
@@ -5811,7 +5811,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateWorkspaceInputBody.json
+             * @example /api/v1/schemas/CreateWorkspaceInputBody.json
              */
             readonly $schema?: string;
             /** @description Workspace name */
@@ -5823,7 +5823,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateWorkspaceInvitationInputBody.json
+             * @example /api/v1/schemas/CreateWorkspaceInvitationInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5841,7 +5841,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/CreateWorkspaceOutputBody.json
+             * @example /api/v1/schemas/CreateWorkspaceOutputBody.json
              */
             readonly $schema?: string;
             created_at: string;
@@ -5863,7 +5863,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteAccountInputBody.json
+             * @example /api/v1/schemas/DeleteAccountInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -5880,7 +5880,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteAccountOutputBody.json
+             * @example /api/v1/schemas/DeleteAccountOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -5889,7 +5889,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteImageEditorDesignOutputBody.json
+             * @example /api/v1/schemas/DeleteImageEditorDesignOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -5898,7 +5898,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteImageEditorTemplateOutputBody.json
+             * @example /api/v1/schemas/DeleteImageEditorTemplateOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -5907,7 +5907,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteMediaOutputBody.json
+             * @example /api/v1/schemas/DeleteMediaOutputBody.json
              */
             readonly $schema?: string;
             /** @description Success message */
@@ -5917,7 +5917,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteMediaTagOutputBody.json
+             * @example /api/v1/schemas/DeleteMediaTagOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -5926,7 +5926,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeletePostingScheduleOutputBody.json
+             * @example /api/v1/schemas/DeletePostingScheduleOutputBody.json
              */
             readonly $schema?: string;
             /** @description Success message */
@@ -5936,7 +5936,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeletePromptOutputBody.json
+             * @example /api/v1/schemas/DeletePromptOutputBody.json
              */
             readonly $schema?: string;
             /** @description Success message */
@@ -5946,7 +5946,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteProviderAppResponse.json
+             * @example /api/v1/schemas/DeleteProviderAppResponse.json
              */
             readonly $schema?: string;
             /** @description Whether the server must restart before adapter changes apply */
@@ -5956,7 +5956,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteWorkspaceInputBody.json
+             * @example /api/v1/schemas/DeleteWorkspaceInputBody.json
              */
             readonly $schema?: string;
             /** @description Exact canonical Workspace name */
@@ -5970,7 +5970,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DeleteWorkspaceOutputBody.json
+             * @example /api/v1/schemas/DeleteWorkspaceOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -5993,7 +5993,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DenyCLIAuthInputBody.json
+             * @example /api/v1/schemas/DenyCLIAuthInputBody.json
              */
             readonly $schema?: string;
             device_code?: string;
@@ -6013,7 +6013,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DestinationOptionsOutputBody.json
+             * @example /api/v1/schemas/DestinationOptionsOutputBody.json
              */
             readonly $schema?: string;
             options: {
@@ -6047,7 +6047,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DirectMessage.json
+             * @example /api/v1/schemas/DirectMessage.json
              */
             readonly $schema?: string;
             attachments_json: string;
@@ -6071,7 +6071,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DisableTOTPInputBody.json
+             * @example /api/v1/schemas/DisableTOTPInputBody.json
              */
             readonly $schema?: string;
             /** @description Current password for re-authentication */
@@ -6083,7 +6083,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DiscordWebhookLoginInputBody.json
+             * @example /api/v1/schemas/DiscordWebhookLoginInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -6105,7 +6105,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DismissGrowthInputBody.json
+             * @example /api/v1/schemas/DismissGrowthInputBody.json
              */
             readonly $schema?: string;
             /** @description Workspace ID */
@@ -6115,7 +6115,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/DismissGrowthOutputBody.json
+             * @example /api/v1/schemas/DismissGrowthOutputBody.json
              */
             readonly $schema?: string;
             /** @description Dismiss status */
@@ -6129,7 +6129,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/EmailChangeStatusOutputBody.json
+             * @example /api/v1/schemas/EmailChangeStatusOutputBody.json
              */
             readonly $schema?: string;
             pending?: components["schemas"]["EmailChangeSummary"];
@@ -6138,7 +6138,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/EmailChangeSummary.json
+             * @example /api/v1/schemas/EmailChangeSummary.json
              */
             readonly $schema?: string;
             /**
@@ -6160,7 +6160,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/EngagementActionInputBody.json
+             * @example /api/v1/schemas/EngagementActionInputBody.json
              */
             readonly $schema?: string;
             /** @enum {string} */
@@ -6225,7 +6225,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/EngagementPage.json
+             * @example /api/v1/schemas/EngagementPage.json
              */
             readonly $schema?: string;
             items: components["schemas"]["EngagementItem"][] | null;
@@ -6259,7 +6259,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ErrorModel.json
+             * @example /api/v1/schemas/ErrorModel.json
              */
             readonly $schema?: string;
             /**
@@ -6298,7 +6298,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ExchangeCodeInputBody.json
+             * @example /api/v1/schemas/ExchangeCodeInputBody.json
              */
             readonly $schema?: string;
             /** @description Authorization code from OAuth flow */
@@ -6380,7 +6380,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FinishPasskeyLoginInputBody.json
+             * @example /api/v1/schemas/FinishPasskeyLoginInputBody.json
              */
             readonly $schema?: string;
             /** @description Passkey challenge ID */
@@ -6392,7 +6392,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FinishPasskeyReauthInputBody.json
+             * @example /api/v1/schemas/FinishPasskeyReauthInputBody.json
              */
             readonly $schema?: string;
             /** @description Passkey challenge ID */
@@ -6404,7 +6404,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FinishPasskeyRegistrationInputBody.json
+             * @example /api/v1/schemas/FinishPasskeyRegistrationInputBody.json
              */
             readonly $schema?: string;
             /** @description Passkey registration challenge ID */
@@ -6418,7 +6418,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FollowGrowthInputBody.json
+             * @example /api/v1/schemas/FollowGrowthInputBody.json
              */
             readonly $schema?: string;
             /** @description Workspace ID */
@@ -6428,7 +6428,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/FollowGrowthOutputBody.json
+             * @example /api/v1/schemas/FollowGrowthOutputBody.json
              */
             readonly $schema?: string;
             /** @description Queued job ID */
@@ -6452,7 +6452,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GenerateMediaAltTextInputBody.json
+             * @example /api/v1/schemas/GenerateMediaAltTextInputBody.json
              */
             readonly $schema?: string;
             /** @description BCP 47 locale for the generated alt text; defaults to English */
@@ -6464,7 +6464,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GenerateMediaAltTextOutputBody.json
+             * @example /api/v1/schemas/GenerateMediaAltTextOutputBody.json
              */
             readonly $schema?: string;
             /** @description Persisted alternative text */
@@ -6478,7 +6478,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GenerateMemeSuggestionsInputBody.json
+             * @example /api/v1/schemas/GenerateMemeSuggestionsInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -6503,7 +6503,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GenerateMemeSuggestionsOutputBody.json
+             * @example /api/v1/schemas/GenerateMemeSuggestionsOutputBody.json
              */
             readonly $schema?: string;
             candidates: components["schemas"]["MemeSuggestionCandidate"][] | null;
@@ -6514,7 +6514,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Get-running-versionResponse.json
+             * @example /api/v1/schemas/Get-running-versionResponse.json
              */
             readonly $schema?: string;
             /** @description Configured OpenPost edition */
@@ -6528,7 +6528,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetAuthURLOutputBody.json
+             * @example /api/v1/schemas/GetAuthURLOutputBody.json
              */
             readonly $schema?: string;
             /** @description OAuth authorization URL */
@@ -6538,7 +6538,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetCLIAuthSessionOutputBody.json
+             * @example /api/v1/schemas/GetCLIAuthSessionOutputBody.json
              */
             readonly $schema?: string;
             client_name: string;
@@ -6551,7 +6551,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetMediaStorageOutputBody.json
+             * @example /api/v1/schemas/GetMediaStorageOutputBody.json
              */
             readonly $schema?: string;
             /**
@@ -6581,7 +6581,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetMediaUsageOutputBody.json
+             * @example /api/v1/schemas/GetMediaUsageOutputBody.json
              */
             readonly $schema?: string;
             /**
@@ -6596,7 +6596,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetMemeTemplateThumbnailOutputBody.json
+             * @example /api/v1/schemas/GetMemeTemplateThumbnailOutputBody.json
              */
             readonly $schema?: string;
             /** @description Base64-encoded template thumbnail bytes */
@@ -6608,7 +6608,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetPromptCategoriesOutputBody.json
+             * @example /api/v1/schemas/GetPromptCategoriesOutputBody.json
              */
             readonly $schema?: string;
             /** @description Available prompt categories */
@@ -6618,7 +6618,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/GetWorkspaceSettingsOutputBody.json
+             * @example /api/v1/schemas/GetWorkspaceSettingsOutputBody.json
              */
             readonly $schema?: string;
             avatar_url: string;
@@ -6667,7 +6667,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Health-checkResponse.json
+             * @example /api/v1/schemas/Health-checkResponse.json
              */
             readonly $schema?: string;
             /** @description Health status */
@@ -6717,7 +6717,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorBrandKitResponse.json
+             * @example /api/v1/schemas/ImageEditorBrandKitResponse.json
              */
             readonly $schema?: string;
             backgrounds: string[] | null;
@@ -6795,7 +6795,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorDocumentResponse.json
+             * @example /api/v1/schemas/ImageEditorDocumentResponse.json
              */
             readonly $schema?: string;
             can_edit: boolean;
@@ -6997,7 +6997,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorPresetOutputBody.json
+             * @example /api/v1/schemas/ImageEditorPresetOutputBody.json
              */
             readonly $schema?: string;
             background_model_base_url: string;
@@ -7010,7 +7010,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorRevisionResponse.json
+             * @example /api/v1/schemas/ImageEditorRevisionResponse.json
              */
             readonly $schema?: string;
             cover_preview_media_id?: string;
@@ -7021,7 +7021,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorRevisionSummary.json
+             * @example /api/v1/schemas/ImageEditorRevisionSummary.json
              */
             readonly $schema?: string;
             actor: components["schemas"]["EditorRevisionActor"];
@@ -7067,7 +7067,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ImageEditorTemplateResponse.json
+             * @example /api/v1/schemas/ImageEditorTemplateResponse.json
              */
             readonly $schema?: string;
             built_in: boolean;
@@ -7143,7 +7143,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InitiateOwnershipTransferInputBody.json
+             * @example /api/v1/schemas/InitiateOwnershipTransferInputBody.json
              */
             readonly $schema?: string;
             /** @description Exact Organization name as explicit confirmation */
@@ -7157,7 +7157,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InstanceAuditJSONExport.json
+             * @example /api/v1/schemas/InstanceAuditJSONExport.json
              */
             readonly $schema?: string;
             format_version: string;
@@ -7181,7 +7181,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InstanceOverviewResponse.json
+             * @example /api/v1/schemas/InstanceOverviewResponse.json
              */
             readonly $schema?: string;
             /**
@@ -7271,7 +7271,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InstanceSettingsResponse.json
+             * @example /api/v1/schemas/InstanceSettingsResponse.json
              */
             readonly $schema?: string;
             /** @description Whether any saved setting needs a server restart */
@@ -7282,7 +7282,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InstanceUserPage.json
+             * @example /api/v1/schemas/InstanceUserPage.json
              */
             readonly $schema?: string;
             /**
@@ -7349,7 +7349,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/InstantiateImageEditorTemplateInputBody.json
+             * @example /api/v1/schemas/InstantiateImageEditorTemplateInputBody.json
              */
             readonly $schema?: string;
             title: string;
@@ -7402,7 +7402,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListImageEditorDesignsOutputBody.json
+             * @example /api/v1/schemas/ListImageEditorDesignsOutputBody.json
              */
             readonly $schema?: string;
             can_edit: boolean;
@@ -7414,7 +7414,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListImageEditorRevisionsOutputBody.json
+             * @example /api/v1/schemas/ListImageEditorRevisionsOutputBody.json
              */
             readonly $schema?: string;
             next_cursor?: string;
@@ -7424,7 +7424,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListImageEditorTemplatesOutputBody.json
+             * @example /api/v1/schemas/ListImageEditorTemplatesOutputBody.json
              */
             readonly $schema?: string;
             can_edit: boolean;
@@ -7434,7 +7434,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListMediaOutputBody.json
+             * @example /api/v1/schemas/ListMediaOutputBody.json
              */
             readonly $schema?: string;
             /** @description Media attachments */
@@ -7449,7 +7449,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListMediaTagsOutputBody.json
+             * @example /api/v1/schemas/ListMediaTagsOutputBody.json
              */
             readonly $schema?: string;
             can_edit: boolean;
@@ -7459,7 +7459,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListMemeTemplatesOutputBody.json
+             * @example /api/v1/schemas/ListMemeTemplatesOutputBody.json
              */
             readonly $schema?: string;
             /** @description Whether AI meme suggestions are configured */
@@ -7473,7 +7473,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListPublicImageEditorTemplatesOutputBody.json
+             * @example /api/v1/schemas/ListPublicImageEditorTemplatesOutputBody.json
              */
             readonly $schema?: string;
             templates: components["schemas"]["ImageEditorTemplateResponse"][] | null;
@@ -7482,7 +7482,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListResult.json
+             * @example /api/v1/schemas/ListResult.json
              */
             readonly $schema?: string;
             follow_updates: components["schemas"]["FollowUpdateView"][] | null;
@@ -7493,7 +7493,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ListStockProvidersOutputBody.json
+             * @example /api/v1/schemas/ListStockProvidersOutputBody.json
              */
             readonly $schema?: string;
             enabled: boolean;
@@ -7503,7 +7503,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/LoginInputBody.json
+             * @example /api/v1/schemas/LoginInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -7518,7 +7518,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/LogoutOutputBody.json
+             * @example /api/v1/schemas/LogoutOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -7752,7 +7752,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/MediaTagResponse.json
+             * @example /api/v1/schemas/MediaTagResponse.json
              */
             readonly $schema?: string;
             created_at: string;
@@ -7766,7 +7766,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/MediaUploadResult.json
+             * @example /api/v1/schemas/MediaUploadResult.json
              */
             readonly $schema?: string;
             /** @description Persisted alt text */
@@ -7868,7 +7868,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/MemeRecipeResponse.json
+             * @example /api/v1/schemas/MemeRecipeResponse.json
              */
             readonly $schema?: string;
             catalog_revision?: string;
@@ -7903,7 +7903,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/MessageOutputBody.json
+             * @example /api/v1/schemas/MessageOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -7912,7 +7912,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/MessagePage.json
+             * @example /api/v1/schemas/MessagePage.json
              */
             readonly $schema?: string;
             items: components["schemas"]["DirectMessage"][] | null;
@@ -7953,7 +7953,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/MuteCreate.json
+             * @example /api/v1/schemas/MuteCreate.json
              */
             readonly $schema?: string;
             /** Format: date-time */
@@ -7966,7 +7966,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/NextAvailableSlotOutputBody.json
+             * @example /api/v1/schemas/NextAvailableSlotOutputBody.json
              */
             readonly $schema?: string;
             /** @description Message about the result */
@@ -7987,7 +7987,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/NotificationPage.json
+             * @example /api/v1/schemas/NotificationPage.json
              */
             readonly $schema?: string;
             items: components["schemas"]["UserNotification"][] | null;
@@ -7999,7 +7999,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCAuthenticatedStartInputBody.json
+             * @example /api/v1/schemas/OIDCAuthenticatedStartInputBody.json
              */
             readonly $schema?: string;
             action?: string;
@@ -8011,7 +8011,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCAuthenticatedStartOutputBody.json
+             * @example /api/v1/schemas/OIDCAuthenticatedStartOutputBody.json
              */
             readonly $schema?: string;
             authorization_url: string;
@@ -8023,7 +8023,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCDiscoverOutputBody.json
+             * @example /api/v1/schemas/OIDCDiscoverOutputBody.json
              */
             readonly $schema?: string;
             found: boolean;
@@ -8033,7 +8033,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCDomainCreateInputBody.json
+             * @example /api/v1/schemas/OIDCDomainCreateInputBody.json
              */
             readonly $schema?: string;
             domain: string;
@@ -8043,7 +8043,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCDomainCreateOutputBody.json
+             * @example /api/v1/schemas/OIDCDomainCreateOutputBody.json
              */
             readonly $schema?: string;
             dns_name: string;
@@ -8054,7 +8054,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCDomainVerifyOutputBody.json
+             * @example /api/v1/schemas/OIDCDomainVerifyOutputBody.json
              */
             readonly $schema?: string;
             verified: boolean;
@@ -8076,7 +8076,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCLogoutInputBody.json
+             * @example /api/v1/schemas/OIDCLogoutInputBody.json
              */
             readonly $schema?: string;
             return_path?: string;
@@ -8085,7 +8085,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCLogoutOutputBody.json
+             * @example /api/v1/schemas/OIDCLogoutOutputBody.json
              */
             readonly $schema?: string;
             logout_url?: string;
@@ -8094,7 +8094,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCNativeHandoffInputBody.json
+             * @example /api/v1/schemas/OIDCNativeHandoffInputBody.json
              */
             readonly $schema?: string;
             code: string;
@@ -8103,7 +8103,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCNativeHandoffOutputBody.json
+             * @example /api/v1/schemas/OIDCNativeHandoffOutputBody.json
              */
             readonly $schema?: string;
             action?: string;
@@ -8117,7 +8117,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCPolicyInputBody.json
+             * @example /api/v1/schemas/OIDCPolicyInputBody.json
              */
             readonly $schema?: string;
             /** @enum {string} */
@@ -8136,7 +8136,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCProviderActiveInputBody.json
+             * @example /api/v1/schemas/OIDCProviderActiveInputBody.json
              */
             readonly $schema?: string;
             active: boolean;
@@ -8145,7 +8145,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCProviderActiveOutputBody.json
+             * @example /api/v1/schemas/OIDCProviderActiveOutputBody.json
              */
             readonly $schema?: string;
             active: boolean;
@@ -8156,7 +8156,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCProviderAdminInputBody.json
+             * @example /api/v1/schemas/OIDCProviderAdminInputBody.json
              */
             readonly $schema?: string;
             client_id: string;
@@ -8178,7 +8178,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCProviderAdminResponse.json
+             * @example /api/v1/schemas/OIDCProviderAdminResponse.json
              */
             readonly $schema?: string;
             backchannel_logout_url: string;
@@ -8218,7 +8218,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OIDCUnlinkIdentityInputBody.json
+             * @example /api/v1/schemas/OIDCUnlinkIdentityInputBody.json
              */
             readonly $schema?: string;
             reauth_grant: string;
@@ -8243,7 +8243,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OrganizationAuditJSONExport.json
+             * @example /api/v1/schemas/OrganizationAuditJSONExport.json
              */
             readonly $schema?: string;
             format_version: string;
@@ -8256,7 +8256,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OrganizationAuditPage.json
+             * @example /api/v1/schemas/OrganizationAuditPage.json
              */
             readonly $schema?: string;
             items: components["schemas"]["OrganizationAuditEvent"][] | null;
@@ -8272,7 +8272,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OrganizationDeletionInputBody.json
+             * @example /api/v1/schemas/OrganizationDeletionInputBody.json
              */
             readonly $schema?: string;
             /** @description Exact canonical Organization name */
@@ -8286,7 +8286,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OrganizationDeletionOutputBody.json
+             * @example /api/v1/schemas/OrganizationDeletionOutputBody.json
              */
             readonly $schema?: string;
             deleted: boolean;
@@ -8303,7 +8303,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OrganizationDeletionPreview.json
+             * @example /api/v1/schemas/OrganizationDeletionPreview.json
              */
             readonly $schema?: string;
             access_effects: ("organization_memberships" | "workspace_memberships" | "organization_credentials")[] | null;
@@ -8344,7 +8344,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OrganizationTeamOutputBody.json
+             * @example /api/v1/schemas/OrganizationTeamOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -8366,7 +8366,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Overview.json
+             * @example /api/v1/schemas/Overview.json
              */
             readonly $schema?: string;
             accounts: components["schemas"]["AccountOverview"][] | null;
@@ -8390,7 +8390,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/OwnershipTransferResponse.json
+             * @example /api/v1/schemas/OwnershipTransferResponse.json
              */
             readonly $schema?: string;
             expires_at: string;
@@ -8408,7 +8408,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PasskeyCeremonyOutputBody.json
+             * @example /api/v1/schemas/PasskeyCeremonyOutputBody.json
              */
             readonly $schema?: string;
             challenge_id: string;
@@ -8434,7 +8434,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PasswordReauthInputBody.json
+             * @example /api/v1/schemas/PasswordReauthInputBody.json
              */
             readonly $schema?: string;
             action: string;
@@ -8444,7 +8444,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PendingOwnershipTransferResponse.json
+             * @example /api/v1/schemas/PendingOwnershipTransferResponse.json
              */
             readonly $schema?: string;
             /** @description Whether an ownership transfer is pending */
@@ -8456,7 +8456,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Policy.json
+             * @example /api/v1/schemas/Policy.json
              */
             readonly $schema?: string;
             /** @enum {string} */
@@ -8495,7 +8495,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PollCLIAuthInputBody.json
+             * @example /api/v1/schemas/PollCLIAuthInputBody.json
              */
             readonly $schema?: string;
             device_code: string;
@@ -8504,7 +8504,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PollCLIAuthOutputBody.json
+             * @example /api/v1/schemas/PollCLIAuthOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -8520,7 +8520,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PostingScheduleResponse.json
+             * @example /api/v1/schemas/PostingScheduleResponse.json
              */
             readonly $schema?: string;
             /** @description Creation time (ISO 8601) */
@@ -8568,7 +8568,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PreferenceSettings.json
+             * @example /api/v1/schemas/PreferenceSettings.json
              */
             readonly $schema?: string;
             digest_configured: boolean;
@@ -8588,7 +8588,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PreferenceUpdate.json
+             * @example /api/v1/schemas/PreferenceUpdate.json
              */
             readonly $schema?: string;
             digest_time: string;
@@ -8601,7 +8601,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PreviewMemeInputBody.json
+             * @example /api/v1/schemas/PreviewMemeInputBody.json
              */
             readonly $schema?: string;
             /** @description Caption values in template order */
@@ -8623,7 +8623,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PreviewMemeOutputBody.json
+             * @example /api/v1/schemas/PreviewMemeOutputBody.json
              */
             readonly $schema?: string;
             /** @description Base64-encoded rendered image bytes */
@@ -8640,7 +8640,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PromptResponse.json
+             * @example /api/v1/schemas/PromptResponse.json
              */
             readonly $schema?: string;
             /** @description Prompt category */
@@ -8832,7 +8832,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ProviderReadinessLedgerAppendOutputBody.json
+             * @example /api/v1/schemas/ProviderReadinessLedgerAppendOutputBody.json
              */
             readonly $schema?: string;
             id: string;
@@ -8841,7 +8841,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ProviderReadinessOutputBody.json
+             * @example /api/v1/schemas/ProviderReadinessOutputBody.json
              */
             readonly $schema?: string;
             providers: components["schemas"]["ProviderReadinessItem"][] | null;
@@ -8856,7 +8856,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublicConfig.json
+             * @example /api/v1/schemas/PublicConfig.json
              */
             readonly $schema?: string;
             app_version: string;
@@ -8887,7 +8887,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublicProfileOutputBody.json
+             * @example /api/v1/schemas/PublicProfileOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -8990,7 +8990,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublicationMutationActionInputBody.json
+             * @example /api/v1/schemas/PublicationMutationActionInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -9028,7 +9028,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublicationResponse.json
+             * @example /api/v1/schemas/PublicationResponse.json
              */
             readonly $schema?: string;
             actual_run_at?: string;
@@ -9096,7 +9096,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublicationUpdateBody.json
+             * @example /api/v1/schemas/PublicationUpdateBody.json
              */
             readonly $schema?: string;
             /** @description Target audience */
@@ -9157,7 +9157,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublicationValidationOutputBody.json
+             * @example /api/v1/schemas/PublicationValidationOutputBody.json
              */
             readonly $schema?: string;
             issues: components["schemas"]["ValidationIssue"][] | null;
@@ -9167,7 +9167,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PublishingOptionsOutputBody.json
+             * @example /api/v1/schemas/PublishingOptionsOutputBody.json
              */
             readonly $schema?: string;
             next_cursor?: string;
@@ -9177,7 +9177,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/PurchaseChoiceResponse.json
+             * @example /api/v1/schemas/PurchaseChoiceResponse.json
              */
             readonly $schema?: string;
             /**
@@ -9220,7 +9220,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Readiness-checkResponse.json
+             * @example /api/v1/schemas/Readiness-checkResponse.json
              */
             readonly $schema?: string;
             /** @description Database dependency status */
@@ -9232,7 +9232,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ReauthGrantOutputBody.json
+             * @example /api/v1/schemas/ReauthGrantOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -9278,7 +9278,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RecoveryCodeSensitiveActionInputBody.json
+             * @example /api/v1/schemas/RecoveryCodeSensitiveActionInputBody.json
              */
             readonly $schema?: string;
             /** @description Current password for re-authentication */
@@ -9290,7 +9290,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RecoveryCodeSetOutputBody.json
+             * @example /api/v1/schemas/RecoveryCodeSetOutputBody.json
              */
             readonly $schema?: string;
             /** @description Expiring challenge that activates this code set after acknowledgement */
@@ -9302,7 +9302,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RecoveryCodeStatusOutputBody.json
+             * @example /api/v1/schemas/RecoveryCodeStatusOutputBody.json
              */
             readonly $schema?: string;
             /**
@@ -9315,7 +9315,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshAnalyticsInputBody.json
+             * @example /api/v1/schemas/RefreshAnalyticsInputBody.json
              */
             readonly $schema?: string;
             /** @description Workspace ID */
@@ -9325,7 +9325,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshAnalyticsOutputBody.json
+             * @example /api/v1/schemas/RefreshAnalyticsOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -9336,7 +9336,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshCapabilitiesInputBody.json
+             * @example /api/v1/schemas/RefreshCapabilitiesInputBody.json
              */
             readonly $schema?: string;
             workspace_id: string;
@@ -9345,7 +9345,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshCapabilitiesResult.json
+             * @example /api/v1/schemas/RefreshCapabilitiesResult.json
              */
             readonly $schema?: string;
             engagement: components["schemas"]["RefreshCapabilityOutcome"];
@@ -9355,7 +9355,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshCapabilityOutcome.json
+             * @example /api/v1/schemas/RefreshCapabilityOutcome.json
              */
             readonly $schema?: string;
             error_code?: string;
@@ -9368,7 +9368,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshGrowthInputBody.json
+             * @example /api/v1/schemas/RefreshGrowthInputBody.json
              */
             readonly $schema?: string;
             /** @description Connected social account ID */
@@ -9380,7 +9380,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RefreshGrowthOutputBody.json
+             * @example /api/v1/schemas/RefreshGrowthOutputBody.json
              */
             readonly $schema?: string;
             /** @description Queued job ID */
@@ -9394,7 +9394,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RegisterInputBody.json
+             * @example /api/v1/schemas/RegisterInputBody.json
              */
             readonly $schema?: string;
             /** @description Whether the user accepted the current terms and privacy policy */
@@ -9415,7 +9415,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RemoveAvatarOutputBody.json
+             * @example /api/v1/schemas/RemoveAvatarOutputBody.json
              */
             readonly $schema?: string;
             /** @description Whether the profile avatar was removed */
@@ -9425,7 +9425,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RemovePasskeyInputBody.json
+             * @example /api/v1/schemas/RemovePasskeyInputBody.json
              */
             readonly $schema?: string;
             /** @description Current password for re-authentication */
@@ -9437,7 +9437,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RemoveWorkspaceMemberOutputBody.json
+             * @example /api/v1/schemas/RemoveWorkspaceMemberOutputBody.json
              */
             readonly $schema?: string;
             removed: boolean;
@@ -9446,7 +9446,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RenderMemeInputBody.json
+             * @example /api/v1/schemas/RenderMemeInputBody.json
              */
             readonly $schema?: string;
             /** @description Alternative text saved with the media */
@@ -9472,7 +9472,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RenderMemeOutputBody.json
+             * @example /api/v1/schemas/RenderMemeOutputBody.json
              */
             readonly $schema?: string;
             media: components["schemas"]["MediaUploadResult"];
@@ -9614,7 +9614,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ReplaceMediaTagItemsInputBody.json
+             * @example /api/v1/schemas/ReplaceMediaTagItemsInputBody.json
              */
             readonly $schema?: string;
             media_ids: string[] | null;
@@ -9628,7 +9628,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ReplaceMediaTagItemsOutputBody.json
+             * @example /api/v1/schemas/ReplaceMediaTagItemsOutputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -9638,7 +9638,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ReplyInputBody.json
+             * @example /api/v1/schemas/ReplyInputBody.json
              */
             readonly $schema?: string;
             /** @description Reply body */
@@ -9661,7 +9661,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RepostGrantOutputBody.json
+             * @example /api/v1/schemas/RepostGrantOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -9670,7 +9670,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RequestPasswordResetInputBody.json
+             * @example /api/v1/schemas/RequestPasswordResetInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -9683,7 +9683,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ResendEmailVerificationInputBody.json
+             * @example /api/v1/schemas/ResendEmailVerificationInputBody.json
              */
             readonly $schema?: string;
             /** @description Opaque email verification challenge ID */
@@ -9693,7 +9693,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ResetPasswordInputBody.json
+             * @example /api/v1/schemas/ResetPasswordInputBody.json
              */
             readonly $schema?: string;
             /** @description New password */
@@ -9705,7 +9705,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ResetPasswordOutputBody.json
+             * @example /api/v1/schemas/ResetPasswordOutputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -9714,7 +9714,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ResolveCapabilitiesInputBody.json
+             * @example /api/v1/schemas/ResolveCapabilitiesInputBody.json
              */
             readonly $schema?: string;
             /** @description Connected account IDs */
@@ -9752,7 +9752,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ResolveCapabilitiesOutputBody.json
+             * @example /api/v1/schemas/ResolveCapabilitiesOutputBody.json
              */
             readonly $schema?: string;
             accounts: components["schemas"]["ResolvedAccountCapability"][] | null;
@@ -9824,7 +9824,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ResolvedAsset.json
+             * @example /api/v1/schemas/ResolvedAsset.json
              */
             readonly $schema?: string;
             attribution_text: string;
@@ -9857,7 +9857,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RestoreImageEditorRevisionInputBody.json
+             * @example /api/v1/schemas/RestoreImageEditorRevisionInputBody.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -9867,7 +9867,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RestoreMediaOutputBody.json
+             * @example /api/v1/schemas/RestoreMediaOutputBody.json
              */
             readonly $schema?: string;
             /** @description Success message */
@@ -9877,7 +9877,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RetryMediaAnalysisOutputBody.json
+             * @example /api/v1/schemas/RetryMediaAnalysisOutputBody.json
              */
             readonly $schema?: string;
             /** @description Current analysis status */
@@ -9891,7 +9891,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Revoke-organization-ownership-transferResponse.json
+             * @example /api/v1/schemas/Revoke-organization-ownership-transferResponse.json
              */
             readonly $schema?: string;
             revoked: boolean;
@@ -9900,7 +9900,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RevokeAPITokenOutputBody.json
+             * @example /api/v1/schemas/RevokeAPITokenOutputBody.json
              */
             readonly $schema?: string;
             revoked: boolean;
@@ -9909,7 +9909,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RevokeUserSessionOutputBody.json
+             * @example /api/v1/schemas/RevokeUserSessionOutputBody.json
              */
             readonly $schema?: string;
             revoked: boolean;
@@ -9919,7 +9919,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/RevokeWorkspaceInvitationOutputBody.json
+             * @example /api/v1/schemas/RevokeWorkspaceInvitationOutputBody.json
              */
             readonly $schema?: string;
             revoked: boolean;
@@ -9983,7 +9983,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SaveAccountFeaturesInputBody.json
+             * @example /api/v1/schemas/SaveAccountFeaturesInputBody.json
              */
             readonly $schema?: string;
             /** @description Choices to save (complete batch) */
@@ -9995,7 +9995,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SaveInstanceSettingsInputBody.json
+             * @example /api/v1/schemas/SaveInstanceSettingsInputBody.json
              */
             readonly $schema?: string;
             /** @description Settings to update atomically */
@@ -10005,7 +10005,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SaveProviderAppInputBody.json
+             * @example /api/v1/schemas/SaveProviderAppInputBody.json
              */
             readonly $schema?: string;
             /** @description OAuth client ID */
@@ -10027,7 +10027,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SaveProviderAppResponse.json
+             * @example /api/v1/schemas/SaveProviderAppResponse.json
              */
             readonly $schema?: string;
             app: components["schemas"]["ProviderAppResponse"];
@@ -10040,7 +10040,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SaveRepostSettingsInputBody.json
+             * @example /api/v1/schemas/SaveRepostSettingsInputBody.json
              */
             readonly $schema?: string;
             /** @description Complete replacement set of workspace repost rules */
@@ -10056,7 +10056,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SearchPage.json
+             * @example /api/v1/schemas/SearchPage.json
              */
             readonly $schema?: string;
             has_more: boolean;
@@ -10074,7 +10074,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SecurityStatusOutputBody.json
+             * @example /api/v1/schemas/SecurityStatusOutputBody.json
              */
             readonly $schema?: string;
             /** @description Currently available MFA methods */
@@ -10088,7 +10088,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SelectStockMediaInputBody.json
+             * @example /api/v1/schemas/SelectStockMediaInputBody.json
              */
             readonly $schema?: string;
             external_id: string;
@@ -10099,7 +10099,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SendMessageInputBody.json
+             * @example /api/v1/schemas/SendMessageInputBody.json
              */
             readonly $schema?: string;
             message: string;
@@ -10114,7 +10114,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SetConversationStateInputBody.json
+             * @example /api/v1/schemas/SetConversationStateInputBody.json
              */
             readonly $schema?: string;
             archived?: boolean;
@@ -10125,7 +10125,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SetEngagementStateInputBody.json
+             * @example /api/v1/schemas/SetEngagementStateInputBody.json
              */
             readonly $schema?: string;
             archived?: boolean;
@@ -10137,7 +10137,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SetUserPlanInputBody.json
+             * @example /api/v1/schemas/SetUserPlanInputBody.json
              */
             readonly $schema?: string;
             /** @description Plan ID to assign: starter, founder, pro, team, agency, or empty string to remove the override */
@@ -10147,7 +10147,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SetUserPlanOutputBody.json
+             * @example /api/v1/schemas/SetUserPlanOutputBody.json
              */
             readonly $schema?: string;
             /** @description Assigned plan ID, empty if override was removed */
@@ -10210,7 +10210,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SettingsResponse.json
+             * @example /api/v1/schemas/SettingsResponse.json
              */
             readonly $schema?: string;
             accounts: components["schemas"]["AccountOption"][] | null;
@@ -10224,7 +10224,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SetupTOTPInputBody.json
+             * @example /api/v1/schemas/SetupTOTPInputBody.json
              */
             readonly $schema?: string;
             /** @description Current password for re-authentication */
@@ -10236,7 +10236,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SetupTOTPOutputBody.json
+             * @example /api/v1/schemas/SetupTOTPOutputBody.json
              */
             readonly $schema?: string;
             challenge_id: string;
@@ -10263,7 +10263,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SocialSetResponse.json
+             * @example /api/v1/schemas/SocialSetResponse.json
              */
             readonly $schema?: string;
             accounts: components["schemas"]["SocialSetAccountResponse"][] | null;
@@ -10278,7 +10278,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/StartCLIAuthInputBody.json
+             * @example /api/v1/schemas/StartCLIAuthInputBody.json
              */
             readonly $schema?: string;
             /** @description CLI client name */
@@ -10294,7 +10294,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/StartCLIAuthOutputBody.json
+             * @example /api/v1/schemas/StartCLIAuthOutputBody.json
              */
             readonly $schema?: string;
             device_code: string;
@@ -10309,7 +10309,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/StartWorkspaceCompositionInputBody.json
+             * @example /api/v1/schemas/StartWorkspaceCompositionInputBody.json
              */
             readonly $schema?: string;
             /** @description Opaque browser-generated key used to reconcile an uncertain claim response */
@@ -10324,7 +10324,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/StartWorkspaceCompositionResponse.json
+             * @example /api/v1/schemas/StartWorkspaceCompositionResponse.json
              */
             readonly $schema?: string;
             /** @description Whether this request recorded the Workspace's first meaningful composition */
@@ -10355,7 +10355,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SubmitFeedbackInputBody.json
+             * @example /api/v1/schemas/SubmitFeedbackInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -10374,7 +10374,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SubmitFeedbackOutputBody.json
+             * @example /api/v1/schemas/SubmitFeedbackOutputBody.json
              */
             readonly $schema?: string;
             job_id: string;
@@ -10385,7 +10385,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SuggestScheduleInputBody.json
+             * @example /api/v1/schemas/SuggestScheduleInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -10400,7 +10400,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/SuggestScheduleOutputBody.json
+             * @example /api/v1/schemas/SuggestScheduleOutputBody.json
              */
             readonly $schema?: string;
             /** @description Message about the result */
@@ -10468,7 +10468,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ToggleImageEditorDesignFavoriteOutputBody.json
+             * @example /api/v1/schemas/ToggleImageEditorDesignFavoriteOutputBody.json
              */
             readonly $schema?: string;
             is_favorite: boolean;
@@ -10489,7 +10489,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateAccountInputBody.json
+             * @example /api/v1/schemas/UpdateAccountInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -10504,7 +10504,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateImageEditorBrandKitInputBody.json
+             * @example /api/v1/schemas/UpdateImageEditorBrandKitInputBody.json
              */
             readonly $schema?: string;
             backgrounds: string[] | null;
@@ -10518,7 +10518,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateImageEditorDesignInputBody.json
+             * @example /api/v1/schemas/UpdateImageEditorDesignInputBody.json
              */
             readonly $schema?: string;
             cover_preview_media_id?: string;
@@ -10532,7 +10532,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateImageEditorTemplateInputBody.json
+             * @example /api/v1/schemas/UpdateImageEditorTemplateInputBody.json
              */
             readonly $schema?: string;
             category: string;
@@ -10544,7 +10544,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateMediaFavoriteOutputBody.json
+             * @example /api/v1/schemas/UpdateMediaFavoriteOutputBody.json
              */
             readonly $schema?: string;
             /** @description Updated favorite status */
@@ -10554,7 +10554,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateMediaInputBody.json
+             * @example /api/v1/schemas/UpdateMediaInputBody.json
              */
             readonly $schema?: string;
             /** @description Alt text for accessibility */
@@ -10566,7 +10566,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateMediaOutputBody.json
+             * @example /api/v1/schemas/UpdateMediaOutputBody.json
              */
             readonly $schema?: string;
             /** @description Success message */
@@ -10576,7 +10576,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateMediaTagInputBody.json
+             * @example /api/v1/schemas/UpdateMediaTagInputBody.json
              */
             readonly $schema?: string;
             name: string;
@@ -10585,7 +10585,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdatePostingScheduleInputBody.json
+             * @example /api/v1/schemas/UpdatePostingScheduleInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -10612,7 +10612,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateProfileInputBody.json
+             * @example /api/v1/schemas/UpdateProfileInputBody.json
              */
             readonly $schema?: string;
             /** @description Profile avatar URL */
@@ -10635,7 +10635,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateSocialSetInputBody.json
+             * @example /api/v1/schemas/UpdateSocialSetInputBody.json
              */
             readonly $schema?: string;
             /** @description Replacement ordered membership */
@@ -10649,7 +10649,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateStatusResponse.json
+             * @example /api/v1/schemas/UpdateStatusResponse.json
              */
             readonly $schema?: string;
             /** @description Last bounded release-check attempt */
@@ -10690,7 +10690,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateWorkspaceMemberInputBody.json
+             * @example /api/v1/schemas/UpdateWorkspaceMemberInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -10708,7 +10708,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateWorkspaceSettingsInputBody.json
+             * @example /api/v1/schemas/UpdateWorkspaceSettingsInputBody.json
              */
             readonly $schema?: string;
             avatar_url?: string;
@@ -10738,7 +10738,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpdateWorkspaceSettingsOutputBody.json
+             * @example /api/v1/schemas/UpdateWorkspaceSettingsOutputBody.json
              */
             readonly $schema?: string;
             avatar_url: string;
@@ -10768,7 +10768,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UpsertRenditionsInputBody.json
+             * @example /api/v1/schemas/UpsertRenditionsInputBody.json
              */
             readonly $schema?: string;
             /**
@@ -10798,7 +10798,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/UserProfile.json
+             * @example /api/v1/schemas/UserProfile.json
              */
             readonly $schema?: string;
             /** @description Profile avatar URL */
@@ -10897,7 +10897,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/VerifyRecoveryCodeLoginInputBody.json
+             * @example /api/v1/schemas/VerifyRecoveryCodeLoginInputBody.json
              */
             readonly $schema?: string;
             /** @description Single-use MFA recovery code */
@@ -10909,7 +10909,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/VerifyTOTPLoginInputBody.json
+             * @example /api/v1/schemas/VerifyTOTPLoginInputBody.json
              */
             readonly $schema?: string;
             /** @description Six digit authenticator code */
@@ -10947,7 +10947,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/WorkspaceDeletionPreview.json
+             * @example /api/v1/schemas/WorkspaceDeletionPreview.json
              */
             readonly $schema?: string;
             blockers: components["schemas"]["WorkspaceDeletionBlocker"][] | null;
@@ -10961,7 +10961,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/WorkspaceInvitationResponse.json
+             * @example /api/v1/schemas/WorkspaceInvitationResponse.json
              */
             readonly $schema?: string;
             /** @description Browser URL that accepts the invitation */
@@ -11005,7 +11005,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/WorkspaceMemberResponse.json
+             * @example /api/v1/schemas/WorkspaceMemberResponse.json
              */
             readonly $schema?: string;
             /** @description When access was first granted */
@@ -11059,7 +11059,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/WorkspaceSetupResponse.json
+             * @example /api/v1/schemas/WorkspaceSetupResponse.json
              */
             readonly $schema?: string;
             /** @description Safe same-origin application route for the next setup action */
@@ -11104,7 +11104,7 @@ export interface components {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/WorkspaceTeamOutputBody.json
+             * @example /api/v1/schemas/WorkspaceTeamOutputBody.json
              */
             readonly $schema?: string;
             /** @description Whether the current user may administer workspace access */

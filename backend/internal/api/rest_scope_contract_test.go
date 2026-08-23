@@ -4,21 +4,22 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/automationcatalog"
 	"github.com/stretchr/testify/require"
 )
 
 type registeredOperation struct {
-	OperationID string   `json:"operationId"`
-	Tags        []string `json:"tags"`
+	OperationID string         `json:"operationId"`
+	Tags        []string       `json:"tags"`
+	Automation  map[string]any `json:"x-openpost-automation"`
 }
 
 func TestRESTScopeCatalogMatchesRegisteredHumaOperations(t *testing.T) {
 	e := echo.New()
-	humaAPI := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	humaAPI := humaecho.NewWithGroup(e, e.Group("/api/v1"), NewHumaConfig("Test", "1.0.0"))
 	RegisterHumaRoutes(humaAPI, RouteDeps{PublicProfilesEnabled: true})
 
 	raw, err := json.Marshal(humaAPI.OpenAPI())
@@ -58,6 +59,9 @@ func TestRESTScopeCatalogMatchesRegisteredHumaOperations(t *testing.T) {
 			_, protected := protectedTags[tag]
 			require.False(t, protected, "curated REST operation %q must not expose protected %s APIs", operationID, tag)
 		}
+		catalogOperation, exists := automationcatalog.Lookup(operationID)
+		require.True(t, exists)
+		require.Equal(t, catalogOperation.Metadata(), operation.Automation)
 	}
 	legacyReadSet := make(map[string]struct{}, len(legacyRead))
 	for _, operationID := range legacyRead {

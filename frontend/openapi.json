@@ -62,7 +62,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AcceptAccountPolicyInputBody.json"],
+						"examples": ["/api/v1/schemas/AcceptAccountPolicyInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -80,7 +80,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AcceptWorkspaceInvitationInputBody.json"],
+						"examples": ["/api/v1/schemas/AcceptWorkspaceInvitationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -99,7 +99,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AcceptWorkspaceInvitationOutputBody.json"],
+						"examples": ["/api/v1/schemas/AcceptWorkspaceInvitationOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -122,7 +122,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountConnectionResponse.json"],
+						"examples": ["/api/v1/schemas/AccountConnectionResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -173,7 +173,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountDeletionImpact.json"],
+						"examples": ["/api/v1/schemas/AccountDeletionImpact.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -235,7 +235,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountExport.json"],
+						"examples": ["/api/v1/schemas/AccountExport.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -834,7 +834,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountReauthenticationInputBody.json"],
+						"examples": ["/api/v1/schemas/AccountReauthenticationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -856,7 +856,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountResponse.json"],
+						"examples": ["/api/v1/schemas/AccountResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -953,7 +953,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountSelectionCompletionResponse.json"],
+						"examples": ["/api/v1/schemas/AccountSelectionCompletionResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1112,7 +1112,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AccountSelectionResponse.json"],
+						"examples": ["/api/v1/schemas/AccountSelectionResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1150,7 +1150,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AcknowledgeRecoveryCodesInputBody.json"],
+						"examples": ["/api/v1/schemas/AcknowledgeRecoveryCodesInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1172,7 +1172,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ActionOutputBody.json"],
+						"examples": ["/api/v1/schemas/ActionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1212,7 +1212,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AppendProviderApprovalReviewInputBody.json"],
+						"examples": ["/api/v1/schemas/AppendProviderApprovalReviewInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1275,7 +1275,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AppendProviderCertificationInputBody.json"],
+						"examples": ["/api/v1/schemas/AppendProviderCertificationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1342,7 +1342,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AppendProviderRuntimeControlInputBody.json"],
+						"examples": ["/api/v1/schemas/AppendProviderRuntimeControlInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1374,7 +1374,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ApproveCLIAuthInputBody.json"],
+						"examples": ["/api/v1/schemas/ApproveCLIAuthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1541,7 +1541,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AuditPage.json"],
+						"examples": ["/api/v1/schemas/AuditPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1583,7 +1583,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AuthConfigurationOutputBody.json"],
+						"examples": ["/api/v1/schemas/AuthConfigurationOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1637,7 +1637,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AuthOutputBody.json"],
+						"examples": ["/api/v1/schemas/AuthOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1690,7 +1690,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/AuthSessionStateOutputBody.json"],
+						"examples": ["/api/v1/schemas/AuthSessionStateOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1711,7 +1711,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BatchDeleteMediaInputBody.json"],
+						"examples": ["/api/v1/schemas/BatchDeleteMediaInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1732,7 +1732,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BatchDeleteMediaOutputBody.json"],
+						"examples": ["/api/v1/schemas/BatchDeleteMediaOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1758,7 +1758,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BeginEmailChangeInputBody.json"],
+						"examples": ["/api/v1/schemas/BeginEmailChangeInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1782,7 +1782,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BeginPasskeyLoginInputBody.json"],
+						"examples": ["/api/v1/schemas/BeginPasskeyLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1800,7 +1800,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BeginPasskeyReauthInputBody.json"],
+						"examples": ["/api/v1/schemas/BeginPasskeyReauthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1819,7 +1819,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BeginPasskeyRegistrationInputBody.json"],
+						"examples": ["/api/v1/schemas/BeginPasskeyRegistrationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1845,7 +1845,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BillingStatusResponse.json"],
+						"examples": ["/api/v1/schemas/BillingStatusResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -1937,7 +1937,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BillingURLResponse.json"],
+						"examples": ["/api/v1/schemas/BillingURLResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2022,7 +2022,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BlueskyLoginInputBody.json"],
+						"examples": ["/api/v1/schemas/BlueskyLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2058,7 +2058,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/BrowserConfig.json"],
+						"examples": ["/api/v1/schemas/BrowserConfig.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2104,7 +2104,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CLIAuthDecisionOutputBody.json"],
+						"examples": ["/api/v1/schemas/CLIAuthDecisionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2121,7 +2121,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CancelEmailChangeOutputBody.json"],
+						"examples": ["/api/v1/schemas/CancelEmailChangeOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2138,9 +2138,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/CancelOrganizationCheckoutAttemptsOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/CancelOrganizationCheckoutAttemptsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2158,7 +2156,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CapabilitiesOutputBody.json"],
+						"examples": ["/api/v1/schemas/CapabilitiesOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2292,7 +2290,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ChangeNotificationsInputBody.json"],
+						"examples": ["/api/v1/schemas/ChangeNotificationsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2321,7 +2319,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ChangePasswordInputBody.json"],
+						"examples": ["/api/v1/schemas/ChangePasswordInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2349,7 +2347,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ChangePasswordOutputBody.json"],
+						"examples": ["/api/v1/schemas/ChangePasswordOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2426,7 +2424,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CommentActionOutputBody.json"],
+						"examples": ["/api/v1/schemas/CommentActionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2446,7 +2444,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CommentListResponse.json"],
+						"examples": ["/api/v1/schemas/CommentListResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2466,7 +2464,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CommentReplyInputBody.json"],
+						"examples": ["/api/v1/schemas/CommentReplyInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2536,7 +2534,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CompleteAccountSelectionInputBody.json"],
+						"examples": ["/api/v1/schemas/CompleteAccountSelectionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2560,9 +2558,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/CompleteImageEditorReturnTokenInputBody.json"
-						],
+						"examples": ["/api/v1/schemas/CompleteImageEditorReturnTokenInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2586,9 +2582,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/CompleteImageEditorReturnTokenOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/CompleteImageEditorReturnTokenOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2605,7 +2599,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CompleteMediaUploadSessionInputBody.json"],
+						"examples": ["/api/v1/schemas/CompleteMediaUploadSessionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2623,7 +2617,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CompleteOwnershipTransferInputBody.json"],
+						"examples": ["/api/v1/schemas/CompleteOwnershipTransferInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2642,7 +2636,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConfirmEmailChangeInputBody.json"],
+						"examples": ["/api/v1/schemas/ConfirmEmailChangeInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2663,7 +2657,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConfirmEmailChangeOutputBody.json"],
+						"examples": ["/api/v1/schemas/ConfirmEmailChangeOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2686,7 +2680,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConfirmEmailVerificationInputBody.json"],
+						"examples": ["/api/v1/schemas/ConfirmEmailVerificationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2712,7 +2706,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConfirmFirstWorkspacePurchaseInputBody.json"],
+						"examples": ["/api/v1/schemas/ConfirmFirstWorkspacePurchaseInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2751,9 +2745,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/ConfirmFirstWorkspacePurchaseOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/ConfirmFirstWorkspacePurchaseOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2779,7 +2771,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConfirmTOTPSetupInputBody.json"],
+						"examples": ["/api/v1/schemas/ConfirmTOTPSetupInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2803,7 +2795,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConsumeBillingCheckoutReturnOutputBody.json"],
+						"examples": ["/api/v1/schemas/ConsumeBillingCheckoutReturnOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2827,9 +2819,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/ConsumeImageEditorReturnTokenOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/ConsumeImageEditorReturnTokenOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2872,7 +2862,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConsumeUserImpersonationLinkInputBody.json"],
+						"examples": ["/api/v1/schemas/ConsumeUserImpersonationLinkInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -2892,7 +2882,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConsumeUserImpersonationLinkOutputBody.json"],
+						"examples": ["/api/v1/schemas/ConsumeUserImpersonationLinkOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3091,7 +3081,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ConversationPage.json"],
+						"examples": ["/api/v1/schemas/ConversationPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3124,7 +3114,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateAPITokenInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateAPITokenInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3158,7 +3148,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateAPITokenOutputBody.json"],
+						"examples": ["/api/v1/schemas/CreateAPITokenOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3179,7 +3169,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateBillingCheckoutInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateBillingCheckoutInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3216,7 +3206,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateBillingPortalInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateBillingPortalInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3249,7 +3239,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateImageEditorCheckpointInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateImageEditorCheckpointInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3273,7 +3263,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateImageEditorDesignInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateImageEditorDesignInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3313,7 +3303,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateImageEditorReturnTokenInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateImageEditorReturnTokenInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3347,7 +3337,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateImageEditorReturnTokenOutputBody.json"],
+						"examples": ["/api/v1/schemas/CreateImageEditorReturnTokenOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3367,7 +3357,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateImageEditorTemplateInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateImageEditorTemplateInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3399,7 +3389,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateMCPOAuthAuthorizationInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateMCPOAuthAuthorizationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3453,7 +3443,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateMCPOAuthAuthorizationOutputBody.json"],
+						"examples": ["/api/v1/schemas/CreateMCPOAuthAuthorizationOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3471,7 +3461,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateMediaTagInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateMediaTagInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3493,7 +3483,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateMediaUploadSessionInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateMediaUploadSessionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3578,7 +3568,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateMediaUploadSessionOutputBody.json"],
+						"examples": ["/api/v1/schemas/CreateMediaUploadSessionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3608,9 +3598,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/CreateOrganizationBillingCheckoutInputBody.json"
-						],
+						"examples": ["/api/v1/schemas/CreateOrganizationBillingCheckoutInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3639,7 +3627,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreatePostingScheduleInputBody.json"],
+						"examples": ["/api/v1/schemas/CreatePostingScheduleInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3691,7 +3679,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreatePromptInputBody.json"],
+						"examples": ["/api/v1/schemas/CreatePromptInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3726,7 +3714,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreatePublicationBody.json"],
+						"examples": ["/api/v1/schemas/CreatePublicationBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3831,7 +3819,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreatePurchaseChoiceInputBody.json"],
+						"examples": ["/api/v1/schemas/CreatePurchaseChoiceInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3858,7 +3846,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateSocialSetInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateSocialSetInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3893,7 +3881,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateUserImpersonationLinkOutputBody.json"],
+						"examples": ["/api/v1/schemas/CreateUserImpersonationLinkOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3915,7 +3903,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateWorkspaceInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateWorkspaceInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3939,7 +3927,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateWorkspaceInvitationInputBody.json"],
+						"examples": ["/api/v1/schemas/CreateWorkspaceInvitationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -3963,7 +3951,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/CreateWorkspaceOutputBody.json"],
+						"examples": ["/api/v1/schemas/CreateWorkspaceOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4023,7 +4011,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteAccountInputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteAccountInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4050,7 +4038,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteAccountOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteAccountOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4067,7 +4055,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteImageEditorDesignOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteImageEditorDesignOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4084,7 +4072,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteImageEditorTemplateOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteImageEditorTemplateOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4101,7 +4089,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteMediaOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteMediaOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4119,7 +4107,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteMediaTagOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteMediaTagOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4136,7 +4124,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeletePostingScheduleOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeletePostingScheduleOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4154,7 +4142,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeletePromptOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeletePromptOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4172,7 +4160,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteProviderAppResponse.json"],
+						"examples": ["/api/v1/schemas/DeleteProviderAppResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4190,7 +4178,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteWorkspaceInputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteWorkspaceInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4217,7 +4205,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DeleteWorkspaceOutputBody.json"],
+						"examples": ["/api/v1/schemas/DeleteWorkspaceOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4279,7 +4267,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DenyCLIAuthInputBody.json"],
+						"examples": ["/api/v1/schemas/DenyCLIAuthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4330,7 +4318,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DestinationOptionsOutputBody.json"],
+						"examples": ["/api/v1/schemas/DestinationOptionsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4427,7 +4415,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DirectMessage.json"],
+						"examples": ["/api/v1/schemas/DirectMessage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4497,7 +4485,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DisableTOTPInputBody.json"],
+						"examples": ["/api/v1/schemas/DisableTOTPInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4519,7 +4507,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DiscordWebhookLoginInputBody.json"],
+						"examples": ["/api/v1/schemas/DiscordWebhookLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4551,7 +4539,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DismissGrowthInputBody.json"],
+						"examples": ["/api/v1/schemas/DismissGrowthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4569,7 +4557,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/DismissGrowthOutputBody.json"],
+						"examples": ["/api/v1/schemas/DismissGrowthOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4600,7 +4588,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/EmailChangeStatusOutputBody.json"],
+						"examples": ["/api/v1/schemas/EmailChangeStatusOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4616,7 +4604,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/EmailChangeSummary.json"],
+						"examples": ["/api/v1/schemas/EmailChangeSummary.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4648,7 +4636,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/EngagementActionInputBody.json"],
+						"examples": ["/api/v1/schemas/EngagementActionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4846,7 +4834,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/EngagementPage.json"],
+						"examples": ["/api/v1/schemas/EngagementPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4940,7 +4928,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ErrorModel.json"],
+						"examples": ["/api/v1/schemas/ErrorModel.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -4989,7 +4977,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ExchangeCodeInputBody.json"],
+						"examples": ["/api/v1/schemas/ExchangeCodeInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5175,7 +5163,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/FinishPasskeyLoginInputBody.json"],
+						"examples": ["/api/v1/schemas/FinishPasskeyLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5196,7 +5184,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/FinishPasskeyReauthInputBody.json"],
+						"examples": ["/api/v1/schemas/FinishPasskeyReauthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5217,7 +5205,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/FinishPasskeyRegistrationInputBody.json"],
+						"examples": ["/api/v1/schemas/FinishPasskeyRegistrationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5242,7 +5230,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/FollowGrowthInputBody.json"],
+						"examples": ["/api/v1/schemas/FollowGrowthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5260,7 +5248,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/FollowGrowthOutputBody.json"],
+						"examples": ["/api/v1/schemas/FollowGrowthOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5313,7 +5301,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GenerateMediaAltTextInputBody.json"],
+						"examples": ["/api/v1/schemas/GenerateMediaAltTextInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5337,7 +5325,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GenerateMediaAltTextOutputBody.json"],
+						"examples": ["/api/v1/schemas/GenerateMediaAltTextOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5363,7 +5351,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GenerateMemeSuggestionsInputBody.json"],
+						"examples": ["/api/v1/schemas/GenerateMemeSuggestionsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5406,7 +5394,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GenerateMemeSuggestionsOutputBody.json"],
+						"examples": ["/api/v1/schemas/GenerateMemeSuggestionsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5432,7 +5420,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/Get-running-versionResponse.json"],
+						"examples": ["/api/v1/schemas/Get-running-versionResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5458,7 +5446,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetAuthURLOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetAuthURLOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5476,7 +5464,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetCLIAuthSessionOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetCLIAuthSessionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5511,7 +5499,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetMediaStorageOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetMediaStorageOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5555,7 +5543,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetMediaUsageOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetMediaUsageOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5581,7 +5569,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetMemeTemplateThumbnailOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetMemeTemplateThumbnailOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5605,7 +5593,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetPromptCategoriesOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetPromptCategoriesOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5626,7 +5614,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/GetWorkspaceSettingsOutputBody.json"],
+						"examples": ["/api/v1/schemas/GetWorkspaceSettingsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5759,7 +5747,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/Health-checkResponse.json"],
+						"examples": ["/api/v1/schemas/Health-checkResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -5900,7 +5888,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ImageEditorBrandKitResponse.json"],
+						"examples": ["/api/v1/schemas/ImageEditorBrandKitResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -6149,7 +6137,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ImageEditorDocumentResponse.json"],
+						"examples": ["/api/v1/schemas/ImageEditorDocumentResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -6725,7 +6713,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ImageEditorPresetOutputBody.json"],
+						"examples": ["/api/v1/schemas/ImageEditorPresetOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -6755,7 +6743,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ImageEditorRevisionResponse.json"],
+						"examples": ["/api/v1/schemas/ImageEditorRevisionResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -6778,7 +6766,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ImageEditorRevisionSummary.json"],
+						"examples": ["/api/v1/schemas/ImageEditorRevisionSummary.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -6899,7 +6887,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ImageEditorTemplateResponse.json"],
+						"examples": ["/api/v1/schemas/ImageEditorTemplateResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7103,7 +7091,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/InitiateOwnershipTransferInputBody.json"],
+						"examples": ["/api/v1/schemas/InitiateOwnershipTransferInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7132,7 +7120,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/InstanceAuditJSONExport.json"],
+						"examples": ["/api/v1/schemas/InstanceAuditJSONExport.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7176,7 +7164,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/InstanceOverviewResponse.json"],
+						"examples": ["/api/v1/schemas/InstanceOverviewResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7367,7 +7355,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/InstanceSettingsResponse.json"],
+						"examples": ["/api/v1/schemas/InstanceSettingsResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7391,7 +7379,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/InstanceUserPage.json"],
+						"examples": ["/api/v1/schemas/InstanceUserPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7506,9 +7494,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/InstantiateImageEditorTemplateInputBody.json"
-						],
+						"examples": ["/api/v1/schemas/InstantiateImageEditorTemplateInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7606,7 +7592,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListImageEditorDesignsOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListImageEditorDesignsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7633,7 +7619,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListImageEditorRevisionsOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListImageEditorRevisionsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7656,7 +7642,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListImageEditorTemplatesOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListImageEditorTemplatesOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7679,7 +7665,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListMediaOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListMediaOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7705,7 +7691,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListMediaTagsOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListMediaTagsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7728,7 +7714,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListMemeTemplatesOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListMemeTemplatesOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7759,9 +7745,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/ListPublicImageEditorTemplatesOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/ListPublicImageEditorTemplatesOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7781,7 +7765,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListResult.json"],
+						"examples": ["/api/v1/schemas/ListResult.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7810,7 +7794,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ListStockProvidersOutputBody.json"],
+						"examples": ["/api/v1/schemas/ListStockProvidersOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7833,7 +7817,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/LoginInputBody.json"],
+						"examples": ["/api/v1/schemas/LoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -7856,7 +7840,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/LogoutOutputBody.json"],
+						"examples": ["/api/v1/schemas/LogoutOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8350,7 +8334,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/MediaTagResponse.json"],
+						"examples": ["/api/v1/schemas/MediaTagResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8380,7 +8364,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/MediaUploadResult.json"],
+						"examples": ["/api/v1/schemas/MediaUploadResult.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8603,7 +8587,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/MemeRecipeResponse.json"],
+						"examples": ["/api/v1/schemas/MemeRecipeResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8709,7 +8693,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/MessageOutputBody.json"],
+						"examples": ["/api/v1/schemas/MessageOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8726,7 +8710,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/MessagePage.json"],
+						"examples": ["/api/v1/schemas/MessagePage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8836,7 +8820,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/MuteCreate.json"],
+						"examples": ["/api/v1/schemas/MuteCreate.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8861,7 +8845,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/NextAvailableSlotOutputBody.json"],
+						"examples": ["/api/v1/schemas/NextAvailableSlotOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8909,7 +8893,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/NotificationPage.json"],
+						"examples": ["/api/v1/schemas/NotificationPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8936,7 +8920,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCAuthenticatedStartInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCAuthenticatedStartInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8961,7 +8945,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCAuthenticatedStartOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCAuthenticatedStartOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -8988,7 +8972,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCDiscoverOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCDiscoverOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9008,7 +8992,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCDomainCreateInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCDomainCreateInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9030,7 +9014,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCDomainCreateOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCDomainCreateOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9053,7 +9037,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCDomainVerifyOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCDomainVerifyOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9104,7 +9088,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCLogoutInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCLogoutInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9120,7 +9104,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCLogoutOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCLogoutOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9136,7 +9120,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCNativeHandoffInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCNativeHandoffInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9154,7 +9138,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCNativeHandoffOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCNativeHandoffOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9184,7 +9168,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCPolicyInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCPolicyInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9236,7 +9220,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCProviderActiveInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCProviderActiveInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9253,7 +9237,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCProviderActiveOutputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCProviderActiveOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9274,7 +9258,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCProviderAdminInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCProviderAdminInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9333,7 +9317,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCProviderAdminResponse.json"],
+						"examples": ["/api/v1/schemas/OIDCProviderAdminResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9459,7 +9443,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OIDCUnlinkIdentityInputBody.json"],
+						"examples": ["/api/v1/schemas/OIDCUnlinkIdentityInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9535,7 +9519,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OrganizationAuditJSONExport.json"],
+						"examples": ["/api/v1/schemas/OrganizationAuditJSONExport.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9565,7 +9549,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OrganizationAuditPage.json"],
+						"examples": ["/api/v1/schemas/OrganizationAuditPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9607,7 +9591,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OrganizationDeletionInputBody.json"],
+						"examples": ["/api/v1/schemas/OrganizationDeletionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9634,7 +9618,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OrganizationDeletionOutputBody.json"],
+						"examples": ["/api/v1/schemas/OrganizationDeletionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9670,7 +9654,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OrganizationDeletionPreview.json"],
+						"examples": ["/api/v1/schemas/OrganizationDeletionPreview.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9803,7 +9787,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OrganizationTeamOutputBody.json"],
+						"examples": ["/api/v1/schemas/OrganizationTeamOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9850,7 +9834,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/Overview.json"],
+						"examples": ["/api/v1/schemas/Overview.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9924,7 +9908,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/OwnershipTransferResponse.json"],
+						"examples": ["/api/v1/schemas/OwnershipTransferResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -9976,7 +9960,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PasskeyCeremonyOutputBody.json"],
+						"examples": ["/api/v1/schemas/PasskeyCeremonyOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10019,7 +10003,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PasswordReauthInputBody.json"],
+						"examples": ["/api/v1/schemas/PasswordReauthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10041,7 +10025,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PendingOwnershipTransferResponse.json"],
+						"examples": ["/api/v1/schemas/PendingOwnershipTransferResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10063,7 +10047,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/Policy.json"],
+						"examples": ["/api/v1/schemas/Policy.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10186,7 +10170,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PollCLIAuthInputBody.json"],
+						"examples": ["/api/v1/schemas/PollCLIAuthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10203,7 +10187,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PollCLIAuthOutputBody.json"],
+						"examples": ["/api/v1/schemas/PollCLIAuthOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10235,7 +10219,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PostingScheduleResponse.json"],
+						"examples": ["/api/v1/schemas/PostingScheduleResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10310,7 +10294,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PreferenceSettings.json"],
+						"examples": ["/api/v1/schemas/PreferenceSettings.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10368,7 +10352,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PreferenceUpdate.json"],
+						"examples": ["/api/v1/schemas/PreferenceUpdate.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10395,7 +10379,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PreviewMemeInputBody.json"],
+						"examples": ["/api/v1/schemas/PreviewMemeInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10444,7 +10428,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PreviewMemeOutputBody.json"],
+						"examples": ["/api/v1/schemas/PreviewMemeOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10484,7 +10468,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PromptResponse.json"],
+						"examples": ["/api/v1/schemas/PromptResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10892,9 +10876,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/ProviderReadinessLedgerAppendOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/ProviderReadinessLedgerAppendOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10911,7 +10893,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ProviderReadinessOutputBody.json"],
+						"examples": ["/api/v1/schemas/ProviderReadinessOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -10950,7 +10932,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublicConfig.json"],
+						"examples": ["/api/v1/schemas/PublicConfig.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11017,7 +10999,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublicProfileOutputBody.json"],
+						"examples": ["/api/v1/schemas/PublicProfileOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11293,7 +11275,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublicationMutationActionInputBody.json"],
+						"examples": ["/api/v1/schemas/PublicationMutationActionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11380,7 +11362,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublicationResponse.json"],
+						"examples": ["/api/v1/schemas/PublicationResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11575,7 +11557,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublicationUpdateBody.json"],
+						"examples": ["/api/v1/schemas/PublicationUpdateBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11676,7 +11658,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublicationValidationOutputBody.json"],
+						"examples": ["/api/v1/schemas/PublicationValidationOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11699,7 +11681,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PublishingOptionsOutputBody.json"],
+						"examples": ["/api/v1/schemas/PublishingOptionsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11722,7 +11704,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/PurchaseChoiceResponse.json"],
+						"examples": ["/api/v1/schemas/PurchaseChoiceResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11792,7 +11774,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/Readiness-checkResponse.json"],
+						"examples": ["/api/v1/schemas/Readiness-checkResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11814,7 +11796,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ReauthGrantOutputBody.json"],
+						"examples": ["/api/v1/schemas/ReauthGrantOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11955,7 +11937,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RecoveryCodeSensitiveActionInputBody.json"],
+						"examples": ["/api/v1/schemas/RecoveryCodeSensitiveActionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -11977,7 +11959,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RecoveryCodeSetOutputBody.json"],
+						"examples": ["/api/v1/schemas/RecoveryCodeSetOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12002,7 +11984,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RecoveryCodeStatusOutputBody.json"],
+						"examples": ["/api/v1/schemas/RecoveryCodeStatusOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12021,7 +12003,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshAnalyticsInputBody.json"],
+						"examples": ["/api/v1/schemas/RefreshAnalyticsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12039,7 +12021,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshAnalyticsOutputBody.json"],
+						"examples": ["/api/v1/schemas/RefreshAnalyticsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12060,7 +12042,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshCapabilitiesInputBody.json"],
+						"examples": ["/api/v1/schemas/RefreshCapabilitiesInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12077,7 +12059,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshCapabilitiesResult.json"],
+						"examples": ["/api/v1/schemas/RefreshCapabilitiesResult.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12097,7 +12079,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshCapabilityOutcome.json"],
+						"examples": ["/api/v1/schemas/RefreshCapabilityOutcome.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12122,7 +12104,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshGrowthInputBody.json"],
+						"examples": ["/api/v1/schemas/RefreshGrowthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12144,7 +12126,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RefreshGrowthOutputBody.json"],
+						"examples": ["/api/v1/schemas/RefreshGrowthOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12170,7 +12152,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RegisterInputBody.json"],
+						"examples": ["/api/v1/schemas/RegisterInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12210,7 +12192,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RemoveAvatarOutputBody.json"],
+						"examples": ["/api/v1/schemas/RemoveAvatarOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12228,7 +12210,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RemovePasskeyInputBody.json"],
+						"examples": ["/api/v1/schemas/RemovePasskeyInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12250,7 +12232,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RemoveWorkspaceMemberOutputBody.json"],
+						"examples": ["/api/v1/schemas/RemoveWorkspaceMemberOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12267,7 +12249,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RenderMemeInputBody.json"],
+						"examples": ["/api/v1/schemas/RenderMemeInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12326,7 +12308,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RenderMemeOutputBody.json"],
+						"examples": ["/api/v1/schemas/RenderMemeOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12707,7 +12689,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ReplaceMediaTagItemsInputBody.json"],
+						"examples": ["/api/v1/schemas/ReplaceMediaTagItemsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12733,7 +12715,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ReplaceMediaTagItemsOutputBody.json"],
+						"examples": ["/api/v1/schemas/ReplaceMediaTagItemsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12751,7 +12733,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ReplyInputBody.json"],
+						"examples": ["/api/v1/schemas/ReplyInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12790,7 +12772,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RepostGrantOutputBody.json"],
+						"examples": ["/api/v1/schemas/RepostGrantOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12807,7 +12789,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RequestPasswordResetInputBody.json"],
+						"examples": ["/api/v1/schemas/RequestPasswordResetInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12826,7 +12808,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ResendEmailVerificationInputBody.json"],
+						"examples": ["/api/v1/schemas/ResendEmailVerificationInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12845,7 +12827,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ResetPasswordInputBody.json"],
+						"examples": ["/api/v1/schemas/ResetPasswordInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12870,7 +12852,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ResetPasswordOutputBody.json"],
+						"examples": ["/api/v1/schemas/ResetPasswordOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12887,7 +12869,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ResolveCapabilitiesInputBody.json"],
+						"examples": ["/api/v1/schemas/ResolveCapabilitiesInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -12955,7 +12937,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ResolveCapabilitiesOutputBody.json"],
+						"examples": ["/api/v1/schemas/ResolveCapabilitiesOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13190,7 +13172,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/ResolvedAsset.json"],
+						"examples": ["/api/v1/schemas/ResolvedAsset.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13294,7 +13276,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RestoreImageEditorRevisionInputBody.json"],
+						"examples": ["/api/v1/schemas/RestoreImageEditorRevisionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13313,7 +13295,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RestoreMediaOutputBody.json"],
+						"examples": ["/api/v1/schemas/RestoreMediaOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13331,7 +13313,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RetryMediaAnalysisOutputBody.json"],
+						"examples": ["/api/v1/schemas/RetryMediaAnalysisOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13357,9 +13339,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/Revoke-organization-ownership-transferResponse.json"
-						],
+						"examples": ["/api/v1/schemas/Revoke-organization-ownership-transferResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13376,7 +13356,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RevokeAPITokenOutputBody.json"],
+						"examples": ["/api/v1/schemas/RevokeAPITokenOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13393,7 +13373,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RevokeUserSessionOutputBody.json"],
+						"examples": ["/api/v1/schemas/RevokeUserSessionOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13413,7 +13393,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/RevokeWorkspaceInvitationOutputBody.json"],
+						"examples": ["/api/v1/schemas/RevokeWorkspaceInvitationOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13535,7 +13515,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SaveAccountFeaturesInputBody.json"],
+						"examples": ["/api/v1/schemas/SaveAccountFeaturesInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13560,7 +13540,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SaveInstanceSettingsInputBody.json"],
+						"examples": ["/api/v1/schemas/SaveInstanceSettingsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13582,7 +13562,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SaveProviderAppInputBody.json"],
+						"examples": ["/api/v1/schemas/SaveProviderAppInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13624,7 +13604,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SaveProviderAppResponse.json"],
+						"examples": ["/api/v1/schemas/SaveProviderAppResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13649,7 +13629,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SaveRepostSettingsInputBody.json"],
+						"examples": ["/api/v1/schemas/SaveRepostSettingsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13687,7 +13667,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SearchPage.json"],
+						"examples": ["/api/v1/schemas/SearchPage.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13728,7 +13708,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SecurityStatusOutputBody.json"],
+						"examples": ["/api/v1/schemas/SecurityStatusOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13762,7 +13742,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SelectStockMediaInputBody.json"],
+						"examples": ["/api/v1/schemas/SelectStockMediaInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13785,7 +13765,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SendMessageInputBody.json"],
+						"examples": ["/api/v1/schemas/SendMessageInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13821,7 +13801,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SetConversationStateInputBody.json"],
+						"examples": ["/api/v1/schemas/SetConversationStateInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13844,7 +13824,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SetEngagementStateInputBody.json"],
+						"examples": ["/api/v1/schemas/SetEngagementStateInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13873,7 +13853,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SetUserPlanInputBody.json"],
+						"examples": ["/api/v1/schemas/SetUserPlanInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -13891,7 +13871,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SetUserPlanOutputBody.json"],
+						"examples": ["/api/v1/schemas/SetUserPlanOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14083,7 +14063,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SettingsResponse.json"],
+						"examples": ["/api/v1/schemas/SettingsResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14134,7 +14114,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SetupTOTPInputBody.json"],
+						"examples": ["/api/v1/schemas/SetupTOTPInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14156,7 +14136,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SetupTOTPOutputBody.json"],
+						"examples": ["/api/v1/schemas/SetupTOTPOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14223,7 +14203,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SocialSetResponse.json"],
+						"examples": ["/api/v1/schemas/SocialSetResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14269,7 +14249,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/StartCLIAuthInputBody.json"],
+						"examples": ["/api/v1/schemas/StartCLIAuthInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14300,7 +14280,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/StartCLIAuthOutputBody.json"],
+						"examples": ["/api/v1/schemas/StartCLIAuthOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14331,7 +14311,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/StartWorkspaceCompositionInputBody.json"],
+						"examples": ["/api/v1/schemas/StartWorkspaceCompositionInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14356,7 +14336,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/StartWorkspaceCompositionResponse.json"],
+						"examples": ["/api/v1/schemas/StartWorkspaceCompositionResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14454,7 +14434,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SubmitFeedbackInputBody.json"],
+						"examples": ["/api/v1/schemas/SubmitFeedbackInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14487,7 +14467,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SubmitFeedbackOutputBody.json"],
+						"examples": ["/api/v1/schemas/SubmitFeedbackOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14510,7 +14490,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SuggestScheduleInputBody.json"],
+						"examples": ["/api/v1/schemas/SuggestScheduleInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14533,7 +14513,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/SuggestScheduleOutputBody.json"],
+						"examples": ["/api/v1/schemas/SuggestScheduleOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14751,9 +14731,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": [
-							"https://example.com/schemas/ToggleImageEditorDesignFavoriteOutputBody.json"
-						],
+						"examples": ["/api/v1/schemas/ToggleImageEditorDesignFavoriteOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14821,7 +14799,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateAccountInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateAccountInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14844,7 +14822,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateImageEditorBrandKitInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateImageEditorBrandKitInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14889,7 +14867,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateImageEditorDesignInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateImageEditorDesignInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14918,7 +14896,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateImageEditorTemplateInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateImageEditorTemplateInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14947,7 +14925,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateMediaFavoriteOutputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateMediaFavoriteOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14965,7 +14943,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateMediaInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateMediaInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -14987,7 +14965,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateMediaOutputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateMediaOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15005,7 +14983,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateMediaTagInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateMediaTagInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15024,7 +15002,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdatePostingScheduleInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdatePostingScheduleInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15060,7 +15038,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateProfileInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateProfileInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15105,7 +15083,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateSocialSetInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateSocialSetInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15136,7 +15114,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateStatusResponse.json"],
+						"examples": ["/api/v1/schemas/UpdateStatusResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15216,7 +15194,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateWorkspaceMemberInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateWorkspaceMemberInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15239,7 +15217,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateWorkspaceSettingsInputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateWorkspaceSettingsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15295,7 +15273,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpdateWorkspaceSettingsOutputBody.json"],
+						"examples": ["/api/v1/schemas/UpdateWorkspaceSettingsOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15360,7 +15338,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UpsertRenditionsInputBody.json"],
+						"examples": ["/api/v1/schemas/UpsertRenditionsInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15443,7 +15421,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/UserProfile.json"],
+						"examples": ["/api/v1/schemas/UserProfile.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15653,7 +15631,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/VerifyRecoveryCodeLoginInputBody.json"],
+						"examples": ["/api/v1/schemas/VerifyRecoveryCodeLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15677,7 +15655,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/VerifyTOTPLoginInputBody.json"],
+						"examples": ["/api/v1/schemas/VerifyTOTPLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15776,7 +15754,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/WorkspaceDeletionPreview.json"],
+						"examples": ["/api/v1/schemas/WorkspaceDeletionPreview.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15826,7 +15804,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/WorkspaceInvitationResponse.json"],
+						"examples": ["/api/v1/schemas/WorkspaceInvitationResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -15923,7 +15901,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/WorkspaceMemberResponse.json"],
+						"examples": ["/api/v1/schemas/WorkspaceMemberResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -16037,7 +16015,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/WorkspaceSetupResponse.json"],
+						"examples": ["/api/v1/schemas/WorkspaceSetupResponse.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -16111,7 +16089,7 @@
 				"properties": {
 					"$schema": {
 						"description": "A URL to the JSON Schema for this object.",
-						"examples": ["https://example.com/schemas/WorkspaceTeamOutputBody.json"],
+						"examples": ["/api/v1/schemas/WorkspaceTeamOutputBody.json"],
 						"format": "uri",
 						"readOnly": true,
 						"type": "string"
@@ -16139,6 +16117,13 @@
 				},
 				"required": ["members", "invitations", "current_seats", "can_manage"],
 				"type": "object"
+			}
+		},
+		"securitySchemes": {
+			"bearerAuth": {
+				"bearerFormat": "OpenPost API token or session JWT",
+				"scheme": "bearer",
+				"type": "http"
 			}
 		}
 	},
@@ -16366,7 +16351,14 @@
 					}
 				},
 				"summary": "List connected social accounts for a workspace",
-				"tags": ["Accounts"]
+				"tags": ["Accounts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/accounts/bluesky/login": {
@@ -16627,7 +16619,14 @@
 					}
 				},
 				"summary": "List configured account providers",
-				"tags": ["Accounts"]
+				"tags": ["Accounts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/accounts/selections/{connection_id}": {
@@ -17061,7 +17060,14 @@
 					}
 				},
 				"summary": "List account-specific publishing options",
-				"tags": ["Accounts"]
+				"tags": ["Accounts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/accounts/{account_id}/grant": {
@@ -17290,7 +17296,14 @@
 					}
 				},
 				"summary": "Search one account-specific publishing option collection",
-				"tags": ["Accounts"]
+				"tags": ["Accounts"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/accounts/{platform}/auth-url": {
@@ -19466,6 +19479,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "Get public authentication configuration",
 				"tags": ["Auth"]
 			}
@@ -19951,6 +19965,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Verify a new account email with a six-digit code",
 				"tags": ["Auth"]
 			}
@@ -20037,6 +20052,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Send a replacement email verification code",
 				"tags": ["Auth"]
 			}
@@ -20114,6 +20130,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Consume a user impersonation link",
 				"tags": ["Auth"]
 			}
@@ -20249,6 +20266,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Login with email and password",
 				"tags": ["Auth"]
 			}
@@ -20318,6 +20336,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Begin MFA login with a passkey",
 				"tags": ["Auth"]
 			}
@@ -20394,6 +20413,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Complete MFA login with a passkey",
 				"tags": ["Auth"]
 			}
@@ -20480,6 +20500,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Complete MFA login with a single-use recovery code",
 				"tags": ["Auth"]
 			}
@@ -20556,6 +20577,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Complete MFA login with a TOTP code",
 				"tags": ["Auth"]
 			}
@@ -20691,6 +20713,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Discover a verified organization identity provider by email",
 				"tags": ["Auth"]
 			}
@@ -20750,6 +20773,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Exchange a one-time native OIDC handoff code",
 				"tags": ["Auth"]
 			}
@@ -20935,6 +20959,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "List instance identity providers available for login",
 				"tags": ["Auth"]
 			}
@@ -21332,6 +21357,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Reset a password with a single-use token",
 				"tags": ["Auth"]
 			}
@@ -21401,6 +21427,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Request a password reset link",
 				"tags": ["Auth"]
 			}
@@ -21832,6 +21859,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Register a new user",
 				"tags": ["Auth"]
 			}
@@ -23218,6 +23246,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Create or validate a hosted plan purchase choice",
 				"tags": ["Billing"]
 			}
@@ -23425,6 +23454,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "List provider publishing capabilities",
 				"tags": ["Capabilities"]
 			}
@@ -23515,7 +23545,14 @@
 					}
 				},
 				"summary": "Resolve publishing capabilities for connected accounts",
-				"tags": ["Capabilities"]
+				"tags": ["Capabilities"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/cli/auth/approve": {
@@ -23779,6 +23816,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Poll CLI device authorization",
 				"tags": ["Auth"]
 			}
@@ -23917,6 +23955,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Start CLI device authorization",
 				"tags": ["Auth"]
 			}
@@ -24981,6 +25020,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "Health check",
 				"tags": ["System"]
 			}
@@ -26084,6 +26124,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "List OpenPost Image Editor presets and runtime configuration",
 				"tags": ["OpenPost Image Editor"]
 			}
@@ -26113,6 +26154,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "List built-in OpenPost Image Editor templates available without a workspace",
 				"tags": ["OpenPost Image Editor"]
 			}
@@ -27330,7 +27372,20 @@
 					}
 				},
 				"summary": "List media attachments for a workspace",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"pagination": {
+						"cursor_parameter": "cursor",
+						"has_more_header": "X-Has-More",
+						"next_cursor_header": "X-Next-Cursor",
+						"style": "cursor"
+					},
+					"retry": "transient"
+				}
 			}
 		},
 		"/media/batch-delete": {
@@ -27399,7 +27454,14 @@
 					}
 				},
 				"summary": "Move multiple media attachments to Trash",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/media/storage": {
@@ -27471,7 +27533,14 @@
 					}
 				},
 				"summary": "Get workspace media storage usage",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/media/tags": {
@@ -27752,7 +27821,14 @@
 					}
 				},
 				"summary": "Create a streaming media upload session",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/media/upload-session/{id}/complete": {
@@ -27843,7 +27919,14 @@
 					}
 				},
 				"summary": "Complete a streaming media upload session",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/media/{id}": {
@@ -27914,7 +27997,14 @@
 					}
 				},
 				"summary": "Move a media attachment to Trash when active work does not use it",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			},
 			"patch": {
 				"operationId": "update-media",
@@ -27993,7 +28083,14 @@
 					}
 				},
 				"summary": "Update media metadata",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/media/{id}/alt-text/generate": {
@@ -28196,7 +28293,14 @@
 					}
 				},
 				"summary": "Retry authoritative analysis for a video",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/media/{id}/favorite": {
@@ -28267,7 +28371,14 @@
 					}
 				},
 				"summary": "Toggle favorite status of a media attachment",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/media/{id}/restore": {
@@ -28338,7 +28449,14 @@
 					}
 				},
 				"summary": "Restore a media attachment from Trash",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/media/{id}/usage": {
@@ -28409,7 +28527,14 @@
 					}
 				},
 				"summary": "Get publications that use a media attachment",
-				"tags": ["Media"]
+				"tags": ["Media"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/memes/preview": {
@@ -29649,7 +29774,14 @@
 					}
 				},
 				"summary": "Pause optional notification email temporarily",
-				"tags": ["Notifications"]
+				"tags": ["Notifications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/notifications/mutes/{id}": {
@@ -29721,7 +29853,14 @@
 					}
 				},
 				"summary": "End a notification Mute now",
-				"tags": ["Notifications"]
+				"tags": ["Notifications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/notifications/preferences": {
@@ -29760,7 +29899,14 @@
 					}
 				},
 				"summary": "Get notification delivery preferences",
-				"tags": ["Notifications"]
+				"tags": ["Notifications"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			},
 			"put": {
 				"operationId": "update-notification-preferences",
@@ -32279,7 +32425,14 @@
 					}
 				},
 				"summary": "List posting schedules for a workspace",
-				"tags": ["Posting Schedules"]
+				"tags": ["Posting Schedules"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			},
 			"post": {
 				"operationId": "create-posting-schedule",
@@ -32346,7 +32499,14 @@
 					}
 				},
 				"summary": "Create a new posting schedule slot",
-				"tags": ["Posting Schedules"]
+				"tags": ["Posting Schedules"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/posting-schedules/next-slot": {
@@ -32407,7 +32567,14 @@
 					}
 				},
 				"summary": "Get the next available posting time slot",
-				"tags": ["Posting Schedules"]
+				"tags": ["Posting Schedules"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/posting-schedules/suggest": {
@@ -32547,7 +32714,14 @@
 					}
 				},
 				"summary": "Delete a posting schedule slot",
-				"tags": ["Posting Schedules"]
+				"tags": ["Posting Schedules"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			},
 			"patch": {
 				"operationId": "update-posting-schedule",
@@ -32636,7 +32810,14 @@
 					}
 				},
 				"summary": "Update a posting schedule slot",
-				"tags": ["Posting Schedules"]
+				"tags": ["Posting Schedules"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/prompts": {
@@ -33030,7 +33211,14 @@
 					}
 				},
 				"summary": "Inspect provider readiness for a workspace",
-				"tags": ["Provider Readiness"]
+				"tags": ["Provider Readiness"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/public/profiles/{username}": {
@@ -33100,6 +33288,7 @@
 						"description": "Internal Server Error"
 					}
 				},
+				"security": [],
 				"summary": "Get an opt-in public publishing profile",
 				"tags": ["Profiles"]
 			}
@@ -33305,7 +33494,20 @@
 					}
 				},
 				"summary": "List publications",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"pagination": {
+						"cursor_parameter": "cursor",
+						"has_more_header": "X-Has-More",
+						"next_cursor_header": "X-Next-Cursor",
+						"style": "cursor"
+					},
+					"retry": "transient"
+				}
 			},
 			"post": {
 				"operationId": "create-publication",
@@ -33372,7 +33574,14 @@
 					}
 				},
 				"summary": "Create a publication",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}": {
@@ -33545,7 +33754,14 @@
 					}
 				},
 				"summary": "Get a publication",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			},
 			"put": {
 				"operationId": "update-publication",
@@ -33594,7 +33810,14 @@
 					}
 				},
 				"summary": "Update a publication",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}/cancel": {
@@ -33695,7 +33918,14 @@
 					}
 				},
 				"summary": "Cancel a scheduled publication",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}/events": {
@@ -33792,7 +34022,20 @@
 					}
 				},
 				"summary": "List publication lifecycle events",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"pagination": {
+						"cursor_parameter": "cursor",
+						"has_more_header": "X-Has-More",
+						"next_cursor_header": "X-Next-Cursor",
+						"style": "cursor"
+					},
+					"retry": "transient"
+				}
 			}
 		},
 		"/publications/{id}/publish-now": {
@@ -33843,7 +34086,14 @@
 					}
 				},
 				"summary": "Publish a publication now",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}/renditions": {
@@ -33894,7 +34144,14 @@
 					}
 				},
 				"summary": "Replace or upsert publication renditions",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}/renditions/{account_id}": {
@@ -34139,7 +34396,14 @@
 					}
 				},
 				"summary": "Retry one failed publication destination",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/publications/{id}/retry-failed": {
@@ -34231,7 +34495,14 @@
 					}
 				},
 				"summary": "Retry every retryable failed publication destination",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "external-action",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}/schedule": {
@@ -34282,7 +34553,14 @@
 					}
 				},
 				"summary": "Schedule a publication",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "alpha",
+					"idempotency": "required",
+					"retry": "idempotent-transient"
+				}
 			}
 		},
 		"/publications/{id}/validate": {
@@ -34323,7 +34601,14 @@
 					}
 				},
 				"summary": "Validate publication renditions",
-				"tags": ["Publications"]
+				"tags": ["Publications"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			}
 		},
 		"/ready": {
@@ -34361,6 +34646,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Readiness check",
 				"tags": ["System"]
 			}
@@ -34800,7 +35086,20 @@
 					}
 				},
 				"summary": "List Social Sets",
-				"tags": ["Social Sets"]
+				"tags": ["Social Sets"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"pagination": {
+						"cursor_parameter": "cursor",
+						"has_more_header": "X-Has-More",
+						"next_cursor_header": "X-Next-Cursor",
+						"style": "cursor"
+					},
+					"retry": "transient"
+				}
 			},
 			"post": {
 				"operationId": "create-social-set",
@@ -34877,7 +35176,14 @@
 					}
 				},
 				"summary": "Create a Social Set",
-				"tags": ["Social Sets"]
+				"tags": ["Social Sets"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/social-sets/{id}": {
@@ -34969,7 +35275,14 @@
 					}
 				},
 				"summary": "Delete a Social Set",
-				"tags": ["Social Sets"]
+				"tags": ["Social Sets"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "destructive",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			},
 			"get": {
 				"operationId": "get-social-set",
@@ -35038,7 +35351,14 @@
 					}
 				},
 				"summary": "Get a Social Set",
-				"tags": ["Social Sets"]
+				"tags": ["Social Sets"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			},
 			"put": {
 				"operationId": "update-social-set",
@@ -35137,7 +35457,14 @@
 					}
 				},
 				"summary": "Replace a Social Set",
-				"tags": ["Social Sets"]
+				"tags": ["Social Sets"],
+				"x-openpost-automation": {
+					"access": "write",
+					"effect": "local-mutation",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "never"
+				}
 			}
 		},
 		"/stock-media/providers": {
@@ -35165,6 +35492,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "List configured stock media providers",
 				"tags": ["Stock Media"]
 			}
@@ -35429,6 +35757,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Search configured stock photo and video providers",
 				"tags": ["Stock Media"]
 			}
@@ -35528,6 +35857,7 @@
 						"description": "Service Unavailable"
 					}
 				},
+				"security": [],
 				"summary": "Resolve a selected stock asset and record provider attribution events",
 				"tags": ["Stock Media"]
 			}
@@ -35558,6 +35888,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "Get browser telemetry configuration",
 				"tags": ["System"]
 			}
@@ -35588,6 +35919,7 @@
 						"description": "Error"
 					}
 				},
+				"security": [],
 				"summary": "Running version",
 				"tags": ["System"]
 			}
@@ -35802,7 +36134,14 @@
 					}
 				},
 				"summary": "List workspaces for the current user",
-				"tags": ["Workspaces"]
+				"tags": ["Workspaces"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "alpha",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			},
 			"post": {
 				"operationId": "create-workspace",
@@ -36739,7 +37078,14 @@
 					}
 				},
 				"summary": "Get workspace settings",
-				"tags": ["Workspaces"]
+				"tags": ["Workspaces"],
+				"x-openpost-automation": {
+					"access": "read",
+					"effect": "query",
+					"exposure": "disabled",
+					"idempotency": "none",
+					"retry": "transient"
+				}
 			},
 			"patch": {
 				"operationId": "update-workspace-settings",
@@ -37105,5 +37451,16 @@
 				"tags": ["Workspaces"]
 			}
 		}
-	}
+	},
+	"security": [
+		{
+			"bearerAuth": []
+		}
+	],
+	"servers": [
+		{
+			"description": "OpenPost REST API",
+			"url": "/api/v1"
+		}
+	]
 }

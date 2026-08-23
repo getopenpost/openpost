@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
 	apiroutes "github.com/openpost/backend/internal/api"
@@ -13,7 +12,7 @@ import (
 
 func main() {
 	e := echo.New()
-	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("OpenPost API", "1.0.0"))
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), apiroutes.NewHumaConfig("OpenPost API", "1.0.0"))
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{})
 
 	out, err := json.MarshalIndent(api.OpenAPI(), "", "\t")

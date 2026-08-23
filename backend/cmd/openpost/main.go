@@ -16,7 +16,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
@@ -533,7 +532,7 @@ func main() {
 	apiGroup := e.Group("/api/v1")
 	apiGroup.Use(handlers.FeedbackBodyLimitMiddleware)
 	apiGroup.Use(handlers.MemeBodyLimitMiddleware)
-	humaConfig := huma.DefaultConfig("OpenPost API", "1.0.0")
+	humaConfig := apiroutes.NewHumaConfig("OpenPost API", "1.0.0")
 	api := humaecho.NewWithGroup(e, apiGroup, humaConfig)
 
 	mediaHandler.RegisterLegacyRoutes(e)

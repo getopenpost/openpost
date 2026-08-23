@@ -14,6 +14,7 @@ const marketingPlaywright = readFileSync("playwright.config.ts", "utf8");
 const frontendCacheProof = readFileSync("scripts/verify-frontend-build-cache.mjs", "utf8");
 const smoke = readFileSync("scripts/smoke-production-image.sh", "utf8");
 const releaseAssetUpload = readFileSync("scripts/release-asset-upload.sh", "utf8");
+const n8nPackageRelease = readFileSync("scripts/n8n-package-release.mjs", "utf8");
 const dependabot = readFileSync(".github/dependabot.yml", "utf8");
 const workflows = readdirSync(".github/workflows", { withFileTypes: true })
   .filter((entry) => entry.isFile() && /\.(?:ya?ml)$/u.test(entry.name))
@@ -77,6 +78,7 @@ function assertFailureAtomicReleaseWorkflow(workflow) {
   const android = workflowJob(workflow, "build-android");
   const promote = workflowJob(workflow, "promote-image");
   const deploy = workflowJob(workflow, "deploy-production");
+  const publishN8n = workflowJob(workflow, "publish-n8n");
   const publish = workflowJob(workflow, "publish-release");
 
   const workflowAssets = [
@@ -133,6 +135,15 @@ function assertFailureAtomicReleaseWorkflow(workflow) {
   assert.match(deploy, /\/api\/v1\/ready/u);
   assert.match(deploy, /\/api\/v1\/version/u);
 
+  assertJobNeeds(publishN8n, ["deploy-production"]);
+  assert.match(publishN8n, /permissions:\s+contents: read\s+id-token: write/u);
+  assert.match(publishN8n, /n8n-package-release\.mjs publish/u);
+  assert.match(n8nPackageRelease, /"publish", tarball, "--access", "public", "--provenance"/u);
+  assert.match(publishN8n, /scan-community-package@0\.32\.0/u);
+  assert.match(publishN8n, /has passed all security checks/u);
+  assert.match(publishN8n, /verify-published-n8n-package\.mjs/u);
+  assert.doesNotMatch(publishN8n, /NPM_TOKEN|NODE_AUTH_TOKEN|_authToken/u);
+
   assertJobNeeds(publish, [
     "prepare-draft",
     "build-binaries",
@@ -140,6 +151,7 @@ function assertFailureAtomicReleaseWorkflow(workflow) {
     "build-android",
     "promote-image",
     "deploy-production",
+    "publish-n8n",
   ]);
   const exactAssetCheck = publish.indexOf("--phase complete-draft");
   const publicEdit = publish.indexOf("gh release edit");
@@ -155,6 +167,7 @@ function assertFailureAtomicReleaseWorkflow(workflow) {
   assert.doesNotMatch(outsidePublish, /--draft=false|gh release edit/u);
   assert.equal(workflow.match(/gh release create/g)?.length, 1);
   assert.doesNotMatch(workflow, /softprops\/action-gh-release|gh release delete/u);
+  assert.equal(n8nPackageRelease.match(/"publish", tarball/g)?.length, 1);
 }
 
 test("only the candidate image job can write packages", () => {
@@ -265,6 +278,13 @@ test("candidate CI embeds one stable version and exact-revision manifest", () =>
     /resolveRunArtifact\([\s\S]*prefix: `release-manifest-\$\{revision\}-`/,
   );
   assert.doesNotMatch(ci, /overwrite: true/);
+});
+
+test("n8n CI enforces package versions on pull requests and direct main pushes", () => {
+  const n8n = workflowJob(ci, "n8n");
+  assert.match(n8n, /github\.event\.pull_request\.base\.sha/u);
+  assert.match(n8n, /github\.event\.before/u);
+  assert.match(n8n, /n8n-package-release\.mjs check-version/u);
 });
 
 test("CI builds web surfaces once and browser jobs consume those artifacts", () => {

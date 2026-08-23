@@ -57,6 +57,7 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 - Push, release, and deploy at the end, and only when asked. A push is not a deployment: releases run from `v*` tags after passing CI, live readiness, and an exact-revision check.
 - Production-affecting mutations (tag push, release, deploy, destructive live actions) require explicit authorization. State the exact changes and their effect before acting.
 - CI reuses Devenv/Nix/Bun/git caches and should stay fast (target under ~2 minutes where realistic).
+- n8n package release work must follow `docs/agents/n8n-package-release.md`; npm publication follows exact production readiness and uses its own stable SemVer.
 
 ## Verify and deliver
 

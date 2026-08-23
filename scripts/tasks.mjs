@@ -26,12 +26,14 @@ const browserScopes = ["e2e", "e2e-app", "e2e-docs"];
 const checks = {
   contracts: stage("generated contracts", [bun("scripts/check-contracts.mjs")]),
   "n8n-package": stage("n8n package", [
+    bunTest("scripts/n8n-package-release.test.mjs"),
     bunTest("scripts/generate-selected-automation-contract.test.mjs"),
     bun("scripts/generate-selected-automation-contract.mjs", "--check"),
     commandStep("bun", "run", "check", { cwd: "packages/n8n-nodes-openpost" }),
     commandStep("bun", "run", "test", { cwd: "packages/n8n-nodes-openpost" }),
     commandStep("bun", "run", "lint", { cwd: "packages/n8n-nodes-openpost" }),
     commandStep("bun", "run", "build", { cwd: "packages/n8n-nodes-openpost" }),
+    bun("scripts/check-n8n-package-build.mjs"),
   ]),
   "build-graph": stage("build graph", [
     bunTest(
@@ -65,6 +67,7 @@ const checks = {
   "release-version": stage("release version", [
     bunTest(
       "scripts/next-release-version.test.mjs",
+      "scripts/n8n-package-release.test.mjs",
       "scripts/release-manifest.test.mjs",
       "scripts/release-assets.test.mjs",
       "scripts/release-lifecycle.test.mjs",

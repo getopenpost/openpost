@@ -49,6 +49,16 @@ test("mobile API contract changes run the native Android path", () => {
   assert.equal(plan.android, true);
 });
 
+test("n8n package changes run the dedicated package gate", () => {
+  const plan = planCI(["packages/n8n-nodes-openpost/README.md"], manifest);
+  assert.equal(plan.n8n, true);
+});
+
+test("selected automation generator changes run the dedicated package gate", () => {
+  const plan = planCI(["scripts/generate-selected-automation-contract.mjs"], manifest);
+  assert.equal(plan.n8n, true);
+});
+
 test("delivery changes fail closed to the complete matrix", () => {
   const plan = planCI([".github/workflows/ci.yml"], manifest);
   assert.ok(

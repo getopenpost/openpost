@@ -27,6 +27,7 @@ test("the root manifest exposes one canonical verification interface", () => {
     "check:changed",
     "check:frontend:i18n",
     "check:frontend:types",
+    "check:n8n",
     "dev",
     "doctor",
     "format",

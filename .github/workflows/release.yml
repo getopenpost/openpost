@@ -433,11 +433,64 @@ jobs:
           echo "Production did not become ready at $GITHUB_REF_NAME revision $GITHUB_SHA." >&2
           exit 1
 
+  publish-n8n:
+    name: Publish and verify n8n package
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      N8N_SMOKE_VERSION: "2.35.7"
+      NPM_CLI_VERSION: "12.0.2"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24.19.0"
+      - name: Install the trusted-publishing npm CLI
+        run: npm install --global "npm@${NPM_CLI_VERSION}"
+      - run: bun install --frozen-lockfile
+      - name: Check the exact package source before publication
+        run: bun run check:n8n
+      - name: Publish once or reconcile the existing registry version
+        id: package
+        run: bun scripts/n8n-package-release.mjs publish
+      - name: Run the n8n community package scanner against npm
+        shell: bash
+        env:
+          PACKAGE_SPEC: ${{ steps.package.outputs.package_spec }}
+        run: |
+          set -o pipefail
+          npx --yes @n8n/scan-community-package@0.32.0 "$PACKAGE_SPEC" 2>&1 | tee n8n-package-scan.txt
+          grep -F "has passed all security checks" n8n-package-scan.txt
+      - name: Verify provenance, integrity, and a clean n8n install
+        env:
+          PACKAGE_SPEC: ${{ steps.package.outputs.package_spec }}
+          PACKAGE_INTEGRITY: ${{ steps.package.outputs.integrity }}
+        run: |
+          bun scripts/verify-published-n8n-package.mjs \
+            --package-spec "$PACKAGE_SPEC" \
+            --integrity "$PACKAGE_INTEGRITY" \
+            --n8n-version "$N8N_SMOKE_VERSION"
+
   publish-release:
     name: Publish complete deployed release
     runs-on: ubuntu-latest
     needs:
-      [prepare-draft, build-binaries, build-cli, build-android, promote-image, deploy-production]
+      [
+        prepare-draft,
+        build-binaries,
+        build-cli,
+        build-android,
+        promote-image,
+        deploy-production,
+        publish-n8n,
+      ]
     permissions:
       contents: write
     steps:

@@ -341,7 +341,7 @@ Maintenance contract for this lane: a new social provider requires no n8n packag
 
 ### N8N-015 — Complete a verified stable n8n-node release
 
-- [ ] Keep npm SemVer independent of OpenPost app SemVer; use namespaced tags such as `n8n-nodes-openpost-v1.0.0`; change n8n `typeVersion` only for saved-workflow behavior; use GitHub trusted publishing/npm provenance; submit through Creator Portal.
+- [ ] Keep npm SemVer independent of OpenPost app SemVer; require a package version increase for publishable changes; publish from the app release only after exact production readiness; change n8n `typeVersion` only for saved-workflow behavior; use GitHub trusted publishing/npm provenance; submit through Creator Portal.
 - [ ] Update README, docs, roadmap, surface-parity table, marketing, and `CHANGELOG.md` only after install/current-version/Creator Portal availability is verified.
 - **Done when:** provenance is verifiable, supported installs pass, portal status is recorded, and public claims match actual package availability.
 

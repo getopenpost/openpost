@@ -25,8 +25,13 @@ The node exposes a curated automation surface generated from OpenPost's canonica
 - Posting Schedule: Get Next Available Slot
 - Media: Get Many, Upload Binary
 - Publication: Create, Get, Get Many, Update, Set Renditions, Validate, Schedule, Cancel, Publish Now, Retry Failed Renditions, Get Events
+- Job: Get
 
 Create, Schedule, and Publish Now are separate operations. Creating a Publication never publishes as a hidden side effect.
+
+## Triggers
+
+This alpha does not ship an OpenPost-specific trigger. Use n8n's Webhook or Schedule Trigger nodes where they fit. Native OpenPost triggers will follow a generic, versioned event and webhook API rather than an n8n-only endpoint.
 
 ## Reliability and safety
 

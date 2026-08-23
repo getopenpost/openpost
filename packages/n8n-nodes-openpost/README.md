@@ -1,8 +1,12 @@
-# @openpost/n8n-nodes-openpost
+# @getopenpost/n8n-nodes-openpost
 
 Official n8n community node for OpenPost. The package is MIT licensed and calls the normal OpenPost `/api/v1` REST API with API tokens.
 
-> **Alpha status:** this source package is ready for test installs, but it has not been published to npm or accepted as an n8n verified community node. It requires Node.js 22.22 or newer.
+> **Release status:** version 0.1.0 is the first stable package candidate. It has not yet been published to npm or accepted as an n8n verified community node. It requires Node.js 22.22 or newer.
+
+## Install
+
+After the package appears on npm, install `@getopenpost/n8n-nodes-openpost` from n8n's Community Nodes settings. The package version is independent from the OpenPost app version.
 
 ## Credentials
 
@@ -10,7 +14,7 @@ Create an OpenPost API token in OpenPost settings. For write workflows, prefer a
 
 In n8n, set:
 
-- **Base URL**: your OpenPost origin, for example `https://app.openpost.dev`. Do not include `/api` or `/api/v1`.
+- **Base URL**: your OpenPost origin, for example `https://app.openpost.social`. Do not include `/api` or `/api/v1`.
 - **API Token**: the OpenPost API token.
 
 If n8n runs in Docker, `localhost` means the n8n container. Use the OpenPost Compose service name or `host.docker.internal` when needed.
@@ -31,7 +35,7 @@ Create, Schedule, and Publish Now are separate operations. Creating a Publicatio
 
 ## Triggers
 
-This alpha does not ship an OpenPost-specific trigger. Use n8n's Webhook or Schedule Trigger nodes where they fit. Native OpenPost triggers will follow a generic, versioned event and webhook API rather than an n8n-only endpoint.
+This release does not ship an OpenPost-specific trigger. Use n8n's Webhook or Schedule Trigger nodes where they fit. Native OpenPost triggers will follow a generic, versioned event and webhook API rather than an n8n-only endpoint.
 
 ## Reliability and safety
 
@@ -45,3 +49,10 @@ This alpha does not ship an OpenPost-specific trigger. Use n8n's Webhook or Sche
 ## Contract report
 
 See [`docs/selected-contract-report.md`](docs/selected-contract-report.md) for the generated action list and known catalog metadata gaps.
+
+## Workflow examples
+
+- [`examples/list-workspaces.json`](examples/list-workspaces.json) checks the connection and lists accessible workspaces.
+- [`examples/create-draft.json`](examples/create-draft.json) creates a draft from each incoming item. It does not schedule or publish anything.
+
+Import an example into n8n, select your OpenPost credential, and replace each placeholder workspace ID or input value before running it.

@@ -1,0 +1,63 @@
+{
+  "name": "OpenPost - Create a draft",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "f69d1189-ec1c-4384-9844-e584b34ca4e9",
+      "name": "Run workflow"
+    },
+    {
+      "parameters": {
+        "resource": "publication",
+        "operation": "create",
+        "workspaceId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_WORKSPACE_ID",
+          "mode": "id"
+        },
+        "title": "n8n draft example",
+        "sourceText": "Draft created from the OpenPost n8n community node.",
+        "contentProfile": "short_text",
+        "creationPreset": "post",
+        "advancedJson": "{}"
+      },
+      "type": "@getopenpost/n8n-nodes-openpost.openPost",
+      "typeVersion": 1,
+      "position": [240, 0],
+      "id": "d109a559-d044-4ff1-82c9-31222dd956bd",
+      "name": "Create draft",
+      "credentials": {
+        "openPostApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "OpenPost account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run workflow": {
+      "main": [
+        [
+          {
+            "node": "Create draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "80455b4c-ca72-4ff9-b410-f9397570b62c",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

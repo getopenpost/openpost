@@ -1,0 +1,53 @@
+{
+  "name": "OpenPost - List workspaces",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "id": "ab84c21a-74a0-4d32-a16a-82be08d2e347",
+      "name": "Run workflow"
+    },
+    {
+      "parameters": {
+        "resource": "workspace",
+        "operation": "getMany"
+      },
+      "type": "@getopenpost/n8n-nodes-openpost.openPost",
+      "typeVersion": 1,
+      "position": [240, 0],
+      "id": "098e456f-696f-4838-aa4a-98e358e746e1",
+      "name": "List workspaces",
+      "credentials": {
+        "openPostApi": {
+          "id": "REPLACE_WITH_CREDENTIAL_ID",
+          "name": "OpenPost account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Run workflow": {
+      "main": [
+        [
+          {
+            "node": "List workspaces",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "7432cfba-3e08-410d-89ef-5adecb295ab9",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

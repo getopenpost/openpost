@@ -249,8 +249,16 @@ func validateBuiltinTemplate(template builtinTemplateManifest) error {
 
 func loadBuiltinFonts(files fs.FS) (map[string]*sfnt.Font, error) {
 	paths := map[string]string{
-		"thick": "TitilliumWeb-Black.ttf", "thin": "TitilliumWeb-SemiBold.ttf",
-		"comic": "Kalam-Regular.ttf", "notosans": "NotoSans-Bold.ttf", "he": "NotoSansHebrew-Bold.ttf",
+		"thick":    "TitilliumWeb-Black.ttf",
+		"thin":     "TitilliumWeb-SemiBold.ttf",
+		"comic":    "Kalam-Regular.ttf",
+		"notosans": "NotoSans-Bold.ttf",
+		"he":       "NotoSansHebrew-Bold.ttf",
+		"impact":   "Impact.ttf",
+		"segoe":    "Segoe UI Bold.ttf",
+		"jp":       "HG-Mincho-B.ttc",
+		"tahoma":   "Tahoma-Bold.ttf",
+		"microflf": "MicroFLF-Bold.ttf",
 	}
 	result := make(map[string]*sfnt.Font, len(paths))
 	for name, filename := range paths {
@@ -258,9 +266,26 @@ func loadBuiltinFonts(files fs.FS) (map[string]*sfnt.Font, error) {
 		if err != nil {
 			return nil, fmt.Errorf("load built-in meme font %s: %w", name, err)
 		}
-		parsed, err := opentype.Parse(data)
-		if err != nil {
-			return nil, fmt.Errorf("parse built-in meme font %s: %w", name, err)
+		var parsed *sfnt.Font
+		if strings.HasSuffix(strings.ToLower(filename), ".ttc") {
+			collection, parseErr := opentype.ParseCollection(data)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse built-in meme font %s: %w", name, parseErr)
+			}
+			if collection.NumFonts() == 0 {
+				return nil, fmt.Errorf("built-in meme font %s has no fonts", name)
+			}
+			font, parseErr := collection.Font(0)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse built-in meme font %s: %w", name, parseErr)
+			}
+			parsed = font
+		} else {
+			parsedFont, parseErr := opentype.Parse(data)
+			if parseErr != nil {
+				return nil, fmt.Errorf("parse built-in meme font %s: %w", name, parseErr)
+			}
+			parsed = parsedFont
 		}
 		result[name] = parsed
 	}

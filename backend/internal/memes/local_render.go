@@ -13,6 +13,8 @@ import (
 	"image/png"
 	"io/fs"
 	"math"
+	"math/rand"
+	"regexp"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -28,8 +30,10 @@ import (
 
 const (
 	builtinRenderHeight = 600
-	builtinMaxGIFFrames = 24
+	builtinMaxGIFFrames = 20
 )
+
+var standaloneIRegexp = regexp.MustCompile(`\bi\b`)
 
 func (p *BuiltinProvider) Render(ctx context.Context, request RenderRequest) (RenderedImage, error) {
 	if !p.Available() {
@@ -190,7 +194,29 @@ func compositeBuiltinOverlay(canvas *image.NRGBA, foreground image.Image, field 
 	if dimension < 1 {
 		return
 	}
-	chip := imaging.Fit(foreground, dimension, dimension, imaging.Lanczos)
+	foregroundW := foreground.Bounds().Dx()
+	foregroundH := foreground.Bounds().Dy()
+	if foregroundW < 1 || foregroundH < 1 {
+		return
+	}
+	scale := math.Min(float64(dimension)/float64(foregroundW), float64(dimension)/float64(foregroundH))
+	if scale > 1 {
+		scale = 1
+	}
+	var chip *image.NRGBA
+	if scale < 1 {
+		newW := int(math.Round(float64(foregroundW) * scale))
+		newH := int(math.Round(float64(foregroundH) * scale))
+		if newW < 1 {
+			newW = 1
+		}
+		if newH < 1 {
+			newH = 1
+		}
+		chip = imaging.Resize(foreground, newW, newH, imaging.Lanczos)
+	} else {
+		chip = imaging.Clone(foreground)
+	}
 	if field.Angle != 0 {
 		chip = imaging.Rotate(chip, field.Angle, color.NRGBA{})
 	}
@@ -355,14 +381,41 @@ func balanceBuiltinWords(words []string, count int) []string {
 func (p *BuiltinProvider) builtinFont(name, value string) *sfnt.Font {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if containsHebrew(value) {
-		return p.fonts["he"]
+		if font, ok := p.fonts["he"]; ok && font != nil {
+			return font
+		}
 	}
 	switch name {
 	case "comic", "kalam":
 		return p.fonts["comic"]
-	case "thin", "tiny", "titilliumweb-thin", "segoe":
+	case "impact":
+		if font, ok := p.fonts["impact"]; ok && font != nil {
+			return font
+		}
+		return p.fonts["thick"]
+	case "thin", "titilliumweb-thin":
 		return p.fonts["thin"]
-	case "notosans", "jp", "he":
+	case "tiny", "segoe", "segoe ui", "segoe ui bold":
+		if font, ok := p.fonts["segoe"]; ok && font != nil {
+			return font
+		}
+		return p.fonts["thin"]
+	case "tahoma", "tahoma-bold":
+		if font, ok := p.fonts["tahoma"]; ok && font != nil {
+			return font
+		}
+		return p.fonts["thick"]
+	case "microflf", "microflf-bold":
+		if font, ok := p.fonts["microflf"]; ok && font != nil {
+			return font
+		}
+		return p.fonts["thick"]
+	case "jp", "hgminchob", "hg-mincho", "notosansjp":
+		if font, ok := p.fonts["jp"]; ok && font != nil {
+			return font
+		}
+		return p.fonts["notosans"]
+	case "notosans", "notosans-bold", "he":
 		return p.fonts["notosans"]
 	default:
 		return p.fonts["thick"]
@@ -379,39 +432,72 @@ func containsHebrew(value string) bool {
 }
 
 func styleBuiltinText(value, style string) string {
-	switch strings.ToLower(strings.TrimSpace(style)) {
-	case "upper", "lower":
-		if style == "lower" {
-			return strings.ToLower(value)
-		}
+	normalized := strings.ToLower(strings.TrimSpace(style))
+	switch normalized {
+	case "upper":
 		return strings.ToUpper(value)
+	case "lower":
+		return strings.ToLower(value)
+	case "capitalize":
+		if value == "" {
+			return value
+		}
+		runes := []rune(strings.ToLower(value))
+		runes[0] = unicode.ToUpper(runes[0])
+		return string(runes)
+	case "title":
+		return strings.Title(strings.ToLower(value))
 	case "mock":
 		return mockBuiltinText(value)
-	case "default":
-		trimmed := strings.TrimSpace(value)
-		if trimmed == strings.ToLower(trimmed) && trimmed != "" {
-			runes := []rune(trimmed)
-			runes[0] = unicode.ToUpper(runes[0])
-			return string(runes)
-		}
+	case "none":
 		return value
+	case "default", "":
+		trimmed := strings.TrimSpace(value)
+		if trimmed != "" && trimmed == strings.ToLower(trimmed) && trimmed != strings.ToUpper(trimmed) {
+			runes := []rune(value)
+			for index, r := range runes {
+				if unicode.IsLetter(r) {
+					runes[index] = unicode.ToUpper(r)
+					break
+				}
+			}
+			value = string(runes)
+		}
+		return standaloneIRegexp.ReplaceAllString(value, "I")
 	default:
+		if normalized == "lower" {
+			return strings.ToLower(value)
+		}
+		if normalized == "upper" {
+			return strings.ToUpper(value)
+		}
 		return value
 	}
 }
 
 func mockBuiltinText(value string) string {
-	upper := false
-	return strings.Map(func(current rune) rune {
+	rng := rand.New(rand.NewSource(0))
+	out := make([]rune, 0, len([]rune(value)))
+	lastWasUpper := true
+	swapChance := 0.5
+	const diversityBias = 0.75
+	for _, current := range value {
 		if !unicode.IsLetter(current) {
-			return current
+			out = append(out, current)
+			continue
 		}
-		upper = !upper
-		if upper {
-			return unicode.ToUpper(current)
+		if rng.Float64() < swapChance {
+			lastWasUpper = !lastWasUpper
+			swapChance = 0.5
 		}
-		return unicode.ToLower(current)
-	}, value)
+		if lastWasUpper {
+			out = append(out, unicode.ToUpper(current))
+		} else {
+			out = append(out, unicode.ToLower(current))
+		}
+		swapChance += (1 - swapChance) * diversityBias
+	}
+	return string(out)
 }
 
 func parseBuiltinColor(value string) color.NRGBA {

@@ -82,6 +82,7 @@
     },
     "repository": {
       "description": "Repository behavior and licensing with no standalone runtime owner",
+      "prefixes": ["licenses/"],
       "paths": [".gitattributes", ".gitignore", ".rgignore", "LICENSE"]
     }
   },

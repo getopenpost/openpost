@@ -61,6 +61,7 @@ type RenditionInput struct {
 }
 
 type CreatePublicationBody struct {
+	InternalID         string                    `json:"-" doc:"Internal deterministic ID for trusted in-process creation"`
 	WorkspaceID        string                    `json:"workspace_id" doc:"Workspace ID"`
 	Title              string                    `json:"title" doc:"Internal publication title"`
 	Intent             string                    `json:"intent,omitempty" enum:"post,thread,story,short_video,video" doc:"Deprecated compatibility alias for creation_preset"`

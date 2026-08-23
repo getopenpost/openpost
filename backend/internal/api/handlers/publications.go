@@ -1814,27 +1814,33 @@ func (h *PublicationHandler) resolveRenditionCapability(
 	input RenditionInput,
 	segments []PublicationSegmentInput,
 ) capabilities.ResolvedCapability {
-	resolveSegments := make([]capabilities.ResolveSegment, 0, len(segments))
-	for position, segment := range segments {
+	segmentCount := len(segments)
+	if len(input.Segments) > 0 {
+		segmentCount = len(input.Segments)
+	}
+	resolveSegments := make([]capabilities.ResolveSegment, 0, segmentCount)
+	for position := 0; position < segmentCount; position++ {
+		canonical := publicationSegmentInputAt(position, "", segments)
 		renditionSegment := RenditionSegmentInput{}
 		if position < len(input.Segments) {
 			renditionSegment = input.Segments[position]
+			canonical = publicationSegmentInputAt(position, renditionSegment.PublicationSegmentID, segments)
 		}
 		mediaInputs := renditionSegment.Media
-		if len(mediaInputs) == 0 {
-			mediaInputs = segment.Media
+		inheritsMedia := renditionSegment.MediaInherited == nil || *renditionSegment.MediaInherited
+		if len(mediaInputs) == 0 && inheritsMedia {
+			mediaInputs = canonical.Media
 		}
 		if position == 0 && len(input.Media) > 0 {
 			mediaInputs = input.Media
 		}
-		resolveSegment := capabilities.ResolveSegment{
-			ID:    publicationFirstNonEmpty(segment.ID, fmt.Sprintf("segment-%d", position+1)),
-			Body:  publicationFirstNonEmpty(renditionSegment.Body, segment.Body),
-			Title: publicationFirstNonEmpty(renditionSegment.Title, segment.Title),
-			URL:   publicationFirstNonEmpty(renditionSegment.URL, segment.URL),
+		resolveSegments = append(resolveSegments, capabilities.ResolveSegment{
+			ID:    publicationFirstNonEmpty(renditionSegment.ID, fmt.Sprintf("rendition-segment-%d", position+1)),
+			Body:  renditionCapabilityText(renditionSegment.BodyOverride, renditionSegment.Body, canonical.Body),
+			Title: renditionCapabilityText(renditionSegment.TitleOverride, renditionSegment.Title, canonical.Title),
+			URL:   renditionCapabilityText(renditionSegment.URLOverride, renditionSegment.URL, canonical.URL),
 			Media: h.capabilityMediaItems(ctx, db, mediaInputs),
-		}
-		resolveSegments = append(resolveSegments, resolveSegment)
+		})
 	}
 	resolveInput := capabilities.ResolveInput{
 		Intent:                 publication.Intent,
@@ -1847,6 +1853,30 @@ func (h *PublicationHandler) resolveRenditionCapability(
 		return capabilities.ResolveCatalog(account.Platform, connectorCapabilities, resolveInput)
 	}
 	return capabilities.Resolve(account.Platform, resolveInput)
+}
+
+func publicationSegmentInputAt(position int, requestedID string, segments []PublicationSegmentInput) PublicationSegmentInput {
+	if requestedID != "" {
+		for _, segment := range segments {
+			if segment.ID == requestedID {
+				return segment
+			}
+		}
+	}
+	if position >= 0 && position < len(segments) {
+		return segments[position]
+	}
+	if len(segments) > 0 {
+		return segments[0]
+	}
+	return PublicationSegmentInput{}
+}
+
+func renditionCapabilityText(explicit *string, value, inherited string) string {
+	if explicit != nil {
+		return *explicit
+	}
+	return publicationFirstNonEmpty(value, inherited)
 }
 
 func (h *PublicationHandler) connectorCapabilitiesWithDB(

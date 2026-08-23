@@ -78,9 +78,11 @@ func TestBuildCreatesIndependentNativeRenditions(t *testing.T) {
 
 	service, err := New(generator, Config{Model: "test-model"})
 	require.NoError(t, err)
-	result, err := service.Build(context.Background(), BuildInput{
+	progress := make([]string, 0, 3)
+	result, err := service.BuildWithProgress(context.Background(), BuildInput{
 		Idea:    "I deleted 15,000 lines and somehow the product got better.",
 		Sources: []SourceMaterial{{ID: "idea", Kind: "text", Label: "Idea", Text: "I deleted 15,000 lines and somehow the product got better."}},
+		Files:   []ai.File{{Data: []byte("release notes"), MIMEType: "text/plain", Filename: "release.txt"}},
 		Destinations: []Destination{
 			{
 				AccountID: "linkedin-1", Platform: "linkedin", Label: "Founder LinkedIn",
@@ -95,8 +97,12 @@ func TestBuildCreatesIndependentNativeRenditions(t *testing.T) {
 			},
 		},
 		DestinationPolicy: DestinationPolicyRecommend,
+	}, func(phase string) error {
+		progress = append(progress, phase)
+		return nil
 	})
 	require.NoError(t, err)
+	require.Equal(t, []string{BuildPhaseDirecting, BuildPhaseDrafting, BuildPhaseReviewing}, progress)
 	require.Equal(t, "We deleted 15,000 lines and the product got better.", result.CanonicalText)
 	require.Len(t, result.Destinations, 2)
 	require.Equal(t, "linkedin.short_text", result.Destinations[0].OutputProfile)
@@ -111,4 +117,63 @@ func TestBuildCreatesIndependentNativeRenditions(t *testing.T) {
 	for _, request := range requests {
 		require.NotContains(t, request.SystemPrompt, "15,000")
 	}
+	directorRequests := 0
+	for _, request := range requests {
+		if strings.Contains(request.SystemPrompt, "ROLE: director") {
+			directorRequests++
+			require.Len(t, request.Files, 1)
+			continue
+		}
+		require.Empty(t, request.Files)
+	}
+	require.Equal(t, 1, directorRequests)
+}
+
+func TestDirectorValidationRequiresAnActionableRoute(t *testing.T) {
+	t.Parallel()
+	base := DirectorPlan{
+		CanonicalText: "A canonical draft.", FactualKernel: []string{"A supplied fact."},
+		Thesis: "The thesis.", Outcome: "authority", Audience: "founders", Angle: "show the proof",
+		Route: "artifact_led", Media: MediaPlan{Treatment: "none", Role: "none", Brief: "No media."},
+		Destinations: []DestinationDecision{{AccountID: "x-1", Include: true, Reason: "Strong native fit."}},
+	}
+	destinations := []Destination{{AccountID: "x-1", Platform: "x"}}
+
+	for name, mutate := range map[string]func(*DirectorPlan){
+		"thesis":   func(plan *DirectorPlan) { plan.Thesis = "" },
+		"outcome":  func(plan *DirectorPlan) { plan.Outcome = "" },
+		"audience": func(plan *DirectorPlan) { plan.Audience = "" },
+		"angle":    func(plan *DirectorPlan) { plan.Angle = "" },
+		"route":    func(plan *DirectorPlan) { plan.Route = "" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			plan := base
+			mutate(&plan)
+			require.Error(t, validateDirector(plan, destinations, map[string]struct{}{}, DestinationPolicyRecommend))
+		})
+	}
+
+	invalidRoute := base
+	invalidRoute.Route = "viral_magic"
+	require.Error(t, validateDirector(invalidRoute, destinations, map[string]struct{}{}, DestinationPolicyRecommend))
+	require.NoError(t, validateDirector(base, destinations, map[string]struct{}{}, DestinationPolicyRecommend))
+}
+
+func TestDestinationValidationRequiresAUsefulPreview(t *testing.T) {
+	t.Parallel()
+	destination := Destination{
+		AccountID: "x-1", Platform: "x",
+		AllowedOutputProfiles: []OutputProfile{{Key: "x.short_text", TextLimit: 280, MaxSegments: 1}},
+	}
+	policy, ok := policyFor("x")
+	require.True(t, ok)
+	plan := DestinationPlan{
+		AccountID: "x-1", Platform: "x", Objective: "shares", Archetype: "technical_opinion",
+		OutputProfile: "x.short_text", Segments: []SegmentPlan{{Body: "A useful native post."}},
+		Media: MediaPlan{Treatment: "none", Role: "none", Brief: "No media."},
+	}
+
+	require.Error(t, validateDestinationPlan(plan, destination, policy, map[string]struct{}{}))
+	plan.Preview = "A useful native post."
+	require.NoError(t, validateDestinationPlan(plan, destination, policy, map[string]struct{}{}))
 }

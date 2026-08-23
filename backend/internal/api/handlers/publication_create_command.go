@@ -154,7 +154,7 @@ func normalizePublicationCreateBody(input *CreatePublicationBody) {
 
 func publicationModelFromCreate(input CreatePublicationBody, userID, repostOverrideJSON string, now time.Time) *models.Publication {
 	publication := &models.Publication{
-		ID:              uuid.NewString(),
+		ID:              publicationFirstNonEmpty(input.InternalID, uuid.NewString()),
 		WorkspaceID:     input.WorkspaceID,
 		CreatedByID:     userID,
 		Title:           publicationFirstNonEmpty(input.Title, firstContentLine(input.SourceText), "Untitled publication"),

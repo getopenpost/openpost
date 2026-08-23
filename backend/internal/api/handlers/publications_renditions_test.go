@@ -585,6 +585,34 @@ func TestReplacePublicationSegmentsKeepsDestinationOverridesForStableSegmentIDs(
 	require.JSONEq(t, `{"poll_options":"One\nTwo"}`, destination.SettingsJSON)
 }
 
+func TestResolveRenditionCapabilityUsesDestinationNativeSegmentCount(t *testing.T) {
+	t.Parallel()
+
+	handler := NewPublicationHandler(nil, testAuthenticator{}, nil)
+	publication := &models.Publication{
+		Intent: models.PublishingIntentPost, CreationPreset: models.PublishingIntentPost,
+		ContentProfile: models.ContentProfileShortText, SourceText: "One shared idea",
+	}
+	resolved := handler.resolveRenditionCapability(
+		t.Context(),
+		nil,
+		publication,
+		models.SocialAccount{ID: "x-1", Platform: "x"},
+		RenditionInput{
+			SocialAccountID: "x-1", OutputProfile: "x.thread", FormatLocked: true,
+			Segments: []RenditionSegmentInput{
+				{PublicationSegmentID: "source", Body: "First native X post"},
+				{PublicationSegmentID: "source", Body: "Second native X post"},
+				{PublicationSegmentID: "source", Body: "Third native X post"},
+			},
+		},
+		[]PublicationSegmentInput{{ID: "source", Body: "One shared idea"}},
+	)
+
+	require.Equal(t, models.ContentProfileThread, resolved.Profile)
+	require.Equal(t, "x.thread", resolved.OutputProfile)
+}
+
 func TestRetryPublicationRenditionQueuesOnlySafeTransientFailures(t *testing.T) {
 	db := createHandlerTestDB(t,
 		(*models.WorkspaceMember)(nil),

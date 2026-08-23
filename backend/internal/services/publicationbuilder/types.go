@@ -62,6 +62,9 @@ type BuildInput struct {
 	Idea              string            `json:"idea"`
 	Sources           []SourceMaterial  `json:"sources,omitempty"`
 	Images            []ai.Image        `json:"-"`
+	Files             []ai.File         `json:"-"`
+	Audio             []ai.Audio        `json:"-"`
+	Videos            []ai.Video        `json:"-"`
 	Destinations      []Destination     `json:"destinations"`
 	Direction         DirectionInput    `json:"direction"`
 	DestinationPolicy DestinationPolicy `json:"destination_policy"`

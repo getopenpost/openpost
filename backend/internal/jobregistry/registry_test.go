@@ -26,7 +26,7 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 		TypeMessagingSweep, TypeMessagesSync, TypeEngagementAction, TypeMessageSend, TypeNotificationEmail,
 		TypeOwnershipTransferExpiry,
 		TypeRepostSweep, TypeRepostEvaluate, TypeRepostExecute, TypeMediaAnalyze,
-		TypeGrowthDiscovery, TypeGrowthFollow,
+		TypeGrowthDiscovery, TypeGrowthFollow, TypePublicationBuild,
 	}
 	definitions := Definitions()
 	actual := make([]string, 0, len(definitions))
@@ -38,6 +38,17 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 		require.Positive(t, definition.DefaultMaxAttempts, definition.Type)
 	}
 	require.ElementsMatch(t, expected, actual)
+}
+
+func TestPublicationBuildIdentityUsesTheBuildInsteadOfSerializedPayload(t *testing.T) {
+	t.Parallel()
+
+	identity, err := IdentityForPayload(TypePublicationBuild, `{"build_id":"build-1"}`)
+	require.NoError(t, err)
+	require.Equal(t, Identity{ScopeID: "build-1", DedupeKey: "generate"}, identity)
+
+	_, err = IdentityForPayload(TypePublicationBuild, `{"build_id":""}`)
+	require.Error(t, err)
 }
 
 func TestNewJobUsesRegisteredDurablePolicy(t *testing.T) {

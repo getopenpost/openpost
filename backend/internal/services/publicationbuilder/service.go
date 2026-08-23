@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +40,14 @@ func New(generator ai.Generator, config Config) (*Service, error) {
 }
 
 func (service *Service) Build(ctx context.Context, input BuildInput) (BuildResult, error) {
+	return service.BuildWithProgress(ctx, input, nil)
+}
+
+func (service *Service) BuildWithProgress(
+	ctx context.Context,
+	input BuildInput,
+	report func(string) error,
+) (BuildResult, error) {
 	if err := validateBuildInput(input); err != nil {
 		return BuildResult{}, err
 	}
@@ -54,8 +61,14 @@ func (service *Service) Build(ctx context.Context, input BuildInput) (BuildResul
 	requestCtx, cancel := context.WithTimeout(ctx, service.timeout)
 	defer cancel()
 
+	if err := reportBuildProgress(report, BuildPhaseDirecting); err != nil {
+		return BuildResult{}, err
+	}
 	director, err := service.direct(requestCtx, input, supported)
 	if err != nil {
+		return BuildResult{}, err
+	}
+	if err := reportBuildProgress(report, BuildPhaseDrafting); err != nil {
 		return BuildResult{}, err
 	}
 	destinationPlans, decisionSkips, err := service.draftDestinations(requestCtx, input, director, supported)
@@ -63,6 +76,9 @@ func (service *Service) Build(ctx context.Context, input BuildInput) (BuildResul
 		return BuildResult{}, err
 	}
 	skipped = append(skipped, decisionSkips...)
+	if err := reportBuildProgress(report, BuildPhaseReviewing); err != nil {
+		return BuildResult{}, err
+	}
 	flags, replacements, approved, err := service.review(requestCtx, input, director, destinationPlans)
 	if err != nil {
 		return BuildResult{}, err
@@ -93,6 +109,16 @@ func (service *Service) Build(ctx context.Context, input BuildInput) (BuildResul
 	}, nil
 }
 
+func reportBuildProgress(report func(string) error, phase string) error {
+	if report == nil {
+		return nil
+	}
+	if err := report(phase); err != nil {
+		return fmt.Errorf("record publication build phase %s: %w", phase, err)
+	}
+	return nil
+}
+
 func (service *Service) direct(ctx context.Context, input BuildInput, supported []Destination) (DirectorPlan, error) {
 	prompt, err := directorPrompt(input, supported)
 	if err != nil {
@@ -100,7 +126,9 @@ func (service *Service) direct(ctx context.Context, input BuildInput, supported 
 	}
 	generated, err := service.generator.Generate(ctx, ai.GenerateRequest{
 		Model: service.model, SystemPrompt: directorSystemPrompt, UserPrompt: prompt,
-		Images: input.Images, MaxOutputTokens: 4_000, ReasoningEffort: ai.ReasoningEffortMedium,
+		Images: input.Images, Files: input.Files, Audio: input.Audio, Videos: input.Videos,
+		MaxOutputTokens: 4_000,
+		ReasoningEffort: ai.ReasoningEffortMedium,
 	})
 	if err != nil {
 		return DirectorPlan{}, fmt.Errorf("generate publication direction: %w", err)
@@ -285,14 +313,4 @@ func sourceIDSet(sources []SourceMaterial) map[string]struct{} {
 		result[source.ID] = struct{}{}
 	}
 	return result
-}
-
-func stableDestinationPlans(plans []DestinationPlan, destinations []Destination) {
-	order := make(map[string]int, len(destinations))
-	for index, destination := range destinations {
-		order[destination.AccountID] = index
-	}
-	sort.SliceStable(plans, func(i, j int) bool {
-		return order[plans[i].AccountID] < order[plans[j].AccountID]
-	})
 }

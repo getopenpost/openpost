@@ -24,6 +24,7 @@ import (
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationownership"
 	"github.com/openpost/backend/internal/services/providerwrite"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
@@ -65,6 +66,7 @@ type BackgroundWorker struct {
 	reposts               *repostservice.Service
 	video                 *videoprocessing.Service
 	growth                *growthservice.Service
+	publicationBuilder    *publicationbuilder.Application
 	telemetry             telemetry.Recorder
 	executors             map[jobregistry.ExecutionKind]jobExecutor
 	done                  chan struct{}
@@ -169,6 +171,16 @@ func (w *BackgroundWorker) SetGrowthService(service *growthservice.Service) {
 			return fmt.Errorf("growth is not configured")
 		}
 		return w.growth.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetPublicationBuilderService(service *publicationbuilder.Application) {
+	w.publicationBuilder = service
+	w.executors[jobregistry.ExecutePublicationBuild] = func(ctx context.Context, job *models.Job) error {
+		if w.publicationBuilder == nil {
+			return fmt.Errorf("publication building is not configured")
+		}
+		return w.publicationBuilder.HandleJob(ctx, job.Type, job.Payload)
 	}
 }
 

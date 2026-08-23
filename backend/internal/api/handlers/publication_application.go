@@ -90,6 +90,12 @@ func (h *PublicationHandler) publicationApplication() publicationservice.Applica
 	return h.publicationApplicationForTesting()
 }
 
+// Application exposes the canonical Publication boundary to trusted feature
+// services such as the Publication Builder. HTTP still uses the same methods.
+func (h *PublicationHandler) Application() publicationservice.Application {
+	return h.publicationApplication()
+}
+
 func (h *PublicationHandler) publicationApplicationForTesting() publicationApplication {
 	return publicationApplication{
 		handler: h,

@@ -19,6 +19,14 @@ const (
 	maxSourceCount            = 12
 	maxDestinationCount       = 20
 	maxCanonicalCharacters    = 20_000
+	maxThesisCharacters       = 2_000
+	maxOutcomeCharacters      = 200
+	maxAudienceCharacters     = 1_000
+	maxAngleCharacters        = 1_500
+	maxRouteCharacters        = 64
+	maxPreviewCharacters      = 1_000
+	maxKernelItemCharacters   = 2_000
+	maxDecisionCharacters     = 1_000
 	maxFactualKernelItems     = 24
 	maxClaims                 = 48
 	maxWarningsPerDestination = 12
@@ -27,10 +35,15 @@ const (
 var (
 	allowedClaimStatuses   = []string{"supported", "user_asserted", "opinion", "parody", "needs_verification"}
 	allowedMediaTreatments = []string{"none", "use_source", "annotate_source", "meme", "statement_card", "carousel", "concept_image", "short_video_script", "edit_existing_video"}
+	allowedDirectorRoutes  = []string{"artifact_led", "thesis_led"}
 )
 
 func validateBuildInput(input BuildInput) error {
-	if strings.TrimSpace(input.Idea) == "" && len(input.Sources) == 0 && len(input.Images) == 0 {
+	return validateBuildInputWithStoredReferences(input, false)
+}
+
+func validateBuildInputWithStoredReferences(input BuildInput, hasStoredReferences bool) error {
+	if strings.TrimSpace(input.Idea) == "" && len(input.Sources) == 0 && len(input.Images) == 0 && len(input.Files) == 0 && len(input.Audio) == 0 && len(input.Videos) == 0 && !hasStoredReferences {
 		return errors.New("an idea or source is required")
 	}
 	if utf8.RuneCountInString(input.Idea) > maxIdeaCharacters {
@@ -102,6 +115,30 @@ func validateDirector(plan DirectorPlan, destinations []Destination, sourceIDs m
 	if len(plan.FactualKernel) == 0 || len(plan.FactualKernel) > maxFactualKernelItems {
 		return errors.New("director factual_kernel is missing or too large")
 	}
+	for _, item := range plan.FactualKernel {
+		if strings.TrimSpace(item) == "" || utf8.RuneCountInString(item) > maxKernelItemCharacters {
+			return errors.New("director factual_kernel contains an empty or oversized item")
+		}
+	}
+	directionFields := []struct {
+		name    string
+		value   string
+		maximum int
+	}{
+		{name: "thesis", value: plan.Thesis, maximum: maxThesisCharacters},
+		{name: "outcome", value: plan.Outcome, maximum: maxOutcomeCharacters},
+		{name: "audience", value: plan.Audience, maximum: maxAudienceCharacters},
+		{name: "angle", value: plan.Angle, maximum: maxAngleCharacters},
+		{name: "route", value: plan.Route, maximum: maxRouteCharacters},
+	}
+	for _, field := range directionFields {
+		if strings.TrimSpace(field.value) == "" || utf8.RuneCountInString(field.value) > field.maximum {
+			return fmt.Errorf("director %s is missing or too long", field.name)
+		}
+	}
+	if !slices.Contains(allowedDirectorRoutes, plan.Route) {
+		return fmt.Errorf("director selected unsupported route %q", plan.Route)
+	}
 	if len(plan.Claims) > maxClaims {
 		return errors.New("director returned too many claims")
 	}
@@ -129,7 +166,7 @@ func validateDirector(plan DirectorPlan, destinations []Destination, sourceIDs m
 			return fmt.Errorf("director repeated account %q", decision.AccountID)
 		}
 		seen[decision.AccountID] = struct{}{}
-		if strings.TrimSpace(decision.Reason) == "" {
+		if strings.TrimSpace(decision.Reason) == "" || utf8.RuneCountInString(decision.Reason) > maxDecisionCharacters {
 			return fmt.Errorf("director decision for %q requires a reason", decision.AccountID)
 		}
 		if policy == DestinationPolicyRequireAll {
@@ -154,6 +191,9 @@ func validateDestinationPlan(plan DestinationPlan, destination Destination, poli
 	}
 	if !slices.Contains(policy.Archetypes, plan.Archetype) {
 		return fmt.Errorf("adapter selected unsupported %s archetype %q", policy.Platform, plan.Archetype)
+	}
+	if strings.TrimSpace(plan.Preview) == "" || utf8.RuneCountInString(plan.Preview) > maxPreviewCharacters {
+		return errors.New("adapter preview is missing or too long")
 	}
 	profile, ok := allowedOutputProfile(destination, plan.OutputProfile)
 	if !ok {

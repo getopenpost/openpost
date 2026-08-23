@@ -38,6 +38,10 @@ type MediaCleanupPayload struct {
 	WorkspaceID string `json:"workspace_id"`
 }
 
+type PublicationBuildPayload struct {
+	BuildID string `json:"build_id"`
+}
+
 type InvalidPayloadError struct {
 	err error
 }
@@ -104,6 +108,34 @@ func mediaCleanupIdentity(payload string) (Identity, error) {
 		return Identity{}, err
 	}
 	return MediaCleanupIdentity(decoded.WorkspaceID)
+}
+
+func DecodePublicationBuildPayload(payload string) (PublicationBuildPayload, error) {
+	var decoded PublicationBuildPayload
+	if err := json.Unmarshal([]byte(payload), &decoded); err != nil {
+		return PublicationBuildPayload{}, &InvalidPayloadError{err: fmt.Errorf("decode publication build payload: %w", err)}
+	}
+	decoded.BuildID = strings.TrimSpace(decoded.BuildID)
+	if decoded.BuildID == "" {
+		return PublicationBuildPayload{}, &InvalidPayloadError{err: errors.New("build_id is required for publication build")}
+	}
+	return decoded, nil
+}
+
+func publicationBuildIdentity(payload string) (Identity, error) {
+	decoded, err := DecodePublicationBuildPayload(payload)
+	if err != nil {
+		return Identity{}, err
+	}
+	return PublicationBuildIdentity(decoded.BuildID)
+}
+
+func PublicationBuildIdentity(buildID string) (Identity, error) {
+	buildID = strings.TrimSpace(buildID)
+	if buildID == "" {
+		return Identity{}, errors.New("build_id is required for publication build")
+	}
+	return Identity{ScopeID: buildID, DedupeKey: "generate"}, nil
 }
 
 func MediaCleanupIdentity(workspaceID string) (Identity, error) {

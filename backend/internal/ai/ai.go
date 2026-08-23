@@ -38,11 +38,42 @@ type Image struct {
 	Detail   ImageDetail
 }
 
+// File contains document bytes and the metadata needed to build a multimodal
+// request. Callers must apply feature-specific byte limits before Generate.
+// Adapters must not retain the bytes after Generate returns.
+type File struct {
+	Data     []byte
+	MIMEType string
+	Filename string
+}
+
+type WebSearchContext string
+
+const (
+	WebSearchContextLow    WebSearchContext = "low"
+	WebSearchContextMedium WebSearchContext = "medium"
+	WebSearchContextHigh   WebSearchContext = "high"
+)
+
+// WebSearchConfig enables current web search for one request. MaxResults,
+// MaxUses, and Context are required when Enabled is true.
+type WebSearchConfig struct {
+	Enabled bool
+	// MaxResults caps results per search call and must be between 1 and 25.
+	MaxResults int
+	// MaxUses caps search calls per generation and must be between 1 and 30.
+	MaxUses int
+	// Context controls the bounded content retrieved for each result.
+	Context WebSearchContext
+}
+
 type GenerateRequest struct {
 	Model           string
 	SystemPrompt    string
 	UserPrompt      string
 	Images          []Image
+	Files           []File
+	WebSearch       WebSearchConfig
 	MaxOutputTokens int64
 	ReasoningEffort ReasoningEffort
 }

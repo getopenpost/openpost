@@ -25,6 +25,10 @@ const (
 	defaultRetryInitialInterval  = 250 * time.Millisecond
 	defaultRetryMaxInterval      = 2 * time.Second
 	defaultRetryMaxElapsedTime   = 5 * time.Second
+	minWebSearchResults          = 1
+	maxWebSearchResults          = 25
+	minWebSearchUses             = 1
+	maxWebSearchUses             = 30
 )
 
 type HTTPClient interface {
@@ -157,11 +161,15 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 	if model == "" {
 		return components.ChatRequest{}, errors.New("AI model is required")
 	}
-	if strings.TrimSpace(request.UserPrompt) == "" && len(request.Images) == 0 {
-		return components.ChatRequest{}, errors.New("AI user prompt or image is required")
+	if strings.TrimSpace(request.UserPrompt) == "" && len(request.Images) == 0 && len(request.Files) == 0 {
+		return components.ChatRequest{}, errors.New("AI user prompt, image, or file is required")
 	}
 	if request.MaxOutputTokens < 0 {
 		return components.ChatRequest{}, errors.New("AI maximum output tokens must not be negative")
+	}
+	webSearchTool, hasWebSearch, err := openRouterWebSearchTool(request.WebSearch)
+	if err != nil {
+		return components.ChatRequest{}, err
 	}
 
 	messages := make([]components.ChatMessages, 0, 2)
@@ -171,7 +179,7 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 		}))
 	}
 
-	content := make([]components.ChatContentItems, 0, len(request.Images)+1)
+	content := make([]components.ChatContentItems, 0, len(request.Images)+len(request.Files)+1)
 	if userPrompt := strings.TrimSpace(request.UserPrompt); userPrompt != "" {
 		content = append(content, components.CreateChatContentItemsText(components.ChatContentText{Text: userPrompt}))
 	}
@@ -179,6 +187,13 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 		item, err := openRouterImageContent(image)
 		if err != nil {
 			return components.ChatRequest{}, fmt.Errorf("AI image %d: %w", index+1, err)
+		}
+		content = append(content, item)
+	}
+	for index, file := range request.Files {
+		item, err := openRouterFileContent(file)
+		if err != nil {
+			return components.ChatRequest{}, fmt.Errorf("AI file %d: %w", index+1, err)
 		}
 		content = append(content, item)
 	}
@@ -220,6 +235,9 @@ func buildOpenRouterRequest(request GenerateRequest, providerSlug string, requir
 		maxOutputTokens := request.MaxOutputTokens
 		chatRequest.MaxCompletionTokens = optionalnullable.From(&maxOutputTokens)
 	}
+	if hasWebSearch {
+		chatRequest.Tools = []components.ChatFunctionTool{webSearchTool}
+	}
 
 	return chatRequest, nil
 }
@@ -228,8 +246,8 @@ func openRouterImageContent(image Image) (components.ChatContentItems, error) {
 	if len(image.Data) == 0 {
 		return components.ChatContentItems{}, errors.New("data is required")
 	}
-	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(image.MIMEType))
-	if err != nil || !strings.HasPrefix(strings.ToLower(mediaType), "image/") {
+	mediaType, err := normalizedMIMEType(image.MIMEType)
+	if err != nil || !strings.HasPrefix(mediaType, "image/") {
 		return components.ChatContentItems{}, errors.New("valid image MIME type is required")
 	}
 	detail, err := openRouterImageDetail(image.Detail)
@@ -237,13 +255,91 @@ func openRouterImageContent(image Image) (components.ChatContentItems, error) {
 		return components.ChatContentItems{}, err
 	}
 
-	dataURL := "data:" + strings.ToLower(mediaType) + ";base64," + base64.StdEncoding.EncodeToString(image.Data)
+	dataURL := encodeDataURL(mediaType, image.Data)
 	return components.CreateChatContentItemsImageURL(components.ChatContentImage{
 		ImageURL: components.ChatContentImageImageURL{
 			URL:    dataURL,
 			Detail: detail.ToPointer(),
 		},
 	}), nil
+}
+
+func openRouterFileContent(file File) (components.ChatContentItems, error) {
+	if len(file.Data) == 0 {
+		return components.ChatContentItems{}, errors.New("data is required")
+	}
+	mediaType, err := normalizedMIMEType(file.MIMEType)
+	if err != nil {
+		return components.ChatContentItems{}, errors.New("valid MIME type is required")
+	}
+	filename := strings.TrimSpace(file.Filename)
+	if filename == "" || strings.ContainsAny(filename, "\x00\r\n/\\") {
+		return components.ChatContentItems{}, errors.New("valid filename is required")
+	}
+
+	dataURL := encodeDataURL(mediaType, file.Data)
+	return components.CreateChatContentItemsFile(components.ChatContentFile{
+		File: components.File{
+			FileData: &dataURL,
+			Filename: &filename,
+		},
+	}), nil
+}
+
+func normalizedMIMEType(value string) (string, error) {
+	mediaType, _, err := mime.ParseMediaType(strings.TrimSpace(value))
+	if err != nil || mediaType == "" || strings.Contains(mediaType, "*") {
+		return "", errors.New("valid MIME type is required")
+	}
+	typeName, subtype, ok := strings.Cut(mediaType, "/")
+	if !ok || typeName == "" || subtype == "" {
+		return "", errors.New("valid MIME type is required")
+	}
+	return strings.ToLower(mediaType), nil
+}
+
+func encodeDataURL(mediaType string, data []byte) string {
+	return "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(data)
+}
+
+func openRouterWebSearchTool(config WebSearchConfig) (components.ChatFunctionTool, bool, error) {
+	if !config.Enabled {
+		return components.ChatFunctionTool{}, false, nil
+	}
+	if config.MaxResults < minWebSearchResults || config.MaxResults > maxWebSearchResults {
+		return components.ChatFunctionTool{}, false, errors.New("AI web search maximum results must be between 1 and 25")
+	}
+	if config.MaxUses < minWebSearchUses || config.MaxUses > maxWebSearchUses {
+		return components.ChatFunctionTool{}, false, errors.New("AI web search maximum uses must be between 1 and 30")
+	}
+
+	contextSize, err := openRouterWebSearchContext(config.Context)
+	if err != nil {
+		return components.ChatFunctionTool{}, false, err
+	}
+	maxResults := int64(config.MaxResults)
+	maxUses := int64(config.MaxUses)
+	return components.CreateChatFunctionToolOpenRouterWebSearchServerTool(components.OpenRouterWebSearchServerTool{
+		Type: components.OpenRouterWebSearchServerToolTypeOpenrouterWebSearch,
+		Parameters: &components.WebSearchConfig{
+			MaxResults:        &maxResults,
+			MaxUses:           &maxUses,
+			SearchContextSize: &contextSize,
+		},
+	}), true, nil
+}
+
+func openRouterWebSearchContext(context WebSearchContext) (components.SearchQualityLevel, error) {
+	switch context {
+	case WebSearchContextLow:
+		return components.SearchQualityLevelLow, nil
+	case WebSearchContextMedium:
+		return components.SearchQualityLevelMedium, nil
+	case WebSearchContextHigh:
+		return components.SearchQualityLevelHigh, nil
+	default:
+		return "", errors.New("AI web search context must be low, medium, or high")
+	}
 }
 
 func openRouterReasoningEffort(effort ReasoningEffort) (components.ChatRequestReasoningEffort, error) {

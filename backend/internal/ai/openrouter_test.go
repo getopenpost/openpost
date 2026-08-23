@@ -79,6 +79,8 @@ func TestOpenRouterGenerateSendsPrivateMultimodalRequest(t *testing.T) {
 	require.Equal(t, float64(96), received["max_completion_tokens"])
 	require.Equal(t, "none", received["reasoning_effort"])
 	require.Equal(t, false, received["stream"])
+	_, hasTools := received["tools"]
+	require.False(t, hasTools)
 	require.Equal(t, map[string]any{
 		"allow_fallbacks":    false,
 		"data_collection":    "deny",
@@ -114,6 +116,73 @@ func TestOpenRouterGenerateSendsPrivateMultimodalRequest(t *testing.T) {
 			"detail": "low",
 		},
 	}, content[2])
+}
+
+func TestOpenRouterGenerateSendsFileAndBoundedWebSearch(t *testing.T) {
+	var received map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&received))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"gen-file",
+			"object":"chat.completion",
+			"created":1730000000,
+			"model":"openai/gpt-5.6-luna",
+			"choices":[{
+				"index":0,
+				"message":{"role":"assistant","content":"A current summary."},
+				"finish_reason":"stop",
+				"logprobs":null
+			}]
+		}`))
+	}))
+	defer server.Close()
+
+	generator, err := NewOpenRouter(OpenRouterConfig{
+		APIKey:     "test-api-key",
+		BaseURL:    server.URL,
+		HTTPClient: server.Client(),
+	})
+	require.NoError(t, err)
+
+	_, err = generator.Generate(context.Background(), GenerateRequest{
+		Model:      "openai/gpt-5.6-luna",
+		UserPrompt: "Use the attached launch brief and current sources.",
+		Files: []File{{
+			Data:     []byte("%PDF"),
+			MIMEType: " Application/PDF; charset=binary ",
+			Filename: " launch-brief.pdf ",
+		}},
+		WebSearch: WebSearchConfig{
+			Enabled:    true,
+			MaxResults: 6,
+			MaxUses:    2,
+			Context:    WebSearchContextMedium,
+		},
+	})
+	require.NoError(t, err)
+
+	messages := received["messages"].([]any)
+	require.Len(t, messages, 1)
+	content := messages[0].(map[string]any)["content"].([]any)
+	require.Len(t, content, 2)
+	require.Equal(t, map[string]any{
+		"type": "file",
+		"file": map[string]any{
+			"file_data": "data:application/pdf;base64,JVBERg==",
+			"filename":  "launch-brief.pdf",
+		},
+	}, content[1])
+	require.Equal(t, []any{
+		map[string]any{
+			"type": "openrouter:web_search",
+			"parameters": map[string]any{
+				"max_results":         float64(6),
+				"max_uses":            float64(2),
+				"search_context_size": "medium",
+			},
+		},
+	}, received["tools"])
 }
 
 func TestOpenRouterGenerateRejectsEmptyResponse(t *testing.T) {
@@ -193,4 +262,92 @@ func TestOpenRouterGenerateValidatesImageBeforeRequest(t *testing.T) {
 	require.EqualError(t, err, "AI image 1: valid image MIME type is required")
 	var providerError *ProviderError
 	require.False(t, errors.As(err, &providerError))
+}
+
+func TestOpenRouterGenerateValidatesFilesBeforeRequest(t *testing.T) {
+	tests := []struct {
+		name string
+		file File
+		want string
+	}{
+		{
+			name: "data",
+			file: File{MIMEType: "application/pdf", Filename: "brief.pdf"},
+			want: "AI file 1: data is required",
+		},
+		{
+			name: "MIME type",
+			file: File{Data: []byte("private-file-body"), MIMEType: "not a MIME type", Filename: "brief.pdf"},
+			want: "AI file 1: valid MIME type is required",
+		},
+		{
+			name: "wildcard MIME type",
+			file: File{Data: []byte("private-file-body"), MIMEType: "application/*", Filename: "brief.pdf"},
+			want: "AI file 1: valid MIME type is required",
+		},
+		{
+			name: "filename",
+			file: File{Data: []byte("private-file-body"), MIMEType: "application/pdf", Filename: "../brief.pdf"},
+			want: "AI file 1: valid filename is required",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := buildOpenRouterRequest(GenerateRequest{
+				Model: "openai/gpt-5.6-luna",
+				Files: []File{test.file},
+			}, "", false)
+
+			require.EqualError(t, err, test.want)
+			require.NotContains(t, err.Error(), "private-file-body")
+		})
+	}
+}
+
+func TestOpenRouterGenerateValidatesWebSearchBeforeRequest(t *testing.T) {
+	tests := []struct {
+		name   string
+		config WebSearchConfig
+		want   string
+	}{
+		{
+			name:   "minimum results",
+			config: WebSearchConfig{Enabled: true, MaxUses: 1, Context: WebSearchContextLow},
+			want:   "AI web search maximum results must be between 1 and 25",
+		},
+		{
+			name:   "maximum results",
+			config: WebSearchConfig{Enabled: true, MaxResults: 26, MaxUses: 1, Context: WebSearchContextLow},
+			want:   "AI web search maximum results must be between 1 and 25",
+		},
+		{
+			name:   "minimum uses",
+			config: WebSearchConfig{Enabled: true, MaxResults: 1, Context: WebSearchContextLow},
+			want:   "AI web search maximum uses must be between 1 and 30",
+		},
+		{
+			name:   "maximum uses",
+			config: WebSearchConfig{Enabled: true, MaxResults: 1, MaxUses: 31, Context: WebSearchContextLow},
+			want:   "AI web search maximum uses must be between 1 and 30",
+		},
+		{
+			name:   "context",
+			config: WebSearchConfig{Enabled: true, MaxResults: 1, MaxUses: 1, Context: "private-context"},
+			want:   "AI web search context must be low, medium, or high",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := buildOpenRouterRequest(GenerateRequest{
+				Model:      "openai/gpt-5.6-luna",
+				UserPrompt: "Find current sources.",
+				WebSearch:  test.config,
+			}, "", false)
+
+			require.EqualError(t, err, test.want)
+			require.NotContains(t, err.Error(), "private-context")
+		})
+	}
 }

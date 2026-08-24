@@ -9,3 +9,5 @@
 - The new-post flow now opens the Builder when server-side AI is configured, while Manual keeps the existing composer available.
 - Builder work runs as a durable, idempotent job and creates one normal draft Publication only after review.
 - Source-bound media plans now carry one exact approved source into the relevant destination editor or attach it only to Renditions that use the raw source.
+- Builder destinations now freeze the same live connected-account limits used by the composer, including X subscription limits and Mastodon instance limits.
+- Native platform prompts now carry separate LinkedIn, X, Mastodon, Bluesky, and Threads distribution, writing, media, safety, and plain-language rules into generation and review.

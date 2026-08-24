@@ -87,6 +87,16 @@ owns its objective, content routes, distribution context, media role, and safety
 notes. New platforms require a real adapter. There is no generic microblog
 fallback and no virality score.
 
+The policies stay separate in the generation prompt. LinkedIn owns its visible
+opening, dominant reaction, evidence, and visual job. X owns artifact-first text,
+standalone link context, thread discipline, and explicit rejection of ranking
+folklore. Mastodon owns federated distribution, instance rules, precise hashtags,
+visibility, and alt-text expectations. Bluesky owns Following, Discover, custom
+feed signals, source attribution, and separate feed eligibility. Threads owns
+original wording, topic context, sincere reply paths, media context, and author
+follow-up advice. The reviewer receives the same policies and rejects a Rendition
+that reads like another platform with a new character limit.
+
 ## Publication integration
 
 The successful build commits through the shared Publication application:
@@ -101,6 +111,11 @@ The successful build commits through the shared Publication application:
 A destination may expand one canonical idea into several thread segments. Its
 capability checks use the actual rendition segments, not the canonical segment
 count. The builder never pads the canonical Publication with fake segments.
+Before generation, the Builder uses the same live account-capability resolver as
+the composer and freezes the effective text and media limits into every candidate
+destination. X fails closed to standard limits unless fresh account capability
+data confirms Basic, Premium, or Premium+. Mastodon uses the connected instance's
+reported character, attachment, size, and MIME limits when available.
 
 The worker only prepares a validated package. The UI first shows the route,
 claim review, destination plan, and media choices. An authenticated commit

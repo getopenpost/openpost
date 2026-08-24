@@ -236,7 +236,20 @@ else
   npm_run pack "$placeholder_dir" --dry-run
   if confirm "Publish the non-functional @getopenpost/n8n-nodes-openpost@0.0.0 placeholder now?"; then
     npm_run publish "$placeholder_dir" --access public --registry https://registry.npmjs.org/
-    npm_run view '@getopenpost/n8n-nodes-openpost@0.0.0' version --registry https://registry.npmjs.org/
+    note "npm accepted the publish. Waiting up to one minute for public registry reads to catch up."
+    published_version=""
+    for attempt in {1..12}; do
+      if published_version=$(npm_run view '@getopenpost/n8n-nodes-openpost@0.0.0' version --registry https://registry.npmjs.org/ 2>/dev/null); then
+        break
+      fi
+      [[ "$attempt" -lt 12 ]] && sleep 5
+    done
+    if [[ "$published_version" == "0.0.0" ]]; then
+      note "The public registry now returns version $published_version."
+    else
+      warn "npm accepted the publish, but public registry reads are still syncing. Do not publish again."
+      note "Re-run this wizard later. It will detect version 0.0.0 and continue at trusted publishing."
+    fi
   else
     warn "Placeholder publication skipped. Trusted publishing cannot be configured yet."
     exit 1

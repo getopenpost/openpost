@@ -18,12 +18,12 @@ func (capabilityResolverTokenSource) GetValidAccessToken(context.Context, string
 	return "access-token|access-secret", nil
 }
 
-type xCapabilityResolverAdapter struct {
+type dynamicCapabilityResolverAdapter struct {
 	platform.Adapter
 	result platform.AccountCapabilityResult
 }
 
-func (a xCapabilityResolverAdapter) ResolveAccountPublishingCapabilities(context.Context, string, platform.AccountCapabilityInput) (platform.AccountCapabilityResult, error) {
+func (a dynamicCapabilityResolverAdapter) ResolveAccountPublishingCapabilities(context.Context, string, platform.AccountCapabilityInput) (platform.AccountCapabilityResult, error) {
 	return a.result, nil
 }
 
@@ -104,7 +104,7 @@ func TestXAccountCapabilityResolutionFailsClosedAndUpgradesVerifiedPremium(t *te
 		Segments: segments,
 	})
 	handler = NewCapabilityResolverHandler(nil, nil, map[string]platform.Adapter{
-		capabilities.ProviderX: xCapabilityResolverAdapter{
+		capabilities.ProviderX: dynamicCapabilityResolverAdapter{
 			result: platform.XPublishingCapabilities(platform.XSubscriptionTypePremium),
 		},
 	}, capabilityResolverTokenSource{})
@@ -112,6 +112,49 @@ func TestXAccountCapabilityResolutionFailsClosedAndUpgradesVerifiedPremium(t *te
 	require.Equal(t, platform.XPremiumTextLimit, premium.TextLimit)
 	require.True(t, premium.Compatible)
 	require.NotContains(t, capabilityIssueCodes(premium.Issues), "text_too_long")
+}
+
+func TestPublicationBuildAccountConstraintsUseTheLiveAccountResolver(t *testing.T) {
+	account := models.SocialAccount{
+		ID: "mastodon-account", Platform: capabilities.ProviderMastodon, InstanceURL: "https://social.example",
+	}
+	handler := NewCapabilityResolverHandler(nil, nil, map[string]platform.Adapter{
+		capabilities.ProviderMastodon + ":" + account.InstanceURL: dynamicCapabilityResolverAdapter{result: platform.AccountCapabilityResult{
+			Revision: "mastodon-instance-1",
+			Constraints: map[string]any{
+				"text_limit":           1_337,
+				"media_max_count":      7,
+				"max_video_size_bytes": int64(99_000_000),
+				"allowed_mimes":        []string{"image/png", "video/webm"},
+			},
+		}},
+	}, capabilityResolverTokenSource{})
+
+	constraints := handler.publicationBuildAccountConstraints(
+		t.Context(),
+		account,
+		"mastodon.post",
+	)
+	require.Equal(t, 1_337, constraints["text_limit"])
+	require.Equal(t, 7, constraints["media_max_count"])
+	require.Equal(t, int64(99_000_000), constraints["max_video_size_bytes"])
+	require.Equal(t, []string{"image/png", "video/webm"}, constraints["allowed_mimes"])
+}
+
+func TestPublicationBuildAccountConstraintsFailClosedForXAndUpgradeVerifiedPremium(t *testing.T) {
+	account := models.SocialAccount{ID: "x-account", Platform: capabilities.ProviderX}
+	standard := NewCapabilityResolverHandler(nil, nil, nil, nil).
+		publicationBuildAccountConstraints(t.Context(), account, "x.post")
+	require.Equal(t, platform.XStandardTextLimit, standard["text_limit"])
+
+	premiumHandler := NewCapabilityResolverHandler(nil, nil, map[string]platform.Adapter{
+		capabilities.ProviderX: dynamicCapabilityResolverAdapter{
+			result: platform.XPublishingCapabilities(platform.XSubscriptionTypePremiumPlus),
+		},
+	}, capabilityResolverTokenSource{})
+	premium := premiumHandler.publicationBuildAccountConstraints(t.Context(), account, "x.post")
+	require.Equal(t, platform.XPremiumTextLimit, premium["text_limit"])
+	require.Equal(t, int64(platform.XPremiumVideoSizeBytes), premium["max_video_size_bytes"])
 }
 
 func capabilityIssueCodes(issues []capabilities.ValidationIssue) []string {

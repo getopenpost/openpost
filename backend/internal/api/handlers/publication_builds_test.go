@@ -146,6 +146,63 @@ func TestPublicationBuildCreateUsesSocialSetSubsetCapabilitiesAndStoredAuthority
 	require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
 }
 
+func TestPublicationBuildOutputProfilesFreezeLiveMastodonInstanceLimits(t *testing.T) {
+	account := models.SocialAccount{
+		ID: "mastodon-account", Platform: capabilities.ProviderMastodon, InstanceURL: "https://social.example",
+	}
+	resolver := NewCapabilityResolverHandler(nil, nil, map[string]platform.Adapter{
+		capabilities.ProviderMastodon + ":" + account.InstanceURL: dynamicCapabilityResolverAdapter{result: platform.AccountCapabilityResult{
+			Revision: "mastodon-instance-1",
+			Constraints: map[string]any{
+				"text_limit":      1_337,
+				"media_max_count": 7,
+				"allowed_mimes":   []string{"image/png", "video/webm"},
+			},
+		}},
+	}, capabilityResolverTokenSource{})
+	handler := NewPublicationBuildHandler(nil, publicationBuildTestAuthenticator{}, nil)
+	handler.SetCapabilityResolver(resolver)
+
+	profiles := handler.publicationBuildOutputProfiles(t.Context(), account, "")
+	require.NotEmpty(t, profiles)
+	require.Equal(t, 1_337, profiles[0].TextLimit)
+	require.Equal(t, 7, profiles[0].MediaMaxCount)
+	require.Equal(t, []string{"image/png", "video/webm"}, profiles[0].AllowedMIMEs)
+}
+
+func TestPublicationBuildOutputProfilesFollowLiveXSubscriptionLimits(t *testing.T) {
+	tests := []struct {
+		name             string
+		subscriptionType string
+		textLimit        int
+	}{
+		{name: "unknown", subscriptionType: platform.XSubscriptionTypeUnknown, textLimit: platform.XStandardTextLimit},
+		{name: "none", subscriptionType: platform.XSubscriptionTypeNone, textLimit: platform.XStandardTextLimit},
+		{name: "basic", subscriptionType: platform.XSubscriptionTypeBasic, textLimit: platform.XPremiumTextLimit},
+		{name: "premium", subscriptionType: platform.XSubscriptionTypePremium, textLimit: platform.XPremiumTextLimit},
+		{name: "premium plus", subscriptionType: platform.XSubscriptionTypePremiumPlus, textLimit: platform.XPremiumTextLimit},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			account := models.SocialAccount{ID: "x-account", Platform: capabilities.ProviderX}
+			resolver := NewCapabilityResolverHandler(nil, nil, map[string]platform.Adapter{
+				capabilities.ProviderX: dynamicCapabilityResolverAdapter{
+					result: platform.XPublishingCapabilities(test.subscriptionType),
+				},
+			}, capabilityResolverTokenSource{})
+			handler := NewPublicationBuildHandler(nil, publicationBuildTestAuthenticator{}, nil)
+			handler.SetCapabilityResolver(resolver)
+
+			profiles := handler.publicationBuildOutputProfiles(t.Context(), account, "")
+			require.NotEmpty(t, profiles)
+			for _, profile := range profiles {
+				require.Equal(t, test.textLimit, profile.TextLimit, profile.Key)
+			}
+		})
+	}
+}
+
 func TestPublicationBuildCreateKeepsUnsupportedCandidatesForAnExplicitSkip(t *testing.T) {
 	server := newPublicationBuildTestServer(t)
 

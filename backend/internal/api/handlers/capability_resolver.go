@@ -57,6 +57,48 @@ func NewCapabilityResolverHandler(
 	}
 }
 
+// publicationBuildAccountConstraints resolves the same live, cached account
+// limits used by the composer, then returns only the values that may vary by
+// connected account. Publication Builds freeze this snapshot before generation
+// so a platform adapter cannot draft against the catalog maximum by mistake.
+func (h *CapabilityResolverHandler) publicationBuildAccountConstraints(
+	ctx context.Context,
+	account models.SocialAccount,
+	outputProfile string,
+) map[string]any {
+	if h == nil {
+		return nil
+	}
+	adapter := h.adapterForResolveAccount(account)
+	_, hasDynamicProvider := adapter.(platform.AccountCapabilityProvider)
+	if account.Platform != capabilities.ProviderX && (!hasDynamicProvider || h.tokenSource == nil) {
+		return nil
+	}
+
+	base := capabilities.Resolve(account.Platform, capabilities.ResolveInput{
+		RequestedOutputProfile: strings.TrimSpace(outputProfile),
+	})
+	resolved := base
+	h.mergeAccountCapability(ctx, account, "", "", nil, nil, &resolved)
+
+	constraints := map[string]any{}
+	if resolved.TextLimit != base.TextLimit || account.Platform == capabilities.ProviderX {
+		constraints["text_limit"] = resolved.TextLimit
+	}
+	for _, key := range []string{
+		"media_max_count",
+		"max_video_duration_seconds",
+		"max_video_size_bytes",
+		"allowed_mimes",
+	} {
+		value, ok := resolved.ActiveConstraints[key]
+		if ok {
+			constraints[key] = value
+		}
+	}
+	return constraints
+}
+
 func (h *CapabilityResolverHandler) SetPublicMediaVerifier(verifier *publicurl.MediaVerifier) {
 	h.publicMedia = verifier
 }

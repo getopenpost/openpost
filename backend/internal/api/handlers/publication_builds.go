@@ -59,17 +59,22 @@ type publicationBuildApplication interface {
 }
 
 type PublicationBuildHandler struct {
-	db           *bun.DB
-	auth         middleware.Authenticator
-	application  publicationBuildApplication
-	publications publicationbuilder.PublicationApplication
-	voices       *voiceprofiles.Service
-	limiter      *ratelimit.Limiter
-	now          func() time.Time
+	db                 *bun.DB
+	auth               middleware.Authenticator
+	application        publicationBuildApplication
+	publications       publicationbuilder.PublicationApplication
+	capabilityResolver *CapabilityResolverHandler
+	voices             *voiceprofiles.Service
+	limiter            *ratelimit.Limiter
+	now                func() time.Time
 }
 
 func (h *PublicationBuildHandler) SetPublicationApplication(application publicationbuilder.PublicationApplication) {
 	h.publications = application
+}
+
+func (h *PublicationBuildHandler) SetCapabilityResolver(resolver *CapabilityResolverHandler) {
+	h.capabilityResolver = resolver
 }
 
 func NewPublicationBuildHandler(
@@ -306,7 +311,7 @@ func (h *PublicationBuildHandler) preparePublicationBuildDestinations(
 		if _, supported := nativePublicationBuilderPlatforms[account.Platform]; supported {
 			nativeDestinationCount++
 		}
-		profiles := publicationBuildOutputProfiles(account, snapshot.DefaultOutputProfiles[accountID])
+		profiles := h.publicationBuildOutputProfiles(ctx, account, snapshot.DefaultOutputProfiles[accountID])
 		if len(profiles) == 0 {
 			return nil, huma.Error400BadRequest("One or more selected accounts has no native Builder output format")
 		}
@@ -613,9 +618,14 @@ func (h *PublicationBuildHandler) normalizePublicationBuildAssets(
 	return assets, nil
 }
 
-func publicationBuildOutputProfiles(account models.SocialAccount, preferred string) []publicationbuilder.OutputProfile {
+func (h *PublicationBuildHandler) publicationBuildOutputProfiles(
+	ctx context.Context,
+	account models.SocialAccount,
+	preferred string,
+) []publicationbuilder.OutputProfile {
 	profiles := make([]publicationbuilder.OutputProfile, 0)
 	seen := map[string]struct{}{}
+	accountConstraints := map[string]any(nil)
 	for _, capability := range capabilities.All() {
 		if capability.Provider != account.Platform || !capability.OpenPostQueued || capability.UnavailableReason != "" {
 			continue
@@ -629,7 +639,12 @@ func publicationBuildOutputProfiles(account models.SocialAccount, preferred stri
 			maxSegments = maxPublicationBuildThreadSegments
 		}
 		resolved := capabilities.ResolvedCapability{Capability: capability}
-		if account.Platform == capabilities.ProviderX {
+		if h.capabilityResolver != nil {
+			if accountConstraints == nil {
+				accountConstraints = h.capabilityResolver.publicationBuildAccountConstraints(ctx, account, capability.OutputProfile)
+			}
+			capabilities.ApplyAccountConstraints(&resolved, nil, accountConstraints)
+		} else if account.Platform == capabilities.ProviderX {
 			accountCapabilities := standardXPublishingCapabilities()
 			if accountLimitProfile(account) == "x-premium" {
 				accountCapabilities = platform.XPublishingCapabilities(platform.XSubscriptionTypePremium)

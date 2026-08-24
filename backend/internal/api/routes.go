@@ -264,6 +264,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationHandler.RegisterRoutes(api)
 	publicationBuildHandler := handlers.NewPublicationBuildHandler(deps.DB, deps.Authenticator, deps.PublicationBuilder)
 	publicationBuildHandler.SetPublicationApplication(publicationHandler.Application())
+	publicationBuildHandler.SetCapabilityResolver(capabilityResolverHandler)
 	publicationBuildHandler.RegisterRoutes(api)
 	handlers.NewPublicationDiscoveryHandler(deps.DB, deps.Authenticator, deps.PublicationDiscovery).RegisterRoutes(api)
 	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)

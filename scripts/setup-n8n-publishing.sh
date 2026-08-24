@@ -196,12 +196,27 @@ if npm view '@getopenpost/n8n-nodes-openpost@0.0.0' version >/dev/null 2>&1; the
   note "The 0.0.0 placeholder already exists, so this stage is complete."
 else
   command -v npm >/dev/null 2>&1 || { warn "npm is required"; exit 1; }
-  if ! npm whoami >/dev/null 2>&1; then
+  stage_tmp=$(mktemp -d)
+  trap 'rm -rf "$stage_tmp"' EXIT
+  npm_auth_config=""
+  npm_run() {
+    if [[ -n "$npm_auth_config" ]]; then
+      NPM_CONFIG_USERCONFIG="$npm_auth_config" npm "$@"
+    else
+      npm "$@"
+    fi
+  }
+  if ! npm_run whoami --registry https://registry.npmjs.org/ >/dev/null 2>&1; then
+    npm_auth_config="$stage_tmp/npmrc"
+    touch "$npm_auth_config"
+    chmod 600 "$npm_auth_config"
     step "Sign in to npm. Complete the browser and two-factor prompts."
-    npm login
+    note "The sign-in uses a private temporary config, so read-only or managed ~/.npmrc files are safe."
+    npm_run login --registry https://registry.npmjs.org/
+    npm_run whoami --registry https://registry.npmjs.org/ >/dev/null
   fi
-  placeholder_dir=$(mktemp -d)
-  trap 'rm -rf "$placeholder_dir"' EXIT
+  placeholder_dir="$stage_tmp/placeholder"
+  mkdir "$placeholder_dir"
   printf '%s\n' \
     '{' \
     '  "name": "@getopenpost/n8n-nodes-openpost",' \
@@ -218,10 +233,10 @@ else
     'Install version 0.1.0 or newer after the GitHub release workflow publishes it.' \
     > "$placeholder_dir/README.md"
   step "Review the exact placeholder payload shown below. It contains no executable code."
-  npm pack "$placeholder_dir" --dry-run
+  npm_run pack "$placeholder_dir" --dry-run
   if confirm "Publish the non-functional @getopenpost/n8n-nodes-openpost@0.0.0 placeholder now?"; then
-    npm publish "$placeholder_dir" --access public
-    npm view '@getopenpost/n8n-nodes-openpost@0.0.0' version
+    npm_run publish "$placeholder_dir" --access public --registry https://registry.npmjs.org/
+    npm_run view '@getopenpost/n8n-nodes-openpost@0.0.0' version --registry https://registry.npmjs.org/
   else
     warn "Placeholder publication skipped. Trusted publishing cannot be configured yet."
     exit 1

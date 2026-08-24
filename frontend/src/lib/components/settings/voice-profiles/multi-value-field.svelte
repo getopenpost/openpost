@@ -104,7 +104,7 @@
 	<div class="flex min-w-0 gap-2">
 		<Input
 			{id}
-			class="min-w-0 flex-1"
+			class="h-11 min-w-0 flex-1 md:h-9"
 			bind:value={draft}
 			{placeholder}
 			maxlength={maxLength}
@@ -117,6 +117,7 @@
 			type="button"
 			variant="outline"
 			size="sm"
+			class="h-11 md:h-9"
 			disabled={disabled || full || additions().length === 0}
 			onclick={commit}
 		>

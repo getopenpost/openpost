@@ -146,17 +146,24 @@
 										{decision.preview}
 									</p>
 								{/if}
-								{#if decision.formatLabel || decision.objective || decision.archetype || decision.reason || decision.mediaTreatment}
+								{#if decision.formatLabel || decision.objective || decision.archetype}
 									<p class="mt-0.5 text-xs leading-5 text-muted-foreground">
 										{[
 											decision.formatLabel,
 											planTerm(decision.objective),
-											planTerm(decision.archetype),
-											decision.reason,
-											decision.mediaTreatment
+											planTerm(decision.archetype)
 										]
 											.filter(Boolean)
 											.join(' · ')}
+									</p>
+								{/if}
+								{#if decision.reason}
+									<p class="mt-1 text-xs leading-5 text-muted-foreground">{decision.reason}</p>
+								{/if}
+								{#if decision.mediaTreatment}
+									<p class="mt-1 text-xs leading-5 text-muted-foreground">
+										<span class="font-medium text-foreground">{copy.mediaPlan}:</span>
+										{planTerm(decision.mediaTreatment)}
 									</p>
 								{/if}
 							</div>
@@ -166,7 +173,7 @@
 			</div>
 		{/if}
 
-		<div class="grid gap-5 border-t pt-4 md:grid-cols-2">
+		<div class="grid gap-5 border-t pt-4 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
 			<div>
 				<h3 class="flex items-center gap-2 text-sm font-semibold">
 					<AlertCircleIcon class="size-4 text-muted-foreground" aria-hidden="true" />
@@ -194,13 +201,17 @@
 			{#if result.mediaPlan?.length}
 				<div>
 					<h3 class="text-sm font-semibold">{copy.mediaPlan}</h3>
-					<ul class="mt-2 space-y-2 text-xs leading-5 text-muted-foreground">
+					<ul class="mt-2 divide-y rounded-md border text-xs leading-5">
 						{#each result.mediaPlan as item (item.id)}
-							<li class="flex items-start justify-between gap-3">
+							<li class="flex flex-col gap-2 p-3 sm:flex-row sm:items-start sm:justify-between">
 								<span class="min-w-0">
-									<span>{item.platform ? `${item.platform}: ` : ''}{item.label}</span>
+									<span class="text-foreground"
+										>{item.platform ? `${item.platform}: ` : ''}{item.label}</span
+									>
 									{#if item.sourceLabel}
-										<span class="block text-[11px]">{item.sourceLabel}</span>
+										<span class="mt-0.5 block text-[11px] text-muted-foreground"
+											>{item.sourceLabel}</span
+										>
 									{/if}
 								</span>
 								{#if item.action && onMediaAction}
@@ -208,7 +219,7 @@
 										type="button"
 										variant="outline"
 										size="sm"
-										class="h-11 shrink-0 px-2 text-xs md:h-7"
+										class="h-11 shrink-0 self-start px-2 text-xs md:h-8"
 										disabled={committing}
 										onclick={() => onMediaAction?.(item)}
 									>

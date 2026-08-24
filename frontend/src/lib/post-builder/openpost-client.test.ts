@@ -71,7 +71,7 @@ function buildResponse(resultSources?: components['schemas']['ResolvedSource'][]
 					archetype: 'technical_opinion',
 					output_profile: 'x.thread',
 					preview: 'Deleting code was the feature.',
-					warnings: [],
+					warnings: [] as string[],
 					claims: destinationClaims,
 					media: destinationMedia
 				}
@@ -192,6 +192,9 @@ describe('OpenPost publication builder API client', () => {
 			role: 'demo',
 			source_ref: 'media:video-1'
 		};
+		response.result.destinations[0].warnings = ['Confirm the line count before publishing.'];
+		response.result.review_flags[0].message =
+			'The line count came from the source. Confirm the line count before publishing.';
 		const post = vi.fn().mockResolvedValue(apiResult(response));
 		const api = createOpenPostBuilderClient({
 			client: apiClient(vi.fn(), post),
@@ -220,6 +223,9 @@ describe('OpenPost publication builder API client', () => {
 					sourceLabel: 'safe-demo.mp4'
 				})
 			])
+		);
+		expect(result.result?.destinationDecisions[0]?.reason).toBe(
+			'The line count came from the source. Confirm the line count before publishing.'
 		);
 	});
 

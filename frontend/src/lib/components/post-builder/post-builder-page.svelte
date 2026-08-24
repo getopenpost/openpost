@@ -445,7 +445,7 @@
 		</Button>
 	{:else if accounts.length > 0}
 		<div
-			class="min-w-0 [&_[data-testid=composer-account-control]]:w-full [&_[data-testid=composer-account-control]]:justify-start"
+			class="min-w-0 [&_[data-testid=composer-account-control]]:w-full [&_[data-testid=composer-account-control]]:max-w-none [&_[data-testid=composer-account-control]]:justify-start"
 		>
 			<SocialSetControl
 				{workspaceId}
@@ -479,7 +479,7 @@
 			<AppSelect
 				value={voiceProfileId}
 				ariaLabel={`${copy.voice}: ${voiceLabel}`}
-				class="w-full"
+				class="w-full text-sm data-[size=default]:h-11 md:data-[size=default]:h-9"
 				{disabled}
 				options={[
 					{ value: '', label: `${copy.voice}: ${m.post_builder_voice_defaults()}` },

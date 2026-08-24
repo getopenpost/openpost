@@ -328,7 +328,7 @@ function mapBuildResult(build: WirePublicationBuild): NonNullable<PostBuilderRun
 				platform: destination.platform,
 				accountLabel: label?.label || destination.platform,
 				status: destinationFlags.length > 0 ? 'needs_review' : 'included',
-				reason: reasons.join(' '),
+				reason: joinReviewReasons(reasons),
 				formatLabel: destination.output_profile,
 				objective: destination.objective,
 				archetype: destination.archetype,
@@ -372,6 +372,24 @@ function mapBuildResult(build: WirePublicationBuild): NonNullable<PostBuilderRun
 		claims,
 		mediaPlan
 	};
+}
+
+function joinReviewReasons(reasons: string[]): string {
+	const uniqueReasons: string[] = [];
+	for (const value of reasons) {
+		const reason = value.trim();
+		if (!reason) continue;
+		const normalizedReason = reason.replaceAll(/\s+/g, ' ').toLocaleLowerCase();
+		const normalizedExisting = uniqueReasons.map((existing) =>
+			existing.replaceAll(/\s+/g, ' ').toLocaleLowerCase()
+		);
+		if (normalizedExisting.some((existing) => existing.includes(normalizedReason))) continue;
+		for (let index = uniqueReasons.length - 1; index >= 0; index -= 1) {
+			if (normalizedReason.includes(normalizedExisting[index])) uniqueReasons.splice(index, 1);
+		}
+		uniqueReasons.push(reason);
+	}
+	return uniqueReasons.join(' ');
 }
 
 function uniqueClaims(claims: WireClaim[], sourceLabels: Map<string, string>): PostBuilderClaim[] {

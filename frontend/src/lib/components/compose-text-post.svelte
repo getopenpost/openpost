@@ -3917,8 +3917,17 @@
 		scheduleAutoSave();
 	}
 
-	function activateVariantTab(accountId: string | null) {
+	async function activateVariantTab(accountId: string | null) {
 		activeVariantAccountId = accountId;
+		await tick();
+		const activeTab = document.getElementById(
+			accountId ? `composer-destination-${accountId}` : 'composer-destination-all'
+		);
+		activeTab?.scrollIntoView({
+			behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+			block: 'nearest',
+			inline: 'nearest'
+		});
 	}
 
 	function unsyncAccount(accountId: string) {
@@ -4691,11 +4700,12 @@
 							aria-label={m.compose_destination_tabs()}
 						>
 							<button
+								id="composer-destination-all"
 								type="button"
 								role="tab"
 								aria-selected={!activeVariantAccountId}
-								class="min-h-11 shrink-0 border-b-2 px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
-								class:border-foreground={!activeVariantAccountId}
+								class="min-h-11 shrink-0 scroll-mx-3 border-b-2 px-3 text-sm font-medium transition-colors hover:text-foreground focus-visible:border-primary focus-visible:ring-0 focus-visible:outline-none md:min-h-9"
+								class:border-primary={!activeVariantAccountId}
 								class:border-transparent={Boolean(activeVariantAccountId)}
 								class:text-muted-foreground={Boolean(activeVariantAccountId)}
 								onclick={() => activateVariantTab(null)}
@@ -4709,8 +4719,8 @@
 									type="button"
 									role="tab"
 									aria-selected={activeVariantAccountId === account.id}
-									class="flex min-h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none md:min-h-9"
-									class:border-foreground={activeVariantAccountId === account.id}
+									class="flex min-h-11 shrink-0 scroll-mx-3 items-center gap-1.5 border-b-2 px-3 text-sm transition-colors hover:text-foreground focus-visible:border-primary focus-visible:ring-0 focus-visible:outline-none md:min-h-9"
+									class:border-primary={activeVariantAccountId === account.id}
 									class:border-transparent={activeVariantAccountId !== account.id}
 									class:text-muted-foreground={activeVariantAccountId !== account.id}
 									onclick={() => activateVariantTab(account.id)}
@@ -4723,8 +4733,9 @@
 									{/if}
 									{#if issueCount > 0}
 										<span
-											class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive"
-											>{issueCount}</span
+											class="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs text-destructive tabular-nums"
+											aria-label={m.compose_issue_count({ count: issueCount })}
+											title={m.compose_issue_count({ count: issueCount })}>{issueCount}</span
 										>
 									{/if}
 								</button>

@@ -74,7 +74,10 @@
 						disabled={disabled || busyAccountId === account.id || profiles.length === 0}
 						onValueChange={(profileId) => profileId && onAssign(account, profileId)}
 					>
-						<Select.Trigger aria-label={copy.accountVoiceLabel(account.label)} class="w-full">
+						<Select.Trigger
+							aria-label={copy.accountVoiceLabel(account.label)}
+							class="w-full text-sm data-[size=default]:h-11 md:data-[size=default]:h-9"
+						>
 							{#if busyAccountId === account.id}
 								{copy.saving}
 							{:else}

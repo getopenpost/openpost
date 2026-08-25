@@ -6,6 +6,12 @@ import { effectiveMediaTracks } from '../timeline/utils/track-groups';
 import type { MediaPreparationStatus } from './pool.svelte';
 import { assessSmartCopy, type SmartCopyFormat } from './smart-copy-plan';
 import type { MediaMetadata } from './types';
+import {
+	IN_MEMORY_OUTPUT_LIMIT,
+	STREAMING_THRESHOLD_BYTES,
+	estimateAvailableStorageBytes,
+	isStreamingAvailable
+} from './streaming-limits';
 
 export type ExportPreflightSeverity = 'ok' | 'info' | 'warning' | 'error';
 export type ExportPreflightCheckId =
@@ -24,7 +30,9 @@ export type ExportPreflightCheckId =
 	| 'main-thread-render'
 	| 'long-render'
 	| 'output-too-large'
-	| 'streaming-active';
+	| 'streaming-active'
+	| 'storage-insufficient'
+	| 'storage-check-pending';
 
 export interface ExportPreflightCheck {
 	id: ExportPreflightCheckId;
@@ -34,6 +42,8 @@ export interface ExportPreflightCheck {
 	seconds?: number;
 	minutes?: number;
 	sizeBytes?: number;
+	requiredBytes?: number;
+	availableBytes?: number | null;
 }
 
 export interface ExportPreflightSettings {
@@ -84,17 +94,40 @@ const VIDEO_BITRATES = {
 } as const;
 const AUDIO_BITRATE = 192_000;
 const WAV_BITRATE = 48_000 * 2 * 16;
-export const IN_MEMORY_OUTPUT_LIMIT = 2 * 1024 ** 3;
-export const STREAMING_EXPORT_LIMIT = 8 * 1024 ** 3;
-export const STREAMING_THRESHOLD_BYTES = 50 * 1024 * 1024;
+export { IN_MEMORY_OUTPUT_LIMIT, STREAMING_THRESHOLD_BYTES };
 export const LONG_RENDER_SECONDS = 30 * 60;
 
 export function isStreamingExportAvailable(): boolean {
-	try {
-		return typeof navigator !== 'undefined' && !!navigator.storage?.getDirectory;
-	} catch {
-		return false;
+	return isStreamingAvailable();
+}
+
+export async function inspectExportStorage(estimatedBytes: number): Promise<{
+	requiredBytes: number;
+	availableBytes: number | null;
+	hasSpace: boolean | null;
+}> {
+	const available = await estimateAvailableStorageBytes();
+	if (available === null) {
+		return { requiredBytes: estimatedBytes, availableBytes: null, hasSpace: null };
 	}
+	return {
+		requiredBytes: estimatedBytes,
+		availableBytes: available,
+		hasSpace: estimatedBytes <= available
+	};
+}
+
+export function createStorageInsufficientCheck(
+	requiredBytes: number,
+	availableBytes: number | null
+): ExportPreflightCheck {
+	return {
+		id: 'storage-insufficient',
+		severity: 'error',
+		requiredBytes,
+		availableBytes,
+		sizeBytes: requiredBytes
+	};
 }
 
 function isAudioFormat(format: ExportPreflightSettings['format']): boolean {
@@ -302,16 +335,10 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 	}
 	const streamingAvailable = input.streamingAvailable ?? isStreamingExportAvailable();
 	if (estimatedFileSizeBytes >= IN_MEMORY_OUTPUT_LIMIT) {
-		if (streamingAvailable && estimatedFileSizeBytes < STREAMING_EXPORT_LIMIT) {
+		if (streamingAvailable) {
 			checks.push({
 				id: 'streaming-active',
 				severity: 'info',
-				sizeBytes: estimatedFileSizeBytes
-			});
-		} else if (estimatedFileSizeBytes >= STREAMING_EXPORT_LIMIT) {
-			checks.push({
-				id: 'output-too-large',
-				severity: 'error',
 				sizeBytes: estimatedFileSizeBytes
 			});
 		} else {

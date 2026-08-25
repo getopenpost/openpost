@@ -20,20 +20,17 @@ import {
 import { createStreamingOutputTarget } from '$lib/video/stream-target';
 import type { SmartCopyPlan } from './smart-copy-plan';
 import { resolveMediaBlob } from './resolve-media-blob';
-
-const STREAMING_FILE_SIZE_THRESHOLD = 50 * 1024 * 1024;
-
-function canUseStreamingTarget(): boolean {
-	try {
-		return !!globalThis.navigator?.storage?.getDirectory;
-	} catch {
-		return false;
-	}
-}
+import {
+	IN_MEMORY_OUTPUT_LIMIT,
+	STREAMING_THRESHOLD_BYTES,
+	isStreamingAvailable
+} from './streaming-limits';
 
 export interface SmartCopyArtifact {
 	fileName: string;
 	blob: Blob;
+	scratchFileName?: string;
+	scratchPath?: string;
 }
 
 export interface SmartCopyProgress {
@@ -189,15 +186,27 @@ export async function smartCopy(
 	const blob = await resolveMediaBlob(plan.media);
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) });
 	const format = outputFormat(plan.format);
-	const canStream = canUseStreamingTarget() && plan.media.fileSize > STREAMING_FILE_SIZE_THRESHOLD;
+	const fileSize = plan.media.fileSize;
+	const requiresStreaming = fileSize >= IN_MEMORY_OUTPUT_LIMIT;
+	const wantsStreaming = isStreamingAvailable() && fileSize > STREAMING_THRESHOLD_BYTES;
+	if (requiresStreaming && !isStreamingAvailable()) {
+		throw new Error(
+			`The ${(fileSize / 1024 ** 3).toFixed(2)} GiB source exceeds the ${IN_MEMORY_OUTPUT_LIMIT / 1024 ** 3} GiB in-memory limit and this browser cannot stream to local storage.`
+		);
+	}
 	let bufferTarget: BufferTarget | null = null;
 	let streamingTarget: Awaited<ReturnType<typeof createStreamingOutputTarget>> | null = null;
 	let outputTarget: BufferTarget | StreamTarget;
-	if (canStream) {
+	if (wantsStreaming) {
 		try {
 			streamingTarget = await createStreamingOutputTarget(options.signal);
 			outputTarget = streamingTarget.target;
-		} catch {
+		} catch (error) {
+			if (requiresStreaming) {
+				throw new Error(
+					`Streaming smart-copy setup failed for ${(fileSize / 1024 ** 3).toFixed(2)} GiB source: ${error instanceof Error ? error.message : String(error)}`
+				);
+			}
 			streamingTarget = null;
 			bufferTarget = new BufferTarget();
 			outputTarget = bufferTarget;
@@ -293,6 +302,8 @@ export async function smartCopy(
 	}
 	return {
 		fileName: `${safeName}.${plan.format}`,
-		blob: resultBlob
+		blob: resultBlob,
+		scratchFileName: streamingTarget?.scratchFileName,
+		scratchPath: streamingTarget?.scratchPath
 	};
 }

@@ -1,4 +1,4 @@
-import { openBlobWriter } from '../workspace-fs/fs-primitives';
+import { exists, openBlobWriter, removeEntry } from '../workspace-fs/fs-primitives';
 import { requireWorkspaceRoot } from '../workspace-fs/root';
 import {
 	projectExportFilePath,
@@ -6,12 +6,10 @@ import {
 	PROJECTS_DIR,
 	EXPORTS_DIR
 } from '../workspace-fs/paths';
-import { exists } from '../workspace-fs/fs-primitives';
-import { saveExportFile } from '../workspace-fs/exports';
+import { deleteExportFile, saveExportFile } from '../workspace-fs/exports';
 import type { RenderedExportArtifact, RenderExportResult } from './render-export';
-
-const CHUNKED_SAVE_THRESHOLD_BYTES = 20 * 1024 * 1024;
-const SAVE_CHUNK_SIZE = 4 * 1024 * 1024;
+import { discardStreamingScratch } from '$lib/video/stream-target';
+import { CHUNKED_SAVE_THRESHOLD_BYTES, SAVE_CHUNK_SIZE } from './streaming-limits';
 
 function suffixFileName(fileName: string, n: number): string {
 	const dot = fileName.lastIndexOf('.');
@@ -74,6 +72,7 @@ async function saveLargeBlobChunked(
 		await writer
 			.abort(error instanceof Error ? error : new Error(String(error)))
 			.catch(() => undefined);
+		await removeEntry(root, pathOf(name)).catch(() => undefined);
 		throw error;
 	}
 	return { fileName: name, relPath: `${relBase}/${name}` };
@@ -84,19 +83,36 @@ export async function saveRenderedExportArtifact(
 	projectId: string,
 	rendered: RenderedExportArtifact
 ): Promise<RenderExportResult> {
-	const useChunked = rendered.blob.size > CHUNKED_SAVE_THRESHOLD_BYTES;
-	const saved = useChunked
-		? await saveLargeBlobChunked(projectId, rendered.fileName, rendered.blob)
-		: await saveExportFile(projectId, rendered.fileName, rendered.blob);
-	if (rendered.sidecar) {
-		const sidecarChunked = rendered.sidecar.blob.size > CHUNKED_SAVE_THRESHOLD_BYTES;
-		if (sidecarChunked) {
-			await saveLargeBlobChunked(projectId, rendered.sidecar.fileName, rendered.sidecar.blob);
-		} else {
-			await saveExportFile(projectId, rendered.sidecar.fileName, rendered.sidecar.blob);
+	const scratchFileName = rendered.scratchFileName;
+	let saved: { fileName: string; relPath: string } | null = null;
+	try {
+		const useChunked = rendered.blob.size > CHUNKED_SAVE_THRESHOLD_BYTES;
+		saved = useChunked
+			? await saveLargeBlobChunked(projectId, rendered.fileName, rendered.blob)
+			: await saveExportFile(projectId, rendered.fileName, rendered.blob);
+		if (rendered.sidecar) {
+			try {
+				const sidecarChunked = rendered.sidecar.blob.size > CHUNKED_SAVE_THRESHOLD_BYTES;
+				if (sidecarChunked) {
+					await saveLargeBlobChunked(projectId, rendered.sidecar.fileName, rendered.sidecar.blob);
+				} else {
+					await saveExportFile(projectId, rendered.sidecar.fileName, rendered.sidecar.blob);
+				}
+			} catch (error) {
+				if (saved) {
+					await deleteExportFile(projectExportFilePath(projectId, saved.fileName)).catch(
+						() => undefined
+					);
+				}
+				throw error;
+			}
+		}
+		return { ...saved, blob: rendered.blob };
+	} finally {
+		if (scratchFileName) {
+			await discardStreamingScratch(scratchFileName).catch(() => undefined);
 		}
 	}
-	return { ...saved, blob: rendered.blob };
 }
 
 export function shouldUseChunkedSave(blobSize: number): boolean {

@@ -6715,5 +6715,9 @@
 	"video_editor_motion_layer_remove_named": "Quitar capa {name}",
 	"video_editor_motion_layer_remove": "Quitar",
 	"video_editor_motion_layer_applied": "Se añadió {name} como capa a {count} clips.",
-	"video_editor_motion_layer_removed": "Capa aditiva eliminada."
+	"video_editor_motion_layer_removed": "Capa aditiva eliminada.",
+	"video_editor_preflight_streaming": "The estimated {size} output will stream to workspace storage in bounded chunks. Keep this tab open until it finishes.",
+	"video_editor_preflight_storage_insufficient": "The estimated {required} output needs more storage than the available {available}. Free workspace space or shorten the range.",
+	"video_editor_preflight_storage_unknown": "unknown",
+	"video_editor_preflight_storage_checking": "Checking available workspace storage..."
 }

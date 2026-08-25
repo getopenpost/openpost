@@ -6,11 +6,16 @@ import {
 } from './render-export';
 import {
 	IN_MEMORY_OUTPUT_LIMIT,
-	STREAMING_EXPORT_LIMIT,
 	assessExportPreflight,
+	createStorageInsufficientCheck,
+	inspectExportStorage,
 	isStreamingExportAvailable
 } from './export-preflight';
 import { shouldUseChunkedSave } from './persist-rendered-export';
+import {
+	RESERVED_HEADROOM_BYTES,
+	STREAMING_THRESHOLD_BYTES as LIMIT_THRESHOLD
+} from './streaming-limits';
 
 describe('streaming export thresholds', () => {
 	it('keeps small outputs on BufferTarget', () => {
@@ -59,8 +64,36 @@ describe('streaming export thresholds', () => {
 
 	it('preflight streaming limits separate from in-memory limits', () => {
 		expect(IN_MEMORY_OUTPUT_LIMIT).toBe(2 * 1024 ** 3);
-		expect(STREAMING_EXPORT_LIMIT).toBe(8 * 1024 ** 3);
-		expect(STREAMING_EXPORT_LIMIT).toBeGreaterThan(IN_MEMORY_OUTPUT_LIMIT);
+		expect(LIMIT_THRESHOLD).toBe(50 * 1024 * 1024);
+	});
+
+	it('reports storage insufficient against quota and headroom', async () => {
+		const originalNavigator = globalThis.navigator;
+		try {
+			Object.defineProperty(globalThis, 'navigator', {
+				value: {
+					storage: {
+						getDirectory: async () => ({}),
+						estimate: async () => ({ quota: 10 * 1024 ** 3, usage: 8 * 1024 ** 3 })
+					}
+				},
+				writable: true,
+				configurable: true
+			});
+			const required = 3 * 1024 ** 3;
+			const result = await inspectExportStorage(required);
+			expect(result.availableBytes).toBe(10 * 1024 ** 3 - 8 * 1024 ** 3 - RESERVED_HEADROOM_BYTES);
+			expect(result.hasSpace).toBe(false);
+			expect(createStorageInsufficientCheck(required, result.availableBytes).id).toBe(
+				'storage-insufficient'
+			);
+		} finally {
+			Object.defineProperty(globalThis, 'navigator', {
+				value: originalNavigator,
+				writable: true,
+				configurable: true
+			});
+		}
 	});
 
 	it('shouldUseChunkedSave respects large-blob threshold', () => {
@@ -78,21 +111,66 @@ describe('chunked workspace writes', () => {
 		expect(shouldUseChunkedSave(10 * 1024)).toBe(false);
 	});
 
-	it('cleans up partial workspace file on write failure', async () => {
-		const writerWrite = vi.fn(async () => {
+	it('cleans up partial workspace file on write failure with fake handles', async () => {
+		const { __resetKeyLocksForTesting } = await import('../workspace-fs/with-key-lock');
+		__resetKeyLocksForTesting();
+		const write = vi.fn(async () => {
 			throw new Error('disk full');
 		});
-		const writerClose = vi.fn(async () => undefined);
-		const writerAbort = vi.fn(async () => undefined);
-		const fakeWriter = { write: writerWrite, close: writerClose, abort: writerAbort };
-		// Verify abort path is invoked when write fails
+		const close = vi.fn(async () => undefined);
+		const abort = vi.fn(async () => undefined);
+		const removeEntry = vi.fn(async () => undefined);
+		const createWritable = vi.fn(async () => ({ write, close, abort }));
+		const root = {
+			getDirectoryHandle: vi.fn(async (name: string) => root),
+			getFileHandle: vi.fn(async () => ({ createWritable })),
+			removeEntry
+		} as unknown as FileSystemDirectoryHandle;
+		const { openBlobWriter, removeEntry: removeEntryFn } =
+			await import('../workspace-fs/fs-primitives');
+		const writer = await openBlobWriter(root, ['f.mp4']);
 		try {
-			await fakeWriter.write(new Uint8Array([1, 2, 3]));
+			await writer.write(new Uint8Array([1, 2, 3]));
 		} catch {
-			await fakeWriter.abort(new Error('disk full'));
+			await writer.abort(new Error('disk full')).catch(() => undefined);
+			await removeEntryFn(root, ['f.mp4']).catch(() => undefined);
 		}
-		expect(writerAbort).toHaveBeenCalledOnce();
-		expect(writerClose).not.toHaveBeenCalled();
+		expect(abort).toHaveBeenCalledOnce();
+		expect(removeEntry).toHaveBeenCalled();
+		expect(close).not.toHaveBeenCalled();
+	});
+
+	it('scratch File is discardable via serializable token and cloneable', async () => {
+		const artifact = {
+			fileName: 'a.mp4',
+			blob: new File([new Uint8Array([1, 2, 3])], 'a.mp4', { type: 'video/mp4' }),
+			scratchFileName: 'render-123.partial',
+			scratchPath: 'openpost-video-streams/render-123.partial'
+		};
+		const cloned = structuredClone(artifact);
+		expect(cloned.scratchFileName).toBe('render-123.partial');
+		expect(cloned.blob.size).toBe(3);
+		// Simulate main-thread cleanup via discardStreamingScratch
+		const removeEntry = vi.fn(async () => undefined);
+		const directory = { removeEntry };
+		const root = { getDirectoryHandle: vi.fn(async () => directory) };
+		const originalNavigator = globalThis.navigator;
+		try {
+			Object.defineProperty(globalThis, 'navigator', {
+				value: { storage: { getDirectory: async () => root } },
+				writable: true,
+				configurable: true
+			});
+			const { discardStreamingScratch } = await import('$lib/video/stream-target');
+			await discardStreamingScratch('render-123.partial');
+			expect(removeEntry).toHaveBeenCalledWith('render-123.partial');
+		} finally {
+			Object.defineProperty(globalThis, 'navigator', {
+				value: originalNavigator,
+				writable: true,
+				configurable: true
+			});
+		}
 	});
 });
 

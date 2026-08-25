@@ -21,10 +21,13 @@
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import {
 		assessExportPreflight,
+		createStorageInsufficientCheck,
+		inspectExportStorage,
 		isStreamingExportAvailable,
 		summarizePreflightSeverity,
 		type ExportPreflightCheck
 	} from '$lib/video-editor/media/export-preflight';
+	import { IN_MEMORY_OUTPUT_LIMIT } from '$lib/video-editor/media/streaming-limits';
 	import AlertTriangleIcon from '@lucide/svelte/icons/triangle-alert';
 	import CheckCircleIcon from '@lucide/svelte/icons/circle-check';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
@@ -75,6 +78,9 @@
 	let controller: AbortController | null = null;
 	let codecProbeVersion = 0;
 	let destroyed = false;
+	let storageCheck = $state<ExportPreflightCheck | null>(null);
+	let storagePending = $state(false);
+	let storageInspectionVersion = 0;
 	const videoFormat = $derived(
 		format === 'mp3' || format === 'aac' || format === 'wav' ? null : format
 	);
@@ -145,16 +151,59 @@
 			streamingAvailable: isStreamingExportAvailable()
 		})
 	);
+	const effectivePreflight = $derived.by(() => {
+		if (storagePending) {
+			return {
+				...preflight,
+				pending: true,
+				canExport: false,
+				checks: [
+					...preflight.checks,
+					{ id: 'storage-check-pending' as const, severity: 'info' as const }
+				]
+			};
+		}
+		if (storageCheck) {
+			return {
+				...preflight,
+				canExport: false,
+				checks: [...preflight.checks, storageCheck]
+			};
+		}
+		return preflight;
+	});
 	const canOpenQueueMenu = $derived(
-		!preflight.pending &&
-			(preflight.canExport ||
-				preflight.checks
+		!effectivePreflight.pending &&
+			(effectivePreflight.canExport ||
+				effectivePreflight.checks
 					.filter((check) => check.severity === 'error')
 					.every((check) => check.id === 'output-too-large'))
 	);
 	const visiblePreflightChecks = $derived(
-		preflight.checks.filter((check) => check.severity !== 'ok').slice(0, 4)
+		effectivePreflight.checks.filter((check) => check.severity !== 'ok').slice(0, 4)
 	);
+
+	$effect(() => {
+		const estimated = preflight.estimatedFileSizeBytes;
+		const canEstimateStorage = estimated >= IN_MEMORY_OUTPUT_LIMIT && preflight.canExport;
+		if (!canEstimateStorage) {
+			storageCheck = null;
+			storagePending = false;
+			return;
+		}
+		const version = ++storageInspectionVersion;
+		storagePending = true;
+		storageCheck = null;
+		void inspectExportStorage(estimated).then((result) => {
+			if (destroyed || version !== storageInspectionVersion) return;
+			storagePending = false;
+			if (result.hasSpace === false) {
+				storageCheck = createStorageInsufficientCheck(result.requiredBytes, result.availableBytes);
+			} else {
+				storageCheck = null;
+			}
+		});
+	});
 
 	$effect(() => {
 		const selectedFormat = videoFormat;
@@ -217,6 +266,16 @@
 				return m.video_editor_preflight_streaming({
 					size: formatBytes(check.sizeBytes ?? 0)
 				});
+			case 'storage-insufficient':
+				return m.video_editor_preflight_storage_insufficient({
+					required: formatBytes(check.requiredBytes ?? check.sizeBytes ?? 0),
+					available:
+						check.availableBytes === null || check.availableBytes === undefined
+							? m.video_editor_preflight_storage_unknown()
+							: formatBytes(check.availableBytes)
+				});
+			case 'storage-check-pending':
+				return m.video_editor_preflight_storage_checking();
 			default:
 				return '';
 		}
@@ -262,7 +321,7 @@
 	}
 
 	function enqueueCurrent(): void {
-		if (!project || !preflight.canExport) return;
+		if (!project || !effectivePreflight.canExport) return;
 		const snapshot = captureSnapshot();
 		renderQueueStore.enqueue([
 			buildRenderQueueJob({
@@ -354,9 +413,12 @@
 	}
 
 	async function start(): Promise<void> {
-		if (!project || rendering || !preflight.canExport) return;
+		if (!project || rendering || !effectivePreflight.canExport) return;
 		rendering = true;
-		const totalFrames = Math.max(0, preflight.range.endFrame - preflight.range.startFrame);
+		const totalFrames = Math.max(
+			0,
+			effectivePreflight.range.endFrame - effectivePreflight.range.startFrame
+		);
 		progress = { phase: 'preparing', framesDone: 0, totalFrames, progress: 0 };
 		startedAt = Date.now();
 		const abortController = new AbortController();
@@ -383,8 +445,8 @@
 				}
 			};
 			const range = {
-				startFrame: preflight.range.startFrame,
-				endFrame: preflight.range.endFrame
+				startFrame: effectivePreflight.range.startFrame,
+				endFrame: effectivePreflight.range.endFrame
 			};
 			const result =
 				format === 'mp3' || format === 'aac' || format === 'wav'
@@ -593,7 +655,7 @@
 							{/snippet}
 						</DropdownMenu.Trigger>
 						<DropdownMenu.Content align="end" class="video-editor-theme min-w-52">
-							<DropdownMenu.Item disabled={!preflight.canExport} onclick={enqueueCurrent}>
+							<DropdownMenu.Item disabled={!effectivePreflight.canExport} onclick={enqueueCurrent}>
 								{m.video_editor_queue_add_current()}
 							</DropdownMenu.Item>
 							<DropdownMenu.Separator />
@@ -608,7 +670,7 @@
 							{/each}
 						</DropdownMenu.Content>
 					</DropdownMenu.Root>
-					<Button disabled={!preflight.canExport} onclick={start}
+					<Button disabled={!effectivePreflight.canExport} onclick={start}
 						>{m.video_editor_export_start_now()}</Button
 					>
 				{/if}

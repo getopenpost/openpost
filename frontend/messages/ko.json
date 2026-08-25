@@ -6715,5 +6715,9 @@
 	"video_editor_motion_layer_remove_named": "레이어 {name} 제거",
 	"video_editor_motion_layer_remove": "제거",
 	"video_editor_motion_layer_applied": "{name}을(를) {count}개 클립에 레이어로 추가했습니다.",
-	"video_editor_motion_layer_removed": "가산 레이어를 제거했습니다."
+	"video_editor_motion_layer_removed": "가산 레이어를 제거했습니다.",
+	"video_editor_preflight_streaming": "The estimated {size} output will stream to workspace storage in bounded chunks. Keep this tab open until it finishes.",
+	"video_editor_preflight_storage_insufficient": "The estimated {required} output needs more storage than the available {available}. Free workspace space or shorten the range.",
+	"video_editor_preflight_storage_unknown": "unknown",
+	"video_editor_preflight_storage_checking": "Checking available workspace storage..."
 }

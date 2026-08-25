@@ -1,13 +1,28 @@
 import { StreamTarget, type StreamTargetChunk } from 'mediabunny';
 import type { OpenPostFileSystemDirectoryHandle } from '$lib/browser-capabilities';
+import { STREAMING_TEMP_DIRECTORY } from '$lib/video-editor/media/streaming-limits';
 
-const TEMP_DIRECTORY = 'openpost-video-streams';
+const TEMP_DIRECTORY = STREAMING_TEMP_DIRECTORY;
 const STALE_AGE_MS = 24 * 60 * 60 * 1_000;
 
 export interface StreamingOutputTarget {
 	target: StreamTarget;
+	scratchFileName: string;
+	scratchPath: string;
 	file(name: string, mimeType: string): Promise<File>;
 	discard(): Promise<void>;
+}
+
+export async function discardStreamingScratch(scratchFileName: string): Promise<void> {
+	const getDirectory = globalThis.navigator?.storage?.getDirectory;
+	if (!getDirectory) return;
+	try {
+		const root = await getDirectory.call(globalThis.navigator.storage);
+		const directory = await root.getDirectoryHandle(TEMP_DIRECTORY, { create: false });
+		await directory.removeEntry(scratchFileName).catch(() => undefined);
+	} catch {
+		// Scratch cleanup is best-effort; workspace copy already succeeded.
+	}
 }
 
 export async function createFileSystemAccessOutputTarget(
@@ -15,7 +30,7 @@ export async function createFileSystemAccessOutputTarget(
 	signal?: AbortSignal
 ): Promise<StreamingOutputTarget> {
 	const fileWritable = await handle.createWritable();
-	return outputTargetFromWritable(
+	const base = outputTargetFromWritable(
 		fileWritable,
 		async () => await handle.getFile(),
 		async () => {
@@ -24,27 +39,37 @@ export async function createFileSystemAccessOutputTarget(
 		},
 		signal
 	);
+	return {
+		...base,
+		scratchFileName: '',
+		scratchPath: ''
+	};
 }
 
 export async function createStreamingOutputTarget(
 	signal?: AbortSignal
 ): Promise<StreamingOutputTarget> {
-	const getDirectory = navigator.storage?.getDirectory;
+	const getDirectory = globalThis.navigator?.storage?.getDirectory;
 	if (!getDirectory) {
 		throw new Error('This browser cannot stream video output to local storage.');
 	}
-	const root = await getDirectory.call(navigator.storage);
+	const root = await getDirectory.call(globalThis.navigator.storage);
 	const directory = await root.getDirectoryHandle(TEMP_DIRECTORY, { create: true });
 	void cleanStaleStreamingOutputs(directory);
 	const fileName = `render-${Date.now()}-${crypto.randomUUID()}.partial`;
 	const handle = await directory.getFileHandle(fileName, { create: true });
 	const fileWritable = await handle.createWritable();
-	return outputTargetFromWritable(
+	const base = outputTargetFromWritable(
 		fileWritable,
 		async () => await handle.getFile(),
 		async () => await directory.removeEntry(fileName).catch(() => undefined),
 		signal
 	);
+	return {
+		...base,
+		scratchFileName: fileName,
+		scratchPath: `${TEMP_DIRECTORY}/${fileName}`
+	};
 }
 
 function outputTargetFromWritable(
@@ -52,7 +77,7 @@ function outputTargetFromWritable(
 	readFile: () => Promise<File>,
 	removeFile: () => Promise<void>,
 	signal?: AbortSignal
-): StreamingOutputTarget {
+): Omit<StreamingOutputTarget, 'scratchFileName' | 'scratchPath'> {
 	let closed = false;
 	let failed: unknown;
 	let resolveClosed!: () => void;

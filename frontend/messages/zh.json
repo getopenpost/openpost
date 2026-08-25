@@ -6332,7 +6332,7 @@
 	"video_editor_gpu_effect_gpu-vibrance": "自然饱和度",
 	"video_editor_gpu_effect_gpu-color-wheels": "色轮",
 	"video_editor_gpu_effect_gpu-secondary-qualifier": "二级抠像",
-	"video_editor_gpu_effect_gpu-power-window": "Power Window",
+	"video_editor_gpu_effect_gpu-power-window": "窗口",
 	"video_editor_gpu_effect_gpu-gradient-map": "渐变映射",
 	"video_editor_gpu_effect_gpu-curves": "曲线",
 	"video_editor_gpu_effect_gpu-lut": "3D LUT",
@@ -6623,5 +6623,11 @@
 	"video_editor_text_sample_shop_drop": "选购新品",
 	"video_editor_text_sample_new_drop": "新品上架",
 	"video_editor_text_sample_tag": "标签",
-	"video_editor_gpu_color_hex": "六边形"
+	"video_editor_gpu_color_hex": "六边形",
+	"video_editor_project_untitled": "未命名项目",
+	"video_editor_project_repair_timeline": "此项目缺少时间轴，OpenPost 已创建一个空白时间轴。",
+	"video_editor_project_repair_track_groups": "OpenPost 已移除无效、嵌套或空的时间轴分组。",
+	"video_editor_project_repair_video_track": "此项目缺少视频轨道，OpenPost 已添加一条。",
+	"video_editor_project_repair_sequence_tabs": "OpenPost 已移除重复或缺失的序列标签页。",
+	"video_editor_project_repair_shape_styles": "OpenPost 已限制无效的修剪路径或描边渐变数值。"
 }

@@ -4025,6 +4025,7 @@
 	"video_editor_task_importing": "Medya içe aktarılıyor",
 	"video_editor_task_proxy": "Önizleme proxy'si oluşturuluyor",
 	"video_editor_task_filmstrip": "Zaman çizelgesi önizlemeleri derleniyor",
+	"video_editor_task_animated_image": "Animasyon kareleri çıkarılıyor",
 	"video_editor_task_waveform": "Ses dalga formu derleniyor",
 	"video_editor_task_scene_analysis": "Sahneler analiz ediliyor",
 	"video_editor_task_transcription": "Transkript üretiliyor",

@@ -52,6 +52,8 @@ export interface MediaMetadata {
 	gopInterval?: number;
 	/** Native Lottie frame count. Present only when tags includes `lottie`. */
 	lottieTotalFrames?: number;
+	/** Composited animation frames. Present only for animated GIF/WebP images. */
+	animationFrameCount?: number;
 	lottieMarkers?: Array<{ name: string; start: number; duration: number }>;
 	attribution?: MediaAttribution;
 	tags: string[];

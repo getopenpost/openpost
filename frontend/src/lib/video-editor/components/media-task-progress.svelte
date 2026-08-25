@@ -28,6 +28,8 @@
 				return m.video_editor_task_proxy();
 			case 'filmstrip':
 				return m.video_editor_task_filmstrip();
+			case 'animated-image':
+				return m.video_editor_task_animated_image();
 			case 'waveform':
 				return m.video_editor_task_waveform();
 			case 'scene-analysis':

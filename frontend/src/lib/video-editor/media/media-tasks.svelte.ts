@@ -2,6 +2,7 @@ export type MediaTaskKind =
 	| 'import'
 	| 'proxy'
 	| 'filmstrip'
+	| 'animated-image'
 	| 'waveform'
 	| 'scene-analysis'
 	| 'transcription'

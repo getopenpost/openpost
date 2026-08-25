@@ -4025,6 +4025,7 @@
 	"video_editor_task_importing": "Medien werden importiert",
 	"video_editor_task_proxy": "Vorschau-Proxy wird erstellt",
 	"video_editor_task_filmstrip": "Timeline-Vorschauen werden erstellt",
+	"video_editor_task_animated_image": "Animationsframes werden extrahiert",
 	"video_editor_task_waveform": "Audio-Wellenform wird erstellt",
 	"video_editor_task_scene_analysis": "Szenen werden analysiert",
 	"video_editor_task_transcription": "Transkript wird erstellt",

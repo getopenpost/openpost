@@ -4025,6 +4025,7 @@
 	"video_editor_task_importing": "미디어 가져오는 중",
 	"video_editor_task_proxy": "미리 보기 프록시 만드는 중",
 	"video_editor_task_filmstrip": "타임라인 미리 보기 만드는 중",
+	"video_editor_task_animated_image": "애니메이션 프레임 추출 중",
 	"video_editor_task_waveform": "오디오 파형 만드는 중",
 	"video_editor_task_scene_analysis": "장면 분석 중",
 	"video_editor_task_transcription": "전사 생성 중",

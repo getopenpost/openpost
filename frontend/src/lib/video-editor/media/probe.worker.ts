@@ -25,12 +25,16 @@ export interface MediaProbeResult {
 	gopInterval?: number;
 	thumbnailBlob?: Blob;
 	hasAudio: boolean;
+	/** Composited frame count for animated GIF/WebP images; absent when static. */
+	animationFrameCount?: number;
 	kind: 'video' | 'audio' | 'image';
 }
 
 const KEYFRAME_MAX_PACKETS = 5_000;
 const FPS_MAX_PACKETS = 180;
 const THUMBNAIL_MAX_EDGE = 320;
+/** Animated-image frames decoded at probe time before extrapolating duration. */
+const ANIMATION_PROBE_MAX_FRAMES = 600;
 
 async function estimateFps(track: {
 	computePacketStats(count: number): Promise<{ averagePacketRate: number } | null>;
@@ -99,6 +103,52 @@ async function generateThumbnail(
 	}
 }
 
+interface AnimationProbe {
+	frameCount: number;
+	durationSeconds: number;
+	fps: number;
+}
+
+/**
+ * Read real animation truth (composited frame count, total loop duration,
+ * effective fps) with the WebCodecs ImageDecoder. Returns null for static
+ * images or when the API is unavailable.
+ */
+async function probeAnimatedImage(file: File): Promise<AnimationProbe | null> {
+	if (typeof ImageDecoder === 'undefined') return null;
+	let decoder: ImageDecoder | null = null;
+	try {
+		decoder = new ImageDecoder({ data: await file.arrayBuffer(), type: file.type });
+		await Promise.all([decoder.tracks.ready, decoder.completed]);
+		const track = decoder.tracks.selectedTrack;
+		if (!track || !track.animated || track.frameCount <= 1) return null;
+		const frameCount = track.frameCount;
+		const sampledCount = Math.min(frameCount, ANIMATION_PROBE_MAX_FRAMES);
+		let totalMs = 0;
+		for (let index = 0; index < sampledCount; index++) {
+			const result = await decoder.decode({ frameIndex: index });
+			const videoFrame = result.image;
+			try {
+				totalMs += Math.max(0, (videoFrame.duration ?? 0) / 1000);
+			} finally {
+				videoFrame.close();
+			}
+		}
+		if (!(totalMs > 0)) return null;
+		// Containers beyond the sampling cap scale their measured prefix linearly.
+		const durationSeconds = (totalMs / 1000) * (frameCount / sampledCount);
+		return {
+			frameCount,
+			durationSeconds,
+			fps: durationSeconds > 0 ? frameCount / durationSeconds : 0
+		};
+	} catch {
+		return null;
+	} finally {
+		decoder?.close();
+	}
+}
+
 self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 	const { id, file } = event.data;
 	try {
@@ -112,6 +162,7 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 			const bitmap = await createImageBitmap(file);
 			const width = bitmap.width;
 			const height = bitmap.height;
+			const animation = await probeAnimatedImage(file);
 			const scale = Math.min(1, THUMBNAIL_MAX_EDGE / Math.max(width, height));
 			const thumbnailWidth = Math.max(1, Math.round(width * scale));
 			const thumbnailHeight = Math.max(1, Math.round(height * scale));
@@ -130,13 +181,14 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 			}
 			const result: MediaProbeResult = {
 				kind,
-				durationSeconds: 0,
+				durationSeconds: animation?.durationSeconds ?? 0,
 				width,
 				height,
-				fps: 0,
+				fps: animation?.fps ?? 0,
 				videoCodecSupported: true,
 				thumbnailBlob,
-				hasAudio: false
+				hasAudio: false,
+				animationFrameCount: animation?.frameCount
 			};
 			self.postMessage({ id, ok: true, result });
 			return;

@@ -4025,6 +4025,7 @@
 	"video_editor_task_importing": "メディアを読み込み中",
 	"video_editor_task_proxy": "プレビュー用プロキシを作成中",
 	"video_editor_task_filmstrip": "タイムラインプレビューを作成中",
+	"video_editor_task_animated_image": "アニメーションフレームを抽出しています",
 	"video_editor_task_waveform": "オーディオ波形を作成中",
 	"video_editor_task_scene_analysis": "シーンを解析中",
 	"video_editor_task_transcription": "文字起こしを生成中",

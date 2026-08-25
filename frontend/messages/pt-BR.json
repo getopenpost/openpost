@@ -4025,6 +4025,7 @@
 	"video_editor_task_importing": "Importando mídia",
 	"video_editor_task_proxy": "Criando proxy de pré-visualização",
 	"video_editor_task_filmstrip": "Criando pré-visualizações da linha do tempo",
+	"video_editor_task_animated_image": "Extraindo quadros da animação",
 	"video_editor_task_waveform": "Criando forma de onda do áudio",
 	"video_editor_task_scene_analysis": "Analisando cenas",
 	"video_editor_task_transcription": "Gerando transcrição",

@@ -178,6 +178,7 @@ export async function importFile(
 				audioCodec: probe.audioCodec,
 				keyframeTimestamps: probe.keyframeTimestamps,
 				gopInterval: probe.gopInterval,
+				animationFrameCount: probe.animationFrameCount,
 				attribution: options.attribution,
 				tags: [...new Set([probe.kind, ...(options.tags ?? [])])]
 			};

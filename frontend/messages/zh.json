@@ -4025,6 +4025,7 @@
 	"video_editor_task_importing": "正在导入媒体",
 	"video_editor_task_proxy": "正在创建预览代理",
 	"video_editor_task_filmstrip": "正在生成时间线预览",
+	"video_editor_task_animated_image": "正在提取动画帧",
 	"video_editor_task_waveform": "正在生成音频波形",
 	"video_editor_task_scene_analysis": "正在分析场景",
 	"video_editor_task_transcription": "正在生成字幕稿",

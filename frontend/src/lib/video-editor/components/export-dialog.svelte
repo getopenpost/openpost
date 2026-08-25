@@ -21,6 +21,7 @@
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import {
 		assessExportPreflight,
+		isStreamingExportAvailable,
 		summarizePreflightSeverity,
 		type ExportPreflightCheck
 	} from '$lib/video-editor/media/export-preflight';
@@ -140,7 +141,8 @@
 			codecSupported: videoFormat ? codecSupport[codec] : true,
 			mediaStatuses,
 			media: mediaPool.mediaList,
-			workerAvailable: typeof Worker !== 'undefined'
+			workerAvailable: typeof Worker !== 'undefined',
+			streamingAvailable: isStreamingExportAvailable()
 		})
 	);
 	const canOpenQueueMenu = $derived(
@@ -209,6 +211,10 @@
 				return m.video_editor_preflight_long_render({ minutes: check.minutes ?? 0 });
 			case 'output-too-large':
 				return m.video_editor_preflight_too_large({
+					size: formatBytes(check.sizeBytes ?? 0)
+				});
+			case 'streaming-active':
+				return m.video_editor_preflight_streaming({
 					size: formatBytes(check.sizeBytes ?? 0)
 				});
 			default:

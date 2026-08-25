@@ -147,7 +147,8 @@ describe('assessExportPreflight', () => {
 			items: [{ ...video, from: 0, durationInFrames: 30 * 60 * 60 }],
 			tracks: [videoTrack],
 			codecSupported: true,
-			mediaStatuses: { 'media-video': 'ready' }
+			mediaStatuses: { 'media-video': 'ready' },
+			streamingAvailable: false
 		});
 
 		expect(result.canExport).toBe(false);
@@ -158,5 +159,41 @@ describe('assessExportPreflight', () => {
 				expect.objectContaining({ id: 'output-too-large', severity: 'error' })
 			])
 		);
+	});
+
+	it('allows large outputs when workspace streaming is available', () => {
+		const result = assessExportPreflight({
+			settings: { ...baseSettings, quality: 'high' },
+			fps: 30,
+			items: [{ ...video, from: 0, durationInFrames: 30 * 60 * 60 }],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: { 'media-video': 'ready' },
+			streamingAvailable: true
+		});
+
+		expect(result.canExport).toBe(true);
+		expect(result.checks).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ id: 'streaming-active', severity: 'info' })
+			])
+		);
+		expect(result.checks.some((check) => check.id === 'output-too-large')).toBe(false);
+	});
+
+	it('keeps small outputs on the in-memory path without requiring streaming', () => {
+		const result = assessExportPreflight({
+			settings: baseSettings,
+			fps: 30,
+			items: [video],
+			tracks: [videoTrack],
+			codecSupported: true,
+			mediaStatuses: { 'media-video': 'ready' },
+			streamingAvailable: true
+		});
+
+		expect(result.canExport).toBe(true);
+		expect(result.checks.some((check) => check.id === 'streaming-active')).toBe(false);
+		expect(result.checks.some((check) => check.id === 'output-too-large')).toBe(false);
 	});
 });

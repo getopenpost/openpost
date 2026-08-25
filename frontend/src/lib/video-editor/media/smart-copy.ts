@@ -2,6 +2,7 @@ import {
 	ALL_FORMATS,
 	BlobSource,
 	BufferTarget,
+	StreamTarget,
 	EncodedAudioPacketSource,
 	EncodedPacketSink,
 	EncodedVideoPacketSource,
@@ -16,8 +17,19 @@ import {
 	type InputVideoTrack,
 	WebMOutputFormat
 } from 'mediabunny';
+import { createStreamingOutputTarget } from '$lib/video/stream-target';
 import type { SmartCopyPlan } from './smart-copy-plan';
 import { resolveMediaBlob } from './resolve-media-blob';
+
+const STREAMING_FILE_SIZE_THRESHOLD = 50 * 1024 * 1024;
+
+function canUseStreamingTarget(): boolean {
+	try {
+		return !!globalThis.navigator?.storage?.getDirectory;
+	} catch {
+		return false;
+	}
+}
 
 export interface SmartCopyArtifact {
 	fileName: string;
@@ -177,8 +189,24 @@ export async function smartCopy(
 	const blob = await resolveMediaBlob(plan.media);
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) });
 	const format = outputFormat(plan.format);
-	const target = new BufferTarget();
-	const output = new Output({ format, target });
+	const canStream = canUseStreamingTarget() && plan.media.fileSize > STREAMING_FILE_SIZE_THRESHOLD;
+	let bufferTarget: BufferTarget | null = null;
+	let streamingTarget: Awaited<ReturnType<typeof createStreamingOutputTarget>> | null = null;
+	let outputTarget: BufferTarget | StreamTarget;
+	if (canStream) {
+		try {
+			streamingTarget = await createStreamingOutputTarget(options.signal);
+			outputTarget = streamingTarget.target;
+		} catch {
+			streamingTarget = null;
+			bufferTarget = new BufferTarget();
+			outputTarget = bufferTarget;
+		}
+	} else {
+		bufferTarget = new BufferTarget();
+		outputTarget = bufferTarget;
+	}
+	const output = new Output({ format, target: outputTarget });
 	let started = false;
 	try {
 		const videoTrack = await input.getPrimaryVideoTrack();
@@ -244,15 +272,27 @@ export async function smartCopy(
 				// Keep the packet-copy failure as the useful error.
 			}
 		}
+		if (streamingTarget) await streamingTarget.discard().catch(() => undefined);
 		throw error;
 	} finally {
 		if (!input.disposed) input.dispose();
 	}
 
-	if (!target.buffer) throw new Error('Smart copy produced no data.');
 	const safeName = projectName.replace(/[\\/:*?"<>|]+/g, '_');
+	let resultBlob: Blob;
+	if (streamingTarget) {
+		try {
+			resultBlob = await streamingTarget.file(`${safeName}.${plan.format}`, format.mimeType);
+		} catch (error) {
+			await streamingTarget.discard().catch(() => undefined);
+			throw error;
+		}
+	} else {
+		if (!bufferTarget?.buffer) throw new Error('Smart copy produced no data.');
+		resultBlob = new Blob([bufferTarget.buffer], { type: format.mimeType });
+	}
 	return {
 		fileName: `${safeName}.${plan.format}`,
-		blob: new Blob([target.buffer], { type: format.mimeType })
+		blob: resultBlob
 	};
 }

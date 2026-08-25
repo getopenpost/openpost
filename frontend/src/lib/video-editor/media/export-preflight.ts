@@ -23,7 +23,8 @@ export type ExportPreflightCheckId =
 	| 'worker-render'
 	| 'main-thread-render'
 	| 'long-render'
-	| 'output-too-large';
+	| 'output-too-large'
+	| 'streaming-active';
 
 export interface ExportPreflightCheck {
 	id: ExportPreflightCheckId;
@@ -57,6 +58,7 @@ export interface ExportPreflightInput {
 	mediaStatuses: Readonly<Record<string, MediaPreparationStatus | undefined>>;
 	media?: readonly MediaMetadata[];
 	workerAvailable?: boolean;
+	streamingAvailable?: boolean;
 }
 
 export interface ExportPreflightRange {
@@ -82,8 +84,18 @@ const VIDEO_BITRATES = {
 } as const;
 const AUDIO_BITRATE = 192_000;
 const WAV_BITRATE = 48_000 * 2 * 16;
-const IN_MEMORY_OUTPUT_LIMIT = 2 * 1024 ** 3;
-const LONG_RENDER_SECONDS = 30 * 60;
+export const IN_MEMORY_OUTPUT_LIMIT = 2 * 1024 ** 3;
+export const STREAMING_EXPORT_LIMIT = 8 * 1024 ** 3;
+export const STREAMING_THRESHOLD_BYTES = 50 * 1024 * 1024;
+export const LONG_RENDER_SECONDS = 30 * 60;
+
+export function isStreamingExportAvailable(): boolean {
+	try {
+		return typeof navigator !== 'undefined' && !!navigator.storage?.getDirectory;
+	} catch {
+		return false;
+	}
+}
 
 function isAudioFormat(format: ExportPreflightSettings['format']): boolean {
 	return format === 'mp3' || format === 'aac' || format === 'wav';
@@ -288,12 +300,27 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 			minutes: Math.round(estimatedDurationSeconds / 60)
 		});
 	}
+	const streamingAvailable = input.streamingAvailable ?? isStreamingExportAvailable();
 	if (estimatedFileSizeBytes >= IN_MEMORY_OUTPUT_LIMIT) {
-		checks.push({
-			id: 'output-too-large',
-			severity: 'error',
-			sizeBytes: estimatedFileSizeBytes
-		});
+		if (streamingAvailable && estimatedFileSizeBytes < STREAMING_EXPORT_LIMIT) {
+			checks.push({
+				id: 'streaming-active',
+				severity: 'info',
+				sizeBytes: estimatedFileSizeBytes
+			});
+		} else if (estimatedFileSizeBytes >= STREAMING_EXPORT_LIMIT) {
+			checks.push({
+				id: 'output-too-large',
+				severity: 'error',
+				sizeBytes: estimatedFileSizeBytes
+			});
+		} else {
+			checks.push({
+				id: 'output-too-large',
+				severity: 'error',
+				sizeBytes: estimatedFileSizeBytes
+			});
+		}
 	}
 
 	return {

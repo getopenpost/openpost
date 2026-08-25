@@ -16,6 +16,7 @@ import {
 	AudioSampleSource,
 	BlobSource,
 	BufferTarget,
+	StreamTarget,
 	CanvasSink,
 	canEncodeVideo,
 	getFirstEncodableVideoCodec,
@@ -79,6 +80,7 @@ import {
 	resolveLottieRenderSpec,
 	type LottieRenderSpec
 } from '../lottie/render-spec';
+import { createStreamingOutputTarget } from '$lib/video/stream-target';
 import { saveRenderedExportArtifact } from './persist-rendered-export';
 import { assessSmartCopy } from './smart-copy-plan';
 import { smartCopy } from './smart-copy';
@@ -134,6 +136,21 @@ const VIDEO_BITRATES = {
 	standard: 8_000_000,
 	high: 16_000_000
 } as const;
+
+export const STREAMING_EXPORT_THRESHOLD_BYTES = 50 * 1024 * 1024;
+
+export function shouldStreamExport(estimatedBytes: number): boolean {
+	if (!Number.isFinite(estimatedBytes) || estimatedBytes <= 0) return false;
+	return estimatedBytes > STREAMING_EXPORT_THRESHOLD_BYTES;
+}
+
+export function isStreamingTargetAvailable(): boolean {
+	try {
+		return typeof navigator !== 'undefined' && !!navigator.storage?.getDirectory;
+	} catch {
+		return false;
+	}
+}
 
 interface VideoDecoder {
 	input: Input;
@@ -860,8 +877,27 @@ export async function renderMultiTrackVideoArtifact(
 				bitrate
 			});
 	if (!codec) throw new Error(`This browser cannot encode video for ${format.toUpperCase()}.`);
-	const target = new BufferTarget();
-	const output = new Output({ format: outputFormat, target });
+	const estimatedBytes =
+		(VIDEO_BITRATES[options.quality ?? 'standard'] * (totalFrames / Math.max(1, fps))) / 8 +
+		(mixed ? (192_000 * (totalFrames / Math.max(1, fps))) / 8 : 0);
+	const useStreaming = isStreamingTargetAvailable() && shouldStreamExport(estimatedBytes);
+	let bufferTarget: BufferTarget | null = null;
+	let streamingTarget: Awaited<ReturnType<typeof createStreamingOutputTarget>> | null = null;
+	let outputTarget: BufferTarget | StreamTarget;
+	if (useStreaming) {
+		try {
+			streamingTarget = await createStreamingOutputTarget(options.signal);
+			outputTarget = streamingTarget.target;
+		} catch {
+			streamingTarget = null;
+			bufferTarget = new BufferTarget();
+			outputTarget = bufferTarget;
+		}
+	} else {
+		bufferTarget = new BufferTarget();
+		outputTarget = bufferTarget;
+	}
+	const output = new Output({ format: outputFormat, target: outputTarget });
 	const videoSource = new VideoSampleSource({
 		codec,
 		bitrate,
@@ -912,6 +948,7 @@ export async function renderMultiTrackVideoArtifact(
 		burnSubtitles: subtitleMode === 'burn'
 	});
 
+	let finalized = false;
 	try {
 		for (let outputFrame = 0; outputFrame < totalFrames; outputFrame++) {
 			throwIfAborted(options.signal);
@@ -933,21 +970,34 @@ export async function renderMultiTrackVideoArtifact(
 		await feedTask;
 		report(options, 'finalizing', totalFrames, totalFrames);
 		await output.finalize();
+		finalized = true;
 	} catch (error) {
 		try {
 			if (output.state === 'started') await output.cancel();
 		} catch {
 			// The original failure below matters more than cancel errors.
 		}
+		if (streamingTarget) await streamingTarget.discard().catch(() => undefined);
 		throw error;
 	} finally {
 		frameRenderer.dispose();
 	}
 
-	const buffer = target.buffer;
-	if (!buffer) throw new Error('Render produced no data.');
-	const blob = new Blob([buffer], { type: outputFormat.mimeType });
 	const baseName = `${project.name.replace(/[\\/:*?"<>|]+/g, '_')}.${format}`;
+	let blob: Blob;
+	if (streamingTarget) {
+		try {
+			if (!finalized) throw new Error('Render produced no data.');
+			blob = await streamingTarget.file(baseName, outputFormat.mimeType);
+		} catch (error) {
+			await streamingTarget.discard().catch(() => undefined);
+			throw error;
+		}
+	} else {
+		const buffer = bufferTarget?.buffer;
+		if (!buffer) throw new Error('Render produced no data.');
+		blob = new Blob([buffer], { type: outputFormat.mimeType });
+	}
 	let sidecar: RenderedExportArtifact['sidecar'];
 	if (subtitleMode === 'sidecar') {
 		const srt = subtitleSidecarSrt(items, fps, startFrame, endFrame);
@@ -1013,8 +1063,26 @@ export async function renderTimelineAudioArtifact(
 	const mixed = await renderMixdown(entries, decoded, mixDurationSeconds(entries));
 	if (!mixed) throw new Error('The audio mix is empty.');
 	const format = audioOutputFormatFor(options.format);
-	const target = new BufferTarget();
-	const output = new Output({ format, target });
+	const estimatedAudioBytes =
+		((options.format === 'wav' ? 48_000 * 2 * 16 : 192_000) * (totalFrames / Math.max(1, fps))) / 8;
+	const useAudioStreaming = isStreamingTargetAvailable() && shouldStreamExport(estimatedAudioBytes);
+	let audioBufferTarget: BufferTarget | null = null;
+	let audioStreamingTarget: Awaited<ReturnType<typeof createStreamingOutputTarget>> | null = null;
+	let audioOutputTarget: BufferTarget | StreamTarget;
+	if (useAudioStreaming) {
+		try {
+			audioStreamingTarget = await createStreamingOutputTarget(options.signal);
+			audioOutputTarget = audioStreamingTarget.target;
+		} catch {
+			audioStreamingTarget = null;
+			audioBufferTarget = new BufferTarget();
+			audioOutputTarget = audioBufferTarget;
+		}
+	} else {
+		audioBufferTarget = new BufferTarget();
+		audioOutputTarget = audioBufferTarget;
+	}
+	const output = new Output({ format, target: audioOutputTarget });
 	const codec = options.format === 'mp3' ? 'mp3' : options.format === 'aac' ? 'aac' : 'pcm-s16';
 	const source = new AudioSampleSource({
 		codec,
@@ -1039,11 +1107,22 @@ export async function renderTimelineAudioArtifact(
 		} catch {
 			// Keep the first failure.
 		}
+		if (audioStreamingTarget) await audioStreamingTarget.discard().catch(() => undefined);
 		throw error;
 	}
-	if (!target.buffer) throw new Error('Audio render produced no data.');
-	const blob = new Blob([target.buffer], { type: format.mimeType });
 	const fileName = `${project.name.replace(/[\\/:*?"<>|]+/g, '_')}.${options.format}`;
+	let blob: Blob;
+	if (audioStreamingTarget) {
+		try {
+			blob = await audioStreamingTarget.file(fileName, format.mimeType);
+		} catch (error) {
+			await audioStreamingTarget.discard().catch(() => undefined);
+			throw error;
+		}
+	} else {
+		if (!audioBufferTarget?.buffer) throw new Error('Audio render produced no data.');
+		blob = new Blob([audioBufferTarget.buffer], { type: format.mimeType });
+	}
 	return { fileName, blob };
 }
 

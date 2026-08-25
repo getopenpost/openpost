@@ -3,8 +3,11 @@ import { render } from 'vitest-browser-svelte';
 import type { MediaMetadata } from '../media/types';
 import TimelineVoiceoverControl from '../components/timeline-voiceover-control.svelte';
 import TimelineVoiceoverOverlay from '../components/timeline-voiceover-overlay.svelte';
+import * as micModule from './mic-recorder';
+import * as importModule from '../media/import.svelte';
+import * as insertModule from '../local-ai/insert-generated-audio';
 
-const mocks = vi.hoisted(() => ({
+const mocks = {
 	start: vi.fn(),
 	pause: vi.fn(),
 	resume: vi.fn(),
@@ -13,34 +16,10 @@ const mocks = vi.hoisted(() => ({
 	elapsedMs: vi.fn(() => 500),
 	importRecordedAudio: vi.fn(),
 	insertVoiceover: vi.fn(() => 'voiceover-item'),
-	enumerateMicrophones: vi.fn(async () => []),
+	// SAFETY: empty device list stub is typed as MediaDeviceInfo[] for enumeration.
+	enumerateMicrophones: vi.fn(async () => [] as MediaDeviceInfo[]),
 	startMonitor: vi.fn()
-}));
-
-vi.mock('./mic-recorder', () => ({
-	MicRecorder: class {
-		start = mocks.start;
-		pause = mocks.pause;
-		resume = mocks.resume;
-		stop = mocks.stop;
-		cancel = mocks.cancel;
-		elapsedMs = mocks.elapsedMs;
-	},
-	createBestEffortAudioContext: () => null,
-	enumerateMicrophones: mocks.enumerateMicrophones,
-	hasMicRecordingSupport: () => true,
-	micRecordingExtension: () => 'webm',
-	startMicLevelMonitor: mocks.startMonitor
-}));
-
-vi.mock('../media/import.svelte', async (importOriginal) => ({
-	...(await importOriginal<typeof import('../media/import.svelte')>()),
-	importRecordedAudio: mocks.importRecordedAudio
-}));
-
-vi.mock('../local-ai/insert-generated-audio', () => ({
-	insertVoiceoverOnNewTrack: mocks.insertVoiceover
-}));
+};
 
 import { editorSession } from '../editor.svelte';
 import { previewPlaybackSettings } from '../preview/playback-settings.svelte';
@@ -63,6 +42,7 @@ const recordedMedia: MediaMetadata = {
 };
 
 function setProject(id: string): void {
+	// SAFETY: project stub provides the minimal shape consumed by voiceover recorder (id + metadata).
 	editorSession.project = {
 		id,
 		metadata: { width: 1920, height: 1080, fps: 30 }
@@ -80,6 +60,29 @@ describe('voiceoverRecorder', () => {
 		});
 		mocks.importRecordedAudio.mockResolvedValue(recordedMedia);
 		mocks.startMonitor.mockResolvedValue({ stop: vi.fn() });
+		// SAFETY: test fakes replace MicRecorder with a minimal stub implementing the recorder surface.
+		vi.spyOn(micModule, 'MicRecorder').mockImplementation(
+			() =>
+				({
+					start: mocks.start,
+					pause: mocks.pause,
+					resume: mocks.resume,
+					stop: mocks.stop,
+					cancel: mocks.cancel,
+					elapsedMs: mocks.elapsedMs
+				}) as micModule.MicRecorder
+		);
+		vi.spyOn(micModule, 'createBestEffortAudioContext').mockReturnValue(null);
+		// SAFETY: enumerateMicrophones stub returns empty device list for voiceover tests.
+		vi.spyOn(micModule, 'enumerateMicrophones').mockImplementation(mocks.enumerateMicrophones as typeof micModule.enumerateMicrophones);
+		vi.spyOn(micModule, 'hasMicRecordingSupport').mockReturnValue(true);
+		vi.spyOn(micModule, 'micRecordingExtension').mockReturnValue('webm');
+		// SAFETY: startMicLevelMonitor stub returns a no-op monitor handle for test isolation.
+		vi.spyOn(micModule, 'startMicLevelMonitor').mockImplementation(mocks.startMonitor as typeof micModule.startMicLevelMonitor);
+		// SAFETY: importRecordedAudio stub returns fixed recorded media for deterministic insert.
+		vi.spyOn(importModule, 'importRecordedAudio').mockImplementation(mocks.importRecordedAudio as typeof importModule.importRecordedAudio);
+		// SAFETY: insertVoiceover stub returns a fixed item id for transport assertions.
+		vi.spyOn(insertModule, 'insertVoiceoverOnNewTrack').mockImplementation(mocks.insertVoiceover as typeof insertModule.insertVoiceoverOnNewTrack);
 		voiceoverRecorder.__resetForTesting();
 		voiceoverRecorder.setMuteTimeline(true);
 		voiceoverRecorder.setSyncOffsetMs(0);
@@ -125,6 +128,7 @@ describe('voiceoverRecorder', () => {
 			pixelsPerFrame: 2
 		});
 		const overlayRoot = overlay.container.querySelector<HTMLElement>('[data-voiceover-overlay]');
+		// SAFETY: firstElementChild of the voiceover overlay is the live range div when rendered.
 		const liveRange = overlayRoot?.firstElementChild as HTMLElement | null;
 		expect(liveRange?.style.left).toBe('90px');
 		expect(liveRange?.style.width).toBe('30px');

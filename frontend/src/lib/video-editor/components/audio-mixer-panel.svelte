@@ -117,6 +117,7 @@
 
 	function startFader(event: PointerEvent, target: FaderTarget): void {
 		if (gesture) cancelFader();
+		// SAFETY: startFader is bound to the fader element; currentTarget is that HTMLElement.
 		const element = event.currentTarget as HTMLElement;
 		const startDb = targetDb(target);
 		const rect = element.getBoundingClientRect();

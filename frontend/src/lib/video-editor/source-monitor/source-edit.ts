@@ -102,11 +102,16 @@ function sourceDurationFrames(media: MediaMetadata, kind: ReturnType<typeof medi
 	return Math.max(1, Math.round(media.duration * (media.fps || editorSession.fps)));
 }
 
+type BuildItemsResult = {
+	items: TimelineItem[];
+	durationInFrames: number;
+};
+
 function buildItems(
 	request: SourceEditRequest,
 	videoTrack: TimelineTrack | null,
 	audioTrack: TimelineTrack | null
-): { items: TimelineItem[]; durationInFrames: number } {
+): BuildItemsResult {
 	const kind = mediaKind(request.media);
 	const nativeFps = request.media.fps || editorSession.fps;
 	const sourceDuration = sourceDurationFrames(request.media, kind);

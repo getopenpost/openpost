@@ -30,6 +30,11 @@ interface PackedVectors {
 	indices: number[];
 }
 
+type PackedVectorsResult = {
+	metadata?: PackedVectors;
+	bytes?: Uint8Array;
+};
+
 interface SceneAnalysisDocument extends Omit<SceneAnalysis, 'scenes'> {
 	scenes: SerializedScene[];
 	textVectors?: PackedVectors;
@@ -39,7 +44,7 @@ interface SceneAnalysisDocument extends Omit<SceneAnalysis, 'scenes'> {
 function packVectors(
 	scenes: MediaScene[],
 	select: (scene: MediaScene) => Float32Array | undefined
-): { metadata?: PackedVectors; bytes?: Uint8Array } {
+): PackedVectorsResult {
 	const entries = scenes
 		.map((scene, index) => ({ index, vector: select(scene) }))
 		.filter((entry): entry is { index: number; vector: Float32Array } => !!entry.vector);

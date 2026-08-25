@@ -63,6 +63,10 @@ function transitionValuesEqual(left: TimelineTransition, right: TimelineTransiti
 	);
 }
 
+function isNumberValue(value: unknown): value is number {
+	return typeof value === 'number';
+}
+
 function findEdgePair(
 	fromItemId: string,
 	toItemId: string
@@ -91,7 +95,7 @@ export function addTransition(
 		);
 		if (existing) throw new Error('Clips already have a transition here');
 		const options =
-			typeof alignmentOrOptions === 'number'
+			isNumberValue(alignmentOrOptions)
 				? { alignment: alignmentOrOptions }
 				: (alignmentOrOptions ?? {});
 		const presentation =

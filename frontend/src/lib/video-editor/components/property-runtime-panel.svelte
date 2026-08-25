@@ -199,9 +199,12 @@
 	}
 
 	function valueLabel(value: ExpressionValue): string {
-		return Object(value) === value
-			? `${(value as { x: number; y: number }).x.toFixed(2)}, ${(value as { x: number; y: number }).y.toFixed(2)}`
-			: Number(value).toFixed(2);
+		if (Object(value) === value) {
+			// SAFETY: Object(value)===value guarantees value is an object; vectors in this branch carry x/y numbers.
+			const vector = value as { x: number; y: number };
+			return `${vector.x.toFixed(2)}, ${vector.y.toFixed(2)}`;
+		}
+		return Number(value).toFixed(2);
 	}
 
 	function applyLink(endpoint?: Endpoint): void {

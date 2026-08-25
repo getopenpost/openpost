@@ -48,7 +48,11 @@ it('adds and drags a point with live preview and one release commit', async () =
 	pointer(svg!, 'pointerup', rect.left + rect.width * 0.6, rect.top + rect.height * 0.2);
 
 	await vi.waitFor(() => expect(oncommit).toHaveBeenCalledTimes(1));
-	const committed = oncommit.mock.calls[0]?.[0] as { masterPoints: string };
+	const rawCommitted = oncommit.mock.calls[0]?.[0];
+	expect(rawCommitted).toBeDefined();
+	// SAFETY: curves editor commits { masterPoints: string } payload once per drag.
+	const committed = rawCommitted as { masterPoints: string };
+	// SAFETY: masterPoints is JSON array of [x,y] pairs produced by serializeCurveChannelPoints.
 	const points = JSON.parse(committed.masterPoints) as number[][];
 	expect(points).toHaveLength(5);
 	expect(points[2]?.[0]).toBeCloseTo(0.6, 1);
@@ -83,16 +87,22 @@ it('coalesces keyboard nudges and supports an explicit inner-point removal', asy
 	point!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
 
 	await vi.waitFor(() => expect(oncommit).toHaveBeenCalledTimes(1), { timeout: 1_000 });
-	const nudged = JSON.parse(
-		(oncommit.mock.calls[0]?.[0] as { masterPoints: string }).masterPoints
-	) as number[][];
+	const rawNudged = oncommit.mock.calls[0]?.[0];
+	expect(rawNudged).toBeDefined();
+	// SAFETY: nudged commit payload is { masterPoints: string }.
+	const nudgedRaw = rawNudged as { masterPoints: string };
+	// SAFETY: parsed points are numeric [x,y] pairs.
+	const nudged = JSON.parse(nudgedRaw.masterPoints) as number[][];
 	expect(nudged[1]?.[1]).toBeCloseTo(0.27, 2);
 
 	await screen.getByRole('button', { name: 'Remove selected point' }).click();
 	await vi.waitFor(() => expect(oncommit).toHaveBeenCalledTimes(2));
-	const removed = JSON.parse(
-		(oncommit.mock.calls[1]?.[0] as { masterPoints: string }).masterPoints
-	) as number[][];
+	const rawRemoved = oncommit.mock.calls[1]?.[0];
+	expect(rawRemoved).toBeDefined();
+	// SAFETY: removed commit payload is { masterPoints: string }.
+	const removedRaw = rawRemoved as { masterPoints: string };
+	// SAFETY: parsed points are numeric [x,y] pairs.
+	const removed = JSON.parse(removedRaw.masterPoints) as number[][];
 	expect(removed).toHaveLength(3);
 	await screen.unmount();
 });

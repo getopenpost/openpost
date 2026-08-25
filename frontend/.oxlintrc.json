@@ -12,6 +12,7 @@
 	},
 	"ignorePatterns": [
 		"**/node_modules",
+		"static/moss-tts/**",
 		"**/.output",
 		"**/.vercel",
 		"**/.netlify",

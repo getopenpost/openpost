@@ -48,6 +48,8 @@
 	let status = $state('');
 	let previousItemId = '';
 
+	type OverlayPoint = { x: number; y: number };
+
 	const width = $derived(Math.max(1, item.transform?.width ?? canvasWidth));
 	const height = $derived(Math.max(1, item.transform?.height ?? canvasHeight));
 	const storedVertices = $derived(item.pathVertices ?? []);
@@ -81,7 +83,7 @@
 		status = '';
 	});
 
-	function localPoint(event: PointerEvent | MouseEvent): { x: number; y: number } {
+	function localPoint(event: PointerEvent | MouseEvent): OverlayPoint {
 		const matrix = svg?.getScreenCTM();
 		if (!matrix) return { x: 0, y: 0 };
 		const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
@@ -91,7 +93,7 @@
 		};
 	}
 
-	function normalizedPoint(point: { x: number; y: number }): [number, number] {
+	function normalizedPoint(point: OverlayPoint): [number, number] {
 		return [point.x / width, point.y / height];
 	}
 
@@ -388,11 +390,11 @@
 		onedit();
 	}
 
-	function vertexPoint(vertex: ShapePathVertex): { x: number; y: number } {
+	function vertexPoint(vertex: ShapePathVertex): OverlayPoint {
 		return { x: vertex.position[0] * width, y: vertex.position[1] * height };
 	}
 
-	function handlePoint(vertex: ShapePathVertex, handle: 'in' | 'out'): { x: number; y: number } {
+	function handlePoint(vertex: ShapePathVertex, handle: 'in' | 'out'): OverlayPoint {
 		const offset = handle === 'in' ? vertex.inHandle : vertex.outHandle;
 		return {
 			x: (vertex.position[0] + offset[0]) * width,

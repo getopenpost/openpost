@@ -34,11 +34,11 @@
 	const slots: readonly TextMotionSlot[] = ['in', 'out', 'loop'];
 	const units: readonly TextMotionUnit[] = ['character', 'word', 'line', 'whole-clip'];
 	const orders: readonly TextMotionOrder[] = ['forward', 'backward', 'center', 'random'];
-	const catalog: Record<TextMotionSlot, readonly TextMotionPreset[]> = {
+	const catalog = {
 		in: TEXT_MOTION_IN_PRESETS,
 		out: TEXT_MOTION_OUT_PRESETS,
 		loop: TEXT_MOTION_LOOP_PRESETS
-	};
+	} satisfies Record<TextMotionSlot, readonly TextMotionPreset[]>;
 	const selectedTextItems = $derived(
 		[...new Set(itemId ? [itemId, ...itemIds] : itemIds)].flatMap((id) => {
 			const item = timelineStore.itemById.get(id);
@@ -122,6 +122,7 @@
 		onedit();
 	}
 	function numberValue(event: Event): number {
+		// SAFETY: numberValue is only bound to range inputs; currentTarget is that HTMLInputElement.
 		return Number((event.currentTarget as HTMLInputElement).value);
 	}
 </script>

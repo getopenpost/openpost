@@ -30,7 +30,8 @@ describe('animated durations derivation via timestamp gap then 100ms', () => {
 	it('uses timestamp gap only when both timestamps valid and increasing', () => {
 		expect(deriveDurationsMs([0], [-1, 50000])).toEqual([DEFAULT_DELAY_MS]);
 		expect(deriveDurationsMs([0], [10000, 5000])).toEqual([DEFAULT_DELAY_MS]);
-		expect(deriveDurationsMs([0], [0, undefined as unknown as number])).toEqual([DEFAULT_DELAY_MS]);
+		// SAFETY: test models a missing timestamp slot as undefined to exercise fallback.
+		expect(deriveDurationsMs([0], [0, undefined as number])).toEqual([DEFAULT_DELAY_MS]);
 	});
 
 	it('defaults to 100ms when no gap available', () => {

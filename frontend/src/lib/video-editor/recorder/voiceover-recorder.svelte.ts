@@ -19,6 +19,18 @@ const logger = createLogger('VoiceoverRecorder');
 const STORAGE_KEY = 'openpost-video-editor-voiceover-v1';
 const MAX_SYNC_OFFSET_MS = 1_000;
 
+function hasLocalStorage(): boolean {
+	return typeof localStorage !== 'undefined';
+}
+
+function isStringValue(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isObjectValue(value: unknown): boolean {
+	return typeof value === 'object' && value !== null;
+}
+
 export type VoiceoverStatus = 'idle' | 'requesting' | 'recording' | 'paused' | 'finalizing';
 export type VoiceoverErrorCode =
 	| 'unsupported'
@@ -38,10 +50,11 @@ interface StoredVoiceoverPreferences {
 }
 
 function storedPreferences(): StoredVoiceoverPreferences {
-	if (typeof localStorage === 'undefined') return {};
+	if (!hasLocalStorage()) return {};
 	try {
 		const value: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-		if (!value || typeof value !== 'object') return {};
+		if (!isObjectValue(value)) return {};
+		// SAFETY: StoredVoiceoverPreferences is an optional bag; any JSON object can be viewed through it before per-field validation below.
 		return value as StoredVoiceoverPreferences;
 	} catch {
 		return {};
@@ -53,8 +66,8 @@ function clampSyncOffset(value: number): number {
 	return Math.max(-MAX_SYNC_OFFSET_MS, Math.min(MAX_SYNC_OFFSET_MS, Math.round(value)));
 }
 
-function errorCode(error: unknown): VoiceoverErrorCode {
-	const name = error instanceof DOMException ? error.name : '';
+function errorCode(cause: unknown): VoiceoverErrorCode {
+	const name = cause instanceof DOMException ? cause.name : '';
 	if (name === 'NotAllowedError' || name === 'SecurityError') return 'permission-denied';
 	if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-device';
 	if (name === 'NotReadableError' || name === 'AbortError') return 'device-busy';
@@ -79,12 +92,14 @@ async function decodedDurationSeconds(result: MicRecorderResult): Promise<number
 
 const stored = storedPreferences();
 const state = $state({
+	// SAFETY: 'idle' is a defined member of VoiceoverStatus.
 	status: 'idle' as VoiceoverStatus,
 	elapsedMs: 0,
 	level: 0,
+	// SAFETY: initial device list is empty and typed as MediaDeviceInfo[].
 	devices: [] as MediaDeviceInfo[],
 	selectedDeviceId:
-		typeof stored.selectedDeviceId === 'string' || stored.selectedDeviceId === null
+		isStringValue(stored.selectedDeviceId) || stored.selectedDeviceId === null
 			? stored.selectedDeviceId
 			: null,
 	noiseSuppression: stored.noiseSuppression ?? true,
@@ -92,11 +107,12 @@ const state = $state({
 	muteTimeline: stored.muteTimeline ?? true,
 	syncOffsetMs: clampSyncOffset(stored.syncOffsetMs ?? 0),
 	recordStartFrame: 0,
+	// SAFETY: initial error is absent; null is a member of VoiceoverErrorCode | null.
 	error: null as VoiceoverErrorCode | null
 });
 
 function persistPreferences(): void {
-	if (typeof localStorage === 'undefined') return;
+	if (!hasLocalStorage()) return;
 	localStorage.setItem(
 		STORAGE_KEY,
 		JSON.stringify({

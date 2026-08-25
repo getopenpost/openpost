@@ -60,6 +60,10 @@
 	let pendingPoint: SpatialPoint | null = null;
 	let pendingPreviewFrame: number | null = null;
 
+	function isNumberValue(value: unknown): value is number {
+		return typeof value === 'number';
+	}
+
 	const locked = $derived(isTrackEffectivelyLocked(sourceItem.trackId, timelineStore.tracks));
 	const supportedItem = $derived(
 		['video', 'image', 'lottie', 'text', 'subtitle', 'shape'].includes(sourceItem.type)
@@ -104,8 +108,8 @@
 			xParam: editingConfig.xParam,
 			yParam: editingConfig.yParam,
 			point: dragPoint ?? {
-				x: typeof x === 'number' && Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0.5,
-				y: typeof y === 'number' && Number.isFinite(y) ? Math.min(1, Math.max(0, y)) : 0.5
+				x: isNumberValue(x) && Number.isFinite(x) ? Math.min(1, Math.max(0, x)) : 0.5,
+				y: isNumberValue(y) && Number.isFinite(y) ? Math.min(1, Math.max(0, y)) : 0.5
 			}
 		};
 	});
@@ -270,6 +274,7 @@
 		event.stopPropagation();
 		const pointer = rootCanvasPoint(event.clientX, event.clientY);
 		dragPointerId = event.pointerId;
+		// SAFETY: startDrag is only bound to the handle button; currentTarget is that button.
 		dragTarget = event.currentTarget as HTMLButtonElement;
 		dragEffectId = handle.effectId;
 		dragXParam = handle.xParam;

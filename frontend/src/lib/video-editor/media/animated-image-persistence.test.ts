@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
-async function loadWithMock(meta: unknown, frameBlobs: (Blob | null)[]) {
+async function parseLoadWithMock(meta: unknown, frameBlobs: (Blob | null)[]) {
 	const opfs = await import('./opfs-cache');
 	vi.spyOn(opfs, 'readOpfsBlob').mockImplementation(
 		async (_store: string, _mediaId: string, name: string) => {
@@ -13,10 +13,12 @@ async function loadWithMock(meta: unknown, frameBlobs: (Blob | null)[]) {
 		}
 	);
 	// mock createImageBitmap to return a fake bitmap
-	vi.stubGlobal('createImageBitmap', async (blob: Blob) => {
+	// SAFETY: test stub assigns a minimal ImageBitmap surface to globalThis for persistence loader.
+	(globalThis as unknown as { createImageBitmap: (blob: Blob) => Promise<ImageBitmap> }).createImageBitmap = async (blob: Blob) => {
 		if (!blob) throw new Error('no blob');
-		return { close: () => {}, width: 2, height: 2 } as unknown as ImageBitmap;
-	});
+		// SAFETY: test stub returns minimal ImageBitmap surface for persistence loader.
+		return { close: () => {}, width: 2, height: 2 } as ImageBitmap;
+	};
 	const mod = await import('./animated-image-persistence');
 	return mod.loadAnimatedImage('test-id');
 }
@@ -25,7 +27,7 @@ describe('animated image persistence durations', () => {
 	beforeEach(() => vi.restoreAllMocks());
 
 	it('accepts finite positive fractions', async () => {
-		const result = await loadWithMock(
+		const result = await parseLoadWithMock(
 			{ version: 1, durationsMs: [33.333, 16.666, 100], width: 10, height: 10, frameCount: 3 },
 			[new Blob(['a']), new Blob(['b']), new Blob(['c'])]
 		);
@@ -34,7 +36,7 @@ describe('animated image persistence durations', () => {
 	});
 
 	it('rejects zero durations (must be strictly > 0)', async () => {
-		const result = await loadWithMock(
+		const result = await parseLoadWithMock(
 			{ version: 1, durationsMs: [100, 0, 100], width: 10, height: 10, frameCount: 3 },
 			[new Blob(['a']), new Blob(['b']), new Blob(['c'])]
 		);
@@ -42,7 +44,7 @@ describe('animated image persistence durations', () => {
 	});
 
 	it('rejects negative durations', async () => {
-		const result = await loadWithMock(
+		const result = await parseLoadWithMock(
 			{ version: 1, durationsMs: [100, -1], width: 10, height: 10, frameCount: 2 },
 			[new Blob(['a']), new Blob(['b'])]
 		);
@@ -50,7 +52,7 @@ describe('animated image persistence durations', () => {
 	});
 
 	it('rejects non-finite durations', async () => {
-		const result = await loadWithMock(
+		const result = await parseLoadWithMock(
 			{ version: 1, durationsMs: [100, Infinity], width: 10, height: 10, frameCount: 2 },
 			[new Blob(['a']), new Blob(['b'])]
 		);
@@ -58,7 +60,7 @@ describe('animated image persistence durations', () => {
 	});
 
 	it('rejects integer zero via same rule', async () => {
-		const result = await loadWithMock(
+		const result = await parseLoadWithMock(
 			{ version: 1, durationsMs: [0], width: 1, height: 1, frameCount: 1 },
 			[new Blob(['a'])]
 		);

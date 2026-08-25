@@ -3,12 +3,13 @@ import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
 
 // Helper to create fake bitmap with close counter
 function fakeBitmap(id: string, counter: Map<string, number>) {
+	// SAFETY: test double implements only the ImageBitmap surface used by cache (close, width, height); id is auxiliary.
 	return {
 		close: () => counter.set(id, (counter.get(id) ?? 0) + 1),
 		width: 2,
 		height: 2,
 		id
-	} as unknown as ImageBitmap & { id: string };
+	} as ImageBitmap & { id: string };
 }
 
 describe('lifecycle seams - cancel/retry', () => {
@@ -84,7 +85,8 @@ describe('probe timing/limit', () => {
 describe('export error policy', () => {
 	it('missing animated frame throws instead of poster fallback', () => {
 		const frames: (ImageBitmap | undefined)[] = [
-			fakeBitmap('a', new Map()) as unknown as ImageBitmap,
+			// SAFETY: fake bitmap is a test double for ImageBitmap in this branch.
+			fakeBitmap('a', new Map()) as ImageBitmap,
 			undefined
 		];
 		expect(() => {
@@ -100,7 +102,8 @@ describe('eviction with subscriber pinning and close-count', () => {
 		const makeEntry = (id: string, size: number, last: number) => ({
 			sizeBytes: size,
 			lastAccessed: last,
-			frames: { frames: [fakeBitmap(id, closeCounts) as unknown as ImageBitmap] } as any,
+			// SAFETY: test entry stores a fake ImageBitmap; single assertion preserves fake identity for cache.
+			frames: { frames: [fakeBitmap(id, closeCounts) as ImageBitmap] },
 			id
 		});
 		const cache = new SizedAccessedMemoryCache<any>(20, {

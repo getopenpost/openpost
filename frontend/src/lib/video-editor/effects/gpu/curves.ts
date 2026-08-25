@@ -100,6 +100,14 @@ export function buildCurvesLut(params: GpuParamValues): Uint8Array {
 	return data;
 }
 
+function isStringValue(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isNumberValue(value: unknown): value is number {
+	return typeof value === 'number';
+}
+
 function legacyPointsFor(params: GpuParamValues, channel: CurveChannel): CurvePoint[] {
 	return [
 		{ x: 0, y: 0 },
@@ -162,7 +170,7 @@ export function readCurveChannelPoints(
 	channel: CurveChannel
 ): CurvePoint[] {
 	const raw = params[curvePointsParamKey(channel)];
-	if (typeof raw === 'string' && raw.length > 0) {
+	if (isStringValue(raw) && raw.length > 0) {
 		try {
 			const parsed: unknown = JSON.parse(raw);
 			if (Array.isArray(parsed)) {
@@ -170,8 +178,8 @@ export function readCurveChannelPoints(
 					if (
 						!Array.isArray(entry) ||
 						entry.length < 2 ||
-						typeof entry[0] !== 'number' ||
-						typeof entry[1] !== 'number'
+						!isNumberValue(entry[0]) ||
+						!isNumberValue(entry[1])
 					) {
 						return [];
 					}

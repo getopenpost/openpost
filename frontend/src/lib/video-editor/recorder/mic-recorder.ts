@@ -64,6 +64,7 @@ type AudioContextScope = typeof globalThis & {
 };
 
 export function createBestEffortAudioContext(): AudioContext | null {
+	// SAFETY: globalThis is augmented with webkitAudioContext for Safari; existence is checked before construction.
 	const scope = globalThis as AudioContextScope;
 	const Context = scope.AudioContext ?? scope.webkitAudioContext;
 	if (!Context) return null;
@@ -179,6 +180,7 @@ export class MicRecorder {
 				};
 				const onError = (event: Event) => {
 					recorder.removeEventListener('start', onStart);
+					// SAFETY: MediaRecorder error events carry an optional DOMException `error` when capture fails.
 					reject((event as Event & { error?: DOMException }).error ?? new Error('Capture failed.'));
 				};
 				recorder.addEventListener('start', onStart, { once: true });
@@ -225,6 +227,7 @@ export class MicRecorder {
 				};
 				const onError = (event: Event) => {
 					recorder.removeEventListener('stop', onStop);
+					// SAFETY: MediaRecorder error events carry an optional DOMException `error` when capture fails.
 					reject((event as Event & { error?: DOMException }).error ?? new Error('Capture failed.'));
 				};
 				recorder.addEventListener('stop', onStop, { once: true });

@@ -40,12 +40,12 @@
 
 	const SIZE = 256;
 	const SAMPLE_STEPS = 96;
-	const channelColors: Record<CurveChannel, string> = {
+	const channelColors = {
 		master: '#e8e4dc',
 		red: '#f87171',
 		green: '#4ade80',
 		blue: '#60a5fa'
-	};
+	} satisfies Record<CurveChannel, string>;
 
 	let svg = $state<SVGSVGElement>();
 	let activeChannel = $state<CurveChannel>('master');
@@ -96,13 +96,13 @@
 		});
 	});
 
-	function readAllChannels(params: GpuParamValues): ChannelDraft {
+	function readAllChannels(params: GpuParamValues) {
 		return {
 			master: readCurveChannelPoints(params, 'master'),
 			red: readCurveChannelPoints(params, 'red'),
 			green: readCurveChannelPoints(params, 'green'),
 			blue: readCurveChannelPoints(params, 'blue')
-		};
+		} satisfies ChannelDraft;
 	}
 
 	function curvePath(points: readonly CurvePoint[]): string {

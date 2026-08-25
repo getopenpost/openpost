@@ -1,39 +1,27 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
-import { importRemoteLottie } from '$lib/video-editor/media/import.svelte';
-import { fetchLottieAnimations } from '$lib/video-editor/lottie/lottiefiles-api';
+import * as importModule from '$lib/video-editor/media/import.svelte';
+import * as lottieApi from '$lib/video-editor/lottie/lottiefiles-api';
 import LottieBrowserPanel from './lottie-browser-panel.svelte';
 
-vi.mock('$lib/video-editor/media/import.svelte', () => ({
-	importRemoteLottie: vi.fn(async () => 'media-id')
-}));
-
-vi.mock('$lib/video-editor/lottie/lottiefiles-api', async (importOriginal) => {
-	const actual = await importOriginal<typeof import('$lib/video-editor/lottie/lottiefiles-api')>();
-	return {
-		...actual,
-		fetchLottieAnimations: vi.fn(async () => ({
-			items: [
-				{
-					id: '42',
-					name: 'Wave hello',
-					lottieUrl: 'https://assets-v2.lottiefiles.com/wave.lottie',
-					gifUrl: null,
-					bgColor: '#ffffff',
-					author: 'Ada',
-					authorPath: '/ada'
-				}
-			],
-			endCursor: null,
-			hasNextPage: false,
-			totalCount: 1
-		}))
-	};
-});
-
 beforeEach(() => {
-	vi.mocked(importRemoteLottie).mockClear();
-	vi.mocked(fetchLottieAnimations).mockClear();
+	vi.spyOn(importModule, 'importRemoteLottie').mockResolvedValue('media-id');
+	vi.spyOn(lottieApi, 'fetchLottieAnimations').mockResolvedValue({
+		items: [
+			{
+				id: '42',
+				name: 'Wave hello',
+				lottieUrl: 'https://assets-v2.lottiefiles.com/wave.lottie',
+				gifUrl: null,
+				bgColor: '#ffffff',
+				author: 'Ada',
+				authorPath: '/ada'
+			}
+		],
+		endCursor: null,
+		hasNextPage: false,
+		totalCount: 1
+	});
 });
 
 describe('LottieBrowserPanel', () => {
@@ -41,8 +29,8 @@ describe('LottieBrowserPanel', () => {
 		const screen = await render(LottieBrowserPanel, { projectId: 'project' });
 		await expect.element(screen.getByText('Wave hello')).toBeVisible();
 		await screen.getByRole('button', { name: 'Add to media' }).click();
-		await vi.waitFor(() => expect(importRemoteLottie).toHaveBeenCalledTimes(1));
-		expect(importRemoteLottie).toHaveBeenCalledWith({
+		await vi.waitFor(() => expect(importModule.importRemoteLottie).toHaveBeenCalledTimes(1));
+		expect(importModule.importRemoteLottie).toHaveBeenCalledWith({
 			projectId: 'project',
 			url: 'https://assets-v2.lottiefiles.com/wave.lottie',
 			fileName: 'Wave hello',

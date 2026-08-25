@@ -71,6 +71,7 @@ afterEach(() => {
 
 describe('reverse rendered export', () => {
 	it('decodes source frames in reverse order through the production codec path', async () => {
+		// SAFETY: in-memory test handle implements the workspace root surface used by mediaPool.
 		setWorkspaceRoot({ name: 'test' } as FileSystemDirectoryHandle);
 		const sourceBlob = await fourFrameVideo();
 		const sourceFile = new File([sourceBlob], 'four-frames.webm', { type: sourceBlob.type });
@@ -78,6 +79,7 @@ describe('reverse rendered export', () => {
 			{
 				id: 'source',
 				storageType: 'handle',
+				// SAFETY: handle stub implements getFile for workspace-backed media in this export test.
 				fileHandle: { getFile: async () => sourceFile } as FileSystemFileHandle,
 				fileName: sourceFile.name,
 				fileSize: sourceFile.size,

@@ -13,7 +13,8 @@ describe('workspace blob writer', () => {
 			getDirectoryHandle: vi.fn(async () => directory),
 			getFileHandle: vi.fn(async () => ({ createWritable }))
 		};
-		const root = directory as unknown as FileSystemDirectoryHandle;
+		// SAFETY: in-memory directory stub implements the FileSystemDirectoryHandle surface used by openBlobWriter.
+		const root = directory as FileSystemDirectoryHandle;
 
 		const first = await openBlobWriter(root, ['media', 'same-id', 'source.mp4']);
 		const secondPending = openBlobWriter(root, ['media', 'same-id', 'source.mp4']);

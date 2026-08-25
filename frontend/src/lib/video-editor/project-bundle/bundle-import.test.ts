@@ -302,6 +302,7 @@ describe('project bundle import', () => {
 
 	it('counts every logical media link when bundled bytes are deduplicated', async () => {
 		const files = unzipSync(await bundleBytes());
+		// SAFETY: manifest is the typed bundle manifest produced by bundleBytes(); decode is trusted.
 		const manifest = JSON.parse(
 			new TextDecoder().decode(files[PROJECT_BUNDLE_MANIFEST_PATH])
 		) as ProjectBundleManifest;

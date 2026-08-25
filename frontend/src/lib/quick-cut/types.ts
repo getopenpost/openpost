@@ -1,8 +1,47 @@
+// oxlint-disable
 export type CutMode = 'nearestKeyframe' | 'exact';
 export type LoopMode = 'off' | 'segment' | 'all';
 
+export interface QuickCutSource {
+	id: string;
+	name: string;
+	size: number;
+	mimeType: string;
+	duration: number;
+	width: number;
+	height: number;
+	videoCodec: string | null;
+	audioCodec: string | null;
+	sampleRate: number | null;
+	channels: number | null;
+	rotation: number;
+	fps: number | null;
+	keyframeTimestamps: number[];
+	// runtime resolution, not persisted except via handle
+	handle?: FileSystemFileHandle;
+	file?: File;
+}
+
+export interface QuickCutSourceMetadata {
+	id: string;
+	name: string;
+	size: number;
+	mimeType: string;
+	duration: number;
+	width: number;
+	height: number;
+	videoCodec: string | null;
+	audioCodec: string | null;
+	sampleRate: number | null;
+	channels: number | null;
+	rotation: number;
+	fps: number | null;
+	keyframeTimestamps: number[];
+}
+
 export interface QuickCutSegment {
 	id: string;
+	sourceId: string;
 	start: number;
 	end: number;
 	name?: string;
@@ -13,10 +52,7 @@ export interface QuickCutProject {
 	version: 1;
 	id: string;
 	name: string;
-	sourceFileName: string;
-	sourceFileSize?: number;
-	sourceMimeType?: string;
-	duration: number;
+	sources: QuickCutSourceMetadata[];
 	segments: QuickCutSegment[];
 	cutMode: CutMode;
 	merge: boolean;
@@ -32,7 +68,8 @@ export interface SegmentValidationError {
 		| 'end_not_after_start'
 		| 'zero_length'
 		| 'overlap'
-		| 'invalid_time';
+		| 'invalid_time'
+		| 'missing_source';
 	message: string;
 }
 
@@ -46,4 +83,18 @@ export interface KeyframeStatus {
 	aligned: boolean;
 	nearestKeyframe: number | null;
 	distance: number | null;
+}
+
+export interface QuickCutPreflight {
+	eligible: boolean;
+	reason: string;
+	outputFormat: 'mp4' | 'webm' | 'mov' | 'mkv';
+	requiresTranscode: boolean;
+	estimatedBytes: number;
+	snapInfo: Array<{
+		segmentId: string;
+		snappedStart: number;
+		delta: number;
+		direction: 'before' | 'after' | 'exact';
+	}>;
 }

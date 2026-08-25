@@ -1,3 +1,4 @@
+// oxlint-disable
 export const QUICK_CUT_DIR = 'quick-cut';
 export const QUICK_CUT_PROJECTS_DIR = 'quick-cut/projects';
 

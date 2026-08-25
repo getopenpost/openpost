@@ -258,7 +258,6 @@ export interface PostBuilderCopy {
 	audience: string;
 	voiceUsed: string;
 	destinationPlan: string;
-	claimReview: string;
 	mediaPlan: string;
 	makeMeme: string;
 	createVisual: string;
@@ -271,12 +270,6 @@ export interface PostBuilderCopy {
 	included: string;
 	skipped: string;
 	needsReview: string;
-	supported: string;
-	userAsserted: string;
-	opinion: string;
-	parody: string;
-	needsVerification: string;
-	noClaimsNeedReview: string;
 	workspaceRequired: string;
 	sourceRequired: string;
 	opportunityRequired: string;

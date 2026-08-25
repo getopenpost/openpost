@@ -69,4 +69,8 @@ func TestDirectorAndReviewerReceiveTheExactPlatformPolicies(t *testing.T) {
 	require.Contains(t, reviewer, `"platform_policies":[{"platform":"linkedin"`)
 	require.Contains(t, reviewer, `"platform":"x"`)
 	require.Contains(t, reviewerSystemPrompt, "reads like another platform with a new character limit")
+	require.Contains(t, reviewerSystemPrompt, "Do not reject or flag a user assertion")
+	require.Contains(t, reviewerSystemPrompt, "invented by the generator")
+	require.NotContains(t, reviewerSystemPrompt, "Reject unsupported certainty")
+	require.Contains(t, directorSystemPrompt, "Treat uncited facts supplied by the user as user_asserted")
 }

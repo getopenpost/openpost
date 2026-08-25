@@ -14,7 +14,7 @@ Idea and source material
   -> factual kernel and direction
   -> destination selection
   -> independent platform drafts
-  -> claim and voice review
+  -> source fidelity and voice review
   -> draft Publication and Renditions
   -> normal composer review
 ```
@@ -75,8 +75,9 @@ Generation has three roles:
 1. The director extracts facts, thesis, audience, outcome, angle, claims, route,
    destination recommendations, and the job media should do.
 2. Platform adapters draft independently from the same facts and Voice Profile.
-3. The reviewer flags unsupported claims, copied structure, voice drift, weak
-   platform fit, and stock AI phrasing. It may request one repair.
+3. The reviewer removes facts invented by the generator and flags copied
+   structure, voice drift, weak platform fit, and stock AI phrasing. It does not
+   demand proof for user assertions, anecdotes, opinions, predictions, or parody.
 
 All model output is strict, bounded JSON. Model-selected IDs and output profiles
 must come from server-supplied allowlists. Raw prompts, provider bodies, source
@@ -118,13 +119,13 @@ data confirms Basic, Premium, or Premium+. Mastodon uses the connected instance'
 reported character, attachment, size, and MIME limits when available.
 
 The worker only prepares a validated package. The UI first shows the route,
-claim review, destination plan, and media choices. An authenticated commit
+destination plan, and media choices. An authenticated commit
 action creates the Publication and links it to the build after the user chooses
 to review it in the composer. Repeating commit returns the same Publication.
 
 The editable composer shows one compact, collapsible Builder summary with the
-direction, effective voice, destination decisions, claims to check, and media
-plan. All normal save, schedule, publish, retry, media-editor, and delete flows
+direction, effective voice, destination decisions, review notes, and media plan.
+All normal save, schedule, publish, retry, media-editor, and delete flows
 remain unchanged.
 
 ## Source and discovery safety
@@ -164,8 +165,9 @@ permission. Extracted page text and media bytes never enter that index.
 - Source failures happen before model generation and identify the bad source.
 - Foreign Workspace account, media, Voice Profile, and build IDs never reach AI.
 - Selected native destinations receive structurally distinct drafts, not trims.
-- Every claim records whether it came from supplied evidence, user assertion,
-  opinion, parody, or needs verification.
+- Every claim records whether it came from supplied evidence, a user assertion,
+  opinion, parody, or uncertainty already present in the source. Missing proof
+  alone never creates a warning.
 - Malformed output receives at most one repair and never creates a Publication.
 - Build, commit, retry, cancel, and reload remain idempotent.
 - Builder-created Publications round-trip through normal editing and scheduling.

@@ -12,3 +12,4 @@
 - Builder destinations now freeze the same live connected-account limits used by the composer, including X subscription limits and Mastodon instance limits.
 - Native platform prompts now carry separate LinkedIn, X, Mastodon, Bluesky, and Threads distribution, writing, media, safety, and plain-language rules into generation and review.
 - Builder, Voice Profile, result-review, and composer controls now share consistent heights, clearer line-tab focus, denser review metadata, and active destination scrolling.
+- User assertions, anecdotes, opinions, predictions, and parody no longer trigger claim-review warnings just because they lack supporting evidence; source-fidelity checks now focus on facts invented by the generator.

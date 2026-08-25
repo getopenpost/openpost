@@ -17,8 +17,7 @@
 	} = $props();
 
 	let open = $state(false);
-	const reviewClaims = $derived(context.claims.filter((claim) => claim.status !== 'supported'));
-	const reviewCount = $derived(reviewClaims.length + context.reviewFlags.length);
+	const reviewCount = $derived(context.reviewFlags.length);
 	const voiceNames = $derived.by(() => [
 		...new Set(context.voices.map((voice) => voice.name).filter(Boolean))
 	]);
@@ -38,15 +37,6 @@
 		if (platform.toLowerCase() === 'mastodon') return 'Mastodon';
 		if (platform.toLowerCase() === 'threads') return 'Threads';
 		return humanize(platform);
-	}
-
-	function claimLabel(status: string): string {
-		if (status === 'supported') return m.post_builder_verified();
-		if (status === 'user_asserted') return m.post_builder_context_user_asserted();
-		if (status === 'opinion') return m.post_builder_context_opinion();
-		if (status === 'parody') return m.post_builder_context_parody();
-		if (status === 'needs_verification') return m.post_builder_context_needs_verification();
-		return m.post_builder_needs_review();
 	}
 
 	function voiceFor(accountId: string): string {
@@ -200,7 +190,7 @@
 						</div>
 					</section>
 
-					{#if reviewClaims.length > 0 || context.reviewFlags.length > 0}
+					{#if context.reviewFlags.length > 0}
 						<section class="space-y-2" aria-labelledby="builder-review-heading">
 							<h3
 								id="builder-review-heading"
@@ -209,14 +199,6 @@
 								{m.post_builder_context_review_notes()}
 							</h3>
 							<div class="grid gap-2 sm:grid-cols-2">
-								{#each reviewClaims as claim, index (`${claim.status}-${index}`)}
-									<div class="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
-										<p class="text-xs font-medium text-amber-800 dark:text-amber-300">
-											{claimLabel(claim.status)}
-										</p>
-										<p class="mt-1 text-sm leading-5">{claim.text}</p>
-									</div>
-								{/each}
 								{#each context.reviewFlags as flag, index (`${flag.field}-${index}`)}
 									<div class="rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
 										<p class="text-xs font-medium text-amber-800 dark:text-amber-300">

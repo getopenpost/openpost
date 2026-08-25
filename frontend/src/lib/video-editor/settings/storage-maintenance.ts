@@ -1,5 +1,6 @@
 import { renderLottieThumbnail } from '../lottie/frame-provider';
 import { filmstripCache } from '../media/filmstrip-client';
+import { animatedImageCache } from '../media/animated-image-client';
 import { resolveMediaBlob } from '../media/import.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import { probeMediaFile } from '../media/probe-client';
@@ -32,6 +33,7 @@ export interface StorageMaintenanceDependencies {
 	clearPreviewFrames(): void;
 	clearWaveform(mediaId: string): Promise<void>;
 	clearFilmstrip(mediaId: string): Promise<void>;
+	clearAnimatedImages(mediaId: string): Promise<void>;
 	makeThumbnail(media: MediaMetadata): Promise<Blob>;
 	writeThumbnail(mediaId: string, thumbnail: Blob): Promise<void>;
 	notifyThumbnailsChanged(): void;
@@ -98,6 +100,7 @@ const browserDependencies: StorageMaintenanceDependencies = {
 	clearPreviewFrames: clearPreviewDecoderPrewarm,
 	clearWaveform: clearWaveformCache,
 	clearFilmstrip: (mediaId) => filmstripCache.clearMedia(mediaId),
+	clearAnimatedImages: (mediaId) => animatedImageCache.clearMedia(mediaId),
 	makeThumbnail,
 	writeThumbnail: (mediaId, thumbnail) =>
 		writeBlob(requireWorkspaceRoot(), mediaThumbnailPath(mediaId), thumbnail),
@@ -126,7 +129,8 @@ export function createStorageMaintenance(dependencies: StorageMaintenanceDepende
 				async (item) => {
 					await Promise.all([
 						dependencies.clearWaveform(item.id),
-						dependencies.clearFilmstrip(item.id)
+						dependencies.clearFilmstrip(item.id),
+						dependencies.clearAnimatedImages(item.id)
 					]);
 				},
 				onProgress

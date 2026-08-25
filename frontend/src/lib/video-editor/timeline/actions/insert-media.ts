@@ -19,7 +19,14 @@ function itemKind(media: MediaMetadata): TimelineItem['type'] {
 }
 
 function itemDuration(media: MediaMetadata, type: TimelineItem['type'], fps: number): number {
-	if (type === 'image') return Math.max(1, Math.round(3 * fps));
+	if (type === 'image') {
+		// Animated GIF/WebP clips span their real loop length instead of a fixed
+		// 3-second still so the timeline shows true animation timing.
+		if ((media.animationFrameCount ?? 0) > 1 && media.duration > 0) {
+			return Math.max(1, Math.round(media.duration * fps));
+		}
+		return Math.max(1, Math.round(3 * fps));
+	}
 	return Math.max(1, Math.round(Math.max(media.duration, 1 / fps) * fps));
 }
 

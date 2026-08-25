@@ -12,10 +12,14 @@ import type { MediaMetadata } from './types';
 
 let fixtureSeq = 0;
 
+function stubFileHandle(getFile: () => Promise<File>): FileSystemFileHandle {
+	// SAFETY: resolveMediaBlob only reads name and getFile from this stub handle.
+	return { kind: 'file', getFile } as FileSystemFileHandle;
+}
+
 async function animatedImageMedia(url: string, fileName: string): Promise<MediaMetadata> {
 	const blob = await (await fetch(url)).blob();
-	// SAFETY: the cache only reads name/kind/getFile from this handle-shaped stub.
-	const handle = { kind: 'file', getFile: async () => new File([blob], fileName) };
+	const handle = stubFileHandle(async () => new File([blob], fileName));
 	return {
 		id: `test-animated-${++fixtureSeq}`,
 		storageType: 'handle',
@@ -30,7 +34,7 @@ async function animatedImageMedia(url: string, fileName: string): Promise<MediaM
 		bitrate: 0,
 		animationFrameCount: 3,
 		tags: ['image'],
-		fileHandle: handle as unknown as FileSystemFileHandle
+		fileHandle: handle
 	};
 }
 
@@ -120,10 +124,7 @@ describe('animated image frame cache', () => {
 			codec: '',
 			bitrate: 0,
 			tags: ['image'],
-			fileHandle: {
-				// SAFETY: only getFile is read for copy-less resolution.
-				getFile: async () => new File([blob ?? new Blob()], 'static.png')
-			} as unknown as FileSystemFileHandle
+			fileHandle: stubFileHandle(async () => new File([blob ?? new Blob()], 'static.png'))
 		};
 		await expect(animatedImageCache.getAnimatedImage(media)).rejects.toThrow(/not animated/);
 	});

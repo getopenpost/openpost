@@ -10,9 +10,6 @@ import type { MediaMetadata } from './types';
 
 export type AnimatedImageFormat = 'gif' | 'webp';
 
-/** GIF/WebP frames with a zero or missing delay display for 100ms (FreeCut parity). */
-export const DEFAULT_ANIMATED_FRAME_DELAY_MS = 100;
-
 export function animatedImageFormat(media: {
 	mimeType: string;
 	fileName: string;

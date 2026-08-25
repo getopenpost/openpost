@@ -27,6 +27,7 @@ function testDependencies(): StorageMaintenanceDependencies {
 		clearPreviewFrames: vi.fn(),
 		clearWaveform: vi.fn(async () => undefined),
 		clearFilmstrip: vi.fn(async () => undefined),
+		clearAnimatedImages: vi.fn(async () => undefined),
 		makeThumbnail: vi.fn(async () => new Blob(['poster'])),
 		writeThumbnail: vi.fn(async () => undefined),
 		notifyThumbnailsChanged: vi.fn(),
@@ -55,6 +56,7 @@ describe('editor storage maintenance', () => {
 		expect(dependencies.clearPreviewFrames).toHaveBeenCalledOnce();
 		expect(dependencies.clearWaveform).toHaveBeenCalledTimes(2);
 		expect(dependencies.clearFilmstrip).toHaveBeenCalledTimes(2);
+		expect(dependencies.clearAnimatedImages).toHaveBeenCalledTimes(2);
 		expect(dependencies.writeThumbnail).not.toHaveBeenCalled();
 	});
 

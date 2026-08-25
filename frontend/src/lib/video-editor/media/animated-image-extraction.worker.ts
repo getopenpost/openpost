@@ -64,6 +64,7 @@ async function extractFrames(
 	state: { aborted: boolean }
 ): Promise<void> {
 	const { requestId, blob, mimeType } = request;
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- Optional platform API feature detection.
 	if (typeof ImageDecoder === 'undefined') {
 		throw new Error('This browser cannot decode animated images.');
 	}

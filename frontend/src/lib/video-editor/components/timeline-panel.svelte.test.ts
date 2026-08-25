@@ -17,6 +17,11 @@ import type { MediaMetadata } from '$lib/video-editor/media/types';
 import { clearWaveformCache } from '$lib/video-editor/media/waveform-client';
 import { saveWaveform } from '$lib/video-editor/media/waveform-persistence';
 import { filmstripCache } from '$lib/video-editor/media/filmstrip-client';
+import { animatedImageCache } from '$lib/video-editor/media/animated-image-client';
+import { animatedFrameIndexAtTime } from '$lib/video-editor/media/animated-image-plan';
+import animatedGifUrl from '$lib/video-editor/media/fixtures/animated-rgb.gif?url';
+
+const FILMSTRIP_TILE_WIDTH = 96;
 import TimelinePanel from './timeline-panel.svelte';
 
 function track(id: string, kind: TimelineTrack['kind'], order: number): TimelineTrack {
@@ -1208,5 +1213,87 @@ describe('TimelinePanel track groups', () => {
 		await screen.getByRole('button', { name: 'Delete group and tracks' }).click();
 		expect(timelineStore.items.map((item) => item.id)).toEqual(['music-bed']);
 		expect(timelineStore.tracks.some((track) => track.id === groupId)).toBe(false);
+	});
+});
+
+const FRAME_COLORS = [
+	[220, 38, 38],
+	[22, 163, 74],
+	[37, 99, 235]
+] as const;
+
+function colorName(r: number, g: number, b: number): string {
+	if (r > 150 && g < 120) return 'red';
+	if (g > 100 && r < 120) return 'green';
+	if (b > 150) return 'blue';
+	return `unknown(${r},${g},${b})`;
+}
+
+describe('TimelinePanel animated image filmstrips', () => {
+	it('tiles animated GIF clips with the exact frame playing under each slot', async () => {
+		const blob = await (await fetch(animatedGifUrl)).blob();
+		const mediaId = `animated-image-${crypto.randomUUID()}`;
+		mediaPool.loadAll([
+			{
+				id: mediaId,
+				// SAFETY: extraction only reads getFile from this stub handle.
+				fileHandle: { getFile: async () => new File([blob], 'animated.gif') },
+				storageType: 'handle',
+				fileName: 'animated.gif',
+				fileSize: blob.size,
+				mimeType: 'image/gif',
+				duration: 0.3,
+				width: 16,
+				height: 12,
+				fps: 10,
+				codec: '',
+				bitrate: 0,
+				animationFrameCount: 3,
+				tags: ['image']
+			}
+		]);
+		timelineStore._setItems([
+			...timelineStore.items,
+			item({
+				id: 'animated-clip',
+				label: 'Animated GIF',
+				type: 'image',
+				mediaId,
+				durationInFrames: 300,
+				sourceWidth: 16,
+				sourceHeight: 12
+			})
+		]);
+
+		try {
+			const screen = await render(TimelinePanel, { onedit: vi.fn() });
+			const clip = screen.getByRole('button', { name: /Animated GIF/ }).element();
+			await vi.waitFor(() => {
+				expect(clip.querySelectorAll('[data-filmstrip-tile]').length).toBeGreaterThan(2);
+			});
+
+			// Real extracted frames, real delays: verify each tile paints the same
+			// frame the timing math predicts for its center position.
+			const frames = await animatedImageCache.getAnimatedImage(mediaPool.get(mediaId)!);
+			expect(frames.durationsMs).toEqual([100, 100, 100]);
+			const tiles = [...clip.querySelectorAll<HTMLCanvasElement>('[data-filmstrip-tile]')];
+			const clipWidth = 300 * 4; // default zoom renders 4 px per frame
+			const tileWidth = FILMSTRIP_TILE_WIDTH;
+			tiles.forEach((canvas, slot) => {
+				const context = canvas.getContext('2d');
+				expect(context).not.toBeNull();
+				const data = context!.getImageData(8, 6, 1, 1).data;
+				const painted = colorName(data![0]!, data![1]!, data![2]!);
+				const ratio = (slot * tileWidth + tileWidth / 2) / clipWidth;
+				const expectedIndex = animatedFrameIndexAtTime(
+					frames.cumulativeDelaysMs,
+					frames.totalDurationMs,
+					ratio * (300 / 30) * 1000
+				);
+				expect(painted).toBe(colorName(...FRAME_COLORS[expectedIndex]!));
+			});
+		} finally {
+			await animatedImageCache.clearMedia(mediaId);
+		}
 	});
 });

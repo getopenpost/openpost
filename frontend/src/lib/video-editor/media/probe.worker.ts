@@ -115,6 +115,7 @@ interface AnimationProbe {
  * images or when the API is unavailable.
  */
 async function probeAnimatedImage(file: File): Promise<AnimationProbe | null> {
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- Optional platform API feature detection.
 	if (typeof ImageDecoder === 'undefined') return null;
 	let decoder: ImageDecoder | null = null;
 	try {

@@ -57,6 +57,15 @@
 	} from '$lib/video-editor/lottie/render-spec';
 	import { replaceTextSpanCopy } from '$lib/video-editor/typography/text-item-spans';
 	import { filmstripCache } from '$lib/video-editor/media/filmstrip-client';
+import {
+	animatedImageCache,
+	type AnimatedImageFrames
+} from '$lib/video-editor/media/animated-image-client';
+import {
+	animatedFrameIndexAtTime,
+	animatedImageTimeMs,
+	isAnimatedImageMedia
+} from '$lib/video-editor/media/animated-image-plan';
 	import {
 		cloneFilmstripFallback,
 		nearestFilmstripFallback,
@@ -115,6 +124,12 @@
 	let reverseConformUrl = $state<string | null>(null);
 	let imageElement = $state<HTMLImageElement | null>(null);
 	let decodedImageElement = $state<HTMLImageElement | null>(null);
+	let animatedCanvas = $state<HTMLCanvasElement | null>(null);
+	const isAnimatedImageItem = $derived(
+		item.type === 'image' && isAnimatedImageMedia(mediaPool.get(item.mediaId ?? ''))
+	);
+	let animatedFrames = $state<AnimatedImageFrames | null>(null);
+	let animatedRevision = $state(0);
 	let rasterCanvas = $state<HTMLCanvasElement | null>(null);
 	let gpuCanvas = $state<HTMLCanvasElement | null>(null);
 	let compositionCanvas = $state<HTMLCanvasElement | null>(null);
@@ -732,7 +747,83 @@
 		};
 	});
 
+	// Animated GIF/WebP: subscribe to extracted frames and paint the exact
+	// frame for the current timeline position (speed- and reverse-aware).
+	// While extraction runs or fails, the static <img> first frame stays
+	// visible as the fallback.
+	$effect(() => {
+		if (!isAnimatedImageItem || !item.mediaId) {
+			animatedFrames = null;
+			animatedRevision = 0;
+			return;
+		}
+		animatedRevision = 0;
+		let disposed = false;
+		const unsubscribe = animatedImageCache.subscribe(item.mediaId, (frames) => {
+			if (disposed || !frames.isComplete) return;
+			animatedFrames = frames;
+			animatedRevision += 1;
+			onsourcechange?.();
+		});
+		const media = mediaPool.get(item.mediaId);
+		if (media) void animatedImageCache.getAnimatedImage(media).catch(() => undefined);
+		return () => {
+			disposed = true;
+			unsubscribe();
+		};
+	});
+
+	$effect(() => {
+		const canvas = animatedCanvas;
+		const frames = animatedFrames;
+		const revision = animatedRevision;
+		if (!canvas || !frames || revision === 0) return;
+		if (canvas.width !== frames.width) canvas.width = frames.width;
+		if (canvas.height !== frames.height) canvas.height = frames.height;
+		const context = canvas.getContext('2d');
+		if (!context) return;
+		const draw = () => {
+			const frame = untrack(() => timelineStore.currentFrame);
+			const timeMs = animatedImageTimeMs({
+				frame,
+				fromFrame: item.from,
+				fps: editorSession.fps,
+				speed: item.speed ?? 1,
+				reversed: item.isReversed === true,
+				totalDurationMs: frames.totalDurationMs
+			});
+			const bitmap =
+				frames.frames[
+					animatedFrameIndexAtTime(frames.cumulativeDelaysMs, frames.totalDurationMs, timeMs)
+				];
+			if (!bitmap) return;
+			context.clearRect(0, 0, canvas.width, canvas.height);
+			context.drawImage(bitmap, 0, 0);
+			onsourcechange?.();
+			if (selected && !needsGpu && !deferEffects) publishScopeSample(canvas);
+		};
+		draw();
+		const offFrame = editorSession.clock.on('framechange', () => requestAnimationFrame(draw));
+		const offPlay = editorSession.clock.on('play', draw);
+		return () => {
+			offFrame();
+			offPlay();
+		};
+	});
+
 	function rawSource() {
+		if (
+			resolved.type === 'image' &&
+			animatedCanvas &&
+			animatedFrames &&
+			animatedRevision > 0
+		) {
+			return {
+				source: animatedCanvas,
+				width: animatedCanvas.width,
+				height: animatedCanvas.height
+			};
+		}
 		if (
 			resolved.type === 'video' &&
 			proxyFallbackVisible &&
@@ -831,7 +922,9 @@
 						? fallback
 						: video
 					: itemType === 'image'
-						? decodedImage
+						? animatedRevision > 0 && animatedCanvas
+							? animatedCanvas
+							: decodedImage
 						: itemType === 'lottie'
 							? lottie
 							: itemType === 'composition'
@@ -885,7 +978,13 @@
 		if (!selected || needsGpu || deferEffects || item.type === 'video' || item.type === 'lottie')
 			return;
 		const source =
-			item.type === 'image' ? image : item.type === 'composition' ? compositionCanvas : raster;
+			item.type === 'image'
+				? animatedRevision > 0 && animatedCanvas
+					? animatedCanvas
+					: image
+				: item.type === 'composition'
+					? compositionCanvas
+					: raster;
 		if (!source || (['text', 'subtitle', 'shape'].includes(item.type) && revision === 0)) return;
 		const frame = requestAnimationFrame(() => publishScopeSample(source));
 		return () => cancelAnimationFrame(frame);
@@ -944,7 +1043,18 @@
 			alt=""
 			class="absolute object-fill"
 			style={mediaCropStyle}
+			hidden={animatedRevision > 0}
 		/>
+		{#if isAnimatedImageItem}
+			<canvas
+				bind:this={animatedCanvas}
+				class="absolute object-fill"
+				style={mediaCropStyle}
+				hidden={!animatedFrames || animatedRevision === 0}
+				aria-hidden="true"
+				data-animated-frame-canvas={item.id}
+			></canvas>
+		{/if}
 	{:else if resolved.type === 'lottie' && url}
 		<canvas bind:this={lottieCanvas} class="absolute object-fill" style={mediaCropStyle}></canvas>
 	{:else if resolved.type === 'composition'}

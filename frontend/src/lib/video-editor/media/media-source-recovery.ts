@@ -98,7 +98,12 @@ function replacementTags(media: MediaMetadata, kind: ReplacementProbe['kind']): 
 async function invalidateDerivedMedia(mediaId: string): Promise<void> {
 	revokeMediaObjectUrl(mediaId);
 	clearProxyCache(mediaId);
-	await Promise.allSettled([clearWaveformCache(mediaId), filmstripCache.clearMedia(mediaId)]);
+	const { animatedImageCache } = await import('./animated-image-client');
+	await Promise.allSettled([
+		clearWaveformCache(mediaId),
+		filmstripCache.clearMedia(mediaId),
+		animatedImageCache.clearMedia(mediaId)
+	]);
 }
 
 export function createMediaSourceRecovery(runtime: MediaSourceRecoveryRuntime) {

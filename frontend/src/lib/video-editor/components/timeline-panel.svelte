@@ -39,6 +39,14 @@
 	import type { WaveformData } from '$lib/video-editor/media/waveform-client';
 	import { peaksForWindow } from '$lib/video-editor/media/peaks';
 	import { filmstripCache, type FilmstripFrame } from '$lib/video-editor/media/filmstrip-client';
+	import {
+		animatedImageCache,
+		type AnimatedImageFrames
+	} from '$lib/video-editor/media/animated-image-client';
+	import {
+		computeAnimatedImageTiles,
+		isAnimatedImageMedia
+	} from '$lib/video-editor/media/animated-image-plan';
 	import FilmstripTile from './filmstrip-tile.svelte';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
 	import { emitEditorSound } from '$lib/video-editor/sounds/editor-sounds';
@@ -516,6 +524,96 @@
 				visibleTimelineItemIds = next;
 			}
 		};
+	}
+
+	// Reactive animated-image (GIF/WebP) state per mediaId; frames stream in
+	// from the extraction worker and tiles render as they arrive.
+	const animatedImages = $state<Record<string, { frames: AnimatedImageFrames | null; failed: boolean }>>({});
+	const animatedImageUnsubscribers = new Map<string, () => void>();
+
+	$effect(() => {
+		if (!editorSettings.showFilmstrips || !editorSettings.extractFilmstrips) {
+			for (const [mediaId, unsubscribe] of animatedImageUnsubscribers) {
+				unsubscribe();
+				animatedImageCache.abort(mediaId);
+			}
+			animatedImageUnsubscribers.clear();
+			for (const mediaId of Object.keys(animatedImages)) delete animatedImages[mediaId];
+			return;
+		}
+		const visibleAnimatedMedia = new Map<
+			string,
+			NonNullable<ReturnType<typeof mediaPool.get>>
+		>();
+		for (const item of timelineStore.items) {
+			if (item.type !== 'image' || !item.mediaId) continue;
+			if (!visibleTimelineItemIds.has(item.id)) continue;
+			const media = mediaPool.get(item.mediaId);
+			if (!isAnimatedImageMedia(media)) continue;
+			// SAFETY: isAnimatedImageMedia just proved the entry exists.
+			visibleAnimatedMedia.set(item.mediaId, media!);
+		}
+		for (const [mediaId, unsubscribe] of animatedImageUnsubscribers) {
+			if (visibleAnimatedMedia.has(mediaId)) continue;
+			unsubscribe();
+			animatedImageUnsubscribers.delete(mediaId);
+			animatedImageCache.abort(mediaId);
+			delete animatedImages[mediaId];
+		}
+		for (const [mediaId, media] of visibleAnimatedMedia) {
+			if (!animatedImageUnsubscribers.has(mediaId)) {
+				animatedImages[mediaId] = { frames: null, failed: false };
+				animatedImageUnsubscribers.set(
+					mediaId,
+					animatedImageCache.subscribe(mediaId, (frames) => {
+						animatedImages[mediaId] = { frames, failed: false };
+					})
+				);
+			}
+			void animatedImageCache.getAnimatedImage(media).catch(() => {
+				if (!animatedImageUnsubscribers.has(mediaId)) return;
+				animatedImages[mediaId] = { frames: null, failed: true };
+			});
+		}
+	});
+
+	function animatedImageTilesFor(item: {
+		from: number;
+		mediaId?: string;
+		speed?: number;
+		isReversed?: boolean;
+		durationInFrames: number;
+	}): ReturnType<typeof computeAnimatedImageTiles> | null {
+		if (!item.mediaId) return null;
+		const entry = animatedImages[item.mediaId];
+		const framesData = entry?.frames;
+		if (entry?.failed || !framesData?.isComplete) return null;
+		const clipWidth = frameToPx(item.durationInFrames);
+		if (!(clipWidth > 0)) return null;
+		const clipLeft = TRACK_HEADER_WIDTH + frameToPx(item.from);
+		const viewportStart = timelineViewport.scrollLeft + TRACK_HEADER_WIDTH;
+		const viewportEnd = timelineViewport.scrollLeft + timelineViewport.width;
+		const visibleStartPx = Math.max(0, viewportStart - clipLeft - FILMSTRIP_OVERSCAN_PX);
+		const visibleEndPx = Math.min(clipWidth, viewportEnd - clipLeft + FILMSTRIP_OVERSCAN_PX);
+		return computeAnimatedImageTiles({
+			cumulativeDelaysMs: framesData.cumulativeDelaysMs,
+			totalDurationMs: framesData.totalDurationMs,
+			clipSpanSeconds: item.durationInFrames / fps,
+			speed: item.speed ?? 1,
+			reversed: item.isReversed === true,
+			clipWidthPx: clipWidth,
+			tileWidthPx: FILMSTRIP_TILE_WIDTH_PX,
+			visibleStartPx,
+			visibleEndPx
+		});
+	}
+
+	function animatedImageBitmapFor(
+		mediaId: string | undefined,
+		index: number
+	): ImageBitmap | undefined {
+		if (!mediaId) return undefined;
+		return animatedImages[mediaId]?.frames?.frames[index];
 	}
 
 	$effect(() => {
@@ -3426,6 +3524,28 @@
 												<FilmstripTile
 													bitmap={filmstripBitmapFor(item.mediaId, tile.index)}
 													url={tile.url}
+													style="left:{tile.x}px;width:{tile.width}px"
+												/>
+											{/each}
+										</div>
+									{/if}
+								{/if}
+								{#if
+									editorSettings.showFilmstrips &&
+									item.type === 'image' &&
+									item.mediaId &&
+									isAnimatedImageMedia(mediaPool.get(item.mediaId))
+								}
+									{@const animationTiles = animatedImageTilesFor(displayItem)}
+									{#if animationTiles}
+										<div
+											class="pointer-events-none absolute inset-x-0 bottom-0 h-8 overflow-hidden"
+											data-filmstrip
+										>
+											{#each animationTiles as tile (tile.slot)}
+												<FilmstripTile
+													bitmap={animatedImageBitmapFor(item.mediaId, tile.index)}
+													url={null}
 													style="left:{tile.x}px;width:{tile.width}px"
 												/>
 											{/each}

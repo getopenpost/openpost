@@ -41,6 +41,13 @@ import { scaleItemForCanvas } from './render-geometry';
 import { renderSubtitleRaster, renderTextItemRaster } from './text-raster';
 import { renderShapeItemRaster } from '../shapes/render';
 import {
+	animatedFrameIndexAtTime,
+	animatedImageTimeMs,
+	isAnimatedImageMedia
+} from './animated-image-plan';
+import { animatedImageCache } from './animated-image-client';
+import type { AnimatedImageFrames as AnimatedImageFramesResult } from './animated-image-client';
+import {
 	CanvasStackCompositor,
 	itemOpacity,
 	type StackLayerSource,
@@ -330,6 +337,7 @@ export class TimelineFrameRenderer {
 	private readonly adjustmentLayers: AdjustmentLayerScope[];
 	private readonly decoders = new Map<string, VideoDecoder>();
 	private readonly imageCache = new Map<string, ImageBitmap>();
+	private readonly animatedFrames = new Map<string, Promise<AnimatedImageFramesResult | null>>();
 	private readonly inputs: Input[] = [];
 	private readonly stackCompositor: CanvasStackCompositor;
 	private readonly textCanvas = new OffscreenCanvas(1, 1);
@@ -467,6 +475,40 @@ export class TimelineFrameRenderer {
 		return spec;
 	}
 
+	private async animatedImageSource(
+		item: TimelineItem,
+		mediaId: string,
+		frame: number
+	): Promise<StackLayerSource | null> {
+		if (!isAnimatedImageMedia(mediaPool.get(mediaId))) return null;
+		let frames = this.animatedFrames.get(mediaId);
+		if (!frames) {
+			const media = mediaPool.get(mediaId);
+			if (!media) return null;
+			// Extraction failures fall back to the static first-frame path below.
+			frames = animatedImageCache
+				.getAnimatedImage(media)
+				.catch(() => null);
+			this.animatedFrames.set(mediaId, frames);
+		}
+		const resolved = await frames;
+		if (!resolved || !(resolved.totalDurationMs > 0)) return null;
+		const timeMs = animatedImageTimeMs({
+			frame,
+			fromFrame: item.from,
+			fps: this.fps,
+			speed: item.speed ?? 1,
+			reversed: item.isReversed === true,
+			totalDurationMs: resolved.totalDurationMs
+		});
+		const bitmap =
+			resolved.frames[
+				animatedFrameIndexAtTime(resolved.cumulativeDelaysMs, resolved.totalDurationMs, timeMs)
+			];
+		if (!bitmap) return null;
+		return { source: bitmap, width: resolved.width, height: resolved.height };
+	}
+
 	private async sourceForItem(
 		resolvedItem: TimelineItem,
 		originalItem: TimelineItem,
@@ -576,6 +618,10 @@ export class TimelineFrameRenderer {
 						height: wrapped.canvas.height
 					}
 				: null;
+		}
+		if (resolvedItem.mediaId) {
+			const animated = await this.animatedImageSource(originalItem, resolvedItem.mediaId, frame);
+			if (animated) return animated;
 		}
 		let bitmap = this.imageCache.get(resolvedItem.mediaId);
 		if (!bitmap) {

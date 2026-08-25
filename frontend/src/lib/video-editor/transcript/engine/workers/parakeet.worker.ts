@@ -35,25 +35,26 @@ const STATE_SHAPE = [2, 1, 640] as const; // [pred_rnn_layers, batch, pred_hidde
 const RECENT_WORD_RETENTION_SECONDS = 8;
 const DUPLICATE_WORD_START_TOLERANCE_SECONDS = 0.5;
 
-const ESTIMATED_BYTES: Record<'webgpu' | 'wasm', number> = {
+const ESTIMATED_BYTES = {
 	webgpu: Math.round(1_270 * 1024 * 1024),
 	wasm: Math.round(820 * 1024 * 1024)
-};
+} satisfies Record<'webgpu' | 'wasm', number>;
 
 // Approximate on-disk sizes, summing to ESTIMATED_BYTES. These only weight the aggregate
 // download bar so it advances evenly across files rather than restarting at each one; the
 // real content-length replaces the estimate the moment a transfer starts, so drift here
 // costs nothing beyond a slightly uneven first chunk.
-const APPROX_FILE_BYTES: Record<string, number> = {
+const APPROX_FILE_BYTES = {
 	[PREPROCESSOR]: Math.round(1 * 1024 * 1024),
 	[ENCODER_FP16]: Math.round(1_199 * 1024 * 1024),
 	[ENCODER_INT8]: Math.round(749 * 1024 * 1024),
 	[DECODER_INT8]: Math.round(70 * 1024 * 1024)
-};
+} satisfies Record<string, number>;
 
 type OrtModule = typeof import('onnxruntime-web');
 type OrtTensor = InstanceType<OrtModule['Tensor']>;
 type OrtSession = Awaited<ReturnType<OrtModule['InferenceSession']['create']>>;
+type OrtTensorMap = Record<string, OrtTensor>;
 
 let ortPromise: Promise<OrtModule> | null = null;
 let preproc: OrtSession | null = null;
@@ -71,14 +72,28 @@ let initChain: Promise<void> = Promise.resolve();
 const queue: PCMChunk[] = [];
 const recentWords: EngineTranscriptWord[] = [];
 
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function canUseWebGpu(): boolean {
+	return typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu != null;
+}
+
+function parseWorkerMessage(raw: unknown): TranscriptionWorkerMessage {
+	// SAFETY: Worker protocol guarantees TranscriptionWorkerMessage shape from trusted main-thread bridge; narrow via runtime type discriminant.
+	return raw as TranscriptionWorkerMessage;
+}
+
+function parseRejectionReason(reason: unknown): string {
+	if (reason instanceof Error) return `${reason.name}: ${reason.message}`;
+	if (isString(reason)) return reason;
+	return 'Unknown worker error';
+}
+
 self.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
 	const reason = event.reason;
-	const message =
-		reason instanceof Error
-			? `${reason.name}: ${reason.message}`
-			: typeof reason === 'string'
-				? reason
-				: 'Unknown worker error';
+	const message = parseRejectionReason(reason);
 	postMain({ type: 'error', message });
 	event.preventDefault();
 });
@@ -91,7 +106,7 @@ self.addEventListener('error', (event: ErrorEvent) => {
 });
 
 self.onmessage = async (event: MessageEvent) => {
-	const message = event.data as TranscriptionWorkerMessage;
+	const message = parseWorkerMessage(event.data);
 
 	if (message.type === 'port') {
 		port = message.port;
@@ -236,8 +251,7 @@ async function initPipeline(): Promise<void> {
 		vocab = await loadVocab();
 
 		// The heavy encoder prefers WebGPU (fp16) and falls back to the int8 WASM encoder.
-		const webgpuAvailable =
-			typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu != null;
+		const webgpuAvailable = canUseWebGpu();
 		const encoderFile = webgpuAvailable ? ENCODER_FP16 : ENCODER_INT8;
 
 		// Pass 1: fetch every weight file under a single aggregate byte counter. Compiling each
@@ -372,11 +386,8 @@ function f32(ort: OrtModule, data: Float32Array, dims: number[]): OrtTensor {
 	return new ort.Tensor('float32', data, dims);
 }
 function i32(ort: OrtModule, values: number[], dims: number[]): OrtTensor {
-	const Tensor = ort.Tensor as unknown as new (
-		type: 'int32',
-		data: Int32Array,
-		dims: number[]
-	) => OrtTensor;
+	// SAFETY: ORT Tensor constructor supports int32 backed by Int32Array; declaration lacks this overload, so narrow to the concrete signature.
+	const Tensor = ort.Tensor as new (type: 'int32', data: Int32Array, dims: number[]) => OrtTensor;
 	return new Tensor('int32', Int32Array.from(values), dims);
 }
 function i64(ort: OrtModule, values: number[], dims: number[]): OrtTensor {
@@ -385,8 +396,8 @@ function i64(ort: OrtModule, values: number[], dims: number[]): OrtTensor {
 function zeroState(ort: OrtModule): [OrtTensor, OrtTensor] {
 	const size = STATE_SHAPE[0] * STATE_SHAPE[1] * STATE_SHAPE[2];
 	return [
-		new ort.Tensor('float32', new Float32Array(size), STATE_SHAPE as unknown as number[]),
-		new ort.Tensor('float32', new Float32Array(size), STATE_SHAPE as unknown as number[])
+		new ort.Tensor('float32', new Float32Array(size), [...STATE_SHAPE]),
+		new ort.Tensor('float32', new Float32Array(size), [...STATE_SHAPE])
 	];
 }
 
@@ -424,21 +435,26 @@ async function transcribeChunk(chunk: PCMChunk): Promise<void> {
 	const ort = await getOrt();
 
 	// 1. Log-mel features: waveforms [1,N] + waveforms_lens [1] -> features [1,128,T].
+	// SAFETY: ORT session run returns named tensors; preprocessor graph guarantees 'features' and matching lens.
 	const preOut = (await preproc.run({
 		waveforms: f32(ort, chunk.samples, [1, chunk.samples.length]),
 		waveforms_lens: i64(ort, [chunk.samples.length], [1])
-	})) as Record<string, OrtTensor>;
+	})) as OrtTensorMap;
 
 	// 2. Encoder: audio_signal [1,128,T] + length [1] -> outputs [1,D,T'] + encoded_lengths.
+	// SAFETY: Encoder graph returns 'outputs' and 'encoded_lengths'; checked against Parakeet ONNX spec.
 	const encOut = (await encoder.run({
 		audio_signal: preOut.features!,
 		length: preOut.features_lens!
-	})) as Record<string, OrtTensor>;
+	})) as OrtTensorMap;
 	const encoded = encOut.outputs!;
-	const encDims = encoded.dims as number[];
+	// SAFETY: Tensor dims is readonly number[] from ORT; spread creates mutable copy to read D/T.
+	const encDims = [...encoded.dims];
 	const D = encDims[1] ?? 0;
 	const T = encDims[2] ?? 0;
+	// SAFETY: Encoder output data is Float32Array per fp16/int8 graph; decoder expects Float32.
 	const encData = encoded.data as Float32Array;
+	// SAFETY: encoded_lengths data is int64 encoded as BigInt64Array in ORT WASM backend.
 	const lenData = encOut.encoded_lengths!.data as BigInt64Array;
 	const frames = Math.min(Number(lenData[0] ?? T), T);
 
@@ -455,14 +471,16 @@ async function transcribeChunk(chunk: PCMChunk): Promise<void> {
 		for (let d = 0; d < D; d++) frameBuf[d] = encData[d * T + t] ?? 0;
 		const lastToken = tokens.length ? tokens[tokens.length - 1]! : blankIdx;
 
+		// SAFETY: Decoder joint returns 'outputs' logits plus next state tensors per Parakeet spec.
 		const out = (await decoder.run({
 			encoder_outputs: f32(ort, frameBuf.slice(), [1, D, 1]),
 			targets: i32(ort, [lastToken], [1, 1]),
 			target_length: i32(ort, [1], [1]),
 			input_states_1: state[0],
 			input_states_2: state[1]
-		})) as Record<string, OrtTensor>;
+		})) as OrtTensorMap;
 
+		// SAFETY: Joint logits are Float32Array with vocabSize + maxDuration entries; argmax reads both regions.
 		const logits = out.outputs!.data as Float32Array;
 		const token = argmax(logits, 0, vocabSize);
 		const step = argmax(logits, vocabSize, logits.length) - vocabSize;
@@ -550,5 +568,6 @@ function normalizeWordText(text: string): string {
 }
 
 function postMain(message: MainThreadMessage): void {
-	(self as unknown as Worker).postMessage(message);
+	// SAFETY: DedicatedWorkerGlobalScope exposes postMessage with same signature as Worker; self is the worker scope in this module.
+	(self as Worker).postMessage(message);
 }

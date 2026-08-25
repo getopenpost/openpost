@@ -9,8 +9,12 @@ export interface RawWhisperWord {
 const FALLBACK_WORD_SECONDS = 0.5;
 const MIN_WORD_SECONDS = 0.01;
 
-function validTimestamp(value: number | null): value is number {
-	return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+function isNumber(value: unknown): value is number {
+	return typeof value === 'number';
+}
+
+function isValidTimestamp(value: number | null): value is number {
+	return isNumber(value) && Number.isFinite(value) && value >= 0;
 }
 
 function nextKnownStart(
@@ -20,7 +24,7 @@ function nextKnownStart(
 ): number | null {
 	for (let nextIndex = index + 1; nextIndex < words.length; nextIndex++) {
 		const start = words[nextIndex]?.timestamp[0] ?? null;
-		if (validTimestamp(start) && start > after) return start;
+		if (isValidTimestamp(start) && start > after) return start;
 	}
 	return null;
 }
@@ -43,15 +47,15 @@ export function resolveWhisperWordTimings(
 
 		const rawStart = rawWord.timestamp[0];
 		const rawEnd = rawWord.timestamp[1];
-		let start = validTimestamp(rawStart)
+		let start = isValidTimestamp(rawStart)
 			? rawStart
-			: validTimestamp(rawEnd)
+			: isValidTimestamp(rawEnd)
 				? Math.max(previousEnd, rawEnd - FALLBACK_WORD_SECONDS)
 				: previousEnd;
 		start = Math.min(Math.max(0, start), chunkDuration);
 
 		const nextStart = nextKnownStart(rawWords, index, start);
-		let end = validTimestamp(rawEnd) && rawEnd > start ? rawEnd : null;
+		let end = isValidTimestamp(rawEnd) && rawEnd > start ? rawEnd : null;
 		end ??= nextStart ?? Math.min(chunkDuration, start + FALLBACK_WORD_SECONDS);
 		if (end <= start && start === chunkDuration && chunkDuration > 0) {
 			start = Math.max(0, chunkDuration - MIN_WORD_SECONDS);
@@ -63,12 +67,15 @@ export function resolveWhisperWordTimings(
 		if (end <= start) return;
 
 		previousEnd = end;
-		words.push({
+		const word: EngineTranscriptWord = {
 			text: rawWord.text,
 			start: start + chunkTimestamp,
-			end: end + chunkTimestamp,
-			...(typeof rawWord.confidence === 'number' ? { confidence: rawWord.confidence } : {})
-		});
+			end: end + chunkTimestamp
+		};
+		if (isNumber(rawWord.confidence)) {
+			word.confidence = rawWord.confidence;
+		}
+		words.push(word);
 	});
 
 	return words;

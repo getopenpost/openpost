@@ -21,7 +21,28 @@ const WHISPER_TASK = 'transcribe';
 const RECENT_WORD_RETENTION_SECONDS = 8;
 const DUPLICATE_WORD_START_TOLERANCE_SECONDS = 0.5;
 
-type ASRPipeline = (input: Float32Array, options: Record<string, unknown>) => Promise<unknown>;
+type WhisperPipelineOptions = {
+	sampling_rate: number;
+	task: string;
+	language?: string;
+	return_timestamps?: 'word';
+	chunk_length_s?: number;
+	stride_length_s?: number;
+	batch_size?: number;
+	force_full_sequences?: boolean;
+	top_k?: number;
+	do_sample?: boolean;
+};
+
+type WhisperPipelineResult = {
+	text?: string;
+	chunks?: RawWhisperWord[];
+};
+
+type ASRPipeline = (
+	input: Float32Array,
+	options: WhisperPipelineOptions
+) => Promise<WhisperPipelineResult>;
 
 interface ProgressInfo {
 	status?: string;
@@ -50,6 +71,7 @@ interface TransformersModule {
 			device: 'webgpu' | 'wasm';
 			dtype: Record<string, string> | string;
 			progress_callback?: (progress: ProgressInfo) => void;
+			session_options?: { graphOptimizationLevel: string };
 		}
 	) => Promise<ASRPipeline>;
 }
@@ -68,14 +90,24 @@ const recentWords: EngineTranscriptWord[] = [];
 let processing = false;
 let reportedEstimatedBytes = 0;
 
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function parseWorkerMessage(raw: unknown): TranscriptionWorkerMessage {
+	// SAFETY: Worker protocol guarantees TranscriptionWorkerMessage shape from trusted main-thread bridge; narrow via runtime type discriminant.
+	return raw as TranscriptionWorkerMessage;
+}
+
+function parseRejectionReason(reason: unknown): string {
+	if (reason instanceof Error) return `${reason.name}: ${reason.message}`;
+	if (isString(reason)) return reason;
+	return 'Unknown worker error';
+}
+
 self.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
 	const reason = event.reason;
-	const message =
-		reason instanceof Error
-			? `${reason.name}: ${reason.message}`
-			: typeof reason === 'string'
-				? reason
-				: 'Unknown worker error';
+	const message = parseRejectionReason(reason);
 	postMain({ type: 'error', message });
 	event.preventDefault();
 });
@@ -88,7 +120,7 @@ self.addEventListener('error', (event: ErrorEvent) => {
 });
 
 self.onmessage = async (event: MessageEvent) => {
-	const message = event.data as TranscriptionWorkerMessage;
+	const message = parseWorkerMessage(event.data);
 
 	if (message.type === 'port') {
 		port = message.port;
@@ -150,6 +182,7 @@ async function initPipeline(
 		}
 
 		if (asrPipeline && currentModelId !== modelId) {
+			// SAFETY: transformers pipeline instances expose optional dispose for cache eviction; intersection adds only optional cleanup.
 			const disposable = asrPipeline as ASRPipeline & { dispose?: () => Promise<void> | void };
 			await disposable.dispose?.();
 			asrPipeline = null;
@@ -182,7 +215,8 @@ async function initPipeline(
 				});
 			};
 
-			const createPipeline = pipeline as unknown as TransformersModule['pipeline'];
+			// SAFETY: @huggingface/transformers pipeline export matches TransformersModule contract for automatic-speech-recognition; narrow untyped import to typed overload.
+			const createPipeline = pipeline as TransformersModule['pipeline'];
 			const loadPipeline = async (device: 'webgpu' | 'wasm') => {
 				const dtype =
 					quantization === 'hybrid'
@@ -192,12 +226,15 @@ async function initPipeline(
 						: quantization === 'q8'
 							? 'int8'
 							: quantization;
-				return createPipeline('automatic-speech-recognition', modelId, {
+				const pipelineOptions: Parameters<TransformersModule['pipeline']>[2] = {
 					device,
 					dtype,
-					...(device === 'wasm' ? { session_options: { graphOptimizationLevel: 'disabled' } } : {}),
 					progress_callback: progressCallback
-				} as Parameters<TransformersModule['pipeline']>[2]);
+				};
+				if (device === 'wasm') {
+					pipelineOptions.session_options = { graphOptimizationLevel: 'disabled' };
+				}
+				return createPipeline('automatic-speech-recognition', modelId, pipelineOptions);
 			};
 
 			const adapter = await navigator.gpu?.requestAdapter().catch(() => null);
@@ -226,11 +263,14 @@ async function initPipeline(
 			// neither of which reports progress.
 			postMain({ type: 'progress', event: { stage: 'preparing', progress: 0 } });
 			try {
-				await asrPipeline(new Float32Array(1_600), {
+				const warmupOptions: WhisperPipelineOptions = {
 					sampling_rate: 16_000,
-					task: WHISPER_TASK,
-					...(language ? { language } : {})
-				});
+					task: WHISPER_TASK
+				};
+				if (language) {
+					warmupOptions.language = language;
+				}
+				await asrPipeline(new Float32Array(1_600), warmupOptions);
 			} catch {
 				// Ignore pre-warm failures. Real inference may still succeed.
 			}
@@ -306,7 +346,7 @@ async function transcribeChunk(chunk: PCMChunk): Promise<void> {
 		postMain({ type: 'progress', event: { stage: 'transcribing', progress: startProgress } });
 	}
 
-	const result = await asrPipeline(chunk.samples, {
+	const pipelineOptions: WhisperPipelineOptions = {
 		sampling_rate: 16_000,
 		return_timestamps: 'word',
 		chunk_length_s: WHISPER_CHUNK_SECONDS,
@@ -315,17 +355,15 @@ async function transcribeChunk(chunk: PCMChunk): Promise<void> {
 		force_full_sequences: false,
 		top_k: 0,
 		do_sample: false,
-		task: WHISPER_TASK,
-		...(language ? { language } : {})
-	});
-
-	const output = result as {
-		text?: string;
-		chunks?: RawWhisperWord[];
+		task: WHISPER_TASK
 	};
+	if (language) {
+		pipelineOptions.language = language;
+	}
+	const result = await asrPipeline(chunk.samples, pipelineOptions);
 
 	const words = dedupeOverlappingWords(
-		resolveWhisperWordTimings(output.chunks ?? [], chunk.timestamp, chunk.samples.length / 16_000)
+		resolveWhisperWordTimings(result.chunks ?? [], chunk.timestamp, chunk.samples.length / 16_000)
 	);
 
 	if (words.length > 0) {
@@ -383,5 +421,6 @@ function normalizeWordText(text: string): string {
 }
 
 function postMain(message: MainThreadMessage): void {
-	(self as unknown as Worker).postMessage(message);
+	// SAFETY: DedicatedWorkerGlobalScope exposes postMessage with same signature as Worker; self is the worker scope in this module.
+	(self as Worker).postMessage(message);
 }

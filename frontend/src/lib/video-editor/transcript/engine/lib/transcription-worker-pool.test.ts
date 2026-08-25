@@ -33,11 +33,16 @@ afterEach(() => {
 	else Reflect.deleteProperty(globalThis, 'Worker');
 });
 
+function parseFakeWorker(worker: Worker): FakeWorker {
+	// SAFETY: Test harness installs FakeWorker as global Worker, so acquireTranscriptionWorker returns a FakeWorker instance.
+	return worker as FakeWorker;
+}
+
 describe('transcription worker pool unload', () => {
 	it('notifies the active bridge before terminating its resident model worker', () => {
 		const onUnload = vi.fn();
 		onTranscriptionWorkerUnload('whisper', onUnload);
-		const worker = acquireTranscriptionWorker('whisper') as unknown as FakeWorker;
+		const worker = parseFakeWorker(acquireTranscriptionWorker('whisper'));
 		expect(hasTranscriptionWorker('whisper')).toBe(true);
 
 		disposeTranscriptionWorker('whisper');

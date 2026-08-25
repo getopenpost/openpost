@@ -89,10 +89,10 @@ export interface ResolvedTranscriptionEngine {
 	fallbackReason?: 'language' | 'no-webgpu';
 }
 
-export const MODEL_IDS: Record<TranscriptionModel, string> = {
+export const MODEL_IDS = {
 	'parakeet-tdt-v3': 'Olicorne/parakeet-tdt-0.6b-v3-smoothquant-onnx',
 	'whisper-tiny': 'onnx-community/whisper-tiny_timestamped',
 	'whisper-base': 'onnx-community/whisper-base_timestamped',
 	'whisper-small': 'onnx-community/whisper-small_timestamped',
 	'whisper-large': 'onnx-community/whisper-large-v3-turbo_timestamped'
-};
+} satisfies Record<TranscriptionModel, string>;

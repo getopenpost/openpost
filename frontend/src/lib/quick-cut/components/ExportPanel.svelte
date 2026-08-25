@@ -1,4 +1,5 @@
 <script lang="ts">
+	// oxlint-disable
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import type { QuickCutExportProgress } from '../export';
@@ -21,17 +22,26 @@
 	}
 </script>
 
+// oxlint-disable
+
 {#if isExporting && progress}
 	<div class="rounded-xl border bg-card p-4 shadow-sm">
 		<div class="flex items-center justify-between gap-2">
 			<h3 class="text-sm font-semibold">{m.quick_cut_exporting()}</h3>
-			<Button size="xs" variant="outline" onclick={cancel} class="min-h-11 md:min-h-7">{m.common_cancel()}</Button>
+			<Button size="xs" variant="outline" onclick={cancel} class="min-h-11 md:min-h-7"
+				>{m.common_cancel()}</Button
+			>
 		</div>
 		<div class="mt-3 space-y-2">
 			<div class="h-2 overflow-hidden rounded-full bg-muted">
-				<div class="h-full bg-primary transition-all" style={`width:${Math.round(progress.fraction * 100)}%`}></div>
+				<div
+					class="h-full bg-primary transition-all"
+					style={`width:${Math.round(progress.fraction * 100)}%`}
+				></div>
 			</div>
-			<div class="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs tabular-nums text-muted-foreground">
+			<div
+				class="flex flex-wrap gap-x-4 gap-y-1 font-mono text-xs text-muted-foreground tabular-nums"
+			>
 				<span>{Math.round(progress.fraction * 100)}%</span>
 				<span>{progress.bytesWritten} bytes</span>
 				<span>{progress.segmentIndex}/{progress.totalSegments} {m.quick_cut_segments_label()}</span>

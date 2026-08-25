@@ -48,8 +48,9 @@ export function computeCumulativeDelays(durationsMs: readonly number[]): number[
 }
 
 /**
- * The frame showing at `timeMs`, looping over the total animation duration.
- * Binary search on cumulative delays; time normalizes into [0, total).
+ * The frame covering `timeMs` in a forward loop over the total animation
+ * duration. Binary search on cumulative delays; time normalizes into
+ * [0, total).
  */
 export function animatedFrameIndexAtTime(
 	cumulativeDelaysMs: readonly number[],
@@ -60,14 +61,53 @@ export function animatedFrameIndexAtTime(
 	if (frameCount <= 0) return 0;
 	const normalized =
 		totalDurationMs > 0 ? ((timeMs % totalDurationMs) + totalDurationMs) % totalDurationMs : 0;
+	return lastIndexAtOrBefore(cumulativeDelaysMs, normalized);
+}
+
+function lastIndexAtOrBefore(cumulativeDelaysMs: readonly number[], timeMs: number): number {
 	let low = 0;
-	let high = frameCount - 1;
+	let high = cumulativeDelaysMs.length - 2;
 	while (low < high) {
 		const middle = Math.floor((low + high + 1) / 2);
-		if ((cumulativeDelaysMs[middle] ?? 0) <= normalized) low = middle;
+		if ((cumulativeDelaysMs[middle] ?? 0) <= timeMs) low = middle;
 		else high = middle - 1;
 	}
 	return low;
+}
+
+function lastIndexStrictlyBefore(cumulativeDelaysMs: readonly number[], timeMs: number): number {
+	// SAFETY: callers guarantee timeMs > 0, so the result is a valid index.
+	let low = 0;
+	let high = cumulativeDelaysMs.length - 2;
+	while (low < high) {
+		const middle = Math.floor((low + high + 1) / 2);
+		if ((cumulativeDelaysMs[middle] ?? 0) < timeMs) low = middle;
+		else high = middle - 1;
+	}
+	return low;
+}
+
+export interface AnimatedFrameLookupInput {
+	/** Elapsed clip milliseconds (timeline position already scaled by speed). */
+	elapsedMs: number;
+	reversed: boolean;
+	cumulativeDelaysMs: readonly number[];
+	totalDurationMs: number;
+}
+
+/**
+ * The animation frame showing after `elapsedMs` of playback. Forward reads the
+ * loop clock [0, total); reversed reads the same clock backward from the
+ * EXCLUSIVE end, so elapsed 0 shows the final frame and each cycle restarts on
+ * the last frame instead of freezing on the first.
+ */
+export function animatedFrameIndexAtElapsed(input: AnimatedFrameLookupInput): number {
+	const { cumulativeDelaysMs, totalDurationMs } = input;
+	if (cumulativeDelaysMs.length <= 1 || !(totalDurationMs > 0)) return 0;
+	const looped = Math.max(0, input.elapsedMs) % totalDurationMs;
+	if (!input.reversed) return lastIndexAtOrBefore(cumulativeDelaysMs, looped);
+	const mirrored = looped === 0 ? totalDurationMs : totalDurationMs - looped;
+	return lastIndexStrictlyBefore(cumulativeDelaysMs, mirrored);
 }
 
 export interface AnimatedImageTimingInput {
@@ -84,17 +124,27 @@ export interface AnimatedImageTimingInput {
 	totalDurationMs: number;
 }
 
-/**
- * Animation-clock milliseconds for a timeline frame. Clip time advances at the
- * item speed and loops over one full animation cycle; reversed clips read the
- * same clock backward.
- */
-export function animatedImageTimeMs(input: AnimatedImageTimingInput): number {
+/** Elapsed animation-clock milliseconds for a timeline frame (forward loop). */
+export function animatedImageElapsedMs(input: AnimatedImageTimingInput): number {
 	if (!(input.totalDurationMs > 0)) return 0;
 	const localSeconds = Math.max(0, input.frame - input.fromFrame) / input.fps;
 	const elapsedMs = localSeconds * (input.speed > 0 ? input.speed : 1) * 1000;
-	const looped = elapsedMs % input.totalDurationMs;
-	return input.reversed ? (input.totalDurationMs - looped) % input.totalDurationMs : looped;
+	return input.reversed ? elapsedMs : elapsedMs % input.totalDurationMs;
+}
+
+/** @deprecated Use animatedImageElapsedMs. Kept for tests that still import the old name. */
+export const animatedImageTimeMs = animatedImageElapsedMs;
+
+/** The decoded frame index a timeline frame must show for one clip. */
+export function animatedFrameIndexForItem(
+	input: AnimatedImageTimingInput & { cumulativeDelaysMs: readonly number[] }
+): number {
+	return animatedFrameIndexAtElapsed({
+		elapsedMs: animatedImageElapsedMs(input),
+		reversed: input.reversed,
+		cumulativeDelaysMs: input.cumulativeDelaysMs,
+		totalDurationMs: input.totalDurationMs
+	});
 }
 
 export interface AnimatedImageTile {
@@ -145,12 +195,12 @@ export function computeAnimatedImageTiles(input: AnimatedTilePlanInput): Animate
 		const width = Math.min(input.tileWidthPx, input.clipWidthPx - x);
 		if (width <= 0) continue;
 		const centerRatio = Math.max(0, Math.min(1, (x + width / 2) / input.clipWidthPx));
-		const localRatio = input.reversed ? 1 - centerRatio : centerRatio;
-		const index = animatedFrameIndexAtTime(
+		const index = animatedFrameIndexAtElapsed({
+			elapsedMs: centerRatio * input.clipSpanSeconds * (input.speed > 0 ? input.speed : 1) * 1000,
+			reversed: input.reversed,
 			cumulativeDelaysMs,
-			totalDurationMs,
-			localRatio * input.clipSpanSeconds * (input.speed > 0 ? input.speed : 1) * 1000
-		);
+			totalDurationMs
+		});
 		tiles.push({ slot, index, x, width });
 	}
 	return tiles;

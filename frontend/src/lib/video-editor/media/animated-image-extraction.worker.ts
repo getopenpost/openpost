@@ -44,10 +44,17 @@ export interface AnimatedImageErrorResponse {
 	error: string;
 }
 
+/** Terminal response after an abort so the client promise always settles. */
+export interface AnimatedImageAbortedResponse {
+	type: 'aborted';
+	requestId: string;
+}
+
 export type AnimatedImageWorkerResponse =
 	| AnimatedImageProgressResponse
 	| AnimatedImageCompleteResponse
-	| AnimatedImageErrorResponse;
+	| AnimatedImageErrorResponse
+	| AnimatedImageAbortedResponse;
 
 type WorkerRequest = AnimatedImageExtractRequest | AnimatedImageAbortRequest;
 
@@ -70,17 +77,20 @@ async function extractFrames(
 	}
 
 	const decoder = new ImageDecoder({ data: await blob.arrayBuffer(), type: mimeType });
+	const bitmapBatch: Array<{ index: number; bitmap: ImageBitmap }> = [];
 	try {
 		await Promise.all([decoder.tracks.ready, decoder.completed]);
 		const track = decoder.tracks.selectedTrack;
 		if (!track || !track.animated || track.frameCount <= 1) {
 			throw new Error('This image is not animated.');
 		}
-		const frameCount = Math.min(track.frameCount, MAX_FRAMES);
+		if (track.frameCount > MAX_FRAMES) {
+			throw new Error(`Animation exceeds the ${MAX_FRAMES} frame limit.`);
+		}
+		const frameCount = track.frameCount;
 
 		const timestampsUs: number[] = [];
 		const ownDurationsMs: number[] = [];
-		const bitmapBatch: Array<{ index: number; bitmap: ImageBitmap }> = [];
 		const savedBatch: Array<{ index: number; blob: Blob }> = [];
 		let pendingEncode: Promise<{ index: number; blob: Blob }> | null = null;
 		let width = 0;
@@ -160,6 +170,10 @@ async function extractFrames(
 			width,
 			height
 		} satisfies AnimatedImageCompleteResponse);
+	} catch (error) {
+		for (const entry of bitmapBatch) entry.bitmap.close();
+		bitmapBatch.length = 0;
+		throw error;
 	} finally {
 		decoder.close();
 	}
@@ -176,10 +190,18 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
 				await extractFrames(request, state);
 			} catch (error) {
 				const aborted =
-					error instanceof DOMException
+					state.aborted ||
+					(error instanceof DOMException
 						? error.name === 'AbortError'
-						: error instanceof Error && error.name === 'AbortError';
-				if (!aborted) {
+						: error instanceof Error && error.name === 'AbortError');
+				if (aborted) {
+					// Deterministic terminal response: the client promise must settle
+					// on cancel so media tasks finish and retries can start.
+					self.postMessage({
+						type: 'aborted',
+						requestId: request.requestId
+					} satisfies AnimatedImageAbortedResponse);
+				} else {
 					self.postMessage({
 						type: 'error',
 						requestId: request.requestId,

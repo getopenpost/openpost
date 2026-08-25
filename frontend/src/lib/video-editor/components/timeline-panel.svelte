@@ -528,23 +528,21 @@
 
 	// Reactive animated-image (GIF/WebP) state per mediaId; frames stream in
 	// from the extraction worker and tiles render as they arrive.
-	const animatedImages = $state<Record<string, { frames: AnimatedImageFrames | null; failed: boolean }>>({});
+	const animatedImages = $state<
+		Record<string, { frames: AnimatedImageFrames | null; failed: boolean }>
+	>({});
 	const animatedImageUnsubscribers = new Map<string, () => void>();
 
 	$effect(() => {
 		if (!editorSettings.showFilmstrips || !editorSettings.extractFilmstrips) {
-			for (const [mediaId, unsubscribe] of animatedImageUnsubscribers) {
+			for (const [, unsubscribe] of animatedImageUnsubscribers) {
 				unsubscribe();
-				animatedImageCache.abort(mediaId);
 			}
 			animatedImageUnsubscribers.clear();
 			for (const mediaId of Object.keys(animatedImages)) delete animatedImages[mediaId];
 			return;
 		}
-		const visibleAnimatedMedia = new Map<
-			string,
-			NonNullable<ReturnType<typeof mediaPool.get>>
-		>();
+		const visibleAnimatedMedia = new Map<string, NonNullable<ReturnType<typeof mediaPool.get>>>();
 		for (const item of timelineStore.items) {
 			if (item.type !== 'image' || !item.mediaId) continue;
 			if (!visibleTimelineItemIds.has(item.id)) continue;
@@ -557,7 +555,6 @@
 			if (visibleAnimatedMedia.has(mediaId)) continue;
 			unsubscribe();
 			animatedImageUnsubscribers.delete(mediaId);
-			animatedImageCache.abort(mediaId);
 			delete animatedImages[mediaId];
 		}
 		for (const [mediaId, media] of visibleAnimatedMedia) {
@@ -3530,12 +3527,7 @@
 										</div>
 									{/if}
 								{/if}
-								{#if
-									editorSettings.showFilmstrips &&
-									item.type === 'image' &&
-									item.mediaId &&
-									isAnimatedImageMedia(mediaPool.get(item.mediaId))
-								}
+								{#if editorSettings.showFilmstrips && item.type === 'image' && item.mediaId && isAnimatedImageMedia(mediaPool.get(item.mediaId))}
 									{@const animationTiles = animatedImageTilesFor(displayItem)}
 									{#if animationTiles}
 										<div

@@ -57,15 +57,14 @@
 	} from '$lib/video-editor/lottie/render-spec';
 	import { replaceTextSpanCopy } from '$lib/video-editor/typography/text-item-spans';
 	import { filmstripCache } from '$lib/video-editor/media/filmstrip-client';
-import {
-	animatedImageCache,
-	type AnimatedImageFrames
-} from '$lib/video-editor/media/animated-image-client';
-import {
-	animatedFrameIndexAtTime,
-	animatedImageTimeMs,
-	isAnimatedImageMedia
-} from '$lib/video-editor/media/animated-image-plan';
+	import {
+		animatedImageCache,
+		type AnimatedImageFrames
+	} from '$lib/video-editor/media/animated-image-client';
+	import {
+		animatedFrameIndexForItem,
+		isAnimatedImageMedia
+	} from '$lib/video-editor/media/animated-image-plan';
 	import {
 		cloneFilmstripFallback,
 		nearestFilmstripFallback,
@@ -782,19 +781,20 @@ import {
 		if (canvas.height !== frames.height) canvas.height = frames.height;
 		const context = canvas.getContext('2d');
 		if (!context) return;
+		let pendingRaf: number | null = null;
 		const draw = () => {
 			const frame = untrack(() => timelineStore.currentFrame);
-			const timeMs = animatedImageTimeMs({
-				frame,
-				fromFrame: item.from,
-				fps: editorSession.fps,
-				speed: item.speed ?? 1,
-				reversed: item.isReversed === true,
-				totalDurationMs: frames.totalDurationMs
-			});
 			const bitmap =
 				frames.frames[
-					animatedFrameIndexAtTime(frames.cumulativeDelaysMs, frames.totalDurationMs, timeMs)
+					animatedFrameIndexForItem({
+						frame,
+						fromFrame: item.from,
+						fps: editorSession.fps,
+						speed: item.speed ?? 1,
+						reversed: item.isReversed === true,
+						totalDurationMs: frames.totalDurationMs,
+						cumulativeDelaysMs: frames.cumulativeDelaysMs
+					})
 				];
 			if (!bitmap) return;
 			context.clearRect(0, 0, canvas.width, canvas.height);
@@ -803,21 +803,27 @@ import {
 			if (selected && !needsGpu && !deferEffects) publishScopeSample(canvas);
 		};
 		draw();
-		const offFrame = editorSession.clock.on('framechange', () => requestAnimationFrame(draw));
+		const scheduleDraw = () => {
+			if (pendingRaf !== null) return;
+			pendingRaf = requestAnimationFrame(() => {
+				pendingRaf = null;
+				draw();
+			});
+		};
+		const offFrame = editorSession.clock.on('framechange', scheduleDraw);
 		const offPlay = editorSession.clock.on('play', draw);
 		return () => {
 			offFrame();
 			offPlay();
+			if (pendingRaf !== null) {
+				cancelAnimationFrame(pendingRaf);
+				pendingRaf = null;
+			}
 		};
 	});
 
 	function rawSource() {
-		if (
-			resolved.type === 'image' &&
-			animatedCanvas &&
-			animatedFrames &&
-			animatedRevision > 0
-		) {
+		if (resolved.type === 'image' && animatedCanvas && animatedFrames && animatedRevision > 0) {
 			return {
 				source: animatedCanvas,
 				width: animatedCanvas.width,

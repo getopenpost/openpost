@@ -35,6 +35,10 @@ const FPS_MAX_PACKETS = 180;
 const THUMBNAIL_MAX_EDGE = 320;
 /** Animated-image frames decoded at probe time before extrapolating duration. */
 const ANIMATION_PROBE_MAX_FRAMES = 600;
+/** Upper bound on animated frames; hostile containers beyond this are rejected. */
+const MAX_ANIMATED_FRAMES = 2_000;
+/** Frames with zero or missing delay display for 100ms (FreeCut parity). */
+const DEFAULT_DELAY_MS = 100;
 
 async function estimateFps(track: {
 	computePacketStats(count: number): Promise<{ averagePacketRate: number } | null>;
@@ -124,17 +128,32 @@ async function probeAnimatedImage(file: File): Promise<AnimationProbe | null> {
 		const track = decoder.tracks.selectedTrack;
 		if (!track || !track.animated || track.frameCount <= 1) return null;
 		const frameCount = track.frameCount;
+		if (frameCount > MAX_ANIMATED_FRAMES) {
+			throw new Error(`Animation exceeds the ${MAX_ANIMATED_FRAMES} frame limit.`);
+		}
 		const sampledCount = Math.min(frameCount, ANIMATION_PROBE_MAX_FRAMES);
-		let totalMs = 0;
+		const timestampsUs: number[] = [];
+		const ownDurationsMs: number[] = [];
 		for (let index = 0; index < sampledCount; index++) {
 			const result = await decoder.decode({ frameIndex: index });
 			const videoFrame = result.image;
 			try {
-				totalMs += Math.max(0, (videoFrame.duration ?? 0) / 1000);
+				timestampsUs.push(videoFrame.timestamp ?? -1);
+				ownDurationsMs.push((videoFrame.duration ?? 0) / 1000);
 			} finally {
 				videoFrame.close();
 			}
 		}
+		const sampledDurationsMs = ownDurationsMs.map((own, index) => {
+			if (own > 0) return own;
+			const current = timestampsUs[index];
+			const next = timestampsUs[index + 1];
+			if (current !== undefined && next !== undefined && current >= 0 && next > current) {
+				return (next - current) / 1000;
+			}
+			return DEFAULT_DELAY_MS;
+		});
+		const totalMs = sampledDurationsMs.reduce((sum, value) => sum + value, 0);
 		if (!(totalMs > 0)) return null;
 		// Containers beyond the sampling cap scale their measured prefix linearly.
 		const durationSeconds = (totalMs / 1000) * (frameCount / sampledCount);
@@ -143,7 +162,8 @@ async function probeAnimatedImage(file: File): Promise<AnimationProbe | null> {
 			durationSeconds,
 			fps: durationSeconds > 0 ? frameCount / durationSeconds : 0
 		};
-	} catch {
+	} catch (error) {
+		if (error instanceof Error && error.message.includes('frame limit')) throw error;
 		return null;
 	} finally {
 		decoder?.close();

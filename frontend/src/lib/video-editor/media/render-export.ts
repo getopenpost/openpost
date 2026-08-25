@@ -40,11 +40,7 @@ import { resolveAnimatedItemAt } from '../timeline/animated-properties';
 import { scaleItemForCanvas } from './render-geometry';
 import { renderSubtitleRaster, renderTextItemRaster } from './text-raster';
 import { renderShapeItemRaster } from '../shapes/render';
-import {
-	animatedFrameIndexAtTime,
-	animatedImageTimeMs,
-	isAnimatedImageMedia
-} from './animated-image-plan';
+import { animatedFrameIndexForItem, isAnimatedImageMedia } from './animated-image-plan';
 import { animatedImageCache } from './animated-image-client';
 import type { AnimatedImageFrames as AnimatedImageFramesResult } from './animated-image-client';
 import {
@@ -480,32 +476,39 @@ export class TimelineFrameRenderer {
 		mediaId: string,
 		frame: number
 	): Promise<StackLayerSource | null> {
-		if (!isAnimatedImageMedia(mediaPool.get(mediaId))) return null;
-		let frames = this.animatedFrames.get(mediaId);
-		if (!frames) {
-			const media = mediaPool.get(mediaId);
+		const media = mediaPool.get(mediaId);
+		if (!isAnimatedImageMedia(media)) return null;
+		let framesPromise = this.animatedFrames.get(mediaId);
+		if (!framesPromise) {
 			if (!media) return null;
-			// Extraction failures fall back to the static first-frame path below.
-			frames = animatedImageCache
-				.getAnimatedImage(media)
-				.catch(() => null);
-			this.animatedFrames.set(mediaId, frames);
+			framesPromise = animatedImageCache.getAnimatedImage(media);
+			this.animatedFrames.set(mediaId, framesPromise);
 		}
-		const resolved = await frames;
-		if (!resolved || !(resolved.totalDurationMs > 0)) return null;
-		const timeMs = animatedImageTimeMs({
+		let resolved: AnimatedImageFramesResult | null;
+		try {
+			resolved = await framesPromise;
+		} catch (error) {
+			// Known animations must fail clearly so a static poster cannot hide a broken loop.
+			throw new Error(
+				`Animated image decode failed for ${media?.fileName ?? mediaId}: ${error instanceof Error ? error.message : String(error)}`
+			);
+		}
+		if (!resolved || !(resolved.totalDurationMs > 0)) {
+			throw new Error(`Animated image has no playable duration: ${media?.fileName ?? mediaId}`);
+		}
+		const index = animatedFrameIndexForItem({
 			frame,
 			fromFrame: item.from,
 			fps: this.fps,
 			speed: item.speed ?? 1,
 			reversed: item.isReversed === true,
-			totalDurationMs: resolved.totalDurationMs
+			totalDurationMs: resolved.totalDurationMs,
+			cumulativeDelaysMs: resolved.cumulativeDelaysMs
 		});
-		const bitmap =
-			resolved.frames[
-				animatedFrameIndexAtTime(resolved.cumulativeDelaysMs, resolved.totalDurationMs, timeMs)
-			];
-		if (!bitmap) return null;
+		const bitmap = resolved.frames[index];
+		if (!bitmap) {
+			throw new Error(`Animated image frame ${index} missing for ${media?.fileName ?? mediaId}`);
+		}
 		return { source: bitmap, width: resolved.width, height: resolved.height };
 	}
 

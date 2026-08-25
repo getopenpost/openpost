@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+	animatedFrameIndexAtElapsed,
 	animatedFrameIndexAtTime,
+	animatedFrameIndexForItem,
+	animatedImageElapsedMs,
 	animatedImageFormat,
-	animatedImageTimeMs,
 	computeAnimatedImageTiles,
 	computeCumulativeDelays,
 	isAnimatedImageMedia
@@ -60,10 +62,108 @@ describe('computeCumulativeDelays + animatedFrameIndexAtTime', () => {
 	});
 });
 
-describe('animatedImageTimeMs', () => {
+describe('animatedFrameIndexAtElapsed reverse exclusive-end', () => {
+	// durations [100,100,100] -> cumulative [0,100,200,300] total 300
+	const cumulative = computeCumulativeDelays([100, 100, 100]);
+
+	it('forward reads from 0 inclusive', () => {
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 0,
+				reversed: false,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(0);
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 100,
+				reversed: false,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(1);
+	});
+
+	it('reversed reads exclusive end so elapsed 0 is last frame', () => {
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 0,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(2);
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 1,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(2);
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 100,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(1);
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 200,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(0);
+	});
+
+	it('reversed loops without freezing on first frame', () => {
+		// elapsed 0 and elapsed 300 both map to last frame via exclusive end
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 300,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(2);
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 301,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(2);
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 400,
+				reversed: true,
+				cumulativeDelaysMs: cumulative,
+				totalDurationMs: 300
+			})
+		).toBe(1);
+	});
+
+	it('handles zero duration gracefully', () => {
+		expect(
+			animatedFrameIndexAtElapsed({
+				elapsedMs: 0,
+				reversed: true,
+				cumulativeDelaysMs: [0],
+				totalDurationMs: 0
+			})
+		).toBe(0);
+	});
+});
+
+describe('animatedImageElapsedMs + animatedFrameIndexForItem', () => {
 	it('advances with timeline time at item speed', () => {
 		expect(
-			animatedImageTimeMs({
+			animatedImageElapsedMs({
 				frame: 30,
 				fromFrame: 0,
 				fps: 30,
@@ -73,7 +173,7 @@ describe('animatedImageTimeMs', () => {
 			})
 		).toBe(1000);
 		expect(
-			animatedImageTimeMs({
+			animatedImageElapsedMs({
 				frame: 30,
 				fromFrame: 0,
 				fps: 30,
@@ -84,9 +184,9 @@ describe('animatedImageTimeMs', () => {
 		).toBe(2000);
 	});
 
-	it('loops over one animation cycle', () => {
+	it('loops over one animation cycle for forward', () => {
 		expect(
-			animatedImageTimeMs({
+			animatedImageElapsedMs({
 				frame: 90,
 				fromFrame: 0,
 				fps: 30,
@@ -96,7 +196,7 @@ describe('animatedImageTimeMs', () => {
 			})
 		).toBe(0);
 		expect(
-			animatedImageTimeMs({
+			animatedImageElapsedMs({
 				frame: 105,
 				fromFrame: 0,
 				fps: 30,
@@ -107,34 +207,45 @@ describe('animatedImageTimeMs', () => {
 		).toBe(500);
 	});
 
-	it('reads backward for reversed items while keeping total duration stable', () => {
-		const forward = animatedImageTimeMs({
-			frame: 15,
-			fromFrame: 0,
-			fps: 30,
-			speed: 1,
-			reversed: false,
-			totalDurationMs: 1000
-		});
-		const reverse = animatedImageTimeMs({
-			frame: 15,
-			fromFrame: 0,
-			fps: 30,
-			speed: 1,
-			reversed: true,
-			totalDurationMs: 1000
-		});
-		expect(forward).toBe(500);
-		expect(reverse).toBe(500);
-		const earlyReverse = animatedImageTimeMs({
-			frame: 1,
-			fromFrame: 0,
-			fps: 30,
-			speed: 1,
-			reversed: true,
-			totalDurationMs: 1000
-		});
-		expect(earlyReverse).toBeGreaterThan(950);
+	it('reversed elapsed grows unbounded, frame lookup wraps via exclusive end', () => {
+		// 3 frames of 100ms each, fps 30, from 0
+		const cumulative = computeCumulativeDelays([100, 100, 100]);
+		// frame 0 reversed -> elapsed 0 -> last frame 2
+		expect(
+			animatedFrameIndexForItem({
+				frame: 0,
+				fromFrame: 0,
+				fps: 30,
+				speed: 1,
+				reversed: true,
+				totalDurationMs: 300,
+				cumulativeDelaysMs: cumulative
+			})
+		).toBe(2);
+		// frame 3 = 100ms elapsed reversed -> mirrored 200 -> frame 1
+		expect(
+			animatedFrameIndexForItem({
+				frame: 3,
+				fromFrame: 0,
+				fps: 30,
+				speed: 1,
+				reversed: true,
+				totalDurationMs: 300,
+				cumulativeDelaysMs: cumulative
+			})
+		).toBe(1);
+		// frame 9 = 300ms elapsed reversed -> loop -> last frame again, not first
+		expect(
+			animatedFrameIndexForItem({
+				frame: 9,
+				fromFrame: 0,
+				fps: 30,
+				speed: 1,
+				reversed: true,
+				totalDurationMs: 300,
+				cumulativeDelaysMs: cumulative
+			})
+		).toBe(2);
 	});
 });
 
@@ -171,7 +282,7 @@ describe('computeAnimatedImageTiles', () => {
 		expect(plan(120, 280).map((tile) => tile.slot)).toEqual([1, 2]);
 	});
 
-	it('flips sampling for reversed clips', () => {
+	it('flips sampling for reversed clips (exclusive-end)', () => {
 		const reversed = computeAnimatedImageTiles({
 			cumulativeDelaysMs: cumulative,
 			totalDurationMs: 800,
@@ -183,6 +294,7 @@ describe('computeAnimatedImageTiles', () => {
 			visibleStartPx: 0,
 			visibleEndPx: 400
 		});
+		// centers 200/600/1000/1400ms forward -> 0,1,0,1 ; reversed exclusive -> 1,0,1,0
 		expect(reversed.map((tile) => tile.index)).toEqual([1, 0, 1, 0]);
 	});
 

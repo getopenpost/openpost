@@ -82,7 +82,8 @@ function parseAnimatedImageMeta(input: unknown): AnimatedImageMeta | null {
 	const durations = record.durationsMs;
 	if (
 		!Array.isArray(durations) ||
-		!durations.every((value) => Number.isInteger(value) && value >= 0)
+		// oxlint-disable-next-line anti-slop/no-runtime-typeof -- Durations are untrusted JSON numbers validated here.
+		!durations.every((value) => typeof value === 'number' && Number.isFinite(value) && value > 0)
 	) {
 		return null;
 	}

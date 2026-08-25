@@ -32,6 +32,8 @@ export function captureSnapshot(): TimelineSnapshot {
 		scrollPosition: timelineStore.scrollPosition,
 		snapEnabled: timelineStore.snapEnabled,
 		currentFrame: timelineStore.currentFrame,
+		masterVolumeDb: timelineStore.masterVolumeDb,
+		masterMuted: timelineStore.masterMuted,
 		sequenceRegistry: sequenceStore.snapshotRegistry()
 	};
 }
@@ -62,7 +64,9 @@ export function restoreSnapshot(
 		inPoint: sanitized.inPoint,
 		outPoint: sanitized.outPoint,
 		currentFrame: plainSnapshot.currentFrame,
-		fps: plainSnapshot.fps
+		fps: plainSnapshot.fps,
+		masterVolumeDb: plainSnapshot.masterVolumeDb,
+		masterMuted: plainSnapshot.masterMuted
 	});
 	timelineStore._setScrollPosition(plainSnapshot.scrollPosition);
 	timelineStore._setSnapEnabled(plainSnapshot.snapEnabled);
@@ -83,6 +87,8 @@ export function snapshotsEqual(a: TimelineSnapshot, b: TimelineSnapshot): boolea
 		a.fps === b.fps &&
 		a.scrollPosition === b.scrollPosition &&
 		a.snapEnabled === b.snapEnabled &&
-		a.currentFrame === b.currentFrame
+		a.currentFrame === b.currentFrame &&
+		a.masterVolumeDb === b.masterVolumeDb &&
+		a.masterMuted === b.masterMuted
 	);
 }

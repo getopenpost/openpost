@@ -26,6 +26,8 @@ export interface TimelineSnapshot {
 	scrollPosition: number;
 	snapEnabled: boolean;
 	currentFrame: number;
+	masterVolumeDb: number;
+	masterMuted: boolean;
 	sequenceRegistry: SequenceRegistrySnapshot;
 }
 

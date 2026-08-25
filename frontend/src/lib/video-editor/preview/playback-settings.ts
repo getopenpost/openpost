@@ -39,7 +39,7 @@ export function previewItemVolume(
 	if (muted || !visible) return 0;
 	const anySolo = tracks.some((candidate) => candidate.solo);
 	if (anySolo && !solo) return 0;
-	return clampMonitorVolume((item.volume ?? 1) * (track.volume ?? 1) * monitorVolume);
+	return (item.volume ?? 1) * (track.volume ?? 1) * clampMonitorVolume(monitorVolume);
 }
 
 export function previewItemVolumeWithFade(
@@ -47,7 +47,7 @@ export function previewItemVolumeWithFade(
 	crossfadeGain: number,
 	clipFadeGain = 1
 ): number {
-	return clampMonitorVolume(baseGain * crossfadeGain * clipFadeGain);
+	return baseGain * crossfadeGain * clipFadeGain;
 }
 
 export function buildFrameFileName(frame: number, fps: number, totalFrames: number): string {

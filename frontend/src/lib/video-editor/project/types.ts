@@ -726,6 +726,10 @@ export interface ProjectTimeline {
 	topLevelSequenceIds?: string[];
 	/** Reusable nested timelines. The same entry can be a tab and a nested clip. */
 	compositions?: SubComposition[];
+	/** Audio mixer master bus. dB range -60..+12, 0 = unity. Persisted per timeline. */
+	masterVolumeDb?: number;
+	/** Master mute. Solo precedence handled in preview/export; master mute silences all. */
+	masterMuted?: boolean;
 }
 
 export interface SubComposition {

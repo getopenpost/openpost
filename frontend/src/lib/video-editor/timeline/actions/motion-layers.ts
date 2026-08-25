@@ -133,15 +133,17 @@ export function applyMotionPresetAsLayers(options: ApplyPresetAsLayerOptions): n
 		);
 	if (items.length === 0) return 0;
 	const fps = options.fps ?? timelineStore.fps;
+	const sharedLayerId = crypto.randomUUID();
 	const assignments: MotionLayerAssignment[] = [];
 	for (let index = 0; index < items.length; index += 1) {
 		const item = items[index]!;
 		const anchorFrame = getMotionPresetAnchorFrame(preset.category, item.durationInFrames, fps);
-		const anchorItem = { ...item, keyframes: undefined, vectorKeyframes: undefined };
-		const anchorResolved = resolveAnimatedItemAt(anchorItem, item.from + anchorFrame, {
+		// Additive layers anchor at the current animated pose (FreeCut additive mode), not the base.
+		const anchorResolved = resolveAnimatedItemAt(item, item.from + anchorFrame, {
 			fps,
 			frameWidth: options.frameWidth,
-			frameHeight: options.frameHeight
+			frameHeight: options.frameHeight,
+			items: timelineStore.items
 		});
 		const anchor = {
 			x: anchorResolved.transform?.x ?? 0,
@@ -177,6 +179,7 @@ export function applyMotionPresetAsLayers(options: ApplyPresetAsLayerOptions): n
 		);
 		if (payloads.length === 0) continue;
 		const layer = createMotionAnimationLayer({
+			id: sharedLayerId,
 			name: preset.id,
 			source: 'built-in-preset',
 			sourcePresetId: preset.id,

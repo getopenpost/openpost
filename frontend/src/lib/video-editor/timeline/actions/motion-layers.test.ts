@@ -3,6 +3,7 @@ import { timelineStore } from '../stores/timeline-store.svelte';
 import { commandHistory } from '../commands/command-store.svelte';
 import {
 	applyMotionLayersToItems,
+	applyMotionPresetAsLayers,
 	removeMotionLayerFromItems,
 	setMotionLayerEnabled
 } from './motion-layers';
@@ -119,5 +120,67 @@ describe('motion layers actions', () => {
 		expect(timelineStore.itemById.get('a')?.motionLayers).toHaveLength(0);
 		expect(timelineStore.itemById.get('b')?.motionLayers).toHaveLength(0);
 		expect(commandHistory.undoStack).toHaveLength(2);
+	});
+
+	it('applyMotionPresetAsLayers shares one logical id across two items and toggles both in one undo', () => {
+		timelineStore.setAll({
+			tracks: [track],
+			items: [item('a'), item('b')],
+			fps: 30
+		});
+		const applied = applyMotionPresetAsLayers({
+			itemIds: ['a', 'b'],
+			presetId: 'fade-in',
+			frameWidth: 1920,
+			frameHeight: 1080,
+			fps: 30
+		});
+		expect(applied).toBe(2);
+		const a = timelineStore.itemById.get('a')?.motionLayers?.[0];
+		const b = timelineStore.itemById.get('b')?.motionLayers?.[0];
+		expect(a).toBeDefined();
+		expect(b).toBeDefined();
+		expect(a!.id).toBe(b!.id);
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(setMotionLayerEnabled(['a', 'b'], a!.id, false)).toBe(2);
+		expect(timelineStore.itemById.get('a')?.motionLayers?.[0].enabled).toBe(false);
+		expect(timelineStore.itemById.get('b')?.motionLayers?.[0].enabled).toBe(false);
+		expect(commandHistory.undoStack).toHaveLength(2);
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('a')?.motionLayers?.[0].enabled).toBe(true);
+	});
+
+	it('preserves existing animated anchor for additive layers over vector lanes', () => {
+		const withVectors: TimelineItem = {
+			...item('a'),
+			vectorKeyframes: {
+				position: [
+					{ id: 'v1', frame: 0, value: { x: 50, y: 80 }, easing: 'linear' },
+					{ id: 'v2', frame: 30, value: { x: 150, y: 80 }, easing: 'linear' }
+				],
+				scale: [{ id: 's1', frame: 0, value: { x: 120, y: 120 }, easing: 'linear' }]
+			},
+			transform: { x: 999, y: 999, width: 999, height: 999 }
+		};
+		timelineStore.setAll({ tracks: [track], items: [withVectors], fps: 30 });
+		// Anchor at Entrance (fade-in) should be at frame ~15, where vector position is ~100, scale 120%
+		const before = timelineStore.itemById.get('a')!;
+		expect(before.vectorKeyframes?.position).toHaveLength(2);
+		const applied = applyMotionPresetAsLayers({
+			itemIds: ['a'],
+			presetId: 'slide-in-left',
+			frameWidth: 1920,
+			frameHeight: 1080,
+			fps: 30
+		});
+		expect(applied).toBe(1);
+		const layer = timelineStore.itemById.get('a')?.motionLayers?.[0];
+		expect(layer).toBeDefined();
+		// Layer should be additive: at frame 0 the layer + existing vector should not jump
+		// The layer tracks should be built from animated anchor, not base 999
+		const xTrack = layer!.tracks.find((t) => t.property === 'x');
+		expect(xTrack).toBeDefined();
+		// x contribution at frame 0 should be offset from animated pose, not from 999
+		expect(Math.abs(xTrack!.keyframes[0]!.value)).toBeLessThan(600);
 	});
 });

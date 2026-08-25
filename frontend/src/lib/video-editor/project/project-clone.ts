@@ -29,6 +29,7 @@ interface ProjectIdMaps {
 	item: Map<string, string>;
 	linkedGroup: Map<string, string>;
 	origin: Map<string, string>;
+	motionLayer: Map<string, string>;
 }
 
 function allItems(timeline: ProjectTimeline): TimelineItem[] {
@@ -64,6 +65,10 @@ function buildIdMaps(timeline: ProjectTimeline, createId: () => string): Project
 		),
 		origin: createMappedIds(
 			items.flatMap((item) => (item.originId ? [item.originId] : [])),
+			createId
+		),
+		motionLayer: createMappedIds(
+			items.flatMap((item) => (item.motionLayers ?? []).map((layer) => layer.id)),
 			createId
 		)
 	};
@@ -192,7 +197,7 @@ function remapItem(
 		...(item.motionLayers && {
 			motionLayers: item.motionLayers.map((layer) => ({
 				...layer,
-				id: createId(),
+				id: maps.motionLayer.get(layer.id) ?? createId(),
 				tracks: layer.tracks.map((track) => ({
 					...track,
 					keyframes: track.keyframes.map((keyframe) => ({ ...keyframe, id: createId() }))

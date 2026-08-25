@@ -11,15 +11,7 @@ import {
   View,
 } from "react-native";
 
-import {
-  BodyText,
-  Button,
-  Card,
-  IconButton,
-  Screen,
-  StatusBadge,
-  useColors,
-} from "@/components/ui";
+import { BodyText, Button, Card, IconButton, Screen, StatusBadge, useColors } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { calendarOccurrence, dayKey, statusColor } from "@/lib/format";
 import { useWorkspaceId } from "@/lib/queries";
@@ -157,11 +149,7 @@ export default function CalendarScreen() {
                 ? publications.error.message
                 : "Check your connection and try again."}
             </BodyText>
-            <Button
-              title="Try again"
-              variant="tinted"
-              onPress={() => void publications.refetch()}
-            />
+            <Button title="Try again" variant="tinted" onPress={() => void publications.refetch()} />
           </Card>
         ) : null}
 

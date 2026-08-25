@@ -23,6 +23,8 @@
 		resolvedTransformForItem
 	} from '$lib/video-editor/timeline/animated-properties';
 	import { worldToLocalTransform } from '$lib/video-editor/timeline/transform-parenting';
+	import { removeMotionModifiers } from '$lib/video-editor/timeline/motion-modifier-eval';
+	import { removeMotionAnimationLayers } from '$lib/video-editor/timeline/motion-layer-eval';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import {
 		createPositionSpatialTangents,
@@ -862,7 +864,10 @@
 		parentWorldOverrides?: ReadonlyMap<string, GroupTransform>
 	): CanvasAnimatedValues {
 		const item = timelineStore.itemById.get(itemId);
-		if (!item?.transformParent) return values;
+		const hasParent = Boolean(item?.transformParent);
+		const hasLayers = (item?.motionLayers?.length ?? 0) > 0;
+		const hasModifiers = (item?.motionModifiers?.length ?? 0) > 0;
+		if (!hasParent && !hasLayers && !hasModifiers) return values;
 		const context = {
 			fps: timelineStore.fps,
 			frameWidth: canvasWidth,
@@ -870,7 +875,7 @@
 			items: timelineStore.items
 		};
 		const world = resolvedTransformForItem(
-			resolveAnimatedItemAt(item, frame, context),
+			resolveAnimatedItemAt(item!, frame, context),
 			canvasWidth,
 			canvasHeight
 		);
@@ -889,20 +894,35 @@
 			const value = values[property];
 			if (value !== undefined) world[property] = value;
 		}
-		const parent = item.transformParent.parentItemId
-			? timelineStore.itemById.get(item.transformParent.parentItemId)
-			: undefined;
-		const parentWorld = item.transformParent.parentItemId
-			? (parentWorldOverrides?.get(item.transformParent.parentItemId) ??
-				(parent
-					? resolvedTransformForItem(
-							resolveAnimatedItemAt(parent, frame, context),
-							canvasWidth,
-							canvasHeight
-						)
-					: undefined))
-			: undefined;
-		const local = worldToLocalTransform(world, item.transformParent, parentWorld);
+		let local = hasParent
+			? (() => {
+					const parent = item!.transformParent!.parentItemId
+						? timelineStore.itemById.get(item!.transformParent!.parentItemId)
+						: undefined;
+					const parentWorld = item!.transformParent!.parentItemId
+						? (parentWorldOverrides?.get(item!.transformParent!.parentItemId) ??
+							(parent
+								? resolvedTransformForItem(
+										resolveAnimatedItemAt(parent!, frame, context),
+										canvasWidth,
+										canvasHeight
+									)
+								: undefined))
+						: undefined;
+					return worldToLocalTransform(world, item!.transformParent!, parentWorld);
+				})()
+			: world;
+		if (hasModifiers) {
+			local = removeMotionModifiers(local, item!.motionModifiers, {
+				frame: frame - item!.from,
+				fps: timelineStore.fps,
+				frameWidth: canvasWidth,
+				frameHeight: canvasHeight
+			});
+		}
+		if (hasLayers) {
+			local = removeMotionAnimationLayers(local, item!.motionLayers, frame - item!.from);
+		}
 		const result = { ...values };
 		for (const property of transformProperties) {
 			if (values[property] !== undefined) result[property] = local[property];

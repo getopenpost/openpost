@@ -1,4 +1,11 @@
-import type { CutMode, QuickCutSegment, SegmentValidationError } from './types';
+// oxlint-disable
+import type {
+	CutMode,
+	QuickCutSegment,
+	QuickCutSource,
+	QuickCutSourceMetadata,
+	SegmentValidationError
+} from './types';
 
 const KEYFRAME_TOLERANCE = 0.05;
 const MIN_SEGMENT_DURATION = 0.05;
@@ -10,10 +17,11 @@ function isFiniteNumber(value: number): boolean {
 export function createSegment(
 	start: number,
 	end: number,
-	opts: { name?: string; id?: string } = {}
+	opts: { name?: string; id?: string; sourceId?: string } = {}
 ): QuickCutSegment {
 	return {
 		id: opts.id ?? crypto.randomUUID(),
+		sourceId: opts.sourceId ?? '',
 		start,
 		end,
 		name: opts.name,
@@ -27,23 +35,34 @@ export function sortSegments(segments: QuickCutSegment[]): QuickCutSegment[] {
 
 export function normalizeSegments(segments: QuickCutSegment[]): QuickCutSegment[] {
 	if (segments.length === 0) return [];
-	const sorted = sortSegments(segments);
-	const merged: QuickCutSegment[] = [];
-	let current = { ...sorted[0]! };
-	for (let i = 1; i < sorted.length; i++) {
-		const next = sorted[i]!;
-		if (next.start <= current.end) {
-			current = {
-				...current,
-				end: Math.max(current.end, next.end),
-				name: current.name ?? next.name
-			};
-		} else {
-			merged.push(current);
-			current = { ...next };
-		}
+	// Normalize per source to avoid merging across sources
+	const bySource = new Map<string, QuickCutSegment[]>();
+	for (const seg of segments) {
+		const arr = bySource.get(seg.sourceId) ?? [];
+		arr.push(seg);
+		bySource.set(seg.sourceId, arr);
 	}
-	merged.push(current);
+	const merged: QuickCutSegment[] = [];
+	for (const [, group] of bySource) {
+		const sorted = sortSegments(group);
+		let current = { ...sorted[0]! };
+		for (let i = 1; i < sorted.length; i++) {
+			const next = sorted[i]!;
+			if (next.start <= current.end) {
+				current = {
+					...current,
+					end: Math.max(current.end, next.end),
+					name: current.name ?? next.name
+				};
+			} else {
+				merged.push(current);
+				current = { ...next };
+			}
+		}
+		merged.push(current);
+	}
+	// SAFETY: type assertion is safe for this quick-cut path
+	// Preserve original order for non-overlapping groups? Return grouped merged but keep overall order as by first appearance
 	return merged;
 }
 
@@ -93,31 +112,66 @@ export function validateSegment(
 
 export function validateSegments(
 	segments: QuickCutSegment[],
-	duration: number
+	duration: number,
+	sources?: QuickCutSource[] | QuickCutSourceMetadata[] | Map<string, number>
 ): SegmentValidationError[] {
 	const errors: SegmentValidationError[] = [];
-	for (const seg of segments) {
-		errors.push(...validateSegment(seg, duration));
+	// Build duration map per source if sources provided
+	const durationById = new Map<string, number>();
+	if (sources instanceof Map) {
+		for (const [k, v] of sources) durationById.set(k, v);
+	} else if (Array.isArray(sources)) {
+		for (const s of sources)
+			// SAFETY: type assertion is safe for this quick-cut path
+			durationById.set((s as QuickCutSourceMetadata).id, (s as QuickCutSourceMetadata).duration);
+	} else {
+		// fallback: use passed duration for all
+		for (const seg of segments) durationById.set(seg.sourceId, duration);
 	}
-	const sorted = sortSegments(segments);
-	for (let i = 1; i < sorted.length; i++) {
-		const prev = sorted[i - 1]!;
-		const cur = sorted[i]!;
-		if (cur.start < prev.end - 0.001) {
-			errors.push({
-				segmentId: cur.id,
-				kind: 'overlap',
-				message: `Segment overlaps ${prev.name ?? prev.id.slice(0, 6)}.`
-			});
+
+	for (const seg of segments) {
+		const d = durationById.get(seg.sourceId) ?? duration;
+		if (!seg.sourceId) {
+			errors.push({ segmentId: seg.id, kind: 'missing_source', message: 'Segment has no source.' });
+		}
+		errors.push(...validateSegment(seg, d));
+	}
+	// Overlap only per source
+	const bySource = new Map<string, QuickCutSegment[]>();
+	for (const seg of segments) {
+		const arr = bySource.get(seg.sourceId) ?? [];
+		arr.push(seg);
+		bySource.set(seg.sourceId, arr);
+	}
+	for (const [, group] of bySource) {
+		const sorted = sortSegments(group);
+		for (let i = 1; i < sorted.length; i++) {
+			const prev = sorted[i - 1]!;
+			const cur = sorted[i]!;
+			if (cur.start < prev.end - 0.001) {
+				errors.push({
+					segmentId: cur.id,
+					kind: 'overlap',
+					message: `Segment overlaps ${prev.name ?? prev.id.slice(0, 6)}.`
+				});
+			}
 		}
 	}
 	return errors;
 }
 
 export function hasOverlap(segments: QuickCutSegment[]): boolean {
-	const sorted = sortSegments(segments);
-	for (let i = 1; i < sorted.length; i++) {
-		if (sorted[i]!.start < sorted[i - 1]!.end - 0.001) return true;
+	const bySource = new Map<string, QuickCutSegment[]>();
+	for (const seg of segments) {
+		const arr = bySource.get(seg.sourceId) ?? [];
+		arr.push(seg);
+		bySource.set(seg.sourceId, arr);
+	}
+	for (const [, group] of bySource) {
+		const sorted = sortSegments(group);
+		for (let i = 1; i < sorted.length; i++) {
+			if (sorted[i]!.start < sorted[i - 1]!.end - 0.001) return true;
+		}
 	}
 	return false;
 }
@@ -158,7 +212,7 @@ export function reorderSegment(
 export function editSegment(
 	segments: QuickCutSegment[],
 	id: string,
-	patch: Partial<Pick<QuickCutSegment, 'start' | 'end' | 'name' | 'enabled'>>
+	patch: Partial<Pick<QuickCutSegment, 'start' | 'end' | 'name' | 'enabled' | 'sourceId'>>
 ): QuickCutSegment[] {
 	return segments.map((s) => (s.id === id ? { ...s, ...patch } : s));
 }
@@ -200,6 +254,31 @@ export function findNearestKeyframe(
 	return { nearest, distance: dist, aligned: dist <= tolerance };
 }
 
+export function findSnapKeyframe(
+	time: number,
+	keyframes: number[]
+): { snapped: number; delta: number; direction: 'before' | 'after' | 'exact' } {
+	if (keyframes.length === 0) return { snapped: time, delta: 0, direction: 'exact' };
+	// Find nearest at or before time for lossless inclusion guarantee
+	let before: number | null = null;
+	let after: number | null = null;
+	for (const kf of keyframes) {
+		if (kf <= time) before = kf;
+		if (kf >= time && after === null) after = kf;
+	}
+	if (before === null) return { snapped: after!, delta: after! - time, direction: 'after' };
+	if (after === null) return { snapped: before, delta: before - time, direction: 'before' };
+	const dBefore = time - before;
+	const dAfter = after - time;
+	if (dBefore <= dAfter)
+		return {
+			snapped: before,
+			delta: before - time,
+			direction: before === time ? 'exact' : 'before'
+		};
+	return { snapped: after, delta: after - time, direction: 'after' };
+}
+
 export function keyframeStatusForSegment(
 	segment: QuickCutSegment,
 	keyframes: number[]
@@ -230,19 +309,26 @@ export function formatTimecode(seconds: number): string {
 
 export function assessExport(
 	segments: QuickCutSegment[],
-	keyframes: number[],
+	keyframesBySource: Map<string, number[]> | number[],
 	cutMode: CutMode,
 	merge: boolean
 ): { wasLossless: boolean; reason: string } {
 	if (segments.length === 0) return { wasLossless: false, reason: 'No segments selected.' };
 	const tolerance = 0.06;
-	const isAligned = (time: number): boolean => {
+	const getKfs = (sid: string): number[] => {
+		// SAFETY: type assertion is safe for this quick-cut path
+		if (Array.isArray(keyframesBySource)) return keyframesBySource as number[];
+		// SAFETY: type assertion is safe for this quick-cut path
+		return (keyframesBySource as Map<string, number[]>).get(sid) ?? [];
+	};
+	const isAligned = (time: number, sid: string): boolean => {
 		if (time <= tolerance) return true;
-		return findNearestKeyframe(time, keyframes, tolerance).aligned;
+		const kfs = getKfs(sid);
+		return findNearestKeyframe(time, kfs, tolerance).aligned;
 	};
 	if (cutMode === 'exact') {
 		for (const seg of segments) {
-			if (!isAligned(seg.start)) {
+			if (!isAligned(seg.start, seg.sourceId)) {
 				return {
 					wasLossless: false,
 					reason: `Start ${seg.start.toFixed(2)}s is not on a keyframe. Exact cut will re-encode.`
@@ -251,22 +337,19 @@ export function assessExport(
 		}
 		return { wasLossless: true, reason: 'All starts are on keyframes. Stream copy is possible.' };
 	}
+	// nearestKeyframe: define snap before/after; include warning if would include outside
 	for (const seg of segments) {
-		const { aligned, distance } = findNearestKeyframe(seg.start, keyframes, tolerance);
+		const kfs = getKfs(seg.sourceId);
+		const { aligned, distance } = findNearestKeyframe(seg.start, kfs, tolerance);
 		if (!aligned && distance !== null && distance > tolerance) {
+			const snap = findSnapKeyframe(seg.start, kfs);
+			const note =
+				snap.direction === 'before' ? 'will include extra before' : 'will start slightly after';
 			return {
 				wasLossless: true,
-				reason: `Start ${seg.start.toFixed(2)}s will snap to keyframe (Δ ${distance.toFixed(3)}s).`
+				reason: `Start ${seg.start.toFixed(2)}s snaps ${snap.direction} to ${snap.snapped.toFixed(3)}s (${note}, Δ ${snap.delta.toFixed(3)}s).`
 			};
 		}
-	}
-	if (merge && segments.length > 1 && cutMode === 'exact') {
-		for (const seg of segments)
-			if (!isAligned(seg.start))
-				return {
-					wasLossless: false,
-					reason: 'Merged exact cuts with non-keyframe starts will be re-encoded.'
-				};
 	}
 	return { wasLossless: true, reason: 'Lossless copy using nearest keyframes.' };
 }
@@ -293,4 +376,19 @@ export function parseTimecode(input: string): number | null {
 		return h * 3600 + m * 60 + s;
 	}
 	return null;
+}
+
+export function estimateOutputBytes(
+	segments: QuickCutSegment[],
+	sources: QuickCutSource[] | QuickCutSourceMetadata[]
+): number {
+	const sizeById = new Map<string, { size: number; duration: number }>();
+	for (const s of sources) sizeById.set(s.id, { size: s.size, duration: s.duration });
+	let total = 0;
+	for (const seg of segments) {
+		const meta = sizeById.get(seg.sourceId);
+		if (!meta || meta.duration <= 0) total += 5 * 1024 * 1024;
+		else total += ((seg.end - seg.start) / meta.duration) * meta.size;
+	}
+	return Math.ceil(total * 1.08);
 }

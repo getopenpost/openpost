@@ -3,17 +3,20 @@ import { sceneCaptionProvider } from './caption-provider';
 import { clipProvider } from './clip-provider';
 import { embeddingsProvider } from './embeddings-provider';
 
+/** Typed inbound message for scene worker test fakes. */
+type FakeWorkerMessage = { type: string; [key: string]: string | number | boolean | undefined };
+
 class FakeWorker extends EventTarget {
 	static instances: FakeWorker[] = [];
 	terminated = false;
-	readonly messages: unknown[] = [];
+	readonly messages: FakeWorkerMessage[] = [];
 
 	constructor() {
 		super();
 		FakeWorker.instances.push(this);
 	}
 
-	postMessage(message: unknown): void {
+	postMessage(message: FakeWorkerMessage): void {
 		this.messages.push(message);
 	}
 

@@ -50,6 +50,23 @@ const UNCERTAIN_ENVIRONMENT_TAIL_PATTERN =
 const EMPTY_FIELD_PATTERN = /^(?:null|none|n\/a|unknown|unclear|not visible|not obvious)$/i;
 const QUOTE_WRAPPER_PATTERN = /^"(.*)"$/s;
 
+/** Concrete JSON value union for scene caption loose objects. */
+type SceneJsonValue = string | string[] | null | undefined;
+type SceneJsonObject = Record<string, SceneJsonValue>;
+
+export interface SceneCaptionParseResult {
+	text: string;
+	sceneData?: SceneCaptionData;
+}
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isRecord(value: unknown): value is SceneJsonObject {
+	return typeof value === 'object' && value !== null;
+}
+
 function normalizeWhitespace(text: string): string {
 	return text.replace(/\s+/g, ' ').trim();
 }
@@ -142,26 +159,26 @@ function stripLeadingShotArticle(text: string): string {
 	);
 }
 
-function sanitizeScalar(value: unknown): string | undefined {
-	if (typeof value !== 'string') return undefined;
+function parseStringField(value: unknown): string | undefined {
+	if (!isString(value)) return undefined;
 	const normalized = normalizeWhitespace(stripOuterQuotes(value));
 	if (normalized.length === 0 || EMPTY_FIELD_PATTERN.test(normalized)) return undefined;
 	return normalized;
 }
 
-function sanitizeSubjects(value: unknown): string[] | undefined {
+function parseSubjectsField(value: unknown): string[] | undefined {
 	if (!Array.isArray(value)) return undefined;
 	const subjects = value
-		.map((entry) => sanitizeScalar(entry))
+		.map((entry) => parseStringField(entry))
 		.filter((entry): entry is string => Boolean(entry));
 	return subjects.length > 0 ? subjects : undefined;
 }
 
-function normalizeShotType(value: unknown): string | undefined {
-	const scalar = sanitizeScalar(value);
+function parseShotTypeField(value: unknown): string | undefined {
+	const scalar = parseStringField(value);
 	if (!scalar) return undefined;
 	const compact = stripTerminalPunctuation(scalar).toLowerCase();
-	const aliasMap: Record<string, string> = {
+	const aliasMap = {
 		'extreme wide': 'extreme wide shot',
 		'extreme wide shot': 'extreme wide shot',
 		'extreme long shot': 'extreme wide shot',
@@ -182,7 +199,7 @@ function normalizeShotType(value: unknown): string | undefined {
 		'extreme close': 'extreme close-up',
 		'extreme close up': 'extreme close-up',
 		'extreme close-up': 'extreme close-up'
-	};
+	} satisfies Record<string, string>;
 	const normalized = aliasMap[compact] ?? normalizeShotVocabulary(compact).toLowerCase();
 	return CANONICAL_SHOT_SIZES.find((shot) => shot === normalized);
 }
@@ -211,8 +228,9 @@ function decodeLooseValue(raw: string): string | null | undefined {
 
 	if (/^"(?:\\.|[^"])*"$/s.test(trimmed)) {
 		try {
+			// SAFETY: JSON.parse on a quoted-trimmed string returns a JSON primitive; guard below narrows to string.
 			const parsed = JSON.parse(trimmed) as unknown;
-			return typeof parsed === 'string' ? parsed : undefined;
+			return isString(parsed) ? parsed : undefined;
 		} catch {
 			return stripOuterQuotes(trimmed);
 		}
@@ -243,13 +261,13 @@ function extractLooseSubjects(raw: string): string[] | undefined {
 
 	const entries = Array.from((match[1] ?? '').matchAll(/"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^,\]]+/g))
 		.map((entry) => decodeLooseValue(entry[0]))
-		.filter((entry): entry is string => typeof entry === 'string' && entry.length > 0);
+		.filter((entry): entry is string => isString(entry) && entry.length > 0);
 
 	return entries;
 }
 
-function parseLooseJsonObject(raw: string): Record<string, unknown> | null {
-	const object: Record<string, unknown> = {};
+function parseLooseJsonObject(raw: string): SceneJsonObject | null {
+	const object: SceneJsonObject = {};
 	const normalized = stripLeadIns(raw);
 
 	const caption = extractLooseScalar(normalized, ['caption']);
@@ -294,37 +312,42 @@ function extractJsonCandidate(raw: string): string | null {
 	return null;
 }
 
-function parseJsonObject(raw: string): Record<string, unknown> | null {
+function isRecordObject(value: unknown): value is SceneJsonObject {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseJsonObject(raw: string): SceneJsonObject | null {
 	const candidate = extractJsonCandidate(raw);
 	if (!candidate) return null;
 
 	try {
+		// SAFETY: JSON.parse on an extracted candidate returns a JSON value; record guard below ensures object shape.
 		const parsed = JSON.parse(candidate) as unknown;
-		return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-			? (parsed as Record<string, unknown>)
-			: null;
+		if (!isRecordObject(parsed)) return null;
+		// SAFETY: isRecordObject guard guarantees a plain object; narrowing to SceneJsonObject is sound for downstream field reads.
+		return parsed as SceneJsonObject;
 	} catch {
 		return null;
 	}
 }
 
-function readField(object: Record<string, unknown>, ...keys: string[]): unknown {
+function parseField(object: SceneJsonObject, ...keys: string[]): SceneJsonValue {
 	for (const key of keys) {
 		if (key in object) return object[key];
 	}
 	return undefined;
 }
 
-export function normalizeSceneCaptionData(object: Record<string, unknown>): SceneCaptionData {
+export function normalizeSceneCaptionData(object: SceneJsonObject): SceneCaptionData {
 	const sceneData: SceneCaptionData = {
-		caption: sanitizeScalar(readField(object, 'caption')),
-		shotType: normalizeShotType(readField(object, 'shotType', 'shot_type')),
-		subjects: sanitizeSubjects(readField(object, 'subjects')),
-		action: sanitizeScalar(readField(object, 'action')),
-		setting: sanitizeScalar(readField(object, 'setting')),
-		lighting: sanitizeScalar(readField(object, 'lighting')),
-		timeOfDay: sanitizeScalar(readField(object, 'timeOfDay', 'time_of_day')),
-		weather: sanitizeScalar(readField(object, 'weather'))
+		caption: parseStringField(parseField(object, 'caption')),
+		shotType: parseShotTypeField(parseField(object, 'shotType', 'shot_type')),
+		subjects: parseSubjectsField(parseField(object, 'subjects')),
+		action: parseStringField(parseField(object, 'action')),
+		setting: parseStringField(parseField(object, 'setting')),
+		lighting: parseStringField(parseField(object, 'lighting')),
+		timeOfDay: parseStringField(parseField(object, 'timeOfDay', 'time_of_day')),
+		weather: parseStringField(parseField(object, 'weather'))
 	};
 
 	return hasStructuredFields(sceneData) ? sceneData : {};
@@ -398,10 +421,7 @@ export function formatSceneCaptionFromData(data: SceneCaptionData): string {
 	return formatSceneCaption(body);
 }
 
-export function parseSceneCaptionResponse(raw: string): {
-	text: string;
-	sceneData?: SceneCaptionData;
-} {
+export function parseSceneCaptionResponse(raw: string): SceneCaptionParseResult {
 	const parsed = parseJsonObject(raw) ?? parseLooseJsonObject(raw);
 	if (!parsed) {
 		const text = formatSceneCaption(raw);

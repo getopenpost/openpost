@@ -39,7 +39,13 @@ interface BinEntry {
 	bSum: number;
 }
 
-function rgbToHsl(r: number, g: number, b: number): { h: number; s: number; l: number } {
+export interface HslColor {
+	h: number;
+	s: number;
+	l: number;
+}
+
+function rgbToHsl(r: number, g: number, b: number): HslColor {
 	const rf = r / 255;
 	const gf = g / 255;
 	const bf = b / 255;

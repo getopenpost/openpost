@@ -34,6 +34,7 @@ async function loadThumbnails(analysis: SceneAnalysis): Promise<Blob[]> {
 	if (thumbnails.some((thumbnail) => !thumbnail)) {
 		throw new Error('One or more scene thumbnails are missing');
 	}
+	// SAFETY: guarded above - every entry is non-null once the `some` check passed, so `Blob[]` is sound.
 	return thumbnails as Blob[];
 }
 

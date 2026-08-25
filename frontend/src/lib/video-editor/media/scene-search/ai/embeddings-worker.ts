@@ -32,7 +32,64 @@ let disposed = false;
 let loadGeneration = 0;
 let embeddingDim = 384;
 
-function post(msg: Record<string, unknown>): void {
+type EmbeddingsReadyMessage = { type: 'ready'; dim: number };
+type EmbeddingsProgressMessage = { type: 'progress'; percent: number };
+type EmbeddingsResultMessage = { type: 'embeddings'; id: number; vectors: Float32Array[] };
+type EmbeddingsErrorMessage = { type: 'error'; id?: number; message: string };
+type EmbeddingsOutboundMessage =
+	| EmbeddingsReadyMessage
+	| EmbeddingsProgressMessage
+	| EmbeddingsResultMessage
+	| EmbeddingsErrorMessage;
+
+type EmbeddingsInboundMessage =
+	| { type: 'init' }
+	| { type: 'embed'; id: number; texts: string[] }
+	| { type: 'dispose' };
+
+type EmbeddingsRawRecord = Record<string, string | number | string[] | undefined>;
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isNumber(value: unknown): value is number {
+	return typeof value === 'number';
+}
+
+function isRecord(value: unknown): value is EmbeddingsRawRecord {
+	return typeof value === 'object' && value !== null;
+}
+
+function parseMessageId(value: unknown): number {
+	return isNumber(value) ? value : 0;
+}
+
+function parseStringArray(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	// SAFETY: Array.isArray guard above ensures `value` is an array, so `unknown[]` is the safe narrow.
+	return (value as unknown[]).filter(isString);
+}
+
+function parseInboundMessage(data: unknown): EmbeddingsInboundMessage | null {
+	if (!isRecord(data) || !isString(data.type)) return null;
+	switch (data.type) {
+		case 'init':
+			return { type: 'init' };
+		case 'embed':
+			return {
+				type: 'embed',
+				id: parseMessageId(data.id),
+				texts: parseStringArray(data.texts)
+			};
+		case 'dispose':
+			return { type: 'dispose' };
+		default:
+			return null;
+	}
+}
+
+function post(msg: EmbeddingsOutboundMessage): void {
 	self.postMessage(msg);
 }
 
@@ -65,6 +122,7 @@ async function loadModel(): Promise<void> {
 			return;
 		}
 
+		// SAFETY: transformers.js pipeline returns an untyped feature extractor; runtime validates `feature-extraction` capability.
 		extractor = loaded as FeatureExtractionPipeline;
 		// Probe dimension with a one-token warmup so the first real query isn't
 		// the one that pays the shape-inference cost.
@@ -88,6 +146,7 @@ async function embedBatch(id: number, texts: string[]): Promise<void> {
 		// Mean-pool + L2-normalize so cosine similarity becomes a dot product
 		// at the ranking site - no per-row normalization needed downstream.
 		const tensor = await extractor(texts, { pooling: 'mean', normalize: true });
+		// SAFETY: transformers.js feature extractor exposes `.data` as a Float32Array buffer; validated via extractor presence.
 		const flat = tensor.data as Float32Array;
 		const dim = embeddingDim;
 		const vectors: Float32Array[] = [];
@@ -105,24 +164,20 @@ async function embedBatch(id: number, texts: string[]): Promise<void> {
 }
 
 self.addEventListener('message', (event: MessageEvent) => {
-	const message = event.data;
-	if (!message || typeof message.type !== 'string') return;
+	const parsed = parseInboundMessage(event.data);
+	if (!parsed) return;
 
-	if (message.type === 'init') {
+	if (parsed.type === 'init') {
 		void loadModel();
 		return;
 	}
 
-	if (message.type === 'embed') {
-		const id = typeof message.id === 'number' ? message.id : 0;
-		const texts = Array.isArray(message.texts)
-			? message.texts.filter((t: unknown) => typeof t === 'string')
-			: [];
-		void embedBatch(id, texts);
+	if (parsed.type === 'embed') {
+		void embedBatch(parsed.id, parsed.texts);
 		return;
 	}
 
-	if (message.type === 'dispose') {
+	if (parsed.type === 'dispose') {
 		disposed = true;
 		extractor = null;
 		loading = false;

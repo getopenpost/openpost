@@ -166,11 +166,17 @@ function assignEntriesToCenters(entries: PaletteEntry[], centers: LabColor[]): n
 	return out;
 }
 
+export interface RecomputedCenters {
+	centers: LabColor[];
+	weights: number[];
+	counts: number[];
+}
+
 function recomputeCenters(
 	entries: PaletteEntry[],
 	assignments: number[],
 	k: number
-): { centers: LabColor[]; weights: number[]; counts: number[] } {
+): RecomputedCenters {
 	const sumL = new Array<number>(k).fill(0);
 	const sumA = new Array<number>(k).fill(0);
 	const sumB = new Array<number>(k).fill(0);

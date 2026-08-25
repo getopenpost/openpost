@@ -43,7 +43,71 @@ let disposed = false;
 let loadGeneration = 0;
 const DESCRIBE_MAX_NEW_TOKENS = 160;
 
-function post(msg: Record<string, unknown>): void {
+type LfmReadyMessage = { type: 'ready' };
+type LfmProgressMessage = { type: 'progress'; stage: string; percent: number };
+type LfmResultMessage = { type: 'result'; id: number; isSceneCut: boolean; reason: string };
+type LfmCaptionMessage = {
+	type: 'caption';
+	id: number;
+	caption: string;
+	sceneData?: import('../types').SceneCaptionData;
+	error?: string;
+};
+type LfmErrorMessage = { type: 'error'; message: string };
+type LfmDebugMessage = {
+	type: 'debug';
+	id: number;
+	stitchedSize?: string;
+	prompt?: string;
+	inputIds?: string;
+	pixelValues?: string;
+};
+type LfmDisposedMessage = { type: 'disposed' };
+type LfmOutboundMessage =
+	| LfmReadyMessage
+	| LfmProgressMessage
+	| LfmResultMessage
+	| LfmCaptionMessage
+	| LfmErrorMessage
+	| LfmDebugMessage
+	| LfmDisposedMessage;
+
+type LfmModelDtype = {
+	vision_encoder: string;
+	embed_tokens: string;
+	decoder_model_merged: string;
+};
+
+type LfmModelOptions = {
+	device: 'webgpu';
+	dtype: LfmModelDtype;
+	progress_callback?: (info: { status?: string; total?: number; loaded?: number }) => void;
+};
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
+function isFunction(value: unknown): value is (...args: never[]) => void {
+	return typeof value === 'function';
+}
+
+type LfmRawRecord = Record<string, string | number | boolean | undefined>;
+
+function isRecord(value: unknown): value is LfmRawRecord {
+	return typeof value === 'object' && value !== null;
+}
+
+function hasDispose(target: unknown): target is { dispose: () => void } {
+	// SAFETY: isRecord guard ensures target is an object, so property access is safe.
+	return isRecord(target) && isFunction((target as LfmRawRecord).dispose);
+}
+
+function parseErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
+function post(msg: LfmOutboundMessage): void {
 	self.postMessage(msg);
 }
 
@@ -69,7 +133,7 @@ async function loadModel(): Promise<void> {
 		const adapter = await navigator.gpu?.requestAdapter();
 		if (!adapter) throw new Error('Scene captions require WebGPU');
 		const supportsFloat16 = adapter.features.has('shader-f16');
-		const modelOptions: Record<string, unknown> = {
+		const modelOptions: LfmModelOptions = {
 			device: 'webgpu',
 			dtype: supportsFloat16
 				? {
@@ -94,10 +158,18 @@ async function loadModel(): Promise<void> {
 						}
 					}
 		};
-		const loadedModel = await AutoModelForImageTextToText.from_pretrained(MODEL_ID, modelOptions);
+		// SAFETY: transformers.js model options are untyped in this build; runtime validates device and dtype fields.
+		const loadedModel = await AutoModelForImageTextToText.from_pretrained(
+			MODEL_ID,
+			modelOptions as any
+		);
 
 		if (disposed || thisGen !== loadGeneration) {
-			if (typeof loadedModel.dispose === 'function') loadedModel.dispose();
+			// SAFETY: isRecord guard in hasDispose ensures property read is valid.
+			if (isFunction((loadedModel as LfmRawRecord).dispose)) {
+				// SAFETY: guarded by isFunction above, so dispose is callable.
+				(loadedModel as { dispose: () => void }).dispose();
+			}
 			return;
 		}
 
@@ -107,7 +179,7 @@ async function loadModel(): Promise<void> {
 		post({ type: 'ready' });
 	} catch (err) {
 		if (!disposed) {
-			post({ type: 'error', message: `Model load failed: ${(err as Error).message}` });
+			post({ type: 'error', message: `Model load failed: ${parseErrorMessage(err)}` });
 		}
 	} finally {
 		loading = false;
@@ -174,7 +246,7 @@ async function verifyCandidate(id: number, beforeBlob: Blob, afterBlob: Blob): P
 		post({
 			type: 'debug',
 			id,
-			prompt: typeof prompt === 'string' ? prompt.slice(0, 500) : 'non-string prompt'
+			prompt: isString(prompt) ? prompt.slice(0, 500) : 'non-string prompt'
 		});
 
 		const inputs = await processor(stitched, prompt, { add_special_tokens: false });
@@ -206,7 +278,7 @@ async function verifyCandidate(id: number, beforeBlob: Blob, afterBlob: Blob): P
 		const isCut = hasCut && !hasSame;
 		post({ type: 'result', id, isSceneCut: isCut, reason: raw });
 	} catch (err) {
-		post({ type: 'result', id, isSceneCut: false, reason: `error: ${(err as Error).message}` });
+		post({ type: 'result', id, isSceneCut: false, reason: `error: ${parseErrorMessage(err)}` });
 	}
 }
 
@@ -252,7 +324,7 @@ async function describeImage(id: number, imageBlob: Blob): Promise<void> {
 			sceneData: parsed.sceneData
 		});
 	} catch (err) {
-		post({ type: 'caption', id, caption: '', error: (err as Error).message });
+		post({ type: 'caption', id, caption: '', error: parseErrorMessage(err) });
 	}
 }
 
@@ -260,8 +332,11 @@ async function describeImage(id: number, imageBlob: Blob): Promise<void> {
 function dispose(): void {
 	disposed = true;
 	if (model) {
-		// transformers.js models expose a dispose() that releases WebGPU buffers
-		if (typeof model.dispose === 'function') model.dispose();
+		// SAFETY: isRecord guard in isFunction branch ensures property read is valid.
+		if (isFunction((model as LfmRawRecord).dispose)) {
+			// SAFETY: guarded by isFunction above, so dispose is callable.
+			(model as { dispose: () => void }).dispose();
+		}
 		model = null;
 	}
 	processor = null;

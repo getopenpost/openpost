@@ -22,11 +22,15 @@ interface AnalyzeSceneOptions {
 	onProgress?: (progress: SceneAnalysisProgress) => void;
 }
 
-function abortError(reason?: unknown): DOMException {
-	return new DOMException(
-		typeof reason === 'string' ? reason : 'Scene analysis cancelled',
-		'AbortError'
-	);
+/** Parsed abort reason string from `AbortSignal.reason`. */
+type AbortReasonText = string;
+
+function parseAbortReason(reason: unknown): AbortReasonText | undefined {
+	return typeof reason === 'string' ? reason : undefined;
+}
+
+function abortError(reason?: string): DOMException {
+	return new DOMException(reason ?? 'Scene analysis cancelled', 'AbortError');
 }
 
 async function runWorker(
@@ -43,7 +47,7 @@ async function runWorker(
 		return await new Promise<SceneAnalysisWorkerComplete>((resolve, reject) => {
 			const onAbort = () => {
 				worker.postMessage({ type: 'abort', requestId });
-				reject(abortError(signal?.reason));
+				reject(abortError(parseAbortReason(signal?.reason)));
 			};
 			if (signal?.aborted) {
 				onAbort();

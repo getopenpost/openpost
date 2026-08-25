@@ -3,6 +3,7 @@ import type {
 	AnimationPreset,
 	AnimationPresetKeyframe,
 	EasingConfig,
+	MotionAnimationLayer,
 	MotionModifier,
 	VectorKeyframe
 } from './types';
@@ -31,6 +32,9 @@ export function cloneAnimationPreset(preset: AnimationPreset): AnimationPreset {
 		effects: preset.effects.map(cloneEffect),
 		...(preset.motionModifiers && {
 			motionModifiers: preset.motionModifiers.map(cloneMotionModifier)
+		}),
+		...(preset.motionLayers && {
+			motionLayers: preset.motionLayers.map(cloneMotionLayer)
 		}),
 		...(preset.textMotion && {
 			textMotion: cloneTextMotion(preset.textMotion)
@@ -82,6 +86,19 @@ function cloneMotionModifier(modifier: MotionModifier): MotionModifier {
 	return {
 		...modifier,
 		...(modifier.channelGains && { channelGains: { ...modifier.channelGains } })
+	};
+}
+
+function cloneMotionLayer(layer: MotionAnimationLayer): MotionAnimationLayer {
+	return {
+		...layer,
+		tracks: layer.tracks.map((track) => ({
+			...track,
+			keyframes: track.keyframes.map((keyframe) => ({
+				...keyframe,
+				...(keyframe.easingConfig && { easingConfig: cloneEasingConfig(keyframe.easingConfig) })
+			}))
+		}))
 	};
 }
 

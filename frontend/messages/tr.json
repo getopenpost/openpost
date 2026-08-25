@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "Kırpılma",
 	"video_editor_mixer_track_unsolo": "{name} solosunu kapat",
 	"video_editor_mixer_track_unmute": "{name} kanalının sesini aç",
-	"video_editor_mixer_master_unmute": "Ana çıkışın sesini aç"
+	"video_editor_mixer_master_unmute": "Ana çıkışın sesini aç",
+	"video_editor_motion_add_layer": "Katman ekle",
+	"video_editor_motion_add_layer_named": "{name} öğesini ek katman olarak ekle",
+	"video_editor_motion_layers_title": "Ek katmanlar",
+	"video_editor_motion_layers_count": "{count} katman",
+	"video_editor_motion_layers_hint": "Temel karelerden sonra ve canlı değiştiricilerden önce uygulanan yıkıcı olmayan animasyon katmanları. Elmaslara dokunmadan devre dışı bırakın veya kaldırın.",
+	"video_editor_motion_layers_empty": "Seçimde ek katman yok.",
+	"video_editor_motion_layer_badge": "Katman",
+	"video_editor_motion_layer_toggle_named": "{name} katmanını değiştir",
+	"video_editor_motion_layer_remove_named": "{name} katmanını kaldır",
+	"video_editor_motion_layer_remove": "Kaldır",
+	"video_editor_motion_layer_applied": "{name}, {count} klibe katman olarak eklendi.",
+	"video_editor_motion_layer_removed": "Ek katman kaldırıldı."
 }

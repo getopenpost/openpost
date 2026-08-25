@@ -38,6 +38,11 @@
 		removeMotionModifierFromItems,
 		updateMotionModifiersLive
 	} from '$lib/video-editor/timeline/actions/motion-modifiers';
+	import {
+		applyMotionPresetAsLayers,
+		removeMotionLayerFromItems,
+		setMotionLayerEnabled
+	} from '$lib/video-editor/timeline/actions/motion-layers';
 	import { trimAnimationToItemBounds } from '$lib/video-editor/timeline/actions/trimmed-keyframes';
 	import { countTrimmedKeyframes } from '$lib/video-editor/timeline/trimmed-keyframes';
 	import SavedAnimationLibrary from './saved-animation-library.svelte';
@@ -80,6 +85,18 @@
 			return item ? [item] : [];
 		})
 	);
+	const additiveLayers = $derived(() => {
+		const map = new Map<
+			string,
+			{ id: string; name: string; enabled: boolean; sourcePresetId: string }
+		>();
+		for (const item of selectedItems) {
+			for (const layer of item.motionLayers ?? []) {
+				if (!map.has(layer.id)) map.set(layer.id, layer);
+			}
+		}
+		return [...map.values()].toSorted((a, b) => a.name.localeCompare(b.name));
+	});
 	const liveMotionItemCount = $derived(
 		selectedItems.filter((item) => item.motionModifiers?.some((modifier) => modifier.enabled))
 			.length
@@ -285,6 +302,46 @@
 					: m.video_editor_motion_incompatible();
 	}
 
+	function applyPresetAsLayer(preset: MotionPreset): void {
+		const reason = disabledReason(preset);
+		if (reason) {
+			status = reason;
+			return;
+		}
+		const applied = applyMotionPresetAsLayers({
+			itemIds: selectedIds,
+			presetId: preset.id,
+			frameWidth,
+			frameHeight,
+			fps,
+			durationScale,
+			intensityScale,
+			staggerFrames
+		});
+		if (applied > 0) {
+			status = m.video_editor_motion_layer_applied({
+				name: labels[preset.id],
+				count: String(applied)
+			});
+			onedit();
+			return;
+		}
+		status = m.video_editor_motion_no_change();
+	}
+
+	function toggleLayer(layerId: string, enabled: boolean): void {
+		const updated = setMotionLayerEnabled(selectedIds, layerId, enabled);
+		if (updated > 0) onedit();
+	}
+
+	function removeLayer(layerId: string): void {
+		const removed = removeMotionLayerFromItems(selectedIds, layerId);
+		if (removed > 0) {
+			status = m.video_editor_motion_layer_removed();
+			onedit();
+		}
+	}
+
 	function confirmBake(): void {
 		const result = bakeMotionToKeyframes({ itemIds: selectedIds, fps, frameWidth, frameHeight });
 		bakeConfirmationOpen = false;
@@ -378,33 +435,87 @@
 				<div class="preset-grid">
 					{#each presetsFor(category) as preset (preset.id)}
 						{@const reason = disabledReason(preset)}
-						<button
-							type="button"
-							class="preset-tile"
-							disabled={reason !== null}
-							title={reason ??
-								m.video_editor_motion_apply_named({ mode: modeLabel(), name: labels[preset.id] })}
-							aria-label={m.video_editor_motion_apply_named({
-								mode: modeLabel(),
-								name: labels[preset.id]
-							})}
-							data-kind={preset.thumbnail.kind}
-							data-category={preset.category}
-							data-angle={preset.thumbnail.angle ?? 0}
-							data-direction={preset.thumbnail.direction ?? 1}
-							onclick={() => applyPreset(preset)}
-						>
-							<span class="thumbnail" aria-hidden="true">
-								<span class="motion-glyph"></span>
-								<span class="motion-origin"></span>
-							</span>
-							<span>{labels[preset.id]}</span>
-						</button>
+						<div class="preset-tile-wrap">
+							<button
+								type="button"
+								class="preset-tile"
+								disabled={reason !== null}
+								title={reason ??
+									m.video_editor_motion_apply_named({ mode: modeLabel(), name: labels[preset.id] })}
+								aria-label={m.video_editor_motion_apply_named({
+									mode: modeLabel(),
+									name: labels[preset.id]
+								})}
+								data-kind={preset.thumbnail.kind}
+								data-category={preset.category}
+								data-angle={preset.thumbnail.angle ?? 0}
+								data-direction={preset.thumbnail.direction ?? 1}
+								onclick={() => applyPreset(preset)}
+							>
+								<span class="thumbnail" aria-hidden="true">
+									<span class="motion-glyph"></span>
+									<span class="motion-origin"></span>
+								</span>
+								<span>{labels[preset.id]}</span>
+							</button>
+							<button
+								type="button"
+								class="layer-add-btn"
+								disabled={reason !== null}
+								aria-label={m.video_editor_motion_add_layer_named({ name: labels[preset.id] })}
+								title={reason ?? m.video_editor_motion_add_layer_named({ name: labels[preset.id] })}
+								onclick={() => applyPresetAsLayer(preset)}
+							>
+								{m.video_editor_motion_add_layer()}
+							</button>
+						</div>
 					{/each}
 				</div>
 			</section>
 		{/each}
 	</div>
+
+	<section
+		class="motion-layers"
+		aria-labelledby="motion-layers-title"
+		data-testid="motion-layers-section"
+	>
+		<div class="layers-heading">
+			<h3 id="motion-layers-title">{m.video_editor_motion_layers_title()}</h3>
+			<span class="layers-count" aria-live="polite"
+				>{m.video_editor_motion_layers_count({ count: String(additiveLayers().length) })}</span
+			>
+		</div>
+		<p class="layers-hint">{m.video_editor_motion_layers_hint()}</p>
+		{#if additiveLayers().length === 0}
+			<p class="layers-empty">{m.video_editor_motion_layers_empty()}</p>
+		{:else}
+			<ul class="layers-list" role="list">
+				{#each additiveLayers() as layer (layer.id)}
+					<li class="layer-row">
+						<label class="layer-toggle">
+							<input
+								type="checkbox"
+								checked={layer.enabled}
+								aria-label={m.video_editor_motion_layer_toggle_named({ name: layer.name })}
+								onchange={(event) => toggleLayer(layer.id, event.currentTarget.checked)}
+							/>
+							<span class="layer-name" title={layer.name}>{layer.name}</span>
+							<span class="layer-badge">{m.video_editor_motion_layer_badge()}</span>
+						</label>
+						<button
+							type="button"
+							class="layer-remove"
+							aria-label={m.video_editor_motion_layer_remove_named({ name: layer.name })}
+							onclick={() => removeLayer(layer.id)}
+						>
+							{m.video_editor_motion_layer_remove()}
+						</button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+	</section>
 
 	<section class="live-library" aria-labelledby="live-motion-title">
 		<div class="live-heading">
@@ -958,6 +1069,147 @@
 	.preset-tile[data-kind='micro-shake']:hover .motion-glyph,
 	.preset-tile[data-kind='micro-shake']:focus-visible .motion-glyph {
 		animation: ve-motion-micro-shake 180ms steps(2, jump-none) infinite;
+	}
+	.preset-tile-wrap {
+		display: grid;
+		gap: 0.25rem;
+	}
+	.layer-add-btn {
+		min-height: 1.5rem;
+		border: 1px solid oklch(0.32 0.04 240);
+		border-radius: 0.32rem;
+		background: oklch(0.22 0.02 240);
+		color: oklch(0.84 0.04 240);
+		font-size: 0.5rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		text-transform: uppercase;
+		cursor: pointer;
+	}
+	.layer-add-btn:hover:not(:disabled) {
+		background: oklch(0.28 0.03 240);
+		color: oklch(0.95 0.02 240);
+	}
+	.layer-add-btn:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+	.layer-add-btn:focus-visible {
+		outline: 2px solid oklch(0.66 0.14 45);
+		outline-offset: 2px;
+	}
+	.motion-layers {
+		margin-top: 0.75rem;
+		border: 1px solid oklch(0.28 0.02 58);
+		border-radius: 0.45rem;
+		padding: 0.55rem;
+		background: oklch(0.17 0.01 55 / 0.72);
+	}
+	.layers-heading {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+	.layers-heading h3 {
+		font-size: 0.625rem;
+		font-weight: 700;
+		color: oklch(0.88 0.02 65);
+	}
+	.layers-count {
+		border-radius: 999px;
+		background: oklch(0.62 0.12 240 / 0.14);
+		padding: 0.1rem 0.35rem;
+		font-size: 0.5rem;
+		font-weight: 700;
+		color: oklch(0.75 0.11 240);
+	}
+	.layers-hint {
+		margin-top: 0.2rem;
+		font-size: 0.5625rem;
+		line-height: 1.35;
+		color: oklch(0.64 0.018 65);
+	}
+	.layers-empty {
+		margin-top: 0.35rem;
+		font-size: 0.5625rem;
+		color: oklch(0.65 0.018 65);
+		font-style: italic;
+	}
+	.layers-list {
+		display: grid;
+		gap: 0.35rem;
+		margin-top: 0.45rem;
+		padding: 0;
+		list-style: none;
+	}
+	.layer-row {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		min-height: 2rem;
+		border: 1px solid oklch(0.3 0.02 58);
+		border-radius: 0.35rem;
+		padding: 0.3rem 0.4rem;
+		background: oklch(0.19 0.012 55);
+	}
+	.layer-toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		min-width: 0;
+		font-size: 0.6rem;
+		color: oklch(0.9 0.015 65);
+		cursor: pointer;
+	}
+	.layer-toggle input {
+		flex: none;
+		accent-color: oklch(0.66 0.14 45);
+	}
+	.layer-name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.layer-badge {
+		flex: none;
+		border-radius: 999px;
+		background: oklch(0.55 0.1 240 / 0.18);
+		padding: 0.1rem 0.3rem;
+		font-size: 0.5rem;
+		font-weight: 700;
+		letter-spacing: 0.04em;
+		color: oklch(0.75 0.11 240);
+		text-transform: uppercase;
+	}
+	.layer-remove {
+		flex: none;
+		min-height: 1.6rem;
+		border: 1px solid oklch(0.34 0.04 28);
+		border-radius: 0.3rem;
+		padding: 0.15rem 0.4rem;
+		background: oklch(0.21 0.015 28);
+		color: oklch(0.78 0.05 28);
+		font-size: 0.55rem;
+		cursor: pointer;
+	}
+	.layer-remove:hover {
+		background: oklch(0.27 0.02 28);
+		color: oklch(0.92 0.06 28);
+	}
+	.layer-remove:focus-visible,
+	.layer-toggle input:focus-visible {
+		outline: 2px solid oklch(0.66 0.14 45);
+		outline-offset: 2px;
+	}
+	@media (max-width: 360px) {
+		.preset-grid {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
+		}
+		.live-grid {
+			grid-template-columns: repeat(3, minmax(0, 1fr));
+		}
 	}
 	.motion-status {
 		min-height: 0.9rem;

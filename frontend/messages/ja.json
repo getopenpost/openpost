@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "クリッピング",
 	"video_editor_mixer_track_unsolo": "{name} のソロを解除",
 	"video_editor_mixer_track_unmute": "{name} のミュートを解除",
-	"video_editor_mixer_master_unmute": "マスター出力のミュートを解除"
+	"video_editor_mixer_master_unmute": "マスター出力のミュートを解除",
+	"video_editor_motion_add_layer": "レイヤーを追加",
+	"video_editor_motion_add_layer_named": "{name} を加算レイヤーとして追加",
+	"video_editor_motion_layers_title": "加算レイヤー",
+	"video_editor_motion_layers_count": "{count} レイヤー",
+	"video_editor_motion_layers_hint": "ベースキーフレームの後、ライブモディファイアの前に適用される非破壊アニメーションレイヤー。ダイヤモンドに触れずに無効化や削除が可能です。",
+	"video_editor_motion_layers_empty": "選択に加算レイヤーはありません。",
+	"video_editor_motion_layer_badge": "レイヤー",
+	"video_editor_motion_layer_toggle_named": "レイヤー {name} を切り替え",
+	"video_editor_motion_layer_remove_named": "レイヤー {name} を削除",
+	"video_editor_motion_layer_remove": "削除",
+	"video_editor_motion_layer_applied": "{name} を {count} 個のクリップにレイヤーとして追加しました。",
+	"video_editor_motion_layer_removed": "加算レイヤーを削除しました。"
 }

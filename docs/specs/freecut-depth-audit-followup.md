@@ -170,6 +170,7 @@ the audit evidence, while the resolution log records later product changes.
   navigator math. Forty-one real Chromium tests cover culling swaps, density
   interaction, geometry marquee, pan, resize, cancellation, undo boundaries,
   and the 320 px layout.
+- 2026-08-25 (additive): MotionAnimationLayer gap resolved. FreeCut's `MotionAnimationLayer` (add/multiply blending after base keyframes, before procedural modifiers) was missing from OpenPost types, evaluator, preview, export, saved-animation capture, and UI. Added durable typed `MotionAnimationLayer`/`MotionLayerTrack`/`MotionLayerKeyframe` with `add` (x,y,rotation,opacity) and `multiply` (width,height) blending in `timeline/motion-layer-eval.ts`, ordered evaluator `animated-properties.ts:resolveAnimatedItemLocalAt` (keyframes -> layers -> modifiers), one-step undo actions `timeline/actions/motion-layers.ts` (apply/remove/enable/rename and preset-as-layer with staggered multi-selection), clone-safe `project/project-clone.ts` and saved-animation capture, bake support covering layers, and focused accessible Motion workspace UI (`components/motion-presets-panel.svelte` additive layers section with toggle/remove and Add layer per preset, 320 px wrap, 10-locale strings). Pure evaluator plus Chromium layer-panel tests cover stacking, enable, independent removal, and keyboard targets.
   Current unresolved count: 0.
 
 ## Rows checked with no gap found

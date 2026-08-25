@@ -24,6 +24,7 @@ import {
 	resolveAnimatedEffectsAt
 } from '$lib/video-editor/effects/effect-keyframes';
 import { applyMotionModifiers } from './motion-modifier-eval';
+import { applyMotionAnimationLayers } from './motion-layer-eval';
 import { resolveItemPropertyRuntime } from './property-runtime';
 import {
 	clonePathVertices,
@@ -173,25 +174,23 @@ export function resolveAnimatedItemLocalAt(
 			resolvePreExpressionItem: resolvePreExpressionItemAt
 		});
 	}
-	if (motionContext && item.motionModifiers?.length) {
+	if (motionContext && (item.motionLayers?.length || item.motionModifiers?.length)) {
 		const transform = resolved.transform ?? {};
-		const animated = applyMotionModifiers(
-			{
-				x: transform.x ?? 0,
-				y: transform.y ?? 0,
-				width: Math.max(1, transform.width ?? resolved.sourceWidth ?? motionContext.frameWidth),
-				height: Math.max(1, transform.height ?? resolved.sourceHeight ?? motionContext.frameHeight),
-				rotation: transform.rotation ?? 0,
-				opacity: transform.opacity ?? 1
-			},
-			item.motionModifiers,
-			{
-				frame: absoluteFrame - item.from,
-				fps: motionContext.fps,
-				frameWidth: motionContext.frameWidth,
-				frameHeight: motionContext.frameHeight
-			}
-		);
+		const base: import('./motion-presets').ResolvedMotionTransform = {
+			x: transform.x ?? 0,
+			y: transform.y ?? 0,
+			width: Math.max(1, transform.width ?? resolved.sourceWidth ?? motionContext.frameWidth),
+			height: Math.max(1, transform.height ?? resolved.sourceHeight ?? motionContext.frameHeight),
+			rotation: transform.rotation ?? 0,
+			opacity: transform.opacity ?? 1
+		};
+		const layered = applyMotionAnimationLayers(base, item.motionLayers, absoluteFrame - item.from);
+		const animated = applyMotionModifiers(layered, item.motionModifiers, {
+			frame: absoluteFrame - item.from,
+			fps: motionContext.fps,
+			frameWidth: motionContext.frameWidth,
+			frameHeight: motionContext.frameHeight
+		});
 		resolved = { ...resolved, transform: { ...transform, ...animated } };
 	}
 	return resolved;

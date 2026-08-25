@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "Saturación",
 	"video_editor_mixer_track_unsolo": "Quitar solo de {name}",
 	"video_editor_mixer_track_unmute": "Activar sonido de {name}",
-	"video_editor_mixer_master_unmute": "Activar salida maestra"
+	"video_editor_mixer_master_unmute": "Activar salida maestra",
+	"video_editor_motion_add_layer": "Añadir capa",
+	"video_editor_motion_add_layer_named": "Añadir {name} como capa aditiva",
+	"video_editor_motion_layers_title": "Capas aditivas",
+	"video_editor_motion_layers_count": "{count} capas",
+	"video_editor_motion_layers_hint": "Capas de animación no destructivas aplicadas después de los fotogramas clave base y antes de los modificadores en vivo. Desactívalas o elimínalas sin tocar los diamantes.",
+	"video_editor_motion_layers_empty": "Sin capas aditivas en la selección.",
+	"video_editor_motion_layer_badge": "Capa",
+	"video_editor_motion_layer_toggle_named": "Alternar capa {name}",
+	"video_editor_motion_layer_remove_named": "Quitar capa {name}",
+	"video_editor_motion_layer_remove": "Quitar",
+	"video_editor_motion_layer_applied": "Se añadió {name} como capa a {count} clips.",
+	"video_editor_motion_layer_removed": "Capa aditiva eliminada."
 }

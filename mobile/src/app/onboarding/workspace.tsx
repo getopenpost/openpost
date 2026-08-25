@@ -74,7 +74,12 @@ export default function WorkspaceScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Choose workspace</Text>
         <BodyText style={styles.subtitle}>Each workspace has its own posts and accounts.</BodyText>
         {switching ? (
-          <Button title="Cancel" variant="plain" onPress={() => router.back()} style={styles.cancel} />
+          <Button
+            title="Cancel"
+            variant="plain"
+            onPress={() => router.back()}
+            style={styles.cancel}
+          />
         ) : null}
 
         {workspaces.isLoading ? <ActivityIndicator color={colors.tint} /> : null}

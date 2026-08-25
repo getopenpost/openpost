@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "Saturação",
 	"video_editor_mixer_track_unsolo": "Desativar isolamento de {name}",
 	"video_editor_mixer_track_unmute": "Reativar som de {name}",
-	"video_editor_mixer_master_unmute": "Reativar saída master"
+	"video_editor_mixer_master_unmute": "Reativar saída master",
+	"video_editor_motion_add_layer": "Adicionar camada",
+	"video_editor_motion_add_layer_named": "Adicionar {name} como camada aditiva",
+	"video_editor_motion_layers_title": "Camadas aditivas",
+	"video_editor_motion_layers_count": "{count} camadas",
+	"video_editor_motion_layers_hint": "Camadas de animação não destrutivas aplicadas após os quadros-chave base e antes dos modificadores ao vivo. Desative ou remova sem tocar nos diamantes.",
+	"video_editor_motion_layers_empty": "Sem camadas aditivas na seleção.",
+	"video_editor_motion_layer_badge": "Camada",
+	"video_editor_motion_layer_toggle_named": "Alternar camada {name}",
+	"video_editor_motion_layer_remove_named": "Remover camada {name}",
+	"video_editor_motion_layer_remove": "Remover",
+	"video_editor_motion_layer_applied": "{name} adicionado como camada a {count} clipes.",
+	"video_editor_motion_layer_removed": "Camada aditiva removida."
 }

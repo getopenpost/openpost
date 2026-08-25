@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "클리핑",
 	"video_editor_mixer_track_unsolo": "{name} 솔로 해제",
 	"video_editor_mixer_track_unmute": "{name} 음소거 해제",
-	"video_editor_mixer_master_unmute": "마스터 출력 음소거 해제"
+	"video_editor_mixer_master_unmute": "마스터 출력 음소거 해제",
+	"video_editor_motion_add_layer": "레이어 추가",
+	"video_editor_motion_add_layer_named": "{name}을(를) 가산 레이어로 추가",
+	"video_editor_motion_layers_title": "가산 레이어",
+	"video_editor_motion_layers_count": "{count}개 레이어",
+	"video_editor_motion_layers_hint": "베이스 키프레임 뒤, 라이브 수정자 전에 적용되는 비파괴 애니메이션 레이어입니다. 다이아몬드를 건드리지 않고 비활성화하거나 제거할 수 있습니다.",
+	"video_editor_motion_layers_empty": "선택 항목에 가산 레이어가 없습니다.",
+	"video_editor_motion_layer_badge": "레이어",
+	"video_editor_motion_layer_toggle_named": "레이어 {name} 토글",
+	"video_editor_motion_layer_remove_named": "레이어 {name} 제거",
+	"video_editor_motion_layer_remove": "제거",
+	"video_editor_motion_layer_applied": "{name}을(를) {count}개 클립에 레이어로 추가했습니다.",
+	"video_editor_motion_layer_removed": "가산 레이어를 제거했습니다."
 }

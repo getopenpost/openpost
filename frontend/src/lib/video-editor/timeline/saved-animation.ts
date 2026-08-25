@@ -15,6 +15,7 @@ import type { ItemEffect } from '$lib/video-editor/effects/types';
 import { parseEffectKeyframeProperty } from '$lib/video-editor/effects/effect-keyframes';
 import { getAnimatablePropertiesForItem } from './animated-properties';
 import { activeVectorKeyframes, VECTOR_COMPONENTS } from './vector-keyframes';
+import { cloneMotionAnimationLayer } from './motion-layer-eval';
 
 export type AnimationPresetIncompatibility =
 	| 'type-mismatch'
@@ -41,12 +42,16 @@ export function captureAnimationFromItem(
 	const motionModifiers = (item.motionModifiers ?? [])
 		.filter((modifier) => modifier.enabled && modifier.amplitude > 0)
 		.map(cloneMotionModifier);
+	const motionLayers = (item.motionLayers ?? [])
+		.filter((layer) => layer.enabled && layer.tracks.some((track) => track.keyframes.length > 0))
+		.map((layer) => cloneMotionAnimationLayer(layer));
 	const textMotion =
 		item.type === 'text' && item.textMotion ? cloneTextMotion(item.textMotion) : undefined;
 	if (
 		scalarProperties.length === 0 &&
 		vectorProperties.length === 0 &&
 		motionModifiers.length === 0 &&
+		motionLayers.length === 0 &&
 		!textMotion
 	) {
 		return null;
@@ -79,6 +84,7 @@ export function captureAnimationFromItem(
 		...(normalizedVectors.length > 0 && { vectorProperties: normalizedVectors }),
 		effects: carriedEffects(item, properties),
 		...(motionModifiers.length > 0 && { motionModifiers }),
+		...(motionLayers.length > 0 && { motionLayers }),
 		...(textMotion && { textMotion }),
 		sourceDurationInFrames: item.durationInFrames,
 		createdAt

@@ -99,6 +99,31 @@ export interface MotionModifier {
 	channelGains?: MotionModifierChannelGains;
 }
 
+export type MotionLayerBlendMode = 'add' | 'multiply';
+
+export interface MotionLayerKeyframe {
+	id: string;
+	frame: number;
+	value: number;
+	easing: EasingType;
+	easingConfig?: EasingConfig;
+}
+
+export interface MotionLayerTrack {
+	property: TransformAnimatableProperty;
+	blend: MotionLayerBlendMode;
+	keyframes: MotionLayerKeyframe[];
+}
+
+export interface MotionAnimationLayer {
+	id: string;
+	name: string;
+	enabled: boolean;
+	source: 'built-in-preset' | 'saved-preset';
+	sourcePresetId: string;
+	tracks: MotionLayerTrack[];
+}
+
 export const TEXT_MOTION_IN_PRESET_IDS = [
 	'typewriter',
 	'fade-up',
@@ -399,6 +424,7 @@ export interface AnimationPreset {
 	vectorProperties?: AnimationPresetVectorProperty[];
 	effects: import('../effects/types').ItemEffect[];
 	motionModifiers?: MotionModifier[];
+	motionLayers?: MotionAnimationLayer[];
 	textMotion?: TextMotionSpec;
 	sourceDurationInFrames: number;
 	createdAt: number;
@@ -646,6 +672,8 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	separatedVectorProperties?: VectorKeyframeProperty[];
 	/** Small deterministic live-motion records evaluated during preview and export. */
 	motionModifiers?: MotionModifier[];
+	/** Named additive animation layers evaluated after base keyframes and before modifiers. */
+	motionLayers?: MotionAnimationLayer[];
 	/** Same-sequence property followers evaluated after keyframes. */
 	propertyLinks?: DirectPropertyLink[];
 	/** Sandboxed property expressions evaluated after direct links. */

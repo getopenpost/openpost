@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "削波",
 	"video_editor_mixer_track_unsolo": "取消独奏 {name}",
 	"video_editor_mixer_track_unmute": "取消静音 {name}",
-	"video_editor_mixer_master_unmute": "取消静音主输出"
+	"video_editor_mixer_master_unmute": "取消静音主输出",
+	"video_editor_motion_add_layer": "添加图层",
+	"video_editor_motion_add_layer_named": "将 {name} 添加为叠加图层",
+	"video_editor_motion_layers_title": "叠加图层",
+	"video_editor_motion_layers_count": "{count} 个图层",
+	"video_editor_motion_layers_hint": "在基础关键帧之后、实时修饰符之前应用的非破坏性动画图层。无需触碰菱形即可禁用或移除。",
+	"video_editor_motion_layers_empty": "所选内容没有叠加图层。",
+	"video_editor_motion_layer_badge": "图层",
+	"video_editor_motion_layer_toggle_named": "切换图层 {name}",
+	"video_editor_motion_layer_remove_named": "移除图层 {name}",
+	"video_editor_motion_layer_remove": "移除",
+	"video_editor_motion_layer_applied": "已将 {name} 作为图层添加到 {count} 个剪辑。",
+	"video_editor_motion_layer_removed": "已移除叠加图层."
 }

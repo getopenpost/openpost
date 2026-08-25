@@ -189,6 +189,16 @@ function remapItem(
 				id: createId()
 			}))
 		}),
+		...(item.motionLayers && {
+			motionLayers: item.motionLayers.map((layer) => ({
+				...layer,
+				id: createId(),
+				tracks: layer.tracks.map((track) => ({
+					...track,
+					keyframes: track.keyframes.map((keyframe) => ({ ...keyframe, id: createId() }))
+				}))
+			}))
+		}),
 		...(item.keyframes && {
 			keyframes: Object.fromEntries(
 				Object.entries(item.keyframes).map(([property, track]) => [
@@ -289,6 +299,14 @@ function remapPreset(
 		motionModifiers: preset.motionModifiers?.map((modifier) => ({
 			...modifier,
 			id: createId()
+		})),
+		motionLayers: preset.motionLayers?.map((layer) => ({
+			...layer,
+			id: createId(),
+			tracks: layer.tracks.map((track) => ({
+				...track,
+				keyframes: track.keyframes.map((keyframe) => ({ ...keyframe, id: createId() }))
+			}))
 		}))
 	};
 }

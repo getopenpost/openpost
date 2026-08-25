@@ -187,7 +187,8 @@ function bakedMotionPatch(item: TimelineItem, entry: BakeMotionPlanEntry): Baked
 					(property) => property !== 'position'
 				)
 			}),
-			motionModifiers: undefined
+			motionModifiers: undefined,
+			motionLayers: undefined
 		},
 		writtenKeyframes
 	};

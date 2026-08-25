@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "Écrêtage",
 	"video_editor_mixer_track_unsolo": "Ne plus isoler {name}",
 	"video_editor_mixer_track_unmute": "Rétablir le son de {name}",
-	"video_editor_mixer_master_unmute": "Rétablir la sortie master"
+	"video_editor_mixer_master_unmute": "Rétablir la sortie master",
+	"video_editor_motion_add_layer": "Ajouter un calque",
+	"video_editor_motion_add_layer_named": "Ajouter {name} comme calque additif",
+	"video_editor_motion_layers_title": "Calques additifs",
+	"video_editor_motion_layers_count": "{count} calques",
+	"video_editor_motion_layers_hint": "Calques d'animation non destructifs appliqués après les images clés de base et avant les modificateurs en direct. Désactivez ou supprimez sans toucher aux diamants.",
+	"video_editor_motion_layers_empty": "Aucun calque additif sur la sélection.",
+	"video_editor_motion_layer_badge": "Calque",
+	"video_editor_motion_layer_toggle_named": "Basculer le calque {name}",
+	"video_editor_motion_layer_remove_named": "Supprimer le calque {name}",
+	"video_editor_motion_layer_remove": "Supprimer",
+	"video_editor_motion_layer_applied": "{name} ajouté comme calque à {count} clips.",
+	"video_editor_motion_layer_removed": "Calque additif supprimé."
 }

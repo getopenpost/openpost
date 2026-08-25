@@ -6689,5 +6689,17 @@
 	"video_editor_mixer_clipping": "Clipping",
 	"video_editor_mixer_track_unsolo": "Unsolo {name}",
 	"video_editor_mixer_track_unmute": "Unmute {name}",
-	"video_editor_mixer_master_unmute": "Unmute master output"
+	"video_editor_mixer_master_unmute": "Unmute master output",
+	"video_editor_motion_add_layer": "Add layer",
+	"video_editor_motion_add_layer_named": "Add {name} as additive layer",
+	"video_editor_motion_layers_title": "Additive layers",
+	"video_editor_motion_layers_count": "{count} layers",
+	"video_editor_motion_layers_hint": "Non-destructive animation layers applied after base keyframes and before live modifiers. Disable or remove without touching diamonds.",
+	"video_editor_motion_layers_empty": "No additive layers on the selection.",
+	"video_editor_motion_layer_badge": "Layer",
+	"video_editor_motion_layer_toggle_named": "Toggle {name} layer",
+	"video_editor_motion_layer_remove_named": "Remove {name} layer",
+	"video_editor_motion_layer_remove": "Remove",
+	"video_editor_motion_layer_applied": "Added {name} as layer to {count} clips.",
+	"video_editor_motion_layer_removed": "Removed additive layer."
 }

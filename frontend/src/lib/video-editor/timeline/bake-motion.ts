@@ -7,6 +7,7 @@ import type {
 } from '$lib/video-editor/project/types';
 import { resolveAnimatedItemAt, type AnimatedItemMotionContext } from './animated-properties';
 import { getActiveMotionModifierChannels } from './motion-modifier-eval';
+import { getActiveMotionLayerChannels } from './motion-layer-eval';
 
 export interface BakedMotionKeyframe {
 	property: MotionModifierChannel;
@@ -39,12 +40,16 @@ function sampleStep(modifiers: readonly MotionModifier[], fps: number): number {
 	return Number.isFinite(step) ? step : 0;
 }
 
-function activeProperties(modifiers: readonly MotionModifier[]): MotionModifierChannel[] {
+function activeProperties(
+	modifiers: readonly MotionModifier[],
+	layers: readonly import('$lib/video-editor/project/types').MotionAnimationLayer[] | undefined
+): MotionModifierChannel[] {
 	const properties = new Set<MotionModifierChannel>();
 	for (const modifier of modifiers) {
 		if (!modifier.enabled || modifier.amplitude <= 0) continue;
 		for (const property of getActiveMotionModifierChannels(modifier)) properties.add(property);
 	}
+	for (const property of getActiveMotionLayerChannels(layers)) properties.add(property);
 	// Position is one coupled vector lane in OpenPost. Baking either axis must
 	// sample both so an existing authored path stays visually unchanged.
 	if (properties.has('x') || properties.has('y')) {
@@ -86,7 +91,7 @@ export function bakeMotionModifiersToKeyframes(
 	context: AnimatedItemMotionContext
 ): BakedMotionSampleSet {
 	const modifiers = item.motionModifiers?.filter((modifier) => modifier.enabled) ?? [];
-	const properties = activeProperties(modifiers);
+	const properties = activeProperties(modifiers, item.motionLayers);
 	if (properties.length === 0) return { keyframes: [], properties: [] };
 
 	const lastFrame = Math.max(0, item.durationInFrames - 1);
@@ -112,8 +117,9 @@ export function buildBakeMotionPlan(
 	context: AnimatedItemMotionContext
 ): BakeMotionPlanEntry[] {
 	return items.flatMap((item) => {
-		const enabled = item.motionModifiers?.some((modifier) => modifier.enabled) ?? false;
-		if (!enabled) return [];
+		const hasModifier = item.motionModifiers?.some((modifier) => modifier.enabled) ?? false;
+		const hasLayer = item.motionLayers?.some((layer) => layer.enabled) ?? false;
+		if (!hasModifier && !hasLayer) return [];
 		const baked = bakeMotionModifiersToKeyframes(item, context);
 		return [
 			{

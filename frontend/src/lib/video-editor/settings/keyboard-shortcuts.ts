@@ -46,7 +46,17 @@ export const DEFAULT_EDITOR_SHORTCUTS = {
 	ADD_MARKER: 'm',
 	REMOVE_MARKER: 'shift+m',
 	PREVIOUS_MARKER: 'bracketleft',
-	NEXT_MARKER: 'bracketright'
+	NEXT_MARKER: 'bracketright',
+	GRAPH_SELECT_ALL: 'mod+a',
+	GRAPH_CLEAR_SELECTION: 'escape',
+	GRAPH_NUDGE_LEFT: 'left',
+	GRAPH_NUDGE_RIGHT: 'right',
+	GRAPH_NUDGE_UP: 'up',
+	GRAPH_NUDGE_DOWN: 'down',
+	GRAPH_NUDGE_LEFT_FAST: 'shift+left',
+	GRAPH_NUDGE_RIGHT_FAST: 'shift+right',
+	GRAPH_NUDGE_UP_FAST: 'shift+up',
+	GRAPH_NUDGE_DOWN_FAST: 'shift+down'
 } as const;
 
 export type EditorShortcutId = keyof typeof DEFAULT_EDITOR_SHORTCUTS;
@@ -84,6 +94,16 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'TOGGLE_LINKED_SELECTION', section: 'editing' },
 	{ id: 'UNDO', section: 'editing' },
 	{ id: 'REDO', section: 'editing' },
+	{ id: 'GRAPH_SELECT_ALL', section: 'editing' },
+	{ id: 'GRAPH_CLEAR_SELECTION', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_LEFT', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_RIGHT', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_UP', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_DOWN', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_LEFT_FAST', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_RIGHT_FAST', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_UP_FAST', section: 'editing' },
+	{ id: 'GRAPH_NUDGE_DOWN_FAST', section: 'editing' },
 	{ id: 'ZOOM_IN', section: 'timeline' },
 	{ id: 'ZOOM_OUT', section: 'timeline' },
 	{ id: 'ZOOM_TO_FIT', section: 'timeline' },

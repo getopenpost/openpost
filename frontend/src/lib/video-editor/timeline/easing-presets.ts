@@ -34,10 +34,47 @@ export const BEZIER_PRESETS: ReadonlyArray<{
 	{ value: 'in-expo', label: 'In expo', points: { x1: 0.7, y1: 0, x2: 0.84, y2: 0 } }
 ];
 
+const EASING_BEZIER_PRESETS = {
+	'ease-in': { x1: 0.42, y1: 0, x2: 1, y2: 1 },
+	'ease-out': { x1: 0, y1: 0, x2: 0.58, y2: 1 },
+	'ease-in-out': { x1: 0.42, y1: 0, x2: 0.58, y2: 1 }
+} satisfies Partial<Record<EasingType, BezierControlPoints>>;
+
+export function getBezierPresetForEasing(easing: EasingType): BezierControlPoints | null {
+	return EASING_BEZIER_PRESETS[easing] ? { ...EASING_BEZIER_PRESETS[easing]! } : null;
+}
+
+export function areBezierPointsEqual(a: BezierControlPoints, b: BezierControlPoints): boolean {
+	return a.x1 === b.x1 && a.y1 === b.y1 && a.x2 === b.x2 && a.y2 === b.y2;
+}
+
+export function findMatchingBezierPreset(points: BezierControlPoints): string | null {
+	const match = BEZIER_PRESETS.find((preset) => areBezierPointsEqual(preset.points, points));
+	return match?.value ?? null;
+}
+
+export function clampBezierValue(key: keyof BezierControlPoints, value: number): number {
+	if (key === 'x1' || key === 'x2') return Math.max(0, Math.min(1, value));
+	return Math.max(-2, Math.min(3, value));
+}
+
+export function clampSpringValue(key: 'tension' | 'friction' | 'mass', value: number): number {
+	switch (key) {
+		case 'tension':
+			return Math.max(1, Math.min(1000, value));
+		case 'friction':
+			return Math.max(1, Math.min(100, value));
+		case 'mass':
+			return Math.max(0.1, Math.min(10, value));
+	}
+}
+
 export function buildEasingConfig(
 	easing: EasingType,
 	existing?: EasingConfig
 ): EasingConfig | undefined {
+	const presetBezier = getBezierPresetForEasing(easing);
+	if (presetBezier) return { type: 'cubic-bezier', bezier: presetBezier };
 	if (easing === 'cubic-bezier')
 		return { type: easing, bezier: existing?.bezier ?? { ...DEFAULT_BEZIER_POINTS } };
 	if (easing === 'spring')

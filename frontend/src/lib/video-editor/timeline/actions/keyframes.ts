@@ -407,6 +407,82 @@ export function setKeyframeEasing(
 	});
 }
 
+/** Change several outgoing interpolations atomically - keeps parallel metadata aligned and records one undo step. */
+export function setKeyframeEasings(
+	itemId: string,
+	updates: ReadonlyArray<{
+		property: KeyframeProperty;
+		frame: number;
+		easing: EasingType;
+		easingConfig?: EasingConfig;
+	}>
+): boolean {
+	return execute('SET_KEYFRAME_EASINGS', () => {
+		const item = timelineStore.itemById.get(itemId);
+		if (!item || updates.length === 0) return false;
+		type EasingUpdate = (typeof updates)[number];
+		let vectorPatches: Partial<TimelineItem> = {};
+		let scalarKeyframes: ItemKeyframes | undefined = undefined;
+		let workingItem: TimelineItem = item;
+		const vectorUpdates = new Map<VectorKeyframeProperty, EasingUpdate[]>();
+		const scalarUpdates: EasingUpdate[] = [];
+		for (const update of updates) {
+			const vector = activeVectorProxy(workingItem, update.property);
+			if (vector) {
+				const group = vectorUpdates.get(vector.property) ?? [];
+				group.push(update);
+				vectorUpdates.set(vector.property, group);
+			} else {
+				scalarUpdates.push(update);
+			}
+		}
+		for (const [vectorProperty, group] of vectorUpdates) {
+			const source = activeVectorKeyframes(workingItem, vectorProperty);
+			if (!source) return false;
+			const next = source.map(cloneVectorKeyframe);
+			for (const update of group) {
+				const index = next.findIndex((keyframe) => keyframe.frame === update.frame);
+				if (index < 0) return false;
+				const keyframe = next[index];
+				if (!keyframe) return false;
+				const clonedConfig = update.easingConfig ? cloneEasingConfig(update.easingConfig) : null;
+				const updated: VectorKeyframe = { ...keyframe, easing: update.easing };
+				if (clonedConfig) updated.easingConfig = clonedConfig;
+				else delete updated.easingConfig;
+				next[index] = updated;
+			}
+			vectorPatches = {
+				...vectorPatches,
+				...vectorPropertyKeyframesPatch(workingItem, vectorProperty, next)
+			};
+			workingItem = { ...item, ...vectorPatches };
+			if (scalarKeyframes) {
+				workingItem = { ...workingItem, keyframes: scalarKeyframes };
+			}
+		}
+		if (scalarUpdates.length > 0) {
+			const baseKeyframes: ItemKeyframes = {};
+			const baseSource = vectorPatches.keyframes ?? item.keyframes;
+			if (baseSource) Object.assign(baseKeyframes, baseSource);
+			scalarKeyframes = baseKeyframes;
+			for (const update of scalarUpdates) {
+				const track = scalarKeyframes[update.property];
+				if (!track) return false;
+				const index = track.frames.indexOf(update.frame);
+				if (index === -1) return false;
+				const nextTrack = withCompleteMetadata(track, update.property);
+				nextTrack.easings[index] = update.easing;
+				nextTrack.easingConfigs[index] = update.easingConfig ?? null;
+				scalarKeyframes[update.property] = nextTrack;
+			}
+			vectorPatches.keyframes = scalarKeyframes;
+		}
+		if (Object.keys(vectorPatches).length === 0) return false;
+		timelineStore._updateItems([{ id: itemId, patch: vectorPatches }]);
+		return true;
+	});
+}
+
 /** Remove the keyframe at exactly `frame`; drops empty tracks. One undoable step. */
 export function removeKeyframe(itemId: string, property: KeyframeProperty, frame: number): boolean {
 	return execute('REMOVE_KEYFRAME', () => {

@@ -1,40 +1,43 @@
-// oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unknown-parameters -- test fakes at boundary
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ScreenCaptureRecorder,
-	pickAudioMimeType,
-	pickVideoMimeType,
 	estimateBytesPerMinute,
-	mapRecorderError
+	mapRecorderError,
+	pickAudioMimeType,
+	pickVideoMimeType
 } from './recorder.svelte';
 
 class FakeTrack {
-	kind: string;
 	enabled = true;
-	constructor(kind: string) {
-		this.kind = kind;
-	}
 	stop = vi.fn();
 	getSettings = () => ({});
 	addEventListener = vi.fn();
 	removeEventListener = vi.fn();
+
+	constructor(readonly kind: 'audio' | 'video') {}
 }
 
 class FakeStream {
-	tracks: FakeTrack[];
-	constructor(tracks: FakeTrack[]) {
-		this.tracks = tracks;
-	}
-	getTracks() {
+	constructor(readonly tracks: FakeTrack[]) {}
+	getTracks(): FakeTrack[] {
 		return this.tracks;
 	}
-	getVideoTracks() {
-		return this.tracks.filter((t) => t.kind === 'video');
+	getVideoTracks(): FakeTrack[] {
+		return this.tracks.filter((track) => track.kind === 'video');
 	}
-	getAudioTracks() {
-		return this.tracks.filter((t) => t.kind === 'audio');
+	getAudioTracks(): FakeTrack[] {
+		return this.tracks.filter((track) => track.kind === 'audio');
 	}
-	addTrack() {}
+}
+
+function mediaStream(stream: FakeStream): MediaStream {
+	// SAFETY: Tests pass this controlled subset only to code that reads these MediaStream methods.
+	return stream as MediaStream;
+}
+
+function fakeStream(stream: MediaStream): FakeStream {
+	// SAFETY: FakeMediaRecorder only receives streams made by mediaStream in this test.
+	return stream as FakeStream;
 }
 
 class FakeMediaRecorder extends EventTarget {
@@ -42,100 +45,82 @@ class FakeMediaRecorder extends EventTarget {
 	static isTypeSupported(type: string): boolean {
 		return type === 'video/webm;codecs=vp9,opus' || type === 'audio/webm;codecs=opus';
 	}
+
 	mimeType: string;
 	state: RecordingState = 'inactive';
+	requestData = vi.fn();
+	pause = vi.fn();
+	resume = vi.fn();
 	start = vi.fn((timeslice?: number) => {
 		this.state = 'recording';
 		this.timeslice = timeslice;
-		// async start to allow monotonic offset difference via performance.now tick
 		queueMicrotask(() => this.dispatchEvent(new Event('start')));
 	});
 	stop = vi.fn(() => {
 		this.state = 'inactive';
-		// emit dataavailable then stop
-		this.dispatchEvent(
-			Object.assign(new Event('dataavailable'), {
-				data: new Blob([`chunk-${this.kind}`], { type: this.mimeType })
-			})
-		);
+		this.emitChunk(`final-${this.kind}`);
 		this.dispatchEvent(new Event('stop'));
 	});
-	requestData = vi.fn();
-	pause = vi.fn();
-	resume = vi.fn();
 	timeslice: number | undefined;
-	kind: string;
+	readonly kind: string;
+
 	constructor(stream: MediaStream, options?: MediaRecorderOptions) {
 		super();
-		this.kind =
-			(stream as unknown as FakeStream)
-				.getTracks()
-				.map((t) => t.kind)
-				.join('+') || 'unknown';
+		this.kind = fakeStream(stream)
+			.getTracks()
+			.map((track) => track.kind)
+			.join('+');
 		this.mimeType = options?.mimeType ?? 'video/webm';
 		FakeMediaRecorder.instances.push(this);
+	}
+
+	emitChunk(value: string): void {
+		this.emitBlob(new Blob([value], { type: this.mimeType }));
+	}
+
+	emitBlob(data: Blob): void {
+		this.dispatchEvent(
+			Object.assign(new Event('dataavailable'), {
+				data
+			})
+		);
 	}
 }
 
 describe('ScreenCaptureRecorder', () => {
-	let now = 1000;
+	let now = 1_000;
+	let displayStream: FakeStream;
+	let cameraStream: FakeStream;
+	let microphoneStream: FakeStream;
 	let getDisplayMedia: ReturnType<typeof vi.fn>;
 	let getUserMedia: ReturnType<typeof vi.fn>;
-	let enumerateDevices: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
-		now = 1000;
+		now = 1_000;
 		FakeMediaRecorder.instances = [];
+		displayStream = new FakeStream([new FakeTrack('video'), new FakeTrack('audio')]);
+		cameraStream = new FakeStream([new FakeTrack('video')]);
+		microphoneStream = new FakeStream([new FakeTrack('audio')]);
 		vi.spyOn(performance, 'now').mockImplementation(() => {
-			const v = now;
+			const value = now;
 			now += 25;
-			return v;
+			return value;
 		});
-		getDisplayMedia = vi.fn(
-			async () =>
-				new FakeStream([
-					new FakeTrack('video'),
-					new FakeTrack('audio')
-				] as unknown as MediaStreamTrack[]) as unknown as MediaStream
+		getDisplayMedia = vi.fn(async () => mediaStream(displayStream));
+		getUserMedia = vi.fn(async (constraints: MediaStreamConstraints) =>
+			constraints.video ? mediaStream(cameraStream) : mediaStream(microphoneStream)
 		);
-		getUserMedia = vi.fn(async (constraints: unknown) => {
-			const c = constraints as { video?: unknown; audio?: unknown };
-			if (c.video)
-				return new FakeStream([
-					new FakeTrack('video')
-				] as unknown as MediaStreamTrack[]) as unknown as MediaStream;
-			return new FakeStream([
-				new FakeTrack('audio')
-			] as unknown as MediaStreamTrack[]) as unknown as MediaStream;
-		});
-		enumerateDevices = vi.fn(async () => [
-			{
-				kind: 'videoinput',
-				deviceId: 'cam-1',
-				label: 'Cam',
-				groupId: '',
-				toJSON: () => ({})
-			} as unknown as MediaDeviceInfo,
-			{
-				kind: 'audioinput',
-				deviceId: 'mic-1',
-				label: 'Mic',
-				groupId: '',
-				toJSON: () => ({})
-			} as unknown as MediaDeviceInfo
-		]);
 		vi.stubGlobal('navigator', {
 			mediaDevices: {
 				getDisplayMedia,
 				getUserMedia,
-				enumerateDevices,
+				enumerateDevices: vi.fn(async () => []),
 				addEventListener: vi.fn(),
 				removeEventListener: vi.fn()
 			},
-			storage: { estimate: async () => ({ quota: 1000000000, usage: 0 }) }
+			storage: { estimate: async () => ({ quota: 1_000_000_000, usage: 0 }) }
 		});
 		vi.stubGlobal('MediaRecorder', FakeMediaRecorder);
-		// jsdom may not have requestAnimationFrame etc but not needed
 	});
 
 	afterEach(() => {
@@ -143,15 +128,15 @@ describe('ScreenCaptureRecorder', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('picks correct MIME types via isTypeSupported ordering', () => {
+	it('chooses supported MIME types and estimates each selected source', () => {
 		expect(pickVideoMimeType()).toBe('video/webm;codecs=vp9,opus');
 		expect(pickAudioMimeType()).toBe('audio/webm;codecs=opus');
 		expect(
 			estimateBytesPerMinute({ screen: true, camera: true, microphone: true })
-		).toBeGreaterThan(estimateBytesPerMinute({ microphone: true }));
+		).toBeGreaterThan(estimateBytesPerMinute({ screen: false, camera: false, microphone: true }));
 	});
 
-	it('produces separate artifacts with monotonic shared-timebase offsets', async () => {
+	it('records separate ordered artifacts on one monotonic timebase', async () => {
 		const recorder = new ScreenCaptureRecorder();
 		await recorder.startWithSelection(
 			{ screen: true, camera: true, microphone: true },
@@ -160,95 +145,131 @@ describe('ScreenCaptureRecorder', () => {
 		expect(getDisplayMedia).toHaveBeenCalledOnce();
 		expect(getUserMedia).toHaveBeenCalledTimes(2);
 		expect(FakeMediaRecorder.instances).toHaveLength(3);
-		// each recorder started with 1s timeslice
-		for (const r of FakeMediaRecorder.instances) expect(r.start).toHaveBeenCalledWith(1000);
-		expect(recorder.status).toBe('recording');
-		expect(recorder.counters.screen.chunks).toBe(0);
+		for (const instance of FakeMediaRecorder.instances) {
+			expect(instance.start).toHaveBeenCalledWith(1000);
+		}
 
-		// simulate some dataavailable while recording
-		FakeMediaRecorder.instances[0]!.dispatchEvent(
-			Object.assign(new Event('dataavailable'), { data: new Blob([' screen1 ']) })
-		);
-		FakeMediaRecorder.instances[2]!.dispatchEvent(
-			Object.assign(new Event('dataavailable'), { data: new Blob([' mic1 ']) })
-		);
-		// Advance monotonic clock so durations are measurable
-		now += 2000;
+		FakeMediaRecorder.instances[0]!.emitChunk('screen-a');
+		FakeMediaRecorder.instances[0]!.emitChunk('screen-b');
+		FakeMediaRecorder.instances[2]!.emitChunk('mic-a');
+		now += 2_000;
 
 		const artifacts = await recorder.stop();
-		expect(artifacts).toHaveLength(3);
-		const kinds = artifacts.map((a) => a.kind).sort();
-		expect(kinds).toEqual(['camera', 'microphone', 'screen']);
-		// earliest offset is zero
-		expect(Math.min(...artifacts.map((a) => a.startOffsetMs))).toBe(0);
-		// all offsets are monotonic non-negative and less than 500ms
-		for (const a of artifacts) {
-			expect(a.startOffsetMs).toBeGreaterThanOrEqual(0);
-			expect(a.startOffsetMs).toBeLessThan(500);
-			expect(a.sizeBytes).toBeGreaterThan(0);
-			expect(a.durationMs).toBeGreaterThan(0);
+		expect(artifacts.map((artifact) => artifact.kind).sort()).toEqual([
+			'camera',
+			'microphone',
+			'screen'
+		]);
+		const screen = artifacts.find((artifact) => artifact.kind === 'screen');
+		expect(await screen?.blob.text()).toBe('screen-ascreen-bfinal-video+audio');
+		expect(Math.min(...artifacts.map((artifact) => artifact.startOffsetMs))).toBe(0);
+		for (const artifact of artifacts) {
+			expect(artifact.startOffsetMs).toBeGreaterThanOrEqual(0);
+			expect(artifact.startOffsetMs).toBeLessThan(500);
+			expect(artifact.durationMs).toBeGreaterThan(0);
+			expect(artifact.sizeBytes).toBe(artifact.blob.size);
+			expect(artifact.scratchId).toMatch(/^(screen|camera|microphone)-/);
 		}
-		// stop clears preview and goes idle, preserves lastArtifacts
+		expect(displayStream.getTracks().every((track) => track.stop.mock.calls.length === 1)).toBe(
+			true
+		);
 		expect(recorder.status).toBe('idle');
-		expect(recorder.lastArtifacts).toHaveLength(3);
 		expect(recorder.screenStream).toBeNull();
-		// cancel clears recoverable only via explicit
-		recorder.clearRecoverable();
-		expect(recorder.lastArtifacts).toHaveLength(0);
+		await recorder.clearRecoverableAndDiscard();
+		expect(recorder.lastArtifacts).toEqual([]);
 	});
 
-	it('rolls back partial start and maps permission errors', async () => {
-		getUserMedia.mockRejectedValueOnce(new DOMException('Permission denied', 'NotAllowedError'));
+	it('releases an earlier stream when a later permission request fails', async () => {
+		getUserMedia.mockRejectedValueOnce(new DOMException('Denied', 'NotAllowedError'));
 		const recorder = new ScreenCaptureRecorder();
 		await expect(
-			recorder.startWithSelection({ screen: true, microphone: true }, {})
-		).rejects.toBeInstanceOf(DOMException);
+			recorder.startWithSelection({ screen: true, camera: true }, {})
+		).rejects.toMatchObject({ name: 'NotAllowedError' });
 		expect(recorder.error).toBe('permission-denied');
-		expect(recorder.status).toBe('error');
+		expect(displayStream.getTracks().every((track) => track.stop.mock.calls.length === 1)).toBe(
+			true
+		);
+		expect(recorder.screenStream).toBeNull();
+	});
+
+	it('cancels a countdown without starting MediaRecorder', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		const start = recorder.startWithSelection(
+			{ screen: false, camera: false, microphone: true },
+			{ countdownSeconds: 5 }
+		);
+		await vi.waitFor(() => expect(recorder.status).toBe('countdown'));
+		await recorder.cancel();
+		await expect(start).rejects.toThrow('Cancelled');
+		expect(FakeMediaRecorder.instances).toHaveLength(0);
+		expect(microphoneStream.getTracks()[0]?.stop).toHaveBeenCalledOnce();
+		expect(recorder.status).toBe('idle');
+	});
+
+	it('shares a concurrent stop result and stops each MediaRecorder once', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection({ screen: true, camera: false, microphone: false }, {});
+		now += 500;
+		const first = recorder.stop();
+		const second = recorder.stop();
+		const [firstArtifacts, secondArtifacts] = await Promise.all([first, second]);
+		expect(firstArtifacts).toBe(secondArtifacts);
+		expect(firstArtifacts).toHaveLength(1);
+		expect(FakeMediaRecorder.instances[0]?.stop).toHaveBeenCalledOnce();
+		await recorder.clearRecoverableAndDiscard();
+	});
+
+	it('waits for an active recorder to stop before discarding a cancelled capture', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection({ screen: true, camera: false, microphone: false }, {});
+		FakeMediaRecorder.instances[0]?.emitChunk('discard-me');
+		await recorder.cancel();
+
+		expect(FakeMediaRecorder.instances[0]?.stop).toHaveBeenCalledOnce();
+		expect(displayStream.getTracks()[0]?.stop).toHaveBeenCalledOnce();
+		expect(recorder.lastArtifacts).toEqual([]);
+		expect(recorder.status).toBe('idle');
+	});
+
+	it('stops with a recoverable artifact before queued writes can grow without bound', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection({ screen: true, camera: false, microphone: false }, {});
+		FakeMediaRecorder.instances[0]?.emitBlob(
+			new Blob([new Uint8Array(8 * 1024 * 1024 + 1)], { type: 'video/webm' })
+		);
+
+		await vi.waitFor(() => expect(recorder.status).toBe('idle'));
+		expect(recorder.error).toBe('storage-full');
+		expect(recorder.lastArtifacts).toHaveLength(1);
+		expect(recorder.lastArtifacts[0]?.sizeBytes).toBeGreaterThan(8 * 1024 * 1024);
+		expect(FakeMediaRecorder.instances[0]?.stop).toHaveBeenCalledOnce();
+		await recorder.clearRecoverableAndDiscard();
+	});
+
+	it('stops early and late streams when cancelled during a pending permission prompt', async () => {
+		let resolveCamera!: (stream: MediaStream) => void;
+		const pendingCamera = new Promise<MediaStream>((resolve) => {
+			resolveCamera = resolve;
+		});
+		getUserMedia.mockImplementationOnce(() => pendingCamera);
+		const recorder = new ScreenCaptureRecorder();
+		const start = recorder.startWithSelection({ screen: true, camera: true }, {});
+		await vi.waitFor(() => expect(recorder.status).toBe('requesting'));
+		await recorder.cancel();
+		expect(displayStream.getTracks()[0]?.stop).toHaveBeenCalledOnce();
+
+		resolveCamera(mediaStream(cameraStream));
+		await start;
+		expect(cameraStream.getTracks()[0]?.stop).toHaveBeenCalledOnce();
+		expect(recorder.status).toBe('idle');
+		expect(recorder.screenStream).toBeNull();
+		expect(recorder.cameraStream).toBeNull();
+	});
+
+	it('maps browser and storage failures to stable error codes', () => {
 		expect(mapRecorderError(new DOMException('', 'NotAllowedError'))).toBe('permission-denied');
 		expect(mapRecorderError(new DOMException('', 'NotFoundError'))).toBe('no-device');
 		expect(mapRecorderError(new DOMException('', 'NotReadableError'))).toBe('device-busy');
-		// no dangling timers or preview
-		expect(recorder.screenStream).toBeNull();
-	});
-
-	it('handles screen auto-stop via track ended as recoverable stop', async () => {
-		const recorder = new ScreenCaptureRecorder();
-		await recorder.startWithSelection({ screen: true, camera: false, microphone: false }, {});
-		expect(recorder.status).toBe('recording');
-		const screenRecorder = FakeMediaRecorder.instances[0]!;
-		// simulate track ended -> our handler calls stop()
-		// we cannot trigger real track ended, but we can call stop directly
-		const arts = await recorder.stop();
-		expect(arts).toHaveLength(1);
-		expect(arts[0]!.kind).toBe('screen');
-		expect(screenRecorder.stop).toHaveBeenCalledOnce();
-	});
-
-	it('supports cancellation during countdown and preserves recoverable on late failure', async () => {
-		const recorder = new ScreenCaptureRecorder();
-		const startPromise = recorder.startWithSelection({ microphone: true }, { countdownSeconds: 5 });
-		// Allow getUserMedia microtask to settle then check countdown
-		await new Promise((r) => setTimeout(r, 20));
-		expect(recorder.status).toBe('countdown');
-		expect(recorder.countdownRemaining).toBe(5);
-		// cancel during countdown should abort and go idle
-		await recorder.cancel();
-		expect(recorder.status).toBe('idle');
-		await expect(startPromise).rejects.toThrow();
-		// start again normally and stop
-		await recorder.startWithSelection({ microphone: true }, {});
-		const arts = await recorder.stop();
-		expect(arts.length).toBe(1);
-		// simulate late failure after stop: lastArtifacts preserved for recovery
-		expect(recorder.lastArtifacts.length).toBe(1);
-	});
-
-	it('does not assume fake devices - enumeration returns real filtered lists', async () => {
-		enumerateDevices.mockResolvedValueOnce([]);
-		const { listRecorderDevices } = await import('./recorder.svelte');
-		const lists = await listRecorderDevices();
-		expect(lists.cameras).toEqual([]);
-		expect(lists.microphones).toEqual([]);
+		expect(mapRecorderError(new DOMException('', 'QuotaExceededError'))).toBe('storage-full');
 	});
 });

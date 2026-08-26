@@ -53,6 +53,7 @@ export type RecorderErrorCode =
 	| 'permission-denied'
 	| 'no-device'
 	| 'device-busy'
+	| 'storage-full'
 	| 'unsupported'
 	| 'start-failed'
 	| 'stop-timeout'
@@ -63,28 +64,10 @@ export function mapRecorderError(cause: unknown): RecorderErrorCode {
 	if (name === 'NotAllowedError' || name === 'SecurityError') return 'permission-denied';
 	if (name === 'NotFoundError' || name === 'OverconstrainedError') return 'no-device';
 	if (name === 'NotReadableError' || name === 'AbortError') return 'device-busy';
+	if (name === 'QuotaExceededError') return 'storage-full';
 	if (cause instanceof Error && cause.message.includes('not supported')) return 'unsupported';
 	if (cause instanceof Error && cause.message.toLowerCase().includes('timeout'))
 		return 'stop-timeout';
 	if (name === 'NotSupportedError') return 'unsupported';
 	return 'start-failed';
-}
-
-export function recorderErrorMessage(code: RecorderErrorCode): string {
-	switch (code) {
-		case 'permission-denied':
-			return 'Permission was denied. Allow access in your browser settings and try again.';
-		case 'no-device':
-			return 'The selected device is not available.';
-		case 'device-busy':
-			return 'The device is in use by another app.';
-		case 'unsupported':
-			return 'This browser cannot record the selected source.';
-		case 'stop-timeout':
-			return 'The recorder did not stop cleanly. Your files already written are still recoverable.';
-		case 'start-failed':
-			return 'The recording could not start.';
-		default:
-			return 'The recording could not start.';
-	}
 }

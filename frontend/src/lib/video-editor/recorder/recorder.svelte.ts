@@ -1,11 +1,12 @@
-// oxlint-disable anti-slop/no-runtime-typeof, anti-slop/require-safety-comment-for-type-assertion -- recorder boundary checks and MediaRecorder shape casts
 /**
  * Screen capture recorder: separate screen / camera / microphone artifacts
  * with monotonic shared-timebase alignment, measured start offsets,
  * visible preflight/countdown/progress, and robust lifecycle.
  *
- * Each selected source records into its own MediaRecorder so the timeline
- * can place them as independent clips with correct sync. No compositing.
+ * Each selected source records into its own MediaRecorder backed by an
+ * ordered durable OPFS scratch sink (one file per recorder). Falls back
+ * to a small bounded-memory sink when OPFS is unavailable. No unbounded
+ * Blob[] accumulation.
  */
 
 import { createLogger } from '../workspace-fs/logger';
@@ -15,16 +16,19 @@ import {
 	mapRecorderError as mapRecorderErrorPure,
 	pickAudioMimeType as pickAudioMimeTypePure,
 	pickVideoMimeType as pickVideoMimeTypePure,
-	recorderErrorMessage as recorderErrorMessagePure,
 	recorderMimeType as recorderMimeTypePure,
 	type RecorderErrorCode as RecorderErrorCodePure
 } from './record-mime';
+import {
+	createScratchSink,
+	discardScratchById,
+	type ScratchKind,
+	type ScratchSink
+} from './recorder-scratch';
 
 const logger = createLogger('ScreenCaptureRecorder');
 
 export type RecorderKind = 'screen' | 'camera' | 'microphone';
-
-export type RecorderSource = 'screen' | 'camera' | 'audio' | 'screen-camera';
 
 export interface RecorderSelection {
 	screen: boolean;
@@ -61,30 +65,46 @@ export interface CaptureArtifact {
 	durationMs: number;
 	startOffsetMs: number;
 	sizeBytes: number;
-}
-
-export interface RecorderSnapshot {
-	status: RecorderStatus;
-	selection: RecorderSelection | null;
-	elapsedMs: number;
-	countdownRemaining: number | null;
-	artifacts: CaptureArtifact[];
-	error: RecorderErrorCode | null;
-	errorMessage: string | null;
-	counters: Record<RecorderKind, { chunks: number; bytes: number }>;
-	hasPreview: boolean;
+	scratchId: string;
 }
 
 const COUNTDOWN_TICK_MS = 1000;
 const STOP_TIMEOUT_MS = 4000;
+const MAX_PENDING_WRITE_BYTES = 8 * 1024 * 1024;
 
 export const pickVideoMimeType = pickVideoMimeTypePure;
 export const pickAudioMimeType = pickAudioMimeTypePure;
 export const recorderMimeType = recorderMimeTypePure;
 export const mapRecorderError = mapRecorderErrorPure;
-export const recorderErrorMessage = recorderErrorMessagePure;
 export const estimateBytesPerMinute = estimateBytesPerMinutePure;
 export const formatBytes = formatBytesPure;
+
+function isNumberValue(value: unknown): value is number {
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- narrow number at boundary
+	return typeof value === 'number';
+}
+
+function extractRecorderError(event: Event): DOMException | null {
+	if (!('error' in event)) return null;
+	const error = event.error;
+	if (error instanceof DOMException) return error;
+	if (!(error instanceof Object) || !('name' in error)) return null;
+	const name = String(error.name);
+	const message = 'message' in error ? String(error.message) : name;
+	return new DOMException(message, name);
+}
+
+function isMediaRecorderAvailable(): boolean {
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- browser capability probe
+	return (
+		typeof MediaRecorder !== 'undefined' && typeof MediaRecorder.isTypeSupported === 'function'
+	);
+}
+
+function isNavigatorAvailable(): boolean {
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- browser global check
+	return typeof navigator !== 'undefined';
+}
 
 export async function listRecorderDevices(): Promise<RecorderDeviceLists> {
 	if (!navigator.mediaDevices?.enumerateDevices) return { cameras: [], microphones: [] };
@@ -96,7 +116,7 @@ export async function listRecorderDevices(): Promise<RecorderDeviceLists> {
 }
 
 export function hasRecorderSupport(selection: RecorderSelection): boolean {
-	if (typeof navigator === 'undefined' || typeof MediaRecorder === 'undefined') return false;
+	if (!isNavigatorAvailable() || !isMediaRecorderAvailable()) return false;
 	if (selection.screen && !navigator.mediaDevices?.getDisplayMedia) return false;
 	if ((selection.camera || selection.microphone) && !navigator.mediaDevices?.getUserMedia)
 		return false;
@@ -109,27 +129,15 @@ interface InternalRecorder {
 	kind: RecorderKind;
 	stream: MediaStream;
 	recorder: MediaRecorder;
-	chunks: Blob[];
+	sink: ScratchSink;
 	mimeType: string;
 	startTimeMs: number | null;
 	chunkCount: number;
 	byteCount: number;
-	stopPromise: Promise<void> | null;
 }
 
-function selectionFromLegacy(source: RecorderSource): RecorderSelection {
-	switch (source) {
-		case 'screen':
-			return { screen: true, camera: false, microphone: false };
-		case 'camera':
-			return { screen: false, camera: true, microphone: false };
-		case 'audio':
-			return { screen: false, camera: false, microphone: true };
-		case 'screen-camera':
-			return { screen: true, camera: true, microphone: true };
-		default:
-			return { screen: false, camera: false, microphone: false };
-	}
+interface DisplayCaptureConstraints extends MediaTrackConstraints {
+	cursor: 'always';
 }
 
 export class ScreenCaptureRecorder {
@@ -138,74 +146,26 @@ export class ScreenCaptureRecorder {
 	elapsedMs = $state(0);
 	countdownRemaining = $state<number | null>(null);
 	error = $state<RecorderErrorCode | null>(null);
-	errorMessage = $state<string | null>(null);
 	lastArtifacts = $state<CaptureArtifact[]>([]);
 	counters = $state<Record<RecorderKind, { chunks: number; bytes: number }>>({
 		screen: { chunks: 0, bytes: 0 },
 		camera: { chunks: 0, bytes: 0 },
 		microphone: { chunks: 0, bytes: 0 }
 	});
-	// Preview streams for UI
 	screenStream = $state<MediaStream | null>(null);
 	cameraStream = $state<MediaStream | null>(null);
 	micStream = $state<MediaStream | null>(null);
 
 	private internal: InternalRecorder[] = [];
+	private acquiredStreams: MediaStream[] = [];
 	private timer: ReturnType<typeof setInterval> | null = null;
 	private countdownTimer: ReturnType<typeof setInterval> | null = null;
 	private countdownReject: ((error: Error) => void) | null = null;
 	private startMonotonic: number | null = null;
 	private generation = 0;
 	private stopGeneration = 0;
-	private leakedTracks: MediaStreamTrack[] = [];
-
-	get recording(): boolean {
-		return (
-			this.status === 'recording' || this.status === 'countdown' || this.status === 'requesting'
-		);
-	}
-
-	get hasPreview(): boolean {
-		return Boolean(this.screenStream || this.cameraStream || this.micStream);
-	}
-
-	get snapshot(): RecorderSnapshot {
-		return {
-			status: this.status,
-			selection: this.selection,
-			elapsedMs: this.elapsedMs,
-			countdownRemaining: this.countdownRemaining,
-			artifacts: this.lastArtifacts,
-			error: this.error,
-			errorMessage: this.errorMessage,
-			counters: $state.snapshot(this.counters),
-			hasPreview: this.hasPreview
-		};
-	}
-
-	/** Legacy compat: start(source, options) */
-	async start(
-		sourceOrSelection: RecorderSource | RecorderSelection,
-		options: RecorderStartOptions & {
-			cameraId?: string;
-			micId?: string;
-			systemAudio?: boolean;
-		} = {}
-	): Promise<void> {
-		let selection: RecorderSelection;
-		if (typeof sourceOrSelection === 'string') {
-			selection = selectionFromLegacy(sourceOrSelection);
-			// Map legacy options
-			const mapped: RecorderStartOptions = {
-				cameraDeviceId: options.cameraId ?? options.cameraDeviceId ?? null,
-				microphoneDeviceId: options.micId ?? options.microphoneDeviceId ?? null,
-				includeSystemAudio: options.systemAudio ?? options.includeSystemAudio,
-				countdownSeconds: options.countdownSeconds
-			};
-			return this.startWithSelection(selection, mapped);
-		}
-		return this.startWithSelection(sourceOrSelection, options);
-	}
+	private stopPromise: Promise<CaptureArtifact[]> | null = null;
+	private pendingWriteBytes = 0;
 
 	async startWithSelection(
 		selection: RecorderSelection,
@@ -213,43 +173,51 @@ export class ScreenCaptureRecorder {
 	): Promise<void> {
 		if (this.status !== 'idle' && this.status !== 'error') throw new Error('Already active');
 		if (!selection.screen && !selection.camera && !selection.microphone) {
-			this.setError('start-failed', 'Select at least one source.');
+			this.setError('start-failed');
 			throw new Error('Select at least one source');
 		}
 		const includeVideo = selection.screen || selection.camera;
 		const mimeOk = includeVideo ? pickVideoMimeType() : pickAudioMimeType();
 		if (!mimeOk) {
-			this.setError('unsupported', recorderErrorMessage('unsupported'));
+			this.setError('unsupported');
 			throw new Error('No supported MIME type');
 		}
 		if (!hasRecorderSupport(selection)) {
-			this.setError('unsupported', recorderErrorMessage('unsupported'));
+			this.setError('unsupported');
 			throw new Error('Unsupported');
 		}
 		const generation = ++this.generation;
 		this.clearError();
-		this.lastArtifacts = [];
 		this.resetCounters();
 		this.status = 'requesting';
 		this.selection = selection;
 		this.elapsedMs = 0;
 		this.countdownRemaining = null;
+		this.acquiredStreams = [];
+		this.stopPromise = null;
+		this.pendingWriteBytes = 0;
 
 		let screenStream: MediaStream | null = null;
 		let cameraStream: MediaStream | null = null;
 		let micStream: MediaStream | null = null;
-		let previewScreen: MediaStream | null = null;
-		let previewCamera: MediaStream | null = null;
-		let previewMic: MediaStream | null = null;
+
+		const trackAcquired = (stream: MediaStream | null) => {
+			if (stream) this.acquiredStreams.push(stream);
+		};
 
 		try {
 			if (selection.screen) {
-				screenStream = await navigator.mediaDevices.getDisplayMedia({
-					video: { cursor: 'always' } as MediaTrackConstraints,
+				const video: DisplayCaptureConstraints = { cursor: 'always' };
+				const constraints: DisplayMediaStreamOptions = {
+					video,
 					audio: options.includeSystemAudio !== false
-				});
-				previewScreen = screenStream;
-				// Auto-stop when user clicks browser stop sharing
+				};
+				screenStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+				trackAcquired(screenStream);
+				if (generation !== this.generation) {
+					this.cleanupAcquiredStreams();
+					return;
+				}
 				screenStream.getVideoTracks()[0]?.addEventListener('ended', () => {
 					if (this.generation === generation && this.status === 'recording') {
 						void this.stop().catch(() => undefined);
@@ -262,7 +230,11 @@ export class ScreenCaptureRecorder {
 					video: deviceId ? { deviceId: { exact: deviceId } } : true,
 					audio: false
 				});
-				previewCamera = cameraStream;
+				trackAcquired(cameraStream);
+				if (generation !== this.generation) {
+					this.cleanupAcquiredStreams();
+					return;
+				}
 			}
 			if (selection.microphone) {
 				const deviceId = options.microphoneDeviceId ?? null;
@@ -270,30 +242,30 @@ export class ScreenCaptureRecorder {
 					audio: deviceId ? { deviceId: { exact: deviceId } } : true,
 					video: false
 				});
-				previewMic = micStream;
+				trackAcquired(micStream);
+				if (generation !== this.generation) {
+					this.cleanupAcquiredStreams();
+					return;
+				}
 			}
 		} catch (error) {
-			for (const s of [screenStream, cameraStream, micStream]) {
-				for (const t of s?.getTracks() ?? []) t.stop();
-			}
+			this.cleanupAcquiredStreams();
 			if (generation === this.generation) {
 				const code = mapRecorderError(error);
-				this.setError(code, error instanceof Error ? error.message : String(error));
+				this.setError(code);
 				this.status = 'error';
 			}
 			throw error;
 		}
 
 		if (generation !== this.generation) {
-			for (const s of [screenStream, cameraStream, micStream]) {
-				for (const t of s?.getTracks() ?? []) t.stop();
-			}
-			return;
+			this.cleanupAcquiredStreams();
+			throw new Error('Cancelled');
 		}
 
-		this.screenStream = previewScreen;
-		this.cameraStream = previewCamera;
-		this.micStream = previewMic;
+		this.screenStream = screenStream;
+		this.cameraStream = cameraStream;
+		this.micStream = micStream;
 
 		const countdown = options.countdownSeconds ?? 0;
 		if (countdown > 0) {
@@ -302,23 +274,24 @@ export class ScreenCaptureRecorder {
 			try {
 				await this.runCountdown(countdown, generation);
 			} catch (error) {
-				// Cancelled during countdown
-				this.cleanupStreams([screenStream, cameraStream, micStream]);
+				this.cleanupAcquiredStreams();
 				this.clearPreview();
 				if (generation === this.generation) {
 					this.status = 'idle';
 					this.countdownRemaining = null;
+					this.selection = null;
+					this.acquiredStreams = [];
 				}
 				throw error;
 			}
 			if (generation !== this.generation) {
-				this.cleanupStreams([screenStream, cameraStream, micStream]);
-				return;
+				this.cleanupAcquiredStreams();
+				this.clearPreview();
+				throw new Error('Cancelled');
 			}
 		}
 
-		// Create MediaRecorders - one per kind, separate artifacts
-		const toCreate: Array<{ kind: RecorderKind; stream: MediaStream; mime: string }> = [];
+		const toCreate: Array<{ kind: ScratchKind; stream: MediaStream; mime: string }> = [];
 		if (screenStream)
 			toCreate.push({ kind: 'screen', stream: screenStream, mime: pickVideoMimeType() });
 		if (cameraStream)
@@ -326,38 +299,79 @@ export class ScreenCaptureRecorder {
 		if (micStream)
 			toCreate.push({ kind: 'microphone', stream: micStream, mime: pickAudioMimeType() });
 
-		// Build internal recorders, listen for dataavailable
-		this.internal = toCreate.map(({ kind, stream, mime }) => {
-			const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-			const actualMime = (recorder.mimeType || mime || '').trim();
-			const entry: InternalRecorder = {
-				kind,
-				stream,
-				recorder,
-				chunks: [],
-				mimeType: actualMime || mime,
-				startTimeMs: null,
-				chunkCount: 0,
-				byteCount: 0,
-				stopPromise: null
-			};
-			recorder.addEventListener('dataavailable', (event: BlobEvent) => {
-				if (event.data.size === 0) return;
-				entry.chunks.push(event.data);
-				entry.chunkCount += 1;
-				entry.byteCount += event.data.size;
-				this.counters[kind] = { chunks: entry.chunkCount, bytes: entry.byteCount };
-			});
-			recorder.addEventListener('error', (event: Event) => {
-				// SAFETY: error may be DOMException
-				const err = (event as Event & { error?: DOMException }).error;
-				logger.warn(`MediaRecorder error (${kind})`, err);
-				this.setError(mapRecorderError(err ?? new Error('Recorder failed')), err?.message);
-			});
-			return entry;
-		});
+		const newInternal: InternalRecorder[] = [];
+		try {
+			for (const { kind, stream, mime } of toCreate) {
+				const sink = await createScratchSink(kind, mime);
+				let recorder: MediaRecorder;
+				try {
+					recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+				} catch (error) {
+					await sink.discard();
+					throw error;
+				}
+				const entry: InternalRecorder = {
+					kind,
+					stream,
+					recorder,
+					sink,
+					mimeType: (recorder.mimeType || mime).trim(),
+					startTimeMs: null,
+					chunkCount: 0,
+					byteCount: 0
+				};
+				// Queue ordered durable writes; dataavailable must not retain Blob[] in RAM
+				recorder.addEventListener('dataavailable', (event: BlobEvent) => {
+					if (event.data.size === 0) return;
+					const chunk = event.data;
+					entry.chunkCount += 1;
+					entry.byteCount += chunk.size;
+					this.counters[kind] = { chunks: entry.chunkCount, bytes: entry.byteCount };
+					this.pendingWriteBytes += chunk.size;
+					const backlogExceeded = this.pendingWriteBytes > MAX_PENDING_WRITE_BYTES;
+					void entry.sink
+						.write(chunk)
+						.catch((writeError) => {
+							logger.warn(`sink write failed (${kind})`, writeError);
+							this.setError(mapRecorderError(writeError));
+							if (this.status === 'recording') void this.stop();
+						})
+						.finally(() => {
+							this.pendingWriteBytes = Math.max(0, this.pendingWriteBytes - chunk.size);
+						});
+					if (backlogExceeded && this.status === 'recording') {
+						this.setError('storage-full');
+						void this.stop();
+					}
+				});
+				recorder.addEventListener('error', (event: Event) => {
+					const err = extractRecorderError(event);
+					logger.warn(`MediaRecorder error (${kind})`, err);
+					const code = mapRecorderError(err ?? new Error('Recorder failed'));
+					this.setError(code);
+				});
+				newInternal.push(entry);
+			}
+		} catch (error) {
+			for (const e of newInternal) {
+				try {
+					await e.sink.discard();
+				} catch {
+					// ignore
+				}
+			}
+			this.cleanupAcquiredStreams();
+			this.clearPreview();
+			if (generation === this.generation) {
+				const code = mapRecorderError(error);
+				this.setError(code);
+				this.status = 'error';
+			}
+			throw error;
+		}
 
-		// Start all recorders and capture monotonic start offsets
+		this.internal = newInternal;
+
 		const startPromises = this.internal.map(
 			(entry) =>
 				new Promise<void>((resolve, reject) => {
@@ -368,8 +382,7 @@ export class ScreenCaptureRecorder {
 					};
 					const onError = (event: Event) => {
 						entry.recorder.removeEventListener('start', onStart);
-						const err =
-							(event as Event & { error?: DOMException }).error ?? new Error('Start failed');
+						const err = extractRecorderError(event) ?? new Error('Start failed');
 						reject(err);
 					};
 					entry.recorder.addEventListener('start', onStart, { once: true });
@@ -387,20 +400,20 @@ export class ScreenCaptureRecorder {
 		try {
 			await Promise.all(startPromises);
 		} catch (error) {
-			// Partial start - rollback already started recorders
 			for (const entry of this.internal) {
+				await this.stopRecorderForDiscard(entry.recorder);
 				try {
-					if (entry.recorder.state !== 'inactive') entry.recorder.stop();
+					await entry.sink.discard();
 				} catch {
 					// ignore
 				}
-				for (const track of entry.stream.getTracks()) track.stop();
 			}
 			this.internal = [];
 			this.clearPreview();
+			this.cleanupAcquiredStreams();
 			if (generation === this.generation) {
 				const code = mapRecorderError(error);
-				this.setError(code, error instanceof Error ? error.message : String(error));
+				this.setError(code);
 				this.status = 'error';
 			}
 			throw error;
@@ -408,15 +421,16 @@ export class ScreenCaptureRecorder {
 
 		if (generation !== this.generation) {
 			for (const entry of this.internal) {
+				await this.stopRecorderForDiscard(entry.recorder);
 				try {
-					if (entry.recorder.state !== 'inactive') entry.recorder.stop();
+					await entry.sink.discard();
 				} catch {
 					// ignore
 				}
-				for (const track of entry.stream.getTracks()) track.stop();
 			}
 			this.internal = [];
 			this.clearPreview();
+			this.cleanupAcquiredStreams();
 			return;
 		}
 
@@ -424,7 +438,7 @@ export class ScreenCaptureRecorder {
 		this.countdownRemaining = null;
 		const startTimesForMonotonic = this.internal
 			.map((e) => e.startTimeMs)
-			.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+			.filter((v): v is number => isNumberValue(v) && Number.isFinite(v));
 		this.startMonotonic =
 			startTimesForMonotonic.length > 0 ? Math.min(...startTimesForMonotonic) : performance.now();
 		this.startElapsedTimer();
@@ -483,14 +497,12 @@ export class ScreenCaptureRecorder {
 		};
 	}
 
-	private setError(code: RecorderErrorCode, message?: string): void {
+	private setError(code: RecorderErrorCode): void {
 		this.error = code;
-		this.errorMessage = message ?? recorderErrorMessage(code);
 	}
 
 	private clearError(): void {
 		this.error = null;
-		this.errorMessage = null;
 	}
 
 	private clearPreview(): void {
@@ -499,27 +511,51 @@ export class ScreenCaptureRecorder {
 		this.micStream = null;
 	}
 
-	private cleanupStreams(streams: Array<MediaStream | null>): void {
-		for (const s of streams) {
-			for (const t of s?.getTracks() ?? []) t.stop();
+	private cleanupAcquiredStreams(): void {
+		for (const s of this.acquiredStreams) {
+			for (const t of s.getTracks()) t.stop();
 		}
+		this.acquiredStreams = [];
 	}
 
-	/**
-	 * Stop all recorders, collect separate artifacts with measured offsets.
-	 * Returns empty array if nothing was recorded. Preserves artifacts
-	 * on late failure for recovery.
-	 */
+	private stopRecorderForDiscard(recorder: MediaRecorder): Promise<void> {
+		if (recorder.state === 'inactive') return Promise.resolve();
+		return new Promise((resolve) => {
+			let timeout: ReturnType<typeof setTimeout> | null = null;
+			const settle = () => {
+				if (timeout) clearTimeout(timeout);
+				recorder.removeEventListener('stop', settle);
+				recorder.removeEventListener('error', settle);
+				resolve();
+			};
+			recorder.addEventListener('stop', settle, { once: true });
+			recorder.addEventListener('error', settle, { once: true });
+			timeout = setTimeout(settle, STOP_TIMEOUT_MS);
+			try {
+				recorder.stop();
+			} catch {
+				settle();
+			}
+		});
+	}
+
 	async stop(): Promise<CaptureArtifact[]> {
+		if (this.stopPromise) return this.stopPromise;
 		if (this.status === 'idle' || this.status === 'error') return [];
 		if (this.status === 'countdown') {
-			// Cancel countdown and cleanup
+			const reject = this.countdownReject;
 			this.stopCountdownTimer();
+			if (reject) reject(new Error('Cancelled'));
 			this.generation += 1;
 			for (const entry of this.internal) {
-				for (const t of entry.stream.getTracks()) t.stop();
+				try {
+					await entry.sink.discard();
+				} catch {
+					// ignore
+				}
 			}
 			this.internal = [];
+			this.cleanupAcquiredStreams();
 			this.clearPreview();
 			this.stopElapsedTimer();
 			this.status = 'idle';
@@ -528,7 +564,6 @@ export class ScreenCaptureRecorder {
 			return [];
 		}
 		if (this.status !== 'recording') {
-			// Already stopping
 			return [];
 		}
 		const generation = ++this.stopGeneration;
@@ -540,114 +575,138 @@ export class ScreenCaptureRecorder {
 		if (internal.length === 0) {
 			this.clearPreview();
 			this.status = 'idle';
+			this.stopPromise = null;
 			return [];
 		}
 
-		// Request final data then stop
-		const stopPromises = internal.map(
-			(entry) =>
-				new Promise<void>((resolve) => {
-					let timeout: ReturnType<typeof setTimeout> | null = null;
-					const onStop = () => {
-						if (timeout) clearTimeout(timeout);
-						entry.recorder.removeEventListener('error', onError);
-						resolve();
-					};
-					const onError = () => {
-						if (timeout) clearTimeout(timeout);
-						entry.recorder.removeEventListener('stop', onStop);
-						// Mark error but still resolve to preserve chunks
-						this.setError('device-busy', 'One recorder encountered an error');
-						resolve();
-					};
-					entry.recorder.addEventListener('stop', onStop, { once: true });
-					entry.recorder.addEventListener('error', onError, { once: true });
-					timeout = setTimeout(() => {
-						entry.recorder.removeEventListener('stop', onStop);
-						entry.recorder.removeEventListener('error', onError);
-						this.setError(
-							'stop-timeout',
-							'Stop timed out - data already written remains recoverable'
-						);
-						resolve();
-					}, STOP_TIMEOUT_MS);
-					try {
+		const promise = (async (): Promise<CaptureArtifact[]> => {
+			const stopPromises = internal.map(
+				(entry) =>
+					new Promise<void>((resolve) => {
+						let timeout: ReturnType<typeof setTimeout> | null = null;
+						const onStop = () => {
+							if (timeout) clearTimeout(timeout);
+							entry.recorder.removeEventListener('error', onError);
+							resolve();
+						};
+						const onError = (event: Event) => {
+							if (timeout) clearTimeout(timeout);
+							entry.recorder.removeEventListener('stop', onStop);
+							const err = extractRecorderError(event);
+							const code = mapRecorderError(err ?? new Error('Recorder error'));
+							this.setError(code);
+							resolve();
+						};
+						entry.recorder.addEventListener('stop', onStop, { once: true });
+						entry.recorder.addEventListener('error', onError, { once: true });
+						timeout = setTimeout(() => {
+							entry.recorder.removeEventListener('stop', onStop);
+							entry.recorder.removeEventListener('error', onError);
+							this.setError('stop-timeout');
+							resolve();
+						}, STOP_TIMEOUT_MS);
 						try {
-							entry.recorder.requestData();
-						} catch {
-							// requestData may not be supported
+							try {
+								entry.recorder.requestData();
+							} catch {
+								// requestData may not be supported
+							}
+							entry.recorder.stop();
+						} catch (error) {
+							if (timeout) clearTimeout(timeout);
+							entry.recorder.removeEventListener('stop', onStop);
+							entry.recorder.removeEventListener('error', onError);
+							logger.warn('Recorder stop threw', error);
+							resolve();
 						}
-						entry.recorder.stop();
-					} catch (error) {
-						if (timeout) clearTimeout(timeout);
-						entry.recorder.removeEventListener('stop', onStop);
-						entry.recorder.removeEventListener('error', onError);
-						logger.warn('Recorder stop threw', error);
-						resolve();
-					}
-				})
-		);
+					})
+			);
 
-		await Promise.all(stopPromises);
+			await Promise.all(stopPromises);
 
-		if (generation !== this.stopGeneration) {
-			// Superseded
-			return [];
+			if (generation !== this.stopGeneration) {
+				return [];
+			}
+
+			// Await ordered durable writes and close sinks
+			for (const entry of internal) {
+				try {
+					await entry.sink.close();
+				} catch (error) {
+					logger.warn('sink close failed', error);
+					const code = mapRecorderError(error);
+					this.setError(code);
+				}
+			}
+
+			const elapsedAtStop = this.startMonotonic
+				? Math.max(0, Math.round(performance.now() - this.startMonotonic))
+				: this.elapsedMs;
+
+			const startTimes = internal
+				.map((e) => e.startTimeMs)
+				.filter((v): v is number => isNumberValue(v) && Number.isFinite(v));
+			const baseTime = startTimes.length > 0 ? Math.min(...startTimes) : performance.now();
+
+			const artifacts: CaptureArtifact[] = [];
+			for (const entry of internal) {
+				let file: File;
+				try {
+					file = await entry.sink.getFile();
+				} catch (error) {
+					logger.warn('getFile failed, keeping partial', error);
+					const code = mapRecorderError(error);
+					this.setError(code);
+					continue;
+				}
+				const sizeBytes = file.size;
+				const startOffsetMs =
+					entry.startTimeMs !== null && Number.isFinite(entry.startTimeMs)
+						? Math.max(0, Math.round(entry.startTimeMs - baseTime))
+						: 0;
+				if (sizeBytes === 0 && entry.sink.chunks === 0) continue;
+				artifacts.push({
+					kind: entry.kind,
+					blob: file,
+					mimeType: entry.mimeType || file.type || 'video/webm',
+					durationMs: Math.max(0, elapsedAtStop - startOffsetMs),
+					startOffsetMs,
+					sizeBytes,
+					scratchId: entry.sink.id
+				});
+			}
+
+			for (const entry of internal) {
+				for (const track of entry.stream.getTracks()) track.stop();
+			}
+			this.internal = [];
+			this.acquiredStreams = [];
+			this.clearPreview();
+			this.startMonotonic = null;
+			this.pendingWriteBytes = 0;
+
+			if (artifacts.length > 0) {
+				this.lastArtifacts = artifacts;
+			}
+
+			this.status = 'idle';
+			this.selection = null;
+			this.countdownRemaining = null;
+
+			if (artifacts.length === 0 && internal.length > 0) {
+				this.setError('start-failed');
+			}
+
+			return artifacts;
+		})();
+
+		this.stopPromise = promise;
+		try {
+			const result = await promise;
+			return result;
+		} finally {
+			if (this.stopPromise === promise) this.stopPromise = null;
 		}
-
-		const elapsedAtStop = this.startMonotonic
-			? Math.max(0, Math.round(performance.now() - this.startMonotonic))
-			: this.elapsedMs;
-
-		// Determine monotonic base - earliest startTimeMs
-		const startTimes = internal
-			.map((e) => e.startTimeMs)
-			.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
-		const baseTime = startTimes.length > 0 ? Math.min(...startTimes) : performance.now();
-
-		const artifacts: CaptureArtifact[] = [];
-		for (const entry of internal) {
-			const blob = new Blob(entry.chunks, { type: entry.mimeType || 'video/webm' });
-			const sizeBytes = blob.size;
-			const startOffsetMs =
-				entry.startTimeMs !== null && Number.isFinite(entry.startTimeMs)
-					? Math.max(0, Math.round(entry.startTimeMs - baseTime))
-					: 0;
-			// Preserve even empty blobs as recoverable if they have chunks? But filter truly empty
-			if (sizeBytes === 0 && entry.chunks.length === 0) continue;
-			artifacts.push({
-				kind: entry.kind,
-				blob,
-				mimeType: entry.mimeType || blob.type || 'video/webm',
-				durationMs: elapsedAtStop - startOffsetMs,
-				startOffsetMs,
-				sizeBytes
-			});
-		}
-
-		// Cleanup tracks regardless
-		for (const entry of internal) {
-			for (const track of entry.stream.getTracks()) track.stop();
-		}
-		this.internal = [];
-		this.clearPreview();
-		this.startMonotonic = null;
-
-		// Preserve for recovery if we produced something
-		if (artifacts.length > 0) {
-			this.lastArtifacts = artifacts;
-		}
-
-		this.status = 'idle';
-		this.selection = null;
-		this.countdownRemaining = null;
-
-		// If we got no artifacts but expected some, surface error
-		if (artifacts.length === 0 && internal.length > 0) {
-			this.setError('start-failed', 'No data was captured.');
-		}
-
-		return artifacts;
 	}
 
 	async cancel(): Promise<void> {
@@ -658,60 +717,47 @@ export class ScreenCaptureRecorder {
 		this.stopCountdownTimer();
 		if (reject) reject(new Error('Cancelled'));
 		this.countdownRemaining = null;
-		for (const entry of this.internal) {
+		const toDiscard = [...this.internal];
+		this.internal = [];
+		for (const entry of toDiscard) {
+			await this.stopRecorderForDiscard(entry.recorder);
 			try {
-				if (entry.recorder.state !== 'inactive') entry.recorder.stop();
+				await entry.sink.discard();
 			} catch {
 				// ignore
 			}
-			for (const track of entry.stream.getTracks()) track.stop();
 		}
-		this.internal = [];
+		this.cleanupAcquiredStreams();
 		this.clearPreview();
 		this.startMonotonic = null;
+		this.pendingWriteBytes = 0;
 		this.status = 'idle';
 		this.selection = null;
 		this.elapsedMs = 0;
 		this.resetCounters();
 		this.clearError();
-		// Do not clear lastArtifacts - preserve recoverable if needed by caller
 	}
 
-	clearRecoverable(): void {
+	async discardScratch(scratchId: string): Promise<void> {
+		await discardScratchById(scratchId);
+		this.lastArtifacts = this.lastArtifacts.filter((a) => a.scratchId !== scratchId);
+	}
+
+	async discardAllScratches(): Promise<void> {
+		const ids = this.lastArtifacts.map((a) => a.scratchId);
+		for (const id of ids) {
+			try {
+				await discardScratchById(id);
+			} catch {
+				// ignore
+			}
+		}
 		this.lastArtifacts = [];
 	}
 
-	// Exposed for UI: preview combined? For separate previews caller uses screenStream/cameraStream directly
-	get stream(): MediaStream | null {
-		// Compat: return screen stream if present else camera else mic
-		return this.screenStream ?? this.cameraStream ?? this.micStream;
-	}
-
-	// Compat getters
-	get elapsedSeconds(): number {
-		return Math.floor(this.elapsedMs / 1000);
-	}
-
-	get usesCompositing(): boolean {
-		return false;
-	}
-
-	// Legacy stop compat returns first blob; new callers should use stop() -> artifacts
-	legacyStop(): { blob: Blob; mimeType: string; seconds: number } | null {
-		const first = this.lastArtifacts[0];
-		if (!first) return null;
-		return {
-			blob: first.blob,
-			mimeType: first.mimeType,
-			seconds: Math.round(first.durationMs / 1000)
-		};
+	async clearRecoverableAndDiscard(): Promise<void> {
+		await this.discardAllScratches();
 	}
 }
 
-/** Singleton used by /record and editor */
 export const recorder = new ScreenCaptureRecorder();
-
-/** Back-compat alias used by old /record page */
-export const RecorderSession = ScreenCaptureRecorder;
-
-export type StopResult = CaptureArtifact[];

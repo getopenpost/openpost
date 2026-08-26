@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	estimateBytesPerMinute,
 	formatBytes,
@@ -39,6 +39,7 @@ describe('record-mime helpers', () => {
 		expect(mapRecorderError(new DOMException('', 'NotAllowedError'))).toBe('permission-denied');
 		expect(mapRecorderError(new DOMException('', 'NotFoundError'))).toBe('no-device');
 		expect(mapRecorderError(new DOMException('', 'NotReadableError'))).toBe('device-busy');
+		expect(mapRecorderError(new DOMException('', 'QuotaExceededError'))).toBe('storage-full');
 		expect(mapRecorderError(new DOMException('', 'NotSupportedError'))).toBe('unsupported');
 		expect(mapRecorderError(new Error('not supported'))).toBe('unsupported');
 		expect(mapRecorderError(new Error('timeout'))).toBe('stop-timeout');

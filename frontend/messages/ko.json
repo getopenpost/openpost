@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "셔틀 뒤로",
 	"video_editor_shortcuts_command_shuttle_pause": "셔틀 일시정지",
 	"video_editor_shuttle_forward": "앞으로 셔틀 {speed}×",
-	"video_editor_shuttle_reverse": "뒤로 셔틀 {speed}×"
+	"video_editor_shuttle_reverse": "뒤로 셔틀 {speed}×",
+	"video_editor_adjust_audio_fade_in": "오디오 페이드 인 조정",
+	"video_editor_adjust_audio_fade_out": "오디오 페이드 아웃 조정",
+	"video_editor_adjust_video_fade_in": "비디오 페이드 인 조정",
+	"video_editor_adjust_video_fade_out": "비디오 페이드 아웃 조정",
+	"video_editor_fade_in_readout": "페이드 인 {seconds}초",
+	"video_editor_fade_out_readout": "페이드 아웃 {seconds}초",
+	"video_editor_fade_handle_keyboard": "드래그하여 페이드를 조정합니다. 좌/우 화살표로 1프레임, Shift와 함께 10프레임, Home으로 초기화, End로 최대값.",
+	"video_editor_adjust_audio_fade_in_curve": "오디오 페이드 인 커브 조정",
+	"video_editor_adjust_audio_fade_out_curve": "오디오 페이드 아웃 커브 조정",
+	"video_editor_audio_fade_curve_value": "커브 {curve}, 바이어스 {bias}"
 }

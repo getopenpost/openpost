@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "巻き戻し",
 	"video_editor_shortcuts_command_shuttle_pause": "シャトル一時停止",
 	"video_editor_shuttle_forward": "早送り {speed}×",
-	"video_editor_shuttle_reverse": "巻き戻し {speed}×"
+	"video_editor_shuttle_reverse": "巻き戻し {speed}×",
+	"video_editor_adjust_audio_fade_in": "オーディオフェードインを調整",
+	"video_editor_adjust_audio_fade_out": "オーディオフェードアウトを調整",
+	"video_editor_adjust_video_fade_in": "ビデオフェードインを調整",
+	"video_editor_adjust_video_fade_out": "ビデオフェードアウトを調整",
+	"video_editor_fade_in_readout": "フェードイン {seconds}秒",
+	"video_editor_fade_out_readout": "フェードアウト {seconds}秒",
+	"video_editor_fade_handle_keyboard": "ドラッグでフェードを調整。左右矢印で1フレーム、Shift+矢印で10フレーム、Homeでクリア、Endで最大。",
+	"video_editor_adjust_audio_fade_in_curve": "オーディオフェードインカーブを調整",
+	"video_editor_adjust_audio_fade_out_curve": "オーディオフェードアウトカーブを調整",
+	"video_editor_audio_fade_curve_value": "カーブ {curve}、バイアス {bias}"
 }

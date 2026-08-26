@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "Shuttle rückwärts",
 	"video_editor_shortcuts_command_shuttle_pause": "Shuttle pausieren",
 	"video_editor_shuttle_forward": "Vorwärts-Shuttle {speed}×",
-	"video_editor_shuttle_reverse": "Rückwärts-Shuttle {speed}×"
+	"video_editor_shuttle_reverse": "Rückwärts-Shuttle {speed}×",
+	"video_editor_adjust_audio_fade_in": "Audio-Fade-In anpassen",
+	"video_editor_adjust_audio_fade_out": "Audio-Fade-Out anpassen",
+	"video_editor_adjust_video_fade_in": "Video-Fade-In anpassen",
+	"video_editor_adjust_video_fade_out": "Video-Fade-Out anpassen",
+	"video_editor_fade_in_readout": "Einblenden {seconds}s",
+	"video_editor_fade_out_readout": "Ausblenden {seconds}s",
+	"video_editor_fade_handle_keyboard": "Ziehen zum Anpassen des Fades. Links/Rechts für ein Frame, Umschalt für zehn, Pos1 zum Löschen, Ende für Max.",
+	"video_editor_adjust_audio_fade_in_curve": "Audio-Fade-In-Kurve anpassen",
+	"video_editor_adjust_audio_fade_out_curve": "Audio-Fade-Out-Kurve anpassen",
+	"video_editor_audio_fade_curve_value": "Kurve {curve}, Bias {bias}"
 }

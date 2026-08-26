@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "梭动快退",
 	"video_editor_shortcuts_command_shuttle_pause": "暂停梭动",
 	"video_editor_shuttle_forward": "正向梭动 {speed}×",
-	"video_editor_shuttle_reverse": "反向梭动 {speed}×"
+	"video_editor_shuttle_reverse": "反向梭动 {speed}×",
+	"video_editor_adjust_audio_fade_in": "调整音频淡入",
+	"video_editor_adjust_audio_fade_out": "调整音频淡出",
+	"video_editor_adjust_video_fade_in": "调整视频淡入",
+	"video_editor_adjust_video_fade_out": "调整视频淡出",
+	"video_editor_fade_in_readout": "淡入 {seconds}秒",
+	"video_editor_fade_out_readout": "淡出 {seconds}秒",
+	"video_editor_fade_handle_keyboard": "拖动以调整淡入淡出。使用左右箭头移动一帧，Shift+箭头移动十帧，Home 清除，End 设为最大。",
+	"video_editor_adjust_audio_fade_in_curve": "调整音频淡入曲线",
+	"video_editor_adjust_audio_fade_out_curve": "调整音频淡出曲线",
+	"video_editor_audio_fade_curve_value": "曲线 {curve}，偏移 {bias}"
 }

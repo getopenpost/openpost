@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "Retroceso shuttle",
 	"video_editor_shortcuts_command_shuttle_pause": "Pausar shuttle",
 	"video_editor_shuttle_forward": "Shuttle adelante {speed}×",
-	"video_editor_shuttle_reverse": "Shuttle reversa {speed}×"
+	"video_editor_shuttle_reverse": "Shuttle reversa {speed}×",
+	"video_editor_adjust_audio_fade_in": "Ajustar fundido de entrada de audio",
+	"video_editor_adjust_audio_fade_out": "Ajustar fundido de salida de audio",
+	"video_editor_adjust_video_fade_in": "Ajustar fundido de entrada de vídeo",
+	"video_editor_adjust_video_fade_out": "Ajustar fundido de salida de vídeo",
+	"video_editor_fade_in_readout": "Entrada {seconds}s",
+	"video_editor_fade_out_readout": "Salida {seconds}s",
+	"video_editor_fade_handle_keyboard": "Arrastra para ajustar el fundido. Usa flechas izquierda/derecha para un fotograma, Mayús para diez, Inicio para limpiar, Fin para máximo.",
+	"video_editor_adjust_audio_fade_in_curve": "Ajustar curva de fundido de entrada de audio",
+	"video_editor_adjust_audio_fade_out_curve": "Ajustar curva de fundido de salida de audio",
+	"video_editor_audio_fade_curve_value": "Curva {curve}, Sesgo {bias}"
 }

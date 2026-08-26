@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "Recuo shuttle",
 	"video_editor_shortcuts_command_shuttle_pause": "Pausar shuttle",
 	"video_editor_shuttle_forward": "Shuttle frente {speed}×",
-	"video_editor_shuttle_reverse": "Shuttle reverso {speed}×"
+	"video_editor_shuttle_reverse": "Shuttle reverso {speed}×",
+	"video_editor_adjust_audio_fade_in": "Ajustar fade de entrada do áudio",
+	"video_editor_adjust_audio_fade_out": "Ajustar fade de saída do áudio",
+	"video_editor_adjust_video_fade_in": "Ajustar fade de entrada do vídeo",
+	"video_editor_adjust_video_fade_out": "Ajustar fade de saída do vídeo",
+	"video_editor_fade_in_readout": "Entrada {seconds}s",
+	"video_editor_fade_out_readout": "Saída {seconds}s",
+	"video_editor_fade_handle_keyboard": "Arraste para ajustar o fade. Use setas esquerda/direita para um quadro, Shift para dez, Home para limpar, End para máximo.",
+	"video_editor_adjust_audio_fade_in_curve": "Ajustar curva do fade de entrada do áudio",
+	"video_editor_adjust_audio_fade_out_curve": "Ajustar curva do fade de saída do áudio",
+	"video_editor_audio_fade_curve_value": "Curva {curve}, Viés {bias}"
 }

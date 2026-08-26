@@ -6998,5 +6998,15 @@
 	"video_editor_shortcuts_command_shuttle_reverse": "Retour shuttle",
 	"video_editor_shortcuts_command_shuttle_pause": "Pause shuttle",
 	"video_editor_shuttle_forward": "Shuttle avant {speed}×",
-	"video_editor_shuttle_reverse": "Shuttle arrière {speed}×"
+	"video_editor_shuttle_reverse": "Shuttle arrière {speed}×",
+	"video_editor_adjust_audio_fade_in": "Ajuster le fondu d’entrée audio",
+	"video_editor_adjust_audio_fade_out": "Ajuster le fondu de sortie audio",
+	"video_editor_adjust_video_fade_in": "Ajuster le fondu d’entrée vidéo",
+	"video_editor_adjust_video_fade_out": "Ajuster le fondu de sortie vidéo",
+	"video_editor_fade_in_readout": "Entrée {seconds}s",
+	"video_editor_fade_out_readout": "Sortie {seconds}s",
+	"video_editor_fade_handle_keyboard": "Faites glisser pour ajuster le fondu. Flèches gauche/droite pour une image, Maj+flèches pour dix, Début pour effacer, Fin pour le max.",
+	"video_editor_adjust_audio_fade_in_curve": "Ajuster la courbe de fondu d’entrée audio",
+	"video_editor_adjust_audio_fade_out_curve": "Ajuster la courbe de fondu de sortie audio",
+	"video_editor_audio_fade_curve_value": "Courbe {curve}, Biais {bias}"
 }

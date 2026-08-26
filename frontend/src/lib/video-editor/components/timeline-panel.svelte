@@ -60,6 +60,7 @@
 		isAnimatedImageMedia
 	} from '$lib/video-editor/media/animated-image-plan';
 	import FilmstripTile from './filmstrip-tile.svelte';
+	import TimelineFadeHandles from './timeline-fade-handles.svelte';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
 	import { emitEditorSound } from '$lib/video-editor/sounds/editor-sounds';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
@@ -4662,7 +4663,7 @@
 					{#if !syncLockPreviewById[item.id]?.hidden}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
-							class="group absolute top-1 h-[calc(100%-8px)] touch-none overflow-hidden rounded-sm border text-left {selectedItemIds.includes(
+							class="group @container absolute top-1 h-[calc(100%-8px)] touch-none overflow-hidden rounded-sm border text-left {selectedItemIds.includes(
 								item.id
 							)
 								? 'border-[oklch(0.66_0.14_45)] ring-1 ring-[oklch(0.66_0.14_45)]'
@@ -4796,6 +4797,13 @@
 									</span>
 								{/if}
 							</button>
+							<TimelineFadeHandles
+								{item}
+								selected={selectedItemIds.includes(item.id)}
+								trackLocked={isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)}
+								{activeEditTool}
+								{onedit}
+							/>
 							{#if displayItem.type === 'audio' && selectedItemIds.includes(item.id) && activeEditTool === null}
 								{@const volumeDb = audioVolumeDb(displayItem)}
 								<button

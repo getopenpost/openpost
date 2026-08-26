@@ -1,0 +1,15 @@
+---
+issue: 128
+type: added
+scope: video-editor
+---
+
+Timeline clips now expose direct fade handles for audio and video with FreeCut 4d62e80 parity.
+
+- Video and composition clips render a shaped fade envelope (1000×100 viewBox, `rgba(15,23,42,0.46)`) and quiet diamond handles at the fade edges. Audio clips render shaped fade-in/fade-out envelopes (`rgba(0,0,0,0.42)`) driven by `audioFadeInCurve/CurveX` and `audioFadeOutCurve/CurveX` via the shared power-curve math, plus diamond duration handles and orange curve dots at the control points.
+- Duration handles map pointer offset to frame-snapped seconds (`fadeSecondsFromOffset`), clamp so `fadeIn + fadeOut ≤ duration`, preserve independent curve/bias, preview live via `timelineStore._updateItems`, and commit once on pointerup as a single undo entry; zero-movement drags add no history. PointerId ownership is enforced with `setPointerCapture`, `lostpointercapture`, `pointercancel`, `Escape`, and unmount restore.
+- Audio curve dots drag both `curve [-1,1]` and `curveX/bias [0.04,0.96]` via `getAudioFadeCurveFromOffset` (edge snap 6px, edge-damped exponent), live preview the SVG path and dot position, and commit atomically as one `UPDATE_AUDIO_FADE_CURVE` undo; double-click resets both to `curve=0, curveX=0.52` atomically.
+- Keyboard: duration handles are `role="slider"` with ArrowLeft/Right (in/out mirrored), Up/Down, Shift×10, Home 0, End max, double-click 0, localized `aria-label`/`aria-valuetext` via Paraglide `video_editor_adjust_*` and `video_editor_fade_in/out_readout`. Curve dots are `role="slider"` with two-axis ArrowLeft/Right for bias (0.02/0.04) and ArrowUp/Down for curve (0.05/0.1), Home reset, localized `video_editor_adjust_audio_fade_in/out_curve` and `video_editor_audio_fade_curve_value` (`Curve {curve}, Bias {bias}`), title from `video_editor_fade_handle_keyboard`.
+- Density matches FreeCut: handles container `opacity-0 @min-[44px]:opacity-40 @min-[64px]:opacity-100`, handles `pointer-events-none @min-[44px]:pointer-events-auto` with `@container` on the clip (`group @container`), hidden-hit-target when hidden, full at 64px+, forced `opacity-100` while editing. Envelope is always visible; handles are quiet until hover/selected/editing.
+- One shared `timeline-fade-handles.svelte` controller keeps `timeline-panel.svelte` from growing, reuses `clip-fades` curve math and ports FreeCut's `audio-fade-curve` geometry (MIT) via `timeline/fade-handles.ts`. Linked `linkedGroupId` companions remain independent.
+- Pure tests cover `fadeRatio`, `fadeSecondsFromOffset`, `clampFadeSeconds`, `clampAudioFadeCurve/X`, `evaluateAudioFade*`, `getAudioFadeCurve*` path/dot geometry. Browser tests assert real SVG `d` and dot `left/top` changes, persisted `audioFadeIn/Out`, `audioFadeIn/OutCurve/X`, `fadeIn/Out`, atomic undo, every cancel path (Escape/pointercancel/lostcapture/unmount), double-click resets, density `@min` classes and `@container`, 320px no overflow, keyboard two-axis, locked/tool-disabled, and linked independence.

@@ -3,6 +3,7 @@ import { getMaxOffsetFrames, getTextMotionTimelineBands } from './text-motion-ti
 import type { TimelineItem } from '../project/types';
 
 function textItem(overrides: Partial<TimelineItem> = {}): TimelineItem {
+	// SAFETY: factory merges required TimelineItem fields (id, trackId, from, durationInFrames, label, type, text) with overrides for isolated timeline band tests.
 	return {
 		id: 'text-1',
 		trackId: 'visual',

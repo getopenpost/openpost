@@ -16,17 +16,26 @@ export interface TextMotionTimelineBand {
 	offsetFrames: number;
 }
 
+export interface TextMotionWindow {
+	length: number;
+	unitCount: number;
+}
+
+function isString(value: unknown): value is string {
+	return typeof value === 'string';
+}
+
 function getTextMotionUnitCount(item: TimelineItem, effect: TextMotionEffect): number {
 	if (item.type !== 'text') return 1;
 	const unit = effect.unit ?? getTextMotionPreset(effect.presetId).unit;
-	const text = typeof item.text === 'string' ? item.text : '';
+	const text = isString(item.text) ? item.text : '';
 	return Math.max(1, segmentTextUnits(text.split(/\r?\n/u), unit).unitCount);
 }
 
 function getTextMotionWindow(
 	item: TimelineItem,
 	effect: TextMotionEffect | undefined
-): { length: number; unitCount: number } {
+): TextMotionWindow {
 	if (!effect) return { length: 0, unitCount: 0 };
 	const unitCount = getTextMotionUnitCount(item, effect);
 	const maxRank =

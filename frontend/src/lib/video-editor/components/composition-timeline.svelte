@@ -42,6 +42,11 @@
 	} from '$lib/video-editor/timeline/text-motion-timeline';
 	import type { TextMotionPresetId, TextMotionSlot } from '$lib/video-editor/project/types';
 	import {
+		TEXT_MOTION_IN_PRESET_IDS,
+		TEXT_MOTION_LOOP_PRESET_IDS,
+		TEXT_MOTION_OUT_PRESET_IDS
+	} from '$lib/video-editor/project/types';
+	import {
 		beginTextMotionEdit,
 		updateTextMotionLive,
 		commitTextMotionEdit
@@ -70,10 +75,6 @@
 	import KeyframeValueGraph from '$lib/video-editor/components/keyframe-value-graph.svelte';
 	import { getAnimatablePropertiesForItem } from '$lib/video-editor/timeline/animated-properties';
 	import {
-		getMotionPresets,
-		type MotionPresetId as MotionLayerPresetId
-	} from '$lib/video-editor/timeline/motion-presets';
-	import {
 		applyMotionLayersToItems,
 		removeMotionLayerFromItems
 	} from '$lib/video-editor/timeline/actions/motion-layers';
@@ -85,9 +86,13 @@
 		setPropertyExpression,
 		removePropertyExpression
 	} from '$lib/video-editor/timeline/actions/property-runtime';
-	import { compositionControlsStore } from '$lib/video-editor/sequences/composition-controls';
 	import { Slider } from '$lib/components/ui/slider';
 	import { Button } from '$lib/components/ui/button';
+	import type {
+		MotionTimelineGroupRow,
+		MotionTimelineLayerRow,
+		MotionTimelineRow
+	} from '$lib/video-editor/timeline/motion-timeline-rows';
 	import Link2Icon from '@lucide/svelte/icons/link-2';
 	import UnlinkIcon from '@lucide/svelte/icons/unlink-2';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -105,6 +110,53 @@
 	import BlendIcon from '@lucide/svelte/icons/blend';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ChevronRightIcon from '@lucide/svelte/icons/chevron-right';
+
+	function isLayerRow(row: MotionTimelineRow): row is MotionTimelineLayerRow {
+		return row.kind === 'layer';
+	}
+
+	function isBlendMode(value: string): value is TimelineItem['blendMode'] {
+		return (
+			value === 'normal' ||
+			value === 'multiply' ||
+			value === 'screen' ||
+			value === 'overlay' ||
+			value === 'add'
+		);
+	}
+
+	function isKeyframeProperty(value: string): value is KeyframeProperty {
+		return (
+			value === 'x' ||
+			value === 'y' ||
+			value === 'width' ||
+			value === 'height' ||
+			value === 'anchorX' ||
+			value === 'anchorY' ||
+			value === 'rotation' ||
+			value === 'opacity' ||
+			value === 'scaleX' ||
+			value === 'scaleY'
+		);
+	}
+
+	const TEXT_PRESET_SET = new Set<string>([
+		...TEXT_MOTION_IN_PRESET_IDS,
+		...TEXT_MOTION_OUT_PRESET_IDS,
+		...TEXT_MOTION_LOOP_PRESET_IDS
+	]);
+
+	function isTextMotionPresetId(value: string): value is TextMotionPresetId {
+		return TEXT_PRESET_SET.has(value);
+	}
+
+	function hasBlockedTransition(plan: unknown): boolean {
+		if (typeof plan !== 'object' || plan === null) return false;
+		if (!('blockedByTransition' in plan)) return false;
+		// SAFETY: 'blockedByTransition' existence already proved by in-check; read as optional boolean.
+		const maybe = plan as { blockedByTransition?: unknown };
+		return maybe.blockedByTransition === true;
+	}
 
 	let {
 		onedit,
@@ -148,7 +200,7 @@
 	let pickTarget: string | null = $state(null);
 	let pendingParent: string | null = $state(null);
 	let status = $state('');
-	let zoomSlider = $state(1);
+	let zoomSlider = $derived(timelineStore.zoomLevel);
 	let showNewDialog = $state(false);
 	let newName = $state('');
 	let newFps = $state(30);
@@ -163,9 +215,6 @@
 	let dopesheetMode: 'lanes' | 'graph' = $state('lanes');
 	let selectedEasing: string = $state('linear');
 	let linkPickSource: { itemId: string; property: string } | null = $state(null);
-	$effect(() => {
-		zoomSlider = timelineStore.zoomLevel;
-	});
 	const visibleRange = $derived({
 		start: Math.max(0, (scrollLeft - 400) / Math.max(0.001, pxPerFrame)),
 		end: Math.max(0, (scrollLeft + 1200) / Math.max(0.001, pxPerFrame))
@@ -175,8 +224,10 @@
 	);
 	const motionRows = $derived(motionPlan.rows);
 	const trackById = $derived(new Map(timelineStore.tracks.map((t) => [t.id, t])));
-	const groupRows = $derived(motionRows.filter((r) => r.kind === 'group'));
-	const layerEntries = $derived(motionRows.filter((r) => r.kind === 'layer'));
+	const groupRows = $derived(
+		motionRows.filter((r): r is MotionTimelineGroupRow => r.kind === 'group')
+	);
+	const layerEntries = $derived(motionRows.filter(isLayerRow));
 	const SIDEBAR_VIEWPORT_H = 400;
 	const visibleSidebarRows = $derived.by(() => {
 		if (motionRows.length < 80) return motionRows;
@@ -189,9 +240,7 @@
 	});
 
 	// Viewport culling: only mount visible bars + selected
-	const visualLayerItems = $derived(
-		layerEntries.map((r) => (r as Extract<typeof r, { kind: 'layer' }>).item)
-	);
+	const visualLayerItems = $derived(layerEntries.map((r) => r.item));
 	const itemIndex = $derived(buildTimelineItemRangeIndex(visualLayerItems));
 	const visibleBars = $derived(
 		queryTimelineItemRange(itemIndex, { start: visibleRange.start, end: visibleRange.end })
@@ -210,7 +259,7 @@
 	}
 	function selectItem(id: string, additive: boolean, range: boolean): void {
 		if (range && lastSelectedId) {
-			const ids = layerEntries.map((r) => (r as { item: TimelineItem }).item.id);
+			const ids = layerEntries.map((r) => r.item.id);
 			const a = ids.indexOf(lastSelectedId);
 			const b = ids.indexOf(id);
 			if (a !== -1 && b !== -1) {
@@ -250,7 +299,8 @@
 		timelineStore._setCurrentFrame(clamped);
 	}
 	function handleTimelineClick(event: MouseEvent): void {
-		const target = event.target as HTMLElement;
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) return;
 		if (
 			target.closest('[data-layer-row]') ||
 			target.closest('[data-vector-row]') ||
@@ -278,13 +328,17 @@
 		status = m.video_editor_composition_timeline_fit();
 	}
 	function handleScroll(event: Event): void {
-		const el = event.currentTarget as HTMLDivElement;
+		const current = event.currentTarget;
+		if (!(current instanceof HTMLDivElement)) return;
+		const el = current;
 		scrollLeft = el.scrollLeft;
 		sidebarScrollTop = el.scrollTop;
 		if (sidebarEl && sidebarEl !== el) sidebarEl.scrollTop = el.scrollTop;
 	}
 	function handleSidebarScroll(event: Event): void {
-		const el = event.currentTarget as HTMLDivElement;
+		const current = event.currentTarget;
+		if (!(current instanceof HTMLDivElement)) return;
+		const el = current;
 		sidebarScrollTop = el.scrollTop;
 		if (scrollEl) scrollEl.scrollTop = el.scrollTop;
 	}
@@ -397,7 +451,8 @@
 		pendingParent = childId;
 		pickTarget = null;
 		const onMove = (move: PointerEvent) => {
-			const el = document.elementFromPoint(move.clientX, move.clientY) as HTMLElement | null;
+			const maybeEl = document.elementFromPoint(move.clientX, move.clientY);
+			const el = maybeEl instanceof HTMLElement ? maybeEl : null;
 			const row = el?.closest<HTMLElement>('[data-layer-row]');
 			pickTarget = row?.dataset.layerRow ?? null;
 			if (pickTarget === childId) pickTarget = null;
@@ -597,10 +652,9 @@
 		onedit();
 	}
 	function setBlendMode(itemId: string, mode: string): void {
+		if (!isBlendMode(mode)) return;
 		const before = captureSnapshot();
-		timelineStore._updateItems([
-			{ id: itemId, patch: { blendMode: mode as TimelineItem['blendMode'] } }
-		]);
+		timelineStore._updateItems([{ id: itemId, patch: { blendMode: mode } }]);
 		commandHistory.addUndoEntry({ type: 'SET_BLEND_MODE' }, before);
 		onedit();
 	}
@@ -702,6 +756,7 @@
 			base.transformParent = undefined;
 			// controller is non-rendering: participates in transforms but never renders (preview/export filter by type)
 		}
+		// SAFETY: base is assembled with required TimelineItem fields (id, trackId, from, durationInFrames, label, type) and valid optional fields.
 		timelineStore._setItems([...timelineStore.items, base as TimelineItem]);
 		commandHistory.addUndoEntry({ type: 'ADD_LAYER' }, before);
 		onedit();
@@ -710,11 +765,14 @@
 	function handleDragOver(event: DragEvent): void {
 		event.preventDefault();
 		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const current = event.currentTarget;
+		if (!(current instanceof HTMLElement)) return;
+		const rect = current.getBoundingClientRect();
 		const x = event.clientX - rect.left - 320;
 		const frame = Math.round(Math.max(0, x / Math.max(1, pxPerFrame)));
 		// validate track under pointer
-		const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+		const maybeEl = document.elementFromPoint(event.clientX, event.clientY);
+		const el = maybeEl instanceof HTMLElement ? maybeEl : null;
 		const row = el?.closest<HTMLElement>('[data-layer-row]');
 		const trackId = row?.dataset.layerRow
 			? (timelineStore.itemById.get(row.dataset.layerRow)?.trackId ?? null)
@@ -790,11 +848,16 @@
 	}
 	function handleLinkSelect(targetId: string, targetProp: string): void {
 		if (!linkPickSource) return;
+		if (!isKeyframeProperty(linkPickSource.property)) {
+			status = m.video_editor_motion_parent_failed();
+			linkPickSource = null;
+			return;
+		}
 		const before = captureSnapshot();
 		try {
 			setPropertyExpression(
 				linkPickSource.itemId,
-				linkPickSource.property as KeyframeProperty,
+				linkPickSource.property,
 				`${targetId}.${targetProp}`,
 				true
 			);
@@ -822,7 +885,10 @@
 	}
 	function startBarPointerDown(item: TimelineItem, event: PointerEvent): void {
 		if (event.button !== 0 || isLocked(item)) return;
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const current = event.currentTarget;
+		if (!(current instanceof HTMLElement)) return;
+		const barElement = current;
+		const rect = barElement.getBoundingClientRect();
 		const xInBar = event.clientX - rect.left;
 		const w = rect.width;
 		const edge = 8;
@@ -841,8 +907,10 @@
 			pointerId: event.pointerId
 		};
 		try {
-			(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-		} catch {}
+			barElement.setPointerCapture(event.pointerId);
+		} catch {
+			// pointer capture not supported - safely ignored
+		}
 		const onMove = (e: PointerEvent) => onBarPointerMove(e);
 		const onUp = (e: PointerEvent) => onBarPointerUp(e, false);
 		const onCancel = (e: PointerEvent) => onBarPointerUp(e, true);
@@ -850,7 +918,7 @@
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('pointercancel', onCancel);
-		(event.currentTarget as HTMLElement).addEventListener('lostpointercapture', onLost, {
+		barElement.addEventListener('lostpointercapture', onLost, {
 			once: true
 		});
 		trackWindowCleanup(() => {
@@ -876,9 +944,13 @@
 			const snapTargets = buildSnapTargets({
 				items: timelineStore.items,
 				tracks: timelineStore.tracks,
-				excludeIds: new Set([drag!.id]),
+				transitions: composition?.transitions ?? [],
+				markers: timelineStore.markers ?? [],
 				currentFrame: timelineStore.currentFrame,
-				markers: timelineStore.markers
+				durationInFrames: durationFrames,
+				fps,
+				zoomLevel: timelineStore.zoomLevel,
+				excludeItemIds: [drag!.id]
 			});
 			if (drag!.kind === 'move') {
 				const proposed = drag!.originalFrom + deltaFrames;
@@ -891,24 +963,24 @@
 				snapGuideFrame = snap.snappedFrame !== proposed ? snap.snappedFrame : null;
 				const patchFrom = Math.max(0, snap.snappedFrame);
 				// linked audio propagation: move companions together via planLinkedMoveGesture
+				const anchorItem: TimelineItem = {
+					...item,
+					from: drag!.originalFrom,
+					durationInFrames: drag!.originalDuration
+				};
 				const plan = planLinkedMoveGesture(
-					{
-						...item,
-						from: drag!.originalFrom,
-						durationInFrames: drag!.originalDuration
-					} as TimelineItem,
+					anchorItem,
 					patchFrom - drag!.originalFrom,
-					timelineStore.items,
-					timelineStore.tracks
+					timelineStore.items
 				);
-				// check transition blocking: if any transition owns the moving item, block
-				const blocked = plan.blockedByTransition;
-				if (blocked) {
+				// check transition blocking: legacy contract may include blockedByTransition
+				if (hasBlockedTransition(plan)) {
 					status = m.video_editor_motion_transition_blocked();
 					return;
 				}
 				// check group lock
-				const locked = plan.updates.some((u) => {
+				const moveUpdates = Array.isArray(plan) ? plan : [];
+				const locked = moveUpdates.some((u) => {
 					const it = timelineStore.itemById.get(u.id);
 					return it ? isTrackEffectivelyLocked(it.trackId, timelineStore.tracks) : false;
 				});
@@ -916,7 +988,7 @@
 					status = m.video_editor_motion_track_locked();
 					return;
 				}
-				for (const u of plan.updates) {
+				for (const u of moveUpdates) {
 					const it = timelineStore.itemById.get(u.id);
 					if (it) timelineStore._updateItems([{ id: u.id, patch: { from: u.from } }]);
 				}
@@ -934,12 +1006,13 @@
 						deltaFrames
 						? snap.snappedFrame
 						: null;
+				const trimAnchor: TimelineItem = {
+					...item,
+					from: drag!.originalFrom,
+					durationInFrames: drag!.originalDuration
+				};
 				const plan = planTrimGesture(
-					{
-						...item,
-						from: drag!.originalFrom,
-						durationInFrames: drag!.originalDuration
-					} as TimelineItem,
+					trimAnchor,
 					handle,
 					snap.snappedFrame -
 						(handle === 'start' ? drag!.originalFrom : drag!.originalFrom + drag!.originalDuration),
@@ -949,7 +1022,7 @@
 					snapThreshold,
 					[]
 				);
-				if ((plan as { blockedByTransition?: boolean }).blockedByTransition) {
+				if (hasBlockedTransition(plan)) {
 					status = m.video_editor_motion_transition_blocked();
 					return;
 				}
@@ -995,20 +1068,23 @@
 	function startReorder(trackId: string, event: PointerEvent): void {
 		if (event.button !== 0) return;
 		event.preventDefault();
+		const current = event.currentTarget;
+		if (!(current instanceof HTMLElement)) return;
+		const reorderElement = current;
 		const before = captureSnapshot();
 		reorderDrag = { id: trackId, startY: event.clientY, pointerId: event.pointerId, before };
 		try {
-			(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-		} catch {}
+			reorderElement.setPointerCapture(event.pointerId);
+		} catch {
+			// pointer capture not supported - safely ignored
+		}
 		const onMove = (e: PointerEvent) => {
 			if (!reorderDrag || e.pointerId !== reorderDrag.pointerId) return;
 			const deltaY = e.clientY - reorderDrag.startY;
 			if (Math.abs(deltaY) < 6) return;
 			const rows = motionRows;
 			const idx = rows.findIndex((r) =>
-				r.kind === 'layer'
-					? (r as { track?: TimelineTrack }).track?.id === trackId
-					: r.track.id === trackId
+				isLayerRow(r) ? r.track?.id === trackId : r.track.id === trackId
 			);
 			const targetIdx = Math.max(0, Math.min(rows.length - 1, idx + Math.round(deltaY / ROW_H)));
 			if (targetIdx === idx || targetIdx < 0) return;
@@ -1019,7 +1095,7 @@
 			const fromOrder = fromTrack.order;
 			const toRow = rows[targetIdx];
 			const toTrackId =
-				toRow.kind === 'group' ? toRow.track.id : (toRow as { track?: TimelineTrack }).track?.id;
+				toRow.kind === 'group' ? toRow.track.id : isLayerRow(toRow) ? toRow.track?.id : undefined;
 			if (!toTrackId) return;
 			const toOrder = trackById.get(toTrackId)?.order ?? fromOrder;
 			const newTracks = timelineStore.tracks.map((t) => {
@@ -1180,9 +1256,7 @@
 			const item = timelineStore.itemById.get(lastSelectedId);
 			if (!item) return;
 			const rows = motionRows;
-			const idx = rows.findIndex(
-				(r) => r.kind === 'layer' && (r as { item: TimelineItem }).item.id === lastSelectedId
-			);
+			const idx = rows.findIndex((r) => isLayerRow(r) && r.item.id === lastSelectedId);
 			const dir = event.key === 'ArrowUp' ? -1 : 1;
 			const targetIdx = idx + dir;
 			if (targetIdx < 0 || targetIdx >= rows.length) return;
@@ -1190,7 +1264,7 @@
 			const fromTrack = trackById.get(item.trackId);
 			const toRow = rows[targetIdx];
 			const toTrackId =
-				toRow.kind === 'group' ? toRow.track.id : (toRow as { track?: TimelineTrack }).track?.id;
+				toRow.kind === 'group' ? toRow.track.id : isLayerRow(toRow) ? toRow.track?.id : undefined;
 			if (!fromTrack || !toTrackId) return;
 			const toOrder = trackById.get(toTrackId)?.order ?? fromTrack.order;
 			const newTracks = timelineStore.tracks.map((t) =>
@@ -1276,7 +1350,8 @@
 		return textMotionSlotLabel(slot);
 	}
 	function textPresetLabel(presetId: string): string {
-		return textMotionPresetLabel(presetId as TextMotionPresetId);
+		if (isTextMotionPresetId(presetId)) return textMotionPresetLabel(presetId);
+		return presetId;
 	}
 	function startTextBandDrag(
 		item: TimelineItem,
@@ -1288,10 +1363,14 @@
 		if (kind === 'offset' && band.slot === 'loop') return;
 		event.preventDefault();
 		event.stopPropagation();
-		const target = event.currentTarget as HTMLElement;
+		const maybeTarget = event.currentTarget;
+		if (!(maybeTarget instanceof HTMLElement)) return;
+		const target = maybeTarget;
 		try {
 			target.setPointerCapture(event.pointerId);
-		} catch {}
+		} catch {
+			// pointer capture not supported - safely ignored
+		}
 		const bands = kind === 'offset' ? getTextMotionTimelineBands(item) : [];
 		const maxOffset = kind === 'offset' ? getMaxOffsetFrames(band, bands) : 0;
 		textDrag = {
@@ -1311,7 +1390,9 @@
 			if (!cleanup) return;
 			try {
 				target.releasePointerCapture(textDrag!.pointerId!);
-			} catch {}
+			} catch {
+				// pointer release not supported - safely ignored
+			}
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
 			window.removeEventListener('pointercancel', onCancel);
@@ -1442,7 +1523,7 @@
 			// live preview via direct mutation (coalesced; no per-frame history)
 			const idx = kfs.findIndex((k) => k.id === kf.id);
 			if (idx === -1) return;
-			const patch = {
+			const patch: Partial<TimelineItem> = {
 				keyframes: {
 					...item.keyframes,
 					[kfDrag.property]: {
@@ -1452,7 +1533,7 @@
 						easings: kfs.map((k) => k.easing)
 					}
 				}
-			} as unknown as Partial<TimelineItem>;
+			};
 			timelineStore._updateItems([{ id: kfDrag.itemId, patch }]);
 		};
 		const onUp = (e: PointerEvent, cancelled = false) => {
@@ -1497,7 +1578,8 @@
 		active: boolean;
 	} | null = $state(null);
 	function startMarquee(event: PointerEvent): void {
-		const target = event.target as HTMLElement;
+		const target = event.target;
+		if (!(target instanceof HTMLElement)) return;
 		if (
 			target.closest('[data-layer-row]') ||
 			target.closest('button') ||
@@ -1505,7 +1587,9 @@
 		)
 			return;
 		if (event.button !== 0) return;
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const marqueeRoot = event.currentTarget;
+		if (!(marqueeRoot instanceof HTMLElement)) return;
+		const rect = marqueeRoot.getBoundingClientRect();
 		marquee = {
 			x: event.clientX - rect.left,
 			y: event.clientY - rect.top,
@@ -1516,15 +1600,17 @@
 			active: false
 		};
 		try {
-			(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-		} catch {}
+			marqueeRoot.setPointerCapture(event.pointerId);
+		} catch {
+			// pointer capture not supported - safely ignored
+		}
 		const onMove = (e: PointerEvent) => {
 			if (!marquee) return;
 			const dx = e.clientX - marquee.startX;
 			const dy = e.clientY - marquee.startY;
 			if (!marquee.active && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
 			marquee.active = true;
-			const curRect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+			const curRect = marqueeRoot.getBoundingClientRect();
 			const curX = e.clientX - curRect.left;
 			const curY = e.clientY - curRect.top;
 			marquee.w = curX - marquee.x;
@@ -1532,7 +1618,7 @@
 			// select items whose bar overlaps marquee in timeline content
 			const sel = new Set<string>();
 			for (const row of layerEntries) {
-				const item = (row as { item: TimelineItem }).item;
+				const item = row.item;
 				const left = timelineX(item.from) - scrollLeft;
 				const right = timelineX(item.from + item.durationInFrames) - scrollLeft;
 				const top = 8 + visualLayerItems.indexOf(item) * ROW_H;
@@ -1574,7 +1660,9 @@
 	function startScrub(event: PointerEvent): void {
 		if (event.button !== 0) return;
 		scrubActive = true;
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const scrubRoot = event.currentTarget;
+		if (!(scrubRoot instanceof HTMLElement)) return;
+		const rect = scrubRoot.getBoundingClientRect();
 		const frame = Math.round(
 			((event.clientX - rect.left) / Math.max(1, rect.width)) *
 				(visibleRange.end - visibleRange.start) +
@@ -1582,8 +1670,10 @@
 		);
 		handleGhostScrubMove(frame);
 		try {
-			(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-		} catch {}
+			scrubRoot.setPointerCapture(event.pointerId);
+		} catch {
+			// pointer capture not supported - safely ignored
+		}
 		const onMove = (e: PointerEvent) => {
 			const f = Math.round(
 				((e.clientX - rect.left) / Math.max(1, rect.width)) *
@@ -1633,9 +1723,7 @@
 	// filter rows by filterText
 	const filteredRows = $derived(
 		filterText.trim()
-			? layerEntries.filter((r) =>
-					(r as { item: TimelineItem }).item.label.toLowerCase().includes(filterText.toLowerCase())
-				)
+			? layerEntries.filter((r) => r.item.label.toLowerCase().includes(filterText.toLowerCase()))
 			: layerEntries
 	);
 	onMount(() => {

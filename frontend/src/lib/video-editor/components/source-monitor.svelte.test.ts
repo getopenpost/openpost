@@ -111,6 +111,7 @@ afterEach(() => {
 	keyboardShortcuts.resetAll();
 	mediaPool.clear();
 	setWorkspaceRoot(null);
+	vi.restoreAllMocks();
 });
 
 describe('SourceMonitor', () => {
@@ -196,6 +197,33 @@ describe('SourceMonitor', () => {
 		const monitor = screen.getByRole('region', { name: 'Source' }).element();
 		if (!(monitor instanceof HTMLElement)) throw new Error('Source monitor region is missing.');
 		expect(monitor.scrollWidth).toBeLessThanOrEqual(monitor.clientWidth);
+	});
+
+	it('owns J/K/L while focused and exposes each shuttle transition', async () => {
+		vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+		vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function () {
+			queueMicrotask(() => this.dispatchEvent(new Event('pause')));
+		});
+		const screen = await render(SourceMonitor, {
+			mediaId: source.id,
+			onclose: vi.fn(),
+			onedit: vi.fn()
+		});
+		const monitor = screen.getByRole('region', { name: 'Source' }).element();
+		if (!(monitor instanceof HTMLElement)) throw new Error('Source monitor region is missing.');
+
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', bubbles: true }));
+		await expect.element(screen.getByLabelText('Forward shuttle 1×')).toBeVisible();
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', bubbles: true }));
+		await expect.element(screen.getByLabelText('Forward shuttle 2×')).toBeVisible();
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ', bubbles: true }));
+		await expect.element(screen.getByLabelText('Reverse shuttle 1×')).toBeVisible();
+		await new Promise((resolve) => queueMicrotask(resolve));
+		await expect.element(screen.getByLabelText('Reverse shuttle 1×')).toBeVisible();
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', bubbles: true }));
+		await expect
+			.poll(() => screen.container.querySelector('[data-testid="shuttle-indicator"]'))
+			.toBeNull();
 	});
 
 	it('replays the marked source range from its in point', async () => {

@@ -32,7 +32,8 @@
 	import { isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
 	import {
 		getBrowserMediaPlaybackRate,
-		getNextShuttleRate
+		getNextShuttleRate,
+		getShuttleMediaPlaybackRate
 	} from '$lib/video-editor/preview/shuttle';
 	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
 	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
@@ -258,7 +259,7 @@
 		const isPlaying = playing;
 		const rate = sourcePlaybackRate;
 		const isReverse = rate < 0 && isPlaying;
-		const url = sourceUrl || sourceAudioUrl;
+		const url = sourceAudioUrl || sourceUrl;
 		if (!isReverse || !url || !hasAudio) {
 			shuttleScheduler?.dispose();
 			shuttleScheduler = null;
@@ -275,28 +276,32 @@
 		mediaElement?.pause();
 		proxyAudioElement?.pause();
 		stopCustomAudio();
-		void decodedPreviewAudio(url, media?.audioCodec).then((buffer) => {
-			if (stale || !buffer) return;
-			const context = previewAudioContext();
-			const gain = context.createGain();
-			gain.gain.value = 1;
-			const detach = attachAudioSourceToMixer(gain, `source-shuttle:${mediaId}`);
-			shuttleGainNode = gain;
-			detachShuttle = detach;
-			const scheduler = createReverseShuttleScheduler({
-				context,
-				buffer,
-				bufferStartSeconds: 0,
-				getSourceCursorSeconds: () => currentFrame / sourceFps,
-				authoredPlaybackRate: 1,
-				authoredReversed: false,
-				getTransportRate: () => sourcePlaybackRate,
-				getGain: () => 1,
-				destination: gain
+		void decodedPreviewAudio(url, media?.audioCodec)
+			.then((buffer) => {
+				if (stale || !buffer) return;
+				const context = previewAudioContext();
+				const gain = context.createGain();
+				gain.gain.value = 1;
+				const detach = attachAudioSourceToMixer(gain, `source-shuttle:${mediaId}`);
+				shuttleGainNode = gain;
+				detachShuttle = detach;
+				const scheduler = createReverseShuttleScheduler({
+					context,
+					buffer,
+					bufferStartSeconds: 0,
+					getSourceCursorSeconds: () => currentFrame / sourceFps,
+					authoredPlaybackRate: 1,
+					authoredReversed: false,
+					getTransportRate: () => sourcePlaybackRate,
+					getGain: () => 1,
+					destination: gain
+				});
+				shuttleScheduler = scheduler;
+				scheduler.start();
+			})
+			.catch((error) => {
+				if (!stale) loadError = error instanceof Error ? error.message : String(error);
 			});
-			shuttleScheduler = scheduler;
-			scheduler.start();
-		});
 		return () => {
 			stale = true;
 			shuttleScheduler?.dispose();
@@ -317,12 +322,14 @@
 		sourceHoverStore.setHovered(false);
 	}
 	function handleSourceFocusIn(event: FocusEvent): void {
-		// SAFETY: FocusEvent.target is an EventTarget that is a Node when inside the DOM.
-		if (monitorElement?.contains(event.target as Node)) sourceHoverStore.setFocused(true);
+		if (event.target instanceof Node && monitorElement?.contains(event.target)) {
+			sourceHoverStore.setFocused(true);
+		}
 	}
 	function handleSourceFocusOut(event: FocusEvent): void {
-		// SAFETY: FocusEvent.relatedTarget is an EventTarget that is a Node when inside the DOM.
-		if (!monitorElement?.contains(event.relatedTarget as Node)) sourceHoverStore.setFocused(false);
+		if (!(event.relatedTarget instanceof Node) || !monitorElement?.contains(event.relatedTarget)) {
+			sourceHoverStore.setFocused(false);
+		}
 	}
 
 	function formatTimecode(frame: number): string {
@@ -627,8 +634,9 @@
 	function handleKeydown(event: KeyboardEvent): void {
 		if (event.repeat) return;
 		if (editorShortcutTargetIsDisabled(event.target)) {
-			// SAFETY: EventTarget is a Node when the monitor contains it.
-			if (monitorElement?.contains(event.target as Node)) event.stopImmediatePropagation();
+			if (event.target instanceof Node && monitorElement?.contains(event.target)) {
+				event.stopImmediatePropagation();
+			}
 			return;
 		}
 		if (!(event.target instanceof HTMLElement)) return;
@@ -733,7 +741,7 @@
 	</header>
 
 	<div class="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-black">
-		{#if playing && sourceShuttleActive && (sourcePlaybackRate < 0 || Math.abs(sourcePlaybackRate) > 1)}
+		{#if playing && sourceShuttleActive}
 			<div class="absolute top-2 left-2 z-10">
 				<ShuttleIndicator
 					active={playing && sourceShuttleActive}
@@ -757,8 +765,6 @@
 				class="size-full object-contain"
 				preload="auto"
 				muted={needsCustomAudio}
-				onplay={() => (playing = true)}
-				onpause={() => (playing = false)}
 				onended={pause}
 				ontimeupdate={updateFromMedia}
 			></video>
@@ -790,8 +796,6 @@
 					src={sourceUrl}
 					preload="auto"
 					muted={needsCustomAudio}
-					onplay={() => (playing = true)}
-					onpause={() => (playing = false)}
 					onended={pause}
 					ontimeupdate={updateFromMedia}
 				></audio>

@@ -37,7 +37,7 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 	const scheduled = new Set<AudioBufferSourceNode>();
 	let nextContextTime = context.currentTime + START_SAFETY_SECONDS;
 	let sourceCursor: number | null = null;
-	let intervalId: number | null = null;
+	let intervalId: ReturnType<typeof setInterval> | null = null;
 	let disposed = false;
 
 	function stopScheduled() {
@@ -150,13 +150,13 @@ export function createReverseShuttleScheduler(options: ReverseShuttleSchedulerOp
 	function start() {
 		if (context.state === 'suspended') void context.resume().catch(() => undefined);
 		schedule();
-		if (intervalId !== null) window.clearInterval(intervalId);
-		intervalId = window.setInterval(schedule, SCHEDULER_INTERVAL_MS);
+		if (intervalId !== null) clearInterval(intervalId);
+		intervalId = setInterval(schedule, SCHEDULER_INTERVAL_MS);
 	}
 
 	function stop() {
 		if (intervalId !== null) {
-			window.clearInterval(intervalId);
+			clearInterval(intervalId);
 			intervalId = null;
 		}
 		stopScheduled();

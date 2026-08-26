@@ -69,6 +69,7 @@
 		isAudioTransitionParticipantAtFrame
 	} from '$lib/video-editor/audio/transition-crossfade';
 	import { requiresProcessedPreviewAudio } from '$lib/video-editor/audio/preview-processing';
+	import { resolveAudioOwner } from '$lib/video-editor/preview/audio-owner';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import { shapeMasksForTrack } from '$lib/video-editor/shapes/masks';
 	import { hasCornerPin } from '$lib/video-editor/preview/corner-pin';
@@ -1134,7 +1135,7 @@
 				{m.video_editor_preview_empty()}
 			</div>
 		{:else}
-			{#if isPlaying && (shuttleRate < 0 || Math.abs(shuttleRate) > 1)}
+			{#if isPlaying && editorSession.transportMode === 'shuttle'}
 				<div class="absolute top-2 left-2 z-30">
 					<ShuttleIndicator active={isPlaying} playbackRate={shuttleRate} />
 				</div>
@@ -1370,7 +1371,11 @@
 			<EditPreviewOverlay {canvasWidth} {canvasHeight} {urls} {proxyUrls} />
 		{/if}
 	</div>
-	{#each timelineStore.items.filter((item) => (item.type === 'audio' || (item.type === 'video' && requiresProcessedPreviewAudio(item) && !hasLinkedAudioCompanion(item, timelineStore.items))) && isAudioTransitionParticipantAtFrame(item, timelineStore.currentFrame, transitionsStore.list, timelineStore.itemById, editorSession.fps)) as item (item.id)}
+	{#each timelineStore.items.filter((item) => {
+		const mediaEntry = item.mediaId ? mediaPool.entry(item.mediaId) : null;
+		const owner = resolveAudioOwner( { item, tracks: timelineStore.tracks, allItems: timelineStore.items, mediaEntry, usesSeparateProxyAudio: false, usesProcessedAudio: requiresProcessedPreviewAudio(item) } );
+		return (owner === 'processed' || (owner === 'embedded' && item.type === 'audio')) && isAudioTransitionParticipantAtFrame(item, timelineStore.currentFrame, transitionsStore.list, timelineStore.itemById, editorSession.fps);
+	}) as item (item.id)}
 		<PreviewAudioLayer {item} url={urls[item.mediaId ?? '']} />
 	{/each}
 	{#each nestedMixEntries.filter((entry) => timelineStore.currentFrame / editorSession.fps >= entry.whenSeconds && timelineStore.currentFrame / editorSession.fps < entry.whenSeconds + entry.durationSeconds) as entry (entry.itemId)}

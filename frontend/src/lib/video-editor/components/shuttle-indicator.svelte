@@ -22,12 +22,12 @@
 	<output
 		aria-live="polite"
 		aria-atomic="true"
-		class={`inline-flex h-5 min-w-[3.75rem] shrink-0 items-center justify-center gap-1 rounded border px-1.5 font-mono text-[10px] font-semibold tabular-nums select-none ${speed > 1 ? 'border-[oklch(0.66_0.14_45)] bg-[oklch(0.66_0.14_45)]/15 text-[oklch(0.92_0.03_45)]' : 'border-[oklch(0.32_0.015_55)] bg-[oklch(0.18_0.008_55)] text-[oklch(0.88_0.015_55)]'} ${className}`}
+		class={`inline-flex h-6 min-w-[3.75rem] shrink-0 items-center justify-center gap-1 rounded border px-1.5 font-mono text-[11px] font-semibold tabular-nums select-none ${speed > 1 ? 'border-[oklch(0.66_0.14_45)] bg-[oklch(0.66_0.14_45)]/15 text-[oklch(0.92_0.03_45)]' : 'border-[oklch(0.32_0.015_55)] bg-[oklch(0.18_0.008_55)] text-[oklch(0.88_0.015_55)]'} ${className}`}
 		aria-label={label}
 		title={label}
 		data-testid="shuttle-indicator"
 	>
-		<span class="text-[9px] opacity-70">{key}</span>
+		<span class="text-[10px] opacity-70">{key}</span>
 		<span aria-hidden="true">{direction}</span>
 		<span>{speed}×</span>
 	</output>

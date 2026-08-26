@@ -13,20 +13,23 @@ class FakeTimeSource implements ClockTimeSource {
 
 interface RafHarness {
 	flush: (count?: number) => void;
+	readonly pending: number;
 }
 
 function rafHarness(): RafHarness {
-	const callbacks: Array<() => void> = [];
-	vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
-		callbacks.push(cb);
+	const callbacks: FrameRequestCallback[] = [];
+	vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+		callbacks.push(callback);
 		return callbacks.length;
 	});
 	vi.stubGlobal('cancelAnimationFrame', () => {});
 	return {
+		get pending() {
+			return callbacks.length;
+		},
 		flush(count = 1) {
 			for (let i = 0; i < count; i++) {
-				const cb = callbacks.shift();
-				cb?.();
+				callbacks.shift()?.(performance.now());
 			}
 		}
 	};
@@ -189,18 +192,45 @@ describe('Clock', () => {
 		clock.dispose();
 	});
 
-	it('does not create duplicate loops when tick fires repeatedly at boundary', () => {
+	it('keeps exactly one animation frame scheduled across repeated loop wraps', () => {
 		const clock = new Clock({ fps: 30, timeSource: time });
 		const frames: number[] = [];
 		clock.on('framechange', (f) => frames.push(f));
 		clock.play({ range: { start: 0, end: 10 }, loop: true });
-		time.advance(0.5); // 15 frames >10 loop once
-		raf.flush(2);
-		time.advance(0.1);
-		raf.flush(2);
-		const endedCount = frames.filter((f) => f === 0).length;
-		expect(endedCount).toBeLessThanOrEqual(3);
+		frames.length = 0;
+		expect(raf.pending).toBe(1);
+		time.advance(0.5);
+		raf.flush(1);
+		expect(clock.currentFrame).toBe(0);
+		expect(raf.pending).toBe(1);
+		time.advance(0.5);
+		raf.flush(1);
+		expect(clock.currentFrame).toBe(0);
+		expect(raf.pending).toBe(1);
+		expect(frames.filter((frame) => frame === 0)).toHaveLength(2);
 		clock.dispose();
+	});
+
+	it('clamps a paused frame to its range and stops reverse playback at timeline zero', () => {
+		const ranged = new Clock({ fps: 30, timeSource: time });
+		ranged.play({ range: { start: 10, end: 40 } });
+		time.advance(10);
+		ranged.pause();
+		expect(ranged.currentFrame).toBe(39);
+		ranged.dispose();
+
+		const reverseTime = new FakeTimeSource();
+		const reverseRaf = rafHarness();
+		const reverse = new Clock({ fps: 30, timeSource: reverseTime });
+		reverse.seek(5);
+		reverse.setRate(-1);
+		reverse.play();
+		reverseTime.advance(1);
+		expect(reverse.currentFrame).toBe(0);
+		reverseRaf.flush(1);
+		expect(reverse.currentFrame).toBe(0);
+		expect(reverse.isPlaying).toBe(false);
+		reverse.dispose();
 	});
 
 	it('pause resets rate handling and emits correctly', () => {
@@ -217,5 +247,107 @@ describe('Clock', () => {
 		clock.setRate(1);
 		expect(clock.playbackRate).toBe(1);
 		clock.dispose();
+	});
+
+	it('clamps far-past forward boundary to end-1 before and after tick', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.seek(30);
+		clock.play({ range: { start: 10, end: 40 } });
+		time.advance(10); // far beyond
+		expect(clock.currentFrame).toBe(39);
+		raf.flush(1);
+		expect(clock.currentFrame).toBe(39);
+		clock.dispose();
+	});
+
+	it('clamps far-past reverse boundary to start before and after tick', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.seek(30);
+		clock.setRate(-2);
+		clock.play({ range: { start: 10, end: 40 } });
+		time.advance(10); // far beyond reverse
+		expect(clock.currentFrame).toBe(10);
+		raf.flush(1);
+		expect(clock.currentFrame).toBe(10);
+		clock.dispose();
+	});
+
+	it('forward end lands on end-1, reverse end lands on start', () => {
+		const fwd = new Clock({ fps: 30, timeSource: time });
+		fwd.play({ range: { start: 10, end: 40 } });
+		time.advance(10);
+		raf.flush(2);
+		expect(fwd.isPlaying).toBe(false);
+		expect(fwd.currentFrame).toBe(39);
+		fwd.dispose();
+
+		const time2 = new FakeTimeSource();
+		const raf2 = rafHarness();
+		const rev = new Clock({ fps: 30, timeSource: time2 });
+		rev.seek(30);
+		rev.setRate(-1);
+		rev.play({ range: { start: 10, end: 40 } });
+		time2.advance(10);
+		raf2.flush(2);
+		expect(rev.isPlaying).toBe(false);
+		expect(rev.currentFrame).toBe(10);
+		rev.dispose();
+	});
+
+	it('exact signed 1x/2x/4x produce correct frame deltas with ceil/floor', () => {
+		for (const rate of [1, 2, 4] as const) {
+			const t = new FakeTimeSource();
+			rafHarness();
+			const c = new Clock({ fps: 30, timeSource: t });
+			c.setRate(rate);
+			c.seek(0);
+			c.play();
+			t.advance(1);
+			expect(c.currentFrame).toBe(30 * rate);
+			c.dispose();
+		}
+		for (const rate of [-1, -2, -4] as const) {
+			const t = new FakeTimeSource();
+			rafHarness();
+			const c = new Clock({ fps: 30, timeSource: t });
+			c.seek(120);
+			c.setRate(rate);
+			c.play({ range: { start: 0, end: 300 } });
+			t.advance(1);
+			expect(c.currentFrame).toBe(120 + 30 * rate);
+			c.dispose();
+		}
+	});
+
+	it('loop wraps to opposite valid frame for both directions', () => {
+		const fwd = new Clock({ fps: 30, timeSource: time });
+		fwd.play({ range: { start: 10, end: 40 }, loop: true });
+		time.advance(5);
+		raf.flush(1);
+		expect(fwd.currentFrame).toBeGreaterThanOrEqual(10);
+		expect(fwd.currentFrame).toBeLessThan(40);
+		fwd.dispose();
+		const t2 = new FakeTimeSource();
+		const raf2b = rafHarness();
+		const rev = new Clock({ fps: 30, timeSource: t2 });
+		rev.seek(15);
+		rev.setRate(-1);
+		rev.play({ range: { start: 10, end: 40 }, loop: true });
+		t2.advance(5);
+		raf2b.flush(1);
+		expect(rev.currentFrame).toBeGreaterThanOrEqual(10);
+		expect(rev.currentFrame).toBeLessThan(40);
+		rev.dispose();
+	});
+
+	it('dispose cancels raf and clears listeners', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		const fn = vi.fn();
+		clock.on('framechange', fn);
+		clock.play();
+		clock.dispose();
+		expect(clock.isPlaying).toBe(false);
+		// Second dispose should not throw
+		expect(() => clock.dispose()).not.toThrow();
 	});
 });

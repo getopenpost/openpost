@@ -9,6 +9,7 @@
 		getShuttleMediaPlaybackRate,
 		isReverseShuttleRate
 	} from '$lib/video-editor/preview/shuttle';
+	import { resolveAudioOwner } from '$lib/video-editor/preview/audio-owner';
 	import { effectsToCssFilter } from '$lib/video-editor/effects/filter';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
 	import { frameToSourceSeconds } from '$lib/video-editor/media/render-plan';
@@ -288,21 +289,23 @@
 	);
 	const usesProcessedAudio = $derived(item.type === 'video' && requiresProcessedPreviewAudio(item));
 
-	const transportRate = $derived(editorSession.clock.playbackRate);
-	const isShuttleReverse = $derived(
-		isReverseShuttleRate(transportRate) && editorSession.clock.isPlaying
-	);
+	const transportRate = $derived(editorSession.playbackRate);
+	const isShuttleReverse = $derived(isReverseShuttleRate(transportRate) && editorSession.isPlaying);
 
 	$effect(() => {
-		const transportRate = editorSession.clock.playbackRate;
-		const isPlaying = editorSession.clock.isPlaying;
-		const ownsEmbeddedAudio =
-			item.type === 'video' &&
-			!usesSeparateProxyAudio &&
-			!usesProcessedAudio &&
-			!hasLinkedAudioCompanion(item, timelineStore.items);
-		const sourceUrl = url;
-		if (!isPlaying || !isReverseShuttleRate(transportRate) || !ownsEmbeddedAudio || !sourceUrl) {
+		const transportRate = editorSession.playbackRate;
+		const isPlaying = editorSession.isPlaying;
+		const audioOwner = resolveAudioOwner({
+			item,
+			tracks: timelineStore.tracks,
+			allItems: timelineStore.items,
+			mediaEntry: item.mediaId ? mediaPool.entry(item.mediaId) : null,
+			usesSeparateProxyAudio,
+			usesProcessedAudio
+		});
+		const ownsShuttleAudio = audioOwner === 'embedded' || audioOwner === 'separateProxy';
+		const sourceUrl = audioOwner === 'separateProxy' ? audioUrl : url;
+		if (!isPlaying || !isReverseShuttleRate(transportRate) || !ownsShuttleAudio || !sourceUrl) {
 			shuttleScheduler?.dispose();
 			shuttleScheduler = null;
 			if (shuttleGainNode) {
@@ -314,26 +317,12 @@
 			return;
 		}
 		let stale = false;
-		void decodedPreviewAudio(sourceUrl, mediaPool.get(item.mediaId ?? '')?.audioCodec).then(
-			(buffer) => {
+		void decodedPreviewAudio(sourceUrl, mediaPool.get(item.mediaId ?? '')?.audioCodec)
+			.then((buffer) => {
 				if (stale || !buffer) return;
 				const context = previewAudioContext();
 				const gain = context.createGain();
-				gain.gain.value = previewItemVolumeWithFade(
-					previewItemVolume(
-						item,
-						timelineStore.tracks,
-						previewPlaybackSettings.volume,
-						previewPlaybackSettings.muted
-					),
-					audioCrossfadeGainAtFrame(
-						item,
-						timelineStore.currentFrame,
-						transitionsStore.list,
-						timelineStore.itemById
-					),
-					audioClipFadeGainAtFrame(item, timelineStore.currentFrame, timelineStore.fps)
-				);
+				gain.gain.value = previewVolume;
 				const detach = attachAudioSourceToMixer(gain, `shuttle-video:${item.id}`);
 				shuttleGainNode = gain;
 				detachShuttle = detach;
@@ -345,14 +334,14 @@
 						frameToSourceSeconds(item, timelineStore.currentFrame, editorSession.fps),
 					authoredPlaybackRate: item.speed ?? 1,
 					authoredReversed: !!item.isReversed,
-					getTransportRate: () => editorSession.clock.playbackRate,
+					getTransportRate: () => editorSession.playbackRate,
 					getGain: () => 1,
 					destination: gain
 				});
 				shuttleScheduler = scheduler;
 				scheduler.start();
-			}
-		);
+			})
+			.catch(() => undefined);
 		return () => {
 			stale = true;
 			shuttleScheduler?.dispose();
@@ -368,6 +357,7 @@
 
 	$effect(() => {
 		setMixerMaster(timelineStore.masterVolumeDb, timelineStore.masterMuted);
+		if (shuttleGainNode) shuttleGainNode.gain.value = previewVolume;
 		const video = mediaElement;
 		if (videoMixerGain) {
 			const gain = usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume;
@@ -520,7 +510,7 @@
 	}
 
 	function scheduleSeekFallback(timestampSeconds: number): void {
-		if (editorSession.clock.isPlaying || !item.mediaId) return;
+		if (editorSession.isPlaying || !item.mediaId) return;
 		const generation = ++proxyFallbackGeneration;
 		if (proxyFallbackTimer !== null) clearTimeout(proxyFallbackTimer);
 		proxyFallbackTimer = setTimeout(() => {
@@ -700,7 +690,7 @@
 				item.isReversed && conform
 					? sourceSecondsToReverseConformSeconds(conform, originalSourceTime)
 					: originalSourceTime;
-			const transportRate = editorSession.clock.playbackRate;
+			const transportRate = editorSession.playbackRate;
 			const combinedRate = getShuttleMediaPlaybackRate(speed, Math.abs(transportRate));
 			const driftThreshold = 0.08 / Math.max(0.1, combinedRate);
 			if (seekDriftExceeded(video.currentTime, sourceTime, driftThreshold)) {
@@ -713,22 +703,22 @@
 					audioScheduler?.request(sourceTime);
 				audio.playbackRate = combinedRate;
 			}
-			const shuttleReverse = isReverseShuttleRate(transportRate) && editorSession.clock.isPlaying;
+			const shuttleReverse = isReverseShuttleRate(transportRate) && editorSession.isPlaying;
 			if (
-				editorSession.clock.isPlaying &&
+				editorSession.isPlaying &&
 				!shuttleReverse &&
 				video.paused &&
 				(!item.isReversed || conform !== null)
 			)
 				void video.play().catch(() => undefined);
 			if (shuttleReverse && !video.paused) video.pause();
-			if (editorSession.clock.isPlaying && !shuttleReverse) clearProxySeekFallback();
-			if (editorSession.clock.isPlaying && !shuttleReverse && audio?.paused)
+			if (editorSession.isPlaying && !shuttleReverse) clearProxySeekFallback();
+			if (editorSession.isPlaying && !shuttleReverse && audio?.paused)
 				void audio.play().catch(() => undefined);
 			if (shuttleReverse && audio && !audio.paused) audio.pause();
 			if (item.isReversed && !conform && !video.paused) video.pause();
-			if (!editorSession.clock.isPlaying && !video.paused) video.pause();
-			if (!editorSession.clock.isPlaying && audio && !audio.paused) audio.pause();
+			if (!editorSession.isPlaying && !video.paused) video.pause();
+			if (!editorSession.isPlaying && audio && !audio.paused) audio.pause();
 			if (selected && !needsGpu && !deferEffects)
 				requestAnimationFrame(() => publishScopeSample(video));
 		};
@@ -1179,7 +1169,7 @@
 
 	function publishScopeSample(source: CanvasImageSource): void {
 		const now = performance.now();
-		if (now - lastScopeAt < (editorSession.clock.isPlaying ? 66 : 200)) return;
+		if (now - lastScopeAt < (editorSession.isPlaying ? 66 : 200)) return;
 		lastScopeAt = now;
 		const canvas = new OffscreenCanvas(256, 144);
 		const context = canvas.getContext('2d');

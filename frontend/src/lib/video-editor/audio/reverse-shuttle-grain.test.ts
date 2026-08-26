@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mixerDbToGain } from './mixer-utils';
-import {
-	copyShuttleGrainSamples,
-	resolveReverseShuttleGrainPlan
-} from './reverse-shuttle-grain';
+import { copyShuttleGrainSamples, resolveReverseShuttleGrainPlan } from './reverse-shuttle-grain';
 
 describe('reverse shuttle grain', () => {
 	it('plans normal clip grain reversed and authored-reversed forward', () => {

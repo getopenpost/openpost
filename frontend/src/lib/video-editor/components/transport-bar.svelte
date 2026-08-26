@@ -49,7 +49,7 @@
 		onvoiceoverinserted = () => {}
 	}: { projectId: string; onvoiceoverinserted?: (itemId: string) => void } = $props();
 
-	const playing = $derived(editorSession.clock.isPlaying);
+	const playing = $derived(editorSession.isPlaying);
 	const fps = $derived(editorSession.fps);
 	const totalFrames = $derived(outputDurationFrames(timelineStore.items));
 	const monitorPercent = $derived(Math.round(previewPlaybackSettings.volume * 100));

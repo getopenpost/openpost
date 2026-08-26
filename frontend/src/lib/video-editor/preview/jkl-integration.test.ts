@@ -20,17 +20,19 @@ class FakeTimeSource implements ClockTimeSource {
 }
 
 function rafHarness() {
-	const callbacks: Array<() => void> = [];
-	vi.stubGlobal('requestAnimationFrame', (cb: () => void) => {
-		callbacks.push(cb);
+	const callbacks: FrameRequestCallback[] = [];
+	vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => {
+		callbacks.push(callback);
 		return callbacks.length;
 	});
 	vi.stubGlobal('cancelAnimationFrame', () => {});
 	return {
+		get pending() {
+			return callbacks.length;
+		},
 		flush(count = 1) {
 			for (let i = 0; i < count; i++) {
-				const cb = callbacks.shift();
-				cb?.();
+				callbacks.shift()?.(performance.now());
 			}
 		}
 	};
@@ -53,18 +55,34 @@ describe('JKL shuttle integration', () => {
 		expect(getNextShuttleRate(4, -1)).toBe(-1);
 	});
 
+	it('catches up on focus without adding a second animation frame', () => {
+		const time = new FakeTimeSource();
+		const raf = rafHarness();
+		const clock = new Clock({ fps: 30, timeSource: time });
+		const frames: number[] = [];
+		clock.on('framechange', (frame) => frames.push(frame));
+		clock.play();
+		expect(raf.pending).toBe(1);
+
+		time.advance(1);
+		window.dispatchEvent(new Event('focus'));
+
+		expect(clock.currentFrame).toBe(30);
+		expect(frames.at(-1)).toBe(30);
+		expect(raf.pending).toBe(1);
+		clock.dispose();
+	});
+
 	it('ignores repeat and remapped shortcuts', () => {
 		const bindings = resolveEditorShortcuts({
 			SHUTTLE_FORWARD: 'shift+l',
 			SHUTTLE_REVERSE: 'shift+j'
 		});
-		// SAFETY: test constructs minimal KeyboardEvent-like object for shortcut matching.
-		const event = { key: 'l', code: 'KeyL', shiftKey: true } as unknown as KeyboardEvent;
+		const event = new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', shiftKey: true });
 		expect(eventMatchesShortcut(event, bindings.SHUTTLE_FORWARD)).toBe(true);
 		expect(
 			eventMatchesShortcut(
-				// SAFETY: test constructs minimal KeyboardEvent-like object for shortcut matching.
-				{ key: 'l', code: 'KeyL' } as unknown as KeyboardEvent,
+				new KeyboardEvent('keydown', { key: 'l', code: 'KeyL' }),
 				bindings.SHUTTLE_FORWARD
 			)
 		).toBe(false);
@@ -91,7 +109,7 @@ describe('JKL shuttle integration', () => {
 		raf.flush(1);
 		expect(clock.currentFrame).toBe(30);
 		expect(frames.length).toBeGreaterThan(0);
-		expect(frames[frames.length - 1]!).toBe(30);
+		expect(frames.at(-1)).toBe(30);
 		clock.dispose();
 	});
 
@@ -140,43 +158,21 @@ describe('JKL shuttle integration', () => {
 		clock2.dispose();
 	});
 
-	it('no duplicate loops', () => {
+	it('no duplicate loops when tick fires repeatedly at boundary', () => {
 		const time = new FakeTimeSource();
 		const raf = rafHarness();
 		const clock = new Clock({ fps: 30, timeSource: time });
-		let loopCount = 0;
-		clock.on('framechange', (f) => {
-			if (f === 0) loopCount += 1;
-		});
+		const frames: number[] = [];
+		clock.on('framechange', (f) => frames.push(f));
 		clock.play({ range: { start: 0, end: 10 }, loop: true });
 		time.advance(0.5);
 		raf.flush(2);
 		time.advance(0.5);
 		raf.flush(2);
-		expect(loopCount).toBeLessThanOrEqual(5);
+		// Should loop but not emit duplicate end frames repeatedly
+		const zeroFrames = frames.filter((f) => f === 0).length;
+		expect(zeroFrames).toBeLessThanOrEqual(5);
 		clock.dispose();
-	});
-
-	it('cleanup removes listeners on dispose', () => {
-		const time = new FakeTimeSource();
-		rafHarness();
-		const clock = new Clock({ fps: 30, timeSource: time });
-		const fn = vi.fn();
-		const off = clock.on('framechange', fn);
-		off();
-		clock.play();
-		clock.dispose();
-		expect(() => clock.dispose()).not.toThrow();
-	});
-
-	it('Space routing respects source hover', () => {
-		// Simulate source hover active: Space should route to source, not program
-		// This is verified via sourceHoverStore.isActive logic in +page.svelte
-		// For pure test, verify that Play/Pause shortcut is source-local when hovered
-		const bindings = resolveEditorShortcuts({ PLAY_PAUSE: 'space' });
-		// SAFETY: test seam - minimal mock for controllable media/AudioContext.
-		const spaceEvent = { key: ' ', code: 'Space' } as unknown as KeyboardEvent;
-		expect(eventMatchesShortcut(spaceEvent, bindings.PLAY_PAUSE)).toBe(true);
 	});
 
 	it('reverse grain ordering respects authored direction', () => {

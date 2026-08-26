@@ -1321,6 +1321,7 @@
 		window.removeEventListener('pointercancel', cancelRulerScrub);
 		audioSkimController.stop();
 		shuttleScrubResume.cancel();
+		editorSession.pausePlayback();
 	}
 
 	function startRulerScrub(event: PointerEvent): void {
@@ -1329,7 +1330,6 @@
 		event.preventDefault();
 		event.stopPropagation();
 		shuttleScrubResume.begin();
-		editorSession.pausePlayback();
 		if (audioSkimStopTimer) clearTimeout(audioSkimStopTimer);
 		audioSkimStopTimer = null;
 		rulerScrub = {

@@ -89,6 +89,13 @@ export const LOCAL_MODEL_CACHE_DEFINITIONS: LocalModelCacheDefinition[] = [
 		storage: 'moss-opfs'
 	},
 	{
+		id: 'agent-gemma',
+		label: 'Assistant model',
+		description: 'On-device editing assistant model and tokenizer.',
+		cacheName: TRANSFORMERS_CACHE_NAME,
+		matchPathFragments: ['/gemma-3n-']
+	},
+	{
 		id: 'ace-step-music',
 		label: 'ACE-Step music',
 		description: 'Local music generation graphs, weights, tokenizers and VAE.',

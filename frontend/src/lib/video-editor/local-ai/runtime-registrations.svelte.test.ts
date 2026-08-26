@@ -10,6 +10,7 @@ import '../media/scene-search/ai/clip-provider';
 import '../media/scene-search/ai/embeddings-provider';
 import '../transcript/engine/lib/transcription-worker-pool';
 import '../transcript/filler-audio-confidence';
+import '../agent/store.svelte';
 import { inspectLocalAiRuntimes } from './runtime-registry';
 
 describe('local AI runtime registrations', () => {
@@ -20,6 +21,7 @@ describe('local AI runtime registrations', () => {
 				.toSorted()
 		).toEqual([
 			'ace-step-music',
+			'agent-gemma',
 			'anime4k-upscale',
 			'filler-audio-confidence',
 			'kokoro-tts',

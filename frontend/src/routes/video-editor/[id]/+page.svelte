@@ -54,7 +54,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import MediaPoolList from '$lib/video-editor/components/media-pool-list.svelte';
 	import SceneBrowserPanel from '$lib/video-editor/components/scene-browser-panel.svelte';
 	import AssetLibraryPanel from '$lib/video-editor/components/asset-library-panel.svelte';
-	import LocalAiPanel from '$lib/video-editor/components/local-ai-panel.svelte';
+	import EditorAssistantPanel from '$lib/video-editor/components/editor-assistant-panel.svelte';
 	import EffectsPanel from '$lib/video-editor/components/effects-panel.svelte';
 	import MotionPresetsPanel from '$lib/video-editor/components/motion-presets-panel.svelte';
 	import TextMotionPanel from '$lib/video-editor/components/text-motion-panel.svelte';
@@ -604,7 +604,15 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 
 	let speechCleanupOpen = $state(false);
 	let speechCleanupMode = $state<'fillers' | 'silence'>('fillers');
+	let speechCleanupTargetIds = $state<string[] | null>(null);
 	const speechCleanupItemIds = $derived.by(() => {
+		if (speechCleanupTargetIds && speechCleanupTargetIds.length > 0) {
+			const valid = speechCleanupTargetIds.filter((id) => {
+				const item = timelineStore.itemById.get(id);
+				return item?.type === 'video' || item?.type === 'audio';
+			});
+			if (valid.length > 0) return valid;
+		}
 		const selected =
 			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : [];
 		const selectedMedia = selected.filter((id) => {
@@ -620,9 +628,21 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 
 	function openSpeechCleanup(mode: 'fillers' | 'silence'): void {
 		editorSession.pausePlayback();
+		speechCleanupTargetIds = null;
 		speechCleanupMode = mode;
 		speechCleanupOpen = true;
 	}
+
+	function openAgentSpeechCleanup(mode: 'fillers' | 'silence', itemIds: string[]): void {
+		editorSession.pausePlayback();
+		speechCleanupMode = mode;
+		speechCleanupTargetIds = [...itemIds];
+		speechCleanupOpen = true;
+	}
+
+	$effect(() => {
+		if (!speechCleanupOpen) speechCleanupTargetIds = null;
+	});
 
 	function handleSpeechCleanupApplied(removedCount: number): void {
 		editorSession.scheduleAutosave();
@@ -953,7 +973,23 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 							{:else if assetPanel === 'assets'}
 								<AssetLibraryPanel {projectId} oninserted={handleVectorAssetInserted} />
 							{:else}
-								<LocalAiPanel {projectId} oninserted={handleGeneratedAudioInserted} />
+								<EditorAssistantPanel
+									{projectId}
+									oninserted={handleGeneratedAudioInserted}
+									onselectitems={(ids) => {
+										selectedItemIds = ids;
+										selectedItemId = ids[0] ?? null;
+										selectedTransitionId = null;
+									}}
+									onopensilence={(ids) => openAgentSpeechCleanup('silence', ids)}
+									onopenfillers={(ids) => openAgentSpeechCleanup('fillers', ids)}
+									selectedIds={selectedItemIds.length > 0
+										? selectedItemIds
+										: selectedItemId
+											? [selectedItemId]
+											: []}
+									onautosave={() => editorSession.scheduleAutosave()}
+								/>
 							{/if}
 							<MediaTaskProgress />
 						</aside>

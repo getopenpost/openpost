@@ -422,6 +422,28 @@ export function splitAtFrame(frame: number, trackId?: string): { left: string[];
 	});
 }
 
+export function splitItemsAtFrame(
+	frame: number,
+	itemIds: string[]
+): { left: string[]; right: string[] } {
+	return execute('SPLIT_ITEMS', () => {
+		const left: string[] = [];
+		const right: string[] = [];
+		const idSet = new Set(itemIds);
+		const targets = timelineStore.items.filter(
+			(item) => idSet.has(item.id) && frame > item.from && frame < item.from + item.durationInFrames
+		);
+		for (const item of targets) {
+			const result = timelineStore._splitItem(item.id, frame);
+			if (result) {
+				left.push(result.leftItem.id);
+				right.push(result.rightItem.id);
+			}
+		}
+		return { left, right };
+	});
+}
+
 /**
  * Split one item at every scene-change frame, right-to-left, as one
  * undoable step. Right-to-left keeps later cut points valid because each

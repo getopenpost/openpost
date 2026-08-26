@@ -6967,5 +6967,15 @@
 	"video_editor_edit_preview_in": "IN",
 	"video_editor_edit_preview_gap_label": "ギャップ",
 	"video_editor_edit_preview_baseline": "基準",
-	"video_editor_edit_preview_time_missing": "-"
+	"video_editor_edit_preview_time_missing": "-",
+	"video_editor_adjust_audio_fade_in": "オーディオフェードインを調整",
+	"video_editor_adjust_audio_fade_out": "オーディオフェードアウトを調整",
+	"video_editor_adjust_video_fade_in": "ビデオフェードインを調整",
+	"video_editor_adjust_video_fade_out": "ビデオフェードアウトを調整",
+	"video_editor_fade_in_readout": "フェードイン {seconds}秒",
+	"video_editor_fade_out_readout": "フェードアウト {seconds}秒",
+	"video_editor_fade_handle_keyboard": "ドラッグでフェードを調整。左右矢印で1フレーム、Shift+矢印で10フレーム、Homeでクリア、Endで最大。",
+	"video_editor_adjust_audio_fade_in_curve": "オーディオフェードインカーブを調整",
+	"video_editor_adjust_audio_fade_out_curve": "オーディオフェードアウトカーブを調整",
+	"video_editor_audio_fade_curve_value": "カーブ {curve}、バイアス {bias}"
 }

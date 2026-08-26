@@ -6949,5 +6949,17 @@
 	"video_editor_gpu_option_lens": "Lens",
 	"video_editor_gpu_option_contour": "Contour",
 	"video_editor_gpu_option_cascade": "Cascade",
-	"video_editor_gpu_option_flat": "Flat"
+	"video_editor_gpu_option_flat": "Flat",
+	"video_editor_edit_preview_rolling": "롤링 편집 - OUT / IN",
+	"video_editor_edit_preview_ripple": "리플 편집 - OUT / IN",
+	"video_editor_edit_preview_slip": "슬립 - 신규 / 기준",
+	"video_editor_edit_preview_slide": "슬라이드 - 신규 / 기준",
+	"video_editor_edit_preview_baseline_hint": "위쪽이 신규, 아래쪽이 기준",
+	"video_editor_edit_preview_gap": "간격 - 이 가장자리에 미디어 없음",
+	"video_editor_edit_preview_hint": "드래그하여 비교. Esc로 취소, 놓아서 확정.",
+	"video_editor_edit_preview_out": "OUT",
+	"video_editor_edit_preview_in": "IN",
+	"video_editor_edit_preview_gap_label": "간격",
+	"video_editor_edit_preview_baseline": "기준",
+	"video_editor_edit_preview_time_missing": "-"
 }

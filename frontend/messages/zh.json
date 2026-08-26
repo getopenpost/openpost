@@ -6949,5 +6949,17 @@
 	"video_editor_gpu_option_lens": "Lens",
 	"video_editor_gpu_option_contour": "Contour",
 	"video_editor_gpu_option_cascade": "Cascade",
-	"video_editor_gpu_option_flat": "Flat"
+	"video_editor_gpu_option_flat": "Flat",
+	"video_editor_edit_preview_rolling": "滚动编辑 - OUT / IN",
+	"video_editor_edit_preview_ripple": "波纹编辑 - OUT / IN",
+	"video_editor_edit_preview_slip": "滑移 - 新 / 基准",
+	"video_editor_edit_preview_slide": "滑动 - 新 / 基准",
+	"video_editor_edit_preview_baseline_hint": "上方为新，下方为基准",
+	"video_editor_edit_preview_gap": "间隙 - 此边缘无媒体",
+	"video_editor_edit_preview_hint": "拖动以比较。Esc 取消，释放以确认。",
+	"video_editor_edit_preview_out": "OUT",
+	"video_editor_edit_preview_in": "IN",
+	"video_editor_edit_preview_gap_label": "间隙",
+	"video_editor_edit_preview_baseline": "基准",
+	"video_editor_edit_preview_time_missing": "-"
 }

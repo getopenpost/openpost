@@ -6949,5 +6949,17 @@
 	"video_editor_gpu_option_lens": "Lens",
 	"video_editor_gpu_option_contour": "Contour",
 	"video_editor_gpu_option_cascade": "Cascade",
-	"video_editor_gpu_option_flat": "Flat"
+	"video_editor_gpu_option_flat": "Flat",
+	"video_editor_edit_preview_rolling": "ローリング編集 - OUT / IN",
+	"video_editor_edit_preview_ripple": "リップル編集 - OUT / IN",
+	"video_editor_edit_preview_slip": "スリップ - 新規 / 基準",
+	"video_editor_edit_preview_slide": "スライド - 新規 / 基準",
+	"video_editor_edit_preview_baseline_hint": "上が新規、下が基準",
+	"video_editor_edit_preview_gap": "ギャップ - この端にメディアなし",
+	"video_editor_edit_preview_hint": "ドラッグして比較。Escでキャンセル、離して確定。",
+	"video_editor_edit_preview_out": "OUT",
+	"video_editor_edit_preview_in": "IN",
+	"video_editor_edit_preview_gap_label": "ギャップ",
+	"video_editor_edit_preview_baseline": "基準",
+	"video_editor_edit_preview_time_missing": "-"
 }

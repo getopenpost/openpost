@@ -85,6 +85,7 @@
 	import type { CanvasAnimatedValues } from '$lib/video-editor/preview/on-canvas-tools';
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import { spatialEffectEditorStore } from '$lib/video-editor/preview/spatial-effect-editor.svelte';
+	import EditPreviewOverlay from './edit-preview-overlay.svelte';
 	import { getSpatialPointEffectConfig } from '$lib/video-editor/effects/spatial-point-editor';
 	import {
 		resolveTimelinePreviewFrame,
@@ -1351,6 +1352,7 @@
 					</div>
 				</div>
 			{/if}
+			<EditPreviewOverlay {canvasWidth} {canvasHeight} {urls} {proxyUrls} />
 		{/if}
 	</div>
 	{#each timelineStore.items.filter((item) => (item.type === 'audio' || (item.type === 'video' && requiresProcessedPreviewAudio(item) && !hasLinkedAudioCompanion(item, timelineStore.items))) && isAudioTransitionParticipantAtFrame(item, timelineStore.currentFrame, transitionsStore.list, timelineStore.itemById, editorSession.fps)) as item (item.id)}

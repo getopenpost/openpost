@@ -6949,5 +6949,17 @@
 	"video_editor_gpu_option_lens": "Lens",
 	"video_editor_gpu_option_contour": "Contour",
 	"video_editor_gpu_option_cascade": "Cascade",
-	"video_editor_gpu_option_flat": "Flat"
+	"video_editor_gpu_option_flat": "Flat",
+	"video_editor_edit_preview_rolling": "Edición rolling - OUT / IN",
+	"video_editor_edit_preview_ripple": "Edición ripple - OUT / IN",
+	"video_editor_edit_preview_slip": "Slip - nuevo / base",
+	"video_editor_edit_preview_slide": "Slide - nuevo / base",
+	"video_editor_edit_preview_baseline_hint": "Arriba nuevo, abajo base",
+	"video_editor_edit_preview_gap": "Hueco - sin material en este borde",
+	"video_editor_edit_preview_hint": "Arrastra para comparar. Esc cancela, suelta para confirmar.",
+	"video_editor_edit_preview_out": "OUT",
+	"video_editor_edit_preview_in": "IN",
+	"video_editor_edit_preview_gap_label": "Hueco",
+	"video_editor_edit_preview_baseline": "base",
+	"video_editor_edit_preview_time_missing": "-"
 }

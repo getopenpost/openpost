@@ -6949,5 +6949,17 @@
 	"video_editor_gpu_option_lens": "Lens",
 	"video_editor_gpu_option_contour": "Contour",
 	"video_editor_gpu_option_cascade": "Cascade",
-	"video_editor_gpu_option_flat": "Flat"
+	"video_editor_gpu_option_flat": "Flat",
+	"video_editor_edit_preview_rolling": "Rolling düzenleme - OUT / IN",
+	"video_editor_edit_preview_ripple": "Ripple düzenleme - OUT / IN",
+	"video_editor_edit_preview_slip": "Slip - yeni / referans",
+	"video_editor_edit_preview_slide": "Slide - yeni / referans",
+	"video_editor_edit_preview_baseline_hint": "Üstte yeni, altta referans",
+	"video_editor_edit_preview_gap": "Boşluk - bu kenarda medya yok",
+	"video_editor_edit_preview_hint": "Karşılaştırmak için sürükleyin. Esc iptal eder, bırakarak onaylayın.",
+	"video_editor_edit_preview_out": "OUT",
+	"video_editor_edit_preview_in": "IN",
+	"video_editor_edit_preview_gap_label": "Boşluk",
+	"video_editor_edit_preview_baseline": "referans",
+	"video_editor_edit_preview_time_missing": "-"
 }

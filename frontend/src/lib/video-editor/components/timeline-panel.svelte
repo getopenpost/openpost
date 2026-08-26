@@ -132,6 +132,10 @@
 		planTrimGesture
 	} from '$lib/video-editor/timeline/edit-gesture';
 	import {
+		buildBaselineMap,
+		editPreviewStore
+	} from '$lib/video-editor/preview/edit-preview-store.svelte';
+	import {
 		buildSnapTargets,
 		calculateAdaptiveSnapThreshold,
 		calculateMoveSnap,
@@ -2464,7 +2468,16 @@
 				fps,
 				drag.beforeSnapshot.transitions
 			);
-			if (updates.length > 0) timelineStore._updateItems(updates);
+			if (updates.length > 0) {
+				const anchorPatch = updates.find((candidate) => candidate.id === drag.id)?.patch;
+				const hasSourceChange =
+					anchorPatch?.sourceStart !== undefined &&
+					anchorPatch.sourceStart !== (drag.original.sourceStart ?? 0);
+				if (hasSourceChange) {
+					timelineStore._updateItems(updates);
+					ensureEditPreviewPublished();
+				}
+			}
 			return;
 		}
 		if (drag.kind === 'slide') {
@@ -2480,16 +2493,21 @@
 				drag.beforeSnapshot.transitions
 			);
 			activeSnapTarget = plan.snapTarget;
-			timelineStore._updateItems([
-				{ id: drag.id, patch: plan.itemPatch },
-				...(drag.slideLeft && plan.leftPatch
-					? [{ id: drag.slideLeft.id, patch: plan.leftPatch }]
-					: []),
-				...(drag.slideRight && plan.rightPatch
-					? [{ id: drag.slideRight.id, patch: plan.rightPatch }]
-					: []),
-				...(plan.linkedPatches ?? [])
-			]);
+			const hasSlideChange =
+				plan.itemPatch.from !== undefined && plan.itemPatch.from !== drag.original.from;
+			if (hasSlideChange) {
+				timelineStore._updateItems([
+					{ id: drag.id, patch: plan.itemPatch },
+					...(drag.slideLeft && plan.leftPatch
+						? [{ id: drag.slideLeft.id, patch: plan.leftPatch }]
+						: []),
+					...(drag.slideRight && plan.rightPatch
+						? [{ id: drag.slideRight.id, patch: plan.rightPatch }]
+						: []),
+					...(plan.linkedPatches ?? [])
+				]);
+				ensureEditPreviewPublished();
+			}
 			return;
 		}
 		if (isRateStretchKind(drag.kind)) {
@@ -2528,41 +2546,47 @@
 				drag.beforeSnapshot.transitions
 			);
 			activeSnapTarget = plan.snapTarget;
-			timelineStore._updateItems([
-				{ id: drag.id, patch: plan.patch },
-				...(plan.linkedPatches ?? []),
-				...plan.moves.map((move) => ({
-					id: move.id,
-					patch: { from: move.from }
-				}))
-			]);
-			drag.rippleMoveIds = plan.moves.map((move) => move.id);
-			const durationInFrames = plan.patch.durationInFrames ?? drag.original.durationInFrames;
-			const shift = durationInFrames - drag.original.durationInFrames;
-			const editedTrackIds = new Set(
-				getSynchronizedLinkedItems(drag.editItems, drag.original.id).map(
-					(candidate) => candidate.trackId
-				)
-			);
-			const oldEnd = drag.original.from + drag.original.durationInFrames;
-			setSyncLockPreview(
-				shift < 0
-					? buildRemovedIntervalPreviewUpdatesForSyncLockedTracks({
-							items: drag.beforeSnapshot.items,
-							tracks: drag.beforeSnapshot.tracks,
-							editedTrackIds,
-							intervals: [{ start: oldEnd + shift, end: oldEnd }]
-						})
-					: shift > 0
-						? buildInsertedGapPreviewUpdatesForSyncLockedTracks({
+			const hasRippleChange =
+				plan.patch.durationInFrames !== undefined &&
+				plan.patch.durationInFrames !== drag.original.durationInFrames;
+			if (hasRippleChange) {
+				timelineStore._updateItems([
+					{ id: drag.id, patch: plan.patch },
+					...(plan.linkedPatches ?? []),
+					...plan.moves.map((move) => ({
+						id: move.id,
+						patch: { from: move.from }
+					}))
+				]);
+				drag.rippleMoveIds = plan.moves.map((move) => move.id);
+				const durationInFrames = plan.patch.durationInFrames ?? drag.original.durationInFrames;
+				const shift = durationInFrames - drag.original.durationInFrames;
+				const editedTrackIds = new Set(
+					getSynchronizedLinkedItems(drag.editItems, drag.original.id).map(
+						(candidate) => candidate.trackId
+					)
+				);
+				const oldEnd = drag.original.from + drag.original.durationInFrames;
+				setSyncLockPreview(
+					shift < 0
+						? buildRemovedIntervalPreviewUpdatesForSyncLockedTracks({
 								items: drag.beforeSnapshot.items,
 								tracks: drag.beforeSnapshot.tracks,
 								editedTrackIds,
-								cutFrame: oldEnd,
-								amount: shift
+								intervals: [{ start: oldEnd + shift, end: oldEnd }]
 							})
-						: []
-			);
+						: shift > 0
+							? buildInsertedGapPreviewUpdatesForSyncLockedTracks({
+									items: drag.beforeSnapshot.items,
+									tracks: drag.beforeSnapshot.tracks,
+									editedTrackIds,
+									cutFrame: oldEnd,
+									amount: shift
+								})
+							: []
+				);
+				ensureEditPreviewPublished();
+			}
 			return;
 		}
 		if (drag.rollingNeighbor) {
@@ -2579,12 +2603,22 @@
 				drag.beforeSnapshot.transitions
 			);
 			if (plan) {
-				activeSnapTarget = plan.snapTarget;
-				timelineStore._updateItems([
-					{ id: left.id, patch: plan.leftPatch },
-					{ id: right.id, patch: plan.rightPatch },
-					...(plan.linkedPatches ?? [])
-				]);
+				const hasRollingChange =
+					(plan.leftPatch.durationInFrames !== undefined &&
+						plan.leftPatch.durationInFrames !== left.durationInFrames) ||
+					(plan.rightPatch.durationInFrames !== undefined &&
+						plan.rightPatch.durationInFrames !== right.durationInFrames);
+				if (hasRollingChange) {
+					activeSnapTarget = plan.snapTarget;
+					timelineStore._updateItems([
+						{ id: left.id, patch: plan.leftPatch },
+						{ id: right.id, patch: plan.rightPatch },
+						...(plan.linkedPatches ?? [])
+					]);
+					ensureEditPreviewPublished();
+				} else {
+					activeSnapTarget = plan.snapTarget;
+				}
 			}
 			return;
 		}
@@ -2665,6 +2699,7 @@
 		}
 		clearSyncLockPreview();
 		breakingTransitionPreviewIds = [];
+		editPreviewStore.clear();
 		if (!cancelled && !snapshotsEqual(completed.beforeSnapshot, captureSnapshot())) {
 			commandHistory.addUndoEntry(
 				{
@@ -2921,6 +2956,59 @@
 
 	function toggleEditTool(tool: AdvancedEditTool): void {
 		activeEditTool = activeEditTool === tool ? null : tool;
+		editPreviewStore.clear();
+	}
+
+	function beginEditPreview(): void {
+		if (!drag) return;
+		const ids: string[] = [drag.id];
+		if (drag.rollingNeighbor) ids.push(drag.rollingNeighbor.id);
+		if (drag.slideLeft) ids.push(drag.slideLeft.id);
+		if (drag.slideRight) ids.push(drag.slideRight.id);
+		const baseline = buildBaselineMap(drag.beforeSnapshot.items, ids);
+		if (drag.rollingNeighbor) {
+			const left = drag.kind === 'trim-end' ? drag.original : drag.rollingNeighbor;
+			const right = drag.kind === 'trim-start' ? drag.original : drag.rollingNeighbor;
+			editPreviewStore.begin({
+				kind: 'rolling',
+				anchorId: drag.id,
+				leftId: left.id,
+				rightId: right.id,
+				baseline
+			});
+			return;
+		}
+		if (drag.ripple) {
+			editPreviewStore.begin({
+				kind: 'ripple',
+				anchorId: drag.id,
+				handle: drag.kind === 'trim-start' ? 'start' : 'end',
+				baseline
+			});
+			return;
+		}
+		if (drag.kind === 'slip') {
+			editPreviewStore.begin({ kind: 'slip', anchorId: drag.id, baseline });
+			return;
+		}
+		if (drag.kind === 'slide') {
+			editPreviewStore.begin({
+				kind: 'slide',
+				anchorId: drag.id,
+				leftId: drag.slideLeft?.id ?? null,
+				rightId: drag.slideRight?.id ?? null,
+				baseline
+			});
+		}
+	}
+
+	function bumpEditPreview(): void {
+		if (editPreviewStore.current) editPreviewStore.bump();
+	}
+
+	function ensureEditPreviewPublished(): void {
+		if (editPreviewStore.current) bumpEditPreview();
+		else beginEditPreview();
 	}
 
 	function toggleSnap(): void {
@@ -2966,6 +3054,7 @@
 		clearMediaDropPreview(true);
 		clearActiveMediaDrag();
 		clearHoverPreview();
+		editPreviewStore.clear();
 		if (drag) finishDrag(true);
 		if (transitionResize) finishTransitionResize(true);
 		if (marquee) finishMarquee();

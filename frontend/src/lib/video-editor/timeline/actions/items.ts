@@ -63,6 +63,26 @@ export function addTextItem(label: string): string {
 	});
 }
 
+export function addTextItemAtFrame(label: string, frame: number): string {
+	return execute('ADD_TEXT_ITEM', () => {
+		const topVisualTrack = effectiveMediaTracks(timelineStore.tracks)
+			.filter((track) => track.kind !== 'audio' && !track.locked)
+			.toSorted((left, right) => left.order - right.order)[0];
+		if (!topVisualTrack) throw new Error('An unlocked visual track is required to add text.');
+		const id = crypto.randomUUID();
+		timelineStore._addItem({
+			id,
+			trackId: topVisualTrack.id,
+			from: frame,
+			durationInFrames: timelineStore.fps * 3,
+			label,
+			text: label,
+			type: 'text'
+		});
+		return id;
+	});
+}
+
 /** Add a non-rendering transform controller that can parent visual layers. */
 export function addTransformController(label: string): string {
 	return execute('ADD_TRANSFORM_CONTROLLER', () => {
@@ -728,6 +748,122 @@ export function setItemSpeed(id: string, speed: number): boolean {
 		pruneInvalidTransitions();
 	});
 	return true;
+}
+
+export function setItemsSpeed(
+	itemIds: string[],
+	speed: number
+): { changed: number; locked: number; noop: number } {
+	const clamped = clampSpeed(speed);
+	if (!Number.isFinite(clamped)) return { changed: 0, locked: 0, noop: 0 };
+	const expanded = new Map<string, TimelineItem>();
+	for (const id of itemIds) {
+		const item = timelineStore.itemById.get(id);
+		if (!item || (item.type !== 'video' && item.type !== 'audio')) continue;
+		const group = getSynchronizedLinkedItems(timelineStore.items, id).filter(
+			(candidate) => candidate.type === 'video' || candidate.type === 'audio'
+		);
+		for (const candidate of group.length > 0 ? group : [item])
+			expanded.set(candidate.id, candidate);
+	}
+	const trackById = new Map(
+		effectiveMediaTracks(timelineStore.tracks).map((track) => [track.id, track])
+	);
+	let locked = 0;
+	let noop = 0;
+	const toUpdate: TimelineItem[] = [];
+	for (const candidate of expanded.values()) {
+		if (trackById.get(candidate.trackId)?.locked) {
+			locked++;
+			continue;
+		}
+		if (Math.abs((candidate.speed ?? 1) - clamped) < 1e-9) {
+			noop++;
+			continue;
+		}
+		toUpdate.push(candidate);
+	}
+	if (toUpdate.length === 0) return { changed: 0, locked, noop };
+	if (locked > 0) return { changed: 0, locked, noop };
+	execute('SET_ITEMS_SPEED', () => {
+		const updates = toUpdate.map((candidate) => {
+			const sourceFps = candidate.sourceFps ?? timelineStore.fps;
+			const currentSpeed = candidate.speed ?? 1;
+			const sourceFrames =
+				candidate.sourceStart !== undefined && candidate.sourceEnd !== undefined
+					? Math.max(1, candidate.sourceEnd - candidate.sourceStart)
+					: timelineToSourceFrames(
+							candidate.durationInFrames,
+							currentSpeed,
+							timelineStore.fps,
+							sourceFps
+						);
+			const durationInFrames = Math.max(
+				1,
+				sourceToTimelineFrames(sourceFrames, clamped, sourceFps, timelineStore.fps)
+			);
+			return {
+				id: candidate.id,
+				patch: {
+					speed: clamped,
+					durationInFrames,
+					keyframes: scaleItemKeyframes(
+						candidate.keyframes,
+						candidate.durationInFrames,
+						durationInFrames
+					),
+					...(candidate.vectorKeyframes && {
+						vectorKeyframes: scaleItemVectorKeyframes(
+							candidate.vectorKeyframes,
+							candidate.durationInFrames,
+							durationInFrames
+						)
+					})
+				} satisfies Partial<TimelineItem>
+			};
+		});
+		timelineStore._updateItems(updates);
+		pruneInvalidTransitions();
+	});
+	return { changed: toUpdate.length, locked, noop };
+}
+
+export function setItemsVolume(
+	itemIds: string[],
+	volume: number
+): { changed: number; locked: number } {
+	const clamped = Math.max(0, Math.min(1, volume));
+	if (!Number.isFinite(clamped)) return { changed: 0, locked: 0 };
+	const expanded = new Map<string, TimelineItem>();
+	for (const id of itemIds) {
+		const item = timelineStore.itemById.get(id);
+		if (!item || (item.type !== 'video' && item.type !== 'audio')) continue;
+		const group = getSynchronizedLinkedItems(timelineStore.items, id).filter(
+			(candidate) => candidate.type === 'video' || candidate.type === 'audio'
+		);
+		for (const candidate of group.length > 0 ? group : [item])
+			expanded.set(candidate.id, candidate);
+	}
+	const trackById = new Map(
+		effectiveMediaTracks(timelineStore.tracks).map((track) => [track.id, track])
+	);
+	let locked = 0;
+	const toUpdate: TimelineItem[] = [];
+	for (const candidate of expanded.values()) {
+		if (trackById.get(candidate.trackId)?.locked) {
+			locked++;
+			continue;
+		}
+		toUpdate.push(candidate);
+	}
+	if (toUpdate.length === 0) return { changed: 0, locked };
+	if (locked > 0) return { changed: 0, locked };
+	execute('SET_ITEMS_VOLUME', () => {
+		timelineStore._updateItems(
+			toUpdate.map((candidate) => ({ id: candidate.id, patch: { volume: clamped } }))
+		);
+	});
+	return { changed: toUpdate.length, locked };
 }
 
 export function setCurrentFrame(frame: number): void {

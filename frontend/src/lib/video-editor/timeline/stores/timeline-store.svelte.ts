@@ -394,6 +394,18 @@ export const timelineStore = {
 		state.isDirty = false;
 	},
 
+	__setSeekLockedForTesting(locked: boolean): void {
+		state.seekLocked = locked;
+	},
+
+	__updateItemsForTesting(items: Array<{ id: string; patch: Partial<TimelineItem> }>): void {
+		for (const { id, patch } of items) {
+			const existing = index.itemById.get(id);
+			if (existing) Object.assign(existing, patch);
+		}
+		reindex();
+	},
+
 	__resetForTesting(): void {
 		timelineStore.clear();
 		timelineStore._setZoomLevel(1);

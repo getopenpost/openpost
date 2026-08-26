@@ -12,6 +12,10 @@ export interface TimelineContextSnapshot {
 	clipCount: number;
 }
 
+function escapeLabel(label: string): string {
+	return label.replaceAll('"', "'").replace(/\r?\n/g, ' ').trim().slice(0, 40);
+}
+
 export function buildTimelineContext(
 	selectedIds: readonly string[] = [],
 	clipCountOverride?: number
@@ -31,7 +35,7 @@ export function buildTimelineContext(
 		lines.push('Clips (ref · type · label · start-end · [selected]):');
 		for (const clip of clips) {
 			lines.push(
-				`  ${clip.ref} ${clip.type} "${clip.label}" ${formatSeconds(clip.startSeconds)}-${formatSeconds(clip.endSeconds)}s${clip.selected ? ' [selected]' : ''}`
+				`  ${clip.ref} ${clip.type} "${escapeLabel(clip.label)}" ${formatSeconds(clip.startSeconds)}-${formatSeconds(clip.endSeconds)}s${clip.selected ? ' [selected]' : ''}`
 			);
 		}
 		if (items.length > clips.length) {

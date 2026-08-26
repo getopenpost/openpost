@@ -1,15 +1,17 @@
+import { m } from '$lib/paraglide/messages';
 import { z } from 'zod';
 import { timelineStore } from '../../timeline/stores/timeline-store.svelte';
 import {
-	addTextItem,
+	addTextItemAtFrame,
 	setCurrentFrame,
-	setItemSpeed,
+	setItemsSpeed,
+	setItemsVolume,
 	splitItemsAtFrame,
-	updateItemProperties,
 	rippleDeleteItems,
 	trimItemStart,
 	trimItemEnd
 } from '../../timeline/actions/items';
+import { timelineToSourceFrames } from '../../timeline/utils/source-calculations';
 import { addTransition as addTransitionAction } from '../../timeline/actions/transitions.svelte';
 import { buildClipRefs, resolveClipRefs, resolveItemRef, resolveTargetItems } from '../clip-refs';
 import { searchTimelineTranscript } from '../transcript-search';
@@ -138,8 +140,12 @@ const findClips = defineTool({
 		});
 		const summary =
 			matches.map((clip) => `${clip.ref} ${clip.type} "${clip.label}"`).join('; ') ||
-			'no matching clips';
-		return { ok: true, message: `Found ${matches.length}: ${summary}`, data: matches };
+			m.video_editor_agent_tool_find_clips_none();
+		return {
+			ok: true,
+			message: m.video_editor_agent_tool_find_clips_found({ count: matches.length, summary }),
+			data: matches
+		};
 	}
 });
 
@@ -159,13 +165,24 @@ const searchTranscript = defineTool({
 		const matches = await searchTimelineTranscript(args.query);
 		buildClipRefs();
 		if (matches.length === 0) {
-			return { ok: true, message: `No spoken match for "${args.query}".`, data: [] };
+			return {
+				ok: true,
+				message: m.video_editor_agent_tool_search_no_match({ query: args.query }),
+				data: []
+			};
 		}
 		const lines = matches.map((match) => {
 			const ref = resolveItemRef(match.itemId) ?? '?';
 			return `${ref} @${match.timelineSeconds.toFixed(1)}s "${match.snippet}"`;
 		});
-		return { ok: true, message: `Found "${args.query}" in: ${lines.join('; ')}`, data: matches };
+		return {
+			ok: true,
+			message: m.video_editor_agent_tool_search_found({
+				query: args.query,
+				lines: lines.join('; ')
+			}),
+			data: matches
+		};
 	}
 });
 
@@ -178,9 +195,15 @@ const selectClips = defineTool({
 	summarize: (args) => `Select ${args.clips.join(', ')}`,
 	execute: (args) => {
 		const ids = resolveClipRefs(args.clips);
-		if (ids.length === 0) throw new Error('None of those clip refs exist.');
+		if (ids.length === 0) throw new Error(m.video_editor_agent_error_no_clip_refs());
 		if (selectionHandler) selectionHandler(ids);
-		return { ok: true, message: `Selected ${ids.length} clip${ids.length === 1 ? '' : 's'}.` };
+		return {
+			ok: true,
+			message:
+				ids.length === 1
+					? m.video_editor_agent_tool_select({ count: ids.length })
+					: m.video_editor_agent_tool_select_plural({ count: ids.length })
+		};
 	}
 });
 
@@ -198,7 +221,10 @@ const seekTo = defineTool({
 	summarize: (args) => `Seek to ${args.seconds.toFixed(1)}s`,
 	execute: (args) => {
 		setCurrentFrame(Math.round(args.seconds * getFps()));
-		return { ok: true, message: `Moved playhead to ${args.seconds.toFixed(1)}s.` };
+		return {
+			ok: true,
+			message: m.video_editor_agent_tool_seek({ seconds: args.seconds.toFixed(1) })
+		};
 	}
 });
 
@@ -221,14 +247,15 @@ const addTitle = defineTool({
 	summarize: (args) => `Add title: "${args.text.slice(0, 40)}"`,
 	execute: (args) => {
 		const fps = getFps();
+		if (timelineStore.tracks.length === 0) throw new Error(m.video_editor_agent_error_no_media());
 		const from =
 			args.atSeconds !== undefined ? Math.round(args.atSeconds * fps) : timelineStore.currentFrame;
-		const previousFrame = timelineStore.currentFrame;
-		if (args.atSeconds !== undefined) setCurrentFrame(from);
-		const id = addTextItem(args.text);
+		const id = addTextItemAtFrame(args.text, from);
 		if (selectionHandler) selectionHandler([id]);
-		if (args.atSeconds !== undefined) setCurrentFrame(previousFrame);
-		return { ok: true, message: `Added a title "${args.text.slice(0, 40)}".` };
+		return {
+			ok: true,
+			message: m.video_editor_agent_tool_add_title({ text: args.text.slice(0, 40) })
+		};
 	}
 });
 
@@ -254,14 +281,20 @@ const split = defineTool({
 		const crossing = pool.filter(
 			(item) => frame > item.from && frame < item.from + item.durationInFrames
 		);
-		if (crossing.length === 0) throw new Error('No clips cross that time to split.');
+		if (crossing.length === 0) throw new Error(m.video_editor_agent_error_no_crossing());
 		const result = splitItemsAtFrame(
 			frame,
 			crossing.map((item) => item.id)
 		);
 		const count = result.right.length;
-		if (count === 0) throw new Error('No clips cross that time to split.');
-		return { ok: true, message: `Split ${count} clip${count === 1 ? '' : 's'}.` };
+		if (count === 0) throw new Error(m.video_editor_agent_error_no_clips_cross());
+		return {
+			ok: true,
+			message:
+				count === 1
+					? m.video_editor_agent_tool_split({ count })
+					: m.video_editor_agent_tool_split_plural({ count })
+		};
 	}
 });
 
@@ -275,12 +308,18 @@ const deleteClips = defineTool({
 	summarize: (args) => `Delete ${args.clips.join(', ')}`,
 	execute: (args) => {
 		const items = resolveTargetItems(args.clips);
-		if (items.length === 0) throw new Error('None of those clip refs exist.');
+		if (items.length === 0) throw new Error(m.video_editor_agent_error_no_clip_refs());
 		rippleDeleteItems(
 			items.map((item) => item.id),
 			timelineStore.linkedSelectionEnabled
 		);
-		return { ok: true, message: `Deleted ${items.length} clip${items.length === 1 ? '' : 's'}.` };
+		return {
+			ok: true,
+			message:
+				items.length === 1
+					? m.video_editor_agent_tool_delete({ count: items.length })
+					: m.video_editor_agent_tool_delete_plural({ count: items.length })
+		};
 	}
 });
 
@@ -297,12 +336,18 @@ const setSpeed = defineTool({
 	execute: (args) => {
 		const media = resolveTargetItems(args.clips).filter(isMedia);
 		if (media.length === 0) throw new Error('Select or name one or more video/audio clips.');
-		for (const item of media) {
-			setItemSpeed(item.id, args.speed);
+		const result = setItemsSpeed(
+			media.map((item) => item.id),
+			args.speed
+		);
+		if (result.locked > 0) throw new Error('One or more selected clips are on locked tracks.');
+		if (result.changed === 0) {
+			if (result.noop > 0) throw new Error('Clips are already at that speed.');
+			throw new Error('No clips were changed.');
 		}
 		return {
 			ok: true,
-			message: `Set ${media.length} clip${media.length === 1 ? '' : 's'} to ${args.speed}x.`
+			message: `Set ${result.changed} clip${result.changed === 1 ? '' : 's'} to ${args.speed}x.`
 		};
 	}
 });
@@ -320,12 +365,15 @@ const setVolume = defineTool({
 	execute: (args) => {
 		const media = resolveTargetItems(args.clips).filter(isMedia);
 		if (media.length === 0) throw new Error('Select or name one or more video/audio clips.');
-		for (const item of media) {
-			updateItemProperties(item.id, { volume: args.volume });
-		}
+		const result = setItemsVolume(
+			media.map((item) => item.id),
+			args.volume
+		);
+		if (result.locked > 0) throw new Error('One or more selected clips are on locked tracks.');
+		if (result.changed === 0) throw new Error('No clips were changed.');
 		return {
 			ok: true,
-			message: `Set ${media.length} clip${media.length === 1 ? '' : 's'} to ${Math.round(args.volume * 100)}% volume.`
+			message: `Set ${result.changed} clip${result.changed === 1 ? '' : 's'} to ${Math.round(args.volume * 100)}% volume.`
 		};
 	}
 });
@@ -350,26 +398,33 @@ const trimClip = defineTool({
 	summarize: (args) => `Trim ${args.seconds.toFixed(1)}s off the ${args.side} of ${args.clip}`,
 	execute: (args) => {
 		const [item] = resolveTargetItems([args.clip]);
-		if (!item) throw new Error(`Clip ${args.clip} does not exist.`);
-		const frames = Math.round(args.seconds * getFps());
-		if (frames <= 0) throw new Error('Trim amount must be greater than zero.');
+		if (!item) throw new Error(m.video_editor_agent_error_no_clip({ clip: args.clip }));
+		const fps = getFps();
+		const frames = Math.round(args.seconds * fps);
+		if (frames <= 0) throw new Error(m.video_editor_agent_error_trim_zero());
+		const trackLocked = timelineStore.tracks.find((track) => track.id === item.trackId)?.locked;
+		if (trackLocked) throw new Error(m.video_editor_agent_error_locked_tracks());
+		const sourceFps = item.sourceFps ?? fps;
+		const speed = item.speed ?? 1;
+		const sourceDelta = timelineToSourceFrames(frames, speed, fps, sourceFps);
 		if (args.side === 'start') {
 			const newFrom = item.from + frames;
-			const newSourceStart = (item.sourceStart ?? 0) + Math.round(frames * (item.speed ?? 1));
+			const newSourceStart = (item.sourceStart ?? 0) + sourceDelta;
 			const ok = trimItemStart(item.id, newFrom, newSourceStart);
-			if (!ok) throw new Error('Cannot trim that amount from the start.');
+			if (!ok) throw new Error(m.video_editor_agent_error_cannot_trim_start());
 		} else {
 			const newEnd = item.from + item.durationInFrames - frames;
-			const newSourceEnd =
-				item.sourceEnd !== undefined
-					? item.sourceEnd - Math.round(frames * (item.speed ?? 1))
-					: undefined;
+			const newSourceEnd = item.sourceEnd !== undefined ? item.sourceEnd - sourceDelta : undefined;
 			const ok = trimItemEnd(item.id, newEnd, newSourceEnd);
-			if (!ok) throw new Error('Cannot trim that amount from the end.');
+			if (!ok) throw new Error(m.video_editor_agent_error_cannot_trim_end());
 		}
 		return {
 			ok: true,
-			message: `Trimmed ${args.seconds.toFixed(1)}s off the ${args.side} of ${args.clip}.`
+			message: m.video_editor_agent_tool_trim({
+				seconds: args.seconds.toFixed(1),
+				side: args.side,
+				clip: args.clip
+			})
 		};
 	}
 });
@@ -394,9 +449,9 @@ const addTransition = defineTool({
 	summarize: (args) => `Add ${args.type ?? 'default'} transition`,
 	execute: (args) => {
 		const targets = resolveTargetItems(args.clips);
-		if (targets.length !== 2) throw new Error('Name exactly two adjacent clips for a transition.');
+		if (targets.length !== 2) throw new Error(m.video_editor_agent_error_two_clips_required());
 		const [a, b] = targets as [TimelineItem, TimelineItem];
-		if (a.trackId !== b.trackId) throw new Error('Both clips must be on the same track.');
+		if (a.trackId !== b.trackId) throw new Error(m.video_editor_agent_error_same_track_required());
 		const [left, right] = a.from <= b.from ? [a, b] : [b, a];
 		const fps = getFps();
 		const durationInFrames = args.durationSeconds
@@ -404,12 +459,17 @@ const addTransition = defineTool({
 			: undefined;
 		const requestedType = args.type;
 		if (requestedType !== undefined && !isTransitionType(requestedType)) {
-			throw new Error(`Unknown transition type: ${requestedType}`);
+			throw new Error(m.video_editor_agent_error_unknown_transition({ type: requestedType }));
 		}
 		const type: TransitionPresentation = requestedType ?? 'crossfade';
 		const id = addTransitionAction(left.id, right.id, type, durationInFrames);
-		if (!id) throw new Error('Could not add a transition between those clips.');
-		return { ok: true, message: `Added a ${requestedType ?? 'default'} transition.` };
+		if (!id) throw new Error(m.video_editor_agent_error_transition_failed());
+		return {
+			ok: true,
+			message: requestedType
+				? m.video_editor_agent_tool_add_transition({ type: requestedType })
+				: m.video_editor_agent_tool_add_transition_default()
+		};
 	}
 });
 
@@ -424,10 +484,10 @@ const removeSilence = defineTool({
 	summarize: () => 'Review and remove silences',
 	execute: (args) => {
 		const itemIds = cleanupTargetIds(args.clips);
-		if (itemIds.length === 0) throw new Error('There are no video or audio clips to analyze.');
+		if (itemIds.length === 0) throw new Error(m.video_editor_agent_error_no_clips_to_analyze());
 		if (handoffHandlers?.openSilenceReview) handoffHandlers.openSilenceReview(itemIds);
-		else throw new Error('Silence review is not available right now.');
-		return { ok: true, message: 'Opened the silence-removal review.' };
+		else throw new Error(m.video_editor_agent_error_silence_unavailable());
+		return { ok: true, message: m.video_editor_agent_tool_remove_silence() };
 	}
 });
 
@@ -442,10 +502,10 @@ const removeFillers = defineTool({
 	summarize: () => 'Review and remove filler words',
 	execute: (args) => {
 		const itemIds = cleanupTargetIds(args.clips);
-		if (itemIds.length === 0) throw new Error('There are no video or audio clips to analyze.');
+		if (itemIds.length === 0) throw new Error(m.video_editor_agent_error_no_clips_to_analyze());
 		if (handoffHandlers?.openFillerReview) handoffHandlers.openFillerReview(itemIds);
-		else throw new Error('Filler review is not available right now.');
-		return { ok: true, message: 'Opened the filler-word review.' };
+		else throw new Error(m.video_editor_agent_error_filler_unavailable());
+		return { ok: true, message: m.video_editor_agent_tool_remove_fillers() };
 	}
 });
 

@@ -103,10 +103,10 @@
 
 <div class="flex h-full min-h-0 flex-col" data-testid="editor-assistant-panel">
 	<div class="shrink-0 border-b border-[oklch(0.25_0.015_55)] p-2">
+		<!-- svelte-ignore a11y_interactive_supports_focus -->
 		<div
 			role="tablist"
-			aria-label="Assistant mode"
-			tabindex="0"
+			aria-label={m.video_editor_agent_mode_label()}
 			class="grid grid-cols-2 gap-1 rounded-md bg-[oklch(0.18_0.01_55)] p-1"
 			onkeydown={handleSwitcherKeydown}
 		>

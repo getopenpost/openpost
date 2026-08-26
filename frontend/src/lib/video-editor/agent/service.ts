@@ -1,3 +1,4 @@
+import { m } from '$lib/paraglide/messages';
 import { getDefaultLlmAdapter, type LlmAdapter, type LlmMessage } from './llm/registry';
 import { buildTimelineContext } from './timeline-context';
 import { buildMessages, parsePlan } from './prompt';
@@ -84,8 +85,13 @@ function buildCorrection(wasValidJson: boolean, dropped: DroppedStep[]): string 
 	if (!wasValidJson) {
 		return 'Your last response was not valid JSON. Respond with ONLY the single JSON object described - no prose, no code fences.';
 	}
-	const issues = dropped.map((entry) => `"${entry.tool}" (${entry.reason})`).join(', ');
-	return `These tool calls were invalid: ${issues}. Use only the listed tool names with the exact arg shapes, and target clips by their refs. Respond with ONLY the corrected JSON object.`;
+	const issues = dropped
+		.map((entry) => `"${boundText(entry.tool, 32)}" (${boundText(entry.reason, 100)})`)
+		.join(', ');
+	return boundText(
+		`These tool calls were invalid: ${issues}. Use only the listed tool names with the exact arg shapes, and target clips by their refs. Respond with ONLY the corrected JSON object.`,
+		600
+	);
 }
 
 export interface PlanRequestOptions {
@@ -132,9 +138,16 @@ function boundText(value: string, limit = 200): string {
 }
 
 function buildFingerprint(): string {
-	return timelineStore.items
-		.map((item) => `${item.id}:${item.from}:${item.trackId}:${item.durationInFrames}`)
+	const items = timelineStore.items
+		.map(
+			(item) =>
+				`${item.id}:${item.from}:${item.trackId}:${item.durationInFrames}:${item.sourceStart ?? ''}:${item.sourceEnd ?? ''}:${item.speed ?? 1}:${item.volume ?? 1}`
+		)
 		.join('|');
+	const tracks = timelineStore.tracks
+		.map((track) => `${track.id}:${track.locked ? '1' : '0'}`)
+		.join('|');
+	return `${items}||${tracks}`;
 }
 
 function buildSnapshot(): string[] {
@@ -186,10 +199,15 @@ export async function planRequest(
 	if (readOnlySteps.length > 0 && !options.signal?.aborted) {
 		const observations: string[] = [];
 		for (const step of readOnlySteps) {
+			if (options.signal?.aborted) break;
 			const result = await runStep(step);
+			if (options.signal?.aborted) break;
 			const summary = boundText(step.summary, 80);
 			const message = boundText(result.message, 200);
 			observations.push(`${summary}: ${message}`);
+		}
+		if (options.signal?.aborted) {
+			throw new DOMException('Aborted', 'AbortError');
 		}
 		const boundedObservations = observations
 			.map((line) => boundText(line, 250))
@@ -217,7 +235,9 @@ export async function planRequest(
 		}
 	}
 
-	const finalReply = reply || (actionSteps.length > 0 ? 'Here is the plan.' : raw.trim());
+	const finalReply =
+		reply ||
+		(actionSteps.length > 0 ? m.video_editor_agent_fallback_reply() : boundText(raw.trim(), 200));
 	const fingerprint = buildFingerprint();
 	const snapshot = buildSnapshot();
 	return {

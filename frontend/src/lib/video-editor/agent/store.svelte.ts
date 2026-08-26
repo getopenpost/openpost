@@ -1,3 +1,4 @@
+import { m } from '$lib/paraglide/messages';
 import type { LlmMessage } from './llm/types';
 import { getAgentAdapter, planRequest, runStep, type PlannedStep } from './service';
 import { localAiRuntimeRegistry } from '../local-ai/runtime-registry';
@@ -32,9 +33,16 @@ function buildHistory(messages: ChatMessage[]): LlmMessage[] {
 }
 
 function buildCurrentFingerprint(): string {
-	return timelineStore.items
-		.map((item) => `${item.id}:${item.from}:${item.trackId}:${item.durationInFrames}`)
+	const items = timelineStore.items
+		.map(
+			(item) =>
+				`${item.id}:${item.from}:${item.trackId}:${item.durationInFrames}:${item.sourceStart ?? ''}:${item.sourceEnd ?? ''}:${item.speed ?? 1}:${item.volume ?? 1}`
+		)
 		.join('|');
+	const tracks = timelineStore.tracks
+		.map((track) => `${track.id}:${track.locked ? '1' : '0'}`)
+		.join('|');
+	return `${items}||${tracks}`;
 }
 
 function checkPlanStale(plan: PlanStepState[]): string | null {
@@ -42,7 +50,7 @@ function checkPlanStale(plan: PlanStepState[]): string | null {
 		if (step.boundIds && step.boundIds.length > 0) {
 			for (const id of step.boundIds) {
 				if (!timelineStore.itemById.has(id)) {
-					return 'Timeline changed since plan was created. Please create a new plan.';
+					return m.video_editor_agent_stale_plan();
 				}
 			}
 		}
@@ -54,11 +62,7 @@ function checkPlanStale(plan: PlanStepState[]): string | null {
 			if (typeof clip === 'string') refs.push(clip);
 			for (const ref of refs) {
 				if (typeof ref === 'string' && ref.startsWith('c')) {
-					// If ref still resolves to a different id than bound, consider stale
-					// We compare via stored boundIds if available
 					if (step.boundIds && step.boundIds.length > 0) {
-						// boundIds already checked above for existence; also ensure ref still maps to same id
-						// This catches reorder where c2 now points to different clip
 						const current = timelineStore.items
 							.slice()
 							.sort((a, b) => a.from - b.from || a.trackId.localeCompare(b.trackId))
@@ -67,7 +71,7 @@ function checkPlanStale(plan: PlanStepState[]): string | null {
 						const currentMap = new Map(current.map((entry) => [entry.ref, entry.id]));
 						const expected = currentMap.get(ref);
 						if (expected && !step.boundIds.includes(expected)) {
-							return 'Timeline changed since plan was created. Please create a new plan.';
+							return m.video_editor_agent_stale_plan();
 						}
 					}
 				}
@@ -128,7 +132,7 @@ class AgentStore {
 		const adapter = getAgentAdapter();
 		if (!adapter.isSupported()) {
 			this.modelStatus = 'error';
-			this.loadError = 'WebGPU is required to run the on-device assistant.';
+			this.loadError = m.video_editor_agent_model_load_error();
 			throw new Error('WebGPU unsupported');
 		}
 		if (this.modelStatus === 'ready') return;
@@ -165,7 +169,7 @@ class AgentStore {
 				{
 					id: newId(),
 					role: 'assistant',
-					content: 'Not enough storage to load the model. Free space and try again.'
+					content: m.video_editor_agent_composer_disabled_storage()
 				}
 			].slice(-MAX_MESSAGES);
 			return;
@@ -217,7 +221,7 @@ class AgentStore {
 			const assistantMessage: ChatMessage = {
 				id: newId(),
 				role: 'assistant',
-				content: result.reply || 'Done.'
+				content: result.reply || m.video_editor_agent_fallback_reply()
 			};
 			const hasSteps = result.steps.length > 0;
 			this.messages = [...this.messages, assistantMessage].slice(-MAX_MESSAGES);
@@ -243,7 +247,11 @@ class AgentStore {
 				const message = error instanceof Error ? error.message : 'Something went wrong.';
 				this.messages = [
 					...this.messages,
-					{ id: newId(), role: 'assistant', content: `Sorry - ${message}` }
+					{
+						id: newId(),
+						role: 'assistant',
+						content: m.video_editor_agent_error_prefix({ message })
+					}
 				].slice(-MAX_MESSAGES);
 				this.phase = 'idle';
 				this.streamingText = '';
@@ -262,11 +270,7 @@ class AgentStore {
 			this.phase = 'idle';
 			this.messages = [
 				...this.messages,
-				{
-					id: newId(),
-					role: 'assistant',
-					content: 'Plan was for a different project and was discarded.'
-				}
+				{ id: newId(), role: 'assistant', content: m.video_editor_agent_project_mismatch() }
 			].slice(-MAX_MESSAGES);
 			return;
 		}
@@ -278,11 +282,7 @@ class AgentStore {
 				this.phase = 'idle';
 				this.messages = [
 					...this.messages,
-					{
-						id: newId(),
-						role: 'assistant',
-						content: 'Timeline changed since plan was created. Please create a new plan.'
-					}
+					{ id: newId(), role: 'assistant', content: m.video_editor_agent_stale_plan() }
 				].slice(-MAX_MESSAGES);
 				return;
 			}
@@ -307,7 +307,7 @@ class AgentStore {
 				this.plan =
 					this.plan?.map((item, i) =>
 						i === index
-							? { ...item, status: 'skipped' as const, result: 'Skipped after previous failure.' }
+							? { ...item, status: 'skipped' as const, result: m.video_editor_agent_skipped() }
 							: item
 					) ?? null;
 				results.push(`- Skipped: ${plan[index]?.summary ?? 'step'}`);

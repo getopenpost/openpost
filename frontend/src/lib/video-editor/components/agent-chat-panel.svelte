@@ -10,7 +10,6 @@
 	import TriangleAlertIcon from '@lucide/svelte/icons/triangle-alert';
 	import CircleDashedIcon from '@lucide/svelte/icons/circle-dashed';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
-	import InfoIcon from '@lucide/svelte/icons/info';
 	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 
 	const suggestions: Array<{ key: string; text: string }> = [
@@ -98,15 +97,17 @@
 	{#if !agentStore.supported}
 		<div class="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
 			<SparklesIcon class="size-6 text-[oklch(0.55_0.015_55)]" aria-hidden="true" />
-			<p class="text-sm font-medium text-[oklch(0.92_0.005_85)]">Assistant unavailable</p>
+			<p class="text-sm font-medium text-[oklch(0.92_0.005_85)]">
+				{m.video_editor_agent_unavailable_title()}
+			</p>
 			<p class="max-w-64 text-xs leading-relaxed text-[oklch(0.65_0.015_55)]">
-				The on-device assistant needs WebGPU. Try a recent Chrome or Edge browser.
+				{m.video_editor_agent_unavailable_body()}
 			</p>
 		</div>
 	{:else}
 		<div bind:this={scrollRef} class="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
 			<p class="text-[11px] leading-relaxed text-[oklch(0.65_0.015_55)]">
-				Ask in plain language. Runs on device only. I propose a plan - you confirm before any edit.
+				{m.video_editor_agent_intro()}
 			</p>
 
 			{#if agentStore.messages.length === 0 && agentStore.phase === 'idle'}
@@ -152,9 +153,9 @@
 				>
 					<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
 					{#if agentStore.modelStatus === 'loading'}
-						<span>Loading on-device model... {agentStore.loadPercent}%</span>
+						<span>{m.video_editor_agent_loading_model({ percent: agentStore.loadPercent })}</span>
 					{:else}
-						<span>Planning your edit...</span>
+						<span>{m.video_editor_agent_planning()}</span>
 					{/if}
 				</div>
 			{/if}
@@ -167,7 +168,7 @@
 					<div
 						class="mb-1.5 text-[11px] font-medium tracking-widest text-[oklch(0.65_0.015_55)] uppercase"
 					>
-						Plan
+						{m.video_editor_agent_plan_title()}
 					</div>
 					<ol class="space-y-1.5">
 						{#each agentStore.plan as step, index (index)}
@@ -200,16 +201,10 @@
 								{/if}
 								<div class="min-w-0">
 									<span class="text-[oklch(0.92_0.005_85)]">{step.summary}</span>
-									{#if step.destructive}
-										<span
-											class="ml-1 rounded bg-[oklch(0.57_0.22_25)] px-1 py-0.5 text-[9px] font-medium text-white"
-											>destructive</span
-										>
-									{/if}
 									{#if step.handoff}
 										<span
 											class="ml-1 rounded bg-[oklch(0.52_0.1_220)] px-1 py-0.5 text-[9px] font-medium text-white"
-											>review</span
+											>{m.video_editor_agent_review_label()}</span
 										>
 									{/if}
 									{#if step.status === 'error' && step.result}
@@ -228,12 +223,12 @@
 
 					{#if agentStore.plan.some((s) => s.handoff) && agentStore.phase === 'awaiting-confirm'}
 						<p class="mt-2 text-[11px] leading-relaxed text-[oklch(0.65_0.015_55)]">
-							Some steps open a review you confirm.
+							{m.video_editor_agent_handoff_note()}
 						</p>
 					{/if}
 					{#if agentStore.plan.some((s) => s.destructive) && agentStore.phase === 'awaiting-confirm'}
 						<p class="mt-1 text-[11px] leading-relaxed text-[oklch(0.82_0.1_25)]">
-							Destructive steps will change the timeline. You can undo after.
+							{m.video_editor_agent_destructive_note()}
 						</p>
 					{/if}
 
@@ -243,26 +238,27 @@
 								size="sm"
 								class="h-11 flex-1 gap-1.5 md:h-7"
 								onclick={() => void agentStore.runPlan({ projectId })}
-								data-testid="agent-run-plan"
+								data-testid="agent-run-plan">{m.video_editor_agent_run()}</Button
 							>
-								Run
-							</Button>
 							<Button
 								size="sm"
 								variant="ghost"
 								class="h-11 gap-1.5 text-[oklch(0.65_0.015_55)] md:h-7"
 								onclick={() => agentStore.dismissPlan()}
 								data-testid="agent-discard-plan"
+								><XIcon
+									class="size-3.5"
+									aria-hidden="true"
+								/>{m.video_editor_agent_discard()}</Button
 							>
-								<XIcon class="size-3.5" aria-hidden="true" />
-								Discard
-							</Button>
 						</div>
 					{/if}
 					{#if agentStore.phase === 'running'}
 						<p class="mt-2 flex items-center gap-1.5 text-[11px] text-[oklch(0.65_0.015_55)]">
-							<LoaderIcon class="size-3 animate-spin" aria-hidden="true" />
-							Running...
+							<LoaderIcon
+								class="size-3 animate-spin"
+								aria-hidden="true"
+							/>{m.video_editor_agent_running()}
 						</p>
 					{/if}
 				</div>
@@ -296,46 +292,40 @@
 				</div>
 			{/if}
 			<div class="flex items-end gap-1.5">
-				<button
-					type="button"
-					class="flex size-11 shrink-0 items-center justify-center rounded-md border border-transparent text-[oklch(0.65_0.015_55)] hover:bg-[oklch(0.2_0.01_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] md:size-9"
-					aria-label="About this assistant"
-					title="The assistant runs on device. Nothing leaves your computer. It shows a plan you confirm before any edit. Each step is undoable."
-				>
-					<InfoIcon class="size-4" aria-hidden="true" />
-				</button>
 				<textarea
 					bind:this={textareaRef}
 					bind:value={input}
 					onkeydown={handleKeydown}
 					rows="1"
-					placeholder={composerDisabledReason ?? 'Ask the assistant to edit...'}
+					placeholder={composerDisabledReason ?? m.video_editor_agent_placeholder()}
 					disabled={!!composerDisabledReason && agentStore.phase === 'idle'}
+					maxlength="500"
 					class="max-h-28 min-h-11 flex-1 resize-none rounded-md border border-[oklch(0.28_0.012_55)] bg-[oklch(0.18_0.008_55)] px-2.5 py-2.5 text-xs leading-relaxed text-white placeholder:text-[oklch(0.55_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-60 md:min-h-9 md:py-1.5"
-					aria-label="Assistant message"></textarea>
+					aria-label="Assistant message"
+					aria-describedby="agent-input-limit"></textarea>
 				{#if agentStore.phase === 'planning'}
 					<Button
 						size="icon"
 						variant="ghost"
 						class="size-11 shrink-0 md:size-9"
 						onclick={() => agentStore.cancel()}
-						aria-label="Cancel"
+						aria-label={m.video_editor_agent_cancel_label()}
+						><XIcon class="size-4" aria-hidden="true" /></Button
 					>
-						<XIcon class="size-4" aria-hidden="true" />
-					</Button>
 				{:else}
 					<Button
 						size="icon"
 						class="size-11 shrink-0 md:size-9"
 						disabled={!canSend}
 						onclick={() => send(input)}
-						aria-label="Send"
-						data-testid="agent-send"
+						aria-label={m.video_editor_agent_send_label()}
+						data-testid="agent-send"><SendIcon class="size-4" aria-hidden="true" /></Button
 					>
-						<SendIcon class="size-4" aria-hidden="true" />
-					</Button>
 				{/if}
 			</div>
+			<p id="agent-input-limit" class="mt-1 text-right text-[10px] text-[oklch(0.6_0.015_55)]">
+				{input.length}/500
+			</p>
 			{#if agentStore.messages.length > 0}
 				<div class="mt-1.5 flex justify-end">
 					<Button
@@ -346,8 +336,7 @@
 						disabled={agentStore.phase === 'running'}
 						data-testid="agent-clear"
 					>
-						<TrashIcon class="size-3" aria-hidden="true" />
-						Clear
+						<TrashIcon class="size-3" aria-hidden="true" />{m.video_editor_agent_clear()}
 					</Button>
 				</div>
 			{/if}

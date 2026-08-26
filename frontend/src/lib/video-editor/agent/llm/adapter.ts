@@ -2,7 +2,7 @@ import type { LlmAdapter, LlmGenerateOptions, LlmLoadProgress, LlmMessage } from
 import type { LlmWorkerResponse } from './worker-protocol';
 import GemmaWorker from './gemma-worker.ts?worker';
 
-const DEFAULT_MAX_TOKENS = 512;
+const DEFAULT_MAX_TOKENS = 768;
 
 interface PendingGeneration {
 	resolve: (text: string) => void;
@@ -15,15 +15,21 @@ interface PendingGeneration {
 
 export class GemmaLlmAdapter implements LlmAdapter {
 	readonly id = 'gemma';
-	readonly label = 'Gemma 3n E2B (on-device)';
+	readonly label = 'Gemma 4 (on-device)';
 
 	private worker: Worker | null = null;
+	private workerGeneration = 0;
 	private loadPromise: Promise<void> | null = null;
 	private loadResolve: (() => void) | null = null;
 	private loadReject: ((error: Error) => void) | null = null;
 	private onProgress: ((progress: LlmLoadProgress) => void) | null = null;
 	private nextId = 1;
 	private readonly pending = new Map<number, PendingGeneration>();
+
+	constructor(
+		private readonly createWorker: () => Worker = () => new GemmaWorker(),
+		private readonly terminationDelayMs = 500
+	) {}
 
 	isSupported(): boolean {
 		return typeof navigator !== 'undefined' && 'gpu' in navigator && navigator.gpu != null;
@@ -45,6 +51,23 @@ export class GemmaLlmAdapter implements LlmAdapter {
 	}
 
 	async generate(messages: LlmMessage[], options: LlmGenerateOptions = {}): Promise<string> {
+		const maxTokens = options.maxTokens ?? DEFAULT_MAX_TOKENS;
+		const temperature = options.temperature ?? 0;
+		const topP = options.topP ?? 0.9;
+		if (
+			!Number.isInteger(maxTokens) ||
+			!Number.isFinite(maxTokens) ||
+			maxTokens <= 0 ||
+			maxTokens > 2048
+		) {
+			throw new RangeError('maxTokens must be a finite integer between 1 and 2048');
+		}
+		if (!Number.isFinite(temperature) || temperature < 0 || temperature > 2) {
+			throw new RangeError('temperature must be a finite number between 0 and 2');
+		}
+		if (!Number.isFinite(topP) || topP < 0 || topP > 1) {
+			throw new RangeError('topP must be a finite number between 0 and 1');
+		}
 		await this.load(this.onProgress ?? undefined);
 		const worker = this.ensureWorker();
 		const id = this.nextId++;
@@ -73,18 +96,30 @@ export class GemmaLlmAdapter implements LlmAdapter {
 				type: 'generate',
 				id,
 				messages,
-				maxTokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
-				temperature: options.temperature ?? 0,
-				topP: options.topP ?? 0.9
+				maxTokens,
+				temperature,
+				topP
 			});
 		});
 	}
 
 	dispose(): void {
-		if (!this.worker) return;
+		if (!this.worker) {
+			if (this.loadReject) {
+				this.loadReject(new Error('Assistant disposed'));
+				this.loadPromise = null;
+				this.loadResolve = null;
+				this.loadReject = null;
+			}
+			return;
+		}
+		this.workerGeneration++;
 		this.worker.postMessage({ type: 'dispose' });
 		const worker = this.worker;
 		this.worker = null;
+		if (this.loadReject) {
+			this.loadReject(new Error('Assistant disposed'));
+		}
 		this.loadPromise = null;
 		this.loadResolve = null;
 		this.loadReject = null;
@@ -93,19 +128,26 @@ export class GemmaLlmAdapter implements LlmAdapter {
 			entry.reject(new Error('Assistant disposed'));
 		}
 		this.pending.clear();
-		setTimeout(() => worker.terminate(), 500);
+		setTimeout(() => worker.terminate(), this.terminationDelayMs);
 	}
 
 	private ensureWorker(): Worker {
 		if (this.worker) return this.worker;
-		const worker = new GemmaWorker();
+		this.workerGeneration++;
+		const generation = this.workerGeneration;
+		const worker = this.createWorker();
 		worker.addEventListener('message', (event: MessageEvent<unknown>) => {
-			const data = event.data as Record<string, unknown> | null;
-			if (!data || typeof data.type !== 'string') return;
-			this.handleMessage(data as LlmWorkerResponse);
+			if (generation !== this.workerGeneration) return;
+			const data = event.data;
+			if (!isValidWorkerResponse(data)) return;
+			this.handleMessage(data);
 		});
 		worker.addEventListener('error', (event: ErrorEvent) => {
+			if (generation !== this.workerGeneration) return;
 			this.loadReject?.(new Error(event.message || 'Worker error'));
+			this.loadPromise = null;
+			this.loadResolve = null;
+			this.loadReject = null;
 		});
 		this.worker = worker;
 		return worker;
@@ -113,13 +155,24 @@ export class GemmaLlmAdapter implements LlmAdapter {
 
 	private handleMessage(message: LlmWorkerResponse): void {
 		switch (message.type) {
-			case 'progress':
+			case 'progress': {
+				if (!Number.isFinite(message.percent) || message.percent < 0 || message.percent > 100)
+					return;
+				if (typeof message.stage !== 'string') return;
 				this.onProgress?.({ stage: message.stage, percent: message.percent });
 				break;
-			case 'ready':
-				this.loadResolve?.();
+			}
+			case 'ready': {
+				const resolve = this.loadResolve;
+				this.loadResolve = null;
+				this.loadReject = null;
+				this.loadPromise = null;
+				resolve?.();
 				break;
+			}
 			case 'token': {
+				if (typeof message.delta !== 'string') return;
+				if (!Number.isFinite(message.id)) return;
 				const entry = this.pending.get(message.id);
 				if (!entry) break;
 				entry.text += message.delta;
@@ -127,6 +180,8 @@ export class GemmaLlmAdapter implements LlmAdapter {
 				break;
 			}
 			case 'result': {
+				if (typeof message.text !== 'string') return;
+				if (!Number.isFinite(message.id)) return;
 				const entry = this.pending.get(message.id);
 				if (!entry) break;
 				this.detachSignal(entry);
@@ -135,9 +190,14 @@ export class GemmaLlmAdapter implements LlmAdapter {
 				break;
 			}
 			case 'error': {
+				if (message.id !== undefined && !Number.isFinite(message.id)) return;
+				if (typeof message.message !== 'string') return;
 				if (message.id === undefined) {
-					this.loadReject?.(new Error(message.message));
+					const reject = this.loadReject;
+					this.loadReject = null;
+					this.loadResolve = null;
 					this.loadPromise = null;
+					reject?.(new Error(message.message));
 					break;
 				}
 				const entry = this.pending.get(message.id);
@@ -157,6 +217,39 @@ export class GemmaLlmAdapter implements LlmAdapter {
 			entry.signal.removeEventListener('abort', entry.onAbort);
 		}
 	}
+}
+
+function isValidWorkerResponse(value: unknown): value is LlmWorkerResponse {
+	if (!value || typeof value !== 'object') return false;
+	const record = value as Record<string, unknown>;
+	const type = record.type;
+	if (type === 'progress') {
+		return (
+			typeof record.stage === 'string' &&
+			typeof record.percent === 'number' &&
+			Number.isFinite(record.percent)
+		);
+	}
+	if (type === 'ready' || type === 'disposed') return true;
+	if (type === 'token') {
+		return (
+			typeof record.id === 'number' &&
+			Number.isFinite(record.id) &&
+			typeof record.delta === 'string'
+		);
+	}
+	if (type === 'result') {
+		return (
+			typeof record.id === 'number' && Number.isFinite(record.id) && typeof record.text === 'string'
+		);
+	}
+	if (type === 'error') {
+		return (
+			typeof record.message === 'string' &&
+			(record.id === undefined || (typeof record.id === 'number' && Number.isFinite(record.id)))
+		);
+	}
+	return false;
 }
 
 export const gemmaLlmAdapter = new GemmaLlmAdapter();

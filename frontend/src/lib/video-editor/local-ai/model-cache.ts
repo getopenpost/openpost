@@ -93,7 +93,7 @@ export const LOCAL_MODEL_CACHE_DEFINITIONS: LocalModelCacheDefinition[] = [
 		label: 'Assistant model',
 		description: 'On-device editing assistant model and tokenizer.',
 		cacheName: TRANSFORMERS_CACHE_NAME,
-		matchPathFragments: ['/gemma-3n-']
+		matchPathFragments: ['/gemma-4-']
 	},
 	{
 		id: 'ace-step-music',

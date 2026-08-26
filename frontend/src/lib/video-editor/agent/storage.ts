@@ -1,5 +1,5 @@
-export const AGENT_MODEL_ID = 'onnx-community/gemma-3n-E2B-it-ONNX';
-export const AGENT_EXPECTED_BYTES = 3_200_000_000;
+export const AGENT_MODEL_ID = 'onnx-community/gemma-4-E4B-it-ONNX';
+export const AGENT_EXPECTED_BYTES = 4_500_000_000;
 const HEADROOM_BYTES = 512_000_000;
 const TRANSFORMERS_CACHE_NAME = 'transformers-cache';
 
@@ -33,22 +33,16 @@ export async function inspectAgentStorage(): Promise<AgentStorageStatus> {
 	let availableBytes: number | undefined;
 	let persisted: boolean | undefined;
 	try {
-		if ('storage' in navigator) {
-			if ('persist' in navigator.storage) {
+		if ('storage' in navigator && navigator.storage) {
+			if (typeof navigator.storage.persist === 'function') {
 				try {
-					persisted = await (
-						navigator.storage as unknown as { persist: () => Promise<boolean> }
-					).persist();
+					persisted = await navigator.storage.persist();
 				} catch {
 					persisted = undefined;
 				}
 			}
-			if ('estimate' in navigator.storage) {
-				const estimate = await (
-					navigator.storage as unknown as {
-						estimate: () => Promise<{ quota?: number; usage?: number }>;
-					}
-				).estimate();
+			if (typeof navigator.storage.estimate === 'function') {
+				const estimate = await navigator.storage.estimate();
 				if (estimate.quota !== undefined && estimate.usage !== undefined) {
 					availableBytes = Math.max(0, estimate.quota - estimate.usage);
 				}
@@ -67,7 +61,7 @@ export async function inspectAgentStorage(): Promise<AgentStorageStatus> {
 			const cache = await withTimeout(caches.open(TRANSFORMERS_CACHE_NAME), 1500);
 			const requests = await withTimeout(cache.keys(), 1500);
 			const gemmaRequests = requests.filter((request) =>
-				request.url.toLowerCase().includes('gemma-3n')
+				request.url.toLowerCase().includes('gemma-4')
 			);
 			entryCount = gemmaRequests.length;
 			if (entryCount === 0) {

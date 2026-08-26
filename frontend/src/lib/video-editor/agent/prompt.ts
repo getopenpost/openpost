@@ -51,15 +51,40 @@ User: what can you do?
 { "reply": "I can cut silences/fillers, add titles, split, delete, trim, change speed/volume, and add transitions.", "steps": [] }`;
 }
 
+const MAX_HISTORY_MESSAGES = 6;
+const MAX_HISTORY_CHARS = 500;
+const MAX_USER_CHARS = 500;
+const MAX_CONTEXT_CHARS = 3500;
+const MAX_TOTAL_CHARS = 4000;
+
+function boundText(value: string, limit: number): string {
+	if (value.length <= limit) return value;
+	return value.slice(0, limit) + '...';
+}
+
+function escapeLabel(label: string): string {
+	return boundText(label.replaceAll('"', "'").replace(/\r?\n/g, ' ').trim(), 40);
+}
+
 export function buildMessages(
 	history: LlmMessage[],
 	userText: string,
 	contextText: string
 ): LlmMessage[] {
+	const boundedHistory = history.slice(-MAX_HISTORY_MESSAGES).map((message) => ({
+		role: message.role,
+		content: boundText(message.content, MAX_HISTORY_CHARS)
+	}));
+	const boundedUser = boundText(userText.trim(), MAX_USER_CHARS);
+	const boundedContext = boundText(contextText, MAX_CONTEXT_CHARS);
+	let userContent = `Timeline:\n${boundedContext}\n\nRequest: ${boundedUser}`;
+	if (userContent.length > MAX_TOTAL_CHARS) {
+		userContent = boundText(userContent, MAX_TOTAL_CHARS);
+	}
 	return [
 		{ role: 'system', content: buildSystemPrompt() },
-		...history,
-		{ role: 'user', content: `Timeline:\n${contextText}\n\nRequest: ${userText}` }
+		...boundedHistory,
+		{ role: 'user', content: userContent }
 	];
 }
 
@@ -87,29 +112,73 @@ function extractJsonObject(raw: string): string | null {
 	return null;
 }
 
+const MAX_REPLY_CHARS = 200;
+const MAX_STEPS = 8;
+const MAX_TOOL_NAME_CHARS = 32;
+const MAX_ARG_KEYS = 8;
+const MAX_ARG_VALUE_CHARS = 500;
+const MAX_ARG_DEPTH = 2;
+
+function boundedReply(value: string): string {
+	return boundText(value.trim(), MAX_REPLY_CHARS);
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function boundArgs(value: unknown, depth = 0): Record<string, unknown> | null {
+	if (!isPlainObject(value)) return {};
+	if (depth > MAX_ARG_DEPTH) return {};
+	const entries = Object.entries(value).slice(0, MAX_ARG_KEYS);
+	const result: Record<string, unknown> = {};
+	for (const [key, raw] of entries) {
+		if (key.length > 32) continue;
+		if (typeof raw === 'string') {
+			result[key] = boundText(raw, MAX_ARG_VALUE_CHARS);
+		} else if (typeof raw === 'number' || typeof raw === 'boolean' || raw === null) {
+			result[key] = raw;
+		} else if (Array.isArray(raw)) {
+			result[key] = raw
+				.slice(0, 8)
+				.map((item) => (typeof item === 'string' ? boundText(item, 40) : item));
+		} else if (isPlainObject(raw) && depth < MAX_ARG_DEPTH) {
+			const nested = boundArgs(raw, depth + 1);
+			if (nested) result[key] = nested;
+		}
+	}
+	return result;
+}
+
 export function parsePlan(raw: string): ParsedPlan & { valid: boolean } {
 	const json = extractJsonObject(raw);
-	if (!json) return { reply: raw.trim(), steps: [], valid: false };
+	if (!json || json.length > 8000)
+		return { reply: boundText(raw.trim(), MAX_REPLY_CHARS), steps: [], valid: false };
 	try {
 		const parsed = JSON.parse(json) as unknown;
 		if (!parsed || typeof parsed !== 'object') {
-			return { reply: raw.trim(), steps: [], valid: false };
+			return { reply: boundText(raw.trim(), MAX_REPLY_CHARS), steps: [], valid: false };
 		}
 		const record = parsed as Record<string, unknown>;
-		const reply = typeof record.reply === 'string' ? record.reply.trim() : '';
-		const rawSteps = Array.isArray(record.steps) ? record.steps : [];
+		const reply = typeof record.reply === 'string' ? boundedReply(record.reply) : '';
+		const rawSteps = Array.isArray(record.steps) ? record.steps.slice(0, MAX_STEPS) : [];
 		const steps: RawPlanStep[] = [];
 		for (const entry of rawSteps) {
 			if (!entry || typeof entry !== 'object') continue;
 			const step = entry as Record<string, unknown>;
-			if (typeof step.tool !== 'string') continue;
-			const args =
-				step.args && typeof step.args === 'object' ? (step.args as Record<string, unknown>) : {};
+			if (
+				typeof step.tool !== 'string' ||
+				step.tool.length === 0 ||
+				step.tool.length > MAX_TOOL_NAME_CHARS
+			)
+				continue;
+			if (!/^\w+$/.test(step.tool)) continue;
+			const args = isPlainObject(step.args) ? (boundArgs(step.args) ?? {}) : {};
 			steps.push({ tool: step.tool, args });
 		}
 		return { reply, steps, valid: true };
 	} catch {
-		return { reply: raw.trim(), steps: [], valid: false };
+		return { reply: boundText(raw.trim(), MAX_REPLY_CHARS), steps: [], valid: false };
 	}
 }
 
@@ -118,7 +187,7 @@ export function formatClipRefsForContext(clips: ClipRefEntry[]): string {
 	const lines = ['Clips (ref · type · label · start-end · [selected]):'];
 	for (const clip of clips) {
 		lines.push(
-			`  ${clip.ref} ${clip.type} "${clip.label}" ${clip.startSeconds.toFixed(1)}-${clip.endSeconds.toFixed(1)}s${clip.selected ? ' [selected]' : ''}`
+			`  ${clip.ref} ${clip.type} "${escapeLabel(clip.label)}" ${clip.startSeconds.toFixed(1)}-${clip.endSeconds.toFixed(1)}s${clip.selected ? ' [selected]' : ''}`
 		);
 	}
 	return lines.join('\n');

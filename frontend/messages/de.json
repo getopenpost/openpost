@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "Ende kürzen",
 	"video_editor_agent_plan_add_transition": "Übergang hinzufügen",
 	"video_editor_agent_plan_review_silence": "Pausen prüfen",
-	"video_editor_agent_plan_review_fillers": "Füllwörter prüfen",
-	"plan_find_clips": "Clips finden",
-	"plan_search_transcript": "Transkript durchsuchen",
-	"plan_select": "Auswählen",
-	"plan_seek": "Springen",
-	"plan_add_title": "Titel hinzufügen",
-	"plan_split_time": "An Zeitpunkt teilen",
-	"plan_split_playhead": "An Abspielposition teilen",
-	"plan_delete": "Löschen",
-	"plan_set_speed": "Geschwindigkeit setzen",
-	"plan_set_volume": "Lautstärke setzen",
-	"plan_trim_start": "Anfang kürzen",
-	"plan_trim_end": "Ende kürzen",
-	"plan_add_transition": "Übergang hinzufügen",
-	"plan_review_silence": "Pausen prüfen",
-	"plan_review_fillers": "Füllwörter prüfen"
+	"video_editor_agent_plan_review_fillers": "Füllwörter prüfen"
 }

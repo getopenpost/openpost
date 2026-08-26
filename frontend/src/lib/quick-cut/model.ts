@@ -1,4 +1,3 @@
-// oxlint-disable
 import type {
 	CutMode,
 	QuickCutSegment,
@@ -35,34 +34,38 @@ export function sortSegments(segments: QuickCutSegment[]): QuickCutSegment[] {
 
 export function normalizeSegments(segments: QuickCutSegment[]): QuickCutSegment[] {
 	if (segments.length === 0) return [];
-	// Normalize per source to avoid merging across sources
-	const bySource = new Map<string, QuickCutSegment[]>();
-	for (const seg of segments) {
-		const arr = bySource.get(seg.sourceId) ?? [];
-		arr.push(seg);
-		bySource.set(seg.sourceId, arr);
-	}
 	const merged: QuickCutSegment[] = [];
-	for (const [, group] of bySource) {
-		const sorted = sortSegments(group);
-		let current = { ...sorted[0]! };
-		for (let i = 1; i < sorted.length; i++) {
-			const next = sorted[i]!;
-			if (next.start <= current.end) {
-				current = {
-					...current,
-					end: Math.max(current.end, next.end),
-					name: current.name ?? next.name
-				};
-			} else {
+	let current: QuickCutSegment | null = null;
+	for (const seg of segments) {
+		if (!seg.enabled) {
+			if (current) {
 				merged.push(current);
-				current = { ...next };
+				current = null;
 			}
+			merged.push({ ...seg });
+			continue;
 		}
-		merged.push(current);
+		if (!current) {
+			current = { ...seg };
+			continue;
+		}
+		const canMerge =
+			current.sourceId === seg.sourceId &&
+			seg.start <= current.end &&
+			seg.enabled !== false &&
+			current.enabled !== false;
+		if (canMerge) {
+			current = {
+				...current,
+				end: Math.max(current.end, seg.end),
+				name: current.name ?? seg.name
+			};
+		} else {
+			merged.push(current);
+			current = { ...seg };
+		}
 	}
-	// SAFETY: type assertion is safe for this quick-cut path
-	// Preserve original order for non-overlapping groups? Return grouped merged but keep overall order as by first appearance
+	if (current) merged.push(current);
 	return merged;
 }
 
@@ -116,29 +119,37 @@ export function validateSegments(
 	sources?: QuickCutSource[] | QuickCutSourceMetadata[] | Map<string, number>
 ): SegmentValidationError[] {
 	const errors: SegmentValidationError[] = [];
-	// Build duration map per source if sources provided
 	const durationById = new Map<string, number>();
 	if (sources instanceof Map) {
 		for (const [k, v] of sources) durationById.set(k, v);
 	} else if (Array.isArray(sources)) {
-		for (const s of sources)
-			// SAFETY: type assertion is safe for this quick-cut path
-			durationById.set((s as QuickCutSourceMetadata).id, (s as QuickCutSourceMetadata).duration);
+		for (const s of sources) {
+			if ('id' in s && 'duration' in s) {
+				// SAFETY: s has id/duration per in check, safe per validation
+				const sid = (s as { id: string }).id;
+				// SAFETY: s has id/duration per in check, safe per validation
+				const dur = (s as { duration: number }).duration;
+				durationById.set(sid, dur);
+			}
+		}
 	} else {
-		// fallback: use passed duration for all
 		for (const seg of segments) durationById.set(seg.sourceId, duration);
 	}
-
 	for (const seg of segments) {
-		const d = durationById.get(seg.sourceId) ?? duration;
-		if (!seg.sourceId) {
-			errors.push({ segmentId: seg.id, kind: 'missing_source', message: 'Segment has no source.' });
+		if (!seg.sourceId || !durationById.has(seg.sourceId)) {
+			errors.push({
+				segmentId: seg.id,
+				kind: 'missing_source',
+				message: 'Segment references missing source.'
+			});
+			continue;
 		}
+		const d = durationById.get(seg.sourceId)!;
 		errors.push(...validateSegment(seg, d));
 	}
-	// Overlap only per source
+	const enabled = segments.filter((s) => s.enabled !== false);
 	const bySource = new Map<string, QuickCutSegment[]>();
-	for (const seg of segments) {
+	for (const seg of enabled) {
 		const arr = bySource.get(seg.sourceId) ?? [];
 		arr.push(seg);
 		bySource.set(seg.sourceId, arr);
@@ -161,8 +172,9 @@ export function validateSegments(
 }
 
 export function hasOverlap(segments: QuickCutSegment[]): boolean {
+	const enabled = segments.filter((s) => s.enabled !== false);
 	const bySource = new Map<string, QuickCutSegment[]>();
-	for (const seg of segments) {
+	for (const seg of enabled) {
 		const arr = bySource.get(seg.sourceId) ?? [];
 		arr.push(seg);
 		bySource.set(seg.sourceId, arr);
@@ -180,7 +192,7 @@ export function addSegment(
 	segments: QuickCutSegment[],
 	newSegment: QuickCutSegment,
 	options: { allowOverlap?: boolean } = {}
-): { segments: QuickCutSegment[]; error?: string } {
+) {
 	const withoutOverlap = options.allowOverlap ? false : hasOverlap([...segments, newSegment]);
 	if (withoutOverlap) {
 		return {
@@ -240,7 +252,7 @@ export function findNearestKeyframe(
 	time: number,
 	keyframes: number[],
 	tolerance = KEYFRAME_TOLERANCE
-): { nearest: number | null; distance: number | null; aligned: boolean } {
+) {
 	if (keyframes.length === 0) return { nearest: null, distance: null, aligned: false };
 	let nearest = keyframes[0]!;
 	let dist = Math.abs(time - nearest);
@@ -254,35 +266,34 @@ export function findNearestKeyframe(
 	return { nearest, distance: dist, aligned: dist <= tolerance };
 }
 
-export function findSnapKeyframe(
-	time: number,
-	keyframes: number[]
-): { snapped: number; delta: number; direction: 'before' | 'after' | 'exact' } {
-	if (keyframes.length === 0) return { snapped: time, delta: 0, direction: 'exact' };
-	// Find nearest at or before time for lossless inclusion guarantee
+export function findSnapKeyframe(time: number, keyframes: number[]) {
+	if (keyframes.length === 0) return { snapped: time, delta: 0, direction: 'unknown' as const };
 	let before: number | null = null;
 	let after: number | null = null;
 	for (const kf of keyframes) {
 		if (kf <= time) before = kf;
 		if (kf >= time && after === null) after = kf;
 	}
-	if (before === null) return { snapped: after!, delta: after! - time, direction: 'after' };
-	if (after === null) return { snapped: before, delta: before - time, direction: 'before' };
+	// SAFETY: validated shape before cast
+	if (before === null)
+		return { snapped: after!, delta: after! - time, direction: 'after' as const };
+	// SAFETY: validated shape before cast
+	if (after === null)
+		return { snapped: before, delta: before - time, direction: 'before' as const };
 	const dBefore = time - before;
 	const dAfter = after - time;
 	if (dBefore <= dAfter)
 		return {
 			snapped: before,
 			delta: before - time,
-			direction: before === time ? 'exact' : 'before'
+			// SAFETY: validated shape before cast
+			direction: before === time ? ('exact' as const) : ('before' as const)
 		};
-	return { snapped: after, delta: after - time, direction: 'after' };
+	// SAFETY: validated shape before cast
+	return { snapped: after, delta: after - time, direction: 'after' as const };
 }
 
-export function keyframeStatusForSegment(
-	segment: QuickCutSegment,
-	keyframes: number[]
-): { start: ReturnType<typeof findNearestKeyframe>; end: ReturnType<typeof findNearestKeyframe> } {
+export function keyframeStatusForSegment(segment: QuickCutSegment, keyframes: number[]) {
 	return {
 		start: findNearestKeyframe(segment.start, keyframes),
 		end: findNearestKeyframe(segment.end, keyframes)
@@ -295,7 +306,9 @@ export function snapToKeyframe(time: number, keyframes: number[]): number {
 }
 
 export function totalKeptDuration(segments: QuickCutSegment[]): number {
-	return segments.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0);
+	return segments
+		.filter((s) => s.enabled !== false)
+		.reduce((sum, s) => sum + Math.max(0, s.end - s.start), 0);
 }
 
 export function formatTimecode(seconds: number): string {
@@ -311,23 +324,45 @@ export function assessExport(
 	segments: QuickCutSegment[],
 	keyframesBySource: Map<string, number[]> | number[],
 	cutMode: CutMode,
-	merge: boolean
-): { wasLossless: boolean; reason: string } {
+	merge: boolean,
+	sources?: QuickCutSource[] | QuickCutSourceMetadata[]
+) {
 	if (segments.length === 0) return { wasLossless: false, reason: 'No segments selected.' };
 	const tolerance = 0.06;
 	const getKfs = (sid: string): number[] => {
-		// SAFETY: type assertion is safe for this quick-cut path
-		if (Array.isArray(keyframesBySource)) return keyframesBySource as number[];
-		// SAFETY: type assertion is safe for this quick-cut path
-		return (keyframesBySource as Map<string, number[]>).get(sid) ?? [];
+		if (Array.isArray(keyframesBySource)) return keyframesBySource;
+		return keyframesBySource.get(sid) ?? [];
+	};
+	const getState = (sid: string): 'known' | 'unknown' | 'audio-only' => {
+		if (!sources) return 'known';
+		// SAFETY: sources is QuickCutSource[] per overload, safe per type guard
+		const src =
+			(sources as QuickCutSource[]).find((s) => s.id === sid) ??
+			((sources as QuickCutSourceMetadata[]).find((s) => s.id === sid) as
+				| QuickCutSource
+				| QuickCutSourceMetadata
+				| undefined);
+		// SAFETY: keyframeState is known/unknown/audio-only per probed source
+		return (src?.keyframeState as 'known' | 'unknown' | 'audio-only') ?? 'unknown';
 	};
 	const isAligned = (time: number, sid: string): boolean => {
 		if (time <= tolerance) return true;
+		const state = getState(sid);
+		if (state === 'unknown') return false;
+		if (state === 'audio-only') return true;
 		const kfs = getKfs(sid);
 		return findNearestKeyframe(time, kfs, tolerance).aligned;
 	};
 	if (cutMode === 'exact') {
 		for (const seg of segments) {
+			const state = getState(seg.sourceId);
+			if (state === 'unknown') {
+				return {
+					wasLossless: false,
+					reason: `Keyframe index unknown for ${seg.sourceId.slice(0, 6)}; exact cut requires re-encode.`
+				};
+			}
+			if (state === 'audio-only') continue;
 			if (!isAligned(seg.start, seg.sourceId)) {
 				return {
 					wasLossless: false,
@@ -337,12 +372,25 @@ export function assessExport(
 		}
 		return { wasLossless: true, reason: 'All starts are on keyframes. Stream copy is possible.' };
 	}
-	// nearestKeyframe: define snap before/after; include warning if would include outside
 	for (const seg of segments) {
+		const state = getState(seg.sourceId);
+		if (state === 'unknown') {
+			return {
+				wasLossless: false,
+				reason: `Keyframe index unknown; cannot claim lossless for ${seg.sourceId.slice(0, 6)}.`
+			};
+		}
+		if (state === 'audio-only') continue;
 		const kfs = getKfs(seg.sourceId);
 		const { aligned, distance } = findNearestKeyframe(seg.start, kfs, tolerance);
 		if (!aligned && distance !== null && distance > tolerance) {
 			const snap = findSnapKeyframe(seg.start, kfs);
+			if (snap.direction === 'unknown') {
+				return {
+					wasLossless: false,
+					reason: `Unknown keyframe data for ${seg.sourceId.slice(0, 6)}.`
+				};
+			}
 			const note =
 				snap.direction === 'before' ? 'will include extra before' : 'will start slightly after';
 			return {
@@ -382,10 +430,11 @@ export function estimateOutputBytes(
 	segments: QuickCutSegment[],
 	sources: QuickCutSource[] | QuickCutSourceMetadata[]
 ): number {
+	const enabled = segments.filter((s) => s.enabled !== false);
 	const sizeById = new Map<string, { size: number; duration: number }>();
 	for (const s of sources) sizeById.set(s.id, { size: s.size, duration: s.duration });
 	let total = 0;
-	for (const seg of segments) {
+	for (const seg of enabled) {
 		const meta = sizeById.get(seg.sourceId);
 		if (!meta || meta.duration <= 0) total += 5 * 1024 * 1024;
 		else total += ((seg.end - seg.start) / meta.duration) * meta.size;

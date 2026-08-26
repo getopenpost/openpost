@@ -1,5 +1,4 @@
 <script lang="ts">
-	// oxlint-disable
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import type { QuickCutExportProgress } from '../export';
@@ -15,14 +14,12 @@
 	} = $props();
 
 	function etaText(ms: number | null): string {
-		if (ms === null || ms <= 0) return '—';
+		if (ms === null || ms <= 0) return '-';
 		const s = Math.round(ms / 1000);
 		if (s < 60) return `${s}s`;
 		return `${Math.floor(s / 60)}m ${s % 60}s`;
 	}
 </script>
-
-// oxlint-disable
 
 {#if isExporting && progress}
 	<div class="rounded-xl border bg-card p-4 shadow-sm">

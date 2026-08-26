@@ -1,7 +1,7 @@
-// oxlint-disable
 import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
 import type { QuickCutSource } from './types';
 import { extractKeyframeTimestamps } from './keyframes';
+import { createHash } from './fingerprint';
 
 export async function probeSourceFile(
 	file: File,
@@ -19,54 +19,45 @@ export async function probeSourceFile(
 		let audioCodec: string | null = null;
 		let sampleRate: number | null = null;
 		let channels: number | null = null;
-		let rotation = 0;
+		let rotation: QuickCutSource['rotation'] = 0;
 		let fps: number | null = null;
 		if (videoTrack) {
-			width =
-				// SAFETY: type assertion is safe for this quick-cut path
-				(videoTrack as unknown as { displayWidth?: number }).displayWidth ??
-				// SAFETY: type assertion is safe for this quick-cut path
-				(videoTrack as unknown as { codedWidth?: number }).codedWidth ??
-				0;
-			height =
-				// SAFETY: type assertion is safe for this quick-cut path
-				(videoTrack as unknown as { displayHeight?: number }).displayHeight ??
-				// SAFETY: type assertion is safe for this quick-cut path
-				(videoTrack as unknown as { codedHeight?: number }).codedHeight ??
-				0;
-			videoCodec = videoTrack.codec ?? (await videoTrack.getCodec().catch(() => null)) ?? null;
-			// SAFETY: type assertion is safe for this quick-cut path
-			rotation = (videoTrack as unknown as { rotation?: number }).rotation ?? 0;
-			try {
-				const stats = await // SAFETY: type assertion is safe for this quick-cut path
-				(
-					videoTrack as unknown as {
-						computePacketStats?: (n: number) => Promise<{ averagePacketRate: number } | null>;
-					}
-				).computePacketStats?.(180);
-				if (stats?.averagePacketRate) fps = Math.round(stats.averagePacketRate * 1000) / 1000;
-			} catch {
-				// ignore
-			}
-			// SAFETY: type assertion is safe for this quick-cut path
-			if (!fps) fps = (videoTrack as unknown as { frameRate?: number }).frameRate ?? 30;
+			width = videoTrack.displayWidth;
+			height = videoTrack.displayHeight;
+			videoCodec = videoTrack.codec;
+			rotation = videoTrack.rotation;
+			const stats = await videoTrack.computePacketStats(180).catch(() => null);
+			if (stats?.averagePacketRate) fps = Math.round(stats.averagePacketRate * 1000) / 1000;
 		}
 		if (audioTrack) {
-			audioCodec = audioTrack.codec ?? (await audioTrack.getCodec().catch(() => null)) ?? null;
-			// SAFETY: type assertion is safe for this quick-cut path
-			sampleRate = (audioTrack as unknown as { sampleRate?: number }).sampleRate ?? null;
-			channels =
-				// SAFETY: type assertion is safe for this quick-cut path
-				(audioTrack as unknown as { numberOfChannels?: number }).numberOfChannels ??
-				// SAFETY: type assertion is safe for this quick-cut path
-				(audioTrack as unknown as { channelCount?: number }).channelCount ??
-				null;
+			audioCodec = audioTrack.codec;
+			sampleRate = audioTrack.sampleRate;
+			// SAFETY: audioTrack from mediabunny may expose numberOfChannels per WebCodecs spec
+			const maybeChannels = (audioTrack as { numberOfChannels?: number }).numberOfChannels;
+			if (maybeChannels !== undefined && maybeChannels !== null) channels = maybeChannels;
+			else {
+				// SAFETY: fallback for older mediabunny builds that use channelCount
+				const alt = (audioTrack as { channelCount?: number }).channelCount;
+				if (alt !== undefined && alt !== null) channels = alt;
+			}
 		}
 		let keyframeTimestamps: number[] = [];
+		let keyframeState: QuickCutSource['keyframeState'] = 'unknown';
 		try {
 			keyframeTimestamps = await extractKeyframeTimestamps(file);
+			if (!videoTrack) keyframeState = 'audio-only';
+			else if (keyframeTimestamps.length > 0) keyframeState = 'known';
+			else keyframeState = 'unknown';
 		} catch {
 			keyframeTimestamps = [];
+			keyframeState = videoTrack ? 'unknown' : 'audio-only';
+		}
+		const lastModified = file.lastModified;
+		let contentFingerprint: string | undefined;
+		try {
+			contentFingerprint = await createHash(file);
+		} catch {
+			contentFingerprint = undefined;
 		}
 		return {
 			id: existingId ?? crypto.randomUUID(),
@@ -83,6 +74,9 @@ export async function probeSourceFile(
 			rotation,
 			fps,
 			keyframeTimestamps,
+			keyframeState,
+			lastModified,
+			contentFingerprint,
 			handle,
 			file
 		};
@@ -100,14 +94,9 @@ export async function resolveSourceFile(source: QuickCutSource): Promise<File> {
 	if (source.handle) {
 		try {
 			return await source.handle.getFile();
-		} catch (e) {
+		} catch {
 			throw new Error(`Source ${source.name} is missing. Reconnect the file.`);
 		}
 	}
 	throw new Error(`Source ${source.name} has no file or handle.`);
-}
-
-export function sourceMetadata(source: QuickCutSource) {
-	const { handle: _h, file: _f, ...meta } = source;
-	return meta;
 }

@@ -1,4 +1,5 @@
-// oxlint-disable
+import type { Rotation } from 'mediabunny';
+
 export type CutMode = 'nearestKeyframe' | 'exact';
 export type LoopMode = 'off' | 'segment' | 'all';
 
@@ -14,10 +15,12 @@ export interface QuickCutSource {
 	audioCodec: string | null;
 	sampleRate: number | null;
 	channels: number | null;
-	rotation: number;
+	rotation: Rotation;
 	fps: number | null;
 	keyframeTimestamps: number[];
-	// runtime resolution, not persisted except via handle
+	keyframeState: 'known' | 'unknown' | 'audio-only';
+	lastModified?: number;
+	contentFingerprint?: string;
 	handle?: FileSystemFileHandle;
 	file?: File;
 }
@@ -34,9 +37,12 @@ export interface QuickCutSourceMetadata {
 	audioCodec: string | null;
 	sampleRate: number | null;
 	channels: number | null;
-	rotation: number;
+	rotation: Rotation;
 	fps: number | null;
 	keyframeTimestamps: number[];
+	keyframeState: 'known' | 'unknown' | 'audio-only';
+	lastModified?: number;
+	contentFingerprint?: string;
 }
 
 export interface QuickCutSegment {
@@ -73,18 +79,6 @@ export interface SegmentValidationError {
 	message: string;
 }
 
-export interface QuickCutExportChoice {
-	wasLossless: boolean;
-	reason: string;
-	requiresTranscode: boolean;
-}
-
-export interface KeyframeStatus {
-	aligned: boolean;
-	nearestKeyframe: number | null;
-	distance: number | null;
-}
-
 export interface QuickCutPreflight {
 	eligible: boolean;
 	reason: string;
@@ -97,4 +91,20 @@ export interface QuickCutPreflight {
 		delta: number;
 		direction: 'before' | 'after' | 'exact';
 	}>;
+}
+
+export interface QuickCutPerSegmentPreflight {
+	segmentId: string;
+	requiresTranscode: boolean;
+	reason: string;
+	snappedStart: number | null;
+}
+
+export interface QuickCutScratchArtifact {
+	scratchPath: string;
+	fileName: string;
+	scratchFile: File;
+	wasLossless: boolean;
+	reason: string;
+	estimatedBytes: number;
 }

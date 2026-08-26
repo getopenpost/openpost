@@ -4,7 +4,6 @@ selected range without re-encoding (mediabunny stream copy). UX inspired by
 LosslessCut (GPL — behavioral reference only, no code ported).
 -->
 <script lang="ts">
-	// oxlint-disable
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
@@ -23,7 +22,12 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		formatTimecode
 	} from '$lib/quick-cut/model';
 	import { probeSourceFile } from '$lib/quick-cut/source';
-	import { preflightExport, exportSegments, copyScratchToWorkspace } from '$lib/quick-cut/export';
+	import {
+		preflightExport,
+		exportSegments,
+		copyScratchToWorkspace,
+		discardScratchFile
+	} from '$lib/quick-cut/export';
 	import type { QuickCutSource, QuickCutSegment, CutMode, LoopMode } from '$lib/quick-cut/types';
 	import type { QuickCutExportProgress } from '$lib/quick-cut/export';
 	import {
@@ -66,22 +70,11 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		// sync preflight cannot be async; we compute sync reason via model assess, but final preflight is async for quota
 		// For UI we show quick sync check
 		if (segments.length === 0)
-			return {
-				// SAFETY: type assertion is safe for this quick-cut path
-				eligible: false as const,
-				reason: m.quick_cut_no_segments(),
-				requiresTranscode: false
-			};
+			return { eligible: false, reason: m.quick_cut_no_segments(), requiresTranscode: false };
 		// Use model validation for quick feedback
 		if (hasOverlapError)
-			return {
-				// SAFETY: type assertion is safe for this quick-cut path
-				eligible: false as const,
-				reason: m.quick_cut_overlap_error(),
-				requiresTranscode: false
-			};
-		// SAFETY: type assertion is safe for this quick-cut path
-		return { eligible: true as const, reason: '', requiresTranscode: false };
+			return { eligible: false, reason: m.quick_cut_overlap_error(), requiresTranscode: false };
+		return { eligible: true, reason: '', requiresTranscode: false };
 	});
 
 	function updateWorkspaceName() {
@@ -103,31 +96,41 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	async function openFiles(): Promise<void> {
 		let handles: FileSystemFileHandle[] = [];
 		let files: File[] = [];
-		try {
-			const picked = (await window.showOpenFilePicker?.({
-				multiple: true,
-				types: [
-					{ description: 'Video', accept: { 'video/*': ['.mp4', '.webm', '.mov', '.mkv', '.m4v'] } }
-				]
-				// SAFETY: type assertion is safe for this quick-cut path
-			})) as FileSystemFileHandle[] | undefined;
-			if (picked && picked.length > 0) {
-				handles = picked;
-				files = await Promise.all(picked.map((h) => h.getFile()));
+		if (!window.showOpenFilePicker) {
+			const inputFiles = await pickViaInput();
+			if (inputFiles) files = inputFiles;
+		} else {
+			try {
+				const picked = await window.showOpenFilePicker({
+					multiple: true,
+					types: [
+						{
+							description: 'Media',
+							accept: {
+								'video/*': ['.mp4', '.webm', '.mov', '.mkv', '.m4v'],
+								'audio/*': ['.mp3', '.aac', '.wav', '.flac', '.ogg', '.m4a']
+							}
+						}
+					]
+				});
+				const arrayPicked = Array.isArray(picked) ? picked : [picked];
+				// SAFETY: filtered to FileSystemFileHandle via 'getFile' in check, safe per File System Access spec
+				handles = arrayPicked.filter(
+					(h): h is FileSystemFileHandle => 'getFile' in h
+				) as FileSystemFileHandle[];
+				files = await Promise.all(handles.map((h) => h.getFile()));
+			} catch (e) {
+				if (e instanceof DOMException && e.name === 'AbortError') return;
+				showToast(e instanceof Error ? e.message : String(e), 'error');
+				return;
 			}
-		} catch {
-			// fallback
-		}
-		if (files.length === 0) {
-			const input = document.createElement('input');
-			input.type = 'file';
-			input.accept = 'video/*,.mp4,.webm,.mov,.mkv,.m4v';
-			input.multiple = true;
-			const chosen = await new Promise<File[] | null>((resolve) => {
-				input.onchange = () => resolve(input.files ? Array.from(input.files) : null);
-				input.click();
-			});
-			if (chosen && chosen.length > 0) files = chosen;
+			if (files.length === 0) {
+				const inputFiles = await pickViaInput();
+				if (inputFiles) {
+					files = inputFiles;
+					handles = [];
+				}
+			}
 		}
 		if (files.length === 0) return;
 		for (let i = 0; i < files.length; i++) {
@@ -147,8 +150,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 				const { handle: _h, file: _f, ...m } = s;
 				return m;
 			});
-			// SAFETY: type assertion is safe for this quick-cut path
-			project = createNewProject(metas as never);
+			project = createNewProject(metas);
 			project.segments = segments;
 		} else {
 			project.sources = sources.map((s) => {
@@ -172,7 +174,11 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	}
 
 	function frameStep(deltaFrames: number): void {
-		const fps = 30;
+		const fps = activeSource?.fps;
+		if (!fps || fps <= 0) {
+			showToast(m.quick_cut_frame_unavailable(), 'error');
+			return;
+		}
 		seekTo(currentTime + deltaFrames / fps);
 	}
 
@@ -308,7 +314,6 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 						);
 						showToast(`${m.quick_cut_saved()} · ${saved.relPath}`, 'success');
 					} else {
-						// Download via anchor without loading whole file into memory again (use scratch File directly)
 						const url = URL.createObjectURL(art.scratchFile);
 						const a = document.createElement('a');
 						a.href = url;
@@ -319,13 +324,13 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 					}
 					soundPreferences.play('success');
 				} finally {
-					await art.discard().catch(() => undefined);
+					await discardScratchFile(art.scratchPath).catch(() => undefined);
 				}
 			}
 		} catch (err) {
-			for (const a of artifacts) await a.discard().catch(() => undefined);
-			// SAFETY: type assertion is safe for this quick-cut path
-			if ((err as DOMException)?.name === 'AbortError') showToast(m.quick_cut_cancelled(), 'error');
+			for (const a of artifacts) await discardScratchFile(a.scratchPath).catch(() => undefined);
+			if (err instanceof DOMException && err.name === 'AbortError')
+				showToast(m.quick_cut_cancelled(), 'error');
 			else {
 				showToast(err instanceof Error ? err.message : String(err), 'error');
 				soundPreferences.play('error');
@@ -356,6 +361,9 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		abortController?.abort();
 	}
 
+	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
+	let saveQueue: Promise<void> = Promise.resolve();
+
 	function syncProject(): void {
 		if (!project) return;
 		project.segments = segments;
@@ -365,7 +373,26 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 			const { handle: _h, file: _f, ...m } = s;
 			return m;
 		});
-		if (getWorkspaceRoot()) void saveProjectToWorkspace({ ...project }).catch(() => undefined);
+		if (!getWorkspaceRoot()) return;
+		saveState = 'saving';
+		const toSave = { ...project };
+		saveQueue = saveQueue
+			.then(() => saveProjectToWorkspace(toSave))
+			.then(() => {
+				saveState = 'saved';
+				setTimeout(() => {
+					if (saveState === 'saved') saveState = 'idle';
+				}, 1500);
+			})
+			.catch(() => {
+				saveState = 'error';
+				showToast(m.quick_cut_save_failed(), 'error');
+			});
+	}
+
+	function clearSourceUrls(): void {
+		for (const url of sourceUrls.values()) URL.revokeObjectURL(url);
+		sourceUrls = new Map();
 	}
 
 	async function handleImportProject(): Promise<void> {
@@ -392,8 +419,8 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 				...meta,
 				handle: handleMap.get(meta.id) ?? undefined,
 				file: undefined
-				// SAFETY: type assertion is safe for this quick-cut path
-			})) as QuickCutSource[];
+			}));
+			clearSourceUrls();
 			// Try to create object URLs for those with handles
 			for (const s of sources) {
 				if (s.handle) {
@@ -440,9 +467,15 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	}
 
 	async function handleSendToOpenPost(): Promise<void> {
-		if (segments.length === 0) return;
-		await handleExportAll();
-		showToast(m.quick_cut_sent(), 'success');
+		if (segments.length === 0 || sources.length === 0) return;
+		try {
+			await runExport(segments, merge);
+			showToast(m.quick_cut_sent(), 'success');
+		} catch (e) {
+			if (e instanceof DOMException && e.name === 'AbortError')
+				showToast(m.quick_cut_cancelled(), 'error');
+			else showToast(e instanceof Error ? e.message : String(e), 'error');
+		}
 	}
 
 	function onTimeUpdate(): void {
@@ -469,8 +502,8 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
-		// SAFETY: type assertion is safe for this quick-cut path
-		const target = event.target as HTMLElement;
+		const target = event.target instanceof HTMLElement ? event.target : null;
+		if (!target) return;
 		if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
 		if (event.key === 'i' || event.key === 'I') {
 			event.preventDefault();
@@ -500,8 +533,6 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		for (const url of sourceUrls.values()) URL.revokeObjectURL(url);
 	});
 </script>
-
-// oxlint-disable
 
 <svelte:head>
 	<title>{m.quick_cut_title()}</title>
@@ -549,7 +580,6 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 			</div>
 		{:else}
 			<div class="flex flex-wrap gap-2">
-				// SAFETY: type assertion is safe for this quick-cut path
 				{#each sources as src, idx (src.id)}
 					<button
 						type="button"
@@ -648,7 +678,6 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 					<div class="flex flex-wrap items-center gap-2">
 						<Label class="text-xs">{m.quick_cut_loop_label()}</Label>
 						<div class="flex rounded-md border bg-card p-0.5">
-							// SAFETY: type assertion is safe for this quick-cut path
 							{#each [['off', m.quick_cut_loop_off()], ['segment', m.quick_cut_loop_segment()], ['all', m.quick_cut_loop_all()]] as [val, label] (val)}
 								<button
 									type="button"
@@ -657,8 +686,10 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 										? 'bg-primary text-primary-foreground'
 										: 'text-muted-foreground hover:bg-accent'}"
 									aria-pressed={loopMode === val}
-									// SAFETY: type assertion is safe for this quick-cut path
-									onclick={() => (loopMode = val as LoopMode)}>{label}</button
+									onclick={() => {
+										// SAFETY: val is LoopMode from the tuple above
+										loopMode = val as LoopMode;
+									}}>{label}</button
 								>
 							{/each}
 						</div>
@@ -812,7 +843,6 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 					{/if}
 
 					<ul class="space-y-2">
-						// SAFETY: type assertion is safe for this quick-cut path
 						{#each segments as seg, idx (seg.id)}
 							{@const src = sources.find((s) => s.id === seg.sourceId)}
 							<li class="flex items-center justify-between rounded-lg border bg-card p-2">

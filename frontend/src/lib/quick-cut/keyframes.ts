@@ -1,4 +1,3 @@
-// oxlint-disable
 import { ALL_FORMATS, BlobSource, EncodedPacketSink, Input } from 'mediabunny';
 
 export async function extractKeyframeTimestamps(

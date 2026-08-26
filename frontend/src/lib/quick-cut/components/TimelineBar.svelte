@@ -1,5 +1,4 @@
 <script lang="ts">
-	// oxlint-disable
 	import type { QuickCutSegment, QuickCutSource } from '../types';
 	import { m } from '$lib/paraglide/messages';
 
@@ -33,8 +32,6 @@
 	const visibleSegments = $derived(segments.filter((s) => s.sourceId === activeSource?.id));
 </script>
 
-// oxlint-disable
-
 <div class="space-y-2">
 	{#if activeSource}
 		<div class="flex items-center justify-between text-xs text-muted-foreground">
@@ -53,14 +50,14 @@
 				class="absolute inset-0"
 				aria-label={m.quick_cut_seek_timeline()}
 				onclick={(e) => {
-					// SAFETY: type assertion is safe for this quick-cut path
-					const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+					const target = e.currentTarget;
+					if (!(target instanceof HTMLElement)) return;
+					const rect = target.getBoundingClientRect();
 					const x = e.clientX - rect.left;
 					onSeek((x / rect.width) * duration);
 				}}
 			></button>
 
-			// SAFETY: type assertion is safe for this quick-cut path
 			{#each visibleSegments as seg (seg.id)}
 				<button
 					type="button"

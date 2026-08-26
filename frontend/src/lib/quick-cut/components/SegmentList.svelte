@@ -1,5 +1,4 @@
 <script lang="ts">
-	// oxlint-disable
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import type { QuickCutSegment, QuickCutSource } from '../types';
@@ -31,15 +30,12 @@
 		const src = sourceById.get(sourceId);
 		const duration = src?.duration ?? 0;
 		const clamped = Math.max(0, Math.min(duration, parsed));
-		// SAFETY: type assertion is safe for this quick-cut path
-		onUpdate(id, { [field]: clamped } as Partial<QuickCutSegment>);
+		if (field === 'start') onUpdate(id, { start: clamped });
+		else onUpdate(id, { end: clamped });
 	}
 </script>
 
-// oxlint-disable
-
 <ul class="flex flex-col gap-2" role="list" aria-label={m.quick_cut_segments_label()}>
-	// SAFETY: type assertion is safe for this quick-cut path
 	{#each segments as seg, index (seg.id)}
 		{@const src = sourceById.get(seg.sourceId)}
 		<li

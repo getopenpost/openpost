@@ -1,4 +1,4 @@
-// oxlint-disable
+import { z } from 'zod';
 import {
 	readJson,
 	writeJsonAtomic,
@@ -7,23 +7,133 @@ import {
 import { requireWorkspaceRoot, getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 import { saveHandle, getHandle } from '$lib/video-editor/workspace-fs/handles-db';
 import { quickCutProjectPath } from './paths';
-import type { QuickCutProject, QuickCutSourceMetadata } from './types';
+import type { QuickCutProject, QuickCutSourceMetadata, QuickCutSegment } from './types';
 import type { QuickCutSource } from './types';
+import { createHash } from './fingerprint';
 
-export function createNewProject(
-	sources: QuickCutSourceMetadata[] | string,
-	cutMode: QuickCutProject['cutMode'] = 'nearestKeyframe'
-): QuickCutProject {
-	const now = Date.now();
-	const srcArray: QuickCutSourceMetadata[] = Array.isArray(sources)
-		? sources
-		: [
+const MAX_SOURCES = 64;
+const MAX_SEGMENTS = 200;
+const MAX_KEYFRAMES = 20000;
+const MAX_NAME_LENGTH = 100;
+
+const sourceMetaSchema = z.object({
+	id: z.string().min(1).max(64),
+	name: z.string().min(1).max(MAX_NAME_LENGTH),
+	size: z
+		.number()
+		.min(0)
+		.max(100 * 1024 * 1024 * 1024),
+	mimeType: z.string().min(1).max(100),
+	duration: z
+		.number()
+		.min(0)
+		.max(24 * 3600),
+	width: z.number().min(0).max(8192),
+	height: z.number().min(0).max(8192),
+	videoCodec: z.string().nullable(),
+	audioCodec: z.string().nullable(),
+	sampleRate: z.number().nullable(),
+	channels: z.number().nullable(),
+	rotation: z.number(),
+	fps: z.number().nullable(),
+	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES),
+	keyframeState: z.enum(['known', 'unknown', 'audio-only']),
+	lastModified: z.number().optional(),
+	contentFingerprint: z.string().optional()
+});
+
+const segmentSchema = z.object({
+	id: z.string().min(1),
+	sourceId: z.string().min(1),
+	start: z.number().min(0),
+	end: z.number().min(0),
+	name: z.string().max(MAX_NAME_LENGTH).optional(),
+	enabled: z.boolean().optional()
+});
+
+const projectSchema = z.object({
+	version: z.literal(1),
+	id: z.string().min(1),
+	name: z.string().min(1).max(MAX_NAME_LENGTH),
+	sources: z.array(sourceMetaSchema).min(1).max(MAX_SOURCES),
+	segments: z.array(segmentSchema).max(MAX_SEGMENTS),
+	cutMode: z.enum(['nearestKeyframe', 'exact']),
+	merge: z.boolean(),
+	createdAt: z.number(),
+	updatedAt: z.number()
+});
+
+const legacySegmentSchema = z
+	.object({
+		id: z.unknown(),
+		start: z.unknown(),
+		end: z.unknown(),
+		name: z.unknown(),
+		enabled: z.unknown()
+	})
+	.passthrough();
+
+const legacyProjectSchema = z.object({
+	version: z.number().optional(),
+	id: z.unknown(),
+	name: z.unknown(),
+	sourceFileName: z.string(),
+	sourceFileSize: z.number().optional(),
+	sourceMimeType: z.string().optional(),
+	duration: z.number().optional(),
+	segments: z.array(legacySegmentSchema).optional(),
+	cutMode: z.enum(['nearestKeyframe', 'exact']).optional(),
+	merge: z.boolean().optional(),
+	createdAt: z.number().optional(),
+	updatedAt: z.number().optional()
+});
+
+function isValidProjectData(data: unknown): data is QuickCutProject {
+	return projectSchema.safeParse(data).success;
+}
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- parsing untrusted JSON at boundary, validated via zod
+function validateProject(parsed: unknown): QuickCutProject {
+	const result = projectSchema.safeParse(parsed);
+	if (!result.success)
+		throw new Error(`Invalid project: ${result.error.issues[0]?.message ?? 'schema error'}`);
+	const data = result.data;
+	const sourceIds = new Set(data.sources.map((s) => s.id));
+	for (const seg of data.segments) {
+		if (!sourceIds.has(seg.sourceId))
+			throw new Error(`Segment ${seg.id} references missing source`);
+		if (seg.end <= seg.start) throw new Error(`Segment ${seg.id} has invalid time`);
+		if (seg.end - seg.start < 0.05) throw new Error(`Segment ${seg.id} too short`);
+		const src = data.sources.find((s) => s.id === seg.sourceId);
+		if (!src) throw new Error(`Segment ${seg.id} missing source`);
+		if (seg.end > src.duration + 0.001) throw new Error(`Segment ${seg.id} beyond source duration`);
+	}
+	if (new Set(data.sources.map((s) => s.id)).size !== data.sources.length)
+		throw new Error('Duplicate source id');
+	return data;
+}
+
+export function parseProject(json: string): QuickCutProject {
+	let parsed: unknown; // oxlint-disable-line anti-slop/no-unknown-parameters -- JSON.parse returns unknown at boundary
+	try {
+		parsed = JSON.parse(json);
+	} catch {
+		throw new Error('Invalid JSON');
+	}
+	if (isValidProjectData(parsed)) return parsed;
+	const legacy = legacyProjectSchema.safeParse(parsed);
+	if (legacy.success) {
+		const o = legacy.data;
+		const hasSources = typeof parsed === 'object' && parsed !== null && 'sources' in parsed;
+		if (!hasSources) {
+			const legacyId = crypto.randomUUID();
+			const legacySources: QuickCutSourceMetadata[] = [
 				{
-					id: crypto.randomUUID(),
-					name: sources,
-					size: 0,
-					mimeType: 'video/mp4',
-					duration: 0,
+					id: legacyId,
+					name: o.sourceFileName,
+					size: o.sourceFileSize ?? 0,
+					mimeType: o.sourceMimeType ?? 'video/mp4',
+					duration: o.duration ?? 0,
 					width: 0,
 					height: 0,
 					videoCodec: null,
@@ -32,9 +142,69 @@ export function createNewProject(
 					channels: null,
 					rotation: 0,
 					fps: null,
-					keyframeTimestamps: []
+					keyframeTimestamps: [],
+					keyframeState: 'unknown',
+					lastModified: undefined,
+					contentFingerprint: undefined
 				}
 			];
+			const segs = o.segments ?? [];
+			const migratedSegments: QuickCutSegment[] = segs.map((s) => {
+				const id = isString(s.id) ? s.id : crypto.randomUUID();
+				const start = isNumber(s.start) ? s.start : 0;
+				const end = isNumber(s.end) ? s.end : 0;
+				const name = isString(s.name) ? s.name : undefined;
+				const enabled = isBoolean(s.enabled) ? s.enabled : true;
+				return { id, sourceId: legacyId, start, end, name, enabled };
+			});
+			const migrated = {
+				version: 1 as const,
+				id: isString(o.id) ? o.id : crypto.randomUUID(),
+				name: isString(o.name) ? o.name : 'Quick Cut',
+				sources: legacySources,
+				segments: migratedSegments,
+				cutMode: o.cutMode ?? 'nearestKeyframe',
+				merge: o.merge ?? false,
+				createdAt: o.createdAt ?? Date.now(),
+				updatedAt: o.updatedAt ?? Date.now()
+			};
+			return validateProject(migrated);
+		}
+	}
+	return validateProject(parsed);
+}
+
+export function createNewProject(
+	sources: QuickCutSourceMetadata[] | string,
+	cutMode: QuickCutProject['cutMode'] = 'nearestKeyframe'
+): QuickCutProject {
+	const now = Date.now();
+	let srcArray: QuickCutSourceMetadata[];
+	if (Array.isArray(sources)) {
+		srcArray = sources;
+	} else {
+		srcArray = [
+			{
+				id: crypto.randomUUID(),
+				name: sources,
+				size: 0,
+				mimeType: 'video/mp4',
+				duration: 0,
+				width: 0,
+				height: 0,
+				videoCodec: null,
+				audioCodec: null,
+				sampleRate: null,
+				channels: null,
+				rotation: 0,
+				fps: null,
+				keyframeTimestamps: [],
+				keyframeState: 'unknown',
+				lastModified: undefined,
+				contentFingerprint: undefined
+			}
+		];
+	}
 	const name = srcArray[0]?.name.replace(/\.[^.]+$/, '') || 'Quick Cut';
 	return {
 		version: 1,
@@ -49,33 +219,6 @@ export function createNewProject(
 	};
 }
 
-// Legacy helper for single file name
-export function createNewProjectFromName(
-	sourceFileName: string,
-	duration: number,
-	sourceSize?: number,
-	sourceMime?: string
-): QuickCutProject {
-	return createNewProject([
-		{
-			id: crypto.randomUUID(),
-			name: sourceFileName,
-			size: sourceSize ?? 0,
-			mimeType: sourceMime ?? 'video/mp4',
-			duration,
-			width: 0,
-			height: 0,
-			videoCodec: null,
-			audioCodec: null,
-			sampleRate: null,
-			channels: null,
-			rotation: 0,
-			fps: null,
-			keyframeTimestamps: []
-		}
-	]);
-}
-
 export async function saveProjectToWorkspace(project: QuickCutProject): Promise<void> {
 	const root = requireWorkspaceRoot();
 	project.updatedAt = Date.now();
@@ -86,48 +229,9 @@ export async function loadProjectFromWorkspace(id: string): Promise<QuickCutProj
 	const root = getWorkspaceRoot();
 	if (!root) return null;
 	try {
-		const raw = await readJson<
-			QuickCutProject & {
-				sourceFileName?: string;
-				sourceFileSize?: number;
-				sourceMimeType?: string;
-				duration?: number;
-			}
-		>(root, quickCutProjectPath(id));
+		const raw = await readJson<unknown>(root, quickCutProjectPath(id));
 		if (!raw) return null;
-		// Migration from single source legacy
-		if (!raw.sources && raw.sourceFileName) {
-			return {
-				version: 1,
-				id: raw.id,
-				name: raw.name,
-				sources: [
-					{
-						id: crypto.randomUUID(),
-						name: raw.sourceFileName,
-						size: raw.sourceFileSize ?? 0,
-						mimeType: raw.sourceMimeType ?? 'video/mp4',
-						duration: raw.duration ?? 0,
-						width: 0,
-						height: 0,
-						videoCodec: null,
-						audioCodec: null,
-						sampleRate: null,
-						channels: null,
-						rotation: 0,
-						fps: null,
-						keyframeTimestamps: []
-					}
-				],
-				segments: raw.segments ?? [],
-				cutMode: raw.cutMode,
-				merge: raw.merge,
-				createdAt: raw.createdAt,
-				updatedAt: raw.updatedAt
-			};
-		}
-		// SAFETY: type assertion is safe for this quick-cut path
-		return raw as QuickCutProject;
+		return parseProject(JSON.stringify(raw));
 	} catch {
 		return null;
 	}
@@ -159,9 +263,28 @@ export async function restoreSourceHandles(
 	const map = new Map<string, FileSystemFileHandle | null>();
 	for (const m of metas) {
 		const rec = await getHandle('media', `quick-cut:${m.id}`);
-		// SAFETY: type assertion is safe for this quick-cut path
-		if (rec) map.set(m.id, rec.handle as FileSystemFileHandle);
-		else map.set(m.id, null);
+		if (rec) {
+			// SAFETY: handle was saved as FileSystemFileHandle for quick-cut source via saveHandle with kind 'media'
+			const handle = rec.handle as FileSystemFileHandle;
+			try {
+				const file = await handle.getFile();
+				const sizeOk = file.size === m.size;
+				const nameOk = file.name === m.name;
+				const lastModifiedOk = m.lastModified === undefined || file.lastModified === m.lastModified;
+				let fingerprintOk = true;
+				if (m.contentFingerprint) {
+					const fp = await createHash(file);
+					fingerprintOk = fp === m.contentFingerprint;
+				}
+				if (!sizeOk || !nameOk || !lastModifiedOk || !fingerprintOk) {
+					map.set(m.id, null);
+					continue;
+				}
+				map.set(m.id, handle);
+			} catch {
+				map.set(m.id, null);
+			}
+		} else map.set(m.id, null);
 	}
 	return map;
 }
@@ -171,43 +294,7 @@ export function serializeProject(project: QuickCutProject): string {
 }
 
 export function deserializeProject(json: string): QuickCutProject {
-	const parsed = JSON.parse(json);
-	if (parsed.version !== 1) throw new Error('Unsupported project version.');
-	if (!Array.isArray(parsed.segments)) throw new Error('Invalid project: missing segments.');
-	if (!Array.isArray(parsed.sources) && parsed.sourceFileName) {
-		// legacy
-		return {
-			version: 1,
-			id: parsed.id,
-			name: parsed.name,
-			sources: [
-				{
-					id: crypto.randomUUID(),
-					name: parsed.sourceFileName,
-					size: parsed.sourceFileSize ?? 0,
-					mimeType: parsed.sourceMimeType ?? 'video/mp4',
-					duration: parsed.duration ?? 0,
-					width: 0,
-					height: 0,
-					videoCodec: null,
-					audioCodec: null,
-					sampleRate: null,
-					channels: null,
-					rotation: 0,
-					fps: null,
-					keyframeTimestamps: []
-				}
-			],
-			segments: parsed.segments,
-			cutMode: parsed.cutMode ?? 'nearestKeyframe',
-			merge: parsed.merge ?? false,
-			createdAt: parsed.createdAt,
-			updatedAt: parsed.updatedAt
-		};
-	}
-	if (!Array.isArray(parsed.sources)) throw new Error('Invalid project: missing sources.');
-	// SAFETY: type assertion is safe for this quick-cut path
-	return parsed as QuickCutProject;
+	return parseProject(json);
 }
 
 export function projectFileName(project: QuickCutProject): string {

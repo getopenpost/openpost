@@ -579,14 +579,43 @@
 		commandHistory.addUndoEntry({ type: 'ADD_LAYER' }, before);
 		onedit();
 	}
+	let dropGhost: { frame: number; trackId: string | null; valid: boolean } | null = $state(null);
+	function handleDragOver(event: DragEvent): void {
+		event.preventDefault();
+		if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+		const x = event.clientX - rect.left - 320;
+		const frame = Math.round(Math.max(0, x / Math.max(1, pxPerFrame)));
+		// validate track under pointer
+		const el = document.elementFromPoint(event.clientX, event.clientY) as HTMLElement | null;
+		const row = el?.closest<HTMLElement>('[data-layer-row]');
+		const trackId = row?.dataset.layerRow ? timelineStore.itemById.get(row.dataset.layerRow)?.trackId ?? null : null;
+		const valid = trackId ? !isTrackEffectivelyLocked(trackId, timelineStore.tracks) : false;
+		dropGhost = { frame, trackId, valid };
+	}
+	function handleDragLeave(): void { dropGhost = null; }
 	function handleDrop(event: DragEvent): void {
 		event.preventDefault();
-		// minimal media drop: accept text/plain with mediaId or file
-		const mediaId = event.dataTransfer?.getData('text/plain');
+		dropGhost = null;
+		const mediaId = event.dataTransfer?.getData('text/plain') ?? event.dataTransfer?.getData('application/x-openpost-media');
 		if (mediaId && mediaId.length > 6) {
-			status = m.video_editor_motion_drop_media();
-			// media-add is handled by parent via onedit; keep placeholder
+			const track = timelineStore.tracks.find((t)=> !t.isGroup && t.kind !== 'audio');
+			if (!track || isTrackEffectivelyLocked(track.id, timelineStore.tracks)) { status = m.video_editor_motion_track_locked(); return; }
+			const before=captureSnapshot();
+			const item: TimelineItem = { id: crypto.randomUUID(), trackId: track.id, from: timelineStore.currentFrame, durationInFrames: 60, label: mediaId.slice(0,12), type: 'video', transform:{x:0,y:0,rotation:0,opacity:1} };
+			timelineStore._setItems([...timelineStore.items, item]);
+			commandHistory.addUndoEntry({type:'DROP_MEDIA'}, before); onedit(); status = m.video_editor_motion_drop_media();
 		}
+	}
+	function handleLinkPick(itemId: string, property: string): void {
+		if (linkPickSource && linkPickSource.itemId === itemId && linkPickSource.property === property) { linkPickSource = null; return; }
+		linkPickSource = { itemId, property };
+	}
+	function handleLinkSelect(targetId: string, targetProp: string): void {
+		if (!linkPickSource) return;
+		const before=captureSnapshot();
+		try { setPropertyExpression(linkPickSource.itemId, linkPickSource.property as KeyframeProperty, `${targetId}.${targetProp}`, true); commandHistory.addUndoEntry({type:'SET_LINK'}, before); onedit(); } catch { status = m.video_editor_motion_parent_failed(); }
+		linkPickSource = null;
 	}
 	type DragState = {
 		kind: 'move' | 'trim-start' | 'trim-end';
@@ -1218,7 +1247,8 @@
 		data-testid="composition-timeline"
 		role="region"
 		tabindex="0"
-		ondragover={(e) => { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy'; }}
+		ondragover={handleDragOver}
+		ondragleave={handleDragLeave}
 		ondrop={handleDrop}
 	>
 		<!-- Header: composition picker, new, generated layers, duration/fps, fit, trim -->
@@ -1485,6 +1515,25 @@
 										<span class="band-label">{item.maskType ?? 'mask'} {item.maskFeather ? `feather ${item.maskFeather}` : ''}</span>
 									</div>
 								{/if}
+								<div class="link-pick-row" data-testid={`link-pick-${item.id}`}>
+									<button type="button" class="link-pick-btn" aria-pressed={linkPickSource?.itemId===item.id} aria-label="Link pick" onclick={()=>handleLinkPick(item.id, 'x')} data-testid={`link-pick-btn-${item.id}`}>
+										<Link2Icon class="size-3" /> {linkPickSource?.itemId===item.id ? 'Pick target…' : 'Link'}
+									</button>
+									{#if item.propertyLinks && item.propertyLinks.length>0}
+										{#each item.propertyLinks as link (link.targetProperty)}
+											<span class="link-badge" data-testid={`link-badge-${item.id}-${link.targetProperty}`}>{link.targetProperty}→{link.sourceItemId}</span>
+											<button type="button" class="icon-btn" aria-label="Remove link" onclick={()=>{ const before=captureSnapshot(); removePropertyExpression(item.id, link.targetProperty as KeyframeProperty); commandHistory.addUndoEntry({type:'REMOVE_LINK'}, before); onedit(); }} data-testid={`link-remove-${item.id}-${link.targetProperty}`}><UnlinkIcon class="size-3" /></button>
+										{/each}
+									{/if}
+								</div>
+								{#if composition?.compositionControls && Object.keys(composition.compositionControls).length>0}
+									<div class="published-controls" data-testid={`published-controls-${item.id}`}>
+										<span class="band-label">Published controls</span>
+										{#each Object.entries(composition.compositionControls) as [key, ctrl]}
+											<label class="control-row"><span>{key}</span><input type="text" value={item.compositionControlOverrides?.[key] ?? ''} placeholder={String(ctrl.defaultValue ?? '')} onchange={(e)=>{ const v=(e.currentTarget as HTMLInputElement).value; const before=captureSnapshot(); const overrides={...(item.compositionControlOverrides ?? {}), [key]: v}; timelineStore._updateItems([{id:item.id, patch:{compositionControlOverrides: overrides}}]); commandHistory.addUndoEntry({type:'SET_CONTROL_OVERRIDE'}, before); onedit(); }} data-testid={`control-override-${item.id}-${key}`} /></label>
+										{/each}
+									</div>
+								{/if}
 							{/if}
 						</div>
 						{/if}
@@ -1567,6 +1616,12 @@
 						{/if}
 						{#if marquee && marquee.active}
 							<div class="marquee" style="left:{Math.min(marquee.x, marquee.x+marquee.w)}px; top:{Math.min(marquee.y, marquee.y+marquee.h)}px; width:{Math.abs(marquee.w)}px; height:{Math.abs(marquee.h)}px" data-testid="composition-marquee"></div>
+						{/if}
+						{#if dropGhost && dropGhost.valid}
+							<div class="drop-ghost" style="left:{timelineX(dropGhost.frame)}px" data-testid="composition-drop-ghost" aria-hidden="true"></div>
+						{/if}
+						{#if dropGhost && !dropGhost.valid}
+							<div class="drop-ghost invalid" style="left:{timelineX(dropGhost.frame)}px" data-testid="composition-drop-ghost-invalid" aria-hidden="true"></div>
 						{/if}
 					</div>
 				</div>
@@ -1747,6 +1802,17 @@
 	.motion-layer-band, .modifier-band { display: flex; align-items: center; height: 18px; border-radius: 0.2rem; border: 1px solid oklch(0.55 0.12 230 / 0.5); background: oklch(0.45 0.12 230 / 0.18); color: inherit; font-size: 0.58rem; padding: 0 0.3rem; cursor: pointer; }
 	.motion-layer-band:focus-visible, .modifier-band:focus-visible { outline: 2px solid oklch(0.66 0.14 45); outline-offset: 2px; }
 	.path-vertex-lane, .mask-lane { display: flex; align-items: center; padding: 0.2rem 0.35rem; border-top: 1px dashed oklch(0.24 0.012 55); font-size: 0.58rem; color: oklch(0.68 0.015 65); }
+	.link-pick-row { display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.35rem; border-top: 1px dashed oklch(0.24 0.012 55); }
+	.link-pick-btn { display: inline-flex; align-items: center; gap: 0.2rem; height: 22px; padding: 0 0.4rem; border-radius: 0.2rem; border: 1px solid oklch(0.26 0.016 55); background: oklch(0.2 0.01 55); color: inherit; font-size: 0.58rem; cursor: pointer; }
+	.link-pick-btn[aria-pressed="true"] { border-color: oklch(0.66 0.14 45); background: oklch(0.28 0.03 50); }
+	.link-pick-btn:focus-visible { outline: 2px solid oklch(0.66 0.14 45); outline-offset: 2px; }
+	.link-badge { font-size: 0.58rem; padding: 0.1rem 0.3rem; border-radius: 0.2rem; background: oklch(0.22 0.015 55); border: 1px solid oklch(0.26 0.016 55); }
+	.published-controls { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.3rem 0.35rem; border-top: 1px dashed oklch(0.24 0.012 55); }
+	.control-row { display: flex; align-items: center; gap: 0.4rem; font-size: 0.58rem; }
+	.control-row input { flex: 1; height: 22px; border-radius: 0.2rem; border: 1px solid oklch(0.26 0.016 55); background: oklch(0.2 0.01 55); color: inherit; padding: 0 0.3rem; }
+	.control-row input:focus-visible { outline: 2px solid oklch(0.66 0.14 45); outline-offset: 2px; }
+	.drop-ghost { position: absolute; top: 8px; bottom: 8px; width: 2px; background: oklch(0.55 0.15 150); pointer-events: none; }
+	.drop-ghost.invalid { background: oklch(0.6 0.18 25); }
 	.marquee { position: absolute; border: 1px solid oklch(0.66 0.14 45); background: oklch(0.66 0.14 45 / 0.15); pointer-events: none; border-radius: 0.15rem; }
 	.composition-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.45rem 0.6rem; border-top: 1px solid oklch(0.26 0.016 55); background: oklch(0.17 0.01 55); flex-wrap: wrap; }
 	.footer-status { font-size: 0.62rem; color: oklch(0.68 0.015 65); min-height: 18px; }

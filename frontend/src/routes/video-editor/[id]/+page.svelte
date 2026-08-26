@@ -78,6 +78,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import TransportBar from '$lib/video-editor/components/transport-bar.svelte';
 	import TimelinePanel from '$lib/video-editor/components/timeline-panel.svelte';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
+	import RecordingDialog from '$lib/video-editor/components/recording-dialog.svelte';
 	import SequenceTabs from '$lib/video-editor/components/sequence-tabs.svelte';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import {
@@ -110,6 +111,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	let freezingItemId = $state<string | null>(null);
 	let motionReturnStack = $state<Array<string | null>>([]);
 	let settingsOpen = $state(false);
+	let recordingOpen = $state(false);
 	let unsupportedAudioRequest = $state<UnsupportedAudioImportRequest | null>(null);
 	let unsupportedAudioResolve: ((decision: 'import' | 'cancel') => void) | null = null;
 	let assetPanel = $state<'media' | 'assets' | 'scenes' | 'ai'>('media');
@@ -183,6 +185,17 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		selectedTransitionId = null;
 		editorSession.scheduleAutosave();
 		showToast(m.video_editor_voiceover_added(), 'success');
+	}
+
+	function handleRecordingInserted(itemId: string): void {
+		selectedItemId = itemId;
+		selectedItemIds = [itemId];
+		selectedTransitionId = null;
+		editorSession.scheduleAutosave();
+		showToast(
+			m.video_editor_recording_inserted?.() ?? 'Recording added to the timeline',
+			'success'
+		);
 	}
 
 	function handleVectorAssetInserted(itemId: string): void {
@@ -813,6 +826,15 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			{:else if !timelineStore.isDirty}
 				<span class="hidden sm:inline">{m.video_editor_saved()}</span>
 			{/if}
+			<Button
+				type="button"
+				variant="outline"
+				size="sm"
+				aria-label={m.video_editor_record_screen()}
+				onclick={() => (recordingOpen = true)}
+			>
+				{m.video_editor_record()}
+			</Button>
 			<PreviewDiagnosticsPanel />
 			<Button
 				type="button"
@@ -1289,6 +1311,13 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 <EditorSettingsDialog bind:open={settingsOpen} />
 
 <MediaRecoveryDialog onedit={() => editorSession.scheduleAutosave()} />
+
+<RecordingDialog
+	open={recordingOpen}
+	{projectId}
+	onopenchange={(v) => (recordingOpen = v)}
+	oninserted={handleRecordingInserted}
+/>
 
 <UnsupportedAudioImportDialog
 	open={unsupportedAudioRequest !== null}

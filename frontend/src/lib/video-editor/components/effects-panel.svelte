@@ -437,13 +437,13 @@
 		});
 		if (!handles?.[0]) return;
 		const file = await handles[0].getFile();
-		const { encodeCubeLut } = await import('$lib/video-editor/effects/gpu/lut');
-		const encoded = encodeCubeLut(await file.text());
+		const { parseCubeLut, encodeLutData } = await import('$lib/video-editor/effects/gpu/lut');
+		const parsed = parseCubeLut(await file.text());
 		if (
 			setGpuEffectData(itemId, effect.id, {
-				lutName: file.name,
-				lutSize: encoded.size,
-				lutData: encoded.data
+				lutName: parsed.title ?? file.name.replace(/\.cube$/i, ''),
+				lutSize: parsed.size,
+				lutData: encodeLutData(parsed.data)
 			})
 		)
 			onedit();

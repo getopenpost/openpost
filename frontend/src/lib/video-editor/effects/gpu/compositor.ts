@@ -153,7 +153,7 @@ export class GpuCompositor {
 	private pingTextures: [WebGLTexture | null, WebGLTexture | null] = [null, null];
 	private framebuffers: [WebGLFramebuffer | null, WebGLFramebuffer | null] = [null, null];
 	private pingSize: [number, number] = [0, 0];
-	private dataTextureCache = new Map<string, { texture: WebGLTexture; key: string }>();
+	private dataTextureCache = new Map<string, { texture: WebGLTexture; key: string; dimension: '2d' | '3d'; target: number }>();
 	private disposed = false;
 	private lastFailure: string | null = null;
 
@@ -218,11 +218,13 @@ export class GpuCompositor {
 		// GLint uniform count for this linked program.
 		const uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS) as number;
 		let nextSamplerUnit = 1;
+		const sampler2DType = (gl as unknown as { SAMPLER_2D: number }).SAMPLER_2D ?? 0x8b5e;
+		const sampler3DType = (gl as unknown as { SAMPLER_3D: number }).SAMPLER_3D ?? 0x8b5f;
 		for (let i = 0; i < uniformCount; i++) {
 			const info = gl.getActiveUniform(program, i);
 			if (!info) continue;
 			const name = info.name.replace(/\[0\]$/, '');
-			if (info.type === gl.SAMPLER_2D) {
+			if (info.type === sampler2DType || info.type === sampler3DType) {
 				bundle.samplerUnits.set(name, name === 'uInputTex' ? 0 : nextSamplerUnit++);
 			}
 		}
@@ -280,33 +282,66 @@ export class GpuCompositor {
 		const spec = definition.dataTexture;
 		const gl = this.gl;
 		if (!spec) return;
+		const dimension = spec.dimension ?? '2d';
+		const target = dimension === '3d' ? gl.TEXTURE_3D : gl.TEXTURE_2D;
 		// Keep the input bound on unit 0. Texture creation uses the active unit,
 		// so selecting unit 1 first prevents a cache miss from replacing the
 		// source with the auxiliary LUT or glyph atlas for the current pass.
 		gl.activeTexture(gl.TEXTURE1);
 		const key = spec.key(params);
 		const cached = this.dataTextureCache.get(definition.id);
-		if (cached && cached.key === key) {
-			gl.bindTexture(gl.TEXTURE_2D, cached.texture);
+		if (cached && cached.key === key && cached.dimension === dimension && cached.target === target) {
+			gl.bindTexture(target, cached.texture);
 			return;
 		}
 		if (cached) gl.deleteTexture(cached.texture);
 		const payload = spec.build(params);
-		const texture = this.createTexture();
-		gl.bindTexture(gl.TEXTURE_2D, texture);
-		gl.texImage2D(
-			gl.TEXTURE_2D,
-			0,
-			gl.RGBA8,
-			payload.width,
-			payload.height,
-			0,
-			gl.RGBA,
-			gl.UNSIGNED_BYTE,
-			payload.data
-		);
-		this.dataTextureCache.set(definition.id, { texture, key });
-		gl.bindTexture(gl.TEXTURE_2D, texture);
+		const depth = payload.depth ?? 1;
+		const is3d = dimension === '3d';
+		if (is3d) {
+			const max3d = gl.getParameter(gl.MAX_3D_TEXTURE_SIZE) as number;
+			if (payload.width > max3d || payload.height > max3d || depth > max3d) {
+				throw new Error(`GPU compositor: 3D LUT ${definition.id} ${payload.width}x${payload.height}x${depth} exceeds MAX_3D_TEXTURE_SIZE ${max3d} - device cannot support this LUT`);
+			}
+		} else {
+			const max2d = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+			if (payload.width > max2d || payload.height > max2d) {
+				throw new Error(`GPU compositor: 2D data texture ${definition.id} ${payload.width}x${payload.height} exceeds MAX_TEXTURE_SIZE ${max2d}`);
+			}
+		}
+		let texture: WebGLTexture | null = null;
+		try {
+			if (is3d) {
+				texture = gl.createTexture();
+				if (!texture) throw new Error('GPU compositor: 3D texture allocation failed');
+				gl.bindTexture(target, texture);
+				gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+				gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+				gl.texParameteri(target, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(target, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+				gl.texParameteri(target, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+				gl.texImage3D(target, 0, gl.RGBA8, payload.width, payload.height, depth, 0, gl.RGBA, gl.UNSIGNED_BYTE, payload.data);
+				const err = gl.getError();
+				if (err !== gl.NO_ERROR) {
+					throw new Error(`GPU compositor: texImage3D failed for ${definition.id} ${payload.width}x${payload.height}x${depth} (gl.getError 0x${err.toString(16)})`);
+				}
+			} else {
+				texture = this.createTexture();
+				gl.bindTexture(target, texture);
+				gl.texImage2D(target, 0, gl.RGBA8, payload.width, payload.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, payload.data);
+				const err = gl.getError();
+				if (err !== gl.NO_ERROR) {
+					throw new Error(`GPU compositor: texImage2D failed for ${definition.id} ${payload.width}x${payload.height} (gl.getError 0x${err.toString(16)})`);
+				}
+			}
+			this.dataTextureCache.set(definition.id, { texture, key, dimension, target });
+			gl.bindTexture(target, texture);
+		} catch (error) {
+			if (texture) gl.deleteTexture(texture);
+			// Never cache an incomplete texture; surface a clear unsupported error so preview
+				// and export both fall back identically rather than presenting wrong colors.
+			throw error;
+		}
 	}
 
 	/**

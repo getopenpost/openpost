@@ -66,7 +66,14 @@ export type GpuParamSchema =
 export interface GpuDataTextureSpec {
 	/** Cheap change-detection key derived from params. */
 	key: (params: GpuParamValues) => string;
-	build: (params: GpuParamValues) => { width: number; height: number; data: Uint8Array };
+	/** Dimension of the auxiliary texture; 2D by default for existing specs. */
+	dimension?: '2d' | '3d';
+	build: (params: GpuParamValues) => {
+		width: number;
+		height: number;
+		depth?: number;
+		data: Uint8Array;
+	};
 }
 
 export interface GpuShaderDefinition {

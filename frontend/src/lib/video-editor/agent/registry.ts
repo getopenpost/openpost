@@ -15,7 +15,7 @@ function argHint(schema: JsonSchema): string {
 	const entries = Object.entries(schema.properties);
 	if (entries.length === 0) return '{}';
 	const parts = entries.map(([key, raw]) => {
-		const value = raw as { type?: string; enum?: string[] };
+		const value = raw;
 		const required = schema.required?.includes(key) ?? false;
 		const type = value.enum
 			? value.enum.map((option) => `"${option}"`).join('|')

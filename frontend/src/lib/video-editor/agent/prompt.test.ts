@@ -11,7 +11,7 @@ describe('agent prompt', () => {
 	});
 
 	it('extracts a JSON object from fenced model output', () => {
-		const raw = '```json\n{ \"reply\": \"Hello\", \"steps\": [] }\n```';
+		const raw = '```json\n{ "reply": "Hello", "steps": [] }\n```';
 		const parsed = parsePlan(raw);
 		expect(parsed.valid).toBe(true);
 		expect(parsed.reply).toBe('Hello');

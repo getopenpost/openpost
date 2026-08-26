@@ -1,5 +1,6 @@
 import type { LlmAdapter, LlmGenerateOptions, LlmLoadProgress, LlmMessage } from './types';
-import type { LlmWorkerResponse } from './worker-protocol';
+import { parseLlmWorkerResponse, type LlmWorkerResponse } from './worker-protocol';
+import type { JsonValue } from '../types';
 import GemmaWorker from './gemma-worker.ts?worker';
 
 const DEFAULT_MAX_TOKENS = 768;
@@ -11,6 +12,7 @@ interface PendingGeneration {
 	text: string;
 	signal?: AbortSignal;
 	onAbort?: () => void;
+	aborted?: boolean;
 }
 
 export class GemmaLlmAdapter implements LlmAdapter {
@@ -19,12 +21,15 @@ export class GemmaLlmAdapter implements LlmAdapter {
 
 	private worker: Worker | null = null;
 	private workerGeneration = 0;
+	private lifecycleGeneration = 0;
+	private ready = false;
 	private loadPromise: Promise<void> | null = null;
 	private loadResolve: (() => void) | null = null;
 	private loadReject: ((error: Error) => void) | null = null;
 	private onProgress: ((progress: LlmLoadProgress) => void) | null = null;
 	private nextId = 1;
 	private readonly pending = new Map<number, PendingGeneration>();
+	private generationTail: Promise<void> = Promise.resolve();
 
 	constructor(
 		private readonly createWorker: () => Worker = () => new GemmaWorker(),
@@ -37,6 +42,7 @@ export class GemmaLlmAdapter implements LlmAdapter {
 
 	load(onProgress?: (progress: LlmLoadProgress) => void): Promise<void> {
 		this.onProgress = onProgress ?? null;
+		if (this.ready) return Promise.resolve();
 		if (this.loadPromise) return this.loadPromise;
 		if (!this.isSupported()) {
 			return Promise.reject(new Error('WebGPU is required to run the on-device assistant.'));
@@ -69,6 +75,32 @@ export class GemmaLlmAdapter implements LlmAdapter {
 			throw new RangeError('topP must be a finite number between 0 and 1');
 		}
 		await this.load(this.onProgress ?? undefined);
+		const lifecycle = this.lifecycleGeneration;
+		const queued = this.generationTail.then(
+			() => this.startGeneration(messages, options, maxTokens, temperature, topP, lifecycle),
+			() => this.startGeneration(messages, options, maxTokens, temperature, topP, lifecycle)
+		);
+		this.generationTail = queued.then(
+			() => undefined,
+			() => undefined
+		);
+		return queued;
+	}
+
+	private startGeneration(
+		messages: LlmMessage[],
+		options: LlmGenerateOptions,
+		maxTokens: number,
+		temperature: number,
+		topP: number,
+		lifecycle: number
+	): Promise<string> {
+		if (lifecycle !== this.lifecycleGeneration) {
+			return Promise.reject(new Error('Assistant session ended.'));
+		}
+		if (options.signal?.aborted) {
+			return Promise.reject(new DOMException('Aborted', 'AbortError'));
+		}
 		const worker = this.ensureWorker();
 		const id = this.nextId++;
 		return new Promise<string>((resolve, reject) => {
@@ -85,9 +117,8 @@ export class GemmaLlmAdapter implements LlmAdapter {
 					return;
 				}
 				entry.onAbort = () => {
+					entry.aborted = true;
 					worker.postMessage({ type: 'cancel', id });
-					this.pending.delete(id);
-					reject(new DOMException('Aborted', 'AbortError'));
 				};
 				options.signal.addEventListener('abort', entry.onAbort, { once: true });
 			}
@@ -104,6 +135,8 @@ export class GemmaLlmAdapter implements LlmAdapter {
 	}
 
 	dispose(): void {
+		this.lifecycleGeneration++;
+		this.ready = false;
 		if (!this.worker) {
 			if (this.loadReject) {
 				this.loadReject(new Error('Assistant disposed'));
@@ -111,6 +144,11 @@ export class GemmaLlmAdapter implements LlmAdapter {
 				this.loadResolve = null;
 				this.loadReject = null;
 			}
+			for (const [, entry] of this.pending) {
+				this.detachSignal(entry);
+				entry.reject(new Error('Assistant disposed'));
+			}
+			this.pending.clear();
 			return;
 		}
 		this.workerGeneration++;
@@ -136,18 +174,26 @@ export class GemmaLlmAdapter implements LlmAdapter {
 		this.workerGeneration++;
 		const generation = this.workerGeneration;
 		const worker = this.createWorker();
-		worker.addEventListener('message', (event: MessageEvent<unknown>) => {
+		worker.addEventListener('message', (event: MessageEvent<JsonValue>) => {
 			if (generation !== this.workerGeneration) return;
-			const data = event.data;
-			if (!isValidWorkerResponse(data)) return;
-			this.handleMessage(data);
+			const message = parseLlmWorkerResponse(event.data);
+			if (!message) {
+				this.failWorker(
+					worker,
+					generation,
+					new Error('Assistant worker sent an invalid response.')
+				);
+				return;
+			}
+			this.handleMessage(message);
 		});
 		worker.addEventListener('error', (event: ErrorEvent) => {
 			if (generation !== this.workerGeneration) return;
-			this.loadReject?.(new Error(event.message || 'Worker error'));
-			this.loadPromise = null;
-			this.loadResolve = null;
-			this.loadReject = null;
+			this.failWorker(worker, generation, new Error(event.message || 'Worker error'));
+		});
+		worker.addEventListener('messageerror', () => {
+			if (generation !== this.workerGeneration) return;
+			this.failWorker(worker, generation, new Error('Assistant worker message could not be read.'));
 		});
 		this.worker = worker;
 		return worker;
@@ -156,13 +202,11 @@ export class GemmaLlmAdapter implements LlmAdapter {
 	private handleMessage(message: LlmWorkerResponse): void {
 		switch (message.type) {
 			case 'progress': {
-				if (!Number.isFinite(message.percent) || message.percent < 0 || message.percent > 100)
-					return;
-				if (typeof message.stage !== 'string') return;
 				this.onProgress?.({ stage: message.stage, percent: message.percent });
 				break;
 			}
 			case 'ready': {
+				this.ready = true;
 				const resolve = this.loadResolve;
 				this.loadResolve = null;
 				this.loadReject = null;
@@ -171,8 +215,6 @@ export class GemmaLlmAdapter implements LlmAdapter {
 				break;
 			}
 			case 'token': {
-				if (typeof message.delta !== 'string') return;
-				if (!Number.isFinite(message.id)) return;
 				const entry = this.pending.get(message.id);
 				if (!entry) break;
 				entry.text += message.delta;
@@ -180,31 +222,27 @@ export class GemmaLlmAdapter implements LlmAdapter {
 				break;
 			}
 			case 'result': {
-				if (typeof message.text !== 'string') return;
-				if (!Number.isFinite(message.id)) return;
 				const entry = this.pending.get(message.id);
 				if (!entry) break;
 				this.detachSignal(entry);
 				this.pending.delete(message.id);
-				entry.resolve(message.text);
+				if (entry.aborted) entry.reject(new DOMException('Aborted', 'AbortError'));
+				else entry.resolve(message.text);
 				break;
 			}
 			case 'error': {
-				if (message.id !== undefined && !Number.isFinite(message.id)) return;
-				if (typeof message.message !== 'string') return;
 				if (message.id === undefined) {
-					const reject = this.loadReject;
-					this.loadReject = null;
-					this.loadResolve = null;
-					this.loadPromise = null;
-					reject?.(new Error(message.message));
+					const worker = this.worker;
+					if (worker) this.failWorker(worker, this.workerGeneration, new Error(message.message));
 					break;
 				}
 				const entry = this.pending.get(message.id);
 				if (!entry) break;
 				this.detachSignal(entry);
 				this.pending.delete(message.id);
-				entry.reject(new Error(message.message));
+				entry.reject(
+					entry.aborted ? new DOMException('Aborted', 'AbortError') : new Error(message.message)
+				);
 				break;
 			}
 			case 'disposed':
@@ -212,44 +250,30 @@ export class GemmaLlmAdapter implements LlmAdapter {
 		}
 	}
 
+	private failWorker(worker: Worker, generation: number, error: Error): void {
+		if (generation !== this.workerGeneration || this.worker !== worker) return;
+		this.workerGeneration++;
+		this.lifecycleGeneration++;
+		this.worker = null;
+		this.ready = false;
+		const rejectLoad = this.loadReject;
+		this.loadPromise = null;
+		this.loadResolve = null;
+		this.loadReject = null;
+		rejectLoad?.(error);
+		for (const [, entry] of this.pending) {
+			this.detachSignal(entry);
+			entry.reject(error);
+		}
+		this.pending.clear();
+		worker.terminate();
+	}
+
 	private detachSignal(entry: PendingGeneration): void {
 		if (entry.signal && entry.onAbort) {
 			entry.signal.removeEventListener('abort', entry.onAbort);
 		}
 	}
-}
-
-function isValidWorkerResponse(value: unknown): value is LlmWorkerResponse {
-	if (!value || typeof value !== 'object') return false;
-	const record = value as Record<string, unknown>;
-	const type = record.type;
-	if (type === 'progress') {
-		return (
-			typeof record.stage === 'string' &&
-			typeof record.percent === 'number' &&
-			Number.isFinite(record.percent)
-		);
-	}
-	if (type === 'ready' || type === 'disposed') return true;
-	if (type === 'token') {
-		return (
-			typeof record.id === 'number' &&
-			Number.isFinite(record.id) &&
-			typeof record.delta === 'string'
-		);
-	}
-	if (type === 'result') {
-		return (
-			typeof record.id === 'number' && Number.isFinite(record.id) && typeof record.text === 'string'
-		);
-	}
-	if (type === 'error') {
-		return (
-			typeof record.message === 'string' &&
-			(record.id === undefined || (typeof record.id === 'number' && Number.isFinite(record.id)))
-		);
-	}
-	return false;
 }
 
 export const gemmaLlmAdapter = new GemmaLlmAdapter();

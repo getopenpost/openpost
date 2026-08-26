@@ -38,14 +38,8 @@ function stubAdapter(responses: string[], delayMs = 0): LlmAdapter {
 }
 
 beforeEach(() => {
-	if (typeof navigator !== 'undefined' && !('gpu' in navigator)) {
-		(
-			Object.defineProperty as unknown as (
-				obj: unknown,
-				prop: string,
-				desc: PropertyDescriptor
-			) => void
-		)(navigator, 'gpu', {
+	if (!('gpu' in navigator)) {
+		Object.defineProperty(navigator, 'gpu', {
 			value: { requestAdapter: async () => ({}) },
 			configurable: true
 		});
@@ -151,7 +145,7 @@ describe('agent store project scoping and cancellation', () => {
 			const lastMessage = agentStore.messages.at(-1)?.content ?? '';
 			expect(lastMessage).toContain('✓ Deleted 1 clip');
 			expect(lastMessage).toContain('✕');
-			expect(lastMessage).toContain('- Skipped');
+			expect(lastMessage).toContain('Skipped after previous failure.');
 			expect(agentStore.plan?.[2]?.status).toBe('skipped');
 		} finally {
 			unregister();
@@ -188,6 +182,41 @@ describe('agent store project scoping and cancellation', () => {
 			expect(timelineStore.itemById.has('a')).toBe(true);
 		} finally {
 			setAgentHandoffHandlers({});
+			unregister();
+		}
+	});
+
+	it('stops later mutations when a project changes during a running step', async () => {
+		const item: TimelineItem = {
+			id: 'a',
+			trackId: track.id,
+			from: 0,
+			durationInFrames: 60,
+			label: 'Clip',
+			type: 'video'
+		};
+		timelineStore.setAll({ tracks: [track], items: [item], fps: 30 });
+		const plan = JSON.stringify({
+			reply: 'Select then delete',
+			steps: [
+				{ tool: 'select_clips', args: { clips: ['c1'] } },
+				{ tool: 'delete_clips', args: { clips: ['c1'] } }
+			]
+		});
+		const unregister = registerLlmAdapter(stubAdapter([plan]));
+		const { setAgentSelectionHandler } = await import('./tools/definitions');
+		setAgentSelectionHandler(() => {
+			queueMicrotask(() => agentStore.setProjectId('p2'));
+		});
+		try {
+			agentStore.setProjectId('p1');
+			await agentStore.submit('select and delete', { projectId: 'p1' });
+			await agentStore.runPlan({ projectId: 'p1' });
+			expect(timelineStore.itemById.has('a')).toBe(true);
+			expect(agentStore.phase).toBe('idle');
+			expect(agentStore.plan).toBeNull();
+		} finally {
+			setAgentSelectionHandler(null);
 			unregister();
 		}
 	});

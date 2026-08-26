@@ -15,14 +15,25 @@ import { timelineToSourceFrames } from '../../timeline/utils/source-calculations
 import { addTransition as addTransitionAction } from '../../timeline/actions/transitions.svelte';
 import { buildClipRefs, resolveClipRefs, resolveItemRef, resolveTargetItems } from '../clip-refs';
 import { searchTimelineTranscript } from '../transcript-search';
-import type { EditorAgentTool, JsonSchema, ToolResult, ToolValidation } from '../types';
+import type {
+	EditorAgentTool,
+	JsonObject,
+	JsonSchema,
+	JsonSchemaProperty,
+	JsonValue,
+	ToolResult,
+	ToolValidation
+} from '../types';
 import type { TimelineItem } from '../../project/types';
 import type { TransitionPresentation } from '../../transitions/types';
 
-function makeValidate<S extends z.ZodTypeAny>(schema: S): (args: unknown) => ToolValidation {
+function makeValidate<S extends z.ZodTypeAny>(schema: S): (args: JsonValue) => ToolValidation {
 	return (args) => {
 		const result = schema.safeParse(args ?? {});
-		if (result.success) return { ok: true, value: result.data as Record<string, unknown> };
+		if (result.success) {
+			// SAFETY: every tool schema in this module parses an object with JSON-safe fields.
+			return { ok: true, value: result.data as JsonObject };
+		}
 		const issue = result.error.issues[0];
 		const path = issue?.path.join('.') || 'args';
 		return { ok: false, error: `${path}: ${issue?.message ?? 'invalid'}` };
@@ -50,12 +61,17 @@ function defineTool<S extends z.ZodTypeAny>(def: {
 		destructive: def.destructive ?? false,
 		handoff: def.handoff ?? false,
 		validate: makeValidate(def.schema),
+		// SAFETY: makeValidate stores only output parsed by the same schema.
 		summarize: (args) => def.summarize(args as z.infer<S>),
+		// SAFETY: makeValidate stores only output parsed by the same schema.
 		execute: (args) => def.execute(args as z.infer<S>)
 	};
 }
 
-function objSchema(properties: Record<string, unknown>, required: string[] = []): JsonSchema {
+function objSchema(
+	properties: Record<string, JsonSchemaProperty>,
+	required: string[] = []
+): JsonSchema {
 	return { type: 'object', properties, required, additionalProperties: false };
 }
 
@@ -88,7 +104,7 @@ const TRANSITION_TYPES = [
 type TransitionType = (typeof TRANSITION_TYPES)[number];
 
 function isTransitionType(value: string): value is TransitionType {
-	return (TRANSITION_TYPES as readonly string[]).includes(value);
+	return z.enum(TRANSITION_TYPES).safeParse(value).success;
 }
 
 let handoffHandlers: {
@@ -130,7 +146,7 @@ const findClips = defineTool({
 		query: z.string().optional(),
 		type: z.enum(['video', 'audio', 'text', 'image', 'shape']).optional()
 	}),
-	summarize: (args) => `Find clips${args.type ? ` of type ${args.type}` : ''}`,
+	summarize: () => m.video_editor_agent_plan_find_clips(),
 	execute: (args) => {
 		const query = args.query?.toLowerCase();
 		const matches = buildClipRefs().filter((clip) => {
@@ -160,7 +176,7 @@ const searchTranscript = defineTool({
 	),
 	readOnly: true,
 	schema: z.object({ query: z.string().min(1) }),
-	summarize: (args) => `Search transcript for "${args.query}"`,
+	summarize: (args) => m.video_editor_agent_plan_search_transcript({ query: args.query }),
 	execute: async (args) => {
 		const matches = await searchTimelineTranscript(args.query);
 		buildClipRefs();
@@ -192,7 +208,7 @@ const selectClips = defineTool({
 	description: 'Select the given clips so later actions and the UI focus on them.',
 	inputSchema: objSchema({ clips: CLIPS_PROP }, ['clips']),
 	schema: z.object({ clips: z.array(z.string()).min(1) }),
-	summarize: (args) => `Select ${args.clips.join(', ')}`,
+	summarize: (args) => m.video_editor_agent_plan_select({ clips: args.clips.join(', ') }),
 	execute: (args) => {
 		const ids = resolveClipRefs(args.clips);
 		if (ids.length === 0) throw new Error(m.video_editor_agent_error_no_clip_refs());
@@ -218,7 +234,7 @@ const seekTo = defineTool({
 	description: 'Move the playhead to a time in seconds.',
 	inputSchema: objSchema({ seconds: { type: 'number', minimum: 0 } }, ['seconds']),
 	schema: z.object({ seconds: z.number().min(0) }),
-	summarize: (args) => `Seek to ${args.seconds.toFixed(1)}s`,
+	summarize: (args) => m.video_editor_agent_plan_seek({ seconds: args.seconds.toFixed(1) }),
 	execute: (args) => {
 		setCurrentFrame(Math.round(args.seconds * getFps()));
 		return {
@@ -244,7 +260,7 @@ const addTitle = defineTool({
 		['text']
 	),
 	schema: z.object({ text: z.string().min(1).max(300), atSeconds: z.number().min(0).optional() }),
-	summarize: (args) => `Add title: "${args.text.slice(0, 40)}"`,
+	summarize: (args) => m.video_editor_agent_plan_add_title({ text: args.text.slice(0, 40) }),
 	execute: (args) => {
 		const fps = getFps();
 		if (timelineStore.tracks.length === 0) throw new Error(m.video_editor_agent_error_no_media());
@@ -270,7 +286,9 @@ const split = defineTool({
 	}),
 	schema: z.object({ clips: clipsField, atSeconds: z.number().min(0).optional() }),
 	summarize: (args) =>
-		`Split at ${args.atSeconds !== undefined ? `${args.atSeconds.toFixed(1)}s` : 'the playhead'}`,
+		args.atSeconds !== undefined
+			? m.video_editor_agent_plan_split_time({ seconds: args.atSeconds.toFixed(1) })
+			: m.video_editor_agent_plan_split_playhead(),
 	execute: (args) => {
 		const frame =
 			args.atSeconds !== undefined
@@ -305,7 +323,7 @@ const deleteClips = defineTool({
 	inputSchema: objSchema({ clips: CLIPS_PROP }, ['clips']),
 	destructive: true,
 	schema: z.object({ clips: z.array(z.string()).min(1) }),
-	summarize: (args) => `Delete ${args.clips.join(', ')}`,
+	summarize: (args) => m.video_editor_agent_plan_delete({ clips: args.clips.join(', ') }),
 	execute: (args) => {
 		const items = resolveTargetItems(args.clips);
 		if (items.length === 0) throw new Error(m.video_editor_agent_error_no_clip_refs());
@@ -332,22 +350,28 @@ const setSpeed = defineTool({
 		['speed']
 	),
 	schema: z.object({ clips: clipsField, speed: z.number().min(0.1).max(10) }),
-	summarize: (args) => `Set speed to ${args.speed}x`,
+	summarize: (args) => m.video_editor_agent_plan_set_speed({ speed: args.speed }),
 	execute: (args) => {
 		const media = resolveTargetItems(args.clips).filter(isMedia);
-		if (media.length === 0) throw new Error('Select or name one or more video/audio clips.');
+		if (media.length === 0) throw new Error(m.video_editor_agent_error_no_media());
 		const result = setItemsSpeed(
 			media.map((item) => item.id),
 			args.speed
 		);
-		if (result.locked > 0) throw new Error('One or more selected clips are on locked tracks.');
+		if (result.locked > 0) throw new Error(m.video_editor_agent_error_locked_tracks());
 		if (result.changed === 0) {
-			if (result.noop > 0) throw new Error('Clips are already at that speed.');
-			throw new Error('No clips were changed.');
+			if (result.noop > 0) throw new Error(m.video_editor_agent_error_already_at_speed());
+			throw new Error(m.video_editor_agent_error_no_change());
 		}
 		return {
 			ok: true,
-			message: `Set ${result.changed} clip${result.changed === 1 ? '' : 's'} to ${args.speed}x.`
+			message:
+				result.changed === 1
+					? m.video_editor_agent_tool_set_speed({ count: result.changed, speed: args.speed })
+					: m.video_editor_agent_tool_set_speed_plural({
+							count: result.changed,
+							speed: args.speed
+						})
 		};
 	}
 });
@@ -361,19 +385,29 @@ const setVolume = defineTool({
 		['volume']
 	),
 	schema: z.object({ clips: clipsField, volume: z.number().min(0).max(1) }),
-	summarize: (args) => `Set volume to ${Math.round(args.volume * 100)}%`,
+	summarize: (args) =>
+		m.video_editor_agent_plan_set_volume({ volume: Math.round(args.volume * 100) }),
 	execute: (args) => {
 		const media = resolveTargetItems(args.clips).filter(isMedia);
-		if (media.length === 0) throw new Error('Select or name one or more video/audio clips.');
+		if (media.length === 0) throw new Error(m.video_editor_agent_error_no_media());
 		const result = setItemsVolume(
 			media.map((item) => item.id),
 			args.volume
 		);
-		if (result.locked > 0) throw new Error('One or more selected clips are on locked tracks.');
-		if (result.changed === 0) throw new Error('No clips were changed.');
+		if (result.locked > 0) throw new Error(m.video_editor_agent_error_locked_tracks());
+		if (result.changed === 0) throw new Error(m.video_editor_agent_error_no_change());
 		return {
 			ok: true,
-			message: `Set ${result.changed} clip${result.changed === 1 ? '' : 's'} to ${Math.round(args.volume * 100)}% volume.`
+			message:
+				result.changed === 1
+					? m.video_editor_agent_tool_set_volume({
+							count: result.changed,
+							volume: Math.round(args.volume * 100)
+						})
+					: m.video_editor_agent_tool_set_volume_plural({
+							count: result.changed,
+							volume: Math.round(args.volume * 100)
+						})
 		};
 	}
 });
@@ -395,7 +429,16 @@ const trimClip = defineTool({
 		side: z.enum(['start', 'end']),
 		seconds: z.number().min(0)
 	}),
-	summarize: (args) => `Trim ${args.seconds.toFixed(1)}s off the ${args.side} of ${args.clip}`,
+	summarize: (args) =>
+		args.side === 'start'
+			? m.video_editor_agent_plan_trim_start({
+					seconds: args.seconds.toFixed(1),
+					clip: args.clip
+				})
+			: m.video_editor_agent_plan_trim_end({
+					seconds: args.seconds.toFixed(1),
+					clip: args.clip
+				}),
 	execute: (args) => {
 		const [item] = resolveTargetItems([args.clip]);
 		if (!item) throw new Error(m.video_editor_agent_error_no_clip({ clip: args.clip }));
@@ -446,11 +489,13 @@ const addTransition = defineTool({
 		type: z.enum(TRANSITION_TYPES).optional(),
 		durationSeconds: z.number().min(0.1).max(5).optional()
 	}),
-	summarize: (args) => `Add ${args.type ?? 'default'} transition`,
+	summarize: () => m.video_editor_agent_plan_add_transition(),
 	execute: (args) => {
 		const targets = resolveTargetItems(args.clips);
 		if (targets.length !== 2) throw new Error(m.video_editor_agent_error_two_clips_required());
-		const [a, b] = targets as [TimelineItem, TimelineItem];
+		const a = targets[0];
+		const b = targets[1];
+		if (!a || !b) throw new Error(m.video_editor_agent_error_two_clips_required());
 		if (a.trackId !== b.trackId) throw new Error(m.video_editor_agent_error_same_track_required());
 		const [left, right] = a.from <= b.from ? [a, b] : [b, a];
 		const fps = getFps();
@@ -481,7 +526,7 @@ const removeSilence = defineTool({
 	inputSchema: objSchema({ clips: CLIPS_PROP }),
 	handoff: true,
 	schema: z.object({ clips: clipsField }),
-	summarize: () => 'Review and remove silences',
+	summarize: () => m.video_editor_agent_plan_review_silence(),
 	execute: (args) => {
 		const itemIds = cleanupTargetIds(args.clips);
 		if (itemIds.length === 0) throw new Error(m.video_editor_agent_error_no_clips_to_analyze());
@@ -499,7 +544,7 @@ const removeFillers = defineTool({
 	inputSchema: objSchema({ clips: CLIPS_PROP }),
 	handoff: true,
 	schema: z.object({ clips: clipsField }),
-	summarize: () => 'Review and remove filler words',
+	summarize: () => m.video_editor_agent_plan_review_fillers(),
 	execute: (args) => {
 		const itemIds = cleanupTargetIds(args.clips);
 		if (itemIds.length === 0) throw new Error(m.video_editor_agent_error_no_clips_to_analyze());

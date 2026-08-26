@@ -8,6 +8,8 @@ import { parsePlan, buildMessages } from './prompt';
 import { planRequest } from './service';
 import { buildTimelineContext } from './timeline-context';
 import type { LlmAdapter } from './llm/types';
+import type { LlmGenerateOptions, LlmMessage } from './llm/types';
+import { z } from 'zod';
 
 const track: TimelineTrack = {
 	id: 'v1',
@@ -32,7 +34,7 @@ beforeEach(() => {
 
 describe('hostile prompt and plan bounds', () => {
 	it('bounds and escapes long injected labels with quotes and newlines', async () => {
-		const evilLabel = '\"; DROP TABLE\n'.repeat(20) + 'a'.repeat(500);
+		const evilLabel = '"; DROP TABLE\n'.repeat(20) + 'a'.repeat(500);
 		const item: TimelineItem = {
 			id: 'a',
 			trackId: track.id,
@@ -63,7 +65,7 @@ describe('hostile prompt and plan bounds', () => {
 		expect(parsed.reply.length).toBeLessThanOrEqual(203);
 		expect(parsed.steps.length).toBeLessThanOrEqual(8);
 		for (const step of parsed.steps) {
-			const query = (step.args as Record<string, unknown>).query as string | undefined;
+			const query = z.string().optional().parse(step.args.query);
 			if (query) expect(query.length).toBeLessThanOrEqual(500);
 		}
 	});
@@ -96,7 +98,7 @@ describe('hostile prompt and plan bounds', () => {
 			label: 'Test',
 			isSupported: () => true,
 			load: async () => {},
-			generate: async (_msgs: unknown, opts: { signal?: AbortSignal } = {}) => {
+			generate: async (_messages: LlmMessage[], opts: LlmGenerateOptions = {}) => {
 				if (opts?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
 				return JSON.stringify({
 					reply: 'Searching',

@@ -1,6 +1,18 @@
+export type JsonPrimitive = null | boolean | number | string;
+export type JsonValue = JsonPrimitive | JsonValue[] | JsonObject;
+
+export interface JsonObject {
+	[key: string]: JsonValue;
+}
+
+export interface JsonSchemaProperty extends JsonObject {
+	type?: string;
+	enum?: string[];
+}
+
 export interface JsonSchema {
 	type: 'object';
-	properties: Record<string, unknown>;
+	properties: Record<string, JsonSchemaProperty>;
 	required?: string[];
 	additionalProperties?: boolean;
 }
@@ -8,12 +20,10 @@ export interface JsonSchema {
 export interface ToolResult {
 	ok: boolean;
 	message: string;
-	data?: unknown;
+	data?: JsonValue;
 }
 
-export type ToolValidation =
-	| { ok: true; value: Record<string, unknown> }
-	| { ok: false; error: string };
+export type ToolValidation = { ok: true; value: JsonObject } | { ok: false; error: string };
 
 export interface EditorAgentTool {
 	readonly name: string;
@@ -23,7 +33,7 @@ export interface EditorAgentTool {
 	readonly readOnly: boolean;
 	readonly destructive: boolean;
 	readonly handoff: boolean;
-	validate: (args: unknown) => ToolValidation;
-	summarize: (args: Record<string, unknown>) => string;
-	execute: (args: Record<string, unknown>) => Promise<ToolResult> | ToolResult;
+	validate: (args: JsonValue) => ToolValidation;
+	summarize: (args: JsonObject) => string;
+	execute: (args: JsonObject) => Promise<ToolResult> | ToolResult;
 }

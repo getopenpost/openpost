@@ -1,33 +1,57 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { GemmaLlmAdapter } from './adapter';
+import { parseLlmWorkerRequest } from './worker-protocol';
+import type { JsonValue } from '../types';
+
+interface MockMessageEvent {
+	data: JsonValue;
+}
+
+interface MockErrorEvent {
+	message: string;
+}
+
+type MockWorkerEvent = MockMessageEvent | MockErrorEvent;
 
 class MockWorker {
-	listeners = new Map<string, Array<(event: unknown) => void>>();
-	posted: unknown[] = [];
-	addEventListener(type: string, handler: (event: unknown) => void) {
+	listeners = new Map<string, Array<(event: MockWorkerEvent) => void>>();
+	posted: JsonValue[] = [];
+	addEventListener(type: string, handler: (event: MockWorkerEvent) => void) {
 		const list = this.listeners.get(type) ?? [];
 		list.push(handler);
 		this.listeners.set(type, list);
 	}
-	postMessage(message: unknown) {
+	postMessage(message: JsonValue) {
 		this.posted.push(message);
-		if ((message as { type?: string }).type === 'load') {
+		if (parseLlmWorkerRequest(message)?.type === 'load') {
 			queueMicrotask(() => this.emit('message', { type: 'ready' }));
 		}
 	}
-	terminate() {}
-	emit(type: string, data: unknown) {
+	terminated = false;
+	terminate() {
+		this.terminated = true;
+	}
+	emit(type: string, data: JsonValue) {
 		const list = this.listeners.get(type) ?? [];
-		for (const handler of list) handler({ data } as unknown);
+		for (const handler of list) handler({ data });
 	}
 	emitError(message: string) {
 		const list = this.listeners.get('error') ?? [];
-		for (const handler of list) handler({ message } as unknown);
+		for (const handler of list) handler({ message });
+	}
+	emitMessageError() {
+		const list = this.listeners.get('messageerror') ?? [];
+		for (const handler of list) handler({ data: null });
 	}
 }
 
+function worker(mock: MockWorker): Worker {
+	// @ts-expect-error MockWorker deliberately implements only the Worker surface used by the adapter.
+	return mock;
+}
+
 beforeEach(() => {
-	if (typeof navigator !== 'undefined' && !('gpu' in navigator)) {
+	if (!('gpu' in navigator)) {
 		Object.defineProperty(navigator, 'gpu', { value: {}, configurable: true });
 	}
 });
@@ -42,33 +66,20 @@ describe('GemmaLlmAdapter', () => {
 		await expect(adapter.generate([], { topP: -0.1 })).rejects.toThrow(RangeError);
 	});
 
-	it('ignores malformed worker responses without crashing', async () => {
+	it('fails closed on a malformed worker response', async () => {
 		const mock = new MockWorker();
-		const adapter = new GemmaLlmAdapter(() => mock as unknown as Worker, 0);
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
 		await adapter.load();
 		const pending = adapter.generate([{ role: 'user', content: 'hi' }]);
-		// Allow worker to be created and pending to be registered
 		await new Promise((r) => setTimeout(r, 5));
-		mock.emit('message', { type: 'progress', stage: 'loading-model', percent: NaN });
 		mock.emit('message', { type: 'token', id: 1, delta: 123 });
-		mock.emit('message', { type: 'result', id: 1, text: 123 });
-		mock.emit('message', { type: 'error', message: 123 });
-		mock.emit('message', { type: 'unknown' });
-		// Should still be pending and not crash
-		let settled = false;
-		pending.then(
-			() => (settled = true),
-			() => (settled = true)
-		);
-		await new Promise((r) => setTimeout(r, 5));
-		expect(settled).toBe(false);
-		mock.emit('message', { type: 'result', id: 1, text: 'ok' });
-		await expect(pending).resolves.toBe('ok');
+		await expect(pending).rejects.toThrow(/invalid response/i);
+		expect(mock.terminated).toBe(true);
 	});
 
 	it('cancels generation via AbortSignal and rejects with AbortError', async () => {
 		const mock = new MockWorker();
-		const adapter = new GemmaLlmAdapter(() => mock as unknown as Worker, 0);
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
 		await adapter.load();
 		const controller = new AbortController();
 		const promise = adapter.generate([{ role: 'user', content: 'hi' }], {
@@ -76,16 +87,67 @@ describe('GemmaLlmAdapter', () => {
 		});
 		await new Promise((r) => setTimeout(r, 5));
 		controller.abort();
+		expect(mock.posted).toContainEqual({ type: 'cancel', id: 1 });
+		mock.emit('message', { type: 'result', id: 1, text: 'cancelled' });
 		await expect(promise).rejects.toThrow(/Aborted/);
+	});
+
+	it('serializes generations until the previous worker call settles', async () => {
+		const mock = new MockWorker();
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
+		await adapter.load();
+		const first = adapter.generate([{ role: 'user', content: 'first' }]);
+		const second = adapter.generate([{ role: 'user', content: 'second' }]);
+		await new Promise((r) => setTimeout(r, 5));
+		expect(
+			mock.posted.filter((message) => parseLlmWorkerRequest(message)?.type === 'generate')
+		).toHaveLength(1);
+		mock.emit('message', { type: 'result', id: 1, text: 'one' });
+		await expect(first).resolves.toBe('one');
+		await new Promise((r) => setTimeout(r, 0));
+		expect(
+			mock.posted.filter((message) => parseLlmWorkerRequest(message)?.type === 'generate')
+		).toHaveLength(2);
+		mock.emit('message', { type: 'result', id: 2, text: 'two' });
+		await expect(second).resolves.toBe('two');
+	});
+
+	it('rejects pending work on worker crash and creates a clean worker next time', async () => {
+		const firstWorker = new MockWorker();
+		const secondWorker = new MockWorker();
+		const workers = [firstWorker, secondWorker];
+		const adapter = new GemmaLlmAdapter(() => worker(workers.shift()!), 0);
+		await adapter.load();
+		const failed = adapter.generate([{ role: 'user', content: 'first' }]);
+		await new Promise((r) => setTimeout(r, 5));
+		firstWorker.emitError('GPU process stopped');
+		await expect(failed).rejects.toThrow(/GPU process stopped/i);
+		expect(firstWorker.terminated).toBe(true);
+
+		const recovered = adapter.generate([{ role: 'user', content: 'second' }]);
+		await new Promise((r) => setTimeout(r, 5));
+		secondWorker.emit('message', { type: 'result', id: 2, text: 'recovered' });
+		await expect(recovered).resolves.toBe('recovered');
+	});
+
+	it('rejects pending work when a worker response cannot be cloned', async () => {
+		const mock = new MockWorker();
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
+		await adapter.load();
+		const pending = adapter.generate([{ role: 'user', content: 'first' }]);
+		await new Promise((resolve) => setTimeout(resolve, 5));
+		mock.emitMessageError();
+		await expect(pending).rejects.toThrow(/could not be read/i);
+		expect(mock.terminated).toBe(true);
 	});
 
 	it('allows load after dispose to create new worker', async () => {
 		const mock = new MockWorker();
-		const adapter = new GemmaLlmAdapter(() => mock as unknown as Worker, 0);
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
 		await adapter.load();
 		adapter.dispose();
 		const nextMock = new MockWorker();
-		const adapter2 = new GemmaLlmAdapter(() => nextMock as unknown as Worker, 0);
+		const adapter2 = new GemmaLlmAdapter(() => worker(nextMock), 0);
 		await adapter2.load();
 		const promise = adapter2.generate([{ role: 'user', content: 'hi' }]);
 		await new Promise((r) => setTimeout(r, 5));
@@ -96,7 +158,7 @@ describe('GemmaLlmAdapter', () => {
 
 	it('disposes and rejects pending generations, ignoring late results', async () => {
 		const mock = new MockWorker();
-		const adapter = new GemmaLlmAdapter(() => mock as unknown as Worker, 0);
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
 		await adapter.load();
 		const promise = adapter.generate([{ role: 'user', content: 'hi' }]);
 		await new Promise((r) => setTimeout(r, 5));
@@ -107,7 +169,7 @@ describe('GemmaLlmAdapter', () => {
 
 	it('ignores stale late messages for unknown ids', async () => {
 		const mock = new MockWorker();
-		const adapter = new GemmaLlmAdapter(() => mock as unknown as Worker, 0);
+		const adapter = new GemmaLlmAdapter(() => worker(mock), 0);
 		await adapter.load();
 		const promise = adapter.generate([{ role: 'user', content: 'hi' }]);
 		await new Promise((r) => setTimeout(r, 5));

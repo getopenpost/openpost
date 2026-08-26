@@ -34,18 +34,14 @@ export async function inspectAgentStorage(): Promise<AgentStorageStatus> {
 	let persisted: boolean | undefined;
 	try {
 		if ('storage' in navigator && navigator.storage) {
-			if (typeof navigator.storage.persist === 'function') {
-				try {
-					persisted = await navigator.storage.persist();
-				} catch {
-					persisted = undefined;
-				}
+			try {
+				persisted = await navigator.storage.persist();
+			} catch {
+				persisted = undefined;
 			}
-			if (typeof navigator.storage.estimate === 'function') {
-				const estimate = await navigator.storage.estimate();
-				if (estimate.quota !== undefined && estimate.usage !== undefined) {
-					availableBytes = Math.max(0, estimate.quota - estimate.usage);
-				}
+			const estimate = await navigator.storage.estimate();
+			if (estimate.quota !== undefined && estimate.usage !== undefined) {
+				availableBytes = Math.max(0, estimate.quota - estimate.usage);
 			}
 		}
 	} catch {
@@ -70,10 +66,7 @@ export async function inspectAgentStorage(): Promise<AgentStorageStatus> {
 			} else {
 				const sizes = await Promise.allSettled(
 					gemmaRequests.map(async (request) => {
-						const response = await withTimeout(
-							cache.match(request) as Promise<Response | undefined>,
-							300
-						);
+						const response = await withTimeout(cache.match(request), 300);
 						const raw = response?.headers.get('content-length');
 						const size = raw ? Number(raw) : Number.NaN;
 						return Number.isFinite(size) && size >= 0 ? size : null;

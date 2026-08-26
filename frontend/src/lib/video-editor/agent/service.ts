@@ -4,13 +4,14 @@ import { buildTimelineContext } from './timeline-context';
 import { buildMessages, parsePlan } from './prompt';
 import { getEditorTool } from './registry';
 import { resolveClipRef } from './clip-refs';
-import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import { buildAgentFingerprint } from './fingerprint';
+import type { JsonObject } from './types';
 
 const MAX_TOKENS = 512;
 
 export interface PlannedStep {
 	tool: string;
-	args: Record<string, unknown>;
+	args: JsonObject;
 	summary: string;
 	handoff: boolean;
 	destructive: boolean;
@@ -23,7 +24,6 @@ export interface PlanResult {
 	dropped: string[];
 	raw: string;
 	fingerprint?: string;
-	snapshot?: string[];
 }
 
 interface DroppedStep {
@@ -31,9 +31,9 @@ interface DroppedStep {
 	reason: string;
 }
 
-function resolveBoundIds(args: Record<string, unknown>): string[] | undefined {
-	const clips = args.clips as unknown;
-	const clip = args.clip as unknown;
+function resolveBoundIds(args: JsonObject): string[] | undefined {
+	const clips = args.clips;
+	const clip = args.clip;
 	const ids: string[] = [];
 	if (Array.isArray(clips)) {
 		for (const entry of clips) {
@@ -51,10 +51,7 @@ function resolveBoundIds(args: Record<string, unknown>): string[] | undefined {
 	return undefined;
 }
 
-function validateSteps(rawSteps: Array<{ tool: string; args: Record<string, unknown> }>): {
-	steps: PlannedStep[];
-	dropped: DroppedStep[];
-} {
+function validateSteps(rawSteps: Array<{ tool: string; args: JsonObject }>) {
 	const steps: PlannedStep[] = [];
 	const dropped: DroppedStep[] = [];
 	for (const raw of rawSteps) {
@@ -69,14 +66,15 @@ function validateSteps(rawSteps: Array<{ tool: string; args: Record<string, unkn
 			continue;
 		}
 		const boundIds = resolveBoundIds(validation.value);
-		steps.push({
+		const step: PlannedStep = {
 			tool: tool.name,
 			args: validation.value,
 			summary: tool.summarize(validation.value),
 			handoff: tool.handoff,
-			destructive: tool.destructive,
-			...(boundIds ? { boundIds } : {})
-		});
+			destructive: tool.destructive
+		};
+		if (boundIds) step.boundIds = boundIds;
+		steps.push(step);
 	}
 	return { steps, dropped };
 }
@@ -113,16 +111,23 @@ export interface StepRunResult {
 
 export async function runStep(step: PlannedStep): Promise<StepRunResult> {
 	const tool = getEditorTool(step.tool);
-	if (!tool) return { ok: false, message: `Unknown tool: ${step.tool}` };
+	if (!tool)
+		return {
+			ok: false,
+			message: m.video_editor_agent_error_unknown_tool({ tool: step.tool })
+		};
 	try {
 		const result = await tool.execute(step.args);
 		return { ok: result.ok, message: result.message };
 	} catch (error) {
-		return { ok: false, message: error instanceof Error ? error.message : 'Step failed.' };
+		return {
+			ok: false,
+			message: error instanceof Error ? error.message : m.video_editor_agent_generic_error()
+		};
 	}
 }
 
-function splitReadOnly(steps: PlannedStep[]): { reads: PlannedStep[]; actions: PlannedStep[] } {
+function splitReadOnly(steps: PlannedStep[]) {
 	const reads: PlannedStep[] = [];
 	const actions: PlannedStep[] = [];
 	for (const step of steps) {
@@ -135,23 +140,6 @@ function splitReadOnly(steps: PlannedStep[]): { reads: PlannedStep[]; actions: P
 function boundText(value: string, limit = 200): string {
 	if (value.length <= limit) return value;
 	return value.slice(0, limit) + '...';
-}
-
-function buildFingerprint(): string {
-	const items = timelineStore.items
-		.map(
-			(item) =>
-				`${item.id}:${item.from}:${item.trackId}:${item.durationInFrames}:${item.sourceStart ?? ''}:${item.sourceEnd ?? ''}:${item.speed ?? 1}:${item.volume ?? 1}`
-		)
-		.join('|');
-	const tracks = timelineStore.tracks
-		.map((track) => `${track.id}:${track.locked ? '1' : '0'}`)
-		.join('|');
-	return `${items}||${tracks}`;
-}
-
-function buildSnapshot(): string[] {
-	return timelineStore.items.map((item) => item.id);
 }
 
 export async function planRequest(
@@ -238,14 +226,12 @@ export async function planRequest(
 	const finalReply =
 		reply ||
 		(actionSteps.length > 0 ? m.video_editor_agent_fallback_reply() : boundText(raw.trim(), 200));
-	const fingerprint = buildFingerprint();
-	const snapshot = buildSnapshot();
+	const fingerprint = buildAgentFingerprint(options.selectedIds);
 	return {
 		reply: finalReply,
 		steps: actionSteps,
 		dropped: dropped.map((entry) => entry.tool),
 		raw,
-		fingerprint,
-		snapshot
+		fingerprint
 	};
 }

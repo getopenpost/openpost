@@ -1,10 +1,12 @@
 import type { LlmMessage } from './llm/types';
 import { buildToolCatalog } from './registry';
 import type { ClipRefEntry } from './clip-refs';
+import type { JsonObject, JsonValue } from './types';
+import { z } from 'zod';
 
 export interface RawPlanStep {
 	tool: string;
-	args: Record<string, unknown>;
+	args: JsonObject;
 }
 
 export interface ParsedPlan {
@@ -123,28 +125,32 @@ function boundedReply(value: string): string {
 	return boundText(value.trim(), MAX_REPLY_CHARS);
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const jsonObjectSchema = z.record(z.string(), z.json());
+const stringSchema = z.string();
+const scalarSchema = z.union([z.number(), z.boolean(), z.null()]);
 
-function boundArgs(value: unknown, depth = 0): Record<string, unknown> | null {
-	if (!isPlainObject(value)) return {};
+function boundArgs(value: JsonObject, depth = 0): JsonObject {
 	if (depth > MAX_ARG_DEPTH) return {};
 	const entries = Object.entries(value).slice(0, MAX_ARG_KEYS);
-	const result: Record<string, unknown> = {};
+	const result: JsonObject = {};
 	for (const [key, raw] of entries) {
 		if (key.length > 32) continue;
-		if (typeof raw === 'string') {
-			result[key] = boundText(raw, MAX_ARG_VALUE_CHARS);
-		} else if (typeof raw === 'number' || typeof raw === 'boolean' || raw === null) {
-			result[key] = raw;
+		const stringResult = stringSchema.safeParse(raw);
+		const scalarResult = scalarSchema.safeParse(raw);
+		if (stringResult.success) {
+			result[key] = boundText(stringResult.data, MAX_ARG_VALUE_CHARS);
+		} else if (scalarResult.success) {
+			result[key] = scalarResult.data;
 		} else if (Array.isArray(raw)) {
-			result[key] = raw
-				.slice(0, 8)
-				.map((item) => (typeof item === 'string' ? boundText(item, 40) : item));
-		} else if (isPlainObject(raw) && depth < MAX_ARG_DEPTH) {
-			const nested = boundArgs(raw, depth + 1);
-			if (nested) result[key] = nested;
+			result[key] = raw.slice(0, 8).map((item) => {
+				const itemString = stringSchema.safeParse(item);
+				return itemString.success ? boundText(itemString.data, 40) : item;
+			});
+		} else {
+			const objectResult = jsonObjectSchema.safeParse(raw);
+			if (objectResult.success && depth < MAX_ARG_DEPTH) {
+				result[key] = boundArgs(objectResult.data, depth + 1);
+			}
 		}
 	}
 	return result;
@@ -155,26 +161,26 @@ export function parsePlan(raw: string): ParsedPlan & { valid: boolean } {
 	if (!json || json.length > 8000)
 		return { reply: boundText(raw.trim(), MAX_REPLY_CHARS), steps: [], valid: false };
 	try {
-		const parsed = JSON.parse(json) as unknown;
-		if (!parsed || typeof parsed !== 'object') {
+		// SAFETY: z.json validates the complete value before any field is read.
+		const decoded = JSON.parse(json) as JsonValue;
+		const parsedResult = jsonObjectSchema.safeParse(decoded);
+		if (!parsedResult.success) {
 			return { reply: boundText(raw.trim(), MAX_REPLY_CHARS), steps: [], valid: false };
 		}
-		const record = parsed as Record<string, unknown>;
-		const reply = typeof record.reply === 'string' ? boundedReply(record.reply) : '';
-		const rawSteps = Array.isArray(record.steps) ? record.steps.slice(0, MAX_STEPS) : [];
+		const parsed = parsedResult.data;
+		const replyResult = stringSchema.safeParse(parsed.reply);
+		const reply = replyResult.success ? boundedReply(replyResult.data) : '';
+		const rawSteps = Array.isArray(parsed.steps) ? parsed.steps.slice(0, MAX_STEPS) : [];
 		const steps: RawPlanStep[] = [];
 		for (const entry of rawSteps) {
-			if (!entry || typeof entry !== 'object') continue;
-			const step = entry as Record<string, unknown>;
-			if (
-				typeof step.tool !== 'string' ||
-				step.tool.length === 0 ||
-				step.tool.length > MAX_TOOL_NAME_CHARS
-			)
-				continue;
-			if (!/^\w+$/.test(step.tool)) continue;
-			const args = isPlainObject(step.args) ? (boundArgs(step.args) ?? {}) : {};
-			steps.push({ tool: step.tool, args });
+			const entryResult = jsonObjectSchema.safeParse(entry);
+			if (!entryResult.success) continue;
+			const toolResult = stringSchema.safeParse(entryResult.data.tool);
+			if (!toolResult.success) continue;
+			const tool = toolResult.data;
+			if (tool.length === 0 || tool.length > MAX_TOOL_NAME_CHARS || !/^\w+$/.test(tool)) continue;
+			const argsResult = jsonObjectSchema.safeParse(entryResult.data.args);
+			steps.push({ tool, args: argsResult.success ? boundArgs(argsResult.data) : {} });
 		}
 		return { reply, steps, valid: true };
 	} catch {

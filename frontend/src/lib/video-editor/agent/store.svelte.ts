@@ -1,8 +1,10 @@
 import { m } from '$lib/paraglide/messages';
 import type { LlmMessage } from './llm/types';
 import { getAgentAdapter, planRequest, runStep, type PlannedStep } from './service';
+import { buildAgentFingerprint } from './fingerprint';
 import { localAiRuntimeRegistry } from '../local-ai/runtime-registry';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import { z } from 'zod';
 
 export type ModelStatus = 'idle' | 'loading' | 'ready' | 'error';
 export type AgentPhase = 'idle' | 'planning' | 'awaiting-confirm' | 'running';
@@ -21,6 +23,8 @@ export interface PlanStepState extends PlannedStep {
 
 const HISTORY_LIMIT = 10;
 const MAX_MESSAGES = 40;
+const clipRefsSchema = z.array(z.string());
+const clipRefSchema = z.string();
 
 function newId(): string {
 	return crypto.randomUUID();
@@ -30,19 +34,6 @@ function buildHistory(messages: ChatMessage[]): LlmMessage[] {
 	return messages
 		.slice(-HISTORY_LIMIT)
 		.map((message) => ({ role: message.role, content: message.content }));
-}
-
-function buildCurrentFingerprint(): string {
-	const items = timelineStore.items
-		.map(
-			(item) =>
-				`${item.id}:${item.from}:${item.trackId}:${item.durationInFrames}:${item.sourceStart ?? ''}:${item.sourceEnd ?? ''}:${item.speed ?? 1}:${item.volume ?? 1}`
-		)
-		.join('|');
-	const tracks = timelineStore.tracks
-		.map((track) => `${track.id}:${track.locked ? '1' : '0'}`)
-		.join('|');
-	return `${items}||${tracks}`;
 }
 
 function checkPlanStale(plan: PlanStepState[]): string | null {
@@ -55,13 +46,15 @@ function checkPlanStale(plan: PlanStepState[]): string | null {
 			}
 		}
 		if (step.args) {
-			const clips = (step.args as Record<string, unknown>).clips as string[] | undefined;
-			const clip = (step.args as Record<string, unknown>).clip as string | undefined;
+			const clips = step.args.clips;
+			const clip = step.args.clip;
 			const refs: string[] = [];
-			if (Array.isArray(clips)) refs.push(...clips);
-			if (typeof clip === 'string') refs.push(clip);
+			const clipsResult = clipRefsSchema.safeParse(clips);
+			if (clipsResult.success) refs.push(...clipsResult.data);
+			const clipResult = clipRefSchema.safeParse(clip);
+			if (clipResult.success) refs.push(clipResult.data);
 			for (const ref of refs) {
-				if (typeof ref === 'string' && ref.startsWith('c')) {
+				if (ref.startsWith('c')) {
 					if (step.boundIds && step.boundIds.length > 0) {
 						const current = timelineStore.items
 							.slice()
@@ -96,12 +89,13 @@ class AgentStore {
 	private currentProjectId: string | null = null;
 	private loadGeneration = 0;
 	private submitGeneration = 0;
+	private executionGeneration = 0;
 	private planFingerprint: string | null = null;
 
 	constructor() {
 		localAiRuntimeRegistry.register({
 			id: 'agent-gemma',
-			label: 'Assistant model',
+			label: m.video_editor_agent_model_label(),
 			isLoaded: () => this.modelStatus === 'ready' || this.modelStatus === 'loading',
 			unload: () => this.unload()
 		});
@@ -152,7 +146,7 @@ class AgentStore {
 			if (generation !== this.loadGeneration) return;
 			if (error instanceof DOMException && error.name === 'AbortError') throw error;
 			this.modelStatus = 'error';
-			this.loadError = error instanceof Error ? error.message : 'Failed to load the model.';
+			this.loadError = m.video_editor_agent_load_failed();
 			throw error;
 		}
 	}
@@ -229,7 +223,8 @@ class AgentStore {
 			this.phase = hasSteps ? 'awaiting-confirm' : 'idle';
 			if (hasSteps) {
 				this.plan = result.steps.map((step) => ({ ...step, status: 'pending' as const }));
-				this.planFingerprint = result.fingerprint ?? buildCurrentFingerprint();
+				this.planFingerprint =
+					result.fingerprint ?? buildAgentFingerprint(this.selectedIdsProvider?.() ?? []);
 			} else {
 				this.plan = null;
 				this.planFingerprint = null;
@@ -244,13 +239,14 @@ class AgentStore {
 				this.phase = 'idle';
 				this.streamingText = '';
 			} else {
-				const message = error instanceof Error ? error.message : 'Something went wrong.';
 				this.messages = [
 					...this.messages,
 					{
 						id: newId(),
 						role: 'assistant',
-						content: m.video_editor_agent_error_prefix({ message })
+						content: m.video_editor_agent_error_prefix({
+							message: m.video_editor_agent_generic_error()
+						})
 					}
 				].slice(-MAX_MESSAGES);
 				this.phase = 'idle';
@@ -275,7 +271,7 @@ class AgentStore {
 			return;
 		}
 		if (this.planFingerprint) {
-			const current = buildCurrentFingerprint();
+			const current = buildAgentFingerprint(this.selectedIdsProvider?.() ?? []);
 			if (current !== this.planFingerprint) {
 				this.plan = null;
 				this.planFingerprint = null;
@@ -298,6 +294,7 @@ class AgentStore {
 			return;
 		}
 		this.phase = 'running';
+		const execution = ++this.executionGeneration;
 		const results: string[] = [];
 		let failed = false;
 		let anySucceeded = false;
@@ -310,7 +307,9 @@ class AgentStore {
 							? { ...item, status: 'skipped' as const, result: m.video_editor_agent_skipped() }
 							: item
 					) ?? null;
-				results.push(`- Skipped: ${plan[index]?.summary ?? 'step'}`);
+				results.push(
+					`${plan[index]?.summary ?? m.video_editor_agent_plan_title()}: ${m.video_editor_agent_skipped()}`
+				);
 				continue;
 			}
 			this.plan =
@@ -320,6 +319,7 @@ class AgentStore {
 			const step = plan[index];
 			if (!step) continue;
 			const result = await runStep(step);
+			if (execution !== this.executionGeneration) return;
 			results.push(`${result.ok ? '✓' : '✕'} ${result.message}`);
 			this.plan =
 				this.plan?.map((item, i) =>
@@ -335,6 +335,7 @@ class AgentStore {
 			if (!result.ok) failed = true;
 			if (step.handoff && result.ok) handoffEncountered = true;
 		}
+		if (execution !== this.executionGeneration) return;
 		this.messages = [
 			...this.messages,
 			{ id: newId(), role: 'assistant', content: results.join('\n') }
@@ -353,14 +354,20 @@ class AgentStore {
 
 	cancel(): void {
 		this.submitGeneration++;
+		this.executionGeneration++;
 		this.activeController?.abort();
 		this.activeController = null;
+		if (this.phase === 'running') {
+			this.plan = null;
+			this.planFingerprint = null;
+		}
 		this.phase = 'idle';
 		this.streamingText = '';
 	}
 
 	clearChat(): void {
 		this.submitGeneration++;
+		this.executionGeneration++;
 		this.activeController?.abort();
 		this.activeController = null;
 		this.messages = [];
@@ -394,6 +401,8 @@ class AgentStore {
 		this.loadPercent = 0;
 		this.loadError = null;
 		this.currentProjectId = null;
+		this.selectedIdsProvider = null;
+		this.autosave = undefined;
 		this.supported = getAgentAdapter().isSupported();
 	}
 }

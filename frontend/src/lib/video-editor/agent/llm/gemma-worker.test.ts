@@ -1,76 +1,67 @@
 import { describe, expect, it } from 'vitest';
-import { isValidRequest } from './gemma-worker';
+import { parseLlmWorkerRequest } from './worker-protocol';
 
 describe('gemma worker request validation', () => {
 	it('rejects malformed generate requests', () => {
-		expect(
-			isValidRequest({
+		const malformed = [
+			{
 				type: 'generate',
-				id: NaN,
+				id: Number.NaN,
 				messages: [],
 				maxTokens: 100,
 				temperature: 0,
 				topP: 0.9
-			})
-		).toBe(false);
-		expect(
-			isValidRequest({
+			},
+			{
 				type: 'generate',
 				id: 1,
 				messages: [],
-				maxTokens: Infinity,
+				maxTokens: Number.POSITIVE_INFINITY,
 				temperature: 0,
 				topP: 0.9
-			})
-		).toBe(false);
-		expect(
-			isValidRequest({
+			},
+			{
 				type: 'generate',
 				id: 1,
 				messages: [],
 				maxTokens: 0,
 				temperature: 0,
 				topP: 0.9
-			})
-		).toBe(false);
-		expect(
-			isValidRequest({
+			},
+			{
 				type: 'generate',
 				id: 1,
 				messages: [],
 				maxTokens: 100,
-				temperature: NaN,
+				temperature: Number.NaN,
 				topP: 0.9
-			})
-		).toBe(false);
-		expect(
-			isValidRequest({
+			},
+			{
 				type: 'generate',
 				id: 1,
 				messages: [],
 				maxTokens: 100,
 				temperature: 0,
 				topP: 2
-			})
-		).toBe(false);
-		expect(
-			isValidRequest({
+			},
+			{
 				type: 'generate',
 				id: 1,
-				messages: [{ role: 'user', content: 123 as unknown as string }],
+				messages: [{ role: 'user', content: 123 }],
 				maxTokens: 100,
 				temperature: 0,
 				topP: 0.9
-			})
-		).toBe(false);
+			}
+		];
+		for (const request of malformed) expect(parseLlmWorkerRequest(request)).toBeNull();
 	});
 
-	it('accepts valid generate and other types', () => {
-		expect(isValidRequest({ type: 'load' })).toBe(true);
-		expect(isValidRequest({ type: 'dispose' })).toBe(true);
-		expect(isValidRequest({ type: 'cancel', id: 1 })).toBe(true);
+	it('accepts valid generate and lifecycle requests', () => {
+		expect(parseLlmWorkerRequest({ type: 'load' })).toEqual({ type: 'load' });
+		expect(parseLlmWorkerRequest({ type: 'dispose' })).toEqual({ type: 'dispose' });
+		expect(parseLlmWorkerRequest({ type: 'cancel', id: 1 })).toEqual({ type: 'cancel', id: 1 });
 		expect(
-			isValidRequest({
+			parseLlmWorkerRequest({
 				type: 'generate',
 				id: 1,
 				messages: [{ role: 'user', content: 'hi' }],
@@ -78,6 +69,6 @@ describe('gemma worker request validation', () => {
 				temperature: 0,
 				topP: 0.9
 			})
-		).toBe(true);
+		).not.toBeNull();
 	});
 });

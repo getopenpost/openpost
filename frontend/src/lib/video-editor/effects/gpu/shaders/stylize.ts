@@ -31,10 +31,31 @@ vec4 vignetteFragment(vec2 vUv) {
   return vec4(vigColor, color.a);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 0.5, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'size', label: 'Size', default: 0.5, min: 0, max: 1.5, step: 0.01 },
-		{ name: 'softness', label: 'Softness', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'roundness', label: 'Roundness', default: 1, min: 0.5, max: 2, step: 0.01 }
+		{
+			name: 'softness',
+			label: 'Softness',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'roundness',
+			label: 'Roundness',
+			default: 1,
+			min: 0.5,
+			max: 2,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uAmount: readNumber(p, 'amount', 0.5),
@@ -74,7 +95,14 @@ vec4 grainFragment(vec2 vUv) {
   return vec4(clamp(grainColor, vec3(0.0), vec3(1.0)), color.a);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 0.1, min: 0, max: 0.5, step: 0.01 },
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0.1,
+			min: 0,
+			max: 0.5,
+			step: 0.01
+		},
 		{ name: 'size', label: 'Size', default: 1, min: 0.5, max: 5, step: 0.1 },
 		{ name: 'speed', label: 'Speed', default: 1, min: 0, max: 5, step: 0.1 }
 	],
@@ -118,7 +146,14 @@ vec4 sharpenFragment(vec2 vUv) {
 }`,
 	schema: [
 		{ name: 'amount', label: 'Amount', default: 1, min: 0, max: 5, step: 0.1 },
-		{ name: 'radius', label: 'Radius', default: 1, min: 0.5, max: 5, step: 0.1 }
+		{
+			name: 'radius',
+			label: 'Radius',
+			default: 1,
+			min: 0.5,
+			max: 5,
+			step: 0.1
+		}
 	],
 	uniformValues: (p, w, h) => ({
 		uAmount: readNumber(p, 'amount', 1),
@@ -190,11 +225,32 @@ vec4 glowFragment(vec2 vUv) {
 }`,
 	schema: [
 		{ name: 'amount', label: 'Amount', default: 1, min: 0, max: 5, step: 0.1 },
-		{ name: 'threshold', label: 'Threshold', default: 0.6, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'threshold',
+			label: 'Threshold',
+			default: 0.6,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'radius', label: 'Radius', default: 20, min: 1, max: 100, step: 1 },
-		{ name: 'softness', label: 'Softness', default: 0.5, min: 0.1, max: 1, step: 0.05 },
+		{
+			name: 'softness',
+			label: 'Softness',
+			default: 0.5,
+			min: 0.1,
+			max: 1,
+			step: 0.05
+		},
 		{ name: 'rings', label: 'Rings', default: 4, min: 1, max: 32, step: 1 },
-		{ name: 'samplesPerRing', label: 'Samples/Ring', default: 16, min: 4, max: 64, step: 1 }
+		{
+			name: 'samplesPerRing',
+			label: 'Samples/Ring',
+			default: 16,
+			min: 4,
+			max: 64,
+			step: 1
+		}
 	],
 	uniformValues: (p, w, h) => ({
 		uAmount: readNumber(p, 'amount', 1),
@@ -235,12 +291,27 @@ vec4 edgeDetectFragment(vec2 vUv) {
   if (uInvertFlag > 0.5) { edge = 1.0 - edge; }
   return vec4(vec3(edge), 1.0);
 }`,
-	schema: [{ name: 'strength', label: 'Strength', default: 1, min: 0, max: 5, step: 0.1 }],
+	schema: [
+		{
+			name: 'strength',
+			label: 'Strength',
+			default: 1,
+			min: 0,
+			max: 5,
+			step: 0.1
+		},
+		{
+			name: 'invert',
+			label: 'Invert',
+			type: 'boolean' as const,
+			default: false
+		}
+	],
 	uniformValues: (p, w, h) => ({
 		uStrength: readNumber(p, 'strength', 1),
 		uWidth: w,
 		uHeight: h,
-		uInvertFlag: 0
+		uInvertFlag: p.invert === true ? 1 : 0
 	})
 };
 
@@ -262,9 +333,30 @@ vec4 scanlinesFragment(vec2 vUv) {
   return vec4(color.rgb * darken, color.a);
 }`,
 	schema: [
-		{ name: 'density', label: 'Density', default: 5, min: 1, max: 20, step: 0.5 },
-		{ name: 'opacity', label: 'Opacity', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'speed', label: 'Scroll Speed', default: 0, min: 0, max: 5, step: 0.1 }
+		{
+			name: 'density',
+			label: 'Density',
+			default: 5,
+			min: 1,
+			max: 20,
+			step: 0.5
+		},
+		{
+			name: 'opacity',
+			label: 'Opacity',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'speed',
+			label: 'Scroll Speed',
+			default: 0,
+			min: 0,
+			max: 5,
+			step: 0.1
+		}
 	],
 	uniformValues: (p, _w, _h, time) => ({
 		uDensity: readNumber(p, 'density', 5),
@@ -325,7 +417,14 @@ vec4 colorGlitchFragment(vec2 vUv) {
   return vec4(rgb, a);
 }`,
 	schema: [
-		{ name: 'intensity', label: 'Intensity', default: 0.5, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'intensity',
+			label: 'Intensity',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'speed', label: 'Speed', default: 1, min: 0.1, max: 5, step: 0.1 }
 	],
 	uniformValues: (p, _w, _h, time) => ({
@@ -398,9 +497,30 @@ vec4 blockGlitchFragment(vec2 vUv) {
   return vec4(mix(rgb, c, vec3(corrupt)), aa);
 }`,
 	schema: [
-		{ name: 'coverage', label: 'Coverage', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'intensity', label: 'Intensity', default: 0.6, min: 0, max: 1, step: 0.01 },
-		{ name: 'blockSize', label: 'Block Size', default: 40, min: 8, max: 200, step: 1 },
+		{
+			name: 'coverage',
+			label: 'Coverage',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'intensity',
+			label: 'Intensity',
+			default: 0.6,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'blockSize',
+			label: 'Block Size',
+			default: 40,
+			min: 8,
+			max: 200,
+			step: 1
+		},
 		{ name: 'speed', label: 'Speed', default: 1, min: 0.1, max: 5, step: 0.1 }
 	],
 	uniformValues: (p, w, h, time) => ({
@@ -456,10 +576,38 @@ vec4 crtFragment(vec2 vUv) {
   return vec4(rgb * mask, aC);
 }`,
 	schema: [
-		{ name: 'curvature', label: 'Curvature', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'scanlines', label: 'Scanlines', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'vignette', label: 'Vignette', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'chroma', label: 'Chroma', default: 0.4, min: 0, max: 2, step: 0.01 }
+		{
+			name: 'curvature',
+			label: 'Curvature',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'scanlines',
+			label: 'Scanlines',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'vignette',
+			label: 'Vignette',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'chroma',
+			label: 'Chroma',
+			default: 0.4,
+			min: 0,
+			max: 2,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uCurvature: readNumber(p, 'curvature', 0.3),
@@ -756,7 +904,113 @@ vec4 ditherFragment(vec2 vUv) {
 
   return vec4(color, base.a);
 }`,
-	schema: [{ name: 'cellSize', label: 'Cell Size', default: 8, min: 2, max: 32, step: 1 }],
+	schema: [
+		{
+			name: 'pattern',
+			label: 'Pattern',
+			type: 'select' as const,
+			default: 'bayer4',
+			options: [
+				{ value: 'bayer2', label: 'Bayer 2x2' },
+				{ value: 'bayer4', label: 'Bayer 4x4' },
+				{ value: 'bayer8', label: 'Bayer 8x8' },
+				{ value: 'halftone', label: 'Halftone' },
+				{ value: 'lines', label: 'Lines' },
+				{ value: 'crosses', label: 'Crosses' },
+				{ value: 'dots', label: 'Dots' },
+				{ value: 'grid', label: 'Grid' },
+				{ value: 'scales', label: 'Scales' }
+			]
+		},
+		{
+			name: 'mode',
+			label: 'Mode',
+			type: 'select' as const,
+			default: 'image',
+			options: [
+				{ value: 'image', label: 'Image' },
+				{ value: 'linear', label: 'Linear' },
+				{ value: 'radial', label: 'Radial' }
+			]
+		},
+		{
+			name: 'style',
+			label: 'Style',
+			type: 'select' as const,
+			default: 'threshold',
+			options: [
+				{ value: 'threshold', label: 'Threshold' },
+				{ value: 'scaled', label: 'Scaled' }
+			]
+		},
+		{
+			name: 'shape',
+			label: 'Shape',
+			type: 'select' as const,
+			default: 'square',
+			options: [
+				{ value: 'circle', label: 'Circle' },
+				{ value: 'square', label: 'Square' },
+				{ value: 'diamond', label: 'Diamond' }
+			]
+		},
+		{
+			name: 'palette',
+			label: 'Palette',
+			type: 'select' as const,
+			default: 'gameboy',
+			options: [
+				{ value: 'bw', label: 'B&W' },
+				{ value: 'gameboy', label: 'Game Boy' },
+				{ value: 'cga', label: 'CGA' },
+				{ value: 'sepia', label: 'Sepia' }
+			]
+		},
+		{
+			name: 'cellSize',
+			label: 'Cell Size',
+			default: 8,
+			min: 2,
+			max: 32,
+			step: 1
+		},
+		{
+			name: 'angle',
+			label: 'Angle',
+			default: 45,
+			min: 0,
+			max: 360,
+			step: 1,
+			visibleWhen: (params) => params.mode === 'linear'
+		},
+		{
+			name: 'scale',
+			label: 'Scale',
+			default: 100,
+			min: 25,
+			max: 200,
+			step: 1,
+			visibleWhen: (params) => params.mode === 'radial'
+		},
+		{
+			name: 'offsetX',
+			label: 'Offset X',
+			default: 0,
+			min: -100,
+			max: 100,
+			step: 1,
+			visibleWhen: (params) => params.mode === 'radial'
+		},
+		{
+			name: 'offsetY',
+			label: 'Offset Y',
+			default: 0,
+			min: -100,
+			max: 100,
+			step: 1,
+			visibleWhen: (params) => params.mode === 'radial'
+		}
+	],
 	uniformValues: (p, w, h) => ({
 		uCellSize: readNumber(p, 'cellSize', 8),
 		uAngleDeg: readNumber(p, 'angle', 45),
@@ -765,11 +1019,18 @@ vec4 ditherFragment(vec2 vUv) {
 		uHeight: h,
 		uOffsetX: readNumber(p, 'offsetX', 0),
 		uOffsetY: readNumber(p, 'offsetY', 0),
-		uPatternKind: DITHER_PATTERN_MAP.bayer4,
-		uModeKind: DITHER_MODE_MAP.image,
-		uStyleKind: DITHER_STYLE_MAP.threshold,
-		uCellKind: DITHER_CELL_KIND.square,
-		uPaletteKind: DITHER_PALETTE_MAP.gameboy
+		uPatternKind:
+			(DITHER_PATTERN_MAP as Record<string, number>)[p.pattern as string] ??
+			DITHER_PATTERN_MAP.bayer4,
+		uModeKind:
+			(DITHER_MODE_MAP as Record<string, number>)[p.mode as string] ?? DITHER_MODE_MAP.image,
+		uStyleKind:
+			(DITHER_STYLE_MAP as Record<string, number>)[p.style as string] ?? DITHER_STYLE_MAP.threshold,
+		uCellKind:
+			(DITHER_CELL_KIND as Record<string, number>)[p.shape as string] ?? DITHER_CELL_KIND.square,
+		uPaletteKind:
+			(DITHER_PALETTE_MAP as Record<string, number>)[p.palette as string] ??
+			DITHER_PALETTE_MAP.gameboy
 	})
 };
 
@@ -842,10 +1103,38 @@ vec4 vhsFragment(vec2 vUv) {
   return vec4(clamp(rgb, vec3(0.0), vec3(1.0)), a);
 }`,
 	schema: [
-		{ name: 'bleed', label: 'Chroma Bleed', default: 0.4, min: 0, max: 2, step: 0.01 },
-		{ name: 'waviness', label: 'Tracking', default: 0.3, min: 0, max: 2, step: 0.01 },
-		{ name: 'noise', label: 'Tape Noise', default: 0.25, min: 0, max: 1, step: 0.01 },
-		{ name: 'scanline', label: 'Scanlines', default: 0.35, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'bleed',
+			label: 'Chroma Bleed',
+			default: 0.4,
+			min: 0,
+			max: 2,
+			step: 0.01
+		},
+		{
+			name: 'waviness',
+			label: 'Tracking',
+			default: 0.3,
+			min: 0,
+			max: 2,
+			step: 0.01
+		},
+		{
+			name: 'noise',
+			label: 'Tape Noise',
+			default: 0.25,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'scanline',
+			label: 'Scanlines',
+			default: 0.35,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'speed', label: 'Speed', default: 1, min: 0, max: 4, step: 0.1 }
 	],
 	uniformValues: (p, w, h, time) => ({
@@ -935,15 +1224,62 @@ vec4 inkFragment(vec2 vUv) {
   return vec4(mix(paper, inkColor, vec3(inkAmt)), src.a);
 }`,
 	schema: [
-		{ name: 'strength', label: 'Ink Amount', default: 1, min: 0, max: 1, step: 0.01 },
-		{ name: 'spacing', label: 'Line Spacing', default: 6, min: 2, max: 24, step: 0.5 },
-		{ name: 'thickness', label: 'Line Width', default: 1.2, min: 0.5, max: 4, step: 0.1 },
-		{ name: 'edgeStrength', label: 'Outline', default: 1.5, min: 0, max: 5, step: 0.1 },
-		{ name: 'tone', label: 'Shading', default: 1, min: 0.2, max: 2.5, step: 0.05 }
+		{
+			name: 'strength',
+			label: 'Ink Amount',
+			default: 1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'spacing',
+			label: 'Line Spacing',
+			default: 6,
+			min: 2,
+			max: 24,
+			step: 0.5
+		},
+		{
+			name: 'thickness',
+			label: 'Line Width',
+			default: 1.2,
+			min: 0.5,
+			max: 4,
+			step: 0.1
+		},
+		{
+			name: 'edgeStrength',
+			label: 'Outline',
+			default: 1.5,
+			min: 0,
+			max: 5,
+			step: 0.1
+		},
+		{
+			name: 'tone',
+			label: 'Shading',
+			default: 1,
+			min: 0.2,
+			max: 2.5,
+			step: 0.05
+		},
+		{
+			name: 'inkColor',
+			label: 'Ink',
+			type: 'color' as const,
+			default: '#141414'
+		},
+		{
+			name: 'paperColor',
+			label: 'Paper',
+			type: 'color' as const,
+			default: '#f4f1e8'
+		}
 	],
 	uniformValues: (p, w, h) => {
-		const ink = parseHexColor('#141414', [0.08, 0.08, 0.08, 1]);
-		const paper = parseHexColor('#f4f1e8', [0.96, 0.95, 0.91, 1]);
+		const ink = parseHexColor((p.inkColor as string) ?? '#141414', [0.08, 0.08, 0.08, 1]);
+		const paper = parseHexColor((p.paperColor as string) ?? '#f4f1e8', [0.96, 0.95, 0.91, 1]);
 		return {
 			uStrength: readNumber(p, 'strength', 1),
 			uSpacing: readNumber(p, 'spacing', 6),
@@ -1049,8 +1385,22 @@ vec4 pixelSortFragment(vec2 vUv) {
 				{ value: 'dark', label: 'Dark streaks' }
 			]
 		},
-		{ name: 'low', label: 'Threshold Low', default: 0.25, min: 0, max: 1, step: 0.01 },
-		{ name: 'high', label: 'Threshold High', default: 1, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'low',
+			label: 'Threshold Low',
+			default: 0.25,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'high',
+			label: 'Threshold High',
+			default: 1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'length', label: 'Length', default: 60, min: 2, max: 400, step: 1 }
 	],
 	uniformValues: (p, w, h) => {
@@ -1190,8 +1540,22 @@ vec4 pixelSortHqScatter(int vertexId, out ivec2 destination) {
 				{ value: 'descending', label: 'Bright to Dark' }
 			]
 		},
-		{ name: 'low', label: 'Threshold Low', default: 0.25, min: 0, max: 1, step: 0.01 },
-		{ name: 'high', label: 'Threshold High', default: 0.9, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'low',
+			label: 'Threshold Low',
+			default: 0.25,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'high',
+			label: 'Threshold High',
+			default: 0.9,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p, w, h) => ({
 		uLow: readNumber(p, 'low', 0.25),

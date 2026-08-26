@@ -22,7 +22,16 @@ vec4 brightnessFragment(vec2 vUv) {
   vec3 adjusted = color.rgb + uAmount;
   return vec4(clamp(adjusted, vec3(0.0), vec3(1.0)), color.a);
 }`,
-	schema: [{ name: 'amount', label: 'Amount', default: 0, min: -1, max: 1, step: 0.01 }],
+	schema: [
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0,
+			min: -1,
+			max: 1,
+			step: 0.01
+		}
+	],
 	uniformValues: (p) => ({ uAmount: readNumber(p, 'amount', 0) })
 };
 
@@ -59,8 +68,22 @@ vec4 exposureFragment(vec2 vUv) {
   return vec4(clamp(adjusted, vec3(0.0), vec3(1.0)), color.a);
 }`,
 	schema: [
-		{ name: 'exposure', label: 'Exposure (EV)', default: 0, min: -3, max: 3, step: 0.1 },
-		{ name: 'offset', label: 'Offset', default: 0, min: -0.5, max: 0.5, step: 0.01 },
+		{
+			name: 'exposure',
+			label: 'Exposure (EV)',
+			default: 0,
+			min: -3,
+			max: 3,
+			step: 0.1
+		},
+		{
+			name: 'offset',
+			label: 'Offset',
+			default: 0,
+			min: -0.5,
+			max: 0.5,
+			step: 0.01
+		},
 		{ name: 'gamma', label: 'Gamma', default: 1, min: 0.2, max: 3, step: 0.01 }
 	],
 	uniformValues: (p) => ({
@@ -137,11 +160,39 @@ vec4 levelsFragment(vec2 vUv) {
   return vec4(adjusted, color.a);
 }`,
 	schema: [
-		{ name: 'inputBlack', label: 'Input Black', default: 0, min: 0, max: 1, step: 0.01 },
-		{ name: 'inputWhite', label: 'Input White', default: 1, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'inputBlack',
+			label: 'Input Black',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'inputWhite',
+			label: 'Input White',
+			default: 1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'gamma', label: 'Gamma', default: 1, min: 0.1, max: 3, step: 0.01 },
-		{ name: 'outputBlack', label: 'Output Black', default: 0, min: 0, max: 1, step: 0.01 },
-		{ name: 'outputWhite', label: 'Output White', default: 1, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'outputBlack',
+			label: 'Output Black',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'outputWhite',
+			label: 'Output White',
+			default: 1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uInputBlack: readNumber(p, 'inputBlack', 0),
@@ -188,7 +239,14 @@ vec4 temperatureFragment(vec2 vUv) {
   return vec4(clamp(adjusted, vec3(0.0), vec3(1.0)), color.a);
 }`,
 	schema: [
-		{ name: 'temperature', label: 'Temperature', default: 0, min: -1, max: 1, step: 0.01 },
+		{
+			name: 'temperature',
+			label: 'Temperature',
+			default: 0,
+			min: -1,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'tint', label: 'Tint', default: 0, min: -1, max: 1, step: 0.01 }
 	],
 	uniformValues: (p) => ({
@@ -251,7 +309,16 @@ vec4 vibranceFragment(vec2 vUv) {
   vec3 adjusted = mix(vec3(gray), color.rgb, vec3(1.0 + vibrance));
   return vec4(clamp(adjusted, vec3(0.0), vec3(1.0)), color.a);
 }`,
-	schema: [{ name: 'amount', label: 'Amount', default: 0, min: -1, max: 1, step: 0.01 }],
+	schema: [
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0,
+			min: -1,
+			max: 1,
+			step: 0.01
+		}
+	],
 	uniformValues: (p) => ({ uAmount: readNumber(p, 'amount', 0) })
 };
 
@@ -337,7 +404,15 @@ const COLOR_WHEELS_UNIFORM_PARAMS = [
 		step: 1,
 		fallback: 0
 	},
-	{ key: 'tint', uniform: 'uTint', label: 'Tint', min: -100, max: 100, step: 1, fallback: 0 },
+	{
+		key: 'tint',
+		uniform: 'uTint',
+		label: 'Tint',
+		min: -100,
+		max: 100,
+		step: 1,
+		fallback: 0
+	},
 	{
 		key: 'saturation',
 		uniform: 'uSaturation',
@@ -365,14 +440,46 @@ const COLOR_WHEELS_UNIFORM_PARAMS = [
 		step: 0.01,
 		fallback: 1
 	},
-	{ key: 'pivot', uniform: 'uPivot', label: 'Pivot', min: 0, max: 1, step: 0.01, fallback: 0.5 },
+	{
+		key: 'pivot',
+		uniform: 'uPivot',
+		label: 'Pivot',
+		min: 0,
+		max: 1,
+		step: 0.01,
+		fallback: 0.5
+	},
 	// Lift/gamma/gain/offset ranges mirror Resolve's primaries reach: lift
 	// and offset span ±2.0 in normalized signal (Resolve shows offset as
 	// 25 + 100x, i.e. -175..225), gamma is 0-centered in Resolve's display
 	// (param = display + 1), gain is a plain multiplier up to 16 (+4 stops).
-	{ key: 'lift', uniform: 'uLift', label: 'Lift', min: -2, max: 2, step: 0.01, fallback: 0 },
-	{ key: 'gamma', uniform: 'uGamma', label: 'Gamma', min: 0, max: 4, step: 0.01, fallback: 1 },
-	{ key: 'gain', uniform: 'uGain', label: 'Gain', min: 0, max: 16, step: 0.01, fallback: 1 },
+	{
+		key: 'lift',
+		uniform: 'uLift',
+		label: 'Lift',
+		min: -2,
+		max: 2,
+		step: 0.01,
+		fallback: 0
+	},
+	{
+		key: 'gamma',
+		uniform: 'uGamma',
+		label: 'Gamma',
+		min: 0,
+		max: 4,
+		step: 0.01,
+		fallback: 1
+	},
+	{
+		key: 'gain',
+		uniform: 'uGain',
+		label: 'Gain',
+		min: 0,
+		max: 16,
+		step: 0.01,
+		fallback: 1
+	},
 	{
 		key: 'offset',
 		uniform: 'uOffset',
@@ -436,8 +543,24 @@ const COLOR_WHEELS_UNIFORM_PARAMS = [
 		step: 1,
 		fallback: 0
 	},
-	{ key: 'hue', uniform: 'uHue', label: 'Hue', min: 0, max: 100, step: 1, fallback: 50 },
-	{ key: 'lumMix', uniform: 'uLumMix', label: 'Lum Mix', min: 0, max: 100, step: 1, fallback: 100 }
+	{
+		key: 'hue',
+		uniform: 'uHue',
+		label: 'Hue',
+		min: 0,
+		max: 100,
+		step: 1,
+		fallback: 50
+	},
+	{
+		key: 'lumMix',
+		uniform: 'uLumMix',
+		label: 'Lum Mix',
+		min: 0,
+		max: 100,
+		step: 1,
+		fallback: 100
+	}
 ] as const;
 
 export const colorWheels: GpuShaderDefinition = {
@@ -577,7 +700,15 @@ const SECONDARY_QUALIFIER_UNIFORM_PARAMS = [
 		step: 1,
 		fallback: 20
 	},
-	{ key: 'satLow', uniform: 'uSatLow', label: 'Sat Low', min: 0, max: 1, step: 0.01, fallback: 0 },
+	{
+		key: 'satLow',
+		uniform: 'uSatLow',
+		label: 'Sat Low',
+		min: 0,
+		max: 1,
+		step: 0.01,
+		fallback: 0
+	},
 	{
 		key: 'satHigh',
 		uniform: 'uSatHigh',
@@ -650,7 +781,15 @@ const SECONDARY_QUALIFIER_UNIFORM_PARAMS = [
 		step: 1,
 		fallback: 0
 	},
-	{ key: 'tint', uniform: 'uTint', label: 'Tint', min: -100, max: 100, step: 1, fallback: 0 },
+	{
+		key: 'tint',
+		uniform: 'uTint',
+		label: 'Tint',
+		min: -100,
+		max: 100,
+		step: 1,
+		fallback: 0
+	},
 	{
 		key: 'strength',
 		uniform: 'uStrength',
@@ -733,14 +872,28 @@ vec4 secondaryQualifierFragment(vec2 vUv) {
 
   return vec4(clamp(mix(color.rgb, corrected, vec3(mask)), vec3(0.0), vec3(1.0)), color.a);
 }`,
-	schema: SECONDARY_QUALIFIER_UNIFORM_PARAMS.map(({ key, label, min, max, step, fallback }) => ({
-		name: key,
-		label,
-		min,
-		max,
-		step,
-		default: fallback
-	})),
+	schema: [
+		...SECONDARY_QUALIFIER_UNIFORM_PARAMS.map(({ key, label, min, max, step, fallback }) => ({
+			name: key,
+			label,
+			min,
+			max,
+			step,
+			default: fallback
+		})),
+		{
+			name: 'invertMask',
+			label: 'Invert Mask',
+			type: 'boolean' as const,
+			default: false
+		},
+		{
+			name: 'showMask',
+			label: 'Show Mask',
+			type: 'boolean' as const,
+			default: false
+		}
+	],
 	uniformValues: (p) => ({
 		...Object.fromEntries(
 			SECONDARY_QUALIFIER_UNIFORM_PARAMS.map(({ key, uniform, fallback }) => [
@@ -748,8 +901,8 @@ vec4 secondaryQualifierFragment(vec2 vUv) {
 				readNumber(p, key, fallback)
 			])
 		),
-		uInvertMask: 0,
-		uShowMask: 0
+		uInvertMask: p.invertMask === true ? 1 : 0,
+		uShowMask: p.showMask === true ? 1 : 0
 	})
 };
 
@@ -828,28 +981,120 @@ vec4 powerWindowFragment(vec2 vUv) {
   return vec4(clamp(mix(color.rgb, corrected, vec3(mask)), vec3(0.0), vec3(1.0)), color.a);
 }`,
 	schema: [
-		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'sizeX', label: 'Width', default: 0.5, min: 0.02, max: 1.5, step: 0.01 },
-		{ name: 'sizeY', label: 'Height', default: 0.5, min: 0.02, max: 1.5, step: 0.01 },
-		{ name: 'rotation', label: 'Rotation', default: 0, min: -180, max: 180, step: 1 },
-		{ name: 'feather', label: 'Feather', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'exposure', label: 'Exposure', default: 0.3, min: -3, max: 3, step: 0.05 },
-		{ name: 'saturation', label: 'Saturation', default: 0, min: -100, max: 100, step: 1 },
-		{ name: 'temperature', label: 'Temperature', default: 0, min: -100, max: 100, step: 1 },
+		{
+			name: 'shape',
+			label: 'Shape',
+			type: 'select' as const,
+			default: 'ellipse',
+			options: [
+				{ value: 'ellipse', label: 'Ellipse' },
+				{ value: 'rectangle', label: 'Rectangle' }
+			]
+		},
+		{
+			name: 'centerX',
+			label: 'Center X',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerY',
+			label: 'Center Y',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'sizeX',
+			label: 'Width',
+			default: 0.5,
+			min: 0.02,
+			max: 1.5,
+			step: 0.01
+		},
+		{
+			name: 'sizeY',
+			label: 'Height',
+			default: 0.5,
+			min: 0.02,
+			max: 1.5,
+			step: 0.01
+		},
+		{
+			name: 'rotation',
+			label: 'Rotation',
+			default: 0,
+			min: -180,
+			max: 180,
+			step: 1
+		},
+		{
+			name: 'feather',
+			label: 'Feather',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'invertMask',
+			label: 'Invert Mask',
+			type: 'boolean' as const,
+			default: false
+		},
+		{
+			name: 'showMask',
+			label: 'Show Mask',
+			type: 'boolean' as const,
+			default: false
+		},
+		{
+			name: 'exposure',
+			label: 'Exposure',
+			default: 0.3,
+			min: -3,
+			max: 3,
+			step: 0.05
+		},
+		{
+			name: 'saturation',
+			label: 'Saturation',
+			default: 0,
+			min: -100,
+			max: 100,
+			step: 1
+		},
+		{
+			name: 'temperature',
+			label: 'Temperature',
+			default: 0,
+			min: -100,
+			max: 100,
+			step: 1
+		},
 		{ name: 'tint', label: 'Tint', default: 0, min: -100, max: 100, step: 1 },
-		{ name: 'strength', label: 'Strength', default: 1, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'strength',
+			label: 'Strength',
+			default: 1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p, w, h) => ({
-		uWindowKind: 0,
+		uWindowKind: p.shape === 'rectangle' ? 1 : 0,
 		uCenterX: readNumber(p, 'centerX', 0.5),
 		uCenterY: readNumber(p, 'centerY', 0.5),
 		uSizeX: readNumber(p, 'sizeX', 0.5),
 		uSizeY: readNumber(p, 'sizeY', 0.5),
 		uRotation: readNumber(p, 'rotation', 0),
 		uFeather: readNumber(p, 'feather', 0.3),
-		uInvertMask: 0,
-		uShowMask: 0,
+		uInvertMask: p.invertMask === true ? 1 : 0,
+		uShowMask: p.showMask === true ? 1 : 0,
 		uExposure: readNumber(p, 'exposure', 0.3),
 		uSaturation: readNumber(p, 'saturation', 0),
 		uTemperature: readNumber(p, 'temperature', 0),
@@ -878,9 +1123,15 @@ export const GRADIENT_MAP_PRESETS: GradientPresetRegistry = {
 	grayscale: ['#000000', '#ffffff']
 };
 
-/** Resolve a preset selection to an ordered list of normalized RGB stops. */
-function gradientMapStops(preset: string): [number, number, number][] {
-	const hexes = GRADIENT_MAP_PRESETS[preset] ?? GRADIENT_MAP_PRESETS.inferno;
+/** Resolve a preset/custom selection to an ordered list of normalized RGB stops. */
+function gradientMapStops(preset: string, customStops: string): [number, number, number][] {
+	const hexes =
+		preset === 'custom'
+			? customStops
+					.split(',')
+					.map((s) => s.trim())
+					.filter((s) => s.length > 0)
+			: (GRADIENT_MAP_PRESETS[preset] ?? GRADIENT_MAP_PRESETS.inferno);
 	if (!hexes)
 		return [
 			[0, 0, 0],
@@ -920,7 +1171,9 @@ function buildGradientMapLut(stops: [number, number, number][]): Uint8Array {
 	return data;
 }
 
-/** Palette index → preset name (numeric stand-in for FreeCut's select param). */
+const GRADIENT_MAP_DEFAULT_CUSTOM = GRADIENT_MAP_PRESETS.inferno!.join(', ');
+
+/** Palette index → preset name for legacy numeric palette values. */
 const GRADIENT_MAP_PALETTE_ORDER = [
 	'inferno',
 	'magma',
@@ -932,6 +1185,16 @@ const GRADIENT_MAP_PALETTE_ORDER = [
 	'sunset',
 	'grayscale'
 ] as const;
+
+function resolveGradientPreset(params: Record<string, unknown>): string {
+	if (typeof params.preset === 'string' && params.preset.length > 0) return params.preset;
+	if (typeof params.palette === 'number') {
+		const idx = Math.round(params.palette);
+		if (idx >= 0 && idx < GRADIENT_MAP_PALETTE_ORDER.length)
+			return GRADIENT_MAP_PALETTE_ORDER[idx]!;
+	}
+	return 'inferno';
+}
 
 export const gradientMap: GpuShaderDefinition = {
 	id: 'gpu-gradient-map',
@@ -950,25 +1213,45 @@ vec4 gradientMapFragment(vec2 vUv) {
 }`,
 	schema: [
 		{
-			name: 'palette',
+			name: 'preset',
 			label: 'Palette',
-			default: 0,
-			min: 0,
-			max: GRADIENT_MAP_PALETTE_ORDER.length - 1,
-			step: 1
+			type: 'select' as const,
+			default: 'inferno',
+			options: [
+				{ value: 'inferno', label: 'Inferno' },
+				{ value: 'magma', label: 'Magma' },
+				{ value: 'plasma', label: 'Plasma' },
+				{ value: 'viridis', label: 'Viridis' },
+				{ value: 'turbo', label: 'Turbo' },
+				{ value: 'fire', label: 'Fire' },
+				{ value: 'ice', label: 'Ice' },
+				{ value: 'sunset', label: 'Sunset' },
+				{ value: 'grayscale', label: 'Grayscale' },
+				{ value: 'custom', label: 'Custom' }
+			]
+		},
+		{
+			name: 'customStops',
+			label: 'Custom Stops',
+			type: 'text' as const,
+			default: GRADIENT_MAP_DEFAULT_CUSTOM,
+			visibleWhen: (params) => params.preset === 'custom'
 		},
 		{ name: 'mix', label: 'Mix', default: 1, min: 0, max: 1, step: 0.01 }
 	],
 	uniformValues: (p) => ({ uMix: readNumber(p, 'mix', 1) }),
 	dataTexture: {
-		key: (p) =>
-			`preset:${GRADIENT_MAP_PALETTE_ORDER[Math.round(readNumber(p, 'palette', 0))] ?? 'inferno'}`,
+		key: (p) => {
+			const preset = resolveGradientPreset(p as Record<string, unknown>);
+			return preset === 'custom' ? `custom:${(p.customStops as string) ?? ''}` : `preset:${preset}`;
+		},
 		build: (p) => ({
 			width: 256,
 			height: 1,
 			data: buildGradientMapLut(
 				gradientMapStops(
-					GRADIENT_MAP_PALETTE_ORDER[Math.round(readNumber(p, 'palette', 0))] ?? 'inferno'
+					resolveGradientPreset(p as Record<string, unknown>),
+					(p.customStops as string) ?? ''
 				)
 			)
 		})

@@ -54,8 +54,22 @@ vec4 rgbSplitFragment(vec2 vUv) {
   return vec4(r, g, b, a);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 0.01, min: 0, max: 0.1, step: 0.001 },
-		{ name: 'angle', label: 'Angle', default: 0, min: 0, max: 6.28318, step: 0.01 }
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0.01,
+			min: 0,
+			max: 0.1,
+			step: 0.001
+		},
+		{
+			name: 'angle',
+			label: 'Angle',
+			default: 0,
+			min: 0,
+			max: 6.28318,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uAmount: readNumber(p, 'amount', 0.01),
@@ -89,10 +103,38 @@ vec4 twirlFragment(vec2 vUv) {
   return texture(uInputTex, finalUV);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 1, min: -10, max: 10, step: 0.1 },
-		{ name: 'radius', label: 'Radius', default: 0.5, min: 0.1, max: 1, step: 0.01 },
-		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 1,
+			min: -10,
+			max: 10,
+			step: 0.1
+		},
+		{
+			name: 'radius',
+			label: 'Radius',
+			default: 0.5,
+			min: 0.1,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerX',
+			label: 'Center X',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerY',
+			label: 'Center Y',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uAmount: readNumber(p, 'amount', 1),
@@ -119,10 +161,38 @@ vec4 waveFragment(vec2 vUv) {
   return texture(uInputTex, uv);
 }`,
 	schema: [
-		{ name: 'amplitudeX', label: 'Horizontal Amp', default: 0.02, min: 0, max: 0.1, step: 0.001 },
-		{ name: 'amplitudeY', label: 'Vertical Amp', default: 0.02, min: 0, max: 0.1, step: 0.001 },
-		{ name: 'frequencyX', label: 'Horizontal Freq', default: 5, min: 1, max: 20, step: 0.5 },
-		{ name: 'frequencyY', label: 'Vertical Freq', default: 5, min: 1, max: 20, step: 0.5 }
+		{
+			name: 'amplitudeX',
+			label: 'Horizontal Amp',
+			default: 0.02,
+			min: 0,
+			max: 0.1,
+			step: 0.001
+		},
+		{
+			name: 'amplitudeY',
+			label: 'Vertical Amp',
+			default: 0.02,
+			min: 0,
+			max: 0.1,
+			step: 0.001
+		},
+		{
+			name: 'frequencyX',
+			label: 'Horizontal Freq',
+			default: 5,
+			min: 1,
+			max: 20,
+			step: 0.5
+		},
+		{
+			name: 'frequencyY',
+			label: 'Vertical Freq',
+			default: 5,
+			min: 1,
+			max: 20,
+			step: 0.5
+		}
 	],
 	uniformValues: (p) => ({
 		uAmplitudeX: readNumber(p, 'amplitudeX', 0.02),
@@ -197,19 +267,81 @@ vec4 triggerWaveFragment(vec2 vUv) {
   return vec4(clamp(color.rgb, vec3(0.0), vec3(1.0)), color.a);
 }`,
 	schema: [
-		{ name: 'strength', label: 'Strength', default: 0.035, min: -0.15, max: 0.15, step: 0.001 },
-		{ name: 'radius', label: 'Radius', default: 0.85, min: 0.1, max: 1.5, step: 0.01 },
-		{ name: 'frequency', label: 'Frequency', default: 18, min: 2, max: 64, step: 1 },
-		{ name: 'decay', label: 'Decay', default: 0.08, min: 0.01, max: 0.3, step: 0.01 },
+		{
+			name: 'strength',
+			label: 'Strength',
+			default: 0.035,
+			min: -0.15,
+			max: 0.15,
+			step: 0.001
+		},
+		{
+			name: 'radius',
+			label: 'Radius',
+			default: 0.85,
+			min: 0.1,
+			max: 1.5,
+			step: 0.01
+		},
+		{
+			name: 'frequency',
+			label: 'Frequency',
+			default: 18,
+			min: 2,
+			max: 64,
+			step: 1
+		},
+		{
+			name: 'decay',
+			label: 'Decay',
+			default: 0.08,
+			min: 0.01,
+			max: 0.3,
+			step: 0.01
+		},
 		{ name: 'phase', label: 'Phase', default: 0, min: 0, max: 1, step: 0.01 },
 		{ name: 'speed', label: 'Speed', default: 1, min: 0, max: 4, step: 0.1 },
-		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'chroma', label: 'Chroma', default: 0.006, min: 0, max: 0.05, step: 0.001 },
-		{ name: 'scanlineMix', label: 'Scanlines', default: 0.18, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'centerX',
+			label: 'Center X',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerY',
+			label: 'Center Y',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'chroma',
+			label: 'Chroma',
+			default: 0.006,
+			min: 0,
+			max: 0.05,
+			step: 0.001
+		},
+		{
+			name: 'scanlineMix',
+			label: 'Scanlines',
+			default: 0.18,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'glowColor',
+			label: 'Glow Color',
+			type: 'color' as const,
+			default: '#2e6b8c'
+		}
 	],
 	uniformValues: (p, w, h, time) => {
-		const glow = parseHexColor('#2e6b8c', [0.18, 0.42, 0.55, 1]);
+		const glow = parseHexColor((p.glowColor as string) ?? '#2e6b8c', [0.18, 0.42, 0.55, 1]);
 		return {
 			uStrength: readNumber(p, 'strength', 0.035),
 			uRadius: readNumber(p, 'radius', 0.85),
@@ -255,10 +387,38 @@ vec4 bulgeFragment(vec2 vUv) {
   return texture(uInputTex, finalUV);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 0.5, min: 0.1, max: 3, step: 0.1 },
-		{ name: 'radius', label: 'Radius', default: 0.5, min: 0.1, max: 1, step: 0.01 },
-		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0.5,
+			min: 0.1,
+			max: 3,
+			step: 0.1
+		},
+		{
+			name: 'radius',
+			label: 'Radius',
+			default: 0.5,
+			min: 0.1,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerX',
+			label: 'Center X',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerY',
+			label: 'Center Y',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uAmount: readNumber(p, 'amount', 0.5),
@@ -287,8 +447,22 @@ vec4 kaleidoscopeFragment(vec2 vUv) {
   return texture(uInputTex, uv);
 }`,
 	schema: [
-		{ name: 'segments', label: 'Segments', default: 6, min: 2, max: 16, step: 1 },
-		{ name: 'rotation', label: 'Rotation', default: 0, min: 0, max: 6.28318, step: 0.01 }
+		{
+			name: 'segments',
+			label: 'Segments',
+			default: 6,
+			min: 2,
+			max: 16,
+			step: 1
+		},
+		{
+			name: 'rotation',
+			label: 'Rotation',
+			default: 0,
+			min: 0,
+			max: 6.28318,
+			step: 0.01
+		}
 	],
 	uniformValues: (p) => ({
 		uSegments: readNumber(p, 'segments', 6),
@@ -310,8 +484,24 @@ vec4 mirrorFragment(vec2 vUv) {
   if (uVertical > 0.5 && uv.y > 0.5) { uv.y = 1.0 - uv.y; }
   return texture(uInputTex, uv);
 }`,
-	schema: [],
-	uniformValues: () => ({ uHorizontal: 1, uVertical: 0 })
+	schema: [
+		{
+			name: 'horizontal',
+			label: 'Horizontal',
+			type: 'boolean' as const,
+			default: true
+		},
+		{
+			name: 'vertical',
+			label: 'Vertical',
+			type: 'boolean' as const,
+			default: false
+		}
+	],
+	uniformValues: (p) => ({
+		uHorizontal: p.horizontal !== false ? 1 : 0,
+		uVertical: p.vertical === true ? 1 : 0
+	})
 };
 
 // Adapted from Paper Design's fluted-glass shader (published package source).
@@ -676,24 +866,163 @@ vec4 flutedGlassFragment(vec2 vUv) {
   return vec4(color, opacity);
 }`,
 	schema: [
+		{
+			name: 'colorBack',
+			label: 'Back Color',
+			type: 'color' as const,
+			default: '#00000000'
+		},
+		{
+			name: 'colorShadow',
+			label: 'Shadow Color',
+			type: 'color' as const,
+			default: '#000000'
+		},
+		{
+			name: 'colorHighlight',
+			label: 'Highlight Color',
+			type: 'color' as const,
+			default: '#ffffff'
+		},
+		{
+			name: 'shadows',
+			label: 'Shadows',
+			default: 0.25,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'highlights',
+			label: 'Highlights',
+			default: 0.1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'size', label: 'Size', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'shadows', label: 'Shadows', default: 0.25, min: 0, max: 1, step: 0.01 },
-		{ name: 'highlights', label: 'Highlights', default: 0.1, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'shape',
+			label: 'Shape',
+			type: 'select' as const,
+			default: 'lines',
+			options: [
+				{ value: 'lines', label: 'Lines' },
+				{ value: 'linesIrregular', label: 'Irregular Lines' },
+				{ value: 'wave', label: 'Wave' },
+				{ value: 'zigzag', label: 'Zigzag' },
+				{ value: 'pattern', label: 'Pattern' }
+			]
+		},
 		{ name: 'angle', label: 'Angle', default: 0, min: 0, max: 180, step: 1 },
-		{ name: 'distortion', label: 'Distortion', default: 0.5, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'distortionShape',
+			label: 'Distortion Shape',
+			type: 'select' as const,
+			default: 'prism',
+			options: [
+				{ value: 'prism', label: 'Prism' },
+				{ value: 'lens', label: 'Lens' },
+				{ value: 'contour', label: 'Contour' },
+				{ value: 'cascade', label: 'Cascade' },
+				{ value: 'flat', label: 'Flat' }
+			]
+		},
+		{
+			name: 'distortion',
+			label: 'Distortion',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'shift', label: 'Shift', default: 0, min: -1, max: 1, step: 0.01 },
-		{ name: 'stretch', label: 'Stretch', default: 0, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'stretch',
+			label: 'Stretch',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'blur', label: 'Blur', default: 0, min: 0, max: 1, step: 0.01 },
-		{ name: 'edges', label: 'Edges', default: 0.25, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'edges',
+			label: 'Edges',
+			default: 0.25,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'margin', label: 'Margin', default: 0, min: 0, max: 1, step: 0.01 },
-		{ name: 'grainMixer', label: 'Grain Mixer', default: 0, min: 0, max: 1, step: 0.01 },
-		{ name: 'grainOverlay', label: 'Grain Overlay', default: 0, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'marginLeft',
+			label: 'Left Margin',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'marginRight',
+			label: 'Right Margin',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'marginTop',
+			label: 'Top Margin',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'marginBottom',
+			label: 'Bottom Margin',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'grainMixer',
+			label: 'Grain Mixer',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'grainOverlay',
+			label: 'Grain Overlay',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p, w, h) => {
+		const gridShapeMap: Record<string, number> = {
+			lines: 1,
+			linesIrregular: 2,
+			wave: 3,
+			zigzag: 4,
+			pattern: 5
+		};
+		const distortionShapeMap: Record<string, number> = {
+			prism: 1,
+			lens: 2,
+			contour: 3,
+			cascade: 4,
+			flat: 5
+		};
 		const margin = readNumber(p, 'margin', 0);
-		const colorBack = parseHexColor('#00000000', [0, 0, 0, 0]);
-		const colorShadow = parseHexColor('#000000', [0, 0, 0, 1]);
-		const colorHighlight = parseHexColor('#ffffff', [1, 1, 1, 1]);
+		const colorBack = parseHexColor((p.colorBack as string) ?? '#00000000', [0, 0, 0, 0]);
+		const colorShadow = parseHexColor((p.colorShadow as string) ?? '#000000', [0, 0, 0, 1]);
+		const colorHighlight = parseHexColor((p.colorHighlight as string) ?? '#ffffff', [1, 1, 1, 1]);
 		return {
 			uBackR: colorBack[0],
 			uBackG: colorBack[1],
@@ -711,10 +1040,10 @@ vec4 flutedGlassFragment(vec2 vUv) {
 			uShadowsAmount: readNumber(p, 'shadows', 0.25),
 			uAngleDeg: readNumber(p, 'angle', 0),
 			uStretch: readNumber(p, 'stretch', 0),
-			uPatternKind: 1,
+			uPatternKind: gridShapeMap[p.shape as string] ?? 1,
 			uDistortion: readNumber(p, 'distortion', 0.5),
 			uHighlights: readNumber(p, 'highlights', 0.1),
-			uBendKind: 1,
+			uBendKind: distortionShapeMap[p.distortionShape as string] ?? 1,
 			uShift: readNumber(p, 'shift', 0),
 			uBlur: readNumber(p, 'blur', 0),
 			uEdges: readNumber(p, 'edges', 0.25),
@@ -723,10 +1052,10 @@ vec4 flutedGlassFragment(vec2 vUv) {
 			uWidth: w,
 			uHeight: h,
 			uAspect: w / Math.max(h, 1),
-			uMarginLeft: margin,
-			uMarginTop: margin,
-			uMarginRight: margin,
-			uMarginBottom: margin
+			uMarginLeft: (p.marginLeft as number | undefined) ?? margin,
+			uMarginTop: (p.marginTop as number | undefined) ?? margin,
+			uMarginRight: (p.marginRight as number | undefined) ?? margin,
+			uMarginBottom: (p.marginBottom as number | undefined) ?? margin
 		};
 	}
 };
@@ -828,19 +1157,80 @@ vec4 rippleGlassFragment(vec2 vUv) {
   return vec4(rgb, color.a);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 0.5, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'colorShadow',
+			label: 'Shadow Color',
+			type: 'color' as const,
+			default: '#000000'
+		},
+		{
+			name: 'colorHighlight',
+			label: 'Highlight Color',
+			type: 'color' as const,
+			default: '#ffffff'
+		},
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'rings', label: 'Rings', default: 14, min: 1, max: 64, step: 1 },
-		{ name: 'shadows', label: 'Shadows', default: 0.25, min: 0, max: 1, step: 0.01 },
-		{ name: 'highlights', label: 'Highlights', default: 0.1, min: 0, max: 1, step: 0.01 },
-		{ name: 'originX', label: 'Origin X', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'originY', label: 'Origin Y', default: 0.5, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'shadows',
+			label: 'Shadows',
+			default: 0.25,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'highlights',
+			label: 'Highlights',
+			default: 0.1,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'originX',
+			label: 'Origin X',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'originY',
+			label: 'Origin Y',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'phase', label: 'Phase', default: 0, min: -1, max: 1, step: 0.01 },
-		{ name: 'falloff', label: 'Falloff', default: 0.35, min: 0.05, max: 2, step: 0.01 },
-		{ name: 'aberration', label: 'Aberration', default: 0, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'falloff',
+			label: 'Falloff',
+			default: 0.35,
+			min: 0.05,
+			max: 2,
+			step: 0.01
+		},
+		{
+			name: 'aberration',
+			label: 'Aberration',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p, w, h) => {
-		const shadow = parseHexColor('#000000', [0, 0, 0, 1]);
-		const highlight = parseHexColor('#ffffff', [1, 1, 1, 1]);
+		const shadow = parseHexColor((p.colorShadow as string) ?? '#000000', [0, 0, 0, 1]);
+		const highlight = parseHexColor((p.colorHighlight as string) ?? '#ffffff', [1, 1, 1, 1]);
 		return {
 			uShadowR: shadow[0],
 			uShadowG: shadow[1],
@@ -948,15 +1338,55 @@ vec4 glassMosaicFragment(vec2 vUv) {
   return vec4(rgb, color.a);
 }`,
 	schema: [
-		{ name: 'amount', label: 'Amount', default: 0.55, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'colorShadow',
+			label: 'Shadow Color',
+			type: 'color' as const,
+			default: '#000000'
+		},
+		{
+			name: 'colorHighlight',
+			label: 'Highlight Color',
+			type: 'color' as const,
+			default: '#ffffff'
+		},
+		{
+			name: 'amount',
+			label: 'Amount',
+			default: 0.55,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'cells', label: 'Cells', default: 18, min: 2, max: 80, step: 1 },
-		{ name: 'shadows', label: 'Shadows', default: 0.3, min: 0, max: 1, step: 0.01 },
-		{ name: 'highlights', label: 'Highlights', default: 0.12, min: 0, max: 1, step: 0.01 },
-		{ name: 'aberration', label: 'Aberration', default: 0, min: 0, max: 1, step: 0.01 }
+		{
+			name: 'shadows',
+			label: 'Shadows',
+			default: 0.3,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'highlights',
+			label: 'Highlights',
+			default: 0.12,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'aberration',
+			label: 'Aberration',
+			default: 0,
+			min: 0,
+			max: 1,
+			step: 0.01
+		}
 	],
 	uniformValues: (p, w, h) => {
-		const shadow = parseHexColor('#000000', [0, 0, 0, 1]);
-		const highlight = parseHexColor('#ffffff', [1, 1, 1, 1]);
+		const shadow = parseHexColor((p.colorShadow as string) ?? '#000000', [0, 0, 0, 1]);
+		const highlight = parseHexColor((p.colorHighlight as string) ?? '#ffffff', [1, 1, 1, 1]);
 		return {
 			uShadowR: shadow[0],
 			uShadowG: shadow[1],
@@ -1016,9 +1446,30 @@ vec4 blocksFragment(vec2 vUv) {
   return vec4(clamp(rgb, vec3(0.0), vec3(1.0)), color.a);
 }`,
 	schema: [
-		{ name: 'size', label: 'Block Size', default: 24, min: 4, max: 120, step: 1 },
-		{ name: 'depth', label: 'Depth', default: 0.5, min: 0, max: 1.5, step: 0.01 },
-		{ name: 'studSize', label: 'Stud Size', default: 0.55, min: 0, max: 1, step: 0.01 },
+		{
+			name: 'size',
+			label: 'Block Size',
+			default: 24,
+			min: 4,
+			max: 120,
+			step: 1
+		},
+		{
+			name: 'depth',
+			label: 'Depth',
+			default: 0.5,
+			min: 0,
+			max: 1.5,
+			step: 0.01
+		},
+		{
+			name: 'studSize',
+			label: 'Stud Size',
+			default: 0.55,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
 		{ name: 'gap', label: 'Gap', default: 0.06, min: 0, max: 0.4, step: 0.01 }
 	],
 	uniformValues: (p, w, h) => ({
@@ -1069,11 +1520,39 @@ vec4 drosteFragment(vec2 vUv) {
   return texture(uInputTex, fract(uv));
 }`,
 	schema: [
-		{ name: 'strength', label: 'Spiral', default: 1, min: 0, max: 2, step: 0.01 },
+		{
+			name: 'strength',
+			label: 'Spiral',
+			default: 1,
+			min: 0,
+			max: 2,
+			step: 0.01
+		},
 		{ name: 'scale', label: 'Scale', default: 2, min: 1.1, max: 6, step: 0.05 },
-		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'spin', label: 'Spin', default: 0, min: -6.28318, max: 6.28318, step: 0.01 }
+		{
+			name: 'centerX',
+			label: 'Center X',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'centerY',
+			label: 'Center Y',
+			default: 0.5,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'spin',
+			label: 'Spin',
+			default: 0,
+			min: -6.28318,
+			max: 6.28318,
+			step: 0.01
+		}
 	],
 	uniformValues: (p, w, h) => ({
 		uStrength: readNumber(p, 'strength', 1),

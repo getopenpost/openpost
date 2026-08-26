@@ -56,8 +56,32 @@ vec4 chromaKeyFragment(vec2 vUv) {
   return vec4(finalColor, color.a * alpha);
 }`,
 	schema: [
-		{ name: 'tolerance', label: 'Tolerance', default: 0.2, min: 0, max: 1, step: 0.01 },
-		{ name: 'softness', label: 'Edge Softness', default: 0.1, min: 0, max: 0.5, step: 0.01 },
+		{
+			name: 'keyColor',
+			label: 'Key Color',
+			type: 'select' as const,
+			default: 'green',
+			options: [
+				{ value: 'green', label: 'Green Screen' },
+				{ value: 'blue', label: 'Blue Screen' }
+			]
+		},
+		{
+			name: 'tolerance',
+			label: 'Tolerance',
+			default: 0.2,
+			min: 0,
+			max: 1,
+			step: 0.01
+		},
+		{
+			name: 'softness',
+			label: 'Edge Softness',
+			default: 0.1,
+			min: 0,
+			max: 0.5,
+			step: 0.01
+		},
 		{
 			name: 'spillSuppression',
 			label: 'Spill Suppression',
@@ -67,12 +91,15 @@ vec4 chromaKeyFragment(vec2 vUv) {
 			step: 0.01
 		}
 	],
-	uniformValues: (p) => ({
-		uKeyR: 0,
-		uKeyG: 1,
-		uKeyB: 0,
-		uTolerance: readNumber(p, 'tolerance', 0.2),
-		uSoftness: readNumber(p, 'softness', 0.1),
-		uSpillSuppression: readNumber(p, 'spillSuppression', 0.5)
-	})
+	uniformValues: (p) => {
+		const isBlue = (p.keyColor as string) === 'blue';
+		return {
+			uKeyR: isBlue ? 0 : 0,
+			uKeyG: isBlue ? 0 : 1,
+			uKeyB: isBlue ? 1 : 0,
+			uTolerance: readNumber(p, 'tolerance', 0.2),
+			uSoftness: readNumber(p, 'softness', 0.1),
+			uSpillSuppression: readNumber(p, 'spillSuppression', 0.5)
+		};
+	}
 };

@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "Soldurmayı ayarlamak için sürükleyin. Bir kare için Sol/Sağ oklar, on kare için Shift, sıfırlamak için Home, maksimum için End kullanın.",
 	"video_editor_adjust_audio_fade_in_curve": "Ses giriş yumuşatma eğrisini ayarla",
 	"video_editor_adjust_audio_fade_out_curve": "Ses çıkış yumuşatma eğrisini ayarla",
-	"video_editor_audio_fade_curve_value": "Eğri {curve}, Sapma {bias}"
+	"video_editor_audio_fade_curve_value": "Eğri {curve}, Sapma {bias}",
+	"video_editor_audio_fade_curve_keyboard": "Sol ve sağ sapmayı, yukarı ve aşağı eğriyi ayarlar. Shift adımı büyütür. Home ikisini de sıfırlar."
 }

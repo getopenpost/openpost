@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "Ziehen zum Anpassen des Fades. Links/Rechts für ein Frame, Umschalt für zehn, Pos1 zum Löschen, Ende für Max.",
 	"video_editor_adjust_audio_fade_in_curve": "Audio-Fade-In-Kurve anpassen",
 	"video_editor_adjust_audio_fade_out_curve": "Audio-Fade-Out-Kurve anpassen",
-	"video_editor_audio_fade_curve_value": "Kurve {curve}, Bias {bias}"
+	"video_editor_audio_fade_curve_value": "Kurve {curve}, Bias {bias}",
+	"video_editor_audio_fade_curve_keyboard": "Links und Rechts ändern den Bias. Oben und Unten ändern die Kurve. Umschalt vergrößert die Schritte. Pos1 setzt beides zurück."
 }

@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "拖动以调整淡入淡出。使用左右箭头移动一帧，Shift+箭头移动十帧，Home 清除，End 设为最大。",
 	"video_editor_adjust_audio_fade_in_curve": "调整音频淡入曲线",
 	"video_editor_adjust_audio_fade_out_curve": "调整音频淡出曲线",
-	"video_editor_audio_fade_curve_value": "曲线 {curve}，偏移 {bias}"
+	"video_editor_audio_fade_curve_value": "曲线 {curve}，偏移 {bias}",
+	"video_editor_audio_fade_curve_keyboard": "左右键调整偏移，上下键调整曲线。按住 Shift 可增大步长，按 Home 可同时重置两项。"
 }

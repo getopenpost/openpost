@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "Arrastra para ajustar el fundido. Usa flechas izquierda/derecha para un fotograma, Mayús para diez, Inicio para limpiar, Fin para máximo.",
 	"video_editor_adjust_audio_fade_in_curve": "Ajustar curva de fundido de entrada de audio",
 	"video_editor_adjust_audio_fade_out_curve": "Ajustar curva de fundido de salida de audio",
-	"video_editor_audio_fade_curve_value": "Curva {curve}, Sesgo {bias}"
+	"video_editor_audio_fade_curve_value": "Curva {curve}, Sesgo {bias}",
+	"video_editor_audio_fade_curve_keyboard": "Izquierda y derecha ajustan el sesgo. Arriba y abajo ajustan la curva. Mayús aumenta el paso. Inicio restablece ambos."
 }

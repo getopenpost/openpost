@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "Drag to adjust fade. Use Left and Right arrows for one frame, Shift+arrows for ten frames, Home to clear, End for max.",
 	"video_editor_adjust_audio_fade_in_curve": "Adjust audio fade in curve",
 	"video_editor_adjust_audio_fade_out_curve": "Adjust audio fade out curve",
-	"video_editor_audio_fade_curve_value": "Curve {curve}, Bias {bias}"
+	"video_editor_audio_fade_curve_value": "Curve {curve}, Bias {bias}",
+	"video_editor_audio_fade_curve_keyboard": "Left and Right adjust bias. Up and Down adjust the curve. Hold Shift for larger steps. Home resets both."
 }

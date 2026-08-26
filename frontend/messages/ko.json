@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "드래그하여 페이드를 조정합니다. 좌/우 화살표로 1프레임, Shift와 함께 10프레임, Home으로 초기화, End로 최대값.",
 	"video_editor_adjust_audio_fade_in_curve": "오디오 페이드 인 커브 조정",
 	"video_editor_adjust_audio_fade_out_curve": "오디오 페이드 아웃 커브 조정",
-	"video_editor_audio_fade_curve_value": "커브 {curve}, 바이어스 {bias}"
+	"video_editor_audio_fade_curve_value": "커브 {curve}, 바이어스 {bias}",
+	"video_editor_audio_fade_curve_keyboard": "왼쪽과 오른쪽 키로 바이어스를, 위와 아래 키로 커브를 조정합니다. Shift는 이동 폭을 늘리고 Home은 둘 다 초기화합니다."
 }

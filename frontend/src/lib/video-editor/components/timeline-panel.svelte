@@ -4663,7 +4663,7 @@
 					{#if !syncLockPreviewById[item.id]?.hidden}
 						<!-- svelte-ignore a11y_no_static_element_interactions -->
 						<div
-							class="group @container absolute top-1 h-[calc(100%-8px)] touch-none overflow-hidden rounded-sm border text-left {selectedItemIds.includes(
+							class="group/timeline-item @container absolute top-1 h-[calc(100%-8px)] touch-none rounded-sm border text-left {selectedItemIds.includes(
 								item.id
 							)
 								? 'border-[oklch(0.66_0.14_45)] ring-1 ring-[oklch(0.66_0.14_45)]'

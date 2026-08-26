@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "Arraste para ajustar o fade. Use setas esquerda/direita para um quadro, Shift para dez, Home para limpar, End para máximo.",
 	"video_editor_adjust_audio_fade_in_curve": "Ajustar curva do fade de entrada do áudio",
 	"video_editor_adjust_audio_fade_out_curve": "Ajustar curva do fade de saída do áudio",
-	"video_editor_audio_fade_curve_value": "Curva {curve}, Viés {bias}"
+	"video_editor_audio_fade_curve_value": "Curva {curve}, Viés {bias}",
+	"video_editor_audio_fade_curve_keyboard": "Esquerda e direita ajustam o viés. Cima e baixo ajustam a curva. Shift aumenta o passo. Home redefine os dois."
 }

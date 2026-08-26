@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "ドラッグでフェードを調整。左右矢印で1フレーム、Shift+矢印で10フレーム、Homeでクリア、Endで最大。",
 	"video_editor_adjust_audio_fade_in_curve": "オーディオフェードインカーブを調整",
 	"video_editor_adjust_audio_fade_out_curve": "オーディオフェードアウトカーブを調整",
-	"video_editor_audio_fade_curve_value": "カーブ {curve}、バイアス {bias}"
+	"video_editor_audio_fade_curve_value": "カーブ {curve}、バイアス {bias}",
+	"video_editor_audio_fade_curve_keyboard": "左右キーでバイアス、上下キーでカーブを調整します。Shiftで移動量を増やし、Homeで両方をリセットします。"
 }

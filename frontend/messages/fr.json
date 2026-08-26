@@ -7008,5 +7008,6 @@
 	"video_editor_fade_handle_keyboard": "Faites glisser pour ajuster le fondu. Flèches gauche/droite pour une image, Maj+flèches pour dix, Début pour effacer, Fin pour le max.",
 	"video_editor_adjust_audio_fade_in_curve": "Ajuster la courbe de fondu d’entrée audio",
 	"video_editor_adjust_audio_fade_out_curve": "Ajuster la courbe de fondu de sortie audio",
-	"video_editor_audio_fade_curve_value": "Courbe {curve}, Biais {bias}"
+	"video_editor_audio_fade_curve_value": "Courbe {curve}, Biais {bias}",
+	"video_editor_audio_fade_curve_keyboard": "Gauche et droite règlent le biais. Haut et bas règlent la courbe. Maj augmente le pas. Début réinitialise les deux."
 }

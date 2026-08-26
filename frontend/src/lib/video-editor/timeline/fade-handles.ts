@@ -57,17 +57,11 @@ export function fadeSecondsFromOffset(params: {
 	return fadeFrames / params.fps;
 }
 
-export function clampFadeSeconds(
-	computed: number,
-	otherFade: number | undefined,
-	maxDurationFrames: number,
-	fps: number
-): number {
+export function clampFadeSeconds(computed: number, maxDurationFrames: number, fps: number): number {
 	if (!Number.isFinite(computed)) return 0;
 	const maxSeconds =
 		maxDurationFrames > 0 && fps > 0 ? maxDurationFrames / fps : Number.POSITIVE_INFINITY;
-	const other = Number.isFinite(otherFade) ? (otherFade ?? 0) : 0;
-	const capped = Math.max(0, Math.min(maxSeconds - Math.max(0, other), maxSeconds, computed));
+	const capped = Math.max(0, Math.min(maxSeconds, computed));
 	if (fps > 0) return Math.round(capped * fps) / fps;
 	return capped;
 }
@@ -248,9 +242,4 @@ export function getAudioFadeCurveFromOffset(params: {
 	const range = Math.max(1, 100 - linearY);
 	const raw = (y - linearY) / range;
 	return { curve: clampAudioFadeCurve(-Math.pow(raw, edgeDampingExponent)), curveX };
-}
-
-export function formatFadeSeconds(seconds: number): string {
-	const v = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
-	return `${v.toFixed(2)}s`;
 }

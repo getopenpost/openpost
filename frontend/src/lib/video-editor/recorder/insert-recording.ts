@@ -3,13 +3,27 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { executeAtomic } from '../timeline/commands/command-store.svelte';
 import type { TimelineItem, TimelineTrack } from '../project/types';
 import { importGeneratedVideo, importRecordedAudio } from '../media/import.svelte';
+import { rollbackNewGeneratedMedia } from '../media/import.svelte';
 import type { CaptureArtifact, RecorderKind } from './recorder.svelte';
+import type { MediaMetadata } from '../media/types';
 
 const logger = createLogger('InsertRecording');
 
 export type InsertRecordingResult = {
 	mediaIds: string[];
 	itemIds: string[];
+};
+
+export interface RecordingImportRuntime {
+	importVideo(file: File, options: { projectId: string; tags: string[] }): Promise<MediaMetadata>;
+	importAudio(file: File, options: { projectId: string; duration: number }): Promise<MediaMetadata>;
+	rollback(projectId: string, mediaId: string): Promise<void>;
+}
+
+const defaultRuntime: RecordingImportRuntime = {
+	importVideo: importGeneratedVideo,
+	importAudio: importRecordedAudio,
+	rollback: rollbackNewGeneratedMedia
 };
 
 function recorderKindToTrackName(kind: RecorderKind, index: number): string {
@@ -39,7 +53,8 @@ function mimeExtension(mimeType: string): string {
 export async function insertRecordingArtifacts(
 	projectId: string,
 	artifacts: CaptureArtifact[],
-	anchorFrame: number
+	anchorFrame: number,
+	runtime: RecordingImportRuntime = defaultRuntime
 ): Promise<InsertRecordingResult> {
 	if (artifacts.length === 0) return { mediaIds: [], itemIds: [] };
 	const fps = timelineStore.fps;
@@ -50,86 +65,104 @@ export async function insertRecordingArtifacts(
 		kind: RecorderKind;
 		mediaId: string;
 		duration: number;
+		fps: number;
 		fileName: string;
 	}> = [];
-	for (const artifact of artifacts) {
-		const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-		const ext = mimeExtension(artifact.mimeType);
-		const kindLabel = artifact.kind;
-		const fileName = `recording-${kindLabel}-${stamp}.${ext}`;
-		const file = new File([artifact.blob], fileName, {
-			type: artifact.mimeType || artifact.blob.type,
-			lastModified: Date.now()
-		});
-		try {
+	try {
+		for (const artifact of artifacts) {
+			const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+			const ext = mimeExtension(artifact.mimeType);
+			const kindLabel = artifact.kind;
+			const fileName = `recording-${kindLabel}-${stamp}.${ext}`;
+			const file = new File([artifact.blob], fileName, {
+				type: artifact.mimeType || artifact.blob.type,
+				lastModified: Date.now()
+			});
 			if (kindLabel === 'microphone') {
 				const durationSec = Math.max(0.1, artifact.durationMs / 1000);
-				const media = await importRecordedAudio(file, { projectId, duration: durationSec });
-				imported.push({ kind: kindLabel, mediaId: media.id, duration: media.duration, fileName });
+				const media = await runtime.importAudio(file, { projectId, duration: durationSec });
+				imported.push({
+					kind: kindLabel,
+					mediaId: media.id,
+					duration: media.duration,
+					fps: media.fps,
+					fileName
+				});
 			} else {
-				const media = await importGeneratedVideo(file, {
+				const media = await runtime.importVideo(file, {
 					projectId,
 					tags: ['recorded', kindLabel]
 				});
-				imported.push({ kind: kindLabel, mediaId: media.id, duration: media.duration, fileName });
+				imported.push({
+					kind: kindLabel,
+					mediaId: media.id,
+					duration: media.duration,
+					fps: media.fps,
+					fileName
+				});
 			}
-		} catch (error) {
-			logger.error(`importRecordingArtifacts failed for ${kindLabel}`, error);
-			// Preserve already imported media but rethrow so caller can offer recovery downloads
-			throw error;
 		}
+	} catch (error) {
+		logger.error('insertRecordingArtifacts failed while importing capture files', error);
+		await Promise.allSettled(imported.map((entry) => runtime.rollback(projectId, entry.mediaId)));
+		throw error;
 	}
 
 	// One atomic timeline transaction for all clips/tracks
-	const result = executeAtomic('INSERT_RECORDING', () => {
-		const itemIds: string[] = [];
-		const mediaIds = imported.map((i) => i.mediaId);
-		// We need to know order - compute per artifact offset
-		artifacts.forEach((artifact, idx) => {
-			const importedEntry = imported[idx];
-			if (!importedEntry) return;
-			const offsetMs = Math.max(0, artifact.startOffsetMs);
-			const from = Math.max(0, baseFrame + Math.round((offsetMs / 1000) * fps));
-			const durationInFrames = Math.max(1, Math.round((importedEntry.duration || 0.1) * fps) || 1);
-			const existingTracks = timelineStore.tracks;
-			const order =
-				existingTracks.length > 0 ? Math.max(...existingTracks.map((t) => t.order)) + 1 : 0;
-			const trackKind = trackKindForRecorder(artifact.kind);
-			const track: TimelineTrack = {
-				id: crypto.randomUUID(),
-				name: recorderKindToTrackName(artifact.kind, idx),
-				kind: trackKind,
-				height: trackKind === 'video' ? 72 : 56,
-				locked: false,
-				syncLock: true,
-				visible: true,
-				muted: false,
-				solo: false,
-				volume: 1,
-				order
-			};
-			const sourceFps = fps;
-			const item: TimelineItem = {
-				id: crypto.randomUUID(),
-				trackId: track.id,
-				from,
-				durationInFrames,
-				label: importedEntry.fileName,
-				type: trackKind === 'audio' ? 'audio' : 'video',
-				mediaId: importedEntry.mediaId,
-				originId: crypto.randomUUID(),
-				sourceStart: 0,
-				sourceEnd: durationInFrames,
-				sourceDuration: durationInFrames,
-				sourceFps,
-				volume: 1
-			};
-			timelineStore._setTracks([...timelineStore.tracks, track]);
-			timelineStore._addItem(item);
-			itemIds.push(item.id);
+	try {
+		return executeAtomic('INSERT_RECORDING', () => {
+			const itemIds: string[] = [];
+			const mediaIds = imported.map((entry) => entry.mediaId);
+			artifacts.forEach((artifact, index) => {
+				const importedEntry = imported[index];
+				if (!importedEntry) return;
+				const offsetMs = Math.max(0, artifact.startOffsetMs);
+				const from = Math.max(0, baseFrame + Math.round((offsetMs / 1000) * fps));
+				const durationInFrames = Math.max(1, Math.round(importedEntry.duration * fps));
+				const existingTracks = timelineStore.tracks;
+				const order =
+					existingTracks.length > 0
+						? Math.max(...existingTracks.map((track) => track.order)) + 1
+						: 0;
+				const trackKind = trackKindForRecorder(artifact.kind);
+				const track: TimelineTrack = {
+					id: crypto.randomUUID(),
+					name: recorderKindToTrackName(artifact.kind, index),
+					kind: trackKind,
+					height: trackKind === 'video' ? 72 : 56,
+					locked: false,
+					syncLock: true,
+					visible: true,
+					muted: false,
+					solo: false,
+					volume: 1,
+					order
+				};
+				const sourceFps = importedEntry.fps > 0 ? importedEntry.fps : fps;
+				const sourceDuration = Math.max(1, Math.round(importedEntry.duration * sourceFps));
+				const item: TimelineItem = {
+					id: crypto.randomUUID(),
+					trackId: track.id,
+					from,
+					durationInFrames,
+					label: importedEntry.fileName,
+					type: trackKind === 'audio' ? 'audio' : 'video',
+					mediaId: importedEntry.mediaId,
+					originId: crypto.randomUUID(),
+					sourceStart: 0,
+					sourceEnd: sourceDuration,
+					sourceDuration,
+					sourceFps,
+					volume: 1
+				};
+				timelineStore._setTracks([...timelineStore.tracks, track]);
+				timelineStore._addItem(item);
+				itemIds.push(item.id);
+			});
+			return { mediaIds, itemIds };
 		});
-		return { mediaIds, itemIds };
-	});
-
-	return result;
+	} catch (error) {
+		await Promise.allSettled(imported.map((entry) => runtime.rollback(projectId, entry.mediaId)));
+		throw error;
+	}
 }

@@ -1,35 +1,20 @@
-import { writable, derived } from 'svelte/store';
-
-const hoveredStore = writable(false);
-const focusedStore = writable(false);
-
-let hoveredValue = false;
-let focusedValue = false;
-hoveredStore.subscribe((value) => {
-	hoveredValue = value;
-});
-focusedStore.subscribe((value) => {
-	focusedValue = value;
-});
+let hovered = $state(false);
+let focused = $state(false);
 
 export const sourceHoverStore = {
 	get isHovered(): boolean {
-		return hoveredValue;
+		return hovered;
 	},
 	get isFocused(): boolean {
-		return focusedValue;
+		return focused;
 	},
 	get isActive(): boolean {
-		return hoveredValue || focusedValue;
+		return hovered || focused;
 	},
 	setHovered(value: boolean): void {
-		hoveredStore.set(value);
+		hovered = value;
 	},
 	setFocused(value: boolean): void {
-		focusedStore.set(value);
-	},
-	// Exposed for Svelte derived usage if needed
-	_hoveredStore: hoveredStore,
-	_focusedStore: focusedStore,
-	active: derived([hoveredStore, focusedStore], ([hovered, focused]) => hovered || focused)
+		focused = value;
+	}
 };

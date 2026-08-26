@@ -35,6 +35,8 @@
 		getNextShuttleRate
 	} from '$lib/video-editor/preview/shuttle';
 	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
+	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
+	import { attachAudioSourceToMixer } from '$lib/video-editor/audio/audio-mixer';
 	import ShuttleIndicator from '$lib/video-editor/components/shuttle-indicator.svelte';
 	import {
 		decodedPreviewAudio,
@@ -116,6 +118,9 @@
 	let playbackStartFrame = 0;
 	let sourcePlaybackRate = $state(1);
 	let sourceShuttleActive = $state(false);
+	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
+	let shuttleGainNode: GainNode | null = null;
+	let detachShuttle: (() => void) | null = null;
 	let monitorElement = $state<HTMLElement>();
 	let stripElement = $state<HTMLElement>();
 	let rangeDragStartX = 0;
@@ -232,6 +237,11 @@
 	});
 
 	onDestroy(() => {
+		shuttleScheduler?.dispose();
+		if (shuttleGainNode) {
+			shuttleGainNode.disconnect();
+			detachShuttle?.();
+		}
 		cancelAnimationFrame(animationFrame);
 		stopCustomAudio();
 		lottieRenderer?.destroy();
@@ -242,6 +252,62 @@
 	onMount(() => {
 		window.addEventListener('keydown', handleKeydown, { capture: true });
 		return () => window.removeEventListener('keydown', handleKeydown, { capture: true });
+	});
+
+	$effect(() => {
+		const isPlaying = playing;
+		const rate = sourcePlaybackRate;
+		const isReverse = rate < 0 && isPlaying;
+		const url = sourceUrl || sourceAudioUrl;
+		if (!isReverse || !url || !hasAudio) {
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+			return;
+		}
+		let stale = false;
+		// Stop forward paths before grains
+		mediaElement?.pause();
+		proxyAudioElement?.pause();
+		stopCustomAudio();
+		void decodedPreviewAudio(url, media?.audioCodec).then((buffer) => {
+			if (stale || !buffer) return;
+			const context = previewAudioContext();
+			const gain = context.createGain();
+			gain.gain.value = 1;
+			const detach = attachAudioSourceToMixer(gain, `source-shuttle:${mediaId}`);
+			shuttleGainNode = gain;
+			detachShuttle = detach;
+			const scheduler = createReverseShuttleScheduler({
+				context,
+				buffer,
+				bufferStartSeconds: 0,
+				getSourceCursorSeconds: () => currentFrame / sourceFps,
+				authoredPlaybackRate: 1,
+				authoredReversed: false,
+				getTransportRate: () => sourcePlaybackRate,
+				getGain: () => 1,
+				destination: gain
+			});
+			shuttleScheduler = scheduler;
+			scheduler.start();
+		});
+		return () => {
+			stale = true;
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+		};
 	});
 
 	function handleSourceMouseEnter(): void {
@@ -305,6 +371,7 @@
 		const context = previewAudioContext();
 		const source = context.createBufferSource();
 		source.buffer = buffer;
+		source.playbackRate.value = getShuttleMediaPlaybackRate(1, Math.abs(sourcePlaybackRate));
 		source.connect(context.destination);
 		customAudioSource = source;
 		customAudioStartedOffset = offsetSeconds;
@@ -348,7 +415,7 @@
 	function shuttleForward(): void {
 		const nextRate = playing ? getNextShuttleRate(sourcePlaybackRate, 1) : 1;
 		if (nextRate > 0 && mediaElement && !needsCustomAudio) {
-			const mediaRate = getBrowserMediaPlaybackRate(1, nextRate);
+			const mediaRate = getShuttleMediaPlaybackRate(1, Math.abs(nextRate));
 			mediaElement.playbackRate = mediaRate;
 			if (proxyAudioElement) proxyAudioElement.playbackRate = mediaRate;
 		}
@@ -398,7 +465,6 @@
 		if (proxyAudioElement) proxyAudioElement.pause();
 		stopCustomAudio();
 		if (currentFrame <= inPoint || currentFrame > outPoint) seek(outPoint - 1, false);
-		if (currentFrame <= inPoint) seek(outPoint - 1, false);
 		playbackStartFrame = currentFrame;
 		playbackStartedAt = performance.now();
 		cancelAnimationFrame(animationFrame);

@@ -103,6 +103,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import { emitEditorSound } from '$lib/video-editor/sounds/editor-sounds';
 	import { getNextShuttleRate } from '$lib/video-editor/preview/shuttle';
 	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
+	import { shuttleScrubResume } from '$lib/video-editor/preview/shuttle-scrub-resume.svelte';
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import type { TextVoiceRequest } from '$lib/video-editor/local-ai/types';
 
@@ -111,6 +112,10 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	let selectedItemIds = $state<string[]>([]);
 	let selectedTransitionId = $state<string | null>(null);
 	let sourceMediaId = $state<string | null>(null);
+	$effect(() => {
+		void sourceMediaId;
+		shuttleScrubResume.cancel();
+	});
 	let freezingItemId = $state<string | null>(null);
 	let motionReturnStack = $state<Array<string | null>>([]);
 	let settingsOpen = $state(false);
@@ -291,12 +296,15 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 
 	function changeEditorWorkspace(workspace: EditorWorkspaceId): void {
 		if (workspace === editorWorkspace.current) return;
+		shuttleScrubResume.cancel();
 		editorSession.pausePlayback();
+		editorSession.clock.setRate(1);
 		editorWorkspace.set(workspace);
 		emitEditorSound('select', false);
 	}
 
 	function handleOpenSequence(compositionId: string): void {
+		shuttleScrubResume.cancel();
 		const composition = sequenceStore.compositionById.get(compositionId);
 		if (composition?.editorKind === 'composite-2d') {
 			motionReturnStack = [...motionReturnStack, sequenceStore.activeSequenceId];
@@ -330,6 +338,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	}
 
 	function handleReturnFromMotionComposition(): void {
+		shuttleScrubResume.cancel();
 		const parentSequenceId = motionReturnStack.at(-1);
 		if (parentSequenceId === undefined && motionReturnStack.length === 0) return;
 		editorSession.pausePlayback();
@@ -734,12 +743,23 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		const bindings = keyboardShortcuts.bindings;
 		const matches = (...ids: EditorShortcutId[]) =>
 			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
+		const sourceLocalPlayback = matches(
+			'PLAY_PAUSE',
+			'PREVIOUS_FRAME',
+			'NEXT_FRAME',
+			'GO_TO_START',
+			'GO_TO_END',
+			'SHUTTLE_FORWARD',
+			'SHUTTLE_REVERSE',
+			'SHUTTLE_PAUSE'
+		);
+		if (sourceLocalPlayback && sourceHoverStore.isActive) return;
 		if (matches('SHUTTLE_PAUSE', 'SHUTTLE_FORWARD', 'SHUTTLE_REVERSE')) {
-			if (sourceHoverStore.isActive) return;
 			if (matches('SHUTTLE_PAUSE')) {
 				if (!editorSession.clock.isPlaying) return;
 				event.preventDefault();
 				event.stopPropagation();
+				shuttleScrubResume.cancel();
 				editorSession.clock.pause();
 				editorSession.clock.setRate(1);
 				return;

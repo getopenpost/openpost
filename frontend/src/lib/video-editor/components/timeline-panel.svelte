@@ -18,6 +18,7 @@
 		unlinkItems
 	} from '$lib/video-editor/timeline/actions/items';
 	import { markerAfter, markerBefore, markerDisplayName } from '$lib/video-editor/timeline/markers';
+	import { shuttleScrubResume } from '$lib/video-editor/preview/shuttle-scrub-resume.svelte';
 	import {
 		TIMELINE_ZOOM_STEP,
 		anchoredTimelineScrollLeft,
@@ -1249,6 +1250,7 @@
 		window.removeEventListener('pointerup', finishRulerScrub);
 		window.removeEventListener('pointercancel', cancelRulerScrub);
 		scheduleAudioSkimStop();
+		shuttleScrubResume.commit();
 	}
 
 	function cancelRulerScrub(event?: PointerEvent): void {
@@ -1262,6 +1264,7 @@
 		window.removeEventListener('pointerup', finishRulerScrub);
 		window.removeEventListener('pointercancel', cancelRulerScrub);
 		audioSkimController.stop();
+		shuttleScrubResume.cancel();
 	}
 
 	function startRulerScrub(event: PointerEvent): void {
@@ -1269,6 +1272,7 @@
 		clearHoverPreview();
 		event.preventDefault();
 		event.stopPropagation();
+		shuttleScrubResume.begin();
 		editorSession.pausePlayback();
 		if (audioSkimStopTimer) clearTimeout(audioSkimStopTimer);
 		audioSkimStopTimer = null;
@@ -1537,6 +1541,7 @@
 	}
 
 	function startMarkerDrag(event: PointerEvent, marker: TimelineMarker): void {
+		shuttleScrubResume.cancel();
 		if (event.button !== 0 || markerDrag) return;
 		clearHoverPreview();
 		event.preventDefault();
@@ -2407,6 +2412,7 @@
 			return;
 		event.preventDefault();
 		event.stopPropagation();
+		shuttleScrubResume.cancel();
 		const target = event.currentTarget;
 		const rowHeight = target.parentElement?.getBoundingClientRect().height ?? 56;
 		audioVolumeDrag = {
@@ -2472,6 +2478,7 @@
 
 	function startDrag(event: PointerEvent, id: string, requestedKind: TimelineDragKind): void {
 		if (event.button !== 0) return;
+		shuttleScrubResume.cancel();
 		clearHoverPreview();
 		clearSyncLockPreview();
 		breakingTransitionPreviewIds = [];

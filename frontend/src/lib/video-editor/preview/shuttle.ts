@@ -16,3 +16,24 @@ export function getBrowserMediaPlaybackRate(authoredRate: number, transportRate:
 	const safeTransportRate = Number.isFinite(transportRate) && transportRate > 0 ? transportRate : 1;
 	return Math.max(0.0625, Math.min(16, safeAuthoredRate * safeTransportRate));
 }
+
+export function getShuttleMediaPlaybackRate(authoredRate: number, transportRate: number): number {
+	return getBrowserMediaPlaybackRate(authoredRate, Math.abs(transportRate));
+}
+
+export function isReverseShuttleRate(rate: number): boolean {
+	return Number.isFinite(rate) && rate < 0;
+}
+
+export function isShuttleActive(rate: number, isPlaying: boolean): boolean {
+	return isPlaying && (rate < 0 || Math.abs(rate) > 1);
+}
+
+export function getShuttleGain(
+	baseGain: number,
+	transportRate: number,
+	isPlaying: boolean
+): number {
+	if (!isPlaying) return baseGain;
+	return baseGain;
+}

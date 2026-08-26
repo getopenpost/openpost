@@ -60,6 +60,13 @@
 	import { planMotionTimelineRows, expandMotionLayerItemIds } from '$lib/video-editor/timeline/motion-timeline-rows';
 	import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 	import type { KeyframeProperty } from '$lib/video-editor/project/types';
+	import KeyframeDopesheet from '$lib/video-editor/components/keyframe-dopesheet.svelte';
+	import { getAnimatablePropertiesForItem } from '$lib/video-editor/timeline/animated-properties';
+	import { getMotionPresets, type MotionPresetId as MotionLayerPresetId } from '$lib/video-editor/timeline/motion-presets';
+	import { applyMotionLayersToItems, removeMotionLayerFromItems } from '$lib/video-editor/timeline/actions/motion-layers';
+	import { applyMotionModifierToItems, removeMotionModifierFromItems } from '$lib/video-editor/timeline/actions/motion-modifiers';
+	import { setPropertyExpression, removePropertyExpression } from '$lib/video-editor/timeline/actions/property-runtime';
+	import { compositionControlsStore } from '$lib/video-editor/sequences/composition-controls';
 	import { Slider } from '$lib/components/ui/slider';
 	import { Button } from '$lib/components/ui/button';
 	import Link2Icon from '@lucide/svelte/icons/link-2';
@@ -129,6 +136,10 @@
 	let expandedGroupIds = $state<Set<string>>(new Set());
 	let filterText = $state('');
 	let clipboard: TimelineItem[] | null = $state(null);
+	let previewFrame: number | null = $state(null);
+	let dopesheetMode: 'lanes' | 'graph' = $state('lanes');
+	let selectedEasing: string = $state('linear');
+	let linkPickSource: { itemId: string; property: string } | null = $state(null);
 	$effect(() => {
 		zoomSlider = timelineStore.zoomLevel;
 	});

@@ -182,11 +182,17 @@
 		processedPlaying = playing;
 	}
 
+	const shuttleReverse = $derived(
+		editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying
+	);
+
 	$effect(() => {
-		if (reverseGain) reverseGain.gain.value = volume;
-		if (processedGraph) rampPreviewClipGain(processedGraph, volume);
-		if (mediaGain) mediaGain.gain.value = needsProcessing ? 0 : volume;
-		else if (audio) audio.volume = Math.min(1, needsProcessing ? 0 : fallbackVolume);
+		const mutedByShuttle = shuttleReverse;
+		if (reverseGain) reverseGain.gain.value = mutedByShuttle ? 0 : volume;
+		if (processedGraph) rampPreviewClipGain(processedGraph, mutedByShuttle ? 0 : volume);
+		if (mediaGain) mediaGain.gain.value = mutedByShuttle || needsProcessing ? 0 : volume;
+		else if (audio)
+			audio.volume = Math.min(1, mutedByShuttle || needsProcessing ? 0 : fallbackVolume);
 	});
 
 	$effect(() => {
@@ -329,6 +335,13 @@
 		const sync = () => {
 			const frame = untrack(() => timelineStore.currentFrame);
 			const speed = item.speed ?? 1;
+			const shuttleRev = editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying;
+			if (shuttleRev) {
+				if (!media.paused) media.pause();
+				stopReverseSource();
+				processedNode?.port.postMessage({ type: 'set-playing', playing: false });
+				return;
+			}
 			if (needsProcessing) {
 				if (!media.paused) media.pause();
 				const graph = processedGraph;

@@ -101,6 +101,8 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 	import { emitEditorSound } from '$lib/video-editor/sounds/editor-sounds';
+	import { getNextShuttleRate } from '$lib/video-editor/preview/shuttle';
+	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import type { TextVoiceRequest } from '$lib/video-editor/local-ai/types';
 
@@ -713,20 +715,64 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	}
 
 	function togglePlay(): void {
-		if (editorSession.clock.isPlaying) editorSession.pausePlayback();
-		else
+		if (editorSession.clock.isPlaying) {
+			editorSession.pausePlayback();
+			editorSession.clock.setRate(1);
+		} else {
+			editorSession.clock.setRate(1);
 			editorSession.startPlayback({
 				start: 0,
 				end: Math.max(timelineStore.maxItemEndFrame, 1),
 				loop: false
 			});
+		}
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
+		if (event.repeat) return;
 		if (editorShortcutTargetIsDisabled(event.target)) return;
 		const bindings = keyboardShortcuts.bindings;
 		const matches = (...ids: EditorShortcutId[]) =>
 			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
+		if (matches('SHUTTLE_PAUSE', 'SHUTTLE_FORWARD', 'SHUTTLE_REVERSE')) {
+			if (sourceHoverStore.isActive) return;
+			if (matches('SHUTTLE_PAUSE')) {
+				if (!editorSession.clock.isPlaying) return;
+				event.preventDefault();
+				event.stopPropagation();
+				editorSession.clock.pause();
+				editorSession.clock.setRate(1);
+				return;
+			}
+			if (matches('SHUTTLE_FORWARD')) {
+				event.preventDefault();
+				const wasPlaying = editorSession.clock.isPlaying;
+				const current = editorSession.clock.playbackRate;
+				const next = wasPlaying ? getNextShuttleRate(current, 1) : 1;
+				if (!wasPlaying) {
+					const range = { start: 0, end: Math.max(timelineStore.maxItemEndFrame, 1) };
+					editorSession.clock.setRate(next);
+					editorSession.startPlayback(range);
+				} else {
+					editorSession.clock.setRate(next);
+				}
+				return;
+			}
+			if (matches('SHUTTLE_REVERSE')) {
+				event.preventDefault();
+				const wasPlaying = editorSession.clock.isPlaying;
+				const current = editorSession.clock.playbackRate;
+				const next = wasPlaying ? getNextShuttleRate(current, -1) : -1;
+				if (!wasPlaying) {
+					const range = { start: 0, end: Math.max(timelineStore.maxItemEndFrame, 1) };
+					editorSession.clock.setRate(next);
+					editorSession.startPlayback(range);
+				} else {
+					editorSession.clock.setRate(next);
+				}
+				return;
+			}
+		}
 		if (matches('PLAY_PAUSE')) {
 			event.preventDefault();
 			togglePlay();

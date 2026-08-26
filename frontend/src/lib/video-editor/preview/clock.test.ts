@@ -127,4 +127,95 @@ describe('Clock', () => {
 		expect(updates.mock.calls.length).toBeLessThanOrEqual(2);
 		clock.dispose();
 	});
+
+	it('advances reverse at negative rate with ceil semantics', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.seek(120);
+		clock.setRate(-2);
+		clock.play({ range: { start: 0, end: 300 } });
+		time.advance(0.5);
+		raf.flush(1);
+		expect(clock.currentFrame).toBe(90);
+		clock.dispose();
+	});
+
+	it('restarts reverse playback from last frame at first boundary', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.seek(0);
+		clock.setRate(-1);
+		clock.play({ range: { start: 0, end: 300 } });
+		expect(clock.currentFrame).toBe(299);
+		clock.dispose();
+	});
+
+	it('stops at range start when reversing without loop', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		const ended = vi.fn();
+		clock.on('ended', ended);
+		clock.seek(30);
+		clock.setRate(-1);
+		clock.play({ range: { start: 10, end: 40 } });
+		time.advance(2); // would go negative
+		raf.flush(2);
+		expect(ended).toHaveBeenCalledWith(10);
+		expect(clock.isPlaying).toBe(false);
+		expect(clock.currentFrame).toBe(10);
+		clock.dispose();
+	});
+
+	it('loops reverse back to range end', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.seek(20);
+		clock.setRate(-2);
+		clock.play({ range: { start: 10, end: 40 }, loop: true });
+		time.advance(1); // 20 -60 = -40 <10 so loop
+		raf.flush(1);
+		expect(clock.currentFrame).toBe(39);
+		clock.dispose();
+	});
+
+	it('handles successive J/L rates 1x/2x/4x and direction change', async () => {
+		const { getNextShuttleRate } = await import('./shuttle');
+		expect(getNextShuttleRate(1, 1)).toBe(2);
+		expect(getNextShuttleRate(2, 1)).toBe(4);
+		expect(getNextShuttleRate(4, 1)).toBe(4);
+		expect(getNextShuttleRate(2, -1)).toBe(-1);
+		expect(getNextShuttleRate(-1, -1)).toBe(-2);
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.setRate(2);
+		expect(clock.playbackRate).toBe(2);
+		clock.setRate(-1);
+		expect(clock.playbackRate).toBe(-1);
+		clock.dispose();
+	});
+
+	it('does not create duplicate loops when tick fires repeatedly at boundary', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		const frames: number[] = [];
+		clock.on('framechange', (f) => frames.push(f));
+		clock.play({ range: { start: 0, end: 10 }, loop: true });
+		time.advance(0.5); // 15 frames >10 loop once
+		raf.flush(2);
+		time.advance(0.1);
+		raf.flush(2);
+		const endedCount = frames.filter((f) => f === 0).length;
+		expect(endedCount).toBeLessThanOrEqual(3);
+		clock.dispose();
+	});
+
+	it('pause resets rate handling and emits correctly', () => {
+		const clock = new Clock({ fps: 30, timeSource: time });
+		clock.setRate(2);
+		clock.play();
+		const paused = vi.fn();
+		clock.on('pause', paused);
+		time.advance(0.2);
+		raf.flush(1);
+		clock.pause();
+		expect(paused).toHaveBeenCalled();
+		expect(clock.isPlaying).toBe(false);
+		clock.setRate(1);
+		expect(clock.playbackRate).toBe(1);
+		clock.dispose();
+	});
 });

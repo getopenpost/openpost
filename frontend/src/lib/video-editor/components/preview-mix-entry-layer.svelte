@@ -128,17 +128,24 @@
 		processedPlaying = playing;
 	}
 
+	const shuttleReverseMix = $derived(
+		editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying
+	);
+
 	$effect(() => {
+		const muted = shuttleReverseMix;
 		if (processedGraph)
-			rampPreviewClipGain(processedGraph, gainAt(timelineStore.currentFrame / editorSession.fps));
+			rampPreviewClipGain(
+				processedGraph,
+				muted ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps)
+			);
 		if (mediaGain) {
-			mediaGain.gain.value = needsProcessing
-				? 0
-				: gainAt(timelineStore.currentFrame / editorSession.fps);
+			mediaGain.gain.value =
+				muted || needsProcessing ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps);
 		} else if (audio)
 			audio.volume = Math.min(
 				1,
-				needsProcessing ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps, true)
+				muted || needsProcessing ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps, true)
 			);
 	});
 
@@ -229,6 +236,12 @@
 		const scheduler = new SeekScheduler((target) => (media.currentTime = target));
 		const sync = () => {
 			const time = untrack(() => timelineStore.currentFrame) / editorSession.fps;
+			const shuttleRev = editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying;
+			if (shuttleRev) {
+				if (!media.paused) media.pause();
+				processedNode?.port.postMessage({ type: 'set-playing', playing: false });
+				return;
+			}
 			if (needsProcessing) {
 				if (!media.paused) media.pause();
 				if (!processedNode || !processedGraph || processedSampleRate <= 0) return;

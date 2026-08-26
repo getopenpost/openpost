@@ -6993,5 +6993,10 @@
 	"video_editor_edit_preview_in": "IN",
 	"video_editor_edit_preview_gap_label": "ギャップ",
 	"video_editor_edit_preview_baseline": "基準",
-	"video_editor_edit_preview_time_missing": "-"
+	"video_editor_edit_preview_time_missing": "-",
+	"video_editor_shortcuts_command_shuttle_forward": "Shuttle forward",
+	"video_editor_shortcuts_command_shuttle_reverse": "Shuttle reverse",
+	"video_editor_shortcuts_command_shuttle_pause": "Pause shuttle",
+	"video_editor_shuttle_forward": "Forward shuttle {speed}×",
+	"video_editor_shuttle_reverse": "Reverse shuttle {speed}×"
 }

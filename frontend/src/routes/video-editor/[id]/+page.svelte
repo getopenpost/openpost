@@ -77,6 +77,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import SourceMonitor from '$lib/video-editor/components/source-monitor.svelte';
 	import TransportBar from '$lib/video-editor/components/transport-bar.svelte';
 	import TimelinePanel from '$lib/video-editor/components/timeline-panel.svelte';
+	import CompositionTimeline from '$lib/video-editor/components/composition-timeline.svelte';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 	import RecordingDialog from '$lib/video-editor/components/recording-dialog.svelte';
 	import SequenceTabs from '$lib/video-editor/components/sequence-tabs.svelte';
@@ -1320,18 +1321,26 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			</div>
 
 			<footer class="border-t border-[oklch(0.25_0.015_55)]">
-				<TimelinePanel
-					bind:selectedItemId
-					bind:selectedItemIds
-					bind:selectedTransitionId
-					freezeFramePending={freezingItemId !== null}
-					canvasWidth={renderProject?.metadata.width ?? 1920}
-					canvasHeight={renderProject?.metadata.height ?? 1080}
-					onedit={() => editorSession.scheduleAutosave()}
-					onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
-					onopencomposition={handleOpenSequence}
-					ontransitionbreak={() => showToast(m.video_editor_transition_removed(), 'info')}
-				/>
+				{#if sequenceStore.activeSequence?.editorKind === 'composite-2d'}
+					<CompositionTimeline
+						{selectedItemId}
+						onedit={() => editorSession.scheduleAutosave()}
+						onselectitem={handleSelectItem}
+					/>
+				{:else}
+					<TimelinePanel
+						bind:selectedItemId
+						bind:selectedItemIds
+						bind:selectedTransitionId
+						freezeFramePending={freezingItemId !== null}
+						canvasWidth={renderProject?.metadata.width ?? 1920}
+						canvasHeight={renderProject?.metadata.height ?? 1080}
+						onedit={() => editorSession.scheduleAutosave()}
+						onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
+						onopencomposition={handleOpenSequence}
+						ontransitionbreak={() => showToast(m.video_editor_transition_removed(), 'info')}
+					/>
+				{/if}
 			</footer>
 		{/key}
 	{/if}

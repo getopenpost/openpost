@@ -1,4 +1,3 @@
-<!-- Record: separate screen / camera / mic artifacts with shared timebase -->
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
@@ -11,7 +10,8 @@
 		ScreenCaptureRecorder,
 		listRecorderDevices,
 		formatBytes,
-		estimateBytesPerMinute
+		estimateBytesPerMinute,
+		type RecorderKind
 	} from '$lib/video-editor/recorder/recorder.svelte';
 
 	const recorder = new ScreenCaptureRecorder();
@@ -27,7 +27,9 @@
 	let plannedMinutes = $state('5');
 	let screenPreviewEl = $state<HTMLVideoElement | null>(null);
 	let cameraPreviewEl = $state<HTMLVideoElement | null>(null);
-	let lastDownloads = $state<Array<{ url: string; name: string; kind: string; size: number }>>([]);
+	let lastDownloads = $state<
+		Array<{ url: string; name: string; kind: RecorderKind; size: number }>
+	>([]);
 
 	const hasSelection = $derived(includeScreen || includeCamera || includeMic);
 	const elapsed = $derived.by(() => {
@@ -35,20 +37,49 @@
 		return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
 	});
 
-	onMount(() => {
-		void listRecorderDevices().then((lists) => {
+	function localizedRecorderError(): string {
+		switch (recorder.error) {
+			case 'permission-denied':
+				return m.video_editor_recording_error_permission();
+			case 'no-device':
+				return m.video_editor_recording_error_device_missing();
+			case 'device-busy':
+				return m.video_editor_recording_error_device_busy();
+			case 'storage-full':
+				return m.video_editor_recording_storage_stopped();
+			case 'unsupported':
+				return m.video_editor_recording_error_unsupported();
+			case 'stop-timeout':
+				return m.video_editor_recording_error_stop_timeout();
+			default:
+				return m.video_editor_recording_error_start();
+		}
+	}
+
+	function sourceLabel(kind: RecorderKind): string {
+		if (kind === 'screen') return m.record_source_screen();
+		if (kind === 'camera') return m.record_source_camera();
+		return m.record_source_audio();
+	}
+
+	async function refreshDevices(): Promise<void> {
+		try {
+			const lists = await listRecorderDevices();
 			cameras = lists.cameras;
 			microphones = lists.microphones;
-		});
-		const handler = () =>
-			void listRecorderDevices().then((l) => {
-				cameras = l.cameras;
-				microphones = l.microphones;
-			});
+		} catch {
+			cameras = [];
+			microphones = [];
+		}
+	}
+
+	onMount(() => {
+		void refreshDevices();
+		const handler = () => void refreshDevices();
 		navigator.mediaDevices?.addEventListener?.('devicechange', handler);
 		return () => {
 			navigator.mediaDevices?.removeEventListener?.('devicechange', handler);
-			void recorder.cancel();
+			void recorder.cancel().then(() => recorder.clearRecoverableAndDiscard());
 			for (const d of lastDownloads) URL.revokeObjectURL(d.url);
 		};
 	});
@@ -68,14 +99,18 @@
 
 	async function handleStart(): Promise<void> {
 		if (!hasSelection) {
-			showToast('Select at least one source to record.', 'error');
+			showToast(m.video_editor_recording_select_source(), 'error');
 			return;
 		}
 		for (const d of lastDownloads) URL.revokeObjectURL(d.url);
 		lastDownloads = [];
 		try {
 			await recorder.startWithSelection(
-				{ screen: includeScreen, camera: includeCamera, microphone: includeMic },
+				{
+					screen: includeScreen,
+					camera: includeCamera,
+					microphone: includeMic
+				},
 				{
 					cameraDeviceId: cameraId || null,
 					microphoneDeviceId: micId || null,
@@ -83,8 +118,8 @@
 					countdownSeconds: Number(countdown) || 0
 				}
 			);
-		} catch (error) {
-			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} catch {
+			showToast(localizedRecorderError(), 'error');
 		}
 	}
 
@@ -96,7 +131,7 @@
 				return;
 			}
 			const downloads = artifacts.map((a) => {
-				const ext = a.mimeType.includes('audio') ? 'webm' : 'webm';
+				const ext = a.mimeType.includes('ogg') ? 'ogg' : 'webm';
 				const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 				const name = `recording-${a.kind}-${stamp}.${ext}`;
 				const url = URL.createObjectURL(a.blob);
@@ -108,25 +143,31 @@
 				return { url, name, kind: a.kind, size: a.blob.size };
 			});
 			lastDownloads = downloads;
+			await recorder.clearRecoverableAndDiscard();
 			showToast(m.record_saved(), 'success');
-		} catch (error) {
-			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} catch {
+			showToast(localizedRecorderError(), 'error');
 		}
 	}
 
 	async function handleCancel(): Promise<void> {
 		await recorder.cancel();
+		await recorder.clearRecoverableAndDiscard();
 		showToast(m.record_discarded(), 'info');
 	}
 
-	const isRecording = $derived(
-		recorder.status === 'recording' ||
-			recorder.status === 'countdown' ||
-			recorder.status === 'requesting'
-	);
+	const isRequesting = $derived(recorder.status === 'requesting');
 	const isCountdown = $derived(recorder.status === 'countdown');
+	const isStopping = $derived(recorder.status === 'stopping');
+	const captureBusy = $derived(
+		recorder.status === 'recording' || isCountdown || isRequesting || isStopping
+	);
 	const perMin = $derived(
-		estimateBytesPerMinute({ screen: includeScreen, camera: includeCamera, microphone: includeMic })
+		estimateBytesPerMinute({
+			screen: includeScreen,
+			camera: includeCamera,
+			microphone: includeMic
+		})
 	);
 	const plannedEstimate = $derived(
 		formatBytes(Math.ceil(perMin * (Number(plannedMinutes) || 5) * 1.2))
@@ -182,28 +223,46 @@
 				{/if}
 			{:else if lastDownloads.length > 0}
 				<div class="p-4 text-center text-sm">
-					<p class="font-medium">Done - {lastDownloads.length} file(s) saved</p>
+					<p class="font-medium">
+						{m.video_editor_recording_files_saved({
+							count: lastDownloads.length
+						})}
+					</p>
 					<div class="mt-3 flex flex-wrap justify-center gap-2">
 						{#each lastDownloads as d (d.url)}
 							<a
 								href={d.url}
 								download={d.name}
-								class="rounded border px-3 py-1.5 text-xs underline"
+								class="inline-flex min-h-11 items-center rounded border px-3 py-1.5 text-xs underline"
 							>
-								Download {d.kind} ({formatBytes(d.size)})
+								{m.video_editor_recording_download({
+									source: sourceLabel(d.kind)
+								})} ({formatBytes(d.size)})
 							</a>
 						{/each}
 					</div>
 				</div>
+			{:else if isRequesting}
+				<div role="status" aria-live="polite" class="text-center">
+					<p class="text-sm text-[oklch(0.65_0.015_55)]">
+						{m.video_editor_recording_waiting()}
+					</p>
+				</div>
 			{:else if isCountdown}
 				<div role="status" aria-live="polite" class="text-center">
-					<p class="font-mono text-5xl tabular-nums">{recorder.countdownRemaining}</p>
+					<p class="font-mono text-5xl tabular-nums">
+						{recorder.countdownRemaining}
+					</p>
 					<p class="mt-2 text-sm text-[oklch(0.65_0.015_55)]">
-						{m.video_editor_record_countdown_active({ seconds: recorder.countdownRemaining ?? 0 })}
+						{m.video_editor_record_countdown_active({
+							seconds: recorder.countdownRemaining ?? 0
+						})}
 					</p>
 				</div>
 			{:else}
-				<p class="text-sm text-[oklch(0.65_0.015_55)]">{m.record_preview_empty()}</p>
+				<p class="text-sm text-[oklch(0.65_0.015_55)]">
+					{m.record_preview_empty()}
+				</p>
 			{/if}
 
 			{#if recorder.error}
@@ -211,17 +270,17 @@
 					role="alert"
 					class="w-full rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200"
 				>
-					{recorder.errorMessage}
+					{localizedRecorderError()}
 				</div>
 			{/if}
 		</section>
 
-		{#if !isRecording}
+		{#if !captureBusy}
 			<!-- Selection -->
 			<fieldset class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
 				<legend
 					class="px-1 text-xs font-semibold tracking-widest text-[oklch(0.65_0.015_55)] uppercase"
-					>Sources - separate files with shared timebase</legend
+					>{m.video_editor_recording_sources_description()}</legend
 				>
 				<div class="grid gap-2 sm:grid-cols-3">
 					<label
@@ -291,7 +350,7 @@
 				</div>
 
 				{#if includeScreen}
-					<label class="flex items-center gap-1.5 text-sm">
+					<label class="flex min-h-11 items-center gap-1.5 text-sm">
 						<Checkbox bind:checked={includeSystemAudio} />
 						{m.record_system_audio()}
 						<span class="text-xs text-[oklch(0.65_0.015_55)]"
@@ -308,8 +367,14 @@
 							ariaLabel={m.video_editor_record_countdown()}
 							options={[
 								{ value: '0', label: m.video_editor_record_countdown_off() },
-								{ value: '3', label: m.video_editor_record_seconds({ seconds: 3 }) },
-								{ value: '5', label: m.video_editor_record_seconds({ seconds: 5 }) }
+								{
+									value: '3',
+									label: m.video_editor_record_seconds({ seconds: 3 })
+								},
+								{
+									value: '5',
+									label: m.video_editor_record_seconds({ seconds: 5 })
+								}
 							]}
 							class="h-11"
 						/>
@@ -320,9 +385,22 @@
 							bind:value={plannedMinutes}
 							ariaLabel={m.video_editor_record_planned()}
 							options={[
-								{ value: '2', label: m.video_editor_record_minutes({ minutes: 2 }) },
-								{ value: '5', label: m.video_editor_record_minutes({ minutes: 5 }) },
-								{ value: '15', label: m.video_editor_record_minutes({ minutes: 15 }) }
+								{
+									value: '2',
+									label: m.video_editor_record_minutes({ minutes: 2 })
+								},
+								{
+									value: '5',
+									label: m.video_editor_record_minutes({ minutes: 5 })
+								},
+								{
+									value: '15',
+									label: m.video_editor_record_minutes({ minutes: 15 })
+								},
+								{
+									value: '30',
+									label: m.video_editor_record_minutes({ minutes: 30 })
+								}
 							]}
 							class="h-11"
 						/>
@@ -336,40 +414,49 @@
 			<Button class="mx-auto min-h-11 min-w-36" disabled={!hasSelection} onclick={handleStart}>
 				{m.record_start()}
 			</Button>
+		{:else if isRequesting || isCountdown}
+			<div class="flex justify-center">
+				<Button variant="ghost" class="min-h-11" onclick={handleCancel}>
+					{m.common_cancel()}
+				</Button>
+			</div>
 		{:else}
 			<div class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
 				<div class="grid gap-2 text-xs">
 					{#if includeScreen}
 						<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-							<span>Screen</span><span class="font-mono tabular-nums"
-								>{recorder.counters.screen.chunks} chunks · {formatBytes(
-									recorder.counters.screen.bytes
-								)}</span
+							<span>{m.record_source_screen()}</span><span class="font-mono tabular-nums"
+								>{m.video_editor_recording_chunks({
+									count: recorder.counters.screen.chunks
+								})} · {formatBytes(recorder.counters.screen.bytes)}</span
 							>
 						</div>
 					{/if}
 					{#if includeCamera}
 						<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-							<span>Camera</span><span class="font-mono tabular-nums"
-								>{recorder.counters.camera.chunks} chunks · {formatBytes(
-									recorder.counters.camera.bytes
-								)}</span
+							<span>{m.record_source_camera()}</span><span class="font-mono tabular-nums"
+								>{m.video_editor_recording_chunks({
+									count: recorder.counters.camera.chunks
+								})} · {formatBytes(recorder.counters.camera.bytes)}</span
 							>
 						</div>
 					{/if}
 					{#if includeMic}
 						<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-							<span>Mic</span><span class="font-mono tabular-nums"
-								>{recorder.counters.microphone.chunks} chunks · {formatBytes(
-									recorder.counters.microphone.bytes
-								)}</span
+							<span>{m.record_source_audio()}</span><span class="font-mono tabular-nums"
+								>{m.video_editor_recording_chunks({
+									count: recorder.counters.microphone.chunks
+								})} · {formatBytes(recorder.counters.microphone.bytes)}</span
 							>
 						</div>
 					{/if}
 				</div>
 				<div class="flex flex-wrap justify-center gap-2">
-					<Button variant="destructive" class="min-h-11 min-w-32" onclick={handleStop}
-						>{m.record_stop_save()}</Button
+					<Button
+						variant="destructive"
+						class="min-h-11 min-w-32"
+						disabled={isStopping}
+						onclick={handleStop}>{isStopping ? m.common_loading() : m.record_stop_save()}</Button
 					>
 					<Button variant="ghost" class="min-h-11" onclick={handleCancel}
 						>{m.common_cancel()}</Button

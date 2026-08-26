@@ -1,6 +1,4 @@
-<!-- Recording dialog: separate screen/camera/mic with shared-timebase -->
 <script lang="ts">
-	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- storage estimate boundary
 	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
@@ -13,6 +11,7 @@
 		listRecorderDevices,
 		estimateBytesPerMinute,
 		formatBytes,
+		type RecorderKind,
 		type RecorderSelection
 	} from '$lib/video-editor/recorder/recorder.svelte';
 	import { insertRecordingArtifacts } from '$lib/video-editor/recorder/insert-recording';
@@ -42,11 +41,8 @@
 	let countdown = $state<string>('0');
 	let plannedMinutes = $state<string>('5');
 	let inserting = $state(false);
-	let recoveryUrls = $state<Array<{ kind: string; url: string; name: string }>>([]);
-	let quota = $state<{ available: string | null; estimate: string | null }>({
-		available: null,
-		estimate: null
-	});
+	let recoveryUrls = $state<Array<{ kind: RecorderKind; url: string; name: string }>>([]);
+	let availableBytes = $state<number | null>(null);
 
 	const selection: RecorderSelection = $derived({
 		screen: includeScreen,
@@ -60,9 +56,23 @@
 		const perMin = estimateBytesPerMinute(selection);
 		return formatBytes(Math.ceil(perMin * minutes * 1.2));
 	});
+	const plannedBytes = $derived(
+		Math.ceil(estimateBytesPerMinute(selection) * (Number(plannedMinutes) || 5) * 1.2)
+	);
+	const sourceSummary = $derived.by(() => {
+		const sources: string[] = [];
+		if (includeScreen) sources.push(m.record_source_screen());
+		if (includeCamera) sources.push(m.record_source_camera());
+		if (includeMic) sources.push(m.record_source_audio());
+		return sources.join(' + ');
+	});
 	const countdownActive = $derived(recorder.status === 'countdown');
+	const requestingActive = $derived(recorder.status === 'requesting');
 	const recordingActive = $derived(recorder.status === 'recording');
 	const stoppingActive = $derived(recorder.status === 'stopping');
+	const captureBusy = $derived(
+		requestingActive || countdownActive || recordingActive || stoppingActive
+	);
 	const elapsed = $derived.by(() => {
 		const secs = Math.floor(recorder.elapsedMs / 1000);
 		return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
@@ -83,19 +93,36 @@
 	async function refreshQuota(): Promise<void> {
 		try {
 			const est = await navigator.storage?.estimate?.();
-			// oxlint-disable-next-line anti-slop/no-runtime-typeof -- storage estimate boundary
-			if (est && typeof est.quota === 'number' && typeof est.usage === 'number') {
-				const available = est.quota - est.usage;
-				quota = {
-					available: formatBytes(available),
-					estimate: plannedEstimate()
-				};
-			} else {
-				quota = { available: null, estimate: plannedEstimate() };
-			}
+			availableBytes =
+				est?.quota !== undefined && est.usage !== undefined ? est.quota - est.usage : null;
 		} catch {
-			quota = { available: null, estimate: plannedEstimate() };
+			availableBytes = null;
 		}
+	}
+
+	function localizedRecorderError(): string {
+		switch (recorder.error) {
+			case 'permission-denied':
+				return m.video_editor_recording_error_permission();
+			case 'no-device':
+				return m.video_editor_recording_error_device_missing();
+			case 'device-busy':
+				return m.video_editor_recording_error_device_busy();
+			case 'storage-full':
+				return m.video_editor_recording_storage_stopped();
+			case 'unsupported':
+				return m.video_editor_recording_error_unsupported();
+			case 'stop-timeout':
+				return m.video_editor_recording_error_stop_timeout();
+			default:
+				return m.video_editor_recording_error_start();
+		}
+	}
+
+	function sourceLabel(kind: RecorderKind): string {
+		if (kind === 'screen') return m.record_source_screen();
+		if (kind === 'camera') return m.record_source_camera();
+		return m.record_source_audio();
 	}
 
 	onMount(() => {
@@ -103,7 +130,11 @@
 		void refreshQuota();
 		const handler = () => void refreshDevices();
 		navigator.mediaDevices?.addEventListener?.('devicechange', handler);
-		return () => navigator.mediaDevices?.removeEventListener?.('devicechange', handler);
+		return () => {
+			navigator.mediaDevices?.removeEventListener?.('devicechange', handler);
+			recoveryUrls.forEach((recovery) => URL.revokeObjectURL(recovery.url));
+			void recorder.cancel().then(() => recorder.clearRecoverableAndDiscard());
+		};
 	});
 
 	$effect(() => {
@@ -125,6 +156,7 @@
 		}
 		recoveryUrls.forEach((r) => URL.revokeObjectURL(r.url));
 		recoveryUrls = [];
+		await recorder.clearRecoverableAndDiscard();
 		const countdownSeconds = Number(countdown) || 0;
 		try {
 			await recorder.startWithSelection(selection, {
@@ -133,9 +165,8 @@
 				includeSystemAudio,
 				countdownSeconds
 			});
-		} catch (error) {
-			const msg = error instanceof Error ? error.message : String(error);
-			showToast(msg || m.video_editor_recording_failed(), 'error');
+		} catch {
+			showToast(localizedRecorderError(), 'error');
 		}
 	}
 
@@ -159,21 +190,18 @@
 				const result = await insertRecordingArtifacts(projectId, artifacts, anchor);
 				editorSession.scheduleAutosave();
 				result.itemIds.forEach((id) => oninserted(id));
-				showToast(
-					m.video_editor_recording_inserted?.() ?? 'Recording added to the timeline',
-					'success'
-				);
+				showToast(m.video_editor_recording_inserted(), 'success');
 				// clear recovery after successful insert
 				recoveryUrls.forEach((r) => URL.revokeObjectURL(r.url));
 				recoveryUrls = [];
-				recorder.clearRecoverable();
+				await recorder.clearRecoverableAndDiscard();
 				onopenchange(false);
 			} catch (error) {
 				showToast(m.video_editor_recording_failed(), 'error');
 				// keep recoveryUrls so user can download
 			}
-		} catch (error) {
-			showToast(error instanceof Error ? error.message : String(error), 'error');
+		} catch {
+			showToast(localizedRecorderError(), 'error');
 		} finally {
 			inserting = false;
 		}
@@ -181,16 +209,16 @@
 
 	async function handleCancel(): Promise<void> {
 		await recorder.cancel();
+		await recorder.clearRecoverableAndDiscard();
 		recoveryUrls.forEach((r) => URL.revokeObjectURL(r.url));
 		recoveryUrls = [];
 		showToast(m.video_editor_recording_cancelled(), 'info');
 	}
 
 	function handleDialogOpen(v: boolean): void {
+		if (!v && captureBusy) return;
 		onopenchange(v);
-		if (!v && recorder.status !== 'recording' && recorder.status !== 'countdown') {
-			void recorder.cancel();
-		}
+		if (!v) void recorder.cancel();
 	}
 </script>
 
@@ -297,8 +325,14 @@
 							value={countdown}
 							options={[
 								{ value: '0', label: m.video_editor_record_countdown_off() },
-								{ value: '3', label: m.video_editor_record_seconds({ seconds: 3 }) },
-								{ value: '5', label: m.video_editor_record_seconds({ seconds: 5 }) }
+								{
+									value: '3',
+									label: m.video_editor_record_seconds({ seconds: 3 })
+								},
+								{
+									value: '5',
+									label: m.video_editor_record_seconds({ seconds: 5 })
+								}
 							]}
 							ariaLabel={m.video_editor_record_countdown()}
 							onValueChange={(v) => (countdown = v)}
@@ -310,10 +344,22 @@
 						<AppSelect
 							value={plannedMinutes}
 							options={[
-								{ value: '2', label: m.video_editor_record_minutes({ minutes: 2 }) },
-								{ value: '5', label: m.video_editor_record_minutes({ minutes: 5 }) },
-								{ value: '15', label: m.video_editor_record_minutes({ minutes: 15 }) },
-								{ value: '30', label: m.video_editor_record_minutes({ minutes: 30 }) }
+								{
+									value: '2',
+									label: m.video_editor_record_minutes({ minutes: 2 })
+								},
+								{
+									value: '5',
+									label: m.video_editor_record_minutes({ minutes: 5 })
+								},
+								{
+									value: '15',
+									label: m.video_editor_record_minutes({ minutes: 15 })
+								},
+								{
+									value: '30',
+									label: m.video_editor_record_minutes({ minutes: 30 })
+								}
 							]}
 							ariaLabel={m.video_editor_record_planned()}
 							onValueChange={(v) => (plannedMinutes = v)}
@@ -325,8 +371,16 @@
 				{#if estimate}
 					<p class="text-xs text-muted-foreground">
 						{m.video_editor_record_estimate({ size: plannedEstimate() })}
-						{#if quota.available}
-							<span> {m.video_editor_recording_space({ available: quota.available })}</span>
+						{#if availableBytes !== null}
+							<span>
+								{availableBytes < plannedBytes
+									? m.video_editor_recording_space({
+											available: formatBytes(availableBytes)
+										})
+									: m.video_editor_recording_available_space({
+											available: formatBytes(availableBytes)
+										})}
+							</span>
 						{/if}
 					</p>
 				{/if}
@@ -336,7 +390,7 @@
 						role="alert"
 						class="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200"
 					>
-						Select at least one source to record.
+						{m.video_editor_recording_select_source()}
 					</p>
 				{/if}
 
@@ -345,23 +399,40 @@
 						role="alert"
 						class="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-200"
 					>
-						{recorder.errorMessage}
+						{localizedRecorderError()}
 					</div>
 				{/if}
 			</fieldset>
 
 			<!-- Countdown / Progress -->
-			{#if countdownActive}
+			{#if requestingActive}
+				<div
+					role="status"
+					aria-live="polite"
+					class="space-y-3 rounded-lg bg-[oklch(0.18_0.01_55)] p-4 text-center"
+				>
+					<p class="text-sm">{m.video_editor_recording_waiting()}</p>
+					<Button variant="ghost" class="min-h-11" onclick={handleCancel}>
+						{m.common_cancel()}
+					</Button>
+				</div>
+			{:else if countdownActive}
 				<div
 					role="status"
 					aria-live="polite"
 					class="rounded-lg bg-[oklch(0.18_0.01_55)] p-6 text-center"
 				>
-					<p class="font-mono text-5xl tabular-nums">{recorder.countdownRemaining}</p>
-					<p class="mt-2 text-sm text-muted-foreground">
-						{m.video_editor_record_countdown_active({ seconds: recorder.countdownRemaining ?? 0 })}
+					<p class="font-mono text-5xl tabular-nums">
+						{recorder.countdownRemaining}
 					</p>
-					<p class="mt-1 text-xs text-muted-foreground">{m.video_editor_recording_waiting()}</p>
+					<p class="mt-2 text-sm text-muted-foreground">
+						{m.video_editor_record_countdown_active({
+							seconds: recorder.countdownRemaining ?? 0
+						})}
+					</p>
+					<p class="mt-1 text-xs text-muted-foreground">
+						{m.video_editor_recording_waiting()}
+					</p>
 				</div>
 			{:else if recordingActive || stoppingActive}
 				<div class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
@@ -371,39 +442,35 @@
 							{elapsed}
 						</span>
 						<span class="text-xs text-muted-foreground">
-							{includeScreen ? 'Screen' : ''}{includeScreen && (includeCamera || includeMic)
-								? ' + '
-								: ''}{includeCamera ? 'Camera' : ''}{includeCamera && includeMic
-								? ' + '
-								: ''}{includeMic ? 'Mic' : ''}
+							{sourceSummary}
 						</span>
 					</div>
 
 					<div class="grid gap-2 text-xs">
 						{#if includeScreen}
 							<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-								<span>Screen</span><span class="font-mono tabular-nums"
-									>{recorder.counters.screen.chunks} chunks · {formatBytes(
-										recorder.counters.screen.bytes
-									)}</span
+								<span>{m.record_source_screen()}</span><span class="font-mono tabular-nums"
+									>{m.video_editor_recording_chunks({
+										count: recorder.counters.screen.chunks
+									})} · {formatBytes(recorder.counters.screen.bytes)}</span
 								>
 							</div>
 						{/if}
 						{#if includeCamera}
 							<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-								<span>Camera</span><span class="font-mono tabular-nums"
-									>{recorder.counters.camera.chunks} chunks · {formatBytes(
-										recorder.counters.camera.bytes
-									)}</span
+								<span>{m.record_source_camera()}</span><span class="font-mono tabular-nums"
+									>{m.video_editor_recording_chunks({
+										count: recorder.counters.camera.chunks
+									})} · {formatBytes(recorder.counters.camera.bytes)}</span
 								>
 							</div>
 						{/if}
 						{#if includeMic}
 							<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-								<span>Microphone</span><span class="font-mono tabular-nums"
-									>{recorder.counters.microphone.chunks} chunks · {formatBytes(
-										recorder.counters.microphone.bytes
-									)}</span
+								<span>{m.record_source_audio()}</span><span class="font-mono tabular-nums"
+									>{m.video_editor_recording_chunks({
+										count: recorder.counters.microphone.chunks
+									})} · {formatBytes(recorder.counters.microphone.bytes)}</span
 								>
 							</div>
 						{/if}
@@ -436,7 +503,9 @@
 					role="status"
 					class="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs"
 				>
-					<p class="font-medium text-amber-100">{m.video_editor_recording_storage_stopped()}</p>
+					<p class="font-medium text-amber-100">
+						{m.video_editor_recording_storage_stopped()}
+					</p>
 					<div class="mt-2 flex flex-wrap gap-2">
 						{#each recoveryUrls as r (r.url)}
 							<a
@@ -444,7 +513,9 @@
 								download={r.name}
 								class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-amber-300"
 							>
-								Download {r.kind}
+								{m.video_editor_recording_download({
+									source: sourceLabel(r.kind)
+								})}
 							</a>
 						{/each}
 					</div>
@@ -452,7 +523,7 @@
 			{/if}
 
 			<!-- Previews when idle -->
-			{#if !recordingActive && !countdownActive && !stoppingActive}
+			{#if !captureBusy}
 				<div class="flex flex-wrap justify-center gap-2 pt-2">
 					<Button
 						class="min-h-11 min-w-36"

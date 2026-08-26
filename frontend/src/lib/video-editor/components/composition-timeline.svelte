@@ -46,7 +46,7 @@
 		updateTextMotionLive,
 		commitTextMotionEdit
 	} from '$lib/video-editor/timeline/actions/text-motion';
-	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
+	import { isTrackEffectivelyLocked, effectiveTrackState } from '$lib/video-editor/timeline/utils/track-groups';
 	import { getTextMotionPreset } from '$lib/video-editor/timeline/text-motion-presets';
 	import {
 		textMotionPresetLabel,
@@ -61,6 +61,7 @@
 	import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 	import type { KeyframeProperty } from '$lib/video-editor/project/types';
 	import KeyframeDopesheet from '$lib/video-editor/components/keyframe-dopesheet.svelte';
+	import KeyframeValueGraph from '$lib/video-editor/components/keyframe-value-graph.svelte';
 	import { getAnimatablePropertiesForItem } from '$lib/video-editor/timeline/animated-properties';
 	import { getMotionPresets, type MotionPresetId as MotionLayerPresetId } from '$lib/video-editor/timeline/motion-presets';
 	import { applyMotionLayersToItems, removeMotionLayerFromItems } from '$lib/video-editor/timeline/actions/motion-layers';
@@ -114,6 +115,7 @@
 	let scrollLeft = $state(0);
 	let scrollEl: HTMLDivElement | null = $state(null);
 	let sidebarEl: HTMLDivElement | null = $state(null);
+	let sidebarScrollTop = $state(0);
 	let selectedItemIds = $state<Set<string>>(new Set());
 	let lastSelectedId = $state<string | null>(null);
 	$effect(() => {
@@ -152,6 +154,13 @@
 	const trackById = $derived(new Map(timelineStore.tracks.map((t) => [t.id, t])));
 	const groupRows = $derived(motionRows.filter((r) => r.kind === 'group'));
 	const layerEntries = $derived(motionRows.filter((r) => r.kind === 'layer'));
+	const SIDEBAR_VIEWPORT_H = 400;
+	const visibleSidebarRows = $derived.by(() => {
+		if (motionRows.length < 80) return motionRows;
+		const startIdx = Math.max(0, Math.floor(sidebarScrollTop / ROW_H) - 8);
+		const endIdx = Math.min(motionRows.length, Math.ceil((sidebarScrollTop + SIDEBAR_VIEWPORT_H) / ROW_H) + 8);
+		return motionRows.slice(startIdx, endIdx);
+	});
 
 	// Viewport culling: only mount visible bars + selected
 	const visualLayerItems = $derived(layerEntries.map((r) => (r as Extract<typeof r, {kind:'layer'}>).item));
@@ -234,18 +243,32 @@
 	function handleScroll(event: Event): void {
 		const el = event.currentTarget as HTMLDivElement;
 		scrollLeft = el.scrollLeft;
+		sidebarScrollTop = el.scrollTop;
 		if (sidebarEl && sidebarEl !== el) sidebarEl.scrollTop = el.scrollTop;
 	}
 	function handleSidebarScroll(event: Event): void {
 		const el = event.currentTarget as HTMLDivElement;
+		sidebarScrollTop = el.scrollTop;
 		if (scrollEl) scrollEl.scrollTop = el.scrollTop;
 	}
+	let snapGuideFrame: number | null = $state(null);
 	function handleWheel(event: WheelEvent): void {
 		if (event.ctrlKey || event.metaKey) {
 			event.preventDefault();
+			if (!scrollEl) return;
+			const rect = scrollEl.getBoundingClientRect();
+			const pointerRatio = (event.clientX - rect.left + scrollLeft) / Math.max(1, timelineWidth);
 			const delta = event.deltaY > 0 ? 0.9 : 1.1;
 			const next = Math.max(0.25, Math.min(4, timelineStore.zoomLevel * delta));
+			const oldPx = pxPerFrame;
 			timelineStore._setZoomLevel(next);
+			// compensate scroll to keep frame under pointer anchored
+			requestAnimationFrame(() => {
+				const newPx = timelinePixelsPerFrame(next);
+				const newWidth = durationFrames * newPx;
+				const newScroll = pointerRatio * newWidth - (event.clientX - rect.left);
+				scrollEl!.scrollLeft = Math.max(0, newScroll);
+			});
 			return;
 		}
 		if (Math.abs(event.deltaX) < Math.abs(event.deltaY) && scrollEl) {
@@ -596,16 +619,28 @@
 	function handleDragLeave(): void { dropGhost = null; }
 	function handleDrop(event: DragEvent): void {
 		event.preventDefault();
+		const ghost = dropGhost;
 		dropGhost = null;
 		const mediaId = event.dataTransfer?.getData('text/plain') ?? event.dataTransfer?.getData('application/x-openpost-media');
-		if (mediaId && mediaId.length > 6) {
-			const track = timelineStore.tracks.find((t)=> !t.isGroup && t.kind !== 'audio');
-			if (!track || isTrackEffectivelyLocked(track.id, timelineStore.tracks)) { status = m.video_editor_motion_track_locked(); return; }
-			const before=captureSnapshot();
-			const item: TimelineItem = { id: crypto.randomUUID(), trackId: track.id, from: timelineStore.currentFrame, durationInFrames: 60, label: mediaId.slice(0,12), type: 'video', transform:{x:0,y:0,rotation:0,opacity:1} };
-			timelineStore._setItems([...timelineStore.items, item]);
-			commandHistory.addUndoEntry({type:'DROP_MEDIA'}, before); onedit(); status = m.video_editor_motion_drop_media();
+		if (!mediaId || mediaId.length < 6) return;
+		// track-aware validated drop: use ghost track if valid, otherwise first unlocked video track
+		let targetTrack: TimelineTrack | undefined;
+		if (ghost?.trackId && !isTrackEffectivelyLocked(ghost.trackId, timelineStore.tracks)) {
+			targetTrack = timelineStore.tracks.find((t)=> t.id===ghost.trackId);
 		}
+		if (!targetTrack) targetTrack = timelineStore.tracks.find((t)=> !t.isGroup && t.kind !== 'audio' && !isTrackEffectivelyLocked(t.id, timelineStore.tracks));
+		if (!targetTrack) { status = m.video_editor_motion_track_locked(); return; }
+		// validate controller exclusion: controller tracks are non-rendering, drop not allowed there if track is controller
+		if (targetTrack.name.toLowerCase().includes('controller')) { status = m.video_editor_motion_track_locked(); return; }
+		const frame = ghost ? ghost.frame : timelineStore.currentFrame;
+		const before=captureSnapshot();
+		// build dropped item via track-aware validated path (mirrors buildDroppedMediaTimelineItems)
+		const item: TimelineItem = { id: crypto.randomUUID(), trackId: targetTrack.id, from: Math.max(0, frame), durationInFrames: 60, label: mediaId.slice(0,12), type: 'video', transform:{x:0,y:0,rotation:0,opacity:1} };
+		// ensure no overlap with existing items on target track
+		const overlaps = timelineStore.items.some((it)=> it.trackId===targetTrack!.id && it.from < item.from + item.durationInFrames && it.from + it.durationInFrames > item.from);
+		if (overlaps) { status = m.video_editor_motion_track_locked(); return; }
+		timelineStore._setItems([...timelineStore.items, item]);
+		commandHistory.addUndoEntry({type:'DROP_MEDIA'}, before); onedit(); status = m.video_editor_motion_drop_media();
 	}
 	function handleLinkPick(itemId: string, property: string): void {
 		if (linkPickSource && linkPickSource.itemId === itemId && linkPickSource.property === property) { linkPickSource = null; return; }
@@ -693,6 +728,7 @@
 			if (drag!.kind === 'move') {
 				const proposed = drag!.originalFrom + deltaFrames;
 				const snap = calculateMoveSnap(proposed, drag!.originalDuration, snapTargets, snapThreshold);
+				snapGuideFrame = snap.snappedFrame !== proposed ? snap.snappedFrame : null;
 				const patchFrom = Math.max(0, snap.snappedFrame);
 				// linked audio propagation: move companions together via planLinkedMoveGesture
 				const plan = planLinkedMoveGesture(
@@ -727,6 +763,7 @@
 					snapTargets,
 					snapThreshold
 				);
+				snapGuideFrame = snap.snappedFrame !== ((handle === 'start' ? drag!.originalFrom : drag!.originalFrom + drag!.originalDuration) + deltaFrames) ? snap.snappedFrame : null;
 				const plan = planTrimGesture(
 					{ ...item, from: drag!.originalFrom, durationInFrames: drag!.originalDuration } as TimelineItem,
 					handle,
@@ -746,6 +783,7 @@
 		});
 	}
 	function onBarPointerUp(event: PointerEvent, cancelled: boolean): void {
+		snapGuideFrame = null;
 		if (!drag) return;
 		if (rafId !== null) {
 			cancelAnimationFrame(rafId);
@@ -1346,7 +1384,7 @@
 					<span class="col-blend"><BlendIcon class="size-3" /></span>
 					<span class="col-timing">{m.video_editor_composition_timeline_timing()}</span>
 				</div>
-				{#each motionRows as row (row.kind === 'group' ? row.track.id : (row as {item:TimelineItem}).item.id)}
+				{#each visibleSidebarRows as row (row.kind === 'group' ? row.track.id : (row as {item:TimelineItem}).item.id)}
 					{#if row.kind === 'group'}
 						{@const isExpanded = !row.track.isCollapsed}
 						{@const groupSelected = row.itemIds.some((id) => selectedItemIds.has(id))}
@@ -1419,16 +1457,16 @@
 								{/if}
 								<span class="layer-type-badge" aria-label={item.type}>{item.type==='text'?'T':item.type==='shape'?'S':item.type==='video'&&item.label?.toLowerCase().includes('controller')?'C':item.type[0]?.toUpperCase()}</span>
 								<span class="layer-actions">
-									<Button size="icon" variant="ghost" aria-label={track?.visible===false ? m.video_editor_timeline_show() : m.video_editor_timeline_hide()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackVisible(track.id); }} data-testid={`layer-visible-${item.id}`} class="icon-btn">
-										{#if track?.visible===false}<EyeOffIcon class="size-3" />{:else}<EyeIcon class="size-3" />{/if}
+									<Button size="icon" variant="ghost" aria-label={(track ? effectiveTrackState(track, timelineStore.tracks).visible===false : false) ? m.video_editor_timeline_show() : m.video_editor_timeline_hide()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackVisible(track.id); }} data-testid={`layer-visible-${item.id}`} class="icon-btn">
+										{#if track && effectiveTrackState(track, timelineStore.tracks).visible===false}<EyeOffIcon class="size-3" />{:else}<EyeIcon class="size-3" />{/if}
 									</Button>
-									<Button size="icon" variant="ghost" aria-label={track?.locked ? m.video_editor_timeline_unlock() : m.video_editor_timeline_lock()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackLocked(track.id); }} data-testid={`layer-lock-${item.id}`} class="icon-btn">
-										{#if track?.locked}<LockIcon class="size-3" />{:else}<UnlockIcon class="size-3" />{/if}
+									<Button size="icon" variant="ghost" aria-label={(track ? effectiveTrackState(track, timelineStore.tracks).locked : false) ? m.video_editor_timeline_unlock() : m.video_editor_timeline_lock()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackLocked(track.id); }} data-testid={`layer-lock-${item.id}`} class="icon-btn">
+										{#if track && effectiveTrackState(track, timelineStore.tracks).locked}<LockIcon class="size-3" />{:else}<UnlockIcon class="size-3" />{/if}
 									</Button>
-									<Button size="icon" variant="ghost" aria-label={track?.muted ? m.video_editor_timeline_unmute() : m.video_editor_timeline_mute()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackMuted(track.id); }} data-testid={`layer-mute-${item.id}`} class="icon-btn">
-										{#if track?.muted}<VolumeOffIcon class="size-3" />{:else}<VolumeIcon class="size-3" />{/if}
+									<Button size="icon" variant="ghost" aria-label={(track ? effectiveTrackState(track, timelineStore.tracks).muted : false) ? m.video_editor_timeline_unmute() : m.video_editor_timeline_mute()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackMuted(track.id); }} data-testid={`layer-mute-${item.id}`} class="icon-btn">
+										{#if track && effectiveTrackState(track, timelineStore.tracks).muted}<VolumeOffIcon class="size-3" />{:else}<VolumeIcon class="size-3" />{/if}
 									</Button>
-									<Button size="icon" variant="ghost" aria-label={track?.solo ? m.video_editor_timeline_unsolo() : m.video_editor_timeline_solo()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackSolo(track.id); }} data-testid={`layer-solo-${item.id}`} class="icon-btn">
+									<Button size="icon" variant="ghost" aria-label={(track ? effectiveTrackState(track, timelineStore.tracks).solo : false) ? m.video_editor_timeline_unsolo() : m.video_editor_timeline_solo()} onclick={(e) => { e.stopPropagation(); if(track) toggleTrackSolo(track.id); }} data-testid={`layer-solo-${item.id}`} class="icon-btn">
 										<span class="solo-label">S</span>
 									</Button>
 								</span>
@@ -1476,6 +1514,13 @@
 							{/each}
 							{#if expanded}
 								<div class="inline-props" data-testid={`inline-props-${item.id}`}>
+									<div class="dopesheet-mode-row" data-testid={`dopesheet-mode-${item.id}`}>
+										<button type="button" class="mode-btn" class:active={dopesheetMode==='lanes'} aria-pressed={dopesheetMode==='lanes'} onclick={()=>dopesheetMode='lanes'} data-testid={`mode-lanes-${item.id}`}>Lanes</button>
+										<button type="button" class="mode-btn" class:active={dopesheetMode==='graph'} aria-pressed={dopesheetMode==='graph'} onclick={()=>dopesheetMode='graph'} data-testid={`mode-graph-${item.id}`}>Graph</button>
+										<label class="easing-picker" data-testid={`easing-picker-${item.id}`}><span>Easing</span><select value={selectedEasing} onchange={(e)=>{ const v=(e.currentTarget as HTMLSelectElement).value; selectedEasing=v; const sel=keyframeSelectionStore.forItem(item.id); if(sel.size===0) return; const before=captureSnapshot(); for(const id of sel){ const kf=editorKeyframes(item, 'x').find(k=>keyframeIdentity(k)===id) ?? editorKeyframes(item, 'y').find(k=>keyframeIdentity(k)===id); if(kf) updateKeyframes(item.id, [{ref:kf, frame:kf.frame, value:kf.value, easing:v as any}]); } commandHistory.addUndoEntry({type:'SET_EASING'}, before); onedit(); }} data-testid={`easing-select-${item.id}`}><option value="linear">Linear</option><option value="ease-in">Ease In</option><option value="ease-out">Ease Out</option><option value="ease-in-out">Ease In Out</option></select></label>
+										<button type="button" class="retime-btn" onclick={()=>{ const sel=[...keyframeSelectionStore.forItem(item.id)]; if(sel.length<2) return; const before=captureSnapshot(); const kfs=sel.map(id=>{ const kf=[...editorKeyframes(item,'x'),...editorKeyframes(item,'y'),...editorKeyframes(item,'opacity')].find(k=>keyframeIdentity(k)===id); return kf ? {id, frame:kf.frame} : null; }).filter(Boolean) as {id:string,frame:number}[]; const min=Math.min(...kfs.map(k=>k.frame)); const max=Math.max(...kfs.map(k=>k.frame)); const span=max-min||1; for(const k of kfs){ const kf=[...editorKeyframes(item,'x'),...editorKeyframes(item,'y')].find(x=>keyframeIdentity(x)===k.id); if(!kf) continue; const t=(k.frame-min)/span; const newFrame=Math.round(min + t*span*0.9); updateKeyframes(item.id, [{ref:kf, frame:newFrame, value:kf.value}]); } commandHistory.addUndoEntry({type:'RETIME_BATCH'}, before); onedit(); }} data-testid={`retime-batch-${item.id}`}>Retime 0.9x</button>
+									</div>
+									{#if dopesheetMode==='lanes'}
 									<KeyframeDopesheet
 										item={item}
 										availableProperties={getAnimatablePropertiesForItem(item)}
@@ -1486,6 +1531,15 @@
 										onscrub={(f) => { previewFrame = f; }}
 										onedit={onedit}
 									/>
+									{:else}
+									<KeyframeValueGraph
+										item={item}
+										property={getAnimatablePropertiesForItem(item)[0] ?? 'x' as KeyframeProperty}
+										currentFrame={previewFrame ?? timelineStore.currentFrame}
+										onscrub={(f) => { previewFrame = f; timelineStore._setCurrentFrame(f); }}
+										onedit={onedit}
+									/>
+									{/if}
 								</div>
 								{#if item.motionLayers && item.motionLayers.length > 0}
 									<div class="motion-layer-bands" data-testid={`motion-layers-${item.id}`}>
@@ -1622,6 +1676,9 @@
 						{/if}
 						{#if dropGhost && !dropGhost.valid}
 							<div class="drop-ghost invalid" style="left:{timelineX(dropGhost.frame)}px" data-testid="composition-drop-ghost-invalid" aria-hidden="true"></div>
+						{/if}
+						{#if snapGuideFrame !== null}
+							<div class="snap-guide" style="left:{timelineX(snapGuideFrame)}px" data-testid="composition-snap-guide" aria-hidden="true"></div>
 						{/if}
 					</div>
 				</div>

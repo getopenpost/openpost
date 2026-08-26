@@ -277,26 +277,36 @@
 	);
 	const usesProcessedAudio = $derived(item.type === 'video' && requiresProcessedPreviewAudio(item));
 
+	const isShuttleReverse = $derived(
+		editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying
+	);
+
 	$effect(() => {
 		setMixerMaster(timelineStore.masterVolumeDb, timelineStore.masterMuted);
 		const video = mediaElement;
+		const mutedByShuttle = isShuttleReverse;
 		if (videoMixerGain) {
-			const gain = usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume;
+			const gain =
+				mutedByShuttle || usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume;
 			if (video) video.volume = gain > 0 ? 1 : 0;
 			videoMixerGain.gain.value = gain;
 		} else if (video) {
 			video.volume = Math.min(
 				1,
-				(usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume) * fallbackMasterGain
+				(mutedByShuttle || usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume) *
+					fallbackMasterGain
 			);
 		}
 		const proxy = proxyAudioElement;
 		if (proxyMixerGain) {
-			const gain = usesProcessedAudio ? 0 : previewVolume;
+			const gain = mutedByShuttle || usesProcessedAudio ? 0 : previewVolume;
 			if (proxy) proxy.volume = gain > 0 ? 1 : 0;
 			proxyMixerGain.gain.value = gain;
 		} else if (proxy) {
-			proxy.volume = Math.min(1, (usesProcessedAudio ? 0 : previewVolume) * fallbackMasterGain);
+			proxy.volume = Math.min(
+				1,
+				(mutedByShuttle || usesProcessedAudio ? 0 : previewVolume) * fallbackMasterGain
+			);
 		}
 	});
 
@@ -621,10 +631,19 @@
 					audioScheduler?.request(sourceTime);
 				audio.playbackRate = video.playbackRate;
 			}
-			if (editorSession.clock.isPlaying && video.paused && (!item.isReversed || conform !== null))
+			const shuttleReverse = editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying;
+			if (
+				editorSession.clock.isPlaying &&
+				!shuttleReverse &&
+				video.paused &&
+				(!item.isReversed || conform !== null)
+			)
 				void video.play().catch(() => undefined);
-			if (editorSession.clock.isPlaying) clearProxySeekFallback();
-			if (editorSession.clock.isPlaying && audio?.paused) void audio.play().catch(() => undefined);
+			if (shuttleReverse && !video.paused) video.pause();
+			if (editorSession.clock.isPlaying && !shuttleReverse) clearProxySeekFallback();
+			if (editorSession.clock.isPlaying && !shuttleReverse && audio?.paused)
+				void audio.play().catch(() => undefined);
+			if (shuttleReverse && audio && !audio.paused) audio.pause();
 			if (item.isReversed && !conform && !video.paused) video.pause();
 			if (!editorSession.clock.isPlaying && !video.paused) video.pause();
 			if (!editorSession.clock.isPlaying && audio && !audio.paused) audio.pause();

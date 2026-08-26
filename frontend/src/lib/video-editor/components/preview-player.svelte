@@ -86,6 +86,7 @@
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import { spatialEffectEditorStore } from '$lib/video-editor/preview/spatial-effect-editor.svelte';
 	import EditPreviewOverlay from './edit-preview-overlay.svelte';
+	import ShuttleIndicator from './shuttle-indicator.svelte';
 	import { getSpatialPointEffectConfig } from '$lib/video-editor/effects/spatial-point-editor';
 	import {
 		resolveTimelinePreviewFrame,
@@ -142,6 +143,7 @@
 	let draftCornerPin = $state<TimelineItemCornerPin | null>(null);
 	let editingText = $state(false);
 	let isPlaying = $state(editorSession.clock.isPlaying);
+	let shuttleRate = $state(editorSession.clock.playbackRate);
 	let stackCanvas = $state<HTMLCanvasElement | null>(null);
 	let stackCompositor = $state<CanvasStackCompositor | null>(null);
 	let compareCanvas = $state<HTMLCanvasElement | null>(null);
@@ -387,15 +389,21 @@
 
 	$effect(() => {
 		previewDiagnostics.setPlaying(editorSession.clock.isPlaying);
+		shuttleRate = editorSession.clock.playbackRate;
 		const syncPlay = () => {
 			isPlaying = true;
+			shuttleRate = editorSession.clock.playbackRate;
 			previewDiagnostics.setPlaying(true);
 		};
 		const syncPause = () => {
 			isPlaying = false;
+			shuttleRate = editorSession.clock.playbackRate;
 			previewDiagnostics.setPlaying(false);
 			adaptivePreviewQuality.reset();
 			scheduleStackFrame();
+		};
+		const syncRate = () => {
+			shuttleRate = editorSession.clock.playbackRate;
 		};
 		const sampleFrame = (frame: number) => {
 			if (editorSession.clock.isPlaying) {
@@ -415,10 +423,12 @@
 				editorSession.clock.playbackRate
 			);
 		};
+		const offRate = editorSession.clock.on('ratechange', syncRate);
 		const offPlay = editorSession.clock.on('play', syncPlay);
 		const offPause = editorSession.clock.on('pause', syncPause);
 		const offFrame = editorSession.clock.on('framechange', sampleFrame);
 		return () => {
+			offRate();
 			offPlay();
 			offPause();
 			offFrame();
@@ -1124,6 +1134,11 @@
 				{m.video_editor_preview_empty()}
 			</div>
 		{:else}
+			{#if isPlaying && (shuttleRate < 0 || Math.abs(shuttleRate) > 1)}
+				<div class="absolute top-2 left-2 z-30">
+					<ShuttleIndicator active={isPlaying} playbackRate={shuttleRate} />
+				</div>
+			{/if}
 			{#if preparingProxy}
 				<div
 					class="absolute top-2 right-2 z-40 flex items-center gap-2 rounded-full border border-white/10 bg-black/75 px-2.5 py-1 text-[10px] text-white shadow-lg backdrop-blur"

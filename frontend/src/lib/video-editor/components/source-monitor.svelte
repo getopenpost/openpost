@@ -24,11 +24,18 @@
 	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
 	import XIcon from '@lucide/svelte/icons/x';
 	import {
+		editorShortcutTargetIsDisabled,
 		eventMatchesShortcut,
 		formatShortcutBinding
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+	import {
+		getBrowserMediaPlaybackRate,
+		getNextShuttleRate
+	} from '$lib/video-editor/preview/shuttle';
+	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
+	import ShuttleIndicator from '$lib/video-editor/components/shuttle-indicator.svelte';
 	import {
 		decodedPreviewAudio,
 		previewAudioContext
@@ -107,6 +114,8 @@
 	let animationFrame = 0;
 	let playbackStartedAt = 0;
 	let playbackStartFrame = 0;
+	let sourcePlaybackRate = $state(1);
+	let sourceShuttleActive = $state(false);
 	let monitorElement = $state<HTMLElement>();
 	let stripElement = $state<HTMLElement>();
 	let rangeDragStartX = 0;
@@ -226,12 +235,29 @@
 		cancelAnimationFrame(animationFrame);
 		stopCustomAudio();
 		lottieRenderer?.destroy();
+		sourceHoverStore.setHovered(false);
+		sourceHoverStore.setFocused(false);
 	});
 
 	onMount(() => {
 		window.addEventListener('keydown', handleKeydown, { capture: true });
 		return () => window.removeEventListener('keydown', handleKeydown, { capture: true });
 	});
+
+	function handleSourceMouseEnter(): void {
+		sourceHoverStore.setHovered(true);
+	}
+	function handleSourceMouseLeave(): void {
+		sourceHoverStore.setHovered(false);
+	}
+	function handleSourceFocusIn(event: FocusEvent): void {
+		// SAFETY: FocusEvent.target is an EventTarget that is a Node when inside the DOM.
+		if (monitorElement?.contains(event.target as Node)) sourceHoverStore.setFocused(true);
+	}
+	function handleSourceFocusOut(event: FocusEvent): void {
+		// SAFETY: FocusEvent.relatedTarget is an EventTarget that is a Node when inside the DOM.
+		if (!monitorElement?.contains(event.relatedTarget as Node)) sourceHoverStore.setFocused(false);
+	}
 
 	function formatTimecode(frame: number): string {
 		const roundedFps = Math.max(1, Math.round(sourceFps));
@@ -291,7 +317,11 @@
 
 	function pause(): void {
 		playing = false;
+		sourcePlaybackRate = 1;
+		sourceShuttleActive = false;
 		cancelAnimationFrame(animationFrame);
+		if (mediaElement) mediaElement.playbackRate = 1;
+		if (proxyAudioElement) proxyAudioElement.playbackRate = 1;
 		mediaElement?.pause();
 		proxyAudioElement?.pause();
 		stopCustomAudio();
@@ -299,13 +329,79 @@
 
 	function customPlaybackFrame(now: number): void {
 		if (!playing) return;
-		const next = playbackStartFrame + ((now - playbackStartedAt) / 1000) * sourceFps;
-		if (next >= outPoint) {
+		const next =
+			playbackStartFrame + ((now - playbackStartedAt) / 1000) * sourceFps * sourcePlaybackRate;
+		if (sourcePlaybackRate > 0 && next >= outPoint) {
 			seek(outPoint - 1, false);
 			pause();
 			return;
 		}
+		if (sourcePlaybackRate < 0 && next < inPoint) {
+			seek(inPoint, false);
+			pause();
+			return;
+		}
 		seek(next, false);
+		animationFrame = requestAnimationFrame(customPlaybackFrame);
+	}
+
+	function shuttleForward(): void {
+		const nextRate = playing ? getNextShuttleRate(sourcePlaybackRate, 1) : 1;
+		if (nextRate > 0 && mediaElement && !needsCustomAudio) {
+			const mediaRate = getBrowserMediaPlaybackRate(1, nextRate);
+			mediaElement.playbackRate = mediaRate;
+			if (proxyAudioElement) proxyAudioElement.playbackRate = mediaRate;
+		}
+		if (currentFrame < inPoint || currentFrame >= outPoint - 1) seek(inPoint, false);
+		playing = true;
+		sourcePlaybackRate = nextRate;
+		sourceShuttleActive = true;
+		if (nextRate < 0) {
+			mediaElement?.pause();
+			proxyAudioElement?.pause();
+			stopCustomAudio();
+			playbackStartFrame = currentFrame;
+			playbackStartedAt = performance.now();
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(customPlaybackFrame);
+		} else if (mediaElement && !(kind === 'audio' && (!hasAudio || needsCustomAudio))) {
+			void Promise.all([
+				mediaElement.play(),
+				needsCustomAudio
+					? Promise.resolve()
+					: (proxyAudioElement?.play().catch(() => undefined) ?? Promise.resolve())
+			])
+				.then(() => {
+					if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
+				})
+				.catch(() => {
+					playing = false;
+					sourcePlaybackRate = 1;
+					sourceShuttleActive = false;
+				});
+			if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
+		} else {
+			playbackStartFrame = currentFrame;
+			playbackStartedAt = performance.now();
+			if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(customPlaybackFrame);
+		}
+	}
+
+	function shuttleReverse(): void {
+		const nextRate = playing ? getNextShuttleRate(sourcePlaybackRate, -1) : -1;
+		sourcePlaybackRate = nextRate;
+		sourceShuttleActive = true;
+		playing = true;
+		if (mediaElement) mediaElement.pause();
+		if (proxyAudioElement) proxyAudioElement.pause();
+		stopCustomAudio();
+		if (currentFrame <= inPoint || currentFrame > outPoint) seek(outPoint - 1, false);
+		if (currentFrame <= inPoint) seek(outPoint - 1, false);
+		playbackStartFrame = currentFrame;
+		playbackStartedAt = performance.now();
+		cancelAnimationFrame(animationFrame);
 		animationFrame = requestAnimationFrame(customPlaybackFrame);
 	}
 
@@ -316,8 +412,12 @@
 		}
 		if (currentFrame < inPoint || currentFrame >= outPoint - 1) seek(inPoint);
 		playing = true;
+		sourcePlaybackRate = 1;
+		sourceShuttleActive = false;
 		if (mediaElement && !(kind === 'audio' && (!hasAudio || needsCustomAudio))) {
 			try {
+				mediaElement.playbackRate = 1;
+				if (proxyAudioElement) proxyAudioElement.playbackRate = 1;
 				await Promise.all([
 					mediaElement.play(),
 					needsCustomAudio
@@ -327,6 +427,8 @@
 				if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
 			} catch {
 				playing = false;
+				sourcePlaybackRate = 1;
+				sourceShuttleActive = false;
 			}
 			return;
 		}
@@ -457,18 +559,52 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
-		if (!(event.target instanceof HTMLElement)) return;
-		const target = event.target;
-		if (target.matches('input, select, textarea, button')) {
-			if (monitorElement?.contains(target)) event.stopImmediatePropagation();
+		if (event.repeat) return;
+		if (editorShortcutTargetIsDisabled(event.target)) {
+			// SAFETY: EventTarget is a Node when the monitor contains it.
+			if (monitorElement?.contains(event.target as Node)) event.stopImmediatePropagation();
 			return;
 		}
+		if (!(event.target instanceof HTMLElement)) return;
+		const target = event.target;
 		const bindings = keyboardShortcuts.bindings;
 		const isInsertEdit = eventMatchesShortcut(event, bindings.INSERT_EDIT);
 		const isOverwriteEdit = eventMatchesShortcut(event, bindings.OVERWRITE_EDIT);
+		const isShuttleForward = eventMatchesShortcut(event, bindings.SHUTTLE_FORWARD);
+		const isShuttleReverse = eventMatchesShortcut(event, bindings.SHUTTLE_REVERSE);
+		const isShuttlePause = eventMatchesShortcut(event, bindings.SHUTTLE_PAUSE);
 		const isGlobalEditShortcut = isInsertEdit || isOverwriteEdit;
+		const isShuttleShortcut = isShuttleForward || isShuttleReverse || isShuttlePause;
 		const isLocal =
-			!!monitorElement && (monitorElement.contains(target) || monitorElement.matches(':hover'));
+			!!monitorElement &&
+			(monitorElement.contains(target) ||
+				monitorElement.matches(':hover') ||
+				sourceHoverStore.isActive);
+		if (!isGlobalEditShortcut && !isLocal && !isShuttleShortcut) return;
+		if (isLocal && isShuttleShortcut) {
+			if (isShuttlePause) {
+				if (!playing) return;
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				pause();
+				return;
+			}
+			if (isShuttleForward) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				shuttleForward();
+				return;
+			}
+			if (isShuttleReverse) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				shuttleReverse();
+				return;
+			}
+		}
 		if (!isGlobalEditShortcut && !isLocal) return;
 		if (eventMatchesShortcut(event, bindings.CLEAR_IN_OUT)) {
 			clearMarks();
@@ -507,6 +643,11 @@
 	bind:this={monitorElement}
 	class="flex min-h-0 min-w-0 flex-1 flex-col border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.115_0.008_55)]"
 	aria-label={m.video_editor_source_monitor()}
+	data-source-monitor
+	onmouseenter={handleSourceMouseEnter}
+	onmouseleave={handleSourceMouseLeave}
+	onfocusin={handleSourceFocusIn}
+	onfocusout={handleSourceFocusOut}
 >
 	<header class="flex h-9 shrink-0 items-center gap-2 border-b border-[oklch(0.23_0.012_55)] px-3">
 		<span class="text-[10px] font-semibold tracking-widest text-[oklch(0.67_0.015_55)] uppercase">
@@ -526,6 +667,14 @@
 	</header>
 
 	<div class="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-black">
+		{#if playing && sourceShuttleActive && (sourcePlaybackRate < 0 || Math.abs(sourcePlaybackRate) > 1)}
+			<div class="absolute top-2 left-2 z-10">
+				<ShuttleIndicator
+					active={playing && sourceShuttleActive}
+					playbackRate={sourcePlaybackRate}
+				/>
+			</div>
+		{/if}
 		{#if loadError}
 			<p class="max-w-xs px-4 text-center text-xs text-red-300">{loadError}</p>
 		{:else if !sourceUrl}

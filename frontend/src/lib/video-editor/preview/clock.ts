@@ -123,12 +123,8 @@ export class Clock {
 	private computeFrame(): number {
 		const elapsed = Math.max(0, this.timeSource.now() - this.anchorWallSeconds);
 		let value = this.anchorFrame + elapsed * this.fps * this.rate;
-		if (this.range) {
-			value = Math.min(value, this.range.end);
-		}
-		if (this.playing && this.rate >= 0) {
-			// Forward playback floors; reverse ceils (FreeCut semantics).
-			value = Math.floor(value);
+		if (this.playing) {
+			value = this.rate >= 0 ? Math.floor(value) : Math.ceil(value);
 		}
 		return value;
 	}
@@ -156,6 +152,14 @@ export class Clock {
 		if (wasPlaying) this.play();
 	}
 
+	private get actualFirstFrame(): number {
+		return this.range ? this.range.start : 0;
+	}
+
+	private get actualLastFrame(): number {
+		return this.range ? this.range.end - 1 : Number.POSITIVE_INFINITY;
+	}
+
 	play(options?: { range?: { start: number; end: number }; loop?: boolean }): void {
 		if (this.playing) return;
 		if (options) {
@@ -169,8 +173,18 @@ export class Clock {
 			this.loopRange = this.resumeLoop ? this.resumeRange : null;
 		}
 		let start = this.frame;
-		if (this.range && start < this.range.start) start = this.range.start;
-		if (this.loopRange && start >= this.loopRange.end - 1) start = this.loopRange.start;
+		if (this.range) {
+			const first = this.actualFirstFrame;
+			const last = this.actualLastFrame;
+			if (this.rate >= 0) {
+				if (start < first) start = first;
+				if (start >= last + 1) start = first;
+				if (this.loopRange && start >= this.loopRange.end - 1) start = this.loopRange.start;
+			} else {
+				if (start >= this.range.end) start = last;
+				if (start <= first) start = last;
+			}
+		}
 		this.anchorAt(start);
 		this.playing = true;
 		this.emit('play', start);
@@ -190,7 +204,7 @@ export class Clock {
 	}
 
 	setRate(rate: number): void {
-		if (!Number.isFinite(rate) || rate <= 0 || rate === this.rate) return;
+		if (!Number.isFinite(rate) || rate === 0 || rate === this.rate) return;
 		if (this.playing) {
 			this.frame = this.computeFrame();
 			this.anchorAt(this.frame);
@@ -212,16 +226,44 @@ export class Clock {
 		if (!this.playing) return;
 		const frame = this.computeFrame();
 
-		if (this.range && frame >= this.range.end) {
-			if (this.loopRange) {
-				this.seek(this.loopRange.start);
-				this.emit('timeupdate', this.loopRange.start);
-				this.rafId = requestAnimationFrame(this.tick);
+		if (this.range) {
+			if (this.rate >= 0 && frame >= this.range.end) {
+				if (this.loopRange) {
+					this.seek(this.loopRange.start);
+					this.emit('timeupdate', this.loopRange.start);
+					this.rafId = requestAnimationFrame(this.tick);
+					return;
+				}
+				this.frame = this.range.end;
+				this.playing = false;
+				if (this.rafId !== null) {
+					cancelAnimationFrame(this.rafId);
+					this.rafId = null;
+				}
+				this.emit('pause', this.frame);
+				this.emit('timeupdate', this.frame);
+				this.emit('ended', this.range.end);
 				return;
 			}
-			this.pause();
-			this.emit('ended', this.range.end);
-			return;
+			if (this.rate < 0 && frame < this.range.start) {
+				if (this.loopRange) {
+					const target = this.loopRange.end - 1;
+					this.seek(target);
+					this.emit('timeupdate', target);
+					this.rafId = requestAnimationFrame(this.tick);
+					return;
+				}
+				this.frame = this.range.start;
+				this.playing = false;
+				if (this.rafId !== null) {
+					cancelAnimationFrame(this.rafId);
+					this.rafId = null;
+				}
+				this.emit('pause', this.frame);
+				this.emit('timeupdate', this.frame);
+				this.emit('ended', this.range.start);
+				return;
+			}
 		}
 
 		if (frame !== this.lastEmittedFrame) {

@@ -325,6 +325,20 @@ export function recordingFilePath(fileName: string): string[] {
 	return [RECORDINGS_DIR, sanitizeWorkspaceFileName(fileName)];
 }
 
+export const SESSIONS_DIR: string[] = [RECORDINGS_DIR, 'sessions'];
+export function sessionDir(id: string): string[] {
+	return [...SESSIONS_DIR, id];
+}
+export function sessionManifestPath(id: string): string[] {
+	return [...sessionDir(id), 'manifest.json'];
+}
+export function sessionChunkPath(id: string, fileName: string): string[] {
+	return [...sessionDir(id), 'chunks', fileName];
+}
+export function sessionCursorPath(id: string): string[] {
+	return [...sessionDir(id), 'cursor.json'];
+}
+
 /* ------------------------- Shared proxy store ------------------------- */
 
 const CONTENT_PROXIES_DIR = 'proxies';

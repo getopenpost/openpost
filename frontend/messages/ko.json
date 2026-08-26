@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "뒷부분 자르기",
 	"video_editor_agent_plan_add_transition": "전환 추가",
 	"video_editor_agent_plan_review_silence": "무음 검토",
-	"video_editor_agent_plan_review_fillers": "필러 검토",
-	"plan_find_clips": "클립 찾기",
-	"plan_search_transcript": "스크립트 검색",
-	"plan_select": "선택",
-	"plan_seek": "이동",
-	"plan_add_title": "제목 추가",
-	"plan_split_time": "시간에서 분할",
-	"plan_split_playhead": "재생 헤드에서 분할",
-	"plan_delete": "삭제",
-	"plan_set_speed": "속도 설정",
-	"plan_set_volume": "음량 설정",
-	"plan_trim_start": "앞부분 자르기",
-	"plan_trim_end": "뒷부분 자르기",
-	"plan_add_transition": "전환 추가",
-	"plan_review_silence": "무음 검토",
-	"plan_review_fillers": "필러 검토"
+	"video_editor_agent_plan_review_fillers": "필러 검토"
 }

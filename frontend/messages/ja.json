@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "末尾をトリミング",
 	"video_editor_agent_plan_add_transition": "トランジションを追加",
 	"video_editor_agent_plan_review_silence": "無音を確認",
-	"video_editor_agent_plan_review_fillers": "フィラーを確認",
-	"plan_find_clips": "クリップを検索",
-	"plan_search_transcript": "文字起こしを検索",
-	"plan_select": "選択",
-	"plan_seek": "移動",
-	"plan_add_title": "タイトルを追加",
-	"plan_split_time": "指定時刻で分割",
-	"plan_split_playhead": "再生位置で分割",
-	"plan_delete": "削除",
-	"plan_set_speed": "速度を設定",
-	"plan_set_volume": "音量を設定",
-	"plan_trim_start": "先頭をトリミング",
-	"plan_trim_end": "末尾をトリミング",
-	"plan_add_transition": "トランジションを追加",
-	"plan_review_silence": "無音を確認",
-	"plan_review_fillers": "フィラーを確認"
+	"video_editor_agent_plan_review_fillers": "フィラーを確認"
 }

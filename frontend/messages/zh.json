@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "裁剪结尾",
 	"video_editor_agent_plan_add_transition": "添加转场",
 	"video_editor_agent_plan_review_silence": "检查静音",
-	"video_editor_agent_plan_review_fillers": "检查填充词",
-	"plan_find_clips": "查找片段",
-	"plan_search_transcript": "搜索字幕",
-	"plan_select": "选择",
-	"plan_seek": "跳转",
-	"plan_add_title": "添加标题",
-	"plan_split_time": "在时间点拆分",
-	"plan_split_playhead": "在播放头拆分",
-	"plan_delete": "删除",
-	"plan_set_speed": "设置速度",
-	"plan_set_volume": "设置音量",
-	"plan_trim_start": "裁剪开头",
-	"plan_trim_end": "裁剪结尾",
-	"plan_add_transition": "添加转场",
-	"plan_review_silence": "检查静音",
-	"plan_review_fillers": "检查填充词"
+	"video_editor_agent_plan_review_fillers": "检查填充词"
 }

@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "Couper la fin",
 	"video_editor_agent_plan_add_transition": "Ajouter une transition",
 	"video_editor_agent_plan_review_silence": "Vérifier les silences",
-	"video_editor_agent_plan_review_fillers": "Vérifier les hésitations",
-	"plan_find_clips": "Rechercher des clips",
-	"plan_search_transcript": "Rechercher dans la transcription",
-	"plan_select": "Sélectionner",
-	"plan_seek": "Aller à",
-	"plan_add_title": "Ajouter un titre",
-	"plan_split_time": "Couper à l'instant",
-	"plan_split_playhead": "Couper à la tête de lecture",
-	"plan_delete": "Supprimer",
-	"plan_set_speed": "Régler la vitesse",
-	"plan_set_volume": "Régler le volume",
-	"plan_trim_start": "Couper le début",
-	"plan_trim_end": "Couper la fin",
-	"plan_add_transition": "Ajouter une transition",
-	"plan_review_silence": "Vérifier les silences",
-	"plan_review_fillers": "Vérifier les hésitations"
+	"video_editor_agent_plan_review_fillers": "Vérifier les hésitations"
 }

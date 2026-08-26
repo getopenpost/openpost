@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "Sonu kırp",
 	"video_editor_agent_plan_add_transition": "Geçiş ekle",
 	"video_editor_agent_plan_review_silence": "Sessizlikleri incele",
-	"video_editor_agent_plan_review_fillers": "Dolgu kelimeleri incele",
-	"plan_find_clips": "Klipleri bul",
-	"plan_search_transcript": "Transkriptte ara",
-	"plan_select": "Seç",
-	"plan_seek": "Git",
-	"plan_add_title": "Başlık ekle",
-	"plan_split_time": "Zamanda böl",
-	"plan_split_playhead": "Oynatma konumunda böl",
-	"plan_delete": "Sil",
-	"plan_set_speed": "Hızı ayarla",
-	"plan_set_volume": "Sesi ayarla",
-	"plan_trim_start": "Başı kırp",
-	"plan_trim_end": "Sonu kırp",
-	"plan_add_transition": "Geçiş ekle",
-	"plan_review_silence": "Sessizlikleri incele",
-	"plan_review_fillers": "Dolgu kelimeleri incele"
+	"video_editor_agent_plan_review_fillers": "Dolgu kelimeleri incele"
 }

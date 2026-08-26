@@ -6816,20 +6816,5 @@
 	"video_editor_agent_plan_trim_end": "Trim end",
 	"video_editor_agent_plan_add_transition": "Add transition",
 	"video_editor_agent_plan_review_silence": "Review silence",
-	"video_editor_agent_plan_review_fillers": "Review fillers",
-	"plan_find_clips": "Find clips",
-	"plan_search_transcript": "Search transcript",
-	"plan_select": "Select clips",
-	"plan_seek": "Seek to time",
-	"plan_add_title": "Add title",
-	"plan_split_time": "Split at time",
-	"plan_split_playhead": "Split at playhead",
-	"plan_delete": "Delete",
-	"plan_set_speed": "Set speed",
-	"plan_set_volume": "Set volume",
-	"plan_trim_start": "Trim start",
-	"plan_trim_end": "Trim end",
-	"plan_add_transition": "Add transition",
-	"plan_review_silence": "Review silence",
-	"plan_review_fillers": "Review fillers"
+	"video_editor_agent_plan_review_fillers": "Review fillers"
 }

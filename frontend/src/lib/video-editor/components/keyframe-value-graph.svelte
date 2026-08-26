@@ -6,7 +6,9 @@
 	import type {
 		BezierControlPoints,
 		EasingConfig,
+		EasingType,
 		KeyframeProperty,
+		SpringParameters,
 		TimelineItem
 	} from '$lib/video-editor/project/types';
 	import {
@@ -42,6 +44,38 @@
 		isColorEffectKeyframeProperty
 	} from '$lib/video-editor/effects/effect-keyframes';
 	import { keyframeValueToHexColor } from '$lib/video-editor/timeline/color-keyframes';
+	import { BEZIER_PRESETS, buildEasingConfig } from '$lib/video-editor/timeline/easing-presets';
+	import {
+		EASING_PRESETS,
+		SPRING_PRESETS,
+		presetDirection,
+		presetToEasing
+	} from '$lib/video-editor/timeline/easings-dev-presets';
+	import {
+		loadCustomEasingPresets,
+		saveCustomEasingPresets,
+		upsertCustomEasingPreset,
+		suggestedCustomPresetName,
+		type CustomEasingPreset
+	} from '$lib/video-editor/timeline/custom-easing-presets';
+	import { DEFAULT_SPRING_PARAMS } from '$lib/video-editor/project/types';
+	import {
+		eventMatchesShortcut,
+		resolveEditorShortcuts
+	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	const EASING_SET = new Set<string>([
+		'linear',
+		'ease-in',
+		'ease-out',
+		'ease-in-out',
+		'hold',
+		'cubic-bezier',
+		'spring'
+	]);
+	function isEasingType(value: string): value is EasingType {
+		return EASING_SET.has(value);
+	}
 
 	let {
 		item,
@@ -62,8 +96,8 @@
 	const HEIGHT = 230;
 	const DRAG_THRESHOLD = 3;
 	const SNAP_THRESHOLD = 8;
-	const HANDLE_HIT_RADIUS = 12;
-	const KEYFRAME_HIT_RADIUS = 8;
+	const HANDLE_HIT_RADIUS = 14;
+	const KEYFRAME_HIT_RADIUS = 9;
 
 	let host = $state<HTMLDivElement | null>(null);
 	let svg = $state<SVGSVGElement | null>(null);
@@ -78,8 +112,19 @@
 	});
 	const selectedIds = $derived(keyframeSelectionStore.forItem(item.id));
 	let previewValues = $state<Record<string, { frame: number; value: number }> | null>(null);
-	let previewBezier = $state<{ frame: number; bezier: BezierControlPoints } | null>(null);
+	let previewBezierConfigs = $state<Record<string, BezierControlPoints> | null>(null);
+	let snapGuides = $state<{ frame: number | null; value: number | null }>({
+		frame: null,
+		value: null
+	});
 	let marquee = $state<{ x: number; y: number; width: number; height: number } | null>(null);
+	let segmentMenu = $state<{ leftFrame: number; easing: string } | null>(null);
+	type SpringGesture = { frame: number; original: SpringParameters; draft: SpringParameters };
+	let springGesture = $state<SpringGesture | null>(null);
+	let presetType = $state<'Easing' | 'Spring'>('Easing');
+	let direction = $state<'all' | 'in' | 'out' | 'inout'>('all');
+	let showAllEasing = $state(false);
+	let customPresets = $state<CustomEasingPreset[]>(loadCustomEasingPresets());
 	let resetKey = '';
 
 	type KeyframeDrag = {
@@ -108,23 +153,32 @@
 		end: EditorKeyframe;
 		handle: 'out' | 'in';
 		initial: BezierControlPoints;
+		startPoint: GraphCoordinate;
+		endPoint: GraphCoordinate;
 	};
 	let drag = $state<KeyframeDrag | MarqueeDrag | HandleDrag | null>(null);
 
 	const keyframes = $derived(editorKeyframes(item, property));
 	const displayKeyframes = $derived(
 		keyframes.map((keyframe) => {
-			const bezier = previewBezier?.frame === keyframe.frame ? previewBezier.bezier : undefined;
-			return {
-				...keyframe,
-				...(previewValues?.[keyframeIdentity(keyframe)] ?? {}),
-				...(bezier && {
-					easing: 'cubic-bezier' as const,
-					easingConfig: { type: 'cubic-bezier' as const, bezier }
-				})
-			};
+			const preview = previewValues?.[keyframeIdentity(keyframe)];
+			const bezierPreview = previewBezierConfigs?.[String(keyframe.frame)];
+			let next: EditorKeyframe = { ...keyframe };
+			if (preview) {
+				next = { ...next, ...preview };
+			}
+			if (bezierPreview !== undefined) {
+				next.easing = 'cubic-bezier';
+				next.easingConfig = { type: 'cubic-bezier', bezier: bezierPreview };
+			}
+			if (springGesture && keyframe.frame === springGesture.frame) {
+				next.easing = 'spring';
+				next.easingConfig = { type: 'spring', spring: { ...springGesture.draft } };
+			}
+			return next;
 		})
 	);
+	const sortedDisplay = $derived([...displayKeyframes].toSorted((a, b) => a.frame - b.frame));
 	const points = $derived(
 		displayKeyframes.map((keyframe) => ({
 			keyframe,
@@ -132,20 +186,24 @@
 			...graphPoint(keyframe.frame, keyframe.value, viewport)
 		}))
 	);
+	const sortedPoints = $derived(
+		[...points].toSorted((a, b) => a.keyframe.frame - b.keyframe.frame)
+	);
 	const relativePlayhead = $derived(
 		Math.max(0, Math.min(item.durationInFrames - 1, currentFrame - item.from))
 	);
 	const playheadX = $derived(graphPoint(relativePlayhead, viewport.minValue, viewport).x);
 	const dimensions = $derived(graphDimensions(viewport));
-	const frameTicks = $derived(
-		Array.from({ length: 7 }, (_, index) => {
-			const ratio = index / 6;
+	const frameTicks = $derived.by(() => {
+		const count = width < 380 ? 5 : 7;
+		return Array.from({ length: count }, (_, index) => {
+			const ratio = index / (count - 1);
 			return {
 				frame: Math.round(viewport.startFrame + ratio * dimensions.frameRange),
 				x: dimensions.left + ratio * dimensions.width
 			};
-		})
-	);
+		});
+	});
 	const valueTicks = $derived(
 		Array.from({ length: 5 }, (_, index) => {
 			const ratio = index / 4;
@@ -175,6 +233,19 @@
 			return [];
 		})
 	);
+	const segmentSpans = $derived.by(() => {
+		if (sortedDisplay.length < 2) return [];
+		return sortedDisplay.slice(0, -1).map((start, index) => {
+			const end = sortedDisplay[index + 1]!;
+			const startPoint = graphPoint(start.frame, start.value, viewport);
+			const endPoint = graphPoint(end.frame, end.value, viewport);
+			const left = Math.min(startPoint.x, endPoint.x);
+			const widthSpan = Math.abs(endPoint.x - startPoint.x);
+			const midX = (startPoint.x + endPoint.x) / 2;
+			const midY = (startPoint.y + endPoint.y) / 2;
+			return { start, end, startPoint, endPoint, left, width: widthSpan, midX, midY, index };
+		});
+	});
 
 	$effect(() => {
 		if (!host) return;
@@ -193,6 +264,9 @@
 		resetKey = nextResetKey;
 		setSelection([]);
 		previewValues = null;
+		previewBezierConfigs = null;
+		snapGuides = { frame: null, value: null };
+		segmentMenu = null;
 		fitToContent();
 	});
 
@@ -313,6 +387,10 @@
 
 	function startMarquee(event: PointerEvent): void {
 		if (event.button !== 0 || !svg) return;
+		// Ignore clicks on segment easing buttons
+		// SAFETY: pointerdown target is an Element when handling a DOM event
+		const target = event.target as HTMLElement | null;
+		if (target?.closest('[data-segment-easing]')) return;
 		const point = localPoint(event);
 		const mode: MarqueeMode = event.shiftKey
 			? 'add'
@@ -356,11 +434,17 @@
 		anchorFrame = Math.min(anchor.frame + item.durationInFrames - 1 - maxFrame, anchorFrame);
 		anchorValue = Math.max(range.min, Math.min(range.max, anchorValue));
 
-		if (!event.ctrlKey && !event.metaKey) {
+		let snappedFrame: number | null = null;
+		let snappedValue: number | null = null;
+		const snapEnabled = _snapEnabled && !event.ctrlKey && !event.metaKey;
+		if (snapEnabled) {
 			const frameThreshold = (SNAP_THRESHOLD / dimensions.width) * dimensions.frameRange;
 			const valueThreshold = (SNAP_THRESHOLD / dimensions.height) * dimensions.valueRange;
 			const frameTargets = [
+				0,
+				item.durationInFrames - 1,
 				relativePlayhead,
+				...blockedRanges.flatMap((r) => [r.start, r.end]),
 				...keyframes
 					.filter((keyframe) => !state.initial.has(keyframeIdentity(keyframe)))
 					.map((keyframe) => keyframe.frame)
@@ -369,13 +453,29 @@
 				0,
 				range.min,
 				range.max,
+				...(range.min <= 1 && range.max >= 1 ? [1] : []),
 				...keyframes
 					.filter((keyframe) => !state.initial.has(keyframeIdentity(keyframe)))
 					.map((keyframe) => keyframe.value)
 			];
+			const beforeFrame = anchorFrame;
 			anchorFrame = nearestSnap(anchorFrame, frameTargets, frameThreshold);
-			if (!colorProperty) anchorValue = nearestSnap(anchorValue, valueTargets, valueThreshold);
+			if (anchorFrame !== beforeFrame) snappedFrame = anchorFrame;
+			else {
+				const nearFrame = frameTargets.find((t) => Math.abs(t - beforeFrame) <= frameThreshold);
+				if (nearFrame !== undefined) snappedFrame = nearFrame;
+			}
+			if (!colorProperty) {
+				const beforeValue = anchorValue;
+				anchorValue = nearestSnap(anchorValue, valueTargets, valueThreshold);
+				if (anchorValue !== beforeValue) snappedValue = anchorValue;
+				else {
+					const nearValue = valueTargets.find((t) => Math.abs(t - beforeValue) <= valueThreshold);
+					if (nearValue !== undefined) snappedValue = nearValue;
+				}
+			}
 		}
+		snapGuides = { frame: snappedFrame, value: snappedValue };
 
 		const requestedFrameDelta = anchorFrame - anchor.frame;
 		const allowedFrameDeltas = [...state.initial.values()].map((initial) => {
@@ -412,12 +512,15 @@
 
 	function nearestSnap(value: number, targets: readonly number[], threshold: number): number {
 		let result = value;
-		let distance = threshold;
+		let distance = threshold + 1e-9;
 		for (const target of targets) {
 			const candidateDistance = Math.abs(target - value);
-			if (candidateDistance <= distance) {
+			if (candidateDistance <= threshold && candidateDistance < distance) {
 				distance = candidateDistance;
 				result = target;
+			} else if (candidateDistance <= threshold && candidateDistance === distance) {
+				// Prefer the closest snap when multiple are at same distance; keep first.
+				continue;
 			}
 		}
 		return result;
@@ -458,13 +561,11 @@
 
 	function dragHandle(event: PointerEvent, state: HandleDrag): void {
 		const point = localPoint(event);
-		const start = graphPoint(state.start.frame, state.start.value, viewport);
-		const end = graphPoint(state.end.frame, state.end.value, viewport);
-		const segmentWidth = end.x - start.x;
-		const segmentHeight = end.y - start.y;
+		const segmentWidth = state.endPoint.x - state.startPoint.x;
+		const segmentHeight = state.endPoint.y - state.startPoint.y;
 		if (segmentWidth === 0) return;
-		let x = Math.max(0, Math.min(1, (point.x - start.x) / segmentWidth));
-		let y = segmentHeight === 0 ? 0.5 : (point.y - start.y) / segmentHeight;
+		let x = Math.max(0, Math.min(1, (point.x - state.startPoint.x) / segmentWidth));
+		let y = segmentHeight === 0 ? 0.5 : (point.y - state.startPoint.y) / segmentHeight;
 		if (event.shiftKey) {
 			const initialX = state.handle === 'out' ? state.initial.x1 : state.initial.x2;
 			const initialY = state.handle === 'out' ? state.initial.y1 : state.initial.y2;
@@ -479,13 +580,11 @@
 				y = anchorY + directionY * amount;
 			}
 		}
-		previewBezier = {
-			frame: state.start.frame,
-			bezier:
-				state.handle === 'out'
-					? { ...state.initial, x1: x, y1: y }
-					: { ...state.initial, x2: x, y2: y }
-		};
+		const nextBezier =
+			state.handle === 'out'
+				? { ...state.initial, x1: x, y1: y }
+				: { ...state.initial, x2: x, y2: y };
+		previewBezierConfigs = { [String(state.start.frame)]: nextBezier };
 	}
 
 	function onPointerMove(event: PointerEvent): void {
@@ -518,14 +617,30 @@
 		} else if (drag.kind === 'marquee' && !drag.started && drag.mode === 'replace') {
 			setSelection([]);
 			onselect(null);
-		} else if (drag.kind === 'handle' && previewBezier) {
-			const config: EasingConfig = { type: 'cubic-bezier', bezier: previewBezier.bezier };
-			if (setKeyframeEasing(item.id, property, previewBezier.frame, 'cubic-bezier', config))
-				onedit();
+		} else if (drag.kind === 'handle' && previewBezierConfigs) {
+			const entry = Object.entries(previewBezierConfigs)[0];
+			if (entry) {
+				const [frameStr, bezier] = entry;
+				// SAFETY: previewBezierConfigs keys are numeric frame strings
+				const frame = Number(frameStr);
+				const config: EasingConfig = { type: 'cubic-bezier', bezier };
+				if (setKeyframeEasing(item.id, property, frame, 'cubic-bezier', config)) onedit();
+			}
 		}
 		drag = null;
 		previewValues = null;
-		previewBezier = null;
+		previewBezierConfigs = null;
+		snapGuides = { frame: null, value: null };
+		marquee = null;
+	}
+
+	function onPointerCancel(event: PointerEvent): void {
+		if (!drag || drag.pointerId !== event.pointerId) return;
+		if (svg?.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+		drag = null;
+		previewValues = null;
+		previewBezierConfigs = null;
+		snapGuides = { frame: null, value: null };
 		marquee = null;
 	}
 
@@ -560,18 +675,50 @@
 	}
 
 	function onKeyDown(event: KeyboardEvent): void {
-		if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+		const bindings = resolveEditorShortcuts();
+		// Escape first cancels active gestures
+		if (eventMatchesShortcut(event, bindings.GRAPH_CLEAR_SELECTION)) {
+			const hadDrag = drag !== null;
+			const hadPreview = previewValues !== null || previewBezierConfigs !== null;
+			const hadMenu = segmentMenu !== null;
+			if (hadDrag || hadPreview || hadMenu) {
+				event.preventDefault();
+				drag = null;
+				previewValues = null;
+				previewBezierConfigs = null;
+				snapGuides = { frame: null, value: null };
+				marquee = null;
+				if (springGesture) {
+					springGesture = null;
+				}
+				if (hadDrag || hadPreview) return;
+				if (hadMenu) {
+					segmentMenu = null;
+					springGesture = null;
+					return;
+				}
+			}
+		}
+		// Select all graph keyframes
+		if (eventMatchesShortcut(event, bindings.GRAPH_SELECT_ALL)) {
 			event.preventDefault();
 			setSelection(points.map((point) => point.id));
 			onselect(points[0]?.keyframe ?? null);
 			return;
 		}
-		if (event.key === 'Escape') {
+		if (eventMatchesShortcut(event, bindings.GRAPH_CLEAR_SELECTION)) {
+			// If no gesture was active, clear selection
+			event.preventDefault();
 			setSelection([]);
 			onselect(null);
 			return;
 		}
-		if ((event.key === 'Delete' || event.key === 'Backspace') && selectedIds.size > 0) {
+		// Delete selected keyframes
+		if (
+			(eventMatchesShortcut(event, bindings.DELETE_SELECTED) ||
+				eventMatchesShortcut(event, bindings.DELETE_SELECTED_ALT)) &&
+			selectedIds.size > 0
+		) {
 			event.preventDefault();
 			const refs = points
 				.filter((point) => selectedIds.has(point.id))
@@ -581,21 +728,35 @@
 			onselect(null);
 			return;
 		}
-		if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
-		if (colorProperty && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) return;
+		const isLeft =
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_LEFT) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_LEFT_FAST);
+		const isRight =
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_RIGHT) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_RIGHT_FAST);
+		const isUp =
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_UP) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_UP_FAST);
+		const isDown =
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_DOWN) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_DOWN_FAST);
+		const isArrow = isLeft || isRight || isUp || isDown;
+		if (!isArrow) return;
+		if (colorProperty && (isUp || isDown)) return;
 		const selected = points.filter((point) => selectedIds.has(point.id));
 		if (selected.length === 0) return;
 		event.preventDefault();
-		const multiplier = event.shiftKey ? 10 : 1;
+		const fast =
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_LEFT_FAST) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_RIGHT_FAST) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_UP_FAST) ||
+			eventMatchesShortcut(event, bindings.GRAPH_NUDGE_DOWN_FAST);
+		const multiplier = fast ? 10 : 1;
 		const valueStep = 10 ** -range.decimals * multiplier;
 		const edits = selected.map(({ keyframe }) => ({
 			ref: keyframe,
-			frame:
-				keyframe.frame +
-				(event.key === 'ArrowLeft' ? -multiplier : event.key === 'ArrowRight' ? multiplier : 0),
-			value:
-				keyframe.value +
-				(event.key === 'ArrowDown' ? -valueStep : event.key === 'ArrowUp' ? valueStep : 0)
+			frame: keyframe.frame + (isLeft ? -multiplier : isRight ? multiplier : 0),
+			value: keyframe.value + (isDown ? -valueStep : isUp ? valueStep : 0)
 		}));
 		if (updateKeyframes(item.id, edits)) onedit();
 	}
@@ -616,7 +777,8 @@
 	}
 
 	function easingBezier(keyframe: EditorKeyframe): BezierControlPoints | null {
-		if (previewBezier?.frame === keyframe.frame) return previewBezier.bezier;
+		const preview = previewBezierConfigs?.[String(keyframe.frame)];
+		if (preview) return preview;
 		if (keyframe.easingConfig?.type === 'cubic-bezier') {
 			return keyframe.easingConfig.bezier ?? null;
 		}
@@ -632,6 +794,47 @@
 		}
 	}
 
+	function easingLabel(keyframe: EditorKeyframe): string {
+		switch (keyframe.easing) {
+			case 'hold':
+				return m.video_editor_keyframe_easing_hold();
+			case 'ease-in':
+				return m.video_editor_keyframe_easing_in();
+			case 'ease-out':
+				return m.video_editor_keyframe_easing_out();
+			case 'ease-in-out':
+				return m.video_editor_keyframe_easing_in_out();
+			case 'cubic-bezier':
+				return m.video_editor_keyframe_easing_bezier();
+			case 'spring':
+				return m.video_editor_keyframe_easing_spring();
+			default:
+				return m.video_editor_keyframe_easing_linear();
+		}
+	}
+	function bezierPresetLocalizedLabel(value: string): string {
+		switch (value) {
+			case 'soft':
+				return m.video_editor_keyframe_bezier_soft();
+			case 'overshoot':
+				return m.video_editor_keyframe_bezier_overshoot();
+			case 'snap':
+				return m.video_editor_keyframe_bezier_snap();
+			case 'out-cubic':
+				return m.video_editor_keyframe_bezier_out_cubic();
+			case 'out-quart':
+				return m.video_editor_keyframe_bezier_out_quart();
+			case 'out-quint':
+				return m.video_editor_keyframe_bezier_out_quint();
+			case 'out-expo':
+				return m.video_editor_keyframe_bezier_out_expo();
+			case 'out-circ':
+				return m.video_editor_keyframe_bezier_out_circ();
+			default:
+				return value;
+		}
+	}
+
 	function startHandleDrag(
 		start: EditorKeyframe,
 		end: EditorKeyframe,
@@ -643,8 +846,19 @@
 		event.preventDefault();
 		event.stopPropagation();
 		capturePointer(event.pointerId);
-		drag = { kind: 'handle', pointerId: event.pointerId, start, end, handle, initial: bezier };
-		previewBezier = { frame: start.frame, bezier };
+		const startPoint = graphPoint(start.frame, start.value, viewport);
+		const endPoint = graphPoint(end.frame, end.value, viewport);
+		drag = {
+			kind: 'handle',
+			pointerId: event.pointerId,
+			start,
+			end,
+			handle,
+			initial: bezier,
+			startPoint,
+			endPoint
+		};
+		previewBezierConfigs = { [String(start.frame)]: bezier };
 	}
 
 	function scrub(event: PointerEvent): void {
@@ -655,10 +869,86 @@
 		onscrub(item.from + Math.max(0, Math.min(item.durationInFrames - 1, frame)));
 	}
 
+	function handleSegmentEasingChange(frame: number, easing: string): void {
+		if (!isEasingType(easing)) return;
+		const easingType = easing;
+		const existing = keyframes.find((k) => k.frame === frame)?.easingConfig;
+		const config = buildEasingConfig(easingType, existing);
+		// Keep menu open so spring/bezier details remain visible
+		if (segmentMenu && segmentMenu.leftFrame === frame)
+			segmentMenu = { ...segmentMenu, easing: easingType };
+		if (easingType === 'spring') {
+			const spring =
+				config?.type === 'spring' && config.spring ? config.spring : DEFAULT_SPRING_PARAMS;
+			springGesture = { frame, original: { ...spring }, draft: { ...spring } };
+		}
+		if (setKeyframeEasing(item.id, property, frame, easingType, config)) onedit();
+	}
+
+	function beginSpringGesture(frame: number): void {
+		if (springGesture && springGesture.frame === frame) return;
+		const current = keyframes.find((k) => k.frame === frame)?.easingConfig?.spring;
+		const original = current ? { ...current } : { ...DEFAULT_SPRING_PARAMS };
+		const draft = keyframes.find((k) => k.frame === frame)?.easingConfig?.spring ?? {
+			...DEFAULT_SPRING_PARAMS
+		};
+		// If draft already exists for this frame, keep it, otherwise use current
+		const initialDraft = springGesture?.frame === frame ? springGesture.draft : draft;
+		springGesture = { frame, original, draft: { ...initialDraft } };
+	}
+	function segmentSpringDraftChange(field: keyof SpringParameters, value: number): void {
+		if (!springGesture) {
+			if (!segmentMenu) return;
+			beginSpringGesture(segmentMenu.leftFrame);
+		}
+		if (!springGesture) return;
+		springGesture = { ...springGesture, draft: { ...springGesture.draft, [field]: value } };
+	}
+	function commitSegmentSpring(frame: number): void {
+		if (!springGesture || springGesture.frame !== frame) return;
+		const current = keyframes.find((k) => k.frame === frame)?.easingConfig?.spring;
+		const draft = springGesture.draft;
+		const original = springGesture.original;
+		const noChange =
+			current &&
+			draft.tension === current.tension &&
+			draft.friction === current.friction &&
+			draft.mass === current.mass;
+		// Clear gesture before commit to ensure later lostpointercapture is no-op
+		springGesture = null;
+		if (noChange) return;
+		// Also check against original to avoid no-op commits when draft equals original and current equals original
+		if (
+			draft.tension === original.tension &&
+			draft.friction === original.friction &&
+			draft.mass === original.mass &&
+			current &&
+			current.tension === original.tension &&
+			current.friction === original.friction &&
+			current.mass === original.mass
+		)
+			return;
+		const config: EasingConfig = { type: 'spring', spring: { ...draft } };
+		if (setKeyframeEasing(item.id, property, frame, 'spring', config)) onedit();
+	}
+	function cancelSegmentSpring(frame: number): void {
+		if (!springGesture || springGesture.frame !== frame) return;
+		springGesture = null;
+	}
+
+	function segmentBezierPreset(frame: number, preset: string): void {
+		const found = BEZIER_PRESETS.find((p) => p.value === preset);
+		if (!found) return;
+		const config: EasingConfig = { type: 'cubic-bezier', bezier: { ...found.points } };
+		if (setKeyframeEasing(item.id, property, frame, 'cubic-bezier', config)) onedit();
+	}
+
 	function formatValue(value: number): string {
 		if (colorProperty) return keyframeValueToHexColor(value);
 		return `${value.toFixed(range.decimals)}${range.unit}`;
 	}
+
+	const _snapEnabled = $derived(timelineStore.snapEnabled);
 </script>
 
 <div
@@ -666,17 +956,30 @@
 	class="border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.13_0.008_55)]"
 	data-keyframe-value-graph
 >
-	<div class="flex h-8 items-center gap-1 border-b border-[oklch(0.22_0.01_50)] px-2">
-		<span class="mr-auto text-[10px] font-medium text-[oklch(0.72_0.02_55)] capitalize">
+	<div
+		class="flex min-h-8 flex-wrap items-center gap-1 border-b border-[oklch(0.22_0.01_50)] px-2 py-1"
+	>
+		<span
+			class="mr-auto min-w-0 flex-1 truncate text-[10px] font-medium text-[oklch(0.72_0.02_55)] capitalize"
+		>
 			{m.video_editor_keyframe_graph_title({ property: propertyLabel })}
 		</span>
-		<span class="font-mono text-[9px] text-[oklch(0.62_0.015_55)]">
+		<span class="hidden shrink-0 font-mono text-[9px] text-[oklch(0.62_0.015_55)] sm:inline">
 			{m.video_editor_keyframe_graph_selected({ count: selectedIds.size })}
 		</span>
+		<span class="shrink-0 font-mono text-[9px] text-[oklch(0.62_0.015_55)] sm:hidden"
+			>{selectedIds.size}</span
+		>
+		{#if !_snapEnabled}
+			<span
+				class="rounded bg-[oklch(0.66_0.14_45/0.15)] px-1.5 py-0.5 text-[9px] text-[oklch(0.78_0.15_45)]"
+				>{m.video_editor_keyframe_graph_snap_off()}</span
+			>
+		{/if}
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6 rounded"
+			class="size-7 min-h-7 min-w-7 shrink-0 rounded sm:size-6"
 			aria-label={m.video_editor_zoom_out()}
 			title={m.video_editor_zoom_out()}
 			onclick={() => zoom(1.25)}
@@ -686,7 +989,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6 rounded"
+			class="size-7 min-h-7 min-w-7 shrink-0 rounded sm:size-6"
 			aria-label={m.video_editor_zoom_in()}
 			title={m.video_editor_zoom_in()}
 			onclick={() => zoom(0.8)}
@@ -696,7 +999,7 @@
 		<Button
 			variant="ghost"
 			size="icon"
-			class="size-6 rounded"
+			class="size-7 min-h-7 min-w-7 shrink-0 rounded sm:size-6"
 			aria-label={m.video_editor_keyframe_graph_fit()}
 			title={m.video_editor_keyframe_graph_fit()}
 			onclick={fitToContent}
@@ -727,7 +1030,7 @@
 			onpointerdown={startMarquee}
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
-			onpointercancel={onPointerUp}
+			onpointercancel={onPointerCancel}
 		>
 			<rect {width} height={HEIGHT} fill="oklch(0.125 0.008 55)" />
 			<g aria-hidden="true" class="pointer-events-none">
@@ -794,6 +1097,53 @@
 				{/each}
 			</g>
 
+			{#if snapGuides.frame !== null}
+				{@const gx = graphPoint(snapGuides.frame, viewport.minValue, viewport).x}
+				<line
+					x1={gx}
+					x2={gx}
+					y1={dimensions.top}
+					y2={dimensions.top + dimensions.height}
+					stroke="oklch(0.78 0.15 45)"
+					stroke-width="1"
+					stroke-dasharray="4 3"
+					opacity="0.9"
+					data-snap-guide="frame"
+				/>
+				<text
+					x={gx + 4}
+					y={dimensions.top + 10}
+					fill="oklch(0.78 0.15 45)"
+					font-size="8"
+					font-family="monospace"
+				>
+					{m.video_editor_keyframe_graph_snap_frame({ frame: snapGuides.frame })}
+				</text>
+			{/if}
+			{#if snapGuides.value !== null && !colorProperty}
+				{@const gy = graphPoint(0, snapGuides.value, viewport).y}
+				<line
+					x1={dimensions.left}
+					x2={dimensions.left + dimensions.width}
+					y1={gy}
+					y2={gy}
+					stroke="oklch(0.78 0.15 45)"
+					stroke-width="1"
+					stroke-dasharray="4 3"
+					opacity="0.9"
+					data-snap-guide="value"
+				/>
+				<text
+					x={dimensions.left + 4}
+					y={gy - 4}
+					fill="oklch(0.78 0.15 45)"
+					font-size="8"
+					font-family="monospace"
+				>
+					{m.video_editor_keyframe_graph_snap_value({ value: formatValue(snapGuides.value) })}
+				</text>
+			{/if}
+
 			{#if points[0]}
 				<line
 					x1={dimensions.left}
@@ -832,6 +1182,81 @@
 					stroke-dasharray="4 4"
 				/>
 			{/if}
+
+			{#each segmentSpans as span, index (`${span.start.frame}:${span.end.frame}:${index}`)}
+				{@const label = easingLabel(span.start)}
+				{@const isSelected =
+					selectedIds.has(keyframeIdentity(span.start)) ||
+					selectedIds.has(keyframeIdentity(span.end))}
+				{@const isMenuOpen = segmentMenu?.leftFrame === span.start.frame}
+				{@const shouldShow =
+					span.width > 36 && (isSelected || isMenuOpen || sortedDisplay.length <= 8)}
+				{#if shouldShow}
+					<g data-segment-easing={span.start.frame}>
+						<rect
+							x={span.midX - 22}
+							y={span.midY - 8}
+							width="44"
+							height="12"
+							rx="6"
+							fill={isMenuOpen ? 'oklch(0.66 0.14 45)' : 'oklch(0.22 0.01 50)'}
+							stroke="oklch(0.35 0.02 55)"
+							stroke-width="1"
+							class="cursor-pointer"
+							style="pointer-events: all"
+							role="button"
+							tabindex="0"
+							aria-label={m.video_editor_keyframe_graph_segment_easing({ frame: span.start.frame })}
+							onpointerdown={(e) => {
+								e.stopPropagation();
+								if (isMenuOpen) {
+									segmentMenu = null;
+									springGesture = null;
+								} else {
+									segmentMenu = { leftFrame: span.start.frame, easing: span.start.easing };
+									const s = keyframes.find((k) => k.frame === span.start.frame)?.easingConfig
+										?.spring;
+									const spring = s ? { ...s } : { ...DEFAULT_SPRING_PARAMS };
+									springGesture = {
+										frame: span.start.frame,
+										original: { ...spring },
+										draft: { ...spring }
+									};
+								}
+							}}
+							onkeydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									e.stopPropagation();
+									if (isMenuOpen) {
+										segmentMenu = null;
+										springGesture = null;
+									} else {
+										segmentMenu = { leftFrame: span.start.frame, easing: span.start.easing };
+										const s = keyframes.find((k) => k.frame === span.start.frame)?.easingConfig
+											?.spring;
+										const spring = s ? { ...s } : { ...DEFAULT_SPRING_PARAMS };
+										springGesture = {
+											frame: span.start.frame,
+											original: { ...spring },
+											draft: { ...spring }
+										};
+									}
+								}
+							}}
+						/>
+						<text
+							x={span.midX}
+							y={span.midY + 2.5}
+							text-anchor="middle"
+							fill={isMenuOpen ? 'white' : 'oklch(0.78 0.02 55)'}
+							font-size="6.5"
+							font-weight="600"
+							class="pointer-events-none select-none">{label.slice(0, 9)}</text
+						>
+					</g>
+				{/if}
+			{/each}
 
 			{#each points.slice(0, -1) as point, index (point.id)}
 				{@const next = points[index + 1]}
@@ -906,7 +1331,7 @@
 						<circle
 							cx={point.x}
 							cy={point.y}
-							r="8"
+							r="9"
 							fill="none"
 							stroke="oklch(0.76 0.14 45 / 0.5)"
 							stroke-width="2"
@@ -955,6 +1380,167 @@
 			{/if}
 		</svg>
 	</div>
+	{#if segmentMenu}
+		{@const kf = keyframes.find((k) => k.frame === segmentMenu.leftFrame)}
+		{#if kf}
+			<div
+				class="mx-2 mb-2 rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.18_0.01_50)] p-2 shadow-lg"
+				data-segment-menu
+			>
+				<div class="mb-2 flex flex-wrap items-center gap-1">
+					<span class="mr-auto text-[10px] font-medium text-[oklch(0.72_0.02_55)]">
+						{m.video_editor_keyframe_graph_segment()} · {kf.frame} → {segmentSpans.find(
+							(s) => s.start.frame === kf.frame
+						)?.end.frame ?? ''}
+					</span>
+					<Button
+						variant="ghost"
+						size="sm"
+						class="h-6 min-h-6 px-2 text-[10px]"
+						onclick={() => {
+							segmentMenu = null;
+							springGesture = null;
+						}}>{m.video_editor_keyframe_graph_close()}</Button
+					>
+				</div>
+				<div class="flex flex-wrap gap-1">
+					{#each [{ value: 'linear', label: m.video_editor_keyframe_easing_linear() }, { value: 'ease-in', label: m.video_editor_keyframe_easing_in() }, { value: 'ease-out', label: m.video_editor_keyframe_easing_out() }, { value: 'ease-in-out', label: m.video_editor_keyframe_easing_in_out() }, { value: 'hold', label: m.video_editor_keyframe_easing_hold() }, { value: 'cubic-bezier', label: m.video_editor_keyframe_easing_bezier() }, { value: 'spring', label: m.video_editor_keyframe_easing_spring() }] as option}
+						<button
+							class="rounded px-2 py-1 text-[10px] font-medium {segmentMenu.easing === option.value
+								? 'bg-[oklch(0.66_0.14_45)] text-white'
+								: 'bg-[oklch(0.25_0.01_50)] text-[oklch(0.78_0.02_55)] hover:bg-[oklch(0.32_0.02_55)]'}"
+							aria-pressed={segmentMenu.easing === option.value}
+							onclick={() => handleSegmentEasingChange(kf.frame, option.value)}
+						>
+							{option.label}
+						</button>
+					{/each}
+				</div>
+				{#if segmentMenu.easing === 'cubic-bezier' || kf.easing === 'cubic-bezier'}
+					<div class="mt-2 flex flex-wrap gap-1">
+						{#each showAllEasing ? EASING_PRESETS : EASING_PRESETS.slice(0, 8) as preset}
+							<button
+								class="rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-[9px] text-[oklch(0.72_0.02_55)] hover:bg-[oklch(0.28_0.015_55)]"
+								title={(preset as any).name ?? bezierPresetLocalizedLabel((preset as any).value)}
+								onclick={() => {
+									const key = (preset as any).name ?? (preset as any).value;
+									const isEasingPreset =
+										(preset as any).bezier !== undefined || (preset as any).points !== undefined;
+									const bezier = (preset as any).bezier ?? (preset as any).points;
+									if (bezier) {
+										const cfg: EasingConfig = { type: 'cubic-bezier', bezier };
+										const frames =
+											selectedIds.size > 1
+												? [...selectedIds]
+														.map((id) => keyframes.find((k) => keyframeIdentity(k) === id)?.frame)
+														.filter((f): f is number => f !== undefined)
+												: [kf.frame];
+										const uniq = [...new Set(frames)];
+										const updates = uniq.map((f) => ({
+											property,
+											frame: f,
+											easing: 'cubic-bezier' as EasingType,
+											easingConfig: cfg
+										}));
+										const changed =
+											uniq.length > 1
+												? setKeyframeEasings(item.id, updates)
+												: setKeyframeEasing(item.id, property, kf.frame, 'cubic-bezier', cfg);
+										if (changed) onedit();
+									} else {
+										segmentBezierPreset(kf.frame, key);
+									}
+								}}
+							>
+								{(preset as any).name ?? bezierPresetLocalizedLabel((preset as any).value)}
+							</button>
+						{/each}
+					</div>
+				{/if}
+				{#if segmentMenu.easing === 'spring' || kf.easing === 'spring'}
+					{@const draft = springGesture?.draft ?? kf.easingConfig?.spring ?? DEFAULT_SPRING_PARAMS}
+					<div class="mt-2 grid grid-cols-3 gap-2" data-spring-gesture>
+						<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.72_0.02_55)]">
+							{m.video_editor_keyframe_graph_tension()}
+							<input
+								type="range"
+								min="1"
+								max="500"
+								value={draft.tension}
+								class="w-full"
+								// SAFETY: range input target is an HTMLInputElement
+								oninput={(e) =>
+									segmentSpringDraftChange('tension', Number((e.target as HTMLInputElement).value))}
+								onchange={() => commitSegmentSpring(kf.frame)}
+								onpointercancel={() => cancelSegmentSpring(kf.frame)}
+								onlostpointercapture={() => cancelSegmentSpring(kf.frame)}
+								onkeydown={(e) => {
+									if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelSegmentSpring(kf.frame);
+									}
+									if (e.key === 'Enter') commitSegmentSpring(kf.frame);
+								}}
+							/>
+							<span class="font-mono text-[9px]">{draft.tension}</span>
+						</label>
+						<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.72_0.02_55)]">
+							{m.video_editor_keyframe_graph_friction()}
+							<input
+								type="range"
+								min="1"
+								max="100"
+								value={draft.friction}
+								class="w-full"
+								// SAFETY: range input target is an HTMLInputElement
+								oninput={(e) =>
+									segmentSpringDraftChange(
+										'friction',
+										Number((e.target as HTMLInputElement).value)
+									)}
+								onchange={() => commitSegmentSpring(kf.frame)}
+								onpointercancel={() => cancelSegmentSpring(kf.frame)}
+								onlostpointercapture={() => cancelSegmentSpring(kf.frame)}
+								onkeydown={(e) => {
+									if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelSegmentSpring(kf.frame);
+									}
+									if (e.key === 'Enter') commitSegmentSpring(kf.frame);
+								}}
+							/>
+							<span class="font-mono text-[9px]">{draft.friction}</span>
+						</label>
+						<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.72_0.02_55)]">
+							{m.video_editor_keyframe_graph_mass()}
+							<input
+								type="range"
+								min="0.1"
+								max="10"
+								step="0.1"
+								value={draft.mass}
+								class="w-full"
+								// SAFETY: range input target is an HTMLInputElement
+								oninput={(e) =>
+									segmentSpringDraftChange('mass', Number((e.target as HTMLInputElement).value))}
+								onchange={() => commitSegmentSpring(kf.frame)}
+								onpointercancel={() => cancelSegmentSpring(kf.frame)}
+								onlostpointercapture={() => cancelSegmentSpring(kf.frame)}
+								onkeydown={(e) => {
+									if (e.key === 'Escape') {
+										e.preventDefault();
+										cancelSegmentSpring(kf.frame);
+									}
+									if (e.key === 'Enter') commitSegmentSpring(kf.frame);
+								}}
+							/>
+							<span class="font-mono text-[9px]">{draft.mass}</span>
+						</label>
+					</div>
+				{/if}
+			</div>
+		{/if}
+	{/if}
 	<p class="sr-only" aria-live="polite">
 		{m.video_editor_keyframe_graph_instructions({ count: selectedIds.size })}
 	</p>

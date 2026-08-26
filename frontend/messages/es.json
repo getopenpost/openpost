@@ -6756,6 +6756,7 @@
 	"quick_cut_project_saved": "Proyecto guardado.",
 	"quick_cut_send_to_openpost": "Enviar a OpenPost",
 	"quick_cut_sent": "Enviado a OpenPost.",
+	"quick_cut_send_workspace_required": "Elige un espacio de trabajo de OpenPost antes de enviar.",
 	"quick_cut_cancelled": "Exportación cancelada.",
 	"quick_cut_workspace_hint": "Los proyectos se guardan en la carpeta del workspace si hay uno seleccionado.",
 	"quick_cut_keyboard_hint": "I/O marcar entrada/salida · Espacio reproducir/pausar · Flechas paso de fotograma · L bucle · Enter añadir segmento",

@@ -1,8 +1,14 @@
 import { expect, test } from "@playwright/test";
+import { stat } from "node:fs/promises";
+import path from "node:path";
 
 test("quick cut loads with accessible controls and no overflow at 320/390/desktop", async ({
   page,
 }) => {
+  const errors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
   for (const viewport of [
     { width: 320, height: 800 },
     { width: 390, height: 844 },
@@ -20,39 +26,56 @@ test("quick cut loads with accessible controls and no overflow at 320/390/deskto
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
     );
     expect(overflow).toBe(false);
-    // Check no console errors
-    const errors: string[] = [];
-    page.on("console", (msg) => {
-      if (msg.type() === "error") errors.push(msg.text());
-    });
     await page.waitForTimeout(200);
     expect(errors.filter((e) => !e.includes("Failed to load resource"))).toEqual([]);
   }
 });
 
-test("quick cut multi-source UI, keyboard, and project flows", async ({ page }) => {
+test("quick cut imports real media, creates a range, and never fakes Send", async ({ page }) => {
+  const consoleErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "showOpenFilePicker", {
+      configurable: true,
+      value: undefined,
+    });
+  });
   await page.goto("/quick-cut");
-  await expect(page.getByText(/Open a video/i)).toBeVisible();
-  await expect(page.getByText(/I\/O mark/i)).toBeVisible();
-  // Check keyboard hint visible
-  await expect(page.getByText(/Space play\/pause/)).toBeVisible();
-  // Check source picker area
-  await expect(page.getByRole("button", { name: /Open videos/i })).toBeVisible();
-  // Check 44px for add source when visible (after opening, but initially hidden)
-  // Verify light/dark via background check (should have bg-background)
-  const bg = await page.evaluate(
-    () =>
-      getComputedStyle(document.documentElement).getPropertyValue("--background") ||
-      getComputedStyle(document.body).backgroundColor,
+  const chooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: /Open videos/i }).click();
+  const chooser = await chooserPromise;
+  await chooser.setFiles(
+    path.resolve("frontend/src/lib/video-editor/media/fixtures/prores-proxy.mov"),
   );
-  expect(bg).toBeTruthy();
-});
 
-test("quick cut sequential exports and cancellation ui", async ({ page }) => {
-  await page.goto("/quick-cut");
-  // Empty state should show import project
-  await expect(page.getByRole("button", { name: /Import project/i })).toBeVisible();
-  const importBtn = page.getByRole("button", { name: /Import project/i });
-  const ibox = await importBtn.boundingBox();
-  expect(ibox?.height).toBeGreaterThanOrEqual(44);
+  await expect(page.getByText(/prores-proxy\.mov/i).first()).toBeVisible();
+  await page.getByRole("button", { name: /^I · In$/i }).click();
+  await page.locator("video").evaluate((video: HTMLVideoElement) => {
+    video.currentTime = Math.min(0.08, video.duration || 0.08);
+    video.dispatchEvent(new Event("timeupdate"));
+  });
+  await page.getByRole("button", { name: /^O · Out$/i }).click();
+  await page.getByRole("button", { name: /Add segment/i }).click();
+  await expect(page.getByRole("button", { name: /Segment 1/i })).toBeVisible();
+
+  const downloadPromise = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).first().click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.mov$/i);
+  const downloadedPath = await download.path();
+  expect(downloadedPath).not.toBeNull();
+  expect((await stat(downloadedPath!)).size).toBeGreaterThan(0);
+
+  await page.getByRole("button", { name: /Send to OpenPost/i }).click();
+  await expect(page.getByText(/Choose an OpenPost workspace before sending/i)).toBeVisible();
+
+  await page.setViewportSize({ width: 320, height: 800 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    ),
+  ).toBe(false);
+  expect(consoleErrors.filter((error) => !error.includes("Failed to load resource"))).toEqual([]);
 });

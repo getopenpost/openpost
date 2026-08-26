@@ -6756,6 +6756,7 @@
 	"quick_cut_project_saved": "已保存项目。",
 	"quick_cut_send_to_openpost": "发送到 OpenPost",
 	"quick_cut_sent": "已发送到 OpenPost。",
+	"quick_cut_send_workspace_required": "发送前请选择一个 OpenPost 工作区。",
 	"quick_cut_cancelled": "已取消导出。",
 	"quick_cut_workspace_hint": "选择工作区后项目将保存在其中。",
 	"quick_cut_keyboard_hint": "I/O 标记入/出点 · 空格 播放/暂停 · 方向键 逐帧 · L 循环 · 回车 添加片段",

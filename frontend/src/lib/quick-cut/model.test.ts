@@ -44,6 +44,33 @@ describe('quick-cut model', () => {
 		expect(norm[0]?.end).toBe(7);
 	});
 
+	it('never reorders an explicit A/B/A edit while normalizing', () => {
+		const segments = [
+			createSegment(0, 2, { id: 'a1', sourceId: SRC_A }),
+			createSegment(0, 1, { id: 'b1', sourceId: SRC_B }),
+			createSegment(1, 3, { id: 'a2', sourceId: SRC_A })
+		];
+		expect(normalizeSegments(segments).map((segment) => segment.id)).toEqual(['a1', 'b1', 'a2']);
+	});
+
+	it('keeps disabled segments out of overlap checks', () => {
+		const first = createSegment(0, 5, { id: 'first', sourceId: SRC_A });
+		const disabled = {
+			...createSegment(2, 4, { id: 'disabled', sourceId: SRC_A }),
+			enabled: false
+		};
+		expect(hasOverlap([first, disabled])).toBe(false);
+		expect(validateSegments([first, disabled], 10, new Map([[SRC_A, 10]]))).toEqual([]);
+	});
+
+	it('rejects a non-empty source ID that is not in the project', () => {
+		const missing = createSegment(0, 1, { id: 'missing', sourceId: 'removed-source' });
+		const errors = validateSegments([missing], 10, new Map([[SRC_A, 10]]));
+		expect(errors).toContainEqual(
+			expect.objectContaining({ segmentId: 'missing', kind: 'missing_source' })
+		);
+	});
+
 	it('reorders segments preserving explicit order', () => {
 		const segs = [
 			createSegment(0, 1, { id: 'a', sourceId: SRC_A }),

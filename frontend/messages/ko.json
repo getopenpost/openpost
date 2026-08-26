@@ -6756,6 +6756,7 @@
 	"quick_cut_project_saved": "프로젝트 저장됨.",
 	"quick_cut_send_to_openpost": "OpenPost로 보내기",
 	"quick_cut_sent": "OpenPost로 보냄.",
+	"quick_cut_send_workspace_required": "보내기 전에 OpenPost 워크스페이스를 선택하세요.",
 	"quick_cut_cancelled": "내보내기 취소됨.",
 	"quick_cut_workspace_hint": "워크스페이스가 선택되면 거기에 저장됩니다.",
 	"quick_cut_keyboard_hint": "I/O 시작/끝 · 스페이스 재생/일시정지 · 화살표 프레임 이동 · L 반복 · Enter 추가",

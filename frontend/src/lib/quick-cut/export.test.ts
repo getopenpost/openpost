@@ -58,4 +58,75 @@ describe('quick-cut preflight', () => {
 		const pre = await preflightExport([s1, s2], segs, 'nearestKeyframe', true);
 		expect(pre.requiresTranscode).toBe(true);
 	});
+
+	it('re-encodes an exact audio cut but keeps nearest packet copy lossless', async () => {
+		const source = makeSource('audio', {
+			name: 'audio.webm',
+			mimeType: 'audio/webm',
+			videoCodec: null,
+			width: null,
+			height: null,
+			fps: null,
+			keyframeTimestamps: [],
+			keyframeState: 'audio-only',
+			audioCodec: 'opus'
+		});
+		const segments = [createSegment(0.125, 0.625, { sourceId: source.id })];
+		const exact = await preflightExport([source], segments, 'exact', true);
+		const nearest = await preflightExport([source], segments, 'nearestKeyframe', true);
+		expect(exact.requiresTranscode).toBe(true);
+		expect(exact.perSegment[0]?.reason).toMatch(/sample-accurate/i);
+		expect(nearest.requiresTranscode).toBe(false);
+		expect(nearest.perSegment[0]?.reason).toMatch(/packet copy/i);
+	});
+
+	it('re-encodes an unknown video keyframe start instead of claiming lossless output', async () => {
+		const source = makeSource('unknown', {
+			keyframeState: 'unknown',
+			keyframeTimestamps: []
+		});
+		const preflight = await preflightExport(
+			[source],
+			[createSegment(0.5, 1, { sourceId: source.id })],
+			'nearestKeyframe',
+			true
+		);
+		expect(preflight.requiresTranscode).toBe(true);
+		expect(preflight.perSegment[0]?.reason).toMatch(/keyframe map unavailable/i);
+	});
+
+	it('re-encodes video with an unavailable frame rate', async () => {
+		const source = makeSource('variable', { fps: null });
+		const preflight = await preflightExport(
+			[source],
+			[createSegment(0, 1, { sourceId: source.id })],
+			'nearestKeyframe',
+			true
+		);
+		expect(preflight.requiresTranscode).toBe(true);
+		expect(preflight.perSegment[0]?.reason).toMatch(/frame rate/i);
+	});
+
+	it('rejects a merged video and audio-only sequence before rendering', async () => {
+		const video = makeSource('video');
+		const audio = makeSource('audio', {
+			name: 'audio.webm',
+			mimeType: 'audio/webm',
+			videoCodec: null,
+			width: null,
+			height: null,
+			fps: null,
+			keyframeTimestamps: [],
+			keyframeState: 'audio-only',
+			audioCodec: 'opus'
+		});
+		const preflight = await preflightExport(
+			[video, audio],
+			[createSegment(0, 1, { sourceId: video.id }), createSegment(0, 1, { sourceId: audio.id })],
+			'nearestKeyframe',
+			true
+		);
+		expect(preflight.eligible).toBe(false);
+		expect(preflight.reason).toMatch(/video and audio-only/i);
+	});
 });

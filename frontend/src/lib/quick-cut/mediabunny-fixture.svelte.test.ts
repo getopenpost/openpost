@@ -7,7 +7,12 @@ import {
 	Mp4OutputFormat,
 	Output,
 	BufferTarget,
-	EncodedPacketSink
+	EncodedPacketSink,
+	CanvasSink,
+	AudioSample,
+	AudioSampleSink,
+	AudioSampleSource,
+	WebMOutputFormat
 } from 'mediabunny';
 import { probeSourceFile } from './source';
 import { preflightExport, exportSegments, discardScratchFile } from './export';
@@ -42,6 +47,94 @@ async function createColorMp4(
 	const buf = target.buffer;
 	if (!buf) throw new Error('no buffer');
 	return new File([buf], `${color}-${width}x${height}.mp4`, { type: 'video/mp4' });
+}
+
+async function createToneWebM(frequency: number, durationSec = 1): Promise<File> {
+	const target = new BufferTarget();
+	const output = new Output({ format: new WebMOutputFormat(), target });
+	const source = new AudioSampleSource({ codec: 'opus', bitrate: 96_000 });
+	output.addAudioTrack(source);
+	await output.start();
+	const sampleRate = 48_000;
+	const pcm = new Float32Array(Math.round(durationSec * sampleRate));
+	for (let index = 0; index < pcm.length; index++) {
+		pcm[index] = Math.sin((2 * Math.PI * frequency * index) / sampleRate) * 0.4;
+	}
+	const sample = new AudioSample({
+		data: pcm,
+		format: 'f32',
+		numberOfChannels: 1,
+		sampleRate,
+		timestamp: 0
+	});
+	await source.add(sample);
+	sample.close();
+	source.close();
+	await output.finalize();
+	if (!target.buffer) throw new Error('No audio fixture bytes.');
+	return new File([target.buffer], `tone-${frequency}.webm`, { type: 'audio/webm' });
+}
+
+async function decodedMono(blob: Blob): Promise<{ samples: Float32Array; sampleRate: number }> {
+	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) });
+	try {
+		const track = await input.getPrimaryAudioTrack();
+		if (!track) throw new Error('Merged output has no audio track.');
+		const chunks: Float32Array[] = [];
+		let length = 0;
+		for await (const sample of new AudioSampleSink(track).samples()) {
+			try {
+				const pcm = new Float32Array(sample.numberOfFrames);
+				sample.copyTo(pcm, { planeIndex: 0, format: 'f32-planar' });
+				chunks.push(pcm);
+				length += pcm.length;
+			} finally {
+				sample.close();
+			}
+		}
+		const samples = new Float32Array(length);
+		let offset = 0;
+		for (const chunk of chunks) {
+			samples.set(chunk, offset);
+			offset += chunk.length;
+		}
+		return { samples, sampleRate: track.sampleRate };
+	} finally {
+		input.dispose?.();
+	}
+}
+
+function tonePowerAt(
+	samples: Float32Array,
+	sampleRate: number,
+	centerSeconds: number,
+	frequency: number,
+	windowSeconds = 0.2
+): number {
+	const halfWindow = Math.round((windowSeconds * sampleRate) / 2);
+	const center = Math.round(centerSeconds * sampleRate);
+	const start = Math.max(0, center - halfWindow);
+	const end = Math.min(samples.length, center + halfWindow);
+	let real = 0;
+	let imaginary = 0;
+	for (let index = start; index < end; index++) {
+		const angle = (2 * Math.PI * frequency * (index - start)) / sampleRate;
+		real += samples[index]! * Math.cos(angle);
+		imaginary -= samples[index]! * Math.sin(angle);
+	}
+	return real * real + imaginary * imaginary;
+}
+
+function expectToneAt(
+	samples: Float32Array,
+	sampleRate: number,
+	centerSeconds: number,
+	expectedFrequency: 220 | 440
+): void {
+	const otherFrequency = expectedFrequency === 220 ? 440 : 220;
+	expect(tonePowerAt(samples, sampleRate, centerSeconds, expectedFrequency)).toBeGreaterThan(
+		tonePowerAt(samples, sampleRate, centerSeconds, otherFrequency) * 20
+	);
 }
 
 describe('quick-cut mediabunny fixture', () => {
@@ -105,6 +198,23 @@ describe('quick-cut mediabunny fixture', () => {
 			if (count > 500) break;
 		}
 		expect(count).toBeGreaterThan(0);
+		const canvasSink = new CanvasSink(vTrack!, {
+			width: 128,
+			height: 72,
+			fit: 'fill',
+			poolSize: 2
+		});
+		const colorAt = async (seconds: number): Promise<'red' | 'blue'> => {
+			const wrapped = await canvasSink.getCanvas(seconds);
+			if (!wrapped) throw new Error(`No decoded frame at ${seconds}.`);
+			const context = wrapped.canvas.getContext('2d');
+			if (!context) throw new Error('Decoded canvas unavailable.');
+			const pixel = context.getImageData(64, 36, 1, 1).data;
+			return pixel[0]! > pixel[2]! ? 'red' : 'blue';
+		};
+		expect(await colorAt(0.5)).toBe('red');
+		expect(await colorAt(1.5)).toBe('blue');
+		expect(await colorAt(2.5)).toBe('red');
 		input.dispose?.();
 		await discardScratchFile(art.scratchPath);
 	}, 30000);
@@ -122,6 +232,60 @@ describe('quick-cut mediabunny fixture', () => {
 		expect(pre.requiresTranscode).toBe(true);
 		expect(pre.reason).toMatch(/dimensions/i);
 	});
+
+	it('merges audio-only A/B/A in order without inventing a video track', async () => {
+		const fileA = await createToneWebM(220);
+		const fileB = await createToneWebM(440);
+		const sourceA = await probeSourceFile(fileA);
+		const sourceB = await probeSourceFile(fileB);
+		expect(sourceA.keyframeState).toBe('audio-only');
+		expect(sourceB.keyframeState).toBe('audio-only');
+		const segments = [
+			createSegment(0, 0.5, { sourceId: sourceA.id }),
+			createSegment(0, 0.5, { sourceId: sourceB.id }),
+			createSegment(0.5, 1, { sourceId: sourceA.id })
+		];
+		const preflight = await preflightExport([sourceA, sourceB], segments, 'nearestKeyframe', true);
+		expect(preflight.eligible).toBe(true);
+		expect(preflight.requiresTranscode).toBe(false);
+		const [artifact] = await exportSegments({
+			sources: [sourceA, sourceB],
+			segments,
+			cutMode: 'nearestKeyframe',
+			merge: true
+		});
+		expect(artifact?.wasLossless).toBe(true);
+		const decoded = await decodedMono(artifact!.scratchFile);
+		expectToneAt(decoded.samples, decoded.sampleRate, 0.25, 220);
+		expectToneAt(decoded.samples, decoded.sampleRate, 0.75, 440);
+		expectToneAt(decoded.samples, decoded.sampleRate, 1.25, 220);
+		await discardScratchFile(artifact!.scratchPath);
+	}, 30_000);
+
+	it('re-encodes exact audio-only cuts at the requested sample ranges', async () => {
+		const fileA = await createToneWebM(220);
+		const fileB = await createToneWebM(440);
+		const sourceA = await probeSourceFile(fileA);
+		const sourceB = await probeSourceFile(fileB);
+		const segments = [
+			createSegment(0.1, 0.4, { sourceId: sourceA.id }),
+			createSegment(0.2, 0.5, { sourceId: sourceB.id })
+		];
+		const preflight = await preflightExport([sourceA, sourceB], segments, 'exact', true);
+		expect(preflight.requiresTranscode).toBe(true);
+		const [artifact] = await exportSegments({
+			sources: [sourceA, sourceB],
+			segments,
+			cutMode: 'exact',
+			merge: true
+		});
+		expect(artifact?.wasLossless).toBe(false);
+		const decoded = await decodedMono(artifact!.scratchFile);
+		expect(decoded.samples.length / decoded.sampleRate).toBeCloseTo(0.6, 1);
+		expectToneAt(decoded.samples, decoded.sampleRate, 0.15, 220);
+		expectToneAt(decoded.samples, decoded.sampleRate, 0.45, 440);
+		await discardScratchFile(artifact!.scratchPath);
+	}, 30_000);
 
 	it('exact non-keyframe A/B/A proves bounded transcode merge', async () => {
 		const fileA = await createColorMp4('green', 2, 128, 72);

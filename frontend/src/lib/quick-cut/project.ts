@@ -88,16 +88,7 @@ const legacyProjectSchema = z.object({
 	updatedAt: z.number().optional()
 });
 
-function isValidProjectData(data: unknown): data is QuickCutProject {
-	return projectSchema.safeParse(data).success;
-}
-
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- parsing untrusted JSON at boundary, validated via zod
-function validateProject(parsed: unknown): QuickCutProject {
-	const result = projectSchema.safeParse(parsed);
-	if (!result.success)
-		throw new Error(`Invalid project: ${result.error.issues[0]?.message ?? 'schema error'}`);
-	const data = result.data;
+function validateProject(data: QuickCutProject): QuickCutProject {
 	const sourceIds = new Set(data.sources.map((s) => s.id));
 	for (const seg of data.segments) {
 		if (!sourceIds.has(seg.sourceId))
@@ -114,17 +105,18 @@ function validateProject(parsed: unknown): QuickCutProject {
 }
 
 export function parseProject(json: string): QuickCutProject {
-	let parsed: unknown; // oxlint-disable-line anti-slop/no-unknown-parameters -- JSON.parse returns unknown at boundary
+	let parsed: z.infer<ReturnType<typeof z.json>>;
 	try {
-		parsed = JSON.parse(json);
+		parsed = z.json().parse(JSON.parse(json));
 	} catch {
 		throw new Error('Invalid JSON');
 	}
-	if (isValidProjectData(parsed)) return parsed;
+	const current = projectSchema.safeParse(parsed);
+	if (current.success) return validateProject(current.data);
 	const legacy = legacyProjectSchema.safeParse(parsed);
 	if (legacy.success) {
 		const o = legacy.data;
-		const hasSources = typeof parsed === 'object' && parsed !== null && 'sources' in parsed;
+		const hasSources = z.object({ sources: z.unknown() }).passthrough().safeParse(parsed).success;
 		if (!hasSources) {
 			const legacyId = crypto.randomUUID();
 			const legacySources: QuickCutSourceMetadata[] = [
@@ -168,10 +160,10 @@ export function parseProject(json: string): QuickCutProject {
 				createdAt: o.createdAt ?? Date.now(),
 				updatedAt: o.updatedAt ?? Date.now()
 			};
-			return validateProject(migrated);
+			return validateProject(projectSchema.parse(migrated));
 		}
 	}
-	return validateProject(parsed);
+	throw new Error(`Invalid project: ${current.error.issues[0]?.message ?? 'schema error'}`);
 }
 
 export function createNewProject(

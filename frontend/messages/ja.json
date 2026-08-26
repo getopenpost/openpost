@@ -6756,6 +6756,7 @@
 	"quick_cut_project_saved": "プロジェクトを保存しました。",
 	"quick_cut_send_to_openpost": "OpenPostへ送信",
 	"quick_cut_sent": "OpenPostへ送信しました。",
+	"quick_cut_send_workspace_required": "送信する前にOpenPostワークスペースを選択してください。",
 	"quick_cut_cancelled": "書き出しをキャンセルしました。",
 	"quick_cut_workspace_hint": "ワークスペースが選択されている場合はそこに保存されます。",
 	"quick_cut_keyboard_hint": "I/O イン/アウト · スペース 再生/一時停止 · 矢印 フレーム送り · L ループ · Enter 追加",

@@ -1,7 +1,7 @@
 <!--
 Quick Cut: fast lossless trimming. Open a file, mark in/out, export the
 selected range without re-encoding (mediabunny stream copy). UX inspired by
-LosslessCut (GPL — behavioral reference only, no code ported).
+LosslessCut (GPL - behavioral reference only, no code ported).
 -->
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
@@ -9,7 +9,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	import { Label } from '$lib/components/ui/label';
 	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, tick } from 'svelte';
 	import SegmentList from '$lib/quick-cut/components/SegmentList.svelte';
 	import TimelineBar from '$lib/quick-cut/components/TimelineBar.svelte';
 	import ExportPanel from '$lib/quick-cut/components/ExportPanel.svelte';
@@ -41,6 +41,8 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	import type { QuickCutProject } from '$lib/quick-cut/types';
 	import { getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
+	import { workspaceCtx } from '$lib/stores/workspace.svelte';
+	import { sendToOpenPost } from '$lib/video-editor/send-to-openpost';
 
 	let sources = $state<QuickCutSource[]>([]);
 	let sourceUrls = $state<Map<string, string>>(new Map());
@@ -61,15 +63,24 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	let project = $state<QuickCutProject | null>(null);
 	let workspaceName = $state<string | null>(null);
 	let videoSrc = $state<string>('');
+	let previewRun = $state<{
+		generation: number;
+		segmentIds: string[];
+		index: number;
+		repeat: boolean;
+	} | null>(null);
+	let previewGeneration = 0;
+	let previewWait: AbortController | null = null;
 
 	const activeSource = $derived(sources.find((s) => s.id === activeSourceId) ?? sources[0] ?? null);
 	const selectedSegment = $derived(segments.find((s) => s.id === selectedId) ?? null);
-	const validationErrors = $derived(validateSegments(segments, 0, sources));
+	const enabledSegments = $derived(segments.filter((segment) => segment.enabled !== false));
+	const validationErrors = $derived(validateSegments(enabledSegments, 0, sources));
 	const hasOverlapError = $derived(validationErrors.some((e) => e.kind === 'overlap'));
 	const preflight = $derived.by(() => {
 		// sync preflight cannot be async; we compute sync reason via model assess, but final preflight is async for quota
 		// For UI we show quick sync check
-		if (segments.length === 0)
+		if (enabledSegments.length === 0)
 			return { eligible: false, reason: m.quick_cut_no_segments(), requiresTranscode: false };
 		// Use model validation for quick feedback
 		if (hasOverlapError)
@@ -92,6 +103,22 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 			videoSrc = '';
 		}
 	});
+
+	function pickViaInput(): Promise<File[] | null> {
+		return new Promise((resolve) => {
+			const input = document.createElement('input');
+			input.type = 'file';
+			input.multiple = true;
+			input.accept = 'video/*,audio/*,.mp4,.webm,.mov,.mkv,.m4v,.mp3,.aac,.wav,.flac,.ogg,.m4a';
+			const settle = (files: File[] | null): void => {
+				input.remove();
+				resolve(files);
+			};
+			input.onchange = () => settle(input.files ? Array.from(input.files) : null);
+			input.oncancel = () => settle(null);
+			input.click();
+		});
+	}
 
 	async function openFiles(): Promise<void> {
 		let handles: FileSystemFileHandle[] = [];
@@ -162,10 +189,11 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		syncProject();
 	}
 
-	function switchActiveSource(id: string): void {
+	function switchActiveSource(id: string, preservePreview = false): void {
+		if (id === activeSourceId) return;
+		if (!preservePreview) stopPreview();
 		activeSourceId = id;
 		currentTime = 0;
-		if (videoEl) videoEl.currentTime = 0;
 	}
 
 	function seekTo(seconds: number): void {
@@ -243,22 +271,130 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		syncProject();
 	}
 
+	async function waitForPreviewSource(
+		expectedSourceId: string,
+		generation: number
+	): Promise<HTMLVideoElement> {
+		previewWait?.abort();
+		const controller = new AbortController();
+		previewWait = controller;
+		if (expectedSourceId !== activeSourceId) switchActiveSource(expectedSourceId, true);
+		await tick();
+		const element = videoEl;
+		const expectedUrl = sourceUrls.get(expectedSourceId);
+		if (!element || !expectedUrl || generation !== previewGeneration) {
+			throw new DOMException('Preview changed.', 'AbortError');
+		}
+		if (element.getAttribute('src') === expectedUrl && element.readyState >= 1) return element;
+		await new Promise<void>((resolve, reject) => {
+			const settle = (error?: Error): void => {
+				element.removeEventListener('loadedmetadata', onLoaded);
+				element.removeEventListener('error', onError);
+				controller.signal.removeEventListener('abort', onAbort);
+				if (error) reject(error);
+				else resolve();
+			};
+			const onLoaded = (): void => settle();
+			const onError = (): void => settle(new Error('Could not load this source for preview.'));
+			const onAbort = (): void => settle(new DOMException('Preview changed.', 'AbortError'));
+			element.addEventListener('loadedmetadata', onLoaded, { once: true });
+			element.addEventListener('error', onError, { once: true });
+			controller.signal.addEventListener('abort', onAbort, { once: true });
+		});
+		if (generation !== previewGeneration || controller.signal.aborted) {
+			throw new DOMException('Preview changed.', 'AbortError');
+		}
+		return element;
+	}
+
+	async function playPreviewIndex(generation: number, index: number): Promise<void> {
+		const run = previewRun;
+		if (!run || run.generation !== generation || index < 0 || index >= run.segmentIds.length)
+			return;
+		const segment = segments.find((candidate) => candidate.id === run.segmentIds[index]);
+		if (!segment || segment.enabled === false) return;
+		run.index = index;
+		try {
+			const element = await waitForPreviewSource(segment.sourceId, generation);
+			const signal = previewWait?.signal;
+			element.currentTime = segment.start;
+			await new Promise<void>((resolve, reject) => {
+				if (Math.abs(element.currentTime - segment.start) < 0.01 && element.readyState >= 2) {
+					resolve();
+					return;
+				}
+				const onSeeked = (): void => {
+					element.removeEventListener('error', onError);
+					signal?.removeEventListener('abort', onAbort);
+					resolve();
+				};
+				const onError = (): void => {
+					element.removeEventListener('seeked', onSeeked);
+					signal?.removeEventListener('abort', onAbort);
+					reject(new Error('Could not seek to this segment.'));
+				};
+				const onAbort = (): void => {
+					element.removeEventListener('seeked', onSeeked);
+					element.removeEventListener('error', onError);
+					reject(new DOMException('Preview changed.', 'AbortError'));
+				};
+				element.addEventListener('seeked', onSeeked, { once: true });
+				element.addEventListener('error', onError, { once: true });
+				signal?.addEventListener('abort', onAbort, { once: true });
+			});
+			if (generation !== previewGeneration) return;
+			await element.play();
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') return;
+			previewRun = null;
+			showToast(error instanceof Error ? error.message : String(error), 'error');
+		}
+	}
+
+	function startPreview(segmentIds: string[], repeat: boolean): void {
+		const playable = segmentIds.filter((id) => {
+			const segment = segments.find((candidate) => candidate.id === id);
+			return segment?.enabled !== false;
+		});
+		if (playable.length === 0) return;
+		previewGeneration += 1;
+		previewRun = { generation: previewGeneration, segmentIds: playable, index: 0, repeat };
+		void playPreviewIndex(previewGeneration, 0);
+	}
+
+	function stopPreview(): void {
+		previewGeneration += 1;
+		previewWait?.abort();
+		previewWait = null;
+		previewRun = null;
+	}
+
 	function togglePlay(): void {
 		if (!videoEl) return;
-		if (playing) videoEl.pause();
-		else void videoEl.play();
+		if (playing) {
+			videoEl.pause();
+			stopPreview();
+			return;
+		}
+		if (loopMode === 'all' && enabledSegments.length > 0) {
+			startPreview(
+				enabledSegments.map((segment) => segment.id),
+				true
+			);
+			return;
+		}
+		if (loopMode === 'segment' && selectedSegment?.enabled !== false) {
+			startPreview([selectedSegment.id], true);
+			return;
+		}
+		void videoEl.play();
 	}
 
 	function previewSegment(id: string): void {
 		const seg = segments.find((s) => s.id === id);
-		if (!seg) return;
+		if (!seg || seg.enabled === false) return;
 		selectedId = id;
-		if (seg.sourceId !== activeSourceId) switchActiveSource(seg.sourceId);
-		// Need to wait for src switch
-		requestAnimationFrame(() => {
-			seekTo(seg.start);
-			videoEl?.play();
-		});
+		startPreview([id], loopMode === 'segment');
 	}
 
 	function normalize(): void {
@@ -274,8 +410,18 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 		soundPreferences.play('toggle');
 	}
 
-	async function runExport(toExport: QuickCutSegment[], doMerge: boolean): Promise<void> {
-		if (sources.length === 0 || toExport.length === 0) return;
+	async function runExport(
+		requestedSegments: QuickCutSegment[],
+		doMerge: boolean,
+		destination: 'save' | 'send' = 'save'
+	): Promise<boolean> {
+		const toExport = requestedSegments.filter((segment) => segment.enabled !== false);
+		if (sources.length === 0 || toExport.length === 0) return false;
+		const workspaceId = destination === 'send' ? workspaceCtx.currentWorkspace?.id : undefined;
+		if (destination === 'send' && !workspaceId) {
+			showToast(m.quick_cut_send_workspace_required(), 'error');
+			return false;
+		}
 		exporting = true;
 		exportProgress = {
 			phase: 'preparing',
@@ -293,7 +439,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 			const pre = await preflightExport(sources, toExport, cutMode, doMerge);
 			if (!pre.eligible) {
 				showToast(pre.reason, 'error');
-				return;
+				return false;
 			}
 			artifacts = await exportSegments({
 				sources,
@@ -304,7 +450,13 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 				onProgress: (p) => (exportProgress = p)
 			});
 			for (const art of artifacts) {
-				try {
+				if (destination === 'send') {
+					await sendToOpenPost({
+						workspaceId: workspaceId!,
+						blob: art.scratchFile,
+						fileName: art.fileName
+					});
+				} else {
 					if (getWorkspaceRoot()) {
 						const saved = await copyScratchToWorkspace(
 							art.scratchFile,
@@ -323,19 +475,25 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 						showToast(m.quick_cut_saved(), 'success');
 					}
 					soundPreferences.play('success');
-				} finally {
-					await discardScratchFile(art.scratchPath).catch(() => undefined);
 				}
 			}
+			if (destination === 'send') {
+				showToast(m.quick_cut_sent(), 'success');
+				soundPreferences.play('success');
+			}
+			return true;
 		} catch (err) {
-			for (const a of artifacts) await discardScratchFile(a.scratchPath).catch(() => undefined);
 			if (err instanceof DOMException && err.name === 'AbortError')
 				showToast(m.quick_cut_cancelled(), 'error');
 			else {
 				showToast(err instanceof Error ? err.message : String(err), 'error');
 				soundPreferences.play('error');
 			}
+			return false;
 		} finally {
+			for (const artifact of artifacts) {
+				await discardScratchFile(artifact.scratchPath).catch(() => undefined);
+			}
 			exporting = false;
 			exportProgress = null;
 			abortController = null;
@@ -349,12 +507,12 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 
 	async function handleExportAll(): Promise<void> {
 		if (exporting) return;
-		await runExport(segments, false);
+		await runExport(enabledSegments, false);
 	}
 
 	async function handleExportMerged(): Promise<void> {
 		if (exporting) return;
-		await runExport(segments, true);
+		await runExport(enabledSegments, true);
 	}
 
 	function cancelExport(): void {
@@ -363,6 +521,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 
 	let saveState = $state<'idle' | 'saving' | 'saved' | 'error'>('idle');
 	let saveQueue: Promise<void> = Promise.resolve();
+	let saveRevision = 0;
 
 	function syncProject(): void {
 		if (!project) return;
@@ -374,19 +533,22 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 			return m;
 		});
 		if (!getWorkspaceRoot()) return;
+		const revision = ++saveRevision;
 		saveState = 'saving';
-		const toSave = { ...project };
+		const toSave = structuredClone(project);
 		saveQueue = saveQueue
 			.then(() => saveProjectToWorkspace(toSave))
 			.then(() => {
+				if (revision !== saveRevision) return;
 				saveState = 'saved';
 				setTimeout(() => {
-					if (saveState === 'saved') saveState = 'idle';
+					if (revision === saveRevision && saveState === 'saved') saveState = 'idle';
 				}, 1500);
 			})
-			.catch(() => {
+			.catch((error: Error) => {
+				if (revision !== saveRevision) return;
 				saveState = 'error';
-				showToast(m.quick_cut_save_failed(), 'error');
+				showToast(error.message || m.quick_cut_save_failed(), 'error');
 			});
 	}
 
@@ -467,44 +629,38 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	}
 
 	async function handleSendToOpenPost(): Promise<void> {
-		if (segments.length === 0 || sources.length === 0) return;
-		try {
-			await runExport(segments, merge);
-			showToast(m.quick_cut_sent(), 'success');
-		} catch (e) {
-			if (e instanceof DOMException && e.name === 'AbortError')
-				showToast(m.quick_cut_cancelled(), 'error');
-			else showToast(e instanceof Error ? e.message : String(e), 'error');
-		}
+		if (enabledSegments.length === 0 || sources.length === 0 || exporting) return;
+		await runExport(enabledSegments, merge, 'send');
 	}
 
 	function onTimeUpdate(): void {
 		if (!videoEl) return;
 		currentTime = videoEl.currentTime;
-		if (loopMode === 'segment' && selectedSegment) {
-			if (
-				selectedSegment.sourceId === activeSourceId &&
-				currentTime >= selectedSegment.end - 0.05
-			) {
-				seekTo(selectedSegment.start);
+		const run = previewRun;
+		if (!run || run.generation !== previewGeneration) return;
+		const segmentId = run.segmentIds[run.index];
+		const segment = segments.find((candidate) => candidate.id === segmentId);
+		if (!segment || segment.sourceId !== activeSourceId) return;
+		if (currentTime < segment.end - 0.02) return;
+		videoEl.pause();
+		let nextIndex = run.index + 1;
+		if (nextIndex >= run.segmentIds.length) {
+			if (!run.repeat) {
+				stopPreview();
+				return;
 			}
-		} else if (loopMode === 'all' && segments.length > 0) {
-			const last = segments[segments.length - 1]!;
-			const first = segments[0]!;
-			if (currentTime >= activeSource!.duration - 0.05) {
-				// Find next segment after current active source's last? For all loop, go to first segment's source
-				if (activeSourceId === last.sourceId && currentTime >= last.end - 0.05) {
-					if (first.sourceId !== activeSourceId) switchActiveSource(first.sourceId);
-					requestAnimationFrame(() => seekTo(first.start));
-				}
-			}
+			nextIndex = 0;
 		}
+		void playPreviewIndex(run.generation, nextIndex);
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
 		const target = event.target instanceof HTMLElement ? event.target : null;
 		if (!target) return;
-		if (target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA') return;
+		if (
+			target.matches('input, textarea, select, button, [contenteditable="true"], [role="textbox"]')
+		)
+			return;
 		if (event.key === 'i' || event.key === 'I') {
 			event.preventDefault();
 			markIn();
@@ -530,6 +686,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 	}
 
 	onDestroy(() => {
+		stopPreview();
 		for (const url of sourceUrls.values()) URL.revokeObjectURL(url);
 	});
 </script>
@@ -702,6 +859,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 								size="xs"
 								variant="secondary"
 								onclick={() => previewSegment(selectedSegment!.id)}
+								disabled={selectedSegment.enabled === false}
 								class="min-h-11 md:min-h-7">{m.quick_cut_preview_selected()}</Button
 							>
 							<Button
@@ -717,7 +875,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 				<div class="flex flex-col gap-4">
 					<div class="rounded-xl border bg-card p-4 shadow-sm">
 						<h2 class="text-sm font-semibold">
-							{m.quick_cut_segments_label()} · {segments.length}
+							{m.quick_cut_segments_label()} · {enabledSegments.length}
 						</h2>
 						<p class="mt-1 text-xs text-muted-foreground">{m.quick_cut_segments_hint()}</p>
 
@@ -807,7 +965,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 								size="sm"
 								variant="outline"
 								onclick={handleSendToOpenPost}
-								disabled={segments.length === 0}
+								disabled={enabledSegments.length === 0}
 								class="min-h-11">{m.quick_cut_send_to_openpost()}</Button
 							>
 						</div>
@@ -818,7 +976,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 					<div class="flex flex-wrap gap-2">
 						<Button
 							size="sm"
-							disabled={exporting || segments.length === 0}
+							disabled={exporting || enabledSegments.length === 0}
 							onclick={handleExportAll}
 							class="min-h-11 flex-1">{m.quick_cut_export_all()}</Button
 						>
@@ -826,7 +984,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 							<Button
 								size="sm"
 								variant="secondary"
-								disabled={exporting || segments.length < 2}
+								disabled={exporting || enabledSegments.length < 2}
 								onclick={handleExportMerged}
 								class="min-h-11 flex-1">{m.quick_cut_export_merged()}</Button
 							>
@@ -836,7 +994,7 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 					{#if segments.length === 1}
 						<Button
 							size="sm"
-							disabled={exporting}
+							disabled={exporting || segments[0]!.enabled === false}
 							onclick={() => handleExportOne(segments[0]!)}
 							class="min-h-11">{m.quick_cut_export()}</Button
 						>
@@ -855,11 +1013,12 @@ LosslessCut (GPL — behavioral reference only, no code ported).
 										size="xs"
 										variant="ghost"
 										onclick={() => previewSegment(seg.id)}
+										disabled={seg.enabled === false}
 										class="min-h-11 md:min-h-7">{m.quick_cut_preview()}</Button
 									>
 									<Button
 										size="xs"
-										disabled={exporting}
+										disabled={exporting || seg.enabled === false}
 										onclick={() => handleExportOne(seg)}
 										class="min-h-11 md:min-h-7">{m.quick_cut_export()}</Button
 									>

@@ -6756,6 +6756,7 @@
 	"quick_cut_project_saved": "Proje kaydedildi.",
 	"quick_cut_send_to_openpost": "OpenPost'a gönder",
 	"quick_cut_sent": "OpenPost'a gönderildi.",
+	"quick_cut_send_workspace_required": "Göndermeden önce bir OpenPost çalışma alanı seçin.",
 	"quick_cut_cancelled": "Dışa aktarma iptal edildi.",
 	"quick_cut_workspace_hint": "Bir workspace seçiliyse projeler oraya kaydedilir.",
 	"quick_cut_keyboard_hint": "I/O giriş/çıkış işaretle · Space oynat/duraklat · Oklar kare adımı · L döngü · Enter ekle",

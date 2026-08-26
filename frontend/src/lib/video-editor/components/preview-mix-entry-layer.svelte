@@ -36,6 +36,11 @@
 		setMixerTrackPreviewGain
 	} from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
+	import {
+		getShuttleMediaPlaybackRate,
+		isReverseShuttleRate
+	} from '$lib/video-editor/preview/shuttle';
+	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
 
 	let { entry, url }: { entry: MixEntry; url?: string | null } = $props();
 	let audio = $state<HTMLAudioElement | null>(null);
@@ -48,6 +53,9 @@
 	let processedPlaying = false;
 	let detachProcessedFromMixer: (() => void) | null = null;
 	let mediaGain: GainNode | null = null;
+	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
+	let shuttleGainNode: GainNode | null = null;
+	let detachShuttle: (() => void) | null = null;
 	const audioCodec = $derived(mediaPool.get(entry.mediaId)?.audioCodec);
 	const unsupportedAudio = $derived(mediaPool.get(entry.mediaId)?.audioCodecSupported === false);
 	const needsProcessing = $derived(
@@ -128,25 +136,85 @@
 		processedPlaying = playing;
 	}
 
-	const shuttleReverseMix = $derived(
-		editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying
-	);
-
 	$effect(() => {
-		const muted = shuttleReverseMix;
 		if (processedGraph)
-			rampPreviewClipGain(
-				processedGraph,
-				muted ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps)
-			);
+			rampPreviewClipGain(processedGraph, gainAt(timelineStore.currentFrame / editorSession.fps));
+		if (shuttleGainNode)
+			shuttleGainNode.gain.value = gainAt(timelineStore.currentFrame / editorSession.fps);
 		if (mediaGain) {
-			mediaGain.gain.value =
-				muted || needsProcessing ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps);
+			mediaGain.gain.value = needsProcessing
+				? 0
+				: gainAt(timelineStore.currentFrame / editorSession.fps);
 		} else if (audio)
 			audio.volume = Math.min(
 				1,
-				muted || needsProcessing ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps, true)
+				needsProcessing ? 0 : gainAt(timelineStore.currentFrame / editorSession.fps, true)
 			);
+	});
+
+	$effect(() => {
+		const transportRate = editorSession.clock.playbackRate;
+		const isPlaying = editorSession.clock.isPlaying;
+		const sourceUrl = url;
+		if (!isPlaying || !isReverseShuttleRate(transportRate) || !sourceUrl || unsupportedAudio) {
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+			return;
+		}
+		let stale = false;
+		void decodedPreviewAudio(sourceUrl, audioCodec).then((buffer) => {
+			if (stale || !buffer) return;
+			const context = previewAudioContext();
+			let destination: AudioNode;
+			let detach: () => void;
+			if (needsProcessing && processedGraph) {
+				destination = processedGraph.sourceInputNode;
+				detach = () => {};
+			} else {
+				const gain = context.createGain();
+				gain.gain.value = gainAt(timelineStore.currentFrame / editorSession.fps);
+				detach = attachAudioSourceToMixer(gain, entry.trackId ?? 'nested-audio');
+				shuttleGainNode = gain;
+				detachShuttle = detach;
+				destination = gain;
+			}
+			const scheduler = createReverseShuttleScheduler({
+				context,
+				buffer,
+				bufferStartSeconds: 0,
+				getSourceCursorSeconds: () => {
+					const time = timelineStore.currentFrame / editorSession.fps;
+					return (
+						entry.sourceOffsetSeconds +
+						(time - entry.whenSeconds) * entry.playbackRate * (entry.reversed ? -1 : 1)
+					);
+				},
+				authoredPlaybackRate: entry.playbackRate,
+				authoredReversed: !!entry.reversed,
+				getTransportRate: () => editorSession.clock.playbackRate,
+				getGain: () => 1,
+				destination
+			});
+			shuttleScheduler = scheduler;
+			scheduler.start();
+		});
+		return () => {
+			stale = true;
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+		};
 	});
 
 	$effect(() => {
@@ -236,10 +304,14 @@
 		const scheduler = new SeekScheduler((target) => (media.currentTime = target));
 		const sync = () => {
 			const time = untrack(() => timelineStore.currentFrame) / editorSession.fps;
-			const shuttleRev = editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying;
+			const transportRate = editorSession.clock.playbackRate;
+			const shuttleRev = isReverseShuttleRate(transportRate) && editorSession.clock.isPlaying;
 			if (shuttleRev) {
 				if (!media.paused) media.pause();
-				processedNode?.port.postMessage({ type: 'set-playing', playing: false });
+				// Reverse grains scheduled via decoded buffer; keep gain audible
+				if (needsProcessing) {
+					processedNode?.port.postMessage({ type: 'set-playing', playing: false });
+				}
 				return;
 			}
 			if (needsProcessing) {
@@ -263,10 +335,15 @@
 			const sourceTime =
 				entry.sourceOffsetSeconds +
 				(time - entry.whenSeconds) * entry.playbackRate * (entry.reversed ? -1 : 1);
-			if (seekDriftExceeded(media.currentTime, sourceTime, 0.08 / entry.playbackRate)) {
+			const combinedRate = getShuttleMediaPlaybackRate(entry.playbackRate, Math.abs(transportRate));
+			if (seekDriftExceeded(media.currentTime, sourceTime, 0.08 / Math.max(0.1, combinedRate))) {
 				scheduler.request(sourceTime);
 			}
-			media.playbackRate = Math.min(16, Math.max(0.0625, entry.playbackRate));
+			media.playbackRate = combinedRate;
+			if (needsProcessing) {
+				const tempo = getShuttleMediaPlaybackRate(entry.playbackRate, Math.abs(transportRate));
+				processedNode?.port.postMessage({ type: 'set-tempo', tempo });
+			}
 			if (!gainNode) media.volume = Math.min(1, gainAt(time, true));
 			if (editorSession.clock.isPlaying && media.paused && !entry.reversed)
 				void media.play().catch(() => undefined);
@@ -277,9 +354,11 @@
 		sync();
 		const offPlay = editorSession.clock.on('play', sync);
 		const offPause = editorSession.clock.on('pause', sync);
+		const offRate = editorSession.clock.on('ratechange', sync);
 		return () => {
 			offPlay();
 			offPause();
+			offRate();
 			scheduler.detach();
 			if (syncMedia === sync) syncMedia = null;
 			detachFromMixer?.();

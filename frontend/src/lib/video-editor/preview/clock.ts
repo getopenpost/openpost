@@ -1,11 +1,13 @@
 /**
  * Playback clock — single source of truth for timeline playback time.
  *
- * rAF loop; frame = floor(startFrame + elapsed·fps·rate). Prefers a running
- * AudioContext.currentTime over performance.now() as the hardware time
- * source (eliminates A/V drift by construction), mapping epochs on source
- * switch. Supports in/out range playback, looping, rate changes with
- * re-anchor, visibility catch-up, throttled timeupdate.
+ * rAF loop; frame = (rate >= 0 ? floor : ceil)(startFrame + elapsed·fps·rate).
+ * Prefers a running AudioContext.currentTime over performance.now() as the
+ * hardware time source (eliminates A/V drift by construction), mapping epochs
+ * on source switch. Supports half-open range playback [start, end), looping,
+ * signed rates with re-anchor, visibility catch-up, throttled timeupdate.
+ * currentFrame never exposes values outside [start, end - 1] while a range is
+ * active. Forward end lands on end - 1, reverse end lands on start.
  *
  * Time sources are injectable for tests.
  *
@@ -109,7 +111,13 @@ export class Clock {
 	}
 
 	get currentFrame(): number {
-		return this.playing ? this.computeFrame() : this.frame;
+		if (!this.playing) return this.frame;
+		const computed = this.computeFrame();
+		if (this.range) {
+			if (this.rate >= 0) return Math.min(computed, this.range.end - 1);
+			return Math.max(computed, this.range.start);
+		}
+		return computed;
 	}
 
 	get isPlaying(): boolean {
@@ -234,7 +242,7 @@ export class Clock {
 					this.rafId = requestAnimationFrame(this.tick);
 					return;
 				}
-				this.frame = this.range.end;
+				this.frame = this.range.end - 1;
 				this.playing = false;
 				if (this.rafId !== null) {
 					cancelAnimationFrame(this.rafId);

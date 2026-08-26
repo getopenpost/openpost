@@ -5,6 +5,10 @@
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { resolveAnimatedItemAt } from '$lib/video-editor/timeline/animated-properties';
+	import {
+		getShuttleMediaPlaybackRate,
+		isReverseShuttleRate
+	} from '$lib/video-editor/preview/shuttle';
 	import { effectsToCssFilter } from '$lib/video-editor/effects/filter';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
 	import { frameToSourceSeconds } from '$lib/video-editor/media/render-plan';
@@ -71,7 +75,11 @@
 		PROXY_SEEK_STALL_MS
 	} from '$lib/video-editor/preview/scrub-proxy-fallback';
 	import { clonePrewarmedPreviewFrame } from '$lib/video-editor/preview/decoder-prewarm-client';
-	import { previewAudioContext } from '$lib/video-editor/audio/reverse-preview-audio';
+	import {
+		decodedPreviewAudio,
+		previewAudioContext
+	} from '$lib/video-editor/audio/reverse-preview-audio';
+	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
 	import { attachAudioSourceToMixer, setMixerMaster } from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
 
@@ -120,6 +128,9 @@
 	let proxyAudioElement = $state<HTMLAudioElement | null>(null);
 	let videoMixerGain: GainNode | null = null;
 	let proxyMixerGain: GainNode | null = null;
+	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
+	let shuttleGainNode: GainNode | null = null;
+	let detachShuttle: (() => void) | null = null;
 	let syncVideoFrame = $state<(() => void) | null>(null);
 	let videoRevision = $state(0);
 	let proxyFallbackCanvas = $state<HTMLCanvasElement | null>(null);
@@ -277,36 +288,104 @@
 	);
 	const usesProcessedAudio = $derived(item.type === 'video' && requiresProcessedPreviewAudio(item));
 
+	const transportRate = $derived(editorSession.clock.playbackRate);
 	const isShuttleReverse = $derived(
-		editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying
+		isReverseShuttleRate(transportRate) && editorSession.clock.isPlaying
 	);
+
+	$effect(() => {
+		const transportRate = editorSession.clock.playbackRate;
+		const isPlaying = editorSession.clock.isPlaying;
+		const ownsEmbeddedAudio =
+			item.type === 'video' &&
+			!usesSeparateProxyAudio &&
+			!usesProcessedAudio &&
+			!hasLinkedAudioCompanion(item, timelineStore.items);
+		const sourceUrl = url;
+		if (!isPlaying || !isReverseShuttleRate(transportRate) || !ownsEmbeddedAudio || !sourceUrl) {
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+			return;
+		}
+		let stale = false;
+		void decodedPreviewAudio(sourceUrl, mediaPool.get(item.mediaId ?? '')?.audioCodec).then(
+			(buffer) => {
+				if (stale || !buffer) return;
+				const context = previewAudioContext();
+				const gain = context.createGain();
+				gain.gain.value = previewItemVolumeWithFade(
+					previewItemVolume(
+						item,
+						timelineStore.tracks,
+						previewPlaybackSettings.volume,
+						previewPlaybackSettings.muted
+					),
+					audioCrossfadeGainAtFrame(
+						item,
+						timelineStore.currentFrame,
+						transitionsStore.list,
+						timelineStore.itemById
+					),
+					audioClipFadeGainAtFrame(item, timelineStore.currentFrame, timelineStore.fps)
+				);
+				const detach = attachAudioSourceToMixer(gain, `shuttle-video:${item.id}`);
+				shuttleGainNode = gain;
+				detachShuttle = detach;
+				const scheduler = createReverseShuttleScheduler({
+					context,
+					buffer,
+					bufferStartSeconds: 0,
+					getSourceCursorSeconds: () =>
+						frameToSourceSeconds(item, timelineStore.currentFrame, editorSession.fps),
+					authoredPlaybackRate: item.speed ?? 1,
+					authoredReversed: !!item.isReversed,
+					getTransportRate: () => editorSession.clock.playbackRate,
+					getGain: () => 1,
+					destination: gain
+				});
+				shuttleScheduler = scheduler;
+				scheduler.start();
+			}
+		);
+		return () => {
+			stale = true;
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+		};
+	});
 
 	$effect(() => {
 		setMixerMaster(timelineStore.masterVolumeDb, timelineStore.masterMuted);
 		const video = mediaElement;
-		const mutedByShuttle = isShuttleReverse;
 		if (videoMixerGain) {
-			const gain =
-				mutedByShuttle || usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume;
+			const gain = usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume;
 			if (video) video.volume = gain > 0 ? 1 : 0;
 			videoMixerGain.gain.value = gain;
 		} else if (video) {
 			video.volume = Math.min(
 				1,
-				(mutedByShuttle || usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume) *
-					fallbackMasterGain
+				(usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume) * fallbackMasterGain
 			);
 		}
 		const proxy = proxyAudioElement;
 		if (proxyMixerGain) {
-			const gain = mutedByShuttle || usesProcessedAudio ? 0 : previewVolume;
+			const gain = usesProcessedAudio ? 0 : previewVolume;
 			if (proxy) proxy.volume = gain > 0 ? 1 : 0;
 			proxyMixerGain.gain.value = gain;
 		} else if (proxy) {
-			proxy.volume = Math.min(
-				1,
-				(mutedByShuttle || usesProcessedAudio ? 0 : previewVolume) * fallbackMasterGain
-			);
+			proxy.volume = Math.min(1, (usesProcessedAudio ? 0 : previewVolume) * fallbackMasterGain);
 		}
 	});
 
@@ -621,17 +700,20 @@
 				item.isReversed && conform
 					? sourceSecondsToReverseConformSeconds(conform, originalSourceTime)
 					: originalSourceTime;
-			if (seekDriftExceeded(video.currentTime, sourceTime, 0.08 / Math.max(0.1, speed))) {
+			const transportRate = editorSession.clock.playbackRate;
+			const combinedRate = getShuttleMediaPlaybackRate(speed, Math.abs(transportRate));
+			const driftThreshold = 0.08 / Math.max(0.1, combinedRate);
+			if (seekDriftExceeded(video.currentTime, sourceTime, driftThreshold)) {
 				videoScheduler.request(sourceTime);
 				scheduleSeekFallback(originalSourceTime);
 			}
-			video.playbackRate = Math.min(16, Math.max(0.0625, speed));
+			video.playbackRate = combinedRate;
 			if (audio) {
-				if (seekDriftExceeded(audio.currentTime, sourceTime, 0.08 / Math.max(0.1, speed)))
+				if (seekDriftExceeded(audio.currentTime, sourceTime, driftThreshold))
 					audioScheduler?.request(sourceTime);
-				audio.playbackRate = video.playbackRate;
+				audio.playbackRate = combinedRate;
 			}
-			const shuttleReverse = editorSession.clock.playbackRate < 0 && editorSession.clock.isPlaying;
+			const shuttleReverse = isReverseShuttleRate(transportRate) && editorSession.clock.isPlaying;
 			if (
 				editorSession.clock.isPlaying &&
 				!shuttleReverse &&
@@ -654,9 +736,11 @@
 		sync();
 		const offPlay = editorSession.clock.on('play', sync);
 		const offPause = editorSession.clock.on('pause', sync);
+		const offRate = editorSession.clock.on('ratechange', sync);
 		return () => {
 			offPlay();
 			offPause();
+			offRate();
 			if (syncVideoFrame === sync) syncVideoFrame = null;
 			videoScheduler.detach();
 			audioScheduler?.detach();

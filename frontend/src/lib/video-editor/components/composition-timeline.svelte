@@ -240,6 +240,31 @@
 		const el = event.currentTarget as HTMLDivElement;
 		if (scrollEl) scrollEl.scrollTop = el.scrollTop;
 	}
+	function handleWheel(event: WheelEvent): void {
+		if (event.ctrlKey || event.metaKey) {
+			event.preventDefault();
+			const delta = event.deltaY > 0 ? 0.9 : 1.1;
+			const next = Math.max(0.25, Math.min(4, timelineStore.zoomLevel * delta));
+			timelineStore._setZoomLevel(next);
+			return;
+		}
+		if (Math.abs(event.deltaX) < Math.abs(event.deltaY) && scrollEl) {
+			scrollEl.scrollLeft += event.deltaY;
+			event.preventDefault();
+		}
+	}
+	function handleGhostScrubMove(frame: number): void {
+		previewFrame = Math.max(0, Math.min(frame, durationFrames - 1));
+	}
+	function commitGhostScrub(): void {
+		if (previewFrame !== null) {
+			timelineStore._setCurrentFrame(previewFrame);
+			previewFrame = null;
+		}
+	}
+	function cancelGhostScrub(): void {
+		previewFrame = null;
+	}
 	function handleTrimToActive(): void {
 		const inP = timelineStore.inPoint;
 		const outP = timelineStore.outPoint;
@@ -778,6 +803,7 @@
 		if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) return;
 		if (event.key === 'Escape') {
 			let handled = false;
+			if (previewFrame !== null) { cancelGhostScrub(); handled = true; }
 			if (drag) { restoreSnapshot(drag.before); drag = null; handled = true; }
 			if (kfDrag) { restoreSnapshot(kfDrag.before); kfDrag = null; handled = true; }
 			if (textDrag?.before) { restoreSnapshot(textDrag.before); textDrag = null; handled = true; }
@@ -1126,26 +1152,33 @@
 		window.addEventListener('pointerup', onUp);
 		window.addEventListener('pointercancel', onCancel);
 	}
-	// playhead scrub on ruler
+	// ghost scrub: separate previewFrame, commit on release, cancel on Escape/pointercancel
 	let scrubActive = $state(false);
 	function startScrub(event: PointerEvent): void {
 		if (event.button !== 0) return;
 		scrubActive = true;
 		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
 		const frame = Math.round(((event.clientX - rect.left) / Math.max(1, rect.width)) * (visibleRange.end - visibleRange.start) + visibleRange.start);
-		seekTo(frame);
+		handleGhostScrubMove(frame);
 		try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch {}
 		const onMove = (e: PointerEvent) => {
 			const f = Math.round(((e.clientX - rect.left) / Math.max(1, rect.width)) * (visibleRange.end - visibleRange.start) + visibleRange.start);
-			seekTo(f);
+			handleGhostScrubMove(f);
 		};
-		const onUp = () => {
+		const onUp = (e: PointerEvent) => {
 			window.removeEventListener('pointermove', onMove);
 			window.removeEventListener('pointerup', onUp);
+			window.removeEventListener('pointercancel', onCancel);
+			window.removeEventListener('keydown', onEsc);
+			if (e.type === 'pointercancel') cancelGhostScrub(); else commitGhostScrub();
 			scrubActive = false;
 		};
+		const onCancel = () => onUp(new PointerEvent('pointercancel'));
+		const onEsc = (ev: KeyboardEvent) => { if (ev.key === 'Escape') { ev.preventDefault(); cancelGhostScrub(); scrubActive = false; window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); window.removeEventListener('pointercancel', onCancel); window.removeEventListener('keydown', onEsc); } };
 		window.addEventListener('pointermove', onMove);
 		window.addEventListener('pointerup', onUp, { once: true });
+		window.addEventListener('pointercancel', onCancel, { once: true });
+		window.addEventListener('keydown', onEsc);
 	}
 	const rulerTicks = $derived.by(() => {
 		const start = Math.floor(visibleRange.start);
@@ -1390,7 +1423,11 @@
 										<option value="add">Add</option>
 									</select>
 								</label>
-								<span class="timing-cell" data-testid={`timing-${item.id}`}>{item.from}–{item.from + item.durationInFrames}</span>
+								<span class="timing-cell" data-testid={`timing-${item.id}`}>
+									<input class="timing-input" type="number" min="0" value={item.from} aria-label="{itemLabel(item)} in" onchange={(e)=>{ const v=Math.max(0, Math.round(Number((e.currentTarget as HTMLInputElement).value)||item.from)); const before=captureSnapshot(); timelineStore._updateItems([{id:item.id, patch:{from:v}}]); commandHistory.addUndoEntry({type:'EDIT_TIMING'}, before); onedit(); }} data-testid={`timing-in-${item.id}`} />
+									<span>–</span>
+									<input class="timing-input" type="number" min="1" value={item.from + item.durationInFrames} aria-label="{itemLabel(item)} out" onchange={(e)=>{ const v=Math.max(item.from+1, Math.round(Number((e.currentTarget as HTMLInputElement).value)||item.from+item.durationInFrames)); const dur=Math.max(1, v - item.from); const before=captureSnapshot(); timelineStore._updateItems([{id:item.id, patch:{durationInFrames:dur}}]); commandHistory.addUndoEntry({type:'EDIT_TIMING'}, before); onedit(); }} data-testid={`timing-out-${item.id}`} />
+								</span>
 								<span class="drag-handle" aria-label={m.video_editor_composition_timeline_reorder()} role="button" tabindex="0" onpointerdown={(e)=>startReorder(track?.id ?? item.trackId, e)}>≡</span>
 							</div>
 							{#each vRows as vRow (vRow.property)}
@@ -1409,9 +1446,45 @@
 							{/each}
 							{#if expanded}
 								<div class="inline-props" data-testid={`inline-props-${item.id}`}>
-									<span class="inline-label">{m.video_editor_composition_timeline_inline_props()}</span>
-									<span class="inline-hint">{m.video_editor_composition_timeline_inline_hint()}</span>
+									<KeyframeDopesheet
+										item={item}
+										availableProperties={getAnimatablePropertiesForItem(item)}
+										currentFrame={previewFrame ?? timelineStore.currentFrame}
+										pixelsPerFrame={pxPerFrame}
+										timelineWidth={timelineWidth}
+										timelineX={timelineX}
+										onscrub={(f) => { previewFrame = f; }}
+										onedit={onedit}
+									/>
 								</div>
+								{#if item.motionLayers && item.motionLayers.length > 0}
+									<div class="motion-layer-bands" data-testid={`motion-layers-${item.id}`}>
+										{#each item.motionLayers as layer (layer.id)}
+											<button type="button" class="motion-layer-band" style="left:{timelineX(item.from)}px; width:{Math.max(8, item.durationInFrames * pxPerFrame)}px" data-testid={`motion-layer-${item.id}-${layer.id}`} aria-label={layer.name ?? layer.presetId ?? 'layer'} onclick={() => { const before=captureSnapshot(); removeMotionLayerFromItems([item.id], layer.id); commandHistory.addUndoEntry({type:'REMOVE_MOTION_LAYER'}, before); onedit(); }}>
+												<span class="band-label">{layer.name ?? layer.presetId ?? 'layer'}</span>
+											</button>
+										{/each}
+									</div>
+								{/if}
+								{#if item.motionModifiers && item.motionModifiers.length > 0}
+									<div class="modifier-bands" data-testid={`motion-modifiers-${item.id}`}>
+										{#each item.motionModifiers as mod (mod.type)}
+											<button type="button" class="modifier-band" style="left:{timelineX(item.from)}px; width:{Math.max(8, item.durationInFrames * pxPerFrame)}px" data-testid={`modifier-${item.id}-${mod.type}`} aria-label={mod.type} onclick={() => { const before=captureSnapshot(); removeMotionModifierFromItems([item.id], mod.type); commandHistory.addUndoEntry({type:'REMOVE_MODIFIER'}, before); onedit(); }}>
+												<span class="band-label">{mod.type}</span>
+											</button>
+										{/each}
+									</div>
+								{/if}
+								{#if item.pathVertices}
+									<div class="path-vertex-lane" data-testid={`path-vertices-${item.id}`}>
+										<span class="band-label">{item.pathVertices.length} vertices</span>
+									</div>
+								{/if}
+								{#if item.isMask}
+									<div class="mask-lane" data-testid={`mask-lane-${item.id}`}>
+										<span class="band-label">{item.maskType ?? 'mask'} {item.maskFeather ? `feather ${item.maskFeather}` : ''}</span>
+									</div>
+								{/if}
 							{/if}
 						</div>
 						{/if}
@@ -1427,7 +1500,7 @@
 					</div>
 				{/if}
 			</div>
-			<div class="timeline-content" bind:this={scrollEl} onscroll={handleScroll} onclick={handleTimelineClick} onpointerdown={startMarquee} role="region" tabindex="0" aria-label={m.video_editor_composition_timeline_layers()} data-testid="composition-scroll">
+			<div class="timeline-content" bind:this={scrollEl} onscroll={handleScroll} onwheel={handleWheel} onclick={handleTimelineClick} onpointerdown={startMarquee} role="region" tabindex="0" aria-label={m.video_editor_composition_timeline_layers()} data-testid="composition-scroll">
 				<div class="timeline-inner" style="width:{timelineWidth}px; height:{Math.max(240, layerEntries.length * ROW_H + 120)}px">
 					<div class="composition-ruler" role="group" aria-label={m.video_editor_composition_timeline_ruler()} onpointerdown={startScrub} data-testid="composition-ruler">
 						{#each rulerTicks as tick (tick)}
@@ -1437,6 +1510,9 @@
 							</button>
 						{/each}
 						<div class="ruler-playhead" style="left:{timelineX(timelineStore.currentFrame)}px" data-testid="composition-playhead" aria-hidden="true"></div>
+						{#if previewFrame !== null}
+							<div class="ruler-playhead ghost" style="left:{timelineX(previewFrame)}px" data-testid="composition-playhead-ghost" aria-hidden="true"></div>
+						{/if}
 						{#if regions.hasActive}
 							<div class="active-region-dim left" style="width:{timelineX(regions.inP ?? 0)}px" data-testid="composition-active-dim-left"></div>
 							<div class="active-region-dim right" style="left:{timelineX(regions.outP ?? durationFrames)}px; width:{Math.max(0, timelineWidth - timelineX(regions.outP ?? durationFrames))}px" data-testid="composition-active-dim-right"></div>
@@ -1486,6 +1562,9 @@
 							{/if}
 						{/each}
 						<div class="bars-playhead" style="left:{timelineX(timelineStore.currentFrame)}px" data-testid="composition-bars-playhead"></div>
+						{#if previewFrame !== null}
+							<div class="bars-playhead ghost" style="left:{timelineX(previewFrame)}px" data-testid="composition-bars-playhead-ghost"></div>
+						{/if}
 						{#if marquee && marquee.active}
 							<div class="marquee" style="left:{Math.min(marquee.x, marquee.x+marquee.w)}px; top:{Math.min(marquee.y, marquee.y+marquee.h)}px; width:{Math.abs(marquee.w)}px; height:{Math.abs(marquee.h)}px" data-testid="composition-marquee"></div>
 						{/if}
@@ -1651,6 +1730,7 @@
 	.tick-line { position: absolute; left: 50%; top: 16px; width: 1px; bottom: 0; background: oklch(0.28 0.012 55); }
 	.tick-label { position: absolute; left: 50%; top: 2px; transform: translateX(-50%); font-size: 0.58rem; font-variant-numeric: tabular-nums; }
 	.ruler-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: oklch(0.66 0.14 45); pointer-events: none; }
+	.ruler-playhead.ghost { background: oklch(0.66 0.14 45 / 0.45); width: 1px; border-left: 1px dashed oklch(0.66 0.14 45); }
 	.active-region-dim { position: absolute; top: 0; bottom: 0; background: oklch(0.12 0.008 55 / 0.45); pointer-events: none; }
 	.comp-end-dim { position: absolute; top: 0; bottom: 0; border-left: 1px solid oklch(0.38 0.02 55); background: oklch(0.12 0.008 55 / 0.55); pointer-events: none; }
 	.layer-bars { position: relative; min-height: 200px; padding-top: 8px; }
@@ -1660,6 +1740,13 @@
 	.layer-bar:focus-visible { outline: 2px solid oklch(0.66 0.14 45); outline-offset: 2px; }
 	.bar-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.bars-playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: oklch(0.66 0.14 45 / 0.9); pointer-events: none; }
+	.bars-playhead.ghost { background: oklch(0.66 0.14 45 / 0.5); width: 1px; border-left: 1px dashed oklch(0.66 0.14 45); }
+	.timing-input { width: 48px; height: 22px; border-radius: 0.2rem; border: 1px solid oklch(0.26 0.016 55); background: oklch(0.2 0.01 55); color: inherit; font-size: 0.58rem; text-align: center; padding: 0 0.2rem; }
+	.timing-input:focus-visible { outline: 2px solid oklch(0.66 0.14 45); outline-offset: 2px; }
+	.motion-layer-bands, .modifier-bands { display: flex; flex-direction: column; gap: 0.15rem; padding: 0.25rem 0.35rem; border-top: 1px dashed oklch(0.24 0.012 55); }
+	.motion-layer-band, .modifier-band { display: flex; align-items: center; height: 18px; border-radius: 0.2rem; border: 1px solid oklch(0.55 0.12 230 / 0.5); background: oklch(0.45 0.12 230 / 0.18); color: inherit; font-size: 0.58rem; padding: 0 0.3rem; cursor: pointer; }
+	.motion-layer-band:focus-visible, .modifier-band:focus-visible { outline: 2px solid oklch(0.66 0.14 45); outline-offset: 2px; }
+	.path-vertex-lane, .mask-lane { display: flex; align-items: center; padding: 0.2rem 0.35rem; border-top: 1px dashed oklch(0.24 0.012 55); font-size: 0.58rem; color: oklch(0.68 0.015 65); }
 	.marquee { position: absolute; border: 1px solid oklch(0.66 0.14 45); background: oklch(0.66 0.14 45 / 0.15); pointer-events: none; border-radius: 0.15rem; }
 	.composition-footer { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; padding: 0.45rem 0.6rem; border-top: 1px solid oklch(0.26 0.016 55); background: oklch(0.17 0.01 55); flex-wrap: wrap; }
 	.footer-status { font-size: 0.62rem; color: oklch(0.68 0.015 65); min-height: 18px; }

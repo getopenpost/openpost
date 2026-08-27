@@ -156,7 +156,7 @@
 				onclick={() => analyze(false)}
 			>
 				{#if batchBusy}
-					<LoaderIcon class="size-3 animate-spin" aria-hidden="true" />
+					<LoaderIcon class="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 				{:else}
 					<SparklesIcon class="size-3" aria-hidden="true" />
 				{/if}

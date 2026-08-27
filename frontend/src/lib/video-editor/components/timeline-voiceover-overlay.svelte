@@ -32,7 +32,7 @@
 		>
 			<span
 				class="size-1.5 rounded-full bg-white {voiceoverRecorder.status === 'recording'
-					? 'animate-pulse'
+					? 'animate-pulse motion-reduce:animate-none'
 					: ''}"
 				aria-hidden="true"
 			></span>

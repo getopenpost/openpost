@@ -542,7 +542,10 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 					{#if gate.state === 'pick'}
 						<Button onclick={() => gate.pickFolder()} disabled={gate.busy}>
 							{#if gate.busy}
-								<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+								<LoaderIcon
+									class="size-4 animate-spin motion-reduce:animate-none"
+									aria-hidden="true"
+								/>
 							{:else}
 								<FolderPlusIcon class="size-4" aria-hidden="true" />
 							{/if}
@@ -551,7 +554,10 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 					{:else}
 						<Button onclick={() => gate.reconnect()} disabled={gate.busy}>
 							{#if gate.busy}
-								<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+								<LoaderIcon
+									class="size-4 animate-spin motion-reduce:animate-none"
+									aria-hidden="true"
+								/>
 							{:else}
 								<RefreshCwIcon class="size-4" aria-hidden="true" />
 							{/if}

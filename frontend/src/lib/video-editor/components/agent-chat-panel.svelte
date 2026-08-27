@@ -151,7 +151,7 @@
 					role="status"
 					aria-live="polite"
 				>
-					<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
+					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 					{#if agentStore.modelStatus === 'loading'}
 						<span>{m.video_editor_agent_loading_model({ percent: agentStore.loadPercent })}</span>
 					{:else}
@@ -175,7 +175,7 @@
 							<li class="flex items-start gap-2 text-xs">
 								{#if step.status === 'running'}
 									<LoaderIcon
-										class="mt-0.5 size-3.5 shrink-0 animate-spin text-[oklch(0.66_0.14_45)]"
+										class="mt-0.5 size-3.5 shrink-0 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
 										aria-hidden="true"
 									/>
 								{:else if step.status === 'done'}
@@ -256,7 +256,7 @@
 					{#if agentStore.phase === 'running'}
 						<p class="mt-2 flex items-center gap-1.5 text-[11px] text-[oklch(0.65_0.015_55)]">
 							<LoaderIcon
-								class="size-3 animate-spin"
+								class="size-3 animate-spin motion-reduce:animate-none"
 								aria-hidden="true"
 							/>{m.video_editor_agent_running()}
 						</p>

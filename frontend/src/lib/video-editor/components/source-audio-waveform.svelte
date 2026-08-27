@@ -197,7 +197,7 @@
 		<div class="absolute inset-x-4 top-1/2 h-px bg-white/20" aria-hidden="true"></div>
 	{:else}
 		<div
-			class="absolute inset-0 animate-pulse bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent)]"
+			class="absolute inset-0 animate-pulse bg-[linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent)] motion-reduce:animate-none"
 			aria-hidden="true"
 		></div>
 	{/if}

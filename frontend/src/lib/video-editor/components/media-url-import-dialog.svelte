@@ -84,7 +84,10 @@
 					{m.common_cancel()}
 				</Button>
 				<Button type="submit" disabled={working || !url.trim()}>
-					{#if working}<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />{/if}
+					{#if working}<LoaderIcon
+							class="size-3.5 animate-spin motion-reduce:animate-none"
+							aria-hidden="true"
+						/>{/if}
 					{working
 						? m.video_editor_media_import_url_working()
 						: m.video_editor_media_import_url_action()}

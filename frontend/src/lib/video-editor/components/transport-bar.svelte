@@ -285,7 +285,9 @@
 			title={m.video_editor_save_frame()}
 			onclick={() => void saveCurrentFrame()}
 		>
-			{#if savingFrame}<LoaderIcon class="animate-spin" />{:else}<CameraIcon />{/if}
+			{#if savingFrame}<LoaderIcon
+					class="animate-spin motion-reduce:animate-none"
+				/>{:else}<CameraIcon />{/if}
 		</Button>
 	</div>
 

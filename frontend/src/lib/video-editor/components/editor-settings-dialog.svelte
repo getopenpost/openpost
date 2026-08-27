@@ -535,7 +535,7 @@
 										)}
 								>
 									{#if working === 'generate-proxies'}<LoaderIcon
-											class="size-3.5 animate-spin"
+											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('generate-proxies', m.video_editor_settings_generate())}
 								</Button>
@@ -556,7 +556,9 @@
 										disabled={working !== null || media.length === 0}
 										onclick={() => (confirmCacheClear = true)}
 									>
-										{#if working === 'cache'}<LoaderIcon class="size-3.5 animate-spin" />{/if}
+										{#if working === 'cache'}<LoaderIcon
+												class="size-3.5 animate-spin motion-reduce:animate-none"
+											/>{/if}
 										{actionText('cache', m.video_editor_settings_clear())}
 									</Button>
 								</div>
@@ -610,7 +612,9 @@
 											regenerateProjectThumbnails(media, onProgress)
 										)}
 								>
-									{#if working === 'thumbnails'}<LoaderIcon class="size-3.5 animate-spin" />{/if}
+									{#if working === 'thumbnails'}<LoaderIcon
+											class="size-3.5 animate-spin motion-reduce:animate-none"
+										/>{/if}
 									{actionText('thumbnails', m.video_editor_settings_regenerate())}
 								</Button>
 							</div>
@@ -633,7 +637,7 @@
 										)}
 								>
 									{#if working === 'delete-proxies'}<LoaderIcon
-											class="size-3.5 animate-spin"
+											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('delete-proxies', m.common_delete())}
 								</Button>
@@ -660,7 +664,9 @@
 		<Dialog.Footer class="border-t border-[oklch(0.27_0.014_55)] px-5 py-3">
 			{#if working}<span
 					class="mr-auto flex items-center gap-2 text-xs text-[var(--video-editor-muted)]"
-					><LoaderIcon class="size-3.5 animate-spin" />{m.video_editor_settings_working()}</span
+					><LoaderIcon
+						class="size-3.5 animate-spin motion-reduce:animate-none"
+					/>{m.video_editor_settings_working()}</span
 				>{/if}
 			<Button type="button" onclick={() => (open = false)}>
 				{#if feedback?.tone === 'success'}<CheckIcon class="size-3.5" />{/if}

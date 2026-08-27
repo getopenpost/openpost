@@ -302,7 +302,10 @@
 							aria-busy={importing}
 						>
 							{#if importing}
-								<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+								<LoaderIcon
+									class="size-4 animate-spin motion-reduce:animate-none"
+									aria-hidden="true"
+								/>
 							{:else}
 								<UploadIcon class="size-4" aria-hidden="true" />
 							{/if}
@@ -348,7 +351,10 @@
 					<span>{Math.round(bundleProgress.percent)}%</span>
 					<Button variant="ghost" size="xs" disabled={bundleCanceling} onclick={oncancelbundle}>
 						{#if bundleCanceling}
-							<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
+							<LoaderIcon
+								class="size-3.5 animate-spin motion-reduce:animate-none"
+								aria-hidden="true"
+							/>
 						{:else}
 							<XIcon class="size-3.5" aria-hidden="true" />
 						{/if}
@@ -400,7 +406,10 @@
 				class="bg-[oklch(0.16_0.008_55)] text-[oklch(0.9_0.006_85)] placeholder:text-[oklch(0.58_0.015_55)]"
 			/>
 			<Button type="submit" disabled={creating}>
-				{#if creating}<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />{/if}
+				{#if creating}<LoaderIcon
+						class="size-4 animate-spin motion-reduce:animate-none"
+						aria-hidden="true"
+					/>{/if}
 				{m.video_editor_project_create()}
 			</Button>
 		</form>
@@ -607,7 +616,10 @@
 											aria-label={m.video_editor_project_actions({ name: project.name })}
 										>
 											{#if duplicatingId === project.id || exportingId === project.id}
-												<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+												<LoaderIcon
+													class="size-4 animate-spin motion-reduce:animate-none"
+													aria-hidden="true"
+												/>
 											{:else}
 												<MoreIcon class="size-4" aria-hidden="true" />
 											{/if}
@@ -631,7 +643,10 @@
 										onclick={() => void onexportbundle(project)}
 									>
 										{#if exportingId === project.id && exportingKind === 'bundle'}
-											<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+											<LoaderIcon
+												class="size-4 animate-spin motion-reduce:animate-none"
+												aria-hidden="true"
+											/>
 										{:else}
 											<DownloadIcon class="size-4" aria-hidden="true" />
 										{/if}
@@ -642,7 +657,10 @@
 										onclick={() => void onexportjson(project)}
 									>
 										{#if exportingId === project.id && exportingKind === 'json'}
-											<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+											<LoaderIcon
+												class="size-4 animate-spin motion-reduce:animate-none"
+												aria-hidden="true"
+											/>
 										{:else}
 											<DownloadIcon class="size-4" aria-hidden="true" />
 										{/if}
@@ -703,7 +721,10 @@
 						onclick={() => confirmPurge('all')}
 					>
 						{#if emptyingTrash}
-							<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+							<LoaderIcon
+								class="size-4 animate-spin motion-reduce:animate-none"
+								aria-hidden="true"
+							/>
 							{m.video_editor_project_emptying_trash()}
 						{:else}
 							<TrashIcon class="size-4" aria-hidden="true" />
@@ -739,7 +760,10 @@
 									onclick={() => void onrestore(entry.id, entry.marker.originalName)}
 								>
 									{#if trashBusyId === entry.id}
-										<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+										<LoaderIcon
+											class="size-4 animate-spin motion-reduce:animate-none"
+											aria-hidden="true"
+										/>
 									{:else}
 										<RestoreIcon class="size-4" aria-hidden="true" />
 									{/if}

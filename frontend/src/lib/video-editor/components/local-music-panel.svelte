@@ -390,7 +390,7 @@
 				>
 					<div
 						class="h-full rounded-full bg-[oklch(0.66_0.14_45)] {progress.progress === null
-							? 'w-1/3 animate-pulse'
+							? 'w-1/3 animate-pulse motion-reduce:animate-none'
 							: ''}"
 						style:width={progress.progress === null
 							? undefined
@@ -413,7 +413,10 @@
 				(!support?.supported || checkingStorage || storage?.sufficient === false || !prompt.trim())}
 			onclick={generating ? () => abortController?.abort() : () => void generate()}
 		>
-			{#if generating}<LoaderIcon class="size-3 animate-spin" aria-hidden="true" />{/if}
+			{#if generating}<LoaderIcon
+					class="size-3 animate-spin motion-reduce:animate-none"
+					aria-hidden="true"
+				/>{/if}
 			{generating ? m.video_editor_local_music_cancel() : m.video_editor_local_music_generate()}
 		</Button>
 		<LocalModelCacheControl disabled={generating} />

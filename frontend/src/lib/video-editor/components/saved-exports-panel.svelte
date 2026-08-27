@@ -182,7 +182,10 @@
 			onclick={() => void load()}
 			aria-label={m.video_editor_saved_exports_refresh()}
 		>
-			<RefreshIcon class={loading ? 'animate-spin' : ''} aria-hidden="true" />
+			<RefreshIcon
+				class={loading ? 'animate-spin motion-reduce:animate-none' : ''}
+				aria-hidden="true"
+			/>
 			{m.common_refresh()}
 		</Button>
 	</div>
@@ -210,7 +213,7 @@
 				class="flex items-center justify-center gap-2 py-10 text-sm text-[var(--video-editor-muted)]"
 				role="status"
 			>
-				<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+				<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 				{m.common_loading()}
 			</div>
 		{:else if entries?.length === 0}
@@ -253,7 +256,7 @@
 								aria-label={m.video_editor_saved_exports_download_named({ name: entry.name })}
 							>
 								{#if busyPath === pathKey(entry)}
-									<LoaderIcon class="animate-spin" aria-hidden="true" />
+									<LoaderIcon class="animate-spin motion-reduce:animate-none" aria-hidden="true" />
 								{:else}
 									<DownloadIcon aria-hidden="true" />
 								{/if}

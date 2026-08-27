@@ -172,7 +172,10 @@
 	<div class="min-h-0 flex-1 overflow-y-auto p-2">
 		{#if status === 'loading' && items.length === 0}
 			<div class="flex h-24 items-center justify-center">
-				<LoaderIcon class="size-5 animate-spin text-[oklch(0.66_0.14_45)]" aria-hidden="true" />
+				<LoaderIcon
+					class="size-5 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
+					aria-hidden="true"
+				/>
 			</div>
 		{:else if status === 'error'}
 			<div class="flex flex-col items-center gap-2 py-8 text-center">
@@ -226,7 +229,10 @@
 								</span>
 							{:else if isImporting}
 								<span class="absolute inset-0 flex items-center justify-center bg-black/45">
-									<LoaderIcon class="size-5 animate-spin text-white" aria-hidden="true" />
+									<LoaderIcon
+										class="size-5 animate-spin text-white motion-reduce:animate-none"
+										aria-hidden="true"
+									/>
 								</span>
 							{:else if isImported}
 								<span

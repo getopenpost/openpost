@@ -642,7 +642,10 @@
 				<div class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<span aria-live="polite" class="flex items-center gap-2 font-mono text-lg tabular-nums">
-							<span class="size-2 animate-pulse rounded-full bg-red-500" aria-hidden="true"></span>
+							<span
+								class="size-2 animate-pulse rounded-full bg-red-500 motion-reduce:animate-none"
+								aria-hidden="true"
+							></span>
 							{elapsed}
 						</span>
 						<span class="text-xs text-muted-foreground">

@@ -100,7 +100,7 @@
 				onclick={start}
 			>
 				{#if voiceoverRecorder.status === 'requesting'}
-					<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
+					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 				{:else}
 					<MicIcon class="size-3.5 text-red-400" aria-hidden="true" />
 				{/if}
@@ -223,7 +223,7 @@
 		>
 			<span
 				class="size-2 rounded-full bg-red-400 {voiceoverRecorder.status === 'recording'
-					? 'animate-pulse'
+					? 'animate-pulse motion-reduce:animate-none'
 					: ''}"
 				aria-hidden="true"
 			></span>
@@ -232,7 +232,7 @@
 				<span
 					class="flex min-h-11 items-center gap-1 px-1 text-xs text-muted-foreground md:min-h-7"
 				>
-					<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
+					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 					{m.video_editor_voiceover_saving()}
 				</span>
 			{:else}

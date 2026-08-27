@@ -591,7 +591,10 @@
 					disabled={analyzing}
 					onclick={() => void analyze()}
 				>
-					{#if analyzing}<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />{/if}
+					{#if analyzing}<LoaderIcon
+							class="size-3.5 animate-spin motion-reduce:animate-none"
+							aria-hidden="true"
+						/>{/if}
 					{m.video_editor_cleanup_update()}
 				</Button>
 			</div>

@@ -587,7 +587,10 @@
 								class="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded bg-[oklch(0.22_0.01_50)]"
 							>
 								{#if entry?.status === 'importing'}
-									<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+									<LoaderIcon
+										class="size-4 animate-spin motion-reduce:animate-none"
+										aria-hidden="true"
+									/>
 								{:else if objectUrls[id] && !entry?.media.tags.includes('audio')}
 									<img src={objectUrls[id]} alt="" class="size-full object-cover" />
 								{:else if entry?.media.tags.includes('lottie')}

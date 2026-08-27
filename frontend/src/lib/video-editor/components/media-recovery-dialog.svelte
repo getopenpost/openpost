@@ -264,7 +264,7 @@
 												onclick={() => void grantAccess(issue)}
 											>
 												{#if busyId === issue.mediaId}<LoaderIcon
-														class="size-3.5 animate-spin"
+														class="size-3.5 animate-spin motion-reduce:animate-none"
 														aria-hidden="true"
 													/>{/if}
 												{m.video_editor_media_recovery_grant()}
@@ -305,7 +305,7 @@
 									onclick={() => void autoMatch()}
 								>
 									{#if busyId === 'auto-match'}<LoaderIcon
-											class="size-3.5 animate-spin"
+											class="size-3.5 animate-spin motion-reduce:animate-none"
 											aria-hidden="true"
 										/>{:else}<WandIcon class="size-3.5" aria-hidden="true" />{/if}
 									{m.video_editor_media_recovery_auto_match()}

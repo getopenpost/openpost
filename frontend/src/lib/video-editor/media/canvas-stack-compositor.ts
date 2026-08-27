@@ -268,10 +268,14 @@ export class CanvasStackCompositor {
 		this.context.filter = 'none';
 	}
 
-	beginFrame(width: number, height: number, backgroundColor: string): void {
+	beginFrame(width: number, height: number, backgroundColor: string | null): void {
 		this.resize(width, height);
-		this.context.fillStyle = backgroundColor;
-		this.context.fillRect(0, 0, this.width, this.height);
+		if (backgroundColor === null) {
+			this.context.clearRect(0, 0, this.width, this.height);
+		} else {
+			this.context.fillStyle = backgroundColor;
+			this.context.fillRect(0, 0, this.width, this.height);
+		}
 		this.lastFailure = null;
 		this.exactRenderFailure = null;
 	}

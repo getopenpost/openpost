@@ -256,6 +256,7 @@ export interface TimelineFrameRenderOptions {
 	width?: number;
 	height?: number;
 	burnSubtitles?: boolean;
+	backgroundColor?: string | null;
 }
 
 /** Shared full-resolution compositor used by export and still-frame capture. */
@@ -263,7 +264,7 @@ export class TimelineFrameRenderer {
 	readonly canvas: OffscreenCanvas;
 	private readonly width: number;
 	private readonly height: number;
-	private readonly backgroundColor: string;
+	private readonly backgroundColor: string | null;
 	private readonly fps: number;
 	private readonly orderedItems: TimelineItem[];
 	private readonly transitions: TimelineTransition[];
@@ -291,7 +292,10 @@ export class TimelineFrameRenderer {
 		this.height = options.height ?? project.metadata.height;
 		this.canvas = new OffscreenCanvas(this.width, this.height);
 		this.stackCompositor = new CanvasStackCompositor(this.canvas);
-		this.backgroundColor = project.metadata.backgroundColor ?? '#000000';
+		this.backgroundColor =
+				options.backgroundColor !== undefined
+					? options.backgroundColor
+					: (project.metadata.backgroundColor ?? '#000000');
 		this.fps = project.metadata.fps;
 		const items = project.timeline?.items ?? [];
 		const tracks = project.timeline?.tracks ?? [];
@@ -496,7 +500,8 @@ export class TimelineFrameRenderer {
 					{
 						width: composition.width,
 						height: composition.height,
-						burnSubtitles: true
+						burnSubtitles: true,
+						backgroundColor: this.backgroundColor
 					},
 					new Set([...this.ancestry, composition.id])
 				);

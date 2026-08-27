@@ -81,11 +81,41 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 			throw new Error('WORKER_REQUIRES_MAIN_THREAD:audio-context');
 		}
 
-		const { renderMultiTrackVideoArtifact, renderTimelineAudioArtifact } =
-			await import('./render-export');
 		const onProgress = (progress: RenderExportProgress): void => {
 			respond({ type: 'progress', requestId: message.requestId, progress });
 		};
+		if (message.mode === 'image-sequence') {
+			const { IMAGE_SEQUENCE_BATCH_SIZE, renderImageSequenceFrames } =
+				await import('./image-sequence-export');
+			let batch: import('./render-export-worker.types').WorkerSequenceBatchFrame[] = [];
+			let totalBytes = 0;
+			let frameCount = 0;
+			for await (const frame of renderImageSequenceFrames(message.project, {
+				...message.options,
+				signal: controller.signal,
+				onProgress
+			})) {
+				batch.push(frame);
+				totalBytes += frame.blob.size;
+				frameCount += 1;
+				if (batch.length >= IMAGE_SEQUENCE_BATCH_SIZE) {
+					respond({ type: 'sequence-batch', requestId: message.requestId, frames: batch });
+					batch = [];
+				}
+			}
+			if (batch.length > 0) {
+				respond({ type: 'sequence-batch', requestId: message.requestId, frames: batch });
+			}
+			respond({
+				type: 'sequence-complete',
+				requestId: message.requestId,
+				frameCount,
+				totalBytes
+			});
+			return;
+		}
+		const { renderMultiTrackVideoArtifact, renderTimelineAudioArtifact } =
+			await import('./render-export');
 		const artifact =
 			message.mode === 'video'
 				? await renderMultiTrackVideoArtifact(message.project, {

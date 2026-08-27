@@ -12,9 +12,10 @@ import type { Project } from '../project/types';
 import type { RenderExportProgress } from './render-export';
 import { outputDurationFrames } from './render-plan';
 import { sanitizeWorkspaceFileName } from '../workspace-fs/paths';
-import { writeBlob, removeEntry, exists } from '../workspace-fs/fs-primitives';
+import { writeBlob, removeEntry, exists, listDirectory } from '../workspace-fs/fs-primitives';
 import { projectExportsDir } from '../workspace-fs/paths';
 import { requireWorkspaceRoot, getWorkspaceRoot } from '../workspace-fs/root';
+import { withKeyLock } from '../workspace-fs/with-key-lock';
 
 export type ImageSequenceFormat = 'png' | 'jpeg' | 'webp';
 
@@ -58,10 +59,11 @@ export interface ImageSequenceWorkspaceResult {
 export interface ImageSequenceZipResult {
 	kind: 'zip';
 	fileName: string;
-	relPath: string;
+	relPath: string | null;
 	blob: Blob;
 	frameCount: number;
 	totalBytes: number;
+	savedToWorkspace: boolean;
 }
 
 export interface ImageSequenceDirectoryHandleResult {
@@ -145,6 +147,37 @@ export function isZipFallbackSafe(
 ): boolean {
 	if (frameCount > ZIP_MAX_FRAMES) return false;
 	return estimateSequenceBytes(format, width, height, frameCount) <= ZIP_MAX_ESTIMATED_BYTES;
+}
+
+/** Allocate a unique owned directory for one export, never colliding with prior exports. */
+export async function allocateUniqueWorkspaceSequenceDirectory(
+	root: FileSystemDirectoryHandle,
+	projectId: string,
+	baseName: string
+): Promise<{ dirName: string; dirSegments: string[] }> {
+	const lockKey = `sequence-dir:${projectId}:${baseName}`;
+	return withKeyLock(lockKey, async () => {
+		const baseSegments = projectExportsDir(projectId);
+		if (!(await exists(root, [...baseSegments, baseName]))) {
+			const dirSegments = [...baseSegments, baseName];
+			let dir: FileSystemDirectoryHandle = root;
+			for (const seg of dirSegments) {
+				dir = await dir.getDirectoryHandle(seg, { create: true });
+			}
+			return { dirName: baseName, dirSegments };
+		}
+		let candidate: string;
+		let dirSegments: string[];
+		do {
+			candidate = `${baseName}__${Date.now()}-${crypto.randomUUID().slice(0, 8)}`;
+			dirSegments = [...baseSegments, candidate];
+		} while (await exists(root, dirSegments));
+		let dir: FileSystemDirectoryHandle = root;
+		for (const seg of dirSegments) {
+			dir = await dir.getDirectoryHandle(seg, { create: true });
+		}
+		return { dirName: candidate, dirSegments };
+	});
 }
 
 /** Explicit WebP encoding capability probe. Never silent-falls back. */
@@ -247,7 +280,11 @@ export async function renderImageSequenceToWorkspace(
 	if (totalFrames === 0) throw new Error('The selected export range is empty.');
 	const baseName = sanitizeSequenceBaseName(project.name);
 	const root = requireWorkspaceRoot();
-	const dirSegments = [...projectExportsDir(project.id), baseName];
+	const { dirName, dirSegments } = await allocateUniqueWorkspaceSequenceDirectory(
+		root,
+		project.id,
+		baseName
+	);
 	let written = 0;
 	let totalBytes = 0;
 	const writtenFiles: string[] = [];
@@ -260,36 +297,24 @@ export async function renderImageSequenceToWorkspace(
 			written += 1;
 			totalBytes += frame.blob.size;
 		}
-		const relPath = `projects/${project.id}/exports/${baseName}`;
+		const relPath = `projects/${project.id}/exports/${dirName}`;
 		return {
 			kind: 'workspace-directory',
-			directoryName: baseName,
+			directoryName: dirName,
 			relPath,
 			frameCount: written,
 			totalBytes
 		};
 	} catch (error) {
-		if (error instanceof DOMException && error.name === 'AbortError') {
-			for (const fileName of writtenFiles) {
-				try {
-					await removeEntry(root, [...dirSegments, fileName]);
-				} catch {
-					// Cleanup best-effort
-				}
-			}
+		for (const fileName of writtenFiles) {
 			try {
-				if (!(await exists(root, dirSegments))) {
-					// Already cleaned
-				} else {
-					const remaining = await exists(root, dirSegments);
-					if (remaining && writtenFiles.length > 0) {
-						// Leave directory if other files existed previously; don't remove entire dir blindly.
-					}
-				}
-			} catch {
-				// Cleanup best-effort
-			}
+				await removeEntry(root, [...dirSegments, fileName]);
+			} catch {}
 		}
+		try {
+			const entries = await listDirectory(root, dirSegments);
+			if (entries.length === 0) await removeEntry(root, dirSegments);
+		} catch {}
 		throw error;
 	}
 }
@@ -365,7 +390,6 @@ export async function renderImageSequenceZip(
 		throwIfAborted(options.signal);
 		entries[frame.fileName] = new Uint8Array(await frame.blob.arrayBuffer());
 		totalBytes += entries[frame.fileName]!.length;
-		// Report encoding phase while collecting
 		report(options, 'encoding', frame.index + 1, totalFrames);
 		if (totalBytes > ZIP_MAX_ESTIMATED_BYTES) {
 			throw new Error('ZIP fallback exceeds safe size during collection.');
@@ -373,23 +397,27 @@ export async function renderImageSequenceZip(
 	}
 	report(options, 'finalizing', totalFrames, totalFrames);
 	const { zipSync } = await import('fflate');
-	// SAFETY: zipSync with level 0 (store) for already-compressed images is most efficient and lossless.
 	const zipped = zipSync(entries, { level: 0 });
 	const blob = new Blob([zipped as BlobPart], { type: 'application/zip' });
 	const fileName = `${baseName}.zip`;
-	// Only the main thread writes workspace files
+	let savedToWorkspace = false;
+	let relPath: string | null = null;
 	const root = getWorkspaceRoot();
 	if (root) {
 		const segments = [...projectExportsDir(project.id), fileName];
-		// Write via main-thread workspace if available; otherwise return blob for download.
 		try {
 			await writeBlob(root, segments, blob);
+			savedToWorkspace = true;
+			relPath = `projects/${project.id}/exports/${fileName}`;
 		} catch {
-			// Workspace write is best-effort for ZIP fallback; download remains available.
+			savedToWorkspace = false;
+			relPath = null;
 		}
+	} else {
+		savedToWorkspace = false;
+		relPath = null;
 	}
-	const relPath = `projects/${project.id}/exports/${fileName}`;
-	return { kind: 'zip', fileName, relPath, blob, frameCount: totalFrames, totalBytes: blob.size };
+	return { kind: 'zip', fileName, relPath, blob, frameCount: totalFrames, totalBytes: blob.size, savedToWorkspace };
 }
 
 export function getDirectoryPickerAvailable(): boolean {

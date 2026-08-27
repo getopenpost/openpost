@@ -51,7 +51,7 @@ export interface RenderQueueJob {
 	totalFrames?: number;
 	settings: RenderQueueSettings;
 	snapshot: RenderQueueSnapshot;
-	savedPath?: string;
+	savedPath?: string | null;
 	fileSize?: number;
 	error?: string;
 	createdAt: number;
@@ -78,7 +78,7 @@ export interface RenderQueueStore extends Writable<RenderQueueState> {
 	hydrate(jobs: readonly RenderQueueJob[], paused: boolean): void;
 	markRendering(id: string): boolean;
 	updateProgress(id: string, progress: RenderExportProgress): void;
-	markCompleted(id: string, output: { savedPath: string; fileSize: number }): void;
+	markCompleted(id: string, output: { savedPath: string | null; fileSize: number }): void;
 	markFailed(id: string, error: string): void;
 	markCancelled(id: string): void;
 }
@@ -231,7 +231,7 @@ export function createRenderQueueStore(): RenderQueueStore {
 				}))
 			);
 		},
-		markCompleted(id, output) {
+		markCompleted(id, output: { savedPath: string | null; fileSize: number }) {
 			store.update((state) => ({
 				...updateJob(state, id, (job) => ({
 					...job,

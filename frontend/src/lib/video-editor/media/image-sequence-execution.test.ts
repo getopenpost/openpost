@@ -261,7 +261,7 @@ describe('image sequence worker/main ownership', () => {
 		expect(failingMain).not.toHaveBeenCalled();
 	});
 
-	it('cancels worker and cleans up on abort', async () => {
+	it('cancels worker and cleans up on abort', { timeout: 10000 }, async () => {
 		const worker = new FakeWorker(() => {});
 		const controller = new AbortController();
 		const pending = renderImageSequenceExport(

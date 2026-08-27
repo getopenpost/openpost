@@ -22,12 +22,12 @@
 		open?: boolean;
 	} = $props();
 
-	const effects = $derived(normalizeAudioEffects((item as unknown as { audioEffects?: unknown }).audioEffects));
+	const effects = $derived(normalizeAudioEffects(item.audioEffects));
 
 	function commit(next: AudioEffect[]): void {
 		updateItemProperties(
 			item.id,
-			next.length > 0 ? { audioEffects: next } : { audioEffects: undefined } as unknown as Partial<TimelineItem>,
+			next.length > 0 ? { audioEffects: next } : { audioEffects: undefined },
 			'UPDATE_CLIP_AUDIO_EFFECTS'
 		);
 	}
@@ -65,7 +65,11 @@
 	}
 
 	function updateParam(id: string, patch: Partial<AudioEffect>): void {
-		commit(effects.map((e) => (e.id === id ? normalizeAudioEffects([{ ...e, ...patch }])[0]! : e)));
+		commit(
+			effects.map((e) =>
+				(e.id === id ? normalizeAudioEffects([{ ...e, ...patch }])[0]! : e)
+			)
+		);
 	}
 
 	const addOptions: AppSelectOption[] = [

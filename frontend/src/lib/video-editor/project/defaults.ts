@@ -108,13 +108,17 @@ export interface NormalizedProject {
 }
 
 function normalizeAudioEffectsForItem(item: TimelineItem): TimelineItem {
-	if (!Array.isArray((item as unknown as { audioEffects?: unknown }).audioEffects)) return item;
-	const normalized = normalizeAudioEffects((item as unknown as { audioEffects: unknown }).audioEffects);
-	const original = (item as unknown as { audioEffects?: unknown[] }).audioEffects;
-	if (normalized.length === (original?.length ?? 0) && normalized.every((e, i) => JSON.stringify(e) === JSON.stringify(original?.[i]))) return item;
+	if (!item.audioEffects || !Array.isArray(item.audioEffects)) return item;
+	const normalized = normalizeAudioEffects(item.audioEffects);
+	const original = item.audioEffects;
+	if (
+		normalized.length === original.length &&
+		normalized.every((e, i) => JSON.stringify(e) === JSON.stringify(original[i]))
+	)
+		return item;
 	if (normalized.length === 0) {
-		const { audioEffects: _omit, ...rest } = item as TimelineItem & { audioEffects?: unknown };
-		return rest as TimelineItem;
+		const { audioEffects: _omit, ...rest } = item;
+		return rest;
 	}
 	return { ...item, audioEffects: normalized };
 }

@@ -30,7 +30,6 @@ function rmsWindow(samples: Float32Array, start: number, size: number): number {
 
 function smoothArray(input: Float32Array, radius: number): Float32Array {
 	const out = new Float32Array(input.length);
-	const window = radius * 2 + 1;
 	for (let i = 0; i < input.length; i++) {
 		const start = Math.max(0, i - radius);
 		const end = Math.min(input.length, i + radius + 1);
@@ -38,7 +37,6 @@ function smoothArray(input: Float32Array, radius: number): Float32Array {
 		for (let j = start; j < end; j++) sum += input[j] ?? 0;
 		out[i] = sum / (end - start);
 		if (out[i] !== out[i]) out[i] = 0;
-		void window;
 	}
 	return out;
 }
@@ -82,10 +80,22 @@ export class BeatAnalyzer {
 
 	async analyzeAudioBuffer(buffer: AudioBuffer, signal?: AbortSignal): Promise<BeatAnalysisResult> {
 		abortIfNeeded(signal);
-		const channel = buffer.numberOfChannels > 0 ? buffer.getChannelData(0) : new Float32Array(0);
-		// Copy to avoid detached buffer issues
-		const copy = new Float32Array(channel);
+		const copy = this.mixToMono(buffer);
 		return this.analyzeChannelData(copy, buffer.sampleRate, buffer.duration, signal);
+	}
+
+	private mixToMono(buffer: AudioBuffer): Float32Array {
+		if (buffer.numberOfChannels === 0) return new Float32Array(0);
+		if (buffer.numberOfChannels === 1) return new Float32Array(buffer.getChannelData(0));
+		const length = buffer.length;
+		const mono = new Float32Array(length);
+		for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+			const data = buffer.getChannelData(channel);
+			for (let i = 0; i < length; i++) mono[i] = (mono[i] ?? 0) + (data[i] ?? 0);
+		}
+		const divisor = buffer.numberOfChannels;
+		for (let i = 0; i < length; i++) mono[i] = (mono[i] ?? 0) / divisor;
+		return mono;
 	}
 
 	async analyzeBlob(blob: Blob, signal?: AbortSignal): Promise<BeatAnalysisResult> {
@@ -117,14 +127,11 @@ export class BeatAnalyzer {
 		const energies = new Float32Array(numFrames);
 		for (let i = 0; i < numFrames; i++) {
 			energies[i] = rmsWindow(samples, i * hopSize, windowSize);
-			if (i % 512 === 0) {
-				// yield periodically to keep UI responsive
-				await yieldToMain(signal);
-			}
+			if (i % 512 === 0) await yieldToMain(signal);
 		}
 		abortIfNeeded(signal);
 		const smoothed = smoothArray(energies, 2);
-		const thresholds = this.calculateAdaptiveThreshold(smoothed, sensitivity);
+		const thresholds = await this.calculateAdaptiveThreshold(smoothed, sensitivity, signal);
 		const minFramesBetweenOnsets = Math.floor((sampleRate / hopSize) * 0.1);
 		const onsets: number[] = [];
 		let lastOnsetFrame = -minFramesBetweenOnsets * 2;
@@ -145,7 +152,11 @@ export class BeatAnalyzer {
 		return onsets;
 	}
 
-	private calculateAdaptiveThreshold(energies: Float32Array, sensitivity: number): number[] {
+	private async calculateAdaptiveThreshold(
+		energies: Float32Array,
+		sensitivity: number,
+		signal?: AbortSignal
+	): Promise<number[]> {
 		const window = 50;
 		const thresholds: number[] = new Array(energies.length);
 		for (let i = 0; i < energies.length; i++) {
@@ -156,6 +167,7 @@ export class BeatAnalyzer {
 			const avg = mean(slice);
 			const base = med + (avg - med) * (1 - sensitivity);
 			thresholds[i] = base * (1.5 - sensitivity * 0.5);
+			if (i % 256 === 0) await yieldToMain(signal);
 		}
 		return thresholds;
 	}
@@ -205,7 +217,6 @@ export class BeatAnalyzer {
 			const offsetBeats = Math.round(firstOnset / interval);
 			first = firstOnset - offsetBeats * interval;
 			while (first < 0) first += interval;
-			// quantize to stable grid
 			first = Math.round(first * 1000) / 1000;
 		}
 		let index = 0;
@@ -246,7 +257,6 @@ export class BeatAnalyzer {
 		return beats.filter((_, i) => i % 4 === 0).map((b) => b.time);
 	}
 
-	// Exposed for marker mapping determinism tests
 	static mapBeatToFrame(timeSeconds: number, fps: number): number {
 		return Math.max(0, Math.round(timeSeconds * fps));
 	}

@@ -5,7 +5,7 @@ import { mediaPool } from '../media/pool.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
 import { ensureAc3DecoderForCodec } from '../media/ac3-decoder';
 import { StreamingAudioEq } from './audio-eq';
-import { StreamingAudioEffectChain } from './audio-effects';
+import { getAudioEffectTailSeconds, StreamingAudioEffectChain } from './audio-effects';
 import { StreamingTimeStretch } from './process-audio';
 import { AbsolutePhaseResampler, downmixToOutputChannels } from './sample-rate-converter';
 import { transitionGainAtProgress } from './transition-crossfade';
@@ -459,10 +459,14 @@ export async function* mixAudioWindows(
 	const duckSources = collectMixEntryDuckWindows(entries);
 	const prepared: PreparedEntry[] = entries.map((entry) => {
 		const startSample = Math.floor(entry.whenSeconds * MIX_SAMPLE_RATE);
+		const tailSamples = Math.ceil(getAudioEffectTailSeconds(entry.audioEffects) * MIX_SAMPLE_RATE);
 		return {
 			entry,
 			startSample,
-			endSample: startSample + Math.ceil(entry.durationSeconds * MIX_SAMPLE_RATE),
+			endSample: Math.min(
+				totalSamples,
+				startSample + Math.ceil(entry.durationSeconds * MIX_SAMPLE_RATE) + tailSamples
+			),
 			automation: new EntryAutomation(entry, diagnostics),
 			reader: null
 		};

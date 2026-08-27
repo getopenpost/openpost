@@ -14,8 +14,10 @@ import {
 import {
 	createPreviewClipAudioGraph,
 	rampPreviewClipEq,
-	setPreviewClipEq
+	setPreviewClipEq,
+	setPreviewAudioEffects
 } from './preview-audio-graph';
+import { createDefaultAudioEffect } from './audio-effects';
 
 class AudioParamMock {
 	value = 0;
@@ -85,6 +87,28 @@ class IIRFilterNodeMock extends ConnectableNodeMock {
 	}
 }
 
+class StereoPannerMock extends ConnectableNodeMock {
+	pan = new AudioParamMock();
+}
+class ConvolverMock extends ConnectableNodeMock {
+	buffer: AudioBuffer | null = null;
+	normalize = true;
+}
+class DelayMock extends ConnectableNodeMock {
+	delayTime = new AudioParamMock();
+}
+class WaveShaperMock extends ConnectableNodeMock {
+	curve: Float32Array | null = null;
+	oversample: OverSampleType = 'none';
+}
+class OscillatorMock extends ConnectableNodeMock {
+	frequency = new AudioParamMock();
+	connect(target: unknown) {
+		super.connect(target);
+	}
+	start() {}
+	stop() {}
+}
 class AudioContextMock {
 	currentTime = 1.5;
 	state: AudioContextState = 'running';
@@ -101,6 +125,50 @@ class AudioContextMock {
 
 	createIIRFilter(feedforward: number[], feedback: number[]) {
 		return new IIRFilterNodeMock(feedforward, feedback);
+	}
+
+	createStereoPanner() {
+		return new StereoPannerMock();
+	}
+
+	createConvolver() {
+		return new ConvolverMock();
+	}
+
+	createDelay() {
+		return new DelayMock();
+	}
+
+	createWaveShaper() {
+		return new WaveShaperMock();
+	}
+
+	createOscillator() {
+		return new OscillatorMock();
+	}
+
+	createBuffer(channels: number, length: number, sampleRate: number) {
+		return {
+			numberOfChannels: channels,
+			length,
+			sampleRate,
+			getChannelData: () => new Float32Array(length)
+		} as unknown as AudioBuffer;
+	}
+
+	createDynamicsCompressor() {
+		return {
+			threshold: new AudioParamMock(),
+			ratio: new AudioParamMock(),
+			attack: new AudioParamMock(),
+			release: new AudioParamMock(),
+			knee: new AudioParamMock(),
+			connect(target: unknown) {
+				(this as unknown as ConnectableNodeMock).connections.push(target);
+			},
+			disconnect() {},
+			connections: [] as unknown[]
+		} as unknown as DynamicsCompressorNode;
 	}
 }
 
@@ -286,6 +354,36 @@ describe('preview-audio-graph', () => {
 		);
 
 		expect(getRampCalls(stage.highNode.frequency).at(-1)).toEqual({ value: 7200, time: 2.25 });
+	});
+
+	it('maintains effect chain topology on bypass and reorder without duplicate routing', () => {
+		const graph = createPreviewClipAudioGraph({
+			eqStageCount: 1,
+			effects: [createDefaultAudioEffect('delay'), createDefaultAudioEffect('pan')]
+		});
+		expect(graph).not.toBeNull();
+		expect(graph!.effectNodes).toHaveLength(2);
+		const firstOut = graph!.effectNodes[0]!.output;
+		expect(getConnections(firstOut)).toEqual([graph!.effectNodes[1]!.input]);
+		const bypassed = [
+			graph!.resolvedEffects[0]!,
+			{ ...graph!.resolvedEffects[1]!, enabled: false }
+		];
+		setPreviewAudioEffects(graph!, bypassed);
+		expect(graph!.effectNodes).toHaveLength(2);
+		expect(graph!.effectNodes[1]!.enabled).toBe(false);
+		expect(getConnections(graph!.effectNodes[0]!.output)).toEqual([graph!.effectNodes[1]!.bypass]);
+		expect(getConnections(graph!.effectNodes[1]!.bypass)).toEqual([graph!.outputGainNode]);
+		const reordered = [bypassed[1]!, bypassed[0]!];
+		setPreviewAudioEffects(graph!, reordered);
+		expect(graph!.effectNodes[0]!.id).toBe(reordered[0]!.id);
+		expect(graph!.effectNodes).toHaveLength(2);
+		// No duplicate routing after reorder: each output/bypass has at most one outgoing
+		for (const fx of graph!.effectNodes) {
+			expect(getConnections(fx.output).length).toBeLessThanOrEqual(1);
+			expect(getConnections(fx.bypass).length).toBeLessThanOrEqual(1);
+		}
+		expect(getConnections(graph!.eqStageNodes[0]!.outputGainNode).length).toBe(1);
 	});
 
 	it('hot-swaps topology-changing EQ updates without disconnecting the source input node again', () => {

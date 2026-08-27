@@ -1,8 +1,5 @@
 import type { AudioEffect } from './audio-effects';
-import {
-	normalizeAudioEffects,
-	isAudioEffectActive
-} from './audio-effects';
+import { normalizeAudioEffects } from './audio-effects';
 
 export interface PreviewAudioEffectNodes {
 	id: string;
@@ -12,11 +9,14 @@ export interface PreviewAudioEffectNodes {
 	output: GainNode;
 	bypass: GainNode;
 	nodes: AudioNode[];
-	update(effect: AudioEffect, sampleRate: number): void;
+	update(effect: AudioEffect): void;
 	dispose(): void;
 }
 
-function createCompressorNodes(context: AudioContext, effect: AudioEffect): PreviewAudioEffectNodes {
+function createCompressorNodes(
+	context: AudioContext,
+	effect: AudioEffect
+): PreviewAudioEffectNodes {
 	const compressor = context.createDynamicsCompressor();
 	const makeup = context.createGain();
 	const dry = context.createGain();
@@ -93,17 +93,37 @@ function createPanNodes(context: AudioContext, effect: AudioEffect): PreviewAudi
 	};
 }
 
-function generateReverbImpulse(context: AudioContext, decay: number, roomSize: number, damping: number): AudioBuffer {
+function seededRandom(seed: number): () => number {
+	let s = seed >>> 0;
+	return () => {
+		s = (s * 1664525 + 1013904223) >>> 0;
+		return s / 0xffffffff;
+	};
+}
+
+function hashParams(decay: number, roomSize: number, damping: number): number {
+	return (
+		Math.floor(decay * 7919) ^ Math.floor(roomSize * 5009) ^ Math.floor(damping * 3001) ^ 0x9e3779b1
+	);
+}
+
+function generateReverbImpulse(
+	context: AudioContext,
+	decay: number,
+	roomSize: number,
+	damping: number
+): AudioBuffer {
 	const sampleRate = context.sampleRate;
 	const length = Math.max(1, Math.round(decay * sampleRate * 0.6));
 	const impulse = context.createBuffer(2, length, sampleRate);
+	const rand = seededRandom(hashParams(decay, roomSize, damping));
 	for (let ch = 0; ch < 2; ch++) {
 		const data = impulse.getChannelData(ch);
 		for (let i = 0; i < length; i++) {
 			const t = i / sampleRate;
 			const env = Math.exp(-t * (3 / Math.max(0.1, decay))) * (0.5 + roomSize * 0.5);
 			const damp = 1 - damping * 0.6 * (i / length);
-			data[i] = (Math.random() * 2 - 1) * env * damp * 0.35;
+			data[i] = (rand() * 2 - 1) * env * damp * 0.35;
 		}
 		data[0] = 0.9;
 	}
@@ -118,9 +138,11 @@ function createReverbNodes(context: AudioContext, effect: AudioEffect): PreviewA
 	const output = context.createGain();
 	const bypass = context.createGain();
 	const delay = context.createDelay(0.12);
-	const preGain = context.createGain();
 	const r = effect as import('./audio-effects').ReverbEffect;
-	convolver.buffer = generateReverbImpulse(context, r.decaySeconds, r.roomSize, r.damping);
+	let currentDecay = r.decaySeconds;
+	let currentRoom = r.roomSize;
+	let currentDamp = r.damping;
+	convolver.buffer = generateReverbImpulse(context, currentDecay, currentRoom, currentDamp);
 	convolver.normalize = true;
 	delay.delayTime.value = r.preDelayMs / 1000;
 	dry.gain.value = 1 - r.wet;
@@ -131,9 +153,6 @@ function createReverbNodes(context: AudioContext, effect: AudioEffect): PreviewA
 	delay.connect(convolver);
 	convolver.connect(wet);
 	wet.connect(output);
-	// Also direct via preGain for parity
-	input.connect(preGain);
-	void preGain;
 	return {
 		id: effect.id,
 		type: effect.type,
@@ -144,8 +163,15 @@ function createReverbNodes(context: AudioContext, effect: AudioEffect): PreviewA
 		nodes: [convolver, dry, wet, input, output, bypass, delay],
 		update(next: AudioEffect) {
 			const n = next as import('./audio-effects').ReverbEffect;
-			if (n.decaySeconds !== r.decaySeconds || n.roomSize !== r.roomSize || n.damping !== r.damping) {
+			if (
+				n.decaySeconds !== currentDecay ||
+				n.roomSize !== currentRoom ||
+				n.damping !== currentDamp
+			) {
 				convolver.buffer = generateReverbImpulse(context, n.decaySeconds, n.roomSize, n.damping);
+				currentDecay = n.decaySeconds;
+				currentRoom = n.roomSize;
+				currentDamp = n.damping;
 			}
 			delay.delayTime.value = n.preDelayMs / 1000;
 			dry.gain.value = 1 - n.wet;
@@ -205,12 +231,16 @@ function createDelayNodes(context: AudioContext, effect: AudioEffect): PreviewAu
 			this.enabled = n.enabled;
 		},
 		dispose() {
-			for (const node of [delay, feedback, dry, wet, input, output, bypass, filterLow, filterHigh]) node.disconnect();
+			for (const node of [delay, feedback, dry, wet, input, output, bypass, filterLow, filterHigh])
+				node.disconnect();
 		}
 	};
 }
 
-function createDistortionNodes(context: AudioContext, effect: AudioEffect): PreviewAudioEffectNodes {
+function createDistortionNodes(
+	context: AudioContext,
+	effect: AudioEffect
+): PreviewAudioEffectNodes {
 	const shaper = context.createWaveShaper();
 	const dry = context.createGain();
 	const wet = context.createGain();
@@ -264,15 +294,20 @@ function createDistortionNodes(context: AudioContext, effect: AudioEffect): Prev
 			this.enabled = n.enabled;
 		},
 		dispose() {
-			for (const node of [shaper, dry, wet, input, output, bypass, toneFilter, outGain]) node.disconnect();
+			for (const node of [shaper, dry, wet, input, output, bypass, toneFilter, outGain])
+				node.disconnect();
 		}
 	};
 }
 
-// Chorus/Flanger via modulated delay using Oscillator + Gain
-function createModulatedDelayNodes(context: AudioContext, effect: AudioEffect): PreviewAudioEffectNodes {
+function createModulatedDelayNodes(
+	context: AudioContext,
+	effect: AudioEffect
+): PreviewAudioEffectNodes {
 	const isChorus = effect.type === 'chorus';
-	const params = effect as import('./audio-effects').ChorusEffect | import('./audio-effects').FlangerEffect;
+	const params = effect as
+		| import('./audio-effects').ChorusEffect
+		| import('./audio-effects').FlangerEffect;
 	const delay = context.createDelay(isChorus ? 0.05 : 0.02);
 	const dry = context.createGain();
 	const wet = context.createGain();
@@ -292,9 +327,7 @@ function createModulatedDelayNodes(context: AudioContext, effect: AudioEffect): 
 	lfoGain.connect(delay.delayTime as unknown as AudioParam);
 	try {
 		lfo.start();
-	} catch {
-		// Oscillator may already be started in some mocks.
-	}
+	} catch {}
 	input.connect(dry);
 	dry.connect(output);
 	input.connect(delay);
@@ -313,28 +346,32 @@ function createModulatedDelayNodes(context: AudioContext, effect: AudioEffect): 
 		bypass,
 		nodes: [delay, dry, wet, input, output, bypass, feedback, lfo, lfoGain],
 		update(next: AudioEffect) {
-			const n = next as import('./audio-effects').ChorusEffect | import('./audio-effects').FlangerEffect;
+			const n = next as
+				| import('./audio-effects').ChorusEffect
+				| import('./audio-effects').FlangerEffect;
 			delay.delayTime.value = n.delayMs / 1000;
 			dry.gain.value = 1 - n.mix;
 			wet.gain.value = n.mix;
 			lfo.frequency.value = n.rateHz;
 			lfoGain.gain.value = n.depthMs / 1000;
-			if ('feedback' in n) feedback.gain.value = (n as import('./audio-effects').FlangerEffect).feedback ?? 0;
+			if ('feedback' in n)
+				feedback.gain.value = (n as import('./audio-effects').FlangerEffect).feedback ?? 0;
 			this.enabled = n.enabled;
 		},
 		dispose() {
 			try {
 				lfo.stop();
 			} catch {}
-			for (const node of [delay, dry, wet, input, output, bypass, feedback, lfo, lfoGain]) node.disconnect();
+			for (const node of [delay, dry, wet, input, output, bypass, feedback, lfo, lfoGain])
+				node.disconnect();
 		}
 	};
 }
 
-export function createPreviewAudioEffectNode(context: AudioContext, effect: AudioEffect): PreviewAudioEffectNodes | null {
-	if (!isAudioEffectActive({ ...effect, enabled: true }) && effect.enabled) {
-		// Still create but bypassed? We'll create anyway and bypass via graph routing.
-	}
+export function createPreviewAudioEffectNode(
+	context: AudioContext,
+	effect: AudioEffect
+): PreviewAudioEffectNodes | null {
 	switch (effect.type) {
 		case 'compressor':
 			return createCompressorNodes(context, effect);

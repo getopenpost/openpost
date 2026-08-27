@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-unknown-parameters -- Deep typed audio effect chain shared by preview and export. */
 import type { TimelineItem } from '../project/types';
 
 export const AUDIO_EFFECT_TYPES = [
@@ -87,8 +86,6 @@ export type AudioEffect =
 	| FlangerEffect
 	| DistortionEffect;
 
-// --- bounds & defaults ---
-
 export const COMPRESSOR_THRESHOLD_MIN = -60;
 export const COMPRESSOR_THRESHOLD_MAX = 0;
 export const COMPRESSOR_RATIO_MIN = 1;
@@ -145,13 +142,6 @@ export const DISTORTION_AMOUNT_MAX = 1;
 function clamp(value: number, min: number, max: number, fallback: number): number {
 	if (!Number.isFinite(value)) return fallback;
 	return Math.max(min, Math.min(max, value));
-}
-
-export function clampCompressorThreshold(v: number): number {
-	return clamp(v, COMPRESSOR_THRESHOLD_MIN, COMPRESSOR_THRESHOLD_MAX, -24);
-}
-export function clampCompressorRatio(v: number): number {
-	return clamp(v, COMPRESSOR_RATIO_MIN, COMPRESSOR_RATIO_MAX, 4);
 }
 
 export const DEFAULT_COMPRESSOR: Omit<CompressorEffect, 'id' | 'enabled'> = {
@@ -213,7 +203,10 @@ export const DEFAULT_DISTORTION: Omit<DistortionEffect, 'id' | 'enabled'> = {
 	outputGainDb: -2
 };
 
-export function createDefaultAudioEffect(type: AudioEffectType, id = crypto.randomUUID()): AudioEffect {
+export function createDefaultAudioEffect(
+	type: AudioEffectType,
+	id = crypto.randomUUID()
+): AudioEffect {
 	const base = { id, enabled: true } as const;
 	switch (type) {
 		case 'compressor':
@@ -242,13 +235,38 @@ export function normalizeAudioEffect(effect: AudioEffect): AudioEffect {
 				id: String(e.id),
 				type: 'compressor',
 				enabled,
-				thresholdDb: clamp(e.thresholdDb, COMPRESSOR_THRESHOLD_MIN, COMPRESSOR_THRESHOLD_MAX, DEFAULT_COMPRESSOR.thresholdDb),
+				thresholdDb: clamp(
+					e.thresholdDb,
+					COMPRESSOR_THRESHOLD_MIN,
+					COMPRESSOR_THRESHOLD_MAX,
+					DEFAULT_COMPRESSOR.thresholdDb
+				),
 				ratio: clamp(e.ratio, COMPRESSOR_RATIO_MIN, COMPRESSOR_RATIO_MAX, DEFAULT_COMPRESSOR.ratio),
-				attackMs: clamp(e.attackMs, COMPRESSOR_ATTACK_MIN, COMPRESSOR_ATTACK_MAX, DEFAULT_COMPRESSOR.attackMs),
-				releaseMs: clamp(e.releaseMs, COMPRESSOR_RELEASE_MIN, COMPRESSOR_RELEASE_MAX, DEFAULT_COMPRESSOR.releaseMs),
-				kneeDb: clamp(e.kneeDb, COMPRESSOR_KNEE_MIN, COMPRESSOR_KNEE_MAX, DEFAULT_COMPRESSOR.kneeDb),
-				makeupGainDb: clamp(e.makeupGainDb, COMPRESSOR_MAKEUP_MIN, COMPRESSOR_MAKEUP_MAX, DEFAULT_COMPRESSOR.makeupGainDb),
-				mix: clamp((e as unknown as { mix: number }).mix ?? 1, 0, 1, 1)
+				attackMs: clamp(
+					e.attackMs,
+					COMPRESSOR_ATTACK_MIN,
+					COMPRESSOR_ATTACK_MAX,
+					DEFAULT_COMPRESSOR.attackMs
+				),
+				releaseMs: clamp(
+					e.releaseMs,
+					COMPRESSOR_RELEASE_MIN,
+					COMPRESSOR_RELEASE_MAX,
+					DEFAULT_COMPRESSOR.releaseMs
+				),
+				kneeDb: clamp(
+					e.kneeDb,
+					COMPRESSOR_KNEE_MIN,
+					COMPRESSOR_KNEE_MAX,
+					DEFAULT_COMPRESSOR.kneeDb
+				),
+				makeupGainDb: clamp(
+					e.makeupGainDb,
+					COMPRESSOR_MAKEUP_MIN,
+					COMPRESSOR_MAKEUP_MAX,
+					DEFAULT_COMPRESSOR.makeupGainDb
+				),
+				mix: clamp((e.mix ?? 1) as number, 0, 1, 1)
 			};
 		}
 		case 'pan': {
@@ -267,10 +285,20 @@ export function normalizeAudioEffect(effect: AudioEffect): AudioEffect {
 				type: 'reverb',
 				enabled,
 				roomSize: clamp(e.roomSize, REVERB_ROOM_MIN, REVERB_ROOM_MAX, DEFAULT_REVERB.roomSize),
-				decaySeconds: clamp(e.decaySeconds, REVERB_DECAY_MIN, REVERB_DECAY_MAX, DEFAULT_REVERB.decaySeconds),
+				decaySeconds: clamp(
+					e.decaySeconds,
+					REVERB_DECAY_MIN,
+					REVERB_DECAY_MAX,
+					DEFAULT_REVERB.decaySeconds
+				),
 				damping: clamp(e.damping, REVERB_DAMPING_MIN, REVERB_DAMPING_MAX, DEFAULT_REVERB.damping),
 				wet: clamp(e.wet, REVERB_WET_MIN, REVERB_WET_MAX, DEFAULT_REVERB.wet),
-				preDelayMs: clamp(e.preDelayMs, REVERB_PREDELAY_MIN, REVERB_PREDELAY_MAX, DEFAULT_REVERB.preDelayMs)
+				preDelayMs: clamp(
+					e.preDelayMs,
+					REVERB_PREDELAY_MIN,
+					REVERB_PREDELAY_MAX,
+					DEFAULT_REVERB.preDelayMs
+				)
 			};
 		}
 		case 'delay': {
@@ -283,7 +311,12 @@ export function normalizeAudioEffect(effect: AudioEffect): AudioEffect {
 				feedback: clamp(e.feedback, DELAY_FEEDBACK_MIN, DELAY_FEEDBACK_MAX, DEFAULT_DELAY.feedback),
 				mix: clamp(e.mix, DELAY_MIX_MIN, DELAY_MIX_MAX, DEFAULT_DELAY.mix),
 				lowCutHz: clamp(e.lowCutHz ?? DEFAULT_DELAY.lowCutHz, 20, 2000, DEFAULT_DELAY.lowCutHz),
-				highCutHz: clamp(e.highCutHz ?? DEFAULT_DELAY.highCutHz, 1000, 20000, DEFAULT_DELAY.highCutHz)
+				highCutHz: clamp(
+					e.highCutHz ?? DEFAULT_DELAY.highCutHz,
+					1000,
+					20000,
+					DEFAULT_DELAY.highCutHz
+				)
 			};
 		}
 		case 'chorus': {
@@ -306,7 +339,12 @@ export function normalizeAudioEffect(effect: AudioEffect): AudioEffect {
 				enabled,
 				rateHz: clamp(e.rateHz, FLANGER_RATE_MIN, FLANGER_RATE_MAX, DEFAULT_FLANGER.rateHz),
 				depthMs: clamp(e.depthMs, FLANGER_DEPTH_MIN, FLANGER_DEPTH_MAX, DEFAULT_FLANGER.depthMs),
-				feedback: clamp(e.feedback, FLANGER_FEEDBACK_MIN, FLANGER_FEEDBACK_MAX, DEFAULT_FLANGER.feedback),
+				feedback: clamp(
+					e.feedback,
+					FLANGER_FEEDBACK_MIN,
+					FLANGER_FEEDBACK_MAX,
+					DEFAULT_FLANGER.feedback
+				),
 				mix: clamp(e.mix, 0, 1, DEFAULT_FLANGER.mix),
 				delayMs: clamp(e.delayMs, 1, 15, DEFAULT_FLANGER.delayMs)
 			};
@@ -317,7 +355,12 @@ export function normalizeAudioEffect(effect: AudioEffect): AudioEffect {
 				id: String(e.id),
 				type: 'distortion',
 				enabled,
-				amount: clamp(e.amount, DISTORTION_AMOUNT_MIN, DISTORTION_AMOUNT_MAX, DEFAULT_DISTORTION.amount),
+				amount: clamp(
+					e.amount,
+					DISTORTION_AMOUNT_MIN,
+					DISTORTION_AMOUNT_MAX,
+					DEFAULT_DISTORTION.amount
+				),
 				tone: clamp(e.tone, 0, 1, DEFAULT_DISTORTION.tone),
 				mix: clamp(e.mix, 0, 1, DEFAULT_DISTORTION.mix),
 				outputGainDb: clamp(e.outputGainDb, -24, 12, DEFAULT_DISTORTION.outputGainDb)
@@ -335,9 +378,7 @@ export function normalizeAudioEffects(effects: unknown): AudioEffect[] {
 		const typed = raw as AudioEffect;
 		if (!(AUDIO_EFFECT_TYPES as readonly string[]).includes(typed.type)) continue;
 		const normalized = normalizeAudioEffect(typed);
-		if (seen.has(normalized.id)) {
-			normalized.id = crypto.randomUUID();
-		}
+		if (seen.has(normalized.id)) normalized.id = crypto.randomUUID();
 		seen.add(normalized.id);
 		out.push(normalized);
 		if (out.length >= 12) break;
@@ -346,8 +387,8 @@ export function normalizeAudioEffects(effects: unknown): AudioEffect[] {
 }
 
 export function getAudioEffects(source?: TimelineItem | null): AudioEffect[] {
-	if (!source || !Array.isArray((source as unknown as { audioEffects?: unknown }).audioEffects)) return [];
-	return normalizeAudioEffects((source as unknown as { audioEffects: unknown }).audioEffects);
+	if (!source || !Array.isArray(source.audioEffects)) return [];
+	return normalizeAudioEffects(source.audioEffects);
 }
 
 export function cloneAudioEffects(effects: AudioEffect[] | undefined): AudioEffect[] | undefined {
@@ -387,9 +428,8 @@ export function areAudioEffectsEqual(
 	const a = left ?? [];
 	const b = right ?? [];
 	if (a.length !== b.length) return false;
-	for (let i = 0; i < a.length; i++) {
+	for (let i = 0; i < a.length; i++)
 		if (JSON.stringify(a[i]) !== JSON.stringify(b[i])) return false;
-	}
 	return true;
 }
 
@@ -398,14 +438,13 @@ export function reorderAudioEffects(
 	fromIndex: number,
 	toIndex: number
 ): AudioEffect[] {
-	if (fromIndex < 0 || fromIndex >= effects.length || toIndex < 0 || toIndex >= effects.length) return [...effects];
+	if (fromIndex < 0 || fromIndex >= effects.length || toIndex < 0 || toIndex >= effects.length)
+		return [...effects];
 	const next = [...effects];
 	const [moved] = next.splice(fromIndex, 1);
 	next.splice(toIndex, 0, moved!);
 	return next;
 }
-
-// ---- Offline DSP primitives shared by preview-response estimation and export ----
 
 function dbToGain(db: number): number {
 	return Math.pow(10, db / 20);
@@ -415,7 +454,6 @@ function gainToDb(gain: number): number {
 	return 20 * Math.log10(Math.max(gain, 1e-9));
 }
 
-// Compressor: feed-forward peak detector with attack/release smoothing.
 class OfflineCompressor {
 	private envelopeDb = -120;
 	private readonly attackCoeff: number;
@@ -452,9 +490,7 @@ class OfflineCompressor {
 				if (over <= this.kneeDb / 2) {
 					const kneeOver = over + this.kneeDb / 2;
 					gainReductionDb = ((1 - 1 / this.ratio) * kneeOver * kneeOver) / (2 * this.kneeDb);
-				} else {
-					gainReductionDb = over * (1 - 1 / this.ratio);
-				}
+				} else gainReductionDb = over * (1 - 1 / this.ratio);
 			}
 			const compressed = input * dbToGain(-gainReductionDb) * this.makeupGain;
 			out[i] = input * (1 - this.mix) + compressed * this.mix;
@@ -463,107 +499,59 @@ class OfflineCompressor {
 	}
 }
 
-// Pan: equal-power law, operates on stereo pair.
-function applyPanOffline(channels: Float32Array[], pan: number): Float32Array[] {
+/**
+ * Single documented pan law.
+ * Mono → stereo: equal-power. Angle = (pan+1)*pi/4, left = mono*cos(angle), right = mono*sin(angle).
+ * Pan -1 → left 1 right 0, pan 1 → left 0 right 1, pan 0 → 0.707 each (constant power).
+ * Stereo → stereo: balance. leftGain = pan<=0?1:1-pan, rightGain = pan>=0?1:1+pan, applied per channel.
+ */
+export function applyPanOffline(channels: Float32Array[], pan: number): Float32Array[] {
 	if (channels.length === 0) return channels;
+	const clamped = Math.max(-1, Math.min(1, pan));
 	if (channels.length === 1) {
-		const len = channels[0]!.length;
+		const mono = channels[0]!;
+		const len = mono.length;
 		const left = new Float32Array(len);
 		const right = new Float32Array(len);
-		const angle = ((pan + 1) * Math.PI) / 4;
+		const angle = ((clamped + 1) * Math.PI) / 4;
 		const lg = Math.cos(angle);
 		const rg = Math.sin(angle);
-		const mono = channels[0]!;
 		for (let i = 0; i < len; i++) {
 			const s = mono[i] ?? 0;
-			left[i] = s * lg * Math.SQRT2 * 0.5 + s * (pan <= 0 ? 0.5 : 0);
-			right[i] = s * rg * Math.SQRT2 * 0.5 + s * (pan >= 0 ? 0.5 : 0);
-			// Use exact equal-power with normalization to keep mono at pan 0 unchanged
-			left[i] = s * Math.cos(angle) * 1.0;
-			right[i] = s * Math.sin(angle) * 1.0;
-			// Preserve unity at center: cos(pi/4)=sin(pi/4)=0.707, scale up to 1 -> multiply by sqrt2
-			left[i] *= Math.SQRT2 * 0.707 ? 1 : 1; // no-op, keep logic explicit
+			left[i] = s * lg;
+			right[i] = s * rg;
 		}
-		// Normalize so center gives 0.707 each; to keep loudness, scale by 1 (equal-power already)
-		// But for test we want clear L/R difference at extremes
-		for (let i = 0; i < len; i++) {
-			const s = mono[i] ?? 0;
-			const a = ((pan + 1) * Math.PI) / 4;
-			left[i] = s * Math.cos(a) * Math.SQRT2 * 0.707 + s * Math.cos(a) * 0 ? s * Math.cos(a) * 1 : 0;
-			// Simpler: equal-power with sqrt2 compensation so center=1 each? Actually equal-power keeps constant power not amplitude.
-			// We'll do standard: left = cos((pan+1)*pi/4), right = sin((pan+1)*pi/4)
-			left[i] = s * Math.cos(a);
-			right[i] = s * Math.sin(a);
-		}
-		// Scale to preserve mono sum power: center 0.707 each; no scaling
 		return [left, right];
 	}
-	const angle = ((pan + 1) * Math.PI) / 4;
-	const lg = Math.cos(angle);
-	const rg = Math.sin(angle);
-	const left = channels[0]!;
-	const right = channels[1] ?? left;
-	const len = left.length;
-	const outL = new Float32Array(len);
-	const outR = new Float32Array(len);
-	for (let i = 0; i < len; i++) {
-		const l = left[i] ?? 0;
-		const r = right[i] ?? 0;
-		const mid = (l + r) * 0.5;
-		const side = (l - r) * 0.5;
-		// Simple stereo pan: blend mid/side based on pan
-		// For determinism, use constant-power pan on mid
-		outL[i] = l * (pan <= 0 ? 1 : 1 - pan) + mid * pan * 0.5;
-		outR[i] = r * (pan >= 0 ? 1 : 1 + pan) + mid * -pan * 0.5;
-		// Fallback to simple gain if mono-derived
-	}
-	// Use clearer equal-power on stereo: scale L/R
-	for (let i = 0; i < len; i++) {
-		const l = left[i] ?? 0;
-		const r = right[i] ?? 0;
-		if (pan < 0) {
-			outL[i] = l * 1 + r * 0;
-			outR[i] = r * (1 + pan) + l * 0;
-		} else if (pan > 0) {
-			outL[i] = l * (1 - pan);
-			outR[i] = r * 1;
-		} else {
-			outL[i] = l;
-			outR[i] = r;
-		}
-		// Mix with equal-power for smooth
-		const gl = Math.cos(angle) * Math.SQRT2 * 0.5 + 0.5;
-		const gr = Math.sin(angle) * Math.SQRT2 * 0.5 + 0.5;
-		// Actually for pan -1 -> L full R 0, pan 1 -> L 0 R full, pan 0 -> both 1
-		if (pan === -1) {
-			outL[i] = l + r * 0.0;
-			outR[i] = 0;
-		} else if (pan === 1) {
-			outL[i] = 0;
-			outR[i] = r + l * 0.0;
-		} else {
-			// Linear crossfade preserves test signal
-			const leftGain = pan <= 0 ? 1 : 1 - pan;
-			const rightGain = pan >= 0 ? 1 : 1 + pan;
-			outL[i] = l * leftGain;
-			outR[i] = r * rightGain;
-		}
-		// Keep unused vars to avoid lint
-		void lg;
-		void rg;
-		void gl;
-		void gr;
+	const leftGain = clamped <= 0 ? 1 : 1 - clamped;
+	const rightGain = clamped >= 0 ? 1 : 1 + clamped;
+	const outL = new Float32Array(channels[0]!.length);
+	const outR = new Float32Array((channels[1] ?? channels[0]!).length);
+	for (let i = 0; i < outL.length; i++) {
+		outL[i] = (channels[0]![i] ?? 0) * leftGain;
+		outR[i] = ((channels[1] ?? channels[0]!)[i] ?? 0) * rightGain;
 	}
 	return [outL, outR, ...channels.slice(2).map((c) => c.slice())];
 }
 
-// Delay with circular buffer and simple 1-pole tone filters
+type OnePoleState = { x1: number; y1: number };
+
+function onePoleLowpassCoeff(fc: number, sampleRate: number): number {
+	const fcClamped = Math.max(1, Math.min(fc, sampleRate * 0.45));
+	return Math.exp((-2 * Math.PI * fcClamped) / sampleRate);
+}
+
+function onePoleHighpassCoeff(fc: number, sampleRate: number): number {
+	return onePoleLowpassCoeff(fc, sampleRate);
+}
+
 class OfflineDelay {
-	private buffers: Float32Array[];
+	private readonly buffers: Float32Array[];
 	private writeIndex = 0;
 	private readonly delaySamples: number;
-	private toneStateL = 0;
-	private toneStateH = 0;
+	private readonly lpCoeff: number;
+	private readonly hpCoeff: number;
+	private readonly states: { lp: OnePoleState; hp: OnePoleState }[];
 
 	constructor(
 		private readonly params: DelayEffect,
@@ -573,6 +561,12 @@ class OfflineDelay {
 		const maxSamples = Math.ceil((DELAY_TIME_MAX / 1000) * sampleRate) + 1;
 		this.buffers = Array.from({ length: channelCount }, () => new Float32Array(maxSamples));
 		this.delaySamples = Math.max(1, Math.round((params.timeMs / 1000) * sampleRate));
+		this.lpCoeff = onePoleLowpassCoeff(params.highCutHz, sampleRate);
+		this.hpCoeff = onePoleHighpassCoeff(params.lowCutHz, sampleRate);
+		this.states = Array.from({ length: channelCount }, () => ({
+			lp: { x1: 0, y1: 0 },
+			hp: { x1: 0, y1: 0 }
+		}));
 	}
 
 	process(channels: Float32Array[]): Float32Array[] {
@@ -586,12 +580,15 @@ class OfflineDelay {
 				const bufLen = buf.length;
 				const readIndex = (this.writeIndex - this.delaySamples + bufLen) % bufLen;
 				let delayed = buf[readIndex] ?? 0;
-				// Simple tone: low-pass via one-pole
-				this.toneStateL = this.toneStateL * 0.7 + delayed * 0.3;
-				delayed = this.toneStateL;
+				const st = this.states[ch]!;
+				const hpOut = this.hpCoeff * (st.hp.y1 + delayed - st.hp.x1);
+				st.hp.x1 = delayed;
+				st.hp.y1 = hpOut;
+				const lpOut = (1 - this.lpCoeff) * hpOut + this.lpCoeff * st.lp.y1;
+				st.lp.y1 = lpOut;
+				delayed = lpOut;
 				const inputToBuffer = dry + delayed * this.params.feedback;
-				const clamped = Math.max(-2, Math.min(2, inputToBuffer));
-				buf[this.writeIndex] = clamped;
+				buf[this.writeIndex] = Math.max(-2, Math.min(2, inputToBuffer));
 				out[ch]![i] = dry * (1 - this.params.mix) + delayed * this.params.mix;
 			}
 			this.writeIndex = (this.writeIndex + 1) % this.buffers[0]!.length;
@@ -600,12 +597,19 @@ class OfflineDelay {
 	}
 }
 
-// Reverb: multi-comb + allpass network (Schroeder) with pre-delay
+type Comb = {
+	buffer: Float32Array;
+	index: number;
+	feedback: number;
+	damp: number;
+	filterState: number;
+};
+
 class OfflineReverb {
-	private preDelayBuffer: Float32Array[];
-	private preDelayWrite = 0;
+	private readonly preDelayBuffers: Float32Array[];
+	private readonly preDelayWrites: number[];
 	private readonly preDelaySamples: number;
-	private combs: { buffer: Float32Array; index: number; feedback: number; damp: number; filterState: number }[];
+	private readonly combsPerChannel: Comb[][];
 	private readonly wet: number;
 
 	constructor(
@@ -616,20 +620,24 @@ class OfflineReverb {
 		this.wet = params.wet;
 		this.preDelaySamples = Math.round((params.preDelayMs / 1000) * sampleRate);
 		const maxPre = Math.round((REVERB_PREDELAY_MAX / 1000) * sampleRate) + 1;
-		this.preDelayBuffer = Array.from({ length: channelCount }, () => new Float32Array(Math.max(1, maxPre)));
+		this.preDelayBuffers = Array.from(
+			{ length: channelCount },
+			() => new Float32Array(Math.max(1, maxPre))
+		);
+		this.preDelayWrites = Array.from({ length: channelCount }, () => 0);
 		const combTunings = [1116, 1188, 1277, 1356, 1422, 1491, 1557, 1617].map((s) =>
 			Math.max(1, Math.round((s * sampleRate) / 44100))
 		);
-		const decay = clamp(params.decaySeconds, REVERB_DECAY_MIN, REVERB_DECAY_MAX, 1.4);
-		this.combs = combTunings.map((samples) => ({
-			buffer: new Float32Array(samples),
-			index: 0,
-			feedback: Math.pow(0.001, samples / (decay * sampleRate)),
-			damp: params.damping,
-			filterState: 0
-		}));
-		// Scale feedback by roomSize
-		for (const comb of this.combs) comb.feedback *= 0.5 + params.roomSize * 0.5;
+		const decay = Math.max(0.1, Math.min(6, params.decaySeconds));
+		this.combsPerChannel = Array.from({ length: channelCount }, () =>
+			combTunings.map((samples) => ({
+				buffer: new Float32Array(samples),
+				index: 0,
+				feedback: Math.pow(0.001, samples / (decay * sampleRate)) * (0.5 + params.roomSize * 0.5),
+				damp: params.damping,
+				filterState: 0
+			}))
+		);
 	}
 
 	process(channels: Float32Array[]): Float32Array[] {
@@ -639,32 +647,31 @@ class OfflineReverb {
 		for (let i = 0; i < len; i++) {
 			for (let ch = 0; ch < this.channelCount; ch++) {
 				const dry = channels[ch]?.[i] ?? channels[0]![i] ?? 0;
-				// Pre-delay
-				const preBuf = this.preDelayBuffer[ch]!;
-				const preOut = preBuf[(this.preDelayWrite - this.preDelaySamples + preBuf.length) % preBuf.length] ?? 0;
-				preBuf[this.preDelayWrite] = dry;
+				const preBuf = this.preDelayBuffers[ch]!;
+				const write = this.preDelayWrites[ch]!;
+				const preOut = preBuf[(write - this.preDelaySamples + preBuf.length) % preBuf.length] ?? 0;
+				preBuf[write] = dry;
+				this.preDelayWrites[ch] = (write + 1) % preBuf.length;
 				let reverb = 0;
-				for (const comb of this.combs) {
+				for (const comb of this.combsPerChannel[ch]!) {
 					const delayed = comb.buffer[comb.index] ?? 0;
 					comb.filterState = delayed * (1 - comb.damp) + comb.filterState * comb.damp;
-					const filtered = comb.filterState;
-					comb.buffer[comb.index] = preOut + filtered * comb.feedback;
+					comb.buffer[comb.index] = preOut + comb.filterState * comb.feedback;
 					reverb += delayed;
 					comb.index = (comb.index + 1) % comb.buffer.length;
 				}
-				reverb /= this.combs.length;
-				reverb = Math.tanh(reverb * 1.2) * 0.85;
+				reverb = (reverb / this.combsPerChannel[ch]!.length) * 0.85;
+				if (reverb > 1) reverb = Math.tanh(reverb);
+				if (reverb < -1) reverb = Math.tanh(reverb);
 				out[ch]![i] = dry * (1 - this.wet) + reverb * this.wet;
 			}
-			this.preDelayWrite = (this.preDelayWrite + 1) % this.preDelayBuffer[0]!.length;
 		}
 		return out;
 	}
 }
 
-// Chorus/Flanger with modulated delay line, fixed phase determinism
 class OfflineModulatedDelay {
-	private buffer: Float32Array[];
+	private readonly buffers: Float32Array[];
 	private writeIndex = 0;
 	private phase = 0;
 
@@ -673,9 +680,10 @@ class OfflineModulatedDelay {
 		private readonly sampleRate: number,
 		private readonly channelCount: number
 	) {
-		const maxDelayMs = params.type === 'chorus' ? CHORUS_DELAY_MAX + CHORUS_DEPTH_MAX : 15 + FLANGER_DEPTH_MAX;
+		const maxDelayMs =
+			params.type === 'chorus' ? CHORUS_DELAY_MAX + CHORUS_DEPTH_MAX : 15 + FLANGER_DEPTH_MAX;
 		const maxSamples = Math.ceil((maxDelayMs / 1000) * sampleRate) + 2;
-		this.buffer = Array.from({ length: channelCount }, () => new Float32Array(maxSamples));
+		this.buffers = Array.from({ length: channelCount }, () => new Float32Array(maxSamples));
 	}
 
 	process(channels: Float32Array[]): Float32Array[] {
@@ -691,12 +699,11 @@ class OfflineModulatedDelay {
 			const lfo = Math.sin(2 * Math.PI * this.phase);
 			this.phase += rate / this.sampleRate;
 			if (this.phase >= 1) this.phase -= 1;
-			// Keep phase in [0,1)
 			const modMs = baseMs + lfo * depthMs;
-			const delaySamples = modMs * this.sampleRate / 1000;
+			const delaySamples = (modMs * this.sampleRate) / 1000;
 			for (let ch = 0; ch < this.channelCount; ch++) {
 				const dry = channels[ch]?.[i] ?? channels[0]![i] ?? 0;
-				const buf = this.buffer[ch]!;
+				const buf = this.buffers[ch]!;
 				const bufLen = buf.length;
 				const readPos = this.writeIndex - delaySamples;
 				const readIndexInt = Math.floor(readPos);
@@ -704,24 +711,19 @@ class OfflineModulatedDelay {
 				const idx0 = ((readIndexInt % bufLen) + bufLen) % bufLen;
 				const idx1 = (idx0 + 1) % bufLen;
 				const delayed = buf[idx0]! * (1 - frac) + buf[idx1]! * frac;
-				const toBuffer = dry + delayed * feedback;
-				buf[this.writeIndex] = Math.max(-2, Math.min(2, toBuffer));
+				buf[this.writeIndex] = Math.max(-2, Math.min(2, dry + delayed * feedback));
 				out[ch]![i] = dry * (1 - mix) + delayed * mix;
 			}
-			this.writeIndex = (this.writeIndex + 1) % this.buffer[0]!.length;
+			this.writeIndex = (this.writeIndex + 1) % this.buffers[0]!.length;
 		}
 		return out;
 	}
-
-	reset(): void {
-		for (const buf of this.buffer) buf.fill(0);
-		this.phase = 0;
-		this.writeIndex = 0;
-	}
 }
 
-// Distortion: soft clipping with tone control
-function applyDistortionOffline(channels: Float32Array[], params: DistortionEffect): Float32Array[] {
+function applyDistortionOffline(
+	channels: Float32Array[],
+	params: DistortionEffect
+): Float32Array[] {
 	const drive = 1 + params.amount * 18;
 	const mix = params.mix;
 	const tone = params.tone;
@@ -731,8 +733,7 @@ function applyDistortionOffline(channels: Float32Array[], params: DistortionEffe
 		let lpState = 0;
 		for (let i = 0; i < channel.length; i++) {
 			const dry = channel[i] ?? 0;
-			let shaped = Math.tanh(dry * drive);
-			shaped = shaped / Math.tanh(drive * 0.6 + 0.4);
+			let shaped = Math.tanh(dry * drive) / Math.tanh(drive * 0.6 + 0.4);
 			if (tone < 0.5) {
 				const cutoff = 0.2 + tone * 0.6;
 				lpState = lpState * (1 - cutoff) + shaped * cutoff;
@@ -740,22 +741,21 @@ function applyDistortionOffline(channels: Float32Array[], params: DistortionEffe
 			}
 			shaped = Math.max(-1.2, Math.min(1.2, shaped)) * outGain;
 			out[i] = dry * (1 - mix) + shaped * mix;
-			if (out[i]! > 1) out[i] = Math.tanh(out[i]!);
-			if (out[i]! < -1) out[i] = Math.tanh(out[i]!);
+			const v = out[i]!;
+			if (v > 1) out[i] = Math.tanh(v);
+			if (v < -1) out[i] = Math.tanh(v);
 		}
 		return out;
 	});
 }
 
-export interface OfflineEffectChainOptions {
-	sampleRate: number;
-	channelCount: number;
-}
-
 class PerChannelCompressor {
 	private readonly processors: OfflineCompressor[];
 	constructor(params: CompressorEffect, sampleRate: number, channelCount: number) {
-		this.processors = Array.from({ length: channelCount }, () => new OfflineCompressor(params, sampleRate));
+		this.processors = Array.from(
+			{ length: channelCount },
+			() => new OfflineCompressor(params, sampleRate)
+		);
 	}
 	process(channels: Float32Array[]): Float32Array[] {
 		return channels.map((ch, idx) => this.processors[idx]!.processChannel(ch));
@@ -771,7 +771,6 @@ type ChainEntry =
 	| { kind: 'flanger'; impl: OfflineModulatedDelay }
 	| { kind: 'distortion' };
 
-/** Stateful offline chain for chunked export; preserves tails across windows. */
 export class StreamingAudioEffectChain {
 	private readonly chain: { effect: AudioEffect; entry: ChainEntry }[] = [];
 
@@ -785,22 +784,37 @@ export class StreamingAudioEffectChain {
 			let entry: ChainEntry;
 			switch (effect.type) {
 				case 'compressor':
-					entry = { kind: 'compressor', impl: new PerChannelCompressor(effect as CompressorEffect, sampleRate, channelCount) };
+					entry = {
+						kind: 'compressor',
+						impl: new PerChannelCompressor(effect as CompressorEffect, sampleRate, channelCount)
+					};
 					break;
 				case 'pan':
 					entry = { kind: 'pan' };
 					break;
 				case 'reverb':
-					entry = { kind: 'reverb', impl: new OfflineReverb(effect as ReverbEffect, sampleRate, channelCount) };
+					entry = {
+						kind: 'reverb',
+						impl: new OfflineReverb(effect as ReverbEffect, sampleRate, channelCount)
+					};
 					break;
 				case 'delay':
-					entry = { kind: 'delay', impl: new OfflineDelay(effect as DelayEffect, sampleRate, channelCount) };
+					entry = {
+						kind: 'delay',
+						impl: new OfflineDelay(effect as DelayEffect, sampleRate, channelCount)
+					};
 					break;
 				case 'chorus':
-					entry = { kind: 'chorus', impl: new OfflineModulatedDelay(effect as ChorusEffect, sampleRate, channelCount) };
+					entry = {
+						kind: 'chorus',
+						impl: new OfflineModulatedDelay(effect as ChorusEffect, sampleRate, channelCount)
+					};
 					break;
 				case 'flanger':
-					entry = { kind: 'flanger', impl: new OfflineModulatedDelay(effect as FlangerEffect, sampleRate, channelCount) };
+					entry = {
+						kind: 'flanger',
+						impl: new OfflineModulatedDelay(effect as FlangerEffect, sampleRate, channelCount)
+					};
 					break;
 				case 'distortion':
 					entry = { kind: 'distortion' };
@@ -836,15 +850,22 @@ export class StreamingAudioEffectChain {
 					out = applyDistortionOffline(out, effect as DistortionEffect);
 					break;
 			}
-			for (const ch of out) {
+			for (const ch of out)
 				for (let i = 0; i < ch.length; i++) {
 					if (!Number.isFinite(ch[i]!)) ch[i] = 0;
-					if (ch[i]! > 1.2) ch[i] = Math.tanh(ch[i]!);
-					if (ch[i]! < -1.2) ch[i] = Math.tanh(ch[i]!);
+					const v = ch[i]!;
+					if (v > 1.2) ch[i] = Math.tanh(v);
+					if (v < -1.2) ch[i] = Math.tanh(v);
 				}
-			}
 		}
 		return out;
+	}
+
+	drain(sampleCount: number): Float32Array[] {
+		if (sampleCount <= 0 || this.isEmpty())
+			return Array.from({ length: this.channelCount }, () => new Float32Array(0));
+		const silence = Array.from({ length: this.channelCount }, () => new Float32Array(sampleCount));
+		return this.process(silence);
 	}
 
 	isEmpty(): boolean {
@@ -852,7 +873,6 @@ export class StreamingAudioEffectChain {
 	}
 }
 
-/** Stateless one-shot chain for tests and preview-response estimation. */
 export function applyAudioEffectStages(
 	channels: Float32Array[],
 	sampleRate: number,
@@ -869,7 +889,7 @@ export function getAudioEffectTailSeconds(effects: AudioEffect[] | undefined): n
 	for (const e of effects) {
 		if (!e.enabled) continue;
 		if (e.type === 'reverb') tail = Math.max(tail, (e as ReverbEffect).decaySeconds * 0.6);
-		if (e.type === 'delay') tail = Math.max(tail, ((e as DelayEffect).timeMs / 1000) * 2);
+		if (e.type === 'delay') tail = Math.max(tail, ((e as DelayEffect).timeMs / 1000) * 2.2);
 	}
 	return Math.min(2.5, tail);
 }

@@ -500,7 +500,8 @@ export function validateStreamSelection(
 		if (new Set(source.selectedAudioTrackIndices).size !== source.selectedAudioTrackIndices.length)
 			return 'Duplicate audio tracks selected.';
 	}
-	if (!hasSelectedTracks(source)) return 'No tracks selected. Choose at least one video or audio track.';
+	if (!hasSelectedTracks(source))
+		return 'No tracks selected. Choose at least one video or audio track.';
 	return null;
 }
 

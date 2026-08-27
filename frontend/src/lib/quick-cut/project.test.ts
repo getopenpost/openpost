@@ -81,7 +81,7 @@ describe('quick-cut project parsing', () => {
 		expect(parsed.sources[0]?.selectedAudioTrackIndices).toEqual([]);
 	});
 
-	it('parses older projects without stream fields', () => {
+	it('parses older projects without stream fields and infers synthetic stream 0', () => {
 		const legacy = {
 			version: 1,
 			id: 'proj',
@@ -112,8 +112,21 @@ describe('quick-cut project parsing', () => {
 			updatedAt: Date.now()
 		};
 		const parsed = parseProject(JSON.stringify(legacy));
-		expect(parsed.sources[0]?.videoStreams).toEqual([]);
-		expect(parsed.sources[0]?.audioStreams).toEqual([]);
+		expect(parsed.sources[0]?.videoStreams).toEqual([
+			{
+				index: 0,
+				codec: 'avc',
+				width: 1280,
+				height: 720,
+				rotation: 0,
+				fps: 30,
+				keyframeTimestamps: [0],
+				keyframeState: 'known'
+			}
+		]);
+		expect(parsed.sources[0]?.audioStreams).toEqual([
+			{ index: 0, codec: 'aac', sampleRate: 48000, channels: 2 }
+		]);
 	});
 
 	it('rejects invalid stream selections', () => {

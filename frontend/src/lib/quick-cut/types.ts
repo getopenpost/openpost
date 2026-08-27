@@ -10,6 +10,8 @@ export interface QuickCutVideoStream {
 	height: number;
 	rotation: Rotation;
 	fps: number | null;
+	keyframeTimestamps: number[];
+	keyframeState: 'known' | 'unknown';
 }
 
 export interface QuickCutAudioStream {

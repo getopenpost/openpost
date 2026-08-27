@@ -4,7 +4,11 @@
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { m } from '$lib/paraglide/messages';
-	import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
+	import type {
+		TimelineItem,
+		TimelineTrack,
+		AudioDuckingSettings
+	} from '$lib/video-editor/project/types';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 	import {
@@ -13,8 +17,7 @@
 		DUCKING_MAX_ATTACK_SEC,
 		DUCKING_MAX_RELEASE_SEC,
 		DUCKING_MIN_DB,
-		normalizeAudioDucking,
-		type AudioDuckingSettings
+		normalizeAudioDucking
 	} from '$lib/video-editor/audio/audio-ducking';
 
 	let { item, onedit = () => {} }: { item: TimelineItem; onedit?: () => void } = $props();

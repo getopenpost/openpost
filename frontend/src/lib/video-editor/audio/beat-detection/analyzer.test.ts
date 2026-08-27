@@ -9,8 +9,6 @@ function syntheticPulse({
 }: { bpm?: number; seconds?: number; sampleRate?: number; seed?: number } = {}) {
 	const interval = 60 / bpm;
 	const samples = new Float32Array(sampleRate * seconds);
-	// Strong deterministic pulse: 40ms block of 0.95 amplitude plus 800 Hz sine
-	// This creates a clear RMS spike that survives 2048-sample windowing.
 	const burstMs = 0.04;
 	const burstSamples = Math.floor(sampleRate * burstMs);
 	for (let t = 0; t < seconds; t += interval) {
@@ -18,14 +16,12 @@ function syntheticPulse({
 		for (let i = 0; i < burstSamples; i++) {
 			const idx = start + i;
 			if (idx >= samples.length) break;
-			const envelope = 1 - i / burstSamples; // linear decay
+			const envelope = 1 - i / burstSamples;
 			const sine = Math.sin((2 * Math.PI * 800 * i) / sampleRate);
 			const jitter = 0.9 + (((seed * 9301 + 49297) % 233280) / 233280) * 0.1;
 			samples[idx] += (0.7 + 0.3 * sine) * envelope * jitter;
-			void envelope;
 		}
 	}
-	// Very low deterministic dither so threshold adapts without masking pulses
 	for (let i = 0; i < samples.length; i++) {
 		samples[i] = (samples[i] ?? 0) + (((i * 1664525 + 1013904223) % 1000) / 1000) * 0.002 - 0.001;
 	}
@@ -41,21 +37,16 @@ describe('beat analyzer - synthetic pulse source of truth', () => {
 		expect(result.bpm).toBeGreaterThanOrEqual(118);
 		expect(result.bpm).toBeLessThanOrEqual(122);
 		expect(result.confidence).toBeGreaterThan(0.2);
-		// Expect one beat per pulse, aligned to onsets
 		expect(result.beats.length).toBeGreaterThanOrEqual(14);
 		expect(result.beats.length).toBeLessThanOrEqual(18);
-		// Strong downbeats every 4
 		expect(result.downbeats.length).toBeGreaterThanOrEqual(3);
 		expect(result.downbeats.length).toBeLessThanOrEqual(5);
 
-		// Beats should be spaced at the expected interval and phase-locked to the pulse train
-		// Due to windowing latency the whole grid may have a constant offset; verify spacing and relative alignment
 		for (let i = 1; i < result.beats.length; i++) {
 			const interval = result.beats[i]!.time - result.beats[i - 1]!.time;
 			expect(interval).toBeGreaterThan(0.45);
 			expect(interval).toBeLessThan(0.55);
 		}
-		// After compensating for the detector's constant phase offset, each expected pulse has a nearby beat
 		const phaseOffset = result.beats[0]?.time ?? 0;
 		for (let t = 0; t < duration; t += 0.5) {
 			const expected = t + phaseOffset;
@@ -97,14 +88,41 @@ describe('beat analyzer - synthetic pulse source of truth', () => {
 		await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
 	});
 
-	it('yields to main thread on long clips (not blocking) - 60s synthetic buffer completes', async () => {
+	it('cooperatively cancels a long synthetic signal without blocking the main thread', async () => {
+		const { samples, sampleRate, duration } = syntheticPulse({ bpm: 120, seconds: 60 });
+		const analyzer = new BeatAnalyzer();
+		const controller = new AbortController();
+		const start = Date.now();
+		const promise = analyzer.analyzeChannelData(samples, sampleRate, duration, controller.signal);
+		setTimeout(() => controller.abort(), 10);
+		await expect(promise).rejects.toMatchObject({ name: 'AbortError' });
+		expect(Date.now() - start).toBeLessThan(800);
+	});
+
+	it('yields to main thread on long clips - 30s synthetic buffer completes', async () => {
 		const { samples, sampleRate, duration } = syntheticPulse({ bpm: 120, seconds: 30 });
 		const analyzer = new BeatAnalyzer();
 		const start = Date.now();
 		const result = await analyzer.analyzeChannelData(samples, sampleRate, duration);
-		const elapsed = Date.now() - start;
-		// Should complete without blocking forever; just assert it returned beats
 		expect(result.beats.length).toBeGreaterThan(50);
-		expect(elapsed).toBeGreaterThanOrEqual(0);
+		expect(Date.now() - start).toBeGreaterThanOrEqual(0);
+	});
+
+	it('detects a pulse present only in the second channel via mono mix', async () => {
+		const { samples, sampleRate, duration } = syntheticPulse({ bpm: 120, seconds: 4 });
+		const silent = new Float32Array(samples.length);
+		// SAFETY: test-only mock AudioBuffer - only numberOfChannels, length, sampleRate, duration and getChannelData are used by mixToMono
+		const mockBuffer = {
+			numberOfChannels: 2,
+			length: samples.length,
+			sampleRate,
+			duration,
+			getChannelData: (channel: number) => (channel === 0 ? silent : samples)
+		} as AudioBuffer;
+		const analyzer = new BeatAnalyzer();
+		const result = await analyzer.analyzeAudioBuffer(mockBuffer);
+		expect(result.bpm).toBeGreaterThanOrEqual(118);
+		expect(result.bpm).toBeLessThanOrEqual(122);
+		expect(result.beats.length).toBeGreaterThan(6);
 	});
 });

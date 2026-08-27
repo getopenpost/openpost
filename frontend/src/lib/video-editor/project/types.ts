@@ -22,6 +22,13 @@ export type {
 	WipeDirection as TransitionDirection
 } from '../transitions/types';
 
+export interface AudioDuckingSettings {
+	duckOthersDb: number;
+	attackSec?: number;
+	releaseSec?: number;
+	targetTrackIds?: string[];
+}
+
 export const TIMELINE_ITEM_KINDS = [
 	'video',
 	'audio',
@@ -672,8 +679,7 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	audioFadeOutCurve?: number;
 	audioFadeInCurveX?: number;
 	audioFadeOutCurveX?: number;
-	/** Sidechain ducking: while this item is audible, other tracks are attenuated. */
-	audioDucking?: import('../audio/audio-ducking').AudioDuckingSettings;
+	audioDucking?: AudioDuckingSettings;
 
 	// Video properties
 	fadeIn?: number;

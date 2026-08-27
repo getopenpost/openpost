@@ -1,6 +1,6 @@
 /* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion */
 import type { MixEntry } from '../media/render-plan';
-import { collectMixEntryDuckWindows, mixEntryDuckGainAtTime } from './audio-ducking';
+import { collectMixEntryDuckWindows, type MixEntryDuckWindow } from './audio-ducking';
 import { mediaPool } from '../media/pool.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
 import { ensureAc3DecoderForCodec } from '../media/ac3-decoder';
@@ -18,6 +18,64 @@ export const MIX_WINDOW_SAMPLES = MIX_WINDOW_SECONDS * MIX_SAMPLE_RATE;
 const SOURCE_WINDOW_SECONDS = 5;
 const SOURCE_GUARD_SECONDS = 0;
 const ACTIVE_EPSILON = 0.0001;
+
+export class CompiledTargetDuck {
+	private readonly sorted: MixEntryDuckWindow[];
+	private active: MixEntryDuckWindow[] = [];
+	private nextIndex = 0;
+	private evaluations = 0;
+
+	constructor(
+		windows: MixEntryDuckWindow[],
+		target: { itemId: string; trackId?: string; trackAliases?: string[] }
+	) {
+		const targetAliases = target.trackAliases ?? (target.trackId ? [target.trackId] : []);
+		this.sorted = windows
+			.filter((w) => {
+				if (w.itemId === target.itemId) return false;
+				if (!w.targetTrackIds) return true;
+				const direct = w.targetTrackIds.includes(target.trackId ?? '');
+				const aliasMatch = targetAliases.some((alias) => w.targetTrackIds!.includes(alias));
+				return direct || aliasMatch;
+			})
+			.toSorted((a, b) => a.startSeconds - b.startSeconds);
+	}
+
+	gainAt(timeSeconds: number): number {
+		while (
+			this.nextIndex < this.sorted.length &&
+			this.sorted[this.nextIndex]!.startSeconds <= timeSeconds
+		) {
+			this.active.push(this.sorted[this.nextIndex]!);
+			this.nextIndex++;
+		}
+		let write = 0;
+		for (let read = 0; read < this.active.length; read++) {
+			const w = this.active[read]!;
+			if (timeSeconds <= w.endSeconds + w.releaseSeconds) {
+				this.active[write++] = w;
+			}
+		}
+		this.active.length = write;
+		let deepest = 0;
+		for (const w of this.active) {
+			this.evaluations++;
+			let db = 0;
+			if (timeSeconds < w.startSeconds) db = 0;
+			else if (w.attackSeconds > 0 && timeSeconds < w.startSeconds + w.attackSeconds) {
+				db = w.duckDb * ((timeSeconds - w.startSeconds) / w.attackSeconds);
+			} else if (timeSeconds <= w.endSeconds) db = w.duckDb;
+			else if (w.releaseSeconds > 0 && timeSeconds <= w.endSeconds + w.releaseSeconds)
+				db = w.duckDb * (1 - (timeSeconds - w.endSeconds) / w.releaseSeconds);
+			if (db < deepest) deepest = db;
+		}
+		return deepest === 0 ? 1 : Math.pow(10, deepest / 20);
+	}
+
+	get evaluationCount(): number {
+		return this.evaluations;
+	}
+}
 
 export interface AudioMixDiagnostics {
 	onOutputWindow?: (frames: number) => void;
@@ -405,6 +463,14 @@ export async function* mixAudioWindows(
 			reader: null
 		};
 	});
+	const compiledDucks = prepared.map(
+		(p) =>
+			new CompiledTargetDuck(duckSources, {
+				itemId: p.entry.itemId,
+				trackId: p.entry.trackId,
+				trackAliases: p.entry.duckTrackAliases ?? (p.entry.trackId ? [p.entry.trackId] : undefined)
+			})
+	);
 	try {
 		for (let windowStart = 0; windowStart < totalSamples; windowStart += MIX_WINDOW_SAMPLES) {
 			throwIfAborted(signal);
@@ -412,7 +478,8 @@ export async function* mixAudioWindows(
 			const windowLength = windowEnd - windowStart;
 			diagnostics?.onOutputWindow?.(windowLength);
 			const mix = [new Float32Array(windowLength), new Float32Array(windowLength)];
-			for (const current of prepared) {
+			for (let idx = 0; idx < prepared.length; idx++) {
+				const current = prepared[idx]!;
 				const overlapStart = Math.max(windowStart, current.startSample);
 				const overlapEnd = Math.min(windowEnd, current.endSample);
 				if (overlapEnd <= overlapStart) continue;
@@ -432,11 +499,7 @@ export async function* mixAudioWindows(
 				for (let sample = 0; sample < overlapLength; sample++) {
 					const timelineSample = overlapStart + sample;
 					const baseGain = current.automation.gainAt(timelineSample);
-					const duckGain = mixEntryDuckGainAtTime(
-						timelineSample / MIX_SAMPLE_RATE,
-						current.entry,
-						duckSources
-					);
+					const duckGain = compiledDucks[idx]!.gainAt(timelineSample / MIX_SAMPLE_RATE);
 					const gain = baseGain * duckGain;
 					mix[0]![windowOffset + sample]! += (channels[0]![sample] ?? 0) * gain;
 					mix[1]![windowOffset + sample]! += (channels[1]![sample] ?? 0) * gain;

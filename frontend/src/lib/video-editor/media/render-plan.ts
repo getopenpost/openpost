@@ -39,13 +39,19 @@ import {
 import { getAudioPitchShiftSemitones } from '../audio/audio-pitch';
 import type { ResolvedAudioEqSettings } from '../audio/types';
 import { mixerDbToGain } from '../audio/mixer-utils';
-import { normalizeAudioDucking, type AudioDuckingSettings } from '../audio/audio-ducking';
+import {
+	normalizeAudioDucking,
+	type AudioDuckingSettings,
+	DUCKING_DEFAULT_ATTACK_SEC,
+	DUCKING_DEFAULT_RELEASE_SEC
+} from '../audio/audio-ducking';
 
 /** One scheduled clip in the offline audio mixdown. */
 export interface MixEntry {
 	ducking?: AudioDuckingSettings;
 	duckStartSeconds?: number;
 	duckEndSeconds?: number;
+	duckTrackAliases?: string[];
 	itemId: string;
 	mediaId: string;
 	/** Root mixer track used by preview channel strips. */
@@ -295,10 +301,31 @@ export function planNestedMixdown(
 				entry.duckEndSeconds !== undefined
 					? wrapperStart + entry.duckEndSeconds / wrapperSpeed
 					: undefined;
+			const childTrackId = entry.trackId;
+			const baseAliases = entry.duckTrackAliases ?? (childTrackId ? [childTrackId] : []);
+			const duckTrackAliases = Array.from(
+				new Set([
+					wrapper.trackId,
+					`${wrapper.id}/${childTrackId}`,
+					...baseAliases.map((alias) => (alias.includes('/') ? alias : `${wrapper.id}/${alias}`))
+				])
+			);
+			let namespacedDucking = entry.ducking;
+			if (entry.ducking?.targetTrackIds) {
+				const compositionTrackIds = new Set(composition.tracks.map((t) => t.id));
+				namespacedDucking = {
+					...entry.ducking,
+					targetTrackIds: entry.ducking.targetTrackIds.map((id) =>
+						compositionTrackIds.has(id) ? `${wrapper.id}/${id}` : id
+					)
+				};
+			}
 			entries.push({
 				...entry,
+				ducking: namespacedDucking,
 				duckStartSeconds,
 				duckEndSeconds,
+				duckTrackAliases,
 				trackId: wrapper.trackId,
 				itemId: `${wrapper.id}/${entry.itemId}`,
 				whenSeconds: wrapperStart + entry.whenSeconds / wrapperSpeed,
@@ -378,16 +405,18 @@ export function sliceMixEntries(
 		let slicedDucking = entry.ducking;
 		let slicedDuckStart = entry.duckStartSeconds;
 		let slicedDuckEnd = entry.duckEndSeconds;
+		let slicedDuckAliases = entry.duckTrackAliases;
 		if (slicedDucking && slicedDuckStart !== undefined && slicedDuckEnd !== undefined) {
-			const duckOverlapStart = Math.max(slicedDuckStart, startSeconds);
-			const duckOverlapEnd = Math.min(slicedDuckEnd, endSeconds);
-			if (duckOverlapEnd > duckOverlapStart) {
-				slicedDuckStart = duckOverlapStart - startSeconds;
-				slicedDuckEnd = duckOverlapEnd - startSeconds;
-			} else {
+			const release = slicedDucking.releaseSec ?? DUCKING_DEFAULT_RELEASE_SEC;
+			const duckStart = slicedDuckStart;
+			const duckEndPlusRelease = slicedDuckEnd + release;
+			if (duckEndPlusRelease <= startSeconds || duckStart >= endSeconds) {
 				slicedDucking = undefined;
 				slicedDuckStart = undefined;
 				slicedDuckEnd = undefined;
+			} else {
+				slicedDuckStart = duckStart - startSeconds;
+				slicedDuckEnd = slicedDuckEnd - startSeconds;
 			}
 		}
 		return [
@@ -396,6 +425,7 @@ export function sliceMixEntries(
 				ducking: slicedDucking,
 				duckStartSeconds: slicedDuckStart,
 				duckEndSeconds: slicedDuckEnd,
+				duckTrackAliases: slicedDuckAliases,
 				whenSeconds: overlapStart - startSeconds,
 				sourceOffsetSeconds:
 					entry.sourceOffsetSeconds + (entry.reversed ? -1 : 1) * skipped * entry.playbackRate,

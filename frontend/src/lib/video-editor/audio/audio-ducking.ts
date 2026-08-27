@@ -1,6 +1,10 @@
 /* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-chained-type-assertions, anti-slop/no-conditional-empty-object-spread, anti-slop/no-known-value-widening */
-import type { TimelineItem, TimelineTrack, SubComposition } from '../project/types';
-import type { MixEntry } from '../media/render-plan';
+import type {
+	TimelineItem,
+	TimelineTrack,
+	SubComposition,
+	AudioDuckingSettings
+} from '../project/types';
 
 export const DUCKING_DEFAULT_ATTACK_SEC = 0.08;
 export const DUCKING_DEFAULT_RELEASE_SEC = 0.25;
@@ -9,12 +13,7 @@ export const DUCKING_MAX_DB = 0;
 export const DUCKING_MAX_ATTACK_SEC = 5;
 export const DUCKING_MAX_RELEASE_SEC = 5;
 
-export interface AudioDuckingSettings {
-	duckOthersDb: number;
-	attackSec?: number;
-	releaseSec?: number;
-	targetTrackIds?: string[];
-}
+export type { AudioDuckingSettings } from '../project/types';
 
 export interface DuckingSource {
 	itemId: string;
@@ -27,9 +26,19 @@ export interface DuckingSource {
 	targetTrackIds?: string[];
 }
 
+type DuckableMixEntry = {
+	itemId: string;
+	trackId?: string;
+	ducking?: AudioDuckingSettings;
+	duckStartSeconds?: number;
+	duckEndSeconds?: number;
+	duckTrackAliases?: string[];
+};
+
 export interface MixEntryDuckWindow {
 	itemId: string;
 	trackId?: string;
+	trackAliases?: string[];
 	startSeconds: number;
 	endSeconds: number;
 	duckDb: number;
@@ -388,7 +397,7 @@ function duckGainDbAtTime(timeSeconds: number, source: MixEntryDuckWindow): numb
 	return source.duckDb * (1 - progress);
 }
 
-export function collectMixEntryDuckWindows(entries: MixEntry[]): MixEntryDuckWindow[] {
+export function collectMixEntryDuckWindows(entries: DuckableMixEntry[]): MixEntryDuckWindow[] {
 	return entries
 		.filter(
 			(entry) =>
@@ -400,6 +409,7 @@ export function collectMixEntryDuckWindows(entries: MixEntry[]): MixEntryDuckWin
 		.map((entry) => ({
 			itemId: entry.itemId,
 			trackId: entry.trackId,
+			trackAliases: entry.duckTrackAliases ?? (entry.trackId ? [entry.trackId] : undefined),
 			startSeconds: entry.duckStartSeconds!,
 			endSeconds: entry.duckEndSeconds!,
 			duckDb: entry.ducking!.duckOthersDb,
@@ -411,13 +421,26 @@ export function collectMixEntryDuckWindows(entries: MixEntry[]): MixEntryDuckWin
 
 export function mixEntryDuckGainAtTime(
 	timeSeconds: number,
-	target: { itemId: string; trackId?: string },
+	target: {
+		itemId: string;
+		trackId?: string;
+		trackAliases?: string[];
+		duckTrackAliases?: string[];
+	},
 	windows: MixEntryDuckWindow[]
 ): number {
 	let deepestDb = 0;
+	const targetAliases =
+		(target as { trackAliases?: string[]; duckTrackAliases?: string[] }).trackAliases ??
+		(target as { trackAliases?: string[]; duckTrackAliases?: string[] }).duckTrackAliases ??
+		(target.trackId ? [target.trackId] : []);
 	for (const w of windows) {
 		if (w.itemId === target.itemId) continue;
-		if (w.targetTrackIds && !w.targetTrackIds.includes(target.trackId ?? '')) continue;
+		if (w.targetTrackIds) {
+			const matches = targetAliases.some((alias) => w.targetTrackIds!.includes(alias));
+			const directMatch = w.targetTrackIds.includes(target.trackId ?? '');
+			if (!matches && !directMatch) continue;
+		}
 		const db = duckGainDbAtTime(timeSeconds, w);
 		if (db < deepestDb) deepestDb = db;
 	}

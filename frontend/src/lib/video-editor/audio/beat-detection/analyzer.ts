@@ -6,6 +6,7 @@ import {
 	type BeatAnalysisResult,
 	type BeatDetectionConfig
 } from './types';
+import { mixAudioBufferCooperative } from '../channel-mix';
 
 function abortIfNeeded(signal?: AbortSignal): void {
 	if (signal?.aborted) throw new DOMException('Beat detection cancelled', 'AbortError');
@@ -80,22 +81,8 @@ export class BeatAnalyzer {
 
 	async analyzeAudioBuffer(buffer: AudioBuffer, signal?: AbortSignal): Promise<BeatAnalysisResult> {
 		abortIfNeeded(signal);
-		const copy = this.mixToMono(buffer);
+		const copy = await mixAudioBufferCooperative(buffer, signal);
 		return this.analyzeChannelData(copy, buffer.sampleRate, buffer.duration, signal);
-	}
-
-	private mixToMono(buffer: AudioBuffer): Float32Array {
-		if (buffer.numberOfChannels === 0) return new Float32Array(0);
-		if (buffer.numberOfChannels === 1) return new Float32Array(buffer.getChannelData(0));
-		const length = buffer.length;
-		const mono = new Float32Array(length);
-		for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-			const data = buffer.getChannelData(channel);
-			for (let i = 0; i < length; i++) mono[i] = (mono[i] ?? 0) + (data[i] ?? 0);
-		}
-		const divisor = buffer.numberOfChannels;
-		for (let i = 0; i < length; i++) mono[i] = (mono[i] ?? 0) / divisor;
-		return mono;
 	}
 
 	async analyzeBlob(blob: Blob, signal?: AbortSignal): Promise<BeatAnalysisResult> {

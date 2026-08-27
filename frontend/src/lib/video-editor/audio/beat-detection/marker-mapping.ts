@@ -4,6 +4,8 @@ import type { Beat } from './types';
 import { BeatAnalyzer } from './analyzer';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { sourceSecondsToTimelineFrame } from '$lib/video-editor/timeline/utils/media-item-frames';
+import { getItemSourceSpanSeconds } from '$lib/video-editor/timeline/utils/media-item-frames';
+import { m } from '$lib/paraglide/messages';
 
 export interface BeatMarkerOptions {
 	fps: number;
@@ -20,25 +22,25 @@ export function beatsToMarkers(
 	const fps = options.fps;
 	const beatsPerBar = options.beatsPerBar ?? 4;
 	const tolerance = options.dedupToleranceFrames ?? 1;
-	const downbeatSet = new Set(downbeats.map((t) => Math.round(t * 1000) / 1000));
-
-	// Group beats per bar index to number them deterministically
-	const sorted = [...beats].sort((a, b) => a.time - b.time);
-
+	const downbeatSet = new Set(downbeats.map((value) => Math.round(value * 1000) / 1000));
+	const sorted = [...beats].sort((left, right) => left.time - right.time);
+	const visibleWindow = options.item ? getItemSourceSpanSeconds(options.item, fps) : null;
 	const markers: TimelineMarker[] = [];
 	const seenFrames = new Set<number>();
 
 	for (const beat of sorted) {
+		if (
+			visibleWindow &&
+			(beat.time < visibleWindow.start - 1e-6 || beat.time > visibleWindow.end + 1e-6)
+		) {
+			continue;
+		}
 		const isDownbeat = downbeatSet.has(Math.round(beat.time * 1000) / 1000);
-		// If analyzer produced downbeats as subset, also treat every 4th as downbeat
 		const impliedDownbeat = !isDownbeat && beat.index % beatsPerBar === 0;
 		const effectiveDownbeat = isDownbeat || impliedDownbeat;
-
 		const frame = options.item
 			? sourceSecondsToTimelineFrame(options.item, beat.time, fps)
 			: BeatAnalyzer.mapBeatToFrame(beat.time, fps);
-
-		// Dedup within tolerance
 		let duplicate = false;
 		for (let delta = -tolerance; delta <= tolerance; delta++) {
 			if (seenFrames.has(frame + delta)) {
@@ -48,19 +50,19 @@ export function beatsToMarkers(
 		}
 		if (duplicate) continue;
 		seenFrames.add(frame);
-
 		const bar = Math.floor(beat.index / beatsPerBar) + 1;
 		const beatInBar = (beat.index % beatsPerBar) + 1;
-
 		markers.push({
 			id: crypto.randomUUID(),
 			frame,
-			label: effectiveDownbeat ? `Downbeat ${bar}` : `Beat ${beatInBar}`,
+			label: effectiveDownbeat
+				? (m.video_editor_downbeat_marker_label?.({ number: bar }) ?? `Downbeat ${bar}`)
+				: (m.video_editor_beat_marker_label?.({ number: beatInBar }) ?? `Beat ${beatInBar}`),
 			color: effectiveDownbeat ? DOWNBEAT_MARKER_COLOR : BEAT_MARKER_COLOR
 		});
 	}
 
-	return markers.sort((a, b) => a.frame - b.frame);
+	return markers.sort((left, right) => left.frame - right.frame);
 }
 
 export function dedupeAgainstExisting(
@@ -68,7 +70,7 @@ export function dedupeAgainstExisting(
 	existing: readonly TimelineMarker[],
 	tolerance = 1
 ): TimelineMarker[] {
-	const existingFrames = new Set(existing.map((m) => m.frame));
+	const existingFrames = new Set(existing.map((marker) => marker.frame));
 	const filtered: TimelineMarker[] = [];
 	const seen = new Set<number>();
 

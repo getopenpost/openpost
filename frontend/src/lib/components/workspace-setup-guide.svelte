@@ -70,11 +70,33 @@
 
 {#if setup?.visible && setup.action_href}
 	<div class={wrapperClass}>
-		<section
-			data-testid={`workspace-setup-guide-${context}`}
-			class="rounded-lg border border-primary/20 bg-primary/5 p-4 sm:p-5"
-			aria-labelledby={`workspace-setup-heading-${context}`}
-		>
+		{#if context === 'composer'}
+			<section
+				data-testid="workspace-setup-guide-composer"
+				class="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2.5"
+				aria-labelledby="workspace-setup-heading-composer"
+			>
+				<div class="min-w-0 flex-1">
+					<h2 id="workspace-setup-heading-composer" class="truncate text-sm font-medium">
+						{description}
+					</h2>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						{m.workspace_setup_progress({
+							completed: setup.completed_steps,
+							total: setup.total_steps
+						})}
+					</p>
+				</div>
+				<Button href={setup.action_href} size="sm" class="min-h-11 shrink-0 sm:min-h-9">
+					{actionLabel}
+				</Button>
+			</section>
+		{:else}
+			<section
+				data-testid={`workspace-setup-guide-${context}`}
+				class="rounded-lg border border-primary/20 bg-primary/5 p-4 sm:p-5"
+				aria-labelledby={`workspace-setup-heading-${context}`}
+			>
 			<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
 				<div class="min-w-0 space-y-1">
 					<p class="text-sm font-medium text-primary">
@@ -116,6 +138,7 @@
 					</li>
 				{/each}
 			</ol>
-		</section>
+			</section>
+		{/if}
 	</div>
 {/if}

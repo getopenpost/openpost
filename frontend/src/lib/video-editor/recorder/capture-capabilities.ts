@@ -69,6 +69,7 @@ export function readActualCursor(
 	const track = stream.getVideoTracks()[0];
 	if (!track) return 'unknown';
 	try {
+		// SAFETY: getSettings may include cursor for display capture per spec; checked via typeof
 		const settings = track.getSettings() as MediaTrackSettings & { cursor?: string };
 		const value = settings.cursor;
 		if (value === 'always' || value === 'motion' || value === 'never') return value;

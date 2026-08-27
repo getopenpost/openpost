@@ -47,9 +47,13 @@ async function stashFileHandle(media: MediaMetadata): Promise<SerializedMedia> {
 
 function normalizeSerializedCapture(serialized: SerializedMedia): SerializedMedia {
 	if (!('capture' in serialized) || serialized.capture === undefined) return serialized;
-	const normalized = normalizeRecordingCaptureMetadata(serialized.capture);
+	// SAFETY: capture is verified present above, safe to read as unknown for boundary parser
+	const rawCapture: unknown = (serialized as { capture: unknown }).capture;
+	const normalized = normalizeRecordingCaptureMetadata(rawCapture);
 	if (normalized) return { ...serialized, capture: normalized };
+	// SAFETY: drop invalid capture, rest without capture satisfies SerializedMedia (capture is optional)
 	const { capture: _dropped, ...rest } = serialized as SerializedMedia & { capture?: unknown };
+	// SAFETY: rest is serialized without invalid capture, compatible with SerializedMedia
 	return rest as SerializedMedia;
 }
 

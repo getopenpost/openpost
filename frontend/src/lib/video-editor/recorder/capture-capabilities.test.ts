@@ -6,28 +6,13 @@ import {
 	readActualCursor,
 	resolveCursorConstraint
 } from './capture-capabilities';
-
-class FakeTrack {
-	enabled = true;
-	muted = false;
-	readyState: MediaStreamTrackState = 'live';
-	stop = vi.fn();
-	getSettings = () => ({});
-	constructor(public kind: 'audio' | 'video') {}
-}
-
-class FakeStream {
-	constructor(public tracks: FakeTrack[]) {}
-	getAudioTracks(): FakeTrack[] {
-		return this.tracks.filter((t) => t.kind === 'audio') as unknown as MediaStreamTrack[];
-	}
-	getVideoTracks(): FakeTrack[] {
-		return this.tracks.filter((t) => t.kind === 'video') as unknown as MediaStreamTrack[];
-	}
-	getTracks(): FakeTrack[] {
-		return this.tracks as unknown as MediaStreamTrack[];
-	}
-}
+import {
+	capabilitiesFixture,
+	capabilitiesWithoutCursor,
+	createTestStream,
+	createTestTrack,
+	createTrackWithCursor
+} from './test-fixtures';
 
 describe('capture capabilities', () => {
 	it('detects display media and cursor support from getSupportedConstraints', () => {
@@ -47,32 +32,24 @@ describe('capture capabilities', () => {
 	});
 
 	it('resolves cursor constraint only when supported', () => {
-		const supported = {
+		const supported = capabilitiesFixture({
 			hasDisplayMedia: true,
 			hasUserMedia: true,
-			cursor: { supported: true, modes: ['always', 'motion', 'never'] as const },
+			cursor: { supported: true, modes: ['always', 'motion', 'never'] },
 			systemAudio: { canRequest: true }
-		} as any;
-		const unsupported = {
-			hasDisplayMedia: true,
-			hasUserMedia: true,
-			cursor: { supported: false, modes: [] },
-			systemAudio: { canRequest: true }
-		} as any;
+		});
+		const unsupported = capabilitiesWithoutCursor();
 		expect(resolveCursorConstraint('motion', supported)).toBe('motion');
 		expect(resolveCursorConstraint('never', unsupported)).toBeNull();
 	});
 
 	it('distinguishes system audio truth: active only when track exists', () => {
-		const withAudio = new FakeStream([
-			new FakeTrack('video'),
-			new FakeTrack('audio')
-		]) as unknown as MediaStream;
-		const withoutAudio = new FakeStream([new FakeTrack('video')]) as unknown as MediaStream;
+		const withAudio = createTestStream([createTestTrack('video'), createTestTrack('audio')]);
+		const withoutAudio = createTestStream([createTestTrack('video')]);
 		expect(isSystemAudioActive(withAudio)).toBe(true);
 		expect(isSystemAudioActive(withoutAudio)).toBe(false);
 		expect(isSystemAudioActive(null)).toBe(false);
-		const caps = { hasDisplayMedia: true } as any;
+		const caps = capabilitiesFixture({ hasDisplayMedia: true });
 		expect(
 			deriveSystemAudioStatus({ requested: false, stream: withAudio, capabilities: caps })
 		).toBe('not-requested');
@@ -96,21 +73,14 @@ describe('capture capabilities', () => {
 	});
 
 	it('reads actual cursor from track settings and never mirrors requested when unreported', () => {
-		const supportedCaps = {
+		const supportedCaps = capabilitiesFixture({
 			hasDisplayMedia: true,
 			cursor: { supported: true, modes: ['always', 'motion', 'never'] }
-		} as unknown as ReturnType<typeof detectRecordingCapabilities>;
-		const unsupportedCaps = {
-			hasDisplayMedia: true,
-			cursor: { supported: false, modes: [] }
-		} as unknown as ReturnType<typeof detectRecordingCapabilities>;
-		const trackAlways = new FakeTrack('video');
-		trackAlways.getSettings = () => ({ cursor: 'always' }) as unknown as MediaTrackSettings;
-		const streamAlways = new FakeStream([trackAlways]) as unknown as MediaStream;
+		});
+		const unsupportedCaps = capabilitiesWithoutCursor();
+		const streamAlways = createTestStream([createTrackWithCursor('video', 'always')]);
 		expect(readActualCursor(streamAlways, supportedCaps)).toBe('always');
-		const trackUnknown = new FakeTrack('video');
-		trackUnknown.getSettings = () => ({}) as unknown as MediaTrackSettings;
-		const streamUnknown = new FakeStream([trackUnknown]) as unknown as MediaStream;
+		const streamUnknown = createTestStream([createTestTrack('video')]);
 		expect(readActualCursor(streamUnknown, supportedCaps)).toBe('unknown');
 		expect(readActualCursor(streamUnknown, unsupportedCaps)).toBe('unsupported');
 	});

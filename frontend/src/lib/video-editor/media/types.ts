@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening -- I/O boundary parser for persisted capture metadata, validated at runtime */
 import { createLogger } from '../workspace-fs/logger';
 
 /**
@@ -47,72 +48,77 @@ export interface RecordingCaptureMetadata {
 	};
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser for persisted capture metadata (unknown JSON)
 export function normalizeRecordingCaptureMetadata(
 	value: unknown
 ): RecordingCaptureMetadata | undefined {
-	if (!value || typeof value !== 'object') return undefined;
-	const candidate = value as Partial<RecordingCaptureMetadata>;
-	if (candidate.version !== 1) return undefined;
-	if (candidate.kind !== 'screen' && candidate.kind !== 'camera' && candidate.kind !== 'microphone')
-		return undefined;
-	if (typeof candidate.capturedAt !== 'string') return undefined;
+	if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
+	// SAFETY: value is verified non-null object, safe to read as record
+	const raw = value as Record<string, unknown>;
+	if (raw.version !== 1) return undefined;
+	const kind = raw.kind;
+	if (kind !== 'screen' && kind !== 'camera' && kind !== 'microphone') return undefined;
+	const capturedAt = raw.capturedAt;
+	if (typeof capturedAt !== 'string') return undefined;
 	const result: RecordingCaptureMetadata = {
 		version: 1,
-		kind: candidate.kind,
-		capturedAt: candidate.capturedAt
+		kind,
+		capturedAt
 	};
-	if (candidate.cursor) {
-		const cursor = candidate.cursor as Partial<RecordingCaptureMetadata['cursor']>;
-		const modes: RecorderCursorMode[] = ['always', 'motion', 'never', 'unsupported', 'unknown'];
-		if (
-			cursor &&
-			typeof cursor.requested === 'string' &&
-			typeof cursor.actual === 'string' &&
-			typeof cursor.supported === 'boolean' &&
-			modes.includes(cursor.requested as RecorderCursorMode) &&
-			modes.includes(cursor.actual as RecorderCursorMode)
-		) {
-			result.cursor = {
-				requested: cursor.requested as RecorderCursorMode,
-				actual: cursor.actual as RecorderCursorMode,
-				supported: cursor.supported
-			};
-		} else if (candidate.cursor) {
-			createLogger('MediaTypes').warn('Dropped invalid cursor capture metadata', cursor);
+	const rawCursor = raw.cursor;
+	if (rawCursor !== undefined) {
+		if (typeof rawCursor === 'object' && rawCursor !== null && !Array.isArray(rawCursor)) {
+			// SAFETY: rawCursor verified as object
+			const cursorRecord = rawCursor as Record<string, unknown>;
+			const requested = cursorRecord.requested;
+			const actual = cursorRecord.actual;
+			const supported = cursorRecord.supported;
+			const isMode = (v: unknown): v is RecorderCursorMode =>
+				v === 'always' || v === 'motion' || v === 'never' || v === 'unsupported' || v === 'unknown';
+			if (isMode(requested) && isMode(actual) && typeof supported === 'boolean') {
+				result.cursor = { requested, actual, supported };
+			} else {
+				createLogger('MediaTypes').warn('Dropped invalid cursor capture metadata', rawCursor);
+			}
+		} else {
+			createLogger('MediaTypes').warn('Dropped invalid cursor capture metadata', rawCursor);
 		}
 	}
-	if (candidate.systemAudio) {
-		const audio = candidate.systemAudio as Partial<RecordingCaptureMetadata['systemAudio']>;
-		const statuses: RecordingSystemAudioStatus[] = [
-			'not-requested',
-			'active',
-			'inactive',
-			'unavailable',
-			'denied'
-		];
-		if (
-			audio &&
-			typeof audio.requested === 'boolean' &&
-			typeof audio.active === 'boolean' &&
-			typeof audio.status === 'string' &&
-			statuses.includes(audio.status as RecordingSystemAudioStatus)
-		) {
-			result.systemAudio = {
-				requested: audio.requested,
-				active: audio.active,
-				status: audio.status as RecordingSystemAudioStatus
-			};
-		} else if (candidate.systemAudio) {
-			createLogger('MediaTypes').warn('Dropped invalid systemAudio capture metadata', audio);
+	const rawAudio = raw.systemAudio;
+	if (rawAudio !== undefined) {
+		if (typeof rawAudio === 'object' && rawAudio !== null && !Array.isArray(rawAudio)) {
+			// SAFETY: rawAudio verified as object
+			const audioRecord = rawAudio as Record<string, unknown>;
+			const requested = audioRecord.requested;
+			const active = audioRecord.active;
+			const status = audioRecord.status;
+			const isStatus = (v: unknown): v is RecordingSystemAudioStatus =>
+				v === 'not-requested' ||
+				v === 'active' ||
+				v === 'inactive' ||
+				v === 'unavailable' ||
+				v === 'denied';
+			if (typeof requested === 'boolean' && typeof active === 'boolean' && isStatus(status)) {
+				result.systemAudio = { requested, active, status };
+			} else {
+				createLogger('MediaTypes').warn('Dropped invalid systemAudio capture metadata', rawAudio);
+			}
+		} else {
+			createLogger('MediaTypes').warn('Dropped invalid systemAudio capture metadata', rawAudio);
 		}
 	}
 	return result;
 }
 
+export interface ReconciledSystemAudio {
+	active: boolean;
+	status: RecordingSystemAudioStatus;
+}
+
 export function reconcileSystemAudioWithProbe(
 	capture: { requested: boolean; active: boolean; status: RecordingSystemAudioStatus },
 	hasAudio: boolean
-): { active: boolean; status: RecordingSystemAudioStatus } {
+): ReconciledSystemAudio {
 	const requested = capture.requested;
 	const priorStatus = capture.status;
 	const active = hasAudio;
@@ -128,7 +134,7 @@ export function reconcileSystemAudioWithProbe(
 	} else {
 		status = 'inactive';
 	}
-	return { active, status };
+	return { active, status } satisfies ReconciledSystemAudio;
 }
 
 export interface MediaMetadata {

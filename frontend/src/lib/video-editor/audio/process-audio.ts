@@ -1,4 +1,6 @@
 import { applyAudioEqStages } from './audio-eq';
+import { applyAudioEffectStages } from './audio-effects';
+import type { AudioEffect } from './audio-effects';
 import { getAudioPitchRatioFromSemitones, isAudioPitchShiftActive } from './audio-pitch';
 import type { ResolvedAudioEqSettings } from './types';
 
@@ -7,6 +9,7 @@ export interface AudioProcessOptions {
 	pitchShiftSemitones: number;
 	sampleRate: number;
 	eqStages?: ReadonlyArray<ResolvedAudioEqSettings>;
+	audioEffects?: AudioEffect[];
 }
 
 /**
@@ -30,7 +33,8 @@ export async function processAudioChannels(
 			getAudioPitchRatioFromSemitones(options.pitchShiftSemitones)
 		);
 	}
-	return applyAudioEqStages(processed, options.sampleRate, options.eqStages);
+	const eqProcessed = applyAudioEqStages(processed, options.sampleRate, options.eqStages);
+	return applyAudioEffectStages(eqProcessed, options.sampleRate, options.audioEffects);
 }
 
 async function timeStretchChannels(

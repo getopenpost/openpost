@@ -222,6 +222,9 @@ function remapItem(
 					keyframes?.map((keyframe) => ({ ...keyframe, id: createId() }))
 				])
 			)
+		}),
+		...(item.audioEffects && {
+			audioEffects: item.audioEffects.map((effect) => ({ ...effect, id: createId() }))
 		})
 	};
 }

@@ -38,6 +38,8 @@ import {
 } from '../audio/audio-eq';
 import { getAudioPitchShiftSemitones } from '../audio/audio-pitch';
 import type { ResolvedAudioEqSettings } from '../audio/types';
+import type { AudioEffect } from '../audio/audio-effects';
+import { normalizeAudioEffects } from '../audio/audio-effects';
 import { mixerDbToGain } from '../audio/mixer-utils';
 import {
 	normalizeAudioDucking,
@@ -66,6 +68,8 @@ export interface MixEntry {
 	pitchShiftSemitones: number;
 	/** Ordered outer-to-inner parametric EQ stages. */
 	audioEqStages: ResolvedAudioEqSettings[];
+	/** Ordered audio effect rack shared by preview and export. */
+	audioEffects: AudioEffect[];
 	/** Read the source window backward while keeping timeline time forward. */
 	reversed: boolean;
 	/** Real seconds this clip occupies in the mixdown. */
@@ -208,6 +212,7 @@ export function planMixdown(
 				track.audioEq,
 				getAudioEqSettings(item)
 			),
+			audioEffects: normalizeAudioEffects((item as unknown as { audioEffects?: unknown }).audioEffects),
 			reversed: item.isReversed === true,
 			durationSeconds: (endFrame - startFrame) / fps,
 			gainPoints: previewGainPoints.map((point) => ({
@@ -337,6 +342,10 @@ export function planNestedMixdown(
 					track.audioEq,
 					getAudioEqSettings(wrapper)
 				),
+				audioEffects: (() => {
+					const outer = normalizeAudioEffects((wrapper as unknown as { audioEffects?: unknown }).audioEffects);
+					return outer.length > 0 ? [...outer, ...entry.audioEffects] : entry.audioEffects;
+				})(),
 				durationSeconds: entry.durationSeconds / wrapperSpeed,
 				gainPoints: previewGainPoints.map((point) => ({
 					...point,

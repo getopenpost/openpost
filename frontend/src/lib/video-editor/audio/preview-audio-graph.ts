@@ -6,6 +6,12 @@ import {
 	clampAudioEqFrequencyForSampleRate
 } from './audio-eq';
 import type { ResolvedAudioEqSettings } from './types';
+import type { AudioEffect } from './audio-effects';
+import { normalizeAudioEffects } from './audio-effects';
+import {
+	createPreviewAudioEffectNode,
+	type PreviewAudioEffectNodes
+} from './preview-audio-effects';
 
 export const PREVIEW_AUDIO_GAIN_RAMP_SECONDS = 0.008;
 const PREVIEW_AUDIO_EQ_RAMP_SECONDS = 0.012;
@@ -31,6 +37,8 @@ export interface PreviewClipAudioGraph {
 	sourceInputNode: GainNode;
 	outputGainNode: GainNode;
 	eqStageNodes: PreviewClipAudioEqStageNodes[];
+	effectNodes: PreviewAudioEffectNodes[];
+	resolvedEffects: AudioEffect[];
 	dispose: () => void;
 }
 
@@ -360,12 +368,32 @@ function reconnectPreviewClipAudioGraph(graph: PreviewClipAudioGraph): void {
 		disconnectStageInternals(stageNodes);
 		connectStageInternals(stageNodes);
 	}
+	for (const fx of graph.effectNodes) {
+		try {
+			fx.input.disconnect();
+		} catch {}
+		try {
+			fx.output.disconnect();
+		} catch {}
+		try {
+			fx.bypass.disconnect();
+		} catch {}
+	}
 
 	let previousNode: AudioNode = graph.sourceInputNode;
 	for (const stageNodes of graph.eqStageNodes) {
 		const band1Entry = getBand1EntryNode(stageNodes);
 		previousNode.connect(band1Entry);
 		previousNode = stageNodes.outputGainNode;
+	}
+	for (const fx of graph.effectNodes) {
+		if (fx.enabled) {
+			previousNode.connect(fx.input);
+			previousNode = fx.output;
+		} else {
+			previousNode.connect(fx.bypass);
+			previousNode = fx.bypass;
+		}
 	}
 
 	previousNode.connect(graph.outputGainNode);
@@ -486,6 +514,7 @@ function ensurePreviewClipEqStage(
 
 export function createPreviewClipAudioGraph(options?: {
 	eqStageCount?: number;
+	effects?: AudioEffect[];
 	/** Omit to use the speakers, pass null when another owner routes the output. */
 	outputNode?: AudioNode | null;
 }): PreviewClipAudioGraph | null {
@@ -502,17 +531,26 @@ export function createPreviewClipAudioGraph(options?: {
 	const eqStageNodes = Array.from({ length: eqStageCount }, () =>
 		createPreviewClipAudioEqStage(context, DEFAULT_AUDIO_EQ_SETTINGS)
 	);
+	const resolvedEffects = normalizeAudioEffects(options?.effects);
+	const effectNodes: PreviewAudioEffectNodes[] = [];
+	for (const effect of resolvedEffects) {
+		const node = createPreviewAudioEffectNode(context, effect);
+		if (node) effectNodes.push(node);
+	}
 
 	const graph: PreviewClipAudioGraph = {
 		context,
 		sourceInputNode,
 		outputGainNode,
 		eqStageNodes,
+		effectNodes,
+		resolvedEffects,
 		dispose: () => {
 			sourceInputNode.disconnect();
 			for (const stageNodes of eqStageNodes) {
 				disconnectStageInternals(stageNodes);
 			}
+			for (const fx of effectNodes) fx.dispose();
 			outputGainNode.disconnect();
 		}
 	};
@@ -566,4 +604,30 @@ export function setPreviewClipEq(
 		const stageNodes = ensurePreviewClipEqStage(graph, i, targetStage);
 		applyStageParams(stageNodes, targetStage, graph.context.sampleRate);
 	}
+}
+
+export function setPreviewAudioEffects(graph: PreviewClipAudioGraph, effects: AudioEffect[] | undefined): void {
+	const next = normalizeAudioEffects(effects);
+	const same =
+		graph.resolvedEffects.length === next.length &&
+		graph.resolvedEffects.every((e, i) => JSON.stringify(e) === JSON.stringify(next[i]));
+	if (same) {
+		for (let i = 0; i < graph.effectNodes.length; i++) graph.effectNodes[i]!.update(next[i]!);
+		return;
+	}
+	for (const fx of graph.effectNodes) fx.dispose();
+	graph.effectNodes.length = 0;
+	for (const effect of next) {
+		const node = createPreviewAudioEffectNode(graph.context, effect);
+		if (node) graph.effectNodes.push(node);
+	}
+	graph.resolvedEffects = next;
+	reconnectPreviewClipAudioGraph(graph);
+}
+
+export function rampPreviewAudioEffects(
+	graph: PreviewClipAudioGraph,
+	effects: AudioEffect[] | undefined
+): void {
+	setPreviewAudioEffects(graph, effects);
 }

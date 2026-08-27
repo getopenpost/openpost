@@ -15,6 +15,7 @@ import type {
 import { CURRENT_SCHEMA_VERSION, getMigrationsToApply } from './migrations';
 import { mediaTracks, normalizeTrackGroups } from '../timeline/utils/track-groups';
 import { m } from '$lib/paraglide/messages';
+import { normalizeAudioEffects } from '../audio/audio-effects';
 
 export { CURRENT_SCHEMA_VERSION } from './migrations';
 
@@ -106,6 +107,18 @@ export interface NormalizedProject {
 	warnings: ProjectWarning[];
 }
 
+function normalizeAudioEffectsForItem(item: TimelineItem): TimelineItem {
+	if (!Array.isArray((item as unknown as { audioEffects?: unknown }).audioEffects)) return item;
+	const normalized = normalizeAudioEffects((item as unknown as { audioEffects: unknown }).audioEffects);
+	const original = (item as unknown as { audioEffects?: unknown[] }).audioEffects;
+	if (normalized.length === (original?.length ?? 0) && normalized.every((e, i) => JSON.stringify(e) === JSON.stringify(original?.[i]))) return item;
+	if (normalized.length === 0) {
+		const { audioEffects: _omit, ...rest } = item as TimelineItem & { audioEffects?: unknown };
+		return rest as TimelineItem;
+	}
+	return { ...item, audioEffects: normalized };
+}
+
 function normalizeShapeStrokeStyle(item: TimelineItem): TimelineItem {
 	if (item.type !== 'shape') return item;
 	const clampOptional = (value: number | undefined, minimum: number, maximum: number) =>
@@ -139,7 +152,12 @@ export function normalizeProject(project: Project): NormalizedProject {
 	let shapeStylesRepaired = false;
 	const normalizeItems = (items: TimelineItem[]): TimelineItem[] =>
 		items.map((item) => {
-			const normalized = normalizeShapeStrokeStyle(item);
+			let normalized = normalizeShapeStrokeStyle(item);
+			const withEffects = normalizeAudioEffectsForItem(normalized);
+			if (withEffects !== normalized) {
+				normalized = withEffects;
+				shapeStylesRepaired = true;
+			}
 			if (normalized !== item) shapeStylesRepaired = true;
 			return normalized;
 		});

@@ -723,6 +723,9 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	// Clip effects (CSS-filter-semantics color/blur stack; see effects/types.ts)
 	effects?: import('$lib/video-editor/effects/types').ItemEffect[];
 
+	// Ordered audio effect rack after EQ and fades, shared by preview and export
+	audioEffects?: import('../audio/audio-effects').AudioEffect[];
+
 	// Per-clip compositing blend mode for the GPU pipeline (25 modes; see
 	// effects/gpu/blend-modes.ts). Absent/'normal' keeps opacity-only blending.
 	blendMode?: import('$lib/video-editor/effects/gpu/blend-modes').BlendMode;

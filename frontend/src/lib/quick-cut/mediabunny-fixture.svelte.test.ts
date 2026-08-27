@@ -322,7 +322,16 @@ describe('quick-cut mediabunny fixture', () => {
 		const staleSource = {
 			...source,
 			keyframeState: 'known' as const,
-			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b)
+			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b),
+			videoStreams: source.videoStreams.map((stream, index) =>
+				index === 0
+					? {
+							...stream,
+							keyframeState: 'known' as const,
+							keyframeTimestamps: [...stream.keyframeTimestamps, 0.2].sort((a, b) => a - b)
+						}
+					: stream
+			)
 		};
 		const segment = createSegment(0.2, 0.8, {
 			sourceId: source.id,
@@ -355,7 +364,16 @@ describe('quick-cut mediabunny fixture', () => {
 		const staleSource = {
 			...source,
 			keyframeState: 'known' as const,
-			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b)
+			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b),
+			videoStreams: source.videoStreams.map((stream, index) =>
+				index === 0
+					? {
+							...stream,
+							keyframeState: 'known' as const,
+							keyframeTimestamps: [...stream.keyframeTimestamps, 0.2].sort((a, b) => a - b)
+						}
+					: stream
+			)
 		};
 		const segment = createSegment(0.2, 0.8, {
 			sourceId: source.id,

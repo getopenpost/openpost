@@ -1,6 +1,6 @@
-import { ALL_FORMATS, BlobSource, Input } from 'mediabunny';
+import { ALL_FORMATS, BlobSource, EncodedPacketSink, Input } from 'mediabunny';
 import type { QuickCutSource } from './types';
-import { extractKeyframeTimestamps } from './keyframes';
+import { collectKeyframeTimestamps, extractKeyframeTimestamps } from './keyframes';
 import { createHash } from './fingerprint';
 
 export async function probeSourceFile(
@@ -59,13 +59,26 @@ export async function probeSourceFile(
 			} catch {
 				// ignore
 			}
+			let kf: number[] = [];
+			let kfState: QuickCutSource['videoStreams'][number]['keyframeState'] = 'unknown';
+			try {
+				const sink = new EncodedPacketSink(track);
+				kf = await collectKeyframeTimestamps(sink, signal);
+				kfState = kf.length > 0 ? 'known' : 'unknown';
+			} catch (error) {
+				if (signal?.aborted) throw signal.reason ?? error;
+				kf = [];
+				kfState = 'unknown';
+			}
 			videoStreams.push({
 				index,
 				codec: track.codec ?? null,
 				width: track.displayWidth ?? 0,
 				height: track.displayHeight ?? 0,
 				rotation: track.rotation ?? 0,
-				fps: fpsTrack ?? fps
+				fps: fpsTrack ?? fps,
+				keyframeTimestamps: kf,
+				keyframeState: kfState
 			});
 		}
 		const audioStreams: QuickCutSource['audioStreams'] = [];
@@ -89,15 +102,20 @@ export async function probeSourceFile(
 		}
 		let keyframeTimestamps: number[] = [];
 		let keyframeState: QuickCutSource['keyframeState'] = 'unknown';
-		try {
-			keyframeTimestamps = await extractKeyframeTimestamps(file, signal);
-			if (!videoTrack) keyframeState = 'audio-only';
-			else if (keyframeTimestamps.length > 0) keyframeState = 'known';
-			else keyframeState = 'unknown';
-		} catch (error) {
-			if (signal?.aborted) throw signal.reason ?? error;
-			keyframeTimestamps = [];
-			keyframeState = videoTrack ? 'unknown' : 'audio-only';
+		if (videoStreams.length > 0) {
+			keyframeTimestamps = videoStreams[0]!.keyframeTimestamps;
+			keyframeState = videoStreams[0]!.keyframeState === 'known' ? 'known' : 'unknown';
+		} else if (!videoTrack) {
+			keyframeState = 'audio-only';
+		} else {
+			try {
+				keyframeTimestamps = await extractKeyframeTimestamps(file, signal);
+				keyframeState = keyframeTimestamps.length > 0 ? 'known' : 'unknown';
+			} catch (error) {
+				if (signal?.aborted) throw signal.reason ?? error;
+				keyframeTimestamps = [];
+				keyframeState = 'unknown';
+			}
 		}
 		const lastModified = file.lastModified;
 		let contentFingerprint: string | undefined;

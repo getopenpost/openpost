@@ -19,6 +19,7 @@ function makeSource(id: string, overrides: Partial<QuickCutSource> = {}): QuickC
 		rotation: 0,
 		fps: 30,
 		keyframeTimestamps: [0, 2, 4, 6, 8],
+		keyframeState: 'known',
 		videoStreams: [],
 		audioStreams: [],
 		...overrides
@@ -32,7 +33,9 @@ function makeSource(id: string, overrides: Partial<QuickCutSource> = {}): QuickC
 					width: base.width,
 					height: base.height,
 					rotation: base.rotation,
-					fps: base.fps
+					fps: base.fps,
+					keyframeTimestamps: base.keyframeTimestamps,
+					keyframeState: base.keyframeState === 'known' ? 'known' : 'unknown'
 				}
 			];
 		} else base.videoStreams = [];

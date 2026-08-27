@@ -22,7 +22,9 @@ const videoStreamSchema = z.object({
 	width: z.number().min(0).max(8192),
 	height: z.number().min(0).max(8192),
 	rotation: z.number(),
-	fps: z.number().nullable()
+	fps: z.number().nullable(),
+	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES).optional(),
+	keyframeState: z.enum(['known', 'unknown']).optional()
 });
 
 const audioStreamSchema = z.object({
@@ -110,8 +112,48 @@ const legacyProjectSchema = z.object({
 });
 
 function normalizeSourceStreams(source: QuickCutSourceMetadata): QuickCutSourceMetadata {
-	const videoStreams = source.videoStreams ?? [];
-	const audioStreams = source.audioStreams ?? [];
+	let videoStreams = source.videoStreams ?? [];
+	let audioStreams = source.audioStreams ?? [];
+	if (videoStreams.length === 0 && source.videoCodec !== null) {
+		videoStreams = [
+			{
+				index: 0,
+				codec: source.videoCodec,
+				width: source.width,
+				height: source.height,
+				rotation: source.rotation,
+				fps: source.fps,
+				keyframeTimestamps: source.keyframeTimestamps ?? [],
+				keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
+			}
+		];
+	} else {
+		videoStreams = videoStreams.map((vs, idx) => {
+			if (vs.keyframeTimestamps !== undefined && vs.keyframeState !== undefined) return vs;
+			if (idx === 0 && source.keyframeTimestamps && source.keyframeState !== 'audio-only') {
+				return {
+					...vs,
+					keyframeTimestamps: source.keyframeTimestamps,
+					keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
+				};
+			}
+			return {
+				...vs,
+				keyframeTimestamps: vs.keyframeTimestamps ?? [],
+				keyframeState: vs.keyframeState ?? 'unknown'
+			};
+		});
+	}
+	if (audioStreams.length === 0 && source.audioCodec !== null) {
+		audioStreams = [
+			{
+				index: 0,
+				codec: source.audioCodec,
+				sampleRate: source.sampleRate,
+				channels: source.channels
+			}
+		];
+	}
 	const normalized: QuickCutSourceMetadata = {
 		...source,
 		videoStreams,
@@ -249,6 +291,63 @@ export function parseProject(json: string): QuickCutProject {
 		}
 	}
 	throw new Error(`Invalid project: ${current.error.issues[0]?.message ?? 'schema error'}`);
+}
+
+export function reconcileSourceAfterProbe(oldMeta: QuickCutSourceMetadata, probed: QuickCutSource) {
+	let didMigrate = false;
+	let videoWasValid = true;
+	let audioWasValid = true;
+	let newSelectedVideoTrackIndex: number | null | undefined = oldMeta.selectedVideoTrackIndex;
+	let newSelectedAudioTrackIndices: number[] | undefined = oldMeta.selectedAudioTrackIndices;
+	if (oldMeta.selectedVideoTrackIndex === undefined) {
+		didMigrate = true;
+		if (probed.videoStreams.length > 0) newSelectedVideoTrackIndex = probed.videoStreams[0]!.index;
+		else newSelectedVideoTrackIndex = null;
+	} else if (oldMeta.selectedVideoTrackIndex !== null) {
+		const exists = probed.videoStreams.some((vs) => vs.index === oldMeta.selectedVideoTrackIndex);
+		if (!exists) {
+			videoWasValid = false;
+			newSelectedVideoTrackIndex = null;
+		}
+	}
+	if (oldMeta.selectedAudioTrackIndices === undefined) {
+		didMigrate = true;
+		if (probed.audioStreams.length > 0)
+			newSelectedAudioTrackIndices = [probed.audioStreams[0]!.index];
+		else newSelectedAudioTrackIndices = [];
+	} else {
+		const allExist = oldMeta.selectedAudioTrackIndices.every((idx) =>
+			probed.audioStreams.some((as) => as.index === idx)
+		);
+		if (!allExist) {
+			audioWasValid = false;
+			newSelectedAudioTrackIndices = [];
+		}
+	}
+	const reconciled: QuickCutSourceMetadata = {
+		...oldMeta,
+		name: probed.name,
+		size: probed.size,
+		mimeType: probed.mimeType,
+		duration: probed.duration,
+		width: probed.width,
+		height: probed.height,
+		videoCodec: probed.videoCodec,
+		audioCodec: probed.audioCodec,
+		sampleRate: probed.sampleRate,
+		channels: probed.channels,
+		rotation: probed.rotation,
+		fps: probed.fps,
+		keyframeTimestamps: probed.keyframeTimestamps,
+		keyframeState: probed.keyframeState,
+		lastModified: probed.lastModified,
+		contentFingerprint: probed.contentFingerprint,
+		videoStreams: probed.videoStreams,
+		audioStreams: probed.audioStreams,
+		selectedVideoTrackIndex: newSelectedVideoTrackIndex,
+		selectedAudioTrackIndices: newSelectedAudioTrackIndices
+	};
+	return { reconciled, videoWasValid, audioWasValid, didMigrate };
 }
 
 export function createNewProject(

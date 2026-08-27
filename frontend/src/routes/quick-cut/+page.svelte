@@ -31,7 +31,13 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		copyScratchToWorkspace,
 		discardScratchFile
 	} from '$lib/quick-cut/export';
-	import type { QuickCutSource, QuickCutSegment, CutMode, LoopMode } from '$lib/quick-cut/types';
+	import type {
+		QuickCutSource,
+		QuickCutSourceMetadata,
+		QuickCutSegment,
+		CutMode,
+		LoopMode
+	} from '$lib/quick-cut/types';
 	import type { QuickCutExportProgress } from '$lib/quick-cut/export';
 	import {
 		createNewProject,
@@ -39,7 +45,8 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		serializeProject,
 		deserializeProject,
 		projectFileName,
-		persistSourceHandles
+		persistSourceHandles,
+		reconcileSourceAfterProbe
 	} from '$lib/quick-cut/project';
 	import type { QuickCutProject } from '$lib/quick-cut/types';
 	import { getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
@@ -573,6 +580,73 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		sourceUrls = new Map();
 	}
 
+	async function reconnectSource(sourceId: string): Promise<void> {
+		const target = sources.find((s) => s.id === sourceId);
+		if (!target) return;
+		let file: File | null = null;
+		let handle: FileSystemFileHandle | undefined;
+		if (window.showOpenFilePicker) {
+			try {
+				const [picked] = await window.showOpenFilePicker({
+					multiple: false,
+					types: [
+						{
+							description: 'Media',
+							accept: {
+								'video/*': ['.mp4', '.webm', '.mov', '.mkv'],
+								'audio/*': ['.mp3', '.aac', '.wav', '.flac', '.ogg', '.m4a']
+							}
+						}
+					]
+				});
+				if (picked && 'getFile' in picked) {
+					// SAFETY: picked is FileSystemFileHandle per File System Access spec when getFile in handle
+					handle = picked as FileSystemFileHandle;
+					file = await handle.getFile();
+				}
+			} catch (e) {
+				if (e instanceof DOMException && e.name === 'AbortError') return;
+				showToast(e instanceof Error ? e.message : String(e), 'error');
+				return;
+			}
+		} else {
+			const picked = await new Promise<File | null>((resolve) => {
+				const input = document.createElement('input');
+				input.type = 'file';
+				input.accept = 'video/*,audio/*,.mp4,.webm,.mov,.mkv,.m4a,.mp3,.wav,.flac,.ogg';
+				input.onchange = () => resolve(input.files?.[0] ?? null);
+				input.click();
+			});
+			if (picked) file = picked;
+		}
+		if (!file) return;
+		try {
+			const probed = await probeSourceFile(file, handle, target.id);
+			const { reconciled, videoWasValid, audioWasValid } = reconcileSourceAfterProbe(
+				// SAFETY: target is QuickCutSource with same id/selection fields as QuickCutSourceMetadata
+				target as QuickCutSourceMetadata,
+				probed
+			);
+			if (!videoWasValid || !audioWasValid)
+				showToast(`${target.name}: ${m.quick_cut_selection_invalidated()}`, 'error');
+			sources = sources.map((s) => {
+				if (s.id !== sourceId) return s;
+				return { ...s, ...reconciled, handle: handle ?? s.handle, file };
+			});
+			const url = URL.createObjectURL(file);
+			const next = new Map(sourceUrls);
+			const oldUrl = sourceUrls.get(sourceId);
+			if (oldUrl) URL.revokeObjectURL(oldUrl);
+			next.set(sourceId, url);
+			sourceUrls = next;
+			if (handle) await persistSourceHandles(sources.filter((s) => s.id === sourceId));
+			syncProject();
+			showToast(m.quick_cut_reconnected(), 'success');
+		} catch (e) {
+			showToast(e instanceof Error ? e.message : String(e), 'error');
+		}
+	}
+
 	async function handleImportProject(): Promise<void> {
 		const input = document.createElement('input');
 		input.type = 'file';
@@ -599,12 +673,20 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				file: undefined
 			}));
 			clearSourceUrls();
-			// Try to create object URLs for those with handles
 			for (const s of sources) {
 				if (s.handle) {
 					try {
 						const file = await s.handle.getFile();
-						s.file = file;
+						const probed = await probeSourceFile(file, s.handle, s.id);
+						const { reconciled, videoWasValid, audioWasValid } = reconcileSourceAfterProbe(
+							// SAFETY: target is QuickCutSource with same id/selection fields as QuickCutSourceMetadata
+							s as QuickCutSourceMetadata,
+							probed
+						);
+						if (!videoWasValid || !audioWasValid) {
+							showToast(`${s.name}: ${m.quick_cut_selection_invalidated()}`, 'error');
+						}
+						Object.assign(s, reconciled, { file });
 						const url = URL.createObjectURL(file);
 						const next = new Map(sourceUrls);
 						next.set(s.id, url);
@@ -615,6 +697,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				}
 			}
 			if (sources.length > 0) activeSourceId = sources[0]!.id;
+			syncProject();
 			showToast(m.quick_cut_project_loaded(), 'success');
 		} catch (e) {
 			showToast(e instanceof Error ? e.message : String(e), 'error');
@@ -754,24 +837,34 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 		{:else}
 			<div class="flex min-w-0 flex-wrap gap-2">
 				{#each sources as src, idx (src.id)}
-					<button
-						type="button"
-						class="flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1 text-xs {activeSourceId ===
-						src.id
-							? 'border-primary bg-primary text-primary-foreground'
-							: 'bg-card hover:bg-accent'}"
-						aria-pressed={activeSourceId === src.id}
-						onclick={() => switchActiveSource(src.id)}
-					>
-						<span class="truncate font-medium"
-							>{m.quick_cut_source_label({ index: idx + 1 })} · {src.name}</span
+					<div class="flex items-center gap-1">
+						<button
+							type="button"
+							class="flex min-h-11 max-w-full min-w-0 items-center gap-2 rounded-full border px-3 py-1 text-xs {activeSourceId ===
+							src.id
+								? 'border-primary bg-primary text-primary-foreground'
+								: 'bg-card hover:bg-accent'}"
+							aria-pressed={activeSourceId === src.id}
+							onclick={() => switchActiveSource(src.id)}
 						>
+							<span class="truncate font-medium"
+								>{m.quick_cut_source_label({ index: idx + 1 })} · {src.name}</span
+							>
+							{#if !src.file && !src.handle}
+								<span class="rounded bg-destructive px-1 text-[10px] text-destructive-foreground"
+									>{m.quick_cut_source_missing()}</span
+								>
+							{/if}
+						</button>
 						{#if !src.file && !src.handle}
-							<span class="rounded bg-destructive px-1 text-[10px] text-destructive-foreground"
-								>{m.quick_cut_source_missing()}</span
+							<Button
+								size="xs"
+								variant="outline"
+								onclick={() => reconnectSource(src.id)}
+								class="min-h-11">{m.quick_cut_reconnect()}</Button
 							>
 						{/if}
-					</button>
+					</div>
 				{/each}
 				<Button size="xs" variant="outline" onclick={openFiles} class="min-h-11"
 					>{m.quick_cut_add_source()}</Button

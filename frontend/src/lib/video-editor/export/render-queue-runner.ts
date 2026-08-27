@@ -38,7 +38,8 @@ async function executeRenderJob(
 	job: RenderQueueJob,
 	options: { signal: AbortSignal; onProgress: (progress: RenderExportProgress) => void }
 ): Promise<RenderExportResult> {
-	const { renderVideoExport, renderAudioExport } = await import('../media/render-execution');
+	const { renderVideoExport, renderAudioExport, renderImageSequenceExport } =
+		await import('../media/render-execution');
 	const project = projectForJob(job);
 	const range = job.settings.range;
 	if (
@@ -53,8 +54,47 @@ async function executeRenderJob(
 			onProgress: options.onProgress
 		});
 	}
+	if (
+		job.settings.format === 'png-sequence' ||
+		job.settings.format === 'jpeg-sequence' ||
+		job.settings.format === 'webp-sequence'
+	) {
+		const format =
+			job.settings.format === 'png-sequence' ? 'png' : job.settings.format === 'webp-sequence' ? 'webp' : 'jpeg';
+		const { result } = await renderImageSequenceExport(
+			{
+				project,
+				options: {
+					format,
+					width: job.settings.width,
+					height: job.settings.height,
+					range,
+					jpegQuality: job.settings.jpegQuality
+				},
+				signal: options.signal,
+				onProgress: options.onProgress
+			}
+		);
+		if (result.kind === 'workspace-directory') {
+			return {
+				relPath: result.relPath,
+				blob: new Blob([], { type: 'application/octet-stream' }),
+				fileName: result.directoryName,
+				totalBytes: result.totalBytes
+			} as unknown as RenderExportResult & { totalBytes: number };
+		}
+		if (result.kind === 'zip') {
+			return { relPath: result.relPath, blob: result.blob, fileName: result.fileName };
+		}
+		return {
+			relPath: `projects/${project.id}/exports/${result.directoryName}`,
+			blob: new Blob([], { type: 'application/octet-stream' }),
+			fileName: result.directoryName,
+			totalBytes: result.totalBytes
+		} as unknown as RenderExportResult & { totalBytes: number };
+	}
 	return renderVideoExport(project, {
-		format: job.settings.format,
+		format: job.settings.format as 'webm' | 'mp4' | 'mov' | 'mkv',
 		codec: job.settings.codec,
 		quality: job.settings.quality,
 		width: job.settings.width,
@@ -118,13 +158,13 @@ export class RenderQueueRunner {
 		const controller = new AbortController();
 		this.#controllers.set(job.id, controller);
 		try {
-			const result = await this.execute(job, {
+			const result = (await this.execute(job, {
 				signal: controller.signal,
 				onProgress: (progress) => this.queue.updateProgress(job.id, progress)
-			});
+			})) as RenderExportResult & { totalBytes?: number };
 			this.queue.markCompleted(job.id, {
 				savedPath: result.relPath,
-				fileSize: result.blob.size
+				fileSize: result.totalBytes ?? result.blob.size
 			});
 		} catch (error) {
 			if (error instanceof DOMException && error.name === 'AbortError') {

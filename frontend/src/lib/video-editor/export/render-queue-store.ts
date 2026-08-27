@@ -27,14 +27,17 @@ export interface RenderQueueSnapshot {
 	busAudioEq?: AudioEqSettings;
 }
 
+export type ImageSequenceQueueFormat = 'png-sequence' | 'jpeg-sequence' | 'webp-sequence';
+
 export interface RenderQueueSettings {
-	format: 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav';
+	format: 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav' | ImageSequenceQueueFormat;
 	codec?: VideoCodec;
 	quality: 'draft' | 'standard' | 'high';
 	width: number;
 	height: number;
 	subtitleMode: 'none' | 'burn' | 'sidecar' | 'embedded';
 	range: { startFrame: number; endFrame: number };
+	jpegQuality?: number;
 }
 
 export interface RenderQueueJob {

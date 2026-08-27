@@ -18,6 +18,8 @@ export type ExportPreflightCheckId =
 	| 'video-codec-checking'
 	| 'video-codec-supported'
 	| 'video-codec-unavailable'
+	| 'image-encode-unavailable'
+	| 'image-encode-checking'
 	| 'subtitle-burn-fallback'
 	| 'smart-copy'
 	| 'worker-render'
@@ -36,13 +38,14 @@ export interface ExportPreflightCheck {
 }
 
 export interface ExportPreflightSettings {
-	format: 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav';
+	format: 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav' | 'png-sequence' | 'jpeg-sequence' | 'webp-sequence';
 	codec?: VideoCodec;
 	quality: 'draft' | 'standard' | 'high';
 	width: number;
 	height: number;
 	subtitleMode: 'none' | 'burn' | 'sidecar' | 'embedded';
 	range?: { startFrame: number; endFrame: number };
+	jpegQuality?: number;
 }
 
 export interface ExportPreflightInput {
@@ -54,6 +57,7 @@ export interface ExportPreflightInput {
 	tracks: readonly TimelineTrack[];
 	transitions?: readonly TimelineTransition[];
 	codecSupported: boolean | undefined;
+	webpSupported?: boolean | undefined;
 	mediaStatuses: Readonly<Record<string, MediaPreparationStatus | undefined>>;
 	media?: readonly MediaMetadata[];
 	workerAvailable?: boolean;
@@ -87,6 +91,10 @@ const LONG_RENDER_SECONDS = 30 * 60;
 
 function isAudioFormat(format: ExportPreflightSettings['format']): boolean {
 	return format === 'mp3' || format === 'aac' || format === 'wav';
+}
+
+function isImageSequenceFormat(format: ExportPreflightSettings['format']): boolean {
+	return format === 'png-sequence' || format === 'jpeg-sequence' || format === 'webp-sequence';
 }
 
 function isVideoFormat(format: ExportPreflightSettings['format']): format is SmartCopyFormat {
@@ -169,8 +177,15 @@ function referencedMediaIds(items: readonly TimelineItem[]): Set<string> {
 function estimateFileSize(
 	settings: ExportPreflightSettings,
 	durationSeconds: number,
-	audible: boolean
+	audible: boolean,
+	frameCount?: number
 ): number {
+	if (isImageSequenceFormat(settings.format)) {
+		const count = frameCount ?? Math.max(0, Math.round(durationSeconds * 30));
+		const perPixel =
+			settings.format === 'png-sequence' ? 0.55 : settings.format === 'webp-sequence' ? 0.28 : 0.18;
+		return Math.ceil(settings.width * settings.height * perPixel * count);
+	}
 	let bitsPerSecond: number;
 	if (settings.format === 'wav') bitsPerSecond = WAV_BITRATE;
 	else if (isAudioFormat(settings.format)) bitsPerSecond = AUDIO_BITRATE;
@@ -242,7 +257,16 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 	}
 
 	let pending = false;
-	if (!audioFormat && !smartCopyEligible) {
+	const imageSequence = isImageSequenceFormat(input.settings.format);
+	if (imageSequence && input.settings.format === 'webp-sequence') {
+		if (input.webpSupported === undefined) {
+			pending = true;
+			checks.push({ id: 'image-encode-checking', severity: 'info' });
+		} else if (input.webpSupported === false) {
+			checks.push({ id: 'image-encode-unavailable', severity: 'error' });
+		}
+	}
+	if (!audioFormat && !imageSequence && !smartCopyEligible) {
 		if (input.codecSupported === undefined) {
 			pending = true;
 			checks.push({ id: 'video-codec-checking', severity: 'info' });
@@ -280,7 +304,7 @@ export function assessExportPreflight(input: ExportPreflightInput): ExportPrefli
 					estimatedDurationSeconds) /
 					8
 			)
-		: estimateFileSize(input.settings, estimatedDurationSeconds, audible);
+		: estimateFileSize(input.settings, estimatedDurationSeconds, audible, range.frameCount);
 	if (estimatedDurationSeconds >= LONG_RENDER_SECONDS) {
 		checks.push({
 			id: 'long-render',

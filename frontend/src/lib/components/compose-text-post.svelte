@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
-	import { fade, fly } from 'svelte/transition';
 	import { page } from '$app/stores';
 	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -15,6 +14,7 @@
 	} from '$lib/api/client';
 	import { loadCapabilityCatalog, loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
+	import { buildGeneratedPublicationDraft } from '$lib/composer/post-builder';
 	import { getAuthenticatedMediaByID } from '$lib/media-url';
 	import {
 		MAX_COMPOSER_DRAFT_MEDIA,
@@ -48,9 +48,8 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
-	import ShuffleIcon from '@lucide/svelte/icons/shuffle';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
+	import Undo2Icon from '@lucide/svelte/icons/undo-2';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
@@ -60,7 +59,6 @@
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SettingsIcon from '@lucide/svelte/icons/settings-2';
 	import { ui } from '$lib/stores/ui.svelte';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { ReorderableList } from 'svelte-reorderable-list';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -114,7 +112,6 @@
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import DraftConflictDialog from './draft-conflict-dialog.svelte';
-	import PromptApplyDialog from './prompt-apply-dialog.svelte';
 	import MediaPicker from './media-picker.svelte';
 	import {
 		consumeImageEditorReturnToken,
@@ -300,11 +297,13 @@
 	let randomDelayOverride = $state<string>('default');
 	let repostOverride = $state<components['schemas']['Override']>({ mode: 'inherit' });
 
-	let showPromptCard = $state(false);
-	let currentPrompt = $state<{ text: string; example: string; category: string } | null>(null);
-	let loadingPrompt = $state(false);
-	let promptApplyDialogOpen = $state(false);
-	let pendingPromptToApply = $state<{ text: string; example: string } | null>(null);
+	let buildingPost = $state(false);
+	let postBuilderError = $state('');
+	let generationUndo = $state.raw<{
+		posts: PostItem[];
+		variants: Array<[string, Record<string, VariantPost>]>;
+		linkUrl: string;
+	} | null>(null);
 
 	let variants = $state<Map<string, Record<string, VariantPost>>>(new Map());
 	let activeVariantAccountId = $state<string | null>(null);
@@ -460,8 +459,16 @@
 	const activePost = $derived(posts[activePostIndex] ?? posts[0]);
 	const hasContent = $derived(hasAnyContent(posts));
 	const hasPendingPasteMediaUploads = $derived(hasUnsettledPasteMediaUploads(pasteMediaUploads));
-	const hasWrittenContent = $derived(posts.some((post) => post.content.trim().length > 0));
-	const showInspirationControl = $derived(!hasWrittenContent && !isSubmitting);
+	const canBuildPost = $derived(
+		!isThread &&
+		!activeVariantAccountId &&
+		posts[0]?.content.trim().length > 0 &&
+		selectedAccountIds.length > 0 &&
+		!isSubmitting &&
+		!isSaving &&
+		!buildingPost &&
+		!hasPendingPasteMediaUploads
+	);
 	const totalChars = $derived(posts.reduce((sum, p) => sum + p.content.length, 0));
 	const isThread = $derived(posts.length > 1);
 	const textComposerMode = $derived<ComposerModeKey>(isThread ? 'thread' : 'post');
@@ -2215,6 +2222,8 @@
 	async function initializeNewComposer(resolveAfter = true) {
 		pasteMediaUploadQueue.reset();
 		clearAutoSaveTimer();
+		generationUndo = null;
+		postBuilderError = '';
 		publicationId = '';
 		selectedSocialSetId = '';
 		requestedOutputProfiles = {};
@@ -2255,6 +2264,8 @@
 	async function initializeFromPublication(publication: Publication, resolveAfter = true) {
 		pasteMediaUploadQueue.reset();
 		clearAutoSaveTimer();
+		generationUndo = null;
+		postBuilderError = '';
 		publicationId = publication.id;
 		revision = publication.revision;
 		lastInitializedPublicationId = publication.id;
@@ -2533,7 +2544,14 @@
 		const prompt = ui.pendingPrompt;
 		if (prompt && !initialPublication && !loadingWorkspaces) {
 			ui.clearPrompt();
-			requestApplyPrompt(prompt);
+			const content = prompt.example.trim() || prompt.text;
+			posts = [{ ...posts[0], content }];
+			linkUrl = firstComposerURL(content);
+			activePostIndex = 0;
+			variants = new Map();
+			activeVariantAccountId = null;
+			if (content.trim()) void startFirstComposition('text');
+			scheduleAutoSave();
 		}
 	});
 
@@ -2800,6 +2818,8 @@
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};
 		validationIssues = [];
+		generationUndo = null;
+		postBuilderError = '';
 		settingsDialogOpen = false;
 		settingsAccountId = '';
 		destinationOptionsByAccount = {};
@@ -3747,83 +3767,80 @@
 	}
 
 	// --------------------------------------------------------------------------
-	// Prompts
+	// AI post builder
 	// --------------------------------------------------------------------------
-	async function fetchRandomPrompt() {
-		if (!selectedWorkspaceId) return;
-		loadingPrompt = true;
+	async function buildPostWithAI() {
+		if (buildingPost || isThread || activeVariantAccountId) return;
+		const sourcePost = posts[0];
+		const idea = generationUndo?.posts[0]?.content.trim() || sourcePost?.content.trim();
+		if (!idea) {
+			postBuilderError = m.compose_ai_idea_required();
+			return;
+		}
+		if (!selectedWorkspaceId || selectedAccountIds.length === 0) {
+			postBuilderError = m.compose_ai_destinations_required();
+			return;
+		}
+		if (!sourcePost || hasPendingPasteMediaUploads) {
+			postBuilderError = hasPendingPasteMediaUploads
+				? pasteMediaUploadBlocker()
+				: m.compose_ai_build_failed();
+			return;
+		}
+
+		buildingPost = true;
+		postBuilderError = '';
 		try {
-			const { data, error: err } = await client.GET('/prompts/random', {
-				params: { query: { workspace_id: selectedWorkspaceId } }
+			const { data, error: generateError } = await client.POST('/post-builder/generate', {
+				body: {
+					workspace_id: selectedWorkspaceId,
+					idea,
+					social_account_ids: selectedAccountIds
+				}
 			});
-			if (err) throw err;
-			if (data) {
-				currentPrompt = {
-					text: data.text,
-					example: data.example ?? '',
-					category: data.category
-				};
-				showPromptCard = true;
+			if (generateError || !data) {
+				throw new Error(generateError?.detail || m.compose_ai_build_failed());
 			}
-		} catch (e) {
-			console.error('Failed to fetch prompt:', e);
+			if (!generationUndo) {
+				generationUndo = {
+					posts: posts.map((post) => ({ ...post, mediaIds: [...post.mediaIds] })),
+					variants: Array.from(variants.entries()).map(([accountID, record]) => [
+						accountID,
+						structuredClone(record)
+					]),
+					linkUrl
+				};
+			}
+			const generated = buildGeneratedPublicationDraft(data, sourcePost);
+			posts = [generated.sourcePost];
+			variants = new SvelteMap(Object.entries(generated.variants));
+			activePostIndex = 0;
+			activeVariantAccountId = null;
+			linkUrl = firstComposerURL(generated.sourcePost.content);
+			void startFirstComposition('text');
+			soundPreferences.play('success');
+			scheduleAutoSave();
+		} catch (cause) {
+			postBuilderError =
+				cause instanceof Error && cause.message ? cause.message : m.compose_ai_build_failed();
+			soundPreferences.play('error');
 		} finally {
-			loadingPrompt = false;
+			buildingPost = false;
 		}
 	}
 
-	function dismissPrompt() {
-		showPromptCard = false;
-		currentPrompt = null;
-	}
-
-	function resolvePromptContent(prompt: { text: string; example?: string }): string {
-		return prompt.example?.trim() ? prompt.example : prompt.text;
-	}
-
-	function applyPromptContent(prompt: { text: string; example?: string }): boolean {
-		if (hasPendingPasteMediaUploads) {
-			error = pasteMediaUploadBlocker();
-			return false;
-		}
-		const content = resolvePromptContent(prompt);
-		if (content.trim()) void startFirstComposition('text');
-		pasteMediaUploadQueue.reset();
-		posts = [{ ...makeEmptyPost(), content }];
-		linkUrl = firstComposerURL(content);
+	function restoreIdea() {
+		if (!generationUndo) return;
+		posts = generationUndo.posts.map((post) => ({ ...post, mediaIds: [...post.mediaIds] }));
+		variants = new SvelteMap(
+			generationUndo.variants.map(([accountID, record]) => [accountID, structuredClone(record)])
+		);
+		linkUrl = generationUndo.linkUrl;
+		generationUndo = null;
+		postBuilderError = '';
 		activePostIndex = 0;
-		variants = new Map();
 		activeVariantAccountId = null;
-		dismissPrompt();
 		scheduleAutoSave();
-		return true;
-	}
-
-	function requestApplyPrompt(prompt: { text: string; example?: string }) {
-		if (hasPendingPasteMediaUploads) {
-			error = pasteMediaUploadBlocker();
-			return;
-		}
-		if (hasContent) {
-			pendingPromptToApply = { text: prompt.text, example: prompt.example ?? '' };
-			promptApplyDialogOpen = true;
-			return;
-		}
-		applyPromptContent(prompt);
-	}
-
-	function confirmApplyPrompt(): DestructiveActionOutcome {
-		const prompt = pendingPromptToApply;
-		if (!prompt) return { ok: false };
-		if (!applyPromptContent(prompt)) return { ok: false };
-		pendingPromptToApply = null;
-		promptApplyDialogOpen = false;
-		return { ok: true };
-	}
-
-	function cancelApplyPrompt() {
-		pendingPromptToApply = null;
-		promptApplyDialogOpen = false;
 	}
 
 	// --------------------------------------------------------------------------
@@ -4137,7 +4154,7 @@
 	function setPostContent(index: number, value: string) {
 		posts = posts.map((p, pi) => (pi === index ? { ...p, content: value } : p));
 		if (index === 0) linkUrl = firstComposerURL(value);
-		if (value.trim() && showPromptCard) dismissPrompt();
+		postBuilderError = '';
 		scheduleAutoSave();
 	}
 
@@ -4197,6 +4214,8 @@
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};
 		validationIssues = [];
+		generationUndo = null;
+		postBuilderError = '';
 		selectedDate = undefined;
 		selectedTime = null;
 		randomDelayOverride = 'default';
@@ -4265,22 +4284,6 @@
 				{/if}
 				{#if accounts.length > 0}
 					<ComposerValidationMenu issues={visibleGlobalIssues} onSelect={focusComposerIssue} />
-				{/if}
-				{#if showInspirationControl}
-					<div transition:fade={{ duration: 160 }}>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							class={showPromptCard ? 'size-11 text-primary' : 'size-11 text-muted-foreground'}
-							onclick={() => (showPromptCard ? dismissPrompt() : fetchRandomPrompt())}
-							aria-label={showPromptCard
-								? m.compose_dismiss_inspiration()
-								: m.compose_need_inspiration()}
-						>
-							<LightbulbIcon class="size-4" />
-						</Button>
-					</div>
 				{/if}
 				<Button
 					type="button"
@@ -4394,33 +4397,6 @@
 			</div>
 
 			<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
-				{#if showInspirationControl}
-					<div transition:fade={{ duration: 160 }}>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="ghost"
-										size="icon"
-										class={showPromptCard ? 'text-primary' : 'text-muted-foreground'}
-										onclick={() => (showPromptCard ? dismissPrompt() : fetchRandomPrompt())}
-										aria-label={showPromptCard
-											? m.compose_dismiss_inspiration()
-											: m.compose_need_inspiration()}
-									>
-										<LightbulbIcon class="size-4" />
-									</Button>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>
-								<p class="text-sm">
-									{showPromptCard ? m.compose_dismiss_inspiration() : m.compose_need_inspiration()}
-								</p>
-							</Tooltip.Content>
-						</Tooltip.Root>
-					</div>
-				{/if}
 
 				<Tooltip.Root>
 					<Tooltip.Trigger>
@@ -4760,88 +4736,6 @@
 					/>
 				{/if}
 
-				<!-- Prompt Card -->
-				{#if showPromptCard && !hasWrittenContent}
-					<section
-						class="relative mb-5 overflow-hidden rounded-xl border border-primary/20 bg-primary/[0.035] p-4 shadow-sm sm:p-5"
-						aria-labelledby="composer-inspiration-title"
-						transition:fly={{ y: -6, duration: 200 }}
-					>
-						<div class="flex items-start justify-between gap-3">
-							<div class="flex min-w-0 items-center gap-2 text-primary">
-								<span
-									class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"
-								>
-									<LightbulbIcon class="size-4" />
-								</span>
-								<p
-									id="composer-inspiration-title"
-									class="text-xs font-semibold tracking-wide uppercase"
-								>
-									{m.compose_writing_prompt()}
-								</p>
-							</div>
-							<div class="flex shrink-0 items-center gap-1">
-								<Button
-									variant="ghost"
-									size="icon"
-									class="size-9 text-muted-foreground"
-									onclick={fetchRandomPrompt}
-									disabled={loadingPrompt}
-									title={m.compose_shuffle()}
-									aria-label={m.compose_shuffle()}
-								>
-									<ShuffleIcon class="size-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									class="size-9 text-muted-foreground"
-									onclick={dismissPrompt}
-									title={m.compose_close()}
-									aria-label={m.compose_close()}
-								>
-									<XIcon class="size-4" />
-								</Button>
-							</div>
-						</div>
-						{#if loadingPrompt}
-							<div class="mt-4 space-y-2" role="status">
-								<Skeleton class="h-3 w-full" />
-								<Skeleton class="h-3 w-3/4" />
-							</div>
-						{:else if currentPrompt}
-							<p class="mt-4 max-w-prose text-base leading-7 text-foreground">
-								{currentPrompt.text}
-							</p>
-							{#if currentPrompt.example}
-								<div class="mt-4 rounded-lg border border-border/70 bg-background/70 p-3 sm:p-4">
-									<p class="mb-1.5 text-xs font-medium text-muted-foreground">
-										{m.compose_prompt_example()}
-									</p>
-									<p class="text-sm leading-6 whitespace-pre-wrap text-foreground/90">
-										{currentPrompt.example}
-									</p>
-								</div>
-							{/if}
-							<div class="mt-4 flex justify-end">
-								<Button
-									size="sm"
-									class="gap-1.5"
-									onclick={() => requestApplyPrompt(currentPrompt!)}
-									disabled={hasPendingPasteMediaUploads}
-									title={m.compose_apply_prompt_title()}
-								>
-									<CheckIcon class="size-3.5" />
-									{m.compose_apply_prompt()}
-								</Button>
-							</div>
-						{:else}
-							<p class="text-sm text-muted-foreground">{m.compose_no_prompts()}</p>
-						{/if}
-					</section>
-				{/if}
-
 				<!-- Posts -->
 				<div class="space-y-0" use:exposeReorderHandles>
 					<ReorderableList
@@ -4885,7 +4779,23 @@
 										</div>
 									{/if}
 
-									<div class="min-w-0 flex-1">
+									<div
+										class="min-w-0 flex-1 {i === 0 && !activeVariantAccountId && !isThread
+											? 'rounded-xl border bg-card px-4 pt-4 md:px-5 md:pt-5'
+											: ''}"
+									>
+										{#if i === 0 && !activeVariantAccountId && !isThread}
+											<div class="mb-2 max-w-prose">
+												<h1 class="text-lg font-semibold tracking-[-0.02em]">
+													{generationUndo ? m.compose_ai_review_heading() : m.compose_ai_idea_heading()}
+												</h1>
+												<p class="mt-1 text-sm leading-6 text-muted-foreground">
+													{generationUndo
+														? m.compose_ai_review_body({ count: selectedAccounts.length })
+														: m.compose_ai_idea_body()}
+												</p>
+											</div>
+										{/if}
 										<div class="relative">
 											<Textarea
 												id="post-textarea-{i}"
@@ -4913,11 +4823,11 @@
 													: i === 0
 														? editorTextIsYouTubeDescription
 															? m.compose_describe_video()
-															: m.compose_whats_on_your_mind()
+															: m.compose_ai_idea_placeholder()
 														: m.compose_add_to_thread()}
-												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 pr-3 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg"
-												style="min-height: {i === 0 ? '120px' : '56px'};"
-												disabled={isSubmitting ||
+												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 pr-3 text-base leading-7 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg md:leading-8"
+												style="min-height: {i === 0 && !isThread ? '176px' : i === 0 ? '120px' : '56px'};"
+												disabled={isSubmitting || buildingPost ||
 													(!!activeVariantAccountId && !activeVariantIsUnsynced)}
 											/>
 
@@ -5292,7 +5202,53 @@
 											>
 												<PlusIcon class="h-3 w-3" />{m.compose_add_post()}
 											</button>
+
+											{#if i === 0 && !activeVariantAccountId && !isThread}
+												<Button
+													type="button"
+													size="sm"
+													class="ml-auto min-h-11 gap-1.5 px-3 md:min-h-8"
+													disabled={!canBuildPost}
+													onclick={buildPostWithAI}
+													aria-busy={buildingPost}
+													title={selectedAccountIds.length === 0
+														? m.compose_ai_destinations_required()
+														: posts[0]?.content.trim()
+															? undefined
+															: m.compose_ai_idea_required()}
+												>
+													{#if buildingPost}
+														<LoaderIcon class="size-3.5 animate-spin" />
+														{m.compose_ai_building()}
+													{:else}
+														<SparklesIcon class="size-3.5" />
+														{generationUndo ? m.compose_ai_build_again() : m.compose_ai_build()}
+													{/if}
+												</Button>
+											{/if}
 										</div>
+
+										{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
+											<p class="border-t py-3 text-sm text-destructive" role="alert">
+												{postBuilderError}
+											</p>
+										{:else if i === 0 && !activeVariantAccountId && !isThread && generationUndo}
+											<div class="flex flex-wrap items-center gap-2 border-t py-3">
+												<p class="min-w-0 flex-1 text-sm text-muted-foreground">
+													{m.compose_ai_ready({ count: selectedAccounts.length })}
+												</p>
+												<Button
+													type="button"
+													variant="ghost"
+													size="sm"
+													class="min-h-11 gap-1.5 md:min-h-8"
+													onclick={restoreIdea}
+												>
+													<Undo2Icon class="size-3.5" />
+													{m.compose_ai_restore_idea()}
+												</Button>
+											</div>
+										{/if}
 
 										{#if isThread}
 											<button
@@ -5536,13 +5492,6 @@
 	onReload={reloadSavedTextDraft}
 	onSaveCopy={saveConflictedTextDraftAsCopy}
 	onOverwrite={overwriteSavedTextDraft}
-/>
-
-<PromptApplyDialog
-	bind:open={promptApplyDialogOpen}
-	example={pendingPromptToApply ? resolvePromptContent(pendingPromptToApply) : ''}
-	onConfirm={confirmApplyPrompt}
-	onCancel={cancelApplyPrompt}
 />
 
 <style>

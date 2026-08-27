@@ -11,7 +11,14 @@
 		normalizeAudioEffects,
 		reorderAudioEffects,
 		type AudioEffect,
-		type AudioEffectType
+		type AudioEffectType,
+		type ChorusEffect,
+		type CompressorEffect,
+		type DelayEffect,
+		type DistortionEffect,
+		type FlangerEffect,
+		type PanEffect,
+		type ReverbEffect
 	} from '$lib/video-editor/audio/audio-effects';
 
 	let {
@@ -39,19 +46,21 @@
 	}
 
 	function toggleEnabled(id: string): void {
-		commit(effects.map((e) => (e.id === id ? { ...e, enabled: !e.enabled } : e)));
+		commit(
+			effects.map((effect) => (effect.id === id ? { ...effect, enabled: !effect.enabled } : effect))
+		);
 	}
 
 	function removeEffect(id: string): void {
-		commit(effects.filter((e) => e.id !== id));
+		commit(effects.filter((effect) => effect.id !== id));
 	}
 
 	function resetEffect(id: string): void {
 		commit(
-			effects.map((e) => {
-				if (e.id !== id) return e;
-				const def = createDefaultAudioEffect(e.type, e.id);
-				return { ...def, id: e.id, enabled: e.enabled };
+			effects.map((effect) => {
+				if (effect.id !== id) return effect;
+				const def = createDefaultAudioEffect(effect.type, effect.id);
+				return { ...def, id: effect.id, enabled: effect.enabled };
 			})
 		);
 	}
@@ -64,22 +73,43 @@
 		commit(reorderAudioEffects(effects, from, to));
 	}
 
-	function updateParam(id: string, patch: Partial<AudioEffect>): void {
-		commit(effects.map((e) => (e.id === id ? normalizeAudioEffects([{ ...e, ...patch }])[0]! : e)));
+	type EffectPatchMap = {
+		compressor: Partial<CompressorEffect>;
+		pan: Partial<PanEffect>;
+		reverb: Partial<ReverbEffect>;
+		delay: Partial<DelayEffect>;
+		chorus: Partial<ChorusEffect>;
+		flanger: Partial<FlangerEffect>;
+		distortion: Partial<DistortionEffect>;
+	};
+
+	function patchEffect<K extends AudioEffectType>(
+		id: string,
+		type: K,
+		patch: EffectPatchMap[K]
+	): void {
+		commit(
+			effects.map((effect) => {
+				if (effect.id !== id || effect.type !== type) return effect;
+				const merged = { ...effect, ...patch };
+				const normalized = normalizeAudioEffects([merged]);
+				return normalized[0] ?? effect;
+			})
+		);
 	}
 
 	const addOptions: AppSelectOption[] = [
-		{ value: 'compressor', label: 'Compressor' },
-		{ value: 'pan', label: 'Pan' },
-		{ value: 'reverb', label: 'Reverb' },
-		{ value: 'delay', label: 'Delay' },
-		{ value: 'chorus', label: 'Chorus' },
-		{ value: 'flanger', label: 'Flanger' },
-		{ value: 'distortion', label: 'Distortion' }
+		{ value: 'compressor', label: m.video_editor_audio_effects_compressor() },
+		{ value: 'pan', label: m.video_editor_audio_effects_pan() },
+		{ value: 'reverb', label: m.video_editor_audio_effects_reverb() },
+		{ value: 'delay', label: m.video_editor_audio_effects_delay() },
+		{ value: 'chorus', label: m.video_editor_audio_effects_chorus() },
+		{ value: 'flanger', label: m.video_editor_audio_effects_flanger() },
+		{ value: 'distortion', label: m.video_editor_audio_effects_distortion() }
 	];
 
 	function labelFor(type: AudioEffectType): string {
-		return addOptions.find((o) => o.value === type)?.label ?? type;
+		return addOptions.find((option) => option.value === type)?.label ?? type;
 	}
 </script>
 
@@ -87,19 +117,27 @@
 	<summary
 		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
 	>
-		<span class="font-medium text-white/85">Audio effects</span>
+		<span class="font-medium text-white/85">{m.video_editor_audio_effects_title()}</span>
 		<span class="text-[10px] text-white/45">
-			{effects.length === 0
-				? 'None'
-				: `${effects.length} · ${effects.filter((e) => e.enabled).length} on`}
+			{#if effects.length === 0}
+				{m.common_none()}
+			{:else}
+				{m.video_editor_audio_effects_count({
+					count: effects.length,
+					enabled: effects.filter((effect) => effect.enabled).length
+				})}
+			{/if}
 		</span>
 	</summary>
 	<div class="space-y-2 border-t border-white/10 p-2">
 		<div class="flex items-center gap-1">
 			<AppSelect
 				value=""
-				options={[{ value: '', label: 'Add effect…' }, ...addOptions]}
-				ariaLabel="Add audio effect"
+				options={[
+					{ value: '', label: m.video_editor_audio_effects_add_placeholder() },
+					...addOptions
+				]}
+				ariaLabel={m.video_editor_audio_effects_add_aria()}
 				class="h-8 flex-1 text-xs"
 				onValueChange={addEffect}
 			/>
@@ -109,18 +147,17 @@
 					size="sm"
 					variant="ghost"
 					class="h-8 px-2 text-[10px]"
-					onclick={resetAll}>Reset</Button
+					onclick={resetAll}>{m.video_editor_audio_effects_reset()}</Button
 				>
 			{/if}
 		</div>
 
 		{#if effects.length === 0}
 			<p class="rounded bg-white/[0.04] px-2 py-2 text-[11px] leading-4 text-white/55">
-				Add compressor, pan, reverb, delay, chorus, flanger, or distortion. Effects run in order and
-				apply to preview and export.
+				{m.video_editor_audio_effects_empty()}
 			</p>
 		{:else}
-			<ul class="space-y-1" aria-label="Audio effect rack">
+			<ul class="space-y-1" aria-label={m.video_editor_audio_effects_rack_aria()}>
 				{#each effects as effect, index (effect.id)}
 					<li class="rounded border border-white/8 bg-white/[0.02]">
 						<details class="group/effect">
@@ -135,27 +172,36 @@
 									type="button"
 									class={`rounded px-1.5 py-0.5 text-[9px] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] ${effect.enabled ? 'bg-[oklch(0.66_0.14_45)] text-black' : 'bg-white/10 text-white/70'}`}
 									aria-pressed={effect.enabled}
-									aria-label={`${effect.enabled ? 'Bypass' : 'Enable'} ${labelFor(effect.type)}`}
-									onclick={(e) => {
-										e.preventDefault();
+									aria-label={effect.enabled
+										? m.video_editor_audio_effects_bypass({ name: labelFor(effect.type) })
+										: m.video_editor_audio_effects_enable({ name: labelFor(effect.type) })}
+									onclick={(event) => {
+										event.preventDefault();
 										toggleEnabled(effect.id);
-									}}>{effect.enabled ? 'On' : 'Off'}</button
+									}}
+									>{effect.enabled
+										? m.video_editor_audio_eq_on()
+										: m.video_editor_audio_eq_off()}</button
 								>
 								<button
 									type="button"
 									class="rounded bg-white/5 px-1.5 py-0.5 text-[9px] text-white/60 hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-									aria-label={`Reset ${labelFor(effect.type)}`}
-									onclick={(e) => {
-										e.preventDefault();
+									aria-label={m.video_editor_audio_effects_reset_effect({
+										name: labelFor(effect.type)
+									})}
+									onclick={(event) => {
+										event.preventDefault();
 										resetEffect(effect.id);
-									}}>Reset</button
+									}}>{m.video_editor_audio_effects_reset()}</button
 								>
 								<button
 									type="button"
 									class="rounded px-1 py-0.5 text-[11px] text-white/40 hover:text-white/80 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-									aria-label={`Remove ${labelFor(effect.type)}`}
-									onclick={(e) => {
-										e.preventDefault();
+									aria-label={m.video_editor_audio_effects_remove_effect({
+										name: labelFor(effect.type)
+									})}
+									onclick={(event) => {
+										event.preventDefault();
 										removeEffect(effect.id);
 									}}>×</button
 								>
@@ -168,6 +214,9 @@
 										variant="ghost"
 										class="h-6 px-1.5 text-[10px]"
 										disabled={index === 0}
+										aria-label={m.video_editor_audio_effects_move_up({
+											name: labelFor(effect.type)
+										})}
 										onclick={() => move(index, index - 1)}>↑</Button
 									>
 									<Button
@@ -176,281 +225,285 @@
 										variant="ghost"
 										class="h-6 px-1.5 text-[10px]"
 										disabled={index === effects.length - 1}
+										aria-label={m.video_editor_audio_effects_move_down({
+											name: labelFor(effect.type)
+										})}
 										onclick={() => move(index, index + 1)}>↓</Button
 									>
 									<span class="ml-1 self-center text-[10px] text-white/35"
-										>Order {index + 1} of {effects.length}</span
+										>{m.video_editor_audio_effects_order({
+											position: index + 1,
+											total: effects.length
+										})}</span
 									>
 								</div>
 
 								{#if effect.type === 'compressor'}
-									{@const c =
-										effect as import('$lib/video-editor/audio/audio-effects').CompressorEffect}
 									<div class="grid grid-cols-2 gap-1">
 										<label class="text-[10px] text-white/60"
-											>Threshold (dB)
+											>{m.video_editor_audio_effects_threshold()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={c.thresholdDb}
+												value={effect.thresholdDb}
 												min={-60}
 												max={0}
 												step={1}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														thresholdDb: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'compressor', {
+														thresholdDb: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Ratio
+											>{m.video_editor_audio_effects_ratio()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={c.ratio}
+												value={effect.ratio}
 												min={1}
 												max={20}
 												step={0.5}
-												onchange={(e) =>
-													updateParam(effect.id, { ratio: e.currentTarget.valueAsNumber } as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'compressor', {
+														ratio: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Attack (ms)
+											>{m.video_editor_audio_effects_attack()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={c.attackMs}
+												value={effect.attackMs}
 												min={0.1}
 												max={100}
 												step={1}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														attackMs: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'compressor', {
+														attackMs: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Makeup (dB)
+											>{m.video_editor_audio_effects_makeup()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={c.makeupGainDb}
+												value={effect.makeupGainDb}
 												min={-12}
 												max={12}
 												step={0.5}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														makeupGainDb: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'compressor', {
+														makeupGainDb: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 									</div>
 								{:else if effect.type === 'pan'}
-									{@const p = effect as import('$lib/video-editor/audio/audio-effects').PanEffect}
 									<label class="text-[10px] text-white/60"
-										>Pan (-1 left, 1 right)
+										>{m.video_editor_audio_effects_pan_label()}
 										<Input
 											type="range"
 											class="mt-1 h-2 w-full"
 											min={-1}
 											max={1}
 											step={0.05}
-											value={p.pan}
-											oninput={(e) =>
-												updateParam(effect.id, { pan: Number(e.currentTarget.value) } as never)}
+											value={effect.pan}
+											oninput={(event) =>
+												patchEffect(effect.id, 'pan', { pan: Number(event.currentTarget.value) })}
 										/>
 										<Input
 											type="number"
 											class="mt-1 h-7 text-xs"
-											value={p.pan}
+											value={effect.pan}
 											min={-1}
 											max={1}
 											step={0.05}
-											onchange={(e) =>
-												updateParam(effect.id, { pan: e.currentTarget.valueAsNumber } as never)}
+											onchange={(event) =>
+												patchEffect(effect.id, 'pan', {
+													pan: event.currentTarget.valueAsNumber
+												})}
 										/>
 									</label>
 								{:else if effect.type === 'reverb'}
-									{@const r =
-										effect as import('$lib/video-editor/audio/audio-effects').ReverbEffect}
 									<div class="grid grid-cols-2 gap-1">
 										<label class="text-[10px] text-white/60"
-											>Decay (s)
+											>{m.video_editor_audio_effects_decay()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={r.decaySeconds}
+												value={effect.decaySeconds}
 												min={0.1}
 												max={6}
 												step={0.1}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														decaySeconds: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'reverb', {
+														decaySeconds: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Wet
+											>{m.video_editor_audio_effects_wet()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={r.wet}
+												value={effect.wet}
 												min={0}
 												max={1}
 												step={0.05}
-												onchange={(e) =>
-													updateParam(effect.id, { wet: e.currentTarget.valueAsNumber } as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'reverb', {
+														wet: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 									</div>
 								{:else if effect.type === 'delay'}
-									{@const d = effect as import('$lib/video-editor/audio/audio-effects').DelayEffect}
 									<div class="grid grid-cols-2 gap-1">
 										<label class="text-[10px] text-white/60"
-											>Time (ms)
+											>{m.video_editor_audio_effects_time()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={d.timeMs}
+												value={effect.timeMs}
 												min={1}
 												max={2000}
 												step={10}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														timeMs: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'delay', {
+														timeMs: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Mix
+											>{m.video_editor_audio_effects_mix()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={d.mix}
+												value={effect.mix}
 												min={0}
 												max={1}
 												step={0.05}
-												onchange={(e) =>
-													updateParam(effect.id, { mix: e.currentTarget.valueAsNumber } as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'delay', {
+														mix: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Feedback
+											>{m.video_editor_audio_effects_feedback()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={d.feedback}
+												value={effect.feedback}
 												min={0}
 												max={0.92}
 												step={0.05}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														feedback: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'delay', {
+														feedback: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 									</div>
 								{:else if effect.type === 'chorus'}
-									{@const c =
-										effect as import('$lib/video-editor/audio/audio-effects').ChorusEffect}
 									<div class="grid grid-cols-2 gap-1">
 										<label class="text-[10px] text-white/60"
-											>Rate (Hz)
+											>{m.video_editor_audio_effects_rate()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={c.rateHz}
+												value={effect.rateHz}
 												min={0.05}
 												max={8}
 												step={0.1}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														rateHz: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'chorus', {
+														rateHz: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Depth (ms)
+											>{m.video_editor_audio_effects_depth()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={c.depthMs}
+												value={effect.depthMs}
 												min={0.2}
 												max={12}
 												step={0.5}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														depthMs: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'chorus', {
+														depthMs: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 									</div>
 								{:else if effect.type === 'flanger'}
-									{@const f =
-										effect as import('$lib/video-editor/audio/audio-effects').FlangerEffect}
 									<div class="grid grid-cols-2 gap-1">
 										<label class="text-[10px] text-white/60"
-											>Rate (Hz)
+											>{m.video_editor_audio_effects_rate()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={f.rateHz}
+												value={effect.rateHz}
 												min={0.05}
 												max={5}
 												step={0.1}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														rateHz: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'flanger', {
+														rateHz: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Depth (ms)
+											>{m.video_editor_audio_effects_depth()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={f.depthMs}
+												value={effect.depthMs}
 												min={0.2}
 												max={8}
 												step={0.2}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														depthMs: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'flanger', {
+														depthMs: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 									</div>
 								{:else if effect.type === 'distortion'}
-									{@const ds =
-										effect as import('$lib/video-editor/audio/audio-effects').DistortionEffect}
 									<div class="grid grid-cols-2 gap-1">
 										<label class="text-[10px] text-white/60"
-											>Amount
+											>{m.video_editor_audio_effects_amount()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={ds.amount}
+												value={effect.amount}
 												min={0}
 												max={1}
 												step={0.05}
-												onchange={(e) =>
-													updateParam(effect.id, {
-														amount: e.currentTarget.valueAsNumber
-													} as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'distortion', {
+														amount: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 										<label class="text-[10px] text-white/60"
-											>Mix
+											>{m.video_editor_audio_effects_mix()}
 											<Input
 												type="number"
 												class="mt-0.5 h-7 text-xs"
-												value={ds.mix}
+												value={effect.mix}
 												min={0}
 												max={1}
 												step={0.05}
-												onchange={(e) =>
-													updateParam(effect.id, { mix: e.currentTarget.valueAsNumber } as never)}
+												onchange={(event) =>
+													patchEffect(effect.id, 'distortion', {
+														mix: event.currentTarget.valueAsNumber
+													})}
 											/>
 										</label>
 									</div>

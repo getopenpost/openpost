@@ -16,7 +16,7 @@
 		type RenderExportProgress,
 		type RenderExportResult
 	} from '$lib/video-editor/media/render-export';
-	import { renderAudioExport, renderVideoExport } from '$lib/video-editor/media/render-execution';
+	import { renderAudioExport, renderVideoExport, renderImageSequenceExport } from '$lib/video-editor/media/render-execution';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -42,6 +42,7 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ListPlusIcon from '@lucide/svelte/icons/list-plus';
 	import RenderProgress from './render-progress.svelte';
+	import { sanitizeSequenceBaseName, getDirectoryPickerAvailable, canEncodeWebP } from '$lib/video-editor/media/image-sequence-export';
 
 	let {
 		project,
@@ -50,7 +51,8 @@
 		onerror,
 		probeCodec = canEncodeVideo,
 		renderVideo = renderVideoExport,
-		renderAudio = renderAudioExport
+		renderAudio = renderAudioExport,
+		renderSequence = renderImageSequenceExport
 	}: {
 		project: Project | null;
 		disabled?: boolean;
@@ -59,31 +61,37 @@
 		probeCodec?: typeof canEncodeVideo;
 		renderVideo?: typeof renderVideoExport;
 		renderAudio?: typeof renderAudioExport;
+		renderSequence?: typeof renderImageSequenceExport;
 	} = $props();
 
 	let open = $state(false);
 	let rendering = $state(false);
-	let format = $state<NonNullable<RenderExportOptions['format']> | 'mp3' | 'aac' | 'wav'>('webm');
+	let format = $state<NonNullable<RenderExportOptions['format']> | 'mp3' | 'aac' | 'wav' | 'png-sequence' | 'jpeg-sequence' | 'webp-sequence'>('webm');
 	let quality = $state<NonNullable<RenderExportOptions['quality']>>('standard');
 	let codec = $state<VideoCodec>('vp9');
 	let codecSupport = $state<Partial<Record<VideoCodec, boolean>>>({});
 	let resolution = $state('source');
 	let useRange = $state(false);
 	let subtitleMode = $state<NonNullable<RenderExportOptions['subtitleMode']>>('burn');
+	let sequenceDestination = $state<'directory' | 'zip'>(getDirectoryPickerAvailable() ? 'directory' : 'zip');
 	let progress = $state<RenderExportProgress | null>(null);
 	let startedAt = $state<number | undefined>();
 	let controller: AbortController | null = null;
 	let codecProbeVersion = 0;
 	let destroyed = false;
-	const videoFormat = $derived(
-		format === 'mp3' || format === 'aac' || format === 'wav' ? null : format
-	);
+	const isAudioFormat = $derived(format === 'mp3' || format === 'aac' || format === 'wav');
+	const isSequenceFormat = $derived(format === 'png-sequence' || format === 'jpeg-sequence' || format === 'webp-sequence');
+	let webpSupported = $state<boolean | undefined>(undefined);
+	const videoFormat = $derived(!isAudioFormat && !isSequenceFormat ? (format as NonNullable<RenderExportOptions['format']>) : null);
 	const codecs = $derived(videoFormat ? supportedExportVideoCodecs(videoFormat) : []);
 	const formatOptions = $derived([
 		{ value: 'mp4', label: 'MP4' },
 		{ value: 'mov', label: 'MOV' },
 		{ value: 'webm', label: 'WebM' },
 		{ value: 'mkv', label: 'MKV' },
+		{ value: 'png-sequence', label: m.video_editor_export_format_png_sequence() },
+		{ value: 'jpeg-sequence', label: m.video_editor_export_format_jpeg_sequence() },
+		{ value: 'webp-sequence', label: m.video_editor_export_format_webp_sequence() },
 		{ value: 'mp3', label: `${m.video_editor_export_audio_only()}: MP3` },
 		{ value: 'aac', label: `${m.video_editor_export_audio_only()}: AAC` },
 		{ value: 'wav', label: `${m.video_editor_export_audio_only()}: WAV` }
@@ -93,6 +101,14 @@
 		{ value: 'standard', label: m.video_editor_export_quality_standard() },
 		{ value: 'high', label: m.video_editor_export_quality_high() }
 	]);
+	$effect(() => {
+		void format;
+		if (format === 'webp-sequence' && webpSupported === undefined) {
+			void canEncodeWebP().then((supported) => {
+				if (!destroyed) webpSupported = supported;
+			});
+		}
+	});
 	const resolutionOptions = $derived([
 		{ value: 'source', label: `${project?.metadata.width} × ${project?.metadata.height}` },
 		{ value: '1920x1080', label: '1920 × 1080' },
@@ -105,6 +121,17 @@
 		{ value: 'sidecar', label: m.video_editor_export_subtitles_sidecar() },
 		{ value: 'embedded', label: m.video_editor_export_subtitles_embedded() }
 	]);
+	const sequenceDestinationOptions = $derived([
+		{ value: 'directory', label: m.video_editor_export_sequence_destination_directory() },
+		{ value: 'zip', label: m.video_editor_export_sequence_destination_zip() }
+	]);
+	function jpegQualityFor(quality: string): number {
+		switch (quality) {
+			case 'draft': return 0.7;
+			case 'high': return 0.98;
+			default: return 0.92;
+		}
+	}
 	const outputDimensions = $derived.by(() => {
 		if (!project) return { width: 1920, height: 1080 };
 		const [width, height] =
@@ -124,13 +151,17 @@
 	const preflight = $derived.by(() =>
 		assessExportPreflight({
 			settings: {
-				format,
+				format: format as 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav' | 'png-sequence' | 'jpeg-sequence' | 'webp-sequence',
 				codec: videoFormat ? codec : undefined,
 				quality,
 				width: outputDimensions.width,
 				height: outputDimensions.height,
 				subtitleMode,
-				range: selectedRange
+				range: selectedRange,
+				jpegQuality:
+					isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')
+						? jpegQualityFor(quality)
+						: undefined
 			},
 			fps: timelineStore.fps,
 			projectWidth: project?.metadata.width,
@@ -139,6 +170,7 @@
 			tracks: timelineStore.tracks,
 			transitions: transitionsStore.list,
 			codecSupported: videoFormat ? codecSupport[codec] : true,
+			webpSupported,
 			mediaStatuses,
 			media: mediaPool.mediaList,
 			workerAvailable: typeof Worker !== 'undefined'
@@ -154,6 +186,13 @@
 	const visiblePreflightChecks = $derived(
 		preflight.checks.filter((check) => check.severity !== 'ok').slice(0, 4)
 	);
+	const sequenceFilePattern = $derived.by(() => {
+		if (!project) return '';
+		const base = sanitizeSequenceBaseName(project.name);
+		const total = Math.max(1, preflight.range.frameCount);
+		const ext = format === 'png-sequence' ? 'png' : format === 'webp-sequence' ? 'webp' : 'jpg';
+		return `${base}_${'0'.repeat(Math.max(5, String(total).length) - 1)}1.${ext}`;
+	});
 
 	$effect(() => {
 		const selectedFormat = videoFormat;
@@ -202,6 +241,10 @@
 				return m.video_editor_preflight_codec_checking();
 			case 'video-codec-unavailable':
 				return m.video_editor_preflight_codec_unavailable({ codec: codec.toUpperCase() });
+			case 'image-encode-checking':
+				return m.video_editor_preflight_image_encode_checking();
+			case 'image-encode-unavailable':
+				return m.video_editor_preflight_image_encode_unavailable();
 			case 'subtitle-burn-fallback':
 				return m.video_editor_preflight_subtitle_fallback({ format: format.toUpperCase() });
 			case 'smart-copy':
@@ -223,10 +266,13 @@
 			case 'mov':
 			case 'webm':
 			case 'mkv':
+			case 'png-sequence':
+			case 'jpeg-sequence':
+			case 'webp-sequence':
 			case 'mp3':
 			case 'aac':
 			case 'wav':
-				format = value;
+				format = value as typeof format;
 		}
 	}
 
@@ -252,7 +298,11 @@
 			quality,
 			width: outputDimensions.width,
 			height: outputDimensions.height,
-			subtitleMode
+			subtitleMode,
+			jpegQuality:
+				isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')
+					? jpegQualityFor(quality)
+					: undefined
 		};
 	}
 
@@ -291,6 +341,7 @@
 				tracks: snapshot.tracks,
 				transitions: snapshot.transitions,
 				codecSupported: videoFormat ? codecSupport[codec] : true,
+				webpSupported,
 				mediaStatuses,
 				media: mediaPool.mediaList,
 				workerAvailable: typeof Worker !== 'undefined'
@@ -381,16 +432,69 @@
 				startFrame: preflight.range.startFrame,
 				endFrame: preflight.range.endFrame
 			};
+			if (isSequenceFormat) {
+				const seqFormat = format === 'png-sequence' ? 'png' : format === 'webp-sequence' ? 'webp' : 'jpeg';
+				let destination: 'zip' | FileSystemDirectoryHandle | undefined;
+				if (sequenceDestination === 'directory') {
+					if (getDirectoryPickerAvailable()) {
+						try {
+							const handle = await (window as unknown as { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker();
+							destination = handle;
+						} catch (error) {
+							if (error instanceof DOMException && error.name === 'AbortError') {
+								rendering = false;
+								progress = null;
+								startedAt = undefined;
+								controller = null;
+								return;
+							}
+							destination = 'zip';
+						}
+					} else {
+						destination = 'zip';
+					}
+				} else {
+					destination = 'zip';
+				}
+				const { result } = await renderSequence(
+					{
+						project: renderProject,
+						options: { format: seqFormat, width, height, range, jpegQuality: jpegQualityFor(quality) },
+						destination,
+						signal: abortController.signal,
+						onProgress: (value) => (progress = value)
+					}
+				);
+				let relPath = '';
+				let blob: Blob | undefined;
+				let fileName = '';
+				if (result.kind === 'workspace-directory') {
+					relPath = result.relPath;
+					fileName = result.directoryName;
+					blob = new Blob([], { type: 'application/octet-stream' });
+				} else if (result.kind === 'zip') {
+					relPath = result.relPath;
+					fileName = result.fileName;
+					blob = result.blob;
+				} else {
+					relPath = `directory:${result.directoryName}`;
+					fileName = result.directoryName;
+					blob = new Blob([], { type: 'application/octet-stream' });
+				}
+				ondone({ relPath, blob: blob!, fileName } as RenderExportResult);
+				open = false;
+				return;
+			}
 			const result =
-				format === 'mp3' || format === 'aac' || format === 'wav'
+				isAudioFormat
 					? await renderAudio(renderProject, {
-							format,
+							format: format as 'mp3' | 'aac' | 'wav',
 							range,
 							signal: abortController.signal,
 							onProgress: (value) => (progress = value)
 						})
 					: await renderVideo(renderProject, {
-							format,
+							format: format as 'webm' | 'mp4' | 'mov' | 'mkv',
 							codec,
 							quality,
 							width,
@@ -477,7 +581,12 @@
 				</label>
 			{/if}
 			<label class="text-xs text-[oklch(0.7_0.01_55)]">
-				{m.video_editor_export_quality()}<AppSelect
+				{#if isSequenceFormat && (format === 'jpeg-sequence' || format === 'webp-sequence')}
+					{m.video_editor_export_jpeg_quality()}
+				{:else}
+					{m.video_editor_export_quality()}
+				{/if}
+				<AppSelect
 					class="mt-1 h-9 w-full text-sm"
 					value={quality}
 					options={qualityOptions}
@@ -493,16 +602,45 @@
 					disabled={rendering}
 				/>
 			</label>
-			<label class="text-xs text-[oklch(0.7_0.01_55)]">
-				{m.video_editor_export_subtitles()}<AppSelect
-					class="mt-1 h-9 w-full text-sm"
-					value={subtitleMode}
-					options={subtitleOptions}
-					disabled={rendering}
-					onValueChange={setSubtitleMode}
-				/>
-			</label>
+			{#if !isSequenceFormat}
+				<label class="text-xs text-[oklch(0.7_0.01_55)]">
+					{m.video_editor_export_subtitles()}<AppSelect
+						class="mt-1 h-9 w-full text-sm"
+						value={subtitleMode}
+						options={subtitleOptions}
+						disabled={rendering}
+						onValueChange={setSubtitleMode}
+					/>
+				</label>
+			{/if}
+			{#if isSequenceFormat}
+				<label class="text-xs text-[oklch(0.7_0.01_55)]">
+					{m.video_editor_export_sequence_destination()}<AppSelect
+						class="mt-1 h-9 w-full text-sm"
+						value={sequenceDestination}
+						options={sequenceDestinationOptions}
+						disabled={rendering}
+						onValueChange={(v) => { if (v === 'directory' || v === 'zip') sequenceDestination = v; }}
+					/>
+				</label>
+			{/if}
 		</div>
+		{#if isSequenceFormat}
+			<p class="mt-2 text-[11px] text-[var(--video-editor-muted)]" aria-live="polite">
+				{m.video_editor_export_sequence_alpha_hint()}
+			</p>
+			<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
+				{m.video_editor_export_sequence_file_pattern({ pattern: sequenceFilePattern })}
+			</p>
+			{#if sequenceDestination === 'directory' && !getDirectoryPickerAvailable()}
+				<p class="mt-1 text-[11px] text-amber-200">{m.video_editor_export_sequence_directory_unavailable()}</p>
+			{/if}
+			{#if sequenceDestination === 'zip'}
+				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">{m.video_editor_export_sequence_zip_hint()}</p>
+			{:else}
+				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">{m.video_editor_export_sequence_directory_hint()}</p>
+			{/if}
+		{/if}
 		<label class="mt-3 flex min-h-11 items-center gap-2 text-sm">
 			<Checkbox
 				bind:checked={useRange}

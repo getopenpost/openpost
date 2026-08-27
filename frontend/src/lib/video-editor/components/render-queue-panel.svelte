@@ -57,10 +57,13 @@
 	function formatDetails(job: RenderQueueJob): string {
 		const duration =
 			(job.settings.range.endFrame - job.settings.range.startFrame) / job.snapshot.fps;
-		const format = job.settings.format.toUpperCase();
+		let label = job.settings.format.toUpperCase();
+		if (job.settings.format === 'png-sequence') label = 'PNG SEQUENCE';
+		if (job.settings.format === 'jpeg-sequence') label = 'JPEG SEQUENCE';
+		if (job.settings.format === 'webp-sequence') label = 'WEBP SEQUENCE';
 		const output = ['mp3', 'aac', 'wav'].includes(job.settings.format)
-			? format
-			: `${format} · ${job.settings.width}×${job.settings.height}`;
+			? label
+			: `${label} · ${job.settings.width}×${job.settings.height}`;
 		return `${output} · ${duration.toFixed(1)}s`;
 	}
 

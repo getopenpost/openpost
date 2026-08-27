@@ -69,6 +69,19 @@ describe('beat analyzer - synthetic pulse source of truth', () => {
 		expect(result.beats.length).toBeLessThanOrEqual(12);
 	});
 
+	it('does not invent a 120 BPM grid for silence', async () => {
+		const sampleRate = 44_100;
+		const duration = 8;
+		const analyzer = new BeatAnalyzer();
+		const result = await analyzer.analyzeChannelData(
+			new Float32Array(sampleRate * duration),
+			sampleRate,
+			duration
+		);
+
+		expect(result).toMatchObject({ bpm: 0, confidence: 0, beats: [], downbeats: [] });
+	});
+
 	it('is deterministic for the same synthetic buffer (no flake)', async () => {
 		const synth = syntheticPulse({ bpm: 120, seconds: 4 });
 		const analyzer = new BeatAnalyzer();

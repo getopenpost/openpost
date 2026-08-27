@@ -27,6 +27,13 @@ export interface BeatDetectionDependencies {
 	beatConfig?: Partial<BeatDetectionConfig>;
 }
 
+class WorkerUnavailableError extends Error {
+	constructor(cause: unknown) {
+		super('Beat detection worker is unavailable', { cause });
+		this.name = 'WorkerUnavailableError';
+	}
+}
+
 function defaultAnalyzeBlob(blob: Blob, signal?: AbortSignal): Promise<BeatAnalysisResult> {
 	const analyzer = new BeatAnalyzer();
 	return analyzer.analyzeBlob(blob, signal);
@@ -237,8 +244,35 @@ export class BeatDetectionService {
 	): Promise<BeatAnalysisResult> {
 		return new Promise<BeatAnalysisResult>((resolve, reject) => {
 			let worker: Worker | null = null;
+			const id = crypto.randomUUID();
+			const onMessage = (
+				event: MessageEvent<{
+					id: string;
+					ok: boolean;
+					result?: BeatAnalysisResult;
+					error?: string;
+				}>
+			) => {
+				if (event.data.id !== id) return;
+				cleanup();
+				if (!event.data.ok) {
+					reject(new Error(event.data.error ?? 'Beat detection failed'));
+					return;
+				}
+				if (!event.data.result) {
+					reject(new Error('Beat detection failed'));
+					return;
+				}
+				resolve(event.data.result);
+			};
+			const onError = (event: ErrorEvent) => {
+				cleanup();
+				reject(new Error(event.message));
+			};
 			const cleanup = () => {
 				if (worker) {
+					worker.removeEventListener('message', onMessage);
+					worker.removeEventListener('error', onError);
 					worker.terminate();
 					worker = null;
 				}
@@ -262,51 +296,33 @@ export class BeatDetectionService {
 						});
 			} catch (error) {
 				cleanup();
-				reject(error instanceof Error ? error : new Error(String(error)));
+				reject(new WorkerUnavailableError(error));
 				return;
 			}
-			const id = crypto.randomUUID();
-			const onMessage = (
-				event: MessageEvent<{
-					id: string;
-					ok: boolean;
-					result?: BeatAnalysisResult;
-					error?: string;
-				}>
-			) => {
-				if (event.data.id !== id) return;
-				cleanup();
-				if (event.data.ok) {
-					const result = event.data.result;
-					if (!result) {
-						reject(new Error('Beat detection failed'));
-						return;
-					}
-					resolve(result);
-				} else reject(new Error(event.data.error ?? 'Beat detection failed'));
-			};
-			const onError = (event: ErrorEvent) => {
-				cleanup();
-				reject(new Error(event.message));
-			};
 			worker.addEventListener('message', onMessage);
 			worker.addEventListener('error', onError);
 			const transfer: Transferable[] = channels.map((channel) => channel.buffer);
-			worker.postMessage(
-				{
-					id,
-					channels,
-					sampleRate,
-					duration,
-					config: this.dependencies.beatConfig
-				},
-				transfer
-			);
+			try {
+				worker.postMessage(
+					{
+						id,
+						channels,
+						sampleRate,
+						duration,
+						config: this.dependencies.beatConfig
+					},
+					transfer
+				);
+			} catch (error) {
+				cleanup();
+				reject(error);
+			}
 		});
 	}
 }
 
 function isWorkerAnalysisError(error: unknown): boolean {
+	if (error instanceof WorkerUnavailableError) return false;
 	if (error instanceof DOMException) return error.name !== 'DataCloneError';
 	if (!(error instanceof Error)) return false;
 	if (error.name === 'DataCloneError') return false;
@@ -315,6 +331,7 @@ function isWorkerAnalysisError(error: unknown): boolean {
 }
 
 function isWorkerConstructionOrCloneError(error: unknown): boolean {
+	if (error instanceof WorkerUnavailableError) return true;
 	if (error instanceof DOMException) return error.name === 'DataCloneError';
 	if (!(error instanceof Error)) return false;
 	return error.name === 'DataCloneError' || error.message === 'Worker construction failed';

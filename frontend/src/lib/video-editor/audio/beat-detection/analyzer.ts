@@ -160,14 +160,14 @@ export class BeatAnalyzer {
 	}
 
 	private calculateBpm(onsets: number[], duration: number) {
-		if (onsets.length < 4) return { bpm: 120, confidence: 0 };
+		if (onsets.length < 4) return { bpm: 0, confidence: 0 };
 		const intervals: number[] = [];
 		for (let i = 1; i < onsets.length; i++) intervals.push((onsets[i] ?? 0) - (onsets[i - 1] ?? 0));
 		const { minBpm, maxBpm } = this.config;
 		const minInterval = 60 / maxBpm;
 		const maxInterval = 60 / minBpm;
 		const valid = intervals.filter((v) => v >= minInterval && v <= maxInterval);
-		if (valid.length < 3) return { bpm: 120, confidence: 0 };
+		if (valid.length < 3) return { bpm: 0, confidence: 0 };
 		const candidates = new Map<number, number>();
 		for (const interval of valid) {
 			const bpm = Math.round(60 / interval);
@@ -196,6 +196,7 @@ export class BeatAnalyzer {
 	}
 
 	private generateBeats(bpm: number, duration: number, onsets: number[]): Beat[] {
+		if (bpm <= 0 || onsets.length < 4) return [];
 		const interval = 60 / bpm;
 		const beats: Beat[] = [];
 		let first = 0;

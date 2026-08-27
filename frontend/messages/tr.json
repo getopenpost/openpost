@@ -7118,5 +7118,14 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Kilidi aç",
 	"video_editor_timeline_unmute": "Sesi aç",
-	"video_editor_timeline_unsolo": "Solo'yu kaldır"
+	"video_editor_timeline_unsolo": "Solo'yu kaldır",
+	"quick_cut_stream_video_label": "Video track",
+	"quick_cut_stream_audio_label": "Audio track",
+	"quick_cut_stream_video_off": "Video off",
+	"quick_cut_stream_audio_off": "Audio off",
+	"quick_cut_stream_no_video": "No video tracks",
+	"quick_cut_stream_no_audio": "No audio tracks",
+	"quick_cut_stream_video_track": "Video {index}",
+	"quick_cut_stream_audio_track": "Audio {index}",
+	"quick_cut_stream_summary": "{video} video, {audio} audio tracks"
 }

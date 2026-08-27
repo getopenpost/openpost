@@ -15,6 +15,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 	import SegmentList from '$lib/quick-cut/components/SegmentList.svelte';
 	import TimelineBar from '$lib/quick-cut/components/TimelineBar.svelte';
 	import ExportPanel from '$lib/quick-cut/components/ExportPanel.svelte';
+	import StreamSelector from '$lib/quick-cut/components/StreamSelector.svelte';
 	import {
 		createSegment,
 		validateSegments,
@@ -275,6 +276,14 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 
 	function moveSegment(from: number, to: number): void {
 		segments = reorderSegment(segments, from, to);
+		syncProject();
+	}
+
+	function updateSourceStreams(
+		sourceId: string,
+		patch: Pick<QuickCutSource, 'selectedVideoTrackIndex' | 'selectedAudioTrackIndices'>
+	): void {
+		sources = sources.map((s) => (s.id === sourceId ? { ...s, ...patch } : s));
 		syncProject();
 	}
 
@@ -767,6 +776,12 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 				<Button size="xs" variant="outline" onclick={openFiles} class="min-h-11"
 					>{m.quick_cut_add_source()}</Button
 				>
+			</div>
+
+			<div class="flex min-w-0 flex-col gap-3">
+				{#each sources as src (src.id)}
+					<StreamSelector source={src} onChange={(patch) => updateSourceStreams(src.id, patch)} />
+				{/each}
 			</div>
 
 			<div class="grid min-w-0 gap-4 lg:grid-cols-[1.2fr_0.8fr]">

@@ -14,8 +14,11 @@ export async function probeSourceFile(
 	try {
 		const duration = await input.computeDuration().catch(() => 0);
 		signal?.throwIfAborted();
-		const videoTrack = await input.getPrimaryVideoTrack().catch(() => null);
-		const audioTrack = await input.getPrimaryAudioTrack().catch(() => null);
+		const videoTracksRaw = await input.getVideoTracks().catch(() => []);
+		const audioTracksRaw = await input.getAudioTracks().catch(() => []);
+		signal?.throwIfAborted();
+		const videoTrack = videoTracksRaw[0] ?? (await input.getPrimaryVideoTrack().catch(() => null));
+		const audioTrack = audioTracksRaw[0] ?? (await input.getPrimaryAudioTrack().catch(() => null));
 		signal?.throwIfAborted();
 		let width = 0;
 		let height = 0;
@@ -45,6 +48,44 @@ export async function probeSourceFile(
 				const alt = (audioTrack as { channelCount?: number }).channelCount;
 				if (alt !== undefined && alt !== null) channels = alt;
 			}
+		}
+		const videoStreams: QuickCutSource['videoStreams'] = [];
+		for (let index = 0; index < videoTracksRaw.length; index++) {
+			const track = videoTracksRaw[index]!;
+			let fpsTrack: number | null = null;
+			try {
+				const stats = await track.computePacketStats(180).catch(() => null);
+				if (stats?.averagePacketRate) fpsTrack = Math.round(stats.averagePacketRate * 1000) / 1000;
+			} catch {
+				// ignore
+			}
+			videoStreams.push({
+				index,
+				codec: track.codec ?? null,
+				width: track.displayWidth ?? 0,
+				height: track.displayHeight ?? 0,
+				rotation: track.rotation ?? 0,
+				fps: fpsTrack ?? fps
+			});
+		}
+		const audioStreams: QuickCutSource['audioStreams'] = [];
+		for (let index = 0; index < audioTracksRaw.length; index++) {
+			const track = audioTracksRaw[index]!;
+			let ch: number | null = null;
+			// SAFETY: mediabunny audio tracks expose numberOfChannels per WebCodecs spec
+			const mc = (track as { numberOfChannels?: number }).numberOfChannels;
+			if (mc !== undefined && mc !== null) ch = mc;
+			else {
+				// SAFETY: fallback for older mediabunny builds that use channelCount
+				const alt = (track as { channelCount?: number }).channelCount;
+				if (alt !== undefined && alt !== null) ch = alt;
+			}
+			audioStreams.push({
+				index,
+				codec: track.codec ?? null,
+				sampleRate: track.sampleRate ?? null,
+				channels: ch
+			});
 		}
 		let keyframeTimestamps: number[] = [];
 		let keyframeState: QuickCutSource['keyframeState'] = 'unknown';
@@ -86,7 +127,11 @@ export async function probeSourceFile(
 			lastModified,
 			contentFingerprint,
 			handle,
-			file
+			file,
+			videoStreams,
+			audioStreams,
+			selectedVideoTrackIndex: undefined,
+			selectedAudioTrackIndices: undefined
 		};
 	} finally {
 		try {

@@ -5,6 +5,7 @@ import { renderTimelineAudioArtifact } from '../media/render-export';
 import type { MixEntry } from '../media/render-plan';
 import { DEFAULT_AUDIO_EQ_SETTINGS } from './audio-eq';
 import { MIX_SAMPLE_RATE, MIX_WINDOW_SAMPLES, mixAudioWindows } from './bounded-audio-mixer';
+import { createDefaultAudioEffect, type DelayEffect } from './audio-effects';
 
 function linkedFileHandle(file: File): FileSystemFileHandle {
 	// SAFETY: test helper only uses name, kind and getFile for resolveMediaBlob
@@ -627,7 +628,7 @@ describe('bounded audio export product path', () => {
 		expect(Math.max(...boundaryJumps)).toBeLessThan(0.2);
 	}, 30_000);
 
-	it('streams reversed 44.1 kHz audio in source order without boundary resets', async () => {
+	it('streams reversed audio with effect tails without extending the composition', async () => {
 		const rate = 44_100;
 		const durationSeconds = 11;
 		const source = Float32Array.from({ length: rate * durationSeconds }, (_, frame) =>
@@ -655,6 +656,8 @@ describe('bounded audio export product path', () => {
 			},
 			'ready'
 		);
+		const delay = createDefaultAudioEffect('delay') as DelayEffect;
+		delay.mix = 0.01;
 		const entry: MixEntry = {
 			itemId: 'reverse-item',
 			mediaId: 'reverse-stream',
@@ -668,7 +671,8 @@ describe('bounded audio export product path', () => {
 			gainPoints: [{ whenSeconds: 0, value: 1 }],
 			previewGainPoints: [],
 			mixerTrackGain: 1,
-			transitionGainSpans: []
+			transitionGainSpans: [],
+			audioEffects: [delay]
 		};
 		const firstSecond: number[] = [];
 		const lastSecond: number[] = [];

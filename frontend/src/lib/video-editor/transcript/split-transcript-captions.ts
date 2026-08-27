@@ -1,4 +1,5 @@
 import type {
+	AiCaptionsCaptionSource,
 	SubtitleCue,
 	SubtitleWord,
 	TimelineItem,
@@ -6,7 +7,11 @@ import type {
 } from '../project/types';
 import { joinTranscriptWords } from './engine/transcript-text';
 
-function captionSourceForItem(item: TimelineItem, timelineFps: number): TranscriptCaptionSource {
+function captionSourceForItem(
+	item: TimelineItem,
+	timelineFps: number,
+	type: 'transcript' | 'ai-captions' = 'transcript'
+): TranscriptCaptionSource | AiCaptionsCaptionSource {
 	const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : timelineFps;
 	const speed = item.speed && item.speed > 0 ? item.speed : 1;
 	const sourceStartSeconds = Math.max(0, (item.sourceStart ?? 0) / sourceFps);
@@ -16,15 +21,16 @@ function captionSourceForItem(item: TimelineItem, timelineFps: number): Transcri
 			(item.sourceStart ?? 0) +
 				(item.durationInFrames * speed * sourceFps) / Math.max(1, timelineFps)) / sourceFps
 	);
+	// SAFETY: type is constrained to the two clip-owned caption sources, and the returned shape satisfies either transcript or ai-captions source.
 	return {
-		type: 'transcript',
+		type,
 		clipId: item.id,
 		mediaId: item.mediaId ?? '',
 		sourceStartSeconds,
 		sourceEndSeconds,
 		playbackSpeed: speed,
 		isReversed: item.isReversed === true
-	};
+	} as TranscriptCaptionSource | AiCaptionsCaptionSource;
 }
 
 function slicedWord(
@@ -88,7 +94,7 @@ function slicedCues(
 		.filter((cue): cue is SubtitleCue => cue !== null);
 }
 
-/** Keep clip-owned transcript captions aligned when their source clip splits. */
+/** Keep clip-owned transcript and AI captions aligned when their source clip splits. */
 export function synchronizeTranscriptCaptionsAfterSplit(
 	items: readonly TimelineItem[],
 	leftSource: TimelineItem,
@@ -98,9 +104,10 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 ): TimelineItem[] {
 	const nextItems: TimelineItem[] = [];
 	for (const item of items) {
+		const sourceType = item.captionSource?.type;
 		if (
 			item.type !== 'subtitle' ||
-			item.captionSource?.type !== 'transcript' ||
+			(sourceType !== 'transcript' && sourceType !== 'ai-captions') ||
 			item.captionSource.clipId !== leftSource.id ||
 			!item.cues
 		) {
@@ -114,11 +121,13 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 		}
 		const leftCues = slicedCues(item.cues, 0, splitOffset, 0, false);
 		const rightCues = slicedCues(item.cues, splitOffset, item.durationInFrames, splitOffset, true);
+		// SAFETY: guarded above to transcript or ai-captions, so narrowing to those two is sound.
+		const captionType = item.captionSource?.type as 'transcript' | 'ai-captions';
 		if (leftCues.length > 0) {
 			nextItems.push({
 				...item,
 				durationInFrames: leftSource.durationInFrames,
-				captionSource: captionSourceForItem(leftSource, timelineFps),
+				captionSource: captionSourceForItem(leftSource, timelineFps, captionType),
 				cues: leftCues
 			});
 		}
@@ -128,7 +137,7 @@ export function synchronizeTranscriptCaptionsAfterSplit(
 				id: crypto.randomUUID(),
 				from: rightSource.from,
 				durationInFrames: rightSource.durationInFrames,
-				captionSource: captionSourceForItem(rightSource, timelineFps),
+				captionSource: captionSourceForItem(rightSource, timelineFps, captionType),
 				cues: rightCues
 			});
 		}

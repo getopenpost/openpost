@@ -39,6 +39,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
 	import type { TranscriptionSelection } from '$lib/video-editor/transcript/engine/types';
 	import { transcriptionService } from '$lib/video-editor/transcript/transcription-service.svelte';
+	import { aiCaptionService } from '$lib/video-editor/transcript/ai-caption-service.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import { renderVideoExport } from '$lib/video-editor/media/render-execution';
 	import { sendToOpenPost } from '$lib/video-editor/send-to-openpost';
@@ -56,6 +57,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import RenderQueueController from '$lib/video-editor/components/render-queue-controller.svelte';
 	import TranscriptPanel from '$lib/video-editor/components/transcript-panel.svelte';
 	import TranscriptionControls from '$lib/video-editor/components/transcription-controls.svelte';
+	import AiCaptionControls from '$lib/video-editor/components/ai-caption-controls.svelte';
 	import MediaTaskProgress from '$lib/video-editor/components/media-task-progress.svelte';
 	import SpeechCleanupDialog from '$lib/video-editor/components/speech-cleanup-dialog.svelte';
 	import EditorSettingsDialog from '$lib/video-editor/components/editor-settings-dialog.svelte';
@@ -134,6 +136,14 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			: null
 	);
 	const transcriptionJobCount = $derived(transcriptionService.jobs.length);
+	const selectedAiCaptionJob = $derived(
+		selectedItemId ? aiCaptionService.jobForItem(selectedItemId) : undefined
+	);
+	const selectedAiCaptionQueuePosition = $derived(
+		selectedAiCaptionJob ? aiCaptionService.queuePosition(selectedAiCaptionJob.id) : null
+	);
+	const aiCaptionJobCount = $derived(aiCaptionService.jobs.length);
+	let aiCaptionError = $state<string | null>(null);
 
 	function openTextVoice(itemId: string, text: string): void {
 		textVoiceRequest = {
@@ -149,6 +159,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		if (!projectId) return;
 		return () => {
 			transcriptionService.reset();
+			aiCaptionService.reset();
 			mediaTasks.reset();
 		};
 	});
@@ -502,6 +513,25 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 
 	function cancelTranscription(): void {
 		if (selectedItemId) transcriptionService.cancelForItem(selectedItemId);
+	}
+
+	async function handleAiCaptions(): Promise<void> {
+		if (!selectedItemId) return;
+		aiCaptionError = null;
+		try {
+			await aiCaptionService.enqueue(selectedItemId);
+			editorSession.scheduleAutosave();
+			showToast(m.video_editor_ai_captions_done(), 'success');
+		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') return;
+			const message = err instanceof Error ? err.message : String(err);
+			aiCaptionError = message;
+			showToast(message, 'error');
+		}
+	}
+
+	function cancelAiCaptions(): void {
+		if (selectedItemId) aiCaptionService.cancelForItem(selectedItemId);
 	}
 
 	async function handleImportCaptions(): Promise<void> {
@@ -1302,6 +1332,19 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 										onstart={(selection) => void handleTranscribe(selection)}
 										oncancel={cancelTranscription}
 									/>
+									<div class="mt-1">
+										<AiCaptionControls
+											canGenerate={selectedIsMedia}
+											busy={selectedAiCaptionJob !== undefined}
+											status={selectedAiCaptionJob?.status}
+											queuePosition={selectedAiCaptionQueuePosition}
+											queueTotal={aiCaptionJobCount}
+											progress={selectedAiCaptionJob?.progress ?? null}
+											error={aiCaptionError}
+											onstart={() => void handleAiCaptions()}
+											oncancel={cancelAiCaptions}
+										/>
+									</div>
 									<div
 										class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[oklch(0.25_0.015_55)] p-1"
 									>

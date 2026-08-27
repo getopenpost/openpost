@@ -529,10 +529,19 @@ export interface EmbeddedSubtitleCaptionSource extends CaptionSourceBase {
 	codecId: string;
 }
 
+export interface AiCaptionsCaptionSource extends CaptionSourceBase {
+	type: 'ai-captions';
+	sourceStartSeconds?: number;
+	sourceEndSeconds?: number;
+	playbackSpeed?: number;
+	isReversed?: boolean;
+}
+
 export type CaptionSource =
 	| TranscriptCaptionSource
 	| SubtitleImportCaptionSource
-	| EmbeddedSubtitleCaptionSource;
+	| EmbeddedSubtitleCaptionSource
+	| AiCaptionsCaptionSource;
 
 export interface SubtitleCue {
 	id: string;

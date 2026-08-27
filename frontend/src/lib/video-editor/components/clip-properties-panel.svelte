@@ -36,6 +36,7 @@
 		clampAudioPitchSemitones
 	} from '$lib/video-editor/audio/audio-pitch';
 	import AudioEqPanel from './audio-eq-panel.svelte';
+	import AudioEffectsPanel from './audio-effects-panel.svelte';
 
 	let {
 		itemId,
@@ -783,8 +784,9 @@
 							{/each}
 						</div>
 					</details>
-					<div class="mt-2">
+					<div class="mt-2 space-y-2">
 						<AudioEqPanel item={audioItem} {onedit} />
+						<AudioEffectsPanel item={audioItem} />
 					</div>
 				</section>
 			{/if}

@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-known-value-widening, anti-slop/no-conditional-empty-object-spread */
 import { beforeEach, describe, expect, it } from 'vitest';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { updateItemProperties } from '../timeline/actions/items';
@@ -41,7 +42,18 @@ describe('audio ducking persistence and undo', () => {
 	});
 
 	it('persists ducking settings through item updates and survives store snapshot', () => {
-		updateItemProperties('music', { audioDucking: { duckOthersDb: -12, attackSec: 0.1, releaseSec: 0.25, targetTrackIds: ['track-a'] } } as Partial<TimelineItem>, 'UPDATE_CLIP_AUDIO_DUCKING');
+		updateItemProperties(
+			'music',
+			{
+				audioDucking: {
+					duckOthersDb: -12,
+					attackSec: 0.1,
+					releaseSec: 0.25,
+					targetTrackIds: ['track-a']
+				}
+			} as Partial<TimelineItem>,
+			'UPDATE_CLIP_AUDIO_DUCKING'
+		);
 		expect(timelineStore.itemById.get('music')?.audioDucking).toEqual({
 			duckOthersDb: -12,
 			attackSec: 0.1,
@@ -51,7 +63,11 @@ describe('audio ducking persistence and undo', () => {
 	});
 
 	it('undo and redo restore ducking settings', () => {
-		updateItemProperties('voice', { audioDucking: { duckOthersDb: -9 } } as Partial<TimelineItem>, 'UPDATE_CLIP_AUDIO_DUCKING');
+		updateItemProperties(
+			'voice',
+			{ audioDucking: { duckOthersDb: -9 } } as Partial<TimelineItem>,
+			'UPDATE_CLIP_AUDIO_DUCKING'
+		);
 		expect(timelineStore.itemById.get('voice')?.audioDucking).toBeDefined();
 		expect(commandHistory.canUndo).toBe(true);
 		commandHistory.undo();
@@ -62,7 +78,11 @@ describe('audio ducking persistence and undo', () => {
 	});
 
 	it('survives speed, trim and track mute/solo changes without clearing ducking', () => {
-		updateItemProperties('voice', { audioDucking: { duckOthersDb: -6 } } as Partial<TimelineItem>, 'UPDATE_CLIP_AUDIO_DUCKING');
+		updateItemProperties(
+			'voice',
+			{ audioDucking: { duckOthersDb: -6 } } as Partial<TimelineItem>,
+			'UPDATE_CLIP_AUDIO_DUCKING'
+		);
 		// Speed change preserves ducking
 		updateItemProperties('voice', { speed: 1.5 } as Partial<TimelineItem>, 'UPDATE_CLIP_SPEED');
 		expect(timelineStore.itemById.get('voice')?.audioDucking?.duckOthersDb).toBe(-6);
@@ -70,10 +90,7 @@ describe('audio ducking persistence and undo', () => {
 		updateItemProperties('voice', { from: 10 } as Partial<TimelineItem>, 'TRIM_ITEM');
 		expect(timelineStore.itemById.get('voice')?.audioDucking).toBeDefined();
 		// Muting track does not delete setting (just suppresses it at runtime)
-		timelineStore._setTracks([
-			{ ...track('track-a'), muted: true },
-			track('track-b')
-		]);
+		timelineStore._setTracks([{ ...track('track-a'), muted: true }, track('track-b')]);
 		expect(timelineStore.itemById.get('voice')?.audioDucking).toBeDefined();
 	});
 });

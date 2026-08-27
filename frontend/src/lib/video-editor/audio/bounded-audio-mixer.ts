@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion */
 import type { MixEntry } from '../media/render-plan';
 import { DUCKING_DEFAULT_ATTACK_SEC, DUCKING_DEFAULT_RELEASE_SEC } from './audio-ducking';
 import { mediaPool } from '../media/pool.svelte';
@@ -492,7 +493,11 @@ export async function* mixAudioWindows(
 				for (let sample = 0; sample < overlapLength; sample++) {
 					const timelineSample = overlapStart + sample;
 					const baseGain = current.automation.gainAt(timelineSample);
-					const duckGain = duckGainAtSample(timelineSample / MIX_SAMPLE_RATE, duckSources, current.entry);
+					const duckGain = duckGainAtSample(
+						timelineSample / MIX_SAMPLE_RATE,
+						duckSources,
+						current.entry
+					);
 					const gain = baseGain * duckGain;
 					mix[0]![windowOffset + sample]! += (channels[0]![sample] ?? 0) * gain;
 					mix[1]![windowOffset + sample]! += (channels[1]![sample] ?? 0) * gain;

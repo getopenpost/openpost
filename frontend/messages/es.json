@@ -7118,5 +7118,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Desbloquear",
 	"video_editor_timeline_unmute": "Activar sonido",
-	"video_editor_timeline_unsolo": "Quitar solo"
+	"video_editor_timeline_unsolo": "Quitar solo",
+	"video_editor_duck_title": "Atenuar otros audios",
+	"video_editor_duck_description": "Mientras este clip suena, las demás pistas se bajan. El clip en sí nunca se atenúa. El ataque entra a la atenuación y la liberación vuelve a subir.",
+	"video_editor_duck_enable": "Activar atenuación",
+	"video_editor_duck_amount": "Cantidad (dB)",
+	"video_editor_duck_amount_hint": "-60 a 0, menor atenúa más",
+	"video_editor_duck_current": "Actual: {db} dB",
+	"video_editor_duck_attack": "Ataque (s)",
+	"video_editor_duck_release": "Liberación (s)",
+	"video_editor_duck_targets": "Solo atenuar estas pistas",
+	"video_editor_duck_targets_hint": "Deja vacío para atenuar cualquier otra pista audible.",
+	"video_editor_duck_off": "Apagado",
+	"video_editor_duck_on": "Encendido"
 }

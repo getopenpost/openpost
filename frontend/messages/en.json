@@ -7118,5 +7118,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Unlock",
 	"video_editor_timeline_unmute": "Unmute",
-	"video_editor_timeline_unsolo": "Unsolo"
+	"video_editor_timeline_unsolo": "Unsolo",
+	"video_editor_duck_title": "Duck other audio",
+	"video_editor_duck_description": "While this clip plays, other tracks are lowered. The clip itself is never ducked. Attack fades into the dip, release fades back out.",
+	"video_editor_duck_enable": "Enable ducking",
+	"video_editor_duck_amount": "Duck amount (dB)",
+	"video_editor_duck_amount_hint": "-60 to 0, lower is more dip",
+	"video_editor_duck_current": "Current: {db} dB",
+	"video_editor_duck_attack": "Attack (s)",
+	"video_editor_duck_release": "Release (s)",
+	"video_editor_duck_targets": "Only duck these tracks",
+	"video_editor_duck_targets_hint": "Leave empty to duck every other audible track.",
+	"video_editor_duck_off": "Off",
+	"video_editor_duck_on": "On"
 }

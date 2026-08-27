@@ -7118,5 +7118,17 @@
 	"video_editor_timeline_solo": "솔로",
 	"video_editor_timeline_unlock": "잠금 해제",
 	"video_editor_timeline_unmute": "음소거 해제",
-	"video_editor_timeline_unsolo": "솔로 해제"
+	"video_editor_timeline_unsolo": "솔로 해제",
+	"video_editor_duck_title": "다른 오디오 덕킹",
+	"video_editor_duck_description": "이 클립이 재생되는 동안 다른 트랙을 낮춥니다. 클립 자체는 낮아지지 않습니다. 어택으로 Duck에 진입하고 릴리스로 복귀합니다.",
+	"video_editor_duck_enable": "덕킹 활성화",
+	"video_editor_duck_amount": "덕킹 양 (dB)",
+	"video_editor_duck_amount_hint": "-60~0, 낮을수록 더 많이 낮춤",
+	"video_editor_duck_current": "현재: {db} dB",
+	"video_editor_duck_attack": "어택 (초)",
+	"video_editor_duck_release": "릴리스 (초)",
+	"video_editor_duck_targets": "이 트랙만 덕킹",
+	"video_editor_duck_targets_hint": "비워두면 다른 모든 가청 트랙을 덕킹합니다.",
+	"video_editor_duck_off": "끄기",
+	"video_editor_duck_on": "켜기"
 }

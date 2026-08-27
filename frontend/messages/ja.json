@@ -7118,5 +7118,17 @@
 	"video_editor_timeline_solo": "ソロ",
 	"video_editor_timeline_unlock": "ロック解除",
 	"video_editor_timeline_unmute": "ミュート解除",
-	"video_editor_timeline_unsolo": "ソロ解除"
+	"video_editor_timeline_unsolo": "ソロ解除",
+	"video_editor_duck_title": "他のオーディオをダッキング",
+	"video_editor_duck_description": "このクリップ再生中、他のトラックを下げます。クリップ自体は下げません。アタックで下げに入り、リリースで戻ります。",
+	"video_editor_duck_enable": "ダッキングを有効化",
+	"video_editor_duck_amount": "ダッキング量 (dB)",
+	"video_editor_duck_amount_hint": "-60〜0、低いほど大きく下げる",
+	"video_editor_duck_current": "現在: {db} dB",
+	"video_editor_duck_attack": "アタック (秒)",
+	"video_editor_duck_release": "リリース (秒)",
+	"video_editor_duck_targets": "このトラックのみダッキング",
+	"video_editor_duck_targets_hint": "空のままですべての可聴トラックを対象にします。",
+	"video_editor_duck_off": "オフ",
+	"video_editor_duck_on": "オン"
 }

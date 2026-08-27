@@ -7118,5 +7118,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Desbloquear",
 	"video_editor_timeline_unmute": "Reativar som",
-	"video_editor_timeline_unsolo": "Remover solo"
+	"video_editor_timeline_unsolo": "Remover solo",
+	"video_editor_duck_title": "Abaixar outros áudios",
+	"video_editor_duck_description": "Enquanto este clipe toca, outras faixas são abaixadas. O clipe em si nunca é abaixado. Ataque entra no vale, liberação volta.",
+	"video_editor_duck_enable": "Ativar ducking",
+	"video_editor_duck_amount": "Quantidade (dB)",
+	"video_editor_duck_amount_hint": "-60 a 0, menor abaixa mais",
+	"video_editor_duck_current": "Atual: {db} dB",
+	"video_editor_duck_attack": "Ataque (s)",
+	"video_editor_duck_release": "Liberação (s)",
+	"video_editor_duck_targets": "Abaixar apenas estas faixas",
+	"video_editor_duck_targets_hint": "Deixe vazio para abaixar qualquer outra faixa audível.",
+	"video_editor_duck_off": "Desligado",
+	"video_editor_duck_on": "Ligado"
 }

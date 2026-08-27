@@ -1,4 +1,6 @@
 <script lang="ts">
+	import AppSelect from '$lib/components/app-select.svelte';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import type {
 		TextMotionEffect,
@@ -161,62 +163,62 @@
 							><span
 								>{m.video_editor_text_motion_duration()}
 								<output>{effect.durationFrames}f</output></span
-							><input
-								type="range"
-								min="1"
-								max="90"
-								step="1"
+							><Slider
+								min={1}
+								max={90}
+								step={1}
 								value={effect.durationFrames}
-								oninput={(event) => liveEdit(slot, { durationFrames: numberValue(event) })}
-								onchange={(event) => commitEdit(slot, { durationFrames: numberValue(event) })}
+								ariaLabel={m.video_editor_text_motion_duration()}
+								onValueChange={(value) => liveEdit(slot, { durationFrames: value })}
+								onValueCommit={(value) => commitEdit(slot, { durationFrames: value })}
 							/></label
 						>
 						<label
 							><span
 								>{m.video_editor_text_motion_stagger()}
 								<output>{effect.staggerFrames}f</output></span
-							><input
-								type="range"
-								min="0"
-								max="30"
-								step="1"
+							><Slider
+								min={0}
+								max={30}
+								step={1}
 								value={effect.staggerFrames}
-								oninput={(event) => liveEdit(slot, { staggerFrames: numberValue(event) })}
-								onchange={(event) => commitEdit(slot, { staggerFrames: numberValue(event) })}
+								ariaLabel={m.video_editor_text_motion_stagger()}
+								onValueChange={(value) => liveEdit(slot, { staggerFrames: value })}
+								onValueCommit={(value) => commitEdit(slot, { staggerFrames: value })}
 							/></label
 						>
 						<label
 							><span
 								>{m.video_editor_text_motion_intensity()}
 								<output>{Math.round(effect.intensity * 100)}%</output></span
-							><input
-								type="range"
-								min="0"
-								max="2"
-								step="0.05"
+							><Slider
+								min={0}
+								max={2}
+								step={0.05}
 								value={effect.intensity}
-								oninput={(event) => liveEdit(slot, { intensity: numberValue(event) })}
-								onchange={(event) => commitEdit(slot, { intensity: numberValue(event) })}
+								ariaLabel={m.video_editor_text_motion_intensity()}
+								onValueChange={(value) => liveEdit(slot, { intensity: value })}
+								onValueCommit={(value) => commitEdit(slot, { intensity: value })}
 							/></label
 						>
 						<div class="select-row">
 							<label
-								>{m.video_editor_text_motion_unit()}<select
+								>{m.video_editor_text_motion_unit()}<AppSelect
 									value={effect.unit ?? getTextMotionPreset(effect.presetId).unit}
-									onchange={(event) =>
-										commitEdit(slot, { unit: event.currentTarget.value as TextMotionUnit })}
-									>{#each units as unit}<option value={unit}>{unitLabels[unit]}</option
-										>{/each}</select
-								></label
+									options={units.map((unit) => ({ value: unit, label: unitLabels[unit] }))}
+									ariaLabel={m.video_editor_text_motion_unit()}
+									onValueChange={(value) => commitEdit(slot, { unit: value as TextMotionUnit })}
+									class="h-7 text-xs"
+								/></label
 							>
 							<label
-								>{m.video_editor_text_motion_order()}<select
+								>{m.video_editor_text_motion_order()}<AppSelect
 									value={effect.order}
-									onchange={(event) =>
-										commitEdit(slot, { order: event.currentTarget.value as TextMotionOrder })}
-									>{#each orders as order}<option value={order}>{orderLabels[order]}</option
-										>{/each}</select
-								></label
+									options={orders.map((order) => ({ value: order, label: orderLabels[order] }))}
+									ariaLabel={m.video_editor_text_motion_order()}
+									onValueChange={(value) => commitEdit(slot, { order: value as TextMotionOrder })}
+									class="h-7 text-xs"
+								/></label
 							>
 						</div>
 					</div>

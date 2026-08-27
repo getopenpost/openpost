@@ -1,4 +1,8 @@
 <script lang="ts">
+	import AppSelect from '$lib/components/app-select.svelte';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
 	import type {
 		DirectLinkableProperty,
@@ -363,10 +367,12 @@
 				<h3 id="property-runtime-title">{m.video_editor_expression_title()}</h3>
 				<p>{m.video_editor_expression_description()}</p>
 			</div>
-			<select aria-label={m.video_editor_expression_target()} bind:value={targetProperty}>
-				{#each targetProperties as property}<option value={property}>{label(property)}</option
-					>{/each}
-			</select>
+			<AppSelect
+				ariaLabel={m.video_editor_expression_target()}
+				bind:value={targetProperty}
+				options={targetProperties.map((property) => ({ value: property, label: label(property) }))}
+				class="h-7 min-w-[10rem] text-xs"
+			/>
 		</header>
 
 		<div class="runtime-grid">
@@ -377,24 +383,26 @@
 						>{/if}
 				</div>
 				<div class="source-row">
-					<select aria-label={m.video_editor_expression_source_layer()} bind:value={sourceItemId}>
-						<option value="">{m.video_editor_expression_choose_layer()}</option>
-						{#each sourceItems as source}<option value={source.id}>{source.label}</option>{/each}
-					</select>
-					<select
-						aria-label={m.video_editor_expression_source_property()}
+					<AppSelect
+						ariaLabel={m.video_editor_expression_source_layer()}
+						bind:value={sourceItemId}
+						options={[{ value: '', label: m.video_editor_expression_choose_layer() }, ...sourceItems.map((source) => ({ value: source.id, label: source.label })) ]}
+						class="min-w-0 flex-1 text-xs h-7"
+					/>
+					<AppSelect
+						ariaLabel={m.video_editor_expression_source_property()}
 						bind:value={sourceProperty}
-					>
-						{#each sourceProperties as property}<option value={property}>{label(property)}</option
-							>{/each}
-					</select>
+						options={sourceProperties.map((property) => ({ value: property, label: label(property) }))}
+						class="min-w-0 flex-1 text-xs h-7"
+					/>
 				</div>
 				<label class="offset"
-					>{m.video_editor_expression_offset()}<input
+					>{m.video_editor_expression_offset()}<Input
 						type="number"
 						min="-900"
 						max="900"
 						bind:value={offsetFrames}
+						class="h-7 w-20 text-xs"
 					/></label
 				>
 				<div class="actions">
@@ -419,11 +427,13 @@
 							>{m.video_editor_expression_active()}</span
 						>{/if}
 				</div>
-				<textarea
-					bind:this={expressionInput}
+				<Textarea
+					bind:ref={expressionInput}
 					bind:value={expressionSource}
 					aria-label={m.video_editor_expression_source()}
-					spellcheck="false"></textarea>
+					spellcheck={false}
+					class="min-h-16 w-full resize-y font-mono text-xs"
+				></Textarea>
 				<div class="preview-values">
 					<span
 						>{m.video_editor_expression_pre()}
@@ -436,7 +446,7 @@
 				</div>
 				{#if draftError}<p class="error" role="alert">{draftError}</p>{/if}
 				<label class="enabled"
-					><input type="checkbox" bind:checked={expressionEnabled} />
+					><Checkbox bind:checked={expressionEnabled} aria-label={m.video_editor_expression_enabled()} />
 					{m.video_editor_expression_enabled()}</label
 				>
 				<div class="actions">

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import type {
@@ -414,17 +416,17 @@
 		<label>
 			<span>{m.video_editor_motion_duration()}</span>
 			<output>{Math.round(durationScale * 100)}%</output>
-			<input type="range" min="0.25" max="3" step="0.05" bind:value={durationScale} />
+			<Slider min={0.25} max={3} step={0.05} bind:value={durationScale} ariaLabel={m.video_editor_motion_duration()} />
 		</label>
 		<label>
 			<span>{m.video_editor_motion_intensity()}</span>
 			<output>{Math.round(intensityScale * 100)}%</output>
-			<input type="range" min="0" max="2" step="0.05" bind:value={intensityScale} />
+			<Slider min={0} max={2} step={0.05} bind:value={intensityScale} ariaLabel={m.video_editor_motion_intensity()} />
 		</label>
 		<label>
 			<span>{m.video_editor_motion_stagger()}</span>
 			<output>{staggerFrames}</output>
-			<input type="range" min="0" max="30" step="1" bind:value={staggerFrames} />
+			<Slider min={0} max={30} step={1} bind:value={staggerFrames} ariaLabel={m.video_editor_motion_stagger()} />
 		</label>
 	</div>
 
@@ -494,11 +496,10 @@
 				{#each additiveLayers() as layer (layer.id)}
 					<li class="layer-row">
 						<label class="layer-toggle">
-							<input
-								type="checkbox"
+							<Checkbox
 								checked={layer.enabled}
 								aria-label={m.video_editor_motion_layer_toggle_named({ name: layer.name })}
-								onchange={(event) => toggleLayer(layer.id, event.currentTarget.checked)}
+								onCheckedChange={(checked) => toggleLayer(layer.id, checked === true)}
 							/>
 							<span class="layer-name" title={layer.name}>{layer.name}</span>
 							<span class="layer-badge">{m.video_editor_motion_layer_badge()}</span>
@@ -569,59 +570,41 @@
 						<label>
 							<span>{m.video_editor_motion_intensity()}</span>
 							<output>{Math.round(settings.intensityScale * 100)}%</output>
-							<input
-								type="range"
-								min="0"
-								max="2"
-								step="0.05"
+							<Slider
+								min={0}
+								max={2}
+								step={0.05}
 								value={settings.intensityScale}
-								oninput={(event) =>
-									liveModifierEdit(modulator.id, {
-										intensityScale: event.currentTarget.valueAsNumber
-									})}
-								onchange={(event) =>
-									commitModifierEdit(modulator.id, {
-										intensityScale: event.currentTarget.valueAsNumber
-									})}
+								ariaLabel={m.video_editor_motion_intensity()}
+								onValueChange={(value) => liveModifierEdit(modulator.id, { intensityScale: value })}
+								onValueCommit={(value) => commitModifierEdit(modulator.id, { intensityScale: value })}
 							/>
 						</label>
 						<label>
 							<span>{m.video_editor_motion_duration()}</span>
 							<output>{Math.round(settings.durationScale * 100)}%</output>
-							<input
-								type="range"
-								min="0.25"
-								max="3"
-								step="0.05"
+							<Slider
+								min={0.25}
+								max={3}
+								step={0.05}
 								value={settings.durationScale}
-								oninput={(event) =>
-									liveModifierEdit(modulator.id, {
-										durationScale: event.currentTarget.valueAsNumber
-									})}
-								onchange={(event) =>
-									commitModifierEdit(modulator.id, {
-										durationScale: event.currentTarget.valueAsNumber
-									})}
+								ariaLabel={m.video_editor_motion_duration()}
+								onValueChange={(value) => liveModifierEdit(modulator.id, { durationScale: value })}
+								onValueCommit={(value) => commitModifierEdit(modulator.id, { durationScale: value })}
 							/>
 						</label>
 						{#each modulator.properties as channel}
 							<label>
 								<span>{channelLabels[channel]}</span>
 								<output>{Math.round((settings.channelGains[channel] ?? 1) * 100)}%</output>
-								<input
-									type="range"
-									min="0"
-									max="2"
-									step="0.05"
+								<Slider
+									min={0}
+									max={2}
+									step={0.05}
 									value={settings.channelGains[channel] ?? 1}
-									oninput={(event) =>
-										liveModifierEdit(modulator.id, {
-											channelGains: { [channel]: event.currentTarget.valueAsNumber }
-										})}
-									onchange={(event) =>
-										commitModifierEdit(modulator.id, {
-											channelGains: { [channel]: event.currentTarget.valueAsNumber }
-										})}
+									ariaLabel={channelLabels[channel]}
+									onValueChange={(value) => liveModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
+									onValueCommit={(value) => commitModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
 								/>
 							</label>
 						{/each}

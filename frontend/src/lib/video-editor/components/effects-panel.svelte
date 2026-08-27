@@ -6,6 +6,7 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
@@ -567,9 +568,8 @@
 	</div>
 	{#if showPresetSave}
 		<div class="flex items-center gap-1 px-1">
-			<input
-				type="text"
-				class="h-8 min-w-0 flex-1 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.16_0.008_50)] px-2 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+			<Input
+				class="h-8 min-w-0 flex-1 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.16_0.008_50)] px-2 text-xs"
 				bind:value={presetName}
 				maxlength="80"
 				aria-label={m.video_editor_effects_preset_name()}

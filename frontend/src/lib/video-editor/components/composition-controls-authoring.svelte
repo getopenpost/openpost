@@ -1,4 +1,5 @@
 <script lang="ts">
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
@@ -123,18 +124,12 @@
 			<label class="mt-3 block text-xs font-medium" for="published-control-candidate">
 				{m.video_editor_motion_published_property()}
 			</label>
-			<select
-				id="published-control-candidate"
-				class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.12_0.008_55)] px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+			<AppSelect
 				bind:value={selectedCandidate}
-			>
-				<option value="">{m.video_editor_motion_published_property()}</option>
-				{#each candidates as candidate (candidateKey(candidate))}
-					<option value={candidateKey(candidate)}>
-						{candidate.targetLabel} - {propertyLabel(candidate.property)}
-					</option>
-				{/each}
-			</select>
+				options={[{ value: '', label: m.video_editor_motion_published_property() }, ...candidates.map((candidate) => ({ value: candidateKey(candidate), label: `${candidate.targetLabel} - ${propertyLabel(candidate.property)}` })) ]}
+				ariaLabel={m.video_editor_motion_published_property()}
+				class="mt-1 h-9 w-full text-sm"
+			/>
 			<Button
 				type="button"
 				class="mt-2 w-full"

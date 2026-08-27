@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import AppSelect from '$lib/components/app-select.svelte';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import type { ShapeType, TimelineItem } from '$lib/video-editor/project/types';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
@@ -132,16 +134,14 @@
 
 	<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 		{m.video_editor_shape_kind()}
-		<select
-			class="mt-0.5 h-8 w-full rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_50)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		<AppSelect
+			class="mt-0.5 h-8 w-full text-xs"
 			value={item.shapeType ?? 'rectangle'}
+			options={shapeTypes.map((shape) => ({ value: shape.type, label: shape.label() }))}
 			disabled={pathTopologyLocked}
-			onchange={(event) => commit({ shapeType: event.currentTarget.value as ShapeType })}
-		>
-			{#each shapeTypes as shape (shape.type)}
-				<option value={shape.type}>{shape.label()}</option>
-			{/each}
-		</select>
+			ariaLabel={m.video_editor_shape_kind()}
+			onValueChange={(value) => commit({ shapeType: value as ShapeType })}
+		/>
 	</label>
 	{#if pathTopologyLocked}
 		<p class="rounded bg-amber-400/10 px-2 py-1.5 text-[10px] leading-4 text-amber-100">
@@ -152,20 +152,18 @@
 	{#if !item.isMask}
 		<div class="grid grid-cols-2 gap-1">
 			<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
-				<input
-					type="checkbox"
-					class="size-3.5 accent-[oklch(0.66_0.14_45)]"
+				<Checkbox
 					checked={item.fillEnabled ?? true}
-					onchange={(event) => commit({ fillEnabled: event.currentTarget.checked })}
+					onCheckedChange={(checked) => commit({ fillEnabled: checked === true })}
+					aria-label={m.video_editor_shape_fill_enabled()}
 				/>
 				{m.video_editor_shape_fill_enabled()}
 			</label>
 			<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
-				<input
-					type="checkbox"
-					class="size-3.5 accent-[oklch(0.66_0.14_45)]"
+				<Checkbox
 					checked={item.strokeEnabled ?? false}
-					onchange={(event) => commit({ strokeEnabled: event.currentTarget.checked })}
+					onCheckedChange={(checked) => commit({ strokeEnabled: checked === true })}
+					aria-label={m.video_editor_shape_stroke_enabled()}
 				/>
 				{m.video_editor_shape_stroke_enabled()}
 			</label>
@@ -175,17 +173,13 @@
 			<div class="grid grid-cols-2 gap-1">
 				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 					{m.video_editor_shape_fill_style()}
-					<select
-						class="mt-0.5 h-8 w-full rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_50)] px-1.5 text-xs text-white"
+					<AppSelect
+						class="mt-0.5 h-8 w-full text-xs"
 						value={item.fillType ?? 'solid'}
-						onchange={(event) =>
-							commit({
-								fillType: event.currentTarget.value as 'solid' | 'linear'
-							})}
-					>
-						<option value="solid">{m.video_editor_shape_fill_solid()}</option>
-						<option value="linear">{m.video_editor_shape_fill_linear()}</option>
-					</select>
+						options={[{ value: 'solid', label: m.video_editor_shape_fill_solid() }, { value: 'linear', label: m.video_editor_shape_fill_linear() }]}
+						ariaLabel={m.video_editor_shape_fill_style()}
+						onValueChange={(value) => commit({ fillType: value as 'solid' | 'linear' })}
+					/>
 				</label>
 				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 					{item.fillType === 'linear'
@@ -260,37 +254,23 @@
 			<div class="grid grid-cols-2 gap-1">
 				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 					{m.video_editor_shape_line_cap()}
-					<select
-						class="mt-0.5 h-8 w-full rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_50)] px-1.5 text-xs text-white"
+					<AppSelect
+						class="mt-0.5 h-8 w-full text-xs"
 						value={item.strokeLineCap ?? 'butt'}
-						onchange={(event) =>
-							commit({
-								strokeLineCap: event.currentTarget.value as NonNullable<
-									TimelineItem['strokeLineCap']
-								>
-							})}
-					>
-						<option value="butt">{m.video_editor_shape_line_cap_butt()}</option>
-						<option value="round">{m.video_editor_shape_line_cap_round()}</option>
-						<option value="square">{m.video_editor_shape_line_cap_square()}</option>
-					</select>
+						options={[{ value: 'butt', label: m.video_editor_shape_line_cap_butt() }, { value: 'round', label: m.video_editor_shape_line_cap_round() }, { value: 'square', label: m.video_editor_shape_line_cap_square() }]}
+						ariaLabel={m.video_editor_shape_line_cap()}
+						onValueChange={(value) => commit({ strokeLineCap: value as NonNullable<TimelineItem['strokeLineCap']> })}
+					/>
 				</label>
 				<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 					{m.video_editor_shape_line_join()}
-					<select
-						class="mt-0.5 h-8 w-full rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_50)] px-1.5 text-xs text-white"
+					<AppSelect
+						class="mt-0.5 h-8 w-full text-xs"
 						value={item.strokeLineJoin ?? 'miter'}
-						onchange={(event) =>
-							commit({
-								strokeLineJoin: event.currentTarget.value as NonNullable<
-									TimelineItem['strokeLineJoin']
-								>
-							})}
-					>
-						<option value="miter">{m.video_editor_shape_line_join_miter()}</option>
-						<option value="round">{m.video_editor_shape_line_join_round()}</option>
-						<option value="bevel">{m.video_editor_shape_line_join_bevel()}</option>
-					</select>
+						options={[{ value: 'miter', label: m.video_editor_shape_line_join_miter() }, { value: 'round', label: m.video_editor_shape_line_join_round() }, { value: 'bevel', label: m.video_editor_shape_line_join_bevel() }]}
+						ariaLabel={m.video_editor_shape_line_join()}
+						onValueChange={(value) => commit({ strokeLineJoin: value as NonNullable<TimelineItem['strokeLineJoin']> })}
+					/>
 				</label>
 			</div>
 			{#if (item.strokeLineJoin ?? 'miter') === 'miter'}
@@ -377,21 +357,13 @@
 		{#if item.shapeType === 'triangle'}
 			<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 				{m.video_editor_shape_direction()}
-				<select
-					class="mt-0.5 h-8 w-full rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_50)] px-2 text-xs text-white"
+				<AppSelect
+					class="mt-0.5 h-8 w-full text-xs"
 					value={item.shapeDirection ?? 'up'}
-					onchange={(event) =>
-						commit({
-							shapeDirection: event.currentTarget.value as NonNullable<
-								TimelineItem['shapeDirection']
-							>
-						})}
-				>
-					<option value="up">{m.video_editor_shape_direction_up()}</option>
-					<option value="down">{m.video_editor_shape_direction_down()}</option>
-					<option value="left">{m.video_editor_shape_direction_left()}</option>
-					<option value="right">{m.video_editor_shape_direction_right()}</option>
-				</select>
+					options={[{ value: 'up', label: m.video_editor_shape_direction_up() }, { value: 'down', label: m.video_editor_shape_direction_down() }, { value: 'left', label: m.video_editor_shape_direction_left() }, { value: 'right', label: m.video_editor_shape_direction_right() }]}
+					ariaLabel={m.video_editor_shape_direction()}
+					onValueChange={(value) => commit({ shapeDirection: value as NonNullable<TimelineItem['shapeDirection']> })}
+				/>
 			</label>
 		{/if}
 
@@ -430,12 +402,11 @@
 
 	<div class="border-t border-[oklch(0.3_0.015_55)] pt-2">
 		<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
-			<input
-				type="checkbox"
-				class="size-3.5 accent-[oklch(0.66_0.14_45)]"
+			<Checkbox
 				checked={item.isMask ?? false}
 				disabled={pathTopologyLocked && !item.isMask && item.pathClosed === false}
-				onchange={(event) => setMaskEnabled(event.currentTarget.checked)}
+				onCheckedChange={(checked) => setMaskEnabled(checked === true)}
+				aria-label={m.video_editor_shape_use_as_mask()}
 			/>
 			{m.video_editor_shape_use_as_mask()}
 		</label>
@@ -447,14 +418,13 @@
 		</p>
 		<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
 			{m.video_editor_shape_mask_type()}
-			<select
-				class="mt-0.5 h-8 w-full rounded border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_50)] px-2 text-xs text-white"
+			<AppSelect
+				class="mt-0.5 h-8 w-full text-xs"
 				value={item.maskType ?? 'clip'}
-				onchange={(event) => setMaskType(event.currentTarget.value as 'clip' | 'alpha')}
-			>
-				<option value="clip">{m.video_editor_shape_mask_clip()}</option>
-				<option value="alpha">{m.video_editor_shape_mask_alpha()}</option>
-			</select>
+				options={[{ value: 'clip', label: m.video_editor_shape_mask_clip() }, { value: 'alpha', label: m.video_editor_shape_mask_alpha() }]}
+				ariaLabel={m.video_editor_shape_mask_type()}
+				onValueChange={(value) => setMaskType(value as 'clip' | 'alpha')}
+			/>
 		</label>
 
 		{#if item.maskType === 'alpha'}
@@ -486,11 +456,10 @@
 		</label>
 
 		<label class="flex items-center gap-1.5 text-[10px] text-[oklch(0.7_0.01_55)]">
-			<input
-				type="checkbox"
-				class="size-3.5 accent-[oklch(0.66_0.14_45)]"
+			<Checkbox
 				checked={item.maskInvert ?? false}
-				onchange={(event) => commit({ maskInvert: event.currentTarget.checked })}
+				onCheckedChange={(checked) => commit({ maskInvert: checked === true })}
+				aria-label={m.video_editor_shape_mask_invert()}
 			/>
 			{m.video_editor_shape_mask_invert()}
 		</label>

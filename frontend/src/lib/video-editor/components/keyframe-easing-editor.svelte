@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import type {
 		BezierControlPoints,
@@ -304,13 +306,13 @@
 			{#each [{ key: 'x1' as const, min: 0, max: 1 }, { key: 'y1' as const, min: -2, max: 3 }, { key: 'x2' as const, min: 0, max: 1 }, { key: 'y2' as const, min: -2, max: 3 }] as field}
 				<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.78_0.02_55)]">
 					<span>{field.key}</span>
-					<input
+					<Input
 						type="number"
 						min={field.min}
 						max={field.max}
-						step="0.01"
+						step={0.01}
 						value={draft[field.key]}
-						class="w-full rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-1 py-1 text-[10px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.85_0.15_45)]"
+						class="w-full rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-1 py-1 text-[10px] text-white"
 						oninput={(event) => previewBezier(field.key, Number(event.currentTarget.value))}
 						onchange={commitBezier}
 						onpointercancel={cancelBezier}
@@ -343,24 +345,14 @@
 			{#each [{ key: 'tension' as const, label: m.video_editor_keyframe_graph_tension(), min: 1, max: 1000, step: 1 }, { key: 'friction' as const, label: m.video_editor_keyframe_graph_friction(), min: 1, max: 100, step: 1 }, { key: 'mass' as const, label: m.video_editor_keyframe_graph_mass(), min: 0.1, max: 10, step: 0.1 }] as field}
 				<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.78_0.02_55)]">
 					{field.label}
-					<input
-						type="range"
+					<Slider
 						min={field.min}
 						max={field.max}
 						step={field.step}
 						value={draft[field.key]}
-						class="w-full accent-[oklch(0.66_0.14_45)] focus-visible:outline-2 focus-visible:outline-[oklch(0.85_0.15_45)]"
-						oninput={(event) => previewSpring(field.key, Number(event.currentTarget.value))}
-						onchange={commitSpring}
-						onpointercancel={cancelSpring}
-						onlostpointercapture={cancelSpring}
-						onkeydown={(event) => {
-							if (event.key === 'Escape') {
-								event.preventDefault();
-								cancelSpring();
-							}
-							if (event.key === 'Enter') commitSpring();
-						}}
+						ariaLabel={field.label}
+						onValueChange={(value) => previewSpring(field.key, value)}
+						onValueCommit={(value) => { previewSpring(field.key, value); commitSpring(); }}
 					/>
 					<span class="font-mono text-[9px]">{draft[field.key]}</span>
 				</label>
@@ -398,12 +390,11 @@
 		<div class="mt-2 flex flex-wrap items-end gap-2">
 			<label class="min-w-32 flex-1 text-[10px] text-[oklch(0.78_0.02_55)]">
 				<span class="mb-1 block">{m.video_editor_keyframe_preset_name()}</span>
-				<input
-					type="text"
+				<Input
 					data-testid="segment-preset-name"
 					bind:value={customPresetName}
 					placeholder={suggestedCustomPresetName(customPresets)}
-					class="h-7 w-full rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-2 text-[10px] text-white placeholder:text-[oklch(0.58_0.014_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.85_0.15_45)]"
+					class="h-7 w-full rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-2 text-[10px] text-white placeholder:text-[oklch(0.58_0.014_55)]"
 					onkeydown={(event) => {
 						if (event.key === 'Enter') savePreset();
 					}}

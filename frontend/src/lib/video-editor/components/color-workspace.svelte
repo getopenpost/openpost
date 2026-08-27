@@ -10,6 +10,8 @@
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import CircleOffIcon from '@lucide/svelte/icons/circle-off';
 	import AppSelect from '$lib/components/app-select.svelte';
+	import { Input } from '$lib/components/ui/input';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
@@ -271,15 +273,14 @@
 		{#if colorPreviewStore.comparisonMode === 'split'}
 			<label class="mb-2 grid grid-cols-[auto_1fr_auto] items-center gap-2 text-[10px]">
 				<span>{m.video_editor_color_before()}</span>
-				<input
-					type="range"
-					class="w-full accent-[oklch(0.66_0.14_45)]"
-					min="0.05"
-					max="0.95"
-					step="0.01"
+				<Slider
+					min={0.05}
+					max={0.95}
+					step={0.01}
 					value={colorPreviewStore.splitPosition}
-					aria-label={m.video_editor_color_split_position()}
-					oninput={(event) => colorPreviewStore.setSplitPosition(Number(event.currentTarget.value))}
+					ariaLabel={m.video_editor_color_split_position()}
+					onValueChange={(value) => colorPreviewStore.setSplitPosition(value)}
+					onValueCommit={(value) => colorPreviewStore.setSplitPosition(value)}
 				/>
 				<span>{m.video_editor_color_after()}</span>
 			</label>
@@ -347,9 +348,8 @@
 		</div>
 
 		<div class="grid grid-cols-[1fr_auto_auto] gap-1">
-			<input
-				type="text"
-				class="h-7 min-w-0 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.14_0.008_55)] px-2 text-xs outline-none focus-visible:border-[oklch(0.65_0.14_45)]"
+			<Input
+				class="h-7 min-w-0 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.14_0.008_55)] px-2 text-xs"
 				bind:value={presetName}
 				placeholder={m.video_editor_color_preset_name()}
 				aria-label={m.video_editor_color_preset_name()}

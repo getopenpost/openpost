@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import AppSelect from '$lib/components/app-select.svelte';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
@@ -29,6 +31,7 @@
 	let inspectorLoading = $state(false);
 	let inspectorError = $state(false);
 	let showOtherColors = $state(false);
+	let markerPick = $state('');
 	const colorGroups = $derived.by(() => {
 		const groups = new Map<
 			string,
@@ -205,30 +208,25 @@
 			{#if animations.length > 1}
 				<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
 					{m.video_editor_lottie_animation()}
-					<select
-						class="mt-0.5 h-8 w-full truncate rounded border-0 bg-[oklch(0.22_0.01_50)] px-1.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-						value={item.lottieAnimationId ?? animations[0]?.id}
-						onchange={(event) => setAnimation(event.currentTarget.value)}
-					>
-						{#each animations as animation (animation.id)}
-							<option value={animation.id}>{animation.id}</option>
-						{/each}
-					</select>
+					<AppSelect
+						class="mt-0.5 h-8 w-full text-xs"
+						value={item.lottieAnimationId ?? animations[0]?.id ?? ''}
+						options={animations.map((animation) => ({ value: animation.id, label: animation.id }))}
+						ariaLabel={m.video_editor_lottie_animation()}
+						onValueChange={(value) => setAnimation(value)}
+					/>
 				</label>
 			{/if}
 			{#if themes.length > 0}
 				<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
 					{m.video_editor_lottie_theme()}
-					<select
-						class="mt-0.5 h-8 w-full truncate rounded border-0 bg-[oklch(0.22_0.01_50)] px-1.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					<AppSelect
+						class="mt-0.5 h-8 w-full text-xs"
 						value={item.lottieThemeId ?? ''}
-						onchange={(event) => commit({ lottieThemeId: event.currentTarget.value || undefined })}
-					>
-						<option value="">{m.video_editor_lottie_theme_none()}</option>
-						{#each themes as theme (theme)}
-							<option value={theme}>{theme}</option>
-						{/each}
-					</select>
+						options={[{ value: '', label: m.video_editor_lottie_theme_none() }, ...themes.map((theme) => ({ value: theme, label: theme })) ]}
+						ariaLabel={m.video_editor_lottie_theme()}
+						onValueChange={(value) => commit({ lottieThemeId: value || undefined })}
+					/>
 				</label>
 			{/if}
 		</div>
@@ -248,32 +246,25 @@
 		</label>
 		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
 			{m.video_editor_lottie_repeat_mode()}
-			<select
-				class="mt-0.5 h-8 w-full rounded border-0 bg-[oklch(0.22_0.01_50)] px-1.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+			<AppSelect
+				class="mt-0.5 h-8 w-full text-xs"
 				value={item.lottieLoopMode ?? 'loop'}
-				onchange={(event) =>
-					commit({
-						lottieLoopMode: event.currentTarget.value as 'loop' | 'pingpong'
-					})}
-			>
-				<option value="loop">{m.video_editor_lottie_loop()}</option>
-				<option value="pingpong">{m.video_editor_lottie_ping_pong()}</option>
-			</select>
+				options={[{ value: 'loop', label: m.video_editor_lottie_loop() }, { value: 'pingpong', label: m.video_editor_lottie_ping_pong() }]}
+				ariaLabel={m.video_editor_lottie_repeat_mode()}
+				onValueChange={(value) => commit({ lottieLoopMode: value as 'loop' | 'pingpong' })}
+			/>
 		</label>
 	</div>
 	{#if item.lottieMarkers && item.lottieMarkers.length > 0}
 		<label class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
 			{m.video_editor_lottie_marker()}
-			<select
-				class="mt-0.5 h-8 w-full rounded border-0 bg-[oklch(0.22_0.01_50)] px-1.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-				aria-label={m.video_editor_lottie_marker()}
-				onchange={(event) => useMarker(event.currentTarget.value)}
-			>
-				<option value="">{m.video_editor_lottie_marker_choose()}</option>
-				{#each item.lottieMarkers as marker (marker.name)}
-					<option value={marker.name}>{marker.name}</option>
-				{/each}
-			</select>
+			<AppSelect
+				class="mt-0.5 h-8 w-full text-xs"
+				bind:value={markerPick}
+				options={[{ value: '', label: m.video_editor_lottie_marker_choose() }, ...(item.lottieMarkers ?? []).map((marker) => ({ value: marker.name, label: marker.name })) ]}
+				ariaLabel={m.video_editor_lottie_marker()}
+				onValueChange={(value) => useMarker(value)}
+			/>
 		</label>
 	{/if}
 	<div class="grid grid-cols-2 gap-1">
@@ -304,20 +295,18 @@
 	</div>
 	<div class="grid grid-cols-2 gap-1 rounded bg-[oklch(0.19_0.01_50)] p-1.5">
 		<label class="flex min-h-7 items-center gap-2 text-[10px] text-[oklch(0.72_0.01_55)]">
-			<input
-				type="checkbox"
-				class="size-3.5 accent-[oklch(0.66_0.14_45)]"
+			<Checkbox
 				checked={item.lottieLoop ?? true}
-				onchange={(event) => commit({ lottieLoop: event.currentTarget.checked })}
+				onCheckedChange={(checked) => commit({ lottieLoop: checked === true })}
+				aria-label={m.video_editor_lottie_repeat()}
 			/>
 			{m.video_editor_lottie_repeat()}
 		</label>
 		<label class="flex min-h-7 items-center gap-2 text-[10px] text-[oklch(0.72_0.01_55)]">
-			<input
-				type="checkbox"
-				class="size-3.5 accent-[oklch(0.66_0.14_45)]"
+			<Checkbox
 				checked={item.lottieReversed ?? false}
-				onchange={(event) => commit({ lottieReversed: event.currentTarget.checked })}
+				onCheckedChange={(checked) => commit({ lottieReversed: checked === true })}
+				aria-label={m.video_editor_lottie_reverse()}
 			/>
 			{m.video_editor_lottie_reverse()}
 		</label>
@@ -385,7 +374,7 @@
 					class="flex min-h-8 items-center justify-between gap-2 rounded bg-[oklch(0.2_0.01_50)] px-1.5 text-[10px] text-[oklch(0.68_0.01_55)]"
 				>
 					<span class="min-w-0 truncate">{group.label}</span>
-					<input
+					<Input
 						type="color"
 						class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
 						value={item.lottieColorOverrides?.[group.keys[0]!] ?? group.original}
@@ -409,7 +398,7 @@
 							class="flex min-h-8 items-center justify-between gap-2 rounded bg-[oklch(0.2_0.01_50)] px-1.5 text-[10px] text-[oklch(0.68_0.01_55)]"
 						>
 							<span class="min-w-0 truncate">{group.label}</span>
-							<input
+							<Input
 								type="color"
 								class="h-6 w-8 cursor-pointer rounded border-0 bg-transparent p-0"
 								value={item.lottieColorOverrides?.[group.keys[0]!] ?? group.original}

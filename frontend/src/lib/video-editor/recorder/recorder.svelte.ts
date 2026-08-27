@@ -36,8 +36,28 @@ import {
 	type ScratchSink
 } from './recorder-scratch';
 import { microphoneConstraints, startMicLevelMeter } from './mic-recorder';
+import {
+	deriveSystemAudioStatus,
+	detectRecordingCapabilities,
+	isSystemAudioActive,
+	resolveCursorConstraint,
+	type CursorMode,
+	type RecordingCapabilities,
+	type SystemAudioStatus
+} from './capture-capabilities';
 
 const logger = createLogger('ScreenCaptureRecorder');
+
+export type { CursorMode, SystemAudioStatus, RecordingCapabilities } from './capture-capabilities';
+
+export interface ScreenCaptureTruth {
+	cursorSupported: boolean;
+	cursorRequested: CursorMode;
+	cursorActual: CursorMode | 'unsupported';
+	systemAudioRequested: boolean;
+	systemAudioActive: boolean;
+	systemAudioStatus: SystemAudioStatus;
+}
 
 export type RecorderKind = 'screen' | 'camera' | 'microphone';
 
@@ -51,6 +71,7 @@ export interface RecorderStartOptions {
 	cameraDeviceId?: string | null;
 	microphoneDeviceId?: string | null;
 	includeSystemAudio?: boolean;
+	cursorMode?: CursorMode;
 	countdownSeconds?: number;
 	videoResolution?: RecorderVideoResolution;
 	videoFrameRate?: RecorderVideoFrameRate;
@@ -89,6 +110,7 @@ export interface CaptureArtifact {
 	sizeBytes: number;
 	scratchId: string;
 	recoverySessionId?: string;
+	capture?: ScreenCaptureTruth;
 }
 
 const COUNTDOWN_TICK_MS = 1000;
@@ -155,6 +177,10 @@ export function hasRecorderSupport(selection: RecorderSelection): boolean {
 	return false;
 }
 
+export function getRecordingCapabilities(): RecordingCapabilities {
+	return detectRecordingCapabilities();
+}
+
 interface InternalRecorder {
 	kind: RecorderKind;
 	stream: MediaStream;
@@ -167,7 +193,7 @@ interface InternalRecorder {
 }
 
 interface DisplayCaptureConstraints extends MediaTrackConstraints {
-	cursor: 'always';
+	cursor?: CursorMode;
 }
 
 const VIDEO_RESOLUTION_SIZE = {
@@ -241,6 +267,9 @@ export class ScreenCaptureRecorder {
 	private releaseRecoveryLock: (() => void) | null = null;
 	private stopMicMeter: (() => void) | null = null;
 	private lastMicLevelUpdate = Number.NEGATIVE_INFINITY;
+	private activeCaptureTruth: ScreenCaptureTruth | null = null;
+	capabilities = $state<RecordingCapabilities>(detectRecordingCapabilities());
+	captureTruth = $state<ScreenCaptureTruth | null>(null);
 
 	async startWithSelection(
 		selection: RecorderSelection,
@@ -285,15 +314,19 @@ export class ScreenCaptureRecorder {
 			if (this.acquiredStreams === acquiredStreams) this.acquiredStreams = [];
 		};
 
+		const capabilities = detectRecordingCapabilities();
+		const cursorRequested: CursorMode = options.cursorMode ?? 'always';
+		const cursorResolved = resolveCursorConstraint(cursorRequested, capabilities);
+		const systemAudioRequested = options.includeSystemAudio !== false;
+		let captureTruth: ScreenCaptureTruth | null = null;
 		try {
 			if (selection.screen) {
-				const video: DisplayCaptureConstraints = {
-					cursor: 'always',
-					...preferredVideoConstraints(options)
-				};
+				const baseVideo = preferredVideoConstraints(options);
+				const video: DisplayCaptureConstraints = { ...baseVideo };
+				if (cursorResolved) video.cursor = cursorResolved;
 				const constraints: DisplayMediaStreamOptions = {
 					video,
-					audio: options.includeSystemAudio !== false
+					audio: systemAudioRequested
 				};
 				screenStream = await navigator.mediaDevices.getDisplayMedia(constraints);
 				trackAcquired(screenStream);
@@ -352,6 +385,29 @@ export class ScreenCaptureRecorder {
 		if (generation !== this.generation) {
 			cleanupStartStreams();
 			throw new Error('Cancelled');
+		}
+
+		if (selection.screen) {
+			const systemAudioActive = isSystemAudioActive(screenStream);
+			const systemAudioStatus = deriveSystemAudioStatus({
+				requested: systemAudioRequested,
+				stream: screenStream,
+				capabilities
+			});
+			captureTruth = {
+				cursorSupported: capabilities.cursor.supported,
+				cursorRequested: cursorRequested,
+				cursorActual: cursorResolved ?? 'unsupported',
+				systemAudioRequested,
+				systemAudioActive,
+				systemAudioStatus
+			};
+			this.activeCaptureTruth = captureTruth;
+			this.captureTruth = captureTruth;
+			this.capabilities = capabilities;
+		} else {
+			this.activeCaptureTruth = null;
+			this.captureTruth = null;
 		}
 
 		if (micStream) {
@@ -931,6 +987,24 @@ export class ScreenCaptureRecorder {
 						? Math.max(0, Math.round(entry.startTimeMs - baseTime))
 						: 0;
 				if (sizeBytes === 0 && entry.sink.chunks === 0) continue;
+				const capture =
+					entry.kind === 'screen' ? (this.activeCaptureTruth ?? captureTruth) : undefined;
+				// Re-derive system audio truth from the recorded stream to avoid stale "requested" claims.
+				let finalCapture = capture;
+				if (capture && entry.kind === 'screen') {
+					const streamActive = isSystemAudioActive(entry.stream);
+					// Only claim active when the actual track exists; never from request alone.
+					const verifiedActive = streamActive;
+					finalCapture = {
+						...capture,
+						systemAudioActive: verifiedActive,
+						systemAudioStatus: verifiedActive
+							? 'active'
+							: capture.systemAudioRequested
+								? 'inactive'
+								: 'not-requested'
+					};
+				}
 				artifacts.push({
 					kind: entry.kind,
 					blob: file,
@@ -939,7 +1013,8 @@ export class ScreenCaptureRecorder {
 					startOffsetMs,
 					sizeBytes,
 					scratchId: entry.sink.id,
-					recoverySessionId
+					recoverySessionId,
+					capture: finalCapture ?? undefined
 				});
 			}
 
@@ -959,6 +1034,8 @@ export class ScreenCaptureRecorder {
 			this.clearPreview();
 			this.startMonotonic = null;
 			this.pendingWriteBytes = 0;
+			this.activeCaptureTruth = null;
+			this.captureTruth = null;
 			this.releaseRecoveryLock?.();
 			this.releaseRecoveryLock = null;
 			this.activeRecoverySessionId = null;
@@ -1006,6 +1083,8 @@ export class ScreenCaptureRecorder {
 		this.stopCountdownTimer();
 		if (reject) reject(new Error('Cancelled'));
 		this.countdownRemaining = null;
+		this.activeCaptureTruth = null;
+		this.captureTruth = null;
 		const toDiscard = [...this.internal];
 		this.internal = [];
 		for (const entry of toDiscard) {

@@ -20,6 +20,91 @@ export interface MediaAttribution {
 	licenseUrl?: string;
 }
 
+export type RecorderCursorMode = 'always' | 'motion' | 'never' | 'unsupported';
+
+export type RecordingSystemAudioStatus =
+	| 'not-requested'
+	| 'requested'
+	| 'active'
+	| 'inactive'
+	| 'unavailable'
+	| 'denied';
+
+export interface RecordingCaptureMetadata {
+	version: 1;
+	kind: 'screen' | 'camera' | 'microphone';
+	capturedAt: string;
+	cursor?: {
+		requested: RecorderCursorMode;
+		actual: RecorderCursorMode;
+		supported: boolean;
+	};
+	systemAudio?: {
+		requested: boolean;
+		active: boolean;
+		status: RecordingSystemAudioStatus;
+	};
+}
+
+export function normalizeRecordingCaptureMetadata(
+	value: unknown
+): RecordingCaptureMetadata | undefined {
+	if (!value || typeof value !== 'object') return undefined;
+	const candidate = value as Partial<RecordingCaptureMetadata>;
+	if (candidate.version !== 1) return undefined;
+	if (candidate.kind !== 'screen' && candidate.kind !== 'camera' && candidate.kind !== 'microphone')
+		return undefined;
+	if (typeof candidate.capturedAt !== 'string') return undefined;
+	const result: RecordingCaptureMetadata = {
+		version: 1,
+		kind: candidate.kind,
+		capturedAt: candidate.capturedAt
+	};
+	if (candidate.cursor) {
+		const cursor = candidate.cursor as Partial<RecordingCaptureMetadata['cursor']>;
+		const modes: RecorderCursorMode[] = ['always', 'motion', 'never', 'unsupported'];
+		if (
+			cursor &&
+			typeof cursor.requested === 'string' &&
+			typeof cursor.actual === 'string' &&
+			typeof cursor.supported === 'boolean' &&
+			modes.includes(cursor.requested as RecorderCursorMode) &&
+			modes.includes(cursor.actual as RecorderCursorMode)
+		) {
+			result.cursor = {
+				requested: cursor.requested as RecorderCursorMode,
+				actual: cursor.actual as RecorderCursorMode,
+				supported: cursor.supported
+			};
+		}
+	}
+	if (candidate.systemAudio) {
+		const audio = candidate.systemAudio as Partial<RecordingCaptureMetadata['systemAudio']>;
+		const statuses: RecordingSystemAudioStatus[] = [
+			'not-requested',
+			'requested',
+			'active',
+			'inactive',
+			'unavailable',
+			'denied'
+		];
+		if (
+			audio &&
+			typeof audio.requested === 'boolean' &&
+			typeof audio.active === 'boolean' &&
+			typeof audio.status === 'string' &&
+			statuses.includes(audio.status as RecordingSystemAudioStatus)
+		) {
+			result.systemAudio = {
+				requested: audio.requested,
+				active: audio.active,
+				status: audio.status as RecordingSystemAudioStatus
+			};
+		}
+	}
+	return result;
+}
+
 export interface MediaMetadata {
 	id: string;
 	storageType: MediaStorageType;
@@ -57,4 +142,5 @@ export interface MediaMetadata {
 	lottieMarkers?: Array<{ name: string; start: number; duration: number }>;
 	attribution?: MediaAttribution;
 	tags: string[];
+	capture?: RecordingCaptureMetadata;
 }

@@ -78,11 +78,13 @@ export interface GeneratedAudioImportOptions {
 	projectId: string;
 	duration: number;
 	tags?: string[];
+	capture?: import('./types').RecordingCaptureMetadata;
 }
 
 export interface GeneratedVideoImportOptions {
 	projectId: string;
 	tags?: string[];
+	capture?: import('./types').RecordingCaptureMetadata;
 }
 
 export type RecordedAudioImportOptions = GeneratedAudioImportOptions;
@@ -380,7 +382,8 @@ export async function importGeneratedVideo(
 		audioCodecSupported: probe.audioCodecSupported,
 		keyframeTimestamps: probe.keyframeTimestamps,
 		gopInterval: probe.gopInterval,
-		tags: [...new Set(['video', ...(options.tags ?? [])])]
+		tags: [...new Set(['video', ...(options.tags ?? [])])],
+		capture: options.capture
 	};
 
 	try {
@@ -428,7 +431,8 @@ async function importWorkspaceAudio(
 					: 0,
 		audioCodec: probe?.audioCodec ?? (file.type === 'audio/wav' ? 'pcm_f32le' : undefined),
 		audioCodecSupported: true,
-		tags: [...new Set(['audio', ...baseTags, ...(options.tags ?? [])])]
+		tags: [...new Set(['audio', ...baseTags, ...(options.tags ?? [])])],
+		capture: options.capture
 	};
 
 	try {

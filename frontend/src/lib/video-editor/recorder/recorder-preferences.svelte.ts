@@ -7,6 +7,8 @@ import type {
 
 export const RECORDER_PREFERENCES_STORAGE_KEY = 'openpost-video-editor-recorder-v1';
 
+export type RecorderCursorMode = 'always' | 'motion' | 'never';
+
 export interface RecorderPreferencesValue {
 	includeScreen: boolean;
 	includeCamera: boolean;
@@ -21,6 +23,7 @@ export interface RecorderPreferencesValue {
 	cameraFacingMode: RecorderCameraFacingMode;
 	noiseSuppression: boolean;
 	autoGainControl: boolean;
+	cursorMode: RecorderCursorMode;
 }
 
 export const DEFAULT_RECORDER_PREFERENCES: RecorderPreferencesValue = {
@@ -36,7 +39,8 @@ export const DEFAULT_RECORDER_PREFERENCES: RecorderPreferencesValue = {
 	videoFrameRate: 30,
 	cameraFacingMode: 'default',
 	noiseSuppression: true,
-	autoGainControl: false
+	autoGainControl: false,
+	cursorMode: 'always'
 };
 
 interface RecorderPreferencesStorage {
@@ -111,7 +115,11 @@ export function normalizeRecorderPreferences(
 			stored.noiseSuppression,
 			DEFAULT_RECORDER_PREFERENCES.noiseSuppression
 		),
-		autoGainControl: booleanOr(stored.autoGainControl, DEFAULT_RECORDER_PREFERENCES.autoGainControl)
+		autoGainControl: booleanOr(
+			stored.autoGainControl,
+			DEFAULT_RECORDER_PREFERENCES.autoGainControl
+		),
+		cursorMode: oneOf(stored.cursorMode, ['always', 'motion', 'never'] as const, 'always')
 	};
 }
 

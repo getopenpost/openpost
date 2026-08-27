@@ -117,6 +117,8 @@ describe('ScreenCaptureRecorder', () => {
 				getDisplayMedia,
 				getUserMedia,
 				enumerateDevices: vi.fn(async () => []),
+				getSupportedConstraints: () =>
+					({ cursor: true }) as unknown as MediaTrackSupportedConstraints,
 				addEventListener: vi.fn(),
 				removeEventListener: vi.fn()
 			},

@@ -8,7 +8,7 @@
  * Ported from FreeCut (MIT) — workspace-fs/media.ts.
  */
 
-import type { MediaMetadata } from '../media/types';
+import { normalizeRecordingCaptureMetadata, type MediaMetadata } from '../media/types';
 import { createLogger } from './logger';
 import { deleteHandle, getHandle, saveHandle } from './handles-db';
 import { requireWorkspaceRoot } from './root';
@@ -45,11 +45,20 @@ async function stashFileHandle(media: MediaMetadata): Promise<SerializedMedia> {
 	return rest;
 }
 
+function normalizeSerializedCapture(serialized: SerializedMedia): SerializedMedia {
+	if (!('capture' in serialized) || serialized.capture === undefined) return serialized;
+	const normalized = normalizeRecordingCaptureMetadata(serialized.capture);
+	if (normalized) return { ...serialized, capture: normalized };
+	const { capture: _dropped, ...rest } = serialized as SerializedMedia & { capture?: unknown };
+	return rest as SerializedMedia;
+}
+
 async function restoreFileHandle(serialized: SerializedMedia): Promise<MediaMetadata> {
-	const record = await getHandle('media', serialized.id);
+	const normalized = normalizeSerializedCapture(serialized);
+	const record = await getHandle('media', normalized.id);
 	if (record) {
 		return {
-			...serialized,
+			...normalized,
 			// SAFETY: media records with handles always store file handles.
 			// SAFETY: the stored value satisfies the target type here.
 			fileHandle: record.handle as FileSystemFileHandle
@@ -57,7 +66,7 @@ async function restoreFileHandle(serialized: SerializedMedia): Promise<MediaMeta
 	}
 	// SAFETY: same registry invariant — file handle stored under kind 'media'.
 	// SAFETY: the stored value satisfies MediaMetadata here.
-	return serialized as MediaMetadata;
+	return normalized as MediaMetadata;
 }
 
 /**

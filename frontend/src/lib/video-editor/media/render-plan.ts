@@ -212,7 +212,9 @@ export function planMixdown(
 				track.audioEq,
 				getAudioEqSettings(item)
 			),
-			audioEffects: normalizeAudioEffects((item as unknown as { audioEffects?: unknown }).audioEffects),
+			audioEffects: normalizeAudioEffects(
+				(item as unknown as { audioEffects?: unknown }).audioEffects
+			),
 			reversed: item.isReversed === true,
 			durationSeconds: (endFrame - startFrame) / fps,
 			gainPoints: previewGainPoints.map((point) => ({
@@ -343,7 +345,9 @@ export function planNestedMixdown(
 					getAudioEqSettings(wrapper)
 				),
 				audioEffects: (() => {
-					const outer = normalizeAudioEffects((wrapper as unknown as { audioEffects?: unknown }).audioEffects);
+					const outer = normalizeAudioEffects(
+						(wrapper as unknown as { audioEffects?: unknown }).audioEffects
+					);
 					return outer.length > 0 ? [...outer, ...entry.audioEffects] : entry.audioEffects;
 				})(),
 				durationSeconds: entry.durationSeconds / wrapperSpeed,

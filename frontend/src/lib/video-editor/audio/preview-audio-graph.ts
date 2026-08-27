@@ -606,7 +606,10 @@ export function setPreviewClipEq(
 	}
 }
 
-export function setPreviewAudioEffects(graph: PreviewClipAudioGraph, effects: AudioEffect[] | undefined): void {
+export function setPreviewAudioEffects(
+	graph: PreviewClipAudioGraph,
+	effects: AudioEffect[] | undefined
+): void {
 	const next = normalizeAudioEffects(effects);
 	const same =
 		graph.resolvedEffects.length === next.length &&

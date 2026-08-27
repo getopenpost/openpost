@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Desbloquear",
 	"video_editor_timeline_unmute": "Reativar som",
-	"video_editor_timeline_unsolo": "Remover solo"
+	"video_editor_timeline_unsolo": "Remover solo",
+	"video_editor_record_cursor_mode": "Cursor",
+	"video_editor_record_cursor_always": "Sempre visível",
+	"video_editor_record_cursor_motion": "Visível ao mover",
+	"video_editor_record_cursor_never": "Oculto",
+	"video_editor_record_cursor_unsupported_hint": "Este navegador sempre inclui o cursor.",
+	"video_editor_system_audio_active": "Áudio do sistema ativo — faixa fornecida pelo navegador.",
+	"video_editor_system_audio_inactive": "Áudio do sistema solicitado mas não fornecido — verifique a caixa de áudio do navegador.",
+	"video_editor_system_audio_not_requested": "Áudio do sistema desativado.",
+	"video_editor_system_audio_denied": "Áudio do sistema negado.",
+	"video_editor_system_audio_unavailable": "Áudio do sistema indisponível.",
+	"video_editor_record_display_unsupported": "Gravação de tela não suportada.",
+	"video_editor_system_audio_requested": "Áudio do sistema solicitado."
 }

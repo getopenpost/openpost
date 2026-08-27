@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Kilidi aç",
 	"video_editor_timeline_unmute": "Sesi aç",
-	"video_editor_timeline_unsolo": "Solo'yu kaldır"
+	"video_editor_timeline_unsolo": "Solo'yu kaldır",
+	"video_editor_record_cursor_mode": "İmleç",
+	"video_editor_record_cursor_always": "Her zaman görünür",
+	"video_editor_record_cursor_motion": "Hareket ederken görünür",
+	"video_editor_record_cursor_never": "Gizli",
+	"video_editor_record_cursor_unsupported_hint": "Bu tarayıcı imleci her zaman kaydeder.",
+	"video_editor_system_audio_active": "Sistem sesi etkin — tarayıcı ses parçası sağladı.",
+	"video_editor_system_audio_inactive": "Sistem sesi istendi ancak sağlanmadı — tarayıcının ses paylaş kutusunu kontrol edin.",
+	"video_editor_system_audio_not_requested": "Sistem sesi kapalı.",
+	"video_editor_system_audio_denied": "Sistem sesi reddedildi.",
+	"video_editor_system_audio_unavailable": "Sistem sesi kullanılamıyor.",
+	"video_editor_record_display_unsupported": "Ekran kaydı bu tarayıcıda desteklenmiyor.",
+	"video_editor_system_audio_requested": "Sistem sesi istendi."
 }

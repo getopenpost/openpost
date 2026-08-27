@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Unlock",
 	"video_editor_timeline_unmute": "Unmute",
-	"video_editor_timeline_unsolo": "Unsolo"
+	"video_editor_timeline_unsolo": "Unsolo",
+	"video_editor_record_cursor_mode": "Cursor",
+	"video_editor_record_cursor_always": "Always visible",
+	"video_editor_record_cursor_motion": "Visible when moving",
+	"video_editor_record_cursor_never": "Hidden",
+	"video_editor_record_cursor_unsupported_hint": "This browser always includes the cursor. No cursor setting needed.",
+	"video_editor_system_audio_active": "System audio active — audio track was provided by the browser.",
+	"video_editor_system_audio_inactive": "System audio requested but not provided — check the browser’s “Share audio” checkbox and OS settings.",
+	"video_editor_system_audio_not_requested": "System audio off — not requested.",
+	"video_editor_system_audio_denied": "System audio denied — permission was refused.",
+	"video_editor_system_audio_unavailable": "System audio unavailable — browser or selection cannot provide it.",
+	"video_editor_record_display_unsupported": "Screen recording is not supported in this browser.",
+	"video_editor_system_audio_requested": "System audio requested — waiting for browser."
 }

@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Entsperren",
 	"video_editor_timeline_unmute": "Ton an",
-	"video_editor_timeline_unsolo": "Solo aufheben"
+	"video_editor_timeline_unsolo": "Solo aufheben",
+	"video_editor_record_cursor_mode": "Cursor",
+	"video_editor_record_cursor_always": "Immer sichtbar",
+	"video_editor_record_cursor_motion": "Beim Bewegen sichtbar",
+	"video_editor_record_cursor_never": "Ausgeblendet",
+	"video_editor_record_cursor_unsupported_hint": "Dieser Browser nimmt den Cursor immer auf.",
+	"video_editor_system_audio_active": "Systemaudio aktiv — Audiospur vom Browser bereitgestellt.",
+	"video_editor_system_audio_inactive": "Systemaudio angefordert, aber nicht bereitgestellt — Browser-Audio-Checkbox prüfen.",
+	"video_editor_system_audio_not_requested": "Systemaudio aus.",
+	"video_editor_system_audio_denied": "Systemaudio verweigert.",
+	"video_editor_system_audio_unavailable": "Systemaudio nicht verfügbar.",
+	"video_editor_record_display_unsupported": "Bildschirmaufnahme wird nicht unterstützt.",
+	"video_editor_system_audio_requested": "Systemaudio angefordert."
 }

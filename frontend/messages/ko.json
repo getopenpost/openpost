@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "솔로",
 	"video_editor_timeline_unlock": "잠금 해제",
 	"video_editor_timeline_unmute": "음소거 해제",
-	"video_editor_timeline_unsolo": "솔로 해제"
+	"video_editor_timeline_unsolo": "솔로 해제",
+	"video_editor_record_cursor_mode": "커서",
+	"video_editor_record_cursor_always": "항상 표시",
+	"video_editor_record_cursor_motion": "움직일 때 표시",
+	"video_editor_record_cursor_never": "숨김",
+	"video_editor_record_cursor_unsupported_hint": "이 브라우저에서는 커서가 항상 포함됩니다.",
+	"video_editor_system_audio_active": "시스템 오디오 활성 — 브라우저가 오디오 트랙을 제공했습니다.",
+	"video_editor_system_audio_inactive": "시스템 오디오가 요청됐지만 제공되지 않았습니다 — 브라우저의 오디오 공유를 확인하세요.",
+	"video_editor_system_audio_not_requested": "시스템 오디오 꺼짐.",
+	"video_editor_system_audio_denied": "시스템 오디오가 거부되었습니다.",
+	"video_editor_system_audio_unavailable": "시스템 오디오를 사용할 수 없습니다.",
+	"video_editor_record_display_unsupported": "이 브라우저에서는 화면 녹화를 지원하지 않습니다.",
+	"video_editor_system_audio_requested": "시스템 오디오 요청됨."
 }

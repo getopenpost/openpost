@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "ソロ",
 	"video_editor_timeline_unlock": "ロック解除",
 	"video_editor_timeline_unmute": "ミュート解除",
-	"video_editor_timeline_unsolo": "ソロ解除"
+	"video_editor_timeline_unsolo": "ソロ解除",
+	"video_editor_record_cursor_mode": "カーソル",
+	"video_editor_record_cursor_always": "常に表示",
+	"video_editor_record_cursor_motion": "移動時に表示",
+	"video_editor_record_cursor_never": "非表示",
+	"video_editor_record_cursor_unsupported_hint": "このブラウザではカーソルは常に含まれます。",
+	"video_editor_system_audio_active": "システム音声あり — ブラウザが音声トラックを提供しました。",
+	"video_editor_system_audio_inactive": "システム音声は要求されましたが提供されませんでした — ブラウザの音声共有にチェックを入れてください。",
+	"video_editor_system_audio_not_requested": "システム音声オフ。",
+	"video_editor_system_audio_denied": "システム音声が拒否されました。",
+	"video_editor_system_audio_unavailable": "システム音声は利用できません。",
+	"video_editor_record_display_unsupported": "このブラウザでは画面収録に対応していません。",
+	"video_editor_system_audio_requested": "システム音声を要求中。"
 }

@@ -16,7 +16,11 @@
 		type RenderExportProgress,
 		type RenderExportResult
 	} from '$lib/video-editor/media/render-export';
-	import { renderAudioExport, renderVideoExport, renderImageSequenceExport } from '$lib/video-editor/media/render-execution';
+	import {
+		renderAudioExport,
+		renderVideoExport,
+		renderImageSequenceExport
+	} from '$lib/video-editor/media/render-execution';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -42,7 +46,11 @@
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import ListPlusIcon from '@lucide/svelte/icons/list-plus';
 	import RenderProgress from './render-progress.svelte';
-	import { sanitizeSequenceBaseName, getDirectoryPickerAvailable, canEncodeWebP } from '$lib/video-editor/media/image-sequence-export';
+	import {
+		sanitizeSequenceBaseName,
+		getDirectoryPickerAvailable,
+		canEncodeWebP
+	} from '$lib/video-editor/media/image-sequence-export';
 
 	let {
 		project,
@@ -66,23 +74,39 @@
 
 	let open = $state(false);
 	let rendering = $state(false);
-	let format = $state<NonNullable<RenderExportOptions['format']> | 'mp3' | 'aac' | 'wav' | 'png-sequence' | 'jpeg-sequence' | 'webp-sequence'>('webm');
+	let format = $state<
+		| NonNullable<RenderExportOptions['format']>
+		| 'mp3'
+		| 'aac'
+		| 'wav'
+		| 'png-sequence'
+		| 'jpeg-sequence'
+		| 'webp-sequence'
+	>('webm');
 	let quality = $state<NonNullable<RenderExportOptions['quality']>>('standard');
 	let codec = $state<VideoCodec>('vp9');
 	let codecSupport = $state<Partial<Record<VideoCodec, boolean>>>({});
 	let resolution = $state('source');
 	let useRange = $state(false);
 	let subtitleMode = $state<NonNullable<RenderExportOptions['subtitleMode']>>('burn');
-	let sequenceDestination = $state<'directory' | 'zip'>(getDirectoryPickerAvailable() ? 'directory' : 'zip');
+	let sequenceDestination = $state<'directory' | 'zip'>(
+		getDirectoryPickerAvailable() ? 'directory' : 'zip'
+	);
 	let progress = $state<RenderExportProgress | null>(null);
 	let startedAt = $state<number | undefined>();
 	let controller: AbortController | null = null;
 	let codecProbeVersion = 0;
 	let destroyed = false;
 	const isAudioFormat = $derived(format === 'mp3' || format === 'aac' || format === 'wav');
-	const isSequenceFormat = $derived(format === 'png-sequence' || format === 'jpeg-sequence' || format === 'webp-sequence');
+	const isSequenceFormat = $derived(
+		format === 'png-sequence' || format === 'jpeg-sequence' || format === 'webp-sequence'
+	);
 	let webpSupported = $state<boolean | undefined>(undefined);
-	const videoFormat = $derived(!isAudioFormat && !isSequenceFormat ? (format as NonNullable<RenderExportOptions['format']>) : null);
+	const videoFormat = $derived(
+		!isAudioFormat && !isSequenceFormat
+			? (format as NonNullable<RenderExportOptions['format']>)
+			: null
+	);
 	const codecs = $derived(videoFormat ? supportedExportVideoCodecs(videoFormat) : []);
 	const formatOptions = $derived([
 		{ value: 'mp4', label: 'MP4' },
@@ -127,9 +151,12 @@
 	]);
 	function jpegQualityFor(quality: string): number {
 		switch (quality) {
-			case 'draft': return 0.7;
-			case 'high': return 0.98;
-			default: return 0.92;
+			case 'draft':
+				return 0.7;
+			case 'high':
+				return 0.98;
+			default:
+				return 0.92;
 		}
 	}
 	const outputDimensions = $derived.by(() => {
@@ -151,7 +178,17 @@
 	const preflight = $derived.by(() =>
 		assessExportPreflight({
 			settings: {
-				format: format as 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav' | 'png-sequence' | 'jpeg-sequence' | 'webp-sequence',
+				format: format as
+					| 'webm'
+					| 'mp4'
+					| 'mov'
+					| 'mkv'
+					| 'mp3'
+					| 'aac'
+					| 'wav'
+					| 'png-sequence'
+					| 'jpeg-sequence'
+					| 'webp-sequence',
 				codec: videoFormat ? codec : undefined,
 				quality,
 				width: outputDimensions.width,
@@ -433,12 +470,17 @@
 				endFrame: preflight.range.endFrame
 			};
 			if (isSequenceFormat) {
-				const seqFormat = format === 'png-sequence' ? 'png' : format === 'webp-sequence' ? 'webp' : 'jpeg';
+				const seqFormat =
+					format === 'png-sequence' ? 'png' : format === 'webp-sequence' ? 'webp' : 'jpeg';
 				let destination: 'zip' | FileSystemDirectoryHandle | undefined;
 				if (sequenceDestination === 'directory') {
 					if (getDirectoryPickerAvailable()) {
 						try {
-							const handle = await (window as unknown as { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker();
+							const handle = await (
+								window as unknown as {
+									showDirectoryPicker: () => Promise<FileSystemDirectoryHandle>;
+								}
+							).showDirectoryPicker();
 							destination = handle;
 						} catch (error) {
 							if (error instanceof DOMException && error.name === 'AbortError') {
@@ -456,15 +498,19 @@
 				} else {
 					destination = 'zip';
 				}
-				const { result } = await renderSequence(
-					{
-						project: renderProject,
-						options: { format: seqFormat, width, height, range, jpegQuality: jpegQualityFor(quality) },
-						destination,
-						signal: abortController.signal,
-						onProgress: (value) => (progress = value)
-					}
-				);
+				const { result } = await renderSequence({
+					project: renderProject,
+					options: {
+						format: seqFormat,
+						width,
+						height,
+						range,
+						jpegQuality: jpegQualityFor(quality)
+					},
+					destination,
+					signal: abortController.signal,
+					onProgress: (value) => (progress = value)
+				});
 				let relPath = '';
 				let blob: Blob | undefined;
 				let fileName = '';
@@ -485,25 +531,24 @@
 				open = false;
 				return;
 			}
-			const result =
-				isAudioFormat
-					? await renderAudio(renderProject, {
-							format: format as 'mp3' | 'aac' | 'wav',
-							range,
-							signal: abortController.signal,
-							onProgress: (value) => (progress = value)
-						})
-					: await renderVideo(renderProject, {
-							format: format as 'webm' | 'mp4' | 'mov' | 'mkv',
-							codec,
-							quality,
-							width,
-							height,
-							subtitleMode,
-							range,
-							signal: abortController.signal,
-							onProgress: (value) => (progress = value)
-						});
+			const result = isAudioFormat
+				? await renderAudio(renderProject, {
+						format: format as 'mp3' | 'aac' | 'wav',
+						range,
+						signal: abortController.signal,
+						onProgress: (value) => (progress = value)
+					})
+				: await renderVideo(renderProject, {
+						format: format as 'webm' | 'mp4' | 'mov' | 'mkv',
+						codec,
+						quality,
+						width,
+						height,
+						subtitleMode,
+						range,
+						signal: abortController.signal,
+						onProgress: (value) => (progress = value)
+					});
 			ondone(result);
 			open = false;
 		} catch (cause) {
@@ -620,7 +665,9 @@
 						value={sequenceDestination}
 						options={sequenceDestinationOptions}
 						disabled={rendering}
-						onValueChange={(v) => { if (v === 'directory' || v === 'zip') sequenceDestination = v; }}
+						onValueChange={(v) => {
+							if (v === 'directory' || v === 'zip') sequenceDestination = v;
+						}}
 					/>
 				</label>
 			{/if}
@@ -633,12 +680,18 @@
 				{m.video_editor_export_sequence_file_pattern({ pattern: sequenceFilePattern })}
 			</p>
 			{#if sequenceDestination === 'directory' && !getDirectoryPickerAvailable()}
-				<p class="mt-1 text-[11px] text-amber-200">{m.video_editor_export_sequence_directory_unavailable()}</p>
+				<p class="mt-1 text-[11px] text-amber-200">
+					{m.video_editor_export_sequence_directory_unavailable()}
+				</p>
 			{/if}
 			{#if sequenceDestination === 'zip'}
-				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">{m.video_editor_export_sequence_zip_hint()}</p>
+				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
+					{m.video_editor_export_sequence_zip_hint()}
+				</p>
 			{:else}
-				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">{m.video_editor_export_sequence_directory_hint()}</p>
+				<p class="mt-1 text-[11px] text-[var(--video-editor-muted)]">
+					{m.video_editor_export_sequence_directory_hint()}
+				</p>
 			{/if}
 		{/if}
 		<label class="mt-3 flex min-h-11 items-center gap-2 text-sm">

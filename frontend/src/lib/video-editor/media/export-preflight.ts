@@ -38,7 +38,17 @@ export interface ExportPreflightCheck {
 }
 
 export interface ExportPreflightSettings {
-	format: 'webm' | 'mp4' | 'mov' | 'mkv' | 'mp3' | 'aac' | 'wav' | 'png-sequence' | 'jpeg-sequence' | 'webp-sequence';
+	format:
+		| 'webm'
+		| 'mp4'
+		| 'mov'
+		| 'mkv'
+		| 'mp3'
+		| 'aac'
+		| 'wav'
+		| 'png-sequence'
+		| 'jpeg-sequence'
+		| 'webp-sequence';
 	codec?: VideoCodec;
 	quality: 'draft' | 'standard' | 'high';
 	width: number;

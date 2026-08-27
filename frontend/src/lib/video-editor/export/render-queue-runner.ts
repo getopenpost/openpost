@@ -60,21 +60,23 @@ async function executeRenderJob(
 		job.settings.format === 'webp-sequence'
 	) {
 		const format =
-			job.settings.format === 'png-sequence' ? 'png' : job.settings.format === 'webp-sequence' ? 'webp' : 'jpeg';
-		const { result } = await renderImageSequenceExport(
-			{
-				project,
-				options: {
-					format,
-					width: job.settings.width,
-					height: job.settings.height,
-					range,
-					jpegQuality: job.settings.jpegQuality
-				},
-				signal: options.signal,
-				onProgress: options.onProgress
-			}
-		);
+			job.settings.format === 'png-sequence'
+				? 'png'
+				: job.settings.format === 'webp-sequence'
+					? 'webp'
+					: 'jpeg';
+		const { result } = await renderImageSequenceExport({
+			project,
+			options: {
+				format,
+				width: job.settings.width,
+				height: job.settings.height,
+				range,
+				jpegQuality: job.settings.jpegQuality
+			},
+			signal: options.signal,
+			onProgress: options.onProgress
+		});
 		if (result.kind === 'workspace-directory') {
 			return {
 				relPath: result.relPath,

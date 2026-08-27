@@ -78,7 +78,10 @@ async function createInMemoryRoot(): Promise<FileSystemDirectoryHandle> {
 	// Minimal in-memory FileSystemDirectoryHandle for workspace tests
 	const files = new Map<string, Blob>();
 	const dirs = new Map<string, FileSystemDirectoryHandle>();
-	async function getDirectoryHandle(name: string, opts?: { create?: boolean }): Promise<FileSystemDirectoryHandle> {
+	async function getDirectoryHandle(
+		name: string,
+		opts?: { create?: boolean }
+	): Promise<FileSystemDirectoryHandle> {
 		if (!dirs.has(name)) {
 			if (!opts?.create) throw new DOMException('Not found', 'NotFoundError');
 			const sub = await createInMemoryRoot();
@@ -88,7 +91,10 @@ async function createInMemoryRoot(): Promise<FileSystemDirectoryHandle> {
 		}
 		return dirs.get(name)!;
 	}
-	async function getFileHandle(name: string, opts?: { create?: boolean }): Promise<FileSystemFileHandle> {
+	async function getFileHandle(
+		name: string,
+		opts?: { create?: boolean }
+	): Promise<FileSystemFileHandle> {
 		const key = name;
 		if (!files.has(key) && !opts?.create) throw new DOMException('Not found', 'NotFoundError');
 		if (!files.has(key) && opts?.create) files.set(key, new Blob([]));
@@ -115,7 +121,8 @@ async function createInMemoryRoot(): Promise<FileSystemDirectoryHandle> {
 		} as unknown as FileSystemFileHandle;
 	}
 	async function* entries(): AsyncIterableIterator<[string, FileSystemHandle]> {
-		for (const [name, handle] of dirs.entries()) yield [name, handle as unknown as FileSystemHandle];
+		for (const [name, handle] of dirs.entries())
+			yield [name, handle as unknown as FileSystemHandle];
 		for (const [name, blob] of files.entries()) {
 			yield [
 				name,
@@ -153,10 +160,16 @@ describe('image sequence exact frames and Chromium pixels', () => {
 	it('emits exact frame count and names with correct FPS/dimensions', async () => {
 		const project = projectForSequence({ frames: 3, width: 32, height: 24, fps: 30 });
 		const frames = [];
-		for await (const frame of renderImageSequenceFrames(project, { format: 'png', width: 32, height: 24 })) {
+		for await (const frame of renderImageSequenceFrames(project, {
+			format: 'png',
+			width: 32,
+			height: 24
+		})) {
 			frames.push(frame);
 			expect(frame.blob.type).toBe('image/png');
-			expect(frame.fileName).toBe(formatSequenceFileName(sanitizeSequenceBaseName(project.name), frame.index, 3, 'png'));
+			expect(frame.fileName).toBe(
+				formatSequenceFileName(sanitizeSequenceBaseName(project.name), frame.index, 3, 'png')
+			);
 		}
 		expect(frames).toHaveLength(3);
 		expect(frames[0]!.frameNumber).toBe(0);
@@ -179,7 +192,10 @@ describe('image sequence exact frames and Chromium pixels', () => {
 	it('respects range boundaries and marker-like slicing', async () => {
 		const project = projectForSequence({ frames: 10 });
 		const frames = [];
-		for await (const frame of renderImageSequenceFrames(project, { format: 'png', range: { startFrame: 2, endFrame: 5 } })) {
+		for await (const frame of renderImageSequenceFrames(project, {
+			format: 'png',
+			range: { startFrame: 2, endFrame: 5 }
+		})) {
 			frames.push(frame);
 		}
 		expect(frames).toHaveLength(3);
@@ -196,7 +212,11 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		const pngProject = projectForSequence({ frames: 1, width: 8, height: 8, withAlphaShape: true });
 		// Force transparent background by not setting backgroundColor? Our renderer for png uses transparent when format png (preserves alpha). Check pixel alpha.
 		let pngFrame: Blob | null = null;
-		for await (const frame of renderImageSequenceFrames(pngProject, { format: 'png', width: 8, height: 8 })) {
+		for await (const frame of renderImageSequenceFrames(pngProject, {
+			format: 'png',
+			width: 8,
+			height: 8
+		})) {
 			pngFrame = frame.blob;
 		}
 		expect(pngFrame).not.toBeNull();
@@ -211,9 +231,20 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		expect(pngData[3]).toBeGreaterThan(50);
 		pngBmp.close();
 
-		const jpegProject = projectForSequence({ frames: 1, width: 8, height: 8, backgroundColor: '#000000', withAlphaShape: true });
+		const jpegProject = projectForSequence({
+			frames: 1,
+			width: 8,
+			height: 8,
+			backgroundColor: '#000000',
+			withAlphaShape: true
+		});
 		let jpegFrame: Blob | null = null;
-		for await (const frame of renderImageSequenceFrames(jpegProject, { format: 'jpeg', width: 8, height: 8, jpegQuality: 0.92 })) {
+		for await (const frame of renderImageSequenceFrames(jpegProject, {
+			format: 'jpeg',
+			width: 8,
+			height: 8,
+			jpegQuality: 0.92
+		})) {
 			jpegFrame = frame.blob;
 		}
 		expect(jpegFrame).not.toBeNull();
@@ -237,7 +268,11 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		const root = await createInMemoryRoot();
 		setWorkspaceRoot(root as unknown as FileSystemDirectoryHandle);
 		const project = projectForSequence({ frames: 10, width: 16, height: 16 });
-		const result = await renderImageSequenceToWorkspace(project, { format: 'png', width: 16, height: 16 });
+		const result = await renderImageSequenceToWorkspace(project, {
+			format: 'png',
+			width: 16,
+			height: 16
+		});
 		expect(result.frameCount).toBe(10);
 		expect(result.kind).toBe('workspace-directory');
 		// Verify files were written via main-thread writeBlob path
@@ -247,7 +282,9 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		const base = sanitizeSequenceBaseName(project.name);
 		const seq = await seqDir.getDirectoryHandle(base, { create: false });
 		let count = 0;
-		for await (const entry of (seq as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+		for await (const entry of (
+			seq as unknown as { values: () => AsyncIterable<FileSystemHandle> }
+		).values()) {
 			if (entry.kind === 'file') count++;
 		}
 		expect(count).toBe(10);
@@ -277,7 +314,9 @@ describe('image sequence exact frames and Chromium pixels', () => {
 			const base = sanitizeSequenceBaseName(project.name);
 			const seq = await ex.getDirectoryHandle(base, { create: false });
 			let remaining = 0;
-			for await (const h of (seq as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+			for await (const h of (
+				seq as unknown as { values: () => AsyncIterable<FileSystemHandle> }
+			).values()) {
 				if (h.kind === 'file') remaining++;
 			}
 			// Cleanup best-effort: either 0 or less than total; ensure not leaking full set
@@ -303,7 +342,9 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		expect(result.frameCount).toBe(5);
 		expect(progresses[progresses.length - 1]).toBe(5);
 		let files = 0;
-		for await (const h of (dir as unknown as { values: () => AsyncIterable<FileSystemHandle> }).values()) {
+		for await (const h of (
+			dir as unknown as { values: () => AsyncIterable<FileSystemHandle> }
+		).values()) {
 			if (h.kind === 'file') {
 				files++;
 				expect((h as unknown as { name: string }).name.endsWith('.jpg')).toBe(true);
@@ -314,7 +355,9 @@ describe('image sequence exact frames and Chromium pixels', () => {
 
 	it('ZIP fallback is bounded and rejects oversized sequences', async () => {
 		const project = projectForSequence({ frames: 3000, width: 1920, height: 1080 });
-		await expect(renderImageSequenceZip(project, { format: 'png', width: 1920, height: 1080 })).rejects.toThrow(/bounds/i);
+		await expect(
+			renderImageSequenceZip(project, { format: 'png', width: 1920, height: 1080 })
+		).rejects.toThrow(/bounds/i);
 		// Small ZIP succeeds
 		const small = projectForSequence({ frames: 2, width: 16, height: 16 });
 		const zip = await renderImageSequenceZip(small, { format: 'png', width: 16, height: 16 });
@@ -330,7 +373,10 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		if (!supported) {
 			await expect(
 				(async () => {
-					for await (const _ of renderImageSequenceFrames(projectForSequence({ frames: 1 }), { format: 'webp' })) {}
+					for await (const _ of renderImageSequenceFrames(projectForSequence({ frames: 1 }), {
+						format: 'webp'
+					})) {
+					}
 				})()
 			).rejects.toThrow(/WebP encoding is not supported/);
 			return;
@@ -338,7 +384,12 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		const project = projectForSequence({ frames: 3, width: 16, height: 16, withAlphaShape: true });
 		const frames: string[] = [];
 		let alphaPreserved = false;
-		for await (const frame of renderImageSequenceFrames(project, { format: 'webp', width: 16, height: 16, jpegQuality: 0.92 })) {
+		for await (const frame of renderImageSequenceFrames(project, {
+			format: 'webp',
+			width: 16,
+			height: 16,
+			jpegQuality: 0.92
+		})) {
 			frames.push(frame.fileName);
 			expect(frame.blob.type).toBe('image/webp');
 			expect(frame.fileName.endsWith('.webp')).toBe(true);
@@ -362,21 +413,25 @@ describe('image sequence exact frames and Chromium pixels', () => {
 		// Force unsupported by mocking OffscreenCanvas
 		const origOffscreen = globalThis.OffscreenCanvas;
 		// Simulate unsupported: make convertToBlob return png
-		globalThis.OffscreenCanvas = class extends (origOffscreen as unknown as typeof OffscreenCanvas) {
-			async convertToBlob(opts?: ImageEncodeOptions): Promise<Blob> {
-				if (opts?.type === 'image/webp') return new Blob(['x'], { type: 'image/png' });
-				return super.convertToBlob(opts);
-			}
-		} as unknown as typeof OffscreenCanvas;
+		globalThis.OffscreenCanvas =
+			class extends (origOffscreen as unknown as typeof OffscreenCanvas) {
+				async convertToBlob(opts?: ImageEncodeOptions): Promise<Blob> {
+					if (opts?.type === 'image/webp') return new Blob(['x'], { type: 'image/png' });
+					return super.convertToBlob(opts);
+				}
+			} as unknown as typeof OffscreenCanvas;
 		try {
-				await expect(
-					(async () => {
-						for await (const _ of renderImageSequenceFrames(projectForSequence({ frames: 1 }), { format: 'webp' })) {}
-					})()
+			await expect(
+				(async () => {
+					for await (const _ of renderImageSequenceFrames(projectForSequence({ frames: 1 }), {
+						format: 'webp'
+					})) {
+					}
+				})()
 			).rejects.toThrow(/unexpected type|WebP encoding is not supported/);
-			} finally {
-				globalThis.OffscreenCanvas = origOffscreen;
-			}
-			expect(original).toBeDefined();
+		} finally {
+			globalThis.OffscreenCanvas = origOffscreen;
+		}
+		expect(original).toBeDefined();
 	});
 });

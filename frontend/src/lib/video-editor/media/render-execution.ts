@@ -335,7 +335,9 @@ async function renderImageSequenceInWorker(
 				finish(() => reject(abortError()));
 			}
 		};
-		const handleBatch = async (frames: import('./render-export-worker.types').WorkerSequenceBatchFrame[]): Promise<void> => {
+		const handleBatch = async (
+			frames: import('./render-export-worker.types').WorkerSequenceBatchFrame[]
+		): Promise<void> => {
 			if (writeError) return;
 			try {
 				if (isDirectoryHandle) {
@@ -349,7 +351,11 @@ async function renderImageSequenceInWorker(
 							await writable.write(frame.blob);
 							await writable.close();
 						} catch (error) {
-							try { await writable.abort(); } catch { /* ignore */ }
+							try {
+								await writable.abort();
+							} catch {
+								/* ignore */
+							}
 							throw error;
 						}
 						totalBytes += frame.blob.size;
@@ -365,7 +371,11 @@ async function renderImageSequenceInWorker(
 					if (!root) throw new Error('Workspace root lost during sequence write.');
 					for (const frame of frames) {
 						throwIfAborted(job.signal);
-						await writeBlob(root, [...projectExportsDir(job.project.id), baseName, frame.fileName], frame.blob);
+						await writeBlob(
+							root,
+							[...projectExportsDir(job.project.id), baseName, frame.fileName],
+							frame.blob
+						);
 						totalBytes += frame.blob.size;
 						frameCount += 1;
 					}
@@ -395,7 +405,9 @@ async function renderImageSequenceInWorker(
 						writeError = error instanceof Error ? error : new Error(String(error));
 						try {
 							worker.postMessage({ type: 'cancel', requestId } satisfies RenderExportWorkerRequest);
-						} catch { /* ignore */ }
+						} catch {
+							/* ignore */
+						}
 						finish(() => reject(writeError!));
 					});
 					break;
@@ -509,10 +521,11 @@ export async function renderImageSequenceExport(
 				job.destination as unknown as FileSystemDirectoryHandle,
 				job.project,
 				{
-				...job.options,
-				signal: job.signal,
-				onProgress: job.onProgress
-			});
+					...job.options,
+					signal: job.signal,
+					onProgress: job.onProgress
+				}
+			);
 			return { result: dirResult, renderPath: 'main-thread', fallbackReason: reason };
 		}
 		const result = await dependencies.renderImageSequenceMain(job.project, {

@@ -293,9 +293,9 @@ export class TimelineFrameRenderer {
 		this.canvas = new OffscreenCanvas(this.width, this.height);
 		this.stackCompositor = new CanvasStackCompositor(this.canvas);
 		this.backgroundColor =
-				options.backgroundColor !== undefined
-					? options.backgroundColor
-					: (project.metadata.backgroundColor ?? '#000000');
+			options.backgroundColor !== undefined
+				? options.backgroundColor
+				: (project.metadata.backgroundColor ?? '#000000');
 		this.fps = project.metadata.fps;
 		const items = project.timeline?.items ?? [];
 		const tracks = project.timeline?.tracks ?? [];

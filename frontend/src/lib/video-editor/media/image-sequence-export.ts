@@ -182,7 +182,8 @@ export async function* renderImageSequenceFrames(
 	const height = options.height ?? project.metadata.height;
 	const { startFrame, endFrame, totalFrames } = resolveSequenceRange(project, options.range);
 	if (totalFrames === 0) throw new Error('The selected export range is empty.');
-	if ((project.timeline?.items ?? []).length === 0) throw new Error('This timeline has nothing to render.');
+	if ((project.timeline?.items ?? []).length === 0)
+		throw new Error('This timeline has nothing to render.');
 	const baseName = sanitizeSequenceBaseName(project.name);
 
 	report(options, 'preparing', 0, totalFrames);
@@ -209,9 +210,15 @@ export async function* renderImageSequenceFrames(
 			const fileName = formatSequenceFileName(baseName, offset, totalFrames, options.format);
 			const canvas = await renderer.render(frameNumber);
 			const type =
-				options.format === 'png' ? 'image/png' : options.format === 'webp' ? 'image/webp' : 'image/jpeg';
+				options.format === 'png'
+					? 'image/png'
+					: options.format === 'webp'
+						? 'image/webp'
+						: 'image/jpeg';
 			const quality =
-				options.format === 'jpeg' || options.format === 'webp' ? (options.jpegQuality ?? 0.92) : undefined;
+				options.format === 'jpeg' || options.format === 'webp'
+					? (options.jpegQuality ?? 0.92)
+					: undefined;
 			const blob = await canvas.convertToBlob(quality !== undefined ? { type, quality } : { type });
 			if (!blob || blob.size === 0) throw new Error(`Frame ${frameNumber} produced no data.`);
 			const expectedType = type;
@@ -254,7 +261,13 @@ export async function renderImageSequenceToWorkspace(
 			totalBytes += frame.blob.size;
 		}
 		const relPath = `projects/${project.id}/exports/${baseName}`;
-		return { kind: 'workspace-directory', directoryName: baseName, relPath, frameCount: written, totalBytes };
+		return {
+			kind: 'workspace-directory',
+			directoryName: baseName,
+			relPath,
+			frameCount: written,
+			totalBytes
+		};
 	} catch (error) {
 		if (error instanceof DOMException && error.name === 'AbortError') {
 			for (const fileName of writtenFiles) {
@@ -387,7 +400,9 @@ export async function pickSequenceDirectory(): Promise<FileSystemDirectoryHandle
 	if (!getDirectoryPickerAvailable()) return null;
 	try {
 		// SAFETY: showDirectoryPicker is feature-detected above.
-		const handle = await (window as unknown as { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }).showDirectoryPicker();
+		const handle = await (
+			window as unknown as { showDirectoryPicker: () => Promise<FileSystemDirectoryHandle> }
+		).showDirectoryPicker();
 		return handle;
 	} catch (error) {
 		if (error instanceof DOMException && error.name === 'AbortError') throw error;

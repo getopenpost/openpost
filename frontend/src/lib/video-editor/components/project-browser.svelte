@@ -107,8 +107,8 @@
 	let trashOpen = $state(false);
 	let pendingPurge = $state<TrashedProjectEntry | 'all' | null>(null);
 	let purgeDialogOpen = $state(false);
-	let jsonImportInput = $state<HTMLInputElement>();
-	let bundleImportInput = $state<HTMLInputElement>();
+	let jsonImportInput = $state<HTMLInputElement | null>(null);
+	let bundleImportInput = $state<HTMLInputElement | null>(null);
 
 	const resolutions = $derived(
 		[...new Set(projects.map(projectResolution))].sort((a, b) => a.localeCompare(b))
@@ -273,16 +273,16 @@
 	<div class="flex items-center justify-between gap-3">
 		<h1 class="text-base font-semibold">{m.video_editor_projects_title()}</h1>
 		<div class="flex items-center gap-2">
-			<input
-				bind:this={jsonImportInput}
+			<Input
+				bind:ref={jsonImportInput}
 				type="file"
 				accept="application/json,.json,.openpost.json"
 				class="sr-only"
 				aria-label={m.video_editor_project_import_json_label()}
 				onchange={(event) => void importFile(event, 'json')}
 			/>
-			<input
-				bind:this={bundleImportInput}
+			<Input
+				bind:ref={bundleImportInput}
 				type="file"
 				accept="application/zip,.zip,.openpost.zip"
 				class="sr-only"

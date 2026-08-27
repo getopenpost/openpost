@@ -3,6 +3,7 @@
 	import { Portal } from 'bits-ui';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import type { TimelineTrack } from '$lib/video-editor/project/types';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
@@ -180,10 +181,10 @@
 			<FolderIcon class="size-3.5 shrink-0 text-[oklch(0.76_0.14_45)]" />
 		{/if}
 		{#if editingName}
-			<input
-				bind:this={nameInput}
+			<Input
+				bind:ref={nameInput}
 				bind:value={nameDraft}
-				class="h-5 min-w-0 flex-1 rounded border border-[oklch(0.66_0.14_45)] bg-[oklch(0.12_0.008_55)] px-1 text-[11px] text-white outline-none"
+				class="h-5 min-w-0 flex-1 rounded border border-[oklch(0.66_0.14_45)] bg-[oklch(0.12_0.008_55)] px-1 text-[11px] text-white shadow-none focus-visible:ring-0"
 				aria-label={m.video_editor_track_rename()}
 				onblur={() => finishRename(true)}
 				onkeydown={(event) => {

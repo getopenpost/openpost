@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
 	import type { AnimationPreset } from '$lib/video-editor/project/types';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
@@ -79,12 +80,10 @@
 		onedit();
 	}
 
-	function changeParent(event: Event): void {
+	function changeParent(value: string): void {
 		if (!itemId) return;
 		parentError = '';
-		const select = event.currentTarget;
-		if (!(select instanceof HTMLSelectElement)) return;
-		const parentItemId = select.value;
+		const parentItemId = value;
 		if (!parentItemId) {
 			if (detachTransformParent(itemId)) onedit();
 			return;
@@ -155,17 +154,28 @@
 			<label class="mt-3 block text-xs font-medium" for="motion-parent-select">
 				{m.video_editor_motion_parent_label()}
 			</label>
-			<select
-				id="motion-parent-select"
-				class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.12_0.008_55)] px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-orange-400"
+			<Select.Root
+				type="single"
 				value={item?.transformParent?.parentItemId ?? ''}
-				onchange={changeParent}
+				onValueChange={changeParent}
 			>
-				<option value="">{m.video_editor_motion_parent_none()}</option>
-				{#each parentCandidates as candidate (candidate.id)}
-					<option value={candidate.id}>{candidate.label}</option>
-				{/each}
-			</select>
+				<Select.Trigger
+					id="motion-parent-select"
+					aria-label={m.video_editor_motion_parent_label()}
+					class="mt-1 h-9 w-full justify-between rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.12_0.008_55)] px-2 text-sm shadow-none"
+				>
+					<span class="truncate"
+						>{parentCandidates.find((c) => c.id === item?.transformParent?.parentItemId)?.label ??
+							m.video_editor_motion_parent_none()}</span
+					>
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="">{m.video_editor_motion_parent_none()}</Select.Item>
+					{#each parentCandidates as candidate (candidate.id)}
+						<Select.Item value={candidate.id}>{candidate.label}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 			{#if parentError}
 				<p class="mt-2 text-xs text-red-300" role="alert">{parentError}</p>
 			{/if}

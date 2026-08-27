@@ -40,6 +40,7 @@
 	import ScanLineIcon from '@lucide/svelte/icons/scan-line';
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Select from '$lib/components/ui/select';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
@@ -381,11 +382,11 @@
 					class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.015_55)]"
 					aria-hidden="true"
 				/>
-				<input
+				<Input
 					type="search"
 					bind:value={query}
 					placeholder={m.video_editor_media_search()}
-					class="h-8 w-full rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.18_0.008_50)] pr-2 pl-7 text-xs outline-none placeholder:text-[oklch(0.54_0.012_55)] focus-visible:border-[var(--video-editor-focus)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)]/25"
+					class="h-8 w-full rounded-md border border-[oklch(0.28_0.014_55)] bg-[oklch(0.18_0.008_50)] pr-2 pl-7 text-xs placeholder:text-[oklch(0.54_0.012_55)] focus-visible:border-[var(--video-editor-focus)] focus-visible:ring-2 focus-visible:ring-[var(--video-editor-focus)]/25"
 				/>
 			</label>
 			<Button

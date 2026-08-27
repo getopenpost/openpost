@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
 	import LocalModelCacheControl from './local-model-cache-control.svelte';
 	import {
 		TRANSCRIPTION_LANGUAGE_OPTIONS,
@@ -78,39 +79,56 @@
 >
 	<label class="col-span-2 text-[10px] text-[oklch(0.66_0.015_55)]">
 		{m.video_editor_transcribe_model()}
-		<select
-			class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1.5 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-			bind:value={model}
-			disabled={busy}
-		>
-			{#each TRANSCRIPTION_MODEL_OPTIONS as option}
-				<option value={option.value}>{transcriptionModelUiLabel(option.value)}</option>
-			{/each}
-		</select>
+		<Select.Root type="single" bind:value={model} disabled={busy}>
+			<Select.Trigger
+				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+			>
+				<span class="truncate">{transcriptionModelUiLabel(model)}</span>
+			</Select.Trigger>
+			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				{#each TRANSCRIPTION_MODEL_OPTIONS as option}
+					<Select.Item value={option.value}>{transcriptionModelUiLabel(option.value)}</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
 	</label>
 	<label class="text-[10px] text-[oklch(0.66_0.015_55)]">
 		{m.video_editor_transcribe_language()}
-		<select
-			class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-			bind:value={language}
-			disabled={busy}
-		>
-			{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
-				<option value={option.value}>{transcriptionLanguageUiLabel(option.value)}</option>
-			{/each}
-		</select>
+		<Select.Root type="single" bind:value={language} disabled={busy}>
+			<Select.Trigger
+				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+			>
+				<span class="truncate">{transcriptionLanguageUiLabel(language)}</span>
+			</Select.Trigger>
+			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
+					<Select.Item value={option.value}
+						>{transcriptionLanguageUiLabel(option.value)}</Select.Item
+					>
+				{/each}
+			</Select.Content>
+		</Select.Root>
 	</label>
 	<label class="text-[10px] text-[oklch(0.66_0.015_55)]">
 		{m.video_editor_transcribe_quality()}
-		<select
-			class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+		<Select.Root
+			type="single"
 			bind:value={quantization}
 			disabled={busy || model === 'parakeet-tdt-v3'}
 		>
-			{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
-				<option value={option.value}>{transcriptionQuantizationUiLabel(option.value)}</option>
-			{/each}
-		</select>
+			<Select.Trigger
+				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+			>
+				<span class="truncate">{transcriptionQuantizationUiLabel(quantization)}</span>
+			</Select.Trigger>
+			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
+					<Select.Item value={option.value}
+						>{transcriptionQuantizationUiLabel(option.value)}</Select.Item
+					>
+				{/each}
+			</Select.Content>
+		</Select.Root>
 	</label>
 	<p class="col-span-2 text-[9px] leading-tight text-[oklch(0.58_0.012_55)]">
 		{transcriptionModelUiDescription(model)}

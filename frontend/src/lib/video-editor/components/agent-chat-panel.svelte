@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
 	import { onMount } from 'svelte';
 	import { agentStore } from '$lib/video-editor/agent/store.svelte';
@@ -292,17 +293,18 @@
 				</div>
 			{/if}
 			<div class="flex items-end gap-1.5">
-				<textarea
-					bind:this={textareaRef}
+				<Textarea
+					bind:ref={textareaRef}
 					bind:value={input}
 					onkeydown={handleKeydown}
-					rows="1"
+					rows={1}
 					placeholder={composerDisabledReason ?? m.video_editor_agent_placeholder()}
 					disabled={!!composerDisabledReason && agentStore.phase === 'idle'}
-					maxlength="500"
+					maxlength={500}
 					class="max-h-28 min-h-11 flex-1 resize-none rounded-md border border-[oklch(0.28_0.012_55)] bg-[oklch(0.18_0.008_55)] px-2.5 py-2.5 text-xs leading-relaxed text-white placeholder:text-[oklch(0.55_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-60 md:min-h-9 md:py-1.5"
 					aria-label="Assistant message"
-					aria-describedby="agent-input-limit"></textarea>
+					aria-describedby="agent-input-limit"
+				/>
 				{#if agentStore.phase === 'planning'}
 					<Button
 						size="icon"

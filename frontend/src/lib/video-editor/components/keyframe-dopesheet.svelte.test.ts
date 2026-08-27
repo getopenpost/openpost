@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
@@ -108,7 +109,8 @@ describe('KeyframeDopesheet', () => {
 		await expect.element(screen.getByRole('group', { name: 'rotation keyframes' })).toBeVisible();
 		expect(screen.container.querySelector('[aria-label="x keyframes"]')).toBeNull();
 		await search.clear();
-		await screen.getByRole('combobox', { name: 'Property group' }).selectOptions('audio');
+		await screen.getByRole('button', { name: 'Property group' }).click();
+		await page.getByRole('option', { name: 'Audio' }).click();
 		await expect
 			.element(screen.getByRole('button', { name: 'Add volume keyframe at playhead' }))
 			.toBeVisible();

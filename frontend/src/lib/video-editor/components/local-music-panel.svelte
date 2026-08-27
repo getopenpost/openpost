@@ -2,6 +2,9 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
+	import { Slider } from '$lib/components/ui/slider';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
@@ -99,18 +102,14 @@
 		return `${Math.round(bytes / 1_000_000)} MB`;
 	}
 
-	function selectPreset(event: Event): void {
-		const target = event.currentTarget;
-		if (!(target instanceof HTMLSelectElement)) return;
-		const preset = presets[Number(target.value)];
+	function selectPreset(value: string): void {
+		const preset = presets[Number(value)];
 		if (preset) prompt = preset.prompt;
 	}
 
-	function changeQuality(event: Event): void {
-		const target = event.currentTarget;
-		if (!(target instanceof HTMLSelectElement)) return;
-		if (target.value !== 'standard' && target.value !== 'high') return;
-		audioQuality = target.value;
+	function changeQuality(value: string): void {
+		if (value !== 'standard' && value !== 'high') return;
+		audioQuality = value;
 		void refreshStorage();
 	}
 
@@ -259,29 +258,34 @@
 			<label for="local-music-preset" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 				{m.video_editor_local_music_starting_point()}
 			</label>
-			<select
-				id="local-music-preset"
-				class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-				disabled={generating}
-				onchange={selectPreset}
-			>
-				{#each presets as preset, index}
-					<option value={index}>{preset.label}</option>
-				{/each}
-			</select>
+			<Select.Root type="single" disabled={generating} onValueChange={selectPreset}>
+				<Select.Trigger
+					id="local-music-preset"
+					aria-label={m.video_editor_local_music_starting_point()}
+					class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none hover:translate-y-0 hover:bg-[oklch(0.21_0.01_55)] data-placeholder:text-[oklch(0.45_0.01_55)]"
+				>
+					<span class="truncate">{presets[0].label}</span>
+				</Select.Trigger>
+				<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+					{#each presets as preset, index}
+						<Select.Item value={String(index)}>{preset.label}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 		</div>
 
 		<div>
 			<label for="local-music-prompt" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 				{m.video_editor_local_music_prompt()}
 			</label>
-			<textarea
+			<Textarea
 				id="local-music-prompt"
-				class="mt-0.5 min-h-20 w-full resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="mt-0.5 min-h-20 resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:border-[oklch(0.66_0.14_45)]"
 				bind:value={prompt}
 				disabled={generating}
-				maxlength="1000"
-				placeholder={m.video_editor_local_music_prompt_placeholder()}></textarea>
+				maxlength={1000}
+				placeholder={m.video_editor_local_music_prompt_placeholder()}
+			/>
 		</div>
 
 		<div class="grid grid-cols-[1fr_7.25rem] gap-1.5">
@@ -289,15 +293,15 @@
 				<label for="local-music-duration" class="text-[10px] text-[oklch(0.66_0.015_55)]">
 					{m.video_editor_local_music_duration()}
 				</label>
-				<input
-					id="local-music-duration"
-					class="mt-0.5 w-full accent-[oklch(0.66_0.14_45)]"
-					type="range"
+				<Slider
+					value={durationSeconds}
 					min={ACE_STEP_MIN_DURATION_SECONDS}
 					max={ACE_STEP_MAX_DURATION_SECONDS}
-					step="1"
-					bind:value={durationSeconds}
+					step={1}
 					disabled={generating}
+					ariaLabel={m.video_editor_local_music_duration()}
+					onValueChange={(v) => (durationSeconds = v)}
+					class="mt-0.5"
 				/>
 				<span class="block text-center text-[9px] text-[oklch(0.72_0.012_55)]">
 					{durationSeconds}s
@@ -307,16 +311,26 @@
 				<label for="local-music-quality" class="text-[10px] text-[oklch(0.66_0.015_55)]">
 					{m.video_editor_local_music_quality()}
 				</label>
-				<select
-					id="local-music-quality"
-					class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				<Select.Root
+					type="single"
 					value={audioQuality}
 					disabled={generating}
-					onchange={changeQuality}
+					onValueChange={changeQuality}
 				>
-					<option value="standard">{m.video_editor_local_music_standard()}</option>
-					<option value="high">{m.video_editor_local_music_high()}</option>
-				</select>
+					<Select.Trigger
+						id="local-music-quality"
+						aria-label={m.video_editor_local_music_quality()}
+						class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none hover:translate-y-0 hover:bg-[oklch(0.21_0.01_55)]"
+					>
+						{audioQuality === 'high'
+							? m.video_editor_local_music_high()
+							: m.video_editor_local_music_standard()}
+					</Select.Trigger>
+					<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+						<Select.Item value="standard">{m.video_editor_local_music_standard()}</Select.Item>
+						<Select.Item value="high">{m.video_editor_local_music_high()}</Select.Item>
+					</Select.Content>
+				</Select.Root>
 			</div>
 		</div>
 

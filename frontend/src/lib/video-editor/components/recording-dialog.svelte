@@ -343,35 +343,29 @@
 
 				<div class="grid gap-3 sm:grid-cols-3">
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[[data-checked=true]]:border-[oklch(0.66_0.14_45)] has-[[data-checked=true]]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeScreen}
-							onchange={() => preferences.set('includeScreen', includeScreen)}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) => preferences.set('includeScreen', checked === true)}
 						/>
 						<span class="text-sm">{m.record_source_screen()}</span>
 					</label>
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[[data-checked=true]]:border-[oklch(0.66_0.14_45)] has-[[data-checked=true]]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeCamera}
-							onchange={() => preferences.set('includeCamera', includeCamera)}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) => preferences.set('includeCamera', checked === true)}
 						/>
 						<span class="text-sm">{m.record_source_camera()}</span>
 					</label>
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[[data-checked=true]]:border-[oklch(0.66_0.14_45)] has-[[data-checked=true]]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeMic}
-							onchange={() => preferences.set('includeMicrophone', includeMic)}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) => preferences.set('includeMicrophone', checked === true)}
 						/>
 						<span class="text-sm">{m.record_source_audio()}</span>
 					</label>

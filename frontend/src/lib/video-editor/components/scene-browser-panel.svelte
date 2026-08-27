@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { onDestroy, onMount } from 'svelte';
+	import { Input } from '$lib/components/ui/input';
+	import * as Select from '$lib/components/ui/select';
 	import { showToast } from '$lib/toast';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -129,25 +131,36 @@
 				class="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-[oklch(0.58_0.015_55)]"
 				aria-hidden="true"
 			/>
-			<input
+			<Input
 				type="search"
-				class="h-8 w-full rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] pr-2 pl-7 text-xs outline-none placeholder:text-[oklch(0.52_0.015_55)] focus:border-[oklch(0.66_0.14_45)] focus:ring-2 focus:ring-[oklch(0.66_0.14_45/0.25)]"
+				class="h-8 w-full rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] pr-2 pl-7 text-xs placeholder:text-[oklch(0.52_0.015_55)] focus-visible:border-[oklch(0.66_0.14_45)] focus-visible:ring-2 focus-visible:ring-[oklch(0.66_0.14_45/0.25)]"
 				placeholder={m.video_editor_scene_search()}
 				bind:value={sceneBrowser.query}
 			/>
 		</label>
 		<div class="flex gap-1">
-			<select
-				class="h-7 min-w-0 flex-1 rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] px-2 text-[11px] outline-none focus:border-[oklch(0.66_0.14_45)]"
-				aria-label={m.video_editor_scene_scope_all()}
+			<Select.Root
+				type="single"
 				value={sceneBrowser.scope ?? ''}
-				onchange={(event) => (sceneBrowser.scope = event.currentTarget.value || null)}
+				onValueChange={(v) => (sceneBrowser.scope = v || null)}
 			>
-				<option value="">{m.video_editor_scene_scope_all()}</option>
-				{#each sceneBrowser.analyzedMediaIds as mediaId (mediaId)}
-					<option value={mediaId}>{mediaPool.get(mediaId)?.fileName ?? mediaId}</option>
-				{/each}
-			</select>
+				<Select.Trigger
+					aria-label={m.video_editor_scene_scope_all()}
+					class="h-7 min-w-0 flex-1 justify-between rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] px-2 text-[11px] shadow-none"
+				>
+					<span class="truncate"
+						>{sceneBrowser.scope
+							? (mediaPool.get(sceneBrowser.scope)?.fileName ?? sceneBrowser.scope)
+							: m.video_editor_scene_scope_all()}</span
+					>
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="">{m.video_editor_scene_scope_all()}</Select.Item>
+					{#each sceneBrowser.analyzedMediaIds as mediaId (mediaId)}
+						<Select.Item value={mediaId}>{mediaPool.get(mediaId)?.fileName ?? mediaId}</Select.Item>
+					{/each}
+				</Select.Content>
+			</Select.Root>
 			<button
 				type="button"
 				class="flex h-7 items-center gap-1 rounded-md border border-[oklch(0.3_0.015_55)] px-2 text-[11px] hover:bg-white/5 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-50"
@@ -234,15 +247,25 @@
 			{m.video_editor_scene_media_count({ count: sceneBrowser.analyzedMediaIds.length })}
 		</span>
 		<div class="flex items-center gap-1">
-			<select
-				class="h-6 rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] px-1 text-[10px] outline-none"
-				aria-label={m.video_editor_scene_sort_relevance()}
-				bind:value={sceneBrowser.sortMode}
-			>
-				<option value="relevance">{m.video_editor_scene_sort_relevance()}</option>
-				<option value="time">{m.video_editor_scene_sort_time()}</option>
-				<option value="name">{m.video_editor_scene_sort_name()}</option>
-			</select>
+			<Select.Root type="single" bind:value={sceneBrowser.sortMode}>
+				<Select.Trigger
+					aria-label={m.video_editor_scene_sort_relevance()}
+					class="h-6 justify-between rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.17_0.01_55)] px-1 text-[10px] shadow-none"
+				>
+					<span class="truncate"
+						>{sceneBrowser.sortMode === 'relevance'
+							? m.video_editor_scene_sort_relevance()
+							: sceneBrowser.sortMode === 'time'
+								? m.video_editor_scene_sort_time()
+								: m.video_editor_scene_sort_name()}</span
+					>
+				</Select.Trigger>
+				<Select.Content>
+					<Select.Item value="relevance">{m.video_editor_scene_sort_relevance()}</Select.Item>
+					<Select.Item value="time">{m.video_editor_scene_sort_time()}</Select.Item>
+					<Select.Item value="name">{m.video_editor_scene_sort_name()}</Select.Item>
+				</Select.Content>
+			</Select.Root>
 			<button
 				type="button"
 				class:active={sceneBrowser.viewMode === 'grid'}

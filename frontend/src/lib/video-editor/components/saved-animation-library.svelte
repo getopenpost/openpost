@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
 	import type { AnimationPreset } from '$lib/video-editor/project/types';
 	import { applySavedAnimation } from '$lib/video-editor/timeline/actions/saved-animation';
@@ -132,10 +134,11 @@
 	{#if saveOpen}
 		<div class="save-form">
 			<label for="saved-animation-name">{m.video_editor_saved_animation_name()}</label>
-			<input
+			<Input
 				id="saved-animation-name"
 				bind:value={presetName}
-				maxlength="80"
+				maxlength={80}
+				class="h-7 min-h-0 rounded border border-[oklch(0.31_0.018_55)] bg-[oklch(0.135_0.01_55)] px-2 text-[0.6rem] text-[oklch(0.9_0.012_65)]"
 				onkeydown={(event) => event.key === 'Enter' && savePreset()}
 			/>
 			<div>
@@ -153,14 +156,15 @@
 		<div class="library-controls">
 			<label>
 				<span>{m.video_editor_saved_animation_search()}</span>
-				<input
+				<Input
 					type="search"
 					bind:value={query}
 					placeholder={m.video_editor_saved_animation_search()}
+					class="h-7 min-h-0 rounded border border-[oklch(0.31_0.018_55)] bg-[oklch(0.135_0.01_55)] px-2 text-[0.6rem] text-[oklch(0.9_0.012_65)]"
 				/>
 			</label>
 			<label class="retime-toggle">
-				<input type="checkbox" bind:checked={retime} />
+				<Checkbox bind:checked={retime} aria-label={m.video_editor_saved_animation_fit()} />
 				<span>{m.video_editor_saved_animation_fit()}</span>
 			</label>
 		</div>

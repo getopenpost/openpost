@@ -6,6 +6,8 @@
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import ScissorsIcon from '@lucide/svelte/icons/scissors';
 	import UnlockIcon from '@lucide/svelte/icons/unlock';
+	import { Input } from '$lib/components/ui/input';
+	import * as Select from '$lib/components/ui/select';
 	import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
 	import {
 		duplicateKeyframes,
@@ -597,28 +599,48 @@
 				onclick={() => (filter = 'all')}>{m.video_editor_keyframe_sheet_filter_all()}</button
 			>
 		</div>
-		<input
+		<Input
 			type="search"
-			class="h-6 w-32 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5"
-			value={searchQuery}
+			class="h-6 w-32 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1.5 text-xs shadow-none"
+			bind:value={searchQuery}
 			placeholder={m.video_editor_keyframe_sheet_search()}
 			aria-label={m.video_editor_keyframe_sheet_search()}
-			oninput={(event) => (searchQuery = event.currentTarget.value)}
 		/>
-		<select
-			class="h-6 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1"
-			value={groupFilter}
-			aria-label={m.video_editor_keyframe_sheet_group()}
-			onchange={(event) => setGroupFilter(event.currentTarget.value)}
-		>
-			<option value="all">{m.video_editor_keyframe_sheet_group_all()}</option>
-			<option value="transform">{m.video_editor_keyframe_sheet_group_transform()}</option>
-			<option value="crop">{m.video_editor_keyframe_sheet_group_crop()}</option>
-			<option value="typography">{m.video_editor_keyframe_sheet_group_typography()}</option>
-			<option value="path">{m.video_editor_keyframe_sheet_group_path()}</option>
-			<option value="audio">{m.video_editor_keyframe_sheet_group_audio()}</option>
-			<option value="other">{m.video_editor_keyframe_sheet_group_other()}</option>
-		</select>
+		<Select.Root type="single" value={groupFilter} onValueChange={setGroupFilter}>
+			<Select.Trigger
+				aria-label={m.video_editor_keyframe_sheet_group()}
+				class="h-6 justify-between rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 text-xs shadow-none"
+			>
+				<span class="truncate"
+					>{groupFilter === 'all'
+						? m.video_editor_keyframe_sheet_group_all()
+						: groupFilter === 'transform'
+							? m.video_editor_keyframe_sheet_group_transform()
+							: groupFilter === 'crop'
+								? m.video_editor_keyframe_sheet_group_crop()
+								: groupFilter === 'typography'
+									? m.video_editor_keyframe_sheet_group_typography()
+									: groupFilter === 'path'
+										? m.video_editor_keyframe_sheet_group_path()
+										: groupFilter === 'audio'
+											? m.video_editor_keyframe_sheet_group_audio()
+											: m.video_editor_keyframe_sheet_group_other()}</span
+				>
+			</Select.Trigger>
+			<Select.Content>
+				<Select.Item value="all">{m.video_editor_keyframe_sheet_group_all()}</Select.Item>
+				<Select.Item value="transform"
+					>{m.video_editor_keyframe_sheet_group_transform()}</Select.Item
+				>
+				<Select.Item value="crop">{m.video_editor_keyframe_sheet_group_crop()}</Select.Item>
+				<Select.Item value="typography"
+					>{m.video_editor_keyframe_sheet_group_typography()}</Select.Item
+				>
+				<Select.Item value="path">{m.video_editor_keyframe_sheet_group_path()}</Select.Item>
+				<Select.Item value="audio">{m.video_editor_keyframe_sheet_group_audio()}</Select.Item>
+				<Select.Item value="other">{m.video_editor_keyframe_sheet_group_other()}</Select.Item>
+			</Select.Content>
+		</Select.Root>
 		<button
 			type="button"
 			class="rounded p-1 hover:bg-[oklch(0.25_0.012_55)] disabled:opacity-35"
@@ -649,11 +671,11 @@
 		{/if}
 		<label class="ml-1 flex items-center gap-1">
 			{m.video_editor_keyframe_sheet_frame()}
-			<input
+			<Input
 				type="number"
-				min="0"
+				min={0}
 				max={item.durationInFrames - 1}
-				class="h-5 w-14 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 font-mono disabled:opacity-45"
+				class="h-5 w-14 rounded border border-[oklch(0.3_0.012_55)] bg-[oklch(0.2_0.008_55)] px-1 font-mono text-xs shadow-none disabled:opacity-45"
 				value={selectedFrame ?? ''}
 				placeholder={selectedIds.size > 1 ? m.video_editor_keyframe_sheet_mixed() : '-'}
 				disabled={selectedFrame === undefined}

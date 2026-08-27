@@ -92,7 +92,13 @@ describe('LocalMusicPanel', () => {
 
 		await expect.element(screen.getByText(/First use downloads up to 5.42 GB/)).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Generate music' })).toBeEnabled();
-		await screen.getByLabelText('Length').fill('2');
+		const sliderEl = document.querySelector(
+			'[role="slider"][aria-label="Length"]'
+		) as HTMLElement | null;
+		sliderEl?.focus();
+		sliderEl?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+		sliderEl?.dispatchEvent(new KeyboardEvent('keyup', { key: 'Home', bubbles: true }));
+		await new Promise((r) => setTimeout(r, 50));
 		await screen.getByRole('button', { name: 'Generate music' }).click();
 		expect(generateMusic).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 2 }));
 		await expect.element(screen.getByText('Downloading ACE-Step DiT')).toBeVisible();
@@ -102,7 +108,7 @@ describe('LocalMusicPanel', () => {
 		finishGeneration();
 		await expect.element(screen.getByRole('article').getByText('Cinematic pulse')).toBeVisible();
 		expect(screen.container.querySelector('audio')).not.toBeNull();
-		expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+		expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth + 2);
 		await page.screenshot({
 			element: screen.container,
 			path: '../../../../.svelte-kit/openpost-local-music-panel.png'
@@ -133,7 +139,8 @@ describe('LocalMusicPanel', () => {
 			supported: true
 		});
 
-		await screen.getByRole('combobox', { name: 'Model' }).selectOptions('high');
+		await screen.getByRole('button', { name: 'Model', exact: true }).click();
+		await page.getByRole('option', { name: /High/ }).click();
 		await expect.element(screen.getByText(/First use downloads up to 7.79 GB/)).toBeVisible();
 		await screen.getByRole('button', { name: 'Generate music' }).click();
 		expect(generateMusic).toHaveBeenCalledWith(

@@ -31,7 +31,7 @@
 	let draftBinding = $state('');
 	let feedback = $state<Feedback | null>(null);
 	let confirmReset = $state(false);
-	let importInput: HTMLInputElement;
+	let importInput: HTMLInputElement | null = null;
 
 	const commandLabels = {
 		PLAY_PAUSE: m.video_editor_shortcuts_command_play_pause,
@@ -258,13 +258,13 @@
 			</p>
 		</div>
 		<div class="flex flex-wrap gap-1.5">
-			<input
-				bind:this={importInput}
+			<Input
+				bind:ref={importInput}
 				type="file"
 				accept="application/json,.json"
 				class="hidden"
 				aria-hidden="true"
-				tabindex="-1"
+				tabindex={-1}
 				onchange={(event) => {
 					const file = event.currentTarget.files?.[0];
 					if (file) void importPreset(file);

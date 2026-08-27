@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import CheckIcon from '@lucide/svelte/icons/check';
@@ -539,10 +540,9 @@
 							>
 							<div class="mt-3 grid gap-3 sm:grid-cols-2">
 								<label class="flex items-center gap-2 text-xs">
-									<input
+									<Checkbox
 										bind:checked={autoThresholds}
-										type="checkbox"
-										class="size-4 accent-[var(--video-editor-focus)]"
+										aria-label={m.video_editor_cleanup_auto_thresholds()}
 									/>
 									{m.video_editor_cleanup_auto_thresholds()}
 								</label>

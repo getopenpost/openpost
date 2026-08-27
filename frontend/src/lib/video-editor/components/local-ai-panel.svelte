@@ -2,6 +2,9 @@
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
+	import { Slider } from '$lib/components/ui/slider';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import LocalModelCacheControl from '$lib/video-editor/components/local-model-cache-control.svelte';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -80,7 +83,7 @@
 	let activeTab = $state<'voice' | 'music'>('voice');
 	let voiceTab: HTMLButtonElement;
 	let musicTab: HTMLButtonElement;
-	let scriptTextarea = $state<HTMLTextAreaElement>();
+	let scriptTextarea = $state<HTMLTextAreaElement | null>(null);
 	let abortController: AbortController | null = null;
 	let sourceTextItemId = $state<string | null>(null);
 	let handledTextVoiceRequestId = $state<string | null>(null);
@@ -103,12 +106,8 @@
 		activeTab = 'voice';
 	});
 
-	function changeEngine(event: Event): void {
-		const target = event.currentTarget;
-		if (!(target instanceof HTMLSelectElement)) return;
-		const nextEngine = LOCAL_TTS_ENGINE_OPTIONS.find(
-			(option) => option.value === target.value
-		)?.value;
+	function changeEngine(value: string): void {
+		const nextEngine = LOCAL_TTS_ENGINE_OPTIONS.find((option) => option.value === value)?.value;
 		if (!nextEngine) return;
 		engine = nextEngine;
 		setStoredLocalTtsEngine(engine);
@@ -326,14 +325,15 @@
 				<label for="local-ai-script" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 					{m.video_editor_local_ai_script()}
 				</label>
-				<textarea
-					bind:this={scriptTextarea}
+				<Textarea
+					bind:ref={scriptTextarea}
 					id="local-ai-script"
-					class="mt-0.5 min-h-24 w-full resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					class="mt-0.5 min-h-24 resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:border-[oklch(0.66_0.14_45)]"
 					bind:value={text}
 					disabled={generating}
 					placeholder={m.video_editor_local_ai_script_placeholder()}
-					maxlength="5000"></textarea>
+					maxlength={5000}
+				/>
 				{#if engine === 'supertonic'}
 					<div
 						role="group"
@@ -362,18 +362,28 @@
 					<label for="local-ai-engine" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 						{m.video_editor_local_ai_engine()}
 					</label>
-					<select
-						id="local-ai-engine"
-						aria-describedby="local-ai-engine-description"
-						class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					<Select.Root
+						type="single"
 						value={engine}
 						disabled={generating}
-						onchange={changeEngine}
+						onValueChange={changeEngine}
 					>
-						{#each LOCAL_TTS_ENGINE_OPTIONS as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
+						<Select.Trigger
+							id="local-ai-engine"
+							aria-label={m.video_editor_local_ai_engine()}
+							aria-describedby="local-ai-engine-description"
+							class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+						>
+							<span class="truncate"
+								>{LOCAL_TTS_ENGINE_OPTIONS.find((o) => o.value === engine)?.label ?? engine}</span
+							>
+						</Select.Trigger>
+						<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+							{#each LOCAL_TTS_ENGINE_OPTIONS as option}
+								<Select.Item value={option.value}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					<span
 						id="local-ai-engine-description"
 						class="mt-0.5 block text-[9px] leading-tight text-[oklch(0.52_0.01_55)]"
@@ -386,31 +396,36 @@
 						<label for="local-ai-voice" class="text-[10px] text-[oklch(0.66_0.015_55)]">
 							{m.video_editor_local_ai_voice_label()}
 						</label>
-						<select
-							id="local-ai-voice"
-							class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-							bind:value={voice}
-							disabled={generating}
-						>
-							{#each voiceOptions as option}
-								<option value={option.value}>{option.label}</option>
-							{/each}
-						</select>
+						<Select.Root type="single" bind:value={voice} disabled={generating}>
+							<Select.Trigger
+								id="local-ai-voice"
+								aria-label={m.video_editor_local_ai_voice_label()}
+								class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+							>
+								<span class="truncate"
+									>{voiceOptions.find((o) => o.value === voice)?.label ?? voice}</span
+								>
+							</Select.Trigger>
+							<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+								{#each voiceOptions as option}
+									<option value={option.value}>{option.label}</option>
+								{/each}
+							</Select.Content>
+						</Select.Root>
 					</div>
 					<div>
 						<label for="local-ai-speed" class="text-[10px] text-[oklch(0.66_0.015_55)]">
 							{m.video_editor_local_ai_speed()}
 						</label>
-						<input
-							id="local-ai-speed"
-							class="mt-0.5 w-full accent-[oklch(0.66_0.14_45)]"
-							type="range"
+						<Slider
+							value={speed}
 							min={speedRange.min}
 							max={speedRange.max}
-							step="0.05"
-							bind:value={speed}
+							step={0.05}
 							disabled={generating}
-							aria-valuetext={`${speed.toFixed(2)}×`}
+							ariaLabel={m.video_editor_local_ai_speed()}
+							onValueChange={(v) => (speed = v)}
+							class="mt-0.5"
 						/>
 						<span class="block text-center text-[9px] text-[oklch(0.72_0.012_55)]"
 							>{speed.toFixed(2)}×</span
@@ -422,20 +437,26 @@
 						<label for="local-ai-language" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 							{m.video_editor_local_ai_language()}
 						</label>
-						<select
-							id="local-ai-language"
-							class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-							bind:value={language}
-							disabled={generating}
-						>
-							{#each LOCAL_TTS_LANGUAGE_OPTIONS as option}
-								<option value={option.value}
-									>{transcriptionLanguageUiLabel(
-										option.value === 'auto' ? '' : option.value
-									)}</option
+						<Select.Root type="single" bind:value={language} disabled={generating}>
+							<Select.Trigger
+								id="local-ai-language"
+								aria-label={m.video_editor_local_ai_language()}
+								class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+							>
+								<span class="truncate"
+									>{transcriptionLanguageUiLabel(language === 'auto' ? '' : language)}</span
 								>
-							{/each}
-						</select>
+							</Select.Trigger>
+							<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+								{#each LOCAL_TTS_LANGUAGE_OPTIONS as option}
+									<Select.Item value={option.value}
+										>{transcriptionLanguageUiLabel(
+											option.value === 'auto' ? '' : option.value
+										)}</Select.Item
+									>
+								{/each}
+							</Select.Content>
+						</Select.Root>
 					</div>
 				{/if}
 

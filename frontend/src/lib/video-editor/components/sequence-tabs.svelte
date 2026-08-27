@@ -1,5 +1,6 @@
 <!-- Main plus reusable sequence tabs. Double-click a name to rename. -->
 <script lang="ts">
+	import { Input } from '$lib/components/ui/input';
 	import { tick } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -104,9 +105,9 @@
 			ondrop={() => reorder(tab.id)}
 		>
 			{#if editingId === tab.id}
-				<input
-					bind:this={renameInput}
-					class="mx-2 w-28 border-b border-[oklch(0.66_0.14_45)] bg-transparent py-1 outline-none"
+				<Input
+					bind:ref={renameInput}
+					class="mx-2 h-7 w-28 rounded-none border-0 border-b border-[oklch(0.66_0.14_45)] bg-transparent px-0 py-1 text-xs shadow-none focus-visible:ring-0"
 					bind:value={draftName}
 					onblur={() => commitRename(tab.id)}
 					onkeydown={(event) => {

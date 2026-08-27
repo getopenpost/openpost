@@ -2,6 +2,7 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Popover from '$lib/components/ui/popover';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
@@ -153,31 +154,28 @@
 					<div class="space-y-2 text-xs">
 						<label class="flex min-h-11 items-center justify-between gap-3">
 							<span>{m.video_editor_voiceover_noise_suppression()}</span>
-							<input
-								type="checkbox"
-								class="size-5 accent-[oklch(0.66_0.14_45)]"
+							<Checkbox
 								checked={voiceoverRecorder.noiseSuppression}
-								onchange={(event) =>
-									voiceoverRecorder.setNoiseSuppression(event.currentTarget.checked)}
+								aria-label={m.video_editor_voiceover_noise_suppression()}
+								onCheckedChange={(checked) =>
+									voiceoverRecorder.setNoiseSuppression(checked === true)}
 							/>
 						</label>
 						<label class="flex min-h-11 items-center justify-between gap-3">
 							<span>{m.video_editor_voiceover_auto_gain()}</span>
-							<input
-								type="checkbox"
-								class="size-5 accent-[oklch(0.66_0.14_45)]"
+							<Checkbox
 								checked={voiceoverRecorder.autoGainControl}
-								onchange={(event) =>
-									voiceoverRecorder.setAutoGainControl(event.currentTarget.checked)}
+								aria-label={m.video_editor_voiceover_auto_gain()}
+								onCheckedChange={(checked) =>
+									voiceoverRecorder.setAutoGainControl(checked === true)}
 							/>
 						</label>
 						<label class="flex min-h-11 items-center justify-between gap-3">
 							<span>{m.video_editor_voiceover_mute_timeline()}</span>
-							<input
-								type="checkbox"
-								class="size-5 accent-[oklch(0.66_0.14_45)]"
+							<Checkbox
 								checked={voiceoverRecorder.muteTimeline}
-								onchange={(event) => voiceoverRecorder.setMuteTimeline(event.currentTarget.checked)}
+								aria-label={m.video_editor_voiceover_mute_timeline()}
+								onCheckedChange={(checked) => voiceoverRecorder.setMuteTimeline(checked === true)}
 							/>
 						</label>
 					</div>

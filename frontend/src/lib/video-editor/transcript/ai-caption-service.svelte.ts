@@ -15,11 +15,60 @@ import type { MediaMetadata } from '../media/types';
 import type { TimelineItem } from '../project/types';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { m } from '$lib/paraglide/messages';
-import { analyzeMediaScenes, isSceneAnalyzableMedia } from '../media/scene-search/scene-analysis-client';
+import {
+	analyzeMediaScenes,
+	isSceneAnalyzableMedia
+} from '../media/scene-search/scene-analysis-client';
 import { analyzeSceneContent } from '../media/scene-search/ai/analyze-scenes';
 import { sceneBrowser } from '../media/scene-search/scene-browser.svelte';
-import { addAiCaptionSubtitleItem, buildAiCaptionCues } from './ai-captions';
-import { captureTranscriptionSource, transcriptionSourceWindow, type TranscriptionSourceSnapshot } from './transcribe-action';
+import { addAiCaptionSubtitleItem, buildAiCaptionCues, type AiCaptionCanvas } from './ai-captions';
+import {
+	captureTranscriptionSource,
+	transcriptionSourceWindow,
+	type TranscriptionSourceSnapshot
+} from './transcribe-action';
+import { editorSession } from '../editor.svelte';
+import { sequenceStore } from '../sequences/sequence-store.svelte';
+import type { SceneAnalysis } from '../media/scene-search/types';
+
+export interface AiCaptionServiceDependencies {
+	isAnalyzable: (media: import('../media/types').MediaMetadata) => boolean;
+	analyzeScenes: (
+		media: import('../media/types').MediaMetadata,
+		options: {
+			signal?: AbortSignal;
+			onProgress?: (progress: {
+				stage: string;
+				percent: number;
+				completed?: number;
+				total?: number;
+			}) => void;
+		}
+	) => Promise<SceneAnalysis>;
+	analyzeContent: (
+		analysis: SceneAnalysis,
+		options: {
+			signal?: AbortSignal;
+			onProgress?: (progress: {
+				stage: string;
+				percent: number;
+				completed?: number;
+				total?: number;
+			}) => void;
+		}
+	) => Promise<SceneAnalysis>;
+	getCanvas: () => AiCaptionCanvas;
+}
+
+const DEFAULT_DEPENDENCIES: AiCaptionServiceDependencies = {
+	isAnalyzable: isSceneAnalyzableMedia,
+	analyzeScenes: (media, options) => analyzeMediaScenes(media, options),
+	analyzeContent: (analysis, options) => analyzeSceneContent(analysis, options),
+	getCanvas: () => ({
+		width: sequenceStore.activeWidth ?? editorSession.project?.metadata.width ?? 1920,
+		height: sequenceStore.activeHeight ?? editorSession.project?.metadata.height ?? 1080
+	})
+};
 
 export type AiCaptionJobStatus = 'queued' | 'running' | 'cancelling';
 
@@ -65,10 +114,15 @@ function abortError(): DOMException {
 
 export class AiCaptionService {
 	private readonly pending: QueuedAiCaptionJob[] = [];
-	private readonly targetByItemId = new Map<string, { job: QueuedAiCaptionJob; target: AiCaptionTarget }>();
+	private readonly targetByItemId = new Map<
+		string,
+		{ job: QueuedAiCaptionJob; target: AiCaptionTarget }
+	>();
 	private active: QueuedAiCaptionJob | null = null;
 	private resetting = false;
 	private state = $state<Record<string, AiCaptionJobView>>({});
+
+	constructor(private readonly dependencies: AiCaptionServiceDependencies = DEFAULT_DEPENDENCIES) {}
 
 	get jobs(): AiCaptionJobView[] {
 		return Object.values(this.state);
@@ -80,7 +134,9 @@ export class AiCaptionService {
 	}
 
 	queuePosition(viewId: string): number | null {
-		const index = this.pending.findIndex((job) => [...job.targets.values()].some((target) => target.id === viewId));
+		const index = this.pending.findIndex((job) =>
+			[...job.targets.values()].some((target) => target.id === viewId)
+		);
 		return index < 0 ? null : index + 1;
 	}
 
@@ -91,13 +147,19 @@ export class AiCaptionService {
 		if (item.type !== 'video' && item.type !== 'audio') {
 			return Promise.reject(new Error(m.video_editor_transcribe_media_only()));
 		}
-		if (!isSceneAnalyzableMedia(media)) {
+		if (!this.dependencies.isAnalyzable(media)) {
 			return Promise.reject(new Error(m.video_editor_ai_captions_unsupported_media()));
 		}
-		if (this.targetByItemId.has(itemId)) {
+		const source = captureTranscriptionSource(item);
+		const existing = this.targetByItemId.get(itemId);
+		if (existing) {
+			const sameSource =
+				existing.job.source.sourceStartSeconds === source.sourceStartSeconds &&
+				existing.job.source.sourceEndSeconds === source.sourceEndSeconds &&
+				existing.job.source.mediaId === source.mediaId;
+			if (sameSource) return existing.target.promise;
 			return Promise.reject(new Error(m.video_editor_transcribe_already_queued()));
 		}
-		const source = captureTranscriptionSource(item);
 		const job: QueuedAiCaptionJob = {
 			id: crypto.randomUUID(),
 			media,
@@ -120,7 +182,11 @@ export class AiCaptionService {
 		const { job, target } = owned;
 		if (this.active?.id === job.id) {
 			this.updateTargetView(target, { status: 'cancelling' });
-			mediaTasks.update(target.taskId, { status: 'cancelling', stage: 'cancelling' }, target.taskRevision);
+			mediaTasks.update(
+				target.taskId,
+				{ status: 'cancelling', stage: 'cancelling' },
+				target.taskRevision
+			);
 			job.controller.abort();
 			return true;
 		}
@@ -190,40 +256,64 @@ export class AiCaptionService {
 		job.status = 'running';
 		for (const target of job.targets.values()) {
 			this.updateTargetView(target, { status: 'running' });
-			mediaTasks.update(target.taskId, { status: 'running', stage: 'detecting', progress: null }, target.taskRevision);
+			mediaTasks.update(
+				target.taskId,
+				{ status: 'running', stage: 'detecting', progress: null },
+				target.taskRevision
+			);
 		}
 		try {
 			const signal = job.controller.signal;
-			const onProgress = (progress: { stage: string; percent: number; completed?: number; total?: number }) => {
+			const onProgress = (progress: {
+				stage: string;
+				percent: number;
+				completed?: number;
+				total?: number;
+			}) => {
 				job.progress = progress;
 				for (const target of job.targets.values()) {
 					this.updateTargetView(target, { progress });
 					mediaTasks.update(
 						target.taskId,
-						{ stage: progress.stage, progress: progress.percent / 100, completed: progress.completed, total: progress.total },
+						{
+							stage: progress.stage,
+							progress: progress.percent / 100,
+							completed: progress.completed,
+							total: progress.total
+						},
 						target.taskRevision
 					);
 				}
 			};
 			if (signal.aborted) throw abortError();
 			// 1. ensure scene detection (cached or fresh)
-			const detection = await analyzeMediaScenes(job.media, {
+			const detection = await this.dependencies.analyzeScenes(job.media, {
 				signal,
-				onProgress: (progress) => onProgress({ stage: progress.stage, percent: progress.percent, completed: progress.completed, total: progress.total })
+				onProgress: (progress) =>
+					onProgress({
+						stage: progress.stage,
+						percent: progress.percent,
+						completed: progress.completed,
+						total: progress.total
+					})
 			});
 			if (signal.aborted) throw abortError();
 			// 2. ensure semantic captioning/indexing (reuses thumbnails, loads LFM model)
 			let analysis = sceneBrowser.analysis(job.media.id) ?? detection;
-			const needsCaption = !analysis.scenes.every((scene) => scene.text && scene.text.trim().length > 0);
+			const needsCaption = !analysis.scenes.every(
+				(scene) => scene.text && scene.text.trim().length > 0
+			);
 			if (needsCaption) {
-				analysis = await analyzeSceneContent(detection, {
+				analysis = await this.dependencies.analyzeContent(detection, {
 					signal,
 					onProgress: (progress) =>
-						onProgress({ stage: progress.stage, percent: progress.percent, completed: progress.completed, total: progress.total })
+						onProgress({
+							stage: progress.stage,
+							percent: progress.percent,
+							completed: progress.completed,
+							total: progress.total
+						})
 				});
-			} else {
-				// Still ensure the browser state is hydrated for UI consistency.
-				sceneBrowser.__setAnalysisForTesting(analysis);
 			}
 			if (signal.aborted) throw abortError();
 			// Verify the source clip hasn't moved while we were analyzing.
@@ -250,7 +340,15 @@ export class AiCaptionService {
 		this.state[target.id] = { ...current, ...patch };
 	}
 
-	private finishJob(job: QueuedAiCaptionJob, error?: Error, scenes?: readonly import('../media/scene-search/types').MediaScene[]): void {
+	private canvasForJob(): AiCaptionCanvas {
+		return this.dependencies.getCanvas();
+	}
+
+	private finishJob(
+		job: QueuedAiCaptionJob,
+		error?: Error,
+		scenes?: readonly import('../media/scene-search/types').MediaScene[]
+	): void {
 		if (this.active?.id === job.id) this.active = null;
 		for (const target of [...job.targets.values()]) {
 			if (error || !scenes) {
@@ -258,10 +356,20 @@ export class AiCaptionService {
 				continue;
 			}
 			try {
-				const subtitleItemId = addAiCaptionSubtitleItem(target.item.id, scenes, target.source);
+				const canvas = this.canvasForJob();
+				const subtitleItemId = addAiCaptionSubtitleItem(
+					target.item.id,
+					scenes,
+					target.source,
+					canvas
+				);
 				this.settleTarget(job, target, undefined, { sourceItemId: target.item.id, subtitleItemId });
 			} catch (targetError) {
-				this.settleTarget(job, target, targetError instanceof Error ? targetError : new Error(String(targetError)));
+				this.settleTarget(
+					job,
+					target,
+					targetError instanceof Error ? targetError : new Error(String(targetError))
+				);
 			}
 		}
 		if (!this.resetting) void this.drain();

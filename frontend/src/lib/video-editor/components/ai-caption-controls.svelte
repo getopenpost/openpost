@@ -28,7 +28,8 @@
 	function stageLabel(value: { stage: string; percent: number }): string {
 		if (value.stage === 'detecting') return m.video_editor_task_captioning_scenes();
 		if (value.stage === 'thumbnails') return m.video_editor_task_captioning_scenes();
-		if (value.stage === 'loading-models' || value.stage === 'loading-model') return m.video_editor_transcribe_preparing();
+		if (value.stage === 'loading-models' || value.stage === 'loading-model')
+			return m.video_editor_transcribe_preparing();
 		if (value.stage === 'captioning') return m.video_editor_task_captioning_scenes();
 		if (value.stage === 'indexing') return m.video_editor_task_captioning_scenes();
 		if (value.stage === 'cancelling') return m.video_editor_transcribe_cancel();
@@ -37,7 +38,7 @@
 </script>
 
 <div
-	class="grid gap-1 rounded-md border border-[oklch(0.25_0.015_55)] bg-[oklch(0.17_0.008_55)] p-1.5"
+	class="grid w-full max-w-full gap-1 overflow-hidden rounded-md border border-[oklch(0.25_0.015_55)] bg-[oklch(0.17_0.008_55)] p-1.5"
 	data-testid="ai-caption-controls"
 >
 	<div class="flex items-center justify-between gap-2">
@@ -48,12 +49,18 @@
 		{m.video_editor_ai_captions_description()}
 	</p>
 	{#if error}
-		<p class="rounded bg-[oklch(0.24_0.045_65)] px-1.5 py-1 text-[10px] text-[oklch(0.84_0.08_70)]" role="alert">
+		<p
+			class="rounded bg-[oklch(0.24_0.045_65)] px-1.5 py-1 text-[10px] text-[oklch(0.84_0.08_70)]"
+			role="alert"
+		>
 			{error}
 		</p>
 	{/if}
 	{#if busy && status === 'queued'}
-		<p class="rounded bg-[oklch(0.22_0.015_55)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.02_55)]" role="status">
+		<p
+			class="rounded bg-[oklch(0.22_0.015_55)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.02_55)]"
+			role="status"
+		>
 			{m.video_editor_transcribe_queued({
 				position: queuePosition ?? 1,
 				total: Math.max(queueTotal ?? 1, queuePosition ?? 1)
@@ -83,7 +90,7 @@
 	{/if}
 	<Button
 		size="sm"
-		class="w-full"
+		class="min-h-11 w-full"
 		variant={busy ? 'outline' : 'secondary'}
 		disabled={!canGenerate && !busy}
 		aria-label={busy ? m.video_editor_transcribe_cancel() : m.video_editor_ai_captions_action()}

@@ -16,7 +16,6 @@ import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
 import { sourceSecondsToTimelineFrame } from '../timeline/utils/media-item-frames';
 import {
-	captureTranscriptionSource,
 	transcriptionSourceWindow,
 	type TranscriptionSourceSnapshot,
 	type TranscriptionSourceWindow
@@ -27,7 +26,10 @@ export interface AiCaptionSourceWindow extends TranscriptionSourceWindow {
 	isReversed: boolean;
 }
 
-export function aiCaptionSourceWindow(item: TimelineItem, timelineFps = timelineStore.fps): AiCaptionSourceWindow {
+export function aiCaptionSourceWindow(
+	item: TimelineItem,
+	timelineFps = timelineStore.fps
+): AiCaptionSourceWindow {
 	const window = transcriptionSourceWindow(item, timelineFps);
 	const speed = item.speed && item.speed > 0 ? item.speed : 1;
 	return {
@@ -37,13 +39,18 @@ export function aiCaptionSourceWindow(item: TimelineItem, timelineFps = timeline
 	};
 }
 
-export function buildAiCaptionCues(scenes: readonly MediaScene[], clip: TimelineItem, fps: number): SubtitleCue[] {
+export function buildAiCaptionCues(
+	scenes: readonly MediaScene[],
+	clip: TimelineItem,
+	fps: number
+): SubtitleCue[] {
 	const cues: SubtitleCue[] = [];
 	for (const scene of scenes) {
 		const text = scene.text?.trim();
 		if (!text) continue;
 		const startSec = Number.isFinite(scene.startSec) ? scene.startSec : scene.timeSec;
-		const endSec = Number.isFinite(scene.endSec) && scene.endSec > startSec ? scene.endSec : startSec + 3;
+		const endSec =
+			Number.isFinite(scene.endSec) && scene.endSec > startSec ? scene.endSec : startSec + 3;
 		const a = sourceSecondsToTimelineFrame(clip, startSec, fps);
 		const b = sourceSecondsToTimelineFrame(clip, endSec, fps);
 		const startFrame = Math.min(a, b);
@@ -59,7 +66,9 @@ export function buildAiCaptionCues(scenes: readonly MediaScene[], clip: Timeline
 			text
 		});
 	}
-	return cues.toSorted((left, right) => left.startFrame - right.startFrame || left.text.localeCompare(right.text));
+	return cues.toSorted(
+		(left, right) => left.startFrame - right.startFrame || left.text.localeCompare(right.text)
+	);
 }
 
 function sourceStillMatches(
@@ -83,7 +92,10 @@ function rangesOverlap(
 	left: { from: number; durationInFrames: number },
 	right: { from: number; durationInFrames: number }
 ): boolean {
-	return left.from < right.from + right.durationInFrames && right.from < left.from + left.durationInFrames;
+	return (
+		left.from < right.from + right.durationInFrames &&
+		right.from < left.from + left.durationInFrames
+	);
 }
 
 function chooseCaptionTrack(
@@ -95,7 +107,9 @@ function chooseCaptionTrack(
 		const existing = tracks.find((track) => track.id === existingTrackId);
 		if (existing && !existing.locked) return { trackId: existing.id, created: false as const };
 	}
-	for (const track of effectiveMediaTracks(tracks).toSorted((left, right) => left.order - right.order)) {
+	for (const track of effectiveMediaTracks(tracks).toSorted(
+		(left, right) => left.order - right.order
+	)) {
 		if (track.kind === 'audio' || track.locked) continue;
 		const items = timelineStore.items.filter((item) => item.trackId === track.id);
 		const overlaps = segments.some((segment) => items.some((item) => rangesOverlap(item, segment)));
@@ -117,11 +131,50 @@ function chooseCaptionTrack(
 	return { trackId: newTrack.id, created: true as const, track: newTrack };
 }
 
+export interface AiCaptionCanvas {
+	width: number;
+	height: number;
+}
+
+function resolveAiCaptionCanvas(canvas?: AiCaptionCanvas): AiCaptionCanvas {
+	if (canvas && canvas.width > 0 && canvas.height > 0) return canvas;
+	// Fallback to 16:9 project default; callers that know the real canvas should pass it explicitly.
+	return { width: 1920, height: 1080 };
+}
+
+function captionStyleForCanvas(
+	canvas: AiCaptionCanvas
+): Pick<
+	TimelineItem,
+	'fontSize' | 'fontFamily' | 'fontWeight' | 'fontStyle' | 'color' | 'backgroundColor' | 'transform'
+> & { backgroundFit: 'content'; textAlign: 'center'; verticalAlign: 'middle' } {
+	return {
+		fontSize: Math.max(36, Math.round(canvas.height * 0.045)),
+		fontFamily: 'Inter',
+		fontWeight: 600,
+		fontStyle: 'normal',
+		color: '#ffffff',
+		backgroundColor: 'rgba(0, 0, 0, 0.55)',
+		backgroundFit: 'content',
+		textAlign: 'center',
+		verticalAlign: 'middle',
+		transform: {
+			x: 0,
+			y: Math.round(canvas.height * 0.32),
+			width: Math.round(canvas.width * 0.82),
+			height: Math.round(canvas.height * 0.16),
+			rotation: 0,
+			opacity: 1
+		}
+	};
+}
+
 /** Create or replace the generated AI-caption subtitle item for one exact clip source window. */
 export function addAiCaptionSubtitleItem(
 	sourceItemId: string,
 	scenes: readonly MediaScene[],
-	expectedSource?: TranscriptionSourceWindow | TranscriptionSourceSnapshot
+	expectedSource?: TranscriptionSourceWindow | TranscriptionSourceSnapshot,
+	canvas?: AiCaptionCanvas
 ): string {
 	// SAFETY: execute returns the inner callback's string unchanged, so `as string` is sound.
 	return execute('ADD_AI_CAPTIONS', () => {
@@ -139,7 +192,8 @@ export function addAiCaptionSubtitleItem(
 		const cues = buildAiCaptionCues(scenes, source, fps);
 		if (cues.length === 0) throw new Error(m.video_editor_ai_captions_empty());
 		const matches = timelineStore.items.filter(
-			(item) => item.captionSource?.type === 'ai-captions' && item.captionSource.clipId === source.id
+			(item) =>
+				item.captionSource?.type === 'ai-captions' && item.captionSource.clipId === source.id
 		);
 		const lockedTrackIds = new Set(
 			effectiveMediaTracks(timelineStore.tracks)
@@ -161,6 +215,8 @@ export function addAiCaptionSubtitleItem(
 		}
 		if (!targetTrackId) throw new Error(m.video_editor_transcribe_unlock_track());
 		const id = existing?.id ?? crypto.randomUUID();
+		const resolvedCanvas = resolveAiCaptionCanvas(canvas);
+		const style = captionStyleForCanvas(resolvedCanvas);
 		const nextItem = {
 			...(existing ?? {}),
 			id,
@@ -179,16 +235,8 @@ export function addAiCaptionSubtitleItem(
 				isReversed: source.isReversed === true
 			},
 			cues,
-			fontSize: Math.max(36, Math.round(540 * 0.045)),
-			fontFamily: 'Inter',
-			fontWeight: 600,
-			fontStyle: 'normal',
+			...style,
 			underline: false,
-			color: '#ffffff',
-			backgroundColor: 'rgba(0, 0, 0, 0.55)',
-			backgroundFit: 'content',
-			textAlign: 'center',
-			verticalAlign: 'middle',
 			lineHeight: 1.15,
 			letterSpacing: 0,
 			paddingX: 16,
@@ -199,14 +247,6 @@ export function addAiCaptionSubtitleItem(
 				offsetY: 3,
 				blur: 10,
 				color: 'rgba(0, 0, 0, 0.75)'
-			},
-			transform: {
-				x: 0,
-				y: Math.round(540 * 0.32),
-				width: Math.round(960 * 0.82),
-				height: Math.round(540 * 0.16),
-				rotation: 0,
-				opacity: 1
 			}
 		} satisfies TimelineItem;
 		if (existing) {

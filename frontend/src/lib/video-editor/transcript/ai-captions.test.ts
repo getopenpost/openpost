@@ -152,7 +152,8 @@ describe('addAiCaptionSubtitleItem', () => {
 		];
 		const replacementId = addAiCaptionSubtitleItem(source.id, replacementScenes);
 		const aiItems = timelineStore.items.filter(
-			(item) => item.captionSource?.type === 'ai-captions' && item.captionSource.clipId === source.id
+			(item) =>
+				item.captionSource?.type === 'ai-captions' && item.captionSource.clipId === source.id
 		);
 		expect(replacementId).toBe(firstId);
 		expect(aiItems).toHaveLength(1);
@@ -161,7 +162,8 @@ describe('addAiCaptionSubtitleItem', () => {
 		commandHistory.undo();
 		expect(
 			timelineStore.items.filter(
-				(item) => item.captionSource?.type === 'ai-captions' && item.captionSource.clipId === source.id
+				(item) =>
+					item.captionSource?.type === 'ai-captions' && item.captionSource.clipId === source.id
 			)
 		).toHaveLength(2);
 	});
@@ -175,9 +177,15 @@ describe('addAiCaptionSubtitleItem', () => {
 		expect(timelineStore.itemById.has(aiId)).toBe(true);
 
 		// Replace transcript — ai must survive
-		addGeneratedSubtitleItem(source.id, [{ text: 'Transcript v2', startSeconds: 0, endSeconds: 1 }]);
-		expect(timelineStore.items.filter((item) => item.captionSource?.type === 'ai-captions')).toHaveLength(1);
-		expect(timelineStore.items.filter((item) => item.captionSource?.type === 'transcript')).toHaveLength(1);
+		addGeneratedSubtitleItem(source.id, [
+			{ text: 'Transcript v2', startSeconds: 0, endSeconds: 1 }
+		]);
+		expect(
+			timelineStore.items.filter((item) => item.captionSource?.type === 'ai-captions')
+		).toHaveLength(1);
+		expect(
+			timelineStore.items.filter((item) => item.captionSource?.type === 'transcript')
+		).toHaveLength(1);
 
 		// Replace ai — transcript must survive
 		addAiCaptionSubtitleItem(source.id, [
@@ -191,10 +199,13 @@ describe('addAiCaptionSubtitleItem', () => {
 				text: 'AI v2'
 			}
 		]);
-		expect(timelineStore.items.filter((item) => item.captionSource?.type === 'transcript')).toHaveLength(1);
-		expect(timelineStore.items.filter((item) => item.captionSource?.type === 'ai-captions')[0]?.cues?.[0]?.text).toBe(
-			'AI v2'
-		);
+		expect(
+			timelineStore.items.filter((item) => item.captionSource?.type === 'transcript')
+		).toHaveLength(1);
+		expect(
+			timelineStore.items.filter((item) => item.captionSource?.type === 'ai-captions')[0]?.cues?.[0]
+				?.text
+		).toBe('AI v2');
 	});
 
 	it('allows editing the generated cue text and persists as a normal subtitle edit', () => {
@@ -207,7 +218,9 @@ describe('addAiCaptionSubtitleItem', () => {
 				{
 					id: aiId,
 					patch: {
-						cues: aiItem.cues!.map((cue) => (cue.id === firstCue.id ? { ...cue, text: 'Corrected caption' } : cue))
+						cues: aiItem.cues!.map((cue) =>
+							cue.id === firstCue.id ? { ...cue, text: 'Corrected caption' } : cue
+						)
 					}
 				}
 			]);
@@ -221,7 +234,12 @@ describe('addAiCaptionSubtitleItem', () => {
 	it('exports ai captions via the shared subtitle sidecar and keeps them burnable', () => {
 		const aiId = addAiCaptionSubtitleItem(source.id, scenes);
 		const aiItem = timelineStore.itemById.get(aiId)!;
-		const srt = collectSubtitleCues([aiItem], 30, aiItem.from, aiItem.from + aiItem.durationInFrames);
+		const srt = collectSubtitleCues(
+			[aiItem],
+			30,
+			aiItem.from,
+			aiItem.from + aiItem.durationInFrames
+		);
 		expect(srt.length).toBe(2);
 		expect(new Set(srt.map((cue) => cue.text))).toEqual(new Set(scenes.map((scene) => scene.text)));
 		const sidecar = subtitleSidecarSrt([aiItem], 30);
@@ -244,6 +262,39 @@ describe('addAiCaptionSubtitleItem', () => {
 			])
 		).toThrow();
 	});
+
+	it('derives subtitle placement and width from the actual project canvas dimensions', () => {
+		const wide = addAiCaptionSubtitleItem(source.id, scenes, undefined, {
+			width: 1920,
+			height: 1080
+		});
+		const wideItem = timelineStore.itemById.get(wide)!;
+		expect(wideItem.transform?.width).toBe(Math.round(1920 * 0.82));
+		expect(wideItem.transform?.height).toBe(Math.round(1080 * 0.16));
+		expect(wideItem.transform?.y).toBe(Math.round(1080 * 0.32));
+		expect(wideItem.fontSize).toBe(Math.max(36, Math.round(1080 * 0.045)));
+		timelineStore._setItems(timelineStore.items.filter((item) => item.id !== wide));
+		commandHistory.clearHistory();
+
+		const portrait = addAiCaptionSubtitleItem(source.id, scenes, undefined, {
+			width: 1080,
+			height: 1920
+		});
+		const portraitItem = timelineStore.itemById.get(portrait)!;
+		expect(portraitItem.transform?.width).toBe(Math.round(1080 * 0.82));
+		expect(portraitItem.transform?.height).toBe(Math.round(1920 * 0.16));
+		expect(portraitItem.transform?.y).toBe(Math.round(1920 * 0.32));
+		expect(portraitItem.fontSize).toBe(Math.max(36, Math.round(1920 * 0.045)));
+		timelineStore._setItems(timelineStore.items.filter((item) => item.id !== portrait));
+		commandHistory.clearHistory();
+
+		const square = addAiCaptionSubtitleItem(source.id, scenes, undefined, {
+			width: 1080,
+			height: 1080
+		});
+		const squareItem = timelineStore.itemById.get(square)!;
+		expect(squareItem.transform?.width).toBe(Math.round(1080 * 0.82));
+		expect(squareItem.transform?.height).toBe(Math.round(1080 * 0.16));
+		expect(squareItem.transform?.y).toBe(Math.round(1080 * 0.32));
+	});
 });
-
-

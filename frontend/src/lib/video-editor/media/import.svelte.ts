@@ -23,6 +23,7 @@ import { createMedia, deleteMedia } from '../workspace-fs/media';
 import type { MediaAttribution, MediaMetadata } from './types';
 import { probeMediaFile } from './probe-client';
 import { mediaPool } from './pool.svelte';
+import { reconcileSystemAudioWithProbe } from '../recorder/capture-capabilities';
 import { isLottieFile, parseLottieFileBytes } from '../lottie/metadata';
 import {
 	effectiveMediaStorageMode,
@@ -365,6 +366,18 @@ export async function importGeneratedVideo(
 		throw new Error('The generated file does not contain a usable video track.');
 	}
 	const duration = Math.max(0, probe.durationSeconds);
+	let capture = options.capture;
+	if (capture?.systemAudio) {
+		const reconciled = reconcileSystemAudioWithProbe(capture.systemAudio, probe.hasAudio);
+		capture = {
+			...capture,
+			systemAudio: {
+				requested: capture.systemAudio.requested,
+				active: reconciled.active,
+				status: reconciled.status
+			}
+		};
+	}
 	const metadata: MediaMetadata = {
 		id,
 		storageType: 'workspace',
@@ -383,7 +396,7 @@ export async function importGeneratedVideo(
 		keyframeTimestamps: probe.keyframeTimestamps,
 		gopInterval: probe.gopInterval,
 		tags: [...new Set(['video', ...(options.tags ?? [])])],
-		capture: options.capture
+		capture
 	};
 
 	try {

@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "System audio denied — permission was refused.",
 	"video_editor_system_audio_unavailable": "System audio unavailable — browser or selection cannot provide it.",
 	"video_editor_record_display_unsupported": "Screen recording is not supported in this browser.",
-	"video_editor_system_audio_requested": "System audio requested — waiting for browser."
+	"video_editor_system_audio_requested": "System audio requested — waiting for browser.",
+	"video_editor_record_cursor_unknown": "Not reported by browser",
+	"video_editor_record_cursor_unsupported": "Not supported"
 }

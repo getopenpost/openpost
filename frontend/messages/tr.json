@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "Sistem sesi reddedildi.",
 	"video_editor_system_audio_unavailable": "Sistem sesi kullanılamıyor.",
 	"video_editor_record_display_unsupported": "Ekran kaydı bu tarayıcıda desteklenmiyor.",
-	"video_editor_system_audio_requested": "Sistem sesi istendi."
+	"video_editor_system_audio_requested": "Sistem sesi istendi.",
+	"video_editor_record_cursor_unknown": "Tarayıcı tarafından bildirilmedi",
+	"video_editor_record_cursor_unsupported": "Desteklenmiyor"
 }

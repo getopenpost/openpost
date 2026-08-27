@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "Systemaudio verweigert.",
 	"video_editor_system_audio_unavailable": "Systemaudio nicht verfügbar.",
 	"video_editor_record_display_unsupported": "Bildschirmaufnahme wird nicht unterstützt.",
-	"video_editor_system_audio_requested": "Systemaudio angefordert."
+	"video_editor_system_audio_requested": "Systemaudio angefordert.",
+	"video_editor_record_cursor_unknown": "Vom Browser nicht gemeldet",
+	"video_editor_record_cursor_unsupported": "Nicht unterstützt"
 }

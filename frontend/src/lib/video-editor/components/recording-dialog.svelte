@@ -203,6 +203,23 @@
 		preferences.set('cursorMode', value);
 	}
 
+	function localizedCursor(value: string): string {
+		switch (value) {
+			case 'always':
+				return m.video_editor_record_cursor_always();
+			case 'motion':
+				return m.video_editor_record_cursor_motion();
+			case 'never':
+				return m.video_editor_record_cursor_never();
+			case 'unsupported':
+				return m.video_editor_record_cursor_unsupported();
+			case 'unknown':
+				return m.video_editor_record_cursor_unknown();
+			default:
+				return value;
+		}
+	}
+
 	function recoveryUrl(artifact: (typeof recorder.lastArtifacts)[number]): RecoveryUrl {
 		return {
 			kind: artifact.kind,
@@ -563,11 +580,11 @@
 							<p class="text-xs text-muted-foreground">
 								<span class="font-medium">{m.video_editor_system_audio()}:</span>
 								{systemAudioStatusText}
-								{#if systemAudioTruth.cursorSupported}
-									<span>
-										· {m.video_editor_record_cursor_mode()}: {systemAudioTruth.cursorActual}</span
-									>
-								{/if}
+								<span>
+									· {m.video_editor_record_cursor_mode()}: {localizedCursor(
+										systemAudioTruth.cursorActual
+									)}</span
+								>
 							</p>
 						{/if}
 					</div>

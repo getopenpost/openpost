@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "Áudio do sistema negado.",
 	"video_editor_system_audio_unavailable": "Áudio do sistema indisponível.",
 	"video_editor_record_display_unsupported": "Gravação de tela não suportada.",
-	"video_editor_system_audio_requested": "Áudio do sistema solicitado."
+	"video_editor_system_audio_requested": "Áudio do sistema solicitado.",
+	"video_editor_record_cursor_unknown": "Não informado pelo navegador",
+	"video_editor_record_cursor_unsupported": "Não suportado"
 }

@@ -20,7 +20,7 @@ export interface MediaAttribution {
 	licenseUrl?: string;
 }
 
-export type RecorderCursorMode = 'always' | 'motion' | 'never' | 'unsupported';
+export type RecorderCursorMode = 'always' | 'motion' | 'never' | 'unsupported' | 'unknown';
 
 export type RecordingSystemAudioStatus =
 	| 'not-requested'
@@ -62,7 +62,7 @@ export function normalizeRecordingCaptureMetadata(
 	};
 	if (candidate.cursor) {
 		const cursor = candidate.cursor as Partial<RecordingCaptureMetadata['cursor']>;
-		const modes: RecorderCursorMode[] = ['always', 'motion', 'never', 'unsupported'];
+		const modes: RecorderCursorMode[] = ['always', 'motion', 'never', 'unsupported', 'unknown'];
 		if (
 			cursor &&
 			typeof cursor.requested === 'string' &&

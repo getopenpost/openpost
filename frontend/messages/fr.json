@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "Son système refusé.",
 	"video_editor_system_audio_unavailable": "Son système indisponible.",
 	"video_editor_record_display_unsupported": "L’enregistrement d’écran n’est pas pris en charge.",
-	"video_editor_system_audio_requested": "Son système demandé."
+	"video_editor_system_audio_requested": "Son système demandé.",
+	"video_editor_record_cursor_unknown": "Non signalé par le navigateur",
+	"video_editor_record_cursor_unsupported": "Non pris en charge"
 }

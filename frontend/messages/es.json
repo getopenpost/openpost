@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "Audio del sistema denegado.",
 	"video_editor_system_audio_unavailable": "Audio del sistema no disponible.",
 	"video_editor_record_display_unsupported": "La grabación de pantalla no es compatible con este navegador.",
-	"video_editor_system_audio_requested": "Audio del sistema solicitado."
+	"video_editor_system_audio_requested": "Audio del sistema solicitado.",
+	"video_editor_record_cursor_unknown": "No informado por el navegador",
+	"video_editor_record_cursor_unsupported": "No compatible"
 }

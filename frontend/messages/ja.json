@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "システム音声が拒否されました。",
 	"video_editor_system_audio_unavailable": "システム音声は利用できません。",
 	"video_editor_record_display_unsupported": "このブラウザでは画面収録に対応していません。",
-	"video_editor_system_audio_requested": "システム音声を要求中。"
+	"video_editor_system_audio_requested": "システム音声を要求中。",
+	"video_editor_record_cursor_unknown": "ブラウザから報告なし",
+	"video_editor_record_cursor_unsupported": "非対応"
 }

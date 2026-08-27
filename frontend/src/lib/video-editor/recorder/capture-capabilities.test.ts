@@ -3,6 +3,7 @@ import {
 	deriveSystemAudioStatus,
 	detectRecordingCapabilities,
 	isSystemAudioActive,
+	readActualCursor,
 	resolveCursorConstraint
 } from './capture-capabilities';
 
@@ -92,5 +93,25 @@ describe('capture capabilities', () => {
 				capabilities: caps
 			})
 		).toBe('denied');
+	});
+
+	it('reads actual cursor from track settings and never mirrors requested when unreported', () => {
+		const supportedCaps = {
+			hasDisplayMedia: true,
+			cursor: { supported: true, modes: ['always', 'motion', 'never'] }
+		} as unknown as ReturnType<typeof detectRecordingCapabilities>;
+		const unsupportedCaps = {
+			hasDisplayMedia: true,
+			cursor: { supported: false, modes: [] }
+		} as unknown as ReturnType<typeof detectRecordingCapabilities>;
+		const trackAlways = new FakeTrack('video');
+		trackAlways.getSettings = () => ({ cursor: 'always' }) as unknown as MediaTrackSettings;
+		const streamAlways = new FakeStream([trackAlways]) as unknown as MediaStream;
+		expect(readActualCursor(streamAlways, supportedCaps)).toBe('always');
+		const trackUnknown = new FakeTrack('video');
+		trackUnknown.getSettings = () => ({}) as unknown as MediaTrackSettings;
+		const streamUnknown = new FakeStream([trackUnknown]) as unknown as MediaStream;
+		expect(readActualCursor(streamUnknown, supportedCaps)).toBe('unknown');
+		expect(readActualCursor(streamUnknown, unsupportedCaps)).toBe('unsupported');
 	});
 });

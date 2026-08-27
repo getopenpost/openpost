@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "시스템 오디오가 거부되었습니다.",
 	"video_editor_system_audio_unavailable": "시스템 오디오를 사용할 수 없습니다.",
 	"video_editor_record_display_unsupported": "이 브라우저에서는 화면 녹화를 지원하지 않습니다.",
-	"video_editor_system_audio_requested": "시스템 오디오 요청됨."
+	"video_editor_system_audio_requested": "시스템 오디오 요청됨.",
+	"video_editor_record_cursor_unknown": "브라우저에서 보고되지 않음",
+	"video_editor_record_cursor_unsupported": "지원되지 않음"
 }

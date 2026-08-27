@@ -1,6 +1,7 @@
 /* Capture truth: browser capability detection for cursor and system/tab audio */
 
 export type CursorMode = 'always' | 'motion' | 'never';
+export type CursorActualMode = CursorMode | 'unsupported' | 'unknown';
 export type SystemAudioStatus =
 	| 'not-requested'
 	| 'requested'
@@ -63,6 +64,24 @@ export function resolveCursorConstraint(
 	return 'always';
 }
 
+export function readActualCursor(
+	stream: MediaStream | null,
+	capabilities: RecordingCapabilities
+): CursorActualMode {
+	if (!capabilities.cursor.supported) return 'unsupported';
+	if (!stream) return 'unknown';
+	const track = stream.getVideoTracks()[0];
+	if (!track) return 'unknown';
+	try {
+		const settings = track.getSettings() as MediaTrackSettings & { cursor?: string };
+		const value = settings.cursor;
+		if (value === 'always' || value === 'motion' || value === 'never') return value;
+		return 'unknown';
+	} catch {
+		return 'unknown';
+	}
+}
+
 export function isSystemAudioActive(stream: MediaStream | null): boolean {
 	if (!stream) return false;
 	const tracks = stream.getAudioTracks();
@@ -87,24 +106,24 @@ export function deriveSystemAudioStatus(args: {
 	return 'inactive';
 }
 
-export function systemAudioStatusLabel(
-	status: SystemAudioStatus,
-	t: (key: string) => string
-): string {
-	switch (status) {
-		case 'not-requested':
-			return t('video_editor_system_audio_not_requested');
-		case 'active':
-			return t('video_editor_system_audio_active');
-		case 'inactive':
-			return t('video_editor_system_audio_inactive');
-		case 'unavailable':
-			return t('video_editor_system_audio_unavailable');
-		case 'denied':
-			return t('video_editor_system_audio_denied');
-		case 'requested':
-			return t('video_editor_system_audio_requested');
-		default:
-			return status;
+export function reconcileSystemAudioWithProbe(
+	capture: { requested: boolean; active: boolean; status: SystemAudioStatus },
+	hasAudio: boolean
+): { active: boolean; status: SystemAudioStatus } {
+	const requested = capture.requested;
+	const priorStatus = capture.status;
+	const active = hasAudio;
+	let status: SystemAudioStatus;
+	if (!requested) {
+		status = active ? 'active' : 'not-requested';
+	} else if (active) {
+		status = 'active';
+	} else if (priorStatus === 'denied') {
+		status = 'denied';
+	} else if (priorStatus === 'unavailable') {
+		status = 'unavailable';
+	} else {
+		status = 'inactive';
 	}
+	return { active, status };
 }

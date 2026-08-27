@@ -7144,5 +7144,7 @@
 	"video_editor_system_audio_denied": "系统音频被拒绝。",
 	"video_editor_system_audio_unavailable": "系统音频不可用。",
 	"video_editor_record_display_unsupported": "此浏览器不支持屏幕录制。",
-	"video_editor_system_audio_requested": "已请求系统音频。"
+	"video_editor_system_audio_requested": "已请求系统音频。",
+	"video_editor_record_cursor_unknown": "浏览器未报告",
+	"video_editor_record_cursor_unsupported": "不支持"
 }

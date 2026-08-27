@@ -45,6 +45,8 @@ const VERTEX_SHADER = FULLSCREEN_VERTEX_GLSL;
 function fragmentShaderSource(definition: GpuShaderDefinition): string {
 	return `#version 300 es
 precision highp float;
+precision highp sampler2D;
+precision highp sampler3D;
 uniform sampler2D uInputTex;
 in vec2 vUv;
 out vec4 fragColor;

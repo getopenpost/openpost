@@ -249,7 +249,7 @@ export const lut: GpuShaderDefinition = {
 	category: 'color',
 	entryPoint: 'lutFragment',
 	fragmentSource: `
-uniform sampler3D uDataTex;
+uniform highp sampler3D uDataTex;
 uniform float u_lutSize;
 uniform float u_intensity;
 vec4 lutFragment(vec2 vUv) {

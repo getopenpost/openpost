@@ -7153,5 +7153,7 @@
 	"video_editor_beat_no_selection": "Select an audio or video clip to detect beats.",
 	"video_editor_beat_unsupported_clip": "Beat detection works on audio and video clips.",
 	"video_editor_beat_missing_media": "This clip has no source media.",
-	"video_editor_beat_unsupported_audio": "This media has no decodable audio."
+	"video_editor_beat_unsupported_audio": "This media has no decodable audio.",
+	"video_editor_beat_marker_label": "Beat {number}",
+	"video_editor_downbeat_marker_label": "Downbeat {number}"
 }

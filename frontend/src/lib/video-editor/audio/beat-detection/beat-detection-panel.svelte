@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	import { beatDetectionService } from './beat-detection-service.svelte';
+	import { beatDetectionService as defaultBeatDetectionService } from './beat-detection-service.svelte';
+	import type { BeatDetectionService } from './beat-detection-service.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import MusicIcon from '@lucide/svelte/icons/music';
@@ -10,9 +11,11 @@
 	import FlagIcon from '@lucide/svelte/icons/flag';
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 
-	let { selectedItemId = $bindable<string | null>(null) } = $props<{
-		selectedItemId?: string | null;
-	}>();
+	let { selectedItemId = $bindable<string | null>(null), service = defaultBeatDetectionService } =
+		$props<{
+			selectedItemId?: string | null;
+			service?: BeatDetectionService;
+		}>();
 
 	const mediaItems = $derived(
 		timelineStore.items.filter((item) => item.type === 'audio' || item.type === 'video')
@@ -32,20 +35,20 @@
 	let errorAnnounce = $state('');
 
 	$effect(() => {
-		if (beatDetectionService.error) errorAnnounce = beatDetectionService.error;
+		if (service.error) errorAnnounce = service.error;
 	});
 
 	async function run() {
 		errorAnnounce = '';
 		try {
-			await beatDetectionService.analyzeSelectedClip(selectedClip?.id ?? null);
+			await service.analyzeSelectedClip(selectedClip?.id ?? null);
 		} catch {
 			// error stored on service
 		}
 	}
 
 	function cancel() {
-		beatDetectionService.cancel();
+		service.cancel();
 	}
 </script>
 
@@ -85,7 +88,7 @@
 			/>
 		</label>
 
-		{#if beatDetectionService.isAnalyzing}
+		{#if service.isAnalyzing}
 			<Button
 				variant="outline"
 				size="sm"
@@ -115,30 +118,30 @@
 	</div>
 
 	<div aria-live="polite" aria-atomic="true" class="min-h-5 text-[11px]">
-		{#if beatDetectionService.isAnalyzing}
+		{#if service.isAnalyzing}
 			<span class="inline-flex items-center gap-1.5 text-[oklch(0.75_0.12_220)]">
 				<LoaderCircleIcon
 					class="size-3.5 animate-spin motion-reduce:animate-none"
 					aria-hidden="true"
 				/>
-				{beatDetectionService.progress ?? m.video_editor_beat_analyzing()}
+				{service.progress ?? m.video_editor_beat_analyzing()}
 			</span>
-		{:else if beatDetectionService.status === 'success' && beatDetectionService.lastResult}
+		{:else if service.status === 'success' && service.lastResult}
 			<span class="text-[oklch(0.72_0.14_140)]">
-				{beatDetectionService.lastResult.message}
-				{#if beatDetectionService.lastResult.bpm}
+				{service.lastResult.message}
+				{#if service.lastResult.bpm}
 					· {m.video_editor_beat_bpm_value({
-						bpm: Math.round(beatDetectionService.lastResult.bpm ?? 0)
+						bpm: Math.round(service.lastResult.bpm ?? 0)
 					})}
 				{/if}
 			</span>
-		{:else if beatDetectionService.status === 'error' && beatDetectionService.error}
+		{:else if service.status === 'error' && service.error}
 			<span role="alert" class="text-[oklch(0.68_0.18_25)]">
-				{beatDetectionService.error}
+				{service.error}
 			</span>
-		{:else if beatDetectionService.status === 'cancelled'}
+		{:else if service.status === 'cancelled'}
 			<span class="text-[oklch(0.65_0.01_55)]">
-				{beatDetectionService.lastResult?.message ?? m.video_editor_beat_cancelled()}
+				{service.lastResult?.message ?? m.video_editor_beat_cancelled()}
 			</span>
 		{:else if timelineStore.markers.length > 0}
 			<span class="text-[oklch(0.65_0.01_55)]">

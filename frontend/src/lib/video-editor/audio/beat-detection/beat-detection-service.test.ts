@@ -88,7 +88,7 @@ describe('beat detection service - worker fallback and cancellation', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('falls back to main thread when worker construction throws', async () => {
+	it('falls back to main thread for any worker construction failure', async () => {
 		mockAudioContext();
 		const fallbackSpy = vi.spyOn(BeatAnalyzer.prototype, 'analyzeBlob').mockResolvedValue({
 			bpm: 120,
@@ -100,7 +100,7 @@ describe('beat detection service - worker fallback and cancellation', () => {
 		const service = createBeatDetectionService({
 			resolveMediaBlob: async () => new Blob([new Uint8Array(10)]),
 			createWorker: () => {
-				throw new Error('Worker construction failed');
+				throw new Error('Blocked by content security policy');
 			}
 		});
 		const result = await service.analyzeSelectedClip('clip-1');

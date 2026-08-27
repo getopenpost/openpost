@@ -34,6 +34,7 @@ export function captureSnapshot(): TimelineSnapshot {
 		currentFrame: timelineStore.currentFrame,
 		masterVolumeDb: timelineStore.masterVolumeDb,
 		masterMuted: timelineStore.masterMuted,
+		busAudioEq: $state.snapshot(timelineStore.busAudioEq),
 		sequenceRegistry: sequenceStore.snapshotRegistry()
 	};
 }
@@ -66,7 +67,8 @@ export function restoreSnapshot(
 		currentFrame: plainSnapshot.currentFrame,
 		fps: plainSnapshot.fps,
 		masterVolumeDb: plainSnapshot.masterVolumeDb,
-		masterMuted: plainSnapshot.masterMuted
+		masterMuted: plainSnapshot.masterMuted,
+		busAudioEq: plainSnapshot.busAudioEq
 	});
 	timelineStore._setScrollPosition(plainSnapshot.scrollPosition);
 	timelineStore._setSnapEnabled(plainSnapshot.snapEnabled);
@@ -89,6 +91,7 @@ export function snapshotsEqual(a: TimelineSnapshot, b: TimelineSnapshot): boolea
 		a.snapEnabled === b.snapEnabled &&
 		a.currentFrame === b.currentFrame &&
 		a.masterVolumeDb === b.masterVolumeDb &&
-		a.masterMuted === b.masterMuted
+		a.masterMuted === b.masterMuted &&
+		JSON.stringify(a.busAudioEq ?? null) === JSON.stringify(b.busAudioEq ?? null)
 	);
 }

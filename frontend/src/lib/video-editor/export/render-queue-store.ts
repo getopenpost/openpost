@@ -6,6 +6,7 @@ import type {
 	TimelineTrack,
 	TimelineTransition
 } from '../project/types';
+import type { AudioEqSettings } from '../audio/types';
 import type { RenderExportProgress } from '../media/render-export';
 
 export type RenderQueueJobStatus = 'queued' | 'rendering' | 'completed' | 'failed' | 'cancelled';
@@ -23,6 +24,7 @@ export interface RenderQueueSnapshot {
 	compositions: SubComposition[];
 	masterVolumeDb?: number;
 	masterMuted?: boolean;
+	busAudioEq?: AudioEqSettings;
 }
 
 export interface RenderQueueSettings {

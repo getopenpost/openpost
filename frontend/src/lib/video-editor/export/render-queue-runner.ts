@@ -28,7 +28,8 @@ function projectForJob(job: RenderQueueJob): Project {
 			transitions: snapshot.transitions,
 			compositions: snapshot.compositions,
 			masterVolumeDb: snapshot.masterVolumeDb ?? 0,
-			masterMuted: snapshot.masterMuted ?? false
+			masterMuted: snapshot.masterMuted ?? false,
+			busAudioEq: snapshot.busAudioEq
 		}
 	};
 }

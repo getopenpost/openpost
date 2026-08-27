@@ -13,6 +13,7 @@ import type {
 	WipeDirection as TransitionDirection
 } from '../transitions/types';
 import type { AudioEqFieldSource } from '../audio/audio-eq';
+import type { AudioEqSettings } from '../audio/types';
 import type { AudioPitchFieldSource } from '../audio/audio-pitch';
 
 export type {
@@ -710,6 +711,8 @@ export interface TimelineTrack {
 	muted: boolean;
 	solo: boolean;
 	volume?: number;
+	/** Per-track parametric EQ inserted after clip EQ and before bus EQ. */
+	audioEq?: AudioEqSettings;
 	color?: string;
 	order: number;
 }
@@ -762,6 +765,8 @@ export interface ProjectTimeline {
 	masterVolumeDb?: number;
 	/** Persisted master-bus mute. */
 	masterMuted?: boolean;
+	/** Master-bus parametric EQ applied after all track and clip stages. */
+	busAudioEq?: AudioEqSettings;
 }
 
 export interface SubComposition {
@@ -782,6 +787,8 @@ export interface SubComposition {
 	outPoint?: number | null;
 	masterVolumeDb?: number;
 	masterMuted?: boolean;
+	/** Sequence-bus parametric EQ applied after nested track and clip stages. */
+	busAudioEq?: AudioEqSettings;
 }
 
 export interface ProjectResolution {

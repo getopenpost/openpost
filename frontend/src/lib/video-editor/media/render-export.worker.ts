@@ -70,7 +70,9 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 			timeline?.tracks ?? [],
 			message.project.metadata.fps,
 			timeline?.transitions ?? [],
-			timeline?.compositions ?? []
+			timeline?.compositions ?? [],
+			new Set(),
+			timeline?.busAudioEq
 		);
 		const hasAudio =
 			!smartCopyEligible &&

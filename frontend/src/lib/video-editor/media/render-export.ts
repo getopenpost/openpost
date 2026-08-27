@@ -750,7 +750,15 @@ export async function renderMultiTrackVideoArtifact(
 	const mixEntries = entriesWithAudioSources(
 		sliceMixEntries(
 			applyMixEntryGain(
-				planNestedMixdown(items, tracks, fps, transitions, timeline?.compositions ?? []),
+				planNestedMixdown(
+					items,
+					tracks,
+					fps,
+					transitions,
+					timeline?.compositions ?? [],
+					new Set(),
+					timeline?.busAudioEq
+				),
 				masterBusGain(timeline)
 			),
 			startFrame / fps,
@@ -955,7 +963,15 @@ export async function renderTimelineAudioArtifact(
 	const entries = entriesWithAudioSources(
 		sliceMixEntries(
 			applyMixEntryGain(
-				planNestedMixdown(items, tracks, fps, transitions, project.timeline?.compositions ?? []),
+				planNestedMixdown(
+					items,
+					tracks,
+					fps,
+					transitions,
+					project.timeline?.compositions ?? [],
+					new Set(),
+					project.timeline?.busAudioEq
+				),
 				masterBusGain(project.timeline)
 			),
 			startFrame / fps,

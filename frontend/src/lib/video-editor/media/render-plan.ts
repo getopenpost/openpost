@@ -16,6 +16,7 @@ import type {
 	TimelineTrack,
 	TimelineTransition
 } from '../project/types';
+import type { AudioEqSettings } from '../audio/types';
 import { activeValueAt } from '../timeline/keyframe-interpolation';
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
 import {
@@ -132,12 +133,15 @@ const AUDIO_BEARING_TYPES: ReadonlySet<TimelineItem['type']> = new Set(['video',
  * muted tracks drop out; solo tracks mute everything non-soloed. Static
  * volume × track volume forms the baseline gain, and keyframed volume
  * becomes per-point gain automation.
+ *
+ * Audio EQ stages are ordered outer-to-inner: bus -> track -> clip.
  */
 export function planMixdown(
 	items: TimelineItem[],
 	tracks: TimelineTrack[],
 	fps: number,
-	transitions: TimelineTransition[] = []
+	transitions: TimelineTransition[] = [],
+	busAudioEq?: AudioEqSettings | null
 ): MixEntry[] {
 	const resolvedTracks = effectiveMediaTracks(tracks);
 	const trackById = new Map(resolvedTracks.map((track) => [track.id, track]));
@@ -173,11 +177,16 @@ export function planMixdown(
 							(item.sourceStart ?? 0) + (item.durationInFrames / fps) * speed * sourceFps) /
 							sourceFps +
 							(beforeFrames / fps) * speed
-					)
+				)
 				: Math.max(0, (item.sourceStart ?? 0) / sourceFps - (beforeFrames / fps) * speed),
 			playbackRate: speed,
 			pitchShiftSemitones: getAudioPitchShiftSemitones(item),
-			audioEqStages: appendResolvedAudioEqSources(undefined, getAudioEqSettings(item)),
+			audioEqStages: appendResolvedAudioEqSources(
+				undefined,
+				busAudioEq,
+				track.audioEq,
+				getAudioEqSettings(item)
+			),
 			reversed: item.isReversed === true,
 			durationSeconds: (endFrame - startFrame) / fps,
 			gainPoints: previewGainPoints.map((point) => ({
@@ -214,9 +223,10 @@ export function planNestedMixdown(
 	fps: number,
 	transitions: TimelineTransition[] = [],
 	compositions: SubComposition[] = [],
-	ancestry: ReadonlySet<string> = new Set()
+	ancestry: ReadonlySet<string> = new Set(),
+	busAudioEq?: AudioEqSettings | null
 ): MixEntry[] {
-	const entries = planMixdown(items, tracks, fps, transitions);
+	const entries = planMixdown(items, tracks, fps, transitions, busAudioEq);
 	const resolvedTracks = effectiveMediaTracks(tracks);
 	const compositionById = new Map(compositions.map((composition) => [composition.id, composition]));
 	const trackById = new Map(resolvedTracks.map((track) => [track.id, track]));
@@ -238,7 +248,8 @@ export function planNestedMixdown(
 				composition.fps,
 				composition.transitions,
 				compositions,
-				new Set([...ancestry, wrapper.compositionId])
+				new Set([...ancestry, wrapper.compositionId]),
+				composition.busAudioEq
 			),
 			composition.masterMuted ? 0 : mixerDbToGain(composition.masterVolumeDb ?? 0)
 		);
@@ -270,6 +281,8 @@ export function planNestedMixdown(
 				pitchShiftSemitones: entry.pitchShiftSemitones + wrapperPitch,
 				audioEqStages: prependResolvedAudioEqSources(
 					entry.audioEqStages,
+					busAudioEq,
+					track.audioEq,
 					getAudioEqSettings(wrapper)
 				),
 				durationSeconds: entry.durationSeconds / wrapperSpeed,

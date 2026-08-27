@@ -63,7 +63,8 @@ function activeTimelineSnapshot(): ProjectTimeline {
 		outPoint: timelineStore.outPoint ?? undefined,
 		markers: copy(timelineStore.markers),
 		masterVolumeDb: timelineStore.masterVolumeDb,
-		masterMuted: timelineStore.masterMuted
+		masterMuted: timelineStore.masterMuted,
+		busAudioEq: copy(timelineStore.busAudioEq)
 	};
 }
 
@@ -80,7 +81,8 @@ function applyTimeline(timeline: ProjectTimeline, fps: number): void {
 		zoomLevel: timeline.zoomLevel ?? 1,
 		scrollPosition: timeline.scrollPosition ?? 0,
 		masterVolumeDb: timeline.masterVolumeDb ?? 0,
-		masterMuted: timeline.masterMuted ?? false
+		masterMuted: timeline.masterMuted ?? false,
+		busAudioEq: copy(timeline.busAudioEq)
 	});
 }
 
@@ -96,7 +98,8 @@ function sequenceTimeline(composition: SubComposition, view?: SequenceViewState)
 		zoomLevel: view?.zoomLevel ?? 1,
 		scrollPosition: view?.scrollPosition ?? 0,
 		masterVolumeDb: composition.masterVolumeDb ?? 0,
-		masterMuted: composition.masterMuted ?? false
+		masterMuted: composition.masterMuted ?? false,
+		busAudioEq: copy(composition.busAudioEq)
 	};
 }
 
@@ -147,6 +150,7 @@ function flushActive(): void {
 		outPoint: snapshot.outPoint ?? null,
 		masterVolumeDb: snapshot.masterVolumeDb,
 		masterMuted: snapshot.masterMuted,
+		busAudioEq: copy(snapshot.busAudioEq),
 		durationInFrames: snapshot.items.reduce(
 			(max, item) => Math.max(max, item.from + item.durationInFrames),
 			0

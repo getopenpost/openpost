@@ -177,16 +177,33 @@ function unmodifiedVideo(item: TimelineItem, media: MediaMetadata): boolean {
 	);
 }
 
+function isTrackEqActive(track: TimelineTrack): boolean {
+	return (
+		track.audioEq !== undefined &&
+		appendResolvedAudioEqSources(undefined, track.audioEq).some(isAudioEqStageActive)
+	);
+}
+
+function isBusEqActive(busAudioEq?: import('../audio/types').AudioEqSettings | null): boolean {
+	return (
+		busAudioEq !== undefined &&
+		busAudioEq !== null &&
+		appendResolvedAudioEqSources(undefined, busAudioEq).some(isAudioEqStageActive)
+	);
+}
+
 function unmodifiedAudio(item: TimelineItem, track: TimelineTrack): boolean {
 	const volume = (item.volume ?? 1) * (track.volume ?? 1);
-	const hasEq = appendResolvedAudioEqSources(undefined, getAudioEqSettings(item)).some(
+	const hasClipEq = appendResolvedAudioEqSources(undefined, getAudioEqSettings(item)).some(
 		isAudioEqStageActive
 	);
+	const hasTrackEq = isTrackEqActive(track);
 	return (
 		closeTo(item.speed ?? 1, 1) &&
 		!item.isReversed &&
 		!isAudioPitchShiftActive(getAudioPitchShiftSemitones(item)) &&
-		!hasEq &&
+		!hasClipEq &&
+		!hasTrackEq &&
 		(volume === 0 || closeTo(volume, 1)) &&
 		closeTo(item.audioFadeIn ?? 0, 0) &&
 		closeTo(item.audioFadeOut ?? 0, 0) &&
@@ -226,6 +243,22 @@ export function assessSmartCopy(
 	const timeline = project.timeline;
 	if (!timeline) return { eligible: false, blocker: 'no-timeline' };
 	if (timeline.masterMuted || !closeTo(timeline.masterVolumeDb ?? 0, 0)) {
+		return { eligible: false, blocker: 'edited-audio' };
+	}
+	if (isBusEqActive(timeline.busAudioEq)) {
+		return { eligible: false, blocker: 'edited-audio' };
+	}
+	if (effectiveMediaTracks(timeline.tracks).some(isTrackEqActive)) {
+		return { eligible: false, blocker: 'edited-audio' };
+	}
+	if (timeline.compositions?.some((composition) => isBusEqActive(composition.busAudioEq))) {
+		return { eligible: false, blocker: 'edited-audio' };
+	}
+	if (
+		timeline.compositions?.some((composition) =>
+			effectiveMediaTracks(composition.tracks).some(isTrackEqActive)
+		)
+	) {
 		return { eligible: false, blocker: 'edited-audio' };
 	}
 	const fps = project.metadata.fps;

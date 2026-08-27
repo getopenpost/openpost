@@ -12,6 +12,7 @@
  */
 
 import type { TimelineItem, TimelineMarker, TimelineTrack } from '$lib/video-editor/project/types';
+import type { AudioEqSettings } from '$lib/video-editor/audio/types';
 import { clampTimelineZoom } from '$lib/video-editor/timeline/zoom';
 import { calculateSplitSourceBoundaries } from '../utils/source-calculations';
 import { synchronizeTranscriptCaptionsAfterSplit } from '../../transcript/split-transcript-captions';
@@ -65,6 +66,7 @@ interface TimelineState {
 	isDirty: boolean;
 	masterVolumeDb: number;
 	masterMuted: boolean;
+	busAudioEq?: AudioEqSettings;
 }
 
 const state = $state<TimelineState>({
@@ -86,7 +88,8 @@ const state = $state<TimelineState>({
 	seekLocked: false,
 	isDirty: false,
 	masterVolumeDb: 0,
-	masterMuted: false
+	masterMuted: false,
+	busAudioEq: undefined
 });
 
 let index = $state.raw<ItemsIndex>(buildIndex(state.items));
@@ -148,6 +151,9 @@ export const timelineStore = {
 	get masterMuted(): boolean {
 		return state.masterMuted;
 	},
+	get busAudioEq(): AudioEqSettings | undefined {
+		return state.busAudioEq;
+	},
 	get itemsByTrackId(): Map<string, TimelineItem[]> {
 		return index.itemsByTrackId;
 	},
@@ -172,6 +178,7 @@ export const timelineStore = {
 		scrollPosition?: number;
 		masterVolumeDb?: number;
 		masterMuted?: boolean;
+		busAudioEq?: AudioEqSettings;
 	}): void {
 		if (next.items) state.items = next.items;
 		if (next.tracks) state.tracks = next.tracks;
@@ -202,6 +209,7 @@ export const timelineStore = {
 			);
 		}
 		if (next.masterMuted !== undefined) state.masterMuted = Boolean(next.masterMuted);
+		if (next.busAudioEq !== undefined) state.busAudioEq = next.busAudioEq ? { ...next.busAudioEq } : undefined;
 		reindex();
 	},
 
@@ -216,6 +224,7 @@ export const timelineStore = {
 		state.seekLocked = false;
 		state.masterVolumeDb = 0;
 		state.masterMuted = false;
+		state.busAudioEq = undefined;
 		state.isDirty = false;
 		reindex();
 	},
@@ -239,6 +248,11 @@ export const timelineStore = {
 
 	_setMasterMuted(value: boolean): void {
 		state.masterMuted = value;
+		state.isDirty = true;
+	},
+
+	_setBusAudioEq(value?: AudioEqSettings): void {
+		state.busAudioEq = value ? { ...value } : undefined;
 		state.isDirty = true;
 	},
 
@@ -425,5 +439,6 @@ export const timelineStore = {
 		state.seekLocked = false;
 		state.masterVolumeDb = 0;
 		state.masterMuted = false;
+		state.busAudioEq = undefined;
 	}
 };

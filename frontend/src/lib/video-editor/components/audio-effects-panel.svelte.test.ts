@@ -4,6 +4,7 @@ import { page } from 'vitest/browser';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
+import type { DelayEffect, ReverbEffect } from '$lib/video-editor/audio/audio-effects';
 import AudioEffectsPanel from './audio-effects-panel.svelte';
 import '../../../routes/layout.css';
 
@@ -31,7 +32,7 @@ describe('AudioEffectsPanel rack', () => {
 					mix: 0.28,
 					lowCutHz: 180,
 					highCutHz: 8000
-				} as never,
+				} satisfies DelayEffect,
 				{
 					id: 'fx-reverb',
 					type: 'reverb',
@@ -41,7 +42,7 @@ describe('AudioEffectsPanel rack', () => {
 					damping: 0.6,
 					wet: 0.55,
 					preDelayMs: 30
-				} as never
+				} satisfies ReverbEffect
 			]
 		};
 		timelineStore.setAll({
@@ -73,9 +74,9 @@ describe('AudioEffectsPanel rack', () => {
 			timelineStore.itemById.get('clip-1')?.audioEffects?.find((e) => e.id === 'fx-delay')?.enabled
 		).toBe(false);
 
-		// Reorder: move reverb up (↑)
+		// Reorder: move reverb up
 		await screen.getByText('Reverb', { exact: true }).click();
-		await screen.getByRole('button', { name: '↑' }).click();
+		await screen.getByRole('button', { name: 'Move Reverb up' }).click();
 		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]?.id).toBe('fx-reverb');
 
 		// Reset reverb

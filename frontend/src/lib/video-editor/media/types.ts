@@ -1,3 +1,5 @@
+import { createLogger } from '../workspace-fs/logger';
+
 /**
  * Media metadata types for the workspace media pool.
  *
@@ -24,7 +26,6 @@ export type RecorderCursorMode = 'always' | 'motion' | 'never' | 'unsupported' |
 
 export type RecordingSystemAudioStatus =
 	| 'not-requested'
-	| 'requested'
 	| 'active'
 	| 'inactive'
 	| 'unavailable'
@@ -76,13 +77,14 @@ export function normalizeRecordingCaptureMetadata(
 				actual: cursor.actual as RecorderCursorMode,
 				supported: cursor.supported
 			};
+		} else if (candidate.cursor) {
+			createLogger('MediaTypes').warn('Dropped invalid cursor capture metadata', cursor);
 		}
 	}
 	if (candidate.systemAudio) {
 		const audio = candidate.systemAudio as Partial<RecordingCaptureMetadata['systemAudio']>;
 		const statuses: RecordingSystemAudioStatus[] = [
 			'not-requested',
-			'requested',
 			'active',
 			'inactive',
 			'unavailable',
@@ -100,6 +102,8 @@ export function normalizeRecordingCaptureMetadata(
 				active: audio.active,
 				status: audio.status as RecordingSystemAudioStatus
 			};
+		} else if (candidate.systemAudio) {
+			createLogger('MediaTypes').warn('Dropped invalid systemAudio capture metadata', audio);
 		}
 	}
 	return result;

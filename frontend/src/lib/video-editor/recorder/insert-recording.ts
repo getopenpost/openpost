@@ -64,7 +64,7 @@ function captureMetadataForArtifact(
 	const result: RecordingCaptureMetadata = {
 		version: 1,
 		kind: artifact.kind,
-		capturedAt: new Date().toISOString()
+		capturedAt: truth.capturedAt
 	};
 	if (artifact.kind === 'screen') {
 		result.cursor = {

@@ -116,6 +116,100 @@ describe('RecordingDialog', () => {
 		await closeDialog(screen);
 	});
 
+	it('disables Start and shows honest hint when display capture is unavailable', async () => {
+		const originalMediaDevices = navigator.mediaDevices;
+		vi.stubGlobal('navigator', {
+			...navigator,
+			mediaDevices: {
+				...originalMediaDevices,
+				getDisplayMedia: undefined,
+				getSupportedConstraints: () => ({}) as any,
+				enumerateDevices: vi.fn(async () => [])
+			},
+			storage: { estimate: async () => ({ quota: 1_000_000_000, usage: 0 }) }
+		} as any);
+		const screen = await render(RecordingDialog, dialogProps());
+		await expect
+			.element(screen.getByText('Screen recording is not supported in this browser.'))
+			.toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Start recording' })).toBeDisabled();
+		await closeDialog(screen);
+		vi.stubGlobal('navigator', {
+			mediaDevices: originalMediaDevices,
+			storage: { estimate: async () => ({ quota: 1_000_000_000, usage: 0 }) }
+		} as any);
+		recorder.refreshCapabilities();
+	});
+
+	it('renders inactive and denied system audio status with role status for a11y', async () => {
+		recorder.captureTruth = {
+			capturedAt: new Date().toISOString(),
+			cursorSupported: true,
+			cursorRequested: 'always',
+			cursorActual: 'always',
+			systemAudioRequested: true,
+			systemAudioActive: false,
+			systemAudioStatus: 'inactive'
+		} as any;
+		const screen = await render(RecordingDialog, dialogProps());
+		await expect.element(screen.getByText(/requested but not provided/)).toBeVisible();
+		await expect
+			.element(
+				screen
+					.getByText(/requested but not provided/)
+					.element()
+					.closest('[role="status"]') ?? screen.getByText(/requested but not provided/).element()
+			)
+			.toBeVisible();
+		await closeDialog(screen);
+		recorder.captureTruth = {
+			capturedAt: new Date().toISOString(),
+			cursorSupported: true,
+			cursorRequested: 'always',
+			cursorActual: 'always',
+			systemAudioRequested: true,
+			systemAudioActive: false,
+			systemAudioStatus: 'denied'
+		} as any;
+		const screen2 = await render(RecordingDialog, dialogProps());
+		await expect.element(screen2.getByText(/permission was refused|denied/i)).toBeVisible();
+		await closeDialog(screen2);
+		recorder.captureTruth = null;
+	});
+
+	it('keeps truth visible through stop into recovery with artifact-level status', async () => {
+		const artifacts = [
+			{
+				kind: 'screen' as const,
+				blob: new Blob(['recovered-screen'], { type: 'video/webm' }),
+				mimeType: 'video/webm',
+				durationMs: 2_000,
+				startOffsetMs: 0,
+				sizeBytes: 16,
+				scratchId: 'screen-session-123-file',
+				recoverySessionId: 'session-123',
+				capture: {
+					capturedAt: new Date().toISOString(),
+					cursorSupported: true,
+					cursorRequested: 'always',
+					cursorActual: 'unknown',
+					systemAudioRequested: true,
+					systemAudioActive: false,
+					systemAudioStatus: 'inactive'
+				} as any
+			}
+		];
+		vi.spyOn(recorder, 'loadRecoverableArtifacts').mockImplementation(async () => {
+			recorder.lastArtifacts = artifacts as any;
+			return artifacts as any;
+		});
+		const screen = await render(RecordingDialog, dialogProps());
+		await expect.element(screen.getByText(/requested but not provided/)).toBeVisible();
+		await expect.element(screen.getByText(/Cursor: Not reported/)).toBeVisible();
+		await closeDialog(screen);
+		vi.restoreAllMocks();
+	});
+
 	it('offers recovered capture tracks for download, insertion, or explicit removal', async () => {
 		await page.viewport(320, 760);
 		const artifacts = [

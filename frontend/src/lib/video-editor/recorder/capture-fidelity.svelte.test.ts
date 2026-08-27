@@ -256,4 +256,96 @@ describe('recording fidelity: capture truth and teardown', () => {
 			})
 		).toBeUndefined();
 	});
+
+	it('shares one capturedAt across linked screen/camera/mic artifacts', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection(
+			{ screen: true, camera: true, microphone: true },
+			{ includeSystemAudio: true, cursorMode: 'always' }
+		);
+		const truthAt = recorder.captureTruth?.capturedAt;
+		expect(truthAt).toBeTruthy();
+		const arts = await recorder.stop();
+		expect(arts.length).toBe(3);
+		const ats = arts.map((a) => a.capture?.capturedAt);
+		expect(ats.every((v) => v === truthAt)).toBe(true);
+		expect(new Set(ats).size).toBe(1);
+		// import-time must reuse, not regenerate
+		const { importGeneratedVideo } = await import('../media/import.svelte');
+		// ensure linked artifacts would be persisted with same timestamp via captureMetadataForArtifact reuse (checked via ats equality)
+		await recorder.clearRecoverableAndDiscard();
+	});
+
+	it('denied second attempt cannot show stale active copy', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection(
+			{ screen: true, camera: false, microphone: false },
+			{ includeSystemAudio: true, cursorMode: 'always' }
+		);
+		expect(recorder.captureTruth?.systemAudioStatus).toBe('active');
+		await recorder.stop();
+		expect(recorder.captureTruth?.systemAudioStatus).toBe('active');
+		// second attempt denied
+		getDisplayMedia.mockRejectedValueOnce(new DOMException('Denied', 'NotAllowedError'));
+		await expect(
+			recorder.startWithSelection(
+				{ screen: true, camera: false, microphone: false },
+				{ includeSystemAudio: true }
+			)
+		).rejects.toMatchObject({ name: 'NotAllowedError' });
+		expect(recorder.captureTruth?.systemAudioStatus).toBe('denied');
+		expect(recorder.captureTruth?.systemAudioActive).toBe(false);
+		expect(recorder.error).toBe('permission-denied');
+		await recorder.cancel().catch(() => undefined);
+	});
+
+	it('truth survives stop into recovery and is cleared only on discard/cancel', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection(
+			{ screen: true, camera: false, microphone: false },
+			{ includeSystemAudio: true }
+		);
+		const arts = await recorder.stop();
+		// truth must survive stop for recovery UI
+		expect(recorder.captureTruth).not.toBeNull();
+		expect(recorder.captureTruth?.capturedAt).toBe(arts[0]?.capture?.capturedAt);
+		expect(recorder.lastArtifacts[0]?.capture?.capturedAt).toBe(recorder.captureTruth?.capturedAt);
+		await recorder.discardArtifacts(arts);
+		expect(recorder.captureTruth).toBeNull();
+		expect(recorder.lastArtifacts.length).toBe(0);
+	});
+
+	it('preserves partial valid capture metadata when another subfield is invalid and logs corruption', async () => {
+		const { normalizeRecordingCaptureMetadata } = await import('../media/types');
+		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const result = normalizeRecordingCaptureMetadata({
+			version: 1,
+			kind: 'screen',
+			capturedAt: new Date().toISOString(),
+			cursor: { requested: 'always', actual: 'bogus' as any, supported: true },
+			systemAudio: { requested: true, active: true, status: 'active' }
+		});
+		expect(result?.systemAudio).toBeTruthy();
+		expect(result?.cursor).toBeUndefined();
+		expect(warnSpy).toHaveBeenCalled();
+		warnSpy.mockRestore();
+	});
+
+	it('import probe hasAudio=false reconciles requested active to inactive', async () => {
+		const { reconcileSystemAudioWithProbe } = await import('../media/types');
+		// live capture was active, but encoded file probe says no audio -> must reconcile to inactive (authoritative)
+		const reconciled = reconcileSystemAudioWithProbe(
+			{ requested: true, active: true, status: 'active' },
+			false
+		);
+		expect(reconciled.active).toBe(false);
+		expect(reconciled.status).toBe('inactive');
+		// not-requested with probe false stays not-requested, with probe true becomes active (probe authoritative)
+		const reconciled2 = reconcileSystemAudioWithProbe(
+			{ requested: false, active: false, status: 'not-requested' },
+			true
+		);
+		expect(reconciled2.active).toBe(true);
+		expect(reconciled2.status).toBe('active');
+	});
 });

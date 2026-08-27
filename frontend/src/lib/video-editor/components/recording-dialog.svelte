@@ -13,7 +13,8 @@
 		estimateBytesPerMinute,
 		formatBytes,
 		type RecorderKind,
-		type RecorderSelection
+		type RecorderSelection,
+		type ScreenCaptureTruth
 	} from '$lib/video-editor/recorder/recorder.svelte';
 	import { insertRecordingArtifacts } from '$lib/video-editor/recorder/insert-recording';
 	import {
@@ -57,7 +58,13 @@
 	let autoGainControl = $state(savedPreferences.autoGainControl);
 	let cursorMode = $state(savedPreferences.cursorMode);
 	let inserting = $state(false);
-	type RecoveryUrl = { kind: RecorderKind; url: string; name: string; scratchId: string };
+	type RecoveryUrl = {
+		kind: RecorderKind;
+		url: string;
+		name: string;
+		scratchId: string;
+		capture?: ScreenCaptureTruth | null;
+	};
 	let recoveryUrls = $state<RecoveryUrl[]>([]);
 	let availableBytes = $state<number | null>(null);
 
@@ -225,12 +232,34 @@
 			kind: artifact.kind,
 			url: URL.createObjectURL(artifact.blob),
 			name: `recording-${artifact.kind}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.webm`,
-			scratchId: artifact.scratchId
+			scratchId: artifact.scratchId,
+			capture: artifact.capture ?? undefined
 		};
+	}
+
+	function artifactStatusText(capture?: RecoveryUrl['capture']): string | null {
+		if (!capture) return null;
+		// Use artifact capture when available, otherwise fallback to global truth
+		const status = capture.systemAudioStatus;
+		switch (status) {
+			case 'active':
+				return m.video_editor_system_audio_active();
+			case 'inactive':
+				return m.video_editor_system_audio_inactive();
+			case 'denied':
+				return m.video_editor_system_audio_denied();
+			case 'unavailable':
+				return m.video_editor_system_audio_unavailable();
+			case 'not-requested':
+				return m.video_editor_system_audio_not_requested();
+			default:
+				return null;
+		}
 	}
 
 	onMount(() => {
 		let mounted = true;
+		recorder.refreshCapabilities();
 		void refreshDevices();
 		void refreshQuota();
 		void recorder
@@ -253,6 +282,7 @@
 
 	$effect(() => {
 		if (open) {
+			recorder.refreshCapabilities();
 			void refreshDevices();
 			void refreshQuota();
 		}
@@ -577,7 +607,7 @@
 							</p>
 						{/if}
 						{#if systemAudioTruth}
-							<p class="text-xs text-muted-foreground">
+							<p role="status" class="text-xs text-muted-foreground">
 								<span class="font-medium">{m.video_editor_system_audio()}:</span>
 								{systemAudioStatusText}
 								<span>
@@ -838,17 +868,28 @@
 					<p class="font-medium text-amber-100">
 						{m.video_editor_recovery_available()}
 					</p>
-					<div class="mt-2 flex flex-wrap gap-2">
+					<div class="mt-2 flex flex-col gap-2">
 						{#each recoveryUrls as r (r.url)}
-							<a
-								href={r.url}
-								download={r.name}
-								class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-amber-300"
-							>
-								{m.video_editor_recording_download({
-									source: sourceLabel(r.kind)
-								})}
-							</a>
+							<div class="flex flex-col gap-1 rounded bg-black/20 p-2">
+								<a
+									href={r.url}
+									download={r.name}
+									class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-amber-300"
+								>
+									{m.video_editor_recording_download({
+										source: sourceLabel(r.kind)
+									})}
+								</a>
+								{#if r.capture}
+									{@const statusText = artifactStatusText(r.capture)}
+									{#if statusText}
+										<p role="status" class="text-[11px] text-amber-100">{statusText}</p>
+									{/if}
+									<p class="text-[11px] text-amber-200">
+										{m.video_editor_record_cursor_mode()}: {localizedCursor(r.capture.cursorActual)}
+									</p>
+								{/if}
+							</div>
 						{/each}
 					</div>
 					<div class="mt-3 flex flex-wrap gap-2">

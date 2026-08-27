@@ -672,6 +672,8 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	audioFadeOutCurve?: number;
 	audioFadeInCurveX?: number;
 	audioFadeOutCurveX?: number;
+	/** Sidechain ducking: while this item is audible, other tracks are attenuated. */
+	audioDucking?: import('../audio/audio-ducking').AudioDuckingSettings;
 
 	// Video properties
 	fadeIn?: number;

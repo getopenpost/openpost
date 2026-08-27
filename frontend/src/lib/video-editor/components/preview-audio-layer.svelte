@@ -55,6 +55,8 @@
 		setMixerTrackPreviewGain
 	} from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
+	import { collectDuckingSources, duckGainAtFrame } from '$lib/video-editor/audio/audio-ducking';
+	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 
 	let { item, url }: { item: TimelineItem; url?: string | null } = $props();
 	let audio = $state<HTMLAudioElement | null>(null);
@@ -123,7 +125,25 @@
 	const clipFadeGain = $derived(
 		audioClipFadeGainAtFrame(resolved, timelineStore.currentFrame, timelineStore.fps)
 	);
-	const volume = $derived(previewItemVolumeWithFade(baseVolume, crossfadeGain, clipFadeGain));
+	const duckGain = $derived.by(() => {
+		if (item.type !== 'video' && item.type !== 'audio') return 1;
+		const sources = collectDuckingSources(
+			timelineStore.items,
+			timelineStore.tracks,
+			timelineStore.fps,
+			sequenceStore.compositions
+		);
+		return duckGainAtFrame(timelineStore.currentFrame, sources, {
+			itemId: item.id,
+			trackId: item.trackId
+		});
+	});
+	const volume = $derived(
+		previewItemVolumeWithFade(baseVolume, crossfadeGain, clipFadeGain) * duckGain
+	);
+	const fallbackDuckGain = $derived(duckGain);
+	// fallbackVolume already includes track/master gain, so apply duck separately
+	const duckedFallbackVolume = $derived(fallbackVolume * fallbackDuckGain);
 
 	function stopReverseSource(): void {
 		if (!reverseSource) return;
@@ -203,7 +223,7 @@
 		if (processedGraph) rampPreviewClipGain(processedGraph, volume);
 		if (shuttleGainNode) shuttleGainNode.gain.value = volume;
 		if (mediaGain) mediaGain.gain.value = needsProcessing ? 0 : volume;
-		else if (audio) audio.volume = Math.min(1, needsProcessing ? 0 : fallbackVolume);
+		else if (audio) audio.volume = Math.min(1, needsProcessing ? 0 : duckedFallbackVolume);
 	});
 
 	$effect(() => {

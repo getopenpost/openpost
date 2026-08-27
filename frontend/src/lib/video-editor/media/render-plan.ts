@@ -38,9 +38,12 @@ import {
 import { getAudioPitchShiftSemitones } from '../audio/audio-pitch';
 import type { ResolvedAudioEqSettings } from '../audio/types';
 import { mixerDbToGain } from '../audio/mixer-utils';
+import { normalizeAudioDucking, type AudioDuckingSettings } from '../audio/audio-ducking';
 
 /** One scheduled clip in the offline audio mixdown. */
 export interface MixEntry {
+	/** Duck-source settings carried by this entry when it should attenuate others. */
+	ducking?: AudioDuckingSettings;
 	itemId: string;
 	mediaId: string;
 	/** Root mixer track used by preview channel strips. */
@@ -165,7 +168,10 @@ export function planMixdown(
 		const endFrame = item.from + item.durationInFrames + afterFrames;
 		const previewGainPoints = volumeGainPoints(item, 1, fps, startFrame, endFrame);
 		const mixerTrackGain = track.volume ?? 1;
+		const rawDucking = (item as TimelineItem & { audioDucking?: AudioDuckingSettings }).audioDucking;
+		const ducking = normalizeAudioDucking(rawDucking) ? { ...normalizeAudioDucking(rawDucking)! } : undefined;
 		entries.push({
+			ducking,
 			itemId: item.id,
 			mediaId: item.mediaId,
 			trackId: track.id,
@@ -274,6 +280,7 @@ export function planNestedMixdown(
 			}));
 			entries.push({
 				...entry,
+				// Preserve nested ducking; wrapper's own duck is not audio-bearing (composition type) so child entries already carry theirs.
 				trackId: wrapper.trackId,
 				itemId: `${wrapper.id}/${entry.itemId}`,
 				whenSeconds: wrapperStart + entry.whenSeconds / wrapperSpeed,

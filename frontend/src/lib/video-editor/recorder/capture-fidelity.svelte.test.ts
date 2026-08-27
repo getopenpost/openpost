@@ -71,8 +71,12 @@ describe('recording fidelity: capture truth and teardown', () => {
 	beforeEach(() => {
 		now = 1000;
 		FakeMediaRecorder.instances = [];
-		displayWithAudio = new FakeStream([new FakeTrack('video'), new FakeTrack('audio')]);
-		displayWithoutAudio = new FakeStream([new FakeTrack('video')]);
+		const videoWithSettings = new FakeTrack('video');
+		videoWithSettings.getSettings = () => ({ cursor: 'motion' }) as unknown as MediaTrackSettings;
+		displayWithAudio = new FakeStream([videoWithSettings, new FakeTrack('audio')]);
+		const videoWithoutAudio = new FakeTrack('video');
+		videoWithoutAudio.getSettings = () => ({ cursor: 'always' }) as unknown as MediaTrackSettings;
+		displayWithoutAudio = new FakeStream([videoWithoutAudio]);
 		cameraStream = new FakeStream([new FakeTrack('video')]);
 		micStream = new FakeStream([new FakeTrack('audio')]);
 		vi.spyOn(performance, 'now').mockImplementation(() => {
@@ -138,6 +142,76 @@ describe('recording fidelity: capture truth and teardown', () => {
 		expect(arts[0]?.capture?.systemAudioActive).toBe(false);
 		expect(arts[0]?.capture?.systemAudioStatus).toBe('inactive');
 		// preview/export must not claim audio exists with only requested flag: artifact says inactive, file has no audio track (simulated via stream without audio, encoder will have no audio)
+		await recorder.clearRecoverableAndDiscard();
+	});
+
+	it('does not mirror requested cursor when browser reports different mode or unknown', async () => {
+		// Browser honours "always" even though we requested "motion" - actual must be "always", not requested
+		const videoAlways = new FakeTrack('video');
+		videoAlways.getSettings = () => ({ cursor: 'always' }) as unknown as MediaTrackSettings;
+		const streamAlways = new FakeStream([videoAlways, new FakeTrack('audio')]);
+		getDisplayMedia.mockResolvedValueOnce(mediaStream(streamAlways));
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection(
+			{ screen: true, camera: false, microphone: false },
+			{ includeSystemAudio: false, cursorMode: 'motion' }
+		);
+		expect(recorder.captureTruth?.cursorRequested).toBe('motion');
+		expect(recorder.captureTruth?.cursorActual).toBe('always');
+		const arts = await recorder.stop();
+		expect(arts[0]?.capture?.cursorActual).toBe('always');
+		await recorder.clearRecoverableAndDiscard();
+		// Browser does not report cursor at all -> unknown, never requested value
+		const videoUnknown = new FakeTrack('video');
+		videoUnknown.getSettings = () => ({}) as unknown as MediaTrackSettings;
+		const streamUnknown = new FakeStream([videoUnknown, new FakeTrack('audio')]);
+		getDisplayMedia.mockResolvedValueOnce(mediaStream(streamUnknown));
+		const recorder2 = new ScreenCaptureRecorder();
+		await recorder2.startWithSelection(
+			{ screen: true, camera: false, microphone: false },
+			{ includeSystemAudio: false, cursorMode: 'motion' }
+		);
+		expect(recorder2.captureTruth?.cursorActual).toBe('unknown');
+		await recorder2.stop();
+		await recorder2.clearRecoverableAndDiscard();
+	});
+
+	it('preserves capture-time audio active even if track ends before stop, reconciling via probe on import', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection(
+			{ screen: true, camera: false, microphone: false },
+			{ includeSystemAudio: true, cursorMode: 'always' }
+		);
+		// Simulate audio track ending before stop completes - isSystemAudioActive would now be false post-stop
+		const audioTrack = displayWithAudio.tracks.find((t) => t.kind === 'audio')!;
+		audioTrack.readyState = 'ended';
+		// stop must preserve capture-time truth (active true), not downgrade from ended track; probe reconciliation is authoritative
+		const arts = await recorder.stop();
+		expect(arts[0]?.capture?.systemAudioActive).toBe(true);
+		expect(arts[0]?.capture?.systemAudioStatus).toBe('active');
+		const { reconcileSystemAudioWithProbe } = await import('./capture-capabilities');
+		// Encoded output probe reports hasAudio true even though track ended -> stays active
+		let reconciled = reconcileSystemAudioWithProbe(
+			arts[0]!.capture!.systemAudioRequested
+				? { requested: true, active: true, status: 'active' }
+				: { requested: true, active: true, status: 'active' },
+			true
+		);
+		expect(reconciled.active).toBe(true);
+		expect(reconciled.status).toBe('active');
+		// Requested-with-no-encoded-audio: probe says hasAudio false -> must become inactive, not active
+		reconciled = reconcileSystemAudioWithProbe(
+			{ requested: true, active: true, status: 'active' },
+			false
+		);
+		expect(reconciled.active).toBe(false);
+		expect(reconciled.status).toBe('inactive');
+		// Not-requested with no audio stays not-requested
+		reconciled = reconcileSystemAudioWithProbe(
+			{ requested: false, active: false, status: 'not-requested' },
+			false
+		);
+		expect(reconciled.status).toBe('not-requested');
 		await recorder.clearRecoverableAndDiscard();
 	});
 

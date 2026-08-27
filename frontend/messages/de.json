@@ -6141,6 +6141,8 @@
 	"video_editor_record_cursor_mode": "Cursor",
 	"video_editor_record_cursor_motion": "Beim Bewegen sichtbar",
 	"video_editor_record_cursor_never": "Ausgeblendet",
+	"video_editor_record_cursor_unknown": "Vom Browser nicht gemeldet",
+	"video_editor_record_cursor_unsupported": "Nicht unterstützt",
 	"video_editor_record_cursor_unsupported_hint": "Dieser Browser nimmt den Cursor immer auf.",
 	"video_editor_record_display_unsupported": "Bildschirmaufnahme wird nicht unterstützt.",
 	"video_editor_record_estimate": "Plane etwa {size} lokalen Speicher plus 20% Arbeitspuffer ein.",

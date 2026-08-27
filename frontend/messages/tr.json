@@ -6141,6 +6141,8 @@
 	"video_editor_record_cursor_mode": "İmleç",
 	"video_editor_record_cursor_motion": "Hareket ederken görünür",
 	"video_editor_record_cursor_never": "Gizli",
+	"video_editor_record_cursor_unknown": "Tarayıcı tarafından bildirilmedi",
+	"video_editor_record_cursor_unsupported": "Desteklenmiyor",
 	"video_editor_record_cursor_unsupported_hint": "Bu tarayıcı imleci her zaman kaydeder.",
 	"video_editor_record_display_unsupported": "Ekran kaydı bu tarayıcıda desteklenmiyor.",
 	"video_editor_record_estimate": "Yerel alan olarak yaklaşık {size} ve %20 çalışma payı ayırın.",

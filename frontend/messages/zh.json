@@ -6141,6 +6141,8 @@
 	"video_editor_record_cursor_mode": "光标",
 	"video_editor_record_cursor_motion": "移动时显示",
 	"video_editor_record_cursor_never": "隐藏",
+	"video_editor_record_cursor_unknown": "浏览器未报告",
+	"video_editor_record_cursor_unsupported": "不支持",
 	"video_editor_record_cursor_unsupported_hint": "此浏览器始终包含光标。",
 	"video_editor_record_display_unsupported": "此浏览器不支持屏幕录制。",
 	"video_editor_record_estimate": "预留约 {size} 本地空间，外加 20% 的工作余量。",

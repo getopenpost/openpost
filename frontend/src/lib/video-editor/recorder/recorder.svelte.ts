@@ -40,7 +40,9 @@ import {
 	deriveSystemAudioStatus,
 	detectRecordingCapabilities,
 	isSystemAudioActive,
+	readActualCursor,
 	resolveCursorConstraint,
+	type CursorActualMode,
 	type CursorMode,
 	type RecordingCapabilities,
 	type SystemAudioStatus
@@ -48,12 +50,17 @@ import {
 
 const logger = createLogger('ScreenCaptureRecorder');
 
-export type { CursorMode, SystemAudioStatus, RecordingCapabilities } from './capture-capabilities';
+export type {
+	CursorMode,
+	CursorActualMode,
+	SystemAudioStatus,
+	RecordingCapabilities
+} from './capture-capabilities';
 
 export interface ScreenCaptureTruth {
 	cursorSupported: boolean;
 	cursorRequested: CursorMode;
-	cursorActual: CursorMode | 'unsupported';
+	cursorActual: CursorActualMode;
 	systemAudioRequested: boolean;
 	systemAudioActive: boolean;
 	systemAudioStatus: SystemAudioStatus;
@@ -394,10 +401,11 @@ export class ScreenCaptureRecorder {
 				stream: screenStream,
 				capabilities
 			});
+			const cursorActual = readActualCursor(screenStream, capabilities);
 			captureTruth = {
 				cursorSupported: capabilities.cursor.supported,
 				cursorRequested: cursorRequested,
-				cursorActual: cursorResolved ?? 'unsupported',
+				cursorActual,
 				systemAudioRequested,
 				systemAudioActive,
 				systemAudioStatus
@@ -987,24 +995,8 @@ export class ScreenCaptureRecorder {
 						? Math.max(0, Math.round(entry.startTimeMs - baseTime))
 						: 0;
 				if (sizeBytes === 0 && entry.sink.chunks === 0) continue;
-				const capture =
-					entry.kind === 'screen' ? (this.activeCaptureTruth ?? captureTruth) : undefined;
-				// Re-derive system audio truth from the recorded stream to avoid stale "requested" claims.
-				let finalCapture = capture;
-				if (capture && entry.kind === 'screen') {
-					const streamActive = isSystemAudioActive(entry.stream);
-					// Only claim active when the actual track exists; never from request alone.
-					const verifiedActive = streamActive;
-					finalCapture = {
-						...capture,
-						systemAudioActive: verifiedActive,
-						systemAudioStatus: verifiedActive
-							? 'active'
-							: capture.systemAudioRequested
-								? 'inactive'
-								: 'not-requested'
-					};
-				}
+				// Preserve capture-time truth; encoded-file probe reconciliation happens during import (authoritative).
+				const capture = entry.kind === 'screen' ? this.activeCaptureTruth : undefined;
 				artifacts.push({
 					kind: entry.kind,
 					blob: file,
@@ -1014,7 +1006,7 @@ export class ScreenCaptureRecorder {
 					sizeBytes,
 					scratchId: entry.sink.id,
 					recoverySessionId,
-					capture: finalCapture ?? undefined
+					capture: capture ?? undefined
 				});
 			}
 

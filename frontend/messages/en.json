@@ -6141,6 +6141,8 @@
 	"video_editor_record_cursor_mode": "Cursor",
 	"video_editor_record_cursor_motion": "Visible when moving",
 	"video_editor_record_cursor_never": "Hidden",
+	"video_editor_record_cursor_unknown": "Not reported by browser",
+	"video_editor_record_cursor_unsupported": "Not supported",
 	"video_editor_record_cursor_unsupported_hint": "This browser always includes the cursor. No cursor setting needed.",
 	"video_editor_record_display_unsupported": "Screen recording is not supported in this browser.",
 	"video_editor_record_estimate": "Allow about {size} of local space, plus 20% working headroom.",

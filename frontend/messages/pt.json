@@ -6141,6 +6141,8 @@
 	"video_editor_record_cursor_mode": "Cursor",
 	"video_editor_record_cursor_motion": "Visível ao mover",
 	"video_editor_record_cursor_never": "Oculto",
+	"video_editor_record_cursor_unknown": "Não reportado pelo navegador",
+	"video_editor_record_cursor_unsupported": "Não suportado",
 	"video_editor_record_cursor_unsupported_hint": "Este navegador inclui sempre o cursor.",
 	"video_editor_record_display_unsupported": "Gravação de ecrã não suportada.",
 	"video_editor_record_estimate": "Reserva cerca de {size} no armazenamento local, mais 20% de margem de trabalho.",

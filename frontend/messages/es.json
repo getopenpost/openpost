@@ -6141,6 +6141,8 @@
 	"video_editor_record_cursor_mode": "Cursor",
 	"video_editor_record_cursor_motion": "Visible al mover",
 	"video_editor_record_cursor_never": "Oculto",
+	"video_editor_record_cursor_unknown": "No informado por el navegador",
+	"video_editor_record_cursor_unsupported": "No compatible",
 	"video_editor_record_cursor_unsupported_hint": "Este navegador siempre incluye el cursor.",
 	"video_editor_record_display_unsupported": "La grabación de pantalla no es compatible con este navegador.",
 	"video_editor_record_estimate": "Permitir alrededor de {size} de espacio local, más 20% de la cabeza de trabajo.",

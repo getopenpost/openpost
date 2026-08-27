@@ -16,6 +16,7 @@ import { BLEND_MODE_INDEX, type BlendMode } from './blend-modes';
 import { BLEND_MODES_GLSL, EFFECT_COMMON_GLSL, FULLSCREEN_VERTEX_GLSL } from './shader-source';
 import { getGpuEffect } from './registry';
 import type { GpuParamValues, GpuShaderDefinition } from './types';
+import { gpuResourcePool } from './gpu-resource-pool';
 
 /** One resolved effect instance handed to `render`. */
 export interface GpuRenderEffect {
@@ -160,12 +161,23 @@ export class GpuCompositor {
 	private disposed = false;
 	private lastFailure: string | null = null;
 
+	private contextLostListener: ((event: Event) => void) | null = null;
+
 	private constructor(canvas: HTMLCanvasElement | OffscreenCanvas, gl: WebGL2RenderingContext) {
 		this.canvas = canvas;
 		this.gl = gl;
 		this.vertexShader = compileShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER);
 		this.sourceTexture = this.createTexture();
 		this.backdropTexture = this.createTexture();
+		const listener = (event: Event) => {
+			event.preventDefault();
+			gpuResourcePool.clearForContext(gl);
+			this.pingTextures = [null, null];
+			this.framebuffers = [null, null];
+			this.pingSize = [0, 0];
+		};
+		this.contextLostListener = listener;
+		canvas.addEventListener('webglcontextlost', listener);
 	}
 
 	/** Create a compositor for a canvas; null when WebGL2 is unavailable. */
@@ -254,10 +266,44 @@ export class GpuCompositor {
 
 	private ensurePingTargets(width: number, height: number): void {
 		const gl = this.gl;
+		if (gl.isContextLost?.()) {
+			this.pingTextures = [null, null];
+			this.framebuffers = [null, null];
+			this.pingSize = [0, 0];
+			return;
+		}
 		if (this.pingSize[0] === width && this.pingSize[1] === height) return;
+		const previousWidth = this.pingSize[0];
+		const previousHeight = this.pingSize[1];
 		for (let i = 0; i < 2; i++) {
-			if (this.pingTextures[i]) gl.deleteTexture(this.pingTextures[i]);
-			if (this.framebuffers[i]) gl.deleteFramebuffer(this.framebuffers[i]);
+			const oldTexture = this.pingTextures[i];
+			const oldFramebuffer = this.framebuffers[i];
+			if (oldTexture && oldFramebuffer && previousWidth > 0 && previousHeight > 0) {
+				const entry = {
+					texture: oldTexture,
+					framebuffer: oldFramebuffer,
+					width: previousWidth,
+					height: previousHeight,
+					bytes: previousWidth * previousHeight * 4
+				};
+				const released = gpuResourcePool.release(gl, entry);
+				if (!released) {
+					// pool deleted the entry when capped; nothing more to do
+				}
+			} else {
+				if (oldTexture) gl.deleteTexture(oldTexture);
+				if (oldFramebuffer) gl.deleteFramebuffer(oldFramebuffer);
+			}
+			this.pingTextures[i] = null;
+			this.framebuffers[i] = null;
+		}
+		for (let i = 0; i < 2; i++) {
+			const pooled = gpuResourcePool.acquire(gl, width, height);
+			if (pooled) {
+				this.pingTextures[i] = pooled.texture;
+				this.framebuffers[i] = pooled.framebuffer;
+				continue;
+			}
 			const texture = this.createTexture();
 			gl.bindTexture(gl.TEXTURE_2D, texture);
 			gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
@@ -265,6 +311,12 @@ export class GpuCompositor {
 			if (!framebuffer) throw new Error('GPU compositor: framebuffer allocation failed');
 			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
 			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+			const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+			if (status !== gl.FRAMEBUFFER_COMPLETE) {
+				gl.deleteTexture(texture);
+				gl.deleteFramebuffer(framebuffer);
+				throw new Error('GPU compositor: framebuffer incomplete');
+			}
 			this.pingTextures[i] = texture;
 			this.framebuffers[i] = framebuffer;
 		}
@@ -518,16 +570,29 @@ export class GpuCompositor {
 		if (this.disposed) return;
 		this.disposed = true;
 		const gl = this.gl;
-		for (const bundle of this.programs.values()) gl.deleteProgram(bundle.program);
-		if (this.blendProgram) gl.deleteProgram(this.blendProgram.program);
-		for (const texture of this.pingTextures) if (texture) gl.deleteTexture(texture);
-		for (const framebuffer of this.framebuffers) if (framebuffer) gl.deleteFramebuffer(framebuffer);
-		if (this.sourceTexture) gl.deleteTexture(this.sourceTexture);
-		if (this.backdropTexture) gl.deleteTexture(this.backdropTexture);
-		if (this.neutralBase) gl.deleteTexture(this.neutralBase);
-		for (const cached of this.dataTextureCache.values()) gl.deleteTexture(cached.texture);
+		if (this.contextLostListener) {
+			this.canvas.removeEventListener('webglcontextlost', this.contextLostListener);
+			this.contextLostListener = null;
+		}
+		const lost = gl.isContextLost?.() === true;
+		if (!lost) {
+			for (const bundle of this.programs.values()) gl.deleteProgram(bundle.program);
+			if (this.blendProgram) gl.deleteProgram(this.blendProgram.program);
+			gpuResourcePool.clearForContext(gl);
+			for (const texture of this.pingTextures) if (texture) gl.deleteTexture(texture);
+			for (const framebuffer of this.framebuffers)
+				if (framebuffer) gl.deleteFramebuffer(framebuffer);
+			if (this.sourceTexture) gl.deleteTexture(this.sourceTexture);
+			if (this.backdropTexture) gl.deleteTexture(this.backdropTexture);
+			if (this.neutralBase) gl.deleteTexture(this.neutralBase);
+			for (const cached of this.dataTextureCache.values()) gl.deleteTexture(cached.texture);
+			gl.deleteShader(this.vertexShader);
+		} else {
+			gpuResourcePool.clearForContext(gl);
+		}
 		this.dataTextureCache.clear();
-		gl.deleteShader(this.vertexShader);
+		this.pingTextures = [null, null];
+		this.framebuffers = [null, null];
 		this.programs.clear();
 	}
 }

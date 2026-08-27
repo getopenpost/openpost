@@ -103,4 +103,4 @@ export function deriveSystemAudioStatus(args: {
 	return 'inactive';
 }
 
-export { reconcileSystemAudioWithProbe } from '../media/types';
+export { reconcileSystemAudioWithProbe } from '../media/recording-capture-schema';

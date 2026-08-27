@@ -239,7 +239,6 @@
 
 	function artifactStatusText(capture?: RecoveryUrl['capture']): string | null {
 		if (!capture) return null;
-		// Use artifact capture when available, otherwise fallback to global truth
 		const status = capture.systemAudioStatus;
 		switch (status) {
 			case 'active':
@@ -289,7 +288,6 @@
 	});
 
 	$effect(() => {
-		// keep counters updated via snapshot reactivity
 		void recorder.counters;
 	});
 
@@ -345,7 +343,6 @@
 				onopenchange(false);
 			} catch (error) {
 				showToast(m.video_editor_recording_failed(), 'error');
-				// keep recoveryUrls so user can download
 			}
 		} catch {
 			showToast(localizedRecorderError(), 'error');
@@ -572,7 +569,7 @@
 								{m.video_editor_record_display_unsupported()}
 							</p>
 						{/if}
-						{#if includeScreen && systemAudioStatusText && recordingActive}
+						{#if includeScreen && systemAudioStatusText && recoveryUrls.length === 0}
 							<p
 								role="status"
 								aria-live="polite"
@@ -604,17 +601,6 @@
 						{:else}
 							<p class="rounded-md bg-[oklch(0.18_0.01_55)] p-2 text-xs text-muted-foreground">
 								{m.video_editor_record_cursor_unsupported_hint()}
-							</p>
-						{/if}
-						{#if systemAudioTruth}
-							<p role="status" class="text-xs text-muted-foreground">
-								<span class="font-medium">{m.video_editor_system_audio()}:</span>
-								{systemAudioStatusText}
-								<span>
-									· {m.video_editor_record_cursor_mode()}: {localizedCursor(
-										systemAudioTruth.cursorActual
-									)}</span
-								>
 							</p>
 						{/if}
 					</div>

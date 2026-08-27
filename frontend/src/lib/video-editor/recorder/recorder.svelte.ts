@@ -317,7 +317,6 @@ export class ScreenCaptureRecorder {
 		this.acquiredStreams = acquiredStreams;
 		this.stopPromise = null;
 		this.pendingWriteBytes = 0;
-		// Clear stale capture truth so a failed second session cannot show prior active copy
 		this.activeCaptureTruth = null;
 		this.captureTruth = null;
 		const capabilities = detectRecordingCapabilities();
@@ -1040,7 +1039,6 @@ export class ScreenCaptureRecorder {
 						? Math.max(0, Math.round(entry.startTimeMs - baseTime))
 						: 0;
 				if (sizeBytes === 0 && entry.sink.chunks === 0) continue;
-				// Preserve capture-time truth for all linked artifacts (shared capturedAt); probe reconciliation happens during import.
 				const capture = this.activeCaptureTruth ?? undefined;
 				artifacts.push({
 					kind: entry.kind,
@@ -1071,8 +1069,6 @@ export class ScreenCaptureRecorder {
 			this.clearPreview();
 			this.startMonotonic = null;
 			this.pendingWriteBytes = 0;
-			// Preserve captureTruth through stop/recovery for requested-but-not-provided truth visibility;
-			// cleared only on next start, explicit cancel/discard/close.
 			this.releaseRecoveryLock?.();
 			this.releaseRecoveryLock = null;
 			this.activeRecoverySessionId = null;

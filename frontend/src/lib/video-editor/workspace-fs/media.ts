@@ -8,7 +8,8 @@
  * Ported from FreeCut (MIT) — workspace-fs/media.ts.
  */
 
-import { normalizeRecordingCaptureMetadata, type MediaMetadata } from '../media/types';
+import type { MediaMetadata } from '../media/types';
+import { normalizeRecordingCaptureMetadata } from '../media/recording-capture-schema';
 import { createLogger } from './logger';
 import { deleteHandle, getHandle, saveHandle } from './handles-db';
 import { requireWorkspaceRoot } from './root';

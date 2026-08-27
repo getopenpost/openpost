@@ -57,7 +57,6 @@ export function createTestStream(tracks: TestTrack[]): MediaStream {
 	return stream as MediaStream;
 }
 
-// Typed RecordingCapabilities helper to avoid as any in tests
 export function capabilitiesFixture(
 	overrides: Partial<RecordingCapabilities> = {}
 ): RecordingCapabilities {

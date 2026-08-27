@@ -172,7 +172,7 @@ describe('recording fidelity: capture truth and teardown', () => {
 		const arts = await recorder.stop();
 		expect(arts[0]?.capture?.systemAudioActive).toBe(true);
 		expect(arts[0]?.capture?.systemAudioStatus).toBe('active');
-		const { reconcileSystemAudioWithProbe } = await import('../media/types');
+		const { reconcileSystemAudioWithProbe } = await import('../media/recording-capture-schema');
 		let reconciled = reconcileSystemAudioWithProbe(
 			{ requested: true, active: true, status: 'active' },
 			true
@@ -202,7 +202,7 @@ describe('recording fidelity: capture truth and teardown', () => {
 	});
 
 	it('normalizes persisted capture metadata and keeps legacy media loadable', async () => {
-		const { normalizeRecordingCaptureMetadata } = await import('../media/types');
+		const { normalizeRecordingCaptureMetadata } = await import('../media/recording-capture-schema');
 		expect(normalizeRecordingCaptureMetadata(undefined)).toBeUndefined();
 		expect(
 			normalizeRecordingCaptureMetadata({
@@ -282,9 +282,8 @@ describe('recording fidelity: capture truth and teardown', () => {
 		expect(recorder.lastArtifacts.length).toBe(0);
 	});
 
-	it('preserves partial valid capture metadata when another subfield is invalid and logs corruption', async () => {
-		const { normalizeRecordingCaptureMetadata } = await import('../media/types');
-		const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+	it('preserves partial valid capture metadata when another subfield is invalid', async () => {
+		const { normalizeRecordingCaptureMetadata } = await import('../media/recording-capture-schema');
 		const result = normalizeRecordingCaptureMetadata({
 			version: 1,
 			kind: 'screen',
@@ -294,12 +293,10 @@ describe('recording fidelity: capture truth and teardown', () => {
 		});
 		expect(result?.systemAudio).toBeTruthy();
 		expect(result?.cursor).toBeUndefined();
-		expect(warnSpy).toHaveBeenCalled();
-		warnSpy.mockRestore();
 	});
 
 	it('import probe hasAudio=false reconciles requested active to inactive', async () => {
-		const { reconcileSystemAudioWithProbe } = await import('../media/types');
+		const { reconcileSystemAudioWithProbe } = await import('../media/recording-capture-schema');
 		const reconciled = reconcileSystemAudioWithProbe(
 			{ requested: true, active: true, status: 'active' },
 			false

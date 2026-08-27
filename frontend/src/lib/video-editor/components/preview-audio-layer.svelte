@@ -30,8 +30,11 @@
 		createPreviewClipAudioGraph,
 		rampPreviewClipGain,
 		setPreviewClipEq,
+		setPreviewAudioEffects,
 		type PreviewClipAudioGraph
 	} from '$lib/video-editor/audio/preview-audio-graph';
+	import { getAudioEffects } from '$lib/video-editor/audio/audio-effects';
+	import type { AudioEffect } from '$lib/video-editor/audio/audio-effects';
 	import {
 		getAudioPitchRatioFromSemitones,
 		getAudioPitchShiftSemitones
@@ -85,6 +88,7 @@
 	let processedPlaying = false;
 	let detachProcessedFromMixer: (() => void) | null = null;
 	let mediaGain: GainNode | null = null;
+	let directEffectGraphState: PreviewClipAudioGraph | null = null;
 	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
 	let shuttleGainNode: GainNode | null = null;
 	let detachShuttle: (() => void) | null = null;
@@ -101,6 +105,7 @@
 			timelineStore.busAudioEq
 		) || isAc3AudioCodec(audioCodec)
 	);
+	const audioEffectsForPreview = $derived(getAudioEffects(item));
 	const processingSignature = $derived(
 		JSON.stringify({
 			speed: item.speed ?? 1,
@@ -109,7 +114,8 @@
 				item,
 				timelineStore.tracks,
 				timelineStore.busAudioEq
-			)
+			),
+			effects: audioEffectsForPreview
 		})
 	);
 	const baseVolume = $derived(
@@ -339,6 +345,7 @@
 			speed: number;
 			pitch: number;
 			eqStages: ResolvedAudioEqSettings[];
+			effects: AudioEffect[];
 		};
 		if (!sourceUrl || !shouldProcess) {
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });
@@ -355,12 +362,14 @@
 		const context = previewAudioContext();
 		const graph = createPreviewClipAudioGraph({
 			eqStageCount: Math.max(1, settings.eqStages.length),
+			effects: settings.effects,
 			outputNode: null
 		});
 		if (!graph) return;
 		processedGraph = graph;
 		detachProcessedFromMixer = attachAudioSourceToMixer(graph.outputGainNode, item.trackId);
 		setPreviewClipEq(graph, settings.eqStages);
+		setPreviewAudioEffects(graph, settings.effects);
 		rampPreviewClipGain(graph, volume, context.currentTime, 0);
 		void Promise.all([
 			ensureSoundTouchPreviewWorkletLoaded(context),
@@ -417,19 +426,51 @@
 	});
 
 	$effect(() => {
+		void audioEffectsForPreview;
+		if (processedGraph) setPreviewAudioEffects(processedGraph, audioEffectsForPreview);
+		if (directEffectGraphState)
+			setPreviewAudioEffects(directEffectGraphState, audioEffectsForPreview);
+	});
+
+	$effect(() => {
+		if (directEffectGraphState) rampPreviewClipGain(directEffectGraphState, volume);
+	});
+
+	$effect(() => {
 		const media = audio;
 		if (!media) return;
 		let sourceNode: MediaElementAudioSourceNode | null = null;
 		let gainNode: GainNode | null = null;
 		let detachFromMixer: (() => void) | null = null;
+		let directEffectGraph: PreviewClipAudioGraph | null = null;
 		try {
 			const context = previewAudioContext();
 			sourceNode = context.createMediaElementSource(media);
 			gainNode = context.createGain();
 			gainNode.gain.value = needsProcessing ? 0 : volume;
 			media.volume = 1;
-			sourceNode.connect(gainNode);
-			detachFromMixer = attachAudioSourceToMixer(gainNode, item.trackId);
+			if (!needsProcessing && audioEffectsForPreview.length > 0) {
+				directEffectGraph = createPreviewClipAudioGraph({
+					eqStageCount: 1,
+					effects: audioEffectsForPreview,
+					outputNode: null
+				});
+				directEffectGraphState = directEffectGraph;
+				if (directEffectGraph) {
+					sourceNode.connect(directEffectGraph.sourceInputNode);
+					directEffectGraph.outputGainNode.gain.value = volume;
+					detachFromMixer = attachAudioSourceToMixer(
+						directEffectGraph.outputGainNode,
+						item.trackId
+					);
+				} else {
+					sourceNode.connect(gainNode);
+					detachFromMixer = attachAudioSourceToMixer(gainNode, item.trackId);
+				}
+			} else {
+				sourceNode.connect(gainNode);
+				detachFromMixer = attachAudioSourceToMixer(gainNode, item.trackId);
+			}
 			mediaGain = gainNode;
 		} catch {
 			media.volume = Math.min(1, needsProcessing ? 0 : fallbackVolume);
@@ -518,6 +559,8 @@
 			detachFromMixer?.();
 			sourceNode?.disconnect();
 			gainNode?.disconnect();
+			directEffectGraph?.dispose();
+			if (directEffectGraphState === directEffectGraph) directEffectGraphState = null;
 			if (mediaGain === gainNode) mediaGain = null;
 			stopReverseSource();
 			processedNode?.port.postMessage({ type: 'set-playing', playing: false });

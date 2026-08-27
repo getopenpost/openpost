@@ -35,8 +35,9 @@
 		clampAudioPitchCents,
 		clampAudioPitchSemitones
 	} from '$lib/video-editor/audio/audio-pitch';
-	import AudioEqPanel from './audio-eq-panel.svelte';
 	import AudioDuckingPanel from './audio-ducking-panel.svelte';
+	import AudioEffectsPanel from './audio-effects-panel.svelte';
+	import AudioEqPanel from './audio-eq-panel.svelte';
 
 	let {
 		itemId,
@@ -784,10 +785,9 @@
 							{/each}
 						</div>
 					</details>
-					<div class="mt-2">
+					<div class="mt-2 space-y-2">
 						<AudioEqPanel item={audioItem} {onedit} />
-					</div>
-					<div class="mt-2">
+						<AudioEffectsPanel item={audioItem} />
 						<AudioDuckingPanel item={audioItem} {onedit} />
 					</div>
 				</section>

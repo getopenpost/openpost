@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unsafe-dictionary-type -- test fixtures use typed helpers, isolated doubles have checked invariants */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
@@ -124,11 +123,11 @@ describe('RecordingDialog', () => {
 			mediaDevices: {
 				...originalMediaDevices,
 				getDisplayMedia: undefined,
-				getSupportedConstraints: () => ({}) as any,
+				getSupportedConstraints: () => ({}),
 				enumerateDevices: vi.fn(async () => [])
 			},
 			storage: { estimate: async () => ({ quota: 1_000_000_000, usage: 0 }) }
-		} as any);
+		});
 		const screen = await render(RecordingDialog, dialogProps());
 		await expect
 			.element(screen.getByText('Screen recording is not supported in this browser.'))
@@ -138,7 +137,7 @@ describe('RecordingDialog', () => {
 		vi.stubGlobal('navigator', {
 			mediaDevices: originalMediaDevices,
 			storage: { estimate: async () => ({ quota: 1_000_000_000, usage: 0 }) }
-		} as any);
+		});
 		recorder.refreshCapabilities();
 	});
 
@@ -151,7 +150,7 @@ describe('RecordingDialog', () => {
 			systemAudioRequested: true,
 			systemAudioActive: false,
 			systemAudioStatus: 'inactive'
-		} as any;
+		};
 		const screen = await render(RecordingDialog, dialogProps());
 		await expect.element(screen.getByText(/requested but not provided/)).toBeVisible();
 		await expect
@@ -171,7 +170,7 @@ describe('RecordingDialog', () => {
 			systemAudioRequested: true,
 			systemAudioActive: false,
 			systemAudioStatus: 'denied'
-		} as any;
+		};
 		const screen2 = await render(RecordingDialog, dialogProps());
 		await expect.element(screen2.getByText(/permission was refused|denied/i)).toBeVisible();
 		await closeDialog(screen2);
@@ -197,12 +196,12 @@ describe('RecordingDialog', () => {
 					systemAudioRequested: true,
 					systemAudioActive: false,
 					systemAudioStatus: 'inactive'
-				} as any
+				}
 			}
 		];
 		vi.spyOn(recorder, 'loadRecoverableArtifacts').mockImplementation(async () => {
-			recorder.lastArtifacts = artifacts as any;
-			return artifacts as any;
+			recorder.lastArtifacts = artifacts;
+			return artifacts;
 		});
 		const screen = await render(RecordingDialog, dialogProps());
 		await expect.element(screen.getByText(/requested but not provided/)).toBeVisible();

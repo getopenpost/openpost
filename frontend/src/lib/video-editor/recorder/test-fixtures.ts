@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-chained-type-assertions -- test fixtures require MediaStreamTrack subset bridging, isolated to helper */
 import { vi } from 'vitest';
 import type { RecordingCapabilities } from './capture-capabilities';
 
@@ -38,7 +37,7 @@ export function createTrackWithCursor(
 	return createTestTrack(kind, {
 		getSettings: () => {
 			// SAFETY: cursor string is verified test value for MediaTrackSettings
-			return { cursor } as unknown as MediaTrackSettings;
+			return { cursor } as MediaTrackSettings;
 		}
 	});
 }
@@ -46,16 +45,16 @@ export function createTrackWithCursor(
 export function createTestStream(tracks: TestTrack[]): MediaStream {
 	const stream: Pick<MediaStream, 'getTracks' | 'getAudioTracks' | 'getVideoTracks'> = {
 		// SAFETY: test tracks are verified TestTrack subset for capture logic
-		getTracks: () => tracks as unknown as MediaStreamTrack[],
+		getTracks: () => tracks as MediaStreamTrack[],
 		getAudioTracks: () =>
 			// SAFETY: filtered audio tracks are MediaStreamTrack subset
-			tracks.filter((track) => track.kind === 'audio') as unknown as MediaStreamTrack[],
+			tracks.filter((track) => track.kind === 'audio') as MediaStreamTrack[],
 		getVideoTracks: () =>
 			// SAFETY: filtered video tracks are MediaStreamTrack subset
-			tracks.filter((track) => track.kind === 'video') as unknown as MediaStreamTrack[]
+			tracks.filter((track) => track.kind === 'video') as MediaStreamTrack[]
 	};
 	// SAFETY: test fixture provides only subset used by capture logic, verified by focused tests
-	return stream as unknown as MediaStream;
+	return stream as MediaStream;
 }
 
 // Typed RecordingCapabilities helper to avoid as any in tests

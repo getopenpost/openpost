@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening -- I/O boundary parser for persisted capture metadata, validated at runtime */
 import { createLogger } from '../workspace-fs/logger';
 
 /**
@@ -48,7 +47,7 @@ export interface RecordingCaptureMetadata {
 	};
 }
 
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- I/O boundary parser for persisted capture metadata (unknown JSON)
+/* oxlint-disable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type -- I/O boundary parser for persisted capture metadata, validated at runtime */
 export function normalizeRecordingCaptureMetadata(
 	value: unknown
 ): RecordingCaptureMetadata | undefined {
@@ -109,6 +108,7 @@ export function normalizeRecordingCaptureMetadata(
 	}
 	return result;
 }
+/* oxlint-enable anti-slop/no-unknown-parameters, anti-slop/no-unsafe-dictionary-type */
 
 export interface ReconciledSystemAudio {
 	active: boolean;

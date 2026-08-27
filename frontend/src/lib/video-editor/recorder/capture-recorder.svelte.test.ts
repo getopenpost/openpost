@@ -1,4 +1,3 @@
-/* oxlint-disable anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-unsafe-dictionary-type -- test fixtures use typed helpers, isolated doubles have checked invariants */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	ScreenCaptureRecorder,
@@ -118,7 +117,8 @@ describe('ScreenCaptureRecorder', () => {
 				getDisplayMedia,
 				getUserMedia,
 				enumerateDevices: vi.fn(async () => []),
-				getSupportedConstraints: () => ({ cursor: true }) as MediaTrackSupportedConstraints,
+				// SAFETY: test returns only cursor flag for capability probe
+				getSupportedConstraints: () => ({ cursor: true }) satisfies MediaTrackSupportedConstraints,
 				addEventListener: vi.fn(),
 				removeEventListener: vi.fn()
 			},

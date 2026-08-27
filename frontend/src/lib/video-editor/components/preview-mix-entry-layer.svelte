@@ -37,12 +37,24 @@
 	} from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
 	import {
+		mixEntryDuckGainAtTime,
+		type MixEntryDuckWindow
+	} from '$lib/video-editor/audio/audio-ducking';
+	import {
 		getShuttleMediaPlaybackRate,
 		isReverseShuttleRate
 	} from '$lib/video-editor/preview/shuttle';
 	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
 
-	let { entry, url }: { entry: MixEntry; url?: string | null } = $props();
+	let {
+		entry,
+		url,
+		duckWindows = []
+	}: {
+		entry: MixEntry;
+		url?: string | null;
+		duckWindows?: MixEntryDuckWindow[];
+	} = $props();
 	let audio = $state<HTMLAudioElement | null>(null);
 	let syncMedia = $state<(() => void) | null>(null);
 	let processedNode = $state<AudioWorkletNode | null>(null);
@@ -100,7 +112,8 @@
 				? 0
 				: mixerDbToGain(timelineStore.masterVolumeDb)
 			: 1;
-		return base * transition * monitor * master;
+		const duck = duckWindows.length > 0 ? mixEntryDuckGainAtTime(time, entry, duckWindows) : 1;
+		return base * transition * monitor * master * duck;
 	}
 
 	$effect(() => {

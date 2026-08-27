@@ -4,7 +4,7 @@
  * frame→source-time mapping, audio mixdown scheduling, transition blending,
  * paint order, and cue selection.
  *
- * Ported from FreeCut (MIT) — features/export/utils/timeline-to-composition.ts,
+ * Ported from FreeCut (MIT) - features/export/utils/timeline-to-composition.ts,
  * canvas-transitions.ts, and canvas-audio.ts (segment extraction), retargeted
  * to OpenPost's TimelineItem model.
  */
@@ -43,8 +43,9 @@ import { normalizeAudioDucking, type AudioDuckingSettings } from '../audio/audio
 
 /** One scheduled clip in the offline audio mixdown. */
 export interface MixEntry {
-	/** Duck-source settings carried by this entry when it should attenuate others. */
 	ducking?: AudioDuckingSettings;
+	duckStartSeconds?: number;
+	duckEndSeconds?: number;
 	itemId: string;
 	mediaId: string;
 	/** Root mixer track used by preview channel strips. */
@@ -174,8 +175,12 @@ export function planMixdown(
 		const ducking = normalizeAudioDucking(rawDucking)
 			? { ...normalizeAudioDucking(rawDucking)! }
 			: undefined;
+		const duckStartSeconds = ducking ? item.from / fps : undefined;
+		const duckEndSeconds = ducking ? (item.from + item.durationInFrames) / fps : undefined;
 		entries.push({
 			ducking,
+			duckStartSeconds,
+			duckEndSeconds,
 			itemId: item.id,
 			mediaId: item.mediaId,
 			trackId: track.id,
@@ -282,9 +287,18 @@ export function planNestedMixdown(
 				whenSeconds: wrapperStart + point.whenSeconds / wrapperSpeed,
 				value: point.value * wrapperGain
 			}));
+			const duckStartSeconds =
+				entry.duckStartSeconds !== undefined
+					? wrapperStart + entry.duckStartSeconds / wrapperSpeed
+					: undefined;
+			const duckEndSeconds =
+				entry.duckEndSeconds !== undefined
+					? wrapperStart + entry.duckEndSeconds / wrapperSpeed
+					: undefined;
 			entries.push({
 				...entry,
-				// Preserve nested ducking; wrapper's own duck is not audio-bearing (composition type) so child entries already carry theirs.
+				duckStartSeconds,
+				duckEndSeconds,
 				trackId: wrapper.trackId,
 				itemId: `${wrapper.id}/${entry.itemId}`,
 				whenSeconds: wrapperStart + entry.whenSeconds / wrapperSpeed,
@@ -333,7 +347,6 @@ function gainValueAtTime(points: GainPoint[], time: number): number {
 	return sorted[sorted.length - 1]!.value;
 }
 
-/** Restrict absolute mix entries to an export range without resetting automation. */
 export function sliceMixEntries(
 	entries: MixEntry[],
 	startSeconds: number,
@@ -362,9 +375,27 @@ export function sliceMixEntries(
 				.filter((point) => point.whenSeconds > overlapStart && point.whenSeconds <= overlapEnd)
 				.map((point) => ({ ...point, whenSeconds: point.whenSeconds - startSeconds }))
 		];
+		let slicedDucking = entry.ducking;
+		let slicedDuckStart = entry.duckStartSeconds;
+		let slicedDuckEnd = entry.duckEndSeconds;
+		if (slicedDucking && slicedDuckStart !== undefined && slicedDuckEnd !== undefined) {
+			const duckOverlapStart = Math.max(slicedDuckStart, startSeconds);
+			const duckOverlapEnd = Math.min(slicedDuckEnd, endSeconds);
+			if (duckOverlapEnd > duckOverlapStart) {
+				slicedDuckStart = duckOverlapStart - startSeconds;
+				slicedDuckEnd = duckOverlapEnd - startSeconds;
+			} else {
+				slicedDucking = undefined;
+				slicedDuckStart = undefined;
+				slicedDuckEnd = undefined;
+			}
+		}
 		return [
 			{
 				...entry,
+				ducking: slicedDucking,
+				duckStartSeconds: slicedDuckStart,
+				duckEndSeconds: slicedDuckEnd,
 				whenSeconds: overlapStart - startSeconds,
 				sourceOffsetSeconds:
 					entry.sourceOffsetSeconds + (entry.reversed ? -1 : 1) * skipped * entry.playbackRate,

@@ -55,10 +55,20 @@
 		setMixerTrackPreviewGain
 	} from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
-	import { collectDuckingSources, duckGainAtFrame } from '$lib/video-editor/audio/audio-ducking';
-	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
+	import {
+		mixEntryDuckGainAtTime,
+		type MixEntryDuckWindow
+	} from '$lib/video-editor/audio/audio-ducking';
 
-	let { item, url }: { item: TimelineItem; url?: string | null } = $props();
+	let {
+		item,
+		url,
+		duckWindows = []
+	}: {
+		item: TimelineItem;
+		url?: string | null;
+		duckWindows?: MixEntryDuckWindow[];
+	} = $props();
 	let audio = $state<HTMLAudioElement | null>(null);
 	let reverseBuffer = $state<AudioBuffer | null>(null);
 	let reverseSource: AudioBufferSourceNode | null = null;
@@ -127,16 +137,13 @@
 	);
 	const duckGain = $derived.by(() => {
 		if (item.type !== 'video' && item.type !== 'audio') return 1;
-		const sources = collectDuckingSources(
-			timelineStore.items,
-			timelineStore.tracks,
-			timelineStore.fps,
-			sequenceStore.compositions
+		if (!duckWindows || duckWindows.length === 0) return 1;
+		const timeSeconds = timelineStore.currentFrame / editorSession.fps;
+		return mixEntryDuckGainAtTime(
+			timeSeconds,
+			{ itemId: item.id, trackId: item.trackId },
+			duckWindows
 		);
-		return duckGainAtFrame(timelineStore.currentFrame, sources, {
-			itemId: item.id,
-			trackId: item.trackId
-		});
 	});
 	const volume = $derived(
 		previewItemVolumeWithFade(baseVolume, crossfadeGain, clipFadeGain) * duckGain

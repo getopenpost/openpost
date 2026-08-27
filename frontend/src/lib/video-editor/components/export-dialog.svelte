@@ -5,6 +5,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
+	import * as Dialog from '$lib/components/ui/dialog';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import AppSelect from '$lib/components/app-select.svelte';
 	import type { Project } from '$lib/video-editor/project/types';
@@ -435,178 +436,177 @@
 	<RenderQueuePanel projectId={project.id} />
 {/if}
 
-{#if open}
-	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-		role="presentation"
-		onclick={(event) => {
-			if (event.target === event.currentTarget && !rendering) open = false;
+<Dialog.Root bind:open>
+	<Dialog.Content
+		class="video-editor-theme !block block max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] overflow-y-auto rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4 text-[var(--video-editor-text)] shadow-2xl sm:max-w-md"
+		overlayProps={{ class: 'bg-black/70' }}
+		showCloseButton={!rendering}
+		onInteractOutside={(event) => {
+			if (rendering) event.preventDefault();
+		}}
+		onEscapeKeydown={(event) => {
+			if (rendering) event.preventDefault();
 		}}
 	>
-		<div
-			class="video-editor-theme max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-xl border border-[var(--video-editor-border)] bg-[var(--video-editor-panel)] p-4 text-[var(--video-editor-text)] shadow-2xl"
-			role="dialog"
-			aria-modal="true"
-			aria-labelledby="export-title"
+		<Dialog.Title id="export-title" class="text-base font-semibold"
+			>{m.video_editor_export_title()}</Dialog.Title
 		>
-			<h2 id="export-title" class="text-base font-semibold">{m.video_editor_export_title()}</h2>
-			<div class="mt-4 grid grid-cols-2 gap-3">
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
-					{m.video_editor_export_format()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
-						value={format}
-						options={formatOptions}
-						disabled={rendering}
-						onValueChange={setFormat}
-					/>
-				</label>
-				{#if videoFormat}
-					<label class="text-xs text-[oklch(0.7_0.01_55)]"
-						>{m.video_editor_export_codec()}<AppSelect
-							class="mt-1 h-9 w-full text-sm"
-							value={codec}
-							disabled={rendering}
-							options={codecs.map((candidate) => ({
-								value: candidate,
-								label: `${candidate.toUpperCase()}${codecSupport[candidate] === false ? ` ${m.video_editor_export_codec_unavailable()}` : ''}`,
-								disabled: codecSupport[candidate] === false
-							}))}
-							onValueChange={setCodec}
-						/>
-					</label>
-				{/if}
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
-					{m.video_editor_export_quality()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
-						value={quality}
-						options={qualityOptions}
-						disabled={rendering}
-						onValueChange={setQuality}
-					/>
-				</label>
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
-					{m.video_editor_export_resolution()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
-						bind:value={resolution}
-						options={resolutionOptions}
-						disabled={rendering}
-					/>
-				</label>
-				<label class="text-xs text-[oklch(0.7_0.01_55)]">
-					{m.video_editor_export_subtitles()}<AppSelect
-						class="mt-1 h-9 w-full text-sm"
-						value={subtitleMode}
-						options={subtitleOptions}
-						disabled={rendering}
-						onValueChange={setSubtitleMode}
-					/>
-				</label>
-			</div>
-			<label class="mt-3 flex min-h-11 items-center gap-2 text-sm">
-				<Checkbox
-					bind:checked={useRange}
-					disabled={rendering || timelineStore.inPoint === null || timelineStore.outPoint === null}
-				/>{m.video_editor_export_range()}
+		<div class="mt-4 grid grid-cols-2 gap-3">
+			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				{m.video_editor_export_format()}<AppSelect
+					class="mt-1 h-9 w-full text-sm"
+					value={format}
+					options={formatOptions}
+					disabled={rendering}
+					onValueChange={setFormat}
+				/>
 			</label>
-			<div
-				class="mt-3 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
-				aria-live="polite"
-			>
-				<div class="flex items-start gap-2">
-					{#if preflight.pending}
-						<LoaderIcon
-							class="mt-0.5 size-4 shrink-0 animate-spin text-[var(--video-editor-muted)]"
-							aria-hidden="true"
-						/>
-					{:else if summarizePreflightSeverity(preflight.checks) === 'error'}
-						<XCircleIcon class="mt-0.5 size-4 shrink-0 text-red-300" aria-hidden="true" />
-					{:else if summarizePreflightSeverity(preflight.checks) === 'warning'}
-						<AlertTriangleIcon class="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
-					{:else}
-						<CheckCircleIcon class="mt-0.5 size-4 shrink-0 text-emerald-300" aria-hidden="true" />
-					{/if}
-					<div class="min-w-0 flex-1">
-						<p class="text-xs font-medium">
-							{preflight.pending
-								? m.video_editor_preflight_checking()
-								: preflight.canExport
-									? m.video_editor_preflight_ready()
-									: m.video_editor_preflight_blocked()}
-						</p>
-						<p class="mt-0.5 text-[11px] text-[var(--video-editor-muted)] tabular-nums">
-							{m.video_editor_preflight_estimate({
-								duration: preflight.estimatedDurationSeconds.toFixed(1),
-								size: formatBytes(preflight.estimatedFileSizeBytes),
-								path:
-									preflight.predictedRenderPath === 'smart-copy'
-										? m.video_editor_preflight_path_smart_copy()
-										: preflight.predictedRenderPath === 'worker'
-											? m.video_editor_preflight_path_worker()
-											: m.video_editor_preflight_path_main_thread()
-							})}
-						</p>
-					</div>
-				</div>
-				{#if visiblePreflightChecks.length > 0}
-					<ul class="mt-2 space-y-1 border-t border-[var(--video-editor-border)] pt-2">
-						{#each visiblePreflightChecks as check (check.id)}
-							<li
-								class={[
-									'text-[11px]',
-									check.severity === 'error'
-										? 'text-red-200'
-										: check.severity === 'warning'
-											? 'text-amber-200'
-											: 'text-[var(--video-editor-muted)]'
-								]}
-							>
-								{preflightMessage(check)}
-							</li>
-						{/each}
-					</ul>
-				{/if}
-			</div>
-			{#if progress}
-				<RenderProgress {progress} {startedAt} class="mt-3" />
+			{#if videoFormat}
+				<label class="text-xs text-[oklch(0.7_0.01_55)]"
+					>{m.video_editor_export_codec()}<AppSelect
+						class="mt-1 h-9 w-full text-sm"
+						value={codec}
+						disabled={rendering}
+						options={codecs.map((candidate) => ({
+							value: candidate,
+							label: `${candidate.toUpperCase()}${codecSupport[candidate] === false ? ` ${m.video_editor_export_codec_unavailable()}` : ''}`,
+							disabled: codecSupport[candidate] === false
+						}))}
+						onValueChange={setCodec}
+					/>
+				</label>
 			{/if}
-			<div class="mt-4 flex justify-end gap-2">
-				{#if rendering}
-					<Button variant="outline" class="w-full sm:w-auto" onclick={cancelOrClose}
-						>{m.video_editor_export_cancel()}</Button
-					>
-				{:else}
-					<Button variant="ghost" onclick={cancelOrClose}>{m.video_editor_export_cancel()}</Button>
-					<DropdownMenu.Root>
-						<DropdownMenu.Trigger>
-							{#snippet child({ props })}
-								<Button {...props} variant="outline" disabled={!canOpenQueueMenu}>
-									<ListPlusIcon aria-hidden="true" />
-									{m.video_editor_queue_add()}
-									<ChevronDownIcon aria-hidden="true" />
-								</Button>
-							{/snippet}
-						</DropdownMenu.Trigger>
-						<DropdownMenu.Content align="end" class="video-editor-theme min-w-52">
-							<DropdownMenu.Item disabled={!preflight.canExport} onclick={enqueueCurrent}>
-								{m.video_editor_queue_add_current()}
-							</DropdownMenu.Item>
-							<DropdownMenu.Separator />
-							<DropdownMenu.Label>{m.video_editor_queue_segments()}</DropdownMenu.Label>
-							<DropdownMenu.Item onclick={enqueueMarkerSegments}>
-								{m.video_editor_queue_per_marker()}
-							</DropdownMenu.Item>
-							{#each [10, 30, 60] as seconds (seconds)}
-								<DropdownMenu.Item onclick={() => enqueueFixedSegments(seconds)}>
-									{m.video_editor_queue_fixed_seconds({ seconds })}
-								</DropdownMenu.Item>
-							{/each}
-						</DropdownMenu.Content>
-					</DropdownMenu.Root>
-					<Button disabled={!preflight.canExport} onclick={start}
-						>{m.video_editor_export_start_now()}</Button
-					>
-				{/if}
-			</div>
+			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				{m.video_editor_export_quality()}<AppSelect
+					class="mt-1 h-9 w-full text-sm"
+					value={quality}
+					options={qualityOptions}
+					disabled={rendering}
+					onValueChange={setQuality}
+				/>
+			</label>
+			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				{m.video_editor_export_resolution()}<AppSelect
+					class="mt-1 h-9 w-full text-sm"
+					bind:value={resolution}
+					options={resolutionOptions}
+					disabled={rendering}
+				/>
+			</label>
+			<label class="text-xs text-[oklch(0.7_0.01_55)]">
+				{m.video_editor_export_subtitles()}<AppSelect
+					class="mt-1 h-9 w-full text-sm"
+					value={subtitleMode}
+					options={subtitleOptions}
+					disabled={rendering}
+					onValueChange={setSubtitleMode}
+				/>
+			</label>
 		</div>
-	</div>
-{/if}
+		<label class="mt-3 flex min-h-11 items-center gap-2 text-sm">
+			<Checkbox
+				bind:checked={useRange}
+				disabled={rendering || timelineStore.inPoint === null || timelineStore.outPoint === null}
+			/>{m.video_editor_export_range()}
+		</label>
+		<div
+			class="mt-3 rounded-lg border border-[var(--video-editor-border)] bg-[var(--video-editor-control)] p-3"
+			aria-live="polite"
+		>
+			<div class="flex items-start gap-2">
+				{#if preflight.pending}
+					<LoaderIcon
+						class="mt-0.5 size-4 shrink-0 animate-spin text-[var(--video-editor-muted)]"
+						aria-hidden="true"
+					/>
+				{:else if summarizePreflightSeverity(preflight.checks) === 'error'}
+					<XCircleIcon class="mt-0.5 size-4 shrink-0 text-red-300" aria-hidden="true" />
+				{:else if summarizePreflightSeverity(preflight.checks) === 'warning'}
+					<AlertTriangleIcon class="mt-0.5 size-4 shrink-0 text-amber-300" aria-hidden="true" />
+				{:else}
+					<CheckCircleIcon class="mt-0.5 size-4 shrink-0 text-emerald-300" aria-hidden="true" />
+				{/if}
+				<div class="min-w-0 flex-1">
+					<p class="text-xs font-medium">
+						{preflight.pending
+							? m.video_editor_preflight_checking()
+							: preflight.canExport
+								? m.video_editor_preflight_ready()
+								: m.video_editor_preflight_blocked()}
+					</p>
+					<p class="mt-0.5 text-[11px] text-[var(--video-editor-muted)] tabular-nums">
+						{m.video_editor_preflight_estimate({
+							duration: preflight.estimatedDurationSeconds.toFixed(1),
+							size: formatBytes(preflight.estimatedFileSizeBytes),
+							path:
+								preflight.predictedRenderPath === 'smart-copy'
+									? m.video_editor_preflight_path_smart_copy()
+									: preflight.predictedRenderPath === 'worker'
+										? m.video_editor_preflight_path_worker()
+										: m.video_editor_preflight_path_main_thread()
+						})}
+					</p>
+				</div>
+			</div>
+			{#if visiblePreflightChecks.length > 0}
+				<ul class="mt-2 space-y-1 border-t border-[var(--video-editor-border)] pt-2">
+					{#each visiblePreflightChecks as check (check.id)}
+						<li
+							class={[
+								'text-[11px]',
+								check.severity === 'error'
+									? 'text-red-200'
+									: check.severity === 'warning'
+										? 'text-amber-200'
+										: 'text-[var(--video-editor-muted)]'
+							]}
+						>
+							{preflightMessage(check)}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+		{#if progress}
+			<RenderProgress {progress} {startedAt} class="mt-3" />
+		{/if}
+		<div class="mt-4 flex justify-end gap-2">
+			{#if rendering}
+				<Button variant="outline" class="w-full sm:w-auto" onclick={cancelOrClose}
+					>{m.video_editor_export_cancel()}</Button
+				>
+			{:else}
+				<Button variant="ghost" onclick={cancelOrClose}>{m.video_editor_export_cancel()}</Button>
+				<DropdownMenu.Root>
+					<DropdownMenu.Trigger>
+						{#snippet child({ props })}
+							<Button {...props} variant="outline" disabled={!canOpenQueueMenu}>
+								<ListPlusIcon aria-hidden="true" />
+								{m.video_editor_queue_add()}
+								<ChevronDownIcon aria-hidden="true" />
+							</Button>
+						{/snippet}
+					</DropdownMenu.Trigger>
+					<DropdownMenu.Content align="end" class="video-editor-theme min-w-52">
+						<DropdownMenu.Item disabled={!preflight.canExport} onclick={enqueueCurrent}>
+							{m.video_editor_queue_add_current()}
+						</DropdownMenu.Item>
+						<DropdownMenu.Separator />
+						<DropdownMenu.Label>{m.video_editor_queue_segments()}</DropdownMenu.Label>
+						<DropdownMenu.Item onclick={enqueueMarkerSegments}>
+							{m.video_editor_queue_per_marker()}
+						</DropdownMenu.Item>
+						{#each [10, 30, 60] as seconds (seconds)}
+							<DropdownMenu.Item onclick={() => enqueueFixedSegments(seconds)}>
+								{m.video_editor_queue_fixed_seconds({ seconds })}
+							</DropdownMenu.Item>
+						{/each}
+					</DropdownMenu.Content>
+				</DropdownMenu.Root>
+				<Button disabled={!preflight.canExport} onclick={start}
+					>{m.video_editor_export_start_now()}</Button
+				>
+			{/if}
+		</div>
+	</Dialog.Content>
+</Dialog.Root>

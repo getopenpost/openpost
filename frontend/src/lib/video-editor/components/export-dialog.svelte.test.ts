@@ -276,4 +276,182 @@ describe('ExportDialog', () => {
 		expect(jobs[39]?.settings.range).toEqual({ startFrame: 70_200, endFrame: 72_000 });
 		expect(new Set(jobs.map((job) => job.snapshot))).toHaveLength(1);
 	});
+	it('traps focus inside the export dialog', async () => {
+		await page.viewport(1280, 720);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		const dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		// initial focus should be inside dialog
+		await expect.element(dialog).toBeVisible();
+		// give focus scope time to move focus
+		await new Promise((resolve) => setTimeout(resolve, 50));
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+
+		// Tab should keep focus inside dialog
+		await userEvent.keyboard('{Tab}');
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+		await userEvent.keyboard('{Tab}');
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+		// Shift+Tab should also stay inside
+		await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+
+		// background trigger should not receive focus while dialog open
+		expect(document.activeElement).not.toBe(trigger.element());
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+	});
+
+	it('Escape closes idle dialog and returns focus, but is blocked while rendering', async () => {
+		await page.viewport(1280, 720);
+		let renderSignal: AbortSignal | undefined;
+		const renderVideo = vi.fn(
+			async (_project: Project, options: RenderExportOptions = {}): Promise<RenderExportResult> => {
+				renderSignal = options.signal;
+				options.onProgress?.({
+					phase: 'rendering',
+					framesDone: 10,
+					totalFrames: 300,
+					progress: 0.03
+				});
+				return await new Promise((_resolve, reject) => {
+					options.signal?.addEventListener(
+						'abort',
+						() => reject(new DOMException('Export cancelled', 'AbortError')),
+						{ once: true }
+					);
+				});
+			}
+		);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true),
+			renderVideo
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		let dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+
+		// Escape should close when idle and restore focus
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+
+		// reopen and start rendering
+		await trigger.click();
+		dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await screen.getByRole('button', { name: 'Render now' }).click();
+		await expect.element(screen.getByText('Rendering frames')).toBeVisible();
+
+		// Escape while rendering should be ignored
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).toBeVisible();
+		expect(renderSignal?.aborted).toBe(false);
+
+		// Cancel restores idle state and Escape then works
+		await screen.getByRole('button', { name: 'Cancel export' }).click();
+		expect(renderSignal?.aborted).toBe(true);
+		await expect.element(screen.getByRole('button', { name: 'Render now' })).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+	});
+
+	it('overlay click closes idle dialog and restores focus, but is blocked while rendering', async () => {
+		await page.viewport(1280, 720);
+		let renderSignal: AbortSignal | undefined;
+		const renderVideo = vi.fn(
+			async (_project: Project, options: RenderExportOptions = {}): Promise<RenderExportResult> => {
+				renderSignal = options.signal;
+				options.onProgress?.({
+					phase: 'rendering',
+					framesDone: 10,
+					totalFrames: 300,
+					progress: 0.03
+				});
+				return await new Promise((_resolve, reject) => {
+					options.signal?.addEventListener(
+						'abort',
+						() => reject(new DOMException('Export cancelled', 'AbortError')),
+						{ once: true }
+					);
+				});
+			}
+		);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true),
+			renderVideo
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		let dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		const getOverlay = () =>
+			// SAFETY: overlay has stable data-slot when dialog is open
+			document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement | null;
+
+		let overlay = getOverlay();
+		expect(overlay).not.toBeNull();
+		overlay!.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })
+		);
+		await new Promise((r) => setTimeout(r, 30));
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+
+		// rendering blocks overlay dismiss
+		await trigger.click();
+		dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await screen.getByRole('button', { name: 'Render now' }).click();
+		await expect.element(screen.getByText('Rendering frames')).toBeVisible();
+		overlay = getOverlay();
+		expect(overlay).not.toBeNull();
+		overlay!.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' })
+		);
+		await new Promise((r) => setTimeout(r, 30));
+		await expect.element(dialog).toBeVisible();
+		expect(renderSignal?.aborted).toBe(false);
+
+		// cleanup - cancel export to return to idle, then verify still open
+		screen.getByRole('button', { name: 'Cancel export' }).element().click();
+		await expect.element(screen.getByText('Ready to render')).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('Cancel button restores focus to trigger when idle', async () => {
+		await page.viewport(1280, 720);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		const dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await screen.getByRole('button', { name: 'Cancel export' }).click();
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+	});
 });

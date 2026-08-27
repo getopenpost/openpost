@@ -5,6 +5,7 @@ import { m } from '$lib/paraglide/messages';
 import { BeatAnalyzer } from './analyzer';
 import { beatsToMarkers } from './marker-mapping';
 import { addBeatMarkersAtomic } from './beat-actions';
+import { extractChannels } from '../channel-mix';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
 import type { BeatAnalysisResult, BeatDetectionConfig } from './types';
@@ -180,18 +181,33 @@ export class BeatDetectionService {
 	private async runAnalysis(blob: Blob, signal: AbortSignal): Promise<BeatAnalysisResult> {
 		if (this.dependencies.analyzeBlob) return this.dependencies.analyzeBlob(blob, signal);
 		if (this.dependencies.createWorker) {
-			return this.runViaWorker(blob, signal);
-		}
-		if (typeof Worker !== 'undefined') {
 			try {
 				return await this.runViaWorker(blob, signal);
-			} catch {
+			} catch (error) {
+				if (error instanceof DOMException && error.name === 'AbortError') throw error;
+				if (isWorkerAnalysisError(error)) throw error;
+				if (isWorkerConstructionOrCloneError(error)) {
+					const analyzer = new BeatAnalyzer(this.dependencies.beatConfig);
+					return analyzer.analyzeBlob(blob, signal);
+				}
+				throw error;
+			}
+		}
+		if (typeof Worker === 'undefined') {
+			const analyzer = new BeatAnalyzer(this.dependencies.beatConfig);
+			return analyzer.analyzeBlob(blob, signal);
+		}
+		try {
+			return await this.runViaWorker(blob, signal);
+		} catch (error) {
+			if (error instanceof DOMException && error.name === 'AbortError') throw error;
+			if (isWorkerAnalysisError(error)) throw error;
+			if (isWorkerConstructionOrCloneError(error)) {
 				const analyzer = new BeatAnalyzer(this.dependencies.beatConfig);
 				return analyzer.analyzeBlob(blob, signal);
 			}
+			throw error;
 		}
-		const analyzer = new BeatAnalyzer(this.dependencies.beatConfig);
-		return analyzer.analyzeBlob(blob, signal);
 	}
 
 	private async runViaWorker(blob: Blob, signal: AbortSignal): Promise<BeatAnalysisResult> {
@@ -209,26 +225,12 @@ export class BeatDetectionService {
 			}
 		}
 		if (signal.aborted) throw new DOMException('Cancelled', 'AbortError');
-		const mono = this.mixToMono(decoded);
-		return this.analyzeSamplesViaWorker(mono, decoded.sampleRate, decoded.duration, signal);
+		const channels = extractChannels(decoded);
+		return this.analyzeChannelsViaWorker(channels, decoded.sampleRate, decoded.duration, signal);
 	}
 
-	private mixToMono(buffer: AudioBuffer): Float32Array {
-		if (buffer.numberOfChannels === 0) return new Float32Array(0);
-		if (buffer.numberOfChannels === 1) return new Float32Array(buffer.getChannelData(0));
-		const length = buffer.length;
-		const mono = new Float32Array(length);
-		for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
-			const data = buffer.getChannelData(channel);
-			for (let i = 0; i < length; i++) mono[i] = (mono[i] ?? 0) + (data[i] ?? 0);
-		}
-		const divisor = buffer.numberOfChannels;
-		for (let i = 0; i < length; i++) mono[i] = (mono[i] ?? 0) / divisor;
-		return mono;
-	}
-
-	private analyzeSamplesViaWorker(
-		samples: Float32Array,
+	private analyzeChannelsViaWorker(
+		channels: Float32Array[],
 		sampleRate: number,
 		duration: number,
 		signal: AbortSignal
@@ -289,18 +291,33 @@ export class BeatDetectionService {
 			};
 			worker.addEventListener('message', onMessage);
 			worker.addEventListener('error', onError);
+			const transfer: Transferable[] = channels.map((channel) => channel.buffer);
 			worker.postMessage(
 				{
 					id,
-					samples,
+					channels,
 					sampleRate,
 					duration,
 					config: this.dependencies.beatConfig
 				},
-				[samples.buffer]
+				transfer
 			);
 		});
 	}
+}
+
+function isWorkerAnalysisError(error: unknown): boolean {
+	if (error instanceof DOMException) return error.name !== 'DataCloneError';
+	if (!(error instanceof Error)) return false;
+	if (error.name === 'DataCloneError') return false;
+	if (error.message === 'Worker construction failed') return false;
+	return true;
+}
+
+function isWorkerConstructionOrCloneError(error: unknown): boolean {
+	if (error instanceof DOMException) return error.name === 'DataCloneError';
+	if (!(error instanceof Error)) return false;
+	return error.name === 'DataCloneError' || error.message === 'Worker construction failed';
 }
 
 export const beatDetectionService = new BeatDetectionService();

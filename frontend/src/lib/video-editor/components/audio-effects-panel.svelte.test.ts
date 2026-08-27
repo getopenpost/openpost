@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-svelte';
 import { page } from 'vitest/browser';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-import { undo, redo } from '$lib/video-editor/timeline/commands/command-store.svelte';
+import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 import AudioEffectsPanel from './audio-effects-panel.svelte';
 import '../../../routes/layout.css';
 
@@ -36,11 +36,11 @@ describe('AudioEffectsPanel rack', () => {
 					id: 'fx-reverb',
 					type: 'reverb',
 					enabled: true,
-					roomSize: 0.45,
-					decaySeconds: 1.4,
-					damping: 0.35,
-					wet: 0.28,
-					preDelayMs: 12
+					roomSize: 0.8,
+					decaySeconds: 2.2,
+					damping: 0.6,
+					wet: 0.55,
+					preDelayMs: 30
 				} as never
 			]
 		};
@@ -74,27 +74,38 @@ describe('AudioEffectsPanel rack', () => {
 		).toBe(false);
 
 		// Reorder: move reverb up (↑)
-		const upButtons = screen.getAllByRole('button', { name: '↑' });
-		await upButtons[1]!.click();
+		await screen.getByText('Reverb', { exact: true }).click();
+		await screen.getByRole('button', { name: '↑' }).click();
 		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]?.id).toBe('fx-reverb');
 
 		// Reset reverb
-		const resetButtons = screen.getAllByRole('button', { name: 'Reset Reverb' });
-		await resetButtons[0]!.click();
-		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]?.type).toBe('reverb');
+		await screen.getByRole('button', { name: 'Reset Reverb' }).click();
+		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]).toMatchObject({
+			type: 'reverb',
+			decaySeconds: 1.4,
+			wet: 0.28
+		});
 
 		// Undo should revert reset as one gesture
-		undo();
-		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]?.id).toBe('fx-reverb');
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]).toMatchObject({
+			id: 'fx-reverb',
+			decaySeconds: 2.2,
+			wet: 0.55
+		});
 		// Redo restores
-		redo();
-		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]?.type).toBe('reverb');
+		commandHistory.redo();
+		expect(timelineStore.itemById.get('clip-1')?.audioEffects?.[0]).toMatchObject({
+			type: 'reverb',
+			decaySeconds: 1.4,
+			wet: 0.28
+		});
 
 		// Reset all via Reset button
-		await screen.getByRole('button', { name: 'Reset' }).click();
+		await screen.getByRole('button', { name: 'Reset', exact: true }).click();
 		expect(timelineStore.itemById.get('clip-1')?.audioEffects).toBeUndefined();
 
-		undo();
+		commandHistory.undo();
 		expect(timelineStore.itemById.get('clip-1')?.audioEffects).toHaveLength(2);
 
 		await page.screenshot({

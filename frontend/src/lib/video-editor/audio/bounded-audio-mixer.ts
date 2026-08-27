@@ -373,6 +373,29 @@ async function* streamEntryAudio(
 	if (emittedFrames < targetFrames) {
 		throw new Error('A timeline clip ended before its planned audio duration.');
 	}
+	const tailSeconds = getAudioEffectTailSeconds(entry.audioEffects);
+	if (tailSeconds > 0.001 && effectChain && !effectChain.isEmpty() && sampleRate !== 0) {
+		const tailSamplesMix = Math.ceil(tailSeconds * MIX_SAMPLE_RATE);
+		let remainingMix = tailSamplesMix;
+		const drainChunkMix = 2048;
+		while (remainingMix > 0) {
+			throwIfAborted(signal);
+			const countMix = Math.min(drainChunkMix, remainingMix);
+			const countSrc = Math.max(1, Math.ceil((countMix * sampleRate) / MIX_SAMPLE_RATE));
+			let tailChannels = effectChain.drain(countSrc);
+			if (sampleRate !== MIX_SAMPLE_RATE && resamplers) {
+				tailChannels = tailChannels.map((ch, idx) =>
+					resamplers![idx]!.processChunk(ch, remainingMix <= drainChunkMix)
+				);
+				if (tailChannels[0]!.length === 0) break;
+			}
+			let mapped = downmixToOutputChannels(tailChannels, MIX_CHANNELS);
+			if (mapped[0]!.length > remainingMix) mapped = mapped.map((c) => c.slice(0, remainingMix));
+			yield mapped;
+			remainingMix -= mapped[0]!.length;
+			if (mapped[0]!.length === 0) break;
+		}
+	}
 }
 
 class EntryAudioReader {

@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Déverrouiller",
 	"video_editor_timeline_unmute": "Rétablir le son",
-	"video_editor_timeline_unsolo": "Retirer solo"
+	"video_editor_timeline_unsolo": "Retirer solo",
+	"video_editor_duck_title": "Atténuer les autres audios",
+	"video_editor_duck_description": "Pendant ce clip, les autres pistes sont baissées. Le clip lui-même n est jamais atténué. L attaque entre dans le creux, la relâche en ressort.",
+	"video_editor_duck_enable": "Activer l atténuation",
+	"video_editor_duck_amount": "Atténuation (dB)",
+	"video_editor_duck_amount_hint": "-60 à 0, plus bas atténue plus",
+	"video_editor_duck_current": "Actuel : {db} dB",
+	"video_editor_duck_attack": "Attaque (s)",
+	"video_editor_duck_release": "Relâche (s)",
+	"video_editor_duck_targets": "Atténuer seulement ces pistes",
+	"video_editor_duck_targets_hint": "Laissez vide pour atténuer toute autre piste audible.",
+	"video_editor_duck_off": "Off",
+	"video_editor_duck_on": "On"
 }

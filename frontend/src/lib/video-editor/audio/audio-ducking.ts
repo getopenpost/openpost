@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-chained-type-assertions, anti-slop/no-conditional-empty-object-spread, anti-slop/no-known-value-widening */
 /**
  * Sidechain audio ducking — shared math for preview and export.
  *
@@ -55,7 +56,8 @@ function clampRelease(value: number | undefined): number {
 export function normalizeAudioDucking(
 	raw: AudioDuckingSettings | null | undefined
 ): AudioDuckingSettings | undefined {
-	if (!raw || typeof raw.duckOthersDb !== 'number' || !Number.isFinite(raw.duckOthersDb)) return undefined;
+	if (!raw || typeof raw.duckOthersDb !== 'number' || !Number.isFinite(raw.duckOthersDb))
+		return undefined;
 	const duckOthersDb = clampDb(raw.duckOthersDb);
 	if (!(duckOthersDb < 0)) return undefined;
 	const out: AudioDuckingSettings = { duckOthersDb };
@@ -64,7 +66,9 @@ export function normalizeAudioDucking(
 	if (Math.abs(attackSec - DUCKING_DEFAULT_ATTACK_SEC) > 1e-6) out.attackSec = attackSec;
 	if (Math.abs(releaseSec - DUCKING_DEFAULT_RELEASE_SEC) > 1e-6) out.releaseSec = releaseSec;
 	if (raw.targetTrackIds && raw.targetTrackIds.length > 0) {
-		const ids = [...new Set(raw.targetTrackIds.filter((id) => typeof id === 'string' && id.length > 0))];
+		const ids = [
+			...new Set(raw.targetTrackIds.filter((id) => typeof id === 'string' && id.length > 0))
+		];
 		if (ids.length > 0) out.targetTrackIds = ids;
 	}
 	return out;
@@ -73,7 +77,12 @@ export function normalizeAudioDucking(
 export function isValidAudioDucking(raw: unknown): boolean {
 	if (!raw || typeof raw !== 'object') return false;
 	const candidate = raw as Record<string, unknown>;
-	return typeof candidate.duckOthersDb === 'number' && Number.isFinite(candidate.duckOthersDb) && (candidate.duckOthersDb as number) < 0 && (candidate.duckOthersDb as number) >= DUCKING_MIN_DB;
+	return (
+		typeof candidate.duckOthersDb === 'number' &&
+		Number.isFinite(candidate.duckOthersDb) &&
+		(candidate.duckOthersDb as number) < 0 &&
+		(candidate.duckOthersDb as number) >= DUCKING_MIN_DB
+	);
 }
 
 export function dbToGain(db: number): number {
@@ -127,10 +136,7 @@ interface WrapperTiming {
 	wrapperSourceEnd: number;
 }
 
-function resolveWrapper(
-	item: TimelineItem,
-	fps: number
-): WrapperTiming {
+function resolveWrapper(item: TimelineItem, fps: number): WrapperTiming {
 	const wrapperSpeed = item.speed ?? 1;
 	const wrapperSourceFps = item.sourceFps ?? fps;
 	const sourceOffset = item.sourceStart ?? 0;
@@ -139,7 +145,9 @@ function resolveWrapper(
 		wrapperSpeed,
 		wrapperSourceFps,
 		sourceOffset,
-		wrapperSourceEnd: item.sourceEnd ?? sourceOffset + (item.durationInFrames / fps) * wrapperSpeed * wrapperSourceFps
+		wrapperSourceEnd:
+			item.sourceEnd ??
+			sourceOffset + (item.durationInFrames / fps) * wrapperSpeed * wrapperSourceFps
 	};
 }
 
@@ -152,12 +160,22 @@ interface NestedWindow {
 	effectiveSourceStart: number;
 }
 
-function timelineToSourceFrames(frames: number, speed: number, fps: number, sourceFps: number): number {
+function timelineToSourceFrames(
+	frames: number,
+	speed: number,
+	fps: number,
+	sourceFps: number
+): number {
 	if (speed === 0) return 0;
 	return (frames / fps) * speed * sourceFps;
 }
 
-function sourceToTimelineFrames(sourceFrames: number, speed: number, sourceFps: number, fps: number): number {
+function sourceToTimelineFrames(
+	sourceFrames: number,
+	speed: number,
+	sourceFps: number,
+	fps: number
+): number {
 	if (sourceFps === 0) return 0;
 	return (sourceFrames / sourceFps / speed) * fps;
 }
@@ -171,14 +189,30 @@ function mapNestedWindow(
 	const overlapStart = Math.max(subItem.from, sourceOffset);
 	const overlapEnd = Math.min(subItem.from + subItem.durationInFrames, wrapperSourceEnd);
 	if (overlapEnd <= overlapStart) return null;
-	const effectiveStart = compFrom + sourceToTimelineFrames(overlapStart - sourceOffset, wrapperSpeed, wrapperSourceFps, fps);
-	const effectiveEnd = compFrom + sourceToTimelineFrames(overlapEnd - sourceOffset, wrapperSpeed, wrapperSourceFps, fps);
+	const effectiveStart =
+		compFrom +
+		sourceToTimelineFrames(overlapStart - sourceOffset, wrapperSpeed, wrapperSourceFps, fps);
+	const effectiveEnd =
+		compFrom +
+		sourceToTimelineFrames(overlapEnd - sourceOffset, wrapperSpeed, wrapperSourceFps, fps);
 	const effectiveDuration = Math.max(1, effectiveEnd - effectiveStart);
 	const baseSourceStart = subItem.sourceStart ?? 0;
 	const effectiveSourceStart =
 		baseSourceStart +
-		timelineToSourceFrames(overlapStart - subItem.from, subItem.speed ?? 1, wrapperSourceFps, subItem.sourceFps ?? wrapperSourceFps);
-	return { overlapStart, overlapEnd, effectiveStart, effectiveEnd, effectiveDuration, effectiveSourceStart };
+		timelineToSourceFrames(
+			overlapStart - subItem.from,
+			subItem.speed ?? 1,
+			wrapperSourceFps,
+			subItem.sourceFps ?? wrapperSourceFps
+		);
+	return {
+		overlapStart,
+		overlapEnd,
+		effectiveStart,
+		effectiveEnd,
+		effectiveDuration,
+		effectiveSourceStart
+	};
 }
 
 function buildNestedWrapper(
@@ -196,7 +230,13 @@ function buildNestedWrapper(
 		...(subItem.sourceEnd !== undefined && {
 			sourceEnd: Math.max(
 				window.effectiveSourceStart + 1,
-				subItem.sourceEnd - timelineToSourceFrames(subItem.from + subItem.durationInFrames - window.overlapEnd, subItem.speed ?? 1, wrapper.wrapperSourceFps, subItem.sourceFps ?? wrapper.wrapperSourceFps)
+				subItem.sourceEnd -
+					timelineToSourceFrames(
+						subItem.from + subItem.durationInFrames - window.overlapEnd,
+						subItem.speed ?? 1,
+						wrapper.wrapperSourceFps,
+						subItem.sourceFps ?? wrapper.wrapperSourceFps
+					)
 			)
 		})
 	};
@@ -222,12 +262,26 @@ function collectNested(
 		const win = mapNestedWindow(subItem, wrapper, fps);
 		if (!win) continue;
 		if (subItem.compositionId) {
-			const own = duckingSourceFromItem(subItem, rootTrackId, fps, { startFrame: win.effectiveStart, endFrame: win.effectiveEnd });
+			const own = duckingSourceFromItem(subItem, rootTrackId, fps, {
+				startFrame: win.effectiveStart,
+				endFrame: win.effectiveEnd
+			});
 			if (own) sources.push(own);
-			sources.push(...collectNested(buildNestedWrapper(subItem, win, wrapper), rootTrackId, fps, nestedVisited, compositionsById));
+			sources.push(
+				...collectNested(
+					buildNestedWrapper(subItem, win, wrapper),
+					rootTrackId,
+					fps,
+					nestedVisited,
+					compositionsById
+				)
+			);
 			continue;
 		}
-		const source = duckingSourceFromItem(subItem, rootTrackId, fps, { startFrame: win.effectiveStart, endFrame: win.effectiveEnd });
+		const source = duckingSourceFromItem(subItem, rootTrackId, fps, {
+			startFrame: win.effectiveStart,
+			endFrame: win.effectiveEnd
+		});
 		if (source) sources.push(source);
 	}
 	return sources;

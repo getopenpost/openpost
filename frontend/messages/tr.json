@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "Solo",
 	"video_editor_timeline_unlock": "Kilidi aç",
 	"video_editor_timeline_unmute": "Sesi aç",
-	"video_editor_timeline_unsolo": "Solo'yu kaldır"
+	"video_editor_timeline_unsolo": "Solo'yu kaldır",
+	"video_editor_duck_title": "Diğer sesleri duckla",
+	"video_editor_duck_description": "Bu klip çalarken diğer parçalar kısılır. Klipin kendisi asla kısılmaz. Attack ile dalışa girer, release ile geri döner.",
+	"video_editor_duck_enable": "Duckingi etkinleştir",
+	"video_editor_duck_amount": "Duck miktarı (dB)",
+	"video_editor_duck_amount_hint": "-60 ila 0, düşük daha fazla kısar",
+	"video_editor_duck_current": "Mevcut: {db} dB",
+	"video_editor_duck_attack": "Attack (s)",
+	"video_editor_duck_release": "Release (s)",
+	"video_editor_duck_targets": "Sadece bu parçaları duckla",
+	"video_editor_duck_targets_hint": "Boş bırakırsan diğer tüm duyulabilir parçalar ducklanır.",
+	"video_editor_duck_off": "Kapalı",
+	"video_editor_duck_on": "Açık"
 }

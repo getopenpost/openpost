@@ -7132,5 +7132,17 @@
 	"video_editor_timeline_solo": "独奏",
 	"video_editor_timeline_unlock": "解锁",
 	"video_editor_timeline_unmute": "取消静音",
-	"video_editor_timeline_unsolo": "取消独奏"
+	"video_editor_timeline_unsolo": "取消独奏",
+	"video_editor_duck_title": "压低其他音频",
+	"video_editor_duck_description": "此片段播放时，其他轨道会被压低。片段本身不会被压低。Attack 进入压低，Release 恢复。",
+	"video_editor_duck_enable": "启用压低",
+	"video_editor_duck_amount": "压低量 (dB)",
+	"video_editor_duck_amount_hint": "-60 至 0，越低压得越深",
+	"video_editor_duck_current": "当前：{db} dB",
+	"video_editor_duck_attack": "Attack（秒）",
+	"video_editor_duck_release": "Release（秒）",
+	"video_editor_duck_targets": "仅压低这些轨道",
+	"video_editor_duck_targets_hint": "留空则压低所有其他可听轨道。",
+	"video_editor_duck_off": "关闭",
+	"video_editor_duck_on": "开启"
 }

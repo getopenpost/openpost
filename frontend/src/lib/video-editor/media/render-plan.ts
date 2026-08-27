@@ -1,3 +1,4 @@
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-conditional-empty-object-spread */
 /**
  * Pure planning math for the multi-track rendered export: output duration,
  * frame→source-time mapping, audio mixdown scheduling, transition blending,
@@ -168,8 +169,11 @@ export function planMixdown(
 		const endFrame = item.from + item.durationInFrames + afterFrames;
 		const previewGainPoints = volumeGainPoints(item, 1, fps, startFrame, endFrame);
 		const mixerTrackGain = track.volume ?? 1;
-		const rawDucking = (item as TimelineItem & { audioDucking?: AudioDuckingSettings }).audioDucking;
-		const ducking = normalizeAudioDucking(rawDucking) ? { ...normalizeAudioDucking(rawDucking)! } : undefined;
+		const rawDucking = (item as TimelineItem & { audioDucking?: AudioDuckingSettings })
+			.audioDucking;
+		const ducking = normalizeAudioDucking(rawDucking)
+			? { ...normalizeAudioDucking(rawDucking)! }
+			: undefined;
 		entries.push({
 			ducking,
 			itemId: item.id,

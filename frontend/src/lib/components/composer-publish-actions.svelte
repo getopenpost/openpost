@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { cn } from '$lib/utils';
-	import ArrowRightIcon from '@lucide/svelte/icons/arrow-right';
 	import CalendarClockIcon from '@lucide/svelte/icons/calendar-clock';
+	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import SendIcon from '@lucide/svelte/icons/send';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
@@ -11,11 +12,11 @@
 		scheduleLabel: string;
 		quickScheduleLabel: string;
 		publishLabel: string;
+		moreLabel: string;
 		deleteLabel?: string;
 		busy?: boolean;
 		deleting?: boolean;
 		quickScheduleBusy?: boolean;
-		scheduleSelected?: boolean;
 		canOpenSchedule?: boolean;
 		canQuickSchedule?: boolean;
 		canPublish?: boolean;
@@ -30,11 +31,11 @@
 		scheduleLabel,
 		quickScheduleLabel,
 		publishLabel,
+		moreLabel,
 		deleteLabel = '',
 		busy = false,
 		deleting = false,
 		quickScheduleBusy = false,
-		scheduleSelected = false,
 		canOpenSchedule = true,
 		canQuickSchedule = true,
 		canPublish = true,
@@ -50,69 +51,65 @@
 	class={cn('flex min-w-0 items-center justify-end gap-1.5 md:gap-2', className)}
 	data-testid="composer-action-controls"
 >
-	{#if onDelete}
-		<Button
-			type="button"
-			variant="ghost"
-			size="icon"
-			class="size-11 shrink-0 text-muted-foreground hover:text-destructive md:size-8"
-			disabled={busy || deleting}
-			onclick={onDelete}
-			title={deleteLabel}
-			aria-label={deleteLabel}
-			data-testid="composer-delete"
-		>
-			{#if deleting}
-				<LoaderIcon class="size-4 animate-spin" />
-			{:else}
-				<Trash2Icon class="size-4" />
-			{/if}
-		</Button>
-	{/if}
-	<div class="flex min-w-0">
-		<Button
-			type="button"
-			variant="outline"
-			size="sm"
-			class="h-11 min-w-0 gap-1.5 rounded-r-none border-r-0 px-3 md:h-8"
-			disabled={busy || !canOpenSchedule}
-			onclick={onSchedule}
-			title={scheduleLabel}
-		>
-			<CalendarClockIcon class="size-3.5 shrink-0" />
-			<span class="truncate">{scheduleLabel}</span>
-		</Button>
-		<Button
-			type="button"
-			variant="outline"
-			size="icon"
-			class="size-11 shrink-0 rounded-l-none md:size-8"
-			disabled={busy || quickScheduleBusy || !canQuickSchedule}
-			onclick={onQuickSchedule}
-			title={quickScheduleLabel}
-			aria-label={quickScheduleLabel}
-		>
-			{#if busy || quickScheduleBusy}
-				<LoaderIcon class="size-3.5 animate-spin" />
-			{:else if scheduleSelected}
-				<SendIcon class="size-3.5" />
-			{:else}
-				<ArrowRightIcon class="size-3.5" />
-			{/if}
-		</Button>
-	</div>
 	<Button
 		type="button"
 		size="sm"
-		class="h-11 min-w-0 gap-1.5 px-3 md:h-8"
-		disabled={busy || !canPublish}
-		onclick={onPublish}
+		class="h-11 min-w-0 flex-1 gap-1.5 px-3 md:h-8 md:flex-none"
+		disabled={busy || quickScheduleBusy || !canQuickSchedule}
+		onclick={onQuickSchedule}
+		title={quickScheduleLabel}
+		data-testid="composer-primary-delivery-action"
 	>
-		{#if busy}
+		{#if busy || quickScheduleBusy}
 			<LoaderIcon class="size-3.5 shrink-0 animate-spin" />
 		{:else}
-			<SendIcon class="size-3.5 shrink-0" />
+			<CalendarClockIcon class="size-3.5 shrink-0" />
 		{/if}
-		<span class="truncate">{publishLabel}</span>
+		<span class="truncate">{quickScheduleLabel}</span>
 	</Button>
+	<DropdownMenu.Root>
+		<DropdownMenu.Trigger>
+			{#snippet child({ props })}
+				<Button
+					{...props}
+					type="button"
+					variant="outline"
+					size="icon"
+					class="size-11 shrink-0 md:size-8"
+					disabled={busy || deleting}
+					title={moreLabel}
+					aria-label={moreLabel}
+					data-testid="composer-delivery-menu"
+				>
+					<ChevronDownIcon class="size-3.5" />
+				</Button>
+			{/snippet}
+		</DropdownMenu.Trigger>
+		<DropdownMenu.Content class="w-56" align="end">
+			<DropdownMenu.Item disabled={!canOpenSchedule} onclick={onSchedule}>
+				<CalendarClockIcon class="size-4" />
+				{scheduleLabel}
+			</DropdownMenu.Item>
+			<DropdownMenu.Item disabled={!canPublish} onclick={onPublish}>
+				<SendIcon class="size-4" />
+				{publishLabel}
+			</DropdownMenu.Item>
+			{#if onDelete}
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item
+					class="text-destructive focus:text-destructive"
+					disabled={deleting}
+					onclick={(event) => onDelete?.(event as MouseEvent)}
+					data-testid="composer-delete"
+				>
+					{#if deleting}
+						<LoaderIcon class="size-4 animate-spin" />
+					{:else}
+						<Trash2Icon class="size-4" />
+					{/if}
+					{deleteLabel}
+				</DropdownMenu.Item>
+			{/if}
+		</DropdownMenu.Content>
+	</DropdownMenu.Root>
 </div>

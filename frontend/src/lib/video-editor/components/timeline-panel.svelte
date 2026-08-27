@@ -223,6 +223,7 @@
 	import TimelineDensityOverview from './timeline-density-overview.svelte';
 	import TimelineNavigator from './timeline-navigator.svelte';
 	import AudioMixerPanel from './audio-mixer-panel.svelte';
+	import BeatDetectionPanel from '$lib/video-editor/audio/beat-detection/beat-detection-panel.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import BentoLayoutDialog from './bento-layout-dialog.svelte';
 	import ClearKeyframesDialog from './clear-keyframes-dialog.svelte';
@@ -4463,6 +4464,8 @@
 {#if mixerOpen}
 	<AudioMixerPanel />
 {/if}
+
+<BeatDetectionPanel bind:selectedItemId />
 
 <div
 	bind:this={scrollContainer}

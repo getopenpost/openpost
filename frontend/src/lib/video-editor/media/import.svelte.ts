@@ -23,7 +23,7 @@ import { createMedia, deleteMedia } from '../workspace-fs/media';
 import type { MediaAttribution, MediaMetadata } from './types';
 import { probeMediaFile } from './probe-client';
 import { mediaPool } from './pool.svelte';
-import { reconcileSystemAudioWithProbe } from '../recorder/capture-capabilities';
+import { reconcileSystemAudioWithProbe } from './types';
 import { isLottieFile, parseLottieFileBytes } from '../lottie/metadata';
 import {
 	effectiveMediaStorageMode,

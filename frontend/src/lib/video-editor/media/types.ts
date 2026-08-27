@@ -105,6 +105,28 @@ export function normalizeRecordingCaptureMetadata(
 	return result;
 }
 
+export function reconcileSystemAudioWithProbe(
+	capture: { requested: boolean; active: boolean; status: RecordingSystemAudioStatus },
+	hasAudio: boolean
+): { active: boolean; status: RecordingSystemAudioStatus } {
+	const requested = capture.requested;
+	const priorStatus = capture.status;
+	const active = hasAudio;
+	let status: RecordingSystemAudioStatus;
+	if (!requested) {
+		status = active ? 'active' : 'not-requested';
+	} else if (active) {
+		status = 'active';
+	} else if (priorStatus === 'denied') {
+		status = 'denied';
+	} else if (priorStatus === 'unavailable') {
+		status = 'unavailable';
+	} else {
+		status = 'inactive';
+	}
+	return { active, status };
+}
+
 export interface MediaMetadata {
 	id: string;
 	storageType: MediaStorageType;

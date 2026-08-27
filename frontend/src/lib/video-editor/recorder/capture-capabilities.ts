@@ -1,14 +1,10 @@
 /* Capture truth: browser capability detection for cursor and system/tab audio */
 
+import type { RecordingSystemAudioStatus } from '../media/types';
+
 export type CursorMode = 'always' | 'motion' | 'never';
 export type CursorActualMode = CursorMode | 'unsupported' | 'unknown';
-export type SystemAudioStatus =
-	| 'not-requested'
-	| 'requested'
-	| 'active'
-	| 'inactive'
-	| 'unavailable'
-	| 'denied';
+export type SystemAudioStatus = RecordingSystemAudioStatus;
 
 export interface RecordingCapabilities {
 	hasDisplayMedia: boolean;
@@ -106,24 +102,4 @@ export function deriveSystemAudioStatus(args: {
 	return 'inactive';
 }
 
-export function reconcileSystemAudioWithProbe(
-	capture: { requested: boolean; active: boolean; status: SystemAudioStatus },
-	hasAudio: boolean
-): { active: boolean; status: SystemAudioStatus } {
-	const requested = capture.requested;
-	const priorStatus = capture.status;
-	const active = hasAudio;
-	let status: SystemAudioStatus;
-	if (!requested) {
-		status = active ? 'active' : 'not-requested';
-	} else if (active) {
-		status = 'active';
-	} else if (priorStatus === 'denied') {
-		status = 'denied';
-	} else if (priorStatus === 'unavailable') {
-		status = 'unavailable';
-	} else {
-		status = 'inactive';
-	}
-	return { active, status };
-}
+export { reconcileSystemAudioWithProbe } from '../media/types';

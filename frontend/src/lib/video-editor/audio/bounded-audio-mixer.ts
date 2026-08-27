@@ -1,6 +1,6 @@
 /* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion */
 import type { MixEntry } from '../media/render-plan';
-import { DUCKING_DEFAULT_ATTACK_SEC, DUCKING_DEFAULT_RELEASE_SEC } from './audio-ducking';
+import { collectMixEntryDuckWindows, mixEntryDuckGainAtTime } from './audio-ducking';
 import { mediaPool } from '../media/pool.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
 import { ensureAc3DecoderForCodec } from '../media/ac3-decoder';
@@ -140,67 +140,6 @@ function reverseChannels(channels: Float32Array[]): Float32Array[] {
 		}
 		return reversed;
 	});
-}
-
-function duckGainDbAtTime(
-	timelineSeconds: number,
-	source: {
-		startSeconds: number;
-		endSeconds: number;
-		duckDb: number;
-		attackSeconds: number;
-		releaseSeconds: number;
-	}
-): number {
-	if (timelineSeconds < source.startSeconds) return 0;
-	if (timelineSeconds > source.endSeconds + source.releaseSeconds) return 0;
-	if (source.attackSeconds > 0 && timelineSeconds < source.startSeconds + source.attackSeconds) {
-		const progress = (timelineSeconds - source.startSeconds) / source.attackSeconds;
-		return source.duckDb * progress;
-	}
-	if (timelineSeconds <= source.endSeconds) return source.duckDb;
-	if (source.releaseSeconds <= 0) return 0;
-	const progress = (timelineSeconds - source.endSeconds) / source.releaseSeconds;
-	return source.duckDb * (1 - progress);
-}
-
-interface DuckSourceWindow {
-	itemId: string;
-	startSeconds: number;
-	endSeconds: number;
-	duckDb: number;
-	attackSeconds: number;
-	releaseSeconds: number;
-	targetTrackIds?: string[];
-}
-
-function collectDuckWindows(entries: MixEntry[]): DuckSourceWindow[] {
-	return entries
-		.filter((entry) => entry.ducking && entry.ducking.duckOthersDb < 0)
-		.map((entry) => ({
-			itemId: entry.itemId,
-			startSeconds: entry.whenSeconds,
-			endSeconds: entry.whenSeconds + entry.durationSeconds,
-			duckDb: entry.ducking!.duckOthersDb,
-			attackSeconds: entry.ducking!.attackSec ?? DUCKING_DEFAULT_ATTACK_SEC,
-			releaseSeconds: entry.ducking!.releaseSec ?? DUCKING_DEFAULT_RELEASE_SEC,
-			...(entry.ducking!.targetTrackIds ? { targetTrackIds: entry.ducking!.targetTrackIds } : {})
-		}));
-}
-
-function duckGainAtSample(
-	timelineSeconds: number,
-	sources: DuckSourceWindow[],
-	target: MixEntry
-): number {
-	let deepestDb = 0;
-	for (const source of sources) {
-		if (source.itemId === target.itemId) continue;
-		if (source.targetTrackIds && !source.targetTrackIds.includes(target.trackId ?? '')) continue;
-		const db = duckGainDbAtTime(timelineSeconds, source);
-		if (db < deepestDb) deepestDb = db;
-	}
-	return deepestDb === 0 ? 1 : Math.pow(10, deepestDb / 20);
 }
 
 class EntryAutomation {
@@ -455,7 +394,7 @@ export async function* mixAudioWindows(
 	throwIfAborted(signal);
 	if (entries.length === 0 || durationSeconds <= 0) return;
 	const totalSamples = Math.ceil(durationSeconds * MIX_SAMPLE_RATE);
-	const duckSources = collectDuckWindows(entries);
+	const duckSources = collectMixEntryDuckWindows(entries);
 	const prepared: PreparedEntry[] = entries.map((entry) => {
 		const startSample = Math.floor(entry.whenSeconds * MIX_SAMPLE_RATE);
 		return {
@@ -493,10 +432,10 @@ export async function* mixAudioWindows(
 				for (let sample = 0; sample < overlapLength; sample++) {
 					const timelineSample = overlapStart + sample;
 					const baseGain = current.automation.gainAt(timelineSample);
-					const duckGain = duckGainAtSample(
+					const duckGain = mixEntryDuckGainAtTime(
 						timelineSample / MIX_SAMPLE_RATE,
-						duckSources,
-						current.entry
+						current.entry,
+						duckSources
 					);
 					const gain = baseGain * duckGain;
 					mix[0]![windowOffset + sample]! += (channels[0]![sample] ?? 0) * gain;

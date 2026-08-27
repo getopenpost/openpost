@@ -17,6 +17,7 @@
 	import { getMediaObjectUrl, revokeMediaObjectUrl } from '$lib/video-editor/media/media-source';
 	import { getAutomaticProxy, shouldUseAutomaticProxy } from '$lib/video-editor/media/proxy-client';
 	import { paintOrder, planNestedMixdown } from '$lib/video-editor/media/render-plan';
+	import { collectMixEntryDuckWindows } from '$lib/video-editor/audio/audio-ducking';
 	import {
 		resolveAnimatedItemAt,
 		resolveAnimatedItemLocalAt,
@@ -184,14 +185,18 @@
 					item.id === activeTransition?.incoming)
 		)
 	);
-	const nestedMixEntries = $derived(
+	const previewMixPlan = $derived(
 		planNestedMixdown(
 			timelineStore.items,
 			timelineStore.tracks,
 			editorSession.fps,
 			transitionsStore.list,
 			sequenceStore.compositions
-		).filter(
+		)
+	);
+	const previewDuckWindows = $derived(collectMixEntryDuckWindows(previewMixPlan));
+	const nestedMixEntries = $derived(
+		previewMixPlan.filter(
 			(entry) =>
 				entry.itemId.includes('/') && mediaPool.get(entry.mediaId)?.audioCodecSupported !== false
 		)
@@ -1376,9 +1381,9 @@
 		const owner = resolveAudioOwner( { item, tracks: timelineStore.tracks, allItems: timelineStore.items, mediaEntry, usesSeparateProxyAudio: false, usesProcessedAudio: requiresProcessedPreviewAudioForTimeline(item, timelineStore.tracks, timelineStore.busAudioEq) } );
 		return (owner === 'processed' || (owner === 'embedded' && item.type === 'audio')) && isAudioTransitionParticipantAtFrame(item, timelineStore.currentFrame, transitionsStore.list, timelineStore.itemById, editorSession.fps);
 	}) as item (item.id)}
-		<PreviewAudioLayer {item} url={urls[item.mediaId ?? '']} />
+		<PreviewAudioLayer {item} url={urls[item.mediaId ?? '']} duckWindows={previewDuckWindows} />
 	{/each}
 	{#each nestedMixEntries.filter((entry) => timelineStore.currentFrame / editorSession.fps >= entry.whenSeconds && timelineStore.currentFrame / editorSession.fps < entry.whenSeconds + entry.durationSeconds) as entry (entry.itemId)}
-		<PreviewMixEntryLayer {entry} url={urls[entry.mediaId]} />
+		<PreviewMixEntryLayer {entry} url={urls[entry.mediaId]} duckWindows={previewDuckWindows} />
 	{/each}
 </div>

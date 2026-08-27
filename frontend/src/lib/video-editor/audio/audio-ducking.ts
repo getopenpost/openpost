@@ -1,17 +1,6 @@
 /* oxlint-disable anti-slop/no-runtime-typeof, anti-slop/no-unsafe-dictionary-type, anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-chained-type-assertions, anti-slop/no-conditional-empty-object-spread, anti-slop/no-known-value-widening */
-/**
- * Sidechain audio ducking — shared math for preview and export.
- *
- * A duck-source item attenuates every other audible item while it is audible,
- * with attack/release ramps and optional per-track scoping. The source itself
- * is never ducked by its own envelope. Overlapping sources take the deepest
- * (minimum dB) gain so the balance stays deterministic.
- *
- * Ported from FreeCut (MIT) — types/timeline.ts + features/export/utils/canvas-audio.ts —
- * retargeted to OpenPost's TimelineItem / MixEntry model.
- */
-
 import type { TimelineItem, TimelineTrack, SubComposition } from '../project/types';
+import type { MixEntry } from '../media/render-plan';
 
 export const DUCKING_DEFAULT_ATTACK_SEC = 0.08;
 export const DUCKING_DEFAULT_RELEASE_SEC = 0.25;
@@ -35,6 +24,17 @@ export interface DuckingSource {
 	duckDb: number;
 	attackFrames: number;
 	releaseFrames: number;
+	targetTrackIds?: string[];
+}
+
+export interface MixEntryDuckWindow {
+	itemId: string;
+	trackId?: string;
+	startSeconds: number;
+	endSeconds: number;
+	duckDb: number;
+	attackSeconds: number;
+	releaseSeconds: number;
 	targetTrackIds?: string[];
 }
 
@@ -110,10 +110,6 @@ function duckingSourceFromItem(
 	const normalized = normalizeAudioDucking(raw);
 	if (!normalized) return null;
 	if (!isAudioBearingItem(item)) return null;
-	// Video items without media are silent and should not duck.
-	if ((item.type === 'video' || item.type === 'audio') && !item.mediaId) {
-		// Still allow if composition-backed? Keep check similar to FreeCut's carriesAudio but without embeddedAudioMuted field.
-	}
 	return {
 		itemId: item.id,
 		trackId,
@@ -125,8 +121,6 @@ function duckingSourceFromItem(
 		...(normalized.targetTrackIds ? { targetTrackIds: normalized.targetTrackIds } : {})
 	};
 }
-
-// ── Composition helpers ────────────────────────────────────────────────────
 
 interface WrapperTiming {
 	compFrom: number;
@@ -287,8 +281,6 @@ function collectNested(
 	return sources;
 }
 
-// ── Public collection ──────────────────────────────────────────────────────
-
 export function collectDuckingSources(
 	items: TimelineItem[],
 	tracks: TimelineTrack[],
@@ -296,7 +288,6 @@ export function collectDuckingSources(
 	compositions: SubComposition[] = []
 ): DuckingSource[] {
 	const compositionsById = new Map(compositions.map((c) => [c.id, c]));
-	const trackById = new Map(tracks.map((t) => [t.id, t]));
 	const anySolo = tracks.some((t) => t.solo);
 	return tracks
 		.filter((track) => isAudibleTrack(track, anySolo))
@@ -305,20 +296,12 @@ export function collectDuckingSources(
 				const own = duckingSourceFromItem(item, track.id, fps);
 				const sources = own ? [own] : [];
 				if (item.compositionId) {
-					// Composition wrappers: also descend for nested duck sources.
 					sources.push(...collectNested(item, track.id, fps, new Set(), compositionsById));
-					// If the track of the nested composition child is muted, collectNested already skipped.
-					// Also need to consider that `own` already covers wrapper's own duck if it is audio-bearing; but composition type is not audio-bearing so own will be null.
 				}
-				// Also need to handle audio items that reference a composition (OpenPost allows audio+compositionId)
-				// They are already covered via compositionId check above.
-				// For completeness, also collect when item itself is inside a composition track? Already handled.
 				return sources;
 			})
 		);
 }
-
-// ── Gain math ──────────────────────────────────────────────────────────────
 
 function duckingSourceGainDb(frame: number, source: DuckingSource): number {
 	if (frame < source.startFrame || frame > source.endFrame + source.releaseFrames) return 0;
@@ -362,7 +345,6 @@ export function duckGainDbAtFrame(
 	return deepestDb;
 }
 
-/** Apply ducking envelope to one channel of interleaved float samples. */
 export function applyDuckingToSamples(
 	samples: Float32Array,
 	sources: readonly DuckingSource[],
@@ -391,4 +373,53 @@ export function applyDuckingToSamples(
 		output[i] = db === 0 ? samples[i]! : samples[i]! * dbToGain(db);
 	}
 	return output;
+}
+
+function duckGainDbAtTime(timeSeconds: number, source: MixEntryDuckWindow): number {
+	if (timeSeconds < source.startSeconds) return 0;
+	if (timeSeconds > source.endSeconds + source.releaseSeconds) return 0;
+	if (source.attackSeconds > 0 && timeSeconds < source.startSeconds + source.attackSeconds) {
+		const progress = (timeSeconds - source.startSeconds) / source.attackSeconds;
+		return source.duckDb * progress;
+	}
+	if (timeSeconds <= source.endSeconds) return source.duckDb;
+	if (source.releaseSeconds <= 0) return 0;
+	const progress = (timeSeconds - source.endSeconds) / source.releaseSeconds;
+	return source.duckDb * (1 - progress);
+}
+
+export function collectMixEntryDuckWindows(entries: MixEntry[]): MixEntryDuckWindow[] {
+	return entries
+		.filter(
+			(entry) =>
+				entry.ducking &&
+				entry.duckStartSeconds !== undefined &&
+				entry.duckEndSeconds !== undefined &&
+				entry.ducking.duckOthersDb < 0
+		)
+		.map((entry) => ({
+			itemId: entry.itemId,
+			trackId: entry.trackId,
+			startSeconds: entry.duckStartSeconds!,
+			endSeconds: entry.duckEndSeconds!,
+			duckDb: entry.ducking!.duckOthersDb,
+			attackSeconds: entry.ducking!.attackSec ?? DUCKING_DEFAULT_ATTACK_SEC,
+			releaseSeconds: entry.ducking!.releaseSec ?? DUCKING_DEFAULT_RELEASE_SEC,
+			...(entry.ducking!.targetTrackIds ? { targetTrackIds: entry.ducking!.targetTrackIds } : {})
+		}));
+}
+
+export function mixEntryDuckGainAtTime(
+	timeSeconds: number,
+	target: { itemId: string; trackId?: string },
+	windows: MixEntryDuckWindow[]
+): number {
+	let deepestDb = 0;
+	for (const w of windows) {
+		if (w.itemId === target.itemId) continue;
+		if (w.targetTrackIds && !w.targetTrackIds.includes(target.trackId ?? '')) continue;
+		const db = duckGainDbAtTime(timeSeconds, w);
+		if (db < deepestDb) deepestDb = db;
+	}
+	return deepestDb === 0 ? 1 : Math.pow(10, deepestDb / 20);
 }

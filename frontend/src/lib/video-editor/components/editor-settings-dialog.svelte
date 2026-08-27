@@ -2,6 +2,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { getCurrentLocale, localeLabels, switchLocale } from '$lib/i18n';
 	import { locales, type Locale } from '$lib/paraglide/runtime';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -233,16 +234,17 @@
 										{m.video_editor_settings_language_description()}
 									</p>
 								</div>
-								<select
+								<AppSelect
 									id="editor-language"
-									class="h-10 min-w-48 rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-3 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] max-[640px]:h-11 max-[640px]:w-full"
 									value={currentLocale}
-									onchange={(event) => switchLocale(event.currentTarget.value as Locale)}
-								>
-									{#each locales as locale (locale)}
-										<option value={locale}>{localeLabels[locale]}</option>
-									{/each}
-								</select>
+									ariaLabel={m.language_label()}
+									options={locales.map((locale) => ({
+										value: locale,
+										label: localeLabels[locale]
+									}))}
+									onValueChange={(value) => switchLocale(value as Locale)}
+									class="h-10 min-w-48 max-[640px]:h-11 max-[640px]:w-full"
+								/>
 							</div>
 						</div>
 						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
@@ -343,16 +345,16 @@
 									<div class="flex flex-wrap items-end justify-between gap-3">
 										<label class="min-w-40 flex-1 text-xs text-[var(--video-editor-muted)]">
 											{m.video_editor_settings_sound_theme()}
-											<select
-												class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+											<AppSelect
 												value={soundPreferences.theme}
-												onchange={(event) =>
-													setSoundTheme(event.currentTarget.value as InterfaceSoundTheme)}
-											>
-												{#each INTERFACE_SOUND_THEMES as theme (theme)}
-													<option value={theme}>{soundThemeLabel(theme)}</option>
-												{/each}
-											</select>
+												ariaLabel={m.video_editor_settings_sound_theme()}
+												options={INTERFACE_SOUND_THEMES.map((theme) => ({
+													value: theme,
+													label: soundThemeLabel(theme)
+												}))}
+												onValueChange={(value) => setSoundTheme(value as InterfaceSoundTheme)}
+												class="mt-1 h-9 w-full"
+											/>
 										</label>
 										<Button
 											type="button"
@@ -438,53 +440,49 @@
 						<div class="grid gap-3 sm:grid-cols-2">
 							<label class="text-xs text-[var(--video-editor-muted)] sm:col-span-2">
 								{m.video_editor_transcribe_model()}
-								<select
-									class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								<AppSelect
 									value={editorSettings.defaultTranscriptionModel}
-									onchange={(event) =>
-										editorSettings.set(
-											'defaultTranscriptionModel',
-											event.currentTarget.value as TranscriptionModel
-										)}
-								>
-									{#each TRANSCRIPTION_MODEL_OPTIONS as option}
-										<option value={option.value}>{transcriptionModelUiLabel(option.value)}</option>
-									{/each}
-								</select>
+									ariaLabel={m.video_editor_transcribe_model()}
+									options={TRANSCRIPTION_MODEL_OPTIONS.map((option) => ({
+										value: option.value,
+										label: transcriptionModelUiLabel(option.value)
+									}))}
+									onValueChange={(value) =>
+										editorSettings.set('defaultTranscriptionModel', value as TranscriptionModel)}
+									class="mt-1 h-9 w-full"
+								/>
 							</label>
 							<label class="text-xs text-[var(--video-editor-muted)]">
 								{m.video_editor_transcribe_language()}
-								<select
-									class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								<AppSelect
 									value={editorSettings.defaultTranscriptionLanguage}
-									onchange={(event) =>
-										editorSettings.set('defaultTranscriptionLanguage', event.currentTarget.value)}
-								>
-									{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
-										<option value={option.value}
-											>{transcriptionLanguageUiLabel(option.value)}</option
-										>
-									{/each}
-								</select>
+									ariaLabel={m.video_editor_transcribe_language()}
+									options={TRANSCRIPTION_LANGUAGE_OPTIONS.map((option) => ({
+										value: option.value,
+										label: transcriptionLanguageUiLabel(option.value)
+									}))}
+									onValueChange={(value) =>
+										editorSettings.set('defaultTranscriptionLanguage', value)}
+									class="mt-1 h-9 w-full"
+								/>
 							</label>
 							<label class="text-xs text-[var(--video-editor-muted)]">
 								{m.video_editor_transcribe_quality()}
-								<select
-									class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								<AppSelect
 									value={editorSettings.defaultTranscriptionQuantization}
+									ariaLabel={m.video_editor_transcribe_quality()}
+									options={TRANSCRIPTION_QUANTIZATION_OPTIONS.map((option) => ({
+										value: option.value,
+										label: transcriptionQuantizationUiLabel(option.value)
+									}))}
 									disabled={editorSettings.defaultTranscriptionModel === 'parakeet-tdt-v3'}
-									onchange={(event) =>
+									onValueChange={(value) =>
 										editorSettings.set(
 											'defaultTranscriptionQuantization',
-											event.currentTarget.value as TranscriptionQuantization
+											value as TranscriptionQuantization
 										)}
-								>
-									{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
-										<option value={option.value}
-											>{transcriptionQuantizationUiLabel(option.value)}</option
-										>
-									{/each}
-								</select>
+									class="mt-1 h-9 w-full"
+								/>
 							</label>
 						</div>
 					</section>

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import type { CutMode, QuickCutSegment, QuickCutSource } from '../types';
 	import { formatTimecode, parseTimecode } from '../model';
 
@@ -77,13 +79,13 @@
 						<span class="text-muted-foreground"
 							>{m.quick_cut_in()} · {formatTimecode(seg.start)}</span
 						>
-						<input
-							class="h-11 min-h-11 rounded-md border border-input bg-background px-2 font-mono text-sm tabular-nums focus-visible:outline-2 focus-visible:outline-primary md:h-9 md:min-h-9"
+						<Input
 							type="text"
 							inputmode="decimal"
 							value={formatTimecode(seg.start)}
 							aria-label={`${m.quick_cut_in()} ${index + 1}`}
 							onchange={(e) => commitTime(seg.id, 'start', e.currentTarget.value, seg.sourceId)}
+							class="h-11 min-h-11 font-mono text-sm tabular-nums md:h-9 md:min-h-9"
 						/>
 					</label>
 					<span class="hidden self-center text-muted-foreground sm:block">→</span>
@@ -91,13 +93,13 @@
 						<span class="text-muted-foreground"
 							>{m.quick_cut_out()} · {formatTimecode(seg.end)}</span
 						>
-						<input
-							class="h-11 min-h-11 rounded-md border border-input bg-background px-2 font-mono text-sm tabular-nums focus-visible:outline-2 focus-visible:outline-primary md:h-9 md:min-h-9"
+						<Input
 							type="text"
 							inputmode="decimal"
 							value={formatTimecode(seg.end)}
 							aria-label={`${m.quick_cut_out()} ${index + 1}`}
 							onchange={(e) => commitTime(seg.id, 'end', e.currentTarget.value, seg.sourceId)}
+							class="h-11 min-h-11 font-mono text-sm tabular-nums md:h-9 md:min-h-9"
 						/>
 					</label>
 					<span
@@ -105,27 +107,28 @@
 						>{(seg.end - seg.start).toFixed(2)}s</span
 					>
 				</div>
-				<label class="flex min-h-11 items-center gap-2 text-xs md:min-h-9">
+				<div class="flex min-h-11 items-center gap-2 text-xs md:min-h-9">
 					<span class="shrink-0 text-muted-foreground">{m.quick_cut_cut_mode()}</span>
-					<select
-						class="h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-xs focus-visible:outline-2 focus-visible:outline-primary md:h-9"
+					<AppSelect
 						value={seg.cutMode ?? ''}
-						aria-label={`${m.quick_cut_cut_mode()} ${index + 1}`}
-						onchange={(event) =>
-							onUpdate(seg.id, { cutMode: parseCutMode(event.currentTarget.value) })}
-					>
-						<option value="">
-							{m.quick_cut_cut_mode_project({
-								mode:
-									defaultCutMode === 'exact'
-										? m.quick_cut_cut_mode_exact()
-										: m.quick_cut_cut_mode_nearest()
-							})}
-						</option>
-						<option value="nearestKeyframe">{m.quick_cut_cut_mode_nearest()}</option>
-						<option value="exact">{m.quick_cut_cut_mode_exact()}</option>
-					</select>
-				</label>
+						ariaLabel={`${m.quick_cut_cut_mode()} ${index + 1}`}
+						options={[
+							{
+								value: '',
+								label: m.quick_cut_cut_mode_project({
+									mode:
+										defaultCutMode === 'exact'
+											? m.quick_cut_cut_mode_exact()
+											: m.quick_cut_cut_mode_nearest()
+								})
+							},
+							{ value: 'nearestKeyframe', label: m.quick_cut_cut_mode_nearest() },
+							{ value: 'exact', label: m.quick_cut_cut_mode_exact() }
+						]}
+						onValueChange={(value) => onUpdate(seg.id, { cutMode: parseCutMode(value) })}
+						class="h-11 min-w-0 flex-1 text-xs md:h-9"
+					/>
+				</div>
 			</div>
 
 			<div class="flex items-center gap-1">

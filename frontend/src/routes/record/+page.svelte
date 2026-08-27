@@ -361,35 +361,35 @@
 				>
 				<div class="grid gap-2 sm:grid-cols-3">
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 has-data-[state=checked]:border-[oklch(0.66_0.14_45)] has-data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeScreen}
-							onchange={() => recorderPreferences.set('includeScreen', includeScreen)}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) =>
+								recorderPreferences.set('includeScreen', checked === true)}
+							aria-label={m.record_source_screen()}
 						/>
 						<span class="text-sm">{m.record_source_screen()}</span>
 					</label>
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 has-data-[state=checked]:border-[oklch(0.66_0.14_45)] has-data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeCamera}
-							onchange={() => recorderPreferences.set('includeCamera', includeCamera)}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) =>
+								recorderPreferences.set('includeCamera', checked === true)}
+							aria-label={m.record_source_camera()}
 						/>
 						<span class="text-sm">{m.record_source_camera()}</span>
 					</label>
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 has-data-[state=checked]:border-[oklch(0.66_0.14_45)] has-data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeMic}
-							onchange={() => recorderPreferences.set('includeMicrophone', includeMic)}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) =>
+								recorderPreferences.set('includeMicrophone', checked === true)}
+							aria-label={m.record_source_audio()}
 						/>
 						<span class="text-sm">{m.record_source_audio()}</span>
 					</label>

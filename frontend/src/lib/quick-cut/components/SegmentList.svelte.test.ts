@@ -41,13 +41,10 @@ test('edits one segment cut strategy without changing the project default', asyn
 		onMove: vi.fn()
 	});
 
-	const strategy = screen.getByRole('combobox', { name: 'Cut mode 1' });
-	await expect.element(strategy).toHaveValue('');
-	expect(strategy.element().querySelector('option[value=""]')?.textContent?.trim()).toBe(
-		'Project mode: Nearest keyframe (lossless)'
-	);
-
-	await strategy.selectOptions('exact');
+	const strategy = screen.getByRole('button', { name: 'Cut mode 1' });
+	await expect.element(strategy).toHaveTextContent('Project mode: Nearest keyframe (lossless)');
+	await strategy.click();
+	await screen.getByRole('option', { name: 'Exact time (may re-encode)' }).click();
 	expect(onUpdate).toHaveBeenCalledExactlyOnceWith('range', { cutMode: 'exact' });
 });
 
@@ -64,6 +61,24 @@ test('keeps the per-segment strategy usable without phone overflow', async () =>
 		onMove: vi.fn()
 	});
 
-	await expect.element(screen.getByRole('combobox', { name: 'Cut mode 1' })).toBeVisible();
+	await expect.element(screen.getByRole('button', { name: 'Cut mode 1' })).toBeVisible();
 	expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+});
+
+test('renders timecode inputs with shared Input primitive and preserves bindings', async () => {
+	const screen = await render(SegmentList, {
+		segments: [createSegment(1.25, 3.5, { id: 'range', sourceId: source.id })],
+		sources: [source],
+		selectedId: 'range',
+		defaultCutMode: 'nearestKeyframe',
+		onSelect: vi.fn(),
+		onRemove: vi.fn(),
+		onUpdate: vi.fn(),
+		onMove: vi.fn()
+	});
+
+	await expect.element(screen.getByRole('textbox', { name: 'In 1' })).toBeVisible();
+	await expect.element(screen.getByRole('textbox', { name: 'Out 1' })).toBeVisible();
+	await expect.element(screen.getByRole('textbox', { name: 'In 1' })).toHaveValue('00:01.25');
+	await expect.element(screen.getByRole('textbox', { name: 'Out 1' })).toHaveValue('00:03.50');
 });

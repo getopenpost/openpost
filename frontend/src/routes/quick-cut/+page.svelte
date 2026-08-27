@@ -6,7 +6,9 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Label } from '$lib/components/ui/label';
+	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
 	import { onDestroy, tick } from 'svelte';
@@ -885,37 +887,28 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 						<p class="mt-1 text-xs text-muted-foreground">{m.quick_cut_segments_hint()}</p>
 
 						<div class="mt-3 flex flex-wrap items-center gap-2">
-							<label class="flex items-center gap-2 text-xs">
-								<input
-									type="checkbox"
+							<Label class="flex items-center gap-2 text-xs font-normal">
+								<Checkbox
 									bind:checked={merge}
-									onchange={syncProject}
-									class="h-4 w-4 rounded border-input"
+									onCheckedChange={() => syncProject()}
+									aria-label={m.quick_cut_merge_label()}
 								/>
 								{m.quick_cut_merge_label()}
-							</label>
-							<label class="flex items-center gap-2 text-xs">
-								<input
-									type="radio"
-									name="cutMode"
-									value="nearestKeyframe"
-									checked={cutMode === 'nearestKeyframe'}
-									onchange={() => changeDefaultCutMode('nearestKeyframe')}
-									class="h-4 w-4"
-								/>
-								{m.quick_cut_cut_mode_nearest()}
-							</label>
-							<label class="flex items-center gap-2 text-xs">
-								<input
-									type="radio"
-									name="cutMode"
-									value="exact"
-									checked={cutMode === 'exact'}
-									onchange={() => changeDefaultCutMode('exact')}
-									class="h-4 w-4"
-								/>
-								{m.quick_cut_cut_mode_exact()}
-							</label>
+							</Label>
+							<RadioGroup.Root
+								bind:value={cutMode as unknown as string}
+								onValueChange={(value) => changeDefaultCutMode(value as CutMode)}
+								class="flex flex-wrap items-center gap-2"
+							>
+								<Label class="flex items-center gap-2 text-xs font-normal">
+									<RadioGroup.Item value="nearestKeyframe" id="cutMode-nearest" />
+									{m.quick_cut_cut_mode_nearest()}
+								</Label>
+								<Label class="flex items-center gap-2 text-xs font-normal">
+									<RadioGroup.Item value="exact" id="cutMode-exact" />
+									{m.quick_cut_cut_mode_exact()}
+								</Label>
+							</RadioGroup.Root>
 						</div>
 
 						{#if preflight && !preflight.eligible}

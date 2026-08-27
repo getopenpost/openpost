@@ -26,7 +26,10 @@ import {
 	findSnapKeyframe,
 	estimateOutputBytes,
 	resolveSegmentCutMode,
-	KEYFRAME_TOLERANCE_SECONDS
+	KEYFRAME_TOLERANCE_SECONDS,
+	getSelectedVideoStream,
+	getSelectedAudioStreams,
+	validateStreamSelection
 } from './model';
 import { createStreamingOutputTarget } from '$lib/video/stream-target';
 import { probeSourceFile, resolveSourceFile } from './source';
@@ -219,10 +222,25 @@ export async function preflightExport(
 	const firstSource = sourceById.get(enabled[0]!.sourceId)!;
 	const outputFormat = outputFormatForSource(firstSource);
 	const estimatedBytes = estimateOutputBytes(enabled, sources);
+	// Validate stream selections are possible
+	for (const src of sources) {
+		const err = validateStreamSelection(src);
+		if (err) {
+			return {
+				eligible: false,
+				reason: `${src.name}: ${err}`,
+				requiresTranscode: false,
+				outputFormat,
+				estimatedBytes,
+				snapInfo: [],
+				perSegment: []
+			};
+		}
+	}
 	if (merge) {
 		const selectedSources = enabled.map((segment) => sourceById.get(segment.sourceId)!);
-		const hasVideo = selectedSources.some((source) => source.videoCodec !== null);
-		const hasAudioOnly = selectedSources.some((source) => source.videoCodec === null);
+		const hasVideo = selectedSources.some((source) => getSelectedVideoStream(source) !== null);
+		const hasAudioOnly = selectedSources.some((source) => getSelectedVideoStream(source) === null);
 		if (hasVideo && hasAudioOnly) {
 			return {
 				eligible: false,
@@ -245,14 +263,19 @@ export async function preflightExport(
 		const kfs = src.keyframeTimestamps;
 		const segmentCutMode = resolveSegmentCutMode(seg, cutMode);
 		const sourceFormat = outputFormatForSource(src);
-		// SAFETY: probeSourceFile reads codec names from Mediabunny's typed tracks.
-		const sourceVideoCodec = src.videoCodec as VideoCodec | null;
-		// SAFETY: probeSourceFile reads codec names from Mediabunny's typed tracks.
-		const sourceAudioCodec = src.audioCodec as AudioCodec | null;
-		if (
-			(sourceVideoCodec && !sourceFormat.getSupportedVideoCodecs().includes(sourceVideoCodec)) ||
-			(sourceAudioCodec && !sourceFormat.getSupportedAudioCodecs().includes(sourceAudioCodec))
-		) {
+		const selectedVideo = getSelectedVideoStream(src);
+		const selectedAudios = getSelectedAudioStreams(src);
+		// SAFETY: selectedVideo.codec is a string from probeSourceFile via mediabunny track codec
+		const sourceVideoCodec = (selectedVideo?.codec ?? null) as VideoCodec | null;
+		const hasUnsupportedVideo =
+			sourceVideoCodec !== null &&
+			!sourceFormat.getSupportedVideoCodecs().includes(sourceVideoCodec);
+		const hasUnsupportedAudio = selectedAudios.some(
+			// SAFETY: selected audio codec strings are from mediabunny probe
+			(a) =>
+				a.codec !== null && !sourceFormat.getSupportedAudioCodecs().includes(a.codec as AudioCodec)
+		);
+		if (hasUnsupportedVideo || hasUnsupportedAudio) {
 			perSegment.push({
 				segmentId: seg.id,
 				requiresTranscode: true,
@@ -261,7 +284,17 @@ export async function preflightExport(
 			});
 			continue;
 		}
-		if (src.keyframeState === 'audio-only') {
+		if (selectedVideo === null && selectedAudios.length === 0) {
+			perSegment.push({
+				segmentId: seg.id,
+				requiresTranscode: true,
+				reason: 'No tracks selected for this source',
+				snappedStart: null
+			});
+			continue;
+		}
+		const isAudioOnlySelection = selectedVideo === null && selectedAudios.length > 0;
+		if (src.keyframeState === 'audio-only' || isAudioOnlySelection) {
 			const exactAudio = segmentCutMode === 'exact';
 			perSegment.push({
 				segmentId: seg.id,
@@ -330,39 +363,58 @@ export async function preflightExport(
 	}
 	// Merge-level decision: if any per-segment requires transcode and merge, then merged requires transcode; also check codec/dimensions
 	if (merge && enabled.length > 1) {
-		const firstVideoCodec = firstSource.videoCodec;
-		const firstAudioCodec = firstSource.audioCodec;
-		const firstW = firstSource.width;
-		const firstH = firstSource.height;
-		const firstFps = firstSource.fps;
-		const firstSR = firstSource.sampleRate;
-		const firstCh = firstSource.channels;
+		const firstVideo = getSelectedVideoStream(firstSource);
+		const firstAudios = getSelectedAudioStreams(firstSource);
+		const firstVideoCodec = firstVideo?.codec ?? null;
+		const firstW = firstVideo?.width ?? 0;
+		const firstH = firstVideo?.height ?? 0;
+		const firstFps = firstVideo?.fps ?? null;
+		const firstRotation = firstVideo?.rotation ?? 0;
+		const firstAudioCodec = firstAudios[0]?.codec ?? null;
+		const firstSR = firstAudios[0]?.sampleRate ?? null;
+		const firstCh = firstAudios[0]?.channels ?? null;
+		const firstAudioCount = firstAudios.length;
 		for (const seg of enabled) {
 			const src = sourceById.get(seg.sourceId)!;
-			if (src.videoCodec !== firstVideoCodec || src.audioCodec !== firstAudioCodec) {
+			const selVideo = getSelectedVideoStream(src);
+			const selAudios = getSelectedAudioStreams(src);
+			if ((selVideo?.codec ?? null) !== firstVideoCodec) {
 				requiresTranscode = true;
 				reason = 'Selected segments use different codecs and require re-encoding for merge.';
 				break;
 			}
-			if (src.width !== firstW || src.height !== firstH) {
+			if ((selAudios[0]?.codec ?? null) !== firstAudioCodec) {
+				requiresTranscode = true;
+				reason = 'Selected audio codecs differ and require re-encoding for merge.';
+				break;
+			}
+			if ((selVideo?.width ?? 0) !== firstW || (selVideo?.height ?? 0) !== firstH) {
 				requiresTranscode = true;
 				reason = 'Selected segments have different dimensions and require re-encoding.';
 				break;
 			}
 			if (
-				(src.fps === null) !== (firstFps === null) ||
-				(src.fps !== null && firstFps !== null && Math.abs(src.fps - firstFps) > 0.001)
+				((selVideo?.fps ?? null) === null) !== (firstFps === null) ||
+				(selVideo?.fps !== null && firstFps !== null && Math.abs(selVideo.fps - firstFps) > 0.001)
 			) {
 				requiresTranscode = true;
 				reason = 'Selected segments use different frame rates and require re-encoding.';
 				break;
 			}
-			if (src.sampleRate !== firstSR || src.channels !== firstCh) {
+			if (selAudios.length !== firstAudioCount) {
+				requiresTranscode = true;
+				reason = 'Audio track counts differ and require re-encoding.';
+				break;
+			}
+			if (
+				firstAudios.length > 0 &&
+				(selAudios[0]?.sampleRate !== firstSR || selAudios[0]?.channels !== firstCh)
+			) {
 				requiresTranscode = true;
 				reason = 'Audio configuration differs and requires re-encoding.';
 				break;
 			}
-			if (src.rotation !== firstSource.rotation) {
+			if ((selVideo?.rotation ?? 0) !== firstRotation) {
 				requiresTranscode = true;
 				reason = 'Rotation differs and requires re-encoding.';
 				break;
@@ -466,6 +518,11 @@ async function exportSingleStreamCopy(
 	onProgress?: LocalExportProgress
 ): Promise<QuickCutScratchArtifact> {
 	throwIfAborted(signal);
+	const selectedVideo = getSelectedVideoStream(source);
+	const selectedAudios = getSelectedAudioStreams(source);
+	if (!selectedVideo && selectedAudios.length === 0) {
+		throw new UnsupportedStreamCopyError(`No tracks selected for ${source.name}.`);
+	}
 	const file = await resolveSourceFile(source, signal);
 	const format = outputFormatForSource(source);
 	const ext = extensionForFormat(format);
@@ -476,8 +533,11 @@ async function exportSingleStreamCopy(
 		input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
 		const trimStart = snappedStart ?? segment.start;
 		const trimEnd = segment.end;
-		if (source.videoCodec) {
-			const videoTrack = await input.getPrimaryVideoTrack();
+		if (selectedVideo) {
+			const videoTracks = await input.getVideoTracks().catch(() => []);
+			const videoTrack =
+				videoTracks.find((t, idx) => idx === selectedVideo.index) ??
+				(await input.getPrimaryVideoTrack().catch(() => null));
 			if (!videoTrack) {
 				throw new UnsupportedStreamCopyError(`No video track for ${source.name}.`);
 			}
@@ -493,12 +553,14 @@ async function exportSingleStreamCopy(
 				}
 			}
 		}
+		const hasVideo = selectedVideo !== null;
+		const hasAudio = selectedAudios.length > 0;
 		const conversion = await Conversion.init({
 			input,
 			output: new Output({ format, target: streaming.target }),
 			trim: { start: trimStart, end: trimEnd },
-			video: { forceTranscode: false },
-			audio: { forceTranscode: false }
+			video: hasVideo ? { forceTranscode: false } : { discard: true },
+			audio: hasAudio ? { forceTranscode: false } : { discard: true }
 		});
 		if (!conversion.isValid) {
 			await streaming.discard();
@@ -555,6 +617,11 @@ async function exportSingleTranscode(
 	onProgress?: LocalExportProgress
 ): Promise<QuickCutScratchArtifact> {
 	throwIfAborted(signal);
+	const selectedVideo = getSelectedVideoStream(source);
+	const selectedAudios = getSelectedAudioStreams(source);
+	if (!selectedVideo && selectedAudios.length === 0) {
+		throw new Error(`No tracks selected for ${source.name}.`);
+	}
 	const file = await resolveSourceFile(source, signal);
 	const format = outputFormatForSource(source);
 	const ext = extensionForFormat(format);
@@ -563,13 +630,16 @@ async function exportSingleTranscode(
 	let input: Input | null = null;
 	try {
 		input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
-		await ensureAc3DecoderForCodec(source.audioCodec);
+		for (const aud of selectedAudios) await ensureAc3DecoderForCodec(aud.codec);
+		if (selectedVideo) await ensureAc3DecoderForCodec(selectedVideo.codec);
+		const hasVideo = selectedVideo !== null;
+		const hasAudio = selectedAudios.length > 0;
 		const conversion = await Conversion.init({
 			input,
 			output: new Output({ format, target: streaming.target }),
 			trim: { start: segment.start, end: segment.end },
-			video: source.videoCodec ? { forceTranscode: true } : { discard: true },
-			audio: source.audioCodec ? { forceTranscode: true } : { discard: true }
+			video: hasVideo ? { forceTranscode: true } : { discard: true },
+			audio: hasAudio ? { forceTranscode: true } : { discard: true }
 		});
 		if (!conversion.isValid) {
 			await streaming.discard();
@@ -645,7 +715,12 @@ async function exportMergedAudioStreamCopy(
 			const file = await resolveSourceFile(source, signal);
 			const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
 			inputs.push(input);
-			const track = await input.getPrimaryAudioTrack();
+			const selectedAudios = getSelectedAudioStreams(source);
+			if (selectedAudios.length === 0)
+				throw new UnsupportedStreamCopyError(`No audio track selected for ${source.name}.`);
+			const selIdx = selectedAudios[0]!.index;
+			const audioTracks = await input.getAudioTracks().catch(() => []);
+			const track = audioTracks[selIdx] ?? (await input.getPrimaryAudioTrack().catch(() => null));
 			if (!track) throw new UnsupportedStreamCopyError(`No audio track for ${source.name}.`);
 			const codec = await track.getCodec();
 			if (!codec || !format.getSupportedAudioCodecs().includes(codec)) {
@@ -748,7 +823,16 @@ async function exportMergedStreamCopy(
 	const output = new Output({ format, target: streaming.target });
 	const firstFile = await resolveSourceFile(firstSource, signal);
 	const firstInput = new Input({ formats: ALL_FORMATS, source: new BlobSource(firstFile) });
-	const videoTrack = await firstInput.getPrimaryVideoTrack();
+	const firstSelVideo = getSelectedVideoStream(firstSource);
+	if (!firstSelVideo) {
+		await streaming.discard();
+		firstInput.dispose?.();
+		throw new UnsupportedStreamCopyError('No video track selected for merge.');
+	}
+	const firstVideoTracks = await firstInput.getVideoTracks().catch(() => []);
+	const videoTrack =
+		firstVideoTracks[firstSelVideo.index] ??
+		(await firstInput.getPrimaryVideoTrack().catch(() => null));
 	if (!videoTrack) {
 		await streaming.discard();
 		firstInput.dispose?.();
@@ -776,21 +860,31 @@ async function exportMergedStreamCopy(
 		);
 	const rotation = videoTrack.rotation;
 	output.addVideoTrack(videoSource, { frameRate: fps, rotation });
-	const audioTrack = await firstInput.getPrimaryAudioTrack();
+	const firstSelAudios = getSelectedAudioStreams(firstSource);
+	let audioTrack: Awaited<ReturnType<Input['getPrimaryAudioTrack']>> | null = null;
 	let audioSource: EncodedAudioPacketSource | null = null;
 	let audioCodec: string | null = null;
-	if (audioTrack) {
-		audioCodec = await audioTrack.getCodec();
-		if (audioCodec) {
-			// SAFETY: validated shape before cast
-			const maybeAudioCodec = audioCodec as AudioCodec;
-			audioSource = new EncodedAudioPacketSource(maybeAudioCodec);
-			output.addAudioTrack(audioSource);
+	if (firstSelAudios.length > 0) {
+		const firstAudioTracks = await firstInput.getAudioTracks().catch(() => []);
+		audioTrack =
+			firstAudioTracks[firstSelAudios[0]!.index] ??
+			(await firstInput.getPrimaryAudioTrack().catch(() => null));
+		if (audioTrack) {
+			audioCodec = await audioTrack.getCodec();
+			if (audioCodec) {
+				// SAFETY: validated shape before cast
+				const maybeAudioCodec = audioCodec as AudioCodec;
+				audioSource = new EncodedAudioPacketSource(maybeAudioCodec);
+				output.addAudioTrack(audioSource);
+			}
+		} else {
+			await streaming.discard();
+			firstInput.dispose?.();
+			throw new UnsupportedStreamCopyError('Audio track missing for merge.');
 		}
 	} else {
-		// Audio-only or video-only: if any source has audio but first doesn't, we need to handle
-		const anyAudio = sources.some((s) => s.audioCodec);
-		if (anyAudio) {
+		const anySelectedAudio = sources.some((s) => getSelectedAudioStreams(s).length > 0);
+		if (anySelectedAudio) {
 			await streaming.discard();
 			firstInput.dispose?.();
 			throw new UnsupportedStreamCopyError(
@@ -827,10 +921,21 @@ async function exportMergedStreamCopy(
 				const f = await resolveSourceFile(src, signal);
 				segInput = new Input({ formats: ALL_FORMATS, source: new BlobSource(f) });
 				inputsToDispose.push(segInput);
-				segVideoTrack = await segInput.getPrimaryVideoTrack();
+				const selVideo = getSelectedVideoStream(src);
+				if (!selVideo)
+					throw new UnsupportedStreamCopyError(`No video track selected for ${src.name}`);
+				const vTracks = await segInput.getVideoTracks().catch(() => []);
+				segVideoTrack =
+					vTracks[selVideo.index] ?? (await segInput.getPrimaryVideoTrack().catch(() => null));
 				if (!segVideoTrack)
 					throw new UnsupportedStreamCopyError(`No video track for source ${src.name}`);
-				segAudioTrack = await segInput.getPrimaryAudioTrack();
+				const selAudios = getSelectedAudioStreams(src);
+				if (selAudios.length > 0) {
+					const aTracks = await segInput.getAudioTracks().catch(() => []);
+					segAudioTrack =
+						aTracks[selAudios[0]!.index] ??
+						(await segInput.getPrimaryAudioTrack().catch(() => null));
+				} else segAudioTrack = null;
 				// SAFETY: validated shape before cast
 				const vc = (await segVideoTrack.getCodec()) as VideoCodec | null;
 				if (vc !== maybeVideoCodec)
@@ -1086,7 +1191,7 @@ async function exportMergedTranscode(
 	throwIfAborted(signal);
 	const enabledSourceIds = new Set(segments.map((segment) => segment.sourceId));
 	const hasVideo = sources.some(
-		(source) => enabledSourceIds.has(source.id) && source.videoCodec !== null
+		(source) => enabledSourceIds.has(source.id) && getSelectedVideoStream(source) !== null
 	);
 	if (!hasVideo) {
 		return exportMergedAudioTranscode(sources, segments, preflight, signal, onProgress);
@@ -1097,7 +1202,9 @@ async function exportMergedTranscode(
 	const finalStreaming = await createStreamingOutputTarget(signal);
 	const finalOutput = new Output({ format, target: finalStreaming.target });
 	const enabledIds = new Set(segments.map((s) => s.sourceId));
-	const hasAudio = sources.filter((s) => enabledIds.has(s.id)).some((s) => s.audioCodec);
+	const hasAudio = sources
+		.filter((s) => enabledIds.has(s.id))
+		.some((s) => getSelectedAudioStreams(s).length > 0);
 	const videoCodec: VideoCodec = 'avc';
 	const audioCodec: AudioCodec = 'aac';
 	const firstFps = sources.find((s) => enabledIds.has(s.id) && s.fps && s.fps > 0)?.fps ?? null;
@@ -1124,15 +1231,18 @@ async function exportMergedTranscode(
 			const seg = segments[idx]!;
 			const src = sourceById.get(seg.sourceId)!;
 			const file = await resolveSourceFile(src, signal);
-			await ensureAc3DecoderForCodec(src.audioCodec);
+			const selVideo = getSelectedVideoStream(src);
+			const selAudios = getSelectedAudioStreams(src);
+			for (const a of selAudios) await ensureAc3DecoderForCodec(a.codec);
+			if (selVideo) await ensureAc3DecoderForCodec(selVideo.codec);
 			const tempStreaming = await createStreamingOutputTarget(signal);
 			const tempInput = new Input({ formats: ALL_FORMATS, source: new BlobSource(file) });
 			const tempConversion = await Conversion.init({
 				input: tempInput,
 				output: new Output({ format: new Mp4OutputFormat(), target: tempStreaming.target }),
 				trim: { start: seg.start, end: seg.end },
-				video: { forceTranscode: true },
-				audio: { forceTranscode: false }
+				video: selVideo ? { forceTranscode: true } : { discard: true },
+				audio: selAudios.length > 0 ? { forceTranscode: false } : { discard: true }
 			});
 			if (!tempConversion.isValid) {
 				await tempStreaming.discard();

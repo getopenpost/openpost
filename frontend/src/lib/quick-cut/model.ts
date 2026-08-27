@@ -1,8 +1,10 @@
 import type {
 	CutMode,
+	QuickCutAudioStream,
 	QuickCutSegment,
 	QuickCutSource,
 	QuickCutSourceMetadata,
+	QuickCutVideoStream,
 	SegmentValidationError
 } from './types';
 
@@ -447,6 +449,59 @@ export function parseTimecode(input: string): number | null {
 		if (!isFiniteNumber(h) || !isFiniteNumber(m) || !isFiniteNumber(s)) return null;
 		return h * 3600 + m * 60 + s;
 	}
+	return null;
+}
+
+export function getSelectedVideoStream(
+	source: QuickCutSource | QuickCutSourceMetadata
+): QuickCutVideoStream | null {
+	const streams = source.videoStreams ?? [];
+	if (streams.length === 0) return null;
+	if (source.selectedVideoTrackIndex === null) return null;
+	if (source.selectedVideoTrackIndex === undefined) return streams[0] ?? null;
+	return streams.find((s) => s.index === source.selectedVideoTrackIndex) ?? null;
+}
+
+export function getSelectedAudioStreams(
+	source: QuickCutSource | QuickCutSourceMetadata
+): QuickCutAudioStream[] {
+	const streams = source.audioStreams ?? [];
+	if (streams.length === 0) return [];
+	if (source.selectedAudioTrackIndices === undefined) {
+		// Backward compat: keep primary audio only (index 0) if source has audio
+		return streams.length > 0 ? [streams[0]!] : [];
+	}
+	return source.selectedAudioTrackIndices
+		.map((idx) => streams.find((s) => s.index === idx))
+		.filter((s): s is QuickCutAudioStream => s !== undefined);
+}
+
+export function hasSelectedTracks(source: QuickCutSource | QuickCutSourceMetadata): boolean {
+	return getSelectedVideoStream(source) !== null || getSelectedAudioStreams(source).length > 0;
+}
+
+export function validateStreamSelection(
+	source: QuickCutSource | QuickCutSourceMetadata
+): string | null {
+	const videoStreams = source.videoStreams ?? [];
+	const audioStreams = source.audioStreams ?? [];
+	if (
+		source.selectedVideoTrackIndex !== undefined &&
+		source.selectedVideoTrackIndex !== null &&
+		!videoStreams.some((s) => s.index === source.selectedVideoTrackIndex)
+	) {
+		return `Selected video track ${source.selectedVideoTrackIndex} does not exist.`;
+	}
+	if (source.selectedAudioTrackIndices !== undefined) {
+		for (const idx of source.selectedAudioTrackIndices) {
+			if (!audioStreams.some((s) => s.index === idx))
+				return `Selected audio track ${idx} does not exist.`;
+		}
+		if (new Set(source.selectedAudioTrackIndices).size !== source.selectedAudioTrackIndices.length)
+			return 'Duplicate audio tracks selected.';
+	}
+	if (!hasSelectedTracks(source))
+		return 'No tracks selected. Choose at least one video or audio track.';
 	return null;
 }
 

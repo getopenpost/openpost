@@ -4,7 +4,7 @@ import { createSegment } from './model';
 import type { QuickCutSource } from './types';
 
 function makeSource(id: string, overrides: Partial<QuickCutSource> = {}): QuickCutSource {
-	return {
+	const base: QuickCutSource = {
 		id,
 		name: `${id}.mp4`,
 		size: 10_000_000,
@@ -19,8 +19,37 @@ function makeSource(id: string, overrides: Partial<QuickCutSource> = {}): QuickC
 		rotation: 0,
 		fps: 30,
 		keyframeTimestamps: [0, 2, 4, 6, 8],
+		videoStreams: [],
+		audioStreams: [],
 		...overrides
 	};
+	if (!overrides.videoStreams) {
+		if (base.videoCodec) {
+			base.videoStreams = [
+				{
+					index: 0,
+					codec: base.videoCodec,
+					width: base.width,
+					height: base.height,
+					rotation: base.rotation,
+					fps: base.fps
+				}
+			];
+		} else base.videoStreams = [];
+	}
+	if (!overrides.audioStreams) {
+		if (base.audioCodec) {
+			base.audioStreams = [
+				{
+					index: 0,
+					codec: base.audioCodec,
+					sampleRate: base.sampleRate,
+					channels: base.channels
+				}
+			];
+		} else base.audioStreams = [];
+	}
+	return base;
 }
 
 describe('quick-cut preflight', () => {
@@ -216,5 +245,44 @@ describe('quick-cut preflight', () => {
 		controller.abort(new DOMException('Export cancelled.', 'AbortError'));
 		resolveFile(new File(['not decoded'], 'slow.mp4', { type: 'video/mp4' }));
 		await expect(exported).rejects.toMatchObject({ name: 'AbortError' });
+	});
+
+	it('rejects an impossible video track selection', async () => {
+		const src = makeSource('s1', { selectedVideoTrackIndex: 5 });
+		const seg = createSegment(0, 1, { sourceId: src.id });
+		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
+		expect(pre.eligible).toBe(false);
+		expect(pre.reason).toMatch(/does not exist/i);
+	});
+
+	it('rejects when no tracks are selected', async () => {
+		const src = makeSource('s1', { selectedVideoTrackIndex: null, selectedAudioTrackIndices: [] });
+		const seg = createSegment(0, 1, { sourceId: src.id });
+		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
+		expect(pre.eligible).toBe(false);
+		expect(pre.reason).toMatch(/no tracks/i);
+	});
+
+	it('allows video-off exports and keeps audio packet copy', async () => {
+		const src = makeSource('s1', { selectedVideoTrackIndex: null, selectedAudioTrackIndices: [0] });
+		const seg = createSegment(0, 1, { sourceId: src.id });
+		const pre = await preflightExport([src], [seg], 'nearestKeyframe', false);
+		expect(pre.eligible).toBe(true);
+		expect(pre.perSegment[0]?.reason).toMatch(/packet copy/i);
+	});
+
+	it('rejects merged mix of video-enabled and video-disabled selections', async () => {
+		const videoOn = makeSource('on', { selectedVideoTrackIndex: 0 });
+		const videoOff = makeSource('off', {
+			selectedVideoTrackIndex: null,
+			selectedAudioTrackIndices: [0]
+		});
+		const segs = [
+			createSegment(0, 1, { sourceId: videoOn.id }),
+			createSegment(0, 1, { sourceId: videoOff.id })
+		];
+		const pre = await preflightExport([videoOn, videoOff], segs, 'nearestKeyframe', true);
+		expect(pre.eligible).toBe(false);
+		expect(pre.reason).toMatch(/video and audio-only/i);
 	});
 });

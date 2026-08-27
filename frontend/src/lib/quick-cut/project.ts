@@ -16,6 +16,22 @@ const MAX_SEGMENTS = 200;
 const MAX_KEYFRAMES = 20000;
 const MAX_NAME_LENGTH = 100;
 
+const videoStreamSchema = z.object({
+	index: z.number().min(0).max(32),
+	codec: z.string().nullable(),
+	width: z.number().min(0).max(8192),
+	height: z.number().min(0).max(8192),
+	rotation: z.number(),
+	fps: z.number().nullable()
+});
+
+const audioStreamSchema = z.object({
+	index: z.number().min(0).max(64),
+	codec: z.string().nullable(),
+	sampleRate: z.number().nullable(),
+	channels: z.number().nullable()
+});
+
 const sourceMetaSchema = z.object({
 	id: z.string().min(1).max(64),
 	name: z.string().min(1).max(MAX_NAME_LENGTH),
@@ -39,7 +55,11 @@ const sourceMetaSchema = z.object({
 	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES),
 	keyframeState: z.enum(['known', 'unknown', 'audio-only']),
 	lastModified: z.number().optional(),
-	contentFingerprint: z.string().optional()
+	contentFingerprint: z.string().optional(),
+	videoStreams: z.array(videoStreamSchema).max(32).optional(),
+	audioStreams: z.array(audioStreamSchema).max(64).optional(),
+	selectedVideoTrackIndex: z.number().min(0).max(32).nullable().optional(),
+	selectedAudioTrackIndices: z.array(z.number().min(0).max(64)).max(16).optional()
 });
 
 const segmentSchema = z.object({
@@ -89,6 +109,19 @@ const legacyProjectSchema = z.object({
 	updatedAt: z.number().optional()
 });
 
+function normalizeSourceStreams(source: QuickCutSourceMetadata): QuickCutSourceMetadata {
+	const videoStreams = source.videoStreams ?? [];
+	const audioStreams = source.audioStreams ?? [];
+	const normalized: QuickCutSourceMetadata = {
+		...source,
+		videoStreams,
+		audioStreams,
+		selectedVideoTrackIndex: source.selectedVideoTrackIndex,
+		selectedAudioTrackIndices: source.selectedAudioTrackIndices
+	};
+	return normalized;
+}
+
 function validateProject(data: QuickCutProject): QuickCutProject {
 	const sourceIds = new Set(data.sources.map((s) => s.id));
 	for (const seg of data.segments) {
@@ -102,6 +135,52 @@ function validateProject(data: QuickCutProject): QuickCutProject {
 	}
 	if (new Set(data.sources.map((s) => s.id)).size !== data.sources.length)
 		throw new Error('Duplicate source id');
+	for (const src of data.sources) {
+		if (
+			src.selectedVideoTrackIndex !== undefined &&
+			src.selectedVideoTrackIndex !== null &&
+			!src.videoStreams.some((s) => s.index === src.selectedVideoTrackIndex)
+		) {
+			throw new Error(
+				`Source ${src.id} selected video track ${src.selectedVideoTrackIndex} does not exist`
+			);
+		}
+		if (src.selectedAudioTrackIndices) {
+			for (const idx of src.selectedAudioTrackIndices) {
+				if (!src.audioStreams.some((s) => s.index === idx))
+					throw new Error(`Source ${src.id} selected audio track ${idx} does not exist`);
+			}
+			if (new Set(src.selectedAudioTrackIndices).size !== src.selectedAudioTrackIndices.length)
+				throw new Error(`Source ${src.id} has duplicate audio track selections`);
+		}
+		// Legacy sources may have empty stream catalogs; fall back to codec fields for validation
+		const hasVideoStreams = src.videoStreams.length > 0;
+		const hasAudioStreams = src.audioStreams.length > 0;
+		const hasVideo = (() => {
+			if (!hasVideoStreams && !hasAudioStreams) {
+				// Legacy project without stream catalogs: infer from codec
+				if (src.videoCodec !== null) return src.selectedVideoTrackIndex !== null;
+				return false;
+			}
+			if (src.videoStreams.length === 0) return false;
+			if (src.selectedVideoTrackIndex === null) return false;
+			if (src.selectedVideoTrackIndex === undefined) return src.videoStreams.length > 0;
+			return src.videoStreams.some((s) => s.index === src.selectedVideoTrackIndex);
+		})();
+		const hasAudio = (() => {
+			if (!hasVideoStreams && !hasAudioStreams) {
+				if (src.audioCodec !== null) {
+					if (src.selectedAudioTrackIndices === undefined) return true;
+					return src.selectedAudioTrackIndices.length > 0;
+				}
+				return false;
+			}
+			if (src.audioStreams.length === 0) return false;
+			if (src.selectedAudioTrackIndices === undefined) return src.audioStreams.length > 0;
+			return src.selectedAudioTrackIndices.length > 0;
+		})();
+		if (!hasVideo && !hasAudio) throw new Error(`Source ${src.id} has no tracks selected`);
+	}
 	return data;
 }
 
@@ -113,7 +192,10 @@ export function parseProject(json: string): QuickCutProject {
 		throw new Error('Invalid JSON');
 	}
 	const current = projectSchema.safeParse(parsed);
-	if (current.success) return validateProject(current.data);
+	if (current.success) {
+		const normalizedSources = current.data.sources.map(normalizeSourceStreams);
+		return validateProject({ ...current.data, sources: normalizedSources });
+	}
 	const legacy = legacyProjectSchema.safeParse(parsed);
 	if (legacy.success) {
 		const o = legacy.data;
@@ -138,7 +220,9 @@ export function parseProject(json: string): QuickCutProject {
 					keyframeTimestamps: [],
 					keyframeState: 'unknown',
 					lastModified: undefined,
-					contentFingerprint: undefined
+					contentFingerprint: undefined,
+					videoStreams: [],
+					audioStreams: []
 				}
 			];
 			const segs = o.segments ?? [];
@@ -174,7 +258,7 @@ export function createNewProject(
 	const now = Date.now();
 	let srcArray: QuickCutSourceMetadata[];
 	if (Array.isArray(sources)) {
-		srcArray = sources;
+		srcArray = sources.map(normalizeSourceStreams);
 	} else {
 		srcArray = [
 			{
@@ -194,7 +278,9 @@ export function createNewProject(
 				keyframeTimestamps: [],
 				keyframeState: 'unknown',
 				lastModified: undefined,
-				contentFingerprint: undefined
+				contentFingerprint: undefined,
+				videoStreams: [],
+				audioStreams: []
 			}
 		];
 	}

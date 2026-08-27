@@ -5,19 +5,10 @@ import type {
 	MotionLayerTrack,
 	TransformAnimatableProperty
 } from '$lib/video-editor/project/types';
+import { TRANSFORM_ANIMATABLE_PROPERTIES } from '$lib/video-editor/project/types';
 import type { ResolvedMotionTransform } from './motion-presets';
 
-const TRANSFORM_PROPERTIES = new Set([
-	'x',
-	'y',
-	'width',
-	'height',
-	'anchorX',
-	'anchorY',
-	'rotation',
-	'opacity',
-	'cornerRadius'
-] as const);
+const TRANSFORM_PROPERTIES = new Set(TRANSFORM_ANIMATABLE_PROPERTIES);
 function isTransformAnimatableProperty(property: string): property is TransformAnimatableProperty {
 	// SAFETY: Set holds the closed union of TransformAnimatableProperty values.
 	return TRANSFORM_PROPERTIES.has(property as TransformAnimatableProperty);

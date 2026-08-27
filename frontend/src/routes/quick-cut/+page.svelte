@@ -406,7 +406,7 @@ LosslessCut (GPL - behavioral reference only, no code ported).
 			);
 			return;
 		}
-		if (loopMode === 'segment' && selectedSegment?.enabled !== false) {
+		if (loopMode === 'segment' && selectedSegment && selectedSegment.enabled !== false) {
 			startPreview([selectedSegment.id], true);
 			return;
 		}

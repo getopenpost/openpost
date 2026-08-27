@@ -368,9 +368,9 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		resetTimelineSelection();
 	}
 
-	function handleSelectItem(itemId: string): void {
+	function handleSelectItem(itemId: string | null): void {
 		selectedItemId = itemId;
-		selectedItemIds = [itemId];
+		selectedItemIds = itemId ? [itemId] : [];
 		selectedTransitionId = null;
 	}
 

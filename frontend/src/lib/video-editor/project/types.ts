@@ -112,6 +112,20 @@ export interface MotionModifier {
 
 export type MotionLayerBlendMode = 'add' | 'multiply';
 
+export const TRANSFORM_ANIMATABLE_PROPERTIES = [
+	'x',
+	'y',
+	'width',
+	'height',
+	'anchorX',
+	'anchorY',
+	'rotation',
+	'opacity',
+	'cornerRadius'
+] as const;
+
+export type TransformAnimatableProperty = (typeof TRANSFORM_ANIMATABLE_PROPERTIES)[number];
+
 export interface MotionLayerKeyframe {
 	id: string;
 	frame: number;

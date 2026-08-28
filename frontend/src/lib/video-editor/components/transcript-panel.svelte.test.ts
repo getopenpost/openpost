@@ -287,8 +287,16 @@ describe('TranscriptPanel cue formatting', () => {
 		expect(itemClipboardStore.items).toMatchObject([
 			{ from: 0, durationInFrames: 15, sourceStart: 30, sourceEnd: 45 }
 		]);
-		await screen.getByRole('button', { name: 'Select "um"' }).click();
-		await screen.getByRole('button', { name: 'Stage words' }).click();
+		const contextWord = screen.getByRole('button', { name: 'Select "um"' }).element();
+		contextWord.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				cancelable: true,
+				clientX: 80,
+				clientY: 80
+			})
+		);
+		await screen.getByRole('menuitem', { name: 'Stage words' }).click();
 		await expect.element(screen.getByText('1 staged · 0.5s')).toBeVisible();
 		expect(screen.container.querySelector('[data-ignored="true"]')).not.toBeNull();
 		expect(screen.container.scrollWidth).toBeLessThanOrEqual(320);

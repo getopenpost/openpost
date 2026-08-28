@@ -4,6 +4,7 @@
 -->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { ContextMenu } from 'bits-ui';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -69,6 +70,7 @@
 	let activeSearchMatch = $state(0);
 	let panelElement: HTMLDivElement | null = $state(null);
 	let clipboardStatus = $state('');
+	let transcriptContextOpen = $state(false);
 	let pointerGestures: PointerGestureSessionHost | null = null;
 	let unregisterTranscriptCopy: (() => void) | null = null;
 
@@ -346,6 +348,26 @@
 			}
 		});
 		event.preventDefault();
+	}
+
+	function prepareSourceWordContext(event: MouseEvent): void {
+		const target =
+			event.target instanceof Element
+				? event.target.closest<HTMLElement>('[data-source-word-index]')
+				: null;
+		if (!target) {
+			event.preventDefault();
+			event.stopPropagation();
+			return;
+		}
+		const index = Number(target.dataset.sourceWordIndex);
+		const word = sourceWords[index];
+		if (word && !selectedSourceWordIds.has(word.id)) selectWordAt(index, false);
+	}
+
+	function runSourceWordContextAction(action: () => void): void {
+		action();
+		transcriptContextOpen = false;
 	}
 
 	function handlePanelKeydown(event: KeyboardEvent): void {
@@ -691,48 +713,92 @@
 		</div>
 	{/if}
 	{#if editVideoMode}
-		<div
-			class="mx-1 flex flex-wrap content-start gap-x-1 gap-y-1 rounded-md border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.01_50)] p-2"
-			role="group"
-			aria-label={m.video_editor_edit_by_transcript()}
-		>
-			{#each sourceWords as sourceWord, sourceWordIndex (sourceWord.id)}
-				{@const wordIgnored = transcriptIgnoreStore.isIgnored(sourceWord)}
-				<button
-					type="button"
-					class={`min-h-7 rounded px-1.5 text-left text-[11px] leading-5 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${
-						selectedSourceWordIds.has(sourceWord.id)
-							? 'bg-[var(--video-editor-focus)] font-medium text-black'
-							: activeSourceWordIndex === sourceWordIndex
-								? 'bg-yellow-300/15 ring-1 ring-yellow-300'
-								: wordIgnored
-									? 'text-[oklch(0.58_0.012_55)] line-through decoration-[var(--video-editor-focus)] decoration-2'
-									: 'text-[oklch(0.84_0.01_55)] hover:bg-white/8'
-					}`}
-					title={sourceWordTitle(sourceWord.sourceItemId, sourceWord.timelineStartFrame)}
-					data-ignored={wordIgnored}
-					data-selected={selectedSourceWordIds.has(sourceWord.id)}
-					data-active={activeSourceWordIndex === sourceWordIndex}
-					data-source-item-id={sourceWord.sourceItemId}
-					data-source-word-index={sourceWordIndex}
-					aria-pressed={selectedSourceWordIds.has(sourceWord.id)}
-					aria-label={wordIgnored
-						? m.video_editor_staged_transcript_word({ word: sourceWord.text })
-						: m.video_editor_select_transcript_word({ word: sourceWord.text })}
-					onpointerdown={(event) => startWordSelection(sourceWordIndex, event)}
-					onclick={(event) => {
-						if (event.detail === 0) selectWordAt(sourceWordIndex, event.shiftKey);
-					}}
-				>
-					{sourceWord.text}
-				</button>
-			{/each}
-			{#if sourceWords.length === 0}
-				<p class="text-xs text-[oklch(0.65_0.015_55)]">
-					{m.video_editor_transcript_empty()}
-				</p>
-			{/if}
-		</div>
+		<ContextMenu.Root bind:open={transcriptContextOpen}>
+			<ContextMenu.Trigger>
+				{#snippet child({ props })}
+					<div
+						{...props}
+						class="mx-1 flex flex-wrap content-start gap-x-1 gap-y-1 rounded-md border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.01_50)] p-2"
+						role="group"
+						aria-label={m.video_editor_edit_by_transcript()}
+						oncontextmenucapture={prepareSourceWordContext}
+					>
+						{#each sourceWords as sourceWord, sourceWordIndex (sourceWord.id)}
+							{@const wordIgnored = transcriptIgnoreStore.isIgnored(sourceWord)}
+							<button
+								type="button"
+								class={`min-h-7 rounded px-1.5 text-left text-[11px] leading-5 focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] ${
+									selectedSourceWordIds.has(sourceWord.id)
+										? 'bg-[var(--video-editor-focus)] font-medium text-black'
+										: activeSourceWordIndex === sourceWordIndex
+											? 'bg-yellow-300/15 ring-1 ring-yellow-300'
+											: wordIgnored
+												? 'text-[oklch(0.58_0.012_55)] line-through decoration-[var(--video-editor-focus)] decoration-2'
+												: 'text-[oklch(0.84_0.01_55)] hover:bg-white/8'
+								}`}
+								title={sourceWordTitle(sourceWord.sourceItemId, sourceWord.timelineStartFrame)}
+								data-ignored={wordIgnored}
+								data-selected={selectedSourceWordIds.has(sourceWord.id)}
+								data-active={activeSourceWordIndex === sourceWordIndex}
+								data-source-item-id={sourceWord.sourceItemId}
+								data-source-word-index={sourceWordIndex}
+								aria-pressed={selectedSourceWordIds.has(sourceWord.id)}
+								aria-label={wordIgnored
+									? m.video_editor_staged_transcript_word({ word: sourceWord.text })
+									: m.video_editor_select_transcript_word({ word: sourceWord.text })}
+								onpointerdown={(event) => startWordSelection(sourceWordIndex, event)}
+								onclick={(event) => {
+									if (event.detail === 0) selectWordAt(sourceWordIndex, event.shiftKey);
+								}}
+							>
+								{sourceWord.text}
+							</button>
+						{/each}
+						{#if sourceWords.length === 0}
+							<p class="text-xs text-[oklch(0.65_0.015_55)]">
+								{m.video_editor_transcript_empty()}
+							</p>
+						{/if}
+					</div>
+				{/snippet}
+			</ContextMenu.Trigger>
+			<ContextMenu.Portal>
+				<ContextMenu.Content class="video-editor-theme w-52">
+					<ContextMenu.Item
+						disabled={selectedSourceWords.length === 0}
+						onclick={() => runSourceWordContextAction(() => handleCopyWords(false))}
+					>
+						{m.video_editor_shortcuts_command_copy()}
+					</ContextMenu.Item>
+					<ContextMenu.Item
+						disabled={selectedSourceWords.length === 0}
+						onclick={() => runSourceWordContextAction(() => handleCopyWords(true))}
+					>
+						{m.video_editor_shortcuts_command_cut()}
+					</ContextMenu.Item>
+					<ContextMenu.Separator />
+					<ContextMenu.Item
+						disabled={selectedSourceWords.length === 0}
+						onclick={() => runSourceWordContextAction(updateSelectedVideoWords)}
+					>
+						{selectedWordsAreIgnored
+							? m.video_editor_restore_selected_words()
+							: m.video_editor_stage_selected_words()}
+					</ContextMenu.Item>
+					{#if ignoredSourceWords.length > 0}
+						<ContextMenu.Separator />
+						<ContextMenu.Item onclick={() => runSourceWordContextAction(commitIgnoredVideoWords)}>
+							{m.video_editor_commit_staged_words()}
+						</ContextMenu.Item>
+						<ContextMenu.Item
+							onclick={() => runSourceWordContextAction(() => transcriptIgnoreStore.clear())}
+						>
+							{m.video_editor_clear_staged_words()}
+						</ContextMenu.Item>
+					{/if}
+				</ContextMenu.Content>
+			</ContextMenu.Portal>
+		</ContextMenu.Root>
 	{:else if subtitleItems.length === 0}
 		<p class="px-1 text-xs text-[oklch(0.65_0.015_55)]">
 			{m.video_editor_transcript_empty()}

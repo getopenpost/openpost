@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "Sekansı aç",
 	"video_editor_sequence_add": "Sekansı zaman çizelgesine ekle",
 	"video_editor_sequence_duplicate": "Çoğalt",
+	"video_editor_sequence_move_left": "Sola taşı",
+	"video_editor_sequence_move_right": "Sağa taşı",
 	"video_editor_sequence_copy_name": "{name} kopyası",
 	"video_editor_sequence_duplicated": "{name} çoğaltıldı.",
 	"video_editor_sequence_duplicate_failed": "Bu sekans çoğaltılamadı.",

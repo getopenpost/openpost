@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "Abrir sequência",
 	"video_editor_sequence_add": "Adicionar sequência à linha do tempo",
 	"video_editor_sequence_duplicate": "Duplicar",
+	"video_editor_sequence_move_left": "Mover para a esquerda",
+	"video_editor_sequence_move_right": "Mover para a direita",
 	"video_editor_sequence_copy_name": "{name} (cópia)",
 	"video_editor_sequence_duplicated": "{name} duplicada.",
 	"video_editor_sequence_duplicate_failed": "Não foi possível duplicar esta sequência.",

@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "シーケンスを開く",
 	"video_editor_sequence_add": "シーケンスをタイムラインに追加",
 	"video_editor_sequence_duplicate": "複製",
+	"video_editor_sequence_move_left": "左へ移動",
+	"video_editor_sequence_move_right": "右へ移動",
 	"video_editor_sequence_copy_name": "{name} のコピー",
 	"video_editor_sequence_duplicated": "{name} を複製しました。",
 	"video_editor_sequence_duplicate_failed": "このシーケンスを複製できませんでした。",

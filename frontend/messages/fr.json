@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "Ouvrir la séquence",
 	"video_editor_sequence_add": "Ajouter la séquence au montage",
 	"video_editor_sequence_duplicate": "Dupliquer",
+	"video_editor_sequence_move_left": "Déplacer vers la gauche",
+	"video_editor_sequence_move_right": "Déplacer vers la droite",
 	"video_editor_sequence_copy_name": "Copie de {name}",
 	"video_editor_sequence_duplicated": "{name} dupliquée.",
 	"video_editor_sequence_duplicate_failed": "Impossible de dupliquer cette séquence.",

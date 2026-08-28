@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "Sequenz öffnen",
 	"video_editor_sequence_add": "Sequenz zur Timeline hinzufügen",
 	"video_editor_sequence_duplicate": "Duplizieren",
+	"video_editor_sequence_move_left": "Nach links verschieben",
+	"video_editor_sequence_move_right": "Nach rechts verschieben",
 	"video_editor_sequence_copy_name": "{name} Kopie",
 	"video_editor_sequence_duplicated": "{name} dupliziert.",
 	"video_editor_sequence_duplicate_failed": "Diese Sequenz konnte nicht dupliziert werden.",

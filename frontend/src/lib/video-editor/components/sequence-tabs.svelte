@@ -1,11 +1,13 @@
 <!-- Main plus reusable sequence tabs. Double-click a name to rename. -->
 <script lang="ts">
+	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import { Input } from '$lib/components/ui/input';
 	import { tick } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import {
 		createSequence,
+		duplicateSequence,
 		renameSequence,
 		switchSequence
 	} from '$lib/video-editor/sequences/sequence-actions';
@@ -49,14 +51,27 @@
 	}
 
 	function commitRename(id: string): void {
-		if (renameSequence(id, draftName)) onedit();
+		if (editingId !== id) return;
 		editingId = null;
+		if (renameSequence(id, draftName)) onedit();
 	}
 
 	function close(id: string): void {
 		if (sequenceStore.activeSequenceId === id) activate(null);
 		sequenceStore.closeTab(id);
 		onedit();
+	}
+
+	function duplicate(id: string, name: string): void {
+		const duplicateId = duplicateSequence(id, m.video_editor_sequence_copy_name({ name }));
+		if (!duplicateId) return;
+		onedit();
+		activate(duplicateId);
+	}
+
+	function move(id: string, offset: -1 | 1): void {
+		const from = sequenceStore.topLevelSequenceIds.indexOf(id);
+		if (sequenceStore.reorderTabs(from, from + offset)) onedit();
 	}
 
 	function reorder(targetId: string): void {
@@ -70,9 +85,7 @@
 	function reorderByKeyboard(event: KeyboardEvent, id: string): void {
 		if (!event.altKey || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
 		event.preventDefault();
-		const from = sequenceStore.topLevelSequenceIds.indexOf(id);
-		const to = from + (event.key === 'ArrowLeft' ? -1 : 1);
-		if (sequenceStore.reorderTabs(from, to)) onedit();
+		move(id, event.key === 'ArrowLeft' ? -1 : 1);
 	}
 </script>
 
@@ -93,49 +106,81 @@
 	</button>
 
 	{#each tabs as tab (tab.id)}
-		<div
-			role="group"
-			aria-label={tab.name}
-			class="group flex shrink-0 items-center rounded {sequenceStore.activeSequenceId === tab.id
-				? 'bg-[oklch(0.26_0.018_55)] text-white'
-				: 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] hover:text-white'}"
-			draggable="true"
-			ondragstart={() => (draggedId = tab.id)}
-			ondragover={(event) => event.preventDefault()}
-			ondrop={() => reorder(tab.id)}
-		>
-			{#if editingId === tab.id}
-				<Input
-					bind:ref={renameInput}
-					class="mx-2 h-7 w-28 rounded-none border-0 border-b border-[oklch(0.66_0.14_45)] bg-transparent px-0 py-1 text-xs shadow-none focus-visible:ring-0"
-					bind:value={draftName}
-					onblur={() => commitRename(tab.id)}
-					onkeydown={(event) => {
-						if (event.key === 'Enter') commitRename(tab.id);
-						if (event.key === 'Escape') editingId = null;
-					}}
-				/>
-			{:else}
-				<button
-					type="button"
-					class="max-w-40 truncate py-1 pl-2.5 text-left focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-					title={tab.name}
-					onclick={() => activate(tab.id)}
-					ondblclick={() => beginRename(tab.id, tab.name)}
-					onkeydown={(event) => reorderByKeyboard(event, tab.id)}
+		<ContextMenu.Root>
+			<ContextMenu.Trigger>
+				<div
+					role="group"
+					aria-label={tab.name}
+					class="group flex shrink-0 items-center rounded {sequenceStore.activeSequenceId === tab.id
+						? 'bg-[oklch(0.26_0.018_55)] text-white'
+						: 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.22_0.01_50)] hover:text-white'}"
+					draggable="true"
+					ondragstart={() => (draggedId = tab.id)}
+					ondragover={(event) => event.preventDefault()}
+					ondrop={() => reorder(tab.id)}
 				>
-					{tab.name}
-				</button>
-				<button
-					type="button"
-					class="mx-0.5 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-white/10 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-					aria-label={`${m.video_editor_sequence_close()}: ${tab.name}`}
-					onclick={() => close(tab.id)}
+					{#if editingId === tab.id}
+						<Input
+							bind:ref={renameInput}
+							class="mx-2 h-7 w-28 rounded-none border-0 border-b border-[oklch(0.66_0.14_45)] bg-transparent px-0 py-1 text-xs shadow-none focus-visible:ring-0"
+							bind:value={draftName}
+							onblur={() => commitRename(tab.id)}
+							onkeydown={(event) => {
+								if (event.key === 'Enter') commitRename(tab.id);
+								if (event.key === 'Escape') editingId = null;
+							}}
+						/>
+					{:else}
+						<button
+							type="button"
+							class="max-w-40 truncate py-1 pl-2.5 text-left focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							title={tab.name}
+							onclick={() => activate(tab.id)}
+							ondblclick={() => beginRename(tab.id, tab.name)}
+							onkeydown={(event) => reorderByKeyboard(event, tab.id)}
+						>
+							{tab.name}
+						</button>
+						<button
+							type="button"
+							class="mx-0.5 rounded p-1 opacity-0 group-hover:opacity-100 hover:bg-white/10 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							aria-label={`${m.video_editor_sequence_close()}: ${tab.name}`}
+							onclick={() => close(tab.id)}
+						>
+							<XIcon class="size-3" aria-hidden="true" />
+						</button>
+					{/if}
+				</div>
+			</ContextMenu.Trigger>
+			<ContextMenu.Content class="video-editor-theme w-48">
+				<ContextMenu.Item onclick={() => activate(tab.id)}>
+					{m.video_editor_sequence_open()}
+				</ContextMenu.Item>
+				<ContextMenu.Item onclick={() => beginRename(tab.id, tab.name)}>
+					{m.common_rename()}
+				</ContextMenu.Item>
+				<ContextMenu.Item onclick={() => duplicate(tab.id, tab.name)}>
+					{m.video_editor_sequence_duplicate()}
+				</ContextMenu.Item>
+				<ContextMenu.Separator />
+				<ContextMenu.Item
+					disabled={sequenceStore.topLevelSequenceIds.indexOf(tab.id) === 0}
+					onclick={() => move(tab.id, -1)}
 				>
-					<XIcon class="size-3" aria-hidden="true" />
-				</button>
-			{/if}
-		</div>
+					{m.video_editor_sequence_move_left()}
+				</ContextMenu.Item>
+				<ContextMenu.Item
+					disabled={sequenceStore.topLevelSequenceIds.indexOf(tab.id) === tabs.length - 1}
+					onclick={() => move(tab.id, 1)}
+				>
+					{m.video_editor_sequence_move_right()}
+				</ContextMenu.Item>
+				<ContextMenu.Separator />
+				<ContextMenu.Item onclick={() => close(tab.id)}>
+					{m.video_editor_sequence_close()}
+				</ContextMenu.Item>
+			</ContextMenu.Content>
+		</ContextMenu.Root>
 	{/each}
 
 	<button

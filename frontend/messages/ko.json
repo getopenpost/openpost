@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "시퀀스 열기",
 	"video_editor_sequence_add": "타임라인에 시퀀스 추가",
 	"video_editor_sequence_duplicate": "복제",
+	"video_editor_sequence_move_left": "왼쪽으로 이동",
+	"video_editor_sequence_move_right": "오른쪽으로 이동",
 	"video_editor_sequence_copy_name": "{name} 사본",
 	"video_editor_sequence_duplicated": "{name}을(를) 복제했습니다.",
 	"video_editor_sequence_duplicate_failed": "이 시퀀스를 복제하지 못했습니다.",

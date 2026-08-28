@@ -4068,6 +4068,8 @@
 	"video_editor_sequence_open": "打开序列",
 	"video_editor_sequence_add": "将序列添加到时间线",
 	"video_editor_sequence_duplicate": "复制",
+	"video_editor_sequence_move_left": "向左移动",
+	"video_editor_sequence_move_right": "向右移动",
 	"video_editor_sequence_copy_name": "{name} 副本",
 	"video_editor_sequence_duplicated": "已复制 {name}。",
 	"video_editor_sequence_duplicate_failed": "此序列复制失败。",

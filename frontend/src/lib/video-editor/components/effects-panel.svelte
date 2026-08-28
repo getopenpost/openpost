@@ -5,6 +5,7 @@
 -->
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
+	import { ContextMenu } from 'bits-ui';
 	import { m } from '$lib/paraglide/messages';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -623,69 +624,114 @@
 					data-effect-id={effect.id}
 					data-enabled={effect.enabled}
 				>
-					<div class="flex items-center justify-between gap-1">
-						<span class="min-w-0 flex-1 truncate text-xs" class:opacity-55={!effect.enabled}
-							>{effectLabel(effect)}</span
-						>
-						<div class="flex shrink-0 items-center">
-							<button
-								type="button"
-								class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
-								disabled={index === 0}
-								aria-label={m.video_editor_effects_move_up()}
-								title={m.video_editor_effects_move_up()}
-								onclick={() => moveStackEffect(effect.id, -1)}
-							>
-								<ChevronUpIcon class="size-3" />
-							</button>
-							<button
-								type="button"
-								class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
-								disabled={index === effects.length - 1}
-								aria-label={m.video_editor_effects_move_down()}
-								title={m.video_editor_effects_move_down()}
-								onclick={() => moveStackEffect(effect.id, 1)}
-							>
-								<ChevronDownIcon class="size-3" />
-							</button>
-							<button
-								type="button"
-								class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
-								disabled={isEffectAtDefaults(effect)}
-								aria-label={m.video_editor_effects_reset()}
-								title={m.video_editor_effects_reset()}
-								onclick={() => resetStackEffect(effect.id)}
-							>
-								<RotateCcwIcon class="size-3" />
-							</button>
-							<button
-								type="button"
-								class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-								aria-label={effect.enabled
-									? m.video_editor_effects_disable()
-									: m.video_editor_effects_enable()}
-								title={effect.enabled
-									? m.video_editor_effects_disable()
-									: m.video_editor_effects_enable()}
-								onclick={() => toggleStackEffect(effect)}
-							>
-								{#if effect.enabled}
-									<EyeIcon class="size-3" />
-								{:else}
-									<EyeOffIcon class="size-3" />
-								{/if}
-							</button>
-							<button
-								type="button"
-								class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-								aria-label={m.video_editor_effects_remove()}
-								title={m.video_editor_effects_remove()}
-								onclick={() => removeStackEffect(effect.id)}
-							>
-								<Trash2Icon class="size-3" />
-							</button>
-						</div>
-					</div>
+					<ContextMenu.Root>
+						<ContextMenu.Trigger>
+							{#snippet child({ props })}
+								<div
+									{...props}
+									class="flex items-center justify-between gap-1"
+									data-effect-context-trigger
+								>
+									<span class="min-w-0 flex-1 truncate text-xs" class:opacity-55={!effect.enabled}
+										>{effectLabel(effect)}</span
+									>
+									<div class="flex shrink-0 items-center">
+										<button
+											type="button"
+											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
+											disabled={index === 0}
+											aria-label={m.video_editor_effects_move_up()}
+											title={m.video_editor_effects_move_up()}
+											onclick={() => moveStackEffect(effect.id, -1)}
+										>
+											<ChevronUpIcon class="size-3" />
+										</button>
+										<button
+											type="button"
+											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
+											disabled={index === effects.length - 1}
+											aria-label={m.video_editor_effects_move_down()}
+											title={m.video_editor_effects_move_down()}
+											onclick={() => moveStackEffect(effect.id, 1)}
+										>
+											<ChevronDownIcon class="size-3" />
+										</button>
+										<button
+											type="button"
+											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:opacity-30"
+											disabled={isEffectAtDefaults(effect)}
+											aria-label={m.video_editor_effects_reset()}
+											title={m.video_editor_effects_reset()}
+											onclick={() => resetStackEffect(effect.id)}
+										>
+											<RotateCcwIcon class="size-3" />
+										</button>
+										<button
+											type="button"
+											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+											aria-label={effect.enabled
+												? m.video_editor_effects_disable()
+												: m.video_editor_effects_enable()}
+											title={effect.enabled
+												? m.video_editor_effects_disable()
+												: m.video_editor_effects_enable()}
+											onclick={() => toggleStackEffect(effect)}
+										>
+											{#if effect.enabled}
+												<EyeIcon class="size-3" />
+											{:else}
+												<EyeOffIcon class="size-3" />
+											{/if}
+										</button>
+										<button
+											type="button"
+											class="rounded p-1 hover:bg-[oklch(0.28_0.015_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+											aria-label={m.video_editor_effects_remove()}
+											title={m.video_editor_effects_remove()}
+											onclick={() => removeStackEffect(effect.id)}
+										>
+											<Trash2Icon class="size-3" />
+										</button>
+									</div>
+								</div>
+							{/snippet}
+						</ContextMenu.Trigger>
+						<ContextMenu.Portal>
+							<ContextMenu.Content class="video-editor-theme w-52">
+								<ContextMenu.Item
+									disabled={index === 0}
+									onclick={() => moveStackEffect(effect.id, -1)}
+								>
+									{m.video_editor_effects_move_up()}
+								</ContextMenu.Item>
+								<ContextMenu.Item
+									disabled={index === effects.length - 1}
+									onclick={() => moveStackEffect(effect.id, 1)}
+								>
+									{m.video_editor_effects_move_down()}
+								</ContextMenu.Item>
+								<ContextMenu.Separator />
+								<ContextMenu.Item
+									disabled={isEffectAtDefaults(effect)}
+									onclick={() => resetStackEffect(effect.id)}
+								>
+									{m.video_editor_effects_reset()}
+								</ContextMenu.Item>
+								<ContextMenu.Item onclick={() => toggleStackEffect(effect)}>
+									{effect.enabled
+										? m.video_editor_effects_disable()
+										: m.video_editor_effects_enable()}
+								</ContextMenu.Item>
+								<ContextMenu.Separator />
+								<ContextMenu.Item
+									class="text-red-300 focus:text-red-200"
+									onclick={() => removeStackEffect(effect.id)}
+								>
+									{m.video_editor_effects_remove()}
+								</ContextMenu.Item>
+							</ContextMenu.Content>
+						</ContextMenu.Portal>
+					</ContextMenu.Root>
 					<div class:opacity-55={!effect.enabled}>
 						{#if definition && effect.type !== 'gpu'}
 							<Slider

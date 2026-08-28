@@ -106,6 +106,56 @@ describe('EffectsPanel spatial point editor', () => {
 });
 
 describe('EffectsPanel effect drag source', () => {
+	it('runs effect stack actions from the row context menu', async () => {
+		timelineStore.setAll({
+			tracks: [videoTrack],
+			items: [
+				{
+					...videoItem,
+					effects: [
+						{ id: 'brightness', type: 'brightness', enabled: true, amount: 1 },
+						{ id: 'contrast', type: 'contrast', enabled: true, amount: 1 }
+					]
+				}
+			],
+			fps: 30
+		});
+		const onedit = vi.fn();
+		const screen = await render(EffectsPanel, { itemId: 'video', onedit });
+		const openBrightnessMenu = () => {
+			const trigger = screen.container.querySelector<HTMLElement>(
+				'[data-effect-id="brightness"] [data-effect-context-trigger]'
+			);
+			expect(trigger).not.toBeNull();
+			trigger!.dispatchEvent(
+				new MouseEvent('contextmenu', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 80,
+					clientY: 80
+				})
+			);
+		};
+
+		openBrightnessMenu();
+		await screen.getByRole('menuitem', { name: 'Move effect down' }).click();
+		expect(timelineStore.itemById.get('video')?.effects?.map((effect) => effect.id)).toEqual([
+			'contrast',
+			'brightness'
+		]);
+
+		openBrightnessMenu();
+		await screen.getByRole('menuitem', { name: 'Disable effect' }).click();
+		expect(timelineStore.itemById.get('video')?.effects?.[1]?.enabled).toBe(false);
+
+		openBrightnessMenu();
+		await screen.getByRole('menuitem', { name: 'Remove effect' }).click();
+		expect(timelineStore.itemById.get('video')?.effects?.map((effect) => effect.id)).toEqual([
+			'contrast'
+		]);
+		expect(onedit).toHaveBeenCalledTimes(3);
+	});
+
 	it('localizes GPU effect choices in the rendered picker', async () => {
 		setLocale('pt', { reload: false });
 		await render(EffectsPanel, { itemId: 'video', onedit: vi.fn() });

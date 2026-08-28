@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/openpost/backend/internal/database/migrations"
@@ -32,6 +35,16 @@ func InitDBWithDriver(driver, dsn string) (*bun.DB, error) {
 }
 
 func initSQLiteDB(dsn string) (*bun.DB, error) {
+	// The driver does not create parent directories, and the failure surfaces
+	// as a misleading "unable to open database file: out of memory (14)" on
+	// the first statement. A container image can pre-create the directory,
+	// but a volume mounted over it masks that, so create it at open time.
+	if dir := sqliteFileDir(dsn); dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, fmt.Errorf("create sqlite database directory: %w", err)
+		}
+	}
+
 	// DSN e.g. "file:openpost.db?cache=shared&mode=rwc"
 	sqldb, err := sql.Open(sqliteshim.ShimName, dsn)
 	if err != nil {
@@ -59,6 +72,26 @@ func initSQLiteDB(dsn string) (*bun.DB, error) {
 	}
 
 	return db, nil
+}
+
+// sqliteFileDir returns the parent directory of the DSN's database file, or ""
+// when the DSN does not reference a file outside the working directory
+// (memory databases, bare filenames).
+func sqliteFileDir(dsn string) string {
+	path := strings.TrimPrefix(dsn, "file:")
+	if index := strings.IndexByte(path, '?'); index >= 0 {
+		if values, err := url.ParseQuery(path[index+1:]); err == nil && values.Get("mode") == "memory" {
+			return ""
+		}
+		path = path[:index]
+	}
+	if path == "" || path == ":memory:" {
+		return ""
+	}
+	if dir := filepath.Dir(path); dir != "." && dir != string(filepath.Separator) {
+		return dir
+	}
+	return ""
 }
 
 func initPostgresDB(dsn string) (*bun.DB, error) {

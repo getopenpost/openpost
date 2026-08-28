@@ -63,6 +63,7 @@ func runMigrations(db *bun.DB, source fs.FS) error {
 	}
 
 	var migrations []migration
+	versionNames := make(map[int64]string)
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
@@ -71,6 +72,12 @@ func runMigrations(db *bun.DB, source fs.FS) error {
 		if err != nil {
 			return fmt.Errorf("invalid migration filename %q: %w", entry.Name(), err)
 		}
+		// Applied migrations are tracked by version alone, so two files sharing
+		// a version would silently skip whichever sorts second.
+		if existing, ok := versionNames[version]; ok {
+			return fmt.Errorf("migration version collision: %q and %q both use version %d", existing, entry.Name(), version)
+		}
+		versionNames[version] = entry.Name()
 		content, err := fs.ReadFile(source, entry.Name())
 		if err != nil {
 			return fmt.Errorf("failed to read migration %q: %w", entry.Name(), err)
@@ -394,11 +401,23 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 107:
 		description = "drop retired video editor storage"
 		err = dropRetiredVideoProjectColumn(ctx, db)
+	case 111:
+		description = "workspace invitation delivery"
+		err = ensureWorkspaceInvitationsTable(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
+}
+
+// ensureWorkspaceInvitationsTable creates workspace_invitations from the model
+// when migrations run before CreateSchema. The current model already carries
+// the delivery columns, so migration 111's ALTERs then no-op through the
+// duplicate-column path; upgraded databases keep their table and gain the columns.
+func ensureWorkspaceInvitationsTable(ctx context.Context, db *bun.DB) error {
+	_, err := db.NewCreateTable().Model((*models.WorkspaceInvitation)(nil)).IfNotExists().Exec(ctx)
+	return err
 }
 
 func ensureWorkspaceInvitationDeliveryUpdatedAt(ctx context.Context, db *bun.DB) error {

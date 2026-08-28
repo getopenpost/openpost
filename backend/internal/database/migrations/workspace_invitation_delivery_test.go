@@ -26,7 +26,7 @@ func TestWorkspaceInvitationDeliveryMigrationPreservesExistingInvitations(t *tes
 	_, err = db.ExecContext(ctx, `INSERT INTO workspace_invitations (id, email) VALUES ('invite-1', 'person@example.com')`)
 	require.NoError(t, err)
 
-	raw, err := migrationFiles.ReadFile("094_workspace_invitation_delivery.sql")
+	raw, err := migrationFiles.ReadFile("111_workspace_invitation_delivery.sql")
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, string(raw))
 	require.NoError(t, err)

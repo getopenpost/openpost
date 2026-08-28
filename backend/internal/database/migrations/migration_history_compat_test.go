@@ -201,3 +201,18 @@ func seedMisrecordedMediaRecipeMigration074(ctx context.Context, t *testing.T, d
 	`)
 	require.NoError(t, err)
 }
+
+func TestRunMigrationsRejectsVersionCollisions(t *testing.T) {
+	t.Parallel()
+
+	db := newMigrationsTestDB(t)
+	source := fstest.MapFS{
+		"108_connector_installations.sql": &fstest.MapFile{Data: []byte(`CREATE TABLE provider_installations (id TEXT PRIMARY KEY);`)},
+		"108_idempotency_records.sql":     &fstest.MapFile{Data: []byte(`CREATE TABLE idempotency_records (id TEXT PRIMARY KEY);`)},
+	}
+
+	err := runMigrations(db, source)
+	require.ErrorContains(t, err, "migration version collision")
+	require.ErrorContains(t, err, "108_connector_installations.sql")
+	require.ErrorContains(t, err, "108_idempotency_records.sql")
+}

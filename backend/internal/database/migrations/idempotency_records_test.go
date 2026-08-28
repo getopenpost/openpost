@@ -12,11 +12,11 @@ func TestIdempotencyRecordMigrationScopesKeysAndKeepsReplayEvidence(t *testing.T
 	db := newMigrationsTestDB(t)
 	_, err := db.NewCreateTable().Model((*SchemaMigration)(nil)).IfNotExists().Exec(t.Context())
 	require.NoError(t, err)
-	raw, err := migrationFiles.ReadFile("108_idempotency_records.sql")
+	raw, err := migrationFiles.ReadFile("110_idempotency_records.sql")
 	require.NoError(t, err)
 	require.NoError(t, runMigration(t.Context(), db, migration{
-		version: 108,
-		name:    "108_idempotency_records.sql",
+		version: 110,
+		name:    "110_idempotency_records.sql",
 		sql:     string(raw),
 	}))
 

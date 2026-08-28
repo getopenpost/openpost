@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "{total} öğeden {done} tamamlandı. Kalan kaynaklar işlenemedi.",
 	"video_editor_settings_working": "Proje depolaması güncelleniyor",
 	"video_editor_shortcuts_description": "Bu tarayıcı için düzenleyici komutlarını değiştir.",
+	"video_editor_shortcuts_layout_fallback": "Bu tarayıcı klavye düzeninizi okuyamadığı için tuş adları ABD düzenini kullanır.",
 	"video_editor_shortcuts_search": "Komut veya tuş ara",
 	"video_editor_shortcuts_filter_all": "Tümü",
 	"video_editor_shortcuts_filter_custom": "Özel",

@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "{total} 件のうち {done} 件を完了しました。残りのソースは処理できませんでした。",
 	"video_editor_settings_working": "プロジェクトストレージを更新しています",
 	"video_editor_shortcuts_description": "このブラウザでのエディタコマンドを変更します。",
+	"video_editor_shortcuts_layout_fallback": "このブラウザではキーボード配列を読み取れないため、キー名は米国配列で表示されます。",
 	"video_editor_shortcuts_search": "コマンドやキーを検索",
 	"video_editor_shortcuts_filter_all": "すべて",
 	"video_editor_shortcuts_filter_custom": "カスタム",

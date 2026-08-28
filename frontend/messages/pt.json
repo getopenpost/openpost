@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "Foram concluídos {done} de {total} itens. Não foi possível processar as restantes fontes.",
 	"video_editor_settings_working": "A atualizar o armazenamento do projeto",
 	"video_editor_shortcuts_description": "Altere os comandos do editor neste navegador.",
+	"video_editor_shortcuts_layout_fallback": "As teclas usam o esquema dos EUA porque este navegador não consegue ler o seu teclado.",
 	"video_editor_shortcuts_search": "Pesquisar comandos ou teclas",
 	"video_editor_shortcuts_filter_all": "Todos",
 	"video_editor_shortcuts_filter_custom": "Personalizados",

@@ -351,12 +351,26 @@ function platformIsMac(platformValue?: string): boolean {
 }
 
 export function formatShortcutBinding(binding: string, platformValue?: string): string {
-	const mac = platformIsMac(platformValue);
+	return formatShortcutBindingWithLabels(binding, { platform: platformValue });
+}
+
+export interface ShortcutBindingLabelOptions {
+	platform?: string;
+	labelForToken?: (token: string) => string | null;
+}
+
+export function formatShortcutBindingWithLabels(
+	binding: string,
+	options: ShortcutBindingLabelOptions = {}
+): string {
+	const mac = platformIsMac(options.platform);
 	return splitShortcutBinding(normalizeShortcutBinding(binding))
 		.map((token) => {
 			if (token === 'mod') return mac ? 'Cmd' : 'Ctrl';
 			if (token === 'alt') return mac ? 'Option' : 'Alt';
 			if (token === 'shift') return 'Shift';
+			const layoutLabel = options.labelForToken?.(token);
+			if (layoutLabel) return layoutLabel;
 			const label = KEY_LABELS.get(token);
 			if (label) return label;
 			return /^[a-z]$/.test(token) ? token.toUpperCase() : token;

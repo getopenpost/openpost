@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "{done} von {total} Elementen fertig. Die übrigen Quellen konnten nicht verarbeitet werden.",
 	"video_editor_settings_working": "Projektspeicher wird aktualisiert",
 	"video_editor_shortcuts_description": "Editor-Befehle für diesen Browser ändern.",
+	"video_editor_shortcuts_layout_fallback": "Die Tastenbezeichnungen verwenden das US-Layout, da dieser Browser dein Tastaturlayout nicht lesen kann.",
 	"video_editor_shortcuts_search": "Befehle oder Tasten suchen",
 	"video_editor_shortcuts_filter_all": "Alle",
 	"video_editor_shortcuts_filter_custom": "Benutzerdefiniert",

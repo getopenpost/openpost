@@ -3,12 +3,19 @@ import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { mediaPool } from '../media/pool.svelte';
 import { editorSettings } from '../settings/editor-settings.svelte';
+import type { KeyboardLayoutApi } from '../settings/keyboard-layout';
 import { keyboardShortcuts } from '../settings/keyboard-shortcuts.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 import { setLocale } from '$lib/paraglide/runtime';
 import EditorSettingsDialog from './editor-settings-dialog.svelte';
 import '../../../routes/layout.css';
+
+const originalKeyboardDescriptor = Object.getOwnPropertyDescriptor(navigator, 'keyboard');
+
+function setKeyboardLayoutApi(value: KeyboardLayoutApi | undefined): void {
+	Object.defineProperty(navigator, 'keyboard', { configurable: true, value });
+}
 
 beforeEach(() => {
 	setLocale('en', { reload: false });
@@ -23,9 +30,52 @@ afterEach(async () => {
 	const closeButton = document.querySelector<HTMLElement>('[data-slot="dialog-close"]');
 	closeButton?.click();
 	await vi.waitFor(() => expect(document.querySelector('[role="dialog"]')).toBeNull());
+	if (originalKeyboardDescriptor) {
+		Object.defineProperty(navigator, 'keyboard', originalKeyboardDescriptor);
+	} else {
+		Reflect.deleteProperty(navigator, 'keyboard');
+	}
 });
 
 describe('EditorSettingsDialog shortcuts', () => {
+	it('shows the printed key for a physical binding on a non-US layout', async () => {
+		setKeyboardLayoutApi({
+			getLayoutMap: async () =>
+				new Map([
+					['KeyA', 'q'],
+					['KeyQ', 'a']
+				])
+		});
+		const screen = await render(EditorSettingsDialog, { open: true });
+		await screen.getByRole('button', { name: 'Shortcuts' }).click();
+		await screen.getByPlaceholder('Search commands or keys').fill('Shift + Q');
+
+		await expect
+			.element(screen.getByRole('group', { name: 'Clear selected keyframes' }))
+			.toHaveTextContent('Shift + Q');
+		await expect
+			.element(
+				screen.getByText(
+					'Key labels use the US layout because this browser cannot read your keyboard layout.'
+				)
+			)
+			.not.toBeInTheDocument();
+	});
+
+	it('explains the US fallback when layout labels are unavailable', async () => {
+		setKeyboardLayoutApi(undefined);
+		const screen = await render(EditorSettingsDialog, { open: true });
+		await screen.getByRole('button', { name: 'Shortcuts' }).click();
+
+		await expect
+			.element(
+				screen.getByText(
+					'Key labels use the US layout because this browser cannot read your keyboard layout.'
+				)
+			)
+			.toBeVisible();
+	});
+
 	it('rebinding a conflict replaces the old command and fits a 320px phone', async () => {
 		await page.viewport(320, 720);
 		const screen = await render(EditorSettingsDialog, { open: true });

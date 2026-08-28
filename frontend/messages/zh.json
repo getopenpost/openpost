@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "已完成 {done} / {total} 项。其余素材处理失败。",
 	"video_editor_settings_working": "正在更新项目存储",
 	"video_editor_shortcuts_description": "修改此浏览器的编辑器命令快捷键。",
+	"video_editor_shortcuts_layout_fallback": "此浏览器无法读取你的键盘布局，因此按键标签使用美式布局。",
 	"video_editor_shortcuts_search": "搜索命令或按键",
 	"video_editor_shortcuts_filter_all": "全部",
 	"video_editor_shortcuts_filter_custom": "自定义",

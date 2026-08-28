@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "Finished {done} of {total} items. The remaining sources could not be processed.",
 	"video_editor_settings_working": "Updating project storage",
 	"video_editor_shortcuts_description": "Change editor commands for this browser.",
+	"video_editor_shortcuts_layout_fallback": "Key labels use the US layout because this browser cannot read your keyboard layout.",
 	"video_editor_shortcuts_search": "Search commands or keys",
 	"video_editor_shortcuts_filter_all": "All",
 	"video_editor_shortcuts_filter_custom": "Custom",

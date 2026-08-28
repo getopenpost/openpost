@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "{total}개 항목 중 {done}개를 완료했습니다. 나머지 소스는 처리하지 못했습니다.",
 	"video_editor_settings_working": "프로젝트 저장 공간 업데이트 중",
 	"video_editor_shortcuts_description": "이 브라우저의 편집기 명령을 바꿉니다.",
+	"video_editor_shortcuts_layout_fallback": "이 브라우저에서 키보드 배열을 읽을 수 없어 키 이름을 미국 배열로 표시합니다.",
 	"video_editor_shortcuts_search": "명령이나 키 검색",
 	"video_editor_shortcuts_filter_all": "전체",
 	"video_editor_shortcuts_filter_custom": "사용자 지정",

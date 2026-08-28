@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -10,7 +11,7 @@
 		browserShortcutConflict,
 		createShortcutPreset,
 		findShortcutConflicts,
-		formatShortcutBinding,
+		formatShortcutBindingWithLabels,
 		hasShortcutPrimaryToken,
 		parseShortcutPreset,
 		resolveEditorShortcuts,
@@ -20,6 +21,11 @@
 		type EditorShortcutSection,
 		type ShortcutPresetImport
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import {
+		keyboardLayoutLabelForToken,
+		loadKeyboardLayoutMap,
+		type KeyboardLayoutApi
+	} from '$lib/video-editor/settings/keyboard-layout';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 
 	type Filter = 'all' | 'custom' | 'conflicts' | 'unassigned';
@@ -32,6 +38,28 @@
 	let feedback = $state<Feedback | null>(null);
 	let confirmReset = $state(false);
 	let importInput = $state<HTMLInputElement | null>(null);
+	let layoutMap = $state<ReadonlyMap<string, string> | null>(null);
+	let layoutStatus = $state<'loading' | 'native' | 'fallback'>('loading');
+
+	onMount(() => {
+		let cancelled = false;
+		// SAFETY: Keyboard Map is an optional Chromium API, so the extended field may be absent.
+		const keyboard = (navigator as Navigator & { keyboard?: KeyboardLayoutApi }).keyboard;
+		void loadKeyboardLayoutMap(keyboard).then((map) => {
+			if (cancelled) return;
+			layoutMap = map;
+			layoutStatus = map ? 'native' : 'fallback';
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	function formatBinding(binding: string): string {
+		return formatShortcutBindingWithLabels(binding, {
+			labelForToken: (token) => keyboardLayoutLabelForToken(layoutMap, token)
+		});
+	}
 
 	const commandLabels = {
 		PLAY_PAUSE: m.video_editor_shortcuts_command_play_pause,
@@ -142,8 +170,8 @@
 			return [
 				commandLabels[id](),
 				sectionLabels[definition.section](),
-				formatShortcutBinding(keyboardShortcuts.bindings[id]),
-				formatShortcutBinding(keyboardShortcuts.defaultBinding(id))
+				formatBinding(keyboardShortcuts.bindings[id]),
+				formatBinding(keyboardShortcuts.defaultBinding(id))
 			].some((value) => value.toLowerCase().includes(query));
 		});
 	});
@@ -266,6 +294,11 @@
 			<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_shortcuts_description()}
 			</p>
+			{#if layoutStatus === 'fallback'}
+				<p class="mt-1 max-w-lg text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
+					{m.video_editor_shortcuts_layout_fallback()}
+				</p>
+			{/if}
 		</div>
 		<div class="flex flex-wrap gap-1.5">
 			<Input
@@ -340,7 +373,7 @@
 			{#if draftBinding}
 				<p class="mt-3 text-xs">
 					{m.video_editor_shortcuts_captured({
-						binding: formatShortcutBinding(draftBinding)
+						binding: formatBinding(draftBinding)
 					})}
 				</p>
 				{#if captureConflicts.length > 0}
@@ -418,7 +451,7 @@
 							<kbd
 								class="mt-1 inline-block rounded border border-[oklch(0.33_0.014_55)] bg-[oklch(0.21_0.012_50)] px-2 py-1 font-mono text-[10px] text-[var(--video-editor-muted)]"
 							>
-								{binding ? formatShortcutBinding(binding) : m.video_editor_shortcuts_unassigned()}
+								{binding ? formatBinding(binding) : m.video_editor_shortcuts_unassigned()}
 							</kbd>
 						</div>
 						<div class="flex flex-wrap gap-1.5 sm:justify-end">

@@ -4342,6 +4342,7 @@
 	"video_editor_settings_items_partial": "{done} éléments traités sur {total}. Les sources restantes n'ont pas pu être traitées.",
 	"video_editor_settings_working": "Mise à jour du stockage du projet",
 	"video_editor_shortcuts_description": "Modifiez les commandes de l'éditeur pour ce navigateur.",
+	"video_editor_shortcuts_layout_fallback": "Les touches utilisent la disposition américaine, car ce navigateur ne peut pas lire votre clavier.",
 	"video_editor_shortcuts_search": "Rechercher une commande ou une touche",
 	"video_editor_shortcuts_filter_all": "Tous",
 	"video_editor_shortcuts_filter_custom": "Personnalisés",

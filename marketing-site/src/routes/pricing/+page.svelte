@@ -76,7 +76,7 @@
 				{selfHostedDeploymentSummary.softwareFee} <span>software fee</span>
 			</p>
 			<p>You pay for your infrastructure and any provider API use.</p>
-			<a class="focus-ring" href="/self-hosted">
+			<a class="focus-ring" href="/self-hosting">
 				Review self-hosting <ArrowRight data-icon="inline-end" />
 			</a>
 		</div>

@@ -126,7 +126,7 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   await expect(selfHosted).toContainText("not a hosted plan and not a free tier of one");
   await expect(selfHosted.getByRole("link", { name: "Review self-hosting" })).toHaveAttribute(
     "href",
-    "/self-hosted",
+    "/self-hosting",
   );
 
   await page.getByText("Trial and billing details").click();
@@ -196,13 +196,13 @@ test("pricing makes every plan selectable for monthly and annual billing", async
   );
 });
 
-test("self-hosted path states the complete operator boundary without JavaScript", async ({
+test("self-hosting path states the complete operator boundary without JavaScript", async ({
   browser,
 }) => {
   const context = await browser.newContext({ javaScriptEnabled: false });
   const page = await context.newPage();
 
-  await page.goto("/self-hosted");
+  await page.goto("/self-hosting");
   await expect(
     page.getByRole("heading", {
       name: "Your server. Your data. The same OpenPost.",
@@ -317,46 +317,12 @@ test("features and FAQ expose complete, qualified product guidance", async ({ pa
   );
 });
 
-test("comparison rows expose current claim-level evidence", async ({ page }) => {
-  const slugs = ["buffer", "hootsuite", "typefully", "postiz", "post-bridge", "mixpost"] as const;
-  const isDesktop = (page.viewportSize()?.width ?? 0) >= 1024;
-  if (!isDesktop) {
-    await page.setViewportSize({ width: 390, height: 844 });
-  }
-
-  for (const slug of slugs) {
-    await page.goto(`/compare/${slug}`);
-    const mobileRows = page.locator(".lg\\:hidden article");
-    await expect(mobileRows).toHaveCount(4);
-    await expect(page.locator(".claim-evidence")).toHaveCount(16);
-    const tableEvidence = page.locator("table .claim-evidence");
-    await expect(tableEvidence).toHaveCount(8);
-    const visibleEvidence = isDesktop
-      ? tableEvidence
-      : page.locator(".lg\\:hidden .claim-evidence");
-    await expect(visibleEvidence).toHaveCount(8);
-    await expect(visibleEvidence.first()).toContainText("Recheck by Nov 9, 2026");
-    await expect(visibleEvidence.getByText(/^Owner:/).first()).toBeVisible();
-    await expect(
-      visibleEvidence.getByRole("link", { name: /source|pricing|guide|docs/i }).first(),
-    ).toBeVisible();
-  }
-
-  await page.setViewportSize({ width: 320, height: 720 });
-  const evidenceLink = page.locator(".lg\\:hidden .claim-evidence").getByRole("link").first();
-  await evidenceLink.focus();
-  await expect(evidenceLink).toBeFocused();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
-    true,
-  );
-});
-
 test("route and static not-found pages share useful recovery", async ({ page }) => {
   if ((page.viewportSize()?.width ?? 0) < 1024) {
     await page.setViewportSize({ width: 390, height: 844 });
   }
 
-  const routeResponse = await page.goto("/compare/not-a-product");
+  const routeResponse = await page.goto("/removed-route");
   expect(routeResponse?.status()).toBe(404);
   await expect(
     page.getByRole("heading", {
@@ -398,7 +364,7 @@ test("marketing decision routes remain console-clean", async ({ page }) => {
   });
   page.on("pageerror", (error) => errors.push(error.message));
 
-  for (const route of ["/features", "/faq", "/pricing", "/self-hosted", "/compare/buffer"]) {
+  for (const route of ["/features", "/faq", "/pricing", "/self-hosting"]) {
     await page.goto(route);
     await page.waitForLoadState("networkidle");
   }
@@ -672,8 +638,6 @@ test("marketing SEO routes expose the current public index @desktop", async ({ r
   expect(xml).toContain("<loc>https://openpost.social/platforms</loc>");
   expect(xml).toContain("<loc>https://openpost.social/platforms/x</loc>");
   expect(xml).toContain("<loc>https://openpost.social/platforms/discord</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/compare</loc>");
-  expect(xml).toContain("<loc>https://openpost.social/compare/buffer</loc>");
   expect(xml).toContain("<loc>https://openpost.social/tools</loc>");
   expect(xml).toContain(
     "<loc>https://openpost.social/tools/multi-platform-character-counter</loc>",

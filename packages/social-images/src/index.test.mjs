@@ -29,7 +29,7 @@ test("marketing social entries have unique paths, keys, and complete image metad
     assert.deepEqual(resolveSocialImageEntry(entry.id), entry);
     assert.match(entry.canonical, /^https:\/\/openpost\.social(?:\/|$)/);
     assert.match(entry.priority, /^(?:1\.0|0\.[0-9])$/u);
-    assert.match(entry.agentRepresentation, /^(?:static|platform|comparison|tool)$/u);
+    assert.match(entry.agentRepresentation, /^(?:static|platform|tool)$/u);
     assert.match(entry.agentDiscovery.membership, /^(?:primary|optional|unlisted)$/u);
     assert.ok(entry.socialTitle.length <= 72, `${entry.key} social title is too long`);
     assert.ok(entry.description.length <= 160, `${entry.key} description is too long`);
@@ -40,7 +40,7 @@ test("marketing social entries have unique paths, keys, and complete image metad
 
 test("the public route manifest owns social, sitemap, and prerender metadata", () => {
   assert.equal(resolveMarketingSocial("/trust").key, "trust");
-  assert.equal(resolveMarketingSocial("/self-hosted").key, "self-hosted");
+  assert.equal(resolveMarketingSocial("/self-hosting").key, "self-hosting");
   assert.deepEqual(marketingPrerenderEntries("/platforms")[0], { slug: "x" });
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/")),
@@ -55,8 +55,8 @@ test("the public route manifest owns social, sitemap, and prerender metadata", (
     "https://openpost.social/pricing.md",
   );
   assert.equal(
-    marketingAgentMarkdownUrl(resolveMarketingSocial("/self-hosted")),
-    "https://openpost.social/self-hosted.md",
+    marketingAgentMarkdownUrl(resolveMarketingSocial("/self-hosting")),
+    "https://openpost.social/self-hosting.md",
   );
   assert.equal(
     marketingAgentMarkdownUrl(resolveMarketingSocial("/tools/thread-splitter")),

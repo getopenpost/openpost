@@ -66,16 +66,16 @@ Analytics, comments, and inbox reads use optional adapter interfaces. They do no
 ## Public copy and docs
 
 - `CHANGELOG.md` is the source for the public changelog and GitHub release notes.
-- Marketing includes product, platform, pricing, security, self-hosted, open-source, comparison, changelog, and free-tool pages.
+- Marketing includes product, platform, pricing, security, self-hosting, trust, changelog, and free-tool pages.
 - The sitemap must include every current public page, platform guide, comparison, and tool.
 - User docs explain the product. Self-hosting docs explain server work. Developer docs explain the code and contracts.
 - Keep claims about access, limits, app review, and live tests with the relevant social network page.
 
 ### Agent-readable public content
 
-The marketing production build generates a `.md` representation for every static product, pricing, platform-index, comparison-index, tool-index, browser-tool, FAQ, security, trust, self-hosted, open-source, developer, about, contact, changelog, and legal page. The documentation build generates one for every ordinary maintained page. Canonical HTML advertises each available representation, the discovery index, and the changelog Atom feed; sitemaps list only canonical HTML pages.
+The marketing production build generates a `.md` representation for every static product, pricing, platform-index, tool-index, browser-tool, FAQ, security, trust, self-hosting, developer, about, contact, changelog, and legal page. The documentation build generates one for every ordinary maintained page. Canonical HTML advertises each available representation, the discovery index, and the changelog Atom feed; sitemaps list only canonical HTML pages.
 
-The marketing route manifest owns stable page titles, descriptions, canonical URLs, representation groups, and discovery classes. The marketing `llms.txt` states when OpenPost is and is not a fit, prioritizes the product overview, features, pricing, platform index, FAQ, security, trust, self-hosted path, open-source path, developer entry point, operator identity, contact route, and documentation, then links directly to the OpenAPI contract, CLI, MCP, and agent-assisted workflow. Comparison and browser-tool indexes are optional entries. Platform, comparison, and browser-tool detail pages appear in their own optional sections. Changelog and legal representations remain available at explicit `.md` URLs but are not listed in `llms.txt`.
+The marketing route manifest owns stable page titles, descriptions, canonical URLs, representation groups, and discovery classes. The marketing `llms.txt` states when OpenPost is and is not a fit, prioritizes the product overview, features, pricing, platform index, FAQ, security, trust, self-hosting path, developer entry point, operator identity, contact route, and documentation, then links directly to the OpenAPI contract, CLI, MCP, and agent-assisted workflow. The browser-tool index is optional, and platform detail pages appear in their own optional section. Changelog and legal representations remain available at explicit `.md` URLs but are not listed in `llms.txt`.
 
 The marketing and documentation origins use `robots.txt` and a `Content-Signal` response header to allow public-content search, AI input, model training, and attributed reference use. Cloudflare managed robots and verified-bot rules can replace or block that origin policy, so live acceptance must verify the final response and representative search, training, and user-action crawler identities after each policy change. This permission covers public marketing and documentation content only and does not expose authenticated application data.
 

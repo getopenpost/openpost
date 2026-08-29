@@ -34,12 +34,10 @@ test("catalog parsing stays inside the named ownership boundaries", () => {
 const platformImplementations = [{ slug: "x" }, { slug: "mastodon" }];
 export const platforms = platformImplementations.map(Boolean);
 export const tools = [{ slug: "counter" }];
-const comparisonDrafts = [{ slug: "buffer" }];
-export const comparisons = comparisonDrafts.map(Boolean);
+export const faqs = [];
 `;
   assert.deepEqual(catalogSlugs(source, "platforms"), ["x", "mastodon"]);
   assert.deepEqual(catalogSlugs(source, "tools"), ["counter"]);
-  assert.deepEqual(catalogSlugs(source, "compare"), ["buffer"]);
 });
 
 test("the repository route manifest is bidirectionally complete", async () => {

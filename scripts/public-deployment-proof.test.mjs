@@ -201,7 +201,7 @@ test("the live sample plan covers every required public category and machine bou
       ["core", "/features"],
       ["legal", "/privacy"],
       ["platform", "/platforms/x"],
-      ["comparison", "/compare/buffer"],
+      ["self-hosting", "/self-hosting"],
       ["tool", "/tools/multi-platform-character-counter"],
     ],
   );

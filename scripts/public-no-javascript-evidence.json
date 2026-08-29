@@ -15,10 +15,6 @@
     "audience": "For operators deciding which social accounts to connect.",
     "boundary": "An implemented adapter is not a Hosted service certification claim. Each row reports the current claim state from the release manifest."
   },
-  "https://openpost.social/compare": {
-    "audience": "For founders and teams comparing social publishing tools.",
-    "boundary": "We do not guess about reliability, support quality, or private limits."
-  },
   "https://openpost.social/tools": {
     "audience": "For creators preparing a post before signing up.",
     "boundary": "Drafts stay local unless a tool clearly offers a live network check."
@@ -35,13 +31,9 @@
     "audience": "This register is for customers and operators reviewing the Hosted service boundary.",
     "boundary": "It does not make a certification claim."
   },
-  "https://openpost.social/self-hosted": {
-    "audience": "For operators who want to run OpenPost on infrastructure they control.",
-    "boundary": "Self-hosting is not a Hosted service plan or a zero-price Hosted service tier. You pay for infrastructure and any social network or third-party services you use."
-  },
-  "https://openpost.social/open-source": {
-    "audience": "For operators and developers evaluating the open-source deployment path.",
-    "boundary": "AGPL-3.0-only"
+  "https://openpost.social/self-hosting": {
+    "audience": "For operators and developers evaluating the self-hosting and source path.",
+    "boundary": "Self-hosting has no software fee. You operate the infrastructure, data, provider projects, upgrades, backups, and support boundary."
   },
   "https://openpost.social/developers": {
     "audience": "OpenPost exposes one publishing system through a typed HTTP API, a CLI, and an MCP server.",
@@ -110,30 +102,6 @@
   "https://openpost.social/platforms/discord": {
     "audience": "This page is for people deciding whether OpenPost fits their Discord publishing workflow.",
     "boundary": "A webhook can publish and delete its own messages, but it cannot read the channel inbox."
-  },
-  "https://openpost.social/compare/buffer": {
-    "audience": "Creators and teams that want a polished hosted scheduler with analytics and tools for comments and replies.",
-    "boundary": "No social listening or large-company benchmarks."
-  },
-  "https://openpost.social/compare/hootsuite": {
-    "audience": "Choose Hootsuite if a large team needs social listening, reports, and strict company controls. Choose OpenPost if you mainly need publishing, comments, inboxes, and automation.",
-    "boundary": "No social listening or ad tools."
-  },
-  "https://openpost.social/compare/typefully": {
-    "audience": "You want AI tools to use OpenPost access instead of your social account keys.",
-    "boundary": "Hosted proprietary service."
-  },
-  "https://openpost.social/compare/postiz": {
-    "audience": "You want to review what an AI tool made, check each account version, and see the result.",
-    "boundary": "Postiz covers more networks and AI tools. OpenPost is a smaller product for reviewing and publishing posts, built as one Go service with no required Redis server."
-  },
-  "https://openpost.social/compare/post-bridge": {
-    "audience": "You want AI and script access that you can remove without sharing social account keys.",
-    "boundary": "Official help says X and Threads thread scheduling is not currently supported; hosted service only."
-  },
-  "https://openpost.social/compare/mixpost": {
-    "audience": "Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a Hosted service, a smaller server, and one open-source edition.",
-    "boundary": "Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a Hosted service, one Go binary, and no required Redis server."
   },
   "https://openpost.social/tools/social-media-video-editor": {
     "audience": "Creators who need to cut, caption, record, or reframe a social video before publishing.",

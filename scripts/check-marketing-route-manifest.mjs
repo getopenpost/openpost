@@ -9,8 +9,7 @@ export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.met
 
 const routeCatalogBoundaries = Object.freeze({
   platforms: ["const platformImplementations = [", "export const platforms ="],
-  tools: ["export const tools = [", "const comparisonDrafts = ["],
-  compare: ["const comparisonDrafts = [", "export const comparisons ="],
+  tools: ["export const tools = [", "export const faqs = ["],
 });
 
 async function listPageComponents(directory) {
@@ -115,7 +114,6 @@ export async function validateMarketingRouteManifest({
   const marketingSource = await readFile(path.join(routesDirectory, "_marketing.ts"), "utf8");
   for (const [section, catalog] of [
     ["platforms", "platforms"],
-    ["compare", "compare"],
     ["tools", "tools"],
   ]) {
     const prefix = `/${section}/`;

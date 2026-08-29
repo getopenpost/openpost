@@ -978,7 +978,7 @@ export const productionProjections = {
     outputDirectory: path.join(repositoryRoot, "marketing-site/dist"),
     pages: marketingRouteManifest
       .filter((route) =>
-        ["static", "platform", "comparison", "tool"].includes(route.agentRepresentation),
+        ["static", "platform", "tool"].includes(route.agentRepresentation),
       )
       .map((route) => ({
         sourcePath: path.join(
@@ -1082,17 +1082,6 @@ export const productionProjections = {
           description: "Destination-specific formats, setup needs, limits, and readiness notes.",
           links: marketingRouteManifest
             .filter((entry) => entry.agentDiscovery?.section === "platforms")
-            .map((entry) => ({
-              title: entry.title,
-              description: entry.description,
-              url: marketingAgentMarkdownUrl(entry),
-            })),
-        },
-        {
-          title: "Optional comparisons",
-          description: "Reviewed comparisons with evidence, qualifications, and current caveats.",
-          links: marketingRouteManifest
-            .filter((entry) => entry.agentDiscovery?.section === "comparisons")
             .map((entry) => ({
               title: entry.title,
               description: entry.description,

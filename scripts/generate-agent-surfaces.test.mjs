@@ -7,8 +7,7 @@ import test from "node:test";
 
 import { parse } from "parse5";
 import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
-import { comparisonEvidenceRegister } from "../marketing-site/src/routes/_comparison-evidence.ts";
-import { comparisons, featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
+import { featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
 import {
   discoveryDocument,
   generateAgentSurface,
@@ -1423,7 +1422,7 @@ test(
         path.join(root, "marketing-site/dist/_headers"),
         marketingRouteManifest
           .filter((route) =>
-            ["static", "platform", "comparison", "tool"].includes(route.agentRepresentation),
+            ["static", "platform", "tool"].includes(route.agentRepresentation),
           )
           .map((route) => new URL(route.canonical).pathname),
         ["/llms.txt"],
@@ -1814,7 +1813,7 @@ test(
 );
 
 test(
-  "marketing production artifacts cover every platform and comparison from one manifest",
+  "marketing production artifacts cover every platform from one manifest",
   { timeout: 180_000 },
   async () => {
     const root = path.resolve(import.meta.dirname, "..");
@@ -1823,29 +1822,24 @@ test(
     const outputDirectory = path.join(root, "marketing-site/dist");
     const sitemap = await readFile(path.join(outputDirectory, "sitemap.xml"), "utf8");
     const discovery = await readFile(path.join(outputDirectory, "llms.txt"), "utf8");
-    const represented = marketingRouteManifest.filter(
-      (entry) => entry.kind === "platform" || entry.kind === "comparison",
-    );
+    const represented = marketingRouteManifest.filter((entry) => entry.kind === "platform");
 
-    assert.equal(represented.length, platforms.length + comparisons.length);
+    assert.equal(represented.length, platforms.length);
     assert.match(discovery, /^## Optional platforms$/m);
-    assert.match(discovery, /^## Optional comparisons$/m);
+    assert.doesNotMatch(discovery, /^## Optional comparisons$/m);
     assert.deepEqual(
-      [
-        ...(await readdir(path.join(outputDirectory, "platforms")))
-          .filter((name) => name.endsWith(".md"))
-          .map((name) => `platforms/${name}`),
-        ...(await readdir(path.join(outputDirectory, "compare")))
-          .filter((name) => name.endsWith(".md"))
-          .map((name) => `compare/${name}`),
-      ].sort(),
+      (await readdir(path.join(outputDirectory, "platforms")))
+        .filter((name) => name.endsWith(".md"))
+        .map((name) => `platforms/${name}`)
+        .sort(),
       represented.map((entry) => `${entry.path.slice(1)}.md`).sort(),
     );
+    assert.deepEqual(await readdir(path.join(outputDirectory, "compare")).catch(() => []), []);
 
     for (const entry of represented) {
       assert.deepEqual(entry.agentDiscovery, {
         membership: "optional",
-        section: entry.kind === "platform" ? "platforms" : "comparisons",
+        section: "platforms",
       });
 
       const relativePath = entry.path.slice(1);
@@ -1874,71 +1868,22 @@ test(
         new RegExp(`^Canonical: ${entry.canonical.replaceAll(".", "\\.")}$`, "m"),
       );
       assert.equal((markdown.match(/^# /gm) ?? []).length, 1);
-      assert.doesNotMatch(
-        markdown,
-        /All comparisons|custom reply text for this account|Keep comparing|Navigation noise|Other tools worth checking|Try OpenPost|Try the Hosted service/u,
-      );
-      assert.match(discovery, new RegExp(`\(${markdownURL.replaceAll(".", "\\.")}\)`));
+      assert.match(discovery, new RegExp(`\\(${markdownURL.replaceAll(".", "\\.")}\\)`));
 
-      if (entry.kind === "platform") {
-        const platform = platforms.find((candidate) => candidate.slug === entry.platform);
-        assert.ok(platform, `${entry.path} must have canonical provider facts`);
-        assert.match(markdown, /\*\*Implemented:\*\*/u);
-        assert.match(markdown, /\*\*Hosted service certification:\*\*/u);
-        assert.match(markdown, /^## What can still block a post\.$/m);
-        assert.ok(markdown.includes(platform.implementationDetail));
-        assert.ok(markdown.includes(platform.managedCertificationDetail));
-        assert.ok(markdown.includes(platform.accountRequirement));
-        assert.ok(markdown.includes(platform.verification));
-        for (const fact of [...platform.limits, ...platform.limitations]) {
-          assert.ok(markdown.includes(fact), `${entry.path} must preserve ${JSON.stringify(fact)}`);
-        }
-        assert.ok(markdown.includes(platform.docsUrl));
-        assert.doesNotMatch(markdown, /^1\. \d+$/m);
-      } else {
-        const slug = entry.path.slice("/compare/".length);
-        const comparison = comparisons.find((candidate) => candidate.slug === slug);
-        const evidence = comparisonEvidenceRegister[slug];
-        assert.ok(comparison, `${entry.path} must have canonical comparison facts`);
-        assert.ok(evidence, `${entry.path} must have canonical comparison evidence`);
-        assert.ok(markdown.includes(comparison.verdict));
-        assert.ok(markdown.includes(comparison.pricing));
-        assert.ok(markdown.includes(evidence.qualifier));
-        for (const row of comparison.rows) {
-          assert.ok(markdown.includes(row.openpost));
-          assert.ok(markdown.includes(row.competitor));
-          for (const claim of [row.evidence.openpost, row.evidence.competitor]) {
-            assert.ok(markdown.includes(claim.owner));
-            assert.ok(markdown.includes(claim.basis));
-            assert.ok(markdown.includes(claim.qualifier));
-            assert.ok(
-              markdown.includes(
-                new Intl.DateTimeFormat("en", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                }).format(new Date(`${claim.reviewedOn}T00:00:00Z`)),
-              ),
-            );
-            assert.ok(
-              markdown.includes(
-                new Intl.DateTimeFormat("en", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                }).format(new Date(`${claim.reviewDueOn}T00:00:00Z`)),
-              ),
-            );
-            for (const source of claim.sources) assert.ok(markdown.includes(source.href));
-          }
-        }
-        for (const row of Object.values(evidence.rows)) {
-          assert.ok(markdown.includes(row.qualifier));
-          for (const source of row.sources) assert.ok(markdown.includes(source.href));
-        }
+      const platform = platforms.find((candidate) => candidate.slug === entry.platform);
+      assert.ok(platform, `${entry.path} must have canonical provider facts`);
+      assert.match(markdown, /\*\*Implemented:\*\*/u);
+      assert.match(markdown, /\*\*Hosted service certification:\*\*/u);
+      assert.match(markdown, /^## What can still block a post\.$/m);
+      assert.ok(markdown.includes(platform.implementationDetail));
+      assert.ok(markdown.includes(platform.managedCertificationDetail));
+      assert.ok(markdown.includes(platform.accountRequirement));
+      assert.ok(markdown.includes(platform.verification));
+      for (const fact of [...platform.limits, ...platform.limitations]) {
+        assert.ok(markdown.includes(fact), `${entry.path} must preserve ${JSON.stringify(fact)}`);
       }
+      assert.ok(markdown.includes(platform.docsUrl));
+      assert.doesNotMatch(markdown, /^1\. \d+$/m);
     }
   },
 );

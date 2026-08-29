@@ -3,12 +3,10 @@ export type SocialImageKind =
   | "workflow"
   | "platforms"
   | "platform"
-  | "compare-index"
-  | "comparison"
   | "tools-index"
   | "tool"
   | "security"
-  | "open-source"
+  | "self-hosting"
   | "document"
   | "docs";
 
@@ -29,16 +27,16 @@ export interface SocialEntry {
   platform?: string;
   agentDiscovery?: {
     membership: "primary" | "optional" | "unlisted";
-    section?: "platforms" | "comparisons" | "tools";
+    section?: "platforms" | "tools";
   };
 }
 
 export interface MarketingRouteEntry extends SocialEntry {
   priority: string;
-  agentRepresentation: "static" | "platform" | "comparison" | "tool";
+  agentRepresentation: "static" | "platform" | "tool";
   agentDiscovery: {
     membership: "primary" | "optional" | "unlisted";
-    section?: "platforms" | "comparisons" | "tools";
+    section?: "platforms" | "tools";
   };
 }
 
@@ -85,7 +83,7 @@ export function canonicalMarketingUrl(pathname: string): string;
 export function marketingAgentMarkdownUrl(entry: MarketingRouteEntry): string | undefined;
 export function resolveMarketingSocial(pathname: string): MarketingRouteEntry;
 export function marketingPrerenderEntries(
-  section: "/platforms" | "/compare" | "/tools",
+  section: "/platforms" | "/tools",
 ): { slug: string }[];
 export function docsRouteFromPage(page: string): string;
 export function docsImageKey(page: string): string;

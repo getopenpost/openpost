@@ -28,15 +28,6 @@ const platformNames = [
   ["discord", "Discord"],
 ];
 
-const comparisonNames = [
-  ["buffer", "Buffer"],
-  ["hootsuite", "Hootsuite"],
-  ["typefully", "Typefully"],
-  ["postiz", "Postiz"],
-  ["post-bridge", "Post Bridge"],
-  ["mixpost", "Mixpost"],
-];
-
 const toolPages = [
   {
     slug: "social-media-video-editor",
@@ -145,18 +136,6 @@ const staticMarketingEntries = [
     priority: "0.9",
   },
   {
-    path: "/compare",
-    key: "compare",
-    title: "Compare OpenPost with social scheduling tools",
-    socialTitle: "Choose the content system that fits your work.",
-    description: "Compare OpenPost with established publishing tools using reviewed product facts.",
-    label: "Honest comparisons",
-    kind: "compare-index",
-    agentRepresentation: "static",
-    agentDiscovery: { membership: "optional" },
-    priority: "0.8",
-  },
-  {
     path: "/tools",
     key: "tools",
     title: "Free social media tools - OpenPost",
@@ -208,29 +187,17 @@ const staticMarketingEntries = [
     priority: "0.6",
   },
   {
-    path: "/self-hosted",
-    key: "self-hosted",
+    path: "/self-hosting",
+    key: "self-hosting",
     title: "Self-host OpenPost",
     socialTitle: "Run OpenPost on infrastructure you control.",
     description:
       "Review OpenPost self-hosting infrastructure, data, upgrades, backups, provider projects, support, and operator responsibilities.",
     label: "Self-hosted deployment",
-    kind: "open-source",
+    kind: "self-hosting",
     agentRepresentation: "static",
     agentDiscovery: { membership: "primary" },
     priority: "0.8",
-  },
-  {
-    path: "/open-source",
-    key: "open-source",
-    title: "Open source and self-hosting - OpenPost",
-    socialTitle: "Use the Hosted service. Keep the option to self-host.",
-    description: "Run the complete AGPL OpenPost service yourself or use the Hosted service.",
-    label: "Open source",
-    kind: "open-source",
-    agentRepresentation: "static",
-    agentDiscovery: { membership: "primary" },
-    priority: "0.7",
   },
   {
     path: "/developers",
@@ -340,21 +307,6 @@ const platformEntries = platformNames.map(([slug, name]) => ({
   priority: "0.7",
 }));
 
-const comparisonEntries = comparisonNames.map(([slug, name]) => ({
-  path: `/compare/${slug}`,
-  key: `compare-${slug}`,
-  title: `OpenPost vs ${name}: an honest comparison`,
-  socialTitle: `OpenPost vs ${name}.`,
-  description:
-    "Compare publishing workflow, automation, hosting, product scope, and current pricing models.",
-  label: "Reviewed comparison",
-  kind: "comparison",
-  agentRepresentation: "comparison",
-  agentDiscovery: { membership: "optional", section: "comparisons" },
-  subject: name,
-  priority: "0.6",
-}));
-
 const toolEntries = toolPages.map((tool) => ({
   path: `/tools/${tool.slug}`,
   key: `tool-${tool.slug}`,
@@ -370,7 +322,7 @@ const toolEntries = toolPages.map((tool) => ({
 }));
 
 export const marketingRouteManifest = Object.freeze(
-  [...staticMarketingEntries, ...platformEntries, ...comparisonEntries, ...toolEntries].map(
+  [...staticMarketingEntries, ...platformEntries, ...toolEntries].map(
     (entry) => {
       const resolved = {
         ...entry,
@@ -385,7 +337,7 @@ export const marketingRouteManifest = Object.freeze(
 
 export const marketingSocialEntries = marketingRouteManifest;
 
-const prerenderSections = new Set(["/platforms", "/compare", "/tools"]);
+const prerenderSections = new Set(["/platforms", "/tools"]);
 
 export function marketingPrerenderEntries(section) {
   const normalizedSection = normalizeMarketingPath(section);

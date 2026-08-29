@@ -15,8 +15,8 @@ Editing never syncs to OpenPost. Only final exports cross the boundary ("Send to
 ## Naming and domain terms
 
 - Full editor product name: **OpenPost Video Editor**, route `/video-editor`.
-- Lossless tool: **Quick Cut** (existing CONTEXT.md term), route `/quick-cut`. The old in-editor "quick-cut" mode is deleted.
-- New CONTEXT.md terms to add: **Workspace folder** (user-chosen disk folder holding projects/media/caches; source of truth while editing), **Recording** (local capture produced by the recorder).
+- Lossless tool: **Quick Cut** (established domain term), route `/quick-cut`. The old in-editor "quick-cut" mode is deleted.
+- Durable domain terms to retain in Hindsight: **Workspace folder** (user-chosen disk folder holding projects/media/caches; source of truth while editing), **Recording** (local capture produced by the recorder).
 - `/video-studio` legacy redirect retargets to `/video-editor`; `/studio` redirect untouched (image editor).
 
 ## Architecture
@@ -66,7 +66,7 @@ Backend: `handlers/video_editor.go`(+test), `internal/videoproject/`, routes reg
 
 Contracts: regenerate `frontend/openapi.json`, `src/lib/api/types.d.ts`, docs-site copy after route removal.
 
-Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new model; marketing launcher/tools pages retargeted; third-party notices add FreeCut (MIT) + mediabunny (MPL-2.0) attributions; privacy inventory entries updated; repository-map row updated; CONTEXT.md terms updated.
+Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new model; marketing launcher/tools pages retargeted; third-party notices add FreeCut (MIT) + mediabunny (MPL-2.0) attributions; privacy inventory entries updated; repository-map row updated; durable domain terms retained in Hindsight.
 
 ## Acceptance criteria
 

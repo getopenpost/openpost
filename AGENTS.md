@@ -21,13 +21,20 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 - Reuse established UI patterns. Consistency builds trust.
 - Keep keyboard access, visible focus, readable contrast, reduced motion, and touch targets.
 
+## Project state and memory
+
+- The **OpenPost** Vikunja project is the authority for private/internal active work, specs, priorities and execution state. Create and update those tasks through Executor. GitHub Issues remain only for public reports and contributor-facing discussion.
+- Hindsight bank `rodrigo` is the authority for durable cross-agent product context, domain language, decisions, constraints and project history. Recall with `project:openpost` before substantial work. Retain only verified durable facts with `project:openpost` and `source:<agent>`; never retain secrets, raw logs, temporary task state, completed-work reports or unverified claims.
+- Code, tests, generated contracts, build commands, public docs and hard engineering constraints remain versioned here. Do not create new `CONTEXT.md`, mutable ADR folders, local issue stores, task boards or agent-memory files.
+- Treat recalled memory as historical context, not proof of current behavior. Verify it against code, Vikunja or the live system. Correct superseded memories rather than adding contradictions.
+
 ## Working model
 
 - Substantial, ambiguous, or multi-ticket work follows the `agent-workflow` skill; tiny, well-scoped fixes skip the flow.
-- Match the work to its reference: UI/UX/visual/copy → `ux-consistency` (plus `impeccable` for design critique), `DESIGN.md`, `PRODUCT.md`; interaction sounds → `cuelume`; Go API → `huma`; TypeScript client → `openapi-typescript`; domain terms → `CONTEXT.md`; paths and seams → `docs/agents/repository-map.md` (confirm with `rg`); issues and triage → `docs/agents/issue-tracker.md` + `docs/agents/triage-labels.md`; domain-doc usage → `docs/agents/domain.md`.
+- Match the work to its reference: UI/UX/visual/copy → `ux-consistency` (plus `impeccable` for design critique), `DESIGN.md`, `PRODUCT.md`; interaction sounds → `cuelume`; Go API → `huma`; TypeScript client → `openapi-typescript`; durable domain/decision context → Hindsight plus current code; paths and seams → `docs/agents/repository-map.md` (confirm with `rg`); internal work → Vikunja; public issue/PR triage → GitHub.
 - Use Devenv for the environment; run verification, build, and release through the root `bun run` commands.
 - Do routine, non-destructive work yourself rather than delegating manual steps; production, external, and reputational mutations stay gated (see Delivery).
-- Canonical backlog: `AUDIT_REMEDIATION_TODO.md`. P0 = active security/privacy/data-integrity emergency or a safety gate before an external-write path; P1 = before the next broad release or paid-growth push; P2 = planned work. Treat it as an ordered queue, not one flat list.
+- Canonical backlog: the OpenPost Vikunja project. P0 = active security/privacy/data-integrity emergency or a safety gate before an external-write path; P1 = before the next broad release or paid-growth push; P2 = planned work. Treat it as an ordered queue, not one flat list.
 
 ## Architecture
 

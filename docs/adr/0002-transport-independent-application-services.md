@@ -1,3 +1,0 @@
-# Use transport-independent application services
-
-OpenPost application commands and queries must not depend on Echo, Huma, MCP, CLI, or transport-handler types. Each use case owns its authorization decisions, defaults, transactions, persistence, and durable Job creation, while transports authenticate, decode, invoke the use case, and map its transport-neutral result or error. The boundary will be introduced one vertical use case at a time instead of through a whole-handler rewrite, so REST, MCP, and CLI converge on shared behavior without replacing the existing monolith with another transport-shaped layer.

@@ -1,6 +1,6 @@
 # Repository Map
 
-Use this map to pull only the context needed for the current ticket. Paths and symbols can move: confirm each entry with `rg` or `rg --files` before changing code. Read `CONTEXT.md` first for domain terms and check the surrounding `docs/` tree for relevant ADRs or design decisions.
+Use this map to pull only the context needed for the current ticket. Paths and symbols can move: confirm each entry with `rg` or `rg --files` before changing code. Recall `project:openpost` from Hindsight for domain terms and prior decisions, then verify them against current code and the surrounding versioned design/spec documents.
 
 | Area                                          | Read first                                                                                  | Follow the seam                                                                                                                                                               | Targeted verification                                                                                 |
 | --------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |

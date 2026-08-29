@@ -1,3 +1,0 @@
-# Project domain evidence into the audit trail
-
-The administration audit trail is a permission-safe read model over authoritative evidence owned by access, identity, impersonation, billing, MCP, provider delivery, and other consequential domains. OpenPost will not create a second generic event store that duplicates or drives business state. Organization Owners see only their Organization and Workspace scope, instance administrators can inspect the instance-wide projection, exports preserve structured actor, effective actor, action, resource, result, time, and safe changed-field facts, and all views exclude secrets, content, tokens, and raw provider responses.

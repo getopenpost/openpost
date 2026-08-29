@@ -2185,11 +2185,6 @@
 						"readOnly": true,
 						"type": "string"
 					},
-					"account_management_mode": {
-						"description": "Where the user started the connection flow",
-						"enum": ["direct", "settings"],
-						"type": "string"
-					},
 					"app_password": {
 						"description": "Bluesky app password (Settings > App Passwords)",
 						"type": "string"
@@ -5326,11 +5321,6 @@
 						"examples": ["https://example.com/schemas/DiscordWebhookLoginInputBody.json"],
 						"format": "uri",
 						"readOnly": true,
-						"type": "string"
-					},
-					"account_management_mode": {
-						"description": "Where the user started the connection flow",
-						"enum": ["direct", "settings"],
 						"type": "string"
 					},
 					"intent": {
@@ -19118,17 +19108,6 @@
 							"default": "production",
 							"description": "Typed execution intent; certification_test requires an unscoped instance administrator",
 							"enum": ["production", "certification_test"],
-							"type": "string"
-						}
-					},
-					{
-						"description": "Where the user started the connection flow",
-						"explode": false,
-						"in": "query",
-						"name": "account_management_mode",
-						"schema": {
-							"description": "Where the user started the connection flow",
-							"enum": ["direct", "settings"],
 							"type": "string"
 						}
 					}

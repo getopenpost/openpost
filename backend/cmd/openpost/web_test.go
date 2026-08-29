@@ -148,7 +148,7 @@ func TestSpaHTMLRemainsUncached(t *testing.T) {
 func TestSpaFallbackDistinguishesKnownDynamicRoutesFromUnknownDocuments(t *testing.T) {
 	webFS := withAppRoutes(fstest.MapFS{
 		"index.html": {Data: []byte("<html>app</html>")},
-	}, "/", "/calendar", "/publications/[id]", "/video-studio/[...path]")
+	}, "/", "/calendar", "/publications/[id]", "/video-editor/[...path]")
 	e := echo.New()
 	registerSpaRoutes(e, webFS)
 
@@ -159,7 +159,7 @@ func TestSpaFallbackDistinguishesKnownDynamicRoutesFromUnknownDocuments(t *testi
 	}{
 		{name: "known static route without emitted page", path: "/calendar", status: http.StatusOK},
 		{name: "known dynamic route", path: "/publications/pub_123", status: http.StatusOK},
-		{name: "known nested rest route", path: "/video-studio/projects/example", status: http.StatusOK},
+		{name: "known nested rest route", path: "/video-editor/projects/example", status: http.StatusOK},
 		{name: "unknown route", path: "/this-route-does-not-exist", status: http.StatusNotFound},
 		{name: "static-prefix lookalike", path: "/calendar-export", status: http.StatusNotFound},
 		{name: "dynamic route missing parameter", path: "/publications", status: http.StatusNotFound},
@@ -250,79 +250,15 @@ func TestSpaStartupRejectsMissingOrMalformedRouteManifest(t *testing.T) {
 	}
 }
 
-func TestSpaRedirectsLegacyStudioRoutesBeforeRenderingTheApp(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte("<html>app</html>")},
-	}
+func TestManagedSpaRootUsesTheApplicationForTheRoot(t *testing.T) {
+	webFS := fstest.MapFS{"index.html": {Data: []byte(`<html><head></head><body>app</body></html>`)}}
 	e := echo.New()
-	registerSpaRoutes(e, webFS)
-
-	req := httptest.NewRequestWithContext(
-		context.Background(),
-		http.MethodGet,
-		"/studio/new?legacy-route=1",
-		nil,
-	)
+	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpost.social", true, true)
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, req)
-
-	require.Equal(t, http.StatusPermanentRedirect, rec.Code)
-	require.Equal(t, "/image-editor/new?legacy-route=1", rec.Header().Get("Location"))
-}
-
-func TestManagedSpaRootExposesProductPricingAndPoliciesWithoutJavaScript(t *testing.T) {
-	webFS := fstest.MapFS{
-		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
-		"login.html": {Data: []byte(`<html><head></head><body>login</body></html>`)},
-	}
-	e := echo.New()
-	registerSpaRoutesWithProfileMetadata(
-		e,
-		webFS,
-		nil,
-		"https://app.openpost.social",
-		true,
-		true,
-	)
-
-	rootReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
-	rootRec := httptest.NewRecorder()
-	e.ServeHTTP(rootRec, rootReq)
-
-	require.Equal(t, http.StatusOK, rootRec.Code)
-	rootHTML := rootRec.Body.String()
-	require.Contains(t, rootHTML, `name="openpost-edition" content="cloud"`)
-	require.Contains(t, rootHTML, `id="openpost-managed-public-home"`)
-	require.Contains(t, rootHTML, "Your content operation, together in one workspace.")
-	require.Contains(t, rootHTML, "Hosted service plans from")
-	require.Contains(t, rootHTML, "Starter")
-	require.Contains(t, rootHTML, "$15")
-	require.Contains(t, rootHTML, "Agency")
-	require.Contains(t, rootHTML, "$199")
-	require.Contains(t, rootHTML, `href="https://openpost.social/terms"`)
-	require.Contains(t, rootHTML, `href="https://openpost.social/privacy"`)
-	require.Contains(t, rootHTML, `href="https://openpost.social/refunds"`)
-	require.Contains(t, rootHTML, `rel="canonical" href="https://app.openpost.social/"`)
-
-	authenticatedReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
-	authenticatedReq.AddCookie(&http.Cookie{Name: "openpost_session", Value: "opaque-session"})
-	authenticatedRec := httptest.NewRecorder()
-	e.ServeHTTP(authenticatedRec, authenticatedReq)
-	require.Equal(t, http.StatusOK, authenticatedRec.Code)
-	require.Contains(t, authenticatedRec.Body.String(), `name="openpost-edition" content="cloud"`)
-	require.NotContains(
-		t,
-		authenticatedRec.Body.String(),
-		`id="openpost-managed-public-home"`,
-		"a session-bearing request must let the authenticated app own the first paint",
-	)
-
-	loginReq := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/login", nil)
-	loginRec := httptest.NewRecorder()
-	e.ServeHTTP(loginRec, loginReq)
-	require.Equal(t, http.StatusOK, loginRec.Code)
-	require.Contains(t, loginRec.Body.String(), `name="openpost-edition" content="cloud"`)
-	require.NotContains(t, loginRec.Body.String(), `id="openpost-managed-public-home"`)
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "app")
+	require.NotContains(t, rec.Body.String(), "openpost-managed-public-home")
 }
 
 func TestManagedSpaHeadMatchesGetHeadersWithoutBody(t *testing.T) {
@@ -368,7 +304,6 @@ func TestSpaHeadPreservesRedirectsAPIIsolationAndStaticHeaders(t *testing.T) {
 		headerName string
 		header     string
 	}{
-		{name: "legacy redirect", path: "/studio/new?legacy-route=1", status: http.StatusPermanentRedirect, headerName: "Location", header: "/image-editor/new?legacy-route=1"},
 		{name: "API path", path: "/api/missing", status: http.StatusNotFound},
 		{name: "immutable asset", path: "/_app/immutable/chunks/app.hash.js", status: http.StatusOK, headerName: "Cache-Control", header: "public, max-age=31536000, immutable"},
 	}

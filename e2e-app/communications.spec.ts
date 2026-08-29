@@ -208,7 +208,7 @@ test("communications and notifications stay usable across desktop and phone layo
             type: "new_message",
             title: "New message from Ada",
             body: "Is this available for teams?",
-            href: "/messages",
+            href: "/inbox/messages",
             payload_json: "{}",
             read_at: "",
             created_at: "2026-07-26T11:55:00Z",
@@ -253,7 +253,7 @@ test("communications and notifications stay usable across desktop and phone layo
   });
 
   await page.setViewportSize({ width: 1280, height: 820 });
-  await page.goto(`/engagement?workspace=${workspace.id}`);
+  await page.goto(`/inbox/engagement?workspace=${workspace.id}`);
   await expect(page.getByRole("heading", { name: "Engagement" })).toBeVisible();
   await expect(page.getByText("Could you share the setup guide?")).toBeVisible();
   await page.getByRole("button", { name: "Collection issues (1)" }).click();
@@ -314,7 +314,7 @@ test("communications and notifications stay usable across desktop and phone layo
   await conversationButton.click();
   await expect(conversationButton).toHaveAttribute("data-unread", "false");
 
-  await page.goto(`/notifications?workspace=${workspace.id}`);
+  await page.goto(`/inbox/notifications?workspace=${workspace.id}`);
   await expect(page.getByRole("heading", { name: "Notifications" })).toBeVisible();
   await expect(page.getByText("New message from Ada")).toBeVisible();
   await page.getByRole("button", { name: "Notification settings" }).click();
@@ -326,7 +326,7 @@ test("communications and notifications stay usable across desktop and phone layo
     { width: 320, height: 720 },
   ]) {
     await page.setViewportSize(viewport);
-    for (const path of ["/engagement", "/messages", "/notifications"]) {
+    for (const path of ["/inbox/engagement", "/inbox/messages", "/inbox/notifications"]) {
       await page.goto(`${path}?workspace=${workspace.id}`);
       await expect
         .poll(() =>

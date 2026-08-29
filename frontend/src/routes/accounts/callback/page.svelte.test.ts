@@ -53,7 +53,6 @@ function deferred<T>() {
 describe('account OAuth callback selection flow', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		localStorage.setItem('oauth_account_management_mode', 'direct');
 		mocks.get.mockResolvedValue({ data: pendingSelection, error: null });
 		mocks.post.mockResolvedValue({
 			data: {
@@ -115,7 +114,7 @@ describe('account OAuth callback selection flow', () => {
 			body: { selection_id: 'page_1' }
 		});
 		expect(screen.container.textContent).not.toContain('Account connected');
-		expect(screen.container.textContent).not.toContain('Redirecting you back to accounts');
+		expect(screen.container.textContent).not.toContain('Redirecting you back to Settings');
 
 		post.resolve({
 			data: {
@@ -199,7 +198,6 @@ describe('account OAuth callback selection flow', () => {
 	});
 
 	it('returns Settings-started re-authorization to the embedded account manager', async () => {
-		localStorage.setItem('oauth_account_management_mode', 'settings');
 		mocks.post.mockResolvedValue({
 			data: {
 				id: 'saved_account',

@@ -971,7 +971,7 @@ test.describe("product screenshot capture", () => {
       page.getByRole("heading", { name: "Follower trend" }),
     ]);
 
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
     await expect(page.getByText("@rodrgds").first()).toBeVisible();
     await expect(page.getByTestId("provider-card-bluesky")).toBeVisible();

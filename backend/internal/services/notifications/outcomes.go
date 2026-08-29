@@ -292,7 +292,7 @@ func baseOutcomeInput(value semanticOutcome) createInput {
 func materializePublicationOutcome(value semanticOutcome) (createInput, error) {
 	input := baseOutcomeInput(value)
 	publicationID, _ := value.payload["publication_id"].(string)
-	input.Href = "/activity?publication=" + url.QueryEscape(publicationID)
+	input.Href = "/publications?publication=" + url.QueryEscape(publicationID)
 	input.DedupKey = "publication:" + value.eventID + ":" + value.topic
 	if value.topic == TypePostPublished {
 		input.Title = "Publication completed"
@@ -309,7 +309,7 @@ func materializeAccountAttentionOutcome(value semanticOutcome) (createInput, err
 	input := baseOutcomeInput(value)
 	input.Title = "Connected account needs attention"
 	input.Body = "Publishing is paused until the account is reconnected."
-	input.Href = "/accounts"
+	input.Href = "/settings?tab=accounts"
 	input.Actions = []models.NotificationAction{{Label: "Reconnect account", Href: input.Href, Kind: "primary"}}
 	return input, nil
 }
@@ -319,7 +319,7 @@ func materializeEngagementOutcome(value semanticOutcome) (createInput, error) {
 	engagementID, _ := value.payload["engagement_id"].(string)
 	input.Title = "New engagement"
 	input.Body = "Someone replied to your post."
-	input.Href = "/engagement?item=" + url.QueryEscape(engagementID)
+	input.Href = "/inbox/engagement?item=" + url.QueryEscape(engagementID)
 	input.Actions = []models.NotificationAction{{Label: "Open reply", Href: input.Href, Kind: "primary"}}
 	return input, nil
 }
@@ -329,7 +329,7 @@ func materializeMessageOutcome(value semanticOutcome) (createInput, error) {
 	conversationID, _ := value.payload["conversation_id"].(string)
 	input.Title = "New message"
 	input.Body = "A connected inbox received a new message."
-	input.Href = "/messages?conversation=" + url.QueryEscape(conversationID)
+	input.Href = "/inbox/messages?conversation=" + url.QueryEscape(conversationID)
 	input.Actions = []models.NotificationAction{{Label: "Open conversation", Href: input.Href, Kind: "primary"}}
 	return input, nil
 }
@@ -339,14 +339,14 @@ func materializeReplyFailedOutcome(value semanticOutcome) (createInput, error) {
 	if conversationID, ok := value.payload["conversation_id"].(string); ok {
 		input.Title = "Message failed"
 		input.Body = "OpenPost could not send a direct message."
-		input.Href = "/messages?conversation=" + url.QueryEscape(conversationID)
+		input.Href = "/inbox/messages?conversation=" + url.QueryEscape(conversationID)
 		input.Actions = []models.NotificationAction{{Label: "Review message", Href: input.Href, Kind: "primary"}}
 		return input, nil
 	}
 	engagementID, _ := value.payload["engagement_id"].(string)
 	input.Title = "Reply failed"
 	input.Body = "OpenPost could not send a reply or engagement action."
-	input.Href = "/engagement?item=" + url.QueryEscape(engagementID)
+	input.Href = "/inbox/engagement?item=" + url.QueryEscape(engagementID)
 	input.Actions = []models.NotificationAction{{Label: "Review reply", Href: input.Href, Kind: "primary"}}
 	return input, nil
 }

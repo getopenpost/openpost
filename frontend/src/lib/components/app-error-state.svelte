@@ -42,7 +42,7 @@
 		supportURL = 'mailto:openpost@rgo.pt',
 		links = {
 			home: '/',
-			activity: '/activity',
+			activity: '/publications',
 			calendar: '/calendar',
 			media: '/media'
 		}

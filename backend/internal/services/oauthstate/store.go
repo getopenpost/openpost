@@ -28,7 +28,6 @@ type Payload struct {
 	Platform              string `json:"platform"`
 	ServerName            string `json:"server_name,omitempty"`
 	ExecutionIntent       string `json:"execution_intent"`
-	AccountManagementMode string `json:"account_management_mode,omitempty"`
 }
 
 func NewStore(db *bun.DB) *Store {

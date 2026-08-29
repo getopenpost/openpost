@@ -203,7 +203,7 @@ test("one persisted Rendition exposes every exact delivery outcome across daily 
       if (index === deliveryStages.length - 1) {
         await expectNoSeriousAccessibilityViolations(page);
       }
-      await page.goto(`/activity?workspace=${workspace.id}`);
+      await page.goto(`/publications?workspace=${workspace.id}`);
       const activityTab =
         stage.publicationStatus === "published"
           ? "Published"
@@ -259,7 +259,6 @@ async function connectMastodon(page: Page, workspaceID: string) {
       credentials: "same-origin",
     });
     if (!response.ok) throw new Error(await response.text());
-    localStorage.setItem("oauth_account_management_mode", "settings");
     localStorage.setItem("oauth_workspace_id", id);
     localStorage.setItem("oauth_mastodon_server", "OpenPost Daily E2E");
     localStorage.removeItem("oauth_mastodon_instance_url");

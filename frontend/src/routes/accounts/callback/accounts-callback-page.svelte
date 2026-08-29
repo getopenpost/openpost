@@ -199,7 +199,7 @@
 	}
 
 	function returnToAccounts(workspaceID: string) {
-		void navigate(resolveAppPath(accountManagementReturnHref(undefined, 'failed', workspaceID)));
+		void navigate(resolveAppPath(accountManagementReturnHref('failed', workspaceID)));
 		clearAccountManagementContinuation();
 	}
 

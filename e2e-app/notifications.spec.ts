@@ -90,7 +90,7 @@ test("notification bulk actions stay in the selected workspace and preserve stat
       type: "post_published",
       title: "Editorial publication finished",
       body: "The editorial post is live.",
-      href: "/activity",
+      href: "/publications",
       payload_json: "{}",
       read_at: "",
       created_at: "2026-08-09T12:00:00Z",
@@ -102,7 +102,7 @@ test("notification bulk actions stay in the selected workspace and preserve stat
       type: "publish_failed",
       title: "Campaign publication failed",
       body: "The campaign post needs attention.",
-      href: "/activity",
+      href: "/publications",
       payload_json: "{}",
       read_at: "",
       created_at: "2026-08-09T11:00:00Z",
@@ -187,7 +187,7 @@ test("notification bulk actions stay in the selected workspace and preserve stat
     await route.fulfill({ status: 204 });
   });
 
-  await page.goto("/notifications");
+  await page.goto("/inbox/notifications");
   const inbox = page.locator("#main-content");
   await expect(
     page.getByText(`Updates for ${first.name}, including account-wide notices.`),
@@ -325,7 +325,7 @@ test("temporary Mutes remain exact and operable on the Notifications route at su
 
   for (const width of [1280, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/notifications");
+    await page.goto("/inbox/notifications");
     const activeMutes = page.getByRole("list", { name: "Active mutes" });
     await expect(activeMutes.getByText("All workspaces", { exact: true })).toBeVisible();
     await expect(activeMutes.getByText(`${workspace.name} only`, { exact: true })).toBeVisible();
@@ -418,7 +418,7 @@ test("notification feed shares live state, retries failed cursors, and exposes a
     type: index % 2 === 0 ? "post_published" : "publish_failed",
     title: `Notification ${index.toString().padStart(3, "0")}`,
     body: `Complete notification body ${index}`,
-    href: index === 0 ? "/activity" : "/notifications",
+    href: index === 0 ? "/publications" : "/inbox/notifications",
     payload_json: "{}",
     read_at: "",
     created_at: localMidday(index === 0 ? 0 : index === 1 ? 1 : index + 2),
@@ -498,7 +498,7 @@ test("notification feed shares live state, retries failed cursors, and exposes a
     await route.fallback();
   });
 
-  await page.goto("/notifications");
+  await page.goto("/inbox/notifications");
   const inbox = page.locator("#main-content");
   await expect(page.getByText("Forced initial notification failure")).toBeVisible();
   await expect(page.getByText("You're all caught up")).toHaveCount(0);
@@ -518,7 +518,7 @@ test("notification feed shares live state, retries failed cursors, and exposes a
   await expect(firstArticle.getByRole("button", { name: "Open notification" })).toBeVisible();
 
   await firstArticle.getByRole("button", { name: "Open notification" }).click();
-  await expect(page).toHaveURL(/\/activity$/);
+  await expect(page).toHaveURL(/\/publications$/);
   await expect(page.getByRole("link", { name: "Notifications, 125 unread" })).toBeVisible();
   await page.getByRole("link", { name: "Notifications, 125 unread" }).click();
   await expect(firstArticle).toHaveAttribute("data-unread", "true");
@@ -526,7 +526,7 @@ test("notification feed shares live state, retries failed cursors, and exposes a
   await expect(page.getByRole("link", { name: "Notifications, 125 unread" })).toBeVisible();
 
   await firstArticle.getByRole("button", { name: "Open notification" }).click();
-  await expect(page).toHaveURL(/\/activity$/);
+  await expect(page).toHaveURL(/\/publications$/);
   await expect(page.getByRole("link", { name: "Notifications, 124 unread" })).toBeVisible();
   await page.getByRole("link", { name: "Notifications, 124 unread" }).click();
   await expect(inbox.getByText("124 unread notifications")).toBeVisible();
@@ -536,7 +536,7 @@ test("notification feed shares live state, retries failed cursors, and exposes a
     { workspace_id: workspace.id, ids: ["notification-000"] },
   ]);
   await firstArticle.getByRole("button", { name: "Open notification" }).click();
-  await expect(page).toHaveURL(/\/activity$/);
+  await expect(page).toHaveURL(/\/publications$/);
   await page.getByRole("link", { name: "Notifications, 124 unread" }).click();
   expect(readRequests).toHaveLength(2);
   await expect(inbox.getByText("124 unread notifications")).toBeVisible();
@@ -584,7 +584,7 @@ test("notification feed shares live state, retries failed cursors, and exposes a
       type: "new_message",
       title: "A new message arrived",
       body: "This notification arrived after the page was mounted.",
-      href: "/notifications",
+      href: "/inbox/notifications",
       payload_json: "{}",
       read_at: "",
       created_at: localMidday(0),

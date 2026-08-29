@@ -3,7 +3,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
-	import { isNavigationItemActive, mobileNavigation } from '$lib/app-navigation';
+	import {
+		isMoreNavigationRoute,
+		isNavigationItemActive,
+		mobileNavigation
+	} from '$lib/app-navigation';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
@@ -22,7 +26,7 @@
 		switch (id) {
 			case 'calendar':
 				return CalendarIcon;
-			case 'posts':
+			case 'publications':
 				return PostsIcon;
 			case 'media':
 				return MediaIcon;
@@ -37,7 +41,7 @@
 				return m.sidebar_new();
 			case 'calendar':
 				return m.sidebar_calendar();
-			case 'posts':
+			case 'publications':
 				return m.sidebar_activity();
 			case 'media':
 				return m.sidebar_media();
@@ -46,31 +50,7 @@
 		}
 	}
 
-	const moreActive = $derived(
-		pathname === '/grow' ||
-			pathname.startsWith('/grow/') ||
-			pathname === '/analytics' ||
-			pathname.startsWith('/analytics/') ||
-			pathname === '/engagement' ||
-			pathname.startsWith('/engagement/') ||
-			pathname === '/messages' ||
-			pathname.startsWith('/messages/') ||
-			pathname === '/notifications' ||
-			pathname.startsWith('/notifications/') ||
-			pathname === '/editors' ||
-			pathname.startsWith('/editors/') ||
-			pathname.startsWith('/image-editor/') ||
-			pathname === '/video-editor' ||
-			pathname.startsWith('/video-editor/') ||
-			pathname === '/quick-cut' ||
-			pathname.startsWith('/quick-cut/') ||
-			pathname === '/record' ||
-			pathname.startsWith('/record/') ||
-			pathname === '/accounts' ||
-			pathname.startsWith('/accounts/') ||
-			pathname === '/settings' ||
-			pathname.startsWith('/settings/')
-	);
+	const moreActive = $derived(isMoreNavigationRoute(pathname));
 
 	function navigate(item: (typeof items)[number]) {
 		if (item.id === 'new') {

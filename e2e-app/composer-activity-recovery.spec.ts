@@ -252,7 +252,7 @@ test("activity clears cross-workspace data and preserves a valid view on refresh
     await route.fulfill({ contentType: "application/json", json: [] });
   });
 
-  await page.goto("/activity?tab=drafts");
+  await page.goto("/publications?tab=drafts");
   await expect(page.locator("main").getByText("Previous workspace post")).toBeVisible();
   gateNextFirstRefresh = true;
   await page.getByRole("button", { name: "Refresh" }).click();

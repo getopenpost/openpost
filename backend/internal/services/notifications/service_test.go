@@ -1006,7 +1006,7 @@ func TestNotificationEmailDeliveryIsDurableDeduplicatedAndPreferenceAware(t *tes
 	require.Equal(t, EmailFrequencyOff, DefaultPreferences()[TypePostPublished].EmailFrequency)
 	input := createInput{
 		UserID: "user-1", Type: TypePublishFailed, Title: "Publication failed",
-		Body: "OpenPost could not publish to Mastodon.", Href: "/activity?publication=publication-1",
+		Body: "OpenPost could not publish to Mastodon.", Href: "/publications?publication=publication-1",
 		DedupKey: "publication:publication-1:failed",
 	}
 	require.NoError(t, service.create(ctx, input))
@@ -1021,7 +1021,7 @@ func TestNotificationEmailDeliveryIsDurableDeduplicatedAndPreferenceAware(t *tes
 		Recipient:      "one@example.com",
 		Title:          "Publication failed",
 		Body:           "OpenPost could not publish to Mastodon.",
-		ActionURL:      "https://app.openpost.test/activity?publication=publication-1",
+		ActionURL:      "https://app.openpost.test/publications?publication=publication-1",
 		PreferencesURL: "https://app.openpost.test/settings?tab=notifications",
 		IdempotencyKey: "notification-" + jobs[0].ID,
 	}}, sender.messages)
@@ -1172,7 +1172,7 @@ func TestNotificationActionsKeepOnlySafeLocalOperations(t *testing.T) {
 		UserID: "user-1", Type: TypePublishFailed, Title: "Partial failure",
 		Actions: []models.NotificationAction{
 			{Label: "Retry failed", Operation: "retry_failed_publication", TargetID: "publication-1", Kind: "primary"},
-			{Label: "View results", Href: "/activity?tab=failed"},
+			{Label: "View results", Href: "/publications?tab=failed"},
 			{Label: "Mixed", Href: "https://provider.example/private", Operation: "retry_failed_publication", TargetID: "publication-2"},
 			{Label: "Unsafe", Href: "https://provider.example/private"},
 			{Label: "Backslash", Href: `/\provider.example/private`},
@@ -1185,7 +1185,7 @@ func TestNotificationActionsKeepOnlySafeLocalOperations(t *testing.T) {
 	require.Len(t, page.Items, 1)
 	require.Equal(t, []models.NotificationAction{
 		{Label: "Retry failed", Kind: "primary", Operation: "retry_failed_publication", TargetID: "publication-1"},
-		{Label: "View results", Href: "/activity?tab=failed", Kind: "secondary"},
+		{Label: "View results", Href: "/publications?tab=failed", Kind: "secondary"},
 		{Label: "Mixed", Kind: "secondary", Operation: "retry_failed_publication", TargetID: "publication-2"},
 	}, page.Items[0].Actions)
 }

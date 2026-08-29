@@ -29,7 +29,6 @@
 	import GrowthIcon from '@lucide/svelte/icons/user-round-plus';
 	import MediaIcon from '@lucide/svelte/icons/images';
 	import EditorsIcon from '@lucide/svelte/icons/clapperboard';
-	import AccountsIcon from '@lucide/svelte/icons/users';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -62,12 +61,12 @@
 	);
 	const sidebarNavigationItems = $derived(
 		navigationItems.filter((item) =>
-			['calendar', 'posts', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
+			['calendar', 'publications', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
 		)
 	);
 	const workspaceNavigationItems = $derived([
 		...navigationItems.filter((item) =>
-			['calendar', 'posts', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
+			['calendar', 'publications', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
 		)
 	]);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
@@ -83,7 +82,7 @@
 				return ComposeIcon;
 			case 'calendar':
 				return CalendarIcon;
-			case 'posts':
+			case 'publications':
 				return PostsIcon;
 			case 'analytics':
 				return AnalyticsIcon;
@@ -95,8 +94,6 @@
 				return MediaIcon;
 			case 'editors':
 				return EditorsIcon;
-			case 'accounts':
-				return AccountsIcon;
 			default:
 				return SettingsIcon;
 		}
@@ -108,7 +105,7 @@
 				return m.sidebar_new_post();
 			case 'calendar':
 				return m.sidebar_calendar();
-			case 'posts':
+			case 'publications':
 				return m.sidebar_activity();
 			case 'analytics':
 				return m.sidebar_analytics();
@@ -120,8 +117,6 @@
 				return m.sidebar_media();
 			case 'editors':
 				return m.editors_title();
-			case 'accounts':
-				return m.sidebar_accounts();
 			case 'settings':
 				return m.sidebar_settings();
 		}
@@ -163,10 +158,6 @@
 	}
 
 	function isSidebarNavigationItemActive(item: PrimaryNavigationItem) {
-		const settingsTab = page.url.searchParams.get('tab');
-		if (item.id === 'accounts')
-			return currentPath.startsWith('/settings') && settingsTab === 'accounts';
-		if (item.id === 'settings' && settingsTab === 'accounts') return false;
 		return isNavigationItemActive(item, currentPath);
 	}
 </script>

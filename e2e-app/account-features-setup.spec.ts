@@ -407,7 +407,7 @@ test.describe("account setup", () => {
     const auth = await registerUser(request, `setup-direct-${unique}@example.com`);
     const ws = await createWorkspace(request, auth.token, "Direct");
     await authenticatePage(page, auth.token);
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     await page.evaluate(() => localStorage.setItem("oauth_account_management_mode", "direct"));
     const accountId = "acc-direct";
     setupMocks(page, {
@@ -493,7 +493,7 @@ test.describe("account setup", () => {
     page.route("**/api/v1/accounts/providers*", async (route) => {
       await route.fulfill({ contentType: "application/json", json: [] });
     });
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     await expect(page.getByTestId("account-setup-reminder")).toHaveCount(0);
   });
 
@@ -549,7 +549,7 @@ test.describe("account setup", () => {
     page.route("**/api/v1/accounts/providers*", async (route) => {
       await route.fulfill({ contentType: "application/json", json: [] });
     });
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     await expect(page.getByTestId("account-setup-reminder")).toBeVisible();
     await expect(page.getByText("Finish account setup")).toBeVisible();
     const link = page.getByRole("link", { name: "Finish setup" });
@@ -773,7 +773,7 @@ test.describe("account setup", () => {
     page.route("**/api/v1/accounts/providers*", async (route) => {
       await route.fulfill({ contentType: "application/json", json: [] });
     });
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     const openDetails = async () => {
       await page
         .getByTestId(`account-card-${accountId}`)

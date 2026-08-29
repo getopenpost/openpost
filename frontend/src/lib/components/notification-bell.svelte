@@ -21,7 +21,7 @@
 
 {#if compact}
 	<a
-		href={resolve('/notifications' as '/')}
+			href={resolve('/inbox/notifications' as '/')}
 		class="relative inline-flex size-8 items-center justify-center rounded-md text-sidebar-foreground/62 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 		aria-label={m.notifications_bell_label({ count: unreadCount })}
 		title={m.notifications_heading()}
@@ -46,7 +46,7 @@
 			{#snippet child({ props })}
 				<a
 					{...props}
-					href={resolve('/notifications' as '/')}
+					href={resolve('/inbox/notifications' as '/')}
 					aria-label={m.notifications_bell_label({ count: unreadCount })}
 				>
 					<BellIcon class="size-4" />

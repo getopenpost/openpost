@@ -246,7 +246,7 @@ export default function CalendarScreen() {
                 accessibilityRole="button"
                 onPress={() =>
                   router.push({
-                    pathname: "/post/[id]",
+                    pathname: "/publications/[id]",
                     params: { id: item.id },
                   })
                 }

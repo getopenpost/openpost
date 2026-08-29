@@ -99,7 +99,7 @@
 			await goto(resolveAppPath(`/?${query.toString()}`));
 			clearAccountManagementContinuation();
 		} catch (e) {
-			await goto(resolveAppPath(accountManagementReturnHref(undefined, 'failed', workspaceId)));
+			await goto(resolveAppPath(accountManagementReturnHref('failed', workspaceId)));
 			clearAccountManagementContinuation();
 		} finally {
 			loading = false;

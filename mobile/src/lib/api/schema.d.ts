@@ -5010,7 +5010,6 @@ export interface components {
        * @description Where the user started the connection flow
        * @enum {string}
        */
-      account_management_mode?: "direct" | "settings";
       /** @description Bluesky app password (Settings > App Passwords) */
       app_password: string;
       /** @description Bluesky handle (e.g. user.bsky.social) */
@@ -6205,7 +6204,6 @@ export interface components {
        * @description Where the user started the connection flow
        * @enum {string}
        */
-      account_management_mode?: "direct" | "settings";
       /**
        * @description Typed execution intent; certification_test requires an unscoped instance administrator
        * @enum {string}
@@ -12328,7 +12326,6 @@ export interface operations {
         /** @description Typed execution intent; certification_test requires an unscoped instance administrator */
         intent?: "production" | "certification_test";
         /** @description Where the user started the connection flow */
-        account_management_mode?: "direct" | "settings";
       };
       header?: never;
       path: {

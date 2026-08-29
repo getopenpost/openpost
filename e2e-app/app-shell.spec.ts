@@ -43,7 +43,7 @@ test("authenticated navigation keeps the app shell mounted", async ({ page, requ
 
   const activityRequestStart = shellApiRequests.length;
   await page.getByRole("button", { name: "Posts", exact: true }).click();
-  await expect(page).toHaveURL(/\/activity$/);
+  await expect(page).toHaveURL(/\/publications$/);
   await expect(page.getByTestId("app-sidebar")).toBeVisible();
   await expect(page.getByTestId("desktop-sidebar-planner")).toBeVisible();
   await expect(page.getByTestId("sidebar-new-post")).toBeVisible();

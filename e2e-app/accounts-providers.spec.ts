@@ -125,7 +125,7 @@ test("accounts page keeps healthy providers quiet and explains blocked providers
       ],
     });
   });
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
 
   await expect(page.getByRole("heading", { name: "Add a channel" })).toBeVisible();
   await expect(page.getByTestId("provider-card-bluesky")).toContainText("Post to Bluesky");
@@ -219,7 +219,7 @@ test("accounts page starts custom Mastodon instance connection", async ({ page, 
     });
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const card = page.getByTestId("provider-card-mastodon");
   await expect(card).toContainText("Connect any public Mastodon instance");
   await card.getByRole("button", { name: "Connect" }).click();
@@ -310,7 +310,7 @@ test("accounts page connects an operator-installed custom connector", async ({ p
     });
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const provider = page.getByTestId("provider-card-directus-main");
   await expect(provider).toContainText("Custom connector");
   await expect(provider).toContainText("Create items in a configured Directus collection.");
@@ -371,7 +371,7 @@ test("accounts page fails closed and retries an unavailable readiness lookup", a
     });
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const card = page.getByTestId("provider-card-bluesky");
   await expect(page.getByTestId("provider-readiness-bluesky")).toContainText("could not verify");
   const retry = card.getByRole("button", { name: "Retry check" });
@@ -449,7 +449,7 @@ for (const viewport of [
         "page",
       );
     }
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     const connectBluesky = page
       .getByTestId("provider-card-bluesky")
       .getByRole("button", { name: "Connect" });

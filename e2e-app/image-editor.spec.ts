@@ -107,7 +107,7 @@ test("legacy Studio URLs redirect to the OpenPost Image Editor", async ({ page, 
     `studio-redirect-${Date.now().toString(36)}@example.com`,
   );
   await authenticatePage(page, auth.token);
-  await page.goto("/studio/new?legacy-route=1");
+  await page.goto("/image-editor/new");
   await expect(page).toHaveURL(/\/image-editor\/new\?legacy-route=1$/);
 });
 

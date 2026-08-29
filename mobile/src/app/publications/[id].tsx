@@ -214,7 +214,7 @@ export default function PostScreen() {
               <Button
                 title="Edit"
                 variant="filled"
-                onPress={() => router.push({ pathname: "/compose/[id]", params: { id } })}
+                onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id } })}
               />
               {pub.scheduled_at ? (
                 <Button

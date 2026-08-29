@@ -43,7 +43,6 @@
 
 	type ProviderEntry = ProviderInfo;
 	let {
-		mode,
 		workspace,
 		workspaces,
 		links,
@@ -68,7 +67,7 @@
 		return provider.auth_mode === 'preconfigured' && Boolean(provider.installation_id);
 	}
 
-	let embedded = $derived(mode === 'settings');
+	let embedded = true;
 	let selectedWorkspaceId = $derived(workspace?.id ?? '');
 	let canEditWorkspace = $derived(workspace?.can_edit ?? false);
 	let error = $state('');
@@ -568,7 +567,6 @@
 					path: { platform: 'x' },
 					query: {
 						workspace_id: selectedWorkspaceId,
-						account_management_mode: mode
 					}
 				}
 			});
@@ -607,7 +605,6 @@
 					workspace_id: selectedWorkspaceId,
 					server_name: options.serverName,
 					instance_url: options.instanceURL,
-					account_management_mode: mode
 				}
 			}
 		});
@@ -665,7 +662,6 @@
 					workspace_id: selectedWorkspaceId,
 					handle: blueskyHandle.trim(),
 					app_password: blueskyAppPassword.trim(),
-					account_management_mode: mode
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_login_failed());
@@ -673,7 +669,6 @@
 			if (data?.feature_setup_required && data.new_account_ids?.length) {
 				if (browser) {
 					try {
-						localStorage.setItem('oauth_account_management_mode', mode);
 					} catch {
 						// Storage may be unavailable in hardened browser contexts; navigation still succeeds.
 					}
@@ -726,7 +721,6 @@
 				body: {
 					workspace_id: selectedWorkspaceId,
 					webhook_url: discordWebhookUrl.trim(),
-					account_management_mode: mode
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
@@ -734,7 +728,6 @@
 			if (data?.feature_setup_required && data.new_account_ids?.length) {
 				if (browser) {
 					try {
-						localStorage.setItem('oauth_account_management_mode', mode);
 					} catch {
 						// Storage may be unavailable in hardened browser contexts; navigation still succeeds.
 					}
@@ -776,7 +769,6 @@
 					path: { platform },
 					query: {
 						workspace_id: selectedWorkspaceId,
-						account_management_mode: mode
 					}
 				}
 			});
@@ -1037,7 +1029,6 @@
 			workspace_id: selectedWorkspaceId,
 			server_name: options.serverName,
 			instance_url: options.instanceURL,
-			account_management_mode: mode
 		};
 
 		try {

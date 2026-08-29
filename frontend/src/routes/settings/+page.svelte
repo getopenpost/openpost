@@ -99,7 +99,7 @@
 	}
 
 	function continueAccountConnection(continuation: AccountManagementContinuation) {
-		rememberAccountManagementContinuation(continuation, 'settings');
+		rememberAccountManagementContinuation(continuation);
 		if (continuation.kind === 'external-oauth') {
 			window.location.assign(continuation.url);
 			return;
@@ -169,7 +169,6 @@
 					<BrandSettingsTab workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} active />
 				{:else if activeSettingsTab === 'accounts'}
 					<AccountManagement
-						mode="settings"
 						workspace={workspaceCtx.currentWorkspace}
 						workspaces={workspaceCtx.workspaces}
 						links={accountLinks}

@@ -66,19 +66,13 @@ func newNormServer(t *testing.T, providers map[string]platform.Adapter) (*echo.E
 	return e, handler
 }
 
-func doNormCallback(t *testing.T, e *echo.Echo, mode string) *http.Response {
+func doNormCallback(t *testing.T, e *echo.Echo) *http.Response {
 	t.Helper()
 	const provider = "threads"
-	const workspaceID = "ws-1"
-	q := "/api/v1/accounts/" + provider + "/auth-url?workspace_id=" + url.QueryEscape(workspaceID)
-	if mode != "" {
-		q += "&account_management_mode=" + url.QueryEscape(mode)
-	}
+	q := "/api/v1/accounts/" + provider + "/auth-url?workspace_id=ws-1"
 	authResp := oauthSelectionRequest(t, e, http.MethodGet, q, nil, true)
 	require.Equal(t, http.StatusOK, authResp.Code, authResp.Body.String())
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body struct { URL string `json:"url"` }
 	require.NoError(t, json.Unmarshal(authResp.Body.Bytes(), &body))
 	u, _ := url.Parse(body.URL)
 	state := u.Query().Get("state")
@@ -132,7 +126,7 @@ func TestNormSetupRedirectForNewAccountWithSupportedFeatures(t *testing.T) {
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
 	}
 	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e, "direct")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	loc := resp.Header.Get("Location")
@@ -151,14 +145,14 @@ func TestNormBypassesSetupWhenNoSupportedFeatures(t *testing.T) {
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: false}},
 	}
 	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e, "settings")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	loc := resp.Header.Get("Location")
 	require.NotContains(t, loc, "/accounts/setup")
 }
 
-func TestNormPreservesFirstDestinationAndMode(t *testing.T) {
+func TestNormPreservesFirstDestination(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: false}},
@@ -199,7 +193,7 @@ func TestNormReactivatedDoesNotTriggerSetup(t *testing.T) {
 	_, err = h.db.NewInsert().Model(&models.WorkspaceFirstConnection{WorkspaceID: "ws-1", AccountID: "existing-id"}).Exec(ctx)
 	require.NoError(t, err)
 
-	resp := doNormCallback(t, e, "settings")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	require.NotContains(t, resp.Header.Get("Location"), "/accounts/setup")
 	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", resp.Header.Get("Location"))
@@ -211,7 +205,7 @@ func TestNormContinuationDataInSetupRedirect(t *testing.T) {
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
 	}
 	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e, "direct")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	loc := resp.Header.Get("Location")
 	require.Contains(t, loc, "/accounts/setup")

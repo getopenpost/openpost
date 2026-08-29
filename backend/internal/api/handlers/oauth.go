@@ -204,7 +204,6 @@ type GetAuthURLInput struct {
 	ServerName            string `query:"server_name" doc:"Mastodon server name from config (required for mastodon)"`
 	InstanceURL           string `query:"instance_url" doc:"Mastodon instance URL to dynamically register"`
 	Intent                string `query:"intent" enum:"production,certification_test" default:"production" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
-	AccountManagementMode string `query:"account_management_mode" enum:"direct,settings" required:"false" doc:"Where the user started the connection flow"`
 }
 
 type GetAuthURLOutput struct {
@@ -831,14 +830,6 @@ func (h *OAuthHandler) authURLProvider(
 	return adapter, "", nil
 }
 
-func normalizeAccountManagementMode(raw string) string {
-	m := strings.TrimSpace(strings.ToLower(raw))
-	if m == "direct" {
-		return "direct"
-	}
-	return "settings"
-}
-
 func (h *OAuthHandler) generateProviderAuthURL(
 	ctx context.Context,
 	input *GetAuthURLInput,
@@ -850,11 +841,9 @@ func (h *OAuthHandler) generateProviderAuthURL(
 	if input.Platform == "x" {
 		return generateXAuthURL(input, userID, adapter, intent)
 	}
-	mode := normalizeAccountManagementMode(input.AccountManagementMode)
 	state, err := h.oauthStates.Create(ctx, oauthstate.Payload{
 		UserID: userID, WorkspaceID: input.WorkspaceID, Platform: input.Platform,
 		ServerName: firstNonEmpty(serverNameForState, input.ServerName), ExecutionIntent: string(intent),
-		AccountManagementMode: mode,
 	})
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to create oauth state")
@@ -922,7 +911,6 @@ func (h *OAuthHandler) Callback(api huma.API) {
 		userID := ""
 		executionIntent := ""
 		instanceRef := ""
-		accountManagementMode := "settings"
 		var adapter platform.Adapter
 
 		extra := make(map[string]string)
@@ -959,7 +947,6 @@ func (h *OAuthHandler) Callback(api huma.API) {
 			userID = statePayload.UserID
 			workspaceID = statePayload.WorkspaceID
 			executionIntent = statePayload.ExecutionIntent
-			accountManagementMode = normalizeAccountManagementMode(statePayload.AccountManagementMode)
 			if input.Platform == mastodonProvider {
 				input.ServerName = statePayload.ServerName
 				instanceRef = statePayload.ServerName
@@ -1033,7 +1020,6 @@ func (h *OAuthHandler) Callback(api huma.API) {
 		return h.saveAccountAndRedirect(
 			ctx, userID, input.Platform, workspaceID, profile.ID, profile.Username,
 			instanceRef, executionIntent, profile.CapabilityState, tokenResp, adapter,
-			accountManagementMode,
 		)
 	})
 }
@@ -1209,7 +1195,6 @@ func (h *OAuthHandler) saveAccountAndRedirect(
 	capabilityState map[string]string,
 	tokenResp *platform.TokenResult,
 	adapter platform.Adapter,
-	accountManagementMode string,
 ) (*huma.StreamResponse, error) {
 	// For Threads, the account ID comes from the token response extra
 	if tokenResp.Extra != nil {
@@ -1255,7 +1240,7 @@ func (h *OAuthHandler) saveAccountAndRedirect(
 	if firstConnection {
 		return redirectResponse(h.composerConnectionURL(workspaceID, []string{account.ID})), nil
 	}
-	return redirectResponse(h.accountManagementRedirectURL(accountManagementMode)), nil
+	return redirectResponse(h.accountManagementRedirectURL()), nil
 }
 
 func redirectResponse(location string) *huma.StreamResponse {
@@ -1289,10 +1274,7 @@ func (h *OAuthHandler) setupConnectionURL(workspaceID string, accountIDs, newAcc
 	return h.frontendURL + "/accounts/setup?" + query.Encode()
 }
 
-func (h *OAuthHandler) accountManagementRedirectURL(mode string) string {
-	if normalizeAccountManagementMode(mode) == "direct" {
-		return h.frontendURL + "/accounts"
-	}
+func (h *OAuthHandler) accountManagementRedirectURL() string {
 	return h.frontendURL + "/settings?tab=accounts"
 }
 
@@ -1437,7 +1419,6 @@ type BlueskyLoginInput struct {
 		Handle                string `json:"handle" doc:"Bluesky handle (e.g. user.bsky.social)"`
 		AppPassword           string `json:"app_password" doc:"Bluesky app password (Settings > App Passwords)"`
 		Intent                string `json:"intent,omitempty" enum:"production,certification_test" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
-		AccountManagementMode string `json:"account_management_mode,omitempty" enum:"direct,settings" doc:"Where the user started the connection flow"`
 	}
 }
 
@@ -1521,7 +1502,6 @@ type DiscordWebhookLoginInput struct {
 		WorkspaceID           string `json:"workspace_id" doc:"Workspace ID"`
 		WebhookURL            string `json:"webhook_url" doc:"Discord incoming webhook URL"`
 		Intent                string `json:"intent,omitempty" enum:"production,certification_test" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
-		AccountManagementMode string `json:"account_management_mode,omitempty" enum:"direct,settings" doc:"Where the user started the connection flow"`
 	}
 }
 

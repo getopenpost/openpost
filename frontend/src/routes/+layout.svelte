@@ -65,14 +65,11 @@
 		'/forgot-password',
 		'/reset-password',
 		'/account-deleted',
-		'/demo',
-		'/demo/paraglide',
 		'/preview',
 		'/invite',
 		'/impersonate',
 		'/cli/authorize',
 		'/oauth/authorize',
-		'/studio',
 		'/accounts/mastodon/callback',
 		'/accounts/callback'
 	];
@@ -89,26 +86,20 @@
 		'/impersonate',
 		'/cli/authorize',
 		'/oauth/authorize',
-		'/studio',
 		'/accounts/mastodon/callback',
 		'/accounts/callback'
-	];
-	const localEditorRoutes = ['/video-editor', '/quick-cut', '/record'];
-	function matchesLocalEditorRoute(path: string): boolean {
-		return localEditorRoutes.some((route) => path === route || path.startsWith(`${route}/`));
-	}
-	let isStandaloneRoute = $derived(
+	];	let isStandaloneRoute = $derived(
 		standaloneRoutes.includes(currentPath) ||
 			isErrorRoute ||
 			isPublicProfileRoute ||
 			currentPath === '/image-editor' ||
 			currentPath.startsWith('/image-editor/') ||
-			matchesLocalEditorRoute(currentPath)
+			['/video-editor', '/quick-cut', '/record'].some((route) => currentPath === route || currentPath.startsWith(`${route}/`))
 	);
 	let isPublicImageEditorRoute = $derived(
 		currentPath === '/image-editor' || currentPath.startsWith('/image-editor/local_design_')
 	);
-	let isPublicLocalEditorRoute = $derived(matchesLocalEditorRoute(currentPath));
+	let isPublicLocalEditorRoute = $derived(['/video-editor', '/quick-cut', '/record'].some((route) => currentPath === route || currentPath.startsWith(`${route}/`)));
 	let isPublicRoute = $derived(
 		currentPath === '/' ||
 			isErrorRoute ||

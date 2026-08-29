@@ -61,7 +61,7 @@ test("failed-payment recovery stays account-wide, permission-aware, and clears f
 
   await authenticatePage(page, auth.token);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/activity");
+  await page.goto("/publications");
 
   const notice = page.getByTestId("billing-recovery-notice");
   await expect(notice).toBeVisible();
@@ -106,7 +106,7 @@ test("failed-payment recovery stays account-wide, permission-aware, and clears f
     access_restricted: true,
     past_due_since: "2026-08-09T12:00:00Z",
   };
-  await page.goto("/activity");
+  await page.goto("/publications");
   const memberNotice = page.getByTestId("billing-recovery-notice");
   await expect(memberNotice).toBeVisible();
   await expect(memberNotice).toContainText(

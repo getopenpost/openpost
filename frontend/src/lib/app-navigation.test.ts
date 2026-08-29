@@ -6,13 +6,21 @@ import {
 } from './app-navigation';
 
 describe('primary application navigation', () => {
-	it('treats post details as part of Posts without claiming the composer root', () => {
-		const posts = primaryNavigation.find((item) => item.id === 'posts');
+	it('treats publication details as part of Posts without claiming the composer root', () => {
+		const publications = primaryNavigation.find((item) => item.id === 'publications');
 		const composer = primaryNavigation.find((item) => item.id === 'new');
 
-		expect(posts && isNavigationItemActive(posts, '/posts/post-123')).toBe(true);
-		expect(composer && isNavigationItemActive(composer, '/posts/post-123')).toBe(false);
+		expect(publications && isNavigationItemActive(publications, '/publications/pub-123')).toBe(true);
+		expect(composer && isNavigationItemActive(composer, '/publications/pub-123')).toBe(false);
 		expect(composer && isNavigationItemActive(composer, '/')).toBe(true);
+	});
+
+	it('shares the communications route family across every Inbox destination', () => {
+		const inbox = primaryNavigation.find((item) => item.id === 'communications');
+
+		expect(inbox && isNavigationItemActive(inbox, '/inbox/engagement')).toBe(true);
+		expect(inbox && isNavigationItemActive(inbox, '/inbox/messages')).toBe(true);
+		expect(inbox && isNavigationItemActive(inbox, '/inbox/notifications')).toBe(true);
 	});
 
 	it('recognizes both supported ownership Settings URLs without a Workspace', () => {

@@ -12,6 +12,7 @@
 	import { notificationTopicIcon, notificationTopicLabel } from '$lib/notification-topics';
 	import { presentNotification } from '$lib/notification-presentation';
 	import PageContainer from '$lib/components/page-container.svelte';
+	import CommunicationsNavigation from '$lib/components/communications-navigation.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import NotificationMutes from '$lib/components/notification-mutes.svelte';
@@ -239,6 +240,8 @@
 {/if}
 
 <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{statusMessage}</p>
+
+<CommunicationsNavigation active="notifications" />
 
 <PageContainer
 	title={m.notifications_heading()}

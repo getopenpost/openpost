@@ -75,7 +75,7 @@ export default function DraftsScreen() {
       setImage(null);
       void successHaptic();
       router.push({
-        pathname: "/compose/[id]",
+        pathname: "/publications/[id]/edit",
         params: {
           id: draft.id,
           celebrate: "1",
@@ -129,7 +129,7 @@ export default function DraftsScreen() {
         const draft = await createDraft.mutateAsync(sharedText);
         void successHaptic();
         router.push({
-          pathname: "/compose/[id]",
+          pathname: "/publications/[id]/edit",
           params: { id: draft.id, celebrate: "1" },
         });
       } catch {
@@ -295,7 +295,7 @@ function DraftRow({ draft }: { draft: PublicationListItem }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${excerpt}. Edited ${relativeTime(draft.updated_at)}`}
-      onPress={() => router.push({ pathname: "/compose/[id]", params: { id: draft.id } })}
+      onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } })}
     >
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>

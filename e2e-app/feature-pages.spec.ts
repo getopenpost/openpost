@@ -489,7 +489,7 @@ test.describe("Messages feature-aware", () => {
     });
     page.route("**/api/v1/messages/**", async (route) => await route.continue());
 
-    await page.goto(`/messages?workspace=${ws.id}`);
+    await page.goto(`/inbox/messages?workspace=${ws.id}`);
     await expect(page.getByText("Direct messages are off")).toBeVisible();
     await expect(page.getByText("Enable direct messages for at least one account")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open account details" })).toHaveAttribute(
@@ -566,7 +566,7 @@ test.describe("Messages feature-aware", () => {
       }
       await route.continue();
     });
-    await page.goto(`/messages?workspace=${ws.id}`);
+    await page.goto(`/inbox/messages?workspace=${ws.id}`);
     await expect(page.getByTestId("messages-disabled-notice")).toBeVisible();
     await expect(page.getByText("New message collection and sending are paused")).toBeVisible();
     await expect(page.getByRole("button", { name: /Ada/ })).toBeVisible();
@@ -654,7 +654,7 @@ test.describe("Messages feature-aware", () => {
       }
       await route.continue();
     });
-    await page.goto(`/messages?workspace=${ws.id}`);
+    await page.goto(`/inbox/messages?workspace=${ws.id}`);
     await expect(page.getByTestId("messages-disabled-notice")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /Ada/ })).toBeVisible();
     await expect(page.getByTestId("messages-refresh")).toBeEnabled();
@@ -708,7 +708,7 @@ test.describe("Engagement and Analytics feature-aware", () => {
         headers: { "X-Next-Cursor": "" },
       });
     });
-    await page.goto(`/engagement?workspace=${ws.id}`);
+    await page.goto(`/inbox/engagement?workspace=${ws.id}`);
     await expect(page.getByText("Comments and replies are off")).toBeVisible();
     await expect(page.getByRole("link", { name: "Open account details" })).toBeVisible();
   });
@@ -786,7 +786,7 @@ test.describe("Engagement and Analytics feature-aware", () => {
         headers: { "X-Next-Cursor": "" },
       });
     });
-    await page.goto(`/engagement?workspace=${ws.id}`);
+    await page.goto(`/inbox/engagement?workspace=${ws.id}`);
     await expect(page.getByTestId("engagement-disabled-notice")).toBeVisible();
     await expect(page.getByText("Nice post")).toBeVisible();
     await expect(page.getByTestId("engagement-refresh")).toBeDisabled();
@@ -1157,7 +1157,7 @@ test.describe("responsive light dark keyboard", () => {
       }
       await route.continue();
     });
-    await page.goto(`/messages?workspace=${ws.id}`);
+    await page.goto(`/inbox/messages?workspace=${ws.id}`);
     await page.keyboard.press("Tab");
     // Should focus refresh or selector
     await expect

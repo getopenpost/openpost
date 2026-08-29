@@ -2,6 +2,7 @@
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import { Button } from '$lib/components/ui/button';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { isAnimatedImageMedia } from '$lib/video-editor/media/animated-image-plan';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -107,23 +108,19 @@
 		</h3>
 		<div class="divide-y divide-white/6">
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<label for={`animated-image-${itemId}-speed`} class="text-xs font-medium text-white/48"
-					>{m.video_editor_clip_speed()}</label
-				>
+				<span class="text-xs font-medium text-white/48">{m.video_editor_clip_speed()}</span>
 				<div class="flex min-w-0 items-center gap-1">
-					<input
-						id={`animated-image-${itemId}-speed`}
-						type="range"
-						class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
-						min="0.1"
-						max="10"
-						step="0.01"
+					<Slider
+						class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+						min={0.1}
+						max={10}
+						step={0.01}
 						value={speedValue ?? 1}
-						onpointerdown={beginGesture}
-						onpointercancel={cancelGesture}
-						oninput={(event) => writeSpeed(event.currentTarget.valueAsNumber)}
-						onchange={(event) => commitSpeed(event.currentTarget.valueAsNumber)}
-						onkeydown={(event) => event.stopPropagation()}
+						ariaLabel={m.video_editor_clip_speed()}
+						onValueChange={writeSpeed}
+						onValueCommit={commitSpeed}
+						onValueCancel={cancelGesture}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 					<div class="relative w-[4.6rem] shrink-0">
 						<ScrubbableNumberInput

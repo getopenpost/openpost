@@ -114,6 +114,22 @@ test('scrubs the master with Shift precision and decomposes an edited RGB channe
 	expect(commandHistory.undoStack).toHaveLength(2);
 });
 
+test('cancels a thumb-wheel keyboard preview without storing the grade', async () => {
+	const onedit = vi.fn();
+	const screen = await render(ColorPrimaryControls, { itemId: item.id, onedit });
+	const master = screen.getByRole('slider', { name: 'Lift thumb wheel' });
+	const element = master.element();
+	element.focus();
+	element.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+	element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+	element.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }));
+
+	await expect.element(master).toHaveAttribute('aria-valuenow', '0');
+	expect(timelineStore.itemById.get(item.id)?.effects).toBeUndefined();
+	expect(commandHistory.undoStack).toHaveLength(0);
+	expect(onedit).not.toHaveBeenCalled();
+});
+
 test('uses Resolve display units for dock parameters and resets the stored grade', async () => {
 	const onedit = vi.fn();
 	const screen = await render(ColorPrimaryControls, { itemId: item.id, onedit });

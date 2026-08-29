@@ -2,6 +2,7 @@
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import PipetteIcon from '@lucide/svelte/icons/pipette';
 	import { onMount } from 'svelte';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		hueAmountFromWheelChannels,
@@ -298,6 +299,11 @@
 		if (!controlsEnabled) return;
 		delete parameterDrafts[name];
 		commit({ [name]: value });
+	}
+
+	function cancelParameter(name: string): void {
+		delete parameterDrafts[name];
+		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
 	}
 
 	function parameterDisplay(name: string) {
@@ -621,25 +627,20 @@
 							</span>
 						{/each}
 					</div>
-					<input
-						type="range"
+					<Slider
 						disabled={!controlsEnabled}
 						class="wheel-thumb"
 						min={levelRange.min}
 						max={levelRange.max}
 						step={descriptor.display.step}
 						value={displayLevel(descriptor)}
-						aria-label={`${label(descriptor.level)} thumb wheel`}
-						oninput={(event) =>
-							updateParameter(
-								descriptor.level,
-								levelFromDisplay(descriptor, Number(event.currentTarget.value))
-							)}
-						onchange={(event) =>
-							commitParameter(
-								descriptor.level,
-								levelFromDisplay(descriptor, Number(event.currentTarget.value))
-							)}
+						ariaLabel={`${label(descriptor.level)} thumb wheel`}
+						onValueChange={(next) =>
+							updateParameter(descriptor.level, levelFromDisplay(descriptor, next))}
+						onValueCommit={(next) =>
+							commitParameter(descriptor.level, levelFromDisplay(descriptor, next))}
+						onValueCancel={() => cancelParameter(descriptor.level)}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 				{/if}
 			</div>
@@ -890,12 +891,15 @@
 		box-shadow: 0 0 0 1px rgb(251 146 60 / 55%);
 	}
 
-	.wheel-thumb {
+	:global(.wheel-thumb) {
 		margin-top: 0.125rem;
 		height: 0.65rem;
 		width: 100%;
 		cursor: ew-resize;
-		appearance: none;
+	}
+
+	:global(.wheel-thumb [data-slot='slider-track']) {
+		height: 0.65rem;
 		border: 1px solid rgb(0 0 0 / 80%);
 		border-radius: 999px;
 		background: repeating-linear-gradient(
@@ -905,21 +909,17 @@
 		);
 	}
 
-	.wheel-thumb::-webkit-slider-thumb {
-		height: 0.7rem;
-		width: 0.7rem;
-		appearance: none;
-		border: 1px solid rgb(0 0 0 / 80%);
-		border-radius: 999px;
-		background: rgb(228 228 231);
+	:global(.wheel-thumb [data-slot='slider-range']) {
+		background: transparent;
 	}
 
-	.wheel-thumb::-moz-range-thumb {
+	:global(.wheel-thumb [data-slot='slider-thumb']) {
 		height: 0.7rem;
 		width: 0.7rem;
 		border: 1px solid rgb(0 0 0 / 80%);
 		border-radius: 999px;
 		background: rgb(228 228 231);
+		box-shadow: none;
 	}
 
 	@media (pointer: coarse) {

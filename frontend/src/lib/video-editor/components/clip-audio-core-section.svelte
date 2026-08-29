@@ -3,6 +3,7 @@
 	import MusicIcon from '@lucide/svelte/icons/music';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import Volume2Icon from '@lucide/svelte/icons/volume-2';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import {
 		clampAudioPitchCents,
@@ -213,27 +214,20 @@
 	decimals: number
 )}
 	<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-		<label
-			for={`clip-audio-${itemId}-${property}-slider`}
-			class="text-[10px] font-medium text-white/48">{label}</label
-		>
+		<span class="text-[10px] font-medium text-white/48">{label}</span>
 		<div class="flex min-w-0 items-center gap-1">
-			<input
-				id={`clip-audio-${itemId}-${property}-slider`}
-				type="range"
-				class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
+			<Slider
+				class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 				{min}
 				{max}
 				{step}
 				value={value ?? 0}
-				onpointerdown={() => beginGesture(property)}
-				onpointercancel={cancelGesture}
-				oninput={(event) =>
-					property === 'volume'
-						? writeGain(event.currentTarget.valueAsNumber)
-						: writeStatic(property, event.currentTarget.valueAsNumber)}
-				onchange={(event) => commit(property, event.currentTarget.valueAsNumber)}
-				onkeydown={(event) => event.stopPropagation()}
+				ariaLabel={label}
+				onValueChange={(next) =>
+					property === 'volume' ? writeGain(next) : writeStatic(property, next)}
+				onValueCommit={(next) => commit(property, next)}
+				onValueCancel={cancelGesture}
+				onKeydown={(event) => event.stopPropagation()}
 			/>
 			<div class="relative w-[4.8rem] shrink-0">
 				<ScrubbableNumberInput

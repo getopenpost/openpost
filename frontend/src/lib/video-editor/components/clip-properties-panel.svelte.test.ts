@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -207,10 +207,10 @@ describe('ClipPropertiesPanel reverse playback', () => {
 			speed: 2,
 			durationInFrames: 45
 		});
-		const gain = screen.container.querySelector('input[min="-60"]');
-		if (!(gain instanceof HTMLInputElement)) throw new Error('Gain control did not render.');
-		gain.value = '-6';
-		gain.dispatchEvent(new Event('change', { bubbles: true }));
+		const gain = screen.getByRole('slider', { name: 'Gain (dB)' });
+		gain.element().focus();
+		await userEvent.keyboard('{ArrowLeft>60/}');
+		await expect.element(gain).toHaveAttribute('aria-valuenow', '-6');
 		expect(timelineStore.itemById.get('audio-item')?.volume).toBeCloseTo(0.501187, 5);
 		expect(timelineStore.itemById.get('video-item')?.volume).toBeUndefined();
 
@@ -605,7 +605,6 @@ describe('ClipPropertiesPanel noise reduction draft/commit', () => {
 		await expect.element(slider).toBeInTheDocument();
 		await expect.element(slider).toBeEnabled();
 		slider.element().focus();
-		const { userEvent } = await import('vitest/browser');
 		await userEvent.keyboard('{ArrowRight>4/}');
 		await expect.element(slider).toHaveAttribute('aria-valuenow', '54');
 		// Exactly one undoable action after the gesture, not four

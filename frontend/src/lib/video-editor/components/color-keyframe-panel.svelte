@@ -3,6 +3,7 @@
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import type { KeyframeProperty } from '$lib/video-editor/project/types';
 	import {
@@ -196,22 +197,20 @@
 		</div>
 	{:else if view === 'graph' && activeProperty}
 		<div class="flex min-h-0 flex-1 flex-col">
-			<label
+			<div
 				class="flex h-8 shrink-0 items-center gap-2 border-b border-white/8 px-2 text-[10px] text-white/50"
 			>
 				<span class="shrink-0">{m.video_editor_keyframe_property()}</span>
-				<select
-					class="h-6 min-w-0 flex-1 rounded-sm border border-white/10 bg-black/35 px-1 text-[10px] text-white/80 outline-none focus:border-orange-400"
+				<AppSelect
+					class="h-6! min-w-0 flex-1 rounded-sm border-white/10 bg-black/35 px-1 text-[10px] text-white/80 shadow-none hover:bg-white/5"
 					value={activeProperty}
-					onchange={(event) => {
-						activeProperty = event.currentTarget.value as KeyframeProperty;
+					options={properties.map((property) => ({ value: property, label: label(property) }))}
+					ariaLabel={m.video_editor_keyframe_property()}
+					onValueChange={(next) => {
+						activeProperty = next as KeyframeProperty;
 						keyframeSelectionStore.clear();
 					}}
-				>
-					{#each properties as property (property)}
-						<option value={property}>{label(property)}</option>
-					{/each}
-				</select>
+				/>
 				<button
 					type="button"
 					class="icon-button"
@@ -221,7 +220,7 @@
 				>
 					<PlusIcon class="size-3" />
 				</button>
-			</label>
+			</div>
 			<div class="min-h-0 flex-1 overflow-hidden">
 				<KeyframeValueGraph
 					{item}

@@ -2,6 +2,7 @@
 	import CropIcon from '@lucide/svelte/icons/crop';
 	import DiamondIcon from '@lucide/svelte/icons/diamond';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -207,25 +208,19 @@
 				{@const value = mixedValue(control.property)}
 				{@const maximum = maxFor(control.axis)}
 				<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-					<label
-						for={`clip-property-${itemId}-${control.property}-slider`}
-						class="text-[10px] font-medium text-white/48">{control.label()}</label
-					>
+					<span class="text-[10px] font-medium text-white/48">{control.label()}</span>
 					<div class="flex min-w-0 items-center gap-1">
-						<input
-							id={`clip-property-${itemId}-${control.property}-slider`}
-							type="range"
-							class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
+						<Slider
+							class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 							min={control.axis === 'softness' ? -maximum : 0}
 							max={maximum}
-							step="1"
+							step={1}
 							value={value ?? 0}
-							onpointerdown={beginGesture}
-							onpointercancel={cancelGesture}
-							oninput={(event) => writeLive(control.property, event.currentTarget.valueAsNumber)}
-							onchange={(event) =>
-								commitGesture(control.property, event.currentTarget.valueAsNumber)}
-							onkeydown={(event) => event.stopPropagation()}
+							ariaLabel={control.label()}
+							onValueChange={(next) => writeLive(control.property, next)}
+							onValueCommit={(next) => commitGesture(control.property, next)}
+							onValueCancel={cancelGesture}
+							onKeydown={(event) => event.stopPropagation()}
 						/>
 						<div class="relative w-[4.6rem] shrink-0">
 							<span

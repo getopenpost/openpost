@@ -2,6 +2,7 @@
 	import GaugeIcon from '@lucide/svelte/icons/gauge';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import { Button } from '$lib/components/ui/button';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import {
@@ -178,24 +179,19 @@
 		</h3>
 		<div class="divide-y divide-white/6">
 			<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-				<label
-					for={`clip-property-${itemId}-speed-slider`}
-					class="text-[10px] font-medium text-white/48">{m.video_editor_clip_speed()}</label
-				>
+				<span class="text-[10px] font-medium text-white/48">{m.video_editor_clip_speed()}</span>
 				<div class="flex min-w-0 items-center gap-1">
-					<input
-						id={`clip-property-${itemId}-speed-slider`}
-						type="range"
-						class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
-						min="0.1"
-						max="10"
-						step="0.01"
+					<Slider
+						class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+						min={0.1}
+						max={10}
+						step={0.01}
 						value={speedValue ?? 1}
-						onpointerdown={() => beginGesture('speed')}
-						onpointercancel={cancelGesture}
-						oninput={(event) => writeSpeed(event.currentTarget.valueAsNumber)}
-						onchange={(event) => commitGesture('speed', event.currentTarget.valueAsNumber)}
-						onkeydown={(event) => event.stopPropagation()}
+						ariaLabel={m.video_editor_clip_speed()}
+						onValueChange={writeSpeed}
+						onValueCommit={(next) => commitGesture('speed', next)}
+						onValueCancel={cancelGesture}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 					<div class="relative w-[4.6rem] shrink-0">
 						<ScrubbableNumberInput
@@ -233,24 +229,19 @@
 					{@const field = control.field as 'fadeIn' | 'fadeOut'}
 					{@const value = mixedValue(videoItems, (item) => item[field] ?? 0)}
 					<div class="grid grid-cols-[4.25rem_minmax(0,1fr)] items-center gap-2 px-2.5 py-2">
-						<label
-							for={`clip-property-${itemId}-${field}-slider`}
-							class="text-[10px] font-medium text-white/48">{control.label}</label
-						>
+						<span class="text-[10px] font-medium text-white/48">{control.label}</span>
 						<div class="flex min-w-0 items-center gap-1">
-							<input
-								id={`clip-property-${itemId}-${field}-slider`}
-								type="range"
-								class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
-								min="0"
+							<Slider
+								class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
+								min={0}
 								max={fadeLimit()}
-								step="0.05"
+								step={0.05}
 								value={value ?? 0}
-								onpointerdown={() => beginGesture(field)}
-								onpointercancel={cancelGesture}
-								oninput={(event) => writeFade(field, event.currentTarget.valueAsNumber)}
-								onchange={(event) => commitGesture(field, event.currentTarget.valueAsNumber)}
-								onkeydown={(event) => event.stopPropagation()}
+								ariaLabel={control.label}
+								onValueChange={(next) => writeFade(field, next)}
+								onValueCommit={(next) => commitGesture(field, next)}
+								onValueCancel={cancelGesture}
+								onKeydown={(event) => event.stopPropagation()}
 							/>
 							<div class="relative w-[4.6rem] shrink-0">
 								<ScrubbableNumberInput

@@ -7,6 +7,9 @@ const nativeControlPattern = /<(input|select|textarea)\b/gu;
 const primitiveImplementations = new Set([
   "frontend/src/lib/components/ui/input/input.svelte",
   "frontend/src/lib/components/ui/textarea/textarea.svelte",
+  // ScrubbableNumberInput is the reusable Video Editor text-entry and pointer-
+  // scrubbing implementation. Its native input owns selection and pointer capture.
+  "frontend/src/lib/video-editor/components/scrubbable-number-input.svelte",
   // The shadcn-svelte calendar keeps a transparent native select behind its
   // styled month and year captions for mobile-picker and form semantics.
   "frontend/src/lib/components/ui/calendar/calendar-month-select.svelte",

@@ -4,9 +4,8 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 export const REQUIRED_ARTIFACTS = [
-  "CONTEXT.md",
+  "AGENTS.md",
   "docs/agents/repository-map.md",
-  "docs/agents/issue-tracker.md",
   "docs/agents/triage-labels.md",
   ".agents/skills/agent-workflow/SKILL.md",
   ...[

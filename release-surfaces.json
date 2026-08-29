@@ -32,11 +32,9 @@
       "prefixes": ["docs-site/", "docs/", "e2e-docs/", "licenses/", "packages/social-images/"],
       "paths": [
         "AGENTS.md",
-        "AUDIT_REMEDIATION_TODO.md",
         "CHANGELOG.md",
         "CODE_OF_CONDUCT.md",
         "CONTRIBUTING.md",
-        "CONTEXT.md",
         "DESIGN.md",
         "PRODUCT.md",
         "README.md",

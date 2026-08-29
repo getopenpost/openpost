@@ -940,7 +940,7 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
       {
         sourcePath,
         outputPath: "providers.md",
-        canonical: "https://docs.openpost.social/providers/overview",
+        canonical: "https://docs.openpost.social/providers/",
         title: "Providers",
         description: "Review provider requirements and outcomes.",
       },

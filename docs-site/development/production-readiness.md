@@ -28,7 +28,7 @@ Keep production secrets, social app keys, monitoring, backups, and private opera
 - OpenPost saves current Paddle customer and subscription mirrors plus plan limits in its own database. Normal API requests do not call Paddle.
 - Limits cover workspaces, members, social accounts, posts, media, schedules, and provider writes.
 - Self-hosted mode has permissive defaults unless the operator changes them.
-- The Hosted service creates one workspace before checkout. Every plan begins with a card-required 14-day trial; an active or trialing membership is required to connect social accounts, upload media, schedule, or publish.
+- The Hosted service creates one workspace before checkout. See the [canonical pricing page](https://openpost.social/pricing) for current plan and trial terms; an active or trialing membership is required to connect social accounts, upload media, schedule, or publish.
 - The public prices and limits live in `marketing-site/src/routes/_marketing.ts`.
 
 ## Social networks
@@ -103,5 +103,5 @@ This content covers public product and operating information only. Do not add au
 2. Run `bun run doctor` before broad or release work.
 3. Run scoped root checks while editing, then `bun run verify`.
 4. For visible changes, run the related app, docs, or marketing browser suite at desktop and phone widths.
-5. Before a public campaign, complete the [Launch Verification Matrix](/providers/launch-matrix) for each account and format.
+5. Before a public campaign, complete the [Launch Verification Matrix](/operations/provider-launch-matrix) for each account and format.
 6. For a production release, follow [Releases and Versioning](/development/releases) and verify the workflow, release, deployed revision, and public readiness.

@@ -32,7 +32,7 @@ features:
 ---
 
 ::: info Hosted service plans
-Hosted service plans start at $15 per month. Every plan includes a card-required 14-day trial. OpenPost shows the renewal price and date before you start, and you can cancel from billing settings before the first charge. Self-hosting is a separate operator-run deployment with no software fee, not a zero-price Hosted service tier.
+See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plans, trial terms, and limits. Self-hosting is a separate operator-run deployment.
 :::
 
 Provider access and available formats still depend on account type, permissions, review, and current provider support.
@@ -45,29 +45,9 @@ Provider access and available formats still depend on account type, permissions,
   >
 </p>
 
-## Docker Compose example
+## Installation
 
-```yaml
-services:
-  openpost:
-    image: ghcr.io/getopenpost/openpost:latest
-    platform: linux/amd64
-    container_name: openpost
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "8080:8080"
-    volumes:
-      - openpost_data:/data
-    environment:
-      - OPENPOST_PORT=8080
-      - OPENPOST_DATABASE_PATH=/data/db/openpost.db
-      - OPENPOST_MEDIA_PATH=/data/media
-
-volumes:
-  openpost_data:
-```
+For the authoritative Docker Compose example and deployment steps, see [Docker Compose](/installation/docker-compose).
 
 ::: tip
 New to OpenPost? Read the [user guide](/usage/), [watch the product demo](https://youtu.be/_mZf3HzQaN8), or follow the [self-hosting quickstart](/guide/quickstart).

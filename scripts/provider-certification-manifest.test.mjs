@@ -52,7 +52,7 @@ test("public provider claims are derived from the manifest on every claim surfac
     () =>
       validatePublicClaimSurfaceSources(manifest, {
         ...sources,
-        providerLimits: sources.providerLimits.replace(
+        providerIndex: sources.providerIndex.replace(
           "0 exact provider-format claims",
           "1 exact provider-format claim",
         ),
@@ -318,8 +318,7 @@ function validPublicClaimSurfaces(projection) {
     marketingIndex: "implementation and exact certification facts",
     marketingDetail: "implementation and exact certification facts",
     marketingLanding: '<div aria-label="Implemented social platform adapters">',
-    providerLimits: projection,
-    providerOverview: projection,
+    providerIndex: projection,
     launchMatrix: projection,
     certificationReadme: projection,
     readme: projection,

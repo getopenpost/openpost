@@ -36,8 +36,9 @@ const userDocsSidebar = [
       { text: "Scheduling", link: "/usage/scheduling" },
       { text: "Auto Reposts", link: "/usage/auto-reposts" },
       { text: "Analytics", link: "/usage/analytics" },
+      { text: "Grow", link: "/usage/grow" },
+      { text: "Communications", link: "/usage/communications" },
       { text: "Media Library", link: "/usage/media-library" },
-      { text: "OpenPost Studio", link: "/usage/studio" },
       { text: "Image Editor", link: "/usage/image-editor" },
       { text: "Video Editor", link: "/usage/video-editor" },
       { text: "Quick Cut", link: "/usage/quick-cut" },
@@ -85,7 +86,6 @@ const selfHostingSidebar = [
     text: "Install",
     collapsed: false,
     items: [
-      { text: "Why Self-Host?", link: "/guide/why-selfhost" },
       { text: "Docker Compose", link: "/installation/docker-compose" },
       { text: "Single Binary", link: "/installation/binary" },
       { text: "Nix Module", link: "/installation/nix-module" },
@@ -98,7 +98,7 @@ const selfHostingSidebar = [
     text: "Configure",
     collapsed: false,
     items: [
-      { text: "Overview", link: "/configuration/overview" },
+      { text: "Overview", link: "/configuration/" },
       {
         text: "Environment Variables",
         link: "/configuration/environment-variables",
@@ -115,6 +115,10 @@ const selfHostingSidebar = [
       { text: "Media Storage", link: "/configuration/media-storage" },
       { text: "CORS and URLs", link: "/configuration/cors-and-urls" },
       {
+        text: "Invitation Delivery Callbacks",
+        link: "/configuration/invitation-delivery-callbacks",
+      },
+      {
         text: "Production Checklist",
         link: "/configuration/production-checklist",
       },
@@ -124,14 +128,8 @@ const selfHostingSidebar = [
     text: "Providers",
     collapsed: false,
     items: [
-      { text: "Overview", link: "/providers/overview" },
-      { text: "Launch Verification Matrix", link: "/providers/launch-matrix" },
-      {
-        text: "Supported Platforms & Limits",
-        link: "/providers/platform-limits",
-      },
+      { text: "Overview", link: "/providers/" },
       { text: "Provider Troubleshooting", link: "/providers/troubleshooting" },
-      { text: "Provider Roadmap", link: "/providers/roadmap" },
       { text: "X", link: "/providers/x" },
       { text: "Mastodon", link: "/providers/mastodon" },
       { text: "Bluesky", link: "/providers/bluesky" },
@@ -142,10 +140,6 @@ const selfHostingSidebar = [
       { text: "TikTok", link: "/providers/tiktok" },
       { text: "YouTube", link: "/providers/youtube" },
       { text: "Discord Webhooks", link: "/providers/discord" },
-      {
-        text: "Engagement, Inbox & Notifications",
-        link: "/usage/communications",
-      },
     ],
   },
   {
@@ -158,16 +152,14 @@ const selfHostingSidebar = [
       { text: "Logs", link: "/operations/logs" },
       { text: "Upgrades", link: "/operations/upgrades" },
       { text: "Troubleshooting", link: "/operations/troubleshooting" },
+      { text: "Provider Launch Matrix", link: "/operations/provider-launch-matrix" },
     ],
   },
   {
     text: "Reference",
     collapsed: false,
     items: [
-      { text: "API", link: "/reference/api" },
-      { text: "Environment Variables", link: "/reference/env-vars" },
       { text: "Callback URLs", link: "/reference/callback-urls" },
-      { text: "Docker Compose", link: "/reference/docker-compose" },
     ],
   },
 ];
@@ -188,10 +180,6 @@ const developmentSidebar = [
         link: "/development/post-publication-migration",
       },
       { text: "Frontend", link: "/development/frontend" },
-      {
-        text: "Image Editor Completeness",
-        link: "/development/image-editor-completeness",
-      },
       { text: "Backend", link: "/development/backend" },
       { text: "Platform Adapters", link: "/development/platform-adapters" },
       {
@@ -204,10 +192,6 @@ const developmentSidebar = [
       { text: "Releases and Versioning", link: "/development/releases" },
       { text: "MCP And ChatGPT App", link: "/development/mcp" },
       { text: "Billing And Usage", link: "/development/billing-and-usage" },
-      {
-        text: "Invitation Delivery Callbacks",
-        link: "/development/invitation-delivery-callbacks",
-      },
       {
         text: "Production Architecture",
         link: "/development/production-readiness",
@@ -308,7 +292,7 @@ export default defineConfig({
       { text: "CLI", link: "/cli/" },
       { text: "MCP", link: "/mcp/" },
       { text: "Self-Hosting", link: "/self-hosting/" },
-      { text: "Providers", link: "/providers/overview" },
+      { text: "Providers", link: "/providers/" },
       { text: "Developer Docs", link: "/development/" },
       { text: "Community", link: "https://discord.gg/u2QwukmY4W" },
     ],
@@ -336,13 +320,11 @@ export default defineConfig({
       "/usage/": userDocsSidebar,
       "/cli/": userDocsSidebar,
       "/mcp/": userDocsSidebar,
-      "/guide/why-selfhost": selfHostingSidebar,
       "/self-hosting/": selfHostingSidebar,
       "/installation/": selfHostingSidebar,
       "/configuration/": selfHostingSidebar,
       "/providers/": selfHostingSidebar,
       "/operations/": selfHostingSidebar,
-      "/reference/": selfHostingSidebar,
       "/development/": developmentSidebar,
       "/": userDocsSidebar,
     },

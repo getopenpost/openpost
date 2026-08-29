@@ -81,7 +81,7 @@ test("docs routes and image keys match VitePress output paths", () => {
   assert.equal(docsRouteFromPage("usage/index.md"), "/usage/");
   assert.equal(docsRouteFromPage("providers/x.md"), "/providers/x");
   assert.equal(docsImageKey("usage/index.md"), "usage");
-  assert.equal(docsImageKey("providers/platform-limits.md"), "providers--platform-limits");
+  assert.equal(docsImageKey("providers/index.md"), "providers");
 
   const social = resolveDocsSocial({
     page: "providers/x.md",
@@ -132,8 +132,8 @@ test("every generated docs card has a unique, server-resolvable catalog id", () 
     membership: "primary",
   });
   assert.equal(
-    docsPageCatalog.find((page) => page.page === "reference/docker-compose.md").description,
-    "Copy the production Docker Compose service, storage, environment, and health-check configuration for OpenPost.",
+    docsPageCatalog.find((page) => page.page === "installation/docker-compose.md").description,
+    "Docker Compose is the recommended installation path for long-running OpenPost deployments.",
   );
   assert.equal(
     docsPageCatalog.some((page) => page.description.endsWith("…")),

@@ -43,7 +43,7 @@ assert.deepEqual(apiCatalog, {
 			],
 			'service-doc': [
 				{
-					href: 'https://docs.openpost.social/reference/api',
+					href: 'https://docs.openpost.social/development/api-reference',
 					type: 'text/html'
 				}
 			],

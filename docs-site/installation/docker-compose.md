@@ -29,6 +29,7 @@ services:
       - OPENPOST_PORT=8080
       - OPENPOST_DATABASE_PATH=/data/db/openpost.db
       - OPENPOST_MEDIA_PATH=/data/media
+      - OPENPOST_MEDIA_URL=https://openpost.example.com/media
     # Keep container health on liveness. Gate traffic and rollouts on /api/v1/ready.
     healthcheck:
       test:
@@ -48,6 +49,19 @@ services:
 volumes:
   openpost_data:
 ```
+
+## Secret files
+
+For Docker, Podman, or other secret managers, mount secret files and use file-backed variables instead of putting secret values in Compose:
+
+```yaml
+environment:
+  - OPENPOST_JWT_SECRET_FILE=/run/secrets/openpost-jwt-secret
+  - OPENPOST_ENCRYPTION_KEY_FILE=/run/secrets/openpost-encryption-key
+  - OPENPOST_DATABASE_URL_FILE=/run/secrets/openpost-database-url
+```
+
+Leave the direct variables unset when the `_FILE` variants should be used.
 
 ## Create `.env`
 
@@ -125,4 +139,4 @@ docker compose logs -f openpost
 
 - [Reverse proxy](/installation/reverse-proxy)
 - [Production checklist](/configuration/production-checklist)
-- [Provider setup](/providers/overview)
+- [Provider setup](/providers/)

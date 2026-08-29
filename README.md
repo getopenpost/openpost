@@ -109,13 +109,13 @@ The checked-in public certification manifest contains **0 exact provider-format 
 No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.
 <!-- provider-certification:end -->
 
-[Provider readiness](https://docs.openpost.social/providers/launch-matrix) · [Platform limits](https://docs.openpost.social/providers/platform-limits)
+[Provider readiness](https://docs.openpost.social/operations/provider-launch-matrix) · [Platform limits](https://docs.openpost.social/providers/)
 
 ## Automate it
 
 Give a token to the API, CLI, or MCP server and it works like you do. Same workspace. Same permissions. You can automate a post without handing over your social logins. I use one permission model everywhere. Separate models are where things quietly break.
 
-[CLI guide](https://docs.openpost.social/cli/) · [MCP guide](https://docs.openpost.social/mcp/) · [API reference](https://docs.openpost.social/reference/api)
+[CLI guide](https://docs.openpost.social/cli/) · [MCP guide](https://docs.openpost.social/mcp/) · [API reference](https://docs.openpost.social/development/api-reference)
 
 ## Develop OpenPost
 

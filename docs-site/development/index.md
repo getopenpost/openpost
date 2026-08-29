@@ -28,7 +28,6 @@ Developer docs are separate from user-facing docs and self-hosting docs. They ca
 ## Frontend, MCP, and launch work
 
 - [Frontend](/development/frontend) covers SvelteKit app conventions.
-- [Image Editor Completeness](/development/image-editor-completeness) tracks the source-grounded implementation and verification contract for editor polish.
 - [MCP and ChatGPT App](/development/mcp) covers tool-server and Apps SDK integration notes.
 - [Production Architecture](/development/production-readiness) records shared hosted and self-hosted architecture, provider verification, and release checks.
 

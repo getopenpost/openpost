@@ -80,7 +80,7 @@ const openPostEvidence = {
 	'Network breadth': evidence(
 		'Direct source',
 		'Implemented provider catalogue; implementation is not a current Hosted service certification claim.',
-		[source('OpenPost provider limits', 'https://docs.openpost.social/providers/platform-limits')]
+			[source('OpenPost provider index', 'https://docs.openpost.social/providers/')]
 	),
 	'Product scope': evidence('Direct source', 'Current product and workspace documentation.', [
 		source('OpenPost user guide', 'https://docs.openpost.social/usage/')

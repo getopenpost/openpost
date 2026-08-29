@@ -101,4 +101,4 @@ If you want to close self-service signups after setup, set `OPENPOST_DISABLE_REG
 - [Docker Compose details](/installation/docker-compose)
 - [Single binary install](/installation/binary)
 - [Environment variables](/configuration/environment-variables)
-- [Platform setup](/providers/overview)
+- [Platform setup](/providers/)

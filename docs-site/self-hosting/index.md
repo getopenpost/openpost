@@ -13,9 +13,23 @@ These pages assume that you manage the server, public HTTPS origin, access contr
 
 Review the [OpenPost source](https://github.com/getopenpost/openpost), [security policy](https://github.com/getopenpost/openpost/blob/main/SECURITY.md), and current [releases](https://github.com/getopenpost/openpost/releases) before exposing an instance to users.
 
+## When self-hosting fits
+
+A self-hosted installation stores OpenPost data on servers and storage you choose:
+
+- drafts, schedules, workspaces, and publishing history in SQLite or PostgreSQL;
+- media on local disk or S3-compatible object storage;
+- encrypted social account tokens in the app database;
+- app secrets, social app keys, logs, backups, and data retention settings.
+
+OpenPost still sends content and access tokens to each social network when it carries out your request. Self-hosting changes who runs OpenPost. It does not remove the social networks.
+
+Plan for TLS and a public application URL, unique JWT and encryption secrets, tested database and media restores, release and security updates, social app keys and reviews, and checks for failed posts and low storage. The default setup stays small: one Go binary or container, SQLite, local media, and saved background jobs. Redis is not required. PostgreSQL and S3-compatible storage are available for larger setups.
+
+Choose self-hosting when you already operate a server, need data in a specific environment, want to inspect or change the code, or need custom storage, networking, or social app settings. Choose the [Hosted service](https://openpost.social/pricing) when you want OpenPost to manage its server, backups, TLS, and upgrades.
+
 ## Install
 
-- [Why Self-Host?](/guide/why-selfhost) explains the costs and benefits. OpenPost uses SQLite and local files by default when you run it yourself.
 - [Docker Compose](/installation/docker-compose) is the best place to start.
 - [Single Binary](/installation/binary) covers the app and server in one file.
 - [Nix Module](/installation/nix-module) covers the generated NixOS module reference.
@@ -25,7 +39,7 @@ Review the [OpenPost source](https://github.com/getopenpost/openpost), [security
 
 ## Configure
 
-- [Configuration Overview](/configuration/overview) groups the main settings.
+- [Configuration](/configuration/) groups the main settings.
 - [Environment Variables](/configuration/environment-variables) is the full configuration reference.
 - [Custom Connectors](/configuration/custom-connectors) adds operator-run HTTP services as publishing destinations.
 - [Database](/configuration/database) covers SQLite and Postgres.
@@ -35,10 +49,9 @@ Review the [OpenPost source](https://github.com/getopenpost/openpost), [security
 
 ## Providers
 
-- [Providers Overview](/providers/overview) explains social network app setup.
-- [Supported Platforms and Limits](/providers/platform-limits) lists current implementation state.
+- [Providers](/providers/) explains social network app setup, implementations, and limits.
 - [Provider Troubleshooting](/providers/troubleshooting) helps with OAuth, access, media link, and publish errors.
-- [Provider Roadmap](/providers/roadmap) explains what works now and what is planned.
+- [Provider Launch Matrix](/operations/provider-launch-matrix) covers evidence and readiness for operators.
 - [X](/providers/x), [Mastodon](/providers/mastodon), [Bluesky](/providers/bluesky), [LinkedIn](/providers/linkedin), [Threads](/providers/threads), [Facebook](/providers/facebook), [Instagram](/providers/instagram), [TikTok](/providers/tiktok), [YouTube](/providers/youtube), and [Discord](/providers/discord) cover each network's setup.
 
 ## Operate

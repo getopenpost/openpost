@@ -122,4 +122,4 @@ See Paddle's documentation for [`past_due` subscription recovery](https://develo
 
 Access is granted only for `active` and `trialing` subscriptions. A scheduled cancellation keeps access while Paddle still reports one of those states. `past_due`, paused, and canceled subscriptions do not grant paid-plan access. API handlers consume the local snapshot only.
 
-All Hosted service plans use a card-required 14-day trial. Prices are USD-first: Starter $15 monthly or $150 annually, Founder $25 or $250, Pro $49 or $490, Team $99 or $990, and Agency $199 or $1,990.
+See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan names, prices, trial terms, and limits.

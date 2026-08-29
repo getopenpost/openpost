@@ -166,7 +166,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/media-dark.png',
 			alt: 'OpenPost media library with reusable assets'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/studio',
+		docsUrl: 'https://docs.openpost.social/usage/',
 		next: { label: 'Open the free editors', href: '/tools' }
 	},
 	{

@@ -27,7 +27,6 @@ The web app is the main place to work.
 - [Engagement, Inbox, and Notifications](/usage/communications) covers comments, replies, messages, and alerts. Direct messages and Comments and replies are separate optional features per connected account and start off.
 - [Grow](/usage/grow) covers recommendations for Bluesky and Mastodon. Grow is an optional feature per connected account, starts off, and never follows automatically.
 - [Media](/usage/media-library) covers reusable files, designs, templates, brand items, tags, file sources, use checks, and safe cleanup.
-- [OpenPost Studio](/usage/studio) helps you choose between the image and video editing workflows.
 - [OpenPost Image Editor](/usage/image-editor) covers the no-account editor, multi-page still-image designs, saved versions, background removal, export, and return to the post editor.
 - [OpenPost Video Editor](/usage/video-editor) covers disk-backed projects, multitrack editing, motion, color, audio, captions, local models, export, and Media handoff.
 - [Quick Cut](/usage/quick-cut) covers verified keyframe cuts, exact cuts, stream selection, merged output, and lossless packet-copy export.

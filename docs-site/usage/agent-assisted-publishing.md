@@ -51,7 +51,7 @@ Ask the tool to use `search_operations` to find the current inputs. It should us
 - candidate posting slots;
 - any platform or format that still needs a live test.
 
-App settings, a working OAuth start, or finished code do not prove that a real account and format can publish today. Use the [Launch Verification Matrix](/providers/launch-matrix).
+App settings, a working OAuth start, or finished code do not prove that a real account and format can publish today. Use the [Launch Verification Matrix](/operations/provider-launch-matrix).
 
 ## 3. Prepare a shared post and account versions
 
@@ -96,4 +96,4 @@ Use the [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/
 
 ## Hosted service access
 
-Hosted service plans start at $15 per month and include a card-required 14-day trial. OpenPost shows the renewal price and date before you start. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.
+See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan terms. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.

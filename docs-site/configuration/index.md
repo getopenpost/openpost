@@ -2,11 +2,11 @@
 description: Configure the database, media storage, public URLs, provider applications, updates, feedback, and telemetry.
 ---
 
-# Configuration Overview
+# Configuration
 
 Use this page when configuring a self-hosted deployment or the Hosted service.
 
-This overview does not replace the complete environment-variable and provider-application references.
+Use the linked references for complete environment-variable and provider-application details.
 
 OpenPost settings fall into these groups:
 

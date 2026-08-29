@@ -163,10 +163,27 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "configuration/media-storage.md",
-    "title": "Media Storage",
-    "description": "This page is for operators choosing local or S3-compatible media storage.",
-    "route": "/configuration/media-storage",
+    "page": "configuration/index.md",
+    "title": "Configuration",
+    "description": "Configure the database, media storage, public URLs, provider applications, updates, feedback, and telemetry.",
+    "route": "/configuration/",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "primary",
+      "section": "configuration"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "configuration"
+    }
+  },
+  {
+    "page": "configuration/invitation-delivery-callbacks.md",
+    "title": "Invitation delivery callbacks",
+    "description": "This page is for operators integrating an email provider's delivery callbacks.",
+    "route": "/configuration/invitation-delivery-callbacks",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -179,16 +196,15 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "configuration/overview.md",
-    "title": "Configuration Overview",
-    "description": "Configure the database, media storage, public URLs, provider applications, updates, feedback, and telemetry.",
-    "route": "/configuration/overview",
+    "page": "configuration/media-storage.md",
+    "title": "Media Storage",
+    "description": "This page is for operators choosing local or S3-compatible media storage.",
+    "route": "/configuration/media-storage",
     "agentRepresentation": {
       "membership": "ordinary"
     },
     "agentDiscovery": {
-      "membership": "primary",
-      "section": "configuration"
+      "membership": "unlisted"
     },
     "agentCorpus": {
       "membership": "included",
@@ -284,11 +300,12 @@ export const docsPageCatalog = Object.freeze([
       "membership": "ordinary"
     },
     "agentDiscovery": {
-      "membership": "unlisted"
+      "membership": "primary",
+      "section": "api"
     },
     "agentCorpus": {
-      "membership": "excluded",
-      "reason": "OpenAPI remains authoritative JSON."
+      "membership": "included",
+      "section": "api"
     }
   },
   {
@@ -436,22 +453,6 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "development/image-editor-completeness.md",
-    "title": "Image Editor Completeness Checklist",
-    "description": "This checklist is for contributors reviewing Image Editor completeness.",
-    "route": "/development/image-editor-completeness",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "development"
-    }
-  },
-  {
     "page": "development/index.md",
     "title": "Developer Docs",
     "description": "Find the architecture, setup, API, frontend, backend, testing, contribution, and release documentation for OpenPost.",
@@ -462,22 +463,6 @@ export const docsPageCatalog = Object.freeze([
     "agentDiscovery": {
       "membership": "primary",
       "section": "development"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "development"
-    }
-  },
-  {
-    "page": "development/invitation-delivery-callbacks.md",
-    "title": "Invitation delivery callbacks",
-    "description": "This page is for operators integrating an email provider's delivery callbacks.",
-    "route": "/development/invitation-delivery-callbacks",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
     },
     "agentCorpus": {
       "membership": "included",
@@ -649,22 +634,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "What Is OpenPost?",
     "description": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, then publish it everywhere from one place.",
     "route": "/guide/what-is-openpost",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "guide/why-selfhost.md",
-    "title": "When Self-Hosting Fits",
-    "description": "OpenPost is one product with two deployment paths.",
-    "route": "/guide/why-selfhost",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -888,6 +857,22 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
+    "page": "operations/provider-launch-matrix.md",
+    "title": "Provider Readiness and Launch Gate",
+    "description": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
+    "route": "/operations/provider-launch-matrix",
+    "agentRepresentation": {
+      "membership": "ordinary"
+    },
+    "agentDiscovery": {
+      "membership": "unlisted"
+    },
+    "agentCorpus": {
+      "membership": "included",
+      "section": "operations"
+    }
+  },
+  {
     "page": "operations/troubleshooting.md",
     "title": "Troubleshooting",
     "description": "Diagnose startup, database, media, provider, publishing, and delivery problems on a self-hosted OpenPost instance.",
@@ -968,15 +953,16 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "providers/instagram.md",
-    "title": "Instagram",
-    "description": "Configure Meta OAuth and publish images, carousels, Stories, and Reels to an Instagram professional account.",
-    "route": "/providers/instagram",
+    "page": "providers/index.md",
+    "title": "Providers",
+    "description": "Compare provider setup, implemented formats, account requirements, limits, and live-verification needs.",
+    "route": "/providers/",
     "agentRepresentation": {
       "membership": "ordinary"
     },
     "agentDiscovery": {
-      "membership": "unlisted"
+      "membership": "primary",
+      "section": "providers"
     },
     "agentCorpus": {
       "membership": "included",
@@ -984,10 +970,10 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "providers/launch-matrix.md",
-    "title": "Provider Readiness and Launch Gate",
-    "description": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
-    "route": "/providers/launch-matrix",
+    "page": "providers/instagram.md",
+    "title": "Instagram",
+    "description": "Configure Meta OAuth and publish images, carousels, Stories, and Reels to an Instagram professional account.",
+    "route": "/providers/instagram",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -1020,55 +1006,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Mastodon",
     "description": "This page is for operators configuring Mastodon and users connecting a custom or preconfigured instance.",
     "route": "/providers/mastodon",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "providers"
-    }
-  },
-  {
-    "page": "providers/overview.md",
-    "title": "Platform Overview",
-    "description": "Compare provider setup, implemented formats, account requirements, limits, and live-verification needs.",
-    "route": "/providers/overview",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "primary",
-      "section": "providers"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "providers"
-    }
-  },
-  {
-    "page": "providers/platform-limits.md",
-    "title": "Platform Implementations & Limitations",
-    "description": "Use this page when checking implemented formats and safe provider limits.",
-    "route": "/providers/platform-limits",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "providers"
-    }
-  },
-  {
-    "page": "providers/roadmap.md",
-    "title": "Platform Roadmap",
-    "description": "OpenPost connects to social networks through the web app, CLI, HTTP API, MCP, and ChatGPT-style clients.",
-    "route": "/providers/roadmap",
     "agentRepresentation": {
       "membership": "ordinary"
     },
@@ -1161,23 +1098,6 @@ export const docsPageCatalog = Object.freeze([
     }
   },
   {
-    "page": "reference/api.md",
-    "title": "API Reference",
-    "description": "Find the rendered HTTP API reference and the authoritative OpenAPI JSON contract generated from the Huma routes.",
-    "route": "/reference/api",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "primary",
-      "section": "api"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "api"
-    }
-  },
-  {
     "page": "reference/callback-urls.md",
     "title": "Callback URLs",
     "description": "This reference is for operators registering provider and identity callback URLs.",
@@ -1207,38 +1127,6 @@ export const docsPageCatalog = Object.freeze([
     "agentCorpus": {
       "membership": "excluded",
       "reason": "The generated CLI reference is repetitive in a combined corpus."
-    }
-  },
-  {
-    "page": "reference/docker-compose.md",
-    "title": "Docker Compose Reference",
-    "description": "Copy the production Docker Compose service, storage, environment, and health-check configuration for OpenPost.",
-    "route": "/reference/docker-compose",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "api"
-    }
-  },
-  {
-    "page": "reference/env-vars.md",
-    "title": "Environment Variables",
-    "description": "This reference is for operators looking up common environment variables.",
-    "route": "/reference/env-vars",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "api"
     }
   },
   {
@@ -1520,22 +1408,6 @@ export const docsPageCatalog = Object.freeze([
     "title": "Settings",
     "description": "OpenPost groups settings by who or what they affect.",
     "route": "/usage/settings",
-    "agentRepresentation": {
-      "membership": "ordinary"
-    },
-    "agentDiscovery": {
-      "membership": "unlisted"
-    },
-    "agentCorpus": {
-      "membership": "included",
-      "section": "user-guide"
-    }
-  },
-  {
-    "page": "usage/studio.md",
-    "title": "OpenPost Studio",
-    "description": "OpenPost Studio is the editing area for images and video.",
-    "route": "/usage/studio",
     "agentRepresentation": {
       "membership": "ordinary"
     },

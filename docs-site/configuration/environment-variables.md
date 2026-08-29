@@ -160,6 +160,10 @@ When enabled in `selfhost` mode, the Instance settings page lets an instance adm
 
 Successful responses are cached for 24 hours. Failed checks retry after 15 minutes, use a three-second timeout, and keep the last successful result as stale. Responses are limited to 64 KiB and release links must point back to the official OpenPost GitHub repository. The feature never downloads or installs an update. See [Update Status](/configuration/update-status) for the full boundary.
 
+## Custom connectors
+
+Self-hosted operators can load the custom connector registry from an absolute path with `OPENPOST_CONNECTORS_FILE`. The registry is read at startup. See [Custom Connectors](/configuration/custom-connectors) for the file schema and security boundary.
+
 ## Provider app registry
 
 OpenPost builds provider adapters at startup from active encrypted `provider_apps` database rows, legacy provider env vars, and optional `OPENPOST_PROVIDER_APPS` JSON. Environment-defined apps are authoritative over matching database rows.

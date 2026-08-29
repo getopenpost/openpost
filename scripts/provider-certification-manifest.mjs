@@ -158,8 +158,7 @@ export function validatePublicClaimSurfaceSources(manifest, sources) {
 
   const expectedProjection = renderPublicClaimProjection(manifest);
   for (const [label, source] of [
-    ["provider limits documentation", sources.providerLimits ?? ""],
-    ["provider overview documentation", sources.providerOverview ?? ""],
+    ["provider index documentation", sources.providerIndex ?? ""],
     ["provider launch gate documentation", sources.launchMatrix ?? ""],
     ["certification contract documentation", sources.certificationReadme ?? ""],
     ["README provider section", sources.readme ?? ""],
@@ -168,9 +167,9 @@ export function validatePublicClaimSurfaceSources(manifest, sources) {
       throw new Error(`${label} public certification projection is stale`);
     }
   }
-  if (/\b(?:Available|Supported)\b/u.test(sources.providerLimits ?? "")) {
+  if (/\b(?:Available|Supported)\b/u.test(sources.providerIndex ?? "")) {
     throw new Error(
-      "provider limits documentation must label code paths as implementations, not availability claims",
+      "provider index documentation must label code paths as implementations, not availability claims",
     );
   }
 }
@@ -182,9 +181,8 @@ export async function assertPublicClaimSurfaces(manifest, repositoryRoot = root)
     marketingIndex: await read("marketing-site/src/routes/platforms/+page.svelte"),
     marketingDetail: await read("marketing-site/src/routes/platforms/[slug]/+page.svelte"),
     marketingLanding: await read("marketing-site/src/routes/+page.svelte"),
-    providerLimits: await read("docs-site/providers/platform-limits.md"),
-    providerOverview: await read("docs-site/providers/overview.md"),
-    launchMatrix: await read("docs-site/providers/launch-matrix.md"),
+    providerIndex: await read("docs-site/providers/index.md"),
+    launchMatrix: await read("docs-site/operations/provider-launch-matrix.md"),
     certificationReadme: await read("provider-certification/README.md"),
     readme: await read("README.md"),
   });

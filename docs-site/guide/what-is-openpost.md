@@ -2,7 +2,7 @@
 
 OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, then publish it everywhere from one place. Start with one shared draft, then change the text, media, format, and settings for each connected account.
 
-OpenPost includes the complete publishing workflow. The Hosted service offers a 14-day trial and clear limits for workspaces, accounts, posts, storage, and seats.
+OpenPost includes the complete publishing workflow.
 
 ## Who is this for?
 
@@ -28,7 +28,7 @@ If an AI tool helps, give it an OpenPost token instead of your social account ke
 
 ## Plans and deployment
 
-Hosted service plans start at $15 per month and include a card-required 14-day trial. OpenPost shows the renewal price and date before you start. An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service.
+See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan terms. An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service.
 
 Teams that need to operate their own infrastructure can also run the AGPL product on their server. The default setup uses one Go binary or container, SQLite, and local media storage. The operator manages TLS, backups, updates, social apps, and secrets.
 
@@ -42,7 +42,7 @@ Teams that need to operate their own infrastructure can also run the AGPL produc
 - **Workspaces:** separate accounts, media, schedules, members, and tool access
 - **Tools:** web app, HTTP API, CLI, and MCP
 
-App review, account access, API limits, public media links, or a failed live test can still block an account or format. See [Supported Platforms & Limitations](/providers/platform-limits).
+App review, account access, API limits, public media links, or a failed live test can still block an account or format. See [Supported Platforms & Limitations](/providers/).
 
 ## What OpenPost is not
 

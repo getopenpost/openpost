@@ -211,10 +211,6 @@
     "audience": "This page is for operators choosing local or S3-compatible media storage.",
     "boundary": "OpenPost requires ffmpeg and ffprobe on PATH to verify uploaded videos and create posters. The official Docker image includes both tools, and the project Devenv supplies them for development. Install FFmpeg separately when running the standalone binary. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed."
   },
-  "https://docs.openpost.social/configuration/overview": {
-    "audience": "Use this page when configuring a self-hosted deployment or the Hosted service.",
-    "boundary": "This overview does not replace the complete environment-variable and provider-application references."
-  },
   "https://docs.openpost.social/configuration/production-checklist": {
     "audience": "Use this page before putting a real OpenPost instance behind a public domain. It is operator-facing: product usage lives in User Docs, while code changes live in Developer Docs.",
     "boundary": "[ ] Copy the root .env.example to .env or mirror every required value in your secret manager."
@@ -275,14 +271,6 @@
     "audience": "This page is for contributors changing the web app or its shared marketing controls.",
     "boundary": "Do not add visible native input, select, or textarea elements outside the shared primitives"
   },
-  "https://docs.openpost.social/development/image-editor-completeness": {
-    "audience": "This checklist is for contributors reviewing Image Editor completeness.",
-    "boundary": "Statuses describe the current working tree, not design intent. Update a status only with source and test evidence."
-  },
-  "https://docs.openpost.social/development/invitation-delivery-callbacks": {
-    "audience": "This page is for operators integrating an email provider's delivery callbacks.",
-    "boundary": "A successful delivery job marks a Workspace invitation Sent."
-  },
   "https://docs.openpost.social/development/": {
     "audience": "Use these docs when you are changing OpenPost itself: backend routes, platform adapters, frontend components, generated clients, MCP tools, billing infrastructure, database migrations, tests, or release behavior.",
     "boundary": "Developer docs are separate from user-facing docs and self-hosting docs."
@@ -330,10 +318,6 @@
   "https://docs.openpost.social/guide/what-is-openpost": {
     "audience": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, then publish it everywhere from one place. Start with one shared draft, then change the text, media, format, and settings for each connected account.",
     "boundary": "An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service."
-  },
-  "https://docs.openpost.social/guide/why-selfhost": {
-    "audience": "OpenPost is one product with two deployment paths. The Hosted service is operated by OpenPost. A self-hosted deployment runs on infrastructure you control and stores OpenPost data where you choose.",
-    "boundary": "OpenPost still sends content and access tokens to each social network when it carries out your request. Self-hosting changes who runs OpenPost. It does not remove the social networks."
   },
   "https://docs.openpost.social": {
     "audience": "The all-in-one content team for solo founders, from first draft to every destination.",
@@ -411,10 +395,6 @@
     "audience": "This page is for operators configuring Instagram and users connecting a professional account.",
     "boundary": "Instagram Business or Creator account connected to a Facebook Page"
   },
-  "https://docs.openpost.social/providers/launch-matrix": {
-    "audience": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
-    "boundary": "OpenPost keeps provider implementation, setup, evidence, approval, and runtime control as separate facts. An adapter in the binary proves only that code exists. It does not make a provider or format ready, connectable, publishable, or safe to advertise."
-  },
   "https://docs.openpost.social/providers/linkedin": {
     "audience": "This page is for operators configuring LinkedIn and users connecting a member profile or Organization Page.",
     "boundary": "OpenPost always offers the member profile returned by LinkedIn OpenID Connect. Organization Pages are an explicit operator opt-in because LinkedIn gates their permissions behind approved products:"
@@ -422,18 +402,6 @@
   "https://docs.openpost.social/providers/mastodon": {
     "audience": "This page is for operators configuring Mastodon and users connecting a custom or preconfigured instance.",
     "boundary": "For custom instances: no static env entry is required, but the instance must be public HTTPS and allow app registration."
-  },
-  "https://docs.openpost.social/providers/overview": {
-    "audience": "OAuth and social app setup cause many connection errors. Use this guide as you turn on each network.",
-    "boundary": "The table below is an implementation and setup inventory. It is not a Hosted service readiness claim."
-  },
-  "https://docs.openpost.social/providers/platform-limits": {
-    "audience": "Use this page when checking implemented formats and safe provider limits.",
-    "boundary": "Limits reviewed against official provider documentation on 2026-08-03. Connected-account or instance limits override these safe defaults where OpenPost can resolve them."
-  },
-  "https://docs.openpost.social/providers/roadmap": {
-    "audience": "OpenPost connects to social networks through the web app, CLI, HTTP API, MCP, and ChatGPT-style clients. This page explains when a new platform may appear as connectable.",
-    "boundary": "The platform list API returns implementation metadata and an evidence-based readiness decision so each client can show the same connection choices without treating configuration as proof."
   },
   "https://docs.openpost.social/providers/threads": {
     "audience": "This page is for operators configuring Threads and users connecting an account.",
@@ -455,10 +423,6 @@
     "audience": "This page is for operators configuring YouTube and users connecting a channel.",
     "boundary": "Google may omit hidden subscriber counts. Accounts without youtube.readonly may need to reconnect."
   },
-  "https://docs.openpost.social/reference/api": {
-    "audience": "This page is for developers who need the rendered or machine-readable API contract.",
-    "boundary": "Use this page as a pointer only. The generated OpenAPI document is the authoritative operation and schema contract."
-  },
   "https://docs.openpost.social/reference/callback-urls": {
     "audience": "This reference is for operators registering provider and identity callback URLs.",
     "boundary": "Mastodon uses the OOB flow by default and exchanges the pasted authorization code through /api/v1/accounts/mastodon/exchange. Only configure a normal Mastodon callback URL if you also override MASTODON_REDIRECT_URI."
@@ -466,14 +430,6 @@
   "https://docs.openpost.social/reference/cli": {
     "audience": "openpost is a command-line client for the OpenPost social media scheduler. It talks to a running OpenPost instance over HTTPS, authenticates with a revocable API token, and exposes the most common posting, scheduling, account, and media workflows for use from scripts, CI, and power-user shells.",
     "boundary": "This page is generated from the Cobra command tree. Do not edit it by hand."
-  },
-  "https://docs.openpost.social/reference/docker-compose": {
-    "audience": "This reference is for operators preparing a persistent OpenPost service with explicit storage, secrets, and health checks.",
-    "boundary": "The published image supports linux/amd64 only. See Container Image Support and Assurance for architecture, probe, SBOM, and scan policy."
-  },
-  "https://docs.openpost.social/reference/env-vars": {
-    "audience": "This reference is for operators looking up common environment variables.",
-    "boundary": "This page lists the most common core and provider variables. Use Environment Variables for required values, defaults, file-backed configuration, legacy aliases, and complete deployment notes."
   },
   "https://docs.openpost.social/reference/surface-parity": {
     "audience": "This reference is for contributors and automation authors choosing an OpenPost client surface.",
@@ -547,10 +503,6 @@
     "audience": "Use this tab when the setting should differ between brands, clients, or projects.",
     "boundary": "The media lifecycle information is not a workspace control."
   },
-  "https://docs.openpost.social/usage/studio": {
-    "audience": "OpenPost Studio is the editing area for images and video.",
-    "boundary": "Video Editor projects stay in the disk workspace you choose until you explicitly upload or publish an export."
-  },
   "https://docs.openpost.social/usage/threads": {
     "audience": "This page is for people creating ordered multi-post sequences.",
     "boundary": "Failures in early posts can block later posts in the same thread."
@@ -562,5 +514,21 @@
   "https://docs.openpost.social/usage/workspaces": {
     "audience": "Use a workspace to keep one brand, client, or project separate.",
     "boundary": "Viewer has read-only workspace access."
+  },
+  "https://docs.openpost.social/configuration/": {
+    "audience": "Use this page when configuring a self-hosted deployment or the Hosted service.",
+    "boundary": "Use the linked references for complete environment-variable and provider-application details."
+  },
+  "https://docs.openpost.social/configuration/invitation-delivery-callbacks": {
+    "audience": "This page is for operators integrating an email provider's delivery callbacks.",
+    "boundary": "A successful delivery job marks a Workspace invitation Sent."
+  },
+  "https://docs.openpost.social/operations/provider-launch-matrix": {
+    "audience": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
+    "boundary": "OpenPost keeps provider implementation, setup, evidence, approval, and runtime control as separate facts. An adapter in the binary proves only that code exists. It does not make a provider or format ready, connectable, publishable, or safe to advertise."
+  },
+  "https://docs.openpost.social/providers/": {
+    "audience": "OAuth and social app setup cause many connection errors. Use this guide as you turn on each network.",
+    "boundary": "The table below is an implementation and setup inventory. It is not a Hosted service readiness claim."
   }
 }

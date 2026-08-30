@@ -38,6 +38,30 @@ func RunMigrations(db *bun.DB) error {
 	return runMigrations(db, migrationFiles)
 }
 
+// RequireCurrent verifies that every migration shipped in this binary has
+// already been applied. Long-lived process roles use this read-only check and
+// leave schema changes to the explicit migrate release phase.
+func RequireCurrent(ctx context.Context, db *bun.DB) error {
+	migrations, err := loadMigrations(db, migrationFiles)
+	if err != nil {
+		return err
+	}
+	var applied []SchemaMigration
+	if err := db.NewSelect().Model(&applied).Order("version ASC").Scan(ctx); err != nil {
+		return fmt.Errorf("failed to read schema migration history: %w", err)
+	}
+	appliedSet := make(map[int64]struct{}, len(applied))
+	for _, item := range applied {
+		appliedSet[item.Version] = struct{}{}
+	}
+	for _, item := range migrations {
+		if _, ok := appliedSet[item.version]; !ok {
+			return fmt.Errorf("migration %s has not been applied", item.name)
+		}
+	}
+	return nil
+}
+
 func runMigrations(db *bun.DB, source fs.FS) error {
 	ctx := context.Background()
 

@@ -9,6 +9,7 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	databasemigrations "github.com/openpost/backend/internal/database/migrations"
@@ -48,6 +49,7 @@ const (
 	staleProcessingJobAge              = 15 * time.Minute
 	processingHeartbeat                = staleProcessingJobAge / 3
 	publicationBuilderUnavailableRetry = time.Minute
+	jobFinalizationTimeout             = 3 * time.Second
 )
 
 // BackgroundWorker polls the configured database for pending jobs.
@@ -72,6 +74,8 @@ type BackgroundWorker struct {
 	telemetry             telemetry.Recorder
 	executors             map[jobregistry.ExecutionKind]jobExecutor
 	done                  chan struct{}
+	quiesce               chan struct{}
+	quiesceOnce           sync.Once
 }
 
 type jobExecutor func(context.Context, *models.Job) error
@@ -200,6 +204,7 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 		storage:   storage,
 		executors: map[jobregistry.ExecutionKind]jobExecutor{},
 		done:      make(chan struct{}),
+		quiesce:   make(chan struct{}),
 	}
 	w.executors[jobregistry.ExecutePublishPublication] = func(ctx context.Context, job *models.Job) error {
 		if w.publisher == nil {
@@ -222,8 +227,12 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 func (w *BackgroundWorker) Start(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
+	defer close(w.done)
 
 	log.Printf("Worker %s started polling every %v\n", w.workerID, w.interval)
+	if w.isQuiescing() {
+		return
+	}
 	w.ensureMediaLifecycleJobs(ctx)
 	w.processDueJobs(ctx)
 
@@ -231,7 +240,9 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Printf("Worker %s shutting down\n", w.workerID)
-			close(w.done)
+			return
+		case <-w.quiesce:
+			log.Printf("Worker %s drained\n", w.workerID)
 			return
 		case <-ticker.C:
 			w.processDueJobs(ctx)
@@ -239,18 +250,51 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 	}
 }
 
-// Stop signals the worker to stop and waits for it to finish.
+// Quiesce stops the worker from claiming another job. A job already running is
+// allowed to finish so its durable status can be committed safely.
+func (w *BackgroundWorker) Quiesce() {
+	w.quiesceOnce.Do(func() { close(w.quiesce) })
+}
+
+// Wait waits until the worker has drained or the caller's termination budget
+// expires.
+func (w *BackgroundWorker) Wait(ctx context.Context) error {
+	select {
+	case <-w.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Stop preserves the old blocking API for callers outside the process runner.
 func (w *BackgroundWorker) Stop() {
-	<-w.done
+	w.Quiesce()
+	_ = w.Wait(context.Background())
+}
+
+func (w *BackgroundWorker) isQuiescing() bool {
+	select {
+	case <-w.quiesce:
+		return true
+	default:
+		return false
+	}
 }
 
 func (w *BackgroundWorker) processDueJobs(ctx context.Context) {
+	if w.isQuiescing() {
+		return
+	}
 	requeuedPublicationJobIDs := w.requeueStaleProcessingJobs(ctx)
 	if err := databasemigrations.ReconcileActiveLegacyPublicationJobs(ctx, w.db, requeuedPublicationJobIDs); err != nil {
 		log.Printf("[Worker %s] failed to reconcile requeued publication jobs: %v\n", w.workerID, err)
 		return
 	}
 	for {
+		if w.isQuiescing() {
+			return
+		}
 		if !w.processNextJobIfAvailable(ctx) {
 			return
 		}
@@ -394,9 +438,11 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 	processErr := w.executeJob(ctx, job)
 	cancelHeartbeat()
 	<-heartbeatDone
+	finalizeCtx, cancelFinalize := workerFinalizationContext(ctx)
+	defer cancelFinalize()
 
 	if processErr != nil {
-		w.finishFailedJob(ctx, job, processErr)
+		w.finishFailedJob(finalizeCtx, job, processErr)
 		return
 	}
 	if definition, ok := jobregistry.Lookup(job.Type); ok && definition.Recurrence > 0 {
@@ -409,7 +455,7 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 			Set("locked_at = NULL").
 			Set("locked_by = ''").
 			Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
-			Exec(ctx); dbErr != nil {
+			Exec(finalizeCtx); dbErr != nil {
 			log.Printf("[Worker %s] failed to reschedule recurring job %s: %v\n", w.workerID, job.ID, dbErr)
 		}
 		log.Printf("[Worker %s] recurring job %s scheduled for %s\n", w.workerID, job.ID, nextRun.Format(time.RFC3339))
@@ -421,7 +467,7 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 		Set("locked_at = NULL").
 		Set("locked_by = ''").
 		Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
-		Exec(ctx)
+		Exec(finalizeCtx)
 	if dbErr != nil {
 		log.Printf("[Worker %s] failed to mark job %s as completed: %v\n", w.workerID, job.ID, dbErr)
 		return
@@ -431,6 +477,10 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 	} else if rows == 1 {
 		log.Printf("[Worker %s] job %s completed successfully\n", w.workerID, job.ID)
 	}
+}
+
+func workerFinalizationContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), jobFinalizationTimeout)
 }
 
 //nolint:gocyclo // Durable retry, fencing, and terminal persistence share this transaction-aware path.

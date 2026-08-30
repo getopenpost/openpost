@@ -6,9 +6,14 @@ OpenPost uses SemVer. Read the [release notes](https://github.com/getopenpost/op
 
 ```bash
 docker compose pull
+docker compose run --rm openpost ./openpost migrate
 docker compose up -d
 docker compose logs -f openpost
 ```
+
+The default `all` role also applies migrations for one-container self-hosting.
+Running the explicit command first makes the release phase visible and is
+required when `web` and `worker` run as separate processes.
 
 ## Checklist
 

@@ -19,6 +19,7 @@ services:
     platform: linux/amd64
     container_name: openpost
     restart: unless-stopped
+    stop_grace_period: 15s
     env_file:
       - .env
     ports:
@@ -99,6 +100,23 @@ Optional hardening after setup:
 ```bash
 docker compose up -d
 ```
+
+The image runs `./openpost all` by default. This combined role applies pending
+migrations, serves HTTP, and processes durable jobs for the one-container
+self-host setup.
+
+Larger deployments can run the same immutable image as separate release and
+runtime processes. Run the migration command once before replacing either
+long-lived role:
+
+```bash
+docker compose run --rm openpost ./openpost migrate
+```
+
+Then set each service command to `./openpost web` or `./openpost worker`. Both
+long-lived roles perform a read-only schema check and refuse to start until the
+release migration is current. Use PostgreSQL and shared S3-compatible storage
+before running more than one container.
 
 ## Check readiness
 

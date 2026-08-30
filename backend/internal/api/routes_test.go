@@ -16,7 +16,7 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
-func newSystemTestServer(t *testing.T) (*echo.Echo, *bun.DB) {
+func newSystemTestServer(t *testing.T) (*echo.Echo, *bun.DB, *Readiness) {
 	t.Helper()
 
 	sqldb, err := sql.Open("sqlite3", "file:"+t.Name()+"?mode=memory&cache=private")
@@ -24,12 +24,13 @@ func newSystemTestServer(t *testing.T) (*echo.Echo, *bun.DB) {
 	db := bun.NewDB(sqldb, sqlitedialect.New())
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	RegisterHealth(api, db)
+	readiness := NewReadiness()
+	RegisterHealth(api, db, readiness)
 	RegisterVersion(api, BuildInfo{Version: "v1.2.3", Revision: "abcdef", Edition: "cloud"})
 	t.Cleanup(func() {
 		_ = db.Close()
 	})
-	return e, db
+	return e, db, readiness
 }
 
 func systemGET(t *testing.T, e *echo.Echo, path string) *httptest.ResponseRecorder {
@@ -44,7 +45,7 @@ func systemGET(t *testing.T, e *echo.Echo, path string) *httptest.ResponseRecord
 func TestHealthCheckReturnsLivenessOnly(t *testing.T) {
 	t.Parallel()
 
-	e, _ := newSystemTestServer(t)
+	e, _, _ := newSystemTestServer(t)
 
 	resp := systemGET(t, e, "/api/v1/health")
 
@@ -57,7 +58,7 @@ func TestHealthCheckReturnsLivenessOnly(t *testing.T) {
 func TestReadinessCheckProbesDatabase(t *testing.T) {
 	t.Parallel()
 
-	e, _ := newSystemTestServer(t)
+	e, _, _ := newSystemTestServer(t)
 
 	resp := systemGET(t, e, "/api/v1/ready")
 
@@ -71,7 +72,7 @@ func TestReadinessCheckProbesDatabase(t *testing.T) {
 func TestReadinessCheckFailsWhenDatabaseIsClosed(t *testing.T) {
 	t.Parallel()
 
-	e, db := newSystemTestServer(t)
+	e, db, _ := newSystemTestServer(t)
 	require.NoError(t, db.Close())
 
 	resp := systemGET(t, e, "/api/v1/ready")
@@ -80,10 +81,24 @@ func TestReadinessCheckFailsWhenDatabaseIsClosed(t *testing.T) {
 	require.Contains(t, resp.Body.String(), "database is not ready")
 }
 
+func TestDrainingProcessFailsReadinessButRemainsLive(t *testing.T) {
+	t.Parallel()
+
+	e, _, readiness := newSystemTestServer(t)
+	readiness.BeginDrain()
+
+	readyResponse := systemGET(t, e, "/api/v1/ready")
+	require.Equal(t, http.StatusServiceUnavailable, readyResponse.Code, readyResponse.Body.String())
+	require.Contains(t, readyResponse.Body.String(), "process is draining")
+
+	healthResponse := systemGET(t, e, "/api/v1/health")
+	require.Equal(t, http.StatusOK, healthResponse.Code, healthResponse.Body.String())
+}
+
 func TestVersionReportsExactRunningRevision(t *testing.T) {
 	t.Parallel()
 
-	e, _ := newSystemTestServer(t)
+	e, _, _ := newSystemTestServer(t)
 	resp := systemGET(t, e, "/api/v1/version")
 
 	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())

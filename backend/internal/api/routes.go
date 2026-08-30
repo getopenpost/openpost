@@ -52,6 +52,7 @@ import (
 
 type RouteDeps struct {
 	DB                           *bun.DB
+	Readiness                    *Readiness
 	AuthService                  *auth.Service
 	Authenticator                middleware.Authenticator
 	SessionService               *sessions.Service
@@ -417,7 +418,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	engagementMessagingHandler.SetFeatureGate(afhService)
 	growthHandler.SetFeatureGate(afhService)
 
-	RegisterHealth(api, deps.DB)
+	RegisterHealth(api, deps.DB, deps.Readiness)
 	RegisterVersion(api, BuildInfo{
 		Version:  deps.AppVersion,
 		Revision: deps.AppRevision,
@@ -480,7 +481,7 @@ func RegisterVersion(api huma.API, info BuildInfo) {
 	})
 }
 
-func RegisterHealth(api huma.API, db *bun.DB) {
+func RegisterHealth(api huma.API, db *bun.DB, readiness *Readiness) {
 	huma.Register(api, huma.Operation{
 		OperationID: "health-check",
 		Method:      http.MethodGet,
@@ -514,6 +515,9 @@ func RegisterHealth(api huma.API, db *bun.DB) {
 			Database string `json:"database" doc:"Database dependency status"`
 		}
 	}, error) {
+		if !readiness.IsReady() {
+			return nil, huma.NewError(http.StatusServiceUnavailable, "process is draining")
+		}
 		if db == nil {
 			return nil, huma.NewError(http.StatusServiceUnavailable, "database is not ready")
 		}

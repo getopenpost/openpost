@@ -94,6 +94,24 @@ cd C:\OpenPost
 
 By default, OpenPost listens on `http://localhost:8080`.
 
+With no argument, the binary runs the `all` role. `./openpost all` is the
+explicit equivalent: it applies pending migrations, serves HTTP, and processes
+durable jobs. This keeps the single-binary self-host workflow intact.
+
+For a hosted or independently scaled formation, run these commands from the
+same release and configuration:
+
+```bash
+./openpost migrate  # one bounded release command
+./openpost web      # HTTP only
+./openpost worker   # durable jobs and recurring schedules only
+```
+
+Run `migrate` once before starting the new `web` and `worker` processes. Those
+long-lived roles only verify the schema and fail with an operator-facing error
+if a migration is missing. Concurrent migration commands serialize across the
+shared PostgreSQL database or SQLite volume.
+
 OpenPost loads `.env` from the process working directory. When running it as a Windows service, either set the service working directory to the folder containing `.env` or configure the environment variables directly in the service wrapper.
 
 ## 6. Run it as a service

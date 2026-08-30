@@ -40,6 +40,7 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 
 - SvelteKit builds the interface; a Go server embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, Bun ORM owns database access. SQLite is the default; PostgreSQL supports hosted use.
 - Persistent work uses database jobs, not in-memory goroutines. Media goes through `BlobStorage`. Provider code lives in `backend/internal/platform/`.
+- The binary exposes `all`, `web`, `worker`, and `migrate` process roles. `all` is the self-host default and auto-migrates; hosted rollouts run `migrate` once, then start `web` and `worker` against the current schema.
 - Page reads use stored state; provider calls happen in explicit sync or job flows. Publications are the canonical user-visible content inventory.
 - Svelte uses runes, the typed API client, and shared UI/page controls; visible form fields belong in shared primitives. Secrets stay out of code and logs; stored provider tokens are encrypted.
 - Video Editor on-canvas gestures keep drafts out of undo history and commit once on release. Animated position uses versioned vector keys with temporal easing and spatial Bezier tangents; legacy scalar X/Y tracks promote lazily on the first vector edit.

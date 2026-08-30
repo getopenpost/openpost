@@ -12,7 +12,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -81,18 +80,31 @@ import (
 var version = "dev"
 var commit = "unknown"
 
+const (
+	processShutdownTimeout    = 10 * time.Second
+	workerCancellationReserve = 3 * time.Second
+)
+
 func newWorkerID() string {
 	return "worker-" + uuid.NewString()
 }
 
 //nolint:gocyclo
 func main() {
+	command, commandErr := parseProcessCommand(os.Args[1:])
+	if commandErr != nil {
+		log.Fatal(commandErr)
+	}
+	if command.showHelp {
+		fmt.Println(processUsage)
+		return
+	}
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
 
 	cfg := config.Load()
-	if len(os.Args) == 2 && os.Args[1] == "check-config" {
+	if command.checkConfig {
 		if err := cfg.ValidateRuntime(); err != nil {
 			log.Fatal(err)
 		}
@@ -108,13 +120,36 @@ func main() {
 		return
 	}
 	config.Init()
+	if command.role == processRoleMigrate {
+		if err := cfg.ValidateRuntime(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	db, err := database.InitDBWithDriver(cfg.DatabaseDriver, cfg.DatabaseDSN())
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := database.CreateSchema(db); err != nil {
-		log.Fatalf("database schema initialization failed: %v", err)
+	defer func() {
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("database shutdown failed: %v", closeErr)
+		}
+	}()
+	if command.role.autoMigrates() {
+		if err := database.CreateSchemaLocked(context.Background(), db, cfg.DatabaseDriver, cfg.DatabaseDSN()); err != nil {
+			log.Fatalf("database schema initialization failed: %v", err)
+		}
+	} else if err := database.RequireCurrentSchema(context.Background(), db); err != nil {
+		log.Fatal(err)
+	}
+	if command.role == processRoleMigrate {
+		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
+			"status":          "migrated",
+			"database_driver": cfg.DatabaseDriver,
+		}); err != nil {
+			log.Fatal(err)
+		}
+		return
 	}
 
 	tokenEncryptor := crypto.NewTokenEncryptor(cfg.EncryptionKey)
@@ -141,6 +176,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	readiness := apiroutes.NewReadiness()
 	e := echo.New()
 	e.Use(echo.WrapMiddleware(telemetryRecorder.WrapHTTP))
 	e.Use(middleware.RequestID())
@@ -580,34 +616,37 @@ func main() {
 		AppVersion: version,
 	}, feedbackDestination)
 
-	worker := queue.NewWorker(db, newWorkerID(), 1*time.Second, publishSvc, tokenManager, storage)
-	worker.SetFeedbackService(feedbackService)
-	worker.SetAnalyticsService(analyticsService)
-	worker.SetBillingService(billingService)
-	worker.SetEngagementService(engagementService)
-	worker.SetMessagingService(messagingService)
-	worker.SetNotificationService(notificationService)
 	organizationOwnershipService := organizationownership.NewService(db, notificationService, identityService)
-	worker.SetOrganizationOwnershipService(organizationOwnershipService)
-	worker.SetRepostService(repostService)
-	worker.SetVideoProcessingService(videoProcessingService)
-	worker.SetGrowthService(growthService)
-	worker.SetPublicationBuilderService(publicationBuilderApplication)
-	worker.SetTelemetry(telemetryRecorder)
-	if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
-		log.Fatalf("failed to schedule pending video analysis: %v", err)
-	}
-	if err := analyticsService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule analytics collection: %v", err)
-	}
-	if err := engagementService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule engagement collection: %v", err)
-	}
-	if err := messagingService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule messaging collection: %v", err)
-	}
-	if err := repostService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule repost automation: %v", err)
+	var worker *queue.BackgroundWorker
+	if command.role.runsWorker() {
+		worker = queue.NewWorker(db, newWorkerID(), 1*time.Second, publishSvc, tokenManager, storage)
+		worker.SetFeedbackService(feedbackService)
+		worker.SetAnalyticsService(analyticsService)
+		worker.SetBillingService(billingService)
+		worker.SetEngagementService(engagementService)
+		worker.SetMessagingService(messagingService)
+		worker.SetNotificationService(notificationService)
+		worker.SetOrganizationOwnershipService(organizationOwnershipService)
+		worker.SetRepostService(repostService)
+		worker.SetVideoProcessingService(videoProcessingService)
+		worker.SetGrowthService(growthService)
+		worker.SetPublicationBuilderService(publicationBuilderApplication)
+		worker.SetTelemetry(telemetryRecorder)
+		if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
+			log.Fatalf("failed to schedule pending video analysis: %v", err)
+		}
+		if err := analyticsService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule analytics collection: %v", err)
+		}
+		if err := engagementService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule engagement collection: %v", err)
+		}
+		if err := messagingService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule messaging collection: %v", err)
+		}
+		if err := repostService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule repost automation: %v", err)
+		}
 	}
 
 	apiGroup := e.Group("/api/v1")
@@ -673,6 +712,7 @@ func main() {
 	})
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{
 		DB:                        db,
+		Readiness:                 readiness,
 		AuthService:               authService,
 		Authenticator:             authenticator,
 		SessionService:            sessionService,
@@ -771,66 +811,63 @@ func main() {
 
 	RegisterSpaRoutes(e, db, cfg.PublicURL, cfg.Edition == config.EditionCloud, cfg.PublicProfilesEnabled)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	defer cancelWorker()
+	if worker != nil {
+		go worker.Start(workerCtx)
+		log.Printf("Starting OpenPost %s process", command.role)
+	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		worker.Start(ctx)
-	}()
-
-	log.Println("Starting OpenPost on :" + cfg.Port)
-	log.Println("OpenAPI spec available at http://localhost:" + cfg.Port + "/openapi.json")
-
-	serverErrCh := make(chan error, 1)
-	go func() {
-		serverErrCh <- e.Start(":" + cfg.Port)
-	}()
+	var serverErrCh <-chan error
+	if command.role.runsWeb() {
+		log.Println("Starting OpenPost on :" + cfg.Port)
+		log.Println("OpenAPI spec available at http://localhost:" + cfg.Port + "/openapi.json")
+		serverErrors := make(chan error, 1)
+		serverErrCh = serverErrors
+		go func() {
+			serverErrors <- e.Start(":" + cfg.Port)
+		}()
+	}
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
 
+	var runtimeErr error
 	select {
 	case sig := <-sigCh:
 		log.Printf("Shutting down after %s...", sig)
 	case err := <-serverErrCh:
 		if err != nil && err != http.ErrServerClosed {
-			cancel()
-			signal.Stop(sigCh)
-			worker.Stop()
-			wg.Wait()
-			closeTelemetry(telemetryRecorder)
-			log.Printf("Server error: %v", err)
-			return
+			runtimeErr = err
 		}
-		cancel()
-		worker.Stop()
-		wg.Wait()
-		closeTelemetry(telemetryRecorder)
-		log.Println("Server stopped")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), processShutdownTimeout)
+	defer shutdownCancel()
+	var forceWorkerCancellation *time.Timer
+	if worker != nil {
+		forceWorkerCancellation = time.AfterFunc(processShutdownTimeout-workerCancellationReserve, cancelWorker)
+		defer forceWorkerCancellation.Stop()
+	}
+	var webRuntime webProcess
+	if command.role.runsWeb() {
+		webRuntime = e
+	}
+	var workerRuntime workerProcess
+	if worker != nil {
+		workerRuntime = worker
+	}
+	for _, err := range drainRuntime(shutdownCtx, readiness, webRuntime, workerRuntime) {
+		log.Printf("Process drain error: %v", err)
+	}
+	cancelWorker()
+	closeTelemetry(telemetryRecorder)
+	if runtimeErr != nil {
+		log.Printf("Server error: %v", runtimeErr)
 		return
 	}
-
-	cancel()
-	worker.Stop()
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	if err := e.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Echo shutdown error: %v", err)
-	}
-
-	if err := <-serverErrCh; err != nil && err != http.ErrServerClosed {
-		log.Printf("Echo server error: %v", err)
-	}
-
-	wg.Wait()
-	closeTelemetry(telemetryRecorder)
-	log.Println("Server stopped")
+	log.Printf("OpenPost %s process stopped", command.role)
 }
 
 func closeTelemetry(recorder telemetry.Recorder) {

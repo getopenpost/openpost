@@ -4,6 +4,7 @@ services:
     platform: linux/amd64
     container_name: openpost
     restart: unless-stopped
+    stop_grace_period: 15s
 
     env_file:
       - .env

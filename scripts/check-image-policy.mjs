@@ -35,8 +35,15 @@ export function imagePolicyInputs(root = repositoryRoot) {
   return {
     policy: JSON.parse(read("docker/image-policy.json")),
     dockerfile: read("docker/Dockerfile"),
+    backendGoMod: read("backend/go.mod"),
+    cliGoMod: read("cli/go.mod"),
+    devenv: read("devenv.nix"),
+    backendDevenv: read("backend/devenv.nix"),
+    rootPackage: JSON.parse(read("package.json")),
+    mobilePackage: JSON.parse(read("mobile/package.json")),
     compose: read("docker-compose.yml"),
     ci: read(".github/workflows/ci.yml"),
+    cacheContract: read(".github/workflows/cache-contract.yml"),
     release: read(".github/workflows/release.yml"),
     dependabot: read(".github/dependabot.yml"),
     evidence: read("scripts/image-evidence.mjs"),
@@ -117,6 +124,32 @@ export function validateImagePolicy(inputs, now = new Date()) {
   if (!inputs.dockerfile.includes(`FROM ${base.reference} AS runtime`)) {
     problems.push("Dockerfile runtime FROM does not match image-policy.json");
   }
+  const runtimePackages = policy.runtime_packages;
+  const expectedRuntimePackages = ["ca-certificates", "ffmpeg", "tzdata", "sqlite"];
+  if (
+    !Array.isArray(runtimePackages) ||
+    runtimePackages.length !== expectedRuntimePackages.length ||
+    runtimePackages.some((name, index) => name !== expectedRuntimePackages[index])
+  ) {
+    problems.push(`runtime packages must be exactly ${expectedRuntimePackages.join(", ")}`);
+  } else if (
+    !inputs.dockerfile.includes(`RUN apk add --no-cache ${expectedRuntimePackages.join(" ")}`)
+  ) {
+    problems.push("Dockerfile runtime packages do not match image-policy.json");
+  }
+  if (/\bapk\s+upgrade\b/u.test(inputs.dockerfile)) {
+    problems.push("Dockerfile must not mutate the pinned base with apk upgrade");
+  }
+  const standaloneRuntime = policy.standalone_runtime ?? {};
+  if (
+    JSON.stringify(standaloneRuntime.media_commands) !== JSON.stringify(["ffmpeg", "ffprobe"]) ||
+    standaloneRuntime.development_package !== "pkgs.ffmpeg" ||
+    standaloneRuntime.lock_file !== "devenv.lock" ||
+    standaloneRuntime.bundled !== false ||
+    !inputs.devenv.includes("pkgs.ffmpeg")
+  ) {
+    problems.push("standalone FFmpeg inputs must match the locked Devenv dependency");
+  }
   if (
     !inputs.dockerfile.includes("FROM frontend_artifact AS frontend-builder") ||
     !inputs.dockerfile.includes("COPY --from=frontend-builder / ./backend/cmd/openpost/public")
@@ -135,6 +168,42 @@ export function validateImagePolicy(inputs, now = new Date()) {
   }
   if (!inputs.dockerfile.includes(`received \${TARGETARCH:-unknown}`)) {
     problems.push("Dockerfile must fail closed for an unsupported target architecture");
+  }
+
+  const goVersion = String(inputs.backendGoMod).match(/^go (\d+\.\d+\.\d+)$/mu)?.[1];
+  const cliGoVersion = String(inputs.cliGoMod).match(/^go (\d+\.\d+\.\d+)$/mu)?.[1];
+  if (!goVersion || cliGoVersion !== goVersion) {
+    problems.push("backend and CLI Go module versions must match");
+  } else {
+    const goAttribute = goVersion.split(".").slice(0, 2).join("_");
+    if (!inputs.backendDevenv.includes(`pkgs.go_${goAttribute}`)) {
+      problems.push("Devenv Go major/minor must match the module toolchain");
+    }
+    if (!String(buildBases?.[0]?.reference ?? "").startsWith(`golang:${goVersion}-alpine@`)) {
+      problems.push("production builder Go version must match the module toolchain");
+    }
+  }
+  const rootBunVersion = String(inputs.rootPackage?.packageManager ?? "").match(
+    /^bun@(\d+\.\d+\.\d+)$/u,
+  )?.[1];
+  const mobileBunVersion = String(inputs.mobilePackage?.packageManager ?? "").match(
+    /^bun@(\d+\.\d+\.\d+)$/u,
+  )?.[1];
+  if (!rootBunVersion || mobileBunVersion !== rootBunVersion) {
+    problems.push("root and mobile Bun versions must match");
+  } else {
+    for (const [label, source] of [
+      ["CI", inputs.ci],
+      ["release", inputs.release],
+      ["cache contract", inputs.cacheContract],
+    ]) {
+      if (
+        !source.includes(`bun-version: \"${rootBunVersion}\"`) &&
+        !source.includes(`BUN_VERSION: \"${rootBunVersion}\"`)
+      ) {
+        problems.push(`${label} Bun version must match packageManager`);
+      }
+    }
   }
 
   const health = policy.probes?.container_health;

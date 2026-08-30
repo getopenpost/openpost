@@ -36,6 +36,35 @@ test("production build stages cannot drift back to mutable tags", () => {
   assert.ok(problems.some((problem) => problem.includes("backend-builder")));
 });
 
+test("declared Go and Bun toolchains cannot drift between release surfaces", () => {
+  const inputs = imagePolicyInputs();
+  const problems = validateImagePolicy(
+    {
+      ...inputs,
+      backendGoMod: inputs.backendGoMod.replace("go 1.26.6", "go 1.26.7"),
+      mobilePackage: { ...inputs.mobilePackage, packageManager: "bun@1.3.12" },
+    },
+    new Date("2026-08-09T00:00:00Z"),
+  );
+  assert.ok(problems.some((problem) => problem.includes("Go module versions")));
+  assert.ok(problems.some((problem) => problem.includes("Bun versions")));
+});
+
+test("runtime packages must stay declared and the pinned base cannot be upgraded", () => {
+  const inputs = imagePolicyInputs();
+  const problems = validateImagePolicy(
+    {
+      ...inputs,
+      dockerfile: inputs.dockerfile
+        .replace("RUN apk add --no-cache", "RUN apk upgrade --no-cache && apk add --no-cache")
+        .replace("ca-certificates ffmpeg tzdata sqlite", "ca-certificates tzdata sqlite"),
+    },
+    new Date("2026-08-09T00:00:00Z"),
+  );
+  assert.ok(problems.some((problem) => problem.includes("runtime packages")));
+  assert.ok(problems.some((problem) => problem.includes("apk upgrade")));
+});
+
 test("the production image cannot rebuild a second frontend artifact", () => {
   const inputs = imagePolicyInputs();
   const problems = validateImagePolicy(

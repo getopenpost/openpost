@@ -6,7 +6,7 @@ OpenPost stores media on the local file system by default. It can also use S3 or
 
 ## Video processing dependency
 
-OpenPost requires `ffmpeg` and `ffprobe` on `PATH` to verify uploaded videos and create posters. The official Docker image includes both tools, and the project Devenv supplies them for development. Install FFmpeg separately when running the standalone binary. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed.
+OpenPost requires `ffmpeg` and `ffprobe` from the same FFmpeg installation on `PATH` to verify uploaded videos and create posters. The official Docker image includes both tools. Project development and standalone release checks use the `pkgs.ffmpeg` input pinned by `devenv.lock`. Standalone binaries do not bundle FFmpeg, so install a maintained FFmpeg package for the host before starting OpenPost and keep both commands together when upgrading it. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed.
 
 ## Key settings
 

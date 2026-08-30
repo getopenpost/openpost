@@ -4,7 +4,7 @@
 FROM frontend_artifact AS frontend-builder
 
 # Build stage for backend
-FROM golang:1.27.0-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS backend-builder
+FROM golang:1.26.6-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83 AS backend-builder
 
 ARG VERSION=dev
 ARG COMMIT=unknown
@@ -68,8 +68,7 @@ LABEL org.opencontainers.image.title="OpenPost" \
       org.opencontainers.image.base.digest="sha256:28bd5fe8b56d1bd048e5babf5b10710ebe0bae67db86916198a6eec434943f8b" \
       io.openpost.release-manifest.sha256="${RELEASE_MANIFEST_SHA256}"
 
-RUN apk upgrade --no-cache && \
-    apk add --no-cache ca-certificates ffmpeg tzdata sqlite
+RUN apk add --no-cache ca-certificates ffmpeg tzdata sqlite
 
 RUN adduser -D -u 1000 openpost
 

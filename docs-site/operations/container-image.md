@@ -8,6 +8,8 @@ This limit applies to the container image, not every release artifact. See [Sing
 
 [`docker/image-policy.json`](https://github.com/getopenpost/openpost/blob/main/docker/image-policy.json) records the exact Go backend-builder and runtime base references, the runtime support review, the supported image platform, probe paths, and scanner versions. CI builds the canonical frontend once with the repository-pinned Bun and Node versions, tests and retains that directory, then supplies those exact bytes to the Dockerfile as a named BuildKit context. The Dockerfile pins its remaining image inputs by digest and labels the final image with its shipped Alpine base identity.
 
+The policy also declares the complete runtime package set. The Dockerfile installs those packages without a blanket `apk upgrade`, so it does not replace files outside the declared dependency set. Alpine resolves security revisions from the pinned base's release branch, and candidate CI records the exact result in the SPDX SBOM and vulnerability report before publication.
+
 Alpine's [release-branch table](https://www.alpinelinux.org/releases/) is the source for support dates. Dependabot checks the Docker directory every week. A maintainer still reviews each update, updates the policy record when the base identity changes, and requires the complete candidate image gate before merge or release.
 
 ## Candidate evidence

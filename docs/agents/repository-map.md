@@ -17,3 +17,5 @@ Use this map to pull only the context needed for the current ticket. Paths and s
 | Project verification                          | `devenv.nix`, `devenv.yaml`, root `package.json`, and `turbo.json`                          | The root task dispatcher and the closest existing test file before broad gates                                                                                                | scoped root `check`, `lint`, `test`, or `build`, then `bun run verify` in proportion to risk          |
 
 Run repository gates from the root with `bun run <gate> -- <scope>`. Omit the scope for the complete repository gate.
+
+Before changing runtime configuration, release workflows, or revision evidence, read `docs/agents/deployable-inventory.md` for each deployable's owner, release path, and proof boundary.

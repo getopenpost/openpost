@@ -1083,17 +1083,28 @@ func oauthRedirectFromFrontend(primary, alias, frontend, path string) string {
 func Init() {
 	jwtSecret := getEnvWithFallbacks("OPENPOST_JWT_SECRET", "", "JWT_SECRET")
 	encryptionKey := getEnvWithFallbacks("OPENPOST_ENCRYPTION_KEY", "", "ENCRYPTION_KEY")
+	if err := validateBootstrapSecrets(jwtSecret, encryptionKey); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	if jwtSecret == "" {
-		log.Fatal("FATAL: OPENPOST_JWT_SECRET is required")
+func validateBootstrapSecrets(jwtSecret, encryptionKey string) error {
+	for _, secret := range []struct {
+		name  string
+		value string
+	}{
+		{name: "OPENPOST_JWT_SECRET", value: jwtSecret},
+		{name: "OPENPOST_ENCRYPTION_KEY", value: encryptionKey},
+	} {
+		if secret.value == "" {
+			return fmt.Errorf("FATAL: %s is required", secret.name)
+		}
+		if len(secret.value) < minSecretLength {
+			return fmt.Errorf("FATAL: %s must be at least %d characters (got %d)", secret.name, minSecretLength, len(secret.value))
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(secret.value)), "change-this-") {
+			return fmt.Errorf("FATAL: %s must not use a public example placeholder", secret.name)
+		}
 	}
-	if len(jwtSecret) < minSecretLength {
-		log.Fatalf("FATAL: OPENPOST_JWT_SECRET must be at least %d characters (got %d)", minSecretLength, len(jwtSecret))
-	}
-	if encryptionKey == "" {
-		log.Fatal("FATAL: OPENPOST_ENCRYPTION_KEY is required")
-	}
-	if len(encryptionKey) < minSecretLength {
-		log.Fatalf("FATAL: OPENPOST_ENCRYPTION_KEY must be at least %d characters (got %d)", minSecretLength, len(encryptionKey))
-	}
+	return nil
 }

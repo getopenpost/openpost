@@ -1049,6 +1049,43 @@ func TestWarnOnPlaceholderURLOnlyWarnsForImplicitDefault(t *testing.T) {
 	require.Empty(t, output.String())
 }
 
+func TestValidateBootstrapSecretsRejectsTrackedExamplePlaceholdersWithoutEchoingThem(t *testing.T) {
+	jwtPlaceholder := "change-this-jwt-secret-min-32-chars"
+	encryptionPlaceholder := "change-this-encryption-key-32chars"
+
+	err := validateBootstrapSecrets(jwtPlaceholder, strings.Repeat("e", minSecretLength))
+	require.ErrorContains(t, err, "OPENPOST_JWT_SECRET")
+	require.ErrorContains(t, err, "public example placeholder")
+	require.NotContains(t, err.Error(), jwtPlaceholder)
+
+	err = validateBootstrapSecrets(strings.Repeat("j", minSecretLength), encryptionPlaceholder)
+	require.ErrorContains(t, err, "OPENPOST_ENCRYPTION_KEY")
+	require.ErrorContains(t, err, "public example placeholder")
+	require.NotContains(t, err.Error(), encryptionPlaceholder)
+}
+
+func TestValidateBootstrapSecretsAcceptsIndependentGeneratedValues(t *testing.T) {
+	require.NoError(t, validateBootstrapSecrets(
+		"3daf47b368ac4e64b2791a807b32fc05",
+		"b8d7b76210b84570bfa504515e240f66",
+	))
+}
+
+func TestBootstrapAndDataPlaneSettingsRemainDeploymentOwned(t *testing.T) {
+	for _, key := range []string{
+		"OPENPOST_JWT_SECRET",
+		"OPENPOST_ENCRYPTION_KEY",
+		"OPENPOST_DATABASE_DRIVER",
+		"OPENPOST_DATABASE_URL",
+		"OPENPOST_STORAGE_DRIVER",
+		"OPENPOST_S3_ACCESS_KEY_ID",
+		"OPENPOST_S3_SECRET_ACCESS_KEY",
+	} {
+		_, managed := ManagedSettingDefinitionFor(key)
+		require.Falsef(t, managed, "%s must not become a database-managed setting", key)
+	}
+}
+
 func writeEnvFile(t *testing.T, name, value string) string {
 	t.Helper()
 

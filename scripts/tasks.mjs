@@ -68,6 +68,7 @@ const checks = {
     bunTest(
       "scripts/next-release-version.test.mjs",
       "scripts/n8n-package-release.test.mjs",
+      "scripts/mobile-release.test.mjs",
       "scripts/release-manifest.test.mjs",
       "scripts/release-assets.test.mjs",
       "scripts/release-lifecycle.test.mjs",

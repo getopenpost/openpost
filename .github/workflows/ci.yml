@@ -553,6 +553,8 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -586,6 +588,16 @@ jobs:
       - name: Check the standalone mobile app
         working-directory: mobile
         run: bun run check
+      - name: Check the monotonic Android release identity
+        working-directory: mobile
+        run: |
+          latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
+          [[ -n "$latest_tag" ]]
+          git show "$latest_tag:mobile/app.json" > previous-release-app.json
+          bun ../scripts/mobile-release.mjs check \
+            --config app.json \
+            --package package.json \
+            --previous-config previous-release-app.json
       - name: Build the native Expo Android candidate
         working-directory: mobile
         run: bun run build:android:candidate
@@ -593,6 +605,12 @@ jobs:
           cp mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           unzip -t openpost-app-android-unsigned.apk
           sha256sum openpost-app-android-unsigned.apk > openpost-app-android-unsigned.sha256
+          bun scripts/mobile-release.mjs create \
+            --config mobile/app.json \
+            --package mobile/package.json \
+            --revision "$GITHUB_SHA" \
+            --apk openpost-app-android-unsigned.apk \
+            --output openpost-app-android-candidate.json
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
             --ks mobile/android/app/debug.keystore \
             --ks-key-alias androiddebugkey \
@@ -608,6 +626,7 @@ jobs:
           path: |
             openpost-app-android-unsigned.apk
             openpost-app-android-unsigned.sha256
+            openpost-app-android-candidate.json
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

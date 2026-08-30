@@ -20,6 +20,7 @@
 		"test:watch": "bun run sync && vitest",
 		"test:server": "bun run sync && vitest run --project server",
 		"generate:types": "openapi-typescript openapi.json -o src/lib/api/types.d.ts",
+		"generate:mobile-types": "openapi-typescript openapi.json -o ../mobile/src/lib/api/schema.d.ts",
 		"sync": "svelte-kit sync"
 	},
 	"devDependencies": {

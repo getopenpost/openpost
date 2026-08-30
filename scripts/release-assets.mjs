@@ -26,6 +26,7 @@ export const expectedReleaseAssets = Object.freeze([
     `openpost-mcp-${os}-${architecture}${extension}`,
   ]),
   "openpost-app-android.apk",
+  "openpost-app-android-release.json",
 ]);
 
 function normalizeNotes(value) {

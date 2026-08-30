@@ -1043,7 +1043,7 @@ type SocialAccount struct {
 	// test fixtures. Runtime credential reads and writes use OAuthGrant.
 	AccessTokenEnc      []byte    `bun:"access_token_encrypted,notnull" json:"-"`
 	RefreshTokenEnc     []byte    `bun:"refresh_token_encrypted" json:"-"`
-	TokenExpiresAt      time.Time `json:"token_expires_at"`
+	TokenExpiresAt      time.Time `bun:"token_expires_at,nullzero" json:"token_expires_at"`
 	GrantedScopes       string    `bun:"granted_scopes,notnull,default:''" json:"granted_scopes,omitempty"`
 	CapabilityState     string    `bun:"capability_state_json,notnull,default:'{}'" json:"-"`
 	CapabilityCheckedAt time.Time `bun:"capability_checked_at,nullzero" json:"-"`
@@ -1849,8 +1849,8 @@ type Post struct {
 
 	Status             string    `bun:",notnull" json:"status"` // 'draft', 'scheduled', 'publishing', 'published', 'failed'
 	Revision           int       `bun:",notnull,default:1" json:"revision"`
-	ScheduledAt        time.Time `json:"scheduled_at"`
-	PublishedAt        time.Time `json:"published_at"`
+	ScheduledAt        time.Time `bun:"scheduled_at,nullzero" json:"scheduled_at"`
+	PublishedAt        time.Time `bun:"published_at,nullzero" json:"published_at"`
 	RandomDelayMinutes int       `bun:",default:0" json:"random_delay_minutes"`
 	ActualRunAt        time.Time `bun:",nullzero" json:"actual_run_at"` // Set by worker, differs from ScheduledAt if randomized
 	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
@@ -2265,7 +2265,7 @@ type Job struct {
 	Attempts    int       `bun:",default:0" json:"attempts"`
 	MaxAttempts int       `bun:",default:3" json:"max_attempts"`
 	LastError   string    `json:"last_error"`
-	LockedAt    time.Time `json:"locked_at"`
+	LockedAt    time.Time `bun:"locked_at,nullzero" json:"locked_at"`
 	LockedBy    string    `json:"locked_by"`
 }
 

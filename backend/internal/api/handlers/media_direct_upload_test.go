@@ -39,6 +39,25 @@ type fakeDirectUploadStorage struct {
 	sessions  int
 }
 
+type cancelingUploadStorage struct {
+	cancel           context.CancelFunc
+	deleteContextErr error
+}
+
+func (*cancelingUploadStorage) Driver() string { return "canceling" }
+func (s *cancelingUploadStorage) Save(ctx context.Context, _ string, _ io.Reader) (string, error) {
+	s.cancel()
+	return "", ctx.Err()
+}
+func (s *cancelingUploadStorage) Delete(ctx context.Context, _ string) error {
+	s.deleteContextErr = ctx.Err()
+	return nil
+}
+func (*cancelingUploadStorage) GetURL(string) string { return "" }
+func (*cancelingUploadStorage) Open(context.Context, string) (io.ReadCloser, error) {
+	return nil, errMediaNotFoundForTest{}
+}
+
 func newFakeDirectUploadStorage() *fakeDirectUploadStorage {
 	return &fakeDirectUploadStorage{objects: map[string][]byte{}}
 }
@@ -47,7 +66,7 @@ func (s *fakeDirectUploadStorage) Driver() string {
 	return "s3"
 }
 
-func (s *fakeDirectUploadStorage) Save(id string, reader io.Reader) (string, error) {
+func (s *fakeDirectUploadStorage) Save(_ context.Context, id string, reader io.Reader) (string, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
@@ -56,7 +75,7 @@ func (s *fakeDirectUploadStorage) Save(id string, reader io.Reader) (string, err
 	return id, nil
 }
 
-func (s *fakeDirectUploadStorage) Delete(id string) error {
+func (s *fakeDirectUploadStorage) Delete(_ context.Context, id string) error {
 	delete(s.objects, id)
 	s.deleted = append(s.deleted, id)
 	return nil
@@ -66,7 +85,7 @@ func (s *fakeDirectUploadStorage) GetURL(id string) string {
 	return "https://media.openpost.test/" + id
 }
 
-func (s *fakeDirectUploadStorage) Open(id string) (io.ReadCloser, error) {
+func (s *fakeDirectUploadStorage) Open(_ context.Context, id string) (io.ReadCloser, error) {
 	data, ok := s.objects[id]
 	if !ok {
 		return nil, errMediaNotFoundForTest{}
@@ -186,6 +205,36 @@ func TestCreateMediaUploadSessionSupportsLocalStreaming(t *testing.T) {
 	upload := out["upload"].(map[string]any)
 	require.Equal(t, http.MethodPut, upload["method"])
 	require.Equal(t, "/api/v1/media/upload-session/"+mediaID+"/content", upload["url"])
+}
+
+func TestCanceledStreamingUploadReturnsSessionToPending(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	storage := &cancelingUploadStorage{cancel: cancel}
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	media := &models.MediaAttachment{
+		ID:               "canceled-stream",
+		WorkspaceID:      "ws-1",
+		FilePath:         "canceled-stream.txt",
+		StorageType:      storage.Driver(),
+		MimeType:         "text/plain",
+		ProcessingStatus: mediaProcessingStatus,
+		Size:             7,
+		OriginalFilename: "canceled-stream.txt",
+		CreatedAt:        time.Now().UTC(),
+	}
+	_, err := srv.db.NewInsert().Model(media).Exec(t.Context())
+	require.NoError(t, err)
+	req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/media/upload-session/"+media.ID+"/content", bytes.NewBufferString("content"))
+	req.Header.Set("Authorization", "Bearer web-token")
+	recorder := httptest.NewRecorder()
+
+	srv.echo.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	require.NoError(t, storage.deleteContextErr)
+	var stored models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", media.ID).Scan(t.Context()))
+	require.Equal(t, mediaProcessingStatus, stored.ProcessingStatus)
 }
 
 func TestCreateMediaUploadSessionIdempotencyReplaysTheReservedTarget(t *testing.T) {
@@ -614,6 +663,34 @@ func TestCompleteMediaUploadSessionDedupesExistingMedia(t *testing.T) {
 	current, err := srv.usage.CurrentMonthly(context.Background(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), current)
+}
+
+func TestMediaRollbackCompletesAfterRequestCancellation(t *testing.T) {
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	media := &models.MediaAttachment{
+		ID:               "rollback-media",
+		WorkspaceID:      "ws-1",
+		FilePath:         "rollback-media.txt",
+		StorageType:      "s3",
+		MimeType:         "text/plain",
+		ProcessingStatus: mediaReadyStatus,
+		Size:             7,
+		OriginalFilename: "rollback-media.txt",
+		CreatedAt:        time.Now().UTC(),
+	}
+	_, err := srv.db.NewInsert().Model(media).Exec(t.Context())
+	require.NoError(t, err)
+	storage.objects[media.FilePath] = []byte("content")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	handler := NewMediaHandler(srv.db, storage, nil, testAuthenticator{}, nil)
+
+	require.NoError(t, handler.rollbackMediaRecord(ctx, media))
+	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+	require.NotContains(t, storage.objects, media.FilePath)
 }
 
 func (s *mediaDirectUploadTestServer) createUploadSession(t *testing.T, filename string, mimeType string, size int64) string {

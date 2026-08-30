@@ -148,6 +148,8 @@ func exerciseConcurrentSiblingRefresh(t *testing.T, db *bun.DB) {
 	}()
 	select {
 	case <-adapter.started:
+	case out := <-results:
+		t.Fatalf("first refresh returned before reaching provider: %v", out.err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("first refresh did not reach provider")
 	}

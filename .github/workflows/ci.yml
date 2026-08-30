@@ -207,6 +207,109 @@ jobs:
           OPENPOST_GO_TEST_RACE: "1"
         run: bun run test -- backend
 
+  hosted-data-plane:
+    name: Hosted PostgreSQL and object storage
+    needs: plan
+    if: needs.plan.outputs.backend == 'true' || needs.plan.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
+        env:
+          POSTGRES_DB: openpost
+          POSTGRES_USER: openpost
+          POSTGRES_PASSWORD: openpost-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openpost -d openpost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: |
+            /*
+            !/frontend/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: bash scripts/ci-timing-summary.sh start hosted-data-plane
+      - name: Start the pinned S3-compatible service
+        run: |
+          docker run --detach --name openpost-minio \
+            --publish 9000:9000 \
+            --env MINIO_ROOT_USER=openpost-ci \
+            --env MINIO_ROOT_PASSWORD=openpost-ci-password \
+            quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e \
+            server /data --address :9000
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs openpost-minio
+          exit 1
+      - name: Exercise hosted database migrations, queue claims, and object storage
+        working-directory: backend
+        env:
+          OPENPOST_TEST_POSTGRES_URL: postgres://openpost:openpost-ci-password@127.0.0.1:5432/openpost?sslmode=disable
+          OPENPOST_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+          OPENPOST_TEST_S3_REGION: us-east-1
+          OPENPOST_TEST_S3_ACCESS_KEY_ID: openpost-ci
+          OPENPOST_TEST_S3_SECRET_ACCESS_KEY: openpost-ci-password
+          OPENPOST_TEST_S3_BUCKET: openpost-ci-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -tags dev -count=1 -json \
+            ./internal/database \
+            ./internal/database/migrations \
+            ./internal/queue \
+            ./internal/services/apitokens \
+            ./internal/services/billing \
+            ./internal/services/credentialguard \
+            ./internal/services/feedback \
+            ./internal/services/medialifecycle \
+            ./internal/services/mediastore \
+            ./internal/services/providerwrite \
+            ./internal/services/tokenmanager \
+            | tee hosted-data-plane.json
+          if jq -s -e 'any(.[]; .Action == "skip" and .Test != null)' hosted-data-plane.json >/dev/null; then
+            echo "A hosted data-plane test was skipped." >&2
+            jq -r 'select(.Action == "skip" and .Test != null) | .Package + ": " + .Test' hosted-data-plane.json >&2
+            exit 1
+          fi
+          for required_test in \
+            TestRevisionMediaReferencesMigrationPostgres \
+            TestPostgresWorkersClaimDifferentDueJobsWithoutWaiting \
+            TestS3CompatibleStorageIntegration; do
+            jq -e --arg test "$required_test" \
+              'select(.Action == "pass" and .Test == $test)' \
+              hosted-data-plane.json >/dev/null || {
+                echo "Required hosted data-plane test did not pass: $required_test" >&2
+                exit 1
+              }
+          done
+      - if: always()
+        run: |
+          docker logs openpost-minio > backend/minio.log 2>&1 || true
+          bash scripts/ci-timing-summary.sh finish hosted-data-plane
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-data-plane-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            backend/hosted-data-plane.json
+            backend/minio.log
+          if-no-files-found: ignore
+          retention-days: 14
+
   frontend-build:
     name: Frontend tests and canonical build
     needs: plan
@@ -752,6 +855,7 @@ jobs:
         frontend-quality,
         backend,
         backend-race,
+        hosted-data-plane,
         frontend-build,
         marketing-build,
         docs-build,

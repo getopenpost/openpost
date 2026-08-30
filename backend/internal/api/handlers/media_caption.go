@@ -85,7 +85,7 @@ func (h *MediaHandler) generateMediaAltText(
 		return nil, huma.Error503ServiceUnavailable("automatic image captioning is not configured")
 	}
 
-	thumbnail, err := h.readCaptionThumbnail(media)
+	thumbnail, err := h.readCaptionThumbnail(ctx, media)
 	if err != nil {
 		return nil, huma.Error503ServiceUnavailable("the image preview is unavailable for captioning")
 	}
@@ -189,7 +189,7 @@ func (h *MediaHandler) persistGeneratedAltText(
 	return mediaAltTextOutput(currentAltText, false, ""), nil
 }
 
-func (h *MediaHandler) readCaptionThumbnail(media models.MediaAttachment) ([]byte, error) {
+func (h *MediaHandler) readCaptionThumbnail(ctx context.Context, media models.MediaAttachment) ([]byte, error) {
 	if h.storage == nil {
 		return nil, errCaptionThumbnailUnavailable
 	}
@@ -203,7 +203,7 @@ func (h *MediaHandler) readCaptionThumbnail(media models.MediaAttachment) ([]byt
 		return nil, fmt.Errorf("%w: medium thumbnail is missing", errCaptionThumbnailUnavailable)
 	}
 
-	reader, err := h.storage.Open(thumbnailKey)
+	reader, err := h.storage.Open(ctx, thumbnailKey)
 	if err != nil {
 		return nil, fmt.Errorf("%w: open medium thumbnail", errCaptionThumbnailUnavailable)
 	}

@@ -156,7 +156,7 @@ func (s *Service) analyze(ctx context.Context, mediaID string) error {
 	if err != nil {
 		return s.failAnalysis(ctx, media.ID, err)
 	}
-	posterKey, err := s.savePoster(media, result)
+	posterKey, err := s.savePoster(ctx, media, result)
 	if err != nil {
 		return s.failAnalysis(ctx, media.ID, err)
 	}
@@ -218,13 +218,13 @@ func (s *Service) analyzeMedia(ctx context.Context, media models.MediaAttachment
 	return result, nil
 }
 
-func (s *Service) savePoster(media models.MediaAttachment, result mediaanalysis.Result) (string, error) {
+func (s *Service) savePoster(ctx context.Context, media models.MediaAttachment, result mediaanalysis.Result) (string, error) {
 	posterKey := media.ThumbnailObjectKey
 	if len(result.PosterContent) == 0 {
 		return posterKey, nil
 	}
 	key := media.ID + ".poster.jpg"
-	if _, err := mediastore.SaveWithContentType(s.storage, key, bytes.NewReader(result.PosterContent), "image/jpeg"); err != nil {
+	if _, err := mediastore.SaveWithContentType(ctx, s.storage, key, bytes.NewReader(result.PosterContent), "image/jpeg"); err != nil {
 		return "", fmt.Errorf("save video poster: %w", err)
 	}
 	return key, nil
@@ -264,7 +264,7 @@ func (s *Service) persistResult(
 }
 
 func (s *Service) stageMedia(ctx context.Context, media models.MediaAttachment) (string, error) {
-	reader, err := s.storage.Open(filepath.Base(media.FilePath))
+	reader, err := s.storage.Open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
 		return "", err
 	}

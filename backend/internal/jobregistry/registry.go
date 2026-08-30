@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	StatusPending    = "pending"
-	StatusProcessing = "processing"
-	StatusCompleted  = "completed"
-	StatusFailed     = "failed"
+	StatusPending        = "pending"
+	StatusProcessing     = "processing"
+	StatusCompleted      = "completed"
+	StatusFailed         = "failed"
+	StorageDeleteMaxKeys = 10_000
 
 	mediaCleanupDedupeKey = "daily"
 )
@@ -78,6 +79,30 @@ func NewJob(jobType, payload string, runAt time.Time) (*models.Job, error) {
 		RunAt:       runAt.UTC(),
 		MaxAttempts: definition.DefaultMaxAttempts,
 	}, nil
+}
+
+// EnqueueStorageDeletes records object cleanup in the caller's transaction so
+// database ownership cannot disappear before the worker has the object keys.
+func EnqueueStorageDeletes(ctx context.Context, db bun.IDB, objectKeys []string) ([]string, error) {
+	jobIDs := make([]string, 0, (len(objectKeys)+StorageDeleteMaxKeys-1)/StorageDeleteMaxKeys)
+	for start := 0; start < len(objectKeys); start += StorageDeleteMaxKeys {
+		end := min(start+StorageDeleteMaxKeys, len(objectKeys))
+		payload, err := json.Marshal(struct {
+			Keys []string `json:"keys"`
+		}{Keys: objectKeys[start:end]})
+		if err != nil {
+			return nil, fmt.Errorf("encode storage deletion payload: %w", err)
+		}
+		job, err := NewJob(TypeStorageDelete, string(payload), time.Now().UTC())
+		if err != nil {
+			return nil, err
+		}
+		if _, err := db.NewInsert().Model(job).Exec(ctx); err != nil {
+			return nil, fmt.Errorf("enqueue storage deletion: %w", err)
+		}
+		jobIDs = append(jobIDs, job.ID)
+	}
+	return jobIDs, nil
 }
 
 // IdentityForPayload decodes the registered payload instead of inspecting its

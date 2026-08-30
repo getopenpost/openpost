@@ -1,6 +1,7 @@
 package publicurl
 
 import (
+	"context"
 	"io"
 	"strings"
 	"testing"
@@ -16,14 +17,14 @@ type mediaURLStorage struct {
 }
 
 func (s mediaURLStorage) Driver() string { return "s3" }
-func (s mediaURLStorage) Save(string, io.Reader) (string, error) {
+func (s mediaURLStorage) Save(context.Context, string, io.Reader) (string, error) {
 	return "", nil
 }
-func (s mediaURLStorage) Delete(string) error { return nil }
+func (s mediaURLStorage) Delete(context.Context, string) error { return nil }
 func (s mediaURLStorage) GetURL(id string) string {
 	return strings.TrimRight(s.publicBaseURL, "/") + "/" + id
 }
-func (s mediaURLStorage) Open(string) (io.ReadCloser, error) { return nil, nil }
+func (s mediaURLStorage) Open(context.Context, string) (io.ReadCloser, error) { return nil, nil }
 
 func TestResolveMediaURLUsesConfiguredProxyWithSignature(t *testing.T) {
 	expiresAt := time.Unix(1_800_000_000, 0).UTC()

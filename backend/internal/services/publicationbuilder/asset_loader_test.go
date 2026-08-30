@@ -20,12 +20,14 @@ type builderAssetStorage struct {
 }
 
 func (storage builderAssetStorage) Driver() string { return "test" }
-func (storage builderAssetStorage) Save(string, io.Reader) (string, error) {
+func (storage builderAssetStorage) Save(context.Context, string, io.Reader) (string, error) {
 	return "", errors.New("unexpected save")
 }
-func (storage builderAssetStorage) Delete(string) error  { return errors.New("unexpected delete") }
+func (storage builderAssetStorage) Delete(context.Context, string) error {
+	return errors.New("unexpected delete")
+}
 func (storage builderAssetStorage) GetURL(string) string { return "" }
-func (storage builderAssetStorage) Open(id string) (io.ReadCloser, error) {
+func (storage builderAssetStorage) Open(_ context.Context, id string) (io.ReadCloser, error) {
 	data, ok := storage.data[id]
 	if !ok {
 		return nil, errors.New("missing object")

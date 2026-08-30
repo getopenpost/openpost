@@ -3,11 +3,14 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/openpost/backend/internal/database/migrations"
 	"github.com/openpost/backend/internal/jobregistry"
@@ -24,14 +27,55 @@ func InitDB(dsn string) (*bun.DB, error) {
 }
 
 func InitDBWithDriver(driver, dsn string) (*bun.DB, error) {
+	return InitDBWithDriverAndRole(driver, dsn, "all")
+}
+
+func InitDBWithDriverAndRole(driver, dsn, role string) (*bun.DB, error) {
 	switch strings.ToLower(strings.TrimSpace(driver)) {
 	case "", "sqlite":
 		return initSQLiteDB(dsn)
 	case "postgres":
-		return initPostgresDB(dsn)
+		pool := poolConfigForRole(role)
+		log.Printf(
+			"PostgreSQL connection pool configured: role=%s max_open=%d max_idle=%d max_lifetime=%s max_idle_time=%s",
+			strings.ToLower(strings.TrimSpace(role)),
+			pool.MaxOpenConnections,
+			pool.MaxIdleConnections,
+			pool.ConnectionMaxLifetime,
+			pool.ConnectionMaxIdleTime,
+		)
+		return initPostgresDB(dsn, pool)
 	default:
 		return nil, fmt.Errorf("unsupported database driver %q", driver)
 	}
+}
+
+type poolConfig struct {
+	MaxOpenConnections    int
+	MaxIdleConnections    int
+	ConnectionMaxLifetime time.Duration
+	ConnectionMaxIdleTime time.Duration
+}
+
+func poolConfigForRole(role string) poolConfig {
+	config := poolConfig{
+		MaxOpenConnections:    20,
+		MaxIdleConnections:    5,
+		ConnectionMaxLifetime: 30 * time.Minute,
+		ConnectionMaxIdleTime: 5 * time.Minute,
+	}
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "web":
+		config.MaxOpenConnections = 16
+		config.MaxIdleConnections = 4
+	case "worker":
+		config.MaxOpenConnections = 8
+		config.MaxIdleConnections = 2
+	case "migrate":
+		config.MaxOpenConnections = 2
+		config.MaxIdleConnections = 1
+	}
+	return config
 }
 
 func initSQLiteDB(dsn string) (*bun.DB, error) {
@@ -107,13 +151,26 @@ func sqliteFileDir(dsn string) string {
 	return ""
 }
 
-func initPostgresDB(dsn string) (*bun.DB, error) {
+func initPostgresDB(dsn string, pool poolConfig) (*bun.DB, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, fmt.Errorf("postgres database dsn is required")
 	}
+	parsedDSN, err := url.Parse(dsn)
+	if err != nil {
+		return nil, errors.New("parse postgres database dsn: invalid URL")
+	}
+	query := parsedDSN.Query()
+	query.Set("timezone", "UTC")
+	parsedDSN.RawQuery = query.Encode()
 
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	return bun.NewDB(sqldb, pgdialect.New()), nil
+	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(parsedDSN.String())))
+	sqldb.SetMaxOpenConns(pool.MaxOpenConnections)
+	sqldb.SetMaxIdleConns(pool.MaxIdleConnections)
+	sqldb.SetConnMaxLifetime(pool.ConnectionMaxLifetime)
+	sqldb.SetConnMaxIdleTime(pool.ConnectionMaxIdleTime)
+	db := bun.NewDB(sqldb, pgdialect.New())
+	db.AddQueryHook(newPoolObserverHook(log.Printf))
+	return db, nil
 }
 
 func CreateSchema(db *bun.DB) error {

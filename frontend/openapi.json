@@ -12982,6 +12982,10 @@
 					"status": {
 						"description": "Readiness status",
 						"type": "string"
+					},
+					"storage": {
+						"description": "Required object storage dependency status",
+						"type": "string"
 					}
 				},
 				"required": ["status", "database"],

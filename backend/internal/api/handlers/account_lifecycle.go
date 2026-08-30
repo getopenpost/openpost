@@ -332,7 +332,7 @@ func (h *AccountLifecycleHandler) deleteAccount(ctx context.Context, input *Dele
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to delete account records")
 	}
-	if err := h.deleteStoredObjectKeys(objectKeys); err != nil {
+	if err := h.deleteStoredObjectKeys(ctx, objectKeys); err != nil {
 		log.Printf("account %s deleted; %d deferred object cleanup jobs will retry: %v", user.ID, len(cleanupJobIDs), err)
 	} else if len(cleanupJobIDs) > 0 {
 		_, _ = h.db.NewDelete().Model((*models.Job)(nil)).Where("id IN (?)", bun.List(cleanupJobIDs)).Exec(ctx)
@@ -784,12 +784,12 @@ func (h *AccountLifecycleHandler) storedObjectKeys(ctx context.Context, user *mo
 	return ordered, nil
 }
 
-func (h *AccountLifecycleHandler) deleteStoredObjectKeys(keys []string) error {
+func (h *AccountLifecycleHandler) deleteStoredObjectKeys(ctx context.Context, keys []string) error {
 	if h.storage == nil {
 		return nil
 	}
 	for _, key := range keys {
-		if err := h.storage.Delete(key); err != nil {
+		if err := h.storage.Delete(ctx, key); err != nil {
 			return fmt.Errorf("delete stored object %q: %w", key, err)
 		}
 	}

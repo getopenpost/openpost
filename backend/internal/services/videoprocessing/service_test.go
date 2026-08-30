@@ -23,7 +23,7 @@ func TestAnalyzeJobPersistsMetadataAndPoster(t *testing.T) {
 	require.NoError(t, database.CreateSchema(db))
 
 	storage := mediastore.NewLocalStorage(t.TempDir(), "/media")
-	savedPath, err := storage.Save("video-1.mov", strings.NewReader("source-video"))
+	savedPath, err := storage.Save(t.Context(), "video-1.mov", strings.NewReader("source-video"))
 	require.NoError(t, err)
 	require.NoError(t, insertVideoFixture(ctx, db, savedPath))
 
@@ -65,7 +65,7 @@ func TestAnalyzeJobPersistsMetadataAndPoster(t *testing.T) {
 	require.Equal(t, "hevc", media.VideoCodec)
 	require.Equal(t, "video-1.poster.jpg", media.ThumbnailObjectKey)
 
-	poster, err := storage.Open(media.ThumbnailObjectKey)
+	poster, err := storage.Open(t.Context(), media.ThumbnailObjectKey)
 	require.NoError(t, err)
 	defer poster.Close()
 	content, err := io.ReadAll(poster)

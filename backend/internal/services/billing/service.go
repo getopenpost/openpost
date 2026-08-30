@@ -1159,6 +1159,18 @@ func upsertSubscription(ctx context.Context, tx bun.Tx, subscription *models.Bil
 	case dialect.SQLite:
 	case dialect.PG:
 		targetPrefix = "billing_subscription."
+		// PostgreSQL can choose either unique index when concurrent first
+		// snapshots conflict on both organization_id and subscription ID. The
+		// organization conflict is the one this upsert reconciles, so serialize
+		// that organization's snapshots before PostgreSQL enters speculative
+		// insertion.
+		if _, err := tx.ExecContext(
+			ctx,
+			"SELECT pg_advisory_xact_lock(hashtextextended('openpost:billing-subscription:' || ?, 0))",
+			subscription.OrganizationID,
+		); err != nil {
+			return false, fmt.Errorf("locking billing subscription reconciliation: %w", err)
+		}
 	default:
 		return false, fmt.Errorf("unsupported billing database dialect %s", tx.Dialect().Name())
 	}

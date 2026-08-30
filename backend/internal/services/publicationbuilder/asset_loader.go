@@ -101,7 +101,7 @@ func (loader *MediaAssetLoader) Load(
 			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media sources exceed the total size limit"))
 		}
 
-		reader, err := loader.storage.Open(media.FilePath)
+		reader, err := loader.storage.Open(ctx, media.FilePath)
 		if err != nil {
 			return LoadedAssets{}, assetSourceFailure(index, errors.New("builder media source bytes are unavailable"))
 		}

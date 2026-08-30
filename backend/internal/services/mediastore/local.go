@@ -7,21 +7,31 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+const blobCleanupTimeout = 30 * time.Second
 
 // BlobStorage exposes the S3-compatible interface for all media handles.
 type BlobStorage interface {
 	Driver() string
-	Save(id string, reader io.Reader) (string, error)
-	Delete(id string) error
+	Save(context.Context, string, io.Reader) (string, error)
+	Delete(context.Context, string) error
 	GetURL(id string) string
-	Open(id string) (io.ReadCloser, error)
+	Open(context.Context, string) (io.ReadCloser, error)
 }
 
 // RangeBlobStorage is an optional extension for provider resumable uploads.
 // It avoids downloading or reading bytes that the provider already committed.
 type RangeBlobStorage interface {
-	OpenRange(id string, offset int64) (io.ReadCloser, error)
+	OpenRange(context.Context, string, int64) (io.ReadCloser, error)
+}
+
+// ReadinessStorage proves that a required remote storage dependency can perform
+// the object lifecycle OpenPost relies on. Implementations should cache the
+// result so a health poll does not become one remote operation per request.
+type ReadinessStorage interface {
+	CheckReady(context.Context) error
 }
 
 type Config struct {
@@ -63,7 +73,10 @@ func (s *LocalStorage) Driver() string {
 	return "local"
 }
 
-func (s *LocalStorage) Save(id string, reader io.Reader) (string, error) {
+func (s *LocalStorage) Save(ctx context.Context, id string, reader io.Reader) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	path, err := s.resolvePath(id)
 	if err != nil {
 		return "", err
@@ -72,20 +85,47 @@ func (s *LocalStorage) Save(id string, reader io.Reader) (string, error) {
 		return "", err
 	}
 
-	outFile, err := os.Create(path)
+	outFile, err := os.CreateTemp(filepath.Dir(path), ".openpost-upload-*")
 	if err != nil {
 		return "", err
 	}
-	defer outFile.Close()
+	temporaryPath := outFile.Name()
+	defer os.Remove(temporaryPath)
 
-	if _, err := io.Copy(outFile, reader); err != nil {
+	if _, err := io.Copy(outFile, contextReader{ctx: ctx, reader: reader}); err != nil {
+		_ = outFile.Close()
+		return "", err
+	}
+	if err := ctx.Err(); err != nil {
+		_ = outFile.Close()
+		return "", err
+	}
+	if err := outFile.Chmod(0o644); err != nil {
+		_ = outFile.Close()
+		return "", err
+	}
+	if err := outFile.Close(); err != nil {
+		return "", err
+	}
+	if err := os.Rename(temporaryPath, path); err != nil {
 		return "", err
 	}
 
 	return path, nil
 }
 
-func (s *LocalStorage) Delete(id string) error {
+// DeleteForCleanup completes a compensating delete after its request was
+// canceled. Cleanup stays bounded and does not change normal Delete semantics.
+func DeleteForCleanup(ctx context.Context, storage BlobStorage, id string) error {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), blobCleanupTimeout)
+	defer cancel()
+	return storage.Delete(cleanupCtx, id)
+}
+
+func (s *LocalStorage) Delete(ctx context.Context, id string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	path, err := s.resolvePath(id)
 	if err != nil {
 		return err
@@ -103,32 +143,65 @@ func (s *LocalStorage) GetURL(id string) string {
 	return s.baseURL + "/" + id
 }
 
-func (s *LocalStorage) Open(id string) (io.ReadCloser, error) {
+func (s *LocalStorage) Open(ctx context.Context, id string) (io.ReadCloser, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	path, err := s.resolvePath(id)
 	if err != nil {
 		return nil, err
 	}
-	return os.Open(path)
-}
-
-func (s *LocalStorage) OpenRange(id string, offset int64) (io.ReadCloser, error) {
-	if offset < 0 {
-		return nil, fmt.Errorf("invalid media offset %d", offset)
-	}
-	reader, err := s.Open(id)
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	file, ok := reader.(*os.File)
-	if !ok {
-		_ = reader.Close()
-		return nil, fmt.Errorf("local media reader does not support seeking")
+	return &contextFile{File: file, ctx: ctx}, nil
+}
+
+func (s *LocalStorage) OpenRange(ctx context.Context, id string, offset int64) (io.ReadCloser, error) {
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid media offset %d", offset)
+	}
+	path, err := s.resolvePath(id)
+	if err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
 	}
 	if _, err := file.Seek(offset, io.SeekStart); err != nil {
 		_ = file.Close()
 		return nil, err
 	}
-	return file, nil
+	return &contextFile{File: file, ctx: ctx}, nil
+}
+
+type contextFile struct {
+	*os.File
+	ctx context.Context
+}
+
+func (f *contextFile) Read(buffer []byte) (int, error) {
+	if err := f.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return f.File.Read(buffer)
+}
+
+type contextReader struct {
+	ctx    context.Context
+	reader io.Reader
+}
+
+func (r contextReader) Read(buffer []byte) (int, error) {
+	if err := r.ctx.Err(); err != nil {
+		return 0, err
+	}
+	return r.reader.Read(buffer)
 }
 
 func (s *LocalStorage) resolvePath(id string) (string, error) {

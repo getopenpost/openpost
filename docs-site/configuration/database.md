@@ -37,6 +37,13 @@ OPENPOST_DATABASE_DRIVER=postgres
 OPENPOST_DATABASE_URL=postgres://openpost:secret@db.internal:5432/openpost?sslmode=require
 ```
 
+Postgres connection pools use explicit per-process limits. The combined
+single-process role allows 20 open connections, web allows 16, worker allows 8,
+and migration allows 2. Count these limits across every replica when sizing the
+Postgres service. OpenPost logs the effective budget at startup. Every Postgres
+process also reports new connection waits or a transition into pool saturation
+through standard output.
+
 ## Cloud mode
 
 When `OPENPOST_EDITION=cloud`, OpenPost refuses to start unless:

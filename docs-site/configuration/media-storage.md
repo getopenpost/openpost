@@ -76,6 +76,14 @@ When `OPENPOST_EDITION=cloud`, OpenPost refuses to start unless:
 
 `OPENPOST_S3_PUBLIC_BASE_URL` is required in cloud mode because social networks need stable public media links.
 
+At startup, OpenPost writes, reads, verifies, and deletes a small object under
+`.openpost-readiness/`. The bucket credential must allow `PutObject`,
+`GetObject`, and `DeleteObject`, not only bucket discovery. The readiness
+endpoint repeats this bounded capability check after a short cache interval and
+returns `503` if required object storage is unavailable. Normal S3 reads,
+writes, multipart uploads, and deletes inherit caller cancellation and
+deadlines without imposing a shorter limit on large media streams.
+
 The browser can upload straight to S3 or R2. OpenPost sends larger files in parts without loading the whole file into memory.
 
 For direct browser uploads, the bucket must allow CORS requests from the OpenPost app origin. For Cloudflare R2, apply a bucket CORS rule like this, replacing the origin with your `OPENPOST_APP_URL`:

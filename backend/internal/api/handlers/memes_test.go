@@ -170,7 +170,7 @@ type memeMemoryStorage struct {
 }
 
 func (s *memeMemoryStorage) Driver() string { return "local" }
-func (s *memeMemoryStorage) Save(id string, reader io.Reader) (string, error) {
+func (s *memeMemoryStorage) Save(_ context.Context, id string, reader io.Reader) (string, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
@@ -186,7 +186,7 @@ func (s *memeMemoryStorage) Save(id string, reader io.Reader) (string, error) {
 	}
 	return id, nil
 }
-func (s *memeMemoryStorage) Delete(id string) error {
+func (s *memeMemoryStorage) Delete(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.objects, id)
@@ -195,7 +195,7 @@ func (s *memeMemoryStorage) Delete(id string) error {
 func (s *memeMemoryStorage) GetURL(id string) string {
 	return "https://cdn.openpost.test/media/" + id
 }
-func (s *memeMemoryStorage) Open(id string) (io.ReadCloser, error) {
+func (s *memeMemoryStorage) Open(_ context.Context, id string) (io.ReadCloser, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	data, ok := s.objects[id]

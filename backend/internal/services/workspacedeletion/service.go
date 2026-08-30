@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/queue"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/uptrace/bun"
@@ -591,28 +590,10 @@ func firstDecryptor(decryptors []AcceptURLDecryptor) AcceptURLDecryptor {
 	return decryptors[0]
 }
 
-const StorageCleanupBatchSize = queue.StorageDeleteMaxKeys
+const StorageCleanupBatchSize = jobregistry.StorageDeleteMaxKeys
 
 func EnqueueStorageCleanup(ctx context.Context, tx bun.Tx, objectKeys []string) ([]string, error) {
-	jobIDs := []string{}
-	for start := 0; start < len(objectKeys); start += StorageCleanupBatchSize {
-		end := min(start+StorageCleanupBatchSize, len(objectKeys))
-		payload, err := json.Marshal(struct {
-			Keys []string `json:"keys"`
-		}{Keys: objectKeys[start:end]})
-		if err != nil {
-			return nil, err
-		}
-		job, err := jobregistry.NewJob(jobregistry.TypeStorageDelete, string(payload), time.Now().UTC())
-		if err != nil {
-			return nil, err
-		}
-		if _, err := tx.NewInsert().Model(job).Exec(ctx); err != nil {
-			return nil, err
-		}
-		jobIDs = append(jobIDs, job.ID)
-	}
-	return jobIDs, nil
+	return jobregistry.EnqueueStorageDeletes(ctx, tx, objectKeys)
 }
 
 func DeleteWorkspaceData(ctx context.Context, tx bun.Tx, workspaceIDs []string, decryptors ...AcceptURLDecryptor) error {

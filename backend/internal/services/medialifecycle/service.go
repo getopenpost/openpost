@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/openpost/backend/internal/database/migrations"
+	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/mediastore"
 	"github.com/uptrace/bun"
@@ -44,8 +44,7 @@ var settingMediaKeys = map[string]struct{}{
 }
 
 type Service struct {
-	db      *bun.DB
-	storage mediastore.BlobStorage
+	db *bun.DB
 }
 
 type protectionSnapshot struct {
@@ -69,11 +68,10 @@ type jsonReferenceRow struct {
 type lifecycleBatchResult struct {
 	lastID  string
 	scanned int
-	purged  []models.MediaAttachment
 }
 
-func NewService(db *bun.DB, storage mediastore.BlobStorage) *Service {
-	return &Service{db: db, storage: storage}
+func NewService(db *bun.DB, _ mediastore.BlobStorage) *Service {
+	return &Service{db: db}
 }
 
 func NormalizeRetention(value string, assetKind string, hasTag bool) (string, error) {
@@ -310,9 +308,6 @@ func (s *Service) Sweep(ctx context.Context, workspaceID string, now time.Time) 
 		if err != nil {
 			return err
 		}
-		// Storage calls can block on a remote service. Database ownership has
-		// already committed, so no SQLite/Postgres lock is held here.
-		s.deletePurgedObjects(batch.purged)
 		if batch.scanned < lifecycleBatchSize {
 			return nil
 		}
@@ -385,10 +380,12 @@ func sweepLifecycleBatch(
 	if len(toPurge) == 0 {
 		return result, nil
 	}
+	if _, err := jobregistry.EnqueueStorageDeletes(ctx, tx, purgedObjectKeys(toPurge)); err != nil {
+		return lifecycleBatchResult{}, fmt.Errorf("enqueue purged media storage deletion: %w", err)
+	}
 	if err := purgeMediaBatch(ctx, tx, snapshot, toPurge); err != nil {
 		return lifecycleBatchResult{}, err
 	}
-	result.purged = toPurge
 	return result, nil
 }
 
@@ -1162,11 +1159,9 @@ func applyJSONUpdates(
 	return nil
 }
 
-func (s *Service) deletePurgedObjects(media []models.MediaAttachment) {
-	if s.storage == nil || len(media) == 0 {
-		return
-	}
+func purgedObjectKeys(media []models.MediaAttachment) []string {
 	seen := make(map[string]struct{}, len(media)*4)
+	objectKeys := make([]string, 0, len(media)*4)
 	for _, item := range media {
 		keys := make([]string, 0, 4)
 		if filePath := strings.TrimSpace(item.FilePath); filePath != "" {
@@ -1190,9 +1185,9 @@ func (s *Service) deletePurgedObjects(media []models.MediaAttachment) {
 				continue
 			}
 			seen[key] = struct{}{}
-			if err := s.storage.Delete(key); err != nil {
-				log.Printf("failed to purge media object %s for %s: %v", key, item.ID, err)
-			}
+			objectKeys = append(objectKeys, key)
 		}
 	}
+	sort.Strings(objectKeys)
+	return objectKeys
 }

@@ -1,7 +1,12 @@
 package database
 
 import (
+	"context"
+	"database/sql"
+	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun/dialect"
@@ -50,4 +55,118 @@ func TestInitDBWithDriverBuildsPostgresHandle(t *testing.T) {
 	defer db.Close()
 
 	require.NotNil(t, db)
+}
+
+func TestInitDBWithDriverDoesNotExposeMalformedPostgresCredentials(t *testing.T) {
+	const password = "do-not-log-this-password"
+	db, err := InitDBWithDriver("postgres", "postgres://openpost:"+password+"%@localhost/openpost")
+	require.Nil(t, db)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), password)
+}
+
+func TestPostgresPoolBudgetsFollowProcessRole(t *testing.T) {
+	dsn := "postgres://openpost:secret@localhost:5432/openpost?sslmode=disable"
+	expected := map[string]int{
+		"all":     20,
+		"web":     16,
+		"worker":  8,
+		"migrate": 2,
+	}
+
+	for role, maxOpen := range expected {
+		t.Run(role, func(t *testing.T) {
+			db, err := InitDBWithDriverAndRole("postgres", dsn, role)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+			require.Equal(t, maxOpen, db.Stats().MaxOpenConnections)
+		})
+	}
+}
+
+func TestPostgresConnectionsUseUTC(t *testing.T) {
+	dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
+	if dsn == "" {
+		t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
+	}
+	db, err := InitDBWithDriver("postgres", dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	var timezone string
+	require.NoError(t, db.NewSelect().ColumnExpr("current_setting('TimeZone')").Scan(t.Context(), &timezone))
+	require.Equal(t, "UTC", timezone)
+}
+
+func TestPoolObserverReportsConnectionPressureOncePerChange(t *testing.T) {
+	db, err := InitDB("file::memory:?cache=shared")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	conn, err := db.Conn(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+
+	waitCtx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	_, err = db.Conn(waitCtx)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	var messages []string
+	observer := newPoolObserver(func(format string, args ...any) {
+		messages = append(messages, fmt.Sprintf(format, args...))
+	})
+	observer.Observe(db.Stats())
+	require.Len(t, messages, 1)
+	require.Contains(t, messages[0], "max_open=1")
+	require.Contains(t, messages[0], "in_use=1")
+	require.Contains(t, messages[0], "wait_count=1")
+	require.Contains(t, messages[0], "wait_delta=1")
+
+	observer.Observe(db.Stats())
+	require.Len(t, messages, 1, "unchanged saturation must not flood logs")
+}
+
+func TestPoolObserverHookReportsActualQueryWait(t *testing.T) {
+	db, err := InitDB("file::memory:?cache=shared")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	var messages []string
+	db.AddQueryHook(newPoolObserverHook(func(format string, args ...any) {
+		messages = append(messages, fmt.Sprintf(format, args...))
+	}))
+	conn, err := db.Conn(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+
+	waitCtx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	var one int
+	err = db.NewSelect().ColumnExpr("1").Scan(waitCtx, &one)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	require.Len(t, messages, 2)
+	require.Contains(t, messages[0], "in_use=1")
+	require.Contains(t, messages[1], "wait_count=1")
+	require.Contains(t, messages[1], "wait_delta=1")
+}
+
+func TestPoolObserverDoesNotHoldItsLockWhileLogging(t *testing.T) {
+	var observer *poolObserver
+	observer = newPoolObserver(func(string, ...any) {
+		observer.Observe(sql.DBStats{MaxOpenConnections: 1, InUse: 1})
+	})
+	done := make(chan struct{})
+	go func() {
+		observer.Observe(sql.DBStats{MaxOpenConnections: 1, InUse: 1})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("pool observer held its mutex while logging")
+	}
 }

@@ -32,11 +32,12 @@ import (
 	"github.com/openpost/backend/internal/services/videoprocessing"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
 
 const (
 	// StorageDeleteMaxKeys is the largest storage deletion payload the worker accepts.
-	StorageDeleteMaxKeys               = 10_000
+	StorageDeleteMaxKeys               = jobregistry.StorageDeleteMaxKeys
 	jobTypePublishPublication          = jobregistry.TypePublishPublication
 	jobTypeMediaCleanup                = jobregistry.TypeMediaCleanup
 	jobTypeStorageDelete               = jobregistry.TypeStorageDelete
@@ -213,8 +214,8 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 	w.executors[jobregistry.ExecuteMediaCleanup] = func(ctx context.Context, job *models.Job) error {
 		return w.handleMediaCleanup(ctx, job.Payload)
 	}
-	w.executors[jobregistry.ExecuteStorageDelete] = func(_ context.Context, job *models.Job) error {
-		return w.handleStorageDelete(job.Payload)
+	w.executors[jobregistry.ExecuteStorageDelete] = func(ctx context.Context, job *models.Job) error {
+		return w.handleStorageDelete(ctx, job.Payload)
 	}
 	return w
 }
@@ -359,17 +360,36 @@ func (w *BackgroundWorker) failAmbiguousStaleJobs(ctx context.Context, cutoff ti
 func (w *BackgroundWorker) processNextJobIfAvailable(ctx context.Context) bool {
 	job := new(models.Job)
 
-	err := w.db.NewRaw(`
+	var err error
+	if w.db.Dialect().Name() == dialect.PG {
+		err = w.db.NewRaw(`
+			WITH next_job AS (
+				SELECT id
+				FROM jobs
+				WHERE status = ? AND run_at <= CURRENT_TIMESTAMP
+				ORDER BY run_at ASC, id ASC
+				FOR UPDATE SKIP LOCKED
+				LIMIT 1
+			)
+			UPDATE jobs
+			SET status = ?, locked_at = CURRENT_TIMESTAMP, locked_by = ?
+			FROM next_job
+			WHERE jobs.id = next_job.id AND jobs.status = ?
+			RETURNING jobs.*
+		`, jobStatusPending, jobStatusProcessing, w.workerID, jobStatusPending).Scan(ctx, job)
+	} else {
+		err = w.db.NewRaw(`
 		UPDATE jobs
 		SET status = ?, locked_at = CURRENT_TIMESTAMP, locked_by = ?
 		WHERE status = ? AND id = (
-			SELECT id FROM jobs 
+			SELECT id FROM jobs
 			WHERE status = ? AND run_at <= CURRENT_TIMESTAMP
-			ORDER BY run_at ASC 
+			ORDER BY run_at ASC, id ASC
 			LIMIT 1
 		)
 		RETURNING *
-	`, jobStatusProcessing, w.workerID, jobStatusPending, jobStatusPending).Scan(ctx, job)
+		`, jobStatusProcessing, w.workerID, jobStatusPending, jobStatusPending).Scan(ctx, job)
+	}
 
 	if err != nil {
 		if err.Error() != "sql: no rows in result set" {
@@ -629,7 +649,7 @@ func (w *BackgroundWorker) executeJob(ctx context.Context, job *models.Job) erro
 	return executor(ctx, job)
 }
 
-func (w *BackgroundWorker) handleStorageDelete(payload string) error {
+func (w *BackgroundWorker) handleStorageDelete(ctx context.Context, payload string) error {
 	if w.storage == nil {
 		return fmt.Errorf("storage is not configured")
 	}
@@ -647,7 +667,7 @@ func (w *BackgroundWorker) handleStorageDelete(payload string) error {
 		if key == "." || filepath.IsAbs(key) || key == ".." || strings.HasPrefix(key, ".."+string(filepath.Separator)) {
 			return fmt.Errorf("storage deletion payload contains an invalid key")
 		}
-		if err := w.storage.Delete(key); err != nil {
+		if err := w.storage.Delete(ctx, key); err != nil {
 			return fmt.Errorf("delete storage object %q: %w", key, err)
 		}
 	}

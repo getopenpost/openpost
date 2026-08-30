@@ -49,6 +49,8 @@ const (
 	MaxDirectMediaUploadBytes   int64 = 5_000_000_000
 	MediaUploadSessionTTL             = 15 * time.Minute
 	maxMediaUploadSessionTTL          = 6 * time.Hour
+	mediaUploadCleanupTimeout         = 30 * time.Second
+	mediaUploadDeleteTimeout          = 10 * time.Second
 	defaultMediaMimeType              = "application/octet-stream"
 	mediaProcessingStatus             = "processing"
 	mediaUploadingStatus              = "uploading"
@@ -1567,8 +1569,9 @@ func (h *MediaHandler) completeDirectMediaUpload(ctx context.Context, userID, wo
 			if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
 				return result, err
 			}
-			_ = h.storage.Delete(filepath.Base(media.FilePath))
-			_, _ = h.db.NewDelete().Model(&media).Where("id = ?", media.ID).Exec(ctx)
+			if err := h.rollbackMediaRecord(ctx, &media); err != nil {
+				return result, huma.Error500InternalServerError("failed to deduplicate media upload")
+			}
 			return mediaUploadResultFromAttachment(existing, true), nil
 		}
 	}
@@ -1605,9 +1608,9 @@ func (h *MediaHandler) resolveDirectUploadDeduplication(
 	if err := h.transferMediaTagAssignments(ctx, media.ID, existing.ID); err != nil {
 		return MediaUploadResult{}, false
 	}
-	_, _ = h.db.NewDelete().Model(&media).Where("id = ?", media.ID).Exec(ctx)
-	if deleteErr := h.deleteMediaFiles(&media); deleteErr != nil {
-		log.Printf("failed to delete deduplicated direct upload files for %s: %v", media.ID, deleteErr)
+	if rollbackErr := h.rollbackMediaRecord(ctx, &media); rollbackErr != nil {
+		log.Printf("failed to roll back deduplicated direct upload %s: %v", media.ID, rollbackErr)
+		return MediaUploadResult{}, false
 	}
 	return mediaUploadResultFromAttachment(existing, true), true
 }
@@ -1658,7 +1661,7 @@ func (h *MediaHandler) inspectDirectMediaUpload(ctx context.Context, media model
 		return inspection, huma.Error400BadRequest(mediaUploadSizeError(sizeLimit))
 	}
 
-	file, err := h.storage.Open(filepath.Base(media.FilePath))
+	file, err := h.storage.Open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
 		h.markMediaUploadFailed(ctx, media.ID)
 		return inspection, huma.Error400BadRequest("uploaded media object was not found")
@@ -1744,7 +1747,7 @@ func (h *MediaHandler) finalizeDirectMediaUploadRecord(ctx context.Context, medi
 	var thumbnails Thumbnails
 	var err error
 	if strings.HasPrefix(mimeType, "image/") {
-		width, height, thumbnails, err = h.processImage(inspection.Content, media.ID, mimeType)
+		width, height, thumbnails, err = h.processImage(ctx, inspection.Content, media.ID, mimeType)
 		if err != nil {
 			width, height = h.getImageDimensions(bytes.NewReader(inspection.Content), mimeType)
 		}
@@ -2599,8 +2602,8 @@ func (h *MediaHandler) mediaMetadata(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]interface{}{"media": result})
 }
 
-func (h *MediaHandler) deleteMediaFiles(media *models.MediaAttachment) error {
-	if err := h.storage.Delete(filepath.Base(media.FilePath)); err != nil {
+func (h *MediaHandler) deleteMediaFiles(ctx context.Context, media *models.MediaAttachment) error {
+	if err := h.storage.Delete(ctx, filepath.Base(media.FilePath)); err != nil {
 		return err
 	}
 
@@ -2610,16 +2613,39 @@ func (h *MediaHandler) deleteMediaFiles(media *models.MediaAttachment) error {
 	}
 
 	if thumbs.SM != "" {
-		h.storage.Delete(thumbs.SM) //nolint:errcheck
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, thumbs.SM)
 	}
 	if thumbs.MD != "" {
-		h.storage.Delete(thumbs.MD) //nolint:errcheck
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, thumbs.MD)
 	}
 	if media.ThumbnailObjectKey != "" {
-		h.storage.Delete(media.ThumbnailObjectKey) //nolint:errcheck
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, media.ThumbnailObjectKey)
 	}
 
 	return nil
+}
+
+func (h *MediaHandler) cleanupUnpersistedMedia(ctx context.Context, media *models.MediaAttachment) error {
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), mediaUploadCleanupTimeout)
+	defer cancel()
+	return h.deleteMediaFiles(cleanupCtx, media)
+}
+
+func (h *MediaHandler) rollbackMediaRecord(ctx context.Context, media *models.MediaAttachment) error {
+	rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), mediaUploadCleanupTimeout)
+	defer cancel()
+	result, err := h.db.NewDelete().Model(media).WherePK().Exec(rollbackCtx)
+	if err != nil {
+		return err
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if deleted != 1 {
+		return fmt.Errorf("roll back media record deleted %d rows", deleted)
+	}
+	return h.deleteMediaFiles(rollbackCtx, media)
 }
 
 func (h *MediaHandler) RegisterLegacyRoutes(e *echo.Echo) {
@@ -2684,11 +2710,12 @@ func (h *MediaHandler) uploadMediaSessionContent(c echo.Context) error {
 	if contentLength := c.Request().ContentLength; contentLength >= 0 && contentLength != media.Size {
 		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: "uploaded media size does not match upload session"})
 	}
+	ctx := c.Request().Context()
 	claimResult, err := h.db.NewUpdate().
 		Model(&media).
 		Set("processing_status = ?", mediaUploadingStatus).
 		Where("id = ? AND processing_status = ?", media.ID, mediaProcessingStatus).
-		Exec(c.Request().Context())
+		Exec(ctx)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: "failed to claim media upload session"})
 	}
@@ -2696,32 +2723,50 @@ func (h *MediaHandler) uploadMediaSessionContent(c echo.Context) error {
 	if err != nil || claimed != 1 {
 		return c.JSON(http.StatusConflict, map[string]string{fieldError: "media upload session is already in use"})
 	}
-	resetPending := func() {
-		_, _ = h.db.NewUpdate().
+	objectKey := filepath.Base(media.FilePath)
+	cleanupFailedUpload := func() error {
+		cleanupCtx, cancelCleanup := context.WithTimeout(context.WithoutCancel(ctx), mediaUploadCleanupTimeout)
+		defer cancelCleanup()
+		result, err := h.db.NewUpdate().
 			Model((*models.MediaAttachment)(nil)).
 			Set("processing_status = ?", mediaProcessingStatus).
 			Where("id = ? AND processing_status = ?", media.ID, mediaUploadingStatus).
-			Exec(c.Request().Context())
+			Exec(cleanupCtx)
+		if err != nil {
+			return err
+		}
+		updated, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if updated != 1 {
+			return fmt.Errorf("reset media upload session updated %d rows", updated)
+		}
+		deleteCtx, cancelDelete := context.WithTimeout(cleanupCtx, mediaUploadDeleteTimeout)
+		defer cancelDelete()
+		return h.storage.Delete(deleteCtx, objectKey)
 	}
 
 	counter := &countingReader{
 		reader: io.LimitReader(c.Request().Body, sizeLimit+1),
 	}
-	objectKey := filepath.Base(media.FilePath)
-	savedPath, err := mediastore.SaveWithContentType(h.storage, objectKey, counter, media.MimeType)
+	savedPath, err := mediastore.SaveWithContentType(ctx, h.storage, objectKey, counter, media.MimeType)
 	if err != nil {
-		_ = h.storage.Delete(objectKey)
-		resetPending()
+		if cleanupErr := cleanupFailedUpload(); cleanupErr != nil {
+			log.Printf("failed to roll back media upload session %s: %v", media.ID, cleanupErr)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: "failed to stream media upload"})
 	}
 	if counter.count > sizeLimit {
-		_ = h.storage.Delete(objectKey)
-		resetPending()
+		if cleanupErr := cleanupFailedUpload(); cleanupErr != nil {
+			log.Printf("failed to roll back media upload session %s: %v", media.ID, cleanupErr)
+		}
 		return c.JSON(http.StatusRequestEntityTooLarge, map[string]string{fieldError: mediaUploadSizeError(sizeLimit)})
 	}
 	if counter.count != media.Size {
-		_ = h.storage.Delete(objectKey)
-		resetPending()
+		if cleanupErr := cleanupFailedUpload(); cleanupErr != nil {
+			log.Printf("failed to roll back media upload session %s: %v", media.ID, cleanupErr)
+		}
 		return c.JSON(http.StatusBadRequest, map[string]string{fieldError: "uploaded media size does not match upload session"})
 	}
 	updateResult, err := h.db.NewUpdate().
@@ -2730,14 +2775,16 @@ func (h *MediaHandler) uploadMediaSessionContent(c echo.Context) error {
 		Where("id = ? AND processing_status = ?", media.ID, mediaUploadingStatus).
 		Exec(c.Request().Context())
 	if err != nil {
-		_ = h.storage.Delete(objectKey)
-		resetPending()
+		if cleanupErr := cleanupFailedUpload(); cleanupErr != nil {
+			log.Printf("failed to roll back media upload session %s: %v", media.ID, cleanupErr)
+		}
 		return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: "failed to save media upload session"})
 	}
 	rowsAffected, err := updateResult.RowsAffected()
 	if err != nil || rowsAffected != 1 {
-		_ = h.storage.Delete(objectKey)
-		resetPending()
+		if cleanupErr := cleanupFailedUpload(); cleanupErr != nil {
+			log.Printf("failed to roll back media upload session %s: %v", media.ID, cleanupErr)
+		}
 		return c.JSON(http.StatusConflict, map[string]string{fieldError: "media upload session is no longer pending"})
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -2919,34 +2966,34 @@ func (h *MediaHandler) processStreamUpload(
 	counter := &countingReader{reader: io.MultiReader(bytes.NewReader(prefix), reader)}
 	hasher := sha256.New()
 	limited := io.LimitReader(counter, sizeLimit+1)
-	savedPath, err := mediastore.SaveWithContentType(h.storage, objectKey, io.TeeReader(limited, hasher), mimeType)
+	savedPath, err := mediastore.SaveWithContentType(ctx, h.storage, objectKey, io.TeeReader(limited, hasher), mimeType)
 	if err != nil {
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New("failed to save media")
 	}
 	if counter.count > sizeLimit {
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New(mediaUploadSizeError(sizeLimit))
 	}
 	if counter.count != input.Size {
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New("uploaded media size does not match multipart metadata")
 	}
 	fileHash := hex.EncodeToString(hasher.Sum(nil))
 	if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 		if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, mediaID); duplicateErr != nil {
-			_ = h.storage.Delete(objectKey)
+			_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 			return nil, duplicateErr
 		} else if found {
 			if err := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); err != nil {
-				_ = h.storage.Delete(objectKey)
+				_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 				return nil, err
 			}
 			if err := h.addMediaTag(ctx, input.TagID, existing.ID); err != nil {
-				_ = h.storage.Delete(objectKey)
+				_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 				return nil, errors.New(err.Error())
 			}
-			_ = h.storage.Delete(objectKey)
+			_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 			return mediaUploadMap(existing, true), nil
 		}
 	}
@@ -2982,7 +3029,7 @@ func (h *MediaHandler) processStreamUpload(
 	if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
 		if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 			if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, media.ID); duplicateErr == nil && found {
-				_ = h.storage.Delete(objectKey)
+				_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 				if provenanceErr := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); provenanceErr != nil {
 					return nil, provenanceErr
 				}
@@ -2992,17 +3039,17 @@ func (h *MediaHandler) processStreamUpload(
 				return mediaUploadMap(existing, true), nil
 			}
 		}
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New("failed to save media record")
 	}
 	if err := h.addMediaTag(ctx, input.TagID, media.ID); err != nil {
 		_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New(err.Error())
 	}
 	if err := h.persistStockMediaProvenance(ctx, media.ID, input.StockProvenance); err != nil {
 		_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return nil, errors.New("failed to save stock media provenance")
 	}
 	if err := refreshPublicMediaState(ctx, h.db, h.publicMedia, media); err != nil {
@@ -3086,8 +3133,9 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	ext := filepath.Ext(input.Filename)
 	filename := mediaID + ext
 
-	savedPath, err := mediastore.SaveWithContentType(h.storage, filename, bytes.NewReader(input.Content), mimeType)
+	savedPath, err := mediastore.SaveWithContentType(ctx, h.storage, filename, bytes.NewReader(input.Content), mimeType)
 	if err != nil {
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, filename)
 		return nil, errors.New("failed to save media")
 	}
 
@@ -3116,7 +3164,7 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	var thumbnails Thumbnails
 
 	if strings.HasPrefix(mimeType, "image/") {
-		width, height, thumbnails, err = h.processImage(input.Content, mediaID, mimeType)
+		width, height, thumbnails, err = h.processImage(ctx, input.Content, mediaID, mimeType)
 		if err != nil {
 			width, height = h.getImageDimensions(bytes.NewReader(input.Content), mimeType)
 		}
@@ -3138,7 +3186,7 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 	if _, err := h.db.NewInsert().Model(media).Exec(ctx); err != nil {
 		if mediaSourceSupportsDeduplication(source) && assetKind == "library" {
 			if existing, found, duplicateErr := h.findDuplicateMedia(ctx, input.WorkspaceID, fileHash, media.ID); duplicateErr == nil && found {
-				if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
+				if deleteErr := h.cleanupUnpersistedMedia(ctx, media); deleteErr != nil {
 					log.Printf("failed to delete deduplicated upload files for %s: %v", media.ID, deleteErr)
 				}
 				if provenanceErr := h.persistStockMediaProvenance(ctx, existing.ID, input.StockProvenance); provenanceErr != nil {
@@ -3150,7 +3198,7 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 				return mediaUploadMap(existing, true), nil
 			}
 		}
-		if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
+		if deleteErr := h.cleanupUnpersistedMedia(ctx, media); deleteErr != nil {
 			log.Printf("failed to delete media files after record insertion failure for %s: %v", media.ID, deleteErr)
 		}
 		return nil, errors.New("failed to save media record")
@@ -3159,16 +3207,14 @@ func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUpload
 		input.OnCreated(*media)
 	}
 	if err := h.addMediaTag(ctx, input.TagID, media.ID); err != nil {
-		_, _ = h.db.NewDelete().Model(media).WherePK().Exec(ctx)
-		if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
-			log.Printf("failed to delete media after tag assignment failure for %s: %v", media.ID, deleteErr)
+		if rollbackErr := h.rollbackMediaRecord(ctx, media); rollbackErr != nil {
+			log.Printf("failed to roll back media after tag assignment failure for %s: %v", media.ID, rollbackErr)
 		}
 		return nil, errors.New(err.Error())
 	}
 	if err := h.persistStockMediaProvenance(ctx, media.ID, input.StockProvenance); err != nil {
-		_, _ = h.db.NewDelete().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Exec(ctx)
-		if deleteErr := h.deleteMediaFiles(media); deleteErr != nil {
-			log.Printf("failed to delete media after provenance persistence failure for %s: %v", media.ID, deleteErr)
+		if rollbackErr := h.rollbackMediaRecord(ctx, media); rollbackErr != nil {
+			log.Printf("failed to roll back media after provenance persistence failure for %s: %v", media.ID, rollbackErr)
 		}
 		return nil, errors.New("failed to save stock media provenance")
 	}
@@ -3234,7 +3280,7 @@ func (h *MediaHandler) checkQuota(ctx context.Context, workspaceID string, limit
 	return nil
 }
 
-func (h *MediaHandler) processImage(content []byte, mediaID, mimeType string) (int, int, Thumbnails, error) {
+func (h *MediaHandler) processImage(ctx context.Context, content []byte, mediaID, mimeType string) (int, int, Thumbnails, error) {
 	reader := bytes.NewReader(content)
 
 	var img image.Image
@@ -3259,26 +3305,29 @@ func (h *MediaHandler) processImage(content []byte, mediaID, mimeType string) (i
 
 	smThumb := imaging.Thumbnail(img, ThumbnailSizeSM, ThumbnailSizeSM, imaging.Lanczos)
 	smFilename := "sm_" + mediaID + ".jpg"
-	if err := h.saveThumbnail(smFilename, smThumb, imaging.JPEG); err == nil {
+	if err := h.saveThumbnail(ctx, smFilename, smThumb, imaging.JPEG); err == nil {
 		thumbnails.SM = smFilename
 	}
 
 	mdThumb := imaging.Thumbnail(img, ThumbnailSizeMD, ThumbnailSizeMD, imaging.Lanczos)
 	mdFilename := "md_" + mediaID + ".jpg"
-	if err := h.saveThumbnail(mdFilename, mdThumb, imaging.JPEG); err == nil {
+	if err := h.saveThumbnail(ctx, mdFilename, mdThumb, imaging.JPEG); err == nil {
 		thumbnails.MD = mdFilename
 	}
 
 	return width, height, thumbnails, nil
 }
 
-func (h *MediaHandler) saveThumbnail(filename string, img image.Image, format imaging.Format) error {
+func (h *MediaHandler) saveThumbnail(ctx context.Context, filename string, img image.Image, format imaging.Format) error {
 	var buf bytes.Buffer
 	if err := imaging.Encode(&buf, img, format); err != nil {
 		return err
 	}
-	_, err := mediastore.SaveWithContentType(h.storage, filename, &buf, "image/jpeg")
-	return err
+	if _, err := mediastore.SaveWithContentType(ctx, h.storage, filename, &buf, "image/jpeg"); err != nil {
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, filename)
+		return err
+	}
+	return nil
 }
 
 func (h *MediaHandler) getImageDimensions(reader io.Reader, _ string) (int, int) {
@@ -3310,7 +3359,7 @@ func (h *MediaHandler) serveMedia(c echo.Context) error {
 		return c.JSON(http.StatusGone, map[string]string{fieldError: "media was deleted"})
 	}
 
-	file, err := h.storage.Open(filepath.Base(media.FilePath))
+	file, err := h.storage.Open(c.Request().Context(), filepath.Base(media.FilePath))
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "media file not found"})
 	}
@@ -3370,7 +3419,7 @@ func (h *MediaHandler) serveThumbnailSize(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "thumbnail not found"})
 	}
 
-	file, err := h.storage.Open(thumbFilename)
+	file, err := h.storage.Open(c.Request().Context(), thumbFilename)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "thumbnail file not found"})
 	}
@@ -3404,7 +3453,7 @@ func (h *MediaHandler) serveVideoPoster(c echo.Context) error {
 	if strings.TrimSpace(media.ThumbnailObjectKey) == "" {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "video poster not found"})
 	}
-	file, err := h.storage.Open(media.ThumbnailObjectKey)
+	file, err := h.storage.Open(c.Request().Context(), media.ThumbnailObjectKey)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "video poster file not found"})
 	}

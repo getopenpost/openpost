@@ -31,6 +31,7 @@ import (
 	"github.com/openpost/backend/internal/connectors"
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/memes"
+	operationallogging "github.com/openpost/backend/internal/operational/logging"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/queue"
 	"github.com/openpost/backend/internal/services/aiprompts"
@@ -87,6 +88,10 @@ func newWorkerID() string {
 
 //nolint:gocyclo
 func main() {
+	runtimeLogger := operationallogging.New(os.Stdout, "openpost", runningBuildRevision())
+	log.SetFlags(0)
+	log.SetOutput(runtimeLogger.LegacyWriter())
+
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
@@ -158,18 +163,18 @@ func main() {
 		HandleError:     true,
 		LogValuesFunc: func(_ echo.Context, values middleware.RequestLoggerValues) error {
 			route := normalizedRequestRoute(values.RoutePath)
-			log.Printf(
-				"request method=%s path=%s route=%s consumer=%s status=%d latency=%s bytes_out=%d remote_ip=%s request_id=%s error=%v",
-				values.Method,
-				values.URIPath,
-				route,
-				requestConsumerClass(route, values.UserAgent),
-				values.Status,
-				values.Latency,
-				values.ResponseSize,
-				values.RemoteIP,
-				values.RequestID,
-				values.Error,
+			runtimeLogger.Info(
+				"http_request",
+				"method", values.Method,
+				"path", values.URIPath,
+				"route", route,
+				"consumer", requestConsumerClass(route, values.UserAgent),
+				"status", values.Status,
+				"latency_ms", values.Latency.Milliseconds(),
+				"bytes_out", values.ResponseSize,
+				"remote_ip", values.RemoteIP,
+				"request_id", values.RequestID,
+				"error", values.Error,
 			)
 			return nil
 		},

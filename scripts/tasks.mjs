@@ -145,6 +145,7 @@ const checks = {
     commandStep("scripts/check-go-deadcode.sh"),
     commandStep("bunx", "knip", "--production", "--include", "files", "--no-config-hints"),
   ]),
+  "secret-scan": stage("secret scan", [commandStep("bash", "scripts/scan-secrets.sh")]),
   compatibility: stage("compatibility surfaces", [
     bunTest("scripts/compatibility-surfaces.test.mjs"),
     bun("scripts/compatibility-surfaces.mjs"),
@@ -158,6 +159,7 @@ const checks = {
     bunTest(
       "scripts/tasks.test.mjs",
       "scripts/changed-files-check.test.mjs",
+      "scripts/secret-scan-contract.test.mjs",
       "scripts/turbo-cache.test.mjs",
     ),
   ]),
@@ -167,7 +169,15 @@ const checks = {
 };
 
 const policyGroups = [
-  ["build-graph", "assets", "image-policy", "mcp-registry", "docs", "release-version"],
+  [
+    "build-graph",
+    "assets",
+    "image-policy",
+    "mcp-registry",
+    "docs",
+    "release-version",
+    "secret-scan",
+  ],
   [
     "app-routes",
     "public-routes",

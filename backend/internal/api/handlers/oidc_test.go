@@ -39,7 +39,7 @@ func TestOIDCSignupRequiresTheHostedPurchaseChoiceBeforeRedirecting(t *testing.T
 			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
 			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
 		),
-		PurchaseChoiceSecret: "purchase-choice-secret-with-at-least-32-characters",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 	authHandler := NewAuthHandler(nil, auth.NewService("oidc-choice-secret"), nil, nil, nil, false)
 	authHandler.SetPurchaseChoices(choiceService, true)

@@ -1,0 +1,13 @@
+title = "OpenPost secret scanning"
+minVersion = "v8.30.1"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Video EQ field-map keys are identifiers, not credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "line"
+paths = ['''(?:^|/)frontend/src/lib/video-editor/components/audio-eq-panel\.svelte$''']
+regexes = ['''(?:frequencyKey|slopeKey):\s*'band[0-9]+(?:FrequencyHz|SlopeDbPerOct)'\s*,''']

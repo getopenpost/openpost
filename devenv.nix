@@ -18,6 +18,7 @@
     pkgs.wget
     pkgs.docker
     pkgs.actionlint
+    pkgs.gitleaks
   ];
 
   # Keep dependency/build caches with the checkout so a durable NAS clone can
@@ -132,6 +133,11 @@
       cd "${config.git.root}"
       bun run doctor
     '';
+
+    secret-scan.exec = ''
+      cd "${config.git.root}"
+      bash scripts/scan-secrets.sh "$@"
+    '';
   };
 
   enterShell = ''
@@ -162,6 +168,7 @@
     echo "    cache-prune  - Enforce bounded Turbo and persistent Go build caches"
     echo "    docker-cache-status - Report Docker image, volume, and build-cache sizes"
     echo "    docker-cache-prune  - Bound unused Docker build cache without deleting volumes"
+    echo "    secret-scan         - Scan current files and candidate Git history for secrets"
     echo ""
 
     # Install tracked fast local gates. Broader verification stays explicit.

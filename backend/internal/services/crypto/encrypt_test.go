@@ -39,7 +39,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	}{
 		{"empty string", ""},
 		{"simple text", "hello world"},
-		{"oauth token", "gho_16C7e42F292c6912E7710c838347Ae178B4"},
+		{"oauth token", "oauth-token-for-roundtrip-test-only"},
 		{"json string", `{"access_token":"token","refresh_token":"refresh"}`},
 		{"special chars", "token with spaces & symbols!@#$%"},
 		{"unicode", "日本語テスト"},

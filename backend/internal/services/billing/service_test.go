@@ -220,7 +220,7 @@ func TestPurchaseChoiceCoversEveryCanonicalPlanAndBillingPeriod(t *testing.T) {
 	now := time.Date(2026, 8, 12, 10, 0, 0, 0, time.UTC)
 	service := NewService(nil, "", PaddleConfig{
 		Plans:                testCatalog(),
-		PurchaseChoiceSecret: "purchase-choice-secret-with-at-least-32-characters",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 	service.SetNowForTest(func() time.Time { return now })
 
@@ -259,7 +259,7 @@ func TestPurchaseChoiceRejectsMissingInvalidExpiredAndMismatchedValues(t *testin
 	now := time.Date(2026, 8, 12, 10, 0, 0, 0, time.UTC)
 	service := NewService(nil, "", PaddleConfig{
 		Plans:                testCatalog(),
-		PurchaseChoiceSecret: "purchase-choice-secret-with-at-least-32-characters",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 	service.SetNowForTest(func() time.Time { return now })
 

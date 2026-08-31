@@ -285,6 +285,46 @@ func TestFacebookPublishRejectsNonHTTPSMediaURL(t *testing.T) {
 	}
 }
 
+func TestFacebookPublishNormalizesMetaFailures(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	tests := []struct {
+		name       string
+		body       string
+		statusCode int
+		code       string
+	}{
+		{name: "expired token", body: `{"error":{"code":190}}`, statusCode: http.StatusUnauthorized, code: "meta:token_expired:190"},
+		{name: "permission", body: `{"error":{"code":10}}`, statusCode: http.StatusForbidden, code: "meta:permission:10"},
+		{name: "rate limit", body: `{"error":{"code":4}}`, statusCode: http.StatusTooManyRequests, code: "meta:rate_limit:4"},
+		{name: "transient", body: `{"error":{"code":2}}`, statusCode: http.StatusServiceUnavailable, code: "meta:transient:2"},
+		{name: "other", body: `{"error":{"code":100}}`, statusCode: http.StatusBadRequest, code: "meta:100"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(test.body)),
+					Request:    req,
+				}, nil
+			})}
+
+			_, err := NewFacebookAdapter("", "", "").Publish(t.Context(), "page-token", "page-1", &PublishRequest{Content: "Launch"})
+			var providerErr *HTTPError
+			if !errors.As(err, &providerErr) {
+				t.Fatalf("expected typed provider error, got %v", err)
+			}
+			if providerErr.StatusCode != test.statusCode || providerErr.Code != test.code {
+				t.Fatalf("unexpected normalized error: %#v", providerErr)
+			}
+		})
+	}
+}
+
 func TestFacebookPublishedIDRejectsGraphError(t *testing.T) {
 	_, err := facebookPublishedID("facebook publish", []byte(`{"error":{"message":"missing permission"}}`))
 	var providerErr *HTTPError

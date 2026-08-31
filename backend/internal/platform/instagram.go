@@ -249,9 +249,10 @@ func (i *InstagramAdapter) UploadMedia(_ context.Context, _ string, _ string, _ 
 }
 
 func (i *InstagramAdapter) Publish(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest) (PublishResult, error) {
-	return executePublishWrite(req, "publish_media", func() (string, error) {
+	result, err := executePublishWrite(req, "publish_media", func() (string, error) {
 		return i.publish(ctx, accessToken, instagramUserID, req)
 	})
+	return result, normalizeMetaPublishError(err)
 }
 
 func (i *InstagramAdapter) publish(ctx context.Context, accessToken, instagramUserID string, req *PublishRequest) (string, error) {

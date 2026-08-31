@@ -303,9 +303,10 @@ func (f *FacebookAdapter) UploadMedia(_ context.Context, _ string, _ string, _ s
 }
 
 func (f *FacebookAdapter) Publish(ctx context.Context, accessToken, pageID string, req *PublishRequest) (PublishResult, error) {
-	return executePublishWrite(req, "publish_graph_object", func() (string, error) {
+	result, err := executePublishWrite(req, "publish_graph_object", func() (string, error) {
 		return f.publish(ctx, accessToken, pageID, req)
 	})
+	return result, normalizeMetaPublishError(err)
 }
 
 func (f *FacebookAdapter) publish(ctx context.Context, accessToken, pageID string, req *PublishRequest) (string, error) {

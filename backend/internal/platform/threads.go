@@ -205,9 +205,10 @@ func (t *ThreadsAdapter) UploadMedia(_ context.Context, _ string, _ string, _ st
 }
 
 func (t *ThreadsAdapter) Publish(ctx context.Context, accessToken, userID string, req *PublishRequest) (PublishResult, error) {
-	return executePublishWrite(req, "publish_container", func() (string, error) {
+	result, err := executePublishWrite(req, "publish_container", func() (string, error) {
 		return t.publish(ctx, accessToken, userID, req)
 	})
+	return result, normalizeMetaPublishError(err)
 }
 
 func (t *ThreadsAdapter) publish(ctx context.Context, accessToken, userID string, req *PublishRequest) (string, error) {
@@ -754,7 +755,7 @@ func (t *ThreadsAdapter) publishContainer(ctx context.Context, accessToken, user
 
 func isThreadsPublishPropagationError(err error) bool {
 	var providerErr *HTTPError
-	return errors.As(err, &providerErr) && providerErr.Code == "24"
+	return errors.As(err, &providerErr) && providerErr.Code == "24" && providerErr.Subcode == "4279009"
 }
 
 func validateThreadsMedia(media []MediaItem) []MediaValidationIssue {

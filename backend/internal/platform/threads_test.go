@@ -232,7 +232,7 @@ func TestThreadsPublishContainerRetriesTypedPropagationError(t *testing.T) {
 			return &http.Response{
 				StatusCode: http.StatusBadRequest,
 				Header:     make(http.Header),
-				Body:       io.NopCloser(strings.NewReader(`{"error":{"code":24}}`)),
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"code":24,"error_subcode":4279009}}`)),
 				Request:    req,
 			}, nil
 		}
@@ -251,6 +251,33 @@ func TestThreadsPublishContainerRetriesTypedPropagationError(t *testing.T) {
 	}
 	if id != "thread-1" || attempts != 2 {
 		t.Fatalf("expected one code-24 retry and thread-1, got id=%q attempts=%d", id, attempts)
+	}
+}
+
+func TestThreadsPublishContainerDoesNotRetryUnrelatedCode24(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	attempts := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		attempts++
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"code":24,"error_subcode":123}}`)),
+			Request:    req,
+		}, nil
+	})}
+
+	_, err := NewThreadsAdapter("", "", "").publishContainer(
+		context.Background(),
+		"threads-token",
+		"user-1",
+		"creation-1",
+	)
+
+	if err == nil || attempts != 1 {
+		t.Fatalf("expected unrelated code-24 failure without retry, got err=%v attempts=%d", err, attempts)
 	}
 }
 

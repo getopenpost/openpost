@@ -1,85 +1,63 @@
-# OpenPost agents
+# OpenPost agent guide
 
-This file is always loaded. Keep it useful and compact. Code and config are the source of truth.
+OpenPost is the all-in-one content team for solo founders. It turns their work into channel-ready content, publishes it, and brings outcomes back into one workspace. Hosted is the primary product; self-hosting is a deployment option.
 
-## Identity
+- A **Publication** is the user-visible post. It owns the source idea, schedule, status, and destination outputs.
+- A **Rendition** is one destination-specific version with its own account, text, media, format, timing, and provider settings.
 
-OpenPost is an all-in-one social publishing workspace. It helps solo founders, creators, teams, and agencies turn ideas into channel-ready content, publish it, and track what happened. The main user is a solo founder without a content team; the app removes repeat work without hiding provider rules or publishing state. The Hosted service is the primary product; self-hosting is a deployment option.
+## Product bar
 
-- A **Publication** is the user-visible post; it owns the source idea, schedule, status, and destination outputs.
-- A **Rendition** is one destination-specific version: per-account text, media, format, timing, and provider settings.
-- The composer (posts, threads, stories, short videos, videos), Social Sets, shared Media library, Image and Video Editors, calendar and durable queue, analytics/engagement/inbox, and Workspaces make up the product.
-- The web app, native mobile app, HTTP API, CLI, and MCP server share the same terms, permissions, and workspace boundaries.
+- Start with the founder's launches, updates, lessons, and ideas. Remove repeat work without hiding decisions.
+- Preserve provider truth. Show real capabilities, limits, review needs, readiness, and failures.
+- Keep every outcome inspectable: draft, scheduled, queued, published, failed, or retrying.
+- Use the same terms, permissions, and workspace boundaries across web, mobile, API, CLI, MCP, Hosted, and self-hosted surfaces.
+- Treat UX consistency as a product requirement. Reuse established patterns and preserve keyboard access, visible focus, readable contrast, reduced motion, localization, and touch targets.
 
-## Product direction
+## Route the work
 
-- Start with the user's work: launches, updates, lessons, and ideas.
-- Preserve provider truth. Show real limits, capabilities, review needs, and failures.
-- Make every outcome clear: draft, scheduled, queued, published, failed, or retrying.
-- UX and visual consistency is the highest product priority.
-- One coherent product across app, automation, mobile, and self-hosting.
-- Reuse established UI patterns. Consistency builds trust.
-- Keep keyboard access, visible focus, readable contrast, reduced motion, and touch targets.
+Load only the branch the task needs:
 
-## Project state and memory
+| Task                                                                    | Read or use                                                                                         |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Substantial, ambiguous, or multi-ticket work                            | `agent-workflow`; the OpenPost Vikunja project for the current spec, priority, and execution state  |
+| Product scope, public copy, provider support, or capability claims      | `README.md` for current public claims and readiness; `PRODUCT.md` for purpose, terms, and scope     |
+| UI, visual, or user-facing copy changes                                 | `ux-consistency` and `DESIGN.md`; add `impeccable` for design critique                              |
+| Interaction sounds                                                      | `cuelume`                                                                                           |
+| Repository ownership or an unfamiliar seam                              | `docs/agents/repository-map.md`, then confirm its paths and symbols with `rg`                       |
+| Go HTTP or OpenAPI work                                                 | `huma`; for TypeScript consumers, also use `openapi-typescript`                                     |
+| Deployment, runtime configuration, release workflows, or revision proof | `docs/agents/deployable-inventory.md`                                                               |
+| n8n package release                                                     | `docs/agents/n8n-package-release.md`                                                                |
+| Video Editor, Quick Cut, or Recorder                                    | `docs/specs/video-editors-rebuild.md` and the relevant rows in `docs/specs/freecut-parity-audit.md` |
 
-- The **OpenPost** Vikunja project is the authority for private/internal active work, specs, priorities and execution state. Create and update those tasks through Executor. GitHub Issues remain only for public reports and contributor-facing discussion.
-- Hindsight bank `rodrigo` is the authority for durable cross-agent product context, domain language, decisions, constraints and project history. Recall with `project:openpost` before substantial work. Retain only verified durable facts with `project:openpost` and `source:<agent>`; never retain secrets, raw logs, temporary task state, completed-work reports or unverified claims.
-- Code, tests, generated contracts, build commands, public docs and hard engineering constraints remain versioned here. Do not create new `CONTEXT.md`, mutable ADR folders, local issue stores, task boards or agent-memory files.
-- Treat recalled memory as historical context, not proof of current behavior. Verify it against code, Vikunja or the live system. Correct superseded memories rather than adding contradictions.
+For reference implementations, read `references/README.md` before inspecting a checkout. Use `postiz` or `shoutrrr` for publishing and durable automation, `miniPaint` for the Image Editor, and the named video references for recording or editing. Keep reference checkouts shallow and Git-ignored. Audit source and license before porting code; OpenPost's architecture, security, accessibility, provider rules, and product language remain authoritative.
 
-## Working model
+## Authorities
 
-- Substantial, ambiguous, or multi-ticket work follows the `agent-workflow` skill; tiny, well-scoped fixes skip the flow.
-- Match the work to its reference: UI/UX/visual/copy → `ux-consistency` (plus `impeccable` for design critique), `DESIGN.md`, `PRODUCT.md`; interaction sounds → `cuelume`; Go API → `huma`; TypeScript client → `openapi-typescript`; durable domain/decision context → Hindsight plus current code; paths and seams → `docs/agents/repository-map.md` (confirm with `rg`); internal work → Vikunja; public issue/PR triage → GitHub.
-- Use Devenv for the environment; run verification, build, and release through the root `bun run` commands.
-- Do routine, non-destructive work yourself rather than delegating manual steps; production, external, and reputational mutations stay gated (see Delivery).
-- Canonical backlog: the OpenPost Vikunja project. P0 = active security/privacy/data-integrity emergency or a safety gate before an external-write path; P1 = before the next broad release or paid-growth push; P2 = planned work. Treat it as an ordered queue, not one flat list.
+- **Vikunja** owns private work, specs, priorities, and execution state. **GitHub Issues and pull requests** own public reports and contributor discussion.
+- **Hindsight bank `rodrigo`** owns durable product terms, decisions, constraints, and history. Before substantial work, recall `project:openpost`, then verify the result against current code, Vikunja, or the live system. Retain only verified durable facts tagged `project:openpost` and `source:<agent>`.
+- **This repository** owns code, tests, generated contracts, build and security rules, and public technical documentation. Keep project state out of repo-local memory files and mutable task boards.
 
-## Architecture
+## Engineering invariants
 
-- SvelteKit builds the interface; a Go server embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, Bun ORM owns database access. SQLite is the default; PostgreSQL supports hosted use.
-- Persistent work uses database jobs, not in-memory goroutines. Media goes through `BlobStorage`. Provider code lives in `backend/internal/platform/`.
-- The binary exposes `all`, `web`, `worker`, and `migrate` process roles. `all` is the self-host default and auto-migrates; hosted rollouts run `migrate` once, then start `web` and `worker` against the current schema.
-- Page reads use stored state; provider calls happen in explicit sync or job flows. Publications are the canonical user-visible content inventory.
-- Svelte uses runes, the typed API client, and shared UI/page controls; visible form fields belong in shared primitives. Secrets stay out of code and logs; stored provider tokens are encrypted.
-- Video Editor on-canvas gestures keep drafts out of undo history and commit once on release. Animated position uses versioned vector keys with temporal easing and spatial Bezier tangents; legacy scalar X/Y tracks promote lazily on the first vector edit.
-- CLI, MCP, API, and product surfaces share terms, permissions, and boundaries. Public contract changes are acceptable when deliberate and UX-improving; change the source, then regenerate.
-- AI features use maintained SDKs behind a small provider-neutral boundary (`backend/internal/ai/`); reuse the shared model and config choices instead of adding per-feature models.
-- Meme Maker embeds a pinned template catalog and renders in process; captions and workspace overlay bytes stay server-side, while optional AI suggestions receive only bounded written template semantics. Refresh the audited snapshot with `scripts/sync-meme-catalog.mjs <pinned-checkout>`.
-- Video Editor GPU effects share one WebGL2 ping-pong compositor; use point-scatter vertex passes for exact cross-texel writes that a fragment pass cannot express.
-- Video Editor adjustment layers are timed, non-rendering items; preview and export apply their enabled effects, top-first, to active visual items on higher-order tracks.
-- Video Editor live edits keep visible items non-overlapping on the same track through `timeline/track-occupancy.ts`; preserve loaded and undo-restored overlap, cross-track compositing, audio mixing, and adjustment/controller overlap. Plan placement before calling raw `addItems` or `moveItems`.
-- Video Editor export workers return in-memory artifacts; only the main thread writes final workspace files. Fall back only for explicit worker limits, availability, runtime, or message-clone failures, and never retry a worker render error as a second render.
-- Video Editor Auto preview serializes heavy-media proxy work, keeps proxy visuals separate from original-source audio, and applies a hysteretic render-scale cap to real GPU and stacked canvases. A bounded worker cache predecodes upcoming boundary frames; stalled seeks may present exact prewarm or filmstrip fallbacks until the video element settles. Full preview and export always use the original source at full resolution.
-- Non-normal Video Editor blend modes use the shared `CanvasStackCompositor` in preview and export so each transformed layer blends against the finished frame below; keep the exact CPU fallback aligned with the GPU shader.
-- Video Editor keyframe views share item keyframe tracks and `keyframeSelectionStore`; batch graph and dope-sheet edits use atomic keyframe actions so parallel metadata arrays and undo stay aligned.
-- Video Editor Motion parenting stores bind-space references, resolves parent chains after local animation, links, expressions, and modifiers, and converts direct world-space canvas edits back to child-local values. Controller items participate in transforms but never render. Published composition controls store their schema on the source composition and per-instance overrides on the wrapper; preview and export apply overrides to cloned source items.
-- Video Editor color comparison and pickers use `colorPreviewStore` as preview-only state; export always reads the persisted full effect stack, and grade presets clone color-category GPU effects instead of sharing mutable params.
-- Video Editor keyboard commands use the closed catalog in `settings/keyboard-shortcuts.ts`; page and timeline handlers resolve saved bindings by command ID and must not add hardcoded key comparisons.
-- Video Editor interface sounds use `soundPreferences` as the only Cuelume owner and semantic tokens through `sounds/editor-sounds.ts`; suppress normal cues during preview playback and remove generic control cues when an outcome cue owns the same gesture.
-- Video Editor diagnostics use `previewDiagnostics` as the single owner for measured playback and renderer state. Reports must exclude project names, clip labels, media IDs, and file paths; keep repair and fixture tools out of the normal product UI.
-- Video Editor ProRes decode uses the lazy `media/prores-decoder.ts` registry in every `CanvasSink` realm except the DOM-video prewarm worker. Browser-undecodable clips must keep their compatibility proxy even at Full preview quality; export still reads the original source.
+- SvelteKit builds the interface; Go embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, and Bun ORM owns database access. SQLite is the self-host default; PostgreSQL supports Hosted.
+- Publications are the canonical authored-content inventory. Page reads use stored state; provider calls occur only in explicit sync or durable job flows.
+- Persistent work uses database jobs rather than in-memory goroutines. Media crosses the `BlobStorage` boundary. Provider adapters live under `backend/internal/platform/`.
+- The binary roles are `all`, `web`, `worker`, and `migrate`. Self-hosted `all` auto-migrates; Hosted migrates once before starting `web` and `worker` against that schema.
+- Svelte code uses runes, the typed API client, and shared UI/page controls. Visible form fields use shared primitives.
+- API, CLI, MCP, and product surfaces share terms, authorization, and workspace boundaries. For a contract change, edit its source and regenerate every consumer.
+- AI features use maintained SDKs behind `backend/internal/ai/` and the shared model and configuration choices.
+- Keep secrets out of code and logs. Stored provider tokens remain encrypted.
 
-## Reference repositories
+## Execution
 
-- Publishing, scheduling, automation, or provider work: inspect `references/postiz/` and `references/shoutrrr/` when either has similar behavior (reposts, delays, thresholds; durable jobs, engagement gates, plateau checks, per-post overrides).
-- Image Editor work: inspect `references/miniPaint/` for tools, raster workflows, effects, import/export, and desktop/mobile UX.
-- OpenPost Studio, recording, or Video Editor work: read `references/README.md`, then inspect OpenScreen, Capptivo, and Cap for capture/cursor seams; FreeCut, Kdenlive, and Shotcut for editing semantics; and OpenCut, OpenVid, OpenReel, or QCut for product and interaction ideas.
-- Keep checkouts shallow and Git-ignored. Use them as references, never dependencies; never commit or vendor them. Audit the source and license before porting code. OpenPost's architecture, security, accessibility, provider rules, and product language win.
+1. **Establish the boundary.** Inspect the worktree and the owning code, tests, docs, and current task. Preserve unrelated changes. The step is complete when every intended file belongs to the requested concern and the expected behavior is explicit.
+2. **Change the owner.** Work through the owning service or abstraction instead of reaching around it. Use Devenv and root `bun run` tasks. The step is complete when the smallest coherent implementation satisfies the behavior without a parallel source of truth.
+3. **Prove behavior.** Reproduce bugs through the closest practical user-facing boundary and add the smallest stable regression test when one can fail on a plausible regression. Prefer focused practical verification over circular tests of private helpers, literals, or implementation branches. The step is complete when the changed behavior has independent evidence and the nearest relevant gate passes.
+4. **Synchronize surfaces.** Update affected contracts, docs, product copy, and generated outputs from their sources. Add user-visible behavior, migration, or operator notes to `changes/<issue>.md` under the right changelog group. The step is complete when no affected surface describes the old behavior and contract checks pass when applicable.
+5. **Finish cleanly.** Run the scoped root gate from `docs/agents/repository-map.md`; scale up to `bun run release -- check` for broad release proof and `bun run verify` only for high-risk production-build proof. Re-run `ux-consistency` for UI or copy. The step is complete when relevant checks pass and residual risks are reported.
 
 ## Delivery
 
-- Commit directly to `main` with Conventional Commits; commit as work progresses. Preserve unrelated changes and stay inside the requested scope.
-- Push, release, and deploy at the end, and only when asked. A push is not a deployment: releases run from `v*` tags after passing CI, live readiness, and an exact-revision check.
-- Production-affecting mutations (tag push, release, deploy, destructive live actions) require explicit authorization. State the exact changes and their effect before acting.
-- CI reuses Devenv/Nix/Bun/git caches and should stay fast (target under ~2 minutes where realistic).
-- n8n package release work must follow `docs/agents/n8n-package-release.md`; npm publication follows exact production readiness and uses its own stable SemVer.
-
-## Verify and deliver
-
-- Tests need an independent reason to exist: reproduce a real failure through the closest stable boundary or check an externally defined contract. Each test must fail on a plausible behavior regression, not merely because the implementation was refactored.
-- Remove circular tests that call a new private helper or guard and assert its own literals, branches, fields, or error text. When no meaningful behavior test exists, use focused practical verification and add no test.
-- During development, run the nearest relevant check after each edit: `bun run check:frontend:types` for Svelte/TS type checking only, `bun run check:contracts` for generated contracts, `bun run test:file -- <path>` for a single test, `bun run test:backend:pkg -- <package>` for one Go package. Use `bun run check -- <scope>` for a full surface gate once the candidate is stable. Use `bun run doctor` before broad, browser, or release work; `bun run release -- check` before releases; `bun run verify` only for high-risk local build proof.
-- UI and copy changes must pass the `ux-consistency` acceptance bar before finishing.
-- Behavior changes: sync docs, product copy, and contracts under `Unreleased`. Write changelog entries to `changes/<issue-number>.md`, not directly to `CHANGELOG.md`, to avoid conflicts when parallel tickets are in flight.
+- Commit directly to `main` with Conventional Commits, one concern per commit. Stage only files owned by the current work.
+- Push only when asked. A push is not a deployment.
+- Before any tag push, release, deploy, destructive live action, or other production mutation, state the exact revision, action, and effect, then wait for explicit authorization.

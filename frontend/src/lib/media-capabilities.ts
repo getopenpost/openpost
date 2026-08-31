@@ -20,6 +20,8 @@ const videoTypeQuickTime = 'video/quicktime';
 const blueskyVideoLimitBytes = 100 * 1024 * 1024;
 const maxCarouselMedia = 10;
 const maxThreadsCarouselMedia = 20;
+const maxPinterestImages = 5;
+const maxPinterestImageBytes = 20 * 1024 * 1024;
 const maxTikTokPhotos = 35;
 export const MAX_COMPOSER_DRAFT_MEDIA = maxTikTokPhotos;
 const feedImageMimeTypes = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -69,6 +71,8 @@ export function validateProviderMedia(
 			return validateFacebookMedia(media);
 		case 'instagram':
 			return validateInstagramMedia(media);
+		case 'pinterest':
+			return validatePinterestMedia(media);
 		case 'tiktok':
 			return validateTikTokMedia(media);
 		case 'youtube':
@@ -279,6 +283,29 @@ function validateInstagramMedia(media: MediaCapabilityItem[]): MediaCapabilityIs
 		];
 	}
 	return [];
+}
+
+function validatePinterestMedia(media: MediaCapabilityItem[]): MediaCapabilityIssue[] {
+	if (media.length < 1 || media.length > maxPinterestImages) {
+		return [issue('pinterest', 'error', 'Pinterest Pins require 1-5 images.')];
+	}
+	const unsupported = media.find((item) => !isSupportedFeedImage(item.mimeType));
+	if (unsupported) {
+		return [
+			issue(
+				'pinterest',
+				'error',
+				'Pinterest Pins support JPEG, PNG, or WebP images only.',
+				unsupported.id
+			)
+		];
+	}
+	const oversized = media.find(
+		(item) => Number.isFinite(item.size) && Number(item.size) > maxPinterestImageBytes
+	);
+	return oversized
+		? [issue('pinterest', 'error', 'Pinterest images must be 20MB or smaller.', oversized.id)]
+		: [];
 }
 
 function validateTikTokMedia(media: MediaCapabilityItem[]): MediaCapabilityIssue[] {

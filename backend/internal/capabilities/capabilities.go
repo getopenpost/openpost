@@ -319,7 +319,13 @@ func All() []Capability {
 	tiktokVideo.RequiresPublicURL = true
 	tiktokVideo.RequiresHTTPSFetchable = true
 	discordVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4", "video/quicktime", "video/webm"}, MaxSizeBytes: 10 * 1024 * 1024}
-	pinterestImages := MediaConstraint{MinCount: 1, MaxCount: 5, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"}}
+	pinterestImage := MediaConstraint{
+		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp"},
+		MaxSizeBytes: 20 * 1024 * 1024, RequiresPublicURL: true, RequiresHTTPSFetchable: true,
+	}
+	pinterestCarousel := pinterestImage
+	pinterestCarousel.MinCount = 2
+	pinterestCarousel.MaxCount = 5
 	telegramMedia := MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "application/pdf"}}
 	publicShortVideo := shortVideo
 	publicShortVideo.RequiresPublicURL = true
@@ -413,8 +419,8 @@ func All() []Capability {
 		defaultQueued(Capability{Provider: ProviderTikTok, Profile: models.ContentProfileShortVideo, Label: "TikTok video", TextLimit: 2200, Media: tiktokVideo, RequiresPublicMedia: true, RequiresAppReview: true, Settings: tiktokSettings()}),
 		defaultQueued(Capability{Provider: ProviderTikTok, Profile: models.ContentProfileCarousel, Label: "TikTok photo post", TextLimit: 4000, Media: tiktokPhotos, RequiresPublicMedia: true, RequiresAppReview: true, Settings: tiktokSettings()}),
 
-		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileImagePost, Label: "Pinterest Pin", TextLimit: 800, Media: pinterestImages, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
-		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileCarousel, Label: "Pinterest multi-image Pin", TextLimit: 800, Media: pinterestImages, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileImagePost, Label: "Pinterest Pin", TextLimit: 800, Media: pinterestImage, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileCarousel, Label: "Pinterest multi-image Pin", TextLimit: 800, Media: pinterestCarousel, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
 
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileImagePost, Label: "Telegram media", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),

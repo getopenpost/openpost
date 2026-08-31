@@ -2,6 +2,7 @@ package platform
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -129,6 +130,162 @@ func TestPinterestListsEveryBoardPageWithoutLossOrDuplicatesAndLoadsSectionsLazi
 	require.Equal(t, []DestinationOption{{Value: "section-1", Label: "Product"}}, sections.Options)
 	require.Equal(t, "sections-2", sections.NextCursor)
 	require.Equal(t, 1, sectionCalls)
+}
+
+func TestPinterestPublishesCertifiedSingleAndOrderedMultiImageRequestFixtures(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	tests := []struct {
+		name    string
+		fixture string
+		request *PublishRequest
+	}{
+		{
+			name:    "single image",
+			fixture: "create_single_image_request.json",
+			request: &PublishRequest{
+				Profile: "image_post", Title: "Fallback title", Description: "What changed in this release.",
+				Settings: map[string]interface{}{
+					"board_id": "board-owned", "section_id": "section-2", "pin_title": "Launch notes",
+					"destination_link": "https://openpost.example/launch", "is_ai_generated": true,
+				},
+				PlatformMediaIDs: []string{"https://media.openpost.example/launch.jpg?lease=single"},
+				MediaAltTexts:    []string{"OpenPost launch dashboard"},
+				Media:            []MediaItem{{ID: "image-1", MimeType: "image/jpeg"}},
+			},
+		},
+		{
+			name:    "ordered multi image",
+			fixture: "create_multi_image_request.json",
+			request: &PublishRequest{
+				Profile: "carousel", Content: "The launch in three steps.",
+				Settings: map[string]interface{}{
+					"board_id": "board-owned", "section_id": "section-2", "pin_title": "Launch sequence",
+					"destination_link": "https://openpost.example/launch-sequence", "is_ai_generated": false,
+				},
+				PlatformMediaIDs: []string{
+					"https://media.openpost.example/step-1.jpg?lease=first",
+					"https://media.openpost.example/step-2.png?lease=second",
+					"https://media.openpost.example/step-3.webp?lease=third",
+				},
+				MediaAltTexts: []string{"Step one", "Step two", "Step three"},
+				Media: []MediaItem{
+					{ID: "image-1", MimeType: "image/jpeg"},
+					{ID: "image-2", MimeType: "image/png"},
+					{ID: "image-3", MimeType: "image/webp"},
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			writeStarted := false
+			var checkpoint PublishResult
+			test.request.SetWriteFence(func(result PublishResult) error {
+				require.Equal(t, "create_pin", result.ProviderState)
+				require.Equal(t, PublishRetryNever, result.RetrySafety)
+				writeStarted = true
+				return nil
+			}, func(result PublishResult) error {
+				checkpoint = result
+				return nil
+			})
+			httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				require.Equal(t, "Bearer access", req.Header.Get(headerAuthorization))
+				switch req.URL.Path {
+				case "/v5/user_account":
+					return jsonResponse(req, `{"username":"openpost","business_name":"OpenPost","account_type":"BUSINESS"}`), nil
+				case "/v5/boards/board-owned":
+					return jsonResponse(req, `{"id":"board-owned","name":"Owned","owner":{"username":"openpost"}}`), nil
+				case "/v5/boards/board-owned/sections":
+					if req.URL.Query().Get("bookmark") == "sections-2" {
+						return jsonResponse(req, pinterestFixture(t, "sections_page_2.json")), nil
+					}
+					return jsonResponse(req, pinterestFixture(t, "sections_page_1.json")), nil
+				case "/v5/pins":
+					require.True(t, writeStarted, "the durable write fence must be entered before Pin creation")
+					require.Equal(t, http.MethodPost, req.Method)
+					require.Equal(t, contentTypeJSON, req.Header.Get(headerContentType))
+					body, err := io.ReadAll(req.Body)
+					require.NoError(t, err)
+					require.JSONEq(t, pinterestFixture(t, test.fixture), string(body))
+					return jsonResponse(req, pinterestFixture(t, "create_pin_response.json")), nil
+				default:
+					t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+					return nil, nil
+				}
+			})}
+
+			result, err := NewPinterestAdapter("", "", "").Publish(context.Background(), "access", "openpost", test.request)
+			require.NoError(t, err)
+			require.Equal(t, "993607355001234567", result.ExternalID)
+			require.Equal(t, "https://www.pinterest.com/pin/993607355001234567/", result.ExternalURL)
+			require.Equal(t, PublishSubmissionAccepted, result.SubmissionState)
+			require.Equal(t, result, checkpoint)
+		})
+	}
+}
+
+func TestPinterestAmbiguousCreateIsFencedAcrossWorkerRestart(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	postCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v5/user_account":
+			return jsonResponse(req, `{"username":"openpost","business_name":"OpenPost","account_type":"BUSINESS"}`), nil
+		case "/v5/boards/board-owned":
+			return jsonResponse(req, `{"id":"board-owned","name":"Owned","owner":{"username":"openpost"}}`), nil
+		case "/v5/pins":
+			postCalls++
+			return jsonResponse(req, pinterestFixture(t, "create_pin_response.json")), nil
+		default:
+			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	restarted := false
+	request := &PublishRequest{
+		Profile: "image_post", Content: "Launch", Settings: map[string]interface{}{"board_id": "board-owned"},
+		PlatformMediaIDs: []string{"https://media.openpost.example/launch.jpg?lease=single"},
+		Media:            []MediaItem{{ID: "image-1", MimeType: "image/jpeg"}},
+	}
+	request.SetWriteFence(func(PublishResult) error {
+		if restarted {
+			return errors.New("persisted Pinterest create is ambiguous")
+		}
+		return nil
+	}, func(PublishResult) error {
+		return context.DeadlineExceeded
+	})
+
+	_, err := NewPinterestAdapter("", "", "").Publish(context.Background(), "access", "openpost", request)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	restarted = true
+	_, err = NewPinterestAdapter("", "", "").Publish(context.Background(), "access", "openpost", request)
+	require.ErrorContains(t, err, "persisted Pinterest create is ambiguous")
+	require.Equal(t, 1, postCalls, "an ambiguous Pin create must never be replayed after restart")
+}
+
+func TestPinterestImagePublishingRejectsUncertifiedFormatsBeforeProviderReads(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		t.Fatalf("invalid Pinterest media reached provider request %s %s", req.Method, req.URL.String())
+		return nil, nil
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	_, err := adapter.Publish(context.Background(), "access", "openpost", &PublishRequest{
+		Profile: "short_video", Settings: map[string]interface{}{"board_id": "board-owned"},
+		PlatformMediaIDs: []string{"https://media.openpost.example/video.mp4"},
+		Media:            []MediaItem{{ID: "video", MimeType: "video/mp4"}},
+	})
+	require.ErrorContains(t, err, "does not support profile")
 }
 
 func TestPinterestPublishTargetValidationRejectsForeignStaleAndMismatchedTargetsBeforeMutation(t *testing.T) {

@@ -1,0 +1,31 @@
+{
+  "board_id": "board-owned",
+  "board_section_id": "section-2",
+  "title": "Launch sequence",
+  "description": "The launch in three steps.",
+  "link": "https://openpost.example/launch-sequence",
+  "alt_text": "Step one",
+  "media_source": {
+    "source_type": "multiple_image_urls",
+    "items": [
+      {
+        "url": "https://media.openpost.example/step-1.jpg?lease=first",
+        "title": "Launch sequence",
+        "description": "The launch in three steps.",
+        "link": "https://openpost.example/launch-sequence"
+      },
+      {
+        "url": "https://media.openpost.example/step-2.png?lease=second",
+        "title": "Launch sequence",
+        "description": "The launch in three steps.",
+        "link": "https://openpost.example/launch-sequence"
+      },
+      {
+        "url": "https://media.openpost.example/step-3.webp?lease=third",
+        "title": "Launch sequence",
+        "description": "The launch in three steps.",
+        "link": "https://openpost.example/launch-sequence"
+      }
+    ]
+  }
+}

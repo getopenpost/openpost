@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 const (
@@ -243,13 +244,219 @@ func (p *PinterestAdapter) UploadMedia(_ context.Context, _, _, _ string, _ io.R
 }
 
 func (p *PinterestAdapter) Publish(ctx context.Context, accessToken, accountID string, req *PublishRequest) (PublishResult, error) {
-	if req == nil {
-		return PublishResult{}, fmt.Errorf("pinterest publish request is required")
+	payload, err := buildPinterestPinRequest(req)
+	if err != nil {
+		return PublishResult{}, err
 	}
 	if err := p.ValidatePublishingTarget(ctx, accessToken, accountID, req.Settings); err != nil {
 		return PublishResult{}, err
 	}
-	return PublishResult{}, fmt.Errorf("pinterest Pin publishing is not implemented")
+
+	prepared := PublishResult{ProviderState: "create_pin", RetrySafety: PublishRetryNever}
+	if err := req.BeginWrite(prepared); err != nil {
+		return PublishResult{}, err
+	}
+	body, err := DoJSON(ctx, http.MethodPost, pinterestAPIBaseURL+"/pins", payload, bearerHeaders(accessToken))
+	if err != nil {
+		return prepared, fmt.Errorf("creating pinterest Pin: %w", err)
+	}
+	var response struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return prepared, fmt.Errorf("decoding pinterest Pin create response: %w", err)
+	}
+	response.ID = strings.TrimSpace(response.ID)
+	if response.ID == "" {
+		return prepared, fmt.Errorf("pinterest Pin create response is missing an id")
+	}
+	result := AcceptedPublishResult(response.ID)
+	result.ProviderState = "pin_created"
+	result.ExternalURL = pinterestPinURL(response.ID)
+	if err := req.Checkpoint(result); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+type pinterestPinCreateRequest struct {
+	BoardID        string                  `json:"board_id"`
+	BoardSectionID string                  `json:"board_section_id,omitempty"`
+	Title          string                  `json:"title,omitempty"`
+	Description    string                  `json:"description,omitempty"`
+	Link           string                  `json:"link,omitempty"`
+	AltText        string                  `json:"alt_text,omitempty"`
+	AIDisclosures  *pinterestAIDisclosures `json:"ai_disclosures,omitempty"`
+	MediaSource    pinterestPinMediaSource `json:"media_source"`
+}
+
+type pinterestPinMediaSource struct {
+	SourceType string                  `json:"source_type"`
+	URL        string                  `json:"url,omitempty"`
+	Items      []pinterestPinMediaItem `json:"items,omitempty"`
+}
+
+type pinterestPinMediaItem struct {
+	URL         string `json:"url"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Link        string `json:"link,omitempty"`
+}
+
+type pinterestAIDisclosures struct {
+	Values []string `json:"values"`
+}
+
+func buildPinterestPinRequest(req *PublishRequest) (pinterestPinCreateRequest, error) {
+	if req == nil {
+		return pinterestPinCreateRequest{}, fmt.Errorf("pinterest publish request is required")
+	}
+	if err := validatePinterestPublishMedia(req); err != nil {
+		return pinterestPinCreateRequest{}, err
+	}
+	title, description, link, altText, aiDisclosures, err := pinterestPinMetadata(req)
+	if err != nil {
+		return pinterestPinCreateRequest{}, err
+	}
+	payload := pinterestPinCreateRequest{
+		BoardID:        settingString(req.Settings, "board_id"),
+		BoardSectionID: settingString(req.Settings, "section_id"),
+		Title:          title,
+		Description:    description,
+		Link:           link,
+		AltText:        altText,
+		AIDisclosures:  aiDisclosures,
+	}
+	if len(req.PlatformMediaIDs) == 1 {
+		payload.MediaSource = pinterestPinMediaSource{SourceType: "image_url", URL: req.PlatformMediaIDs[0]}
+		return payload, nil
+	}
+
+	payload.MediaSource.SourceType = "multiple_image_urls"
+	payload.MediaSource.Items = make([]pinterestPinMediaItem, 0, len(req.PlatformMediaIDs))
+	for _, mediaURL := range req.PlatformMediaIDs {
+		payload.MediaSource.Items = append(payload.MediaSource.Items, pinterestPinMediaItem{
+			URL: mediaURL, Title: title, Description: description, Link: link,
+		})
+	}
+	return payload, nil
+}
+
+func validatePinterestPublishMedia(req *PublishRequest) error {
+	mediaCount := len(req.PlatformMediaIDs)
+	if req.Profile == "image_post" && mediaCount != 1 {
+		return fmt.Errorf("pinterest image Pins require exactly one image")
+	}
+	if req.Profile == "carousel" && (mediaCount < 2 || mediaCount > 5) {
+		return fmt.Errorf("pinterest multi-image Pins require 2-5 images")
+	}
+	if req.Profile != "image_post" && req.Profile != "carousel" {
+		return fmt.Errorf("pinterest publishing does not support profile %q", req.Profile)
+	}
+	if len(req.Media) != mediaCount {
+		return fmt.Errorf("pinterest publishing requires ordered media metadata for every image")
+	}
+	for index, item := range req.Media {
+		if !pinterestImageMIME(item.MimeType) {
+			return fmt.Errorf("pinterest image %d must be JPEG, PNG, or WebP", index+1)
+		}
+		if item.Size > 20*1024*1024 {
+			return fmt.Errorf("pinterest image %d must be 20MB or smaller", index+1)
+		}
+		if !pinterestSourceURL(req.PlatformMediaIDs[index]) {
+			return fmt.Errorf("pinterest image %d requires a public HTTPS URL", index+1)
+		}
+	}
+	return nil
+}
+
+func pinterestPinMetadata(req *PublishRequest) (string, string, string, string, *pinterestAIDisclosures, error) {
+	title := strings.TrimSpace(firstNonEmptyString(settingString(req.Settings, "pin_title"), req.Title))
+	description := strings.TrimSpace(firstNonEmptyString(req.Description, req.Content))
+	link := strings.TrimSpace(settingString(req.Settings, "destination_link"))
+	if utf8.RuneCountInString(title) > 100 {
+		return "", "", "", "", nil, fmt.Errorf("pinterest Pin title must be 100 characters or fewer")
+	}
+	if utf8.RuneCountInString(description) > 800 {
+		return "", "", "", "", nil, fmt.Errorf("pinterest Pin description must be 800 characters or fewer")
+	}
+	if link != "" && !pinterestDestinationURL(link) {
+		return "", "", "", "", nil, fmt.Errorf("pinterest destination link must be an absolute HTTP or HTTPS URL")
+	}
+	altText := strings.TrimSpace(settingString(req.Settings, "alt_text"))
+	if len(req.MediaAltTexts) > 0 && strings.TrimSpace(req.MediaAltTexts[0]) != "" {
+		altText = strings.TrimSpace(req.MediaAltTexts[0])
+	}
+	if utf8.RuneCountInString(altText) > 500 {
+		return "", "", "", "", nil, fmt.Errorf("pinterest Pin alt text must be 500 characters or fewer")
+	}
+	aiDisclosures, err := pinterestAIDisclosure(req.Settings)
+	if err != nil {
+		return "", "", "", "", nil, err
+	}
+	return title, description, link, altText, aiDisclosures, nil
+}
+
+func pinterestAIDisclosure(settings map[string]interface{}) (*pinterestAIDisclosures, error) {
+	raw, present := settings["is_ai_generated"]
+	if !present {
+		return nil, nil
+	}
+	value, ok := raw.(bool)
+	if !ok {
+		return nil, fmt.Errorf("pinterest AI-generated disclosure must be a boolean")
+	}
+	if !value {
+		return nil, nil
+	}
+	return &pinterestAIDisclosures{Values: []string{"AI_MODIFIED"}}, nil
+}
+
+func pinterestImageMIME(value string) bool {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "image/jpeg", "image/png", "image/webp":
+		return true
+	default:
+		return false
+	}
+}
+
+func pinterestSourceURL(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil
+}
+
+func pinterestDestinationURL(value string) bool {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	return err == nil && (parsed.Scheme == "http" || parsed.Scheme == "https") && parsed.Host != "" && parsed.User == nil
+}
+
+func pinterestPinURL(pinID string) string {
+	pinID = strings.TrimSpace(pinID)
+	if pinID == "" {
+		return ""
+	}
+	for _, char := range pinID {
+		if char < '0' || char > '9' {
+			return ""
+		}
+	}
+	return "https://www.pinterest.com/pin/" + pinID + "/"
+}
+
+func validatePinterestMedia(media []MediaItem) []MediaValidationIssue {
+	if len(media) < 1 || len(media) > 5 {
+		return []MediaValidationIssue{{Provider: providerPinterest, Severity: severityError, Message: "Pinterest Pins require 1-5 images."}}
+	}
+	for _, item := range media {
+		if !pinterestImageMIME(item.MimeType) {
+			return []MediaValidationIssue{{Provider: providerPinterest, MediaID: item.ID, Severity: severityError, Message: "Pinterest Pins support JPEG, PNG, or WebP images only."}}
+		}
+		if item.Size > 20*1024*1024 {
+			return []MediaValidationIssue{{Provider: providerPinterest, MediaID: item.ID, Severity: severityError, Message: "Pinterest images must be 20MB or smaller."}}
+		}
+	}
+	return nil
 }
 
 type pinterestBoard struct {

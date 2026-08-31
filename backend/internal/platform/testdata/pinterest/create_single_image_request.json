@@ -1,0 +1,15 @@
+{
+  "board_id": "board-owned",
+  "board_section_id": "section-2",
+  "title": "Launch notes",
+  "description": "What changed in this release.",
+  "link": "https://openpost.example/launch",
+  "alt_text": "OpenPost launch dashboard",
+  "ai_disclosures": {
+    "values": ["AI_MODIFIED"]
+  },
+  "media_source": {
+    "source_type": "image_url",
+    "url": "https://media.openpost.example/launch.jpg?lease=single"
+  }
+}

@@ -954,7 +954,7 @@ func mergePublisherSettings(base, overrides map[string]interface{}) map[string]i
 }
 
 func (s *Service) hydratePublicSettingMediaURLs(ctx context.Context, workspaceID, provider string, settings map[string]interface{}) error {
-	if provider != "instagram" {
+	if provider != "instagram" && provider != "pinterest" {
 		return nil
 	}
 	for _, key := range []string{"cover_media_id"} {
@@ -2124,7 +2124,10 @@ func (s *Service) openMediaReaderAt(ctx context.Context, storageKey string, offs
 }
 
 func (s *Service) openThumbnailFromSettings(ctx context.Context, settings map[string]interface{}) (*models.MediaAttachment, io.ReadCloser, error) {
-	thumbnailID := settingStringPublisher(settings, "thumbnail_media_id")
+	thumbnailID := firstNonEmptyPublisherString(
+		settingStringPublisher(settings, "thumbnail_media_id"),
+		settingStringPublisher(settings, "cover_media_id"),
+	)
 	if thumbnailID == "" {
 		return nil, nil, nil
 	}

@@ -108,7 +108,7 @@ func TestValidateMediaLinkedInAcceptsDocument(t *testing.T) {
 	}
 }
 
-func TestValidateMediaPinterestAcceptsOneToFiveImagesOnly(t *testing.T) {
+func TestValidateMediaPinterestAcceptsCertifiedImagesAndVideo(t *testing.T) {
 	RegisterAllMediaValidators()
 	images := []MediaItem{
 		{ID: "first", MimeType: "image/jpeg"},
@@ -118,8 +118,11 @@ func TestValidateMediaPinterestAcceptsOneToFiveImagesOnly(t *testing.T) {
 	if issues := ValidateMedia(providerPinterest, images); len(issues) != 0 {
 		t.Fatalf("expected Pinterest images to pass, got %#v", issues)
 	}
-	if issues := ValidateMedia(providerPinterest, []MediaItem{{ID: "video", MimeType: "video/mp4"}}); len(issues) != 1 || issues[0].MediaID != "video" {
-		t.Fatalf("expected Pinterest video to be rejected, got %#v", issues)
+	if issues := ValidateMedia(providerPinterest, []MediaItem{{ID: "video", MimeType: "video/mp4"}}); len(issues) != 0 {
+		t.Fatalf("expected one Pinterest MP4 video to pass, got %#v", issues)
+	}
+	if issues := ValidateMedia(providerPinterest, []MediaItem{{ID: "large-video", MimeType: "video/mp4", Size: pinterestVideoMaxSize + 1}}); len(issues) != 1 || issues[0].MediaID != "large-video" {
+		t.Fatalf("expected oversized Pinterest video to be rejected, got %#v", issues)
 	}
 	if issues := ValidateMedia(providerPinterest, nil); len(issues) != 1 {
 		t.Fatalf("expected missing Pinterest media to be rejected, got %#v", issues)

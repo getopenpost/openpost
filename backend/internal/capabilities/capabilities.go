@@ -326,6 +326,7 @@ func All() []Capability {
 	pinterestCarousel := pinterestImage
 	pinterestCarousel.MinCount = 2
 	pinterestCarousel.MaxCount = 5
+	pinterestVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 2 * 1024 * 1024 * 1024, MaxDurationSeconds: 15 * 60}
 	telegramMedia := MediaConstraint{MinCount: 1, MaxCount: 10, AllowedMIMEs: []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime", "application/pdf"}}
 	publicShortVideo := shortVideo
 	publicShortVideo.RequiresPublicURL = true
@@ -421,6 +422,7 @@ func All() []Capability {
 
 		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileImagePost, Label: "Pinterest Pin", TextLimit: 800, Media: pinterestImage, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
 		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileCarousel, Label: "Pinterest multi-image Pin", TextLimit: 800, Media: pinterestCarousel, RequiresPublicMedia: true, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
+		defaultQueued(Capability{Provider: ProviderPinterest, Profile: models.ContentProfileShortVideo, Label: "Pinterest video Pin", TextLimit: 800, Media: pinterestVideo, Settings: pinterestSettings(), RequiresAppReview: true, UnavailableReason: "Pinterest delivery is not enabled until provider access and certification are complete."}),
 
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileShortText, Label: "Telegram message", TextLimit: 4096, Media: text, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),
 		defaultQueued(Capability{Provider: ProviderTelegram, Profile: models.ContentProfileImagePost, Label: "Telegram media", TextLimit: 1024, Media: telegramMedia, Settings: telegramSettings(), UnavailableReason: "Telegram delivery is not enabled until bot certification is complete."}),
@@ -2183,6 +2185,7 @@ func pinterestSettings() []SettingField {
 		{Key: "section_id", Label: "Board section", Type: "select", Control: "remote_picker", OptionsSource: "pinterest_sections", Dependencies: []SettingCondition{{Key: "board_id", Operator: "present"}}},
 		{Key: "pin_title", Label: "Pin title", Type: "text", Constraints: SettingConstraint{MaxLength: 100}},
 		{Key: "destination_link", Label: "Destination link", Type: "url"},
+		{Key: "cover_media_id", Label: "Cover image", Type: "media", Control: "media_picker", Intents: []string{IntentShortVideo}, MediaShapes: []string{MediaShapeVideo}, Required: true, Constraints: SettingConstraint{Accept: []string{"image/jpeg", "image/png"}}},
 		{Key: "alt_text", Label: "Alt text", Type: "textarea", Scope: SettingScopeMediaItem, Constraints: SettingConstraint{MaxLength: 500}},
 		{Key: "is_ai_generated", Label: "AI-generated content", Type: "boolean"},
 	}

@@ -41,7 +41,7 @@ func PublishingSettingsContract(provider string) PublishingSettingContract {
 			PipelineKeys: []string{"music_usage_confirmed"},
 		},
 		providerPinterest: {
-			AdapterKeys: []string{"board_id", "section_id", "pin_title", "destination_link", "alt_text", "is_ai_generated"},
+			AdapterKeys: []string{"board_id", "section_id", "pin_title", "destination_link", "cover_media_id", "alt_text", "is_ai_generated"},
 		},
 		providerTelegram: {
 			AdapterKeys: []string{"chat_id", "disable_notification", "protect_content"},

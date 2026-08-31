@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -281,11 +282,350 @@ func TestPinterestImagePublishingRejectsUncertifiedFormatsBeforeProviderReads(t 
 
 	adapter := NewPinterestAdapter("", "", "")
 	_, err := adapter.Publish(context.Background(), "access", "openpost", &PublishRequest{
-		Profile: "short_video", Settings: map[string]interface{}{"board_id": "board-owned"},
+		Profile: "image_post", Settings: map[string]interface{}{"board_id": "board-owned"},
 		PlatformMediaIDs: []string{"https://media.openpost.example/video.mp4"},
 		Media:            []MediaItem{{ID: "video", MimeType: "video/mp4"}},
 	})
-	require.ErrorContains(t, err, "does not support profile")
+	require.ErrorContains(t, err, "must be JPEG, PNG, or WebP")
+}
+
+func TestPinterestVideoUploadRestartsFromRegistrationCheckpoint(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	registerCalls := 0
+	uploadCalls := 0
+	statusCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.URL.Path == "/v5/media" && req.Method == http.MethodPost:
+			registerCalls++
+			return jsonResponse(req, `{"media_id":"media-registered","upload_url":"https://pin-upload.s3.amazonaws.com/","upload_parameters":{"policy":"secret-policy","key":"video-key"}}`), nil
+		case req.URL.Host == "pin-upload.s3.amazonaws.com":
+			uploadCalls++
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Contains(t, string(body), "video-body")
+			return &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+		case req.URL.Path == "/v5/media/media-registered":
+			statusCalls++
+			if statusCalls == 1 {
+				return jsonResponse(req, `{"status":"registered"}`), nil
+			}
+			return jsonResponse(req, `{"status":"succeeded"}`), nil
+		default:
+			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	adapter.mediaPollDelay = 0
+	req := pinterestVideoUploadRequest()
+	var registered ResumableMediaUploadState
+	_, err := adapter.UploadMediaResumable(t.Context(), "access", "account", req, ResumableMediaUploadState{}, func(state ResumableMediaUploadState) error {
+		registered = state
+		return errors.New("worker stopped after registration")
+	})
+	require.ErrorContains(t, err, "worker stopped after registration")
+	require.Equal(t, "media-registered", registered.ProviderMediaID)
+	require.Contains(t, registered.OpaqueState, "secret-policy")
+	require.Equal(t, MediaUploadUploading, registered.Status)
+
+	var checkpoints []ResumableMediaUploadState
+	mediaID, err := adapter.UploadMediaResumable(t.Context(), "access", "account", req, registered, func(state ResumableMediaUploadState) error {
+		checkpoints = append(checkpoints, state)
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, "media-registered", mediaID)
+	require.Equal(t, 1, registerCalls, "restart must reuse the registered media id")
+	require.Equal(t, 1, uploadCalls)
+	require.Equal(t, MediaUploadUploaded, checkpoints[0].Status)
+	require.Empty(t, checkpoints[0].OpaqueState, "upload credentials must be released after upload")
+	require.Equal(t, MediaUploadReady, checkpoints[len(checkpoints)-1].Status)
+}
+
+func TestPinterestVideoUploadReconcilesAmbiguousUploadBeforeSendingBytesAgain(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	uploadCalls := 0
+	statusCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.URL.Path == "/v5/media" && req.Method == http.MethodPost:
+			return jsonResponse(req, `{"media_id":"media-ambiguous","upload_url":"https://pin-upload.s3.amazonaws.com/","upload_parameters":{"policy":"secret-policy"}}`), nil
+		case req.URL.Host == "pin-upload.s3.amazonaws.com":
+			uploadCalls++
+			_, err := io.Copy(io.Discard, req.Body)
+			require.NoError(t, err)
+			return nil, context.DeadlineExceeded
+		case req.URL.Path == "/v5/media/media-ambiguous":
+			statusCalls++
+			switch statusCalls {
+			case 1:
+				return jsonResponse(req, `{"status":"registered"}`), nil
+			case 2:
+				return jsonResponse(req, `{"status":"processing"}`), nil
+			default:
+				return jsonResponse(req, `{"status":"succeeded"}`), nil
+			}
+		default:
+			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	adapter.mediaPollDelay = 0
+	req := pinterestVideoUploadRequest()
+	var registered ResumableMediaUploadState
+	_, err := adapter.UploadMediaResumable(t.Context(), "access", "account", req, ResumableMediaUploadState{}, func(state ResumableMediaUploadState) error {
+		registered = state
+		return nil
+	})
+	require.Error(t, err)
+	classification, ok := MediaRetryClassificationForError(err)
+	require.True(t, ok)
+	require.Equal(t, MediaRetrySafeResume, classification)
+	require.NotEmpty(t, registered.OpaqueState)
+
+	var accepted ResumableMediaUploadState
+	mediaID, err := adapter.UploadMediaResumable(t.Context(), "access", "account", req, registered, func(state ResumableMediaUploadState) error {
+		accepted = state
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, "media-ambiguous", mediaID)
+	require.Equal(t, 1, uploadCalls, "processing status proves the ambiguous upload was accepted")
+	require.Empty(t, accepted.OpaqueState)
+	require.True(t, accepted.SessionExpiresAt.IsZero())
+}
+
+func TestPinterestVideoUploadRestartsFromUploadedAndProcessingCheckpoints(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	registerCalls := 0
+	uploadCalls := 0
+	statuses := []string{"registered", "processing", "processing", "processing", "succeeded"}
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch {
+		case req.URL.Path == "/v5/media" && req.Method == http.MethodPost:
+			registerCalls++
+			return jsonResponse(req, `{"media_id":"media-uploaded","upload_url":"https://pin-upload.s3.amazonaws.com/","upload_parameters":{"policy":"secret-policy"}}`), nil
+		case req.URL.Host == "pin-upload.s3.amazonaws.com":
+			uploadCalls++
+			_, err := io.Copy(io.Discard, req.Body)
+			require.NoError(t, err)
+			return &http.Response{StatusCode: http.StatusNoContent, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("")), Request: req}, nil
+		case req.URL.Path == "/v5/media/media-uploaded":
+			require.NotEmpty(t, statuses)
+			status := statuses[0]
+			statuses = statuses[1:]
+			return jsonResponse(req, `{"status":"`+status+`"}`), nil
+		default:
+			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	adapter.mediaPollAttempts = 2
+	adapter.mediaPollDelay = 0
+	req := pinterestVideoUploadRequest()
+	checkpointNumber := 0
+	var uploaded ResumableMediaUploadState
+	_, err := adapter.UploadMediaResumable(t.Context(), "access", "account", req, ResumableMediaUploadState{}, func(state ResumableMediaUploadState) error {
+		checkpointNumber++
+		uploaded = state
+		if checkpointNumber == 2 {
+			return errors.New("worker stopped after upload")
+		}
+		return nil
+	})
+	require.ErrorContains(t, err, "worker stopped after upload")
+	require.Equal(t, MediaUploadUploaded, uploaded.Status)
+	require.Equal(t, uploaded.TotalBytes, uploaded.UploadedBytes)
+	require.Empty(t, uploaded.OpaqueState)
+
+	var processing ResumableMediaUploadState
+	_, err = adapter.UploadMediaResumable(t.Context(), "access", "account", req, uploaded, func(state ResumableMediaUploadState) error {
+		processing = state
+		return nil
+	})
+	require.ErrorContains(t, err, "still processing")
+	classification, ok := MediaRetryClassificationForError(err)
+	require.True(t, ok)
+	require.Equal(t, MediaRetryReconcile, classification)
+	require.Equal(t, MediaUploadUploaded, processing.Status)
+
+	mediaID, err := adapter.UploadMediaResumable(t.Context(), "access", "account", req, processing, func(ResumableMediaUploadState) error { return nil })
+	require.NoError(t, err)
+	require.Equal(t, "media-uploaded", mediaID)
+	require.Equal(t, 1, registerCalls)
+	require.Equal(t, 1, uploadCalls, "uploaded and processing checkpoints must never resend bytes")
+}
+
+func TestPinterestVideoUploadCheckpointsTerminalProviderFailure(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, "/v5/media/media-failed", req.URL.Path)
+		return jsonResponse(req, `{"status":"failed"}`), nil
+	})}
+	adapter := NewPinterestAdapter("", "", "")
+	state := ResumableMediaUploadState{
+		ProviderMediaID: "media-failed", UploadedBytes: int64(len("video-body")), TotalBytes: int64(len("video-body")),
+		Status: MediaUploadUploaded, RetryClassification: MediaRetryReconcile,
+	}
+	var failed ResumableMediaUploadState
+	_, err := adapter.UploadMediaResumable(t.Context(), "access", "account", pinterestVideoUploadRequest(), state, func(next ResumableMediaUploadState) error {
+		failed = next
+		return nil
+	})
+	require.Error(t, err)
+	classification, ok := MediaRetryClassificationForError(err)
+	require.True(t, ok)
+	require.Equal(t, MediaRetryTerminal, classification)
+	require.Equal(t, MediaUploadFailed, failed.Status)
+	require.Equal(t, MediaRetryTerminal, failed.RetryClassification)
+	require.Empty(t, failed.OpaqueState)
+}
+
+func TestPinterestVideoPinCreateCheckpointResumesWithReadOnlyReconciliation(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	createCalls := 0
+	reconcileCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v5/user_account":
+			return jsonResponse(req, `{"username":"openpost","business_name":"OpenPost"}`), nil
+		case "/v5/boards/board-owned":
+			return jsonResponse(req, `{"id":"board-owned","owner":{"username":"openpost"}}`), nil
+		case "/v5/pins":
+			createCalls++
+			require.Equal(t, http.MethodPost, req.Method)
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Contains(t, string(body), `"source_type":"video_id"`)
+			require.Contains(t, string(body), `"cover_image_url":"https://media.openpost.test/cover.jpg"`)
+			return jsonResponse(req, `{"id":"pin-created"}`), nil
+		case "/v5/pins/pin-created":
+			reconcileCalls++
+			require.Equal(t, http.MethodGet, req.Method)
+			return jsonResponse(req, `{"id":"pin-created"}`), nil
+		default:
+			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	req := pinterestVideoPublishRequest()
+	begins := 0
+	req.SetWriteFence(func(result PublishResult) error {
+		begins++
+		require.Equal(t, PublishRetryNever, result.RetrySafety)
+		return nil
+	}, func(result PublishResult) error {
+		require.Equal(t, pinterestPinReferencePrefix+"pin-created", result.ProviderReference)
+		return errors.New("worker stopped after Pin checkpoint")
+	})
+	pending, err := adapter.Publish(t.Context(), "access", "openpost", req)
+	require.ErrorContains(t, err, "worker stopped after Pin checkpoint")
+	require.Equal(t, PublishSubmissionPending, pending.SubmissionState)
+	require.Equal(t, 1, begins)
+
+	result, err := adapter.ReconcilePublish(t.Context(), "access", "openpost", pending.ProviderReference)
+	require.NoError(t, err)
+	require.Equal(t, PublishSubmissionAccepted, result.SubmissionState)
+	require.Equal(t, "pin-created", result.ExternalID)
+	require.Equal(t, "https://www.pinterest.com/pin/pin-created/", result.ExternalURL)
+	require.Equal(t, 1, createCalls)
+	require.Equal(t, 1, reconcileCalls)
+}
+
+func TestPinterestVideoPinNeverReplaysAmbiguousCreate(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	createCalls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v5/user_account":
+			return jsonResponse(req, `{"username":"openpost"}`), nil
+		case "/v5/boards/board-owned":
+			return jsonResponse(req, `{"id":"board-owned","owner":{"username":"openpost"}}`), nil
+		case "/v5/pins":
+			createCalls++
+			return nil, context.DeadlineExceeded
+		default:
+			t.Fatalf("unexpected Pinterest request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	req := pinterestVideoPublishRequest()
+	req.SetWriteFence(func(PublishResult) error { return nil }, func(PublishResult) error {
+		t.Fatal("ambiguous create must not have a provider checkpoint")
+		return nil
+	})
+	result, err := adapter.Publish(t.Context(), "access", "openpost", req)
+	require.Error(t, err)
+	require.Equal(t, "creating", result.ProviderState)
+	require.Equal(t, PublishRetryNever, result.RetrySafety)
+	require.Empty(t, result.ProviderReference)
+
+	resumed := pinterestVideoPublishRequest()
+	resumed.ResumeProviderState = result.ProviderState
+	resumed.SetWriteFence(func(PublishResult) error {
+		t.Fatal("ambiguous create must not enter the write fence again")
+		return nil
+	}, nil)
+	_, err = adapter.Publish(t.Context(), "access", "openpost", resumed)
+	require.ErrorContains(t, err, "will not replay")
+	require.Equal(t, 1, createCalls)
+}
+
+func TestPinterestVideoRequirementsRejectMissingCoverBeforeProviderMutation(t *testing.T) {
+	req := pinterestVideoUploadRequest()
+	req.ThumbnailReader = nil
+	err := validatePinterestVideoUpload(req)
+	require.ErrorContains(t, err, "cover image")
+
+	publishReq := pinterestVideoPublishRequest()
+	publishReq.Settings["cover_media_id"] = "cover-local-id"
+	_, err = pinterestVideoPinPayload(publishReq)
+	require.ErrorContains(t, err, "public HTTPS cover")
+}
+
+func pinterestVideoUploadRequest() UploadMediaRequest {
+	body := []byte("video-body")
+	return UploadMediaRequest{
+		MimeType: "video/mp4", Filename: "launch.mp4", Size: int64(len(body)),
+		ThumbnailMimeType: "image/jpeg", ThumbnailFilename: "cover.jpg", ThumbnailSize: 5,
+		ThumbnailReader: bytes.NewReader([]byte("cover")),
+		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(body[offset:])), nil
+		},
+	}
+}
+
+func pinterestVideoPublishRequest() *PublishRequest {
+	return &PublishRequest{
+		Content: "Launch description", Title: "Launch", Profile: "short_video",
+		Settings: map[string]interface{}{
+			"board_id": "board-owned", "cover_media_id": "https://media.openpost.test/cover.jpg",
+		},
+		PlatformMediaIDs: []string{"media-ready"},
+		Media:            []MediaItem{{ID: "video", MimeType: "video/mp4", Size: 10}},
+	}
 }
 
 func TestPinterestPublishTargetValidationRejectsForeignStaleAndMismatchedTargetsBeforeMutation(t *testing.T) {

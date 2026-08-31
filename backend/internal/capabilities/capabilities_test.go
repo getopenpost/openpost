@@ -768,6 +768,13 @@ func TestPinterestTelegramAndDiscordExposeTypedDestinationSettings(t *testing.T)
 	require.True(t, carousel.RequiresAppReview)
 	require.NotEmpty(t, carousel.UnavailableReason)
 
+	pinterestVideo, ok := Find(ProviderPinterest, models.ContentProfileShortVideo)
+	require.True(t, ok)
+	require.Equal(t, []string{"video/mp4"}, pinterestVideo.Media.AllowedMIMEs)
+	require.Equal(t, int64(2*1024*1024*1024), pinterestVideo.Media.MaxSizeBytes)
+	require.Contains(t, capabilitySettingKeys(pinterestVideo.Settings), "cover_media_id")
+	require.NotEmpty(t, pinterestVideo.UnavailableReason, "video delivery must remain unavailable until certification")
+
 	telegram, ok := Find(ProviderTelegram, models.ContentProfileShortText)
 	require.True(t, ok)
 	require.Contains(t, capabilitySettingKeys(telegram.Settings), "chat_id")

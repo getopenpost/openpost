@@ -2662,10 +2662,7 @@ func (h *PublicationHandler) validateDynamicPublicationCapabilities(ctx context.
 		if !ok {
 			continue
 		}
-		adapter := h.providers[account.Platform]
-		if account.Platform == capabilities.ProviderMastodon {
-			adapter = h.providers[capabilities.ProviderMastodon+":"+account.InstanceURL]
-		}
+		adapter := h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 		result := platform.AccountCapabilityResult{}
 		hasResult := false
 		if account.Platform == capabilities.ProviderX {
@@ -2745,6 +2742,19 @@ func (h *PublicationHandler) validateDynamicPublicationCapabilities(ctx context.
 		}
 		for segmentIndex, segment := range segments {
 			settings := mergePublicationSettings(destinationSettings, segment.Settings)
+			if platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot &&
+				strings.TrimSpace(fmt.Sprint(settings["channel_id"])) == "" {
+				issue := dynamicPublicationIssue(
+					rendition,
+					"setting_required",
+					"Choose a Discord channel for this destination.",
+					"channel_id",
+				)
+				issue.SegmentID = segment.ID
+				issue.Scope = capabilities.SettingScopeSegment
+				issue.ScopeID = segment.ID
+				issues = append(issues, issue)
+			}
 			for key, available := range result.AvailableFeatures {
 				if available || !publicationSettingEnabled(settings[key]) {
 					continue

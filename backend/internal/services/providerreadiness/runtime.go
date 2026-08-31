@@ -104,8 +104,12 @@ func (c *ConfigurationCatalog) Resolve(provider, instanceURL string, environment
 	provider = strings.ToLower(strings.TrimSpace(provider))
 	instanceURL = strings.TrimRight(strings.TrimSpace(instanceURL), "/")
 	key := provider
+	fingerprintInstanceURL := instanceURL
 	if provider == capabilities.ProviderMastodon {
 		key += ":" + instanceURL
+	} else if provider == capabilities.ProviderDiscord && instanceURL == platform.ConnectionModeBot {
+		key += ":" + platform.ConnectionModeBot
+		fingerprintInstanceURL = ""
 	}
 	if c != nil {
 		c.mu.RLock()
@@ -115,7 +119,7 @@ func (c *ConfigurationCatalog) Resolve(provider, instanceURL string, environment
 			return configured
 		}
 	}
-	instanceFingerprint, _ := InstanceFingerprint(instanceURL)
+	instanceFingerprint, _ := InstanceFingerprint(fingerprintInstanceURL)
 	return RuntimeConfiguration{
 		Provider:            provider,
 		AppFingerprint:      missingAppFingerprint(provider, instanceFingerprint),

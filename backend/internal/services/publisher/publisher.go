@@ -2236,10 +2236,7 @@ func (s *Service) providerForAccount(ctx context.Context, workspaceID string, ac
 			return nil, "", false, err
 		}
 	}
-	providerKey := account.Platform
-	if account.Platform == "mastodon" {
-		providerKey = "mastodon:" + account.InstanceURL
-	}
+	providerKey := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
 	s.providerMu.RLock()
 	provider, ok := s.providers[providerKey]
 	s.providerMu.RUnlock()

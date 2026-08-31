@@ -126,6 +126,39 @@ func TestPinterestManagedContractsRequireCurrentStandardApprovalAndOrganicScopes
 	}
 }
 
+func TestDiscordBotAccountUsesBotConfigurationWithoutPersistedInstanceURL(t *testing.T) {
+	t.Parallel()
+	account := models.SocialAccount{
+		Platform:        capabilities.ProviderDiscord,
+		InstanceURL:     "",
+		CapabilityState: `{"connection_type":"bot"}`,
+	}
+	if got := accountConfigurationRef(account); got != platform.ConnectionModeBot {
+		t.Fatalf("account configuration reference = %q, want bot", got)
+	}
+}
+
+func TestConfigurationCatalogResolvesDiscordConnectionModesIndependently(t *testing.T) {
+	t.Parallel()
+	webhook := platform.AppConfig{Provider: capabilities.ProviderDiscord, ConnectionMode: platform.ConnectionModeWebhook}
+	bot := platform.AppConfig{
+		Provider: capabilities.ProviderDiscord, ConnectionMode: platform.ConnectionModeBot,
+		ClientID: "discord-app", ClientSecret: "client-secret", BotToken: "bot-secret", RedirectURI: "https://openpost.test/discord/callback",
+	}
+	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{webhook, bot}, ConfigurationSourceEnvironment, ProviderEnvironmentDevelopment))
+	if err != nil {
+		t.Fatal(err)
+	}
+	webhookConfig := catalog.Resolve(capabilities.ProviderDiscord, "", ProviderEnvironmentDevelopment)
+	botConfig := catalog.Resolve(capabilities.ProviderDiscord, platform.ConnectionModeBot, ProviderEnvironmentDevelopment)
+	if webhookConfig.Evidence.State != ConfigurationStateConfigured || botConfig.Evidence.State != ConfigurationStateConfigured {
+		t.Fatalf("discord modes were not independently configured: webhook=%#v bot=%#v", webhookConfig, botConfig)
+	}
+	if webhookConfig.AppFingerprint == botConfig.AppFingerprint || botConfig.InstanceFingerprint != "" {
+		t.Fatalf("discord mode identity is not isolated: webhook=%#v bot=%#v", webhookConfig, botConfig)
+	}
+}
+
 func TestManagedAndSelfHostedPublicationContractsHaveDifferentEvidenceGates(t *testing.T) {
 	t.Parallel()
 	capability := capabilities.Resolve("x", capabilities.ResolveInput{CreationPreset: "post"}).Capability

@@ -9663,8 +9663,14 @@ export interface components {
       capabilities?: string[] | null;
       /** @description Whether this provider can currently be connected */
       configured: boolean;
+      /** @description Connection methods configured and ready on this instance */
+      configured_connection_modes?: string[] | null;
       /** @description Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot */
       connection_modes?: string[] | null;
+      /** @description Mode-specific readiness for providers with distinct connection methods */
+      connection_readiness?: {
+        [key: string]: components["schemas"]["Decision"];
+      };
       /** @description Short connection or launch note for this provider */
       description?: string;
       /** @description Human-readable provider name */

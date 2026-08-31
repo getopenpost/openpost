@@ -173,18 +173,20 @@ type MastodonServerInfo struct {
 }
 
 type ProviderInfo struct {
-	Platform        string                     `json:"platform" doc:"Provider key"`
-	InstallationID  string                     `json:"installation_id,omitempty" doc:"Operator installation used for a custom connector"`
-	DisplayName     string                     `json:"display_name" doc:"Human-readable provider name"`
-	AuthMode        string                     `json:"auth_mode" doc:"Primary connection method retained for compatibility"`
-	ConnectionModes []string                   `json:"connection_modes,omitempty" doc:"Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot"`
-	Configured      bool                       `json:"configured" doc:"Whether this provider can currently be connected"`
-	Status          string                     `json:"status,omitempty" doc:"Provider launch status: available, needs_configuration, or planned"`
-	Description     string                     `json:"description,omitempty" doc:"Short connection or launch note for this provider"`
-	Capabilities    []string                   `json:"capabilities,omitempty" doc:"High-level OpenPost capabilities available or planned for this provider"`
-	Name            string                     `json:"name,omitempty" doc:"Provider app or server display name"`
-	InstanceURL     string                     `json:"instance_url,omitempty" doc:"Federated server URL, when applicable"`
-	Readiness       providerreadiness.Decision `json:"readiness"`
+	Platform                  string                                `json:"platform" doc:"Provider key"`
+	InstallationID            string                                `json:"installation_id,omitempty" doc:"Operator installation used for a custom connector"`
+	DisplayName               string                                `json:"display_name" doc:"Human-readable provider name"`
+	AuthMode                  string                                `json:"auth_mode" doc:"Primary connection method retained for compatibility"`
+	ConnectionModes           []string                              `json:"connection_modes,omitempty" doc:"Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot"`
+	ConfiguredConnectionModes []string                              `json:"configured_connection_modes,omitempty" doc:"Connection methods configured and ready on this instance"`
+	ConnectionReadiness       map[string]providerreadiness.Decision `json:"connection_readiness,omitempty" doc:"Mode-specific readiness for providers with distinct connection methods"`
+	Configured                bool                                  `json:"configured" doc:"Whether this provider can currently be connected"`
+	Status                    string                                `json:"status,omitempty" doc:"Provider launch status: available, needs_configuration, or planned"`
+	Description               string                                `json:"description,omitempty" doc:"Short connection or launch note for this provider"`
+	Capabilities              []string                              `json:"capabilities,omitempty" doc:"High-level OpenPost capabilities available or planned for this provider"`
+	Name                      string                                `json:"name,omitempty" doc:"Provider app or server display name"`
+	InstanceURL               string                                `json:"instance_url,omitempty" doc:"Federated server URL, when applicable"`
+	Readiness                 providerreadiness.Decision            `json:"readiness"`
 }
 
 type ListProvidersOutput struct {
@@ -435,7 +437,11 @@ func (h *OAuthHandler) getProvider(platform, serverName string) (platform.Adapte
 		return adapter, nil
 	}
 
-	adapter, ok := h.providers[platform]
+	key := platform
+	if platform == "discord" {
+		key = "discord:bot"
+	}
+	adapter, ok := h.providers[key]
 	if !ok {
 		return nil, fmt.Errorf("unsupported platform: %s", platform)
 	}
@@ -526,6 +532,13 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
+func selectedAccountInstanceURL(provider string, values ...string) string {
+	if provider == "discord" {
+		return ""
+	}
+	return firstNonEmpty(values...)
+}
+
 func (h *OAuthHandler) ListProviders(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "list-account-providers",
@@ -564,6 +577,12 @@ func applyProviderAvailabilityReadiness(
 		for index := range infos {
 			infos[index].Readiness = providerreadiness.UnavailableDecision(providerreadiness.OperationConnect)
 			infos[index].Configured = false
+			if infos[index].Platform == "discord" {
+				infos[index].ConnectionReadiness = map[string]providerreadiness.Decision{
+					platform.ConnectionModeWebhook: providerreadiness.UnavailableDecision(providerreadiness.OperationConnect),
+					platform.ConnectionModeBot:     providerreadiness.UnavailableDecision(providerreadiness.OperationConnect),
+				}
+			}
 			if infos[index].Status != providerStatusPlanned {
 				infos[index].Status = string(providerreadiness.EffectiveStateDegraded)
 			}
@@ -582,6 +601,21 @@ func applyProviderAvailabilityReadiness(
 			infos[index].InstanceURL,
 			providerreadiness.ExecutionIntentProduction,
 		)
+		if infos[index].Platform == "discord" {
+			webhookDecision := decision
+			botDecision := readiness.DecideConnection(ctx, "discord", platform.ConnectionModeBot, providerreadiness.ExecutionIntentProduction)
+			infos[index].ConnectionReadiness = map[string]providerreadiness.Decision{
+				platform.ConnectionModeWebhook: webhookDecision,
+				platform.ConnectionModeBot:     botDecision,
+			}
+			infos[index].ConfiguredConnectionModes = nil
+			if webhookDecision.Connectable {
+				infos[index].ConfiguredConnectionModes = append(infos[index].ConfiguredConnectionModes, platform.ConnectionModeWebhook)
+			}
+			if botDecision.Connectable {
+				infos[index].ConfiguredConnectionModes = append(infos[index].ConfiguredConnectionModes, platform.ConnectionModeBot)
+			}
+		}
 		infos[index].Readiness = decision
 		infos[index].Configured = decision.Connectable
 		infos[index].Status = string(decision.State)
@@ -612,6 +646,14 @@ func providerInfoWithStatus(providers map[string]platform.Adapter, item Provider
 		return item
 	}
 	item.Configured = providers[item.Platform] != nil
+	if item.Platform == "discord" {
+		if providers["discord:"+platform.ConnectionModeWebhook] != nil || providers["discord"] != nil {
+			item.ConfiguredConnectionModes = append(item.ConfiguredConnectionModes, platform.ConnectionModeWebhook)
+		}
+		if providers["discord:"+platform.ConnectionModeBot] != nil {
+			item.ConfiguredConnectionModes = append(item.ConfiguredConnectionModes, platform.ConnectionModeBot)
+		}
+	}
 	if item.Configured {
 		item.Status = providerStatusAvailable
 	} else {
@@ -849,6 +891,9 @@ func (h *OAuthHandler) authURLProvider(
 	if err != nil {
 		return nil, "", huma.Error400BadRequest(err.Error())
 	}
+	if input.Platform == "discord" {
+		return adapter, platform.ConnectionModeBot, nil
+	}
 	return adapter, "", nil
 }
 
@@ -969,9 +1014,12 @@ func (h *OAuthHandler) Callback(api huma.API) {
 			userID = statePayload.UserID
 			workspaceID = statePayload.WorkspaceID
 			executionIntent = statePayload.ExecutionIntent
-			if input.Platform == mastodonProvider {
+			switch input.Platform {
+			case mastodonProvider:
 				input.ServerName = statePayload.ServerName
 				instanceRef = statePayload.ServerName
+			case "discord":
+				instanceRef = platform.ConnectionModeBot
 			}
 		}
 
@@ -1529,7 +1577,10 @@ func (h *OAuthHandler) DiscordWebhookLogin(api huma.API) {
 		if err := h.ensureCanStartAccountConnection(ctx, input.Body.WorkspaceID, userID); err != nil {
 			return nil, err
 		}
-		adapter, ok := h.providers["discord"].(*platform.DiscordAdapter)
+		adapter, ok := h.providers["discord:"+platform.ConnectionModeWebhook].(*platform.DiscordAdapter)
+		if !ok {
+			adapter, ok = h.providers["discord"].(*platform.DiscordAdapter)
+		}
 		if !ok {
 			return nil, huma.Error400BadRequest("discord webhooks are not configured")
 		}
@@ -1698,7 +1749,7 @@ func (h *OAuthHandler) CompleteAccountSelection(api huma.API) {
 				AccountID:             selected.AccountID,
 				AccountUsername:       selected.AccountUsername,
 				AccountAvatarURL:      selected.AccountAvatarURL,
-				InstanceURL:           firstNonEmpty(selected.InstanceURL, pending.InstanceURL),
+				InstanceURL:           selectedAccountInstanceURL(pending.Platform, selected.InstanceURL, pending.InstanceURL),
 				Token:                 selected.Token,
 				CapabilityState:       selected.CapabilityState,
 				Grant:                 authorizationGrantInput(adapter, firstNonEmptyTokenValue(tokenResp, "_grant_subject", "user_id", "open_id", "sub")),

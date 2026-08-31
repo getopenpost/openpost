@@ -171,10 +171,7 @@ func activeCredentialError(account *models.SocialAccount, grant *models.OAuthGra
 }
 
 func (tm *TokenManager) providerForAccount(account *models.SocialAccount) (platform.Adapter, error) {
-	providerKey := account.Platform
-	if account.Platform == "mastodon" {
-		providerKey = "mastodon:" + account.InstanceURL
-	}
+	providerKey := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
 	tm.providerMu.RLock()
 	provider, ok := tm.providers[providerKey]
 	tm.providerMu.RUnlock()

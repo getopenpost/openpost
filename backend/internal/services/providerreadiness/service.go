@@ -10,6 +10,7 @@ import (
 
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/platform"
 )
 
 type ServiceOptions struct {
@@ -142,7 +143,7 @@ func (s *Service) ResolveCertificationContext(
 	if !found || !s.isPublicationImplemented(account.Platform, capability.OutputProfile) {
 		return CertificationContext{}, errors.New("provider certification output profile is not implemented")
 	}
-	configuration := s.resolveConfiguration(account.Platform, account.InstanceURL)
+	configuration := s.resolveConfiguration(account.Platform, accountConfigurationRef(account))
 	if configuration.Evidence.State != ConfigurationStateConfigured {
 		return CertificationContext{}, errors.New("provider certification account is not exactly configured")
 	}
@@ -221,7 +222,7 @@ func (s *Service) DecideAccountPublication(
 	accountReferenceHash, referenceErr := AccountReferenceHash(account)
 	if s == nil || s.authorizations == nil {
 		return s.decidePublication(ctx, PublicationDecisionInput{
-			Provider: account.Platform, InstanceURL: account.InstanceURL,
+			Provider: account.Platform, InstanceURL: accountConfigurationRef(account),
 			AccountKind: AccountKind(account), Capability: capability,
 			Operation: operation, Intent: intent, PolicyMode: policyMode,
 			CurrentAccountReferenceHash: accountReferenceHash,
@@ -230,11 +231,19 @@ func (s *Service) DecideAccountPublication(
 	authorization, err := s.authorizations.AuthorizationForAccount(ctx, account, s.currentTime())
 	err = errors.Join(err, referenceErr)
 	return s.decidePublication(ctx, PublicationDecisionInput{
-		Provider: account.Platform, InstanceURL: account.InstanceURL,
+		Provider: account.Platform, InstanceURL: accountConfigurationRef(account),
 		AccountKind: AccountKind(account), Capability: capability,
 		Operation: operation, Intent: intent, PolicyMode: policyMode,
 		CurrentAccountReferenceHash: accountReferenceHash, Authorization: authorization,
 	}, err)
+}
+
+func accountConfigurationRef(account models.SocialAccount) string {
+	if account.Platform == capabilities.ProviderDiscord &&
+		platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState) == capabilities.ProviderDiscord+":"+platform.ConnectionModeBot {
+		return platform.ConnectionModeBot
+	}
+	return account.InstanceURL
 }
 
 func (s *Service) decidePublication(ctx context.Context, input PublicationDecisionInput, authorizationErr error) Decision {

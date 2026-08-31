@@ -31,7 +31,7 @@ func ApplicationContract(provider, connectionMode string) (ProviderAppContract, 
 	contracts := map[string]ProviderAppContract{
 		providerBluesky + ":" + ConnectionModeAppPassword: {Provider: providerBluesky, ConnectionMode: ConnectionModeAppPassword, AdapterBacked: true, BuiltIn: true},
 		providerDiscord + ":" + ConnectionModeWebhook:     {Provider: providerDiscord, ConnectionMode: ConnectionModeWebhook, AdapterBacked: true, BuiltIn: true},
-		providerDiscord + ":" + ConnectionModeBot:         {Provider: providerDiscord, ConnectionMode: ConnectionModeBot, RequiredFields: []string{"client_id", "client_secret", "bot_token", "redirect_uri"}},
+		providerDiscord + ":" + ConnectionModeBot:         {Provider: providerDiscord, ConnectionMode: ConnectionModeBot, RequiredFields: []string{"client_id", "client_secret", "bot_token", "redirect_uri"}, AdapterBacked: true},
 		providerPinterest + ":" + ConnectionModeOAuth:     {Provider: providerPinterest, ConnectionMode: ConnectionModeOAuth, RequiredFields: []string{"client_id", "client_secret", "redirect_uri"}, AdapterBacked: true},
 		providerTelegram + ":" + ConnectionModeBot:        {Provider: providerTelegram, ConnectionMode: ConnectionModeBot, RequiredFields: []string{"bot_token", "bot_username", "webhook_secret"}},
 		providerX + ":" + ConnectionModeOAuth:             {Provider: providerX, ConnectionMode: ConnectionModeOAuth, RequiredFields: []string{"client_id"}, AdapterBacked: true},

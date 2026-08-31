@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 )
@@ -53,7 +54,10 @@ var appBuilders = map[string]appBuilder{
 	providerBluesky: func(_ AppConfig, _ RegistryOptions) (Adapter, error) {
 		return NewBlueskyAdapter(""), nil
 	},
-	providerDiscord: func(_ AppConfig, _ RegistryOptions) (Adapter, error) {
+	providerDiscord: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
+		if app.ConnectionMode == ConnectionModeBot {
+			return NewDiscordBotAdapter(app.ClientID, app.ClientSecret, app.BotToken, app.RedirectURI), nil
+		}
 		return NewDiscordAdapter(), nil
 	},
 	providerPinterest: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
@@ -183,6 +187,27 @@ func IsAppProviderSupported(provider string) bool {
 	return false
 }
 
+// AccountProviderKey selects a mode-specific adapter without exposing
+// credentials. Discord accounts created before connection_type was introduced
+// continue to resolve to the canonical incoming-webhook adapter.
+func AccountProviderKey(provider, instanceURL, capabilityStateJSON string) string {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	if provider == providerMastodon {
+		return providerMastodon + ":" + strings.TrimRight(strings.TrimSpace(instanceURL), "/")
+	}
+	if provider == providerDiscord {
+		state := map[string]string{}
+		_ = json.Unmarshal([]byte(capabilityStateJSON), &state)
+		if state["connection_type"] == ConnectionModeBot {
+			return providerDiscord + ":" + ConnectionModeBot
+		}
+		if state["connection_type"] == ConnectionModeWebhook {
+			return providerDiscord + ":" + ConnectionModeWebhook
+		}
+	}
+	return provider
+}
+
 func NormalizeAppConfig(app AppConfig) AppConfig {
 	app.Provider = strings.ToLower(strings.TrimSpace(app.Provider))
 	app.ConnectionMode = normalizeConnectionMode(app.Provider, app.ConnectionMode, app)
@@ -198,6 +223,12 @@ func NormalizeAppConfig(app AppConfig) AppConfig {
 }
 
 func adapterKeys(app AppConfig) []string {
+	if app.Provider == providerDiscord {
+		if app.ConnectionMode == ConnectionModeBot {
+			return []string{providerDiscord + ":" + ConnectionModeBot}
+		}
+		return []string{providerDiscord, providerDiscord + ":" + ConnectionModeWebhook}
+	}
 	if app.Provider != providerMastodon {
 		return []string{app.Provider}
 	}

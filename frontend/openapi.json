@@ -12099,12 +12099,26 @@
 						"description": "Whether this provider can currently be connected",
 						"type": "boolean"
 					},
+					"configured_connection_modes": {
+						"description": "Connection methods configured and ready on this instance",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
+					},
 					"connection_modes": {
 						"description": "Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot",
 						"items": {
 							"type": "string"
 						},
 						"type": ["array", "null"]
+					},
+					"connection_readiness": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/Decision"
+						},
+						"description": "Mode-specific readiness for providers with distinct connection methods",
+						"type": "object"
 					},
 					"description": {
 						"description": "Short connection or launch note for this provider",

@@ -216,11 +216,7 @@ func (h *DestinationOptionsHandler) loadDestinationAccount(ctx context.Context, 
 }
 
 func (h *DestinationOptionsHandler) adapterForDestinationAccount(account models.SocialAccount) platform.Adapter {
-	key := account.Platform
-	if account.Platform == "mastodon" {
-		key = "mastodon:" + account.InstanceURL
-	}
-	return h.providers[key]
+	return h.providers[platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)]
 }
 
 func paginatePublishingOptions(options []platform.DestinationOption, search, cursor string, limit int) platform.PublishingOptionsPage {

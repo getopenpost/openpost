@@ -1436,6 +1436,92 @@ type RenditionMedia struct {
 	ThumbnailTimestampMS int    `bun:"thumbnail_timestamp_ms,notnull,default:0" json:"thumbnail_timestamp_ms"`
 }
 
+// AccountContent is the analytics-owned, read-only inventory of content found
+// on a connected provider account. It stores only bounded normalized fields;
+// provider responses and remote media are never retained.
+type AccountContent struct {
+	bun.BaseModel `bun:"table:account_contents"`
+
+	ID                    string    `bun:",pk" json:"id"`
+	WorkspaceID           string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID       string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform              string    `bun:",notnull" json:"platform"`
+	ProviderContentID     string    `bun:"provider_content_id,notnull" json:"provider_content_id"`
+	ProviderParentID      string    `bun:"provider_parent_id,notnull,default:''" json:"provider_parent_id,omitempty"`
+	ContentProfile        string    `bun:"content_profile,notnull,default:'short_text'" json:"content_profile"`
+	Title                 string    `bun:",notnull,default:''" json:"title,omitempty"`
+	Text                  string    `bun:",notnull,default:''" json:"text"`
+	ExternalURL           string    `bun:"external_url,notnull,default:''" json:"external_url,omitempty"`
+	PublishedAt           time.Time `bun:"published_at,notnull" json:"published_at"`
+	Origin                string    `bun:",notnull" json:"origin"`
+	OriginConfidence      string    `bun:"origin_confidence,notnull,default:'unknown'" json:"origin_confidence"`
+	RenditionID           string    `bun:"rendition_id,nullzero" json:"rendition_id,omitempty"`
+	FirstDiscoveredAt     time.Time `bun:"first_discovered_at,notnull" json:"first_discovered_at"`
+	LastSeenAt            time.Time `bun:"last_seen_at,notnull" json:"last_seen_at"`
+	ProviderUnavailableAt time.Time `bun:"provider_unavailable_at,nullzero" json:"provider_unavailable_at,omitempty"`
+	CreatedAt             time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt             time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// AnalyticsAccountContentSnapshot is an immutable measurement for one item in
+// the account content inventory.
+type AnalyticsAccountContentSnapshot struct {
+	bun.BaseModel `bun:"table:analytics_account_content_snapshots"`
+
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	AccountContentID   string    `bun:"account_content_id,notnull" json:"account_content_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	CaptureKey         string    `bun:"capture_key,notnull,default:''" json:"-"`
+	CapturedAt         time.Time `bun:"captured_at,notnull" json:"captured_at"`
+}
+
+// AccountContentDiscoveryState is the mutable, per-account checkpoint for
+// bounded discovery. Cursor is opaque; errors are safe normalized summaries.
+type AccountContentDiscoveryState struct {
+	bun.BaseModel `bun:"table:account_content_discovery_states"`
+
+	ID                  string    `bun:",pk" json:"id"`
+	WorkspaceID         string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID     string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform            string    `bun:",notnull" json:"platform"`
+	Status              string    `bun:",notnull,default:'partial'" json:"status"`
+	CoverageStatus      string    `bun:"coverage_status,notnull,default:'partial'" json:"coverage_status"`
+	CoverageDescription string    `bun:"coverage_description,notnull,default:''" json:"coverage_description,omitempty"`
+	Cursor              string    `bun:",notnull,default:''" json:"-"`
+	BackfillWatermark   time.Time `bun:"backfill_watermark,nullzero" json:"backfill_watermark,omitempty"`
+	LastAttemptedAt     time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at,omitempty"`
+	LastSuccessAt       time.Time `bun:"last_success_at,nullzero" json:"last_success_at,omitempty"`
+	FailureCode         string    `bun:"failure_code,notnull,default:''" json:"failure_code,omitempty"`
+	FailureMessage      string    `bun:"failure_message,notnull,default:''" json:"failure_message,omitempty"`
+	NextEligibleAt      time.Time `bun:"next_eligible_at,nullzero" json:"next_eligible_at,omitempty"`
+	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
+// AccountContentObservation is a bounded provider-neutral analytics event.
+// It can precede inventory discovery, so AccountContentID is optional. The row
+// contains normalized measurements only and never the originating webhook.
+type AccountContentObservation struct {
+	bun.BaseModel `bun:"table:account_content_observations"`
+
+	ID                    string    `bun:",pk" json:"id"`
+	WorkspaceID           string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID       string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	AccountContentID      string    `bun:"account_content_id,nullzero" json:"account_content_id,omitempty"`
+	Platform              string    `bun:",notnull" json:"platform"`
+	ProviderObservationID string    `bun:"provider_observation_id,notnull" json:"provider_observation_id"`
+	ProviderContentID     string    `bun:"provider_content_id,notnull" json:"provider_content_id"`
+	ObservationType       string    `bun:"observation_type,notnull" json:"observation_type"`
+	MetricsJSON           string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON    string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	ObservedAt            time.Time `bun:"observed_at,notnull" json:"observed_at"`
+	CreatedAt             time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+}
+
 // AnalyticsAccountSnapshot is an immutable provider measurement. MetricsJSON
 // contains only normalized integers and MetricMetadataJSON preserves their
 // meaning; provider responses and tokens are never retained.

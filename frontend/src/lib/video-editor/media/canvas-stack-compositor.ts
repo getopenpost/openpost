@@ -13,6 +13,10 @@ import { blendImageData } from '../effects/gpu/cpu-blend';
 import { mediaDrawGeometry } from './render-geometry';
 import { transitionRegistry } from '../transitions';
 import { TransitionPipeline } from '../transitions/gpu/pipeline';
+import {
+	getSharedTransitionDevice,
+	getSharedTransitionDeviceSync
+} from '../transitions/gpu/shared-device';
 import { ShapeMaskRasterizer } from '../shapes/masks';
 import { drawCornerPinImage, hasCornerPin, resolveCornerPinForSize } from '../preview/corner-pin';
 
@@ -39,6 +43,27 @@ export interface StackTransitionParticipant {
 export interface CanvasStackDiagnostics {
 	webgl2Ready: boolean;
 	webgpuTransitionsReady: boolean;
+	transitionMode: 'gpu' | 'cpu' | 'undecided';
+}
+
+let transitionPipelineCreateCount = 0;
+let transitionTextureUploadCount = 0;
+
+export interface TransitionPipelineStats {
+	pipelineCreates: number;
+	textureUploads: number;
+}
+
+export function getTransitionPipelineStats(): TransitionPipelineStats {
+	return {
+		pipelineCreates: transitionPipelineCreateCount,
+		textureUploads: transitionTextureUploadCount
+	};
+}
+
+export function resetTransitionPipelineStatsForTests(): void {
+	transitionPipelineCreateCount = 0;
+	transitionTextureUploadCount = 0;
 }
 
 function createStackCanvas(): StackCanvas {
@@ -130,6 +155,8 @@ export class CanvasStackCompositor {
 	private readonly transitionRightStack: CanvasStackCompositor | null;
 	private transitionPipeline: TransitionPipeline | null = null;
 	private transitionDevice: GPUDevice | null = null;
+	private transitionReadyPromise: Promise<'gpu' | 'cpu'> | null = null;
+	private transitionMode: 'gpu' | 'cpu' | null = null;
 	private disposed = false;
 	private width = 1;
 	private height = 1;
@@ -165,7 +192,6 @@ export class CanvasStackCompositor {
 			this.transitionOutputContext = this.transitionOutputCanvas.getContext('2d');
 			this.transitionLeftStack = new CanvasStackCompositor(this.transitionLeftCanvas, false);
 			this.transitionRightStack = new CanvasStackCompositor(this.transitionRightCanvas, false);
-			void this.initializeTransitionPipeline();
 		} else {
 			this.transitionLeftCanvas = null;
 			this.transitionRightCanvas = null;
@@ -176,22 +202,90 @@ export class CanvasStackCompositor {
 		}
 	}
 
-	private async initializeTransitionPipeline(): Promise<void> {
-		const gpu = globalThis.navigator?.gpu;
-		if (!gpu) return;
-		try {
-			const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
-			if (!adapter || this.disposed) return;
-			const device = await adapter.requestDevice();
-			if (this.disposed) {
-				device.destroy();
-				return;
-			}
-			this.transitionDevice = device;
-			this.transitionPipeline = TransitionPipeline.create(device);
-		} catch {
-			// Canvas2D remains the exact fallback when WebGPU is unavailable or blocked.
+	/** Explicit readiness: must be awaited before frame zero. Locks gpu vs cpu for the whole export. */
+	async ensureTransitionPipelineReady(): Promise<'gpu' | 'cpu'> {
+		if (this.transitionMode) return this.transitionMode;
+		if (this.transitionReadyPromise) return this.transitionReadyPromise;
+		if (!this.transitionLeftCanvas) {
+			this.transitionMode = 'cpu';
+			return 'cpu';
 		}
+		this.transitionReadyPromise = (async (): Promise<'gpu' | 'cpu'> => {
+			if (typeof OffscreenCanvas !== 'function') {
+				this.transitionMode = 'cpu';
+				return 'cpu';
+			}
+			try {
+				const device = await getSharedTransitionDevice();
+				if (!device || this.disposed) {
+					this.transitionMode = 'cpu';
+					return 'cpu';
+				}
+				// Device loss after preselection must fail the export, not silently switch to cpu.
+				if (device.lost) {
+					device.lost.then((info) => {
+						if (this.transitionDevice === device) {
+							this.recordExactRenderFailure(
+								`WebGPU device lost: ${info?.reason ?? 'unknown'}: ${info?.message ?? ''}`
+							);
+							this.transitionDevice = null;
+							// Keep transitionMode as 'gpu' so mid-export cannot silently fall back to cpu.
+							// The pipeline will be destroyed and subsequent renders will throw.
+							this.transitionPipeline?.destroy();
+							this.transitionPipeline = null;
+						}
+					});
+				}
+				this.transitionDevice = device;
+				const pipeline = TransitionPipeline.create(device);
+				if (!pipeline) {
+					this.transitionMode = 'cpu';
+					return 'cpu';
+				}
+				transitionPipelineCreateCount++;
+				this.transitionPipeline = pipeline;
+				this.transitionMode = 'gpu';
+				return 'gpu';
+			} catch {
+				this.transitionMode = 'cpu';
+				return 'cpu';
+			}
+		})();
+		const mode = await this.transitionReadyPromise;
+		this.transitionMode = mode;
+		return mode;
+	}
+
+	getTransitionMode(): 'gpu' | 'cpu' | null {
+		return this.transitionMode;
+	}
+
+	/** Precompile/validate every GPU transition ID used by the project before frame 0. */
+	async ensureTransitionsPreflight(gpuTransitionIds: string[]): Promise<void> {
+		if (gpuTransitionIds.length === 0) return;
+		if (this.transitionMode !== 'gpu' || !this.transitionPipeline) {
+			// Mode already decided before frame 0; cpu path needs no GPU validation.
+			return;
+		}
+		try {
+			await this.transitionPipeline.ensureTransitionsReady(gpuTransitionIds);
+		} catch (error) {
+			const reason = error instanceof Error ? error.message : String(error);
+			this.recordExactRenderFailure(reason);
+			throw new Error(`Video frame could not render exactly: ${reason}`);
+		}
+	}
+
+	/** For tests: force cpu fallback before first frame. */
+	forceCpuTransitionModeForTests(): void {
+		this.transitionMode = 'cpu';
+		this.transitionReadyPromise = Promise.resolve('cpu');
+		this.transitionPipeline = null;
+		this.transitionDevice = null;
+	}
+
+	private async initializeTransitionPipeline(): Promise<void> {
+		await this.ensureTransitionPipelineReady();
 	}
 
 	private resize(width: number, height: number): void {
@@ -402,7 +496,9 @@ export class CanvasStackCompositor {
 		this.context.putImageData(blendImageData(basePixels, layerPixels, blendMode, alpha), 0, 0);
 	}
 
-	/** Transition two complete scene branches, then keep painting higher tracks. */
+	/** Transition two complete scene branches, then keep painting higher tracks.
+	 * Caller must await ensureTransitionPipelineReady() before frame zero so the gpu/cpu
+	 * choice is locked for the entire export. Mid-export switches are prohibited. */
 	compositeTransition(
 		outgoing: StackTransitionParticipant,
 		incoming: StackTransitionParticipant,
@@ -410,6 +506,14 @@ export class CanvasStackCompositor {
 		progress: number,
 		time: number
 	): boolean {
+		if (this.transitionMode === null && this.transitionLeftCanvas) {
+			const reason = 'Transition pipeline readiness not awaited before frame zero';
+			this.recordExactRenderFailure(reason);
+			throw new Error(`Video frame could not render exactly: ${reason}`);
+		}
+		if (this.exactRenderFailure) {
+			throw new Error(`Video frame could not render exactly: ${this.exactRenderFailure}`);
+		}
 		const leftStack = this.transitionLeftStack;
 		const rightStack = this.transitionRightStack;
 		const leftCanvas = this.transitionLeftCanvas;
@@ -446,26 +550,48 @@ export class CanvasStackCompositor {
 		outputContext.globalCompositeOperation = 'source-over';
 		outputContext.filter = 'none';
 		outputContext.clearRect(0, 0, this.width, this.height);
-		const gpuOutput =
-			rendererEntry.gpuTransitionId &&
+		const canUseGpu =
+			this.transitionMode === 'gpu' &&
+			rendererEntry.gpuTransitionId !== undefined &&
 			typeof OffscreenCanvas === 'function' &&
 			leftCanvas instanceof OffscreenCanvas &&
-			rightCanvas instanceof OffscreenCanvas
-				? this.transitionPipeline?.render(
-						rendererEntry.gpuTransitionId,
-						leftCanvas,
-						rightCanvas,
-						progress,
-						this.width,
-						this.height,
-						transition.direction,
-						transition.properties
-					)
-				: null;
-		if (gpuOutput) {
-			outputContext.drawImage(gpuOutput, 0, 0, this.width, this.height);
+			rightCanvas instanceof OffscreenCanvas &&
+			this.transitionPipeline !== null;
+		if (canUseGpu) {
+			let gpuOutput: OffscreenCanvas | null = null;
+			try {
+				gpuOutput = this.transitionPipeline!.render(
+					rendererEntry.gpuTransitionId!,
+					leftCanvas,
+					rightCanvas,
+					progress,
+					this.width,
+					this.height,
+					transition.direction,
+					transition.properties
+				);
+			} catch (error) {
+				this.recordExactRenderFailure(
+					`GPU transition render failed: ${error instanceof Error ? error.message : String(error)}`
+				);
+				throw error;
+			}
+			if (gpuOutput) {
+				// Two copyExternalImageToTexture uploads (left + right) per GPU transition frame.
+				transitionTextureUploadCount += 2;
+				outputContext.drawImage(gpuOutput, 0, 0, this.width, this.height);
+			} else {
+				this.recordExactRenderFailure(`GPU transition render returned null: ${presentation}`);
+				throw new Error(`GPU transition render returned null: ${presentation}`);
+			}
+		} else if (this.transitionMode === 'gpu' && rendererEntry.gpuTransitionId) {
+			this.recordExactRenderFailure(
+				`GPU mode selected but pipeline unavailable for ${presentation}`
+			);
+			throw new Error(`GPU transition unavailable: ${presentation}`);
 		} else {
-			// SAFETY: Branches are OffscreenCanvas instances when that API exists; Canvas2D accepts the HTML fallback at runtime too.
+			// CPU fallback: locked before frame zero or non-GPU presentation. Never switches mid-export.
+			// SAFETY: Branches are OffscreenCanvas in the worker realm and HTMLCanvas fallback otherwise; renderer requires OffscreenCanvas inputs.
 			renderer(
 				outputContext as OffscreenCanvasRenderingContext2D,
 				leftCanvas as OffscreenCanvas,
@@ -504,7 +630,8 @@ export class CanvasStackCompositor {
 	diagnostics(): CanvasStackDiagnostics {
 		return {
 			webgl2Ready: this.gpuCompositor !== null,
-			webgpuTransitionsReady: this.transitionPipeline !== null
+			webgpuTransitionsReady: this.transitionPipeline !== null,
+			transitionMode: this.transitionMode ?? 'undecided'
 		};
 	}
 
@@ -513,9 +640,12 @@ export class CanvasStackCompositor {
 		this.gpuCompositor?.dispose();
 		this.transitionLeftStack?.dispose();
 		this.transitionRightStack?.dispose();
+		// Pipeline is per-compositor; device is shared per-realm and must not be destroyed here
+		// or sibling/nested compositors lose their device mid-export.
 		this.transitionPipeline?.destroy();
-		this.transitionDevice?.destroy();
 		this.transitionPipeline = null;
 		this.transitionDevice = null;
+		this.transitionReadyPromise = null;
+		// transitionMode retained for diagnostics after dispose
 	}
 }

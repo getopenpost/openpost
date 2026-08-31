@@ -147,6 +147,7 @@ class CompoundThumbnailService {
 		const size = compoundThumbnailSize(composition.width, composition.height);
 		const renderer = new TimelineFrameRenderer(thumbnailProject(composition, timeline), size);
 		try {
+			await renderer.ensureReady();
 			await renderer.render(compoundThumbnailFrame(composition.durationInFrames));
 			const blob = await renderer.canvas.convertToBlob({
 				type: 'image/jpeg',

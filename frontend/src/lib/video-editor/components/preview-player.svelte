@@ -677,7 +677,7 @@
 		if (!canvas || colorPreviewStore.comparisonMode !== 'split') return;
 		const stack = new CanvasStackCompositor(canvas);
 		compareCompositor = stack;
-		scheduleStackFrame();
+		void stack.ensureTransitionPipelineReady().then(() => scheduleStackFrame());
 		return () => {
 			stack.dispose();
 			if (compareCompositor === stack) compareCompositor = null;
@@ -689,7 +689,7 @@
 		if (!canvas || !needsStackedComposition) return;
 		const stack = new CanvasStackCompositor(canvas);
 		stackCompositor = stack;
-		scheduleStackFrame();
+		void stack.ensureTransitionPipelineReady().then(() => scheduleStackFrame());
 		return () => {
 			stack.dispose();
 			if (stackCompositor === stack) stackCompositor = null;

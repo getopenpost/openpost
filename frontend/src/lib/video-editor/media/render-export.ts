@@ -49,6 +49,7 @@ import {
 	type StackLayerSource,
 	type StackTransitionParticipant
 } from './canvas-stack-compositor';
+import { transitionRegistry } from '../transitions/registry';
 import { visualClipFadeOpacityAtFrame } from './clip-fades';
 import {
 	collectAdjustmentLayers,
@@ -502,6 +503,7 @@ export class TimelineFrameRenderer {
 				);
 				this.nestedRenderers.set(rendererKey, renderer);
 			}
+			await renderer.ensureReady();
 			const sourceFps = originalItem.sourceFps ?? composition.fps;
 			const nestedFrame = Math.max(
 				0,
@@ -576,7 +578,125 @@ export class TimelineFrameRenderer {
 		return { source: bitmap, width: bitmap.width, height: bitmap.height };
 	}
 
+	private collectGpuTransitionIdsRecursive(seenComps: Set<string>): string[] {
+		const ids = new Set<string>();
+		const visitComposition = (compositionId: string): void => {
+			if (seenComps.has(compositionId)) return;
+			seenComps.add(compositionId);
+			const composition = this.project.timeline?.compositions?.find((c) => c.id === compositionId);
+			if (!composition) return;
+			for (const tr of composition.transitions ?? []) {
+				const presentation = tr.presentation ?? (tr.type === 'fade-black' ? 'dipToColorDissolve' : 'fade');
+				const gpuId = transitionRegistry.getRenderer(presentation)?.gpuTransitionId;
+				if (gpuId) ids.add(gpuId);
+			}
+			for (const item of composition.items ?? []) {
+				if (item.compositionId) visitComposition(item.compositionId);
+			}
+		};
+		for (const tr of this.transitions) {
+			const presentation = tr.presentation ?? (tr.type === 'fade-black' ? 'dipToColorDissolve' : 'fade');
+			const gpuId = transitionRegistry.getRenderer(presentation)?.gpuTransitionId;
+			if (gpuId) ids.add(gpuId);
+		}
+		for (const item of this.orderedItems) {
+			if (item.compositionId) visitComposition(item.compositionId);
+		}
+		// Also walk all compositions in case an unused composition still contains a gpu transition
+		// referenced indirectly; bounded by composition count.
+		for (const comp of this.project.timeline?.compositions ?? []) {
+			if (!seenComps.has(comp.id)) {
+				for (const tr of comp.transitions ?? []) {
+					const presentation = tr.presentation ?? (tr.type === 'fade-black' ? 'dipToColorDissolve' : 'fade');
+					const gpuId = transitionRegistry.getRenderer(presentation)?.gpuTransitionId;
+					if (gpuId) ids.add(gpuId);
+				}
+			}
+		}
+		return Array.from(ids);
+	}
+
+	private async ensureNestedCompositionsReady(ancestry: Set<string> = new Set(this.ancestry)): Promise<void> {
+		const nestedIds = new Set<string>();
+		for (const item of this.orderedItems) if (item.compositionId) nestedIds.add(item.compositionId);
+		// Also include transitively referenced compositions discovered via recursion
+		const queue = Array.from(nestedIds);
+		const visited = new Set<string>(ancestry);
+		while (queue.length > 0) {
+			const cid = queue.shift()!;
+			if (visited.has(cid)) continue;
+			visited.add(cid);
+			const comp = this.project.timeline?.compositions?.find((c) => c.id === cid);
+			if (!comp) continue;
+			for (const it of comp.items) if (it.compositionId && !visited.has(it.compositionId)) queue.push(it.compositionId);
+		}
+		for (const compositionId of visited) {
+			if (this.ancestry.has(compositionId)) continue;
+			const composition = this.project.timeline?.compositions?.find((c) => c.id === compositionId);
+			if (!composition) continue;
+			// Preflight only compositions actually placed in the timeline tree.
+			const isPlaced = Array.from(nestedIds).some((id) => visited.has(id) && id === compositionId) || nestedIds.has(compositionId);
+			if (!isPlaced && !this.orderedItems.some((it) => it.compositionId === compositionId)) continue;
+		}
+		for (const compositionId of nestedIds) {
+			if (ancestry.has(compositionId)) continue;
+			const composition = this.project.timeline?.compositions?.find((c) => c.id === compositionId);
+			if (!composition) continue;
+			// Use a synthetic wrapper item to derive a dummy renderer key - we just need the pipeline preflight.
+			// Create a real nested renderer as sourceForItem would, then ensureReady recursively.
+			const dummyWrapper: TimelineItem = { id: `preflight-${compositionId}`, trackId: '', from: 0, durationInFrames: composition.durationInFrames, label: '', type: 'composition', compositionId } as unknown as TimelineItem;
+			const rendererKey = `${composition.id}:${dummyWrapper.id}:${JSON.stringify({})}`;
+			let renderer = this.nestedRenderers.get(rendererKey);
+			if (!renderer) {
+				renderer = new TimelineFrameRenderer(
+					{
+						...this.project,
+						metadata: {
+							width: composition.width,
+							height: composition.height,
+							fps: composition.fps,
+							backgroundColor: composition.backgroundColor ?? '#000000'
+						},
+						timeline: {
+							items: composition.items,
+							tracks: composition.tracks,
+							transitions: composition.transitions,
+							compositions: this.project.timeline?.compositions
+						}
+					},
+					{
+						width: composition.width,
+						height: composition.height,
+						burnSubtitles: true
+					},
+					new Set([...ancestry, compositionId])
+				);
+				this.nestedRenderers.set(rendererKey, renderer);
+			}
+			await renderer.ensureReady();
+		}
+	}
+
+	async ensureReady(): Promise<'gpu' | 'cpu'> {
+		if (this.readyPromise) return this.readyPromise;
+		this.readyPromise = (async () => {
+			const mode = await this.stackCompositor.ensureTransitionPipelineReady();
+			const gpuIds = this.collectGpuTransitionIdsRecursive(new Set<string>());
+			if (mode === 'gpu' && gpuIds.length > 0) {
+				await this.stackCompositor.ensureTransitionsPreflight(gpuIds);
+			}
+			await this.ensureNestedCompositionsReady();
+			return mode;
+		})();
+		return this.readyPromise;
+	}
+
+	getTransitionMode(): 'gpu' | 'cpu' | null {
+		return this.stackCompositor.getTransitionMode();
+	}
+
 	async render(frame: number): Promise<OffscreenCanvas> {
+		await this.ensureReady();
 		this.stackCompositor.beginFrame(this.width, this.height, this.backgroundColor);
 		const activeMasks = this.orderedItems
 			.filter(
@@ -615,7 +735,15 @@ export class TimelineFrameRenderer {
 				this.adjustmentLayers,
 				frame
 			);
-			const source = await this.sourceForItem(resolvedItem, item, frame);
+			let source = await this.sourceForItem(resolvedItem, item, frame);
+			if (source && source.source === (this.textCanvas as unknown as CanvasImageSource)) {
+				const w = Math.max(1, source.width);
+				const h = Math.max(1, source.height);
+				const clone = new OffscreenCanvas(w, h);
+				const ctx = clone.getContext('2d');
+				if (ctx) ctx.drawImage(source.source as CanvasImageSource, 0, 0);
+				source = { source: clone, width: w, height: h };
+			}
 			return source
 				? {
 						source,
@@ -645,10 +773,8 @@ export class TimelineFrameRenderer {
 				const outgoingItem = this.itemsById.get(blend.outgoingId);
 				const incomingItem = this.itemsById.get(blend.incomingId);
 				if (!outgoingItem || !incomingItem) continue;
-				const [outgoing, incoming] = await Promise.all([
-					resolveParticipant(outgoingItem),
-					resolveParticipant(incomingItem)
-				]);
+				const outgoing = await resolveParticipant(outgoingItem);
+				const incoming = await resolveParticipant(incomingItem);
 				if (!outgoing || !incoming) continue;
 				this.stackCompositor.compositeTransition(
 					outgoing,
@@ -695,6 +821,7 @@ export async function renderTimelineFrame(
 ): Promise<Blob> {
 	const renderer = new TimelineFrameRenderer(project, options);
 	try {
+		await renderer.ensureReady();
 		await renderer.render(Math.max(0, Math.round(frame)));
 		return await renderer.canvas.convertToBlob({ type: 'image/png' });
 	} finally {
@@ -871,6 +998,7 @@ export async function renderMultiTrackVideoArtifact(
 		height,
 		burnSubtitles: subtitleMode === 'burn'
 	});
+	await frameRenderer.ensureReady();
 
 	try {
 		for (let outputFrame = 0; outputFrame < totalFrames; outputFrame++) {

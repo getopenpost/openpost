@@ -8,6 +8,30 @@ import { getGpuTransition } from './registry';
 
 const log = createLogger('TransitionPipeline');
 
+let pipelineInstantiationCount = 0;
+let pipelineCompilationCount = 0;
+let textureCreationCount = 0;
+
+export interface PipelineStats {
+	instantiations: number;
+	compilations: number;
+	textureCreations: number;
+}
+
+export function getPipelineStats(): PipelineStats {
+	return {
+		instantiations: pipelineInstantiationCount,
+		compilations: pipelineCompilationCount,
+		textureCreations: textureCreationCount
+	};
+}
+
+export function resetPipelineStatsForTests(): void {
+	pipelineInstantiationCount = 0;
+	pipelineCompilationCount = 0;
+	textureCreationCount = 0;
+}
+
 interface TransitionPipelineRecord {
 	pipeline: GPURenderPipeline;
 	bindGroupLayout: GPUBindGroupLayout;
@@ -26,6 +50,7 @@ export class TransitionPipeline {
 	private pipelines = new Map<string, TransitionPipelineRecord>();
 	private uniformBuffers = new Map<string, GPUBuffer>();
 	private cachedBindGroups = new Map<string, GPUBindGroup>();
+	private pendingValidations = new Map<string, Promise<string | null>>();
 
 	// Input textures (left/right clip content)
 	private leftTexture: GPUTexture | null = null;
@@ -52,6 +77,7 @@ export class TransitionPipeline {
 		if (!dev) return null;
 		try {
 			const pipeline = new TransitionPipeline(dev);
+			pipelineInstantiationCount++;
 			pipeline.init();
 			return pipeline;
 		} catch {
@@ -82,24 +108,22 @@ export class TransitionPipeline {
 				code: shaderCode
 			});
 
-			// Log shader compilation errors (one-time at init, not per-frame)
-			shaderModule
+			// Shader compilation must be validated before frame 0. Store a promise that
+			// resolves to an error string or null when compilation/validation finishes.
+			const compilationPromise: Promise<string | null> = shaderModule
 				.getCompilationInfo()
 				.then((info) => {
-					let invalid = false;
 					for (const msg of info.messages) {
 						if (msg.type === 'error') {
-							invalid = true;
-							log.error(
-								`Shader "${id}" error at line ${msg.lineNum}:${msg.linePos}: ${msg.message}`
-							);
+							const err = `Shader "${id}" error at line ${msg.lineNum}:${msg.linePos}: ${msg.message}`;
+							log.error(err);
+							this.pipelines.delete(id);
+							return err;
 						}
 					}
-					if (invalid) this.pipelines.delete(id);
+					return null;
 				})
-				.catch(() => {
-					/* getCompilationInfo not supported */
-				});
+				.catch(() => null);
 
 			const entries: GPUBindGroupLayoutEntry[] = [
 				{ binding: 0, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -132,17 +156,32 @@ export class TransitionPipeline {
 				primitive: { topology: 'triangle-list' }
 			});
 			this.pipelines.set(id, { pipeline, bindGroupLayout });
-			this.device
+			pipelineCompilationCount++;
+			const validationPromise = this.device
 				.popErrorScope?.()
-				.then((error) => {
-					if (!error) return;
-					this.pipelines.delete(id);
-					log.error(`Transition pipeline "${id}" failed validation: ${error.message}`);
+				.then(async (error) => {
+					if (error) {
+						this.pipelines.delete(id);
+						const msg = `Transition pipeline "${id}" failed validation: ${error.message}`;
+						log.error(msg);
+						return msg;
+					}
+					return await compilationPromise;
 				})
-				.catch(() => undefined);
+				.catch(() => null) as Promise<string | null>;
+			// Combine compilation and validation: either can produce an error.
+			this.pendingValidations.set(
+				id,
+				Promise.all([compilationPromise, validationPromise]).then(([cErr, vErr]) => cErr ?? vErr ?? null)
+			);
+			// Also surface validation errors asynchronously for diagnostics when not preflighted.
+			this.pendingValidations.get(id)?.then((err) => {
+				if (err) log.error(err);
+			});
 		} catch (e) {
 			void this.device.popErrorScope?.().catch(() => undefined);
 			log.warn(`Failed to create pipeline for "${id}"`, e);
+			this.pendingValidations.set(id, Promise.resolve(`Failed to create pipeline for "${id}": ${String(e)}`));
 		}
 	}
 
@@ -163,6 +202,7 @@ export class TransitionPipeline {
 		};
 		this.leftTexture = this.device.createTexture(inputDesc);
 		this.rightTexture = this.device.createTexture(inputDesc);
+		textureCreationCount += 2;
 		this.leftView = this.leftTexture.createView();
 		this.rightView = this.rightTexture.createView();
 
@@ -485,6 +525,21 @@ export class TransitionPipeline {
 		return this.ensureTransitionPipeline(transitionId) !== undefined;
 	}
 
+	/** Precompile and validate every GPU transition ID used by the export before frame 0. */
+	async ensureTransitionsReady(ids: string[]): Promise<void> {
+		for (const id of ids) {
+			const def = getGpuTransition(id);
+			if (!def) throw new Error(`GPU transition unknown: ${id}`);
+			this.ensureTransitionPipeline(id);
+			const pending = this.pendingValidations.get(id);
+			if (pending) {
+				const err = await pending;
+				if (err) throw new Error(err);
+			}
+			if (!this.pipelines.has(id)) throw new Error(`Transition pipeline failed to compile: ${id}`);
+		}
+	}
+
 	destroy(): void {
 		this.leftTexture?.destroy();
 		this.rightTexture?.destroy();
@@ -500,6 +555,7 @@ export class TransitionPipeline {
 		this.uniformBuffers.clear();
 		this.cachedBindGroups.clear();
 		this.pipelines.clear();
+		this.pendingValidations.clear();
 		this.initialized = false;
 	}
 }

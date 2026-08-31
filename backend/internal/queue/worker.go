@@ -621,6 +621,13 @@ type classifiedJobFailure struct {
 }
 
 func (w *BackgroundWorker) classifyJobFailure(ctx context.Context, job *models.Job, processErr error) classifiedJobFailure {
+	if retryAfter, continuation := analyticsservice.IsDiscoveryContinuation(processErr); continuation {
+		return classifiedJobFailure{
+			retryable: true, retryAfter: retryAfter,
+			message:          "Account content discovery will continue from its committed cursor.",
+			preserveAttempts: true,
+		}
+	}
 	if job.Type == jobregistry.TypePublicationBuild {
 		switch {
 		case errors.Is(processErr, publicationbuilder.ErrRuntimeUnavailable):

@@ -14,6 +14,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
+	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/telemetry"
@@ -21,6 +22,15 @@ import (
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
+
+func TestAccountContentDiscoveryContinuationPreservesAttempts(t *testing.T) {
+	worker := &BackgroundWorker{}
+	job := &models.Job{Type: jobregistry.TypeAccountContentDiscovery}
+	failure := worker.classifyJobFailure(t.Context(), job, &analyticsservice.DiscoveryContinuationError{RetryAfter: 30 * time.Second})
+	require.True(t, failure.retryable)
+	require.True(t, failure.preserveAttempts)
+	require.Equal(t, 30*time.Second, failure.retryAfter)
+}
 
 func TestGrowthDiscoveryFailureHonorsProviderRetryAfter(t *testing.T) {
 	worker := &BackgroundWorker{}

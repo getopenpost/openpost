@@ -22,7 +22,7 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 	expected := []string{
 		TypePublishPublication, TypeRefreshToken, TypeMediaCleanup,
 		TypeStorageDelete, TypeFeedbackDelivery, TypeAnalyticsSweep, TypeAnalyticsAccount,
-		TypeAnalyticsRendition, TypeBillingWebhook, TypeEngagementSweep, TypeEngagementSync,
+		TypeAnalyticsRendition, TypeAccountContentDiscovery, TypeBillingWebhook, TypeEngagementSweep, TypeEngagementSync,
 		TypeMessagingSweep, TypeMessagesSync, TypeEngagementAction, TypeMessageSend, TypeNotificationEmail,
 		TypeOwnershipTransferExpiry,
 		TypeRepostSweep, TypeRepostEvaluate, TypeRepostExecute, TypeMediaAnalyze,
@@ -53,6 +53,22 @@ func TestNewJobUsesRegisteredDurablePolicy(t *testing.T) {
 
 	_, err = NewJob("unknown", `{}`, runAt)
 	require.ErrorContains(t, err, "not registered")
+}
+
+func TestAccountContentDiscoveryPayloadContainsOnlyOwnerReferences(t *testing.T) {
+	t.Parallel()
+
+	payload, err := EncodeAccountContentDiscoveryPayload(AccountContentDiscoveryPayload{
+		WorkspaceID: "workspace-1", SocialAccountID: "account-1",
+	})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"workspace_id":"workspace-1","social_account_id":"account-1"}`, payload)
+	identity, err := IdentityForPayload(TypeAccountContentDiscovery, payload)
+	require.NoError(t, err)
+	require.Equal(t, Identity{ScopeID: "account-1", DedupeKey: "discover"}, identity)
+
+	_, err = DecodeAccountContentDiscoveryPayload(`{"workspace_id":"workspace-1","social_account_id":"account-1","cursor":"secret-provider-cursor"}`)
+	require.Error(t, err)
 }
 
 func TestBotIngressPayloadIsBoundedToAnEventReference(t *testing.T) {

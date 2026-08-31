@@ -38,6 +38,22 @@ func (s *Service) UpsertAccountContent(
 		return nil, fmt.Errorf("load account content owner: %w", err)
 	}
 
+	var content *models.AccountContent
+	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var err error
+		content, err = upsertAccountContent(txCtx, tx, account, item, s.now().UTC())
+		return err
+	})
+	return content, err
+}
+
+func upsertAccountContent(
+	ctx context.Context,
+	db bun.IDB,
+	account models.SocialAccount,
+	item platform.AccountContentItem,
+	now time.Time,
+) (*models.AccountContent, error) {
 	normalized, err := platform.NormalizeAccountContentItem(account.Platform, item)
 	if err != nil {
 		return nil, err
@@ -49,19 +65,17 @@ func (s *Service) UpsertAccountContent(
 		return nil, fmt.Errorf("unsupported account content profile %q", normalized.ContentProfile)
 	}
 	if normalized.RenditionID != "" {
-		var count int
-		count, err = s.db.NewSelect().Model((*models.Rendition)(nil)).
+		count, countErr := db.NewSelect().Model((*models.Rendition)(nil)).
 			Where("id = ? AND social_account_id = ? AND platform = ?", normalized.RenditionID, account.ID, account.Platform).
 			Count(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("validate account content rendition: %w", err)
+		if countErr != nil {
+			return nil, fmt.Errorf("validate account content rendition: %w", countErr)
 		}
 		if count != 1 {
 			return nil, fmt.Errorf("rendition link is not an exact match for this social account")
 		}
 	}
 
-	now := s.now().UTC()
 	content := &models.AccountContent{
 		ID: uuid.NewString(), WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID,
 		Platform: account.Platform, ProviderContentID: normalized.ProviderContentID,
@@ -71,39 +85,34 @@ func (s *Service) UpsertAccountContent(
 		OriginConfidence: string(normalized.OriginConfidence), RenditionID: normalized.RenditionID,
 		FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
 	}
-
-	err = s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if _, insertErr := tx.NewInsert().Model(content).
-			On("CONFLICT (social_account_id, provider_content_id) DO UPDATE").
-			Set("workspace_id = EXCLUDED.workspace_id").
-			Set("platform = EXCLUDED.platform").
-			Set("provider_parent_id = EXCLUDED.provider_parent_id").
-			Set("content_profile = EXCLUDED.content_profile").
-			Set("title = EXCLUDED.title").
-			Set("text = EXCLUDED.text").
-			Set("external_url = EXCLUDED.external_url").
-			Set("published_at = EXCLUDED.published_at").
-			Set("origin = CASE WHEN rendition_id IS NOT NULL AND EXCLUDED.rendition_id IS NULL THEN origin ELSE EXCLUDED.origin END").
-			Set("origin_confidence = CASE WHEN rendition_id IS NOT NULL AND EXCLUDED.rendition_id IS NULL THEN origin_confidence ELSE EXCLUDED.origin_confidence END").
-			Set("rendition_id = COALESCE(EXCLUDED.rendition_id, rendition_id)").
-			Set("last_seen_at = EXCLUDED.last_seen_at").
-			Set("provider_unavailable_at = NULL").
-			Set("updated_at = EXCLUDED.updated_at").
-			Exec(txCtx); insertErr != nil {
-			return fmt.Errorf("store account content: %w", insertErr)
+	if _, err := db.NewInsert().Model(content).
+		On("CONFLICT (social_account_id, provider_content_id) DO UPDATE").
+		Set("workspace_id = EXCLUDED.workspace_id").
+		Set("platform = EXCLUDED.platform").
+		Set("provider_parent_id = EXCLUDED.provider_parent_id").
+		Set("content_profile = EXCLUDED.content_profile").
+		Set("title = EXCLUDED.title").
+		Set("text = EXCLUDED.text").
+		Set("external_url = EXCLUDED.external_url").
+		Set("published_at = EXCLUDED.published_at").
+		Set("origin = CASE WHEN rendition_id IS NOT NULL AND EXCLUDED.rendition_id IS NULL THEN origin ELSE EXCLUDED.origin END").
+		Set("origin_confidence = CASE WHEN rendition_id IS NOT NULL AND EXCLUDED.rendition_id IS NULL THEN origin_confidence ELSE EXCLUDED.origin_confidence END").
+		Set("rendition_id = COALESCE(EXCLUDED.rendition_id, rendition_id)").
+		Set("last_seen_at = EXCLUDED.last_seen_at").
+		Set("provider_unavailable_at = NULL").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx); err != nil {
+		return nil, fmt.Errorf("store account content: %w", err)
+	}
+	if err := db.NewSelect().Model(content).
+		Where("social_account_id = ? AND provider_content_id = ?", account.ID, normalized.ProviderContentID).
+		Scan(ctx); err != nil {
+		return nil, fmt.Errorf("load stored account content: %w", err)
+	}
+	if normalized.Measurements != nil {
+		if err := recordAccountContentMeasurements(ctx, db, account, *content, normalized.Measurements, now); err != nil {
+			return nil, err
 		}
-		if scanErr := tx.NewSelect().Model(content).
-			Where("social_account_id = ? AND provider_content_id = ?", account.ID, normalized.ProviderContentID).
-			Scan(txCtx); scanErr != nil {
-			return fmt.Errorf("load stored account content: %w", scanErr)
-		}
-		if normalized.Measurements == nil {
-			return nil
-		}
-		return recordAccountContentMeasurements(txCtx, tx, account, *content, normalized.Measurements, now)
-	})
-	if err != nil {
-		return nil, err
 	}
 	return content, nil
 }

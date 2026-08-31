@@ -53,6 +53,30 @@ type AccountContentDiscoverySupport struct {
 	UnavailableReason string
 }
 
+// AccountContentDiscoveryError is a provider-neutral outcome. Code must be a
+// short stable provider code; response bodies and request details never cross
+// this boundary.
+type AccountContentDiscoveryError struct {
+	Status     AccountContentDiscoveryStatus
+	Code       string
+	RetryAfter time.Duration
+}
+
+func (e *AccountContentDiscoveryError) Error() string {
+	if e.Code != "" {
+		return fmt.Sprintf("account content discovery unavailable (%s, code %s)", e.Status, e.Code)
+	}
+	return fmt.Sprintf("account content discovery unavailable (%s)", e.Status)
+}
+
+func NewAccountContentDiscoveryError(status AccountContentDiscoveryStatus, code string, retryAfter time.Duration) error {
+	code = strings.TrimSpace(code)
+	if !safeProviderCode.MatchString(code) {
+		code = ""
+	}
+	return &AccountContentDiscoveryError{Status: status, Code: code, RetryAfter: max(0, retryAfter)}
+}
+
 type AccountContentDiscoveryRequest struct {
 	AccountID       string
 	GrantedScopes   []string

@@ -40,22 +40,24 @@ type FeatureGate interface {
 }
 
 type Service struct {
-	db          *bun.DB
-	tokenSource TokenSource
-	providersMu sync.RWMutex
-	providers   map[string]platform.Adapter
-	sources     map[string]platform.AnalyticsAdapter
-	now         func() time.Time
-	featureGate FeatureGate
+	db                *bun.DB
+	tokenSource       TokenSource
+	providersMu       sync.RWMutex
+	providers         map[string]platform.Adapter
+	sources           map[string]platform.AnalyticsAdapter
+	now               func() time.Time
+	featureGate       FeatureGate
+	discoveryPolicies map[string]DiscoveryPolicy
 }
 
 func NewService(db *bun.DB, tokenSource TokenSource) *Service {
 	return &Service{
-		db:          db,
-		tokenSource: tokenSource,
-		providers:   make(map[string]platform.Adapter),
-		sources:     make(map[string]platform.AnalyticsAdapter),
-		now:         func() time.Time { return time.Now().UTC() },
+		db:                db,
+		tokenSource:       tokenSource,
+		providers:         make(map[string]platform.Adapter),
+		sources:           make(map[string]platform.AnalyticsAdapter),
+		now:               func() time.Time { return time.Now().UTC() },
+		discoveryPolicies: make(map[string]DiscoveryPolicy),
 	}
 }
 
@@ -117,6 +119,12 @@ func (s *Service) HandleJob(ctx context.Context, jobType, payload string) error 
 			return fmt.Errorf("decode analytics rendition job")
 		}
 		return s.syncRendition(ctx, input.RenditionID)
+	case jobregistry.TypeAccountContentDiscovery:
+		input, err := jobregistry.DecodeAccountContentDiscoveryPayload(payload)
+		if err != nil {
+			return err
+		}
+		return s.handleAccountContentDiscovery(ctx, input)
 	default:
 		return fmt.Errorf("unsupported analytics job type %q", jobType)
 	}
@@ -159,6 +167,11 @@ func (s *Service) enqueueWorkspace(ctx context.Context, workspaceID string, forc
 	}
 
 	queued, err := s.enqueueAccountJobs(ctx, accounts, force, now)
+	if err != nil {
+		return queued, err
+	}
+	discoveryJobs, err := s.reconsiderAccountContentAccounts(ctx, accounts, now)
+	queued += discoveryJobs
 	if err != nil {
 		return queued, err
 	}

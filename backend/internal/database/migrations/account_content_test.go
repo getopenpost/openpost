@@ -27,8 +27,11 @@ func TestAccountContentMigrationEnforcesBoundsUniquenessAndAccountCascade(t *tes
 	require.NoError(t, err)
 	raw, err := migrationFiles.ReadFile("117_account_content.sql")
 	require.NoError(t, err)
+	budgetRaw, err := migrationFiles.ReadFile("119_account_content_discovery_budget.sql")
+	require.NoError(t, err)
 	require.NoError(t, runMigrations(db, fstest.MapFS{
-		"117_account_content.sql": {Data: raw},
+		"117_account_content.sql":                  {Data: raw},
+		"119_account_content_discovery_budget.sql": {Data: budgetRaw},
 	}))
 	now := time.Date(2026, time.September, 2, 12, 0, 0, 0, time.UTC)
 

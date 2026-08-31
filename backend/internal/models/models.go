@@ -1484,22 +1484,27 @@ type AnalyticsAccountContentSnapshot struct {
 type AccountContentDiscoveryState struct {
 	bun.BaseModel `bun:"table:account_content_discovery_states"`
 
-	ID                  string    `bun:",pk" json:"id"`
-	WorkspaceID         string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SocialAccountID     string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform            string    `bun:",notnull" json:"platform"`
-	Status              string    `bun:",notnull,default:'partial'" json:"status"`
-	CoverageStatus      string    `bun:"coverage_status,notnull,default:'partial'" json:"coverage_status"`
-	CoverageDescription string    `bun:"coverage_description,notnull,default:''" json:"coverage_description,omitempty"`
-	Cursor              string    `bun:",notnull,default:''" json:"-"`
-	BackfillWatermark   time.Time `bun:"backfill_watermark,nullzero" json:"backfill_watermark,omitempty"`
-	LastAttemptedAt     time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at,omitempty"`
-	LastSuccessAt       time.Time `bun:"last_success_at,nullzero" json:"last_success_at,omitempty"`
-	FailureCode         string    `bun:"failure_code,notnull,default:''" json:"failure_code,omitempty"`
-	FailureMessage      string    `bun:"failure_message,notnull,default:''" json:"failure_message,omitempty"`
-	NextEligibleAt      time.Time `bun:"next_eligible_at,nullzero" json:"next_eligible_at,omitempty"`
-	CreatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt           time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	ID                     string    `bun:",pk" json:"id"`
+	WorkspaceID            string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID        string    `bun:"social_account_id,notnull,unique" json:"social_account_id"`
+	Platform               string    `bun:",notnull" json:"platform"`
+	Status                 string    `bun:",notnull,default:'partial'" json:"status"`
+	CoverageStatus         string    `bun:"coverage_status,notnull,default:'partial'" json:"coverage_status"`
+	CoverageDescription    string    `bun:"coverage_description,notnull,default:''" json:"coverage_description,omitempty"`
+	Cursor                 string    `bun:",notnull,default:''" json:"-"`
+	BackfillWatermark      time.Time `bun:"backfill_watermark,nullzero" json:"backfill_watermark,omitempty"`
+	CyclePublishedAfter    time.Time `bun:"cycle_published_after,nullzero" json:"-"`
+	InitialCompletedAt     time.Time `bun:"initial_completed_at,nullzero" json:"initial_completed_at,omitempty"`
+	InitialItemsDiscovered int       `bun:"initial_items_discovered,notnull,default:0" json:"initial_items_discovered"`
+	ReadBudgetWindowStart  time.Time `bun:"read_budget_window_start,nullzero" json:"-"`
+	ReadBudgetUsed         int       `bun:"read_budget_used,notnull,default:0" json:"-"`
+	LastAttemptedAt        time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at,omitempty"`
+	LastSuccessAt          time.Time `bun:"last_success_at,nullzero" json:"last_success_at,omitempty"`
+	FailureCode            string    `bun:"failure_code,notnull,default:''" json:"failure_code,omitempty"`
+	FailureMessage         string    `bun:"failure_message,notnull,default:''" json:"failure_message,omitempty"`
+	NextEligibleAt         time.Time `bun:"next_eligible_at,nullzero" json:"next_eligible_at,omitempty"`
+	CreatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // AccountContentObservation is a bounded provider-neutral analytics event.

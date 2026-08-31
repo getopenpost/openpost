@@ -1,0 +1,23 @@
+{
+  "data": [
+    {
+      "id": "17890000000000001",
+      "caption": "Managed Instagram launch",
+      "media_type": "IMAGE",
+      "media_product_type": "FEED",
+      "permalink": "https://www.instagram.com/p/managed1/",
+      "timestamp": "2026-09-03T10:00:00+0000"
+    },
+    {
+      "id": "17890000000000001",
+      "caption": "Duplicate edge row",
+      "media_type": "IMAGE",
+      "permalink": "https://www.instagram.com/p/managed1/",
+      "timestamp": "2026-09-03T10:00:00+0000"
+    }
+  ],
+  "paging": {
+    "cursors": { "after": "ig-page-2" },
+    "next": "https://graph.facebook.com/v25.0/ig-1/media?after=ig-page-2"
+  }
+}

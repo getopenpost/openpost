@@ -1,0 +1,16 @@
+{
+  "data": [
+    {
+      "id": "page-1_valid-1",
+      "message": "Visible item survives a partial edge",
+      "created_time": "2026-09-03T10:00:00Z",
+      "permalink_url": "https://www.facebook.com/openpost/posts/valid-1"
+    },
+    {
+      "id": "page-1_invalid-2",
+      "message": "This malformed item is omitted",
+      "created_time": "not-a-time",
+      "permalink_url": "https://www.facebook.com/openpost/posts/invalid-2"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "id": "page-1_managed-1",
+      "message": "Managed Facebook launch",
+      "created_time": "2026-09-03T10:00:00+0000",
+      "permalink_url": "https://www.facebook.com/openpost/posts/managed-1",
+      "attachments": { "data": [{ "media_type": "photo", "type": "photo" }] }
+    },
+    {
+      "id": "page-1_managed-1",
+      "message": "Duplicate edge row",
+      "created_time": "2026-09-03T10:00:00+0000",
+      "permalink_url": "https://www.facebook.com/openpost/posts/managed-1"
+    }
+  ],
+  "paging": {
+    "cursors": { "after": "fb-page-2" },
+    "next": "https://graph.facebook.com/v25.0/page-1/published_posts?after=fb-page-2"
+  }
+}

@@ -175,6 +175,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/accounts/telegram/connection-code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Issue a one-time Telegram connection command
+     * @description Returns the signed command exactly once. It expires after 15 minutes and is never placed in a URL, job, log, or later response.
+     */
+    post: operations["issue-telegram-connection-code"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/accounts/{account_id}": {
     parameters: {
       query?: never;
@@ -8103,6 +8123,35 @@ export interface components {
       /** @description Interview question */
       question: string;
     };
+    IssueTelegramConnectionCodeInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/IssueTelegramConnectionCodeInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Optional numeric Telegram chat ID to bind before the first authenticated update */
+      expected_chat_id?: string;
+      /** @description Workspace receiving the Telegram destination */
+      workspace_id: string;
+    };
+    IssueTelegramConnectionCodeResponse: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/IssueTelegramConnectionCodeResponse.json
+       */
+      readonly $schema?: string;
+      /** @description Instance-owned Telegram bot username */
+      bot_username: string;
+      /** @description One-time command to post in the destination chat. Returned only by this issuance response. */
+      code: string;
+      /**
+       * Format: date-time
+       * @description When the one-time command expires
+       */
+      expires_at: string;
+    };
     Item: {
       /** @description Account ID */
       account_id: string;
@@ -12753,6 +12802,75 @@ export interface operations {
       };
       /** @description Internal Server Error */
       500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "issue-telegram-connection-code": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["IssueTelegramConnectionCodeInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IssueTelegramConnectionCodeResponse"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Service Unavailable */
+      503: {
         headers: {
           [name: string]: unknown;
         };

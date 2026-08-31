@@ -206,7 +206,7 @@ func (s *Service) acceptOnce(ctx context.Context, tx bun.Tx, event *models.BotIn
 	}
 
 	if !claimsEmpty(claims) {
-		nonce, err := s.consumeClaims(ctx, tx, claims, now)
+		nonce, err := s.consumeClaims(ctx, tx, claims, now, event.SubjectReference)
 		if err != nil {
 			return AcceptResult{}, err
 		}

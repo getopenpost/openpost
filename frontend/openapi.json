@@ -8592,6 +8592,58 @@
 				"required": ["question", "answer"],
 				"type": "object"
 			},
+			"IssueTelegramConnectionCodeInputBody": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/IssueTelegramConnectionCodeInputBody.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"expected_chat_id": {
+						"description": "Optional numeric Telegram chat ID to bind before the first authenticated update",
+						"maxLength": 64,
+						"type": "string"
+					},
+					"workspace_id": {
+						"description": "Workspace receiving the Telegram destination",
+						"maxLength": 200,
+						"minLength": 1,
+						"type": "string"
+					}
+				},
+				"required": ["workspace_id"],
+				"type": "object"
+			},
+			"IssueTelegramConnectionCodeResponse": {
+				"additionalProperties": false,
+				"properties": {
+					"$schema": {
+						"description": "A URL to the JSON Schema for this object.",
+						"examples": ["https://example.com/schemas/IssueTelegramConnectionCodeResponse.json"],
+						"format": "uri",
+						"readOnly": true,
+						"type": "string"
+					},
+					"bot_username": {
+						"description": "Instance-owned Telegram bot username",
+						"type": "string"
+					},
+					"code": {
+						"description": "One-time command to post in the destination chat. Returned only by this issuance response.",
+						"type": "string"
+					},
+					"expires_at": {
+						"description": "When the one-time command expires",
+						"format": "date-time",
+						"type": "string"
+					}
+				},
+				"required": ["code", "bot_username", "expires_at"],
+				"type": "object"
+			},
 			"Item": {
 				"additionalProperties": false,
 				"properties": {
@@ -18668,6 +18720,86 @@
 					}
 				},
 				"summary": "Complete OAuth account selection and save the selected account",
+				"tags": ["Accounts"]
+			}
+		},
+		"/accounts/telegram/connection-code": {
+			"post": {
+				"description": "Returns the signed command exactly once. It expires after 15 minutes and is never placed in a URL, job, log, or later response.",
+				"operationId": "issue-telegram-connection-code",
+				"requestBody": {
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/IssueTelegramConnectionCodeInputBody"
+							}
+						}
+					},
+					"required": true
+				},
+				"responses": {
+					"200": {
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/IssueTelegramConnectionCodeResponse"
+								}
+							}
+						},
+						"description": "OK"
+					},
+					"400": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Request"
+					},
+					"403": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Forbidden"
+					},
+					"422": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Unprocessable Entity"
+					},
+					"500": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Internal Server Error"
+					},
+					"503": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Service Unavailable"
+					}
+				},
+				"summary": "Issue a one-time Telegram connection command",
 				"tags": ["Accounts"]
 			}
 		},

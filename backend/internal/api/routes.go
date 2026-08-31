@@ -16,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/billing"
+	"github.com/openpost/backend/internal/services/botingress"
 	cliauth "github.com/openpost/backend/internal/services/cli_auth"
 	servicecrypto "github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/emailchange"
@@ -45,6 +46,7 @@ import (
 	"github.com/openpost/backend/internal/services/publicurl"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
+	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
@@ -60,6 +62,8 @@ type RouteDeps struct {
 	CLIAuthService               *cliauth.Service
 	MCPOAuthService              *mcpoauth.Service
 	BillingService               *billing.Service
+	BotIngressService            *botingress.Service
+	TelegramService              *telegramservice.Service
 	MediaStorage                 mediastore.BlobStorage
 	MediaSigner                  *mediasigner.Signer
 	ImageCaptioner               imagecaption.Captioner
@@ -250,6 +254,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		handlers.WithEnvironmentProviderApps(deps.ProviderApps),
 		handlers.WithProviderAppFrontendURL(deps.FrontendURL),
 	).RegisterRoutes(api)
+	handlers.NewTelegramConnectionHandler(deps.DB, deps.Authenticator, deps.BotIngressService, deps.TelegramService, deps.Entitlement).RegisterRoutes(api)
 	handlers.NewCapabilityHandler().RegisterRoutes(api)
 	capabilityResolverHandler := handlers.NewCapabilityResolverHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenSource)
 	capabilityResolverHandler.SetPublicMediaVerifier(deps.PublicMediaVerifier)

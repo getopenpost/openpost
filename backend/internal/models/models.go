@@ -2351,14 +2351,15 @@ type PublicationAsset struct {
 type BotConnectionNonce struct {
 	bun.BaseModel `bun:"table:bot_connection_nonces"`
 
-	ID              string    `bun:",pk" json:"id"`
-	Provider        string    `bun:",notnull" json:"provider"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	CreatedByUserID string    `bun:"created_by_user_id,notnull" json:"created_by_user_id"`
-	NonceHash       string    `bun:"nonce_hash,notnull" json:"-"`
-	ExpiresAt       time.Time `bun:"expires_at,notnull" json:"expires_at"`
-	ConsumedAt      time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
-	CreatedAt       time.Time `bun:"created_at,notnull" json:"created_at"`
+	ID                       string    `bun:",pk" json:"id"`
+	Provider                 string    `bun:",notnull" json:"provider"`
+	WorkspaceID              string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	CreatedByUserID          string    `bun:"created_by_user_id,notnull" json:"created_by_user_id"`
+	NonceHash                string    `bun:"nonce_hash,notnull" json:"-"`
+	ExpectedSubjectReference string    `bun:"expected_subject_reference,notnull,default:''" json:"-"`
+	ExpiresAt                time.Time `bun:"expires_at,notnull" json:"expires_at"`
+	ConsumedAt               time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
+	CreatedAt                time.Time `bun:"created_at,notnull" json:"created_at"`
 }
 
 // BotIngressEvent is the bounded provider-neutral projection retained from a
@@ -2379,6 +2380,34 @@ type BotIngressEvent struct {
 	ProcessedAt       time.Time `bun:"processed_at,nullzero" json:"processed_at,omitempty"`
 	SafeErrorCode     string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
 	CreatedAt         time.Time `bun:"created_at,notnull" json:"created_at"`
+}
+
+// TelegramChatInstallation retains authenticated bot-membership timing before
+// a chat is bound to a Workspace. It contains no conversation or credential data.
+type TelegramChatInstallation struct {
+	bun.BaseModel `bun:"table:telegram_chat_installations"`
+
+	ChatID           string    `bun:"chat_id,pk" json:"chat_id"`
+	ChatType         string    `bun:"chat_type,notnull" json:"chat_type"`
+	MembershipStatus string    `bun:"membership_status,notnull" json:"membership_status"`
+	InstalledAt      time.Time `bun:"installed_at,nullzero" json:"installed_at,omitempty"`
+	UpdatedAt        time.Time `bun:"updated_at,notnull" json:"updated_at"`
+}
+
+// TelegramConnection records the destination identity and truthful observation
+// boundary established by a bot connection. Bot credentials remain instance-owned.
+type TelegramConnection struct {
+	bun.BaseModel `bun:"table:telegram_connections"`
+
+	SocialAccountID       string    `bun:"social_account_id,pk" json:"social_account_id"`
+	WorkspaceID           string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	ChatID                string    `bun:"chat_id,unique,notnull" json:"chat_id"`
+	ChatType              string    `bun:"chat_type,notnull" json:"chat_type"`
+	InstalledAt           time.Time `bun:"installed_at,notnull" json:"installed_at"`
+	CoverageStartedAt     time.Time `bun:"coverage_started_at,notnull" json:"coverage_started_at"`
+	CoverageKind          string    `bun:"coverage_kind,notnull" json:"coverage_kind"`
+	PermissionsVerifiedAt time.Time `bun:"permissions_verified_at,notnull" json:"permissions_verified_at"`
+	CreatedAt             time.Time `bun:"created_at,notnull" json:"created_at"`
 }
 
 type Job struct {

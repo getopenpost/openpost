@@ -34,6 +34,7 @@ func openBotIngressTestDB(t *testing.T, path string, initialize bool) *bun.DB {
 		CREATE TABLE bot_connection_nonces (
 			id TEXT PRIMARY KEY, provider TEXT NOT NULL, workspace_id TEXT NOT NULL,
 			created_by_user_id TEXT NOT NULL, nonce_hash TEXT NOT NULL UNIQUE,
+			expected_subject_reference TEXT NOT NULL DEFAULT '',
 			expires_at DATETIME NOT NULL, consumed_at DATETIME, created_at DATETIME NOT NULL
 		);
 		CREATE TABLE bot_ingress_events (
@@ -196,6 +197,45 @@ func TestSignedIngressVerifiesBeforeNormalizationAndQueuesOneSafeReference(t *te
 		require.NotContains(t, stored, testWebhookSecret)
 		require.NotContains(t, stored, testSigningKey)
 	}
+}
+
+func TestConnectionNonceBindsOptionalExpectedChatAndRejectsCrossChatReplay(t *testing.T) {
+	web, _, now := newBotIngressServices(t)
+	issued, err := web.IssueNonce(t.Context(), IssueNonceInput{
+		Provider: "telegram", WorkspaceID: "workspace-1", CreatedByUserID: "user-1",
+		ExpectedSubjectReference: "-1001",
+	})
+	require.NoError(t, err)
+
+	requestFor := func(updateID, chatID string) AcceptRequest {
+		return AcceptRequest{
+			Provider: "telegram", Body: []byte(`{"update":true}`),
+			Verifier: VerifyFunc(func(http.Header, []byte) error { return nil }),
+			Normalizer: NormalizeFunc(func([]byte) (NormalizedEvent, error) {
+				return NormalizedEvent{
+					ProviderEventID: updateID, Kind: "telegram.connection_requested",
+					SubjectReference: chatID, ParentReference: "channel", OccurredAt: now,
+					ConnectionCredential: issued.Credential,
+				}, nil
+			}),
+		}
+	}
+	_, err = web.Accept(t.Context(), requestFor("wrong-first", "-2002"))
+	require.ErrorIs(t, err, ErrInvalidEvent)
+
+	accepted, err := web.Accept(t.Context(), requestFor("right-chat", "-1001"))
+	require.NoError(t, err)
+	require.False(t, accepted.Duplicate)
+
+	_, err = web.Accept(t.Context(), requestFor("cross-chat-replay", "-2002"))
+	require.ErrorIs(t, err, ErrInvalidEvent)
+	_, err = web.Accept(t.Context(), requestFor("same-chat-replay", "-1001"))
+	require.ErrorIs(t, err, ErrNonceConsumed)
+
+	var nonce models.BotConnectionNonce
+	require.NoError(t, web.db.NewSelect().Model(&nonce).Where("id = ?", issued.ID).Scan(t.Context()))
+	require.Equal(t, "-1001", nonce.ExpectedSubjectReference)
+	require.False(t, nonce.ConsumedAt.IsZero())
 }
 
 func TestConcurrentDuplicateUpdateQueuesOnce(t *testing.T) {

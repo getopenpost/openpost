@@ -33,10 +33,11 @@ type Service struct {
 }
 
 type IssueNonceInput struct {
-	Provider        string
-	WorkspaceID     string
-	CreatedByUserID string
-	ExpiresAt       time.Time
+	Provider                 string
+	WorkspaceID              string
+	CreatedByUserID          string
+	ExpectedSubjectReference string
+	ExpiresAt                time.Time
 }
 
 type IssuedNonce struct {
@@ -71,11 +72,13 @@ func (s *Service) IssueNonce(ctx context.Context, input IssueNonceInput) (Issued
 	input.Provider = normalizeProvider(input.Provider)
 	input.WorkspaceID = strings.TrimSpace(input.WorkspaceID)
 	input.CreatedByUserID = strings.TrimSpace(input.CreatedByUserID)
+	input.ExpectedSubjectReference = strings.TrimSpace(input.ExpectedSubjectReference)
 	if s.db == nil || len(s.signingKey) == 0 {
 		return IssuedNonce{}, ErrIngressUnavailable
 	}
 	if !validProvider(input.Provider) || !validReference(input.WorkspaceID, 200, true) ||
-		!validReference(input.CreatedByUserID, 200, true) {
+		!validReference(input.CreatedByUserID, 200, true) ||
+		!validReference(input.ExpectedSubjectReference, 500, false) {
 		return IssuedNonce{}, ErrInvalidNonce
 	}
 	expiresAt := input.ExpiresAt.UTC()
@@ -101,7 +104,8 @@ func (s *Service) IssueNonce(ctx context.Context, input IssueNonceInput) (Issued
 	row := &models.BotConnectionNonce{
 		ID: claims.ID, Provider: claims.Provider, WorkspaceID: input.WorkspaceID,
 		CreatedByUserID: input.CreatedByUserID, NonceHash: hashNonce(claims.Nonce),
-		ExpiresAt: expiresAt, CreatedAt: now,
+		ExpectedSubjectReference: input.ExpectedSubjectReference,
+		ExpiresAt:                expiresAt, CreatedAt: now,
 	}
 	if _, err := s.db.NewInsert().Model(row).Exec(ctx); err != nil {
 		return IssuedNonce{}, ErrIngressUnavailable
@@ -117,14 +121,17 @@ func (s *Service) ConsumeNonce(ctx context.Context, credential string) (*models.
 	if err != nil {
 		return nil, err
 	}
-	return s.consumeClaims(ctx, s.db, claims, s.now().UTC())
+	return s.consumeClaims(ctx, s.db, claims, s.now().UTC(), "")
 }
 
-func (s *Service) consumeClaims(ctx context.Context, db bun.IDB, claims credentialClaims, now time.Time) (*models.BotConnectionNonce, error) {
+func (s *Service) consumeClaims(ctx context.Context, db bun.IDB, claims credentialClaims, now time.Time, subjectReference string) (*models.BotConnectionNonce, error) {
+	subjectReference = strings.TrimSpace(subjectReference)
 	result, err := db.NewUpdate().Model((*models.BotConnectionNonce)(nil)).
 		Set("consumed_at = ?", now).
+		Set("expected_subject_reference = ?", subjectReference).
 		Where("id = ? AND provider = ? AND nonce_hash = ?", claims.ID, claims.Provider, hashNonce(claims.Nonce)).
 		Where("consumed_at IS NULL AND expires_at > ?", now).
+		Where("(expected_subject_reference = '' OR expected_subject_reference = ?)", subjectReference).
 		Exec(ctx)
 	if err != nil {
 		return nil, ErrIngressUnavailable
@@ -134,7 +141,7 @@ func (s *Service) consumeClaims(ctx context.Context, db bun.IDB, claims credenti
 		return nil, ErrIngressUnavailable
 	}
 	if rows != 1 {
-		return nil, s.classifyNonceRejection(ctx, db, claims, now)
+		return nil, s.classifyNonceRejection(ctx, db, claims, now, subjectReference)
 	}
 	var row models.BotConnectionNonce
 	if err := db.NewSelect().Model(&row).Where("id = ?", claims.ID).Scan(ctx); err != nil {
@@ -143,7 +150,7 @@ func (s *Service) consumeClaims(ctx context.Context, db bun.IDB, claims credenti
 	return &row, nil
 }
 
-func (s *Service) classifyNonceRejection(ctx context.Context, db bun.IDB, claims credentialClaims, now time.Time) error {
+func (s *Service) classifyNonceRejection(ctx context.Context, db bun.IDB, claims credentialClaims, now time.Time, subjectReference string) error {
 	var row models.BotConnectionNonce
 	err := db.NewSelect().Model(&row).Where("id = ?", claims.ID).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -154,6 +161,9 @@ func (s *Service) classifyNonceRejection(ctx context.Context, db bun.IDB, claims
 	}
 	if row.Provider != claims.Provider || !hmac.Equal([]byte(row.NonceHash), []byte(hashNonce(claims.Nonce))) {
 		return ErrInvalidNonce
+	}
+	if row.ExpectedSubjectReference != "" && row.ExpectedSubjectReference != subjectReference {
+		return ErrInvalidEvent
 	}
 	if !row.ExpiresAt.After(now) {
 		return ErrNonceExpired

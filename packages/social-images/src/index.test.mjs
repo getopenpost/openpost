@@ -12,6 +12,8 @@ import {
   resolveDocsSocial,
   resolveMarketingSocial,
   resolveSocialImageEntry,
+  socialImagePlatformSlugs,
+  socialRendererVersion,
 } from "./index.js";
 
 test("marketing social entries have unique paths, keys, and complete image metadata", () => {
@@ -25,6 +27,7 @@ test("marketing social entries have unique paths, keys, and complete image metad
     assert.equal(image.origin, "https://openpost.social");
     assert.equal(image.pathname, "/og");
     assert.equal(image.searchParams.get("id"), entry.id);
+    assert.equal(image.searchParams.get("v"), socialRendererVersion);
     assert.equal(image.searchParams.has("title"), false);
     assert.deepEqual(resolveSocialImageEntry(entry.id), entry);
     assert.match(entry.canonical, /^https:\/\/openpost\.social(?:\/|$)/);
@@ -36,6 +39,21 @@ test("marketing social entries have unique paths, keys, and complete image metad
     paths.add(entry.path);
     keys.add(entry.key);
   }
+});
+
+test("the social image platform motif uses every catalog destination", () => {
+  assert.deepEqual(socialImagePlatformSlugs, [
+    "x",
+    "mastodon",
+    "bluesky",
+    "linkedin",
+    "threads",
+    "facebook",
+    "instagram",
+    "tiktok",
+    "youtube",
+    "discord",
+  ]);
 });
 
 test("the public route manifest owns social, sitemap, and prerender metadata", () => {

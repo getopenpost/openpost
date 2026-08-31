@@ -72,6 +72,7 @@ export interface DocumentationPageEntry extends SocialEntry {
 export const marketingSiteUrl: "https://openpost.social";
 export const docsSiteUrl: "https://docs.openpost.social";
 export const socialRendererVersion: string;
+export const socialImagePlatformSlugs: readonly string[];
 export const marketingRouteManifest: readonly MarketingRouteEntry[];
 export const marketingSocialEntries: readonly MarketingRouteEntry[];
 export const docsSocialEntries: readonly DocumentationPageEntry[];

@@ -1,24 +1,28 @@
 import { ImageResponse } from '@cloudflare/pages-plugin-vercel-og/api';
 import type { PagesFunction } from '@cloudflare/workers-types';
-import { resolveSocialImageEntry } from '@openpost/social-images';
+import { resolveSocialImageEntry, socialImagePlatformSlugs } from '@openpost/social-images';
 import React from 'react';
 
+// The inset frame and title-led composition adapt the MIT-licensed ogimagecn
+// Grid and ShadcnRegistry6 components. See licenses/OGIMAGECN.txt.
 const WIDTH = 1200;
 const HEIGHT = 630;
 const MAX_TITLE = 90;
 const MAX_DESCRIPTION = 180;
 const MAX_LABEL = 48;
+const FRAME = 48;
+
 const colors = {
 	canvas: '#fbfaf7',
-	surface: '#ffffff',
 	surfaceAlt: '#f2efea',
-	ink: '#2c2825',
-	muted: '#786f68',
+	ink: '#302b28',
+	muted: '#726a64',
 	border: '#e3ded7',
 	orange: '#b74c05',
-	orangeSoft: '#f0c9ad',
-	orangePale: '#f8e5d6',
-	dark: '#1a1512'
+	dark: '#191512',
+	darkInk: '#f4f0eb',
+	darkMuted: '#aaa19a',
+	darkBorder: '#3a332f'
 };
 
 type OgKind =
@@ -38,7 +42,6 @@ type OgInput = {
 	title: string;
 	description: string;
 	label: string;
-	subject?: string;
 	platform?: string;
 };
 
@@ -49,337 +52,212 @@ function parseInput(url: URL): OgInput {
 		title: entry.socialTitle.slice(0, MAX_TITLE),
 		description: entry.description.slice(0, MAX_DESCRIPTION),
 		label: entry.label.slice(0, MAX_LABEL),
-		subject: entry.subject?.slice(0, MAX_LABEL),
 		platform: entry.platform
 	};
 }
 
-function ActivityGrid({ columns = 11, rows = 6 }: { columns?: number; rows?: number }) {
-	const palette = [colors.surfaceAlt, colors.orangePale, colors.orangeSoft, colors.orange];
+function Frame({ color }: { color: string }) {
 	return (
-		<div style={{ display: 'flex', flexWrap: 'wrap', width: columns * 29, gap: 8 }}>
-			{Array.from({ length: columns * rows }, (_, index) => {
-				const row = Math.floor(index / columns);
-				const column = index % columns;
-				const score = (column * 7 + row * 11 + column * row) % 15;
-				const level = score > 12 ? 3 : score > 9 ? 2 : score > 5 ? 1 : 0;
-				return (
-					<div
-						key={index}
-						style={{
-							display: 'flex',
-							width: 21,
-							height: 21,
-							borderRadius: 5,
-							background: palette[level]
-						}}
-					/>
-				);
-			})}
-		</div>
-	);
-}
-
-function WorkflowMotif() {
-	return (
-		<div
-			style={{
-				position: 'absolute',
-				right: 52,
-				top: 142,
-				width: 444,
-				height: 348,
-				display: 'flex',
-				flexDirection: 'column',
-				padding: '42px 38px',
-				border: `1px solid ${colors.border}`,
-				borderRadius: 24,
-				background: colors.surface
-			}}
-		>
-			<div
+		<>
+			<span
 				style={{
+					position: 'absolute',
+					left: FRAME,
+					top: 0,
 					display: 'flex',
-					color: colors.muted,
-					fontSize: 13,
-					fontWeight: 600,
-					letterSpacing: 1.4
+					width: 1,
+					height: HEIGHT,
+					background: color
 				}}
-			>
-				ONE CONTENT SYSTEM
-			</div>
-			<div style={{ display: 'flex', marginTop: 28 }}>
-				<ActivityGrid />
-			</div>
-			<svg width="350" height="58" viewBox="0 0 350 58" style={{ marginTop: 18 }}>
-				<path
-					d="M 6 42 C 68 8 102 58 162 28 C 221 0 263 54 344 13"
-					fill="none"
-					stroke={colors.orange}
-					strokeWidth="4"
-					strokeLinecap="round"
-				/>
-			</svg>
-		</div>
+			/>
+			<span
+				style={{
+					position: 'absolute',
+					right: FRAME,
+					top: 0,
+					display: 'flex',
+					width: 1,
+					height: HEIGHT,
+					background: color
+				}}
+			/>
+			<span
+				style={{
+					position: 'absolute',
+					left: 0,
+					top: FRAME,
+					display: 'flex',
+					width: WIDTH,
+					height: 1,
+					background: color
+				}}
+			/>
+			<span
+				style={{
+					position: 'absolute',
+					left: 0,
+					bottom: FRAME,
+					display: 'flex',
+					width: WIDTH,
+					height: 1,
+					background: color
+				}}
+			/>
+		</>
 	);
 }
 
-function HomeMotif({ origin }: { origin: string }) {
+type CardVariant = 'marketing' | 'docs';
+
+function Brand({ origin, variant }: { origin: string; variant: CardVariant }) {
+	const isDocs = variant === 'docs';
 	return (
 		<div
 			style={{
 				position: 'absolute',
-				right: 44,
-				top: 142,
-				width: 458,
-				height: 348,
+				left: 78,
+				top: 74,
 				display: 'flex',
-				padding: 16,
-				borderRadius: 24,
-				background: colors.dark
+				alignItems: 'center',
+				gap: 14
 			}}
 		>
 			<img
-				src={`${origin}/assets/screenshots/main-dark.png`}
-				width="426"
-				height="316"
-				style={{ objectFit: 'cover', objectPosition: 'left', borderRadius: 15 }}
+				src={`${origin}/assets/brand/logo.svg`}
+				width="42"
+				height="42"
+				style={{ objectFit: 'contain' }}
 			/>
-			<div
+			<span
 				style={{
-					position: 'absolute',
-					left: -22,
-					bottom: 4,
 					display: 'flex',
-					alignItems: 'center',
-					gap: 12,
-					width: 158,
-					height: 48,
-					padding: '0 18px',
-					border: `1px solid ${colors.border}`,
-					borderRadius: 12,
-					background: colors.surface,
-					color: colors.ink,
-					fontSize: 16,
-					fontWeight: 600
+					color: isDocs ? colors.darkInk : colors.ink,
+					fontFamily: 'Manrope',
+					fontSize: 27,
+					fontWeight: 600,
+					letterSpacing: -0.5
 				}}
 			>
-				<span
-					style={{
-						display: 'flex',
-						width: 10,
-						height: 10,
-						borderRadius: 3,
-						background: colors.orange
-					}}
-				/>
-				Publish
-			</div>
+				OpenPost{isDocs ? ' Docs' : ''}
+			</span>
 		</div>
 	);
 }
 
-function PlatformMotif({
-	origin,
-	platform,
-	subject
-}: {
-	origin: string;
-	platform?: string;
-	subject?: string;
-}) {
+function SignalField({ kind }: { kind: OgKind }) {
+	const activeByKind: Record<OgKind, number[]> = {
+		home: [1, 4, 6, 9, 11, 14],
+		workflow: [0, 5, 10, 15],
+		platforms: [1, 2, 4, 7, 8, 11, 13, 14],
+		platform: [5, 6, 9, 10],
+		'tools-index': [0, 3, 5, 6, 9, 10, 12, 15],
+		tool: [1, 5, 9, 13],
+		security: [1, 2, 4, 7, 9, 10, 13, 14],
+		'self-hosting': [0, 1, 2, 4, 6, 8, 9, 10],
+		document: [0, 1, 2, 4, 6, 8, 10, 12, 13, 14],
+		docs: [0, 5, 10, 15]
+	};
+	const active = new Set(activeByKind[kind]);
+
 	return (
-		<div
-			style={{
-				position: 'absolute',
-				right: 116,
-				top: 128,
-				width: 336,
-				height: 336,
-				display: 'flex',
-				flexDirection: 'column',
-				alignItems: 'center',
-				paddingTop: 48,
-				border: `1px solid ${colors.border}`,
-				borderRadius: 30,
-				background: colors.surface
-			}}
-		>
+		<div style={{ display: 'flex', flexWrap: 'wrap', width: 196, gap: 12 }}>
+			{Array.from({ length: 16 }, (_, index) => (
+				<span
+					key={index}
+					style={{
+						display: 'flex',
+						width: 40,
+						height: 40,
+						borderRadius: 9,
+						background: active.has(index) ? colors.ink : colors.surfaceAlt
+					}}
+				/>
+			))}
+		</div>
+	);
+}
+
+function PlatformCollection({ origin }: { origin: string }) {
+	return (
+		<div style={{ display: 'flex', flexWrap: 'wrap', width: 196, gap: 12 }}>
+			{socialImagePlatformSlugs.map((platform) => (
+				<div
+					key={platform}
+					style={{
+						display: 'flex',
+						alignItems: 'center',
+						justifyContent: 'center',
+						width: 40,
+						height: 40,
+						borderRadius: 9,
+						background: colors.surfaceAlt
+					}}
+				>
+					<img src={`${origin}/assets/logos/${platform}.svg`} width="22" height="22" />
+				</div>
+			))}
+			{Array.from({ length: 6 }, (_, index) => (
+				<span
+					key={index}
+					style={{
+						display: 'flex',
+						width: 40,
+						height: 40,
+						borderRadius: 9,
+						background: index === 1 || index === 5 ? colors.ink : colors.surfaceAlt
+					}}
+				/>
+			))}
+		</div>
+	);
+}
+
+function MarketingMotif({ input, origin }: { input: OgInput; origin: string }) {
+	if (input.kind === 'home') {
+		return <img src={`${origin}/assets/brand/logo.svg`} width="170" height="170" />;
+	}
+
+	if (input.kind === 'platform' && input.platform) {
+		return (
 			<div
 				style={{
 					display: 'flex',
 					alignItems: 'center',
 					justifyContent: 'center',
-					width: 180,
-					height: 180,
-					borderRadius: 42,
+					width: 188,
+					height: 188,
+					borderRadius: 30,
 					background: colors.surfaceAlt
 				}}
 			>
-				{platform ? (
-					<img src={`${origin}/assets/logos/${platform}.svg`} width="76" height="76" />
-				) : null}
+				<img src={`${origin}/assets/logos/${input.platform}.svg`} width="94" height="94" />
 			</div>
-			<div
-				style={{
-					display: 'flex',
-					marginTop: 18,
-					color: colors.muted,
-					fontSize: 14
-				}}
-			>
-				{subject || 'Destination'}
-			</div>
-			<div
-				style={{
-					position: 'absolute',
-					right: -26,
-					bottom: -10,
-					display: 'flex',
-					alignItems: 'center',
-					gap: 10,
-					padding: '13px 18px',
-					border: `1px solid ${colors.orangeSoft}`,
-					borderRadius: 12,
-					background: colors.orangePale,
-					color: colors.ink,
-					fontSize: 16,
-					fontWeight: 600
-				}}
-			>
-				<span
-					style={{
-						display: 'flex',
-						width: 10,
-						height: 10,
-						borderRadius: 3,
-						background: colors.orange
-					}}
-				/>
-				Publish
-			</div>
-		</div>
-	);
+		);
+	}
+
+	if (input.kind === 'platforms') return <PlatformCollection origin={origin} />;
+	return <SignalField kind={input.kind} />;
 }
 
-function ToolMotif({ subject }: { subject?: string }) {
-	return (
-		<div
-			style={{
-				position: 'absolute',
-				right: 50,
-				top: 142,
-				width: 452,
-				height: 352,
-				display: 'flex',
-				flexDirection: 'column',
-				border: `1px solid ${colors.border}`,
-				borderRadius: 24,
-				background: colors.surface,
-				overflow: 'hidden'
-			}}
-		>
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					gap: 10,
-					height: 52,
-					paddingLeft: 28,
-					background: colors.surfaceAlt
-				}}
-			>
-				{[colors.orange, colors.border, colors.border].map((color, index) => (
-					<span
-						key={index}
-						style={{
-							display: 'flex',
-							width: 12,
-							height: 12,
-							borderRadius: 6,
-							background: color
-						}}
-					/>
-				))}
-			</div>
-			<div
-				style={{
-					display: 'flex',
-					flexDirection: 'column',
-					padding: '42px 38px'
-				}}
-			>
-				<span
-					style={{
-						display: 'flex',
-						width: 250,
-						height: 18,
-						borderRadius: 9,
-						background: colors.border
-					}}
-				/>
-				<span
-					style={{
-						display: 'flex',
-						width: 322,
-						height: 14,
-						marginTop: 16,
-						borderRadius: 7,
-						background: colors.surfaceAlt
-					}}
-				/>
-				<span
-					style={{
-						display: 'flex',
-						width: 278,
-						height: 14,
-						marginTop: 14,
-						borderRadius: 7,
-						background: colors.surfaceAlt
-					}}
-				/>
-				<span
-					style={{
-						display: 'flex',
-						alignItems: 'center',
-						justifyContent: 'center',
-						width: 146,
-						height: 48,
-						marginTop: 52,
-						borderRadius: 12,
-						background: colors.orange,
-						color: '#fff8f3',
-						fontSize: 16,
-						fontWeight: 600
-					}}
-				>
-					Use the tool
-				</span>
-				<span
-					style={{
-						display: 'flex',
-						marginTop: 26,
-						color: colors.muted,
-						fontSize: 14
-					}}
-				>
-					{subject || 'Free browser tool'}
-				</span>
-			</div>
-		</div>
-	);
+function marketingTitleSize(title: string) {
+	if (title.length > 60) return 52;
+	if (title.length > 46) return 57;
+	return 64;
 }
 
-function Motif({ input, origin }: { input: OgInput; origin: string }) {
-	if (input.kind === 'home') return <HomeMotif origin={origin} />;
-	if (input.kind === 'platform')
-		return <PlatformMotif origin={origin} platform={input.platform} subject={input.subject} />;
-	if (input.kind === 'tool') return <ToolMotif subject={input.subject} />;
-	return <WorkflowMotif />;
-}
-
-function SocialCard({ input, origin }: { input: OgInput; origin: string }) {
-	const titleSize = input.title.length > 62 ? 48 : 56;
+function CardShell({
+	variant,
+	input,
+	origin,
+	children
+}: {
+	variant: CardVariant;
+	input: OgInput;
+	origin: string;
+	children: React.ReactNode;
+}) {
+	const isDocs = variant === 'docs';
+	const ink = isDocs ? colors.darkInk : colors.ink;
 	return (
 		<div
 			style={{
@@ -387,90 +265,150 @@ function SocialCard({ input, origin }: { input: OgInput; origin: string }) {
 				display: 'flex',
 				width: WIDTH,
 				height: HEIGHT,
-				background: colors.canvas,
-				color: colors.ink,
+				overflow: 'hidden',
+				background: isDocs ? colors.dark : colors.canvas,
+				color: ink,
 				fontFamily: 'Geist'
 			}}
 		>
+			<Frame color={isDocs ? colors.darkBorder : colors.border} />
+			<Brand origin={origin} variant={variant} />
 			<span
 				style={{
 					position: 'absolute',
-					left: 0,
-					top: 0,
+					right: 78,
+					top: 84,
 					display: 'flex',
-					width: 18,
-					height: HEIGHT,
-					background: colors.orange
-				}}
-			/>
-			<img
-				src={`${origin}/assets/brand/logo.svg`}
-				width="64"
-				height="50"
-				style={{
-					position: 'absolute',
-					left: 62,
-					top: 34,
-					objectFit: 'contain',
-					objectPosition: 'left center'
-				}}
-			/>
-			<span
-				style={{
-					position: 'absolute',
-					left: 128,
-					top: 48,
-					display: 'flex',
-					color: colors.ink,
-					fontFamily: 'Manrope',
-					fontSize: 28,
-					fontWeight: 600,
-					letterSpacing: -0.55
+					color: isDocs ? colors.darkMuted : colors.muted,
+					fontSize: 18
 				}}
 			>
-				OpenPost
+				{isDocs ? 'docs.openpost.social' : 'openpost.social'}
 			</span>
+
+			{children}
+
 			<div
 				style={{
 					position: 'absolute',
-					left: 72,
-					top: 136,
-					width: 570,
+					left: 78,
+					bottom: 78,
 					display: 'flex',
-					flexDirection: 'column'
+					alignItems: 'center',
+					gap: 12,
+					color: ink,
+					fontSize: 18,
+					fontWeight: 600
+				}}
+			>
+				<span
+					style={{
+						display: 'flex',
+						width: 10,
+						height: 10,
+						borderRadius: 3,
+						background: colors.orange
+					}}
+				/>
+				{input.label}
+			</div>
+		</div>
+	);
+}
+
+function MarketingCard({ input, origin }: { input: OgInput; origin: string }) {
+	return (
+		<CardShell variant="marketing" input={input} origin={origin}>
+			<div
+				style={{
+					position: 'absolute',
+					left: 78,
+					top: 174,
+					display: 'flex',
+					flexDirection: 'column',
+					width: 750
 				}}
 			>
 				<div
 					style={{
 						display: 'flex',
-						alignItems: 'center',
-						gap: 14,
-						color: colors.orange,
-						fontSize: 14,
+						fontSize: marketingTitleSize(input.title),
 						fontWeight: 600,
-						letterSpacing: 1.5,
-						textTransform: 'uppercase'
+						letterSpacing: -1.8,
+						lineHeight: 1.04
 					}}
 				>
-					<span
-						style={{
-							display: 'flex',
-							width: 9,
-							height: 9,
-							borderRadius: 3,
-							background: colors.orange
-						}}
-					/>
-					{input.label}
+					{input.title}
 				</div>
 				<div
 					style={{
 						display: 'flex',
-						marginTop: 20,
-						fontSize: titleSize,
-						lineHeight: 1.06,
+						marginTop: 24,
+						maxWidth: 720,
+						color: colors.muted,
+						fontSize: 24,
+						lineHeight: 1.38
+					}}
+				>
+					{input.description}
+				</div>
+			</div>
+
+			<span
+				style={{
+					position: 'absolute',
+					left: 876,
+					top: 142,
+					display: 'flex',
+					width: 1,
+					height: 338,
+					background: colors.border
+				}}
+			/>
+			<div
+				style={{
+					position: 'absolute',
+					left: 920,
+					top: 176,
+					display: 'flex',
+					alignItems: 'center',
+					justifyContent: 'center',
+					width: 196,
+					height: 230
+				}}
+			>
+				<MarketingMotif input={input} origin={origin} />
+			</div>
+		</CardShell>
+	);
+}
+
+function docsTitleSize(title: string) {
+	if (title.length > 54) return 62;
+	if (title.length > 38) return 70;
+	return 78;
+}
+
+function DocsCard({ input, origin }: { input: OgInput; origin: string }) {
+	return (
+		<CardShell variant="docs" input={input} origin={origin}>
+			<div
+				style={{
+					position: 'absolute',
+					left: 78,
+					top: 180,
+					display: 'flex',
+					flexDirection: 'column',
+					width: 1035
+				}}
+			>
+				<div
+					style={{
+						display: 'flex',
+						fontSize: docsTitleSize(input.title),
 						fontWeight: 600,
-						letterSpacing: -2.1
+						letterSpacing: -2.1,
+						lineHeight: 1.02
 					}}
 				>
 					{input.title}
@@ -479,70 +417,22 @@ function SocialCard({ input, origin }: { input: OgInput; origin: string }) {
 					style={{
 						display: 'flex',
 						marginTop: 28,
-						maxWidth: 530,
-						color: colors.muted,
-						fontSize: 21,
-						lineHeight: 1.42
+						maxWidth: 930,
+						color: colors.darkMuted,
+						fontSize: 27,
+						lineHeight: 1.4
 					}}
 				>
 					{input.description}
 				</div>
 			</div>
-			<Motif input={input} origin={origin} />
-			<span
-				style={{
-					position: 'absolute',
-					left: 18,
-					bottom: 77,
-					display: 'flex',
-					width: 1182,
-					height: 1,
-					background: colors.border
-				}}
-			/>
-			<span
-				style={{
-					position: 'absolute',
-					left: 72,
-					bottom: 35,
-					display: 'flex',
-					color: colors.muted,
-					fontSize: 17
-				}}
-			>
-				openpost.social
-			</span>
-			<div
-				style={{
-					position: 'absolute',
-					right: 86,
-					bottom: 34,
-					display: 'flex',
-					gap: 8
-				}}
-			>
-				{[
-					colors.surfaceAlt,
-					colors.orangePale,
-					colors.orange,
-					colors.orangePale,
-					colors.orange,
-					colors.surfaceAlt
-				].map((color, index) => (
-					<span
-						key={index}
-						style={{
-							display: 'flex',
-							width: 12,
-							height: 12,
-							borderRadius: 5,
-							background: color
-						}}
-					/>
-				))}
-			</div>
-		</div>
+		</CardShell>
 	);
+}
+
+function SocialCard({ input, origin }: { input: OgInput; origin: string }) {
+	if (input.kind === 'docs') return <DocsCard input={input} origin={origin} />;
+	return <MarketingCard input={input} origin={origin} />;
 }
 
 async function font(origin: string, name: string) {

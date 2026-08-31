@@ -5,7 +5,7 @@ export { docsRouteFromPage } from "./docs-route.js";
 
 export const marketingSiteUrl = "https://openpost.social";
 export const docsSiteUrl = "https://docs.openpost.social";
-export const socialRendererVersion = "1";
+export const socialRendererVersion = "2";
 
 export function socialImageUrl(entry) {
   const query = new URLSearchParams({
@@ -27,6 +27,8 @@ const platformNames = [
   ["youtube", "YouTube"],
   ["discord", "Discord"],
 ];
+
+export const socialImagePlatformSlugs = Object.freeze(platformNames.map(([slug]) => slug));
 
 const toolPages = [
   {

@@ -383,7 +383,7 @@
 				>
 				<div class="flex min-w-0 items-center gap-1">
 					<Slider
-						class="h-7 min-w-10 flex-1 accent-[oklch(0.72_0.15_50)]"
+						class="h-7 min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 						min={-180}
 						max={180}
 						step={1}
@@ -395,6 +395,7 @@
 						}}
 						onValueCommit={(nextValue) => commitGesture('rotation', nextValue)}
 						onValueCancel={cancelGesture}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 					<div class="w-[5.6rem] shrink-0">
 						{@render numberControl('rotation', '', m.video_editor_rotation(), '°', -360, 360)}
@@ -483,7 +484,7 @@
 				<span class="text-[10px] font-medium text-white/48">{m.video_editor_clip_opacity()}</span>
 				<div class="flex min-w-0 items-center gap-1">
 					<Slider
-						class="h-7 min-w-10 flex-1 accent-[oklch(0.72_0.15_50)]"
+						class="h-7 min-w-10 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 						min={0}
 						max={100}
 						step={1}
@@ -495,6 +496,7 @@
 						}}
 						onValueCommit={(nextValue) => commitGesture('opacity', nextValue / 100)}
 						onValueCancel={cancelGesture}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 					<div class="relative w-[4.5rem] shrink-0">
 						<ScrubbableNumberInput

@@ -12,6 +12,7 @@
 		onValueChange,
 		onValueCommit,
 		onValueCancel,
+		onKeydown,
 		class: className,
 		trackClass = '',
 		rangeClass = ''
@@ -25,6 +26,7 @@
 		onValueChange?: (value: number) => void;
 		onValueCommit?: (value: number) => void;
 		onValueCancel?: () => void;
+		onKeydown?: (event: KeyboardEvent) => void;
 		class?: string;
 		trackClass?: string;
 		rangeClass?: string;
@@ -81,10 +83,11 @@
 	onkeydowncapture={(event) => {
 		if (event.key === 'Escape') {
 			cancelGesture();
-			return;
+		} else if (isSliderKey(event.key)) {
+			keyboardGestureActive = true;
 		}
-		if (isSliderKey(event.key)) keyboardGestureActive = true;
 	}}
+	onkeydown={(event) => onKeydown?.(event)}
 	onkeyup={(event) => {
 		if (isSliderKey(event.key)) flushKeyboardCommit();
 	}}

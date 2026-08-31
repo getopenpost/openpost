@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -41,6 +42,11 @@ type MediaCleanupPayload struct {
 
 type PublicationBuildPayload struct {
 	BuildID string `json:"build_id"`
+}
+
+type BotIngressPayload struct {
+	EventID     string `json:"event_id"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
 }
 
 type InvalidPayloadError struct {
@@ -153,6 +159,61 @@ func publicationBuildIdentity(payload string) (Identity, error) {
 		return Identity{}, err
 	}
 	return PublicationBuildIdentity(decoded.BuildID)
+}
+
+func EncodeBotIngressPayload(payload BotIngressPayload) (string, error) {
+	payload.EventID = strings.TrimSpace(payload.EventID)
+	payload.WorkspaceID = strings.TrimSpace(payload.WorkspaceID)
+	if !validBotIngressReference(payload.EventID, true) || !validBotIngressReference(payload.WorkspaceID, false) {
+		return "", &InvalidPayloadError{err: errors.New("invalid bot ingress event reference")}
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		return "", &InvalidPayloadError{err: fmt.Errorf("encode bot ingress payload: %w", err)}
+	}
+	return string(encoded), nil
+}
+
+func DecodeBotIngressPayload(payload string) (BotIngressPayload, error) {
+	var decoded BotIngressPayload
+	decoder := json.NewDecoder(strings.NewReader(payload))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decoded); err != nil {
+		return BotIngressPayload{}, &InvalidPayloadError{err: fmt.Errorf("decode bot ingress payload: %w", err)}
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return BotIngressPayload{}, &InvalidPayloadError{err: errors.New("decode bot ingress payload: trailing data")}
+	}
+	decoded.EventID = strings.TrimSpace(decoded.EventID)
+	decoded.WorkspaceID = strings.TrimSpace(decoded.WorkspaceID)
+	if !validBotIngressReference(decoded.EventID, true) || !validBotIngressReference(decoded.WorkspaceID, false) {
+		return BotIngressPayload{}, &InvalidPayloadError{err: errors.New("invalid bot ingress event reference")}
+	}
+	return decoded, nil
+}
+
+func botIngressIdentity(payload string) (Identity, error) {
+	decoded, err := DecodeBotIngressPayload(payload)
+	if err != nil {
+		return Identity{}, err
+	}
+	scopeID := decoded.WorkspaceID
+	if scopeID == "" {
+		scopeID = TypeBotIngress
+	}
+	return Identity{ScopeID: scopeID, DedupeKey: decoded.EventID}, nil
+}
+
+func validBotIngressReference(value string, required bool) bool {
+	if required && value == "" || len(value) > 200 {
+		return false
+	}
+	for _, char := range value {
+		if char < 0x20 || char == 0x7f {
+			return false
+		}
+	}
+	return true
 }
 
 func PublicationBuildIdentity(buildID string) (Identity, error) {

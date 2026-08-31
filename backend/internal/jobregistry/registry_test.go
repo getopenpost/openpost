@@ -26,7 +26,7 @@ func TestDefinitionsCoverEveryExecutableJobKind(t *testing.T) {
 		TypeMessagingSweep, TypeMessagesSync, TypeEngagementAction, TypeMessageSend, TypeNotificationEmail,
 		TypeOwnershipTransferExpiry,
 		TypeRepostSweep, TypeRepostEvaluate, TypeRepostExecute, TypeMediaAnalyze,
-		TypeGrowthDiscovery, TypeGrowthFollow, TypePublicationBuild,
+		TypeGrowthDiscovery, TypeGrowthFollow, TypePublicationBuild, TypeBotIngress,
 	}
 	definitions := Definitions()
 	actual := make([]string, 0, len(definitions))
@@ -53,6 +53,20 @@ func TestNewJobUsesRegisteredDurablePolicy(t *testing.T) {
 
 	_, err = NewJob("unknown", `{}`, runAt)
 	require.ErrorContains(t, err, "not registered")
+}
+
+func TestBotIngressPayloadIsBoundedToAnEventReference(t *testing.T) {
+	t.Parallel()
+
+	payload, err := EncodeBotIngressPayload(BotIngressPayload{EventID: "event-1"})
+	require.NoError(t, err)
+	require.JSONEq(t, `{"event_id":"event-1"}`, payload)
+
+	decoded, err := DecodeBotIngressPayload(payload)
+	require.NoError(t, err)
+	require.Equal(t, "event-1", decoded.EventID)
+	_, err = DecodeBotIngressPayload(`{"event_id":"event-1","raw_payload":{"secret":"private"}}`)
+	require.Error(t, err)
 }
 
 func TestMediaCleanupPayloadRetiresClientSuppliedDays(t *testing.T) {

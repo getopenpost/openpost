@@ -2259,6 +2259,42 @@ type PublicationAsset struct {
 	CreatedAt     time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
 }
 
+// BotConnectionNonce stores only a digest of a signed, single-use bot
+// connection credential. The credential itself is returned once and is never
+// persisted.
+type BotConnectionNonce struct {
+	bun.BaseModel `bun:"table:bot_connection_nonces"`
+
+	ID              string    `bun:",pk" json:"id"`
+	Provider        string    `bun:",notnull" json:"provider"`
+	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	CreatedByUserID string    `bun:"created_by_user_id,notnull" json:"created_by_user_id"`
+	NonceHash       string    `bun:"nonce_hash,notnull" json:"-"`
+	ExpiresAt       time.Time `bun:"expires_at,notnull" json:"expires_at"`
+	ConsumedAt      time.Time `bun:"consumed_at,nullzero" json:"consumed_at,omitempty"`
+	CreatedAt       time.Time `bun:"created_at,notnull" json:"created_at"`
+}
+
+// BotIngressEvent is the bounded provider-neutral projection retained from a
+// verified bot webhook. It intentionally has no raw payload or header fields.
+type BotIngressEvent struct {
+	bun.BaseModel `bun:"table:bot_ingress_events"`
+
+	ID                string    `bun:",pk" json:"id"`
+	Provider          string    `bun:",notnull" json:"provider"`
+	ProviderEventID   string    `bun:"provider_event_id,notnull" json:"provider_event_id"`
+	Kind              string    `bun:",notnull" json:"kind"`
+	WorkspaceID       string    `bun:"workspace_id,nullzero" json:"workspace_id,omitempty"`
+	SocialAccountID   string    `bun:"social_account_id,notnull,default:''" json:"social_account_id,omitempty"`
+	ConnectionNonceID string    `bun:"connection_nonce_id,notnull,default:''" json:"connection_nonce_id,omitempty"`
+	SubjectReference  string    `bun:"subject_reference,notnull,default:''" json:"subject_reference,omitempty"`
+	ParentReference   string    `bun:"parent_reference,notnull,default:''" json:"parent_reference,omitempty"`
+	OccurredAt        time.Time `bun:"occurred_at,notnull" json:"occurred_at"`
+	ProcessedAt       time.Time `bun:"processed_at,nullzero" json:"processed_at,omitempty"`
+	SafeErrorCode     string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
+	CreatedAt         time.Time `bun:"created_at,notnull" json:"created_at"`
+}
+
 type Job struct {
 	bun.BaseModel `bun:"table:jobs"`
 

@@ -17,6 +17,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	billingservice "github.com/openpost/backend/internal/services/billing"
+	botingressservice "github.com/openpost/backend/internal/services/botingress"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/feedback"
 	growthservice "github.com/openpost/backend/internal/services/growth"
@@ -64,6 +65,7 @@ type BackgroundWorker struct {
 	feedback              *feedback.Service
 	analytics             *analyticsservice.Service
 	billing               *billingservice.Service
+	botIngress            *botingressservice.Service
 	engagement            *engagementservice.Service
 	messaging             *messagingservice.Service
 	notifications         *notifications.Service
@@ -108,6 +110,16 @@ func (w *BackgroundWorker) SetBillingService(service *billingservice.Service) {
 			return fmt.Errorf("billing reconciliation is not configured")
 		}
 		return w.billing.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
+func (w *BackgroundWorker) SetBotIngressService(service *botingressservice.Service) {
+	w.botIngress = service
+	w.executors[jobregistry.ExecuteBotIngress] = func(ctx context.Context, job *models.Job) error {
+		if w.botIngress == nil {
+			return botingressservice.ErrProcessorMissing
+		}
+		return w.botIngress.HandleJob(ctx, job.Type, job.Payload)
 	}
 }
 

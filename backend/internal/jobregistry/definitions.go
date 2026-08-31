@@ -32,6 +32,7 @@ const (
 	TypeGrowthDiscovery         = "growth_discovery"
 	TypeGrowthFollow            = "growth_follow"
 	TypePublicationBuild        = "publication_build"
+	TypeBotIngress              = "bot_ingress"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -55,6 +56,7 @@ const (
 	ExecuteVideo                 ExecutionKind = "video"
 	ExecuteGrowth                ExecutionKind = "growth"
 	ExecutePublicationBuild      ExecutionKind = "publication_build"
+	ExecuteBotIngress            ExecutionKind = "bot_ingress"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -143,6 +145,12 @@ var definitions = map[string]Definition{
 		Type: TypePublicationBuild, DefaultMaxAttempts: 2,
 		Execution: ExecutePublicationBuild, Failure: FailureDefault, Recovery: RecoveryRequeue,
 		identity: publicationBuildIdentity,
+	},
+	TypeBotIngress: {
+		Type: TypeBotIngress, DefaultMaxAttempts: 8,
+		Execution: ExecuteBotIngress, Failure: FailureDefault, Recovery: RecoveryRequeue,
+		FailureMessage: "Bot event processing failed with a safe normalized error.",
+		identity:       botIngressIdentity,
 	},
 }
 

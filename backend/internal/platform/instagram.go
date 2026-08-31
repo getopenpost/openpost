@@ -212,7 +212,7 @@ func (i *InstagramAdapter) SelectAccount(ctx context.Context, token *TokenResult
 }
 
 func (i *InstagramAdapter) listInstagramPages(ctx context.Context, accessToken string) ([]instagramPage, error) {
-	fields := "id,name,username,access_token,picture.type(square),instagram_business_account{id,username,name,profile_picture_url,account_type}"
+	fields := "id,name,username,access_token,picture.type(square),instagram_business_account{id,username,name,profile_picture_url}"
 	endpoint := i.graphURL("me/accounts") + "?fields=" + url.QueryEscape(fields) + "&limit=100&access_token=" + url.QueryEscape(accessToken)
 	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
 	if err != nil {

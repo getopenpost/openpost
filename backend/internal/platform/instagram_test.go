@@ -126,6 +126,31 @@ func TestInstagramListAccountSelectionsExplainsFacebookPageLinkRequirement(t *te
 	}
 }
 
+func TestInstagramListAccountSelectionsUsesFacebookLoginIGUserFields(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		fields := req.URL.Query().Get("fields")
+		if strings.Contains(fields, "account_type") {
+			return jsonResponseWithStatus(req, http.StatusBadRequest, `{"error":{"message":"(#100) Tried accessing nonexisting field (account_type)","type":"OAuthException","code":100}}`), nil
+		}
+		return jsonResponse(req, `{"data":[{"id":"page-1","name":"OpenPost Page","access_token":"page-token","instagram_business_account":{"id":"ig-1","username":"openpost","name":"OpenPost IG","profile_picture_url":"https://cdn.example/ig.png"}}]}`), nil
+	})}
+
+	options, err := NewInstagramAdapter("", "", "").ListAccountSelections(
+		context.Background(),
+		&TokenResult{AccessToken: "access-token"},
+	)
+	if err != nil {
+		t.Fatalf("ListAccountSelections returned error: %v", err)
+	}
+	if len(options) != 1 || options[0].ID != "ig-1" {
+		t.Fatalf("unexpected options: %#v", options)
+	}
+}
+
 func TestInstagramListCommentsMapsGraphResponse(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

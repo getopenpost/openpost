@@ -428,6 +428,9 @@ func main() {
 		if err := botIngressService.RegisterProcessor("telegram", telegramConnectionService); err != nil {
 			log.Fatal("failed to register Telegram ingress processor")
 		}
+		// The same credential-safe boundary owns Telegram publishing. The
+		// instance bot token never enters a Workspace SocialAccount or job.
+		publishSvc.SetProvider(capabilities.ProviderTelegram, telegramConnectionService)
 		break
 	}
 	if command.role.runsWeb() && telegramConnectionService != nil {

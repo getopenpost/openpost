@@ -65,4 +65,32 @@ func TestBotIngressMigrationAddsNonceAndProviderEventUniqueness(t *testing.T) {
 	connection.SocialAccountID = secondAccount.ID
 	_, err = db.NewInsert().Model(connection).Exec(t.Context())
 	require.Error(t, err, "one Telegram chat cannot be connected to another workspace account")
+
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-1", WorkspaceID: "workspace-1", CreatedByID: "user-1", Title: "Launch",
+		SourceContent: "Launch", Status: models.PublicationStatusPublishing, CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Rendition{
+		ID: "rendition-1", PublicationID: "publication-1", SocialAccountID: account.ID,
+		TargetKey: "telegram", Platform: "telegram", Profile: models.ContentProfileImagePost,
+		Status: models.RenditionStatusPublishing, CreatedAt: now, UpdatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+	receipt := &models.TelegramPublishReceipt{
+		ID: "receipt-1", OperationID: "authorization:one:rendition-1:publish", RenditionID: "rendition-1",
+		RequestIndex: 0, MessageIndex: 0, RequestKind: "media_group", Status: "accepted", MessageID: "12345",
+		SendingStarted: now.Add(-time.Second), AcceptedAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = db.NewInsert().Model(receipt).Exec(t.Context())
+	require.NoError(t, err)
+	receipt.ID = "receipt-duplicate-position"
+	_, err = db.NewInsert().Model(receipt).Exec(t.Context())
+	require.Error(t, err, "one ordered receipt position is durable for an operation")
+
+	_, err = db.NewDelete().Model((*models.Rendition)(nil)).Where("id = ?", "rendition-1").Exec(t.Context())
+	require.NoError(t, err)
+	count, err := db.NewSelect().Model((*models.TelegramPublishReceipt)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count, "Telegram receipts follow their owning Rendition")
 }

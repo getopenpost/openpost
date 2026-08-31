@@ -482,7 +482,8 @@ func (s *Service) publishRendition(
 		return err
 	}
 	token := ""
-	if !connectorBacked {
+	_, usesInstanceCredential := provider.(platform.InstanceCredentialPublisher)
+	if !connectorBacked && !usesInstanceCredential {
 		token, err = s.tm.GetValidAccessToken(ctx, account.ID)
 		if err != nil {
 			return fmt.Errorf("auth error: %v", err)
@@ -526,6 +527,7 @@ func (s *Service) publishRendition(
 
 	req := &platform.PublishRequest{
 		Content:          rendition.Body,
+		RenditionID:      rendition.ID,
 		Profile:          rendition.Profile,
 		OutputProfile:    rendition.OutputProfile,
 		Title:            firstNonEmptyPublisherString(rendition.Title, publication.Title),
@@ -635,7 +637,8 @@ func (s *Service) publishRenditionSegments(
 		return err
 	}
 	token := ""
-	if !connectorBacked {
+	_, usesInstanceCredential := provider.(platform.InstanceCredentialPublisher)
+	if !connectorBacked && !usesInstanceCredential {
 		token, err = s.tm.GetValidAccessToken(ctx, account.ID)
 		if err != nil {
 			return fmt.Errorf("auth error: %v", err)
@@ -720,6 +723,7 @@ func (s *Service) publishRenditionSegments(
 
 		req := &platform.PublishRequest{
 			Content:          segment.Body,
+			RenditionID:      rendition.ID,
 			Profile:          rendition.Profile,
 			OutputProfile:    rendition.OutputProfile,
 			Title:            firstNonEmptyPublisherString(segment.Title, rendition.Title, publication.Title),

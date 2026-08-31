@@ -2415,6 +2415,27 @@ type TelegramConnection struct {
 	CreatedAt             time.Time `bun:"created_at,notnull" json:"created_at"`
 }
 
+// TelegramPublishReceipt is one ordered message outcome for a Rendition. Rows
+// are prepared before provider calls so restarts can distinguish a safe
+// continuation from an ambiguous write. No content or credentials are stored.
+type TelegramPublishReceipt struct {
+	bun.BaseModel `bun:"table:telegram_publish_receipts"`
+
+	ID             string    `bun:",pk" json:"id"`
+	OperationID    string    `bun:"operation_id,notnull" json:"operation_id"`
+	RenditionID    string    `bun:"rendition_id,notnull" json:"rendition_id"`
+	RequestIndex   int       `bun:"request_index,notnull" json:"request_index"`
+	MessageIndex   int       `bun:"message_index,notnull" json:"message_index"`
+	RequestKind    string    `bun:"request_kind,notnull" json:"request_kind"`
+	Status         string    `bun:",notnull" json:"status"`
+	MessageID      string    `bun:"message_id,notnull,default:''" json:"message_id,omitempty"`
+	SafeErrorCode  string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`
+	SendingStarted time.Time `bun:"sending_started_at,nullzero" json:"sending_started_at,omitempty"`
+	AcceptedAt     time.Time `bun:"accepted_at,nullzero" json:"accepted_at,omitempty"`
+	CreatedAt      time.Time `bun:"created_at,notnull" json:"created_at"`
+	UpdatedAt      time.Time `bun:"updated_at,notnull" json:"updated_at"`
+}
+
 type Job struct {
 	bun.BaseModel `bun:"table:jobs"`
 

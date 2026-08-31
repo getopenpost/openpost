@@ -12,6 +12,7 @@ import (
 // PublishRequest contains everything needed to publish a single post.
 type PublishRequest struct {
 	Content          string // Post text content
+	RenditionID      string // Owning Rendition for provider-specific durable receipts
 	Profile          string // OpenPost content profile, e.g. short_text, carousel, story, short_video
 	OutputProfile    string // Provider-qualified output profile, e.g. instagram.carousel
 	Title            string // Provider-specific title for video/link surfaces
@@ -177,6 +178,14 @@ type UploadMediaRequest struct {
 // request. Readers are owned by the caller and are valid only for this call.
 type DirectMediaPublisher interface {
 	PublishWithMedia(ctx context.Context, accessToken, accountID string, req *PublishRequest, media []UploadMediaRequest) (PublishResult, error)
+}
+
+// InstanceCredentialPublisher marks a provider whose write credential belongs
+// to the OpenPost instance rather than a Workspace account. The credential
+// stays inside the provider implementation and never crosses the publisher or
+// token-manager boundary.
+type InstanceCredentialPublisher interface {
+	UsesInstanceCredential() bool
 }
 
 // PublishReconciler performs a read-only lookup for a previously submitted

@@ -5,9 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"path/filepath"
+	"strconv"
 	"strings"
+
+	"github.com/openpost/backend/internal/platform"
 )
 
 const defaultBotAPIBaseURL = "https://api.telegram.org"
@@ -57,6 +62,31 @@ type SetWebhookRequest struct {
 	AllowedUpdates []string `json:"allowed_updates"`
 }
 
+type Message struct {
+	MessageID int64 `json:"message_id"`
+}
+
+type OutboundMedia struct {
+	Type     string
+	MimeType string
+	Filename string
+	Reader   io.Reader
+}
+
+type OutboundRequest struct {
+	Kind                string
+	ChatID              string
+	Text                string
+	Caption             string
+	DisableNotification bool
+	ProtectContent      bool
+	Media               []OutboundMedia
+}
+
+type PublishingBotAPI interface {
+	Send(context.Context, OutboundRequest) ([]Message, error)
+}
+
 type HTTPBotAPI struct {
 	token   string
 	baseURL string
@@ -104,6 +134,61 @@ func (api *HTTPBotAPI) SetWebhook(ctx context.Context, request SetWebhookRequest
 	return api.call(ctx, "setWebhook", request, &struct{}{})
 }
 
+func (api *HTTPBotAPI) Send(ctx context.Context, request OutboundRequest) ([]Message, error) {
+	if request.Kind == "message" {
+		var message Message
+		err := api.call(ctx, "sendMessage", map[string]any{
+			"chat_id": request.ChatID, "text": request.Text,
+			"disable_notification": request.DisableNotification, "protect_content": request.ProtectContent,
+		}, &message)
+		if err != nil {
+			return nil, err
+		}
+		return []Message{message}, nil
+	}
+	method := map[string]string{"photo": "sendPhoto", "video": "sendVideo", "document": "sendDocument", "media_group": "sendMediaGroup"}[request.Kind]
+	if method == "" || len(request.Media) == 0 {
+		return nil, ErrProviderUnavailable
+	}
+	fields := map[string]string{
+		"chat_id":              request.ChatID,
+		"disable_notification": strconv.FormatBool(request.DisableNotification),
+		"protect_content":      strconv.FormatBool(request.ProtectContent),
+	}
+	if request.Kind == "media_group" {
+		items := make([]map[string]any, 0, len(request.Media))
+		for index, media := range request.Media {
+			item := map[string]any{"type": media.Type, "media": "attach://media_" + strconv.Itoa(index)}
+			if index == 0 && request.Caption != "" {
+				item["caption"] = request.Caption
+			}
+			items = append(items, item)
+		}
+		encoded, err := json.Marshal(items)
+		if err != nil {
+			return nil, ErrProviderUnavailable
+		}
+		fields["media"] = string(encoded)
+	} else {
+		fields[request.Kind] = "attach://media_0"
+		if request.Caption != "" {
+			fields["caption"] = request.Caption
+		}
+	}
+	var messages []Message
+	if request.Kind == "media_group" {
+		if err := api.callMultipart(ctx, method, fields, request.Media, &messages); err != nil {
+			return nil, err
+		}
+		return messages, nil
+	}
+	var message Message
+	if err := api.callMultipart(ctx, method, fields, request.Media, &message); err != nil {
+		return nil, err
+	}
+	return []Message{message}, nil
+}
+
 type botAPIEnvelope struct {
 	OK     bool            `json:"ok"`
 	Result json.RawMessage `json:"result"`
@@ -132,8 +217,11 @@ func (api *HTTPBotAPI) call(ctx context.Context, method string, input, output an
 	}
 	defer response.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
-	if err != nil || response.StatusCode < 200 || response.StatusCode >= 300 {
+	if err != nil {
 		return ErrProviderUnavailable
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return platform.NewHTTPError(response.StatusCode, response.Header, body)
 	}
 	var envelope botAPIEnvelope
 	if err := json.Unmarshal(body, &envelope); err != nil || !envelope.OK {
@@ -141,6 +229,82 @@ func (api *HTTPBotAPI) call(ctx context.Context, method string, input, output an
 	}
 	if len(envelope.Result) == 0 || string(envelope.Result) == "true" {
 		return nil
+	}
+	if err := json.Unmarshal(envelope.Result, output); err != nil {
+		return ErrProviderUnavailable
+	}
+	return nil
+}
+
+//nolint:gocyclo // Streaming multipart setup and credential-safe error collapse share one transport boundary.
+func (api *HTTPBotAPI) callMultipart(ctx context.Context, method string, fields map[string]string, media []OutboundMedia, output any) error {
+	if api == nil || api.client == nil || api.token == "" || api.baseURL == "" {
+		return ErrProviderUnavailable
+	}
+	reader, writer := io.Pipe()
+	multipartWriter := multipart.NewWriter(writer)
+	writeDone := make(chan error, 1)
+	go func() {
+		var writeErr error
+		for name, value := range fields {
+			if writeErr = multipartWriter.WriteField(name, value); writeErr != nil {
+				break
+			}
+		}
+		if writeErr == nil {
+			for index, item := range media {
+				filename := filepath.Base(strings.TrimSpace(item.Filename))
+				if filename == "." || filename == "" {
+					filename = "media-" + strconv.Itoa(index)
+				}
+				part, err := multipartWriter.CreateFormFile("media_"+strconv.Itoa(index), filename)
+				if err != nil {
+					writeErr = err
+					break
+				}
+				if item.Reader == nil {
+					writeErr = io.ErrUnexpectedEOF
+					break
+				}
+				if _, err := io.Copy(part, item.Reader); err != nil {
+					writeErr = err
+					break
+				}
+			}
+		}
+		if closeErr := multipartWriter.Close(); writeErr == nil {
+			writeErr = closeErr
+		}
+		_ = writer.CloseWithError(writeErr)
+		writeDone <- writeErr
+	}()
+
+	endpoint := api.baseURL + "/bot" + url.PathEscape(api.token) + "/" + method
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, reader)
+	if err != nil {
+		_ = reader.Close()
+		return ErrProviderUnavailable
+	}
+	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
+	response, err := api.client.Do(req)
+	if err != nil {
+		_ = reader.Close()
+		return ErrProviderUnavailable
+	}
+	defer response.Body.Close()
+	if writeErr := <-writeDone; writeErr != nil {
+		return ErrProviderUnavailable
+	}
+	body, err := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+	if err != nil {
+		return ErrProviderUnavailable
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return platform.NewHTTPError(response.StatusCode, response.Header, body)
+	}
+	var envelope botAPIEnvelope
+	if err := json.Unmarshal(body, &envelope); err != nil || !envelope.OK || len(envelope.Result) == 0 {
+		return ErrProviderUnavailable
 	}
 	if err := json.Unmarshal(envelope.Result, output); err != nil {
 		return ErrProviderUnavailable

@@ -13,6 +13,8 @@ const (
 	CodeInsufficientPermissions ErrorCode = "telegram_insufficient_permissions"
 	CodeChatAlreadyConnected    ErrorCode = "telegram_chat_already_connected"
 	CodePersistenceFailed       ErrorCode = "telegram_connection_failed"
+	CodePublishAmbiguous        ErrorCode = "telegram_publish_ambiguous"
+	CodeInvalidPublish          ErrorCode = "telegram_invalid_publish"
 )
 
 type SafeError struct {
@@ -31,6 +33,8 @@ var (
 	ErrInsufficientPermissions = &SafeError{code: CodeInsufficientPermissions}
 	ErrChatAlreadyConnected    = &SafeError{code: CodeChatAlreadyConnected}
 	ErrPersistenceFailed       = &SafeError{code: CodePersistenceFailed}
+	ErrPublishAmbiguous        = &SafeError{code: CodePublishAmbiguous}
+	ErrInvalidPublish          = &SafeError{code: CodeInvalidPublish}
 )
 
 func IsSafe(err error) bool {

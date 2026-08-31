@@ -586,6 +586,9 @@ func (c *Config) ValidateRuntime() error {
 	if c.Edition != EditionCloud {
 		return nil
 	}
+	if err := validateCloudManagedSecretFiles(); err != nil {
+		return err
+	}
 
 	missing := append(c.missingCloudDataPlaneConfig(), c.missingCloudBillingConfig()...)
 	missing = append(missing, c.missingCloudAccountConfig()...)
@@ -607,6 +610,20 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("OPENPOST_EDITION=cloud requires: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// ValidateMigration checks only configuration required before the database can
+// be opened and migrated. Runtime settings may still live in the database that
+// this command is about to bring up to date.
+func (c *Config) ValidateMigration() error {
+	if c.Edition != EditionCloud {
+		return nil
+	}
+	missing := c.missingCloudDatabaseConfig()
+	if len(missing) > 0 {
+		return fmt.Errorf("OPENPOST_EDITION=cloud migration requires: %s", strings.Join(missing, ", "))
 	}
 	return nil
 }
@@ -798,13 +815,24 @@ func (c *Config) invalidEmailProviderConfig() []string {
 }
 
 func (c *Config) missingCloudDataPlaneConfig() []string {
-	missing := make([]string, 0, 8)
+	missing := c.missingCloudDatabaseConfig()
+	missing = append(missing, c.missingCloudStorageConfig()...)
+	return missing
+}
+
+func (c *Config) missingCloudDatabaseConfig() []string {
+	missing := make([]string, 0, 2)
 	if c.DatabaseDriver != DatabaseDriverPostgres {
 		missing = append(missing, "OPENPOST_DATABASE_DRIVER=postgres")
 	}
 	if strings.TrimSpace(c.DatabaseURL) == "" {
 		missing = append(missing, "OPENPOST_DATABASE_URL")
 	}
+	return missing
+}
+
+func (c *Config) missingCloudStorageConfig() []string {
+	missing := make([]string, 0, 6)
 	if c.StorageDriver != StorageDriverS3 {
 		missing = append(missing, "OPENPOST_STORAGE_DRIVER=s3")
 	}
@@ -1035,32 +1063,52 @@ func envValueSet(key string) bool {
 	return ok
 }
 
+type environmentValue struct {
+	value      string
+	source     string
+	configured bool
+	usable     bool
+}
+
 func getEnvValue(key string) (string, string, bool) {
+	resolved := resolveEnvironmentValue(key)
+	if resolved.configured && !resolved.usable {
+		log.Printf("WARNING: %s is configured but could not provide a value", resolved.source)
+	}
+	return resolved.value, resolved.source, resolved.usable
+}
+
+func resolveEnvironmentValue(key string) environmentValue {
 	if key == "" {
-		return "", "", false
+		return environmentValue{}
 	}
 	if value := os.Getenv(key); value != "" {
-		return value, key, true
+		return environmentValue{value: value, source: key, configured: true, usable: true}
 	}
 
 	fileKey := key + "_FILE"
-	path := strings.TrimSpace(os.Getenv(fileKey))
+	rawPath, configured := os.LookupEnv(fileKey)
+	if !configured {
+		return environmentValue{}
+	}
+	path := strings.TrimSpace(rawPath)
+	resolved := environmentValue{source: fileKey, configured: true}
 	if path == "" {
-		return "", "", false
+		return resolved
 	}
 
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		log.Printf("WARNING: failed to read %s=%q: %v", fileKey, path, err)
-		return "", fileKey, false
+		return resolved
 	}
 
 	value := strings.TrimSpace(string(raw))
 	if value == "" {
-		log.Printf("WARNING: %s=%q resolved to an empty value", fileKey, path)
-		return "", fileKey, false
+		return resolved
 	}
-	return value, fileKey, true
+	resolved.value = value
+	resolved.usable = true
+	return resolved
 }
 
 // oauthRedirectFromFrontend returns the OAuth redirect URI to register

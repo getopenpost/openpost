@@ -41,6 +41,7 @@ type State struct {
 	DatabaseOverride  bool
 	Configured        bool
 	SecretConfigured  bool
+	Editable          bool
 	RestartPending    bool
 	UpdatedAt         time.Time
 }
@@ -50,14 +51,20 @@ type Service struct {
 	encryptor *servicecrypto.TokenEncryptor
 	fallback  map[string]string
 	runtime   map[string]string
+	edition   string
 }
 
 func NewService(db *bun.DB, encryptor *servicecrypto.TokenEncryptor, fallback *config.Config) *Service {
+	edition := ""
+	if fallback != nil {
+		edition = fallback.Edition
+	}
 	return &Service{
 		db:        db,
 		encryptor: encryptor,
 		fallback:  managedSnapshot(fallback),
 		runtime:   managedSnapshot(fallback),
+		edition:   edition,
 	}
 }
 
@@ -65,16 +72,16 @@ func (s *Service) CaptureRuntime(cfg *config.Config) {
 	s.runtime = managedSnapshot(cfg)
 }
 
-// ApplyStored applies encrypted administrator overrides after environment and
-// default configuration has loaded. Removing an override restores that
-// original environment or default fallback on the next restart.
+// ApplyStored applies encrypted administrator values after environment and
+// default configuration has loaded. Cloud secrets remain deployment-owned.
 func (s *Service) ApplyStored(ctx context.Context, cfg *config.Config) error {
 	rows, err := s.listRows(ctx)
 	if err != nil {
 		return err
 	}
 	for _, row := range rows {
-		if _, ok := config.ManagedSettingDefinitionFor(row.Key); !ok {
+		definition, ok := config.ManagedSettingDefinitionFor(row.Key)
+		if !ok || !s.canApplyStored(definition) {
 			continue
 		}
 		value, err := s.decrypt(row)
@@ -94,23 +101,17 @@ func (s *Service) List(ctx context.Context) ([]State, error) {
 		return nil, err
 	}
 	stored := make(map[string]models.InstanceSetting, len(rows))
-	storedValues := make(map[string]string, len(rows))
 	for _, row := range rows {
 		if _, ok := config.ManagedSettingDefinitionFor(row.Key); !ok {
 			continue
 		}
-		value, err := s.decrypt(row)
-		if err != nil {
-			return nil, err
-		}
 		stored[row.Key] = row
-		storedValues[row.Key] = value
 	}
 
 	definitions := config.ManagedSettingDefinitions()
 	states := make([]State, 0, len(definitions))
 	for _, definition := range definitions {
-		state := State{Definition: definition, Source: "default"}
+		state := State{Definition: definition, Source: "default", Editable: s.canSaveStored(definition)}
 		desired := s.fallback[definition.Key]
 		if environmentSource, configured := config.ManagedEnvironmentSource(definition.Key); configured {
 			state.Source = "environment"
@@ -120,8 +121,14 @@ func (s *Service) List(ctx context.Context) ([]State, error) {
 		if hasStoredValue {
 			state.DatabaseOverride = true
 			state.UpdatedAt = row.UpdatedAt
-			state.Source = "database"
-			desired = storedValues[definition.Key]
+			if s.canApplyStored(definition) {
+				value, err := s.decrypt(row)
+				if err != nil {
+					return nil, err
+				}
+				state.Source = "database"
+				desired = value
+			}
 		}
 		state.Configured = desired != ""
 		state.SecretConfigured = definition.Secret && desired != ""
@@ -166,6 +173,9 @@ func (s *Service) validateUpdates(updates []Update) error {
 			return ValidationError{Key: updates[i].Key, Message: "must provide exactly one of value or unset"}
 		}
 		if updates[i].Value != nil {
+			if !s.canSaveStored(definition) {
+				return ValidationError{Key: updates[i].Key, Message: "is managed by the deployment"}
+			}
 			validated, err := config.ValidateManagedValue(definition, *updates[i].Value)
 			if err != nil {
 				return ValidationError{Key: updates[i].Key, Message: err.Error()}
@@ -229,6 +239,10 @@ func (s *Service) validateCandidate(ctx context.Context, updates []Update) error
 		return err
 	}
 	for _, row := range rows {
+		definition, ok := config.ManagedSettingDefinitionFor(row.Key)
+		if !ok || !s.canApplyStored(definition) {
+			continue
+		}
 		value, err := s.decrypt(row)
 		if err != nil {
 			return err
@@ -253,6 +267,14 @@ func (s *Service) validateCandidate(ctx context.Context, updates []Update) error
 		return ValidationError{Message: err.Error()}
 	}
 	return nil
+}
+
+func (s *Service) canApplyStored(definition config.ManagedSettingDefinition) bool {
+	return s.edition != config.EditionCloud || !definition.Secret
+}
+
+func (s *Service) canSaveStored(definition config.ManagedSettingDefinition) bool {
+	return s.canApplyStored(definition)
 }
 
 func (s *Service) listRows(ctx context.Context) ([]models.InstanceSetting, error) {

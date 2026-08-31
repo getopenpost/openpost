@@ -358,7 +358,7 @@ export interface paths {
         };
         /**
          * List administrator-managed instance settings
-         * @description Returns the typed optional configuration registry. Secrets are redacted. Administrator overrides take precedence over environment values after restart, while the configured environment source remains visible as the fallback.
+         * @description Returns the typed optional configuration registry and its effective source. Secrets are redacted. Cloud secrets remain deployment-managed, while self-hosted and non-secret administrator values can be stored in the database.
          */
         get: operations["list-instance-settings"];
         /**
@@ -7907,11 +7907,11 @@ export interface components {
         InstanceSettingResponse: {
             /** @description Whether the desired value is non-empty */
             configured: boolean;
-            /** @description Whether an encrypted administrator override exists */
+            /** @description Whether an encrypted administrator value exists, including an inactive legacy value */
             database_override_configured: boolean;
             /** @description Setting purpose and effect */
             description: string;
-            /** @description Whether the administrator can save an encrypted database override */
+            /** @description Whether deployment policy allows the administrator to save an encrypted database value */
             editable: boolean;
             /** @description Supported direct environment variable names */
             environment_variables: string[] | null;
@@ -7921,7 +7921,7 @@ export interface components {
             key: string;
             /** @description Human-readable setting name */
             label: string;
-            /** @description Direct or file-backed environment variable that supplies a configured value or fallback */
+            /** @description Direct or file-backed environment variable that supplies the effective deployment value */
             managed_by?: string;
             /** @description Whether an empty value is valid */
             optional: boolean;
@@ -7934,7 +7934,7 @@ export interface components {
             /** @description Whether a redacted secret value is configured */
             secret_configured: boolean;
             /**
-             * @description Layer that supplies the desired value after administrator overrides are applied
+             * @description Layer that supplies the effective value
              * @enum {string}
              */
             source: "environment" | "database" | "default";

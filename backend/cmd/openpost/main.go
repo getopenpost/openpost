@@ -126,7 +126,7 @@ func main() {
 	}
 	config.Init()
 	if command.role == processRoleMigrate {
-		if err := cfg.ValidateRuntime(); err != nil {
+		if err := cfg.ValidateMigration(); err != nil {
 			log.Fatal(err)
 		}
 	}

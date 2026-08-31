@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/google/uuid"
@@ -33,6 +35,26 @@ func createTestDB(t *testing.T) *bun.DB {
 
 func strptr(value string) *string {
 	return &value
+}
+
+func stateByKey(t *testing.T, service *Service, key string) State {
+	t.Helper()
+	states, err := service.List(t.Context())
+	require.NoError(t, err)
+	for _, state := range states {
+		if state.Definition.Key == key {
+			return state
+		}
+	}
+	t.Fatalf("managed setting %s was not listed", key)
+	return State{}
+}
+
+func seedStoredSetting(t *testing.T, db *bun.DB, encryptor *servicecrypto.TokenEncryptor, key, value string) {
+	t.Helper()
+	service := NewService(db, encryptor, config.Load())
+	_, err := service.Save(t.Context(), "user-1", []Update{{Key: key, Value: strptr(value)}})
+	require.NoError(t, err)
 }
 
 func TestSaveEncryptsValuesRedactsSecretsAndTracksRestart(t *testing.T) {
@@ -112,7 +134,132 @@ func TestPaddleBillingCredentialsCanBeStoredWithoutBeingReturned(t *testing.T) {
 	require.Equal(t, "pri_founder_monthly", applied.PaddleFounderMonthlyPriceID)
 }
 
+func TestCloudSecretDeploymentValuesIgnoreStoredRows(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		configure      func(*testing.T)
+		expectedSource string
+	}{
+		{
+			name: "direct environment",
+			configure: func(t *testing.T) {
+				t.Setenv("OPENPOST_PEXELS_API_KEY", "deployment-secret")
+				t.Setenv("OPENPOST_PEXELS_API_KEY_FILE", filepath.Join(t.TempDir(), "missing"))
+			},
+			expectedSource: "OPENPOST_PEXELS_API_KEY",
+		},
+		{
+			name: "secret file",
+			configure: func(t *testing.T) {
+				path := filepath.Join(t.TempDir(), "pexels-api-key")
+				require.NoError(t, os.WriteFile(path, []byte("deployment-secret\n"), 0o600))
+				t.Setenv("OPENPOST_PEXELS_API_KEY_FILE", path)
+			},
+			expectedSource: "OPENPOST_PEXELS_API_KEY_FILE",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := createTestDB(t)
+			encryptor := servicecrypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
+			seedStoredSetting(t, db, encryptor, "OPENPOST_PEXELS_API_KEY", "stale-database-secret")
+			t.Setenv("OPENPOST_EDITION", config.EditionCloud)
+			test.configure(t)
+
+			cfg := config.Load()
+			require.Equal(t, "deployment-secret", cfg.PexelsAPIKey)
+			service := NewService(db, encryptor, cfg)
+			require.NoError(t, service.ApplyStored(t.Context(), cfg))
+			require.Equal(t, "deployment-secret", cfg.PexelsAPIKey)
+
+			state := stateByKey(t, service, "OPENPOST_PEXELS_API_KEY")
+			require.Equal(t, "environment", state.Source)
+			require.Equal(t, test.expectedSource, state.EnvironmentSource)
+			require.True(t, state.DatabaseOverride)
+			require.False(t, state.Editable)
+			require.True(t, state.SecretConfigured)
+			require.Empty(t, state.Value)
+		})
+	}
+}
+
+func TestCloudSecretFileFailureCannotFallBackToStoredSecret(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		path func(*testing.T) string
+	}{
+		{
+			name: "unreadable",
+			path: func(t *testing.T) string { return filepath.Join(t.TempDir(), "missing") },
+		},
+		{
+			name: "empty",
+			path: func(t *testing.T) string {
+				path := filepath.Join(t.TempDir(), "empty")
+				require.NoError(t, os.WriteFile(path, nil, 0o600))
+				return path
+			},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			db := createTestDB(t)
+			encryptor := servicecrypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
+			seedStoredSetting(t, db, encryptor, "OPENPOST_PEXELS_API_KEY", "stale-database-secret")
+			t.Setenv("OPENPOST_EDITION", config.EditionCloud)
+			t.Setenv("OPENPOST_PEXELS_API_KEY_FILE", test.path(t))
+
+			cfg := config.Load()
+			require.Empty(t, cfg.PexelsAPIKey)
+			service := NewService(db, encryptor, cfg)
+			require.NoError(t, service.ApplyStored(t.Context(), cfg))
+			require.Empty(t, cfg.PexelsAPIKey)
+		})
+	}
+}
+
+func TestCloudSecretWithoutDeploymentValueDoesNotUseStoredRow(t *testing.T) {
+	db := createTestDB(t)
+	encryptor := servicecrypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
+	seedStoredSetting(t, db, encryptor, "OPENPOST_PEXELS_API_KEY", "stale-database-secret")
+	service := NewService(db, encryptor, &config.Config{Edition: config.EditionCloud})
+
+	cfg := &config.Config{Edition: config.EditionCloud}
+	require.NoError(t, service.ApplyStored(t.Context(), cfg))
+	require.Empty(t, cfg.PexelsAPIKey)
+
+	state := stateByKey(t, service, "OPENPOST_PEXELS_API_KEY")
+	require.Equal(t, "default", state.Source)
+	require.Empty(t, state.EnvironmentSource)
+	require.True(t, state.DatabaseOverride)
+	require.False(t, state.Editable)
+	require.False(t, state.SecretConfigured)
+	require.Empty(t, state.Value)
+}
+
+func TestSelfHostedSecretDatabaseOverrideRemainsEffective(t *testing.T) {
+	t.Setenv("OPENPOST_EDITION", config.EditionSelfHost)
+	t.Setenv("OPENPOST_PEXELS_API_KEY", "deployment-secret")
+	db := createTestDB(t)
+	encryptor := servicecrypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")
+	service := NewService(db, encryptor, config.Load())
+
+	_, err := service.Save(t.Context(), "user-1", []Update{{
+		Key: "OPENPOST_PEXELS_API_KEY", Value: strptr("stored-secret"),
+	}})
+	require.NoError(t, err)
+	cfg := config.Load()
+	require.NoError(t, service.ApplyStored(t.Context(), cfg))
+	require.Equal(t, "stored-secret", cfg.PexelsAPIKey)
+
+	state := stateByKey(t, service, "OPENPOST_PEXELS_API_KEY")
+	require.Equal(t, "database", state.Source)
+	require.Equal(t, "OPENPOST_PEXELS_API_KEY", state.EnvironmentSource)
+	require.True(t, state.DatabaseOverride)
+	require.True(t, state.Editable)
+	require.True(t, state.SecretConfigured)
+}
+
 func TestSaveAllowsEnvironmentOverrideAndRejectsInvalidCombinedConfiguration(t *testing.T) {
+	t.Setenv("OPENPOST_EDITION", config.EditionCloud)
 	t.Setenv("OPENPOST_FEEDBACK_ENABLED", "true")
 	db := createTestDB(t)
 	service := NewService(db, servicecrypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"), config.Load())
@@ -125,6 +272,12 @@ func TestSaveAllowsEnvironmentOverrideAndRejectsInvalidCombinedConfiguration(t *
 	require.True(t, applied.FeedbackEnabled)
 	require.NoError(t, service.ApplyStored(t.Context(), applied))
 	require.False(t, applied.FeedbackEnabled)
+	state := stateByKey(t, service, "OPENPOST_FEEDBACK_ENABLED")
+	require.Equal(t, "database", state.Source)
+	require.Equal(t, "OPENPOST_FEEDBACK_ENABLED", state.EnvironmentSource)
+	require.True(t, state.DatabaseOverride)
+	require.True(t, state.Editable)
+	require.Equal(t, "false", state.Value)
 
 	_, err = service.Save(t.Context(), "user-1", []Update{{Key: "OPENPOST_AUTH_GOOGLE_CLIENT_ID", Value: strptr("google-client")}})
 	var validationErr ValidationError

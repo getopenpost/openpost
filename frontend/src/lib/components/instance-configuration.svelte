@@ -427,7 +427,16 @@
 									>
 										{sourceLabel(setting)}
 									</Badge>
-									{#if setting.managed_by && !unsets[setting.key] && (setting.database_override_configured || hasDraftOverride(setting))}
+									{#if !setting.editable}
+										<Badge class="border-border bg-background">
+											{m.settings_configuration_deployment_managed()}
+										</Badge>
+										{#if setting.database_override_configured && !unsets[setting.key]}
+											<Badge class="bg-amber-500/15 text-amber-900 dark:text-amber-100">
+												{m.settings_configuration_inactive_stored_credential()}
+											</Badge>
+										{/if}
+									{:else if setting.managed_by && !unsets[setting.key] && (setting.database_override_configured || hasDraftOverride(setting))}
 										<Badge class="bg-amber-500/15 text-amber-900 dark:text-amber-100">
 											{setting.database_override_configured && !setting.requires_restart
 												? m.settings_configuration_overrides_environment()
@@ -446,7 +455,34 @@
 								<code class="mt-2 block text-xs break-all text-muted-foreground">
 									{(setting.environment_variables ?? []).join(' · ')}
 								</code>
-								{#if setting.managed_by}
+								{#if !setting.editable}
+									<InlineNotice
+										tone={setting.database_override_configured && !unsets[setting.key]
+											? 'warning'
+											: 'info'}
+										class="mt-3"
+									>
+										{#if setting.database_override_configured && !unsets[setting.key]}
+											<p class="font-medium">
+												{m.settings_configuration_inactive_stored_credential()}
+											</p>
+											<p class="mt-0.5 text-current/80">
+												{m.settings_configuration_inactive_stored_credential_body()}
+											</p>
+										{:else}
+											<p class="font-medium">
+												{m.settings_configuration_deployment_managed()}
+											</p>
+											<p class="mt-0.5 text-current/80">
+												{setting.managed_by
+													? m.settings_configuration_deployment_managed_source_body({
+															source: setting.managed_by
+														})
+													: m.settings_configuration_deployment_managed_unconfigured_body()}
+											</p>
+										{/if}
+									</InlineNotice>
+								{:else if setting.managed_by}
 									<InlineNotice
 										tone={!unsets[setting.key] &&
 										(setting.database_override_configured || hasDraftOverride(setting))
@@ -556,11 +592,13 @@
 											class="flex items-center justify-between gap-2 text-xs text-muted-foreground"
 										>
 											<span>
-												{setting.managed_by
-													? m.settings_configuration_will_use_environment({
-															source: setting.managed_by
-														})
-													: m.settings_configuration_will_use_fallback()}
+												{!setting.editable
+													? m.settings_configuration_inactive_stored_credential_will_be_removed()
+													: setting.managed_by
+														? m.settings_configuration_will_use_environment({
+																source: setting.managed_by
+															})
+														: m.settings_configuration_will_use_fallback()}
 											</span>
 											<Button variant="ghost" size="sm" onclick={() => undoUnset(setting.key)}>
 												<RotateCcwIcon class="size-3.5" />
@@ -569,10 +607,16 @@
 										</div>
 									{:else}
 										<Button variant="ghost" size="sm" onclick={() => markUnset(setting.key)}>
-											<RotateCcwIcon class="size-3.5" />
-											{setting.managed_by
-												? m.settings_configuration_use_environment()
-												: m.settings_configuration_use_fallback()}
+											{#if setting.editable}
+												<RotateCcwIcon class="size-3.5" />
+											{:else}
+												<TrashIcon class="size-3.5" />
+											{/if}
+											{!setting.editable
+												? m.settings_configuration_remove_inactive_credential()
+												: setting.managed_by
+													? m.settings_configuration_use_environment()
+													: m.settings_configuration_use_fallback()}
 										</Button>
 									{/if}
 								{/if}

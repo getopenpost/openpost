@@ -421,6 +421,23 @@ test("instance admins configure optional services and provider apps without expo
       editable: true,
       requires_restart: false,
     },
+    {
+      key: "OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN",
+      group: "email",
+      label: "Cloudflare API token",
+      description: "Write-only delivery token.",
+      type: "secret",
+      secret: true,
+      optional: true,
+      environment_variables: ["OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN"],
+      source: "environment",
+      managed_by: "OPENPOST_CLOUDFLARE_EMAIL_API_TOKEN_FILE",
+      configured: true,
+      secret_configured: true,
+      database_override_configured: true,
+      editable: false,
+      requires_restart: false,
+    },
   ];
 
   await page.route("**/api/v1/auth/me", async (route) => {
@@ -559,6 +576,15 @@ test("instance admins configure optional services and provider apps without expo
     "placeholder",
     "A secret is configured",
   );
+  await expect(page.getByLabel("Cloudflare API token")).toBeDisabled();
+  await expect(page.getByText("Deployment managed", { exact: true })).toBeVisible();
+  await expect(page.getByText("Inactive stored credential", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Overrides environment", { exact: true })).toHaveCount(0);
+  await page.getByRole("button", { name: "Remove inactive credential" }).click();
+  await expect(
+    page.getByText("The inactive stored credential will be removed when you save."),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
 
   await page.getByRole("button", { name: "Provider apps", exact: true }).click();
   await expect(page.getByText("public-x-client")).toBeVisible();

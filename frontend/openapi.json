@@ -8252,7 +8252,7 @@
 						"type": "boolean"
 					},
 					"database_override_configured": {
-						"description": "Whether an encrypted administrator override exists",
+						"description": "Whether an encrypted administrator value exists, including an inactive legacy value",
 						"type": "boolean"
 					},
 					"description": {
@@ -8260,7 +8260,7 @@
 						"type": "string"
 					},
 					"editable": {
-						"description": "Whether the administrator can save an encrypted database override",
+						"description": "Whether deployment policy allows the administrator to save an encrypted database value",
 						"type": "boolean"
 					},
 					"environment_variables": {
@@ -8283,7 +8283,7 @@
 						"type": "string"
 					},
 					"managed_by": {
-						"description": "Direct or file-backed environment variable that supplies a configured value or fallback",
+						"description": "Direct or file-backed environment variable that supplies the effective deployment value",
 						"type": "string"
 					},
 					"optional": {
@@ -8310,7 +8310,7 @@
 						"type": "boolean"
 					},
 					"source": {
-						"description": "Layer that supplies the desired value after administrator overrides are applied",
+						"description": "Layer that supplies the effective value",
 						"enum": ["environment", "database", "default"],
 						"type": "string"
 					},
@@ -19897,7 +19897,7 @@
 		},
 		"/admin/instance-settings": {
 			"get": {
-				"description": "Returns the typed optional configuration registry. Secrets are redacted. Administrator overrides take precedence over environment values after restart, while the configured environment source remains visible as the fallback.",
+				"description": "Returns the typed optional configuration registry and its effective source. Secrets are redacted. Cloud secrets remain deployment-managed, while self-hosted and non-secret administrator values can be stored in the database.",
 				"operationId": "list-instance-settings",
 				"responses": {
 					"200": {

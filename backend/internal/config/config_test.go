@@ -523,6 +523,44 @@ func TestLoadFileBackedEnvPrefersInlineValue(t *testing.T) {
 	require.Equal(t, "postgres://env.example/openpost", cfg.DatabaseURL)
 }
 
+func TestValidateRuntimeRejectsInvalidCloudManagedSecretFiles(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		path func(*testing.T) string
+	}{
+		{
+			name: "unreadable",
+			path: func(t *testing.T) string { return filepath.Join(t.TempDir(), "missing-secret") },
+		},
+		{
+			name: "empty",
+			path: func(t *testing.T) string { return writeEnvFile(t, "empty-secret", "") },
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			path := test.path(t)
+			t.Setenv("OPENPOST_PEXELS_API_KEY_FILE", path)
+
+			err := validCloudRuntimeConfig().ValidateRuntime()
+
+			require.ErrorContains(t, err, "OPENPOST_PEXELS_API_KEY_FILE")
+			require.NotContains(t, err.Error(), path)
+		})
+	}
+}
+
+func TestValidateRuntimeAllowsDirectCloudSecretWithBrokenFileFallback(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "missing-secret")
+	t.Setenv("OPENPOST_PEXELS_API_KEY", "deployment-secret")
+	t.Setenv("OPENPOST_PEXELS_API_KEY_FILE", path)
+
+	loaded := Load()
+	require.Equal(t, "deployment-secret", loaded.PexelsAPIKey)
+	cfg := validCloudRuntimeConfig()
+	cfg.PexelsAPIKey = loaded.PexelsAPIKey
+	require.NoError(t, cfg.ValidateRuntime())
+}
+
 func TestLoadFileBackedEnvSupportsLegacyAliases(t *testing.T) {
 	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
 	t.Setenv("DATABASE_URL_FILE", writeEnvFile(t, "database-url", "postgres://alias.example/openpost\n"))
@@ -631,6 +669,30 @@ func TestValidateRuntimeAllowsSelfHostedLocalDefaults(t *testing.T) {
 	}
 
 	require.NoError(t, cfg.ValidateRuntime())
+}
+
+func TestValidateMigrationAllowsCloudDatabaseBeforeStoredRuntimeSettingsLoad(t *testing.T) {
+	cfg := Config{
+		Edition:        EditionCloud,
+		DatabaseDriver: DatabaseDriverPostgres,
+		DatabaseURL:    "postgres://db.example/openpost",
+	}
+
+	require.NoError(t, cfg.ValidateMigration())
+	require.Error(t, cfg.ValidateRuntime())
+}
+
+func TestValidateMigrationRejectsMissingCloudDatabaseConfiguration(t *testing.T) {
+	cfg := Config{Edition: EditionCloud, DatabaseDriver: DatabaseDriverSQLite}
+
+	err := cfg.ValidateMigration()
+
+	require.ErrorContains(t, err, "OPENPOST_DATABASE_DRIVER=postgres")
+	require.ErrorContains(t, err, "OPENPOST_DATABASE_URL")
+}
+
+func TestValidateMigrationAllowsSelfHostedDatabaseDefaults(t *testing.T) {
+	require.NoError(t, (&Config{Edition: EditionSelfHost}).ValidateMigration())
 }
 
 func TestValidateRuntimeAllowsCloudPostgresAndS3(t *testing.T) {

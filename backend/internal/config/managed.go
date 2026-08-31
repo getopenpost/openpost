@@ -108,7 +108,7 @@ var managedSettingDefinitions = []ManagedSettingDefinition{
 	{Key: "OPENPOST_UNSPLASH_ACCESS_KEY", Group: "features", Label: "Unsplash access key", Description: "Optional access key for Unsplash stock search.", Kind: ManagedSettingSecret, Secret: true, Optional: true, EnvVars: []string{"OPENPOST_UNSPLASH_ACCESS_KEY"}},
 	{Key: "OPENPOST_PIXABAY_API_KEY", Group: "features", Label: "Pixabay API key", Description: "Optional API key for Pixabay stock search.", Kind: ManagedSettingSecret, Secret: true, Optional: true, EnvVars: []string{"OPENPOST_PIXABAY_API_KEY"}},
 	{Key: "OPENPOST_FEEDBACK_ENABLED", Group: "features", Label: "In-app feedback", Description: "Show the feedback action and send submissions to the configured destination.", Kind: ManagedSettingBoolean, EnvVars: []string{"OPENPOST_FEEDBACK_ENABLED"}},
-	{Key: "OPENPOST_FEEDBACK_DESTINATION_URL", Group: "features", Label: "Feedback destination", Description: "Webhook or form endpoint that receives feedback submissions.", Kind: ManagedSettingURL, Optional: true, EnvVars: []string{"OPENPOST_FEEDBACK_DESTINATION_URL"}},
+	{Key: "OPENPOST_FEEDBACK_DESTINATION_URL", Group: "features", Label: "Feedback destination", Description: "Write-only webhook or form endpoint that receives feedback submissions.", Kind: ManagedSettingURL, Secret: true, Optional: true, EnvVars: []string{"OPENPOST_FEEDBACK_DESTINATION_URL"}},
 	{Key: "OPENPOST_FEEDBACK_RECIPIENT", Group: "features", Label: "Feedback recipient", Description: "Optional recipient identifier sent with feedback submissions.", Kind: ManagedSettingString, Optional: true, EnvVars: []string{"OPENPOST_FEEDBACK_RECIPIENT"}},
 	{Key: "OPENPOST_FEEDBACK_SUPPORT_URL", Group: "features", Label: "Support link", Description: "Fallback URL shown when direct feedback delivery is unavailable.", Kind: ManagedSettingURL, Optional: true, EnvVars: []string{"OPENPOST_FEEDBACK_SUPPORT_URL"}},
 	{Key: "OPENPOST_TELEMETRY_ENABLED", Group: "features", Label: "Product telemetry", Description: "Send privacy-limited product events and errors to the configured PostHog project after restart.", Kind: ManagedSettingBoolean, EnvVars: []string{"OPENPOST_TELEMETRY_ENABLED"}},
@@ -152,6 +152,29 @@ func ManagedEnvironmentSource(key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func validateCloudManagedSecretFiles() error {
+	for _, definition := range managedSettingDefinitions {
+		if !definition.Secret {
+			continue
+		}
+		var invalidSource string
+		for _, envKey := range definition.EnvVars {
+			resolved := resolveEnvironmentValue(envKey)
+			if resolved.usable {
+				invalidSource = ""
+				break
+			}
+			if resolved.configured && invalidSource == "" {
+				invalidSource = resolved.source
+			}
+		}
+		if invalidSource != "" {
+			return fmt.Errorf("%s must reference a readable, non-empty file", invalidSource)
+		}
+	}
+	return nil
 }
 
 type managedSettingBinding struct {

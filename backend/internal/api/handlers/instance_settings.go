@@ -34,12 +34,12 @@ type InstanceSettingResponse struct {
 	EnvironmentVariables []string                        `json:"environment_variables" doc:"Supported direct environment variable names"`
 	Options              []InstanceSettingOptionResponse `json:"options,omitempty" doc:"Allowed values for enum settings"`
 	Value                string                          `json:"value,omitempty" doc:"Desired non-secret value. Secret values are never returned."`
-	Source               string                          `json:"source" enum:"environment,database,default" doc:"Layer that supplies the desired value after administrator overrides are applied"`
-	ManagedBy            string                          `json:"managed_by,omitempty" doc:"Direct or file-backed environment variable that supplies a configured value or fallback"`
+	Source               string                          `json:"source" enum:"environment,database,default" doc:"Layer that supplies the effective value"`
+	ManagedBy            string                          `json:"managed_by,omitempty" doc:"Direct or file-backed environment variable that supplies the effective deployment value"`
 	Configured           bool                            `json:"configured" doc:"Whether the desired value is non-empty"`
 	SecretConfigured     bool                            `json:"secret_configured" doc:"Whether a redacted secret value is configured"`
-	DatabaseOverride     bool                            `json:"database_override_configured" doc:"Whether an encrypted administrator override exists"`
-	Editable             bool                            `json:"editable" doc:"Whether the administrator can save an encrypted database override"`
+	DatabaseOverride     bool                            `json:"database_override_configured" doc:"Whether an encrypted administrator value exists, including an inactive legacy value"`
+	Editable             bool                            `json:"editable" doc:"Whether deployment policy allows the administrator to save an encrypted database value"`
 	RequiresRestart      bool                            `json:"requires_restart" doc:"Whether the saved value differs from the running process"`
 	UpdatedAt            string                          `json:"updated_at,omitempty" doc:"Last database update time"`
 }
@@ -80,7 +80,7 @@ func (h *InstanceSettingsHandler) RegisterRoutes(api huma.API) {
 		Method:      http.MethodGet,
 		Path:        "/admin/instance-settings",
 		Summary:     "List administrator-managed instance settings",
-		Description: "Returns the typed optional configuration registry. Secrets are redacted. Administrator overrides take precedence over environment values after restart, while the configured environment source remains visible as the fallback.",
+		Description: "Returns the typed optional configuration registry and its effective source. Secrets are redacted. Cloud secrets remain deployment-managed, while self-hosted and non-secret administrator values can be stored in the database.",
 		Tags:        []string{"Admin"},
 		Middlewares: huma.Middlewares{authMiddleware},
 	}, h.list)
@@ -157,7 +157,7 @@ func instanceSettingsResponse(states []instancesettings.State) InstanceSettingsR
 			Configured:           state.Configured,
 			SecretConfigured:     state.SecretConfigured,
 			DatabaseOverride:     state.DatabaseOverride,
-			Editable:             true,
+			Editable:             state.Editable,
 			RequiresRestart:      state.RestartPending,
 		}
 		if !state.UpdatedAt.IsZero() {

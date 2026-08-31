@@ -528,6 +528,11 @@ func main() {
 	publishSvc.SetTelemetry(telemetryRecorder)
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
+	analyticsService.SetDiscoveryPolicy("x", analyticsservice.DiscoveryPolicy{
+		ProviderConcurrency: 1,
+		ReadRequestsPerDay:  cfg.XAccountHistoryReadRequestsPerDay,
+		PageSize:            platform.AccountContentMaxPageSize,
+	})
 	repostService := repostservice.NewService(db, tokenManager)
 	repostService.SetUsage(usageService)
 	repostService.SetEntitlement(entitlementService)

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLinkedInGenerateAuthURLEncodesScopesWithPercentSpaces(t *testing.T) {
@@ -113,6 +114,93 @@ func TestLinkedInOrganizationScopesAreExplicitlyEnabled(t *testing.T) {
 		if !strings.Contains(scope, required) {
 			t.Fatalf("missing scope %s from %q", required, scope)
 		}
+	}
+}
+
+func TestLinkedInAccountHistoryRejectsUncertifiedMemberIdentityWithoutAProviderCall(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		calls++
+		t.Fatalf("uncertified member identity reached provider: %s", req.URL)
+		return nil, nil
+	})}
+	adapter := NewLinkedInAdapter("", "", "", false, true)
+	support := adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{
+		AccountID: "urn:li:person:7", CapabilityState: map[string]string{"linkedin_account_type": "person"},
+	})
+	if support.Supported || !strings.Contains(support.UnavailableReason, "not certified") {
+		t.Fatalf("member discovery must fail closed: %#v", support)
+	}
+	_, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{
+		AccountID: "urn:li:person:7", CapabilityState: map[string]string{"linkedin_account_type": "person"}, PageSize: 10,
+	})
+	var discoveryErr *AccountContentDiscoveryError
+	if !errors.As(err, &discoveryErr) || discoveryErr.Status != AccountContentDiscoveryUnsupported {
+		t.Fatalf("unexpected member discovery result: %#v, %v", discoveryErr, err)
+	}
+	if calls != 0 {
+		t.Fatalf("expected zero provider calls, got %d", calls)
+	}
+
+	_, err = adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{
+		AccountID: "urn:li:organization:42", CapabilityState: map[string]string{"linkedin_account_type": "organization"}, PageSize: 10,
+	})
+	if !errors.As(err, &discoveryErr) || discoveryErr.Status != AccountContentDiscoveryPermissionRequired {
+		t.Fatalf("organization without certified read scope must require permission: %#v, %v", discoveryErr, err)
+	}
+	if calls != 0 {
+		t.Fatalf("missing organization permission reached provider, calls=%d", calls)
+	}
+}
+
+func TestLinkedInDiscoversBoundedCertifiedOrganizationPosts(t *testing.T) {
+	t.Setenv("LINKEDIN_API_VERSION", "202606")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	historyStart := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/rest/posts" || req.URL.Query().Get("q") != "author" || req.URL.Query().Get("author") != "urn:li:organization:42" {
+			t.Fatalf("unexpected organization discovery request %s", req.URL.String())
+		}
+		if req.URL.Query().Get("count") != "2" || req.URL.Query().Get("start") != "0" {
+			t.Fatalf("organization discovery was not bounded: %s", req.URL.RawQuery)
+		}
+		if req.Header.Get("Linkedin-Version") != "202606" {
+			t.Fatalf("missing LinkedIn version header: %#v", req.Header)
+		}
+		return jsonResponse(req, `{"elements":[
+			{"id":"urn:li:share:100","author":"urn:li:organization:42","commentary":" Launch update ","publishedAt":1769947200000,"lifecycleState":"PUBLISHED"},
+			{"id":"urn:li:share:wrong-author","author":"urn:li:organization:9","commentary":"ignored","publishedAt":1769860800000,"lifecycleState":"PUBLISHED"}
+		],"paging":{"start":0,"links":[{"rel":"next"}]}}`), nil
+	})}
+
+	adapter := NewLinkedInAdapter("", "", "", false, true)
+	support := adapter.AccountContentDiscoverySupport(AnalyticsAccountContext{
+		AccountID: "urn:li:organization:42", GrantedScopes: linkedinScopeOrganizationSocialRead,
+		CapabilityState: map[string]string{"linkedin_account_type": "organization"},
+	})
+	if !support.Supported || len(support.RequiredScopes) != 1 || support.RequiredScopes[0] != linkedinScopeOrganizationSocialRead {
+		t.Fatalf("unexpected organization discovery support: %#v", support)
+	}
+	page, err := adapter.DiscoverAccountContent(context.Background(), "token", AccountContentDiscoveryRequest{
+		AccountID: "urn:li:organization:42", GrantedScopes: []string{linkedinScopeOrganizationSocialRead},
+		CapabilityState: map[string]string{"linkedin_account_type": "organization"}, PublishedAfter: historyStart, PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("DiscoverAccountContent returned error: %v", err)
+	}
+	if len(page.Items) != 1 || page.Items[0].ProviderContentID != "urn:li:share:100" {
+		t.Fatalf("unexpected exact organization items: %#v", page.Items)
+	}
+	if page.Items[0].ExternalURL != "https://www.linkedin.com/feed/update/urn:li:share:100" || page.Items[0].Text != "Launch update" {
+		t.Fatalf("unexpected normalized LinkedIn item: %#v", page.Items[0])
+	}
+	if page.NextCursor != "2" || page.Coverage.Status != AccountContentDiscoveryPartial {
+		t.Fatalf("expected bounded organization continuation: %#v", page)
 	}
 }
 

@@ -107,14 +107,15 @@ type Config struct {
 	SMTPTLSMode    string
 	SMTPServerName string
 
-	TwitterClientID                string
-	TwitterClientSecret            string
-	TwitterRedirectURI             string
-	XMonthlyBudgetMicrousd         int64
-	XPostCreateCostMicrousd        int64
-	XPostCreateWithURLCostMicrousd int64
-	XEngagementDailyReadBudget     int
-	ProviderUsageRetentionDays     int
+	TwitterClientID                   string
+	TwitterClientSecret               string
+	TwitterRedirectURI                string
+	XMonthlyBudgetMicrousd            int64
+	XPostCreateCostMicrousd           int64
+	XPostCreateWithURLCostMicrousd    int64
+	XEngagementDailyReadBudget        int
+	XAccountHistoryReadRequestsPerDay int
+	ProviderUsageRetentionDays        int
 
 	MastodonRedirectURI string
 	MastodonServers     []MastodonServerConfig
@@ -299,14 +300,15 @@ func Load() *Config {
 		SMTPTLSMode:    getEnvEnum("OPENPOST_SMTP_TLS_MODE", "starttls", "starttls", "tls", "none"),
 		SMTPServerName: getEnvDefault("OPENPOST_SMTP_SERVER_NAME", ""),
 
-		TwitterClientID:                getEnvWithFallbacks("X_CLIENT_ID", "", "TWITTER_CLIENT_ID"),
-		TwitterClientSecret:            getEnvWithFallbacks("X_CLIENT_SECRET", "", "TWITTER_CLIENT_SECRET"),
-		TwitterRedirectURI:             oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", frontendURL, "/api/v1/accounts/x/callback"),
-		XMonthlyBudgetMicrousd:         getEnvInt64("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", 5_000_000),
-		XPostCreateCostMicrousd:        getEnvInt64("OPENPOST_X_POST_CREATE_COST_MICROUSD", 15_000),
-		XPostCreateWithURLCostMicrousd: getEnvInt64("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", 200_000),
-		XEngagementDailyReadBudget:     getEnvInt("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", 12),
-		ProviderUsageRetentionDays:     getEnvInt("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", 180),
+		TwitterClientID:                   getEnvWithFallbacks("X_CLIENT_ID", "", "TWITTER_CLIENT_ID"),
+		TwitterClientSecret:               getEnvWithFallbacks("X_CLIENT_SECRET", "", "TWITTER_CLIENT_SECRET"),
+		TwitterRedirectURI:                oauthRedirectFromFrontend("X_REDIRECT_URI", "TWITTER_REDIRECT_URI", frontendURL, "/api/v1/accounts/x/callback"),
+		XMonthlyBudgetMicrousd:            getEnvInt64("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", 5_000_000),
+		XPostCreateCostMicrousd:           getEnvInt64("OPENPOST_X_POST_CREATE_COST_MICROUSD", 15_000),
+		XPostCreateWithURLCostMicrousd:    getEnvInt64("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", 200_000),
+		XEngagementDailyReadBudget:        getEnvInt("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", 12),
+		XAccountHistoryReadRequestsPerDay: getEnvInt("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY", 0),
+		ProviderUsageRetentionDays:        getEnvInt("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", 180),
 
 		// Mastodon's OOB flow uses a special URI scheme rather than a
 		// real callback URL, so we don't derive from FrontendURL here.
@@ -652,6 +654,9 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if err := c.validateAnalyticsSources(); err != nil {
 		return err
+	}
+	if c.XAccountHistoryReadRequestsPerDay < 0 {
+		return fmt.Errorf("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
 	}
 	if c.Edition != EditionCloud {
 		return nil

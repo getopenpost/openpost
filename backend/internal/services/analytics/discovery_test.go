@@ -358,6 +358,69 @@ func TestDiscoveryPersistsSafeProviderOutcomesAndRetryAfter(t *testing.T) {
 	})
 }
 
+func TestXDiscoveryDefaultsToZeroRequestsAndCostLimited(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	account.Platform = "x"
+	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", account.Platform).Where("id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	adapter := &fakeAccountContentDiscoverer{
+		support: platform.AccountContentDiscoverySupport{Supported: true},
+		discover: func(context.Context, string, platform.AccountContentDiscoveryRequest) (platform.AccountContentPage, error) {
+			calls++
+			return platform.AccountContentPage{}, nil
+		},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("x", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.now = func() time.Time { return now }
+
+	created, err := service.ReconsiderAccountContentDiscovery(t.Context(), account.ID)
+	require.NoError(t, err)
+	require.False(t, created)
+	require.Zero(t, calls, "the default X cost policy must not call the provider")
+	var state models.AccountContentDiscoveryState
+	require.NoError(t, db.NewSelect().Model(&state).Where("social_account_id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, string(platform.AccountContentDiscoveryCostLimited), state.CoverageStatus)
+	require.Equal(t, "provider_read_budget_disabled", state.FailureCode)
+}
+
+func TestXDiscoveryUsesOnlyExplicitBoundedReadBudget(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "")
+	account.Platform = "x"
+	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).Set("platform = ?", account.Platform).Where("id = ?", account.ID).Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	adapter := &fakeAccountContentDiscoverer{
+		support: platform.AccountContentDiscoverySupport{Supported: true, MaxPageSize: platform.AccountContentMaxPageSize},
+		discover: func(_ context.Context, _ string, request platform.AccountContentDiscoveryRequest) (platform.AccountContentPage, error) {
+			calls++
+			require.Equal(t, platform.AccountContentMaxPageSize, request.PageSize)
+			return platform.AccountContentPage{Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryComplete}}, nil
+		},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("x", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetDiscoveryPolicy("x", DiscoveryPolicy{ProviderConcurrency: 1, ReadRequestsPerDay: 1, PageSize: platform.AccountContentMaxPageSize})
+	service.now = func() time.Time { return now }
+
+	created, err := service.ReconsiderAccountContentDiscovery(t.Context(), account.ID)
+	require.NoError(t, err)
+	require.True(t, created)
+	job := loadDiscoveryJob(t, db, account.ID)
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+	require.Equal(t, 1, calls)
+	var state models.AccountContentDiscoveryState
+	require.NoError(t, db.NewSelect().Model(&state).Where("social_account_id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, 1, state.ReadBudgetUsed)
+}
+
 func TestDiscoveryDailyReadBudgetCountsProviderAttempts(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "")

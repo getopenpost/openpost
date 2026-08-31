@@ -110,6 +110,7 @@ var configTestEnvKeys = []string{
 	"OPENPOST_X_MONTHLY_BUDGET_MICROUSD",
 	"OPENPOST_X_POST_CREATE_COST_MICROUSD",
 	"OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD",
+	"OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY",
 	"OPENPOST_PROVIDER_USAGE_RETENTION_DAYS",
 	"MASTODON_REDIRECT_URI",
 	"MASTODON_SERVERS",
@@ -203,6 +204,7 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Equal(t, int64(15_000), cfg.XPostCreateCostMicrousd)
 	require.Equal(t, int64(200_000), cfg.XPostCreateWithURLCostMicrousd)
 	require.Equal(t, 12, cfg.XEngagementDailyReadBudget)
+	require.Zero(t, cfg.XAccountHistoryReadRequestsPerDay)
 	require.Equal(t, 180, cfg.ProviderUsageRetentionDays)
 	require.Equal(t, "https://openpost.example.com/media", cfg.MediaURL)
 }
@@ -273,6 +275,7 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	t.Setenv("OPENPOST_X_POST_CREATE_COST_MICROUSD", "16000")
 	t.Setenv("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", "210000")
 	t.Setenv("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", "7")
+	t.Setenv("OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY", "4")
 	t.Setenv("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", "90")
 
 	cfg := Load()
@@ -282,6 +285,7 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	require.Equal(t, int64(16_000), cfg.XPostCreateCostMicrousd)
 	require.Equal(t, int64(210_000), cfg.XPostCreateWithURLCostMicrousd)
 	require.Equal(t, 7, cfg.XEngagementDailyReadBudget)
+	require.Equal(t, 4, cfg.XAccountHistoryReadRequestsPerDay)
 	require.Equal(t, 90, cfg.ProviderUsageRetentionDays)
 }
 
@@ -762,6 +766,17 @@ func TestValidateRuntimeAllowsCloudPostgresAndS3(t *testing.T) {
 	cfg := validCloudRuntimeConfig()
 
 	require.NoError(t, cfg.ValidateRuntime())
+}
+
+func TestXAccountHistoryReadBudgetDefaultsToZero(t *testing.T) {
+	cfg := Load()
+	require.Zero(t, cfg.XAccountHistoryReadRequestsPerDay)
+}
+
+func TestValidateRuntimeRejectsNegativeXAccountHistoryReadBudget(t *testing.T) {
+	cfg := &Config{Edition: EditionSelfHost, XAccountHistoryReadRequestsPerDay: -1}
+	err := cfg.ValidateRuntime()
+	require.ErrorContains(t, err, "OPENPOST_X_ACCOUNT_HISTORY_READ_REQUESTS_PER_DAY must be >= 0")
 }
 
 func TestValidateRuntimeRejectsCloudLocalDefaults(t *testing.T) {

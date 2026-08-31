@@ -2,8 +2,24 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyTelemetryRequestHeaders,
   BrowserTelemetry,
+  configureTelemetry,
+  installGlobalErrorCapture,
   type BrowserTelemetryConfig,
 } from "./index";
+
+const globalSDK = vi.hoisted(() => ({
+  init: vi.fn(),
+  capture: vi.fn(),
+  captureException: vi.fn(),
+  identify: vi.fn(),
+  register: vi.fn(),
+  reset: vi.fn(),
+  opt_out_capturing: vi.fn(),
+  get_distinct_id: vi.fn(() => "browser-user-1"),
+  get_session_id: vi.fn(() => "session-1"),
+}));
+
+vi.mock("posthog-js", () => ({ default: globalSDK }));
 
 class FakeSDK {
   initialized: Array<{ token: string; options: Record<string, unknown> }> = [];
@@ -312,5 +328,30 @@ describe("BrowserTelemetry", () => {
     expect(headers.get("Authorization")).toBe("Bearer token");
     expect(headers.get("X-PostHog-Distinct-ID")).toBe("browser-user-1");
     expect(headers.get("X-PostHog-Session-ID")).toBe("session-1");
+  });
+});
+
+describe("installGlobalErrorCapture", () => {
+  it("does not report an error already handled by an earlier listener", () => {
+    const runtime = new EventTarget();
+    vi.stubGlobal("window", runtime);
+    try {
+      configureTelemetry(configuredApp);
+      runtime.addEventListener("error", (event) => event.preventDefault());
+      const removeCapture = installGlobalErrorCapture();
+      const event = new Event("error", { cancelable: true }) as Event & {
+        error: Error;
+        message: string;
+      };
+      event.error = new Error("Importing a module script failed.");
+      event.message = event.error.message;
+
+      runtime.dispatchEvent(event);
+
+      expect(globalSDK.captureException).not.toHaveBeenCalled();
+      removeCapture();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

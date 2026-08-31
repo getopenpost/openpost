@@ -2,8 +2,8 @@ import type { HandleClientError } from '@sveltejs/kit';
 import { captureClientException, installGlobalErrorCapture } from '@openpost/telemetry';
 
 export async function init() {
-	installGlobalErrorCapture();
 	detectStaleChunks();
+	installGlobalErrorCapture();
 }
 
 /**
@@ -124,9 +124,8 @@ function detectStaleChunks() {
 	// Vite emits `vite:preloadError` for failed preloads (SvelteKit route nodes).
 	// Use it as an additional signal alongside error/unhandledrejection.
 	window.addEventListener('vite:preloadError', (event) => {
-		// SAFETY: Vite preloadError is a CustomEvent; detail is unknown and will be narrowed by isChunkLoadError
-		// oxlint-disable-next-line anti-slop/no-chained-type-assertions -- svelte-check requires intermediate unknown for VitePreloadErrorEvent overlap
-		const payload = (event as unknown as { detail: unknown }).detail;
+		// SAFETY: Vite attaches the rejected import to its custom `payload` field.
+		const payload = (event as Event & { payload?: unknown }).payload;
 		if (isChunkLoadError(payload)) {
 			// SAFETY: preventDefault is safe on Event, narrowed from CustomEvent
 			(event as Event).preventDefault();

@@ -419,7 +419,7 @@
     {
       "id": "cookie-sidebar",
       "technology": "cookie",
-      "owner": "OpenPost application shell",
+      "owner": "OpenPost browser shells",
       "identifier_kind": "exact",
       "identifier": "sidebar:state",
       "purpose": "Keeps the application sidebar expanded or collapsed.",
@@ -722,10 +722,13 @@
       "identifier_kind": "exact",
       "identifier": "openpost:chunk-reload",
       "purpose": "Retries transient Vite chunk load failures with exponential back-off and a session retry budget so a stale deployment or first-load dev race recovers without an infinite reload loop.",
-      "scope": "Application origin and current browser tab session.",
-      "duration": "Entries older than 15 seconds are treated as expired; the budget allows three retries and is cleared after a successful load or when the tab session ends or site data is cleared.",
+      "scope": "Application and marketing origins separately, within the current browser tab session.",
+      "duration": "Entries older than 15 seconds are treated as expired; the budget allows three retries and ends after a successful application load, when the tab session ends, or when site data is cleared.",
       "necessity": "functional",
-      "source_refs": ["frontend/src/hooks.client.ts"]
+      "source_refs": [
+        "frontend/src/hooks.client.ts",
+        "marketing-site/src/lib/stale-module-recovery.ts"
+      ]
     },
     {
       "id": "session-reauth-action",

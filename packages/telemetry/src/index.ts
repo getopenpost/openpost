@@ -376,11 +376,13 @@ export function applyTelemetryRequestHeaders(
 export function installGlobalErrorCapture(): () => void {
   if (typeof window === "undefined") return () => undefined;
   const onError = (event: ErrorEvent) => {
+    if (event.defaultPrevented) return;
     captureClientException(event.error ?? new Error(event.message), {
       error_boundary: "window_error",
     });
   };
   const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+    if (event.defaultPrevented) return;
     captureClientException(event.reason, {
       error_boundary: "unhandled_rejection",
     });

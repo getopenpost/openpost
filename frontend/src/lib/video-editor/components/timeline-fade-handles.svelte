@@ -61,7 +61,7 @@
 	const isAudio = $derived(supportsAudioFade(item));
 	const isVisual = $derived(supportsVisualFade(item));
 	const fps = $derived(timelineStore.fps);
-	const duration = $derived(item.durationInFrames);
+	const duration = $derived(liveItem.durationInFrames);
 	const liveItem = $derived(timelineStore.itemById.get(item.id) ?? item);
 
 	const audioFadeIn = $derived(liveItem.type === 'audio' ? (liveItem.audioFadeIn ?? 0) : 0);
@@ -182,7 +182,9 @@
 			: 'opacity-0 group-hover/timeline-item:opacity-100'
 	);
 	const densityVisibilityClass = $derived(
-		isAnyEditing ? 'opacity-100' : 'opacity-0 @min-[44px]:opacity-40 @min-[64px]:opacity-100'
+		isAnyEditing
+			? 'opacity-100'
+			: 'opacity-0 @min-[44px]:opacity-40 @min-[64px]:opacity-100 group-focus-within/timeline-item:opacity-100'
 	);
 	const densityPointerClass = $derived(
 		isAnyEditing ? 'pointer-events-auto' : 'pointer-events-none @min-[44px]:pointer-events-auto'
@@ -190,12 +192,8 @@
 
 	const keyboardHelp = $derived(m.video_editor_fade_handle_keyboard());
 
-	function otherFade(handle: FadeHandle): number {
-		return handle === 'in' ? fadeOut : fadeIn;
-	}
-
 	function commitFade(handle: FadeHandle, nextSeconds: number): void {
-		const clamped = clampFadeSeconds(nextSeconds, otherFade(handle), duration, fps);
+		const clamped = clampFadeSeconds(nextSeconds, duration, fps);
 		if (isAudio) {
 			const patch: Partial<TimelineItem> = {};
 			if (handle === 'in') patch.audioFadeIn = clamped;
@@ -221,7 +219,7 @@
 			fps,
 			maxDurationFrames: duration
 		});
-		return clampFadeSeconds(raw, otherFade(handle), duration, fps);
+		return clampFadeSeconds(raw, duration, fps);
 	}
 
 	function cleanupFadeDrag(): void {
@@ -461,7 +459,7 @@
 		} else if (event.key === 'End') {
 			event.preventDefault();
 			const before = captureSnapshot();
-			const max = duration > 0 && fps > 0 ? duration / fps - otherFade(handle) : 5;
+			const max = duration > 0 && fps > 0 ? duration / fps : 5;
 			commitFade(handle, Math.max(0, max));
 			const after = captureSnapshot();
 			if (!snapshotsEqual(before, after)) {
@@ -571,7 +569,6 @@
 		data-fade-handles={isAudio ? 'audio' : 'video'}
 		data-clip-fade-controls={isAudio ? 'audio' : 'video'}
 		class="pointer-events-none absolute inset-0"
-		aria-hidden={canInteract ? undefined : 'true'}
 	>
 		<!-- Envelope paths: always visible, not density-controlled -->
 		<svg
@@ -582,10 +579,10 @@
 		>
 			{#if isAudio}
 				{#if audioFadeInCurvePath}
-					<path d={audioFadeInCurvePath} fill="rgba(0,0,0,0.42)" data-fade-path="audio-in" />
+					<path d={audioFadeInCurvePath} fill="rgba(0,0,0,0.5)" data-fade-path="audio-in" />
 				{/if}
 				{#if audioFadeOutCurvePath}
-					<path d={audioFadeOutCurvePath} fill="rgba(0,0,0,0.42)" data-fade-path="audio-out" />
+					<path d={audioFadeOutCurvePath} fill="rgba(0,0,0,0.5)" data-fade-path="audio-out" />
 				{/if}
 			{:else if isVisual}
 				{#if videoFadeInPath}
@@ -606,11 +603,14 @@
 			<button
 				type="button"
 				role="slider"
-				class="absolute h-2.5 w-2.5 -translate-x-1/2 cursor-ew-resize touch-none rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] transition-opacity before:absolute before:-inset-[9px] before:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-t-[4px] after:border-r-[3px] after:border-l-[3px] after:border-t-white/90 after:border-r-transparent after:border-l-transparent focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {editing ===
+				class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {editing ===
 					'in' || hovered === 'in'
 					? 'opacity-100'
-					: handleVisibilityClass} [@media(pointer:coarse)]:before:-inset-[17px]"
+					: handleVisibilityClass}"
 				style="left:{fadeInPercent}%; top:{handleTop}"
+				disabled={!canInteract}
+				aria-disabled={!canInteract}
+				tabindex={canInteract ? 0 : -1}
 				aria-label={isAudio
 					? m.video_editor_adjust_audio_fade_in()
 					: m.video_editor_adjust_video_fade_in()}
@@ -640,15 +640,23 @@
 					if (editing !== 'in' && curveEditing !== 'in')
 						hovered = hovered === 'in' ? null : hovered;
 				}}
-			></button>
+			>
+				<span
+					class="pointer-events-none h-2.5 w-2.5 rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-t-[4px] after:border-r-[3px] after:border-l-[3px] after:border-t-white/90 after:border-r-transparent after:border-l-transparent"
+					aria-hidden="true"
+				></span>
+			</button>
 			<!-- Fade-out handle -->
 			<button
 				type="button"
 				role="slider"
-				class="absolute h-2.5 w-2.5 -translate-x-1/2 cursor-ew-resize touch-none rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] transition-opacity before:absolute before:-inset-[9px] before:content-[''] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-t-[4px] after:border-r-[3px] after:border-l-[3px] after:border-t-white/90 after:border-r-transparent after:border-l-transparent focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {editing ===
+				class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-ew-resize touch-none items-center justify-center rounded-[2px] transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {editing ===
 					'out' || hovered === 'out'
 					? 'opacity-100'
-					: handleVisibilityClass} [@media(pointer:coarse)]:before:-inset-[17px]"
+					: handleVisibilityClass}"
+				disabled={!canInteract}
+				aria-disabled={!canInteract}
+				tabindex={canInteract ? 0 : -1}
 				style="left:{fadeOutLeft}%; top:{handleTop}"
 				aria-label={isAudio
 					? m.video_editor_adjust_audio_fade_out()
@@ -679,20 +687,28 @@
 					if (editing !== 'out' && curveEditing !== 'out')
 						hovered = hovered === 'out' ? null : hovered;
 				}}
-			></button>
+			>
+				<span
+					class="pointer-events-none h-2.5 w-2.5 rounded-[2px] border border-slate-950/70 bg-white shadow-[0_0_0_1px_rgba(15,23,42,0.25)] after:absolute after:top-full after:left-1/2 after:-translate-x-1/2 after:border-t-[4px] after:border-r-[3px] after:border-l-[3px] after:border-t-white/90 after:border-r-transparent after:border-l-transparent"
+					aria-hidden="true"
+				></span>
+			</button>
 
 			<!-- Audio curve dots -->
 			{#if isAudio && audioFadeInCurvePoint}
 				<button
 					type="button"
 					role="slider"
-					class="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-full border border-orange-200/90 shadow-[0_0_0_1px_rgba(15,23,42,0.2)] transition-opacity before:absolute before:-inset-[8px] before:content-[''] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
+					class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none items-center justify-center rounded-full transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
 						'in' || hovered === 'in'
-						? 'bg-orange-500 opacity-100'
-						: 'bg-orange-400/90 opacity-0 group-hover/timeline-item:opacity-100'} [@media(pointer:coarse)]:before:-inset-[17px]"
+						? 'opacity-100'
+						: 'opacity-0 group-hover/timeline-item:opacity-100'}"
 					style="left:{(audioFadeInCurvePoint.x / FADE_VIEWBOX_WIDTH) *
 						100}%; top:{audioFadeInCurvePoint.y}%"
 					aria-label={m.video_editor_adjust_audio_fade_in_curve()}
+					disabled={!canInteract}
+					aria-disabled={!canInteract}
+					tabindex={canInteract ? 0 : -1}
 					aria-valuemin={-1}
 					aria-valuemax={1}
 					aria-valuenow={audioFadeInCurve}
@@ -717,19 +733,30 @@
 					onmouseleave={() => {
 						if (curveEditing !== 'in') hovered = hovered === 'in' ? null : hovered;
 					}}
-				></button>
+				>
+					<span
+						class="pointer-events-none h-2.5 w-2.5 rounded-full border border-orange-200/90 shadow-[0_0_0_1px_rgba(15,23,42,0.2)] {curveEditing ===
+							'in' || hovered === 'in'
+							? 'bg-orange-500'
+							: 'bg-orange-400/90'}"
+						aria-hidden="true"
+					></span>
+				</button>
 			{/if}
 			{#if isAudio && audioFadeOutCurvePoint}
 				<button
 					type="button"
 					role="slider"
-					class="absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none rounded-full border border-orange-200/90 shadow-[0_0_0_1px_rgba(15,23,42,0.2)] transition-opacity before:absolute before:-inset-[8px] before:content-[''] focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
+					class="absolute flex h-11 w-11 -translate-x-1/2 -translate-y-1/2 cursor-move touch-none items-center justify-center rounded-full transition-opacity focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none {densityPointerClass} {curveEditing ===
 						'out' || hovered === 'out'
-						? 'bg-orange-500 opacity-100'
-						: 'bg-orange-400/90 opacity-0 group-hover/timeline-item:opacity-100'} [@media(pointer:coarse)]:before:-inset-[17px]"
+						? 'opacity-100'
+						: 'opacity-0 group-hover/timeline-item:opacity-100'}"
 					style="left:{(audioFadeOutCurvePoint.x / FADE_VIEWBOX_WIDTH) *
 						100}%; top:{audioFadeOutCurvePoint.y}%"
 					aria-label={m.video_editor_adjust_audio_fade_out_curve()}
+					disabled={!canInteract}
+					aria-disabled={!canInteract}
+					tabindex={canInteract ? 0 : -1}
 					aria-valuemin={-1}
 					aria-valuemax={1}
 					aria-valuenow={audioFadeOutCurve}
@@ -754,7 +781,15 @@
 					onmouseleave={() => {
 						if (curveEditing !== 'out') hovered = hovered === 'out' ? null : hovered;
 					}}
-				></button>
+				>
+					<span
+						class="pointer-events-none h-2.5 w-2.5 rounded-full border border-orange-200/90 shadow-[0_0_0_1px_rgba(15,23,42,0.2)] {curveEditing ===
+							'out' || hovered === 'out'
+							? 'bg-orange-500'
+							: 'bg-orange-400/90'}"
+						aria-hidden="true"
+					></span>
+				</button>
 			{/if}
 
 			{#if hovered !== null}

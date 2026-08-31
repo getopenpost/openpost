@@ -71,7 +71,7 @@
 			</p>
 			<p class="mt-3 max-w-3xl text-lg leading-8 text-muted-foreground">
 				This dated register names the infrastructure, optional services, user-directed recipients,
-				and human access boundary for app.openpost.social. It does not make a certification claim.
+				and human access boundary for app.openpo.st. It does not make a certification claim.
 			</p>
 		</div>
 		<dl class="border-y py-4 text-sm">

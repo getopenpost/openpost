@@ -4,4 +4,4 @@ Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference
 User-agent: *
 Allow: /
 
-Sitemap: https://docs.openpost.social/sitemap.xml
+Sitemap: https://docs.openpo.st/sitemap.xml

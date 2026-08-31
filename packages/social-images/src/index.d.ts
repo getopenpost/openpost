@@ -69,8 +69,8 @@ export interface DocumentationPageEntry extends SocialEntry {
     | { membership: "excluded"; reason: string };
 }
 
-export const marketingSiteUrl: "https://openpost.social";
-export const docsSiteUrl: "https://docs.openpost.social";
+export const marketingSiteUrl: "https://openpo.st";
+export const docsSiteUrl: "https://docs.openpo.st";
 export const socialRendererVersion: string;
 export const socialImagePlatformSlugs: readonly string[];
 export const marketingRouteManifest: readonly MarketingRouteEntry[];

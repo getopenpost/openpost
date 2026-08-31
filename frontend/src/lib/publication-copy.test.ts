@@ -16,7 +16,7 @@ describe('publicationDraftCopy', () => {
 			social_set_id: 'set-1',
 			content_profile: 'thread',
 			source_text: 'First post',
-			source_url: 'https://openpost.social',
+			source_url: 'https://example.com',
 			goal: 'announce',
 			audience: 'founders',
 			status: 'published',
@@ -37,7 +37,7 @@ describe('publicationDraftCopy', () => {
 					body: 'First post',
 					title: '',
 					description: '',
-					url: 'https://openpost.social',
+					url: 'https://example.com',
 					settings: { first_comment: 'Details' },
 					media: [
 						{
@@ -113,7 +113,7 @@ describe('publicationDraftCopy', () => {
 			social_set_id: 'set-1',
 			content_profile: 'thread',
 			source_text: 'First post',
-			source_url: 'https://openpost.social',
+			source_url: 'https://example.com',
 			goal: 'announce',
 			audience: 'founders',
 			metadata: { campaign: 'launch' },

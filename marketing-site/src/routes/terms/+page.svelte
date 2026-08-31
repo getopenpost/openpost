@@ -29,8 +29,8 @@
 		<p>
 			These Terms of Service form an agreement between you and Rodrigo Dias, a sole trader in Porto,
 			Portugal who operates the OpenPost trade name and the hosted OpenPost service at
-			<a href="https://app.openpost.social">app.openpost.social</a>. By creating an account or using
-			the hosted service, you agree to these terms and acknowledge the
+			<a href="https://app.openpo.st">app.openpo.st</a>. By creating an account or using the hosted
+			service, you agree to these terms and acknowledge the
 			<a href={resolve('/privacy')}>Privacy Policy</a>. Contact
 			<a href="mailto:openpost@rgo.pt">openpost@rgo.pt</a> with legal or account questions.
 		</p>

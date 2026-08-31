@@ -382,7 +382,7 @@ async function status() {
   ]);
   console.log(`Candidate:  ${ci.ok && ci.stdout.trim() !== "{}" ? ci.stdout.trim() : "not found"}`);
   try {
-    const response = await fetch("https://app.openpost.social/api/v1/version", {
+    const response = await fetch("https://app.openpo.st/api/v1/version", {
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -390,7 +390,7 @@ async function status() {
     const comparison = live.revision === revision ? "matches local" : "differs from local";
     console.log(`Production: ${live.version} ${live.revision} (${live.edition}; ${comparison})`);
   } catch (error) {
-    const ready = await fetch("https://app.openpost.social/api/v1/ready", {
+    const ready = await fetch("https://app.openpo.st/api/v1/ready", {
       signal: AbortSignal.timeout(10_000),
     }).catch(() => undefined);
     if (ready?.ok) {
@@ -439,7 +439,7 @@ async function waitForWorkflow(workflow, branch, revision) {
 async function verifyProduction(version, revision) {
   for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
-      const response = await fetch("https://app.openpost.social/api/v1/version", {
+      const response = await fetch("https://app.openpo.st/api/v1/version", {
         signal: AbortSignal.timeout(10_000),
       });
       const info = response.ok ? await response.json() : {};
@@ -482,7 +482,7 @@ async function verifyCandidateManifest(ciRun, version, revision) {
 async function verifyProductionReady() {
   let response;
   try {
-    response = await fetch("https://app.openpost.social/api/v1/ready", {
+    response = await fetch("https://app.openpo.st/api/v1/ready", {
       signal: AbortSignal.timeout(10_000),
     });
   } catch (error) {

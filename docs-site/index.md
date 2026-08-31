@@ -14,7 +14,7 @@ hero:
       link: /usage/
     - theme: alt
       text: Start 14-day trial
-      link: https://app.openpost.social/register?plan=founder&billing_period=monthly
+      link: https://app.openpo.st/register?plan=founder&billing_period=monthly
 
 features:
   - title: Use OpenPost
@@ -40,7 +40,7 @@ features:
 The all-in-one content team for solo founders, from first draft to every destination.
 
 ::: info Hosted service plans
-See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plans, trial terms, and limits. Self-hosting is a separate operator-run deployment.
+See the [canonical Hosted service pricing](https://openpo.st/pricing) for current plans, trial terms, and limits. Self-hosting is a separate operator-run deployment.
 :::
 
 Provider access and available formats still depend on account type, permissions, review, and current provider support.

@@ -47,12 +47,12 @@ export function validateLegalPolicyManifest(manifest) {
     const url = new URL(policy.url);
     if (
       url.protocol !== "https:" ||
-      url.hostname !== "openpost.social" ||
+      url.hostname !== "openpo.st" ||
       url.pathname !== `/${name}` ||
       url.search ||
       url.hash
     ) {
-      throw new Error(`${name}.url must be https://openpost.social/${name}`);
+      throw new Error(`${name}.url must be https://openpo.st/${name}`);
     }
     if (typeof policy.requires_acceptance !== "boolean") {
       throw new Error(`${name}.requires_acceptance must be boolean`);

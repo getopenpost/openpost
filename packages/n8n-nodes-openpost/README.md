@@ -14,7 +14,7 @@ Create an OpenPost API token in OpenPost settings. For write workflows, prefer a
 
 In n8n, set:
 
-- **Base URL**: your OpenPost origin, for example `https://app.openpost.social`. Do not include `/api` or `/api/v1`.
+- **Base URL**: your OpenPost origin, for example `https://app.openpo.st`. Do not include `/api` or `/api/v1`.
 - **API Token**: the OpenPost API token.
 
 If n8n runs in Docker, `localhost` means the n8n container. Use the OpenPost Compose service name or `host.docker.internal` when needed.

@@ -45,3 +45,19 @@ If no keyring is available, `--insecure-storage` writes the token to an XDG `cre
 CLI tokens use `cli:full`. They can read and change workspaces, social accounts, posts, media, jobs, and API tokens. A workspace selection limits workspace-owned resources and blocks organization-level resources, but it does not remove the account-level commands included in `cli:full`. An all-workspace token retains the account- and organization-level commands allowed by `cli:full`, while organization SSO and token policies can exclude protected workspaces. If its owner is an instance administrator, it also retains the explicitly typed provider-certification test operations; the general instance control plane still requires a signed-in browser session. For narrower automation, use an `api:read` or `api:write` token instead.
 
 Use **Settings → Personal → Developer access** to see each token's status, expiration, last use, scope, and workspace boundary. Remove tokens you no longer use. See [API Tokens](/development/api-tokens) for the complete scope and lifetime contract.
+
+## Moving a Hosted profile to openpo.st
+
+The CLI does not rewrite instance profiles. If a profile points to the former
+Hosted address, replace that named profile and sign in on the new host:
+
+```sh
+openpost instance add hosted https://app.openpo.st
+openpost instance use hosted
+openpost auth login https://app.openpo.st
+```
+
+Use your existing profile name in place of `hosted`. This leaves self-hosted
+profiles unchanged. Existing tokens remain stored under their profile, but a
+token whose issuer or audience is bound to the former host may require a new
+login.

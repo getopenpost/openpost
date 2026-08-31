@@ -1,6 +1,6 @@
 # OpenPost Image Editor
 
-OpenPost Image Editor is OpenPost's still-image editor for social posts, carousel pages, and slideshow images. Use the free public editor at [app.openpost.social/image-editor](https://app.openpost.social/image-editor), or open the workspace version from **Media → Create → Create design**, from a Media asset's detail view, or from the composer's media picker.
+OpenPost Image Editor is OpenPost's still-image editor for social posts, carousel pages, and slideshow images. Use the free public editor at [app.openpo.st/image-editor](https://app.openpo.st/image-editor), or open the workspace version from **Media → Create → Create design**, from a Media asset's detail view, or from the composer's media picker.
 
 ## Use OpenPost Image Editor without an account
 

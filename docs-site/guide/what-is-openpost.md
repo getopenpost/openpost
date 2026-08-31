@@ -28,7 +28,7 @@ If an AI tool helps, give it an OpenPost token instead of your social account ke
 
 ## Plans and deployment
 
-See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan terms. An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service.
+See the [canonical Hosted service pricing](https://openpo.st/pricing) for current plan terms. An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service.
 
 Teams that need to operate their own infrastructure can also run the AGPL product on their server. The default setup uses one Go binary or container, SQLite, and local media storage. The operator manages TLS, backups, updates, social apps, and secrets.
 

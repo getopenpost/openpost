@@ -645,16 +645,16 @@
 						{m.checkout_paddle_mor()}
 						<a
 							class="underline underline-offset-2 hover:text-foreground"
-							href="https://openpost.social/terms">{m.checkout_terms()}</a
+							href="https://openpo.st/terms">{m.checkout_terms()}</a
 						>,
 						<a
 							class="underline underline-offset-2 hover:text-foreground"
-							href="https://openpost.social/privacy">{m.checkout_privacy()}</a
+							href="https://openpo.st/privacy">{m.checkout_privacy()}</a
 						>,
 						{m.checkout_and()}
 						<a
 							class="underline underline-offset-2 hover:text-foreground"
-							href="https://openpost.social/refunds">{m.checkout_refunds()}</a
+							href="https://openpo.st/refunds">{m.checkout_refunds()}</a
 						>.
 					</p>
 				</section>

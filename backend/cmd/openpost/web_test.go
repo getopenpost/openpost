@@ -251,7 +251,7 @@ func TestSpaStartupRejectsMissingOrMalformedRouteManifest(t *testing.T) {
 func TestManagedSpaRootUsesTheApplicationForTheRoot(t *testing.T) {
 	webFS := fstest.MapFS{"index.html": {Data: []byte(`<html><head></head><body>app</body></html>`)}}
 	e := echo.New()
-	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpost.social", true, true)
+	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpo.st", true, true)
 	rec := httptest.NewRecorder()
 	e.ServeHTTP(rec, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil))
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -267,7 +267,7 @@ func TestManagedSpaHeadMatchesGetHeadersWithoutBody(t *testing.T) {
 		e,
 		webFS,
 		nil,
-		"https://app.openpost.social",
+		"https://app.openpo.st",
 		true,
 		true,
 	)
@@ -342,13 +342,13 @@ func TestRenderPublicProfileHTMLAddsEscapedShareMetadata(t *testing.T) {
 			DisplayName: "R&D <team>",
 			AvatarURL:   "https://cdn.example/avatar?a=1&b=2",
 		},
-		"https://app.openpost.social/",
+		"https://app.openpo.st/",
 	)
 
 	html := string(rendered)
 	require.Contains(t, html, "R&amp;D &lt;team&gt; (@rodrgds) - OpenPost")
 	require.Contains(t, html, `property="og:type" content="profile"`)
-	require.Contains(t, html, `rel="canonical" href="https://app.openpost.social/u/rodrgds"`)
+	require.Contains(t, html, `rel="canonical" href="https://app.openpo.st/u/rodrgds"`)
 	require.Contains(t, html, `property="og:image" content="https://cdn.example/avatar?a=1&amp;b=2"`)
 }
 

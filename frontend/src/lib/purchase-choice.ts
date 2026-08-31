@@ -93,7 +93,7 @@ export function copyPurchaseChoice(source: URLSearchParams, target: URLSearchPar
 	}
 }
 
-const externalPricingBase = 'https://openpost.social/pricing';
+const externalPricingBase = 'https://openpo.st/pricing';
 
 export function purchaseChoiceChangeHref(currentUrl: URL): string {
 	const returnTo = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;

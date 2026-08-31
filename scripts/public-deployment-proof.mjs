@@ -34,7 +34,7 @@ const nativeBoundaries = Object.freeze([
   {
     label: "OpenAPI",
     name: "OpenAPI JSON",
-    canonicalURL: "https://docs.openpost.social/openapi.json",
+    canonicalURL: "https://docs.openpo.st/openapi.json",
     contentType: "application/json",
     deployment: "documentation",
     localPath: "openapi.json",
@@ -43,7 +43,7 @@ const nativeBoundaries = Object.freeze([
   {
     label: "MCP",
     name: "MCP native JSON-RPC boundary",
-    canonicalURL: "https://app.openpost.social/mcp",
+    canonicalURL: "https://app.openpo.st/mcp",
     contentType: "application/json",
     status: 401,
     method: "POST",
@@ -53,13 +53,13 @@ const nativeBoundaries = Object.freeze([
   {
     label: "marketing asset",
     name: "marketing SVG asset",
-    canonicalURL: "https://openpost.social/assets/brand/logo.svg",
+    canonicalURL: "https://openpo.st/assets/brand/logo.svg",
     contentType: "image/svg+xml",
   },
   {
     label: "documentation asset",
     name: "documentation PNG asset",
-    canonicalURL: "https://docs.openpost.social/assets/screenshots/main-dark.png",
+    canonicalURL: "https://docs.openpo.st/assets/screenshots/main-dark.png",
     contentType: "image/png",
   },
 ]);
@@ -169,7 +169,7 @@ export function validateAICrawlSnapshot(snapshot) {
   if (observed < end) {
     throw new Error("AI Crawl Control snapshot cannot be observed before its window ends");
   }
-  const expectedHosts = ["docs.openpost.social", "openpost.social"];
+  const expectedHosts = ["docs.openpo.st", "openpo.st"];
   if (
     !Array.isArray(snapshot.scope) ||
     JSON.stringify([...snapshot.scope].sort()) !== JSON.stringify(expectedHosts)
@@ -367,8 +367,8 @@ export function validateMachineLinks(indexName, markdown, knownMarkdownURLs) {
     }
     url.hash = "";
     const intentionalNative =
-      target === "https://docs.openpost.social/openapi.json" ||
-      (["https://openpost.social", "https://docs.openpost.social"].includes(url.origin) &&
+      target === "https://docs.openpo.st/openapi.json" ||
+      (["https://openpo.st", "https://docs.openpo.st"].includes(url.origin) &&
         url.pathname.startsWith("/assets/"));
     if (intentionalNative) continue;
     if (!knownMarkdownURLs.has(url.href)) {
@@ -394,7 +394,7 @@ export async function buildPublicProofChecks({
   const surfaces = [
     {
       key: "marketing",
-      origin: "https://openpost.social",
+      origin: "https://openpo.st",
       directory: marketingDirectory,
       deployment: marketingDeployment,
       routes: marketingRouteManifest
@@ -404,15 +404,14 @@ export async function buildPublicProofChecks({
     },
     {
       key: "documentation",
-      origin: "https://docs.openpost.social",
+      origin: "https://docs.openpo.st",
       directory: documentationDirectory,
       deployment: documentationDeployment,
       routes: docsPageCatalog
         .filter(({ agentRepresentation }) => agentRepresentation.membership === "ordinary")
         .map(({ route }) => ({
           route,
-          canonical:
-            route === "/" ? "https://docs.openpost.social" : `https://docs.openpost.social${route}`,
+          canonical: route === "/" ? "https://docs.openpo.st" : `https://docs.openpo.st${route}`,
         })),
       samples: samples.documentation,
     },
@@ -441,7 +440,7 @@ export async function buildPublicProofChecks({
 
   const marketingIndex = await localArtifact(marketingDirectory, "llms.txt");
   const documentationIndex = await localArtifact(documentationDirectory, "llms.txt");
-  knownMarkdownURLs.add("https://docs.openpost.social/llms-full.txt");
+  knownMarkdownURLs.add("https://docs.openpo.st/llms-full.txt");
   validateMachineLinks("marketing llms.txt", marketingIndex, knownMarkdownURLs);
   validateMachineLinks("documentation llms.txt", documentationIndex, knownMarkdownURLs);
   const documentationCorpus = await localArtifact(documentationDirectory, "llms-full.txt");
@@ -475,7 +474,7 @@ export async function buildPublicProofChecks({
           `rel="alternate" type="text/markdown" href="${surface.origin}/${markdownPath}"`,
           `href="${surface.origin}/llms.txt"`,
           ...(surface.key === "documentation"
-            ? [`href="https://docs.openpost.social/llms-full.txt"`]
+            ? [`href="https://docs.openpo.st/llms-full.txt"`]
             : []),
         ],
       });
@@ -528,14 +527,14 @@ export async function buildPublicProofChecks({
     {
       kind: "redirect",
       name: "marketing canonical redirect",
-      url: "https://openpost.social/features/?openpost_proof=redirect",
+      url: "https://openpo.st/features/?openpost_proof=redirect",
       status: 308,
       location: "/features?openpost_proof=redirect",
     },
     {
       kind: "redirect",
       name: "documentation canonical redirect",
-      url: "https://docs.openpost.social/usage?openpost_proof=redirect",
+      url: "https://docs.openpo.st/usage?openpost_proof=redirect",
       status: 308,
       location: "/usage/?openpost_proof=redirect",
     },

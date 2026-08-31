@@ -10,7 +10,7 @@ The Hosted service and self-hosted deployment use the same AGPL code. A self-hos
 
 Provider differences remain visible, including Mastodon instance limits and media behavior.
 
-https://openpost.social
+https://openpo.st
 
 `[ATTACH THE VERIFIED DEMO VIDEO WITH COMPLETE ALT TEXT]`
 

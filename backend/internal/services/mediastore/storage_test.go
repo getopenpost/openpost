@@ -410,7 +410,7 @@ func TestS3StorageUsesBlobStorageContract(t *testing.T) {
 	client := &fakeS3Client{getBody: "stored-content"}
 	storage := newS3StorageWithClient(client, S3Config{
 		Bucket:        "openpost-media",
-		PublicBaseURL: "https://media.openpost.social/",
+		PublicBaseURL: "https://media.openpo.st/",
 	})
 
 	savedPath, err := storage.Save(t.Context(), "media/example.png", bytes.NewBufferString("uploaded-content"))
@@ -422,7 +422,7 @@ func TestS3StorageUsesBlobStorageContract(t *testing.T) {
 	require.Equal(t, int64(len("uploaded-content")), client.putLength)
 	require.True(t, client.putSeekable)
 	require.Equal(t, "s3", storage.Driver())
-	require.Equal(t, "https://media.openpost.social/media/example.png", storage.GetURL("media/example.png"))
+	require.Equal(t, "https://media.openpo.st/media/example.png", storage.GetURL("media/example.png"))
 
 	reader, err := storage.Open(t.Context(), "media/example.png")
 	require.NoError(t, err)

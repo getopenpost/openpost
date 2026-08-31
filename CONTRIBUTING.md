@@ -24,4 +24,4 @@ Before opening a pull request:
 - Include migration notes for database changes and screenshots for visible UI changes.
 - Never commit credentials, provider tokens, local dotenv files, or production data.
 
-Read the [full development setup](https://docs.openpost.social/development/setup), [architecture guide](https://docs.openpost.social/development/architecture), [testing guide](https://docs.openpost.social/development/testing), and [release policy](https://docs.openpost.social/development/releases). Repository-specific rules live in [AGENTS.md](AGENTS.md).
+Read the [full development setup](https://docs.openpo.st/development/setup), [architecture guide](https://docs.openpo.st/development/architecture), [testing guide](https://docs.openpo.st/development/testing), and [release policy](https://docs.openpo.st/development/releases). Repository-specific rules live in [AGENTS.md](AGENTS.md).

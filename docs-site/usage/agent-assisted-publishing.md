@@ -96,4 +96,4 @@ Use the [OpenPost Launch Kit](https://github.com/getopenpost/openpost/tree/main/
 
 ## Hosted service access
 
-See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan terms. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.
+See the [canonical Hosted service pricing](https://openpo.st/pricing) for current plan terms. An active or trialing plan is required to connect accounts, upload media, schedule, or publish.

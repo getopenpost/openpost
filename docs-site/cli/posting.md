@@ -90,7 +90,7 @@ openpost thread create launch.md
 Use `openpost publication create` for Stories, short videos, long videos, link posts, and other posts that need extra settings.
 
 ```sh
-openpost publication create --content-profile link_share --accounts linkedin --url https://openpost.social --content 'Launch notes'
+openpost publication create --content-profile link_share --accounts linkedin --url https://openpo.st --content 'Launch notes'
 openpost publication create --content-profile short_video --accounts youtube,tiktok --video-title 'Short title' --video-description 'YouTube description' --caption 'TikTok caption' --media ./short.mp4
 openpost publication create --content-profile long_video --accounts youtube --video-title 'Full walkthrough' --video-description 'Long-form description' --privacy private --media ./walkthrough.mp4 --schedule next-slot
 openpost publication schedule pub_123 --at 'tomorrow 9am'

@@ -18,21 +18,21 @@ export function validateMCPRegistryOwnership({ manifest, listings, docs }) {
   if (
     remotes.length !== 1 ||
     remotes[0]?.type !== "streamable-http" ||
-    remotes[0]?.url !== "https://app.openpost.social/mcp"
+    remotes[0]?.url !== "https://app.openpo.st/mcp"
   ) {
     throw new Error("server.json must describe the canonical managed MCP endpoint");
   }
 
   const escapedName = manifest.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const listingMatch = new RegExp("Published as `" + escapedName + "` version `([^`]+)`").exec(
-    listings,
-  );
+  const listingMatch = new RegExp(
+    "(?:Published|Prepared) as `" + escapedName + "` version `([^`]+)`",
+  ).exec(listings);
   if (!listingMatch) {
-    throw new Error("launch-kit listing must record the published MCP version");
+    throw new Error("launch-kit listing must record the prepared or published MCP version");
   }
   if (listingMatch[1] !== manifest.version) {
     throw new Error(
-      `server.json version ${manifest.version} does not match the published listing ${listingMatch[1]}`,
+      `server.json version ${manifest.version} does not match the launch listing ${listingMatch[1]}`,
     );
   }
   if (!docs.includes("## Registry listing version and compatibility")) {

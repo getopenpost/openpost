@@ -49,7 +49,7 @@ func TestAdapterForInstanceRegistersAndCachesMastodonApp(t *testing.T) {
 		require.Equal(t, "OpenPost", r.Form.Get("client_name"))
 		require.Equal(t, "urn:ietf:wg:oauth:2.0:oob", r.Form.Get("redirect_uris"))
 		require.Equal(t, "read write", r.Form.Get("scopes"))
-		require.Equal(t, "https://openpost.social", r.Form.Get("website"))
+		require.Equal(t, "https://openpo.st", r.Form.Get("website"))
 		registrationCalls++
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"client_id":"registered-client","client_secret":"registered-secret"}`))
@@ -58,7 +58,7 @@ func TestAdapterForInstanceRegistersAndCachesMastodonApp(t *testing.T) {
 
 	service := NewService(db, encryptor, Options{
 		RedirectURI: "urn:ietf:wg:oauth:2.0:oob",
-		Website:     "https://openpost.social",
+		Website:     "https://openpo.st",
 		HTTPClient:  instanceServer.Client(),
 		Validator: func(_ context.Context, instanceURL *url.URL) error {
 			require.Equal(t, "https", instanceURL.Scheme)

@@ -1,4 +1,4 @@
-const managedAPIHost = "https://cool.openpost.social";
+const managedAPIHost = "https://cool.openpo.st";
 const managedUIHost = "https://eu.posthog.com";
 
 export function productionConfigurationError(environment) {

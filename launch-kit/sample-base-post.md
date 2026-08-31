@@ -10,7 +10,7 @@ You review every account, rendition, media choice, and time in the web app. Then
 
 Use the Hosted service, or self-host the same AGPL product as one binary or container.
 
-https://openpost.social
+https://openpo.st
 
 `[ATTACH THE NEW 45–75 SECOND DEMO AFTER REHEARSAL]`
 

@@ -372,7 +372,7 @@ func TestLoadOIDCConfigurationSupportsFileBackedSecret(t *testing.T) {
 }
 
 func TestLoadCloudPostgresAndS3Primitives(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_EDITION", "cloud")
 	t.Setenv("OPENPOST_DATABASE_DRIVER", "postgres")
 	t.Setenv("OPENPOST_DATABASE_URL", "postgres://openpost:secret@db.internal:5432/openpost?sslmode=require")
@@ -382,7 +382,7 @@ func TestLoadCloudPostgresAndS3Primitives(t *testing.T) {
 	t.Setenv("OPENPOST_S3_BUCKET", "openpost-media")
 	t.Setenv("OPENPOST_S3_ACCESS_KEY_ID", "access-key")
 	t.Setenv("OPENPOST_S3_SECRET_ACCESS_KEY", "secret-key")
-	t.Setenv("OPENPOST_S3_PUBLIC_BASE_URL", "https://media.openpost.social")
+	t.Setenv("OPENPOST_S3_PUBLIC_BASE_URL", "https://media.openpo.st")
 	t.Setenv("OPENPOST_S3_FORCE_PATH_STYLE", "true")
 
 	cfg := Load()
@@ -396,16 +396,16 @@ func TestLoadCloudPostgresAndS3Primitives(t *testing.T) {
 	require.Equal(t, "openpost-media", cfg.S3Bucket)
 	require.Equal(t, "access-key", cfg.S3AccessKeyID)
 	require.Equal(t, "secret-key", cfg.S3SecretAccessKey)
-	require.Equal(t, "https://media.openpost.social", cfg.S3PublicBaseURL)
+	require.Equal(t, "https://media.openpo.st", cfg.S3PublicBaseURL)
 	require.True(t, cfg.S3ForcePathStyle)
 	require.True(t, cfg.LegalAcceptanceRequired)
-	require.Equal(t, "https://openpost.social/terms", cfg.TermsURL)
+	require.Equal(t, "https://openpo.st/terms", cfg.TermsURL)
 	require.Equal(t, legalpolicy.TermsVersion, cfg.TermsVersion)
 	require.Equal(t, legalpolicy.PrivacyVersion, cfg.PrivacyVersion)
 }
 
 func TestLoadPasswordRecoveryConfiguration(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_SMTP_HOST", "smtp.example.com")
 	t.Setenv("OPENPOST_SMTP_PORT", "465")
 	t.Setenv("OPENPOST_SMTP_USERNAME", "openpost")
@@ -463,7 +463,7 @@ func TestValidateRuntimeAllowsVerificationToBeEnabledBeforeEmailProviderSetup(t 
 }
 
 func TestLoadSupportsFileBackedEnvValues(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_EDITION_FILE", writeEnvFile(t, "edition", "cloud\n"))
 	t.Setenv("OPENPOST_DATABASE_DRIVER_FILE", writeEnvFile(t, "database-driver", "postgres\n"))
 	t.Setenv("OPENPOST_DATABASE_URL_FILE", writeEnvFile(t, "database-url", "postgres://openpost:secret@db.internal:5432/openpost?sslmode=require\n"))
@@ -477,16 +477,16 @@ func TestLoadSupportsFileBackedEnvValues(t *testing.T) {
 	t.Setenv("OPENPOST_S3_BUCKET_FILE", writeEnvFile(t, "s3-bucket", "openpost-media\n"))
 	t.Setenv("OPENPOST_S3_ACCESS_KEY_ID_FILE", writeEnvFile(t, "s3-access-key-id", "access-key\n"))
 	t.Setenv("OPENPOST_S3_SECRET_ACCESS_KEY_FILE", writeEnvFile(t, "s3-secret-access-key", "secret-key\n"))
-	t.Setenv("OPENPOST_S3_PUBLIC_BASE_URL_FILE", writeEnvFile(t, "s3-public-base-url", "https://media.openpost.social/\n"))
+	t.Setenv("OPENPOST_S3_PUBLIC_BASE_URL_FILE", writeEnvFile(t, "s3-public-base-url", "https://media.openpo.st/\n"))
 	t.Setenv("OPENPOST_S3_FORCE_PATH_STYLE_FILE", writeEnvFile(t, "s3-force-path-style", "true\n"))
 	t.Setenv("OPENPOST_PADDLE_API_KEY_FILE", writeEnvFile(t, "paddle-api-key", "pdl_sdbx_token\n"))
 	t.Setenv("OPENPOST_PADDLE_ENVIRONMENT_FILE", writeEnvFile(t, "paddle-environment", "sandbox\n"))
 	t.Setenv("OPENPOST_PADDLE_CLIENT_TOKEN_FILE", writeEnvFile(t, "paddle-client-token", "test_client_token\n"))
 	t.Setenv("OPENPOST_PADDLE_WEBHOOK_SECRET_FILE", writeEnvFile(t, "paddle-webhook-secret", "pdl_webhook_secret\n"))
-	t.Setenv("OPENPOST_PADDLE_CHECKOUT_RETURN_URL_FILE", writeEnvFile(t, "paddle-return-url", "https://app.openpost.social/checkout?status=success\n"))
+	t.Setenv("OPENPOST_PADDLE_CHECKOUT_RETURN_URL_FILE", writeEnvFile(t, "paddle-return-url", "https://app.openpo.st/checkout?status=success\n"))
 	t.Setenv("OPENPOST_POSTHOG_PROJECT_TOKEN_FILE", writeEnvFile(t, "posthog-project-token", "phc_test\n"))
 	t.Setenv("OPENPOST_POSTHOG_API_HOST_FILE", writeEnvFile(t, "posthog-api-host", "https://eu.i.posthog.com\n"))
-	t.Setenv("OPENPOST_POSTHOG_BROWSER_HOST_FILE", writeEnvFile(t, "posthog-browser-host", "https://e.openpost.social\n"))
+	t.Setenv("OPENPOST_POSTHOG_BROWSER_HOST_FILE", writeEnvFile(t, "posthog-browser-host", "https://telemetry.example.com\n"))
 	t.Setenv("OPENPOST_POSTHOG_UI_HOST_FILE", writeEnvFile(t, "posthog-ui-host", "https://eu.posthog.com\n"))
 	for _, plan := range []string{"STARTER", "FOUNDER", "PRO", "TEAM", "AGENCY"} {
 		t.Setenv("OPENPOST_PADDLE_"+plan+"_MONTHLY_PRICE_ID_FILE", writeEnvFile(t, strings.ToLower(plan)+"-monthly", "pri_"+strings.ToLower(plan)+"_monthly\n"))
@@ -510,13 +510,13 @@ func TestLoadSupportsFileBackedEnvValues(t *testing.T) {
 	require.Equal(t, "openpost-media", cfg.S3Bucket)
 	require.Equal(t, "access-key", cfg.S3AccessKeyID)
 	require.Equal(t, "secret-key", cfg.S3SecretAccessKey)
-	require.Equal(t, "https://media.openpost.social", cfg.S3PublicBaseURL)
+	require.Equal(t, "https://media.openpo.st", cfg.S3PublicBaseURL)
 	require.True(t, cfg.S3ForcePathStyle)
 	require.Equal(t, "pdl_sdbx_token", cfg.PaddleAPIKey)
 	require.Equal(t, "sandbox", cfg.PaddleEnvironment)
 	require.Equal(t, "test_client_token", cfg.PaddleClientToken)
 	require.Equal(t, "pdl_webhook_secret", cfg.PaddleWebhookSecret)
-	require.Equal(t, "https://app.openpost.social/checkout?status=success", cfg.PaddleCheckoutReturnURL)
+	require.Equal(t, "https://app.openpo.st/checkout?status=success", cfg.PaddleCheckoutReturnURL)
 	require.Equal(t, "pri_starter_monthly", cfg.PaddleStarterMonthlyPriceID)
 	require.Equal(t, "pri_agency_annual", cfg.PaddleAgencyAnnualPriceID)
 	require.NoError(t, cfg.ValidateRuntime())
@@ -614,7 +614,7 @@ func TestMediaSigningKeyCanRemainStableAcrossEncryptionRotation(t *testing.T) {
 }
 
 func TestLoadFileBackedEnvPrefersInlineValue(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_DATABASE_URL", "postgres://env.example/openpost")
 	t.Setenv("OPENPOST_DATABASE_URL_FILE", writeEnvFile(t, "database-url", "postgres://file.example/openpost\n"))
 
@@ -624,7 +624,7 @@ func TestLoadFileBackedEnvPrefersInlineValue(t *testing.T) {
 }
 
 func TestLoadFileBackedEnvSupportsLegacyAliases(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("DATABASE_URL_FILE", writeEnvFile(t, "database-url", "postgres://alias.example/openpost\n"))
 	t.Setenv("JWT_SECRET_FILE", writeEnvFile(t, "jwt-secret", "legacy-jwt-secret-with-thirty-two-chars\n"))
 	t.Setenv("ENCRYPTION_KEY_FILE", writeEnvFile(t, "encryption-key", "legacy-encryption-key-with-thirty-two\n"))
@@ -677,7 +677,7 @@ func TestValidateRuntimeRejectsMalformedAnalyticsSourcesJSON(t *testing.T) {
 }
 
 func TestLoadSupportsFileBackedProviderApps(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_PROVIDER_APPS_FILE", writeEnvFile(t, "provider-apps", `[
 		{"provider":"youtube","client_id":"youtube-client","client_secret":"youtube-secret"}
 	]`))
@@ -690,7 +690,7 @@ func TestLoadSupportsFileBackedProviderApps(t *testing.T) {
 	require.Equal(t, "youtube", cfg.ProviderApps[2].Provider)
 	require.Equal(t, "youtube-client", cfg.ProviderApps[2].ClientID)
 	require.Equal(t, "youtube-secret", cfg.ProviderApps[2].ClientSecret)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/youtube/callback", cfg.ProviderApps[2].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/youtube/callback", cfg.ProviderApps[2].RedirectURI)
 }
 
 func TestLoadSelfHostedCORSOriginsIncludeLocalDevelopmentDefaults(t *testing.T) {
@@ -709,15 +709,15 @@ func TestLoadSelfHostedCORSOriginsIncludeLocalDevelopmentDefaults(t *testing.T) 
 }
 
 func TestLoadCloudCORSOriginsExcludeLocalDevelopmentDefaults(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_EDITION", "cloud")
-	t.Setenv("OPENPOST_EXTRA_CORS_ORIGINS", "https://admin.openpost.social")
+	t.Setenv("OPENPOST_EXTRA_CORS_ORIGINS", "https://admin.example.com")
 
 	cfg := Load()
 
 	require.Equal(t, []string{
-		"https://app.openpost.social",
-		"https://admin.openpost.social",
+		"https://app.openpo.st",
+		"https://admin.example.com",
 	}, cfg.CORSOrigins)
 	require.NotContains(t, cfg.CORSOrigins, "http://localhost:5173")
 }
@@ -820,7 +820,7 @@ func TestValidateRuntimeRejectsCloudMissingPaddlePrimitives(t *testing.T) {
 
 func TestValidateRuntimeRejectsCloudWildcardCORSOrigins(t *testing.T) {
 	cfg := validCloudRuntimeConfig()
-	cfg.CORSOrigins = []string{"https://app.openpost.social", "*"}
+	cfg.CORSOrigins = []string{"https://app.openpo.st", "*"}
 
 	err := cfg.ValidateRuntime()
 
@@ -894,7 +894,7 @@ func validCloudRuntimeConfig() *Config {
 		S3Bucket:                    "openpost-media",
 		S3AccessKeyID:               "access-key",
 		S3SecretAccessKey:           "secret-key",
-		S3PublicBaseURL:             "https://media.openpost.social",
+		S3PublicBaseURL:             "https://media.openpo.st",
 		S3ForcePathStyle:            true,
 		PaddleAPIKey:                "pdl_sdbx_token",
 		PaddleEnvironment:           "sandbox",
@@ -911,8 +911,8 @@ func validCloudRuntimeConfig() *Config {
 		PaddleAgencyMonthlyPriceID:  "pri_agency_monthly",
 		PaddleAgencyAnnualPriceID:   "pri_agency_annual",
 		LegalAcceptanceRequired:     true,
-		TermsURL:                    "https://openpost.social/terms",
-		PrivacyURL:                  "https://openpost.social/privacy",
+		TermsURL:                    "https://openpo.st/terms",
+		PrivacyURL:                  "https://openpo.st/privacy",
 		TermsVersion:                legalpolicy.TermsVersion,
 		PrivacyVersion:              legalpolicy.PrivacyVersion,
 		SupportEmail:                "openpost@rgo.pt",
@@ -944,13 +944,13 @@ func TestLoadEnablesTelemetryByDefaultForCloudInstances(t *testing.T) {
 	cfg := Load()
 	require.True(t, cfg.TelemetryEnabled)
 	require.Equal(t, "https://eu.i.posthog.com", cfg.PostHogAPIHost)
-	require.Equal(t, "https://cool.openpost.social", cfg.PostHogBrowserHost)
+	require.Equal(t, "https://cool.openpo.st", cfg.PostHogBrowserHost)
 	require.Equal(t, "https://eu.posthog.com", cfg.PostHogUIHost)
 	require.Equal(t, "production", cfg.TelemetryEnvironment)
 }
 
 func TestLoadPaddlePrimitives(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("OPENPOST_APP_E2E_HOSTED_SIGNUP", "true")
 	t.Setenv("OPENPOST_APP_E2E_DELIVERY_PROJECTION", "true")
 	t.Setenv("OPENPOST_PADDLE_API_KEY", "pdl_sdbx_token")
@@ -958,7 +958,7 @@ func TestLoadPaddlePrimitives(t *testing.T) {
 	t.Setenv("OPENPOST_PADDLE_ENVIRONMENT", "sandbox")
 	t.Setenv("OPENPOST_PADDLE_CLIENT_TOKEN", "test_client_token")
 	t.Setenv("OPENPOST_PADDLE_WEBHOOK_SECRET", "pdl_webhook_secret")
-	t.Setenv("OPENPOST_PADDLE_CHECKOUT_RETURN_URL", "https://app.openpost.social/checkout?status=success")
+	t.Setenv("OPENPOST_PADDLE_CHECKOUT_RETURN_URL", "https://app.openpo.st/checkout?status=success")
 	for _, plan := range []string{"STARTER", "FOUNDER", "PRO", "TEAM", "AGENCY"} {
 		t.Setenv("OPENPOST_PADDLE_"+plan+"_MONTHLY_PRICE_ID", "pri_"+strings.ToLower(plan)+"_monthly")
 		t.Setenv("OPENPOST_PADDLE_"+plan+"_ANNUAL_PRICE_ID", "pri_"+strings.ToLower(plan)+"_annual")
@@ -973,13 +973,13 @@ func TestLoadPaddlePrimitives(t *testing.T) {
 	require.Equal(t, "sandbox", cfg.PaddleEnvironment)
 	require.Equal(t, "test_client_token", cfg.PaddleClientToken)
 	require.Equal(t, "pdl_webhook_secret", cfg.PaddleWebhookSecret)
-	require.Equal(t, "https://app.openpost.social/checkout?status=success", cfg.PaddleCheckoutReturnURL)
+	require.Equal(t, "https://app.openpo.st/checkout?status=success", cfg.PaddleCheckoutReturnURL)
 	require.Equal(t, "pri_starter_monthly", cfg.PaddleStarterMonthlyPriceID)
 	require.Equal(t, "pri_agency_annual", cfg.PaddleAgencyAnnualPriceID)
 }
 
 func TestLoadBuildsProviderAppRegistryFromLegacyEnv(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("X_CLIENT_ID", "x-client")
 	t.Setenv("X_CLIENT_SECRET", "x-secret")
 	t.Setenv("LINKEDIN_CLIENT_ID", "linkedin-client")
@@ -994,13 +994,13 @@ func TestLoadBuildsProviderAppRegistryFromLegacyEnv(t *testing.T) {
 	require.Equal(t, "bluesky", cfg.ProviderApps[0].Provider)
 	require.Equal(t, "discord", cfg.ProviderApps[1].Provider)
 	require.Equal(t, "x", cfg.ProviderApps[2].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/x/callback", cfg.ProviderApps[2].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/x/callback", cfg.ProviderApps[2].RedirectURI)
 	require.Equal(t, "mastodon", cfg.ProviderApps[3].Provider)
 	require.Equal(t, "https://masto.pt", cfg.ProviderApps[3].InstanceURL)
 	require.Equal(t, "linkedin", cfg.ProviderApps[4].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/linkedin/callback", cfg.ProviderApps[4].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/linkedin/callback", cfg.ProviderApps[4].RedirectURI)
 	require.Equal(t, "threads", cfg.ProviderApps[5].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/threads/callback", cfg.ProviderApps[5].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/threads/callback", cfg.ProviderApps[5].RedirectURI)
 }
 
 func TestLoadParsesProviderEnvironmentKillSwitches(t *testing.T) {
@@ -1018,7 +1018,7 @@ func TestLoadDoesNotEnforceProviderCertificationByDefault(t *testing.T) {
 }
 
 func TestLoadMergesStructuredProviderApps(t *testing.T) {
-	t.Setenv("OPENPOST_APP_URL", "https://app.openpost.social")
+	t.Setenv("OPENPOST_APP_URL", "https://app.openpo.st")
 	t.Setenv("X_CLIENT_ID", "legacy-x-client")
 	t.Setenv("X_CLIENT_SECRET", "legacy-x-secret")
 	t.Setenv("OPENPOST_PROVIDER_APPS", `[
@@ -1036,17 +1036,17 @@ func TestLoadMergesStructuredProviderApps(t *testing.T) {
 	require.Equal(t, "bluesky", cfg.ProviderApps[0].Provider)
 	require.Equal(t, "discord", cfg.ProviderApps[1].Provider)
 	require.Equal(t, "cloud-x-client", cfg.ProviderApps[2].ClientID)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/x/callback", cfg.ProviderApps[2].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/x/callback", cfg.ProviderApps[2].RedirectURI)
 	require.Equal(t, "mastodon", cfg.ProviderApps[3].Provider)
 	require.Equal(t, "urn:ietf:wg:oauth:2.0:oob", cfg.ProviderApps[3].RedirectURI)
 	require.Equal(t, "facebook", cfg.ProviderApps[4].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/facebook/callback", cfg.ProviderApps[4].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/facebook/callback", cfg.ProviderApps[4].RedirectURI)
 	require.Equal(t, "instagram", cfg.ProviderApps[5].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/instagram/callback", cfg.ProviderApps[5].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/instagram/callback", cfg.ProviderApps[5].RedirectURI)
 	require.Equal(t, "tiktok", cfg.ProviderApps[6].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/tiktok/callback", cfg.ProviderApps[6].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/tiktok/callback", cfg.ProviderApps[6].RedirectURI)
 	require.Equal(t, "youtube", cfg.ProviderApps[7].Provider)
-	require.Equal(t, "https://app.openpost.social/api/v1/accounts/youtube/callback", cfg.ProviderApps[7].RedirectURI)
+	require.Equal(t, "https://app.openpo.st/api/v1/accounts/youtube/callback", cfg.ProviderApps[7].RedirectURI)
 }
 
 func TestLoadInvalidProductionPrimitiveEnumsFallback(t *testing.T) {

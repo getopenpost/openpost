@@ -38,7 +38,7 @@ describe('preview window session', () => {
 	it('puts only a random channel token in the preview URL', () => {
 		const open = vi.fn((_url: URL, _target: string) => ({ opener: {} }));
 		vi.stubGlobal('window', {
-			location: { origin: 'https://app.openpost.social' },
+			location: { origin: 'https://app.example.com' },
 			open
 		});
 		vi.stubGlobal('crypto', { randomUUID: () => 'private-token' });
@@ -50,14 +50,14 @@ describe('preview window session', () => {
 		expect(open).toHaveBeenCalledOnce();
 		const [openedURL, target] = open.mock.calls[0]!;
 		expect(target).toBe('_blank');
-		expect(openedURL.toString()).toBe('https://app.openpost.social/preview?token=private-token');
+		expect(openedURL.toString()).toBe('https://app.example.com/preview?token=private-token');
 		expect(openedURL.toString()).not.toContain('Private+preview+copy');
 		expect(channelName('private-token')).toBe('openpost-preview:private-token');
 	});
 
 	it('streams snapshots after the preview reports that it is ready', () => {
 		vi.stubGlobal('window', {
-			location: { origin: 'https://app.openpost.social' },
+			location: { origin: 'https://app.example.com' },
 			open: () => ({ opener: {} })
 		});
 		vi.stubGlobal('crypto', { randomUUID: () => 'live-token' });

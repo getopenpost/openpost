@@ -9,11 +9,11 @@ func OpenAPIConfig(version string) huma.Config {
 	config := huma.DefaultConfig("OpenPost API", version)
 	configureAutomationContract(&config)
 	config.Info.Description = openAPIDescription
-	config.Info.TermsOfService = "https://openpost.social/terms"
+	config.Info.TermsOfService = "https://openpo.st/terms"
 	config.Info.Contact = &huma.Contact{
 		Name:  "OpenPost support",
-		URL:   "https://openpost.social/contact",
-		Email: "openpost@rgo.pt",
+		URL:   "https://openpo.st/contact",
+		Email: "hello@openpo.st",
 	}
 	config.Info.License = &huma.License{
 		Name:       "AGPL-3.0-only",
@@ -27,7 +27,7 @@ func OpenAPIConfig(version string) huma.Config {
 func FinalizeOpenAPIContract(api huma.API) {
 	api.OpenAPI().Servers = []*huma.Server{
 		{
-			URL:         "https://app.openpost.social/api/v1",
+			URL:         "https://app.openpo.st/api/v1",
 			Description: "OpenPost Hosted service",
 		},
 		{

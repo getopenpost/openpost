@@ -121,7 +121,7 @@ describe("BrowserTelemetry", () => {
 
   it("uses the originating route template for SDK-owned lifecycle and Web Vitals URLs", () => {
     const location = {
-      origin: "https://app.openpost.social",
+      origin: "https://app.openpo.st",
       pathname: "/publications/private-publication-id",
     };
     vi.stubGlobal("window", { location });
@@ -145,12 +145,12 @@ describe("BrowserTelemetry", () => {
         event: "$web_vitals",
         properties: {
           $current_url:
-            "https://app.openpost.social/publications/private-publication-id?token=secret#private",
+            "https://app.openpo.st/publications/private-publication-id?token=secret#private",
           $pathname: "/publications/private-publication-id",
           $initial_pathname: "/publications/private-publication-id",
           $session_entry_pathname: "/publications/private-publication-id",
           $session_entry_url:
-            "https://app.openpost.social/publications/private-publication-id?token=secret#private",
+            "https://app.openpo.st/publications/private-publication-id?token=secret#private",
           $referrer: "https://search.example/private/path?query=secret",
           $session_entry_referrer: "https://search.example/private/path?query=secret",
           title: "Private launch artwork",
@@ -158,10 +158,8 @@ describe("BrowserTelemetry", () => {
           $web_vitals_LCP_event: {
             name: "LCP",
             value: 123,
-            $current_url:
-              "https://app.openpost.social/publications/private-publication-id?token=secret",
-            navigationURL:
-              "https://app.openpost.social/publications/private-publication-id?token=secret",
+            $current_url: "https://app.openpo.st/publications/private-publication-id?token=secret",
+            navigationURL: "https://app.openpo.st/publications/private-publication-id?token=secret",
             entries: [
               {
                 name: "https://cdn.example/private-project-name.png?token=secret",
@@ -173,16 +171,16 @@ describe("BrowserTelemetry", () => {
       });
 
       expect(event?.properties).toMatchObject({
-        $current_url: "https://app.openpost.social/publications/[id]",
+        $current_url: "https://app.openpo.st/publications/[id]",
         $pathname: "/publications/[id]",
         $initial_pathname: "/publications/[id]",
         $session_entry_pathname: "/publications/[id]",
-        $session_entry_url: "https://app.openpost.social/publications/[id]",
+        $session_entry_url: "https://app.openpo.st/publications/[id]",
         $referrer: "https://search.example",
         $session_entry_referrer: "https://search.example",
         $web_vitals_LCP_event: {
-          $current_url: "https://app.openpost.social/publications/[id]",
-          navigationURL: "https://app.openpost.social/publications/[id]",
+          $current_url: "https://app.openpo.st/publications/[id]",
+          navigationURL: "https://app.openpo.st/publications/[id]",
         },
       });
       expect(event?.properties).not.toHaveProperty("title");
@@ -315,14 +313,14 @@ describe("BrowserTelemetry", () => {
     const error = new Error("Navigation failed");
     error.stack = [
       "Error: Navigation failed",
-      "    at load (https://app.openpost.social/_app/immutable/chunks/app.ABC123.js:12:3?token=secret)",
+      "    at load (https://app.openpo.st/_app/immutable/chunks/app.ABC123.js:12:3?token=secret)",
       "    at reset (https://example.com/reset/path-secret:4:2)",
     ].join("\n");
 
     subject.captureException(error);
 
     const stack = sdk.exceptions[0]?.error.stack ?? "";
-    expect(stack).toContain("https://app.openpost.social/_app/immutable/chunks/app.ABC123.js:12:3");
+    expect(stack).toContain("https://app.openpo.st/_app/immutable/chunks/app.ABC123.js:12:3");
     expect(stack).toContain("[redacted-url]");
     expect(stack).not.toContain("path-secret");
     expect(stack).not.toContain("token=secret");

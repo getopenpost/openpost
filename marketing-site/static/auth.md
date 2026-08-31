@@ -4,18 +4,18 @@ This file tells agents and machine clients how a user grants access to OpenPost.
 
 ## Hosted service
 
-- Register or sign in: https://app.openpost.social/register
-- API base: https://app.openpost.social/api/v1
-- MCP endpoint: https://app.openpost.social/mcp
-- OpenAPI contract: https://docs.openpost.social/openapi.json
-- Authentication guide: https://docs.openpost.social/development/api-tokens
+- Register or sign in: https://app.openpo.st/register
+- API base: https://app.openpo.st/api/v1
+- MCP endpoint: https://app.openpo.st/mcp
+- OpenAPI contract: https://docs.openpo.st/openapi.json
+- Authentication guide: https://docs.openpo.st/development/api-tokens
 
 ## MCP OAuth
 
 MCP clients should discover the supported authorization flow from these public documents:
 
-- Protected resource metadata: https://app.openpost.social/.well-known/oauth-protected-resource
-- Authorization server metadata: https://app.openpost.social/.well-known/oauth-authorization-server
+- Protected resource metadata: https://app.openpo.st/.well-known/oauth-protected-resource
+- Authorization server metadata: https://app.openpo.st/.well-known/oauth-authorization-server
 
 The hosted service uses the OAuth authorization-code flow with PKCE. It supports `mcp:read` and `mcp:full`. A browser opens so the signed-in user can review and approve access.
 

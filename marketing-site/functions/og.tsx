@@ -283,7 +283,7 @@ function CardShell({
 					fontSize: 18
 				}}
 			>
-				{isDocs ? 'docs.openpost.social' : 'openpost.social'}
+				{isDocs ? 'docs.openpo.st' : 'openpo.st'}
 			</span>
 
 			{children}

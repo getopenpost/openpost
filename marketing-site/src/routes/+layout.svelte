@@ -58,7 +58,7 @@
 	<link
 		rel="alternate"
 		type="application/atom+xml"
-		href="https://openpost.social/changelog.xml"
+		href="https://openpo.st/changelog.xml"
 		title="OpenPost changelog"
 	/>
 	<meta name="robots" content="index, follow" />
@@ -80,12 +80,7 @@
 	<meta name="twitter:image:alt" content={social.imageAlt} />
 	{#if agentMarkdown}
 		<link rel="alternate" type="text/markdown" href={agentMarkdown} />
-		<link
-			rel="alternate"
-			type="text/plain"
-			href="https://openpost.social/llms.txt"
-			title="llms.txt"
-		/>
+		<link rel="alternate" type="text/plain" href="https://openpo.st/llms.txt" title="llms.txt" />
 	{/if}
 	<!-- SAFETY: JSON is built only from maintained route and product constants; '<' is escaped above. -->
 	{@html `<script type="application/ld+json">${structuredDataJSON}<\/script>`}

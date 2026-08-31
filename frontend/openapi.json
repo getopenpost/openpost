@@ -17765,16 +17765,16 @@
 	},
 	"info": {
 		"contact": {
-			"email": "openpost@rgo.pt",
+			"email": "hello@openpo.st",
 			"name": "OpenPost support",
-			"url": "https://openpost.social/contact"
+			"url": "https://openpo.st/contact"
 		},
 		"description": "OpenPost HTTP API for workspace-scoped social publishing. Use it to inspect accounts and provider readiness, manage media and publications, schedule work, and read publishing results. Every operation still follows token scopes, workspace roles, plan limits, provider capabilities, and destination validation.",
 		"license": {
 			"identifier": "AGPL-3.0-only",
 			"name": "AGPL-3.0-only"
 		},
-		"termsOfService": "https://openpost.social/terms",
+		"termsOfService": "https://openpo.st/terms",
 		"title": "OpenPost API",
 		"version": "1.0.0"
 	},
@@ -41490,7 +41490,7 @@
 	"servers": [
 		{
 			"description": "OpenPost Hosted service",
-			"url": "https://app.openpost.social/api/v1"
+			"url": "https://app.openpo.st/api/v1"
 		},
 		{
 			"description": "The OpenPost instance serving this contract",

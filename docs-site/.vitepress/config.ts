@@ -285,7 +285,7 @@ export default defineConfig({
   themeConfig: {
     logo: "/assets/brand/icon.svg",
     nav: [
-      { text: "Website", link: "https://openpost.social" },
+      { text: "Website", link: "https://openpo.st" },
       {
         text: "Use",
         items: [

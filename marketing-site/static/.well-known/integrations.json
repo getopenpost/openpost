@@ -5,7 +5,7 @@
     "openpost_api_token": {
       "type": "bearer",
       "label": "OpenPost API token",
-      "generateUrl": "https://app.openpost.social/settings?tab=developer",
+      "generateUrl": "https://app.openpo.st/settings?tab=developer",
       "setup": "Sign in to OpenPost, open Settings → Personal → Developer access, and create a token with the scope and workspace access you need."
     },
     "openpost_mcp_oauth": {
@@ -19,12 +19,12 @@
       "type": "http",
       "slug": "api",
       "name": "OpenPost API",
-      "docs": "https://docs.openpost.social/development/api-reference",
-      "spec": "https://docs.openpost.social/openapi.json",
-      "url": "https://app.openpost.social/api/v1",
+      "docs": "https://docs.openpo.st/development/api-reference",
+      "spec": "https://docs.openpo.st/openapi.json",
+      "url": "https://app.openpo.st/api/v1",
       "basis": {
         "via": "declared",
-        "source": "https://openpost.social/.well-known/integrations.json"
+        "source": "https://openpo.st/.well-known/integrations.json"
       },
       "auth": {
         "status": "required",
@@ -41,7 +41,7 @@
             ],
             "basis": {
               "via": "declared",
-              "source": "https://openpost.social/.well-known/integrations.json"
+              "source": "https://openpo.st/.well-known/integrations.json"
             }
           }
         ]
@@ -52,14 +52,14 @@
       "type": "mcp",
       "slug": "mcp",
       "name": "OpenPost MCP server",
-      "docs": "https://docs.openpost.social/mcp/",
-      "url": "https://app.openpost.social/mcp",
+      "docs": "https://docs.openpo.st/mcp/",
+      "url": "https://app.openpo.st/mcp",
       "transports": [
         "streamable-http"
       ],
       "basis": {
         "via": "declared",
-        "source": "https://openpost.social/.well-known/integrations.json"
+        "source": "https://openpo.st/.well-known/integrations.json"
       },
       "auth": {
         "status": "required",
@@ -75,7 +75,7 @@
             ],
             "basis": {
               "via": "declared",
-              "source": "https://openpost.social/.well-known/integrations.json"
+              "source": "https://openpo.st/.well-known/integrations.json"
             }
           },
           {
@@ -92,7 +92,7 @@
             ],
             "basis": {
               "via": "declared",
-              "source": "https://openpost.social/.well-known/integrations.json"
+              "source": "https://openpo.st/.well-known/integrations.json"
             }
           }
         ]
@@ -103,7 +103,7 @@
       "type": "cli",
       "slug": "cli",
       "name": "OpenPost CLI",
-      "docs": "https://docs.openpost.social/cli/",
+      "docs": "https://docs.openpo.st/cli/",
       "packages": [
         {
           "registryType": "other",
@@ -113,7 +113,7 @@
       "command": "openpost",
       "basis": {
         "via": "declared",
-        "source": "https://openpost.social/.well-known/integrations.json"
+        "source": "https://openpo.st/.well-known/integrations.json"
       },
       "auth": {
         "status": "required",
@@ -124,13 +124,13 @@
                 "id": "openpost_api_token",
                 "mechanics": {
                   "source": "cli",
-                  "command": "openpost auth login https://app.openpost.social"
+                  "command": "openpost auth login https://app.openpo.st"
                 }
               }
             ],
             "basis": {
               "via": "declared",
-              "source": "https://openpost.social/.well-known/integrations.json"
+              "source": "https://openpo.st/.well-known/integrations.json"
             }
           }
         ]

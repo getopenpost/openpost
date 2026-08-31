@@ -33,28 +33,28 @@ const apiCatalog = JSON.parse(
 assert.deepEqual(apiCatalog, {
 	linkset: [
 		{
-			anchor: 'https://app.openpost.social/api/v1',
+			anchor: 'https://app.openpo.st/api/v1',
 			'service-desc': [
 				{
-					href: 'https://docs.openpost.social/openapi.json',
+					href: 'https://docs.openpo.st/openapi.json',
 					type: 'application/vnd.oai.openapi+json;version=3.1'
 				}
 			],
 			'service-doc': [
 				{
-					href: 'https://docs.openpost.social/development/api-reference',
+					href: 'https://docs.openpo.st/development/api-reference',
 					type: 'text/html'
 				}
 			],
 			status: [
 				{
-					href: 'https://app.openpost.social/api/v1/ready',
+					href: 'https://app.openpo.st/api/v1/ready',
 					type: 'application/json'
 				}
 			],
 			item: [
 				{
-					href: 'https://app.openpost.social/mcp'
+					href: 'https://app.openpo.st/mcp'
 				}
 			]
 		}
@@ -81,7 +81,7 @@ assert.ok(
 	integrations.surfaces.every(
 		(surface) =>
 			surface.basis.via === 'declared' &&
-			surface.basis.source === 'https://openpost.social/.well-known/integrations.json'
+			surface.basis.source === 'https://openpo.st/.well-known/integrations.json'
 	)
 );
 
@@ -89,10 +89,10 @@ const mcpServerCard = JSON.parse(
 	await readFile(path.join(outputRoot, '.well-known', 'mcp', 'server-card.json'), 'utf8')
 );
 assert.deepEqual(mcpServerCard, {
-	url: 'https://app.openpost.social/mcp',
+	url: 'https://app.openpo.st/mcp',
 	authentication: {
 		type: 'oauth2',
-		authorization_server: 'https://app.openpost.social'
+		authorization_server: 'https://app.openpo.st'
 	}
 });
 

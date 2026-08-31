@@ -26,7 +26,7 @@ describe("documentation telemetry", () => {
       VITE_POSTHOG_UI_HOST: "https://us.posthog.com",
     });
 
-    expect(error).toContain("https://cool.openpost.social");
+    expect(error).toContain("https://cool.openpo.st");
   });
 
   test("allows local development without public telemetry configuration", () => {

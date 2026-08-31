@@ -5,6 +5,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const requiredCompatibilityEntryIDs = [
+  "hostname.app-legacy",
+  "hostname.media-legacy",
+  "hostname.public-redirects",
+  "hostname.telemetry-legacy",
   "rest.accounts.destination-options",
   "rest.accounts.mastodon-servers",
   "rest.auth.oidc-logout",
@@ -24,7 +28,7 @@ const stableVersionPattern = /^v\d+\.\d+\.\d+$/u;
 const commitPattern = /^[a-f0-9]{40}$/u;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/u;
 const allowedEntryStatuses = new Set(["retained", "deprecated", "removed"]);
-const allowedEntryKinds = new Set(["rest", "schema"]);
+const allowedEntryKinds = new Set(["hostname", "rest", "schema"]);
 const allowedReplacementStatuses = new Set(["none", "candidate", "available"]);
 const allowedConsumerStatuses = new Set([
   "pending",
@@ -316,6 +320,24 @@ export function validateCompatibilityRegistry(registry, openapi, now = new Date(
     ) {
       problems.push(`${label} needs schema members and no REST operations`);
     }
+    if (entry.kind === "hostname") {
+      const hostnames = entry.hostnames ?? [];
+      if (hostnames.length === 0 || new Set(hostnames).size !== hostnames.length) {
+        problems.push(`${label} needs a non-empty unique hostname list`);
+      }
+      for (const hostname of hostnames) {
+        if (!/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/u.test(hostname)) {
+          problems.push(`${label} has invalid hostname ${JSON.stringify(hostname)}`);
+        }
+      }
+      const minimumUntil = entry.compatibility?.minimum_until;
+      if (minimumUntil !== null && !validDate(minimumUntil)) {
+        problems.push(`${label} compatibility minimum_until must be an ISO date or null`);
+      }
+      if (!String(entry.compatibility?.retirement_condition ?? "").trim()) {
+        problems.push(`${label} needs a compatibility retirement condition`);
+      }
+    }
 
     const expectedTelemetryPaths = new Set();
     for (const operation of entry.operations ?? []) {
@@ -372,13 +394,25 @@ export function validateCompatibilityRegistry(registry, openapi, now = new Date(
         problems.push(`${label} retained schema member ${memberID} is absent from OpenAPI`);
       }
     }
-    const actualTelemetryPaths = new Set(entry.telemetry?.route_patterns ?? []);
-    if (actualTelemetryPaths.size === 0) {
-      problems.push(`${label} needs at least one normalized telemetry route`);
-    }
-    for (const telemetryPath of expectedTelemetryPaths) {
-      if (!actualTelemetryPaths.has(telemetryPath)) {
-        problems.push(`${label} telemetry is missing ${telemetryPath}`);
+    if (entry.kind === "hostname") {
+      const telemetryHosts = new Set(entry.telemetry?.hostnames ?? []);
+      if (telemetryHosts.size === 0) {
+        problems.push(`${label} needs at least one telemetry hostname`);
+      }
+      for (const hostname of entry.hostnames ?? []) {
+        if (!telemetryHosts.has(hostname)) {
+          problems.push(`${label} telemetry is missing ${hostname}`);
+        }
+      }
+    } else {
+      const actualTelemetryPaths = new Set(entry.telemetry?.route_patterns ?? []);
+      if (actualTelemetryPaths.size === 0) {
+        problems.push(`${label} needs at least one normalized telemetry route`);
+      }
+      for (const telemetryPath of expectedTelemetryPaths) {
+        if (!actualTelemetryPaths.has(telemetryPath)) {
+          problems.push(`${label} telemetry is missing ${telemetryPath}`);
+        }
       }
     }
     for (const consumerClass of requiredConsumers) {

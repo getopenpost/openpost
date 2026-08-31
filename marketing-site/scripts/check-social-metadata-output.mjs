@@ -48,7 +48,7 @@ for (const entry of marketingSocialEntries) {
 	if (count(html, 'property="og:image"') !== 1) {
 		problems.push(`${entry.path}: expected exactly one og:image tag`);
 	}
-	if (!image.startsWith('https://openpost.social/og?')) {
+	if (!image.startsWith('https://openpo.st/og?')) {
 		problems.push(`${entry.path}: does not use the on-demand OG endpoint`);
 	}
 }

@@ -38,7 +38,7 @@
 		online,
 		onBack,
 		onRetry,
-		documentationURL = 'https://docs.openpost.social/usage/',
+		documentationURL = 'https://docs.openpo.st/usage/',
 		supportURL = 'mailto:openpost@rgo.pt',
 		links = {
 			home: '/',

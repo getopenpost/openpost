@@ -6,16 +6,16 @@ describe('OpenPost Image Editor background removal', () => {
 		expect(
 			resolveBackgroundRemovalPublicPath(
 				'/image-editor-models/',
-				'https://app.openpost.social/image-editor/design-1'
+				'https://app.example.com/image-editor/design-1'
 			)
-		).toBe('https://app.openpost.social/image-editor-models/');
+		).toBe('https://app.example.com/image-editor-models/');
 	});
 
 	it('normalizes operator overrides with a trailing slash', () => {
 		expect(
 			resolveBackgroundRemovalPublicPath(
 				'https://models.example.test/openpost',
-				'https://app.openpost.social/'
+				'https://app.example.com/'
 			)
 		).toBe('https://models.example.test/openpost/');
 	});

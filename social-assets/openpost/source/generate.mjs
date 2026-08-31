@@ -249,7 +249,7 @@ function portraitCard(spec, colors) {
       ${textBlock({ text: spec.title, x: pad, y: spec.height * 0.28, size: spec.width * 0.082, lineHeight: spec.width * 0.083, widthChars: 19, fill: colors.ink, maxLines: 4 })}
       <rect x="${pad}" y="${spec.height * 0.62}" width="${spec.width - pad * 2}" height="${spec.height * 0.26}" rx="28" fill="${colors.surface}" stroke="${colors.border}" />
       ${activityGrid(colors, { x: pad * 1.45, y: spec.height * 0.67, columns: 12, rows: 5, size: spec.width * 0.039, gap: spec.width * 0.017 })}
-      <text x="${pad}" y="${spec.height * 0.95}" fill="${colors.muted}" font-family="Geist" font-size="${spec.width * 0.022}">openpost.social</text>`,
+      <text x="${pad}" y="${spec.height * 0.95}" fill="${colors.muted}" font-family="Geist" font-size="${spec.width * 0.022}">openpo.st</text>`,
     colors,
   );
 }
@@ -302,7 +302,7 @@ function story(spec, colors) {
         return `<circle cx="${spec.width * 0.19}" cy="${y}" r="${spec.width * 0.023}" fill="${index === 3 ? colors.orange : colors.surface}" stroke="${index === 3 ? colors.orange : colors.border}" stroke-width="4" /><text x="${spec.width * 0.27}" y="${y + spec.width * 0.009}" fill="${colors.ink}" font-family="Geist" font-size="${spec.width * 0.034}" font-weight="620">${step}</text>`;
       }).join("")}
       ${activityGrid(colors, { x: spec.width * 0.54, y: spec.height * 0.60, columns: 7, rows: 8, size: spec.width * 0.047, gap: spec.width * 0.018 })}
-      <text x="${pad}" y="${spec.height * 0.94}" fill="${colors.muted}" font-family="Geist" font-size="${spec.width * 0.026}">openpost.social</text>`,
+      <text x="${pad}" y="${spec.height * 0.94}" fill="${colors.muted}" font-family="Geist" font-size="${spec.width * 0.026}">openpo.st</text>`,
     colors,
   );
 }
@@ -342,7 +342,7 @@ const assets = [
   { id: "02-start-with-work", group: "carousel", width: 1080, height: 1350, type: "carousel", slide: 2, theme: "light", label: "Capture", title: "Start with the work.", body: "Bring a launch, product update, lesson, or idea into one shared source.", platform: "Carousel slide", alt: "Start with a launch, product update, lesson, or idea." },
   { id: "03-shape-every-channel", group: "carousel", width: 1080, height: 1350, type: "carousel", slide: 3, theme: "light", label: "Adapt", title: "Shape it for every channel.", body: "Keep the core idea, then change the copy, media, format, and settings each destination needs.", platform: "Carousel slide", alt: "Shape one core idea for every social channel." },
   { id: "04-keep-moving", group: "carousel", width: 1080, height: 1350, type: "carousel", slide: 4, theme: "light", label: "Publish", title: "Keep the campaign moving.", body: "Schedule the next wave, see every result, and retry only the posts that need attention.", platform: "Carousel slide", alt: "Schedule content, see every result, and retry only what needs attention." },
-  { id: "05-publish-everywhere", group: "carousel", width: 1080, height: 1350, type: "carousel", slide: 5, theme: "dark", label: "OpenPost", title: "Publish clearly.", body: "Turn what you’re building into content, adapt it for each destination, and keep every result together. openpost.social", platform: "Carousel slide", alt: "Publish clearly with OpenPost." },
+  { id: "05-publish-everywhere", group: "carousel", width: 1080, height: 1350, type: "carousel", slide: 5, theme: "dark", label: "OpenPost", title: "Publish clearly.", body: "Turn what you’re building into content, adapt it for each destination, and keep every result together. openpo.st", platform: "Carousel slide", alt: "Publish clearly with OpenPost." },
   { id: "workflow-story-light", group: "stories", width: 1080, height: 1920, type: "story", theme: "light", title: "Publish clearly.", platform: "Story or Reel cover", alt: "OpenPost workflow: capture, shape, schedule, and track." },
   { id: "workflow-story-dark", group: "stories", width: 1080, height: 1920, type: "story", theme: "dark", title: "Publish clearly.", platform: "Story or Reel cover", alt: "OpenPost workflow on a dark background: capture, shape, schedule, and track." },
   { id: "blank-square-light", group: "templates", width: 1080, height: 1080, type: "template", theme: "light", platform: "Editable square template", alt: "Blank light OpenPost square template." },

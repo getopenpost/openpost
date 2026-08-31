@@ -67,7 +67,7 @@ test("binds proof to the exact clean local revision", () => {
 });
 
 test("requires each Markdown artifact to name its exact canonical HTML URL", () => {
-  const canonical = "https://docs.openpost.social/usage/";
+  const canonical = "https://docs.openpo.st/usage/";
   assert.equal(
     assertCanonicalProvenance(
       `Title: Usage\nCanonical: ${canonical}\n`,
@@ -79,31 +79,27 @@ test("requires each Markdown artifact to name its exact canonical HTML URL", () 
   assert.throws(
     () =>
       assertCanonicalProvenance(
-        "Canonical: https://docs.openpost.social/other\n",
+        "Canonical: https://docs.openpo.st/other\n",
         canonical,
         "usage/index.md",
       ),
     /does not name its exact canonical URL/u,
   );
   assert.equal(
-    assertCanonicalProvenance(
-      "Canonical: https://openpost.social/\n",
-      "https://openpost.social",
-      "index.md",
-    ),
-    "Canonical: https://openpost.social/",
+    assertCanonicalProvenance("Canonical: https://openpo.st/\n", "https://openpo.st", "index.md"),
+    "Canonical: https://openpo.st/",
   );
   for (const normalizedButNotExact of [
-    "https://docs.openpost.social/usage/./composing-posts",
-    "https://DOCS.openpost.social/usage/composing-posts",
-    "https://docs.openpost.social:443/usage/composing-posts",
+    "https://docs.openpo.st/usage/./composing-posts",
+    "https://DOCS.openpo.st/usage/composing-posts",
+    "https://docs.openpo.st:443/usage/composing-posts",
     "not a URL",
   ]) {
     assert.throws(
       () =>
         assertCanonicalProvenance(
           `Canonical: ${normalizedButNotExact}\n`,
-          "https://docs.openpost.social/usage/composing-posts",
+          "https://docs.openpo.st/usage/composing-posts",
           "usage/composing-posts.md",
         ),
       /does not name its exact canonical URL/u,
@@ -118,11 +114,11 @@ test("requires a bounded observation-only 24-hour AI crawl snapshot", () => {
     window_end: "2026-08-14T13:50:27Z",
     window_hours: 24,
     source: "Cloudflare GraphQL Analytics API",
-    scope: ["openpost.social", "docs.openpost.social"],
+    scope: ["openpo.st", "docs.openpo.st"],
     method: "documented crawler user-agent patterns",
     requests: 3,
     response_statuses: { 200: 1, 404: 2 },
-    requests_by_host: { "openpost.social": 2, "docs.openpost.social": 1 },
+    requests_by_host: { "openpo.st": 2, "docs.openpo.st": 1 },
     user_agent_matching_spoofable: true,
     crawler_identity_proven: false,
     release_kpi: false,
@@ -142,7 +138,7 @@ test("requires a bounded observation-only 24-hour AI crawl snapshot", () => {
     () =>
       validateAICrawlSnapshot({
         ...snapshot,
-        requests_by_host: { ...snapshot.requests_by_host, "openpost.social": 1 },
+        requests_by_host: { ...snapshot.requests_by_host, "openpo.st": 1 },
       }),
     /host total must equal requests/u,
   );
@@ -153,38 +149,30 @@ test("reads explicit Markdown and intentional native links from discovery files"
     linksFromMarkdown(`
 # OpenPost
 
-- [Guide](https://docs.openpost.social/usage/index.md)
-- [OpenAPI](https://docs.openpost.social/openapi.json): authoritative JSON.
+- [Guide](https://docs.openpo.st/usage/index.md)
+- [OpenAPI](https://docs.openpo.st/openapi.json): authoritative JSON.
 
 Ignore https://example.com/bare and [local](./local.md).
 `),
-    [
-      "https://docs.openpost.social/usage/index.md",
-      "https://docs.openpost.social/openapi.json",
-      "./local.md",
-    ],
+    ["https://docs.openpo.st/usage/index.md", "https://docs.openpo.st/openapi.json", "./local.md"],
   );
 });
 
 test("rejects HTML and external links from indexes and the full corpus", () => {
   const known = new Set([
-    "https://docs.openpost.social/usage/accounts.md",
-    "https://docs.openpost.social/llms-full.txt",
+    "https://docs.openpo.st/usage/accounts.md",
+    "https://docs.openpo.st/llms-full.txt",
   ]);
   assert.doesNotThrow(() =>
     validateMachineLinks(
       "corpus",
-      "[Accounts](https://docs.openpost.social/usage/accounts.md)\n![Image](https://docs.openpost.social/assets/image.png)\n[API](https://docs.openpost.social/openapi.json)",
+      "[Accounts](https://docs.openpo.st/usage/accounts.md)\n![Image](https://docs.openpo.st/assets/image.png)\n[API](https://docs.openpo.st/openapi.json)",
       known,
     ),
   );
   assert.throws(
     () =>
-      validateMachineLinks(
-        "corpus",
-        "[Accounts](https://docs.openpost.social/usage/accounts)",
-        known,
-      ),
+      validateMachineLinks("corpus", "[Accounts](https://docs.openpo.st/usage/accounts)", known),
     /non-resolving or non-machine/u,
   );
   assert.throws(
@@ -216,21 +204,17 @@ test("the live sample plan covers every required public category and machine bou
     ],
   );
   assert.deepEqual(samples.native, [
-    ["OpenAPI", "https://docs.openpost.social/openapi.json", "application/json"],
-    ["MCP", "https://app.openpost.social/mcp", "application/json"],
-    ["marketing asset", "https://openpost.social/assets/brand/logo.svg", "image/svg+xml"],
-    [
-      "documentation asset",
-      "https://docs.openpost.social/assets/screenshots/main-dark.png",
-      "image/png",
-    ],
+    ["OpenAPI", "https://docs.openpo.st/openapi.json", "application/json"],
+    ["MCP", "https://app.openpo.st/mcp", "application/json"],
+    ["marketing asset", "https://openpo.st/assets/brand/logo.svg", "image/svg+xml"],
+    ["documentation asset", "https://docs.openpo.st/assets/screenshots/main-dark.png", "image/png"],
   ]);
 });
 
 test("proves status, media type, exact content, query isolation, and redirect behavior", async () => {
   const responses = new Map([
     [
-      "https://openpost.social/features.md",
+      "https://openpo.st/features.md",
       response(200, "text/markdown; charset=utf-8", "# Features\n"),
     ],
     [
@@ -238,13 +222,13 @@ test("proves status, media type, exact content, query isolation, and redirect be
       response(200, "text/markdown; charset=utf-8", "# Features\n"),
     ],
     [
-      "https://openpost.social/features.md?openpost_proof=query-isolation",
+      "https://openpo.st/features.md?openpost_proof=query-isolation",
       response(200, "text/markdown; charset=utf-8", "# Features\n"),
     ],
     [
-      "https://openpost.social/features/?openpost_proof=redirect",
+      "https://openpo.st/features/?openpost_proof=redirect",
       response(308, "text/html; charset=UTF-8", "", {
-        location: "https://openpost.social/features?openpost_proof=redirect",
+        location: "https://openpo.st/features?openpost_proof=redirect",
       }),
     ],
   ]);
@@ -260,7 +244,7 @@ test("proves status, media type, exact content, query isolation, and redirect be
       {
         kind: "artifact",
         name: "marketing core",
-        canonicalURL: "https://openpost.social/features.md",
+        canonicalURL: "https://openpo.st/features.md",
         deploymentURL: "https://deployment.example/features.md",
         contentType: "text/markdown; charset=utf-8",
         expectedBody: "# Features\n",
@@ -269,7 +253,7 @@ test("proves status, media type, exact content, query isolation, and redirect be
       {
         kind: "redirect",
         name: "marketing canonical redirect",
-        url: "https://openpost.social/features/?openpost_proof=redirect",
+        url: "https://openpo.st/features/?openpost_proof=redirect",
         status: 308,
         location: "/features?openpost_proof=redirect",
       },
@@ -279,7 +263,7 @@ test("proves status, media type, exact content, query isolation, and redirect be
   assert.equal(result.length, 2);
   assert.equal(result[0].sha256.length, 64);
   assert.equal(result[0].query_isolated, true);
-  assert.equal(result[1].location, "https://openpost.social/features?openpost_proof=redirect");
+  assert.equal(result[1].location, "https://openpo.st/features?openpost_proof=redirect");
 });
 
 test("fails when a query changes generated content", async () => {
@@ -295,7 +279,7 @@ test("fails when a query changes generated content", async () => {
         {
           kind: "artifact",
           name: "query isolation",
-          canonicalURL: "https://openpost.social/index.md",
+          canonicalURL: "https://openpo.st/index.md",
           contentType: "text/markdown; charset=utf-8",
           expectedBody: "stable",
           queryIsolation: true,

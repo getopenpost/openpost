@@ -45,7 +45,7 @@
 							kind: 'link',
 							title: 'OpenPost',
 							description: platform.preview.detail,
-							domain: 'openpost.social'
+							domain: 'openpo.st'
 						}
 					: undefined,
 			title: platform.slug === 'youtube' ? platform.preview.headline : undefined,

@@ -31,7 +31,7 @@
 			<div class="demo-frame">
 				<div class="frame-bar" aria-hidden="true">
 					<span></span><span></span><span></span>
-					<strong>openpost.social / product tour</strong>
+					<strong>openpo.st / product tour</strong>
 				</div>
 				<Dialog.Trigger>
 					{#snippet child({ props })}

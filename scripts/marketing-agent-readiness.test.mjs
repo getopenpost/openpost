@@ -40,13 +40,13 @@ test("public crawler policy explicitly permits search, AI input, and model train
 test("structured data joins each page to the product, site, and real operator", () => {
   const about = structuredDataForMarketingPage(resolveMarketingSocial("/about"));
   const graph = about["@graph"];
-  const page = graph.find((entry) => entry["@id"] === "https://openpost.social/about#webpage");
-  const software = graph.find((entry) => entry["@id"] === "https://openpost.social/#software");
-  const source = graph.find((entry) => entry["@id"] === "https://openpost.social/#source");
-  const operator = graph.find((entry) => entry["@id"] === "https://openpost.social/#operator");
+  const page = graph.find((entry) => entry["@id"] === "https://openpo.st/about#webpage");
+  const software = graph.find((entry) => entry["@id"] === "https://openpo.st/#software");
+  const source = graph.find((entry) => entry["@id"] === "https://openpo.st/#source");
+  const operator = graph.find((entry) => entry["@id"] === "https://openpo.st/#operator");
 
   assert.equal(page["@type"], "AboutPage");
-  assert.deepEqual(page.about, { "@id": "https://openpost.social/#software" });
+  assert.deepEqual(page.about, { "@id": "https://openpo.st/#software" });
   assert.equal(software.name, "OpenPost");
   assert.equal(software.operatingSystem, "Web, Android");
   assert.deepEqual(software.sameAs, ["https://github.com/getopenpost/openpost"]);
@@ -54,12 +54,10 @@ test("structured data joins each page to the product, site, and real operator", 
   assert.deepEqual(source.runtimePlatform, ["Web", "Linux", "Android"]);
   assert.equal(operator.name, "Rodrigo Dias");
   assert.equal(operator.homeLocation.address.addressCountry, "PT");
-  assert.equal(operator.contactPoint.url, "https://openpost.social/contact");
+  assert.equal(operator.contactPoint.url, "https://openpo.st/contact");
 
   const faq = structuredDataForMarketingPage(resolveMarketingSocial("/faq"));
-  const faqPage = faq["@graph"].find(
-    (entry) => entry["@id"] === "https://openpost.social/faq#webpage",
-  );
+  const faqPage = faq["@graph"].find((entry) => entry["@id"] === "https://openpo.st/faq#webpage");
   assert.equal(faqPage["@type"], "FAQPage");
   assert.ok(faqPage.mainEntity.length >= 7);
   assert.equal(faqPage.mainEntity[0].acceptedAnswer["@type"], "Answer");

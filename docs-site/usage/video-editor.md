@@ -1,6 +1,6 @@
 # OpenPost Video Editor
 
-OpenPost Video Editor is a local-first multitrack editor for social video. Open [app.openpost.social/video-editor](https://app.openpost.social/video-editor) in current Chrome or Edge, choose a folder on your computer, and create a project. Editing does not require an account and does not add a watermark.
+OpenPost Video Editor is a local-first multitrack editor for social video. Open [app.openpo.st/video-editor](https://app.openpo.st/video-editor) in current Chrome or Edge, choose a folder on your computer, and create a project. Editing does not require an account and does not add a watermark.
 
 Use [Quick Cut](/usage/quick-cut) when you only need to remove ranges without changing the picture or mix. Use the [Recorder](/usage/recording) to capture a screen, camera, or microphone before editing.
 

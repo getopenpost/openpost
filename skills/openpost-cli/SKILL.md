@@ -16,7 +16,7 @@ Use the `openpost` executable as an external client of a running OpenPost instan
    openpost version
    ```
 
-   If it is missing, stop and point to `https://docs.openpost.social/cli/installation`. Do not install software unless the user asked.
+   If it is missing, stop and point to `https://docs.openpo.st/cli/installation`. Do not install software unless the user asked.
 
 2. Inspect context before a workspace-scoped action:
 

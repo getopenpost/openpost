@@ -11,7 +11,7 @@
 	} from '@lucide/svelte';
 	import { appUrl } from '../../_marketing';
 
-	const imageEditorURL = `${appUrl}/image-editor?utm_source=openpost.social&utm_medium=free-tool&utm_campaign=public-image-editor`;
+	const imageEditorURL = `${appUrl}/image-editor?utm_source=openpo.st&utm_medium=free-tool&utm_campaign=public-image-editor`;
 	const formats = [
 		{ label: 'Square post', size: '1080 × 1080', ratio: '1 / 1' },
 		{ label: 'Portrait post', size: '1080 × 1350', ratio: '4 / 5' },

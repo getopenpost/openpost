@@ -10,7 +10,7 @@ OpenPost gives the agent workspace context without handing it social-provider cr
 
 Hosted service or self-hosted. Same AGPL product.
 
-https://openpost.social
+https://openpo.st
 
 `[ATTACH THE VERIFIED DEMO OR CAROUSEL]`
 

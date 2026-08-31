@@ -73,7 +73,7 @@ func TestBillingCheckoutCommand(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&checkoutBody); err != nil {
 				t.Fatalf("decode checkout body: %v", err)
 			}
-			_, _ = w.Write([]byte(`{"id":"chkat_1","url":"https://app.openpost.social/checkout?billing_period=annual&plan=founder","plan_id":"founder","billing_period":"annual","provider_price_id":"pri_founder_year"}`))
+			_, _ = w.Write([]byte(`{"id":"chkat_1","url":"https://app.openpo.st/checkout?billing_period=annual&plan=founder","plan_id":"founder","billing_period":"annual","provider_price_id":"pri_founder_year"}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -99,7 +99,7 @@ func TestBillingCheckoutCommand(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &got); err != nil {
 		t.Fatalf("decode json output: %v\noutput:\n%s", err, out)
 	}
-	if got["id"] != "chkat_1" || got["url"] != "https://app.openpost.social/checkout?billing_period=annual&plan=founder" || got["billing_period"] != "annual" {
+	if got["id"] != "chkat_1" || got["url"] != "https://app.openpo.st/checkout?billing_period=annual&plan=founder" || got["billing_period"] != "annual" {
 		t.Fatalf("checkout output = %#v", got)
 	}
 }

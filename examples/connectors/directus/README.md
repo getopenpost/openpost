@@ -4,8 +4,8 @@ This sidecar implements OpenPost Connector Protocol 1.0 and creates one Directus
 
 The full setup guide covers collection permissions, secret files, network policy, connection, duplicate-write checks, and troubleshooting:
 
-- [Custom connectors](https://docs.openpost.social/configuration/custom-connectors)
-- [Connector Protocol 1.0](https://docs.openpost.social/development/connector-protocol)
+- [Custom connectors](https://docs.openpo.st/configuration/custom-connectors)
+- [Connector Protocol 1.0](https://docs.openpo.st/development/connector-protocol)
 
 Create a Directus collection with these fields:
 

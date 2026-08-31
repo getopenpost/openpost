@@ -27,7 +27,7 @@ for (const file of files) {
     'property="og:image:width" content="1200"',
     'property="og:image:height" content="630"',
     'name="twitter:card" content="summary_large_image"',
-    "https://openpost.social/og?",
+    "https://openpo.st/og?",
   ]) {
     if (!html.includes(expected)) problems.push(`${route}: missing ${expected}`);
   }

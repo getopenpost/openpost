@@ -464,8 +464,8 @@ jobs:
         shell: bash
         run: |
           for _ in $(seq 1 60); do
-            info=$(curl --fail --silent --connect-timeout 2 --max-time 5 https://app.openpost.social/api/v1/version 2>/dev/null || true)
-            ready=$(curl --fail --silent --connect-timeout 2 --max-time 5 https://app.openpost.social/api/v1/ready 2>/dev/null || true)
+            info=$(curl --fail --silent --connect-timeout 2 --max-time 5 https://app.openpo.st/api/v1/version 2>/dev/null || true)
+            ready=$(curl --fail --silent --connect-timeout 2 --max-time 5 https://app.openpo.st/api/v1/ready 2>/dev/null || true)
             revision=$(jq -r '.revision // empty' <<<"$info" 2>/dev/null || true)
             version=$(jq -r '.version // empty' <<<"$info" 2>/dev/null || true)
             readiness=$(jq -r '.status // empty' <<<"$ready" 2>/dev/null || true)
@@ -640,7 +640,7 @@ jobs:
                         },
                         {
                           name: "Use OpenPost",
-                          value: "[Open the app](https://app.openpost.social) · [Self-host](https://docs.openpost.social/guide/quickstart)",
+                          value: "[Open the app](https://app.openpo.st) · [Self-host](https://docs.openpo.st/guide/quickstart)",
                           inline: true
                         }
                       ],

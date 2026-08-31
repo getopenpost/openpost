@@ -3,8 +3,8 @@ import { docsRouteFromPage } from "./docs-route.js";
 
 export { docsRouteFromPage } from "./docs-route.js";
 
-export const marketingSiteUrl = "https://openpost.social";
-export const docsSiteUrl = "https://docs.openpost.social";
+export const marketingSiteUrl = "https://openpo.st";
+export const docsSiteUrl = "https://docs.openpo.st";
 export const socialRendererVersion = "2";
 
 export function socialImageUrl(entry) {

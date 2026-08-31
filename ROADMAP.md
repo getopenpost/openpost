@@ -22,7 +22,7 @@ OpenPost is a social publishing product with a managed service and a self-hosted
 ## Current Priorities
 
 1. **Hosted operations**
-   - Keep `openpost.social`, `docs.openpost.social`, and `app.openpost.social` independently monitored and verified after changes.
+   - Keep `openpo.st`, `docs.openpo.st`, and `app.openpo.st` independently monitored and verified after changes.
    - Keep the managed deployment on cloud mode, Postgres, S3/R2 media, Paddle billing, readiness probes, backups, and tested recovery.
    - Repeat database, media, and secrets restore drills as the hosted data model changes.
 

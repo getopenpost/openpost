@@ -188,13 +188,15 @@ delegated operation catalog; clients call it only when they want the Apps UI.
 
 The `version` in the repository's `server.json` belongs to the immutable **Official MCP Registry listing**. It is not the OpenPost application version and it is not the date-based MCP protocol version negotiated during `initialize`. The application reports its release through `/api/v1/version`; each MCP session reports and validates its negotiated protocol version separately.
 
-OpenPost changes the registry version only when it publishes a new registry entry for the Hosted service `https://app.openpost.social/mcp` endpoint. Registry versions use stable semantic versioning:
+OpenPost changes the registry version only when it publishes a new registry entry for the Hosted service `https://app.openpo.st/mcp` endpoint. Registry versions use stable semantic versioning:
 
 - Major: an intentionally incompatible transport, authentication, tool-name, required-input, or result-contract change.
 - Minor: a backward-compatible tool, prompt, resource, optional input, or result addition.
 - Patch: metadata, description, example, or other behavior-preserving correction.
 
-Every published registry version is immutable. `server.json` and the live-publication record in `launch-kit/listings.md` must therefore keep the same exact version, and the repository check rejects ranges, prereleases, a changed Hosted service endpoint, or unexplained version drift. Application releases that do not publish a new MCP Registry entry leave this number unchanged.
+Every published registry version is immutable. During a coordinated endpoint migration, `server.json` and `launch-kit/listings.md` may identify the same prepared version before publication. The listing must state that it is prepared, name the publication blocker, and preserve the currently published version. After publication, replace that preparation note with the live registry evidence. The repository check rejects ranges, prereleases, a changed Hosted service endpoint, or unexplained version drift.
+
+The move from `app.openpost.social` to `app.openpo.st` changes the OAuth issuer and resource audience. Clients with credentials bound to the old audience must reconnect to `https://app.openpo.st/mcp`. The old endpoint remains available during the compatibility window, but it advertises the new canonical metadata and does not promise that old-audience credentials remain valid.
 
 The registry identity remains `io.github.rodrgds/openpost` after the source repository moved to `getopenpost/openpost`. Registry names identify immutable published records; the `repository.url` field points clients to the current organization-owned source.
 

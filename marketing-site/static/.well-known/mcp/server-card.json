@@ -1,7 +1,7 @@
 {
-  "url": "https://app.openpost.social/mcp",
+  "url": "https://app.openpo.st/mcp",
   "authentication": {
     "type": "oauth2",
-    "authorization_server": "https://app.openpost.social"
+    "authorization_server": "https://app.openpo.st"
   }
 }

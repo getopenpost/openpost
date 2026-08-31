@@ -15,6 +15,7 @@ import (
 	databasemigrations "github.com/openpost/backend/internal/database/migrations"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
+	accountpreflightservice "github.com/openpost/backend/internal/services/accountpreflight"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	billingservice "github.com/openpost/backend/internal/services/billing"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
@@ -72,6 +73,7 @@ type BackgroundWorker struct {
 	video                 *videoprocessing.Service
 	growth                *growthservice.Service
 	publicationBuilder    *publicationbuilder.Application
+	accountPreflight      *accountpreflightservice.Service
 	telemetry             telemetry.Recorder
 	executors             map[jobregistry.ExecutionKind]jobExecutor
 	done                  chan struct{}
@@ -193,6 +195,16 @@ func (w *BackgroundWorker) SetPublicationBuilderService(service *publicationbuil
 
 func (w *BackgroundWorker) SetTelemetry(recorder telemetry.Recorder) {
 	w.telemetry = recorder
+}
+
+func (w *BackgroundWorker) SetAccountPreflightService(service *accountpreflightservice.Service) {
+	w.accountPreflight = service
+	w.executors[jobregistry.ExecuteScheduledAccountCheck] = func(ctx context.Context, job *models.Job) error {
+		if w.accountPreflight == nil {
+			return fmt.Errorf("scheduled account preflight is not configured")
+		}
+		return w.accountPreflight.HandleJob(ctx, job.Type)
+	}
 }
 
 func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Service, tokens *tokenmanager.TokenManager, storage mediastore.BlobStorage) *BackgroundWorker {

@@ -33,6 +33,7 @@ import (
 	operationallogging "github.com/openpost/backend/internal/operational/logging"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/queue"
+	accountpreflightservice "github.com/openpost/backend/internal/services/accountpreflight"
 	"github.com/openpost/backend/internal/services/aiprompts"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	"github.com/openpost/backend/internal/services/apitokens"
@@ -504,6 +505,7 @@ func main() {
 	notificationService := notifications.NewService(db, notifications.Options{
 		EmailDelivery: authMailSender, Encryptor: tokenEncryptor, PublicURL: cfg.PublicURL,
 	})
+	accountPreflightService := accountpreflightservice.NewService(db, tokenManager, notificationService)
 	publishSvc.SetNotificationService(notificationService)
 	publishSvc.SetRepostScheduler(repostService)
 	engagementService := engagementservice.NewService(db, tokenManager, notificationService)
@@ -520,6 +522,7 @@ func main() {
 		}
 		repostService.SetProvider(name, adapter)
 		growthService.SetProvider(name, adapter)
+		accountPreflightService.SetProvider(name, adapter)
 	}
 	for _, source := range cfg.AnalyticsSources {
 		adapter, err := analyticsservice.NewExternalAnalyticsAdapter(source.Platform, source.BaseURL, source.BearerToken)
@@ -680,6 +683,7 @@ func main() {
 		worker.SetVideoProcessingService(videoProcessingService)
 		worker.SetGrowthService(growthService)
 		worker.SetPublicationBuilderService(publicationBuilderApplication)
+		worker.SetAccountPreflightService(accountPreflightService)
 		worker.SetTelemetry(telemetryRecorder)
 		if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
 			log.Fatalf("failed to schedule pending video analysis: %v", err)
@@ -695,6 +699,9 @@ func main() {
 		}
 		if err := repostService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
 			log.Fatalf("failed to schedule repost automation: %v", err)
+		}
+		if err := accountPreflightService.Schedule(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule upcoming account checks: %v", err)
 		}
 	}
 
@@ -822,6 +829,7 @@ func main() {
 			},
 			repostService.SetProvider,
 			growthService.SetProvider,
+			accountPreflightService.SetProvider,
 		},
 		MastodonAppService:           mastodonAppService,
 		FrontendURL:                  cfg.FrontendURL,

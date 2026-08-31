@@ -32,6 +32,7 @@ const (
 	TypeGrowthDiscovery         = "growth_discovery"
 	TypeGrowthFollow            = "growth_follow"
 	TypePublicationBuild        = "publication_build"
+	TypeScheduledAccountCheck   = "scheduled_account_preflight"
 )
 
 // ExecutionKind selects the injected implementation for a registered Job.
@@ -55,6 +56,7 @@ const (
 	ExecuteVideo                 ExecutionKind = "video"
 	ExecuteGrowth                ExecutionKind = "growth"
 	ExecutePublicationBuild      ExecutionKind = "publication_build"
+	ExecuteScheduledAccountCheck ExecutionKind = "scheduled_account_preflight"
 )
 
 // FailurePolicy describes how the runtime interprets an execution error.
@@ -143,6 +145,11 @@ var definitions = map[string]Definition{
 		Type: TypePublicationBuild, DefaultMaxAttempts: 2,
 		Execution: ExecutePublicationBuild, Failure: FailureDefault, Recovery: RecoveryRequeue,
 		identity: publicationBuildIdentity,
+	},
+	TypeScheduledAccountCheck: {
+		Type: TypeScheduledAccountCheck, DefaultMaxAttempts: 3, Recurrence: 15 * time.Minute,
+		Execution: ExecuteScheduledAccountCheck, Failure: FailureProviderRead, Recovery: RecoveryRequeue,
+		FailureMessage: "A scheduled account check failed. OpenPost will retry without changing the account connection.",
 	},
 }
 

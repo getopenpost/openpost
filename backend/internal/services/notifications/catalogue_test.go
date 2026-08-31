@@ -178,3 +178,35 @@ func TestFrontendPresentationIsExhaustiveForBackendTopicsInEnglishAndPortuguese(
 		}
 	}
 }
+
+func TestScheduledAccountWarningNamesTheRiskAndAction(t *testing.T) {
+	outcome, err := NewAccountNeedsAttentionOutcome(AccountAttentionFacts{
+		RecipientUserID: "user-1", WorkspaceID: "workspace-1", AccountID: "account-1",
+		PublicationID: "publication-1", Provider: "x", AccountLabel: "Founder", ScheduledAtRisk: true,
+	})
+	require.NoError(t, err)
+
+	materialized, err := materializeOutcome(outcome.notificationOutcome())
+	require.NoError(t, err)
+	require.Equal(t, "Scheduled publication at risk", materialized.Title)
+	require.Equal(t, "Reconnect this account before the next scheduled publication.", materialized.Body)
+	require.Equal(t, "/settings?tab=accounts", materialized.Href)
+}
+
+func TestScheduledAccountWarningDeduplicatesOneScheduleOccurrence(t *testing.T) {
+	makeOutcome := func(occurrence string) Outcome {
+		outcome, err := NewAccountNeedsAttentionOutcome(AccountAttentionFacts{
+			RecipientUserID: "user-1", WorkspaceID: "workspace-1", AccountID: "account-1",
+			PublicationID: "publication-1", Provider: "x", AccountLabel: "Founder",
+			ScheduledAtRisk: true, ScheduleOccurrence: occurrence,
+		})
+		require.NoError(t, err)
+		return outcome
+	}
+
+	first := makeOutcome("1:2026-08-31T13:00:00Z").notificationOutcome()
+	retry := makeOutcome("1:2026-08-31T13:00:00Z").notificationOutcome()
+	rescheduled := makeOutcome("2:2026-09-01T13:00:00Z").notificationOutcome()
+	require.Equal(t, first.eventID, retry.eventID)
+	require.NotEqual(t, first.eventID, rescheduled.eventID)
+}

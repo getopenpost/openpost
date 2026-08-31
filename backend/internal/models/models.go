@@ -1047,6 +1047,10 @@ type SocialAccount struct {
 	GrantedScopes       string    `bun:"granted_scopes,notnull,default:''" json:"granted_scopes,omitempty"`
 	CapabilityState     string    `bun:"capability_state_json,notnull,default:'{}'" json:"-"`
 	CapabilityCheckedAt time.Time `bun:"capability_checked_at,nullzero" json:"-"`
+	PreflightCheckedAt  time.Time `bun:"preflight_checked_at,nullzero" json:"-"`
+	PreflightSuccessAt  time.Time `bun:"preflight_success_at,nullzero" json:"-"`
+	PreflightWarnedAt   time.Time `bun:"preflight_warned_at,nullzero" json:"-"`
+	PreflightFailure    string    `bun:"preflight_failure,notnull,default:''" json:"-"`
 
 	IsActive        bool      `bun:",default:true" json:"is_active"`
 	ErrorMessage    string    `json:"error_message"`

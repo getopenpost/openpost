@@ -1316,6 +1316,8 @@ func ensureOAuthGrantSchema(ctx context.Context, db *bun.DB) error {
 func backfillLegacyOAuthGrants(ctx context.Context, db *bun.DB) error {
 	var accounts []models.SocialAccount
 	if err := db.NewSelect().Model(&accounts).
+		Column("id", "workspace_id", "platform", "account_id", "instance_url", "oauth_grant_id").
+		Column("access_token_encrypted", "refresh_token_encrypted", "token_expires_at", "granted_scopes", "created_at").
 		Where("oauth_grant_id = '' OR oauth_grant_id IS NULL").
 		Order("created_at ASC", "id ASC").
 		Scan(ctx); err != nil {
@@ -2126,7 +2128,9 @@ func accountFeatureTablesReady(ctx context.Context, db *bun.DB) (bool, error) {
 
 func loadAccountsForBackfill(ctx context.Context, db *bun.DB) ([]models.SocialAccount, error) {
 	var accounts []models.SocialAccount
-	if err := db.NewSelect().Model(&accounts).Order("created_at ASC", "id ASC").Scan(ctx); err != nil {
+	if err := db.NewSelect().Model(&accounts).
+		Column("id", "workspace_id", "platform", "capability_state_json", "created_at").
+		Order("created_at ASC", "id ASC").Scan(ctx); err != nil {
 		return nil, err
 	}
 	return accounts, nil

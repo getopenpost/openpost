@@ -131,7 +131,9 @@ func exerciseOAuthGrantMigrations(t *testing.T, db *bun.DB) {
 	require.NoError(t, ensureOAuthGrantSchema(ctx, db), "finalization must be idempotent")
 
 	var account models.SocialAccount
-	require.NoError(t, db.NewSelect().Model(&account).Where("id = ?", legacy.ID).Scan(ctx))
+	require.NoError(t, db.NewSelect().Model(&account).
+		Column("id", "oauth_grant_id", "access_token_encrypted", "refresh_token_encrypted", "token_expires_at").
+		Where("id = ?", legacy.ID).Scan(ctx))
 	require.Equal(t, "legacy:"+legacy.ID, account.OAuthGrantID)
 	require.Empty(t, account.AccessTokenEnc)
 	require.Empty(t, account.RefreshTokenEnc)

@@ -55,7 +55,7 @@ If `redirect_uri` is omitted, OpenPost derives it from `OPENPOST_APP_URL`.
 
 ## Analytics
 
-Analytics is an optional feature per connected YouTube channel. It starts off for a new account. Enable it after connection or in Account details. OpenPost collects channel subscribers, video count, and channel views plus published-video views, likes, and comments when enabled. Google may omit hidden subscriber counts. Accounts without `youtube.readonly` may need to reconnect. Disabling Analytics stops future YouTube analytics collection without deleting stored metrics or revoking authorization.
+Analytics is an optional feature per connected YouTube channel. It starts off for a new account. Enable it after connection or in Account details. OpenPost keeps Data API channel and video counters labeled as lifetime values. Separate, date-bounded YouTube Analytics reports collect views, watch time, average view duration, average viewed percentage, subscriber gains and losses, likes, comments, and shares when Google returns those columns. Accounts connected before the `yt-analytics.readonly` scope was added must reconnect. Disabling Analytics stops future YouTube analytics collection without deleting stored metrics or revoking authorization.
 
 Direct messages, Comments and replies, and Analytics are optional and per connected account. Disabling a feature stops future provider reads and writes without deleting history or revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts.
 

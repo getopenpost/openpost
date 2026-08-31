@@ -361,10 +361,13 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if err != nil {
 		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
+	now := s.now()
 	request := platform.AccountAnalyticsRequest{
-		AccountID:       account.AccountID,
-		GrantedScopes:   strings.Fields(account.GrantedScopes),
-		CapabilityState: analyticsCapabilityState(account.CapabilityState),
+		AccountID:            account.AccountID,
+		GrantedScopes:        strings.Fields(account.GrantedScopes),
+		CapabilityState:      analyticsCapabilityState(account.CapabilityState),
+		ReportingPeriodStart: now.AddDate(0, 0, -30),
+		ReportingPeriodEnd:   now,
 	}
 	values, metadata, err := fetchAccountMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {
@@ -422,15 +425,22 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	if err != nil {
 		return err
 	}
+	now := s.now()
+	reportingStart := publishedAt
+	if !reportingStart.Before(now) {
+		reportingStart = now.AddDate(0, 0, -1)
+	}
 	request := platform.ContentAnalyticsRequest{
-		AccountID:          account.AccountID,
-		ExternalIDs:        externalIDs,
-		ProviderReferences: providerReferences,
-		Profile:            rendition.Profile,
-		OutputProfile:      rendition.OutputProfile,
-		PublishedAt:        publishedAt,
-		GrantedScopes:      strings.Fields(account.GrantedScopes),
-		OwnReplyCount:      max(0, len(externalIDs)-1),
+		AccountID:            account.AccountID,
+		ExternalIDs:          externalIDs,
+		ProviderReferences:   providerReferences,
+		Profile:              rendition.Profile,
+		OutputProfile:        rendition.OutputProfile,
+		PublishedAt:          publishedAt,
+		ReportingPeriodStart: reportingStart,
+		ReportingPeriodEnd:   now,
+		GrantedScopes:        strings.Fields(account.GrantedScopes),
+		OwnReplyCount:        max(0, len(externalIDs)-1),
 	}
 	values, metadata, err := fetchContentMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {

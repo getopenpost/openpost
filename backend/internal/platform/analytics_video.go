@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const tiktokVideoQueryURL = "https://open.tiktokapis.com/v2/video/query/?fields=id,like_count,comment_count,share_count,view_count"
@@ -119,10 +121,30 @@ func tiktokAnalyticsError(code string) error {
 	return NewAnalyticsError(status, code)
 }
 
+const (
+	youtubeAnalyticsAPIBaseURL   = "https://youtubeanalytics.googleapis.com/v2"
+	youtubeAnalyticsReadScope    = "https://www.googleapis.com/auth/yt-analytics.readonly"
+	youtubeAnalyticsMetricSource = "youtube_analytics_api"
+)
+
+var youtubeAnalyticsReportMetrics = []string{
+	"views",
+	"estimatedMinutesWatched",
+	"averageViewDuration",
+	"averageViewPercentage",
+	"subscribersGained",
+	"subscribersLost",
+	"likes",
+	"comments",
+	"shares",
+}
+
 func (y *YouTubeAdapter) AnalyticsSupport() AnalyticsSupport {
 	return AnalyticsSupport{
-		Account: true,
-		Content: true,
+		Account:               true,
+		Content:               true,
+		AccountRequiredScopes: []string{youtubeAnalyticsReadScope},
+		ContentRequiredScopes: []string{youtubeAnalyticsReadScope},
 	}
 }
 
@@ -197,6 +219,192 @@ func (y *YouTubeAdapter) FetchContentAnalytics(ctx context.Context, accessToken 
 		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "content_not_found")
 	}
 	return total, nil
+}
+
+func (y *YouTubeAdapter) FetchAccountAnalyticsMeasurements(ctx context.Context, accessToken string, input AccountAnalyticsRequest) (AnalyticsMeasurements, error) {
+	lifetime, err := y.FetchAccountAnalytics(ctx, accessToken, input)
+	if err != nil {
+		return nil, err
+	}
+	measurements := youtubeLifetimeMeasurements(lifetime, AnalyticsMetricSubjectAccount)
+	report, err := y.fetchYouTubeAnalyticsReport(ctx, accessToken, input.ReportingPeriodStart, input.ReportingPeriodEnd, nil)
+	if err != nil {
+		return nil, err
+	}
+	addAnalyticsMeasurements(measurements, report)
+	return measurements, nil
+}
+
+func (y *YouTubeAdapter) FetchContentAnalyticsMeasurements(ctx context.Context, accessToken string, input ContentAnalyticsRequest) (AnalyticsMeasurements, error) {
+	lifetime, err := y.FetchContentAnalytics(ctx, accessToken, input)
+	if err != nil {
+		return nil, err
+	}
+	measurements := youtubeLifetimeMeasurements(lifetime, AnalyticsMetricSubjectContent)
+	report, err := y.fetchYouTubeAnalyticsReport(ctx, accessToken, input.ReportingPeriodStart, input.ReportingPeriodEnd, uniqueNonEmpty(input.ExternalIDs))
+	if err != nil {
+		return nil, err
+	}
+	addAnalyticsMeasurements(measurements, report)
+	return measurements, nil
+}
+
+func youtubeLifetimeMeasurements(values AnalyticsValues, subject string) AnalyticsMeasurements {
+	measurements := make(AnalyticsMeasurements, len(values))
+	for metric, value := range values {
+		aggregation := AnalyticsMetricAggregationLifetimeTotal
+		if subject == AnalyticsMetricSubjectAccount && (metric == MetricFollowers || metric == MetricPosts) {
+			aggregation = AnalyticsMetricAggregationCurrentSnapshot
+		}
+		measurements[metric] = AnalyticsMeasurement{
+			Value: value,
+			AnalyticsMetricMetadata: AnalyticsMetricMetadata{
+				Unit:        AnalyticsMetricUnitCount,
+				Aggregation: aggregation,
+				Source:      youtubeDataAPIMetricSource,
+			},
+		}
+	}
+	return measurements
+}
+
+func addAnalyticsMeasurements(target, source AnalyticsMeasurements) {
+	for metric, measurement := range source {
+		target[metric] = measurement
+	}
+}
+
+func (y *YouTubeAdapter) fetchYouTubeAnalyticsReport(
+	ctx context.Context,
+	accessToken string,
+	start, end time.Time,
+	videoIDs []string,
+) (AnalyticsMeasurements, error) {
+	start = start.UTC()
+	end = end.UTC()
+	if start.IsZero() || end.IsZero() || !start.Before(end) {
+		return nil, NewAnalyticsError(AnalyticsStatusFailed, "invalid_reporting_period")
+	}
+	query := url.Values{
+		"ids":       {"channel==MINE"},
+		"startDate": {start.Format(time.DateOnly)},
+		"endDate":   {end.Format(time.DateOnly)},
+		"metrics":   {strings.Join(youtubeAnalyticsReportMetrics, ",")},
+	}
+	if len(videoIDs) > 0 {
+		query.Set("filters", "video=="+strings.Join(videoIDs, ","))
+	}
+	response, err := doYouTubeRequest(ctx, http.MethodGet, youtubeAnalyticsAPIBaseURL+"/reports?"+query.Encode(), nil, bearerHeaders(accessToken))
+	if err != nil {
+		return nil, fmt.Errorf("youtube analytics report: %w", err)
+	}
+	if response.statusCode < http.StatusOK || response.statusCode >= http.StatusMultipleChoices {
+		return nil, youtubeAnalyticsError(response)
+	}
+	measurements, err := decodeYouTubeAnalyticsReport(response.body, start, end)
+	if err != nil {
+		return nil, fmt.Errorf("decoding youtube analytics report: %w", err)
+	}
+	return measurements, nil
+}
+
+type youtubeAnalyticsReportResponse struct {
+	ColumnHeaders []struct {
+		Name string `json:"name"`
+	} `json:"columnHeaders"`
+	Rows [][]json.RawMessage `json:"rows"`
+}
+
+func decodeYouTubeAnalyticsReport(body []byte, start, end time.Time) (AnalyticsMeasurements, error) {
+	var report youtubeAnalyticsReportResponse
+	if err := json.Unmarshal(body, &report); err != nil {
+		return nil, err
+	}
+	measurements := AnalyticsMeasurements{}
+	if len(report.Rows) == 0 {
+		return measurements, nil
+	}
+	row := report.Rows[0]
+	for column, header := range report.ColumnHeaders {
+		if column >= len(row) || string(row[column]) == "null" {
+			continue
+		}
+		value, err := strconv.ParseFloat(strings.Trim(string(row[column]), `"`), 64)
+		if err != nil || math.IsNaN(value) || math.IsInf(value, 0) {
+			continue
+		}
+		metric, normalized, unit, aggregation, ok := normalizeYouTubeAnalyticsMetric(header.Name, value)
+		if !ok {
+			continue
+		}
+		periodStart, periodEnd := start, end
+		measurements[metric] = AnalyticsMeasurement{
+			Value: normalized,
+			AnalyticsMetricMetadata: AnalyticsMetricMetadata{
+				Unit:        unit,
+				Aggregation: aggregation,
+				Source:      youtubeAnalyticsMetricSource,
+				PeriodStart: &periodStart,
+				PeriodEnd:   &periodEnd,
+			},
+		}
+	}
+	return measurements, nil
+}
+
+func normalizeYouTubeAnalyticsMetric(name string, value float64) (string, int64, AnalyticsMetricUnit, AnalyticsMetricAggregation, bool) {
+	metric := ""
+	multiplier := float64(1)
+	unit := AnalyticsMetricUnitCount
+	aggregation := AnalyticsMetricAggregationReportingPeriodTotal
+	switch name {
+	case "views":
+		metric = MetricReportViews
+	case "estimatedMinutesWatched":
+		metric = MetricEstimatedWatchTime
+		multiplier = 60_000
+		unit = AnalyticsMetricUnitMilliseconds
+	case "averageViewDuration":
+		metric = MetricAverageViewDuration
+		multiplier = 1_000
+		unit = AnalyticsMetricUnitMilliseconds
+		aggregation = AnalyticsMetricAggregationReportingPeriodAverage
+	case "averageViewPercentage":
+		metric = MetricAverageViewPercentage
+		multiplier = 100
+		unit = AnalyticsMetricUnitBasisPoints
+		aggregation = AnalyticsMetricAggregationReportingPeriodAverage
+	case "subscribersGained":
+		metric = MetricSubscribersGained
+	case "subscribersLost":
+		metric = MetricSubscribersLost
+	case "likes":
+		metric = MetricReportLikes
+	case "comments":
+		metric = MetricReportComments
+	case "shares":
+		metric = MetricReportShares
+	default:
+		return "", 0, "", "", false
+	}
+	return metric, int64(math.Round(value * multiplier)), unit, aggregation, true
+}
+
+func youtubeAnalyticsError(response *youtubeHTTPResponse) error {
+	code := strings.TrimSpace(youtubeErrorReason(response.body))
+	if !safeProviderCode.MatchString(code) {
+		code = "provider_request_failed"
+	}
+	status := AnalyticsStatusFailed
+	switch response.statusCode {
+	case http.StatusUnauthorized, http.StatusForbidden:
+		status = AnalyticsStatusPermissionRequired
+	case http.StatusTooManyRequests:
+		status = AnalyticsStatusRateLimited
+	case http.StatusNotFound:
+		status = AnalyticsStatusNotFound
+	}
+	return NewAnalyticsError(status, code)
 }
 
 func addStringMetric(values AnalyticsValues, metric, raw string) {

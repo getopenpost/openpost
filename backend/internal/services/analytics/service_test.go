@@ -301,6 +301,29 @@ func (f *fakeAnalyticsAdapter) FetchContentAnalytics(context.Context, string, pl
 	return f.content, f.contentErr
 }
 
+func TestYouTubeLifetimeAndReportingMetricsAreIncompatibleForAggregation(t *testing.T) {
+	periodStart := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	periodEnd := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	values := platform.AnalyticsValues{
+		platform.MetricViews:       900,
+		platform.MetricReportViews: 120,
+	}
+	metadata := map[string]platform.AnalyticsMetricMetadata{
+		platform.MetricViews: {
+			Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
+			Source: "youtube_data_api",
+		},
+		platform.MetricReportViews: {
+			Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal,
+			Source: "youtube_analytics_api", PeriodStart: &periodStart, PeriodEnd: &periodEnd,
+		},
+	}
+
+	compatible := compatibleContentValues(values, metadata)
+	require.Equal(t, platform.AnalyticsValues{platform.MetricViews: 900}, compatible)
+	require.NotContains(t, compatible, platform.MetricReportViews)
+}
+
 func TestSemanticMeasurementsRoundTripAndIncompatibleMetricsDoNotAggregate(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	ctx := context.Background()

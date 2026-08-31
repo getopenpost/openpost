@@ -1614,6 +1614,7 @@ func youtubeScopes() []string {
 		"https://www.googleapis.com/auth/userinfo.profile",
 		"https://www.googleapis.com/auth/userinfo.email",
 		"https://www.googleapis.com/auth/youtube.readonly",
+		youtubeAnalyticsReadScope,
 		"https://www.googleapis.com/auth/youtube.upload",
 		"https://www.googleapis.com/auth/youtube",
 	}

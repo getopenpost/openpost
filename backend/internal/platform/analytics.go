@@ -36,6 +36,16 @@ const (
 	MetricImpressions = "impressions"
 	MetricReach       = "reach"
 	MetricClicks      = "clicks"
+
+	MetricReportViews           = "report_views"
+	MetricEstimatedWatchTime    = "estimated_watch_time"
+	MetricAverageViewDuration   = "average_view_duration"
+	MetricAverageViewPercentage = "average_view_percentage"
+	MetricSubscribersGained     = "subscribers_gained"
+	MetricSubscribersLost       = "subscribers_lost"
+	MetricReportLikes           = "report_likes"
+	MetricReportComments        = "report_comments"
+	MetricReportShares          = "report_shares"
 )
 
 // AnalyticsValues is deliberately open-ended. Providers expose different
@@ -68,20 +78,24 @@ type AccountAnalyticsSupportResolver interface {
 }
 
 type AccountAnalyticsRequest struct {
-	AccountID       string
-	GrantedScopes   []string
-	CapabilityState map[string]string
+	AccountID            string
+	GrantedScopes        []string
+	CapabilityState      map[string]string
+	ReportingPeriodStart time.Time
+	ReportingPeriodEnd   time.Time
 }
 
 type ContentAnalyticsRequest struct {
-	AccountID          string
-	ExternalIDs        []string
-	ProviderReferences []string
-	Profile            string
-	OutputProfile      string
-	PublishedAt        time.Time
-	GrantedScopes      []string
-	OwnReplyCount      int
+	AccountID            string
+	ExternalIDs          []string
+	ProviderReferences   []string
+	Profile              string
+	OutputProfile        string
+	PublishedAt          time.Time
+	ReportingPeriodStart time.Time
+	ReportingPeriodEnd   time.Time
+	GrantedScopes        []string
+	OwnReplyCount        int
 }
 
 // AnalyticsAdapter is optional so publishing remains independent from

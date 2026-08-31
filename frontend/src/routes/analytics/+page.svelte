@@ -31,7 +31,11 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
-	import { hasEngagementMeasurement, type AnalyticsSortMode } from '$lib/analytics-overview';
+	import {
+		hasEngagementMeasurement,
+		measuredMetricKeys,
+		type AnalyticsSortMode
+	} from '$lib/analytics-overview';
 	import {
 		allFeatureEffectiveDisabled,
 		collectiveDisabledReason,
@@ -422,14 +426,86 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			.map((metric) => ({ ...metric, value: metrics[metric.key] ?? 0 }));
 	}
 
+	function semanticMetricLabel(item: AnalyticsContent, key: string, label: string) {
+		const aggregation = item.metric_metadata?.[key]?.aggregation;
+		if (aggregation === 'lifetime_total') {
+			return m.analytics_lifetime_metric({ metric: label });
+		}
+		if (aggregation === 'reporting_period_total' || aggregation === 'reporting_period_average') {
+			return m.analytics_reporting_period_metric({ metric: label });
+		}
+		return label;
+	}
+
+	function semanticMetricValue(item: AnalyticsContent, key: string, value: number) {
+		const unit = item.metric_metadata?.[key]?.unit;
+		if (unit === 'basis_points') {
+			return new Intl.NumberFormat(getLocaleTag(), {
+				style: 'percent',
+				minimumFractionDigits: 0,
+				maximumFractionDigits: 2
+			}).format(value / 10_000);
+		}
+		if (unit === 'milliseconds') {
+			const seconds = value / 1000;
+			if (seconds < 60) return `${formatNumber(seconds)}s`;
+			return `${formatNumber(seconds / 60)} min`;
+		}
+		return formatNumber(value);
+	}
+
+	function semanticMetricTitle(item: AnalyticsContent, key: string) {
+		const metadata = item.metric_metadata?.[key];
+		if (!metadata) return undefined;
+		const period =
+			metadata.period_start && metadata.period_end
+				? `${formatDate(metadata.period_start)} – ${formatDate(metadata.period_end)}`
+				: '';
+		return [period, metadata.source].filter(Boolean).join(' · ') || undefined;
+	}
+
 	function renditionExposure(item: AnalyticsContent) {
 		const measured = Object.fromEntries(Object.keys(item.metrics).map((metric) => [metric, 1]));
-		return exposureMetrics(item.metrics, measured);
+		return exposureMetrics(item.metrics, measured).map((metric) => ({
+			...metric,
+			label: semanticMetricLabel(item, metric.key, metric.label)
+		}));
 	}
 
 	function renditionEngagement(item: AnalyticsContent) {
 		const measured = Object.fromEntries(Object.keys(item.metrics).map((metric) => [metric, 1]));
-		return engagementMetrics(item.metrics, measured);
+		return engagementMetrics(item.metrics, measured).map((metric) => ({
+			...metric,
+			label: semanticMetricLabel(item, metric.key, metric.label)
+		}));
+	}
+
+	function renditionReportMetrics(item: AnalyticsContent) {
+		const definitions = [
+			{ key: 'report_views', label: m.analytics_views() },
+			{ key: 'estimated_watch_time', label: m.analytics_watch_time() },
+			{ key: 'average_view_duration', label: m.analytics_average_view_duration() },
+			{ key: 'average_view_percentage', label: m.analytics_average_view_percentage() },
+			{ key: 'subscribers_gained', label: m.analytics_subscribers_gained() },
+			{ key: 'subscribers_lost', label: m.analytics_subscribers_lost() },
+			{ key: 'report_likes', label: m.analytics_likes() },
+			{ key: 'report_comments', label: m.analytics_comments() },
+			{ key: 'report_shares', label: m.analytics_shares() }
+		];
+		const measured = new Set(
+			measuredMetricKeys(
+				item.metrics,
+				definitions.map(({ key }) => key)
+			)
+		);
+		return definitions
+			.filter(({ key }) => measured.has(key))
+			.map(({ key, label }) => ({
+				key,
+				label: semanticMetricLabel(item, key, label),
+				value: semanticMetricValue(item, key, item.metrics[key] ?? 0),
+				title: semanticMetricTitle(item, key)
+			}));
 	}
 
 	function exposureMetrics(metrics: Record<string, number>, measured: Record<string, number>) {
@@ -942,6 +1018,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 											{#each renditions as rendition (rendition.rendition_id)}
 												{@const renditionExposures = renditionExposure(rendition)}
 												{@const renditionEngagementMetrics = renditionEngagement(rendition)}
+												{@const renditionReports = renditionReportMetrics(rendition)}
 												{@const account = renditionAccount(rendition)}
 												<div
 													class="grid min-w-0 gap-3 border-b border-border py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
@@ -978,15 +1055,21 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 																: '—'}
 														</span>
 														{#each renditionExposures as metric (metric.key)}
-															<span>
+															<span title={semanticMetricTitle(rendition, metric.key)}>
 																<span class="text-muted-foreground">{metric.label}:</span>
-																{formatNumber(metric.value)}
+																{semanticMetricValue(rendition, metric.key, metric.value)}
 															</span>
 														{/each}
 														{#each renditionEngagementMetrics as metric (metric.key)}
-															<span>
+															<span title={semanticMetricTitle(rendition, metric.key)}>
 																<span class="text-muted-foreground">{metric.label}:</span>
-																{formatNumber(metric.value)}
+																{semanticMetricValue(rendition, metric.key, metric.value)}
+															</span>
+														{/each}
+														{#each renditionReports as metric (metric.key)}
+															<span title={metric.title}>
+																<span class="text-muted-foreground">{metric.label}:</span>
+																{metric.value}
 															</span>
 														{/each}
 														{#if rendition.external_url}

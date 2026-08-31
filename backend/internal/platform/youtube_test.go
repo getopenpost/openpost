@@ -37,6 +37,20 @@ func TestYouTubeGenerateAuthURL(t *testing.T) {
 	if !strings.Contains(query.Get("scope"), "https://www.googleapis.com/auth/youtube") {
 		t.Fatalf("expected youtube management scope for playlists, got %q", query.Get("scope"))
 	}
+	if !strings.Contains(query.Get("scope"), youtubeAnalyticsReadScope) {
+		t.Fatalf("expected youtube analytics scope, got %q", query.Get("scope"))
+	}
+}
+
+func TestYouTubeAnalyticsSupportRequiresReconnectForOldGrants(t *testing.T) {
+	support := NewYouTubeAdapter("", "", "").AnalyticsSupport()
+	oldGrant := "https://www.googleapis.com/auth/youtube https://www.googleapis.com/auth/youtube.readonly"
+	if missing := MissingAnalyticsScopes(oldGrant, support.AccountRequiredScopes); len(missing) != 1 || missing[0] != youtubeAnalyticsReadScope {
+		t.Fatalf("old grant should require analytics reconnect, got %v", missing)
+	}
+	if missing := MissingAnalyticsScopes(oldGrant, support.ContentRequiredScopes); len(missing) != 1 || missing[0] != youtubeAnalyticsReadScope {
+		t.Fatalf("old content grant should require analytics reconnect, got %v", missing)
+	}
 }
 
 func TestYouTubeGetProfileIncludesGooglePicture(t *testing.T) {
@@ -858,6 +872,85 @@ func TestYouTubeDiscoversBoundedUploadsPlaylistPages(t *testing.T) {
 	}
 	if channelCalls != 1 || playlistCalls != 2 {
 		t.Fatalf("expected playlist identity to persist in the cursor, calls=%d/%d", channelCalls, playlistCalls)
+	}
+}
+
+func TestYouTubeAnalyticsReportUsesExplicitDatesAndSemanticUnits(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	start := time.Date(2026, 1, 2, 8, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 2, 3, 9, 0, 0, 0, time.UTC)
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Host {
+		case "www.googleapis.com":
+			return jsonResponse(req, `{"items":[{"statistics":{"subscriberCount":"66","videoCount":"7","viewCount":"900"}}]}`), nil
+		case "youtubeanalytics.googleapis.com":
+			query := req.URL.Query()
+			if query.Get("startDate") != "2026-01-02" || query.Get("endDate") != "2026-02-03" {
+				t.Fatalf("report dates were not explicit: %s", req.URL.RawQuery)
+			}
+			if query.Get("ids") != "channel==MINE" || query.Get("metrics") != strings.Join(youtubeAnalyticsReportMetrics, ",") {
+				t.Fatalf("unexpected report query: %s", req.URL.RawQuery)
+			}
+			return jsonResponse(req, `{
+				"columnHeaders":[
+					{"name":"views"},{"name":"estimatedMinutesWatched"},{"name":"averageViewDuration"},
+					{"name":"averageViewPercentage"},{"name":"subscribersGained"},{"name":"subscribersLost"},
+					{"name":"likes"},{"name":"comments"},{"name":"shares"}
+				],
+				"rows":[[120,2.5,12.345,42.125,8,3,10,4,2]]
+			}`), nil
+		default:
+			t.Fatalf("unexpected request %s", req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	measurements, err := NewYouTubeAdapter("", "", "").FetchAccountAnalyticsMeasurements(context.Background(), "token", AccountAnalyticsRequest{
+		AccountID: "channel-1", ReportingPeriodStart: start, ReportingPeriodEnd: end,
+	})
+	if err != nil {
+		t.Fatalf("youtube semantic analytics returned error: %v", err)
+	}
+	if measurements[MetricEstimatedWatchTime].Value != 150_000 || measurements[MetricAverageViewDuration].Value != 12_345 {
+		t.Fatalf("watch time and duration were not normalized to milliseconds: %#v", measurements)
+	}
+	if measurements[MetricAverageViewPercentage].Value != 4_213 {
+		t.Fatalf("average percentage was not normalized to basis points: %#v", measurements[MetricAverageViewPercentage])
+	}
+	if measurements[MetricViews].Aggregation != AnalyticsMetricAggregationLifetimeTotal || measurements[MetricViews].Source != youtubeDataAPIMetricSource {
+		t.Fatalf("Data API views lost lifetime semantics: %#v", measurements[MetricViews])
+	}
+	if measurements[MetricReportViews].Aggregation != AnalyticsMetricAggregationReportingPeriodTotal || measurements[MetricReportViews].Source != youtubeAnalyticsMetricSource {
+		t.Fatalf("report views lost period semantics: %#v", measurements[MetricReportViews])
+	}
+	if !measurements[MetricReportViews].PeriodStart.Equal(start) || !measurements[MetricReportViews].PeriodEnd.Equal(end) {
+		t.Fatalf("report period was not preserved: %#v", measurements[MetricReportViews])
+	}
+}
+
+func TestYouTubeAnalyticsReportPreservesMissingColumns(t *testing.T) {
+	body := []byte(`{
+		"columnHeaders":[{"name":"views"},{"name":"averageViewPercentage"},{"name":"comments"}],
+		"rows":[[0,50.5,null]]
+	}`)
+	start := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC)
+	measurements, err := decodeYouTubeAnalyticsReport(body, start, end)
+	if err != nil {
+		t.Fatalf("decode report: %v", err)
+	}
+	if value, ok := measurements[MetricReportViews]; !ok || value.Value != 0 {
+		t.Fatalf("explicit zero report views should remain measured: %#v", measurements)
+	}
+	if _, ok := measurements[MetricReportComments]; ok {
+		t.Fatalf("null report column must remain missing: %#v", measurements)
+	}
+	for _, absent := range []string{MetricEstimatedWatchTime, MetricAverageViewDuration, MetricSubscribersGained, MetricSubscribersLost, MetricReportLikes, MetricReportShares} {
+		if _, ok := measurements[absent]; ok {
+			t.Fatalf("absent report column %q became measured: %#v", absent, measurements)
+		}
 	}
 }
 

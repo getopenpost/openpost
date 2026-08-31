@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { hasEngagementMeasurement } from './analytics-overview';
+import { hasEngagementMeasurement, measuredMetricKeys } from './analytics-overview';
 
 describe('analytics overview helpers', () => {
 	it('distinguishes an explicit zero measurement from a missing metric', () => {
@@ -20,5 +20,16 @@ describe('analytics overview helpers', () => {
 		};
 		expect(hasEngagementMeasurement(base)).toBe(false);
 		expect(hasEngagementMeasurement({ ...base, metrics: { likes: 0 } })).toBe(true);
+	});
+
+	it('keeps missing report columns absent while preserving measured zero', () => {
+		expect(
+			measuredMetricKeys({ report_views: 0, average_view_percentage: 5050 }, [
+				'report_views',
+				'estimated_watch_time',
+				'average_view_percentage',
+				'report_shares'
+			])
+		).toEqual(['report_views', 'average_view_percentage']);
 	});
 });

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -7,6 +8,7 @@ import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions
 import { keyframeSelectionStore } from '$lib/video-editor/timeline/stores/keyframe-selection-store.svelte';
 import TimelinePanel from './timeline-panel.svelte';
 import { colorStringToKeyframeValue } from '$lib/video-editor/timeline/color-keyframes';
+import { CUSTOM_EASING_PRESETS_STORAGE_KEY } from '$lib/video-editor/timeline/custom-easing-presets';
 
 const videoTrack: TimelineTrack = {
 	id: 'video-track',
@@ -64,6 +66,7 @@ function pointer(
 }
 
 beforeEach(() => {
+	localStorage.removeItem(CUSTOM_EASING_PRESETS_STORAGE_KEY);
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
 	keyframeSelectionStore.clear();
@@ -323,6 +326,230 @@ describe('KeyframeValueGraph', () => {
 		expect(onedit).toHaveBeenCalledOnce();
 	});
 
+	it('mirrors a middle-key tangent into the adjacent segment as one undo step', async () => {
+		const smoothItem = structuredClone(animatedItem);
+		if (!smoothItem.keyframes?.opacity) throw new Error('Expected opacity keyframes');
+		smoothItem.keyframes.opacity.easings = ['cubic-bezier', 'cubic-bezier', 'linear'];
+		smoothItem.keyframes.opacity.easingConfigs = [
+			{ type: 'cubic-bezier', bezier: { x1: 0.25, y1: 0.2, x2: 0.72, y2: 0.8 } },
+			{ type: 'cubic-bezier', bezier: { x1: 0.2, y1: 0.8, x2: 0.4, y2: 1 } },
+			null
+		];
+		timelineStore.setAll({ tracks: [videoTrack], items: [smoothItem], fps: 30 });
+		const onedit = vi.fn();
+		const screen = await render(TimelinePanel, {
+			onedit,
+			selectedItemId: smoothItem.id,
+			selectedItemIds: [smoothItem.id]
+		});
+		await screen.getByRole('button', { name: 'Toggle keyframe value graph' }).click();
+		const middle = screen.container.querySelector<SVGGElement>(
+			'g[aria-label="opacity keyframe at frame 30"]'
+		);
+		middle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await vi.waitFor(() => {
+			expect(
+				screen.container.querySelectorAll('[aria-label="Outgoing easing handle"]')
+			).toHaveLength(2);
+		});
+		const handles = screen.container.querySelectorAll<SVGCircleElement>(
+			'[aria-label="Outgoing easing handle"]'
+		);
+		const handle = handles[1];
+		const svg = screen.container.querySelector<SVGSVGElement>(
+			'svg[aria-label="Editable curves and keyframes"]'
+		);
+		expect(handle && svg).toBeTruthy();
+		if (!handle || !svg) return;
+		const rect = svg.getBoundingClientRect();
+		const x =
+			rect.left + (Number(handle.getAttribute('cx')) / svg.viewBox.baseVal.width) * rect.width;
+		const y =
+			rect.top + (Number(handle.getAttribute('cy')) / svg.viewBox.baseVal.height) * rect.height;
+
+		pointer(handle, 'pointerdown', x, y);
+		pointer(svg, 'pointermove', x + 30, y - 18);
+		pointer(svg, 'pointerup', x + 30, y - 18);
+
+		await vi.waitFor(() => {
+			const configs = timelineStore.itemById.get(smoothItem.id)?.keyframes?.opacity?.easingConfigs;
+			expect(configs?.[1]?.bezier?.x1).toBeGreaterThan(0.2);
+			expect(configs?.[0]?.bezier?.x2).not.toBeCloseTo(0.72);
+			expect(configs?.[0]?.bezier?.y2).not.toBeCloseTo(0.8);
+		});
+		expect(commandHistory.getLastCommandType()).toBe('SET_KEYFRAME_EASINGS');
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(onedit).toHaveBeenCalledOnce();
+	});
+
+	it('discards a bezier preview when pointer capture is lost', async () => {
+		const screen = await render(TimelinePanel, {
+			onedit: vi.fn(),
+			selectedItemId: animatedItem.id,
+			selectedItemIds: [animatedItem.id]
+		});
+		await screen.getByRole('button', { name: 'Toggle keyframe value graph' }).click();
+		const middle = screen.container.querySelector<SVGGElement>(
+			'g[aria-label="opacity keyframe at frame 30"]'
+		);
+		middle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await vi.waitFor(() => {
+			expect(
+				screen.container.querySelector('[aria-label="Outgoing easing handle"]')
+			).not.toBeNull();
+		});
+		const handle = screen.container.querySelector<SVGCircleElement>(
+			'[aria-label="Outgoing easing handle"]'
+		);
+		const svg = screen.container.querySelector<SVGSVGElement>(
+			'svg[aria-label="Editable curves and keyframes"]'
+		);
+		expect(handle && svg).toBeTruthy();
+		if (!handle || !svg) return;
+		const before = JSON.parse(
+			JSON.stringify(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs)
+		);
+		const rect = svg.getBoundingClientRect();
+		const x =
+			rect.left + (Number(handle.getAttribute('cx')) / svg.viewBox.baseVal.width) * rect.width;
+		const y =
+			rect.top + (Number(handle.getAttribute('cy')) / svg.viewBox.baseVal.height) * rect.height;
+
+		pointer(handle, 'pointerdown', x, y);
+		pointer(svg, 'pointermove', x + 24, y - 12);
+		svg.dispatchEvent(new PointerEvent('lostpointercapture', { bubbles: true, pointerId: 13 }));
+
+		expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs).toEqual(
+			before
+		);
+		expect(commandHistory.undoStack).toHaveLength(0);
+	});
+
+	it('previews exact bezier numbers, cancels cleanly, and commits once', async () => {
+		const screen = await render(TimelinePanel, {
+			onedit: vi.fn(),
+			selectedItemId: animatedItem.id,
+			selectedItemIds: [animatedItem.id]
+		});
+		await screen.getByRole('button', { name: 'Toggle keyframe value graph' }).click();
+		const middle = screen.container.querySelector<SVGGElement>(
+			'g[aria-label="opacity keyframe at frame 30"]'
+		);
+		middle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		const pill = screen.container.querySelector<SVGGElement>('[data-segment-easing="30"]');
+		expect(pill).not.toBeNull();
+		pill?.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 21 })
+		);
+		await vi.waitFor(() => {
+			expect(screen.container.querySelector('[data-bezier-gesture]')).not.toBeNull();
+		});
+		const x1 = screen.container.querySelector<HTMLInputElement>(
+			'[data-bezier-gesture] input[type="number"]'
+		);
+		expect(x1).not.toBeNull();
+		if (!x1) return;
+
+		x1.value = '0.61';
+		x1.dispatchEvent(new Event('input', { bubbles: true }));
+		expect(
+			timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs?.[1]?.bezier
+				?.x1
+		).toBe(0.2);
+		x1.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		expect(commandHistory.undoStack).toHaveLength(0);
+		expect(
+			timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs?.[1]?.bezier
+				?.x1
+		).toBe(0.2);
+
+		x1.value = '0.61';
+		x1.dispatchEvent(new Event('input', { bubbles: true }));
+		x1.dispatchEvent(new Event('change', { bubbles: true }));
+		await vi.waitFor(() => {
+			expect(
+				timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs?.[1]?.bezier
+					?.x1
+			).toBe(0.61);
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+	});
+
+	it('keeps every dense segment directly keyboard-reachable while culling labels', async () => {
+		const dense = structuredClone(animatedItem);
+		if (!dense.keyframes?.opacity) throw new Error('Expected opacity keyframes');
+		dense.keyframes.opacity = {
+			frames: Array.from({ length: 20 }, (_, index) => index * 3),
+			values: Array.from({ length: 20 }, (_, index) => (index % 2 === 0 ? 0.2 : 0.8)),
+			ids: Array.from({ length: 20 }, (_, index) => `dense-${index}`),
+			easings: Array.from({ length: 20 }, () => 'linear'),
+			easingConfigs: Array.from({ length: 20 }, () => null)
+		};
+		timelineStore.setAll({ tracks: [videoTrack], items: [dense], fps: 30 });
+		const screen = await render(TimelinePanel, {
+			onedit: vi.fn(),
+			selectedItemId: dense.id,
+			selectedItemIds: [dense.id]
+		});
+		await screen.getByRole('button', { name: 'Toggle keyframe value graph' }).click();
+		const segments = screen.container.querySelectorAll<SVGGElement>('[data-segment-easing]');
+		expect(segments).toHaveLength(19);
+		expect(screen.container.querySelectorAll('[data-segment-easing] rect').length).toBeLessThan(19);
+		const hiddenLabelSegment = Array.from(segments).find(
+			(segment) => !segment.querySelector('rect')
+		);
+		expect(hiddenLabelSegment).toBeDefined();
+		hiddenLabelSegment?.focus();
+		expect(document.activeElement).toBe(hiddenLabelSegment);
+		hiddenLabelSegment?.dispatchEvent(
+			new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+		);
+		await vi.waitFor(() => {
+			expect(screen.container.querySelector('[data-segment-menu]')).not.toBeNull();
+		});
+	});
+
+	it('saves and deletes a named custom easing and surfaces storage failure', async () => {
+		const screen = await render(TimelinePanel, {
+			onedit: vi.fn(),
+			selectedItemId: animatedItem.id,
+			selectedItemIds: [animatedItem.id]
+		});
+		await screen.getByRole('button', { name: 'Toggle keyframe value graph' }).click();
+		const middle = screen.container.querySelector<SVGGElement>(
+			'g[aria-label="opacity keyframe at frame 30"]'
+		);
+		middle?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		const pill = screen.container.querySelector<SVGGElement>('[data-segment-easing="30"]');
+		pill?.dispatchEvent(
+			new PointerEvent('pointerdown', { bubbles: true, button: 0, pointerId: 22 })
+		);
+		await vi.waitFor(() => {
+			expect(screen.container.querySelector('[data-segment-menu]')).not.toBeNull();
+		});
+		const name = screen.getByTestId('segment-preset-name');
+		await name.fill('Precise ease');
+		await screen.getByTestId('segment-preset-save').click();
+		await vi.waitFor(() => {
+			expect(localStorage.getItem(CUSTOM_EASING_PRESETS_STORAGE_KEY)).toContain('Precise ease');
+		});
+		await screen.getByRole('button', { name: 'Delete preset Precise ease' }).click();
+		expect(localStorage.getItem(CUSTOM_EASING_PRESETS_STORAGE_KEY)).toBe('[]');
+
+		const write = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+			throw new DOMException('Quota exceeded', 'QuotaExceededError');
+		});
+		try {
+			await name.fill('Cannot save');
+			await screen.getByTestId('segment-preset-save').click();
+			await expect
+				.element(screen.getByRole('alert'))
+				.toHaveTextContent('The preset could not be saved.');
+		} finally {
+			write.mockRestore();
+		}
+	});
+
 	it('marquee-selects every graph diamond it overlaps', async () => {
 		const screen = await render(TimelinePanel, {
 			onedit: vi.fn(),
@@ -557,7 +784,7 @@ describe('KeyframeValueGraph', () => {
 		expect(pillGroup).not.toBeNull();
 		const pill = pillGroup?.querySelector('rect') ?? pillGroup;
 		expect(pill).not.toBeNull();
-		(pill as HTMLElement)?.dispatchEvent(
+		pill?.dispatchEvent(
 			new PointerEvent('pointerdown', {
 				bubbles: true,
 				button: 0,
@@ -608,6 +835,13 @@ describe('KeyframeValueGraph', () => {
 		expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easings?.[0]).toBe(
 			'spring'
 		);
+		commandHistory.undo();
+		await vi.waitFor(() => {
+			expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easings?.[0]).toBe(
+				'linear'
+			);
+			expect(screen.container.querySelector('[data-spring-gesture]')).toBeNull();
+		});
 	});
 
 	it('moves a selected keyframe with base and fast nudge catalog bindings and one undo', async () => {
@@ -650,6 +884,7 @@ describe('KeyframeValueGraph', () => {
 	});
 
 	it('cancels an active drag on Escape and at 320px keeps controls without overflow', async () => {
+		await page.viewport(320, 700);
 		const screen = await render(TimelinePanel, {
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
@@ -664,7 +899,10 @@ describe('KeyframeValueGraph', () => {
 			'svg[aria-label="Editable curves and keyframes"]'
 		);
 		expect(first && svg && app).not.toBeNull();
-		if (!first || !svg || !app) return;
+		if (!first || !svg || !app) {
+			await page.viewport(1280, 800);
+			return;
+		}
 		const hit = first.querySelector('circle');
 		const rect = svg.getBoundingClientRect();
 		const x =
@@ -673,9 +911,7 @@ describe('KeyframeValueGraph', () => {
 			rect.top + (Number(hit?.getAttribute('cy')) / svg.viewBox.baseVal.height) * rect.height;
 		pointer(first, 'pointerdown', x, y);
 		pointer(svg, 'pointermove', x + rect.width * 0.2, y);
-		// Drag is active - previewValues set, no snap expected for small move, but Escape should cancel
 		await vi.waitFor(() => {
-			// Preview is active (frame would have moved if committed) - check that store not yet committed
 			expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.frames?.[0]).toBe(0);
 		});
 		app.dispatchEvent(
@@ -685,19 +921,35 @@ describe('KeyframeValueGraph', () => {
 			expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.frames?.[0]).toBe(0);
 		});
 		expect(commandHistory.undoStack).toHaveLength(0);
-		// 320px narrow layout - no horizontal overflow
 		const host = screen.container.querySelector<HTMLElement>('[data-keyframe-value-graph]');
 		expect(host).not.toBeNull();
 		if (host) {
-			Object.defineProperty(host, 'getBoundingClientRect', {
-				value: () =>
-					({ width: 320, height: 300, left: 0, top: 0, right: 320, bottom: 300 }) as DOMRect
-			});
-			host.style.width = '320px';
 			await vi.waitFor(() => {
-				expect(host.scrollWidth).toBeLessThanOrEqual(320);
+				expect(host.clientWidth).toBeGreaterThan(0);
+				expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth + 1);
 			});
+			const fitBtn = screen.container.querySelector<HTMLButtonElement>(
+				'button[aria-label="Fit graph to keyframes"]'
+			);
+			expect(fitBtn).not.toBeNull();
+			fitBtn?.focus();
+			expect(document.activeElement).toBe(fitBtn);
+			const pill = screen.container.querySelector<HTMLElement>('[data-segment-easing]');
+			if (pill) {
+				const pillRect = pill.getBoundingClientRect();
+				expect(pillRect.left).toBeGreaterThanOrEqual(-1);
+				expect(pillRect.right).toBeLessThanOrEqual(host.clientWidth + 1);
+				pill.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+				await vi.waitFor(() => {
+					const menu = screen.container.querySelector<HTMLElement>('[data-segment-menu]');
+					expect(menu).not.toBeNull();
+					if (!menu) return;
+					expect(menu.scrollWidth).toBeLessThanOrEqual(menu.clientWidth + 1);
+					expect(menu.getBoundingClientRect().right).toBeLessThanOrEqual(321);
+				});
+			}
 		}
+		await page.viewport(1280, 800);
 	});
 
 	it('spring slider pointerup plus change plus lostpointercapture commits once and stays committed', async () => {
@@ -717,7 +969,7 @@ describe('KeyframeValueGraph', () => {
 		const pillGroup = screen.container.querySelector<HTMLElement>('[data-segment-easing="0"]');
 		expect(pillGroup).not.toBeNull();
 		const pill = pillGroup?.querySelector('rect') ?? pillGroup;
-		(pill as HTMLElement)?.dispatchEvent(
+		pill?.dispatchEvent(
 			new PointerEvent('pointerdown', {
 				bubbles: true,
 				button: 0,
@@ -739,11 +991,12 @@ describe('KeyframeValueGraph', () => {
 		commandHistory.clearHistory();
 		const slider = screen.container.querySelector<HTMLInputElement>('input[type="range"]');
 		expect(slider).not.toBeNull();
+		expect(slider?.max).toBe('1000');
 		// Live preview only: input should not create history
-		slider!.value = '300';
+		slider!.value = '1000';
 		slider!.dispatchEvent(new Event('input', { bubbles: true }));
 		await vi.waitFor(() => {
-			expect(screen.container.textContent).toContain('300');
+			expect(screen.container.textContent).toContain('1000');
 		});
 		expect(commandHistory.undoStack).toHaveLength(0);
 		// Pointerup should not commit (only change does)
@@ -755,7 +1008,7 @@ describe('KeyframeValueGraph', () => {
 			expect(
 				timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs?.[0]?.spring
 					?.tension
-			).toBe(300);
+			).toBe(1000);
 		});
 		expect(commandHistory.undoStack).toHaveLength(1);
 		// Lost capture after commit must be no-op and keep committed value
@@ -764,7 +1017,7 @@ describe('KeyframeValueGraph', () => {
 		expect(
 			timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.easingConfigs?.[0]?.spring
 				?.tension
-		).toBe(300);
+		).toBe(1000);
 		// Also pointercancel after commit is no-op
 		slider!.dispatchEvent(new PointerEvent('pointercancel', { bubbles: true }));
 		expect(commandHistory.undoStack).toHaveLength(1);

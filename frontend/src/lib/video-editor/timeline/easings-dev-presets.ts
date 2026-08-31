@@ -12,12 +12,9 @@ import type {
 } from '$lib/video-editor/project/types';
 import { getBezierPresetForEasing } from './easing-presets';
 
-export interface EasingPreset {
-	name: string;
-	type: 'Easing' | 'Spring';
-	bezier?: BezierControlPoints;
-	spring?: SpringParameters;
-}
+export type EasingPreset =
+	| { name: string; type: 'Easing'; bezier: BezierControlPoints; spring?: never }
+	| { name: string; type: 'Spring'; spring: SpringParameters; bezier?: never };
 
 const bezier = (x1: number, y1: number, x2: number, y2: number): BezierControlPoints => ({
 	x1,

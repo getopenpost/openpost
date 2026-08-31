@@ -22,9 +22,11 @@ export function parseCustomEasingPresets(raw: string | null): CustomEasingPreset
 	}
 }
 
-export function loadCustomEasingPresets(storage: Pick<Storage, 'getItem'> = localStorage) {
+export function loadCustomEasingPresets(storage?: Pick<Storage, 'getItem'>) {
+	const store = storage ?? browserStorage();
+	if (!store) return [];
 	try {
-		return parseCustomEasingPresets(storage.getItem(CUSTOM_EASING_PRESETS_STORAGE_KEY));
+		return parseCustomEasingPresets(store.getItem(CUSTOM_EASING_PRESETS_STORAGE_KEY));
 	} catch {
 		return [];
 	}
@@ -32,12 +34,24 @@ export function loadCustomEasingPresets(storage: Pick<Storage, 'getItem'> = loca
 
 export function saveCustomEasingPresets(
 	presets: readonly CustomEasingPreset[],
-	storage: Pick<Storage, 'setItem'> = localStorage
-): void {
+	storage?: Pick<Storage, 'setItem'>
+): boolean {
+	const store = storage ?? browserStorage();
+	if (!store) return false;
 	try {
-		storage.setItem(CUSTOM_EASING_PRESETS_STORAGE_KEY, JSON.stringify(presets));
+		store.setItem(CUSTOM_EASING_PRESETS_STORAGE_KEY, JSON.stringify(presets));
+		return true;
 	} catch {
-		// Storage can fail in private mode or when the browser quota is full.
+		return false;
+	}
+}
+
+function browserStorage(): Storage | undefined {
+	if (typeof window === 'undefined') return undefined;
+	try {
+		return window.localStorage;
+	} catch {
+		return undefined;
 	}
 }
 

@@ -6,15 +6,14 @@
 	import type {
 		BezierControlPoints,
 		EasingConfig,
-		EasingType,
 		KeyframeProperty,
-		SpringParameters,
 		TimelineItem
 	} from '$lib/video-editor/project/types';
 	import {
 		duplicateKeyframes,
 		removeKeyframes,
 		setKeyframeEasing,
+		setKeyframeEasings,
 		updateKeyframes,
 		type KeyframeEdit
 	} from '$lib/video-editor/timeline/actions/keyframes';
@@ -44,39 +43,12 @@
 		isColorEffectKeyframeProperty
 	} from '$lib/video-editor/effects/effect-keyframes';
 	import { keyframeValueToHexColor } from '$lib/video-editor/timeline/color-keyframes';
-	import { BEZIER_PRESETS, buildEasingConfig } from '$lib/video-editor/timeline/easing-presets';
-	import {
-		EASING_PRESETS,
-		SPRING_PRESETS,
-		presetDirection,
-		presetToEasing
-	} from '$lib/video-editor/timeline/easings-dev-presets';
-	import {
-		loadCustomEasingPresets,
-		saveCustomEasingPresets,
-		upsertCustomEasingPreset,
-		suggestedCustomPresetName,
-		type CustomEasingPreset
-	} from '$lib/video-editor/timeline/custom-easing-presets';
-	import { DEFAULT_SPRING_PARAMS } from '$lib/video-editor/project/types';
+	import KeyframeEasingEditor, { type SegmentEasingUpdate } from './keyframe-easing-editor.svelte';
 	import {
 		eventMatchesShortcut,
 		resolveEditorShortcuts
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
-	const EASING_SET = new Set<string>([
-		'linear',
-		'ease-in',
-		'ease-out',
-		'ease-in-out',
-		'hold',
-		'cubic-bezier',
-		'spring'
-	]);
-	function isEasingType(value: string): value is EasingType {
-		return EASING_SET.has(value);
-	}
-
 	let {
 		item,
 		property,
@@ -118,13 +90,8 @@
 		value: null
 	});
 	let marquee = $state<{ x: number; y: number; width: number; height: number } | null>(null);
-	let segmentMenu = $state<{ leftFrame: number; easing: string } | null>(null);
-	type SpringGesture = { frame: number; original: SpringParameters; draft: SpringParameters };
-	let springGesture = $state<SpringGesture | null>(null);
-	let presetType = $state<'Easing' | 'Spring'>('Easing');
-	let direction = $state<'all' | 'in' | 'out' | 'inout'>('all');
-	let showAllEasing = $state(false);
-	let customPresets = $state<CustomEasingPreset[]>(loadCustomEasingPresets());
+	let segmentMenu = $state<{ leftFrame: number } | null>(null);
+	let menuPreviewConfig = $state<EasingConfig | null>(null);
 	let resetKey = '';
 
 	type KeyframeDrag = {
@@ -155,6 +122,15 @@
 		initial: BezierControlPoints;
 		startPoint: GraphCoordinate;
 		endPoint: GraphCoordinate;
+		midPoint: GraphCoordinate;
+		adjacent: {
+			frame: number;
+			handle: 'out' | 'in';
+			initial: BezierControlPoints;
+			startPoint: GraphCoordinate;
+			endPoint: GraphCoordinate;
+			initialLength: number;
+		} | null;
 	};
 	let drag = $state<KeyframeDrag | MarqueeDrag | HandleDrag | null>(null);
 
@@ -171,9 +147,9 @@
 				next.easing = 'cubic-bezier';
 				next.easingConfig = { type: 'cubic-bezier', bezier: bezierPreview };
 			}
-			if (springGesture && keyframe.frame === springGesture.frame) {
-				next.easing = 'spring';
-				next.easingConfig = { type: 'spring', spring: { ...springGesture.draft } };
+			if (segmentMenu?.leftFrame === keyframe.frame && menuPreviewConfig) {
+				next.easing = menuPreviewConfig.type;
+				next.easingConfig = menuPreviewConfig;
 			}
 			return next;
 		})
@@ -186,9 +162,7 @@
 			...graphPoint(keyframe.frame, keyframe.value, viewport)
 		}))
 	);
-	const sortedPoints = $derived(
-		[...points].toSorted((a, b) => a.keyframe.frame - b.keyframe.frame)
-	);
+
 	const relativePlayhead = $derived(
 		Math.max(0, Math.min(item.durationInFrames - 1, currentFrame - item.from))
 	);
@@ -246,7 +220,33 @@
 			return { start, end, startPoint, endPoint, left, width: widthSpan, midX, midY, index };
 		});
 	});
-
+	const visibleSegmentSpans = $derived.by(() => {
+		let lastRight = -Infinity;
+		let count = 0;
+		return segmentSpans.filter((span) => {
+			const isSelected =
+				selectedIds.has(keyframeIdentity(span.start)) ||
+				selectedIds.has(keyframeIdentity(span.end));
+			const isMenuOpen = segmentMenu?.leftFrame === span.start.frame;
+			if (count >= 8 && !isMenuOpen) return false;
+			if (isSelected || isMenuOpen) {
+				if (span.width <= 30) return false;
+				lastRight = span.midX + 22 + 4;
+				count++;
+				return true;
+			}
+			if (span.width < 36) return false;
+			if (sortedDisplay.length > 8 && span.width < 60) return false;
+			const left = span.midX - 22;
+			if (left < lastRight) return false;
+			lastRight = span.midX + 22 + 4;
+			count++;
+			return true;
+		});
+	});
+	const visibleSegmentFrames = $derived(
+		new Set(visibleSegmentSpans.map((span) => span.start.frame))
+	);
 	$effect(() => {
 		if (!host) return;
 		const observer = new ResizeObserver(([entry]) => {
@@ -265,6 +265,7 @@
 		setSelection([]);
 		previewValues = null;
 		previewBezierConfigs = null;
+		menuPreviewConfig = null;
 		snapGuides = { frame: null, value: null };
 		segmentMenu = null;
 		fitToContent();
@@ -584,7 +585,34 @@
 			state.handle === 'out'
 				? { ...state.initial, x1: x, y1: y }
 				: { ...state.initial, x2: x, y2: y };
-		previewBezierConfigs = { [String(state.start.frame)]: nextBezier };
+		const nextPreview = {
+			[String(state.start.frame)]: nextBezier
+		};
+		const adjacent = state.adjacent;
+		if (adjacent && adjacent.initialLength > 0) {
+			const handleX = state.startPoint.x + x * segmentWidth;
+			const handleY = state.startPoint.y + y * segmentHeight;
+			const dx = handleX - state.midPoint.x;
+			const dy = handleY - state.midPoint.y;
+			const length = Math.hypot(dx, dy);
+			const adjacentWidth = adjacent.endPoint.x - adjacent.startPoint.x;
+			const adjacentHeight = adjacent.endPoint.y - adjacent.startPoint.y;
+			if (length > 0 && adjacentWidth !== 0) {
+				const mirrorX = state.midPoint.x - (dx / length) * adjacent.initialLength;
+				const mirrorY = state.midPoint.y - (dy / length) * adjacent.initialLength;
+				const relativeX = Math.max(
+					0,
+					Math.min(1, (mirrorX - adjacent.startPoint.x) / adjacentWidth)
+				);
+				const relativeY =
+					adjacentHeight === 0 ? 0.5 : (mirrorY - adjacent.startPoint.y) / adjacentHeight;
+				nextPreview[String(adjacent.frame)] =
+					adjacent.handle === 'out'
+						? { ...adjacent.initial, x1: relativeX, y1: relativeY }
+						: { ...adjacent.initial, x2: relativeX, y2: relativeY };
+			}
+		}
+		previewBezierConfigs = nextPreview;
 	}
 
 	function onPointerMove(event: PointerEvent): void {
@@ -596,7 +624,33 @@
 
 	function onPointerUp(event: PointerEvent): void {
 		if (!drag || drag.pointerId !== event.pointerId) return;
-		if (svg?.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+		if (drag.kind === 'handle' && previewBezierConfigs) {
+			const updates = Object.entries(previewBezierConfigs).map(([frame, bezier]) => ({
+				property,
+				frame: Number(frame),
+				easing: 'cubic-bezier' as const,
+				easingConfig: { type: 'cubic-bezier' as const, bezier }
+			}));
+			const changed =
+				updates.length > 1
+					? setKeyframeEasings(item.id, updates)
+					: updates[0]
+						? setKeyframeEasing(
+								item.id,
+								property,
+								updates[0].frame,
+								'cubic-bezier',
+								updates[0].easingConfig
+							)
+						: false;
+			drag = null;
+			previewBezierConfigs = null;
+			if (svg?.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+			snapGuides = { frame: null, value: null };
+			marquee = null;
+			if (changed) onedit();
+			return;
+		}
 		if (drag.kind === 'keyframe' && drag.started && previewValues) {
 			const edits: KeyframeEdit[] = [...drag.initial].flatMap(([id, initial]) => {
 				const preview = previewValues?.[id];
@@ -617,26 +671,27 @@
 		} else if (drag.kind === 'marquee' && !drag.started && drag.mode === 'replace') {
 			setSelection([]);
 			onselect(null);
-		} else if (drag.kind === 'handle' && previewBezierConfigs) {
-			const entry = Object.entries(previewBezierConfigs)[0];
-			if (entry) {
-				const [frameStr, bezier] = entry;
-				// SAFETY: previewBezierConfigs keys are numeric frame strings
-				const frame = Number(frameStr);
-				const config: EasingConfig = { type: 'cubic-bezier', bezier };
-				if (setKeyframeEasing(item.id, property, frame, 'cubic-bezier', config)) onedit();
-			}
 		}
 		drag = null;
 		previewValues = null;
 		previewBezierConfigs = null;
+		if (svg?.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
 		snapGuides = { frame: null, value: null };
 		marquee = null;
 	}
 
 	function onPointerCancel(event: PointerEvent): void {
 		if (!drag || drag.pointerId !== event.pointerId) return;
+		drag = null;
+		previewValues = null;
+		previewBezierConfigs = null;
+		snapGuides = { frame: null, value: null };
+		marquee = null;
 		if (svg?.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
+	}
+
+	function onPointerCaptureLost(event: PointerEvent): void {
+		if (!drag || drag.pointerId !== event.pointerId) return;
 		drag = null;
 		previewValues = null;
 		previewBezierConfigs = null;
@@ -679,22 +734,20 @@
 		// Escape first cancels active gestures
 		if (eventMatchesShortcut(event, bindings.GRAPH_CLEAR_SELECTION)) {
 			const hadDrag = drag !== null;
-			const hadPreview = previewValues !== null || previewBezierConfigs !== null;
+			const hadPreview =
+				previewValues !== null || previewBezierConfigs !== null || menuPreviewConfig !== null;
 			const hadMenu = segmentMenu !== null;
 			if (hadDrag || hadPreview || hadMenu) {
 				event.preventDefault();
 				drag = null;
 				previewValues = null;
 				previewBezierConfigs = null;
+				menuPreviewConfig = null;
 				snapGuides = { frame: null, value: null };
 				marquee = null;
-				if (springGesture) {
-					springGesture = null;
-				}
 				if (hadDrag || hadPreview) return;
 				if (hadMenu) {
-					segmentMenu = null;
-					springGesture = null;
+					closeSegmentMenu();
 					return;
 				}
 			}
@@ -843,11 +896,52 @@
 		event: PointerEvent
 	): void {
 		if (!svg) return;
+		if (event.button !== 0) return;
 		event.preventDefault();
 		event.stopPropagation();
 		capturePointer(event.pointerId);
 		const startPoint = graphPoint(start.frame, start.value, viewport);
 		const endPoint = graphPoint(end.frame, end.value, viewport);
+		const index = sortedDisplay.findIndex((keyframe) => keyframe.frame === start.frame);
+		const midPoint = handle === 'out' ? startPoint : endPoint;
+		let adjacent: HandleDrag['adjacent'] = null;
+		if (handle === 'out') {
+			const previous = index > 0 ? sortedDisplay[index - 1] : undefined;
+			const previousBezier = previous ? easingBezier(previous) : null;
+			if (previous && previousBezier) {
+				const previousPoint = graphPoint(previous.frame, previous.value, viewport);
+				const width = startPoint.x - previousPoint.x;
+				const height = startPoint.y - previousPoint.y;
+				const oppositeX = previousPoint.x + previousBezier.x2 * width;
+				const oppositeY = previousPoint.y + previousBezier.y2 * height;
+				adjacent = {
+					frame: previous.frame,
+					handle: 'in',
+					initial: { ...previousBezier },
+					startPoint: previousPoint,
+					endPoint: startPoint,
+					initialLength: Math.hypot(oppositeX - midPoint.x, oppositeY - midPoint.y)
+				};
+			}
+		} else {
+			const following = index + 2 < sortedDisplay.length ? sortedDisplay[index + 2] : undefined;
+			const nextBezier = easingBezier(end);
+			if (following && nextBezier) {
+				const followingPoint = graphPoint(following.frame, following.value, viewport);
+				const width = followingPoint.x - endPoint.x;
+				const height = followingPoint.y - endPoint.y;
+				const oppositeX = endPoint.x + nextBezier.x1 * width;
+				const oppositeY = endPoint.y + nextBezier.y1 * height;
+				adjacent = {
+					frame: end.frame,
+					handle: 'out',
+					initial: { ...nextBezier },
+					startPoint: endPoint,
+					endPoint: followingPoint,
+					initialLength: Math.hypot(oppositeX - midPoint.x, oppositeY - midPoint.y)
+				};
+			}
+		}
 		drag = {
 			kind: 'handle',
 			pointerId: event.pointerId,
@@ -856,7 +950,9 @@
 			handle,
 			initial: bezier,
 			startPoint,
-			endPoint
+			endPoint,
+			midPoint,
+			adjacent
 		};
 		previewBezierConfigs = { [String(start.frame)]: bezier };
 	}
@@ -869,78 +965,34 @@
 		onscrub(item.from + Math.max(0, Math.min(item.durationInFrames - 1, frame)));
 	}
 
-	function handleSegmentEasingChange(frame: number, easing: string): void {
-		if (!isEasingType(easing)) return;
-		const easingType = easing;
-		const existing = keyframes.find((k) => k.frame === frame)?.easingConfig;
-		const config = buildEasingConfig(easingType, existing);
-		// Keep menu open so spring/bezier details remain visible
-		if (segmentMenu && segmentMenu.leftFrame === frame)
-			segmentMenu = { ...segmentMenu, easing: easingType };
-		if (easingType === 'spring') {
-			const spring =
-				config?.type === 'spring' && config.spring ? config.spring : DEFAULT_SPRING_PARAMS;
-			springGesture = { frame, original: { ...spring }, draft: { ...spring } };
-		}
-		if (setKeyframeEasing(item.id, property, frame, easingType, config)) onedit();
+	function closeSegmentMenu(): void {
+		segmentMenu = null;
+		menuPreviewConfig = null;
 	}
 
-	function beginSpringGesture(frame: number): void {
-		if (springGesture && springGesture.frame === frame) return;
-		const current = keyframes.find((k) => k.frame === frame)?.easingConfig?.spring;
-		const original = current ? { ...current } : { ...DEFAULT_SPRING_PARAMS };
-		const draft = keyframes.find((k) => k.frame === frame)?.easingConfig?.spring ?? {
-			...DEFAULT_SPRING_PARAMS
-		};
-		// If draft already exists for this frame, keep it, otherwise use current
-		const initialDraft = springGesture?.frame === frame ? springGesture.draft : draft;
-		springGesture = { frame, original, draft: { ...initialDraft } };
-	}
-	function segmentSpringDraftChange(field: keyof SpringParameters, value: number): void {
-		if (!springGesture) {
-			if (!segmentMenu) return;
-			beginSpringGesture(segmentMenu.leftFrame);
-		}
-		if (!springGesture) return;
-		springGesture = { ...springGesture, draft: { ...springGesture.draft, [field]: value } };
-	}
-	function commitSegmentSpring(frame: number): void {
-		if (!springGesture || springGesture.frame !== frame) return;
-		const current = keyframes.find((k) => k.frame === frame)?.easingConfig?.spring;
-		const draft = springGesture.draft;
-		const original = springGesture.original;
-		const noChange =
-			current &&
-			draft.tension === current.tension &&
-			draft.friction === current.friction &&
-			draft.mass === current.mass;
-		// Clear gesture before commit to ensure later lostpointercapture is no-op
-		springGesture = null;
-		if (noChange) return;
-		// Also check against original to avoid no-op commits when draft equals original and current equals original
-		if (
-			draft.tension === original.tension &&
-			draft.friction === original.friction &&
-			draft.mass === original.mass &&
-			current &&
-			current.tension === original.tension &&
-			current.friction === original.friction &&
-			current.mass === original.mass
-		)
+	function toggleSegmentMenu(keyframe: EditorKeyframe): void {
+		if (segmentMenu?.leftFrame === keyframe.frame) {
+			closeSegmentMenu();
 			return;
-		const config: EasingConfig = { type: 'spring', spring: { ...draft } };
-		if (setKeyframeEasing(item.id, property, frame, 'spring', config)) onedit();
-	}
-	function cancelSegmentSpring(frame: number): void {
-		if (!springGesture || springGesture.frame !== frame) return;
-		springGesture = null;
+		}
+		segmentMenu = { leftFrame: keyframe.frame };
+		menuPreviewConfig = null;
 	}
 
-	function segmentBezierPreset(frame: number, preset: string): void {
-		const found = BEZIER_PRESETS.find((p) => p.value === preset);
-		if (!found) return;
-		const config: EasingConfig = { type: 'cubic-bezier', bezier: { ...found.points } };
-		if (setKeyframeEasing(item.id, property, frame, 'cubic-bezier', config)) onedit();
+	function applySegmentEasing(updates: SegmentEasingUpdate[]): void {
+		const changed =
+			updates.length > 1
+				? setKeyframeEasings(item.id, updates)
+				: updates[0]
+					? setKeyframeEasing(
+							item.id,
+							updates[0].property,
+							updates[0].frame,
+							updates[0].easing,
+							updates[0].easingConfig
+						)
+					: false;
+		if (changed) onedit();
 	}
 
 	function formatValue(value: number): string {
@@ -953,7 +1005,7 @@
 
 <div
 	bind:this={host}
-	class="border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.13_0.008_55)]"
+	class="graph-host border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.13_0.008_55)]"
 	data-keyframe-value-graph
 >
 	<div
@@ -1031,6 +1083,7 @@
 			onpointermove={onPointerMove}
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerCancel}
+			onlostpointercapture={onPointerCaptureLost}
 		>
 			<rect {width} height={HEIGHT} fill="oklch(0.125 0.008 55)" />
 			<g aria-hidden="true" class="pointer-events-none">
@@ -1189,10 +1242,33 @@
 					selectedIds.has(keyframeIdentity(span.start)) ||
 					selectedIds.has(keyframeIdentity(span.end))}
 				{@const isMenuOpen = segmentMenu?.leftFrame === span.start.frame}
-				{@const shouldShow =
-					span.width > 36 && (isSelected || isMenuOpen || sortedDisplay.length <= 8)}
-				{#if shouldShow}
-					<g data-segment-easing={span.start.frame}>
+				<g
+					data-segment-easing={span.start.frame}
+					role="button"
+					tabindex="0"
+					aria-label={m.video_editor_keyframe_graph_segment_easing({ frame: span.start.frame })}
+					class="cursor-pointer outline-none focus-visible:[filter:drop-shadow(0_0_2px_oklch(0.85_0.15_45))]"
+					onpointerdown={(event) => {
+						event.stopPropagation();
+						toggleSegmentMenu(span.start);
+					}}
+					onkeydown={(event) => {
+						if (event.key === 'Enter' || event.key === ' ') {
+							event.preventDefault();
+							event.stopPropagation();
+							toggleSegmentMenu(span.start);
+						}
+					}}
+				>
+					<path
+						d={curvePath(span.start, span.end, viewport)}
+						fill="none"
+						stroke="transparent"
+						stroke-width="14"
+						class="segment-hit"
+						style="pointer-events: stroke"
+					/>
+					{#if visibleSegmentFrames.has(span.start.frame)}
 						<rect
 							x={span.midX - 22}
 							y={span.midY - 8}
@@ -1200,62 +1276,21 @@
 							height="12"
 							rx="6"
 							fill={isMenuOpen ? 'oklch(0.66 0.14 45)' : 'oklch(0.22 0.01 50)'}
-							stroke="oklch(0.35 0.02 55)"
-							stroke-width="1"
-							class="cursor-pointer"
-							style="pointer-events: all"
-							role="button"
-							tabindex="0"
-							aria-label={m.video_editor_keyframe_graph_segment_easing({ frame: span.start.frame })}
-							onpointerdown={(e) => {
-								e.stopPropagation();
-								if (isMenuOpen) {
-									segmentMenu = null;
-									springGesture = null;
-								} else {
-									segmentMenu = { leftFrame: span.start.frame, easing: span.start.easing };
-									const s = keyframes.find((k) => k.frame === span.start.frame)?.easingConfig
-										?.spring;
-									const spring = s ? { ...s } : { ...DEFAULT_SPRING_PARAMS };
-									springGesture = {
-										frame: span.start.frame,
-										original: { ...spring },
-										draft: { ...spring }
-									};
-								}
-							}}
-							onkeydown={(e) => {
-								if (e.key === 'Enter' || e.key === ' ') {
-									e.preventDefault();
-									e.stopPropagation();
-									if (isMenuOpen) {
-										segmentMenu = null;
-										springGesture = null;
-									} else {
-										segmentMenu = { leftFrame: span.start.frame, easing: span.start.easing };
-										const s = keyframes.find((k) => k.frame === span.start.frame)?.easingConfig
-											?.spring;
-										const spring = s ? { ...s } : { ...DEFAULT_SPRING_PARAMS };
-										springGesture = {
-											frame: span.start.frame,
-											original: { ...spring },
-											draft: { ...spring }
-										};
-									}
-								}
-							}}
+							stroke={isMenuOpen || isSelected ? 'oklch(0.85 0.15 45)' : 'oklch(0.45 0.02 55)'}
+							stroke-width="1.5"
+							class="pointer-events-none"
 						/>
 						<text
 							x={span.midX}
 							y={span.midY + 2.5}
 							text-anchor="middle"
-							fill={isMenuOpen ? 'white' : 'oklch(0.78 0.02 55)'}
+							fill={isMenuOpen ? 'white' : 'oklch(0.88 0.02 55)'}
 							font-size="6.5"
 							font-weight="600"
 							class="pointer-events-none select-none">{label.slice(0, 9)}</text
 						>
-					</g>
-				{/if}
+					{/if}
+				</g>
 			{/each}
 
 			{#each points.slice(0, -1) as point, index (point.id)}
@@ -1381,167 +1416,38 @@
 		</svg>
 	</div>
 	{#if segmentMenu}
-		{@const kf = keyframes.find((k) => k.frame === segmentMenu.leftFrame)}
-		{#if kf}
-			<div
-				class="mx-2 mb-2 rounded-md border border-[oklch(0.28_0.015_55)] bg-[oklch(0.18_0.01_50)] p-2 shadow-lg"
-				data-segment-menu
-			>
-				<div class="mb-2 flex flex-wrap items-center gap-1">
-					<span class="mr-auto text-[10px] font-medium text-[oklch(0.72_0.02_55)]">
-						{m.video_editor_keyframe_graph_segment()} · {kf.frame} → {segmentSpans.find(
-							(s) => s.start.frame === kf.frame
-						)?.end.frame ?? ''}
-					</span>
-					<Button
-						variant="ghost"
-						size="sm"
-						class="h-6 min-h-6 px-2 text-[10px]"
-						onclick={() => {
-							segmentMenu = null;
-							springGesture = null;
-						}}>{m.video_editor_keyframe_graph_close()}</Button
-					>
-				</div>
-				<div class="flex flex-wrap gap-1">
-					{#each [{ value: 'linear', label: m.video_editor_keyframe_easing_linear() }, { value: 'ease-in', label: m.video_editor_keyframe_easing_in() }, { value: 'ease-out', label: m.video_editor_keyframe_easing_out() }, { value: 'ease-in-out', label: m.video_editor_keyframe_easing_in_out() }, { value: 'hold', label: m.video_editor_keyframe_easing_hold() }, { value: 'cubic-bezier', label: m.video_editor_keyframe_easing_bezier() }, { value: 'spring', label: m.video_editor_keyframe_easing_spring() }] as option}
-						<button
-							class="rounded px-2 py-1 text-[10px] font-medium {segmentMenu.easing === option.value
-								? 'bg-[oklch(0.66_0.14_45)] text-white'
-								: 'bg-[oklch(0.25_0.01_50)] text-[oklch(0.78_0.02_55)] hover:bg-[oklch(0.32_0.02_55)]'}"
-							aria-pressed={segmentMenu.easing === option.value}
-							onclick={() => handleSegmentEasingChange(kf.frame, option.value)}
-						>
-							{option.label}
-						</button>
-					{/each}
-				</div>
-				{#if segmentMenu.easing === 'cubic-bezier' || kf.easing === 'cubic-bezier'}
-					<div class="mt-2 flex flex-wrap gap-1">
-						{#each showAllEasing ? EASING_PRESETS : EASING_PRESETS.slice(0, 8) as preset}
-							<button
-								class="rounded border border-[oklch(0.28_0.015_55)] bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-[9px] text-[oklch(0.72_0.02_55)] hover:bg-[oklch(0.28_0.015_55)]"
-								title={(preset as any).name ?? bezierPresetLocalizedLabel((preset as any).value)}
-								onclick={() => {
-									const key = (preset as any).name ?? (preset as any).value;
-									const isEasingPreset =
-										(preset as any).bezier !== undefined || (preset as any).points !== undefined;
-									const bezier = (preset as any).bezier ?? (preset as any).points;
-									if (bezier) {
-										const cfg: EasingConfig = { type: 'cubic-bezier', bezier };
-										const frames =
-											selectedIds.size > 1
-												? [...selectedIds]
-														.map((id) => keyframes.find((k) => keyframeIdentity(k) === id)?.frame)
-														.filter((f): f is number => f !== undefined)
-												: [kf.frame];
-										const uniq = [...new Set(frames)];
-										const updates = uniq.map((f) => ({
-											property,
-											frame: f,
-											easing: 'cubic-bezier' as EasingType,
-											easingConfig: cfg
-										}));
-										const changed =
-											uniq.length > 1
-												? setKeyframeEasings(item.id, updates)
-												: setKeyframeEasing(item.id, property, kf.frame, 'cubic-bezier', cfg);
-										if (changed) onedit();
-									} else {
-										segmentBezierPreset(kf.frame, key);
-									}
-								}}
-							>
-								{(preset as any).name ?? bezierPresetLocalizedLabel((preset as any).value)}
-							</button>
-						{/each}
-					</div>
-				{/if}
-				{#if segmentMenu.easing === 'spring' || kf.easing === 'spring'}
-					{@const draft = springGesture?.draft ?? kf.easingConfig?.spring ?? DEFAULT_SPRING_PARAMS}
-					<div class="mt-2 grid grid-cols-3 gap-2" data-spring-gesture>
-						<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.72_0.02_55)]">
-							{m.video_editor_keyframe_graph_tension()}
-							<input
-								type="range"
-								min="1"
-								max="500"
-								value={draft.tension}
-								class="w-full"
-								// SAFETY: range input target is an HTMLInputElement
-								oninput={(e) =>
-									segmentSpringDraftChange('tension', Number((e.target as HTMLInputElement).value))}
-								onchange={() => commitSegmentSpring(kf.frame)}
-								onpointercancel={() => cancelSegmentSpring(kf.frame)}
-								onlostpointercapture={() => cancelSegmentSpring(kf.frame)}
-								onkeydown={(e) => {
-									if (e.key === 'Escape') {
-										e.preventDefault();
-										cancelSegmentSpring(kf.frame);
-									}
-									if (e.key === 'Enter') commitSegmentSpring(kf.frame);
-								}}
-							/>
-							<span class="font-mono text-[9px]">{draft.tension}</span>
-						</label>
-						<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.72_0.02_55)]">
-							{m.video_editor_keyframe_graph_friction()}
-							<input
-								type="range"
-								min="1"
-								max="100"
-								value={draft.friction}
-								class="w-full"
-								// SAFETY: range input target is an HTMLInputElement
-								oninput={(e) =>
-									segmentSpringDraftChange(
-										'friction',
-										Number((e.target as HTMLInputElement).value)
-									)}
-								onchange={() => commitSegmentSpring(kf.frame)}
-								onpointercancel={() => cancelSegmentSpring(kf.frame)}
-								onlostpointercapture={() => cancelSegmentSpring(kf.frame)}
-								onkeydown={(e) => {
-									if (e.key === 'Escape') {
-										e.preventDefault();
-										cancelSegmentSpring(kf.frame);
-									}
-									if (e.key === 'Enter') commitSegmentSpring(kf.frame);
-								}}
-							/>
-							<span class="font-mono text-[9px]">{draft.friction}</span>
-						</label>
-						<label class="flex flex-col gap-1 text-[10px] text-[oklch(0.72_0.02_55)]">
-							{m.video_editor_keyframe_graph_mass()}
-							<input
-								type="range"
-								min="0.1"
-								max="10"
-								step="0.1"
-								value={draft.mass}
-								class="w-full"
-								// SAFETY: range input target is an HTMLInputElement
-								oninput={(e) =>
-									segmentSpringDraftChange('mass', Number((e.target as HTMLInputElement).value))}
-								onchange={() => commitSegmentSpring(kf.frame)}
-								onpointercancel={() => cancelSegmentSpring(kf.frame)}
-								onlostpointercapture={() => cancelSegmentSpring(kf.frame)}
-								onkeydown={(e) => {
-									if (e.key === 'Escape') {
-										e.preventDefault();
-										cancelSegmentSpring(kf.frame);
-									}
-									if (e.key === 'Enter') commitSegmentSpring(kf.frame);
-								}}
-							/>
-							<span class="font-mono text-[9px]">{draft.mass}</span>
-						</label>
-					</div>
-				{/if}
-			</div>
+		{@const keyframe = keyframes.find((candidate) => candidate.frame === segmentMenu.leftFrame)}
+		{@const endFrame = segmentSpans.find((span) => span.start.frame === segmentMenu.leftFrame)?.end
+			.frame}
+		{#if keyframe && endFrame !== undefined}
+			<KeyframeEasingEditor
+				{keyframe}
+				{endFrame}
+				{property}
+				selectedFrames={[...selectedIds]
+					.map((id) => keyframes.find((candidate) => keyframeIdentity(candidate) === id)?.frame)
+					.filter((frame): frame is number => frame !== undefined)}
+				onchange={applySegmentEasing}
+				onpreview={(config) => (menuPreviewConfig = config)}
+				onclose={closeSegmentMenu}
+			/>
 		{/if}
 	{/if}
 	<p class="sr-only" aria-live="polite">
 		{m.video_editor_keyframe_graph_instructions({ count: selectedIds.size })}
 	</p>
 </div>
+
+<style>
+	.graph-host {
+		width: min(100%, 100vw);
+		max-width: 100vw;
+		overflow-x: hidden;
+	}
+
+	@media (pointer: coarse) {
+		.segment-hit {
+			stroke-width: 44;
+		}
+	}
+</style>

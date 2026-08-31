@@ -1,13 +1,27 @@
 import { describe, expect, it } from 'vitest';
 import {
 	easingConfigFromPreset,
+	loadCustomEasingPresets,
 	parseCustomEasingPresets,
 	presetFromEasing,
+	saveCustomEasingPresets,
 	suggestedCustomPresetName,
 	upsertCustomEasingPreset
 } from './custom-easing-presets';
 
 describe('custom easing presets', () => {
+	it('is safe without browser storage and reports failed writes', () => {
+		expect(loadCustomEasingPresets()).toEqual([]);
+		expect(saveCustomEasingPresets([])).toBe(false);
+		expect(
+			saveCustomEasingPresets([], {
+				setItem() {
+					throw new DOMException('Quota exceeded', 'QuotaExceededError');
+				}
+			})
+		).toBe(false);
+	});
+
 	it('keeps only finite, named easing and spring presets', () => {
 		expect(
 			parseCustomEasingPresets(

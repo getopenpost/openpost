@@ -16,22 +16,28 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
-type preflightTokens struct{}
+type preflightTokens struct {
+	err error
+}
 
-func (preflightTokens) GetValidAccessToken(context.Context, string) (string, error) {
-	return "access-token", nil
+func (tokens preflightTokens) GetValidAccessToken(context.Context, string) (string, error) {
+	return "access-token", tokens.err
 }
 
 type preflightAdapter struct {
 	platform.Adapter
 	err   error
 	calls int
+	empty bool
 }
 
 func (adapter *preflightAdapter) GetProfile(context.Context, string) (*platform.UserProfile, error) {
 	adapter.calls++
 	if adapter.err != nil {
 		return nil, adapter.err
+	}
+	if adapter.empty {
+		return &platform.UserProfile{}, nil
 	}
 	return &platform.UserProfile{ID: "provider-account-1"}, nil
 }
@@ -47,32 +53,40 @@ func (recorder *preflightNotifications) Record(context.Context, notifications.Ou
 
 func TestHandleJobWarnsOnlyForConfirmedUserActionFailure(t *testing.T) {
 	tests := []struct {
-		name        string
-		err         error
-		wantWarning bool
-		wantFailure string
-		wantSuccess bool
+		name         string
+		err          error
+		tokenErr     error
+		emptyProfile bool
+		wantWarning  bool
+		wantFailure  string
+		wantSuccess  bool
 	}{
 		{name: "healthy", wantSuccess: true},
 		{name: "expired token", err: &platform.HTTPError{StatusCode: 401, Code: "invalid_token"}, wantWarning: true, wantFailure: "authentication"},
+		{name: "expired token without refresh support", tokenErr: fmt.Errorf("token expired for account account-1 and provider does not support refresh"), wantWarning: true, wantFailure: "authentication"},
 		{name: "missing permission", err: &platform.HTTPError{StatusCode: 403, Code: "permission_denied"}, wantWarning: true, wantFailure: "permission"},
 		{name: "unclassified forbidden", err: &platform.HTTPError{StatusCode: 403}, wantFailure: "unknown"},
 		{name: "rate limit", err: &platform.HTTPError{StatusCode: 429, Code: "rate_limit"}, wantFailure: "unknown"},
 		{name: "malformed response", err: fmt.Errorf("decoding profile response"), wantFailure: "unknown"},
+		{name: "empty profile", emptyProfile: true, wantFailure: "unknown"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := preflightTestDB(t)
 			now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
 			seedPreflightCandidate(t, db, now.Add(time.Hour))
-			adapter := &preflightAdapter{err: test.err}
+			adapter := &preflightAdapter{err: test.err, empty: test.emptyProfile}
 			recorder := &preflightNotifications{}
-			service := NewService(db, preflightTokens{}, recorder)
+			service := NewService(db, preflightTokens{err: test.tokenErr}, recorder)
 			service.now = func() time.Time { return now }
 			service.SetProvider("x", adapter)
 
 			require.NoError(t, service.HandleJob(t.Context(), JobType))
-			require.Equal(t, 1, adapter.calls)
+			if test.tokenErr != nil {
+				require.Zero(t, adapter.calls)
+			} else {
+				require.Equal(t, 1, adapter.calls)
+			}
 			if test.wantWarning {
 				require.Equal(t, 1, recorder.count)
 			} else {

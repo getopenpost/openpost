@@ -156,7 +156,7 @@ func (s *Service) checkCandidate(ctx context.Context, candidate upcomingCandidat
 	if err != nil {
 		return s.handleFailure(ctx, candidate, now, err)
 	}
-	if profile == nil {
+	if profile == nil || strings.TrimSpace(profile.ID) == "" {
 		return s.recordCheck(ctx, candidate.SocialAccountID, now, "unknown", false)
 	}
 	return s.recordCheck(ctx, candidate.SocialAccountID, now, "", true)
@@ -248,7 +248,10 @@ func confirmedUserActionFailure(err error) (string, bool) {
 		}
 	}
 	message := strings.ToLower(err.Error())
-	if strings.Contains(message, "account is disconnected") || strings.Contains(message, "oauth grant is revoked") {
+	if strings.Contains(message, "account is disconnected") ||
+		strings.Contains(message, "token expired for account") ||
+		strings.Contains(message, "no refresh token available") ||
+		(strings.Contains(message, "oauth grant") && strings.Contains(message, "revoked")) {
 		return "authentication", true
 	}
 	return "", false

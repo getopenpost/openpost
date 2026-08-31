@@ -124,13 +124,13 @@ func LegacyAnalyticsMetricMetadata(subject, metric, source string) (AnalyticsMet
 	switch subject {
 	case AnalyticsMetricSubjectAccount:
 		switch metric {
-		case MetricFollowers, MetricFollowing, MetricPosts:
+		case MetricFollowers, MetricFollowing, MetricMembers, MetricPosts:
 			meta.Aggregation = AnalyticsMetricAggregationCurrentSnapshot
 			return meta, true
 		}
 	case AnalyticsMetricSubjectContent:
 		switch metric {
-		case MetricLikes, MetricComments, MetricReposts, MetricQuotes, MetricShares, MetricSaves,
+		case MetricLikes, MetricReactions, MetricComments, MetricReposts, MetricQuotes, MetricShares, MetricSaves,
 			MetricViews, MetricImpressions, MetricReach, MetricClicks:
 			meta.Aggregation = AnalyticsMetricAggregationLifetimeTotal
 			return meta, true

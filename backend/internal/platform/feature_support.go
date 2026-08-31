@@ -17,6 +17,8 @@ func SupportsAnalytics(platformName string, capabilityState string) bool {
 			return false
 		}
 		return true
+	case providerDiscord:
+		return AccountProviderKey(providerDiscord, "", capabilityState) == providerDiscord+":"+ConnectionModeBot
 	default:
 		return false
 	}

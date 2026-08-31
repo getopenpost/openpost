@@ -924,6 +924,72 @@ func TestOverviewGroupsRenditionsAndOmitsProviderDeletedContent(t *testing.T) {
 	require.Zero(t, overview.Summary.Impressions.Measured)
 }
 
+func TestDiscordProviderReferencesComeOnlyFromAcceptedReceiptsForPersistedIDs(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC)
+	account := seedAnalyticsAccount(t, db, "")
+	_, err := db.NewUpdate().Model((*models.SocialAccount)(nil)).
+		Set("platform = ?", "discord").
+		Set("account_id = ?", "guild-1").
+		Set("capability_state_json = ?", `{"connection_type":"bot"}`).
+		Where("id = ?", account.ID).
+		Exec(ctx)
+	require.NoError(t, err)
+	account.Platform = "discord"
+	account.AccountID = "guild-1"
+	account.CapabilityState = `{"connection_type":"bot"}`
+
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-discord", now)
+	rendition := models.Rendition{
+		ID: "rendition-discord", PublicationID: publication.ID, SocialAccountID: account.ID,
+		TargetKey: "discord", Platform: "discord", Profile: "short_text",
+		Status: models.RenditionStatusPublished, ExternalID: "message-1", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = db.NewInsert().Model(&rendition).Exec(ctx)
+	require.NoError(t, err)
+	authorization := models.PublicationAuthorization{
+		ID: "authorization-discord", BatchID: "batch-discord", WorkspaceID: account.WorkspaceID,
+		PublicationID: publication.ID, RenditionID: rendition.ID, Action: "publish",
+		ActorOrigin: "worker", ActorUserID: "user-1", PublicationRevision: 1,
+		SocialAccountID: account.ID, TargetKey: "discord", ScheduledAt: now,
+		ContentHash: "sha256:content", MediaHash: "sha256:media", SettingsHash: "sha256:settings",
+		PolicyMode: "immediate", ProviderPolicyMode: "discord.bot", ExecutionIntent: "production",
+		ConfirmedAt: now, CreatedAt: now,
+	}
+	_, err = db.NewInsert().Model(&authorization).Exec(ctx)
+	require.NoError(t, err)
+
+	attempts := []models.ProviderWriteAttempt{
+		acceptedDiscordAttempt("attempt-1", "operation-1", authorization, "message-1", "discord:channel-1:message-1:", now),
+		acceptedDiscordAttempt("attempt-rogue", "operation-rogue", authorization, "arbitrary-guild-message", "discord:channel-1:arbitrary-guild-message:", now),
+	}
+	_, err = db.NewInsert().Model(&attempts).Exec(ctx)
+	require.NoError(t, err)
+
+	service := NewService(db, staticTokenSource{})
+	externalIDs, err := service.renditionExternalIDs(ctx, rendition)
+	require.NoError(t, err)
+	require.Equal(t, []string{"message-1"}, externalIDs)
+	references, err := service.renditionProviderReferences(ctx, rendition, account, externalIDs)
+	require.NoError(t, err)
+	require.Equal(t, []string{"discord:channel-1:message-1:"}, references)
+	require.NotContains(t, references, "discord:channel-1:arbitrary-guild-message:")
+}
+
+func acceptedDiscordAttempt(id, operationID string, authorization models.PublicationAuthorization, externalID, reference string, now time.Time) models.ProviderWriteAttempt {
+	return models.ProviderWriteAttempt{
+		ID: id, OperationID: operationID, AttemptNumber: 1, AuthorizationID: authorization.ID,
+		WorkspaceID: authorization.WorkspaceID, PublicationID: authorization.PublicationID,
+		RenditionID: authorization.RenditionID, SocialAccountID: authorization.SocialAccountID,
+		TargetKey: authorization.TargetKey, Provider: "discord", Operation: "publish",
+		PayloadFingerprint: "sha256:payload", Status: "accepted",
+		SubmissionState: string(platform.PublishSubmissionAccepted), ProviderState: "discord_message_published",
+		ProviderReference: reference, RetrySafety: string(platform.PublishRetryReconcileOnly),
+		ExternalID: externalID, CompletedAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+}
+
 func TestHistoricalRenditionUsesActiveReplacementCredentialsAfterReconnect(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	ctx := context.Background()

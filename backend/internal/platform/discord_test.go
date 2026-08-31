@@ -623,6 +623,102 @@ func TestDiscordBotAmbiguousSendIsMarkedNeverReplay(t *testing.T) {
 	}
 }
 
+func TestDiscordBotAnalyticsReadsOnlyExactPersistedMessageReceipts(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	requested := []string{}
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Method != http.MethodGet || req.Header.Get("Authorization") != "Bot global-bot-token" {
+			t.Fatalf("unexpected Discord analytics request %s %s", req.Method, req.URL.String())
+		}
+		requested = append(requested, req.URL.EscapedPath())
+		switch req.URL.EscapedPath() {
+		case "/api/v10/guilds/100":
+			if req.URL.Query().Get("with_counts") != "true" {
+				t.Fatal("guild account context omitted with_counts")
+			}
+			return jsonResponse(req, `{"id":"100","approximate_member_count":321}`), nil
+		case "/api/v10/channels/channel-1/messages/message-1":
+			return jsonResponse(req, `{"id":"message-1","channel_id":"channel-1","reactions":[{"count":2},{"count":1}],"thread":{"message_count":2}}`), nil
+		case "/api/v10/channels/channel-2/messages/message-2":
+			return jsonResponse(req, `{"id":"message-2","channel_id":"channel-2","reactions":[{"count":4}]}`), nil
+		default:
+			t.Fatalf("analytics called an unpersisted ID or message-history endpoint: %s", req.URL.String())
+			return nil, errors.New("unexpected Discord analytics request")
+		}
+	})}
+
+	adapter := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback")
+	account, err := adapter.FetchAccountAnalyticsMeasurements(t.Context(), "", AccountAnalyticsRequest{AccountID: "100"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if account[MetricMembers].Value != 321 || account[MetricMembers].Aggregation != AnalyticsMetricAggregationCurrentSnapshot {
+		t.Fatalf("unexpected guild account context %#v", account)
+	}
+
+	content, err := adapter.FetchContentAnalyticsMeasurements(t.Context(), "", ContentAnalyticsRequest{
+		AccountID:   "100",
+		ExternalIDs: []string{"message-1", "message-2"},
+		ProviderReferences: []string{
+			"discord:channel-1:message-1:",
+			"discord:channel-2:message-2:attachment-1",
+			"discord:other-channel:not-persisted:",
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if content[MetricReactions].Value != 7 || content[MetricComments].Value != 2 {
+		t.Fatalf("unexpected Discord content analytics %#v", content)
+	}
+	for _, absent := range []string{MetricViews, MetricReach, MetricImpressions} {
+		if _, ok := content[absent]; ok {
+			t.Fatalf("Discord invented unsupported metric %q: %#v", absent, content)
+		}
+	}
+	if len(requested) != 3 {
+		t.Fatalf("unexpected Discord analytics reads %#v", requested)
+	}
+}
+
+func TestDiscordBotAnalyticsRequiresAReceiptForEveryPersistedMessage(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		calls++
+		return nil, errors.New("Discord must not be called without exact receipts")
+	})}
+
+	_, err := NewDiscordBotAdapter("app", "secret", "global-bot-token", "https://openpost.test/callback").FetchContentAnalyticsMeasurements(
+		t.Context(), "", ContentAnalyticsRequest{
+			ExternalIDs:        []string{"message-1", "message-2"},
+			ProviderReferences: []string{"discord:channel-1:message-1:"},
+		},
+	)
+	var analyticsErr *AnalyticsError
+	if !errors.As(err, &analyticsErr) || analyticsErr.Code != "discord_message_receipt_missing" || calls != 0 {
+		t.Fatalf("missing receipt did not fail before provider reads: err=%v calls=%d", err, calls)
+	}
+}
+
+func TestDiscordWebhookAndBotAnalyticsReadinessAreIndependent(t *testing.T) {
+	webhook := NewDiscordAdapter()
+	bot := NewDiscordBotAdapter("app", "secret", "bot-token", "https://openpost.test/callback")
+	if _, enabled := any(webhook).(AnalyticsAdapter); enabled {
+		t.Fatal("incoming webhooks must not gain bot analytics readiness")
+	}
+	analytics, enabled := any(bot).(AnalyticsAdapter)
+	if !enabled || !analytics.AnalyticsSupport().Account || !analytics.AnalyticsSupport().Content {
+		t.Fatalf("bot analytics readiness is unavailable independently: %#v", analytics)
+	}
+	if _, publishable := any(webhook).(Publisher); !publishable {
+		t.Fatal("webhook publishing readiness regressed when bot analytics was enabled")
+	}
+}
+
 func TestDiscordWebhookDeleteRegression(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

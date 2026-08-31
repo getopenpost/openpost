@@ -16,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/organizationguard"
+	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/uptrace/bun"
 )
 
@@ -417,14 +418,19 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
 	s.resolveAndStoreContentURL(ctx, adapter, token, account, &rendition)
+	providerReferences, err := s.analyticsProviderReferences(ctx, adapter, rendition, account, externalIDs)
+	if err != nil {
+		return err
+	}
 	request := platform.ContentAnalyticsRequest{
-		AccountID:     account.AccountID,
-		ExternalIDs:   externalIDs,
-		Profile:       rendition.Profile,
-		OutputProfile: rendition.OutputProfile,
-		PublishedAt:   publishedAt,
-		GrantedScopes: strings.Fields(account.GrantedScopes),
-		OwnReplyCount: max(0, len(externalIDs)-1),
+		AccountID:          account.AccountID,
+		ExternalIDs:        externalIDs,
+		ProviderReferences: providerReferences,
+		Profile:            rendition.Profile,
+		OutputProfile:      rendition.OutputProfile,
+		PublishedAt:        publishedAt,
+		GrantedScopes:      strings.Fields(account.GrantedScopes),
+		OwnReplyCount:      max(0, len(externalIDs)-1),
 	}
 	values, metadata, err := fetchContentMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {
@@ -753,10 +759,7 @@ func (s *Service) analyticsAdapter(account models.SocialAccount) platform.Analyt
 	}
 	s.providersMu.RUnlock()
 
-	key := account.Platform
-	if account.Platform == "mastodon" {
-		key = "mastodon:" + account.InstanceURL
-	}
+	key := platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState)
 	s.providersMu.RLock()
 	adapter := s.providers[key]
 	s.providersMu.RUnlock()
@@ -835,6 +838,65 @@ func (s *Service) analyticsAccessToken(ctx context.Context, adapter platform.Ana
 		return "", nil
 	}
 	return s.accessToken(ctx, accountID)
+}
+
+func (s *Service) analyticsProviderReferences(
+	ctx context.Context,
+	adapter platform.AnalyticsAdapter,
+	rendition models.Rendition,
+	account models.SocialAccount,
+	externalIDs []string,
+) ([]string, error) {
+	consumer, ok := adapter.(platform.ProviderReferenceAnalyticsAdapter)
+	if !ok || !consumer.RequiresProviderReferences() {
+		return nil, nil
+	}
+	return s.renditionProviderReferences(ctx, rendition, account, externalIDs)
+}
+
+func (s *Service) renditionProviderReferences(
+	ctx context.Context,
+	rendition models.Rendition,
+	account models.SocialAccount,
+	externalIDs []string,
+) ([]string, error) {
+	if len(externalIDs) == 0 {
+		return nil, nil
+	}
+	const maxReceiptRows = 100
+	var attempts []models.ProviderWriteAttempt
+	if err := s.db.NewSelect().
+		Model(&attempts).
+		Column("external_id", "provider_reference").
+		Where("rendition_id = ?", rendition.ID).
+		Where("social_account_id = ?", account.ID).
+		Where("provider = ?", account.Platform).
+		Where("status = ?", providerwrite.StatusAccepted).
+		Where("submission_state = ?", platform.PublishSubmissionAccepted).
+		Where("external_id IN (?)", bun.List(externalIDs)).
+		Where("provider_reference <> ''").
+		Order("updated_at DESC").
+		Limit(maxReceiptRows).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("load analytics provider receipts: %w", err)
+	}
+	persisted := make(map[string]struct{}, len(externalIDs))
+	for _, externalID := range externalIDs {
+		persisted[externalID] = struct{}{}
+	}
+	seenIDs := make(map[string]struct{}, len(attempts))
+	references := make([]string, 0, len(attempts))
+	for _, attempt := range attempts {
+		if _, ok := persisted[attempt.ExternalID]; !ok {
+			continue
+		}
+		if _, duplicate := seenIDs[attempt.ExternalID]; duplicate {
+			continue
+		}
+		seenIDs[attempt.ExternalID] = struct{}{}
+		references = append(references, attempt.ProviderReference)
+	}
+	return references, nil
 }
 
 func (s *Service) renditionExternalIDs(ctx context.Context, rendition models.Rendition) ([]string, error) {

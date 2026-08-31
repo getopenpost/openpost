@@ -23,8 +23,10 @@ const (
 const (
 	MetricFollowers   = "followers"
 	MetricFollowing   = "following"
+	MetricMembers     = "members"
 	MetricPosts       = "posts"
 	MetricLikes       = "likes"
+	MetricReactions   = "reactions"
 	MetricComments    = "comments"
 	MetricReposts     = "reposts"
 	MetricQuotes      = "quotes"
@@ -72,13 +74,14 @@ type AccountAnalyticsRequest struct {
 }
 
 type ContentAnalyticsRequest struct {
-	AccountID     string
-	ExternalIDs   []string
-	Profile       string
-	OutputProfile string
-	PublishedAt   time.Time
-	GrantedScopes []string
-	OwnReplyCount int
+	AccountID          string
+	ExternalIDs        []string
+	ProviderReferences []string
+	Profile            string
+	OutputProfile      string
+	PublishedAt        time.Time
+	GrantedScopes      []string
+	OwnReplyCount      int
 }
 
 // AnalyticsAdapter is optional so publishing remains independent from
@@ -88,6 +91,13 @@ type AnalyticsAdapter interface {
 	AnalyticsSupport() AnalyticsSupport
 	FetchAccountAnalytics(ctx context.Context, accessToken string, input AccountAnalyticsRequest) (AnalyticsValues, error)
 	FetchContentAnalytics(ctx context.Context, accessToken string, input ContentAnalyticsRequest) (AnalyticsValues, error)
+}
+
+// ProviderReferenceAnalyticsAdapter marks content analytics that must use the
+// durable provider-write receipt rather than reconstructing a read target from
+// user-authored settings or provider history.
+type ProviderReferenceAnalyticsAdapter interface {
+	RequiresProviderReferences() bool
 }
 
 type AnalyticsError struct {
@@ -139,6 +149,7 @@ func EngagementTotal(values AnalyticsValues) int64 {
 
 var engagementMetrics = []string{
 	MetricLikes,
+	MetricReactions,
 	MetricComments,
 	MetricReposts,
 	MetricQuotes,

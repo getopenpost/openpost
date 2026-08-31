@@ -32,6 +32,7 @@ const (
 	discordChannelPermissionLostCode   = "discord_channel_permission_lost"
 	discordMentionPermissionLostCode   = "discord_mention_permission_lost"
 	discordEmbedInvalidCode            = "discord_embed_invalid"
+	discordAnalyticsMaxMessages        = 25
 )
 
 type DiscordBotAdapter struct {
@@ -331,6 +332,137 @@ func (d *DiscordBotAdapter) ResolveAccountPublishingCapabilities(ctx context.Con
 	return result, nil
 }
 
+func (*DiscordBotAdapter) AnalyticsSupport() AnalyticsSupport {
+	return AnalyticsSupport{Account: true, Content: true}
+}
+
+func (*DiscordBotAdapter) UsesProviderToken() bool {
+	return false
+}
+
+func (*DiscordBotAdapter) RequiresProviderReferences() bool {
+	return true
+}
+
+func (d *DiscordBotAdapter) FetchAccountAnalytics(ctx context.Context, _ string, input AccountAnalyticsRequest) (AnalyticsValues, error) {
+	measurements, err := d.FetchAccountAnalyticsMeasurements(ctx, "", input)
+	return discordAnalyticsValues(measurements), err
+}
+
+func (d *DiscordBotAdapter) FetchAccountAnalyticsMeasurements(ctx context.Context, _ string, input AccountAnalyticsRequest) (AnalyticsMeasurements, error) {
+	guildID := strings.TrimSpace(input.AccountID)
+	if guildID == "" {
+		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "missing_account_id")
+	}
+	var guild struct {
+		ID                     string `json:"id"`
+		ApproximateMemberCount *int64 `json:"approximate_member_count"`
+	}
+	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID)+"?with_counts=true", "Bot "+d.botToken, &guild); err != nil {
+		return nil, fmt.Errorf("loading discord guild analytics: %w", err)
+	}
+	if guild.ID != guildID || guild.ApproximateMemberCount == nil {
+		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "discord_member_count_unavailable")
+	}
+	return AnalyticsMeasurements{
+		MetricMembers: {
+			Value: max(0, *guild.ApproximateMemberCount),
+			AnalyticsMetricMetadata: AnalyticsMetricMetadata{
+				Unit: AnalyticsMetricUnitCount, Aggregation: AnalyticsMetricAggregationCurrentSnapshot, Source: providerDiscord,
+			},
+		},
+	}, nil
+}
+
+func (d *DiscordBotAdapter) FetchContentAnalytics(ctx context.Context, _ string, input ContentAnalyticsRequest) (AnalyticsValues, error) {
+	measurements, err := d.FetchContentAnalyticsMeasurements(ctx, "", input)
+	return discordAnalyticsValues(measurements), err
+}
+
+func (d *DiscordBotAdapter) FetchContentAnalyticsMeasurements(ctx context.Context, _ string, input ContentAnalyticsRequest) (AnalyticsMeasurements, error) {
+	identities, err := discordAnalyticsMessageIdentities(input)
+	if err != nil {
+		return nil, err
+	}
+	var reactions, replies int64
+	for _, identity := range identities {
+		var message discordMessage
+		path := "/channels/" + url.PathEscape(identity.channelID) + "/messages/" + url.PathEscape(identity.messageID)
+		if err := d.discordGetJSON(ctx, path, "Bot "+d.botToken, &message); err != nil {
+			return nil, fmt.Errorf("loading discord message analytics: %w", err)
+		}
+		if message.ID != identity.messageID || (message.ChannelID != "" && message.ChannelID != identity.channelID) {
+			return nil, NewAnalyticsError(AnalyticsStatusNotFound, "discord_message_identity_mismatch")
+		}
+		for _, reaction := range message.Reactions {
+			reactions += max(0, reaction.Count)
+		}
+		if message.Thread != nil {
+			replies += max(0, message.Thread.MessageCount)
+		}
+	}
+	metadata := AnalyticsMetricMetadata{
+		Unit: AnalyticsMetricUnitCount, Aggregation: AnalyticsMetricAggregationLifetimeTotal, Source: providerDiscord,
+	}
+	return AnalyticsMeasurements{
+		MetricReactions: {Value: reactions, AnalyticsMetricMetadata: metadata},
+		MetricComments:  {Value: replies, AnalyticsMetricMetadata: metadata},
+	}, nil
+}
+
+type discordAnalyticsMessageIdentity struct {
+	channelID string
+	messageID string
+}
+
+func discordAnalyticsMessageIdentities(input ContentAnalyticsRequest) ([]discordAnalyticsMessageIdentity, error) {
+	persistedIDs := make(map[string]struct{}, len(input.ExternalIDs))
+	for _, id := range input.ExternalIDs {
+		if id = strings.TrimSpace(id); id != "" {
+			persistedIDs[id] = struct{}{}
+		}
+	}
+	if len(persistedIDs) == 0 {
+		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "missing_external_id")
+	}
+	if len(persistedIDs) > discordAnalyticsMaxMessages {
+		return nil, NewAnalyticsError(AnalyticsStatusFailed, "discord_message_read_limit")
+	}
+
+	identities := make([]discordAnalyticsMessageIdentity, 0, len(input.ProviderReferences))
+	seen := make(map[string]struct{}, len(input.ProviderReferences))
+	for _, reference := range input.ProviderReferences {
+		channelID, messageID, ok := parseDiscordMessageReference(reference)
+		if !ok {
+			continue
+		}
+		if _, persisted := persistedIDs[messageID]; !persisted {
+			continue
+		}
+		key := channelID + "\x00" + messageID
+		if _, duplicate := seen[key]; duplicate {
+			continue
+		}
+		seen[key] = struct{}{}
+		identities = append(identities, discordAnalyticsMessageIdentity{channelID: channelID, messageID: messageID})
+	}
+	if len(identities) != len(persistedIDs) {
+		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "discord_message_receipt_missing")
+	}
+	return identities, nil
+}
+
+func discordAnalyticsValues(measurements AnalyticsMeasurements) AnalyticsValues {
+	if measurements == nil {
+		return nil
+	}
+	values := make(AnalyticsValues, len(measurements))
+	for metric, measurement := range measurements {
+		values[metric] = measurement.Value
+	}
+	return values
+}
+
 func (*DiscordBotAdapter) UploadMedia(context.Context, string, string, string, io.Reader) (string, error) {
 	return "", fmt.Errorf("discord bot media is attached when the message is sent")
 }
@@ -443,7 +575,7 @@ func (d *DiscordBotAdapter) sendDiscordBotMessage(ctx context.Context, channelID
 }
 
 func (d *DiscordBotAdapter) ReconcilePublish(ctx context.Context, _ string, guildID, providerReference string) (PublishResult, error) {
-	channelID, messageID, _, ok := parseDiscordMessageReference(providerReference)
+	channelID, messageID, ok := parseDiscordMessageReference(providerReference)
 	if !ok {
 		return PublishResult{}, &HTTPError{StatusCode: http.StatusBadRequest, Code: "discord_message_reference_invalid"}
 	}
@@ -516,6 +648,16 @@ type discordMessage struct {
 	ID          string                     `json:"id"`
 	ChannelID   string                     `json:"channel_id"`
 	Attachments []discordMessageAttachment `json:"attachments"`
+	Reactions   []discordMessageReaction   `json:"reactions"`
+	Thread      *discordMessageThread      `json:"thread"`
+}
+
+type discordMessageReaction struct {
+	Count int64 `json:"count"`
+}
+
+type discordMessageThread struct {
+	MessageCount int64 `json:"message_count"`
 }
 
 type discordEmbed struct {
@@ -1068,16 +1210,12 @@ func discordMessageReference(channelID, messageID string, attachmentIDs []string
 	return strings.Join([]string{"discord", channelID, messageID, strings.Join(attachmentIDs, ",")}, ":")
 }
 
-func parseDiscordMessageReference(reference string) (string, string, []string, bool) {
+func parseDiscordMessageReference(reference string) (string, string, bool) {
 	parts := strings.SplitN(strings.TrimSpace(reference), ":", 4)
 	if len(parts) != 4 || parts[0] != "discord" || parts[1] == "" || parts[2] == "" {
-		return "", "", nil, false
+		return "", "", false
 	}
-	attachments := []string(nil)
-	if parts[3] != "" {
-		attachments = strings.Split(parts[3], ",")
-	}
-	return parts[1], parts[2], attachments, true
+	return parts[1], parts[2], true
 }
 
 func (d *DiscordBotAdapter) discordGetJSON(ctx context.Context, path, authorization string, output any) error {

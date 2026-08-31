@@ -19,6 +19,8 @@ func TestSupportsAnalyticsParity(t *testing.T) {
 		{"linkedin", "", true},
 		{"linkedin", `{"linkedin_account_type":"community_management"}`, false},
 		{"discord", "", false},
+		{"discord", `{"connection_type":"webhook"}`, false},
+		{"discord", `{"connection_type":"bot"}`, true},
 		{"unknown", "", false},
 	}
 	for _, tc := range tests {

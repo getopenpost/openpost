@@ -607,7 +607,7 @@ func extractPreferenceMeta(pref *models.AccountFeature) (*time.Time, string, str
 }
 
 func (s *Service) supportFor(_ context.Context, account models.SocialAccount, feature string) ([]string, []string, string, bool) {
-	adapter, ok := s.resolveAdapter(account.Platform)
+	adapter, ok := s.resolveAdapter(platform.AccountProviderKey(account.Platform, account.InstanceURL, account.CapabilityState))
 	if !ok || adapter == nil {
 		return nil, nil, "", false
 	}

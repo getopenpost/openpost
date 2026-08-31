@@ -185,6 +185,13 @@ type PublishReconciler interface {
 	ReconcilePublish(ctx context.Context, accessToken, accountID, providerReference string) (PublishResult, error)
 }
 
+// PublishResumer continues a provider workflow from a durable stage recorded
+// before the next remote mutation. The request checkpoint must move to another
+// durable stage before each non-idempotent provider call.
+type PublishResumer interface {
+	ResumePublish(ctx context.Context, accessToken, accountID string, request *PublishRequest, providerReference string) (PublishResult, error)
+}
+
 type MediaValidationIssue struct {
 	Provider string
 	MediaID  string

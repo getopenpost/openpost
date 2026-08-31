@@ -28,12 +28,3 @@ export function isReverseShuttleRate(rate: number): boolean {
 export function isShuttleActive(rate: number, isPlaying: boolean): boolean {
 	return isPlaying && (rate < 0 || Math.abs(rate) > 1);
 }
-
-export function getShuttleGain(
-	baseGain: number,
-	transportRate: number,
-	isPlaying: boolean
-): number {
-	if (!isPlaying) return baseGain;
-	return baseGain;
-}

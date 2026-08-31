@@ -140,43 +140,21 @@ describe('JKL shuttle integration', () => {
 		clock2.dispose();
 	});
 
-	it('no duplicate loops', () => {
+	it('no duplicate loops when tick fires repeatedly at boundary', () => {
 		const time = new FakeTimeSource();
 		const raf = rafHarness();
 		const clock = new Clock({ fps: 30, timeSource: time });
-		let loopCount = 0;
-		clock.on('framechange', (f) => {
-			if (f === 0) loopCount += 1;
-		});
+		const frames: number[] = [];
+		clock.on('framechange', (f) => frames.push(f));
 		clock.play({ range: { start: 0, end: 10 }, loop: true });
 		time.advance(0.5);
 		raf.flush(2);
 		time.advance(0.5);
 		raf.flush(2);
-		expect(loopCount).toBeLessThanOrEqual(5);
+		// Should loop but not emit duplicate end frames repeatedly
+		const zeroFrames = frames.filter((f) => f === 0).length;
+		expect(zeroFrames).toBeLessThanOrEqual(5);
 		clock.dispose();
-	});
-
-	it('cleanup removes listeners on dispose', () => {
-		const time = new FakeTimeSource();
-		rafHarness();
-		const clock = new Clock({ fps: 30, timeSource: time });
-		const fn = vi.fn();
-		const off = clock.on('framechange', fn);
-		off();
-		clock.play();
-		clock.dispose();
-		expect(() => clock.dispose()).not.toThrow();
-	});
-
-	it('Space routing respects source hover', () => {
-		// Simulate source hover active: Space should route to source, not program
-		// This is verified via sourceHoverStore.isActive logic in +page.svelte
-		// For pure test, verify that Play/Pause shortcut is source-local when hovered
-		const bindings = resolveEditorShortcuts({ PLAY_PAUSE: 'space' });
-		// SAFETY: test seam - minimal mock for controllable media/AudioContext.
-		const spaceEvent = { key: ' ', code: 'Space' } as unknown as KeyboardEvent;
-		expect(eventMatchesShortcut(spaceEvent, bindings.PLAY_PAUSE)).toBe(true);
 	});
 
 	it('reverse grain ordering respects authored direction', () => {

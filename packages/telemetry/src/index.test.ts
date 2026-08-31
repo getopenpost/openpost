@@ -298,7 +298,17 @@ describe("BrowserTelemetry", () => {
     expect(sdk.exceptions[0]?.error.message).not.toContain("https://example.com");
   });
 
-  it("redacts raw stack URLs while retaining safe source-map asset paths", () => {
+  it("keeps the browser event type when a rejection is not an Error", () => {
+    const sdk = new FakeSDK();
+    const subject = new BrowserTelemetry(sdk, () => true);
+    subject.configure(configuredApp);
+
+    subject.captureException(new Event("error"));
+
+    expect(sdk.exceptions[0]?.error.message).toBe("Event: error");
+  });
+
+  it("redacts foreign stack URLs while retaining source-map asset URLs", () => {
     const sdk = new FakeSDK();
     const subject = new BrowserTelemetry(sdk, () => true);
     subject.configure(configuredApp);
@@ -312,9 +322,8 @@ describe("BrowserTelemetry", () => {
     subject.captureException(error);
 
     const stack = sdk.exceptions[0]?.error.stack ?? "";
-    expect(stack).toContain("/_app/immutable/chunks/app.ABC123.js:12:3");
+    expect(stack).toContain("https://app.openpost.social/_app/immutable/chunks/app.ABC123.js:12:3");
     expect(stack).toContain("[redacted-url]");
-    expect(stack).not.toContain("app.openpost.social");
     expect(stack).not.toContain("path-secret");
     expect(stack).not.toContain("token=secret");
   });

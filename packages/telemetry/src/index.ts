@@ -574,7 +574,9 @@ function sanitizeError(value: unknown): Error {
   const source =
     value instanceof Error
       ? value
-      : new Error(typeof value === "string" ? value : "Unknown client error");
+      : typeof Event !== "undefined" && value instanceof Event
+        ? new Error(`${value.constructor.name || "Event"}: ${value.type || "unknown"}`)
+        : new Error(typeof value === "string" ? value : "Unknown client error");
   const result = new Error(scrubPropertyString(source.message || "Unknown client error"));
   result.name = source.name || "Error";
   if (source.stack) result.stack = scrubStack(source.stack);
@@ -604,13 +606,14 @@ function scrubStack(value: string): string {
 function scrubStackURL(value: string): string {
   const withoutQueryOrFragment = value.replace(/[?#].*$/, "");
   try {
-    const pathname = new URL(withoutQueryOrFragment).pathname;
+    const url = new URL(withoutQueryOrFragment);
+    const pathname = url.pathname;
     if (
       /^\/(?:_app\/immutable|assets)\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]+\.m?js(?::\d+){0,2}$/.test(
         pathname,
       )
     ) {
-      return pathname;
+      return `${url.origin}${pathname}`;
     }
   } catch {
     // Invalid absolute URLs are redacted below.

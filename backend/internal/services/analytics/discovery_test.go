@@ -114,6 +114,66 @@ func TestDiscoveryLinksExactRenditionOnceAndKeepsExternalUploadsPublicationFree(
 	require.Equal(t, 2, discoveryState.ReadBudgetUsed, "listing and batch measurement reads both consume the durable budget")
 }
 
+func TestSocialDiscoveryMatchesManagedRenditionsByExactScopedIdentity(t *testing.T) {
+	tests := []struct {
+		name            string
+		provider        string
+		serverURL       string
+		accountID       string
+		externalID      string
+		discoveredValue string
+		collisionServer string
+	}{
+		{
+			name: "mastodon instance status", provider: "mastodon", serverURL: "https://one.social", accountID: "account-1",
+			externalID: "42", discoveredValue: "42", collisionServer: "https://two.social",
+		},
+		{
+			name: "bluesky PDS repository record", provider: "bluesky", serverURL: "https://one.pds", accountID: "did:plc:founder",
+			externalID:      `{"_root":null,"cid":"bafy","uri":"at://did:plc:founder/app.bsky.feed.post/3abc"}`,
+			discoveredValue: "at://did:plc:founder/app.bsky.feed.post/3abc", collisionServer: "https://two.pds",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			db := newAnalyticsTestDB(t)
+			account := seedAnalyticsAccount(t, db, "")
+			account.Platform = test.provider
+			account.InstanceURL = test.serverURL
+			account.AccountID = test.accountID
+			_, err := db.NewUpdate().Model(&account).Column("platform", "instance_url", "account_id").WherePK().Exec(t.Context())
+			require.NoError(t, err)
+
+			now := time.Date(2026, 9, 5, 12, 0, 0, 0, time.UTC)
+			publication := models.Publication{
+				ID: "publication-managed", WorkspaceID: account.WorkspaceID, CreatedByID: "user-1", Title: "Managed",
+				Intent: "post", ContentProfile: models.ContentProfileShortText, SourceContent: "Managed",
+				Status: models.PublicationStatusPublished, ActualRunAt: now, CreatedAt: now, UpdatedAt: now,
+			}
+			_, err = db.NewInsert().Model(&publication).Exec(t.Context())
+			require.NoError(t, err)
+			rendition := models.Rendition{
+				ID: "rendition-managed", PublicationID: publication.ID, SocialAccountID: account.ID, Platform: test.provider,
+				Profile: models.ContentProfileShortText, Status: models.RenditionStatusPublished, ExternalID: test.externalID,
+				CreatedAt: now, UpdatedAt: now,
+			}
+			_, err = db.NewInsert().Model(&rendition).Exec(t.Context())
+			require.NoError(t, err)
+
+			exactID, ok := platform.CanonicalSocialAccountContentID(test.provider, test.serverURL, test.accountID, test.discoveredValue)
+			require.True(t, ok)
+			collisionID, ok := platform.CanonicalSocialAccountContentID(test.provider, test.collisionServer, test.accountID, test.discoveredValue)
+			require.True(t, ok)
+			matches, err := exactDiscoveryRenditions(t.Context(), db, account, []platform.AccountContentItem{
+				{ProviderContentID: exactID, PublishedAt: now},
+				{ProviderContentID: collisionID, PublishedAt: now},
+			})
+			require.NoError(t, err)
+			require.Equal(t, map[string]string{exactID: rendition.ID}, matches)
+		})
+	}
+}
+
 func TestDiscoveryCommitsEachPageBeforeCrashSafeContinuationAndDeduplicates(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "content.read")

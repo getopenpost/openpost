@@ -404,23 +404,41 @@ func exactDiscoveryRenditions(ctx context.Context, db bun.IDB, account models.So
 	if len(ids) == 0 {
 		return matches, nil
 	}
+	requested := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		requested[id] = struct{}{}
+	}
+
 	var renditions []models.Rendition
-	if err := db.NewSelect().Model(&renditions).
+	query := db.NewSelect().Model(&renditions).
 		Column("id", "external_id").
-		Where("social_account_id = ? AND platform = ?", account.ID, account.Platform).
-		Where("external_id IN (?)", bun.List(ids)).
-		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		Where("social_account_id = ? AND platform = ?", account.ID, account.Platform)
+	if account.Platform != "mastodon" && account.Platform != "bluesky" {
+		query = query.Where("external_id IN (?)", bun.List(ids))
+	}
+	if err := query.Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("load exact discovery renditions: %w", err)
 	}
 	counts := make(map[string]int, len(renditions))
 	for _, rendition := range renditions {
 		externalID := strings.TrimSpace(rendition.ExternalID)
-		counts[externalID]++
-		matches[externalID] = rendition.ID
+		identity := externalID
+		if account.Platform == "mastodon" || account.Platform == "bluesky" {
+			var ok bool
+			identity, ok = platform.CanonicalSocialAccountContentID(account.Platform, account.InstanceURL, account.AccountID, externalID)
+			if !ok {
+				continue
+			}
+		}
+		if _, wanted := requested[identity]; !wanted {
+			continue
+		}
+		counts[identity]++
+		matches[identity] = rendition.ID
 	}
-	for externalID, count := range counts {
+	for identity, count := range counts {
 		if count != 1 {
-			delete(matches, externalID)
+			delete(matches, identity)
 		}
 	}
 	return matches, nil

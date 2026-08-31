@@ -150,7 +150,7 @@ func (i *InstagramAdapter) GetProfile(ctx context.Context, accessToken string) (
 }
 
 func (i *InstagramAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
-	pages, err := i.listInstagramPages(ctx, token.AccessToken)
+	pages, err := i.listInstagramPages(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (i *InstagramAdapter) ListAccountSelections(ctx context.Context, token *Tok
 }
 
 func (i *InstagramAdapter) SelectAccount(ctx context.Context, token *TokenResult, selectionID string) (*SelectedAccount, error) {
-	pages, err := i.listInstagramPages(ctx, token.AccessToken)
+	pages, err := i.listInstagramPages(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -211,29 +211,14 @@ func (i *InstagramAdapter) SelectAccount(ctx context.Context, token *TokenResult
 	return nil, fmt.Errorf("instagram account selection %s was not found", selectionID)
 }
 
-func (i *InstagramAdapter) listInstagramPages(ctx context.Context, accessToken string) ([]instagramPage, error) {
+func (i *InstagramAdapter) listInstagramPages(ctx context.Context, token *TokenResult) ([]instagramPage, error) {
 	fields := "id,name,username,access_token,picture.type(square),instagram_business_account{id,username,name,profile_picture_url}"
-	endpoint := i.graphURL("me/accounts") + "?fields=" + url.QueryEscape(fields) + "&limit=100&access_token=" + url.QueryEscape(accessToken)
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
+	managedPages, err := listMetaManagedPages(ctx, i.graphURL, token, fields, "instagram")
 	if err != nil {
 		return nil, fmt.Errorf("instagram accounts: %w", err)
 	}
-
-	var pagesResp struct {
-		Data  []instagramPage `json:"data"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(respBody, &pagesResp); err != nil {
-		return nil, fmt.Errorf("decoding instagram accounts: %w", err)
-	}
-	if pagesResp.Error.Message != "" {
-		return nil, fmt.Errorf("instagram accounts: %s", pagesResp.Error.Message)
-	}
-
-	pages := make([]instagramPage, 0, len(pagesResp.Data))
-	for _, page := range pagesResp.Data {
+	pages := make([]instagramPage, 0, len(managedPages))
+	for _, page := range managedPages {
 		if page.InstagramBusinessAccount.ID != "" {
 			pages = append(pages, page)
 		}
@@ -682,23 +667,4 @@ func instagramScopes() []string {
 		"pages_show_list",
 		"pages_read_engagement",
 	}
-}
-
-type instagramPage struct {
-	ID                       string `json:"id"`
-	Name                     string `json:"name"`
-	Username                 string `json:"username"`
-	AccessToken              string `json:"access_token"`
-	InstagramBusinessAccount struct {
-		ID                string `json:"id"`
-		Username          string `json:"username"`
-		Name              string `json:"name"`
-		ProfilePictureURL string `json:"profile_picture_url"`
-		AccountType       string `json:"account_type"`
-	} `json:"instagram_business_account"`
-	Picture struct {
-		Data struct {
-			URL string `json:"url"`
-		} `json:"data"`
-	} `json:"picture"`
 }

@@ -151,6 +151,48 @@ func TestInstagramListAccountSelectionsUsesFacebookLoginIGUserFields(t *testing.
 	}
 }
 
+func TestInstagramListAccountSelectionsIncludesBusinessPortfolioAccount(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/me/accounts":
+			return jsonResponse(req, `{"data":[]}`), nil
+		case "/v25.0/me/businesses":
+			return jsonResponse(req, `{"data":[{"id":"business-1"}]}`), nil
+		case "/v25.0/business-1/owned_pages":
+			return jsonResponse(req, `{"data":[{"id":"page-1","name":"Portfolio Page","access_token":"page-token","instagram_business_account":{"id":"ig-1","username":"portfolio","name":"Portfolio IG","account_type":"BUSINESS"}}]}`), nil
+		case "/v25.0/business-1/client_pages":
+			return jsonResponse(req, `{"data":[]}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewInstagramAdapter("", "", "")
+	token := &TokenResult{AccessToken: "user-token", Extra: map[string]string{"scope": "instagram_basic business_management"}}
+	options, err := adapter.ListAccountSelections(
+		t.Context(),
+		token,
+	)
+	if err != nil {
+		t.Fatalf("ListAccountSelections returned error: %v", err)
+	}
+	if len(options) != 1 || options[0].ID != "ig-1" || options[0].Username != "portfolio" {
+		t.Fatalf("unexpected Instagram options: %#v", options)
+	}
+	selected, err := adapter.SelectAccount(t.Context(), token, "ig-1")
+	if err != nil {
+		t.Fatalf("SelectAccount returned error: %v", err)
+	}
+	if selected.Token.AccessToken != "page-token" || selected.Token.Extra["page_id"] != "page-1" {
+		t.Fatalf("unexpected selected portfolio account: %#v", selected)
+	}
+}
+
 func TestInstagramListCommentsMapsGraphResponse(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

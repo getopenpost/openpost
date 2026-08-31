@@ -136,6 +136,42 @@ func TestFacebookListAccountSelectionsExplainsPageAccessRequirement(t *testing.T
 	}
 }
 
+func TestFacebookListAccountSelectionsPaginatesAndIncludesBusinessPortfolioPages(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/me/accounts":
+			if req.URL.Query().Get("after") == "page-2" {
+				return jsonResponse(req, `{"data":[{"id":"page-2","name":"Second Page","access_token":"page-token-2"}]}`), nil
+			}
+			return jsonResponse(req, `{"data":[{"id":"page-1","name":"First Page","access_token":"page-token-1"}],"paging":{"next":"https://graph.facebook.com/v25.0/me/accounts?after=page-2"}}`), nil
+		case "/v25.0/me/businesses":
+			return jsonResponse(req, `{"data":[{"id":"business-1"}]}`), nil
+		case "/v25.0/business-1/owned_pages":
+			return jsonResponse(req, `{"data":[{"id":"page-1","name":"Duplicate without token"}]}`), nil
+		case "/v25.0/business-1/client_pages":
+			return jsonResponse(req, `{"data":[{"id":"page-3","name":"Client Page","access_token":"page-token-3"}]}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	options, err := NewFacebookAdapter("", "", "").ListAccountSelections(
+		t.Context(),
+		&TokenResult{AccessToken: "user-token", Extra: map[string]string{"scope": "pages_show_list business_management"}},
+	)
+	if err != nil {
+		t.Fatalf("ListAccountSelections returned error: %v", err)
+	}
+	if len(options) != 3 || options[0].ID != "page-1" || options[1].ID != "page-2" || options[2].ID != "page-3" {
+		t.Fatalf("unexpected discovered pages: %#v", options)
+	}
+}
+
 func TestFacebookListCommentsMapsGraphResponse(t *testing.T) {
 	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
 	originalClient := httpClient

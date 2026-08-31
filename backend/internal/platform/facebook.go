@@ -219,7 +219,7 @@ func (f *FacebookAdapter) GetProfile(ctx context.Context, accessToken string) (*
 }
 
 func (f *FacebookAdapter) ListAccountSelections(ctx context.Context, token *TokenResult) ([]AccountSelectionOption, error) {
-	pages, err := f.listPages(ctx, token.AccessToken)
+	pages, err := f.listPages(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -240,7 +240,7 @@ func (f *FacebookAdapter) ListAccountSelections(ctx context.Context, token *Toke
 }
 
 func (f *FacebookAdapter) SelectAccount(ctx context.Context, token *TokenResult, selectionID string) (*SelectedAccount, error) {
-	pages, err := f.listPages(ctx, token.AccessToken)
+	pages, err := f.listPages(ctx, token)
 	if err != nil {
 		return nil, err
 	}
@@ -272,30 +272,16 @@ func (f *FacebookAdapter) SelectAccount(ctx context.Context, token *TokenResult,
 	return nil, fmt.Errorf("facebook page selection %s was not found", selectionID)
 }
 
-func (f *FacebookAdapter) listPages(ctx context.Context, accessToken string) ([]facebookPage, error) {
+func (f *FacebookAdapter) listPages(ctx context.Context, token *TokenResult) ([]facebookPage, error) {
 	fields := "id,name,username,access_token,picture.type(square)"
-	endpoint := f.graphURL("me/accounts") + "?fields=" + url.QueryEscape(fields) + "&access_token=" + url.QueryEscape(accessToken)
-	respBody, err := DoRequest(ctx, http.MethodGet, endpoint, nil, nil)
+	pages, err := listMetaManagedPages(ctx, f.graphURL, token, fields, "facebook")
 	if err != nil {
 		return nil, fmt.Errorf("facebook pages: %w", err)
 	}
-
-	var pagesResp struct {
-		Data  []facebookPage `json:"data"`
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if err := json.Unmarshal(respBody, &pagesResp); err != nil {
-		return nil, fmt.Errorf("decoding facebook pages: %w", err)
-	}
-	if pagesResp.Error.Message != "" {
-		return nil, fmt.Errorf("facebook pages: %s", pagesResp.Error.Message)
-	}
-	if len(pagesResp.Data) == 0 {
+	if len(pages) == 0 {
 		return nil, fmt.Errorf("OpenPost could not find any Facebook Pages this profile can manage; create a Page or give this profile full control of one, then try again")
 	}
-	return pagesResp.Data, nil
+	return pages, nil
 }
 
 func (f *FacebookAdapter) UploadMedia(_ context.Context, _ string, _ string, _ string, _ io.Reader) (string, error) {
@@ -688,16 +674,4 @@ func facebookScopes() []string {
 		"pages_manage_posts",
 		"pages_messaging",
 	}
-}
-
-type facebookPage struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Username    string `json:"username"`
-	AccessToken string `json:"access_token"`
-	Picture     struct {
-		Data struct {
-			URL string `json:"url"`
-		} `json:"data"`
-	} `json:"picture"`
 }

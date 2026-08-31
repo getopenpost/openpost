@@ -1476,6 +1476,7 @@ func uniqueMediaFilterValues(values ...string) []string {
 }
 
 func cleanUploadFilename(filename string) string {
+	filename = strings.ToValidUTF8(filename, "�")
 	filename = strings.TrimSpace(strings.ReplaceAll(filename, "\\", "/"))
 	if filename == "" {
 		return ""
@@ -2901,7 +2902,10 @@ func (h *MediaHandler) processUpload(ctx context.Context, workspaceID string, fi
 	defer file.Close()
 
 	metadata.WorkspaceID = workspaceID
-	metadata.Filename = fileHeader.Filename
+	metadata.Filename = cleanUploadFilename(fileHeader.Filename)
+	if metadata.Filename == "" {
+		return nil, errors.New("filename is required")
+	}
 	metadata.DeclaredMimeType = fileHeader.Header.Get("Content-Type")
 	metadata.Size = fileHeader.Size
 	source, assetKind, err := normalizeMediaProvenance(metadata.Source, metadata.AssetKind)
@@ -2947,6 +2951,10 @@ func (h *MediaHandler) processStreamUpload(
 	reader io.Reader,
 	sizeLimit int64,
 ) (map[string]interface{}, error) {
+	input.Filename = cleanUploadFilename(input.Filename)
+	if input.Filename == "" {
+		return nil, errors.New("filename is required")
+	}
 	if input.Size <= 0 {
 		return nil, errors.New("file size is invalid")
 	}
@@ -3093,6 +3101,10 @@ func (h *MediaHandler) processStreamUpload(
 
 //nolint:gocyclo // Upload validation, analysis, storage, and deduplication form one ordered pipeline.
 func (h *MediaHandler) processUploadBytes(ctx context.Context, input mediaUploadBytesInput) (map[string]interface{}, error) {
+	input.Filename = cleanUploadFilename(input.Filename)
+	if input.Filename == "" {
+		return nil, errors.New("filename is required")
+	}
 	if input.Size < 0 {
 		return nil, errors.New("file size is invalid")
 	}

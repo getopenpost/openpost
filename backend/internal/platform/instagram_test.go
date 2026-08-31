@@ -299,9 +299,11 @@ func TestInstagramPublishImageFromPublicURL(t *testing.T) {
 
 	var createForm url.Values
 	var publishForm url.Values
+	var events []string
 	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 		switch req.URL.Path {
 		case "/v25.0/ig-1/media":
+			events = append(events, "create")
 			body, err := io.ReadAll(req.Body)
 			if err != nil {
 				t.Fatalf("reading create body: %v", err)
@@ -312,8 +314,10 @@ func TestInstagramPublishImageFromPublicURL(t *testing.T) {
 			}
 			return jsonResponse(req, `{"id":"container-1"}`), nil
 		case "/v25.0/container-1":
+			events = append(events, "status")
 			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
 		case "/v25.0/ig-1/media_publish":
+			events = append(events, "publish")
 			body, err := io.ReadAll(req.Body)
 			if err != nil {
 				t.Fatalf("reading publish body: %v", err)
@@ -330,11 +334,20 @@ func TestInstagramPublishImageFromPublicURL(t *testing.T) {
 	})}
 
 	adapter := NewInstagramAdapter("client-id", "client-secret", "https://app.example/callback")
-	externalID, err := adapter.Publish(context.Background(), "page-token", "ig-1", &PublishRequest{
+	req := &PublishRequest{
 		Content:          "Launch image",
 		PlatformMediaIDs: []string{"https://media.example/image.jpg"},
 		Media:            []MediaItem{{ID: "media-1", MimeType: "image/jpeg"}},
+	}
+	var checkpoints []PublishResult
+	req.SetWriteFence(func(PublishResult) error { return nil }, func(result PublishResult) error {
+		checkpoints = append(checkpoints, result)
+		if result.SubmissionState == PublishSubmissionPending {
+			events = append(events, "checkpoint")
+		}
+		return nil
 	})
+	externalID, err := adapter.Publish(context.Background(), "page-token", "ig-1", req)
 	if err != nil {
 		t.Fatalf("Publish returned error: %v", err)
 	}
@@ -346,6 +359,72 @@ func TestInstagramPublishImageFromPublicURL(t *testing.T) {
 	}
 	if publishForm.Get("creation_id") != "container-1" || publishForm.Get(oauthParamAccessToken) != "page-token" {
 		t.Fatalf("unexpected publish form: %s", publishForm.Encode())
+	}
+	if len(checkpoints) != 2 ||
+		checkpoints[0].SubmissionState != PublishSubmissionPending ||
+		checkpoints[0].ProviderReference != "ig1:container-1" ||
+		checkpoints[1].SubmissionState != PublishSubmissionAccepted {
+		t.Fatalf("unexpected publish checkpoints: %#v", checkpoints)
+	}
+	if strings.Join(events, ",") != "create,checkpoint,status,publish" {
+		t.Fatalf("container must be checkpointed before processing and publishing, got %v", events)
+	}
+}
+
+func TestInstagramReconcilePublishFinishesCheckpointedContainer(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/v25.0/container-1":
+			return jsonResponse(req, `{"status_code":"FINISHED"}`), nil
+		case "/v25.0/ig-1/media_publish":
+			return jsonResponse(req, `{"id":"ig-media-1"}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	result, err := NewInstagramAdapter("", "", "").ReconcilePublish(
+		t.Context(),
+		"page-token",
+		"ig-1",
+		"ig1:container-1",
+	)
+	if err != nil {
+		t.Fatalf("ReconcilePublish returned error: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "ig-media-1" {
+		t.Fatalf("unexpected reconciliation result: %#v", result)
+	}
+}
+
+func TestInstagramReconcilePublishDoesNotRepublishPublishedContainer(t *testing.T) {
+	t.Setenv("META_GRAPH_API_VERSION", "v25.0")
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/v25.0/container-1" {
+			t.Fatalf("published container must not be submitted again: %s %s", req.Method, req.URL.String())
+		}
+		return jsonResponse(req, `{"status_code":"PUBLISHED"}`), nil
+	})}
+
+	result, err := NewInstagramAdapter("", "", "").ReconcilePublish(
+		t.Context(),
+		"page-token",
+		"ig-1",
+		"ig1:container-1",
+	)
+	if err != nil {
+		t.Fatalf("ReconcilePublish returned error: %v", err)
+	}
+	if result.SubmissionState != PublishSubmissionAccepted || result.ExternalID != "container-1" {
+		t.Fatalf("unexpected published-container result: %#v", result)
 	}
 }
 

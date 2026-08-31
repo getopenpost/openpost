@@ -3,6 +3,7 @@ package platform
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
+)
+
+const (
+	instagramCheckpointPrefix         = "ig1:"
+	instagramCheckpointProviderState  = "instagram_container_processing"
+	instagramPublishedProviderState   = "instagram_container_published"
+	instagramCheckpointReconcileDelay = 10 * time.Second
 )
 
 type InstagramAdapter struct {
@@ -263,6 +271,9 @@ func (i *InstagramAdapter) publish(ctx context.Context, accessToken, instagramUs
 	if err != nil {
 		return "", err
 	}
+	if err := checkpointInstagramContainer(req, containerID); err != nil {
+		return "", err
+	}
 	if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
 		return "", err
 	}
@@ -408,6 +419,9 @@ func (i *InstagramAdapter) publishCarousel(ctx context.Context, accessToken, ins
 	if err != nil {
 		return "", err
 	}
+	if err := checkpointInstagramContainer(req, containerID); err != nil {
+		return "", err
+	}
 	if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
 		return "", err
 	}
@@ -420,6 +434,11 @@ func (i *InstagramAdapter) publishStories(ctx context.Context, accessToken, inst
 		containerID, err := i.createMediaContainer(ctx, accessToken, instagramUserID, "", mediaURL, isVideoMime(req.Media[index].MimeType), false, req, mediaSettingsAt(req, index), mediaAltTextAt(req, index))
 		if err != nil {
 			return "", err
+		}
+		if len(req.PlatformMediaIDs) == 1 {
+			if err := checkpointInstagramContainer(req, containerID); err != nil {
+				return "", err
+			}
 		}
 		if err := i.waitForContainer(ctx, accessToken, containerID); err != nil {
 			return "", err
@@ -552,27 +571,15 @@ func (i *InstagramAdapter) DeleteComment(ctx context.Context, accessToken, _ str
 func (i *InstagramAdapter) waitForContainer(ctx context.Context, accessToken, containerID string) error {
 	const maxAttempts = 6
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		respBody, err := DoRequest(ctx, http.MethodGet, i.graphURL(containerID+"?fields=status_code&access_token="+url.QueryEscape(accessToken)), nil, nil)
+		status, err := i.containerStatus(ctx, accessToken, containerID)
 		if err != nil {
-			return fmt.Errorf("instagram container status: %w", err)
+			return err
 		}
-		var statusResp struct {
-			StatusCode string `json:"status_code"`
-			Error      struct {
-				Message string `json:"message"`
-			} `json:"error"`
-		}
-		if err := json.Unmarshal(respBody, &statusResp); err != nil {
-			return fmt.Errorf("decoding instagram container status: %w", err)
-		}
-		if statusResp.Error.Message != "" {
-			return &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
-		}
-		switch statusResp.StatusCode {
-		case "", "FINISHED":
+		switch status {
+		case "", "FINISHED", "PUBLISHED":
 			return nil
 		case "ERROR", "EXPIRED":
-			return fmt.Errorf("instagram container processing failed: %s", statusResp.StatusCode)
+			return fmt.Errorf("instagram container processing failed: %s", status)
 		}
 		if attempt < maxAttempts {
 			select {
@@ -583,6 +590,94 @@ func (i *InstagramAdapter) waitForContainer(ctx context.Context, accessToken, co
 		}
 	}
 	return fmt.Errorf("instagram container processing timed out")
+}
+
+func (i *InstagramAdapter) containerStatus(ctx context.Context, accessToken, containerID string) (string, error) {
+	respBody, err := DoRequest(ctx, http.MethodGet, i.graphURL(containerID+"?fields=status_code&access_token="+url.QueryEscape(accessToken)), nil, nil)
+	if err != nil {
+		return "", fmt.Errorf("instagram container status: %w", err)
+	}
+	var statusResp struct {
+		StatusCode string `json:"status_code"`
+		Error      struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(respBody, &statusResp); err != nil {
+		return "", fmt.Errorf("decoding instagram container status: %w", err)
+	}
+	if statusResp.Error.Message != "" {
+		return "", &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
+	}
+	return strings.ToUpper(strings.TrimSpace(statusResp.StatusCode)), nil
+}
+
+func checkpointInstagramContainer(req *PublishRequest, containerID string) error {
+	return req.Checkpoint(pendingInstagramContainerResult(containerID))
+}
+
+func pendingInstagramContainerResult(containerID string) PublishResult {
+	return PublishResult{
+		SubmissionState:   PublishSubmissionPending,
+		ProviderState:     instagramCheckpointProviderState,
+		ProviderReference: instagramCheckpointPrefix + strings.TrimSpace(containerID),
+		RetrySafety:       PublishRetryReconcileOnly,
+		ReconcileAfter:    instagramCheckpointReconcileDelay,
+	}
+}
+
+func instagramCheckpointContainerID(providerReference string) (string, error) {
+	providerReference = strings.TrimSpace(providerReference)
+	if !strings.HasPrefix(providerReference, instagramCheckpointPrefix) {
+		return "", fmt.Errorf("instagram publish reconciliation requires a versioned container reference")
+	}
+	containerID := strings.TrimPrefix(providerReference, instagramCheckpointPrefix)
+	if containerID == "" || strings.ContainsAny(containerID, ":,/?#\r\n\t") {
+		return "", fmt.Errorf("instagram publish reconciliation container reference is invalid")
+	}
+	return containerID, nil
+}
+
+func (i *InstagramAdapter) ReconcilePublish(ctx context.Context, accessToken, instagramUserID, providerReference string) (PublishResult, error) {
+	containerID, err := instagramCheckpointContainerID(providerReference)
+	if err != nil {
+		return PublishResult{SubmissionState: PublishSubmissionRejected, RetrySafety: PublishRetryNever}, err
+	}
+	pending := pendingInstagramContainerResult(containerID)
+	status, err := i.containerStatus(ctx, accessToken, containerID)
+	if err != nil {
+		return pending, normalizeMetaPublishError(err)
+	}
+	switch status {
+	case "FINISHED":
+		externalID, publishErr := i.publishMediaContainer(ctx, accessToken, instagramUserID, containerID)
+		if publishErr != nil {
+			publishErr = normalizeMetaPublishError(publishErr)
+			var providerErr *HTTPError
+			if errors.As(publishErr, &providerErr) && providerErr.StatusCode >= 400 && providerErr.StatusCode < 500 && providerErr.StatusCode != http.StatusRequestTimeout && providerErr.StatusCode != http.StatusTooManyRequests {
+				return PublishResult{SubmissionState: PublishSubmissionRejected, ProviderReference: providerReference, RetrySafety: PublishRetryNever}, publishErr
+			}
+			return pending, publishErr
+		}
+		result := AcceptedPublishResult(externalID)
+		result.ProviderState = instagramPublishedProviderState
+		result.ProviderReference = providerReference
+		return result, nil
+	case "PUBLISHED":
+		result := AcceptedPublishResult(containerID)
+		result.ProviderState = instagramPublishedProviderState
+		result.ProviderReference = providerReference
+		return result, nil
+	case "ERROR", "EXPIRED":
+		return PublishResult{
+			SubmissionState:   PublishSubmissionRejected,
+			ProviderState:     instagramCheckpointProviderState,
+			ProviderReference: providerReference,
+			RetrySafety:       PublishRetryNever,
+		}, &HTTPError{StatusCode: http.StatusBadRequest, Code: "instagram_processing_error"}
+	default:
+		return pending, nil
+	}
 }
 
 func (i *InstagramAdapter) publishMediaContainer(ctx context.Context, accessToken, instagramUserID, containerID string) (string, error) {

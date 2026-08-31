@@ -35,9 +35,11 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import {
 		analyticsSourceLabelKey,
+		appendAnalyticsContentPage,
 		hasEngagementMeasurement,
+		hasLimitedAccountHistory,
 		insightHasRanking,
-		measuredMetricKeys,
+		isBuildingAccountHistory,
 		type AnalyticsSortMode
 	} from '$lib/analytics-overview';
 	import {
@@ -51,6 +53,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	type AnalyticsAccount = components['schemas']['AccountOverview'];
 	type AnalyticsContent = components['schemas']['ContentOverview'];
 	type AnalyticsInsight = components['schemas']['Insight'];
+	type AccountDiscoveryCoverage = components['schemas']['AccountDiscoveryCoverage'];
+	type AnalyticsMetricMetadata = components['schemas']['AnalyticsMetricMetadata'];
 	type MetricSummary = components['schemas']['MetricSummary'];
 	type RangeDays = 7 | 30 | 90;
 	type ContentSource = 'all' | 'openpost' | 'external';
@@ -79,6 +83,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	const accounts = $derived(overview?.accounts ?? []);
 	const contentItems = $derived(overview?.content ?? []);
 	const analyticsInsights = $derived(overview?.insights ?? []);
+	const accountCoverage = $derived(overview?.coverage ?? []);
+	const buildingCoverage = $derived(accountCoverage.filter(isBuildingAccountHistory));
+	const hasLimitedCoverage = $derived(accountCoverage.some(hasLimitedAccountHistory));
 	const selectedAccount = $derived(
 		selectedAccountID === 'all'
 			? undefined
@@ -229,12 +236,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			}
 			if (response.error || !response.data) throw new Error(m.analytics_failed_load());
 			overview =
-				append && overview
-					? {
-							...response.data,
-							content: [...(overview.content ?? []), ...(response.data.content ?? [])]
-						}
-					: response.data;
+				append && overview ? appendAnalyticsContentPage(overview, response.data) : response.data;
 			dataWorkspaceID = workspaceID;
 			void loadAnalyticsFeatures(workspaceID, response.data.accounts ?? []);
 			if (
@@ -366,10 +368,6 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return `${m.analytics_account_filter()}: ${accountName(account)}, ${getPlatformName(account.platform)}`;
 	}
 
-	function renditionAccount(rendition: AnalyticsContent): AnalyticsAccount | undefined {
-		return accounts.find((account) => account.id === rendition.account_id);
-	}
-
 	function renditionName(rendition: AnalyticsContent): string {
 		return (
 			formatSocialAccountName(rendition.username, rendition.platform) ||
@@ -404,33 +402,49 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return '';
 	}
 
-	function engagementMetrics(metrics: Record<string, number>, measured: Record<string, number>) {
-		return [
-			{ key: 'likes', label: m.analytics_likes() },
-			{ key: 'comments', label: m.analytics_comments() },
-			{ key: 'reposts', label: m.analytics_reposts() },
-			{ key: 'quotes', label: m.analytics_quotes() },
-			{ key: 'shares', label: m.analytics_shares() },
-			{ key: 'saves', label: m.analytics_saves() },
-			{ key: 'clicks', label: m.analytics_clicks() }
-		]
-			.filter((metric) => (measured[metric.key] ?? 0) > 0)
-			.map((metric) => ({ ...metric, value: metrics[metric.key] ?? 0 }));
-	}
-
-	function semanticMetricLabel(item: AnalyticsContent, key: string, label: string) {
-		const aggregation = item.metric_metadata?.[key]?.aggregation;
-		if (aggregation === 'lifetime_total') {
-			return m.analytics_lifetime_metric({ metric: label });
+	function metricLabel(key: string) {
+		switch (key) {
+			case 'views':
+			case 'report_views':
+				return m.analytics_views();
+			case 'impressions':
+				return m.analytics_impressions();
+			case 'reach':
+				return m.analytics_reach();
+			case 'likes':
+			case 'report_likes':
+				return m.analytics_likes();
+			case 'comments':
+			case 'report_comments':
+				return m.analytics_comments();
+			case 'reposts':
+				return m.analytics_reposts();
+			case 'quotes':
+				return m.analytics_quotes();
+			case 'shares':
+			case 'report_shares':
+				return m.analytics_shares();
+			case 'saves':
+				return m.analytics_saves();
+			case 'clicks':
+				return m.analytics_clicks();
+			case 'estimated_watch_time':
+				return m.analytics_watch_time();
+			case 'average_view_duration':
+				return m.analytics_average_view_duration();
+			case 'average_view_percentage':
+				return m.analytics_average_view_percentage();
+			case 'subscribers_gained':
+				return m.analytics_subscribers_gained();
+			case 'subscribers_lost':
+				return m.analytics_subscribers_lost();
+			default:
+				return key.replaceAll('_', ' ');
 		}
-		if (aggregation === 'reporting_period_total' || aggregation === 'reporting_period_average') {
-			return m.analytics_reporting_period_metric({ metric: label });
-		}
-		return label;
 	}
 
 	function semanticMetricValue(item: AnalyticsContent, key: string, value: number) {
-		const unit = item.metric_metadata?.[key]?.unit;
+		const unit = item.measurements?.[key]?.metadata.unit ?? item.metric_metadata?.[key]?.unit;
 		if (unit === 'basis_points') {
 			return new Intl.NumberFormat(getLocaleTag(), {
 				style: 'percent',
@@ -446,72 +460,97 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		return formatNumber(value);
 	}
 
-	function semanticMetricTitle(item: AnalyticsContent, key: string) {
-		const metadata = item.metric_metadata?.[key];
-		if (!metadata) return undefined;
-		const period =
-			metadata.period_start && metadata.period_end
-				? `${formatDate(metadata.period_start)} – ${formatDate(metadata.period_end)}`
-				: '';
-		return [period, metadata.source].filter(Boolean).join(' · ') || undefined;
-	}
-
-	function renditionExposure(item: AnalyticsContent) {
-		const measured = Object.fromEntries(Object.keys(item.metrics).map((metric) => [metric, 1]));
-		return exposureMetrics(item.metrics, measured).map((metric) => ({
-			...metric,
-			label: semanticMetricLabel(item, metric.key, metric.label)
-		}));
-	}
-
-	function renditionEngagement(item: AnalyticsContent) {
-		const measured = Object.fromEntries(Object.keys(item.metrics).map((metric) => [metric, 1]));
-		return engagementMetrics(item.metrics, measured).map((metric) => ({
-			...metric,
-			label: semanticMetricLabel(item, metric.key, metric.label)
-		}));
-	}
-
-	function renditionReportMetrics(item: AnalyticsContent) {
-		const definitions = [
-			{ key: 'report_views', label: m.analytics_views() },
-			{ key: 'estimated_watch_time', label: m.analytics_watch_time() },
-			{ key: 'average_view_duration', label: m.analytics_average_view_duration() },
-			{ key: 'average_view_percentage', label: m.analytics_average_view_percentage() },
-			{ key: 'subscribers_gained', label: m.analytics_subscribers_gained() },
-			{ key: 'subscribers_lost', label: m.analytics_subscribers_lost() },
-			{ key: 'report_likes', label: m.analytics_likes() },
-			{ key: 'report_comments', label: m.analytics_comments() },
-			{ key: 'report_shares', label: m.analytics_shares() }
-		];
-		const measured = new Set(
-			measuredMetricKeys(
-				item.metrics,
-				definitions.map(({ key }) => key)
-			)
-		);
-		return definitions
-			.filter(({ key }) => measured.has(key))
-			.map(({ key, label }) => ({
+	function metricEvidence(item: AnalyticsContent) {
+		return Object.entries(item.metrics).map(([key, value]) => {
+			const measurement = item.measurements?.[key];
+			return {
 				key,
-				label: semanticMetricLabel(item, key, label),
-				value: semanticMetricValue(item, key, item.metrics[key] ?? 0),
-				title: semanticMetricTitle(item, key)
-			}));
+				label: metricLabel(key),
+				value: semanticMetricValue(item, key, value),
+				metadata: measurement?.metadata ?? item.metric_metadata?.[key],
+				collectedAt: measurement?.collected_at ?? item.collected_at,
+				availability: measurement?.availability ?? 'available'
+			};
+		});
 	}
 
-	function exposureMetrics(metrics: Record<string, number>, measured: Record<string, number>) {
-		return [
-			{ key: 'views', label: m.analytics_views() },
-			{ key: 'impressions', label: m.analytics_impressions() },
-			{ key: 'reach', label: m.analytics_reach() }
-		]
-			.filter((metric) => (measured[metric.key] ?? 0) > 0)
-			.map((metric) => ({
-				...metric,
-				value: metrics[metric.key] ?? 0,
-				measured: measured[metric.key] ?? 0
-			}));
+	function metricUnit(metadata: AnalyticsMetricMetadata | undefined) {
+		switch (metadata?.unit) {
+			case 'milliseconds':
+				return m.analytics_evidence_milliseconds();
+			case 'basis_points':
+				return m.analytics_evidence_basis_points();
+			case 'count':
+				return m.analytics_evidence_count();
+			default:
+				return m.analytics_evidence_unavailable();
+		}
+	}
+
+	function aggregationLabel(aggregation: string | undefined) {
+		switch (aggregation) {
+			case 'current_snapshot':
+				return m.analytics_evidence_current_snapshot();
+			case 'lifetime_total':
+				return m.analytics_evidence_lifetime_total();
+			case 'reporting_period_total':
+				return m.analytics_evidence_reporting_period_total();
+			case 'reporting_period_average':
+				return m.analytics_evidence_reporting_period_average();
+			default:
+				return m.analytics_evidence_unavailable();
+		}
+	}
+
+	function metricPeriod(metadata: AnalyticsMetricMetadata | undefined) {
+		return metadata?.period_start && metadata.period_end
+			? `${formatDate(metadata.period_start)} – ${formatDate(metadata.period_end)}`
+			: m.analytics_evidence_period_unavailable();
+	}
+
+	function availabilityLabel(availability: string) {
+		switch (availability) {
+			case 'available':
+				return m.analytics_evidence_available();
+			case 'pending':
+				return m.analytics_evidence_pending();
+			case 'insufficient_data':
+				return m.analytics_evidence_insufficient();
+			default:
+				return m.analytics_evidence_unavailable();
+		}
+	}
+
+	function metricCaveat(aggregation: string | undefined) {
+		if (aggregation === 'lifetime_total') return m.analytics_insight_lifetime_caveat();
+		if (aggregation === 'reporting_period_total' || aggregation === 'reporting_period_average')
+			return m.analytics_insight_reporting_period_caveat();
+		return '';
+	}
+
+	function coverageStatusLabel(coverage: AccountDiscoveryCoverage) {
+		if (isBuildingAccountHistory(coverage)) return m.analytics_history_building();
+		switch (coverage.status) {
+			case 'complete':
+				return m.analytics_history_complete();
+			case 'partial':
+				return m.analytics_history_partial();
+			case 'permission_required':
+				return m.analytics_history_permission_required();
+			case 'rate_limited':
+				return m.analytics_history_rate_limited();
+			case 'cost_limited':
+				return m.analytics_history_cost_limited();
+			case 'unsupported':
+				return m.analytics_history_unsupported();
+			default:
+				return m.analytics_history_failed();
+		}
+	}
+
+	function coverageAccount(coverage: AccountDiscoveryCoverage) {
+		const account = accounts.find((candidate) => candidate.id === coverage.account_id);
+		return account ? accountName(account) : getPlatformName(coverage.platform);
 	}
 
 	function contentIdentity(item: AnalyticsContent) {
@@ -625,6 +664,12 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			insight.period.aggregation === 'reporting_period_total'
 			? m.analytics_insight_period_label()
 			: m.analytics_insight_content_range_label();
+	}
+
+	function insightMetricLabel(insight: AnalyticsInsight) {
+		return insight.metric === 'followers'
+			? m.analytics_evidence_followers()
+			: m.analytics_evidence_engagement_actions();
 	}
 </script>
 
@@ -842,6 +887,72 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				</div>
 			</section>
 
+			{#if accountCoverage.length}
+				<section
+					class="overflow-hidden rounded-xl border border-border bg-card text-card-foreground"
+					aria-labelledby="analytics-history-heading"
+					data-testid="analytics-history-coverage"
+				>
+					<div class="border-b border-border px-4 py-3">
+						<h2 id="analytics-history-heading" class="text-sm font-semibold">
+							{buildingCoverage.length
+								? m.analytics_history_building()
+								: m.analytics_history_title()}
+						</h2>
+						<p class="mt-1 text-xs leading-5 text-muted-foreground">
+							{m.analytics_history_description()}
+						</p>
+					</div>
+					<div class="grid gap-px bg-border sm:grid-cols-2 md:grid-cols-3">
+						{#each accountCoverage as coverage (coverage.account_id)}
+							<article
+								class="min-w-0 bg-card px-4 py-3"
+								data-testid={`analytics-coverage-${coverage.account_id}`}
+							>
+								<div class="flex min-w-0 items-center gap-2">
+									<PlatformIcon platform={coverage.platform} class="size-4 shrink-0" />
+									<p class="min-w-0 truncate text-sm font-medium">
+										{coverageAccount(coverage)}
+									</p>
+								</div>
+								<p class="mt-2 text-xs font-medium">{coverageStatusLabel(coverage)}</p>
+								{#if coverage.description}
+									<p class="mt-1 text-xs leading-5 text-muted-foreground">
+										{coverage.description}
+									</p>
+								{/if}
+								<div class="mt-2 space-y-0.5 text-xs leading-5 text-muted-foreground">
+									{#if coverage.initial_items_discovered > 0 || isBuildingAccountHistory(coverage)}
+										<p>
+											{m.analytics_history_items({ count: coverage.initial_items_discovered })}
+										</p>
+									{/if}
+									{#if coverage.backfill_watermark}
+										<p>
+											{m.analytics_history_since({
+												date: formatDate(coverage.backfill_watermark)
+											})}
+										</p>
+									{/if}
+									{#if coverage.last_success_at}
+										<p>
+											{m.analytics_history_last_success({
+												date: formatDateTime(coverage.last_success_at)
+											})}
+										</p>
+									{/if}
+									{#if hasLimitedAccountHistory(coverage)}
+										<p class="font-medium text-foreground">
+											{m.analytics_history_limited_note()}
+										</p>
+									{/if}
+								</div>
+							</article>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
 			{#if !hasMeasurements}
 				<InlineNotice tone="info" message={m.analytics_waiting_description()} />
 			{/if}
@@ -978,45 +1089,73 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							>
 								<p class="text-sm font-semibold">{insightTitle(insight)}</p>
 								<p class="mt-1 text-sm leading-5 text-muted-foreground">{insightBody(insight)}</p>
-								<dl class="mt-3 space-y-1 text-xs leading-5 text-muted-foreground">
-									<div class="flex flex-wrap gap-x-1">
-										<dt>{insightPeriodLabel(insight)}:</dt>
-										<dd>{insightPeriod(insight)}</dd>
-									</div>
-									<div class="flex flex-wrap gap-x-1">
-										<dt>{m.analytics_insight_sample_label()}:</dt>
-										<dd>{insightSample(insight)}</dd>
-									</div>
-									{#if insight.destination_count !== undefined}
+								<details class="group mt-2 border-t border-border pt-1">
+									<summary
+										class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+									>
+										{m.analytics_evidence_details()}
+										<ChevronDownIcon class="size-4 transition-transform group-open:rotate-180" />
+									</summary>
+									<dl class="space-y-1 pb-2 text-xs leading-5 text-muted-foreground">
 										<div class="flex flex-wrap gap-x-1">
-											<dt>{m.analytics_insight_destinations_label()}:</dt>
-											<dd>{insight.destination_count}</dd>
+											<dt>{m.analytics_evidence_availability()}:</dt>
+											<dd>{availabilityLabel(insight.status)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_metric()}:</dt>
+											<dd>{insightMetricLabel(insight)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_unit()}:</dt>
+											<dd>{m.analytics_evidence_count()}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_aggregation()}:</dt>
+											<dd>{aggregationLabel(insight.period.aggregation)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{insightPeriodLabel(insight)}:</dt>
+											<dd>{insightPeriod(insight)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_insight_sample_label()}:</dt>
+											<dd>{insightSample(insight)}</dd>
+										</div>
+										<div class="flex flex-wrap gap-x-1">
+											<dt>{m.analytics_evidence_collection()}:</dt>
+											<dd>
+												{insight.content?.collected_at
+													? formatDateTime(insight.content.collected_at)
+													: m.analytics_not_collected()}
+											</dd>
+										</div>
+										{#if insight.destination_count !== undefined}
+											<div class="flex flex-wrap gap-x-1">
+												<dt>{m.analytics_insight_destinations_label()}:</dt>
+												<dd>{insight.destination_count}</dd>
+											</div>
+										{/if}
+									</dl>
+									{#if insight.content}
+										<div
+											class="space-y-1 border-t border-border py-2 text-xs leading-5 text-muted-foreground"
+										>
+											<p class="flex items-center gap-2">
+												<PlatformIcon
+													platform={insight.content.platform}
+													class="size-3.5 shrink-0"
+												/>
+												<span>{getPlatformName(insight.content.platform)}</span>
+											</p>
+											<p>{sourceLabel(insight.content.source)}</p>
 										</div>
 									{/if}
-								</dl>
-								{#if insight.content}
-									<div
-										class="mt-3 space-y-1 border-t border-border pt-3 text-xs leading-5 text-muted-foreground"
-									>
-										<p class="flex items-center gap-2">
-											<PlatformIcon platform={insight.content.platform} class="size-3.5 shrink-0" />
-											<span>{getPlatformName(insight.content.platform)}</span>
+									{#if insightCaveat(insight)}
+										<p class="border-t border-border py-2 text-xs leading-5 text-muted-foreground">
+											{insightCaveat(insight)}
 										</p>
-										<p>{sourceLabel(insight.content.source)}</p>
-										{#if insight.content.collected_at}
-											<p>
-												{m.analytics_collected_at({
-													date: formatDateTime(insight.content.collected_at)
-												})}
-											</p>
-										{/if}
-									</div>
-								{/if}
-								{#if insightCaveat(insight)}
-									<p class="mt-2 text-xs leading-5 text-muted-foreground">
-										{insightCaveat(insight)}
-									</p>
-								{/if}
+									{/if}
+								</details>
 							</article>
 						{/each}
 					</div>
@@ -1035,9 +1174,9 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								: m.analytics_content_description()}
 						</p>
 					</div>
-					<div class="flex flex-col gap-2 sm:flex-row">
+					<div class="flex min-w-0 flex-col gap-2 sm:flex-row">
 						<div
-							class="grid min-h-11 grid-cols-3 items-center rounded-md border border-border p-1 sm:min-h-9"
+							class="grid min-h-11 min-w-0 grid-cols-3 items-stretch rounded-md border border-border p-1"
 							role="group"
 							aria-label={m.analytics_source_filter_label()}
 						>
@@ -1045,7 +1184,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 								<button
 									type="button"
 									class={[
-										'min-h-9 rounded-sm px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7',
+										'min-h-11 min-w-0 rounded-sm px-1.5 text-xs leading-4 font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-2.5 sm:text-sm',
 										sourceFilter === source
 											? 'bg-secondary text-secondary-foreground'
 											: 'text-muted-foreground hover:text-foreground'
@@ -1056,8 +1195,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 									{source === 'all'
 										? m.analytics_source_all()
 										: source === 'openpost'
-											? m.analytics_source_openpost()
-											: m.analytics_source_external()}
+											? m.analytics_source_published_with_openpost()
+											: m.analytics_source_published_elsewhere()}
 								</button>
 							{/each}
 						</div>
@@ -1106,10 +1245,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 							{#each contentItems as item (contentIdentity(item))}
 								{@const id = contentIdentity(item)}
 								{@const expanded = expandedContentID === id}
-								{@const itemExposures = renditionExposure(item)}
-								{@const itemEngagement = renditionEngagement(item)}
-								{@const itemReports = renditionReportMetrics(item)}
-								{@const account = renditionAccount(item)}
+								{@const itemEvidence = metricEvidence(item)}
 								<article data-testid="analytics-content-row">
 									<div
 										class="grid min-w-0 gap-4 px-4 py-4 md:grid-cols-[minmax(0,2fr)_minmax(9rem,1fr)_6rem_6rem_7.5rem_auto] md:items-center"
@@ -1175,9 +1311,8 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											class="flex min-h-11 w-full items-center gap-1 md:w-auto md:justify-self-end"
 										>
 											<Button
-												variant="outline"
 												size="sm"
-												class="min-h-11 flex-1 sm:min-h-8 md:flex-none"
+												class="min-h-11 flex-1 md:flex-none"
 												disabled={Boolean(repurposingReferenceKey)}
 												onclick={() => repurposeContent(item)}
 												data-testid={`analytics-repurpose-${id}`}
@@ -1187,14 +1322,18 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 													: m.analytics_repurpose()}
 											</Button>
 											<Button
-												variant="ghost"
+												variant="outline"
 												size="sm"
-												class="min-h-11 flex-1 justify-between sm:min-h-8 md:flex-none"
+												class="min-h-11 flex-1 justify-between md:flex-none"
 												aria-expanded={expanded}
 												aria-controls={`analytics-content-${id.replace(':', '-')}`}
 												onclick={() => (expandedContentID = expanded ? '' : id)}
+												data-testid={`analytics-details-${id}`}
 											>
-												{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
+												<span class="sm:hidden">{m.analytics_evidence_details()}</span>
+												<span class="hidden sm:inline">
+													{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
+												</span>
 												<ChevronDownIcon
 													class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
 												/>
@@ -1206,34 +1345,55 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 											id={`analytics-content-${id.replace(':', '-')}`}
 											class="border-t border-border bg-muted/20 px-4 py-3"
 										>
-											<div class="flex flex-wrap gap-x-5 gap-y-2 text-xs">
-												<span
-													><span class="text-muted-foreground"
-														>{m.analytics_summary_engagement()}:</span
-													>
-													{hasEngagementMeasurement(item)
-														? formatNumber(item.engagement)
-														: '—'}</span
-												>
-												{#each itemExposures as metric (metric.key)}
-													<span title={semanticMetricTitle(item, metric.key)}
-														><span class="text-muted-foreground">{metric.label}:</span>
-														{semanticMetricValue(item, metric.key, metric.value)}</span
-													>
-												{/each}
-												{#each itemEngagement as metric (metric.key)}
-													<span title={semanticMetricTitle(item, metric.key)}
-														><span class="text-muted-foreground">{metric.label}:</span>
-														{semanticMetricValue(item, metric.key, metric.value)}</span
-													>
-												{/each}
-												{#each itemReports as metric (metric.key)}
-													<span title={metric.title}
-														><span class="text-muted-foreground">{metric.label}:</span>
-														{metric.value}</span
-													>
-												{/each}
-											</div>
+											{#if itemEvidence.length}
+												<div class="divide-y divide-border border-y border-border">
+													{#each itemEvidence as metric (metric.key)}
+														<div class="py-3 text-xs leading-5">
+															<div class="flex flex-wrap items-baseline justify-between gap-x-3">
+																<p class="font-medium">{metric.label}</p>
+																<p class="font-semibold tabular-nums">{metric.value}</p>
+															</div>
+															<dl class="mt-1 grid gap-x-4 text-muted-foreground sm:grid-cols-2">
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_availability()}:</dt>
+																	<dd>{availabilityLabel(metric.availability)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_unit()}:</dt>
+																	<dd>{metricUnit(metric.metadata)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_aggregation()}:</dt>
+																	<dd>{aggregationLabel(metric.metadata?.aggregation)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1">
+																	<dt>{m.analytics_evidence_period()}:</dt>
+																	<dd>{metricPeriod(metric.metadata)}</dd>
+																</div>
+																<div class="flex flex-wrap gap-x-1 sm:col-span-2">
+																	<dt>{m.analytics_evidence_collection()}:</dt>
+																	<dd>
+																		{metric.collectedAt
+																			? formatDateTime(metric.collectedAt)
+																			: m.analytics_not_collected()}
+																	</dd>
+																</div>
+															</dl>
+															{#if metricCaveat(metric.metadata?.aggregation)}
+																<p class="mt-1 text-muted-foreground">
+																	{metricCaveat(metric.metadata?.aggregation)}
+																</p>
+															{/if}
+														</div>
+													{/each}
+												</div>
+											{:else}
+												<p class="border-y border-border py-3 text-xs text-muted-foreground">
+													{m.analytics_evidence_availability()}: {availabilityLabel(
+														item.metric_availability
+													)}
+												</p>
+											{/if}
 											<div
 												class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border pt-3 text-xs text-muted-foreground"
 											>
@@ -1264,12 +1424,17 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 						</div>
 					</div>
 					<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
-						<p class="text-xs text-muted-foreground">
-							{m.analytics_results_range({
-								shown: contentItems.length,
-								total: overview?.content_total ?? contentItems.length
-							})}
-						</p>
+						<div class="text-xs leading-5 text-muted-foreground">
+							<p>
+								{m.analytics_results_range_stored({
+									shown: contentItems.length,
+									total: overview?.content_total ?? contentItems.length
+								})}
+							</p>
+							{#if hasLimitedCoverage}
+								<p>{m.analytics_history_limited_note()}</p>
+							{/if}
+						</div>
 						{#if overview?.content_next_cursor}
 							<Button variant="outline" onclick={loadMoreContent} disabled={loadingMore}>
 								{loadingMore ? m.analytics_loading_more() : m.analytics_load_more()}

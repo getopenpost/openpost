@@ -173,6 +173,7 @@ func (t *TikTokAdapter) GetProfile(ctx context.Context, accessToken string) (*Us
 		ID:          profileResp.Data.User.OpenID,
 		Username:    username,
 		DisplayName: profileResp.Data.User.DisplayName,
+		AvatarURL:   profileResp.Data.User.AvatarURL,
 	}, nil
 }
 

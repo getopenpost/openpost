@@ -1,4 +1,3 @@
-import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
 import { useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
@@ -6,6 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "re
 import { BodyText, Button, Card, Screen, TextField, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { login, verifyTotp } from "@/lib/auth";
+import { errorHaptic, successHaptic } from "@/lib/haptics";
 import { clearServer } from "@/lib/server";
 
 export default function LoginScreen() {
@@ -36,10 +36,10 @@ export default function LoginScreen() {
           return;
         }
       }
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void successHaptic();
       router.replace("/onboarding/workspace");
     } catch (err) {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      void errorHaptic();
       setError(err instanceof Error ? err.message : "Sign in failed");
     } finally {
       setBusy(false);
@@ -108,6 +108,7 @@ export default function LoginScreen() {
 
           <Button
             title="Continue"
+            variant="focal"
             onPress={() => void submit()}
             disabled={busy || (mfaToken ? totpCode.length !== 6 : !email || !password)}
             loading={busy}

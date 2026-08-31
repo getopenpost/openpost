@@ -14,6 +14,7 @@ export function buildAgentFingerprint(selectedIds: readonly string[] = []): stri
 		currentFrame: snapshot.currentFrame,
 		masterVolumeDb: snapshot.masterVolumeDb,
 		masterMuted: snapshot.masterMuted,
+		busAudioEq: snapshot.busAudioEq,
 		sequenceRegistry: snapshot.sequenceRegistry,
 		linkedSelectionEnabled: timelineStore.linkedSelectionEnabled,
 		seekLocked: timelineStore.seekLocked,

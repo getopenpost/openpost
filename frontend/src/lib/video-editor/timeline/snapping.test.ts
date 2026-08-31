@@ -4,7 +4,8 @@ import {
 	buildSnapTargets,
 	calculateAdaptiveSnapThreshold,
 	calculateMoveSnap,
-	findNearestSnapTarget
+	findNearestSnapTarget,
+	timelineNavigationSnapPoints
 } from './snapping';
 
 const tracks: TimelineTrack[] = [
@@ -71,6 +72,30 @@ describe('timeline snapping', () => {
 		expect(targets.some((target) => target.itemId === 'hidden-item')).toBe(false);
 	});
 
+	it('builds deduplicated navigation points from visible edit edges and markers', () => {
+		const left = item('left', 'visible', 0, 100);
+		const right = item('right', 'visible', 100, 50);
+		expect(
+			timelineNavigationSnapPoints({
+				items: [left, right, item('hidden-item', 'hidden', 75, 20)],
+				tracks,
+				transitions: [
+					{
+						id: 'transition',
+						type: 'crossfade',
+						durationInFrames: 20,
+						fromItemId: left.id,
+						toItemId: right.id
+					}
+				],
+				markers: [
+					{ id: 'at-cut', frame: 100, color: '#fff' },
+					{ id: 'later', frame: 125, color: '#fff' }
+				]
+			})
+		).toEqual([0, 100, 125, 150]);
+	});
+
 	it('snaps the closer clip edge and keeps magnetic targets ahead of an equal grid target', () => {
 		const targets = [
 			{ frame: 60, type: 'grid' as const },
@@ -114,5 +139,31 @@ describe('timeline snapping', () => {
 
 	it('uses a strict threshold so an edge exactly on the boundary stays unsnapped', () => {
 		expect(findNearestSnapTarget(10, [{ frame: 12, type: 'playhead' }], 2)).toBeNull();
+	});
+
+	it('keeps indexed nearest-target lookup identical to the public linear path', () => {
+		const targets = buildSnapTargets({
+			items: Array.from({ length: 200 }, (_, index) =>
+				item(`clip-${index}`, 'visible', index * 11, 7)
+			),
+			tracks,
+			transitions: [],
+			markers: [
+				{ id: 'one', frame: 333, color: '#fff' },
+				{ id: 'two', frame: 777, color: '#fff' }
+			],
+			currentFrame: 555,
+			durationInFrames: 2_400,
+			fps: 30,
+			zoomLevel: 1
+		});
+		const linearTargets = [...targets];
+		for (const threshold of [1, 3, 17]) {
+			for (let frame = 0; frame <= 2_400; frame += 7) {
+				expect(findNearestSnapTarget(frame, targets, threshold)).toEqual(
+					findNearestSnapTarget(frame, linearTargets, threshold)
+				);
+			}
+		}
 	});
 });

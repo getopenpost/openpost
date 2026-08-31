@@ -2,10 +2,10 @@
 import type {
 	AnimationPreset,
 	AnimationPresetKeyframe,
+	AnimationPresetVectorKeyframe,
 	EasingConfig,
 	MotionAnimationLayer,
-	MotionModifier,
-	VectorKeyframe
+	MotionModifier
 } from './types';
 import type { ItemEffect } from '../effects/types';
 
@@ -59,7 +59,9 @@ function clonePresetKeyframe(keyframe: AnimationPresetKeyframe): AnimationPreset
 	};
 }
 
-function cloneVectorKeyframe(keyframe: VectorKeyframe): VectorKeyframe {
+function cloneVectorKeyframe(
+	keyframe: AnimationPresetVectorKeyframe
+): AnimationPresetVectorKeyframe {
 	return {
 		...keyframe,
 		value: { ...keyframe.value },

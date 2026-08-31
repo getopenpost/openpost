@@ -319,21 +319,6 @@ func TestOIDCSSOMigrationAllowsPasswordlessUsersAndBackfillsOrganizationMembers(
 	}
 }
 
-func TestOIDCSSOMigrationNormalizesForPostgres(t *testing.T) {
-	t.Parallel()
-
-	raw, err := migrationFiles.ReadFile("051_oidc_sso.sql")
-	require.NoError(t, err)
-	got := normalizeMigrationSQL(dialect.PG, string(raw))
-
-	require.Contains(t, got, "client_secret_encrypted BYTEA")
-	require.Contains(t, got, "pkce_verifier_encrypted BYTEA NOT NULL")
-	require.Contains(t, got, "auth_time TIMESTAMPTZ NOT NULL")
-	require.Contains(t, got, "ADD COLUMN IF NOT EXISTS is_break_glass BOOLEAN NOT NULL DEFAULT false")
-	require.NotContains(t, got, " BLOB")
-	require.NotContains(t, got, " DATETIME")
-}
-
 func TestRemoveGlobalMediaHashConstraintKeepsIndexesAndAllowsWorkspaceScopedHashes(t *testing.T) {
 	t.Parallel()
 

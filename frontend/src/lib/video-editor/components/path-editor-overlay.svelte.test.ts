@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { page } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -195,5 +195,169 @@ describe('PathEditorOverlay', () => {
 		await screen.rerender({ item: timelineStore.itemById.get('path')! });
 		await screen.getByRole('button', { name: 'Clear path keys' }).click();
 		expect(timelineStore.itemById.get('path')?.keyframes).toBeUndefined();
+	});
+
+	it('opens point actions by pointer or keyboard and preserves a selected point group', async () => {
+		const editable: TimelineItem = {
+			...pathItem(),
+			pathVertices: [
+				{ position: [0.1, 0.1], inHandle: [0, 0], outHandle: [0, 0], tangentMode: 'corner' },
+				{ position: [0.9, 0.1], inHandle: [0, 0], outHandle: [0, 0], tangentMode: 'corner' },
+				{ position: [0.9, 0.9], inHandle: [0, 0], outHandle: [0, 0], tangentMode: 'corner' },
+				{ position: [0.1, 0.9], inHandle: [0, 0], outHandle: [0, 0], tangentMode: 'corner' }
+			],
+			pathClosed: false
+		};
+		timelineStore.setAll({ fps: 30, currentFrame: 0, tracks: [track], items: [editable] });
+		const screen = await render(PathEditorOverlay, {
+			item: timelineStore.itemById.get('path')!,
+			canvasWidth: 400,
+			canvasHeight: 200,
+			currentFrame: 0,
+			boxStyle: 'left:0;top:0;width:400px;height:200px;transform:none',
+			screenScale: 1,
+			onedit: vi.fn()
+		});
+		screen.container.style.width = '400px';
+		screen.container.style.height = '300px';
+		screen.container.style.position = 'relative';
+
+		const point2 = screen.getByRole('button', { name: 'Path point 2' }).element();
+		point2.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				cancelable: true,
+				clientX: 360,
+				clientY: 20
+			})
+		);
+		await expect.element(screen.getByRole('menuitem', { name: 'Convert to curve' })).toBeVisible();
+		await page.screenshot({
+			element: screen.container,
+			path: '../../../../.svelte-kit/openpost-path-point-context-menu.png'
+		});
+		await screen.getByRole('menuitem', { name: 'Convert to curve' }).click();
+		expect(timelineStore.itemById.get('path')?.pathVertices?.[1]?.tangentMode).toBe('continuous');
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('path')?.pathVertices?.[1]?.tangentMode).toBe('corner');
+
+		await screen.rerender({ item: timelineStore.itemById.get('path')! });
+		const refreshedPoint2 = screen.getByRole('button', { name: 'Path point 2' }).element();
+		refreshedPoint2.focus();
+		await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+		await expect.element(screen.getByRole('menuitem', { name: 'Delete point' })).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+
+		await userEvent.click(screen.getByRole('button', { name: 'Path point 3' }).element(), {
+			modifiers: ['Shift']
+		});
+		await expect
+			.element(screen.getByRole('button', { name: 'Path point 2' }))
+			.toHaveAttribute('aria-pressed', 'true');
+		await expect
+			.element(screen.getByRole('button', { name: 'Path point 3' }))
+			.toHaveAttribute('aria-pressed', 'true');
+		refreshedPoint2.dispatchEvent(
+			new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 360, clientY: 20 })
+		);
+		await screen.getByRole('menuitem', { name: 'Delete point' }).click();
+		expect(timelineStore.itemById.get('path')?.pathVertices).toHaveLength(2);
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('path')?.pathVertices).toHaveLength(4);
+
+		await screen.rerender({ item: timelineStore.itemById.get('path')! });
+		const restoredPoint2 = screen.getByRole('button', { name: 'Path point 2' }).element();
+		restoredPoint2.dispatchEvent(
+			new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 360, clientY: 20 })
+		);
+		await screen.getByRole('menuitem', { name: 'Key selected' }).click();
+		await screen.rerender({ item: timelineStore.itemById.get('path')! });
+		screen
+			.getByRole('button', { name: 'Path point 2' })
+			.element()
+			.dispatchEvent(
+				new MouseEvent('contextmenu', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 360,
+					clientY: 20
+				})
+			);
+		await expect.element(screen.getByRole('menuitem', { name: 'Add point' })).toBeDisabled();
+		await expect.element(screen.getByRole('menuitem', { name: 'Delete point' })).toBeDisabled();
+	});
+
+	it('reverses a path or makes the selected closed-path point first from its context menu', async () => {
+		const editable: TimelineItem = {
+			...pathItem(),
+			pathVertices: [
+				{
+					position: [0.1, 0.1],
+					inHandle: [-0.05, 0],
+					outHandle: [0.1, 0.05],
+					tangentMode: 'continuous'
+				},
+				{ position: [0.9, 0.1], inHandle: [0, 0], outHandle: [0, 0], tangentMode: 'corner' },
+				{ position: [0.5, 0.9], inHandle: [0, 0], outHandle: [0, 0], tangentMode: 'corner' }
+			],
+			pathClosed: true
+		};
+		timelineStore.setAll({ fps: 30, currentFrame: 0, tracks: [track], items: [editable] });
+		const onedit = vi.fn();
+		const screen = await render(PathEditorOverlay, {
+			item: timelineStore.itemById.get('path')!,
+			canvasWidth: 400,
+			canvasHeight: 200,
+			currentFrame: 0,
+			boxStyle: 'left:0;top:0;width:400px;height:200px;transform:none',
+			screenScale: 1,
+			onedit
+		});
+		screen.container.style.width = '400px';
+		screen.container.style.height = '300px';
+		screen.container.style.position = 'relative';
+
+		screen
+			.getByRole('button', { name: 'Path point 2' })
+			.element()
+			.dispatchEvent(
+				new MouseEvent('contextmenu', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 360,
+					clientY: 20
+				})
+			);
+		await screen.getByRole('menuitem', { name: 'Set as first point' }).click();
+		expect(
+			timelineStore.itemById.get('path')?.pathVertices?.map((vertex) => vertex.position)
+		).toEqual([
+			[0.9, 0.1],
+			[0.5, 0.9],
+			[0.1, 0.1]
+		]);
+		commandHistory.undo();
+
+		await screen.rerender({ item: timelineStore.itemById.get('path')! });
+		screen
+			.getByRole('button', { name: 'Path point 1' })
+			.element()
+			.dispatchEvent(
+				new MouseEvent('contextmenu', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 40,
+					clientY: 20
+				})
+			);
+		await screen.getByRole('menuitem', { name: 'Reverse path' }).last().click();
+		const reversed = timelineStore.itemById.get('path')?.pathVertices;
+		expect(reversed?.map((vertex) => vertex.position)).toEqual([
+			[0.5, 0.9],
+			[0.9, 0.1],
+			[0.1, 0.1]
+		]);
+		expect(reversed?.[2]?.outHandle).toEqual([-0.05, 0]);
+		expect(onedit).toHaveBeenCalledTimes(2);
 	});
 });

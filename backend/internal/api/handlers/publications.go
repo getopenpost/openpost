@@ -22,6 +22,7 @@ import (
 	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/connectors"
+	"github.com/openpost/backend/internal/idempotency"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
@@ -121,19 +122,33 @@ type RenditionInput = publicationservice.RenditionInput
 type CreatePublicationBody = publicationservice.CreatePublicationBody
 
 type CreatePublicationInput struct {
-	Body CreatePublicationBody
+	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"Replay key scoped to the caller, Workspace, and operation"`
+	Body           CreatePublicationBody
 }
 
 type PublicationUpdateBody = publicationservice.PublicationUpdateBody
 
 type UpdatePublicationInput struct {
+	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"Replay key scoped to the caller, Workspace, and operation"`
+	PathID         string `path:"id" doc:"Publication ID"`
+	Body           PublicationUpdateBody
+}
+
+type FailureDismissalInput struct {
 	PathID string `path:"id" doc:"Publication ID"`
-	Body   PublicationUpdateBody
+}
+
+type FailureDismissalOutput struct {
+	Body struct {
+		ID          string `json:"id"`
+		DismissedAt string `json:"dismissed_at,omitempty"`
+	}
 }
 
 type UpsertRenditionsInput struct {
-	PathID string `path:"id" doc:"Publication ID"`
-	Body   struct {
+	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"Replay key scoped to the caller, Workspace, and operation"`
+	PathID         string `path:"id" doc:"Publication ID"`
+	Body           struct {
 		ExpectedRevision int              `json:"expected_revision" minimum:"1" doc:"Revision loaded by the editor"`
 		Renditions       []RenditionInput `json:"renditions" doc:"Renditions to replace or upsert"`
 	}
@@ -168,12 +183,14 @@ type RetryRenditionInput struct {
 }
 
 type RetryFailedRenditionsInput struct {
-	PathID string `path:"id" doc:"Publication ID"`
+	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"Replay key scoped to the caller, Workspace, and operation"`
+	PathID         string `path:"id" doc:"Publication ID"`
 }
 
 type PublicationMutationActionInput struct {
-	PathID string `path:"id" doc:"Publication ID"`
-	Body   struct {
+	IdempotencyKey string `header:"Idempotency-Key" maxLength:"200" doc:"Replay key scoped to the caller, Workspace, and operation"`
+	PathID         string `path:"id" doc:"Publication ID"`
+	Body           struct {
 		ExpectedRevision int    `json:"expected_revision" minimum:"1" doc:"Revision saved immediately before this action"`
 		ExecutionIntent  string `json:"execution_intent,omitempty" enum:"production,certification_test" doc:"Typed readiness intent; certification_test requires an unscoped instance administrator"`
 	}
@@ -264,7 +281,57 @@ func (h *PublicationHandler) RegisterRoutes(api huma.API) {
 	h.publishNow(api)
 	h.retryFailedRenditions(api)
 	h.retryRendition(api)
+	h.failureDismissal(api)
 	h.replyToRendition(api)
+}
+
+func (h *PublicationHandler) failureDismissal(api huma.API) {
+	operation := func(method, operationID, summary string, dismissed bool) {
+		huma.Register(api, huma.Operation{
+			OperationID: operationID,
+			Method:      method,
+			Path:        "/publications/{id}/failure-dismissal",
+			Summary:     summary,
+			Description: "Changes failed-list visibility without deleting the Publication, Renditions, attempts, or delivery history.",
+			Tags:        []string{tagPublications},
+			Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+			Errors:      []int{403, 404, 409},
+		}, func(ctx context.Context, input *FailureDismissalInput) (*FailureDismissalOutput, error) {
+			publication, err := h.loadPublication(ctx, input.PathID, middleware.GetUserID(ctx))
+			if err != nil {
+				return nil, err
+			}
+			if err := h.checkWorkspaceEditAccess(ctx, publication.WorkspaceID, middleware.GetUserID(ctx)); err != nil {
+				return nil, err
+			}
+			if publication.Status != models.PublicationStatusFailed {
+				return nil, huma.Error409Conflict("only failed publications can change failure dismissal")
+			}
+
+			query := h.db.NewUpdate().Model((*models.Publication)(nil)).Where("id = ?", publication.ID)
+			if dismissed {
+				if publication.FailureDismissedAt.IsZero() {
+					publication.FailureDismissedAt = time.Now().UTC()
+					query = query.Set("failure_dismissed_at = ?", publication.FailureDismissedAt)
+				} else {
+					query = query.Set("failure_dismissed_at = failure_dismissed_at")
+				}
+			} else {
+				publication.FailureDismissedAt = time.Time{}
+				query = query.Set("failure_dismissed_at = NULL")
+			}
+			if _, err := query.Exec(ctx); err != nil {
+				return nil, huma.Error500InternalServerError("failed to change failure dismissal")
+			}
+
+			output := &FailureDismissalOutput{}
+			output.Body.ID = publication.ID
+			output.Body.DismissedAt = formatOptionalTime(publication.FailureDismissedAt)
+			return output, nil
+		})
+	}
+	operation(http.MethodPost, "dismiss-publication-failure", "Dismiss a failed publication", true)
+	operation(http.MethodDelete, "restore-publication-failure", "Restore a dismissed publication failure", false)
 }
 
 func (h *PublicationHandler) deleteRendition(api huma.API) {
@@ -387,13 +454,52 @@ func (h *PublicationHandler) createPublication(api huma.API) {
 		Errors:      []int{400, 403},
 	}, func(ctx context.Context, input *CreatePublicationInput) (*PublicationOutput, error) {
 		userID := middleware.GetUserID(ctx)
-		publication, err := h.publicationApplication().Create(ctx, userID, input.Body)
+		if strings.TrimSpace(input.IdempotencyKey) == "" {
+			publication, err := h.publicationApplication().Create(ctx, userID, input.Body)
+			if err != nil {
+				return nil, publicationMutationHTTPError(err, "failed to create publication")
+			}
+			return &PublicationOutput{Body: publication}, nil
+		}
+
+		request, err := mutationIdempotencyRequest(ctx, input.Body.WorkspaceID, "create-publication", input.IdempotencyKey)
+		if err != nil {
+			return nil, err
+		}
+		publication, _, err := h.publicationApplicationForTesting().CreateIdempotent(ctx, userID, input.Body, request)
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to create publication")
 		}
 
 		return &PublicationOutput{Body: publication}, nil
 	})
+}
+
+func mutationIdempotencyRequest(
+	ctx context.Context,
+	workspaceID string,
+	operationID string,
+	key string,
+) (idempotency.Request, error) {
+	principalID := strings.TrimSpace(middleware.GetTokenID(ctx))
+	if principalID != "" {
+		principalID = "token:" + principalID
+	} else if sessionID := strings.TrimSpace(middleware.GetSessionID(ctx)); sessionID != "" {
+		principalID = "session:" + sessionID
+	} else if userID := strings.TrimSpace(middleware.GetUserID(ctx)); userID != "" {
+		principalID = "user:" + userID
+	}
+	if principalID == "" {
+		return idempotency.Request{}, huma.Error401Unauthorized("authenticated principal is required")
+	}
+	return idempotency.Request{
+		PrincipalID: principalID,
+		WorkspaceID: workspaceID,
+		OperationID: operationID,
+		Key:         key,
+		HTTPStatus:  http.StatusOK,
+		ExpiresAt:   time.Now().UTC().Add(24 * time.Hour),
+	}, nil
 }
 
 func (h *PublicationHandler) listPublications(api huma.API) {
@@ -499,6 +605,17 @@ func (h *PublicationHandler) updatePublication(api huma.API) {
 			return nil, err
 		}
 		userID := middleware.GetUserID(ctx)
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, err := mutationIdempotencyRequest(ctx, "", "update-publication", input.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+			resp, _, err := h.publicationApplicationForTesting().UpdateIdempotent(ctx, userID, input.PathID, input.Body, request)
+			if err != nil {
+				return nil, publicationMutationHTTPError(err, "failed to update publication")
+			}
+			return &PublicationOutput{Body: resp}, nil
+		}
 		if err := h.publicationApplication().Update(ctx, userID, input.PathID, input.Body); err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to update publication")
 		}
@@ -748,97 +865,112 @@ func (h *PublicationHandler) upsertRenditions(api huma.API) {
 		if err := h.validateMediaBelongsToWorkspace(ctx, publication.WorkspaceID, allPublicationMediaIDs(nil, nil, input.Body.Renditions)); err != nil {
 			return nil, err
 		}
-		err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-			currentPublication, err := h.loadEditablePublicationTx(txCtx, tx, publication.ID)
-			if err != nil {
-				return err
+		var response PublicationResponse
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, requestErr := mutationIdempotencyRequest(ctx, publication.WorkspaceID, "upsert-publication-renditions", input.IdempotencyKey)
+			if requestErr != nil {
+				return nil, requestErr
 			}
-			if currentPublication.Revision != input.Body.ExpectedRevision {
-				return h.publicationRevisionConflict(txCtx, tx, currentPublication, input.Body.ExpectedRevision)
+			request.ResourceID = publication.ID
+			request.RequestHash, requestErr = idempotency.Hash(struct {
+				PublicationID    string           `json:"publication_id"`
+				ExpectedRevision int              `json:"expected_revision"`
+				Renditions       []RenditionInput `json:"renditions"`
+			}{publication.ID, input.Body.ExpectedRevision, input.Body.Renditions})
+			if requestErr != nil {
+				return nil, publicationMutationHTTPError(requestErr, "failed to normalize rendition update")
 			}
-			if len(input.Body.Renditions) == 0 {
-				return nil
-			}
-			targets := make(map[renditionservice.TargetIdentity]struct{}, len(input.Body.Renditions))
-			for _, renditionInput := range input.Body.Renditions {
-				account := accountMap[renditionInput.SocialAccountID]
-				targetKey, targetErr := normalizeRenditionTargetKey(account, renditionInput.TargetKey)
-				if targetErr != nil {
-					return huma.Error400BadRequest(targetErr.Error())
-				}
-				targets[renditionservice.NewTargetIdentity(renditionInput.SocialAccountID, targetKey)] = struct{}{}
-			}
-			existingIDs, err := renditionservice.MatchingIDsTx(
-				txCtx,
-				tx,
-				publication.ID,
-				targets,
-				accountMap,
-			)
-			if err != nil {
-				return err
-			}
-			if err := h.rejectReplyJobsForReplacedTargetsTx(txCtx, tx, publication.ID, existingIDs); err != nil {
-				return err
-			}
-			if err := renditionservice.DeleteRowsTx(txCtx, tx, existingIDs); err != nil {
-				return err
-			}
-			segments, segmentInputs, err := h.loadCanonicalSegmentInputsWithDB(txCtx, tx, publication.ID)
-			if err != nil {
-				return err
-			}
-			if err := h.insertRenditions(txCtx, tx, currentPublication, segments, segmentInputs, input.Body.Renditions, nil, accountMap); err != nil {
-				return err
-			}
-			now := time.Now().UTC()
-			nextRevision := currentPublication.Revision + 1
-			result, err := tx.NewUpdate().
-				Model((*models.Publication)(nil)).
-				Set("revision = ?", nextRevision).
-				Set("updated_at = ?", now).
-				Where("id = ? AND revision = ?", currentPublication.ID, currentPublication.Revision).
-				Exec(txCtx)
-			if err != nil {
-				return err
-			}
-			if affected, _ := result.RowsAffected(); affected == 0 {
-				return h.publicationRevisionConflict(txCtx, tx, currentPublication, input.Body.ExpectedRevision)
-			}
-			currentPublication.Revision = nextRevision
-			currentPublication.UpdatedAt = now
-			if err := h.syncTextPostRevisionsTx(
-				txCtx,
-				tx,
-				currentPublication.ID,
-				input.Body.ExpectedRevision,
-				nextRevision,
-				[]string{"destinations", "destination overrides", "media"},
-				userID,
-				now,
-			); err != nil {
-				return err
-			}
-			return drafts.RecordChange(
-				txCtx,
-				tx,
-				drafts.AggregatePublication,
-				currentPublication.ID,
-				nextRevision,
-				[]string{"destinations", "destination overrides", "media"},
-				userID,
-				now,
-			)
-		})
+			result, executeErr := idempotency.Execute(ctx, h.db, request, func(txCtx context.Context, tx bun.Tx) (PublicationResponse, error) {
+				return h.upsertRenditionsTx(txCtx, tx, userID, publication.ID, input.Body.ExpectedRevision, input.Body.Renditions, accountMap)
+			})
+			response, err = result.Value, executeErr
+		} else {
+			err = h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+				var txErr error
+				response, txErr = h.upsertRenditionsTx(txCtx, tx, userID, publication.ID, input.Body.ExpectedRevision, input.Body.Renditions, accountMap)
+				return txErr
+			})
+		}
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to update publication renditions")
 		}
-		resp, err := h.loadPublicationResponse(ctx, publication.ID, userID)
-		if err != nil {
-			return nil, err
-		}
-		return &PublicationOutput{Body: resp}, nil
+		return &PublicationOutput{Body: response}, nil
 	})
+}
+
+//nolint:gocyclo // The transaction preserves revision checks and partial upsert semantics.
+func (h *PublicationHandler) upsertRenditionsTx(
+	ctx context.Context,
+	tx bun.Tx,
+	userID string,
+	publicationID string,
+	expectedRevision int,
+	renditions []RenditionInput,
+	accountMap map[string]models.SocialAccount,
+) (PublicationResponse, error) {
+	publication, err := h.loadEditablePublicationTx(ctx, tx, publicationID)
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	if publication.Revision != expectedRevision {
+		return PublicationResponse{}, h.publicationRevisionConflict(ctx, tx, publication, expectedRevision)
+	}
+	if len(renditions) > 0 {
+		targets := make(map[renditionservice.TargetIdentity]struct{}, len(renditions))
+		for _, input := range renditions {
+			account := accountMap[input.SocialAccountID]
+			targetKey, targetErr := normalizeRenditionTargetKey(account, input.TargetKey)
+			if targetErr != nil {
+				return PublicationResponse{}, huma.Error400BadRequest(targetErr.Error())
+			}
+			targets[renditionservice.NewTargetIdentity(input.SocialAccountID, targetKey)] = struct{}{}
+		}
+		existingIDs, err := renditionservice.MatchingIDsTx(ctx, tx, publication.ID, targets, accountMap)
+		if err != nil {
+			return PublicationResponse{}, err
+		}
+		if err := h.rejectReplyJobsForReplacedTargetsTx(ctx, tx, publication.ID, existingIDs); err != nil {
+			return PublicationResponse{}, err
+		}
+		if err := renditionservice.DeleteRowsTx(ctx, tx, existingIDs); err != nil {
+			return PublicationResponse{}, err
+		}
+		segments, segmentInputs, err := h.loadCanonicalSegmentInputsWithDB(ctx, tx, publication.ID)
+		if err != nil {
+			return PublicationResponse{}, err
+		}
+		if err := h.insertRenditions(ctx, tx, publication, segments, segmentInputs, renditions, nil, accountMap); err != nil {
+			return PublicationResponse{}, err
+		}
+		now := time.Now().UTC()
+		nextRevision := publication.Revision + 1
+		result, err := tx.NewUpdate().Model((*models.Publication)(nil)).
+			Set("revision = ?", nextRevision).Set("updated_at = ?", now).
+			Where("id = ? AND revision = ?", publication.ID, publication.Revision).Exec(ctx)
+		if err != nil {
+			return PublicationResponse{}, err
+		}
+		if affected, _ := result.RowsAffected(); affected == 0 {
+			return PublicationResponse{}, h.publicationRevisionConflict(ctx, tx, publication, expectedRevision)
+		}
+		publication.Revision = nextRevision
+		publication.UpdatedAt = now
+		changedDomains := []string{"destinations", "destination overrides", "media"}
+		if err := h.syncTextPostRevisionsTx(ctx, tx, publication.ID, expectedRevision, nextRevision, changedDomains, userID, now); err != nil {
+			return PublicationResponse{}, err
+		}
+		if err := drafts.RecordChange(ctx, tx, drafts.AggregatePublication, publication.ID, nextRevision, changedDomains, userID, now); err != nil {
+			return PublicationResponse{}, err
+		}
+	}
+	responses, err := h.loadPublicationResponsesWithDB(ctx, tx, []models.Publication{*publication})
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	if len(responses) != 1 {
+		return PublicationResponse{}, errors.New("failed to load updated publication")
+	}
+	return responses[0], nil
 }
 
 func (h *PublicationHandler) validatePublication(api huma.API) {
@@ -878,13 +1010,27 @@ func (h *PublicationHandler) schedulePublication(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		result, err := h.publicationApplication().Schedule(
-			ctx, userID, input.PathID, input.Body.ExpectedRevision, intent,
-		)
+		var result publicationEnqueueResult
+		replayed := false
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, requestErr := mutationIdempotencyRequest(ctx, "", "schedule-publication", input.IdempotencyKey)
+			if requestErr != nil {
+				return nil, requestErr
+			}
+			result, replayed, err = h.publicationApplicationForTesting().ScheduleIdempotent(
+				ctx, userID, input.PathID, input.Body.ExpectedRevision, intent, request,
+			)
+		} else {
+			result, err = h.publicationApplication().Schedule(
+				ctx, userID, input.PathID, input.Body.ExpectedRevision, intent,
+			)
+		}
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to enqueue publication")
 		}
-		h.capturePublicationEvent(ctx, telemetry.EventPublicationScheduled, userID, input.PathID, result.JobID)
+		if !replayed {
+			h.capturePublicationEvent(ctx, telemetry.EventPublicationScheduled, userID, input.PathID, result.JobID)
+		}
 		return enqueueActionMessage("publication scheduled", input.PathID, result), nil
 	})
 }
@@ -960,9 +1106,20 @@ func (h *PublicationHandler) cancelPublication(api huma.API) {
 		if err := drafts.RequireExpectedRevision(input.Body.ExpectedRevision); err != nil {
 			return nil, err
 		}
-		if err := h.publicationApplication().Cancel(
-			ctx, middleware.GetUserID(ctx), input.PathID, input.Body.ExpectedRevision,
-		); err != nil {
+		userID := middleware.GetUserID(ctx)
+		var err error
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, requestErr := mutationIdempotencyRequest(ctx, "", "cancel-publication", input.IdempotencyKey)
+			if requestErr != nil {
+				return nil, requestErr
+			}
+			_, _, err = h.publicationApplicationForTesting().CancelIdempotent(
+				ctx, userID, input.PathID, input.Body.ExpectedRevision, request,
+			)
+		} else {
+			err = h.publicationApplication().Cancel(ctx, userID, input.PathID, input.Body.ExpectedRevision)
+		}
+		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to cancel publication")
 		}
 		output := actionMessage("publication cancelled", "")
@@ -989,13 +1146,27 @@ func (h *PublicationHandler) publishNow(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		result, err := h.publicationApplication().PublishNow(
-			ctx, userID, input.PathID, input.Body.ExpectedRevision, intent,
-		)
+		var result publicationEnqueueResult
+		replayed := false
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, requestErr := mutationIdempotencyRequest(ctx, "", "publish-publication-now", input.IdempotencyKey)
+			if requestErr != nil {
+				return nil, requestErr
+			}
+			result, replayed, err = h.publicationApplicationForTesting().PublishNowIdempotent(
+				ctx, userID, input.PathID, input.Body.ExpectedRevision, intent, request,
+			)
+		} else {
+			result, err = h.publicationApplication().PublishNow(
+				ctx, userID, input.PathID, input.Body.ExpectedRevision, intent,
+			)
+		}
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to enqueue publication")
 		}
-		h.capturePublicationEvent(ctx, telemetry.EventPublicationQueued, userID, input.PathID, result.JobID)
+		if !replayed {
+			h.capturePublicationEvent(ctx, telemetry.EventPublicationQueued, userID, input.PathID, result.JobID)
+		}
 		return enqueueActionMessage("publication queued", input.PathID, result), nil
 	})
 }
@@ -1085,7 +1256,19 @@ func (h *PublicationHandler) retryFailedRenditions(api huma.API) {
 		Middlewares: huma.Middlewares{middleware.RequestMetadataMiddleware(), middleware.AuthMiddleware(api, h.auth)},
 		Errors:      []int{400, 403, 404, 409},
 	}, func(ctx context.Context, input *RetryFailedRenditionsInput) (*ActionOutput, error) {
-		jobID, err := h.publicationApplication().RetryFailedRenditions(ctx, middleware.GetUserID(ctx), input.PathID)
+		var jobID string
+		var err error
+		if strings.TrimSpace(input.IdempotencyKey) != "" {
+			request, requestErr := mutationIdempotencyRequest(ctx, "", "retry-failed-publication-renditions", input.IdempotencyKey)
+			if requestErr != nil {
+				return nil, requestErr
+			}
+			jobID, _, err = h.publicationApplicationForTesting().RetryFailedRenditionsIdempotent(
+				ctx, middleware.GetUserID(ctx), input.PathID, request,
+			)
+		} else {
+			jobID, err = h.publicationApplication().RetryFailedRenditions(ctx, middleware.GetUserID(ctx), input.PathID)
+		}
 		if err != nil {
 			return nil, publicationMutationHTTPError(err, "failed to queue destination retries")
 		}
@@ -3098,10 +3281,6 @@ func (h *PublicationHandler) queuePublicationWithRunAt(
 	intent providerreadiness.ExecutionIntent,
 	resolveRunAt func(*models.Publication, time.Time) (time.Time, error),
 ) (publicationEnqueueResult, error) {
-	operation := providerreadiness.OperationPublishImmediate
-	if policyMode == publicationauth.PolicyScheduled {
-		operation = providerreadiness.OperationPublishScheduled
-	}
 	if h.beforeQueueTransaction != nil {
 		if err := h.beforeQueueTransaction(ctx); err != nil {
 			return publicationEnqueueResult{}, err
@@ -3109,88 +3288,108 @@ func (h *PublicationHandler) queuePublicationWithRunAt(
 	}
 	var result publicationEnqueueResult
 	err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		publication, err := h.loadEditablePublicationTx(txCtx, tx, publicationID)
-		if err != nil {
-			return err
-		}
-		if expectedRevision > 0 && publication.Revision != expectedRevision {
-			return h.publicationRevisionConflict(txCtx, tx, publication, expectedRevision)
-		}
-		issues, err := h.validatePublicationByIDWithDB(txCtx, tx, publicationID)
-		if err != nil {
-			return err
-		}
-		if hasBlockingIssues(issues) {
-			return errPublicationValidationBlocked
-		}
-		if err := h.requirePublicationReadinessWithDB(
-			txCtx, tx, publication, operation, intent, true,
-		); err != nil {
-			return err
-		}
-		now := time.Now().UTC()
-		runAt, err := resolveRunAt(publication, now)
-		if err != nil {
-			return err
-		}
-		if policyMode == publicationauth.PolicyScheduled && !publication.ScheduledAt.IsZero() && runAt.Equal(publication.ScheduledAt) {
-			var randomDelayMinutes int
-			runAt, randomDelayMinutes, err = h.resolveScheduledPublicationRunAtTx(txCtx, tx, publication, now)
-			if err != nil {
-				return err
-			}
-			publication.RandomDelayMinutes = randomDelayMinutes
-		} else {
-			publication.RandomDelayMinutes = 0
-		}
-		if policyMode == publicationauth.PolicyScheduled {
-			result.JobID, err = h.replacePublicationJobWithIntentTx(txCtx, tx, publicationID, runAt, intent)
-		} else {
-			result.JobID, err = h.replaceImmediatePublicationJobWithIntentTx(txCtx, tx, publicationID, runAt, intent)
-		}
-		if err != nil {
-			return err
-		}
-		if err := h.markPublicationQueuedTx(txCtx, tx, publication, runAt, now); err != nil {
-			return err
-		}
-		result.Renditions, err = h.loadRenditionActionOutcomes(txCtx, tx, publicationID)
-		if err != nil {
-			return err
-		}
-		activation := &models.WorkspaceActivation{
-			ID: "activation:" + publication.WorkspaceID, WorkspaceID: publication.WorkspaceID,
-			PublicationID: publication.ID, CreatedAt: now,
-		}
-		insert, err := tx.NewInsert().Model(activation).On("CONFLICT (workspace_id) DO NOTHING").Exec(txCtx)
-		if err != nil {
-			return err
-		}
-		affected, err := insert.RowsAffected()
-		if err != nil {
-			return err
-		}
-		result.NewlyActivated = affected == 1
-		if !result.NewlyActivated {
-			if err := tx.NewSelect().Model(activation).Where("workspace_id = ?", publication.WorkspaceID).Scan(txCtx); err != nil {
-				return err
-			}
-		}
-		result.ActivationID = activation.ID
-		result.ActivationPublicationID = activation.PublicationID
-		if result.NewlyActivated {
-			event := &models.ProductAnalyticsEvent{
-				ID: activation.ID, WorkspaceID: publication.WorkspaceID,
-				Name: telemetry.EventWorkspaceActivated, CreatedAt: now,
-			}
-			if _, err := tx.NewInsert().Model(event).Exec(txCtx); err != nil {
-				return err
-			}
-		}
-		return nil
+		var err error
+		result, err = h.queuePublicationWithRunAtTx(
+			txCtx, tx, publicationID, expectedRevision, policyMode, intent, resolveRunAt,
+		)
+		return err
 	})
 	if err != nil {
 		return publicationEnqueueResult{}, err
+	}
+	return result, nil
+}
+
+//nolint:gocyclo // Queue creation, revision checks, schedule state, and rendition state must commit as one transition.
+func (h *PublicationHandler) queuePublicationWithRunAtTx(
+	ctx context.Context,
+	tx bun.Tx,
+	publicationID string,
+	expectedRevision int,
+	policyMode string,
+	intent providerreadiness.ExecutionIntent,
+	resolveRunAt func(*models.Publication, time.Time) (time.Time, error),
+) (publicationEnqueueResult, error) {
+	operation := providerreadiness.OperationPublishImmediate
+	if policyMode == publicationauth.PolicyScheduled {
+		operation = providerreadiness.OperationPublishScheduled
+	}
+	publication, err := h.loadEditablePublicationTx(ctx, tx, publicationID)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	if expectedRevision > 0 && publication.Revision != expectedRevision {
+		return publicationEnqueueResult{}, h.publicationRevisionConflict(ctx, tx, publication, expectedRevision)
+	}
+	issues, err := h.validatePublicationByIDWithDB(ctx, tx, publicationID)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	if hasBlockingIssues(issues) {
+		return publicationEnqueueResult{}, errPublicationValidationBlocked
+	}
+	if err := h.requirePublicationReadinessWithDB(ctx, tx, publication, operation, intent, true); err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	now := time.Now().UTC()
+	runAt, err := resolveRunAt(publication, now)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	if policyMode == publicationauth.PolicyScheduled && !publication.ScheduledAt.IsZero() && runAt.Equal(publication.ScheduledAt) {
+		var randomDelayMinutes int
+		runAt, randomDelayMinutes, err = h.resolveScheduledPublicationRunAtTx(ctx, tx, publication, now)
+		if err != nil {
+			return publicationEnqueueResult{}, err
+		}
+		publication.RandomDelayMinutes = randomDelayMinutes
+	} else {
+		publication.RandomDelayMinutes = 0
+	}
+	result := publicationEnqueueResult{}
+	if policyMode == publicationauth.PolicyScheduled {
+		result.JobID, err = h.replacePublicationJobWithIntentTx(ctx, tx, publicationID, runAt, intent)
+	} else {
+		result.JobID, err = h.replaceImmediatePublicationJobWithIntentTx(ctx, tx, publicationID, runAt, intent)
+	}
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	if err := h.markPublicationQueuedTx(ctx, tx, publication, runAt, now); err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	result.Renditions, err = h.loadRenditionActionOutcomes(ctx, tx, publicationID)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	activation := &models.WorkspaceActivation{
+		ID: "activation:" + publication.WorkspaceID, WorkspaceID: publication.WorkspaceID,
+		PublicationID: publication.ID, CreatedAt: now,
+	}
+	insert, err := tx.NewInsert().Model(activation).On("CONFLICT (workspace_id) DO NOTHING").Exec(ctx)
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	affected, err := insert.RowsAffected()
+	if err != nil {
+		return publicationEnqueueResult{}, err
+	}
+	result.NewlyActivated = affected == 1
+	if !result.NewlyActivated {
+		if err := tx.NewSelect().Model(activation).Where("workspace_id = ?", publication.WorkspaceID).Scan(ctx); err != nil {
+			return publicationEnqueueResult{}, err
+		}
+	}
+	result.ActivationID = activation.ID
+	result.ActivationPublicationID = activation.PublicationID
+	if result.NewlyActivated {
+		event := &models.ProductAnalyticsEvent{
+			ID: activation.ID, WorkspaceID: publication.WorkspaceID,
+			Name: telemetry.EventWorkspaceActivated, CreatedAt: now,
+		}
+		if _, err := tx.NewInsert().Model(event).Exec(ctx); err != nil {
+			return publicationEnqueueResult{}, err
+		}
 	}
 	return result, nil
 }
@@ -3275,55 +3474,74 @@ func (h *PublicationHandler) requirePublicationReadinessWithDB(
 		return err
 	}
 	for _, rendition := range renditions {
-		account := accounts[rendition.SocialAccountID]
-		connectorCapabilities, connectorBacked, connectorErr := h.connectorCapabilitiesWithDB(ctx, db, account)
-		if connectorErr != nil {
-			return connectorErr
-		}
-		if connectorBacked {
-			found := false
-			for _, capability := range connectorCapabilities {
-				if capability.OutputProfile == rendition.OutputProfile ||
-					(rendition.OutputProfile == "" && capability.Profile == rendition.Profile) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("connector does not support output profile %q", rendition.OutputProfile)
-			}
-			continue
-		}
-		if h.readiness == nil {
-			return &providerreadiness.NotReadyError{Decision: providerreadiness.UnavailableDecision(operation)}
-		}
-		readiness := h.readiness.WithLedger(providerreadiness.NewRepository(db))
-		capability, found := capabilities.FindOutput(account.Platform, rendition.OutputProfile)
-		if !found {
-			capability, found = capabilities.Find(account.Platform, rendition.Profile)
-		}
-		if !found {
-			capability = capabilities.Capability{
-				Provider: account.Platform, Profile: rendition.Profile, OutputProfile: rendition.OutputProfile,
-			}
-		}
-		settings := map[string]any{}
-		if err := json.Unmarshal([]byte(rendition.SettingsJSON), &settings); err != nil {
-			return fmt.Errorf("decode rendition provider policy settings: %w", err)
-		}
-		decision := readiness.DecideAccountPublication(
-			ctx,
-			account,
-			capability,
-			operation,
-			intent,
-			providerreadiness.PublicationPolicyMode(account, capability, settings),
-		)
-		if !decision.Publishable {
-			return &providerreadiness.NotReadyError{Decision: decision}
+		if err := h.requireRenditionReadinessWithDB(ctx, db, accounts[rendition.SocialAccountID], rendition, operation, intent); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+func (h *PublicationHandler) requireRenditionReadinessWithDB(
+	ctx context.Context,
+	db bun.IDB,
+	account models.SocialAccount,
+	rendition models.Rendition,
+	operation providerreadiness.Operation,
+	intent providerreadiness.ExecutionIntent,
+) error {
+	connectorCapabilities, connectorBacked, err := h.connectorCapabilitiesWithDB(ctx, db, account)
+	if err != nil {
+		return err
+	}
+	if connectorBacked {
+		if !supportsRendition(connectorCapabilities, rendition) {
+			return fmt.Errorf("connector does not support output profile %q", rendition.OutputProfile)
+		}
+		return nil
+	}
+	if h.readiness == nil {
+		return &providerreadiness.NotReadyError{Decision: providerreadiness.UnavailableDecision(operation)}
+	}
+	capability := renditionCapability(account, rendition)
+	settings := map[string]any{}
+	if err := json.Unmarshal([]byte(rendition.SettingsJSON), &settings); err != nil {
+		return fmt.Errorf("decode rendition provider policy settings: %w", err)
+	}
+	readiness := h.readiness.WithLedger(providerreadiness.NewRepository(db))
+	decision := readiness.DecideAccountPublication(
+		ctx,
+		account,
+		capability,
+		operation,
+		intent,
+		providerreadiness.PublicationPolicyMode(account, capability, settings),
+	)
+	if !decision.Publishable {
+		return &providerreadiness.NotReadyError{Decision: decision}
+	}
+	return nil
+}
+
+func supportsRendition(catalog []capabilities.Capability, rendition models.Rendition) bool {
+	for _, capability := range catalog {
+		if capability.OutputProfile == rendition.OutputProfile ||
+			(rendition.OutputProfile == "" && capability.Profile == rendition.Profile) {
+			return true
+		}
+	}
+	return false
+}
+
+func renditionCapability(account models.SocialAccount, rendition models.Rendition) capabilities.Capability {
+	if capability, found := capabilities.FindOutput(account.Platform, rendition.OutputProfile); found {
+		return capability
+	}
+	if capability, found := capabilities.Find(account.Platform, rendition.Profile); found {
+		return capability
+	}
+	return capabilities.Capability{
+		Provider: account.Platform, Profile: rendition.Profile, OutputProfile: rendition.OutputProfile,
+	}
 }
 
 func loadReadinessAccountsWithDB(
@@ -3801,6 +4019,7 @@ func publicationResponse(publication *models.Publication, media []MediaSummary) 
 		Revision:             publication.Revision,
 		ScheduledAt:          formatOptionalTime(publication.ScheduledAt),
 		ActualRunAt:          formatOptionalTime(publication.ActualRunAt),
+		FailureDismissedAt:   formatOptionalTime(publication.FailureDismissedAt),
 		RandomDelayMinutes:   publication.RandomDelayMinutes,
 		RandomDelayInherited: !publication.RandomDelayExplicit,
 		Metadata:             metadata,

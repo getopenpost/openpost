@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { onMount } from 'svelte';
+	import type { TextVoiceRequest } from '$lib/video-editor/local-ai/types';
 	import AgentChatPanel from './agent-chat-panel.svelte';
 	import LocalAiPanel from './local-ai-panel.svelte';
 	import { agentStore } from '$lib/video-editor/agent/store.svelte';
@@ -22,7 +23,8 @@
 		onopensilence,
 		onopenfillers,
 		selectedIds = [],
-		onautosave
+		onautosave,
+		textVoiceRequest = null
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
@@ -31,6 +33,7 @@
 		onopenfillers: (itemIds: string[]) => void;
 		selectedIds?: string[];
 		onautosave: () => void;
+		textVoiceRequest?: TextVoiceRequest | null;
 	} = $props();
 
 	let mode = $state<'assistant' | 'generate'>('assistant');
@@ -39,6 +42,7 @@
 	let storage = $state<AgentStorageStatus | null>(null);
 	let checkingStorage = $state(false);
 	let storageCheckFailed = $state(false);
+	let handledTextVoiceRequestId = $state<string | null>(null);
 
 	const agentSupported = $derived(agentStore.supported);
 
@@ -68,6 +72,12 @@
 		mode = next;
 		queueMicrotask(() => (next === 'assistant' ? assistantTab : generateTab)?.focus());
 	}
+
+	$effect(() => {
+		if (!textVoiceRequest || textVoiceRequest.id === handledTextVoiceRequestId) return;
+		handledTextVoiceRequestId = textVoiceRequest.id;
+		mode = 'generate';
+	});
 
 	$effect(() => {
 		const ids = selectedIds;
@@ -228,7 +238,7 @@
 				aria-labelledby="generate-tab"
 				class="h-full min-h-0 overflow-y-auto"
 			>
-				<LocalAiPanel {projectId} {oninserted} />
+				<LocalAiPanel {projectId} {oninserted} {textVoiceRequest} />
 			</div>
 		{/if}
 	</div>

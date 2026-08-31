@@ -83,7 +83,7 @@ changes live in [Developer Docs](/development/).
 - [ ] Confirm Google can create a new account, then link and unlink Google from an existing password account without email-based auto-linking.
 - [ ] Decide whether to set `OPENPOST_DISABLE_REGISTRATIONS=true`.
 - [ ] Create a workspace.
-- [ ] Invite a second user, accept the link, and confirm both members appear in **Settings -> Organization**.
+- [ ] Invite a second user, accept the link, and confirm both members appear in **Settings → Workspace → Members**.
 - [ ] Connect at least one social account.
 - [ ] Upload a small image and confirm it appears in the media library.
 - [ ] If automatic alt text is enabled, add an image without alt text to the text-and-thread composer, confirm OpenPost fills its shared alt text, and confirm a manual edit is not replaced.

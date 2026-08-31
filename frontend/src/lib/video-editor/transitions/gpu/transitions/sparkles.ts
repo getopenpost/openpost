@@ -147,6 +147,13 @@ fn sparklesFragment(input: VertexOutput) -> @location(0) vec4f {
   let left = textureSample(leftTex, texSampler, uv);
   let right = textureSample(rightTex, texSampler, uv);
 
+  if (p <= 0.0) {
+    return left;
+  }
+  if (p >= 1.0) {
+    return right;
+  }
+
   let coarseLayer = sparkleLayer(
     scaledUv,
     p,

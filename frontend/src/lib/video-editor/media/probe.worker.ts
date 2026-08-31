@@ -11,12 +11,15 @@
 import { ALL_FORMATS, BlobSource, CanvasSink, EncodedPacketSink, Input } from 'mediabunny';
 import { ensureProResDecoderForCodec, isProResCodec } from './prores-decoder';
 import { isAudioCodecSupported } from './audio-codec-support';
+import type { VideoFrameRateMetrics } from './types';
+import { probeVideoFrameRate } from './video-frame-rate';
 
 export interface MediaProbeResult {
 	durationSeconds: number;
 	width: number;
 	height: number;
 	fps: number;
+	frameRateMetrics?: VideoFrameRateMetrics;
 	videoCodec?: string;
 	videoCodecSupported: boolean;
 	audioCodec?: string;
@@ -32,7 +35,6 @@ export interface MediaProbeResult {
 }
 
 const KEYFRAME_MAX_PACKETS = 5_000;
-const FPS_MAX_PACKETS = 180;
 const THUMBNAIL_MAX_EDGE = 320;
 /** Animated-image frames decoded at probe time before extrapolating duration. */
 const ANIMATION_PROBE_MAX_FRAMES = 600;
@@ -40,18 +42,6 @@ const ANIMATION_PROBE_MAX_FRAMES = 600;
 const MAX_ANIMATED_FRAMES = 2_000;
 /** Frames with zero or missing delay display for 100ms (FreeCut parity). */
 const DEFAULT_DELAY_MS = 100;
-
-async function estimateFps(track: {
-	computePacketStats(count: number): Promise<{ averagePacketRate: number } | null>;
-}): Promise<number> {
-	try {
-		const stats = await track.computePacketStats(FPS_MAX_PACKETS);
-		const rate = stats?.averagePacketRate ?? 0;
-		return Number.isFinite(rate) && rate > 0 ? Math.round(rate * 1000) / 1000 : 30;
-	} catch {
-		return 30;
-	}
-}
 
 async function extractKeyframes(input: Input): Promise<number[] | undefined> {
 	try {
@@ -223,12 +213,13 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 		const audioTrack = await input.getPrimaryAudioTrack();
 
 		let fps = 30;
+		let frameRateMetrics: VideoFrameRateMetrics | undefined;
 		let width = 0;
 		let height = 0;
 		let videoCodec: string | undefined;
 		let keyframeTimestamps: number[] | undefined;
 		if (videoTrack) {
-			fps = await estimateFps(videoTrack);
+			({ fps, metrics: frameRateMetrics } = await probeVideoFrameRate(videoTrack));
 			width = videoTrack.displayWidth;
 			height = videoTrack.displayHeight;
 			videoCodec = videoTrack.codec ?? undefined;
@@ -259,6 +250,7 @@ self.onmessage = async (event: MessageEvent<{ id: number; file: File }>) => {
 			width,
 			height,
 			fps: kind === 'audio' ? 0 : fps,
+			frameRateMetrics,
 			videoCodec: videoCodec ?? undefined,
 			videoCodecSupported,
 			audioCodec: audioTrack?.codec ?? undefined,

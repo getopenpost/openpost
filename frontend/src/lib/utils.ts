@@ -8,7 +8,9 @@ export function cn(...inputs: ClassValue[]) {
 export type WithoutChild<T> = T extends { child?: any } ? Omit<T, 'child'> : T;
 export type WithoutChildren<T> = T extends { children?: any } ? Omit<T, 'children'> : T;
 export type WithoutChildrenOrChild<T> = WithoutChildren<WithoutChild<T>>;
-export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & { ref?: U | null };
+export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & {
+	ref?: U | null;
+};
 
 export function getPlatformKey(platform: string): string {
 	const key = platform.toLowerCase().split(':')[0];
@@ -48,6 +50,8 @@ export function getPlatformName(platform: string): string {
 			return 'Threads';
 		case 'bluesky':
 			return 'Bluesky';
+		case 'discord':
+			return 'Discord';
 		case 'linkedin':
 			return 'LinkedIn';
 		case 'instagram':
@@ -68,6 +72,27 @@ export function formatAccountHandle(username: string | null | undefined): string
 	return normalizedUsername ? `@${normalizedUsername}` : '';
 }
 
+const HANDLE_FIRST_PLATFORMS = new Set([
+	'bluesky',
+	'instagram',
+	'mastodon',
+	'threads',
+	'tiktok',
+	'x'
+]);
+
+export function formatSocialAccountName(
+	username: string | null | undefined,
+	platform: string
+): string {
+	const normalizedUsername = username?.trim();
+	if (!normalizedUsername) return '';
+	const platformKey = getPlatformKey(platform.trim());
+	return HANDLE_FIRST_PLATFORMS.has(platformKey)
+		? formatAccountHandle(normalizedUsername)
+		: normalizedUsername;
+}
+
 export function getStatusColor(status: string): string {
 	const colors = new Map([
 		['draft', 'bg-muted text-muted-foreground'],
@@ -85,6 +110,7 @@ export function getPlatformColor(platform: string): string {
 		['mastodon', 'bg-indigo-500'],
 		['threads', 'bg-orange-500'],
 		['bluesky', 'bg-sky-500'],
+		['discord', 'bg-indigo-500'],
 		['linkedin', 'bg-blue-600'],
 		['instagram', 'bg-pink-500'],
 		['facebook', 'bg-blue-700'],

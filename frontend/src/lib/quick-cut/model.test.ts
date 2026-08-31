@@ -8,7 +8,9 @@ import {
 	findSnapKeyframe,
 	formatTimecode,
 	parseTimecode,
-	hasOverlap
+	hasOverlap,
+	assessExport,
+	segmentsOutsideMarkedRanges
 } from './model';
 
 const SRC_A = 'src-a';
@@ -42,6 +44,15 @@ describe('quick-cut model', () => {
 		expect(norm).toHaveLength(2);
 		expect(norm[0]?.start).toBe(0);
 		expect(norm[0]?.end).toBe(7);
+	});
+
+	it('does not merge ranges with different cut strategies', () => {
+		const segments = [
+			createSegment(0, 5, { id: 'lossless', sourceId: SRC_A, cutMode: 'nearestKeyframe' }),
+			createSegment(3, 7, { id: 'exact', sourceId: SRC_A, cutMode: 'exact' })
+		];
+
+		expect(normalizeSegments(segments).map((segment) => segment.id)).toEqual(['lossless', 'exact']);
 	});
 
 	it('never reorders an explicit A/B/A edit while normalizing', () => {
@@ -84,8 +95,27 @@ describe('quick-cut model', () => {
 	it('finds nearest and snap keyframe', () => {
 		const kfs = [0, 2.0, 4.0, 6.0];
 		expect(findNearestKeyframe(2.04, kfs, 0.06).aligned).toBe(true);
+		expect(findNearestKeyframe(2.04, kfs).aligned).toBe(false);
+		expect(findNearestKeyframe(2.0005, kfs).aligned).toBe(true);
 		expect(findSnapKeyframe(2.1, kfs).direction).toBe('before');
 		expect(findSnapKeyframe(3.9, kfs).direction).toBe('after');
+	});
+
+	it('assesses exact and lossless segment overrides independently', () => {
+		const exact = createSegment(2, 3, {
+			id: 'exact',
+			sourceId: SRC_A,
+			cutMode: 'exact'
+		});
+		const lossless = createSegment(3.5, 5, {
+			id: 'lossless',
+			sourceId: SRC_A,
+			cutMode: 'nearestKeyframe'
+		});
+
+		const assessment = assessExport([exact, lossless], [0, 2, 4], 'exact', false);
+		expect(assessment.wasLossless).toBe(true);
+		expect(assessment.reason).toMatch(/start 3\.50s snaps/iu);
 	});
 
 	it('formats and parses timecodes', () => {
@@ -98,5 +128,71 @@ describe('quick-cut model', () => {
 		const seg = createSegment(9, 11, { id: 'x', sourceId: SRC_A });
 		const errs = validateSegments([seg], 10, new Map([[SRC_A, 10]]));
 		expect(errs.some((e) => e.kind === 'end_beyond_duration')).toBe(true);
+	});
+
+	it('exports the material outside marked removal ranges per source', () => {
+		const marked = [
+			createSegment(2, 4, { id: 'a-first', sourceId: SRC_A }),
+			createSegment(6, 9, { id: 'a-last', sourceId: SRC_A }),
+			createSegment(1, 3, { id: 'b-only', sourceId: SRC_B })
+		];
+
+		expect(
+			segmentsOutsideMarkedRanges(marked, [
+				{ id: SRC_A, duration: 10 },
+				{ id: SRC_B, duration: 5 }
+			]).map(({ sourceId, start, end }) => ({ sourceId, start, end }))
+		).toEqual([
+			{ sourceId: SRC_A, start: 0, end: 2 },
+			{ sourceId: SRC_A, start: 4, end: 6 },
+			{ sourceId: SRC_A, start: 9, end: 10 },
+			{ sourceId: SRC_B, start: 0, end: 1 },
+			{ sourceId: SRC_B, start: 3, end: 5 }
+		]);
+	});
+
+	it('unions touching removal ranges and ignores disabled marks', () => {
+		const marked = [
+			createSegment(0, 2, { id: 'start', sourceId: SRC_A }),
+			createSegment(1, 4, { id: 'overlap', sourceId: SRC_A }),
+			createSegment(4, 6, { id: 'touching', sourceId: SRC_A }),
+			{ ...createSegment(7, 9, { id: 'disabled', sourceId: SRC_A }), enabled: false }
+		];
+
+		expect(
+			segmentsOutsideMarkedRanges(marked, [{ id: SRC_A, duration: 10 }]).map(({ start, end }) => ({
+				start,
+				end
+			}))
+		).toEqual([{ start: 6, end: 10 }]);
+	});
+
+	it('keeps an entire source when it has no enabled removal ranges', () => {
+		const disabled = {
+			...createSegment(1, 2, { id: 'disabled', sourceId: SRC_A }),
+			enabled: false
+		};
+
+		expect(
+			segmentsOutsideMarkedRanges(
+				[disabled],
+				[
+					{ id: SRC_A, duration: 4 },
+					{ id: SRC_B, duration: 3 }
+				]
+			).map(({ sourceId, start, end }) => ({ sourceId, start, end }))
+		).toEqual([
+			{ sourceId: SRC_A, start: 0, end: 4 },
+			{ sourceId: SRC_B, start: 0, end: 3 }
+		]);
+	});
+
+	it('drops inverse fragments shorter than the minimum export duration', () => {
+		const marked = [
+			createSegment(0.02, 4, { id: 'middle', sourceId: SRC_A }),
+			createSegment(4.03, 5, { id: 'end', sourceId: SRC_A })
+		];
+
+		expect(segmentsOutsideMarkedRanges(marked, [{ id: SRC_A, duration: 5 }])).toEqual([]);
 	});
 });

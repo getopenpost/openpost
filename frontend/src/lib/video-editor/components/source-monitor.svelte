@@ -19,13 +19,35 @@
 	import Music2Icon from '@lucide/svelte/icons/music-2';
 	import PauseIcon from '@lucide/svelte/icons/pause';
 	import PlayIcon from '@lucide/svelte/icons/play';
+	import RepeatIcon from '@lucide/svelte/icons/repeat-2';
 	import SkipBackIcon from '@lucide/svelte/icons/skip-back';
+	import SkipForwardIcon from '@lucide/svelte/icons/skip-forward';
 	import XIcon from '@lucide/svelte/icons/x';
+	import {
+		editorShortcutTargetIsDisabled,
+		eventMatchesShortcut,
+		formatShortcutBinding,
+		handleGlobalPlayPauseShortcut
+	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import { isAc3AudioCodec } from '$lib/video-editor/media/ac3-decoder';
+	import {
+		getBrowserMediaPlaybackRate,
+		getNextShuttleRate,
+		getShuttleMediaPlaybackRate
+	} from '$lib/video-editor/preview/shuttle';
+	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
+	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
+	import { attachAudioSourceToMixer } from '$lib/video-editor/audio/audio-mixer';
+	import ShuttleIndicator from '$lib/video-editor/components/shuttle-indicator.svelte';
 	import {
 		decodedPreviewAudio,
 		previewAudioContext
 	} from '$lib/video-editor/audio/reverse-preview-audio';
+	import SourceAudioWaveform from './source-audio-waveform.svelte';
+	import { Slider } from '$lib/components/ui/slider';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import AppSelect from '$lib/components/app-select.svelte';
 
 	let {
 		mediaId,
@@ -72,6 +94,16 @@
 			(track) => track.kind === 'audio' && !track.locked
 		)
 	);
+	const videoTargetOptions = $derived([
+		{ value: 'auto', label: m.video_editor_source_target_auto() },
+		...videoTracks.map((track) => ({ value: track.id, label: track.name })),
+		{ value: 'create', label: m.video_editor_source_target_create() }
+	]);
+	const audioTargetOptions = $derived([
+		{ value: 'auto', label: m.video_editor_source_target_auto() },
+		...audioTracks.map((track) => ({ value: track.id, label: track.name })),
+		{ value: 'create', label: m.video_editor_source_target_create() }
+	]);
 
 	let sourceUrl = $state('');
 	let sourceAudioUrl = $state('');
@@ -99,6 +131,11 @@
 	let animationFrame = 0;
 	let playbackStartedAt = 0;
 	let playbackStartFrame = 0;
+	let sourcePlaybackRate = $state(1);
+	let sourceShuttleActive = $state(false);
+	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
+	let shuttleGainNode: GainNode | null = null;
+	let detachShuttle: (() => void) | null = null;
 	let monitorElement = $state<HTMLElement>();
 	let stripElement = $state<HTMLElement>();
 	let rangeDragStartX = 0;
@@ -215,15 +252,99 @@
 	});
 
 	onDestroy(() => {
+		shuttleScheduler?.dispose();
+		if (shuttleGainNode) {
+			shuttleGainNode.disconnect();
+			detachShuttle?.();
+		}
 		cancelAnimationFrame(animationFrame);
 		stopCustomAudio();
 		lottieRenderer?.destroy();
+		sourceHoverStore.setHovered(false);
+		sourceHoverStore.setFocused(false);
 	});
 
 	onMount(() => {
 		window.addEventListener('keydown', handleKeydown, { capture: true });
 		return () => window.removeEventListener('keydown', handleKeydown, { capture: true });
 	});
+
+	$effect(() => {
+		const isPlaying = playing;
+		const rate = sourcePlaybackRate;
+		const isReverse = rate < 0 && isPlaying;
+		const url = sourceAudioUrl || sourceUrl;
+		if (!isReverse || !url || !hasAudio) {
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+			return;
+		}
+		let stale = false;
+		// Stop forward paths before grains
+		mediaElement?.pause();
+		proxyAudioElement?.pause();
+		stopCustomAudio();
+		void decodedPreviewAudio(url, media?.audioCodec)
+			.then((buffer) => {
+				if (stale || !buffer) return;
+				const context = previewAudioContext();
+				const gain = context.createGain();
+				gain.gain.value = 1;
+				const detach = attachAudioSourceToMixer(gain, `source-shuttle:${mediaId}`);
+				shuttleGainNode = gain;
+				detachShuttle = detach;
+				const scheduler = createReverseShuttleScheduler({
+					context,
+					buffer,
+					bufferStartSeconds: 0,
+					getSourceCursorSeconds: () => currentFrame / sourceFps,
+					authoredPlaybackRate: 1,
+					authoredReversed: false,
+					getTransportRate: () => sourcePlaybackRate,
+					getGain: () => 1,
+					destination: gain
+				});
+				shuttleScheduler = scheduler;
+				scheduler.start();
+			})
+			.catch((error) => {
+				if (!stale) loadError = error instanceof Error ? error.message : String(error);
+			});
+		return () => {
+			stale = true;
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+		};
+	});
+
+	function handleSourceMouseEnter(): void {
+		sourceHoverStore.setHovered(true);
+	}
+	function handleSourceMouseLeave(): void {
+		sourceHoverStore.setHovered(false);
+	}
+	function handleSourceFocusIn(event: FocusEvent): void {
+		if (event.target instanceof Node && monitorElement?.contains(event.target)) {
+			sourceHoverStore.setFocused(true);
+		}
+	}
+	function handleSourceFocusOut(event: FocusEvent): void {
+		if (!(event.relatedTarget instanceof Node) || !monitorElement?.contains(event.relatedTarget)) {
+			sourceHoverStore.setFocused(false);
+		}
+	}
 
 	function formatTimecode(frame: number): string {
 		const roundedFps = Math.max(1, Math.round(sourceFps));
@@ -271,6 +392,7 @@
 		const context = previewAudioContext();
 		const source = context.createBufferSource();
 		source.buffer = buffer;
+		source.playbackRate.value = getShuttleMediaPlaybackRate(1, Math.abs(sourcePlaybackRate));
 		source.connect(context.destination);
 		customAudioSource = source;
 		customAudioStartedOffset = offsetSeconds;
@@ -283,7 +405,11 @@
 
 	function pause(): void {
 		playing = false;
+		sourcePlaybackRate = 1;
+		sourceShuttleActive = false;
 		cancelAnimationFrame(animationFrame);
+		if (mediaElement) mediaElement.playbackRate = 1;
+		if (proxyAudioElement) proxyAudioElement.playbackRate = 1;
 		mediaElement?.pause();
 		proxyAudioElement?.pause();
 		stopCustomAudio();
@@ -291,13 +417,78 @@
 
 	function customPlaybackFrame(now: number): void {
 		if (!playing) return;
-		const next = playbackStartFrame + ((now - playbackStartedAt) / 1000) * sourceFps;
-		if (next >= outPoint) {
+		const next =
+			playbackStartFrame + ((now - playbackStartedAt) / 1000) * sourceFps * sourcePlaybackRate;
+		if (sourcePlaybackRate > 0 && next >= outPoint) {
 			seek(outPoint - 1, false);
 			pause();
 			return;
 		}
+		if (sourcePlaybackRate < 0 && next < inPoint) {
+			seek(inPoint, false);
+			pause();
+			return;
+		}
 		seek(next, false);
+		animationFrame = requestAnimationFrame(customPlaybackFrame);
+	}
+
+	function shuttleForward(): void {
+		const nextRate = playing ? getNextShuttleRate(sourcePlaybackRate, 1) : 1;
+		if (nextRate > 0 && mediaElement && !needsCustomAudio) {
+			const mediaRate = getShuttleMediaPlaybackRate(1, Math.abs(nextRate));
+			mediaElement.playbackRate = mediaRate;
+			if (proxyAudioElement) proxyAudioElement.playbackRate = mediaRate;
+		}
+		if (currentFrame < inPoint || currentFrame >= outPoint - 1) seek(inPoint, false);
+		playing = true;
+		sourcePlaybackRate = nextRate;
+		sourceShuttleActive = true;
+		if (nextRate < 0) {
+			mediaElement?.pause();
+			proxyAudioElement?.pause();
+			stopCustomAudio();
+			playbackStartFrame = currentFrame;
+			playbackStartedAt = performance.now();
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(customPlaybackFrame);
+		} else if (mediaElement && !(kind === 'audio' && (!hasAudio || needsCustomAudio))) {
+			void Promise.all([
+				mediaElement.play(),
+				needsCustomAudio
+					? Promise.resolve()
+					: (proxyAudioElement?.play().catch(() => undefined) ?? Promise.resolve())
+			])
+				.then(() => {
+					if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
+				})
+				.catch(() => {
+					playing = false;
+					sourcePlaybackRate = 1;
+					sourceShuttleActive = false;
+				});
+			if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
+		} else {
+			playbackStartFrame = currentFrame;
+			playbackStartedAt = performance.now();
+			if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
+			cancelAnimationFrame(animationFrame);
+			animationFrame = requestAnimationFrame(customPlaybackFrame);
+		}
+	}
+
+	function shuttleReverse(): void {
+		const nextRate = playing ? getNextShuttleRate(sourcePlaybackRate, -1) : -1;
+		sourcePlaybackRate = nextRate;
+		sourceShuttleActive = true;
+		playing = true;
+		if (mediaElement) mediaElement.pause();
+		if (proxyAudioElement) proxyAudioElement.pause();
+		stopCustomAudio();
+		if (currentFrame <= inPoint || currentFrame > outPoint) seek(outPoint - 1, false);
+		playbackStartFrame = currentFrame;
+		playbackStartedAt = performance.now();
+		cancelAnimationFrame(animationFrame);
 		animationFrame = requestAnimationFrame(customPlaybackFrame);
 	}
 
@@ -308,8 +499,12 @@
 		}
 		if (currentFrame < inPoint || currentFrame >= outPoint - 1) seek(inPoint);
 		playing = true;
+		sourcePlaybackRate = 1;
+		sourceShuttleActive = false;
 		if (mediaElement && !(kind === 'audio' && (!hasAudio || needsCustomAudio))) {
 			try {
+				mediaElement.playbackRate = 1;
+				if (proxyAudioElement) proxyAudioElement.playbackRate = 1;
 				await Promise.all([
 					mediaElement.play(),
 					needsCustomAudio
@@ -319,6 +514,8 @@
 				if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
 			} catch {
 				playing = false;
+				sourcePlaybackRate = 1;
+				sourceShuttleActive = false;
 			}
 			return;
 		}
@@ -326,6 +523,13 @@
 		playbackStartedAt = performance.now();
 		if (needsCustomAudio) startCustomAudio(currentFrame / sourceFps);
 		animationFrame = requestAnimationFrame(customPlaybackFrame);
+	}
+
+	function replayMarkedRange(): void {
+		if (!marksActive) return;
+		pause();
+		seek(inPoint);
+		void togglePlayback();
 	}
 
 	function updateFromMedia(): void {
@@ -442,34 +646,80 @@
 	}
 
 	function handleKeydown(event: KeyboardEvent): void {
+		if (event.repeat) return;
 		if (!(event.target instanceof HTMLElement)) return;
 		const target = event.target;
-		if (target.matches('input, select, textarea, button')) {
-			if (monitorElement?.contains(target)) event.stopImmediatePropagation();
+		const bindings = keyboardShortcuts.bindings;
+		const isInsertEdit = eventMatchesShortcut(event, bindings.INSERT_EDIT);
+		const isOverwriteEdit = eventMatchesShortcut(event, bindings.OVERWRITE_EDIT);
+		const isShuttleForward = eventMatchesShortcut(event, bindings.SHUTTLE_FORWARD);
+		const isShuttleReverse = eventMatchesShortcut(event, bindings.SHUTTLE_REVERSE);
+		const isShuttlePause = eventMatchesShortcut(event, bindings.SHUTTLE_PAUSE);
+		const isGlobalEditShortcut = isInsertEdit || isOverwriteEdit;
+		const isShuttleShortcut = isShuttleForward || isShuttleReverse || isShuttlePause;
+		const isLocal =
+			!!monitorElement &&
+			(monitorElement.contains(target) ||
+				monitorElement.matches(':hover') ||
+				sourceHoverStore.isActive);
+		if (
+			isLocal &&
+			handleGlobalPlayPauseShortcut(event, bindings.PLAY_PAUSE, () => void togglePlayback())
+		) {
 			return;
 		}
-		const isGlobalEditShortcut = event.key === ',' || event.key === '.';
-		const isLocal =
-			!!monitorElement && (monitorElement.contains(target) || monitorElement.matches(':hover'));
+		if (editorShortcutTargetIsDisabled(event.target)) {
+			if (monitorElement?.contains(event.target)) event.stopImmediatePropagation();
+			return;
+		}
+		if (!isGlobalEditShortcut && !isLocal && !isShuttleShortcut) return;
+		if (isLocal && isShuttleShortcut) {
+			if (isShuttlePause) {
+				if (!playing) return;
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				pause();
+				return;
+			}
+			if (isShuttleForward) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				shuttleForward();
+				return;
+			}
+			if (isShuttleReverse) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				shuttleReverse();
+				return;
+			}
+		}
 		if (!isGlobalEditShortcut && !isLocal) return;
-		if (event.altKey && event.key.toLowerCase() === 'x') {
+		if (eventMatchesShortcut(event, bindings.CLEAR_IN_OUT)) {
 			clearMarks();
-		} else if (event.key === ' ') {
-			void togglePlayback();
-		} else if (event.key.toLowerCase() === 'i') {
+		} else if (eventMatchesShortcut(event, bindings.MARK_IN)) {
 			markIn();
-		} else if (event.key.toLowerCase() === 'o') {
+		} else if (eventMatchesShortcut(event, bindings.MARK_OUT)) {
 			markOut();
-		} else if (event.key === ',') {
+		} else if (isInsertEdit) {
 			edit('insert');
-		} else if (event.key === '.') {
+		} else if (isOverwriteEdit) {
 			edit('overwrite');
-		} else if (event.key === 'ArrowLeft') {
+		} else if (eventMatchesShortcut(event, bindings.PREVIOUS_FRAME)) {
 			pause();
 			seek(currentFrame - 1);
-		} else if (event.key === 'ArrowRight') {
+		} else if (eventMatchesShortcut(event, bindings.NEXT_FRAME)) {
 			pause();
 			seek(currentFrame + 1);
+		} else if (eventMatchesShortcut(event, bindings.GO_TO_START)) {
+			pause();
+			seek(0);
+		} else if (eventMatchesShortcut(event, bindings.GO_TO_END)) {
+			pause();
+			seek(durationFrames - 1);
 		} else {
 			return;
 		}
@@ -483,9 +733,14 @@
 	bind:this={monitorElement}
 	class="flex min-h-0 min-w-0 flex-1 flex-col border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.115_0.008_55)]"
 	aria-label={m.video_editor_source_monitor()}
+	data-source-monitor
+	onmouseenter={handleSourceMouseEnter}
+	onmouseleave={handleSourceMouseLeave}
+	onfocusin={handleSourceFocusIn}
+	onfocusout={handleSourceFocusOut}
 >
 	<header class="flex h-9 shrink-0 items-center gap-2 border-b border-[oklch(0.23_0.012_55)] px-3">
-		<span class="text-[10px] font-semibold tracking-widest text-[oklch(0.67_0.015_55)] uppercase">
+		<span class="text-xs font-medium text-[oklch(0.72_0.015_55)]">
 			{m.video_editor_source_monitor()}
 		</span>
 		<span class="min-w-0 flex-1 truncate text-xs text-[oklch(0.82_0.012_55)]">
@@ -493,7 +748,7 @@
 		</span>
 		<button
 			type="button"
-			class="rounded p-1 text-[oklch(0.68_0.015_55)] hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+			class="rounded p-1 text-[oklch(0.68_0.015_55)] hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			aria-label={m.video_editor_source_close()}
 			onclick={onclose}
 		>
@@ -502,6 +757,14 @@
 	</header>
 
 	<div class="relative flex min-h-32 flex-1 items-center justify-center overflow-hidden bg-black">
+		{#if playing && sourceShuttleActive}
+			<div class="absolute top-2 left-2 z-10">
+				<ShuttleIndicator
+					active={playing && sourceShuttleActive}
+					playbackRate={sourcePlaybackRate}
+				/>
+			</div>
+		{/if}
 		{#if loadError}
 			<p class="max-w-xs px-4 text-center text-xs text-red-300">{loadError}</p>
 		{:else if !sourceUrl}
@@ -518,8 +781,6 @@
 				class="size-full object-contain"
 				preload="auto"
 				muted={needsCustomAudio}
-				onplay={() => (playing = true)}
-				onpause={() => (playing = false)}
 				onended={pause}
 				ontimeupdate={updateFromMedia}
 			></video>
@@ -528,16 +789,29 @@
 				<audio bind:this={proxyAudioElement} src={sourceAudioUrl} preload="auto"></audio>
 			{/if}
 		{:else if kind === 'audio'}
-			<div class="flex flex-col items-center gap-3 text-[oklch(0.66_0.015_55)]">
-				<Music2Icon class="size-10" aria-hidden="true" />
-				<span class="text-xs">{m.video_editor_source_audio_only()}</span>
+			<div class="flex size-full max-h-[360px] min-h-48 flex-col p-3 text-[oklch(0.66_0.015_55)]">
+				<div class="mb-2 flex items-center justify-center gap-2 text-xs">
+					<Music2Icon class="size-4" aria-hidden="true" />
+					<span>{m.video_editor_source_audio_only()}</span>
+				</div>
+				{#if media}
+					<div class="min-h-0 flex-1 overflow-hidden rounded border border-white/10">
+						<SourceAudioWaveform
+							{media}
+							durationSeconds={durationFrames / sourceFps}
+							currentTimeSeconds={currentFrame / sourceFps}
+							onseek={(seconds) => {
+								pause();
+								seek(seconds * sourceFps);
+							}}
+						/>
+					</div>
+				{/if}
 				<audio
 					bind:this={mediaElement}
 					src={sourceUrl}
 					preload="auto"
 					muted={needsCustomAudio}
-					onplay={() => (playing = true)}
-					onpause={() => (playing = false)}
 					onended={pause}
 					ontimeupdate={updateFromMedia}
 				></audio>
@@ -579,16 +853,17 @@
 					onkeydown={handleRangeKeydown}
 				></button>
 			{/if}
-			<input
+			<Slider
 				class="source-scrubber absolute inset-0 z-10 w-full"
-				type="range"
-				min="0"
+				min={0}
 				max={durationFrames - 1}
 				value={currentFrame}
-				aria-label={m.video_editor_source_position()}
-				oninput={(event) => {
+				ariaLabel={m.video_editor_source_position()}
+				trackClass="bg-transparent"
+				rangeClass="bg-transparent"
+				onValueChange={(value) => {
 					pause();
-					seek(Number(event.currentTarget.value));
+					seek(value);
 				}}
 			/>
 		</div>
@@ -596,15 +871,14 @@
 		<div class="grid grid-cols-2 gap-2 text-[10px]">
 			<label class="flex items-center gap-1.5 text-[oklch(0.68_0.015_55)]">
 				<span class="w-4 font-semibold text-[oklch(0.82_0.012_55)]">I</span>
-				<input
+				<Slider
 					class="min-w-0 flex-1 accent-[oklch(0.66_0.14_45)]"
-					type="range"
-					min="0"
+					min={0}
 					max={Math.max(0, outPoint - 1)}
 					value={inPoint}
-					aria-label={m.video_editor_source_in_point()}
-					oninput={(event) => {
-						inPoint = Number(event.currentTarget.value);
+					ariaLabel={m.video_editor_source_in_point()}
+					onValueChange={(value) => {
+						inPoint = value;
 						marksActive = true;
 					}}
 				/>
@@ -612,15 +886,14 @@
 			</label>
 			<label class="flex items-center gap-1.5 text-[oklch(0.68_0.015_55)]">
 				<span class="w-4 font-semibold text-[oklch(0.82_0.012_55)]">O</span>
-				<input
+				<Slider
 					class="min-w-0 flex-1 accent-[oklch(0.66_0.14_45)]"
-					type="range"
 					min={inPoint + 1}
 					max={durationFrames}
 					value={outPoint}
-					aria-label={m.video_editor_source_out_point()}
-					oninput={(event) => {
-						outPoint = Number(event.currentTarget.value);
+					ariaLabel={m.video_editor_source_out_point()}
+					onValueChange={(value) => {
+						outPoint = value;
 						marksActive = true;
 					}}
 				/>
@@ -632,7 +905,17 @@
 			<button
 				class="transport-button"
 				type="button"
+				disabled={!marksActive}
+				aria-label={m.video_editor_source_play_in_to_out()}
+				onclick={replayMarkedRange}
+			>
+				<RepeatIcon class="size-3.5" aria-hidden="true" />
+			</button>
+			<button
+				class="transport-button"
+				type="button"
 				aria-label={m.video_editor_go_to_start()}
+				title={formatShortcutBinding(keyboardShortcuts.bindings.GO_TO_START)}
 				onclick={() => seek(0)}
 			>
 				<SkipBackIcon class="size-3.5" aria-hidden="true" />
@@ -641,6 +924,7 @@
 				class="transport-button"
 				type="button"
 				aria-label={m.video_editor_step_back()}
+				title={formatShortcutBinding(keyboardShortcuts.bindings.PREVIOUS_FRAME)}
 				onclick={() => seek(currentFrame - 1)}
 			>
 				<ChevronLeftIcon class="size-3.5" aria-hidden="true" />
@@ -649,6 +933,7 @@
 				class="transport-button primary"
 				type="button"
 				aria-label={playing ? m.video_editor_pause() : m.video_editor_play()}
+				title={formatShortcutBinding(keyboardShortcuts.bindings.PLAY_PAUSE)}
 				onclick={() => void togglePlayback()}
 			>
 				{#if playing}<PauseIcon class="size-3.5" aria-hidden="true" />{:else}<PlayIcon
@@ -660,48 +945,71 @@
 				class="transport-button"
 				type="button"
 				aria-label={m.video_editor_step_forward()}
+				title={formatShortcutBinding(keyboardShortcuts.bindings.NEXT_FRAME)}
 				onclick={() => seek(currentFrame + 1)}
 			>
 				<ChevronRightIcon class="size-3.5" aria-hidden="true" />
 			</button>
-			<button class="mark-button" type="button" onclick={markIn}>{m.video_editor_mark_in()}</button>
-			<button class="mark-button" type="button" onclick={markOut}
-				>{m.video_editor_mark_out()}</button
+			<button
+				class="transport-button"
+				type="button"
+				aria-label={m.video_editor_shortcuts_command_go_to_end()}
+				title={formatShortcutBinding(keyboardShortcuts.bindings.GO_TO_END)}
+				onclick={() => seek(durationFrames - 1)}
 			>
-			<button class="mark-button" type="button" onclick={clearMarks}
-				>{m.video_editor_source_clear_marks()}</button
+				<SkipForwardIcon class="size-3.5" aria-hidden="true" />
+			</button>
+			<button
+				class="mark-button"
+				type="button"
+				title={formatShortcutBinding(keyboardShortcuts.bindings.MARK_IN)}
+				onclick={markIn}>{m.video_editor_mark_in()}</button
+			>
+			<button
+				class="mark-button"
+				type="button"
+				title={formatShortcutBinding(keyboardShortcuts.bindings.MARK_OUT)}
+				onclick={markOut}>{m.video_editor_mark_out()}</button
+			>
+			<button
+				class="mark-button"
+				type="button"
+				title={formatShortcutBinding(keyboardShortcuts.bindings.CLEAR_IN_OUT)}
+				onclick={clearMarks}>{m.video_editor_source_clear_marks()}</button
 			>
 		</div>
 
 		<div class="grid grid-cols-2 gap-2">
-			<label class:disabled={!hasVideo} class="patch-row">
-				<input type="checkbox" bind:checked={videoEnabled} disabled={!hasVideo} />
+			<div class:disabled={!hasVideo} class="patch-row">
+				<Checkbox
+					bind:checked={videoEnabled}
+					disabled={!hasVideo}
+					aria-label={m.video_editor_source_video()}
+				/>
 				<span class="patch-badge">V</span>
-				<select
+				<AppSelect
 					bind:value={videoTarget}
+					options={videoTargetOptions}
 					disabled={!videoEnabled || !hasVideo}
-					aria-label={m.video_editor_source_video_target()}
-				>
-					<option value="auto">{m.video_editor_source_target_auto()}</option>
-					{#each videoTracks as track (track.id)}<option value={track.id}>{track.name}</option
-						>{/each}
-					<option value="create">{m.video_editor_source_target_create()}</option>
-				</select>
-			</label>
-			<label class:disabled={!hasAudio} class="patch-row">
-				<input type="checkbox" bind:checked={audioEnabled} disabled={!hasAudio} />
+					ariaLabel={m.video_editor_source_video_target()}
+					class="h-7 min-w-0 flex-1 border-0 bg-transparent px-1 text-[10px] shadow-none"
+				/>
+			</div>
+			<div class:disabled={!hasAudio} class="patch-row">
+				<Checkbox
+					bind:checked={audioEnabled}
+					disabled={!hasAudio}
+					aria-label={m.video_editor_source_audio()}
+				/>
 				<span class="patch-badge">A</span>
-				<select
+				<AppSelect
 					bind:value={audioTarget}
+					options={audioTargetOptions}
 					disabled={!audioEnabled || !hasAudio}
-					aria-label={m.video_editor_source_audio_target()}
-				>
-					<option value="auto">{m.video_editor_source_target_auto()}</option>
-					{#each audioTracks as track (track.id)}<option value={track.id}>{track.name}</option
-						>{/each}
-					<option value="create">{m.video_editor_source_target_create()}</option>
-				</select>
-			</label>
+					ariaLabel={m.video_editor_source_audio_target()}
+					class="h-7 min-w-0 flex-1 border-0 bg-transparent px-1 text-[10px] shadow-none"
+				/>
+			</div>
 		</div>
 
 		<div class="grid grid-cols-2 gap-2">
@@ -711,7 +1019,9 @@
 				disabled={!videoEnabled && !audioEnabled}
 				onclick={() => edit('insert')}
 			>
-				<span>{m.video_editor_source_insert()}</span><kbd>,</kbd>
+				<span>{m.video_editor_source_insert()}</span><kbd
+					>{formatShortcutBinding(keyboardShortcuts.bindings.INSERT_EDIT)}</kbd
+				>
 			</button>
 			<button
 				class="edit-button"
@@ -719,25 +1029,29 @@
 				disabled={!videoEnabled && !audioEnabled}
 				onclick={() => edit('overwrite')}
 			>
-				<span>{m.video_editor_source_overwrite()}</span><kbd>.</kbd>
+				<span>{m.video_editor_source_overwrite()}</span><kbd
+					>{formatShortcutBinding(keyboardShortcuts.bindings.OVERWRITE_EDIT)}</kbd
+				>
 			</button>
 		</div>
 	</div>
 </section>
 
 <style>
-	.source-scrubber {
-		appearance: none;
+	:global(.source-scrubber [data-slot='slider-thumb']) {
+		border: 0;
 		background: transparent;
+		box-shadow: none;
+		cursor: ew-resize;
 	}
-	.source-scrubber::-webkit-slider-thumb {
-		appearance: none;
+	:global(.source-scrubber [data-slot='slider-thumb'])::after {
+		display: block;
 		width: 2px;
 		height: 18px;
+		border: 0;
 		border-radius: 1px;
 		background: oklch(0.9 0.02 45);
 		box-shadow: 0 0 0 1px oklch(0.1 0 0);
-		cursor: ew-resize;
 	}
 	.transport-button,
 	.mark-button,
@@ -756,6 +1070,9 @@
 		color: white;
 		background: oklch(0.63 0.16 45);
 	}
+	.transport-button:disabled {
+		opacity: 0.4;
+	}
 	.mark-button {
 		padding: 0.38rem 0.48rem;
 		font-size: 0.625rem;
@@ -769,7 +1086,7 @@
 	.transport-button:focus-visible,
 	.mark-button:focus-visible,
 	.edit-button:focus-visible,
-	.patch-row select:focus-visible {
+	.patch-row :global(button:focus-visible) {
 		outline: 2px solid oklch(0.66 0.14 45);
 		outline-offset: 1px;
 	}
@@ -785,21 +1102,10 @@
 	.patch-row.disabled {
 		opacity: 0.45;
 	}
-	.patch-row input {
-		accent-color: oklch(0.66 0.14 45);
-	}
 	.patch-badge {
 		font-size: 0.625rem;
 		font-weight: 700;
 		color: oklch(0.86 0.012 55);
-	}
-	.patch-row select {
-		min-width: 0;
-		flex: 1;
-		border: 0;
-		background: transparent;
-		font-size: 0.625rem;
-		color: oklch(0.72 0.012 55);
 	}
 	.edit-button {
 		display: flex;

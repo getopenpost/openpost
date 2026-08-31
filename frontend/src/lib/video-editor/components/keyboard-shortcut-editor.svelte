@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -10,7 +11,7 @@
 		browserShortcutConflict,
 		createShortcutPreset,
 		findShortcutConflicts,
-		formatShortcutBinding,
+		formatShortcutBindingWithLabels,
 		hasShortcutPrimaryToken,
 		parseShortcutPreset,
 		resolveEditorShortcuts,
@@ -20,6 +21,11 @@
 		type EditorShortcutSection,
 		type ShortcutPresetImport
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import {
+		keyboardLayoutLabelForToken,
+		loadKeyboardLayoutMap,
+		type KeyboardLayoutApi
+	} from '$lib/video-editor/settings/keyboard-layout';
 	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 
 	type Filter = 'all' | 'custom' | 'conflicts' | 'unassigned';
@@ -31,7 +37,29 @@
 	let draftBinding = $state('');
 	let feedback = $state<Feedback | null>(null);
 	let confirmReset = $state(false);
-	let importInput: HTMLInputElement;
+	let importInput = $state<HTMLInputElement | null>(null);
+	let layoutMap = $state<ReadonlyMap<string, string> | null>(null);
+	let layoutStatus = $state<'loading' | 'native' | 'fallback'>('loading');
+
+	onMount(() => {
+		let cancelled = false;
+		// SAFETY: Keyboard Map is an optional Chromium API, so the extended field may be absent.
+		const keyboard = (navigator as Navigator & { keyboard?: KeyboardLayoutApi }).keyboard;
+		void loadKeyboardLayoutMap(keyboard).then((map) => {
+			if (cancelled) return;
+			layoutMap = map;
+			layoutStatus = map ? 'native' : 'fallback';
+		});
+		return () => {
+			cancelled = true;
+		};
+	});
+
+	function formatBinding(binding: string): string {
+		return formatShortcutBindingWithLabels(binding, {
+			labelForToken: (token) => keyboardLayoutLabelForToken(layoutMap, token)
+		});
+	}
 
 	const commandLabels = {
 		PLAY_PAUSE: m.video_editor_shortcuts_command_play_pause,
@@ -39,8 +67,21 @@
 		NEXT_FRAME: m.video_editor_shortcuts_command_next_frame,
 		GO_TO_START: m.video_editor_shortcuts_command_go_to_start,
 		GO_TO_END: m.video_editor_shortcuts_command_go_to_end,
+		PREVIOUS_SNAP_POINT: m.video_editor_shortcuts_command_previous_edit_point,
+		NEXT_SNAP_POINT: m.video_editor_shortcuts_command_next_edit_point,
+		SHUTTLE_REVERSE: m.video_editor_shortcuts_command_shuttle_reverse,
+		SHUTTLE_PAUSE: m.video_editor_shortcuts_command_shuttle_pause,
+		SHUTTLE_FORWARD: m.video_editor_shortcuts_command_shuttle_forward,
+		MARK_IN: m.video_editor_mark_in,
+		MARK_OUT: m.video_editor_mark_out,
+		CLEAR_IN_OUT: m.video_editor_source_clear_marks,
+		QUICK_CUT_ADD_SEGMENT: m.quick_cut_add_segment,
+		QUICK_CUT_TOGGLE_LOOP: m.quick_cut_loop_label,
+		INSERT_EDIT: m.video_editor_source_insert,
+		OVERWRITE_EDIT: m.video_editor_source_overwrite,
 		SPLIT_AT_PLAYHEAD: m.video_editor_shortcuts_command_split,
 		SPLIT_AT_PLAYHEAD_ALT: m.video_editor_shortcuts_command_split_alt,
+		SPLIT_AT_CURSOR: m.video_editor_shortcuts_command_split_cursor,
 		JOIN_ITEMS: m.video_editor_shortcuts_command_join,
 		CLEAR_KEYFRAMES: m.video_editor_shortcuts_command_clear_keyframes,
 		DELETE_SELECTED: m.video_editor_shortcuts_command_delete,
@@ -51,18 +92,65 @@
 		LINK_AUDIO_VIDEO: m.video_editor_shortcuts_command_link,
 		UNLINK_AUDIO_VIDEO: m.video_editor_shortcuts_command_unlink,
 		TOGGLE_LINKED_SELECTION: m.video_editor_shortcuts_command_linked_selection,
+		NUDGE_LEFT: m.video_editor_shortcuts_command_nudge_left,
+		NUDGE_RIGHT: m.video_editor_shortcuts_command_nudge_right,
+		NUDGE_UP: m.video_editor_shortcuts_command_nudge_up,
+		NUDGE_DOWN: m.video_editor_shortcuts_command_nudge_down,
+		NUDGE_LEFT_LARGE: m.video_editor_shortcuts_command_nudge_left_large,
+		NUDGE_RIGHT_LARGE: m.video_editor_shortcuts_command_nudge_right_large,
+		NUDGE_UP_LARGE: m.video_editor_shortcuts_command_nudge_up_large,
+		NUDGE_DOWN_LARGE: m.video_editor_shortcuts_command_nudge_down_large,
+		COPY: m.video_editor_shortcuts_command_copy,
+		CUT: m.video_editor_shortcuts_command_cut,
+		PASTE: m.video_editor_shortcuts_command_paste,
+		COMPOSITION_DUPLICATE: m.video_editor_composition_timeline_duplicate,
+		COMPOSITION_SELECT_ALL: m.image_editor_select_all,
+		COMPOSITION_GROUP: m.video_editor_composition_timeline_group,
+		COMPOSITION_NUDGE_LEFT: m.video_editor_shortcuts_command_composition_nudge_left,
+		COMPOSITION_NUDGE_RIGHT: m.video_editor_shortcuts_command_composition_nudge_right,
+		COMPOSITION_NUDGE_LEFT_FAST: m.video_editor_shortcuts_command_composition_nudge_left_fast,
+		COMPOSITION_NUDGE_RIGHT_FAST: m.video_editor_shortcuts_command_composition_nudge_right_fast,
+		COMPOSITION_REORDER_UP: m.video_editor_shortcuts_command_composition_reorder_up,
+		COMPOSITION_REORDER_DOWN: m.video_editor_shortcuts_command_composition_reorder_down,
+		TRACK_RENAME: m.video_editor_shortcuts_command_track_rename,
+		TRACK_MOVE_UP: m.video_editor_shortcuts_command_track_move_up,
+		TRACK_MOVE_DOWN: m.video_editor_shortcuts_command_track_move_down,
 		UNDO: m.video_editor_shortcuts_command_undo,
 		REDO: m.video_editor_shortcuts_command_redo,
+		GRAPH_SELECT_ALL: m.video_editor_shortcuts_command_graph_select_all,
+		GRAPH_CLEAR_SELECTION: m.video_editor_shortcuts_command_graph_clear_selection,
+		GRAPH_NUDGE_LEFT: m.video_editor_shortcuts_command_graph_nudge_left,
+		GRAPH_NUDGE_RIGHT: m.video_editor_shortcuts_command_graph_nudge_right,
+		GRAPH_NUDGE_UP: m.video_editor_shortcuts_command_graph_nudge_up,
+		GRAPH_NUDGE_DOWN: m.video_editor_shortcuts_command_graph_nudge_down,
+		GRAPH_NUDGE_LEFT_FAST: m.video_editor_shortcuts_command_graph_nudge_left_fast,
+		GRAPH_NUDGE_RIGHT_FAST: m.video_editor_shortcuts_command_graph_nudge_right_fast,
+		GRAPH_NUDGE_UP_FAST: m.video_editor_shortcuts_command_graph_nudge_up_fast,
+		GRAPH_NUDGE_DOWN_FAST: m.video_editor_shortcuts_command_graph_nudge_down_fast,
+		KEYFRAME_EDITOR_GRAPH: m.video_editor_shortcuts_command_keyframe_graph,
+		KEYFRAME_EDITOR_DOPESHEET: m.video_editor_shortcuts_command_keyframe_dopesheet,
+		KEYFRAME_EDITOR_SPLIT: m.video_editor_shortcuts_command_keyframe_split,
+		EDIT_KEYFRAME_ADD: m.video_editor_shortcuts_command_keyframe_add,
+		KEYFRAME_PREVIOUS: m.video_editor_shortcuts_command_keyframe_previous,
+		KEYFRAME_NEXT: m.video_editor_shortcuts_command_keyframe_next,
+		KEYFRAME_TOGGLE_AUTO: m.video_editor_shortcuts_command_keyframe_auto,
+		KEYFRAME_FIT: m.video_editor_shortcuts_command_keyframe_fit,
 		ZOOM_IN: m.video_editor_shortcuts_command_zoom_in,
 		ZOOM_OUT: m.video_editor_shortcuts_command_zoom_out,
 		ZOOM_TO_FIT: m.video_editor_shortcuts_command_zoom_fit,
 		ZOOM_TO_100: m.video_editor_shortcuts_command_zoom_100,
 		ZOOM_TO_100_ALT: m.video_editor_shortcuts_command_zoom_100_alt,
 		RATE_STRETCH_TOOL: m.video_editor_shortcuts_command_rate_stretch,
+		RAZOR_TOOL: m.video_editor_shortcuts_command_razor_tool,
+		SELECTION_TOOL: m.video_editor_shortcuts_command_selection_tool,
+		SLIP_TOOL: m.video_editor_shortcuts_command_slip_tool,
+		SLIDE_TOOL: m.video_editor_shortcuts_command_slide_tool,
 		SAVE: m.video_editor_shortcuts_command_save,
 		EXPORT: m.video_editor_shortcuts_command_export,
 		OPEN_SETTINGS: m.video_editor_shortcuts_command_settings,
+		OPEN_SCENE_BROWSER: m.video_editor_shortcuts_command_open_scene_browser,
 		TOGGLE_SNAP: m.video_editor_shortcuts_command_snap,
+		TOGGLE_CANVAS_SNAP: m.video_editor_shortcuts_command_canvas_snap,
 		WORKSPACE_EDIT: m.video_editor_shortcuts_command_workspace_edit,
 		WORKSPACE_COLOR: m.video_editor_shortcuts_command_workspace_color,
 		WORKSPACE_MOTION: m.video_editor_shortcuts_command_workspace_motion,
@@ -121,8 +209,8 @@
 			return [
 				commandLabels[id](),
 				sectionLabels[definition.section](),
-				formatShortcutBinding(keyboardShortcuts.bindings[id]),
-				formatShortcutBinding(keyboardShortcuts.defaultBinding(id))
+				formatBinding(keyboardShortcuts.bindings[id]),
+				formatBinding(keyboardShortcuts.defaultBinding(id))
 			].some((value) => value.toLowerCase().includes(query));
 		});
 	});
@@ -245,15 +333,20 @@
 			<p class="mt-1 text-xs text-[var(--video-editor-muted)]">
 				{m.video_editor_shortcuts_description()}
 			</p>
+			{#if layoutStatus === 'fallback'}
+				<p class="mt-1 max-w-lg text-[11px] leading-relaxed text-[var(--video-editor-muted)]">
+					{m.video_editor_shortcuts_layout_fallback()}
+				</p>
+			{/if}
 		</div>
 		<div class="flex flex-wrap gap-1.5">
-			<input
-				bind:this={importInput}
+			<Input
+				bind:ref={importInput}
 				type="file"
 				accept="application/json,.json"
 				class="hidden"
 				aria-hidden="true"
-				tabindex="-1"
+				tabindex={-1}
 				onchange={(event) => {
 					const file = event.currentTarget.files?.[0];
 					if (file) void importPreset(file);
@@ -319,7 +412,7 @@
 			{#if draftBinding}
 				<p class="mt-3 text-xs">
 					{m.video_editor_shortcuts_captured({
-						binding: formatShortcutBinding(draftBinding)
+						binding: formatBinding(draftBinding)
 					})}
 				</p>
 				{#if captureConflicts.length > 0}
@@ -397,7 +490,7 @@
 							<kbd
 								class="mt-1 inline-block rounded border border-[oklch(0.33_0.014_55)] bg-[oklch(0.21_0.012_50)] px-2 py-1 font-mono text-[10px] text-[var(--video-editor-muted)]"
 							>
-								{binding ? formatShortcutBinding(binding) : m.video_editor_shortcuts_unassigned()}
+								{binding ? formatBinding(binding) : m.video_editor_shortcuts_unassigned()}
 							</kbd>
 						</div>
 						<div class="flex flex-wrap gap-1.5 sm:justify-end">

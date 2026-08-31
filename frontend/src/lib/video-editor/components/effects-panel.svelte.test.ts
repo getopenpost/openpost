@@ -106,6 +106,56 @@ describe('EffectsPanel spatial point editor', () => {
 });
 
 describe('EffectsPanel effect drag source', () => {
+	it('runs effect stack actions from the row context menu', async () => {
+		timelineStore.setAll({
+			tracks: [videoTrack],
+			items: [
+				{
+					...videoItem,
+					effects: [
+						{ id: 'brightness', type: 'brightness', enabled: true, amount: 1 },
+						{ id: 'contrast', type: 'contrast', enabled: true, amount: 1 }
+					]
+				}
+			],
+			fps: 30
+		});
+		const onedit = vi.fn();
+		const screen = await render(EffectsPanel, { itemId: 'video', onedit });
+		const openBrightnessMenu = () => {
+			const trigger = screen.container.querySelector<HTMLElement>(
+				'[data-effect-id="brightness"] [data-effect-context-trigger]'
+			);
+			expect(trigger).not.toBeNull();
+			trigger!.dispatchEvent(
+				new MouseEvent('contextmenu', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 80,
+					clientY: 80
+				})
+			);
+		};
+
+		openBrightnessMenu();
+		await screen.getByRole('menuitem', { name: 'Move effect down' }).click();
+		expect(timelineStore.itemById.get('video')?.effects?.map((effect) => effect.id)).toEqual([
+			'contrast',
+			'brightness'
+		]);
+
+		openBrightnessMenu();
+		await screen.getByRole('menuitem', { name: 'Disable effect' }).click();
+		expect(timelineStore.itemById.get('video')?.effects?.[1]?.enabled).toBe(false);
+
+		openBrightnessMenu();
+		await screen.getByRole('menuitem', { name: 'Remove effect' }).click();
+		expect(timelineStore.itemById.get('video')?.effects?.map((effect) => effect.id)).toEqual([
+			'contrast'
+		]);
+		expect(onedit).toHaveBeenCalledTimes(3);
+	});
+
 	it('localizes GPU effect choices in the rendered picker', async () => {
 		setLocale('pt', { reload: false });
 		await render(EffectsPanel, { itemId: 'video', onedit: vi.fn() });
@@ -165,20 +215,23 @@ describe('EffectsPanel effect drag source', () => {
 
 	it('only offers dragging when a clip is selected', async () => {
 		const screen = await render(EffectsPanel, { itemId: null, onedit: vi.fn() });
-		const addButton = screen.getByText('Add effect', { exact: true }).element();
+		const picker = screen.getByRole('button', { name: 'Add effect' }).element();
+		const dragHandle = screen.container.querySelector<HTMLElement>('[data-effect-drag-handle]');
 
-		expect(addButton.hasAttribute('disabled')).toBe(true);
-		expect(addButton.getAttribute('draggable')).toBe('false');
-		expect(addButton.getAttribute('title')).toBe('Add effect');
+		expect(picker.hasAttribute('disabled')).toBe(true);
+		expect(dragHandle).not.toBeNull();
+		expect(dragHandle?.hasAttribute('disabled')).toBe(true);
+		expect(dragHandle?.getAttribute('draggable')).toBe('false');
 	});
 
 	it('publishes the selected effect for timeline dragover and clears it on drag end', async () => {
 		const onedit = vi.fn();
 		const screen = await render(EffectsPanel, { itemId: 'video', onedit });
-		const addButton = screen.getByText('Add effect', { exact: true }).element();
+		const dragHandle = screen.container.querySelector<HTMLElement>('[data-effect-drag-handle]');
+		expect(dragHandle).not.toBeNull();
 		const dataTransfer = new DataTransfer();
 
-		addButton.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
+		dragHandle!.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
 		expect(getEffectDragData()).toEqual({
 			type: 'timeline-effect',
 			label: 'Brightness',
@@ -187,8 +240,26 @@ describe('EffectsPanel effect drag source', () => {
 		expect(JSON.parse(dataTransfer.getData('application/json'))).toEqual(getEffectDragData());
 		expect(onedit).not.toHaveBeenCalled();
 
-		addButton.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
+		dragHandle!.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
 		expect(getEffectDragData()).toBeNull();
+	});
+
+	it('applies the selected effect immediately as one undoable edit', async () => {
+		const onedit = vi.fn();
+		const screen = await render(EffectsPanel, { itemId: 'video', onedit });
+		const undoCount = commandHistory.undoStack.length;
+
+		await screen.getByRole('button', { name: 'Add effect' }).click();
+		document.querySelector<HTMLElement>('[data-effect-option="brightness"]')!.click();
+
+		await vi.waitFor(() => {
+			expect(timelineStore.itemById.get('video')?.effects).toMatchObject([
+				{ type: 'brightness', amount: 1.2, enabled: true }
+			]);
+		});
+		expect(onedit).toHaveBeenCalledTimes(1);
+		expect(commandHistory.undoStack).toHaveLength(undoCount + 1);
+		expect(commandHistory.getLastCommandType()).toBe('ADD_EFFECTS');
 	});
 
 	it('applies an exact built-in stack to every selected clip as one edit', async () => {
@@ -220,7 +291,6 @@ describe('EffectsPanel effect drag source', () => {
 			expect(noir?.querySelector<HTMLCanvasElement>('canvas')?.dataset.renderMode).toBe('gpu');
 		});
 		await screen.getByText('Noir', { exact: true }).click();
-		await screen.getByText('Add effect', { exact: true }).click();
 
 		await vi.waitFor(() => {
 			for (const id of ['video', 'video-2']) {
@@ -262,7 +332,7 @@ describe('EffectsPanel effect drag source', () => {
 			]
 		});
 		const screen = await render(EffectsPanel, { itemId: 'video', onedit: vi.fn() });
-		await screen.getByText('Save current effects as preset', { exact: true }).click();
+		await screen.getByRole('button', { name: 'Save current effects as preset' }).click();
 		const name = document.querySelector<HTMLInputElement>('[aria-label="Preset name"]');
 		expect(name).not.toBeNull();
 		name!.value = 'My stack';
@@ -300,6 +370,96 @@ describe('EffectsPanel effect drag source', () => {
 });
 
 describe('EffectsPanel stack controls', () => {
+	it('keeps dedicated color effects out of the general stack and picker', async () => {
+		timelineStore.setAll({
+			tracks: [videoTrack],
+			items: [
+				{
+					...videoItem,
+					effects: [
+						{
+							id: 'wheels',
+							type: 'gpu',
+							effectId: 'gpu-color-wheels',
+							enabled: true,
+							params: getGpuEffectDefaultParams('gpu-color-wheels')
+						},
+						{ id: 'brightness', type: 'brightness', amount: 1.2, enabled: true }
+					]
+				}
+			],
+			fps: 30
+		});
+		const screen = await render(EffectsPanel, {
+			itemId: 'video',
+			onedit: vi.fn(),
+			hiddenGpuEffectIds: ['gpu-color-wheels', 'gpu-curves']
+		});
+
+		expect(screen.container.querySelector('[data-effect-id="wheels"]')).toBeNull();
+		expect(screen.container.querySelector('[data-effect-id="brightness"]')).not.toBeNull();
+		await screen.getByRole('button', { name: 'Add effect' }).click();
+		expect(document.querySelector('[data-effect-option="gpu:gpu-color-wheels"]')).toBeNull();
+		await screen.getByRole('button', { name: 'Add effect' }).click();
+
+		await screen.getByRole('button', { name: 'Disable all effects' }).click();
+		await vi.waitFor(() => {
+			expect(timelineStore.itemById.get('video')?.effects).toMatchObject([
+				{ id: 'wheels', enabled: true },
+				{ id: 'brightness', enabled: false }
+			]);
+		});
+	});
+
+	it('collapses modified controls and bypasses the selected stacks atomically', async () => {
+		const stack = (prefix: string) => [
+			{ id: `${prefix}-brightness`, type: 'brightness' as const, amount: 1.8, enabled: true },
+			{ id: `${prefix}-contrast`, type: 'contrast' as const, amount: 1.25, enabled: true }
+		];
+		timelineStore.setAll({
+			tracks: [videoTrack],
+			items: [
+				{ ...videoItem, effects: stack('video') },
+				{ ...videoItem, id: 'video-2', from: 90, effects: stack('video-2') }
+			],
+			fps: 30
+		});
+		commandHistory.clearHistory();
+		const onedit = vi.fn();
+		const screen = await render(EffectsPanel, {
+			itemId: 'video',
+			itemIds: ['video', 'video-2'],
+			onedit
+		});
+
+		const brightnessRow = screen.container.querySelector<HTMLElement>(
+			'[data-effect-id="video-brightness"]'
+		);
+		expect(brightnessRow).not.toBeNull();
+		await screen.getByRole('button', { name: 'Brightness', exact: true }).click();
+		expect(brightnessRow?.querySelector('[role="slider"]')).toBeNull();
+		const modifiedMarker = brightnessRow?.querySelector<HTMLElement>('[data-effect-modified]');
+		expect(modifiedMarker?.getAttribute('aria-label')).toBe('Modified from defaults');
+		expect(modifiedMarker?.querySelector('[aria-hidden="true"]')).not.toBeNull();
+
+		await screen.getByRole('button', { name: 'Disable all effects' }).click();
+		await vi.waitFor(() => {
+			for (const id of ['video', 'video-2']) {
+				expect(timelineStore.itemById.get(id)?.effects?.every((effect) => !effect.enabled)).toBe(
+					true
+				);
+			}
+		});
+		expect(onedit).toHaveBeenCalledTimes(1);
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(commandHistory.getLastCommandType()).toBe('SET_ALL_EFFECTS_ENABLED');
+
+		commandHistory.undo();
+		for (const id of ['video', 'video-2']) {
+			expect(timelineStore.itemById.get(id)?.effects?.every((effect) => effect.enabled)).toBe(true);
+		}
+	});
+
 	it('reorders, resets, bypasses, and removes an effect with one edit per action', async () => {
 		timelineStore.setAll({
 			items: [
@@ -447,10 +607,9 @@ describe('EffectsPanel typed GPU controls', () => {
 		});
 		const onedit = vi.fn();
 		const screen = await render(EffectsPanel, { itemId: 'video', onedit });
-		screen
-			.getByRole('slider', { name: 'Contrast: Amount' })
-			.element()
-			.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+		const amountSlider = screen.getByRole('slider', { name: 'Contrast: Amount' }).element();
+		amountSlider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+		amountSlider.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }));
 
 		await vi.waitFor(() => {
 			expect(timelineStore.itemById.get('video')?.effects?.[0]).toMatchObject({
@@ -508,10 +667,9 @@ describe('EffectsPanel typed GPU controls', () => {
 			.element(screen.getByRole('button', { name: 'Disable auto-key for Contrast: Amount' }))
 			.toHaveAttribute('aria-pressed', 'true');
 		timelineStore._setCurrentFrame(15);
-		screen
-			.getByRole('slider', { name: 'Contrast: Amount' })
-			.element()
-			.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+		const amountSlider = screen.getByRole('slider', { name: 'Contrast: Amount' }).element();
+		amountSlider.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+		amountSlider.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight', bubbles: true }));
 		await vi.waitFor(() => {
 			expect(timelineStore.itemById.get('video')?.keyframes?.[property]).toMatchObject({
 				frames: [15],

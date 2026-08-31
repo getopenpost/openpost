@@ -19,6 +19,29 @@ export interface RestoredRenderQueue {
 	isPaused: boolean;
 }
 
+export function renderQueuePersistenceSignature(
+	jobs: readonly RenderQueueJob[],
+	isPaused: boolean
+): string {
+	return JSON.stringify({
+		isPaused,
+		jobs: jobs.map((job) => ({
+			id: job.id,
+			status: job.status,
+			progress: job.progress,
+			phase: job.phase,
+			framesDone: job.framesDone,
+			totalFrames: job.totalFrames,
+			savedPath: job.savedPath,
+			outputLabel: job.outputLabel,
+			fileSize: job.fileSize,
+			error: job.error,
+			startedAt: job.startedAt,
+			finishedAt: job.finishedAt
+		}))
+	});
+}
+
 export function serializeRenderQueue(
 	jobs: readonly RenderQueueJob[],
 	isPaused: boolean
@@ -35,7 +58,12 @@ export function serializeRenderQueue(
 		const { snapshot: _snapshot, ...rest } = job;
 		return { ...rest, snapshotId };
 	});
-	return { schemaVersion: SCHEMA_VERSION, isPaused, snapshots, jobs: persistedJobs };
+	return {
+		schemaVersion: SCHEMA_VERSION,
+		isPaused,
+		snapshots,
+		jobs: persistedJobs
+	};
 }
 
 export function restoreRenderQueue(document: PersistedRenderQueue | null): RestoredRenderQueue {

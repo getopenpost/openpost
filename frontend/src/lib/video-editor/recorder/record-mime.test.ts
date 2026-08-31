@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	RECORDER_AUDIO_BITS_PER_SECOND,
 	estimateBytesPerMinute,
 	formatBytes,
 	mapRecorderError,
 	pickAudioMimeType,
-	pickVideoMimeType
+	pickVideoMimeType,
+	recorderVideoBitsPerSecond
 } from './record-mime';
 
 describe('record-mime helpers', () => {
@@ -54,5 +56,17 @@ describe('record-mime helpers', () => {
 		expect(formatBytes(6 * 1024 * 1024)).toBe('6.0 MB');
 		const withHeadroom = Math.ceil(perMin * 5 * 1.2);
 		expect(withHeadroom).toBeGreaterThan(perMin * 5);
+	});
+
+	it('uses the same capture bitrate for encoder options and storage estimates', () => {
+		const quality = {
+			videoResolution: '2160p' as const,
+			videoFrameRate: 60 as const,
+			includeSystemAudio: true
+		};
+		expect(recorderVideoBitsPerSecond(quality)).toBe(40_000_000);
+		expect(estimateBytesPerMinute({ screen: true, camera: true, microphone: true }, quality)).toBe(
+			((40_000_000 * 2 + RECORDER_AUDIO_BITS_PER_SECOND * 2) * 60) / 8
+		);
 	});
 });

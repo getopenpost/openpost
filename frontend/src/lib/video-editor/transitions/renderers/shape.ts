@@ -176,6 +176,14 @@ function createShapeRenderer(shape: ShapeAperture): TransitionRenderer {
 			const p = clamp01(progress);
 			const w = canvas?.width ?? leftCanvas.width;
 			const h = canvas?.height ?? leftCanvas.height;
+			if (p <= 0) {
+				ctx.drawImage(leftCanvas, 0, 0, w, h);
+				return;
+			}
+			if (p >= 1) {
+				ctx.drawImage(rightCanvas, 0, 0, w, h);
+				return;
+			}
 
 			ctx.drawImage(rightCanvas, 0, 0, w, h);
 

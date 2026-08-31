@@ -1,6 +1,15 @@
 <script lang="ts">
 	import { onDestroy, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import {
+		colorGradeTileEffects,
+		resolveColorGradeThumbnailTreatment,
+		type ColorGradeThumbnailTreatment
+	} from '$lib/video-editor/effects/color-grade-thumbnail';
+	import { renderColorGradeTile } from '$lib/video-editor/effects/color-grade-tile-renderer';
+	import { colorPreviewStore } from '$lib/video-editor/effects/color-preview-store.svelte';
+	import type { GpuRenderEffect } from '$lib/video-editor/effects/gpu/compositor';
+	import { filmstripCache, type FilmstripFrame } from '$lib/video-editor/media/filmstrip-client';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -10,6 +19,7 @@
 	} from '$lib/video-editor/preview/timeline-preview-scrub';
 	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
 	import {
+		colorClipStartFrameIndex,
 		colorTimelineFrameFromClientX,
 		colorTimelineRatio,
 		isColorTimelineItem,
@@ -20,9 +30,18 @@
 	import { mediaThumbnailPath } from '$lib/video-editor/workspace-fs/paths';
 	import { getWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 
-	const LABEL_WIDTH = 44;
+	const LABEL_WIDTH = 32;
 	const RULER_RATIOS = [0, 0.25, 0.5, 0.75, 1] as const;
-	const ROW_HEIGHT = 18;
+	const TRACK_AREA_HEIGHT = 86;
+	const GRADE_RENDER_DEBOUNCE_MS = 100;
+
+	interface GradeTileRequest {
+		itemId: string;
+		baseUrl: string | undefined;
+		effects: GpuRenderEffect[];
+		signature: string;
+		treatment: ColorGradeThumbnailTreatment;
+	}
 
 	let {
 		selectedItemIds = [],
@@ -33,6 +52,12 @@
 	let thumbnailGeneration = 0;
 	let loadedThumbnailRevision = -1;
 	const ownedThumbnailUrls = new Map<string, string>();
+	let gradedThumbnailUrls = $state<Record<string, string>>({});
+	let gradeGeneration = 0;
+	let gradeTimer: ReturnType<typeof setTimeout> | null = null;
+	const ownedGradedUrls = new Map<string, { signature: string; url: string }>();
+	let startFrames = $state<Record<string, FilmstripFrame[]>>({});
+	const filmstripUnsubscribers = new Map<string, () => void>();
 	let scrub: {
 		pointerId: number;
 		rect: DOMRect;
@@ -52,6 +77,9 @@
 			.toSorted((left, right) => left.order - right.order);
 	});
 	const selectedIds = $derived(new Set(selectedItemIds));
+	const trackNameById = $derived(
+		new Map(timelineStore.tracks.map((track) => [track.id, track.name]))
+	);
 	const maxFrame = $derived(
 		resolveColorTimelineMaxFrame({
 			items: timelineStore.items,
@@ -62,7 +90,56 @@
 		})
 	);
 	const displayFrame = $derived($timelinePreviewScrub.frame ?? timelineStore.currentFrame);
-	const trackAreaHeight = $derived(Math.max(ROW_HEIGHT, visualTracks.length * ROW_HEIGHT));
+	const trackRowHeight = $derived(TRACK_AREA_HEIGHT / Math.max(1, visualTracks.length));
+	const clipStartRequests = $derived(
+		visualItems.flatMap((item) => {
+			if (item.type !== 'video' || !item.mediaId) return [];
+			const media = mediaPool.get(item.mediaId);
+			if (!media) return [];
+			return [
+				{
+					itemId: item.id,
+					media,
+					index: colorClipStartFrameIndex({
+						sourceStart: item.sourceStart,
+						sourceDuration: item.sourceDuration,
+						sourceFps: item.sourceFps,
+						mediaDuration: media.duration,
+						mediaFps: media.fps
+					})
+				}
+			];
+		})
+	);
+	const gradeTileRequests = $derived.by(() => {
+		void colorPreviewStore.effectDraft;
+		return visualItems.map((item): GradeTileRequest => {
+			const effects = colorPreviewStore.applyEffectDraft(item.id, item.effects ?? []);
+			const gpuEffects = colorGradeTileEffects(effects);
+			const clipStart = clipStartRequests.find((request) => request.itemId === item.id);
+			const frames = clipStart ? startFrames[clipStart.media.id] : undefined;
+			const startFrame = clipStart
+				? frames?.reduce<FilmstripFrame | null>((nearest, frame) => {
+						if (!nearest) return frame;
+						return Math.abs(frame.index - clipStart.index) <
+							Math.abs(nearest.index - clipStart.index)
+							? frame
+							: nearest;
+					}, null)
+				: null;
+			const baseUrl = startFrame?.url ?? (item.mediaId ? thumbnailUrls[item.mediaId] : undefined);
+			return {
+				itemId: item.id,
+				baseUrl,
+				effects: gpuEffects,
+				signature: `${baseUrl ?? ''}|${JSON.stringify(gpuEffects)}`,
+				treatment: resolveColorGradeThumbnailTreatment(effects)
+			};
+		});
+	});
+	const gradeTileByItem = $derived(
+		Object.fromEntries(gradeTileRequests.map((request) => [request.itemId, request]))
+	);
 
 	function itemsForTrack(track: TimelineTrack): TimelineItem[] {
 		return visualItems.filter((item) => item.trackId === track.id);
@@ -76,21 +153,14 @@
 		return formatTimelinePreviewTimecode(frame, timelineStore.fps).slice(0, 8);
 	}
 
-	function colorForItem(item: TimelineItem): string {
-		switch (item.type) {
-			case 'text':
-			case 'subtitle':
-				return 'border-amber-300/70 bg-amber-700/70';
-			case 'image':
-			case 'shape':
-				return 'border-fuchsia-300/70 bg-fuchsia-800/70';
-			case 'adjustment':
-				return 'border-violet-300/70 bg-violet-800/70';
-			case 'composition':
-				return 'border-cyan-300/70 bg-cyan-800/70';
-			default:
-				return 'border-orange-300/70 bg-orange-800/70';
-		}
+	function miniClipHeight(): number {
+		return trackRowHeight >= 10
+			? Math.max(8, Math.min(16, trackRowHeight - 4))
+			: Math.max(4, trackRowHeight - 2);
+	}
+
+	function miniClipTop(): number {
+		return Math.max(1, (trackRowHeight - miniClipHeight()) / 2);
 	}
 
 	function seekAndSelect(item: TimelineItem): void {
@@ -221,6 +291,89 @@
 		thumbnailUrls = Object.fromEntries(ownedThumbnailUrls);
 	}
 
+	function syncClipStartFrames(requests: typeof clipStartRequests): void {
+		const activeMediaIds = new Set(requests.map((request) => request.media.id));
+		for (const [mediaId, unsubscribe] of filmstripUnsubscribers) {
+			if (activeMediaIds.has(mediaId)) continue;
+			unsubscribe();
+			filmstripUnsubscribers.delete(mediaId);
+			delete startFrames[mediaId];
+		}
+		const requestsByMedia = Map.groupBy(requests, (request) => request.media.id);
+		for (const [mediaId, mediaRequests] of requestsByMedia) {
+			if (!filmstripUnsubscribers.has(mediaId)) {
+				filmstripUnsubscribers.set(
+					mediaId,
+					filmstripCache.subscribe(mediaId, (filmstrip) => {
+						startFrames[mediaId] = filmstrip.frames.map((frame) => ({ ...frame }));
+					})
+				);
+			}
+			const media = mediaRequests[0]?.media;
+			if (!media) continue;
+			const indices = [...new Set(mediaRequests.map((request) => request.index))];
+			void filmstripCache
+				.getFilmstrip(media, {
+					targetFrameIndices: indices,
+					priorityRange: {
+						startIndex: Math.min(...indices),
+						endIndex: Math.max(...indices) + 1
+					}
+				})
+				.catch(() => undefined);
+		}
+	}
+
+	function publishGradedUrls(): void {
+		gradedThumbnailUrls = Object.fromEntries(
+			[...ownedGradedUrls].map(([itemId, entry]) => [itemId, entry.url])
+		);
+	}
+
+	async function renderGradedThumbnails(
+		requests: readonly GradeTileRequest[],
+		generation: number
+	): Promise<void> {
+		await Promise.all(
+			requests.map(async (request) => {
+				if (!request.baseUrl || request.effects.length === 0) return;
+				if (ownedGradedUrls.get(request.itemId)?.signature === request.signature) return;
+				const blob = await renderColorGradeTile(request.baseUrl, request.effects);
+				if (!blob) return;
+				const url = URL.createObjectURL(blob);
+				const current = gradeTileRequests.find((entry) => entry.itemId === request.itemId);
+				if (generation !== gradeGeneration || current?.signature !== request.signature) {
+					URL.revokeObjectURL(url);
+					return;
+				}
+				const previous = ownedGradedUrls.get(request.itemId);
+				if (previous) URL.revokeObjectURL(previous.url);
+				ownedGradedUrls.set(request.itemId, { signature: request.signature, url });
+			})
+		);
+		if (generation === gradeGeneration) publishGradedUrls();
+	}
+
+	function scheduleGradedThumbnails(requests: readonly GradeTileRequest[]): void {
+		const generation = ++gradeGeneration;
+		if (gradeTimer) clearTimeout(gradeTimer);
+		gradeTimer = null;
+		const currentSignatures = new Map(
+			requests.map((request) => [request.itemId, request.signature])
+		);
+		for (const [itemId, entry] of ownedGradedUrls) {
+			if (currentSignatures.get(itemId) === entry.signature) continue;
+			URL.revokeObjectURL(entry.url);
+			ownedGradedUrls.delete(itemId);
+		}
+		publishGradedUrls();
+		if (!requests.some((request) => request.baseUrl && request.effects.length > 0)) return;
+		gradeTimer = setTimeout(() => {
+			gradeTimer = null;
+			void renderGradedThumbnails(requests, generation);
+		}, GRADE_RENDER_DEBOUNCE_MS);
+	}
+
 	$effect(() => {
 		const revision = mediaPool.thumbnailRevision;
 		const mediaIds = Array.from(
@@ -229,50 +382,115 @@
 		untrack(() => void syncThumbnails(mediaIds, revision));
 	});
 
+	$effect(() => {
+		const requests = clipStartRequests;
+		untrack(() => syncClipStartFrames(requests));
+	});
+
+	$effect(() => {
+		const requests = gradeTileRequests;
+		untrack(() => scheduleGradedThumbnails(requests));
+	});
+
 	onDestroy(() => {
 		thumbnailGeneration += 1;
+		gradeGeneration += 1;
+		if (gradeTimer) clearTimeout(gradeTimer);
 		cancelScrub();
 		for (const url of ownedThumbnailUrls.values()) URL.revokeObjectURL(url);
 		ownedThumbnailUrls.clear();
+		for (const entry of ownedGradedUrls.values()) URL.revokeObjectURL(entry.url);
+		ownedGradedUrls.clear();
+		for (const unsubscribe of filmstripUnsubscribers.values()) unsubscribe();
+		filmstripUnsubscribers.clear();
 	});
 </script>
 
 <section
-	class="h-[156px] shrink-0 overflow-hidden border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.145_0.009_55)]"
+	class="h-[212px] shrink-0 overflow-hidden border-y border-[oklch(0.25_0.015_55)] bg-[#24252b]"
 	aria-label={m.video_editor_timeline_navigator()}
 	data-color-mini-timeline
 >
-	<div class="flex h-[58px] gap-1 overflow-x-auto overflow-y-hidden border-b border-black/45 p-1">
-		{#each visualItems as item (item.id)}
+	<div
+		class="flex h-[92px] shrink-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-black/45 px-1 pt-1 pb-2"
+	>
+		{#each visualItems as item, index (item.id)}
+			{@const grade = gradeTileByItem[item.id]}
+			{@const gradedUrl = gradedThumbnailUrls[item.id]}
 			<button
 				type="button"
-				class="relative h-12 w-28 shrink-0 overflow-hidden rounded border text-left {colorForItem(
-					item
-				)} {selectedIds.has(item.id)
-					? 'ring-2 ring-orange-300 ring-offset-1 ring-offset-black'
-					: 'hover:brightness-110'}"
+				class="group grid h-20 w-[118px] shrink-0 grid-rows-[20px_1fr_16px] overflow-hidden rounded-[3px] border bg-[#17181d] text-left shadow-sm transition-colors {selectedIds.has(
+					item.id
+				)
+					? 'border-orange-500 shadow-[0_0_0_1px_rgba(249,115,22,0.65)]'
+					: 'border-zinc-700 hover:border-zinc-500'}"
 				aria-pressed={selectedIds.has(item.id)}
 				aria-label={`${item.label}, ${formatTimelinePreviewTimecode(item.from, timelineStore.fps)}`}
-				onpointerdown={(event) => event.stopPropagation()}
-				onclick={() => seekAndSelect(item)}
+				onpointerdown={(event) => {
+					event.stopPropagation();
+					if (event.button === 0) seekAndSelect(item);
+				}}
+				onclick={(event) => {
+					if (event.detail === 0) seekAndSelect(item);
+				}}
 				data-color-film-tile={item.id}
+				title={item.label}
 			>
-				{#if item.mediaId && thumbnailUrls[item.mediaId]}
-					<img
-						src={thumbnailUrls[item.mediaId]}
-						alt=""
-						class="absolute inset-0 size-full object-cover opacity-70"
-					/>
-				{/if}
-				<span class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent"
-				></span>
-				<span class="absolute right-1 bottom-1 left-1 truncate text-[10px] font-medium text-white">
-					{item.label}
-				</span>
 				<span
-					class="absolute top-1 left-1 rounded bg-black/70 px-1 font-mono text-[8px] text-white/80"
+					class="flex min-w-0 items-center gap-1 border-b border-black/40 bg-[#24252b] px-1.5 text-[10px] font-semibold text-zinc-200"
 				>
-					{formatTimelinePreviewTimecode(item.from, timelineStore.fps)}
+					<span
+						class="rounded-[2px] border px-1 leading-3 {selectedIds.has(item.id)
+							? 'border-lime-300/80 bg-indigo-700 text-lime-200'
+							: 'border-indigo-400/70 bg-zinc-800 text-zinc-200'}"
+					>
+						{String(index + 1).padStart(2, '0')}
+					</span>
+					<span class="font-mono"
+						>{formatTimelinePreviewTimecode(item.from, timelineStore.fps).slice(0, 8)}</span
+					>
+					<span class="ml-auto truncate text-[9px] text-zinc-400"
+						>{trackNameById.get(item.trackId) || 'V1'}</span
+					>
+				</span>
+
+				<span class="relative block min-h-0 overflow-hidden bg-black">
+					{#if item.mediaId && (gradedUrl || grade?.baseUrl)}
+						<img
+							src={gradedUrl ?? grade?.baseUrl}
+							alt=""
+							class="size-full object-cover"
+							style:filter={!gradedUrl && grade?.treatment.hasGrade
+								? grade.treatment.filter
+								: undefined}
+							data-graded-thumbnail={grade?.treatment.hasGrade ? 'true' : undefined}
+							data-grade-source={gradedUrl ? 'gpu' : grade?.treatment.hasGrade ? 'css' : undefined}
+						/>
+					{/if}
+					{#if !gradedUrl && grade?.treatment.overlayBackground}
+						<span
+							class="pointer-events-none absolute inset-0 mix-blend-color"
+							style:background={grade.treatment.overlayBackground}
+							data-color-grade-overlay
+						></span>
+					{/if}
+					{#if grade?.treatment.hasGrade}
+						<span
+							class="pointer-events-none absolute top-1 right-1 flex h-1.5 w-6 overflow-hidden rounded-full border border-black/45 shadow-sm"
+							aria-hidden="true"
+							data-color-grade-indicator
+						>
+							<span class="h-full flex-1 bg-red-500"></span>
+							<span class="h-full flex-1 bg-lime-400"></span>
+							<span class="h-full flex-1 bg-sky-500"></span>
+						</span>
+					{/if}
+				</span>
+
+				<span
+					class="truncate border-t border-black/40 bg-[#202127] px-1.5 text-[10px] font-medium text-zinc-300"
+				>
+					{item.label}
 				</span>
 			</button>
 		{:else}
@@ -283,7 +501,7 @@
 	</div>
 
 	<div
-		class="relative h-[98px] cursor-ew-resize touch-none overflow-hidden outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-inset"
+		class="relative h-[120px] cursor-ew-resize touch-none overflow-hidden bg-[#1d1e23] outline-none focus-visible:ring-2 focus-visible:ring-orange-300 focus-visible:ring-inset"
 		role="group"
 		aria-label={m.video_editor_timeline_navigator()}
 		onpointerdown={startScrub}
@@ -292,7 +510,7 @@
 		onpointercancel={cancelScrub}
 		data-color-timeline-scrub
 	>
-		<div class="relative h-[18px] border-b border-black/45 bg-white/[0.025]">
+		<div class="relative h-[14px] border-b border-black/45 bg-[#202127]">
 			<div
 				class="absolute inset-y-0 left-0 flex w-11 items-center justify-center border-r border-black/40 font-mono text-[9px] text-white/45"
 			>
@@ -311,7 +529,7 @@
 			</div>
 		</div>
 
-		<div class="relative h-[22px] border-b border-black/45">
+		<div class="relative h-5 border-b border-black/45">
 			<div class="absolute inset-y-0 right-0" style={`left:${LABEL_WIDTH}px`}>
 				{#each RULER_RATIOS as ratio}
 					<span
@@ -324,15 +542,15 @@
 			</div>
 		</div>
 
-		<div class="relative h-[58px] overflow-y-auto" data-color-timeline-tracks>
-			<div class="relative" style={`height:${trackAreaHeight}px`}>
+		<div class="relative h-[86px] overflow-hidden" data-color-timeline-tracks>
+			<div class="relative h-[86px]">
 				{#each visualTracks as track, index (track.id)}
 					<div
 						class="absolute right-0 left-0 border-b border-white/[0.07]"
-						style={`top:${index * ROW_HEIGHT}px;height:${ROW_HEIGHT}px`}
+						style={`top:${index * trackRowHeight}px;height:${trackRowHeight}px`}
 					>
 						<span
-							class="absolute inset-y-0 left-0 flex w-11 items-center justify-center truncate border-r border-black/40 px-1 text-[8px] font-semibold text-white/45"
+							class="absolute inset-y-0 left-0 flex w-8 items-center justify-center truncate border-r border-black/40 px-1 text-[9px] font-semibold text-zinc-400"
 						>
 							{track.name}
 						</span>
@@ -340,10 +558,12 @@
 							{#each itemsForTrack(track) as item (item.id)}
 								<button
 									type="button"
-									class="absolute inset-y-[2px] min-w-px overflow-hidden rounded-sm border {colorForItem(
-										item
-									)} {selectedIds.has(item.id) ? 'z-10 ring-1 ring-white' : 'hover:brightness-125'}"
-									style={`left:${frameRatio(item.from) * 100}%;width:${Math.max(0.25, colorTimelineRatio(item.durationInFrames, maxFrame) * 100)}%`}
+									class="absolute min-w-4 overflow-hidden rounded-[2px] border text-left transition-colors {selectedIds.has(
+										item.id
+									)
+										? 'z-10 border-orange-500 bg-orange-500/20 shadow-[0_0_0_1px_rgba(249,115,22,0.45)]'
+										: 'border-sky-500/70 bg-sky-500/45 hover:border-sky-300'}"
+									style={`left:${frameRatio(item.from) * 100}%;width:${Math.max(0.6, colorTimelineRatio(item.durationInFrames, maxFrame) * 100)}%;top:${miniClipTop()}px;height:${miniClipHeight()}px`}
 									aria-label={item.label}
 									aria-pressed={selectedIds.has(item.id)}
 									onpointerdown={(event) => event.stopPropagation()}
@@ -358,7 +578,7 @@
 		</div>
 
 		<div
-			class="pointer-events-none absolute top-[18px] right-0 bottom-0"
+			class="pointer-events-none absolute top-[14px] right-0 bottom-0"
 			style={`left:${LABEL_WIDTH}px`}
 		>
 			{#each timelineStore.markers as marker, index (marker.id)}

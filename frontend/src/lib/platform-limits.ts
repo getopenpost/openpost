@@ -38,6 +38,8 @@ export interface PlatformLimit {
 	note?: string;
 }
 
+export type CharacterUsage = { count: number; limit: number } | { count: number; limit: null };
+
 export const PLATFORM_LIMITS = {
 	x: {
 		key: 'x',
@@ -247,6 +249,30 @@ export function uniquePlatformLimits(
 			seen.add(dedupeKey);
 			return true;
 		});
+}
+
+export function mostConstrainedCharacterUsage(
+	value: string,
+	platformLimits: PlatformLimit[]
+): CharacterUsage {
+	if (platformLimits.length === 0) {
+		return { count: platformTextLength('', value), limit: null };
+	}
+
+	let usage = {
+		count: platformTextLength(platformLimits[0].key, value),
+		limit: platformLimits[0].limit
+	};
+	let highestRatio = usage.count / usage.limit;
+	for (const platformLimit of platformLimits.slice(1)) {
+		const count = platformTextLength(platformLimit.key, value);
+		const ratio = count / platformLimit.limit;
+		if (ratio > highestRatio || (ratio === highestRatio && platformLimit.limit < usage.limit)) {
+			usage = { count, limit: platformLimit.limit };
+			highestRatio = ratio;
+		}
+	}
+	return usage;
 }
 
 export function publicPlatformLimits(): PlatformLimitDefinition[] {

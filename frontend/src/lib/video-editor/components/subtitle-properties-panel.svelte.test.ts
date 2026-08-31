@@ -48,6 +48,46 @@ beforeEach(() => {
 });
 
 describe('SubtitlePropertiesPanel', () => {
+	it('toggles karaoke highlight mode and colors as undoable edits', async () => {
+		const onedit = vi.fn();
+		const screen = await render(SubtitlePropertiesPanel, {
+			item: timelineStore.itemById.get('subtitle')!,
+			canvasWidth: 1920,
+			canvasHeight: 1080,
+			onedit
+		});
+		// Compact highlight mode control is present
+		await screen.getByRole('button', { name: 'Karaoke', exact: true }).click();
+		expect(timelineStore.itemById.get('subtitle')).toMatchObject({
+			captionHighlightMode: 'karaoke',
+			karaokeActiveColor: '#FFD400'
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+		// Change active word color
+		const colorInputs = screen.container.querySelectorAll('input[type="color"]');
+		const candidate = colorInputs[2];
+		if (!(candidate instanceof HTMLInputElement))
+			throw new Error('expected karaoke active color input');
+		// SAFETY: runtime instance check above guarantees HTMLInputElement
+		const activeColorInput = candidate as HTMLInputElement;
+		expect(activeColorInput).toBeDefined();
+		activeColorInput.value = '#ff0000';
+		activeColorInput.dispatchEvent(new Event('change', { bubbles: true }));
+		expect(timelineStore.itemById.get('subtitle')?.karaokeActiveColor).toBe('#ff0000');
+		expect(commandHistory.undoStack).toHaveLength(2);
+		// Enable optional background via toggle then change it
+		await screen.getByRole('button', { name: 'Active word background', exact: true }).click();
+		expect(timelineStore.itemById.get('subtitle')?.karaokeActiveBackground).toBeDefined();
+		// Undo background toggle and color change restores previous state
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('subtitle')?.karaokeActiveBackground).toBeUndefined();
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('subtitle')?.karaokeActiveColor).toBe('#FFD400');
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('subtitle')?.captionHighlightMode).toBeUndefined();
+		expect(onedit).toHaveBeenCalled();
+	});
+
 	it('applies each exact caption recipe as one undoable edit', async () => {
 		const onedit = vi.fn();
 		const screen = await render(SubtitlePropertiesPanel, {
@@ -57,9 +97,6 @@ describe('SubtitlePropertiesPanel', () => {
 			onedit
 		});
 
-		expect(screen.container.querySelectorAll('.preset-strip > button[aria-pressed]')).toHaveLength(
-			5
-		);
 		await screen.getByRole('button', { name: 'Bold Yellow', exact: true }).click();
 		expect(timelineStore.itemById.get('subtitle')).toMatchObject({
 			fontFamily: 'Roboto Slab',

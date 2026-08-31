@@ -1,6 +1,8 @@
 import type {
+	AnimationKeyframeSource,
 	AnimationPreset,
 	AnimationPresetKeyframe,
+	AnimationPresetVectorKeyframe,
 	EasingConfig,
 	ItemKeyframes,
 	KeyframeProperty,
@@ -69,6 +71,10 @@ interface MergedVector {
 	writtenFrames: number[];
 }
 
+interface KeyframeEntry extends AnimationPresetKeyframe {
+	source: AnimationKeyframeSource | null;
+}
+
 export function applySavedAnimation(
 	options: ApplySavedAnimationOptions
 ): ApplySavedAnimationResult {
@@ -121,6 +127,12 @@ function prepareSavedAnimation(
 	item: TimelineItem,
 	options: ApplySavedAnimationOptions
 ): PreparedSavedAnimation {
+	const source: AnimationKeyframeSource = {
+		applicationId: crypto.randomUUID(),
+		kind: 'saved-preset',
+		presetId: options.preset.id,
+		presetName: options.preset.name
+	};
 	const effectMapping = mapEffects(item.effects ?? [], options.preset);
 	const keyframes: ItemKeyframes = { ...item.keyframes };
 	let writtenKeyframes = 0;
@@ -146,7 +158,7 @@ function prepareSavedAnimation(
 		}
 		const targetProperty = remapProperty(property.property, effectMapping.idBySourceId);
 		if (!targetProperty) continue;
-		const incoming = retimedScalarKeys(property.keyframes, retime);
+		const incoming = retimedScalarKeys(property.keyframes, retime, source);
 		if (incoming.length === 0) continue;
 		const result = mergeTrack(keyframes[targetProperty], incoming, options.mode);
 		if (result.applied === 0) continue;
@@ -157,7 +169,7 @@ function prepareSavedAnimation(
 
 	let vectorKeyframes = item.vectorKeyframes;
 	for (const recipe of options.preset.vectorProperties ?? []) {
-		const incoming = retimedVectorKeys(recipe.keyframes, retime);
+		const incoming = retimedVectorKeys(recipe.keyframes, retime, source);
 		const result = mergeVector(
 			item.vectorKeyframes?.[recipe.property] ?? [],
 			incoming,
@@ -267,15 +279,17 @@ function remapProperty(
 
 function retimedScalarKeys(
 	keyframes: readonly AnimationPresetKeyframe[],
-	retime: (frame: number) => number
-): AnimationPresetKeyframe[] {
-	const byFrame = new Map<number, AnimationPresetKeyframe>();
+	retime: (frame: number) => number,
+	source: AnimationKeyframeSource
+): KeyframeEntry[] {
+	const byFrame = new Map<number, KeyframeEntry>();
 	for (const keyframe of keyframes) {
 		const frame = retime(keyframe.frame);
 		byFrame.set(frame, {
 			...keyframe,
 			id: crypto.randomUUID(),
 			frame,
+			source,
 			...(keyframe.easingConfig && { easingConfig: cloneEasingConfig(keyframe.easingConfig) })
 		});
 	}
@@ -283,8 +297,9 @@ function retimedScalarKeys(
 }
 
 function retimedVectorKeys(
-	keyframes: readonly VectorKeyframe[],
-	retime: (frame: number) => number
+	keyframes: readonly AnimationPresetVectorKeyframe[],
+	retime: (frame: number) => number,
+	source: AnimationKeyframeSource
 ): VectorKeyframe[] {
 	const byFrame = new Map<number, VectorKeyframe>();
 	for (const keyframe of keyframes) {
@@ -292,7 +307,8 @@ function retimedVectorKeys(
 		byFrame.set(frame, {
 			...cloneVectorKeyframe(keyframe),
 			id: crypto.randomUUID(),
-			frame
+			frame,
+			source
 		});
 	}
 	return [...byFrame.values()].toSorted((left, right) => left.frame - right.frame);
@@ -300,7 +316,7 @@ function retimedVectorKeys(
 
 function mergeTrack(
 	existing: KeyframeTrack | undefined,
-	incoming: readonly AnimationPresetKeyframe[],
+	incoming: readonly KeyframeEntry[],
 	mode: 'replace' | 'add'
 ): MergedTrack {
 	const entries = trackEntries(existing);
@@ -326,7 +342,8 @@ function mergeTrack(
 			values: next.map((entry) => entry.value),
 			ids: next.map((entry) => entry.id),
 			easings: next.map((entry) => entry.easing),
-			easingConfigs: next.map((entry) => entry.easingConfig ?? null)
+			easingConfigs: next.map((entry) => entry.easingConfig ?? null),
+			sources: next.map((entry) => entry.source)
 		},
 		applied,
 		writtenFrames
@@ -360,13 +377,14 @@ function mergeVector(
 	};
 }
 
-function trackEntries(track: KeyframeTrack | undefined): AnimationPresetKeyframe[] {
+function trackEntries(track: KeyframeTrack | undefined): KeyframeEntry[] {
 	if (!track) return [];
 	return track.frames.map((frame, index) => ({
 		id: track.ids?.[index] ?? crypto.randomUUID(),
 		frame,
 		value: track.values[index] ?? 0,
 		easing: track.easings?.[index] ?? 'linear',
+		source: track.sources?.[index] ?? null,
 		...(track.easingConfigs?.[index] && {
 			easingConfig: cloneEasingConfig(track.easingConfigs[index]!)
 		})

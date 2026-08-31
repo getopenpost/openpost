@@ -674,13 +674,13 @@ type MediaStorage struct {
 }
 
 type MediaUsageItem struct {
-	Kind        string `json:"kind"`
-	ID          string `json:"id"`
-	Label       string `json:"label"`
-	PostID      string `json:"post_id,omitempty"`
-	Content     string `json:"content,omitempty"`
-	Status      string `json:"status,omitempty"`
-	ScheduledAt string `json:"scheduled_at,omitempty"`
+	Kind          string `json:"kind"`
+	ID            string `json:"id"`
+	Label         string `json:"label"`
+	PublicationID string `json:"publication_id,omitempty"`
+	Content       string `json:"content,omitempty"`
+	Status        string `json:"status,omitempty"`
+	ScheduledAt   string `json:"scheduled_at,omitempty"`
 }
 
 type MediaUsage struct {

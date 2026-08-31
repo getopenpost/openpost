@@ -13,6 +13,7 @@ import type {
 	TimelineTrack,
 	TimelineTransition
 } from '../../project/types';
+import type { AudioEqSettings } from '../../audio/types';
 import type { SequenceRegistrySnapshot } from '../../sequences/sequence-store.svelte';
 
 export interface TimelineSnapshot {
@@ -28,6 +29,7 @@ export interface TimelineSnapshot {
 	currentFrame: number;
 	masterVolumeDb: number;
 	masterMuted: boolean;
+	busAudioEq?: AudioEqSettings;
 	sequenceRegistry: SequenceRegistrySnapshot;
 }
 

@@ -59,6 +59,22 @@ describe('streaming writable lifecycle', () => {
 		expect(writable.abort).not.toHaveBeenCalled();
 	});
 
+	it('reports the written byte extent without double-counting rewritten chunks', async () => {
+		const lifecycle = createStreamingWritableLifecycle(
+			createWritable(),
+			async () => new File(['stored'], 'stored.webm'),
+			async () => undefined
+		);
+		const writer = lifecycle.writable.getWriter();
+		await writer.write(chunk(10));
+		expect(lifecycle.bytesWritten).toBe(13);
+		await writer.write(chunk(2));
+		expect(lifecycle.bytesWritten).toBe(13);
+		await writer.write(chunk(20));
+		expect(lifecycle.bytesWritten).toBe(23);
+		await writer.abort();
+	});
+
 	it('aborts once and preserves the write failure', async () => {
 		const failure = new Error('write failed');
 		const writable = createWritable({ write: vi.fn(async () => Promise.reject(failure)) });

@@ -145,6 +145,36 @@ describe('computeFilmstripTiles', () => {
 		expect(tiles.every((tile) => tile.width === 120)).toBe(true);
 	});
 
+	it('maps viewport tiles through an exact variable-speed source curve', () => {
+		const frames = [0, 1, 2, 3, 4].map((index) => ({ index, url: `frame-${index}` }));
+		const sourceSecondAtTimelineRatio = (ratio: number): number => {
+			if (ratio <= 1 / 3) return ratio * 3.6;
+			if (ratio <= 2 / 3) return 1.2 + (ratio - 1 / 3) * 5.4;
+			return 3 + (ratio - 2 / 3) * 3.6;
+		};
+
+		const tiles = computeFilmstripTiles(frames, 0, 4.2, 300, false, {
+			tileWidthPx: 100,
+			visibleStartPx: 0,
+			visibleEndPx: 300,
+			sourceSecondAtTimelineRatio
+		});
+
+		expect(tiles.map((tile) => tile.index)).toEqual([1, 2, 4]);
+		expect(
+			visibleFilmstripTargetIndices({
+				sourceStartSeconds: 0,
+				clipSpanSeconds: 4.2,
+				clipWidthPx: 300,
+				visibleStartPx: 0,
+				visibleEndPx: 300,
+				tileWidthPx: 100,
+				totalSourceFrames: 5,
+				sourceSecondAtTimelineRatio
+			})
+		).toEqual([0, 2, 3]);
+	});
+
 	it('returns exact source-second targets for the visible tile window', () => {
 		expect(
 			visibleFilmstripTargetIndices({

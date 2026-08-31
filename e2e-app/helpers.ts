@@ -70,7 +70,11 @@ export async function createPublication(
       `publication creation failed with ${publication.status()}: ${await publication.text()}`,
     );
   }
-  return publication.json() as Promise<{ id: string; publication_id?: string; revision: number }>;
+  return publication.json() as Promise<{
+    id: string;
+    publication_id?: string;
+    revision: number;
+  }>;
 }
 
 export async function authenticatePage(page: Page, token: string) {
@@ -84,6 +88,24 @@ export async function authenticatePage(page: Page, token: string) {
       sameSite: "Lax",
     },
   ]);
+}
+
+export async function composerDeliveryAction(page: Page, name: string) {
+  const trigger = page.getByTestId("composer-delivery-menu");
+  await expect(trigger).toBeVisible();
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
+    await trigger.click();
+  }
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  return menu.getByRole("menuitem", { name, exact: true });
+}
+
+export async function clickComposerDeliveryAction(page: Page, name: string) {
+  const action = await composerDeliveryAction(page, name);
+  await expect(action).toBeVisible();
+  await action.click();
 }
 
 export async function routeBrowserRegistration(page: Page, seed: string) {

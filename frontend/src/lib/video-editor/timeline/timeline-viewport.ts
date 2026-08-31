@@ -21,9 +21,19 @@ export interface TimelineFrameRange {
 
 export interface TimelineItemRangeIndex {
 	items: TimelineItem[];
-	prefixMaxEnd: number[];
+	root: TimelineItemRangeNode | null;
 	itemById: Map<string, TimelineItem>;
 	orderById: Map<string, number>;
+}
+
+interface TimelineItemRangeNode {
+	item: TimelineItem;
+	from: number;
+	end: number;
+	minStart: number;
+	maxEnd: number;
+	left: TimelineItemRangeNode | null;
+	right: TimelineItemRangeNode | null;
 }
 
 export interface TimelineDensityBucket {
@@ -60,38 +70,47 @@ export function buildTimelineItemRangeIndex(
 		);
 		break;
 	}
-	const prefixMaxEnd: number[] = [];
 	const itemById = new Map<string, TimelineItem>();
 	const orderById = new Map<string, number>();
-	let maxEnd = Number.NEGATIVE_INFINITY;
 	for (const [index, item] of ordered.entries()) {
-		maxEnd = Math.max(maxEnd, item.from + item.durationInFrames);
-		prefixMaxEnd[index] = maxEnd;
 		itemById.set(item.id, item);
 		orderById.set(item.id, index);
 	}
-	return { items: ordered, prefixMaxEnd, itemById, orderById };
+
+	function build(start: number, end: number): TimelineItemRangeNode | null {
+		if (start >= end) return null;
+		const middle = (start + end) >>> 1;
+		const item = ordered[middle]!;
+		const left = build(start, middle);
+		const right = build(middle + 1, end);
+		const itemEnd = item.from + item.durationInFrames;
+		return {
+			item,
+			from: item.from,
+			end: itemEnd,
+			minStart: Math.min(item.from, left?.minStart ?? item.from, right?.minStart ?? item.from),
+			maxEnd: Math.max(itemEnd, left?.maxEnd ?? itemEnd, right?.maxEnd ?? itemEnd),
+			left,
+			right
+		};
+	}
+
+	return { items: ordered, root: build(0, ordered.length), itemById, orderById };
 }
 
-/** O(log n + visible) interval query that also finds long clips starting offscreen. */
+/** Pruned interval query that preserves timeline order and finds long clips starting offscreen. */
 export function queryTimelineItemRange(
 	index: TimelineItemRangeIndex,
 	range: TimelineFrameRange
 ): TimelineItem[] {
-	let low = 0;
-	let high = index.items.length;
-	while (low < high) {
-		const middle = (low + high) >> 1;
-		if ((index.prefixMaxEnd[middle] ?? Number.NEGATIVE_INFINITY) > range.start) high = middle;
-		else low = middle + 1;
-	}
-
 	const visible: TimelineItem[] = [];
-	for (let itemIndex = low; itemIndex < index.items.length; itemIndex++) {
-		const item = index.items[itemIndex]!;
-		if (item.from >= range.end) break;
-		if (item.from + item.durationInFrames > range.start) visible.push(item);
+	function visit(node: TimelineItemRangeNode | null): void {
+		if (!node || node.maxEnd <= range.start || node.minStart >= range.end) return;
+		visit(node.left);
+		if (node.from < range.end && node.end > range.start) visible.push(node.item);
+		visit(node.right);
 	}
+	visit(index.root);
 	return visible;
 }
 

@@ -6,6 +6,7 @@ import {
 	formatMediaDuration,
 	formatMediaListSummary,
 	groupMediaByKind,
+	mediaLibraryGridTemplate,
 	mediaLibraryKind
 } from './library-view';
 import type { MediaMetadata } from './types';
@@ -76,5 +77,16 @@ describe('media library view', () => {
 		expect(formatMediaBitrate(7_300_000)).toBe('7.3 Mbps');
 		expect(formatMediaListSummary(sources[0]!)).toBe('0:02');
 		expect(formatMediaListSummary({ ...sources[0]!, duration: 0 })).toBe('1920 × 1080');
+	});
+
+	it('maps every grid density to its stable responsive card width', () => {
+		expect([1, 2, 3, 4, 5].map(mediaLibraryGridTemplate)).toEqual([
+			'repeat(auto-fill, minmax(min(80px, 100%), 1fr))',
+			'repeat(auto-fill, minmax(min(110px, 100%), 1fr))',
+			'repeat(auto-fill, minmax(min(140px, 100%), 1fr))',
+			'repeat(auto-fill, minmax(min(200px, 100%), 1fr))',
+			'repeat(auto-fill, minmax(min(280px, 100%), 1fr))'
+		]);
+		expect(mediaLibraryGridTemplate(Number.NaN)).toContain('110px');
 	});
 });

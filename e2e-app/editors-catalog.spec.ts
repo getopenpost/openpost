@@ -60,6 +60,43 @@ async function registerWorkspace(
   return { auth, workspace };
 }
 
+async function installLocalWorkspacePicker(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const permissionKey = "openpost-e2e-video-workspace-permission";
+    const installPermissionMethods = (handle: FileSystemDirectoryHandle) => {
+      const prototype = Object.getPrototypeOf(handle);
+      Object.defineProperty(prototype, "queryPermission", {
+        configurable: true,
+        value: async () => sessionStorage.getItem(permissionKey) ?? "granted",
+      });
+      Object.defineProperty(prototype, "requestPermission", {
+        configurable: true,
+        value: async () => {
+          sessionStorage.setItem(permissionKey, "granted");
+          return "granted";
+        },
+      });
+      return handle;
+    };
+    void navigator.storage.getDirectory().then(installPermissionMethods);
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: async () => installPermissionMethods(await navigator.storage.getDirectory()),
+    });
+  });
+}
+
+async function createLocalVideoProject(page: Page, name: string): Promise<string> {
+  await page.goto("/video-editor");
+  await page.getByRole("button", { name: "Choose folder" }).click();
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("textbox", { name: "Project name" }).fill(name);
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
+  return new URL(page.url()).pathname.split("/").at(-1) ?? "";
+}
+
 test("editor catalog paginates past former caps and searches the full workspace", async ({
   page,
   request,
@@ -159,4 +196,73 @@ test("workspace changes clear old results and reject a late prior-workspace sear
   releaseCurrent();
   await expect(page.getByText("Current slow result", { exact: true })).toBeVisible();
   await expect(page.getByText("Stale slow result", { exact: true })).toHaveCount(0);
+});
+
+test("local Video workspace states stay separate from cloud Image designs", async ({
+  page,
+  request,
+}) => {
+  await registerWorkspace(page, request, "Local Video Gate");
+  await installLocalWorkspacePicker(page);
+  await page.route("**/api/v1/image-editor/designs?**", (route) =>
+    fulfillCatalogPage(route, [designSummary("cloud-poster", "Cloud poster")], "designs"),
+  );
+
+  await page.goto("/editors");
+  const designSection = page.getByRole("region", { name: "Image designs" });
+  const videoSection = page.getByRole("region", { name: "Video projects" });
+  await expect(designSection.getByText("Cloud poster", { exact: true })).toBeVisible();
+  await expect(
+    videoSection.getByRole("heading", { name: "Choose your editing workspace" }),
+  ).toBeVisible();
+  await videoSection.getByRole("button", { name: "Choose folder" }).click();
+  await expect(
+    videoSection.getByText("No projects yet. Create one to start cutting."),
+  ).toBeVisible();
+
+  await page.evaluate(() => {
+    sessionStorage.setItem("openpost-e2e-video-workspace-permission", "prompt");
+  });
+  await page.reload();
+  await expect(designSection.getByText("Cloud poster", { exact: true })).toBeVisible();
+  await expect(
+    videoSection.getByRole("heading", { name: "Reconnect your workspace" }),
+  ).toBeVisible();
+  await videoSection.getByRole("button", { name: "Reconnect" }).click();
+  await expect(
+    videoSection.getByText("No projects yet. Create one to start cutting."),
+  ).toBeVisible();
+});
+
+test("folder-backed Video projects remain visible when the Image catalog fails", async ({
+  page,
+  request,
+}) => {
+  await registerWorkspace(page, request, "Mixed Editor Catalog");
+  await installLocalWorkspacePicker(page);
+  const videoName = "Local launch edit";
+  const projectID = await createLocalVideoProject(page, videoName);
+  expect(projectID).not.toBe("");
+
+  await page.route("**/api/v1/image-editor/designs?**", (route) =>
+    fulfillCatalogPage(route, [designSummary("poster", "Poster art")], "designs"),
+  );
+  await page.goto("/editors");
+  const designSection = page.getByRole("region", { name: "Image designs" });
+  const videoSection = page.getByRole("region", { name: "Video projects" });
+  await expect(designSection.getByText("Poster art", { exact: true })).toBeVisible();
+  await expect(videoSection.getByText(videoName, { exact: true })).toBeVisible();
+  await expect(videoSection.locator(`a[href="/video-editor/${projectID}"]`)).toBeVisible();
+
+  await page.getByRole("textbox", { name: "Search projects" }).fill("local launch");
+  await expect(designSection.locator('a[href^="/image-editor/"]')).toHaveCount(0);
+  await expect(videoSection.getByText(videoName, { exact: true })).toBeVisible();
+
+  await page.unroute("**/api/v1/image-editor/designs?**");
+  await page.route("**/api/v1/image-editor/designs?**", (route) =>
+    route.fulfill({ status: 503, contentType: "application/json", body: "{}" }),
+  );
+  await page.reload();
+  await expect(designSection.getByRole("alert")).toBeVisible();
+  await expect(videoSection.getByText(videoName, { exact: true })).toBeVisible();
 });

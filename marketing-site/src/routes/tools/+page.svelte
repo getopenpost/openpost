@@ -1,137 +1,97 @@
 <script lang="ts">
-	import { resolve } from '$app/paths';
-	import {
-		ArrowRight,
-		CheckCircle2,
-		Clapperboard,
-		Clock3,
-		FileText,
-		GitBranch,
-		Images,
-		LockKeyhole,
-		MessageSquareText,
-		PanelTop
-	} from '@lucide/svelte';
-	import { tools } from '../_marketing';
+	import { LockKeyhole } from '@lucide/svelte';
+	import EditorToolsShowcase from '../_components/EditorToolsShowcase.svelte';
+	import UtilityToolsGrid from '../_components/UtilityToolsGrid.svelte';
+	import type { MarketingToolSlug } from '../_marketing';
 
-	const groups = [
-		{
-			title: 'Preview',
-			description: 'Check each platform version before you publish.',
-			slugs: ['post-preview-generator']
-		},
-		{
-			title: 'Write',
-			description: 'Make the copy fit without losing its meaning.',
-			slugs: ['multi-platform-character-counter', 'thread-splitter', 'linkedin-text-formatter']
-		},
-		{
-			title: 'Prepare media',
-			description: 'Build and export the visual asset.',
-			slugs: ['social-media-video-editor', 'social-media-image-editor']
-		},
-		{
-			title: 'Plan and verify',
-			description: 'Turn a draft into a usable publishing plan.',
-			slugs: ['best-time-to-post-calculator', 'fediverse-handle-checker']
-		}
-	] as const;
-
-	const outcomes = {
-		'social-media-video-editor': 'Edit and export videos',
-		'social-media-image-editor': 'Edit and export images',
-		'multi-platform-character-counter': 'Compare ten limits',
-		'post-preview-generator': 'Preview ten platforms and their formats',
-		'thread-splitter': 'Split without losing text',
-		'fediverse-handle-checker': 'Validate syntax or check live',
-		'linkedin-text-formatter': 'Clean readable plain text',
-		'best-time-to-post-calculator': 'Build and export a weekly plan'
-	} satisfies Record<(typeof tools)[number]['slug'], string>;
-
-	const toolIcons = {
-		'social-media-video-editor': Clapperboard,
-		'social-media-image-editor': Images,
-		'multi-platform-character-counter': FileText,
-		'post-preview-generator': PanelTop,
-		'thread-splitter': GitBranch,
-		'fediverse-handle-checker': CheckCircle2,
-		'linkedin-text-formatter': MessageSquareText,
-		'best-time-to-post-calculator': Clock3
-	} satisfies Record<(typeof tools)[number]['slug'], typeof Images>;
-
-	function toolsForGroup(slugs: readonly (typeof tools)[number]['slug'][]) {
-		return slugs
-			.map((slug) => tools.find((tool) => tool.slug === slug))
-			.filter((tool): tool is (typeof tools)[number] => Boolean(tool));
-	}
+	const utilityToolSlugs = [
+		'post-preview-generator',
+		'multi-platform-character-counter',
+		'thread-splitter',
+		'utm-link-builder',
+		'linkedin-text-formatter',
+		'best-time-to-post-calculator',
+		'fediverse-handle-checker'
+	] as const satisfies readonly MarketingToolSlug[];
 </script>
 
-<section class="border-b py-14 sm:py-20">
-	<div class="marketing-shell grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-		<div>
-			<p class="section-label">Free tools</p>
-			<h1
-				class="mt-4 max-w-4xl text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance sm:text-6xl"
-			>
-				Finish the post before you sign up.
-			</h1>
-		</div>
-		<div>
-			<p class="marketing-copy">Eight free tools. No account, no upload, no signup wall.</p>
-			<p class="marketing-copy mt-3">
-				Preview posts, check limits, split copy, prepare media, and plan a weekly schedule in your
-				browser.
-			</p>
-			<p class="mt-4 inline-flex items-center gap-2 text-sm text-muted-foreground">
-				<LockKeyhole class="size-4 text-primary" />
-				Drafts stay local unless a tool clearly offers a live network check.
-			</p>
-		</div>
+<section class="tools-hero border-b" aria-labelledby="tools-title">
+	<div class="marketing-shell py-16 sm:py-24">
+		<h1
+			id="tools-title"
+			class="max-w-4xl text-4xl leading-[1.02] font-semibold tracking-[-0.035em] text-balance sm:text-6xl"
+		>
+			Finish the post before you sign up.
+		</h1>
+		<p class="marketing-copy mt-6">
+			For creators preparing a post before signing up. Edit the media, check each platform, plan the
+			week, and build the link. Every tool works before you sign up.
+		</p>
+		<p class="mt-5 inline-flex items-start gap-2 text-sm leading-6 text-muted-foreground">
+			<LockKeyhole class="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />
+			Drafts stay local unless a tool clearly offers a live network check.
+		</p>
 	</div>
 </section>
 
-<section class="section-pad">
-	<div class="marketing-shell grid gap-16">
-		{#each groups as group (group.title)}
-			<section aria-labelledby={`tool-group-${group.title.toLowerCase().replaceAll(' ', '-')}`}>
-				<div class="grid gap-2 border-b pb-5 sm:grid-cols-[0.55fr_1.45fr] sm:items-end">
-					<h2
-						id={`tool-group-${group.title.toLowerCase().replaceAll(' ', '-')}`}
-						class="text-2xl font-semibold tracking-[-0.025em]"
-					>
-						{group.title}
-					</h2>
-					<p class="text-sm leading-6 text-muted-foreground">
-						{group.description}
-					</p>
-				</div>
-				<div>
-					{#each toolsForGroup(group.slugs) as tool (tool.slug)}
-						{@const Icon = toolIcons[tool.slug]}
-						<a
-							href={resolve(`/tools/${tool.slug}`)}
-							class="focus-ring group grid min-h-32 gap-4 border-b py-6 sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-6"
-						>
-							<span class="grid size-11 place-items-center rounded-lg bg-primary/10 text-primary">
-								<Icon class="size-5" aria-hidden="true" />
-							</span>
-							<span>
-								<strong class="text-lg">{tool.name}</strong>
-								<span class="mt-1 block max-w-2xl text-sm leading-6 text-muted-foreground">
-									{tool.description}
-								</span>
-							</span>
-							<span class="flex items-center gap-2 text-sm font-medium text-primary">
-								{outcomes[tool.slug]}
-								<ArrowRight
-									class="size-4 transition-transform group-hover:translate-x-1"
-									aria-hidden="true"
-								/>
-							</span>
-						</a>
-					{/each}
-				</div>
-			</section>
-		{/each}
+<section class="section-pad" aria-labelledby="media-tools-title">
+	<div class="marketing-shell">
+		<div class="section-intro">
+			<h2 id="media-tools-title">Make the media.</h2>
+			<p>Use the same editors as OpenPost, without an account or a watermark.</p>
+		</div>
+		<div class="mt-8">
+			<EditorToolsShowcase />
+		</div>
+
+		<section class="mt-20 sm:mt-28" aria-labelledby="utility-tools-title">
+			<div class="section-intro">
+				<h2 id="utility-tools-title">Finish the details.</h2>
+				<p>Check the copy, preview the post, plan the time, and track the link.</p>
+			</div>
+			<div class="mt-8">
+				<UtilityToolsGrid slugs={utilityToolSlugs} />
+			</div>
+		</section>
 	</div>
 </section>
+
+<style>
+	.tools-hero {
+		background:
+			radial-gradient(
+				circle at 78% 36%,
+				color-mix(in oklch, var(--primary) 9%, transparent),
+				transparent 25rem
+			),
+			color-mix(in oklch, var(--muted) 22%, var(--background));
+	}
+
+	.section-intro {
+		display: grid;
+		gap: 0.75rem;
+		padding-bottom: 1.25rem;
+		border-bottom: 1px solid var(--border);
+	}
+
+	.section-intro h2 {
+		font-size: clamp(1.8rem, 3vw, 2.6rem);
+		font-weight: 650;
+		line-height: 1.05;
+		letter-spacing: -0.03em;
+	}
+
+	.section-intro p {
+		max-width: 42rem;
+		color: var(--muted-foreground);
+		font-size: 0.95rem;
+		line-height: 1.6;
+	}
+
+	@media (min-width: 48rem) {
+		.section-intro {
+			grid-template-columns: minmax(12rem, 0.55fr) minmax(0, 1.45fr);
+			align-items: end;
+		}
+	}
+</style>

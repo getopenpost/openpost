@@ -2,11 +2,16 @@
  * Trim clamping math: respect source boundaries, adjacent items on the same
  * track, and a minimum duration of one frame.
  *
- * Ported from FreeCut (MIT) — utils/trim-utils.ts — trimmed to the v1 surface
- * (no compositions, no reverse playback).
+ * Ported from FreeCut (MIT) — utils/trim-utils.ts, then extended for reverse
+ * playback and source-anchored speed curves.
  */
 
 import type { TimelineItem } from '../../project/types';
+import {
+	hasVariableSpeed,
+	sourceFrameToTimelineOffset,
+	timelineOffsetToSourceFrame
+} from '../source-time-map';
 import {
 	getMaxStartExtension,
 	getMaxTimelineDuration,
@@ -44,6 +49,32 @@ export function clampTrimAmount(
 	if (isMediaItem(item)) {
 		const { sourceStart, sourceFps, speed, sourceDuration } = getSourceProperties(item);
 		const effectiveSourceFps = sourceFps ?? timelineFps;
+		if (hasVariableSpeed(item)) {
+			if (handle === 'start' && trimAmount < 0) {
+				const sourceTarget = item.isReversed ? sourceDuration : 0;
+				if (sourceTarget !== undefined) {
+					maxExtend = Math.max(
+						0,
+						Math.floor(-sourceFrameToTimelineOffset(item, sourceTarget, timelineFps))
+					);
+					clampedAmount = Math.max(trimAmount, -maxExtend);
+				}
+			} else if (handle === 'end' && trimAmount > 0) {
+				const sourceTarget = item.isReversed ? 0 : sourceDuration;
+				if (sourceTarget !== undefined) {
+					const maxDuration = Math.max(
+						1,
+						Math.floor(sourceFrameToTimelineOffset(item, sourceTarget, timelineFps))
+					);
+					maxExtend = maxDuration - item.durationInFrames;
+					clampedAmount = Math.min(trimAmount, maxExtend);
+				}
+			}
+			return {
+				clampedAmount: clampToMinDuration(item.durationInFrames, handle, clampedAmount),
+				maxExtend
+			};
+		}
 
 		if (handle === 'start') {
 			// Start handle: negative trimAmount = extending left
@@ -165,6 +196,18 @@ export function calculateTrimSourceUpdate(
 
 	const { sourceStart, sourceEnd, sourceFps, speed, sourceDuration } = getSourceProperties(item);
 	const effectiveSourceFps = sourceFps ?? timelineFps;
+	if (hasVariableSpeed(item)) {
+		if (handle === 'start') {
+			const boundary = Math.round(
+				timelineOffsetToSourceFrame(item, clampedAmount, timelineFps) + (item.isReversed ? 1 : 0)
+			);
+			return item.isReversed ? { sourceEnd: boundary } : { sourceStart: boundary };
+		}
+		const boundary = Math.round(
+			timelineOffsetToSourceFrame(item, newDuration, timelineFps) + (item.isReversed ? 1 : 0)
+		);
+		return item.isReversed ? { sourceStart: boundary } : { sourceEnd: boundary };
+	}
 
 	if (handle === 'start') {
 		const sourceFramesDelta = timelineToSourceFrames(

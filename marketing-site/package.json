@@ -6,7 +6,7 @@
 		"dev": "bun ../scripts/sync-assets.mjs --surface marketing && bun scripts/sync-static-404.mjs && vite dev --host 0.0.0.0 --port 4322",
 		"build": "bun ../scripts/check-public-telemetry-env.mjs && bun run --cwd ../frontend sync && bun ../scripts/sync-assets.mjs --surface marketing && bun scripts/sync-static-404.mjs && vite build && bun ../scripts/generate-agent-surfaces.mjs --surface marketing && tsc --noEmit -p tsconfig.functions.json && wrangler pages functions build functions --outdir .wrangler/functions --project-directory . && bun scripts/check-routing-output.mjs && bun scripts/check-social-metadata-output.mjs",
 		"preview": "vite preview --host 0.0.0.0 --port 4322",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.functions.json && bun scripts/sync-static-404.mjs --check && bun scripts/check-comparison-evidence.mjs && bun ../scripts/marketing-claims.mjs"
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json && tsc --noEmit -p tsconfig.functions.json && bun scripts/sync-static-404.mjs --check && bun ../scripts/marketing-claims.mjs"
 	},
 	"dependencies": {
 		"@cloudflare/pages-plugin-vercel-og": "^0.1.2",

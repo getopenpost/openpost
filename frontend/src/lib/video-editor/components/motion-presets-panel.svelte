@@ -1,6 +1,12 @@
 <script lang="ts">
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
+	import { Slider } from '$lib/components/ui/slider';
 	import { m } from '$lib/paraglide/messages';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import { editorSession } from '$lib/video-editor/editor.svelte';
+	import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
+	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import type {
 		AnimationPreset,
 		MotionModifierChannel,
@@ -15,7 +21,6 @@
 	import {
 		MOTION_PRESET_CATEGORIES,
 		MOTION_PRESETS,
-		motionPresetScalesBox,
 		type MotionPreset,
 		type MotionPresetCategory,
 		type MotionPresetId
@@ -45,6 +50,17 @@
 	} from '$lib/video-editor/timeline/actions/motion-layers';
 	import { trimAnimationToItemBounds } from '$lib/video-editor/timeline/actions/trimmed-keyframes';
 	import { countTrimmedKeyframes } from '$lib/video-editor/timeline/trimmed-keyframes';
+	import {
+		animationKeyframeApplications,
+		clearManualKeyframesForItems,
+		manualKeyframeSummary,
+		removeAnimationKeyframeApplication
+	} from '$lib/video-editor/timeline/actions/keyframes';
+	import ListFilterIcon from '@lucide/svelte/icons/list-filter';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import XIcon from '@lucide/svelte/icons/x';
+	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
+	import Layers3Icon from '@lucide/svelte/icons/layers-3';
 	import SavedAnimationLibrary from './saved-animation-library.svelte';
 
 	let {
@@ -56,6 +72,8 @@
 		animationPresets = [],
 		onsavepreset = () => {},
 		ondeletepreset = () => {},
+		variant = 'motion',
+		onmotionclip,
 		onedit
 	}: {
 		itemId: string | null;
@@ -66,6 +84,8 @@
 		animationPresets?: AnimationPreset[];
 		onsavepreset?: (preset: AnimationPreset) => void;
 		ondeletepreset?: (presetId: string) => void;
+		variant?: 'edit' | 'motion';
+		onmotionclip?: () => void;
 		onedit: () => void;
 	} = $props();
 
@@ -77,6 +97,8 @@
 	let modifierEditSnapshot = $state<TimelineSnapshot | null>(null);
 	let modifierEditType = $state<MotionModifierType | null>(null);
 	let bakeConfirmationOpen = $state(false);
+	let searchQuery = $state('');
+	let compatibleOnly = $state(false);
 
 	const selectedIds = $derived(itemId ? [...new Set([itemId, ...itemIds])].filter(Boolean) : []);
 	const selectedItems = $derived(
@@ -85,6 +107,9 @@
 			return item ? [item] : [];
 		})
 	);
+	const selectedItem = $derived(selectedItems[0]);
+	const selectedAppliedItems = $derived(selectedItem ? [selectedItem] : []);
+	const selectedAppliedIds = $derived(selectedItem ? [selectedItem.id] : []);
 	const additiveLayers = $derived(() => {
 		const map = new Map<
 			string,
@@ -100,6 +125,29 @@
 	const liveMotionItemCount = $derived(
 		selectedItems.filter((item) => item.motionModifiers?.some((modifier) => modifier.enabled))
 			.length
+	);
+	const generatedApplications = $derived(animationKeyframeApplications(selectedAppliedItems));
+	const manualSummary = $derived(manualKeyframeSummary(selectedAppliedItems));
+	const activeModifiers = $derived(() => {
+		const types = new Set<MotionModifierType>();
+		for (const item of selectedItems) {
+			for (const modifier of item.motionModifiers ?? []) {
+				if (modifier.enabled) types.add(modifier.type);
+			}
+		}
+		return MOTION_MODULATORS.filter((modulator) => types.has(modulator.id));
+	});
+	const hasAppliedAnimation = $derived(
+		generatedApplications.length > 0 ||
+			manualSummary.keyframeCount > 0 ||
+			additiveLayers().length > 0 ||
+			activeModifiers().length > 0
+	);
+	const selectedIsMotionClip = $derived(
+		selectedItems.length === 1 &&
+			selectedItems[0]?.type === 'composition' &&
+			sequenceStore.compositionById.get(selectedItems[0].compositionId)?.editorKind ===
+				'composite-2d'
 	);
 	const parkedKeyframeCount = $derived(
 		selectedItems.reduce((count, item) => count + countTrimmedKeyframes(item), 0)
@@ -145,19 +193,33 @@
 		y: m.video_editor_motion_channel_y(),
 		width: m.video_editor_motion_channel_width(),
 		height: m.video_editor_motion_channel_height(),
+		scaleX: `${m.video_editor_expression_scale()} X`,
+		scaleY: `${m.video_editor_expression_scale()} Y`,
 		rotation: m.video_editor_motion_channel_rotation(),
 		opacity: m.video_editor_motion_channel_opacity()
 	});
 
 	function presetsFor(category: MotionPresetCategory): MotionPreset[] {
-		return MOTION_PRESETS.filter((preset) => preset.category === category);
+		const query = searchQuery.trim().toLocaleLowerCase();
+		return MOTION_PRESETS.filter(
+			(preset) =>
+				preset.category === category &&
+				(!query || labels[preset.id].toLocaleLowerCase().includes(query)) &&
+				(!compatibleOnly || disabledReason(preset) === null)
+		);
+	}
+
+	function visibleModulators(): MotionModulator[] {
+		const query = searchQuery.trim().toLocaleLowerCase();
+		return MOTION_MODULATORS.filter(
+			(modulator) =>
+				(!query || modulatorLabels[modulator.id].toLocaleLowerCase().includes(query)) &&
+				(!compatibleOnly || modulatorReason(modulator) === null)
+		);
 	}
 
 	function disabledReason(preset: MotionPreset): string | null {
 		if (selectedItems.length === 0) return m.video_editor_motion_select_clip();
-		if (selectedItems.some((item) => item.type === 'text') && motionPresetScalesBox(preset)) {
-			return m.video_editor_motion_text_incompatible();
-		}
 		if (selectedItems.some((item) => !canApplyMotionPreset(item, preset))) {
 			return m.video_editor_motion_incompatible();
 		}
@@ -166,9 +228,6 @@
 
 	function modulatorReason(modulator: MotionModulator): string | null {
 		if (selectedItems.length === 0) return m.video_editor_motion_select_clip();
-		if (modulator.scalesBox && selectedItems.some((item) => item.type === 'text')) {
-			return m.video_editor_motion_text_incompatible();
-		}
 		if (
 			selectedItems.some(
 				(item) =>
@@ -284,6 +343,7 @@
 			frameWidth,
 			frameHeight,
 			fps,
+			presetName: labels[preset.id],
 			settings: { durationScale, intensityScale, staggerFrames }
 		});
 		if (result.ok) {
@@ -342,6 +402,33 @@
 		}
 	}
 
+	function clearManualKeyframes(): void {
+		const result = clearManualKeyframesForItems(selectedAppliedIds);
+		if (result.keyframesRemoved === 0) return;
+		status = m.video_editor_motion_keyframes_cleared({
+			count: String(result.keyframesRemoved)
+		});
+		onedit();
+	}
+
+	function navigateToItemFrame(relativeFrame: number): void {
+		if (!selectedItem) return;
+		editorSession.pausePlayback();
+		setCurrentFrame(
+			selectedItem.from +
+				Math.max(0, Math.min(selectedItem.durationInFrames - 1, Math.round(relativeFrame)))
+		);
+	}
+
+	function removeGeneratedApplication(applicationId: string): void {
+		const result = removeAnimationKeyframeApplication(selectedAppliedIds, applicationId);
+		if (result.keyframesRemoved === 0) return;
+		status = m.video_editor_motion_keyframes_cleared({
+			count: String(result.keyframesRemoved)
+		});
+		onedit();
+	}
+
 	function confirmBake(): void {
 		const result = bakeMotionToKeyframes({ itemIds: selectedIds, fps, frameWidth, frameHeight });
 		bakeConfirmationOpen = false;
@@ -388,6 +475,156 @@
 		>
 	</div>
 
+	{#if variant === 'edit' && onmotionclip}
+		<section class="motion-clip-card">
+			<Layers3Icon aria-hidden="true" />
+			<div>
+				<h3>{m.video_editor_motion_clip_title()}</h3>
+				<p>
+					{selectedIsMotionClip
+						? m.video_editor_motion_clip_open_hint()
+						: m.video_editor_motion_clip_create_hint()}
+				</p>
+				<button type="button" onclick={onmotionclip}>
+					{#if selectedIsMotionClip}
+						<ExternalLinkIcon aria-hidden="true" />
+						{m.video_editor_motion_clip_open()}
+					{:else}
+						<Layers3Icon aria-hidden="true" />
+						{m.video_editor_motion_clip_create()}
+					{/if}
+				</button>
+			</div>
+		</section>
+	{/if}
+
+	<div class="motion-search-row">
+		<label class="motion-search">
+			<span class="sr-only">{m.video_editor_motion_search()}</span>
+			<SearchIcon aria-hidden="true" />
+			<Input
+				type="search"
+				bind:value={searchQuery}
+				placeholder={m.video_editor_motion_search()}
+				aria-label={m.video_editor_motion_search()}
+				class="h-8 min-h-0 border-[oklch(0.3_0.018_55)] bg-[oklch(0.135_0.01_55)] pr-8 pl-7 text-xs"
+			/>
+			{#if searchQuery}
+				<button
+					type="button"
+					class="motion-search-clear"
+					aria-label={m.video_editor_motion_search_clear()}
+					onclick={() => (searchQuery = '')}
+				>
+					<XIcon aria-hidden="true" />
+				</button>
+			{/if}
+		</label>
+		<button
+			type="button"
+			class="compatibility-filter"
+			class:active={compatibleOnly}
+			aria-pressed={compatibleOnly}
+			title={m.video_editor_motion_compatible_only_hint()}
+			onclick={() => (compatibleOnly = !compatibleOnly)}
+		>
+			<ListFilterIcon aria-hidden="true" />
+			{m.video_editor_motion_compatible_only()}
+		</button>
+	</div>
+
+	{#if hasAppliedAnimation}
+		<section class="motion-applied" aria-labelledby="motion-applied-title">
+			<h3 id="motion-applied-title">{m.video_editor_motion_applied_title()}</h3>
+			<div class="applied-list">
+				{#each generatedApplications as application (application.applicationId)}
+					<div class="applied-row">
+						<button
+							type="button"
+							class="applied-row-content"
+							onclick={() => navigateToItemFrame(application.firstFrame)}
+						>
+							<strong>{application.presetName}</strong>
+							<span
+								>{m.video_editor_motion_preset_keyframes_summary({
+									keyframes: String(application.keyframeCount),
+									properties: String(application.propertyCount)
+								})}</span
+							>
+						</button>
+						<button
+							type="button"
+							aria-label={m.video_editor_motion_layer_remove_named({
+								name: application.presetName
+							})}
+							onclick={() => removeGeneratedApplication(application.applicationId)}
+						>
+							{m.video_editor_motion_layer_remove()}
+						</button>
+					</div>
+				{/each}
+				{#if manualSummary.keyframeCount > 0}
+					<div class="applied-row">
+						<button
+							type="button"
+							class="applied-row-content"
+							disabled={manualSummary.firstFrame === null}
+							onclick={() => navigateToItemFrame(manualSummary.firstFrame ?? 0)}
+						>
+							<strong>{m.video_editor_motion_manual_keyframes()}</strong>
+							<span
+								>{m.video_editor_clear_keyframes_affected({
+									count: String(manualSummary.keyframeCount)
+								})}</span
+							>
+						</button>
+						<button type="button" onclick={clearManualKeyframes}>
+							{m.video_editor_clear_keyframes_confirm({
+								count: String(manualSummary.keyframeCount)
+							})}
+						</button>
+					</div>
+				{/if}
+				{#each additiveLayers() as layer (layer.id)}
+					<div class="applied-row">
+						<label>
+							<Checkbox
+								checked={layer.enabled}
+								aria-label={m.video_editor_motion_layer_toggle_named({ name: layer.name })}
+								onCheckedChange={(checked) => toggleLayer(layer.id, checked === true)}
+							/>
+							<span>{layer.name}</span>
+						</label>
+						<button
+							type="button"
+							aria-label={m.video_editor_motion_layer_remove_named({ name: layer.name })}
+							onclick={() => removeLayer(layer.id)}
+						>
+							{m.video_editor_motion_layer_remove()}
+						</button>
+					</div>
+				{/each}
+				{#each activeModifiers() as modulator (modulator.id)}
+					<div class="applied-row">
+						<div>
+							<strong>{modulatorLabels[modulator.id]}</strong>
+							<span>{m.video_editor_motion_live_badge()}</span>
+						</div>
+						<button
+							type="button"
+							aria-label={m.video_editor_motion_live_remove_named({
+								name: modulatorLabels[modulator.id]
+							})}
+							onclick={() => toggleModulator(modulator)}
+						>
+							{m.video_editor_motion_live_remove()}
+						</button>
+					</div>
+				{/each}
+			</div>
+		</section>
+	{/if}
+
 	<div class="mode-control" role="group" aria-label={m.video_editor_motion_apply_mode()}>
 		<button
 			type="button"
@@ -414,256 +651,232 @@
 		<label>
 			<span>{m.video_editor_motion_duration()}</span>
 			<output>{Math.round(durationScale * 100)}%</output>
-			<input type="range" min="0.25" max="3" step="0.05" bind:value={durationScale} />
+			<Slider
+				min={0.25}
+				max={3}
+				step={0.05}
+				bind:value={durationScale}
+				ariaLabel={m.video_editor_motion_duration()}
+			/>
 		</label>
 		<label>
 			<span>{m.video_editor_motion_intensity()}</span>
 			<output>{Math.round(intensityScale * 100)}%</output>
-			<input type="range" min="0" max="2" step="0.05" bind:value={intensityScale} />
+			<Slider
+				min={0}
+				max={2}
+				step={0.05}
+				bind:value={intensityScale}
+				ariaLabel={m.video_editor_motion_intensity()}
+			/>
 		</label>
 		<label>
 			<span>{m.video_editor_motion_stagger()}</span>
 			<output>{staggerFrames}</output>
-			<input type="range" min="0" max="30" step="1" bind:value={staggerFrames} />
+			<Slider
+				min={0}
+				max={30}
+				step={1}
+				bind:value={staggerFrames}
+				ariaLabel={m.video_editor_motion_stagger()}
+			/>
 		</label>
 	</div>
 
 	<div class="preset-library">
 		{#each MOTION_PRESET_CATEGORIES as category}
-			<section class="preset-group" aria-labelledby={`motion-category-${category}`}>
-				<h3 id={`motion-category-${category}`}>{categoryLabels[category]}</h3>
-				<div class="preset-grid">
-					{#each presetsFor(category) as preset (preset.id)}
-						{@const reason = disabledReason(preset)}
-						<div class="preset-tile-wrap">
-							<button
-								type="button"
-								class="preset-tile"
-								disabled={reason !== null}
-								title={reason ??
-									m.video_editor_motion_apply_named({ mode: modeLabel(), name: labels[preset.id] })}
-								aria-label={m.video_editor_motion_apply_named({
-									mode: modeLabel(),
-									name: labels[preset.id]
-								})}
-								data-kind={preset.thumbnail.kind}
-								data-category={preset.category}
-								data-angle={preset.thumbnail.angle ?? 0}
-								data-direction={preset.thumbnail.direction ?? 1}
-								onclick={() => applyPreset(preset)}
-							>
-								<span class="thumbnail" aria-hidden="true">
-									<span class="motion-glyph"></span>
-									<span class="motion-origin"></span>
-								</span>
-								<span>{labels[preset.id]}</span>
-							</button>
-							<button
-								type="button"
-								class="layer-add-btn"
-								disabled={reason !== null}
-								aria-label={m.video_editor_motion_add_layer_named({ name: labels[preset.id] })}
-								title={reason ?? m.video_editor_motion_add_layer_named({ name: labels[preset.id] })}
-								onclick={() => applyPresetAsLayer(preset)}
-							>
-								{m.video_editor_motion_add_layer()}
-							</button>
-						</div>
-					{/each}
-				</div>
-			</section>
-		{/each}
-	</div>
-
-	<section
-		class="motion-layers"
-		aria-labelledby="motion-layers-title"
-		data-testid="motion-layers-section"
-	>
-		<div class="layers-heading">
-			<h3 id="motion-layers-title">{m.video_editor_motion_layers_title()}</h3>
-			<span class="layers-count" aria-live="polite"
-				>{m.video_editor_motion_layers_count({ count: String(additiveLayers().length) })}</span
-			>
-		</div>
-		<p class="layers-hint">{m.video_editor_motion_layers_hint()}</p>
-		{#if additiveLayers().length === 0}
-			<p class="layers-empty">{m.video_editor_motion_layers_empty()}</p>
-		{:else}
-			<ul class="layers-list" role="list">
-				{#each additiveLayers() as layer (layer.id)}
-					<li class="layer-row">
-						<label class="layer-toggle">
-							<input
-								type="checkbox"
-								checked={layer.enabled}
-								aria-label={m.video_editor_motion_layer_toggle_named({ name: layer.name })}
-								onchange={(event) => toggleLayer(layer.id, event.currentTarget.checked)}
-							/>
-							<span class="layer-name" title={layer.name}>{layer.name}</span>
-							<span class="layer-badge">{m.video_editor_motion_layer_badge()}</span>
-						</label>
-						<button
-							type="button"
-							class="layer-remove"
-							aria-label={m.video_editor_motion_layer_remove_named({ name: layer.name })}
-							onclick={() => removeLayer(layer.id)}
-						>
-							{m.video_editor_motion_layer_remove()}
-						</button>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</section>
-
-	<section class="live-library" aria-labelledby="live-motion-title">
-		<div class="live-heading">
-			<div>
-				<h3 id="live-motion-title">{m.video_editor_motion_live_title()}</h3>
-				<p>{m.video_editor_motion_live_description()}</p>
-			</div>
-			<span>{m.video_editor_motion_live_badge()}</span>
-		</div>
-		<div class="preset-grid live-grid">
-			{#each MOTION_MODULATORS as modulator (modulator.id)}
-				{@const reason = modulatorReason(modulator)}
-				{@const active = modifierActiveOnEveryItem(modulator.id)}
-				<button
-					type="button"
-					class="preset-tile live-tile"
-					class:active
-					disabled={reason !== null}
-					aria-pressed={active}
-					aria-label={active
-						? m.video_editor_motion_live_remove_named({ name: modulatorLabels[modulator.id] })
-						: m.video_editor_motion_live_apply_named({ name: modulatorLabels[modulator.id] })}
-					title={reason ??
-						(active
-							? m.video_editor_motion_live_click_remove()
-							: m.video_editor_motion_live_click_apply())}
-					data-kind={modulator.thumbnail.kind}
-					onclick={() => toggleModulator(modulator)}
-				>
-					<span class="thumbnail" aria-hidden="true">
-						<span class="motion-glyph"></span>
-						<span class="motion-origin"></span>
-					</span>
-					<span>{modulatorLabels[modulator.id]}</span>
-					{#if active}<span class="active-dot">{m.video_editor_motion_live_badge()}</span>{/if}
-				</button>
-			{/each}
-		</div>
-
-		{#each MOTION_MODULATORS.filter( (modulator) => modifierActiveOnEveryItem(modulator.id) ) as modulator (modulator.id)}
-			{@const settings = currentModifierSettings(modulator.id)}
-			{#if settings}
-				<div class="live-editor">
-					<div class="live-editor-heading">
-						<strong>{modulatorLabels[modulator.id]}</strong>
-						<button type="button" onclick={() => toggleModulator(modulator)}>
-							{m.video_editor_motion_live_remove()}
-						</button>
-					</div>
-					<div class="generator-controls live-controls">
-						<label>
-							<span>{m.video_editor_motion_intensity()}</span>
-							<output>{Math.round(settings.intensityScale * 100)}%</output>
-							<input
-								type="range"
-								min="0"
-								max="2"
-								step="0.05"
-								value={settings.intensityScale}
-								oninput={(event) =>
-									liveModifierEdit(modulator.id, {
-										intensityScale: event.currentTarget.valueAsNumber
-									})}
-								onchange={(event) =>
-									commitModifierEdit(modulator.id, {
-										intensityScale: event.currentTarget.valueAsNumber
-									})}
-							/>
-						</label>
-						<label>
-							<span>{m.video_editor_motion_duration()}</span>
-							<output>{Math.round(settings.durationScale * 100)}%</output>
-							<input
-								type="range"
-								min="0.25"
-								max="3"
-								step="0.05"
-								value={settings.durationScale}
-								oninput={(event) =>
-									liveModifierEdit(modulator.id, {
-										durationScale: event.currentTarget.valueAsNumber
-									})}
-								onchange={(event) =>
-									commitModifierEdit(modulator.id, {
-										durationScale: event.currentTarget.valueAsNumber
-									})}
-							/>
-						</label>
-						{#each modulator.properties as channel}
-							<label>
-								<span>{channelLabels[channel]}</span>
-								<output>{Math.round((settings.channelGains[channel] ?? 1) * 100)}%</output>
-								<input
-									type="range"
-									min="0"
-									max="2"
-									step="0.05"
-									value={settings.channelGains[channel] ?? 1}
-									oninput={(event) =>
-										liveModifierEdit(modulator.id, {
-											channelGains: { [channel]: event.currentTarget.valueAsNumber }
+			{@const visiblePresets = presetsFor(category)}
+			{#if visiblePresets.length > 0}
+				<section class="preset-group" aria-labelledby={`motion-category-${category}`}>
+					<h3 id={`motion-category-${category}`}>{categoryLabels[category]}</h3>
+					<div class="preset-grid">
+						{#each visiblePresets as preset (preset.id)}
+							{@const reason = disabledReason(preset)}
+							<div class="preset-tile-wrap">
+								<button
+									type="button"
+									class="preset-tile"
+									disabled={reason !== null}
+									title={reason ??
+										m.video_editor_motion_apply_named({
+											mode: modeLabel(),
+											name: labels[preset.id]
 										})}
-									onchange={(event) =>
-										commitModifierEdit(modulator.id, {
-											channelGains: { [channel]: event.currentTarget.valueAsNumber }
-										})}
-								/>
-							</label>
+									aria-label={m.video_editor_motion_apply_named({
+										mode: modeLabel(),
+										name: labels[preset.id]
+									})}
+									data-kind={preset.thumbnail.kind}
+									data-category={preset.category}
+									data-angle={preset.thumbnail.angle ?? 0}
+									data-direction={preset.thumbnail.direction ?? 1}
+									onclick={() => applyPreset(preset)}
+								>
+									<span class="thumbnail" aria-hidden="true">
+										<span class="motion-glyph"></span>
+										<span class="motion-origin"></span>
+									</span>
+									<span>{labels[preset.id]}</span>
+								</button>
+								<button
+									type="button"
+									class="layer-add-btn"
+									disabled={reason !== null}
+									aria-label={m.video_editor_motion_add_layer_named({ name: labels[preset.id] })}
+									title={reason ??
+										m.video_editor_motion_add_layer_named({ name: labels[preset.id] })}
+									onclick={() => applyPresetAsLayer(preset)}
+								>
+									{m.video_editor_motion_add_layer()}
+								</button>
+							</div>
 						{/each}
 					</div>
-				</div>
+				</section>
 			{/if}
 		{/each}
+	</div>
+	{#if MOTION_PRESET_CATEGORIES.every((category) => presetsFor(category).length === 0) && visibleModulators().length === 0}
+		<p class="motion-no-results">{m.video_editor_motion_no_results()}</p>
+	{/if}
 
-		{#if liveMotionItemCount > 0}
-			<div class="motion-utility" data-kind="bake">
+	{#if visibleModulators().length > 0 || activeModifiers().length > 0}
+		<section class="live-library" aria-labelledby="live-motion-title">
+			<div class="live-heading">
 				<div>
-					<strong>{m.video_editor_motion_bake_title()}</strong>
-					<p>{m.video_editor_motion_bake_description({ count: String(liveMotionItemCount) })}</p>
+					<h3 id="live-motion-title">{m.video_editor_motion_live_title()}</h3>
+					<p>{m.video_editor_motion_live_description()}</p>
 				</div>
-				{#if bakeConfirmationOpen}
-					<div
-						class="confirmation"
-						role="group"
-						aria-label={m.video_editor_motion_bake_confirm_title()}
+				<span>{m.video_editor_motion_live_badge()}</span>
+			</div>
+			<div class="preset-grid live-grid">
+				{#each visibleModulators() as modulator (modulator.id)}
+					{@const reason = modulatorReason(modulator)}
+					{@const active = modifierActiveOnEveryItem(modulator.id)}
+					<button
+						type="button"
+						class="preset-tile live-tile"
+						class:active
+						disabled={reason !== null}
+						aria-pressed={active}
+						aria-label={active
+							? m.video_editor_motion_live_remove_named({ name: modulatorLabels[modulator.id] })
+							: m.video_editor_motion_live_apply_named({ name: modulatorLabels[modulator.id] })}
+						title={reason ??
+							(active
+								? m.video_editor_motion_live_click_remove()
+								: m.video_editor_motion_live_click_apply())}
+						data-kind={modulator.thumbnail.kind}
+						onclick={() => toggleModulator(modulator)}
 					>
-						<p>{m.video_editor_motion_bake_confirm_description()}</p>
-						<div>
-							<button
-								type="button"
-								class="secondary"
-								onclick={() => (bakeConfirmationOpen = false)}
-							>
-								{m.video_editor_motion_bake_cancel()}
-							</button>
-							<button type="button" class="primary" onclick={confirmBake}>
-								{m.video_editor_motion_bake_confirm()}
+						<span class="thumbnail" aria-hidden="true">
+							<span class="motion-glyph"></span>
+							<span class="motion-origin"></span>
+						</span>
+						<span>{modulatorLabels[modulator.id]}</span>
+						{#if active}<span class="active-dot">{m.video_editor_motion_live_badge()}</span>{/if}
+					</button>
+				{/each}
+			</div>
+
+			{#each MOTION_MODULATORS.filter( (modulator) => modifierActiveOnEveryItem(modulator.id) ) as modulator (modulator.id)}
+				{@const settings = currentModifierSettings(modulator.id)}
+				{#if settings}
+					<div class="live-editor">
+						<div class="live-editor-heading">
+							<strong>{modulatorLabels[modulator.id]}</strong>
+							<button type="button" onclick={() => toggleModulator(modulator)}>
+								{m.video_editor_motion_live_remove()}
 							</button>
 						</div>
+						<div class="generator-controls live-controls">
+							<label>
+								<span>{m.video_editor_motion_intensity()}</span>
+								<output>{Math.round(settings.intensityScale * 100)}%</output>
+								<Slider
+									min={0}
+									max={2}
+									step={0.05}
+									value={settings.intensityScale}
+									ariaLabel={m.video_editor_motion_intensity()}
+									onValueChange={(value) =>
+										liveModifierEdit(modulator.id, { intensityScale: value })}
+									onValueCommit={(value) =>
+										commitModifierEdit(modulator.id, { intensityScale: value })}
+								/>
+							</label>
+							<label>
+								<span>{m.video_editor_motion_duration()}</span>
+								<output>{Math.round(settings.durationScale * 100)}%</output>
+								<Slider
+									min={0.25}
+									max={3}
+									step={0.05}
+									value={settings.durationScale}
+									ariaLabel={m.video_editor_motion_duration()}
+									onValueChange={(value) =>
+										liveModifierEdit(modulator.id, { durationScale: value })}
+									onValueCommit={(value) =>
+										commitModifierEdit(modulator.id, { durationScale: value })}
+								/>
+							</label>
+							{#each modulator.properties as channel}
+								<label>
+									<span>{channelLabels[channel]}</span>
+									<output>{Math.round((settings.channelGains[channel] ?? 1) * 100)}%</output>
+									<Slider
+										min={0}
+										max={2}
+										step={0.05}
+										value={settings.channelGains[channel] ?? 1}
+										ariaLabel={channelLabels[channel]}
+										onValueChange={(value) =>
+											liveModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
+										onValueCommit={(value) =>
+											commitModifierEdit(modulator.id, { channelGains: { [channel]: value } })}
+									/>
+								</label>
+							{/each}
+						</div>
 					</div>
-				{:else}
-					<button type="button" class="primary" onclick={() => (bakeConfirmationOpen = true)}>
-						{m.video_editor_motion_bake_action()}
-					</button>
 				{/if}
-			</div>
-		{/if}
-	</section>
+			{/each}
+
+			{#if liveMotionItemCount > 0}
+				<div class="motion-utility" data-kind="bake">
+					<div>
+						<strong>{m.video_editor_motion_bake_title()}</strong>
+						<p>{m.video_editor_motion_bake_description({ count: String(liveMotionItemCount) })}</p>
+					</div>
+					{#if bakeConfirmationOpen}
+						<div
+							class="confirmation"
+							role="group"
+							aria-label={m.video_editor_motion_bake_confirm_title()}
+						>
+							<p>{m.video_editor_motion_bake_confirm_description()}</p>
+							<div>
+								<button
+									type="button"
+									class="secondary"
+									onclick={() => (bakeConfirmationOpen = false)}
+								>
+									{m.video_editor_motion_bake_cancel()}
+								</button>
+								<button type="button" class="primary" onclick={confirmBake}>
+									{m.video_editor_motion_bake_confirm()}
+								</button>
+							</div>
+						</div>
+					{:else}
+						<button type="button" class="primary" onclick={() => (bakeConfirmationOpen = true)}>
+							{m.video_editor_motion_bake_action()}
+						</button>
+					{/if}
+				</div>
+			{/if}
+		</section>
+	{/if}
 
 	{#if parkedKeyframeCount > 0}
 		<section class="motion-utility trim-utility" aria-labelledby="trim-animation-title">
@@ -682,6 +895,9 @@
 		{itemIds}
 		presets={animationPresets}
 		{mode}
+		query={searchQuery}
+		{compatibleOnly}
+		showFilters={false}
 		{onsavepreset}
 		{ondeletepreset}
 		{onedit}
@@ -729,6 +945,205 @@
 		font-size: 0.5625rem;
 		color: oklch(0.72 0.02 68);
 	}
+	.motion-clip-card {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 0.55rem;
+		margin-top: 0.65rem;
+		border: 1px solid oklch(0.3 0.024 55);
+		border-radius: 0.45rem;
+		padding: 0.55rem;
+		background: oklch(0.18 0.015 55 / 0.8);
+	}
+	.motion-clip-card > :global(svg) {
+		width: 1rem;
+		height: 1rem;
+		color: oklch(0.68 0.11 45);
+	}
+	.motion-clip-card h3 {
+		font-size: 0.625rem;
+		font-weight: 700;
+	}
+	.motion-clip-card p {
+		margin-top: 0.15rem;
+		font-size: 0.55rem;
+		line-height: 1.4;
+		color: oklch(0.64 0.018 65);
+	}
+	.motion-clip-card button {
+		display: flex;
+		min-height: 1.75rem;
+		align-items: center;
+		gap: 0.3rem;
+		margin-top: 0.45rem;
+		border: 1px solid oklch(0.38 0.045 45);
+		border-radius: 0.32rem;
+		padding: 0.25rem 0.5rem;
+		background: oklch(0.24 0.025 45);
+		color: oklch(0.88 0.025 60);
+		font-size: 0.55rem;
+		font-weight: 700;
+		cursor: pointer;
+	}
+	.motion-clip-card button :global(svg) {
+		width: 0.75rem;
+		height: 0.75rem;
+	}
+	.motion-clip-card button:hover {
+		background: oklch(0.3 0.04 45);
+	}
+	.motion-clip-card button:focus-visible {
+		outline: 2px solid oklch(0.66 0.14 45);
+		outline-offset: 2px;
+	}
+	.motion-search-row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		gap: 0.35rem;
+		margin-top: 0.65rem;
+	}
+	.motion-search {
+		position: relative;
+		min-width: 0;
+	}
+	.motion-search > :global(svg:first-of-type) {
+		position: absolute;
+		top: 50%;
+		left: 0.5rem;
+		z-index: 1;
+		width: 0.8rem;
+		height: 0.8rem;
+		transform: translateY(-50%);
+		color: oklch(0.58 0.016 65);
+	}
+	.motion-search-clear {
+		position: absolute;
+		top: 50%;
+		right: 0.25rem;
+		display: grid;
+		width: 1.5rem;
+		height: 1.5rem;
+		place-items: center;
+		border: 0;
+		border-radius: 0.25rem;
+		background: transparent;
+		transform: translateY(-50%);
+		color: oklch(0.65 0.018 65);
+		cursor: pointer;
+	}
+	.motion-search-clear :global(svg),
+	.compatibility-filter :global(svg) {
+		width: 0.75rem;
+		height: 0.75rem;
+	}
+	.compatibility-filter {
+		display: flex;
+		min-height: 2rem;
+		align-items: center;
+		gap: 0.3rem;
+		border: 1px solid oklch(0.3 0.018 55);
+		border-radius: 0.35rem;
+		padding: 0.3rem 0.45rem;
+		background: oklch(0.17 0.012 55);
+		color: oklch(0.68 0.018 65);
+		font-size: 0.55rem;
+		font-weight: 650;
+		cursor: pointer;
+	}
+	.compatibility-filter.active {
+		border-color: oklch(0.5 0.09 45);
+		background: oklch(0.27 0.045 45);
+		color: oklch(0.92 0.03 60);
+	}
+	.motion-applied {
+		display: grid;
+		gap: 0.4rem;
+		margin-top: 0.65rem;
+		border: 1px solid oklch(0.3 0.024 55);
+		border-radius: 0.45rem;
+		padding: 0.5rem;
+		background: oklch(0.18 0.015 55 / 0.8);
+	}
+	.motion-applied > h3 {
+		font-size: 0.55rem;
+		font-weight: 750;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: oklch(0.68 0.02 65);
+	}
+	.applied-list {
+		display: grid;
+		gap: 0.3rem;
+	}
+	.applied-row {
+		display: flex;
+		min-height: 2rem;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		border-radius: 0.32rem;
+		padding: 0.3rem 0.4rem;
+		background: oklch(0.145 0.01 55);
+	}
+	.applied-row > div,
+	.applied-row > label,
+	.applied-row-content {
+		display: flex;
+		min-width: 0;
+		min-height: 2rem;
+		align-items: center;
+		gap: 0.35rem;
+	}
+	.applied-row strong,
+	.applied-row label > span {
+		overflow: hidden;
+		font-size: 0.6rem;
+		font-weight: 650;
+		color: oklch(0.88 0.018 65);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.applied-row div > span,
+	.applied-row-content > span {
+		font-size: 0.5rem;
+		color: oklch(0.6 0.018 65);
+	}
+	.applied-row button {
+		flex: none;
+		min-height: 1.55rem;
+		border: 0;
+		border-radius: 0.28rem;
+		padding: 0.2rem 0.4rem;
+		background: transparent;
+		color: oklch(0.72 0.055 35);
+		font-size: 0.53rem;
+		cursor: pointer;
+	}
+	.applied-row .applied-row-content {
+		flex: 1;
+		justify-content: flex-start;
+		min-width: 0;
+		padding: 0.2rem;
+		color: inherit;
+		text-align: left;
+	}
+	.applied-row .applied-row-content:hover:not(:disabled) {
+		background: oklch(0.2 0.015 55);
+	}
+	.applied-row .applied-row-content:disabled {
+		cursor: default;
+	}
+	.applied-row button:hover,
+	.motion-search-clear:hover {
+		background: oklch(0.25 0.025 35);
+		color: oklch(0.9 0.055 35);
+	}
+	.applied-row button:focus-visible,
+	.motion-search-clear:focus-visible,
+	.compatibility-filter:focus-visible {
+		outline: 2px solid oklch(0.66 0.14 45);
+		outline-offset: 2px;
+	}
 	.mode-control {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
@@ -754,8 +1169,7 @@
 		box-shadow: 0 1px 2px oklch(0.08 0.01 55 / 0.45);
 	}
 	.mode-control button:focus-visible,
-	.preset-tile:focus-visible,
-	.generator-controls input:focus-visible {
+	.preset-tile:focus-visible {
 		outline: 2px solid oklch(0.66 0.14 45);
 		outline-offset: 2px;
 	}
@@ -782,12 +1196,8 @@
 		text-align: right;
 		color: oklch(0.68 0.11 45);
 	}
-	.generator-controls input {
+	.generator-controls label :global([data-orientation='horizontal']) {
 		grid-column: 1 / -1;
-		width: 100%;
-		height: 1rem;
-		accent-color: oklch(0.66 0.14 45);
-		cursor: pointer;
 	}
 	.preset-library {
 		display: grid;
@@ -1098,119 +1508,14 @@
 		outline: 2px solid oklch(0.66 0.14 45);
 		outline-offset: 2px;
 	}
-	.motion-layers {
-		margin-top: 0.75rem;
-		border: 1px solid oklch(0.28 0.02 58);
-		border-radius: 0.45rem;
-		padding: 0.55rem;
-		background: oklch(0.17 0.01 55 / 0.72);
-	}
-	.layers-heading {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
-	.layers-heading h3 {
-		font-size: 0.625rem;
-		font-weight: 700;
-		color: oklch(0.88 0.02 65);
-	}
-	.layers-count {
-		border-radius: 999px;
-		background: oklch(0.62 0.12 240 / 0.14);
-		padding: 0.1rem 0.35rem;
-		font-size: 0.5rem;
-		font-weight: 700;
-		color: oklch(0.75 0.11 240);
-	}
-	.layers-hint {
-		margin-top: 0.2rem;
-		font-size: 0.5625rem;
-		line-height: 1.35;
-		color: oklch(0.64 0.018 65);
-	}
-	.layers-empty {
-		margin-top: 0.35rem;
-		font-size: 0.5625rem;
-		color: oklch(0.65 0.018 65);
-		font-style: italic;
-	}
-	.layers-list {
-		display: grid;
-		gap: 0.35rem;
-		margin-top: 0.45rem;
-		padding: 0;
-		list-style: none;
-	}
-	.layer-row {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		min-height: 2rem;
-		border: 1px solid oklch(0.3 0.02 58);
-		border-radius: 0.35rem;
-		padding: 0.3rem 0.4rem;
-		background: oklch(0.19 0.012 55);
-	}
-	.layer-toggle {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		min-width: 0;
-		font-size: 0.6rem;
-		color: oklch(0.9 0.015 65);
-		cursor: pointer;
-	}
-	.layer-toggle input {
-		flex: none;
-		accent-color: oklch(0.66 0.14 45);
-	}
-	.layer-name {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.layer-badge {
-		flex: none;
-		border-radius: 999px;
-		background: oklch(0.55 0.1 240 / 0.18);
-		padding: 0.1rem 0.3rem;
-		font-size: 0.5rem;
-		font-weight: 700;
-		letter-spacing: 0.04em;
-		color: oklch(0.75 0.11 240);
-		text-transform: uppercase;
-	}
-	.layer-remove {
-		flex: none;
-		min-height: 1.6rem;
-		border: 1px solid oklch(0.34 0.04 28);
-		border-radius: 0.3rem;
-		padding: 0.15rem 0.4rem;
-		background: oklch(0.21 0.015 28);
-		color: oklch(0.78 0.05 28);
-		font-size: 0.55rem;
-		cursor: pointer;
-	}
-	.layer-remove:hover {
-		background: oklch(0.27 0.02 28);
-		color: oklch(0.92 0.06 28);
-	}
-	.layer-remove:focus-visible,
-	.layer-toggle input:focus-visible {
-		outline: 2px solid oklch(0.66 0.14 45);
-		outline-offset: 2px;
-	}
 	@media (max-width: 640px) {
 		.layer-add-btn,
-		.layer-toggle,
-		.layer-remove {
+		.applied-row,
+		.applied-row > label,
+		.applied-row button,
+		.motion-clip-card button,
+		.compatibility-filter {
 			min-height: 2.75rem;
-		}
-		.layer-toggle {
-			flex: 1;
 		}
 	}
 	@media (max-width: 360px) {
@@ -1224,6 +1529,15 @@
 	.motion-status {
 		min-height: 0.9rem;
 		color: oklch(0.76 0.055 58);
+	}
+	.motion-no-results {
+		margin-top: 0.75rem;
+		border: 1px dashed oklch(0.3 0.018 55);
+		border-radius: 0.4rem;
+		padding: 0.65rem;
+		text-align: center;
+		font-size: 0.6rem;
+		color: oklch(0.62 0.018 65);
 	}
 	@keyframes ve-motion-fade {
 		from {

@@ -112,10 +112,10 @@ function clampedEffect(effect: TextMotionEffect, update: TextMotionEffectUpdate)
 		...effect,
 		...update,
 		...(update.durationFrames !== undefined && {
-			durationFrames: Math.max(1, Math.min(90, Math.round(update.durationFrames)))
+			durationFrames: Math.max(1, Math.round(update.durationFrames))
 		}),
 		...(update.offsetFrames !== undefined && {
-			offsetFrames: Math.max(0, Math.min(90, Math.round(update.offsetFrames)))
+			offsetFrames: Math.max(0, Math.round(update.offsetFrames))
 		}),
 		...(update.staggerFrames !== undefined && {
 			staggerFrames: Math.max(0, Math.min(30, Math.round(update.staggerFrames)))

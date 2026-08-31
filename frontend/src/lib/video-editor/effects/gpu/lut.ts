@@ -107,8 +107,10 @@ function parseDataLine(line: string, state: CubeParseState): void {
 	const offset = state.entryIndex * 4;
 	for (let c = 0; c < 3; c++) {
 		const raw = parseFloatToken(tokens[c], `data entry ${state.entryIndex}`);
-		const min = state.domainMin[c] as number;
-		const max = state.domainMax[c] as number;
+		const min = state.domainMin[c];
+		const max = state.domainMax[c];
+		if (min === undefined || max === undefined)
+			throw new Error('Invalid .cube file: incomplete DOMAIN_MIN or DOMAIN_MAX');
 		state.data[offset + c] = quantizeChannel(raw, min, max);
 	}
 	state.data[offset + 3] = 255;
@@ -247,7 +249,7 @@ export const lut: GpuShaderDefinition = {
 	category: 'color',
 	entryPoint: 'lutFragment',
 	fragmentSource: `
-uniform sampler3D uDataTex;
+uniform highp sampler3D uDataTex;
 uniform float u_lutSize;
 uniform float u_intensity;
 vec4 lutFragment(vec2 vUv) {
@@ -280,7 +282,12 @@ vec4 lutFragment(vec2 vUv) {
 				}
 			}
 			const fallbackSize = size >= MIN_LUT_SIZE && size <= MAX_LUT_SIZE ? size : 2;
-			return { width: fallbackSize, height: fallbackSize, depth: fallbackSize, data: createIdentityLutData(fallbackSize) };
+			return {
+				width: fallbackSize,
+				height: fallbackSize,
+				depth: fallbackSize,
+				data: createIdentityLutData(fallbackSize)
+			};
 		}
 	}
 };

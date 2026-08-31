@@ -25,6 +25,25 @@ export function canJoinMultipleItems(items: TimelineItem[]): boolean {
 	return sorted.slice(1).every((item, index) => canJoinItems(sorted[index]!, item));
 }
 
+export interface JoinableItemNeighbors {
+	previous?: TimelineItem;
+	next?: TimelineItem;
+}
+
+/** Resolve the continuous split siblings immediately before and after one clip. */
+export function joinableItemNeighbors(
+	items: readonly TimelineItem[],
+	item: TimelineItem
+): JoinableItemNeighbors {
+	const previous = items
+		.filter((candidate) => canJoinItems(candidate, item))
+		.toSorted((left, right) => right.from - left.from || left.id.localeCompare(right.id))[0];
+	const next = items
+		.filter((candidate) => canJoinItems(item, candidate))
+		.toSorted((left, right) => left.from - right.from || left.id.localeCompare(right.id))[0];
+	return { previous, next };
+}
+
 /** Merge one validated chain while preserving the first timeline item's identity. */
 export function joinedTimelineItem(items: TimelineItem[]): TimelineItem | null {
 	const sorted = items.toSorted((left, right) => left.from - right.from);

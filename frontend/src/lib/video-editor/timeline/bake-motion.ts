@@ -74,6 +74,10 @@ function resolvedValue(
 			return Math.max(1, transform.width ?? item.sourceWidth ?? context.frameWidth);
 		case 'height':
 			return Math.max(1, transform.height ?? item.sourceHeight ?? context.frameHeight);
+		case 'scaleX':
+			return transform.scaleX ?? 1;
+		case 'scaleY':
+			return transform.scaleY ?? 1;
 		case 'rotation':
 			return transform.rotation ?? 0;
 		case 'opacity':

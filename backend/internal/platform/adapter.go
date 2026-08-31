@@ -230,6 +230,7 @@ type UserProfile struct {
 	ID              string
 	Username        string
 	DisplayName     string
+	AvatarURL       string
 	CapabilityState map[string]string
 }
 

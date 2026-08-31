@@ -1,10 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BufferTarget, Output, VideoSample, VideoSampleSource, WebMOutputFormat } from 'mediabunny';
-import { readBlob } from '../workspace-fs/fs-primitives';
-import { mediaSourceByFileName, mediaThumbnailPath } from '../workspace-fs/paths';
+import { readBlob, readJson } from '../workspace-fs/fs-primitives';
+import {
+	mediaMetadataPath,
+	mediaSourceByFileName,
+	mediaThumbnailPath
+} from '../workspace-fs/paths';
 import { setWorkspaceRoot } from '../workspace-fs/root';
 import { importGeneratedVideo } from './import.svelte';
 import { mediaPool } from './pool.svelte';
+import type { MediaMetadata } from './types';
 
 let workspaceName: string | null = null;
 
@@ -65,10 +70,18 @@ describe('generated video import', () => {
 			codec: 'vp8'
 		});
 		expect(imported.tags).toEqual(expect.arrayContaining(['video', 'upscaled']));
+		expect(imported.frameRateMetrics).toMatchObject({
+			bestGuessFrameRate: 2,
+			frameRateIsConstant: true,
+			underlyingFrameRate: 2
+		});
 		expect(mediaPool.get(imported.id)).toEqual(imported);
 		expect(
 			await readBlob(workspace, mediaSourceByFileName(imported.id, imported.fileName))
 		).not.toBeNull();
 		expect(await readBlob(workspace, mediaThumbnailPath(imported.id))).not.toBeNull();
+		expect(
+			(await readJson<MediaMetadata>(workspace, mediaMetadataPath(imported.id)))?.frameRateMetrics
+		).toEqual(imported.frameRateMetrics);
 	});
 });

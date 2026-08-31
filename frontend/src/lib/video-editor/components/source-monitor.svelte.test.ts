@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { MediaMetadata } from '$lib/video-editor/media/types';
 import { mediaPool } from '$lib/video-editor/media/pool.svelte';
@@ -9,6 +10,9 @@ import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.
 import { setWorkspaceRoot } from '$lib/video-editor/workspace-fs/root';
 import SourceMonitor from './source-monitor.svelte';
 import proResFixtureUrl from '../media/fixtures/prores-proxy.mov?url';
+import { clearWaveformCache } from '$lib/video-editor/media/waveform-client';
+import { saveWaveform } from '$lib/video-editor/media/waveform-persistence';
+import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 
 const videoTrack: TimelineTrack = {
 	id: 'video',
@@ -51,9 +55,13 @@ const source: MediaMetadata = {
 	tags: ['video']
 };
 
-function setRange(input: HTMLInputElement, value: number): void {
-	input.value = String(value);
-	input.dispatchEvent(new Event('input', { bubbles: true }));
+async function setSlider(slider: Element, value: number): Promise<void> {
+	if (!(slider instanceof HTMLElement)) throw new Error('Slider control is missing.');
+	slider.focus();
+	await userEvent.keyboard('{Home}');
+	for (let step = 0; step < value; step += 1) {
+		await userEvent.keyboard('{ArrowRight}');
+	}
 }
 
 function linkedFileHandle(name: string, getFile: () => Promise<File>): FileSystemFileHandle {
@@ -75,6 +83,7 @@ function linkedFileHandle(name: string, getFile: () => Promise<File>): FileSyste
 }
 
 beforeEach(() => {
+	keyboardShortcuts.resetAll();
 	commandHistory.clearHistory();
 	mediaPool.clear();
 	timelineStore.__resetForTesting();
@@ -104,11 +113,29 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	keyboardShortcuts.resetAll();
 	mediaPool.clear();
 	setWorkspaceRoot(null);
+	vi.restoreAllMocks();
 });
 
 describe('SourceMonitor', () => {
+	it('uses Space for source playback without clicking the focused play button', async () => {
+		const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+		const screen = await render(SourceMonitor, {
+			mediaId: source.id,
+			onclose: vi.fn(),
+			onedit: vi.fn()
+		});
+		const playButton = screen.getByRole('button', { name: 'Play', exact: true });
+		await expect.element(playButton).toBeVisible();
+		playButton.element().focus();
+
+		await userEvent.keyboard(' ');
+
+		expect(play).toHaveBeenCalledOnce();
+	});
+
 	it('prepares a playable proxy while keeping original audio for a ProRes source', async () => {
 		const response = await fetch(proResFixtureUrl);
 		expect(response.ok).toBe(true);
@@ -157,13 +184,11 @@ describe('SourceMonitor', () => {
 		});
 
 		await expect.element(screen.getByText(source.fileName)).toBeVisible();
-		const position = screen.getByLabelText('Source position').element();
-		if (!(position instanceof HTMLInputElement))
-			throw new Error('Source position is not a slider.');
-		setRange(position, 30);
-		await screen.getByRole('button', { name: 'Mark in (I)' }).click();
-		setRange(position, 59);
-		await screen.getByRole('button', { name: 'Mark out (O)' }).click();
+		const position = screen.getByRole('slider', { name: 'Source position' });
+		await setSlider(position.element(), 30);
+		await screen.getByRole('button', { name: 'Mark in' }).click();
+		await setSlider(position.element(), 59);
+		await screen.getByRole('button', { name: 'Mark out' }).click();
 		await screen.getByRole('button', { name: 'Insert edit ,' }).click();
 
 		expect(timelineStore.currentFrame).toBe(50);
@@ -191,5 +216,148 @@ describe('SourceMonitor', () => {
 		const monitor = screen.getByRole('region', { name: 'Source' }).element();
 		if (!(monitor instanceof HTMLElement)) throw new Error('Source monitor region is missing.');
 		expect(monitor.scrollWidth).toBeLessThanOrEqual(monitor.clientWidth);
+	});
+
+	it('owns J/K/L while focused and exposes each shuttle transition', async () => {
+		vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+		vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(function () {
+			queueMicrotask(() => this.dispatchEvent(new Event('pause')));
+		});
+		const screen = await render(SourceMonitor, {
+			mediaId: source.id,
+			onclose: vi.fn(),
+			onedit: vi.fn()
+		});
+		const monitor = screen.getByRole('region', { name: 'Source' }).element();
+		if (!(monitor instanceof HTMLElement)) throw new Error('Source monitor region is missing.');
+
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', bubbles: true }));
+		await expect.element(screen.getByLabelText('Forward shuttle 1×')).toBeVisible();
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'l', code: 'KeyL', bubbles: true }));
+		await expect.element(screen.getByLabelText('Forward shuttle 2×')).toBeVisible();
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', code: 'KeyJ', bubbles: true }));
+		await expect.element(screen.getByLabelText('Reverse shuttle 1×')).toBeVisible();
+		await new Promise((resolve) => queueMicrotask(resolve));
+		await expect.element(screen.getByLabelText('Reverse shuttle 1×')).toBeVisible();
+		monitor.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', bubbles: true }));
+		await expect
+			.poll(() => screen.container.querySelector('[data-testid="shuttle-indicator"]'))
+			.toBeNull();
+	});
+
+	it('replays the marked source range from its in point', async () => {
+		const screen = await render(SourceMonitor, {
+			mediaId: source.id,
+			onclose: vi.fn(),
+			onedit: vi.fn()
+		});
+		const position = screen.getByRole('slider', { name: 'Source position' });
+		const replay = screen.getByRole('button', { name: 'Play in to out' });
+		expect(replay.element()).toBeDisabled();
+		await setSlider(position.element(), 30);
+		await screen.getByRole('button', { name: 'Mark in' }).click();
+		await setSlider(position.element(), 59);
+		await screen.getByRole('button', { name: 'Mark out' }).click();
+
+		await replay.click();
+
+		await expect.element(position).toHaveAttribute('aria-valuenow', '30');
+		expect(replay.element()).toBeEnabled();
+	});
+
+	it('goes to the last source frame and honors remapped source edit shortcuts', async () => {
+		keyboardShortcuts.setBinding('MARK_IN', 'alt+9');
+		keyboardShortcuts.setBinding('MARK_OUT', 'alt+0');
+		keyboardShortcuts.setBinding('INSERT_EDIT', 'alt+7');
+		const screen = await render(SourceMonitor, {
+			mediaId: source.id,
+			onclose: vi.fn(),
+			onedit: vi.fn()
+		});
+		const monitor = screen.getByRole('region', { name: 'Source' }).element();
+		const position = screen.getByRole('slider', { name: 'Source position' });
+		if (!(monitor instanceof HTMLElement)) {
+			throw new Error('Source monitor controls are missing.');
+		}
+
+		await screen.getByRole('button', { name: 'Go to end' }).click();
+		await expect.element(position).toHaveAttribute('aria-valuenow', '299');
+
+		await setSlider(position.element(), 30);
+		monitor.dispatchEvent(
+			new KeyboardEvent('keydown', { code: 'Digit9', key: '9', altKey: true, bubbles: true })
+		);
+		await setSlider(position.element(), 59);
+		monitor.dispatchEvent(
+			new KeyboardEvent('keydown', { code: 'Digit0', key: '0', altKey: true, bubbles: true })
+		);
+		monitor.dispatchEvent(
+			new KeyboardEvent('keydown', { code: 'Digit7', key: '7', altKey: true, bubbles: true })
+		);
+
+		expect(
+			timelineStore.items.map((item) => [item.type, item.sourceStart, item.sourceEnd])
+		).toEqual([
+			['video', 30, 60],
+			['audio', 30, 60]
+		]);
+		expect(screen.getByRole('button', { name: 'Insert edit Alt+7' })).toBeDefined();
+	});
+
+	it('shows a seekable overview and detail waveform for audio sources', async () => {
+		const mediaId = `source-audio-${crypto.randomUUID()}`;
+		const audioFile = new File([new Uint8Array(256)], 'narration.wav', { type: 'audio/wav' });
+		mediaPool.clear();
+		mediaPool.upsert(
+			{
+				id: mediaId,
+				storageType: 'handle',
+				fileName: audioFile.name,
+				fileSize: audioFile.size,
+				mimeType: audioFile.type,
+				duration: 10,
+				width: 0,
+				height: 0,
+				fps: 0,
+				codec: 'pcm_s16le',
+				bitrate: 128_000,
+				tags: ['audio'],
+				fileHandle: linkedFileHandle(audioFile.name, async () => audioFile)
+			},
+			'ready'
+		);
+		await saveWaveform(mediaId, {
+			peaks: Float32Array.from({ length: 5_000 }, (_, index) => (index % 250) / 250),
+			durationSeconds: 10,
+			samplesPerSecond: 500,
+			loadedSamples: 5_000,
+			isComplete: true
+		});
+
+		try {
+			const screen = await render(SourceMonitor, {
+				mediaId,
+				onclose: vi.fn(),
+				onedit: vi.fn()
+			});
+			screen.container.style.width = '320px';
+			screen.container.style.height = '720px';
+			const waveformSlider = screen.getByRole('slider', {
+				name: 'Source audio waveform'
+			});
+			await expect.element(waveformSlider).toBeVisible();
+			await vi.waitFor(() =>
+				expect(waveformSlider.element().querySelector('canvas')).not.toBeNull()
+			);
+
+			waveformSlider
+				.element()
+				.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+			const position = screen.getByRole('slider', { name: 'Source position' });
+			await expect.element(position).toHaveAttribute('aria-valuenow', '299');
+			expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+		} finally {
+			await clearWaveformCache(mediaId);
+		}
 	});
 });

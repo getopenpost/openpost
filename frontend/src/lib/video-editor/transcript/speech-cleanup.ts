@@ -1,6 +1,13 @@
 import type { SubtitleCue, TimelineItem } from '../project/types';
 import type { SourceRange } from '../timeline/actions/range-removal';
-import { getItemSourceSpanSeconds } from '../timeline/utils/media-item-frames';
+import {
+	getItemSourceSpanSeconds,
+	sourceSecondsToTimelineFrame
+} from '../timeline/utils/media-item-frames';
+import {
+	captionFramesToSourceRange,
+	resolveTranscriptCaptionTiming
+} from './caption-source-mapping';
 import { buildCueText, getCueFormatFlags, parseSubtitleCueText } from './subtitle-cue-format';
 
 const SIMPLE_FILLERS = [
@@ -83,12 +90,15 @@ export const FILLER_REMOVAL_PRESETS: Array<{
 export interface TranscriptSourceWord {
 	id: string;
 	mediaId: string;
+	sourceItemId?: string;
 	subtitleItemId: string;
 	cueId: string;
 	wordId: string;
 	text: string;
 	start: number;
 	end: number;
+	timelineStartFrame?: number;
+	timelineEndFrame?: number;
 }
 
 export interface FillerRange extends SourceRange {
@@ -157,6 +167,27 @@ function selectedMediaSpans(
 	return spans;
 }
 
+function selectedMediaItems(
+	items: readonly TimelineItem[],
+	itemIds: readonly string[]
+): Map<string, TimelineItem[]> {
+	const selected = new Set(itemIds);
+	const byMediaId = new Map<string, TimelineItem[]>();
+	for (const item of items) {
+		if (!selected.has(item.id) || (item.type !== 'video' && item.type !== 'audio') || !item.mediaId)
+			continue;
+		const candidates = byMediaId.get(item.mediaId) ?? [];
+		candidates.push(item);
+		byMediaId.set(item.mediaId, candidates);
+	}
+	for (const candidates of byMediaId.values()) {
+		candidates.sort(
+			(left, right) => Number(left.type !== 'video') - Number(right.type !== 'video')
+		);
+	}
+	return byMediaId;
+}
+
 function overlapsSelectedSpan(word: SourceRange, spans: readonly SourceRange[]): boolean {
 	return spans.some((span) => word.start < span.end && word.end > span.start);
 }
@@ -167,8 +198,8 @@ export function collectTranscriptSourceWords(
 	itemIds: readonly string[],
 	timelineFps: number
 ): TranscriptSourceWord[] {
-	const spansByMediaId = selectedMediaSpans(items, itemIds, timelineFps);
-	if (spansByMediaId.size === 0) return [];
+	const selectedItemsByMediaId = selectedMediaItems(items, itemIds);
+	if (selectedItemsByMediaId.size === 0) return [];
 	const words: TranscriptSourceWord[] = [];
 	const seen = new Set<string>();
 
@@ -177,44 +208,58 @@ export function collectTranscriptSourceWords(
 		if (
 			subtitle.type !== 'subtitle' ||
 			captionSource?.type !== 'transcript' ||
-			!spansByMediaId.has(captionSource.mediaId)
+			!selectedItemsByMediaId.has(captionSource.mediaId)
 		)
 			continue;
 		const source = sourceItemForCaption(items, captionSource.clipId);
-		const sourceFps = source?.sourceFps && source.sourceFps > 0 ? source.sourceFps : timelineFps;
-		const sourceStartSeconds =
-			captionSource.sourceStartSeconds ?? Math.max(0, (source?.sourceStart ?? 0) / sourceFps);
-		const playbackSpeed =
-			captionSource.playbackSpeed && captionSource.playbackSpeed > 0
-				? captionSource.playbackSpeed
-				: source?.speed && source.speed > 0
-					? source.speed
-					: 1;
+		const timing = resolveTranscriptCaptionTiming(captionSource, source, timelineFps);
 
 		for (const cue of subtitle.cues ?? []) {
 			for (const word of cue.words ?? []) {
-				const start = sourceStartSeconds + (word.startFrame * playbackSpeed) / timelineFps;
-				const end = sourceStartSeconds + (word.endFrame * playbackSpeed) / timelineFps;
-				const spans = spansByMediaId.get(captionSource.mediaId) ?? [];
-				if (end <= start || !overlapsSelectedSpan({ start, end }, spans)) continue;
-				const key = `${captionSource.mediaId}:${start.toFixed(6)}:${end.toFixed(6)}:${normalizeWord(word.text)}`;
-				if (seen.has(key)) continue;
-				seen.add(key);
-				words.push({
-					id: `${subtitle.id}:${cue.id}:${word.id}`,
-					mediaId: captionSource.mediaId,
-					subtitleItemId: subtitle.id,
-					cueId: cue.id,
-					wordId: word.id,
-					text: word.text,
-					start,
-					end
-				});
+				const { start, end } = captionFramesToSourceRange(
+					word.startFrame,
+					word.endFrame,
+					timing,
+					timelineFps
+				);
+				if (end <= start) continue;
+				for (const selectedItem of selectedItemsByMediaId.get(captionSource.mediaId) ?? []) {
+					const span = getItemSourceSpanSeconds(selectedItem, timelineFps);
+					if (!span || !overlapsSelectedSpan({ start, end }, [span])) continue;
+					const firstBoundary = sourceSecondsToTimelineFrame(selectedItem, start, timelineFps);
+					const secondBoundary = sourceSecondsToTimelineFrame(selectedItem, end, timelineFps);
+					const timelineStartFrame = Math.min(firstBoundary, secondBoundary);
+					const timelineEndFrame = Math.max(
+						timelineStartFrame + 1,
+						Math.max(firstBoundary, secondBoundary)
+					);
+					const key = `${captionSource.mediaId}:${timelineStartFrame}:${timelineEndFrame}:${normalizeWord(word.text)}`;
+					if (seen.has(key)) continue;
+					seen.add(key);
+					words.push({
+						id: `${selectedItem.id}:${subtitle.id}:${cue.id}:${word.id}`,
+						mediaId: captionSource.mediaId,
+						sourceItemId: selectedItem.id,
+						subtitleItemId: subtitle.id,
+						cueId: cue.id,
+						wordId: word.id,
+						text: word.text,
+						start,
+						end,
+						timelineStartFrame,
+						timelineEndFrame
+					});
+				}
 			}
 		}
 	}
 
-	return words.toSorted((left, right) => left.start - right.start || left.end - right.end);
+	return words.toSorted(
+		(left, right) =>
+			(left.timelineStartFrame ?? 0) - (right.timelineStartFrame ?? 0) ||
+			(left.timelineEndFrame ?? 0) - (right.timelineEndFrame ?? 0) ||
+			left.start - right.start
+	);
 }
 
 function phraseMatchLength(

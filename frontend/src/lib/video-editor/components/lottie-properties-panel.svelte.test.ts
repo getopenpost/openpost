@@ -54,7 +54,8 @@ describe('LottiePropertiesPanel', () => {
 		});
 
 		await screen.getByRole('checkbox', { name: 'Reverse' }).click();
-		await screen.getByRole('combobox', { name: 'Named marker' }).selectOptions('Action');
+		await screen.getByRole('button', { name: 'Named marker' }).click();
+		await screen.getByRole('option', { name: 'Action' }).click();
 		expect(timelineStore.itemById.get(item.id)).toMatchObject({
 			lottieReversed: true,
 			lottieSegmentStart: 10,

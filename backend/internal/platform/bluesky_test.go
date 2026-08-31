@@ -1,11 +1,40 @@
 package platform
 
 import (
+	"context"
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestBlueskyGetProfileLoadsActorAvatar(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/xrpc/com.atproto.server.getSession":
+			return jsonResponse(req, `{"did":"did:plc:creator","handle":"creator.bsky.social"}`), nil
+		case "/xrpc/app.bsky.actor.getProfile":
+			if req.URL.Query().Get("actor") != "did:plc:creator" {
+				t.Fatalf("unexpected actor query %q", req.URL.RawQuery)
+			}
+			return jsonResponse(req, `{"did":"did:plc:creator","handle":"creator.bsky.social","displayName":"Creator","avatar":"https://cdn.bsky.app/avatar.jpg"}`), nil
+		default:
+			t.Fatalf("unexpected request %s", req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	profile, err := NewBlueskyAdapter("https://bsky.example").GetProfile(context.Background(), "access-token")
+	require.NoError(t, err)
+	require.Equal(t, "did:plc:creator", profile.ID)
+	require.Equal(t, "creator.bsky.social", profile.Username)
+	require.Equal(t, "Creator", profile.DisplayName)
+	require.Equal(t, "https://cdn.bsky.app/avatar.jpg", profile.AvatarURL)
+}
 
 func TestBuildBlueskyPostRecordAddsFacetsExternalCardAndSelfLabels(t *testing.T) {
 	adapter := NewBlueskyAdapter("")

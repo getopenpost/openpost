@@ -138,7 +138,7 @@
 		{#if brandColors.length > 0}
 			<section class="space-y-1.5">
 				<p class="text-xs font-medium text-muted-foreground">{m.image_editor_brand_colors()}</p>
-				<div class="grid grid-cols-8 gap-1">
+				<div class="grid grid-cols-5 gap-1 [@media(pointer:fine)]:grid-cols-8">
 					{#each brandColors as color (color.id)}
 						<button
 							type="button"
@@ -160,7 +160,7 @@
 		{#if recentColors.length > 0}
 			<section class="space-y-1.5">
 				<p class="text-xs font-medium text-muted-foreground">{m.image_editor_recent_colors()}</p>
-				<div class="grid grid-cols-8 gap-1">
+				<div class="grid grid-cols-5 gap-1 [@media(pointer:fine)]:grid-cols-8">
 					{#each recentColors as color (color)}
 						<button
 							type="button"

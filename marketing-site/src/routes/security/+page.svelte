@@ -80,6 +80,9 @@
 					you can scope and revoke. If you self-host, securing the server, keys, backups, and social
 					apps stays with you.
 				</p>
+				<p class="mt-4 text-sm font-medium text-muted-foreground">
+					For people reviewing how OpenPost protects social accounts and scopes tool access.
+				</p>
 				<div class="mt-8 flex flex-wrap gap-3">
 					<Button href={`${githubUrl}/blob/main/SECURITY.md`} size="lg">
 						Read the security policy

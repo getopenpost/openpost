@@ -25,7 +25,7 @@ Use the remote MCP endpoint from your OpenPost instance:
 https://your-openpost-host.example/mcp
 ```
 
-OAuth-aware clients can use OpenPost's browser account-linking flow. Clients that need a manual token can create `mcp:read` or `mcp:full` access from **Settings -> Account -> CLI Devices & API Tokens**. OAuth requests default to `mcp:full` when they omit a scope, so choose `mcp:read` explicitly for inspection-only connections.
+OAuth-aware clients can use OpenPost's browser account-linking flow. Clients that need a manual token can create `mcp:read` or `mcp:full` access from **Settings → Personal → Developer access**. OAuth requests default to `mcp:full` when they omit a scope, so choose `mcp:read` explicitly for inspection-only connections.
 
 When you approve OAuth or create a token, limit it to the current workspace unless the client needs access to all your workspaces.
 
@@ -81,6 +81,6 @@ For a sample brief, prompt, account versions, test log, and review list, see the
 
 ## View use or remove access
 
-Recent MCP actions appear in **Settings -> Account -> CLI Devices & API Tokens** when the client uses its own MCP or CLI token. Remove the token there to disconnect the client.
+Recent MCP actions appear in **Settings → Personal → Developer access** when the client uses its own MCP or CLI token. Remove the token there to disconnect the client.
 
 For protocol details, Apps SDK metadata, OAuth discovery, and implementation notes, see [MCP And ChatGPT App](/development/mcp) in the developer docs.

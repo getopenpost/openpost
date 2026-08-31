@@ -3,9 +3,14 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 )
@@ -90,6 +95,7 @@ func TestPublicationListActivityBucketsMatchPostsTabs(t *testing.T) {
 		{ID: "draft", Status: models.PublicationStatusDraft},
 		{ID: "published", Status: models.PublicationStatusPublished},
 		{ID: "failed", Status: models.PublicationStatusFailed},
+		{ID: "dismissed-failed", Status: models.PublicationStatusFailed, FailureDismissedAt: now},
 	}
 	for index := range publications {
 		publications[index].WorkspaceID = "workspace-1"
@@ -127,6 +133,60 @@ func TestPublicationListActivityBucketsMatchPostsTabs(t *testing.T) {
 	require.Zero(t, invalidLimit)
 	require.Nil(t, invalidCursor)
 	require.Equal(t, publicationListRange{}, invalidRanges)
+}
+
+func TestFailedPublicationCanBeDismissedAndRestoredWithoutDeletingEvidence(t *testing.T) {
+	db := createHandlerTestDB(t, (*models.WorkspaceMember)(nil), (*models.Publication)(nil))
+	ctx := t.Context()
+	now := time.Date(2026, time.August, 27, 10, 0, 0, 0, time.UTC)
+	_, err := db.NewInsert().Model(&models.WorkspaceMember{
+		WorkspaceID: "workspace-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin,
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Publication{
+		ID: "publication-1", WorkspaceID: "workspace-1", CreatedByID: "user-1",
+		Title: "Launch", SourceText: "Launch", SourceContent: "Launch",
+		Status: models.PublicationStatusFailed, CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewPublicationHandler(db, testAuthenticator{}, nil).RegisterRoutes(api)
+
+	dismiss := httptest.NewRequestWithContext(
+		ctx, http.MethodPost, "/api/v1/publications/publication-1/failure-dismissal", nil,
+	)
+	dismiss.Header.Set("Authorization", "Bearer web-token")
+	dismissRec := httptest.NewRecorder()
+	e.ServeHTTP(dismissRec, dismiss)
+	require.Equal(t, http.StatusOK, dismissRec.Code, dismissRec.Body.String())
+
+	var publication models.Publication
+	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
+	require.False(t, publication.FailureDismissedAt.IsZero())
+	require.Equal(t, models.PublicationStatusFailed, publication.Status)
+
+	var failed []models.Publication
+	input := &ListPublicationsInput{WorkspaceID: "workspace-1", ActivityBucket: "failed"}
+	_, _, ranges, validateErr := validatePublicationListInput(input)
+	require.NoError(t, validateErr)
+	require.NoError(t, publicationListQuery(db, &failed, input, ranges).Scan(ctx))
+	require.Empty(t, failed)
+
+	restore := httptest.NewRequestWithContext(
+		ctx, http.MethodDelete, "/api/v1/publications/publication-1/failure-dismissal", nil,
+	)
+	restore.Header.Set("Authorization", "Bearer web-token")
+	restoreRec := httptest.NewRecorder()
+	e.ServeHTTP(restoreRec, restore)
+	require.Equal(t, http.StatusOK, restoreRec.Code, restoreRec.Body.String())
+
+	require.NoError(t, db.NewSelect().Model(&publication).Where("id = ?", "publication-1").Scan(ctx))
+	require.True(t, publication.FailureDismissedAt.IsZero())
+	failed = nil
+	require.NoError(t, publicationListQuery(db, &failed, input, ranges).Scan(ctx))
+	require.Len(t, failed, 1)
 }
 
 func TestPublicationListCursorReachesOlderRecordsWithoutDuplicates(t *testing.T) {

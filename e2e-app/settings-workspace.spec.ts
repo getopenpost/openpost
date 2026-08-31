@@ -158,18 +158,15 @@ test("workspace repost rules save thresholds, delays, and cross-workspace target
   expect(consoleErrors).toEqual([]);
 });
 
-test("legacy account OAuth errors stay on direct account management with bounded feedback", async ({
-  page,
-  request,
-}) => {
+test("account OAuth errors stay in Settings with bounded feedback", async ({ page, request }) => {
   const unique = Date.now().toString(36);
   const auth = await registerUser(request, `oauth-error-${unique}@example.com`);
   await createWorkspace(request, auth.token, "OAuth Settings");
   await authenticatePage(page, auth.token);
 
-  await page.goto("/accounts?error=access_denied%3A+Nope");
+  await page.goto("/settings?tab=accounts&error=access_denied%3A+Nope");
 
-  await expect(page).toHaveURL(/\/accounts$/);
+  await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
   await expect(
     page.getByText(
       "OpenPost could not connect that destination. Check the provider setup and try again.",

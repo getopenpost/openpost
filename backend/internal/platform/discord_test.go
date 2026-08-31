@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strings"
 	"testing"
@@ -130,16 +129,19 @@ func TestDiscordWebhookVerificationDoesNotFollowRedirects(t *testing.T) {
 	}
 }
 
-func TestDiscordMultipartUsesDiscordFieldNames(t *testing.T) {
-	body := &strings.Builder{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("files[0]", "file.txt")
+func TestDiscordWebhookProfileBuildsAvatarURL(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return jsonResponse(req, `{"id":"123","name":"Announcements","avatar":"avatar_hash","guild":{"id":"guild-1","name":"OpenPost"},"channel":{"id":"channel-1","name":"announcements"}}`), nil
+	})}
+
+	profile, err := NewDiscordAdapter().GetProfile(t.Context(), "https://discord.com/api/webhooks/123/secret")
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("GetProfile returned error: %v", err)
 	}
-	_, _ = part.Write([]byte("body"))
-	_ = writer.Close()
-	if !strings.Contains(body.String(), `name="files[0]"`) {
-		t.Fatalf("unexpected multipart field: %s", body.String())
+	if profile.AvatarURL != "https://cdn.discordapp.com/avatars/123/avatar_hash.png" {
+		t.Fatalf("unexpected profile: %#v", profile)
 	}
 }

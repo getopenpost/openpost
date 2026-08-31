@@ -63,9 +63,10 @@ describe('RenderQueueRunner', () => {
 				});
 			}
 			return {
-				fileName: `${next.id}.mp4`,
-				relPath: `exports/${next.id}.mp4`,
-				blob: new Blob(['ok'])
+				kind: 'artifact' as const,
+				savedPath: `exports/${next.id}.mp4`,
+				outputLabel: `${next.id}.mp4`,
+				fileSize: 2
 			};
 		});
 		const runner = new RenderQueueRunner(queue, execute);

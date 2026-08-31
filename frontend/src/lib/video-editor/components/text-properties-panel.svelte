@@ -9,16 +9,36 @@
 	import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 	import { updateItemProperties } from '../timeline/actions/items';
 	import {
+		applyTextEffectPreset,
 		applyTextStylePreset,
 		setTextItemLayout,
-		updateTextSpan
+		updateTextSpan,
+		type TextEffectPresetId
 	} from '../timeline/actions/text-layout';
 	import { getTextItemLayoutMode, type TextLayoutMode } from '../typography/text-layout-drafts';
 	import { buildTextItemLabelFromText } from '../typography/text-item-spans';
-	import { TEXT_STYLE_PRESETS, type TextStylePresetCopy } from '../typography/text-style-presets';
+	import { getTextItemPlainText } from '../typography/text-item-spans';
+	import { TEXT_STYLE_PRESETS } from '../typography/text-style-presets';
+	import { localizedTextStylePresetCopy } from '../typography/text-style-preset-copy';
 
-	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	let {
+		item,
+		itemIds = [],
+		onedit,
+		oncreatevoice
+	}: {
+		item: TimelineItem;
+		itemIds?: string[];
+		onedit: () => void;
+		oncreatevoice?: (itemId: string, text: string) => void;
+	} = $props();
 	const activeItem = $derived(timelineStore.itemById.get(item.id) ?? item);
+	const selectedTextItemIds = $derived.by(() => {
+		const selectedIds = itemIds.length > 0 ? itemIds : [activeItem.id];
+		const textIds = selectedIds.filter((id) => timelineStore.itemById.get(id)?.type === 'text');
+		return textIds.length > 0 ? [...new Set(textIds)] : [activeItem.id];
+	});
+	const speakableText = $derived(getTextItemPlainText(activeItem).trim());
 	const layout = $derived(getTextItemLayoutMode(activeItem));
 	const canvas = $derived({
 		width: editorSession.project?.metadata.width ?? 1920,
@@ -50,139 +70,6 @@
 		label: weight.label
 	}));
 
-	function presetLabel(id: TextStylePresetId): string {
-		switch (id) {
-			case 'clean-title':
-				return m.video_editor_text_preset_clean();
-			case 'poster':
-				return m.video_editor_text_preset_poster();
-			case 'outline-pill':
-				return m.video_editor_text_preset_outline();
-			case 'lower-third':
-				return m.video_editor_text_preset_lower_third();
-			case 'speaker-card':
-				return m.video_editor_text_preset_speaker();
-			case 'cinematic':
-				return m.video_editor_text_preset_cinematic();
-			case 'quote':
-				return m.video_editor_text_preset_quote();
-			case 'neon':
-				return m.video_editor_text_preset_neon();
-			case 'headline-stack':
-				return m.video_editor_text_preset_headline();
-			case 'breaking-update':
-				return m.video_editor_text_preset_breaking();
-			case 'event-card':
-				return m.video_editor_text_preset_event();
-			case 'launch-stack':
-				return m.video_editor_text_preset_launch();
-			case 'badge':
-				return m.video_editor_text_preset_badge();
-		}
-	}
-
-	function presetCopy(id: TextStylePresetId): TextStylePresetCopy {
-		const label = presetLabel(id);
-		switch (id) {
-			case 'clean-title':
-				return {
-					label,
-					sample: {
-						title: m.video_editor_text_sample_main(),
-						subtitle: m.video_editor_text_sample_title()
-					}
-				};
-			case 'poster':
-				return { label, sample: { title: m.video_editor_text_sample_tonight() } };
-			case 'outline-pill':
-				return { label, sample: { title: m.video_editor_text_sample_featured() } };
-			case 'lower-third':
-				return {
-					label,
-					sample: {
-						title: m.video_editor_text_sample_name(),
-						subtitle: m.video_editor_text_sample_role()
-					}
-				};
-			case 'speaker-card':
-				return {
-					label,
-					sample: {
-						title: 'Alex Morgan',
-						subtitle: m.video_editor_text_sample_product_designer()
-					}
-				};
-			case 'cinematic':
-				return {
-					label,
-					sample: {
-						title: m.video_editor_text_sample_cinema(),
-						subtitle: m.video_editor_text_sample_presents()
-					}
-				};
-			case 'quote':
-				return {
-					label,
-					sample: {
-						title: m.video_editor_text_sample_quote(),
-						subtitle: m.video_editor_text_sample_attribution()
-					}
-				};
-			case 'neon':
-				return {
-					label,
-					sample: {
-						title: m.video_editor_text_sample_neon(),
-						subtitle: m.video_editor_text_sample_glow()
-					}
-				};
-			case 'headline-stack':
-				return {
-					label,
-					sample: {
-						eyebrow: m.video_editor_text_sample_top_story(),
-						title: m.video_editor_text_sample_headline(),
-						subtitle: m.video_editor_text_sample_subhead()
-					}
-				};
-			case 'breaking-update':
-				return {
-					label,
-					sample: {
-						eyebrow: m.video_editor_text_sample_breaking(),
-						title: m.video_editor_text_sample_major_update(),
-						subtitle: m.video_editor_text_sample_developing()
-					}
-				};
-			case 'event-card':
-				return {
-					label,
-					sample: {
-						eyebrow: m.video_editor_text_sample_live(),
-						title: m.video_editor_text_sample_summer_fest(),
-						subtitle: m.video_editor_text_sample_friday_time()
-					}
-				};
-			case 'launch-stack':
-				return {
-					label,
-					sample: {
-						eyebrow: m.video_editor_text_sample_now_live(),
-						title: m.video_editor_text_sample_new_collection(),
-						subtitle: m.video_editor_text_sample_shop_drop()
-					}
-				};
-			case 'badge':
-				return {
-					label,
-					sample: {
-						title: m.video_editor_text_sample_new_drop(),
-						subtitle: m.video_editor_text_sample_tag()
-					}
-				};
-		}
-	}
-
 	function spanLabel(index: number, count: number): string {
 		if (count >= 3) {
 			if (index === 0) return m.video_editor_text_span_eyebrow();
@@ -197,8 +84,33 @@
 	}
 
 	function commitPreset(presetId: TextStylePresetId, scale = 1): void {
-		if (applyTextStylePreset(activeItem.id, presetId, canvas, scale, presetCopy(presetId)))
+		if (
+			applyTextStylePreset(
+				activeItem.id,
+				presetId,
+				canvas,
+				scale,
+				localizedTextStylePresetCopy(presetId)
+			)
+		)
 			onedit();
+	}
+
+	function effectPresetLabel(id: TextEffectPresetId): string {
+		switch (id) {
+			case 'none':
+				return m.video_editor_text_effect_none();
+			case 'shadow':
+				return m.video_editor_text_effect_shadow();
+			case 'outline':
+				return m.video_editor_text_effect_outline();
+			case 'glow':
+				return m.video_editor_text_effect_glow();
+		}
+	}
+
+	function commitEffectPreset(presetId: TextEffectPresetId): void {
+		if (applyTextEffectPreset(selectedTextItemIds, presetId) > 0) onedit();
 	}
 
 	function commitItem(patch: Partial<TimelineItem>): void {
@@ -220,6 +132,18 @@
 </script>
 
 <div class="space-y-2">
+	{#if oncreatevoice}
+		<Button
+			type="button"
+			size="sm"
+			variant="outline"
+			class="w-full"
+			disabled={!speakableText}
+			onclick={() => oncreatevoice?.(activeItem.id, speakableText)}
+		>
+			{m.video_editor_text_create_voice()}
+		</Button>
+	{/if}
 	<div class="space-y-1">
 		<span class="field-label">{m.video_editor_text_layout()}</span>
 		<div class="layout-switch" role="group" aria-label={m.video_editor_text_layout()}>
@@ -238,7 +162,7 @@
 		<span id="text-template-label" class="field-label">{m.video_editor_text_templates()}</span>
 		<div class="template-strip" aria-labelledby="text-template-label">
 			{#each TEXT_STYLE_PRESETS as preset (preset.id)}
-				{@const copy = presetCopy(preset.id)}
+				{@const copy = localizedTextStylePresetCopy(preset.id)}
 				<button
 					type="button"
 					class:active={activeItem.textStylePresetId === preset.id}
@@ -274,6 +198,25 @@
 			/>
 		</label>
 	{/if}
+
+	<div class="space-y-1">
+		<span id={`text-effects-${activeItem.id}`} class="field-label">
+			{m.video_editor_effects()}
+		</span>
+		<div class="grid grid-cols-4 gap-1" aria-labelledby={`text-effects-${activeItem.id}`}>
+			{#each ['none', 'shadow', 'outline', 'glow'] as presetId (presetId)}
+				<Button
+					type="button"
+					size="sm"
+					variant="outline"
+					class="h-7 min-w-0 px-1 text-xs"
+					onclick={() => commitEffectPreset(presetId as TextEffectPresetId)}
+				>
+					<span class="truncate">{effectPresetLabel(presetId as TextEffectPresetId)}</span>
+				</Button>
+			{/each}
+		</div>
+	</div>
 
 	{#if activeItem.textSpans?.length}
 		<div class="space-y-2">

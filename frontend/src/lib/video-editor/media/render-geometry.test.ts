@@ -34,16 +34,18 @@ describe('mediaDrawGeometry', () => {
 		});
 	});
 
-	it('maps fractional crop edges to the source rectangle', () => {
+	it('maps fractional crop edges to a fixed destination viewport', () => {
 		const cropped = {
 			...item,
 			crop: { left: 0.1, right: 0.2, top: 0.25, bottom: 0.25 }
 		};
 		expect(mediaDrawGeometry(cropped, 1000, 500, 1000, 500)).toMatchObject({
-			sourceX: 100,
-			sourceY: 125,
-			sourceWidth: 700,
-			sourceHeight: 250
+			sourceX: 0,
+			sourceY: 0,
+			sourceWidth: 1000,
+			sourceHeight: 500,
+			mediaRect: { x: 0, y: 0, width: 1000, height: 500 },
+			viewportRect: { x: 100, y: 125, width: 700, height: 250 }
 		});
 	});
 

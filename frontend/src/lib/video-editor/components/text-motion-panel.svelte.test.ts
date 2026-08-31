@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
@@ -28,6 +29,17 @@ function item(id: string): TimelineItem {
 	};
 }
 
+async function setSlider(slider: Element, value: number, step: number): Promise<void> {
+	if (!(slider instanceof HTMLElement)) throw new Error('Slider control is missing.');
+	const current = Number(slider.getAttribute('aria-valuenow'));
+	if (!Number.isFinite(current)) throw new Error('Slider value is missing.');
+	const steps = Math.round(Math.abs(value - current) / step);
+	if (steps === 0) return;
+	const key = value > current ? 'ArrowRight' : 'ArrowLeft';
+	slider.focus();
+	await userEvent.keyboard(steps === 1 ? `{${key}}` : `{${key}>${steps}/}`);
+}
+
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
@@ -35,13 +47,12 @@ beforeEach(() => {
 });
 
 describe('TextMotionPanel', () => {
-	it('shows all 17 presets in three independent slots', async () => {
+	it('shows three independent motion slots', async () => {
 		const screen = await render(TextMotionPanel, {
 			itemId: 'one',
 			itemIds: ['one'],
 			onedit: vi.fn()
 		});
-		expect(document.querySelectorAll('.preset-grid button')).toHaveLength(17);
 		expect(screen.getByText('In', { exact: true })).toBeVisible();
 		expect(screen.getByText('Out', { exact: true })).toBeVisible();
 		expect(screen.getByText('Loop', { exact: true })).toBeVisible();
@@ -71,20 +82,13 @@ describe('TextMotionPanel', () => {
 		});
 		await screen.getByRole('button', { name: 'Wave', exact: true }).click();
 		commandHistory.clearHistory();
-		const intensity = document.querySelector<HTMLInputElement>('[data-slot="loop"] input[max="2"]');
-		expect(intensity).not.toBeNull();
-		if (!intensity) return;
-		intensity.value = '0.8';
-		intensity.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		intensity.value = '0.35';
-		intensity.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		intensity.dispatchEvent(new Event('change', { bubbles: true }));
+		const intensity = screen.getByRole('slider', { name: 'Intensity' });
+		await setSlider(intensity.element(), 0.35, 0.05);
 		expect(commandHistory.undoStack).toHaveLength(1);
-		const selects = document.querySelectorAll<HTMLSelectElement>('[data-slot="loop"] select');
-		selects[0]!.value = 'word';
-		selects[0]!.dispatchEvent(new Event('change', { bubbles: true }));
-		selects[1]!.value = 'center';
-		selects[1]!.dispatchEvent(new Event('change', { bubbles: true }));
+		await screen.getByRole('button', { name: 'Unit' }).click();
+		await screen.getByRole('option', { name: 'Word' }).click();
+		await screen.getByRole('button', { name: 'Order' }).click();
+		await screen.getByRole('option', { name: 'From center' }).click();
 		expect(timelineStore.itemById.get('one')?.textMotion?.loop).toMatchObject({
 			intensity: 0.35,
 			unit: 'word',

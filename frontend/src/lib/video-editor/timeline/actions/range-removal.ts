@@ -32,6 +32,10 @@ export interface RangeRemovalResult {
 	splitCount: number;
 }
 
+export interface ItemSourceRanges {
+	[itemId: string]: SourceRange[];
+}
+
 export const SILENCE_COVERAGE_REMOVAL_THRESHOLD = 0.75;
 
 function isMostlyInsideRanges(
@@ -111,7 +115,8 @@ export function removeTimelineRangesFromItems(
 	commandType: 'REMOVE_SILENCE' | 'REMOVE_FILLER_WORDS' | 'REMOVE_TRANSCRIPT_SELECTION',
 	itemIds: string[],
 	rangesByMediaId: Record<string, SourceRange[]>,
-	afterRemove?: () => void
+	afterRemove?: () => void,
+	rangesByItemId?: ItemSourceRanges
 ): RangeRemovalResult {
 	if (itemIds.length === 0) {
 		return {
@@ -131,6 +136,8 @@ export function removeTimelineRangesFromItems(
 				.map((track) => track.id)
 		);
 		const anchorIds = getUniqueLinkedItemAnchorIds(initialItems, itemIds);
+		const rangesForItem = (item: TimelineItem): readonly SourceRange[] =>
+			rangesByItemId?.[item.id] ?? (item.mediaId ? rangesByMediaId[item.mediaId] : undefined) ?? [];
 		const anchors = anchorIds
 			.map((id) => initialItems.find((item) => item.id === id))
 			.filter(
@@ -139,7 +146,7 @@ export function removeTimelineRangesFromItems(
 					(item.type === 'video' || item.type === 'audio') &&
 					!lockedTrackIds.has(item.trackId) &&
 					!!item.mediaId &&
-					(rangesByMediaId[item.mediaId]?.length ?? 0) > 0
+					rangesForItem(item).length > 0
 			);
 
 		if (anchors.length === 0) {
@@ -155,7 +162,8 @@ export function removeTimelineRangesFromItems(
 			id: item.id,
 			// SAFETY: the anchor filter requires a non-null mediaId.
 			mediaId: item.mediaId as string,
-			originId: item.originId ?? item.id
+			originId: item.originId ?? item.id,
+			ranges: rangesForItem(item)
 		}));
 
 		// Split each anchor (and its linked companions) at every range boundary
@@ -163,7 +171,7 @@ export function removeTimelineRangesFromItems(
 		let splitCount = 0;
 		for (const anchor of anchors) {
 			// SAFETY: the anchor filter requires a non-null mediaId.
-			const ranges = rangesByMediaId[anchor.mediaId as string];
+			const ranges = rangesForItem(anchor);
 			const splitFrames = Array.from(
 				new Set(
 					ranges.flatMap((range) => [
@@ -180,7 +188,9 @@ export function removeTimelineRangesFromItems(
 				.sort((a, b) => b - a);
 
 			for (const frame of splitFrames) {
-				const anchorResult = timelineStore._splitItem(anchor.id, frame);
+				const anchorResult = timelineStore._splitItem(anchor.id, frame, {
+					synchronizeTranscriptCaptions: false
+				});
 				if (!anchorResult) continue;
 				splitCount += 1;
 				const linkedGroupId = anchorResult.leftItem.linkedGroupId;
@@ -189,7 +199,12 @@ export function removeTimelineRangesFromItems(
 					if (companion.linkedGroupId !== linkedGroupId || companion.id === anchor.id) continue;
 					if (lockedTrackIds.has(companion.trackId)) continue;
 					if (frame > companion.from && frame < companion.from + companion.durationInFrames) {
-						if (timelineStore._splitItem(companion.id, frame)) splitCount += 1;
+						if (
+							timelineStore._splitItem(companion.id, frame, {
+								synchronizeTranscriptCaptions: false
+							})
+						)
+							splitCount += 1;
 					}
 				}
 			}
@@ -200,7 +215,7 @@ export function removeTimelineRangesFromItems(
 		const idsToRemove = new Set<string>();
 		let removedRangeCount = 0;
 		for (const descriptor of anchorDescriptors) {
-			const ranges = rangesByMediaId[descriptor.mediaId];
+			const ranges = descriptor.ranges;
 			for (const candidate of currentItems) {
 				if (candidate.type !== 'video' && candidate.type !== 'audio') continue;
 				if (candidate.mediaId !== descriptor.mediaId) continue;
@@ -284,5 +299,18 @@ export function removeTranscriptRangesFromItems(
 		itemIds,
 		rangesByMediaId,
 		afterRemove
+	);
+}
+
+export function removeTranscriptItemRanges(
+	rangesByItemId: ItemSourceRanges,
+	afterRemove?: () => void
+): RangeRemovalResult {
+	return removeTimelineRangesFromItems(
+		'REMOVE_TRANSCRIPT_SELECTION',
+		Object.keys(rangesByItemId),
+		{},
+		afterRemove,
+		rangesByItemId
 	);
 }

@@ -152,4 +152,40 @@ describe('animated image export and still capture', () => {
 			input.dispose?.();
 		}
 	}, 30_000);
+
+	it('renders only the selected in/out range while preserving absolute timeline time', async () => {
+		const { project } = await buildProject();
+		const artifact = await renderMultiTrackVideoArtifact(project, {
+			format: 'webm',
+			width: WIDTH,
+			height: HEIGHT,
+			range: { startFrame: 3, endFrame: 9 }
+		});
+		const input = new Input({
+			source: new BlobSource(artifact.blob),
+			formats: [new WebMInputFormat()]
+		});
+		try {
+			const track = await input.getPrimaryVideoTrack();
+			expect(track).not.toBeNull();
+			expect(await track!.computeDuration()).toBeCloseTo(0.2, 2);
+			const sink = new CanvasSink(track!, { width: 8, height: 6, fit: 'fill', poolSize: 2 });
+			const first = await sink.getCanvas(0);
+			const later = await sink.getCanvas(0.1);
+			expect(first).not.toBeNull();
+			expect(later).not.toBeNull();
+			const colorAt = (wrapped: NonNullable<Awaited<ReturnType<typeof sink.getCanvas>>>) => {
+				const data = wrapped.canvas.getContext('2d')?.getImageData(4, 3, 1, 1).data;
+				const [r, g, b] = [data![0]!, data![1]!, data![2]!];
+				if (g > 100 && r < 120) return 'green';
+				if (b > 150) return 'blue';
+				return `unknown(${r},${g},${b})`;
+			};
+			// Source frame 3 starts the green animation bucket. The encoded file still starts at t=0.
+			expect(colorAt(first!)).toBe('green');
+			expect(colorAt(later!)).toBe('blue');
+		} finally {
+			input.dispose?.();
+		}
+	}, 30_000);
 });

@@ -50,6 +50,17 @@ export type TransitionUpdates = Partial<
 	>
 >;
 
+function transitionTypeForPresentation(presentation: string): TimelineTransition['type'] {
+	return presentation === 'dipToColorDissolve' ? 'fade-black' : 'crossfade';
+}
+
+function defaultTransitionProperties(presentation: string) {
+	const definition = transitionRegistry.getDefinition(presentation);
+	return Object.fromEntries(
+		(definition?.parameters ?? []).map((parameter) => [parameter.key, parameter.defaultValue])
+	);
+}
+
 function transitionValuesEqual(left: TimelineTransition, right: TimelineTransition): boolean {
 	return (
 		left.durationInFrames === right.durationInFrames &&
@@ -100,6 +111,7 @@ export function addTransition(
 		const presentation =
 			options.presentation ?? (type === 'fade-black' ? 'dipToColorDissolve' : 'fade');
 		const definition = transitionRegistry.getDefinition(presentation);
+		const normalizedType = transitionTypeForPresentation(presentation);
 		const alignment = options.alignment ?? 0.5;
 		const availableMax = getMaxTransitionDuration(pair.from, pair.to, alignment, timelineStore.fps);
 		const minimum = definition?.minDuration ?? 2;
@@ -113,15 +125,18 @@ export function addTransition(
 		);
 		const transition: TimelineTransition = {
 			id: crypto.randomUUID(),
-			type,
+			type: normalizedType,
 			presentation,
-			timing: options.timing ?? 'linear',
-			direction: options.direction ?? definition?.directions?.[0],
-			properties:
-				options.properties ??
-				Object.fromEntries(
-					(definition?.parameters ?? []).map((parameter) => [parameter.key, parameter.defaultValue])
-				),
+			timing:
+				options.timing && definition?.supportedTimings.includes(options.timing)
+					? options.timing
+					: (definition?.supportedTimings[0] ?? 'linear'),
+			direction: definition?.hasDirection
+				? options.direction && definition.directions?.includes(options.direction)
+					? options.direction
+					: definition.directions?.[0]
+				: undefined,
+			properties: options.properties ?? defaultTransitionProperties(presentation),
 			durationInFrames: frames,
 			alignment,
 			fromItemId,
@@ -157,6 +172,55 @@ export function updateTransition(id: string, updates: TransitionUpdates): boolea
 		);
 		return true;
 	});
+}
+
+/** Replace a transition presentation with valid duration, timing, direction, and defaults. */
+export function updateTransitionPresentation(
+	id: string,
+	presentation: string,
+	direction?: TransitionDirection
+): boolean {
+	const current = transitionsStore.list.find((transition) => transition.id === id);
+	const definition = transitionRegistry.getDefinition(presentation);
+	if (!current || !definition) return false;
+	const pair = findEdgePair(current.fromItemId, current.toItemId);
+	if (!pair) return false;
+	const available = getMaxTransitionDuration(
+		pair.from,
+		pair.to,
+		current.alignment ?? 0.5,
+		timelineStore.fps
+	);
+	if (available < definition.minDuration) return false;
+	const durationInFrames = Math.min(
+		available,
+		definition.maxDuration,
+		Math.max(definition.minDuration, current.durationInFrames)
+	);
+	const timing = definition.supportedTimings.includes(current.timing ?? 'linear')
+		? (current.timing ?? 'linear')
+		: definition.supportedTimings[0];
+	const normalizedDirection = definition.hasDirection
+		? direction && definition.directions?.includes(direction)
+			? direction
+			: definition.directions?.[0]
+		: undefined;
+	const updates: TransitionUpdates = {
+		presentation,
+		type: transitionTypeForPresentation(presentation),
+		durationInFrames,
+		timing,
+		direction: normalizedDirection,
+		bezierPoints: timing === 'cubic-bezier' ? current.bezierPoints : undefined,
+		properties: defaultTransitionProperties(presentation)
+	};
+	const next: TimelineTransition = {
+		...current,
+		...updates,
+		properties: { ...updates.properties }
+	};
+	if (transitionValuesEqual(current, next)) return true;
+	return updateTransition(id, updates);
 }
 
 export function removeTransition(id: string): void {

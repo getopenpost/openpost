@@ -29,7 +29,6 @@
 	import GrowthIcon from '@lucide/svelte/icons/user-round-plus';
 	import MediaIcon from '@lucide/svelte/icons/images';
 	import EditorsIcon from '@lucide/svelte/icons/clapperboard';
-	import AccountsIcon from '@lucide/svelte/icons/users';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -62,12 +61,22 @@
 	);
 	const sidebarNavigationItems = $derived(
 		navigationItems.filter((item) =>
-			['calendar', 'posts', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
+			['calendar', 'publications', 'communications', 'growth', 'analytics', 'media'].includes(
+				item.id
+			)
 		)
 	);
 	const workspaceNavigationItems = $derived([
 		...navigationItems.filter((item) =>
-			['calendar', 'posts', 'communications', 'growth', 'analytics', 'media'].includes(item.id)
+			[
+				'calendar',
+				'publications',
+				'communications',
+				'growth',
+				'analytics',
+				'media',
+				'editors'
+			].includes(item.id)
 		)
 	]);
 	const showDesktopPlanner = $derived(!sidebar.isMobile && sidebar.state === 'expanded');
@@ -83,7 +92,7 @@
 				return ComposeIcon;
 			case 'calendar':
 				return CalendarIcon;
-			case 'posts':
+			case 'publications':
 				return PostsIcon;
 			case 'analytics':
 				return AnalyticsIcon;
@@ -95,8 +104,6 @@
 				return MediaIcon;
 			case 'editors':
 				return EditorsIcon;
-			case 'accounts':
-				return AccountsIcon;
 			default:
 				return SettingsIcon;
 		}
@@ -108,7 +115,7 @@
 				return m.sidebar_new_post();
 			case 'calendar':
 				return m.sidebar_calendar();
-			case 'posts':
+			case 'publications':
 				return m.sidebar_activity();
 			case 'analytics':
 				return m.sidebar_analytics();
@@ -120,8 +127,6 @@
 				return m.sidebar_media();
 			case 'editors':
 				return m.editors_title();
-			case 'accounts':
-				return m.sidebar_accounts();
 			case 'settings':
 				return m.sidebar_settings();
 		}
@@ -163,10 +168,6 @@
 	}
 
 	function isSidebarNavigationItemActive(item: PrimaryNavigationItem) {
-		const settingsTab = page.url.searchParams.get('tab');
-		if (item.id === 'accounts')
-			return currentPath.startsWith('/settings') && settingsTab === 'accounts';
-		if (item.id === 'settings' && settingsTab === 'accounts') return false;
 		return isNavigationItemActive(item, currentPath);
 	}
 </script>
@@ -224,6 +225,7 @@
 
 		<Button
 			href={resolve('/')}
+			variant={currentPath === '/' ? 'secondary' : 'default'}
 			size="sm"
 			class="h-10 w-full gap-2 group-data-[collapsible=icon]:px-0"
 			aria-label={m.sidebar_new_post()}
@@ -264,16 +266,17 @@
 	<Sidebar.Footer class="border-t border-sidebar-border p-2" data-testid="sidebar-workspace-footer">
 		{#if showDesktopPlanner}
 			<div class="pb-1">
-				<div class="flex items-center justify-center">
+				<div class="flex items-center">
 					<button
 						type="button"
-						class="inline-flex size-6 items-center justify-center rounded-md text-sidebar-foreground/48 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
+						class="inline-flex h-8 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
 						aria-expanded={workspaceNavigationExpanded}
 						aria-controls="sidebar-workspace-navigation"
 						aria-label={workspaceNavigationToggleLabel}
 						title={workspaceNavigationToggleLabel}
 						onclick={() => (workspaceNavigationExpanded = !workspaceNavigationExpanded)}
 					>
+						<span class="flex-1 text-left">{m.sidebar_workspace()}</span>
 						<ChevronDownIcon
 							class={[
 								'size-3.5 transition-transform duration-200 ease-[cubic-bezier(0.25,1,0.5,1)] motion-reduce:transition-none',

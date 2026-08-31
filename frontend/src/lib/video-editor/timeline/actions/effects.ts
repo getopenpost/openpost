@@ -32,7 +32,8 @@ import {
 } from '$lib/video-editor/effects/color-grade';
 import { removeEffectKeyframes } from '$lib/video-editor/effects/effect-keyframes';
 import { timelineStore } from '../stores/timeline-store.svelte';
-import { execute } from '../commands/command-store.svelte';
+import { execute, executeAtomic } from '../commands/command-store.svelte';
+import { addAdjustmentLayer, type AddAdjustmentLayerOptions } from './items';
 
 /** Append a new enabled effect with its default amount. One undoable step. */
 export function addEffect(itemId: string, type: CssFilterType): boolean {
@@ -130,6 +131,21 @@ export function addEffectTemplates(
 		},
 		{ count: uniqueItemIds.length }
 	);
+}
+
+/** Create an adjustment layer with its initial stack as one undoable action. */
+export function addAdjustmentLayerWithEffects(
+	label: string,
+	templates: readonly EffectTemplate[],
+	options: AddAdjustmentLayerOptions = {}
+): string {
+	return executeAtomic('ADD_ADJUSTMENT_LAYER_WITH_EFFECTS', () => {
+		const itemId = addAdjustmentLayer(label, options);
+		if (templates.length > 0 && !addEffectTemplates([itemId], templates)) {
+			throw new Error('The adjustment effect stack could not be created.');
+		}
+		return itemId;
+	});
 }
 
 /** Toggle one GPU effect's enabled flag. One undoable step. */
@@ -398,21 +414,36 @@ function effectsAreCompatible(display: ItemEffect, target: ItemEffect): boolean 
 	return display.type !== 'gpu' || (target.type === 'gpu' && display.effectId === target.effectId);
 }
 
+function isHiddenGpuEffect(effect: ItemEffect, hiddenGpuEffectIds: ReadonlySet<string>): boolean {
+	return effect.type === 'gpu' && hiddenGpuEffectIds.has(effect.effectId);
+}
+
 function mappedEffectTargets(
 	displayItemId: string,
 	itemIds: readonly string[],
-	displayEffectId: string
+	displayEffectId: string,
+	hiddenGpuEffectIds: readonly string[] = []
 ): MappedEffectTarget[] {
+	const hidden = new Set(hiddenGpuEffectIds);
 	const displayEffects = timelineStore.itemById.get(displayItemId)?.effects;
-	const displayIndex = displayEffects?.findIndex((effect) => effect.id === displayEffectId) ?? -1;
-	const displayEffect = displayEffects?.[displayIndex];
-	if (!displayEffect || displayIndex < 0) return [];
+	const visibleDisplayEffects = displayEffects?.filter(
+		(effect) => !isHiddenGpuEffect(effect, hidden)
+	);
+	const visibleDisplayIndex =
+		visibleDisplayEffects?.findIndex((effect) => effect.id === displayEffectId) ?? -1;
+	const displayEffect = visibleDisplayEffects?.[visibleDisplayIndex];
+	if (!displayEffect || visibleDisplayIndex < 0) return [];
 
 	return [...new Set([displayItemId, ...itemIds])].flatMap((itemId) => {
 		const effects = timelineStore.itemById.get(itemId)?.effects;
-		const effect = effects?.[displayIndex];
-		return effects && effect && effectsAreCompatible(displayEffect, effect)
-			? [{ itemId, effects, index: displayIndex, effect }]
+		const effect = effects?.filter((candidate) => !isHiddenGpuEffect(candidate, hidden))[
+			visibleDisplayIndex
+		];
+		const index = effect
+			? (effects?.findIndex((candidate) => candidate.id === effect.id) ?? -1)
+			: -1;
+		return effects && effect && index >= 0 && effectsAreCompatible(displayEffect, effect)
+			? [{ itemId, effects, index, effect }]
 			: [];
 	});
 }
@@ -482,18 +513,30 @@ export function moveEffectOnItems(
 	displayItemId: string,
 	itemIds: readonly string[],
 	effectId: string,
-	direction: -1 | 1
+	direction: -1 | 1,
+	hiddenGpuEffectIds: readonly string[] = []
 ): boolean {
-	const targets = mappedEffectTargets(displayItemId, itemIds, effectId).filter(
-		(target) => target.index + direction >= 0 && target.index + direction < target.effects.length
+	const hidden = new Set(hiddenGpuEffectIds);
+	const targets = mappedEffectTargets(displayItemId, itemIds, effectId, hiddenGpuEffectIds).flatMap(
+		(target) => {
+			const visibleEffects = target.effects.filter((effect) => !isHiddenGpuEffect(effect, hidden));
+			const visibleIndex = visibleEffects.findIndex((effect) => effect.id === target.effect.id);
+			const swapEffect = visibleEffects[visibleIndex + direction];
+			const swapIndex = swapEffect
+				? target.effects.findIndex((effect) => effect.id === swapEffect.id)
+				: -1;
+			return visibleIndex >= 0 && swapIndex >= 0 ? [{ ...target, swapIndex }] : [];
+		}
 	);
 	if (targets.length === 0) return false;
 	return execute('MOVE_EFFECT', () => {
 		timelineStore._updateItems(
 			targets.map((target) => {
 				const effects = [...target.effects];
-				const swapIndex = target.index + direction;
-				[effects[target.index], effects[swapIndex]] = [effects[swapIndex]!, effects[target.index]!];
+				[effects[target.index], effects[target.swapIndex]] = [
+					effects[target.swapIndex]!,
+					effects[target.index]!
+				];
 				return { id: target.itemId, patch: { effects } };
 			})
 		);
@@ -506,9 +549,10 @@ export function setEffectEnabledOnItems(
 	displayItemId: string,
 	itemIds: readonly string[],
 	effectId: string,
-	enabled: boolean
+	enabled: boolean,
+	hiddenGpuEffectIds: readonly string[] = []
 ): boolean {
-	const targets = mappedEffectTargets(displayItemId, itemIds, effectId).filter(
+	const targets = mappedEffectTargets(displayItemId, itemIds, effectId, hiddenGpuEffectIds).filter(
 		(target) => target.effect.enabled !== enabled
 	);
 	if (targets.length === 0) return false;
@@ -528,13 +572,50 @@ export function setEffectEnabledOnItems(
 	});
 }
 
+/** Enable or bypass every effect on the selected visual items as one undo step. */
+export function setAllEffectsEnabledOnItems(
+	itemIds: readonly string[],
+	enabled: boolean,
+	hiddenGpuEffectIds: readonly string[] = []
+): boolean {
+	const uniqueItemIds = Array.from(new Set(itemIds));
+	const hidden = new Set(hiddenGpuEffectIds);
+	const updates = uniqueItemIds.flatMap((itemId) => {
+		const item = timelineStore.itemById.get(itemId);
+		const effects = item?.effects;
+		if (
+			!item ||
+			item.type === 'audio' ||
+			!effects?.some((effect) => !isHiddenGpuEffect(effect, hidden) && effect.enabled !== enabled)
+		) {
+			return [];
+		}
+		return [
+			{
+				id: itemId,
+				patch: {
+					effects: effects.map((effect) =>
+						isHiddenGpuEffect(effect, hidden) ? effect : { ...effect, enabled }
+					)
+				}
+			}
+		];
+	});
+	if (updates.length === 0) return false;
+	return execute('SET_ALL_EFFECTS_ENABLED', () => {
+		timelineStore._updateItems(updates);
+		return true;
+	});
+}
+
 /** Reset one mapped effect to registry defaults without changing its bypass state. */
 export function resetEffectOnItems(
 	displayItemId: string,
 	itemIds: readonly string[],
-	effectId: string
+	effectId: string,
+	hiddenGpuEffectIds: readonly string[] = []
 ): boolean {
-	const targets = mappedEffectTargets(displayItemId, itemIds, effectId).filter(
+	const targets = mappedEffectTargets(displayItemId, itemIds, effectId, hiddenGpuEffectIds).filter(
 		(target) => !isEffectAtDefaults(target.effect)
 	);
 	if (targets.length === 0) return false;
@@ -567,9 +648,10 @@ export function resetEffectOnItems(
 export function removeEffectOnItems(
 	displayItemId: string,
 	itemIds: readonly string[],
-	effectId: string
+	effectId: string,
+	hiddenGpuEffectIds: readonly string[] = []
 ): boolean {
-	const targets = mappedEffectTargets(displayItemId, itemIds, effectId);
+	const targets = mappedEffectTargets(displayItemId, itemIds, effectId, hiddenGpuEffectIds);
 	if (targets.length === 0) return false;
 	return execute('REMOVE_EFFECTS', () => {
 		timelineStore._updateItems(

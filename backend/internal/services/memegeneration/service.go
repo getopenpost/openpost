@@ -40,9 +40,10 @@ const (
 	MaxRationaleCharacters   = 300
 	MaxAltTextCharacters     = 500
 
-	maxResponseCharacters = 20_000
-	maxOutputTokens       = 1200
-	defaultRequestTimeout = 30 * time.Second
+	maxResponseCharacters  = 20_000
+	maxOutputTokens        = 1200
+	defaultRequestTimeout  = 55 * time.Second
+	memeResponseSchemaName = "meme_suggestions"
 )
 
 var (
@@ -141,18 +142,31 @@ func (s *Service) Suggest(ctx context.Context, input Input) (Result, error) {
 	requestCtx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 
-	generated, err := s.generator.Generate(requestCtx, ai.GenerateRequest{
+	request := ai.GenerateRequest{
 		Model:           s.model,
 		SystemPrompt:    systemPrompt,
 		UserPrompt:      userPrompt,
+		ResponseSchema:  memeResponseSchema(normalized),
 		MaxOutputTokens: maxOutputTokens,
 		ReasoningEffort: ai.ReasoningEffortLow,
-	})
+	}
+	generated, err := s.generator.Generate(requestCtx, request)
 	if err != nil {
 		return Result{}, err
 	}
 
 	candidates, err := parseAndValidateResponse(generated.Text, normalized)
+	if errors.Is(err, ErrInvalidResponse) && requestCtx.Err() == nil {
+		firstUsage := generated.Usage
+		retryRequest := request
+		retryRequest.UserPrompt += "\n\nCorrection: the previous response did not satisfy the required candidate count, allowed template IDs, exact per-template caption line counts, or bounded text fields. Return a fresh response that exactly matches the schema."
+		generated, err = s.generator.Generate(requestCtx, retryRequest)
+		if err != nil {
+			return Result{}, err
+		}
+		generated.Usage = combinedUsage(firstUsage, generated.Usage)
+		candidates, err = parseAndValidateResponse(generated.Text, normalized)
+	}
 	if err != nil {
 		return Result{}, err
 	}
@@ -167,4 +181,68 @@ func (s *Service) Suggest(ctx context.Context, input Input) (Result, error) {
 		RequestID:  generated.RequestID,
 		Usage:      generated.Usage,
 	}, nil
+}
+
+func memeResponseSchema(input normalizedInput) *ai.JSONSchema {
+	candidateSchemas := make([]any, 0, len(input.Templates))
+	for _, template := range input.Templates {
+		candidateSchemas = append(candidateSchemas, memeCandidateSchema(template))
+	}
+	candidateItems := map[string]any{"anyOf": candidateSchemas}
+	return &ai.JSONSchema{
+		Name:        memeResponseSchemaName,
+		Description: "Validated meme suggestions using only the supplied template IDs.",
+		Schema: map[string]any{
+			"type":                 "object",
+			"additionalProperties": false,
+			"required":             []string{"candidates"},
+			"properties": map[string]any{
+				"candidates": map[string]any{
+					"anyOf": []any{
+						map[string]any{"type": "array", "minItems": 0, "maxItems": 0, "items": candidateItems},
+						map[string]any{
+							"type": "array", "minItems": input.CandidateCount, "maxItems": input.CandidateCount,
+							"items": candidateItems,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func memeCandidateSchema(template Template) map[string]any {
+	return map[string]any{
+		"type":                 "object",
+		"additionalProperties": false,
+		"required":             []string{"template_id", "caption_lines", "rationale", "alt_text"},
+		"properties": map[string]any{
+			"template_id": map[string]any{"type": "string", "enum": []string{template.ID}},
+			"caption_lines": map[string]any{
+				"type": "array", "minItems": template.LineCount, "maxItems": template.LineCount,
+				"items": map[string]any{"type": "string", "minLength": 1, "maxLength": MaxCaptionLineCharacters},
+			},
+			"rationale": map[string]any{"type": "string", "minLength": 1, "maxLength": MaxRationaleCharacters},
+			"alt_text":  map[string]any{"type": "string", "minLength": 1, "maxLength": MaxAltTextCharacters},
+		},
+	}
+}
+
+func combinedUsage(first, second ai.Usage) ai.Usage {
+	result := ai.Usage{
+		InputTokens:  first.InputTokens + second.InputTokens,
+		OutputTokens: first.OutputTokens + second.OutputTokens,
+		TotalTokens:  first.TotalTokens + second.TotalTokens,
+	}
+	if first.CostUSD != nil || second.CostUSD != nil {
+		cost := 0.0
+		if first.CostUSD != nil {
+			cost += *first.CostUSD
+		}
+		if second.CostUSD != nil {
+			cost += *second.CostUSD
+		}
+		result.CostUSD = &cost
+	}
+	return result
 }

@@ -46,6 +46,14 @@ func (h *PublicationHandler) loadPublicationResponses(
 	ctx context.Context,
 	publications []models.Publication,
 ) ([]PublicationResponse, error) {
+	return h.loadPublicationResponsesWithDB(ctx, h.db, publications)
+}
+
+func (h *PublicationHandler) loadPublicationResponsesWithDB(
+	ctx context.Context,
+	db bun.IDB,
+	publications []models.Publication,
+) ([]PublicationResponse, error) {
 	if len(publications) == 0 {
 		return []PublicationResponse{}, nil
 	}
@@ -55,21 +63,21 @@ func (h *PublicationHandler) loadPublicationResponses(
 		publicationIDs = append(publicationIDs, publication.ID)
 	}
 
-	segmentsByPublication, mediaBySegment, err := h.loadPublicationListSegments(ctx, publicationIDs)
+	segmentsByPublication, mediaBySegment, err := h.loadPublicationListSegments(ctx, db, publicationIDs)
 	if err != nil {
 		return nil, err
 	}
 	renditionsByPublication, mediaByRendition, publicationMedia, err :=
-		h.loadPublicationListRenditions(ctx, publicationIDs)
+		h.loadPublicationListRenditions(ctx, db, publicationIDs)
 	if err != nil {
 		return nil, err
 	}
-	deliveryByRendition, err := providerwrite.LoadCurrentDeliveries(ctx, h.db, publicationIDs)
+	deliveryByRendition, err := providerwrite.LoadCurrentDeliveries(ctx, db, publicationIDs)
 	if err != nil {
 		return nil, err
 	}
 	segmentsByRendition, mediaByRenditionSegment, err :=
-		h.loadPublicationListRenditionSegments(ctx, publicationIDs)
+		h.loadPublicationListRenditionSegments(ctx, db, publicationIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -107,13 +115,14 @@ func (h *PublicationHandler) loadPublicationResponses(
 
 func (h *PublicationHandler) loadPublicationListSegments(
 	ctx context.Context,
+	db bun.IDB,
 	publicationIDs []string,
 ) (map[string][]models.PublicationSegment, map[string][]MediaSummary, error) {
 	segmentsByPublication := make(map[string][]models.PublicationSegment, len(publicationIDs))
 	mediaBySegment := map[string][]MediaSummary{}
 
 	var segments []models.PublicationSegment
-	if err := h.db.NewSelect().
+	if err := db.NewSelect().
 		Model(&segments).
 		Where("publication_id IN (?)", bun.List(publicationIDs)).
 		Order("publication_id ASC", "position ASC").
@@ -134,7 +143,7 @@ func (h *PublicationHandler) loadPublicationListSegments(
 	}
 
 	var mediaRows []publicationSegmentMediaRow
-	if err := h.db.NewSelect().
+	if err := db.NewSelect().
 		TableExpr("publication_segment_media AS psm").
 		ColumnExpr("ps.publication_id, psm.segment_id, psm.display_order, psm.settings_json").
 		ColumnExpr("m.*").
@@ -158,6 +167,7 @@ func (h *PublicationHandler) loadPublicationListSegments(
 
 func (h *PublicationHandler) loadPublicationListRenditions(
 	ctx context.Context,
+	db bun.IDB,
 	publicationIDs []string,
 ) (
 	map[string][]models.Rendition,
@@ -170,7 +180,7 @@ func (h *PublicationHandler) loadPublicationListRenditions(
 	publicationMedia := map[string][]MediaSummary{}
 
 	var renditions []models.Rendition
-	if err := h.db.NewSelect().
+	if err := db.NewSelect().
 		Model(&renditions).
 		Where("publication_id IN (?)", bun.List(publicationIDs)).
 		Order("publication_id ASC", "created_at ASC").
@@ -188,7 +198,7 @@ func (h *PublicationHandler) loadPublicationListRenditions(
 	}
 
 	var mediaRows []renditionMediaListRow
-	if err := h.db.NewSelect().
+	if err := db.NewSelect().
 		TableExpr("rendition_media AS rm").
 		ColumnExpr("r.publication_id, rm.rendition_id, rm.role, rm.display_order, rm.alt_text, rm.thumbnail_timestamp_ms").
 		ColumnExpr("m.*").
@@ -234,6 +244,7 @@ func (h *PublicationHandler) loadPublicationListRenditions(
 
 func (h *PublicationHandler) loadPublicationListRenditionSegments(
 	ctx context.Context,
+	db bun.IDB,
 	publicationIDs []string,
 ) (
 	map[string][]models.RenditionSegment,
@@ -244,7 +255,7 @@ func (h *PublicationHandler) loadPublicationListRenditionSegments(
 	mediaBySegment := map[string][]MediaSummary{}
 
 	var segments []models.RenditionSegment
-	if err := h.db.NewSelect().
+	if err := db.NewSelect().
 		Model(&segments).
 		Join("JOIN renditions AS r ON r.id = rendition_segment.rendition_id").
 		Where("r.publication_id IN (?)", bun.List(publicationIDs)).
@@ -266,7 +277,7 @@ func (h *PublicationHandler) loadPublicationListRenditionSegments(
 	}
 
 	var mediaRows []renditionSegmentMediaListRow
-	if err := h.db.NewSelect().
+	if err := db.NewSelect().
 		TableExpr("rendition_segment_media AS rsm").
 		ColumnExpr("rsm.rendition_segment_id, rsm.role, rsm.display_order, rsm.alt_text, rsm.thumbnail_timestamp_ms, rsm.settings_json").
 		ColumnExpr("m.*").

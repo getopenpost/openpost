@@ -86,7 +86,7 @@ export type TranscriptionWorkerMessage =
 export interface ResolvedTranscriptionEngine {
 	engine: TranscriptionEngine;
 	model: TranscriptionModel;
-	fallbackReason?: 'language' | 'no-webgpu';
+	fallbackReason?: 'language' | 'no-webgpu' | 'out-of-memory';
 }
 
 export const MODEL_IDS = {

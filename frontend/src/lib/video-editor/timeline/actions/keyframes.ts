@@ -12,6 +12,7 @@
  */
 
 import type {
+	AnimationKeyframeSource,
 	EasingConfig,
 	EasingType,
 	ItemKeyframes,
@@ -24,7 +25,9 @@ import type {
 } from '$lib/video-editor/project/types';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { keyframeSelectionStore } from '../stores/keyframe-selection-store.svelte';
-import { execute } from '../commands/command-store.svelte';
+import { commandHistory, execute } from '../commands/command-store.svelte';
+import { captureSnapshot, restoreSnapshot } from '../commands/snapshot.svelte';
+import type { TimelineSnapshot } from '../commands/types';
 import { isFrameInTransitionRegion } from '../edit-constraints';
 import { transitionsStore } from './transitions-store.svelte';
 import { legacyKeyframeId, trackEntryAt, type KeyframeRef } from '../keyframe-editor';
@@ -56,6 +59,11 @@ import {
 	isPathVertexKeyframeProperty,
 	setPathVertexPropertyValue
 } from '../path-vertex-keyframes';
+import {
+	cropSourceDimensions,
+	cropWithPropertyPixels,
+	type CropKeyframeProperty
+} from '$lib/video-editor/media/crop-properties';
 export { activeValueAt, interpolateAt } from '../keyframe-interpolation';
 
 export interface KeyframeEdit {
@@ -85,6 +93,23 @@ export interface ClearKeyframesResult {
 	changedItemIds: string[];
 	lockedItemIds: string[];
 	keyframesRemoved: number;
+}
+
+export interface AnimationKeyframeApplication {
+	applicationId: string;
+	kind: AnimationKeyframeSource['kind'];
+	presetId: string;
+	presetName: string;
+	itemIds: string[];
+	keyframeCount: number;
+	propertyCount: number;
+	firstFrame: number;
+}
+
+export interface ManualKeyframeSummary {
+	keyframeCount: number;
+	propertyCount: number;
+	firstFrame: number | null;
 }
 
 function canWriteKeyframe(item: TimelineItem, relativeFrame: number): boolean {
@@ -186,85 +211,123 @@ export function setAnimatedProperties(
 	values: Partial<Record<KeyframeProperty, number>>,
 	isAutoKeyEnabled: (property: KeyframeProperty) => boolean
 ): boolean {
-	return execute('SET_ANIMATED_PROPERTIES', () => {
-		const item = timelineStore.itemById.get(itemId);
-		if (!item || absoluteFrame < item.from || absoluteFrame >= item.from + item.durationInFrames) {
-			return false;
+	return execute('SET_ANIMATED_PROPERTIES', () =>
+		writeAnimatedProperties(itemId, absoluteFrame, values, isAutoKeyEnabled)
+	);
+}
+
+function writeAnimatedProperties(
+	itemId: string,
+	absoluteFrame: number,
+	values: Partial<Record<KeyframeProperty, number>>,
+	isAutoKeyEnabled: (property: KeyframeProperty) => boolean
+): boolean {
+	const item = timelineStore.itemById.get(itemId);
+	if (!item) return false;
+	let keyframes = item.keyframes;
+	let patch: Partial<TimelineItem> = {};
+	const relativeFrame = absoluteFrame - item.from;
+	const vectorWrites = new Set<VectorKeyframeProperty>();
+	for (const vectorProperty of ['position', 'scale', 'anchor'] as const) {
+		const [xProperty, yProperty] = VECTOR_COMPONENTS[vectorProperty];
+		const hasValue = values[xProperty] !== undefined || values[yProperty] !== undefined;
+		if (!hasValue || !vectorProxyForItem(item, xProperty)) continue;
+		if (
+			activeVectorKeyframes(item, vectorProperty) ||
+			item.keyframes?.[xProperty] ||
+			item.keyframes?.[yProperty] ||
+			(values[xProperty] !== undefined && isAutoKeyEnabled(xProperty)) ||
+			(values[yProperty] !== undefined && isAutoKeyEnabled(yProperty))
+		) {
+			vectorWrites.add(vectorProperty);
 		}
-		let keyframes = item.keyframes;
-		let patch: Partial<TimelineItem> = {};
-		const relativeFrame = absoluteFrame - item.from;
-		const vectorWrites = new Set<VectorKeyframeProperty>();
-		for (const vectorProperty of ['position', 'scale', 'anchor'] as const) {
-			const [xProperty, yProperty] = VECTOR_COMPONENTS[vectorProperty];
-			const hasValue = values[xProperty] !== undefined || values[yProperty] !== undefined;
-			if (!hasValue || !vectorProxyForItem(item, xProperty)) continue;
-			if (
-				activeVectorKeyframes(item, vectorProperty) ||
-				item.keyframes?.[xProperty] ||
-				item.keyframes?.[yProperty] ||
-				(values[xProperty] !== undefined && isAutoKeyEnabled(xProperty)) ||
-				(values[yProperty] !== undefined && isAutoKeyEnabled(yProperty))
-			) {
-				vectorWrites.add(vectorProperty);
-			}
-		}
-		const shouldWriteKey = Object.entries(values).some(([rawProperty, value]) => {
-			if (value === undefined) return false;
-			// SAFETY: values is keyed by KeyframeProperty at the public boundary.
-			const property = rawProperty as KeyframeProperty;
-			const vector = vectorProxyForItem(item, property);
-			return (
-				Boolean(vector && vectorWrites.has(vector.property)) ||
-				item.keyframes?.[property] !== undefined ||
-				isAutoKeyEnabled(property)
-			);
-		});
-		if (shouldWriteKey && !canWriteKeyframe(item, relativeFrame)) return false;
-		let workingItem = item;
-		for (const vectorProperty of vectorWrites) {
-			const promoted = promoteVectorKeyframes(workingItem, vectorProperty, relativeFrame);
-			if (!promoted) return false;
-			remapPromotedSelection(itemId, promoted.identityRemap);
-			const [xProperty, yProperty] = VECTOR_COMPONENTS[vectorProperty];
-			const current =
-				interpolateVector(promoted.keyframes, relativeFrame) ??
-				baseVectorValue(workingItem, vectorProperty);
-			const vectorKeyframes = upsertVectorKeyframe(promoted.keyframes, relativeFrame, {
-				x:
-					values[xProperty] === undefined
-						? current.x
-						: scalarToVectorComponent(workingItem, vectorProperty, 'x', values[xProperty]),
-				y:
-					values[yProperty] === undefined
-						? current.y
-						: scalarToVectorComponent(workingItem, vectorProperty, 'y', values[yProperty])
-			});
-			const vectorPatch = vectorPropertyKeyframesPatch(
-				workingItem,
-				vectorProperty,
-				vectorKeyframes
-			);
-			patch = { ...patch, ...vectorPatch };
-			workingItem = { ...item, ...patch };
-			keyframes = patch.keyframes;
-		}
-		for (const [rawProperty, value] of Object.entries(values)) {
-			if (value === undefined) continue;
-			// SAFETY: values is keyed by KeyframeProperty at the public boundary.
-			const property = rawProperty as KeyframeProperty;
-			const vector = vectorProxyForItem(item, property);
-			if (vector && vectorWrites.has(vector.property)) continue;
-			if (item.keyframes?.[property] || isAutoKeyEnabled(property)) {
-				keyframes = upsertTrack(keyframes ?? {}, property, relativeFrame, value);
-			} else {
-				patch = mergeItemPatches(patch, basePropertyPatch({ ...item, ...patch }, property, value));
-			}
-		}
-		if (keyframes !== item.keyframes) patch.keyframes = keyframes;
-		timelineStore._updateItems([{ id: itemId, patch }]);
-		return true;
+	}
+	const shouldWriteKey = Object.entries(values).some(([rawProperty, value]) => {
+		if (value === undefined) return false;
+		// SAFETY: values is keyed by KeyframeProperty at the public boundary.
+		const property = rawProperty as KeyframeProperty;
+		const vector = vectorProxyForItem(item, property);
+		return (
+			Boolean(vector && vectorWrites.has(vector.property)) ||
+			item.keyframes?.[property] !== undefined ||
+			isAutoKeyEnabled(property)
+		);
 	});
+	if (shouldWriteKey && !canWriteKeyframe(item, relativeFrame)) return false;
+	let workingItem = item;
+	for (const vectorProperty of vectorWrites) {
+		const promoted = promoteVectorKeyframes(workingItem, vectorProperty, relativeFrame);
+		if (!promoted) return false;
+		remapPromotedSelection(itemId, promoted.identityRemap);
+		const [xProperty, yProperty] = VECTOR_COMPONENTS[vectorProperty];
+		const current =
+			interpolateVector(promoted.keyframes, relativeFrame) ??
+			baseVectorValue(workingItem, vectorProperty);
+		const vectorKeyframes = upsertVectorKeyframe(promoted.keyframes, relativeFrame, {
+			x:
+				values[xProperty] === undefined
+					? current.x
+					: scalarToVectorComponent(workingItem, vectorProperty, 'x', values[xProperty]),
+			y:
+				values[yProperty] === undefined
+					? current.y
+					: scalarToVectorComponent(workingItem, vectorProperty, 'y', values[yProperty])
+		});
+		const vectorPatch = vectorPropertyKeyframesPatch(workingItem, vectorProperty, vectorKeyframes);
+		patch = { ...patch, ...vectorPatch };
+		workingItem = { ...item, ...patch };
+		keyframes = patch.keyframes;
+	}
+	for (const [rawProperty, value] of Object.entries(values)) {
+		if (value === undefined) continue;
+		// SAFETY: values is keyed by KeyframeProperty at the public boundary.
+		const property = rawProperty as KeyframeProperty;
+		const vector = vectorProxyForItem(item, property);
+		if (vector && vectorWrites.has(vector.property)) continue;
+		if (item.keyframes?.[property] || isAutoKeyEnabled(property)) {
+			keyframes = upsertTrack(keyframes ?? {}, property, relativeFrame, value);
+		} else {
+			patch = mergeItemPatches(patch, basePropertyPatch({ ...item, ...patch }, property, value));
+		}
+	}
+	if (keyframes !== item.keyframes) patch.keyframes = keyframes;
+	timelineStore._updateItems([{ id: itemId, patch }]);
+	return true;
+}
+
+/** Update several inspector values during a gesture without growing undo history. */
+export function updateAnimatedPropertiesLive(
+	itemId: string,
+	absoluteFrame: number,
+	values: Partial<Record<KeyframeProperty, number>>,
+	isAutoKeyEnabled: (property: KeyframeProperty) => boolean
+): boolean {
+	return writeAnimatedProperties(itemId, absoluteFrame, values, isAutoKeyEnabled);
+}
+
+/** Capture the start of a live inspector gesture. */
+export function beginAnimatedPropertyEdit(): TimelineSnapshot {
+	return captureSnapshot();
+}
+
+/** Collapse all live inspector writes since `before` into one undo entry. */
+export function commitAnimatedPropertyEdit(
+	before: TimelineSnapshot,
+	itemIds: string[],
+	properties: KeyframeProperty[]
+): void {
+	commandHistory.addUndoEntry(
+		{
+			type: 'SET_ANIMATED_PROPERTIES',
+			payload: { ids: itemIds, properties }
+		},
+		before
+	);
+}
+
+/** Restore the exact pre-gesture state when a live inspector edit is cancelled. */
+export function cancelAnimatedPropertyEdit(before: TimelineSnapshot): void {
+	restoreSnapshot(before);
 }
 
 /**
@@ -510,7 +573,8 @@ export function removeKeyframe(itemId: string, property: KeyframeProperty, frame
 			...(track.easings && { easings: withoutIndex(track.easings, index) }),
 			...(track.easingConfigs && {
 				easingConfigs: withoutIndex(track.easingConfigs, index)
-			})
+			}),
+			...(track.sources && { sources: withoutIndex(track.sources, index) })
 		};
 		timelineStore._updateItems([
 			{
@@ -576,6 +640,7 @@ export function updateKeyframes(itemId: string, edits: readonly KeyframeEdit[]):
 					value: edit?.value ?? track.values[index] ?? 0,
 					easing: track.easings[index] ?? 'linear',
 					easingConfig: track.easingConfigs[index] ?? null,
+					source: track.sources[index] ?? null,
 					isEdited: edit !== undefined
 				};
 			});
@@ -590,7 +655,8 @@ export function updateKeyframes(itemId: string, edits: readonly KeyframeEdit[]):
 				values: sorted.map((entry) => entry.value),
 				ids: sorted.map((entry) => entry.id),
 				easings: sorted.map((entry) => entry.easing),
-				easingConfigs: sorted.map((entry) => entry.easingConfig)
+				easingConfigs: sorted.map((entry) => entry.easingConfig),
+				sources: sorted.map((entry) => entry.source)
 			};
 		}
 		if (scalarEdits.length > 0) patch.keyframes = keyframes;
@@ -635,6 +701,7 @@ export function duplicateKeyframes(itemId: string, edits: readonly KeyframeEdit[
 				track.values[targetIndex] = edit.value;
 				track.easings[targetIndex] = track.easings[sourceIndex] ?? 'linear';
 				track.easingConfigs[targetIndex] = track.easingConfigs[sourceIndex] ?? null;
+				track.sources[targetIndex] = track.sources[sourceIndex] ?? null;
 			} else {
 				let insertAt = track.frames.findIndex((frame) => frame > edit.frame);
 				if (insertAt < 0) insertAt = track.frames.length;
@@ -647,6 +714,7 @@ export function duplicateKeyframes(itemId: string, edits: readonly KeyframeEdit[
 					0,
 					cloneEasingConfig(track.easingConfigs[sourceIndex] ?? null)
 				);
+				track.sources.splice(insertAt, 0, track.sources[sourceIndex] ?? null);
 			}
 			keyframes = { ...keyframes, [edit.ref.property]: track };
 		}
@@ -723,6 +791,7 @@ export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert
 				if (first.easingConfig)
 					nextKeyframe.easingConfig = cloneEasingConfig(first.easingConfig) ?? undefined;
 				else delete nextKeyframe.easingConfig;
+				delete nextKeyframe.source;
 				if (first.spatial && vectorProperty === 'position') {
 					nextKeyframe.spatial = {
 						...first.spatial,
@@ -762,7 +831,8 @@ export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert
 					values: [],
 					ids: [],
 					easings: [],
-					easingConfigs: []
+					easingConfigs: [],
+					sources: []
 				},
 				property
 			);
@@ -775,10 +845,12 @@ export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert
 					track.ids.push(crypto.randomUUID());
 					track.easings.push(insert.easing ?? 'linear');
 					track.easingConfigs.push(cloneEasingConfig(insert.easingConfig ?? null));
+					track.sources.push(null);
 				} else {
 					track.values[index] = insert.value;
 					track.easings[index] = insert.easing ?? 'linear';
 					track.easingConfigs[index] = cloneEasingConfig(insert.easingConfig ?? null);
+					track.sources[index] = null;
 				}
 				refsByInsert.set(insert, {
 					property,
@@ -798,7 +870,8 @@ export function insertKeyframes(itemId: string, inserts: readonly KeyframeInsert
 					values: indexes.map((index) => track.values[index]),
 					ids: indexes.map((index) => track.ids[index]),
 					easings: indexes.map((index) => track.easings[index]),
-					easingConfigs: indexes.map((index) => track.easingConfigs[index])
+					easingConfigs: indexes.map((index) => track.easingConfigs[index]),
+					sources: indexes.map((index) => track.sources[index])
 				}
 			};
 		}
@@ -852,6 +925,175 @@ export function keyframeCountForClear(
 	return options
 		.filter((option) => property === undefined || option.property === property)
 		.reduce((total, option) => total + option.keyframeCount, 0);
+}
+
+/** Group generated keys by the exact preset application that created them. */
+export function animationKeyframeApplications(
+	items: readonly TimelineItem[]
+): AnimationKeyframeApplication[] {
+	type WorkingApplication = Omit<AnimationKeyframeApplication, 'propertyCount'> & {
+		properties: Set<string>;
+	};
+	const applications = new Map<string, WorkingApplication>();
+	const add = (
+		item: TimelineItem,
+		property: string,
+		frame: number,
+		source: AnimationKeyframeSource | null | undefined
+	): void => {
+		if (!source) return;
+		const existing = applications.get(source.applicationId);
+		if (existing) {
+			existing.keyframeCount += 1;
+			existing.firstFrame = Math.min(existing.firstFrame, frame);
+			existing.properties.add(property);
+			if (!existing.itemIds.includes(item.id)) existing.itemIds.push(item.id);
+			return;
+		}
+		applications.set(source.applicationId, {
+			...source,
+			itemIds: [item.id],
+			keyframeCount: 1,
+			firstFrame: frame,
+			properties: new Set([property])
+		});
+	};
+	for (const item of items) {
+		for (const [property, track] of Object.entries(item.keyframes ?? {})) {
+			track?.frames.forEach((frame, index) => add(item, property, frame, track.sources?.[index]));
+		}
+		for (const property of ['position', 'scale', 'anchor'] as const) {
+			for (const keyframe of item.vectorKeyframes?.[property] ?? []) {
+				add(item, property, keyframe.frame, keyframe.source);
+			}
+		}
+	}
+	return [...applications.values()]
+		.map(({ properties, ...application }) => ({
+			...application,
+			propertyCount: properties.size
+		}))
+		.toSorted(
+			(left, right) =>
+				left.firstFrame - right.firstFrame || left.presetName.localeCompare(right.presetName)
+		);
+}
+
+/** Summarize keys authored directly rather than generated by a preset. */
+export function manualKeyframeSummary(items: readonly TimelineItem[]): ManualKeyframeSummary {
+	let count = 0;
+	let firstFrame = Number.POSITIVE_INFINITY;
+	const properties = new Set<string>();
+	for (const item of items) {
+		for (const [property, track] of Object.entries(item.keyframes ?? {})) {
+			track?.frames.forEach((frame, index) => {
+				if (track.sources?.[index]) return;
+				count += 1;
+				firstFrame = Math.min(firstFrame, frame);
+				properties.add(property);
+			});
+		}
+		for (const [property, track] of Object.entries(item.vectorKeyframes ?? {})) {
+			for (const keyframe of track ?? []) {
+				if (keyframe.source) continue;
+				count += 1;
+				firstFrame = Math.min(firstFrame, keyframe.frame);
+				properties.add(property);
+			}
+		}
+	}
+	return {
+		keyframeCount: count,
+		propertyCount: properties.size,
+		firstFrame: Number.isFinite(firstFrame) ? firstFrame : null
+	};
+}
+
+/** Remove one generated preset application while preserving every other key. */
+export function removeAnimationKeyframeApplication(
+	itemIds: readonly string[],
+	applicationId: string
+): ClearKeyframesResult {
+	return removeKeyframesMatchingSource(
+		itemIds,
+		(source) => source?.applicationId === applicationId,
+		'REMOVE_ANIMATION_PRESET_APPLICATION'
+	);
+}
+
+/** Clear only directly authored keys while preserving generated preset applications. */
+export function clearManualKeyframesForItems(itemIds: readonly string[]): ClearKeyframesResult {
+	return removeKeyframesMatchingSource(
+		itemIds,
+		(source) => source === null,
+		'CLEAR_MANUAL_KEYFRAMES_FOR_ITEMS'
+	);
+}
+
+function removeKeyframesMatchingSource(
+	itemIds: readonly string[],
+	matches: (source: AnimationKeyframeSource | null) => boolean,
+	command: string
+): ClearKeyframesResult {
+	return execute(command, () => {
+		const changedItemIds: string[] = [];
+		const lockedItemIds: string[] = [];
+		let keyframesRemoved = 0;
+		const updates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
+		for (const itemId of new Set(itemIds)) {
+			const item = timelineStore.itemById.get(itemId);
+			if (!item) continue;
+			const patch: Partial<TimelineItem> = {};
+			const keyframes: ItemKeyframes = {};
+			let itemRemoved = 0;
+			for (const [rawProperty, sourceTrack] of Object.entries(item.keyframes ?? {})) {
+				if (!sourceTrack) continue;
+				// SAFETY: item.keyframes is keyed by the closed KeyframeProperty union.
+				const property = rawProperty as KeyframeProperty;
+				const track = withCompleteMetadata(sourceTrack, property);
+				const keep = track.frames
+					.map((_, index) => index)
+					.filter((index) => !matches(track.sources[index] ?? null));
+				itemRemoved += track.frames.length - keep.length;
+				if (keep.length > 0) keyframes[property] = trackAtIndexes(track, keep);
+			}
+			const vectorKeyframes = { ...item.vectorKeyframes };
+			for (const property of ['position', 'scale', 'anchor'] as const) {
+				const source = item.vectorKeyframes?.[property];
+				if (!source) continue;
+				const next = source.filter((keyframe) => !matches(keyframe.source ?? null));
+				itemRemoved += source.length - next.length;
+				if (next.length > 0) vectorKeyframes[property] = next;
+				else delete vectorKeyframes[property];
+			}
+			if (itemRemoved === 0) continue;
+			if (isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) {
+				lockedItemIds.push(itemId);
+				continue;
+			}
+			patch.keyframes = Object.keys(keyframes).length > 0 ? keyframes : undefined;
+			patch.vectorKeyframes = Object.keys(vectorKeyframes).length > 0 ? vectorKeyframes : undefined;
+			updates.push({ id: itemId, patch });
+			changedItemIds.push(itemId);
+			keyframesRemoved += itemRemoved;
+		}
+		if (updates.length > 0) {
+			timelineStore._updateItems(updates);
+			keyframeSelectionStore.clear();
+		}
+		return { changedItemIds, lockedItemIds, keyframesRemoved };
+	});
+}
+
+function trackAtIndexes(track: Required<KeyframeTrack>, indexes: readonly number[]): KeyframeTrack {
+	return {
+		frames: indexes.map((index) => track.frames[index] ?? 0),
+		values: indexes.map((index) => track.values[index] ?? 0),
+		ids: indexes.map((index) => track.ids[index] ?? crypto.randomUUID()),
+		easings: indexes.map((index) => track.easings[index] ?? 'linear'),
+		easingConfigs: indexes.map((index) => track.easingConfigs[index] ?? null),
+		sources: indexes.map((index) => track.sources[index] ?? null)
+	};
 }
 
 /** Clear all animation or one lane across a selection as one undoable command. */
@@ -950,6 +1192,9 @@ export function removeKeyframes(itemId: string, refs: readonly KeyframeRef[]): b
 				}),
 				...(source.easingConfigs && {
 					easingConfigs: keep.map((index) => source.easingConfigs?.[index] ?? null)
+				}),
+				...(source.sources && {
+					sources: keep.map((index) => source.sources?.[index] ?? null)
 				})
 			};
 			keyframes = pruneTrack(keyframes ?? {}, property, nextTrack);
@@ -1136,7 +1381,7 @@ function upsertTrack(
 ): ItemKeyframes {
 	const source = keyframes[property];
 	const complete = withCompleteMetadata(source ?? { frames: [], values: [] }, property);
-	const { frames, values, ids, easings, easingConfigs } = complete;
+	const { frames, values, ids, easings, easingConfigs, sources } = complete;
 	const index = frames.indexOf(frame);
 	if (index !== -1) {
 		values[index] = value;
@@ -1153,10 +1398,11 @@ function upsertTrack(
 		ids.splice(insertAt, 0, crypto.randomUUID());
 		easings.splice(insertAt, 0, 'linear');
 		easingConfigs.splice(insertAt, 0, null);
+		sources.splice(insertAt, 0, null);
 	}
 	return {
 		...keyframes,
-		[property]: { frames, values, ids, easings, easingConfigs }
+		[property]: { frames, values, ids, easings, easingConfigs, sources }
 	};
 }
 
@@ -1171,7 +1417,8 @@ function withCompleteMetadata(
 			(frame, index) => track.ids?.[index] ?? legacyKeyframeId(property, frame, index)
 		),
 		easings: track.frames.map((_, index) => track.easings?.[index] ?? 'linear'),
-		easingConfigs: track.frames.map((_, index) => track.easingConfigs?.[index] ?? null)
+		easingConfigs: track.frames.map((_, index) => track.easingConfigs?.[index] ?? null),
+		sources: track.frames.map((_, index) => track.sources?.[index] ?? null)
 	};
 }
 
@@ -1219,8 +1466,11 @@ function basePropertyPatch(
 	}
 	const crop = item.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
 	if (property.startsWith('crop')) {
-		const field = property.slice(4).toLowerCase();
-		return { crop: { ...crop, [field]: value } };
+		// SAFETY: CropKeyframeProperty contains every KeyframeProperty with the crop prefix.
+		const cropProperty = property as CropKeyframeProperty;
+		return {
+			crop: cropWithPropertyPixels(crop, cropProperty, value, cropSourceDimensions(item))
+		};
 	}
 	if (property.startsWith('textShadow')) {
 		const field = property.slice('textShadow'.length);

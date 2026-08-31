@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Input } from '$lib/components/ui/input';
 	import { m } from '$lib/paraglide/messages';
 	import type { AnimationPreset } from '$lib/video-editor/project/types';
 	import { applySavedAnimation } from '$lib/video-editor/timeline/actions/saved-animation';
@@ -13,6 +15,9 @@
 		itemIds = [],
 		presets = [],
 		mode,
+		query: externalQuery,
+		compatibleOnly = false,
+		showFilters = true,
 		onsavepreset = () => {},
 		ondeletepreset = () => {},
 		onedit
@@ -21,12 +26,15 @@
 		itemIds?: string[];
 		presets?: AnimationPreset[];
 		mode: 'replace' | 'add';
+		query?: string;
+		compatibleOnly?: boolean;
+		showFilters?: boolean;
 		onsavepreset?: (preset: AnimationPreset) => void;
 		ondeletepreset?: (presetId: string) => void;
 		onedit: () => void;
 	} = $props();
 
-	let query = $state('');
+	let localQuery = $state('');
 	let saveOpen = $state(false);
 	let presetName = $state('');
 	let deletePresetId = $state<string | null>(null);
@@ -41,6 +49,7 @@
 		})
 	);
 	const sourceItem = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
+	const query = $derived(externalQuery ?? localQuery);
 	const canSave = $derived(
 		Boolean(
 			sourceItem &&
@@ -50,8 +59,10 @@
 		)
 	);
 	const filteredPresets = $derived(
-		presets.filter((preset) =>
-			preset.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())
+		presets.filter(
+			(preset) =>
+				preset.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) &&
+				(!compatibleOnly || compatibilityReason(preset) === null)
 		)
 	);
 
@@ -132,10 +143,11 @@
 	{#if saveOpen}
 		<div class="save-form">
 			<label for="saved-animation-name">{m.video_editor_saved_animation_name()}</label>
-			<input
+			<Input
 				id="saved-animation-name"
 				bind:value={presetName}
-				maxlength="80"
+				maxlength={80}
+				class="h-7 min-h-0 rounded border border-[oklch(0.31_0.018_55)] bg-[oklch(0.135_0.01_55)] px-2 text-[0.6rem] text-[oklch(0.9_0.012_65)]"
 				onkeydown={(event) => event.key === 'Enter' && savePreset()}
 			/>
 			<div>
@@ -151,16 +163,19 @@
 
 	{#if presets.length > 0}
 		<div class="library-controls">
-			<label>
-				<span>{m.video_editor_saved_animation_search()}</span>
-				<input
-					type="search"
-					bind:value={query}
-					placeholder={m.video_editor_saved_animation_search()}
-				/>
-			</label>
+			{#if showFilters}
+				<label>
+					<span>{m.video_editor_saved_animation_search()}</span>
+					<Input
+						type="search"
+						bind:value={localQuery}
+						placeholder={m.video_editor_saved_animation_search()}
+						class="h-7 min-h-0 rounded border border-[oklch(0.31_0.018_55)] bg-[oklch(0.135_0.01_55)] px-2 text-[0.6rem] text-[oklch(0.9_0.012_65)]"
+					/>
+				</label>
+			{/if}
 			<label class="retime-toggle">
-				<input type="checkbox" bind:checked={retime} />
+				<Checkbox bind:checked={retime} aria-label={m.video_editor_saved_animation_fit()} />
 				<span>{m.video_editor_saved_animation_fit()}</span>
 			</label>
 		</div>
@@ -254,8 +269,7 @@
 		line-height: 1.4;
 		color: oklch(0.64 0.018 65);
 	}
-	button,
-	input {
+	button {
 		font: inherit;
 	}
 	button {
@@ -270,8 +284,7 @@
 		cursor: not-allowed;
 		opacity: 0.4;
 	}
-	button:focus-visible,
-	input:focus-visible {
+	button:focus-visible {
 		outline: 2px solid oklch(0.66 0.14 45);
 		outline-offset: 2px;
 	}
@@ -312,25 +325,11 @@
 		font-size: 0.5625rem;
 		color: oklch(0.68 0.018 65);
 	}
-	.save-form input,
-	.library-controls input[type='search'] {
-		width: 100%;
-		min-height: 1.8rem;
-		border: 1px solid oklch(0.31 0.018 55);
-		border-radius: 0.3rem;
-		padding: 0.25rem 0.4rem;
-		background: oklch(0.135 0.01 55);
-		color: oklch(0.9 0.012 65);
-		font-size: 0.6rem;
-	}
 	.library-controls .retime-toggle {
 		display: flex;
 		min-height: 1.5rem;
 		align-items: center;
 		gap: 0.35rem;
-	}
-	.retime-toggle input {
-		accent-color: oklch(0.62 0.14 45);
 	}
 	.preset-list {
 		display: grid;

@@ -14,6 +14,13 @@ function item(overrides: Partial<TimelineItem> = {}): TimelineItem {
 	};
 }
 
+const generatedSource = {
+	applicationId: 'generated-fade',
+	kind: 'built-in-preset' as const,
+	presetId: 'fade-in',
+	presetName: 'Fade in'
+};
+
 describe('trimmed keyframe cleanup', () => {
 	it('inserts the evaluated final pose before removing parked scalar keys', () => {
 		const clip = item({
@@ -22,7 +29,8 @@ describe('trimmed keyframe cleanup', () => {
 					frames: [0, 20],
 					values: [0, 1],
 					ids: ['start', 'parked'],
-					easings: ['linear', 'ease-out']
+					easings: ['linear', 'ease-out'],
+					sources: [generatedSource, generatedSource]
 				}
 			}
 		});
@@ -32,7 +40,8 @@ describe('trimmed keyframe cleanup', () => {
 		expect(cleaned.keyframes?.opacity).toMatchObject({
 			frames: [0, 9],
 			values: [0, 0.45],
-			ids: ['start', 'boundary']
+			ids: ['start', 'boundary'],
+			sources: [generatedSource, generatedSource]
 		});
 	});
 
@@ -40,15 +49,21 @@ describe('trimmed keyframe cleanup', () => {
 		const clip = item({
 			vectorKeyframes: {
 				position: [
-					{ id: 'start', frame: 0, value: { x: 0, y: 10 }, easing: 'linear' },
+					{
+						id: 'start',
+						frame: 0,
+						value: { x: 0, y: 10 },
+						easing: 'linear',
+						source: generatedSource
+					},
 					{ id: 'parked', frame: 18, value: { x: 180, y: 100 }, easing: 'linear' }
 				]
 			}
 		});
 		const cleaned = cleanupTrimmedKeyframes(clip, () => 'boundary');
 		expect(cleaned.vectorKeyframes?.position).toMatchObject([
-			{ id: 'start', frame: 0, value: { x: 0, y: 10 } },
-			{ id: 'boundary', frame: 9, value: { x: 90, y: 55 } }
+			{ id: 'start', frame: 0, value: { x: 0, y: 10 }, source: generatedSource },
+			{ id: 'boundary', frame: 9, value: { x: 90, y: 55 }, source: generatedSource }
 		]);
 		expect(cleaned.removedCount).toBe(1);
 		expect(cleaned.insertedBoundaryCount).toBe(1);

@@ -8,10 +8,14 @@ import {
 	saveSceneThumbnail,
 	sceneAnalysisMatchesMedia
 } from '../../workspace-fs/scene-analysis';
+import { readBlob } from '../../workspace-fs/fs-primitives';
+import { mediaThumbnailPath } from '../../workspace-fs/paths';
+import { requireWorkspaceRoot } from '../../workspace-fs/root';
 import type {
 	SceneAnalysisWorkerComplete,
 	SceneAnalysisWorkerResponse
 } from './scene-analysis.worker';
+import type { SceneCut } from './scene-types';
 import type { SceneAnalysis, SceneAnalysisProgress } from './types';
 
 export const SCENE_BROWSER_DETECTOR_VERSION = 2;
@@ -20,6 +24,19 @@ interface AnalyzeSceneOptions {
 	signal?: AbortSignal;
 	force?: boolean;
 	onProgress?: (progress: SceneAnalysisProgress) => void;
+}
+
+export function isSceneAnalyzableMedia(media: MediaMetadata): boolean {
+	return (
+		media.tags.includes('video') ||
+		media.mimeType.startsWith('video/') ||
+		media.tags.includes('image') ||
+		media.mimeType.startsWith('image/')
+	);
+}
+
+function isImageMedia(media: MediaMetadata): boolean {
+	return media.tags.includes('image') || media.mimeType.startsWith('image/');
 }
 
 /** Parsed abort reason string from `AbortSignal.reason`. */
@@ -33,10 +50,28 @@ function abortError(reason?: string): DOMException {
 	return new DOMException(reason ?? 'Scene analysis cancelled', 'AbortError');
 }
 
+async function boundedImageThumbnail(source: Blob, signal?: AbortSignal): Promise<Blob> {
+	const bitmap = await createImageBitmap(source);
+	try {
+		if (signal?.aborted) throw abortError(parseAbortReason(signal.reason));
+		const scale = Math.min(1, 384 / Math.max(bitmap.width, bitmap.height));
+		const width = Math.max(1, Math.round(bitmap.width * scale));
+		const height = Math.max(1, Math.round(bitmap.height * scale));
+		const canvas = new OffscreenCanvas(width, height);
+		const context = canvas.getContext('2d');
+		if (!context) throw new Error('Unable to draw the image analysis thumbnail');
+		context.drawImage(bitmap, 0, 0, width, height);
+		return canvas.convertToBlob({ type: 'image/jpeg', quality: 0.8 });
+	} finally {
+		bitmap.close();
+	}
+}
+
 async function runWorker(
 	media: MediaMetadata,
 	signal: AbortSignal | undefined,
-	onProgress: AnalyzeSceneOptions['onProgress']
+	onProgress: AnalyzeSceneOptions['onProgress'],
+	includeThumbnails = true
 ): Promise<SceneAnalysisWorkerComplete> {
 	const blob = await resolveMediaBlob(media);
 	const worker = new Worker(new URL('./scene-analysis.worker.ts', import.meta.url), {
@@ -74,7 +109,12 @@ async function runWorker(
 				if (message.type === 'error') reject(new Error(message.error));
 				else resolve(message);
 			};
-			worker.postMessage({ type: 'analyze', requestId, blob, method: 'adaptive' });
+			worker.postMessage({
+				type: 'analyze',
+				requestId,
+				blob,
+				includeThumbnails
+			});
 		});
 	} finally {
 		worker.terminate();
@@ -85,6 +125,7 @@ async function analyzeFresh(
 	media: MediaMetadata,
 	options: AnalyzeSceneOptions
 ): Promise<SceneAnalysis> {
+	if (isImageMedia(media)) return analyzeImage(media, options);
 	const result = await runWorker(media, options.signal, options.onProgress);
 	const scenes = await Promise.all(
 		result.scenes.map(async (scene) => {
@@ -118,10 +159,55 @@ async function analyzeFresh(
 	return analysis;
 }
 
+async function analyzeImage(
+	media: MediaMetadata,
+	options: AnalyzeSceneOptions
+): Promise<SceneAnalysis> {
+	if (options.signal?.aborted) throw abortError(parseAbortReason(options.signal.reason));
+	options.onProgress?.({ stage: 'thumbnails', percent: 0, completed: 0, total: 1 });
+	const thumbnail =
+		(await readBlob(requireWorkspaceRoot(), mediaThumbnailPath(media.id))) ??
+		(await boundedImageThumbnail(await resolveMediaBlob(media), options.signal));
+	if (options.signal?.aborted) throw abortError(parseAbortReason(options.signal.reason));
+	const thumbRelPath = await saveSceneThumbnail(media.id, 0, thumbnail);
+	if (options.signal?.aborted) throw abortError(parseAbortReason(options.signal.reason));
+	const durationSec =
+		(media.animationFrameCount ?? 0) > 1 && media.duration > 0 ? media.duration : 3;
+	const analysis: SceneAnalysis = {
+		schemaVersion: 1,
+		detectorVersion: SCENE_BROWSER_DETECTOR_VERSION,
+		mediaId: media.id,
+		contentHash: media.contentHash,
+		sourceFileSize: media.fileSize,
+		sourceLastModified: media.fileLastModified,
+		method: 'image',
+		sampleIntervalSec: 0,
+		analyzedAt: Date.now(),
+		scenes: [
+			{
+				id: `${media.id}:0`,
+				mediaId: media.id,
+				index: 0,
+				startSec: 0,
+				endSec: durationSec,
+				timeSec: 0,
+				text: '',
+				thumbRelPath
+			}
+		]
+	};
+	await saveSceneAnalysis(analysis);
+	options.onProgress?.({ stage: 'thumbnails', percent: 100, completed: 1, total: 1 });
+	return analysis;
+}
+
 export async function analyzeMediaScenes(
 	media: MediaMetadata,
 	options: AnalyzeSceneOptions = {}
 ): Promise<SceneAnalysis> {
+	if (!isSceneAnalyzableMedia(media)) {
+		throw new Error(`Scene analysis does not support ${media.mimeType || 'this media type'}`);
+	}
 	if (!options.force) {
 		const cached = await getSceneAnalysis(media.id);
 		if (
@@ -133,4 +219,16 @@ export async function analyzeMediaScenes(
 		}
 	}
 	return analyzeFresh(media, options);
+}
+
+export async function detectAdaptiveSceneCuts(
+	media: MediaMetadata,
+	options: Pick<AnalyzeSceneOptions, 'signal' | 'onProgress'> = {}
+): Promise<SceneCut[]> {
+	if (!isSceneAnalyzableMedia(media) || isImageMedia(media)) {
+		throw new Error(
+			`Adaptive scene detection does not support ${media.mimeType || 'this media type'}`
+		);
+	}
+	return (await runWorker(media, options.signal, options.onProgress, false)).cuts;
 }

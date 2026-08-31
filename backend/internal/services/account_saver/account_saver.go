@@ -206,7 +206,11 @@ func (s *AccountSaver) SaveAccountsFromInputs(ctx context.Context, inputs []Save
 		account.Platform = input.PlatformName
 		account.AccountID = input.AccountID
 		account.AccountUsername = input.AccountUsername
-		account.AccountAvatarURL = input.AccountAvatarURL
+		accountAvatarURL := strings.TrimSpace(input.AccountAvatarURL)
+		if accountAvatarURL == "" && existing != nil {
+			accountAvatarURL = existing.AccountAvatarURL
+		}
+		account.AccountAvatarURL = accountAvatarURL
 		account.InstanceURL = input.InstanceURL
 		account.OAuthGrantID = preparedGrants[grantIndexes[index]].grant.ID
 		account.AccessTokenEnc = []byte{}

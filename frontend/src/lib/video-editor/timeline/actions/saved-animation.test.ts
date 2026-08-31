@@ -57,6 +57,16 @@ describe('applySavedAnimation', () => {
 		).toMatchObject({ ok: true, appliedItems: 2, writtenKeyframes: 4 });
 		expect(timelineStore.itemById.get('one')?.keyframes?.opacity?.frames).toEqual([0, 99]);
 		expect(timelineStore.itemById.get('two')?.keyframes?.opacity?.frames).toEqual([0, 49]);
+		const sources = timelineStore.itemById.get('one')?.keyframes?.opacity?.sources;
+		expect(sources?.[0]).toMatchObject({
+			kind: 'saved-preset',
+			presetId: 'saved',
+			presetName: 'Saved move'
+		});
+		expect(sources?.[1]?.applicationId).toBe(sources?.[0]?.applicationId);
+		expect(
+			timelineStore.itemById.get('two')?.keyframes?.opacity?.sources?.[0]?.applicationId
+		).not.toBe(sources?.[0]?.applicationId);
 		expect(commandHistory.undoStack).toHaveLength(1);
 	});
 

@@ -2,6 +2,7 @@ import type { GeneratedAudio, LocalGenerationProgress } from '../types';
 import { KOKORO_TTS_VOICE_OPTIONS, kokoroTtsService, type KokoroTtsVoice } from './kokoro-service';
 import { MOSS_TTS_VOICE_OPTIONS, mossTtsService, type MossTtsVoice } from './moss-service';
 import {
+	SUPERTONIC_TTS_EXPRESSIVE_TAG_OPTIONS,
 	SUPERTONIC_TTS_LANGUAGE_OPTIONS,
 	SUPERTONIC_TTS_VOICE_OPTIONS,
 	supertonicTtsService,
@@ -43,6 +44,7 @@ export function localTtsVoiceOptions(engine: LocalTtsEngine) {
 }
 
 export const LOCAL_TTS_LANGUAGE_OPTIONS = SUPERTONIC_TTS_LANGUAGE_OPTIONS;
+export const LOCAL_TTS_EXPRESSIVE_TAG_OPTIONS = SUPERTONIC_TTS_EXPRESSIVE_TAG_OPTIONS;
 
 export function defaultLocalTtsVoice(engine: LocalTtsEngine): string {
 	if (engine === 'kokoro') return 'af_heart';

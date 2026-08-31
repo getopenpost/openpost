@@ -27,6 +27,8 @@ const anchor: ResolvedMotionTransform = {
 	y: 0,
 	width: 400,
 	height: 300,
+	scaleX: 1,
+	scaleY: 1,
 	rotation: 0,
 	opacity: 1
 };
@@ -148,6 +150,30 @@ describe('motion layers actions', () => {
 		expect(commandHistory.undoStack).toHaveLength(2);
 		commandHistory.undo();
 		expect(timelineStore.itemById.get('a')?.motionLayers?.[0].enabled).toBe(true);
+	});
+
+	it('adds scale motion to text as a layout-safe render layer', () => {
+		timelineStore.setAll({
+			tracks: [track],
+			items: [{ ...item('title'), type: 'text', text: 'Launch' }],
+			fps: 30
+		});
+		expect(
+			applyMotionPresetAsLayers({
+				itemIds: ['title'],
+				presetId: 'pop-in',
+				frameWidth: 1920,
+				frameHeight: 1080,
+				fps: 30
+			})
+		).toBe(1);
+		const updated = timelineStore.itemById.get('title');
+		expect(updated?.motionLayers?.[0]?.tracks.map((track) => track.property)).toEqual([
+			'opacity',
+			'scaleX',
+			'scaleY'
+		]);
+		expect(updated?.transform).toMatchObject({ width: 400, height: 300 });
 	});
 
 	it('preserves existing animated anchor for additive layers over vector lanes', () => {

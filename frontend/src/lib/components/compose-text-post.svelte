@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onDestroy, onMount, tick } from 'svelte';
+	import { z } from 'zod';
 	import { captureTelemetryEvent } from '@openpost/telemetry';
-	import { fade, fly } from 'svelte/transition';
 	import { page } from '$app/stores';
 	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { resolve } from '$app/paths';
@@ -15,6 +15,43 @@
 	} from '$lib/api/client';
 	import { loadCapabilityCatalog, loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
+	import AIWorkspaceDialog from '$lib/components/post-builder/ai-workspace-dialog.svelte';
+	import type {
+		AIAngle,
+		AIGenerationPhase,
+		AIOpportunity,
+		AIWorkspaceDialogCopy,
+		AIWorkspaceEntry,
+		AIWorkspaceStep
+	} from '$lib/components/post-builder/ai-workspace-types';
+	import {
+		cancelPublicationBuild,
+		createPublicationBuild,
+		discoverPublicationOpportunities,
+		getPublicationBuild,
+		listVoiceProfiles,
+		planPublicationAngles,
+		retryPublicationBuild,
+		type PublicationBuild,
+		type PublicationBuildAngle,
+		type PublicationBuildRequest,
+		type PublicationBuildResult,
+		type PublicationOpportunity
+	} from '$lib/post-builder/client';
+	import { applyPublicationBuildResult } from '$lib/post-builder/apply';
+	import { composerBuildFingerprint } from '$lib/post-builder/composer-state';
+	import AIMemeRecommendation from '$lib/components/post-builder/ai-meme-recommendation.svelte';
+	import type {
+		AIMemeRecommendationCandidate,
+		AIMemeRecommendationCopy
+	} from '$lib/components/post-builder/ai-meme-recommendation';
+	import {
+		memePreviewDataURL,
+		previewMeme,
+		renderMeme,
+		suggestMemes
+	} from '$lib/meme-generator/api';
+	import type { MemeSuggestionCandidate } from '$lib/meme-generator/types';
 	import { getAuthenticatedMediaByID } from '$lib/media-url';
 	import {
 		MAX_COMPOSER_DRAFT_MEDIA,
@@ -31,8 +68,10 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import SocialSetControl from './social-set-control.svelte';
+	import SocialAccountIdentity from './social-account-identity.svelte';
 	import ComposerRequiredFields from './composer-required-fields.svelte';
 	import ComposerPublishActions from './composer-publish-actions.svelte';
+	import ComposerAIActionButton from './composer-ai-action-button.svelte';
 	import ComposerDeliveryFeedback from './composer-delivery-feedback.svelte';
 	import SaveIndicator from './save-indicator.svelte';
 	import ComposerScheduleDialog from './composer-schedule-dialog.svelte';
@@ -42,15 +81,14 @@
 	import WorkspaceSetupGuide from './workspace-setup-guide.svelte';
 	import WorkspaceActivationCompletion from './workspace-activation-completion.svelte';
 	import PlatformIcon from './platform-icon.svelte';
+	import { formatSocialAccountName } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge';
 	import { getPlatformKey, getPlatformName } from '$lib/utils';
 	import { CalendarDate, isEqualDay } from '@internationalized/date';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
 	import XIcon from '@lucide/svelte/icons/x';
-	import LightbulbIcon from '@lucide/svelte/icons/lightbulb';
-	import ShuffleIcon from '@lucide/svelte/icons/shuffle';
-	import CheckIcon from '@lucide/svelte/icons/check';
+	import Undo2Icon from '@lucide/svelte/icons/undo-2';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import UnlinkIcon from '@lucide/svelte/icons/unlink';
 	import GripVerticalIcon from '@lucide/svelte/icons/grip-vertical';
@@ -59,8 +97,9 @@
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
 	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import SettingsIcon from '@lucide/svelte/icons/settings-2';
+	import HistoryIcon from '@lucide/svelte/icons/history';
+	import CopyIcon from '@lucide/svelte/icons/copy';
 	import { ui } from '$lib/stores/ui.svelte';
-	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
 	import { ReorderableList } from 'svelte-reorderable-list';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
@@ -72,7 +111,7 @@
 		type VariantPost
 	} from './compose/draft-utils';
 	import {
-		minimumAccountCharacterLimit,
+		mostConstrainedCharacterUsage,
 		platformTextLength,
 		uniquePlatformLimits
 	} from './compose/platform-limits';
@@ -114,7 +153,6 @@
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import DraftConflictDialog from './draft-conflict-dialog.svelte';
-	import PromptApplyDialog from './prompt-apply-dialog.svelte';
 	import MediaPicker from './media-picker.svelte';
 	import {
 		consumeImageEditorReturnToken,
@@ -189,6 +227,34 @@
 	>[number];
 	type ProviderSettingValue = SettingDefinition['default'];
 	type ProviderSettings = NonNullable<components['schemas']['RenditionInput']['settings']>;
+	const AI_BUILD_METADATA_KEY = 'ai_publication_build';
+	const AI_OPPORTUNITY_SLOW_DELAY_MS = 8_000;
+	const aiPlatformStrategySchema = z.object({
+		account_id: z.string().min(1),
+		platform: z.string().min(1),
+		objective: z.string(),
+		archetype: z.string(),
+		media: z.object({
+			treatment: z.string(),
+			role: z.string(),
+			brief: z.string(),
+			source_ref: z.string().optional()
+		}),
+		warnings: z.array(z.string()).optional()
+	});
+	const aiBuildMetadataSchema = z.object({
+		version: z.literal(1),
+		strategies: z.array(aiPlatformStrategySchema)
+	});
+	type AIPlatformStrategy = z.infer<typeof aiPlatformStrategySchema>;
+	interface AIComposerCheckpoint {
+		posts: PostItem[];
+		variants: Array<[string, Record<string, VariantPost>]>;
+		linkUrl: string;
+		requestedOutputProfiles: Record<string, string>;
+		formatLockedByAccount: Record<string, boolean>;
+		strategies: AIPlatformStrategy[];
+	}
 
 	interface Props {
 		initialPublication?: Publication | null;
@@ -196,11 +262,15 @@
 		initialScheduleTime?: string | null;
 		initialWorkspaceId?: string | null;
 		initialAccountIds?: string[];
+		initialMediaIds?: string[];
 		onHandoffSelected?: () => void;
 		onSuccess?: () => void;
 		onDeleted?: () => void | Promise<void>;
 		onDraftCreated?: (id: string) => void;
 		onThreadStateChange?: (isThread: boolean) => void;
+		onOpenVersionHistory?: () => void;
+		onCopyAsDraft?: () => void | Promise<void>;
+		copyingDraft?: boolean;
 		hideSetupGuideOnDesktop?: boolean;
 	}
 
@@ -213,11 +283,15 @@
 		initialScheduleTime = null,
 		initialWorkspaceId = null,
 		initialAccountIds = [],
+		initialMediaIds = [],
 		onHandoffSelected,
 		onSuccess,
 		onDeleted,
 		onDraftCreated,
 		onThreadStateChange,
+		onOpenVersionHistory,
+		onCopyAsDraft,
+		copyingDraft = false,
 		hideSetupGuideOnDesktop = false
 	}: Props = $props();
 	let isEditMode = $derived(Boolean(initialPublication));
@@ -227,6 +301,7 @@
 	let publicationId = $state('');
 	let revision = $state(1);
 	let lastInitializedPublicationId = $state<string | null>(null);
+	let appliedInitialMediaKey = $state('');
 	let isSaving = $state(false);
 	let isSubmitting = $state(false);
 	let deliveryPublicationID = $state('');
@@ -260,6 +335,12 @@
 	let conflictDialogOpen = $state(false);
 	let linkUrl = $state('');
 	let composerSettingsOpen = $state(false);
+
+	async function openVersionHistory() {
+		composerSettingsOpen = false;
+		await tick();
+		onOpenVersionHistory?.();
+	}
 
 	let workspaces = $state.raw<Workspace[]>([]);
 	let selectedWorkspaceId = $state<string>('');
@@ -300,11 +381,49 @@
 	let randomDelayOverride = $state<string>('default');
 	let repostOverride = $state<components['schemas']['Override']>({ mode: 'inherit' });
 
-	let showPromptCard = $state(false);
-	let currentPrompt = $state<{ text: string; example: string; category: string } | null>(null);
-	let loadingPrompt = $state(false);
-	let promptApplyDialogOpen = $state(false);
-	let pendingPromptToApply = $state<{ text: string; example: string } | null>(null);
+	let buildingPost = $state(false);
+	let postBuilderError = $state('');
+	let aiWorkspaceOpen = $state(false);
+	let aiWorkspaceEntry = $state<AIWorkspaceEntry>('build');
+	let aiWorkspaceStep = $state<AIWorkspaceStep>('angles');
+	let aiOpportunities = $state.raw<PublicationOpportunity[]>([]);
+	let aiSelectedOpportunityID = $state('');
+	let aiAngles = $state.raw<PublicationBuildAngle[]>([]);
+	let aiSelectedAngleID = $state('');
+	let aiOpportunityLoading = $state(false);
+	let aiFindingMore = $state(false);
+	let aiCancelling = $state(false);
+	let aiObjective = $state('');
+	let aiChangeRequest = $state('');
+	let aiIdeationBrief = $state('');
+	let aiContextNotes = $state('');
+	let aiContextURLs = $state('');
+	let aiContextMayPublish = $state(false);
+	let aiVoiceName = $state(m.compose_ai_default_voice());
+	let aiVoiceProfileID = $state('');
+	let aiActiveBuild = $state.raw<PublicationBuild | null>(null);
+	let aiPendingResult = $state.raw<PublicationBuildResult | null>(null);
+	let aiAppliedResult = $state.raw<PublicationBuildResult | null>(null);
+	let aiAppliedStrategies = $state.raw<AIPlatformStrategy[]>([]);
+	let aiApplyPending = $state(false);
+	let aiGenerationBaseline = '';
+	let aiGenerationIdea = '';
+	let aiBuildPublicationID = '';
+	let aiPollTimer: ReturnType<typeof setTimeout> | null = null;
+	let aiOpportunitySlowTimer: ReturnType<typeof setTimeout> | null = null;
+	let aiOpportunitySlow = $state(false);
+	let aiBuildCreateRejected = $state(false);
+	let aiRequestController: AbortController | null = null;
+	let aiMemeCandidates = $state.raw<AIMemeRecommendationCandidate[]>([]);
+	let aiMemeSelectedID = $state('');
+	let aiMemeError = $state('');
+	let aiMemeTargetAccountIDs = $state.raw<string[]>([]);
+	let aiMemeWorkspaceID = '';
+	let aiMemeRequestGeneration = 0;
+	let mediaPickerMemeTargetAccountIDs: string[] = [];
+	let mediaPickerMemeRequestGeneration = 0;
+	let generationUndo = $state.raw<AIComposerCheckpoint | null>(null);
+	let latestGenerationUndo = $state.raw<AIComposerCheckpoint | null>(null);
 
 	let variants = $state<Map<string, Record<string, VariantPost>>>(new Map());
 	let activeVariantAccountId = $state<string | null>(null);
@@ -349,6 +468,10 @@
 	let mediaPickerOpen = $state(false);
 	let mediaPickerPostIndex = $state(0);
 	let mediaPickerInitialFiles = $state.raw<File[]>([]);
+	let mediaPickerInitialMode = $state<'upload' | 'meme'>('upload');
+	let mediaPickerMemeIdea = $state('');
+	let mediaPickerMemeCandidate = $state.raw<MemeSuggestionCandidate | undefined>(undefined);
+	let mediaPickerMemePreview = $state('');
 	let resolvedCapabilities = $state<Record<string, ResolvedAccountCapabilityWithReadiness>>({});
 	let capabilityResolveLoading = $state(false);
 	let capabilityResolveError = $state('');
@@ -460,8 +583,210 @@
 	const activePost = $derived(posts[activePostIndex] ?? posts[0]);
 	const hasContent = $derived(hasAnyContent(posts));
 	const hasPendingPasteMediaUploads = $derived(hasUnsettledPasteMediaUploads(pasteMediaUploads));
-	const hasWrittenContent = $derived(posts.some((post) => post.content.trim().length > 0));
-	const showInspirationControl = $derived(!hasWrittenContent && !isSubmitting);
+	const canBuildPost = $derived(
+		!isThread &&
+			!activeVariantAccountId &&
+			selectedAccountIds.length > 0 &&
+			!isSubmitting &&
+			!isSaving &&
+			!buildingPost &&
+			!hasPendingPasteMediaUploads
+	);
+	const aiWorkspaceCopy: AIWorkspaceDialogCopy = {
+		ideateTitle: m.compose_ai_ideate_title(),
+		ideateDescription: m.compose_ai_ideate_description(),
+		buildTitle: m.compose_ai_angles_title(),
+		buildDescription: m.compose_ai_angles_description(),
+		back: m.compose_ai_back_to_ideas(),
+		dismiss: m.common_dismiss(),
+		getIdeas: m.compose_ai_get_ideas(),
+		continue: m.compose_ai_continue(),
+		findMore: m.compose_ai_find_more(),
+		findingMore: m.compose_ai_finding_more(),
+		buildDrafts: m.compose_ai_build_drafts(),
+		cancel: m.compose_ai_cancel_build(),
+		cancelling: m.compose_ai_cancelling(),
+		retry: m.common_retry(),
+		keepEdits: m.compose_ai_keep_edits(),
+		reviewApply: m.compose_ai_review_apply(),
+		opportunities: {
+			heading: m.compose_ai_opportunities_heading(),
+			description: m.compose_ai_opportunities_description(),
+			whyItFits: m.compose_ai_why_it_fits(),
+			bestFor: m.compose_ai_best_for(),
+			media: m.compose_ai_media(),
+			noMedia: m.compose_ai_no_media_needed(),
+			loading: m.compose_ai_finding_ideas(),
+			emptyTitle: m.compose_ai_no_ideas_title(),
+			emptyDescription: m.compose_ai_no_ideas_description(),
+			selected: m.compose_ai_selected_idea()
+		},
+		angles: {
+			heading: m.compose_ai_five_angles_heading(),
+			description: m.compose_ai_five_angles_description(),
+			loading: m.compose_ai_planning_angles(),
+			emptyTitle: m.compose_ai_no_angles_title(),
+			emptyDescription: m.compose_ai_no_angles_description(),
+			recommended: m.compose_ai_recommended(),
+			bestFor: m.compose_ai_aim(),
+			evidence: m.compose_ai_uses(),
+			media: m.compose_ai_media(),
+			noMedia: m.compose_ai_no_media_needed(),
+			selected: m.compose_ai_selected_angle()
+		},
+		progress: {
+			heading: m.compose_ai_progress_heading(),
+			description: m.compose_ai_progress_description()
+		}
+	};
+	const aiMemeCopy: AIMemeRecommendationCopy = {
+		title: m.compose_ai_meme_title(),
+		description: m.compose_ai_meme_description(),
+		recommendedLabel: m.compose_ai_meme_best_fit(),
+		alternativesLabel: m.compose_ai_meme_alternatives(),
+		useLabel: m.compose_ai_meme_use(),
+		usingLabel: m.compose_ai_meme_adding(),
+		editLabel: m.compose_ai_meme_edit(),
+		editingLabel: m.compose_ai_meme_opening(),
+		retryLabel: m.compose_ai_meme_retry_preview(),
+		retryingLabel: m.compose_ai_meme_rendering_preview(),
+		previewLoading: m.compose_ai_meme_preview_loading(),
+		previewUnavailable: m.compose_ai_meme_preview_unavailable(),
+		emptyTitle: m.compose_ai_meme_empty_title(),
+		emptyDescription: m.compose_ai_meme_empty_description(),
+		actionFailed: m.compose_ai_meme_action_failed(),
+		selectAlternative: (templateName, position) =>
+			m.compose_ai_meme_select_alternative({ templateName, position })
+	};
+	const aiWorkspaceOpportunities = $derived<AIOpportunity[]>(
+		aiOpportunities.map((opportunity) => ({
+			id: opportunity.id,
+			title: opportunity.title,
+			premise: opportunity.hook || opportunity.why_now,
+			whyItFits: opportunity.why_it_fits,
+			objective: opportunity.platform_treatments[0]?.objective,
+			media: opportunity.platform_treatments[0]?.media,
+			mediaRecommendation: opportunity.platform_treatments[0]?.media
+		}))
+	);
+	const aiWorkspaceAngles = $derived<AIAngle[]>(
+		aiAngles.map((angle) => ({
+			id: angle.id,
+			title: angle.label,
+			premise: angle.hook,
+			objective: angle.desired_reaction || angle.objective,
+			evidence: angle.evidence,
+			mediaRecommendation: angle.media.treatment === 'none' ? '' : angle.media.brief,
+			recommended: angle.id === 'recommended',
+			preservesCurrentAngle: angle.id === 'keep_current'
+		}))
+	);
+	const aiGenerationPhases = $derived.by<AIGenerationPhase[]>(() => {
+		const phase = aiActiveBuild?.phase ?? 'queued';
+		const reachedCreation = ['drafting', 'reviewing', 'ready', 'committed'].includes(phase);
+		const reachedReview = ['reviewing', 'ready', 'committed'].includes(phase);
+		const finished = ['ready', 'committed'].includes(phase);
+		return [
+			{
+				id: 'understanding',
+				label: m.compose_ai_phase_understanding(),
+				status: reachedCreation ? 'complete' : 'active'
+			},
+			{
+				id: 'creating',
+				label: m.compose_ai_phase_creating(),
+				status: reachedReview ? 'complete' : reachedCreation ? 'active' : 'pending'
+			},
+			{
+				id: 'checking',
+				label: m.compose_ai_phase_checking(),
+				status: finished ? 'complete' : reachedReview ? 'active' : 'pending'
+			}
+		];
+	});
+	const aiGenerationMessage = $derived(
+		aiApplyPending
+			? m.compose_ai_progress_conflict()
+			: aiActiveBuild?.state === 'failed'
+				? aiActiveBuild.error_message || m.compose_ai_progress_stopped()
+				: aiActiveBuild?.state === 'ready'
+					? m.compose_ai_progress_ready()
+					: m.compose_ai_progress_resumable()
+	);
+	const aiGenerationActive = $derived(
+		Boolean(aiBuildPublicationID) &&
+			(aiActiveBuild === null ||
+				aiActiveBuild.state === 'queued' ||
+				aiActiveBuild.state === 'building')
+	);
+	function localizedAIObjective(objective: string): string {
+		switch (objective) {
+			case 'reach':
+				return m.compose_ai_objective_reach();
+			case 'comments':
+				return m.compose_ai_objective_comments();
+			case 'reposts':
+				return m.compose_ai_objective_reposts();
+			case 'authority':
+				return m.compose_ai_objective_authority();
+			case 'trust':
+				return m.compose_ai_objective_trust();
+			case 'shares':
+				return m.compose_ai_objective_shares();
+			case 'conversation':
+				return m.compose_ai_objective_conversation();
+			case 'follows':
+				return m.compose_ai_objective_follows();
+			case 'clicks':
+				return m.compose_ai_objective_clicks();
+			case 'boosts':
+				return m.compose_ai_objective_boosts();
+			case 'hashtag_discovery':
+				return m.compose_ai_objective_hashtag_discovery();
+			case 'following':
+				return m.compose_ai_objective_following_feed();
+			case 'discover':
+				return m.compose_ai_objective_discover();
+			case 'target_feed':
+				return m.compose_ai_objective_target_feed();
+			case 'quotes':
+				return m.compose_ai_objective_quotes();
+			case 'community_growth':
+				return m.compose_ai_objective_community_growth();
+			case 'cross_meta_reach':
+				return m.compose_ai_objective_cross_meta_reach();
+			default:
+				return m.compose_ai_objective_platform_goal();
+		}
+	}
+
+	function localizedAIMediaTreatment(treatment: string): string {
+		switch (treatment) {
+			case 'use_source':
+				return m.compose_ai_media_use_source();
+			case 'annotate_source':
+				return m.compose_ai_media_annotate_source();
+			case 'meme':
+				return m.compose_ai_media_meme();
+			case 'statement_card':
+				return m.compose_ai_media_statement_card();
+			case 'carousel':
+				return m.compose_ai_media_carousel();
+			case 'concept_image':
+				return m.compose_ai_media_concept_image();
+			case 'short_video_script':
+				return m.compose_ai_media_short_video();
+			case 'edit_existing_video':
+				return m.compose_ai_media_edit_video();
+			default:
+				return m.compose_ai_media_recommended();
+		}
+	}
+	const visibleAIStrategies = $derived(
+		aiAppliedStrategies.filter(
+			(destination) => !activeVariantAccountId || destination.account_id === activeVariantAccountId
+		)
+	);
 	const totalChars = $derived(posts.reduce((sum, p) => sum + p.content.length, 0));
 	const isThread = $derived(posts.length > 1);
 	const textComposerMode = $derived<ComposerModeKey>(isThread ? 'thread' : 'post');
@@ -613,26 +938,14 @@
 		return uniquePlatformLimits(editorLimitAccounts, resolvedCapabilities);
 	});
 
-	const editorMaxChars = $derived.by(() => {
-		return minimumAccountCharacterLimit(editorLimitAccounts, resolvedCapabilities);
-	});
-
 	function editorCharacterUsage(value: string): { count: number; limit: number } {
-		let usage = {
-			count: platformTextLength('', value),
-			limit: editorMaxChars
-		};
-		let highestRatio = usage.count / usage.limit;
-		for (const platformLimit of editorPlatformLimits) {
-			const count = platformTextLength(platformLimit.key, value);
-			const ratio = count / platformLimit.limit;
-			if (ratio > highestRatio || (ratio === highestRatio && platformLimit.limit < usage.limit)) {
-				usage = { count, limit: platformLimit.limit };
-				highestRatio = ratio;
-			}
+		const usage = mostConstrainedCharacterUsage(value, editorPlatformLimits);
+		if (usage.limit === null) {
+			throw new Error('Editor character usage requires at least one destination limit');
 		}
 		return usage;
 	}
+
 	const effectiveRandomDelayMinutes = $derived.by(() => {
 		if (randomDelayOverride === 'default') return workspaceCtx.settings.random_delay_minutes;
 		const value = Number(randomDelayOverride);
@@ -870,6 +1183,7 @@
 			settingsByAccount,
 			segmentSettingsByPost,
 			mediaSettingsByAccount,
+			aiAppliedStrategies,
 			scheduledDate: selectedDate?.toString() ?? null,
 			selectedTime,
 			randomDelayOverride,
@@ -1481,6 +1795,12 @@
 				rendition.media = first.media.map(({ media_id, role }) => ({ media_id, role }));
 			}
 		}
+		if (aiAppliedStrategies.length > 0) {
+			payload.metadata[AI_BUILD_METADATA_KEY] = {
+				version: 1,
+				strategies: aiAppliedStrategies
+			};
+		}
 		return payload;
 	}
 
@@ -1488,6 +1808,10 @@
 		publicationId = publication.id;
 		revision = publication.revision;
 		repostOverride = publication.repost_override ?? { mode: 'inherit' };
+		const builderMetadata = aiBuildMetadataSchema.safeParse(
+			publication.metadata?.[AI_BUILD_METADATA_KEY]
+		);
+		aiAppliedStrategies = builderMetadata.success ? builderMetadata.data.strategies : [];
 		selectedSocialSetId = publication.social_set_id ?? '';
 		requestedOutputProfiles = Object.fromEntries(
 			(publication.renditions ?? [])
@@ -1958,11 +2282,46 @@
 		scheduleCapabilityResolve();
 	}
 
+	function finishVideoEditorMediaHandoff() {
+		const clean = new URL($page.url);
+		clean.searchParams.delete('media_id');
+		clean.searchParams.delete('workspace_id');
+		replaceState(resolveAppPath(`${clean.pathname}${clean.search}${clean.hash}`), {});
+	}
+
+	async function applyInitialMediaHandoff(mediaIds: string[]) {
+		const incoming = mergeMediaIds([], mediaIds);
+		if (!selectedWorkspaceId || incoming.length === 0) return;
+		const handoffKey = `${selectedWorkspaceId}|${incoming.join(',')}`;
+		if (handoffKey === appliedInitialMediaKey) return;
+		appliedInitialMediaKey = handoffKey;
+
+		const targetIndex = Math.max(0, Math.min(activePostIndex, posts.length - 1));
+		const targetPost = posts[targetIndex];
+		if (!targetPost) return;
+		const current = getEditorMediaIdsForPost(targetPost);
+		const next = mergeMediaIds(current, incoming);
+		const added = next.filter((id) => !current.includes(id));
+		if (incoming.some((id) => !next.includes(id))) {
+			error = m.media_upload_too_many({ maximum: composerMediaLimit });
+		}
+		if (added.length > 0) {
+			setEditorMediaIds(targetIndex, next);
+			await hydrateMediaMetadata(selectedWorkspaceId, added, true);
+			void generateMissingMediaAltText(added, getEditorContentForPost(targetPost));
+		}
+		finishVideoEditorMediaHandoff();
+	}
+
 	function openMediaPicker(postIndex: number) {
 		const post = posts[postIndex];
 		const target = post ? pasteMediaTargetForPost(post) : null;
 		if (target && pasteMediaUploadsForTarget(target).length > 0) return;
 		mediaPickerInitialFiles = [];
+		mediaPickerInitialMode = 'upload';
+		mediaPickerMemeIdea = '';
+		mediaPickerMemeCandidate = undefined;
+		mediaPickerMemePreview = '';
 		mediaPickerPostIndex = postIndex;
 		mediaPickerOpen = true;
 	}
@@ -2215,6 +2574,11 @@
 	async function initializeNewComposer(resolveAfter = true) {
 		pasteMediaUploadQueue.reset();
 		clearAutoSaveTimer();
+		generationUndo = null;
+		latestGenerationUndo = null;
+		aiAppliedResult = null;
+		aiAppliedStrategies = [];
+		postBuilderError = '';
 		publicationId = '';
 		selectedSocialSetId = '';
 		requestedOutputProfiles = {};
@@ -2255,6 +2619,10 @@
 	async function initializeFromPublication(publication: Publication, resolveAfter = true) {
 		pasteMediaUploadQueue.reset();
 		clearAutoSaveTimer();
+		generationUndo = null;
+		latestGenerationUndo = null;
+		aiAppliedResult = null;
+		postBuilderError = '';
 		publicationId = publication.id;
 		revision = publication.revision;
 		lastInitializedPublicationId = publication.id;
@@ -2413,6 +2781,7 @@
 		void (async () => {
 			await initializeComposer();
 			await restoreImageEditorReturn();
+			await restoreActivePublicationBuild();
 		})();
 		return () => {
 			document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -2438,6 +2807,9 @@
 		clearAutoSaveTimer();
 		clearSavedIndicator();
 		if (capabilityResolveTimer) clearTimeout(capabilityResolveTimer);
+		if (aiPollTimer) clearTimeout(aiPollTimer);
+		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
+		aiRequestController?.abort();
 		capabilityResolveAbortController?.abort();
 		for (const controller of captionRequests.values()) controller.abort();
 		captionRequests.clear();
@@ -2495,6 +2867,15 @@
 	});
 
 	$effect(() => {
+		const mediaIds = initialMediaIds;
+		const workspaceParam = initialWorkspaceId;
+		if (loadingWorkspaces || mediaIds.length === 0 || !selectedWorkspaceId) return;
+		if (initialPublication && lastInitializedPublicationId !== initialPublication.id) return;
+		if (workspaceParam && workspaceParam !== selectedWorkspaceId) return;
+		void applyInitialMediaHandoff(mediaIds);
+	});
+
+	$effect(() => {
 		const workspaceId = workspaceCtx.currentWorkspace?.id ?? '';
 		if (isEditMode && leaveEditorForWorkspaceID && workspaceId === leaveEditorForWorkspaceID) {
 			leaveEditorForWorkspaceID = '';
@@ -2533,7 +2914,14 @@
 		const prompt = ui.pendingPrompt;
 		if (prompt && !initialPublication && !loadingWorkspaces) {
 			ui.clearPrompt();
-			requestApplyPrompt(prompt);
+			const content = prompt.example.trim() || prompt.text;
+			posts = [{ ...posts[0], content }];
+			linkUrl = firstComposerURL(content);
+			activePostIndex = 0;
+			variants = new Map();
+			activeVariantAccountId = null;
+			if (content.trim()) void startFirstComposition('text');
+			scheduleAutoSave();
 		}
 	});
 
@@ -2771,6 +3159,30 @@
 		unsubscribeComposerSession = null;
 		composerSession = null;
 		clearAutoSaveTimer();
+		aiRequestController?.abort();
+		if (aiPollTimer) clearTimeout(aiPollTimer);
+		aiPollTimer = null;
+		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
+		aiOpportunitySlowTimer = null;
+		aiOpportunitySlow = false;
+		aiMemeRequestGeneration += 1;
+		buildingPost = false;
+		aiOpportunityLoading = false;
+		aiFindingMore = false;
+		aiWorkspaceOpen = false;
+		aiActiveBuild = null;
+		aiPendingResult = null;
+		aiAppliedResult = null;
+		aiAppliedStrategies = [];
+		aiApplyPending = false;
+		aiBuildCreateRejected = false;
+		aiBuildPublicationID = '';
+		aiVoiceName = m.compose_ai_default_voice();
+		aiVoiceProfileID = '';
+		aiMemeCandidates = [];
+		aiMemeTargetAccountIDs = [];
+		aiMemeWorkspaceID = '';
+		aiMemeError = '';
 		saveGeneration += 1;
 		nextSlotRequestSequence += 1;
 		suggestingSlot = false;
@@ -2800,6 +3212,9 @@
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};
 		validationIssues = [];
+		generationUndo = null;
+		latestGenerationUndo = null;
+		postBuilderError = '';
 		settingsDialogOpen = false;
 		settingsAccountId = '';
 		destinationOptionsByAccount = {};
@@ -2881,7 +3296,11 @@
 	}
 
 	function accountLabel(account: SocialAccount): string {
-		return account.account_username || account.slug || getPlatformName(account.platform);
+		return (
+			formatSocialAccountName(account.account_username, account.platform) ||
+			account.slug ||
+			getPlatformName(account.platform)
+		);
 	}
 
 	function destinationFormatOptions(account: SocialAccount) {
@@ -3580,6 +3999,10 @@
 		const pasteTarget = pasteMediaTargetForPost(targetPost);
 		if (pasteTarget && pasteMediaUploadsForTarget(pasteTarget).length > 0) return;
 		mediaPickerPostIndex = targetPostIndex;
+		mediaPickerInitialMode = 'upload';
+		mediaPickerMemeIdea = '';
+		mediaPickerMemeCandidate = undefined;
+		mediaPickerMemePreview = '';
 		mediaPickerInitialFiles = Array.from(files).slice(
 			0,
 			Math.max(0, composerMediaLimit - getEditorMediaIdsForPost(targetPost).length)
@@ -3747,83 +4170,710 @@
 	}
 
 	// --------------------------------------------------------------------------
-	// Prompts
+	// AI post builder
 	// --------------------------------------------------------------------------
-	async function fetchRandomPrompt() {
-		if (!selectedWorkspaceId) return;
-		loadingPrompt = true;
+	function aiBuildStorageKey(workspaceID: string): string {
+		return `openpost:publication-build:${workspaceID}`;
+	}
+
+	function composerAISnapshot(): string {
+		return composerBuildFingerprint({
+			posts,
+			variants,
+			linkUrl,
+			accountIds: selectedAccountIds,
+			requestedOutputProfiles,
+			formatLockedByAccount
+		});
+	}
+
+	function selectedAIPlatforms(): string[] {
+		return [...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))];
+	}
+
+	function selectedAIAssets(): PublicationBuildRequest['assets'] {
+		return [...new Set(posts.flatMap((post) => post.mediaIds))].slice(0, 10).map((mediaID) => ({
+			media_id: mediaID,
+			role: 'context' as const,
+			may_publish: true
+		}));
+	}
+
+	function parsedAIContextURLs(): string[] {
+		return [
+			...new Set(
+				aiContextURLs
+					.split(/\s+/)
+					.map((value) => value.trim())
+					.filter(Boolean)
+			)
+		].slice(0, 10);
+	}
+
+	function publicationBuildRequest(
+		idea: string,
+		angle?: PublicationBuildAngle
+	): PublicationBuildRequest {
+		const buildDirection = angle?.build_direction;
+		const request: PublicationBuildRequest = {
+			workspace_id: selectedWorkspaceId,
+			idea,
+			account_ids: [...selectedAccountIds],
+			direction: {
+				outcome: aiObjective.trim() || buildDirection?.outcome,
+				audience: buildDirection?.audience,
+				angle: buildDirection?.angle,
+				tone_adjustment: aiChangeRequest.trim() || undefined,
+				media_preference: buildDirection?.media_preference
+			},
+			destination_policy: 'require_all'
+		};
+		if (selectedSocialSetId) request.social_set_id = selectedSocialSetId;
+		if (aiVoiceProfileID) request.voice_profile_id = aiVoiceProfileID;
+		const contextURLs = parsedAIContextURLs();
+		if (contextURLs.length > 0) request.context_urls = contextURLs;
+		const contextNotes = aiContextNotes.trim();
+		if (contextNotes) {
+			request.context_notes = contextNotes;
+			request.context_may_publish = aiContextMayPublish;
+		}
+		const assets = selectedAIAssets();
+		if (assets.length > 0) request.assets = assets;
+		return request;
+	}
+
+	async function loadAIWorkspaceVoice(workspaceID: string): Promise<void> {
+		if (!workspaceID) return;
+		if (workspaceID === selectedWorkspaceId) {
+			aiVoiceName = m.compose_ai_default_voice();
+			aiVoiceProfileID = '';
+		}
 		try {
-			const { data, error: err } = await client.GET('/prompts/random', {
-				params: { query: { workspace_id: selectedWorkspaceId } }
-			});
-			if (err) throw err;
-			if (data) {
-				currentPrompt = {
-					text: data.text,
-					example: data.example ?? '',
-					category: data.category
-				};
-				showPromptCard = true;
+			const profiles = await listVoiceProfiles(workspaceID);
+			if (workspaceID !== selectedWorkspaceId) return;
+			const profile = profiles.find((candidate) => candidate.is_default) ?? profiles[0];
+			if (profile) {
+				aiVoiceName = profile.name;
+				aiVoiceProfileID = profile.id;
 			}
-		} catch (e) {
-			console.error('Failed to fetch prompt:', e);
-		} finally {
-			loadingPrompt = false;
+		} catch {
+			if (workspaceID !== selectedWorkspaceId) return;
+			aiVoiceName = m.compose_ai_default_voice();
+			aiVoiceProfileID = '';
 		}
 	}
 
-	function dismissPrompt() {
-		showPromptCard = false;
-		currentPrompt = null;
+	async function loadPublicationOpportunities(findMore = false): Promise<void> {
+		if (!selectedWorkspaceId || selectedAIPlatforms().length === 0) return;
+		aiBuildCreateRejected = false;
+		aiRequestController?.abort();
+		const controller = new AbortController();
+		aiRequestController = controller;
+		if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
+		aiOpportunitySlow = false;
+		aiOpportunitySlowTimer = setTimeout(() => {
+			if (aiRequestController === controller) aiOpportunitySlow = true;
+		}, AI_OPPORTUNITY_SLOW_DELAY_MS);
+		if (findMore) aiFindingMore = true;
+		else aiOpportunityLoading = true;
+		postBuilderError = '';
+		try {
+			const result = await discoverPublicationOpportunities(
+				{
+					workspace_id: selectedWorkspaceId,
+					focus: aiIdeationBrief.trim() || undefined,
+					voice_profile_id: aiVoiceProfileID || undefined,
+					platforms: selectedAIPlatforms().slice(0, 5),
+					limit: 4
+				},
+				controller.signal
+			);
+			aiOpportunities = findMore
+				? [
+						...aiOpportunities,
+						...result.opportunities.filter(
+							(candidate) => !aiOpportunities.some((current) => current.id === candidate.id)
+						)
+					].slice(0, 12)
+				: result.opportunities;
+		} catch (cause) {
+			if (cause instanceof DOMException && cause.name === 'AbortError') return;
+			postBuilderError =
+				cause instanceof Error && cause.message ? cause.message : m.compose_ai_find_ideas_failed();
+		} finally {
+			if (aiRequestController === controller) {
+				if (aiOpportunitySlowTimer) clearTimeout(aiOpportunitySlowTimer);
+				aiOpportunitySlowTimer = null;
+				aiOpportunitySlow = false;
+				aiOpportunityLoading = false;
+				aiFindingMore = false;
+			}
+		}
 	}
 
-	function resolvePromptContent(prompt: { text: string; example?: string }): string {
-		return prompt.example?.trim() ? prompt.example : prompt.text;
+	async function discoverPublicationIdeas(): Promise<void> {
+		aiWorkspaceStep = 'opportunities';
+		aiSelectedOpportunityID = '';
+		aiGenerationIdea = '';
+		await loadPublicationOpportunities();
 	}
 
-	function applyPromptContent(prompt: { text: string; example?: string }): boolean {
-		if (hasPendingPasteMediaUploads) {
-			error = pasteMediaUploadBlocker();
+	async function loadPublicationAngles(idea: string): Promise<void> {
+		aiBuildCreateRejected = false;
+		aiRequestController?.abort();
+		aiRequestController = new AbortController();
+		buildingPost = true;
+		postBuilderError = '';
+		aiWorkspaceStep = 'angles';
+		aiAngles = [];
+		aiSelectedAngleID = '';
+		try {
+			const result = await planPublicationAngles(
+				publicationBuildRequest(idea),
+				aiRequestController.signal
+			);
+			aiAngles = result.angles;
+			const selectedAngle = result.angles.find((angle) => angle.id === 'recommended');
+			aiSelectedAngleID = selectedAngle?.id ?? '';
+			aiObjective = selectedAngle?.objective ?? '';
+		} catch (cause) {
+			if (cause instanceof DOMException && cause.name === 'AbortError') return;
+			postBuilderError =
+				cause instanceof Error && cause.message ? cause.message : m.compose_ai_plan_angles_failed();
+		} finally {
+			buildingPost = false;
+		}
+	}
+
+	function selectPublicationOpportunity(opportunity: AIOpportunity): void {
+		const selected = aiOpportunities.find((candidate) => candidate.id === opportunity.id);
+		if (!selected) return;
+		aiSelectedOpportunityID = selected.id;
+		aiGenerationIdea = [selected.title, selected.hook, selected.why_now]
+			.filter(Boolean)
+			.join('\n\n');
+	}
+
+	async function continuePublicationOpportunity(): Promise<void> {
+		if (!aiSelectedOpportunityID || !aiGenerationIdea.trim()) return;
+		await loadPublicationAngles(aiGenerationIdea);
+	}
+
+	async function buildPostWithAI() {
+		if (buildingPost || isThread || activeVariantAccountId) return;
+		const sourcePost = posts[0];
+		if (!selectedWorkspaceId || selectedAccountIds.length === 0) {
+			postBuilderError = m.compose_ai_destinations_required();
+			return;
+		}
+		if (!sourcePost || hasPendingPasteMediaUploads) {
+			postBuilderError = hasPendingPasteMediaUploads
+				? pasteMediaUploadBlocker()
+				: m.compose_ai_build_failed();
+			return;
+		}
+
+		const workspaceID = selectedWorkspaceId;
+		aiWorkspaceOpen = true;
+		aiWorkspaceEntry = sourcePost.content.trim() ? 'build' : 'ideate';
+		aiWorkspaceStep = aiWorkspaceEntry === 'build' ? 'angles' : 'brief';
+		aiGenerationIdea = sourcePost.content.trim();
+		if (aiWorkspaceEntry === 'ideate') aiIdeationBrief = '';
+		aiSelectedOpportunityID = '';
+		aiSelectedAngleID = '';
+		aiAngles = [];
+		aiBuildCreateRejected = false;
+		postBuilderError = '';
+		if (aiWorkspaceEntry === 'build') buildingPost = true;
+		else aiOpportunityLoading = false;
+		await loadAIWorkspaceVoice(workspaceID);
+		if (workspaceID !== selectedWorkspaceId) return;
+		if (aiWorkspaceEntry === 'build') {
+			await loadPublicationAngles(aiGenerationIdea);
+		}
+	}
+
+	function persistActivePublicationBuild(
+		build: PublicationBuild,
+		publicationID = aiBuildPublicationID,
+		baseline = aiGenerationBaseline
+	): void {
+		if (!publicationID) return;
+		localStorage.setItem(
+			aiBuildStorageKey(build.workspace_id),
+			JSON.stringify({ id: build.id, publication_id: publicationID, baseline })
+		);
+	}
+
+	function clearActivePublicationBuild(): void {
+		if (selectedWorkspaceId) localStorage.removeItem(aiBuildStorageKey(selectedWorkspaceId));
+		if (aiPollTimer) clearTimeout(aiPollTimer);
+		aiPollTimer = null;
+		aiBuildPublicationID = '';
+		aiActiveBuild = null;
+	}
+
+	async function ensureAIBuildPublicationID(workspaceID: string): Promise<string | null> {
+		if (publicationId) return publicationId;
+		const savedPublicationID = await saveDraft({ allowEmpty: true });
+		if (savedPublicationID) return savedPublicationID;
+		if (selectedWorkspaceId !== workspaceID) return null;
+		postBuilderError = error || m.compose_save_draft_failed();
+		return null;
+	}
+
+	async function startSelectedPublicationBuild(): Promise<void> {
+		if (buildingPost) return;
+		const angle = aiAngles.find((candidate) => candidate.id === aiSelectedAngleID);
+		if (!angle || !aiGenerationIdea.trim()) return;
+		const buildWorkspaceID = selectedWorkspaceId;
+		buildingPost = true;
+		postBuilderError = '';
+		aiBuildCreateRejected = false;
+		aiApplyPending = false;
+		aiPendingResult = null;
+		const buildPublicationID = await ensureAIBuildPublicationID(buildWorkspaceID);
+		if (!buildPublicationID) {
+			if (selectedWorkspaceId === buildWorkspaceID) {
+				buildingPost = false;
+				aiBuildCreateRejected = true;
+			}
+			return;
+		}
+		if (selectedWorkspaceId !== buildWorkspaceID) return;
+		const buildBaseline = composerAISnapshot();
+		try {
+			const build = await createPublicationBuild(
+				publicationBuildRequest(aiGenerationIdea, angle),
+				`composer-${crypto.randomUUID()}`
+			);
+			if (
+				build.workspace_id !== buildWorkspaceID ||
+				selectedWorkspaceId !== buildWorkspaceID ||
+				publicationId !== buildPublicationID
+			) {
+				return;
+			}
+			aiWorkspaceStep = 'generating';
+			aiBuildPublicationID = buildPublicationID;
+			aiGenerationBaseline = buildBaseline;
+			aiActiveBuild = build;
+			persistActivePublicationBuild(build, buildPublicationID, buildBaseline);
+			await handlePublicationBuildState(build);
+		} catch (cause) {
+			if (selectedWorkspaceId !== buildWorkspaceID || publicationId !== buildPublicationID) {
+				return;
+			}
+			buildingPost = false;
+			aiWorkspaceStep = 'angles';
+			aiBuildCreateRejected = true;
+			aiBuildPublicationID = '';
+			aiActiveBuild = null;
+			postBuilderError =
+				cause instanceof Error && cause.message ? cause.message : m.compose_ai_build_failed();
+			soundPreferences.play('error');
+		}
+	}
+
+	async function pollPublicationBuild(id: string): Promise<void> {
+		if (aiPollTimer) clearTimeout(aiPollTimer);
+		aiPollTimer = setTimeout(async () => {
+			try {
+				await handlePublicationBuildState(await getPublicationBuild(id));
+			} catch (cause) {
+				buildingPost = false;
+				postBuilderError =
+					cause instanceof Error && cause.message
+						? cause.message
+						: m.compose_ai_check_build_failed();
+			}
+		}, 1200);
+	}
+
+	async function handlePublicationBuildState(build: PublicationBuild): Promise<void> {
+		if (
+			build.workspace_id !== selectedWorkspaceId ||
+			!aiBuildPublicationID ||
+			aiBuildPublicationID !== publicationId
+		) {
+			return;
+		}
+		aiActiveBuild = build;
+		if (build.state === 'queued' || build.state === 'building') {
+			buildingPost = true;
+			persistActivePublicationBuild(build);
+			await pollPublicationBuild(build.id);
+			return;
+		}
+		buildingPost = false;
+		if (build.state === 'ready' && build.result) {
+			aiPendingResult = build.result;
+			if (aiGenerationBaseline && composerAISnapshot() !== aiGenerationBaseline) {
+				aiApplyPending = true;
+				aiWorkspaceOpen = true;
+				aiWorkspaceStep = 'generating';
+				return;
+			}
+			applyReadyPublicationBuild();
+			return;
+		}
+		if (build.state === 'failed') {
+			postBuilderError = build.error_message || m.compose_ai_build_failed();
+			soundPreferences.play('error');
+			return;
+		}
+		if (build.state === 'cancelled') {
+			clearActivePublicationBuild();
+			aiWorkspaceOpen = false;
+		}
+	}
+
+	function captureAIComposerCheckpoint(): AIComposerCheckpoint {
+		return {
+			posts: posts.map((post) => ({ ...post, mediaIds: [...post.mediaIds] })),
+			variants: Array.from(variants.entries()).map(([accountID, record]) => [
+				accountID,
+				structuredClone(record)
+			]),
+			linkUrl,
+			requestedOutputProfiles: { ...requestedOutputProfiles },
+			formatLockedByAccount: { ...formatLockedByAccount },
+			strategies: structuredClone(aiAppliedStrategies)
+		};
+	}
+
+	function restoreAIComposerCheckpoint(checkpoint: AIComposerCheckpoint): void {
+		posts = checkpoint.posts.map((post) => ({ ...post, mediaIds: [...post.mediaIds] }));
+		variants = new SvelteMap(
+			checkpoint.variants.map(([accountID, record]) => [accountID, structuredClone(record)])
+		);
+		linkUrl = checkpoint.linkUrl;
+		requestedOutputProfiles = { ...checkpoint.requestedOutputProfiles };
+		formatLockedByAccount = { ...checkpoint.formatLockedByAccount };
+		aiAppliedStrategies = structuredClone(checkpoint.strategies);
+		aiAppliedResult = null;
+		aiMemeCandidates = [];
+		aiMemeError = '';
+		postBuilderError = '';
+		activePostIndex = 0;
+		activeVariantAccountId = null;
+		void resolveCapabilities();
+		scheduleAutoSave();
+	}
+
+	function applyReadyPublicationBuild(): void {
+		const result = aiPendingResult;
+		const sourcePost = posts[0];
+		if (!result || !sourcePost) return;
+		const checkpoint = captureAIComposerCheckpoint();
+		if (!generationUndo) generationUndo = checkpoint;
+		latestGenerationUndo = checkpoint;
+		const applied = applyPublicationBuildResult(result, sourcePost);
+		posts = applied.posts;
+		variants = new SvelteMap(Object.entries(applied.variants));
+		requestedOutputProfiles = {
+			...requestedOutputProfiles,
+			...applied.requestedOutputProfiles
+		};
+		formatLockedByAccount = { ...formatLockedByAccount, ...applied.formatLockedByAccount };
+		activePostIndex = 0;
+		activeVariantAccountId = null;
+		linkUrl = firstComposerURL(posts[0]?.content ?? '');
+		aiAppliedResult = result;
+		aiAppliedStrategies = result.destinations.map((destination) => ({
+			account_id: destination.account_id,
+			platform: destination.platform,
+			objective: destination.objective,
+			archetype: destination.archetype,
+			media: structuredClone(destination.media),
+			warnings: destination.warnings ? [...destination.warnings] : undefined
+		}));
+		aiApplyPending = false;
+		aiPendingResult = null;
+		aiWorkspaceOpen = false;
+		clearActivePublicationBuild();
+		postBuilderError = (result.skipped ?? [])
+			.map((destination) => `${getPlatformName(destination.platform)}: ${destination.reason}`)
+			.join(' ');
+		void loadAIMemeRecommendations(result);
+		void startFirstComposition('text');
+		void resolveCapabilities();
+		soundPreferences.play('success');
+		scheduleAutoSave();
+	}
+
+	function aiMemeRecipe(candidate: AIMemeRecommendationCandidate) {
+		return {
+			workspaceId: selectedWorkspaceId,
+			templateId: candidate.suggestion.template_id,
+			captions: candidate.suggestion.caption_lines,
+			overlayMediaIds: [],
+			format: 'png' as const,
+			altText: candidate.suggestion.alt_text
+		};
+	}
+
+	async function previewAIMemeCandidate(
+		candidate: AIMemeRecommendationCandidate,
+		generation = aiMemeRequestGeneration,
+		workspaceID = aiMemeWorkspaceID
+	): Promise<void> {
+		if (generation !== aiMemeRequestGeneration || workspaceID !== selectedWorkspaceId) return;
+		aiMemeCandidates = aiMemeCandidates.map((current) =>
+			current.id === candidate.id ? { ...current, previewState: 'loading' } : current
+		);
+		try {
+			const preview = await previewMeme(aiMemeRecipe(candidate));
+			if (generation !== aiMemeRequestGeneration || workspaceID !== selectedWorkspaceId) return;
+			aiMemeCandidates = aiMemeCandidates.map((current) =>
+				current.id === candidate.id
+					? { ...current, previewUrl: memePreviewDataURL(preview), previewState: 'ready' }
+					: current
+			);
+		} catch {
+			if (generation !== aiMemeRequestGeneration || workspaceID !== selectedWorkspaceId) return;
+			aiMemeCandidates = aiMemeCandidates.map((current) =>
+				current.id === candidate.id ? { ...current, previewState: 'failed' } : current
+			);
+		}
+	}
+
+	async function loadAIMemeRecommendations(result: PublicationBuildResult): Promise<void> {
+		const generation = ++aiMemeRequestGeneration;
+		const workspaceID = selectedWorkspaceId;
+		const memeDestinations = result.destinations.filter(
+			(destination) => destination.media.treatment === 'meme'
+		);
+		aiMemeCandidates = [];
+		aiMemeTargetAccountIDs = [];
+		aiMemeWorkspaceID = '';
+		aiMemeError = '';
+		if (memeDestinations.length === 0) {
+			return;
+		}
+		const targetAccountIDs = memeDestinations.map((destination) => destination.account_id);
+		aiMemeTargetAccountIDs = targetAccountIDs;
+		aiMemeWorkspaceID = workspaceID;
+		try {
+			const suggestions = await suggestMemes({
+				workspaceId: workspaceID,
+				idea: [result.direction.angle, memeDestinations[0]?.media.brief]
+					.filter(Boolean)
+					.join('\n\n'),
+				tone: 'balanced',
+				language: getLocaleTag(),
+				count: 3
+			});
+			if (generation !== aiMemeRequestGeneration || workspaceID !== selectedWorkspaceId) return;
+			aiMemeCandidates = suggestions.candidates.slice(0, 3).map((suggestion, index) => ({
+				id: `${suggestion.template_id}:${index}`,
+				suggestion,
+				previewState: 'loading'
+			}));
+			aiMemeSelectedID = aiMemeCandidates[0]?.id ?? '';
+			for (let index = 0; index < aiMemeCandidates.length; index += 2) {
+				await Promise.all(
+					aiMemeCandidates
+						.slice(index, index + 2)
+						.map((candidate) => previewAIMemeCandidate(candidate, generation, workspaceID))
+				);
+			}
+		} catch (cause) {
+			if (generation !== aiMemeRequestGeneration || workspaceID !== selectedWorkspaceId) return;
+			aiMemeError = cause instanceof Error ? cause.message : m.compose_ai_meme_unavailable();
+		}
+	}
+
+	function canAttachAIMemeToTargets(
+		targetAccountIDs = aiMemeTargetAccountIDs,
+		workspaceID = aiMemeWorkspaceID,
+		mediaID = ''
+	): boolean {
+		aiMemeError = '';
+		const post = posts[0];
+		if (
+			!post ||
+			targetAccountIDs.length === 0 ||
+			workspaceID !== selectedWorkspaceId ||
+			targetAccountIDs.some((accountID) => !selectedAccountIds.includes(accountID))
+		) {
+			aiMemeError = aiMemeCopy.actionFailed;
 			return false;
 		}
-		const content = resolvePromptContent(prompt);
-		if (content.trim()) void startFirstComposition('text');
-		pasteMediaUploadQueue.reset();
-		posts = [{ ...makeEmptyPost(), content }];
-		linkUrl = firstComposerURL(content);
-		activePostIndex = 0;
-		variants = new Map();
-		activeVariantAccountId = null;
-		dismissPrompt();
+		for (const accountID of targetAccountIDs) {
+			const record = normalizeVariantRecord(variants.get(accountID), posts);
+			const current = record[post.key];
+			const currentMediaIDs = current?.mediaInherited === false ? current.mediaIds : post.mediaIds;
+			if (!currentMediaIDs.includes(mediaID) && currentMediaIDs.length >= composerMediaLimit) {
+				const account = accounts.find((candidate) => candidate.id === accountID);
+				aiMemeError = m.compose_ai_meme_remove_media({
+					account: account ? accountLabel(account) : m.compose_ai_this_destination()
+				});
+				return false;
+			}
+		}
+		return true;
+	}
+
+	async function attachAIMemeToTargets(
+		mediaID: string,
+		targetAccountIDs = aiMemeTargetAccountIDs,
+		workspaceID = aiMemeWorkspaceID
+	): Promise<boolean> {
+		if (!mediaID || !canAttachAIMemeToTargets(targetAccountIDs, workspaceID, mediaID)) return false;
+		const post = posts[0];
+		if (!post) return false;
+		const nextVariants = new SvelteMap(variants);
+		for (const accountID of targetAccountIDs) {
+			const record = normalizeVariantRecord(nextVariants.get(accountID), posts);
+			const current = record[post.key];
+			const currentMediaIDs = current?.mediaInherited === false ? current.mediaIds : post.mediaIds;
+			record[post.key] = {
+				...current,
+				mediaIds: [...new Set([...currentMediaIDs, mediaID])],
+				mediaInherited: false
+			};
+			nextVariants.set(accountID, record);
+		}
+		variants = nextVariants;
+		await hydrateMediaMetadata(selectedWorkspaceId, [mediaID], true);
+		void generateMissingMediaAltText([mediaID], post.content);
 		scheduleAutoSave();
 		return true;
 	}
 
-	function requestApplyPrompt(prompt: { text: string; example?: string }) {
-		if (hasPendingPasteMediaUploads) {
-			error = pasteMediaUploadBlocker();
-			return;
-		}
-		if (hasContent) {
-			pendingPromptToApply = { text: prompt.text, example: prompt.example ?? '' };
-			promptApplyDialogOpen = true;
-			return;
-		}
-		applyPromptContent(prompt);
+	async function useAIMeme(candidate: AIMemeRecommendationCandidate): Promise<void> {
+		const generation = aiMemeRequestGeneration;
+		const workspaceID = aiMemeWorkspaceID;
+		const targetAccountIDs = [...aiMemeTargetAccountIDs];
+		if (!canAttachAIMemeToTargets(targetAccountIDs, workspaceID)) return;
+		const rendered = await renderMeme(aiMemeRecipe(candidate));
+		if (generation !== aiMemeRequestGeneration || workspaceID !== selectedWorkspaceId) return;
+		if (!(await attachAIMemeToTargets(rendered.media.id, targetAccountIDs, workspaceID))) return;
+		aiMemeCandidates = [];
+		soundPreferences.play('success');
 	}
 
-	function confirmApplyPrompt(): DestructiveActionOutcome {
-		const prompt = pendingPromptToApply;
-		if (!prompt) return { ok: false };
-		if (!applyPromptContent(prompt)) return { ok: false };
-		pendingPromptToApply = null;
-		promptApplyDialogOpen = false;
-		return { ok: true };
+	function editAIMeme(candidate: AIMemeRecommendationCandidate): void {
+		if (!canAttachAIMemeToTargets(aiMemeTargetAccountIDs, aiMemeWorkspaceID)) return;
+		mediaPickerPostIndex = 0;
+		mediaPickerInitialFiles = [];
+		mediaPickerInitialMode = 'meme';
+		mediaPickerMemeIdea = aiGenerationIdea;
+		mediaPickerMemeCandidate = candidate.suggestion;
+		mediaPickerMemePreview = candidate.previewUrl ?? '';
+		mediaPickerMemeTargetAccountIDs = [...aiMemeTargetAccountIDs];
+		mediaPickerMemeRequestGeneration = aiMemeRequestGeneration;
+		mediaPickerOpen = true;
 	}
 
-	function cancelApplyPrompt() {
-		pendingPromptToApply = null;
-		promptApplyDialogOpen = false;
+	function keepCurrentComposerEdits(): void {
+		aiApplyPending = false;
+		aiPendingResult = null;
+		aiWorkspaceOpen = false;
+		clearActivePublicationBuild();
+	}
+
+	async function cancelActivePublicationBuild(): Promise<void> {
+		if (!aiActiveBuild) return;
+		aiCancelling = true;
+		try {
+			await handlePublicationBuildState(await cancelPublicationBuild(aiActiveBuild.id));
+		} catch (cause) {
+			postBuilderError =
+				cause instanceof Error ? cause.message : m.compose_ai_cancel_build_failed();
+		} finally {
+			aiCancelling = false;
+		}
+	}
+
+	async function retryActivePublicationBuild(): Promise<void> {
+		if (!aiActiveBuild) return;
+		postBuilderError = '';
+		buildingPost = true;
+		try {
+			await handlePublicationBuildState(await retryPublicationBuild(aiActiveBuild.id));
+		} catch (cause) {
+			buildingPost = false;
+			postBuilderError = cause instanceof Error ? cause.message : m.compose_ai_build_failed();
+		}
+	}
+
+	async function restoreActivePublicationBuild(): Promise<void> {
+		if (!selectedWorkspaceId) return;
+		const saved = localStorage.getItem(aiBuildStorageKey(selectedWorkspaceId));
+		if (!saved) return;
+		try {
+			const parsed = z
+				.object({
+					id: z.string().min(1),
+					publication_id: z.string().min(1),
+					baseline: z.string().optional()
+				})
+				.safeParse(JSON.parse(saved));
+			if (!parsed.success) {
+				localStorage.removeItem(aiBuildStorageKey(selectedWorkspaceId));
+				return;
+			}
+			if (parsed.data.publication_id !== publicationId) return;
+			aiBuildPublicationID = parsed.data.publication_id;
+			aiGenerationBaseline = parsed.data.baseline ?? '';
+			aiWorkspaceEntry = posts[0]?.content.trim() ? 'build' : 'ideate';
+			aiWorkspaceStep = 'generating';
+			aiWorkspaceOpen = true;
+			await handlePublicationBuildState(await getPublicationBuild(parsed.data.id));
+		} catch {
+			clearActivePublicationBuild();
+		}
+	}
+
+	function restoreIdea() {
+		if (!generationUndo) return;
+		restoreAIComposerCheckpoint(generationUndo);
+		generationUndo = null;
+		latestGenerationUndo = null;
+	}
+
+	function undoLatestGenerationApply() {
+		if (!latestGenerationUndo) return;
+		const restoresOriginalIdea = latestGenerationUndo === generationUndo;
+		restoreAIComposerCheckpoint(latestGenerationUndo);
+		latestGenerationUndo = null;
+		if (restoresOriginalIdea) generationUndo = null;
+	}
+
+	function convertGeneratedThreadToPost(): void {
+		if (!generationUndo || posts.length < 2) return;
+		const source = posts[0];
+		const joinedSource: PostItem = {
+			...source,
+			content: posts
+				.map((post) => post.content.trim())
+				.filter(Boolean)
+				.join('\n\n'),
+			mediaIds: [...new Set(posts.flatMap((post) => post.mediaIds))]
+		};
+		const nextVariants = new SvelteMap<string, Record<string, VariantPost>>();
+		for (const [accountID, record] of variants.entries()) {
+			const values = posts.map((post) => record[post.key]).filter(Boolean);
+			nextVariants.set(accountID, {
+				[joinedSource.key]: {
+					content: values
+						.map((value) => value.content.trim())
+						.filter(Boolean)
+						.join('\n\n'),
+					mediaIds: [...new Set(values.flatMap((value) => value.mediaIds))],
+					contentInherited: false,
+					mediaInherited: values.every((value) => value.mediaInherited)
+				}
+			});
+		}
+		posts = [joinedSource];
+		variants = nextVariants;
+		activePostIndex = 0;
+		linkUrl = firstComposerURL(joinedSource.content);
+		void resolveCapabilities();
+		scheduleAutoSave();
 	}
 
 	// --------------------------------------------------------------------------
@@ -4137,7 +5187,7 @@
 	function setPostContent(index: number, value: string) {
 		posts = posts.map((p, pi) => (pi === index ? { ...p, content: value } : p));
 		if (index === 0) linkUrl = firstComposerURL(value);
-		if (value.trim() && showPromptCard) dismissPrompt();
+		postBuilderError = '';
 		scheduleAutoSave();
 	}
 
@@ -4197,6 +5247,11 @@
 		mediaSettingsByAccount = {};
 		resolvedCapabilities = {};
 		validationIssues = [];
+		generationUndo = null;
+		latestGenerationUndo = null;
+		aiAppliedResult = null;
+		aiAppliedStrategies = [];
+		postBuilderError = '';
 		selectedDate = undefined;
 		selectedTime = null;
 		randomDelayOverride = 'default';
@@ -4266,22 +5321,6 @@
 				{#if accounts.length > 0}
 					<ComposerValidationMenu issues={visibleGlobalIssues} onSelect={focusComposerIssue} />
 				{/if}
-				{#if showInspirationControl}
-					<div transition:fade={{ duration: 160 }}>
-						<Button
-							type="button"
-							variant="ghost"
-							size="icon"
-							class={showPromptCard ? 'size-11 text-primary' : 'size-11 text-muted-foreground'}
-							onclick={() => (showPromptCard ? dismissPrompt() : fetchRandomPrompt())}
-							aria-label={showPromptCard
-								? m.compose_dismiss_inspiration()
-								: m.compose_need_inspiration()}
-						>
-							<LightbulbIcon class="size-4" />
-						</Button>
-					</div>
-				{/if}
 				<Button
 					type="button"
 					variant="ghost"
@@ -4320,13 +5359,13 @@
 						scheduleLabel={formatScheduledDisplay()}
 						quickScheduleLabel={selectedDate && selectedTime
 							? m.compose_schedule_selected_time({ schedule: formatScheduledDisplay() })
-							: m.compose_schedule_next_slot()}
+							: m.compose_queue_next_slot()}
 						publishLabel={m.compose_publish_now()}
+						moreLabel={m.sidebar_more()}
 						deleteLabel={m.common_delete()}
 						busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
 						deleting={isDeleting}
 						quickScheduleBusy={suggestingSlot}
-						scheduleSelected={Boolean(selectedDate && selectedTime)}
 						canOpenSchedule={selectedWorkspaceSettingsReady}
 						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
 						canPublish={canPublishNow}
@@ -4394,34 +5433,6 @@
 			</div>
 
 			<div class="flex flex-wrap items-center gap-1.5 md:gap-2">
-				{#if showInspirationControl}
-					<div transition:fade={{ duration: 160 }}>
-						<Tooltip.Root>
-							<Tooltip.Trigger>
-								{#snippet child({ props })}
-									<Button
-										{...props}
-										variant="ghost"
-										size="icon"
-										class={showPromptCard ? 'text-primary' : 'text-muted-foreground'}
-										onclick={() => (showPromptCard ? dismissPrompt() : fetchRandomPrompt())}
-										aria-label={showPromptCard
-											? m.compose_dismiss_inspiration()
-											: m.compose_need_inspiration()}
-									>
-										<LightbulbIcon class="size-4" />
-									</Button>
-								{/snippet}
-							</Tooltip.Trigger>
-							<Tooltip.Content>
-								<p class="text-sm">
-									{showPromptCard ? m.compose_dismiss_inspiration() : m.compose_need_inspiration()}
-								</p>
-							</Tooltip.Content>
-						</Tooltip.Root>
-					</div>
-				{/if}
-
 				<Tooltip.Root>
 					<Tooltip.Trigger>
 						{#snippet child({ props })}
@@ -4467,13 +5478,13 @@
 						scheduleLabel={formatScheduledDisplay()}
 						quickScheduleLabel={selectedDate && selectedTime
 							? m.compose_schedule_selected_time({ schedule: formatScheduledDisplay() })
-							: m.compose_schedule_next_slot()}
+							: m.compose_queue_next_slot()}
 						publishLabel={m.compose_publish_now()}
+						moreLabel={m.sidebar_more()}
 						deleteLabel={m.common_delete()}
 						busy={isSubmitting || isSaving || deliveryFeedback.length > 0}
 						deleting={isDeleting}
 						quickScheduleBusy={suggestingSlot}
-						scheduleSelected={Boolean(selectedDate && selectedTime)}
 						canOpenSchedule={selectedWorkspaceSettingsReady}
 						canQuickSchedule={canSchedulePublication && selectedWorkspaceSettingsReady}
 						canPublish={canPublishNow}
@@ -4647,7 +5658,13 @@
 									class:text-muted-foreground={activeVariantAccountId !== account.id}
 									onclick={() => activateVariantTab(account.id)}
 								>
-									<span class="max-w-32 truncate">{accountLabel(account)}</span>
+									<SocialAccountIdentity
+										class="max-w-52"
+										name={accountLabel(account)}
+										platform={account.platform}
+										avatarUrl={account.account_avatar_url}
+										size="sm"
+									/>
 									{#if destinationFormatLabel(account)}
 										<span class="text-xs text-muted-foreground"
 											>· {destinationFormatLabel(account)}</span
@@ -4760,86 +5777,32 @@
 					/>
 				{/if}
 
-				<!-- Prompt Card -->
-				{#if showPromptCard && !hasWrittenContent}
-					<section
-						class="relative mb-5 overflow-hidden rounded-xl border border-primary/20 bg-primary/[0.035] p-4 shadow-sm sm:p-5"
-						aria-labelledby="composer-inspiration-title"
-						transition:fly={{ y: -6, duration: 200 }}
+				{#if visibleAIStrategies.length > 0}
+					<div
+						class="mb-3 flex gap-2 overflow-x-auto border-y py-3"
+						aria-label={m.compose_ai_strategy_label()}
 					>
-						<div class="flex items-start justify-between gap-3">
-							<div class="flex min-w-0 items-center gap-2 text-primary">
-								<span
-									class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary/10"
-								>
-									<LightbulbIcon class="size-4" />
-								</span>
-								<p
-									id="composer-inspiration-title"
-									class="text-xs font-semibold tracking-wide uppercase"
-								>
-									{m.compose_writing_prompt()}
+						{#each visibleAIStrategies as destination (destination.account_id)}
+							<div class="min-w-48 rounded-lg border bg-muted/30 px-3 py-2 text-xs">
+								<p class="font-medium text-foreground">
+									{getPlatformName(destination.platform)} · {localizedAIObjective(
+										destination.objective
+									)}
 								</p>
-							</div>
-							<div class="flex shrink-0 items-center gap-1">
-								<Button
-									variant="ghost"
-									size="icon"
-									class="size-9 text-muted-foreground"
-									onclick={fetchRandomPrompt}
-									disabled={loadingPrompt}
-									title={m.compose_shuffle()}
-									aria-label={m.compose_shuffle()}
-								>
-									<ShuffleIcon class="size-4" />
-								</Button>
-								<Button
-									variant="ghost"
-									size="icon"
-									class="size-9 text-muted-foreground"
-									onclick={dismissPrompt}
-									title={m.compose_close()}
-									aria-label={m.compose_close()}
-								>
-									<XIcon class="size-4" />
-								</Button>
-							</div>
-						</div>
-						{#if loadingPrompt}
-							<div class="mt-4 space-y-2" role="status">
-								<Skeleton class="h-3 w-full" />
-								<Skeleton class="h-3 w-3/4" />
-							</div>
-						{:else if currentPrompt}
-							<p class="mt-4 max-w-prose text-base leading-7 text-foreground">
-								{currentPrompt.text}
-							</p>
-							{#if currentPrompt.example}
-								<div class="mt-4 rounded-lg border border-border/70 bg-background/70 p-3 sm:p-4">
-									<p class="mb-1.5 text-xs font-medium text-muted-foreground">
-										{m.compose_prompt_example()}
+								<p class="mt-1 text-muted-foreground">
+									{destination.media.treatment === 'none'
+										? m.compose_ai_no_media_recommended()
+										: destination.media.brief ||
+											localizedAIMediaTreatment(destination.media.treatment)}
+								</p>
+								{#if destination.warnings?.length}
+									<p class="mt-1 text-amber-700 dark:text-amber-300">
+										{destination.warnings.join(' ')}
 									</p>
-									<p class="text-sm leading-6 whitespace-pre-wrap text-foreground/90">
-										{currentPrompt.example}
-									</p>
-								</div>
-							{/if}
-							<div class="mt-4 flex justify-end">
-								<Button
-									size="sm"
-									class="gap-1.5"
-									onclick={() => requestApplyPrompt(currentPrompt!)}
-									disabled={hasPendingPasteMediaUploads}
-									title={m.compose_apply_prompt_title()}
-								>
-									<CheckIcon class="size-3.5" />
-									{m.compose_apply_prompt()}
-								</Button>
+								{/if}
 							</div>
-						{:else}
-							<p class="text-sm text-muted-foreground">{m.compose_no_prompts()}</p>
-						{/if}
-					</section>
+						{/each}
+					</div>
 				{/if}
 
 				<!-- Posts -->
@@ -4913,11 +5876,12 @@
 													: i === 0
 														? editorTextIsYouTubeDescription
 															? m.compose_describe_video()
-															: m.compose_whats_on_your_mind()
+															: m.compose_ai_idea_placeholder()
 														: m.compose_add_to_thread()}
-												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 pr-3 text-base leading-relaxed text-foreground placeholder:text-muted-foreground/50 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg"
+												class="relative z-10 w-full resize-none overflow-y-hidden border-0 bg-transparent py-2 pr-3 text-base leading-7 text-foreground placeholder:text-muted-foreground/70 focus:ring-0 focus:outline-none md:py-3 md:pr-4 md:text-lg md:leading-8"
 												style="min-height: {i === 0 ? '120px' : '56px'};"
 												disabled={isSubmitting ||
+													buildingPost ||
 													(!!activeVariantAccountId && !activeVariantIsUnsynced)}
 											/>
 
@@ -4946,7 +5910,7 @@
 
 										{#if pasteFeedback.length > 0}
 											<div
-												class="mb-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+												class="mb-3 flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
 												role="status"
 												aria-live="polite"
 												data-testid="composer-paste-feedback"
@@ -5212,78 +6176,80 @@
 												<ImageIcon class="h-3.5 w-3.5" />
 											</button>
 
-											<Tooltip.Root>
-												<Tooltip.Trigger>
-													{#snippet child({ props })}
-														{@const editorUsage = editorCharacterUsage(
-															getEditorContentForPost(post)
-														)}
-														<div {...props} class="flex cursor-default items-center gap-1.5">
-															<svg
-																class="h-4 w-4 {getCharCounterColor(
-																	editorUsage.count,
-																	editorUsage.limit
-																)}"
-																viewBox="0 0 20 20"
-															>
-																<circle
-																	cx="10"
-																	cy="10"
-																	r="8"
-																	fill="none"
-																	stroke="currentColor"
-																	stroke-width="2.5"
-																	opacity="0.15"
-																/>
-																<circle
-																	cx="10"
-																	cy="10"
-																	r="8"
-																	fill="none"
-																	stroke={getCharCounterStrokeColor(
-																		editorUsage.count,
-																		editorUsage.limit
-																	)}
-																	stroke-width="2.5"
-																	stroke-linecap="round"
-																	stroke-dasharray={50.27}
-																	stroke-dashoffset={50.27 *
-																		Math.max(0, 1 - editorUsage.count / editorUsage.limit)}
-																	transform="rotate(-90 10 10)"
-																/>
-															</svg>
-															<span class="text-xs text-muted-foreground tabular-nums"
-																>{editorUsage.count}/{editorUsage.limit}</span
-															>
-														</div>
-													{/snippet}
-												</Tooltip.Trigger>
-												<Tooltip.Content>
-													<div class="space-y-1">
-														<p class="text-xs font-medium text-muted-foreground">
-															{m.compose_character_limits()}
-														</p>
-														{#each editorPlatformLimits as pl (pl.key)}
-															{@const platformCount = platformTextLength(
-																pl.key,
+											{#if editorPlatformLimits.length > 0}
+												<Tooltip.Root>
+													<Tooltip.Trigger>
+														{#snippet child({ props })}
+															{@const editorUsage = editorCharacterUsage(
 																getEditorContentForPost(post)
 															)}
-															<div class="flex items-center justify-between gap-2 text-xs">
-																<div class="flex items-center gap-1.5">
-																	<PlatformIcon platform={pl.key} class="h-3 w-3" /><span
-																		>{pl.platform}</span
-																	>
-																</div>
-																<span
-																	class="tabular-nums {platformCount > pl.limit
-																		? 'text-red-500'
-																		: 'text-muted-foreground'}">{platformCount}/{pl.limit}</span
+															<div {...props} class="flex cursor-default items-center gap-1.5">
+																<svg
+																	class="h-4 w-4 {getCharCounterColor(
+																		editorUsage.count,
+																		editorUsage.limit
+																	)}"
+																	viewBox="0 0 20 20"
+																>
+																	<circle
+																		cx="10"
+																		cy="10"
+																		r="8"
+																		fill="none"
+																		stroke="currentColor"
+																		stroke-width="2.5"
+																		opacity="0.15"
+																	/>
+																	<circle
+																		cx="10"
+																		cy="10"
+																		r="8"
+																		fill="none"
+																		stroke={getCharCounterStrokeColor(
+																			editorUsage.count,
+																			editorUsage.limit
+																		)}
+																		stroke-width="2.5"
+																		stroke-linecap="round"
+																		stroke-dasharray={50.27}
+																		stroke-dashoffset={50.27 *
+																			Math.max(0, 1 - editorUsage.count / editorUsage.limit)}
+																		transform="rotate(-90 10 10)"
+																	/>
+																</svg>
+																<span class="text-xs text-muted-foreground tabular-nums"
+																	>{editorUsage.count}/{editorUsage.limit}</span
 																>
 															</div>
-														{/each}
-													</div>
-												</Tooltip.Content>
-											</Tooltip.Root>
+														{/snippet}
+													</Tooltip.Trigger>
+													<Tooltip.Content>
+														<div class="space-y-1">
+															<p class="text-xs font-medium text-muted-foreground">
+																{m.compose_character_limits()}
+															</p>
+															{#each editorPlatformLimits as pl (pl.key)}
+																{@const platformCount = platformTextLength(
+																	pl.key,
+																	getEditorContentForPost(post)
+																)}
+																<div class="flex items-center justify-between gap-2 text-xs">
+																	<div class="flex items-center gap-1.5">
+																		<PlatformIcon platform={pl.key} class="h-3 w-3" /><span
+																			>{pl.platform}</span
+																		>
+																	</div>
+																	<span
+																		class="tabular-nums {platformCount > pl.limit
+																			? 'text-red-500'
+																			: 'text-muted-foreground'}">{platformCount}/{pl.limit}</span
+																	>
+																</div>
+															{/each}
+														</div>
+													</Tooltip.Content>
+												</Tooltip.Root>
+											{/if}
 
 											<button
 												type="button"
@@ -5292,8 +6258,84 @@
 											>
 												<PlusIcon class="h-3 w-3" />{m.compose_add_post()}
 											</button>
+
+											{#if i === 0 && !activeVariantAccountId && !isThread}
+												<ComposerAIActionButton
+													hasText={Boolean(posts[0]?.content.trim())}
+													building={buildingPost}
+													disabled={!canBuildPost}
+													ideateLabel={m.compose_ai_ideate()}
+													buildLabel={generationUndo
+														? m.compose_ai_build_again()
+														: m.compose_ai_build()}
+													buildingLabel={m.compose_ai_building()}
+													onclick={buildPostWithAI}
+													title={selectedAccountIds.length === 0
+														? m.compose_ai_destinations_required()
+														: undefined}
+												/>
+											{/if}
 										</div>
 
+										{#if i === 0 && !activeVariantAccountId && !isThread && postBuilderError}
+											<p class="border-t py-3 text-sm text-destructive" role="alert">
+												{postBuilderError}
+											</p>
+										{:else if i === 0 && !activeVariantAccountId && generationUndo}
+											<div class="space-y-3 border-t py-3">
+												<div class="flex flex-wrap items-center gap-2">
+													<p class="min-w-0 flex-1 text-sm text-muted-foreground">
+														{m.compose_ai_ready({ count: selectedAccounts.length })}
+													</p>
+													{#if isThread}
+														<Button
+															type="button"
+															variant="ghost"
+															size="sm"
+															class="min-h-11 md:min-h-8"
+															onclick={convertGeneratedThreadToPost}
+														>
+															{m.compose_ai_convert_to_post()}
+														</Button>
+													{/if}
+													{#if latestGenerationUndo && latestGenerationUndo !== generationUndo}
+														<Button
+															type="button"
+															variant="ghost"
+															size="sm"
+															class="min-h-11 gap-1.5 md:min-h-8"
+															onclick={undoLatestGenerationApply}
+														>
+															<Undo2Icon class="size-3.5" />
+															{m.image_editor_undo()}
+														</Button>
+													{/if}
+													<Button
+														type="button"
+														variant="ghost"
+														size="sm"
+														class="min-h-11 gap-1.5 md:min-h-8"
+														onclick={restoreIdea}
+													>
+														<Undo2Icon class="size-3.5" />
+														{m.compose_ai_restore_idea()}
+													</Button>
+												</div>
+											</div>
+											{#if aiMemeCandidates.length > 0 || aiMemeError}
+												<div class="border-t py-4">
+													<AIMemeRecommendation
+														candidates={aiMemeCandidates}
+														copy={aiMemeCopy}
+														bind:selectedCandidateId={aiMemeSelectedID}
+														error={aiMemeError}
+														onUse={useAIMeme}
+														onEdit={editAIMeme}
+														onRetry={previewAIMemeCandidate}
+													/>
+												</div>
+											{/if}
+										{/if}
 										{#if isThread}
 											<button
 												type="button"
@@ -5316,6 +6358,134 @@
 	</div>
 </div>
 
+<AIWorkspaceDialog
+	bind:open={aiWorkspaceOpen}
+	entry={aiWorkspaceEntry}
+	step={aiWorkspaceStep}
+	copy={aiWorkspaceCopy}
+	opportunities={aiWorkspaceOpportunities}
+	selectedOpportunityId={aiSelectedOpportunityID}
+	angles={aiWorkspaceAngles}
+	selectedAngleId={aiSelectedAngleID}
+	generationPhases={aiGenerationPhases}
+	generationMessage={aiGenerationMessage}
+	destinationSummary={selectedAccounts.length === 1
+		? m.compose_ai_destination_summary_one({ count: selectedAccounts.length })
+		: m.compose_ai_destination_summary_many({ count: selectedAccounts.length })}
+	voiceSummary={m.compose_ai_writing_as({ voice: aiVoiceName })}
+	loadingOpportunities={aiOpportunityLoading}
+	opportunityLoadingMessage={aiOpportunitySlow
+		? m.compose_ai_finding_ideas_slow()
+		: m.compose_ai_finding_ideas()}
+	findingMore={aiFindingMore}
+	generating={buildingPost}
+	generationActive={aiGenerationActive}
+	cancelling={aiCancelling}
+	canCancel={aiActiveBuild?.state === 'queued' || aiActiveBuild?.state === 'building'}
+	applyPending={aiApplyPending}
+	error={postBuilderError}
+	onSelectOpportunity={selectPublicationOpportunity}
+	onSelectAngle={(angle) => {
+		aiSelectedAngleID = angle.id;
+		const selected = aiAngles.find((candidate) => candidate.id === angle.id);
+		if (selected) aiObjective = selected.objective;
+	}}
+	onDiscover={() => void discoverPublicationIdeas()}
+	onContinue={() => void continuePublicationOpportunity()}
+	onFindMore={() => void loadPublicationOpportunities(true)}
+	onBack={aiWorkspaceEntry === 'ideate'
+		? () => {
+				postBuilderError = '';
+				aiWorkspaceStep = 'opportunities';
+				aiAngles = [];
+				aiSelectedAngleID = '';
+			}
+		: undefined}
+	onBuild={() => void startSelectedPublicationBuild()}
+	onCancel={() => void cancelActivePublicationBuild()}
+	onRetry={aiActiveBuild?.state === 'failed'
+		? () => void retryActivePublicationBuild()
+		: aiBuildCreateRejected
+			? undefined
+			: aiWorkspaceStep === 'opportunities'
+				? () => void loadPublicationOpportunities()
+				: () => void loadPublicationAngles(aiGenerationIdea)}
+	onApply={applyReadyPublicationBuild}
+	onKeepEditing={keepCurrentComposerEdits}
+	onDismissError={() => (postBuilderError = '')}
+>
+	{#snippet context()}
+		{#if aiWorkspaceStep === 'brief'}
+			<label class="mx-auto grid max-w-2xl gap-2 text-sm font-medium">
+				{m.compose_ai_brief()}
+				<Textarea
+					bind:value={aiIdeationBrief}
+					maxlength={1000}
+					rows={5}
+					placeholder={m.compose_ai_brief_placeholder()}
+				/>
+			</label>
+		{:else if aiWorkspaceStep === 'angles'}
+			<div class="grid gap-3 rounded-lg border bg-muted/25 p-3 sm:grid-cols-2">
+				<label class="grid gap-1.5 text-xs font-medium">
+					{m.compose_ai_context_objective()}
+					<Input
+						bind:value={aiObjective}
+						maxlength={200}
+						placeholder={m.compose_ai_context_objective_placeholder()}
+					/>
+				</label>
+				<label class="grid gap-1.5 text-xs font-medium">
+					{m.compose_ai_context_change()}
+					<Input
+						bind:value={aiChangeRequest}
+						maxlength={500}
+						placeholder={m.compose_ai_context_change_placeholder()}
+					/>
+				</label>
+				<details class="sm:col-span-2">
+					<summary class="min-h-8 cursor-pointer text-xs font-medium text-muted-foreground">
+						{m.compose_ai_context_add()}
+					</summary>
+					<div class="mt-2 grid gap-3 sm:grid-cols-2">
+						<label class="grid gap-1.5 text-xs font-medium">
+							{m.compose_ai_context_notes()}
+							<Textarea
+								bind:value={aiContextNotes}
+								maxlength={10000}
+								rows={3}
+								placeholder={m.compose_ai_context_notes_placeholder()}
+							/>
+						</label>
+						<label class="grid gap-1.5 text-xs font-medium">
+							{m.compose_ai_context_links()}
+							<Textarea
+								bind:value={aiContextURLs}
+								rows={3}
+								placeholder={m.compose_ai_context_links_placeholder()}
+							/>
+						</label>
+						<label class="flex min-h-11 items-center gap-2 text-xs sm:col-span-2">
+							<Checkbox
+								checked={aiContextMayPublish}
+								onCheckedChange={(checked) => (aiContextMayPublish = checked === true)}
+							/>
+							{m.compose_ai_context_allow_notes()}
+						</label>
+						{#if selectedAIAssets().length > 0}
+							<p class="text-xs text-muted-foreground sm:col-span-2">
+								{selectedAIAssets().length === 1
+									? m.compose_ai_context_attachment_one({ count: selectedAIAssets().length })
+									: m.compose_ai_context_attachment_many({ count: selectedAIAssets().length })}
+							</p>
+						{/if}
+					</div>
+				</details>
+			</div>
+		{/if}
+	{/snippet}
+</AIWorkspaceDialog>
+
 <Dialog.Root bind:open={destinationActionOpen}>
 	<Dialog.Content class="sm:max-w-md">
 		<Dialog.Header>
@@ -5330,16 +6500,18 @@
 		</Dialog.Header>
 		<div class="space-y-2 py-2">
 			{#each selectedAccounts.filter((account) => account.id !== activeVariantAccountId) as account (account.id)}
-				<label class="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm">
+				<label class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm">
 					<Checkbox
 						checked={destinationActionTargetIds.includes(account.id)}
 						disabled={hasPendingPasteMediaUploads}
 						onCheckedChange={() => toggleDestinationActionTarget(account.id)}
 					/>
-					<span class="min-w-0 truncate">{accountLabel(account)}</span>
-					<span class="ml-auto text-xs text-muted-foreground">
-						{getPlatformName(account.platform)}
-					</span>
+					<SocialAccountIdentity
+						class="min-w-0 flex-1"
+						name={accountLabel(account)}
+						platform={account.platform}
+						avatarUrl={account.account_avatar_url}
+					/>
 				</label>
 			{/each}
 		</div>
@@ -5368,24 +6540,48 @@
 			<Sheet.Title>{m.compose_post_settings()}</Sheet.Title>
 			<Sheet.Description>{m.compose_post_settings_body()}</Sheet.Description>
 		</Sheet.Header>
+		{#if onOpenVersionHistory || onCopyAsDraft}
+			<div class="grid gap-1 border-b p-3">
+				{#if onOpenVersionHistory}
+					<Button
+						type="button"
+						variant="ghost"
+						class="h-11 w-full justify-start gap-3 px-3"
+						onclick={openVersionHistory}
+					>
+						<HistoryIcon class="size-4 text-muted-foreground" />
+						{m.image_editor_version_history()}
+					</Button>
+				{/if}
+				{#if onCopyAsDraft}
+					<Button
+						type="button"
+						variant="ghost"
+						class="h-11 w-full justify-start gap-3 px-3"
+						onclick={onCopyAsDraft}
+						disabled={copyingDraft}
+					>
+						{#if copyingDraft}
+							<LoaderIcon class="size-4 animate-spin text-muted-foreground" />
+							{m.publication_copying()}
+						{:else}
+							<CopyIcon class="size-4 text-muted-foreground" />
+							{m.publication_copy_as_draft()}
+						{/if}
+					</Button>
+				{/if}
+			</div>
+		{/if}
 		<div class="p-5">
-			<section class="rounded-xl border border-border/70 bg-muted/15 p-4">
-				<div class="mb-3">
-					<h3 class="text-sm font-semibold">{m.composer_repost_settings()}</h3>
-					<p class="mt-1 text-sm text-muted-foreground">
-						{m.composer_repost_settings_body()}
-					</p>
-				</div>
-				<ComposerRepostControl
-					workspaceID={selectedWorkspaceId}
-					sourcePlatforms={[
-						...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
-					]}
-					bind:value={repostOverride}
-					disabled={!selectedWorkspaceId || isSaving || isSubmitting}
-					onChange={scheduleAutoSave}
-				/>
-			</section>
+			<ComposerRepostControl
+				workspaceID={selectedWorkspaceId}
+				sourcePlatforms={[
+					...new Set(selectedAccounts.map((account) => getPlatformKey(account.platform)))
+				]}
+				bind:value={repostOverride}
+				disabled={!selectedWorkspaceId || isSaving || isSubmitting}
+				onChange={scheduleAutoSave}
+			/>
 		</div>
 	</Sheet.Content>
 </Sheet.Root>
@@ -5393,16 +6589,22 @@
 <MediaPicker
 	bind:open={mediaPickerOpen}
 	workspaceId={selectedWorkspaceId}
-	currentSelection={posts[mediaPickerPostIndex]
-		? getEditorMediaIdsForPost(posts[mediaPickerPostIndex])
-		: []}
+	currentSelection={mediaPickerInitialMode === 'meme'
+		? []
+		: posts[mediaPickerPostIndex]
+			? getEditorMediaIdsForPost(posts[mediaPickerPostIndex])
+			: []}
 	currentMediaMimeTypes={Object.fromEntries(mediaMimeTypes)}
 	maxSelection={composerMediaLimit}
 	multiple={composerMediaLimit > 1}
 	purpose={isThread ? 'thread_segment' : 'post_media'}
 	enableMeme
+	compactNavigation
 	autoConfirmUploads
-	initialMode="upload"
+	initialMode={mediaPickerInitialMode}
+	memeInitialIdea={mediaPickerMemeIdea}
+	memeInitialCandidate={mediaPickerMemeCandidate}
+	memeInitialPreview={mediaPickerMemePreview}
 	initialFiles={mediaPickerInitialFiles}
 	onInitialFilesConsumed={() => (mediaPickerInitialFiles = [])}
 	onConfirm={async (ids) => {
@@ -5412,6 +6614,27 @@
 		const previousIds = posts[mediaPickerPostIndex]
 			? getEditorMediaIdsForPost(posts[mediaPickerPostIndex])
 			: [];
+		if (mediaPickerInitialMode === 'meme' && mediaPickerMemeCandidate) {
+			let attached = false;
+			if (mediaPickerMemeRequestGeneration === aiMemeRequestGeneration) {
+				for (const mediaID of ids) {
+					attached =
+						(await attachAIMemeToTargets(
+							mediaID,
+							mediaPickerMemeTargetAccountIDs,
+							selectedWorkspaceId
+						)) || attached;
+				}
+			}
+			if (!attached) return false;
+			mediaPickerInitialMode = 'upload';
+			mediaPickerMemeIdea = '';
+			mediaPickerMemeCandidate = undefined;
+			mediaPickerMemePreview = '';
+			mediaPickerMemeTargetAccountIDs = [];
+			aiMemeCandidates = [];
+			return true;
+		}
 		const addedIds = ids.filter((id) => !previousIds.includes(id));
 		setEditorMediaIds(mediaPickerPostIndex, ids);
 		await hydrateMediaMetadata(selectedWorkspaceId, addedIds, true);
@@ -5536,13 +6759,6 @@
 	onReload={reloadSavedTextDraft}
 	onSaveCopy={saveConflictedTextDraftAsCopy}
 	onOverwrite={overwriteSavedTextDraft}
-/>
-
-<PromptApplyDialog
-	bind:open={promptApplyDialogOpen}
-	example={pendingPromptToApply ? resolvePromptContent(pendingPromptToApply) : ''}
-	onConfirm={confirmApplyPrompt}
-	onCancel={cancelApplyPrompt}
 />
 
 <style>

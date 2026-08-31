@@ -78,28 +78,13 @@ describe('editor handoff recovery', () => {
 		expect(loadEditorHandoff('unsafe', 'video', storage)).toBeNull();
 	});
 
-	it('expires and clears every current and legacy key for a token', () => {
+	it('expires and clears the current key for a token', () => {
 		const storage = new MemoryStorage();
 		storeEditorHandoff('expired', snapshot('image'), storage);
-		storage.setItem('openpost:image-editor:return:expired', JSON.stringify(snapshot('image')));
 		expect(
 			loadEditorHandoff('expired', 'image', storage, Date.parse('2099-08-09T12:00:00Z'))
 		).toBeNull();
 		clearEditorHandoff('expired', storage);
 		expect(storage.length).toBe(0);
-	});
-
-	it('migrates a valid legacy image snapshot without accepting it as video', () => {
-		const storage = new MemoryStorage();
-		const { editor: _editor, ...currentSnapshot } = snapshot('image');
-		const legacy = { ...currentSnapshot, version: 1 };
-		storage.setItem('openpost:image-editor:return:legacy', JSON.stringify(legacy));
-
-		expect(
-			loadEditorHandoff('legacy', 'image', storage, Date.parse('2099-08-09T11:00:00Z'))
-		).toMatchObject({ version: 2, editor: 'image' });
-		expect(
-			loadEditorHandoff('legacy', 'video', storage, Date.parse('2099-08-09T11:00:00Z'))
-		).toBeNull();
 	});
 });

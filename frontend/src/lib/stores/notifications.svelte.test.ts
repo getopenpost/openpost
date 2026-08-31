@@ -15,7 +15,7 @@ function notification(index: number, workspaceID = 'workspace-a'): Notification 
 		type: index % 2 === 0 ? 'post_published' : 'publish_failed',
 		title: `Notification ${index}`,
 		body: `Body ${index}`,
-		href: '/activity',
+		href: '/publications',
 		payload_json: '{}',
 		read_at: '',
 		created_at: new Date(Date.UTC(2026, 7, 9, 12, 0, 0) - index * 60_000).toISOString()

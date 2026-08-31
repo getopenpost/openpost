@@ -32,10 +32,10 @@
 				Cut fast or build the complete edit
 			</h2>
 			<p class="mt-3 max-w-xl leading-7 text-muted-foreground">
-				Quick Cut removes sections and copies source streams without a video transcode. Full editor
-				adds four social formats, separate recording tracks, local transcript editing, effects, and
-				streamed MP4 or WebM export. Desktop gets the full workbench; capable phones get a touch
-				timeline and contextual tools.
+				Quick Cut removes sections and copies eligible source streams without a video transcode.
+				Full editor adds a multitrack timeline, separate recording tracks, transcript editing,
+				motion, color, audio tools, effects, and queued export. Projects stay in a folder you
+				choose.
 			</p>
 
 			<ul class="mt-6 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
@@ -45,7 +45,7 @@
 				</li>
 				<li class="flex items-center gap-2">
 					<ShieldCheck class="size-4 text-primary" aria-hidden="true" />
-					Local projects by default
+					Projects stay on your disk
 				</li>
 				<li class="flex items-center gap-2">
 					<MonitorUp class="size-4 text-primary" aria-hidden="true" />
@@ -87,7 +87,7 @@
 					<h2 class="mt-1 text-lg font-semibold">One timeline, four frames</h2>
 				</div>
 				<span class="rounded-full border border-white/15 px-2.5 py-1 text-xs text-neutral-300"
-					>Local only</span
+					>Disk workspace</span
 				>
 			</div>
 			<div class="mt-6 grid grid-cols-2 gap-3">

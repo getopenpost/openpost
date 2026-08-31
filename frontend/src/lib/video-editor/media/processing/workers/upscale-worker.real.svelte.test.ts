@@ -18,6 +18,8 @@ import type { UpscaleWorkerResponse } from './upscale-worker';
 const WIDTH = 64;
 const HEIGHT = 36;
 const FPS = 3;
+const WORKER_TIMEOUT_MS = 120_000;
+const TEST_TIMEOUT_MS = WORKER_TIMEOUT_MS + 10_000;
 const scratchJobs: string[] = [];
 
 async function sourceVideo(): Promise<Blob> {
@@ -79,74 +81,80 @@ afterEach(async () => {
 });
 
 describe('Anime4K upscale worker', () => {
-	it('runs the bundled model through the real decode, inference, streamed encode, and decode path', async () => {
-		const worker = new Worker(new URL('./upscale-worker.ts', import.meta.url), { type: 'module' });
-		const jobId = crypto.randomUUID();
-		scratchJobs.push(jobId);
-		try {
-			const completion = new Promise<Extract<UpscaleWorkerResponse, { type: 'complete' }>>(
-				(resolve, reject) => {
-					const timeout = window.setTimeout(
-						() => reject(new Error('Upscale worker timed out.')),
-						120_000
-					);
-					worker.onmessage = (event: MessageEvent<UpscaleWorkerResponse>) => {
-						if (event.data.jobId !== jobId) return;
-						if (event.data.type === 'complete') {
-							window.clearTimeout(timeout);
-							resolve(event.data);
-						} else if (event.data.type === 'error') {
-							window.clearTimeout(timeout);
-							reject(new Error(event.data.error));
-						}
-					};
-					worker.onerror = (event) => reject(new Error(event.message));
-				}
-			);
-			worker.postMessage({
-				type: 'upscale',
-				jobId,
-				source: await sourceVideo(),
-				sourceFps: FPS,
-				variant: 'liveAction'
+	it(
+		'runs the bundled model through the real decode, inference, streamed encode, and decode path',
+		async () => {
+			const worker = new Worker(new URL('./upscale-worker.ts', import.meta.url), {
+				type: 'module'
 			});
-
-			const message = await completion;
-			expect(message.result).toMatchObject({
-				width: WIDTH * 2,
-				height: HEIGHT * 2,
-				sourceWidth: WIDTH,
-				sourceHeight: HEIGHT,
-				frameCount: 3
-			});
-
-			const rendered = await scratchFile(jobId);
-			expect(rendered.size).toBeGreaterThan(500);
-			const input = new Input({ source: new BlobSource(rendered), formats: ALL_FORMATS });
+			const jobId = crypto.randomUUID();
+			scratchJobs.push(jobId);
 			try {
-				const track = await input.getPrimaryVideoTrack();
-				expect(track).not.toBeNull();
-				expect(await track!.getSquarePixelWidth()).toBe(WIDTH * 2);
-				expect(await track!.getSquarePixelHeight()).toBe(HEIGHT * 2);
-				let frames = 0;
-				for await (const sample of new VideoSampleSink(track!).samples()) {
-					frames++;
-					sample.close();
+				const completion = new Promise<Extract<UpscaleWorkerResponse, { type: 'complete' }>>(
+					(resolve, reject) => {
+						const timeout = window.setTimeout(
+							() => reject(new Error('Upscale worker timed out.')),
+							WORKER_TIMEOUT_MS
+						);
+						worker.onmessage = (event: MessageEvent<UpscaleWorkerResponse>) => {
+							if (event.data.jobId !== jobId) return;
+							if (event.data.type === 'complete') {
+								window.clearTimeout(timeout);
+								resolve(event.data);
+							} else if (event.data.type === 'error') {
+								window.clearTimeout(timeout);
+								reject(new Error(event.data.error));
+							}
+						};
+						worker.onerror = (event) => reject(new Error(event.message));
+					}
+				);
+				worker.postMessage({
+					type: 'upscale',
+					jobId,
+					source: await sourceVideo(),
+					sourceFps: FPS,
+					variant: 'liveAction'
+				});
+
+				const message = await completion;
+				expect(message.result).toMatchObject({
+					width: WIDTH * 2,
+					height: HEIGHT * 2,
+					sourceWidth: WIDTH,
+					sourceHeight: HEIGHT,
+					frameCount: 3
+				});
+
+				const rendered = await scratchFile(jobId);
+				expect(rendered.size).toBeGreaterThan(500);
+				const input = new Input({ source: new BlobSource(rendered), formats: ALL_FORMATS });
+				try {
+					const track = await input.getPrimaryVideoTrack();
+					expect(track).not.toBeNull();
+					expect(await track!.getSquarePixelWidth()).toBe(WIDTH * 2);
+					expect(await track!.getSquarePixelHeight()).toBe(HEIGHT * 2);
+					let frames = 0;
+					for await (const sample of new VideoSampleSink(track!).samples()) {
+						frames++;
+						sample.close();
+					}
+					expect(frames).toBe(3);
+					const audioTrack = await input.getPrimaryAudioTrack();
+					expect(audioTrack).not.toBeNull();
+					let audioPackets = 0;
+					for await (const packet of new EncodedPacketSink(audioTrack!).packets()) {
+						expect(packet.timestamp).toBeGreaterThanOrEqual(0);
+						audioPackets++;
+					}
+					expect(audioPackets).toBeGreaterThan(0);
+				} finally {
+					input.dispose();
 				}
-				expect(frames).toBe(3);
-				const audioTrack = await input.getPrimaryAudioTrack();
-				expect(audioTrack).not.toBeNull();
-				let audioPackets = 0;
-				for await (const packet of new EncodedPacketSink(audioTrack!).packets()) {
-					expect(packet.timestamp).toBeGreaterThanOrEqual(0);
-					audioPackets++;
-				}
-				expect(audioPackets).toBeGreaterThan(0);
 			} finally {
-				input.dispose();
+				worker.terminate();
 			}
-		} finally {
-			worker.terminate();
-		}
-	});
+		},
+		TEST_TIMEOUT_MS
+	);
 });

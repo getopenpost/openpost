@@ -1,14 +1,10 @@
-import { browser } from '$app/environment';
 import type {
 	AccountManagementContinuation,
-	AccountManagementFeedback,
-	AccountManagementMode
+	AccountManagementFeedback
 } from '$lib/account-management';
 import { m } from '$lib/paraglide/messages';
 
 export type AccountManagementURLFeedback = { kind: 'oauth_cancelled' } | { kind: 'oauth_failed' };
-
-const returnModeKey = 'oauth_account_management_mode';
 
 export interface AccountManagementURLState {
 	feedback: AccountManagementURLFeedback | null;
@@ -51,97 +47,57 @@ export function presentAccountManagementFeedback(
 	return { tone: 'error', message: m.accounts_oauth_failed() };
 }
 
-export function rememberAccountManagementContinuation(
-	continuation: AccountManagementContinuation,
-	mode: AccountManagementMode
-) {
-	if (!browser) return;
+export function rememberAccountManagementContinuation(continuation: AccountManagementContinuation) {
+	if (!('localStorage' in globalThis)) return;
 	try {
-		localStorage.setItem(returnModeKey, mode);
-		localStorage.setItem('oauth_workspace_id', continuation.workspaceID);
+		globalThis.localStorage.setItem('oauth_workspace_id', continuation.workspaceID);
 		if (continuation.mastodon?.instanceURL) {
-			localStorage.setItem('oauth_mastodon_instance_url', continuation.mastodon.instanceURL);
-			localStorage.removeItem('oauth_mastodon_server');
+			globalThis.localStorage.setItem(
+				'oauth_mastodon_instance_url',
+				continuation.mastodon.instanceURL
+			);
+			globalThis.localStorage.removeItem('oauth_mastodon_server');
 		} else if (continuation.mastodon?.serverName) {
-			localStorage.setItem('oauth_mastodon_server', continuation.mastodon.serverName);
-			localStorage.removeItem('oauth_mastodon_instance_url');
+			globalThis.localStorage.setItem('oauth_mastodon_server', continuation.mastodon.serverName);
+			globalThis.localStorage.removeItem('oauth_mastodon_instance_url');
 		}
 	} catch {
 		// Storage may be unavailable in hardened browser contexts; continuation is best-effort.
 	}
 }
 
-export function accountManagementReturnMode(): AccountManagementMode {
-	if (!browser) return 'settings';
-	try {
-		return localStorage.getItem(returnModeKey) === 'direct' ? 'direct' : 'settings';
-	} catch {
-		return 'settings';
-	}
-}
-
 export function accountManagementReturnHref(
-	mode = accountManagementReturnMode(),
 	feedback?: 'failed' | 'cancelled',
 	workspaceID = ''
 ): string {
 	const params = new URLSearchParams();
-	if (mode === 'settings') params.set('tab', 'accounts');
+	params.set('tab', 'accounts');
 	if (feedback) params.set('oauth_status', feedback);
 	if (workspaceID) params.set('workspace_id', workspaceID);
 	const query = params.toString();
-	return `${mode === 'direct' ? '/accounts' : '/settings'}${query ? `?${query}` : ''}`;
+	return `/settings${query ? `?${query}` : ''}`;
 }
 
 export function clearAccountManagementContinuation() {
-	if (!browser) return;
+	if (!('localStorage' in globalThis)) return;
 	try {
-		localStorage.removeItem(returnModeKey);
-		localStorage.removeItem('oauth_workspace_id');
-		localStorage.removeItem('oauth_mastodon_server');
-		localStorage.removeItem('oauth_mastodon_instance_url');
+		globalThis.localStorage.removeItem('oauth_workspace_id');
+		globalThis.localStorage.removeItem('oauth_mastodon_server');
+		globalThis.localStorage.removeItem('oauth_mastodon_instance_url');
 	} catch {
 		// Storage may be unavailable in hardened browser contexts; clearing is best-effort.
 	}
 }
 
-export interface AccountSetupState {
+export interface NormalizedAccountConnection {
 	workspaceID: string;
 	accountIDs: string[];
-	newAccountIDs: string[];
 	openFreshComposer: boolean;
 }
 
-export function accountSetupHref(state: AccountSetupState): string {
-	const params = new URLSearchParams();
-	params.set('workspace_id', state.workspaceID);
-	if (state.accountIDs.length) params.set('account_ids', state.accountIDs.join(','));
-	if (state.newAccountIDs.length) params.set('new_account_ids', state.newAccountIDs.join(','));
-	if (state.openFreshComposer) params.set('open_fresh_composer', 'true');
-	return `/accounts/setup?${params.toString()}`;
-}
-
-export function interpretAccountSetupURL(url: URL): AccountSetupState | null {
-	const workspaceID = url.searchParams.get('workspace_id') ?? '';
-	if (!workspaceID) return null;
-	const accountIDs = (url.searchParams.get('account_ids') ?? '')
-		.split(',')
-		.map((s) => s.trim())
-		.filter(Boolean);
-	const newAccountIDs = (url.searchParams.get('new_account_ids') ?? '')
-		.split(',')
-		.map((s) => s.trim())
-		.filter(Boolean);
-	const openFreshComposer = url.searchParams.get('open_fresh_composer') === 'true';
-	return { workspaceID, accountIDs, newAccountIDs, openFreshComposer };
-}
-
 export function continuationHrefForNormalizedConnection(
-	state: AccountSetupState & { featureSetupRequired: boolean }
+	state: NormalizedAccountConnection
 ): string {
-	if (state.featureSetupRequired && state.newAccountIDs.length > 0) {
-		return accountSetupHref(state);
-	}
 	if (state.openFreshComposer) {
 		const q = new URLSearchParams({
 			workspace_id: state.workspaceID,

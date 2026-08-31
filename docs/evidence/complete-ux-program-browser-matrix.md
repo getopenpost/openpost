@@ -26,7 +26,7 @@ The history suites use deterministic browser fixtures to isolate pagination and 
 - `e2e-app/conversation-pagination.spec.ts`
 - `e2e-app/message-history-pagination.spec.ts`
 
-Direct and Settings-embedded Accounts, OAuth feedback, billing facts, Paddle task links, and provider-backed dates are covered by `e2e-app/accounts-providers.spec.ts`, `e2e-app/billing-settings.spec.ts`, and `e2e-app/billing-recovery.spec.ts`. The complete inventory is in `docs/evidence/daily-workflow-browser-matrix.md`.
+Settings Social accounts, OAuth feedback, billing facts, Paddle task links, and provider-backed dates are covered by `e2e-app/accounts-providers.spec.ts`, `e2e-app/billing-settings.spec.ts`, and `e2e-app/billing-recovery.spec.ts`. The complete inventory is in `docs/evidence/daily-workflow-browser-matrix.md`.
 
 ## Collaboration and safety
 

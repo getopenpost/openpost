@@ -5,7 +5,6 @@ export interface MotionModulator {
 	id: MotionModifierType;
 	labelKey: string;
 	properties: MotionModifierChannel[];
-	scalesBox?: boolean;
 	thumbnail: MotionThumbnail;
 }
 
@@ -25,8 +24,7 @@ export const MOTION_MODULATORS: MotionModulator[] = [
 	{
 		id: 'breath-pulse',
 		labelKey: 'breathPulse',
-		properties: ['width', 'height', 'opacity'],
-		scalesBox: true,
+		properties: ['scaleX', 'scaleY', 'opacity'],
 		thumbnail: { kind: 'pulse' }
 	},
 	{

@@ -3,7 +3,7 @@
 import { mediaPool } from '../pool.svelte';
 import type { MediaMetadata } from '../types';
 import { getSceneAnalysis } from '../../workspace-fs/scene-analysis';
-import { analyzeMediaScenes } from './scene-analysis-client';
+import { analyzeMediaScenes, isSceneAnalyzableMedia } from './scene-analysis-client';
 import { parseColorQuery } from './color-boost';
 import { rankScenes, type RankableScene, type ScoredScene } from './rank';
 import { semanticRank } from './semantic-rank';
@@ -299,6 +299,16 @@ export const sceneBrowser = {
 		clipProvider.dispose();
 	},
 
+	forget(mediaId: string): void {
+		analysisControllers.get(mediaId)?.abort();
+		analysisControllers.delete(mediaId);
+		loadPromises.delete(mediaId);
+		delete state.analyses[mediaId];
+		delete state.progress[mediaId];
+		delete state.errors[mediaId];
+		if (state.scope === mediaId) state.scope = null;
+	},
+
 	async prepareSemanticQuery(query: string): Promise<void> {
 		const trimmed = query.trim();
 		const generation = ++queryGeneration;
@@ -337,9 +347,7 @@ export const sceneBrowser = {
 	},
 
 	async analyzeBatch(force = false): Promise<void> {
-		const media = mediaPool.mediaList.filter(
-			(item) => item.tags.includes('video') || item.mimeType.startsWith('video/')
-		);
+		const media = mediaPool.mediaList.filter(isSceneAnalyzableMedia);
 		for (const item of media) {
 			if (!force && state.analyses[item.id] && hasCompleteSemanticIndex(state.analyses[item.id]!)) {
 				continue;

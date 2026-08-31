@@ -9,7 +9,14 @@
  */
 
 import { getWorkspaceRoot, requireWorkspaceRoot } from './root';
-import { exists, readBlob, readDirectoryFiles, removeEntry, writeBlob } from './fs-primitives';
+import {
+	exists,
+	listDirectory,
+	readBlob,
+	readDirectoryFiles,
+	removeEntry,
+	writeBlob
+} from './fs-primitives';
 import {
 	EXPORTS_DIR,
 	PROJECTS_DIR,
@@ -26,8 +33,9 @@ export interface SavedExport {
 	relPath: string;
 }
 
-export interface ExportFileEntry {
+export interface ExportEntry {
 	name: string;
+	kind: 'file' | 'directory';
 	size: number;
 	lastModified: number;
 	/** Workspace-relative path segments — used to read/delete the file. */
@@ -76,26 +84,58 @@ export async function saveExportFile(
 	return { fileName: name, relPath: `${relBase}/${name}` };
 }
 
-/** List a project's saved export files, newest first. Empty when none. */
-export async function listExportFiles(projectId: string): Promise<ExportFileEntry[]> {
-	const files = await readDirectoryFiles(requireWorkspaceRoot(), projectExportsDir(projectId));
-	return files
-		.map(({ name, blob }) => ({
-			name,
-			size: blob.size,
-			// SAFETY: readDirectoryFiles returns File-backed blobs.
-			lastModified: (blob as File).lastModified ?? 0,
-			path: projectExportFilePath(projectId, name)
-		}))
-		.sort((a, b) => b.lastModified - a.lastModified);
+function generatedDirectoryTimestamp(name: string): number {
+	const match = /__(\d{13})-[0-9a-f]+$/i.exec(name);
+	return match ? Number(match[1]) : 0;
+}
+
+/** List a project's saved export files and image-sequence directories, newest first. */
+export async function listExportEntries(projectId: string): Promise<ExportEntry[]> {
+	const root = requireWorkspaceRoot();
+	const directory = projectExportsDir(projectId);
+	const [directoryEntries, files] = await Promise.all([
+		listDirectory(root, directory),
+		readDirectoryFiles(root, directory)
+	]);
+	const filesByName = new Map(files.map((file) => [file.name, file.blob]));
+	return directoryEntries
+		.flatMap((entry): ExportEntry[] => {
+			const path = projectExportFilePath(projectId, entry.name);
+			if (entry.kind === 'directory') {
+				return [
+					{
+						name: entry.name,
+						kind: 'directory',
+						size: 0,
+						lastModified: generatedDirectoryTimestamp(entry.name),
+						path
+					}
+				];
+			}
+			const blob = filesByName.get(entry.name);
+			if (!blob) return [];
+			return [
+				{
+					name: entry.name,
+					kind: 'file',
+					size: blob.size,
+					// SAFETY: readDirectoryFiles returns File-backed blobs.
+					lastModified: (blob as File).lastModified ?? 0,
+					path
+				}
+			];
+		})
+		.sort(
+			(left, right) => right.lastModified - left.lastModified || left.name.localeCompare(right.name)
+		);
 }
 
 export function readExportFile(path: string[]): Promise<Blob | null> {
 	return readBlob(requireWorkspaceRoot(), path);
 }
 
-export function deleteExportFile(path: string[]): Promise<void> {
-	return removeEntry(requireWorkspaceRoot(), path);
+export function deleteExportEntry(path: string[], recursive = false): Promise<void> {
+	return removeEntry(requireWorkspaceRoot(), path, { recursive });
 }
 
 /** The user-picked workspace folder's name (for telling users where files land). */

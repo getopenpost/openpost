@@ -13,11 +13,14 @@
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
 	import MarketingFooter from './_components/MarketingFooter.svelte';
 	import MarketingNav from './_components/MarketingNav.svelte';
+	import { structuredDataForMarketingPage } from './_structured-data';
 
 	let { children } = $props();
 	const social = $derived(resolveMarketingSocial(page.url.pathname));
 	const socialImage = $derived(social.imageUrl);
 	const agentMarkdown = $derived(marketingAgentMarkdownUrl(social));
+	const structuredData = $derived(structuredDataForMarketingPage(social));
+	const structuredDataJSON = $derived(JSON.stringify(structuredData).replaceAll('<', '\\u003c'));
 
 	afterNavigate((navigation) => {
 		captureTelemetryPageView(navigation.to?.route.id ?? '/unknown');
@@ -46,6 +49,12 @@
 	<title>{social.title}</title>
 	<meta name="description" content={social.description} />
 	<link rel="canonical" href={social.canonical} />
+	<link
+		rel="alternate"
+		type="application/atom+xml"
+		href="https://openpost.social/changelog.xml"
+		title="OpenPost changelog"
+	/>
 	<meta name="robots" content="index, follow" />
 	<meta property="og:site_name" content="OpenPost" />
 	<meta property="og:type" content="website" />
@@ -72,6 +81,8 @@
 			title="llms.txt"
 		/>
 	{/if}
+	<!-- SAFETY: JSON is built only from maintained route and product constants; '<' is escaped above. -->
+	{@html `<script type="application/ld+json">${structuredDataJSON}<\/script>`}
 </svelte:head>
 
 <ModeWatcher

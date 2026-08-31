@@ -6,6 +6,14 @@ OpenPost uses one text-and-thread composer for every publication. Add another po
 
 The Workspace setup guide advances when you enter non-empty text, attach media, or intentionally add a thread post. Opening or focusing the composer, choosing a destination, and saving an empty draft do not count as starting a composition. This progress is stored once per Workspace and remains complete after refresh.
 
+## Build with AI
+
+Choose the destinations first so OpenPost can write a source draft and native Renditions for the accounts you selected. Use **Build with AI** when you already have an idea. Use **Ideate** when you want help finding one: add an optional brief, choose **Get ideas**, select an option, continue, then compare five distinct directions before you choose **Build native drafts**.
+
+The build runs as a durable Job. You can close the window, resume a running build, cancel it, or retry a stopped build without losing the selected idea, direction, or current attachments. OpenPost does not replace the composer while the Job runs. If you edit the draft before the result arrives, choose **Review and apply** to compare the versions or **Keep my edits** to leave the current draft unchanged.
+
+Review the shared draft and every destination Rendition before you schedule or publish. Self-hosted instances need `OPENROUTER_API_KEY`; see [Environment Variables](/configuration/environment-variables#core-settings) for the model, provider, and data-retention controls.
+
 ## Steps
 
 1. Write the shared content and add media.
@@ -20,7 +28,7 @@ OpenPost infers posts, threads, links, documents, image sets, videos, Shorts, an
 
 When automatic alt text is enabled, adding an image without saved alt text drafts shared alt text without blocking the attachment or publication if the request fails. When present, up to 1,000 characters of the current relevant post or thread segment are sent with the thumbnail as untrusted context for better disambiguation. Review or replace the draft, then use account settings for destination-specific text. See [Media](/usage/media-library#automatic-alt-text) for the processing and privacy details.
 
-Use **Create** in the media picker to open the Image Editor. Select one saved video and choose **Edit in OpenPost Video Editor** to replace it, or choose **Create video** with no selected video to add one. OpenPost saves the draft before leaving, restores the same composer after cancel or completion, and keeps its text, destinations, schedule, other media, and destination-specific versions. A completed Video Editor handoff can return separate portrait, square, and landscape exports to the destinations that require them. See [OpenPost Video Editor](/usage/video-editor#use-an-export-in-a-post) for local-storage and upload behavior.
+Use **Create** in the media picker to open the Image Editor. Select one saved video and choose **Edit in OpenPost Video Editor** to create a local project with that source, or choose **Create video** with no selected video. OpenPost saves the Publication before leaving. After you send a finished export to Media, **Open composer** returns to that Publication and attaches the exact uploaded file. The Video Editor project, sources, and other exports remain in the disk workspace. See [OpenPost Video Editor](/usage/video-editor#send-an-export-to-openpost) for the local-storage and upload boundary.
 
 ## Drafts and account versions
 

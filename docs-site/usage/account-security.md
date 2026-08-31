@@ -1,14 +1,14 @@
 # Account Security
 
-Open **Settings → Account → Security** to manage your password, authenticator app, recovery codes, passkeys, linked sign-in identities, and active browser sessions. These settings belong to your login and apply in every workspace.
+Open **Settings → Personal → Security** to manage your password, authenticator app, recovery codes, passkeys, linked sign-in identities, and active browser sessions. These settings belong to your login and apply in every workspace.
 
 ## Sign-in sessions
 
-Web sign-in creates a persistent, HTTP-only session cookie that expires after seven days. OpenPost does not show a cosmetic “Remember me” option because there is currently one server-enforced lifetime. Sign out when you finish on a shared device. You can review and revoke active browser sessions from **Settings → Account → Security**; revocation invalidates that session before its normal expiry.
+Web sign-in creates a persistent, HTTP-only session cookie that expires after seven days. OpenPost does not show a cosmetic “Remember me” option because there is currently one server-enforced lifetime. Sign out when you finish on a shared device. You can review and revoke active browser sessions from **Settings → Personal → Security**; revocation invalidates that session before its normal expiry.
 
 ## Change the sign-in email
 
-Open **Settings → Security → Change sign-in email**, enter the new address, and confirm your current password, passkey, or linked sign-in identity. OpenPost sends a six-digit code to the new address and a notice to the current address. The current address remains the active sign-in identity until the code is confirmed.
+Open **Settings → Personal → Security → Change sign-in email**, enter the new address, and confirm your current password, passkey, or linked sign-in identity. OpenPost sends a six-digit code to the new address and a notice to the current address. The current address remains the active sign-in identity until the code is confirmed.
 
 The code expires after 15 minutes and repeated attempts or resends are limited. OpenPost uses a generic conflict message when an address cannot be used, but the different success and conflict status codes can still reveal whether an address is available to an authenticated user. On confirmation, OpenPost changes the sign-in email, invalidates unused password-reset links, and revokes other browser sessions. It attempts to send completion notices to both addresses. Those post-confirmation notices are currently best effort: delivery failures are logged, but the application does not yet queue a durable retry.
 
@@ -16,7 +16,7 @@ Changing the sign-in identity does not silently change billing, legal, workspace
 
 ## Linked sign-in identities and logout
 
-Linked Google or organization identities are login methods. They are separate from the social publishing accounts under **Settings → Accounts**. The Security page shows the provider, linked name and address, link date, and last use. Disconnect requires recent reauthentication, and OpenPost blocks removal of the final usable password, passkey, or linked identity.
+Linked Google or organization identities are login methods. They are separate from the social publishing accounts under **Settings → Workspace → Social accounts**. The Security page shows the provider, linked name and address, link date, and last use. Disconnect requires recent reauthentication, and OpenPost blocks removal of the final usable password, passkey, or linked identity.
 
 OpenPost always revokes its own session when an authenticated provider logout is requested. If the provider advertises an OIDC end-session endpoint, OpenPost also returns that provider logout URL; otherwise logout ends at OpenPost. Configured providers can also send standards-based back-channel logout to the provider-specific URL shown in SSO settings. Support depends on the provider exposing and correctly configuring those endpoints; OpenPost does not claim that every provider performs remote logout.
 

@@ -8,7 +8,9 @@ import {
 	pathSvgData,
 	pathVertexToBezier,
 	pathVertexToCorner,
-	removePathVertex
+	removePathVertex,
+	reversePathVertices,
+	rotateClosedPathStart
 } from './path-edit';
 
 const line: ShapePathVertex[] = [
@@ -49,6 +51,27 @@ describe('path editing', () => {
 		expect(moved[0]?.outHandle).toEqual([0, 0.5]);
 		expect(moved[0]?.inHandle[0]).toBeCloseTo(0);
 		expect(moved[0]?.tangentMode).toBe('continuous');
+	});
+
+	it('reverses traversal and rotates a closed start without moving the path', () => {
+		const vertices: ShapePathVertex[] = [
+			{ position: [0, 0], inHandle: [-0.1, 0], outHandle: [0.2, 0.3] },
+			{ position: [1, 0], inHandle: [-0.3, -0.2], outHandle: [0.1, 0] },
+			{ position: [1, 1], inHandle: [0, -0.2], outHandle: [0, 0.1] }
+		];
+		const reversed = reversePathVertices(vertices);
+		expect(reversed.map((vertex) => vertex.position)).toEqual([
+			[1, 1],
+			[1, 0],
+			[0, 0]
+		]);
+		expect(reversed[1]?.inHandle).toEqual([0.1, 0]);
+		expect(reversed[2]?.outHandle).toEqual([-0.1, 0]);
+		expect(rotateClosedPathStart(vertices, 2).map((vertex) => vertex.position)).toEqual([
+			[1, 1],
+			[0, 0],
+			[1, 0]
+		]);
 	});
 
 	it('finds a segment, removes valid vertices, and writes SVG data', () => {

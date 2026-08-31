@@ -9,6 +9,13 @@ export interface LocalGenerationProgress {
 	totalBytes?: number;
 }
 
+/** One explicit request to turn an existing text item into linked speech. */
+export interface TextVoiceRequest {
+	id: string;
+	sourceTextItemId: string;
+	text: string;
+}
+
 export interface GeneratedAudio {
 	blob: Blob;
 	file: File;

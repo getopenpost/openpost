@@ -247,7 +247,7 @@
 
 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
 	<div class="flex min-h-10 items-center border-b px-3">
-		<h2 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_media()}
 		</h2>
 	</div>

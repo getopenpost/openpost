@@ -27,10 +27,10 @@ type accountLifecycleStorage struct {
 }
 
 func (s *accountLifecycleStorage) Driver() string { return "test" }
-func (s *accountLifecycleStorage) Save(string, io.Reader) (string, error) {
+func (s *accountLifecycleStorage) Save(context.Context, string, io.Reader) (string, error) {
 	return "", nil
 }
-func (s *accountLifecycleStorage) Delete(id string) error {
+func (s *accountLifecycleStorage) Delete(_ context.Context, id string) error {
 	s.deleted = append(s.deleted, id)
 	return s.deleteErr
 }
@@ -80,7 +80,7 @@ func TestAccountDeletionQueuesObjectCleanupWhenImmediateDeletionFails(t *testing
 	require.Contains(t, cleanup.Payload, "media-file.png")
 }
 func (s *accountLifecycleStorage) GetURL(string) string { return "" }
-func (s *accountLifecycleStorage) Open(string) (io.ReadCloser, error) {
+func (s *accountLifecycleStorage) Open(context.Context, string) (io.ReadCloser, error) {
 	return nil, nil
 }
 

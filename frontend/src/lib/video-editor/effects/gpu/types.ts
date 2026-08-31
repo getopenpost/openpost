@@ -18,6 +18,10 @@ export type GpuUniformValues = Record<string, number>;
 interface GpuParamSchemaBase {
 	name: string;
 	label: string;
+	/** FreeCut-compatible keyframe eligibility. Omitted means animatable. */
+	animatable?: boolean;
+	/** Marks controls that change shader work or pipeline shape. */
+	quality?: boolean;
 	visibleWhen?: (params: GpuParamValues) => boolean;
 }
 

@@ -15,6 +15,7 @@ function word(id: string, start: number, end: number): TranscriptSourceWord {
 		cueId: 'cue',
 		wordId: id,
 		text: id,
+		sourceItemId: 'source',
 		start,
 		end
 	};
@@ -36,6 +37,18 @@ describe('transcript ignore ranges', () => {
 			{ start: 0, end: 1 },
 			{ start: 3, end: 4 }
 		]);
+	});
+
+	it('keeps repeated timeline uses of one media independent', () => {
+		const firstUse = word('first-use', 1, 2);
+		const repeatedUse = { ...word('repeat-use', 1, 2), sourceItemId: 'repeat' };
+		transcriptIgnoreStore.ignore([firstUse]);
+
+		expect(transcriptIgnoreStore.isIgnored(firstUse)).toBe(true);
+		expect(transcriptIgnoreStore.isIgnored(repeatedUse)).toBe(false);
+		expect(transcriptIgnoreStore.targets).toEqual({
+			source: { mediaId: 'media', ranges: [{ start: 1, end: 2 }] }
+		});
 	});
 
 	it('stages and restores words while exposing exact review totals', () => {

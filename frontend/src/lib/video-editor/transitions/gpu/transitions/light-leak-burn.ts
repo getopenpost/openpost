@@ -49,6 +49,12 @@ fn lightLeakBurnFragment(input: VertexOutput) -> @location(0) vec4f {
 
   let left = textureSampleLevel(leftTex, texSampler, uv, 0.0);
   let right = textureSampleLevel(rightTex, texSampler, uv, 0.0);
+  if (p <= 0.0) {
+    return left;
+  }
+  if (p >= 1.0) {
+    return right;
+  }
 
   let organic = fbm(uv * vec2f(4.0, 3.0) + vec2f(p * 2.7, -p * 1.9));
   let fine = noise2d(uv * vec2f(params.width, params.height) * 0.45 + vec2f(p * 431.0));

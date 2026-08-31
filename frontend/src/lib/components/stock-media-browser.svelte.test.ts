@@ -81,4 +81,23 @@ describe('StockMediaBrowser', () => {
 		await expect.element(screen.getByText('Stock media is unavailable')).not.toBeInTheDocument();
 		await expect.element(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
 	});
+
+	it('keeps compact editor panels focused on the search controls', async () => {
+		const screen = await render(StockMediaBrowser, {
+			accept: 'both',
+			compact: true,
+			onSelect: vi.fn(),
+			services: mocks
+		});
+
+		await expect.element(screen.getByRole('textbox', { name: 'Search stock media' })).toBeVisible();
+		await expect
+			.element(screen.getByRole('heading', { name: 'Search stock media' }))
+			.not.toBeInTheDocument();
+		await expect
+			.element(
+				screen.getByText('Each provider shows only the media types and filters its API supports.')
+			)
+			.not.toBeInTheDocument();
+	});
 });

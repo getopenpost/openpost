@@ -18,10 +18,10 @@ This reference is for operators registering provider and identity callback URLs.
 Mastodon uses the OOB flow by default and exchanges the pasted authorization code through `/api/v1/accounts/mastodon/exchange`. Only configure a normal Mastodon callback URL if you also override `MASTODON_REDIRECT_URI`.
 
 Organization OIDC providers use a provider-specific callback and back-channel
-logout URL. Open **Settings → Single sign-on** and copy both URLs from the saved
+logout URL. Open **Settings → Organization → Single sign-on** and copy both URLs from the saved
 provider. Register only those exact URLs with the identity provider.
 
 Google login uses OpenID Connect with PKCE and the stable Google subject as the
 external identity. OpenPost never links an existing user only because Google
 returns the same email. Sign in to the existing OpenPost account and link Google
-from **Settings → Account → Security** instead.
+from **Settings → Personal → Security** instead.

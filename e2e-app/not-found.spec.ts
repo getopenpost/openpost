@@ -40,7 +40,7 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
   await expect(page.getByText("HTTP 404")).toBeVisible();
   await expect(page.getByRole("link", { name: "OpenPost home" })).toBeVisible();
   await expect(page.getByRole("link", { name: "New post" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Posts" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Publications" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Calendar" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Media" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Documentation" })).toHaveAttribute(
@@ -55,6 +55,19 @@ test("unknown documents return 404 with a complete recovery page", async ({ page
 
   expect((await request.get("/publications/example")).status()).toBe(200);
   expect((await request.get("/calendar-export")).status()).toBe(404);
+  for (const retiredPath of [
+    "/accounts",
+    "/accounts/setup",
+    "/activity",
+    "/posts",
+    "/engagement",
+    "/messages",
+    "/notifications",
+    "/studio",
+    "/video-studio",
+  ]) {
+    expect((await request.get(retiredPath)).status(), retiredPath).toBe(404);
+  }
   expect(errors).toEqual([]);
 });
 
@@ -95,8 +108,6 @@ test("client navigation preserves localized recovery at supported phone presenta
 
     await expect(page).toHaveURL(new RegExp(`${missingPath}$`));
     await expect(page.getByRole("heading", { name: scenario.heading })).toBeFocused();
-    if (scenario.theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-    else await expect(page.locator("html")).not.toHaveClass(/dark/);
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );

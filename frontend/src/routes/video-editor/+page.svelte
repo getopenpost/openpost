@@ -6,13 +6,12 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import Logo from '$lib/components/Logo.svelte';
-	import InlineNotice from '$lib/components/inline-notice.svelte';
-	import PageLoading from '$lib/components/page-loading.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { m } from '$lib/paraglide/messages';
 	import { showToast } from '$lib/toast';
 	import ProjectBrowser from '$lib/video-editor/components/project-browser.svelte';
 	import WorkspaceIndicator from '$lib/video-editor/components/workspace-indicator.svelte';
+	import WorkspaceGatePanel from '$lib/video-editor/components/workspace-gate-panel.svelte';
 	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
 	import { saveProjectBundle } from '$lib/video-editor/project-bundle/bundle-export';
 	import { importProjectBundle } from '$lib/video-editor/project-bundle/bundle-import';
@@ -22,15 +21,13 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		importProjectSnapshotFile
 	} from '$lib/video-editor/project-bundle/snapshot-service';
 	import { duplicateProjectWithMedia } from '$lib/video-editor/project/project-operations';
+	import type { ProjectDetailsUpdate } from '$lib/video-editor/project/project-details';
+	import type { ProjectCreationSettings } from '$lib/video-editor/project/project-presets';
 	import { permanentlyDeleteProject } from '$lib/video-editor/project/project-trash';
 	import type { Project } from '$lib/video-editor/project/types';
+	import { createWorkspaceProjectCatalog } from '$lib/video-editor/project/workspace-project-catalog.svelte';
 	import { onPermissionLost } from '$lib/video-editor/workspace-fs/root';
-	import {
-		createProject,
-		getAllProjects,
-		getProjectThumbnail,
-		updateProject
-	} from '$lib/video-editor/workspace-fs/projects';
+	import { createProject, updateProject } from '$lib/video-editor/workspace-fs/projects';
 	import {
 		DEFAULT_TRASH_TTL_MS,
 		listTrashedProjects,
@@ -39,19 +36,11 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		sweepTrashOlderThan,
 		type TrashedProjectEntry
 	} from '$lib/video-editor/workspace-fs/trash';
-	import FolderPlusIcon from '@lucide/svelte/icons/folder-plus';
-	import LoaderIcon from '@lucide/svelte/icons/loader-2';
-	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
-	import { onMount } from 'svelte';
-
-	const PROJECT_THUMBNAIL_READ_CONCURRENCY = 8;
+	import { onMount, untrack } from 'svelte';
 
 	const gate = createWorkspaceGate();
-	let projects = $state.raw<Project[]>([]);
-	let thumbnailUrls = $state.raw<Record<string, string>>({});
+	const projectCatalog = createWorkspaceProjectCatalog(gate);
 	let trashedProjects = $state.raw<TrashedProjectEntry[]>([]);
-	let loadingProjects = $state(false);
-	let projectsError = $state('');
 	let trashError = $state('');
 	let trashBusyId = $state<string | null>(null);
 	let emptyingTrash = $state(false);
@@ -64,40 +53,11 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	let bundleOperation = $state<'import' | 'export' | null>(null);
 	let bundleController = $state<AbortController | null>(null);
 	let bundleCanceling = $state(false);
-	let projectLoadGeneration = 0;
+	let trashLoadGeneration = 0;
 
-	function replaceThumbnailUrls(next: Record<string, string>): void {
-		for (const url of Object.values(thumbnailUrls)) URL.revokeObjectURL(url);
-		thumbnailUrls = next;
-	}
-
-	async function loadProjectThumbnailUrls(
-		projectsToLoad: Project[]
-	): Promise<Record<string, string>> {
-		const next: Record<string, string> = {};
-		let nextIndex = 0;
-		async function worker(): Promise<void> {
-			while (nextIndex < projectsToLoad.length) {
-				const project = projectsToLoad[nextIndex++];
-				if (!project) continue;
-				const thumbnail = await getProjectThumbnail(project.id);
-				if (thumbnail) next[project.id] = URL.createObjectURL(thumbnail);
-			}
-		}
-		await Promise.all(
-			Array.from(
-				{ length: Math.min(PROJECT_THUMBNAIL_READ_CONCURRENCY, projectsToLoad.length) },
-				() => worker()
-			)
-		);
-		return next;
-	}
-
-	async function loadProjects(sweepExpired = false): Promise<void> {
+	async function loadTrash(sweepExpired = false): Promise<void> {
 		if (gate.state !== 'ready') return;
-		const generation = ++projectLoadGeneration;
-		loadingProjects = true;
-		projectsError = '';
+		const generation = ++trashLoadGeneration;
 		trashError = '';
 		try {
 			if (sweepExpired) {
@@ -105,58 +65,54 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 					await permanentlyDeleteProject(id);
 				});
 			}
-			const nextProjects = await getAllProjects();
-			const nextThumbnailUrls = await loadProjectThumbnailUrls(nextProjects);
-			let nextTrashedProjects = trashedProjects;
-			let nextTrashError = '';
-			try {
-				nextTrashedProjects = await listTrashedProjects();
-			} catch (error) {
-				nextTrashError = error instanceof Error ? error.message : String(error);
-			}
-			if (generation !== projectLoadGeneration) {
-				for (const url of Object.values(nextThumbnailUrls)) URL.revokeObjectURL(url);
-				return;
-			}
-			projects = nextProjects;
-			trashedProjects = nextTrashedProjects;
-			trashError = nextTrashError;
-			replaceThumbnailUrls(nextThumbnailUrls);
+			const nextTrashedProjects = await listTrashedProjects();
+			if (generation === trashLoadGeneration) trashedProjects = nextTrashedProjects;
 		} catch (error) {
-			if (generation === projectLoadGeneration) {
-				projectsError = error instanceof Error ? error.message : String(error);
+			if (generation === trashLoadGeneration) {
+				trashError = error instanceof Error ? error.message : String(error);
 			}
-		} finally {
-			if (generation === projectLoadGeneration) loadingProjects = false;
 		}
 	}
 
+	async function loadProjects(sweepExpired = false): Promise<void> {
+		await Promise.all([projectCatalog.refresh(), loadTrash(sweepExpired)]);
+	}
+
 	$effect(() => {
+		const state = gate.state;
 		void gate.workspaceRevision;
-		if (gate.state === 'ready') void loadProjects(true);
+		if (state === 'ready') {
+			untrack(() => void loadTrash(true));
+		} else {
+			trashLoadGeneration += 1;
+			trashedProjects = [];
+			trashError = '';
+		}
 	});
 
-	onMount(() =>
-		onPermissionLost(() => {
+	onMount(() => {
+		const stopPermissionListener = onPermissionLost(() => {
 			showToast(m.video_editor_gate_permission_lost());
-		})
-	);
-
-	onMount(() => () => {
-		projectLoadGeneration += 1;
-		replaceThumbnailUrls({});
+		});
+		return () => {
+			trashLoadGeneration += 1;
+			stopPermissionListener();
+		};
 	});
 
 	async function openProject(project: Project): Promise<void> {
 		await goto(`/video-editor/${project.id}`);
 	}
 
-	async function handleCreateProject(name: string): Promise<boolean> {
+	async function handleCreateProject(
+		name: string,
+		settings: ProjectCreationSettings
+	): Promise<boolean> {
 		if (creating || importing || exportingId || bundleOperation) return false;
 		creating = true;
 		try {
 			const { createBlankProject } = await import('$lib/video-editor/project/defaults');
-			const project = createBlankProject(name || m.video_editor_project_untitled());
+			const project = createBlankProject(name || m.video_editor_project_untitled(), settings);
 			await createProject(project);
 			await loadProjects();
 			await openProject(project);
@@ -169,17 +125,20 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 		}
 	}
 
-	async function handleRename(project: Project): Promise<void> {
-		if (importing || duplicatingId || exportingId || bundleOperation) return;
-		const name = window.prompt(m.video_editor_project_rename_prompt(), project.name);
-		if (name === null) return;
-		const trimmed = name.trim();
-		if (!trimmed || trimmed === project.name) return;
+	async function handleUpdateProject(
+		project: Project,
+		update: ProjectDetailsUpdate
+	): Promise<string | null> {
+		if (importing || duplicatingId || exportingId || bundleOperation) {
+			return m.video_editor_project_edit_busy();
+		}
 		try {
-			await updateProject(project.id, { name: trimmed });
+			await updateProject(project.id, update);
 			await loadProjects();
+			showToast(m.video_editor_project_changes_saved(), 'success');
+			return null;
 		} catch (error) {
-			showToast(error instanceof Error ? error.message : String(error), 'error');
+			return error instanceof Error ? error.message : String(error);
 		}
 	}
 
@@ -510,66 +469,15 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 	</header>
 
 	<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
-		{#if gate.state === 'initializing'}
-			<PageLoading label={m.editors_loading()} />
-		{:else if gate.state === 'unavailable'}
-			<div class="max-w-md text-center">
-				<h1 class="text-lg font-semibold">{m.video_editor_gate_unavailable_title()}</h1>
-				<p class="mt-2 text-sm text-[oklch(0.65_0.015_55)]">
-					{m.video_editor_gate_unavailable_body()}
-				</p>
-				<Button class="mt-6" onclick={() => history.back()}>{m.video_editor_go_back()}</Button>
-			</div>
-		{:else if gate.state === 'pick' || gate.state === 'reconnect'}
-			<div
-				class="w-full max-w-md rounded-xl border border-[oklch(0.25_0.015_55)] bg-[oklch(0.2_0.01_50)] p-8 text-center"
-			>
-				<FolderPlusIcon class="mx-auto size-10 text-[oklch(0.66_0.14_45)]" aria-hidden="true" />
-				<h1 class="mt-4 text-lg font-semibold">
-					{gate.state === 'pick'
-						? m.video_editor_gate_pick_title()
-						: m.video_editor_gate_reconnect_title()}
-				</h1>
-				<p class="mt-2 text-sm text-[oklch(0.65_0.015_55)]">
-					{gate.state === 'pick'
-						? m.video_editor_gate_pick_body()
-						: m.video_editor_gate_reconnect_body({ folder: gate.workspaceName })}
-				</p>
-				{#if gate.error}
-					<InlineNotice tone="error" class="mt-4 text-left">{gate.error}</InlineNotice>
-				{/if}
-				<div class="mt-6 flex flex-col items-center gap-2">
-					{#if gate.state === 'pick'}
-						<Button onclick={() => gate.pickFolder()} disabled={gate.busy}>
-							{#if gate.busy}
-								<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
-							{:else}
-								<FolderPlusIcon class="size-4" aria-hidden="true" />
-							{/if}
-							{m.video_editor_gate_pick_cta()}
-						</Button>
-					{:else}
-						<Button onclick={() => gate.reconnect()} disabled={gate.busy}>
-							{#if gate.busy}
-								<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
-							{:else}
-								<RefreshCwIcon class="size-4" aria-hidden="true" />
-							{/if}
-							{m.video_editor_gate_reconnect_cta()}
-						</Button>
-						<Button variant="ghost" size="sm" onclick={() => gate.chooseDifferentFolder()}>
-							{m.video_editor_gate_different_folder()}
-						</Button>
-					{/if}
-				</div>
-			</div>
+		{#if gate.state !== 'ready'}
+			<WorkspaceGatePanel {gate} />
 		{:else if gate.state === 'ready'}
 			<ProjectBrowser
-				{projects}
-				{thumbnailUrls}
+				projects={projectCatalog.projects}
+				thumbnailUrls={projectCatalog.thumbnailUrls}
 				{trashedProjects}
-				loading={loadingProjects}
-				error={projectsError}
+				loading={projectCatalog.loading}
+				error={projectCatalog.error}
 				{trashError}
 				{trashBusyId}
 				{emptyingTrash}
@@ -585,7 +493,7 @@ STORY: pick (or reconnect) a workspace folder once, then work with projects that
 				onimportjson={handleImportJson}
 				onimportbundle={handleImportBundle}
 				onopen={openProject}
-				onrename={handleRename}
+				onupdate={handleUpdateProject}
 				onduplicate={handleDuplicate}
 				onexportjson={handleExportJson}
 				onexportbundle={handleExportBundle}

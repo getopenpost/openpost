@@ -33,6 +33,7 @@ export interface ImageEditorLayoutPreferences {
 	assets?: number;
 	inspector?: number;
 	layers?: number;
+	pages?: number;
 }
 
 export interface ImageEditorViewPreferences {
@@ -178,7 +179,8 @@ export function parseImageEditorLayoutPreferences(source: string): ImageEditorLa
 	return {
 		assets: finiteNumber(values.get('assets')),
 		inspector: finiteNumber(values.get('inspector')),
-		layers: finiteNumber(values.get('layers'))
+		layers: finiteNumber(values.get('layers')),
+		pages: finiteNumber(values.get('pages'))
 	};
 }
 

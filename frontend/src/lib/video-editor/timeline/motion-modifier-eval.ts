@@ -19,7 +19,7 @@ const BASE_FREQUENCY_HZ = {
 
 const MODIFIER_CHANNELS = {
 	'float-drift': ['x', 'y', 'rotation'],
-	'breath-pulse': ['width', 'height', 'opacity'],
+	'breath-pulse': ['scaleX', 'scaleY', 'opacity'],
 	'micro-shake': ['x', 'y', 'rotation'],
 	sway: ['rotation'],
 	spin: ['rotation']
@@ -37,8 +37,8 @@ export interface MotionContribution {
 	dy: number;
 	dRotation: number;
 	dOpacity: number;
-	scaleWidth: number;
-	scaleHeight: number;
+	scaleX: number;
+	scaleY: number;
 }
 
 export interface MotionModifierSettingsUpdate {
@@ -58,8 +58,8 @@ const ZERO_CONTRIBUTION: MotionContribution = {
 	dy: 0,
 	dRotation: 0,
 	dOpacity: 0,
-	scaleWidth: 1,
-	scaleHeight: 1
+	scaleX: 1,
+	scaleY: 1
 };
 
 function clamp(value: number, min: number, max: number): number {
@@ -68,7 +68,8 @@ function clamp(value: number, min: number, max: number): number {
 
 function channelGain(modifier: MotionModifier, channel: MotionModifierChannel): number {
 	if (!MODIFIER_CHANNELS[modifier.type].some((candidate) => candidate === channel)) return 0;
-	const value = modifier.channelGains?.[channel];
+	const legacyChannel = channel === 'scaleX' ? 'width' : channel === 'scaleY' ? 'height' : channel;
+	const value = modifier.channelGains?.[channel] ?? modifier.channelGains?.[legacyChannel];
 	return value !== undefined && Number.isFinite(value) ? clamp(value, 0, 2) : 1;
 }
 
@@ -129,8 +130,8 @@ function evaluateBreathPulse(
 	const scaleAmount = 0.035 * modifier.amplitude;
 	const opacityAmount = Math.min(0.08, 0.04 * modifier.amplitude);
 	const wave = Math.sin(TWO_PI * modifier.frequency * time + phase);
-	output.scaleWidth *= 1 + channelGain(modifier, 'width') * scaleAmount * wave;
-	output.scaleHeight *= 1 + channelGain(modifier, 'height') * scaleAmount * wave;
+	output.scaleX *= 1 + channelGain(modifier, 'scaleX') * scaleAmount * wave;
+	output.scaleY *= 1 + channelGain(modifier, 'scaleY') * scaleAmount * wave;
 	output.dOpacity += channelGain(modifier, 'opacity') * opacityAmount * wave;
 }
 
@@ -216,8 +217,8 @@ export function applyMotionModifiers(
 		contribution.dy === 0 &&
 		contribution.dRotation === 0 &&
 		contribution.dOpacity === 0 &&
-		contribution.scaleWidth === 1 &&
-		contribution.scaleHeight === 1
+		contribution.scaleX === 1 &&
+		contribution.scaleY === 1
 	) {
 		return resolved;
 	}
@@ -226,8 +227,8 @@ export function applyMotionModifiers(
 		x: resolved.x + contribution.dx,
 		y: resolved.y + contribution.dy,
 		rotation: resolved.rotation + contribution.dRotation,
-		width: Math.max(1, resolved.width * contribution.scaleWidth),
-		height: Math.max(1, resolved.height * contribution.scaleHeight),
+		scaleX: (resolved.scaleX ?? 1) * contribution.scaleX,
+		scaleY: (resolved.scaleY ?? 1) * contribution.scaleY,
 		opacity: clamp(resolved.opacity + contribution.dOpacity, 0, 1)
 	};
 }
@@ -299,10 +300,14 @@ export function removeMotionModifiers(
 		x: resolved.x - contribution.dx,
 		y: resolved.y - contribution.dy,
 		rotation: resolved.rotation - contribution.dRotation,
-		width:
-			contribution.scaleWidth === 0 ? resolved.width : resolved.width / contribution.scaleWidth,
-		height:
-			contribution.scaleHeight === 0 ? resolved.height : resolved.height / contribution.scaleHeight,
+		scaleX:
+			contribution.scaleX === 0
+				? (resolved.scaleX ?? 1)
+				: (resolved.scaleX ?? 1) / contribution.scaleX,
+		scaleY:
+			contribution.scaleY === 0
+				? (resolved.scaleY ?? 1)
+				: (resolved.scaleY ?? 1) / contribution.scaleY,
 		opacity: clamp(resolved.opacity - contribution.dOpacity, 0, 1)
 	};
 }

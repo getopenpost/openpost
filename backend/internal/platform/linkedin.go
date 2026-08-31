@@ -18,6 +18,7 @@ import (
 const defaultLinkedInVersionLagMonths = 1
 const linkedInVideoAvailabilityPolls = 30
 const linkedInDocumentAvailabilityPolls = 30
+const linkedInOrganizationLogoProjection = "(localizedName,vanityName,logoV2(original,original~:playableStreams))"
 
 func linkedInAPIVersion() string {
 	if version := os.Getenv("LINKEDIN_API_VERSION"); version != "" {
@@ -177,6 +178,7 @@ func (l *LinkedInAdapter) GetProfile(ctx context.Context, accessToken string) (*
 		ID:              profile.Sub,
 		Username:        profile.GivenName,
 		DisplayName:     profile.Name,
+		AvatarURL:       profile.Picture,
 		CapabilityState: map[string]string{"linkedin_account_type": "person"},
 	}, nil
 }
@@ -193,6 +195,7 @@ func (l *LinkedInAdapter) ListAccountSelections(ctx context.Context, token *Toke
 		ID:          "person:" + profile.ID,
 		Username:    profile.Username,
 		DisplayName: profile.DisplayName,
+		AvatarURL:   profile.AvatarURL,
 		Kind:        "Personal profile",
 		Description: "Publish as your LinkedIn member profile.",
 	}
@@ -293,18 +296,16 @@ func (l *LinkedInAdapter) administeredOrganizations(ctx context.Context, accessT
 	for _, urn := range urns {
 		ids = append(ids, urn[strings.LastIndex(urn, ":")+1:])
 	}
-	endpoint := "https://api.linkedin.com/rest/organizations?ids=List(" + strings.Join(ids, ",") + ")"
+	endpoint := "https://api.linkedin.com/rest/organizations?ids=List(" + strings.Join(ids, ",") + ")&projection=" + url.QueryEscape(linkedInOrganizationLogoProjection)
 	body, err := DoRequest(ctx, http.MethodGet, endpoint, nil, headers)
 	if err != nil {
 		return nil, err
 	}
 	var result struct {
 		Results map[string]struct {
-			LocalizedName string `json:"localizedName"`
-			VanityName    string `json:"vanityName"`
-			LogoV2        struct {
-				Original string `json:"original"`
-			} `json:"logoV2"`
+			LocalizedName string                   `json:"localizedName"`
+			VanityName    string                   `json:"vanityName"`
+			LogoV2        linkedInOrganizationLogo `json:"logoV2"`
 		} `json:"results"`
 		Statuses map[string]int `json:"statuses"`
 	}
@@ -321,11 +322,40 @@ func (l *LinkedInAdapter) administeredOrganizations(ctx context.Context, accessT
 			ID:          "organization:" + id,
 			Username:    org.VanityName,
 			DisplayName: firstNonEmptyString(org.LocalizedName, org.VanityName, id),
+			AvatarURL:   org.LogoV2.avatarURL(),
 			Kind:        "Organization Page",
 			Description: "Publish and manage engagement as this LinkedIn Page.",
 		})
 	}
 	return options, nil
+}
+
+type linkedInOrganizationLogo struct {
+	Original        string                  `json:"original"`
+	OriginalStreams linkedInPlayableStreams `json:"original~"`
+}
+
+type linkedInPlayableStreams struct {
+	Elements []struct {
+		Identifiers []struct {
+			Identifier string `json:"identifier"`
+		} `json:"identifiers"`
+	} `json:"elements"`
+}
+
+func (logo linkedInOrganizationLogo) avatarURL() string {
+	for _, element := range logo.OriginalStreams.Elements {
+		for _, identifier := range element.Identifiers {
+			candidate := strings.TrimSpace(identifier.Identifier)
+			if IsSafeContentURL(candidate) {
+				return candidate
+			}
+		}
+	}
+	if candidate := strings.TrimSpace(logo.Original); IsSafeContentURL(candidate) {
+		return candidate
+	}
+	return ""
 }
 
 func (l *LinkedInAdapter) UploadMedia(ctx context.Context, accessToken, accountID, mimeType string, reader io.Reader) (string, error) {

@@ -565,3 +565,39 @@ func TestJobPayloadValidation(t *testing.T) {
 	_, err = decodeFollowPayload(`{}`)
 	require.Error(t, err)
 }
+
+func TestDiscoveryInitialSyncStateSingleConnection(t *testing.T) {
+	db := growthTestDB(t)
+	db.SetMaxOpenConns(1)
+	seedGrowthWorkspace(t, db, "ws-1", "user-1", models.WorkspaceRoleEditor)
+	now := time.Now().UTC()
+	_, err := db.NewInsert().Model(&models.SocialAccount{
+		ID: "acc-1", WorkspaceID: "ws-1", Platform: "bluesky", AccountID: "did:plc:viewer",
+		IsActive: true, AccessTokenEnc: []byte("tok"), CreatedAt: now,
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	adapter := &fakeGrowthAdapter{
+		discover: func(_ context.Context, _ platform.GrowthDiscoveryInput) ([]platform.GrowthCandidate, error) {
+			return []platform.GrowthCandidate{
+				{RemoteID: "remote-1", Handle: "alice", DisplayName: "Alice", FollowersCount: 10, FollowingCount: 5, MutualCount: 2},
+			}, nil
+		},
+	}
+	svc := NewService(db, staticTokenSource{}, nil)
+	svc.SetFeatureGate(alwaysEnabledGate{})
+	svc.SetProvider("bluesky", adapter)
+
+	// Note: growth_sync_states row does not exist yet.
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+
+	payload := `{"workspace_id":"ws-1","social_account_id":"acc-1","actor_user_id":"user-1"}`
+	err = svc.HandleJob(ctx, jobregistry.TypeGrowthDiscovery, payload)
+	require.NoError(t, err)
+
+	state, err := svc.loadSyncState(t.Context(), "acc-1")
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.Equal(t, models.GrowthSyncStatusOK, state.Status)
+}

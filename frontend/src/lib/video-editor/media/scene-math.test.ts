@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SCENE_CELL_SIZE, cutFramesForItem, lumaGridHistogram } from './scene-math';
+import { SCENE_HISTOGRAM_BINS, cutFramesForItem, rgbHistogram } from './scene-math';
 
 function solidRgba(
 	width: number,
@@ -18,37 +18,23 @@ function solidRgba(
 	return pixels;
 }
 
-describe('lumaGridHistogram', () => {
-	it('produces buckets that sum to 1 for a uniform frame', () => {
-		const width = SCENE_CELL_SIZE * 6;
-		const height = SCENE_CELL_SIZE * 3;
-		const buckets = lumaGridHistogram(solidRgba(width, height, 128, 128, 128), width, height);
-		expect(buckets.length).toBe(18);
-		const total = buckets.reduce((sum, value) => sum + value, 0);
-		expect(total).toBeCloseTo(1, 6);
-		for (const bucket of buckets) expect(bucket).toBeCloseTo(1 / 18, 6);
-	});
-
-	it('weights bright regions heavier than dark ones', () => {
-		const width = 32;
-		const height = 18;
-		const pixels = solidRgba(width, height, 0, 0, 0);
-		for (let y = 0; y < height; y++) {
-			for (let x = 0; x < Math.floor(width / 2); x++) {
-				const index = (y * width + x) * 4;
-				pixels[index] = 255;
-				pixels[index + 1] = 255;
-				pixels[index + 2] = 255;
-			}
+describe('rgbHistogram', () => {
+	it('normalizes each color channel independently', () => {
+		const buckets = rgbHistogram(solidRgba(32, 18, 128, 128, 128), 32, 18);
+		expect(buckets.length).toBe(SCENE_HISTOGRAM_BINS * 3);
+		for (let channel = 0; channel < 3; channel += 1) {
+			const start = channel * SCENE_HISTOGRAM_BINS;
+			const total = buckets
+				.slice(start, start + SCENE_HISTOGRAM_BINS)
+				.reduce((sum, value) => sum + value, 0);
+			expect(total).toBeCloseTo(1, 6);
 		}
-		const buckets = lumaGridHistogram(pixels, width, height);
-		expect(buckets[0]!).toBeGreaterThan(buckets[buckets.length - 1]!);
 	});
 
-	it('returns zeroed buckets for a fully transparent frame', () => {
-		const buckets = lumaGridHistogram(new Uint8ClampedArray(32 * 18 * 4), 32, 18);
-		expect(buckets.length).toBe(18);
-		expect(buckets.every((bucket) => bucket === 0)).toBe(true);
+	it('keeps uniform red and blue frames distinct', () => {
+		const red = rgbHistogram(solidRgba(32, 18, 255, 0, 0), 32, 18);
+		const blue = rgbHistogram(solidRgba(32, 18, 0, 0, 255), 32, 18);
+		expect(red).not.toEqual(blue);
 	});
 });
 

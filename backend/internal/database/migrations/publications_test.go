@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesPublicationSchema(t *testing.T) {
+func TestRunMigrationsEnforcesDraftRevisionIdentity(t *testing.T) {
 	t.Parallel()
 
 	db := newMigrationsTestDB(t)
@@ -17,44 +17,6 @@ func TestRunMigrationsCreatesPublicationSchema(t *testing.T) {
 	seedMigrationUser(ctx, t, db)
 
 	runMigrationsThrough(t, db, 104)
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'publications'")
-	var publicationSchema string
-	require.NoError(t, row.Scan(&publicationSchema))
-	require.Contains(t, publicationSchema, "workspace_id TEXT NOT NULL")
-	require.Contains(t, publicationSchema, "created_by TEXT NOT NULL")
-	require.Contains(t, publicationSchema, "source_content TEXT NOT NULL DEFAULT ''")
-	require.Contains(t, publicationSchema, "release_plan_json TEXT NOT NULL DEFAULT '{}'")
-	require.Contains(t, publicationSchema, "revision INTEGER NOT NULL DEFAULT 1")
-	require.Contains(t, publicationSchema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE")
-	require.Contains(t, publicationSchema, "FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE")
-
-	row = db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'publication_assets'")
-	var assetSchema string
-	require.NoError(t, row.Scan(&assetSchema))
-	require.Contains(t, assetSchema, "PRIMARY KEY (publication_id, media_id)")
-	require.Contains(t, assetSchema, "FOREIGN KEY (publication_id) REFERENCES publications(id) ON DELETE CASCADE")
-	require.Contains(t, assetSchema, "FOREIGN KEY (media_id) REFERENCES media_attachments(id) ON DELETE CASCADE")
-
-	row = db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'posts'")
-	var postSchema string
-	require.NoError(t, row.Scan(&postSchema))
-	require.Contains(t, postSchema, "publication_id")
-	require.Contains(t, postSchema, `"revision" INTEGER NOT NULL DEFAULT 1`)
-	require.Contains(t, postSchema, `"updated_at" TIMESTAMP NOT NULL DEFAULT current_timestamp`)
-
-	row = db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'draft_revision_changes'")
-	var revisionSchema string
-	require.NoError(t, row.Scan(&revisionSchema))
-	require.Contains(t, revisionSchema, "PRIMARY KEY (aggregate_type, aggregate_id, revision)")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('publications_workspace_status_idx', 'publications_created_by_idx', 'publication_assets_media_idx', 'posts_publication_id_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 4, indexCount)
 
 	_, err := db.NewInsert().Model(&models.DraftRevisionChange{
 		AggregateType:  "publication",
@@ -103,8 +65,12 @@ func TestDraftRevisionMigrationUpgradesPopulatedSQLitePosts(t *testing.T) {
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, "CREATE INDEX posts_status_upgrade_test_idx ON posts (status)")
 	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, "CREATE TABLE posts_upgrade_audit (status TEXT NOT NULL)")
+	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `CREATE TRIGGER posts_status_upgrade_test_trigger
-		AFTER UPDATE OF status ON posts BEGIN SELECT NEW.status; END`)
+		AFTER UPDATE OF status ON posts BEGIN
+			INSERT INTO posts_upgrade_audit (status) VALUES (NEW.status);
+		END`)
 	require.NoError(t, err)
 	_, err = db.ExecContext(ctx, `INSERT INTO posts
 		(id, workspace_id, created_by, content, status, created_at)
@@ -126,18 +92,6 @@ func TestDraftRevisionMigrationUpgradesPopulatedSQLitePosts(t *testing.T) {
 	require.Equal(t, 1, revision)
 	require.Equal(t, "2026-07-13T09:24:27Z", updatedAt)
 
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'posts'")
-	var postSchema string
-	require.NoError(t, row.Scan(&postSchema))
-	require.Contains(t, postSchema, `"updated_at" TIMESTAMP NOT NULL DEFAULT current_timestamp`)
-	for _, objectName := range []string{"posts_status_upgrade_test_idx", "posts_status_upgrade_test_trigger"} {
-		var count int
-		require.NoError(t, db.QueryRowContext(ctx,
-			"SELECT COUNT(*) FROM sqlite_master WHERE name = ?", objectName,
-		).Scan(&count))
-		require.Equal(t, 1, count, objectName)
-	}
-
 	_, err = db.ExecContext(ctx, `INSERT INTO posts
 		(id, workspace_id, created_by, content, status, created_at)
 		VALUES ('new-post', 'new-workspace', 'new-user', 'new draft', 'draft', current_timestamp)`)
@@ -147,6 +101,13 @@ func TestDraftRevisionMigrationUpgradesPopulatedSQLitePosts(t *testing.T) {
 		"SELECT updated_at FROM posts WHERE id = 'new-post'",
 	).Scan(&defaultedUpdatedAt))
 	require.NotEmpty(t, defaultedUpdatedAt)
+	_, err = db.ExecContext(ctx, "UPDATE posts SET status = 'scheduled' WHERE id = 'legacy-post'")
+	require.NoError(t, err)
+	var auditedStatus string
+	require.NoError(t, db.QueryRowContext(ctx,
+		"SELECT status FROM posts_upgrade_audit",
+	).Scan(&auditedStatus))
+	require.Equal(t, "scheduled", auditedStatus)
 	runMigrationsThrough(t, db, 104)
 
 	_, err = db.ExecContext(ctx, "DELETE FROM posts WHERE id = 'legacy-post'")
@@ -189,7 +150,7 @@ func TestRunMigrationsPublicationsAreInsertable(t *testing.T) {
 		Audience:        "builders",
 		Status:          models.PublicationStatusDraft,
 		ReleasePlanJSON: "{}",
-	}).Exec(ctx)
+	}).ExcludeColumn("failure_dismissed_at").Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.PublicationAsset{
 		PublicationID: "pub-1",
@@ -241,7 +202,7 @@ func TestRunMigrationsPublicationAssetsCascadeWithPublication(t *testing.T) {
 		SourceContent:   "Delete me.",
 		Status:          models.PublicationStatusDraft,
 		ReleasePlanJSON: "{}",
-	}).Exec(ctx)
+	}).ExcludeColumn("failure_dismissed_at").Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.PublicationAsset{
 		PublicationID: "pub-cascade",

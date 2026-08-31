@@ -164,7 +164,7 @@
 			>
 				<div class="flex items-center justify-between gap-3 text-xs">
 					<span class="flex items-center gap-2 font-medium">
-						<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+						<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 						{m.video_editor_subtitle_scanning()}
 					</span>
 					<span class="text-[var(--video-editor-muted)] tabular-nums">{progressPercent}%</span>

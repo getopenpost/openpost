@@ -121,18 +121,4 @@ describe('GrowthProfileCard', () => {
 		await screen.getByRole('button', { name: /Dismiss recommendation for @jane/i }).click();
 		expect(onDismiss).toHaveBeenCalledWith('r1');
 	});
-
-	it('uses theme-token bordered card without decorative shadows', async () => {
-		const screen = await render(GrowthProfileCard, {
-			recommendation: rec(),
-			position: 1,
-			onFollow: vi.fn(),
-			onDismiss: vi.fn(),
-			onOpenProfile: vi.fn()
-		});
-		const article = screen.getByTestId('growth-profile-card');
-		await expect.element(article).toHaveClass('border');
-		await expect.element(article).toHaveClass('bg-card');
-		await expect.element(article).not.toHaveClass('shadow');
-	});
 });

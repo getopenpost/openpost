@@ -6,7 +6,6 @@
 	import {
 		appUrl,
 		billingSettingsUrl,
-		managedAccessSummary,
 		managedCardRequirement,
 		managedPaymentExpectation,
 		plans
@@ -19,6 +18,7 @@
 	}
 
 	let { compact = false, billingPeriod = $bindable('monthly') }: Props = $props();
+	const displayedPlans = $derived(compact ? plans.slice(0, 3) : plans);
 
 	function numericPrice(price: string) {
 		return Number(price.replace(/[^0-9.]/g, ''));
@@ -47,10 +47,10 @@
 
 <div class:pricing-compact={compact} class="pricing-showcase">
 	<div class="pricing-toolbar">
-		<div>
-			<p class="font-semibold">{purchaseTerms.trial_days} days free</p>
-			<p>{managedAccessSummary}</p>
-		</div>
+		<p class="trial-copy">
+			<strong>{purchaseTerms.trial_days}-day free trial.</strong>
+			{managedCardRequirement}.
+		</p>
 		<div class="billing-toggle" aria-label="Billing period">
 			<Button
 				variant={billingPeriod === 'monthly' ? 'default' : 'ghost'}
@@ -72,28 +72,12 @@
 		{billingAnnouncement}
 	</p>
 
-	<div class="purchase-summary" aria-label="Hosted service plan purchase terms">
-		<p>
-			<strong>Before checkout:</strong>
-			{managedPaymentExpectation} OpenPost shows the renewal date and price before you start. Cancel or
-			change the subscription from
-			<a class="focus-ring" {...externalHref(billingSettingsUrl)}>Billing settings</a> before renewal.
-		</p>
-		<p>
-			Paddle is the Merchant of Record and calculates applicable taxes at checkout.
-			<a class="focus-ring" href={resolve('/refunds')}>Refund policy</a>
-			<span aria-hidden="true">·</span>
-			<a class="focus-ring" href={resolve('/terms')}>Billing terms</a>
-		</p>
-	</div>
-
 	<div class="pricing-grid">
-		{#each plans as plan (plan.id)}
+		{#each displayedPlans as plan (plan.id)}
 			<article class:featured={plan.featured} class="pricing-card" data-plan-id={plan.id}>
 				{#if plan.featured}<span class="popular-label">Most popular</span>{/if}
 				<div>
 					<h3>{plan.name}</h3>
-					<p class="best-for">Best for {plan.bestFor.toLocaleLowerCase()}</p>
 					<p class="plan-description">{plan.description}</p>
 				</div>
 				<p class="price-line">
@@ -115,18 +99,36 @@
 				<Button
 					href={`${appUrl}/register?plan=${plan.id}&billing_period=${billingPeriod}`}
 					variant={plan.featured ? 'default' : 'outline'}
-					class="w-full"
+					class="plan-button w-full"
 					aria-describedby={`plan-${plan.id}-purchase-note`}
 				>
 					Start {plan.name}
 				</Button>
 				<p id={`plan-${plan.id}-purchase-note`} class="purchase-note">
-					{managedCardRequirement}. After {purchaseTerms.trial_days} days: {renewalPrice(plan)} until
-					canceled.
+					Then {renewalPrice(plan)} until canceled.
 				</p>
 			</article>
 		{/each}
 	</div>
+
+	{#if !compact}
+		<details class="purchase-details">
+			<summary class="focus-ring">Trial and billing details</summary>
+			<div>
+				<p>
+					{managedPaymentExpectation} OpenPost shows the renewal date and price before you start. Cancel
+					or change your plan in
+					<a class="focus-ring" {...externalHref(billingSettingsUrl)}>Billing settings</a> before renewal.
+				</p>
+				<p>
+					Paddle is the Merchant of Record and calculates tax at checkout.
+					<a class="focus-ring" href={resolve('/refunds')}>Refund policy</a>
+					<span aria-hidden="true">·</span>
+					<a class="focus-ring" href={resolve('/terms')}>Billing terms</a>
+				</p>
+			</div>
+		</details>
+	{/if}
 </div>
 
 <style>
@@ -144,14 +146,13 @@
 		border-bottom: 1px solid var(--border);
 	}
 
-	.pricing-toolbar > div:first-child {
-		display: grid;
-		gap: 0.3rem;
+	.trial-copy {
+		color: var(--muted-foreground);
+		font-size: 0.9rem;
 	}
 
-	.pricing-toolbar p:last-child {
-		color: var(--muted-foreground);
-		font-size: 0.8rem;
+	.trial-copy strong {
+		color: var(--foreground);
 	}
 
 	.billing-toggle {
@@ -174,19 +175,31 @@
 		opacity: 0.72;
 	}
 
-	.purchase-summary {
-		display: grid;
-		gap: 0.45rem;
-		padding: 1rem;
+	.purchase-details {
 		border: 1px solid var(--border);
 		border-radius: 0.75rem;
 		background: color-mix(in oklch, var(--muted) 38%, var(--background));
+	}
+
+	.purchase-details summary {
+		min-height: 2.75rem;
+		padding: 0.75rem 1rem;
+		border-radius: 0.75rem;
+		cursor: pointer;
+		font-size: 0.82rem;
+		font-weight: 650;
+	}
+
+	.purchase-details > div {
+		display: grid;
+		gap: 0.5rem;
+		padding: 0 1rem 1rem;
 		color: var(--muted-foreground);
 		font-size: 0.8rem;
 		line-height: 1.55;
 	}
 
-	.purchase-summary a {
+	.purchase-details a {
 		display: inline-flex;
 		min-height: 2.75rem;
 		align-items: center;
@@ -205,7 +218,7 @@
 		position: relative;
 		display: flex;
 		min-width: 0;
-		min-height: 31rem;
+		min-height: 27rem;
 		flex-direction: column;
 		padding: clamp(1.4rem, 2.5vw, 2rem);
 		border: 1px solid var(--border);
@@ -243,17 +256,9 @@
 		font-weight: 700;
 	}
 
-	.best-for {
-		margin-top: 0.45rem;
-		color: var(--foreground);
-		font-size: 0.78rem;
-		font-weight: 600;
-		line-height: 1.4;
-	}
-
 	.plan-description {
-		min-height: 2.9rem;
-		margin-top: 0.55rem;
+		min-height: 2.8rem;
+		margin-top: 0.65rem;
 		color: var(--muted-foreground);
 		font-size: 0.9rem;
 		line-height: 1.65;
@@ -262,8 +267,8 @@
 	.price-line {
 		display: flex;
 		align-items: baseline;
-		margin-top: 2rem;
-		font-size: clamp(2.7rem, 5vw, 4rem);
+		margin-top: 1.4rem;
+		font-size: clamp(2.6rem, 4vw, 3.5rem);
 		font-weight: 720;
 		letter-spacing: -0.04em;
 	}
@@ -294,9 +299,13 @@
 	.pricing-card ul {
 		display: grid;
 		gap: 0.85rem;
-		margin-block: 2rem auto;
+		margin-block: 1.5rem;
 		padding: 0;
 		list-style: none;
+	}
+
+	:global(.plan-button) {
+		margin-top: auto;
 	}
 
 	.pricing-card li {

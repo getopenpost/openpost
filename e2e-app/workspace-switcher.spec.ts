@@ -85,7 +85,7 @@ test("workspace-scoped pages reload when the sidebar workspace changes", async (
   };
 
   await authenticatePage(page, auth.token);
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
 
   const workspaces = [first, second];
   const workspaceButton = page
@@ -109,7 +109,7 @@ test("workspace-scoped pages reload when the sidebar workspace changes", async (
   await accountsRequest;
   await expect(workspaceButton).toContainText(next.name);
 
-  await page.goto("/activity");
+  await page.goto("/publications");
   await expect(workspaceButton).toContainText(next.name);
   const previous = next.id === first.id ? second : first;
   const publicationsRequest = page.waitForRequest((candidate) => {
@@ -297,7 +297,7 @@ test("a slow previous-workspace response cannot replace current account data", a
     if (workspaceId === first.id) markSlowRequestFinished();
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const workspaceButton = page.getByRole("button", { name: new RegExp(first.name) }).first();
   await expect(workspaceButton).toBeVisible();
   await expect.poll(() => slowRequestStarted).toBe(true);

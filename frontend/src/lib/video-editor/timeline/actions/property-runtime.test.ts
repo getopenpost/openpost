@@ -25,7 +25,7 @@ function item(id: string, overrides: Partial<TimelineItem> = {}): TimelineItem {
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
-	timelineStore._setItems([item('one'), item('two')]);
+	timelineStore._setItems([item('one'), item('two', { from: 60 })]);
 });
 
 describe('property runtime actions', () => {

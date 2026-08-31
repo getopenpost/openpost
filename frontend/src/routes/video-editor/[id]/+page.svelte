@@ -1,12 +1,21 @@
 <!--
-OpenPost Video Editor workspace for one project.
-LAYOUT: header / left media pool / center preview + transport / bottom timeline.
-OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only signal color.
+THESIS: One editor changes layout for Edit, Color, and Motion; it refuses a one-size inspector.
+OWN-WORLD: warm-black production chrome, dense measured controls, and orange only for action, selection, and the playhead.
+STORY: Import, assemble, grade, animate, inspect, and export without leaving the project or losing timeline context.
+FIRST VIEWPORT: persistent project bar above a task-specific workspace; Edit centers preview and timeline, Color pairs program scopes with filmstrip and grading lanes, Motion pairs layer controls with keyframe editing.
+FORM: FreeCut studio-workspace grammar, pinned by the user; seed freecut-parity-2026-08-29.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
 -->
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { resolveAppPath } from '$lib/app-path';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as Tooltip from '$lib/components/ui/tooltip';
+	import PanelResizeHandle from '$lib/components/panel-resize-handle.svelte';
 	import Logo from '$lib/components/Logo.svelte';
 	import { showToast } from '$lib/toast';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
@@ -21,10 +30,11 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		removeMarker,
 		setCurrentFrame,
 		toggleMarkerAtPlayhead,
-		setItemSpeed
+		setItemSpeed,
+		setItemsReversed
 	} from '$lib/video-editor/timeline/actions/items';
 	import { markerAfter, markerBefore } from '$lib/video-editor/timeline/markers';
-	import { scanSceneCuts } from '$lib/video-editor/media/scene-scan';
+	import { scanSceneCuts, type SceneScanMode } from '$lib/video-editor/media/scene-scan';
 	import { cutFramesForItem } from '$lib/video-editor/media/scene-math';
 	import { insertFreezeFrame } from '$lib/video-editor/media/insert-freeze-frame.svelte';
 	import {
@@ -34,106 +44,458 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	import {
 		addTransition,
 		removeTransition,
-		transitionsStore
+		transitionsStore,
+		updateTransitionPresentation
 	} from '$lib/video-editor/timeline/actions/transitions.svelte';
+	import { resolveTransitionTargetFromSelection } from '$lib/video-editor/timeline/transition-drop';
+	import type { TransitionDirection } from '$lib/video-editor/project/types';
 	import { addSubtitleItemFromSrt } from '$lib/video-editor/transcript/captions';
-	import {
-		transcribeClip,
-		addGeneratedSubtitleItem
-	} from '$lib/video-editor/transcript/transcribe-action';
-	import type {
-		ResolvedTranscriptionEngine,
-		TranscribeProgress,
-		TranscriptionSelection
-	} from '$lib/video-editor/transcript/engine/types';
-	import { resolveMediaBlob } from '$lib/video-editor/media/import.svelte';
+	import type { TranscriptionSelection } from '$lib/video-editor/transcript/engine/types';
+	import { transcriptionService } from '$lib/video-editor/transcript/transcription-service.svelte';
+	import { aiCaptionService } from '$lib/video-editor/transcript/ai-caption-service.svelte';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
+	import { conformReversePreview } from '$lib/video-editor/media/reverse-conform-service';
+	import {
+		copyColorGradeFromItem,
+		pasteColorGradeToItems
+	} from '$lib/video-editor/effects/color-grade-clipboard';
 	import { renderVideoExport } from '$lib/video-editor/media/render-execution';
 	import { sendToOpenPost } from '$lib/video-editor/send-to-openpost';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import MediaPoolList from '$lib/video-editor/components/media-pool-list.svelte';
+	import EmbeddedSubtitlePicker from '$lib/video-editor/components/embedded-subtitle-picker.svelte';
 	import SceneBrowserPanel from '$lib/video-editor/components/scene-browser-panel.svelte';
-	import AssetLibraryPanel from '$lib/video-editor/components/asset-library-panel.svelte';
+	import StockBrowserPanel from '$lib/video-editor/components/stock-browser-panel.svelte';
+	import TextTemplateBrowser from '$lib/video-editor/components/text-template-browser.svelte';
+	// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- Shape is the editor's user-facing media type.
+	import ShapePanel from '$lib/video-editor/components/shape-panel.svelte';
+	import BackgroundPanel from '$lib/video-editor/components/background-panel.svelte';
+	import StickerBrowserPanel from '$lib/video-editor/components/sticker-browser-panel.svelte';
+	import EffectBrowserPanel from '$lib/video-editor/components/effect-browser-panel.svelte';
+	import TransitionBrowserPanel from '$lib/video-editor/components/transition-browser-panel.svelte';
+	import LottieBrowserPanel from '$lib/video-editor/components/lottie-browser-panel.svelte';
 	import EditorAssistantPanel from '$lib/video-editor/components/editor-assistant-panel.svelte';
 	import EffectsPanel from '$lib/video-editor/components/effects-panel.svelte';
 	import MotionPresetsPanel from '$lib/video-editor/components/motion-presets-panel.svelte';
 	import TextMotionPanel from '$lib/video-editor/components/text-motion-panel.svelte';
 	import ClipPropertiesPanel from '$lib/video-editor/components/clip-properties-panel.svelte';
+	import ProjectCanvasPanel from '$lib/video-editor/components/project-canvas-panel.svelte';
 	import TransitionPropertiesPanel from '$lib/video-editor/components/transition-properties-panel.svelte';
 	import ExportDialog from '$lib/video-editor/components/export-dialog.svelte';
 	import RenderQueueController from '$lib/video-editor/components/render-queue-controller.svelte';
 	import TranscriptPanel from '$lib/video-editor/components/transcript-panel.svelte';
 	import TranscriptionControls from '$lib/video-editor/components/transcription-controls.svelte';
+	import AiCaptionControls from '$lib/video-editor/components/ai-caption-controls.svelte';
 	import MediaTaskProgress from '$lib/video-editor/components/media-task-progress.svelte';
 	import SpeechCleanupDialog from '$lib/video-editor/components/speech-cleanup-dialog.svelte';
 	import EditorSettingsDialog from '$lib/video-editor/components/editor-settings-dialog.svelte';
 	import PreviewDiagnosticsPanel from '$lib/video-editor/components/preview-diagnostics-panel.svelte';
 	import EditorWorkspaceSwitcher from '$lib/video-editor/components/editor-workspace-switcher.svelte';
 	import ColorGradingDock from '$lib/video-editor/components/color-grading-dock.svelte';
+	import ColorScopes from '$lib/video-editor/components/color-scopes.svelte';
 	import MotionWorkspacePanel from '$lib/video-editor/components/motion-workspace-panel.svelte';
+	import MotionWorkspaceEmpty from '$lib/video-editor/components/motion-workspace-empty.svelte';
 	import MediaRecoveryDialog from '$lib/video-editor/components/media-recovery-dialog.svelte';
 	import UnsupportedAudioImportDialog from '$lib/video-editor/components/unsupported-audio-import-dialog.svelte';
 	import PreviewPlayer from '$lib/video-editor/components/preview-player.svelte';
 	import SourceMonitor from '$lib/video-editor/components/source-monitor.svelte';
 	import TransportBar from '$lib/video-editor/components/transport-bar.svelte';
 	import TimelinePanel from '$lib/video-editor/components/timeline-panel.svelte';
+	import CompositionTimeline from '$lib/video-editor/components/composition-timeline.svelte';
 	import { voiceoverRecorder } from '$lib/video-editor/recorder/voiceover-recorder.svelte';
 	import RecordingDialog from '$lib/video-editor/components/recording-dialog.svelte';
 	import SequenceTabs from '$lib/video-editor/components/sequence-tabs.svelte';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import {
+		createCompositeComposition,
 		createCompoundClip,
 		dissolveCompoundClip,
-		switchSequence
+		switchSequence,
+		type CreateCompositeCompositionOptions
 	} from '$lib/video-editor/sequences/sequence-actions';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import ClapperboardIcon from '@lucide/svelte/icons/clapperboard';
+	import ImagesIcon from '@lucide/svelte/icons/images';
+	import SearchIcon from '@lucide/svelte/icons/search';
+	import TypeIcon from '@lucide/svelte/icons/type';
+	import WandSparklesIcon from '@lucide/svelte/icons/wand-sparkles';
+	import BetweenHorizontalStartIcon from '@lucide/svelte/icons/between-horizontal-start';
+	import CaptionsIcon from '@lucide/svelte/icons/captions';
+	import StickerIcon from '@lucide/svelte/icons/sticker';
+	import PanelsTopLeftIcon from '@lucide/svelte/icons/panels-top-left';
+	import FilmIcon from '@lucide/svelte/icons/film';
+	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
 	import PlusIcon from '@lucide/svelte/icons/plus';
+	import ShapesIcon from '@lucide/svelte/icons/shapes';
+	import SparklesIcon from '@lucide/svelte/icons/sparkles';
 	import SettingsIcon from '@lucide/svelte/icons/settings-2';
+	import VideoIcon from '@lucide/svelte/icons/video';
 	import {
 		editorWorkspace,
 		type EditorWorkspaceId
 	} from '$lib/video-editor/workspaces/editor-workspace.svelte';
-	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import {
+		colorGradeTargetAtFrame,
+		colorSelectionSpansFrame
+	} from '$lib/video-editor/timeline/color-playhead-selection';
+	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
+	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
+	import {
+		canExtractEmbeddedSubtitles,
+		type EmbeddedSubtitleInsertResult
+	} from '$lib/video-editor/media/embedded-subtitle-service';
+	import {
+		editorDeleteModeForEvent,
 		editorShortcutTargetIsDisabled,
 		eventMatchesShortcut,
+		handleGlobalPlayPauseShortcut,
+		handleOpenSceneBrowserShortcut,
 		type EditorShortcutId
 	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
+	import { itemClipboardStore } from '$lib/video-editor/timeline/stores/item-clipboard-store.svelte';
+	import { pasteTimelineItemClipboard } from '$lib/video-editor/timeline/actions/item-clipboard';
+	import { handleTranscriptClipboardCopy } from '$lib/video-editor/transcript/transcript-copy-bridge';
+	import { expandSelectionWithLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
+	import {
+		effectiveMediaTracks,
+		isTrackEffectivelyLocked
+	} from '$lib/video-editor/timeline/utils/track-groups';
+	import { snapshotTimelineState } from '$lib/video-editor/timeline/utils/state-snapshot.svelte';
 	import { emitEditorSound } from '$lib/video-editor/sounds/editor-sounds';
-	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
+	import { sourceHoverStore } from '$lib/video-editor/source-monitor/source-hover.svelte';
+	import { shuttleScrubResume } from '$lib/video-editor/preview/shuttle-scrub-resume.svelte';
+	import { previewPlaybackSettings } from '$lib/video-editor/preview/playback-settings.svelte';
+	import { mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
+	import type { TextVoiceRequest } from '$lib/video-editor/local-ai/types';
+	import EditInspectorTabs from '$lib/video-editor/components/edit-inspector-tabs.svelte';
+	import WorkspaceGatePanel from '$lib/video-editor/components/workspace-gate-panel.svelte';
+	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
+	import {
+		resolveEditInspectorTabs,
+		type EditInspectorTab
+	} from '$lib/video-editor/components/edit-inspector-tabs';
 
 	const projectId = $derived(page.params.id ?? '');
+	const gate = createWorkspaceGate();
 	let selectedItemId = $state<string | null>(null);
 	let selectedItemIds = $state<string[]>([]);
 	let selectedTransitionId = $state<string | null>(null);
 	let sourceMediaId = $state<string | null>(null);
+	$effect(() => {
+		void sourceMediaId;
+		shuttleScrubResume.cancel();
+	});
 	let freezingItemId = $state<string | null>(null);
 	let motionReturnStack = $state<Array<string | null>>([]);
+	let motionWorkspaceReturnSequenceId = $state<string | null>(null);
+	let motionWorkspaceReturnSelectionIds = $state<string[]>([]);
+	let motionWorkspaceReturnCaptured = $state(false);
+	let lastMotionCompositionId = $state<string | null>(null);
+	let motionSelectionByCompositionId = $state<Record<string, string[]>>({});
 	let settingsOpen = $state(false);
 	let recordingOpen = $state(false);
 	let unsupportedAudioRequest = $state<UnsupportedAudioImportRequest | null>(null);
 	let unsupportedAudioResolve: ((decision: 'import' | 'cancel') => void) | null = null;
-	let assetPanel = $state<'media' | 'assets' | 'scenes' | 'ai'>('media');
+	type LeftPanel =
+		| 'media'
+		| 'stock'
+		| 'text'
+		| 'shapes'
+		| 'backgrounds'
+		| 'stickers'
+		| 'effects'
+		| 'transitions'
+		| 'lottie'
+		| 'transcript'
+		| 'ai';
+	let leftPanel = $state<LeftPanel>('media');
+	let mediaPanelView = $state<'project' | 'scenes'>('project');
 	let mobileEditPane = $state<'assets' | 'program' | 'tools'>('program');
+	let assetBrowserWidth = $state(editorSettings.assetBrowserWidth);
+	let inspectorPanelWidth = $state(editorSettings.inspectorPanelWidth);
+	let motionPanelWidth = $state(editorSettings.motionPanelWidth);
+	let sourceMonitorWidth = $state(editorSettings.sourceMonitorWidth);
+	let scopesPanelWidth = $state(editorSettings.scopesPanelWidth);
+	let timelineHeight = $state(editorSettings.timelineHeight);
+	let colorDockHeight = $state(editorSettings.colorDockHeight);
+	let mixerDockLayout = $state<{ baseHeight: number; height: number } | null>(null);
+	let editorViewportWidth = $state(1280);
+	let editorViewportHeight = $state(800);
+	const minimumProgramWidth = 360;
+	const minimumMotionPreviewWidth = 480;
+	const minimumProgramHeight = 180;
+	const editorHeaderHeight = 48;
+	const sourceMonitorHorizontal = $derived(sourceMediaId !== null && editorViewportWidth >= 1280);
+	const minimumEditCenterWidth = $derived(
+		minimumProgramWidth + (sourceMonitorHorizontal ? 300 : 0)
+	);
+	const desktopPanelWidths = $derived.by(() => {
+		let asset = Math.max(300, Math.min(480, assetBrowserWidth));
+		let inspector = Math.max(280, Math.min(520, inspectorPanelWidth));
+		let overflow = asset + inspector - Math.max(580, editorViewportWidth - minimumEditCenterWidth);
+		if (overflow > 0) {
+			const assetReduction = Math.min(asset - 300, Math.ceil(overflow / 2));
+			asset -= assetReduction;
+			overflow -= assetReduction;
+			const inspectorReduction = Math.min(inspector - 280, overflow);
+			inspector -= inspectorReduction;
+			overflow -= inspectorReduction;
+			asset -= Math.min(asset - 300, overflow);
+		}
+		return { asset, inspector };
+	});
+	const effectiveAssetBrowserWidth = $derived(desktopPanelWidths.asset);
+	const effectiveInspectorPanelWidth = $derived(desktopPanelWidths.inspector);
+	const assetBrowserMaximum = $derived(
+		Math.max(
+			300,
+			Math.min(480, editorViewportWidth - effectiveInspectorPanelWidth - minimumEditCenterWidth)
+		)
+	);
+	const inspectorPanelMaximum = $derived(
+		Math.max(
+			280,
+			Math.min(520, editorViewportWidth - effectiveAssetBrowserWidth - minimumEditCenterWidth)
+		)
+	);
+	const motionPanelMaximum = $derived(
+		Math.max(300, Math.min(520, editorViewportWidth - minimumMotionPreviewWidth))
+	);
+	const sourceMonitorMaximum = $derived(
+		Math.max(
+			300,
+			Math.min(
+				720,
+				editorViewportWidth -
+					effectiveAssetBrowserWidth -
+					effectiveInspectorPanelWidth -
+					minimumProgramWidth
+			)
+		)
+	);
+	const scopesPanelMaximum = $derived(
+		Math.max(280, Math.min(600, editorViewportWidth - minimumMotionPreviewWidth))
+	);
+	const timelinePanelMaximum = $derived(
+		Math.max(180, Math.min(620, editorViewportHeight - editorHeaderHeight - minimumProgramHeight))
+	);
+	const timelinePanelMinimum = $derived(
+		mixerDockLayout ? Math.min(timelinePanelMaximum, 180 + mixerDockLayout.height) : 180
+	);
+	const mixerPanelMaximum = $derived(Math.max(160, Math.min(420, timelinePanelMaximum - 180)));
+	const colorDockMaximum = $derived(
+		Math.max(280, Math.min(720, editorViewportHeight - editorHeaderHeight - 220))
+	);
+	const colorDockMinimum = $derived(Math.min(500, colorDockMaximum));
+	const colorDockDefault = $derived(Math.min(520, colorDockMaximum));
+	const effectiveMotionPanelWidth = $derived(Math.min(motionPanelWidth, motionPanelMaximum));
+	const effectiveSourceMonitorWidth = $derived(Math.min(sourceMonitorWidth, sourceMonitorMaximum));
+	const effectiveScopesPanelWidth = $derived(Math.min(scopesPanelWidth, scopesPanelMaximum));
+	const effectiveTimelineHeight = $derived(
+		Math.max(timelinePanelMinimum, Math.min(timelineHeight, timelinePanelMaximum))
+	);
+	const effectiveColorDockHeight = $derived(
+		Math.max(colorDockMinimum, Math.min(colorDockHeight, colorDockMaximum))
+	);
+	let textVoiceRequest = $state<TextVoiceRequest | null>(null);
 	const activeWorkspace = $derived(editorWorkspace.current);
+	const activeMotionComposition = $derived(
+		sequenceStore.activeSequence?.editorKind === 'composite-2d'
+			? sequenceStore.activeSequence
+			: undefined
+	);
+	const motionCompositionCount = $derived(
+		sequenceStore.compositions.filter((composition) => composition.editorKind === 'composite-2d')
+			.length
+	);
 	const showSourceMonitor = $derived(activeWorkspace === 'edit' && sourceMediaId !== null);
+	const primaryLeftPanelOptions = $derived([
+		{ value: 'media' as const, label: m.video_editor_media_pool(), icon: ImagesIcon },
+		{ value: 'stock' as const, label: m.video_editor_stock_assets(), icon: SearchIcon },
+		{ value: 'text' as const, label: m.video_editor_tool_text(), icon: TypeIcon },
+		// oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- The generated message key names the user-facing Shapes tool.
+		{ value: 'shapes' as const, label: m.video_editor_shapes(), icon: ShapesIcon },
+		{
+			value: 'backgrounds' as const,
+			label: m.video_editor_backgrounds_title(),
+			icon: PanelsTopLeftIcon
+		},
+		{ value: 'stickers' as const, label: m.video_editor_stickers(), icon: StickerIcon },
+		{ value: 'effects' as const, label: m.video_editor_effects(), icon: WandSparklesIcon },
+		{
+			value: 'transitions' as const,
+			label: m.video_editor_transition(),
+			icon: BetweenHorizontalStartIcon
+		},
+		{ value: 'lottie' as const, label: m.video_editor_animations(), icon: FilmIcon },
+		{ value: 'transcript' as const, label: m.video_editor_transcript(), icon: CaptionsIcon }
+	]);
+	const utilityLeftPanelOptions = $derived([
+		{ value: 'ai' as const, label: m.video_editor_local_ai(), icon: SparklesIcon }
+	]);
+	const leftPanelOptions = $derived([...primaryLeftPanelOptions, ...utilityLeftPanelOptions]);
+	const leftPanelHeading = $derived(
+		leftPanelOptions.find((option) => option.value === leftPanel)?.label ?? m.video_editor_assets()
+	);
+	const selectedLeftPanelItemIds = $derived(
+		selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : []
+	);
 
-	$effect(() => {
-		if (!projectId) return;
-		return () => mediaTasks.reset();
+	function moveLeftPanelFocus(
+		event: KeyboardEvent & { currentTarget: HTMLButtonElement },
+		value: LeftPanel,
+		orientation: 'horizontal' | 'vertical'
+	): void {
+		const currentIndex = leftPanelOptions.findIndex((option) => option.value === value);
+		let nextIndex: number | null = null;
+		if (event.key === 'Home') nextIndex = 0;
+		if (event.key === 'End') nextIndex = leftPanelOptions.length - 1;
+		if (orientation === 'horizontal' && event.key === 'ArrowRight') {
+			nextIndex = (currentIndex + 1) % leftPanelOptions.length;
+		}
+		if (orientation === 'horizontal' && event.key === 'ArrowLeft') {
+			nextIndex = (currentIndex - 1 + leftPanelOptions.length) % leftPanelOptions.length;
+		}
+		if (orientation === 'vertical' && event.key === 'ArrowDown') {
+			nextIndex = (currentIndex + 1) % leftPanelOptions.length;
+		}
+		if (orientation === 'vertical' && event.key === 'ArrowUp') {
+			nextIndex = (currentIndex - 1 + leftPanelOptions.length) % leftPanelOptions.length;
+		}
+		if (nextIndex === null) return;
+		const next = leftPanelOptions[nextIndex];
+		if (!next) return;
+		event.preventDefault();
+		leftPanel = next.value;
+		requestAnimationFrame(() => {
+			document
+				.querySelector<HTMLButtonElement>(
+					`[data-left-panel-tab="${next.value}"][data-tab-orientation="${orientation}"]`
+				)
+				?.focus();
+		});
+	}
+	const editInspectorHeading = $derived.by(() => {
+		if (selectedTransitionId) return m.video_editor_transition();
+		if (selectedItemIds.length > 1) {
+			return m.video_editor_items_selected({ count: selectedItemIds.length });
+		}
+		if (selectedItemId) {
+			return timelineStore.itemById.get(selectedItemId)?.label.trim() || m.video_editor_clip();
+		}
+		return m.video_editor_tools();
+	});
+	const selectedTranscriptionJob = $derived(
+		selectedItemId ? transcriptionService.jobForItem(selectedItemId) : undefined
+	);
+	const selectedTranscriptionQueuePosition = $derived(
+		selectedTranscriptionJob
+			? transcriptionService.queuePosition(selectedTranscriptionJob.id)
+			: null
+	);
+	const transcriptionJobCount = $derived(transcriptionService.jobs.length);
+	const transcriptionPendingItemIds = $derived(transcriptionService.jobs.map((job) => job.itemId));
+	const selectedAiCaptionJob = $derived(
+		selectedItemId ? aiCaptionService.jobForItem(selectedItemId) : undefined
+	);
+	const selectedAiCaptionQueuePosition = $derived(
+		selectedAiCaptionJob ? aiCaptionService.queuePosition(selectedAiCaptionJob.id) : null
+	);
+	const aiCaptionJobCount = $derived(aiCaptionService.jobs.length);
+	const aiCaptionPendingItemIds = $derived(aiCaptionService.jobs.map((job) => job.itemId));
+	let aiCaptionError = $state<string | null>(null);
+	let embeddedSubtitleMedia = $state<ReturnType<typeof mediaPool.get> | null>(null);
+	let embeddedSubtitlePickerOpen = $state(false);
+
+	function openTextVoice(itemId: string, text: string): void {
+		textVoiceRequest = {
+			id: crypto.randomUUID(),
+			sourceTextItemId: itemId,
+			text
+		};
+		leftPanel = 'ai';
+		mobileEditPane = 'assets';
+	}
+
+	function persistPanelSize(
+		key:
+			| 'assetBrowserWidth'
+			| 'inspectorPanelWidth'
+			| 'motionPanelWidth'
+			| 'sourceMonitorWidth'
+			| 'scopesPanelWidth'
+			| 'timelineHeight'
+			| 'colorDockHeight',
+		value: number
+	): void {
+		editorSettings.set(key, value);
+	}
+
+	function constrainEditorPanels(): void {
+		editorViewportWidth = window.innerWidth;
+		editorViewportHeight = window.innerHeight;
+	}
+
+	function resizeTimelinePanel(value: number): void {
+		timelineHeight = value;
+		if (mixerDockLayout) {
+			mixerDockLayout = {
+				...mixerDockLayout,
+				baseHeight: Math.max(180, value - mixerDockLayout.height)
+			};
+		}
+	}
+
+	function persistTimelinePanel(value: number): void {
+		persistPanelSize('timelineHeight', mixerDockLayout?.baseHeight ?? value);
+	}
+
+	function handleMixerLayoutChange(open: boolean, height: number): void {
+		if (!open) {
+			if (mixerDockLayout) {
+				timelineHeight = Math.min(mixerDockLayout.baseHeight, timelinePanelMaximum);
+			}
+			mixerDockLayout = null;
+			return;
+		}
+		const baseHeight = mixerDockLayout?.baseHeight ?? timelineHeight;
+		mixerDockLayout = { baseHeight, height };
+		timelineHeight = Math.min(baseHeight + height, timelinePanelMaximum);
+	}
+
+	onMount(() => {
+		constrainEditorPanels();
 	});
 
 	$effect(() => {
-		if (selectedItemId) {
-			selectedTransitionId = null;
+		if (!projectId) return;
+		previewPlaybackSettings.resetZoom();
+		return () => {
+			transcriptionService.reset();
+			aiCaptionService.reset();
+			mediaTasks.reset();
+		};
+	});
+
+	let mobileToolsFollowSelection = false;
+	$effect(() => {
+		if (selectedItemId && selectedTransitionId) selectedTransitionId = null;
+		const hasSelection = Boolean(selectedItemId || selectedTransitionId);
+		if (hasSelection) {
+			mobileToolsFollowSelection = true;
 			mobileEditPane = 'tools';
+			return;
 		}
+		if (!mobileToolsFollowSelection) return;
+		mobileToolsFollowSelection = false;
+		mobileEditPane = 'program';
 	});
 
 	$effect(() => {
 		voiceoverRecorder.reconcileProject(projectId);
-		if (projectId) void editorSession.load(projectId);
+		if (gate.state !== 'ready' || !projectId) return;
+		void editorSession.load(projectId);
 		return () => {
 			editorSession.pausePlayback();
 			editorSession.stopAutosaveTimers();
@@ -144,11 +506,12 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	async function handleImport(): Promise<void> {
 		if (!projectId) return;
 		try {
-			await importFromPicker({
+			const importedIds = await importFromPicker({
 				projectId,
 				storageMode: 'copy',
 				onUnsupportedAudio: requestUnsupportedAudioDecision
 			});
+			if (importedIds.length > 0) mediaPanelView = 'project';
 		} catch (err) {
 			showToast(err instanceof Error ? err.message : String(err), 'error');
 		}
@@ -275,21 +638,101 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		selectedTransitionId = null;
 	}
 
+	function switchEditorSequence(sequenceId: string | null): boolean {
+		shuttleScrubResume.cancel();
+		editorSession.pausePlayback();
+		if (!switchSequence(sequenceId)) return false;
+		editorSession.syncTimelineClock();
+		resetTimelineSelection();
+		return true;
+	}
+
+	function preferredMotionComposition(preferredId?: string): string | null {
+		const compositions = sequenceStore.compositions.filter(
+			(composition) => composition.editorKind === 'composite-2d'
+		);
+		return (
+			compositions.find((composition) => composition.id === preferredId)?.id ??
+			compositions.find((composition) => composition.id === lastMotionCompositionId)?.id ??
+			compositions[0]?.id ??
+			null
+		);
+	}
+
+	function rememberActiveMotionSelection(): void {
+		const active = sequenceStore.activeSequence;
+		if (active?.editorKind !== 'composite-2d') return;
+		motionSelectionByCompositionId = {
+			...motionSelectionByCompositionId,
+			[active.id]: [...selectedItemIds]
+		};
+	}
+
+	function switchMotionComposition(compositionId: string): boolean {
+		rememberActiveMotionSelection();
+		if (!switchEditorSequence(compositionId)) return false;
+		lastMotionCompositionId = compositionId;
+		const restoredIds = (motionSelectionByCompositionId[compositionId] ?? []).filter((id) =>
+			timelineStore.itemById.has(id)
+		);
+		selectedItemIds = restoredIds;
+		selectedItemId = restoredIds[0] ?? null;
+		return true;
+	}
+
+	function enterMotionWorkspace(preferredId?: string): void {
+		const current = sequenceStore.activeSequence;
+		if (!motionWorkspaceReturnCaptured && current?.editorKind !== 'composite-2d') {
+			motionWorkspaceReturnSequenceId = sequenceStore.activeSequenceId;
+			motionWorkspaceReturnSelectionIds = [...selectedItemIds];
+			motionWorkspaceReturnCaptured = true;
+		}
+		editorWorkspace.set('motion');
+		const targetId = preferredMotionComposition(preferredId);
+		if (targetId) {
+			switchMotionComposition(targetId);
+		} else resetTimelineSelection();
+	}
+
+	function leaveMotionWorkspace(workspace: Exclude<EditorWorkspaceId, 'motion'>): void {
+		rememberActiveMotionSelection();
+		if (activeMotionComposition) lastMotionCompositionId = activeMotionComposition.id;
+		if (motionWorkspaceReturnCaptured) {
+			switchEditorSequence(motionWorkspaceReturnSequenceId);
+			const restoredIds = motionWorkspaceReturnSelectionIds.filter((id) =>
+				timelineStore.itemById.has(id)
+			);
+			selectedItemIds = restoredIds;
+			selectedItemId = restoredIds[0] ?? null;
+		}
+		motionWorkspaceReturnCaptured = false;
+		motionWorkspaceReturnSequenceId = null;
+		motionWorkspaceReturnSelectionIds = [];
+		motionReturnStack = [];
+		editorWorkspace.set(workspace);
+	}
+
 	function changeEditorWorkspace(workspace: EditorWorkspaceId): void {
 		if (workspace === editorWorkspace.current) return;
-		editorSession.pausePlayback();
-		editorWorkspace.set(workspace);
+		if (workspace === 'motion') enterMotionWorkspace();
+		else if (editorWorkspace.current === 'motion') leaveMotionWorkspace(workspace);
+		else {
+			shuttleScrubResume.cancel();
+			editorSession.pausePlayback();
+			editorWorkspace.set(workspace);
+		}
 		emitEditorSound('select', false);
 	}
 
 	function handleOpenSequence(compositionId: string): void {
+		shuttleScrubResume.cancel();
 		const composition = sequenceStore.compositionById.get(compositionId);
 		if (composition?.editorKind === 'composite-2d') {
-			motionReturnStack = [...motionReturnStack, sequenceStore.activeSequenceId];
-		} else {
-			sequenceStore.promoteToTab(compositionId);
-			motionReturnStack = [];
+			enterMotionWorkspace(compositionId);
+			return;
 		}
+		sequenceStore.promoteToTab(compositionId);
+		motionReturnStack = [];
 		editorSession.pausePlayback();
 		if (!switchSequence(compositionId)) return;
 		editorSession.syncTimelineClock();
@@ -315,7 +758,51 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		showToast(m.video_editor_compound_created(), 'success');
 	}
 
+	function handleEditMotionClip(): void {
+		const selected =
+			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : [];
+		if (selected.length === 1) {
+			const item = timelineStore.itemById.get(selected[0]!);
+			const composition = item?.compositionId
+				? sequenceStore.compositionById.get(item.compositionId)
+				: undefined;
+			if (composition?.editorKind === 'composite-2d') {
+				enterMotionWorkspace(composition.id);
+				return;
+			}
+		}
+		const sourceLabel = selectedItemId
+			? timelineStore.itemById.get(selectedItemId)?.label.trim()
+			: '';
+		const compositionId = createCompoundClip(
+			selected,
+			sourceLabel ? `${sourceLabel} Motion` : m.video_editor_motion_composition_title(),
+			'composite-2d'
+		);
+		if (!compositionId) return;
+		const wrapperIds = timelineStore.items
+			.filter((item) => item.compositionId === compositionId)
+			.map((item) => item.id);
+		selectedItemIds = wrapperIds;
+		selectedItemId = wrapperIds[0] ?? null;
+		enterMotionWorkspace(compositionId);
+		editorSession.scheduleAutosave();
+		showToast(m.video_editor_motion_composition_created(), 'success');
+	}
+
+	function handleCreateEmptyMotionComposition(options: CreateCompositeCompositionOptions): void {
+		const compositionId = createCompositeComposition({
+			...options,
+			backgroundColor: editorSession.project?.metadata.backgroundColor
+		});
+		lastMotionCompositionId = compositionId;
+		switchMotionComposition(compositionId);
+		editorSession.scheduleAutosave();
+		showToast(m.video_editor_motion_composition_created(), 'success');
+	}
+
 	function handleReturnFromMotionComposition(): void {
+		shuttleScrubResume.cancel();
 		const parentSequenceId = motionReturnStack.at(-1);
 		if (parentSequenceId === undefined && motionReturnStack.length === 0) return;
 		editorSession.pausePlayback();
@@ -325,15 +812,53 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		resetTimelineSelection();
 	}
 
-	function handleSelectItem(itemId: string): void {
+	function handleSelectItem(itemId: string | null): void {
 		selectedItemId = itemId;
-		selectedItemIds = [itemId];
+		selectedItemIds = itemId ? [itemId] : [];
 		selectedTransitionId = null;
 	}
 
-	function handleCreateCompound(): void {
-		const ids =
+	$effect(() => {
+		const workspace = activeWorkspace;
+		const compositions = sequenceStore.compositions;
+		const active = sequenceStore.activeSequence;
+		if (workspace !== 'motion') return;
+		if (active?.editorKind === 'composite-2d') {
+			lastMotionCompositionId = active.id;
+			return;
+		}
+		if (!motionWorkspaceReturnCaptured) {
+			motionWorkspaceReturnSequenceId = sequenceStore.activeSequenceId;
+			motionWorkspaceReturnCaptured = true;
+		}
+		const targetId =
+			compositions.find(
+				(composition) =>
+					composition.editorKind === 'composite-2d' && composition.id === lastMotionCompositionId
+			)?.id ?? compositions.find((composition) => composition.editorKind === 'composite-2d')?.id;
+		if (targetId) {
+			switchMotionComposition(targetId);
+		}
+	});
+
+	$effect(() => {
+		const workspace = activeWorkspace;
+		const frame = timelineStore.currentFrame;
+		const items = timelineStore.items;
+		const tracks = timelineStore.tracks;
+		const selection =
 			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : [];
+		if (
+			workspace !== 'color' ||
+			colorSelectionSpansFrame(selection, timelineStore.itemById, frame)
+		) {
+			return;
+		}
+		const target = colorGradeTargetAtFrame(items, tracks, frame);
+		if (target) handleSelectItem(target.id);
+	});
+
+	function createCompoundForItems(ids: string[]): void {
 		const compositionId = createCompoundClip(ids, m.video_editor_compound_default());
 		if (!compositionId) return;
 		selectedItemIds = timelineStore.items
@@ -344,13 +869,22 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		showToast(m.video_editor_compound_created(), 'success');
 	}
 
-	function handleDissolveCompound(): void {
-		if (!selectedItemId) return;
-		const restoredIds = dissolveCompoundClip(selectedItemId);
+	function handleCreateCompound(): void {
+		createCompoundForItems(
+			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : []
+		);
+	}
+
+	function dissolveCompoundItem(itemId: string): void {
+		const restoredIds = dissolveCompoundClip(itemId);
 		if (restoredIds.length === 0) return;
 		selectedItemIds = restoredIds;
 		selectedItemId = restoredIds[0] ?? null;
 		editorSession.scheduleAutosave();
+	}
+
+	function handleDissolveCompound(): void {
+		if (selectedItemId) dissolveCompoundItem(selectedItemId);
 	}
 
 	function activeRenderProject() {
@@ -382,6 +916,16 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 
 	let exporting = $state(false);
 	let sending = $state(false);
+	let sentExport = $state<{ composerHref: string } | null>(null);
+
+	function composerMediaHref(workspaceId: string, mediaId: string): string {
+		const query = new URLSearchParams({ workspace_id: workspaceId, media_id: mediaId });
+		const returnPublicationId = page.url.searchParams.get('return')?.trim();
+		const path = returnPublicationId
+			? `/publications/${encodeURIComponent(returnPublicationId)}`
+			: '/';
+		return resolveAppPath(`${path}?${query}`);
+	}
 	async function handleExport(): Promise<void> {
 		if (!editorSession.project) return;
 		exporting = true;
@@ -411,6 +955,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		const workspaceId = workspaceCtx.currentWorkspace?.id;
 		if (!workspaceId || !editorSession.project) return;
 		sending = true;
+		sentExport = null;
 		try {
 			editorSession.pausePlayback();
 			await editorSession.saveNow();
@@ -423,11 +968,14 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 				height: project.metadata.height,
 				subtitleMode: 'burn'
 			});
-			await sendToOpenPost({
+			const uploaded = await sendToOpenPost({
 				workspaceId,
 				blob: result.blob,
 				fileName: result.fileName
 			});
+			sentExport = {
+				composerHref: composerMediaHref(workspaceId, uploaded.mediaId)
+			};
 			showToast(m.video_editor_sent(), 'success');
 		} catch (err) {
 			showToast(err instanceof Error ? err.message : String(err), 'error');
@@ -435,12 +983,6 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			sending = false;
 		}
 	}
-
-	let transcribing = $state(false);
-	let transcriptionProgress = $state<TranscribeProgress | null>(null);
-	let transcriptionBackend = $state<'webgpu' | 'wasm' | null>(null);
-	let transcriptionFallback = $state<ResolvedTranscriptionEngine | null>(null);
-	let transcriptionAbort: AbortController | null = null;
 
 	function handleAddText(): void {
 		const id = addTextItem(m.video_editor_text_default_label());
@@ -454,74 +996,90 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		editorSession.scheduleAutosave();
 	}
 
-	async function handleTranscribe(selection: TranscriptionSelection): Promise<void> {
-		if (!selectedItemId || transcribing) return;
-		const item = timelineStore.itemById.get(selectedItemId);
+	async function handleTranscribeItem(
+		itemId: string,
+		selection: TranscriptionSelection
+	): Promise<void> {
+		const item = timelineStore.itemById.get(itemId);
 		const media = item?.mediaId ? mediaPool.get(item.mediaId) : undefined;
 		if (!item || !media) return;
 		if (media.audioCodecSupported === false) {
 			showToast(m.video_editor_unsupported_audio_title(), 'error');
 			return;
 		}
-		transcribing = true;
-		transcriptionProgress = null;
-		transcriptionBackend = null;
-		transcriptionFallback = null;
-		const abort = new AbortController();
-		transcriptionAbort = abort;
-		const taskId = mediaTaskId('transcription', item.id);
-		const taskRevision = mediaTasks.start({
-			id: taskId,
-			kind: 'transcription',
-			mediaId: media.id,
-			label: media.fileName,
-			stage: 'preparing',
-			progress: null,
-			onCancel: () => abort.abort()
-		});
 		try {
-			const blob = await resolveMediaBlob(media);
-			const file =
-				blob instanceof File ? blob : new File([blob], media.fileName, { type: media.mimeType });
-			const words = await transcribeClip(item, file, {
-				model: selection.model,
-				language: selection.language,
-				quantization: selection.quantization,
-				signal: abort.signal,
-				onProgress: (progress) => {
-					transcriptionProgress = progress;
-					mediaTasks.update(
-						taskId,
-						{
-							stage: progress.stage,
-							progress: progress.indeterminate ? null : progress.progress,
-							receivedBytes: progress.receivedBytes,
-							totalBytes: progress.totalBytes
-						},
-						taskRevision
-					);
-				},
-				onRuntimeInfo: (runtime) => {
-					if (runtime.backend) transcriptionBackend = runtime.backend;
-				},
-				onFallback: (fallback) => (transcriptionFallback = fallback)
-			});
-			addGeneratedSubtitleItem(item.id, words);
+			await transcriptionService.enqueue(itemId, selection);
 			editorSession.scheduleAutosave();
 			showToast(m.video_editor_transcribe_done(), 'success');
 		} catch (err) {
 			if (!(err instanceof DOMException && err.name === 'AbortError')) {
 				showToast(err instanceof Error ? err.message : String(err), 'error');
 			}
-		} finally {
-			mediaTasks.finish(taskId, taskRevision);
-			transcribing = false;
-			transcriptionAbort = null;
 		}
 	}
 
+	async function handleTranscribe(selection: TranscriptionSelection): Promise<void> {
+		if (selectedItemId) await handleTranscribeItem(selectedItemId, selection);
+	}
+
+	function handleDefaultCaptions(itemId: string): void {
+		void handleTranscribeItem(itemId, {
+			model: editorSettings.defaultTranscriptionModel,
+			language: editorSettings.defaultTranscriptionLanguage || undefined,
+			quantization: editorSettings.defaultTranscriptionQuantization
+		});
+	}
+
 	function cancelTranscription(): void {
-		transcriptionAbort?.abort();
+		if (selectedItemId) transcriptionService.cancelForItem(selectedItemId);
+	}
+
+	async function handleAiCaptions(itemId: string | null = selectedItemId): Promise<void> {
+		if (!itemId) return;
+		aiCaptionError = null;
+		try {
+			await aiCaptionService.enqueue(itemId);
+			editorSession.scheduleAutosave();
+			showToast(m.video_editor_ai_captions_done(), 'success');
+		} catch (err) {
+			if (err instanceof DOMException && err.name === 'AbortError') return;
+			const message = err instanceof Error ? err.message : String(err);
+			aiCaptionError = message;
+			showToast(message, 'error');
+		}
+	}
+
+	function cancelAiCaptions(): void {
+		if (selectedItemId) aiCaptionService.cancelForItem(selectedItemId);
+	}
+
+	function openEmbeddedSubtitlePicker(media: NonNullable<ReturnType<typeof mediaPool.get>>): void {
+		embeddedSubtitleMedia = media;
+		embeddedSubtitlePickerOpen = true;
+	}
+
+	function openEmbeddedSubtitlesForItem(itemId: string): void {
+		const item = timelineStore.itemById.get(itemId);
+		const media = item?.mediaId ? mediaPool.get(item.mediaId) : undefined;
+		if (
+			!item ||
+			!media ||
+			item.isReversed === true ||
+			isTrackEffectivelyLocked(item.trackId, timelineStore.tracks) ||
+			!canExtractEmbeddedSubtitles(media)
+		) {
+			return;
+		}
+		openEmbeddedSubtitlePicker(media);
+	}
+
+	function handleEmbeddedSubtitleInsert(result: EmbeddedSubtitleInsertResult): void {
+		if (result.itemIds.length === 0) {
+			showToast(m.video_editor_subtitle_outside_clips(), 'error');
+			return;
+		}
+		editorSession.scheduleAutosave();
+		showToast(m.video_editor_subtitle_inserted({ count: result.cueCount }), 'success');
 	}
 
 	async function handleImportCaptions(): Promise<void> {
@@ -554,6 +1112,36 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		editorSession.scheduleAutosave();
 	}
 
+	function handleReverseItems(itemIds: string[], isReversed: boolean): void {
+		const updatedIds = setItemsReversed(itemIds, isReversed);
+		if (updatedIds.length === 0) return;
+		editorSession.scheduleAutosave();
+		if (!isReversed) return;
+		const mediaIds = new Set<string>();
+		for (const id of updatedIds) {
+			const item = timelineStore.itemById.get(id);
+			if (item?.type === 'video' && item.mediaId) mediaIds.add(item.mediaId);
+		}
+		for (const mediaId of mediaIds) {
+			const media = mediaPool.get(mediaId);
+			if (media) void conformReversePreview(media).catch(() => undefined);
+		}
+	}
+
+	function handleCopyColorGrade(itemId: string): void {
+		const result = copyColorGradeFromItem(itemId);
+		if (result) {
+			showToast(m.video_editor_color_grade_copied({ count: result.effectCount }), 'success');
+		}
+	}
+
+	function handlePasteColorGrade(itemIds: string[]): void {
+		const result = pasteColorGradeToItems(itemIds);
+		if (!result) return;
+		editorSession.scheduleAutosave();
+		showToast(m.video_editor_color_grade_pasted({ count: result.effectCount }), 'success');
+	}
+
 	const selectedSupportsEffects = $derived(
 		selectedItemId !== null && timelineStore.itemById.get(selectedItemId)?.type !== 'audio'
 	);
@@ -571,6 +1159,11 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	const selectedIsVideo = $derived(
 		selectedItemId !== null && timelineStore.itemById.get(selectedItemId)?.type === 'video'
 	);
+	const selectedTrackLocked = $derived.by(() => {
+		if (!selectedItemId) return false;
+		const item = timelineStore.itemById.get(selectedItemId);
+		return item ? isTrackEffectivelyLocked(item.trackId, timelineStore.tracks) : false;
+	});
 	const selectedIsText = $derived(
 		selectedItemId !== null && timelineStore.itemById.get(selectedItemId)?.type === 'text'
 	);
@@ -582,8 +1175,20 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			? transitionsStore.list.find((transition) => transition.id === selectedTransitionId)
 			: undefined
 	);
+	let editInspectorTab = $state<EditInspectorTab>('properties');
+	const editInspectorTabs = $derived(
+		resolveEditInspectorTabs({
+			hasSelection: selectedItemId !== null,
+			supportsMotion: selectedSupportsMotion,
+			supportsEffects: selectedSupportsEffects,
+			isMedia: selectedIsMedia
+		})
+	);
 
-	let showTranscript = $state(false);
+	$effect(() => {
+		if (editInspectorTabs.includes(editInspectorTab)) return;
+		editInspectorTab = editInspectorTabs[0] ?? 'properties';
+	});
 
 	function handleAddCrossfade(): void {
 		if (!selectedItemId) return;
@@ -604,6 +1209,68 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			editorSession.scheduleAutosave();
 		} catch (err) {
 			showToast(err instanceof Error ? err.message : String(err), 'error');
+		}
+	}
+
+	function handleApplyTransition(presentation: string, direction?: TransitionDirection): void {
+		if (selectedTransition) {
+			const transitionItems = [
+				timelineStore.itemById.get(selectedTransition.fromItemId),
+				timelineStore.itemById.get(selectedTransition.toItemId)
+			];
+			if (
+				transitionItems.some(
+					(item) => item && isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)
+				)
+			) {
+				showToast(m.video_editor_agent_error_locked_tracks(), 'error');
+				return;
+			}
+			if (updateTransitionPresentation(selectedTransition.id, presentation, direction)) {
+				editorSession.scheduleAutosave();
+			} else {
+				showToast(m.video_editor_agent_error_transition_failed(), 'error');
+			}
+			return;
+		}
+		if (selectedItemIds.length > 1 || !selectedItemId) {
+			showToast(m.video_editor_select_clip(), 'info');
+			return;
+		}
+		const target = resolveTransitionTargetFromSelection({
+			selectedItemId,
+			items: timelineStore.items,
+			tracks: effectiveMediaTracks(timelineStore.tracks),
+			transitions: transitionsStore.list,
+			fps: timelineStore.fps,
+			presentation
+		});
+		if (!target) {
+			showToast(m.video_editor_no_neighbor(), 'info');
+			return;
+		}
+		try {
+			let id = target.existingTransitionId;
+			if (id) {
+				if (!updateTransitionPresentation(id, presentation, direction)) {
+					showToast(m.video_editor_agent_error_transition_failed(), 'error');
+					return;
+				}
+			} else {
+				id = addTransition(
+					target.fromItemId,
+					target.toItemId,
+					'crossfade',
+					target.suggestedDurationInFrames,
+					{ presentation, direction }
+				);
+			}
+			selectedTransitionId = id ?? null;
+			selectedItemId = null;
+			selectedItemIds = [];
+			editorSession.scheduleAutosave();
+		} catch (error) {
+			showToast(error instanceof Error ? error.message : String(error), 'error');
 		}
 	}
 
@@ -668,16 +1335,27 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 	}
 
 	let scanningScenes = $state(false);
-	async function handleAutoSplitScenes(): Promise<void> {
-		if (!selectedItemId || scanningScenes) return;
-		const item = timelineStore.itemById.get(selectedItemId);
+	let sceneScanController: AbortController | null = null;
+	async function handleAutoSplitScenes(
+		itemId: string | null = selectedItemId,
+		mode: SceneScanMode = 'fast'
+	): Promise<void> {
+		if (!itemId) return;
+		const item = timelineStore.itemById.get(itemId);
 		const media = item?.mediaId ? mediaPool.get(item.mediaId) : undefined;
-		if (!item || !media) return;
+		if (!item || !media || isTrackEffectivelyLocked(item.trackId, timelineStore.tracks)) return;
+		sceneScanController?.abort();
+		const controller = new AbortController();
+		sceneScanController = controller;
 		scanningScenes = true;
 		try {
 			editorSession.pausePlayback();
 			const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : media.fps;
-			const cutFrames = await scanSceneCuts(media, { sourceFps });
+			const cutFrames = await scanSceneCuts(media, {
+				sourceFps,
+				mode,
+				signal: controller.signal
+			});
 			const frames = cutFramesForItem({
 				cutSourceFrames: cutFrames,
 				sourceFps,
@@ -694,31 +1372,121 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			editorSession.scheduleAutosave();
 			showToast(m.video_editor_scene_done({ count: frames.length }), 'success');
 		} catch (err) {
+			if (controller.signal.aborted) return;
 			showToast(err instanceof Error ? err.message : String(err), 'error');
 		} finally {
-			scanningScenes = false;
+			if (sceneScanController === controller) {
+				sceneScanController = null;
+				scanningScenes = false;
+			}
 		}
 	}
 
+	$effect(() => () => sceneScanController?.abort());
+
 	function togglePlay(): void {
-		if (editorSession.clock.isPlaying) editorSession.pausePlayback();
-		else
+		if (editorSession.clock.isPlaying) {
+			editorSession.pausePlayback();
+		} else {
 			editorSession.startPlayback({
 				start: 0,
 				end: Math.max(timelineStore.maxItemEndFrame, 1),
 				loop: false
 			});
+		}
+	}
+
+	function copyTimelineSelection(cut: boolean): boolean {
+		if (handleTranscriptClipboardCopy(cut)) return true;
+		const selectedIds =
+			selectedItemIds.length > 0 ? selectedItemIds : selectedItemId ? [selectedItemId] : [];
+		const itemIds = timelineStore.linkedSelectionEnabled
+			? expandSelectionWithLinkedItems(timelineStore.items, selectedIds)
+			: selectedIds;
+		const items = timelineStore.items.filter((item) => itemIds.includes(item.id));
+		if (items.length === 0) return false;
+		let copiedItems = items.map((item) => snapshotTimelineState(item));
+		if (cut) {
+			const removed = removeItems(itemIds, false);
+			if (removed.length === 0) return false;
+			const removedIds = new Set(removed);
+			copiedItems = items.filter((item) => removedIds.has(item.id));
+			selectedItemId = null;
+			selectedItemIds = [];
+			editorSession.scheduleAutosave();
+		}
+		itemClipboardStore.copy(copiedItems, cut ? 'cut' : 'copy');
+		showToast(
+			cut
+				? m.video_editor_clipboard_cut_items({ count: copiedItems.length })
+				: m.video_editor_clipboard_copied_items({ count: copiedItems.length }),
+			'success'
+		);
+		return true;
+	}
+
+	function pasteTimelineClipboard(
+		frame = timelineStore.currentFrame,
+		preferredTrackId?: string | null
+	): boolean {
+		setCurrentFrame(frame);
+		const activeTrackId =
+			preferredTrackId ??
+			(selectedItemId ? (timelineStore.itemById.get(selectedItemId)?.trackId ?? null) : null);
+		const pastedIds = pasteTimelineItemClipboard(activeTrackId);
+		if (pastedIds.length === 0) return false;
+		selectedItemIds = pastedIds;
+		selectedItemId = pastedIds.at(-1) ?? null;
+		selectedTransitionId = null;
+		editorSession.scheduleAutosave();
+		showToast(m.video_editor_clipboard_pasted_items({ count: pastedIds.length }), 'success');
+		return true;
 	}
 
 	function onKeydown(event: KeyboardEvent): void {
-		if (editorShortcutTargetIsDisabled(event.target)) return;
+		if (event.repeat || event.defaultPrevented) return;
 		const bindings = keyboardShortcuts.bindings;
 		const matches = (...ids: EditorShortcutId[]) =>
 			ids.some((id) => eventMatchesShortcut(event, bindings[id]));
-		if (matches('PLAY_PAUSE')) {
-			event.preventDefault();
-			togglePlay();
-		} else if (matches('SAVE')) {
+		if (editorShortcutTargetIsDisabled(event.target)) return;
+		const sourceLocalPlayback = matches(
+			'PLAY_PAUSE',
+			'PREVIOUS_FRAME',
+			'NEXT_FRAME',
+			'GO_TO_START',
+			'GO_TO_END',
+			'SHUTTLE_FORWARD',
+			'SHUTTLE_REVERSE',
+			'SHUTTLE_PAUSE'
+		);
+		if (sourceLocalPlayback && sourceHoverStore.isActive) return;
+		if (matches('SHUTTLE_PAUSE', 'SHUTTLE_FORWARD', 'SHUTTLE_REVERSE')) {
+			if (matches('SHUTTLE_PAUSE')) {
+				if (!editorSession.clock.isPlaying) return;
+				event.preventDefault();
+				event.stopPropagation();
+				shuttleScrubResume.cancel();
+				editorSession.pausePlayback();
+				return;
+			}
+			if (matches('SHUTTLE_FORWARD')) {
+				event.preventDefault();
+				editorSession.shuttlePlayback(1, {
+					start: 0,
+					end: Math.max(timelineStore.maxItemEndFrame, 1)
+				});
+				return;
+			}
+			if (matches('SHUTTLE_REVERSE')) {
+				event.preventDefault();
+				editorSession.shuttlePlayback(-1, {
+					start: 0,
+					end: Math.max(timelineStore.maxItemEndFrame, 1)
+				});
+				return;
+			}
+		}
+		if (matches('SAVE')) {
 			event.preventDefault();
 			void editorSession.saveNow().catch(() => showToast(m.video_editor_save_failed(), 'error'));
 		} else if (matches('EXPORT')) {
@@ -732,6 +1500,16 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			changeEditorWorkspace(
 				matches('WORKSPACE_EDIT') ? 'edit' : matches('WORKSPACE_COLOR') ? 'color' : 'motion'
 			);
+		} else if (matches('COPY', 'CUT')) {
+			if (copyTimelineSelection(matches('CUT'))) {
+				event.preventDefault();
+				event.stopImmediatePropagation();
+			}
+		} else if (matches('PASTE')) {
+			if (pasteTimelineClipboard()) {
+				event.preventDefault();
+				event.stopImmediatePropagation();
+			}
 		} else if (matches('UNDO')) {
 			event.preventDefault();
 			if (commandHistory.canUndo) {
@@ -762,23 +1540,28 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			const enabled = !timelineStore.snapEnabled;
 			timelineStore._setSnapEnabled(enabled);
 			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
+		} else if (matches('TOGGLE_CANVAS_SNAP')) {
+			event.preventDefault();
+			const enabled = !editorSettings.canvasSnapEnabled;
+			editorSettings.set('canvasSnapEnabled', enabled);
+			emitEditorSound(enabled ? 'toggleOn' : 'toggleOff', editorSession.clock.isPlaying);
 		} else if (
 			matches('DELETE_SELECTED', 'DELETE_SELECTED_ALT', 'RIPPLE_DELETE', 'RIPPLE_DELETE_ALT')
 		) {
-			const ripple = matches('RIPPLE_DELETE', 'RIPPLE_DELETE_ALT');
-			if (ripple && selectedItemId) {
+			const deleteMode = editorDeleteModeForEvent(event, bindings);
+			if (deleteMode === 'ripple' && selectedItemId) {
 				event.preventDefault();
 				handleDelete(true);
-			} else if (!ripple && selectedTransitionId) {
+			} else if (deleteMode === 'lift' && selectedTransitionId) {
 				event.preventDefault();
 				removeTransition(selectedTransitionId);
 				selectedTransitionId = null;
 				editorSession.scheduleAutosave();
-			} else if (!ripple && timelineStore.selectedMarkerId) {
+			} else if (deleteMode === 'lift' && timelineStore.selectedMarkerId) {
 				event.preventDefault();
 				removeMarker(timelineStore.selectedMarkerId);
 				editorSession.scheduleAutosave();
-			} else if (!ripple && selectedItemId) {
+			} else if (deleteMode === 'lift' && selectedItemId) {
 				event.preventDefault();
 				handleDelete(false);
 			}
@@ -809,24 +1592,44 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			}
 		}
 	}
+
+	function onGlobalShortcutCapture(event: KeyboardEvent): void {
+		if (
+			!sourceHoverStore.isActive &&
+			handleGlobalPlayPauseShortcut(event, keyboardShortcuts.bindings.PLAY_PAUSE, togglePlay)
+		) {
+			return;
+		}
+		handleOpenSceneBrowserShortcut(event, keyboardShortcuts.bindings.OPEN_SCENE_BROWSER, () => {
+			leftPanel = 'media';
+			mediaPanelView = 'scenes';
+			requestAnimationFrame(() =>
+				document.querySelector<HTMLInputElement>('[data-scene-browser-search]')?.focus()
+			);
+		});
+	}
 </script>
 
 <svelte:head>
 	<title>{editorSession.project?.name ?? m.video_editor_title()}</title>
 </svelte:head>
 
-<svelte:window onkeydown={onKeydown} />
+<svelte:window
+	onkeydowncapture={onGlobalShortcutCapture}
+	onkeydown={onKeydown}
+	onresize={constrainEditorPanels}
+/>
 
 <div
 	class="video-editor-theme flex h-dvh flex-col bg-[oklch(0.145_0.008_55)] text-[oklch(0.92_0.005_85)]"
 >
 	<header
-		class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-[oklch(0.25_0.015_55)] px-2 py-2 sm:px-3"
+		class="grid h-12 shrink-0 grid-cols-[auto_1fr_auto] items-center border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_55)] px-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:px-3"
 	>
 		<div class="flex min-w-0 items-center gap-2">
 			<a
 				href="/video-editor"
-				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+				class="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)] [@media(pointer:coarse)]:min-h-11 [@media(pointer:coarse)]:min-w-11"
 			>
 				<Logo class="h-5 w-auto" />
 				<span class="hidden text-sm font-semibold lg:inline">{m.video_editor_title()}</span>
@@ -836,7 +1639,7 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			</span>
 		</div>
 		<EditorWorkspaceSwitcher value={activeWorkspace} onchange={changeEditorWorkspace} />
-		<div class="flex min-w-24 items-center justify-end gap-2 text-xs text-[oklch(0.65_0.015_55)]">
+		<div class="flex min-w-0 items-center justify-end gap-1 text-xs text-[oklch(0.65_0.015_55)]">
 			{#if editorSession.saving}
 				<span class="hidden sm:inline">{m.video_editor_saving()}</span>
 			{:else if editorSession.saveError}
@@ -849,29 +1652,99 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 			<Button
 				type="button"
 				variant="outline"
-				size="sm"
+				size="icon-sm"
+				class="hidden 2xl:inline-flex 2xl:w-auto 2xl:px-2.5"
 				aria-label={m.video_editor_record_screen()}
+				title={m.video_editor_record_screen()}
 				onclick={() => (recordingOpen = true)}
 			>
-				{m.video_editor_record()}
+				<VideoIcon class="size-3.5" aria-hidden="true" />
+				<span class="hidden lg:inline">{m.video_editor_record()}</span>
 			</Button>
-			<PreviewDiagnosticsPanel />
+			<div class="hidden 2xl:block"><PreviewDiagnosticsPanel /></div>
 			<Button
 				type="button"
 				variant="ghost"
 				size="icon-xs"
+				class="hidden 2xl:inline-flex"
 				aria-label={m.video_editor_settings_title()}
 				title={m.video_editor_settings_title()}
 				onclick={() => (settingsOpen = true)}
 			>
 				<SettingsIcon class="size-3.5" aria-hidden="true" />
 			</Button>
+			{#if renderProject}
+				{#key renderProject.id}
+					<RenderQueueController
+						projectId={renderProject.id}
+						onerror={(error) => showToast(error.message, 'error')}
+					/>
+				{/key}
+			{/if}
+			<ExportDialog
+				project={renderProject}
+				disabled={timelineStore.items.length === 0}
+				triggerLabel={m.video_editor_export_title()}
+				responsiveTrigger
+				compactQueueTrigger
+				triggerVariant="default"
+				triggerClass="size-11 px-0 sm:h-8 sm:w-auto sm:min-w-0 sm:px-2.5 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
+				ondone={(result) =>
+					showToast(m.video_editor_export_done({ name: result.fileName }), 'success')}
+				onerror={(error) => showToast(error.message, 'error')}
+			/>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							type="button"
+							variant="ghost"
+							size="icon-xs"
+							aria-label={m.image_editor_more_actions()}
+						>
+							<MoreHorizontalIcon aria-hidden="true" />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content class="video-editor-theme w-52" align="end">
+					<DropdownMenu.Item class="2xl:hidden" onclick={() => (recordingOpen = true)}>
+						{m.video_editor_record_screen()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item class="2xl:hidden" onclick={() => (settingsOpen = true)}>
+						{m.video_editor_settings_title()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Separator class="2xl:hidden" />
+					<DropdownMenu.Item
+						disabled={exporting || timelineStore.items.length === 0}
+						onclick={() => void handleExport()}
+					>
+						{m.video_editor_export()}
+					</DropdownMenu.Item>
+					<DropdownMenu.Item
+						disabled={sending || timelineStore.items.length === 0 || !workspaceCtx.currentWorkspace}
+						onclick={() => void handleSendToOpenPost()}
+					>
+						{m.video_editor_send_to_openpost()}
+					</DropdownMenu.Item>
+					{#if sentExport}
+						<DropdownMenu.Separator />
+						<DropdownMenu.Item onclick={() => void goto(sentExport.composerHref)}>
+							{m.video_editor_open_composer()}
+						</DropdownMenu.Item>
+					{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		</div>
 	</header>
 
-	{#if editorSession.loading}
+	{#if gate.state !== 'ready'}
+		<main class="flex flex-1 flex-col items-center justify-center px-4 py-10">
+			<WorkspaceGatePanel {gate} />
+		</main>
+	{:else if editorSession.loading}
 		<main class="flex flex-1 items-center justify-center">
-			<LoaderIcon class="size-5 animate-spin" aria-hidden="true" />
+			<LoaderIcon class="size-5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 			<span class="sr-only">{m.editors_loading()}</span>
 		</main>
 	{:else if editorSession.loadError}
@@ -883,10 +1756,6 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 		</main>
 	{:else}
 		{#key projectId}
-			<SequenceTabs
-				onswitch={resetTimelineSelection}
-				onedit={() => editorSession.scheduleAutosave()}
-			/>
 			{#if activeWorkspace === 'edit'}
 				<nav
 					class="grid shrink-0 grid-cols-3 border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.16_0.008_50)] p-1 lg:hidden"
@@ -895,7 +1764,8 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 					<button
 						type="button"
 						class:active={mobileEditPane === 'assets'}
-						class="rounded px-2 py-1.5 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						class="min-h-11 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						aria-controls="video-editor-assets-panel"
 						aria-pressed={mobileEditPane === 'assets'}
 						onclick={() => (mobileEditPane = 'assets')}
 					>
@@ -904,7 +1774,8 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 					<button
 						type="button"
 						class:active={mobileEditPane === 'program'}
-						class="rounded px-2 py-1.5 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						class="min-h-11 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						aria-controls="video-editor-program-panel"
 						aria-pressed={mobileEditPane === 'program'}
 						onclick={() => (mobileEditPane = 'program')}
 					>
@@ -913,7 +1784,8 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 					<button
 						type="button"
 						class:active={mobileEditPane === 'tools'}
-						class="rounded px-2 py-1.5 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						class="min-h-11 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+						aria-controls="video-editor-tools-panel"
 						aria-pressed={mobileEditPane === 'tools'}
 						onclick={() => (mobileEditPane = 'tools')}
 					>
@@ -921,256 +1793,525 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 					</button>
 				</nav>
 			{/if}
-			<div class="flex min-h-0 flex-1 flex-col">
+
+			<div
+				class="flex min-h-0 flex-1 flex-col {activeWorkspace === 'edit'
+					? 'lg:grid lg:grid-cols-[var(--asset-browser-width)_minmax(0,1fr)_var(--inspector-panel-width)] lg:grid-rows-[minmax(0,1fr)_var(--timeline-height)]'
+					: ''}"
+				style:--asset-browser-width={`${effectiveAssetBrowserWidth}px`}
+				style:--inspector-panel-width={`${effectiveInspectorPanelWidth}px`}
+				style:--timeline-height={`${effectiveTimelineHeight}px`}
+			>
 				<div
 					class="flex min-h-0 flex-1 {activeWorkspace === 'motion' || activeWorkspace === 'edit'
-						? 'flex-col lg:flex-row'
+						? activeWorkspace === 'edit'
+							? 'flex-col lg:contents'
+							: 'flex-col lg:flex-row'
 						: 'flex-row'}"
 				>
 					{#if activeWorkspace === 'edit'}
 						<aside
-							class="min-h-0 w-full flex-1 flex-col border-b border-[oklch(0.25_0.015_55)] lg:flex lg:w-72 lg:flex-none lg:border-r lg:border-b-0 {mobileEditPane ===
+							id="video-editor-assets-panel"
+							class="relative h-[min(44%,22rem)] min-h-24 w-full flex-none flex-col border-b border-[oklch(0.25_0.015_55)] bg-[oklch(0.15_0.008_55)] lg:col-start-1 lg:row-span-2 lg:row-start-1 lg:flex lg:h-auto lg:min-h-0 lg:w-auto lg:border-r lg:border-b-0 {mobileEditPane ===
 							'assets'
 								? 'flex'
 								: 'hidden'}"
-							aria-label={m.video_editor_media_pool()}
+							aria-label={m.video_editor_assets()}
 						>
-							<div class="flex items-center gap-1 p-2">
-								<div
-									class="grid min-w-0 flex-1 grid-cols-4 rounded-md bg-[oklch(0.18_0.01_55)] p-0.5"
+							<div class="flex min-h-0 flex-1">
+								<nav
+									class="hidden w-11 shrink-0 flex-col border-r border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_50)] lg:flex"
+									aria-label={m.video_editor_assets()}
 								>
-									<button
-										type="button"
-										class:active={assetPanel === 'assets'}
-										class="rounded px-1 py-1 text-[11px] text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
-										onclick={() => (assetPanel = 'assets')}
+									<div
+										class="flex min-h-0 flex-1 flex-col"
+										aria-label={m.video_editor_assets()}
+										aria-orientation="vertical"
+										role="tablist"
 									>
-										{m.video_editor_assets()}
-									</button>
-									<button
-										type="button"
-										class:active={assetPanel === 'media'}
-										class="rounded px-2 py-1 text-[11px] text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
-										onclick={() => (assetPanel = 'media')}
+										<div
+											class="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-2"
+										>
+											{#each primaryLeftPanelOptions as option (option.value)}
+												{@const Icon = option.icon}
+												<Tooltip.Root>
+													<Tooltip.Trigger>
+														{#snippet child({ props })}
+															<Button
+																{...props}
+																variant={leftPanel === option.value ? 'secondary' : 'ghost'}
+																size="icon-sm"
+																class="shrink-0 text-[oklch(0.72_0.015_55)] data-[active=true]:text-white"
+																data-active={leftPanel === option.value}
+																data-left-panel-tab={option.value}
+																data-tab-orientation="vertical"
+																role="tab"
+																tabindex={leftPanel === option.value ? 0 : -1}
+																aria-controls="video-editor-left-tool-panel"
+																aria-label={option.label}
+																aria-selected={leftPanel === option.value}
+																onclick={() => (leftPanel = option.value)}
+																onkeydown={(event) =>
+																	moveLeftPanelFocus(event, option.value, 'vertical')}
+															>
+																<Icon aria-hidden="true" />
+															</Button>
+														{/snippet}
+													</Tooltip.Trigger>
+													<Tooltip.Content side="right">{option.label}</Tooltip.Content>
+												</Tooltip.Root>
+											{/each}
+										</div>
+										<div
+											class="flex shrink-0 flex-col items-center gap-1 border-t border-[oklch(0.25_0.015_55)] py-2"
+										>
+											{#each utilityLeftPanelOptions as option (option.value)}
+												{@const Icon = option.icon}
+												<Tooltip.Root>
+													<Tooltip.Trigger>
+														{#snippet child({ props })}
+															<Button
+																{...props}
+																variant={leftPanel === option.value ? 'secondary' : 'ghost'}
+																size="icon-sm"
+																class="text-[oklch(0.72_0.015_55)] data-[active=true]:text-white"
+																data-active={leftPanel === option.value}
+																data-left-panel-tab={option.value}
+																data-tab-orientation="vertical"
+																role="tab"
+																tabindex={leftPanel === option.value ? 0 : -1}
+																aria-controls="video-editor-left-tool-panel"
+																aria-label={option.label}
+																aria-selected={leftPanel === option.value}
+																onclick={() => (leftPanel = option.value)}
+																onkeydown={(event) =>
+																	moveLeftPanelFocus(event, option.value, 'vertical')}
+															>
+																<Icon aria-hidden="true" />
+															</Button>
+														{/snippet}
+													</Tooltip.Trigger>
+													<Tooltip.Content side="right">{option.label}</Tooltip.Content>
+												</Tooltip.Root>
+											{/each}
+										</div>
+									</div>
+									<div
+										class="flex shrink-0 flex-col items-center border-t border-[oklch(0.25_0.015_55)] py-2"
 									>
-										{m.video_editor_media_tab()}
-									</button>
-									<button
-										type="button"
-										class:active={assetPanel === 'scenes'}
-										class="rounded px-2 py-1 text-[11px] text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
-										onclick={() => (assetPanel = 'scenes')}
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												{#snippet child({ props })}
+													<Button
+														{...props}
+														size="icon-sm"
+														variant="ghost"
+														aria-label={m.image_editor_add_layer()}
+														title={m.image_editor_add_layer()}
+													>
+														<PlusIcon aria-hidden="true" />
+													</Button>
+												{/snippet}
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content
+												class="video-editor-theme w-52"
+												side="right"
+												align="end"
+											>
+												<DropdownMenu.Item onclick={handleAddText}>
+													{m.video_editor_add_text()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
+													{m.video_editor_add_adjustment_layer()}
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
+									</div>
+								</nav>
+								<div class="flex min-w-0 flex-1 flex-col">
+									<div
+										class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[oklch(0.25_0.015_55)] px-2"
 									>
-										{m.video_editor_scenes()}
-									</button>
-									<button
-										type="button"
-										class:active={assetPanel === 'ai'}
-										class="rounded px-2 py-1 text-[11px] text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
-										onclick={() => (assetPanel = 'ai')}
+										<h2 class="min-w-0 truncate text-sm font-medium text-white/90">
+											{leftPanelHeading}
+										</h2>
+										<div class="lg:hidden">
+											<DropdownMenu.Root>
+												<DropdownMenu.Trigger>
+													{#snippet child({ props })}
+														<Button
+															{...props}
+															size="icon-sm"
+															variant="ghost"
+															aria-label={m.image_editor_add_layer()}
+														>
+															<PlusIcon aria-hidden="true" />
+														</Button>
+													{/snippet}
+												</DropdownMenu.Trigger>
+												<DropdownMenu.Content class="video-editor-theme w-52" align="end">
+													<DropdownMenu.Item onclick={handleAddText}>
+														{m.video_editor_add_text()}
+													</DropdownMenu.Item>
+													<DropdownMenu.Item onclick={handleAddAdjustmentLayer}>
+														{m.video_editor_add_adjustment_layer()}
+													</DropdownMenu.Item>
+												</DropdownMenu.Content>
+											</DropdownMenu.Root>
+										</div>
+									</div>
+									<div
+										class="flex shrink-0 gap-1 overflow-x-auto border-b border-[oklch(0.25_0.015_55)] p-1 lg:hidden"
+										aria-label={m.video_editor_assets()}
+										aria-orientation="horizontal"
+										role="tablist"
 									>
-										{m.video_editor_local_ai()}
-									</button>
+										{#each leftPanelOptions as option (option.value)}
+											{@const Icon = option.icon}
+											<button
+												type="button"
+												class:active={leftPanel === option.value}
+												class="flex min-h-11 shrink-0 items-center gap-1.5 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+												data-left-panel-tab={option.value}
+												data-tab-orientation="horizontal"
+												role="tab"
+												tabindex={leftPanel === option.value ? 0 : -1}
+												aria-controls="video-editor-left-tool-panel"
+												aria-selected={leftPanel === option.value}
+												onclick={() => (leftPanel = option.value)}
+												onkeydown={(event) => moveLeftPanelFocus(event, option.value, 'horizontal')}
+											>
+												<Icon class="size-3.5" aria-hidden="true" />
+												{option.label}
+											</button>
+										{/each}
+									</div>
+									{#if leftPanel === 'media'}
+										<div class="grid grid-cols-2 gap-1 border-b border-[oklch(0.25_0.015_55)] p-1">
+											<button
+												type="button"
+												class:active={mediaPanelView === 'project'}
+												class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+												aria-pressed={mediaPanelView === 'project'}
+												onclick={() => (mediaPanelView = 'project')}
+											>
+												<ImagesIcon class="size-3.5" aria-hidden="true" />
+												{m.video_editor_media_tab()}
+											</button>
+											<button
+												type="button"
+												class:active={mediaPanelView === 'scenes'}
+												class="flex min-h-8 items-center justify-center gap-1.5 rounded px-2 text-xs text-[oklch(0.64_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] [&.active]:bg-[oklch(0.27_0.02_45)] [&.active]:text-white"
+												aria-pressed={mediaPanelView === 'scenes'}
+												onclick={() => (mediaPanelView = 'scenes')}
+											>
+												<ClapperboardIcon class="size-3.5" aria-hidden="true" />
+												{m.video_editor_scenes()}
+											</button>
+										</div>
+									{/if}
+									<div
+										id="video-editor-left-tool-panel"
+										class="flex min-h-24 flex-1 flex-col lg:min-h-0"
+										role="tabpanel"
+										aria-label={leftPanelHeading}
+									>
+										{#if leftPanel === 'media' && mediaPanelView === 'project'}
+											<MediaPoolList
+												{projectId}
+												onUnsupportedAudio={requestUnsupportedAudioDecision}
+												onsequenceopen={resetTimelineSelection}
+												onsourceopen={(mediaId) => (sourceMediaId = mediaId)}
+												onextractsubtitles={openEmbeddedSubtitlePicker}
+												onimport={handleImport}
+											/>
+										{:else if leftPanel === 'media'}
+											<SceneBrowserPanel />
+										{:else if leftPanel === 'stock'}
+											<StockBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
+										{:else if leftPanel === 'text'}
+											<TextTemplateBrowser oninserted={handleVectorAssetInserted} />
+										{:else if leftPanel === 'shapes'}
+											<ShapePanel oninserted={handleVectorAssetInserted} />
+										{:else if leftPanel === 'backgrounds'}
+											<BackgroundPanel oninserted={handleVectorAssetInserted} />
+										{:else if leftPanel === 'stickers'}
+											<StickerBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
+										{:else if leftPanel === 'effects'}
+											<EffectBrowserPanel
+												selectedItemIds={selectedLeftPanelItemIds}
+												oninserted={handleVectorAssetInserted}
+												onedit={() => editorSession.scheduleAutosave()}
+											/>
+										{:else if leftPanel === 'transitions'}
+											<TransitionBrowserPanel onapply={handleApplyTransition} />
+										{:else if leftPanel === 'lottie'}
+											<LottieBrowserPanel {projectId} oninserted={handleVectorAssetInserted} />
+										{:else if leftPanel === 'transcript'}
+											<TranscriptPanel
+												itemIds={selectedLeftPanelItemIds}
+												showHeading={false}
+												onedit={() => editorSession.scheduleAutosave()}
+											/>
+										{:else}
+											<EditorAssistantPanel
+												{projectId}
+												oninserted={handleGeneratedAudioInserted}
+												onselectitems={(ids) => {
+													selectedItemIds = ids;
+													selectedItemId = ids[0] ?? null;
+													selectedTransitionId = null;
+												}}
+												onopensilence={(ids) => openAgentSpeechCleanup('silence', ids)}
+												onopenfillers={(ids) => openAgentSpeechCleanup('fillers', ids)}
+												selectedIds={selectedLeftPanelItemIds}
+												onautosave={() => editorSession.scheduleAutosave()}
+												{textVoiceRequest}
+											/>
+										{/if}
+									</div>
+									<MediaTaskProgress />
 								</div>
-								{#if assetPanel === 'media'}
-									<Button
-										size="icon-xs"
-										variant="ghost"
-										aria-label={m.video_editor_import_media()}
-										onclick={handleImport}
-									>
-										<PlusIcon />
-									</Button>
-								{/if}
 							</div>
-							{#if assetPanel === 'media'}
-								<MediaPoolList
-									{projectId}
-									onUnsupportedAudio={requestUnsupportedAudioDecision}
-									onsequenceopen={resetTimelineSelection}
-									onsourceopen={(mediaId) => (sourceMediaId = mediaId)}
-								/>
-							{:else if assetPanel === 'scenes'}
-								<SceneBrowserPanel />
-							{:else if assetPanel === 'assets'}
-								<AssetLibraryPanel {projectId} oninserted={handleVectorAssetInserted} />
-							{:else}
-								<EditorAssistantPanel
-									{projectId}
-									oninserted={handleGeneratedAudioInserted}
-									onselectitems={(ids) => {
-										selectedItemIds = ids;
-										selectedItemId = ids[0] ?? null;
-										selectedTransitionId = null;
-									}}
-									onopensilence={(ids) => openAgentSpeechCleanup('silence', ids)}
-									onopenfillers={(ids) => openAgentSpeechCleanup('fillers', ids)}
-									selectedIds={selectedItemIds.length > 0
-										? selectedItemIds
-										: selectedItemId
-											? [selectedItemId]
-											: []}
-									onautosave={() => editorSession.scheduleAutosave()}
-								/>
-							{/if}
-							<MediaTaskProgress />
+							<PanelResizeHandle
+								edge="right"
+								value={effectiveAssetBrowserWidth}
+								minimum={300}
+								maximum={assetBrowserMaximum}
+								defaultValue={336}
+								label={m.video_editor_assets()}
+								onresize={(value) => (assetBrowserWidth = value)}
+								oncommit={(value) => persistPanelSize('assetBrowserWidth', value)}
+							/>
 						</aside>
 					{/if}
 
 					<div
-						class="min-h-0 w-full min-w-0 flex-1 bg-[oklch(0.12_0.008_55)] lg:flex {activeWorkspace !==
-							'edit' || mobileEditPane === 'program'
-							? 'flex'
-							: 'hidden'}"
+						class="flex min-h-0 w-full min-w-0 flex-1 bg-[oklch(0.205_0.008_55)] {activeWorkspace ===
+						'edit'
+							? 'lg:col-start-2 lg:row-start-1'
+							: ''}"
 					>
 						<div
-							class:grid={showSourceMonitor}
-							class:flex={!showSourceMonitor}
-							class="min-h-0 min-w-0 flex-1 bg-[oklch(0.12_0.008_55)] {showSourceMonitor
-								? 'grid-cols-1 md:grid-cols-2'
-								: ''}"
+							class="min-h-0 min-w-0 flex-1 bg-[oklch(0.205_0.008_55)] {activeWorkspace === 'color'
+								? 'flex flex-col lg:flex-row'
+								: showSourceMonitor
+									? 'flex flex-col xl:flex-row'
+									: 'flex'}"
 						>
 							{#if showSourceMonitor && sourceMediaId}
-								{#key sourceMediaId}
-									<SourceMonitor
-										mediaId={sourceMediaId}
-										preferredTrackId={selectedItemId
-											? timelineStore.itemById.get(selectedItemId)?.trackId
-											: undefined}
-										onclose={() => (sourceMediaId = null)}
-										onedit={() => editorSession.scheduleAutosave()}
-										oninserted={handleSourceInserted}
+								<div
+									class="relative flex h-[min(44%,22rem)] min-h-0 w-full shrink-0 xl:h-auto xl:w-[var(--source-monitor-width)] xl:max-w-[calc(100%_-_300px)]"
+									style:--source-monitor-width={`${effectiveSourceMonitorWidth}px`}
+								>
+									{#key sourceMediaId}
+										<SourceMonitor
+											mediaId={sourceMediaId}
+											preferredTrackId={selectedItemId
+												? timelineStore.itemById.get(selectedItemId)?.trackId
+												: undefined}
+											onclose={() => (sourceMediaId = null)}
+											onedit={() => editorSession.scheduleAutosave()}
+											oninserted={handleSourceInserted}
+										/>
+									{/key}
+									<PanelResizeHandle
+										edge="right"
+										value={effectiveSourceMonitorWidth}
+										minimum={300}
+										maximum={sourceMonitorMaximum}
+										defaultValue={480}
+										label={m.video_editor_source_monitor()}
+										visibleFrom="xl"
+										onresize={(value) => (sourceMonitorWidth = value)}
+										oncommit={(value) => persistPanelSize('sourceMonitorWidth', value)}
 									/>
-								{/key}
+								</div>
 							{/if}
 							<section
+								id="video-editor-program-panel"
 								data-video-preview
-								class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] flex min-w-0 flex-1 flex-col bg-[oklch(0.12_0.008_55)]"
+								class="fullscreen:h-screen fullscreen:w-screen [container-type:inline-size] flex min-w-0 flex-1 flex-col bg-[oklch(0.205_0.008_55)]"
 							>
 								{#if showSourceMonitor}
 									<div
-										class="flex h-9 shrink-0 items-center border-b border-[oklch(0.23_0.012_55)] px-3 text-[10px] font-semibold tracking-widest text-[oklch(0.67_0.015_55)] uppercase"
+										class="flex h-9 shrink-0 items-center border-b border-[oklch(0.23_0.012_55)] px-3 text-xs font-medium text-[oklch(0.72_0.015_55)]"
 									>
 										{m.video_editor_program_monitor()}
 									</div>
 								{/if}
-								<PreviewPlayer
-									bind:selectedItemId
-									bind:selectedItemIds
-									onedit={() => editorSession.scheduleAutosave()}
-								/>
-								<TransportBar {projectId} onvoiceoverinserted={handleVoiceoverInserted} />
+								{#if activeWorkspace === 'motion' && !activeMotionComposition}
+									<MotionWorkspaceEmpty
+										width={editorSession.project?.metadata.width ?? 1920}
+										height={editorSession.project?.metadata.height ?? 1080}
+										fps={editorSession.project?.metadata.fps ?? 30}
+										defaultName={`${m.video_editor_motion_composition_title()} ${motionCompositionCount + 1}`}
+										oncreate={handleCreateEmptyMotionComposition}
+									/>
+								{:else}
+									<PreviewPlayer
+										bind:selectedItemId
+										bind:selectedItemIds
+										ondeselect={resetTimelineSelection}
+										onedit={() => editorSession.scheduleAutosave()}
+									/>
+									<TransportBar {projectId} onvoiceoverinserted={handleVoiceoverInserted} />
+								{/if}
 							</section>
+							{#if activeWorkspace === 'color'}
+								<aside
+									class="relative flex min-h-[180px] min-w-0 flex-col border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.007_55)] lg:min-h-0 lg:w-[var(--scopes-panel-width)] lg:shrink-0 lg:border-t-0 lg:border-l"
+									style:--scopes-panel-width={`${effectiveScopesPanelWidth}px`}
+									aria-label={m.video_editor_scopes()}
+								>
+									<PanelResizeHandle
+										edge="left"
+										value={effectiveScopesPanelWidth}
+										minimum={280}
+										maximum={scopesPanelMaximum}
+										defaultValue={360}
+										label={m.video_editor_scopes()}
+										onresize={(value) => (scopesPanelWidth = value)}
+										oncommit={(value) => persistPanelSize('scopesPanelWidth', value)}
+									/>
+									<div class="min-h-0 flex-1 overflow-hidden">
+										<ColorScopes
+											embedded
+											itemId={selectedSupportsEffects ? selectedItemId : null}
+										/>
+									</div>
+								</aside>
+							{/if}
 						</div>
 					</div>
 
 					<!-- Tools -->
 					{#if activeWorkspace === 'edit'}
 						<aside
-							class="min-h-0 w-full flex-1 flex-col gap-1 overflow-y-auto border-t border-[oklch(0.25_0.015_55)] p-2 lg:flex lg:w-64 lg:flex-none lg:border-t-0 lg:border-l {mobileEditPane ===
+							id="video-editor-tools-panel"
+							class="relative h-[min(44%,22rem)] min-h-0 w-full flex-none flex-col border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.15_0.008_55)] lg:col-start-3 lg:row-start-1 lg:flex lg:h-auto lg:w-auto lg:border-t-0 lg:border-l {mobileEditPane ===
 							'tools'
 								? 'flex'
 								: 'hidden'}"
+							aria-label={m.video_editor_tools()}
 						>
-							<h2
-								class="px-1 text-xs font-medium tracking-wide text-[oklch(0.65_0.015_55)] uppercase"
+							<PanelResizeHandle
+								edge="left"
+								value={effectiveInspectorPanelWidth}
+								minimum={280}
+								maximum={inspectorPanelMaximum}
+								defaultValue={320}
+								label={m.video_editor_tools()}
+								onresize={(value) => (inspectorPanelWidth = value)}
+								oncommit={(value) => persistPanelSize('inspectorPanelWidth', value)}
+							/>
+							<div
+								class="flex h-10 shrink-0 items-center justify-between gap-2 border-b border-[oklch(0.25_0.015_55)] px-3"
 							>
-								{m.video_editor_tools()}
-							</h2>
-							<Button
-								size="sm"
-								variant="outline"
-								disabled={!selectedItemId}
-								data-cuelume-toggle={undefined}
-								onclick={handleSplit}
-							>
-								{m.video_editor_split()}
-							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								disabled={!selectedItemId}
-								title={m.video_editor_delete_leave_gap_hint()}
-								data-cuelume-toggle={undefined}
-								onclick={() => handleDelete(false)}
-							>
-								{m.video_editor_delete_leave_gap()}
-							</Button>
-							<Button
-								size="sm"
-								variant="outline"
-								disabled={!selectedItemId}
-								title={m.video_editor_ripple_delete_hint()}
-								data-cuelume-toggle={undefined}
-								onclick={() => handleDelete(true)}
-							>
-								{m.video_editor_ripple_delete()}
-							</Button>
-							{#if selectedIsCompound}
-								<Button size="sm" variant="outline" onclick={handleDissolveCompound}>
-									{m.video_editor_dissolve_compound()}
-								</Button>
-							{:else}
-								<Button
-									size="sm"
-									variant="outline"
-									disabled={selectedItemIds.length === 0 && !selectedItemId}
-									onclick={handleCreateCompound}
-								>
-									{m.video_editor_create_compound()}
-								</Button>
+								<h2 class="min-w-0 truncate text-sm font-medium text-white/90">
+									{editInspectorHeading}
+								</h2>
+								{#if selectedItemId || selectedTransition}
+									<DropdownMenu.Root>
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button
+													{...props}
+													size="icon-xs"
+													variant="ghost"
+													aria-label={m.image_editor_more_actions()}
+												>
+													<MoreHorizontalIcon aria-hidden="true" />
+												</Button>
+											{/snippet}
+										</DropdownMenu.Trigger>
+										<DropdownMenu.Content class="video-editor-theme w-56" align="end">
+											{#if selectedTransition}
+												<DropdownMenu.Item onclick={handleRemoveTransition}>
+													{m.video_editor_break_transition()}
+												</DropdownMenu.Item>
+											{:else}
+												<DropdownMenu.Item onclick={handleSplit}>
+													{m.video_editor_split()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item onclick={handleAddCrossfade}>
+													{m.video_editor_crossfade()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item
+													onclick={selectedIsCompound
+														? handleDissolveCompound
+														: handleCreateCompound}
+												>
+													{selectedIsCompound
+														? m.video_editor_dissolve_compound()
+														: m.video_editor_create_compound()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Separator />
+												<DropdownMenu.Item onclick={() => handleDelete(false)}>
+													{m.video_editor_delete_leave_gap()}
+												</DropdownMenu.Item>
+												<DropdownMenu.Item variant="destructive" onclick={() => handleDelete(true)}>
+													{m.video_editor_ripple_delete()}
+												</DropdownMenu.Item>
+											{/if}
+										</DropdownMenu.Content>
+									</DropdownMenu.Root>
+								{/if}
+							</div>
+							{#if editInspectorTabs.length > 0}
+								<EditInspectorTabs tabs={editInspectorTabs} bind:value={editInspectorTab} />
 							{/if}
-							{#if selectedTransition}
-								<Button size="sm" variant="outline" onclick={handleRemoveTransition}>
-									{m.video_editor_break_transition()}
-								</Button>
-							{:else}
-								<Button
-									size="sm"
-									variant="outline"
-									disabled={!selectedItemId}
-									onclick={handleAddCrossfade}
-								>
-									{m.video_editor_crossfade()}
-								</Button>
-							{/if}
-							<Button size="sm" variant="outline" onclick={handleAddText}>
-								{m.video_editor_add_text()}
-							</Button>
-							<Button size="sm" variant="outline" onclick={handleAddAdjustmentLayer}>
-								{m.video_editor_add_adjustment_layer()}
-							</Button>
-							{#if selectedTransition}
-								<div class="mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
+
+							<div class="min-h-0 flex-1 overflow-y-auto p-2">
+								{#if selectedTransition}
 									<TransitionPropertiesPanel
 										transitionId={selectedTransition.id}
 										onedit={() => editorSession.scheduleAutosave()}
 										onremove={() => (selectedTransitionId = null)}
 									/>
-								</div>
-							{:else if selectedItemId}
-								<div class="mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
+								{:else if selectedItemId && editInspectorTab === 'properties'}
 									<ClipPropertiesPanel
 										itemId={selectedItemId}
+										itemIds={selectedItemIds}
 										onedit={() => editorSession.scheduleAutosave()}
+										oncreatevoice={openTextVoice}
 									/>
-								</div>
-							{/if}
-							{#if selectedIsVideo}
-								<Button
-									size="sm"
-									variant="outline"
-									disabled={scanningScenes}
-									onclick={handleAutoSplitScenes}
-								>
-									{#if scanningScenes}
-										<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
+									{#if selectedIsVideo}
+										<div class="mt-3">
+											<div class="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+												{#if scanningScenes}
+													<LoaderIcon
+														class="size-3.5 animate-spin motion-reduce:animate-none"
+														aria-hidden="true"
+													/>
+												{/if}
+												{m.video_editor_scene_split()}
+											</div>
+											<div class="grid grid-cols-2 gap-1.5">
+												<Button
+													size="sm"
+													variant="outline"
+													class="min-h-11 lg:min-h-8"
+													disabled={scanningScenes || selectedTrackLocked}
+													title={m.video_editor_scene_split_fast_help()}
+													onclick={() => void handleAutoSplitScenes(selectedItemId, 'fast')}
+												>
+													{m.video_editor_scene_split_fast()}
+												</Button>
+												<Button
+													size="sm"
+													variant="outline"
+													class="min-h-11 lg:min-h-8"
+													disabled={scanningScenes || selectedTrackLocked}
+													title={m.video_editor_scene_split_adaptive_help()}
+													onclick={() => void handleAutoSplitScenes(selectedItemId, 'adaptive-lfm')}
+												>
+													{m.video_editor_scene_split_adaptive()}
+												</Button>
+											</div>
+										</div>
 									{/if}
-									{m.video_editor_scene_split()}
-								</Button>
-							{/if}
-							{#if selectedSupportsEffects}
-								{#if selectedSupportsMotion}
+								{:else if selectedItemId && editInspectorTab === 'motion' && selectedSupportsMotion}
 									<MotionPresetsPanel
 										itemId={selectedItemId}
 										itemIds={selectedItemIds}
@@ -1180,6 +2321,8 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 										animationPresets={editorSession.project?.animationPresets ?? []}
 										onsavepreset={(preset) => editorSession.saveAnimationPreset(preset)}
 										ondeletepreset={(presetId) => editorSession.deleteAnimationPreset(presetId)}
+										variant="edit"
+										onmotionclip={handleEditMotionClip}
 										onedit={() => editorSession.scheduleAutosave()}
 									/>
 									{#if selectedIsText}
@@ -1189,150 +2332,219 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 											onedit={() => editorSession.scheduleAutosave()}
 										/>
 									{/if}
-								{/if}
-								<EffectsPanel
-									itemId={selectedItemId}
-									itemIds={selectedItemIds}
-									onedit={() => editorSession.scheduleAutosave()}
-								/>
-							{/if}
-							<div class="mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
-								<Button
-									size="sm"
-									variant="outline"
-									class="w-full"
-									aria-expanded={showTranscript}
-									onclick={() => (showTranscript = !showTranscript)}
-								>
-									{showTranscript
-										? m.video_editor_transcript_hide()
-										: m.video_editor_transcript_show()}
-								</Button>
-								{#if showTranscript}
+								{:else if selectedItemId && editInspectorTab === 'effects' && selectedSupportsEffects}
+									<EffectsPanel
+										itemId={selectedItemId}
+										itemIds={selectedItemIds}
+										onedit={() => editorSession.scheduleAutosave()}
+									/>
+								{:else if selectedItemId && editInspectorTab === 'transcript' && selectedIsMedia}
 									<TranscriptionControls
 										canTranscribe={selectedIsMedia}
-										busy={transcribing}
-										progress={transcriptionProgress}
-										backend={transcriptionBackend}
-										fallback={transcriptionFallback}
+										busy={selectedTranscriptionJob !== undefined}
+										status={selectedTranscriptionJob?.status}
+										queuePosition={selectedTranscriptionQueuePosition}
+										queueTotal={transcriptionJobCount}
+										progress={selectedTranscriptionJob?.progress ?? null}
+										backend={selectedTranscriptionJob?.backend ?? null}
+										fallback={selectedTranscriptionJob?.fallback ?? null}
 										onstart={(selection) => void handleTranscribe(selection)}
 										oncancel={cancelTranscription}
 									/>
+									<div class="mt-1">
+										<AiCaptionControls
+											canGenerate={selectedIsMedia}
+											busy={selectedAiCaptionJob !== undefined}
+											status={selectedAiCaptionJob?.status}
+											queuePosition={selectedAiCaptionQueuePosition}
+											queueTotal={aiCaptionJobCount}
+											progress={selectedAiCaptionJob?.progress ?? null}
+											error={aiCaptionError}
+											onstart={() => void handleAiCaptions()}
+											oncancel={cancelAiCaptions}
+										/>
+									</div>
 									<div
 										class="mt-1 max-h-64 overflow-y-auto rounded-md border border-[oklch(0.25_0.015_55)] p-1"
 									>
-										<TranscriptPanel onedit={() => editorSession.scheduleAutosave()} />
+										<TranscriptPanel
+											itemIds={selectedItemIds.length > 0
+												? selectedItemIds
+												: selectedItemId
+													? [selectedItemId]
+													: []}
+											onedit={() => editorSession.scheduleAutosave()}
+										/>
 									</div>
+									<div
+										class="mt-3 grid grid-cols-2 gap-1 border-t border-[oklch(0.25_0.015_55)] pt-3"
+									>
+										<Button
+											size="sm"
+											variant="outline"
+											class="min-h-11 lg:min-h-8"
+											disabled={speechCleanupItemIds.length === 0}
+											aria-label={m.video_editor_filler_review()}
+											onclick={() => openSpeechCleanup('fillers')}
+										>
+											{m.video_editor_cleanup_fillers_short()}
+										</Button>
+										<Button
+											size="sm"
+											variant="outline"
+											class="min-h-11 lg:min-h-8"
+											disabled={speechCleanupItemIds.length === 0}
+											aria-label={m.video_editor_silence_review()}
+											onclick={() => openSpeechCleanup('silence')}
+										>
+											{m.video_editor_cleanup_silence_short()}
+										</Button>
+									</div>
+								{:else if sequenceStore.activeSequenceId === null}
+									<ProjectCanvasPanel onedit={() => editorSession.scheduleAutosave()} />
+								{:else}
+									<p class="px-1 py-3 text-sm text-[oklch(0.62_0.01_55)]">
+										{m.video_editor_select_clip()}
+									</p>
 								{/if}
-							</div>
-							<div class="mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
-								<p
-									class="mb-1.5 text-[10px] font-medium tracking-wide text-[oklch(0.62_0.01_55)] uppercase"
-								>
-									{m.video_editor_cleanup_title()}
-								</p>
-								<div class="grid grid-cols-2 gap-1">
-									<Button
-										size="sm"
-										variant="outline"
-										disabled={speechCleanupItemIds.length === 0}
-										aria-label={m.video_editor_filler_review()}
-										onclick={() => openSpeechCleanup('fillers')}
-									>
-										{m.video_editor_cleanup_fillers_short()}
-									</Button>
-									<Button
-										size="sm"
-										variant="outline"
-										disabled={speechCleanupItemIds.length === 0}
-										aria-label={m.video_editor_silence_review()}
-										onclick={() => openSpeechCleanup('silence')}
-									>
-										{m.video_editor_cleanup_silence_short()}
-									</Button>
-								</div>
-							</div>
-							<div class="mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
-								<Button
-									size="sm"
-									disabled={exporting || timelineStore.items.length === 0}
-									onclick={handleExport}
-								>
-									{m.video_editor_export()}
-								</Button>
-								<div class="mt-1">
-									{#if renderProject}
-										{#key renderProject.id}
-											<RenderQueueController
-												projectId={renderProject.id}
-												onerror={(error) => showToast(error.message, 'error')}
-											/>
-										{/key}
-									{/if}
-									<ExportDialog
-										project={renderProject}
-										disabled={timelineStore.items.length === 0}
-										ondone={(result) =>
-											showToast(m.video_editor_export_done({ name: result.fileName }), 'success')}
-										onerror={(error) => showToast(error.message, 'error')}
-									/>
-								</div>
-								<Button
-									size="sm"
-									variant="secondary"
-									class="mt-1 w-full"
-									disabled={sending ||
-										timelineStore.items.length === 0 ||
-										!workspaceCtx.currentWorkspace}
-									onclick={handleSendToOpenPost}
-								>
-									{m.video_editor_send_to_openpost()}
-								</Button>
 							</div>
 						</aside>
 					{:else if activeWorkspace === 'motion'}
-						<MotionWorkspacePanel
-							itemId={selectedItemId}
-							itemIds={selectedItemIds}
-							frameWidth={sequenceStore.activeWidth}
-							frameHeight={sequenceStore.activeHeight}
-							fps={timelineStore.fps}
-							animationPresets={editorSession.project?.animationPresets ?? []}
-							onsavepreset={(preset) => editorSession.saveAnimationPreset(preset)}
-							ondeletepreset={(presetId) => editorSession.deleteAnimationPreset(presetId)}
-							oncreatecomposition={handleCreateMotionComposition}
-							onreturncomposition={handleReturnFromMotionComposition}
-							canreturncomposition={motionReturnStack.length > 0}
-							onselectitem={handleSelectItem}
-							onedit={() => editorSession.scheduleAutosave()}
-						/>
+						<div
+							class="relative flex max-h-[44dvh] min-h-0 w-full shrink-0 lg:max-h-none lg:w-[var(--motion-panel-width)]"
+							style:--motion-panel-width={`${effectiveMotionPanelWidth}px`}
+						>
+							<PanelResizeHandle
+								edge="left"
+								value={effectiveMotionPanelWidth}
+								minimum={300}
+								maximum={motionPanelMaximum}
+								defaultValue={340}
+								label={m.video_editor_workspace_motion()}
+								onresize={(value) => (motionPanelWidth = value)}
+								oncommit={(value) => persistPanelSize('motionPanelWidth', value)}
+							/>
+							<MotionWorkspacePanel
+								itemId={activeMotionComposition ? selectedItemId : null}
+								itemIds={activeMotionComposition ? selectedItemIds : []}
+								frameWidth={sequenceStore.activeWidth}
+								frameHeight={sequenceStore.activeHeight}
+								fps={timelineStore.fps}
+								animationPresets={editorSession.project?.animationPresets ?? []}
+								onsavepreset={(preset) => editorSession.saveAnimationPreset(preset)}
+								ondeletepreset={(presetId) => editorSession.deleteAnimationPreset(presetId)}
+								oncreatecomposition={handleCreateMotionComposition}
+								onreturncomposition={handleReturnFromMotionComposition}
+								canreturncomposition={motionReturnStack.length > 0}
+								onselectitem={handleSelectItem}
+								onedit={() => editorSession.scheduleAutosave()}
+							/>
+						</div>
 					{/if}
 				</div>
 
 				{#if activeWorkspace === 'color'}
-					<ColorGradingDock
-						itemId={selectedSupportsEffects ? selectedItemId : null}
-						itemIds={selectedItemIds}
-						onselectitem={handleSelectItem}
-						onedit={() => editorSession.scheduleAutosave()}
-					/>
+					<div
+						class="relative max-h-[72dvh] min-h-0 shrink-0 lg:h-[var(--color-dock-height)]"
+						style:--color-dock-height={`${effectiveColorDockHeight}px`}
+					>
+						<PanelResizeHandle
+							edge="top"
+							value={effectiveColorDockHeight}
+							minimum={colorDockMinimum}
+							maximum={colorDockMaximum}
+							defaultValue={colorDockDefault}
+							label={m.video_editor_color_dock()}
+							onresize={(value) => (colorDockHeight = value)}
+							oncommit={(value) => persistPanelSize('colorDockHeight', value)}
+						/>
+						<ColorGradingDock
+							itemId={selectedSupportsEffects ? selectedItemId : null}
+							itemIds={selectedItemIds}
+							onselectitem={handleSelectItem}
+							oncreateadjustment={handleAddAdjustmentLayer}
+							onedit={() => editorSession.scheduleAutosave()}
+						/>
+					</div>
+				{/if}
+				{#if activeWorkspace !== 'color'}
+					<footer
+						class="relative flex h-[36dvh] shrink-0 flex-col overflow-hidden border-t border-[oklch(0.25_0.015_55)] bg-[oklch(0.145_0.008_55)] {activeWorkspace ===
+						'edit'
+							? 'lg:col-span-2 lg:col-start-2 lg:row-start-2 lg:h-auto'
+							: 'lg:h-[var(--timeline-height)]'}"
+					>
+						<PanelResizeHandle
+							edge="top"
+							value={effectiveTimelineHeight}
+							minimum={timelinePanelMinimum}
+							maximum={timelinePanelMaximum}
+							defaultValue={260}
+							label={m.video_editor_timeline()}
+							class="!top-0 [@media(pointer:coarse)]:!top-0"
+							onresize={resizeTimelinePanel}
+							oncommit={persistTimelinePanel}
+						/>
+						{#if activeWorkspace === 'edit'}
+							<SequenceTabs
+								onswitch={resetTimelineSelection}
+								onedit={() => editorSession.scheduleAutosave()}
+							/>
+						{/if}
+						<div class="flex min-h-0 flex-1 flex-col">
+							{#if activeWorkspace === 'motion' && !activeMotionComposition}
+								<div
+									class="h-full bg-[oklch(0.145_0.008_55)]"
+									data-motion-timeline-empty
+									aria-hidden="true"
+								></div>
+							{:else if sequenceStore.activeSequence?.editorKind === 'composite-2d'}
+								<CompositionTimeline
+									{selectedItemId}
+									onedit={() => editorSession.scheduleAutosave()}
+									onselectitem={handleSelectItem}
+									oncompositionchange={switchMotionComposition}
+								/>
+							{:else}
+								<TimelinePanel
+									bind:selectedItemId
+									bind:selectedItemIds
+									bind:selectedTransitionId
+									freezeFramePending={freezingItemId !== null}
+									sceneScanPending={scanningScenes}
+									{transcriptionPendingItemIds}
+									{aiCaptionPendingItemIds}
+									canvasWidth={renderProject?.metadata.width ?? 1920}
+									canvasHeight={renderProject?.metadata.height ?? 1080}
+									onedit={() => editorSession.scheduleAutosave()}
+									onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
+									onreverseitems={handleReverseItems}
+									onsplitscenes={(itemId, mode) => void handleAutoSplitScenes(itemId, mode)}
+									ontranscribecaptions={handleDefaultCaptions}
+									onaicaptions={(itemId) => void handleAiCaptions(itemId)}
+									onextractsubtitles={openEmbeddedSubtitlesForItem}
+									onopenspeechcleanup={openAgentSpeechCleanup}
+									oncreatevoice={openTextVoice}
+									oncreatecompound={createCompoundForItems}
+									ondissolvecompound={dissolveCompoundItem}
+									oncopygrade={handleCopyColorGrade}
+									onpastegrade={handlePasteColorGrade}
+									oncopyselection={() => copyTimelineSelection(false)}
+									oncutselection={() => copyTimelineSelection(true)}
+									onpasteat={(frame, trackId) => pasteTimelineClipboard(frame, trackId)}
+									onsplitselection={handleSplit}
+									ondeleteselection={() => handleDelete(false)}
+									onrippledeleteselection={() => handleDelete(true)}
+									onmixerlayoutchange={handleMixerLayoutChange}
+									mixerMaximum={mixerPanelMaximum}
+									onopencomposition={handleOpenSequence}
+									ontransitionbreak={() => showToast(m.video_editor_transition_removed(), 'info')}
+								/>
+							{/if}
+						</div>
+					</footer>
 				{/if}
 			</div>
-
-			<footer class="border-t border-[oklch(0.25_0.015_55)]">
-				<TimelinePanel
-					bind:selectedItemId
-					bind:selectedItemIds
-					bind:selectedTransitionId
-					freezeFramePending={freezingItemId !== null}
-					canvasWidth={renderProject?.metadata.width ?? 1920}
-					canvasHeight={renderProject?.metadata.height ?? 1080}
-					onedit={() => editorSession.scheduleAutosave()}
-					onfreezeframe={(itemId) => void handleFreezeFrame(itemId)}
-					onopencomposition={handleOpenSequence}
-					ontransitionbreak={() => showToast(m.video_editor_transition_removed(), 'info')}
-				/>
-			</footer>
 		{/key}
 	{/if}
 </div>
@@ -1347,6 +2559,14 @@ OWN-WORLD: dark editing chrome on OpenPost warm neutrals; orange is the only sig
 <EditorSettingsDialog bind:open={settingsOpen} />
 
 <MediaRecoveryDialog onedit={() => editorSession.scheduleAutosave()} />
+
+<EmbeddedSubtitlePicker
+	media={embeddedSubtitleMedia}
+	bind:open={embeddedSubtitlePickerOpen}
+	canvasWidth={sequenceStore.activeWidth}
+	canvasHeight={sequenceStore.activeHeight}
+	oninsert={handleEmbeddedSubtitleInsert}
+/>
 
 <RecordingDialog
 	open={recordingOpen}

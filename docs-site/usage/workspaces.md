@@ -16,8 +16,8 @@ They keep brands, teams, and personal work from sharing social account keys or m
 
 ## Manage workspace access
 
-Workspace admins manage accepted members and invitations from **Settings ->
-Organization**. Other active members can review the team, but OpenPost hides the
+Workspace admins manage accepted members and invitations from **Settings → Workspace →
+Members**. Other active members can review the team, but OpenPost hides the
 invite form and access-changing actions from them.
 
 Workspace roles have separate permissions:
@@ -35,12 +35,11 @@ it **Delivered**.
 
 ### Invite someone
 
-1. Open Settings.
-2. Open the Organization tab.
-3. Use the Team section to enter the collaborator email and role.
-4. Check the invitation email state. OpenPost queues one expiring Transactional
+1. Open **Settings → Workspace → Members**.
+2. Enter the collaborator email and role.
+3. Check the invitation email state. OpenPost queues one expiring Transactional
    email whether or not the recipient already has an account.
-5. Copy the one-time invite link as a fallback while it is visible.
+4. Copy the one-time invite link as a fallback while it is visible.
 
 Invitation email includes the Workspace, inviter, role, expiry, and acceptance
 link. Optional notification preferences do not suppress access email. The
@@ -90,7 +89,7 @@ active workspace admins can view it.
 
 ## Delete a Workspace permanently
 
-Only the Organization Owner can delete a Workspace. Open **Settings → General**
+Only the Organization Owner can delete a Workspace. Open **Settings → Workspace → General**
 and choose **Delete workspace** to inspect the current deletion preview. The
 preview lists the content and access that will be removed, the billing, audit,
 tax, or legal records that may remain, whether recovery is possible, and every

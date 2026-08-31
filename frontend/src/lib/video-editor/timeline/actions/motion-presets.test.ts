@@ -55,6 +55,16 @@ describe('applyMotionPreset', () => {
 			frames: [0, 15],
 			values: [0, 1]
 		});
+		const firstSources = timelineStore.itemById.get('one')?.keyframes?.opacity?.sources;
+		expect(firstSources).toHaveLength(2);
+		expect(firstSources?.[0]).toMatchObject({
+			kind: 'built-in-preset',
+			presetId: 'fade-in'
+		});
+		expect(firstSources?.[1]?.applicationId).toBe(firstSources?.[0]?.applicationId);
+		expect(
+			timelineStore.itemById.get('two')?.keyframes?.opacity?.sources?.[0]?.applicationId
+		).not.toBe(firstSources?.[0]?.applicationId);
 		expect(commandHistory.undoStack).toHaveLength(1);
 		commandHistory.undo();
 		expect(timelineStore.items.every((candidate) => candidate.keyframes === undefined)).toBe(true);
@@ -168,14 +178,23 @@ describe('applyMotionPreset', () => {
 			{ frame: 15, value: { x: 50, y: 75 } },
 			{ id: 'far', frame: 30, value: { x: 300, y: 400 } }
 		]);
+		expect(
+			updated?.vectorKeyframes?.position?.slice(0, 2).every((keyframe) => keyframe.source)
+		).toBe(true);
+		expect(updated?.vectorKeyframes?.position?.[2]?.source).toBeUndefined();
 	});
 
-	it('rejects scale presets on text instead of causing layout reflow', () => {
+	it('applies scale presets to text without changing its layout box', () => {
 		timelineStore._setItems([item('title', { type: 'text', text: 'Hello' })]);
-		expect(apply(['title'], 'pop-in')).toEqual({
-			ok: false,
-			reason: 'incompatible'
+		expect(apply(['title'], 'pop-in')).toEqual({ ok: true, appliedKeyframes: 6 });
+		expect(timelineStore.itemById.get('title')).toMatchObject({
+			transform: { width: 400, height: 300 },
+			keyframes: {
+				scaleX: { frames: [0, 15], values: [0.6, 1] },
+				scaleY: { frames: [0, 15], values: [0.6, 1] }
+			}
 		});
-		expect(commandHistory.undoStack).toHaveLength(0);
+		expect(timelineStore.itemById.get('title')?.keyframes?.width).toBeUndefined();
+		expect(timelineStore.itemById.get('title')?.keyframes?.height).toBeUndefined();
 	});
 });

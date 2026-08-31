@@ -76,6 +76,24 @@ describe('GroupOnCanvasTools', () => {
 		expect(screen.container.querySelector('[data-group-rotate-handle]')).not.toBeNull();
 	});
 
+	it('keeps toolbar and transform handles usable at phone width', async () => {
+		const { screen } = await renderTools({ width: 320 });
+		const toolbar = screen
+			.getByRole('toolbar', {
+				name: 'Align and distribute selected clips'
+			})
+			.element();
+		const left = screen.getByRole('button', { name: 'Left', exact: true }).element();
+		const leftBounds = left.getBoundingClientRect();
+		expect(leftBounds.width).toBeGreaterThanOrEqual(44);
+		expect(leftBounds.height).toBeGreaterThanOrEqual(44);
+		expect(toolbar.getBoundingClientRect().width).toBeLessThanOrEqual(320);
+		const scaleHandle = screen.container.querySelector<HTMLElement>('[data-group-scale-handle]');
+		const rotateHandle = screen.container.querySelector<HTMLElement>('[data-group-rotate-handle]');
+		expect(scaleHandle?.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+		expect(rotateHandle?.getBoundingClientRect().width).toBeGreaterThanOrEqual(44);
+	});
+
 	it('previews and commits one exact map for a pointer translation', async () => {
 		const { screen, callbacks } = await renderTools();
 		const box = screen.container.querySelector<HTMLButtonElement>('[data-group-transform-box]');

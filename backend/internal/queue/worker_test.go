@@ -39,26 +39,51 @@ func TestGrowthDiscoveryFailureHonorsProviderRetryAfter(t *testing.T) {
 	require.Equal(t, jobregistry.RecoveryRequeue, definition.Recovery)
 }
 
+func TestRefreshTokenFailureUsesProviderRetryPolicy(t *testing.T) {
+	worker := &BackgroundWorker{}
+	job := &models.Job{Type: jobregistry.TypeRefreshToken}
+
+	rateLimited := worker.classifyJobFailure(t.Context(), job, &platform.HTTPError{
+		StatusCode: 429,
+		Code:       "rate_limited",
+		RetryAfter: 17 * time.Second,
+	})
+	require.True(t, rateLimited.retryable)
+	require.Equal(t, 17*time.Second, rateLimited.retryAfter)
+
+	invalidGrant := worker.classifyJobFailure(t.Context(), job, &platform.HTTPError{
+		StatusCode: 401,
+		Code:       "invalid_grant",
+	})
+	require.False(t, invalidGrant.retryable)
+}
+
 type stubStorage struct{}
 
-func (stubStorage) Driver() string                         { return "test" }
-func (stubStorage) Save(string, io.Reader) (string, error) { return "", nil }
-func (stubStorage) Delete(string) error                    { return nil }
-func (stubStorage) GetURL(string) string                   { return "" }
-func (stubStorage) Open(string) (io.ReadCloser, error)     { return io.NopCloser(&emptyReader{}), nil }
+func (stubStorage) Driver() string { return "test" }
+func (stubStorage) Save(context.Context, string, io.Reader) (string, error) {
+	return "", nil
+}
+func (stubStorage) Delete(context.Context, string) error { return nil }
+func (stubStorage) GetURL(string) string                 { return "" }
+func (stubStorage) Open(context.Context, string) (io.ReadCloser, error) {
+	return io.NopCloser(&emptyReader{}), nil
+}
 
 type recordingStorage struct {
 	deleted []string
 }
 
-func (*recordingStorage) Driver() string                         { return "test" }
-func (*recordingStorage) Save(string, io.Reader) (string, error) { return "", nil }
-func (s *recordingStorage) Delete(key string) error {
+func (*recordingStorage) Driver() string { return "test" }
+func (*recordingStorage) Save(context.Context, string, io.Reader) (string, error) {
+	return "", nil
+}
+func (s *recordingStorage) Delete(_ context.Context, key string) error {
 	s.deleted = append(s.deleted, key)
 	return nil
 }
 func (*recordingStorage) GetURL(string) string { return "" }
-func (*recordingStorage) Open(string) (io.ReadCloser, error) {
+func (*recordingStorage) Open(context.Context, string) (io.ReadCloser, error) {
 	return io.NopCloser(&emptyReader{}), nil
 }
 
@@ -210,6 +235,78 @@ func TestWorkerFailsUnknownJobTypes(t *testing.T) {
 	require.NotContains(t, recorder.Exceptions[0].Properties, "payload")
 }
 
+func TestWorkerQuiesceFinishesCurrentJobWithoutClaimingAnother(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	now := time.Now().UTC().Add(-time.Minute)
+	jobs := []models.Job{
+		{ID: "job-current", Type: jobregistry.TypeRefreshToken, Payload: `{}`, Status: jobStatusPending, RunAt: now, MaxAttempts: 1},
+		{ID: "job-next", Type: jobregistry.TypeRefreshToken, Payload: `{}`, Status: jobStatusPending, RunAt: now.Add(time.Second), MaxAttempts: 1},
+	}
+	_, err := db.NewInsert().Model(&jobs).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-drain", time.Hour, nil, nil, stubStorage{})
+	started := make(chan struct{})
+	release := make(chan struct{})
+	worker.executors[jobregistry.ExecuteRefreshToken] = func(context.Context, *models.Job) error {
+		close(started)
+		<-release
+		return nil
+	}
+	workerCtx, cancelWorker := context.WithCancel(t.Context())
+	t.Cleanup(cancelWorker)
+	go worker.Start(workerCtx)
+	<-started
+
+	worker.Quiesce()
+	deadlineCtx, cancelDeadline := context.WithTimeout(t.Context(), 25*time.Millisecond)
+	require.ErrorIs(t, worker.Wait(deadlineCtx), context.DeadlineExceeded)
+	cancelDeadline()
+
+	close(release)
+	waitCtx, cancelWait := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancelWait)
+	require.NoError(t, worker.Wait(waitCtx))
+
+	var next models.Job
+	require.NoError(t, db.NewSelect().Model(&next).Where("id = ?", "job-next").Scan(t.Context()))
+	require.Equal(t, jobStatusPending, next.Status)
+}
+
+func TestWorkerPersistsInterruptedJobBeforeExiting(t *testing.T) {
+	t.Parallel()
+
+	db := createTestDB(t)
+	job := models.Job{
+		ID: "job-interrupted", Type: jobregistry.TypeRefreshToken, Payload: `{}`,
+		Status: jobStatusPending, RunAt: time.Now().UTC().Add(-time.Minute), MaxAttempts: 2,
+	}
+	_, err := db.NewInsert().Model(&job).Exec(t.Context())
+	require.NoError(t, err)
+
+	worker := NewWorker(db, "worker-interrupted", time.Hour, nil, nil, stubStorage{})
+	started := make(chan struct{})
+	worker.executors[jobregistry.ExecuteRefreshToken] = func(ctx context.Context, _ *models.Job) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	}
+	workerCtx, cancelWorker := context.WithCancel(t.Context())
+	go worker.Start(workerCtx)
+	<-started
+	cancelWorker()
+
+	waitCtx, cancelWait := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancelWait)
+	require.NoError(t, worker.Wait(waitCtx))
+
+	require.NoError(t, db.NewSelect().Model(&job).WherePK().Scan(t.Context()))
+	require.NotEqual(t, jobStatusProcessing, job.Status)
+	require.Empty(t, job.LockedBy)
+}
+
 func TestWorkerProcessesDurableStorageDeletion(t *testing.T) {
 	t.Parallel()
 
@@ -236,7 +333,7 @@ func TestStorageDeletionRejectsTraversal(t *testing.T) {
 	t.Parallel()
 
 	worker := NewWorker(nil, "worker-test", time.Second, nil, nil, &recordingStorage{})
-	err := worker.handleStorageDelete(`{"keys":["../outside"]}`)
+	err := worker.handleStorageDelete(t.Context(), `{"keys":["../outside"]}`)
 	require.ErrorContains(t, err, "invalid key")
 }
 

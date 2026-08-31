@@ -15,32 +15,43 @@
 </script>
 
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
+	import PlusIcon from '@lucide/svelte/icons/plus';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
 	import * as Command from '$lib/components/ui/command';
 	import * as Popover from '$lib/components/ui/popover';
-	import { prewarmEffectPreviews } from '$lib/video-editor/effects/preview/effect-preview-engine';
 	import EffectThumbnail from './effect-thumbnail.svelte';
 
 	let {
 		value = $bindable(''),
 		options,
 		ariaLabel,
+		triggerLabel,
 		searchPlaceholder,
 		emptyLabel,
 		disabled = false,
+		draggable = false,
+		dragTitle,
 		onValueChange,
+		onSelect,
+		onDragStart,
+		onDragEnd,
 		onRemoveOption,
 		removeOptionLabel
 	}: {
 		value?: string;
 		options: EffectPickerOption[];
 		ariaLabel: string;
+		triggerLabel?: string;
 		searchPlaceholder: string;
 		emptyLabel: string;
 		disabled?: boolean;
+		draggable?: boolean;
+		dragTitle?: string;
 		onValueChange?: (value: string) => void;
+		onSelect?: (value: string) => void;
+		onDragStart?: (event: DragEvent) => void;
+		onDragEnd?: (event: DragEvent) => void;
 		onRemoveOption?: (value: string) => void;
 		removeOptionLabel?: (label: string) => string;
 	} = $props();
@@ -59,6 +70,7 @@
 	function selectOption(next: string): void {
 		value = next;
 		onValueChange?.(next);
+		onSelect?.(next);
 		open = false;
 		hoveredValue = null;
 	}
@@ -68,14 +80,6 @@
 		event.stopPropagation();
 		onRemoveOption?.(option.value);
 	}
-
-	onMount(() => {
-		const idle = window.requestIdleCallback?.(() => prewarmEffectPreviews());
-		if (idle === undefined) prewarmEffectPreviews();
-		return () => {
-			if (idle !== undefined) window.cancelIdleCallback?.(idle);
-		};
-	});
 </script>
 
 <Popover.Root bind:open>
@@ -87,9 +91,15 @@
 				class="flex h-8 min-w-0 flex-1 items-center justify-between gap-1 rounded border border-[oklch(0.32_0.015_55)] bg-[oklch(0.18_0.008_50)] px-2 text-xs hover:bg-[oklch(0.22_0.01_50)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-50"
 				aria-label={ariaLabel}
 				aria-expanded={open}
+				{draggable}
+				title={dragTitle}
+				data-effect-drag-handle
+				ondragstart={onDragStart}
+				ondragend={onDragEnd}
 				{disabled}
 			>
-				<span class="truncate">{selectedLabel}</span>
+				{#if triggerLabel}<PlusIcon class="size-3 shrink-0" />{/if}
+				<span class="truncate">{triggerLabel ?? selectedLabel}</span>
 				<ChevronDownIcon class="size-3 shrink-0 opacity-60" />
 			</button>
 		{/snippet}

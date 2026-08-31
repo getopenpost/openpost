@@ -78,13 +78,14 @@ test('parents the selected layer in place and exposes the current relationship',
 	timelineStore._setItems([item, parent]);
 	const onedit = vi.fn();
 	const screen = await render(MotionWorkspacePanel, { ...props(item.id), onedit });
-	const select = screen.getByRole('combobox', { name: 'Parent layer' });
+	const select = screen.getByRole('button', { name: 'Parent layer' });
 
-	await select.selectOptions(parent.id);
+	await select.click();
+	await screen.getByRole('option', { name: parent.label }).click();
 
 	expect(timelineStore.itemById.get(item.id)?.transformParent?.parentItemId).toBe(parent.id);
 	expect(onedit).toHaveBeenCalledOnce();
-	await expect.element(select).toHaveValue(parent.id);
+	await expect.element(select).toHaveTextContent(parent.label);
 });
 
 test('adds a non-rendering controller and selects it for editing', async () => {

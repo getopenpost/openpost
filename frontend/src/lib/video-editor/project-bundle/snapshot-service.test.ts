@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { MediaMetadata } from '../media/types';
 import { createBlankProject } from '../project/defaults';
-import type { Project } from '../project/types';
+import type { Project, TimelineTransition } from '../project/types';
 import { computeSnapshotChecksum } from './snapshot-utils';
 import { createSnapshotService, type SnapshotServiceRuntime } from './snapshot-service';
 
@@ -103,6 +103,41 @@ describe('project snapshot service', () => {
 		expect(result.matchedMedia).toBe(1);
 		expect(result.unmatchedMedia).toEqual([]);
 		expect(testRuntime.associations).toEqual(['current-media']);
+	});
+
+	it('imports FreeCut schema 15 snapshots through the compatibility converter', async () => {
+		const testRuntime = runtime();
+		const snapshot = await testRuntime.service.exportProjectSnapshot(testRuntime.source.id);
+		delete snapshot.project.schemaFamily;
+		snapshot.project.schemaVersion = 15;
+		const freeCutTransition: TimelineTransition = {
+			id: 'freecut-transition',
+			type: 'crossfade',
+			durationInFrames: 12,
+			fromItemId: 'clip',
+			toItemId: 'clip'
+		};
+		Object.assign(freeCutTransition, {
+			leftClipId: 'clip',
+			rightClipId: 'clip',
+			trackId: 'track-video-main'
+		});
+		Reflect.deleteProperty(freeCutTransition, 'fromItemId');
+		Reflect.deleteProperty(freeCutTransition, 'toItemId');
+		snapshot.project.timeline!.transitions = [freeCutTransition];
+		snapshot.checksum = await computeSnapshotChecksum(snapshot);
+
+		const result = await testRuntime.service.importProjectSnapshot(snapshot);
+
+		expect(result.project.schemaVersion).toBe(testRuntime.source.schemaVersion);
+		expect(result.project.schemaFamily).toBe('openpost');
+		expect(result.project.timeline?.transitions?.[0]).toMatchObject({
+			fromItemId: result.project.timeline.items[0]?.id,
+			toItemId: result.project.timeline.items[0]?.id
+		});
+		expect(result.warnings).toContain(
+			'Converted FreeCut schema 15 to the OpenPost project format.'
+		);
 	});
 
 	it('uses an explicit bundle media map without guessing from workspace metadata', async () => {

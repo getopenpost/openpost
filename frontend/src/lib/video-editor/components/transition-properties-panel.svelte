@@ -13,7 +13,8 @@
 	import {
 		removeTransition,
 		transitionsStore,
-		updateTransition
+		updateTransition,
+		updateTransitionPresentation
 	} from '$lib/video-editor/timeline/actions/transitions.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { getMaxTransitionDuration } from '$lib/video-editor/timeline/transition-planner';
@@ -128,7 +129,17 @@
 		return definitions.filter(
 			(candidate) =>
 				candidate.category === category &&
-				(!query || transitionLabel(candidate).toLocaleLowerCase().includes(query))
+				(!query ||
+					[
+						candidate.id,
+						transitionLabel(candidate),
+						candidate.description,
+						candidate.category,
+						categoryLabel(candidate.category),
+						...(candidate.directions ?? [])
+					]
+						.filter(Boolean)
+						.some((value) => String(value).toLocaleLowerCase().includes(query)))
 		);
 	}
 	const hasFilteredResults = $derived(
@@ -151,43 +162,24 @@
 		if (updateTransition(transitionId, updates)) onedit();
 	}
 
-	function defaultProperties(nextDefinition: TransitionDefinition) {
-		const defaults: NonNullable<TimelineTransition['properties']> = {};
-		for (const parameter of nextDefinition.parameters ?? []) {
-			defaults[parameter.key] = parameter.defaultValue;
-		}
-		return defaults;
-	}
-
 	function choosePresentation(nextDefinition: TransitionDefinition): void {
-		if (!transition) return;
-		const available = maxDuration(transition);
-		const durationInFrames = Math.min(
-			available,
-			Math.max(
-				nextDefinition.minDuration,
-				Math.min(nextDefinition.maxDuration, transition.durationInFrames)
-			)
-		);
-		const timing = nextDefinition.supportedTimings.includes(transition.timing ?? 'linear')
-			? (transition.timing ?? 'linear')
-			: nextDefinition.supportedTimings[0];
-		commit({
-			presentation: nextDefinition.id,
-			type: nextDefinition.id === 'dipToColorDissolve' ? 'fade-black' : 'crossfade',
-			durationInFrames,
-			timing,
-			direction: nextDefinition.hasDirection ? nextDefinition.directions?.[0] : undefined,
-			properties: defaultProperties(nextDefinition)
-		});
+		if (updateTransitionPresentation(transitionId, nextDefinition.id)) onedit();
 	}
 
 	function setPlacement(alignment: number): void {
 		if (!transition) return;
-		commit({
-			alignment,
-			durationInFrames: Math.min(transition.durationInFrames, maxDuration(transition, alignment))
-		});
+		if (maxDuration(transition, alignment) < transition.durationInFrames) return;
+		commit({ alignment });
+	}
+
+	function resetDuration(): void {
+		if (!transition || !definition) return;
+		const available = maxDuration(transition);
+		const durationInFrames = Math.max(
+			definition.minDuration,
+			Math.min(available, definition.maxDuration, definition.defaultDuration)
+		);
+		commit({ durationInFrames });
 	}
 
 	function propertyValue(parameter: TransitionParameterDefinition): TransitionPropertyValue {
@@ -200,6 +192,18 @@
 	): void {
 		if (!transition) return;
 		commit({ properties: { ...transition.properties, [parameter.key]: value } });
+	}
+
+	function parameterAtDefault(parameter: TransitionParameterDefinition): boolean {
+		return JSON.stringify(propertyValue(parameter)) === JSON.stringify(parameter.defaultValue);
+	}
+
+	function resetProperty(parameter: TransitionParameterDefinition): void {
+		// SAFETY: Transition array defaults are already validated against the parameter schema.
+		const value = Array.isArray(parameter.defaultValue)
+			? ([...parameter.defaultValue] as TransitionPropertyValue)
+			: parameter.defaultValue;
+		setProperty(parameter, value);
 	}
 
 	function rgbToHex(value: TransitionPropertyValue): string {
@@ -298,23 +302,36 @@
 			{/each}
 		</div>
 
-		<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
+		<div class="text-[10px] text-[oklch(0.7_0.01_55)]">
 			<span class="flex justify-between">
 				<span>{m.video_editor_transition_duration()}</span>
 				<span class="font-mono"
 					>{transition.durationInFrames} {m.video_editor_transition_frames()}</span
 				>
 			</span>
-			<Slider
-				class="mt-1"
-				min={Math.min(definition.minDuration, maxDuration(transition))}
-				max={Math.max(2, Math.min(definition.maxDuration, maxDuration(transition)))}
-				step={1}
-				value={transition.durationInFrames}
-				ariaLabel={m.video_editor_transition_duration()}
-				onValueChange={(value) => commit({ durationInFrames: Math.round(value) })}
-			/>
-		</label>
+			<div class="mt-1 flex items-center gap-1">
+				<Slider
+					class="min-w-0 flex-1"
+					min={Math.min(definition.minDuration, maxDuration(transition))}
+					max={Math.max(2, Math.min(definition.maxDuration, maxDuration(transition)))}
+					step={1}
+					value={transition.durationInFrames}
+					ariaLabel={m.video_editor_transition_duration()}
+					onValueChange={(value) => commit({ durationInFrames: Math.round(value) })}
+				/>
+				<Button
+					size="icon"
+					variant="ghost"
+					class="size-7 shrink-0"
+					aria-label={m.video_editor_motion_override_reset({
+						name: m.video_editor_transition_duration()
+					})}
+					onclick={resetDuration}
+				>
+					<RotateCcwIcon class="size-3.5" />
+				</Button>
+			</div>
+		</div>
 
 		<fieldset>
 			<legend class="text-[10px] text-[oklch(0.7_0.01_55)]">
@@ -322,10 +339,12 @@
 			</legend>
 			<div class="mt-1 grid grid-cols-3 gap-1">
 				{#each [{ value: 1, label: m.video_editor_transition_placement_outgoing() }, { value: 0.5, label: m.video_editor_transition_placement_center() }, { value: 0, label: m.video_editor_transition_placement_incoming() }] as placement (placement.value)}
+					{@const placementAvailable = maxDuration(transition, placement.value)}
 					<Button
 						size="sm"
 						variant={(transition.alignment ?? 0.5) === placement.value ? 'secondary' : 'outline'}
 						class="h-auto min-h-8 px-1 text-[9px] leading-tight"
+						disabled={placementAvailable < transition.durationInFrames}
 						onclick={() => setPlacement(placement.value)}
 					>
 						{placement.label}
@@ -392,33 +411,49 @@
 		{#if definition.parameters?.length}
 			<div class="flex flex-col gap-2 border-t border-[oklch(0.25_0.015_55)] pt-2">
 				{#each definition.parameters as parameter (parameter.key)}
-					{#if parameter.type === 'color'}
-						<label class="flex items-center justify-between text-[10px] text-[oklch(0.7_0.01_55)]">
-							{parameterLabel(parameter)}
-							<Input
-								class="h-8 w-14 p-1"
-								type="color"
-								value={rgbToHex(propertyValue(parameter))}
-								oninput={(event) => setProperty(parameter, hexToRgb(event.currentTarget.value))}
-							/>
-						</label>
-					{:else}
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							<span class="flex justify-between">
-								<span>{parameterLabel(parameter)}</span>
-								<span class="font-mono">{propertyValue(parameter)}{parameter.unit ?? ''}</span>
-							</span>
-							<Slider
-								class="mt-1"
-								min={parameter.min ?? 0}
-								max={parameter.max ?? 1}
-								step={parameter.step ?? 0.01}
-								value={propertyValue(parameter) as number}
-								ariaLabel={parameterLabel(parameter)}
-								onValueChange={(value) => setProperty(parameter, value)}
-							/>
-						</label>
-					{/if}
+					<div class="flex items-end gap-1">
+						{#if parameter.type === 'color'}
+							<label
+								class="flex min-w-0 flex-1 items-center justify-between text-[10px] text-[oklch(0.7_0.01_55)]"
+							>
+								{parameterLabel(parameter)}
+								<Input
+									class="h-8 w-14 p-1"
+									type="color"
+									value={rgbToHex(propertyValue(parameter))}
+									oninput={(event) => setProperty(parameter, hexToRgb(event.currentTarget.value))}
+								/>
+							</label>
+						{:else}
+							<label class="min-w-0 flex-1 text-[10px] text-[oklch(0.7_0.01_55)]">
+								<span class="flex justify-between">
+									<span>{parameterLabel(parameter)}</span>
+									<span class="font-mono">{propertyValue(parameter)}{parameter.unit ?? ''}</span>
+								</span>
+								<Slider
+									class="mt-1"
+									min={parameter.min ?? 0}
+									max={parameter.max ?? 1}
+									step={parameter.step ?? 0.01}
+									value={propertyValue(parameter) as number}
+									ariaLabel={parameterLabel(parameter)}
+									onValueChange={(value) => setProperty(parameter, value)}
+								/>
+							</label>
+						{/if}
+						<Button
+							size="icon"
+							variant="ghost"
+							class="size-7 shrink-0"
+							disabled={parameterAtDefault(parameter)}
+							aria-label={m.video_editor_motion_override_reset({
+								name: parameterLabel(parameter)
+							})}
+							onclick={() => resetProperty(parameter)}
+						>
+							<RotateCcwIcon class="size-3.5" />
+						</Button>
+					</div>
 				{/each}
 				<Button
 					size="sm"

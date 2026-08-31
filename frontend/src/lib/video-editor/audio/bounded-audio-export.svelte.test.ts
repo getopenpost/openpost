@@ -5,6 +5,7 @@ import { renderTimelineAudioArtifact } from '../media/render-export';
 import type { MixEntry } from '../media/render-plan';
 import { DEFAULT_AUDIO_EQ_SETTINGS } from './audio-eq';
 import { MIX_SAMPLE_RATE, MIX_WINDOW_SAMPLES, mixAudioWindows } from './bounded-audio-mixer';
+import { createDefaultAudioEffect, type DelayEffect } from './audio-effects';
 
 function linkedFileHandle(file: File): FileSystemFileHandle {
 	// SAFETY: test helper only uses name, kind and getFile for resolveMediaBlob
@@ -51,6 +52,75 @@ function wavBlobFromMono(samples: Float32Array, sampleRate: number): Blob {
 	}
 	return new Blob([buffer], { type: 'audio/wav' });
 }
+
+interface DecodedPcmWav {
+	sampleRate: number;
+	length: number;
+	channels: Float32Array[];
+}
+
+function fourCc(view: DataView, offset: number): string {
+	return String.fromCharCode(
+		view.getUint8(offset),
+		view.getUint8(offset + 1),
+		view.getUint8(offset + 2),
+		view.getUint8(offset + 3)
+	);
+}
+
+async function decodePcm16Wav(blob: Blob): Promise<DecodedPcmWav> {
+	const buffer = await blob.arrayBuffer();
+	const view = new DataView(buffer);
+	if (view.byteLength < 12 || fourCc(view, 0) !== 'RIFF' || fourCc(view, 8) !== 'WAVE') {
+		throw new Error('Expected a RIFF/WAVE artifact.');
+	}
+
+	let sampleRate = 0;
+	let channelCount = 0;
+	let bitsPerSample = 0;
+	let audioFormat = 0;
+	let dataOffset = -1;
+	let dataSize = 0;
+	for (let offset = 12; offset + 8 <= view.byteLength;) {
+		const chunk = fourCc(view, offset);
+		const chunkSize = view.getUint32(offset + 4, true);
+		const payloadOffset = offset + 8;
+		if (payloadOffset + chunkSize > view.byteLength) throw new Error('Truncated WAV chunk.');
+		if (chunk === 'fmt ') {
+			if (chunkSize < 16) throw new Error('Invalid WAV format chunk.');
+			audioFormat = view.getUint16(payloadOffset, true);
+			channelCount = view.getUint16(payloadOffset + 2, true);
+			sampleRate = view.getUint32(payloadOffset + 4, true);
+			bitsPerSample = view.getUint16(payloadOffset + 14, true);
+		} else if (chunk === 'data') {
+			dataOffset = payloadOffset;
+			dataSize = chunkSize;
+		}
+		offset = payloadOffset + chunkSize + (chunkSize % 2);
+	}
+	if (
+		audioFormat !== 1 ||
+		bitsPerSample !== 16 ||
+		channelCount < 1 ||
+		sampleRate < 1 ||
+		dataOffset < 0
+	) {
+		throw new Error('Expected 16-bit PCM WAV audio.');
+	}
+
+	const bytesPerFrame = channelCount * 2;
+	if (dataSize % bytesPerFrame !== 0) throw new Error('WAV data is not frame-aligned.');
+	const length = dataSize / bytesPerFrame;
+	const channels = Array.from({ length: channelCount }, () => new Float32Array(length));
+	for (let frame = 0; frame < length; frame++) {
+		for (let channel = 0; channel < channelCount; channel++) {
+			channels[channel]![frame] =
+				view.getInt16(dataOffset + (frame * channelCount + channel) * 2, true) / 0x8000;
+		}
+	}
+	return { sampleRate, length, channels };
+}
+
 function sine(samples: number, freq: number, rate: number): Float32Array {
 	return Float32Array.from({ length: samples }, (_, i) =>
 		Math.sin((2 * Math.PI * freq * i) / rate)
@@ -133,21 +203,19 @@ describe('bounded audio export product path', () => {
 		};
 		const artifact = await renderTimelineAudioArtifact(project, { format: 'wav' });
 		expect(artifact.blob.type).toBe('audio/wav');
-		const ctx = new AudioContext();
-		const decoded = await ctx.decodeAudioData(await artifact.blob.arrayBuffer());
+		const decoded = await decodePcm16Wav(artifact.blob);
 		expect(decoded.sampleRate).toBe(48_000);
 		expect(decoded.length).toBeCloseTo(durationSec * 48_000, -2);
-		expect(decoded.numberOfChannels).toBe(2);
+		expect(decoded.channels).toHaveLength(2);
 		// Mono duplicated to stereo
-		const left = decoded.getChannelData(0);
-		const right = decoded.getChannelData(1);
+		const left = decoded.channels[0]!;
+		const right = decoded.channels[1]!;
 		expect(left[1000]).toBeCloseTo(right[1000], 4);
 		// Frequency approx via zero crossings
 		let crossings = 0;
 		for (let i = 1; i < left.length; i++) if (left[i - 1]! < 0 && left[i]! >= 0) crossings++;
 		const freq = crossings / durationSec;
 		expect(Math.abs(freq - 440)).toBeLessThan(5);
-		await ctx.close();
 	}, 30_000);
 
 	it('keeps impulse across 30s window boundary', async () => {
@@ -213,9 +281,8 @@ describe('bounded audio export product path', () => {
 			timeline: { tracks: [track], items: [item] }
 		};
 		const artifact = await renderTimelineAudioArtifact(project, { format: 'wav' });
-		const ctx = new AudioContext();
-		const decoded = await ctx.decodeAudioData(await artifact.blob.arrayBuffer());
-		const ch = decoded.getChannelData(0);
+		const decoded = await decodePcm16Wav(artifact.blob);
+		const ch = decoded.channels[0]!;
 		let peakIdx = -1;
 		let peak = -Infinity;
 		for (let i = 0; i < ch.length; i++)
@@ -225,7 +292,6 @@ describe('bounded audio export product path', () => {
 			}
 		expect(Math.abs(peakIdx - impulseAt)).toBeLessThanOrEqual(2);
 		expect(peak).toBeGreaterThan(0.4);
-		await ctx.close();
 	}, 30_000);
 
 	it('respects exact trim boundaries', async () => {
@@ -291,10 +357,8 @@ describe('bounded audio export product path', () => {
 			format: 'wav',
 			range: { startFrame: 0, endFrame: 60 }
 		});
-		const ctx = new AudioContext();
-		const decoded = await ctx.decodeAudioData(await artifact.blob.arrayBuffer());
+		const decoded = await decodePcm16Wav(artifact.blob);
 		expect(decoded.length).toBeCloseTo(2 * 48_000, -2);
-		await ctx.close();
 	}, 20_000);
 
 	it('fails on decode failure for audio-only instead of silent', async () => {
@@ -467,12 +531,10 @@ describe('bounded audio export product path', () => {
 			timeline: { tracks: [track], items: [item] }
 		};
 		const artifact = await renderTimelineAudioArtifact(project, { format: 'wav' });
-		const ctx = new AudioContext();
-		const decoded = await ctx.decodeAudioData(await artifact.blob.arrayBuffer());
+		const decoded = await decodePcm16Wav(artifact.blob);
 		expect(decoded.length).toBeCloseTo(durationSec * 48_000, -2);
 		expect(decoded.length).toBeGreaterThan(0);
 		// The direct mixer diagnostics below prove the allocation bound. This product-path check proves output duration.
-		await ctx.close();
 	}, 30_000);
 
 	it('keeps speed, pitch, EQ, resampling and automation bounded and continuous', async () => {
@@ -566,7 +628,80 @@ describe('bounded audio export product path', () => {
 		expect(Math.max(...boundaryJumps)).toBeLessThan(0.2);
 	}, 30_000);
 
-	it('streams reversed 44.1 kHz audio in source order without boundary resets', async () => {
+	it('renders a variable-speed source window into the planned output duration', async () => {
+		const rate = 48_000;
+		const source = Float32Array.from(
+			{ length: rate * 4 },
+			(_, frame) => (Math.floor(frame / rate) + 1) * 0.1
+		);
+		const blob = wavBlobFromMono(source, rate);
+		const file = new File([blob], 'speed-curve.wav', { type: 'audio/wav' });
+		mediaPool.upsert(
+			{
+				id: 'speed-curve',
+				storageType: 'handle',
+				fileHandle: linkedFileHandle(file),
+				fileName: file.name,
+				fileSize: file.size,
+				mimeType: 'audio/wav',
+				duration: 4,
+				width: 0,
+				height: 0,
+				fps: 0,
+				codec: '',
+				audioCodec: 'pcm-s16',
+				audioCodecSupported: true,
+				bitrate: 0,
+				tags: ['audio']
+			},
+			'ready'
+		);
+		const entry: MixEntry = {
+			itemId: 'speed-curve-item',
+			mediaId: 'speed-curve',
+			trackId: 'audio-track',
+			whenSeconds: 0,
+			sourceOffsetSeconds: 0,
+			sourceWindowStartSeconds: 0,
+			sourceWindowEndSeconds: 4,
+			playbackRate: 1,
+			playbackRateCurve: [
+				{ atSeconds: 0, rate: 1 },
+				{ atSeconds: 0.9999999, rate: 1 },
+				{ atSeconds: 1, rate: 2 },
+				{ atSeconds: 1.9999999, rate: 2 },
+				{ atSeconds: 2, rate: 1 },
+				{ atSeconds: 3, rate: 1 }
+			],
+			pitchShiftSemitones: 0,
+			audioEqStages: [],
+			audioEffects: [],
+			reversed: false,
+			durationSeconds: 3,
+			gainPoints: [{ whenSeconds: 0, value: 1 }],
+			previewGainPoints: [],
+			mixerTrackGain: 1,
+			transitionGainSpans: []
+		};
+		const output = new Float32Array(rate * 3);
+		let offset = 0;
+		for await (const window of mixAudioWindows([entry], 3)) {
+			output.set(window.samples[0]!, offset);
+			offset += window.samples[0]!.length;
+		}
+		const average = (start: number, end: number) => {
+			let total = 0;
+			for (let frame = start; frame < end; frame += 1) total += output[frame]!;
+			return total / (end - start);
+		};
+
+		expect(offset).toBe(rate * 3);
+		expect(average(rate / 4, rate / 2)).toBeCloseTo(0.1, 1);
+		expect(average(rate * 1.3, rate * 1.7)).toBeGreaterThan(0.2);
+		expect(average(rate * 2.5, rate * 2.75)).toBeCloseTo(0.4, 1);
+	}, 30_000);
+
+	it('streams reversed audio with effect tails without extending the composition', async () => {
 		const rate = 44_100;
 		const durationSeconds = 11;
 		const source = Float32Array.from({ length: rate * durationSeconds }, (_, frame) =>
@@ -594,6 +729,8 @@ describe('bounded audio export product path', () => {
 			},
 			'ready'
 		);
+		const delay = createDefaultAudioEffect('delay');
+		delay.mix = 0.01;
 		const entry: MixEntry = {
 			itemId: 'reverse-item',
 			mediaId: 'reverse-stream',
@@ -607,7 +744,8 @@ describe('bounded audio export product path', () => {
 			gainPoints: [{ whenSeconds: 0, value: 1 }],
 			previewGainPoints: [],
 			mixerTrackGain: 1,
-			transitionGainSpans: []
+			transitionGainSpans: [],
+			audioEffects: [delay]
 		};
 		const firstSecond: number[] = [];
 		const lastSecond: number[] = [];

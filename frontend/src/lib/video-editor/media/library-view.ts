@@ -10,6 +10,18 @@ export interface MediaLibraryGroup {
 }
 
 const GROUP_ORDER: MediaLibraryKind[] = ['video', 'audio', 'image', 'lottie', 'other'];
+const GRID_MIN_WIDTH_BY_SIZE = new Map([
+	[1, 80],
+	[2, 110],
+	[3, 140],
+	[4, 200],
+	[5, 280]
+]);
+
+export function mediaLibraryGridTemplate(itemSize: number): string {
+	const minWidth = GRID_MIN_WIDTH_BY_SIZE.get(itemSize) ?? 110;
+	return `repeat(auto-fill, minmax(min(${minWidth}px, 100%), 1fr))`;
+}
 
 export function mediaLibraryKind(media: MediaMetadata): MediaLibraryKind {
 	if (media.tags.includes('lottie')) return 'lottie';

@@ -18,7 +18,7 @@ OpenPost will not delete a file while a post, design, template, brand item, font
 
 ## Media lifecycle
 
-OpenPost uses one fixed cleanup policy. Post-specific temporary media moves to Trash after its final successful publication or after 14 days without use. Favorites, tags, collections, brand files, active drafts and schedules, retryable work, source relationships, and live OpenPost Image Editor or Video Editor projects keep their media safe.
+OpenPost uses one fixed cleanup policy. Post-specific temporary media moves to Trash after its final successful publication or after 14 days without use. Favorites, tags, collections, brand files, active drafts and schedules, retryable work, source relationships, and live OpenPost Image Editor projects keep their media safe. Disk-backed Video Editor projects are separate from Media and do not create hidden retention references.
 
 Items stay in Trash for seven days before permanent removal. Restoring an item restarts its unused period. You cannot change or disable either period in workspace settings.
 

@@ -6,8 +6,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from './app-select.svelte';
-	import PlatformIcon from './platform-icon.svelte';
-	import { getPlatformName } from '$lib/utils';
+	import SocialAccountAvatar from './social-account-avatar.svelte';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 	import { settingLabel } from '$lib/setting-label';
 	import type { ComposerSettings, ComposerSettingValue } from '$lib/components/compose/modes';
@@ -67,7 +67,15 @@
 	);
 
 	function accountLabel(account: SocialAccount): string {
-		return account.account_username || account.slug || getPlatformName(account.platform);
+		return (
+			formatSocialAccountName(account.account_username, account.platform) ||
+			account.slug ||
+			getPlatformName(account.platform)
+		);
+	}
+
+	function accountContextLabel(account: SocialAccount): string {
+		return `${accountLabel(account)} · ${getPlatformName(account.platform)}`;
 	}
 
 	function valueAsString(accountId: string, key: string): string {
@@ -108,8 +116,13 @@
 						class="flex items-center gap-1.5 text-sm font-medium"
 						for="required-format-{account.id}"
 					>
-						<PlatformIcon platform={account.platform} class="size-4" />
-						{m.compose_format_for_account({ account: accountLabel(account) })}
+						<SocialAccountAvatar
+							name={accountLabel(account)}
+							platform={account.platform}
+							avatarUrl={account.account_avatar_url}
+							size="sm"
+						/>
+						{m.compose_format_for_account({ account: accountContextLabel(account) })}
 						<span class="text-destructive" aria-hidden="true">*</span>
 					</label>
 					<AppSelect
@@ -118,7 +131,7 @@
 							.filter((format) => format.compatible)
 							.map((format) => ({ value: format.output_profile, label: format.label }))}
 						placeholder={m.compose_choose_format()}
-						ariaLabel={m.compose_format_for_account({ account: accountLabel(account) })}
+						ariaLabel={m.compose_format_for_account({ account: accountContextLabel(account) })}
 						class="mt-1 h-11"
 						onValueChange={(value) => onFormatChange(account, value)}
 					/>
@@ -139,17 +152,27 @@
 									checked={valuesByAccount[account.id]?.[setting.key] === true}
 									onCheckedChange={(checked) => onChange(account, setting.key, checked)}
 								/>
-								<PlatformIcon platform={account.platform} class="size-4" />
+								<SocialAccountAvatar
+									name={accountLabel(account)}
+									platform={account.platform}
+									avatarUrl={account.account_avatar_url}
+									size="sm"
+								/>
 								<span>{settingLabel(setting)}</span>
-								<span class="sr-only">{accountLabel(account)}</span>
+								<span class="sr-only">{accountContextLabel(account)}</span>
 							</label>
 						{:else}
 							<label
 								class="flex items-center gap-1.5 text-sm font-medium"
 								for="required-{account.id}-{setting.key}"
 							>
-								<PlatformIcon platform={account.platform} class="size-4" />
-								{settingLabel(setting)} · {accountLabel(account)}
+								<SocialAccountAvatar
+									name={accountLabel(account)}
+									platform={account.platform}
+									avatarUrl={account.account_avatar_url}
+									size="sm"
+								/>
+								{settingLabel(setting)} · {accountContextLabel(account)}
 								<span class="text-destructive" aria-hidden="true">*</span>
 							</label>
 							{#if setting.control === 'select' || setting.control === 'remote_picker' || setting.type === 'select'}
@@ -157,7 +180,7 @@
 									value={valueAsString(account.id, setting.key)}
 									options={optionsFor(account.id, setting)}
 									placeholder={m.compose_choose_value({ field: settingLabel(setting) })}
-									ariaLabel={`${settingLabel(setting)} · ${accountLabel(account)}`}
+									ariaLabel={`${settingLabel(setting)} · ${accountContextLabel(account)}`}
 									class="mt-1 h-11"
 									disabled={setting.control === 'remote_picker' &&
 										optionsLoadingAccountId === account.id}
@@ -200,7 +223,7 @@
 					<div class="min-w-0">
 						<p class="text-sm font-medium">{m.compose_media_required()}</p>
 						<p class="truncate text-xs text-muted-foreground">
-							{mediaAccounts.map(accountLabel).join(', ')}
+							{mediaAccounts.map(accountContextLabel).join(', ')}
 						</p>
 					</div>
 					<Button

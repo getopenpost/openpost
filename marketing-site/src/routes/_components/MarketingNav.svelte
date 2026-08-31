@@ -2,28 +2,24 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { ArrowRight, Menu, Moon, Sun, X } from '@lucide/svelte';
+	import Clapperboard from '@lucide/svelte/icons/clapperboard';
+	import Images from '@lucide/svelte/icons/images';
 	import { mode, toggleMode } from 'mode-watcher';
 	import Logo from '$lib/components/Logo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as NavigationMenu from '$lib/components/ui/navigation-menu';
-	import {
-		appUrl,
-		discordCommunityUrl,
-		docsUrl,
-		managedSignupUrl,
-		navItems,
-		platforms,
-		resourceItems
-	} from '../_marketing';
+	import { appUrl, managedSignupUrl, marketingNavigation, platforms } from '../_marketing';
+
+	type NavigationItem = { label: string; href: string };
+	type ResourceGroup = { label: string; items: readonly NavigationItem[] };
 
 	let mobileOpen = $state(false);
 	const currentPath = $derived(page.url.pathname);
-	const navigationResourceItems = [
-		{ label: 'User docs', href: docsUrl },
-		...resourceItems.filter((item) => item.href !== '/platforms'),
-		{ label: 'Discord community', href: discordCommunityUrl }
-	] as const;
+	const primaryNavItems = marketingNavigation.primary;
+	const resourceGroups: readonly ResourceGroup[] = marketingNavigation.resourceGroups;
+	const navigationResourceItems = resourceGroups.flatMap((group) => group.items);
+	const mobileNavItems = marketingNavigation.mobile;
 
 	function isActive(href: string): boolean {
 		if (href.startsWith('http')) return false;
@@ -58,7 +54,7 @@
 			aria-label="Primary navigation"
 		>
 			<NavigationMenu.List>
-				{#each navItems as item (item.href)}
+				{#each primaryNavItems as item (item.href)}
 					{#if item.href === '/platforms'}
 						<NavigationMenu.Item>
 							<NavigationMenu.Trigger
@@ -119,6 +115,88 @@
 								</ul>
 							</NavigationMenu.Content>
 						</NavigationMenu.Item>
+					{:else if item.href === '/tools'}
+						<NavigationMenu.Item>
+							<NavigationMenu.Trigger
+								aria-current={isActive(item.href) ? 'page' : undefined}
+								class="focus-ring h-11 min-h-11 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/70 hover:text-foreground data-open:bg-muted data-open:text-foreground"
+							>
+								{item.label}
+							</NavigationMenu.Trigger>
+							<NavigationMenu.Content class="tool-menu left-1/2 -translate-x-1/2 p-3">
+								<div class="grid grid-cols-2 gap-3">
+									<NavigationMenu.Link
+										href="/tools/social-media-video-editor"
+										active={isActive('/tools/social-media-video-editor')}
+										class="group/tool focus-ring block overflow-hidden rounded-xl border bg-card p-0"
+									>
+										<div class="aspect-[3/2] overflow-hidden bg-black">
+											<img
+												src="/assets/screenshots/video-editor-dark.webp"
+												alt=""
+												width="1440"
+												height="960"
+												class="tool-preview size-full object-cover object-top transition-transform duration-300 group-hover/tool:scale-[1.03] group-focus-visible/tool:scale-[1.03]"
+											/>
+										</div>
+										<span class="flex items-start gap-3 p-3">
+											<span
+												class="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary transition-colors group-hover/tool:bg-primary group-hover/tool:text-primary-foreground group-focus-visible/tool:bg-primary group-focus-visible/tool:text-primary-foreground"
+											>
+												<Clapperboard class="size-4" aria-hidden="true" />
+											</span>
+											<span>
+												<span class="block text-sm font-semibold text-foreground">Video Editor</span
+												>
+												<span class="mt-0.5 block text-xs leading-5 text-muted-foreground"
+													>Cut, caption, record, and export for social video.</span
+												>
+											</span>
+										</span>
+									</NavigationMenu.Link>
+
+									<NavigationMenu.Link
+										href="/tools/social-media-image-editor"
+										active={isActive('/tools/social-media-image-editor')}
+										class="group/tool focus-ring block overflow-hidden rounded-xl border bg-card p-0"
+									>
+										<div class="aspect-[3/2] overflow-hidden bg-black">
+											<img
+												src="/assets/screenshots/image-editor-dark.webp"
+												alt=""
+												width="1440"
+												height="960"
+												class="tool-preview size-full object-cover object-top transition-transform duration-300 group-hover/tool:scale-[1.03] group-focus-visible/tool:scale-[1.03]"
+											/>
+										</div>
+										<span class="flex items-start gap-3 p-3">
+											<span
+												class="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary transition-colors group-hover/tool:bg-primary group-hover/tool:text-primary-foreground group-focus-visible/tool:bg-primary group-focus-visible/tool:text-primary-foreground"
+											>
+												<Images class="size-4" aria-hidden="true" />
+											</span>
+											<span>
+												<span class="block text-sm font-semibold text-foreground">Image Editor</span
+												>
+												<span class="mt-0.5 block text-xs leading-5 text-muted-foreground"
+													>Create posts, carousels, stories, and thumbnails.</span
+												>
+											</span>
+										</span>
+									</NavigationMenu.Link>
+								</div>
+								<div class="mt-3 border-t pt-2">
+									<NavigationMenu.Link
+										href="/tools"
+										active={isActive('/tools')}
+										class="focus-ring min-h-10 w-full justify-between rounded-md px-3 text-sm font-semibold text-foreground"
+									>
+										All free tools
+										<ArrowRight class="size-3.5" aria-hidden="true" />
+									</NavigationMenu.Link>
+								</div>
+							</NavigationMenu.Content>
+						</NavigationMenu.Item>
 					{:else}
 						<NavigationMenu.Item>
 							<NavigationMenu.Link
@@ -140,21 +218,28 @@
 					>
 						Resources
 					</NavigationMenu.Trigger>
-					<NavigationMenu.Content class="w-56">
-						<ul class="grid gap-1">
-							{#each navigationResourceItems as item (item.href)}
-								<li>
-									<NavigationMenu.Link
-										href={item.href}
-										active={isActive(item.href)}
-										aria-current={isActive(item.href) ? 'page' : undefined}
-										class="focus-ring min-h-11 w-full rounded-md px-3 text-sm text-muted-foreground hover:text-foreground data-[active=true]:text-foreground"
-									>
-										{item.label}
-									</NavigationMenu.Link>
-								</li>
+					<NavigationMenu.Content class="resource-menu left-1/2 -translate-x-1/2 p-3">
+						<div class="grid grid-cols-3 gap-3">
+							{#each resourceGroups as group (group.label)}
+								<div>
+									<p class="px-3 pb-1.5 text-xs font-semibold text-foreground">{group.label}</p>
+									<ul class="grid gap-0.5">
+										{#each group.items as item (item.href)}
+											<li>
+												<NavigationMenu.Link
+													{...navigationHref(item.href)}
+													active={isActive(item.href)}
+													aria-current={isActive(item.href) ? 'page' : undefined}
+													class="focus-ring min-h-10 w-full rounded-md px-3 text-sm text-muted-foreground hover:text-foreground data-[active=true]:text-foreground"
+												>
+													{item.label}
+												</NavigationMenu.Link>
+											</li>
+										{/each}
+									</ul>
+								</div>
 							{/each}
-						</ul>
+						</div>
 					</NavigationMenu.Content>
 				</NavigationMenu.Item>
 			</NavigationMenu.List>
@@ -173,7 +258,7 @@
 			</Button>
 			<Button href={`${appUrl}/login`} variant="ghost" size="sm">Sign in</Button>
 			<Button href={managedSignupUrl} size="sm">
-				Start free trial
+				Get started
 				<ArrowRight data-icon="inline-end" />
 			</Button>
 		</div>
@@ -198,61 +283,32 @@
 			aria-label="Mobile navigation"
 		>
 			<div class="marketing-shell grid gap-1 py-4">
-				{#each navItems as item (item.href)}
-					{#if item.href !== '/platforms'}
-						<a
-							href={resolve(item.href as '/')}
-							aria-current={isActive(item.href) ? 'page' : undefined}
-							class={[
-								'focus-ring flex min-h-11 items-center rounded-md px-3 text-sm font-medium',
-								isActive(item.href) ? 'bg-muted text-foreground' : 'text-muted-foreground'
-							]}
-							onclick={() => (mobileOpen = false)}
-						>
-							{item.label}
-						</a>
-					{/if}
-				{/each}
-
-				<div class="mt-3 flex min-h-11 items-center justify-between px-3">
-					<p class="text-xs font-semibold text-muted-foreground">Platforms</p>
+				{#each primaryNavItems as item (item.href)}
 					<a
-						href={resolve('/platforms')}
-						class="focus-ring inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-xs font-semibold"
-						onclick={() => (mobileOpen = false)}
-					>
-						View all <ArrowRight class="size-3.5" aria-hidden="true" />
-					</a>
-				</div>
-				<div class="grid grid-cols-2 gap-1">
-					{#each platforms as platform (platform.slug)}
-						<a
-							href={resolve(`/platforms/${platform.slug}`)}
-							aria-current={isActive(`/platforms/${platform.slug}`) ? 'page' : undefined}
-							class={[
-								'focus-ring flex min-h-11 min-w-0 items-center gap-2 rounded-md px-3 text-sm',
-								isActive(`/platforms/${platform.slug}`)
-									? 'bg-muted text-foreground'
-									: 'text-muted-foreground'
-							]}
-							onclick={() => (mobileOpen = false)}
-						>
-							<PlatformIcon platform={platform.slug} class="size-4 shrink-0" />
-							<span class="truncate">{platform.name}</span>
-						</a>
-					{/each}
-				</div>
-
-				<p class="mt-4 px-3 text-xs font-semibold text-muted-foreground">Resources</p>
-				{#each navigationResourceItems as item (item.href)}
-					<a
-						{...navigationHref(item.href)}
-						class="focus-ring flex min-h-11 items-center rounded-md px-3 text-sm text-muted-foreground"
+						href={resolve(item.href as '/')}
+						aria-current={isActive(item.href) ? 'page' : undefined}
+						class={[
+							'focus-ring flex min-h-11 items-center rounded-md px-3 text-sm font-medium',
+							isActive(item.href) ? 'bg-muted text-foreground' : 'text-muted-foreground'
+						]}
 						onclick={() => (mobileOpen = false)}
 					>
 						{item.label}
 					</a>
 				{/each}
+
+				<p class="mt-3 px-3 pt-3 text-xs font-semibold text-muted-foreground">Resources</p>
+				<div class="grid grid-cols-2 gap-1">
+					{#each mobileNavItems as item (item.href)}
+						<a
+							{...navigationHref(item.href)}
+							class="focus-ring flex min-h-11 items-center rounded-md px-3 text-sm text-muted-foreground"
+							onclick={() => (mobileOpen = false)}
+						>
+							{item.label}
+						</a>
+					{/each}
+				</div>
 				<div class="mt-4 grid grid-cols-[auto_1fr] gap-2 border-t pt-4">
 					<Button
 						type="button"
@@ -264,7 +320,7 @@
 					>
 						{#if mode.current === 'dark'}<Sun />{:else}<Moon />{/if}
 					</Button>
-					<Button href={managedSignupUrl} size="sm">Start free trial</Button>
+					<Button href={managedSignupUrl} size="sm">Get started</Button>
 				</div>
 			</div>
 		</nav>
@@ -281,5 +337,20 @@
 	/* The shadcn Content ships md:w-auto; the destinations panel needs a real width. */
 	:global(.platform-menu.platform-menu) {
 		width: min(46rem, calc(100vw - 2rem));
+	}
+
+	:global(.resource-menu.resource-menu) {
+		width: min(42rem, calc(100vw - 2rem));
+	}
+
+	:global(.tool-menu.tool-menu) {
+		width: min(38rem, calc(100vw - 2rem));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tool-preview {
+			transform: none !important;
+			transition: none !important;
+		}
 	}
 </style>

@@ -1,11 +1,12 @@
-import * as Haptics from "expo-haptics";
+import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
+import { SymbolView } from "expo-symbols";
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Linking,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,12 +15,14 @@ import {
   View,
 } from "react-native";
 import { useShareIntentContext } from "expo-share-intent";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { BottomDrawer } from "@/components/bottom-drawer";
 import { BodyText, Button, Card, IconButton, Screen, TextField, useColors } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { relativeTime } from "@/lib/format";
-import { stashSharedFiles } from "@/lib/share";
+import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
+import type { PendingAttachment } from "@/lib/media";
+import { stashPendingAttachments, stashSharedFiles } from "@/lib/share";
 import {
   currentWorkspaceId,
   usePublications,
@@ -34,6 +37,7 @@ export default function DraftsScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [idea, setIdea] = useState("");
+  const [image, setImage] = useState<PendingAttachment | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
   const drafts = usePublications("draft");
   const workspaces = useWorkspaces();
@@ -60,17 +64,52 @@ export default function DraftsScreen() {
     },
   });
 
-  async function quickCapture() {
+  async function quickCapture(buildWithAI = false) {
     const text = idea.trim();
-    if (!text) return;
+    if (!text && !image) return;
     setCaptureError(null);
     try {
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const draft = await createDraft.mutateAsync(text);
+      stashPendingAttachments(image ? [image] : []);
       setIdea("");
-      router.push({ pathname: "/compose/[id]", params: { id: draft.id } });
+      setImage(null);
+      void successHaptic();
+      router.push({
+        pathname: "/publications/[id]/edit",
+        params: {
+          id: draft.id,
+          celebrate: "1",
+          ...(buildWithAI ? { build: "1" } : {}),
+        },
+      });
     } catch (err) {
       setCaptureError(err instanceof Error ? err.message : "Could not save draft");
+      void errorHaptic();
+    }
+  }
+
+  async function pickImage() {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: false,
+        quality: 0.9,
+      });
+      const asset = result.canceled ? null : result.assets[0];
+      if (!asset) return;
+      const capturedAt = Date.now();
+      setImage({
+        localId: `local-${capturedAt}`,
+        uri: asset.uri,
+        mimeType: asset.mimeType ?? "image/jpeg",
+        filename: asset.fileName ?? `photo-${capturedAt}.jpg`,
+        size: asset.fileSize ?? null,
+      });
+      setCaptureError(null);
+      void selectionHaptic();
+    } catch {
+      setCaptureError("Could not open your photo library. Try again.");
+      void errorHaptic();
     }
   }
 
@@ -87,11 +126,15 @@ export default function DraftsScreen() {
     resetShareIntent();
     void (async () => {
       try {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const draft = await createDraft.mutateAsync(sharedText);
-        router.push({ pathname: "/compose/[id]", params: { id: draft.id } });
+        void successHaptic();
+        router.push({
+          pathname: "/publications/[id]/edit",
+          params: { id: draft.id, celebrate: "1" },
+        });
       } catch {
         setCaptureError("Could not create a draft from the shared content");
+        void errorHaptic();
       }
     })();
   }, [hasShareIntent, shareIntent, resetShareIntent, workspaces.data, createDraft]);
@@ -116,28 +159,81 @@ export default function DraftsScreen() {
           ) : null}
         </View>
         <MenuButton onOpen={() => setMenuOpen(true)} />
-        <Button
-          title="New draft"
-          variant="tinted"
-          onPress={() => void quickCapture()}
-          disabled={createDraft.isPending || idea.trim().length === 0}
-        />
       </View>
 
-      <View style={styles.capture}>
+      <View
+        style={[styles.capture, { backgroundColor: colors.card, borderColor: colors.separator }]}
+      >
+        <Text style={[styles.captureTitle, { color: colors.text }]}>Jot an idea</Text>
         <TextField
           value={idea}
           onChangeText={setIdea}
           accessibilityLabel="Draft idea"
-          placeholder="Jot an idea"
+          placeholder="What are you building, learning, or launching?"
           multiline
-          onSubmitEditing={() => void quickCapture()}
+          textAlignVertical="top"
+          style={[styles.ideaField, { backgroundColor: colors.card, borderColor: "transparent" }]}
         />
+        {image ? (
+          <View
+            style={[
+              styles.attachmentRow,
+              { backgroundColor: colors.card, borderColor: colors.separator },
+            ]}
+          >
+            <Image source={{ uri: image.uri }} style={styles.attachmentThumb} contentFit="cover" />
+            <BodyText numberOfLines={1} style={{ color: colors.text, flex: 1 }}>
+              {image.filename}
+            </BodyText>
+            <IconButton
+              label={`Remove ${image.filename}`}
+              name={{ ios: "trash", android: "delete" }}
+              color={colors.danger}
+              onPress={() => setImage(null)}
+            />
+          </View>
+        ) : null}
+        <View style={styles.attachRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={image ? "Replace image" : "Add image from library"}
+            disabled={createDraft.isPending}
+            onPress={() => void pickImage()}
+            style={({ pressed }) => [
+              styles.addTile,
+              { borderColor: colors.separator },
+              pressed && { opacity: 0.6 },
+            ]}
+          >
+            <SymbolView
+              name={{ ios: "photo.badge.plus", android: "add_photo_alternate" }}
+              size={24}
+              tintColor={colors.tint}
+            />
+          </Pressable>
+          <BodyText>{image ? "Replace image" : "Add image"}</BodyText>
+        </View>
         {captureError ? (
           <BodyText accessibilityRole="alert" style={{ color: colors.danger, marginTop: 6 }}>
             {captureError}
           </BodyText>
         ) : null}
+        <View style={styles.captureActions}>
+          <Button
+            title="Generate draft"
+            variant="focal"
+            onPress={() => void quickCapture(true)}
+            disabled={createDraft.isPending || idea.trim().length === 0}
+            loading={createDraft.isPending}
+            style={{ flex: 1 }}
+          />
+          <Button
+            title="Write it myself"
+            variant="plain"
+            onPress={() => void quickCapture(false)}
+            disabled={createDraft.isPending || (idea.trim().length === 0 && !image)}
+          />
+        </View>
       </View>
 
       <ScrollView
@@ -200,7 +296,7 @@ function DraftRow({ draft }: { draft: PublicationListItem }) {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${excerpt}. Edited ${relativeTime(draft.updated_at)}`}
-      onPress={() => router.push({ pathname: "/compose/[id]", params: { id: draft.id } })}
+      onPress={() => router.push({ pathname: "/publications/[id]/edit", params: { id: draft.id } })}
     >
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
@@ -231,73 +327,52 @@ function WorkspaceMenu({
   workspaces: { id: string; name?: string | null }[];
 }) {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const server = getServer();
   const activeWorkspace = workspaces.find((workspace) => workspace.id === getWorkspaceId());
   return (
-    <Modal
-      animationType="slide"
-      transparent
-      statusBarTranslucent
-      navigationBarTranslucent
-      onRequestClose={onClose}
-    >
-      <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
-        <Pressable
-          accessible={false}
-          accessibilityViewIsModal
-          onPress={(event) => event.stopPropagation()}
-          style={styles.sheet}
-        >
-          <Card
-            style={[
-              styles.menu,
-              { backgroundColor: colors.card, paddingBottom: Math.max(insets.bottom, 12) },
-            ]}
+    <BottomDrawer onDismiss={onClose} open title="Workspace">
+      <View style={styles.menu}>
+        {workspaces.length > 1 ? (
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => {
+              onClose();
+              router.push({
+                pathname: "/onboarding/workspace",
+                params: { mode: "switch" },
+              });
+            }}
+            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
           >
-            {workspaces.length > 1 ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  onClose();
-                  router.push({
-                    pathname: "/onboarding/workspace",
-                    params: { mode: "switch" },
-                  });
-                }}
-                style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
-              >
-                <Text style={{ color: colors.text, fontSize: 16 }}>Switch workspace</Text>
-                <BodyText>{activeWorkspace?.name ?? "Choose another workspace"}</BodyText>
-              </Pressable>
-            ) : null}
-            {server ? (
-              <Pressable
-                accessibilityRole="link"
-                onPress={() => {
-                  onClose();
-                  void Linking.openURL(server.baseUrl);
-                }}
-                style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
-              >
-                <Text style={{ color: colors.tint, fontSize: 16 }}>Open web app</Text>
-                <BodyText>Manage accounts and settings</BodyText>
-              </Pressable>
-            ) : null}
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                onClose();
-                void signOut().then(() => router.replace("/"));
-              }}
-              style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
-            >
-              <Text style={{ color: colors.danger, fontSize: 16 }}>Sign out</Text>
-            </Pressable>
-          </Card>
+            <Text style={{ color: colors.text, fontSize: 16 }}>Switch workspace</Text>
+            <BodyText>{activeWorkspace?.name ?? "Choose another workspace"}</BodyText>
+          </Pressable>
+        ) : null}
+        {server ? (
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => {
+              onClose();
+              void Linking.openURL(server.baseUrl);
+            }}
+            style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+          >
+            <Text style={{ color: colors.tint, fontSize: 16 }}>Open web app</Text>
+            <BodyText>Manage accounts and settings</BodyText>
+          </Pressable>
+        ) : null}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            onClose();
+            void signOut().then(() => router.replace("/"));
+          }}
+          style={({ pressed }) => [styles.menuRow, pressed && { opacity: 0.5 }]}
+        >
+          <Text style={{ color: colors.danger, fontSize: 16 }}>Sign out</Text>
         </Pressable>
-      </Pressable>
-    </Modal>
+      </View>
+    </BottomDrawer>
   );
 }
 
@@ -316,8 +391,56 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   capture: {
-    paddingHorizontal: 20,
-    paddingBottom: 8,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginHorizontal: 20,
+    marginTop: 8,
+    padding: 14,
+  },
+  captureTitle: {
+    fontSize: 19,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  ideaField: {
+    fontSize: 17,
+    lineHeight: 25,
+    minHeight: 104,
+    paddingHorizontal: 0,
+    paddingTop: 10,
+  },
+  attachmentRow: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 80,
+    padding: 8,
+  },
+  attachmentThumb: {
+    borderRadius: 10,
+    height: 64,
+    width: 64,
+  },
+  attachRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  addTile: {
+    alignItems: "center",
+    borderRadius: 10,
+    borderStyle: "dashed",
+    borderWidth: 1.5,
+    height: 64,
+    justifyContent: "center",
+    width: 64,
+  },
+  captureActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   list: {
     padding: 20,
@@ -341,20 +464,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
-  },
-  sheet: {
-    width: "100%",
-  },
   menu: {
     width: "100%",
-    paddingTop: 8,
-    paddingHorizontal: 8,
-    borderBottomLeftRadius: 0,
-    borderBottomRightRadius: 0,
+    gap: 4,
   },
   menuRow: {
     minHeight: 48,

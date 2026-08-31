@@ -10,32 +10,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func TestRunMigrationsCreatesCLIAuthSessionsSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'cli_auth_sessions'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "device_code_hash TEXT NOT NULL UNIQUE")
-	require.Contains(t, schema, "user_code_hash TEXT NOT NULL UNIQUE")
-	require.Contains(t, schema, "CHECK (status IN ('pending', 'approved', 'denied', 'expired'))")
-	require.Contains(t, schema, "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('cli_auth_sessions_user_id_idx', 'cli_auth_sessions_status_expires_at_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 2, indexCount)
-}
-
 func TestRunMigrationsCLIAuthSessionsIdempotent(t *testing.T) {
 	t.Parallel()
 

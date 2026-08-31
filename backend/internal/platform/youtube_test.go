@@ -39,6 +39,26 @@ func TestYouTubeGenerateAuthURL(t *testing.T) {
 	}
 }
 
+func TestYouTubeGetProfileIncludesGooglePicture(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.String() != googleUserInfoURL {
+			t.Fatalf("unexpected request %s", req.URL.String())
+		}
+		return jsonResponse(req, `{"id":"google-1","name":"Creator","email":"creator@example.com","picture":"https://lh3.googleusercontent.com/avatar.jpg"}`), nil
+	})}
+
+	profile, err := NewYouTubeAdapter("", "", "").GetProfile(context.Background(), "access-token")
+	if err != nil {
+		t.Fatalf("GetProfile returned error: %v", err)
+	}
+	if profile.AvatarURL != "https://lh3.googleusercontent.com/avatar.jpg" {
+		t.Fatalf("unexpected profile: %#v", profile)
+	}
+}
+
 func TestYouTubeExchangeRefreshAndSelectChannel(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

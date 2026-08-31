@@ -19,6 +19,7 @@ services:
     platform: linux/amd64
     container_name: openpost
     restart: unless-stopped
+    stop_grace_period: 15s
     env_file:
       - .env
     ports:
@@ -29,6 +30,7 @@ services:
       - OPENPOST_PORT=8080
       - OPENPOST_DATABASE_PATH=/data/db/openpost.db
       - OPENPOST_MEDIA_PATH=/data/media
+      - OPENPOST_MEDIA_URL=https://openpost.example.com/media
     # Keep container health on liveness. Gate traffic and rollouts on /api/v1/ready.
     healthcheck:
       test:
@@ -48,6 +50,19 @@ services:
 volumes:
   openpost_data:
 ```
+
+## Secret files
+
+For Docker, Podman, or other secret managers, mount secret files and use file-backed variables instead of putting secret values in Compose:
+
+```yaml
+environment:
+  - OPENPOST_JWT_SECRET_FILE=/run/secrets/openpost-jwt-secret
+  - OPENPOST_ENCRYPTION_KEY_FILE=/run/secrets/openpost-encryption-key
+  - OPENPOST_DATABASE_URL_FILE=/run/secrets/openpost-database-url
+```
+
+Leave the direct variables unset when the `_FILE` variants should be used.
 
 ## Create `.env`
 
@@ -85,6 +100,23 @@ Optional hardening after setup:
 ```bash
 docker compose up -d
 ```
+
+The image runs `./openpost all` by default. This combined role applies pending
+migrations, serves HTTP, and processes durable jobs for the one-container
+self-host setup.
+
+Larger deployments can run the same immutable image as separate release and
+runtime processes. Run the migration command once before replacing either
+long-lived role:
+
+```bash
+docker compose run --rm openpost ./openpost migrate
+```
+
+Then set each service command to `./openpost web` or `./openpost worker`. Both
+long-lived roles perform a read-only schema check and refuse to start until the
+release migration is current. Use PostgreSQL and shared S3-compatible storage
+before running more than one container.
 
 ## Check readiness
 
@@ -125,4 +157,4 @@ docker compose logs -f openpost
 
 - [Reverse proxy](/installation/reverse-proxy)
 - [Production checklist](/configuration/production-checklist)
-- [Provider setup](/providers/overview)
+- [Provider setup](/providers/)

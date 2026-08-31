@@ -201,3 +201,49 @@ func seedMisrecordedMediaRecipeMigration074(ctx context.Context, t *testing.T, d
 	`)
 	require.NoError(t, err)
 }
+
+func TestRunMigrationsHealsSkippedMigrationCollisions(t *testing.T) {
+	t.Parallel()
+
+	db := newMigrationsTestDB(t)
+	ctx := context.Background()
+	_, err := db.NewCreateTable().Model((*SchemaMigration)(nil)).IfNotExists().Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&[]SchemaMigration{
+		{Version: 94, AppliedAt: 94},
+		{Version: 108, AppliedAt: 108},
+	}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `
+		CREATE TABLE workspace_invitations (
+			id TEXT PRIMARY KEY,
+			email TEXT NOT NULL
+		);
+		INSERT INTO workspace_invitations (id, email)
+		VALUES ('invite-1', 'person@example.com');
+	`)
+	require.NoError(t, err)
+
+	idempotencySQL, err := migrationFiles.ReadFile("110_idempotency_records.sql")
+	require.NoError(t, err)
+	invitationSQL, err := migrationFiles.ReadFile("111_workspace_invitation_delivery.sql")
+	require.NoError(t, err)
+	require.NoError(t, runMigrations(db, fstest.MapFS{
+		"110_idempotency_records.sql":           &fstest.MapFile{Data: idempotencySQL},
+		"111_workspace_invitation_delivery.sql": &fstest.MapFile{Data: invitationSQL},
+	}))
+
+	idempotencyExists, err := migrationTableExists(ctx, db, "idempotency_records")
+	require.NoError(t, err)
+	require.True(t, idempotencyExists)
+	for _, column := range []string{"email_delivery_status", "email_delivery_job_id"} {
+		present, columnErr := migrationColumnExists(ctx, db, "workspace_invitations", column)
+		require.NoError(t, columnErr)
+		require.True(t, present, "expected healed workspace invitation column %s", column)
+	}
+	for _, version := range []int64{110, 111} {
+		count, countErr := db.NewSelect().Model((*SchemaMigration)(nil)).Where("version = ?", version).Count(ctx)
+		require.NoError(t, countErr)
+		require.Equal(t, 1, count)
+	}
+}

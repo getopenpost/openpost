@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
@@ -12,6 +12,10 @@ import type {
 	RenderExportOptions,
 	RenderExportResult
 } from '../media/render-export';
+import type {
+	ImageSequenceExecutionJob,
+	ImageSequenceExecutionOutcome
+} from '../media/render-execution';
 import '../../../routes/layout.css';
 
 const track: TimelineTrack = {
@@ -69,6 +73,10 @@ beforeEach(() => {
 	);
 	timelineStore.__resetForTesting();
 	timelineStore.setAll({ tracks: [track], items: [item], fps: 30, currentFrame: 0 });
+});
+
+afterEach(() => {
+	vi.restoreAllMocks();
 });
 
 describe('ExportDialog', () => {
@@ -159,6 +167,54 @@ describe('ExportDialog', () => {
 		await screen.getByRole('button', { name: 'Cancel export' }).click();
 		expect(renderSignal?.aborted).toBe(true);
 		expect(renderAudio).toHaveBeenCalledOnce();
+	});
+
+	it('downloads a ZIP when the workspace save is unavailable', async () => {
+		const blob = new Blob(['zip'], { type: 'application/zip' });
+		const renderSequence = vi.fn(
+			async (_job: ImageSequenceExecutionJob): Promise<ImageSequenceExecutionOutcome> => ({
+				renderPath: 'main-thread',
+				result: {
+					kind: 'zip',
+					fileName: 'Interview.zip',
+					relPath: null,
+					blob,
+					frameCount: 300,
+					totalBytes: blob.size,
+					savedToWorkspace: false
+				}
+			})
+		);
+		const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:sequence');
+		const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+		const ondone = vi.fn();
+		const screen = await render(ExportDialog, {
+			project,
+			ondone,
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true),
+			renderSequence
+		});
+
+		await screen.getByRole('button', { name: 'Render full video' }).click();
+		await screen.getByText('WebM', { exact: true }).click();
+		await screen.getByRole('option', { name: 'PNG sequence' }).click();
+		if (screen.getByText('Folder', { exact: true }).query()) {
+			await screen.getByText('Folder', { exact: true }).click();
+			await screen.getByRole('option', { name: 'ZIP file' }).click();
+		}
+		await expect.element(screen.getByText('Ready to render')).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Render now' })).toBeEnabled();
+		await screen.getByRole('button', { name: 'Render now' }).click();
+
+		await vi.waitFor(() => expect(renderSequence).toHaveBeenCalledOnce());
+		expect(createObjectURL).toHaveBeenCalledWith(blob);
+		expect(click).toHaveBeenCalledOnce();
+		expect(ondone).toHaveBeenCalledWith({
+			relPath: 'download:Interview.zip',
+			fileName: 'Interview.zip',
+			blob
+		});
 	});
 
 	it('shows live readiness, blocks missing sources, and fits a phone-width viewport', async () => {
@@ -275,5 +331,195 @@ describe('ExportDialog', () => {
 		expect(jobs[0]?.settings.range).toEqual({ startFrame: 0, endFrame: 1_800 });
 		expect(jobs[39]?.settings.range).toEqual({ startFrame: 70_200, endFrame: 72_000 });
 		expect(new Set(jobs.map((job) => job.snapshot))).toHaveLength(1);
+	});
+	it('traps focus inside the export dialog', async () => {
+		await page.viewport(1280, 720);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		const dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await vi.waitFor(() => {
+			expect(dialog.element().contains(document.activeElement)).toBe(true);
+		});
+
+		// Tab should keep focus inside dialog
+		await userEvent.keyboard('{Tab}');
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+		await userEvent.keyboard('{Tab}');
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+		// Shift+Tab should also stay inside
+		await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
+		expect(dialog.element().contains(document.activeElement)).toBe(true);
+
+		// background trigger should not receive focus while dialog open
+		expect(document.activeElement).not.toBe(trigger.element());
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+	});
+
+	it('Escape closes idle dialog and returns focus, but is blocked while rendering', async () => {
+		await page.viewport(1280, 720);
+		let renderSignal: AbortSignal | undefined;
+		const renderVideo = vi.fn(
+			async (_project: Project, options: RenderExportOptions = {}): Promise<RenderExportResult> => {
+				renderSignal = options.signal;
+				options.onProgress?.({
+					phase: 'rendering',
+					framesDone: 10,
+					totalFrames: 300,
+					progress: 0.03
+				});
+				return await new Promise((_resolve, reject) => {
+					options.signal?.addEventListener(
+						'abort',
+						() => reject(new DOMException('Export cancelled', 'AbortError')),
+						{ once: true }
+					);
+				});
+			}
+		);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true),
+			renderVideo
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		let dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+
+		// Escape should close when idle and restore focus
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+
+		// reopen and start rendering
+		await trigger.click();
+		dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await screen.getByRole('button', { name: 'Render now' }).click();
+		await expect.element(screen.getByText('Rendering frames')).toBeVisible();
+
+		// Escape while rendering should be ignored
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).toBeVisible();
+		expect(renderSignal?.aborted).toBe(false);
+
+		// Cancel restores idle state and Escape then works
+		await screen.getByRole('button', { name: 'Cancel export' }).click();
+		expect(renderSignal?.aborted).toBe(true);
+		await expect.element(screen.getByRole('button', { name: 'Render now' })).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+	});
+
+	it('overlay click closes idle dialog and restores focus, but is blocked while rendering', async () => {
+		await page.viewport(1280, 720);
+		let renderSignal: AbortSignal | undefined;
+		const renderVideo = vi.fn(
+			async (_project: Project, options: RenderExportOptions = {}): Promise<RenderExportResult> => {
+				renderSignal = options.signal;
+				options.onProgress?.({
+					phase: 'rendering',
+					framesDone: 10,
+					totalFrames: 300,
+					progress: 0.03
+				});
+				return await new Promise((_resolve, reject) => {
+					options.signal?.addEventListener(
+						'abort',
+						() => reject(new DOMException('Export cancelled', 'AbortError')),
+						{ once: true }
+					);
+				});
+			}
+		);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true),
+			renderVideo
+		});
+
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		let dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		const getOverlay = () =>
+			// SAFETY: overlay has stable data-slot when dialog is open
+			document.querySelector('[data-slot="dialog-overlay"]') as HTMLElement | null;
+		const clickOverlay = async (overlay: HTMLElement) => {
+			await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+			const pointer = {
+				bubbles: true,
+				composed: true,
+				pointerType: 'mouse',
+				pointerId: 1,
+				isPrimary: true,
+				button: 0,
+				clientX: 1,
+				clientY: 1
+			};
+			overlay.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, buttons: 1 }));
+			overlay.dispatchEvent(new PointerEvent('pointerup', { ...pointer, buttons: 0 }));
+			overlay.dispatchEvent(new MouseEvent('click', pointer));
+		};
+
+		let overlay = getOverlay();
+		expect(overlay).not.toBeNull();
+		await clickOverlay(overlay!);
+		await vi.waitFor(() => {
+			expect(document.querySelector('[data-slot="dialog-content"]')).toBeNull();
+		});
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
+
+		// rendering blocks overlay dismiss
+		await trigger.click();
+		dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await screen.getByRole('button', { name: 'Render now' }).click();
+		await expect.element(screen.getByText('Rendering frames')).toBeVisible();
+		overlay = getOverlay();
+		expect(overlay).not.toBeNull();
+		await clickOverlay(overlay!);
+		await Promise.resolve();
+		await expect.element(dialog).toBeVisible();
+		expect(renderSignal?.aborted).toBe(false);
+
+		// cleanup - cancel export to return to idle, then verify still open
+		screen.getByRole('button', { name: 'Cancel export' }).element().click();
+		await expect.element(screen.getByText('Ready to render')).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('Cancel button restores focus to trigger when idle', async () => {
+		await page.viewport(1280, 720);
+		const screen = await render(ExportDialog, {
+			project,
+			ondone: vi.fn(),
+			onerror: vi.fn(),
+			probeCodec: vi.fn(async () => true)
+		});
+		const trigger = screen.getByRole('button', { name: 'Render full video' });
+		await trigger.click();
+		const dialog = screen.getByRole('dialog');
+		await expect.element(dialog).toBeVisible();
+		await screen.getByRole('button', { name: 'Cancel export' }).click();
+		await expect.element(dialog).not.toBeInTheDocument();
+		expect(document.activeElement).toBe(trigger.element());
 	});
 });

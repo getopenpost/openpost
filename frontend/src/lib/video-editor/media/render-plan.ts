@@ -1,9 +1,10 @@
+/* oxlint-disable anti-slop/require-safety-comment-for-type-assertion, anti-slop/no-conditional-empty-object-spread */
 /**
  * Pure planning math for the multi-track rendered export: output duration,
  * frame→source-time mapping, audio mixdown scheduling, transition blending,
  * paint order, and cue selection.
  *
- * Ported from FreeCut (MIT) — features/export/utils/timeline-to-composition.ts,
+ * Ported from FreeCut (MIT) - features/export/utils/timeline-to-composition.ts,
  * canvas-transitions.ts, and canvas-audio.ts (segment extraction), retargeted
  * to OpenPost's TimelineItem model.
  */
@@ -16,7 +17,16 @@ import type {
 	TimelineTrack,
 	TimelineTransition
 } from '../project/types';
+import type { AudioEqSettings } from '../audio/types';
+import type { ResolvedAudioNoiseReductionSettings } from '../audio/audio-noise-reduction';
+import { resolveNoiseReductionSettings } from '../audio/audio-noise-reduction';
 import { activeValueAt } from '../timeline/keyframe-interpolation';
+import {
+	hasVariableSpeed,
+	playbackRateAtTimelineOffset,
+	playbackRateCurve,
+	timelineOffsetToSourceFrame
+} from '../timeline/source-time-map';
 import { effectiveMediaTracks } from '../timeline/utils/track-groups';
 import {
 	calculateTransitionProgress,
@@ -36,10 +46,22 @@ import {
 } from '../audio/audio-eq';
 import { getAudioPitchShiftSemitones } from '../audio/audio-pitch';
 import type { ResolvedAudioEqSettings } from '../audio/types';
+import type { AudioEffect } from '../audio/audio-effects';
+import { normalizeAudioEffects } from '../audio/audio-effects';
 import { mixerDbToGain } from '../audio/mixer-utils';
+import {
+	normalizeAudioDucking,
+	type AudioDuckingSettings,
+	DUCKING_DEFAULT_ATTACK_SEC,
+	DUCKING_DEFAULT_RELEASE_SEC
+} from '../audio/audio-ducking';
 
 /** One scheduled clip in the offline audio mixdown. */
 export interface MixEntry {
+	ducking?: AudioDuckingSettings;
+	duckStartSeconds?: number;
+	duckEndSeconds?: number;
+	duckTrackAliases?: string[];
 	itemId: string;
 	mediaId: string;
 	/** Root mixer track used by preview channel strips. */
@@ -50,10 +72,19 @@ export interface MixEntry {
 	sourceOffsetSeconds: number;
 	/** Source seconds played per real second (the item's speed). */
 	playbackRate: number;
+	/** Output-relative tempo samples for a persisted variable-speed curve. */
+	playbackRateCurve?: Array<{ atSeconds: number; rate: number }>;
+	/** Exact source window consumed by a variable-speed entry. */
+	sourceWindowStartSeconds?: number;
+	sourceWindowEndSeconds?: number;
 	/** Independent pitch offset. Tempo remains owned by playbackRate. */
 	pitchShiftSemitones: number;
 	/** Ordered outer-to-inner parametric EQ stages. */
 	audioEqStages: ResolvedAudioEqSettings[];
+	/** Ordered audio effect rack shared by preview and export. */
+	audioEffects: AudioEffect[];
+	/** Per-clip noise reduction applied before time-stretch and EQ. */
+	noiseReduction?: ResolvedAudioNoiseReductionSettings;
 	/** Read the source window backward while keeping timeline time forward. */
 	reversed: boolean;
 	/** Real seconds this clip occupies in the mixdown. */
@@ -107,6 +138,13 @@ export function isVisibleAtFrame(item: TimelineItem, frame: number): boolean {
 
 /** Source-media seconds shown by a timeline item at an absolute timeline frame. */
 export function frameToSourceSeconds(item: TimelineItem, frame: number, fps: number): number {
+	if (hasVariableSpeed(item)) {
+		const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : fps;
+		const sourceFrame = timelineOffsetToSourceFrame(item, frame - item.from, fps);
+		const upperFrame =
+			item.sourceDuration === undefined ? Number.POSITIVE_INFINITY : item.sourceDuration - 1;
+		return Math.min(upperFrame, Math.max(0, sourceFrame)) / sourceFps;
+	}
 	const speed = item.speed ?? 1;
 	const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : fps;
 	const sourceStart = item.sourceStart ?? 0;
@@ -132,12 +170,15 @@ const AUDIO_BEARING_TYPES: ReadonlySet<TimelineItem['type']> = new Set(['video',
  * muted tracks drop out; solo tracks mute everything non-soloed. Static
  * volume × track volume forms the baseline gain, and keyframed volume
  * becomes per-point gain automation.
+ *
+ * Audio EQ stages are ordered outer-to-inner: bus -> track -> clip.
  */
 export function planMixdown(
 	items: TimelineItem[],
 	tracks: TimelineTrack[],
 	fps: number,
-	transitions: TimelineTransition[] = []
+	transitions: TimelineTransition[] = [],
+	busAudioEq?: AudioEqSettings | null
 ): MixEntry[] {
 	const resolvedTracks = effectiveMediaTracks(tracks);
 	const trackById = new Map(resolvedTracks.map((track) => [track.id, track]));
@@ -159,25 +200,88 @@ export function planMixdown(
 		);
 		const startFrame = item.from - beforeFrames;
 		const endFrame = item.from + item.durationInFrames + afterFrames;
+		const variableSpeed = hasVariableSpeed(item);
+		const variableSourceStart = variableSpeed
+			? timelineOffsetToSourceFrame(item, startFrame - item.from, fps)
+			: undefined;
+		const variableSourceEnd = variableSpeed
+			? timelineOffsetToSourceFrame(item, endFrame - item.from, fps)
+			: undefined;
+		const sourceWindowStartSeconds = variableSpeed
+			? Math.max(
+					0,
+					(item.isReversed ? (variableSourceEnd ?? 0) + 1 : (variableSourceStart ?? 0)) / sourceFps
+				)
+			: undefined;
+		const sourceWindowEndSeconds = variableSpeed
+			? Math.max(
+					sourceWindowStartSeconds ?? 0,
+					(item.isReversed ? (variableSourceStart ?? 0) + 1 : (variableSourceEnd ?? 0)) / sourceFps
+				)
+			: undefined;
+		const rateCurve = variableSpeed
+			? [
+					{ atSeconds: 0, rate: playbackRateAtTimelineOffset(item, startFrame - item.from, fps) },
+					...playbackRateCurve(item, fps)
+						.filter(
+							(point) =>
+								item.from + point.offsetFrames > startFrame &&
+								item.from + point.offsetFrames < endFrame
+						)
+						.map((point) => ({
+							atSeconds: (item.from + point.offsetFrames - startFrame) / fps,
+							rate: point.rate
+						})),
+					{
+						atSeconds: (endFrame - startFrame) / fps,
+						rate: playbackRateAtTimelineOffset(item, endFrame - item.from, fps)
+					}
+				]
+			: undefined;
 		const previewGainPoints = volumeGainPoints(item, 1, fps, startFrame, endFrame);
 		const mixerTrackGain = track.volume ?? 1;
+		const rawDucking = item.audioDucking;
+		const ducking = normalizeAudioDucking(rawDucking)
+			? { ...normalizeAudioDucking(rawDucking)! }
+			: undefined;
+		const duckStartSeconds = ducking ? item.from / fps : undefined;
+		const duckEndSeconds = ducking ? (item.from + item.durationInFrames) / fps : undefined;
 		entries.push({
+			ducking,
+			duckStartSeconds,
+			duckEndSeconds,
 			itemId: item.id,
 			mediaId: item.mediaId,
 			trackId: track.id,
 			whenSeconds: startFrame / fps,
-			sourceOffsetSeconds: item.isReversed
-				? Math.max(
-						0,
-						(item.sourceEnd ??
-							(item.sourceStart ?? 0) + (item.durationInFrames / fps) * speed * sourceFps) /
-							sourceFps +
-							(beforeFrames / fps) * speed
-					)
-				: Math.max(0, (item.sourceStart ?? 0) / sourceFps - (beforeFrames / fps) * speed),
-			playbackRate: speed,
+			sourceOffsetSeconds: variableSpeed
+				? item.isReversed
+					? (sourceWindowEndSeconds ?? 0)
+					: (sourceWindowStartSeconds ?? 0)
+				: item.isReversed
+					? Math.max(
+							0,
+							(item.sourceEnd ??
+								(item.sourceStart ?? 0) + (item.durationInFrames / fps) * speed * sourceFps) /
+								sourceFps +
+								(beforeFrames / fps) * speed
+						)
+					: Math.max(0, (item.sourceStart ?? 0) / sourceFps - (beforeFrames / fps) * speed),
+			playbackRate: variableSpeed
+				? playbackRateAtTimelineOffset(item, startFrame - item.from, fps)
+				: speed,
+			playbackRateCurve: rateCurve,
+			sourceWindowStartSeconds,
+			sourceWindowEndSeconds,
 			pitchShiftSemitones: getAudioPitchShiftSemitones(item),
-			audioEqStages: appendResolvedAudioEqSources(undefined, getAudioEqSettings(item)),
+			audioEqStages: appendResolvedAudioEqSources(
+				undefined,
+				busAudioEq,
+				track.audioEq,
+				getAudioEqSettings(item)
+			),
+			audioEffects: normalizeAudioEffects(item.audioEffects),
+			noiseReduction: resolveNoiseReductionSettings(item),
 			reversed: item.isReversed === true,
 			durationSeconds: (endFrame - startFrame) / fps,
 			gainPoints: previewGainPoints.map((point) => ({
@@ -214,9 +318,10 @@ export function planNestedMixdown(
 	fps: number,
 	transitions: TimelineTransition[] = [],
 	compositions: SubComposition[] = [],
-	ancestry: ReadonlySet<string> = new Set()
+	ancestry: ReadonlySet<string> = new Set(),
+	busAudioEq?: AudioEqSettings | null
 ): MixEntry[] {
-	const entries = planMixdown(items, tracks, fps, transitions);
+	const entries = planMixdown(items, tracks, fps, transitions, busAudioEq);
 	const resolvedTracks = effectiveMediaTracks(tracks);
 	const compositionById = new Map(compositions.map((composition) => [composition.id, composition]));
 	const trackById = new Map(resolvedTracks.map((track) => [track.id, track]));
@@ -238,7 +343,8 @@ export function planNestedMixdown(
 				composition.fps,
 				composition.transitions,
 				compositions,
-				new Set([...ancestry, wrapper.compositionId])
+				new Set([...ancestry, wrapper.compositionId]),
+				composition.busAudioEq
 			),
 			composition.masterMuted ? 0 : mixerDbToGain(composition.masterVolumeDb ?? 0)
 		);
@@ -261,17 +367,58 @@ export function planNestedMixdown(
 				whenSeconds: wrapperStart + point.whenSeconds / wrapperSpeed,
 				value: point.value * wrapperGain
 			}));
+			const duckStartSeconds =
+				entry.duckStartSeconds !== undefined
+					? wrapperStart + entry.duckStartSeconds / wrapperSpeed
+					: undefined;
+			const duckEndSeconds =
+				entry.duckEndSeconds !== undefined
+					? wrapperStart + entry.duckEndSeconds / wrapperSpeed
+					: undefined;
+			const childTrackId = entry.trackId;
+			const baseAliases = entry.duckTrackAliases ?? (childTrackId ? [childTrackId] : []);
+			const duckTrackAliases = Array.from(
+				new Set([
+					wrapper.trackId,
+					`${wrapper.id}/${childTrackId}`,
+					...baseAliases.map((alias) => (alias.includes('/') ? alias : `${wrapper.id}/${alias}`))
+				])
+			);
+			let namespacedDucking = entry.ducking;
+			if (entry.ducking?.targetTrackIds) {
+				const compositionTrackIds = new Set(composition.tracks.map((t) => t.id));
+				namespacedDucking = {
+					...entry.ducking,
+					targetTrackIds: entry.ducking.targetTrackIds.map((id) =>
+						compositionTrackIds.has(id) ? `${wrapper.id}/${id}` : id
+					)
+				};
+			}
 			entries.push({
 				...entry,
+				ducking: namespacedDucking,
+				duckStartSeconds,
+				duckEndSeconds,
+				duckTrackAliases,
 				trackId: wrapper.trackId,
 				itemId: `${wrapper.id}/${entry.itemId}`,
 				whenSeconds: wrapperStart + entry.whenSeconds / wrapperSpeed,
 				playbackRate: entry.playbackRate * wrapperSpeed,
+				playbackRateCurve: entry.playbackRateCurve?.map((point) => ({
+					atSeconds: point.atSeconds / wrapperSpeed,
+					rate: point.rate * wrapperSpeed
+				})),
 				pitchShiftSemitones: entry.pitchShiftSemitones + wrapperPitch,
 				audioEqStages: prependResolvedAudioEqSources(
 					entry.audioEqStages,
+					busAudioEq,
+					track.audioEq,
 					getAudioEqSettings(wrapper)
 				),
+				audioEffects: (() => {
+					const outer = normalizeAudioEffects(wrapper.audioEffects);
+					return outer.length > 0 ? [...outer, ...entry.audioEffects] : entry.audioEffects;
+				})(),
 				durationSeconds: entry.durationSeconds / wrapperSpeed,
 				gainPoints: previewGainPoints.map((point) => ({
 					...point,
@@ -309,7 +456,57 @@ function gainValueAtTime(points: GainPoint[], time: number): number {
 	return sorted[sorted.length - 1]!.value;
 }
 
-/** Restrict absolute mix entries to an export range without resetting automation. */
+function curveRateAt(curve: NonNullable<MixEntry['playbackRateCurve']>, seconds: number): number {
+	if (seconds <= curve[0]!.atSeconds) return curve[0]!.rate;
+	for (let index = 1; index < curve.length; index += 1) {
+		const right = curve[index]!;
+		if (seconds > right.atSeconds) continue;
+		const left = curve[index - 1]!;
+		const duration = right.atSeconds - left.atSeconds;
+		if (duration <= 0) return right.rate;
+		const progress = (seconds - left.atSeconds) / duration;
+		return left.rate + (right.rate - left.rate) * progress;
+	}
+	return curve.at(-1)!.rate;
+}
+
+function curveSourceDistance(
+	curve: NonNullable<MixEntry['playbackRateCurve']>,
+	startSeconds: number,
+	endSeconds: number
+): number {
+	if (endSeconds <= startSeconds) return 0;
+	const boundaries = [
+		startSeconds,
+		...curve
+			.map((point) => point.atSeconds)
+			.filter((seconds) => seconds > startSeconds && seconds < endSeconds),
+		endSeconds
+	];
+	let distance = 0;
+	for (let index = 0; index < boundaries.length - 1; index += 1) {
+		const left = boundaries[index]!;
+		const right = boundaries[index + 1]!;
+		distance += ((curveRateAt(curve, left) + curveRateAt(curve, right)) / 2) * (right - left);
+	}
+	return distance;
+}
+
+function slicePlaybackRateCurve(
+	curve: NonNullable<MixEntry['playbackRateCurve']>,
+	startSeconds: number,
+	durationSeconds: number
+): NonNullable<MixEntry['playbackRateCurve']> {
+	const endSeconds = startSeconds + durationSeconds;
+	return [
+		{ atSeconds: 0, rate: curveRateAt(curve, startSeconds) },
+		...curve
+			.filter((point) => point.atSeconds > startSeconds && point.atSeconds < endSeconds)
+			.map((point) => ({ ...point, atSeconds: point.atSeconds - startSeconds })),
+		{ atSeconds: durationSeconds, rate: curveRateAt(curve, endSeconds) }
+	];
+}
+
 export function sliceMixEntries(
 	entries: MixEntry[],
 	startSeconds: number,
@@ -321,16 +518,33 @@ export function sliceMixEntries(
 		const overlapEnd = Math.min(endSeconds, entryEnd);
 		if (overlapEnd <= overlapStart) return [];
 		const skipped = overlapStart - entry.whenSeconds;
+		const slicedDuration = overlapEnd - overlapStart;
+		const curve = entry.playbackRateCurve;
+		const skippedSourceSeconds = curve
+			? curveSourceDistance(curve, 0, skipped)
+			: skipped * entry.playbackRate;
+		const slicedSourceSeconds = curve
+			? curveSourceDistance(curve, skipped, skipped + slicedDuration)
+			: slicedDuration * entry.playbackRate;
+		const sourceOffsetSeconds =
+			entry.sourceOffsetSeconds + (entry.reversed ? -1 : 1) * skippedSourceSeconds;
+		const sourceWindowStartSeconds = curve
+			? entry.reversed
+				? sourceOffsetSeconds - slicedSourceSeconds
+				: sourceOffsetSeconds
+			: entry.sourceWindowStartSeconds;
+		const sourceWindowEndSeconds = curve
+			? entry.reversed
+				? sourceOffsetSeconds
+				: sourceOffsetSeconds + slicedSourceSeconds
+			: entry.sourceWindowEndSeconds;
 		const startGain = gainValueAtTime(entry.gainPoints, overlapStart);
 		const previewStartGain = gainValueAtTime(entry.previewGainPoints, overlapStart);
 		const gainPoints = [
 			{ whenSeconds: 0, value: startGain },
 			...entry.gainPoints
 				.filter((point) => point.whenSeconds > overlapStart && point.whenSeconds <= overlapEnd)
-				.map((point) => ({
-					...point,
-					whenSeconds: point.whenSeconds - startSeconds
-				}))
+				.map((point) => ({ ...point, whenSeconds: point.whenSeconds - startSeconds }))
 		];
 		const previewGainPoints = [
 			{ whenSeconds: 0, value: previewStartGain },
@@ -338,13 +552,39 @@ export function sliceMixEntries(
 				.filter((point) => point.whenSeconds > overlapStart && point.whenSeconds <= overlapEnd)
 				.map((point) => ({ ...point, whenSeconds: point.whenSeconds - startSeconds }))
 		];
+		let slicedDucking = entry.ducking;
+		let slicedDuckStart = entry.duckStartSeconds;
+		let slicedDuckEnd = entry.duckEndSeconds;
+		const slicedDuckAliases = entry.duckTrackAliases;
+		if (slicedDucking && slicedDuckStart !== undefined && slicedDuckEnd !== undefined) {
+			const release = slicedDucking.releaseSec ?? DUCKING_DEFAULT_RELEASE_SEC;
+			const duckStart = slicedDuckStart;
+			const duckEndPlusRelease = slicedDuckEnd + release;
+			if (duckEndPlusRelease <= startSeconds || duckStart >= endSeconds) {
+				slicedDucking = undefined;
+				slicedDuckStart = undefined;
+				slicedDuckEnd = undefined;
+			} else {
+				slicedDuckStart = duckStart - startSeconds;
+				slicedDuckEnd = slicedDuckEnd - startSeconds;
+			}
+		}
 		return [
 			{
 				...entry,
+				ducking: slicedDucking,
+				duckStartSeconds: slicedDuckStart,
+				duckEndSeconds: slicedDuckEnd,
+				duckTrackAliases: slicedDuckAliases,
 				whenSeconds: overlapStart - startSeconds,
-				sourceOffsetSeconds:
-					entry.sourceOffsetSeconds + (entry.reversed ? -1 : 1) * skipped * entry.playbackRate,
-				durationSeconds: overlapEnd - overlapStart,
+				sourceOffsetSeconds,
+				sourceWindowStartSeconds,
+				sourceWindowEndSeconds,
+				playbackRate: curve ? curveRateAt(curve, skipped) : entry.playbackRate,
+				playbackRateCurve: curve
+					? slicePlaybackRateCurve(curve, skipped, slicedDuration)
+					: undefined,
+				durationSeconds: slicedDuration,
 				gainPoints,
 				previewGainPoints,
 				transitionGainSpans: entry.transitionGainSpans.map((span) => ({
@@ -380,10 +620,7 @@ function volumeGainPoints(
 		const whenSeconds = frame / fps;
 		if (seen.has(whenSeconds)) continue;
 		seen.add(whenSeconds);
-		points.push({
-			whenSeconds,
-			value: (animated ?? item.volume ?? 1) * trackVolume * clipFade
-		});
+		points.push({ whenSeconds, value: (animated ?? item.volume ?? 1) * trackVolume * clipFade });
 	}
 	return points.length > 0 ? points : [{ whenSeconds: startFrame / fps, value: baseGain }];
 }
@@ -409,13 +646,7 @@ export function transitionBlendAtFrame(
 			transition.timing,
 			transition.bezierPoints
 		);
-		return {
-			outgoingId: from.id,
-			incomingId: to.id,
-			progress,
-			type: transition.type,
-			transition
-		};
+		return { outgoingId: from.id, incomingId: to.id, progress, type: transition.type, transition };
 	}
 	return null;
 }

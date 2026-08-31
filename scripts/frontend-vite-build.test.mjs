@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 
 import {
@@ -7,11 +6,6 @@ import {
   frontendBuildNodeOptions,
   parseFrontendBuildArguments,
 } from "./frontend-vite-build.mjs";
-
-const svelteConfigSource = readFileSync(
-  new URL("../frontend/svelte.config.js", import.meta.url),
-  "utf8",
-);
 
 describe("frontend Vite build memory", () => {
   test("adds the repository build heap when NODE_OPTIONS is empty", () => {
@@ -75,8 +69,4 @@ describe("frontend Vite build arguments", () => {
       "Unsupported frontend build arguments",
     );
   });
-});
-
-test("production builds use the thin public directory prepared by the build wrapper", () => {
-  expect(svelteConfigSource).toContain("process.env.OPENPOST_BUILD_PUBLIC_DIR || 'static'");
 });

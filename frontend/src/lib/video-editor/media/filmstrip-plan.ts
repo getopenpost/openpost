@@ -225,6 +225,8 @@ export interface FilmstripTileWindow {
 	tileWidthPx: number;
 	visibleStartPx?: number;
 	visibleEndPx?: number;
+	/** Exact source mapping for variable-speed or otherwise non-linear playback. */
+	sourceSecondAtTimelineRatio?: (timelineRatio: number) => number;
 }
 
 /**
@@ -260,9 +262,11 @@ export function computeFilmstripTiles(
 			const width = Math.min(tileWidth, clipWidthPx - x);
 			if (width <= 0) continue;
 			const centerRatio = Math.max(0, Math.min(1, (x + width / 2) / clipWidthPx));
-			const sourceSecond = reversed
-				? sourceStartSeconds + clipSpanSeconds * (1 - centerRatio)
-				: sourceStartSeconds + clipSpanSeconds * centerRatio;
+			const sourceSecond = window.sourceSecondAtTimelineRatio
+				? window.sourceSecondAtTimelineRatio(centerRatio)
+				: reversed
+					? sourceStartSeconds + clipSpanSeconds * (1 - centerRatio)
+					: sourceStartSeconds + clipSpanSeconds * centerRatio;
 			const frame = nearestFilmstripFrame(sortedFrames, sourceSecond);
 			tiles.push({ slot, index: frame.index, url: frame.url, x, width });
 		}
@@ -319,6 +323,8 @@ export interface VisibleFilmstripTargetsInput {
 	tileWidthPx: number;
 	totalSourceFrames: number;
 	reversed?: boolean;
+	/** Exact source mapping for variable-speed or otherwise non-linear playback. */
+	sourceSecondAtTimelineRatio?: (timelineRatio: number) => number;
 }
 
 /** Exact 1 fps source frames needed to fill the visible timeline tile window. */
@@ -343,9 +349,11 @@ export function visibleFilmstripTargetIndices(input: VisibleFilmstripTargetsInpu
 		const width = Math.min(input.tileWidthPx, input.clipWidthPx - x);
 		if (width <= 0) continue;
 		const centerRatio = Math.max(0, Math.min(1, (x + width / 2) / input.clipWidthPx));
-		const sourceSecond = input.reversed
-			? input.sourceStartSeconds + input.clipSpanSeconds * (1 - centerRatio)
-			: input.sourceStartSeconds + input.clipSpanSeconds * centerRatio;
+		const sourceSecond = input.sourceSecondAtTimelineRatio
+			? input.sourceSecondAtTimelineRatio(centerRatio)
+			: input.reversed
+				? input.sourceStartSeconds + input.clipSpanSeconds * (1 - centerRatio)
+				: input.sourceStartSeconds + input.clipSpanSeconds * centerRatio;
 		indices.add(Math.max(0, Math.min(input.totalSourceFrames - 1, Math.floor(sourceSecond))));
 	}
 	return [...indices].toSorted((left, right) => left - right);

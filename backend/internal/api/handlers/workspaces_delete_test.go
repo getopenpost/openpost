@@ -92,6 +92,13 @@ func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {
 		CreatedAt: time.Now().UTC(),
 	}).Exec(ctx)
 	require.NoError(t, err)
+	_, err = server.db.ExecContext(ctx, `INSERT INTO publication_builds (
+		id, workspace_id, created_by_id, state, phase, idempotency_key,
+		request_fingerprint, authority_json, request_json
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"build-workspace-1", "workspace-1", "user-1", "queued", "queued",
+		"workspace-delete-build", "fingerprint", `{}`, `{"input":{}}`)
+	require.NoError(t, err)
 	for _, job := range []*models.Job{
 		{
 			ID: "cleanup-workspace-1", Type: "media_cleanup", ScopeID: "workspace-1", DedupeKey: "daily",
@@ -100,6 +107,10 @@ func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {
 		{
 			ID: "cleanup-workspace-2", Type: "media_cleanup", ScopeID: "workspace-2", DedupeKey: "daily",
 			Payload: `{"workspace_id":"workspace-2"}`, Status: "pending", RunAt: time.Now().UTC(), MaxAttempts: 3,
+		},
+		{
+			ID: "publication-build-workspace-1", Type: "publication_build", ScopeID: "build-workspace-1", DedupeKey: "execute",
+			Payload: `{"build_id":"build-workspace-1"}`, Status: "completed", RunAt: time.Now().UTC(), MaxAttempts: 2,
 		},
 	} {
 		_, err = server.db.NewInsert().Model(job).Exec(ctx)
@@ -118,6 +129,7 @@ func TestDeleteWorkspaceRemovesWorkspaceContent(t *testing.T) {
 	require.Zero(t, countRows[models.UserNotification](t, server.db, "id = ?", "notification-1"))
 	require.Equal(t, 1, countRows[models.Job](t, server.db, "type = ?", "storage_delete"))
 	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "cleanup-workspace-1"))
+	require.Zero(t, countRows[models.Job](t, server.db, "id = ?", "publication-build-workspace-1"))
 	require.Equal(t, 1, countRows[models.Job](t, server.db, "id = ?", "cleanup-workspace-2"))
 	require.Equal(t, 1, countRows[models.Workspace](t, server.db, ""))
 }

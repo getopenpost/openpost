@@ -26,12 +26,10 @@ type OgKind =
 	| 'workflow'
 	| 'platforms'
 	| 'platform'
-	| 'compare-index'
-	| 'comparison'
 	| 'tools-index'
 	| 'tool'
 	| 'security'
-	| 'open-source'
+	| 'self-hosting'
 	| 'document'
 	| 'docs';
 
@@ -264,89 +262,6 @@ function PlatformMotif({
 	);
 }
 
-function ComparisonMotif({ subject }: { subject?: string }) {
-	return (
-		<div
-			style={{
-				position: 'absolute',
-				right: 52,
-				top: 154,
-				width: 454,
-				height: 292,
-				display: 'flex',
-				alignItems: 'center',
-				gap: 46
-			}}
-		>
-			<div
-				style={{
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					width: 204,
-					height: 292,
-					borderRadius: 22,
-					background: colors.dark,
-					color: '#f5efe9',
-					fontSize: 28,
-					fontWeight: 600
-				}}
-			>
-				OpenPost
-			</div>
-			<div
-				style={{
-					display: 'flex',
-					flexDirection: 'column',
-					alignItems: 'center',
-					justifyContent: 'center',
-					width: 204,
-					height: 292,
-					border: `1px solid ${colors.border}`,
-					borderRadius: 22,
-					background: colors.surface,
-					color: colors.ink,
-					fontSize: 27,
-					fontWeight: 600,
-					textAlign: 'center'
-				}}
-			>
-				{subject || 'Another tool'}
-				<span
-					style={{
-						display: 'flex',
-						marginTop: 14,
-						color: colors.muted,
-						fontSize: 14,
-						fontWeight: 400
-					}}
-				>
-					reviewed facts
-				</span>
-			</div>
-			<div
-				style={{
-					position: 'absolute',
-					left: 204,
-					top: 112,
-					display: 'flex',
-					alignItems: 'center',
-					justifyContent: 'center',
-					width: 46,
-					height: 46,
-					borderRadius: 23,
-					background: colors.orange,
-					color: '#fff8f3',
-					fontSize: 15,
-					fontWeight: 700
-				}}
-			>
-				VS
-			</div>
-		</div>
-	);
-}
-
 function ToolMotif({ subject }: { subject?: string }) {
 	return (
 		<div
@@ -459,7 +374,6 @@ function Motif({ input, origin }: { input: OgInput; origin: string }) {
 	if (input.kind === 'home') return <HomeMotif origin={origin} />;
 	if (input.kind === 'platform')
 		return <PlatformMotif origin={origin} platform={input.platform} subject={input.subject} />;
-	if (input.kind === 'comparison') return <ComparisonMotif subject={input.subject} />;
 	if (input.kind === 'tool') return <ToolMotif subject={input.subject} />;
 	return <WorkflowMotif />;
 }

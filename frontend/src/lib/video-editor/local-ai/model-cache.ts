@@ -9,7 +9,7 @@ export interface LocalModelCacheDefinition {
 	id: string;
 	label: string;
 	description: string;
-	cacheName: string;
+	cacheName?: string;
 	matchPathFragments: string[];
 	storage?: 'cache' | 'moss-opfs' | 'ace-step';
 }
@@ -84,7 +84,6 @@ export const LOCAL_MODEL_CACHE_DEFINITIONS: LocalModelCacheDefinition[] = [
 		id: 'moss-tts',
 		label: 'MOSS voices',
 		description: 'Multilingual voice and audio-tokenizer models.',
-		cacheName: 'opfs',
 		matchPathFragments: [],
 		storage: 'moss-opfs'
 	},
@@ -99,7 +98,6 @@ export const LOCAL_MODEL_CACHE_DEFINITIONS: LocalModelCacheDefinition[] = [
 		id: 'ace-step-music',
 		label: 'ACE-Step music',
 		description: 'Local music generation graphs, weights, tokenizers and VAE.',
-		cacheName: 'ai-music-js',
 		matchPathFragments: [],
 		storage: 'ace-step'
 	}
@@ -191,6 +189,7 @@ export async function inspectLocalModelCache(
 	}
 	const storage = cacheStorage();
 	if (!storage) return unavailable(definition, 'error', false);
+	if (!definition.cacheName) return unavailable(definition, 'error', false);
 	try {
 		const names = await withTimeout(storage.keys());
 		if (!names.includes(definition.cacheName)) return unavailable(definition, 'ready');
@@ -250,6 +249,7 @@ async function performClearLocalModelCache(
 	await unloadLocalAiRuntime(definition.id);
 	const storage = cacheStorage();
 	if (!storage) return false;
+	if (!definition.cacheName) return false;
 	const names = await withTimeout(storage.keys());
 	if (!names.includes(definition.cacheName)) return false;
 	const cache = await withTimeout(storage.open(definition.cacheName));

@@ -11,6 +11,7 @@
  */
 
 import type { TimelineItem } from '../../project/types';
+import { getSourceProperties } from './source-calculations';
 
 export function getLinkedItems(items: TimelineItem[], itemId: string): TimelineItem[] {
 	const anchor = items.find((item) => item.id === itemId);
@@ -25,6 +26,107 @@ export function getLinkedItemIds(items: TimelineItem[], itemId: string): string[
 
 export function hasLinkedItems(items: TimelineItem[], itemId: string): boolean {
 	return getLinkedItemIds(items, itemId).length > 1;
+}
+
+interface SyncFrameInterval {
+	min: number;
+	max: number;
+	center: number;
+}
+
+/**
+ * Map the first visible source frame back to the timeline origin that would
+ * keep a linked clip in sync. The half-frame interval avoids false badges when
+ * two source frame rates round the same edit to adjacent fractional frames.
+ *
+ * Ported from FreeCut (MIT) - timeline/utils/linked-items.ts.
+ */
+function linkedSyncAnchorInterval(item: TimelineItem, timelineFps: number): SyncFrameInterval {
+	const { sourceStart, sourceFps, speed } = getSourceProperties(item);
+	const effectiveSourceFps = sourceFps && sourceFps > 0 ? sourceFps : timelineFps;
+	const effectiveSpeed = speed > 0 ? speed : 1;
+	const lowerSourceFrame = Math.max(0, sourceStart - 0.5);
+	const upperSourceFrame = sourceStart + 0.5;
+	const lowerTimelineOffset =
+		((lowerSourceFrame / effectiveSourceFps) * timelineFps) / effectiveSpeed;
+	const upperTimelineOffset =
+		((upperSourceFrame / effectiveSourceFps) * timelineFps) / effectiveSpeed;
+	const centerTimelineOffset = ((sourceStart / effectiveSourceFps) * timelineFps) / effectiveSpeed;
+
+	return {
+		min: item.from - upperTimelineOffset,
+		max: item.from - lowerTimelineOffset,
+		center: item.from - centerTimelineOffset
+	};
+}
+
+function linkedSyncOffsetBetween(
+	anchor: TimelineItem,
+	companion: TimelineItem,
+	timelineFps: number
+): number {
+	const anchorInterval = linkedSyncAnchorInterval(anchor, timelineFps);
+	const companionInterval = linkedSyncAnchorInterval(companion, timelineFps);
+	const overlap =
+		Math.min(anchorInterval.max, companionInterval.max) -
+		Math.max(anchorInterval.min, companionInterval.min);
+	return overlap > 1e-6 ? 0 : anchorInterval.center - companionInterval.center;
+}
+
+function linkedSyncCandidates(items: TimelineItem[], anchor: TimelineItem): TimelineItem[] {
+	const targetTypes =
+		anchor.type === 'audio'
+			? new Set<TimelineItem['type']>(['video', 'composition'])
+			: new Set<TimelineItem['type']>(['audio']);
+	return getLinkedItems(items, anchor.id).filter(
+		(item) => item.id !== anchor.id && targetTypes.has(item.type)
+	);
+}
+
+/**
+ * Return the signed timeline-frame drift for the best linked A/V companion.
+ * `null` means the item has no matching companion or remains frame-aligned.
+ */
+export function getLinkedSyncOffsetFrames(
+	items: TimelineItem[],
+	itemId: string,
+	timelineFps: number
+): number | null {
+	const anchor = items.find((item) => item.id === itemId);
+	if (!anchor) return null;
+	const safeTimelineFps = Number.isFinite(timelineFps) && timelineFps > 0 ? timelineFps : 30;
+	const candidates = linkedSyncCandidates(items, anchor);
+	if (candidates.length === 0) return null;
+
+	const ranked = candidates
+		.map((companion) => {
+			const exactOffset = linkedSyncOffsetBetween(anchor, companion, safeTimelineFps);
+			return {
+				companion,
+				exactOffset,
+				roundedOffset: Math.round(exactOffset),
+				sameVisibleWindow:
+					companion.from === anchor.from &&
+					companion.durationInFrames === anchor.durationInFrames &&
+					(companion.speed ?? 1) === (anchor.speed ?? 1),
+				sameSourceBounds:
+					(companion.sourceStart ?? null) === (anchor.sourceStart ?? null) &&
+					(companion.sourceEnd ?? null) === (anchor.sourceEnd ?? null),
+				sameMediaSource: companion.mediaId !== undefined && companion.mediaId === anchor.mediaId
+			};
+		})
+		.sort((left, right) => {
+			const magnitudeDelta = Math.abs(left.exactOffset) - Math.abs(right.exactOffset);
+			if (magnitudeDelta !== 0) return magnitudeDelta;
+			if (left.sameVisibleWindow !== right.sameVisibleWindow)
+				return left.sameVisibleWindow ? -1 : 1;
+			if (left.sameSourceBounds !== right.sameSourceBounds) return left.sameSourceBounds ? -1 : 1;
+			if (left.sameMediaSource !== right.sameMediaSource) return left.sameMediaSource ? -1 : 1;
+			return left.companion.id.localeCompare(right.companion.id);
+		});
+
+	const offset = ranked[0]?.roundedOffset ?? 0;
+	return offset === 0 ? null : offset;
 }
 
 /**

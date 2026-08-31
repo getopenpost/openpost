@@ -17,10 +17,8 @@ import (
 )
 
 type ThreadsAdapter struct {
-	config        *oauth2.Config
-	stateStore    sync.Map
-	lastUserID    string
-	lastUserIDMux sync.Mutex
+	config     *oauth2.Config
+	stateStore sync.Map
 }
 
 func NewThreadsAdapter(clientID, clientSecret, redirectURI string) *ThreadsAdapter {
@@ -98,14 +96,11 @@ func (t *ThreadsAdapter) ExchangeCode(ctx context.Context, code string, _ map[st
 
 	userID := tokenResp.UserID.String()
 
-	t.lastUserIDMux.Lock()
-	t.lastUserID = userID
-	t.lastUserIDMux.Unlock()
-
 	longLived, err := t.exchangeLongLivedToken(ctx, tokenResp.AccessToken)
 	if err != nil {
 		return nil, fmt.Errorf("threads long-lived exchange: %w", err)
 	}
+	longLived.Extra["user_id"] = userID
 
 	return longLived, nil
 }
@@ -135,8 +130,7 @@ func (t *ThreadsAdapter) exchangeLongLivedToken(ctx context.Context, shortLivedT
 		ExpiresIn:   tokenResp.ExpiresIn,
 		TokenType:   tokenTypeBearer,
 		Extra: map[string]string{
-			"user_id": t.lastUserID,
-			"scope":   strings.Join(t.config.Scopes, " "),
+			"scope": strings.Join(t.config.Scopes, " "),
 		},
 	}, nil
 }
@@ -179,7 +173,7 @@ func (t *ThreadsAdapter) RefreshToken(ctx context.Context, input RefreshTokenInp
 }
 
 func (t *ThreadsAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
-	endpoint := "https://graph.threads.net/v1.0/me?fields=id,username,name"
+	endpoint := "https://graph.threads.net/v1.0/me?fields=id,username,name,threads_profile_picture_url"
 
 	respBody, err := DoRequest(ctx, "GET", endpoint, nil, map[string]string{
 		headerAuthorization: bearerPrefix + accessToken,
@@ -189,9 +183,10 @@ func (t *ThreadsAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 	}
 
 	var profile struct {
-		ID       string `json:"id"`
-		Username string `json:"username"`
-		Name     string `json:"name"`
+		ID                       string `json:"id"`
+		Username                 string `json:"username"`
+		Name                     string `json:"name"`
+		ThreadsProfilePictureURL string `json:"threads_profile_picture_url"`
 	}
 	if err := json.Unmarshal(respBody, &profile); err != nil {
 		return nil, fmt.Errorf("decoding threads profile: %w", err)
@@ -201,6 +196,7 @@ func (t *ThreadsAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 		ID:          profile.ID,
 		Username:    profile.Username,
 		DisplayName: profile.Name,
+		AvatarURL:   profile.ThreadsProfilePictureURL,
 	}, nil
 }
 

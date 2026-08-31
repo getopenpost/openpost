@@ -20,8 +20,8 @@ describe("agent doctor local checks", () => {
   test("reports only missing fixture artifacts", async () => {
     const root = await mkdtemp(join(tmpdir(), "openpost-agent-doctor-"));
     await mkdir(join(root, "docs"), { recursive: true });
-    await writeFile(join(root, "CONTEXT.md"), "fixture");
-    expect(findMissingArtifacts(root, ["CONTEXT.md", "docs/map.md"])).toEqual(["docs/map.md"]);
+    await writeFile(join(root, "AGENTS.md"), "fixture");
+    expect(findMissingArtifacts(root, ["AGENTS.md", "docs/map.md"])).toEqual(["docs/map.md"]);
   });
 
   test("parses deterministic label configuration rows", () => {

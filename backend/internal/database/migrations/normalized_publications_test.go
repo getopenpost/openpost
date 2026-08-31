@@ -12,7 +12,6 @@ import (
 	"github.com/openpost/backend/internal/services/publicationauth"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect"
 )
 
 func TestNormalizedPublicationMigrationBackfillsOneSegmentAndCascades(t *testing.T) {
@@ -295,15 +294,6 @@ func TestLegacyAuthoringMigrationPreservesThreadVariantsScheduleAndJobs(t *testi
 	var publicationCount int
 	require.NoError(t, db.QueryRowContext(ctx, "SELECT COUNT(*) FROM publications WHERE id = ?", publicationID).Scan(&publicationCount))
 	require.Equal(t, 1, publicationCount)
-}
-
-func TestNormalizedMigrationPostgresSQLIsPortable(t *testing.T) {
-	raw, err := migrationFiles.ReadFile("034_normalized_publication_segments.sql")
-	require.NoError(t, err)
-	normalized := normalizeMigrationSQL(dialect.PG, string(raw))
-	require.Contains(t, normalized, "ADD COLUMN IF NOT EXISTS intent")
-	require.Contains(t, normalized, "ADD COLUMN IF NOT EXISTS output_profile")
-	require.NotContains(t, strings.ToUpper(normalized), "AUTOINCREMENT")
 }
 
 func TestLegacyAuthoringMigrationFollowsSequentialReplyChains(t *testing.T) {

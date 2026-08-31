@@ -2,7 +2,7 @@
 
 This page is for people reviewing and responding to saved engagement and messages in a Workspace.
 
-OpenPost checks social networks in the background and saves the results. The Engagement and Messages pages read saved data, so a slow or unavailable network does not block the page.
+OpenPost checks social networks in the background and saves the results. Engagement at `/inbox/engagement` and Messages at `/inbox/messages` read saved data, so a slow or unavailable network does not block either page.
 
 Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. Each feature starts off for a newly connected account. Choose them after connection or in Account details. Disabling a feature stops future provider reads and writes without deleting history or revoking provider authorization. Provider support, required scopes, and plan access remain distinct. Grow never follows automatically. Existing accounts keep their current behavior after upgrade.
 
@@ -10,7 +10,7 @@ Direct messages, Comments and replies, Analytics, and Grow are optional and per 
 
 Comments and replies is an optional feature per connected account. It starts off for a newly connected account. Enable it after connection or in Account details to let OpenPost collect replies for eligible published Renditions. Disabling it stops future collection and provider actions for that account without deleting stored replies and without revoking provider authorization. Availability depends on provider support, required scopes, and plan access as distinct facts. Existing accounts keep current Engagement behavior after upgrade.
 
-The Engagement page brings comments and replies from supported posts into one list. It only shows the actions that each platform supports.
+The Engagement page at `/inbox/engagement` brings comments and replies from supported posts into one list. It only shows the actions that each platform supports.
 
 | Provider               | Read | Reply | Like | Hide or moderate | Delete own             |
 | ---------------------- | ---- | ----- | ---- | ---------------- | ---------------------- |
@@ -52,7 +52,7 @@ OpenPost only checks supported platform APIs for accounts where the feature is e
 
 OpenPost sends in-app alerts for failed posts, accounts that need help, new replies, new messages, failed replies, workspace invites, and successful posts. If only some accounts fail, the alert names the accounts that worked and failed and links to the right fix. Retry only runs for failed accounts that can be tried again.
 
-Open **Settings → Notifications** to choose Off, Immediate, or Daily email for each optional event. In-app notifications remain immediate. Email is Immediate by default for failed publishing and failed replies. Successful posts, account attention, new engagement, and new messages stay in the app unless you change their email frequency. Critical failure alerts always remain on in the app.
+Open **Settings → Personal → Notifications** to choose Off, Immediate, or Daily email for each optional event. In-app notifications remain immediate. Email is Immediate by default for failed publishing and failed replies. Successful posts, account attention, new engagement, and new messages stay in the app unless you change their email frequency. Critical failure alerts always remain on in the app.
 
 Daily email defaults to 09:00 in the browser timezone for a new choice. The settings page saves the time with an explicit IANA timezone, such as `Europe/Lisbon`, and does not replace an existing choice when you use another browser. Changing that saved window moves pending items that have not started delivery to the next occurrence of the new window. The old scheduled Job then sends nothing. OpenPost batches daily items for one user and local delivery window, deduplicates repeated events, and escapes notification content before rendering it.
 
@@ -60,12 +60,12 @@ Email alerts use the same SMTP, Resend, or Cloudflare Email provider as account 
 
 Security actions, access changes, Workspace invitations, and critical billing actions are Transactional notifications. They bypass optional email preferences and daily timing. Their email frequency remains Immediate and cannot be changed to Off or Daily.
 
-You can also start a temporary Mute for every Workspace or only the selected Workspace. Choose an exact future end time on the **Notifications** page or in **Settings → Notifications**. Both surfaces show each active scope and its end time, remove it when that time passes, and offer **End now** to restore your saved email frequencies immediately. Repeating **End now** for the same existing Mute is safe. Expiry does the same automatically; a Mute is an overlay and never rewrites those choices. Workspace-bound API and CLI credentials can create, read, reconcile, and end only Mutes for their bound Workspace; they do not receive account preferences or Mutes from another scope.
+You can also start a temporary Mute for every Workspace or only the selected Workspace. Choose an exact future end time on the **Notifications** page or in **Settings → Personal → Notifications**. Both surfaces show each active scope and its end time, remove it when that time passes, and offer **End now** to restore your saved email frequencies immediately. Repeating **End now** for the same existing Mute is safe. Expiry does the same automatically; a Mute is an overlay and never rewrites those choices. Workspace-bound API and CLI credentials can create, read, reconcile, and end only Mutes for their bound Workspace; they do not receive account preferences or Mutes from another scope.
 
 A Workspace Mute is more specific than an account-wide Mute. When both apply, OpenPost resolves the Workspace Mute first; after it expires or ends, an active account-wide Mute applies. OpenPost compares the saved absolute end times, so the result does not change with a browser timezone. Optional Immediate and Daily email created or delivered while the effective Mute is active is skipped rather than sent later. In-app notifications remain immediate, and Transactional security, access, invitation, and critical billing email always bypasses Mutes.
 
 Workspace invites for an existing user do not store the raw invite token in the alert. The Notifications page shows alerts for the selected workspace plus account-wide notices such as workspace invitations. Marking the inbox read or deleting its history changes the workspace alerts in that inbox and its account-wide notices; alerts tied to other workspaces stay unchanged. Because account-wide notices appear in every workspace, reading or deleting one applies everywhere it appears. Deletion is permanent.
 
-The sidebar bell and Notifications page share the same selected-workspace inbox. Successful read and delete actions update both immediately; failed actions keep the prior unread state so you can try again. While the app is open, it checks for new alerts on a bounded timer and when the window regains focus. The feed loads older alerts in pages, keeps the same read-status filter while loading, and offers a separate retry for the first page and for an older-page failure. Alerts are grouped under Today, Yesterday, or their full date, and each row names its event type, read state, time, and available actions.
+The sidebar bell and Notifications page at `/inbox/notifications` share the same selected-workspace inbox. Successful read and delete actions update both immediately; failed actions keep the prior unread state so you can try again. While the app is open, it checks for new alerts on a bounded timer and when the window regains focus. The feed loads older alerts in pages, keeps the same read-status filter while loading, and offers a separate retry for the first page and for an older-page failure. Alerts are grouped under Today, Yesterday, or their full date, and each row names its event type, read state, time, and available actions.
 
 Alert settings do not control inbox collection. Turn inbox collection on or off from the social account.

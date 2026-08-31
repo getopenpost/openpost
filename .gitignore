@@ -38,7 +38,7 @@ Thumbs.db
 # Node/Frontend
 node_modules/
 .turbo/
-frontend/.svelte-kit/
+.svelte-kit/
 frontend/build/
 frontend/.vite/
 frontend/static/assets/
@@ -93,7 +93,6 @@ marketing-site/node_modules/
 marketing-site/package-lock.json
 marketing-site/bun.lock
 marketing-site/yarn.lock
-marketing-site/.svelte-kit/
 marketing-site/.vite/
 marketing-site/public/assets/
 marketing-site/static/assets/

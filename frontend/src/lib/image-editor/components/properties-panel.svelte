@@ -272,7 +272,7 @@
 
 <div class="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
 	<div class="border-b px-3 py-2">
-		<h2 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_properties()}
 		</h2>
 	</div>
@@ -581,7 +581,7 @@
 
 				{#if layer.type === 'text' && layer.text}
 					<section class="space-y-2 border-t pt-4">
-						<h3 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+						<h3 class="text-xs font-medium text-muted-foreground">
 							{m.image_editor_text()}
 						</h3>
 						{#if brandTextStyles.length > 0}
@@ -1012,7 +1012,7 @@
 
 				{#if layer.type === 'shape' && layer.shape}
 					<section class="space-y-2 border-t pt-4">
-						<h3 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+						<h3 class="text-xs font-medium text-muted-foreground">
 							{m.image_editor_shape()}
 						</h3>
 						<label class="grid gap-1 text-xs">
@@ -1140,7 +1140,7 @@
 
 				{#if layer.type === 'image' && layer.image}
 					<section class="space-y-2 border-t pt-4">
-						<h3 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+						<h3 class="text-xs font-medium text-muted-foreground">
 							{m.image_editor_image()}
 						</h3>
 						<label class="grid gap-1 text-xs">

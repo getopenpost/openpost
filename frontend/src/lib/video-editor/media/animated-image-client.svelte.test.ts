@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { animatedImageCache } from './animated-image-client';
 import type { AnimatedImageFrames } from './animated-image-client';
 import { animatedFrameIndexAtTime } from './animated-image-plan';
@@ -104,6 +104,7 @@ describe('animated image frame cache', () => {
 	});
 
 	it('rejects static images instead of pretending they animate', async () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const canvas = document.createElement('canvas');
 		canvas.width = 4;
 		canvas.height = 4;
@@ -123,6 +124,11 @@ describe('animated image frame cache', () => {
 			tags: ['image'],
 			fileHandle: stubFileHandle(async () => new File([blob ?? new Blob()], 'static.png'))
 		};
-		await expect(animatedImageCache.getAnimatedImage(media)).rejects.toThrow(/not animated/);
+		try {
+			await expect(animatedImageCache.getAnimatedImage(media)).rejects.toThrow(/not animated/);
+			expect(warn).not.toHaveBeenCalled();
+		} finally {
+			warn.mockRestore();
+		}
 	});
 });

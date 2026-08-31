@@ -13,7 +13,9 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { m } from '$lib/paraglide/messages';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { showToast } from '$lib/toast';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
@@ -248,15 +250,25 @@
 	}
 
 	function accountLabel(account: RepostAccount): string {
-		return `@${account.username}`;
+		return formatSocialAccountName(account.username, account.platform) || account.platform;
 	}
 
 	function platformLabel(platform: string): string {
-		if (platform === 'x') return 'X';
-		if (platform === 'linkedin') return 'LinkedIn';
-		if (platform === 'bluesky') return 'Bluesky';
-		if (platform === 'mastodon') return 'Mastodon';
-		return platform;
+		return getPlatformName(platform);
+	}
+
+	function targetAccountDetail(policy: RepostPolicy, account: RepostAccount): string {
+		const details = [account.workspace_name];
+		if (account.cross_workspace) {
+			details.push(account.grant_required ? m.repost_access_on_save() : m.repost_access_granted());
+		}
+		return details.filter(Boolean).join(' · ');
+	}
+
+	function targetAccountConstraint(policy: RepostPolicy, account: RepostAccount): string {
+		return targetCompatible(policy, account)
+			? ''
+			: m.repost_target_needs_source({ platform: platformLabel(account.platform) });
 	}
 
 	function targetCompatible(policy: RepostPolicy, target: RepostAccount): boolean {
@@ -366,19 +378,19 @@
 								<div class="grid gap-2 sm:grid-cols-2">
 									{#each sourceAccounts as account (account.id)}
 										<label
-											class="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm"
+											class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm"
 										>
 											<Checkbox
 												checked={(policy.source_account_ids ?? []).includes(account.id)}
 												onCheckedChange={() => toggleSource(policy, account.id)}
 												disabled={!settings.can_manage}
 											/>
-											<span class="min-w-0">
-												<span class="block truncate font-medium">{accountLabel(account)}</span>
-												<span class="block text-xs text-muted-foreground"
-													>{platformLabel(account.platform)}</span
-												>
-											</span>
+											<SocialAccountIdentity
+												class="min-w-0 flex-1"
+												name={accountLabel(account)}
+												platform={account.platform}
+												avatarUrl={account.avatar_url}
+											/>
 										</label>
 									{/each}
 								</div>
@@ -390,29 +402,26 @@
 								<div class="grid gap-2 sm:grid-cols-2">
 									{#each targetAccounts as account (account.id)}
 										<label
-											class="flex min-h-11 items-center gap-3 rounded-md border px-3 py-2 text-sm"
+											class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm"
 										>
 											<Checkbox
 												checked={(policy.target_account_ids ?? []).includes(account.id)}
 												onCheckedChange={() => toggleTarget(policy, account.id)}
 												disabled={!settings.can_manage || !targetCompatible(policy, account)}
 											/>
-											<span class="min-w-0">
-												<span class="block truncate font-medium">{accountLabel(account)}</span>
-												<span class="block text-xs text-muted-foreground">
-													{platformLabel(account.platform)} · {account.workspace_name}
-													{#if account.cross_workspace}
-														· {account.grant_required
-															? m.repost_access_on_save()
-															: m.repost_access_granted()}
-													{/if}
-													{#if !targetCompatible(policy, account)}
-														· {m.repost_target_needs_source({
-															platform: platformLabel(account.platform)
-														})}
-													{/if}
-												</span>
-											</span>
+											<div class="min-w-0 flex-1">
+												<SocialAccountIdentity
+													name={accountLabel(account)}
+													platform={account.platform}
+													avatarUrl={account.avatar_url}
+													detail={targetAccountDetail(policy, account)}
+												/>
+												{#if targetAccountConstraint(policy, account)}
+													<p class="mt-1 pl-10 text-xs leading-5 text-muted-foreground">
+														{targetAccountConstraint(policy, account)}
+													</p>
+												{/if}
+											</div>
 										</label>
 									{/each}
 								</div>
@@ -583,7 +592,8 @@
 						<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
 							<div class="min-w-0">
 								<p class="truncate text-sm font-medium">
-									@{grant.target_username} · {platformLabel(grant.platform)}
+									{formatSocialAccountName(grant.target_username, grant.platform)} ·
+									{platformLabel(grant.platform)}
 								</p>
 								<p class="text-sm text-muted-foreground">
 									{grant.direction === 'inbound'
@@ -626,7 +636,9 @@
 	bind:open={revokeDialogOpen}
 	title={m.repost_revoke_title()}
 	description={grantToRevoke
-		? m.repost_revoke_body({ account: `@${grantToRevoke.target_username}` })
+		? m.repost_revoke_body({
+				account: formatSocialAccountName(grantToRevoke.target_username, grantToRevoke.platform)
+			})
 		: ''}
 	confirmLabel={m.repost_revoke_access()}
 	onConfirm={revokeGrant}

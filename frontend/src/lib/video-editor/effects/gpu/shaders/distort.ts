@@ -300,7 +300,15 @@ vec4 triggerWaveFragment(vec2 vUv) {
 			step: 0.01
 		},
 		{ name: 'phase', label: 'Phase', default: 0, min: 0, max: 1, step: 0.01 },
-		{ name: 'speed', label: 'Speed', default: 1, min: 0, max: 4, step: 0.1 },
+		{
+			name: 'speed',
+			label: 'Speed',
+			default: 1,
+			min: 0,
+			max: 4,
+			step: 0.1,
+			animatable: false
+		},
 		{
 			name: 'centerX',
 			label: 'Center X',

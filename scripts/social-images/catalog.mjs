@@ -104,19 +104,18 @@ function pageDescription(page, source) {
 
 const discoveryEntrypoints = new Map([
   ["usage/index.md", "user-guide"],
-  ["providers/overview.md", "providers"],
+  ["providers/index.md", "providers"],
   ["cli/index.md", "cli"],
   ["mcp/index.md", "mcp"],
   ["installation/docker-compose.md", "installation"],
   ["self-hosting/index.md", "self-hosting"],
-  ["configuration/overview.md", "configuration"],
+  ["configuration/index.md", "configuration"],
   ["operations/health-checks.md", "operations"],
-  ["reference/api.md", "api"],
+  ["development/api-reference.md", "api"],
   ["development/index.md", "development"],
 ]);
 
 const corpusExclusions = new Map([
-  ["development/api-reference.md", "OpenAPI remains authoritative JSON."],
   ["development/third-party-notices.md", "Third-party legal notices stay outside the corpus."],
   ["reference/cli.md", "The generated CLI reference is repetitive in a combined corpus."],
 ]);
@@ -127,6 +126,7 @@ function corpusSection(page) {
   if (page === "index.md" || page.startsWith("guide/") || page.startsWith("usage/")) {
     return "user-guide";
   }
+  if (page === "development/api-reference.md") return "api";
   const topLevel = page.split("/", 1)[0];
   if (topLevel === "reference") return "api";
   if (

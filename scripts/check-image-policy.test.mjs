@@ -29,14 +29,55 @@ test("production build stages cannot drift back to mutable tags", () => {
   const problems = validateImagePolicy(
     {
       ...inputs,
-      dockerfile: inputs.dockerfile.replace(
-        /golang:1\.26\.6-alpine@sha256:[a-f0-9]{64}/u,
-        "golang:1.26.6-alpine",
-      ),
+      dockerfile: inputs.dockerfile.replace(/(@sha256:[a-f0-9]{64})(?= AS backend-builder)/u, ""),
     },
     new Date("2026-08-09T00:00:00Z"),
   );
   assert.ok(problems.some((problem) => problem.includes("backend-builder")));
+});
+
+test("declared Go and Bun toolchains cannot drift between release surfaces", () => {
+  const inputs = imagePolicyInputs();
+  const problems = validateImagePolicy(
+    {
+      ...inputs,
+      backendGoMod: inputs.backendGoMod.replace("go 1.26.6", "go 1.26.7"),
+      mobilePackage: { ...inputs.mobilePackage, packageManager: "bun@1.3.12" },
+    },
+    new Date("2026-08-09T00:00:00Z"),
+  );
+  assert.ok(problems.some((problem) => problem.includes("Go module versions")));
+  assert.ok(problems.some((problem) => problem.includes("Bun versions")));
+});
+
+test("runtime packages must stay declared and the pinned base cannot be upgraded", () => {
+  const inputs = imagePolicyInputs();
+  const problems = validateImagePolicy(
+    {
+      ...inputs,
+      dockerfile: inputs.dockerfile
+        .replace("RUN apk add --no-cache", "RUN apk upgrade --no-cache && apk add --no-cache")
+        .replace("ca-certificates ffmpeg tzdata sqlite", "ca-certificates tzdata sqlite"),
+    },
+    new Date("2026-08-09T00:00:00Z"),
+  );
+  assert.ok(problems.some((problem) => problem.includes("runtime packages")));
+  assert.ok(problems.some((problem) => problem.includes("apk upgrade")));
+});
+
+test("every installed runtime package must be present in the declared policy", () => {
+  const inputs = imagePolicyInputs();
+  const problems = validateImagePolicy(
+    {
+      ...inputs,
+      dockerfile: inputs.dockerfile.replace(
+        "'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0'",
+        "'libcrypto3>=3.5.8-r0' 'libssl3>=3.5.8-r0' curl",
+      ),
+    },
+    new Date("2026-08-09T00:00:00Z"),
+  );
+  assert.ok(problems.some((problem) => problem.includes("runtime packages")));
 });
 
 test("the production image cannot rebuild a second frontend artifact", () => {

@@ -22,6 +22,19 @@ function solid(color: string, width = 4, height = 4): HTMLCanvasElement {
 	return canvas;
 }
 
+function splitSource(width = 8, height = 4): HTMLCanvasElement {
+	const canvas = document.createElement('canvas');
+	canvas.width = width;
+	canvas.height = height;
+	const context = canvas.getContext('2d');
+	if (!context) throw new Error('2D canvas unavailable');
+	context.fillStyle = '#ff0000';
+	context.fillRect(0, 0, width / 2, height);
+	context.fillStyle = '#00ff00';
+	context.fillRect(width / 2, 0, width / 2, height);
+	return canvas;
+}
+
 function layer(blendMode: BlendMode, opacity = 1): TimelineItem {
 	return {
 		id: 'layer',
@@ -83,6 +96,43 @@ function displayedPixels(canvas: HTMLCanvasElement): Uint8ClampedArray {
 }
 
 describe('CanvasStackCompositor', () => {
+	it('keeps the uncropped source in place inside the clip bounds', () => {
+		const output = document.createElement('canvas');
+		const stack = new CanvasStackCompositor(output);
+		stack.beginFrame(8, 4, '#0000ff');
+		const item = {
+			...layer('normal'),
+			transform: { width: 8, height: 4 },
+			crop: { left: 0.5, right: 0, top: 0, bottom: 0 }
+		};
+
+		stack.compositeLayer({ source: splitSource(), width: 8, height: 4 }, item, 1, 0);
+
+		expect(pixelAt(output, 1, 2)).toEqual([0, 0, 255, 255]);
+		expect(pixelAt(output, 6, 2)).toEqual([0, 255, 0, 255]);
+		stack.dispose();
+	});
+
+	it('renders signed crop softness as a feather instead of a hard edge', () => {
+		const output = document.createElement('canvas');
+		const stack = new CanvasStackCompositor(output);
+		stack.beginFrame(16, 16, '#000000');
+		const item = {
+			...layer('normal'),
+			transform: { width: 16, height: 16 },
+			crop: { left: 0.25, right: 0, top: 0, bottom: 0, softness: -0.125 }
+		};
+
+		stack.compositeLayer({ source: solid('#ffffff', 16, 16), width: 16, height: 16 }, item, 1, 0);
+
+		expect(pixelAt(output, 3, 8)).toEqual([0, 0, 0, 255]);
+		const [edge] = pixelAt(output, 5, 8);
+		expect(edge).toBeGreaterThan(0);
+		expect(edge).toBeLessThan(255);
+		expect(pixelAt(output, 8, 8)).toEqual([255, 255, 255, 255]);
+		stack.dispose();
+	});
+
 	it('preserves corner offsets across item resizing and maps exact quad corners', () => {
 		const pin = resolveCornerPinForSize(
 			{
@@ -257,6 +307,22 @@ describe('CanvasStackCompositor', () => {
 		expect(green).toBe(red);
 		expect(blue).toBe(red);
 		expect(alpha).toBe(255);
+		stack.dispose();
+	});
+
+	it('applies render-time scale without changing source layout bounds', () => {
+		const output = document.createElement('canvas');
+		const stack = new CanvasStackCompositor(output);
+		stack.beginFrame(8, 8, '#00000000');
+		const source = solid('#ff0000');
+		const item = layer('normal');
+		item.transform = { ...item.transform, scaleX: 2, scaleY: 2 };
+
+		stack.compositeLayer({ source, width: 4, height: 4 }, item, 1, 0);
+
+		expect(pixelAt(output, 1, 1)).toEqual([255, 0, 0, 255]);
+		expect(item.transform.width).toBe(4);
+		expect(item.transform.height).toBe(4);
 		stack.dispose();
 	});
 

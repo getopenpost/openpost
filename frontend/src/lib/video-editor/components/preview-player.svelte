@@ -11,12 +11,20 @@
 	} from '$lib/video-editor/project/types';
 	import { replaceTextSpanCopy } from '$lib/video-editor/typography/text-item-spans';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
+	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
+	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
+	import {
+		editorShortcutTargetIsDisabled,
+		eventMatchesShortcut,
+		type EditorShortcutId
+	} from '$lib/video-editor/settings/keyboard-shortcuts';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
 	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 	import { getMediaObjectUrl, revokeMediaObjectUrl } from '$lib/video-editor/media/media-source';
 	import { getAutomaticProxy, shouldUseAutomaticProxy } from '$lib/video-editor/media/proxy-client';
 	import { paintOrder, planNestedMixdown } from '$lib/video-editor/media/render-plan';
+	import { collectMixEntryDuckWindows } from '$lib/video-editor/audio/audio-ducking';
 	import {
 		resolveAnimatedItemAt,
 		resolveAnimatedItemLocalAt,
@@ -68,7 +76,8 @@
 		hasLinkedAudioCompanion,
 		isAudioTransitionParticipantAtFrame
 	} from '$lib/video-editor/audio/transition-crossfade';
-	import { requiresProcessedPreviewAudio } from '$lib/video-editor/audio/preview-processing';
+	import { requiresProcessedPreviewAudioForTimeline } from '$lib/video-editor/audio/preview-processing';
+	import { resolveAudioOwner } from '$lib/video-editor/preview/audio-owner';
 	import { sequenceStore } from '$lib/video-editor/sequences/sequence-store.svelte';
 	import { shapeMasksForTrack } from '$lib/video-editor/shapes/masks';
 	import { hasCornerPin } from '$lib/video-editor/preview/corner-pin';
@@ -85,6 +94,8 @@
 	import type { CanvasAnimatedValues } from '$lib/video-editor/preview/on-canvas-tools';
 	import { previewDiagnostics } from '$lib/video-editor/preview/diagnostics.svelte';
 	import { spatialEffectEditorStore } from '$lib/video-editor/preview/spatial-effect-editor.svelte';
+	import EditPreviewOverlay from './edit-preview-overlay.svelte';
+	import ShuttleIndicator from './shuttle-indicator.svelte';
 	import { getSpatialPointEffectConfig } from '$lib/video-editor/effects/spatial-point-editor';
 	import {
 		resolveTimelinePreviewFrame,
@@ -94,27 +105,42 @@
 	import {
 		changedGroupTransformValues,
 		GROUP_TRANSFORM_PROPERTIES,
+		initializeGroupTransform,
+		translateGroup,
 		type GroupTransform
 	} from '$lib/video-editor/preview/group-transform';
+	import {
+		canvasLayersAtPoint,
+		canvasPointFromClient,
+		type CanvasLayerCandidate
+	} from '$lib/video-editor/preview/canvas-layer-picker';
 	import {
 		GROUP_TEXT_ANIMATED_PROPERTY_SET,
 		planGroupTextScale
 	} from '$lib/video-editor/preview/group-text-scale';
 	import { activeVectorKeyframes } from '$lib/video-editor/timeline/vector-keyframes';
+	import * as ContextMenu from '$lib/components/ui/context-menu';
 
 	const MAX_STACK_PREVIEW_PIXELS = 1920 * 1080;
 
 	let {
 		selectedItemId = $bindable(null),
 		selectedItemIds = $bindable([]),
+		ondeselect = () => undefined,
 		onedit
-	}: { selectedItemId?: string | null; selectedItemIds?: string[]; onedit: () => void } = $props();
+	}: {
+		selectedItemId?: string | null;
+		selectedItemIds?: string[];
+		ondeselect?: () => void;
+		onedit: () => void;
+	} = $props();
 	const project = $derived(editorSession.project);
-	const canvasWidth = $derived(
-		sequenceStore.activeSequence?.width ?? project?.metadata.width ?? sequenceStore.activeWidth
-	);
-	const canvasHeight = $derived(
-		sequenceStore.activeSequence?.height ?? project?.metadata.height ?? sequenceStore.activeHeight
+	const canvasWidth = $derived(sequenceStore.activeWidth);
+	const canvasHeight = $derived(sequenceStore.activeHeight);
+	const canvasBackground = $derived(
+		sequenceStore.activeSequence?.backgroundColor ??
+			sequenceStore.rootResolution.backgroundColor ??
+			'#000000'
 	);
 	const aspect = $derived(`${canvasWidth} / ${canvasHeight}`);
 	const displayFrame = $derived(
@@ -141,6 +167,7 @@
 	let draftCornerPin = $state<TimelineItemCornerPin | null>(null);
 	let editingText = $state(false);
 	let isPlaying = $state(editorSession.clock.isPlaying);
+	let shuttleRate = $state(editorSession.clock.playbackRate);
 	let stackCanvas = $state<HTMLCanvasElement | null>(null);
 	let stackCompositor = $state<CanvasStackCompositor | null>(null);
 	let compareCanvas = $state<HTMLCanvasElement | null>(null);
@@ -152,6 +179,8 @@
 	let pickerX = $state(0);
 	let pickerY = $state(0);
 	let pickerColor = $state<{ r: number; g: number; b: number } | null>(null);
+	let canvasContextOpen = $state(false);
+	let canvasContextLayers = $state<CanvasLayerCandidate[]>([]);
 	let lastStackScopeAt = 0;
 	let stackFrameRequest: number | null = null;
 	let pendingStackInputs: {
@@ -172,22 +201,33 @@
 	const activeItems = $derived.by(() =>
 		paintOrder(timelineStore.items, timelineStore.tracks).filter(
 			(item) =>
-				['video', 'image', 'lottie', 'text', 'subtitle', 'shape', 'composition'].includes(
-					item.type
-				) &&
+				[
+					'video',
+					'image',
+					'lottie',
+					'text',
+					'subtitle',
+					'shape',
+					'composition',
+					'background'
+				].includes(item.type) &&
 				((displayFrame >= item.from && displayFrame < item.from + item.durationInFrames) ||
 					item.id === activeTransition?.outgoing ||
 					item.id === activeTransition?.incoming)
 		)
 	);
-	const nestedMixEntries = $derived(
+	const previewMixPlan = $derived(
 		planNestedMixdown(
 			timelineStore.items,
 			timelineStore.tracks,
 			editorSession.fps,
 			transitionsStore.list,
 			sequenceStore.compositions
-		).filter(
+		)
+	);
+	const previewDuckWindows = $derived(collectMixEntryDuckWindows(previewMixPlan));
+	const nestedMixEntries = $derived(
+		previewMixPlan.filter(
 			(entry) =>
 				entry.itemId.includes('/') && mediaPool.get(entry.mediaId)?.audioCodecSupported !== false
 		)
@@ -204,8 +244,20 @@
 			colorPreviewStore.activePicker !== null ||
 			colorPreviewStore.frameCaptureItemId !== null ||
 			draftCornerPin !== null ||
+			activeItems.some((item) => item.type === 'background') ||
 			activeItems.some((item) => item.type === 'shape' && item.isMask === true) ||
 			activeItems.some((item) => hasCornerPin(item.cornerPin)) ||
+			activeItems.some(
+				(item) =>
+					Math.abs(
+						resolveAnimatedItemAt(item, displayFrame, {
+							fps: timelineStore.fps,
+							frameWidth: canvasWidth,
+							frameHeight: canvasHeight,
+							items: timelineStore.items
+						}).crop?.softness ?? 0
+					) > 0.0001
+			) ||
 			activeItems.some(
 				(item) =>
 					isNonNormalBlend(item.blendMode) &&
@@ -246,6 +298,26 @@
 	);
 	const selectedTrackLocked = $derived(
 		selectedItem ? isTrackEffectivelyLocked(selectedItem.trackId, timelineStore.tracks) : false
+	);
+	const canvasContextDisabled = $derived(
+		editingText || colorPreviewStore.activePicker !== null || spatialEffectEditorStore.isEditing
+	);
+	const canvasLayerCandidates = $derived(
+		activeItems.map((item) => ({
+			item,
+			trackName:
+				timelineStore.tracks.find((track) => track.id === item.trackId)?.name ?? item.trackId,
+			transform: resolvedTransformForItem(
+				resolveAnimatedItemAt(item, displayFrame, {
+					fps: timelineStore.fps,
+					frameWidth: canvasWidth,
+					frameHeight: canvasHeight,
+					items: timelineStore.items
+				}),
+				canvasWidth,
+				canvasHeight
+			)
+		}))
 	);
 	const spatialEditingSelected = $derived(
 		spatialEffectEditorStore.isEditing &&
@@ -386,15 +458,21 @@
 
 	$effect(() => {
 		previewDiagnostics.setPlaying(editorSession.clock.isPlaying);
+		shuttleRate = editorSession.clock.playbackRate;
 		const syncPlay = () => {
 			isPlaying = true;
+			shuttleRate = editorSession.clock.playbackRate;
 			previewDiagnostics.setPlaying(true);
 		};
 		const syncPause = () => {
 			isPlaying = false;
+			shuttleRate = editorSession.clock.playbackRate;
 			previewDiagnostics.setPlaying(false);
 			adaptivePreviewQuality.reset();
 			scheduleStackFrame();
+		};
+		const syncRate = () => {
+			shuttleRate = editorSession.clock.playbackRate;
 		};
 		const sampleFrame = (frame: number) => {
 			if (editorSession.clock.isPlaying) {
@@ -414,10 +492,12 @@
 				editorSession.clock.playbackRate
 			);
 		};
+		const offRate = editorSession.clock.on('ratechange', syncRate);
 		const offPlay = editorSession.clock.on('play', syncPlay);
 		const offPause = editorSession.clock.on('pause', syncPause);
 		const offFrame = editorSession.clock.on('framechange', sampleFrame);
 		return () => {
+			offRate();
 			offPlay();
 			offPause();
 			offFrame();
@@ -481,18 +561,10 @@
 		const inputs = pendingStackInputs;
 		if (!stack || !projectState || !inputs || !needsStackedComposition) return;
 		const renderStartedAt = performance.now();
-		stack.beginFrame(
-			inputs.width,
-			inputs.height,
-			projectState.metadata.backgroundColor ?? '#000000'
-		);
+		stack.beginFrame(inputs.width, inputs.height, canvasBackground);
 		const comparisonMode = colorPreviewStore.comparisonMode;
 		if (comparisonMode === 'split' && compare) {
-			compare.beginFrame(
-				inputs.width,
-				inputs.height,
-				projectState.metadata.backgroundColor ?? '#000000'
-			);
+			compare.beginFrame(inputs.width, inputs.height, canvasBackground);
 		}
 		const frame = displayFrame;
 		const resolveVisualItem = (item: TimelineItem, beforeColor: boolean) => {
@@ -531,8 +603,8 @@
 			.map((item) => resolveVisualItem(item, false));
 		const resolveParticipant = (item: TimelineItem, beforeColor: boolean) => {
 			if (item.type === 'shape' && item.isMask === true) return null;
-			const source = sourceProviders.get(item.id)?.();
-			if (!source) return null;
+			const source = sourceProviders.get(item.id)?.() ?? null;
+			if (!source && item.type !== 'background') return null;
 			const resolved = resolveVisualItem(item, beforeColor);
 			return {
 				source,
@@ -855,13 +927,15 @@
 		return committed;
 	}
 
-	function commitCanvasPosition(frame: number, x: number, y: number): boolean {
-		const local = selectedItemId
-			? localCanvasValuesForItem(selectedItemId, frame, { x, y })
-			: { x, y };
-		const committed = selectedItemId
-			? setPositionAtFrame(selectedItemId, frame, local.x ?? x, local.y ?? y)
-			: false;
+	function commitCanvasPosition(
+		frame: number,
+		x: number,
+		y: number,
+		itemId = selectedItemId
+	): boolean {
+		if (!itemId) return false;
+		const local = localCanvasValuesForItem(itemId, frame, { x, y });
+		const committed = setPositionAtFrame(itemId, frame, local.x ?? x, local.y ?? y);
 		if (!committed) toast.error(m.video_editor_keyframe_transition_blocked());
 		return committed;
 	}
@@ -1011,6 +1085,93 @@
 		return committed;
 	}
 
+	function visualNudgeDelta(event: KeyboardEvent): { x: number; y: number } | null {
+		const bindings = keyboardShortcuts.bindings;
+		const matches = (id: EditorShortcutId) => eventMatchesShortcut(event, bindings[id]);
+		if (matches('NUDGE_LEFT_LARGE')) return { x: -10, y: 0 };
+		if (matches('NUDGE_RIGHT_LARGE')) return { x: 10, y: 0 };
+		if (matches('NUDGE_UP_LARGE')) return { x: 0, y: -10 };
+		if (matches('NUDGE_DOWN_LARGE')) return { x: 0, y: 10 };
+		if (matches('NUDGE_LEFT')) return { x: -1, y: 0 };
+		if (matches('NUDGE_RIGHT')) return { x: 1, y: 0 };
+		if (matches('NUDGE_UP')) return { x: 0, y: -1 };
+		if (matches('NUDGE_DOWN')) return { x: 0, y: 1 };
+		return null;
+	}
+
+	function handleVisualNudgeShortcut(event: KeyboardEvent): void {
+		if (
+			event.defaultPrevented ||
+			editorShortcutTargetIsDisabled(event.target) ||
+			(event.target instanceof HTMLElement &&
+				Boolean(event.target.closest('[data-composition-shortcuts]'))) ||
+			canvasContextDisabled
+		)
+			return;
+		const delta = visualNudgeDelta(event);
+		if (!delta) return;
+		const selectedIds = new Set(selectedItemIds);
+		if (selectedItemId) selectedIds.add(selectedItemId);
+		const items = timelineStore.items.filter(
+			(item) =>
+				selectedIds.has(item.id) &&
+				item.type !== 'audio' &&
+				item.type !== 'adjustment' &&
+				item.type !== 'controller' &&
+				timelineStore.currentFrame >= item.from &&
+				timelineStore.currentFrame < item.from + item.durationInFrames
+		);
+		if (
+			items.length === 0 ||
+			items.some((item) => isTrackEffectivelyLocked(item.trackId, timelineStore.tracks))
+		)
+			return;
+		event.preventDefault();
+		if (items.length === 1) {
+			const transform = resolvedTransformForItem(
+				resolveAnimatedItemAt(items[0]!, timelineStore.currentFrame, {
+					fps: timelineStore.fps,
+					frameWidth: canvasWidth,
+					frameHeight: canvasHeight,
+					items: timelineStore.items
+				}),
+				canvasWidth,
+				canvasHeight
+			);
+			if (
+				commitCanvasPosition(
+					timelineStore.currentFrame,
+					transform.x + delta.x,
+					transform.y + delta.y,
+					items[0]!.id
+				)
+			)
+				onedit();
+			return;
+		}
+		const transforms = new Map(
+			items.map((item) => [
+				item.id,
+				resolvedTransformForItem(
+					resolveAnimatedItemAt(item, timelineStore.currentFrame, {
+						fps: timelineStore.fps,
+						frameWidth: canvasWidth,
+						frameHeight: canvasHeight,
+						items: timelineStore.items
+					}),
+					canvasWidth,
+					canvasHeight
+				)
+			])
+		);
+		const translated = translateGroup(
+			initializeGroupTransform(transforms, canvasWidth, canvasHeight),
+			delta.x,
+			delta.y
+		);
+		if (commitGroupTransforms(timelineStore.currentFrame, translated)) onedit();
+	}
+
 	function createCanvasSpatialTangents(frame: number): boolean {
 		const committed = selectedItemId ? createPositionSpatialTangents(selectedItemId, frame) : false;
 		if (!committed) toast.error(m.video_editor_keyframe_transition_blocked());
@@ -1094,6 +1255,66 @@
 		updateItemProperties(selectedItemId, { cornerPin }, 'UPDATE_CORNER_PIN_ON_CANVAS');
 	}
 
+	function prepareCanvasContextMenu(event: MouseEvent): void {
+		if (!viewport || canvasContextDisabled) {
+			canvasContextLayers = [];
+			return;
+		}
+		const rect = viewport.getBoundingClientRect();
+		const keyboardInvocation = event.button !== 2;
+		const point = canvasPointFromClient(
+			keyboardInvocation ? rect.left + rect.width / 2 : event.clientX,
+			keyboardInvocation ? rect.top + rect.height / 2 : event.clientY,
+			rect,
+			canvasWidth,
+			canvasHeight
+		);
+		canvasContextLayers = point
+			? canvasLayersAtPoint(canvasLayerCandidates, point, canvasWidth, canvasHeight)
+			: [];
+	}
+
+	function openCanvasContextMenuFromKeyboard(event: KeyboardEvent): void {
+		if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return;
+		if (!viewport || canvasContextDisabled) return;
+		event.preventDefault();
+		const rect = viewport.getBoundingClientRect();
+		viewport.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.top + rect.height / 2
+			})
+		);
+	}
+
+	function setCanvasContextOpen(open: boolean): void {
+		canvasContextOpen = open && canvasContextLayers.length > 0;
+	}
+
+	function selectCanvasContextLayer(itemId: string): void {
+		selectedItemId = itemId;
+		selectedItemIds = [itemId];
+		canvasContextOpen = false;
+	}
+
+	function deselectFromEmptyPreview(event: PointerEvent): void {
+		if (event.button !== 0) return;
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		if (
+			target.closest(
+				'[data-preview-item], [data-on-canvas-tools], button, input, select, textarea, [role="slider"]'
+			)
+		)
+			return;
+		selectedItemId = null;
+		selectedItemIds = [];
+		canvasContextOpen = false;
+		ondeselect();
+	}
+
 	$effect(() => {
 		void draftTransform;
 		void groupDraftTransforms;
@@ -1105,258 +1326,314 @@
 	});
 </script>
 
+<svelte:window onkeydown={handleVisualNudgeShortcut} />
+
 <div
-	class="fullscreen:p-6 [container-type:size] flex min-h-0 flex-1 overflow-auto bg-[oklch(0.12_0.008_55)] p-4"
+	class="fullscreen:p-6 [container-type:size] flex min-h-0 flex-1 overflow-auto bg-[oklch(0.205_0.008_55)] p-4 sm:p-5 xl:p-7"
+	data-program-pasteboard
+	role="region"
+	aria-label={m.video_editor_program_monitor()}
+	onpointerdown={deselectFromEmptyPreview}
 >
-	<div
-		bind:this={viewport}
-		class="[container-type:size] relative m-auto shrink-0 overflow-hidden rounded-md bg-black"
-		data-program-monitor
-		style={previewPlaybackSettings.zoom === -1
-			? `aspect-ratio:${aspect}; width:min(100cqw, calc(100cqh * ${canvasWidth / canvasHeight})); max-width:100%; max-height:100%;`
-			: `aspect-ratio:${aspect}; width:${canvasWidth * previewPlaybackSettings.zoom}px;`}
-	>
-		{#if activeItems.length === 0}
-			<div
-				class="flex size-full min-h-48 min-w-80 items-center justify-center border border-dashed border-[oklch(0.3_0.01_55)] text-xs text-[oklch(0.65_0.015_55)]"
-			>
-				{m.video_editor_preview_empty()}
-			</div>
-		{:else}
-			{#if preparingProxy}
+	<ContextMenu.Root open={canvasContextOpen} onOpenChange={setCanvasContextOpen}>
+		<ContextMenu.Trigger disabled={canvasContextDisabled}>
+			{#snippet child({ props })}
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex -- the monitor is a composite editor surface with a keyboard context menu -->
 				<div
-					class="absolute top-2 right-2 z-40 flex items-center gap-2 rounded-full border border-white/10 bg-black/75 px-2.5 py-1 text-[10px] text-white shadow-lg backdrop-blur"
-					role="status"
-					aria-live="polite"
-					data-proxy-progress
+					{...props}
+					bind:this={viewport}
+					class="[container-type:size] relative m-auto shrink-0 overflow-hidden rounded-sm bg-black shadow-[0_14px_42px_oklch(0.04_0.01_55_/_0.62)] ring-1 ring-white/12 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					data-program-monitor
+					tabindex="0"
+					role="application"
+					aria-label={m.video_editor_program_monitor()}
+					oncontextmenucapture={prepareCanvasContextMenu}
+					onkeydown={openCanvasContextMenuFromKeyboard}
+					style={previewPlaybackSettings.zoom === -1
+						? `aspect-ratio:${aspect}; width:min(100cqw, calc(100cqh * ${canvasWidth / canvasHeight})); max-width:100%; max-height:100%;`
+						: `aspect-ratio:${aspect}; width:${canvasWidth * previewPlaybackSettings.zoom}px;`}
 				>
-					<span class="size-1.5 animate-pulse rounded-full bg-sky-400 motion-reduce:animate-none"
-					></span>
-					{m.video_editor_proxy_preparing()}
-					<span class="tabular-nums">{Math.round(preparingProxy.progress * 100)}%</span>
-				</div>
-			{/if}
-			{#if needsStackedComposition}
-				<div class="absolute inset-0" role="img" aria-label={m.video_editor_preview_suggestion()}>
-					<canvas
-						bind:this={stackCanvas}
-						width={stackWidth}
-						height={stackHeight}
-						class="size-full object-fill"
-						aria-hidden="true"
-						data-stacked-preview
-					></canvas>
-					{#if colorPreviewStore.comparisonMode === 'split'}
-						<canvas
-							bind:this={compareCanvas}
-							width={stackWidth}
-							height={stackHeight}
-							class="absolute inset-0 size-full object-fill"
-							style:clip-path={`inset(0 ${100 - colorPreviewStore.splitPosition * 100}% 0 0)`}
-							aria-hidden="true"
-							data-color-before-preview
-						></canvas>
-						<span
-							class="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
-							>{m.video_editor_color_before()}</span
+					{#if activeItems.length === 0}
+						<div
+							class="flex size-full min-h-48 min-w-80 items-center justify-center border border-dashed border-[oklch(0.3_0.01_55)] text-xs text-[oklch(0.65_0.015_55)]"
 						>
-						<span
-							class="absolute top-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
-							>{m.video_editor_color_after()}</span
-						>
-						<button
-							type="button"
-							role="slider"
-							class="absolute top-0 z-10 h-full w-3 -translate-x-1/2 cursor-ew-resize focus-visible:outline-2 focus-visible:outline-white"
-							style:left={`${colorPreviewStore.splitPosition * 100}%`}
-							aria-label={m.video_editor_color_split_position()}
-							aria-valuemin="5"
-							aria-valuemax="95"
-							aria-valuenow={Math.round(colorPreviewStore.splitPosition * 100)}
-							onpointerdown={startSplitDrag}
-							onpointermove={moveSplit}
-							onkeydown={splitKeydown}
-						>
-							<span class="mx-auto block h-full w-px bg-white shadow-[0_0_0_1px_black]"></span>
-							<span
-								class="absolute top-1/2 left-1/2 size-3 -translate-1/2 rounded-full border border-black bg-white"
-							></span>
-						</button>
-					{/if}
-				</div>
-			{/if}
-			{#each activeItems as item (item.id)}
-				{@const itemMedia = mediaPool.get(item.mediaId ?? '')}
-				<PreviewLayer
-					{item}
-					{displayFrame}
-					url={itemMedia &&
-					shouldUseAutomaticProxy(itemMedia, previewPlaybackSettings.previewQuality) &&
-					proxyUrls[item.mediaId ?? '']
-						? proxyUrls[item.mediaId ?? '']
-						: urls[item.mediaId ?? '']}
-					audioUrl={urls[item.mediaId ?? '']}
-					{canvasWidth}
-					{canvasHeight}
-					effectiveEffects={effectiveEffects(item)}
-					deferEffects={needsStackedComposition}
-					previewScale={previewRenderScale}
-					allowPrewarmFallback={previewPlaybackSettings.previewQuality === 'auto'}
-					registersource={registerPreviewSource}
-					onsourcechange={scheduleStackFrame}
-					selected={item.id === selectedItemId || selectedItemIds.includes(item.id)}
-					opacityMultiplier={transitionOpacity(item)}
-					overrideTransform={groupDraftTransforms?.[item.id] ??
-						(item.id === selectedItemId ? (draftTransform ?? undefined) : undefined)}
-					overrideCrop={item.id === selectedItemId ? (draftCrop ?? undefined) : undefined}
-					overrideText={item.id === selectedItemId ? (draftText ?? undefined) : undefined}
-					hideContent={item.id === selectedItemId && editingText}
-					onselect={() => {
-						selectedItemId = item.id;
-						selectedItemIds = [item.id];
-					}}
-				/>
-			{/each}
-			{#if selectedResolvedItems.length > 1 && !groupSelectionLocked}
-				<GroupOnCanvasTools
-					items={selectedResolvedItems}
-					{canvasWidth}
-					{canvasHeight}
-					currentFrame={timelineStore.currentFrame}
-					{isPlaying}
-					snappingEnabled={timelineStore.snapEnabled}
-					snapItems={activeItems}
-					ontransformdraft={(value) => (groupDraftTransforms = value)}
-					oncommit={commitGroupTransforms}
-					onselectitem={(itemId) => {
-						selectedItemId = itemId;
-						selectedItemIds = [itemId];
-					}}
-					ontogglesnapping={() => timelineStore._setSnapEnabled(!timelineStore.snapEnabled)}
-					{onedit}
-				/>
-			{:else if selectedResolved && !selectedTrackLocked}
-				{#if spatialEditingSelected && selectedItem}
-					<SpatialEffectPointOverlay
-						item={selectedResolved}
-						sourceItem={selectedItem}
-						{canvasWidth}
-						{canvasHeight}
-						currentFrame={timelineStore.currentFrame}
-						{onedit}
-					/>
-				{:else}
-					<OnCanvasTools
-						item={selectedResolved}
-						motionSourceItem={selectedItem}
-						motionContext={{
-							fps: timelineStore.fps,
-							frameWidth: canvasWidth,
-							frameHeight: canvasHeight,
-							items: timelineStore.items
-						}}
-						{canvasWidth}
-						{canvasHeight}
-						snapItems={activeItems}
-						snappingEnabled={timelineStore.snapEnabled}
-						currentFrame={timelineStore.currentFrame}
-						{isPlaying}
-						ontransformdraft={(value) => (draftTransform = value)}
-						oncropdraft={(value) => (draftCrop = value)}
-						ontextdraft={(value) => (draftText = value)}
-						oncornerpindraft={(value) => (draftCornerPin = value)}
-						ontextediting={(value) => (editingText = value)}
-						oncommitvalues={commitCanvasValues}
-						oncommitposition={commitCanvasPosition}
-						oncreatespatial={createCanvasSpatialTangents}
-						oncommitspatial={commitCanvasSpatialTangents}
-						oncommittext={commitCanvasText}
-						oncommitcornerpin={commitCanvasCornerPin}
-						onseek={setCurrentFrame}
-						{onedit}
-					/>
-				{/if}
-			{/if}
-			{#if colorPreviewStore.activePicker}
-				<button
-					bind:this={pickerOverlay}
-					type="button"
-					class="absolute inset-0 z-30 cursor-crosshair bg-transparent focus-visible:outline-2 focus-visible:outline-white"
-					aria-label={m.video_editor_color_picker_instruction()}
-					onpointermove={samplePicker}
-					onpointerdown={choosePickerColor}
-					onkeydown={pickerKeydown}
-				>
-					{#if pickerColor}
-						<span
-							class="pointer-events-none absolute overflow-hidden rounded border border-white bg-black shadow-xl"
-							style:left={`${pickerX}px`}
-							style:top={`${pickerY}px`}
-						>
-							<canvas bind:this={pickerLoupe} width="72" height="72" class="block size-[72px]"
-							></canvas>
-							<span class="block px-1 py-0.5 text-center font-mono text-[10px] text-white"
-								>{colorHex(pickerColor)}</span
+							{m.video_editor_preview_empty()}
+						</div>
+					{:else}
+						{#if isPlaying && editorSession.transportMode === 'shuttle'}
+							<div class="absolute top-2 left-2 z-30">
+								<ShuttleIndicator active={isPlaying} playbackRate={shuttleRate} />
+							</div>
+						{/if}
+						{#if preparingProxy}
+							<div
+								class="absolute top-2 right-2 z-40 flex items-center gap-2 rounded-full border border-white/10 bg-black/75 px-2.5 py-1 text-[10px] text-white shadow-lg backdrop-blur"
+								role="status"
+								aria-live="polite"
+								data-proxy-progress
 							>
-						</span>
+								<span
+									class="size-1.5 animate-pulse rounded-full bg-sky-400 motion-reduce:animate-none"
+								></span>
+								{m.video_editor_proxy_preparing()}
+								<span class="tabular-nums">{Math.round(preparingProxy.progress * 100)}%</span>
+							</div>
+						{/if}
+						{#if needsStackedComposition}
+							<div
+								class="absolute inset-0"
+								role="img"
+								aria-label={m.video_editor_preview_suggestion()}
+							>
+								<canvas
+									bind:this={stackCanvas}
+									width={stackWidth}
+									height={stackHeight}
+									class="size-full object-fill"
+									aria-hidden="true"
+									data-stacked-preview
+								></canvas>
+								{#if colorPreviewStore.comparisonMode === 'split'}
+									<canvas
+										bind:this={compareCanvas}
+										width={stackWidth}
+										height={stackHeight}
+										class="absolute inset-0 size-full object-fill"
+										style:clip-path={`inset(0 ${100 - colorPreviewStore.splitPosition * 100}% 0 0)`}
+										aria-hidden="true"
+										data-color-before-preview
+									></canvas>
+									<span
+										class="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
+										>{m.video_editor_color_before()}</span
+									>
+									<span
+										class="absolute top-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white"
+										>{m.video_editor_color_after()}</span
+									>
+									<button
+										type="button"
+										role="slider"
+										class="absolute top-0 z-10 h-full w-3 -translate-x-1/2 cursor-ew-resize focus-visible:outline-2 focus-visible:outline-white"
+										style:left={`${colorPreviewStore.splitPosition * 100}%`}
+										aria-label={m.video_editor_color_split_position()}
+										aria-valuemin="5"
+										aria-valuemax="95"
+										aria-valuenow={Math.round(colorPreviewStore.splitPosition * 100)}
+										onpointerdown={startSplitDrag}
+										onpointermove={moveSplit}
+										onkeydown={splitKeydown}
+									>
+										<span class="mx-auto block h-full w-px bg-white shadow-[0_0_0_1px_black]"
+										></span>
+										<span
+											class="absolute top-1/2 left-1/2 size-3 -translate-1/2 rounded-full border border-black bg-white"
+										></span>
+									</button>
+								{/if}
+							</div>
+						{/if}
+						{#each activeItems as item (item.id)}
+							{@const itemMedia = mediaPool.get(item.mediaId ?? '')}
+							<PreviewLayer
+								{item}
+								{displayFrame}
+								url={itemMedia &&
+								shouldUseAutomaticProxy(itemMedia, previewPlaybackSettings.previewQuality) &&
+								proxyUrls[item.mediaId ?? '']
+									? proxyUrls[item.mediaId ?? '']
+									: urls[item.mediaId ?? '']}
+								audioUrl={urls[item.mediaId ?? '']}
+								{canvasWidth}
+								{canvasHeight}
+								effectiveEffects={effectiveEffects(item)}
+								deferEffects={needsStackedComposition}
+								previewScale={previewRenderScale}
+								allowPrewarmFallback={previewPlaybackSettings.previewQuality === 'auto'}
+								registersource={registerPreviewSource}
+								onsourcechange={scheduleStackFrame}
+								selected={item.id === selectedItemId || selectedItemIds.includes(item.id)}
+								opacityMultiplier={transitionOpacity(item)}
+								overrideTransform={groupDraftTransforms?.[item.id] ??
+									(item.id === selectedItemId ? (draftTransform ?? undefined) : undefined)}
+								overrideCrop={item.id === selectedItemId ? (draftCrop ?? undefined) : undefined}
+								overrideText={item.id === selectedItemId ? (draftText ?? undefined) : undefined}
+								hideContent={item.id === selectedItemId && editingText}
+								onselect={() => {
+									selectedItemId = item.id;
+									selectedItemIds = [item.id];
+								}}
+							/>
+						{/each}
+						{#if selectedResolvedItems.length > 1 && !groupSelectionLocked}
+							<GroupOnCanvasTools
+								items={selectedResolvedItems}
+								{canvasWidth}
+								{canvasHeight}
+								currentFrame={timelineStore.currentFrame}
+								{isPlaying}
+								snappingEnabled={editorSettings.canvasSnapEnabled}
+								snapItems={activeItems}
+								ontransformdraft={(value) => (groupDraftTransforms = value)}
+								oncommit={commitGroupTransforms}
+								onselectitem={(itemId) => {
+									selectedItemId = itemId;
+									selectedItemIds = [itemId];
+								}}
+								ontogglesnapping={() =>
+									editorSettings.set('canvasSnapEnabled', !editorSettings.canvasSnapEnabled)}
+								{onedit}
+							/>
+						{:else if selectedResolved && !selectedTrackLocked}
+							{#if spatialEditingSelected && selectedItem}
+								<SpatialEffectPointOverlay
+									item={selectedResolved}
+									sourceItem={selectedItem}
+									{canvasWidth}
+									{canvasHeight}
+									currentFrame={timelineStore.currentFrame}
+									{onedit}
+								/>
+							{:else}
+								<OnCanvasTools
+									item={selectedResolved}
+									motionSourceItem={selectedItem}
+									motionContext={{
+										fps: timelineStore.fps,
+										frameWidth: canvasWidth,
+										frameHeight: canvasHeight,
+										items: timelineStore.items
+									}}
+									{canvasWidth}
+									{canvasHeight}
+									snapItems={activeItems}
+									snappingEnabled={editorSettings.canvasSnapEnabled}
+									currentFrame={timelineStore.currentFrame}
+									{isPlaying}
+									ontransformdraft={(value) => (draftTransform = value)}
+									oncropdraft={(value) => (draftCrop = value)}
+									ontextdraft={(value) => (draftText = value)}
+									oncornerpindraft={(value) => (draftCornerPin = value)}
+									ontextediting={(value) => (editingText = value)}
+									oncommitvalues={commitCanvasValues}
+									oncommitposition={commitCanvasPosition}
+									oncreatespatial={createCanvasSpatialTangents}
+									oncommitspatial={commitCanvasSpatialTangents}
+									oncommittext={commitCanvasText}
+									oncommitcornerpin={commitCanvasCornerPin}
+									onseek={setCurrentFrame}
+									{onedit}
+								/>
+							{/if}
+						{/if}
+						{#if colorPreviewStore.activePicker}
+							<button
+								bind:this={pickerOverlay}
+								type="button"
+								class="absolute inset-0 z-30 cursor-crosshair bg-transparent focus-visible:outline-2 focus-visible:outline-white"
+								aria-label={m.video_editor_color_picker_instruction()}
+								onpointermove={samplePicker}
+								onpointerdown={choosePickerColor}
+								onkeydown={pickerKeydown}
+							>
+								{#if pickerColor}
+									<span
+										class="pointer-events-none absolute overflow-hidden rounded border border-white bg-black shadow-xl"
+										style:left={`${pickerX}px`}
+										style:top={`${pickerY}px`}
+									>
+										<canvas bind:this={pickerLoupe} width="72" height="72" class="block size-[72px]"
+										></canvas>
+										<span class="block px-1 py-0.5 text-center font-mono text-[10px] text-white"
+											>{colorHex(pickerColor)}</span
+										>
+									</span>
+								{/if}
+							</button>
+						{/if}
+						{#if previewDiagnostics.clipTimingOverlay && diagnosticClip}
+							<div
+								class="pointer-events-none absolute top-2 left-2 z-40 max-w-[calc(100%-1rem)] rounded-md bg-black/80 px-2 py-1.5 font-mono text-[10px] leading-4 text-white/90"
+								data-testid="preview-clip-diagnostics"
+							>
+								<div>
+									{diagnosticClip.id.slice(0, 8)} · {diagnosticClip.from}-{diagnosticClip.from +
+										diagnosticClip.durationInFrames}f
+								</div>
+								<div class="text-white/65">
+									{m.video_editor_diagnostics_overlay_source({
+										start: diagnosticClip.sourceStart ?? 0,
+										end: diagnosticClip.sourceEnd ?? diagnosticClip.sourceDuration ?? 0
+									})}
+									· {(diagnosticClip.speed ?? 1).toFixed(2)}x{diagnosticClip.isReversed
+										? ` · ${m.video_editor_diagnostics_overlay_reverse()}`
+										: ''}
+								</div>
+							</div>
+						{/if}
+						{#if previewDiagnostics.performanceOverlay}
+							<div
+								class="pointer-events-none absolute right-2 bottom-2 z-40 rounded-md bg-black/80 px-2 py-1.5 font-mono text-[10px] leading-4 text-white/90"
+								data-testid="preview-performance-diagnostics"
+							>
+								<div>
+									{diagnosticSnapshot.samples > 0
+										? `${diagnosticSnapshot.frameTimeEmaMs.toFixed(1)} ms`
+										: m.video_editor_diagnostics_status_waiting()}
+									· {m.video_editor_diagnostics_overlay_budget({
+										value: diagnosticSnapshot.frameBudgetMs.toFixed(1)
+									})}
+								</div>
+								<div class="text-white/65">
+									{Math.round(diagnosticSnapshot.qualityScale * 100)}% · {diagnosticSnapshot.renderPath ===
+									'composited'
+										? m.video_editor_diagnostics_composited()
+										: m.video_editor_diagnostics_direct()} · {diagnosticSnapshot.renderWidth}x{diagnosticSnapshot.renderHeight}
+								</div>
+								<div class="text-white/65">
+									{m.video_editor_diagnostics_overlay_skipped({
+										count: diagnosticSnapshot.skippedFrames
+									})}
+									· {m.video_editor_diagnostics_overlay_layers({
+										count: diagnosticSnapshot.activeLayers
+									})}
+								</div>
+							</div>
+						{/if}
+						<EditPreviewOverlay {canvasWidth} {canvasHeight} {urls} {proxyUrls} />
 					{/if}
-				</button>
-			{/if}
-			{#if previewDiagnostics.clipTimingOverlay && diagnosticClip}
-				<div
-					class="pointer-events-none absolute top-2 left-2 z-40 max-w-[calc(100%-1rem)] rounded-md bg-black/80 px-2 py-1.5 font-mono text-[10px] leading-4 text-white/90"
-					data-testid="preview-clip-diagnostics"
-				>
-					<div>
-						{diagnosticClip.id.slice(0, 8)} · {diagnosticClip.from}-{diagnosticClip.from +
-							diagnosticClip.durationInFrames}f
-					</div>
-					<div class="text-white/65">
-						{m.video_editor_diagnostics_overlay_source({
-							start: diagnosticClip.sourceStart ?? 0,
-							end: diagnosticClip.sourceEnd ?? diagnosticClip.sourceDuration ?? 0
-						})}
-						· {(diagnosticClip.speed ?? 1).toFixed(2)}x{diagnosticClip.isReversed
-							? ` · ${m.video_editor_diagnostics_overlay_reverse()}`
-							: ''}
-					</div>
 				</div>
-			{/if}
-			{#if previewDiagnostics.performanceOverlay}
-				<div
-					class="pointer-events-none absolute right-2 bottom-2 z-40 rounded-md bg-black/80 px-2 py-1.5 font-mono text-[10px] leading-4 text-white/90"
-					data-testid="preview-performance-diagnostics"
+			{/snippet}
+		</ContextMenu.Trigger>
+		<ContextMenu.Content class="video-editor-theme w-64">
+			<div class="px-2 py-1.5 text-[10px] text-muted-foreground">
+				{m.image_editor_select_layer_count({ count: canvasContextLayers.length })}
+			</div>
+			<ContextMenu.Separator />
+			{#each canvasContextLayers as candidate (candidate.item.id)}
+				<ContextMenu.Item
+					aria-current={candidate.item.id === selectedItemId ? 'true' : undefined}
+					onclick={() => selectCanvasContextLayer(candidate.item.id)}
 				>
-					<div>
-						{diagnosticSnapshot.samples > 0
-							? `${diagnosticSnapshot.frameTimeEmaMs.toFixed(1)} ms`
-							: m.video_editor_diagnostics_status_waiting()}
-						· {m.video_editor_diagnostics_overlay_budget({
-							value: diagnosticSnapshot.frameBudgetMs.toFixed(1)
-						})}
-					</div>
-					<div class="text-white/65">
-						{Math.round(diagnosticSnapshot.qualityScale * 100)}% · {diagnosticSnapshot.renderPath ===
-						'composited'
-							? m.video_editor_diagnostics_composited()
-							: m.video_editor_diagnostics_direct()} · {diagnosticSnapshot.renderWidth}x{diagnosticSnapshot.renderHeight}
-					</div>
-					<div class="text-white/65">
-						{m.video_editor_diagnostics_overlay_skipped({
-							count: diagnosticSnapshot.skippedFrames
-						})}
-						· {m.video_editor_diagnostics_overlay_layers({
-							count: diagnosticSnapshot.activeLayers
-						})}
-					</div>
-				</div>
-			{/if}
-		{/if}
-	</div>
-	{#each timelineStore.items.filter((item) => (item.type === 'audio' || (item.type === 'video' && requiresProcessedPreviewAudio(item) && !hasLinkedAudioCompanion(item, timelineStore.items))) && isAudioTransitionParticipantAtFrame(item, timelineStore.currentFrame, transitionsStore.list, timelineStore.itemById, editorSession.fps)) as item (item.id)}
-		<PreviewAudioLayer {item} url={urls[item.mediaId ?? '']} />
+					<span class="min-w-0 flex-1 truncate">{candidate.item.label || candidate.item.type}</span>
+					<span class="max-w-24 truncate text-[10px] text-muted-foreground">
+						{candidate.trackName}
+					</span>
+					{#if candidate.item.id === selectedItemId}
+						<span class="text-[oklch(0.72_0.15_50)]" aria-hidden="true">✓</span>
+					{/if}
+				</ContextMenu.Item>
+			{/each}
+		</ContextMenu.Content>
+	</ContextMenu.Root>
+	{#each timelineStore.items.filter((item) => {
+		const mediaEntry = item.mediaId ? mediaPool.entry(item.mediaId) : null;
+		const owner = resolveAudioOwner( { item, tracks: timelineStore.tracks, allItems: timelineStore.items, mediaEntry, usesSeparateProxyAudio: false, usesProcessedAudio: requiresProcessedPreviewAudioForTimeline(item, timelineStore.tracks, timelineStore.busAudioEq) } );
+		return (owner === 'processed' || (owner === 'embedded' && item.type === 'audio')) && isAudioTransitionParticipantAtFrame(item, timelineStore.currentFrame, transitionsStore.list, timelineStore.itemById, editorSession.fps);
+	}) as item (item.id)}
+		<PreviewAudioLayer {item} url={urls[item.mediaId ?? '']} duckWindows={previewDuckWindows} />
 	{/each}
 	{#each nestedMixEntries.filter((entry) => timelineStore.currentFrame / editorSession.fps >= entry.whenSeconds && timelineStore.currentFrame / editorSession.fps < entry.whenSeconds + entry.durationSeconds) as entry (entry.itemId)}
-		<PreviewMixEntryLayer {entry} url={urls[entry.mediaId]} />
+		<PreviewMixEntryLayer {entry} url={urls[entry.mediaId]} duckWindows={previewDuckWindows} />
 	{/each}
 </div>

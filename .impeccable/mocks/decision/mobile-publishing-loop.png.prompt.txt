@@ -1,0 +1,6 @@
+Use case: ui-mockup
+Asset type: Android phone product UI reference frame for OpenPost mobile composer
+Primary request: A queue-ready OpenPost composer with one dominant multiline writing canvas, visible media, the selected Shortform Writing Social Set, destination labels, a secondary Regenerate action, and a sticky Queue next slot action. No title field.
+Platform: Native Android, 390 by 844, Material 3, edge-to-edge with safe system insets.
+Palette: Warm canvas, clean surfaces, Carbon Ink, and restrained Workshop Orange #B74C05.
+Constraints: 48dp targets, light theme, flat tonal hierarchy, familiar Android controls, no gradients, glass, nested card grid, analytics, marketing hero, iOS controls, or watermark.

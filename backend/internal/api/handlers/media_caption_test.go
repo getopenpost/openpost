@@ -38,7 +38,7 @@ type recordingCaptionStorage struct {
 
 func (s *recordingCaptionStorage) Driver() string { return "test" }
 
-func (s *recordingCaptionStorage) Save(id string, reader io.Reader) (string, error) {
+func (s *recordingCaptionStorage) Save(_ context.Context, id string, reader io.Reader) (string, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
@@ -52,7 +52,7 @@ func (s *recordingCaptionStorage) Save(id string, reader io.Reader) (string, err
 	return id, nil
 }
 
-func (s *recordingCaptionStorage) Delete(id string) error {
+func (s *recordingCaptionStorage) Delete(_ context.Context, id string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.objects, id)
@@ -61,7 +61,7 @@ func (s *recordingCaptionStorage) Delete(id string) error {
 
 func (s *recordingCaptionStorage) GetURL(id string) string { return "/media/" + id }
 
-func (s *recordingCaptionStorage) Open(id string) (io.ReadCloser, error) {
+func (s *recordingCaptionStorage) Open(_ context.Context, id string) (io.ReadCloser, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.opens = append(s.opens, id)

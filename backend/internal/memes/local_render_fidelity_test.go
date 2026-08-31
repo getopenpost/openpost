@@ -198,14 +198,70 @@ func TestBuiltinRowSpacing(t *testing.T) {
 	}
 }
 
+func TestBuiltinMultilineCaptionMatchesMemegenRowGap(t *testing.T) {
+	t.Parallel()
+
+	provider, err := NewBuiltinProvider()
+	require.NoError(t, err)
+	canvas := image.NewNRGBA(image.Rect(0, 0, 600, 600))
+	err = provider.drawBuiltinCaption(canvas, builtinTextField{
+		Font: "thick", Color: "white", ScaleX: 1, ScaleY: 0.2,
+	}, "FIRST LINE\nSECOND LINE")
+	require.NoError(t, err)
+
+	inkRows := make([]int, 0, 120)
+	for y := 0; y < 120; y++ {
+		for x := canvas.Bounds().Min.X; x < canvas.Bounds().Max.X; x++ {
+			if canvas.NRGBAAt(x, y).A != 0 {
+				inkRows = append(inkRows, y)
+				break
+			}
+		}
+	}
+	require.NotEmpty(t, inkRows)
+
+	largestGap := 0
+	bands := [][2]int{{inkRows[0], inkRows[0]}}
+	for index := 1; index < len(inkRows); index++ {
+		gap := inkRows[index] - inkRows[index-1] - 1
+		largestGap = max(largestGap, gap)
+		if gap > 0 {
+			bands = append(bands, [2]int{inkRows[index], inkRows[index]})
+		} else {
+			bands[len(bands)-1][1] = inkRows[index]
+		}
+	}
+	require.Len(t, bands, 2)
+	averageInkHeight := ((bands[0][1] - bands[0][0] + 1) + (bands[1][1] - bands[1][0] + 1)) / 2
+	// Memegen keeps the blank row gap below half the average glyph height for
+	// this exact font, box, and caption. A larger ratio looks double-spaced.
+	require.LessOrEqual(t, largestGap, averageInkHeight/2)
+	for index, expected := range [][2]int{{8, 50}, {71, 114}} {
+		require.InDelta(t, expected[0], bands[index][0], 3)
+		require.InDelta(t, expected[1], bands[index][1], 3)
+	}
+}
+
 func TestBuiltinAlignX(t *testing.T) {
 	t.Parallel()
 
 	require.Equal(t, 50, builtinAlignX(200, 100, "center"))
 	require.Equal(t, 0, builtinAlignX(100, 120, "center"))
-	require.Equal(t, 2, builtinAlignX(200, 100, "left"))
-	require.Equal(t, 1, builtinAlignX(50, 10, "left"))
+	require.Equal(t, 0, builtinAlignX(200, 100, "left"))
+	require.Equal(t, 0, builtinAlignX(50, 10, "left"))
 	require.Equal(t, 50, builtinAlignX(200, 100, ""))
+}
+
+func TestBuiltinCaptionSplitsMatchMemegen(t *testing.T) {
+	t.Parallel()
+
+	const caption = "the number of sample memes is too damn high"
+	require.Equal(t, []string{
+		"the number of sample", "memes is too damn high",
+	}, splitBuiltinCaptionTwo(caption))
+	require.Equal(t, []string{
+		"the number of", "sample memes", "is too damn high",
+	}, splitBuiltinCaptionThree(caption))
 }
 
 func TestBuiltinStrokeForField(t *testing.T) {

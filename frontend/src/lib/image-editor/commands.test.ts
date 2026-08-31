@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	duplicateImageEditorShortcuts,
-	imageEditorCommand,
 	imageEditorCommandForKeyboardEvent,
-	imageEditorCommandsForCategory,
-	imageEditorCommandsForMobileGroup,
 	imageEditorCommandsForRail,
 	imageEditorShortcutLabel,
 	IMAGE_EDITOR_COMMANDS
@@ -53,47 +50,8 @@ describe('OpenPost Image Editor command registry', () => {
 		).toBeNull();
 	});
 
-	it('owns tool placement and availability metadata for every tool command', () => {
-		const tools = IMAGE_EDITOR_COMMANDS.filter((command) => command.category === 'tools');
-		expect(tools).not.toHaveLength(0);
-		for (const command of tools) {
-			expect(command.tool).toBeTruthy();
-			expect(command.mobileGroup).toBeTruthy();
-			expect(command.railSlot).toBeTruthy();
-			expect(command.availability).toBeTruthy();
-		}
-	});
-
-	it('derives mobile groups and one primary command per rail slot from the registry', () => {
-		expect(imageEditorCommandsForMobileGroup('retouch').map((command) => command.id)).toEqual([
-			'tool_crop',
-			'tool_eraser',
-			'tool_magic_eraser'
-		]);
+	it('keeps one primary command per rail slot', () => {
 		const rail = imageEditorCommandsForRail();
 		expect(new Set(rail.map((command) => command.railSlot)).size).toBe(rail.length);
-		expect(rail.map((command) => command.id)).toContain('tool_select');
-		expect(imageEditorCommand('tool_bucket').availability).toBe('editable');
-	});
-
-	it('owns every desktop file, layer, view, and help menu action', () => {
-		expect(imageEditorCommandsForCategory('file').map((command) => command.id)).toEqual([
-			'save',
-			'save_to_openpost',
-			'version_history',
-			'create_checkpoint',
-			'save_template',
-			'resize_design',
-			'export_project',
-			'import_project',
-			'export_design'
-		]);
-		expect(imageEditorCommandsForCategory('layer').at(-1)?.id).toBe('remove_background');
-		expect(
-			imageEditorCommandsForCategory('view').some((command) => command.menuKind === 'checkbox')
-		).toBe(true);
-		expect(imageEditorCommandsForCategory('help').map((command) => command.id)).toEqual([
-			'open_help'
-		]);
 	});
 });

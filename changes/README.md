@@ -6,6 +6,7 @@ Each file should group items under `### Added`, `### Changed`, `### Fixed`, etc.
 
 ```
 ### Fixed
+
 - Describe the user-visible fix.
 ```
 

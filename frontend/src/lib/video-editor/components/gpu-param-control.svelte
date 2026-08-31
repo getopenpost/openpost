@@ -159,7 +159,7 @@
 		<span class="w-20 shrink-0 truncate text-[oklch(0.65_0.015_55)]" title={localizedParamLabel}>
 			{localizedParamLabel}
 		</span>
-		<input
+		<Input
 			type="color"
 			class="h-7 w-10 cursor-pointer rounded border border-[oklch(0.32_0.015_55)] bg-transparent p-0.5"
 			value={stringValue.slice(0, 7)}

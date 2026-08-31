@@ -8,6 +8,8 @@ This limit applies to the container image, not every release artifact. See [Sing
 
 [`docker/image-policy.json`](https://github.com/getopenpost/openpost/blob/main/docker/image-policy.json) records the exact Go backend-builder and runtime base references, the runtime support review, the supported image platform, probe paths, and scanner versions. CI builds the canonical frontend once with the repository-pinned Bun and Node versions, tests and retains that directory, then supplies those exact bytes to the Dockerfile as a named BuildKit context. The Dockerfile pins its remaining image inputs by digest and labels the final image with its shipped Alpine base identity.
 
+The policy also declares the complete runtime package set, including any minimum security revisions. The Dockerfile installs exactly those package constraints without a blanket `apk upgrade`, so it does not replace files outside the declared dependency set. Alpine resolves permitted security revisions from the pinned base's release branch, and candidate CI records the exact result in the SPDX SBOM and vulnerability report before publication.
+
 Alpine's [release-branch table](https://www.alpinelinux.org/releases/) is the source for support dates. Dependabot checks the Docker directory every week. A maintainer still reviews each update, updates the policy record when the base identity changes, and requires the complete candidate image gate before merge or release.
 
 ## Candidate evidence
@@ -26,7 +28,7 @@ CI retains the manifest, SBOM, and full report as a diagnostic artifact before t
 
 ## Probe ownership
 
-The image's OCI health check calls `/api/v1/health`. This proves that the HTTP process is alive without turning a database outage into a container restart loop. Traffic gates, deployment rollouts, and dependency-aware monitors call `/api/v1/ready`, which returns `503` when the database probe fails. See [Health Checks](/operations/health-checks) for the complete operator policy.
+The image's OCI health check calls `/api/v1/health`. This proves that the HTTP process is alive without turning a data-plane outage into a container restart loop. Traffic gates, deployment rollouts, and dependency-aware monitors call `/api/v1/ready`, which returns `503` when the database probe or required object-storage capability check fails. See [Health Checks](/operations/health-checks) for the complete operator policy.
 
 ## Updating the policy
 

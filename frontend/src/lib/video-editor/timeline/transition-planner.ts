@@ -12,6 +12,7 @@ import {
 	getSourceProperties,
 	sourceToTimelineFrames
 } from './utils/source-calculations';
+import { hasVariableSpeed, sourceFrameToTimelineOffset } from './source-time-map';
 
 export interface TransitionWindow {
 	startFrame: number;
@@ -96,6 +97,20 @@ export function getAvailableTransitionHandle(
 	if (item.type !== 'video') return 0;
 	const { sourceStart, sourceEnd, sourceDuration, sourceFps, speed } = getSourceProperties(item);
 	const effectiveSourceFps = sourceFps ?? timelineFps;
+	if (hasVariableSpeed(item)) {
+		if (side === 'start') {
+			const sourceTarget = item.isReversed ? sourceDuration : 0;
+			if (sourceTarget === undefined) return 0;
+			return Math.max(0, Math.floor(-sourceFrameToTimelineOffset(item, sourceTarget, timelineFps)));
+		}
+		const sourceTarget = item.isReversed ? 0 : sourceDuration;
+		if (sourceTarget === undefined) return 0;
+		return Math.max(
+			0,
+			Math.floor(sourceFrameToTimelineOffset(item, sourceTarget, timelineFps)) -
+				item.durationInFrames
+		);
+	}
 	if (side === 'start') {
 		return sourceToTimelineFrames(sourceStart, speed, effectiveSourceFps, timelineFps);
 	}

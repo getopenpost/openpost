@@ -6,6 +6,7 @@ export type MediaTaskKind =
 	| 'waveform'
 	| 'scene-analysis'
 	| 'transcription'
+	| 'ai-caption'
 	| 'voice-generation'
 	| 'music-generation'
 	| 'reverse-conform'

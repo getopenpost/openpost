@@ -15,6 +15,7 @@ export interface WaveformGenerateRequest {
 	file: File;
 	samplesPerSecond: number;
 	binDurationSeconds?: number;
+	trackIndex?: number;
 }
 
 export interface WaveformAbortRequest {
@@ -81,7 +82,7 @@ self.onmessage = async (event: MessageEvent<WaveformWorkerRequest>): Promise<voi
 		return;
 	}
 
-	const { requestId, file, samplesPerSecond, binDurationSeconds = 30 } = event.data;
+	const { requestId, file, samplesPerSecond, binDurationSeconds = 30, trackIndex } = event.data;
 	const state = { aborted: false };
 	activeRequests.set(requestId, state);
 	let input: Input | null = null;
@@ -89,7 +90,9 @@ self.onmessage = async (event: MessageEvent<WaveformWorkerRequest>): Promise<voi
 	try {
 		progress(requestId, 0.02);
 		input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
-		const audioTrack = await input.getPrimaryAudioTrack();
+		const audioTracks = await input.getAudioTracks();
+		const audioTrack =
+			trackIndex === undefined ? await input.getPrimaryAudioTrack() : audioTracks[trackIndex];
 		if (!audioTrack) throw new Error('No audio track found');
 		await ensureAc3DecoderForCodec(audioTrack.codec);
 		if (state.aborted) throw new DOMException('Waveform decoding cancelled', 'AbortError');

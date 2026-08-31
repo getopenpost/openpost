@@ -519,6 +519,43 @@ func TestReconnectReusesProviderIdentityAndUpdatesCredentials(t *testing.T) {
 	require.Equal(t, 1, count)
 }
 
+func TestReconnectPreservesStoredAvatarWhenProviderReturnsBlank(t *testing.T) {
+	db := createTestDB(t)
+	saver := NewAccountSaver(db, crypto.NewTokenEncryptor("test-secret-key-for-testing-only"))
+	ctx := context.Background()
+	seedWorkspaceMember(t, db, "workspace-avatar", "user-avatar")
+
+	first, err := saver.SaveAccountFromInput(ctx, SaveAccountInput{
+		Actor:            accountSaverActor("user-avatar"),
+		UserID:           "user-avatar",
+		PlatformName:     "threads",
+		WorkspaceID:      "workspace-avatar",
+		AccountID:        "threads-user",
+		AccountUsername:  "creator",
+		AccountAvatarURL: "https://cdn.example/avatar.jpg",
+		Token:            &platform.TokenResult{AccessToken: "old-token"},
+	})
+	require.NoError(t, err)
+
+	reconnected, err := saver.SaveAccountFromInput(ctx, SaveAccountInput{
+		Actor:            accountSaverActor("user-avatar"),
+		UserID:           "user-avatar",
+		PlatformName:     "threads",
+		WorkspaceID:      "workspace-avatar",
+		AccountID:        "threads-user",
+		AccountUsername:  "creator-renamed",
+		AccountAvatarURL: "  ",
+		Token:            &platform.TokenResult{AccessToken: "new-token"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, first.ID, reconnected.ID)
+	require.Equal(t, "https://cdn.example/avatar.jpg", reconnected.AccountAvatarURL)
+
+	var stored models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&stored).Where("id = ?", first.ID).Scan(ctx))
+	require.Equal(t, "https://cdn.example/avatar.jpg", stored.AccountAvatarURL)
+}
+
 func TestSaveAccountGeneratesUniqueSlugs(t *testing.T) {
 	t.Parallel()
 

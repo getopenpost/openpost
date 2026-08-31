@@ -8,12 +8,12 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from './app-select.svelte';
 	import DestinationOptionCombobox from './destination-option-combobox.svelte';
-	import { getPlatformName } from '$lib/utils';
+	import SocialAccountIdentity from './social-account-identity.svelte';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 	import RotateCcwIcon from '@lucide/svelte/icons/rotate-ccw';
 	import { onDestroy } from 'svelte';
 	import InlineNotice from './inline-notice.svelte';
-	import PlatformIcon from './platform-icon.svelte';
 	import PollBuilder from './compose/poll-builder.svelte';
 	import MediaTagEditor from './compose/media-tag-editor.svelte';
 	import TagInput from './tag-input.svelte';
@@ -93,6 +93,14 @@
 	let searchTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 	let uploadingSettingKey = $state('');
 	let uploadErrorBySetting = $state<Record<string, string>>({});
+
+	const accountName = $derived(
+		account
+			? formatSocialAccountName(account.account_username, account.platform) ||
+					account.slug ||
+					getPlatformName(account.platform)
+			: ''
+	);
 
 	const groupOrder: SettingGroup[] = [
 		'content',
@@ -233,18 +241,21 @@
 	>
 		<Dialog.Header class="shrink-0 border-b px-5 py-4 text-left">
 			<Dialog.Title>
-				<span class="flex items-center gap-2">
-					{#if account}
-						<PlatformIcon platform={account.platform} class="size-4" />
-					{/if}
-					{account
-						? m.compose_account_settings({ platform: getPlatformName(account.platform) })
-						: m.compose_platform_settings()}
-				</span>
+				{account
+					? m.compose_account_settings({ platform: getPlatformName(account.platform) })
+					: m.compose_platform_settings()}
 			</Dialog.Title>
+			{#if account}
+				<SocialAccountIdentity
+					class="mt-2"
+					name={accountName}
+					platform={account.platform}
+					avatarUrl={account.account_avatar_url}
+				/>
+			{/if}
 			<Dialog.Description>
-				{account?.account_username
-					? m.compose_account_settings_body({ account: account.account_username })
+				{account
+					? m.compose_account_settings_body({ account: accountName })
 					: m.compose_platform_settings_body()}
 				{#if scopeLabel}
 					<span class="mt-1 block font-medium text-foreground">{scopeLabel}</span>

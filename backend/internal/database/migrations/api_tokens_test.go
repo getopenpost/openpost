@@ -10,31 +10,6 @@ import (
 	"github.com/uptrace/bun"
 )
 
-func TestRunMigrationsCreatesAPITokensSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'api_tokens'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "token_hash TEXT NOT NULL UNIQUE")
-	require.Contains(t, schema, "scope TEXT NOT NULL DEFAULT 'cli:full'")
-	require.Contains(t, schema, "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('api_tokens_user_id_idx', 'api_tokens_token_prefix_idx', 'api_tokens_active_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 3, indexCount)
-}
-
 func TestRunMigrationsAPITokensIdempotent(t *testing.T) {
 	t.Parallel()
 

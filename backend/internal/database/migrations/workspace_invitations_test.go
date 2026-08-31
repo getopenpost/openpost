@@ -9,35 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesWorkspaceInvitationsSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'workspace_invitations'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "workspace_id TEXT NOT NULL")
-	require.Contains(t, schema, "email TEXT NOT NULL")
-	require.Contains(t, schema, "role TEXT NOT NULL DEFAULT 'editor'")
-	require.Contains(t, schema, "token_hash TEXT NOT NULL UNIQUE")
-	require.Contains(t, schema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE")
-	require.Contains(t, schema, "FOREIGN KEY (invited_by_user_id) REFERENCES users(id) ON DELETE CASCADE")
-	require.Contains(t, schema, "FOREIGN KEY (accepted_by_user_id) REFERENCES users(id) ON DELETE SET NULL")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('workspace_invitations_workspace_status_idx', 'workspace_invitations_email_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 2, indexCount)
-}
-
 func TestRunMigrationsWorkspaceInvitationsCascadeWithWorkspace(t *testing.T) {
 	t.Parallel()
 

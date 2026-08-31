@@ -7,21 +7,10 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { autoKeyframeStore } from '$lib/video-editor/timeline/stores/auto-keyframe-store.svelte';
 	import { setAnimatedProperty } from '$lib/video-editor/timeline/actions/keyframes';
-	import {
-		setItemSpeed,
-		setItemsReversed,
-		updateItemProperties
-	} from '$lib/video-editor/timeline/actions/items';
-	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
-	import {
-		cancelReverseConform,
-		conformReversePreview,
-		reverseConformStatus,
-		subscribeReverseConform,
-		type ReverseConformStatus
-	} from '$lib/video-editor/media/reverse-conform-service';
+	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 	import type { KeyframeProperty, TimelineItem } from '$lib/video-editor/project/types';
 	import ShapePropertiesPanel from './shape-properties-panel.svelte';
+	import BackgroundPropertiesPanel from './background-properties-panel.svelte';
 	import CornerPinPropertiesPanel from './corner-pin-properties-panel.svelte';
 	import LottiePropertiesPanel from './lottie-properties-panel.svelte';
 	import TextPropertiesPanel from './text-properties-panel.svelte';
@@ -30,38 +19,60 @@
 	import CompositionControlOverrides from './composition-control-overrides.svelte';
 	import { resolveAnimatedItemLocalAt } from '$lib/video-editor/timeline/animated-properties';
 	import { getSynchronizedLinkedItems } from '$lib/video-editor/timeline/utils/linked-items';
-	import { dbToLinearGain, linearGainToDb } from '$lib/video-editor/media/clip-fades';
+	import AudioDuckingPanel from './audio-ducking-panel.svelte';
+	import AudioEffectsPanel from './audio-effects-panel.svelte';
 	import {
-		clampAudioPitchCents,
-		clampAudioPitchSemitones
-	} from '$lib/video-editor/audio/audio-pitch';
+		clampNoiseReductionAmount,
+		resolveNoiseReductionSettings
+	} from '$lib/video-editor/audio/audio-noise-reduction';
 	import AudioEqPanel from './audio-eq-panel.svelte';
+	import { Checkbox } from '$lib/components/ui/checkbox';
+	import { Slider } from '$lib/components/ui/slider';
+	import { Label } from '$lib/components/ui/label';
+	import ClipTransformSection from './clip-transform-section.svelte';
+	import ClipCropSection from './clip-crop-section.svelte';
+	import ClipPlaybackSection from './clip-playback-section.svelte';
+	import ClipAudioCoreSection from './clip-audio-core-section.svelte';
+	import AnimatedImagePlaybackSection from './animated-image-playback-section.svelte';
 
-	let { itemId, onedit }: { itemId: string | null; onedit: () => void } = $props();
-	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
-	const audioItem = $derived.by(() => {
-		if (!item || (item.type !== 'video' && item.type !== 'audio')) return undefined;
-		if (item.type === 'audio') return item;
-		return (
-			getSynchronizedLinkedItems(timelineStore.items, item.id).find(
-				(candidate) => candidate.type === 'audio'
-			) ?? item
-		);
-	});
-	let conformStatus = $state<ReverseConformStatus>({
-		state: 'idle',
-		progress: 0
-	});
-
+	let nrDraftAmount = $state<number | null>(null);
+	// Reset draft when selection or persisted amount changes
 	$effect(() => {
-		const mediaId = item?.mediaId;
-		if (!mediaId) {
-			conformStatus = { state: 'idle', progress: 0 };
-			return;
-		}
-		conformStatus = reverseConformStatus(mediaId);
-		return subscribeReverseConform(mediaId, (status) => (conformStatus = status));
+		void audioItem?.audioNoiseReductionAmount;
+		void audioItem?.audioNoiseReductionEnabled;
+		nrDraftAmount = null;
 	});
+
+	let {
+		itemId,
+		itemIds = [],
+		onedit,
+		oncreatevoice
+	}: {
+		itemId: string | null;
+		itemIds?: string[];
+		onedit: () => void;
+		oncreatevoice?: (itemId: string, text: string) => void;
+	} = $props();
+	const item = $derived(itemId ? timelineStore.itemById.get(itemId) : undefined);
+	const audioItems = $derived.by(() => {
+		const selectedIds = itemIds.length > 0 ? itemIds : itemId ? [itemId] : [];
+		const selected = [...new Set(selectedIds)]
+			.map((id) => timelineStore.itemById.get(id))
+			.filter((candidate): candidate is TimelineItem => candidate !== undefined);
+		const selectedAudio = selected.filter((candidate) => candidate.type === 'audio');
+		if (selectedAudio.length > 0) return selectedAudio;
+		const resolved = new Map<string, TimelineItem>();
+		for (const candidate of selected) {
+			if (candidate.type !== 'video') continue;
+			const companion = getSynchronizedLinkedItems(timelineStore.items, candidate.id).find(
+				(linked) => linked.type === 'audio'
+			);
+			resolved.set((companion ?? candidate).id, companion ?? candidate);
+		}
+		return [...resolved.values()];
+	});
+	const audioItem = $derived(audioItems[0]);
 
 	interface NumericField {
 		property: KeyframeProperty;
@@ -70,98 +81,6 @@
 		max: number;
 		step: number;
 	}
-
-	const transformFields: NumericField[] = [
-		{ property: 'x', label: 'X', min: -2, max: 2, step: 0.01 },
-		{ property: 'y', label: 'Y', min: -2, max: 2, step: 0.01 },
-		{
-			property: 'width',
-			label: m.video_editor_property_width(),
-			min: 1,
-			max: 7680,
-			step: 1
-		},
-		{
-			property: 'height',
-			label: m.video_editor_property_height(),
-			min: 1,
-			max: 4320,
-			step: 1
-		},
-		{
-			property: 'anchorX',
-			label: m.video_editor_property_anchor_x(),
-			min: -7680,
-			max: 7680,
-			step: 1
-		},
-		{
-			property: 'anchorY',
-			label: m.video_editor_property_anchor_y(),
-			min: -4320,
-			max: 4320,
-			step: 1
-		},
-		{
-			property: 'rotation',
-			label: m.video_editor_rotation(),
-			min: -360,
-			max: 360,
-			step: 1
-		},
-		{
-			property: 'opacity',
-			label: m.video_editor_clip_opacity(),
-			min: 0,
-			max: 1,
-			step: 0.01
-		},
-		{
-			property: 'cornerRadius',
-			label: m.video_editor_property_radius(),
-			min: 0,
-			max: 1000,
-			step: 1
-		}
-	];
-
-	const cropFields: NumericField[] = [
-		{
-			property: 'cropLeft',
-			label: m.video_editor_align_left(),
-			min: 0,
-			max: 1,
-			step: 0.01
-		},
-		{
-			property: 'cropRight',
-			label: m.video_editor_align_right(),
-			min: 0,
-			max: 1,
-			step: 0.01
-		},
-		{
-			property: 'cropTop',
-			label: m.video_editor_property_top(),
-			min: 0,
-			max: 1,
-			step: 0.01
-		},
-		{
-			property: 'cropBottom',
-			label: m.video_editor_property_bottom(),
-			min: 0,
-			max: 1,
-			step: 0.01
-		},
-		{
-			property: 'cropSoftness',
-			label: m.video_editor_property_softness(),
-			min: 0,
-			max: 1,
-			step: 0.01
-		}
-	];
 
 	const textFields: NumericField[] = [
 		{
@@ -271,6 +190,10 @@
 				return resolved.transform?.width ?? source.sourceWidth ?? frameWidth;
 			case 'height':
 				return resolved.transform?.height ?? source.sourceHeight ?? frameHeight;
+			case 'scaleX':
+				return resolved.transform?.scaleX ?? 1;
+			case 'scaleY':
+				return resolved.transform?.scaleY ?? 1;
 			case 'anchorX':
 				return (
 					resolved.transform?.anchorX ??
@@ -353,66 +276,10 @@
 		onedit();
 	}
 
-	function commitTransformPatch(patch: NonNullable<TimelineItem['transform']>): void {
-		if (!item) return;
-		updateItemProperties(
-			item.id,
-			{ transform: { ...item.transform, ...patch } },
-			'UPDATE_CLIP_TRANSFORM'
-		);
-		onedit();
-	}
-
-	function commitSpeed(value: number): void {
-		if (!item || !Number.isFinite(value)) return;
-		if (setItemSpeed(item.id, Math.min(10, Math.max(0.1, Math.round(value * 100) / 100)))) {
-			onedit();
-		}
-	}
-
 	function commitAudioPatch(patch: Partial<TimelineItem>): void {
 		if (!audioItem) return;
 		updateItemProperties(audioItem.id, patch, 'UPDATE_CLIP_AUDIO');
 		onedit();
-	}
-
-	function commitVisualFade(field: 'fadeIn' | 'fadeOut', value: number): void {
-		if (!item || !Number.isFinite(value)) return;
-		commitText({
-			[field]: Math.min(item.durationInFrames / timelineStore.fps, Math.max(0, value))
-		});
-	}
-
-	function commitAudioFade(field: 'audioFadeIn' | 'audioFadeOut', value: number): void {
-		if (!audioItem || !Number.isFinite(value)) return;
-		commitAudioPatch({
-			[field]: Math.min(audioItem.durationInFrames / timelineStore.fps, Math.max(0, value))
-		});
-	}
-
-	function commitGainDb(db: number): void {
-		if (!audioItem || !Number.isFinite(db)) return;
-		if (
-			setAnimatedProperty(
-				audioItem.id,
-				'volume',
-				timelineStore.currentFrame,
-				dbToLinearGain(db),
-				autoKeyframeStore.isEnabled(audioItem.id, 'volume')
-			)
-		) {
-			onedit();
-		}
-	}
-
-	function commitPitch(field: 'audioPitchSemitones' | 'audioPitchCents', value: number): void {
-		if (!Number.isFinite(value)) return;
-		commitAudioPatch({
-			[field]:
-				field === 'audioPitchSemitones'
-					? clampAudioPitchSemitones(value)
-					: clampAudioPitchCents(value)
-		});
 	}
 
 	function commitTextShadowColor(color: string): void {
@@ -426,16 +293,6 @@
 			}
 		});
 	}
-
-	function toggleReverse(): void {
-		if (!item) return;
-		const willReverse = item.isReversed !== true;
-		if (setItemsReversed([item.id], willReverse).length === 0) return;
-		onedit();
-		if (!willReverse || !item.mediaId) return;
-		const media = mediaPool.get(item.mediaId);
-		if (media?.tags.includes('video')) void conformReversePreview(media).catch(() => undefined);
-	}
 </script>
 
 {#if item}
@@ -448,100 +305,21 @@
 			{#if item.type === 'composition'}
 				<CompositionControlOverrides {item} {onedit} />
 			{/if}
-			<section>
-				<h3
-					class="mb-1 text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
-				>
-					{m.video_editor_property_transform()}
-				</h3>
-				<div class="grid grid-cols-2 gap-1">
-					{#each transformFields as field (field.property)}
-						<div class="min-w-0 text-[10px] text-[oklch(0.7_0.01_55)]">
-							<span class="flex items-center justify-between gap-1">
-								<label for={`clip-property-${item.id}-${field.property}`}>{field.label}</label>
-								<button
-									type="button"
-									class:active={autoKeyframeStore.isEnabled(item.id, field.property)}
-									class="rounded px-1 text-[9px] text-[oklch(0.58_0.01_55)] hover:bg-[oklch(0.28_0.015_50)] [&.active]:bg-[oklch(0.66_0.14_45)] [&.active]:text-black"
-									aria-label={m.video_editor_property_auto_key({
-										property: field.label
-									})}
-									onclick={() => autoKeyframeStore.toggle(item.id, field.property)}>A</button
-								>
-							</span>
-							<Input
-								id={`clip-property-${item.id}-${field.property}`}
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-								type="number"
-								min={field.min}
-								max={field.max}
-								step={field.step}
-								value={valueFor(item, field.property)}
-								onchange={(event) =>
-									commitNumeric(field.property, event.currentTarget.valueAsNumber)}
-							/>
-						</div>
-					{/each}
-				</div>
-				<div class="mt-1 grid grid-cols-2 gap-1">
-					<Button
-						type="button"
-						size="sm"
-						variant={item.transform?.flipHorizontal ? 'secondary' : 'outline'}
-						class="h-8 justify-between px-2 text-xs"
-						aria-pressed={item.transform?.flipHorizontal === true}
-						onclick={() =>
-							commitTransformPatch({
-								flipHorizontal: !item.transform?.flipHorizontal
-							})}
-					>
-						<span>{m.video_editor_property_flip_x()}</span>
-					</Button>
-					<Button
-						type="button"
-						size="sm"
-						variant={item.transform?.flipVertical ? 'secondary' : 'outline'}
-						class="h-8 justify-between px-2 text-xs"
-						aria-pressed={item.transform?.flipVertical === true}
-						onclick={() =>
-							commitTransformPatch({
-								flipVertical: !item.transform?.flipVertical
-							})}
-					>
-						<span>{m.video_editor_property_flip_y()}</span>
-					</Button>
-				</div>
-			</section>
+			<ClipTransformSection itemId={item.id} {itemIds} {onedit} />
 		{/if}
 
-		{#if item.type === 'video' || item.type === 'image' || item.type === 'lottie'}
-			<section>
-				<h3
-					class="mb-1 text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
-				>
-					{m.video_editor_crop()}
-				</h3>
-				<div class="grid grid-cols-2 gap-1">
-					{#each cropFields as field (field.property)}
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]"
-							>{field.label}<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min={field.min}
-								max={field.max}
-								step={field.step}
-								value={valueFor(item, field.property)}
-								onchange={(event) =>
-									commitNumeric(field.property, event.currentTarget.valueAsNumber)}
-							/></label
-						>
-					{/each}
-				</div>
-			</section>
+		<ClipCropSection itemId={item.id} {itemIds} {onedit} />
+
+		{#if item.type === 'image'}
+			<AnimatedImagePlaybackSection itemId={item.id} {itemIds} {onedit} />
 		{/if}
 
 		{#if item.type === 'shape'}
 			<ShapePropertiesPanel {item} {onedit} />
+		{/if}
+
+		{#if item.type === 'background'}
+			<BackgroundPropertiesPanel {item} {onedit} />
 		{/if}
 
 		{#if item.type === 'lottie'}
@@ -553,197 +331,11 @@
 		{/if}
 
 		{#if item.type === 'video' || item.type === 'audio'}
-			<section class="space-y-2">
-				<h3 class="text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase">
-					{m.video_editor_clip_playback()}
-				</h3>
-				<div class="block text-[10px] text-[oklch(0.7_0.01_55)]">
-					<label for={`clip-speed-${item.id}`}>{m.video_editor_clip_speed()}</label>
-					<div class="relative mt-0.5">
-						<Input
-							id={`clip-speed-${item.id}`}
-							class="w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 pr-6 text-xs"
-							type="number"
-							min="0.1"
-							max="10"
-							step="0.05"
-							value={item.speed ?? 1}
-							onchange={(event) => commitSpeed(event.currentTarget.valueAsNumber)}
-						/>
-						<span
-							class="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 text-[10px] text-white/45"
-							>×</span
-						>
-					</div>
-				</div>
-				<Button
-					type="button"
-					size="sm"
-					variant={item.isReversed ? 'secondary' : 'outline'}
-					class="h-8 w-full justify-between text-xs"
-					aria-label={m.video_editor_clip_reverse()}
-					aria-pressed={item.isReversed === true}
-					onclick={toggleReverse}
-				>
-					<span>{m.video_editor_clip_reverse()}</span>
-					<span class="text-[10px] opacity-70">
-						{item.isReversed ? m.video_editor_clip_reverse_on() : m.video_editor_clip_reverse_off()}
-					</span>
-				</Button>
-				{#if item.isReversed && (conformStatus.state === 'preparing' || conformStatus.state === 'rendering')}
-					<div class="rounded border border-white/10 bg-black/20 p-2">
-						<div class="flex items-center justify-between gap-2 text-[10px] text-white/75">
-							<span>{m.video_editor_clip_reverse_preparing()}</span>
-							<span>{Math.round(conformStatus.progress * 100)}%</span>
-						</div>
-						<div class="mt-1 h-1 overflow-hidden rounded bg-white/10">
-							<div
-								class="h-full bg-[oklch(0.66_0.14_45)] transition-[width] motion-reduce:transition-none"
-								style:width={`${Math.round(conformStatus.progress * 100)}%`}
-							></div>
-						</div>
-						<Button
-							type="button"
-							size="sm"
-							variant="ghost"
-							class="mt-1 h-6 px-1.5 text-[10px]"
-							onclick={() => item.mediaId && cancelReverseConform(item.mediaId)}
-						>
-							{m.common_cancel()}
-						</Button>
-					</div>
-				{:else if item.isReversed && conformStatus.state === 'ready'}
-					<p class="text-[10px] text-[oklch(0.74_0.1_145)]">
-						{m.video_editor_clip_reverse_ready()}
-					</p>
-				{:else if item.isReversed && (conformStatus.state === 'error' || conformStatus.state === 'canceled')}
-					<p class="text-[10px] text-[oklch(0.72_0.14_30)]">
-						{m.video_editor_clip_reverse_fallback()}
-					</p>
-				{/if}
-			</section>
-
-			{#if item.type === 'video'}
-				<section>
-					<h3
-						class="mb-1 text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
-					>
-						{m.video_editor_property_video()}
-					</h3>
-					<div class="grid grid-cols-2 gap-1">
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							{m.video_editor_clip_fade_in_seconds()}
-							<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="0"
-								max={item.durationInFrames / timelineStore.fps}
-								step="0.05"
-								value={item.fadeIn ?? 0}
-								onchange={(event) => commitVisualFade('fadeIn', event.currentTarget.valueAsNumber)}
-							/>
-						</label>
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							{m.video_editor_clip_fade_out_seconds()}
-							<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="0"
-								max={item.durationInFrames / timelineStore.fps}
-								step="0.05"
-								value={item.fadeOut ?? 0}
-								onchange={(event) => commitVisualFade('fadeOut', event.currentTarget.valueAsNumber)}
-							/>
-						</label>
-					</div>
-				</section>
-			{/if}
+			<ClipPlaybackSection itemId={item.id} {itemIds} {onedit} />
+			<ClipAudioCoreSection itemId={item.id} {itemIds} {onedit} />
 
 			{#if audioItem}
 				<section>
-					<h3
-						class="mb-1 text-[10px] font-semibold tracking-wider text-[oklch(0.65_0.015_55)] uppercase"
-					>
-						{m.video_editor_property_audio()}
-					</h3>
-					<div class="grid grid-cols-2 gap-1">
-						<div class="col-span-2 text-[10px] text-[oklch(0.7_0.01_55)]">
-							<span class="flex items-center justify-between gap-1">
-								<label for={`clip-gain-${audioItem.id}`}>{m.video_editor_clip_gain_db()}</label>
-								<button
-									type="button"
-									class:active={autoKeyframeStore.isEnabled(audioItem.id, 'volume')}
-									class="rounded px-1 text-[9px] text-[oklch(0.58_0.01_55)] hover:bg-[oklch(0.28_0.015_50)] [&.active]:bg-[oklch(0.66_0.14_45)] [&.active]:text-black"
-									aria-label={m.video_editor_property_auto_key({
-										property: m.video_editor_clip_gain_db()
-									})}
-									onclick={() => autoKeyframeStore.toggle(audioItem.id, 'volume')}>A</button
-								>
-							</span>
-							<Input
-								id={`clip-gain-${audioItem.id}`}
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="-60"
-								max="12"
-								step="0.1"
-								value={Number(linearGainToDb(valueFor(audioItem, 'volume')).toFixed(1))}
-								onchange={(event) => commitGainDb(event.currentTarget.valueAsNumber)}
-							/>
-						</div>
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							Pitch (semitones)
-							<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="-12"
-								max="12"
-								step="1"
-								value={audioItem.audioPitchSemitones ?? 0}
-								onchange={(event) =>
-									commitPitch('audioPitchSemitones', event.currentTarget.valueAsNumber)}
-							/>
-						</label>
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							Fine pitch (cents)
-							<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="-100"
-								max="100"
-								step="1"
-								value={audioItem.audioPitchCents ?? 0}
-								onchange={(event) =>
-									commitPitch('audioPitchCents', event.currentTarget.valueAsNumber)}
-							/>
-						</label>
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							{m.video_editor_clip_fade_in_seconds()}
-							<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="0"
-								max={audioItem.durationInFrames / timelineStore.fps}
-								step="0.05"
-								value={audioItem.audioFadeIn ?? 0}
-								onchange={(event) =>
-									commitAudioFade('audioFadeIn', event.currentTarget.valueAsNumber)}
-							/>
-						</label>
-						<label class="text-[10px] text-[oklch(0.7_0.01_55)]">
-							{m.video_editor_clip_fade_out_seconds()}
-							<Input
-								class="mt-0.5 w-full rounded bg-[oklch(0.22_0.01_50)] px-1.5 py-1 text-xs"
-								type="number"
-								min="0"
-								max={audioItem.durationInFrames / timelineStore.fps}
-								step="0.05"
-								value={audioItem.audioFadeOut ?? 0}
-								onchange={(event) =>
-									commitAudioFade('audioFadeOut', event.currentTarget.valueAsNumber)}
-							/>
-						</label>
-					</div>
 					<details class="mt-2 rounded-md border border-white/10 bg-black/10">
 						<summary
 							class="flex min-h-8 cursor-pointer list-none items-center justify-between px-2 text-[10px] text-white/70 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
@@ -775,8 +367,76 @@
 							{/each}
 						</div>
 					</details>
-					<div class="mt-2">
-						<AudioEqPanel item={audioItem} {onedit} />
+					<div class="mt-2 space-y-2">
+						<AudioEqPanel items={audioItems} {onedit} />
+						<AudioEffectsPanel item={audioItem} />
+						<AudioDuckingPanel item={audioItem} {onedit} />
+					</div>
+					<div
+						class="mt-2 rounded-md border border-white/10 bg-black/10 p-2"
+						data-testid="noise-reduction-panel"
+					>
+						<div class="flex items-center justify-between gap-2">
+							<h4 class="text-[10px] font-semibold tracking-wider text-white/70 uppercase">
+								{m.video_editor_audio_noise_title()}
+							</h4>
+							<span class="text-[10px] text-white/40"
+								>{m.video_editor_audio_noise_description()}</span
+							>
+						</div>
+						{#if audioItem}
+							{@const nr = resolveNoiseReductionSettings(audioItem)}
+							<div class="mt-2 flex items-center gap-2">
+								<div class="flex items-center gap-2">
+									<Checkbox
+										checked={nr.enabled}
+										aria-label={m.video_editor_audio_noise_enable()}
+										onCheckedChange={(checked) =>
+											commitAudioPatch({
+												audioNoiseReductionEnabled: checked === true,
+												audioNoiseReductionAmount: nr.amount
+											})}
+									/>
+									<Label class="text-[11px] text-white/80"
+										>{m.video_editor_audio_noise_enable()}</Label
+									>
+								</div>
+								<span class="ml-auto text-[10px] text-white/50" aria-live="polite">
+									{nr.enabled
+										? m.video_editor_audio_noise_applied({ amount: String(nr.amount) })
+										: m.video_editor_audio_noise_bypassed()}
+								</span>
+							</div>
+							<div class="mt-2 space-y-1">
+								<Label for={`nr-${audioItem.id}`} class="text-[10px] text-white/60"
+									>{m.video_editor_audio_noise_amount()}</Label
+								>
+								<Slider
+									value={nrDraftAmount ?? nr.amount}
+									min={0}
+									max={100}
+									step={1}
+									disabled={!nr.enabled}
+									ariaLabel={m.video_editor_audio_noise_aria()}
+									onValueChange={(v) => {
+										nrDraftAmount = clampNoiseReductionAmount(v);
+									}}
+									onValueCommit={(v) => {
+										const clamped = clampNoiseReductionAmount(v);
+										nrDraftAmount = null;
+										commitAudioPatch({
+											audioNoiseReductionAmount: clamped,
+											audioNoiseReductionEnabled: true
+										});
+									}}
+								/>
+								<p class="mt-1 text-[10px] leading-snug text-white/40">
+									{m.video_editor_audio_noise_amount_hint({
+										amount: String(nrDraftAmount ?? nr.amount)
+									})}
+								</p>
+							</div>
+						{/if}
 					</div>
 				</section>
 			{/if}
@@ -789,7 +449,7 @@
 				>
 					{m.video_editor_tool_text()}
 				</h3>
-				<TextPropertiesPanel {item} {onedit} />
+				<TextPropertiesPanel {item} {itemIds} {onedit} {oncreatevoice} />
 				<div class="mt-2 grid grid-cols-2 gap-1">
 					{#each textFields as field (field.property)}
 						<label class="text-[10px] text-[oklch(0.7_0.01_55)]"

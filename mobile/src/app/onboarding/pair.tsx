@@ -1,4 +1,3 @@
-import * as Haptics from "expo-haptics";
 import * as WebBrowser from "expo-web-browser";
 import { router, Stack, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -7,6 +6,7 @@ import { ActivityIndicator, BackHandler, ScrollView, StyleSheet, Text, View } fr
 import { BodyText, Button, Card, Screen, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { pollPairing, startPairing } from "@/lib/auth";
+import { successHaptic } from "@/lib/haptics";
 
 type Phase = "starting" | "waiting" | "approved" | "denied" | "expired" | "error";
 
@@ -49,7 +49,7 @@ export default function PairScreen() {
               continue;
             }
             if (result.status === "approved") {
-              void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              void successHaptic();
               setPhase("approved");
               setTimeout(() => router.replace("/onboarding/workspace"), 500);
             } else {
@@ -128,6 +128,7 @@ export default function PairScreen() {
             </BodyText>
             <Button
               title="Open verification page"
+              variant="focal"
               onPress={() => void WebBrowser.openBrowserAsync(verificationUrl)}
               style={styles.openButton}
             />

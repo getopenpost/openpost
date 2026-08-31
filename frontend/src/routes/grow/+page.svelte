@@ -17,13 +17,12 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import GrowthProfileCard from '$lib/components/growth-profile-card.svelte';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
-	import * as Avatar from '$lib/components/ui/avatar';
-	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
-	import { getPlatformName } from '$lib/utils';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import {
 		compatibleAccounts,
 		selectInitialAccount,
@@ -570,10 +569,18 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 		}
 	}
 
-	function selectDisplayLabel(acc: SocialAccount): string {
-		const handle = acc.account_username ? `@${acc.account_username}` : acc.account_id;
-		const plat = getPlatformName(acc.platform);
-		return `${handle} (${plat})`;
+	function accountName(account: SocialAccount): string {
+		return (
+			formatSocialAccountName(account.account_username, account.platform) ||
+			account.slug ||
+			account.account_id ||
+			account.platform
+		);
+	}
+
+	function accountSelectLabel(account: SocialAccount | undefined): string {
+		if (!account) return m.grow_for_label();
+		return `${m.grow_for_label()}: ${accountName(account)}, ${getPlatformName(account.platform)}`;
 	}
 
 	function staleDetailMessage(feat: FeatureState | null): string {
@@ -635,41 +642,28 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 						<Select.Trigger
 							id="grow-account-select"
 							class="h-9 w-full"
-							aria-label={m.grow_for_label()}
+							aria-label={accountSelectLabel(selectedAccount)}
 							data-testid="grow-account-select"
 						>
 							{#if selectedAccount}
-								<span class="flex items-center gap-2 truncate">
-									<Avatar.Root class="size-6 shrink-0 rounded-full">
-										{#if selectedAccount.account_avatar_url}
-											<Avatar.Image src={selectedAccount.account_avatar_url} alt="" />
-										{/if}
-										<Avatar.Fallback class="rounded-full bg-muted text-[10px]">
-											{(selectedAccount.account_username || '?').slice(0, 1).toUpperCase()}
-										</Avatar.Fallback>
-									</Avatar.Root>
-									<span class="truncate">{selectDisplayLabel(selectedAccount)}</span>
-									<PlatformIcon platform={selectedAccount.platform} class="size-3.5 shrink-0" />
-								</span>
+								<SocialAccountIdentity
+									name={accountName(selectedAccount)}
+									platform={selectedAccount.platform}
+									avatarUrl={selectedAccount.account_avatar_url}
+									size="sm"
+								/>
 							{:else}
 								<span class="text-muted-foreground">{m.grow_account_placeholder()}</span>
 							{/if}
 						</Select.Trigger>
-						<Select.Content>
+						<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
 							{#each eligible as acc (acc.id)}
-								<Select.Item value={acc.id}>
-									<span class="flex items-center gap-2">
-										<Avatar.Root class="size-5 shrink-0 rounded-full">
-											{#if acc.account_avatar_url}
-												<Avatar.Image src={acc.account_avatar_url} alt="" />
-											{/if}
-											<Avatar.Fallback class="rounded-full bg-muted text-[10px]">
-												{(acc.account_username || '?').slice(0, 1).toUpperCase()}
-											</Avatar.Fallback>
-										</Avatar.Root>
-										<span>{selectDisplayLabel(acc)}</span>
-										<PlatformIcon platform={acc.platform} class="size-3.5" />
-									</span>
+								<Select.Item value={acc.id} class="min-h-12 py-2">
+									<SocialAccountIdentity
+										name={accountName(acc)}
+										platform={acc.platform}
+										avatarUrl={acc.account_avatar_url}
+									/>
 								</Select.Item>
 							{/each}
 						</Select.Content>

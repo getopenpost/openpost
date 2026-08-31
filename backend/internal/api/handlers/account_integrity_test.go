@@ -77,6 +77,34 @@ func createHandlerTestDB(t *testing.T, modelsToCreate ...interface{}) *bun.DB {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
+	for _, statement := range []string{
+		`CREATE TABLE IF NOT EXISTS voice_profiles (
+			id TEXT PRIMARY KEY,
+			workspace_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			normalized_name TEXT NOT NULL,
+			is_default BOOLEAN NOT NULL DEFAULT false,
+			revision INTEGER NOT NULL DEFAULT 1,
+			schema_version INTEGER NOT NULL DEFAULT 1,
+			definition_json TEXT NOT NULL DEFAULT '{}',
+			created_by_id TEXT NOT NULL DEFAULT '',
+			created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+			updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+			UNIQUE (id, workspace_id),
+			UNIQUE (workspace_id, normalized_name)
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS voice_profiles_default_idx ON voice_profiles (workspace_id) WHERE is_default = true`,
+		`CREATE TABLE IF NOT EXISTS voice_profile_account_assignments (
+			social_account_id TEXT PRIMARY KEY,
+			workspace_id TEXT NOT NULL,
+			voice_profile_id TEXT NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+			updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp
+		)`,
+	} {
+		_, err := db.ExecContext(context.Background(), statement)
+		require.NoError(t, err)
+	}
 
 	return db
 }

@@ -277,16 +277,16 @@
 </script>
 
 <div class={compact ? 'space-y-3' : 'space-y-4'}>
-	<div>
-		<h2 class={compact ? 'text-sm font-semibold' : 'text-base font-semibold'}>
-			{m.stock_media_search()}
-		</h2>
-		<p
-			class={compact ? 'mt-1 text-xs text-muted-foreground' : 'mt-1 text-sm text-muted-foreground'}
-		>
-			{m.stock_search_provider_truth()}
-		</p>
-	</div>
+	{#if !compact}
+		<div>
+			<h2 class="text-base font-semibold">
+				{m.stock_media_search()}
+			</h2>
+			<p class="mt-1 text-sm text-muted-foreground">
+				{m.stock_search_provider_truth()}
+			</p>
+		</div>
+	{/if}
 
 	{#if error}
 		<InlineNotice tone="error" message={error}>

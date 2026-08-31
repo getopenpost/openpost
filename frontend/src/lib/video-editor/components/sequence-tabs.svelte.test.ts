@@ -31,6 +31,57 @@ beforeEach(() => {
 afterEach(() => sequenceStore.reset());
 
 describe('SequenceTabs', () => {
+	it('runs sequence actions from the tab context menu', async () => {
+		const onedit = vi.fn();
+		const onswitch = vi.fn();
+		const screen = await render(SequenceTabs, { onedit, onswitch });
+		const openMenu = (name: string) => {
+			const trigger = screen.getByRole('group', { name, exact: true }).element();
+			trigger.dispatchEvent(
+				new MouseEvent('contextmenu', {
+					bubbles: true,
+					cancelable: true,
+					clientX: 80,
+					clientY: 40
+				})
+			);
+		};
+
+		openMenu('Beta');
+		await screen.getByRole('menuitem', { name: 'Move left' }).click();
+		expect(sequenceStore.topLevelSequenceIds).toEqual(['beta', 'alpha']);
+
+		openMenu('Beta');
+		await screen.getByRole('menuitem', { name: 'Duplicate' }).click();
+		const duplicate = sequenceStore.compositions.find((entry) => entry.name === 'Beta copy');
+		expect(duplicate).toBeDefined();
+		expect(sequenceStore.activeSequenceId).toBe(duplicate?.id);
+
+		openMenu('Beta');
+		await screen.getByRole('menuitem', { name: 'Rename' }).click();
+		await vi.waitFor(() =>
+			expect(screen.container.querySelector<HTMLInputElement>('input')).not.toBeNull()
+		);
+		const rename = screen.container.querySelector<HTMLInputElement>('input');
+		expect(rename).not.toBeNull();
+		if (!rename) return;
+		rename.value = 'B roll';
+		rename.dispatchEvent(new InputEvent('input', { bubbles: true }));
+		rename.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+		await vi.waitFor(() => expect(sequenceStore.compositionById.get('beta')?.name).toBe('B roll'));
+
+		openMenu('B roll');
+		await screen.getByRole('menuitem', { name: 'Open sequence' }).click();
+		expect(sequenceStore.activeSequenceId).toBe('beta');
+
+		openMenu('B roll');
+		await screen.getByRole('menuitem', { name: 'Close tab' }).click();
+		expect(sequenceStore.topLevelSequenceIds).not.toContain('beta');
+		expect(sequenceStore.compositionById.get('beta')?.name).toBe('B roll');
+		expect(onedit).toHaveBeenCalledTimes(4);
+		expect(onswitch).toHaveBeenCalledTimes(3);
+	});
+
 	it('switches, reorders, renames, adds, and closes tabs in Chromium', async () => {
 		const onedit = vi.fn();
 		const onswitch = vi.fn();

@@ -1470,6 +1470,13 @@ func TestMCPPromptsListAndGet(t *testing.T) {
 	require.Equal(t, mcpPromptPlanPost, prompts[0].(map[string]any)["name"])
 	require.Equal(t, mcpPromptRenditions, prompts[1].(map[string]any)["name"])
 	require.Equal(t, mcpPromptReviewQueue, prompts[2].(map[string]any)["name"])
+	renditionArguments := prompts[1].(map[string]any)["arguments"].([]any)
+	renditionArgumentNames := make([]string, 0, len(renditionArguments))
+	for _, rawArgument := range renditionArguments {
+		renditionArgumentNames = append(renditionArgumentNames, rawArgument.(map[string]any)["name"].(string))
+	}
+	require.Contains(t, renditionArgumentNames, "publication_id")
+	require.NotContains(t, renditionArgumentNames, "post_id")
 
 	getResp := srv.request(t, "web-token", map[string]any{
 		"jsonrpc": "2.0",
@@ -1496,6 +1503,56 @@ func TestMCPPromptsListAndGet(t *testing.T) {
 	require.Contains(t, text, "Launch the demo recording")
 	require.Contains(t, text, "workspace_id: ws-1")
 	require.Contains(t, text, "x, linkedin")
+	require.Contains(t, text, "create_publication")
+	require.NotContains(t, text, "create_draft")
+
+	renditionResp := srv.request(t, "web-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "rendition-prompt",
+		"method":  "prompts/get",
+		"params": map[string]any{
+			"name": mcpPromptRenditions,
+			"arguments": map[string]string{
+				"workspace_id":   "ws-1",
+				"publication_id": "publication-1",
+			},
+		},
+	})
+	require.Equal(t, http.StatusOK, renditionResp.Code)
+	var renditionGot map[string]any
+	require.NoError(t, json.Unmarshal(renditionResp.Body.Bytes(), &renditionGot))
+	renditionResult := renditionGot["result"].(map[string]any)
+	renditionMessages := renditionResult["messages"].([]any)
+	require.Len(t, renditionMessages, 1)
+	renditionText := renditionMessages[0].(map[string]any)["content"].(map[string]any)["text"].(string)
+	require.Contains(t, renditionText, "publication_id: publication-1")
+	require.Contains(t, renditionText, "get_publication")
+	require.Contains(t, renditionText, "set_publication_renditions")
+	require.NotContains(t, renditionText, "post_id")
+	require.NotContains(t, renditionText, "get_post_status")
+	require.NotContains(t, renditionText, "set_post_renditions")
+
+	reviewResp := srv.request(t, "web-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "review-prompt",
+		"method":  "prompts/get",
+		"params": map[string]any{
+			"name": mcpPromptReviewQueue,
+			"arguments": map[string]string{
+				"workspace_id": "ws-1",
+				"window":       "this week",
+			},
+		},
+	})
+	require.Equal(t, http.StatusOK, reviewResp.Code)
+	var reviewGot map[string]any
+	require.NoError(t, json.Unmarshal(reviewResp.Body.Bytes(), &reviewGot))
+	reviewResult := reviewGot["result"].(map[string]any)
+	reviewMessages := reviewResult["messages"].([]any)
+	require.Len(t, reviewMessages, 1)
+	reviewText := reviewMessages[0].(map[string]any)["content"].(map[string]any)["text"].(string)
+	require.Contains(t, reviewText, "list_publications")
+	require.NotContains(t, reviewText, "list_scheduled_posts")
 }
 
 func TestMCPPromptsGetRejectsUnknownPrompt(t *testing.T) {
@@ -2012,6 +2069,67 @@ func TestMCPCallRenderSchedulerWidget(t *testing.T) {
 	posts := data["posts"].([]any)
 	require.Len(t, posts, 1)
 	require.Equal(t, "post-1", posts[0].(map[string]any)["id"])
+}
+
+func TestMCPCallRenderSchedulerWidgetInfersCanonicalPublicationResults(t *testing.T) {
+	t.Parallel()
+
+	srv := newMCPTestServer(t)
+	_, err := srv.db.NewInsert().Model(&models.Publication{
+		ID:              "publication-widget",
+		WorkspaceID:     "ws-1",
+		CreatedByID:     "user-1",
+		Title:           "Launch notes",
+		ContentProfile:  models.ContentProfileShortText,
+		SourceText:      "Launch notes for the next release",
+		SourceContent:   "Launch notes for the next release",
+		Status:          models.PublicationStatusScheduled,
+		MetadataJSON:    "{}",
+		ReleasePlanJSON: "{}",
+		CreatedAt:       time.Date(2026, 6, 30, 16, 0, 0, 0, time.UTC),
+		UpdatedAt:       time.Date(2026, 6, 30, 16, 5, 0, 0, time.UTC),
+	}).Exec(t.Context())
+	require.NoError(t, err)
+
+	listResp := srv.request(t, "web-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "list-publications-for-widget",
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name": mcpToolQuery,
+			"arguments": map[string]any{
+				"operation": mcpToolListPubs,
+				"arguments": map[string]any{"workspace_id": "ws-1"},
+			},
+		},
+	})
+	require.Equal(t, http.StatusOK, listResp.Code)
+	var listed map[string]any
+	require.NoError(t, json.Unmarshal(listResp.Body.Bytes(), &listed))
+	publicationData := listed["result"].(map[string]any)["structuredContent"].(map[string]any)
+
+	renderResp := srv.request(t, "web-token", map[string]any{
+		"jsonrpc": "2.0",
+		"id":      "render-publications",
+		"method":  "tools/call",
+		"params": map[string]any{
+			"name": mcpToolRenderWidget,
+			"arguments": map[string]any{
+				"title":        "Queue review",
+				"workspace_id": "ws-1",
+				"data":         publicationData,
+			},
+		},
+	})
+	require.Equal(t, http.StatusOK, renderResp.Code)
+	var rendered map[string]any
+	require.NoError(t, json.Unmarshal(renderResp.Body.Bytes(), &rendered))
+	structured := rendered["result"].(map[string]any)["structuredContent"].(map[string]any)
+	require.Equal(t, "publications", structured["view"])
+	require.Equal(t, publicationData, structured["data"])
+	publications := structured["data"].(map[string]any)["publications"].([]any)
+	require.Len(t, publications, 1)
+	require.Equal(t, "Launch notes", publications[0].(map[string]any)["title"])
 }
 
 func TestMCPCallListAccounts(t *testing.T) {

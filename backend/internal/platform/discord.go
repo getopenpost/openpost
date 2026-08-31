@@ -59,6 +59,7 @@ func (d *DiscordAdapter) GetProfile(ctx context.Context, webhookURL string) (*Us
 	var webhook struct {
 		ID      string `json:"id"`
 		Name    string `json:"name"`
+		Avatar  string `json:"avatar"`
 		GuildID string `json:"guild_id"`
 		Channel struct {
 			ID   string `json:"id"`
@@ -78,10 +79,19 @@ func (d *DiscordAdapter) GetProfile(ctx context.Context, webhookURL string) (*Us
 	if webhook.Guild.Name != "" && webhook.Channel.Name != "" {
 		displayName = webhook.Guild.Name + " · #" + webhook.Channel.Name
 	}
+	avatarURL := ""
+	if id != "" && strings.TrimSpace(webhook.Avatar) != "" {
+		avatarURL = fmt.Sprintf(
+			"https://cdn.discordapp.com/avatars/%s/%s.png",
+			url.PathEscape(id),
+			url.PathEscape(webhook.Avatar),
+		)
+	}
 	return &UserProfile{
 		ID:          id,
 		Username:    username,
 		DisplayName: displayName,
+		AvatarURL:   avatarURL,
 		CapabilityState: map[string]string{
 			"discord_guild_id":   firstNonEmptyString(webhook.GuildID, webhook.Guild.ID),
 			"discord_channel_id": webhook.Channel.ID,

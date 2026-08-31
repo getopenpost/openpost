@@ -12,8 +12,8 @@
 	import { m } from '$lib/paraglide/messages';
 	import {
 		accountManagementReturnHref,
-		accountSetupHref,
-		clearAccountManagementContinuation
+		clearAccountManagementContinuation,
+		continuationHrefForNormalizedConnection
 	} from '$lib/account-management-route';
 
 	let code = $state('');
@@ -73,33 +73,19 @@
 			if (!data?.workspace_id || !data.account_id) {
 				throw new Error(m.accounts_mastodon_callback_exchange_failed());
 			}
-			if (data.feature_setup_required && data.new_account_ids?.length) {
-				await goto(
-					resolveAppPath(
-						accountSetupHref({
-							workspaceID: data.workspace_id,
-							accountIDs: data.account_ids ?? [data.account_id],
-							newAccountIDs: data.new_account_ids ?? [],
-							openFreshComposer: data.open_fresh_composer
-						})
-					)
-				);
-				return;
-			}
 			pageLoading = true;
-			if (!data.open_fresh_composer) {
-				await goto(resolveAppPath(accountManagementReturnHref()));
-				clearAccountManagementContinuation();
-				return;
-			}
-			const query = new URLSearchParams({
-				workspace_id: data.workspace_id,
-				account_ids: (data.account_ids ?? [data.account_id]).join(',')
-			});
-			await goto(resolveAppPath(`/?${query.toString()}`));
+			await goto(
+				resolveAppPath(
+					continuationHrefForNormalizedConnection({
+						workspaceID: data.workspace_id,
+						accountIDs: data.account_ids ?? [data.account_id],
+						openFreshComposer: data.open_fresh_composer
+					})
+				)
+			);
 			clearAccountManagementContinuation();
 		} catch (e) {
-			await goto(resolveAppPath(accountManagementReturnHref(undefined, 'failed', workspaceId)));
+			await goto(resolveAppPath(accountManagementReturnHref('failed', workspaceId)));
 			clearAccountManagementContinuation();
 		} finally {
 			loading = false;

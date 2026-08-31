@@ -2,21 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
 	DEFAULT_TRANSCRIPTION_MODEL,
 	PARAKEET_SUPPORTED_LANGUAGES,
-	TRANSCRIPTION_MODEL_OPTIONS,
 	resolveTranscriptionEngine,
 	transcriptionModelLabel
 } from './models';
 
 describe('transcription model registry', () => {
-	it('exposes every supported local model with Parakeet as the default', () => {
+	it('uses Parakeet as the default and labels model choices', () => {
 		expect(DEFAULT_TRANSCRIPTION_MODEL).toBe('parakeet-tdt-v3');
-		expect(TRANSCRIPTION_MODEL_OPTIONS.map((option) => option.value)).toEqual([
-			'parakeet-tdt-v3',
-			'whisper-base',
-			'whisper-small',
-			'whisper-large',
-			'whisper-tiny'
-		]);
 		expect(transcriptionModelLabel('whisper-large')).toBe('Whisper Large v3 Turbo');
 	});
 

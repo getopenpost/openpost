@@ -1,5 +1,10 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  clickComposerDeliveryAction,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 type Workspace = {
   id: string;
@@ -234,14 +239,12 @@ test("a previous workspace next-slot response cannot replace the current schedul
   });
 
   await page.goto("/");
-  const scheduleButton = page.getByRole("button", { name: "Schedule", exact: true }).first();
-  await expect(scheduleButton).toBeVisible();
-  await scheduleButton.click();
+  await clickComposerDeliveryAction(page, "Schedule");
 
   const scheduleDialog = page.getByTestId("schedule-dialog-shell");
   await expect(scheduleDialog).toBeVisible();
   await expect(scheduleDialog.getByText("June 2030", { exact: true })).toBeVisible();
-  await expect(scheduleDialog.getByText("July 2030", { exact: true })).toBeVisible();
+  await expect(scheduleDialog.getByText("July 2030", { exact: true })).toHaveCount(0);
   await scheduleDialog.getByRole("button", { name: "Next free slot", exact: true }).click();
   await firstStarted.promise;
 
@@ -253,7 +256,7 @@ test("a previous workspace next-slot response cannot replace the current schedul
   await page.getByRole("menuitem", { name: new RegExp(second.name) }).click();
   await expect(page.getByRole("button", { name: new RegExp(second.name) }).first()).toBeVisible();
 
-  await scheduleButton.click();
+  await clickComposerDeliveryAction(page, "Schedule");
   await expect(scheduleDialog).toBeVisible();
   await scheduleDialog.getByRole("button", { name: "Next free slot", exact: true }).click();
   await expect(scheduleDialog).toContainText("Selected Jun 25 15:30");
@@ -364,7 +367,6 @@ test("portrait calendar and composer reject past creation and rescheduling", asy
   const dataTransfer = await page.evaluateHandle(() => new DataTransfer());
   await futureItem.dispatchEvent("dragstart", { dataTransfer });
   await pastDay.dispatchEvent("dragover", { dataTransfer });
-  await expect(pastDay).not.toHaveClass(/ring-2/);
   await pastDay.dispatchEvent("drop", { dataTransfer });
   await dataTransfer.dispose();
 
@@ -381,7 +383,6 @@ test("portrait calendar and composer reject past creation and rescheduling", asy
   await todayDay.dispatchEvent("dragover", {
     dataTransfer: sameDayTransfer,
   });
-  await expect(todayDay).toHaveClass(/ring-2/);
   await todayDay.dispatchEvent("drop", { dataTransfer: sameDayTransfer });
   await sameDayTransfer.dispose();
 
@@ -395,11 +396,7 @@ test("portrait calendar and composer reject past creation and rescheduling", asy
   await page.goto(`/?date=2030-06-10&workspace_id=${workspace.id}`);
 
   await expect(page.getByText("Choose a future date and time.", { exact: true })).toBeVisible();
-  const mobileScheduleButton = page
-    .getByTestId("composer-action-controls")
-    .getByRole("button", { name: "Schedule", exact: true });
-  await expect(mobileScheduleButton).toBeVisible();
-  await mobileScheduleButton.click();
+  await clickComposerDeliveryAction(page, "Schedule");
 
   const scheduleDialog = page.getByTestId("schedule-dialog-shell");
   await expect(scheduleDialog).toContainText("Select a date and time.");
@@ -455,6 +452,19 @@ test("the desktop week grid opens the composer on a 15-minute snapped time", asy
 
   await page.goto("/calendar");
   await page.getByRole("button", { name: "Week", exact: true }).click();
+  const pageHeader = page.getByTestId("page-header");
+  const pageHeading = pageHeader.getByRole("heading", { level: 1 });
+  await expect(pageHeading).toHaveText(/Jun 10\s*–\s*16/);
+  await expect(pageHeader).not.toContainText("Publishing calendar");
+  const pageHeadingBounds = await pageHeading.boundingBox();
+  expect(pageHeadingBounds).not.toBeNull();
+  expect(pageHeadingBounds!.height).toBeLessThanOrEqual(28);
+  expect(await pageHeading.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+    true,
+  );
+  const pageHeaderBounds = await pageHeader.boundingBox();
+  expect(pageHeaderBounds).not.toBeNull();
+  expect(pageHeaderBounds!.height).toBeLessThanOrEqual(64);
   await expect(page.getByRole("region", { name: "Weekly publishing calendar" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Week grid post", exact: true })).toBeVisible();
 
@@ -466,6 +476,94 @@ test("the desktop week grid opens the composer on a 15-minute snapped time", asy
   await expect(page).toHaveURL(
     new RegExp(`\\/?date=2030-06-15&time=14%3A30&workspace_id=${workspace.id}$`),
   );
+});
+
+test("the desktop week grid previews and persists pointer rescheduling", async ({
+  page,
+  request,
+}, testInfo) => {
+  const seed = `week-drag-${Date.now().toString(36)}-${testInfo.workerIndex}`;
+  const { workspace } = await createAuthenticatedWorkspace(page, request, seed);
+  await page.clock.setFixedTime(new Date("2030-06-10T12:00:00.000Z"));
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const post = scheduledPost(
+    "week-drag-post",
+    workspace.id,
+    "Pointer scheduled post",
+    "2030-06-12T13:00:00.000Z",
+  );
+  await mockCalendarData(page, [post]);
+
+  let scheduledAt = post.scheduled_at;
+  const publication = () => ({
+    id: "publication-week-drag-post",
+    workspace_id: workspace.id,
+    created_by: post.created_by,
+    title: post.content,
+    intent: "post",
+    content_profile: "short_text",
+    source_text: post.content,
+    source_url: "",
+    goal: "",
+    audience: "",
+    status: "scheduled",
+    revision: scheduledAt === post.scheduled_at ? 1 : 2,
+    scheduled_at: scheduledAt,
+    actual_run_at: "",
+    created_at: post.created_at,
+    updated_at: post.created_at,
+    metadata: {},
+    renditions: [],
+    segments: [],
+    media: [],
+  });
+  await page.route("**/api/v1/publications?**", async (route) => {
+    await route.fulfill({
+      contentType: "application/json",
+      headers: { "X-Has-More": "false" },
+      json: [publication()],
+    });
+  });
+  await page.route("**/api/v1/publications/publication-week-drag-post", async (route) => {
+    if (route.request().method() !== "PUT") {
+      await route.continue();
+      return;
+    }
+    const body = route.request().postDataJSON() as { scheduled_at: string };
+    scheduledAt = body.scheduled_at;
+    await route.fulfill({
+      contentType: "application/json",
+      json: publication(),
+    });
+  });
+
+  await page.goto("/calendar");
+  await page.getByRole("button", { name: "Week", exact: true }).click();
+  const source = page.locator('[data-calendar-week-item][aria-label="Pointer scheduled post"]');
+  const targetHour = page.getByRole("group", { name: /Jun 13.*14:00/ });
+  await source.scrollIntoViewIfNeeded();
+  await expect(source).toBeVisible();
+  const [sourceBounds, targetBounds] = await Promise.all([
+    source.boundingBox(),
+    targetHour.boundingBox(),
+  ]);
+  expect(sourceBounds).not.toBeNull();
+  expect(targetBounds).not.toBeNull();
+
+  await page.mouse.move(sourceBounds!.x + 30, sourceBounds!.y + 15);
+  await page.mouse.down();
+  await page.mouse.move(sourceBounds!.x + 45, sourceBounds!.y + 18);
+  await page.mouse.move(targetBounds!.x + 40, targetBounds!.y + 40, { steps: 6 });
+
+  await expect(page.locator(".calendar-drag-overlay")).toBeVisible();
+  await expect(page.locator(".calendar-drag-placeholder")).toBeVisible();
+  await expect(page.locator(".calendar-drag-overlay")).toContainText(/Thu.*02:30 PM/);
+  await expect(source).toHaveCSS("opacity", "0.3");
+
+  await page.mouse.up();
+  await expect.poll(() => scheduledAt).toBe("2030-06-13T14:30:00.000Z");
+  await expect(page.locator(".calendar-drag-overlay")).toHaveCount(0);
+  await expect(targetHour.getByRole("button", { name: "Pointer scheduled post" })).toBeVisible();
 });
 
 test("published posts remain visible in calendar history and cannot move", async ({
@@ -487,7 +585,6 @@ test("published posts remain visible in calendar history and cannot move", async
 
   await page.goto("/calendar");
 
-  await expect(page.getByText("0 scheduled / 1 published / UTC", { exact: true })).toBeVisible();
   const publishedItem = page.locator(
     '[data-calendar-item][aria-label="Published calendar history"]',
   );

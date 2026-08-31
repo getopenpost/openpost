@@ -30,7 +30,7 @@ For API, CLI, and MCP users: setting `scheduled_at` on a draft does not schedule
 
 The schedule and immediate-publish HTTP responses include `publication_id` and `renditions`. Each rendition carries the canonical destination status and delivery evidence instead of inheriting one aggregate action result.
 
-Configure the workspace timezone, week start, reusable posting slots, and optional natural posting delay in **Settings → Workspace**.
+Configure the workspace timezone and week start in **Settings → Workspace → General**. Manage reusable posting slots and the optional natural posting delay in **Settings → Workspace → Posting schedule**.
 
 ## Delivery and recovery
 

@@ -111,7 +111,7 @@ test("Messages reaches older conversations without losing filters or selection",
     }),
   );
 
-  await page.goto(`/messages?workspace=${workspace.id}`);
+  await page.goto(`/inbox/messages?workspace=${workspace.id}`);
   await expect(page.getByText("Conversation list failed")).toBeVisible();
   await page.getByRole("button", { name: "Try again" }).click();
   await page.getByRole("button", { name: /Person 0/ }).click();
@@ -174,7 +174,7 @@ test("Messages ignores a conversation page from the prior Workspace", async ({ p
     });
   });
 
-  await page.goto(`/messages?workspace=${first.id}`);
+  await page.goto(`/inbox/messages?workspace=${first.id}`);
   await firstRequested;
   const workspaceButton = page
     .getByRole("button", { name: new RegExp(`${firstName}|${secondName}`) })

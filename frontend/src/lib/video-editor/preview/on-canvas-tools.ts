@@ -467,6 +467,12 @@ function upsertPreviewPosition(
 					const index = template.frames.indexOf(frame);
 					return index >= 0 ? (template.easingConfigs?.[index] ?? null) : null;
 				})
+			}),
+			...(template?.sources && {
+				sources: positionFrames.map((frame) => {
+					const index = template.frames.indexOf(frame);
+					return index >= 0 ? (template.sources?.[index] ?? null) : null;
+				})
 			})
 		};
 		const value = preview[property];
@@ -482,14 +488,16 @@ function upsertPreviewPosition(
 					value: source.values[entryIndex] ?? 0,
 					id: source.ids?.[entryIndex],
 					easing: source.easings?.[entryIndex],
-					config: source.easingConfigs?.[entryIndex]
+					config: source.easingConfigs?.[entryIndex],
+					source: source.sources?.[entryIndex]
 				})),
 				{
 					frame: relativeFrame,
 					value,
 					id: undefined,
 					easing: undefined,
-					config: undefined
+					config: undefined,
+					source: null
 				}
 			].sort((left, right) => left.frame - right.frame);
 			keyframes[property] = {
@@ -499,7 +507,8 @@ function upsertPreviewPosition(
 				...(source.easings && { easings: entries.map((entry) => entry.easing ?? 'linear') }),
 				...(source.easingConfigs && {
 					easingConfigs: entries.map((entry) => entry.config ?? null)
-				})
+				}),
+				...(source.sources && { sources: entries.map((entry) => entry.source ?? null) })
 			};
 		}
 	}

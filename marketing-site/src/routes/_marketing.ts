@@ -1,7 +1,6 @@
 import { planCatalog, purchaseTerms, selfHostedDeployment } from '@openpost/plan-catalog';
 import { PLATFORM_LIMITS } from '../../../frontend/src/lib/platform-limits';
 import publicClaimManifest from '../../../provider-certification/public-claims.json';
-import { attachComparisonEvidence } from './_comparison-evidence';
 
 type PublicProviderClaim = {
 	subject: {
@@ -16,6 +15,13 @@ export const billingSettingsUrl = `${appUrl}/settings?tab=billing#billing`;
 export const userDocsUrl = 'https://docs.openpost.social/usage/';
 export const selfHostingDocsUrl = 'https://docs.openpost.social/self-hosting/';
 export const developerDocsUrl = 'https://docs.openpost.social/development/';
+export const apiGuideUrl = 'https://docs.openpost.social/development/api-reference';
+export const openApiUrl = 'https://docs.openpost.social/openapi.json';
+export const cliDocsUrl = 'https://docs.openpost.social/cli/';
+export const mcpDocsUrl = 'https://docs.openpost.social/mcp/';
+export const apiTokenDocsUrl = 'https://docs.openpost.social/development/api-tokens';
+export const agentPublishingDocsUrl =
+	'https://docs.openpost.social/usage/agent-assisted-publishing';
 export const docsUrl = userDocsUrl;
 export const githubUrl = 'https://github.com/getopenpost/openpost';
 export const siteUrl = 'https://openpost.social';
@@ -26,23 +32,157 @@ export const demoVideoUrl = 'https://youtu.be/_mZf3HzQaN8';
 export const demoVideoEmbedUrl =
 	'https://www.youtube-nocookie.com/embed/_mZf3HzQaN8?autoplay=1&rel=0';
 
-export const navItems = [
-	{ label: 'Features', href: '/features' },
-	{ label: 'Platforms', href: '/platforms' },
-	{ label: 'Pricing', href: '/pricing' },
-	{ label: 'Free tools', href: '/tools' }
-] as const;
+type NavigationSurface = 'primary' | 'resources' | 'mobile' | 'footer';
+type ResourceGroup = 'Learn' | 'Build' | 'OpenPost';
+type FooterGroup = 'Product' | 'Resources' | 'Documentation';
 
-export const resourceItems = [
-	{ label: 'Self-hosted', href: '/self-hosted' },
-	{ label: 'Platforms', href: '/platforms' },
-	{ label: 'Compare', href: '/compare' },
-	{ label: 'FAQ', href: '/faq' },
-	{ label: 'Security', href: '/security' },
-	{ label: 'Trust register', href: '/trust' },
-	{ label: 'Changelog', href: '/changelog' },
-	{ label: 'Developers', href: developerDocsUrl }
-] as const;
+type MarketingNavigationItem = {
+	label: string;
+	href: string;
+	group?: ResourceGroup;
+	footerGroup: FooterGroup;
+	surfaces: readonly NavigationSurface[];
+};
+
+const navigationRegistry: readonly MarketingNavigationItem[] = [
+	{
+		label: 'Overview',
+		href: '/#product',
+		footerGroup: 'Product',
+		surfaces: ['footer']
+	},
+	{
+		label: 'Features',
+		href: '/features',
+		footerGroup: 'Product',
+		surfaces: ['primary', 'mobile', 'footer']
+	},
+	{
+		label: 'Platforms',
+		href: '/platforms',
+		footerGroup: 'Product',
+		surfaces: ['primary', 'mobile', 'footer']
+	},
+	{
+		label: 'Tools',
+		href: '/tools',
+		footerGroup: 'Product',
+		surfaces: ['primary', 'mobile', 'footer']
+	},
+	{
+		label: 'Pricing',
+		href: '/pricing',
+		footerGroup: 'Product',
+		surfaces: ['primary', 'mobile', 'footer']
+	},
+	{
+		label: 'FAQ',
+		href: '/faq',
+		group: 'Learn',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Changelog',
+		href: '/changelog',
+		group: 'Learn',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'User docs',
+		href: docsUrl,
+		group: 'Build',
+		footerGroup: 'Documentation',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Developers',
+		href: '/developers',
+		group: 'Build',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Self-hosting',
+		href: '/self-hosting',
+		group: 'Build',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'GitHub source',
+		href: githubUrl,
+		group: 'Build',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'About',
+		href: '/about',
+		group: 'OpenPost',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Contact',
+		href: '/contact',
+		group: 'OpenPost',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Security',
+		href: '/security',
+		group: 'OpenPost',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Trust register',
+		href: '/trust',
+		group: 'OpenPost',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Discord community',
+		href: discordCommunityUrl,
+		group: 'OpenPost',
+		footerGroup: 'Resources',
+		surfaces: ['resources', 'mobile', 'footer']
+	},
+	{
+		label: 'Self-hosting guide',
+		href: selfHostingDocsUrl,
+		footerGroup: 'Documentation',
+		surfaces: ['footer']
+	},
+	{
+		label: 'Developer docs',
+		href: developerDocsUrl,
+		footerGroup: 'Documentation',
+		surfaces: ['footer']
+	}
+];
+
+const navigationFor = (surface: NavigationSurface) =>
+	navigationRegistry.filter((item) => item.surfaces.includes(surface));
+
+export const marketingNavigation = {
+	primary: navigationFor('primary'),
+	resourceGroups: (['Learn', 'Build', 'OpenPost'] as const).map((label) => ({
+		label,
+		items: navigationRegistry.filter(
+			(item) => item.group === label && item.surfaces.includes('resources')
+		)
+	})),
+	mobile: navigationFor('mobile'),
+	footerGroups: (['Product', 'Resources', 'Documentation'] as const).map((title) => ({
+		title,
+		links: navigationRegistry.filter((item) => item.footerGroup === title)
+	}))
+} as const;
 
 export const selfHostedDeploymentSummary = {
 	softwareFee: `$${selfHostedDeployment.software_fee_usd}`,
@@ -157,7 +297,7 @@ export const featureGroups = [
 			src: '/assets/screenshots/media-dark.png',
 			alt: 'OpenPost media library with reusable assets'
 		},
-		docsUrl: 'https://docs.openpost.social/usage/studio',
+		docsUrl: 'https://docs.openpost.social/usage/',
 		next: { label: 'Open the free editors', href: '/tools' }
 	},
 	{
@@ -839,362 +979,15 @@ export const tools = [
 		slug: 'best-time-to-post-calculator',
 		name: 'Timezone posting planner',
 		description: 'Turn your timezone and weekly plan into posting times you can reuse.'
+	},
+	{
+		slug: 'utm-link-builder',
+		name: 'UTM link builder',
+		description: 'Add campaign tags to a link, then copy the finished URL.'
 	}
 ] as const;
 
-const comparisonDrafts = [
-	{
-		slug: 'buffer',
-		name: 'Buffer',
-		category: 'Established hosted scheduler',
-		bestFor:
-			'Creators and teams that want a polished hosted scheduler with analytics and tools for comments and replies.',
-		openPostAngle:
-			'Buffer is a well-known hosted scheduler. OpenPost adds self-hosting, access that you can limit to one workspace, and clear status for each account.',
-		verdict:
-			'Choose Buffer for its long-running hosted service, analytics, and community tools. Choose OpenPost for source access, self-hosting, or simpler control over each post.',
-		pricing:
-			'Buffer offers Free, Essentials, and Team plans and prices paid use by channel. OpenPost prices Hosted service plans by workspace, account, post, media, and seat limits.',
-		chooseOpenPost: [
-			'You want AI tools to use access that you can limit and remove instead of social account keys.',
-			'You want AGPL source code and a supported self-host option.',
-			'You want drafts, account versions, post status, and errors in one place.',
-			'You prefer workspace-based Hosted service plans to per-channel pricing.'
-		],
-		chooseThem: [
-			'You need mature analytics, ideas, and community engagement today.',
-			'You want a long-running hosted product with more support options.'
-		],
-		rows: [
-			{
-				area: 'Publishing',
-				openpost: 'Shared drafts, account versions, reusable media, schedules, and clear results.',
-				competitor: 'Planning, ideas, scheduling, and publishing in a mature hosted service.'
-			},
-			{
-				area: 'Analytics and engagement',
-				openpost:
-					'Platform analytics, comments, replies, and inboxes for supported accounts. No social listening or large-company benchmarks.',
-				competitor: 'Buffer includes analytics and tools for comments and replies.'
-			},
-			{
-				area: 'Automation',
-				openpost: 'HTTP API, CLI, MCP, and tokens that can be limited to one workspace.',
-				competitor:
-					'A public GraphQL API and MCP are available, including on the Free plan with plan limits.'
-			},
-			{
-				area: 'Hosting and source',
-				openpost: 'AGPL-3.0-only source, Hosted service, or self-hosted deployment.',
-				competitor: 'Hosted proprietary service.'
-			}
-		],
-		sources: [
-			{ label: 'Buffer pricing', href: 'https://buffer.com/pricing' },
-			{ label: 'Buffer API', href: 'https://buffer.com/api' },
-			{
-				label: 'Buffer MCP guide',
-				href: 'https://developers.buffer.com/guides/integrations/mcp.html'
-			}
-		],
-		reviewedAt: '2026-08-09'
-	},
-	{
-		slug: 'hootsuite',
-		name: 'Hootsuite',
-		category: 'Full social management suite',
-		bestFor:
-			'Organizations that need publishing, inbox, analytics, listening, governance, and enterprise services together.',
-		openPostAngle:
-			'OpenPost focuses on creating, scheduling, and checking posts. Hootsuite also covers social listening, ads, reports, and large-company controls.',
-		verdict:
-			'Choose Hootsuite if a large team needs social listening, reports, and strict company controls. Choose OpenPost if you mainly need publishing, comments, inboxes, and automation.',
-		pricing:
-			'Hootsuite sells Standard, Professional, and Advanced plans per user, plus custom Enterprise plans. OpenPost publishes fixed monthly Hosted service prices and explicit usage limits.',
-		chooseOpenPost: [
-			'You want to review account versions and results when an AI tool helps with a post.',
-			'Your main work is writing, adapting, scheduling, and checking posts.',
-			'You want open source, self-hosting, and a small service without Redis.',
-			'You do not need social listening, ad tools, or large-company controls.'
-		],
-		chooseThem: [
-			'You need a unified inbox, listening, competitive intelligence, and advanced reporting.',
-			'You need enterprise permissions, SSO, compliance integrations, or services.'
-		],
-		rows: [
-			{
-				area: 'Publishing',
-				openpost: 'A focused editor, account versions, posting times, media, and clear results.',
-				competitor:
-					'Unlimited scheduling on current plans, calendar, content library, bulk tools, and recommended times.'
-			},
-			{
-				area: 'Beyond publishing',
-				openpost:
-					'Saved comments, replies, alerts, and inboxes for supported accounts. No social listening or ad tools.',
-				competitor:
-					'Inbox, analytics, listening, ads, benchmarking, and AI insights are core parts of the suite.'
-			},
-			{
-				area: 'Automation',
-				openpost: 'HTTP API, CLI, MCP, and tokens limited to one workspace.',
-				competitor:
-					'Hootsuite now offers MCP connectors for publishing, inbox, and social listening.'
-			},
-			{
-				area: 'Hosting',
-				openpost: 'Hosted service or a small self-hosted service.',
-				competitor: 'Hosted service with large-company plans, support, and compliance options.'
-			}
-		],
-		sources: [
-			{ label: 'Hootsuite plans', href: 'https://www.hootsuite.com/plans' },
-			{
-				label: 'Hootsuite MCP connectors',
-				href: 'https://www.hootsuite.com/integrations/mcp'
-			}
-		],
-		reviewedAt: '2026-08-09'
-	},
-	{
-		slug: 'typefully',
-		name: 'Typefully',
-		category: 'Writing-first social workspace',
-		bestFor:
-			'Creators and teams that want polished writing, review, scheduling, and cross-platform publishing.',
-		openPostAngle:
-			'Typefully puts writing and review first. OpenPost adds self-hosting, account versions, and access that keeps social account keys away from AI tools.',
-		verdict:
-			'Choose Typefully for its polished writing and review tools. Choose OpenPost for self-hosting, public source code, or a small Go service.',
-		pricing:
-			'Typefully sells hosted creator and team plans. OpenPost sells Hosted service plans and also provides the complete server under AGPL-3.0-only.',
-		chooseOpenPost: [
-			'You want AI tools to use OpenPost access instead of your social account keys.',
-			'You require source access or want to run the publishing service yourself.',
-			'You want to see platform support, post status, errors, and file storage in the source.',
-			'You care more about posting control than a writing-first product.'
-		],
-		chooseThem: [
-			'Writing, editing, review, and teamwork matter most to you.',
-			'You want Typefully’s mature schedule, API v2, MCP, webhooks, and agent tools.'
-		],
-		rows: [
-			{
-				area: 'Platforms and account versions',
-				openpost: 'Different text and settings for each account, with clear platform setup needs.',
-				competitor:
-					'Cross-platform writing for its current networks, including newer formats such as Substack Notes and X Articles.'
-			},
-			{
-				area: 'Writing and review',
-				openpost: 'Focused composer with prompts, previews, formats, and media reuse.',
-				competitor:
-					'Writing, thread editing, review, sharing, scheduling, and teamwork are core strengths.'
-			},
-			{
-				area: 'Automation',
-				openpost: 'HTTP API, CLI, MCP, and tokens that can be limited to one workspace.',
-				competitor: 'Public API v2, MCP, webhooks, Zapier, and an agent skill.'
-			},
-			{
-				area: 'Hosting and source',
-				openpost: 'AGPL-licensed source plus Hosted service and self-hosted options.',
-				competitor: 'Hosted proprietary service.'
-			}
-		],
-		sources: [
-			{ label: 'Typefully pricing', href: 'https://typefully.com/pricing' },
-			{ label: 'Typefully API v2', href: 'https://typefully.com/docs/api' },
-			{
-				label: 'API, MCP, and webhooks release',
-				href: 'https://typefully.com/changelog/all-new-api-zapier-integration-mcp-and-126'
-			},
-			{
-				label: 'Typefully help center',
-				href: 'https://support.typefully.com/'
-			}
-		],
-		reviewedAt: '2026-08-09'
-	},
-	{
-		slug: 'postiz',
-		name: 'Postiz',
-		category: 'Broad open-source automation suite',
-		bestFor:
-			'Builders and teams that want many networks, AI generation, analytics, and deep automation.',
-		openPostAngle:
-			'Postiz covers more networks and AI tools. OpenPost is a smaller product for reviewing and publishing posts, built as one Go service with no required Redis server.',
-		verdict:
-			'Choose Postiz for more networks and built-in AI creation. Choose OpenPost for a simpler posting product, clear platform limits, and a smaller server.',
-		pricing:
-			'Both offer hosted and self-hosted options. Compare the current plan limits, prices, and server work for each one.',
-		chooseOpenPost: [
-			'You want to review what an AI tool made, check each account version, and see the result.',
-			'You want a focused editor, reusable media, and clear posting errors.',
-			'You prefer Go and SvelteKit, one service, and scheduled jobs without Redis.',
-			'You want setup and live-test needs listed for each network.'
-		],
-		chooseThem: [
-			'You need 30-plus integrations or channels beyond OpenPost’s current catalog.',
-			'You want built-in AI image/video generation, analytics, and agent distribution tooling.'
-		],
-		rows: [
-			{
-				area: 'Network breadth',
-				openpost: 'Ten social networks, with setup and live-test needs listed for each one.',
-				competitor: 'Postiz advertises 30-plus platforms and integrations.'
-			},
-			{
-				area: 'Automation',
-				openpost: 'HTTP API, CLI, MCP, and tokens limited to one workspace.',
-				competitor: 'REST API, CLI, MCP, and agent tools are built in.'
-			},
-			{
-				area: 'Product scope',
-				openpost: 'Publishing, workspaces, media, schedules, analytics, comments, and inboxes.',
-				competitor: 'Broader AI generation, analytics, and distribution suite.'
-			},
-			{
-				area: 'Self-hosting',
-				openpost: 'Single Go binary or container; SQLite by default; no Redis required.',
-				competitor: 'Open-source self-hosting and a hosted service with more required parts.'
-			}
-		],
-		sources: [
-			{ label: 'Postiz product', href: 'https://postiz.com/' },
-			{ label: 'Postiz pricing', href: 'https://postiz.com/pricing' },
-			{
-				label: 'Postiz public API',
-				href: 'https://docs.postiz.com/public-api'
-			},
-			{
-				label: 'Postiz source',
-				href: 'https://github.com/gitroomhq/postiz-app'
-			}
-		],
-		reviewedAt: '2026-08-09'
-	},
-	{
-		slug: 'post-bridge',
-		name: 'Post Bridge',
-		category: 'Straightforward hosted cross-poster',
-		bestFor:
-			'Creators and small teams that want simple hosted cross-platform scheduling and account-specific content overrides.',
-		openPostAngle:
-			'Post Bridge is a simple hosted cross-poster. OpenPost adds self-hosting, account-by-account review, and clear posting status.',
-		verdict:
-			'Choose Post Bridge for simple hosted scheduling. Choose OpenPost for source access, self-hosting, reply threads, or clearer post results.',
-		pricing:
-			'Post Bridge requires a paid plan and lists API access as a $5 monthly add-on. OpenPost includes API, CLI, and MCP access on every Hosted service plan.',
-		chooseOpenPost: [
-			'You want AI and script access that you can remove without sharing social account keys.',
-			'You want public AGPL source code and a self-host option.',
-			'You need X or Threads reply-thread scheduling.',
-			'You want CLI and MCP paths in addition to HTTP API access.'
-		],
-		chooseThem: [
-			'You want a hosted cross-poster with a wide current platform list and minimal setup.',
-			'You are comfortable with its separate API add-on and do not need self-hosting.'
-		],
-		rows: [
-			{
-				area: 'Publishing',
-				openpost: 'Shared content, account versions, formats, posting times, and reply threads.',
-				competitor:
-					'Cross-platform scheduling with platform- and account-specific content overrides.'
-			},
-			{
-				area: 'Scheduling horizon',
-				openpost: 'Schedule at any future time or use saved weekly posting times.',
-				competitor: 'Official help documents scheduling up to two months ahead.'
-			},
-			{
-				area: 'Automation',
-				openpost: 'HTTP API, CLI, and MCP are included.',
-				competitor:
-					'Public HTTP API is available as a paid add-on; current docs show posting, media, accounts, results, and some analytics.'
-			},
-			{
-				area: 'Threads and hosting',
-				openpost: 'Reply threads on supported networks; Hosted service or self-hosted.',
-				competitor:
-					'Official help says X and Threads thread scheduling is not currently supported; hosted service only.'
-			}
-		],
-		sources: [
-			{
-				label: 'Post Bridge API overview',
-				href: 'https://support.post-bridge.com/api/post-bridge-api-overview-access-and-pricing'
-			},
-			{
-				label: 'Post Bridge API reference',
-				href: 'https://api.post-bridge.com/reference'
-			},
-			{
-				label: 'Thread scheduling limits',
-				href: 'https://support.post-bridge.com/social-media-scheduling/thread-scheduling-on-x-twitter-and-instagram-threads-current-limitations'
-			}
-		],
-		reviewedAt: '2026-08-09'
-	},
-	{
-		slug: 'mixpost',
-		name: 'Mixpost',
-		category: 'Self-host-first social suite',
-		bestFor:
-			'Laravel teams that want a larger self-hosted product, one-time paid editions, analytics, and unlimited team access.',
-		openPostAngle:
-			'Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a Hosted service, one Go binary, and no required Redis server.',
-		verdict:
-			'Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a Hosted service, a smaller server, and one open-source edition.',
-		pricing:
-			'Mixpost offers a free Lite edition and one-time Pro and Enterprise licences. OpenPost offers the full AGPL server at no software charge plus monthly Hosted service plans.',
-		chooseOpenPost: [
-			'You want AI access, account review, and post results in one focused product.',
-			'You want to start with the hosted app while keeping a self-host option.',
-			'You prefer Go/SvelteKit and one binary or container without Redis.',
-			'You want one AGPL-licensed codebase rather than separate product editions.'
-		],
-		chooseThem: [
-			'You run Laravel/PHP and want a self-host-first social management product.',
-			'You need Mixpost Pro’s analytics, approval, API, MCP, webhooks, or broader suite features.'
-		],
-		rows: [
-			{
-				area: 'Product model',
-				openpost: 'One AGPL edition, available as a Hosted service or self-hosted server.',
-				competitor: 'Free open-source Lite plus one-time paid Pro and Enterprise editions.'
-			},
-			{
-				area: 'Publishing suite',
-				openpost: 'Focused editor, account versions, media, schedules, and post results.',
-				competitor:
-					'Broader self-hosted suite with analytics, approval, AI features, and unlimited team members in paid editions.'
-			},
-			{
-				area: 'Automation',
-				openpost: 'HTTP API, CLI, MCP, and tokens limited to one workspace.',
-				competitor:
-					'Mixpost’s current pricing page lists API, MCP, and webhooks for its paid product.'
-			},
-			{
-				area: 'Runtime',
-				openpost: 'Go/SvelteKit, SQLite by default, one binary or container, no Redis required.',
-				competitor: 'A Laravel and PHP server for teams that already use those tools.'
-			}
-		],
-		sources: [
-			{
-				label: 'Mixpost pricing and editions',
-				href: 'https://mixpost.app/pricing'
-			},
-			{ label: 'Mixpost source', href: 'https://github.com/inovector/mixpost' }
-		],
-		reviewedAt: '2026-08-09'
-	}
-] as const;
-
-export const comparisons = comparisonDrafts.map(attachComparisonEvidence);
+export type MarketingToolSlug = (typeof tools)[number]['slug'];
 
 export const faqs = [
 	{
@@ -1294,10 +1087,6 @@ export const faqCategories = [
 
 export function getPlatform(slug: string) {
 	return platforms.find((platform) => platform.slug === slug);
-}
-
-export function getComparison(slug: string) {
-	return comparisons.find((comparison) => comparison.slug === slug);
 }
 
 export function getTool(slug: string) {

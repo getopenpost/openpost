@@ -6,7 +6,14 @@ const tinyPNG = Buffer.from(
   "base64",
 );
 
-const coreRoutes = ["/activity", "/accounts", "/media", "/prompts", "/settings", "/calendar"];
+const coreRoutes = [
+  "/publications",
+  "/settings?tab=accounts",
+  "/media",
+  "/prompts",
+  "/settings",
+  "/calendar",
+];
 const viewports = [
   { name: "compact phone portrait", width: 320, height: 568 },
   { name: "phone portrait", width: 390, height: 844 },
@@ -19,13 +26,13 @@ const portuguesePortraitRoutes = [
     viewport: { width: 320, height: 568 },
     routes: [
       {
-        path: "/activity",
+        path: "/publications",
         heading: "Publicações",
         action: "Atualizar",
         actionRole: "button",
       },
       {
-        path: "/accounts",
+        path: "/settings?tab=accounts",
         heading: "Contas sociais",
         action: "Criar publicação",
         actionRole: "link",
@@ -49,7 +56,6 @@ const portuguesePortraitRoutes = [
       },
       {
         path: "/calendar",
-        supportingHeading: "Calendário de publicação",
         action: "Hoje",
         actionRole: "button",
       },
@@ -170,7 +176,7 @@ for (const viewport of viewports) {
           }
         }
 
-        if (route === "/accounts") {
+        if (route === "/settings?tab=accounts") {
           const settingsNavigation = page.getByTestId("settings-navigation");
           await expect(settingsNavigation).toBeVisible();
           if (viewport.width < 768) {
@@ -273,8 +279,6 @@ test("Portuguese page chrome stays readable across compact portrait widths", asy
 
         if ("heading" in route) {
           await expect(page.getByRole("heading", { level: 1, name: route.heading })).toBeVisible();
-        } else {
-          await expect(page.getByText(route.supportingHeading)).toBeVisible();
         }
         await expect(
           page.getByRole(route.actionRole, { name: route.action }).first(),
@@ -427,7 +431,7 @@ test("core routes use one bounded content-shaped loading state", async ({
     await delay();
     await route.continue();
   });
-  await page.goto("/activity");
+  await page.goto("/publications");
   await expect(page.getByTestId("page-loading")).toHaveAttribute("data-layout", "list");
   await expect(page.getByTestId("page-loading")).toHaveCount(1);
   await expect(page.getByTestId("page-loading")).toHaveCount(0, {

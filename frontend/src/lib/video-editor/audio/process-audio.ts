@@ -1,4 +1,11 @@
 import { applyAudioEqStages } from './audio-eq';
+import { applyAudioEffectStages } from './audio-effects';
+import type { AudioEffect } from './audio-effects';
+import {
+	applyNoiseReduction,
+	applyNoiseReductionSync,
+	type ResolvedAudioNoiseReductionSettings
+} from './audio-noise-reduction';
 import { getAudioPitchRatioFromSemitones, isAudioPitchShiftActive } from './audio-pitch';
 import type { ResolvedAudioEqSettings } from './types';
 
@@ -7,11 +14,17 @@ export interface AudioProcessOptions {
 	pitchShiftSemitones: number;
 	sampleRate: number;
 	eqStages?: ReadonlyArray<ResolvedAudioEqSettings>;
+	audioEffects?: AudioEffect[];
+	noiseReduction?: ResolvedAudioNoiseReductionSettings;
+	signal?: AbortSignal;
 }
 
 /**
- * Apply clip tempo, independent pitch, then EQ to all channels as one stereo
- * SoundTouch stream. Sharing the overlap search keeps left and right in phase.
+ * Clip stage order: noise reduction -> retime (tempo/pitch) -> clip EQ/effects.
+ * Track/bus EQ and sidechain duck gain run after this in the mixer.
+ * Rebase seam: this branch predates the integrated audio rack/ducking work;
+ * keep both clip noiseReduction and ducking fields and preserve the order above.
+ * Sharing the overlap search keeps left and right in phase.
  */
 export async function processAudioChannels(
 	channels: Float32Array[],
@@ -19,18 +32,39 @@ export async function processAudioChannels(
 ): Promise<Float32Array[]> {
 	const speed = Number.isFinite(options.speed) && options.speed > 0 ? options.speed : 1;
 	let processed = channels;
+	// Noise reduction before time-stretch preserves temporal characteristics.
+	if (options.noiseReduction) {
+		const total = processed[0]?.length ?? 0;
+		// Use cooperative async for long clips to keep UI responsive; sync fallback for short
+		if (total > 48000 * 60 * 2) {
+			processed = await applyNoiseReduction(
+				processed,
+				options.sampleRate,
+				options.noiseReduction,
+				options.signal
+			);
+		} else {
+			processed = applyNoiseReductionSync(
+				processed,
+				options.sampleRate,
+				options.noiseReduction,
+				options.signal
+			);
+		}
+	}
 	if (
-		channels.length > 0 &&
-		(channels[0]?.length ?? 0) > 0 &&
+		processed.length > 0 &&
+		(processed[0]?.length ?? 0) > 0 &&
 		(Math.abs(speed - 1) > 0.0001 || isAudioPitchShiftActive(options.pitchShiftSemitones))
 	) {
 		processed = await timeStretchChannels(
-			channels,
+			processed,
 			speed,
 			getAudioPitchRatioFromSemitones(options.pitchShiftSemitones)
 		);
 	}
-	return applyAudioEqStages(processed, options.sampleRate, options.eqStages);
+	const eqProcessed = applyAudioEqStages(processed, options.sampleRate, options.eqStages);
+	return applyAudioEffectStages(eqProcessed, options.sampleRate, options.audioEffects);
 }
 
 async function timeStretchChannels(
@@ -148,11 +182,10 @@ export class StreamingTimeStretch {
 
 	private constructor(
 		private readonly source: StreamingStereoSource,
-		private readonly filter: {
-			extract(target: Float32Array, numFrames: number): number;
-		},
+		private readonly filter: { extract(target: Float32Array, numFrames: number): number },
+		private readonly processor: { tempo: number },
 		private readonly channelCount: number,
-		private readonly tempo: number
+		private tempo: number
 	) {}
 
 	static async create(
@@ -169,12 +202,23 @@ export class StreamingTimeStretch {
 		return new StreamingTimeStretch(
 			source,
 			new TimeStretchFilter(source, processor),
+			processor,
 			Math.max(1, channelCount),
 			tempo
 		);
 	}
 
-	process(channels: Float32Array[], isLast = false): Float32Array[] {
+	setTempo(tempo: number): void {
+		if (!Number.isFinite(tempo) || tempo <= 0) return;
+		this.tempo = tempo;
+		this.processor.tempo = tempo;
+	}
+
+	process(
+		channels: Float32Array[],
+		isLast = false,
+		expectedTotalOutputFrames?: number
+	): Float32Array[] {
 		if (this.finished) throw new Error('Cannot append audio after the time-stretch stream ended');
 		this.totalInputFrames += this.source.push(channels);
 		if (isLast) {
@@ -182,7 +226,7 @@ export class StreamingTimeStretch {
 			this.finished = true;
 		}
 		const expectedTotal = isLast
-			? Math.max(0, Math.floor(this.totalInputFrames / this.tempo))
+			? Math.max(0, expectedTotalOutputFrames ?? Math.floor(this.totalInputFrames / this.tempo))
 			: Number.POSITIVE_INFINITY;
 		const parts: Float32Array[][] = Array.from({ length: this.channelCount }, () => []);
 		let produced = 0;

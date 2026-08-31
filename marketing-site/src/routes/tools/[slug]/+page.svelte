@@ -9,6 +9,7 @@
 	import ImageEditorLauncher from '../../_components/tools/ImageEditorLauncher.svelte';
 	import ThreadSplitter from '../../_components/tools/ThreadSplitter.svelte';
 	import ToolPageShell from '../../_components/tools/ToolPageShell.svelte';
+	import UtmLinkBuilder from '../../_components/tools/UtmLinkBuilder.svelte';
 	import VideoEditorLauncher from '../../_components/tools/VideoEditorLauncher.svelte';
 	import { getTool } from '../../_marketing';
 
@@ -33,7 +34,7 @@
 				'Each destination still applies its own codec, duration, file-size, and aspect-ratio rules.'
 			],
 			privacyBehavior:
-				'Projects, recordings, transcripts, and analysis stay in this browser unless you explicitly save them to OpenPost or use them in a post.',
+				'Projects, collected media, recordings, transcripts, analysis, queues, and exports stay in the disk workspace you choose. Only a finished file you send crosses into OpenPost Media.',
 			nextStep:
 				'This page describes the editor. Open the guest editor to work without an account, then save the result to OpenPost only if you want to schedule it.'
 		},
@@ -190,6 +191,24 @@
 				'Schedule choices and timezone conversion stay in this browser. Nothing is uploaded.',
 			nextStep:
 				'Test the plan, then add the chosen times to OpenPost posting schedules or schedule each Publication directly.'
+		},
+		'utm-link-builder': {
+			heading: 'Build a trackable campaign link',
+			description:
+				'Add UTM tags to a link, then copy a clean URL for your social post. Existing query details and the page anchor stay in place.',
+			audience: 'Anyone sharing a campaign link and checking the result in site analytics.',
+			inputs: [
+				'A full page link',
+				'Source, medium, and campaign names, with optional term and content tags'
+			],
+			outputs: ['One link with standard UTM campaign tags, ready to copy'],
+			limits: [
+				'The tags only appear in analytics when the destination site records them.',
+				'The tool does not shorten the link or test the destination page.'
+			],
+			privacyBehavior: 'The link and campaign tags stay in this browser. Nothing is uploaded.',
+			nextStep:
+				'Paste the finished link into your post, then preview or schedule that post in OpenPost.'
 		}
 	} satisfies Record<
 		string,
@@ -246,5 +265,7 @@
 		<LinkedInFormatter />
 	{:else if slug === 'best-time-to-post-calculator'}
 		<PostingPlanner />
+	{:else if slug === 'utm-link-builder'}
+		<UtmLinkBuilder />
 	{/if}
 </ToolPageShell>

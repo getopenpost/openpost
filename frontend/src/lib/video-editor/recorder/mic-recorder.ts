@@ -44,12 +44,13 @@ export function micRecordingExtension(mimeType: string): string {
 }
 
 export function microphoneConstraints(options: MicRecorderOptions): MediaTrackConstraints {
-	return {
-		deviceId: options.deviceId ? { exact: options.deviceId } : undefined,
+	const constraints: MediaTrackConstraints = {
 		echoCancellation: true,
 		noiseSuppression: options.noiseSuppression ?? true,
 		autoGainControl: options.autoGainControl ?? false
 	};
+	if (options.deviceId) constraints.deviceId = { exact: options.deviceId };
+	return constraints;
 }
 
 export async function enumerateMicrophones(): Promise<MediaDeviceInfo[]> {
@@ -75,7 +76,10 @@ export function createBestEffortAudioContext(): AudioContext | null {
 	}
 }
 
-function startLevelMeter(stream: MediaStream, onLevel?: (level: number) => void): () => void {
+export function startMicLevelMeter(
+	stream: MediaStream,
+	onLevel?: (level: number) => void
+): () => void {
 	if (!onLevel) return () => undefined;
 	const context = createBestEffortAudioContext();
 	if (!context) {
@@ -122,7 +126,7 @@ export async function startMicLevelMonitor(options: MicRecorderOptions): Promise
 		audio: microphoneConstraints(options),
 		video: false
 	});
-	const stopMeter = startLevelMeter(stream, options.onLevel);
+	const stopMeter = startMicLevelMeter(stream, options.onLevel);
 	let stopped = false;
 	return {
 		stop(): void {
@@ -158,7 +162,7 @@ export class MicRecorder {
 		});
 		this.stream = stream;
 		try {
-			this.stopMeter = startLevelMeter(stream, options.onLevel);
+			this.stopMeter = startMicLevelMeter(stream, options.onLevel);
 			this.mimeType = pickMicRecorderMimeType();
 			const recorder = new MediaRecorder(
 				stream,

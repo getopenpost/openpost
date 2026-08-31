@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -26,6 +27,14 @@ type JobResponse struct {
 	LockedAt      string `json:"locked_at,omitempty" doc:"When job was locked"`
 	CreatedAt     string `json:"created_at" doc:"Creation time"`
 	PublicationID string `json:"publication_id,omitempty" doc:"Publication associated with this job, when available"`
+}
+
+type GetJobInput struct {
+	ID string `path:"id" doc:"Job ID"`
+}
+
+type GetJobOutput struct {
+	Body JobResponse
 }
 
 type ListJobsInput struct {
@@ -66,6 +75,44 @@ func (h *JobHandler) RegisterRoutes(api huma.API) {
 		Tags:        []string{"Jobs"},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
 	}, h.listJobs)
+	huma.Register(api, huma.Operation{
+		OperationID: "get-job",
+		Method:      http.MethodGet,
+		Path:        "/jobs/{id}",
+		Summary:     "Get a background job",
+		Tags:        []string{"Jobs"},
+		Errors:      []int{http.StatusNotFound, http.StatusForbidden},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+	}, h.getJob)
+}
+
+func (h *JobHandler) getJob(ctx context.Context, input *GetJobInput) (*GetJobOutput, error) {
+	job, workspaceID, err := h.getWorkspaceScopedJob(ctx, strings.TrimSpace(input.ID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, huma.Error404NotFound("job not found")
+	}
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to fetch job")
+	}
+	if workspaceID == "" {
+		return nil, huma.Error404NotFound("job not found")
+	}
+	userID := middleware.GetUserID(ctx)
+	allowed, err := workspaceReadAllowed(ctx, h.db, workspaceID, userID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to check workspace access")
+	}
+	if !allowed {
+		return nil, huma.Error403Forbidden("workspace not accessible")
+	}
+	isAdmin, err := h.isInstanceAdmin(ctx, userID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("failed to load user")
+	}
+	responses := jobResponses([]models.Job{job}, isBrowserSessionInstanceAdmin(ctx, isAdmin))
+	out := &GetJobOutput{}
+	out.Body = responses[0]
+	return out, nil
 }
 
 func (h *JobHandler) listJobs(ctx context.Context, input *ListJobsInput) (*ListJobsOutput, error) {
@@ -219,6 +266,28 @@ func jobPublicationID(job models.Job) string {
 	return strings.TrimSpace(subject.PublicationID)
 }
 
+func (h *JobHandler) getWorkspaceScopedJob(ctx context.Context, jobID string) (models.Job, string, error) {
+	var job models.Job
+	if err := h.db.NewSelect().Model(&job).Where("id = ?", jobID).Scan(ctx); err != nil {
+		return models.Job{}, "", err
+	}
+
+	var workspaceID string
+	publicationScopeExpr := "COALESCE(NULLIF(TRIM(job.scope_id), ''), " +
+		safeJobPayloadTextExpr(h.db, "publication_id") + ")"
+	err := h.db.NewSelect().
+		TableExpr("jobs AS job").
+		ColumnExpr("COALESCE(publication.workspace_id, sa.workspace_id, '')").
+		Join("LEFT JOIN publications AS publication ON job.type IN (?, ?) AND publication.id = "+publicationScopeExpr, jobTypePublishPublication, jobTypePublishPost).
+		Join("LEFT JOIN social_accounts AS sa ON sa.id = "+safeJobPayloadTextExpr(h.db, "account_id")).
+		Where("job.id = ?", jobID).
+		Scan(ctx, &workspaceID)
+	if err != nil {
+		return models.Job{}, "", err
+	}
+	return job, strings.TrimSpace(workspaceID), nil
+}
+
 func (h *JobHandler) listJobsQuery(
 	model interface{},
 	input *ListJobsInput,
@@ -228,12 +297,12 @@ func (h *JobHandler) listJobsQuery(
 	runBefore time.Time,
 ) *bun.SelectQuery {
 	publicationScopeExpr := "COALESCE(NULLIF(TRIM(job.scope_id), ''), " +
-		safeAliasedJobPayloadTextExpr(h.db, "job", "publication_id") + ")"
+		safeJobPayloadTextExpr(h.db, "publication_id") + ")"
 	query := h.db.NewSelect().
 		Model(model).
 		ModelTableExpr("jobs AS job").
 		Join("LEFT JOIN publications AS publication ON job.type IN (?, ?) AND publication.id = "+publicationScopeExpr, jobTypePublishPublication, jobTypePublishPost).
-		Join("LEFT JOIN social_accounts AS sa ON sa.id = " + safeAliasedJobPayloadTextExpr(h.db, "job", "account_id"))
+		Join("LEFT JOIN social_accounts AS sa ON sa.id = " + safeJobPayloadTextExpr(h.db, "account_id"))
 
 	if input.Status != "" {
 		query = query.Where("job.status = ?", input.Status)

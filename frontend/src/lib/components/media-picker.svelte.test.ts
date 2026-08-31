@@ -3,6 +3,7 @@ import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { ImageEditorMediaItem } from '$lib/image-editor/types';
 import type { MemeTemplate, MemeTemplateListResult } from '$lib/meme-generator/types';
+import { m } from '$lib/paraglide/messages';
 import MediaPicker from './media-picker.svelte';
 
 const mocks = {
@@ -96,7 +97,26 @@ function templateResult(configured = true): MemeTemplateListResult {
 	};
 }
 
-function renderPicker(enableMeme: boolean) {
+function renderPicker(
+	enableMeme: boolean,
+	compactNavigation = false,
+	memeSeed: {
+		initialMode?: 'library' | 'meme';
+		memeInitialIdea?: string;
+		memeInitialCandidate?: {
+			template_id: string;
+			caption_lines: string[];
+			rationale: string;
+			alt_text: string;
+			template: MemeTemplate;
+		};
+		memeInitialPreview?: string;
+	} = {},
+	onConfirm: (
+		mediaIDs: string[],
+		media: ImageEditorMediaItem[]
+	) => void | boolean | Promise<void | boolean> = vi.fn()
+) {
 	return render(MediaPicker, {
 		props: {
 			open: true,
@@ -106,8 +126,10 @@ function renderPicker(enableMeme: boolean) {
 			multiple: true,
 			showCreate: false,
 			enableMeme,
+			compactNavigation,
+			...memeSeed,
 			services,
-			onConfirm: vi.fn()
+			onConfirm
 		}
 	});
 }
@@ -176,6 +198,23 @@ describe('MediaPicker meme source', () => {
 		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
 	});
 
+	it('keeps the picker open when the caller rejects a selection', async () => {
+		mocks.listMedia.mockResolvedValue([overlayMedia]);
+		const onConfirm = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+		const screen = await renderPicker(false, false, {}, onConfirm);
+
+		await screen.getByRole('button', { name: 'Select Team photo.png' }).click();
+		await screen.getByRole('button', { name: m.media_picker_add_media() }).click();
+
+		await expect.element(screen.getByRole('dialog')).toBeVisible();
+		await expect.element(screen.getByRole('alert')).toHaveTextContent(m.media_picker_add_failed());
+		expect(onConfirm).toHaveBeenCalledTimes(1);
+
+		await screen.getByRole('button', { name: m.media_picker_add_media() }).click();
+		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
+		expect(onConfirm).toHaveBeenCalledTimes(2);
+	});
+
 	it('keeps Meme hidden when the renderer is not configured', async () => {
 		mocks.listTemplates.mockResolvedValue(templateResult(false));
 		const screen = await renderPicker(true);
@@ -214,6 +253,31 @@ describe('MediaPicker meme source', () => {
 		}
 	});
 
+	it('opens a seeded meme recommendation after the availability check', async () => {
+		const initialCandidate = {
+			template_id: template.id,
+			caption_lines: ['The plan', 'What production did'],
+			rationale: 'The contrast carries the joke.',
+			alt_text: 'Futurama Fry meme. Text: The plan; What production did.',
+			template
+		};
+		const screen = await renderPicker(true, false, {
+			initialMode: 'meme',
+			memeInitialIdea: 'A release that ignored the plan',
+			memeInitialCandidate: initialCandidate,
+			memeInitialPreview: `data:image/svg+xml;base64,${svgBase64('The plan / What production did')}`
+		});
+
+		await expect
+			.element(screen.getByRole('tab', { name: m.media_picker_meme() }))
+			.toHaveAttribute('aria-selected', 'true');
+		await expect
+			.element(screen.getByLabelText(m.meme_generator_caption_label({ number: 1 })))
+			.toHaveValue('The plan');
+		expect(mocks.suggest).not.toHaveBeenCalled();
+		expect(mocks.preview).not.toHaveBeenCalled();
+	});
+
 	it('uses the desktop viewport for a full Meme workbench', async () => {
 		await page.viewport(1280, 900);
 		const screen = await renderPicker(true);
@@ -226,11 +290,22 @@ describe('MediaPicker meme source', () => {
 		const dialogBox = dialog.getBoundingClientRect();
 		const generatorBox = generator.getBoundingClientRect();
 
-		expect(dialog.className).toContain('meme-picker-workbench');
-		expect(dialog.className).toContain('sm:max-w-[90rem]');
 		expect(dialogBox.width).toBeGreaterThanOrEqual(1100);
 		expect(dialogBox.height).toBeGreaterThanOrEqual(800);
 		expect(generatorBox.height).toBeGreaterThanOrEqual(700);
+		await screen.getByRole('button', { name: 'Close' }).click();
+		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
+	});
+
+	it('expands compact source navigation when the dialog has desktop space', async () => {
+		await page.viewport(1280, 900);
+		const screen = await renderPicker(true, true);
+
+		await expect.element(screen.getByRole('tab', { name: 'Stock media' })).toBeVisible();
+		await expect.element(screen.getByRole('tab', { name: 'Meme' })).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'More' })).not.toBeInTheDocument();
+		await screen.getByRole('button', { name: 'Close' }).click();
+		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
 	});
 
 	it('keeps a degraded Meme path usable and recovers an overlay picker at 320px', async () => {

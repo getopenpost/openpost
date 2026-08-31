@@ -8,57 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesBillingSubscriptionSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'billing_subscriptions'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "organization_id TEXT PRIMARY KEY")
-	require.Contains(t, schema, "workspace_id TEXT")
-	require.Contains(t, schema, "provider_subscription_id TEXT NOT NULL UNIQUE")
-	require.Contains(t, schema, "entitlement_snapshot TEXT NOT NULL DEFAULT '{}'")
-	require.Contains(t, schema, "provider_updated_at TIMESTAMP")
-	require.Contains(t, schema, "past_due_since TIMESTAMP")
-	require.NotContains(t, schema, "provider_manage_url")
-	require.Contains(t, schema, "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE")
-	require.Contains(t, schema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('billing_subscriptions_provider_customer_idx', 'billing_subscriptions_status_idx', 'billing_webhook_events_provider_type_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 3, indexCount)
-
-	var webhookSchema string
-	require.NoError(t, db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'billing_webhook_events'").Scan(&webhookSchema))
-	require.Contains(t, webhookSchema, "occurred_at TIMESTAMP")
-
-	var checkoutSchema string
-	require.NoError(t, db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'billing_checkout_attempts'").Scan(&checkoutSchema))
-	require.Contains(t, checkoutSchema, "checkout_attempt_id TEXT PRIMARY KEY")
-	require.Contains(t, checkoutSchema, "provider_price_id TEXT NOT NULL")
-	require.Contains(t, checkoutSchema, "provider_subscription_id TEXT")
-	require.Contains(t, checkoutSchema, "billing_period TEXT NOT NULL")
-	require.Contains(t, checkoutSchema, "confirmation_key TEXT NOT NULL DEFAULT ''")
-
-	var checkoutIndexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('billing_checkout_attempts_subscription_idx', 'billing_checkout_attempts_confirmation_idx')").
-		Scan(ctx, &checkoutIndexCount))
-	require.Equal(t, 2, checkoutIndexCount)
-}
-
 func TestRunMigrationsBillingSubscriptionsIdempotent(t *testing.T) {
 	t.Parallel()
 

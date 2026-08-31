@@ -2,9 +2,11 @@
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
+	import { MediaQuery } from 'svelte/reactivity';
 	import { untrack } from 'svelte';
 	import { fade } from 'svelte/transition';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
@@ -23,7 +25,8 @@
 	import type {
 		MemeGeneratorAPI,
 		MemeOverlaySelection,
-		MemeRenderResult
+		MemeRenderResult,
+		MemeSuggestionCandidate
 	} from '$lib/meme-generator/types';
 	import SearchIcon from '@lucide/svelte/icons/search';
 	import UploadIcon from '@lucide/svelte/icons/upload';
@@ -36,6 +39,7 @@
 	import LaughIcon from '@lucide/svelte/icons/laugh';
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
+	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
 	import { m } from '$lib/paraglide/messages';
 	import type { VideoConstraint } from '$lib/video/types';
 
@@ -50,10 +54,14 @@
 		title = m.media_picker_add_media(),
 		purpose = 'media_library',
 		showCreate = true,
+		compactNavigation = false,
 		enableMeme = false,
 		desktopSize = 'default',
 		presentation = 'dialog',
 		initialMode = 'library',
+		memeInitialIdea = '',
+		memeInitialCandidate,
+		memeInitialPreview = '',
 		initialFiles = [],
 		autoConfirmUploads = false,
 		videoConstraints = [],
@@ -78,14 +86,21 @@
 		title?: string;
 		purpose?: string;
 		showCreate?: boolean;
+		compactNavigation?: boolean;
 		enableMeme?: boolean;
 		desktopSize?: 'default' | 'compact';
 		presentation?: 'dialog' | 'sheet';
 		initialMode?: 'library' | 'upload' | 'stock' | 'meme';
+		memeInitialIdea?: string;
+		memeInitialCandidate?: MemeSuggestionCandidate;
+		memeInitialPreview?: string;
 		initialFiles?: File[];
 		autoConfirmUploads?: boolean;
 		videoConstraints?: VideoConstraint[];
-		onConfirm: (mediaIDs: string[], media: ImageEditorMediaItem[]) => void | Promise<void>;
+		onConfirm: (
+			mediaIDs: string[],
+			media: ImageEditorMediaItem[]
+		) => void | boolean | Promise<void | boolean>;
 		onInitialFilesConsumed?: () => void;
 		onCreate?: () => void | Promise<void>;
 		onCreateVideo?: (media?: MediaPickerVideoSelection) => void | Promise<void>;
@@ -105,6 +120,7 @@
 	let error = $state('');
 	let loadedForWorkspace = $state('');
 	let pickerMode = $state<'library' | 'device' | 'camera' | 'stock' | 'meme'>('library');
+	let pendingInitialMeme = $state(false);
 	let overlayPickerOpen = $state(false);
 	let overlayPickerLoading = $state(false);
 	let overlayPickerError = $state('');
@@ -128,6 +144,8 @@
 	const canUseMeme = $derived(
 		canProbeMeme && (memeAvailability === 'available' || memeAvailability === 'degraded')
 	);
+	const desktopNavigation = new MediaQuery('min-width: 64rem');
+	const useCompactNavigation = $derived(compactNavigation && !desktopNavigation.current);
 	const filteredOverlayMedia = $derived.by(() => {
 		const query = overlaySearch.trim().toLocaleLowerCase();
 		if (!query) return overlayMedia;
@@ -171,7 +189,8 @@
 			error = '';
 			const requestedMode =
 				initialFiles.length > 0 ? 'device' : initialMode === 'upload' ? 'device' : initialMode;
-			pickerMode = requestedMode === 'meme' && !canUseMeme ? 'library' : requestedMode;
+			pendingInitialMeme = requestedMode === 'meme' && !canUseMeme;
+			pickerMode = pendingInitialMeme ? 'library' : requestedMode;
 			if (loadedForWorkspace !== workspaceId) {
 				selectedTagIDs = [];
 				showUntagged = false;
@@ -189,13 +208,21 @@
 			return;
 		}
 		cancelMemeAvailabilityProbe();
+		pendingInitialMeme = false;
 		if (resolveOverlaySelection) settleOverlayPicker(null);
+	}
+
+	function selectPickerMode(nextMode: typeof pickerMode): void {
+		pendingInitialMeme = false;
+		pickerMode = nextMode;
+		if (nextMode === 'library') void loadMedia();
 	}
 
 	async function probeMemeAvailability(): Promise<void> {
 		cancelMemeAvailabilityProbe();
 		if (!canProbeMeme || !workspaceId) {
 			memeAvailability = 'unavailable';
+			pendingInitialMeme = false;
 			if (pickerMode === 'meme') pickerMode = 'library';
 			return;
 		}
@@ -213,10 +240,14 @@
 			});
 			if (controller.signal.aborted || memeAvailabilityController !== controller) return;
 			memeAvailability = result.configured ? 'available' : 'unavailable';
+			if (result.configured && pendingInitialMeme) pickerMode = 'meme';
+			pendingInitialMeme = false;
 			if (!result.configured && pickerMode === 'meme') pickerMode = 'library';
 		} catch {
 			if (controller.signal.aborted || memeAvailabilityController !== controller) return;
 			memeAvailability = 'degraded';
+			if (pendingInitialMeme) pickerMode = 'meme';
+			pendingInitialMeme = false;
 		} finally {
 			if (memeAvailabilityController === controller) memeAvailabilityController = undefined;
 		}
@@ -330,12 +361,16 @@
 		actionLoading = true;
 		error = '';
 		try {
-			await onConfirm(
+			const confirmed = await onConfirm(
 				selectedIDs,
 				selectedIDs
 					.map((id) => media.find((item) => item.id === id))
 					.filter((item): item is ImageEditorMediaItem => Boolean(item))
 			);
+			if (confirmed === false) {
+				error = m.media_picker_add_failed();
+				return;
+			}
 			open = false;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : m.media_picker_add_failed();
@@ -353,12 +388,16 @@
 		if (!autoConfirmUploads) {
 			return;
 		}
-		await onConfirm(
+		const confirmed = await onConfirm(
 			selectedIDs,
 			selectedIDs
 				.map((id) => media.find((item) => item.id === id))
 				.filter((item): item is ImageEditorMediaItem => Boolean(item))
 		);
+		if (confirmed === false) {
+			error = m.media_picker_add_failed();
+			return;
+		}
 		open = false;
 		return;
 	}
@@ -395,18 +434,24 @@
 		};
 	}
 
-	async function handleMemeAttached(result: MemeRenderResult): Promise<void> {
+	async function handleMemeAttached(result: MemeRenderResult): Promise<boolean> {
 		const generated = memeMediaItem(result.media);
+		if (multiple && selectedIDs.length >= maxSelection && !selectedIDs.includes(generated.id)) {
+			error = m.media_picker_selection_limit({ maximum: maxSelection });
+			return false;
+		}
 		const nextIDs = multiple
 			? [...new Set([...selectedIDs, generated.id])].slice(0, maxSelection)
 			: [generated.id];
 		const selectedMedia = nextIDs
 			.map((id) => (id === generated.id ? generated : media.find((item) => item.id === id)))
 			.filter((item): item is ImageEditorMediaItem => Boolean(item));
-		await onConfirm(nextIDs, selectedMedia);
+		const confirmed = await onConfirm(nextIDs, selectedMedia);
+		if (confirmed === false) return false;
 		selectedIDs = nextIDs;
 		open = false;
 		void Promise.all([loadMedia(), loadTags()]);
+		return true;
 	}
 
 	async function pickMemeOverlay(
@@ -530,79 +575,79 @@
 
 {#snippet pickerBody()}
 	<div
-		class="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/10 px-3 py-2 sm:px-4"
-		role="tablist"
+		class="flex shrink-0 items-center gap-1 border-b bg-muted/10 px-3 py-2 sm:px-4"
 		aria-label={m.media_source()}
 	>
-		<Button
-			variant={pickerMode === 'library' ? 'secondary' : 'ghost'}
-			size="sm"
-			class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-			role="tab"
-			aria-selected={pickerMode === 'library'}
-			onclick={() => {
-				pickerMode = 'library';
-				void loadMedia();
-			}}
-		>
-			<LibraryIcon />
-			{m.media_picker_library()}
-		</Button>
-		<Button
-			variant={pickerMode === 'device' ? 'secondary' : 'ghost'}
-			size="sm"
-			class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-			role="tab"
-			aria-selected={pickerMode === 'device'}
-			disabled={actionLoading || selectedIDs.length >= maxSelection}
-			onclick={() => (pickerMode = 'device')}
-		>
-			<UploadIcon />
-			{m.media_upload_device()}
-		</Button>
-		{#if canUseCamera}
+		<div class="flex min-w-0 flex-1 gap-1 overflow-x-auto" role="tablist">
 			<Button
-				variant={pickerMode === 'camera' ? 'secondary' : 'ghost'}
+				variant={pickerMode === 'library' ? 'secondary' : 'ghost'}
 				size="sm"
 				class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
 				role="tab"
-				aria-selected={pickerMode === 'camera'}
-				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => (pickerMode = 'camera')}
+				aria-selected={pickerMode === 'library'}
+				onclick={() => {
+					selectPickerMode('library');
+				}}
 			>
-				<CameraIcon />
-				{m.media_camera()}
+				<LibraryIcon />
+				{m.media_picker_library()}
 			</Button>
-		{/if}
-		{#if canUseStock}
 			<Button
-				variant={pickerMode === 'stock' ? 'secondary' : 'ghost'}
+				variant={pickerMode === 'device' ? 'secondary' : 'ghost'}
 				size="sm"
 				class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
 				role="tab"
-				aria-selected={pickerMode === 'stock'}
+				aria-selected={pickerMode === 'device'}
 				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => (pickerMode = 'stock')}
+				onclick={() => selectPickerMode('device')}
 			>
-				<ImageIcon />
-				{m.stock_media()}
+				<UploadIcon />
+				{m.media_upload_device()}
 			</Button>
-		{/if}
-		{#if canUseMeme}
-			<Button
-				variant={pickerMode === 'meme' ? 'secondary' : 'ghost'}
-				size="sm"
-				class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
-				role="tab"
-				aria-selected={pickerMode === 'meme'}
-				disabled={actionLoading || selectedIDs.length >= maxSelection}
-				onclick={() => (pickerMode = 'meme')}
-			>
-				<LaughIcon />
-				{m.media_picker_meme()}
-			</Button>
-		{/if}
-		{#if showCreate}
+			{#if !useCompactNavigation && canUseCamera}
+				<Button
+					variant={pickerMode === 'camera' ? 'secondary' : 'ghost'}
+					size="sm"
+					class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
+					role="tab"
+					aria-selected={pickerMode === 'camera'}
+					disabled={actionLoading || selectedIDs.length >= maxSelection}
+					onclick={() => selectPickerMode('camera')}
+				>
+					<CameraIcon />
+					{m.media_camera()}
+				</Button>
+			{/if}
+			{#if !useCompactNavigation && canUseStock}
+				<Button
+					variant={pickerMode === 'stock' ? 'secondary' : 'ghost'}
+					size="sm"
+					class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
+					role="tab"
+					aria-selected={pickerMode === 'stock'}
+					disabled={actionLoading || selectedIDs.length >= maxSelection}
+					onclick={() => selectPickerMode('stock')}
+				>
+					<ImageIcon />
+					{m.stock_media()}
+				</Button>
+			{/if}
+			{#if !useCompactNavigation && canUseMeme}
+				<Button
+					variant={pickerMode === 'meme' ? 'secondary' : 'ghost'}
+					size="sm"
+					class="min-h-11 shrink-0 rounded-lg px-3 shadow-none sm:min-h-9"
+					role="tab"
+					aria-selected={pickerMode === 'meme'}
+					disabled={actionLoading || selectedIDs.length >= maxSelection}
+					onclick={() => selectPickerMode('meme')}
+				>
+					<LaughIcon />
+					{m.media_picker_meme()}
+				</Button>
+			{/if}
+		</div>
+		{#if !useCompactNavigation && showCreate}
 			<Button
 				variant="ghost"
 				size="sm"
@@ -614,7 +659,7 @@
 				{m.media_picker_create()}
 			</Button>
 		{/if}
-		{#if onCreateVideo}
+		{#if !useCompactNavigation && onCreateVideo}
 			<Button
 				variant="ghost"
 				size="sm"
@@ -625,6 +670,69 @@
 				<VideoIcon />
 				{selectedVideoForEditing ? m.media_edit_video_editor() : m.media_picker_create_video()}
 			</Button>
+		{/if}
+		{#if useCompactNavigation}
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="outline"
+							size="icon"
+							class="size-11 shrink-0 shadow-none sm:size-9"
+							aria-label={m.sidebar_more()}
+						>
+							<MoreHorizontalIcon />
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content class="w-56" align="end">
+					{#if canUseCamera}
+						<DropdownMenu.Item
+							disabled={actionLoading || selectedIDs.length >= maxSelection}
+							onclick={() => selectPickerMode('camera')}
+						>
+							<CameraIcon class="size-4" />
+							{m.media_camera()}
+						</DropdownMenu.Item>
+					{/if}
+					{#if canUseStock}
+						<DropdownMenu.Item
+							disabled={actionLoading || selectedIDs.length >= maxSelection}
+							onclick={() => selectPickerMode('stock')}
+						>
+							<ImageIcon class="size-4" />
+							{m.stock_media()}
+						</DropdownMenu.Item>
+					{/if}
+					{#if canUseMeme}
+						<DropdownMenu.Item
+							disabled={actionLoading || selectedIDs.length >= maxSelection}
+							onclick={() => selectPickerMode('meme')}
+						>
+							<LaughIcon class="size-4" />
+							{m.media_picker_meme()}
+						</DropdownMenu.Item>
+					{/if}
+					{#if (canUseCamera || canUseStock || canUseMeme) && (showCreate || onCreateVideo)}
+						<DropdownMenu.Separator />
+					{/if}
+					{#if showCreate}
+						<DropdownMenu.Item disabled={actionLoading} onclick={createDesign}>
+							<PaletteIcon class="size-4" />
+							{m.media_picker_create()}
+						</DropdownMenu.Item>
+					{/if}
+					{#if onCreateVideo}
+						<DropdownMenu.Item disabled={actionLoading} onclick={createVideo}>
+							<VideoIcon class="size-4" />
+							{selectedVideoForEditing
+								? m.media_edit_video_editor()
+								: m.media_picker_create_video()}
+						</DropdownMenu.Item>
+					{/if}
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		{/if}
 	</div>
 
@@ -797,6 +905,9 @@
 				{workspaceId}
 				api={services.memeAPI}
 				language={getLocaleTag()}
+				initialIdea={memeInitialIdea}
+				initialCandidate={memeInitialCandidate}
+				initialPreview={memeInitialPreview}
 				onPickOverlay={pickMemeOverlay}
 				onAttach={handleMemeAttached}
 			/>

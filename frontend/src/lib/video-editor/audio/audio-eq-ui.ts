@@ -1,5 +1,5 @@
 import type { TimelineItem } from '../project/types';
-import type { ResolvedAudioEqSettings } from './types';
+import type { AudioEqSettings, ResolvedAudioEqSettings } from './types';
 
 export const AUDIO_EQ_SLOPE_OPTIONS = [6, 12, 18, 24] as const;
 export const AUDIO_EQ_BAND1_FILTER_OPTIONS = [
@@ -20,6 +20,63 @@ export const AUDIO_EQ_BAND6_FILTER_OPTIONS = [
 	'peaking',
 	'high-shelf'
 ] as const;
+
+const TIMELINE_EQ_FIELD_BY_SETTING = {
+	enabled: 'audioEqEnabled',
+	outputGainDb: 'audioEqOutputGainDb',
+	band1Enabled: 'audioEqBand1Enabled',
+	band1Type: 'audioEqBand1Type',
+	band1FrequencyHz: 'audioEqBand1FrequencyHz',
+	band1GainDb: 'audioEqBand1GainDb',
+	band1Q: 'audioEqBand1Q',
+	band1SlopeDbPerOct: 'audioEqBand1SlopeDbPerOct',
+	lowCutEnabled: 'audioEqLowCutEnabled',
+	lowCutFrequencyHz: 'audioEqLowCutFrequencyHz',
+	lowCutSlopeDbPerOct: 'audioEqLowCutSlopeDbPerOct',
+	lowEnabled: 'audioEqLowEnabled',
+	lowType: 'audioEqLowType',
+	lowGainDb: 'audioEqLowGainDb',
+	lowFrequencyHz: 'audioEqLowFrequencyHz',
+	lowQ: 'audioEqLowQ',
+	lowMidEnabled: 'audioEqLowMidEnabled',
+	lowMidType: 'audioEqLowMidType',
+	lowMidGainDb: 'audioEqLowMidGainDb',
+	lowMidFrequencyHz: 'audioEqLowMidFrequencyHz',
+	lowMidQ: 'audioEqLowMidQ',
+	midGainDb: 'audioEqMidGainDb',
+	highMidEnabled: 'audioEqHighMidEnabled',
+	highMidType: 'audioEqHighMidType',
+	highMidGainDb: 'audioEqHighMidGainDb',
+	highMidFrequencyHz: 'audioEqHighMidFrequencyHz',
+	highMidQ: 'audioEqHighMidQ',
+	highEnabled: 'audioEqHighEnabled',
+	highType: 'audioEqHighType',
+	highGainDb: 'audioEqHighGainDb',
+	highFrequencyHz: 'audioEqHighFrequencyHz',
+	highQ: 'audioEqHighQ',
+	band6Enabled: 'audioEqBand6Enabled',
+	band6Type: 'audioEqBand6Type',
+	band6FrequencyHz: 'audioEqBand6FrequencyHz',
+	band6GainDb: 'audioEqBand6GainDb',
+	band6Q: 'audioEqBand6Q',
+	band6SlopeDbPerOct: 'audioEqBand6SlopeDbPerOct',
+	highCutEnabled: 'audioEqHighCutEnabled',
+	highCutFrequencyHz: 'audioEqHighCutFrequencyHz',
+	highCutSlopeDbPerOct: 'audioEqHighCutSlopeDbPerOct'
+} as const satisfies Record<keyof AudioEqSettings, keyof TimelineItem>;
+
+export function buildTimelineEqPatchFromSettings(
+	settings: Partial<AudioEqSettings>
+): Partial<TimelineItem> {
+	const patch: Partial<TimelineItem> = {};
+	// SAFETY: Object.entries returns only keys from the typed partial settings object.
+	for (const [key, value] of Object.entries(settings) as Array<
+		[keyof AudioEqSettings, AudioEqSettings[keyof AudioEqSettings]]
+	>) {
+		Object.assign(patch, { [TIMELINE_EQ_FIELD_BY_SETTING[key]]: value });
+	}
+	return patch;
+}
 
 export function buildTimelineEqPatchFromResolvedSettings(
 	settings: ResolvedAudioEqSettings

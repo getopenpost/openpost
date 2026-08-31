@@ -52,14 +52,16 @@
 
 <div
 	data-slot="inline-notice"
-	class={cn('flex items-start gap-3 rounded-md border px-3 py-2.5 text-sm', toneClass, className)}
+	class={cn('flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm', toneClass, className)}
 	role={tone === 'error' ? 'alert' : 'status'}
 	aria-live={tone === 'error' ? 'assertive' : 'polite'}
 >
-	<Icon class="mt-0.5 size-4 shrink-0" />
-	<div class="min-w-0 flex-1 leading-5">
-		{#if message}{message}{/if}
-		{#if children}{@render children()}{/if}
+	<div class="flex min-w-0 flex-1 items-start gap-3">
+		<Icon class="mt-0.5 size-4 shrink-0" />
+		<div class="min-w-0 flex-1 leading-5">
+			{#if message}{message}{/if}
+			{#if children}{@render children()}{/if}
+		</div>
 	</div>
 	{#if actions}
 		<div class="flex shrink-0 flex-wrap items-center gap-2">{@render actions()}</div>

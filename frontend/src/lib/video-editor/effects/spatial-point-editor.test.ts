@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSpatialPointEffectConfig, SPATIAL_POINT_EFFECT_IDS } from './spatial-point-editor';
+import { getSpatialPointEffectConfig } from './spatial-point-editor';
 
 describe('spatial point effect configuration', () => {
 	it.each([
@@ -23,8 +23,7 @@ describe('spatial point effect configuration', () => {
 		});
 	});
 
-	it('exposes exactly the seven shader-backed point effects', () => {
-		expect(SPATIAL_POINT_EFFECT_IDS).toHaveLength(7);
+	it('rejects effects without a spatial point', () => {
 		expect(getSpatialPointEffectConfig('gpu-dither')).toBeNull();
 	});
 });

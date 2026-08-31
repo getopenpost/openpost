@@ -3,36 +3,44 @@ layout: home
 
 hero:
   name: OpenPost
-  text: Turn what you are building into content. Publish it everywhere.
-  tagline: The all-in-one content team for solo founders, from first draft to every destination.
+  text: Turn what you are building into destination-ready content.
+  tagline: Create, adapt, schedule, and track work from one workspace.
   image:
     src: /assets/brand/logo-docs.svg
     alt: OpenPost logo
   actions:
     - theme: brand
-      text: Use OpenPost
-      link: https://app.openpost.social
-    - theme: alt
       text: Read the user guide
       link: /usage/
+    - theme: alt
+      text: Start 14-day trial
+      link: https://app.openpost.social/register?plan=founder&billing_period=monthly
 
 features:
-  - title: Start with what you are building
-    details: Turn a launch, product update, lesson, or idea into one shared draft.
-  - title: Calendar and clear status
-    details: See scheduled, published, failed, and retryable posts in the app.
-  - title: Analytics and replies
-    details: Track available account and post results, reply to comments, and use the inbox for supported accounts.
-  - title: Media and OpenPost Image Editor
-    details: Reuse saved media or make still images and carousel pages in OpenPost Image Editor.
-  - title: API, CLI, and MCP
-    details: Use OpenPost from scripts and AI tools without sharing your social account keys.
-  - title: One product workflow
-    details: Plan, create, adapt, schedule, and track every destination in one place.
+  - title: Use OpenPost
+    details: Connect accounts, create destination versions, schedule publications, and review results.
+    link: /usage/
+  - title: Connect a provider
+    details: See setup steps, supported formats, account requirements, and current limitations.
+    link: /providers/
+  - title: Automate with CLI or MCP
+    details: Use the same workspace and authorization boundaries from scripts and AI tools.
+    link: /cli/
+  - title: Self-host OpenPost
+    details: Install, configure, back up, upgrade, and operate your own deployment.
+    link: /self-hosting/
+  - title: Build with the API
+    details: Read the HTTP contract, authentication model, and development guides.
+    link: /development/api-reference
+  - title: Learn the core concepts
+    details: Understand Publications, Renditions, destinations, schedules, and publishing state.
+    link: /guide/concepts
 ---
 
+The all-in-one content team for solo founders, from first draft to every destination.
+
 ::: info Hosted service plans
-Hosted service plans start at $15 per month. Every plan includes a card-required 14-day trial. OpenPost shows the renewal price and date before you start, and you can cancel from billing settings before the first charge. Self-hosting is a separate operator-run deployment with no software fee, not a zero-price Hosted service tier.
+See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plans, trial terms, and limits. Self-hosting is a separate operator-run deployment.
 :::
 
 Provider access and available formats still depend on account type, permissions, review, and current provider support.
@@ -45,29 +53,9 @@ Provider access and available formats still depend on account type, permissions,
   >
 </p>
 
-## Docker Compose example
+## Installation
 
-```yaml
-services:
-  openpost:
-    image: ghcr.io/getopenpost/openpost:latest
-    platform: linux/amd64
-    container_name: openpost
-    restart: unless-stopped
-    env_file:
-      - .env
-    ports:
-      - "8080:8080"
-    volumes:
-      - openpost_data:/data
-    environment:
-      - OPENPOST_PORT=8080
-      - OPENPOST_DATABASE_PATH=/data/db/openpost.db
-      - OPENPOST_MEDIA_PATH=/data/media
-
-volumes:
-  openpost_data:
-```
+For the authoritative Docker Compose example and deployment steps, see [Docker Compose](/installation/docker-compose).
 
 ::: tip
 New to OpenPost? Read the [user guide](/usage/), [watch the product demo](https://youtu.be/_mZf3HzQaN8), or follow the [self-hosting quickstart](/guide/quickstart).

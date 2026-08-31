@@ -193,6 +193,15 @@ export const CAPTION_STYLE_PRESETS = [
 	}
 ] as const satisfies readonly CaptionStylePreset[];
 
+export const DEFAULT_CAPTION_STYLE_PRESET_ID: CaptionStylePresetId = 'netflix';
+
+export function captionStylePresetById(id: CaptionStylePresetId): CaptionStylePreset {
+	return (
+		CAPTION_STYLE_PRESETS.find((preset) => preset.id === id) ??
+		CAPTION_STYLE_PRESETS.find((preset) => preset.id === DEFAULT_CAPTION_STYLE_PRESET_ID)!
+	);
+}
+
 export function resolveCaptionStylePatch(
 	preset: CaptionStylePreset,
 	canvasWidth: number,

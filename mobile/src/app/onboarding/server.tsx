@@ -1,15 +1,6 @@
-import * as Haptics from "expo-haptics";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text } from "react-native";
 
 import {
   BodyText,
@@ -21,6 +12,7 @@ import {
   useColors,
 } from "@/components/ui";
 import { Brand } from "@/components/brand";
+import { errorHaptic, successHaptic } from "@/lib/haptics";
 import { HOSTED_URL, probeServer, setServer } from "@/lib/server";
 
 export default function ServerScreen() {
@@ -28,6 +20,7 @@ export default function ServerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ from?: string }>();
   const [url, setUrl] = useState("");
+  const [showSelfHosted, setShowSelfHosted] = useState(false);
   const [busy, setBusy] = useState<"hosted" | "custom" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,10 +31,11 @@ export default function ServerScreen() {
     if (!result.ok) {
       setBusy(null);
       setError(result.error);
+      void errorHaptic();
       return;
     }
     await setServer(result.baseUrl);
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    void successHaptic();
     setBusy(null);
     router.replace(params.from === "settings" ? "/" : "/onboarding/login");
   }
@@ -55,62 +49,62 @@ export default function ServerScreen() {
       >
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Brand style={styles.brand} />
-          <Text style={[styles.title, { color: colors.text }]}>Choose your OpenPost server</Text>
-          <BodyText style={styles.subtitle}>
-            Use our hosted service or connect to an OpenPost server you manage.
-          </BodyText>
+          <Text style={[styles.title, { color: colors.text }]}>Sign in to OpenPost</Text>
+          <BodyText style={styles.subtitle}>Choose where to sign in.</BodyText>
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{
-              disabled: busy !== null,
-              busy: busy === "hosted",
-            }}
-            onPress={() => void choose(HOSTED_URL, "hosted")}
-            disabled={busy !== null}
-            style={({ pressed }) => pressed && { opacity: 0.72 }}
-          >
-            <Card style={styles.hostedCard}>
-              {busy === "hosted" ? (
-                <ActivityIndicator color={colors.tint} />
-              ) : (
-                <>
-                  <Text style={[styles.hostedTitle, { color: colors.text }]}>OpenPost Hosted</Text>
-                  <BodyText>Fastest setup. Sign in with your OpenPost account.</BodyText>
-                  <BodyText style={{ color: colors.tint, fontWeight: "600" }}>
-                    {HOSTED_URL.replace("https://", "")}
-                  </BodyText>
-                </>
-              )}
-            </Card>
-          </Pressable>
+          <Card style={styles.hostedCard}>
+            <Text style={[styles.hostedTitle, { color: colors.text }]}>OpenPost Hosted</Text>
+            <BodyText>Managed at {HOSTED_URL.replace("https://", "")}</BodyText>
+            <Button
+              title="Continue to sign in"
+              variant="focal"
+              disabled={busy !== null}
+              loading={busy === "hosted"}
+              onPress={() => void choose(HOSTED_URL, "hosted")}
+              style={styles.hostedButton}
+            />
+          </Card>
 
-          <SectionHeader label="Self-hosted instance" />
-          <TextField
-            value={url}
-            onChangeText={setUrl}
-            accessibilityLabel="Self-hosted server address"
-            placeholder="openpost.example.com"
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            returnKeyType="done"
-            onSubmitEditing={() => void choose(url, "custom")}
-          />
-          <BodyText>Self-hosted servers must use HTTPS and expose the OpenPost API.</BodyText>
           {error ? (
-            <BodyText accessibilityRole="alert" style={{ color: colors.danger, marginTop: 8 }}>
+            <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
               {error}
             </BodyText>
           ) : null}
+
           <Button
-            title="Connect"
-            variant="tinted"
-            disabled={busy !== null || url.trim().length === 0}
-            loading={busy === "custom"}
-            onPress={() => void choose(url, "custom")}
-            style={styles.connectButton}
+            title={showSelfHosted ? "Hide self-hosted setup" : "Connect a self-hosted server"}
+            variant="plain"
+            accessibilityHint={`${showSelfHosted ? "Hides" : "Shows"} the self-hosted server address field`}
+            accessibilityState={{ expanded: showSelfHosted }}
+            disabled={busy !== null}
+            onPress={() => setShowSelfHosted((current) => !current)}
           />
+
+          {showSelfHosted ? (
+            <>
+              <SectionHeader label="Your server" />
+              <TextField
+                value={url}
+                onChangeText={setUrl}
+                accessibilityLabel="Self-hosted server address"
+                placeholder="openpost.example.com"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
+                returnKeyType="done"
+                onSubmitEditing={() => void choose(url, "custom")}
+              />
+              <BodyText>Use the HTTPS address for your OpenPost server.</BodyText>
+              <Button
+                title="Connect to server"
+                variant="tinted"
+                disabled={busy !== null || url.trim().length === 0}
+                loading={busy === "custom"}
+                onPress={() => void choose(url, "custom")}
+                style={styles.connectButton}
+              />
+            </>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </Screen>
@@ -136,14 +130,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   hostedCard: {
-    minHeight: 116,
-    justifyContent: "center",
-    alignItems: "flex-start",
-    gap: 6,
+    gap: 4,
   },
   hostedTitle: {
     fontSize: 17,
     fontWeight: "600",
+  },
+  hostedButton: {
+    marginTop: 12,
   },
   connectButton: {
     marginTop: 4,

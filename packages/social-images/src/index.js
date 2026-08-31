@@ -28,15 +28,6 @@ const platformNames = [
   ["discord", "Discord"],
 ];
 
-const comparisonNames = [
-  ["buffer", "Buffer"],
-  ["hootsuite", "Hootsuite"],
-  ["typefully", "Typefully"],
-  ["postiz", "Postiz"],
-  ["post-bridge", "Post Bridge"],
-  ["mixpost", "Mixpost"],
-];
-
 const toolPages = [
   {
     slug: "social-media-video-editor",
@@ -88,6 +79,12 @@ const toolPages = [
     name: "Timezone posting planner",
     title: "Free social posting schedule planner - OpenPost",
     description: "Turn your audience hours and timezone into a weekly posting plan you can reuse.",
+  },
+  {
+    slug: "utm-link-builder",
+    name: "UTM link builder",
+    title: "Free UTM link builder - OpenPost",
+    description: "Add campaign tags to a link, then copy a clean URL for your social post.",
   },
 ];
 
@@ -145,18 +142,6 @@ const staticMarketingEntries = [
     priority: "0.9",
   },
   {
-    path: "/compare",
-    key: "compare",
-    title: "Compare OpenPost with social scheduling tools",
-    socialTitle: "Choose the content system that fits your work.",
-    description: "Compare OpenPost with established publishing tools using reviewed product facts.",
-    label: "Honest comparisons",
-    kind: "compare-index",
-    agentRepresentation: "static",
-    agentDiscovery: { membership: "optional" },
-    priority: "0.8",
-  },
-  {
     path: "/tools",
     key: "tools",
     title: "Free social media tools - OpenPost",
@@ -208,29 +193,56 @@ const staticMarketingEntries = [
     priority: "0.6",
   },
   {
-    path: "/self-hosted",
-    key: "self-hosted",
+    path: "/self-hosting",
+    key: "self-hosting",
     title: "Self-host OpenPost",
     socialTitle: "Run OpenPost on infrastructure you control.",
     description:
       "Review OpenPost self-hosting infrastructure, data, upgrades, backups, provider projects, support, and operator responsibilities.",
     label: "Self-hosted deployment",
-    kind: "open-source",
+    kind: "self-hosting",
     agentRepresentation: "static",
     agentDiscovery: { membership: "primary" },
     priority: "0.8",
   },
   {
-    path: "/open-source",
-    key: "open-source",
-    title: "Open source and self-hosting - OpenPost",
-    socialTitle: "Use the Hosted service. Keep the option to self-host.",
-    description: "Run the complete AGPL OpenPost service yourself or use the Hosted service.",
-    label: "Open source",
-    kind: "open-source",
+    path: "/developers",
+    key: "developers",
+    title: "OpenPost for developers and AI agents",
+    socialTitle: "Build with the OpenPost API, CLI, and MCP server.",
+    description:
+      "Choose the OpenPost API, CLI, or MCP server for typed automation with explicit workspace and token boundaries.",
+    label: "Developer interfaces",
+    kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: { membership: "primary" },
+    priority: "0.8",
+  },
+  {
+    path: "/about",
+    key: "about",
+    title: "About OpenPost",
+    socialTitle: "Why OpenPost exists and who runs it.",
+    description:
+      "Learn what OpenPost does, who it serves, how the Hosted service and open-source project relate, and who operates it.",
+    label: "About OpenPost",
+    kind: "document",
     agentRepresentation: "static",
     agentDiscovery: { membership: "primary" },
     priority: "0.7",
+  },
+  {
+    path: "/contact",
+    key: "contact",
+    title: "Contact OpenPost",
+    socialTitle: "Contact OpenPost support or the community.",
+    description:
+      "Find the right OpenPost contact for product, account, billing, privacy, security, community, and contribution questions.",
+    label: "Contact OpenPost",
+    kind: "document",
+    agentRepresentation: "static",
+    agentDiscovery: { membership: "primary" },
+    priority: "0.6",
   },
   {
     path: "/changelog",
@@ -301,21 +313,6 @@ const platformEntries = platformNames.map(([slug, name]) => ({
   priority: "0.7",
 }));
 
-const comparisonEntries = comparisonNames.map(([slug, name]) => ({
-  path: `/compare/${slug}`,
-  key: `compare-${slug}`,
-  title: `OpenPost vs ${name}: an honest comparison`,
-  socialTitle: `OpenPost vs ${name}.`,
-  description:
-    "Compare publishing workflow, automation, hosting, product scope, and current pricing models.",
-  label: "Reviewed comparison",
-  kind: "comparison",
-  agentRepresentation: "comparison",
-  agentDiscovery: { membership: "optional", section: "comparisons" },
-  subject: name,
-  priority: "0.6",
-}));
-
 const toolEntries = toolPages.map((tool) => ({
   path: `/tools/${tool.slug}`,
   key: `tool-${tool.slug}`,
@@ -331,22 +328,20 @@ const toolEntries = toolPages.map((tool) => ({
 }));
 
 export const marketingRouteManifest = Object.freeze(
-  [...staticMarketingEntries, ...platformEntries, ...comparisonEntries, ...toolEntries].map(
-    (entry) => {
-      const resolved = {
-        ...entry,
-        id: `marketing:${entry.key}`,
-        canonical: canonicalMarketingUrl(entry.path),
-        imageAlt: `${entry.socialTitle} OpenPost social preview.`,
-      };
-      return { ...resolved, imageUrl: socialImageUrl(resolved) };
-    },
-  ),
+  [...staticMarketingEntries, ...platformEntries, ...toolEntries].map((entry) => {
+    const resolved = {
+      ...entry,
+      id: `marketing:${entry.key}`,
+      canonical: canonicalMarketingUrl(entry.path),
+      imageAlt: `${entry.socialTitle} OpenPost social preview.`,
+    };
+    return { ...resolved, imageUrl: socialImageUrl(resolved) };
+  }),
 );
 
 export const marketingSocialEntries = marketingRouteManifest;
 
-const prerenderSections = new Set(["/platforms", "/compare", "/tools"]);
+const prerenderSections = new Set(["/platforms", "/tools"]);
 
 export function marketingPrerenderEntries(section) {
   const normalizedSection = normalizeMarketingPath(section);
@@ -410,7 +405,7 @@ export function docsSectionForPage(page) {
   if (route.startsWith("/installation/")) return "Installation";
   if (route.startsWith("/configuration/")) return "Configuration";
   if (route.startsWith("/operations/")) return "Operations";
-  if (route.startsWith("/self-hosting/") || route === "/guide/why-selfhost") {
+  if (route.startsWith("/self-hosting/")) {
     return "Self-hosting";
   }
   if (route.startsWith("/cli/")) return "CLI guide";

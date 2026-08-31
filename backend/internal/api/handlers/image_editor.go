@@ -1822,7 +1822,6 @@ func normalizeImageEditorReturnURL(raw string) (string, error) {
 	path := parsed.Path
 	allowed := path == "/" ||
 		path == "/media" ||
-		strings.HasPrefix(path, "/posts/") ||
 		strings.HasPrefix(path, "/publications/")
 	if !allowed {
 		return "", errors.New("image editor return URL is not an allowed composer route")

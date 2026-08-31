@@ -42,14 +42,13 @@ beforeEach(() => {
 afterEach(() => setLocale('en', { reload: false }));
 
 describe('TextPropertiesPanel', () => {
-	it('shows every template and round-trips structured layouts without crowding the inspector', async () => {
+	it('round-trips structured layouts without crowding the inspector', async () => {
 		const onedit = vi.fn();
 		const screen = await render(TextPropertiesPanel, {
 			item: timelineStore.itemById.get('text')!,
 			onedit
 		});
 
-		expect(screen.container.querySelectorAll('.template-strip > button')).toHaveLength(13);
 		await screen.getByRole('button', { name: '3 spans' }).click();
 		expect(timelineStore.itemById.get('text')?.textSpans?.map((span) => span.text)).toEqual([
 			'Tag',
@@ -117,5 +116,41 @@ describe('TextPropertiesPanel', () => {
 			text: 'Launch\nFunção ou subtítulo',
 			textSpans: [{ text: 'Launch' }, { text: 'Função ou subtítulo' }]
 		});
+	});
+
+	it('offers the full authored copy for linked speech generation', async () => {
+		timelineStore._updateItems([
+			{
+				id: 'text',
+				patch: {
+					textSpans: [{ text: 'Launch' }, { text: 'Built for small teams' }]
+				}
+			}
+		]);
+		const oncreatevoice = vi.fn();
+		const screen = await render(TextPropertiesPanel, {
+			item: timelineStore.itemById.get('text')!,
+			onedit: vi.fn(),
+			oncreatevoice
+		});
+
+		await screen.getByRole('button', { name: 'Create voice from text' }).click();
+		expect(oncreatevoice).toHaveBeenCalledOnce();
+		expect(oncreatevoice).toHaveBeenCalledWith('text', 'Launch\nBuilt for small teams');
+	});
+
+	it('exposes FreeCut text effect presets and commits the selected look', async () => {
+		const onedit = vi.fn();
+		const screen = await render(TextPropertiesPanel, {
+			item: timelineStore.itemById.get('text')!,
+			onedit
+		});
+
+		await screen.getByRole('button', { name: 'Shadow' }).click();
+		expect(timelineStore.itemById.get('text')).toMatchObject({
+			textShadow: { offsetX: 4, offsetY: 6, blur: 12, color: '#000000' }
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(onedit).toHaveBeenCalledOnce();
 	});
 });

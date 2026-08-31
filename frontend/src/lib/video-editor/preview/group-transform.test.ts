@@ -183,6 +183,26 @@ describe('group transform geometry', () => {
 		);
 	});
 
+	it('includes animated scale when measuring and hit-testing an item', () => {
+		const transform = {
+			x: 0,
+			y: 0,
+			width: 100,
+			height: 40,
+			rotation: 0,
+			scaleX: 2,
+			scaleY: 0.5
+		};
+		expect(groupItemBounds(transform, 800, 400)).toMatchObject({
+			left: 300,
+			right: 500,
+			top: 190,
+			bottom: 210
+		});
+		expect(groupItemContainsPoint(transform, { x: 495, y: 200 }, 800, 400)).toBe(true);
+		expect(groupItemContainsPoint(transform, { x: 400, y: 215 }, 800, 400)).toBe(false);
+	});
+
 	it('aligns rotated custom-anchor visual bounds to every canvas edge and center', () => {
 		const item = transform({ x: 30, y: 50, anchorX: 0, anchorY: 0, rotation: 30 });
 		const cases = [

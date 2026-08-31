@@ -1,44 +1,28 @@
-import { readdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+
+import { changelogFragmentEntries, parseChangelogFragment } from "./changelog-fragments.mjs";
 
 const changesDir = resolve("changes");
 const changelogPath = resolve("CHANGELOG.md");
 
-const fragmentPattern = /^.+\.md$/u;
-const groupPattern = /^#{2,3} (.+)$/u;
-const itemPattern = /^-\s+(.+)$/u;
-
-const entries = readdirSync(changesDir).filter(
-  (name) => name !== "README.md" && fragmentPattern.test(name),
-);
+const entries = changelogFragmentEntries(changesDir);
 if (entries.length === 0) {
   process.stdout.write("changelog: no fragments to merge\n");
   process.exit(0);
 }
 
+const parsedFragments = entries.map((entry) => [
+  entry,
+  parseChangelogFragment(entry, readFileSync(resolve(changesDir, entry), "utf8")),
+]);
 const byGroup = new Map();
-for (const entry of entries) {
-  const content = readFileSync(resolve(changesDir, entry), "utf8");
-  let currentGroup = null;
-  for (const rawLine of content.split(/\r?\n/u)) {
-    const line = rawLine.trim();
-    const groupMatch = groupPattern.exec(line);
-    if (groupMatch) {
-      currentGroup = groupMatch[1];
-      continue;
-    }
-    const itemMatch = itemPattern.exec(line);
-    if (itemMatch && currentGroup) {
-      const items = byGroup.get(currentGroup) ?? [];
-      items.push(itemMatch[1]);
-      byGroup.set(currentGroup, items);
-    }
+for (const [, groups] of parsedFragments) {
+  for (const [group, fragmentItems] of groups) {
+    const items = byGroup.get(group) ?? [];
+    items.push(...fragmentItems);
+    byGroup.set(group, items);
   }
-}
-
-if (byGroup.size === 0) {
-  process.stdout.write("changelog: fragments had no items\n");
-  process.exit(0);
 }
 
 const changelog = readFileSync(changelogPath, "utf8");
@@ -54,7 +38,7 @@ const nextSection = changelog.slice(bodyStart).search(/\n## \[/u);
 const bodyEnd = nextSection < 0 ? changelog.length : bodyStart + nextSection;
 const unreleased = changelog.slice(bodyStart, bodyEnd);
 
-const groupHeaderPattern = /^### (.+)$/mu;
+const groupHeaderPattern = /^### (.+)$/gmu;
 const existingGroups = new Map();
 let match;
 while ((match = groupHeaderPattern.exec(unreleased)) !== null) {
@@ -82,8 +66,10 @@ for (const { offset, group, items } of insertionPoints) {
   }
   const block = items.map((item) => `- ${item}`).join("\n") + "\n";
   const lineEnd = result.indexOf("\n", offset);
-  const insertAt = lineEnd < 0 ? result.length : lineEnd + 1;
-  result = result.slice(0, insertAt) + block + result.slice(insertAt);
+  const contentStart = lineEnd < 0 ? result.length : lineEnd + 1;
+  const hasBlankLine = result.startsWith("\n", contentStart);
+  const insertAt = hasBlankLine ? contentStart + 1 : contentStart;
+  result = result.slice(0, insertAt) + (hasBlankLine ? "" : "\n") + block + result.slice(insertAt);
 }
 
 if (newGroups.length > 0) {
@@ -91,8 +77,8 @@ if (newGroups.length > 0) {
   const newBlock =
     "\n" +
     newGroups
-      .map(({ group, items }) => `### ${group}\n${items.map((item) => `- ${item}`).join("\n")}`)
-      .join("\n") +
+      .map(({ group, items }) => `### ${group}\n\n${items.map((item) => `- ${item}`).join("\n")}`)
+      .join("\n\n") +
     "\n";
   result = result.slice(0, bodyEnd) + newBlock + result.slice(bodyEnd);
 }

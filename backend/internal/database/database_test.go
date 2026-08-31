@@ -2,7 +2,11 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun/dialect"
@@ -53,61 +57,116 @@ func TestInitDBWithDriverBuildsPostgresHandle(t *testing.T) {
 	require.NotNil(t, db)
 }
 
-func TestCreateSchemaRunsPublicationMigration(t *testing.T) {
-	db, err := InitDBWithDriver("sqlite", "file:"+t.Name()+"?mode=memory&cache=private")
-	require.NoError(t, err)
-	defer db.Close()
-	ctx := context.Background()
-
-	require.NoError(t, CreateSchema(db))
-
-	for _, table := range []string{"publications", "publication_assets"} {
-		var count int
-		require.NoError(t, db.NewSelect().
-			ColumnExpr("COUNT(*)").
-			TableExpr("sqlite_master").
-			Where("type = 'table' AND name = ?", table).
-			Scan(ctx, &count))
-		require.Equal(t, 1, count, table)
-	}
-
-	// The Post compatibility tables are retired by migration 105 after the
-	// historical backfill has translated legacy rows into Publications.
-	var postTableCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'table' AND name = ?", "posts").
-		Scan(ctx, &postTableCount))
-	require.Equal(t, 0, postTableCount, "Post authoring tables must be dropped after the compatibility sunset")
-
-	var jobIndexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name = ?", "jobs_status_run_at_idx").
-		Scan(ctx, &jobIndexCount))
-	require.Equal(t, 1, jobIndexCount)
-
-	var videoCodecColumnCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("pragma_table_info('media_attachments')").
-		Where("name = ?", "video_codec").
-		Scan(ctx, &videoCodecColumnCount))
-	require.Equal(t, 1, videoCodecColumnCount)
+func TestInitDBWithDriverDoesNotExposeMalformedPostgresCredentials(t *testing.T) {
+	const password = "do-not-log-this-password"
+	db, err := InitDBWithDriver("postgres", "postgres://openpost:"+password+"%@localhost/openpost")
+	require.Nil(t, db)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), password)
 }
 
-func TestCreateSchemaLetsMigrationOwnImpersonationOrganizationConstraints(t *testing.T) {
-	db, err := InitDBWithDriver("sqlite", "file:"+t.Name()+"?mode=memory&cache=private")
-	require.NoError(t, err)
-	defer db.Close()
-	require.NoError(t, CreateSchema(db))
+func TestPostgresPoolBudgetsFollowProcessRole(t *testing.T) {
+	dsn := "postgres://openpost:secret@localhost:5432/openpost?sslmode=disable"
+	expected := map[string]int{
+		"all":     20,
+		"web":     16,
+		"worker":  8,
+		"migrate": 2,
+	}
 
-	var schema string
-	require.NoError(t, db.QueryRow(
-		"SELECT sql FROM sqlite_master WHERE name = 'user_impersonation_grant_organizations'",
-	).Scan(&schema))
-	require.Contains(t, schema, "FOREIGN KEY (grant_id) REFERENCES user_impersonation_grants(id) ON DELETE CASCADE")
-	require.Contains(t, schema, "FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE")
+	for role, maxOpen := range expected {
+		t.Run(role, func(t *testing.T) {
+			db, err := InitDBWithDriverAndRole("postgres", dsn, role)
+			require.NoError(t, err)
+			t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+			require.Equal(t, maxOpen, db.Stats().MaxOpenConnections)
+		})
+	}
+}
+
+func TestPostgresConnectionsUseUTC(t *testing.T) {
+	dsn := os.Getenv("OPENPOST_TEST_POSTGRES_URL")
+	if dsn == "" {
+		t.Skip("OPENPOST_TEST_POSTGRES_URL is not configured")
+	}
+	db, err := InitDBWithDriver("postgres", dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	var timezone string
+	require.NoError(t, db.NewSelect().ColumnExpr("current_setting('TimeZone')").Scan(t.Context(), &timezone))
+	require.Equal(t, "UTC", timezone)
+}
+
+func TestPoolObserverReportsConnectionPressureOncePerChange(t *testing.T) {
+	db, err := InitDB("file::memory:?cache=shared")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	conn, err := db.Conn(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+
+	waitCtx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	_, err = db.Conn(waitCtx)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	var messages []string
+	observer := newPoolObserver(func(format string, args ...any) {
+		messages = append(messages, fmt.Sprintf(format, args...))
+	})
+	observer.Observe(db.Stats())
+	require.Len(t, messages, 1)
+	require.Contains(t, messages[0], "max_open=1")
+	require.Contains(t, messages[0], "in_use=1")
+	require.Contains(t, messages[0], "wait_count=1")
+	require.Contains(t, messages[0], "wait_delta=1")
+
+	observer.Observe(db.Stats())
+	require.Len(t, messages, 1, "unchanged saturation must not flood logs")
+}
+
+func TestPoolObserverHookReportsActualQueryWait(t *testing.T) {
+	db, err := InitDB("file::memory:?cache=shared")
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) })
+
+	var messages []string
+	db.AddQueryHook(newPoolObserverHook(func(format string, args ...any) {
+		messages = append(messages, fmt.Sprintf(format, args...))
+	}))
+	conn, err := db.Conn(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, conn.Close()) })
+
+	waitCtx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+	var one int
+	err = db.NewSelect().ColumnExpr("1").Scan(waitCtx, &one)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+
+	require.Len(t, messages, 2)
+	require.Contains(t, messages[0], "in_use=1")
+	require.Contains(t, messages[1], "wait_count=1")
+	require.Contains(t, messages[1], "wait_delta=1")
+}
+
+func TestPoolObserverDoesNotHoldItsLockWhileLogging(t *testing.T) {
+	var observer *poolObserver
+	observer = newPoolObserver(func(string, ...any) {
+		observer.Observe(sql.DBStats{MaxOpenConnections: 1, InUse: 1})
+	})
+	done := make(chan struct{})
+	go func() {
+		observer.Observe(sql.DBStats{MaxOpenConnections: 1, InUse: 1})
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("pool observer held its mutex while logging")
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -206,7 +207,11 @@ func (tm *TokenManager) refreshGrant(ctx context.Context, account *models.Social
 		tokenResp, err := provider.RefreshToken(ctx, input)
 		if err != nil {
 			log.Printf("[TokenManager] Failed to refresh grant %s for %s: %v", grant.ID, account.Platform, err)
-			tm.releaseRefreshLease(ctx, grant.ID, grant.WorkspaceID, owner, "provider_refresh_failed")
+			if isTransientRefreshError(err) {
+				tm.releaseTransientRefreshLease(ctx, grant.ID, grant.WorkspaceID, owner)
+			} else {
+				tm.releaseRefreshLease(ctx, grant.ID, grant.WorkspaceID, owner, "provider_refresh_failed")
+			}
 			return "", fmt.Errorf("failed to refresh token: %w", err)
 		}
 		return tm.persistRefreshedGrant(ctx, account, grant, owner, tokenResp)
@@ -388,6 +393,30 @@ func (tm *TokenManager) releaseRefreshLease(ctx context.Context, grantID, worksp
 			Exec(txCtx)
 		return err
 	})
+}
+
+func (tm *TokenManager) releaseTransientRefreshLease(ctx context.Context, grantID, workspaceID, owner string) {
+	now := time.Now().UTC()
+	_, _ = tm.db.NewUpdate().Model((*models.OAuthGrant)(nil)).
+		Set("refresh_lease_owner = ''").
+		Set("refresh_lease_expires_at = NULL").
+		Set("last_refresh_finished_at = ?", now).
+		Set("last_refresh_error = 'provider_refresh_transient'").
+		Set("updated_at = ?", now).
+		Where("id = ? AND workspace_id = ? AND refresh_lease_owner = ?", grantID, workspaceID, owner).
+		Exec(ctx)
+}
+
+func isTransientRefreshError(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var providerErr *platform.HTTPError
+	if errors.As(err, &providerErr) {
+		return providerErr.StatusCode == 429 || providerErr.StatusCode >= 500
+	}
+	var networkErr net.Error
+	return errors.As(err, &networkErr) && networkErr.Timeout()
 }
 
 func normalizedScopes(token *platform.TokenResult) string {

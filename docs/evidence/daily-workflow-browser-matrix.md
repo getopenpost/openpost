@@ -36,7 +36,7 @@ The presentation dimensions are orthogonal so a failure identifies one boundary 
 
 | Requirement                                                           | Browser evidence                                                     |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Direct and Settings-embedded Accounts at desktop, 390 px, and 320 px  | `e2e-app/accounts-providers.spec.ts`                                 |
+| Settings Social accounts at desktop, 390 px, and 320 px               | `e2e-app/accounts-providers.spec.ts`                                 |
 | Stable history navigation and one-time OAuth feedback                 | `e2e-app/accounts-providers.spec.ts`                                 |
 | Keyboard connection flow, safe overflow, and clean console            | `e2e-app/accounts-providers.spec.ts`                                 |
 | Settings-embedded Billing at desktop, 390 px, and 320 px              | `e2e-app/billing-settings.spec.ts`                                   |

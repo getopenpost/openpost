@@ -11,6 +11,24 @@ export const AUDIO_MIME_CANDIDATES = [
 	'audio/ogg;codecs=opus'
 ] as const;
 
+export type RecorderVideoResolution = '720p' | '1080p' | '2160p';
+export type RecorderVideoFrameRate = 24 | 30 | 60;
+export type RecorderCameraFacingMode = 'default' | 'user' | 'environment';
+
+export interface RecorderCaptureQuality {
+	videoResolution?: RecorderVideoResolution;
+	videoFrameRate?: RecorderVideoFrameRate;
+	includeSystemAudio?: boolean;
+}
+
+export const RECORDER_AUDIO_BITS_PER_SECOND = 128_000;
+
+const VIDEO_BITS_PER_SECOND = {
+	'720p': { standard: 4_000_000, highFrameRate: 6_000_000 },
+	'1080p': { standard: 8_000_000, highFrameRate: 12_000_000 },
+	'2160p': { standard: 24_000_000, highFrameRate: 40_000_000 }
+} as const satisfies Record<RecorderVideoResolution, { standard: number; highFrameRate: number }>;
+
 export function pickVideoMimeType(): string {
 	if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
 	for (const candidate of VIDEO_MIME_CANDIDATES) {
@@ -31,15 +49,27 @@ export function recorderMimeType(includeVideo: boolean): string {
 	return includeVideo ? pickVideoMimeType() : pickAudioMimeType();
 }
 
-export function estimateBytesPerMinute(selection: {
-	screen: boolean;
-	camera: boolean;
-	microphone: boolean;
-}): number {
+export function recorderVideoBitsPerSecond(quality: RecorderCaptureQuality): number | undefined {
+	const resolution = quality.videoResolution;
+	if (!resolution) return undefined;
+	const rates = VIDEO_BITS_PER_SECOND[resolution];
+	return quality.videoFrameRate === 60 ? rates.highFrameRate : rates.standard;
+}
+
+export function estimateBytesPerMinute(
+	selection: { screen: boolean; camera: boolean; microphone: boolean },
+	quality: RecorderCaptureQuality = {}
+): number {
+	const selectedVideoBitsPerSecond = recorderVideoBitsPerSecond(quality);
 	let bytes = 0;
-	if (selection.screen) bytes += 6 * 1024 * 1024;
-	if (selection.camera) bytes += 4 * 1024 * 1024;
-	if (selection.microphone) bytes += 0.6 * 1024 * 1024;
+	if (selection.screen) {
+		bytes += ((selectedVideoBitsPerSecond ?? 8_000_000) * 60) / 8;
+		if (quality.includeSystemAudio !== false) bytes += (RECORDER_AUDIO_BITS_PER_SECOND * 60) / 8;
+	}
+	if (selection.camera) {
+		bytes += ((selectedVideoBitsPerSecond ?? 8_000_000) * 60) / 8;
+	}
+	if (selection.microphone) bytes += (RECORDER_AUDIO_BITS_PER_SECOND * 60) / 8;
 	return bytes;
 }
 

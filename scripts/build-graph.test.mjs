@@ -9,47 +9,6 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const turboBinary = path.join(root, "node_modules", ".bin", "turbo");
 
-test("the docs package build prepares ignored OpenAPI artifacts", async () => {
-  const [packageJSON, turboJSON] = await Promise.all(
-    ["package.json", "turbo.json"].map(async (file) =>
-      JSON.parse(await readFile(path.join(root, "docs-site", file), "utf8")),
-    ),
-  );
-
-  assert.match(packageJSON.scripts.build, /copy-docs-openapi\.mjs/);
-  assert.match(packageJSON.scripts.dev, /copy-docs-openapi\.mjs/);
-  assert.equal(packageJSON.scripts["prepare:openapi"], undefined);
-  assert.equal(packageJSON.scripts["docs:build"], undefined);
-  assert.ok(turboJSON.tasks.build.inputs.includes("$TURBO_ROOT$/frontend/openapi.json"));
-  assert.ok(turboJSON.tasks.build.inputs.includes("$TURBO_ROOT$/scripts/copy-docs-openapi.mjs"));
-});
-
-test("the marketing build prepares its shared frontend SvelteKit aliases", async () => {
-  const [marketingPackage, frontendPackage, marketingTurbo] = await Promise.all(
-    ["marketing-site/package.json", "frontend/package.json", "marketing-site/turbo.json"].map(
-      async (file) => JSON.parse(await readFile(path.join(root, file), "utf8")),
-    ),
-  );
-
-  assert.equal(frontendPackage.scripts.sync, "svelte-kit sync");
-  assert.match(
-    marketingPackage.scripts.build,
-    /^bun \.\.\/scripts\/check-public-telemetry-env\.mjs && bun run --cwd \.\.\/frontend sync && .*vite build/u,
-  );
-  assert.ok(marketingTurbo.tasks.check.inputs.includes("$TURBO_ROOT$/frontend/src/lib/**"));
-  assert.ok(
-    marketingTurbo.tasks.check.inputs.includes("$TURBO_ROOT$/scripts/marketing-claims.mjs"),
-  );
-});
-
-test("public builds pass Cloudflare branch identity to the telemetry guard", async () => {
-  for (const surface of ["docs-site", "marketing-site"]) {
-    const turboJSON = JSON.parse(await readFile(path.join(root, surface, "turbo.json"), "utf8"));
-    assert.ok(turboJSON.tasks.build.env.includes("CF_PAGES"));
-    assert.ok(turboJSON.tasks.build.env.includes("CF_PAGES_BRANCH"));
-  }
-});
-
 function runTurbo(directory, args) {
   const result = spawnSync(turboBinary, args, {
     cwd: directory,

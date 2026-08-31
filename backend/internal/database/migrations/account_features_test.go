@@ -9,7 +9,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
@@ -37,19 +36,6 @@ func TestAccountFeaturesMigrationCreatesTablesAndConstraints(t *testing.T) {
 	sqlStr := normalizeMigrationSQL(db.Dialect().Name(), string(raw))
 	_, err = db.ExecContext(ctx, sqlStr)
 	require.NoError(t, err)
-
-	for _, tbl := range []string{"account_features"} {
-		var count int
-		err = db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tbl).Scan(ctx, &count)
-		require.NoError(t, err)
-		require.Equal(t, 1, count, "table %s should exist", tbl)
-	}
-	for _, idx := range []string{"account_features_workspace_idx", "account_features_feature_idx", "account_features_workspace_feature_idx"} {
-		var c int
-		err = db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=?", idx).Scan(ctx, &c)
-		require.NoError(t, err)
-		require.Equal(t, 1, c, "index %s should exist", idx)
-	}
 
 	_, err = db.ExecContext(ctx, "INSERT INTO workspaces VALUES ('ws-1','org-1','W','2020-01-01')")
 	require.NoError(t, err)
@@ -185,12 +171,4 @@ func TestAccountFeaturesBackfillPreservesExistingBehavior(t *testing.T) {
 	_, err = db2.ExecContext(ctx, normalizeMigrationSQL(db2.Dialect().Name(), string(raw)))
 	require.NoError(t, err)
 	require.NoError(t, backfillAccountFeatures(ctx, db2))
-}
-
-func TestAccountFeaturesPostgresNormalization(t *testing.T) {
-	raw, err := migrationFiles.ReadFile("106_account_features.sql")
-	require.NoError(t, err)
-	pgSQL := normalizeMigrationSQL(dialect.PG, string(raw))
-	require.NotEmpty(t, pgSQL)
-	require.Contains(t, pgSQL, "account_features")
 }

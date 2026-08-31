@@ -1,5 +1,6 @@
 /** Explicit cleanup for animation parked past a clip's current out point. */
 import type {
+	AnimationKeyframeSource,
 	ItemKeyframes,
 	ItemVectorKeyframes,
 	KeyframeProperty,
@@ -85,6 +86,7 @@ interface TrackEntry {
 	id: string;
 	easing: NonNullable<KeyframeTrack['easings']>[number];
 	easingConfig: NonNullable<KeyframeTrack['easingConfigs']>[number];
+	source: AnimationKeyframeSource | null;
 }
 
 interface ScalarTrackCleanup {
@@ -118,7 +120,8 @@ function cleanupScalarTrack(
 			value: boundaryValue,
 			id: createId(),
 			easing: template?.easing ?? 'linear',
-			easingConfig: template?.easingConfig ?? null
+			easingConfig: template?.easingConfig ?? null,
+			source: template?.source ?? null
 		});
 		insertedBoundary = true;
 	}
@@ -131,7 +134,8 @@ function trackEntries(track: KeyframeTrack, createId: () => string): TrackEntry[
 		value: track.values[index] ?? 0,
 		id: track.ids?.[index] ?? createId(),
 		easing: track.easings?.[index] ?? 'linear',
-		easingConfig: track.easingConfigs?.[index] ?? null
+		easingConfig: track.easingConfigs?.[index] ?? null,
+		source: track.sources?.[index] ?? null
 	}));
 }
 
@@ -141,7 +145,8 @@ function entriesToTrack(entries: readonly TrackEntry[]): KeyframeTrack {
 		values: entries.map((entry) => entry.value),
 		ids: entries.map((entry) => entry.id),
 		easings: entries.map((entry) => entry.easing),
-		easingConfigs: entries.map((entry) => entry.easingConfig)
+		easingConfigs: entries.map((entry) => entry.easingConfig),
+		sources: entries.map((entry) => entry.source)
 	};
 }
 
@@ -167,6 +172,7 @@ function cleanupVector(
 		frame: boundaryFrame,
 		value,
 		easing: template?.easing ?? 'linear',
+		...(template?.source && { source: template.source }),
 		...(template?.easingConfig && { easingConfig: { ...template.easingConfig } })
 	});
 	return { keyframes: kept, removedCount, insertedBoundary: true };

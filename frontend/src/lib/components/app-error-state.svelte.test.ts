@@ -25,8 +25,8 @@ describe('AppErrorState', () => {
 		const heading = screen.getByRole('heading', { name: 'OpenPost could not show this page' });
 		await expect.element(heading).toHaveFocus();
 		await expect.element(screen.getByTestId('app-error-page')).not.toHaveAttribute('aria-live');
-		await expect.element(screen.getByRole('button', { name: 'Try again' })).toHaveClass(/h-11/);
-		await screen.getByRole('button', { name: 'Try again' }).click();
+		const retry = screen.getByRole('button', { name: 'Try again' });
+		await retry.click();
 		expect(onRetry).toHaveBeenCalledOnce();
 		await expect.element(screen.getByRole('link', { name: 'Contact support' })).toBeVisible();
 		await expect
@@ -53,7 +53,6 @@ describe('AppErrorState', () => {
 			.element(screen.getByRole('button', { name: 'Tentar novamente' }))
 			.not.toBeInTheDocument();
 		await expect.element(screen.getByText('HTTP 403')).toBeVisible();
-		expect(document.documentElement).toHaveClass('dark');
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
 	});
 

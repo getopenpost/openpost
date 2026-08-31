@@ -2,6 +2,7 @@
 	import { m } from '$lib/paraglide/messages';
 	import { getCurrentLocale, localeLabels, switchLocale } from '$lib/i18n';
 	import { locales, type Locale } from '$lib/paraglide/runtime';
+	import AppSelect from '$lib/components/app-select.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import { Slider } from '$lib/components/ui/slider';
@@ -53,6 +54,11 @@
 	import LocalModelCacheControl from './local-model-cache-control.svelte';
 	import KeyboardShortcutEditor from './keyboard-shortcut-editor.svelte';
 	import { previewEditorSound } from '$lib/video-editor/sounds/editor-sounds';
+	import {
+		CAPTION_STYLE_PRESETS,
+		type CaptionStylePresetId
+	} from '$lib/video-editor/typography/caption-style-presets';
+	import { captionStylePresetLabel } from '$lib/video-editor/typography/caption-style-i18n';
 
 	type Section = 'general' | 'timeline' | 'shortcuts' | 'ai' | 'storage';
 	type StorageAction = 'cache' | 'thumbnails' | 'generate-proxies' | 'delete-proxies';
@@ -77,7 +83,12 @@
 	];
 
 	function setBoolean(
-		key: 'snapByDefault' | 'showWaveforms' | 'showFilmstrips' | 'extractFilmstrips',
+		key:
+			| 'snapByDefault'
+			| 'canvasSnapEnabled'
+			| 'showWaveforms'
+			| 'showFilmstrips'
+			| 'extractFilmstrips',
 		value: boolean
 	): void {
 		editorSettings.set(key, value);
@@ -233,16 +244,17 @@
 										{m.video_editor_settings_language_description()}
 									</p>
 								</div>
-								<select
+								<AppSelect
 									id="editor-language"
-									class="h-10 min-w-48 rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-3 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)] max-[640px]:h-11 max-[640px]:w-full"
 									value={currentLocale}
-									onchange={(event) => switchLocale(event.currentTarget.value as Locale)}
-								>
-									{#each locales as locale (locale)}
-										<option value={locale}>{localeLabels[locale]}</option>
-									{/each}
-								</select>
+									ariaLabel={m.language_label()}
+									options={locales.map((locale) => ({
+										value: locale,
+										label: localeLabels[locale]
+									}))}
+									onValueChange={(value) => switchLocale(value as Locale)}
+									class="h-10 min-w-48 max-[640px]:h-11 max-[640px]:w-full"
+								/>
 							</div>
 						</div>
 						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
@@ -341,19 +353,21 @@
 										/>
 									</div>
 									<div class="flex flex-wrap items-end justify-between gap-3">
-										<label class="min-w-40 flex-1 text-xs text-[var(--video-editor-muted)]">
-											{m.video_editor_settings_sound_theme()}
-											<select
-												class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
-												value={soundPreferences.theme}
-												onchange={(event) =>
-													setSoundTheme(event.currentTarget.value as InterfaceSoundTheme)}
+										<div class="min-w-40 flex-1 text-xs text-[var(--video-editor-muted)]">
+											<label for="editor-sound-theme">{m.video_editor_settings_sound_theme()}</label
 											>
-												{#each INTERFACE_SOUND_THEMES as theme (theme)}
-													<option value={theme}>{soundThemeLabel(theme)}</option>
-												{/each}
-											</select>
-										</label>
+											<AppSelect
+												id="editor-sound-theme"
+												value={soundPreferences.theme}
+												ariaLabel={m.video_editor_settings_sound_theme()}
+												options={INTERFACE_SOUND_THEMES.map((theme) => ({
+													value: theme,
+													label: soundThemeLabel(theme)
+												}))}
+												onValueChange={(value) => setSoundTheme(value as InterfaceSoundTheme)}
+												class="mt-1 h-9 w-full"
+											/>
+										</div>
 										<Button
 											type="button"
 											variant="outline"
@@ -395,7 +409,7 @@
 						<h3 id="settings-timeline-title" class="text-sm font-medium">
 							{m.video_editor_settings_timeline()}
 						</h3>
-						{#each [{ key: 'snapByDefault' as const, label: m.video_editor_settings_snap_default(), description: m.video_editor_settings_snap_default_description(), value: editorSettings.snapByDefault }, { key: 'showWaveforms' as const, label: m.video_editor_settings_show_waveforms(), description: m.video_editor_settings_show_waveforms_description(), value: editorSettings.showWaveforms }, { key: 'showFilmstrips' as const, label: m.video_editor_settings_show_filmstrips(), description: m.video_editor_settings_show_filmstrips_description(), value: editorSettings.showFilmstrips }, { key: 'extractFilmstrips' as const, label: m.video_editor_settings_extract_filmstrips(), description: m.video_editor_settings_extract_filmstrips_description(), value: editorSettings.extractFilmstrips }] as setting (setting.key)}
+						{#each [{ key: 'snapByDefault' as const, label: m.video_editor_settings_snap_default(), description: m.video_editor_settings_snap_default_description(), value: editorSettings.snapByDefault }, { key: 'canvasSnapEnabled' as const, label: m.video_editor_settings_canvas_snap(), description: m.video_editor_settings_canvas_snap_description(), value: editorSettings.canvasSnapEnabled }, { key: 'showWaveforms' as const, label: m.video_editor_settings_show_waveforms(), description: m.video_editor_settings_show_waveforms_description(), value: editorSettings.showWaveforms }, { key: 'showFilmstrips' as const, label: m.video_editor_settings_show_filmstrips(), description: m.video_editor_settings_show_filmstrips_description(), value: editorSettings.showFilmstrips }, { key: 'extractFilmstrips' as const, label: m.video_editor_settings_extract_filmstrips(), description: m.video_editor_settings_extract_filmstrips_description(), value: editorSettings.extractFilmstrips }] as setting (setting.key)}
 							<div
 								class="flex items-center justify-between gap-4 rounded-lg border border-[oklch(0.29_0.014_55)] px-4 py-3"
 							>
@@ -436,56 +450,79 @@
 							</p>
 						</div>
 						<div class="grid gap-3 sm:grid-cols-2">
-							<label class="text-xs text-[var(--video-editor-muted)] sm:col-span-2">
-								{m.video_editor_transcribe_model()}
-								<select
-									class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+							<div class="text-xs text-[var(--video-editor-muted)] sm:col-span-2">
+								<label for="editor-transcription-model">{m.video_editor_transcribe_model()}</label>
+								<AppSelect
+									id="editor-transcription-model"
 									value={editorSettings.defaultTranscriptionModel}
-									onchange={(event) =>
-										editorSettings.set(
-											'defaultTranscriptionModel',
-											event.currentTarget.value as TranscriptionModel
-										)}
+									ariaLabel={m.video_editor_transcribe_model()}
+									options={TRANSCRIPTION_MODEL_OPTIONS.map((option) => ({
+										value: option.value,
+										label: transcriptionModelUiLabel(option.value)
+									}))}
+									onValueChange={(value) =>
+										editorSettings.set('defaultTranscriptionModel', value as TranscriptionModel)}
+									class="mt-1 h-9 w-full"
+								/>
+							</div>
+							<div class="text-xs text-[var(--video-editor-muted)]">
+								<label for="editor-transcription-language"
+									>{m.video_editor_transcribe_language()}</label
 								>
-									{#each TRANSCRIPTION_MODEL_OPTIONS as option}
-										<option value={option.value}>{transcriptionModelUiLabel(option.value)}</option>
-									{/each}
-								</select>
-							</label>
-							<label class="text-xs text-[var(--video-editor-muted)]">
-								{m.video_editor_transcribe_language()}
-								<select
-									class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								<AppSelect
+									id="editor-transcription-language"
 									value={editorSettings.defaultTranscriptionLanguage}
-									onchange={(event) =>
-										editorSettings.set('defaultTranscriptionLanguage', event.currentTarget.value)}
+									ariaLabel={m.video_editor_transcribe_language()}
+									options={TRANSCRIPTION_LANGUAGE_OPTIONS.map((option) => ({
+										value: option.value,
+										label: transcriptionLanguageUiLabel(option.value)
+									}))}
+									onValueChange={(value) =>
+										editorSettings.set('defaultTranscriptionLanguage', value)}
+									class="mt-1 h-9 w-full"
+								/>
+							</div>
+							<div class="text-xs text-[var(--video-editor-muted)]">
+								<label for="editor-transcription-quality"
+									>{m.video_editor_transcribe_quality()}</label
 								>
-									{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
-										<option value={option.value}
-											>{transcriptionLanguageUiLabel(option.value)}</option
-										>
-									{/each}
-								</select>
-							</label>
-							<label class="text-xs text-[var(--video-editor-muted)]">
-								{m.video_editor_transcribe_quality()}
-								<select
-									class="mt-1 h-9 w-full rounded-md border border-[oklch(0.3_0.015_55)] bg-[oklch(0.2_0.01_55)] px-2 text-xs text-white focus-visible:outline-2 focus-visible:outline-[var(--video-editor-focus)]"
+								<AppSelect
+									id="editor-transcription-quality"
 									value={editorSettings.defaultTranscriptionQuantization}
+									ariaLabel={m.video_editor_transcribe_quality()}
+									options={TRANSCRIPTION_QUANTIZATION_OPTIONS.map((option) => ({
+										value: option.value,
+										label: transcriptionQuantizationUiLabel(option.value)
+									}))}
 									disabled={editorSettings.defaultTranscriptionModel === 'parakeet-tdt-v3'}
-									onchange={(event) =>
+									onValueChange={(value) =>
 										editorSettings.set(
 											'defaultTranscriptionQuantization',
-											event.currentTarget.value as TranscriptionQuantization
+											value as TranscriptionQuantization
 										)}
-								>
-									{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
-										<option value={option.value}
-											>{transcriptionQuantizationUiLabel(option.value)}</option
-										>
-									{/each}
-								</select>
+									class="mt-1 h-9 w-full"
+								/>
+							</div>
+						</div>
+						<div class="rounded-lg border border-[oklch(0.29_0.014_55)] p-4">
+							<label for="editor-default-caption-style" class="text-sm font-medium">
+								{m.video_editor_settings_default_caption_style()}
 							</label>
+							<p class="mt-0.5 text-xs text-[var(--video-editor-muted)]">
+								{m.video_editor_settings_default_caption_style_description()}
+							</p>
+							<AppSelect
+								id="editor-default-caption-style"
+								value={editorSettings.defaultCaptionStylePresetId}
+								ariaLabel={m.video_editor_settings_default_caption_style()}
+								options={CAPTION_STYLE_PRESETS.map((preset) => ({
+									value: preset.id,
+									label: captionStylePresetLabel(preset.id)
+								}))}
+								onValueChange={(value) =>
+									editorSettings.set('defaultCaptionStylePresetId', value as CaptionStylePresetId)}
+								class="mt-3 h-9 w-full"
+							/>
 						</div>
 					</section>
 				{:else}
@@ -535,7 +572,7 @@
 										)}
 								>
 									{#if working === 'generate-proxies'}<LoaderIcon
-											class="size-3.5 animate-spin"
+											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('generate-proxies', m.video_editor_settings_generate())}
 								</Button>
@@ -556,7 +593,9 @@
 										disabled={working !== null || media.length === 0}
 										onclick={() => (confirmCacheClear = true)}
 									>
-										{#if working === 'cache'}<LoaderIcon class="size-3.5 animate-spin" />{/if}
+										{#if working === 'cache'}<LoaderIcon
+												class="size-3.5 animate-spin motion-reduce:animate-none"
+											/>{/if}
 										{actionText('cache', m.video_editor_settings_clear())}
 									</Button>
 								</div>
@@ -610,7 +649,9 @@
 											regenerateProjectThumbnails(media, onProgress)
 										)}
 								>
-									{#if working === 'thumbnails'}<LoaderIcon class="size-3.5 animate-spin" />{/if}
+									{#if working === 'thumbnails'}<LoaderIcon
+											class="size-3.5 animate-spin motion-reduce:animate-none"
+										/>{/if}
 									{actionText('thumbnails', m.video_editor_settings_regenerate())}
 								</Button>
 							</div>
@@ -633,7 +674,7 @@
 										)}
 								>
 									{#if working === 'delete-proxies'}<LoaderIcon
-											class="size-3.5 animate-spin"
+											class="size-3.5 animate-spin motion-reduce:animate-none"
 										/>{/if}
 									{actionText('delete-proxies', m.common_delete())}
 								</Button>
@@ -660,7 +701,9 @@
 		<Dialog.Footer class="border-t border-[oklch(0.27_0.014_55)] px-5 py-3">
 			{#if working}<span
 					class="mr-auto flex items-center gap-2 text-xs text-[var(--video-editor-muted)]"
-					><LoaderIcon class="size-3.5 animate-spin" />{m.video_editor_settings_working()}</span
+					><LoaderIcon
+						class="size-3.5 animate-spin motion-reduce:animate-none"
+					/>{m.video_editor_settings_working()}</span
 				>{/if}
 			<Button type="button" onclick={() => (open = false)}>
 				{#if feedback?.tone === 'success'}<CheckIcon class="size-3.5" />{/if}

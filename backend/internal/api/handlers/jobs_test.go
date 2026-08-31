@@ -13,7 +13,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
 	"github.com/labstack/echo/v4"
+	"github.com/openpost/backend/internal/api/middleware"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
 )
@@ -24,6 +26,10 @@ type jobsTestServer struct {
 }
 
 func newJobsTestServer(t *testing.T) *jobsTestServer {
+	return newJobsTestServerWithAuthenticator(t, testAuthenticator{})
+}
+
+func newJobsTestServerWithAuthenticator(t *testing.T, authenticator middleware.Authenticator) *jobsTestServer {
 	t.Helper()
 
 	db := createHandlerTestDB(
@@ -36,22 +42,25 @@ func newJobsTestServer(t *testing.T) *jobsTestServer {
 		(*models.Job)(nil),
 	)
 	ctx := context.Background()
-	_, err := db.NewInsert().Model(&models.User{
-		ID:           "user-1",
-		Email:        "user@example.com",
-		PasswordHash: "hash",
-		CreatedAt:    time.Now().UTC(),
-	}).Exec(ctx)
-	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(ctx)
+	users := []models.User{
+		{ID: "user-1", Email: "user@example.com", PasswordHash: "hash", CreatedAt: time.Now().UTC()},
+		{ID: "user-2", Email: "other@example.com", PasswordHash: "hash", CreatedAt: time.Now().UTC()},
+		{ID: "admin-1", Email: "admin@example.com", PasswordHash: "hash", IsAdmin: true, CreatedAt: time.Now().UTC()},
+	}
+	for index := range users {
+		_, err := db.NewInsert().Model(&users[index]).Exec(ctx)
+		require.NoError(t, err)
+	}
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-2", Name: "Other"}).Exec(ctx)
 	require.NoError(t, err)
-	_, err = db.NewInsert().Model(&models.WorkspaceMember{
-		WorkspaceID: "ws-1",
-		UserID:      "user-1",
-		Role:        models.WorkspaceRoleAdmin,
-	}).Exec(ctx)
+	members := []models.WorkspaceMember{
+		{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleAdmin},
+		{WorkspaceID: "ws-2", UserID: "user-2", Role: models.WorkspaceRoleAdmin},
+		{WorkspaceID: "ws-1", UserID: "admin-1", Role: models.WorkspaceRoleAdmin},
+	}
+	_, err = db.NewInsert().Model(&members).Exec(ctx)
 	require.NoError(t, err)
 
 	publications := []models.Publication{
@@ -66,8 +75,29 @@ func newJobsTestServer(t *testing.T) *jobsTestServer {
 
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
-	NewJobHandler(db, testAuthenticator{}).RegisterRoutes(api)
+	NewJobHandler(db, authenticator).RegisterRoutes(api)
 	return &jobsTestServer{echo: e, db: db}
+}
+
+type jobsAuthenticator struct{}
+
+func (jobsAuthenticator) AuthenticateBearer(_ context.Context, token string) (*middleware.Principal, error) {
+	switch token {
+	case "browser-session":
+		return &middleware.Principal{UserID: "user-1", Email: "user@example.com", SessionID: "session-1"}, nil
+	case "foreign-browser-session":
+		return &middleware.Principal{UserID: "user-2", Email: "other@example.com", SessionID: "session-2"}, nil
+	case "admin-session":
+		return &middleware.Principal{UserID: "admin-1", Email: "admin@example.com", SessionID: "admin-session"}, nil
+	case "api-read-ws-1":
+		return &middleware.Principal{UserID: "user-1", Email: "user@example.com", Scope: apitokens.ScopeAPIRead, WorkspaceID: "ws-1", TokenID: "api-read-ws-1"}, nil
+	case "api-write-ws-1":
+		return &middleware.Principal{UserID: "user-1", Email: "user@example.com", Scope: apitokens.ScopeAPIWrite, WorkspaceID: "ws-1", TokenID: "api-write-ws-1"}, nil
+	case "api-read-ws-2":
+		return &middleware.Principal{UserID: "user-1", Email: "user@example.com", Scope: apitokens.ScopeAPIRead, WorkspaceID: "ws-2", TokenID: "api-read-ws-2"}, nil
+	default:
+		return nil, apitokens.ErrInvalidToken
+	}
 }
 
 func TestListJobsPaginatesVisibleJobsWithHeaders(t *testing.T) {
@@ -112,6 +142,67 @@ func TestListJobsCountsFilteredWorkspaceScope(t *testing.T) {
 	require.Len(t, out, 1)
 	require.Equal(t, "pending", out[0].Status)
 	require.Equal(t, "", out[0].Payload)
+}
+
+func TestGetJobReturnsSafeWorkspaceJobForBrowserSession(t *testing.T) {
+	t.Parallel()
+
+	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
+	srv.seedJobs(t)
+
+	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "browser-session")
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var out JobResponse
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, "job-1", out.ID)
+	require.Equal(t, jobTypePublishPublication, out.Type)
+	require.Equal(t, "pending", out.Status)
+	require.Equal(t, "publication-1", out.PublicationID)
+	require.Empty(t, out.Payload)
+}
+
+func TestGetJobEnforcesWorkspaceAccessForBrowserSession(t *testing.T) {
+	t.Parallel()
+
+	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
+	srv.seedJobs(t)
+
+	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "foreign-browser-session")
+
+	require.Equal(t, http.StatusForbidden, resp.Code, resp.Body.String())
+}
+
+func TestGetJobAllowsWorkspaceBoundAPIReadAndWriteTokens(t *testing.T) {
+	t.Parallel()
+
+	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
+	srv.seedJobs(t)
+
+	readResp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "api-read-ws-1")
+	require.Equal(t, http.StatusOK, readResp.Code, readResp.Body.String())
+	writeResp := srv.getJSONWithToken(t, "/api/v1/jobs/job-2", "api-write-ws-1")
+	require.Equal(t, http.StatusOK, writeResp.Code, writeResp.Body.String())
+	foreignResp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "api-read-ws-2")
+	require.Equal(t, http.StatusForbidden, foreignResp.Code, foreignResp.Body.String())
+
+	var out JobResponse
+	require.NoError(t, json.Unmarshal(readResp.Body.Bytes(), &out))
+	require.Empty(t, out.Payload)
+}
+
+func TestGetJobIncludesPayloadOnlyForInstanceAdminBrowserSession(t *testing.T) {
+	t.Parallel()
+
+	srv := newJobsTestServerWithAuthenticator(t, jobsAuthenticator{})
+	srv.seedJobs(t)
+
+	resp := srv.getJSONWithToken(t, "/api/v1/jobs/job-1", "admin-session")
+
+	require.Equal(t, http.StatusOK, resp.Code, resp.Body.String())
+	var out JobResponse
+	require.NoError(t, json.Unmarshal(resp.Body.Bytes(), &out))
+	require.Equal(t, `{"publication_id":"publication-1"}`, out.Payload)
 }
 
 func TestListJobsRejectsNegativeOffset(t *testing.T) {
@@ -272,9 +363,14 @@ func (s *jobsTestServer) seedJobs(t *testing.T) {
 
 func (s *jobsTestServer) getJSON(t *testing.T, path string) *httptest.ResponseRecorder {
 	t.Helper()
+	return s.getJSONWithToken(t, path, "web-token")
+}
+
+func (s *jobsTestServer) getJSONWithToken(t *testing.T, path, token string) *httptest.ResponseRecorder {
+	t.Helper()
 
 	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
-	req.Header.Set("Authorization", "Bearer web-token")
+	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 	s.echo.ServeHTTP(rec, req)
 	return rec

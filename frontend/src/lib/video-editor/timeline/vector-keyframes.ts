@@ -102,6 +102,10 @@ export function promoteVectorKeyframes(
 		.toSorted((left, right) => left - right)
 		.map((frame) => {
 			const style = segmentStyleAt(xTrack, frame) ?? segmentStyleAt(yTrack, frame);
+			const xSource = sourceAtFrame(xTrack, frame);
+			const ySource = sourceAtFrame(yTrack, frame);
+			const source =
+				xSource?.applicationId === ySource?.applicationId ? (xSource ?? ySource) : undefined;
 			const id = crypto.randomUUID();
 			const xIndex = xTrack?.frames.indexOf(frame) ?? -1;
 			const yIndex = yTrack?.frames.indexOf(frame) ?? -1;
@@ -132,6 +136,7 @@ export function promoteVectorKeyframes(
 					)
 				},
 				easing: style?.easing ?? 'linear',
+				...(source && { source }),
 				...(style?.easingConfig && { easingConfig: cloneEasingConfig(style.easingConfig) })
 			};
 		});
@@ -451,6 +456,11 @@ function segmentStyleAt(
 	const easing = track.easings?.[index] ?? 'linear';
 	const easingConfig = track.easingConfigs?.[index] ?? undefined;
 	return { easing, ...(easingConfig && { easingConfig }) };
+}
+
+function sourceAtFrame(track: KeyframeTrack | undefined, frame: number) {
+	const index = track?.frames.indexOf(frame) ?? -1;
+	return index >= 0 ? (track?.sources?.[index] ?? undefined) : undefined;
 }
 
 function cubicBezier(p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, t: number): Vector2 {

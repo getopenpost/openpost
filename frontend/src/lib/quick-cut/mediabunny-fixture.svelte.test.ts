@@ -75,6 +75,101 @@ async function createToneWebM(frequency: number, durationSec = 1): Promise<File>
 	return new File([target.buffer], `tone-${frequency}.webm`, { type: 'audio/webm' });
 }
 
+async function createColorToneWebM(
+	color: string,
+	frequency: number,
+	durationSec = 1
+): Promise<File> {
+	const canvas = document.createElement('canvas');
+	canvas.width = 128;
+	canvas.height = 72;
+	const context = canvas.getContext('2d')!;
+	const target = new BufferTarget();
+	const output = new Output({ format: new WebMOutputFormat(), target });
+	const video = new CanvasSource(canvas, { codec: 'vp9', bitrate: 1_000_000 });
+	const audio = new AudioSampleSource({ codec: 'opus', bitrate: 96_000 });
+	output.addVideoTrack(video);
+	output.addAudioTrack(audio);
+	await output.start();
+
+	const sampleRate = 48_000;
+	const pcm = new Float32Array(Math.round(durationSec * sampleRate));
+	for (let frame = 0; frame < pcm.length; frame++) {
+		pcm[frame] = Math.sin((2 * Math.PI * frequency * frame) / sampleRate) * 0.4;
+	}
+	const sample = new AudioSample({
+		data: pcm,
+		format: 'f32',
+		numberOfChannels: 1,
+		sampleRate,
+		timestamp: 0
+	});
+	await audio.add(sample);
+	sample.close();
+
+	const fps = 30;
+	for (let frame = 0; frame < Math.ceil(durationSec * fps); frame++) {
+		context.fillStyle = color;
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		await video.add(frame / fps, 1 / fps);
+	}
+	video.close();
+	audio.close();
+	await output.finalize();
+	if (!target.buffer) throw new Error('No A/V fixture bytes.');
+	return new File([target.buffer], `${color}-${frequency}.webm`, { type: 'video/webm' });
+}
+
+async function createColorMultiToneWebM(
+	color: string,
+	frequencies: readonly number[],
+	durationSec = 1
+): Promise<File> {
+	const canvas = document.createElement('canvas');
+	canvas.width = 128;
+	canvas.height = 72;
+	const context = canvas.getContext('2d')!;
+	const target = new BufferTarget();
+	const output = new Output({ format: new WebMOutputFormat(), target });
+	const video = new CanvasSource(canvas, { codec: 'vp9', bitrate: 1_000_000 });
+	const audioSources = frequencies.map(
+		() => new AudioSampleSource({ codec: 'opus', bitrate: 96_000 })
+	);
+	output.addVideoTrack(video);
+	for (const audio of audioSources) output.addAudioTrack(audio);
+	await output.start();
+
+	const sampleRate = 48_000;
+	for (const [index, frequency] of frequencies.entries()) {
+		const pcm = new Float32Array(Math.round(durationSec * sampleRate));
+		for (let frame = 0; frame < pcm.length; frame++) {
+			pcm[frame] = Math.sin((2 * Math.PI * frequency * frame) / sampleRate) * 0.4;
+		}
+		const sample = new AudioSample({
+			data: pcm,
+			format: 'f32',
+			numberOfChannels: 1,
+			sampleRate,
+			timestamp: 0
+		});
+		await audioSources[index]!.add(sample);
+		sample.close();
+	}
+
+	for (let frame = 0; frame < Math.ceil(durationSec * 30); frame++) {
+		context.fillStyle = color;
+		context.fillRect(0, 0, canvas.width, canvas.height);
+		await video.add(frame / 30, 1 / 30);
+	}
+	video.close();
+	for (const audio of audioSources) audio.close();
+	await output.finalize();
+	if (!target.buffer) throw new Error('No multi-track A/V fixture bytes.');
+	return new File([target.buffer], `${color}-${frequencies.join('-')}.webm`, {
+		type: 'video/webm'
+	});
+}
+
 async function decodedMono(blob: Blob): Promise<{ samples: Float32Array; sampleRate: number }> {
 	const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(blob) });
 	try {
@@ -138,6 +233,25 @@ function expectToneAt(
 }
 
 describe('quick-cut mediabunny fixture', () => {
+	it('keeps unused sources out of merged output decisions and naming', async () => {
+		const unusedFile = await createColorToneWebM('purple', 440);
+		const usedFile = await createColorMp4('green', 1);
+		const unusedSource = await probeSourceFile(unusedFile);
+		const usedSource = await probeSourceFile(usedFile);
+		const segments = [createSegment(0, 0.5, { sourceId: usedSource.id })];
+
+		const [artifact] = await exportSegments({
+			sources: [unusedSource, usedSource],
+			segments,
+			cutMode: 'nearestKeyframe',
+			merge: true
+		});
+
+		expect(artifact?.wasLossless).toBe(true);
+		expect(artifact?.fileName).toMatch(/^green-/);
+		await discardScratchFile(artifact!.scratchPath);
+	}, 30_000);
+
 	it('compatible A/B/A sources with same codec/dimensions/canvas prove packet-copy order', async () => {
 		const fileA = await createColorMp4('red', 2, 128, 72);
 		const fileB = await createColorMp4('blue', 2, 128, 72);
@@ -153,11 +267,14 @@ describe('quick-cut mediabunny fixture', () => {
 		const pre = await preflightExport([srcA, srcB], segs, 'nearestKeyframe', true);
 		expect(pre.eligible).toBe(true);
 		expect(pre.requiresTranscode).toBe(false);
+		const progress: Array<{ fraction: number; bytesWritten: number }> = [];
 		const arts = await exportSegments({
 			sources: [srcA, srcB],
 			segments: segs,
 			cutMode: 'nearestKeyframe',
-			merge: true
+			merge: true,
+			onProgress: (update) =>
+				progress.push({ fraction: update.fraction, bytesWritten: update.bytesWritten })
 		});
 		expect(arts).toHaveLength(1);
 		const art = arts[0]!;
@@ -179,6 +296,16 @@ describe('quick-cut mediabunny fixture', () => {
 		}
 		expect(streamedBytes).toBe(art.scratchFile.size);
 		expect(streamedBytes).toBeGreaterThan(0);
+		expect(progress.length).toBeGreaterThan(3);
+		expect(progress.some((update) => update.fraction > 0 && update.fraction < 1)).toBe(true);
+		expect(progress.some((update) => update.bytesWritten > 0)).toBe(true);
+		expect(progress.at(-1)?.fraction).toBe(1);
+		for (let index = 1; index < progress.length; index++) {
+			expect(progress[index]!.fraction).toBeGreaterThanOrEqual(progress[index - 1]!.fraction);
+			expect(progress[index]!.bytesWritten).toBeGreaterThanOrEqual(
+				progress[index - 1]!.bytesWritten
+			);
+		}
 		// Decode and check monotonic timestamps/sequence and duration ~3s, and color order via packet count
 		const input = new Input({ formats: ALL_FORMATS, source: new BlobSource(art.scratchFile) });
 		const dur = await input.computeDuration();
@@ -219,6 +346,79 @@ describe('quick-cut mediabunny fixture', () => {
 		await discardScratchFile(art.scratchPath);
 	}, 30000);
 
+	it('keeps merged A/V packet-copy audio aligned across A/B/A boundaries', async () => {
+		const fileA = await createColorToneWebM('red', 220);
+		const fileB = await createColorToneWebM('blue', 440);
+		const sourceA = await probeSourceFile(fileA);
+		const sourceB = await probeSourceFile(fileB);
+		const segments = [
+			createSegment(0, 0.8, { sourceId: sourceA.id }),
+			createSegment(0, 0.8, { sourceId: sourceB.id }),
+			createSegment(0, 0.8, { sourceId: sourceA.id })
+		];
+		const [artifact] = await exportSegments({
+			sources: [sourceA, sourceB],
+			segments,
+			cutMode: 'nearestKeyframe',
+			merge: true
+		});
+		expect(artifact?.wasLossless).toBe(true);
+
+		const decoded = await decodedMono(artifact!.scratchFile);
+		expectToneAt(decoded.samples, decoded.sampleRate, 0.4, 220);
+		expectToneAt(decoded.samples, decoded.sampleRate, 1.2, 440);
+		expectToneAt(decoded.samples, decoded.sampleRate, 2, 220);
+		await discardScratchFile(artifact!.scratchPath);
+	}, 30000);
+
+	it('transcodes mixed audio track counts without depending on import order', async () => {
+		const oneTrackFile = await createColorToneWebM('red', 220);
+		const twoTrackFile = await createColorMultiToneWebM('blue', [440, 660]);
+		const oneTrackSource = {
+			...(await probeSourceFile(oneTrackFile)),
+			selectedAudioTrackIndices: [0]
+		};
+		const twoTrackSource = {
+			...(await probeSourceFile(twoTrackFile)),
+			selectedAudioTrackIndices: [0, 1]
+		};
+		expect(oneTrackSource.audioStreams).toHaveLength(1);
+		expect(twoTrackSource.audioStreams).toHaveLength(2);
+		const segments = [
+			createSegment(0.1, 0.7, { sourceId: twoTrackSource.id }),
+			createSegment(0.1, 0.7, { sourceId: oneTrackSource.id })
+		];
+		const preflight = await preflightExport(
+			[oneTrackSource, twoTrackSource],
+			segments,
+			'exact',
+			true
+		);
+		expect(preflight.eligible).toBe(true);
+		expect(preflight.requiresTranscode).toBe(true);
+
+		const [artifact] = await exportSegments({
+			sources: [oneTrackSource, twoTrackSource],
+			segments,
+			cutMode: 'exact',
+			merge: true
+		});
+		try {
+			const input = new Input({
+				formats: ALL_FORMATS,
+				source: new BlobSource(artifact!.scratchFile)
+			});
+			try {
+				expect(await input.getAudioTracks()).toHaveLength(2);
+				expect(await input.computeDuration()).toBeCloseTo(1.2, 1);
+			} finally {
+				input.dispose?.();
+			}
+		} finally {
+			if (artifact) await discardScratchFile(artifact.scratchPath);
+		}
+	}, 30_000);
+
 	it('incompatible dimensions source proves preflight requires transcode', async () => {
 		const fileA = await createColorMp4('red', 1, 128, 72);
 		const fileB = await createColorMp4('blue', 1, 192, 108);
@@ -232,6 +432,79 @@ describe('quick-cut mediabunny fixture', () => {
 		expect(pre.requiresTranscode).toBe(true);
 		expect(pre.reason).toMatch(/dimensions/i);
 	});
+
+	it('falls back to exact re-encoding when the saved keyframe map is stale', async () => {
+		const file = await createColorMp4('purple', 1.5);
+		const source = await probeSourceFile(file);
+		const staleSource = {
+			...source,
+			keyframeState: 'known' as const,
+			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b),
+			videoStreams: source.videoStreams.map((stream, index) =>
+				index === 0
+					? {
+							...stream,
+							keyframeState: 'known' as const,
+							keyframeTimestamps: [...stream.keyframeTimestamps, 0.2].sort((a, b) => a - b)
+						}
+					: stream
+			)
+		};
+		const segment = createSegment(0.2, 0.8, {
+			sourceId: source.id,
+			cutMode: 'exact'
+		});
+		const preflight = await preflightExport([staleSource], [segment], 'exact', true);
+		expect(preflight.requiresTranscode).toBe(false);
+
+		const [artifact] = await exportSegments({
+			sources: [staleSource],
+			segments: [segment],
+			cutMode: 'exact',
+			merge: true
+		});
+		expect(artifact?.wasLossless).toBe(false);
+		expect(artifact?.reason).toMatch(/lossless copy was unavailable/i);
+
+		const input = new Input({
+			formats: ALL_FORMATS,
+			source: new BlobSource(artifact!.scratchFile)
+		});
+		expect(await input.computeDuration()).toBeCloseTo(0.6, 0.25);
+		input.dispose?.();
+		await discardScratchFile(artifact!.scratchPath);
+	}, 30000);
+
+	it('does not label an off-keyframe separate export as lossless when its map is stale', async () => {
+		const file = await createColorMp4('orange', 1.5);
+		const source = await probeSourceFile(file);
+		const staleSource = {
+			...source,
+			keyframeState: 'known' as const,
+			keyframeTimestamps: [...source.keyframeTimestamps, 0.2].sort((a, b) => a - b),
+			videoStreams: source.videoStreams.map((stream, index) =>
+				index === 0
+					? {
+							...stream,
+							keyframeState: 'known' as const,
+							keyframeTimestamps: [...stream.keyframeTimestamps, 0.2].sort((a, b) => a - b)
+						}
+					: stream
+			)
+		};
+		const segment = createSegment(0.2, 0.8, {
+			sourceId: source.id,
+			cutMode: 'exact'
+		});
+		const [artifact] = await exportSegments({
+			sources: [staleSource],
+			segments: [segment],
+			cutMode: 'exact',
+			merge: false
+		});
+		expect(artifact?.wasLossless).toBe(false);
+		await discardScratchFile(artifact!.scratchPath);
+	}, 30000);
 
 	it('merges audio-only A/B/A in order without inventing a video track', async () => {
 		const fileA = await createToneWebM(220);
@@ -287,6 +560,39 @@ describe('quick-cut mediabunny fixture', () => {
 		await discardScratchFile(artifact!.scratchPath);
 	}, 30_000);
 
+	it('executes mixed per-segment strategies through separate export paths', async () => {
+		const file = await createToneWebM(220);
+		const source = await probeSourceFile(file);
+		const exact = createSegment(0.1, 0.4, {
+			id: 'exact',
+			sourceId: source.id,
+			cutMode: 'exact'
+		});
+		const lossless = createSegment(0.5, 0.9, {
+			id: 'lossless',
+			sourceId: source.id,
+			cutMode: 'nearestKeyframe'
+		});
+
+		const artifacts = await exportSegments({
+			sources: [source],
+			segments: [exact, lossless],
+			cutMode: 'nearestKeyframe',
+			merge: false
+		});
+		try {
+			expect(artifacts).toHaveLength(2);
+			expect(artifacts[0]?.wasLossless).toBe(false);
+			expect(artifacts[1]?.wasLossless).toBe(true);
+			const exactAudio = await decodedMono(artifacts[0]!.scratchFile);
+			const losslessAudio = await decodedMono(artifacts[1]!.scratchFile);
+			expect(exactAudio.samples.length / exactAudio.sampleRate).toBeCloseTo(0.3, 1);
+			expect(losslessAudio.samples.length / losslessAudio.sampleRate).toBeGreaterThan(0.35);
+		} finally {
+			await Promise.all(artifacts.map((artifact) => discardScratchFile(artifact.scratchPath)));
+		}
+	}, 30_000);
+
 	it('exact non-keyframe A/B/A proves bounded transcode merge', async () => {
 		const fileA = await createColorMp4('green', 2, 128, 72);
 		const srcA = await probeSourceFile(fileA);
@@ -314,6 +620,42 @@ describe('quick-cut mediabunny fixture', () => {
 		input.dispose?.();
 		await discardScratchFile(art.scratchPath);
 	}, 30000);
+
+	it('merges exact WebM cuts without routing video through MP4', async () => {
+		const file = await createColorToneWebM('purple', 220, 2);
+		const source = await probeSourceFile(file);
+		const segments = [
+			createSegment(0.1, 0.6, { sourceId: source.id }),
+			createSegment(0.8, 1.3, { sourceId: source.id })
+		];
+		const preflight = await preflightExport([source], segments, 'exact', true);
+		expect(preflight.requiresTranscode).toBe(true);
+
+		const [artifact] = await exportSegments({
+			sources: [source],
+			segments,
+			cutMode: 'exact',
+			merge: true
+		});
+		try {
+			expect(artifact?.fileName).toMatch(/\.webm$/);
+			const input = new Input({
+				formats: ALL_FORMATS,
+				source: new BlobSource(artifact!.scratchFile)
+			});
+			try {
+				const video = await input.getPrimaryVideoTrack();
+				const audio = await input.getPrimaryAudioTrack();
+				expect(await video?.getCodec()).toBe('vp9');
+				expect(await audio?.getCodec()).toBe('opus');
+				expect(await input.computeDuration()).toBeCloseTo(1, 1);
+			} finally {
+				input.dispose?.();
+			}
+		} finally {
+			if (artifact) await discardScratchFile(artifact.scratchPath);
+		}
+	}, 30_000);
 
 	it('cancels export and cleans up scratch', async () => {
 		const fileA = await createColorMp4('yellow', 2);

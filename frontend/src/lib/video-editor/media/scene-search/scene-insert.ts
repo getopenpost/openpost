@@ -7,6 +7,7 @@ import { effectiveMediaTracks } from '../../timeline/utils/track-groups';
 import type { MediaMetadata } from '../types';
 import type { MediaScene } from './types';
 import { m } from '$lib/paraglide/messages';
+import { insertMediaAtFrame } from '../../timeline/actions/insert-media';
 
 function collides(trackId: string, from: number, end: number): boolean {
 	return (timelineStore.itemsByTrackId.get(trackId) ?? []).some(
@@ -47,6 +48,12 @@ export function insertSceneAtFrame(
 	from: number,
 	preferredTrackId?: string
 ): string {
+	if (media.tags.includes('image') || media.mimeType.startsWith('image/')) {
+		return insertMediaAtFrame(media, from, {
+			preferredTrackId,
+			label: scene.text || media.fileName
+		});
+	}
 	return execute('INSERT_SCENE', () => {
 		const timelineFps = timelineStore.fps;
 		const sourceFps = media.fps > 0 ? media.fps : timelineFps;

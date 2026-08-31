@@ -19,10 +19,14 @@ export function requireConventionalCommitMessage(message) {
     String(message ?? "")
       .trim()
       .split(/\r?\n/u, 1)[0] ?? "";
-  if (!/^[a-z][a-z0-9-]*(?:\([^\)\r\n]+\))?!?:\s+\S/iu.test(header)) {
+  if (!/^[a-z][a-z0-9-]*(?:\([^)\r\n]+\))?!?:\s+\S/iu.test(header)) {
     throw new Error("uncommitted work requires a Conventional Commit message");
   }
   return header;
+}
+
+export function releasePreparationHasChanges(stagedPaths) {
+  return String(stagedPaths ?? "").trim().length > 0;
 }
 
 export function selectWorkflowRun(runs, { workflow, branch, revision }) {

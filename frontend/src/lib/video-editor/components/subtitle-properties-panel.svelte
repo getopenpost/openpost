@@ -12,6 +12,7 @@
 		resolveCaptionStylePatch,
 		type CaptionStylePresetId
 	} from '../typography/caption-style-presets';
+	import { captionStylePresetLabel } from '../typography/caption-style-i18n';
 
 	let {
 		item,
@@ -46,21 +47,6 @@
 		{ value: 'right', label: m.video_editor_align_right() }
 	]);
 
-	function presetLabel(id: CaptionStylePresetId): string {
-		switch (id) {
-			case 'netflix':
-				return m.video_editor_caption_preset_netflix();
-			case 'youtube':
-				return m.video_editor_caption_preset_youtube();
-			case 'bold-yellow':
-				return m.video_editor_caption_preset_bold_yellow();
-			case 'minimal-stroke':
-				return m.video_editor_caption_preset_outlined();
-			case 'tiktok':
-				return m.video_editor_caption_preset_tiktok();
-		}
-	}
-
 	function commit(patch: Partial<TimelineItem>, command = 'UPDATE_CAPTION_STYLE'): void {
 		updateItemProperties(activeItem.id, patch, command);
 		onedit();
@@ -73,6 +59,19 @@
 			resolveCaptionStylePatch(preset, canvasWidth, canvasHeight, activeItem.transform),
 			'APPLY_CAPTION_STYLE_PRESET'
 		);
+	}
+
+	const karaokeMode = $derived(
+		activeItem.captionHighlightMode === 'karaoke' ? 'karaoke' : 'normal'
+	);
+
+	function commitKaraokeMode(mode: 'normal' | 'karaoke'): void {
+		const patch: Partial<TimelineItem> = { captionHighlightMode: mode };
+		if (mode === 'karaoke') {
+			patch.karaokeActiveColor = activeItem.karaokeActiveColor ?? '#FFD400';
+			patch.karaokeActiveBackground = activeItem.karaokeActiveBackground;
+		}
+		commit(patch, 'UPDATE_CAPTION_HIGHLIGHT_MODE');
 	}
 </script>
 
@@ -99,7 +98,7 @@
 					<span class="preset-preview" data-preset={preset.id} aria-hidden="true">
 						<span>{m.video_editor_caption_preview()}</span>
 					</span>
-					<span class="preset-name">{presetLabel(preset.id)}</span>
+					<span class="preset-name">{captionStylePresetLabel(preset.id)}</span>
 				</button>
 			{/each}
 		</div>
@@ -180,6 +179,92 @@
 				onchange={(event) => commit({ lineHeight: event.currentTarget.valueAsNumber })}
 			/>
 		</label>
+	</div>
+
+	<!-- Karaoke word highlight: deliberate mode with active-word colors; fallback stays normal. -->
+	<div class="space-y-1">
+		<span id={`caption-highlight-${activeItem.id}`} class="field-label">
+			{m.video_editor_caption_highlight_mode()}
+		</span>
+		<div
+			class="grid grid-cols-2 gap-1"
+			role="group"
+			aria-labelledby={`caption-highlight-${activeItem.id}`}
+		>
+			<Button
+				type="button"
+				size="sm"
+				variant={karaokeMode === 'normal' ? 'secondary' : 'ghost'}
+				aria-pressed={karaokeMode === 'normal'}
+				onclick={() => commitKaraokeMode('normal')}
+			>
+				{m.video_editor_caption_highlight_normal()}
+			</Button>
+			<Button
+				type="button"
+				size="sm"
+				variant={karaokeMode === 'karaoke' ? 'secondary' : 'ghost'}
+				aria-pressed={karaokeMode === 'karaoke'}
+				onclick={() => commitKaraokeMode('karaoke')}
+			>
+				{m.video_editor_caption_highlight_karaoke()}
+			</Button>
+		</div>
+		<p class="text-[10px] leading-snug text-[var(--video-editor-muted)]">
+			{m.video_editor_caption_highlight_karaoke_hint()}
+		</p>
+		{#if karaokeMode === 'karaoke'}
+			<div class="grid grid-cols-2 gap-1.5">
+				<label class="field-label">
+					{m.video_editor_caption_karaoke_active_color()}
+					<Input
+						class="mt-0.5 h-8 w-full bg-transparent"
+						type="color"
+						value={activeItem.karaokeActiveColor ?? '#FFD400'}
+						onchange={(event) =>
+							commit(
+								{ karaokeActiveColor: event.currentTarget.value },
+								'UPDATE_KARAOKE_ACTIVE_COLOR'
+							)}
+					/>
+				</label>
+				<label class="field-label">
+					{m.video_editor_caption_karaoke_active_background()}
+					<div class="mt-0.5 flex items-center gap-1">
+						<Input
+							class="h-8 w-full bg-transparent"
+							type="color"
+							value={activeItem.karaokeActiveBackground ?? '#FFD400'}
+							disabled={!activeItem.karaokeActiveBackground}
+							onchange={(event) =>
+								commit(
+									{ karaokeActiveBackground: event.currentTarget.value },
+									'UPDATE_KARAOKE_ACTIVE_BACKGROUND'
+								)}
+						/>
+						<Button
+							type="button"
+							size="sm"
+							variant={activeItem.karaokeActiveBackground ? 'ghost' : 'secondary'}
+							class="h-8 px-2 text-[10px]"
+							onclick={() =>
+								commit(
+									{
+										karaokeActiveBackground: activeItem.karaokeActiveBackground
+											? undefined
+											: (activeItem.karaokeActiveBackground ?? '#FFD400')
+									},
+									'UPDATE_KARAOKE_ACTIVE_BACKGROUND'
+								)}
+						>
+							{activeItem.karaokeActiveBackground
+								? m.video_editor_caption_karaoke_active_background_none()
+								: m.video_editor_caption_karaoke_active_background()}
+						</Button>
+					</div>
+				</label>
+			</div>
+		{/if}
 	</div>
 
 	<div class="grid grid-cols-3 gap-1" role="group" aria-label={m.video_editor_caption_style()}>

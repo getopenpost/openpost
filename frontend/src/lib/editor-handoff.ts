@@ -15,18 +15,7 @@ export interface ComposerRecoverySnapshot<T = HandoffJSONValue> {
 	payload: T;
 }
 
-interface LegacyComposerRecoverySnapshot {
-	version: 1;
-	workspace_id: string;
-	return_url: string;
-	purpose: string;
-	created_at: string;
-	expires_at: string;
-	payload: HandoffJSONValue;
-}
-
 const HANDOFF_PREFIX = 'openpost:editor-handoff:return:';
-const LEGACY_PREFIXES = ['openpost:image-editor:return:', 'openpost:studio:return:'] as const;
 
 export type HandoffJSONValue =
 	| string
@@ -65,10 +54,7 @@ function safeReturnURL(value: unknown): string | null {
 	}
 }
 
-function parseSnapshot(
-	raw: string,
-	legacy: boolean
-): ComposerRecoverySnapshot | LegacyComposerRecoverySnapshot | null {
+function parseSnapshot(raw: string): ComposerRecoverySnapshot | null {
 	try {
 		const value: unknown = JSON.parse(raw);
 		if (!isHandoffRecord(value)) return null;
@@ -86,17 +72,6 @@ function parseSnapshot(
 			!Number.isFinite(Date.parse(value.expires_at))
 		) {
 			return null;
-		}
-		if (legacy && version === 1) {
-			return {
-				version,
-				workspace_id: value.workspace_id,
-				return_url: returnURL,
-				purpose: value.purpose,
-				created_at: value.created_at,
-				expires_at: value.expires_at,
-				payload: value.payload
-			};
 		}
 		if (version !== 2 || (editor !== 'image' && editor !== 'video')) return null;
 		const snapshot: ComposerRecoverySnapshot = {
@@ -137,23 +112,13 @@ export function loadEditorHandoff(
 ): ComposerRecoverySnapshot | null {
 	if (!storage || !token.trim()) return null;
 	const current = storage.getItem(`${HANDOFF_PREFIX}${token}`);
-	let snapshot = current ? parseSnapshot(current, false) : null;
-	if (!snapshot) {
-		for (const prefix of LEGACY_PREFIXES) {
-			const raw = storage.getItem(`${prefix}${token}`);
-			if (!raw) continue;
-			snapshot = parseSnapshot(raw, true);
-			if (snapshot) break;
-		}
-	}
+	const snapshot = current ? parseSnapshot(current) : null;
 	if (!snapshot || Date.parse(snapshot.expires_at) <= now) {
 		clearEditorHandoff(token, storage);
 		return null;
 	}
-	const normalized: ComposerRecoverySnapshot =
-		snapshot.version === 1 ? { ...snapshot, version: 2, editor: 'image' } : snapshot;
-	if (expectedEditor && normalized.editor !== expectedEditor) return null;
-	return normalized;
+	if (expectedEditor && snapshot.editor !== expectedEditor) return null;
+	return snapshot;
 }
 
 export function clearEditorHandoff(
@@ -162,7 +127,6 @@ export function clearEditorHandoff(
 ): void {
 	if (!storage || !token.trim()) return;
 	storage.removeItem(`${HANDOFF_PREFIX}${token}`);
-	for (const prefix of LEGACY_PREFIXES) storage.removeItem(`${prefix}${token}`);
 }
 
 export function editorHandoffReturnURL(

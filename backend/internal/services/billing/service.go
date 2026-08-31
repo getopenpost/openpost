@@ -18,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/uptrace/bun"
 	"github.com/uptrace/bun/dialect"
 )
@@ -259,6 +260,14 @@ func (s *Service) createFirstWorkspace(ctx context.Context, tx bun.Tx, input Con
 		if _, err := tx.NewInsert().Model(model).Exec(ctx); err != nil {
 			return FirstWorkspaceConfirmation{}, err
 		}
+	}
+	if _, err := voiceprofiles.SeedDefault(ctx, tx, voiceprofiles.DefaultSeed{
+		WorkspaceID: workspace.ID,
+		CreatedByID: input.UserID,
+		Name:        workspace.Name,
+		Now:         now,
+	}); err != nil {
+		return FirstWorkspaceConfirmation{}, err
 	}
 	if _, _, err := jobregistry.EnqueueMediaCleanup(ctx, tx, workspace.ID, time.Time{}); err != nil {
 		return FirstWorkspaceConfirmation{}, err
@@ -1150,6 +1159,18 @@ func upsertSubscription(ctx context.Context, tx bun.Tx, subscription *models.Bil
 	case dialect.SQLite:
 	case dialect.PG:
 		targetPrefix = "billing_subscription."
+		// PostgreSQL can choose either unique index when concurrent first
+		// snapshots conflict on both organization_id and subscription ID. The
+		// organization conflict is the one this upsert reconciles, so serialize
+		// that organization's snapshots before PostgreSQL enters speculative
+		// insertion.
+		if _, err := tx.ExecContext(
+			ctx,
+			"SELECT pg_advisory_xact_lock(hashtextextended('openpost:billing-subscription:' || ?, 0))",
+			subscription.OrganizationID,
+		); err != nil {
+			return false, fmt.Errorf("locking billing subscription reconciliation: %w", err)
+		}
 	default:
 		return false, fmt.Errorf("unsupported billing database dialect %s", tx.Dialect().Name())
 	}

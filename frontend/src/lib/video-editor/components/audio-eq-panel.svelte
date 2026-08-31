@@ -7,15 +7,25 @@
 	import type { TimelineItem } from '$lib/video-editor/project/types';
 	import { updateItemProperties } from '$lib/video-editor/timeline/actions/items';
 	import {
+		commandHistory,
+		executeAtomic
+	} from '$lib/video-editor/timeline/commands/command-store.svelte';
+	import {
+		captureSnapshot,
+		restoreSnapshot
+	} from '$lib/video-editor/timeline/commands/snapshot.svelte';
+	import type { TimelineSnapshot } from '$lib/video-editor/timeline/commands/types';
+	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
+	import {
 		AUDIO_EQ_GAIN_DB_MAX,
 		AUDIO_EQ_GAIN_DB_MIN,
 		AUDIO_EQ_PRESETS,
 		AUDIO_EQ_Q_MAX,
 		AUDIO_EQ_Q_MIN,
+		areAudioEqStagesEqual,
 		findAudioEqPresetId,
 		getAudioEqPresetById,
 		resolveAudioEqSettings,
-		sampleAudioEqResponseCurve,
 		type AudioEqPresetId
 	} from '$lib/video-editor/audio/audio-eq';
 	import {
@@ -23,21 +33,38 @@
 		AUDIO_EQ_BAND6_FILTER_OPTIONS,
 		AUDIO_EQ_INNER_FILTER_OPTIONS,
 		AUDIO_EQ_SLOPE_OPTIONS,
-		buildTimelineEqPatchFromResolvedSettings
+		buildTimelineEqPatchFromSettings
 	} from '$lib/video-editor/audio/audio-eq-ui';
-	import type { ResolvedAudioEqSettings } from '$lib/video-editor/audio/types';
+	import type { AudioEqSettings, ResolvedAudioEqSettings } from '$lib/video-editor/audio/types';
+	import AudioEqCurveEditor from './audio-eq-curve-editor.svelte';
 
-	let { item, onedit }: { item: TimelineItem; onedit: () => void } = $props();
+	let {
+		item,
+		items = [],
+		settings = {},
+		onsettingschange,
+		onedit = () => {},
+		title,
+		open = false
+	}: {
+		item?: TimelineItem;
+		items?: TimelineItem[];
+		settings?: AudioEqSettings;
+		onsettingschange?: (settings: AudioEqSettings) => void;
+		onedit?: () => void;
+		title?: string;
+		open?: boolean;
+	} = $props();
 
 	interface BandDefinition {
 		key: 'band1' | 'low' | 'lowMid' | 'highMid' | 'high' | 'band6';
 		label: () => string;
-		enabledField: keyof TimelineItem;
-		typeField: keyof TimelineItem;
-		frequencyField: keyof TimelineItem;
-		gainField: keyof TimelineItem;
-		qField: keyof TimelineItem;
-		slopeField?: keyof TimelineItem;
+		enabledField: keyof AudioEqSettings;
+		typeField: keyof AudioEqSettings;
+		frequencyField: keyof AudioEqSettings;
+		gainField: keyof AudioEqSettings;
+		qField: keyof AudioEqSettings;
+		slopeField?: keyof AudioEqSettings;
 		enabledKey: keyof ResolvedAudioEqSettings;
 		typeKey: keyof ResolvedAudioEqSettings;
 		frequencyKey: keyof ResolvedAudioEqSettings;
@@ -51,12 +78,12 @@
 		{
 			key: 'band1',
 			label: m.video_editor_audio_eq_band_1,
-			enabledField: 'audioEqBand1Enabled',
-			typeField: 'audioEqBand1Type',
-			frequencyField: 'audioEqBand1FrequencyHz',
-			gainField: 'audioEqBand1GainDb',
-			qField: 'audioEqBand1Q',
-			slopeField: 'audioEqBand1SlopeDbPerOct',
+			enabledField: 'band1Enabled',
+			typeField: 'band1Type',
+			frequencyField: 'band1FrequencyHz',
+			gainField: 'band1GainDb',
+			qField: 'band1Q',
+			slopeField: 'band1SlopeDbPerOct',
 			enabledKey: 'band1Enabled',
 			typeKey: 'band1Type',
 			frequencyKey: 'band1FrequencyHz',
@@ -68,11 +95,11 @@
 		{
 			key: 'low',
 			label: m.video_editor_audio_eq_low,
-			enabledField: 'audioEqLowEnabled',
-			typeField: 'audioEqLowType',
-			frequencyField: 'audioEqLowFrequencyHz',
-			gainField: 'audioEqLowGainDb',
-			qField: 'audioEqLowQ',
+			enabledField: 'lowEnabled',
+			typeField: 'lowType',
+			frequencyField: 'lowFrequencyHz',
+			gainField: 'lowGainDb',
+			qField: 'lowQ',
 			enabledKey: 'lowEnabled',
 			typeKey: 'lowType',
 			frequencyKey: 'lowFrequencyHz',
@@ -83,11 +110,11 @@
 		{
 			key: 'lowMid',
 			label: m.video_editor_audio_eq_low_mid,
-			enabledField: 'audioEqLowMidEnabled',
-			typeField: 'audioEqLowMidType',
-			frequencyField: 'audioEqLowMidFrequencyHz',
-			gainField: 'audioEqLowMidGainDb',
-			qField: 'audioEqLowMidQ',
+			enabledField: 'lowMidEnabled',
+			typeField: 'lowMidType',
+			frequencyField: 'lowMidFrequencyHz',
+			gainField: 'lowMidGainDb',
+			qField: 'lowMidQ',
 			enabledKey: 'lowMidEnabled',
 			typeKey: 'lowMidType',
 			frequencyKey: 'lowMidFrequencyHz',
@@ -98,11 +125,11 @@
 		{
 			key: 'highMid',
 			label: m.video_editor_audio_eq_high_mid,
-			enabledField: 'audioEqHighMidEnabled',
-			typeField: 'audioEqHighMidType',
-			frequencyField: 'audioEqHighMidFrequencyHz',
-			gainField: 'audioEqHighMidGainDb',
-			qField: 'audioEqHighMidQ',
+			enabledField: 'highMidEnabled',
+			typeField: 'highMidType',
+			frequencyField: 'highMidFrequencyHz',
+			gainField: 'highMidGainDb',
+			qField: 'highMidQ',
 			enabledKey: 'highMidEnabled',
 			typeKey: 'highMidType',
 			frequencyKey: 'highMidFrequencyHz',
@@ -113,11 +140,11 @@
 		{
 			key: 'high',
 			label: m.video_editor_audio_eq_high,
-			enabledField: 'audioEqHighEnabled',
-			typeField: 'audioEqHighType',
-			frequencyField: 'audioEqHighFrequencyHz',
-			gainField: 'audioEqHighGainDb',
-			qField: 'audioEqHighQ',
+			enabledField: 'highEnabled',
+			typeField: 'highType',
+			frequencyField: 'highFrequencyHz',
+			gainField: 'highGainDb',
+			qField: 'highQ',
 			enabledKey: 'highEnabled',
 			typeKey: 'highType',
 			frequencyKey: 'highFrequencyHz',
@@ -128,12 +155,12 @@
 		{
 			key: 'band6',
 			label: m.video_editor_audio_eq_band_6,
-			enabledField: 'audioEqBand6Enabled',
-			typeField: 'audioEqBand6Type',
-			frequencyField: 'audioEqBand6FrequencyHz',
-			gainField: 'audioEqBand6GainDb',
-			qField: 'audioEqBand6Q',
-			slopeField: 'audioEqBand6SlopeDbPerOct',
+			enabledField: 'band6Enabled',
+			typeField: 'band6Type',
+			frequencyField: 'band6FrequencyHz',
+			gainField: 'band6GainDb',
+			qField: 'band6Q',
+			slopeField: 'band6SlopeDbPerOct',
 			enabledKey: 'band6Enabled',
 			typeKey: 'band6Type',
 			frequencyKey: 'band6FrequencyHz',
@@ -191,6 +218,7 @@
 		}
 	}
 	const presetOptions: AppSelectOption[] = [
+		{ value: 'mixed', label: m.video_editor_property_mixed(), disabled: true },
 		{ value: 'custom', label: presetLabel('custom') },
 		...AUDIO_EQ_PRESETS.map((preset) => ({
 			value: preset.id,
@@ -202,36 +230,99 @@
 		label: `${slope} dB/oct`
 	}));
 
-	const resolved = $derived(resolveAudioEqSettings(item));
-	const selectedPreset = $derived(findAudioEqPresetId(resolved) ?? 'custom');
-	const curve = $derived(sampleAudioEqResponseCurve(resolved, { sampleCount: 72 }));
-	const curvePath = $derived(
-		curve
-			.map((point, index) => {
-				const x = (index / Math.max(1, curve.length - 1)) * 280;
-				const y = 48 - (Math.max(-24, Math.min(24, point.gainDb)) / 24) * 42;
-				return `${index === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
-			})
-			.join(' ')
+	const clipItems = $derived.by(() => {
+		const candidates = items.length > 0 ? items : item ? [item] : [];
+		return [...new Map(candidates.map((candidate) => [candidate.id, candidate])).values()];
+	});
+	const resolvedItems = $derived(clipItems.map((candidate) => resolveAudioEqSettings(candidate)));
+	const resolved = $derived(resolvedItems[0] ?? resolveAudioEqSettings(settings));
+	const mixedSettings = $derived(
+		resolvedItems.length > 1 &&
+			resolvedItems.slice(1).some((candidate) => !areAudioEqStagesEqual([resolved], [candidate]))
 	);
+	const enabledState = $derived.by<'on' | 'off' | 'mixed'>(() => {
+		if (clipItems.length === 0) return settings.enabled === false ? 'off' : 'on';
+		const states = clipItems.map((candidate) => candidate.audioEqEnabled !== false);
+		return states.every(Boolean) ? 'on' : states.every((state) => !state) ? 'off' : 'mixed';
+	});
+	const bypassed = $derived(enabledState === 'off');
+	const controlsDisabled = $derived(mixedSettings || enabledState !== 'on');
+	const selectedPreset = $derived(
+		mixedSettings ? 'mixed' : (findAudioEqPresetId(resolved) ?? 'custom')
+	);
+	let curveGesture = $state<{ before: TimelineSnapshot; changed: boolean } | null>(null);
 
-	function commit(patch: Partial<TimelineItem>): void {
-		updateItemProperties(item.id, patch, 'UPDATE_CLIP_AUDIO_EQ');
+	function commit(patch: Partial<AudioEqSettings>): void {
+		if (clipItems.length > 0) {
+			const timelinePatch = buildTimelineEqPatchFromSettings(patch);
+			executeAtomic('UPDATE_CLIP_AUDIO_EQ', () => {
+				for (const candidate of clipItems) {
+					updateItemProperties(candidate.id, timelinePatch, 'UPDATE_CLIP_AUDIO_EQ');
+				}
+			});
+		} else {
+			const enabled = patch.enabled ?? settings.enabled;
+			const next = resolveAudioEqSettings({ ...settings, ...patch });
+			onsettingschange?.({ enabled, ...next });
+		}
 		onedit();
 	}
 
-	function setField(field: keyof TimelineItem, value: unknown): void {
-		commit({ [field]: value } as Partial<TimelineItem>);
+	function beginCurveGesture(): void {
+		if (clipItems.length === 0 || curveGesture) return;
+		curveGesture = { before: captureSnapshot(), changed: false };
+	}
+
+	function writeCurveLive(patch: Partial<AudioEqSettings>): void {
+		if (clipItems.length === 0) {
+			const enabled = patch.enabled ?? settings.enabled;
+			onsettingschange?.({ enabled, ...resolveAudioEqSettings({ ...settings, ...patch }) });
+			return;
+		}
+		const timelinePatch = buildTimelineEqPatchFromSettings(patch);
+		const updates = clipItems.map((candidate) => ({ id: candidate.id, patch: timelinePatch }));
+		timelineStore._updateItems(updates);
+		if (curveGesture) curveGesture.changed = true;
+	}
+
+	function commitCurveGesture(patch: Partial<AudioEqSettings>): void {
+		if (clipItems.length === 0) {
+			writeCurveLive(patch);
+			onedit();
+			return;
+		}
+		if (!curveGesture) {
+			commit(patch);
+			return;
+		}
+		const current = curveGesture;
+		curveGesture = null;
+		if (!current.changed) return;
+		commandHistory.addUndoEntry(
+			{
+				type: 'UPDATE_CLIP_AUDIO_EQ_CURVE',
+				payload: { ids: clipItems.map((candidate) => candidate.id) }
+			},
+			current.before
+		);
+		onedit();
+	}
+
+	function cancelCurveGesture(): void {
+		if (!curveGesture) return;
+		restoreSnapshot(curveGesture.before);
+		curveGesture = null;
+	}
+
+	function setField(field: keyof AudioEqSettings, value: unknown): void {
+		commit({ [field]: value } as Partial<AudioEqSettings>);
 	}
 
 	function applyPreset(id: string): void {
 		if (id === 'custom') return;
 		const preset = getAudioEqPresetById(id as AudioEqPresetId);
 		if (!preset) return;
-		commit({
-			audioEqEnabled: true,
-			...buildTimelineEqPatchFromResolvedSettings(preset.settings)
-		});
+		commit({ enabled: true, ...preset.settings });
 	}
 
 	function enabled(band: BandDefinition): boolean {
@@ -251,22 +342,24 @@
 	}
 </script>
 
-<details class="group rounded-md border border-white/10 bg-black/10">
+<details {open} class="group rounded-md border border-white/10 bg-black/10">
 	<summary
 		class="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-2 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
 	>
-		<span class="font-medium text-white/85">{m.video_editor_audio_eq_title()}</span>
-		<span class="text-[10px] text-white/45"
-			>{item.audioEqEnabled === false
-				? m.video_editor_audio_eq_bypassed()
-				: selectedPreset === 'custom'
-					? m.video_editor_audio_eq_custom()
-					: presetOptions.find((option) => option.value === selectedPreset)?.label}</span
+		<span class="font-medium text-white/85">{title ?? m.video_editor_audio_eq_title()}</span>
+		<span class="text-xs text-white/45"
+			>{mixedSettings || enabledState === 'mixed'
+				? m.video_editor_property_mixed()
+				: bypassed
+					? m.video_editor_audio_eq_bypassed()
+					: selectedPreset === 'custom'
+						? m.video_editor_audio_eq_custom()
+						: presetOptions.find((option) => option.value === selectedPreset)?.label}</span
 		>
 	</summary>
 	<div class="space-y-2 border-t border-white/10 p-2">
 		<div class="flex items-end gap-1">
-			<label class="min-w-0 flex-1 text-[10px] text-white/60">
+			<label class="min-w-0 flex-1 text-xs text-white/60">
 				{m.video_editor_audio_eq_preset()}
 				<AppSelect
 					value={selectedPreset}
@@ -279,39 +372,27 @@
 			<Button
 				type="button"
 				size="sm"
-				variant={item.audioEqEnabled === false ? 'outline' : 'secondary'}
-				class="h-8 px-2 text-[10px]"
-				aria-pressed={item.audioEqEnabled !== false}
-				onclick={() => commit({ audioEqEnabled: item.audioEqEnabled === false })}
+				variant={enabledState === 'on' ? 'secondary' : 'outline'}
+				class="h-8 px-2 text-xs"
+				aria-pressed={enabledState === 'on'}
+				onclick={() => commit({ enabled: enabledState !== 'on' })}
 			>
-				{item.audioEqEnabled === false
-					? m.video_editor_audio_eq_enable()
-					: m.video_editor_audio_eq_bypass()}
+				{enabledState === 'on'
+					? m.video_editor_audio_eq_bypass()
+					: m.video_editor_audio_eq_enable()}
 			</Button>
 		</div>
 
-		<svg
-			viewBox="0 0 280 96"
-			class="h-20 w-full rounded bg-[oklch(0.18_0.01_50)]"
-			role="img"
-			aria-label={m.video_editor_audio_eq_response()}
-		>
-			<path
-				d="M0 48 H280"
-				stroke="currentColor"
-				class="text-white/15"
-				vector-effect="non-scaling-stroke"
-			/>
-			<path
-				d={curvePath}
-				fill="none"
-				stroke="oklch(0.72 0.14 45)"
-				stroke-width="1.5"
-				vector-effect="non-scaling-stroke"
-			/>
-		</svg>
+		<AudioEqCurveEditor
+			settings={resolved}
+			disabled={controlsDisabled}
+			onbegin={beginCurveGesture}
+			onlive={writeCurveLive}
+			oncommit={commitCurveGesture}
+			oncancel={cancelCurveGesture}
+		/>
 
-		<label class="block text-[10px] text-white/60">
+		<label class="block text-xs text-white/60">
 			{m.video_editor_audio_eq_output_gain()}
 			<Input
 				class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
@@ -320,7 +401,8 @@
 				max={AUDIO_EQ_GAIN_DB_MAX}
 				step="0.1"
 				value={resolved.outputGainDb}
-				onchange={(event) => commit({ audioEqOutputGainDb: event.currentTarget.valueAsNumber })}
+				disabled={controlsDisabled}
+				onchange={(event) => commit({ outputGainDb: event.currentTarget.valueAsNumber })}
 			/>
 		</label>
 
@@ -328,17 +410,16 @@
 			{#each bands as band (band.key)}
 				{@const bandType = value(band, 'typeKey')}
 				<details class="rounded border border-white/8 bg-white/[0.02]">
-					<summary
-						class="flex min-h-8 cursor-pointer list-none items-center gap-2 px-2 text-[10px]"
-					>
+					<summary class="flex min-h-8 cursor-pointer list-none items-center gap-2 px-2 text-xs">
 						<span class="w-14 font-medium text-white/75">{band.label()}</span>
 						<span class="min-w-0 flex-1 truncate text-white/45"
 							>{typeLabel(String(bandType))} · {Math.round(Number(value(band, 'frequencyKey')))} Hz</span
 						>
 						<button
 							type="button"
-							class={`rounded px-1.5 py-0.5 text-[9px] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] ${enabled(band) ? 'bg-[oklch(0.66_0.14_45)] text-black' : 'bg-white/8'}`}
+							class={`rounded px-1.5 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] ${enabled(band) ? 'bg-[oklch(0.66_0.14_45)] text-black' : 'bg-white/8'}`}
 							aria-pressed={enabled(band)}
+							disabled={controlsDisabled}
 							onclick={(event) => {
 								event.preventDefault();
 								setField(band.enabledField, !enabled(band));
@@ -349,7 +430,7 @@
 						>
 					</summary>
 					<div class="grid grid-cols-2 gap-1 border-t border-white/8 p-2">
-						<label class="text-[10px] text-white/60">
+						<label class="text-xs text-white/60">
 							{m.video_editor_audio_eq_filter()}
 							<AppSelect
 								value={String(bandType)}
@@ -358,11 +439,12 @@
 									label: typeLabel(type)
 								}))}
 								ariaLabel={m.video_editor_audio_eq_filter_aria({ band: band.label() })}
+								disabled={controlsDisabled}
 								class="mt-0.5 h-8 w-full text-xs"
 								onValueChange={(next) => setField(band.typeField, next)}
 							/>
 						</label>
-						<label class="text-[10px] text-white/60">
+						<label class="text-xs text-white/60">
 							{m.video_editor_audio_eq_frequency()}
 							<Input
 								class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
@@ -371,23 +453,25 @@
 								max="22000"
 								step="1"
 								value={Number(value(band, 'frequencyKey'))}
+								disabled={controlsDisabled}
 								onchange={(event) =>
 									setField(band.frequencyField, event.currentTarget.valueAsNumber)}
 							/>
 						</label>
 						{#if isPass(bandType) && band.slopeField}
-							<label class="col-span-2 text-[10px] text-white/60">
+							<label class="col-span-2 text-xs text-white/60">
 								{m.video_editor_audio_eq_slope()}
 								<AppSelect
 									value={String(value(band, 'slopeKey'))}
 									options={slopeOptions}
 									ariaLabel={m.video_editor_audio_eq_slope_aria({ band: band.label() })}
+									disabled={controlsDisabled}
 									class="mt-0.5 h-8 w-full text-xs"
 									onValueChange={(next) => setField(band.slopeField!, Number(next))}
 								/>
 							</label>
 						{:else}
-							<label class="text-[10px] text-white/60">
+							<label class="text-xs text-white/60">
 								{m.video_editor_audio_eq_gain()}
 								<Input
 									class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
@@ -396,10 +480,11 @@
 									max={AUDIO_EQ_GAIN_DB_MAX}
 									step="0.1"
 									value={Number(value(band, 'gainKey'))}
+									disabled={controlsDisabled}
 									onchange={(event) => setField(band.gainField, event.currentTarget.valueAsNumber)}
 								/>
 							</label>
-							<label class="text-[10px] text-white/60">
+							<label class="text-xs text-white/60">
 								Q
 								<Input
 									class="mt-0.5 h-8 w-full bg-[oklch(0.22_0.01_50)] text-xs"
@@ -408,6 +493,7 @@
 									max={AUDIO_EQ_Q_MAX}
 									step="0.05"
 									value={Number(value(band, 'qKey'))}
+									disabled={controlsDisabled}
 									onchange={(event) => setField(band.qField, event.currentTarget.valueAsNumber)}
 								/>
 							</label>

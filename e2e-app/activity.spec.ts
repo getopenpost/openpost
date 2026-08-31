@@ -158,9 +158,9 @@ test("failed delivery details stay secondary to post status", async ({ page }) =
     });
   });
 
-  await page.goto("/activity");
+  await page.goto("/publications");
 
-  await expect(page.getByRole("heading", { name: "Posts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Publications" })).toBeVisible();
   const activityTabs = page.getByRole("tablist");
   await expect(activityTabs).toBeVisible();
   await expect
@@ -290,7 +290,7 @@ test("scheduled pagination counts only scheduled publications", async ({ page })
     });
   });
 
-  await page.goto("/activity");
+  await page.goto("/publications");
 
   const scheduledPanel = page.getByRole("tabpanel", {
     name: "Scheduled",

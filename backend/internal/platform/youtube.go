@@ -158,6 +158,7 @@ func (y *YouTubeAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 		ID:          profile.ID,
 		Username:    firstNonEmptyString(profile.Email, profile.Name, profile.ID),
 		DisplayName: firstNonEmptyString(profile.Name, profile.Email, profile.ID),
+		AvatarURL:   profile.Picture,
 	}, nil
 }
 

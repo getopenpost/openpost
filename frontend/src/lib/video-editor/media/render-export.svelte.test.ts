@@ -1,7 +1,13 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { BlobSource, CanvasSink, Input, WebMInputFormat } from 'mediabunny';
 import type { Project, TimelineItem, TimelineTrack } from '../project/types';
 import { mediaPool } from './pool.svelte';
-import { renderTimelineAudioArtifact, TimelineFrameRenderer } from './render-export';
+import {
+	renderMultiTrackVideoArtifact,
+	renderTimelineAudioArtifact,
+	TimelineFrameRenderer
+} from './render-export';
+import { extractMatroskaTextSubtitleTracksFromBlob } from './embedded-subtitles';
 import ac3FixtureUrl from './fixtures/tone-ac3.mkv?url';
 
 function linkedFileHandle(file: File): FileSystemFileHandle {
@@ -155,4 +161,95 @@ describe('render export exactness', () => {
 			renderer.dispose();
 		}
 	});
+
+	it('proves burn-in, SRT sidecar, and embedded WebVTT through encoded artifacts', async () => {
+		const width = 160;
+		const height = 90;
+		const fps = 5;
+		const track: TimelineTrack = {
+			id: 'captions',
+			name: 'Captions',
+			kind: 'video',
+			height: 64,
+			locked: false,
+			visible: true,
+			muted: false,
+			solo: false,
+			order: 0
+		};
+		const subtitle: TimelineItem = {
+			id: 'caption',
+			trackId: track.id,
+			from: 0,
+			durationInFrames: 2,
+			label: 'Caption',
+			type: 'subtitle',
+			fontFamily: 'Inter',
+			fontSize: 28,
+			fontWeight: 700,
+			color: '#ffffff',
+			textAlign: 'center',
+			verticalAlign: 'middle',
+			transform: { width, height },
+			cues: [{ id: 'cue', startFrame: 0, endFrame: 2, text: 'PROOF' }]
+		};
+		const project: Project = {
+			id: 'caption-export',
+			name: 'Caption proof',
+			description: '',
+			createdAt: 0,
+			updatedAt: 0,
+			duration: 2 / fps,
+			metadata: { width, height, fps, backgroundColor: '#000000' },
+			timeline: { tracks: [track], items: [subtitle] }
+		};
+		const render = (subtitleMode: 'burn' | 'sidecar' | 'embedded') =>
+			renderMultiTrackVideoArtifact(project, {
+				format: 'webm',
+				codec: 'vp8',
+				quality: 'draft',
+				width,
+				height,
+				subtitleMode
+			});
+
+		const burned = await render('burn');
+		const sidecar = await render('sidecar');
+		expect(sidecar.sidecar?.fileName).toBe('Caption proof.srt');
+		expect(await sidecar.sidecar?.blob.text()).toContain('PROOF');
+
+		const brightPixelCount = async (blob: Blob): Promise<number> => {
+			const input = new Input({ source: new BlobSource(blob), formats: [new WebMInputFormat()] });
+			try {
+				const video = await input.getPrimaryVideoTrack();
+				if (!video) throw new Error('Encoded caption proof has no video track.');
+				const wrapped = await new CanvasSink(video, { width, height, fit: 'fill' }).getCanvas(0);
+				if (!wrapped) throw new Error('Encoded caption proof has no first frame.');
+				const pixels = wrapped.canvas
+					.getContext('2d', { willReadFrequently: true })
+					?.getImageData(0, 0, width, height).data;
+				if (!pixels) throw new Error('Encoded caption proof has no readable pixels.');
+				let bright = 0;
+				for (let index = 0; index < pixels.length; index += 4) {
+					if ((pixels[index] ?? 0) + (pixels[index + 1] ?? 0) + (pixels[index + 2] ?? 0) > 500)
+						bright += 1;
+				}
+				return bright;
+			} finally {
+				input.dispose();
+			}
+		};
+		const burnedBrightPixels = await brightPixelCount(burned.blob);
+		const sidecarBrightPixels = await brightPixelCount(sidecar.blob);
+		expect(burnedBrightPixels).toBeGreaterThan(100);
+		expect(sidecarBrightPixels).toBeLessThan(burnedBrightPixels / 10);
+
+		const embedded = await render('embedded');
+		const tracks = await extractMatroskaTextSubtitleTracksFromBlob(embedded.blob);
+		expect(tracks).toHaveLength(1);
+		expect(tracks[0]).toMatchObject({
+			codecId: 'S_TEXT/WEBVTT',
+			cues: [{ startSeconds: 0, text: 'PROOF' }]
+		});
+	}, 30_000);
 });

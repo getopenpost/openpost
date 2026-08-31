@@ -21,8 +21,8 @@ function imageItem(patch: Partial<TimelineItem> = {}): TimelineItem {
 	};
 }
 
-async function renderTools(item: TimelineItem) {
-	await page.viewport(1200, 700);
+async function renderTools(item: TimelineItem, width = 1000) {
+	await page.viewport(width, 700);
 	const callbacks = {
 		ontransformdraft: vi.fn(),
 		oncropdraft: vi.fn(),
@@ -47,11 +47,11 @@ async function renderTools(item: TimelineItem) {
 	});
 	screen.container.style.position = 'relative';
 	screen.container.style.containerType = 'size';
-	screen.container.style.width = '1000px';
+	screen.container.style.width = `${width}px`;
 	screen.container.style.height = '500px';
 	const root = canvasRoot(screen.container);
 	root.style.position = 'relative';
-	root.style.width = '1000px';
+	root.style.width = `${width}px`;
 	root.style.height = '500px';
 	return { screen, callbacks };
 }
@@ -100,6 +100,15 @@ function clientCanvasPoint(
 }
 
 describe('OnCanvasTools', () => {
+	it('keeps the canvas tool strip contained and touch-sized on phones', async () => {
+		const { screen } = await renderTools(imageItem(), 320);
+		const toolbar = screen.getByRole('toolbar', { name: 'On-canvas editing tools' }).element();
+		const transform = screen.getByRole('button', { name: 'Transform' }).element();
+		expect(transform.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+		expect(toolbar.getBoundingClientRect().width).toBeLessThanOrEqual(320);
+		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+	});
+
 	it('opens the direct corner-pin editor for visual clips', async () => {
 		const { screen } = await renderTools(imageItem());
 		await screen.getByRole('button', { name: 'Corner pin' }).click();
@@ -134,7 +143,7 @@ describe('OnCanvasTools', () => {
 		expect(callbacks.oncommitvalues).not.toHaveBeenCalled();
 		window.dispatchEvent(new PointerEvent('pointermove', { ...start, clientY: endY, buttons: 1 }));
 		window.dispatchEvent(new PointerEvent('pointerup', { ...start, clientY: endY }));
-		expect(callbacks.oncommitvalues).toHaveBeenCalledWith(12, { cropLeft: 0.25 });
+		expect(callbacks.oncommitvalues).toHaveBeenCalledWith(12, { cropLeft: 100 });
 		expect(callbacks.onedit).toHaveBeenCalledTimes(1);
 	});
 

@@ -34,8 +34,7 @@ export interface UploadMediaFileOptions {
 }
 
 type CreateMediaUploadSessionInputBody = components['schemas']['CreateMediaUploadSessionInputBody'];
-type CreateMediaUploadSessionOutputBody =
-	components['schemas']['CreateMediaUploadSessionOutputBody'];
+type CreateMediaUploadSessionResponse = components['schemas']['CreateMediaUploadSessionResponse'];
 type DirectMediaUploadTarget = components['schemas']['DirectMediaUploadTarget'];
 
 type UploadMetadata = {
@@ -438,7 +437,7 @@ function parseUploadProblem(value: unknown): UploadProblem {
 	};
 }
 
-function parseUploadSessionResponse(value: unknown): CreateMediaUploadSessionOutputBody {
+function parseUploadSessionResponse(value: unknown): CreateMediaUploadSessionResponse {
 	if (!isUploadRecord(value))
 		throw new UploadRequestError('The upload session response was invalid', 0);
 	const completeURL = parseRequiredString(value.complete_url, 'complete_url');

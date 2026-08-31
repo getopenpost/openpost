@@ -55,7 +55,7 @@
 			aria-selected={value === workspace.id}
 			aria-label={workspace.label()}
 			tabindex={value === workspace.id ? 0 : -1}
-			class="flex h-7 min-w-8 items-center justify-center gap-1.5 rounded px-2 text-[11px] font-medium text-[oklch(0.66_0.015_55)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] aria-selected:bg-[oklch(0.28_0.018_55)] aria-selected:text-white sm:px-3"
+			class="flex h-11 min-w-11 items-center justify-center gap-1.5 rounded px-2 text-xs font-medium text-[oklch(0.66_0.015_55)] hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] aria-selected:bg-[oklch(0.28_0.018_55)] aria-selected:text-white sm:px-3 md:h-7 md:min-w-8 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:min-w-11"
 			onclick={() => onchange(workspace.id)}
 			onkeydown={(event) => handleKeydown(event, index)}
 		>

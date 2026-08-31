@@ -371,7 +371,7 @@
 			{@const Icon = action.icon}
 			<button
 				type="button"
-				class="flex size-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white disabled:opacity-30 [@media(pointer:coarse)]:size-9"
+				class="flex size-11 shrink-0 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white disabled:opacity-30 md:size-7 [@media(pointer:coarse)]:size-11"
 				aria-label={action.label}
 				title={action.label}
 				disabled={items.length < action.min}
@@ -384,12 +384,16 @@
 		<button
 			type="button"
 			class={[
-				'flex size-7 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:size-9',
+				'flex size-11 shrink-0 items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-white md:size-7 [@media(pointer:coarse)]:size-11',
 				snappingEnabled && 'bg-white/15 text-white'
 			]}
-			aria-label={snappingEnabled ? m.video_editor_snap_disable() : m.video_editor_snap_enable()}
+			aria-label={snappingEnabled
+				? m.video_editor_canvas_snap_disable()
+				: m.video_editor_canvas_snap_enable()}
 			aria-pressed={snappingEnabled}
-			title={snappingEnabled ? m.video_editor_snap_disable() : m.video_editor_snap_enable()}
+			title={snappingEnabled
+				? m.video_editor_canvas_snap_disable()
+				: m.video_editor_canvas_snap_enable()}
 			onclick={ontogglesnapping}
 		>
 			<MagnetIcon class="size-3.5" aria-hidden="true" />
@@ -425,7 +429,7 @@
 	{#each [{ x: bounds.left, y: bounds.top, cursor: 'nwse-resize', label: m.video_editor_resize_group_nw( { count: items.length } ) }, { x: bounds.right, y: bounds.top, cursor: 'nesw-resize', label: m.video_editor_resize_group_ne( { count: items.length } ) }, { x: bounds.right, y: bounds.bottom, cursor: 'nwse-resize', label: m.video_editor_resize_group_se( { count: items.length } ) }, { x: bounds.left, y: bounds.bottom, cursor: 'nesw-resize', label: m.video_editor_resize_group_sw( { count: items.length } ) }] as handle, index}
 		<button
 			type="button"
-			class="pointer-events-auto absolute flex size-8 -translate-1/2 items-center justify-center bg-transparent focus-visible:outline-2 focus-visible:outline-white [@media(pointer:coarse)]:size-11"
+			class="pointer-events-auto absolute flex size-11 -translate-1/2 items-center justify-center bg-transparent focus-visible:outline-2 focus-visible:outline-white md:size-8 [@media(pointer:coarse)]:size-11"
 			style:left={`${(handle.x / canvasWidth) * 100}%`}
 			style:top={`${(handle.y / canvasHeight) * 100}%`}
 			style:cursor={handle.cursor}
@@ -447,7 +451,7 @@
 	></div>
 	<button
 		type="button"
-		class="pointer-events-auto absolute flex size-9 -translate-1/2 cursor-grab items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white active:cursor-grabbing [@media(pointer:coarse)]:size-11"
+		class="pointer-events-auto absolute flex size-11 -translate-1/2 cursor-grab items-center justify-center rounded-full bg-transparent focus-visible:outline-2 focus-visible:outline-white active:cursor-grabbing md:size-9 [@media(pointer:coarse)]:size-11"
 		style:left={`${((bounds.left + bounds.right) / 2 / canvasWidth) * 100}%`}
 		style:top={`max(18px, calc(${(bounds.top / canvasHeight) * 100}% - 24px))`}
 		aria-label={m.video_editor_rotate_selected_count({ count: items.length })}

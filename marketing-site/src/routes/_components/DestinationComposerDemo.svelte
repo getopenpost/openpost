@@ -6,7 +6,6 @@
 		previewPlatforms,
 		type PreviewPlatform
 	} from '@openpost/social-preview';
-	import Check from '@lucide/svelte/icons/check';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -84,17 +83,6 @@
 </script>
 
 <div class="overflow-hidden rounded-2xl border bg-card">
-	<div class="flex min-h-12 items-center justify-between gap-3 border-b px-4">
-		<div class="flex items-center gap-2 text-sm font-medium">
-			<span class="size-2 rounded-full bg-primary" aria-hidden="true"></span>
-			Account editor
-		</div>
-		<span class="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-			<Check class="size-3.5 text-primary" aria-hidden="true" />
-			Draft saved
-		</span>
-	</div>
-
 	<div class="border-b">
 		<div class="flex snap-x gap-1 overflow-x-auto p-2" aria-label="Choose an account type">
 			{#each previewPlatforms as platform (platform)}
@@ -189,9 +177,6 @@
 							? 'Image included'
 							: 'Add image'}
 				</Button>
-				<span class="inline-flex min-h-11 items-center px-2 text-xs text-muted-foreground">
-					Social network settings stay with this account version.
-				</span>
 			</div>
 		</section>
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -7,41 +7,65 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { showToast } from '$lib/toast';
 	import {
-		recorder,
+		recorder as defaultRecorder,
+		ScreenCaptureRecorder,
 		listRecorderDevices,
 		estimateBytesPerMinute,
 		formatBytes,
 		type RecorderKind,
-		type RecorderSelection
+		type RecorderSelection,
+		type ScreenCaptureTruth
 	} from '$lib/video-editor/recorder/recorder.svelte';
 	import { insertRecordingArtifacts } from '$lib/video-editor/recorder/insert-recording';
+	import {
+		recorderPreferences as defaultPreferences,
+		type RecorderPreferencesStore
+	} from '$lib/video-editor/recorder/recorder-preferences.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 
 	let {
 		open = false,
 		projectId,
+		recorder = defaultRecorder,
+		preferences = defaultPreferences,
 		onopenchange = () => {},
 		oninserted = () => {}
 	}: {
 		open: boolean;
 		projectId: string;
+		recorder?: ScreenCaptureRecorder;
+		preferences?: RecorderPreferencesStore;
 		onopenchange?: (v: boolean) => void;
 		oninserted?: (itemId: string) => void;
 	} = $props();
 
 	let cameras = $state<MediaDeviceInfo[]>([]);
 	let microphones = $state<MediaDeviceInfo[]>([]);
-	let includeScreen = $state(true);
-	let includeCamera = $state(false);
-	let includeMic = $state(true);
-	let includeSystemAudio = $state(true);
-	let cameraId = $state<string>('');
-	let micId = $state<string>('');
-	let countdown = $state<string>('0');
-	let plannedMinutes = $state<string>('5');
+	const savedPreferences = untrack(() => preferences.value);
+	let includeScreen = $state(savedPreferences.includeScreen);
+	let includeCamera = $state(savedPreferences.includeCamera);
+	let includeMic = $state(savedPreferences.includeMicrophone);
+	let includeSystemAudio = $state(savedPreferences.includeSystemAudio);
+	let cameraId = $state(savedPreferences.cameraDeviceId);
+	let micId = $state(savedPreferences.microphoneDeviceId);
+	let countdown = $state(String(savedPreferences.countdownSeconds));
+	let plannedMinutes = $state(String(savedPreferences.plannedMinutes));
+	let videoResolution = $state(savedPreferences.videoResolution);
+	let videoFrameRate = $state(String(savedPreferences.videoFrameRate));
+	let cameraFacingMode = $state(savedPreferences.cameraFacingMode);
+	let noiseSuppression = $state(savedPreferences.noiseSuppression);
+	let autoGainControl = $state(savedPreferences.autoGainControl);
+	let cursorMode = $state(savedPreferences.cursorMode);
 	let inserting = $state(false);
-	let recoveryUrls = $state<Array<{ kind: RecorderKind; url: string; name: string }>>([]);
+	type RecoveryUrl = {
+		kind: RecorderKind;
+		url: string;
+		name: string;
+		scratchId: string;
+		capture?: ScreenCaptureTruth | null;
+	};
+	let recoveryUrls = $state<RecoveryUrl[]>([]);
 	let availableBytes = $state<number | null>(null);
 
 	const selection: RecorderSelection = $derived({
@@ -49,15 +73,24 @@
 		camera: includeCamera,
 		microphone: includeMic
 	});
+	const captureQuality = $derived({
+		videoResolution,
+		videoFrameRate: selectedFrameRate(),
+		includeSystemAudio
+	});
 	const hasSelection = $derived(includeScreen || includeCamera || includeMic);
-	const estimate = $derived(hasSelection ? formatBytes(estimateBytesPerMinute(selection)) : null);
+	const estimate = $derived(
+		hasSelection ? formatBytes(estimateBytesPerMinute(selection, captureQuality)) : null
+	);
 	const plannedEstimate = $derived(() => {
 		const minutes = Number(plannedMinutes) || 5;
-		const perMin = estimateBytesPerMinute(selection);
+		const perMin = estimateBytesPerMinute(selection, captureQuality);
 		return formatBytes(Math.ceil(perMin * minutes * 1.2));
 	});
 	const plannedBytes = $derived(
-		Math.ceil(estimateBytesPerMinute(selection) * (Number(plannedMinutes) || 5) * 1.2)
+		Math.ceil(
+			estimateBytesPerMinute(selection, captureQuality) * (Number(plannedMinutes) || 5) * 1.2
+		)
 	);
 	const sourceSummary = $derived.by(() => {
 		const sources: string[] = [];
@@ -70,9 +103,31 @@
 	const requestingActive = $derived(recorder.status === 'requesting');
 	const recordingActive = $derived(recorder.status === 'recording');
 	const stoppingActive = $derived(recorder.status === 'stopping');
+	const micMeterWidth = $derived(Math.round(recorder.micLevel * 100));
 	const captureBusy = $derived(
 		requestingActive || countdownActive || recordingActive || stoppingActive
 	);
+	const caps = $derived(recorder.capabilities);
+	const cursorSupported = $derived(caps.cursor.supported);
+	const hasDisplayMedia = $derived(caps.hasDisplayMedia);
+	const systemAudioTruth = $derived(recorder.captureTruth);
+	const systemAudioStatusText = $derived.by(() => {
+		if (!systemAudioTruth) return null;
+		switch (systemAudioTruth.systemAudioStatus) {
+			case 'active':
+				return m.video_editor_system_audio_active();
+			case 'inactive':
+				return m.video_editor_system_audio_inactive();
+			case 'denied':
+				return m.video_editor_system_audio_denied();
+			case 'unavailable':
+				return m.video_editor_system_audio_unavailable();
+			case 'not-requested':
+				return m.video_editor_system_audio_not_requested();
+			default:
+				return null;
+		}
+	});
 	const elapsed = $derived.by(() => {
 		const secs = Math.floor(recorder.elapsedMs / 1000);
 		return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
@@ -83,8 +138,14 @@
 			const lists = await listRecorderDevices();
 			cameras = lists.cameras;
 			microphones = lists.microphones;
-			if (cameraId && !cameras.some((c) => c.deviceId === cameraId)) cameraId = '';
-			if (micId && !microphones.some((d) => d.deviceId === micId)) micId = '';
+			if (cameraId && !cameras.some((c) => c.deviceId === cameraId)) {
+				cameraId = '';
+				preferences.set('cameraDeviceId', '');
+			}
+			if (micId && !microphones.some((d) => d.deviceId === micId)) {
+				micId = '';
+				preferences.set('microphoneDeviceId', '');
+			}
 		} catch {
 			// ignore
 		}
@@ -125,27 +186,108 @@
 		return m.record_source_audio();
 	}
 
+	function selectedFrameRate(): 24 | 30 | 60 {
+		if (videoFrameRate === '24') return 24;
+		if (videoFrameRate === '60') return 60;
+		return 30;
+	}
+
+	function setVideoResolution(value: string): void {
+		if (value !== '720p' && value !== '1080p' && value !== '2160p') return;
+		videoResolution = value;
+		preferences.set('videoResolution', value);
+	}
+
+	function setCameraFacingMode(value: string): void {
+		if (value !== 'default' && value !== 'user' && value !== 'environment') return;
+		cameraFacingMode = value;
+		preferences.set('cameraFacingMode', value);
+	}
+
+	function setCursorMode(value: string): void {
+		if (value !== 'always' && value !== 'motion' && value !== 'never') return;
+		cursorMode = value;
+		preferences.set('cursorMode', value);
+	}
+
+	function localizedCursor(value: string): string {
+		switch (value) {
+			case 'always':
+				return m.video_editor_record_cursor_always();
+			case 'motion':
+				return m.video_editor_record_cursor_motion();
+			case 'never':
+				return m.video_editor_record_cursor_never();
+			case 'unsupported':
+				return m.video_editor_record_cursor_unsupported();
+			case 'unknown':
+				return m.video_editor_record_cursor_unknown();
+			default:
+				return value;
+		}
+	}
+
+	function recoveryUrl(artifact: (typeof recorder.lastArtifacts)[number]): RecoveryUrl {
+		return {
+			kind: artifact.kind,
+			url: URL.createObjectURL(artifact.blob),
+			name: `recording-${artifact.kind}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.webm`,
+			scratchId: artifact.scratchId,
+			capture: artifact.capture ?? undefined
+		};
+	}
+
+	function artifactStatusText(capture?: RecoveryUrl['capture']): string | null {
+		if (!capture) return null;
+		const status = capture.systemAudioStatus;
+		switch (status) {
+			case 'active':
+				return m.video_editor_system_audio_active();
+			case 'inactive':
+				return m.video_editor_system_audio_inactive();
+			case 'denied':
+				return m.video_editor_system_audio_denied();
+			case 'unavailable':
+				return m.video_editor_system_audio_unavailable();
+			case 'not-requested':
+				return m.video_editor_system_audio_not_requested();
+			default:
+				return null;
+		}
+	}
+
 	onMount(() => {
+		let mounted = true;
+		recorder.refreshCapabilities();
 		void refreshDevices();
 		void refreshQuota();
+		void recorder
+			.loadRecoverableArtifacts()
+			.then((artifacts) => {
+				if (!mounted) return;
+				recoveryUrls.forEach((recovery) => URL.revokeObjectURL(recovery.url));
+				recoveryUrls = artifacts.map(recoveryUrl);
+			})
+			.catch(() => undefined);
 		const handler = () => void refreshDevices();
 		navigator.mediaDevices?.addEventListener?.('devicechange', handler);
 		return () => {
+			mounted = false;
 			navigator.mediaDevices?.removeEventListener?.('devicechange', handler);
 			recoveryUrls.forEach((recovery) => URL.revokeObjectURL(recovery.url));
-			void recorder.cancel().then(() => recorder.clearRecoverableAndDiscard());
+			queueMicrotask(() => void recorder.cancel());
 		};
 	});
 
 	$effect(() => {
 		if (open) {
+			recorder.refreshCapabilities();
 			void refreshDevices();
 			void refreshQuota();
 		}
 	});
 
 	$effect(() => {
-		// keep counters updated via snapshot reactivity
 		void recorder.counters;
 	});
 
@@ -154,16 +296,32 @@
 			showToast(m.video_editor_recording_failed(), 'error');
 			return;
 		}
-		recoveryUrls.forEach((r) => URL.revokeObjectURL(r.url));
-		recoveryUrls = [];
-		await recorder.clearRecoverableAndDiscard();
+		if (includeScreen && !hasDisplayMedia) {
+			showToast(m.video_editor_record_display_unsupported(), 'error');
+			return;
+		}
 		const countdownSeconds = Number(countdown) || 0;
 		try {
 			await recorder.startWithSelection(selection, {
 				cameraDeviceId: cameraId || null,
 				microphoneDeviceId: micId || null,
+				onDeviceFallback: (kind) => {
+					if (kind === 'camera') {
+						cameraId = '';
+						preferences.set('cameraDeviceId', '');
+						return;
+					}
+					micId = '';
+					preferences.set('microphoneDeviceId', '');
+				},
 				includeSystemAudio,
-				countdownSeconds
+				cursorMode,
+				countdownSeconds,
+				videoResolution,
+				videoFrameRate: selectedFrameRate(),
+				cameraFacingMode,
+				noiseSuppression,
+				autoGainControl
 			});
 		} catch {
 			showToast(localizedRecorderError(), 'error');
@@ -179,26 +337,21 @@
 				showToast(m.video_editor_recording_cancelled(), 'info');
 				return;
 			}
-			// Preserve recoverable URLs for download if timeline insert later fails
-			recoveryUrls = artifacts.map((a) => ({
-				kind: a.kind,
-				url: URL.createObjectURL(a.blob),
-				name: `recording-${a.kind}-${new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-')}.${a.mimeType.includes('audio') ? 'webm' : 'webm'}`
-			}));
+			const capturedUrls = artifacts.map(recoveryUrl);
+			recoveryUrls = [...recoveryUrls, ...capturedUrls];
 			try {
 				const anchor = timelineStore.currentFrame;
 				const result = await insertRecordingArtifacts(projectId, artifacts, anchor);
 				editorSession.scheduleAutosave();
 				result.itemIds.forEach((id) => oninserted(id));
 				showToast(m.video_editor_recording_inserted(), 'success');
-				// clear recovery after successful insert
-				recoveryUrls.forEach((r) => URL.revokeObjectURL(r.url));
-				recoveryUrls = [];
-				await recorder.clearRecoverableAndDiscard();
+				const capturedIds = new Set(artifacts.map((artifact) => artifact.scratchId));
+				capturedUrls.forEach((recovery) => URL.revokeObjectURL(recovery.url));
+				recoveryUrls = recoveryUrls.filter((recovery) => !capturedIds.has(recovery.scratchId));
+				await recorder.discardArtifacts(artifacts);
 				onopenchange(false);
 			} catch (error) {
 				showToast(m.video_editor_recording_failed(), 'error');
-				// keep recoveryUrls so user can download
 			}
 		} catch {
 			showToast(localizedRecorderError(), 'error');
@@ -209,10 +362,45 @@
 
 	async function handleCancel(): Promise<void> {
 		await recorder.cancel();
-		await recorder.clearRecoverableAndDiscard();
-		recoveryUrls.forEach((r) => URL.revokeObjectURL(r.url));
-		recoveryUrls = [];
 		showToast(m.video_editor_recording_cancelled(), 'info');
+	}
+
+	async function handleRecover(): Promise<void> {
+		if (captureBusy || inserting || recorder.lastArtifacts.length === 0) return;
+		inserting = true;
+		const insertedScratchIds = new Set<string>();
+		try {
+			const grouped = new Map<string, typeof recorder.lastArtifacts>();
+			for (const artifact of recorder.lastArtifacts) {
+				const key = artifact.recoverySessionId ?? artifact.scratchId;
+				const group = grouped.get(key) ?? [];
+				group.push(artifact);
+				grouped.set(key, group);
+			}
+			const anchor = timelineStore.currentFrame;
+			for (const artifacts of grouped.values()) {
+				const result = await insertRecordingArtifacts(projectId, artifacts, anchor);
+				result.itemIds.forEach((id) => oninserted(id));
+				artifacts.forEach((artifact) => insertedScratchIds.add(artifact.scratchId));
+				await recorder.discardArtifacts(artifacts);
+				editorSession.scheduleAutosave();
+			}
+			showToast(m.video_editor_recording_inserted(), 'success');
+		} catch {
+			showToast(m.video_editor_recording_failed(), 'error');
+		} finally {
+			for (const recovery of recoveryUrls) {
+				if (insertedScratchIds.has(recovery.scratchId)) URL.revokeObjectURL(recovery.url);
+			}
+			recoveryUrls = recoveryUrls.filter((recovery) => !insertedScratchIds.has(recovery.scratchId));
+			inserting = false;
+		}
+	}
+
+	async function handleDiscardRecovery(): Promise<void> {
+		await recorder.clearRecoverableAndDiscard();
+		recoveryUrls.forEach((recovery) => URL.revokeObjectURL(recovery.url));
+		recoveryUrls = [];
 	}
 
 	function handleDialogOpen(v: boolean): void {
@@ -241,32 +429,32 @@
 
 				<div class="grid gap-3 sm:grid-cols-3">
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						data-state={includeScreen ? 'checked' : 'unchecked'}
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeScreen}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) => preferences.set('includeScreen', checked === true)}
 						/>
 						<span class="text-sm">{m.record_source_screen()}</span>
 					</label>
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						data-state={includeCamera ? 'checked' : 'unchecked'}
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeCamera}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) => preferences.set('includeCamera', checked === true)}
 						/>
 						<span class="text-sm">{m.record_source_camera()}</span>
 					</label>
 					<label
-						class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 has-[input:checked]:border-[oklch(0.66_0.14_45)] has-[input:checked]:bg-[oklch(0.27_0.02_45)]"
+						data-state={includeMic ? 'checked' : 'unchecked'}
+						class="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 data-[state=checked]:border-[oklch(0.66_0.14_45)] data-[state=checked]:bg-[oklch(0.27_0.02_45)]"
 					>
-						<input
-							type="checkbox"
+						<Checkbox
 							bind:checked={includeMic}
-							class="size-4 accent-[oklch(0.66_0.14_45)]"
+							onCheckedChange={(checked) => preferences.set('includeMicrophone', checked === true)}
 						/>
 						<span class="text-sm">{m.record_source_audio()}</span>
 					</label>
@@ -274,22 +462,28 @@
 
 				<div class="flex flex-wrap gap-3">
 					{#if includeCamera}
-						<label class="flex min-w-40 flex-1 flex-col gap-1 text-xs">
+						<div class="flex min-w-40 flex-1 flex-col gap-1 text-xs">
 							<span>{m.record_camera()}</span>
 							<AppSelect
 								value={cameraId}
-								options={cameras.map((c) => ({
-									value: c.deviceId,
-									label: c.label || m.record_device_default()
-								}))}
+								options={[
+									{ value: '', label: m.record_device_default() },
+									...cameras.map((c) => ({
+										value: c.deviceId,
+										label: c.label || m.record_device_default()
+									}))
+								]}
 								ariaLabel={m.record_camera()}
-								onValueChange={(v) => (cameraId = v)}
+								onValueChange={(v) => {
+									cameraId = v;
+									preferences.set('cameraDeviceId', v);
+								}}
 								class="h-11"
 							/>
-						</label>
+						</div>
 					{/if}
 					{#if includeMic}
-						<label class="flex min-w-40 flex-1 flex-col gap-1 text-xs">
+						<div class="flex min-w-40 flex-1 flex-col gap-1 text-xs">
 							<span>{m.record_microphone()}</span>
 							<AppSelect
 								value={micId}
@@ -301,25 +495,147 @@
 									}))
 								]}
 								ariaLabel={m.record_microphone()}
-								onValueChange={(v) => (micId = v)}
+								onValueChange={(v) => {
+									micId = v;
+									preferences.set('microphoneDeviceId', v);
+								}}
 								class="h-11"
 							/>
-						</label>
+						</div>
 					{/if}
 				</div>
 
+				{#if includeScreen || includeCamera}
+					<div class="grid gap-3 sm:grid-cols-3">
+						<div class="flex flex-col gap-1 text-xs">
+							<span>{m.video_editor_export_resolution()}</span>
+							<AppSelect
+								value={videoResolution}
+								options={[
+									{ value: '720p', label: '1280 × 720' },
+									{ value: '1080p', label: '1920 × 1080' },
+									{ value: '2160p', label: '3840 × 2160' }
+								]}
+								ariaLabel={m.video_editor_export_resolution()}
+								onValueChange={setVideoResolution}
+								class="h-11"
+							/>
+						</div>
+						<div class="flex flex-col gap-1 text-xs">
+							<span>{m.video_editor_media_info_frame_rate()}</span>
+							<AppSelect
+								value={videoFrameRate}
+								options={[
+									{ value: '24', label: '24 fps' },
+									{ value: '30', label: '30 fps' },
+									{ value: '60', label: '60 fps' }
+								]}
+								ariaLabel={m.video_editor_media_info_frame_rate()}
+								onValueChange={(value) => {
+									videoFrameRate = value;
+									preferences.set('videoFrameRate', selectedFrameRate());
+								}}
+								class="h-11"
+							/>
+						</div>
+						{#if includeCamera}
+							<div class="flex flex-col gap-1 text-xs">
+								<span>{m.video_editor_record_camera_facing()}</span>
+								<AppSelect
+									value={cameraFacingMode}
+									options={[
+										{ value: 'default', label: m.record_device_default() },
+										{ value: 'user', label: m.video_editor_record_camera_front() },
+										{ value: 'environment', label: m.video_editor_record_camera_back() }
+									]}
+									ariaLabel={m.video_editor_record_camera_facing()}
+									onValueChange={setCameraFacingMode}
+									class="h-11"
+								/>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
 				{#if includeScreen}
-					<label class="flex min-h-11 items-center gap-2 text-sm">
-						<Checkbox bind:checked={includeSystemAudio} />
-						<span>{m.record_system_audio()}</span>
-						<span class="text-xs text-muted-foreground"
-							>({m.video_editor_system_audio_caveat()})</span
-						>
-					</label>
+					<div class="space-y-2">
+						<label class="flex min-h-11 items-center gap-2 text-sm">
+							<Checkbox
+								bind:checked={includeSystemAudio}
+								onCheckedChange={(checked) =>
+									preferences.set('includeSystemAudio', checked === true)}
+							/>
+							<span>{m.record_system_audio()}</span>
+							<span class="text-xs text-muted-foreground"
+								>({m.video_editor_system_audio_caveat()})</span
+							>
+						</label>
+						{#if !hasDisplayMedia}
+							<p
+								role="alert"
+								class="rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-200"
+							>
+								{m.video_editor_record_display_unsupported()}
+							</p>
+						{/if}
+						{#if includeScreen && systemAudioStatusText && recoveryUrls.length === 0}
+							<p
+								role="status"
+								aria-live="polite"
+								class="rounded-md bg-[oklch(0.18_0.01_55)] p-2 text-xs text-muted-foreground"
+							>
+								{systemAudioStatusText}
+							</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if includeScreen}
+					<div class="space-y-1">
+						{#if cursorSupported}
+							<div class="flex flex-col gap-1 text-xs">
+								<span>{m.video_editor_record_cursor_mode()}</span>
+								<AppSelect
+									value={cursorMode}
+									options={[
+										{ value: 'always', label: m.video_editor_record_cursor_always() },
+										{ value: 'motion', label: m.video_editor_record_cursor_motion() },
+										{ value: 'never', label: m.video_editor_record_cursor_never() }
+									]}
+									ariaLabel={m.video_editor_record_cursor_mode()}
+									onValueChange={setCursorMode}
+									class="h-11"
+								/>
+							</div>
+						{:else}
+							<p class="rounded-md bg-[oklch(0.18_0.01_55)] p-2 text-xs text-muted-foreground">
+								{m.video_editor_record_cursor_unsupported_hint()}
+							</p>
+						{/if}
+					</div>
+				{/if}
+
+				{#if includeMic}
+					<div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+						<label class="flex min-h-11 items-center gap-2">
+							<Checkbox
+								bind:checked={noiseSuppression}
+								onCheckedChange={(checked) => preferences.set('noiseSuppression', checked === true)}
+							/>
+							<span>{m.video_editor_voiceover_noise_suppression()}</span>
+						</label>
+						<label class="flex min-h-11 items-center gap-2">
+							<Checkbox
+								bind:checked={autoGainControl}
+								onCheckedChange={(checked) => preferences.set('autoGainControl', checked === true)}
+							/>
+							<span>{m.video_editor_voiceover_auto_gain()}</span>
+						</label>
+					</div>
 				{/if}
 
 				<div class="grid gap-3 sm:grid-cols-2">
-					<label class="flex flex-col gap-1 text-xs">
+					<div class="flex flex-col gap-1 text-xs">
 						<span>{m.video_editor_record_countdown()}</span>
 						<AppSelect
 							value={countdown}
@@ -332,14 +648,24 @@
 								{
 									value: '5',
 									label: m.video_editor_record_seconds({ seconds: 5 })
+								},
+								{
+									value: '10',
+									label: m.video_editor_record_seconds({ seconds: 10 })
 								}
 							]}
 							ariaLabel={m.video_editor_record_countdown()}
-							onValueChange={(v) => (countdown = v)}
+							onValueChange={(value) => {
+								countdown = value;
+								preferences.set(
+									'countdownSeconds',
+									value === '10' ? 10 : value === '5' ? 5 : value === '3' ? 3 : 0
+								);
+							}}
 							class="h-11"
 						/>
-					</label>
-					<label class="flex flex-col gap-1 text-xs">
+					</div>
+					<div class="flex flex-col gap-1 text-xs">
 						<span>{m.video_editor_record_planned()}</span>
 						<AppSelect
 							value={plannedMinutes}
@@ -362,10 +688,16 @@
 								}
 							]}
 							ariaLabel={m.video_editor_record_planned()}
-							onValueChange={(v) => (plannedMinutes = v)}
+							onValueChange={(value) => {
+								plannedMinutes = value;
+								preferences.set(
+									'plannedMinutes',
+									value === '30' ? 30 : value === '15' ? 15 : value === '2' ? 2 : 5
+								);
+							}}
 							class="h-11"
 						/>
-					</label>
+					</div>
 				</div>
 
 				{#if estimate}
@@ -438,7 +770,10 @@
 				<div class="space-y-3 rounded-lg border border-[oklch(0.25_0.015_55)] p-3">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<span aria-live="polite" class="flex items-center gap-2 font-mono text-lg tabular-nums">
-							<span class="size-2 animate-pulse rounded-full bg-red-500" aria-hidden="true"></span>
+							<span
+								class="size-2 animate-pulse rounded-full bg-red-500 motion-reduce:animate-none"
+								aria-hidden="true"
+							></span>
 							{elapsed}
 						</span>
 						<span class="text-xs text-muted-foreground">
@@ -466,12 +801,34 @@
 							</div>
 						{/if}
 						{#if includeMic}
-							<div class="flex justify-between rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5">
-								<span>{m.record_source_audio()}</span><span class="font-mono tabular-nums"
-									>{m.video_editor_recording_chunks({
-										count: recorder.counters.microphone.chunks
-									})} · {formatBytes(recorder.counters.microphone.bytes)}</span
-								>
+							<div
+								class="flex flex-wrap items-center justify-between gap-2 rounded bg-[oklch(0.18_0.01_55)] px-2 py-1.5"
+							>
+								<span>{m.record_source_audio()}</span>
+								<div class="flex items-center gap-2">
+									<div
+										role="meter"
+										aria-label={m.video_editor_voiceover_input_level()}
+										aria-valuemin="0"
+										aria-valuemax="100"
+										aria-valuenow={micMeterWidth}
+										aria-valuetext={`${micMeterWidth}%`}
+										class="h-1.5 w-20 overflow-hidden rounded-full bg-white/10"
+									>
+										<div
+											class="h-full rounded-full transition-[width,background-color] duration-75 {micMeterWidth >
+											85
+												? 'bg-red-400'
+												: 'bg-emerald-400'}"
+											style:width={`${micMeterWidth}%`}
+										></div>
+									</div>
+									<span class="font-mono tabular-nums"
+										>{m.video_editor_recording_chunks({
+											count: recorder.counters.microphone.chunks
+										})} · {formatBytes(recorder.counters.microphone.bytes)}</span
+									>
+								</div>
 							</div>
 						{/if}
 					</div>
@@ -504,20 +861,44 @@
 					class="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs"
 				>
 					<p class="font-medium text-amber-100">
-						{m.video_editor_recording_storage_stopped()}
+						{m.video_editor_recovery_available()}
 					</p>
-					<div class="mt-2 flex flex-wrap gap-2">
+					<div class="mt-2 flex flex-col gap-2">
 						{#each recoveryUrls as r (r.url)}
-							<a
-								href={r.url}
-								download={r.name}
-								class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-amber-300"
-							>
-								{m.video_editor_recording_download({
-									source: sourceLabel(r.kind)
-								})}
-							</a>
+							<div class="flex flex-col gap-1 rounded bg-black/20 p-2">
+								<a
+									href={r.url}
+									download={r.name}
+									class="rounded border px-2 py-1 underline focus-visible:outline-2 focus-visible:outline-amber-300"
+								>
+									{m.video_editor_recording_download({
+										source: sourceLabel(r.kind)
+									})}
+								</a>
+								{#if r.capture}
+									{@const statusText = artifactStatusText(r.capture)}
+									{#if statusText}
+										<p role="status" class="text-[11px] text-amber-100">{statusText}</p>
+									{/if}
+									<p class="text-[11px] text-amber-200">
+										{m.video_editor_record_cursor_mode()}: {localizedCursor(r.capture.cursorActual)}
+									</p>
+								{/if}
+							</div>
 						{/each}
+					</div>
+					<div class="mt-3 flex flex-wrap gap-2">
+						<Button class="min-h-11" disabled={captureBusy || inserting} onclick={handleRecover}>
+							{m.video_editor_recover_recording()}
+						</Button>
+						<Button
+							variant="outline"
+							class="min-h-11 border-amber-300/50! bg-black/20! text-amber-50! shadow-none! hover:bg-black/30! hover:text-white!"
+							disabled={inserting}
+							onclick={handleDiscardRecovery}
+						>
+							{m.video_editor_discard_recording()}
+						</Button>
 					</div>
 				</div>
 			{/if}
@@ -527,7 +908,10 @@
 				<div class="flex flex-wrap justify-center gap-2 pt-2">
 					<Button
 						class="min-h-11 min-w-36"
-						disabled={!hasSelection || recordingActive || stoppingActive}
+						disabled={!hasSelection ||
+							recordingActive ||
+							stoppingActive ||
+							(includeScreen && !hasDisplayMedia)}
 						onclick={handleStart}
 					>
 						{m.video_editor_recording_start()}

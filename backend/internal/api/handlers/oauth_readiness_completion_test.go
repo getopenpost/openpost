@@ -231,7 +231,7 @@ func TestOAuthCallbackRechecksReadinessBeforeTokenExchange(t *testing.T) {
 
 func TestXRequestStorePreservesConnectionIntent(t *testing.T) {
 	db := createHandlerTestDB(t, (*models.XOAuthRequestToken)(nil))
-	store := newXRequestStore(db)
+	store := newXRequestStore(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"))
 	now := time.Now().UTC()
 	require.NoError(t, store.Save(
 		"request-token", "request-secret", "ws-1", "user-1",

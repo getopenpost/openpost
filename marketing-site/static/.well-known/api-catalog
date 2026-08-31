@@ -1,0 +1,25 @@
+{
+  "linkset": [
+    {
+      "anchor": "https://app.openpost.social/api/v1",
+      "service-desc": [
+        {
+          "href": "https://docs.openpost.social/openapi.json",
+          "type": "application/vnd.oai.openapi+json;version=3.1"
+        }
+      ],
+      "service-doc": [
+        {
+          "href": "https://docs.openpost.social/development/api-reference",
+          "type": "text/html"
+        }
+      ],
+      "status": [
+        {
+          "href": "https://app.openpost.social/api/v1/ready",
+          "type": "application/json"
+        }
+      ]
+    }
+  ]
+}

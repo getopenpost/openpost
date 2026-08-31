@@ -4,7 +4,6 @@ import { clampMonitorVolume, normalizePreviewZoom } from './playback-settings';
 const STORAGE_KEY = 'openpost-video-editor-playback';
 
 interface StoredPlaybackSettings {
-	zoom?: number;
 	volume?: number;
 	muted?: boolean;
 	audioSkimmingEnabled?: boolean;
@@ -17,7 +16,6 @@ function readStored(): StoredPlaybackSettings {
 		const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
 		if (!parsed || typeof parsed !== 'object') return {};
 		return {
-			zoom: 'zoom' in parsed && typeof parsed.zoom === 'number' ? parsed.zoom : undefined,
 			volume: 'volume' in parsed && typeof parsed.volume === 'number' ? parsed.volume : undefined,
 			muted: 'muted' in parsed && typeof parsed.muted === 'boolean' ? parsed.muted : undefined,
 			previewQuality:
@@ -37,7 +35,7 @@ function readStored(): StoredPlaybackSettings {
 
 const stored = readStored();
 const state = $state({
-	zoom: normalizePreviewZoom(stored.zoom ?? -1),
+	zoom: -1,
 	volume: clampMonitorVolume(stored.volume ?? 1),
 	muted: stored.muted ?? false,
 	audioSkimmingEnabled: stored.audioSkimmingEnabled ?? true,
@@ -49,7 +47,6 @@ function persist(): void {
 	localStorage.setItem(
 		STORAGE_KEY,
 		JSON.stringify({
-			zoom: state.zoom,
 			volume: state.volume,
 			muted: state.muted,
 			audioSkimmingEnabled: state.audioSkimmingEnabled,
@@ -76,7 +73,9 @@ export const previewPlaybackSettings = {
 	},
 	setZoom(value: number): void {
 		state.zoom = normalizePreviewZoom(value);
-		persist();
+	},
+	resetZoom(): void {
+		state.zoom = -1;
 	},
 	setVolume(value: number): void {
 		state.volume = clampMonitorVolume(value);

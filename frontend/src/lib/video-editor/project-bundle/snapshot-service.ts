@@ -140,7 +140,7 @@ export function createSnapshotService(runtime: SnapshotServiceRuntime) {
 			warnings.push('The snapshot checksum does not match. Review the imported project.');
 		}
 		const migrated = migrateProjectDocument(validated.project);
-		if (migrated.fromVersion > CURRENT_SCHEMA_VERSION) {
+		if (migrated.warnings.some((warning) => warning.code === 'FUTURE_SCHEMA')) {
 			throw new Error(
 				`This project uses schema ${migrated.fromVersion}. Update OpenPost before importing it.`
 			);

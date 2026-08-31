@@ -2,6 +2,9 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import { get } from 'svelte/store';
+import { getGpuEffectDefaultParams } from '$lib/video-editor/effects/gpu/registry';
+import { filmstripCache } from '$lib/video-editor/media/filmstrip-client';
+import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { timelinePreviewScrub } from '$lib/video-editor/preview/timeline-preview-scrub';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
@@ -48,6 +51,7 @@ const cutaway: TimelineItem = {
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	timelinePreviewScrub.__resetForTesting();
+	mediaPool.clear();
 	timelineStore.setAll({
 		tracks: [track, cutawayTrack],
 		items: [item, cutaway],
@@ -59,17 +63,27 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+	vi.restoreAllMocks();
+	mediaPool.clear();
 	await page.viewport(1280, 900);
 });
 
-test('fits grade tools, the effect stack, and live scopes into one dock', async () => {
+test('fits primary wheels, curves, effects, and keyframes into one grading dock', async () => {
 	const screen = await render(ColorGradingDock, { itemId: item.id, onedit: vi.fn() });
 
 	await expect.element(screen.getByRole('region', { name: 'Color grading' })).toBeVisible();
 	await expect.element(screen.getByRole('region', { name: 'Timeline overview' })).toBeVisible();
 	await expect.element(screen.getByText('Effects', { exact: true })).toBeVisible();
-	expect(document.querySelector('[data-color-scope-canvas]')).not.toBeNull();
+	await expect.element(screen.getByRole('region', { name: 'Curves' })).toBeVisible();
+	await expect.element(screen.getByRole('region', { name: 'Keyframes' })).toBeVisible();
+	expect(screen.getByRole('slider', { name: /color wheel$/ }).elements()).toHaveLength(4);
+	expect(document.querySelector('[data-color-scope-canvas]')).toBeNull();
 	expect(screen.getByText('Color workspace', { exact: true }).elements()).toHaveLength(1);
+	const navigator = document.querySelector<HTMLElement>('[data-color-mini-timeline]');
+	const filmTile = document.querySelector<HTMLElement>('[data-color-film-tile]');
+	expect(navigator?.getBoundingClientRect().height).toBe(212);
+	expect(filmTile?.getBoundingClientRect().width).toBe(118);
+	expect(filmTile?.getBoundingClientRect().height).toBe(80);
 });
 
 test('selects clips and markers and commits only the final overview scrub frame', async () => {
@@ -108,9 +122,9 @@ test('selects clips and markers and commits only the final overview scrub frame'
 		left: 100,
 		right: 600,
 		top: 0,
-		bottom: 98,
+		bottom: 120,
 		width: 500,
-		height: 98,
+		height: 120,
 		x: 100,
 		y: 0,
 		toJSON: () => ({})
@@ -120,17 +134,81 @@ test('selects clips and markers and commits only the final overview scrub frame'
 	scrubSurface.dispatchEvent(
 		new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: 258, pointerId: 7 })
 	);
-	expect(get(timelinePreviewScrub).frame).toBe(75);
+	expect(get(timelinePreviewScrub).frame).toBe(81);
 	expect(timelineStore.currentFrame).toBe(45);
 	scrubSurface.dispatchEvent(
 		new PointerEvent('pointerup', { bubbles: true, button: 0, clientX: 486, pointerId: 7 })
 	);
-	expect(timelineStore.currentFrame).toBe(225);
+	expect(timelineStore.currentFrame).toBe(227);
 	expect(get(timelinePreviewScrub).frame).toBeNull();
 	playheadElement.dispatchEvent(
 		new KeyboardEvent('keydown', { bubbles: true, key: 'ArrowLeft', shiftKey: true })
 	);
-	expect(timelineStore.currentFrame).toBe(215);
+	expect(timelineStore.currentFrame).toBe(217);
+});
+
+test('uses the clip start frame and marks its live grade while the GPU tile renders', async () => {
+	const frameUrl =
+		'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="160" height="90"%3E%3Cpath fill="%23555" d="M0 0h160v90H0z"/%3E%3C/svg%3E';
+	const gradedItem: TimelineItem = {
+		...item,
+		mediaId: 'media',
+		sourceStart: 450,
+		sourceDuration: 900,
+		sourceFps: 30,
+		effects: [
+			{
+				id: 'wheels',
+				type: 'gpu',
+				effectId: 'gpu-color-wheels',
+				enabled: true,
+				params: { ...getGpuEffectDefaultParams('gpu-color-wheels'), temperature: 40 }
+			}
+		]
+	};
+	mediaPool.loadAll([
+		{
+			id: 'media',
+			storageType: 'workspace',
+			fileName: 'graded.mp4',
+			fileSize: 1,
+			mimeType: 'video/mp4',
+			duration: 30,
+			width: 1920,
+			height: 1080,
+			fps: 30,
+			codec: 'h264',
+			bitrate: 1,
+			tags: ['video']
+		}
+	]);
+	timelineStore.setAll({ tracks: [track], items: [gradedItem], fps: 30 });
+	vi.spyOn(filmstripCache, 'subscribe').mockImplementation((_mediaId, callback) => {
+		callback({
+			frames: [{ index: 15, url: frameUrl }],
+			isComplete: true,
+			isExtracting: false,
+			progress: 1
+		});
+		return () => undefined;
+	});
+	const getFilmstrip = vi.spyOn(filmstripCache, 'getFilmstrip').mockResolvedValue({
+		frames: [{ index: 15, url: frameUrl }],
+		isComplete: true,
+		isExtracting: false,
+		progress: 1
+	});
+
+	await render(ColorGradingDock, { itemId: gradedItem.id, onedit: vi.fn() });
+	await vi.waitFor(() => {
+		expect(getFilmstrip).toHaveBeenCalledWith(
+			expect.objectContaining({ id: 'media' }),
+			expect.objectContaining({ targetFrameIndices: [15] })
+		);
+	});
+	const tile = document.querySelector('[data-color-film-tile="video"]');
+	expect(tile?.querySelector('[data-graded-thumbnail="true"]')).not.toBeNull();
+	expect(tile?.querySelector('[data-color-grade-indicator]')).not.toBeNull();
 });
 
 test('uses a fitted three-column grading surface at desktop width', async () => {

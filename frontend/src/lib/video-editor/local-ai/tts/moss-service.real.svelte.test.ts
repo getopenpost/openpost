@@ -3,6 +3,14 @@ import { mossTtsService } from './moss-service';
 
 const runRealModel = import.meta.env.VITE_OPENPOST_REAL_LOCAL_AI_TEST === '1';
 
+it('serves the MOSS worker runtime as JavaScript', async () => {
+	const response = await fetch('/moss-tts/moss_tts.worker.js');
+	const source = await response.text();
+	expect(response.ok).toBe(true);
+	expect(response.headers.get('content-type')).toMatch(/javascript/);
+	expect(source).toContain('openpost-moss-tts-worker');
+});
+
 describe.skipIf(!runRealModel)('MOSS TTS real browser model', () => {
 	afterAll(() => mossTtsService.unload());
 

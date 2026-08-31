@@ -226,7 +226,14 @@ class MossTtsService {
 	}
 
 	private readonly handleWorkerError = (event: ErrorEvent): void => {
-		this.resetWorker(new Error(event.message || 'MOSS TTS worker failed.'));
+		const location = event.filename
+			? ` (${event.filename}:${event.lineno || 0}:${event.colno || 0})`
+			: '';
+		const failure =
+			event.error instanceof Error
+				? event.error
+				: new Error(`${event.message || 'MOSS TTS worker failed.'}${location}`);
+		this.resetWorker(failure);
 	};
 
 	private readonly handleWorkerMessage = (

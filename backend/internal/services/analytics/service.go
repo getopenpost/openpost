@@ -44,6 +44,7 @@ type Service struct {
 	tokenSource TokenSource
 	providersMu sync.RWMutex
 	providers   map[string]platform.Adapter
+	sources     map[string]platform.AnalyticsAdapter
 	now         func() time.Time
 	featureGate FeatureGate
 }
@@ -53,6 +54,7 @@ func NewService(db *bun.DB, tokenSource TokenSource) *Service {
 		db:          db,
 		tokenSource: tokenSource,
 		providers:   make(map[string]platform.Adapter),
+		sources:     make(map[string]platform.AnalyticsAdapter),
 		now:         func() time.Time { return time.Now().UTC() },
 	}
 }
@@ -61,6 +63,12 @@ func (s *Service) SetProvider(name string, adapter platform.Adapter) {
 	s.providersMu.Lock()
 	defer s.providersMu.Unlock()
 	s.providers[name] = adapter
+}
+
+func (s *Service) SetExternalSource(platformName string, adapter platform.AnalyticsAdapter) {
+	s.providersMu.Lock()
+	defer s.providersMu.Unlock()
+	s.sources[strings.ToLower(strings.TrimSpace(platformName))] = adapter
 }
 
 func (s *Service) SetFeatureGate(g FeatureGate) {
@@ -335,9 +343,9 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if missing := platform.MissingAnalyticsScopes(account.GrantedScopes, support.AccountRequiredScopes); len(missing) > 0 {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "missing_scope", missingScopeMessage(missing))
 	}
-	token, err := s.accessToken(ctx, account.ID)
+	token, err := s.analyticsAccessToken(ctx, adapter, account.ID)
 	if err != nil {
-		return s.recordFailure(ctx, subjectAccount, account.ID, account, err)
+		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
 	values, err := adapter.FetchAccountAnalytics(ctx, token, platform.AccountAnalyticsRequest{
 		AccountID:       account.AccountID,
@@ -345,7 +353,7 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 		CapabilityState: analyticsCapabilityState(account.CapabilityState),
 	})
 	if err != nil {
-		return s.recordFailure(ctx, subjectAccount, account.ID, account, err)
+		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
 	return s.recordSuccess(ctx, subjectAccount, account.ID, account, "", "", values, accountCadence)
 }
@@ -390,9 +398,9 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	if err != nil {
 		return err
 	}
-	token, err := s.accessToken(ctx, account.ID)
+	token, err := s.analyticsAccessToken(ctx, adapter, account.ID)
 	if err != nil {
-		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, err)
+		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
 	s.resolveAndStoreContentURL(ctx, adapter, token, account, &rendition)
 	values, err := adapter.FetchContentAnalytics(ctx, token, platform.ContentAnalyticsRequest{
@@ -405,7 +413,7 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 		OwnReplyCount: max(0, len(externalIDs)-1),
 	})
 	if err != nil {
-		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, err)
+		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
 	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, contentCadence(s.now().Sub(publishedAt)))
 }
@@ -578,7 +586,7 @@ func (s *Service) recordUnavailable(ctx context.Context, subjectType, subjectID 
 	})
 }
 
-func (s *Service) recordFailure(ctx context.Context, subjectType, subjectID string, account models.SocialAccount, cause error) error {
+func (s *Service) recordFailure(ctx context.Context, subjectType, subjectID string, account models.SocialAccount, adapter platform.AnalyticsAdapter, cause error) error {
 	status, code, retryAfter := classifyAnalyticsError(cause)
 	now := s.now()
 	next := now.Add(time.Hour)
@@ -611,7 +619,7 @@ func (s *Service) recordFailure(ctx context.Context, subjectType, subjectID stri
 		Platform:        account.Platform,
 		Status:          string(status),
 		ErrorCode:       code,
-		ErrorMessage:    safeAnalyticsMessage(status),
+		ErrorMessage:    safeAnalyticsMessageForAdapter(adapter, status, code),
 		MetricsJSON:     metricsJSON,
 		LastAttemptedAt: now,
 		LastSuccessAt:   lastSuccessAt,
@@ -708,6 +716,13 @@ func (s *Service) enqueue(ctx context.Context, workspaceID, jobType, payload str
 }
 
 func (s *Service) analyticsAdapter(account models.SocialAccount) platform.AnalyticsAdapter {
+	s.providersMu.RLock()
+	if adapter := s.sources[strings.ToLower(strings.TrimSpace(account.Platform))]; adapter != nil {
+		s.providersMu.RUnlock()
+		return adapter
+	}
+	s.providersMu.RUnlock()
+
 	key := account.Platform
 	if account.Platform == "mastodon" {
 		key = "mastodon:" + account.InstanceURL
@@ -783,6 +798,13 @@ func (s *Service) accessToken(ctx context.Context, accountID string) (string, er
 		return "", fmt.Errorf("analytics token service is unavailable")
 	}
 	return s.tokenSource.GetValidAccessToken(ctx, accountID)
+}
+
+func (s *Service) analyticsAccessToken(ctx context.Context, adapter platform.AnalyticsAdapter, accountID string) (string, error) {
+	if !analyticsAdapterUsesProviderToken(adapter) {
+		return "", nil
+	}
+	return s.accessToken(ctx, accountID)
 }
 
 func (s *Service) renditionExternalIDs(ctx context.Context, rendition models.Rendition) ([]string, error) {
@@ -879,6 +901,27 @@ func safeAnalyticsMessage(status platform.AnalyticsStatus) string {
 	default:
 		return "Analytics collection failed and will be retried."
 	}
+}
+
+func safeAnalyticsMessageForAdapter(adapter platform.AnalyticsAdapter, status platform.AnalyticsStatus, code string) string {
+	if messageSource, ok := adapter.(interface {
+		AnalyticsFailureMessage(platform.AnalyticsStatus, string) string
+	}); ok {
+		if message := strings.TrimSpace(messageSource.AnalyticsFailureMessage(status, code)); message != "" {
+			return message
+		}
+	}
+	return safeAnalyticsMessage(status)
+}
+
+func analyticsAdapterUsesProviderToken(adapter platform.AnalyticsAdapter) bool {
+	if adapter == nil {
+		return true
+	}
+	if tokenPolicy, ok := adapter.(interface{ UsesProviderToken() bool }); ok {
+		return tokenPolicy.UsesProviderToken()
+	}
+	return true
 }
 
 func missingScopeMessage(scopes []string) string {

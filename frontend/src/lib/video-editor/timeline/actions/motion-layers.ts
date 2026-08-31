@@ -156,6 +156,8 @@ export function applyMotionPresetAsLayers(options: ApplyPresetAsLayerOptions): n
 				1,
 				anchorResolved.transform?.height ?? anchorResolved.sourceHeight ?? options.frameHeight
 			),
+			scaleX: anchorResolved.transform?.scaleX ?? 1,
+			scaleY: anchorResolved.transform?.scaleY ?? 1,
 			rotation: anchorResolved.transform?.rotation ?? 0,
 			opacity: anchorResolved.transform?.opacity ?? 1
 		};

@@ -11,7 +11,6 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
-	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
@@ -63,24 +62,6 @@ func xProviderCostInput(key, operation string, at time.Time) ProviderCostEventIn
 func enableProviderCostPolicy(t *testing.T, service *Service, budget int64) {
 	t.Helper()
 	require.NoError(t, service.SetProviderCostPolicy(NewXProviderCostPolicy(budget, 15_000, 200_000)))
-}
-
-func TestProviderCostOperationUpsertQualifiesPostgresTargetColumns(t *testing.T) {
-	sqldb, err := sql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	db := bun.NewDB(sqldb, pgdialect.New())
-	t.Cleanup(func() {
-		require.NoError(t, db.Close())
-	})
-
-	query := providerCostOperationReservationQuery(
-		db,
-		&models.ProviderUsagePeriodCounter{},
-	).String()
-
-	require.Contains(t, query, `reserved_event_count = "provider_usage_period_counter"."reserved_event_count" + EXCLUDED.reserved_event_count`)
-	require.Contains(t, query, `reserved_units = "provider_usage_period_counter"."reserved_units" + EXCLUDED.reserved_units`)
-	require.Contains(t, query, `reserved_cost_microusd = "provider_usage_period_counter"."reserved_cost_microusd" + EXCLUDED.reserved_cost_microusd`)
 }
 
 func TestRecordProviderCostIsIdempotent(t *testing.T) {

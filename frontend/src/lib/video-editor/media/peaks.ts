@@ -87,3 +87,31 @@ export function peaksForWindow(
 	}
 	return output;
 }
+
+/** Map non-linear timeline columns onto exact source-frame boundary pairs. */
+export function peaksForMappedWindow(
+	waveform: WaveformData,
+	sourceFrameBoundaries: Float64Array,
+	fps: number
+): Float32Array {
+	const columns = Math.max(0, sourceFrameBoundaries.length - 1);
+	const output = new Float32Array(columns * 2);
+	if (columns === 0 || !(fps > 0)) return output;
+
+	const blocks = blockIndex(waveform);
+	for (let column = 0; column < columns; column += 1) {
+		const firstFrame = sourceFrameBoundaries[column] ?? 0;
+		const secondFrame = sourceFrameBoundaries[column + 1] ?? firstFrame;
+		const windowStart = Math.min(firstFrame, secondFrame) / fps;
+		const windowEnd = Math.max(firstFrame, secondFrame) / fps;
+		const firstBucket = Math.floor(windowStart * waveform.samplesPerSecond);
+		const lastBucket = Math.max(firstBucket, Math.ceil(windowEnd * waveform.samplesPerSecond) - 1);
+		let max = 0;
+		if (lastBucket >= 0 && firstBucket <= waveform.peaks.length - 1) {
+			max = maxPeakInRange(waveform.peaks, blocks, firstBucket, lastBucket);
+		}
+		output[column * 2] = -max;
+		output[column * 2 + 1] = max;
+	}
+	return output;
+}

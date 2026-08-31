@@ -51,20 +51,21 @@ FORM: A workshop bench of alternating capability stations, candidate three from 
 		<div class="max-w-4xl">
 			<p class="section-label">Features</p>
 			<h1 class="marketing-title mt-5">The whole publishing job, one workspace.</h1>
-			<p class="mt-5 text-sm font-medium text-foreground">
-				This page is for founders and teams evaluating the complete OpenPost workflow.
-			</p>
-			<p class="marketing-copy mt-7">
+			<p class="marketing-copy mt-5">
 				Create a source idea, adapt it for each account, prepare the media, schedule the work,
 				inspect the result, and keep the same boundaries when a teammate or tool helps.
 			</p>
+			<p class="mt-3 text-sm font-medium text-foreground/75">
+				This page is for founders and teams evaluating the complete OpenPost workflow.
+			</p>
 			<div class="mt-8 flex flex-wrap gap-3">
 				<Button href={managedSignupUrl} size="lg">
-					Start a 14-day trial
+					Start 14-day trial
 					<ArrowRight data-icon="inline-end" />
 				</Button>
 				<Button href="/pricing" variant="outline" size="lg">Compare plans</Button>
 			</div>
+			<p class="mt-3 text-sm font-medium text-foreground/75">$0 today. Card required.</p>
 		</div>
 
 		<aside class="feature-index" aria-labelledby="feature-index-title">

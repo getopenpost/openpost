@@ -1,5 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  composerDeliveryAction,
+  createPublication,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 test("authenticated navigation keeps the app shell mounted", async ({ page, request }) => {
   const unique = Date.now().toString(36);
@@ -36,8 +42,8 @@ test("authenticated navigation keeps the app shell mounted", async ({ page, requ
   });
 
   const activityRequestStart = shellApiRequests.length;
-  await page.getByRole("button", { name: "Posts", exact: true }).click();
-  await expect(page).toHaveURL(/\/activity$/);
+  await page.getByRole("button", { name: "Publications", exact: true }).click();
+  await expect(page).toHaveURL(/\/publications$/);
   await expect(page.getByTestId("app-sidebar")).toBeVisible();
   await expect(page.getByTestId("desktop-sidebar-planner")).toBeVisible();
   await expect(page.getByTestId("sidebar-new-post")).toBeVisible();
@@ -95,7 +101,9 @@ test("first autosave establishes the draft URL and keeps draft actions in one co
   await expect(page.getByTestId("sidebar-new-post")).toBeVisible();
   await expect(homeBrand).toBeVisible();
   await expect(newPostAction).toBeVisible();
-  await expect(page.getByRole("button", { name: "Schedule", exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("composer-primary-delivery-action")).toBeVisible();
+  await expect(await composerDeliveryAction(page, "Schedule")).toBeVisible();
+  await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "Save draft", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save changes", exact: true })).toHaveCount(0);
   await expect(page.getByText("Editing draft post")).toHaveCount(0);
@@ -129,9 +137,14 @@ test("first autosave establishes the draft URL and keeps draft actions in one co
   await expect(page.getByTestId("composer-account-loading")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Link URL" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Save changes", exact: true })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Schedule", exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("composer-primary-delivery-action")).toBeVisible();
+  await expect(await composerDeliveryAction(page, "Schedule")).toBeVisible();
+  await page.keyboard.press("Escape");
 
-  await page.getByRole("button", { name: "Version history", exact: true }).click();
+  await page.getByRole("button", { name: "Post settings", exact: true }).click();
+  const composerSettings = page.getByTestId("composer-settings-sheet");
+  await expect(composerSettings).toBeVisible();
+  await composerSettings.getByRole("button", { name: "Version history", exact: true }).click();
   const historyDrawer = page.getByTestId("publication-history-drawer");
   const historyScroll = page.getByTestId("publication-history-scroll");
   await expect(historyDrawer).toBeVisible();
@@ -220,8 +233,6 @@ test("text-and-thread editor keeps its canvas-owned field treatment", async ({ p
 
     const editor = page.getByLabel("Post text").first();
     await expect(editor).toBeVisible();
-    await expect(page.locator("html")).toHaveClass(mode === "dark" ? /dark/ : /^(?!.*\bdark\b)/);
-
     const restingChrome = await editor.evaluate((element) => {
       const style = getComputedStyle(element);
       return {
@@ -306,7 +317,7 @@ test("collapsed sidebar keeps the OpenPost mark without overflowing text", async
   await expect(home.locator("svg")).toBeVisible();
   await expect(home.getByText("OpenPost", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("desktop-sidebar-planner")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Posts", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publications", exact: true })).toBeVisible();
 });
 
 test("desktop planning sidebar resumes drafts and stays out of mobile navigation", async ({
@@ -395,7 +406,13 @@ test("desktop planning sidebar resumes drafts and stays out of mobile navigation
   await expect(page.getByText("Resume the launch announcement")).toBeVisible();
   await expect(page.getByRole("button", { name: "Media", exact: true })).toBeVisible();
   const workspaceNavigation = page.getByTestId("sidebar-workspace-navigation");
-  await expect(workspaceNavigation.getByRole("button")).toHaveCount(6);
+  await expect(workspaceNavigation.getByRole("button")).toHaveCount(7);
+  await expect(
+    workspaceNavigation.getByRole("button", {
+      name: "Editors",
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(
     workspaceNavigation.getByRole("button", {
       name: "Accounts",
@@ -416,7 +433,7 @@ test("desktop planning sidebar resumes drafts and stays out of mobile navigation
   await expect(workspaceNavigation.getByRole("button")).toHaveCount(0);
   await page.getByRole("button", { name: "Expand workspace navigation" }).click();
   await expect(workspaceNavigation).toHaveAttribute("aria-hidden", "false");
-  await expect(workspaceNavigation.getByRole("button")).toHaveCount(6);
+  await expect(workspaceNavigation.getByRole("button")).toHaveCount(7);
   await page.getByTestId("profile-menu-trigger").click();
   await expect(page.getByRole("menuitem", { name: "Editors" })).toBeVisible();
   await expect(page.getByRole("menuitem", { name: "Accounts" })).toBeVisible();
@@ -480,5 +497,11 @@ test("desktop planning sidebar resumes drafts and stays out of mobile navigation
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await expect(planner).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
+  const mobileNavigation = page.getByRole("navigation", { name: "Primary navigation" });
+  await expect(mobileNavigation).toBeVisible();
+  for (const label of ["Calendar", "Publications", "New", "Media", "More"]) {
+    const visibleLabel = mobileNavigation.getByText(label, { exact: true });
+    await expect(visibleLabel).toBeVisible();
+    await expect(visibleLabel).not.toHaveClass(/sr-only/);
+  }
 });

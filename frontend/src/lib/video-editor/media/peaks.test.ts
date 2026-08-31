@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { peaksForWindow } from './peaks';
+import { peaksForMappedWindow, peaksForWindow } from './peaks';
 import type { WaveformData } from './waveform-client';
 
 function waveform(peaks: number[]): WaveformData {
@@ -54,5 +54,30 @@ describe('peaksForWindow', () => {
 		progressive.isComplete = true;
 		const completed = peaksForWindow(progressive, 0, 300, 30, 1);
 		expect(completed[1]).toBeCloseTo(0.95);
+	});
+});
+
+describe('peaksForMappedWindow', () => {
+	it('samples each timeline column through its exact source-frame boundaries', () => {
+		const plateau = (value: number): number[] => Array.from({ length: 50 }, () => value);
+		const peaks = waveform([...plateau(0.1), ...plateau(0.5), ...plateau(0.9), ...plateau(0.2)]);
+
+		const columns = peaksForMappedWindow(peaks, Float64Array.from([0, 30, 90, 120]), 30);
+
+		expect(columns.length).toBe(6);
+		expect(columns[1]).toBeCloseTo(0.1);
+		expect(columns[3]).toBeCloseTo(0.9);
+		expect(columns[5]).toBeCloseTo(0.2);
+	});
+
+	it('keeps reverse source boundaries in timeline display order', () => {
+		const plateau = (value: number): number[] => Array.from({ length: 50 }, () => value);
+		const peaks = waveform([...plateau(0.1), ...plateau(0.5), ...plateau(0.9), ...plateau(0.2)]);
+
+		const columns = peaksForMappedWindow(peaks, Float64Array.from([120, 90, 30, 0]), 30);
+
+		expect(columns[1]).toBeCloseTo(0.2);
+		expect(columns[3]).toBeCloseTo(0.9);
+		expect(columns[5]).toBeCloseTo(0.1);
 	});
 });

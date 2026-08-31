@@ -103,6 +103,70 @@ describe('meme generator API', () => {
 		});
 	});
 
+	it('retries one transient preview failure', async () => {
+		mocks.post
+			.mockResolvedValueOnce({
+				error: { detail: 'The meme preview failed.' },
+				response: new Response(null, { status: 503 })
+			})
+			.mockResolvedValueOnce({
+				data: { mime_type: 'image/png', data_base64: 'bWVtZQ==' },
+				response: new Response(null, { status: 200 })
+			});
+
+		await expect(
+			previewMeme({
+				workspaceId: 'workspace-1',
+				templateId: 'drake',
+				captions: ['one', 'two'],
+				overlayMediaIds: [],
+				format: 'png'
+			})
+		).resolves.toMatchObject({ mime_type: 'image/png', data_base64: 'bWVtZQ==' });
+		expect(mocks.post).toHaveBeenCalledTimes(2);
+	});
+
+	it('does not retry a preview after its request is aborted', async () => {
+		const controller = new AbortController();
+		mocks.post.mockImplementationOnce(async () => {
+			controller.abort();
+			return {
+				error: { detail: 'The meme renderer is temporarily unavailable.' },
+				response: new Response(null, { status: 503 })
+			};
+		});
+
+		await expect(
+			previewMeme({
+				workspaceId: 'workspace-1',
+				templateId: 'drake',
+				captions: ['one', 'two'],
+				overlayMediaIds: [],
+				format: 'png',
+				signal: controller.signal
+			})
+		).rejects.toMatchObject({ status: 503 });
+		expect(mocks.post).toHaveBeenCalledTimes(1);
+	});
+
+	it('does not retry a deterministic preview failure', async () => {
+		mocks.post.mockResolvedValue({
+			error: { detail: 'The generated meme is too large to preview.' },
+			response: new Response(null, { status: 502 })
+		});
+
+		await expect(
+			previewMeme({
+				workspaceId: 'workspace-1',
+				templateId: 'drake',
+				captions: ['one', 'two'],
+				overlayMediaIds: [],
+				format: 'png'
+			})
+		).rejects.toMatchObject({ status: 502 });
+		expect(mocks.post).toHaveBeenCalledTimes(1);
+	});
+
 	it('surfaces a render failure that explains the recovery', async () => {
 		mocks.post.mockResolvedValue({
 			error: { detail: 'The meme renderer is temporarily unavailable.' },

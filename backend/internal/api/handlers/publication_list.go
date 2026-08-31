@@ -235,7 +235,9 @@ func publicationActivityBucketQuery(query *bun.SelectQuery, bucket string) *bun.
 	case "published":
 		return query.Where("publication.status = ?", models.PublicationStatusPublished)
 	case "failed":
-		return query.Where("publication.status = ?", models.PublicationStatusFailed)
+		return query.
+			Where("publication.status = ?", models.PublicationStatusFailed).
+			Where("publication.failure_dismissed_at IS NULL")
 	case "draft":
 		return query.
 			Where("publication.status NOT IN (?)", bun.List([]string{

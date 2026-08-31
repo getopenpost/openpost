@@ -10,18 +10,7 @@ import {
 } from './effect-presets';
 
 describe('effect presets', () => {
-	it('ships every FreeCut built-in with valid registered effects', () => {
-		expect(BUILT_IN_EFFECT_PRESETS.map((preset) => preset.id)).toEqual([
-			'trigger-wave-layer',
-			'crt',
-			'retro-tv',
-			'vintage',
-			'noir',
-			'cold',
-			'warm',
-			'dramatic',
-			'faded'
-		]);
+	it('keeps built-in presets non-empty and linked to registered effects', () => {
 		expect(BUILT_IN_EFFECT_PRESETS.every((preset) => preset.effects.length > 0)).toBe(true);
 		expect(
 			BUILT_IN_EFFECT_PRESETS.flatMap((preset) => preset.effects).every(

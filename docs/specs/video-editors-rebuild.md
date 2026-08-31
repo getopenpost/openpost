@@ -15,9 +15,9 @@ Editing never syncs to OpenPost. Only final exports cross the boundary ("Send to
 ## Naming and domain terms
 
 - Full editor product name: **OpenPost Video Editor**, route `/video-editor`.
-- Lossless tool: **Quick Cut** (existing CONTEXT.md term), route `/quick-cut`. The old in-editor "quick-cut" mode is deleted.
-- New CONTEXT.md terms to add: **Workspace folder** (user-chosen disk folder holding projects/media/caches; source of truth while editing), **Recording** (local capture produced by the recorder).
-- `/video-studio` legacy redirect retargets to `/video-editor`; `/studio` redirect untouched (image editor).
+- Lossless tool: **Quick Cut** (established domain term), route `/quick-cut`. The old in-editor "quick-cut" mode is deleted.
+- Durable domain terms to retain in Hindsight: **Workspace folder** (user-chosen disk folder holding projects/media/caches; source of truth while editing), **Recording** (local capture produced by the recorder).
+- `/video-editor`, `/quick-cut`, and `/record` are the only editor routes. The old `/video-studio` and `/studio` aliases do not exist.
 
 ## Architecture
 
@@ -37,9 +37,9 @@ Ported from FreeCut (adapt React→Svelte 5 runes, Tailwind 4 + bits-ui `ui/` pr
 
 Dependencies in `frontend/package.json`: `mediabunny@^1.51.0`, `@mediabunny/prores@1.51.0`, `@huggingface/transformers@4.1.0`, `onnxruntime-web@1.26.0-dev.20260410-5e55544225`, and `fflate`.
 
-### Deliberate reductions vs FreeCut (v1)
+### Current parity scope
 
-- Item types: video, audio, image, text, subtitle-segment. No shape/lottie/gif/composition-nesting/adjustment/controller items.
+- The project model includes all ten FreeCut timeline item kinds: video, audio, image, Lottie, text, subtitle, shape, adjustment, controller, and composition. Reusable compositions support nested timelines and controller-based Motion parenting.
 - Local music generation, upscale, and frame interpolation are implemented. The packaged ACE-Step path passed a fixed-seed real-model WebGPU run with a valid, non-silent 10-second stereo WAV. Local scene captions, semantic and visual search, embeddings, and three-engine local voice generation are present.
 - Keyframes include the value graph, dope sheet, spatial curves, transition guards, and shared multi-key editing.
 - Projects support reusable top-level sequences and nested compound clips.
@@ -66,7 +66,7 @@ Backend: `handlers/video_editor.go`(+test), `internal/videoproject/`, routes reg
 
 Contracts: regenerate `frontend/openapi.json`, `src/lib/api/types.d.ts`, docs-site copy after route removal.
 
-Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new model; marketing launcher/tools pages retargeted; third-party notices add FreeCut (MIT) + mediabunny (MPL-2.0) attributions; privacy inventory entries updated; repository-map row updated; CONTEXT.md terms updated.
+Docs/marketing/legal: docs-site `usage/video-editor.md` rewritten for the new model; marketing launcher/tools pages retargeted; third-party notices add FreeCut (MIT) + mediabunny (MPL-2.0) attributions; privacy inventory entries updated; repository-map row updated; durable domain terms retained in Hindsight.
 
 ## Acceptance criteria
 

@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
-	"github.com/openpost/backend/internal/queue"
 	"github.com/openpost/backend/internal/services/auth"
 	"github.com/openpost/backend/internal/services/identity"
 	"github.com/uptrace/bun"
@@ -440,6 +439,7 @@ func OrganizationBillingReferences(ctx context.Context, db deletionDB, organizat
 type deletionIDs struct {
 	publications, publicationSegments, renditions, renditionSegments []string
 	accounts, media, conversations, messages, invitations            []string
+	publicationBuilds                                                []string
 }
 
 func loadDeletionIDs(ctx context.Context, db deletionDB, workspaceIDs []string) (deletionIDs, error) {
@@ -448,6 +448,9 @@ func loadDeletionIDs(ctx context.Context, db deletionDB, workspaceIDs []string) 
 		if err := db.NewSelect().Model(scan.model).Column("id").Where("workspace_id IN (?)", bun.List(workspaceIDs)).Scan(ctx, scan.dest); err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return ids, err
 		}
+	}
+	if err := db.NewSelect().Table("publication_builds").Column("id").Where("workspace_id IN (?)", bun.List(workspaceIDs)).Scan(ctx, &ids.publicationBuilds); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return ids, err
 	}
 	if len(ids.publications) > 0 {
 		if err := db.NewSelect().Model((*models.PublicationSegment)(nil)).Column("id").Where("publication_id IN (?)", bun.List(ids.publications)).Scan(ctx, &ids.publicationSegments); err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -472,7 +475,7 @@ func loadDeletionReferences(ctx context.Context, db deletionDB, workspaceIDs, ob
 		return nil, err
 	}
 	refs := map[string]struct{}{}
-	for _, values := range [][]string{workspaceIDs, ids.publications, ids.publicationSegments, ids.renditions, ids.renditionSegments, ids.accounts, ids.media, ids.conversations, ids.messages, ids.invitations, objectKeys} {
+	for _, values := range [][]string{workspaceIDs, ids.publications, ids.publicationSegments, ids.renditions, ids.renditionSegments, ids.accounts, ids.media, ids.conversations, ids.messages, ids.invitations, ids.publicationBuilds, objectKeys} {
 		for _, id := range values {
 			refs[id] = struct{}{}
 		}
@@ -587,28 +590,10 @@ func firstDecryptor(decryptors []AcceptURLDecryptor) AcceptURLDecryptor {
 	return decryptors[0]
 }
 
-const StorageCleanupBatchSize = queue.StorageDeleteMaxKeys
+const StorageCleanupBatchSize = jobregistry.StorageDeleteMaxKeys
 
 func EnqueueStorageCleanup(ctx context.Context, tx bun.Tx, objectKeys []string) ([]string, error) {
-	jobIDs := []string{}
-	for start := 0; start < len(objectKeys); start += StorageCleanupBatchSize {
-		end := min(start+StorageCleanupBatchSize, len(objectKeys))
-		payload, err := json.Marshal(struct {
-			Keys []string `json:"keys"`
-		}{Keys: objectKeys[start:end]})
-		if err != nil {
-			return nil, err
-		}
-		job, err := jobregistry.NewJob(jobregistry.TypeStorageDelete, string(payload), time.Now().UTC())
-		if err != nil {
-			return nil, err
-		}
-		if _, err := tx.NewInsert().Model(job).Exec(ctx); err != nil {
-			return nil, err
-		}
-		jobIDs = append(jobIDs, job.ID)
-	}
-	return jobIDs, nil
+	return jobregistry.EnqueueStorageDeletes(ctx, tx, objectKeys)
 }
 
 func DeleteWorkspaceData(ctx context.Context, tx bun.Tx, workspaceIDs []string, decryptors ...AcceptURLDecryptor) error {

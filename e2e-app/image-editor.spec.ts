@@ -101,14 +101,92 @@ test("Image Editor autosaves without replaying the saved-status animation", asyn
     .toBe(0);
 });
 
-test("legacy Studio URLs redirect to the OpenPost Image Editor", async ({ page, request }) => {
-  const auth = await registerUser(
-    request,
-    `studio-redirect-${Date.now().toString(36)}@example.com`,
-  );
-  await authenticatePage(page, auth.token);
-  await page.goto("/studio/new?legacy-route=1");
-  await expect(page).toHaveURL(/\/image-editor\/new\?legacy-route=1$/);
+test("Image Editor uses one object marquee across the image edge", async ({ page }) => {
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: /Instagram square/ }).click();
+  const designCanvas = page.getByRole("application", { name: "Design canvas" });
+  const stage = page.getByTestId("image-editor-stage");
+  await expect(stage).toBeVisible();
+
+  await page.getByRole("button", { name: "Shape", exact: true }).click();
+  const rectangleLayer = page.getByRole("treeitem", {
+    name: /Rectangle, shape/,
+  });
+  await expect(rectangleLayer).toBeVisible();
+  await page.keyboard.press("v");
+
+  const [canvasBox, stageBox] = await Promise.all([
+    designCanvas.boundingBox(),
+    stage.boundingBox(),
+  ]);
+  if (!canvasBox || !stageBox) {
+    throw new Error("Image Editor canvas did not produce measurable bounds");
+  }
+  await page.mouse.click(canvasBox.x + 8, canvasBox.y + canvasBox.height / 2);
+  await expect(rectangleLayer).not.toHaveAttribute("aria-selected", "true");
+
+  const start = {
+    x: stageBox.x + stageBox.width * 0.05,
+    y: stageBox.y + stageBox.height * 0.05,
+  };
+  const end = {
+    x: Math.min(canvasBox.x + canvasBox.width - 8, stageBox.x + stageBox.width + 40),
+    y: stageBox.y + stageBox.height * 0.95,
+  };
+  expect(end.x).toBeGreaterThan(stageBox.x + stageBox.width);
+
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(end.x, end.y, { steps: 8 });
+  const marquee = page.getByTestId("image-editor-object-selection-outline");
+  await expect(marquee).toBeVisible();
+  await expect(marquee).toHaveCSS("stroke", "rgb(251, 146, 60)");
+  await expect
+    .poll(() => marquee.evaluate((element) => getComputedStyle(element).strokeDasharray))
+    .not.toBe("none");
+  const marqueeBox = await marquee.boundingBox();
+  if (!marqueeBox) throw new Error("Object marquee did not produce measurable bounds");
+  expect(marqueeBox.x + marqueeBox.width).toBeGreaterThan(stageBox.x + stageBox.width);
+  await page.mouse.up();
+  await expect(rectangleLayer).toHaveAttribute("aria-selected", "true");
+
+  const properties = page.locator(".image-editor-inspector");
+  await properties.getByRole("button", { name: "Transform", exact: true }).click();
+  const xInput = properties.getByRole("spinbutton", { name: "X", exact: true });
+  const xBefore = Number(await xInput.inputValue());
+  await page.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(stageBox.x + stageBox.width / 2 + 30, stageBox.y + stageBox.height / 2, {
+    steps: 5,
+  });
+  await page.mouse.up();
+  await expect.poll(async () => Number(await xInput.inputValue())).toBeGreaterThan(xBefore);
+  await expect(marquee).toHaveCount(0);
+});
+
+test("public Image Editor keeps edits open when device storage fails", async ({ page }) => {
+  await page.goto("/image-editor");
+  await page.getByRole("button", { name: /Instagram square/ }).click();
+  await expect(page.getByTestId("image-editor-stage")).toBeVisible();
+  const editorURL = page.url();
+
+  await page.evaluate(() => {
+    Object.defineProperty(IDBObjectStore.prototype, "put", {
+      configurable: true,
+      value() {
+        throw new DOMException("Test storage write failed", "QuotaExceededError");
+      },
+    });
+  });
+
+  await page.keyboard.press("t");
+  const addedText = page.getByRole("treeitem", { name: /text/i });
+  await expect(addedText).toBeVisible();
+  await expect(page.getByTitle("Test storage write failed")).toBeVisible();
+  await page.locator("header").getByRole("button", { name: "Back", exact: true }).click();
+
+  await expect(page).toHaveURL(editorURL);
+  await expect(addedText).toBeVisible();
 });
 
 test("public Image Editor drops and crops an image with undo, redo, and reload", async ({
@@ -368,7 +446,11 @@ test("public Image Editor isolates invalid files and keeps page-targeted batch i
   if (!(await pageTwo.isVisible())) {
     await page.getByRole("button", { name: "Expand pages" }).click();
   }
+  await expect(pageTwo).toHaveAttribute("aria-current", "page");
+  await expect(pageOne).not.toHaveAttribute("aria-current");
   await pageOne.click();
+  await expect(pageOne).toHaveAttribute("aria-current", "page");
+  await expect(pageTwo).not.toHaveAttribute("aria-current");
 
   await pageTwo.evaluate((node, png) => {
     const bytes = Uint8Array.from(atob(png), (character) => character.charCodeAt(0));
@@ -1076,6 +1158,39 @@ test("public OpenPost Image Editor creates and restores a local design without a
   expect(fittedStage.width).toBeLessThanOrEqual(canvasBox.width);
   expect(fittedStage.height).toBeLessThanOrEqual(canvasBox.height);
 
+  for (const name of [
+    "Resize the asset panel",
+    "Resize the settings panel",
+    "Resize the Layers and Properties panes",
+    "Pages",
+  ]) {
+    const separator = page.getByRole("separator", { name });
+    await expect(separator).toBeVisible();
+    await expect(separator).toHaveAttribute("aria-valuenow", /\d+/u);
+  }
+  const pagesResize = page.getByRole("separator", { name: "Pages" });
+  const pagesHeight = Number(await pagesResize.getAttribute("aria-valuenow"));
+  await pagesResize.focus();
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await expect(pagesResize).toHaveAttribute("aria-valuenow", String(pagesHeight + 48));
+  await expect
+    .poll(async () => {
+      const [canvas, currentStage] = await Promise.all([
+        designCanvas.boundingBox(),
+        stage.boundingBox(),
+      ]);
+      if (!canvas || !currentStage) return Number.POSITIVE_INFINITY;
+      return Math.abs(currentStage.y + currentStage.height / 2 - (canvas.y + canvas.height / 2));
+    })
+    .toBeLessThan(2);
+  await pagesResize.dblclick();
+  await expect(pagesResize).toHaveAttribute("aria-valuenow", "132");
+  await expect
+    .poll(async () => (await stage.boundingBox())?.height ?? 0)
+    .toBeCloseTo(fittedStage.height, 0);
+
   await designCanvas.dispatchEvent("wheel", {
     bubbles: true,
     cancelable: true,
@@ -1185,6 +1300,11 @@ test("public OpenPost Image Editor creates and restores a local design without a
   const title = page.getByRole("textbox", { name: "Design title" });
   await title.fill("Local launch design");
   await expect(page.getByRole("banner").getByText("Saved on this device")).toBeVisible();
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.screenshot({
+    path: "frontend/.svelte-kit/openpost-image-editor-1280.png",
+    fullPage: true,
+  });
 
   await page.reload();
   await expect(title).toHaveValue("Local launch design");
@@ -1210,6 +1330,10 @@ test("public OpenPost Image Editor creates and restores a local design without a
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+  await page.screenshot({
+    path: "frontend/.svelte-kit/openpost-image-editor-390.png",
+    fullPage: true,
+  });
 
   const trackedEvents = await page.evaluate(
     () =>
@@ -1317,11 +1441,11 @@ test("public OpenPost Image Editor imports attributed stock photos into durable 
   await page.getByRole("button", { name: "Use", exact: true }).click();
 
   const stockLayer = page.getByRole("treeitem", {
-    name: /pexels-image-editor-photo-1\.jpg, image/,
+    name: /pexels-image-editor-photo-1\.png, image/,
   });
   await expect(stockLayer).toBeVisible();
   await expect(
-    page.getByText("pexels-image-editor-photo-1.jpg", { exact: true }).first(),
+    page.getByText("pexels-image-editor-photo-1.png", { exact: true }).first(),
   ).toBeVisible();
   await expect(page.getByRole("banner").getByText("Saved on this device")).toBeVisible();
 
@@ -1355,12 +1479,13 @@ test("OpenPost Image Editor creates from an original template, adapts to mobile,
   await authenticatePage(page, auth.token);
   await page.goto(`/image-editor/new?workspace=${workspace.id}`);
 
-  await expect(page.getByRole("heading", { name: "Choose a format" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Starter templates" })).toBeVisible();
   const starterTemplates = page.getByRole("region", {
     name: "Starter templates",
   });
-  await expect(starterTemplates.getByRole("button")).toHaveCount(15);
+  await expect(starterTemplates.getByRole("button", { name: /Quick announcement/ })).toBeVisible();
+  await page.getByRole("button", { name: "Show all 15 templates" }).click();
+  await expect(page.getByRole("button", { name: "Show fewer templates" })).toBeVisible();
   await expect(starterTemplates.getByRole("button", { name: /Quiet quote/ })).toBeVisible();
   await expect(starterTemplates.getByRole("button", { name: /YouTube list/ })).toBeVisible();
 
@@ -1946,7 +2071,7 @@ test("OpenPost Image Editor creates from an original template, adapts to mobile,
       },
     ],
   });
-  await expect(paintBucketRow).toHaveClass(/opacity-60/);
+  await expect(paintBucketRow).toHaveCSS("opacity", "0.6");
   await page.waitForTimeout(60);
   await touch.send("Input.dispatchTouchEvent", {
     type: "touchMove",

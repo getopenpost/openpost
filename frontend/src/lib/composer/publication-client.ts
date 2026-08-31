@@ -8,6 +8,7 @@ import {
 } from './session';
 
 type Publication = components['schemas']['PublicationResponse'];
+type CreatePublication = components['schemas']['CreatePublicationBody'];
 type PublicationUpdate = components['schemas']['PublicationUpdateBody'];
 type PublicationSegmentInput = components['schemas']['PublicationSegmentInput'];
 type PublicationMediaInput = components['schemas']['PublicationMediaInput'];
@@ -107,9 +108,13 @@ export function publicationDraft(publication: Publication): PublicationDraft {
 	const draft: PublicationDraft = {
 		title: publication.title,
 		creation_preset: parseCreationPreset(publication.creation_preset),
+		intent: publication.intent,
 		content_profile: publication.content_profile,
 		source_text: publication.source_text,
+		audience: publication.audience,
+		goal: publication.goal,
 		metadata: publication.metadata,
+		media: mediaInput(publication.media),
 		segments: (publication.segments ?? []).map(publicationSegmentInput),
 		renditions: (publication.renditions ?? []).map(renditionInput),
 		repost_override: publication.repost_override
@@ -121,6 +126,30 @@ export function publicationDraft(publication: Publication): PublicationDraft {
 		draft.random_delay_minutes = publication.random_delay_minutes;
 	}
 	return draft;
+}
+
+export function publicationDraftCopy(publication: Publication): CreatePublication {
+	const draft = publicationDraft(publication);
+	delete draft.scheduled_at;
+	delete draft.random_delay_minutes;
+
+	// Canonical segment IDs are client references on create. The server replaces
+	// them with fresh IDs and remaps rendition segment references in one transaction.
+	return {
+		...draft,
+		workspace_id: publication.workspace_id,
+		renditions: (draft.renditions ?? []).map((rendition) => {
+			const copy = { ...rendition };
+			delete copy.id;
+			delete copy.schedule_override;
+			copy.segments = (copy.segments ?? []).map((segment) => {
+				const segmentCopy = { ...segment };
+				delete segmentCopy.id;
+				return segmentCopy;
+			});
+			return copy;
+		})
+	};
 }
 
 function publicationUpdate(draft: PublicationDraft, expectedRevision: number): PublicationUpdate {

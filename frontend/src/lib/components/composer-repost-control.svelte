@@ -5,10 +5,12 @@
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import * as Popover from '$lib/components/ui/popover';
 	import * as RadioGroup from '$lib/components/ui/radio-group';
 	import * as Select from '$lib/components/ui/select';
 	import { m } from '$lib/paraglide/messages';
+	import { formatSocialAccountName } from '$lib/utils';
 	import Repeat2Icon from '@lucide/svelte/icons/repeat-2';
 
 	type RepostOverride = components['schemas']['Override'];
@@ -184,7 +186,7 @@
 	}
 
 	function accountLabel(account: RepostAccount) {
-		return `@${account.username} · ${account.platform === 'x' ? 'X' : account.platform}`;
+		return formatSocialAccountName(account.username, account.platform) || account.platform;
 	}
 
 	function platformKey(platform: string) {
@@ -269,12 +271,17 @@
 					{:else}
 						<div class="grid gap-2 sm:grid-cols-2">
 							{#each targetAccounts as account (account.id)}
-								<label class="flex min-h-11 items-center gap-2 rounded-md border px-3 py-2 text-sm">
+								<label class="flex min-h-12 items-center gap-3 rounded-md border px-3 py-2 text-sm">
 									<Checkbox
 										checked={(value.target_account_ids ?? []).includes(account.id)}
 										onCheckedChange={() => toggleTarget(account.id)}
 									/>
-									<span class="truncate">{accountLabel(account)}</span>
+									<SocialAccountIdentity
+										class="min-w-0 flex-1"
+										name={accountLabel(account)}
+										platform={account.platform}
+										avatarUrl={account.avatar_url}
+									/>
 								</label>
 							{:else}
 								<p class="text-sm text-muted-foreground sm:col-span-2">

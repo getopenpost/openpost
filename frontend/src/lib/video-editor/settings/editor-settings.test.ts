@@ -44,6 +44,79 @@ describe('editor settings', () => {
 		);
 	});
 
+	it('normalizes and persists asset library layout preferences', () => {
+		expect(
+			normalizeEditorSettings({
+				mediaLibraryViewMode: 'tiles',
+				mediaLibraryItemSize: 99
+			})
+		).toMatchObject({ mediaLibraryViewMode: 'grid', mediaLibraryItemSize: 5 });
+		expect(normalizeEditorSettings({ mediaLibraryItemSize: -2 }).mediaLibraryItemSize).toBe(1);
+
+		const storage = memoryStorage();
+		const settings = createEditorSettingsStore(storage);
+		settings.set('mediaLibraryViewMode', 'list');
+		settings.set('mediaLibraryItemSize', 4);
+		const restored = createEditorSettingsStore(storage);
+		expect(restored.mediaLibraryViewMode).toBe('list');
+		expect(restored.mediaLibraryItemSize).toBe(4);
+	});
+
+	it('clamps and persists the primary editor panel sizes', () => {
+		const normalized = normalizeEditorSettings({
+			assetBrowserWidth: 999,
+			inspectorPanelWidth: 100,
+			motionPanelWidth: 401.4,
+			sourceMonitorWidth: 612,
+			scopesPanelWidth: Number.NaN,
+			timelineHeight: 50,
+			colorDockHeight: 900,
+			audioMixerHeight: 120
+		});
+		expect(normalized).toMatchObject({
+			assetBrowserWidth: 480,
+			inspectorPanelWidth: 280,
+			motionPanelWidth: 401,
+			sourceMonitorWidth: 612,
+			scopesPanelWidth: DEFAULT_EDITOR_SETTINGS.scopesPanelWidth,
+			timelineHeight: 180,
+			colorDockHeight: 720,
+			audioMixerHeight: 160
+		});
+
+		const storage = memoryStorage();
+		const settings = createEditorSettingsStore(storage);
+		settings.set('assetBrowserWidth', 388);
+		settings.set('timelineHeight', 344);
+		const restored = createEditorSettingsStore(storage);
+		expect(restored.assetBrowserWidth).toBe(388);
+		expect(restored.timelineHeight).toBe(344);
+	});
+
+	it('normalizes and persists the default generated caption style', () => {
+		expect(
+			normalizeEditorSettings({ defaultCaptionStylePresetId: 'unknown' })
+				.defaultCaptionStylePresetId
+		).toBe('netflix');
+
+		const storage = memoryStorage();
+		const settings = createEditorSettingsStore(storage);
+		settings.set('defaultCaptionStylePresetId', 'tiktok');
+		expect(createEditorSettingsStore(storage).defaultCaptionStylePresetId).toBe('tiktok');
+	});
+
+	it('persists canvas snapping independently from the timeline default', () => {
+		const storage = memoryStorage();
+		const settings = createEditorSettingsStore(storage);
+		settings.set('snapByDefault', false);
+		settings.set('canvasSnapEnabled', true);
+
+		const restored = createEditorSettingsStore(storage);
+		expect(restored.snapByDefault).toBe(false);
+		expect(restored.canvasSnapEnabled).toBe(true);
+		expect(normalizeEditorSettings({ canvasSnapEnabled: 'yes' }).canvasSnapEnabled).toBe(true);
+	});
+
 	it('persists changes and resets the complete settings document', () => {
 		const storage = memoryStorage();
 		const first = createEditorSettingsStore(storage);

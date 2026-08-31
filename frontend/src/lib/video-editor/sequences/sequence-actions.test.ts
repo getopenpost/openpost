@@ -6,15 +6,19 @@ import { commandHistory, execute } from '../timeline/commands/command-store.svel
 import { setCurrentFrame } from '../timeline/actions/items';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 import {
+	createCompositeComposition,
 	createCompoundClip,
 	createSequence,
 	deleteSequence,
+	deleteSequences,
 	duplicateSequence,
 	dissolveCompoundClip,
 	nestSequence,
 	nestSequenceOnExactTracks,
 	sequenceDeletionImpact,
-	switchSequence
+	sequenceDeletionImpactFor,
+	switchSequence,
+	updateCompositeCompositionCanvas
 } from './sequence-actions';
 import { sequenceStore } from './sequence-store.svelte';
 
@@ -77,6 +81,59 @@ beforeEach(() => {
 });
 
 describe('sequence navigation', () => {
+	it('creates an isolated empty Motion composition with an editable duration', () => {
+		const id = createCompositeComposition({
+			name: 'Lower third',
+			width: 1080,
+			height: 1080,
+			fps: 60,
+			durationInFrames: 360
+		});
+		const composition = sequenceStore.compositionById.get(id);
+
+		expect(composition).toMatchObject({
+			name: 'Lower third',
+			editorKind: 'composite-2d',
+			width: 1080,
+			height: 1080,
+			fps: 60,
+			durationInFrames: 360,
+			items: [],
+			tracks: []
+		});
+		expect(sequenceStore.topLevelSequenceIds).not.toContain(id);
+		commandHistory.undo();
+		expect(sequenceStore.compositionById.has(id)).toBe(false);
+
+		const reopenedId = createCompositeComposition({
+			name: 'Empty title card',
+			width: 1920,
+			height: 1080,
+			fps: 30,
+			durationInFrames: 300
+		});
+		expect(
+			updateCompositeCompositionCanvas(reopenedId, {
+				width: 1080,
+				height: 1920,
+				backgroundColor: '#123456'
+			})
+		).toBe(true);
+		expect(sequenceStore.compositionById.get(reopenedId)).toMatchObject({
+			width: 1080,
+			height: 1920,
+			backgroundColor: '#123456'
+		});
+		commandHistory.undo();
+		expect(sequenceStore.compositionById.get(reopenedId)).toMatchObject({
+			width: 1920,
+			height: 1080
+		});
+		expect(switchSequence(reopenedId)).toBe(true);
+		expect(switchSequence(null)).toBe(true);
+		expect(sequenceStore.compositionById.get(reopenedId)?.durationInFrames).toBe(300);
+	});
+
 	it('keeps Motion compositions out of editorial tabs while allowing focused editing', () => {
 		const sequence = composition('sequence');
 		const motion = {
@@ -238,6 +295,26 @@ describe('compound clips', () => {
 		commandHistory.undo();
 		expect(sequenceStore.compositionById.has(compositionId!)).toBe(false);
 		expect(timelineStore.items.map((entry) => entry.id)).toEqual(['visual', 'audio-item']);
+	});
+
+	it('places a compound wrapper on another visual track when its span contains an unselected item', () => {
+		timelineStore._setItems([
+			item({ id: 'left', from: 0, durationInFrames: 30 }),
+			item({ id: 'blocker', from: 30, durationInFrames: 30 }),
+			item({ id: 'right', from: 60, durationInFrames: 30 })
+		]);
+
+		const compositionId = createCompoundClip(['left', 'right'], 'Selected clips');
+		const visualWrapper = timelineStore.items.find(
+			(entry) => entry.type === 'composition' && entry.compositionId === compositionId
+		);
+
+		expect(visualWrapper?.trackId).not.toBe('video');
+		expect(timelineStore.itemById.get('blocker')?.trackId).toBe('video');
+		expect(timelineStore.tracks).toHaveLength(3);
+		commandHistory.undo();
+		expect(timelineStore.tracks).toHaveLength(2);
+		expect(timelineStore.items.map((entry) => entry.id)).toEqual(['left', 'blocker', 'right']);
 	});
 
 	it('cuts transform relationships cleanly at a new composition boundary', () => {
@@ -476,6 +553,27 @@ describe('compound clips', () => {
 		expect(() => nestSequence('b')).toThrow('cannot contain itself');
 	});
 
+	it('nests a sequence on another visual track when the preferred range is occupied', () => {
+		const nested = composition('nested', [item({ id: 'inside' })]);
+		sequenceStore.addComposition(nested, true);
+		timelineStore._setItems([
+			item({ id: 'occupied', from: 40, durationInFrames: 20 }),
+			item({ id: 'audio-mix', trackId: 'audio', type: 'audio', from: 40, durationInFrames: 20 })
+		]);
+
+		const ids = nestSequence('nested', 45);
+		const wrappers = ids.map((id) => timelineStore.itemById.get(id));
+		const visualWrapper = wrappers.find((candidate) => candidate?.type === 'composition');
+		const audioWrapper = wrappers.find((candidate) => candidate?.type === 'audio');
+
+		expect(visualWrapper?.trackId).not.toBe('video');
+		expect(audioWrapper?.trackId).toBe('audio');
+		expect(timelineStore.tracks).toHaveLength(3);
+		commandHistory.undo();
+		expect(timelineStore.tracks).toHaveLength(2);
+		expect(timelineStore.items.map((entry) => entry.id)).toEqual(['occupied', 'audio-mix']);
+	});
+
 	it('nests linked visual and audio wrappers on exact open tracks as one undo step', () => {
 		const nested = composition('nested', [item({ id: 'inside' })]);
 		sequenceStore.addComposition(nested, true);
@@ -557,6 +655,61 @@ describe('compound clips', () => {
 		commandHistory.undo();
 		expect(sequenceStore.compositionById.has('target')).toBe(true);
 		expect(timelineStore.items[0]?.compositionId).toBe('target');
+	});
+
+	it('deletes several sequences and all external references as one undoable edit', () => {
+		const second = composition('second');
+		const first = composition('first', [
+			item({
+				id: 'first-second',
+				type: 'composition',
+				trackId: 'first-video',
+				compositionId: second.id
+			})
+		]);
+		const host = composition('host', [
+			item({
+				id: 'host-first',
+				type: 'composition',
+				trackId: 'host-video',
+				compositionId: first.id
+			}),
+			item({
+				id: 'host-second',
+				type: 'composition',
+				trackId: 'host-video',
+				compositionId: second.id
+			})
+		]);
+		sequenceStore.addComposition(first, true);
+		sequenceStore.addComposition(second, true);
+		sequenceStore.addComposition(host, true);
+		timelineStore._setItems([
+			item({ id: 'root-first', type: 'composition', compositionId: first.id })
+		]);
+		expect(switchSequence(second.id)).toBe(true);
+		commandHistory.clearHistory();
+		expect(sequenceDeletionImpactFor([first.id, second.id])).toEqual({
+			rootReferenceCount: 1,
+			nestedReferenceCount: 2,
+			totalReferenceCount: 3
+		});
+
+		expect(deleteSequences([first.id, second.id])).toEqual([first.id, second.id]);
+		expect(sequenceStore.activeSequenceId).toBeNull();
+		expect(sequenceStore.compositions.map((candidate) => candidate.id)).toEqual([host.id]);
+		expect(sequenceStore.compositionById.get(host.id)?.items).toEqual([]);
+		expect(timelineStore.items).toEqual([]);
+		expect(commandHistory.undoStack).toHaveLength(1);
+
+		commandHistory.undo();
+		expect(sequenceStore.compositions.map((candidate) => candidate.id)).toEqual([
+			first.id,
+			second.id,
+			host.id
+		]);
+		expect(sequenceStore.compositionById.get(host.id)?.items).toHaveLength(2);
+		expect(timelineStore.items[0]?.compositionId).toBe(first.id);
 	});
 
 	it('keeps undo history isolated between Main and a sequence tab', () => {

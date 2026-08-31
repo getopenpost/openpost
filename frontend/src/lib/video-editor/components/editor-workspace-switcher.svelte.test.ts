@@ -10,7 +10,10 @@ afterEach(async () => {
 
 test('exposes stable Edit, Color, and Motion tabs', async () => {
 	const onchange = vi.fn();
-	const screen = await render(EditorWorkspaceSwitcher, { value: 'edit', onchange });
+	const screen = await render(EditorWorkspaceSwitcher, {
+		value: 'edit',
+		onchange
+	});
 
 	const edit = screen.getByRole('tab', { name: 'Edit' });
 	const color = screen.getByRole('tab', { name: 'Color' });
@@ -23,7 +26,10 @@ test('exposes stable Edit, Color, and Motion tabs', async () => {
 
 test('moves tab focus and selection intent with editor keyboard controls', async () => {
 	const onchange = vi.fn();
-	const screen = await render(EditorWorkspaceSwitcher, { value: 'edit', onchange });
+	const screen = await render(EditorWorkspaceSwitcher, {
+		value: 'edit',
+		onchange
+	});
 	const edit = screen.getByRole('tab', { name: 'Edit' });
 
 	edit.element().focus();
@@ -34,11 +40,19 @@ test('moves tab focus and selection intent with editor keyboard controls', async
 
 test('keeps every icon-only phone tab named and inside its row', async () => {
 	await page.viewport(320, 720);
-	const screen = await render(EditorWorkspaceSwitcher, { value: 'color', onchange: vi.fn() });
+	const screen = await render(EditorWorkspaceSwitcher, {
+		value: 'color',
+		onchange: vi.fn()
+	});
 
 	await expect
 		.element(screen.getByRole('tab', { name: 'Color' }))
 		.toHaveAttribute('aria-selected', 'true');
 	const tablist = screen.getByRole('tablist', { name: 'Editor workspaces' }).element();
 	expect(tablist.scrollWidth).toBeLessThanOrEqual(tablist.clientWidth);
+	for (const name of ['Edit', 'Color', 'Motion']) {
+		const bounds = screen.getByRole('tab', { name }).element().getBoundingClientRect();
+		expect(bounds.width).toBeGreaterThanOrEqual(44);
+		expect(bounds.height).toBeGreaterThanOrEqual(44);
+	}
 });

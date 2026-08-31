@@ -41,9 +41,9 @@ func TestSweepPostgresBatchSafetyAndPostCommitStorage(t *testing.T) {
 	now := time.Now().UTC()
 	insertLifecycleMedia(t, db, "protected", RetentionTemporary, now.Add(-TemporaryIdleAge-time.Hour), time.Time{}, time.Time{})
 	insertLifecycleMedia(t, db, "unreferenced", RetentionTemporary, now.Add(-TemporaryIdleAge-time.Hour), time.Time{}, time.Time{})
-	_, err = db.Exec("INSERT INTO posts (id, workspace_id, status) VALUES ('post-1', 'workspace-1', 'draft')")
+	_, err = db.Exec("INSERT INTO publications (id, workspace_id, status) VALUES ('publication-1', 'workspace-1', 'draft')")
 	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO post_variants (id, post_id, media_ids) VALUES ('variant-1', 'post-1', '[\"protected\"]')")
+	_, err = db.Exec("INSERT INTO publication_assets (publication_id, media_id) VALUES ('publication-1', 'protected')")
 	require.NoError(t, err)
 
 	require.NoError(t, NewService(db, nil).Sweep(t.Context(), "workspace-1", now))
@@ -55,10 +55,6 @@ func TestSweepPostgresBatchSafetyAndPostCommitStorage(t *testing.T) {
 	require.False(t, unreferenced.TrashedAt.IsZero())
 
 	insertLifecycleMedia(t, db, "historical-purge", RetentionLibrary, now.Add(-30*24*time.Hour), now.Add(-8*24*time.Hour), now.Add(-time.Hour))
-	_, err = db.Exec("INSERT INTO posts (id, workspace_id, status) VALUES ('post-failed', 'workspace-1', 'failed')")
-	require.NoError(t, err)
-	_, err = db.Exec("INSERT INTO post_variants (id, post_id, media_ids) VALUES ('variant-failed', 'post-failed', '[\"historical-purge\"]')")
-	require.NoError(t, err)
 	_, err = db.Exec("INSERT INTO publications (id, workspace_id, status) VALUES ('publication-failed', 'workspace-1', 'failed')")
 	require.NoError(t, err)
 	_, err = db.Exec("INSERT INTO publication_segments (id, publication_id) VALUES ('segment-failed', 'publication-failed')")
@@ -71,10 +67,8 @@ func TestSweepPostgresBatchSafetyAndPostCommitStorage(t *testing.T) {
 	require.NoError(t, err)
 	require.Zero(t, count)
 	var payload string
-	require.NoError(t, db.NewSelect().Table("post_variants").Column("media_ids").Where("id = ?", "variant-failed").Scan(t.Context(), &payload))
-	require.JSONEq(t, `[]`, payload)
 	require.NoError(t, db.NewSelect().Table("publication_segment_media").Column("settings_json").Where("segment_id = ?", "segment-failed").Scan(t.Context(), &payload))
 	require.JSONEq(t, `{}`, payload)
 
-	assertSweepCommitsBeforeDeletingStorageObjects(t, db)
+	assertSweepPersistsStorageCleanupBeforeRemovingOwnership(t, db)
 }

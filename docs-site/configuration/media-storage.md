@@ -6,7 +6,7 @@ OpenPost stores media on the local file system by default. It can also use S3 or
 
 ## Video processing dependency
 
-OpenPost requires `ffmpeg` and `ffprobe` on `PATH` to verify uploaded videos and create posters. The official Docker image includes both tools, and the project Devenv supplies them for development. Install FFmpeg separately when running the standalone binary. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed.
+OpenPost requires `ffmpeg` and `ffprobe` from the same FFmpeg installation on `PATH` to verify uploaded videos and create posters. The official Docker image includes both tools. Project development and standalone release checks use the `pkgs.ffmpeg` input pinned by `devenv.lock`. Standalone binaries do not bundle FFmpeg, so install a maintained FFmpeg package for the host before starting OpenPost and keep both commands together when upgrading it. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed.
 
 ## Key settings
 
@@ -75,6 +75,14 @@ When `OPENPOST_EDITION=cloud`, OpenPost refuses to start unless:
 - `OPENPOST_S3_PUBLIC_BASE_URL` is set
 
 `OPENPOST_S3_PUBLIC_BASE_URL` is required in cloud mode because social networks need stable public media links.
+
+At startup, OpenPost writes, reads, verifies, and deletes a small object under
+`.openpost-readiness/`. The bucket credential must allow `PutObject`,
+`GetObject`, and `DeleteObject`, not only bucket discovery. The readiness
+endpoint repeats this bounded capability check after a short cache interval and
+returns `503` if required object storage is unavailable. Normal S3 reads,
+writes, multipart uploads, and deletes inherit caller cancellation and
+deadlines without imposing a shorter limit on large media streams.
 
 The browser can upload straight to S3 or R2. OpenPost sends larger files in parts without loading the whole file into memory.
 

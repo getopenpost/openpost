@@ -6,6 +6,11 @@ import {
 	TRANSCRIPTION_MODEL_OPTIONS,
 	TRANSCRIPTION_QUANTIZATION_OPTIONS
 } from '../transcript/engine/models';
+import {
+	CAPTION_STYLE_PRESETS,
+	DEFAULT_CAPTION_STYLE_PRESET_ID,
+	type CaptionStylePresetId
+} from '../typography/caption-style-presets';
 
 const STORAGE_KEY = 'openpost-video-editor-settings-v1';
 
@@ -14,28 +19,54 @@ interface JsonRecord {
 	[key: string]: JsonValue;
 }
 
+export type MediaLibraryViewMode = 'grid' | 'list';
+
 export interface EditorSettingsValue {
 	maxUndoHistory: number;
 	autoSaveIntervalMinutes: number;
 	snapByDefault: boolean;
+	canvasSnapEnabled: boolean;
 	showWaveforms: boolean;
 	showFilmstrips: boolean;
 	extractFilmstrips: boolean;
+	mediaLibraryViewMode: MediaLibraryViewMode;
+	mediaLibraryItemSize: number;
+	assetBrowserWidth: number;
+	inspectorPanelWidth: number;
+	motionPanelWidth: number;
+	sourceMonitorWidth: number;
+	scopesPanelWidth: number;
+	timelineHeight: number;
+	colorDockHeight: number;
+	audioMixerHeight: number;
 	defaultTranscriptionModel: TranscriptionModel;
 	defaultTranscriptionLanguage: string;
 	defaultTranscriptionQuantization: TranscriptionQuantization;
+	defaultCaptionStylePresetId: CaptionStylePresetId;
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettingsValue = {
 	maxUndoHistory: 100,
 	autoSaveIntervalMinutes: 5,
 	snapByDefault: true,
+	canvasSnapEnabled: true,
 	showWaveforms: true,
 	showFilmstrips: true,
 	extractFilmstrips: true,
+	mediaLibraryViewMode: 'grid',
+	mediaLibraryItemSize: 2,
+	assetBrowserWidth: 336,
+	inspectorPanelWidth: 320,
+	motionPanelWidth: 340,
+	sourceMonitorWidth: 480,
+	scopesPanelWidth: 360,
+	timelineHeight: 260,
+	colorDockHeight: 520,
+	audioMixerHeight: 224,
 	defaultTranscriptionModel: DEFAULT_TRANSCRIPTION_MODEL,
 	defaultTranscriptionLanguage: '',
-	defaultTranscriptionQuantization: 'hybrid'
+	defaultTranscriptionQuantization: 'hybrid',
+	defaultCaptionStylePresetId: DEFAULT_CAPTION_STYLE_PRESET_ID
 };
 
 interface SettingsStorage {
@@ -78,6 +109,37 @@ function isTranscriptionLanguage(value: JsonValue | undefined): value is string 
 	);
 }
 
+function isCaptionStylePresetId(value: JsonValue | undefined): value is CaptionStylePresetId {
+	return CAPTION_STYLE_PRESETS.some((preset) => preset.id === value);
+}
+
+function normalizeCaptionStylePresetId(value: JsonValue | undefined): CaptionStylePresetId {
+	return isCaptionStylePresetId(value) ? value : DEFAULT_CAPTION_STYLE_PRESET_ID;
+}
+
+function normalizeMediaLibraryViewMode(value: JsonValue | undefined): MediaLibraryViewMode {
+	return value === 'list' || value === 'grid'
+		? value
+		: DEFAULT_EDITOR_SETTINGS.mediaLibraryViewMode;
+}
+
+function clampMediaLibraryItemSize(value: JsonValue | undefined): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) {
+		return DEFAULT_EDITOR_SETTINGS.mediaLibraryItemSize;
+	}
+	return Math.max(1, Math.min(5, Math.round(value)));
+}
+
+function clampLayoutSize(
+	value: JsonValue | undefined,
+	fallback: number,
+	min: number,
+	max: number
+): number {
+	if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+	return Math.round(Math.min(max, Math.max(min, value)));
+}
+
 function isJsonRecord(value: JsonValue): value is JsonRecord {
 	return value !== null && !Array.isArray(value) && typeof value === 'object';
 }
@@ -96,6 +158,10 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 			typeof record.snapByDefault === 'boolean'
 				? record.snapByDefault
 				: DEFAULT_EDITOR_SETTINGS.snapByDefault,
+		canvasSnapEnabled:
+			typeof record.canvasSnapEnabled === 'boolean'
+				? record.canvasSnapEnabled
+				: DEFAULT_EDITOR_SETTINGS.canvasSnapEnabled,
 		showWaveforms:
 			typeof record.showWaveforms === 'boolean'
 				? record.showWaveforms
@@ -108,6 +174,16 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 			typeof record.extractFilmstrips === 'boolean'
 				? record.extractFilmstrips
 				: DEFAULT_EDITOR_SETTINGS.extractFilmstrips,
+		mediaLibraryViewMode: normalizeMediaLibraryViewMode(record.mediaLibraryViewMode),
+		mediaLibraryItemSize: clampMediaLibraryItemSize(record.mediaLibraryItemSize),
+		assetBrowserWidth: clampLayoutSize(record.assetBrowserWidth, 336, 300, 480),
+		inspectorPanelWidth: clampLayoutSize(record.inspectorPanelWidth, 320, 280, 520),
+		motionPanelWidth: clampLayoutSize(record.motionPanelWidth, 340, 300, 520),
+		sourceMonitorWidth: clampLayoutSize(record.sourceMonitorWidth, 480, 300, 720),
+		scopesPanelWidth: clampLayoutSize(record.scopesPanelWidth, 360, 280, 600),
+		timelineHeight: clampLayoutSize(record.timelineHeight, 260, 180, 620),
+		colorDockHeight: clampLayoutSize(record.colorDockHeight, 520, 500, 720),
+		audioMixerHeight: clampLayoutSize(record.audioMixerHeight, 224, 160, 420),
 		defaultTranscriptionModel: isTranscriptionModel(record.defaultTranscriptionModel)
 			? record.defaultTranscriptionModel
 			: DEFAULT_EDITOR_SETTINGS.defaultTranscriptionModel,
@@ -118,7 +194,8 @@ export function normalizeEditorSettings(value: JsonValue): EditorSettingsValue {
 			record.defaultTranscriptionQuantization
 		)
 			? record.defaultTranscriptionQuantization
-			: DEFAULT_EDITOR_SETTINGS.defaultTranscriptionQuantization
+			: DEFAULT_EDITOR_SETTINGS.defaultTranscriptionQuantization,
+		defaultCaptionStylePresetId: normalizeCaptionStylePresetId(record.defaultCaptionStylePresetId)
 	};
 }
 
@@ -167,6 +244,9 @@ export function createEditorSettingsStore(storage: SettingsStorage | null = brow
 		get snapByDefault(): boolean {
 			return state.snapByDefault;
 		},
+		get canvasSnapEnabled(): boolean {
+			return state.canvasSnapEnabled;
+		},
 		get showWaveforms(): boolean {
 			return state.showWaveforms;
 		},
@@ -176,6 +256,36 @@ export function createEditorSettingsStore(storage: SettingsStorage | null = brow
 		get extractFilmstrips(): boolean {
 			return state.extractFilmstrips;
 		},
+		get mediaLibraryViewMode(): MediaLibraryViewMode {
+			return state.mediaLibraryViewMode;
+		},
+		get mediaLibraryItemSize(): number {
+			return state.mediaLibraryItemSize;
+		},
+		get assetBrowserWidth(): number {
+			return state.assetBrowserWidth;
+		},
+		get inspectorPanelWidth(): number {
+			return state.inspectorPanelWidth;
+		},
+		get motionPanelWidth(): number {
+			return state.motionPanelWidth;
+		},
+		get sourceMonitorWidth(): number {
+			return state.sourceMonitorWidth;
+		},
+		get scopesPanelWidth(): number {
+			return state.scopesPanelWidth;
+		},
+		get timelineHeight(): number {
+			return state.timelineHeight;
+		},
+		get colorDockHeight(): number {
+			return state.colorDockHeight;
+		},
+		get audioMixerHeight(): number {
+			return state.audioMixerHeight;
+		},
 		get defaultTranscriptionModel(): TranscriptionModel {
 			return state.defaultTranscriptionModel;
 		},
@@ -184,6 +294,9 @@ export function createEditorSettingsStore(storage: SettingsStorage | null = brow
 		},
 		get defaultTranscriptionQuantization(): TranscriptionQuantization {
 			return state.defaultTranscriptionQuantization;
+		},
+		get defaultCaptionStylePresetId(): CaptionStylePresetId {
+			return state.defaultCaptionStylePresetId;
 		},
 		set,
 		reset(): void {

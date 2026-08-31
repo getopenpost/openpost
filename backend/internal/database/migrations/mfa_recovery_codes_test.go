@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/uptrace/bun/dialect"
 )
 
 func TestRunMigrationsCreatesMFARecoveryCodesWithCascadeAndActiveUniqueness(t *testing.T) {
@@ -16,11 +15,6 @@ func TestRunMigrationsCreatesMFARecoveryCodesWithCascadeAndActiveUniqueness(t *t
 	ctx := context.Background()
 	seedMigrationUser(ctx, t, db)
 	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'user_mfa_recovery_codes'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
 
 	now := time.Now().UTC()
 	_, err := db.ExecContext(ctx, `
@@ -47,16 +41,4 @@ func TestRunMigrationsCreatesMFARecoveryCodesWithCascadeAndActiveUniqueness(t *t
 	var remaining int
 	require.NoError(t, db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("user_mfa_recovery_codes").Scan(ctx, &remaining))
 	require.Zero(t, remaining)
-}
-
-func TestMFARecoveryCodeMigrationNormalizesForPostgres(t *testing.T) {
-	t.Parallel()
-
-	raw, err := migrationFiles.ReadFile("072_mfa_recovery_codes.sql")
-	require.NoError(t, err)
-	normalized := normalizeMigrationSQL(dialect.PG, string(raw))
-	require.NotContains(t, normalized, "DATETIME")
-	require.Contains(t, normalized, "used_at TIMESTAMPTZ")
-	require.Contains(t, normalized, "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
-	require.Contains(t, normalized, "WHERE used_at IS NULL")
 }

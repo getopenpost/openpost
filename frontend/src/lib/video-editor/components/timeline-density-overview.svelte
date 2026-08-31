@@ -79,6 +79,7 @@
 			tabindex={selected || bucket.index === 0 ? 0 : -1}
 			data-timeline-density-bucket={bucket.index}
 			data-density-item-count={bucket.items.length}
+			data-editor-shortcuts-enabled
 			onpointerdown={(event) => {
 				if (locked || event.button !== 0) return;
 				event.stopPropagation();

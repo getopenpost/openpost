@@ -1,7 +1,10 @@
 import { importGeneratedAudio } from '../media/import.svelte';
 import { mediaPool } from '../media/pool.svelte';
 import type { MediaMetadata } from '../media/types';
-import { insertGeneratedAudioOnNewTrack } from './insert-generated-audio';
+import {
+	insertGeneratedAudioForText,
+	insertGeneratedAudioOnNewTrack
+} from './insert-generated-audio';
 import type { GeneratedAudio } from './types';
 
 export interface CommitGeneratedAudioOptions {
@@ -9,6 +12,7 @@ export interface CommitGeneratedAudioOptions {
 	tags: string[];
 	existingMediaId?: string;
 	insertAtFrame?: number;
+	sourceTextItemId?: string;
 }
 
 export async function commitGeneratedAudio(
@@ -24,8 +28,9 @@ export async function commitGeneratedAudio(
 		duration: generated.duration,
 		tags: options.tags
 	});
-	const itemId =
-		options.insertAtFrame === undefined
+	const itemId = options.sourceTextItemId
+		? insertGeneratedAudioForText(media, options.sourceTextItemId)
+		: options.insertAtFrame === undefined
 			? undefined
 			: insertGeneratedAudioOnNewTrack(media, options.insertAtFrame);
 	return { media, itemId };

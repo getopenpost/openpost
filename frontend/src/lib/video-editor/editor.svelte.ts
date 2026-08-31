@@ -21,17 +21,31 @@ import { sequenceStore } from './sequences/sequence-store.svelte';
 import { editorSettings } from './settings/editor-settings.svelte';
 import { mediaRecovery } from './media/media-recovery.svelte';
 import { PeriodicAutosaveController } from './settings/periodic-autosave';
+import { getNextShuttleRate, type ShuttleDirection } from './preview/shuttle';
+import { unsupportedProjectSchemaVersion } from './project/project-editability';
+import { m } from '$lib/paraglide/messages';
+
+interface ReactiveTransportState {
+	playing: boolean;
+	rate: number;
+	mode: 'normal' | 'shuttle';
+}
 
 const logger = createLogger('EditorSession');
 
 class EditorSession {
-	project = $state<Project | null>(null);
+	private projectState = $state<Project | null>(null);
 	loading = $state(true);
 	loadError = $state('');
 	saving = $state(false);
 	saveError = $state('');
 
 	clock = new Clock({ fps: 30, canSeek: () => !timelineStore.seekLocked });
+	private transport = $state<ReactiveTransportState>({
+		playing: false,
+		rate: 1,
+		mode: 'normal'
+	});
 
 	private projectId: string | null = null;
 	private saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -46,8 +60,37 @@ class EditorSession {
 		}
 	);
 
+	get project(): Project | null {
+		if (!this.projectState) return null;
+		return { ...this.projectState, metadata: sequenceStore.rootResolution };
+	}
+
+	set project(project: Project | null) {
+		this.projectState = project;
+		if (project) sequenceStore._setRootResolution(project.metadata);
+	}
+
 	constructor() {
 		this.clock.on('framechange', (frame) => timelineStore._setCurrentFrame(frame));
+		this.clock.on('play', () => (this.transport.playing = true));
+		this.clock.on('pause', () => (this.transport.playing = false));
+		this.clock.on('ratechange', () => (this.transport.rate = this.clock.playbackRate));
+		this.clock.on('ended', () => {
+			this.clock.setRate(1);
+			this.transport.mode = 'normal';
+		});
+	}
+
+	get isPlaying(): boolean {
+		return this.transport.playing;
+	}
+
+	get playbackRate(): number {
+		return this.transport.rate;
+	}
+
+	get transportMode(): 'normal' | 'shuttle' {
+		return this.transport.mode;
 	}
 
 	get fps(): number {
@@ -78,6 +121,14 @@ class EditorSession {
 				this.loadError = 'Project not found';
 				return;
 			}
+			const unsupportedSchema = unsupportedProjectSchemaVersion(project);
+			if (unsupportedSchema !== null) {
+				this.project = null;
+				this.loadError = m.video_editor_project_newer_schema({
+					version: String(unsupportedSchema)
+				});
+				return;
+			}
 			this.project = {
 				...project,
 				animationPresets: normalizeAnimationPresets(project.animationPresets)
@@ -105,17 +156,38 @@ class EditorSession {
 	}
 
 	startPlayback(range?: { start: number; end: number; loop?: boolean }): void {
+		this.transport.mode = 'normal';
+		this.clock.setRate(1);
 		this.clock.play(
 			range ? { range: { start: range.start, end: range.end }, loop: range.loop } : undefined
 		);
 	}
 
+	shuttlePlayback(
+		direction: ShuttleDirection,
+		range: { start: number; end: number; loop?: boolean }
+	): void {
+		const nextRate = this.clock.isPlaying
+			? getNextShuttleRate(this.clock.playbackRate, direction)
+			: direction;
+		this.transport.mode = 'shuttle';
+		this.clock.setRate(nextRate);
+		if (!this.clock.isPlaying) {
+			this.clock.play({
+				range: { start: range.start, end: range.end },
+				loop: range.loop
+			});
+		}
+	}
+
 	pausePlayback(): void {
 		this.clock.pause();
+		this.clock.setRate(1);
+		this.transport.mode = 'normal';
 	}
 
 	stopPlayback(): void {
-		this.clock.pause();
+		this.pausePlayback();
 		this.clock.seek(0);
 	}
 
@@ -199,6 +271,7 @@ class EditorSession {
 							0
 						) / project.metadata.fps,
 					timeline,
+					metadata: project.metadata,
 					animationPresets: project.animationPresets
 				});
 				this.saveError = '';

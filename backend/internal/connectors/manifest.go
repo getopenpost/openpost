@@ -132,12 +132,10 @@ func validateOutputProfile(profile *OutputProfile) error {
 	if len(profile.Intents) != 1 || profile.Intents[0] != "post" {
 		return fmt.Errorf("protocol 1.0 supports only the post intent")
 	}
-	for label, text := range map[string]TextConstraint{
+	if err := validateTextConstraints(map[string]TextConstraint{
 		"content": profile.Content, "title": profile.Title, "description": profile.Description,
-	} {
-		if text.MinLength < 0 || text.MaxLength < 0 || text.MaxLength > 1_000_000 || (text.MaxLength > 0 && text.MinLength > text.MaxLength) {
-			return fmt.Errorf("%s limits are invalid", label)
-		}
+	}); err != nil {
+		return err
 	}
 	if profile.Media.MinItems != 0 || profile.Media.MaxItems != 0 || len(profile.Media.AllowedMIMEs) != 0 {
 		return fmt.Errorf("protocol 1.0 reference host supports text-only output profiles")
@@ -147,32 +145,52 @@ func validateOutputProfile(profile *OutputProfile) error {
 	}
 	settingKeys := make(map[string]struct{}, len(profile.Settings))
 	for _, setting := range profile.Settings {
-		if !opaqueIDPattern.MatchString(setting.Key) {
-			return fmt.Errorf("setting key %q is invalid", setting.Key)
-		}
-		if _, ok := settingKeys[setting.Key]; ok {
-			return fmt.Errorf("duplicate setting %q", setting.Key)
-		}
-		settingKeys[setting.Key] = struct{}{}
-		if err := validateShortText("setting label", setting.Label, 80); err != nil {
+		if err := validateOutputSetting(setting, settingKeys); err != nil {
 			return err
 		}
-		if err := validateOptionalText("setting help", setting.Help, 240); err != nil {
+	}
+	return nil
+}
+
+func validateTextConstraints(constraints map[string]TextConstraint) error {
+	for label, text := range constraints {
+		if text.MinLength < 0 || text.MaxLength < 0 || text.MaxLength > 1_000_000 || (text.MaxLength > 0 && text.MinLength > text.MaxLength) {
+			return fmt.Errorf("%s limits are invalid", label)
+		}
+	}
+	return nil
+}
+
+func validateOutputSetting(setting SettingDefinition, seen map[string]struct{}) error {
+	if !opaqueIDPattern.MatchString(setting.Key) {
+		return fmt.Errorf("setting key %q is invalid", setting.Key)
+	}
+	if _, ok := seen[setting.Key]; ok {
+		return fmt.Errorf("duplicate setting %q", setting.Key)
+	}
+	seen[setting.Key] = struct{}{}
+	if err := validateShortText("setting label", setting.Label, 80); err != nil {
+		return err
+	}
+	if err := validateOptionalText("setting help", setting.Help, 240); err != nil {
+		return err
+	}
+	if !slices.Contains([]string{"text", "textarea", "number", "select", "radio", "checkbox"}, setting.Control) {
+		return fmt.Errorf("setting %q uses unsupported control %q", setting.Key, setting.Control)
+	}
+	return validateSettingOptions(setting)
+}
+
+func validateSettingOptions(setting SettingDefinition) error {
+	if (setting.Control == "select" || setting.Control == "radio") && len(setting.Options) == 0 {
+		return fmt.Errorf("setting %q requires options", setting.Key)
+	}
+	if len(setting.Options) > 64 {
+		return fmt.Errorf("setting %q has too many options", setting.Key)
+	}
+	for _, option := range setting.Options {
+		if err := validateShortText("setting option", option, 80); err != nil {
 			return err
-		}
-		if !slices.Contains([]string{"text", "textarea", "number", "select", "radio", "checkbox"}, setting.Control) {
-			return fmt.Errorf("setting %q uses unsupported control %q", setting.Key, setting.Control)
-		}
-		if (setting.Control == "select" || setting.Control == "radio") && len(setting.Options) == 0 {
-			return fmt.Errorf("setting %q requires options", setting.Key)
-		}
-		if len(setting.Options) > 64 {
-			return fmt.Errorf("setting %q has too many options", setting.Key)
-		}
-		for _, option := range setting.Options {
-			if err := validateShortText("setting option", option, 80); err != nil {
-				return err
-			}
 		}
 	}
 	return nil

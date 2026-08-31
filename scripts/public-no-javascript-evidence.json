@@ -1,47 +1,51 @@
 {
   "https://openpost.social": {
-    "audience": "This page is for solo founders evaluating one workspace for social publishing.",
-    "boundary": "Planning model only. Your results depend on your audience and content."
+    "audience": "For solo founders who want one workspace for social publishing.",
+    "boundary": "Provider formats, permissions, and limits still vary by network."
   },
   "https://openpost.social/features": {
     "audience": "This page is for founders and teams evaluating the complete OpenPost workflow.",
     "boundary": "Product scope comes from the current application and documentation. Provider implementation does not become a Hosted service availability claim without current certification evidence."
   },
   "https://openpost.social/pricing": {
-    "audience": "This page is for founders, teams, and agencies choosing a Hosted service plan.",
-    "boundary": "Self-hosting has no software fee. It is a deployment you operate, not a Hosted service plan or a free tier of the Hosted service."
+    "audience": "For founders, teams, and agencies choosing a Hosted service plan.",
+    "boundary": "Self-hosting has no software fee. You run a deployment you own, not a hosted plan and not a free tier of one. Your infrastructure, your provider API costs."
   },
   "https://openpost.social/platforms": {
-    "audience": "This index is for operators deciding which social accounts to connect. Every network has different formats, permissions, and media rules. OpenPost keeps those differences visible in the editor and platform guides.",
+    "audience": "For operators deciding which social accounts to connect.",
     "boundary": "An implemented adapter is not a Hosted service certification claim. Each row reports the current claim state from the release manifest."
   },
-  "https://openpost.social/compare": {
-    "audience": "This page is for founders and teams comparing social publishing tools.",
-    "boundary": "We do not guess about reliability, support quality, or private limits."
-  },
   "https://openpost.social/tools": {
-    "audience": "This page is for creators preparing a post before signing up.",
+    "audience": "For creators preparing a post before signing up.",
     "boundary": "Drafts stay local unless a tool clearly offers a live network check."
   },
   "https://openpost.social/faq": {
-    "audience": "This page is for people checking OpenPost setup, publishing, billing, and access rules.",
+    "audience": "For people checking OpenPost setup, publishing, billing, and access rules.",
     "boundary": "OpenPost keeps the error for each failed account. You can review it and retry only the accounts that can be retried."
   },
   "https://openpost.social/security": {
-    "audience": "People, AI tools, and API clients use OpenPost access that you can remove. Social account keys stay encrypted inside OpenPost. If you self-host, you must secure the server, keys, backups, and social apps.",
+    "audience": "For people reviewing how OpenPost protects social accounts and scopes tool access.",
     "boundary": "OpenPost does not claim SOC 2 or ISO 27001 certification, an independent security audit, or an independent penetration-test report."
   },
   "https://openpost.social/trust": {
     "audience": "This register is for customers and operators reviewing the Hosted service boundary.",
     "boundary": "It does not make a certification claim."
   },
-  "https://openpost.social/self-hosted": {
-    "audience": "Run the complete AGPL-licensed product on a server you control. You choose the data location and deployment settings, and you own the service work described below.",
-    "boundary": "Self-hosting is not a Hosted service plan or a zero-price Hosted service tier. You pay for infrastructure and any social network or third-party services you use."
+  "https://openpost.social/self-hosting": {
+    "audience": "For operators who want to run OpenPost on infrastructure they control.",
+    "boundary": "Self-hosting is not a Hosted service plan or a zero-price Hosted service tier."
   },
-  "https://openpost.social/open-source": {
-    "audience": "This page is for operators and developers evaluating the open-source deployment path.",
-    "boundary": "AGPL-3.0-only"
+  "https://openpost.social/developers": {
+    "audience": "OpenPost exposes one publishing system through a typed HTTP API, a CLI, and an MCP server.",
+    "boundary": "Every call stays inside an authenticated OpenPost workspace."
+  },
+  "https://openpost.social/about": {
+    "audience": "OpenPost helps solo founders and small teams turn the work they are already doing into channel-ready content, publish it across supported networks, and track what happened.",
+    "boundary": "The Hosted service is the main product. Self-hosting remains a complete deployment option."
+  },
+  "https://openpost.social/contact": {
+    "audience": "Use private email for account, billing, privacy, or security details. Use the community or public repository for questions and reports that can help other people.",
+    "boundary": "Do not send passwords, social tokens, recovery codes, or payment-card details."
   },
   "https://openpost.social/changelog": {
     "audience": "This page is for users and operators reviewing changes before an update.",
@@ -99,30 +103,6 @@
     "audience": "This page is for people deciding whether OpenPost fits their Discord publishing workflow.",
     "boundary": "A webhook can publish and delete its own messages, but it cannot read the channel inbox."
   },
-  "https://openpost.social/compare/buffer": {
-    "audience": "Creators and teams that want a polished hosted scheduler with analytics and tools for comments and replies.",
-    "boundary": "No social listening or large-company benchmarks."
-  },
-  "https://openpost.social/compare/hootsuite": {
-    "audience": "Choose Hootsuite if a large team needs social listening, reports, and strict company controls. Choose OpenPost if you mainly need publishing, comments, inboxes, and automation.",
-    "boundary": "No social listening or ad tools."
-  },
-  "https://openpost.social/compare/typefully": {
-    "audience": "You want AI tools to use OpenPost access instead of your social account keys.",
-    "boundary": "Hosted proprietary service."
-  },
-  "https://openpost.social/compare/postiz": {
-    "audience": "You want to review what an AI tool made, check each account version, and see the result.",
-    "boundary": "Postiz covers more networks and AI tools. OpenPost is a smaller product for reviewing and publishing posts, built as one Go service with no required Redis server."
-  },
-  "https://openpost.social/compare/post-bridge": {
-    "audience": "You want AI and script access that you can remove without sharing social account keys.",
-    "boundary": "Official help says X and Threads thread scheduling is not currently supported; hosted service only."
-  },
-  "https://openpost.social/compare/mixpost": {
-    "audience": "Choose Mixpost when Laravel, self-hosting, analytics, and its wider Pro feature set fit your team. Choose OpenPost when you want a Hosted service, a smaller server, and one open-source edition.",
-    "boundary": "Mixpost puts self-hosting first and offers a larger paid feature set. OpenPost is smaller and also offers a Hosted service, one Go binary, and no required Redis server."
-  },
   "https://openpost.social/tools/social-media-video-editor": {
     "audience": "Creators who need to cut, caption, record, or reframe a social video before publishing.",
     "boundary": "The editor requires a current browser with WebCodecs, private file storage, and WebGL2."
@@ -155,6 +135,10 @@
     "audience": "Creators and teams converting known audience hours into a repeatable weekly test plan.",
     "boundary": "The planner distributes times evenly inside the chosen window; it does not predict audience behavior."
   },
+  "https://openpost.social/tools/utm-link-builder": {
+    "audience": "Anyone sharing a campaign link and checking the result in site analytics.",
+    "boundary": "The tags only appear in analytics when the destination site records them."
+  },
   "https://docs.openpost.social/cli/authentication": {
     "audience": "This page is for people signing the OpenPost CLI in from a browser, remote server, or automation job.",
     "boundary": "The CLI opens an OpenPost approval page and waits for you to approve or deny access. Only a signed-in browser session can make that decision; an API or CLI token cannot approve another device credential. Before approval, choose whether workspace-owned actions apply to one workspace or every workspace the token is permitted to access. A bound token can use workspace-owned resources only in the selected workspace and only while your account remains a member there."
@@ -180,8 +164,8 @@
     "boundary": "Self-hosted mode also allows local browser development origins by default. Cloud mode is stricter: it allows OPENPOST_APP_URL and explicit extra origins only, and rejects wildcard * origins at startup. The native Expo app calls the HTTP API directly and does not need a browser CORS origin."
   },
   "https://docs.openpost.social/configuration/custom-connectors": {
-    "audience": "Self-hosted operators use this page to install publishing destinations that OpenPost does not ship with.",
-    "boundary": "Connector Protocol 1.0 supports operator-configured text destinations. It does not support media, threads, browser automation, user-supplied connection forms, analytics, comments, inboxes, or connector-supplied UI."
+    "audience": "For self-hosted operators installing publishing destinations that OpenPost does not ship with.",
+    "boundary": "It does not yet support media, threads, browser automation, OAuth or form-based connection flows, analytics, comments, inboxes, or connector-supplied UI."
   },
   "https://docs.openpost.social/configuration/database": {
     "audience": "OpenPost uses SQLite by default when you run it yourself. Hosted installs can use Postgres by changing the database driver.",
@@ -197,11 +181,7 @@
   },
   "https://docs.openpost.social/configuration/media-storage": {
     "audience": "This page is for operators choosing local or S3-compatible media storage.",
-    "boundary": "OpenPost requires ffmpeg and ffprobe on PATH to verify uploaded videos and create posters. The official Docker image includes both tools, and the project Devenv supplies them for development. Install FFmpeg separately when running the standalone binary. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed."
-  },
-  "https://docs.openpost.social/configuration/overview": {
-    "audience": "Use this page when configuring a self-hosted deployment or the Hosted service.",
-    "boundary": "This overview does not replace the complete environment-variable and provider-application references."
+    "boundary": "OpenPost requires ffmpeg and ffprobe from the same FFmpeg installation on PATH to verify uploaded videos and create posters. The official Docker image includes both tools. Project development and standalone release checks use the pkgs.ffmpeg input pinned by devenv.lock. Standalone binaries do not bundle FFmpeg, so install a maintained FFmpeg package for the host before starting OpenPost and keep both commands together when upgrading it. A video stays unavailable for publishing if the server cannot complete this verification; Media shows the processing error and offers a retry after the dependency or file problem is fixed."
   },
   "https://docs.openpost.social/configuration/production-checklist": {
     "audience": "Use this page before putting a real OpenPost instance behind a public domain. It is operator-facing: product usage lives in User Docs, while code changes live in Developer Docs.",
@@ -228,7 +208,7 @@
     "boundary": "OpenPost exposes one HTTP API for the web app, CLI, MCP server, and external automation. The API uses JSON and requires an authenticated session or API token for private operations. Production deployments should serve it over HTTPS. Workspace-scoped operations also require access to the selected Workspace."
   },
   "https://docs.openpost.social/development/api-tokens": {
-    "audience": "OpenPost API tokens are account credentials for the REST API, MCP clients, the CLI, and automation. Create one token per client in Settings → Developer access, give it the narrowest scope and workspace boundary that works, and revoke it when that client no longer needs access.",
+    "audience": "OpenPost API tokens are account credentials for the REST API, MCP clients, the CLI, and automation. Create one token per client in Settings → Personal → Developer access, give it the narrowest scope and workspace boundary that works, and revoke it when that client no longer needs access.",
     "boundary": "The full secret is never stored in plaintext and cannot be shown again. OpenPost lists only a short prefix, scope, workspace boundary, creation time, last use, expiration, and active, expired, or revoked status. If the secret is lost, revoke it and create a replacement."
   },
   "https://docs.openpost.social/development/architecture": {
@@ -252,8 +232,8 @@
     "boundary": "OpenPost does not remove a public API or stored-data contract because repository search reports no caller."
   },
   "https://docs.openpost.social/development/connector-protocol": {
-    "audience": "Connector authors use this page to implement the authenticated Connector Protocol 1.0 text publishing contract.",
-    "boundary": "A connector runs outside OpenPost, keeps destination credentials, and must make every repeated operation ID safe without a second destination write."
+    "audience": "For connector authors implementing the authenticated Connector Protocol 1.0 text publishing contract.",
+    "boundary": "Do not use a connector to load code into OpenPost or to expose an arbitrary user-supplied URL."
   },
   "https://docs.openpost.social/development/contributing": {
     "audience": "This page is for contributors preparing a change to OpenPost.",
@@ -262,14 +242,6 @@
   "https://docs.openpost.social/development/frontend": {
     "audience": "This page is for contributors changing the web app or its shared marketing controls.",
     "boundary": "Do not add visible native input, select, or textarea elements outside the shared primitives"
-  },
-  "https://docs.openpost.social/development/image-editor-completeness": {
-    "audience": "This checklist is for contributors reviewing Image Editor completeness.",
-    "boundary": "Statuses describe the current working tree, not design intent. Update a status only with source and test evidence."
-  },
-  "https://docs.openpost.social/development/invitation-delivery-callbacks": {
-    "audience": "This page is for operators integrating an email provider's delivery callbacks.",
-    "boundary": "A successful delivery job marks a Workspace invitation Sent."
   },
   "https://docs.openpost.social/development/": {
     "audience": "Use these docs when you are changing OpenPost itself: backend routes, platform adapters, frontend components, generated clients, MCP tools, billing infrastructure, database migrations, tests, or release behavior.",
@@ -316,12 +288,8 @@
     "boundary": "The published image and maintained Dockerfile support linux/amd64 only. Other host architectures need amd64 emulation. A native image requires a downstream Dockerfile/source change and complete runtime validation."
   },
   "https://docs.openpost.social/guide/what-is-openpost": {
-    "audience": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content, then publish it everywhere from one place. Start with one shared draft, then change the text, media, format, and settings for each connected account.",
+    "audience": "OpenPost helps solo founders turn launches, product updates, lessons, and ideas into content for supported destinations. Start with one shared draft, then change the text, media, format, and settings for each connected account.",
     "boundary": "An active or trialing Hosted service plan is required to connect social accounts, upload media, schedule, or publish on that service."
-  },
-  "https://docs.openpost.social/guide/why-selfhost": {
-    "audience": "OpenPost is one product with two deployment paths. The Hosted service is operated by OpenPost. A self-hosted deployment runs on infrastructure you control and stores OpenPost data where you choose.",
-    "boundary": "OpenPost still sends content and access tokens to each social network when it carries out your request. Self-hosting changes who runs OpenPost. It does not remove the social networks."
   },
   "https://docs.openpost.social": {
     "audience": "The all-in-one content team for solo founders, from first draft to every destination.",
@@ -364,12 +332,12 @@
     "boundary": "The Hosted service makes daily Postgres dumps and a daily synchronized copy of Cloudflare R2 media in a root-owned directory on the application host. The directory is not public or application-served. The deployment configuration restricts its directory and newly created file modes, validates database compression before an atomic rename, disables SSH password and direct root login, and grants the named operator access through authorized SSH keys and sudo. Application users, support requests, and the OpenPost container do not receive backup-directory access."
   },
   "https://docs.openpost.social/operations/container-image": {
-    "audience": "The image's OCI health check calls /api/v1/health. This proves that the HTTP process is alive without turning a database outage into a container restart loop. Traffic gates, deployment rollouts, and dependency-aware monitors call /api/v1/ready, which returns 503 when the database probe fails. See Health Checks for the complete operator policy.",
+    "audience": "The image's OCI health check calls /api/v1/health. This proves that the HTTP process is alive without turning a data-plane outage into a container restart loop. Traffic gates, deployment rollouts, and dependency-aware monitors call /api/v1/ready, which returns 503 when the database probe or required object-storage capability check fails. See Health Checks for the complete operator policy.",
     "boundary": "The published OpenPost container image supports linux/amd64 only. The CI candidate build names that platform explicitly and restart-smokes that same image before it can be published. The maintained Dockerfile rejects non-amd64 targets. An ARM64 host must use amd64 emulation; a native ARM64 image requires an explicit downstream Dockerfile/source change and its own complete runtime smoke proof. OpenPost does not currently publish or claim support for a linux/arm64 image."
   },
   "https://docs.openpost.social/operations/health-checks": {
     "audience": "Use this endpoint when you only need to know whether the HTTP process is alive. The published image's OCI health check and the maintained Compose file use it so a database outage does not turn into a container restart loop.",
-    "boundary": "It returns 503 when OpenPost cannot run a database probe."
+    "boundary": "It returns 503 when OpenPost cannot run a database probe or the configured S3 bucket fails its bounded capability check."
   },
   "https://docs.openpost.social/operations/logs": {
     "audience": "Each HTTP request log includes both the requested path and the normalized matched route, such as /api/v1/publications/:id. The normalized route lets operators aggregate endpoint use without treating every resource ID as a separate path.",
@@ -399,10 +367,6 @@
     "audience": "This page is for operators configuring Instagram and users connecting a professional account.",
     "boundary": "Instagram Business or Creator account connected to a Facebook Page"
   },
-  "https://docs.openpost.social/providers/launch-matrix": {
-    "audience": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
-    "boundary": "OpenPost keeps provider implementation, setup, evidence, approval, and runtime control as separate facts. An adapter in the binary proves only that code exists. It does not make a provider or format ready, connectable, publishable, or safe to advertise."
-  },
   "https://docs.openpost.social/providers/linkedin": {
     "audience": "This page is for operators configuring LinkedIn and users connecting a member profile or Organization Page.",
     "boundary": "OpenPost always offers the member profile returned by LinkedIn OpenID Connect. Organization Pages are an explicit operator opt-in because LinkedIn gates their permissions behind approved products:"
@@ -410,18 +374,6 @@
   "https://docs.openpost.social/providers/mastodon": {
     "audience": "This page is for operators configuring Mastodon and users connecting a custom or preconfigured instance.",
     "boundary": "For custom instances: no static env entry is required, but the instance must be public HTTPS and allow app registration."
-  },
-  "https://docs.openpost.social/providers/overview": {
-    "audience": "OAuth and social app setup cause many connection errors. Use this guide as you turn on each network.",
-    "boundary": "The table below is an implementation and setup inventory. It is not a Hosted service readiness claim."
-  },
-  "https://docs.openpost.social/providers/platform-limits": {
-    "audience": "Use this page when checking implemented formats and safe provider limits.",
-    "boundary": "Limits reviewed against official provider documentation on 2026-08-03. Connected-account or instance limits override these safe defaults where OpenPost can resolve them."
-  },
-  "https://docs.openpost.social/providers/roadmap": {
-    "audience": "OpenPost connects to social networks through the web app, CLI, HTTP API, MCP, and ChatGPT-style clients. This page explains when a new platform may appear as connectable.",
-    "boundary": "The platform list API returns implementation metadata and an evidence-based readiness decision so each client can show the same connection choices without treating configuration as proof."
   },
   "https://docs.openpost.social/providers/threads": {
     "audience": "This page is for operators configuring Threads and users connecting an account.",
@@ -443,10 +395,6 @@
     "audience": "This page is for operators configuring YouTube and users connecting a channel.",
     "boundary": "Google may omit hidden subscriber counts. Accounts without youtube.readonly may need to reconnect."
   },
-  "https://docs.openpost.social/reference/api": {
-    "audience": "This page is for developers who need the rendered or machine-readable API contract.",
-    "boundary": "Use this page as a pointer only. The generated OpenAPI document is the authoritative operation and schema contract."
-  },
   "https://docs.openpost.social/reference/callback-urls": {
     "audience": "This reference is for operators registering provider and identity callback URLs.",
     "boundary": "Mastodon uses the OOB flow by default and exchanges the pasted authorization code through /api/v1/accounts/mastodon/exchange. Only configure a normal Mastodon callback URL if you also override MASTODON_REDIRECT_URI."
@@ -454,14 +402,6 @@
   "https://docs.openpost.social/reference/cli": {
     "audience": "openpost is a command-line client for the OpenPost social media scheduler. It talks to a running OpenPost instance over HTTPS, authenticates with a revocable API token, and exposes the most common posting, scheduling, account, and media workflows for use from scripts, CI, and power-user shells.",
     "boundary": "This page is generated from the Cobra command tree. Do not edit it by hand."
-  },
-  "https://docs.openpost.social/reference/docker-compose": {
-    "audience": "This reference is for operators preparing a persistent OpenPost service with explicit storage, secrets, and health checks.",
-    "boundary": "The published image supports linux/amd64 only. See Container Image Support and Assurance for architecture, probe, SBOM, and scan policy."
-  },
-  "https://docs.openpost.social/reference/env-vars": {
-    "audience": "This reference is for operators looking up common environment variables.",
-    "boundary": "This page lists the most common core and provider variables. Use Environment Variables for required values, defaults, file-backed configuration, legacy aliases, and complete deployment notes."
   },
   "https://docs.openpost.social/reference/surface-parity": {
     "audience": "This reference is for contributors and automation authors choosing an OpenPost client surface.",
@@ -472,8 +412,8 @@
     "boundary": "A self-hosted operator handles deployment availability, user support, incidents, and operator-specific configuration."
   },
   "https://docs.openpost.social/usage/account-security": {
-    "audience": "Open Settings → Account → Security to manage your password, authenticator app, recovery codes, passkeys, linked sign-in identities, and active browser sessions. These settings belong to your login and apply in every workspace.",
-    "boundary": "Web sign-in creates a persistent, HTTP-only session cookie that expires after seven days. OpenPost does not show a cosmetic “Remember me” option because there is currently one server-enforced lifetime. Sign out when you finish on a shared device. You can review and revoke active browser sessions from Settings → Account → Security; revocation invalidates that session before its normal expiry."
+    "audience": "Open Settings → Personal → Security to manage your password, authenticator app, recovery codes, passkeys, linked sign-in identities, and active browser sessions. These settings belong to your login and apply in every workspace.",
+    "boundary": "Web sign-in creates a persistent, HTTP-only session cookie that expires after seven days. OpenPost does not show a cosmetic “Remember me” option because there is currently one server-enforced lifetime. Sign out when you finish on a shared device. You can review and revoke active browser sessions from Settings → Personal → Security; revocation invalidates that session before its normal expiry."
   },
   "https://docs.openpost.social/usage/accounts": {
     "audience": "Use this page when you want to connect or manage social accounts in a Workspace.",
@@ -493,11 +433,11 @@
   },
   "https://docs.openpost.social/usage/communications": {
     "audience": "This page is for people reviewing and responding to saved engagement and messages in a Workspace.",
-    "boundary": "OpenPost checks social networks in the background and saves the results. The Engagement and Messages pages read saved data, so a slow or unavailable network does not block the page."
+    "boundary": "OpenPost checks social networks in the background and saves the results. Engagement at /inbox/engagement and Messages at /inbox/messages read saved data, so a slow or unavailable network does not block either page."
   },
   "https://docs.openpost.social/usage/composing-posts": {
     "audience": "This page is for people creating a Publication in the composer.",
-    "boundary": "The Workspace setup guide advances when you enter non-empty text, attach media, or intentionally add a thread post. Opening or focusing the composer, choosing a destination, and saving an empty draft do not count as starting a composition. This progress is stored once per Workspace and remains complete after refresh."
+    "boundary": "The Video Editor project, sources, and other exports remain in the disk workspace."
   },
   "https://docs.openpost.social/usage/destination-options": {
     "audience": "This page is for people tailoring one Publication for each selected social account.",
@@ -512,12 +452,20 @@
     "boundary": "The public editor works without sign-in and adds no watermark. Start with a social format, an OpenPost template, or a PNG, JPEG, or WebP image. Designs and imported images stay in that browser. Clearing site data, using private browsing, or letting the browser clear old data can remove local work."
   },
   "https://docs.openpost.social/usage/": {
-    "audience": "Use these docs to connect accounts, write account versions, schedule posts, track results, work with replies and messages, use the CLI, or let an AI tool help through MCP.",
+    "audience": "Use these docs to connect accounts, build or write account versions, schedule posts, track results, work with replies and messages, use the CLI, or grant an AI tool access through MCP.",
     "boundary": "Provider data, formats, and actions remain limited by the connected account and provider."
   },
   "https://docs.openpost.social/usage/media-library": {
     "audience": "This page is for people organizing reusable media and editor assets in a Workspace.",
-    "boundary": "Use tags for flexible organization: one file can have several tags, and choosing several tag filters shows files that have all of them. Select files to add or remove a tag, mark favorites, or delete a group. Deleting a tag does not delete its files."
+    "boundary": "Disk-backed Video Editor projects are separate from Media and do not create hidden retention references."
+  },
+  "https://docs.openpost.social/usage/quick-cut": {
+    "audience": "Quick Cut removes ranges from one or more media files with the least processing possible.",
+    "boundary": "Quick Cut rejects plans that would silently drop unsupported subtitle, data, unknown-audio, or extra-video streams."
+  },
+  "https://docs.openpost.social/usage/recording": {
+    "audience": "Open /record to capture screen, camera, and microphone sources as separate synchronized files.",
+    "boundary": "OpenPost requests screen, camera, or microphone access only after you start recording."
   },
   "https://docs.openpost.social/usage/scheduling": {
     "audience": "The composer interprets dates and times in the workspace timezone. You can:",
@@ -525,22 +473,34 @@
   },
   "https://docs.openpost.social/usage/settings": {
     "audience": "Use this tab when the setting should differ between brands, clients, or projects.",
-    "boundary": "The media lifecycle information is not a workspace control. Temporary post-specific media moves to Trash after its final successful publication or 14 days without use, and Trash is permanently removed after seven days. Favorites, organized media, active work, and editor projects remain protected. OpenPost keeps the periods fixed so an old client or stored workspace value cannot weaken the policy."
-  },
-  "https://docs.openpost.social/usage/studio": {
-    "audience": "OpenPost Studio is the editing area for images and video. Choose the editor that matches the media you need to create.",
-    "boundary": "Cloud-saved image and video projects remain scoped to the active workspace. Local video sources stay in the browser until you explicitly upload or publish them."
+    "boundary": "The media lifecycle information is not a workspace control."
   },
   "https://docs.openpost.social/usage/threads": {
     "audience": "This page is for people creating ordered multi-post sequences.",
     "boundary": "Failures in early posts can block later posts in the same thread."
   },
   "https://docs.openpost.social/usage/video-editor": {
-    "audience": "OpenPost Video Editor is a local-first editor for social videos and recordings up to two hours.",
-    "boundary": "The editor is available on every OpenPost instance. Operators can change the model asset base URL, but there is no Video Editor feature toggle."
+    "audience": "OpenPost Video Editor is a local-first multitrack editor for social video.",
+    "boundary": "Video Editor does not create or sync cloud projects."
   },
   "https://docs.openpost.social/usage/workspaces": {
     "audience": "Use a workspace to keep one brand, client, or project separate.",
     "boundary": "Viewer has read-only workspace access."
+  },
+  "https://docs.openpost.social/configuration/": {
+    "audience": "Use this page when configuring a self-hosted deployment or the Hosted service.",
+    "boundary": "Use the linked references for complete environment-variable and provider-application details."
+  },
+  "https://docs.openpost.social/configuration/invitation-delivery-callbacks": {
+    "audience": "This page is for operators integrating an email provider's delivery callbacks.",
+    "boundary": "A successful delivery job marks a Workspace invitation Sent."
+  },
+  "https://docs.openpost.social/operations/provider-launch-matrix": {
+    "audience": "This page is for operators and release reviewers deciding whether a provider-format claim is current.",
+    "boundary": "OpenPost keeps provider implementation, setup, evidence, approval, and runtime control as separate facts. An adapter in the binary proves only that code exists. It does not make a provider or format ready, connectable, publishable, or safe to advertise."
+  },
+  "https://docs.openpost.social/providers/": {
+    "audience": "OAuth and social app setup cause many connection errors. Use this guide as you turn on each network.",
+    "boundary": "The table below is an implementation and setup inventory. It is not a Hosted service readiness claim."
   }
 }

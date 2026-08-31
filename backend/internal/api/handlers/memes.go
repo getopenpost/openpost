@@ -234,7 +234,7 @@ func (i mediaHandlerMemeImporter) RollbackMeme(ctx context.Context, media models
 		Exec(ctx); err != nil {
 		return err
 	}
-	return i.handler.deleteMediaFiles(&media)
+	return i.handler.deleteMediaFiles(ctx, &media)
 }
 
 type MemeHandler struct {
@@ -949,7 +949,7 @@ func (h *MemeHandler) loadOverlayImages(ctx context.Context, workspaceID string,
 		if declaredTotalBytes > maxMemeOverlayTotalBytes {
 			return nil, huma.Error400BadRequest("combined overlay images are too large for meme rendering")
 		}
-		reader, err := h.mediaStorage.Open(filepath.Base(media.FilePath))
+		reader, err := h.mediaStorage.Open(ctx, filepath.Base(media.FilePath))
 		if err != nil {
 			return nil, huma.Error500InternalServerError("failed to open overlay media")
 		}

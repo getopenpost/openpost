@@ -69,11 +69,11 @@ openpost account rename x --slug main-x
 openpost account disconnect <account-id> --yes
 ```
 
-New accounts are connected in the OpenPost web UI at `<instance>/accounts`.
+New accounts are connected in the OpenPost web UI at `<instance>/settings?tab=accounts`.
 The CLI does not have a `connect` subcommand by design: provider credentials
 live on the server, and the web UI is the only place to authorize a new social
 account. Running `account list` against a workspace with no accounts prints
-the instance's `/accounts` URL so the path is discoverable.
+the instance's account settings URL so the path is discoverable.
 
 Upload and list workspace media:
 

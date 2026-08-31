@@ -92,7 +92,11 @@ describe('LocalMusicPanel', () => {
 
 		await expect.element(screen.getByText(/First use downloads up to 5.42 GB/)).toBeVisible();
 		await expect.element(screen.getByRole('button', { name: 'Generate music' })).toBeEnabled();
-		await screen.getByLabelText('Length').fill('2');
+		const sliderEl = screen.getByRole('slider', { name: 'Length' }).element();
+		sliderEl.focus();
+		sliderEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+		sliderEl.dispatchEvent(new KeyboardEvent('keyup', { key: 'Home', bubbles: true }));
+		await new Promise((r) => setTimeout(r, 50));
 		await screen.getByRole('button', { name: 'Generate music' }).click();
 		expect(generateMusic).toHaveBeenCalledWith(expect.objectContaining({ durationSeconds: 2 }));
 		await expect.element(screen.getByText('Downloading ACE-Step DiT')).toBeVisible();
@@ -101,8 +105,16 @@ describe('LocalMusicPanel', () => {
 		);
 		finishGeneration();
 		await expect.element(screen.getByRole('article').getByText('Cinematic pulse')).toBeVisible();
-		expect(screen.container.querySelector('audio')).not.toBeNull();
-		expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+		const article = screen.container.querySelector('article');
+		const audio = screen.container.querySelector('audio');
+		if (!article || !audio) throw new Error('Expected a generated music preview.');
+		const containerBounds = screen.container.getBoundingClientRect();
+		for (const element of [article, audio]) {
+			const bounds = element.getBoundingClientRect();
+			expect(bounds.left).toBeGreaterThanOrEqual(containerBounds.left - 0.5);
+			expect(bounds.right).toBeLessThanOrEqual(containerBounds.right + 0.5);
+		}
+		expect(getComputedStyle(article).overflowX).toBe('hidden');
 		await page.screenshot({
 			element: screen.container,
 			path: '../../../../.svelte-kit/openpost-local-music-panel.png'
@@ -133,7 +145,8 @@ describe('LocalMusicPanel', () => {
 			supported: true
 		});
 
-		await screen.getByRole('combobox', { name: 'Model' }).selectOptions('high');
+		await screen.getByRole('button', { name: 'Model', exact: true }).click();
+		await page.getByRole('option', { name: /High/ }).click();
 		await expect.element(screen.getByText(/First use downloads up to 7.79 GB/)).toBeVisible();
 		await screen.getByRole('button', { name: 'Generate music' }).click();
 		expect(generateMusic).toHaveBeenCalledWith(

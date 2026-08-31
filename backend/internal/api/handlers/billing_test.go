@@ -109,7 +109,7 @@ func newBillingAPITestServer(t *testing.T) *billingTestServer {
 				},
 			},
 		},
-		PurchaseChoiceSecret: "test-purchase-choice-secret-with-32-bytes",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 }
 
@@ -221,7 +221,7 @@ func TestPurchaseChoiceEndpointCreatesAndRevalidatesCanonicalChoice(t *testing.T
 			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
 			billing.PaddlePriceIDs{}, billing.PaddlePriceIDs{},
 		),
-		PurchaseChoiceSecret: "purchase-choice-secret-with-at-least-32-characters",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 	service.SetNowForTest(func() time.Time { return now })
 	e := echo.New()

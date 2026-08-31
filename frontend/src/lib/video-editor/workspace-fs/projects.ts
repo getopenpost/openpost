@@ -50,6 +50,7 @@ const logger = createLogger('WorkspaceFS:Projects');
 
 /** Shape stored in project.json — no FileSystem*Handle fields. */
 type SerializedProject = Omit<Project, 'rootFolderHandle'>;
+type ProjectLoadIntent = 'list' | 'open';
 
 async function stashRootFolderHandle(project: Project): Promise<SerializedProject> {
 	const { rootFolderHandle, ...rest } = project;
@@ -195,7 +196,8 @@ async function upsertIndexEntry(
 
 async function loadProjectDocument(
 	root: FileSystemDirectoryHandle,
-	id: string
+	id: string,
+	intent: ProjectLoadIntent
 ): Promise<Project | undefined> {
 	return withKeyLock(`project-upgrade:${id}`, async () => {
 		if (await isTrashed(root, id)) return undefined;
@@ -207,10 +209,12 @@ async function loadProjectDocument(
 		const restored = await restoreRootFolderHandle(serialized);
 		const migration = migrateProjectDocument(restored);
 		const { project, warnings } = migration;
-		for (const warning of warnings) {
-			logger.warn(`loadProjectDocument(${id}): ${warning.code} - ${warning.message}`);
+		if (intent === 'open') {
+			for (const warning of warnings) {
+				logger.warn(`loadProjectDocument(${id}): ${warning.code} - ${warning.message}`);
+			}
 		}
-		if (migration.appliedMigrations.length > 0) {
+		if (intent === 'open' && migration.appliedMigrations.length > 0) {
 			await ensureProjectUpgradeBackup(root, restored, migration.fromVersion, migration.toVersion);
 			const upgraded = await stashRootFolderHandle(project);
 			await writeJsonAtomic(root, projectJsonPath(id), upgraded);
@@ -231,7 +235,7 @@ export async function getAllProjects(): Promise<Project[]> {
 		const projects: Project[] = [];
 		for (const entry of entries) {
 			try {
-				const project = await loadProjectDocument(root, entry.id);
+				const project = await loadProjectDocument(root, entry.id, 'list');
 				if (project) projects.push(project);
 			} catch (error) {
 				if (!(error instanceof WorkspaceFileCorruptError)) throw error;
@@ -247,7 +251,7 @@ export async function getAllProjects(): Promise<Project[]> {
 export async function getProject(id: string): Promise<Project | undefined> {
 	const root = requireWorkspaceRoot();
 	try {
-		return await loadProjectDocument(root, id);
+		return await loadProjectDocument(root, id, 'open');
 	} catch (error) {
 		logger.error(`getProject(${id}) failed`, error);
 		throw new Error(`Failed to load project: ${id}`, { cause: error });

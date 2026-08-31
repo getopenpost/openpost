@@ -7,12 +7,18 @@ import path from "node:path";
 
 import { checkMCPRegistryOwnership } from "./check-mcp-registry.mjs";
 import { resolveRunArtifact } from "./ci-artifacts.mjs";
-import { requireConventionalCommitMessage, selectWorkflowRun } from "./release-lifecycle.mjs";
+import { releaseCommandEnvironment } from "./release-command-environment.mjs";
+import {
+  releasePreparationHasChanges,
+  requireConventionalCommitMessage,
+  selectWorkflowRun,
+} from "./release-lifecycle.mjs";
 import { readReleaseManifest } from "./release-manifest.mjs";
 import {
   changedReleasePaths,
   maintainedReleasePaths,
   readReleaseSurfaceManifest,
+  readReleaseSurfaceManifestAtRevision,
   releaseSurfacePlan,
   validateReleaseSurfaceManifest,
 } from "./release-surfaces.mjs";
@@ -63,10 +69,11 @@ async function plan() {
   if (!latestTag) throw new Error("no v* release tags found");
 
   const releaseSurfaceManifest = readReleaseSurfaceManifest(root);
+  const previousReleaseSurfaceManifest = readReleaseSurfaceManifestAtRevision(latestTag, root);
   const changed = changedReleasePaths(latestTag, root);
   const ownershipProblems = validateReleaseSurfaceManifest(
     releaseSurfaceManifest,
-    [...new Set([...maintainedReleasePaths(root), ...changed])],
+    maintainedReleasePaths(root),
     root,
   );
   if (ownershipProblems.length > 0) {
@@ -80,7 +87,21 @@ async function plan() {
       : runCapture(["bun", "scripts/next-release-version.mjs", latestTag], {
           PENDING_COMMIT_MESSAGE: pendingMessage,
         }).trim();
-  const surfacePlan = releaseSurfacePlan(changed, releaseSurfaceManifest);
+  const surfacePlan = releaseSurfacePlan(
+    changed,
+    releaseSurfaceManifest,
+    previousReleaseSurfaceManifest,
+  );
+  const unclassified = surfacePlan.filter(
+    (entry) => entry.surfaces.length === 0 && !entry.exemption,
+  );
+  if (unclassified.length > 0) {
+    throw new Error(
+      `changed release paths have no current or previous owner: ${unclassified
+        .map((entry) => entry.file)
+        .join(", ")}`,
+    );
+  }
   const touchedSurfaces = new Set(surfacePlan.flatMap((entry) => entry.surfaces));
 
   console.log(`Latest release: ${latestTag}`);
@@ -248,8 +269,12 @@ async function prepare(commitMessage) {
     throw error;
   }
   run(["git", "add", "--all"]);
-  run(["git", "commit", "-m", commitMessage || `docs: prepare ${tag} changelog`]);
-  run(["git", "push", "origin", "main"]);
+  if (releasePreparationHasChanges(git(["diff", "--cached", "--name-only"]))) {
+    run(["git", "commit", "-m", commitMessage || `docs: prepare ${tag} changelog`]);
+    run(["git", "push", "origin", "main"]);
+  } else {
+    console.log(`release prepare: ${tag} changelog is already prepared; reusing HEAD`);
+  }
 
   const revision = git(["rev-parse", "HEAD"]);
   await waitForCI(revision);
@@ -604,7 +629,7 @@ function run(argv, extraEnv = {}) {
   console.log(`\n==> ${argv.join(" ")}`);
   const result = Bun.spawnSync(argv, {
     cwd: root,
-    env: { ...process.env, ...extraEnv },
+    env: releaseCommandEnvironment(process.env, extraEnv),
     stdin: "inherit",
     stdout: "inherit",
     stderr: "inherit",
@@ -617,7 +642,7 @@ async function runParallel(commands) {
   const processes = commands.map((argv) =>
     Bun.spawn(argv, {
       cwd: root,
-      env: process.env,
+      env: releaseCommandEnvironment(),
       stdin: "inherit",
       stdout: "inherit",
       stderr: "inherit",
@@ -646,7 +671,7 @@ async function runParallel(commands) {
 function runCapture(argv, extraEnv = {}) {
   const result = Bun.spawnSync(argv, {
     cwd: root,
-    env: { ...process.env, ...extraEnv },
+    env: releaseCommandEnvironment(process.env, extraEnv),
     stdout: "pipe",
     stderr: "inherit",
   });
@@ -657,7 +682,7 @@ function runCapture(argv, extraEnv = {}) {
 function runOptional(argv) {
   const result = Bun.spawnSync(argv, {
     cwd: root,
-    env: process.env,
+    env: releaseCommandEnvironment(),
     stdout: "pipe",
     stderr: "pipe",
   });

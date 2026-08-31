@@ -32,6 +32,9 @@
 				These answers cover the questions that change setup, publishing, billing, or access. Each
 				answer points to the maintained page when more detail matters.
 			</p>
+			<p class="mt-4 text-sm font-medium text-muted-foreground">
+				For people checking OpenPost setup, publishing, billing, and access rules.
+			</p>
 		</div>
 		<nav class="faq-index" aria-label="FAQ topics">
 			<p class="text-sm font-semibold">Jump to a topic</p>

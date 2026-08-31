@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { CalendarDate } from '@internationalized/date';
-	import { MediaQuery } from 'svelte/reactivity';
 	import { Button } from '$lib/components/ui/button';
 	import { Calendar } from '$lib/components/ui/calendar';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -55,8 +54,6 @@
 
 	let scheduleInput = $state('');
 	let inputError = $state('');
-	let advancedOpen = $state(true);
-	const desktopCalendar = new MediaQuery('min-width: 768px');
 	const effectiveRandomDelayMinutes = $derived.by(() => {
 		if (randomDelayOverride === 'default') return defaultRandomDelayMinutes;
 		const value = Number(randomDelayOverride);
@@ -132,11 +129,6 @@
 		open = false;
 	}
 
-	function done() {
-		if (!applyScheduleInput()) return;
-		close();
-	}
-
 	async function schedule() {
 		if (!applyScheduleInput() || !selectedDate || !selectedTime) return;
 		open = false;
@@ -147,18 +139,21 @@
 <Dialog.Root bind:open>
 	<Dialog.Content
 		data-testid="schedule-dialog-shell"
-		class="flex max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+		class="flex max-h-[calc(100dvh-1rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"
 	>
 		<Dialog.Header
-			class="shrink-0 border-b px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 text-center"
+			class="shrink-0 border-b px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-4 text-left"
 		>
-			<Dialog.Title class="text-2xl font-semibold">{m.compose_schedule()}</Dialog.Title>
+			<Dialog.Title class="text-xl font-semibold">{m.compose_schedule()}</Dialog.Title>
 			<Dialog.Description class="text-sm text-muted-foreground">
 				{m.compose_schedule_timezone({ timezone })}
 			</Dialog.Description>
 		</Dialog.Header>
 
-		<div data-testid="schedule-dialog-body" class="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
+		<div
+			data-testid="schedule-dialog-body"
+			class="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 sm:p-5"
+		>
 			{#if !canSchedule}
 				<InlineNotice tone="warning" message={m.compose_schedule_needs_destination()} />
 			{/if}
@@ -166,7 +161,7 @@
 				class="space-y-2"
 				onsubmit={(event) => {
 					event.preventDefault();
-					done();
+					applyScheduleInput();
 				}}
 			>
 				<Input
@@ -218,65 +213,51 @@
 				</div>
 			</div>
 
-			<details
-				class="group rounded-lg border"
-				open
-				ontoggle={(e) => (advancedOpen = (e.currentTarget as HTMLDetailsElement).open)}
+			<div
+				class="overflow-hidden rounded-lg border bg-muted/15 sm:grid sm:h-92 sm:grid-cols-[minmax(0,1fr)_9rem]"
 			>
-				<summary
-					class="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-				>
-					<span>{m.compose_choose_date_time()}</span>
-					<span class="text-xs text-muted-foreground group-open:hidden">{m.common_edit()}</span>
-				</summary>
-				<div class="border-t p-3">
+				<div class="flex justify-center p-3 sm:p-4">
+					<Calendar
+						type="single"
+						bind:value={selectedDate}
+						minValue={workspaceClock(timezone).date}
+						numberOfMonths={1}
+						pagedNavigation
+						class="bg-transparent p-0 [--cell-size:--spacing(9)]"
+						weekdayFormat="short"
+						{weekStartsOn}
+					/>
+				</div>
+				<div class="border-t sm:flex sm:min-h-0 sm:flex-col sm:border-t-0 sm:border-l">
+					<div class="shrink-0 border-b px-3 py-2 text-center text-sm font-medium">
+						{m.compose_time()}
+					</div>
 					<div
-						class="overflow-hidden rounded-lg border bg-muted/15 md:grid md:grid-cols-[minmax(0,1fr)_9rem]"
+						data-testid="schedule-dialog-time-list"
+						class="max-h-52 overflow-y-auto p-2 sm:max-h-none sm:min-h-0 sm:flex-1"
 					>
-						<div class="flex justify-center p-3 md:p-4">
-							<Calendar
-								type="single"
-								bind:value={selectedDate}
-								minValue={workspaceClock(timezone).date}
-								numberOfMonths={desktopCalendar.current ? 2 : 1}
-								pagedNavigation={desktopCalendar.current}
-								class="bg-transparent p-0 [--cell-size:--spacing(9)]"
-								weekdayFormat="short"
-								{weekStartsOn}
-							/>
-						</div>
-						<div class="border-t md:border-t-0 md:border-l">
-							<div class="border-b px-3 py-2 text-center text-sm font-medium">
-								{m.compose_time()}
+						{#if timeSlots.length === 0}
+							<p class="px-2 py-6 text-center text-xs text-muted-foreground">
+								{m.compose_no_remaining_slots_today()}
+							</p>
+						{:else}
+							<div class="grid grid-cols-3 gap-1.5 sm:grid-cols-1">
+								{#each timeSlots as time (time)}
+									<Button
+										type="button"
+										variant={selectedTime === time ? 'default' : 'ghost'}
+										size="sm"
+										onclick={() => selectTime(time)}
+										class="h-9 justify-center text-sm tabular-nums"
+									>
+										{time}
+									</Button>
+								{/each}
 							</div>
-							<div
-								data-testid="schedule-dialog-time-list"
-								class="p-2 md:max-h-72 md:overflow-y-auto"
-							>
-								{#if timeSlots.length === 0}
-									<p class="px-2 py-6 text-center text-xs text-muted-foreground">
-										{m.compose_no_remaining_slots_today()}
-									</p>
-								{:else}
-									<div class="grid grid-cols-2 gap-1.5 md:grid-cols-1">
-										{#each timeSlots as time (time)}
-											<Button
-												type="button"
-												variant={selectedTime === time ? 'default' : 'ghost'}
-												size="sm"
-												onclick={() => selectTime(time)}
-												class="h-9 justify-center text-sm tabular-nums"
-											>
-												{time}
-											</Button>
-										{/each}
-									</div>
-								{/if}
-							</div>
-						</div>
+						{/if}
 					</div>
 				</div>
-			</details>
+			</div>
 
 			{#if randomDelayOptions.length > 0}
 				<details class="group rounded-lg border bg-muted/10">
@@ -343,7 +324,6 @@
 
 		<Dialog.Footer class="shrink-0 border-t px-5 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
 			<Button type="button" variant="outline" onclick={close}>{m.common_cancel()}</Button>
-			<Button type="button" variant="secondary" onclick={done}>{m.common_done()}</Button>
 			<Button
 				type="button"
 				onclick={schedule}

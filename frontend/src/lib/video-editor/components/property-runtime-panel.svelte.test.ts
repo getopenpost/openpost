@@ -41,9 +41,7 @@ describe('PropertyRuntimePanel', () => {
 		const screen = await render(PropertyRuntimePanel, input);
 		const textarea = screen.getByRole('textbox', { name: 'Expression source' });
 		await textarea.fill('value * 2');
-		await vi.waitFor(() => {
-			expect(document.querySelectorAll('output')[1]?.textContent).toBe('20.00');
-		});
+		await expect.element(screen.getByText('20.00', { exact: true })).toBeVisible();
 		await screen.getByRole('button', { name: 'Apply', exact: true }).click();
 		expect(timelineStore.itemById.get('one')?.expressions).toMatchObject([
 			{ targetProperty: 'x', source: 'value * 2', enabled: true }
@@ -58,11 +56,9 @@ describe('PropertyRuntimePanel', () => {
 	it('links through the accessible layer and property controls', async () => {
 		const input = props();
 		const screen = await render(PropertyRuntimePanel, input);
-		await vi.waitFor(() => {
-			expect(
-				document.querySelector<HTMLSelectElement>('select[aria-label="Source layer"]')?.value
-			).toBe('two');
-		});
+		await expect
+			.element(screen.getByRole('button', { name: 'Source layer' }))
+			.toHaveTextContent('Driver');
 		await screen.getByRole('button', { name: 'Apply link' }).click();
 		expect(timelineStore.itemById.get('one')?.propertyLinks).toMatchObject([
 			{ targetProperty: 'x', sourceItemId: 'two', sourceProperty: 'x' }

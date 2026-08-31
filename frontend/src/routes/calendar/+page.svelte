@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { untrack } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
 	import { SvelteDate, SvelteMap, SvelteSet } from 'svelte/reactivity';
 	import { resolve } from '$app/paths';
 	import { resolveAppPath } from '$lib/app-path';
@@ -8,6 +8,12 @@
 	import { loadWorkspaceAccounts } from '$lib/api/performance-cache';
 	import type { components } from '$lib/api/types';
 	import { publicationCalendarOccurrence } from '$lib/publication-calendar';
+	import CalendarDragOverlay from '$lib/calendar/calendar-drag-overlay.svelte';
+	import {
+		resolveWeekCalendarTarget,
+		WeekCalendarDragController,
+		type WeekCalendarTarget
+	} from '$lib/calendar/calendar-drag';
 	import {
 		isFutureSchedule,
 		workspaceClock,
@@ -27,6 +33,7 @@
 	import * as Sheet from '$lib/components/ui/sheet';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { getLocaleTag } from '$lib/i18n';
+	import { formatSocialAccountName } from '$lib/utils';
 	import { workspaceColor } from '$lib/workspace-color';
 	import { m } from '$lib/paraglide/messages';
 	import { ui } from '$lib/stores/ui.svelte';
@@ -77,6 +84,23 @@
 		publication?: Publication;
 	};
 
+	type WeekDragTarget = WeekCalendarTarget & {
+		day: CalendarDay;
+	};
+
+	type WeekDragView = {
+		item: CalendarItem;
+		target: WeekCalendarTarget | null;
+		targetLabel: string;
+		width: number;
+		height: number;
+	};
+
+	const WEEK_DRAG_OVERLAY_MIN_WIDTH = 180;
+	const WEEK_DRAG_OVERLAY_MAX_WIDTH = 220;
+	const WEEK_DRAG_OVERLAY_HEIGHT = 58;
+	const WEEK_DRAG_TARGET_HEIGHT = 36;
+
 	let currentMonth = $state(startOfMonth(workspaceTodayDate('UTC')));
 	let viewMode = $state<CalendarView>('month');
 	let selectedStatus = $state<CalendarStatus>('all');
@@ -91,6 +115,10 @@
 	let draggingKey = $state('');
 	let dropTargetKey = $state('');
 	let reschedulingKey = $state('');
+	let weekDragView = $state<WeekDragView | null>(null);
+	let weekDragOverlayElement: HTMLDivElement | undefined = $state();
+	let weekScrollElement: HTMLElement | undefined = $state();
+	let weekBodyElement: HTMLElement | undefined = $state();
 	let selectedEmptyDateKey = $state('');
 	let selectedMonthDayKey = $state('');
 	let monthDayOpen = $state(false);
@@ -99,6 +127,19 @@
 	let completedLoadKey = $state('');
 	let initializedCalendarWorkspace = '';
 	let handledInvalidationRevision = 0;
+	const weekDragController = new WeekCalendarDragController<CalendarItem, WeekDragTarget>({
+		itemKey: (item) => item.key,
+		resolveTarget: resolveWeekDragTarget,
+		targetKey: (target) => (target ? `${target.day.key}|${target.minutes}` : ''),
+		getOverlayElement: () => weekDragOverlayElement,
+		getScrollElement: () => weekScrollElement,
+		onActivate: ({ item, sourceBounds, target }) =>
+			activateWeekDragView(item, sourceBounds, target),
+		onTargetChange: updateWeekDragView,
+		onDrop: (item, target) => void rescheduleItem(item, target.day.date, target.time),
+		onFinish: clearWeekDragView,
+		isSameTarget: sameWeekDragSlot
+	});
 
 	const workspaces = $derived(workspaceCtx.workspaces);
 	const viewerWorkspaceId = $derived(workspaceCtx.currentWorkspace?.id ?? '');
@@ -199,12 +240,6 @@
 			emptyMonthDays[0] ??
 			null
 	);
-	const scheduledCount = $derived(
-		visibleItems.filter((item) => item.status === 'scheduled').length
-	);
-	const publishedCount = $derived(
-		visibleItems.filter((item) => item.status === 'published').length
-	);
 	const weekHours = Array.from({ length: 24 }, (_, hour) => hour);
 	const selectedWorkspaceLabel = $derived.by(() => {
 		if (selectedWorkspaceIds.length === 0 || selectedWorkspaceIds.length === workspaces.length) {
@@ -264,6 +299,8 @@
 			if (shouldRefresh) void loadCalendarData(loadKey);
 		});
 	});
+
+	onDestroy(() => weekDragController.destroy());
 
 	async function loadCalendarData(_key: string) {
 		const request = ++activeRequest;
@@ -389,13 +426,13 @@
 	}
 
 	function accountBadge(account: SocialAccount): AccountBadge {
-		const username = account.account_username?.trim();
 		return {
 			id: account.id,
 			platform: account.platform,
-			label: username
-				? `@${username.replace(/^@/, '')}`
-				: account.slug || platformLabel(account.platform)
+			label:
+				formatSocialAccountName(account.account_username, account.platform) ||
+				account.slug ||
+				platformLabel(account.platform)
 		};
 	}
 
@@ -428,6 +465,7 @@
 
 	function changeView(nextView: CalendarView) {
 		if (nextView === viewMode) return;
+		weekDragController.cancel();
 		monthDayOpen = false;
 		if (nextView === 'week') {
 			const today = workspaceTodayDate(viewerTimeZone);
@@ -532,7 +570,7 @@
 		await rescheduleItem(item, day.date);
 	}
 
-	function snappedTime(event: DragEvent | MouseEvent, hour: number) {
+	function snappedTime(event: MouseEvent, hour: number) {
 		const target = event.currentTarget;
 		if (!(target instanceof HTMLElement)) return `${String(hour).padStart(2, '0')}:00`;
 		const bounds = target.getBoundingClientRect();
@@ -543,24 +581,120 @@
 		return `${String(hour).padStart(2, '0')}:${String(quarter * 15).padStart(2, '0')}`;
 	}
 
-	function onWeekDragOver(event: DragEvent, day: CalendarDay, hour: number) {
-		if (!draggingKey || reschedulingKey || isPastDay(day)) return;
-		event.preventDefault();
-		dropTargetKey = `${day.key}|${snappedTime(event, hour)}`;
-		if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+	function onWeekPointerDown(event: PointerEvent, item: CalendarItem) {
+		weekDragController.pointerDown(event, item, item.movable && !reschedulingKey);
 	}
 
-	async function onWeekDrop(event: DragEvent, day: CalendarDay, hour: number) {
-		event.preventDefault();
-		const key = event.dataTransfer?.getData('text/plain') || draggingKey;
-		const item = allItems.find((candidate) => candidate.key === key);
-		const time = snappedTime(event, hour);
+	function onWeekPointerMove(event: PointerEvent) {
+		weekDragController.pointerMove(event);
+	}
+
+	function onWeekPointerUp(event: PointerEvent) {
+		weekDragController.pointerUp(event);
+	}
+
+	function onWeekPointerCancel(event: PointerEvent) {
+		weekDragController.pointerCancel(event);
+	}
+
+	function onWeekPointerCaptureLost(event: PointerEvent) {
+		weekDragController.pointerCaptureLost(event);
+	}
+
+	function onWeekItemKeyDown(event: KeyboardEvent) {
+		weekDragController.keyDown(event);
+	}
+
+	function onWeekItemClick(event: MouseEvent, item: CalendarItem) {
+		if (weekDragController.consumeClick(item)) {
+			event.preventDefault();
+			return;
+		}
+		openItem(item);
+	}
+
+	function resolveWeekDragTarget(pointer: { x: number; y: number }): WeekDragTarget | null {
+		if (!weekBodyElement) return null;
+		const gutter = weekBodyElement.querySelector<HTMLElement>('[data-week-time-gutter]');
+		if (!gutter) return null;
+		const gridBounds = weekBodyElement.getBoundingClientRect();
+		const resolved = resolveWeekCalendarTarget(pointer, {
+			grid: {
+				left: gridBounds.left,
+				top: gridBounds.top,
+				width: gridBounds.width,
+				height: gridBounds.height
+			},
+			gutterWidth: gutter.getBoundingClientRect().width,
+			hourHeight: gridBounds.height / weekHours.length,
+			targetHeight: WEEK_DRAG_TARGET_HEIGHT
+		});
+		const day = resolved ? weekDays[resolved.dayIndex] : undefined;
+		return resolved && day && !isPastDay(day) ? { ...resolved, day } : null;
+	}
+
+	function activateWeekDragView(
+		item: CalendarItem,
+		sourceBounds: { width: number },
+		target: WeekDragTarget | null
+	) {
+		draggingKey = item.key;
+		successMessage = '';
+		errorMessage = '';
+		weekDragView = {
+			item,
+			target,
+			targetLabel: target
+				? formatWeekDragTarget(target.day, target.time)
+				: formatWeekDragSource(item),
+			width: Math.min(
+				WEEK_DRAG_OVERLAY_MAX_WIDTH,
+				Math.max(WEEK_DRAG_OVERLAY_MIN_WIDTH, sourceBounds.width)
+			),
+			height: WEEK_DRAG_OVERLAY_HEIGHT
+		};
+	}
+
+	function updateWeekDragView(item: CalendarItem, target: WeekDragTarget | null) {
+		if (!weekDragView) return;
+		weekDragView = {
+			...weekDragView,
+			item,
+			target,
+			targetLabel: target
+				? formatWeekDragTarget(target.day, target.time)
+				: formatWeekDragSource(item)
+		};
+	}
+
+	function clearWeekDragView() {
+		weekDragView = null;
+		weekDragOverlayElement = undefined;
 		draggingKey = '';
-		dropTargetKey = '';
-		if (!item?.movable || isPastDay(day)) return;
-		await rescheduleItem(item, day.date, time);
 	}
 
+	function sameWeekDragSlot(item: CalendarItem, target: WeekDragTarget) {
+		const parts = timeParts(item.occursAt);
+		return (
+			workspaceDateKeyFromISO(item.occursAt, viewerTimeZone) === target.day.key &&
+			parts.hour * 60 + parts.minute === target.minutes
+		);
+	}
+
+	function formatWeekDragSource(item: CalendarItem) {
+		const day = weekDays.find(
+			(candidate) => candidate.key === workspaceDateKeyFromISO(item.occursAt, viewerTimeZone)
+		);
+		return day
+			? `${formatWorkspaceDate(day.date, { weekday: 'short' })} ${formatTime(item.occursAt)}`
+			: formatTime(item.occursAt);
+	}
+
+	function formatWeekDragTarget(day: CalendarDay, time: string) {
+		const scheduledAt = workspaceScheduleToISO(calendarDate(day.date), time, viewerTimeZone);
+		const formattedTime = scheduledAt ? formatTime(scheduledAt) : time;
+		return `${formatWorkspaceDate(day.date, { weekday: 'short' })} ${formattedTime}`;
+	}
 	async function rescheduleItem(item: CalendarItem, targetDate: Date, targetTime = '') {
 		if (isPastDate(targetDate)) {
 			errorMessage = m.calendar_past_date();
@@ -788,7 +922,17 @@
 
 	function formatCalendarTitle() {
 		if (viewMode === 'month') return formatMonth(currentMonth);
-		return `${formatEmptyDate(weekDays[0].date)} – ${formatEmptyDate(weekDays[6].date)}`;
+		const firstDay = weekDays[0].date;
+		const lastDay = weekDays[6].date;
+		const firstYear = formatWorkspaceDate(firstDay, { year: 'numeric' });
+		const lastYear = formatWorkspaceDate(lastDay, { year: 'numeric' });
+		const rangeOptions: Intl.DateTimeFormatOptions = {
+			month: 'short',
+			day: 'numeric',
+			timeZone: viewerTimeZone
+		};
+		if (firstYear !== lastYear) rangeOptions.year = 'numeric';
+		return new Intl.DateTimeFormat(getLocaleTag(), rangeOptions).formatRange(firstDay, lastDay);
 	}
 
 	function statusFilterLabel() {
@@ -873,19 +1017,13 @@
 		<div class="px-4 py-4 lg:px-6" style="container-type: inline-size;">
 			<PageHeader
 				title={formatCalendarTitle()}
-				eyebrow={m.calendar_kicker()}
-				icon={CalendarDaysIcon}
+				contentClass="min-w-max shrink-0"
+				titleClass="whitespace-nowrap"
 				loading={initialLoading}
+				class="flex-wrap gap-2"
 			>
-				{#snippet meta()}
-					<span>{m.calendar_scheduled_summary({ count: scheduledCount })}</span>
-					<span class="text-muted-foreground/40">/</span>
-					<span>{m.calendar_published_summary({ count: publishedCount })}</span>
-					<span class="text-muted-foreground/40">/</span>
-					<span>{viewerTimeZone}</span>
-				{/snippet}
 				{#snippet actions()}
-					<div class="flex flex-wrap items-center gap-2">
+					<div class="flex flex-wrap items-center gap-1.5">
 						<div class="inline-flex rounded-md border bg-card p-1">
 							<Tooltip.Root>
 								<Tooltip.Trigger>
@@ -934,20 +1072,22 @@
 							<Button
 								variant={viewMode === 'month' ? 'secondary' : 'ghost'}
 								size="sm"
-								class="gap-1.5"
+								class="min-w-11 gap-1.5 md:min-w-8 2xl:min-w-0"
+								aria-label={m.calendar_month_view()}
 								onclick={() => changeView('month')}
 							>
-								<CalendarDaysIcon class="size-3.5" />
-								{m.calendar_month_view()}
+								<CalendarDaysIcon class="size-3.5" aria-hidden="true" />
+								<span class="hidden 2xl:inline">{m.calendar_month_view()}</span>
 							</Button>
 							<Button
 								variant={viewMode === 'week' ? 'secondary' : 'ghost'}
 								size="sm"
-								class="gap-1.5"
+								class="min-w-11 gap-1.5 md:min-w-8 2xl:min-w-0"
+								aria-label={m.calendar_week_view()}
 								onclick={() => changeView('week')}
 							>
-								<Rows3Icon class="size-3.5" />
-								{m.calendar_week_view()}
+								<Rows3Icon class="size-3.5" aria-hidden="true" />
+								<span class="hidden 2xl:inline">{m.calendar_week_view()}</span>
 							</Button>
 						</div>
 
@@ -1038,10 +1178,11 @@
 						<Button
 							variant="outline"
 							class="gap-1.5"
+							aria-label={m.calendar_open_queue()}
 							href={resolve('/settings') + '?tab=schedule#posting-schedule'}
 						>
-							<ListIcon class="size-4" />
-							{m.calendar_open_queue()}
+							<ListIcon class="size-4" aria-hidden="true" />
+							<span class="hidden 2xl:inline">{m.calendar_open_queue()}</span>
 						</Button>
 
 						<Tooltip.Root>
@@ -1367,6 +1508,7 @@
 				</section>
 			{:else}
 				<section
+					bind:this={weekScrollElement}
 					class="hidden h-full min-h-[720px] overflow-auto rounded-lg border bg-card shadow-sm xl:block"
 					aria-label={m.calendar_week_grid()}
 				>
@@ -1400,61 +1542,65 @@
 								</div>
 							{/each}
 						</div>
-						{#each weekHours as hour (hour)}
-							<div class="grid grid-cols-[4.5rem_repeat(7,minmax(0,1fr))]">
-								<div
-									class="border-r border-b px-2 pt-1 text-right text-xs text-muted-foreground tabular-nums"
-								>
-									{String(hour).padStart(2, '0')}:00
-								</div>
-								{#each weekDays as day (day.key)}
+						<div bind:this={weekBodyElement}>
+							{#each weekHours as hour (hour)}
+								<div class="grid grid-cols-[4.5rem_repeat(7,minmax(0,1fr))]">
 									<div
-										role="group"
-										aria-label={`${formatAgendaDate(day.date)} ${String(hour).padStart(2, '0')}:00`}
-										class={cn(
-											'week-hour relative h-20 border-r border-b last:border-r-0',
-											day.today && 'bg-primary/[0.025]',
-											dropTargetKey.startsWith(`${day.key}|`) &&
-												Number(dropTargetKey.slice(11, 13)) === hour &&
-												'bg-primary/10'
-										)}
-										ondragover={(event) => onWeekDragOver(event, day, hour)}
-										ondragleave={() => (dropTargetKey = '')}
-										ondrop={(event) => onWeekDrop(event, day, hour)}
+										data-week-time-gutter={hour === 0 ? '' : undefined}
+										class="border-r border-b px-2 pt-1 text-right text-xs text-muted-foreground tabular-nums"
 									>
-										<button
-											type="button"
-											class="absolute inset-0 w-full cursor-crosshair focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset disabled:cursor-not-allowed"
-											disabled={isPastDay(day)}
-											aria-label={`${m.calendar_create_post()} ${day.key} ${String(hour).padStart(2, '0')}:00`}
-											onclick={(event) => createPostOnDate(day.date, snappedTime(event, hour))}
-										></button>
-										{#each itemsForHour(day, hour) as item (item.key)}
+										{String(hour).padStart(2, '0')}:00
+									</div>
+									{#each weekDays as day (day.key)}
+										<div
+											role="group"
+											aria-label={`${formatAgendaDate(day.date)} ${String(hour).padStart(2, '0')}:00`}
+											class={cn(
+												'week-hour relative h-20 border-r border-b last:border-r-0',
+												day.today && 'bg-primary/[0.025]'
+											)}
+										>
 											<button
 												type="button"
-												draggable={item.movable}
-												class={cn(
-													'absolute right-1 left-1 z-10 min-h-9 rounded-md border px-2 py-1 text-left text-xs shadow-xs transition-shadow hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-													itemTone(item),
-													draggingKey === item.key && 'opacity-50',
-													reschedulingKey === item.key && 'pointer-events-none opacity-60'
-												)}
-												style={`top: calc(${(timeParts(item.occursAt).minute / 60) * 100}% + 0.125rem);`}
-												aria-label={m.calendar_publication_card({ title: item.title })}
-												ondragstart={(event) => onDragStart(event, item)}
-												ondragend={onDragEnd}
-												onclick={() => openItem(item)}
-											>
-												<span class="flex items-center gap-1 font-medium">
-													{#if !item.movable}<LockIcon class="size-3 shrink-0" />{/if}
-													<span class="truncate">{formatTime(item.occursAt)} · {item.title}</span>
-												</span>
-											</button>
-										{/each}
-									</div>
-								{/each}
-							</div>
-						{/each}
+												class="absolute inset-0 w-full cursor-crosshair focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset disabled:cursor-not-allowed"
+												disabled={isPastDay(day)}
+												aria-label={`${m.calendar_create_post()} ${day.key} ${String(hour).padStart(2, '0')}:00`}
+												onclick={(event) => createPostOnDate(day.date, snappedTime(event, hour))}
+											></button>
+											{#each itemsForHour(day, hour) as item (item.key)}
+												<button
+													type="button"
+													data-calendar-week-item
+													class={cn(
+														'absolute right-1 left-1 z-10 min-h-9 touch-none rounded-md border px-2 py-1 text-left text-xs shadow-xs transition-[opacity,box-shadow,border-color] hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
+														item.movable && 'cursor-grab active:cursor-grabbing',
+														itemTone(item),
+														draggingKey === item.key && 'border-dashed opacity-30 shadow-none',
+														reschedulingKey === item.key && 'pointer-events-none opacity-60'
+													)}
+													style={`top: calc(${(timeParts(item.occursAt).minute / 60) * 100}% + 0.125rem);`}
+													aria-label={m.calendar_publication_card({
+														title: item.title
+													})}
+													onpointerdown={(event) => onWeekPointerDown(event, item)}
+													onpointermove={onWeekPointerMove}
+													onpointerup={onWeekPointerUp}
+													onpointercancel={onWeekPointerCancel}
+													onlostpointercapture={onWeekPointerCaptureLost}
+													onkeydown={onWeekItemKeyDown}
+													onclick={(event) => onWeekItemClick(event, item)}
+												>
+													<span class="flex items-center gap-1 font-medium">
+														{#if !item.movable}<LockIcon class="size-3 shrink-0" />{/if}
+														<span class="truncate">{formatTime(item.occursAt)} · {item.title}</span>
+													</span>
+												</button>
+											{/each}
+										</div>
+									{/each}
+								</div>
+							{/each}
+						</div>
 					</div>
 				</section>
 			{/if}
@@ -1474,6 +1620,18 @@
 		{/if}
 	</div>
 </div>
+
+{#if weekDragView}
+	<CalendarDragOverlay
+		title={weekDragView.item.title}
+		accounts={weekDragView.item.accounts}
+		target={weekDragView.target}
+		targetLabel={weekDragView.targetLabel}
+		width={weekDragView.width}
+		height={weekDragView.height}
+		bind:overlayElement={weekDragOverlayElement}
+	/>
+{/if}
 
 <Sheet.Root open={monthDayOpen} onOpenChange={handleMonthDayOpenChange}>
 	<Sheet.Content side="right" class="w-full! p-0 sm:max-w-lg!" data-testid="calendar-day-drawer">

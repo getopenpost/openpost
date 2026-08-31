@@ -16,10 +16,11 @@ func aliasedJobPayloadTextExpr(db *bun.DB, alias string, key string) string {
 	return dbexpr.JSONTextExpr(db, alias+".payload", key)
 }
 
-// safeAliasedJobPayloadTextExpr is reserved for compatibility reads of old
+// safeJobPayloadTextExpr is reserved for compatibility reads of old
 // job rows, whose payload predates the scope_id invariant and may be malformed.
 // Current mutation paths use scope_id and never depend on this expression.
-func safeAliasedJobPayloadTextExpr(db *bun.DB, alias string, key string) string {
+func safeJobPayloadTextExpr(db *bun.DB, key string) string {
+	const alias = "job"
 	expr := aliasedJobPayloadTextExpr(db, alias, key)
 	if db.Dialect().Name() == dialect.PG {
 		return fmt.Sprintf("openpost_safe_json_text(%s.payload, '%s')", alias, key)

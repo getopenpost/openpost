@@ -16,6 +16,8 @@ const resting: ResolvedMotionTransform = {
 	y: 200,
 	width: 400,
 	height: 300,
+	scaleX: 1,
+	scaleY: 1,
 	rotation: 0,
 	opacity: 0.9
 };
@@ -74,14 +76,17 @@ describe('motion modifier evaluation', () => {
 		expect(result.opacity).toBe(resting.opacity);
 	});
 
-	it('breathes the box and clamps opacity', () => {
+	it('breathes with render-time scale without changing layout bounds', () => {
 		const breath = modifier({ type: 'breath-pulse', frequency: 0.55 });
 		const result = applyMotionModifiers(
 			{ ...resting, opacity: 1 },
 			[breath],
 			context({ frame: 13 })
 		);
-		expect(result.width).not.toBe(resting.width);
+		expect(result.width).toBe(resting.width);
+		expect(result.height).toBe(resting.height);
+		expect(result.scaleX).not.toBe(resting.scaleX);
+		expect(result.scaleY).not.toBe(resting.scaleY);
 		expect(result.opacity).toBeGreaterThanOrEqual(0);
 		expect(result.opacity).toBeLessThanOrEqual(1);
 	});
@@ -115,6 +120,13 @@ describe('motion modifier evaluation', () => {
 				context()
 			)
 		);
+		const legacyBreath = modifier({
+			type: 'breath-pulse',
+			channelGains: { width: 0, height: 1, opacity: 0 }
+		});
+		const legacyResult = applyMotionModifiers(resting, [legacyBreath], context({ frame: 13 }));
+		expect(legacyResult.scaleX).toBe(1);
+		expect(legacyResult.scaleY).not.toBe(1);
 	});
 
 	it('round-trips and updates editable settings without replacing identity', () => {
@@ -136,7 +148,7 @@ describe('motion modifier evaluation', () => {
 		expect(updated.seed).toBe(created.seed);
 		expect(updated.amplitude).toBeCloseTo(0.5, 6);
 		expect(updated.frequency).toBeCloseTo(1.1, 6);
-		expect(updated.channelGains).toMatchObject({ width: 1, height: 1, opacity: 0 });
+		expect(updated.channelGains).toMatchObject({ scaleX: 1, scaleY: 1, opacity: 0 });
 	});
 
 	it('sways only rotation and spins continuously', () => {

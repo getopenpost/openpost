@@ -31,6 +31,7 @@ test("Organization Owner audit stays safe, filterable, exportable, and responsiv
   for (const scenario of scenarios) {
     await test.step(`${scenario.width}px ${scenario.locale} ${scenario.theme}`, async () => {
       await page.setViewportSize(scenario);
+      await page.emulateMedia({ colorScheme: scenario.theme });
       await page.context().addCookies([
         {
           name: "PARAGLIDE_LOCALE",
@@ -41,11 +42,6 @@ test("Organization Owner audit stays safe, filterable, exportable, and responsiv
         },
       ]);
       await page.goto(`/settings?tab=audit&workspace=${workspace.id}`);
-      await page.evaluate(
-        (theme) => localStorage.setItem("mode-watcher-mode", theme),
-        scenario.theme,
-      );
-      await page.reload();
 
       await expect(
         page.getByTestId("page-header").getByRole("heading", {

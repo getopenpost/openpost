@@ -4,6 +4,7 @@ import {
 	X_PREMIUM_CHAR_LIMIT,
 	accountHasXPremiumLongPosts,
 	accountCharacterLimit,
+	mostConstrainedCharacterUsage,
 	minimumAccountCharacterLimit,
 	platformTextLength,
 	uniquePlatformLimits
@@ -24,6 +25,13 @@ describe('platform-limits', () => {
 		expect(platformTextLength('x', 'See https://example.com/this/is/a/long/path')).toBe(27);
 		expect(platformTextLength('x', 'cafe\u0301')).toBe(4);
 		expect(platformTextLength('mastodon', '日本語')).toBe(3);
+	});
+
+	it('does not invent a limit when no destination uses the shared text', () => {
+		expect(mostConstrainedCharacterUsage('A'.repeat(302), [])).toEqual({
+			count: 302,
+			limit: null
+		});
 	});
 
 	it('uses the verified X account limit profile', () => {

@@ -96,21 +96,23 @@ export function assertNoUnprojectedPublicClaims(manifest) {
   }
 }
 
-export function renderPublicClaimProjection(manifest) {
+export function renderPublicClaimProjection(manifest, options = {}) {
   const claims = [...manifest.claims].sort((left, right) =>
     subjectKey(left.subject).localeCompare(subjectKey(right.subject)),
   );
-  const lines = [
-    publicProjectionStart,
-    `The checked-in public certification manifest contains **${claims.length} exact provider-format claim${claims.length === 1 ? "" : "s"}**.`,
-    "",
-  ];
+  const checkedCount =
+    claims.length === 0
+      ? "No posting option has passed our final live check on OpenPost Hosted yet."
+      : claims.length === 1
+        ? "**1 way to post** has passed our final live check on OpenPost Hosted."
+        : `**${claims.length} ways to post** have passed our final live check on OpenPost Hosted.`;
+  const lines = [publicProjectionStart, checkedCount, ""];
   if (claims.length === 0) {
-    lines.push(
-      "No Hosted service provider-format certification claim is current. Implementation descriptions do not assert Hosted service availability.",
-    );
+    lines.push("A social app can appear in OpenPost before it is ready for real accounts.");
+  } else if (options.detailLevel === "summary") {
+    lines.push("See the full readiness list for details.");
   } else {
-    lines.push("Current exact claims:");
+    lines.push("Ready on OpenPost Hosted:");
     for (const claim of claims) {
       const subject = claim.subject;
       lines.push(
@@ -158,19 +160,24 @@ export function validatePublicClaimSurfaceSources(manifest, sources) {
 
   const expectedProjection = renderPublicClaimProjection(manifest);
   for (const [label, source] of [
-    ["provider limits documentation", sources.providerLimits ?? ""],
-    ["provider overview documentation", sources.providerOverview ?? ""],
+    ["provider index documentation", sources.providerIndex ?? ""],
     ["provider launch gate documentation", sources.launchMatrix ?? ""],
     ["certification contract documentation", sources.certificationReadme ?? ""],
-    ["README provider section", sources.readme ?? ""],
   ]) {
     if (extractPublicClaimProjection(source, label) !== expectedProjection) {
       throw new Error(`${label} public certification projection is stale`);
     }
   }
-  if (/\b(?:Available|Supported)\b/u.test(sources.providerLimits ?? "")) {
+  const readmeProjection = renderPublicClaimProjection(manifest, { detailLevel: "summary" });
+  if (
+    extractPublicClaimProjection(sources.readme ?? "", "README provider section") !==
+    readmeProjection
+  ) {
+    throw new Error("README provider section public certification projection is stale");
+  }
+  if (/\b(?:Available|Supported)\b/u.test(sources.providerIndex ?? "")) {
     throw new Error(
-      "provider limits documentation must label code paths as implementations, not availability claims",
+      "provider index documentation must label code paths as implementations, not availability claims",
     );
   }
 }
@@ -182,9 +189,8 @@ export async function assertPublicClaimSurfaces(manifest, repositoryRoot = root)
     marketingIndex: await read("marketing-site/src/routes/platforms/+page.svelte"),
     marketingDetail: await read("marketing-site/src/routes/platforms/[slug]/+page.svelte"),
     marketingLanding: await read("marketing-site/src/routes/+page.svelte"),
-    providerLimits: await read("docs-site/providers/platform-limits.md"),
-    providerOverview: await read("docs-site/providers/overview.md"),
-    launchMatrix: await read("docs-site/providers/launch-matrix.md"),
+    providerIndex: await read("docs-site/providers/index.md"),
+    launchMatrix: await read("docs-site/operations/provider-launch-matrix.md"),
     certificationReadme: await read("provider-certification/README.md"),
     readme: await read("README.md"),
   });

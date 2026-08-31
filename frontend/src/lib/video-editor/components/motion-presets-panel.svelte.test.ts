@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { commandHistory } from '$lib/video-editor/timeline/commands/command-store.svelte';
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions-store.svelte';
+import { setKeyframe } from '$lib/video-editor/timeline/actions/keyframes';
 import MotionPresetsPanel from './motion-presets-panel.svelte';
 
 const track: TimelineTrack = {
@@ -42,6 +44,17 @@ function props(itemId = 'one', itemIds = ['one']) {
 	};
 }
 
+async function setSlider(slider: Element, value: number, step: number): Promise<void> {
+	if (!(slider instanceof HTMLElement)) throw new Error('Slider control is missing.');
+	const current = Number(slider.getAttribute('aria-valuenow'));
+	if (!Number.isFinite(current)) throw new Error('Slider value is missing.');
+	const steps = Math.round(Math.abs(value - current) / step);
+	if (steps === 0) return;
+	const key = value > current ? 'ArrowRight' : 'ArrowLeft';
+	slider.focus();
+	await userEvent.keyboard(steps === 1 ? `{${key}}` : `{${key}>${steps}/}`);
+}
+
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
@@ -50,16 +63,68 @@ beforeEach(() => {
 });
 
 describe('MotionPresetsPanel', () => {
-	it('renders the full grouped catalog without auto-playing thumbnails', async () => {
+	it('offers the Edit workspace Motion clip action through the supplied workflow', async () => {
+		const onmotionclip = vi.fn();
+		const screen = await render(MotionPresetsPanel, {
+			...props(),
+			variant: 'edit',
+			onmotionclip
+		});
+
+		await expect.element(screen.getByRole('heading', { name: 'Motion clip' })).toBeVisible();
+		await screen.getByRole('button', { name: 'Create motion clip' }).click();
+		expect(onmotionclip).toHaveBeenCalledOnce();
+	});
+
+	it('groups presets without auto-playing thumbnails', async () => {
 		const screen = await render(MotionPresetsPanel, props());
-		expect(document.querySelectorAll('.preset-group .preset-tile')).toHaveLength(20);
-		expect(document.querySelectorAll('.live-tile')).toHaveLength(5);
 		expect(screen.getByText('Entrance', { exact: true })).toBeVisible();
 		expect(screen.getByText('Exit', { exact: true })).toBeVisible();
 		expect(screen.getByText('Emphasis', { exact: true })).toBeVisible();
 		const glyph = document.querySelector<HTMLElement>('.motion-glyph');
 		expect(glyph).not.toBeNull();
 		expect(getComputedStyle(glyph!).animationName).toBe('none');
+	});
+
+	it('searches the whole animation catalog and can hide incompatible results', async () => {
+		const screen = await render(MotionPresetsPanel, props());
+		const search = screen.getByRole('searchbox', { name: 'Search animation' });
+		await search.fill('fade');
+		expect(screen.getByRole('button', { name: 'Replace Fade in' }).query()).not.toBeNull();
+		expect(document.querySelectorAll('[aria-label="Replace Slide left"]')).toHaveLength(0);
+		await screen.getByRole('button', { name: 'Clear animation search' }).click();
+		expect(document.querySelectorAll('[aria-label="Replace Slide left"]')).toHaveLength(2);
+
+		timelineStore.setAll({ items: [item('one', { type: 'controller' })] });
+		await screen.getByRole('button', { name: 'Compatible' }).click();
+		await expect.element(screen.getByText('No matching animation.')).toBeVisible();
+	});
+
+	it('removes one generated preset without deleting manual animation', async () => {
+		setKeyframe('one', 'rotation', 45, 20);
+		commandHistory.clearHistory();
+		const input = props();
+		const screen = await render(MotionPresetsPanel, input);
+		await screen.getByRole('button', { name: 'Replace Fade in' }).click();
+		await expect
+			.element(screen.getByRole('heading', { name: 'Applied to this clip' }))
+			.toBeVisible();
+		await expect.element(screen.getByText('2 keyframes across 1 properties.')).toBeVisible();
+		await expect.element(screen.getByText('Manual keyframes')).toBeVisible();
+		timelineStore._setCurrentFrame(30);
+		await screen.getByRole('button', { name: /Fade in 2 keyframes/ }).click();
+		expect(timelineStore.currentFrame).toBe(0);
+		await screen.getByRole('button', { name: 'Remove Fade in layer' }).click();
+		expect(timelineStore.itemById.get('one')?.keyframes?.opacity).toBeUndefined();
+		expect(timelineStore.itemById.get('one')?.keyframes?.rotation).toMatchObject({
+			frames: [45],
+			values: [20]
+		});
+		expect(commandHistory.undoStack).toHaveLength(2);
+		expect(input.onedit).toHaveBeenCalledTimes(2);
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('one')?.keyframes?.opacity?.frames).toEqual([0, 15]);
+		expect(timelineStore.itemById.get('one')?.keyframes?.rotation?.frames).toEqual([45]);
 	});
 
 	it('attaches deterministic staggered live behavior to every selected clip', async () => {
@@ -70,13 +135,12 @@ describe('MotionPresetsPanel', () => {
 		});
 		const input = props('one', ['one', 'two']);
 		const screen = await render(MotionPresetsPanel, input);
-		const ranges = document.querySelectorAll<HTMLInputElement>('.generator-controls input');
-		ranges[0]!.value = '2';
-		ranges[0]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		ranges[1]!.value = '0.5';
-		ranges[1]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		ranges[2]!.value = '4';
-		ranges[2]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
+		const generator = screen.container.querySelector('.generator-controls');
+		if (!generator) throw new Error('Motion tuning controls are missing.');
+		const sliders = generator.querySelectorAll('[role="slider"]');
+		await setSlider(sliders[0]!, 2, 0.05);
+		await setSlider(sliders[1]!, 0.5, 0.05);
+		await setSlider(sliders[2]!, 4, 1);
 		await screen.getByRole('button', { name: 'Apply live Float drift' }).click();
 		await vi.waitFor(() => {
 			expect(timelineStore.itemById.get('one')?.motionModifiers?.[0]).toMatchObject({
@@ -101,13 +165,9 @@ describe('MotionPresetsPanel', () => {
 		const screen = await render(MotionPresetsPanel, input);
 		await screen.getByRole('button', { name: 'Apply live Float drift' }).click();
 		commandHistory.clearHistory();
-		const ranges = document.querySelectorAll<HTMLInputElement>('.live-controls input');
-		expect(ranges).toHaveLength(5);
-		ranges[0]!.value = '0.8';
-		ranges[0]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		ranges[0]!.value = '0.35';
-		ranges[0]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		ranges[0]!.dispatchEvent(new Event('change', { bubbles: true }));
+		const sliders = document.querySelectorAll('.live-controls [role="slider"]');
+		expect(sliders).toHaveLength(5);
+		await setSlider(sliders[0]!, 0.35, 0.05);
 		await vi.waitFor(() => {
 			expect(timelineStore.itemById.get('one')?.motionModifiers?.[0]?.amplitude).toBe(0.35);
 		});
@@ -171,14 +231,11 @@ describe('MotionPresetsPanel', () => {
 		});
 		const input = props('one', ['one', 'two']);
 		const screen = await render(MotionPresetsPanel, input);
-		const ranges = document.querySelectorAll<HTMLInputElement>('input[type="range"]');
-		expect(ranges).toHaveLength(3);
-		ranges[0]!.value = '2';
-		ranges[0]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		ranges[1]!.value = '0.5';
-		ranges[1]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
-		ranges[2]!.value = '3';
-		ranges[2]!.dispatchEvent(new InputEvent('input', { bubbles: true }));
+		const sliders = screen.container.querySelectorAll('.generator-controls [role="slider"]');
+		expect(sliders).toHaveLength(3);
+		await setSlider(sliders[0]!, 2, 0.05);
+		await setSlider(sliders[1]!, 0.5, 0.05);
+		await setSlider(sliders[2]!, 3, 1);
 
 		await screen.getByRole('button', { name: 'Replace Fade in' }).click();
 		await vi.waitFor(() => {
@@ -221,20 +278,19 @@ describe('MotionPresetsPanel', () => {
 		expect(input.onedit).toHaveBeenCalledTimes(1);
 	});
 
-	it('disables box-scale presets for text with a clear reason', async () => {
+	it('offers scale presets and live breathing for text', async () => {
 		timelineStore.setAll({ items: [item('one', { type: 'text', text: 'Headline' })] });
 		await render(MotionPresetsPanel, props());
 		const pop = document.querySelector<HTMLButtonElement>('button[aria-label="Replace Pop in"]');
 		expect(pop).not.toBeNull();
-		expect(pop?.disabled).toBe(true);
-		expect(pop?.title).toBe('This preset changes the text box size and could reflow the text.');
+		expect(pop?.disabled).toBe(false);
 		expect(
 			document.querySelector<HTMLButtonElement>('button[aria-label="Replace Fade in"]')?.disabled
 		).toBe(false);
 		expect(
 			document.querySelector<HTMLButtonElement>('button[aria-label="Apply live Breath pulse"]')
 				?.disabled
-		).toBe(true);
+		).toBe(false);
 	});
 
 	it('reports transition overlap without saving or partly applying', async () => {

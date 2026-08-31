@@ -5,6 +5,7 @@ import {
   classifyReleasePath,
   maintainedReleasePaths,
   readReleaseSurfaceManifest,
+  releaseSurfacePlan,
   trackedReleasePaths,
   validateReleaseSurfaceManifest,
 } from "./release-surfaces.mjs";
@@ -41,4 +42,33 @@ test("a new unowned path fails closed", () => {
     "new-release-root.txt",
   ]);
   assert.ok(problems.includes("unowned tracked path: new-release-root.txt"));
+});
+
+test("removed paths retain their previous release surface", () => {
+  const currentManifest = {
+    schema_version: 1,
+    surfaces: {
+      documentation: {
+        description: "Current documentation",
+        paths: ["README.md"],
+      },
+    },
+  };
+  const previousManifest = {
+    schema_version: 1,
+    surfaces: {
+      documentation: {
+        description: "Previous documentation",
+        paths: ["removed.md"],
+      },
+    },
+  };
+
+  assert.deepEqual(releaseSurfacePlan(["removed.md"], currentManifest, previousManifest), [
+    {
+      file: "removed.md",
+      surfaces: ["documentation"],
+      exemption: undefined,
+    },
+  ]);
 });

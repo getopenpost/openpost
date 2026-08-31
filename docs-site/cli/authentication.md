@@ -28,7 +28,7 @@ The CLI prints the verification URL and user code. Open that URL on another devi
 
 ## Sign in with a token
 
-For automation, create an API token in **Settings → Developer access**, then pass it through stdin:
+For automation, create an API token in **Settings → Personal → Developer access**, then pass it through stdin:
 
 ```sh
 printf '%s\n' "$OPENPOST_TOKEN" | openpost auth login http://localhost:8080 --with-token
@@ -44,4 +44,4 @@ If no keyring is available, `--insecure-storage` writes the token to an XDG `cre
 
 CLI tokens use `cli:full`. They can read and change workspaces, social accounts, posts, media, jobs, and API tokens. A workspace selection limits workspace-owned resources and blocks organization-level resources, but it does not remove the account-level commands included in `cli:full`. An all-workspace token retains the account- and organization-level commands allowed by `cli:full`, while organization SSO and token policies can exclude protected workspaces. If its owner is an instance administrator, it also retains the explicitly typed provider-certification test operations; the general instance control plane still requires a signed-in browser session. For narrower automation, use an `api:read` or `api:write` token instead.
 
-Use **Settings → Developer access** to see each token's status, expiration, last use, scope, and workspace boundary. Remove tokens you no longer use. See [API Tokens](/development/api-tokens) for the complete scope and lifetime contract.
+Use **Settings → Personal → Developer access** to see each token's status, expiration, last use, scope, and workspace boundary. Remove tokens you no longer use. See [API Tokens](/development/api-tokens) for the complete scope and lifetime contract.

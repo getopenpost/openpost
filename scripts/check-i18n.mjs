@@ -1,6 +1,7 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { referencedMessageKeys } from "./i18n-source-usage.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const messagesDirectory = path.join(root, "frontend", "messages");
@@ -20,6 +21,21 @@ const referenceCatalog = catalogs.get(referenceLocale);
 const referenceKeys = new Set(Object.keys(referenceCatalog));
 let failed = false;
 
+async function sourceFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entryPath === path.join(root, "frontend", "src", "lib", "paraglide")) continue;
+      files.push(...(await sourceFiles(entryPath)));
+    } else if (/\.(?:js|svelte|ts)$/.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
 function placeholders(message) {
   return [
     ...new Set([...message.matchAll(/\{([A-Za-z][\w]*)\b[^}]*\}/g)].map((match) => match[1])),
@@ -36,6 +52,27 @@ function translationArtifact(message) {
     return "translation marker";
   }
   return null;
+}
+
+const missingSourceMessages = new Map();
+for (const sourcePath of await sourceFiles(path.join(root, "frontend", "src"))) {
+  const source = await readFile(sourcePath, "utf8");
+  for (const key of referencedMessageKeys(source)) {
+    if (referenceKeys.has(key)) continue;
+    const paths = missingSourceMessages.get(key) ?? [];
+    paths.push(path.relative(root, sourcePath));
+    missingSourceMessages.set(key, paths);
+  }
+}
+
+if (missingSourceMessages.size > 0) {
+  failed = true;
+  console.error(`${referenceLocale}.json is missing messages used by frontend source:`);
+  for (const [key, paths] of [...missingSourceMessages].sort(([left], [right]) =>
+    left.localeCompare(right),
+  )) {
+    console.error(`  ${key}: ${[...new Set(paths)].join(", ")}`);
+  }
 }
 
 for (const locale of locales.filter((locale) => locale !== referenceLocale)) {

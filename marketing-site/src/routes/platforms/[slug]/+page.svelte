@@ -41,10 +41,10 @@
 				>
 					{platform.heroTitle}
 				</h1>
-				<p class="mt-5 text-sm font-medium text-foreground">
+				<p class="marketing-copy mt-5">{platform.description}</p>
+				<p class="mt-3 text-sm font-medium text-foreground/75">
 					This page is for people deciding whether OpenPost fits their {platform.name} publishing workflow.
 				</p>
-				<p class="marketing-copy mt-5">{platform.description}</p>
 				<div class="mt-5 grid gap-2 text-sm text-muted-foreground">
 					<p class="inline-flex items-start gap-2">
 						<Info class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -71,7 +71,7 @@
 				{/if}
 				<div class="mt-7 flex flex-wrap gap-3">
 					<Button href={managedSignupUrl} size="lg" data-agent-exclude>
-						Try OpenPost
+						Start 14-day trial
 						<ArrowRight data-icon="inline-end" />
 					</Button>
 					<Button

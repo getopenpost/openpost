@@ -1,9 +1,9 @@
 /**
  * Project document model for the OpenPost Video Editor.
  *
- * Ported from FreeCut (MIT) - types/project.ts - trimmed to the v1 surface:
- * video / audio / image / Lottie / text / subtitle / shape / adjustment / composition
- * items and reusable nested sequences.
+ * Ported from FreeCut (MIT) - types/project.ts - adapted to the current surface:
+ * video / audio / image / Lottie / text / subtitle / shape / adjustment / controller /
+ * composition items and reusable nested sequences.
  */
 
 import type {
@@ -13,6 +13,8 @@ import type {
 	WipeDirection as TransitionDirection
 } from '../transitions/types';
 import type { AudioEqFieldSource } from '../audio/audio-eq';
+import type { AudioEqSettings } from '../audio/types';
+import type { AudioNoiseReductionFieldSource } from '../audio/audio-noise-reduction';
 import type { AudioPitchFieldSource } from '../audio/audio-pitch';
 
 export type {
@@ -21,17 +23,28 @@ export type {
 	WipeDirection as TransitionDirection
 } from '../transitions/types';
 
-export type TimelineItemKind =
-	| 'video'
-	| 'audio'
-	| 'image'
-	| 'lottie'
-	| 'text'
-	| 'subtitle'
-	| 'shape'
-	| 'adjustment'
-	| 'controller'
-	| 'composition';
+export interface AudioDuckingSettings {
+	duckOthersDb: number;
+	attackSec?: number;
+	releaseSec?: number;
+	targetTrackIds?: string[];
+}
+
+export const TIMELINE_ITEM_KINDS = [
+	'video',
+	'audio',
+	'image',
+	'lottie',
+	'text',
+	'subtitle',
+	'shape',
+	'adjustment',
+	'controller',
+	'composition',
+	'background'
+] as const;
+
+export type TimelineItemKind = (typeof TIMELINE_ITEM_KINDS)[number];
 
 export type ShapeType =
 	| 'rectangle'
@@ -56,6 +69,9 @@ export interface ItemTransform {
 	y?: number;
 	width?: number;
 	height?: number;
+	/** Render-time scale that does not change media or text layout bounds. */
+	scaleX?: number;
+	scaleY?: number;
 	anchorX?: number;
 	anchorY?: number;
 	rotation?: number;
@@ -84,7 +100,15 @@ export interface TransformParentBinding {
 }
 
 export type MotionModifierType = 'float-drift' | 'breath-pulse' | 'micro-shake' | 'sway' | 'spin';
-export type MotionModifierChannel = 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity';
+export type MotionModifierChannel =
+	| 'x'
+	| 'y'
+	| 'width'
+	| 'height'
+	| 'scaleX'
+	| 'scaleY'
+	| 'rotation'
+	| 'opacity';
 export type MotionModifierChannelGains = Partial<Record<MotionModifierChannel, number>>;
 
 export interface MotionModifier {
@@ -100,6 +124,22 @@ export interface MotionModifier {
 }
 
 export type MotionLayerBlendMode = 'add' | 'multiply';
+
+export const TRANSFORM_ANIMATABLE_PROPERTIES = [
+	'x',
+	'y',
+	'width',
+	'height',
+	'scaleX',
+	'scaleY',
+	'anchorX',
+	'anchorY',
+	'rotation',
+	'opacity',
+	'cornerRadius'
+] as const;
+
+export type TransformAnimatableProperty = (typeof TRANSFORM_ANIMATABLE_PROPERTIES)[number];
 
 export interface MotionLayerKeyframe {
 	id: string;
@@ -192,6 +232,8 @@ export interface CropSettings {
 	bottom: number;
 	left: number;
 	softness?: number;
+	/** Fit the cropped source region back into the item bounds. */
+	refit?: boolean;
 }
 
 /** Four local-pixel offsets stored against the item size where they were authored. */
@@ -202,6 +244,15 @@ export interface TimelineItemCornerPin {
 	bottomLeft: [number, number];
 	referenceWidth?: number;
 	referenceHeight?: number;
+}
+
+/** A persisted playback-rate anchor positioned in source-native frames. */
+export interface SpeedRampPoint {
+	id: string;
+	sourceFrame: number;
+	speed: number;
+	/** Interpolation from this anchor to the next anchor. */
+	easing: EasingType;
 }
 
 /**
@@ -268,17 +319,27 @@ export type BuiltInKeyframeProperty =
 	| 'y'
 	| 'width'
 	| 'height'
+	| 'scaleX'
+	| 'scaleY'
 	| 'anchorX'
 	| 'anchorY'
 	| 'rotation'
 	| 'opacity'
 	| 'cornerRadius'
+	| 'backgroundRotation'
+	| 'backgroundScale'
+	| 'backgroundOffsetX'
+	| 'backgroundOffsetY'
+	| 'backgroundSmoothness'
+	| 'backgroundDensity'
+	| 'backgroundForegroundOpacity'
 	| 'cropLeft'
 	| 'cropRight'
 	| 'cropTop'
 	| 'cropBottom'
 	| 'cropSoftness'
 	| 'volume'
+	| 'textStyleScale'
 	| 'fontSize'
 	| 'fontWeight'
 	| 'lineHeight'
@@ -304,6 +365,14 @@ export type KeyframeProperty =
 	| PathVertexKeyframeProperty
 	| EffectKeyframeProperty;
 
+/** Identifies one preset application so it can be removed without touching manual animation. */
+export interface AnimationKeyframeSource {
+	applicationId: string;
+	kind: 'built-in-preset' | 'saved-preset';
+	presetId: string;
+	presetName: string;
+}
+
 /**
  * Parallel frame/value arrays for one animated property. Frames ascend and
  * are relative to the item's start (`from`), so tracks survive item moves.
@@ -315,6 +384,7 @@ export interface KeyframeTrack {
 	ids?: string[];
 	easings?: EasingType[];
 	easingConfigs?: Array<EasingConfig | null>;
+	sources?: Array<AnimationKeyframeSource | null>;
 }
 
 /** Per-property keyframe tracks stored on a timeline item. */
@@ -392,6 +462,7 @@ export interface VectorKeyframe {
 	easing: EasingType;
 	easingConfig?: EasingConfig;
 	spatial?: SpatialBezierTangents;
+	source?: AnimationKeyframeSource;
 }
 
 export type ItemVectorKeyframes = Partial<Record<VectorKeyframeProperty, VectorKeyframe[]>>;
@@ -410,9 +481,11 @@ export interface AnimationPresetProperty {
 	keyframes: AnimationPresetKeyframe[];
 }
 
+export type AnimationPresetVectorKeyframe = Omit<VectorKeyframe, 'source'>;
+
 export interface AnimationPresetVectorProperty {
 	property: VectorKeyframeProperty;
-	keyframes: VectorKeyframe[];
+	keyframes: AnimationPresetVectorKeyframe[];
 }
 
 /** Project-scoped animation recipe captured from one compatible clip type. */
@@ -506,8 +579,12 @@ export interface TranscriptCaptionSource extends CaptionSourceBase {
 	type: 'transcript';
 	/** Source window used for transcription, before timeline speed scaling. */
 	sourceStartSeconds?: number;
+	/** Exclusive end of the transcribed source window. */
+	sourceEndSeconds?: number;
 	/** Playback speed used when source-second word timings became cue frames. */
 	playbackSpeed?: number;
+	/** Whether cue frames advance from the source window end toward its start. */
+	isReversed?: boolean;
 }
 
 export interface SubtitleImportCaptionSource extends CaptionSourceBase {
@@ -524,10 +601,19 @@ export interface EmbeddedSubtitleCaptionSource extends CaptionSourceBase {
 	codecId: string;
 }
 
+export interface AiCaptionsCaptionSource extends CaptionSourceBase {
+	type: 'ai-captions';
+	sourceStartSeconds?: number;
+	sourceEndSeconds?: number;
+	playbackSpeed?: number;
+	isReversed?: boolean;
+}
+
 export type CaptionSource =
 	| TranscriptCaptionSource
 	| SubtitleImportCaptionSource
-	| EmbeddedSubtitleCaptionSource;
+	| EmbeddedSubtitleCaptionSource
+	| AiCaptionsCaptionSource;
 
 export interface SubtitleCue {
 	id: string;
@@ -544,7 +630,40 @@ export interface SubtitleWord {
 	text: string;
 }
 
-export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, AudioPitchFieldSource {
+export type BackgroundKind = 'mesh-gradient' | 'pattern';
+export type BackgroundPatternKind = 'dots' | 'grid' | 'stripes' | 'checker';
+
+export interface BackgroundMeshBackground {
+	kind: 'mesh-gradient';
+	colors: [string, string, string, string];
+	smoothness: number;
+	rotation: number;
+	scale: number;
+	offsetX: number;
+	offsetY: number;
+}
+
+export interface BackgroundPatternBackground {
+	kind: 'pattern';
+	pattern: BackgroundPatternKind;
+	foreground: string;
+	background: string;
+	scale: number;
+	rotation: number;
+	offsetX: number;
+	offsetY: number;
+	density: number;
+	foregroundOpacity: number;
+}
+
+export type ProceduralBackground = BackgroundMeshBackground | BackgroundPatternBackground;
+
+export interface TimelineItem
+	extends
+		TextStyleFields,
+		AudioEqFieldSource,
+		AudioPitchFieldSource,
+		AudioNoiseReductionFieldSource {
 	id: string;
 	trackId: string;
 	from: number;
@@ -567,6 +686,8 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	sourceDuration?: number;
 	sourceFps?: number;
 	speed?: number;
+	/** Source-anchored speed curve shared by preview, audio, transcript edits, and export. */
+	speedRamp?: SpeedRampPoint[];
 	/** Play the selected source window from its exclusive end back to its start. */
 	isReversed?: boolean;
 
@@ -636,6 +757,12 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	captionSource?: CaptionSource;
 	cues?: SubtitleCue[];
 	subtitleStyleScale?: number;
+	/** Caption highlight mode for word-level karaoke highlighting. */
+	captionHighlightMode?: 'normal' | 'karaoke';
+	/** Active karaoke word foreground color. */
+	karaokeActiveColor?: string;
+	/** Optional active karaoke word background/accent. */
+	karaokeActiveBackground?: string;
 
 	// Source dimensions (video/image)
 	sourceWidth?: number;
@@ -655,6 +782,7 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	audioFadeOutCurve?: number;
 	audioFadeInCurveX?: number;
 	audioFadeOutCurveX?: number;
+	audioDucking?: AudioDuckingSettings;
 
 	// Video properties
 	fadeIn?: number;
@@ -684,6 +812,12 @@ export interface TimelineItem extends TextStyleFields, AudioEqFieldSource, Audio
 	// Clip effects (CSS-filter-semantics color/blur stack; see effects/types.ts)
 	effects?: import('$lib/video-editor/effects/types').ItemEffect[];
 
+	// Ordered audio effect rack after EQ and fades, shared by preview and export
+	audioEffects?: import('../audio/audio-effects').AudioEffect[];
+
+	// Procedural background (mesh gradient / repeatable pattern). Only for `background` items.
+	background?: ProceduralBackground;
+
 	// Per-clip compositing blend mode for the GPU pipeline (25 modes; see
 	// effects/gpu/blend-modes.ts). Absent/'normal' keeps opacity-only blending.
 	blendMode?: import('$lib/video-editor/effects/gpu/blend-modes').BlendMode;
@@ -706,6 +840,8 @@ export interface TimelineTrack {
 	muted: boolean;
 	solo: boolean;
 	volume?: number;
+	/** Per-track parametric EQ inserted after clip EQ and before bus EQ. */
+	audioEq?: AudioEqSettings;
 	color?: string;
 	order: number;
 }
@@ -715,6 +851,8 @@ export interface TimelineMarker {
 	frame: number;
 	label?: string;
 	color: string;
+	kind?: 'beat' | 'downbeat';
+	sourceItemId?: string;
 }
 
 export type TransitionPropertyValue = number | [number, number, number];
@@ -758,6 +896,8 @@ export interface ProjectTimeline {
 	masterVolumeDb?: number;
 	/** Persisted master-bus mute. */
 	masterMuted?: boolean;
+	/** Master-bus parametric EQ applied after all track and clip stages. */
+	busAudioEq?: AudioEqSettings;
 }
 
 export interface SubComposition {
@@ -778,6 +918,8 @@ export interface SubComposition {
 	outPoint?: number | null;
 	masterVolumeDb?: number;
 	masterMuted?: boolean;
+	/** Sequence-bus parametric EQ applied after nested track and clip stages. */
+	busAudioEq?: AudioEqSettings;
 }
 
 export interface ProjectResolution {
@@ -798,6 +940,8 @@ export interface Project {
 	 * Schema version for migrations. Projects without this field are version 1.
 	 */
 	schemaVersion?: number;
+	/** Distinguishes OpenPost's schema history from compatible foreign project formats. */
+	schemaFamily?: 'openpost';
 	thumbnailId?: string;
 	metadata: ProjectResolution;
 	timeline?: ProjectTimeline;

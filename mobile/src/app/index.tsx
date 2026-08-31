@@ -8,6 +8,7 @@ import {
   subscribeToken,
   subscribeWorkspaceId,
 } from "@/lib/api/token-store";
+import { destinationState } from "@/lib/first-use";
 
 export default function Gate() {
   const server = useSyncExternalStore(subscribeServer, getServer);
@@ -17,5 +18,5 @@ export default function Gate() {
   if (!server) return <Redirect href="/onboarding/server" />;
   if (!token) return <Redirect href="/onboarding/login" />;
   if (!workspaceId) return <Redirect href="/onboarding/workspace" />;
-  return <Redirect href="/(tabs)/drafts" />;
+  return <Redirect href={destinationState(null).route} />;
 }

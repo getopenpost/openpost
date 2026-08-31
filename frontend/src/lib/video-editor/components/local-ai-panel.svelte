@@ -2,6 +2,9 @@
 	import { onDestroy } from 'svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
+	import { Slider } from '$lib/components/ui/slider';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import LocalModelCacheControl from '$lib/video-editor/components/local-model-cache-control.svelte';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -9,6 +12,7 @@
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		LOCAL_TTS_ENGINE_OPTIONS,
+		LOCAL_TTS_EXPRESSIVE_TAG_OPTIONS,
 		LOCAL_TTS_LANGUAGE_OPTIONS,
 		defaultLocalTtsVoice,
 		generateLocalSpeech,
@@ -20,10 +24,18 @@
 		type LocalTtsGenerateOptions
 	} from '$lib/video-editor/local-ai/tts/registry';
 	import {
+		getStoredLocalTtsEngine,
+		setStoredLocalTtsEngine
+	} from '$lib/video-editor/local-ai/tts/preferences';
+	import {
 		commitGeneratedAudio,
 		type CommitGeneratedAudioOptions
 	} from '$lib/video-editor/local-ai/commit-generated-audio';
-	import type { GeneratedAudio, LocalGenerationProgress } from '$lib/video-editor/local-ai/types';
+	import type {
+		GeneratedAudio,
+		LocalGenerationProgress,
+		TextVoiceRequest
+	} from '$lib/video-editor/local-ai/types';
 	import { mediaTaskId, mediaTasks } from '$lib/video-editor/media/media-tasks.svelte';
 	import LocalMusicPanel from './local-music-panel.svelte';
 	import { transcriptionLanguageUiLabel } from '$lib/video-editor/transcript/engine/model-i18n';
@@ -36,13 +48,15 @@
 		oninserted,
 		generateSpeech = generateLocalSpeech,
 		commitAudio = commitGeneratedAudio,
-		supported
+		supported,
+		textVoiceRequest = null
 	}: {
 		projectId: string;
 		oninserted: (itemId: string) => void;
 		generateSpeech?: GenerateSpeech;
 		commitAudio?: CommitAudio;
 		supported?: boolean;
+		textVoiceRequest?: TextVoiceRequest | null;
 	} = $props();
 
 	interface Generation {
@@ -51,13 +65,15 @@
 		url: string;
 		engine: LocalTtsEngine;
 		voice: string;
+		sourceTextItemId?: string;
 		mediaId?: string;
 		saving: boolean;
 	}
 
+	const initialEngine = getStoredLocalTtsEngine();
 	let text = $state('');
-	let engine = $state<LocalTtsEngine>('kokoro');
-	let voice = $state(defaultLocalTtsVoice('kokoro'));
+	let engine = $state<LocalTtsEngine>(initialEngine);
+	let voice = $state(defaultLocalTtsVoice(initialEngine));
 	let language = $state('auto');
 	let speed = $state(1);
 	let generating = $state(false);
@@ -67,7 +83,10 @@
 	let activeTab = $state<'voice' | 'music'>('voice');
 	let voiceTab: HTMLButtonElement;
 	let musicTab: HTMLButtonElement;
+	let scriptTextarea = $state<HTMLTextAreaElement | null>(null);
 	let abortController: AbortController | null = null;
+	let sourceTextItemId = $state<string | null>(null);
+	let handledTextVoiceRequestId = $state<string | null>(null);
 	const voiceOptions = $derived(localTtsVoiceOptions(engine));
 	const speedRange = $derived(localTtsSpeedRange(engine));
 	const engineSupported = $derived(supported ?? isLocalTtsSupported(engine));
@@ -79,14 +98,19 @@
 				: m.video_editor_local_ai_supertonic_description()
 	);
 
-	function changeEngine(event: Event): void {
-		const target = event.currentTarget;
-		if (!(target instanceof HTMLSelectElement)) return;
-		const nextEngine = LOCAL_TTS_ENGINE_OPTIONS.find(
-			(option) => option.value === target.value
-		)?.value;
+	$effect(() => {
+		if (!textVoiceRequest || textVoiceRequest.id === handledTextVoiceRequestId) return;
+		handledTextVoiceRequestId = textVoiceRequest.id;
+		sourceTextItemId = textVoiceRequest.sourceTextItemId;
+		text = textVoiceRequest.text;
+		activeTab = 'voice';
+	});
+
+	function changeEngine(value: string): void {
+		const nextEngine = LOCAL_TTS_ENGINE_OPTIONS.find((option) => option.value === value)?.value;
 		if (!nextEngine) return;
 		engine = nextEngine;
+		setStoredLocalTtsEngine(engine);
 		voice = defaultLocalTtsVoice(engine);
 		const range = localTtsSpeedRange(engine);
 		speed = Math.min(range.max, Math.max(range.min, speed));
@@ -97,6 +121,24 @@
 		if (stage === 'preparing') return m.video_editor_local_ai_preparing();
 		if (stage === 'finalizing') return m.video_editor_local_ai_finalizing();
 		return m.video_editor_local_ai_generating();
+	}
+
+	function expressiveTagLabel(tag: string): string {
+		if (tag === '<laugh>') return m.video_editor_local_ai_expressive_laugh();
+		if (tag === '<breath>') return m.video_editor_local_ai_expressive_breath();
+		return m.video_editor_local_ai_expressive_sigh();
+	}
+
+	function insertExpressiveTag(tag: string): void {
+		if (!scriptTextarea) return;
+		const start = scriptTextarea.selectionStart ?? text.length;
+		const end = scriptTextarea.selectionEnd ?? start;
+		text = `${text.slice(0, start)}${tag}${text.slice(end)}`;
+		queueMicrotask(() => {
+			const nextPosition = start + tag.length;
+			scriptTextarea.focus();
+			scriptTextarea.setSelectionRange(nextPosition, nextPosition);
+		});
 	}
 
 	function handleTabKeydown(event: KeyboardEvent): void {
@@ -126,6 +168,7 @@
 		try {
 			const requestedEngine = engine;
 			const requestedVoice = voice;
+			const requestedSourceTextItemId = sourceTextItemId ?? undefined;
 			const result = await generateSpeech({
 				engine: requestedEngine,
 				text,
@@ -154,6 +197,7 @@
 					url: URL.createObjectURL(result.blob),
 					engine: requestedEngine,
 					voice: requestedVoice,
+					sourceTextItemId: requestedSourceTextItemId,
 					saving: false
 				},
 				...generations
@@ -183,7 +227,10 @@
 				projectId,
 				tags: localTtsTags(generation.engine, generation.voice),
 				existingMediaId: generation.mediaId,
-				...(insert && { insertAtFrame: timelineStore.currentFrame })
+				...(insert &&
+					(generation.sourceTextItemId
+						? { sourceTextItemId: generation.sourceTextItemId }
+						: { insertAtFrame: timelineStore.currentFrame }))
 			};
 			const committed = await commitAudio(generation.result, options);
 			generation.mediaId = committed.media.id;
@@ -260,33 +307,83 @@
 			</div>
 
 			<div class="space-y-1.5 border-b border-[oklch(0.24_0.012_55)] p-2">
+				{#if sourceTextItemId}
+					<div
+						class="flex items-center justify-between gap-2 rounded border border-[oklch(0.38_0.07_45)] bg-[oklch(0.22_0.025_45)] px-2 py-1 text-[10px] text-[oklch(0.82_0.04_65)]"
+						role="status"
+					>
+						<span>{m.video_editor_local_ai_linked_text_hint()}</span>
+						<button
+							type="button"
+							class="shrink-0 rounded px-1 py-0.5 text-[9px] hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+							onclick={() => (sourceTextItemId = null)}
+						>
+							{m.video_editor_local_ai_unlink_text()}
+						</button>
+					</div>
+				{/if}
 				<label for="local-ai-script" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 					{m.video_editor_local_ai_script()}
 				</label>
-				<textarea
+				<Textarea
+					bind:ref={scriptTextarea}
 					id="local-ai-script"
-					class="mt-0.5 min-h-24 w-full resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					class="mt-0.5 min-h-24 resize-y rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.18_0.008_55)] px-2 py-1.5 text-[11px] leading-relaxed text-white placeholder:text-[oklch(0.45_0.01_55)] focus-visible:border-[oklch(0.66_0.14_45)]"
 					bind:value={text}
 					disabled={generating}
 					placeholder={m.video_editor_local_ai_script_placeholder()}
-					maxlength="5000"></textarea>
+					maxlength={5000}
+				/>
+				{#if engine === 'supertonic'}
+					<div
+						role="group"
+						class="flex flex-wrap items-center gap-1"
+						aria-label={m.video_editor_local_ai_expressive_tags()}
+					>
+						<span class="text-[9px] text-[oklch(0.58_0.012_55)]">
+							{m.video_editor_local_ai_expressive_tags()}
+						</span>
+						{#each LOCAL_TTS_EXPRESSIVE_TAG_OPTIONS as tag}
+							<Button
+								type="button"
+								size="xs"
+								variant="outline"
+								class="min-h-6 px-2 text-[9px] [@media(pointer:coarse)]:min-h-11"
+								disabled={generating}
+								onclick={() => insertExpressiveTag(tag.value)}
+							>
+								{expressiveTagLabel(tag.value)}
+							</Button>
+						{/each}
+					</div>
+				{/if}
 
 				<div>
 					<label for="local-ai-engine" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 						{m.video_editor_local_ai_engine()}
 					</label>
-					<select
-						id="local-ai-engine"
-						aria-describedby="local-ai-engine-description"
-						class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					<Select.Root
+						type="single"
 						value={engine}
 						disabled={generating}
-						onchange={changeEngine}
+						onValueChange={changeEngine}
 					>
-						{#each LOCAL_TTS_ENGINE_OPTIONS as option}
-							<option value={option.value}>{option.label}</option>
-						{/each}
-					</select>
+						<Select.Trigger
+							id="local-ai-engine"
+							aria-label={m.video_editor_local_ai_engine()}
+							aria-describedby="local-ai-engine-description"
+							class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+						>
+							<span class="truncate"
+								>{LOCAL_TTS_ENGINE_OPTIONS.find((o) => o.value === engine)?.label ?? engine}</span
+							>
+						</Select.Trigger>
+						<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+							{#each LOCAL_TTS_ENGINE_OPTIONS as option}
+								<Select.Item value={option.value}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					<span
 						id="local-ai-engine-description"
 						class="mt-0.5 block text-[9px] leading-tight text-[oklch(0.52_0.01_55)]"
@@ -299,31 +396,36 @@
 						<label for="local-ai-voice" class="text-[10px] text-[oklch(0.66_0.015_55)]">
 							{m.video_editor_local_ai_voice_label()}
 						</label>
-						<select
-							id="local-ai-voice"
-							class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-							bind:value={voice}
-							disabled={generating}
-						>
-							{#each voiceOptions as option}
-								<option value={option.value}>{option.label}</option>
-							{/each}
-						</select>
+						<Select.Root type="single" bind:value={voice} disabled={generating}>
+							<Select.Trigger
+								id="local-ai-voice"
+								aria-label={m.video_editor_local_ai_voice_label()}
+								class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+							>
+								<span class="truncate"
+									>{voiceOptions.find((o) => o.value === voice)?.label ?? voice}</span
+								>
+							</Select.Trigger>
+							<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+								{#each voiceOptions as option}
+									<Select.Item value={option.value}>{option.label}</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
 					</div>
 					<div>
 						<label for="local-ai-speed" class="text-[10px] text-[oklch(0.66_0.015_55)]">
 							{m.video_editor_local_ai_speed()}
 						</label>
-						<input
-							id="local-ai-speed"
-							class="mt-0.5 w-full accent-[oklch(0.66_0.14_45)]"
-							type="range"
+						<Slider
+							value={speed}
 							min={speedRange.min}
 							max={speedRange.max}
-							step="0.05"
-							bind:value={speed}
+							step={0.05}
 							disabled={generating}
-							aria-valuetext={`${speed.toFixed(2)}×`}
+							ariaLabel={m.video_editor_local_ai_speed()}
+							onValueChange={(v) => (speed = v)}
+							class="mt-0.5"
 						/>
 						<span class="block text-center text-[9px] text-[oklch(0.72_0.012_55)]"
 							>{speed.toFixed(2)}×</span
@@ -335,20 +437,26 @@
 						<label for="local-ai-language" class="block text-[10px] text-[oklch(0.66_0.015_55)]">
 							{m.video_editor_local_ai_language()}
 						</label>
-						<select
-							id="local-ai-language"
-							class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-							bind:value={language}
-							disabled={generating}
-						>
-							{#each LOCAL_TTS_LANGUAGE_OPTIONS as option}
-								<option value={option.value}
-									>{transcriptionLanguageUiLabel(
-										option.value === 'auto' ? '' : option.value
-									)}</option
+						<Select.Root type="single" bind:value={language} disabled={generating}>
+							<Select.Trigger
+								id="local-ai-language"
+								aria-label={m.video_editor_local_ai_language()}
+								class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+							>
+								<span class="truncate"
+									>{transcriptionLanguageUiLabel(language === 'auto' ? '' : language)}</span
 								>
-							{/each}
-						</select>
+							</Select.Trigger>
+							<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+								{#each LOCAL_TTS_LANGUAGE_OPTIONS as option}
+									<Select.Item value={option.value}
+										>{transcriptionLanguageUiLabel(
+											option.value === 'auto' ? '' : option.value
+										)}</Select.Item
+									>
+								{/each}
+							</Select.Content>
+						</Select.Root>
 					</div>
 				{/if}
 
@@ -393,7 +501,7 @@
 						>
 							<div
 								class="h-full rounded-full bg-[oklch(0.66_0.14_45)] {progress.progress === null
-									? 'w-1/3 animate-pulse'
+									? 'w-1/3 animate-pulse motion-reduce:animate-none'
 									: ''}"
 								style:width={progress.progress === null
 									? undefined
@@ -409,7 +517,10 @@
 					disabled={!generating && (!engineSupported || !text.trim())}
 					onclick={generating ? cancel : () => void generate()}
 				>
-					{#if generating}<LoaderIcon class="size-3 animate-spin" aria-hidden="true" />{/if}
+					{#if generating}<LoaderIcon
+							class="size-3 animate-spin motion-reduce:animate-none"
+							aria-hidden="true"
+						/>{/if}
 					{generating ? m.video_editor_local_ai_cancel() : m.video_editor_local_ai_generate()}
 				</Button>
 				<LocalModelCacheControl disabled={generating} />
@@ -459,7 +570,9 @@
 								onclick={() => void save(generation, true)}
 							>
 								<PlusIcon class="size-3" aria-hidden="true" />
-								{m.video_editor_local_ai_add_timeline()}
+								{generation.sourceTextItemId
+									? m.video_editor_local_ai_add_and_link()
+									: m.video_editor_local_ai_add_timeline()}
 							</Button>
 						</div>
 					</article>

@@ -50,6 +50,26 @@ func TestMastodonResolveAccountPublishingCapabilitiesReadsInstanceVideoLimits(t 
 	}
 }
 
+func TestMastodonGetProfilePrefersStaticAvatar(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.String() != "https://mastodon.example/api/v1/accounts/verify_credentials" {
+			t.Fatalf("unexpected request %s", req.URL.String())
+		}
+		return jsonResponse(req, `{"id":"mastodon-1","acct":"creator","display_name":"Creator","avatar":"https://mastodon.example/animated.gif","avatar_static":"https://mastodon.example/avatar.png"}`), nil
+	})}
+
+	profile, err := NewMastodonAdapter("", "", "", "https://mastodon.example").GetProfile(context.Background(), "access-token")
+	if err != nil {
+		t.Fatalf("GetProfile returned error: %v", err)
+	}
+	if profile.DisplayName != "Creator" || profile.AvatarURL != "https://mastodon.example/avatar.png" {
+		t.Fatalf("unexpected profile: %#v", profile)
+	}
+}
+
 func TestMastodonPublishAppliesStatusSettings(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

@@ -99,7 +99,9 @@ func (h *ProfileHandler) uploadAvatar(c echo.Context) error {
 	}
 
 	objectKey := "avatar_" + userID + "_" + uuid.New().String() + ext
-	if _, err := mediastore.SaveWithContentType(h.storage, objectKey, bytes.NewReader(content), contentType); err != nil {
+	ctx := c.Request().Context()
+	if _, err := mediastore.SaveWithContentType(ctx, h.storage, objectKey, bytes.NewReader(content), contentType); err != nil {
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		log.Printf("failed to save profile avatar for user %s: %v", userID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: "failed to save avatar"})
 	}
@@ -110,11 +112,11 @@ func (h *ProfileHandler) uploadAvatar(c echo.Context) error {
 		Set("avatar_object_key = ?", objectKey).
 		Where("id = ?", userID).
 		Exec(c.Request().Context()); err != nil {
-		_ = h.storage.Delete(objectKey)
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, objectKey)
 		return c.JSON(http.StatusInternalServerError, map[string]string{fieldError: "failed to update profile avatar"})
 	}
 	if strings.TrimSpace(user.AvatarObjectKey) != "" && user.AvatarObjectKey != objectKey {
-		_ = h.storage.Delete(filepath.Base(user.AvatarObjectKey))
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, filepath.Base(user.AvatarObjectKey))
 	}
 
 	return c.JSON(http.StatusOK, map[string]string{"avatar_url": avatarURL})
@@ -134,7 +136,7 @@ func (h *ProfileHandler) deleteAvatarForUser(ctx context.Context, userID string)
 		return huma.Error500InternalServerError("failed to remove profile avatar")
 	}
 	if h.storage != nil && strings.TrimSpace(user.AvatarObjectKey) != "" {
-		_ = h.storage.Delete(filepath.Base(user.AvatarObjectKey))
+		_ = mediastore.DeleteForCleanup(ctx, h.storage, filepath.Base(user.AvatarObjectKey))
 	}
 	return nil
 }
@@ -147,7 +149,7 @@ func (h *ProfileHandler) serveAvatar(c echo.Context) error {
 	if objectKey == "." || objectKey == "" || !strings.HasPrefix(objectKey, "avatar_") {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "avatar not found"})
 	}
-	file, err := h.storage.Open(objectKey)
+	file, err := h.storage.Open(c.Request().Context(), objectKey)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{fieldError: "avatar not found"})
 	}

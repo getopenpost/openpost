@@ -1,6 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { prepareReleaseChangelog } from "../packages/changelog/src/index.js";
 
@@ -12,11 +13,8 @@ if (!tag) {
 }
 
 // Merge fragments from changes/ into CHANGELOG.md before preparing the release.
-try {
-  execFileSync("bun", ["scripts/merge-changelog-fragments.mjs"], { stdio: "inherit" });
-} catch {
-  // merge-changelog-fragments exits 0 when there is nothing to merge.
-}
+const mergeScriptPath = fileURLToPath(new URL("./merge-changelog-fragments.mjs", import.meta.url));
+execFileSync("bun", [mergeScriptPath], { stdio: "inherit" });
 
 const changelogPath = resolve("CHANGELOG.md");
 const current = readFileSync(changelogPath, "utf8");

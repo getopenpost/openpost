@@ -8,7 +8,7 @@ Post HTTP routes, post-named MCP tools, and the legacy Post authoring model are 
 
 - The `posts`, `post_destinations`, `post_media`, `post_variants`, and `thread_drafts` tables are removed after the legacy backfill completes and no Post rows or pending `publish_post` Jobs remain.
 - Post HTTP routes and the post-named MCP tools (`create_draft`, `list_drafts`, `update_draft`, `set_post_renditions`, `schedule_post`, `schedule_draft`, `get_post_status`, `list_scheduled_posts`, `cancel_post`) are removed.
-- Old Post links still resolve to the canonical Publication through immutable `legacy_post` and `legacy_post_variant` aliases. The aliases store only the mapping from a legacy ID to a Publication (and optional segment); they carry no content, status, schedule, or provider state.
+- During an old-database upgrade, immutable `legacy_post` and `legacy_post_variant` records map migrated IDs to Publications. They are migration data only and do not expose a browser or HTTP compatibility route.
 - Historical migration files remain so an older database can upgrade in place. They translate legacy rows and non-terminal publishing Jobs into Publications, Renditions, and authorization receipts before the final schema drops the legacy tables.
 
 ## Field mapping
@@ -31,11 +31,11 @@ Post HTTP routes, post-named MCP tools, and the legacy Post authoring model are 
 | ------------------------------ | ---------------------------------------------------------------------------------- |
 | `POST /posts`                  | `POST /publications`, then `POST /publications/{id}/schedule` when scheduling.     |
 | `GET /posts`                   | `GET /publications`.                                                               |
-| `GET /posts/{id}`              | Resolve the legacy alias to `publication_id`, then `GET /publications/{id}`.       |
-| `PATCH /posts/{id}`            | `PATCH /publications/{id}` or schedule and cancel endpoints.                       |
+| `GET /posts/{id}`              | Use the migrated `publication_id`, then `GET /publications/{id}`.                  |
+| `PATCH /posts/{id}`            | `PUT /publications/{id}` or schedule and cancel endpoints.                         |
 | `DELETE /posts/{id}`           | `DELETE /publications/{id}` with `expected_revision`.                              |
 | `POST /posts/draft`            | `POST /publications`.                                                              |
-| `PUT /posts/{id}/draft`        | `PATCH /publications/{id}`.                                                        |
+| `PUT /posts/{id}/draft`        | `PUT /publications/{id}`.                                                          |
 | `/posts/{id}/variants`         | `GET /publications/{id}` and `PUT /publications/{id}/renditions`.                  |
 | `GET /posts/schedule-overview` | `GET /publications` with `calendar_from` and `calendar_before`, then group by day. |
 

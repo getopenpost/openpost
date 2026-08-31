@@ -4,7 +4,7 @@ description: Learn how to connect accounts, create account versions, schedule pu
 
 # User Docs
 
-Use these docs to connect accounts, write account versions, schedule posts, track results, work with replies and messages, use the CLI, or let an AI tool help through MCP.
+Use these docs to connect accounts, build or write account versions, schedule posts, track results, work with replies and messages, use the CLI, or grant an AI tool access through MCP.
 
 Provider data, formats, and actions remain limited by the connected account and provider.
 
@@ -15,11 +15,11 @@ For a visual introduction, [watch the OpenPost product demo](https://youtu.be/_m
 The web app is the main place to work.
 
 - [Workspaces](/usage/workspaces) keep brands, accounts, prompts, schedules, and media separate.
-- [Settings](/usage/settings) explains the Workspace, Account, and Organization split.
+- [Settings](/usage/settings) explains the Personal, Workspace, Organization, and Instance split.
 - [Account Security](/usage/account-security) covers authenticator setup, one-time recovery codes, passkeys, and secure replacement or removal.
 - [Accounts](/usage/accounts) explains how connected social accounts appear in a workspace.
-- [Agent-Assisted Publishing](/usage/agent-assisted-publishing) shows how an MCP tool can prepare account versions while a person reviews the work.
-- [Composing Posts](/usage/composing-posts) covers account selection, media, account versions, and the editor.
+- [Composing Posts](/usage/composing-posts) covers built-in AI drafting, account selection, media, account versions, and the editor.
+- [Agent-Assisted Publishing](/usage/agent-assisted-publishing) shows how an external MCP tool can prepare account versions while a person reviews the work.
 - [Threads](/usage/threads) covers multi-post sequences.
 - [Scheduling](/usage/scheduling) covers posting times, status, and errors.
 - [Auto Reposts](/usage/auto-reposts) covers native repost rules, engagement gates, delays, per-post overrides, and cross-workspace account access.
@@ -27,9 +27,10 @@ The web app is the main place to work.
 - [Engagement, Inbox, and Notifications](/usage/communications) covers comments, replies, messages, and alerts. Direct messages and Comments and replies are separate optional features per connected account and start off.
 - [Grow](/usage/grow) covers recommendations for Bluesky and Mastodon. Grow is an optional feature per connected account, starts off, and never follows automatically.
 - [Media](/usage/media-library) covers reusable files, designs, templates, brand items, tags, file sources, use checks, and safe cleanup.
-- [OpenPost Studio](/usage/studio) helps you choose between the image and video editing workflows.
 - [OpenPost Image Editor](/usage/image-editor) covers the no-account editor, multi-page still-image designs, saved versions, background removal, export, and return to the post editor.
-- [OpenPost Video Editor](/usage/video-editor) covers local video editing and recording, captions, format variants, recovery, export, cloud save, and return to a post.
+- [OpenPost Video Editor](/usage/video-editor) covers disk-backed projects, multitrack editing, motion, color, audio, captions, local models, export, and Media handoff.
+- [Quick Cut](/usage/quick-cut) covers verified keyframe cuts, exact cuts, stream selection, merged output, and lossless packet-copy export.
+- [Recorder](/usage/recording) covers separate synchronized screen, camera, and microphone capture, recovery, and timeline insertion.
 
 ## CLI
 

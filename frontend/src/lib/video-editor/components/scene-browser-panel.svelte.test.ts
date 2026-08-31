@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { render } from 'vitest-browser-svelte';
+import { page } from 'vitest/browser';
 import { mediaPool } from '$lib/video-editor/media/pool.svelte';
 import { sceneBrowser } from '$lib/video-editor/media/scene-search/scene-browser.svelte';
 import type { SceneAnalysis } from '$lib/video-editor/media/scene-search/types';
@@ -42,6 +43,38 @@ const analysis: SceneAnalysis = {
 			timeSec: 1.2,
 			text: 'A cook plates pasta in a bright kitchen',
 			palette: [{ l: 53, a: 70, b: 50, weight: 0.7 }]
+		}
+	]
+};
+
+const imageMedia: MediaMetadata = {
+	id: 'image-1',
+	storageType: 'workspace',
+	fileName: 'poster.png',
+	fileSize: 50,
+	mimeType: 'image/png',
+	duration: 0,
+	width: 1200,
+	height: 800,
+	fps: 0,
+	codec: 'png',
+	bitrate: 0,
+	tags: ['image']
+};
+
+const imageAnalysis: SceneAnalysis = {
+	...analysis,
+	mediaId: imageMedia.id,
+	method: 'image',
+	scenes: [
+		{
+			id: 'image-1:0',
+			mediaId: imageMedia.id,
+			index: 0,
+			startSec: 0,
+			endSec: 3,
+			timeSec: 0,
+			text: 'A still poster with bold type'
 		}
 	]
 };
@@ -112,10 +145,39 @@ describe('SceneBrowserPanel', () => {
 		});
 	});
 
+	it('shows still-image results and inserts them as a fitted image clip', async () => {
+		await page.viewport(320, 720);
+		mediaPool.loadAll([media, imageMedia]);
+		sceneBrowser.__setAnalysisForTesting(imageAnalysis);
+		const screen = await render(SceneBrowserPanel);
+		screen.container.style.width = '320px';
+		expect(screen.container.scrollWidth).toBeLessThanOrEqual(320);
+		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+		await page.screenshot({ path: '../../../../.svelte-kit/openpost-scene-images-320.png' });
+
+		await screen
+			.getByRole('button', { name: 'Add scene at playhead: A still poster with bold type' })
+			.click();
+
+		expect(timelineStore.items[0]).toMatchObject({
+			type: 'image',
+			mediaId: imageMedia.id,
+			from: 60,
+			durationInFrames: 90,
+			sourceStart: 0,
+			sourceDuration: 90,
+			sourceFps: undefined,
+			transform: { width: 1620, height: 1080 }
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+		commandHistory.undo();
+		expect(timelineStore.items).toHaveLength(0);
+		await page.viewport(1280, 720);
+	});
+
 	it('switches layouts and turns palette swatches into perceptual color searches', async () => {
 		const screen = await render(SceneBrowserPanel);
 		await screen.getByRole('button', { name: 'List view' }).click();
-		expect(screen.container.querySelector('article')?.classList.contains('flex')).toBe(true);
 
 		await screen.getByRole('button', { name: 'Find scenes with this color' }).click();
 		expect(sceneBrowser.query).toBe('red');

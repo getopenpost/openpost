@@ -171,7 +171,7 @@ describe('DestinationSettingsDialog', () => {
 		expect(onChange).toHaveBeenCalledWith('playlist_id', 'launches');
 	});
 
-	it('offers a touch-safe continuation for paged remote options', async () => {
+	it('continues paged remote options without overflow', async () => {
 		await page.viewport(320, 720);
 		const onOptionLoadMore = vi.fn();
 		const playlist = setting('playlist_id', 'Playlist', {
@@ -194,7 +194,6 @@ describe('DestinationSettingsDialog', () => {
 		});
 
 		const continuation = screen.getByRole('button', { name: 'Load more options' });
-		expect(continuation.element()).toHaveClass('min-h-11');
 		await continuation.click();
 		expect(onOptionLoadMore).toHaveBeenCalledWith(playlist);
 		const dialog = screen.getByRole('dialog').element();

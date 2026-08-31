@@ -15,6 +15,7 @@
 	import AccountManagement from '$lib/components/account-management.svelte';
 	import InstanceAdminUsers from '$lib/components/instance-admin-users.svelte';
 	import InstanceConfiguration from '$lib/components/instance-configuration.svelte';
+	import InstanceAIPrompts from '$lib/components/instance-ai-prompts.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import NotificationPreferences from '$lib/components/notification-preferences.svelte';
 	import OrganizationAuditSettings from '$lib/components/organization-audit-settings.svelte';
@@ -98,7 +99,7 @@
 	}
 
 	function continueAccountConnection(continuation: AccountManagementContinuation) {
-		rememberAccountManagementContinuation(continuation, 'settings');
+		rememberAccountManagementContinuation(continuation);
 		if (continuation.kind === 'external-oauth') {
 			window.location.assign(continuation.url);
 			return;
@@ -168,7 +169,6 @@
 					<BrandSettingsTab workspaceID={workspaceCtx.currentWorkspace?.id ?? ''} active />
 				{:else if activeSettingsTab === 'accounts'}
 					<AccountManagement
-						mode="settings"
 						workspace={workspaceCtx.currentWorkspace}
 						workspaces={workspaceCtx.workspaces}
 						links={accountLinks}
@@ -211,6 +211,8 @@
 					<InstanceSettingsTab userID={authState.user?.id ?? ''} active />
 				{:else if authState.user?.is_admin && activeSettingsTab === 'configuration'}
 					<InstanceConfiguration active />
+				{:else if authState.user?.is_admin && activeSettingsTab === 'ai-prompts'}
+					<InstanceAIPrompts active />
 				{:else if authState.user?.is_admin && activeSettingsTab === 'users'}
 					<InstanceAdminUsers />
 				{:else if authState.user?.is_admin && activeSettingsTab === 'instance-audit'}

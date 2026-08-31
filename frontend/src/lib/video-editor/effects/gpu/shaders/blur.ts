@@ -42,7 +42,16 @@ vec4 gaussianBlurFragment(vec2 vUv) {
 }`,
 	schema: [
 		{ name: 'radius', label: 'Radius', default: 10, min: 0, max: 50, step: 1 },
-		{ name: 'samples', label: 'Samples', default: 5, min: 1, max: 64, step: 1 }
+		{
+			name: 'samples',
+			label: 'Samples',
+			default: 5,
+			min: 1,
+			max: 64,
+			step: 1,
+			animatable: false,
+			quality: true
+		}
 	],
 	uniformValues: (p, w, h) => ({
 		uRadius: readNumber(p, 'radius', 10),
@@ -123,7 +132,16 @@ vec4 motionBlurFragment(vec2 vUv) {
 	schema: [
 		{ name: 'amount', label: 'Amount', default: 0.05, min: 0, max: 0.3, step: 0.005 },
 		{ name: 'angle', label: 'Angle', default: 0, min: 0, max: 6.28318, step: 0.01 },
-		{ name: 'samples', label: 'Samples', default: 16, min: 4, max: 32, step: 1 },
+		{
+			name: 'samples',
+			label: 'Samples',
+			default: 16,
+			min: 4,
+			max: 32,
+			step: 1,
+			animatable: false,
+			quality: true
+		},
 		{ name: 'shutterAngle', label: 'Shutter Angle', default: 180, min: 0, max: 360, step: 1 }
 	],
 	uniformValues: (p) => ({
@@ -172,7 +190,16 @@ vec4 radialBlurFragment(vec2 vUv) {
 		{ name: 'amount', label: 'Amount', default: 0.5, min: 0, max: 2, step: 0.01 },
 		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
 		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'samples', label: 'Samples', default: 32, min: 4, max: 256, step: 1 }
+		{
+			name: 'samples',
+			label: 'Samples',
+			default: 32,
+			min: 4,
+			max: 256,
+			step: 1,
+			animatable: false,
+			quality: true
+		}
 	],
 	uniformValues: (p) => ({
 		uAmount: readNumber(p, 'amount', 0.5),
@@ -210,7 +237,16 @@ vec4 zoomBlurFragment(vec2 vUv) {
 		{ name: 'amount', label: 'Amount', default: 0.3, min: 0, max: 1, step: 0.01 },
 		{ name: 'centerX', label: 'Center X', default: 0.5, min: 0, max: 1, step: 0.01 },
 		{ name: 'centerY', label: 'Center Y', default: 0.5, min: 0, max: 1, step: 0.01 },
-		{ name: 'samples', label: 'Samples', default: 16, min: 4, max: 256, step: 1 }
+		{
+			name: 'samples',
+			label: 'Samples',
+			default: 16,
+			min: 4,
+			max: 256,
+			step: 1,
+			animatable: false,
+			quality: true
+		}
 	],
 	uniformValues: (p) => ({
 		uAmount: readNumber(p, 'amount', 0.3),

@@ -40,7 +40,7 @@ export interface SceneAnalysis {
 	contentHash?: string;
 	sourceFileSize: number;
 	sourceLastModified?: number;
-	method: 'histogram' | 'adaptive';
+	method: 'histogram' | 'adaptive' | 'image';
 	sampleIntervalSec: number;
 	captionModel?: string;
 	textEmbeddingModel?: string;

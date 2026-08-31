@@ -135,6 +135,7 @@ type PublicationResponse struct {
 	Revision             int                          `json:"revision"`
 	ScheduledAt          string                       `json:"scheduled_at,omitempty"`
 	ActualRunAt          string                       `json:"actual_run_at,omitempty"`
+	FailureDismissedAt   string                       `json:"failure_dismissed_at,omitempty"`
 	RandomDelayMinutes   int                          `json:"random_delay_minutes"`
 	RandomDelayInherited bool                         `json:"random_delay_inherited"`
 	Metadata             map[string]any               `json:"metadata"`

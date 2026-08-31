@@ -5,6 +5,7 @@ import {
 	mediaMetadataPath,
 	mediaEmbeddedSubtitlesPath,
 	mediaReversePreviewPath,
+	sourceTranscriptPath,
 	exportFilePath,
 	recordingFilePath,
 	filmstripFramePath
@@ -57,6 +58,7 @@ describe('path builders', () => {
 			'reverse',
 			'v1-fingerprint.webm'
 		]);
+		expect(sourceTranscriptPath('m1')).toEqual(['media', 'm1', 'cache', 'ai', 'transcript.json']);
 	});
 
 	it('sanitizes user-facing file names in export paths', () => {

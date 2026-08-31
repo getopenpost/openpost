@@ -182,7 +182,8 @@ function vectorComponentTrack(
 		easings: keyframes.map((keyframe) => keyframe.easing),
 		easingConfigs: keyframes.map((keyframe) =>
 			keyframe.easingConfig ? cloneEasingConfig(keyframe.easingConfig) : null
-		)
+		),
+		sources: keyframes.map((keyframe) => keyframe.source ?? null)
 	};
 }
 

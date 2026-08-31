@@ -5,6 +5,8 @@ type AudioProbeWindow = Window & { __openpostCueCount?: number };
 
 async function installAudioProbe(page: Page) {
   await page.addInitScript(() => {
+    const minimumMasterGain = 0.2;
+    const maximumMasterGain = 0.35;
     const audioWindow = window as AudioProbeWindow;
     audioWindow.__openpostCueCount = 0;
     const AudioContextConstructor = window.AudioContext;
@@ -15,7 +17,7 @@ async function installAudioProbe(page: Page) {
       const node = originalCreateGain.call(this);
       const originalConnect = node.connect.bind(node);
       node.connect = ((destination: AudioNode, output?: number, input?: number) => {
-        if (node.gain.value >= 0.38 && node.gain.value <= 0.55) {
+        if (node.gain.value >= minimumMasterGain && node.gain.value <= maximumMasterGain) {
           audioWindow.__openpostCueCount = (audioWindow.__openpostCueCount ?? 0) + 1;
         }
         return originalConnect(destination, output, input);
@@ -43,6 +45,9 @@ test("settings actions emit one cue per gesture and respect mute", async ({ page
   await authenticatePage(page, auth.token);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.goto(`/settings?tab=general&workspace=${workspace.id}`);
+  await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
+  await page.evaluate(() => localStorage.setItem("openpost:interface-sounds", "on"));
+  await page.reload();
   await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
 
   await page.locator('[data-settings-tab="schedule"]').click();

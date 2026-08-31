@@ -8,7 +8,8 @@ import {
 	removeTransition,
 	transitionsStore,
 	transitionAtFrame,
-	updateTransition
+	updateTransition,
+	updateTransitionPresentation
 } from './transitions.svelte';
 import type { TimelineItem } from '$lib/video-editor/project/types';
 
@@ -92,7 +93,20 @@ describe('transitions', () => {
 			durationInFrames: 20
 		});
 		commandHistory.undo();
-		expect(transitionsStore.list[0]).toMatchObject({ presentation: 'fade', alignment: 0.5 });
+		expect(transitionsStore.list[0]).toMatchObject({
+			presentation: 'fade',
+			alignment: 0.5
+		});
+	});
+
+	it('treats reapplying the current presentation as a successful no-op', () => {
+		const [left, right] = setup();
+		const id = addTransition(left.id, right.id, 'crossfade', 15);
+		const undoCount = commandHistory.undoStack.length;
+
+		expect(updateTransitionPresentation(id, 'fade')).toBe(true);
+		expect(commandHistory.undoStack).toHaveLength(undoCount);
+		expect(transitionsStore.list[0]?.presentation).toBe('fade');
 	});
 
 	it('rejects a transition when either clip lacks the required hidden source', () => {

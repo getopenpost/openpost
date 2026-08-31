@@ -9,6 +9,7 @@ export interface StreamingOutputTarget {
 	file(name: string, mimeType: string): Promise<File>;
 	discard(): Promise<void>;
 	storageKey: string | null;
+	readonly bytesWritten: number;
 }
 
 export interface StreamingFileWritable {
@@ -21,6 +22,7 @@ export interface StreamingWritableLifecycle {
 	writable: WritableStream<StreamTargetChunk>;
 	file(name: string, mimeType: string): Promise<File>;
 	discard(): Promise<void>;
+	readonly bytesWritten: number;
 }
 
 export async function createFileSystemAccessOutputTarget(
@@ -73,6 +75,9 @@ export function createWritableOutputTarget(
 	return {
 		target: new StreamTarget(lifecycle.writable, { chunked: true, chunkSize: 4 * 1024 * 1024 }),
 		storageKey,
+		get bytesWritten() {
+			return lifecycle.bytesWritten;
+		},
 		file: lifecycle.file,
 		discard: lifecycle.discard
 	};
@@ -89,6 +94,7 @@ export function createStreamingWritableLifecycle(
 	let hasFailure = false;
 	let failure: Error;
 	let terminalPromise: Promise<void> | null = null;
+	let bytesWritten = 0;
 	let resolveTerminal!: () => void;
 	const terminal = new Promise<void>((resolve) => {
 		resolveTerminal = resolve;
@@ -140,6 +146,7 @@ export function createStreamingWritableLifecycle(
 			try {
 				signal?.throwIfAborted();
 				await fileWritable.write({ type: 'write', position: chunk.position, data: chunk.data });
+				bytesWritten = Math.max(bytesWritten, chunk.position + chunk.data.byteLength);
 			} catch (cause) {
 				const failure = toFailure(cause);
 				await abortWritable(failure);
@@ -188,6 +195,9 @@ export function createStreamingWritableLifecycle(
 
 	return {
 		writable,
+		get bytesWritten() {
+			return bytesWritten;
+		},
 		async file(name, mimeType) {
 			await terminal;
 			if (hasFailure) throw failure;

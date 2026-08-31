@@ -6,20 +6,20 @@ Connected accounts are the social accounts inside a workspace.
 
 ## Common flow
 
-1. Open the accounts screen.
+1. Open **Settings → Workspace → Social accounts**.
 2. Choose a platform.
 3. Sign in to that platform and approve access.
 4. Return to OpenPost. A successful first connection opens a fresh composer with the new destination selected.
 
 If you cancel authorization or the provider cannot finish the connection, OpenPost returns to account management with a retry message. Refreshing or signing in again does not create a separate setup state; the Workspace setup guide reads current subscription, destination, first-composition, and Publication data.
 
-Account management is available directly at `/accounts` and inside **Settings → Social accounts**. Both views use the same Workspace-scoped controls and preserve the current URL while you work. OAuth cancellation and error feedback is shown once on the view you return to, then removed from the URL so refresh and browser history do not repeat stale feedback.
+**Settings → Workspace → Social accounts** is the account-management screen. OAuth cancellation and error feedback appears there once, then OpenPost removes it from the URL so refresh and browser history do not repeat stale feedback.
 
 ## Optional features per connected account
 
 Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. Each feature starts off for a newly connected account.
 
-After a new connection, OpenPost shows the features that this account supports on a focused setup page. You can enable any of them, keep all off, and change them later in the Account details drawer. The drawer keeps feature choices together and collapses the developer shortcut until you need it. The setup page may group Direct messages and Comments and replies under an Inbox heading, but OpenPost saves and enforces them as separate choices.
+Manage these choices in the Account details drawer under **Settings → Workspace → Social accounts**. The drawer keeps feature choices together and collapses the developer shortcut until you need it. Direct messages and Comments and replies appear together under Inbox, but OpenPost saves and enforces them as separate choices.
 
 Enabling a feature queues an initial durable refresh for that account. Disabling a feature stops future provider reads and writes for that account without deleting previously collected messages, replies, metrics, or recommendations and without revoking provider authorization. Use provider settings or account removal to revoke provider authorization.
 

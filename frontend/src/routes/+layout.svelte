@@ -12,7 +12,6 @@
 	import SidebarLeft from '$lib/components/sidebar-left.svelte';
 	import MobileBottomNav from '$lib/components/mobile-bottom-nav.svelte';
 	import DayPostsModal from '$lib/components/day-posts-modal.svelte';
-	import Logo from '$lib/components/Logo.svelte';
 	import LanguageSwitcher from '$lib/components/language-switcher.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import AppLoading from '$lib/components/app-loading.svelte';
@@ -28,7 +27,6 @@
 	import { client } from '$lib/api/client';
 	import { Toaster } from '$lib/components/ui/sonner';
 	import { setUnsavedChanges, UnsavedChangesContext } from '$lib/unsaved-changes.svelte';
-	import PublicHome from './_components/PublicHome.svelte';
 	import { initializeAppTelemetry } from '$lib/telemetry';
 	import { isOrganizationOwnershipSettingsRoute } from '$lib/app-navigation';
 
@@ -57,7 +55,6 @@
 	let isPreviewRoute = $derived(currentPath === '/preview');
 	let isPublicProfileRoute = $derived(currentPath.startsWith('/u/'));
 	let isErrorRoute = $derived($page.status >= 400);
-	let isManagedEdition = $state(false);
 	const publicRoutes = [
 		'/login',
 		'/register',
@@ -65,14 +62,11 @@
 		'/forgot-password',
 		'/reset-password',
 		'/account-deleted',
-		'/demo',
-		'/demo/paraglide',
 		'/preview',
 		'/invite',
 		'/impersonate',
 		'/cli/authorize',
 		'/oauth/authorize',
-		'/studio',
 		'/accounts/mastodon/callback',
 		'/accounts/callback'
 	];
@@ -89,29 +83,29 @@
 		'/impersonate',
 		'/cli/authorize',
 		'/oauth/authorize',
-		'/studio',
 		'/accounts/mastodon/callback',
 		'/accounts/callback'
 	];
-	const localEditorRoutes = ['/video-editor', '/quick-cut', '/record'];
-	function matchesLocalEditorRoute(path: string): boolean {
-		return localEditorRoutes.some((route) => path === route || path.startsWith(`${route}/`));
-	}
 	let isStandaloneRoute = $derived(
 		standaloneRoutes.includes(currentPath) ||
 			isErrorRoute ||
 			isPublicProfileRoute ||
 			currentPath === '/image-editor' ||
 			currentPath.startsWith('/image-editor/') ||
-			matchesLocalEditorRoute(currentPath)
+			['/video-editor', '/quick-cut', '/record'].some(
+				(route) => currentPath === route || currentPath.startsWith(`${route}/`)
+			)
 	);
 	let isPublicImageEditorRoute = $derived(
 		currentPath === '/image-editor' || currentPath.startsWith('/image-editor/local_design_')
 	);
-	let isPublicLocalEditorRoute = $derived(matchesLocalEditorRoute(currentPath));
+	let isPublicLocalEditorRoute = $derived(
+		['/video-editor', '/quick-cut', '/record'].some(
+			(route) => currentPath === route || currentPath.startsWith(`${route}/`)
+		)
+	);
 	let isPublicRoute = $derived(
-		currentPath === '/' ||
-			isErrorRoute ||
+		isErrorRoute ||
 			isPublicProfileRoute ||
 			isPublicImageEditorRoute ||
 			isPublicLocalEditorRoute ||
@@ -212,8 +206,6 @@
 
 	onMount(() => {
 		if (isPreviewRoute) return;
-		isManagedEdition =
-			document.querySelector<HTMLMetaElement>('meta[name="openpost-edition"]')?.content === 'cloud';
 		captureWebReauthGrant();
 		feedbackDiagnostics.initialize();
 		soundPreferences.initialize();
@@ -223,14 +215,6 @@
 
 	$effect(() => {
 		feedbackDiagnostics.recordNavigation(currentPath);
-	});
-
-	$effect(() => {
-		if (currentPath !== '/' || authState.isLoading) return;
-		document.getElementById('openpost-managed-public-home')?.remove();
-		document
-			.querySelectorAll<HTMLElement>('[data-openpost-managed-home]')
-			.forEach((element) => element.remove());
 	});
 
 	$effect(() => {
@@ -333,39 +317,12 @@
 {:else if authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeSkipsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}
 	<AppLoading label={m.common_loading()} />
 {:else if !authState.isAuthenticated}
-	{#if !isPublicProfileRoute && !(currentPath === '/' && isManagedEdition) && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
+	{#if !isPublicProfileRoute && currentPath !== '/image-editor' && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
 		<div class="fixed top-4 right-4 z-20">
 			<LanguageSwitcher compact />
 		</div>
 	{/if}
-	{#if currentPath === '/'}
-		{#if isManagedEdition}
-			<PublicHome />
-		{:else}
-			<div class="flex min-h-[80dvh] items-center justify-center">
-				<div class="mx-auto max-w-md px-4 py-12 text-center">
-					<div class="mb-6 flex justify-center">
-						<Logo width={100} height={29} />
-					</div>
-					<p class="mb-6 text-muted-foreground">{m.landing_tagline()}</p>
-					<div class="flex justify-center gap-4">
-						<a
-							href={resolve('/login')}
-							class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-							>{m.landing_sign_in()}</a
-						>
-						<a
-							href={resolve('/register')}
-							class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-							>{m.landing_create_account()}</a
-						>
-					</div>
-				</div>
-			</div>
-		{/if}
-	{:else}
-		{@render children()}
-	{/if}
+	{@render children()}
 {:else if isStandaloneRoute}
 	{#if !isPublicProfileRoute && !currentPath.startsWith('/image-editor/') && !isPublicLocalEditorRoute}
 		<div class="fixed top-4 right-4 z-20">

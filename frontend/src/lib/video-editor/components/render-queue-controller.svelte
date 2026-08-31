@@ -4,37 +4,56 @@
 	import { renderQueueStore } from '../export/render-queue-store';
 	import {
 		loadProjectRenderQueue,
+		renderQueuePersistenceSignature,
 		saveProjectRenderQueue
 	} from '../export/render-queue-persistence';
 
 	let {
 		projectId,
-		onerror = () => undefined
-	}: { projectId: string; onerror?: (error: Error) => void } = $props();
+		onerror = () => undefined,
+		loadQueue = loadProjectRenderQueue,
+		saveQueue = saveProjectRenderQueue
+	}: {
+		projectId: string;
+		onerror?: (error: Error) => void;
+		loadQueue?: typeof loadProjectRenderQueue;
+		saveQueue?: typeof saveProjectRenderQueue;
+	} = $props();
 
 	let loadedProjectId: string | null = null;
 	let loadVersion = 0;
 	let lastSignature = '';
-	let saveScheduled = false;
+	let saveTimer: ReturnType<typeof setTimeout> | null = null;
+	let saveChain = Promise.resolve();
 
 	function signature(): string {
-		return `${$renderQueueStore.isPaused ? 'paused' : 'running'}|${$renderQueueStore.jobs
-			.map((job) => `${job.id}:${job.status}`)
-			.join('|')}`;
+		return renderQueuePersistenceSignature($renderQueueStore.jobs, $renderQueueStore.isPaused);
+	}
+
+	function enqueueSave(projectId: string): void {
+		const jobs = $renderQueueStore.jobs;
+		const isPaused = $renderQueueStore.isPaused;
+		saveChain = saveChain
+			.catch(() => undefined)
+			.then(() => saveQueue(projectId, jobs, isPaused))
+			.catch((cause) => onerror(cause instanceof Error ? cause : new Error(String(cause))));
+	}
+
+	function persist(projectId: string, delay = 250): void {
+		if (saveTimer) clearTimeout(saveTimer);
+		if (delay === 0) {
+			saveTimer = null;
+			enqueueSave(projectId);
+			return;
+		}
+		saveTimer = setTimeout(() => {
+			saveTimer = null;
+			enqueueSave(projectId);
+		}, delay);
 	}
 
 	function scheduleSave(): void {
-		if (!loadedProjectId || saveScheduled) return;
-		saveScheduled = true;
-		queueMicrotask(() => {
-			saveScheduled = false;
-			if (!loadedProjectId) return;
-			void saveProjectRenderQueue(
-				loadedProjectId,
-				$renderQueueStore.jobs,
-				$renderQueueStore.isPaused
-			).catch((cause) => onerror(cause instanceof Error ? cause : new Error(String(cause))));
-		});
+		if (loadedProjectId) persist(loadedProjectId);
 	}
 
 	$effect(() => {
@@ -47,9 +66,10 @@
 	$effect(() => {
 		const targetId = projectId;
 		const version = ++loadVersion;
+		if (loadedProjectId) persist(loadedProjectId, 0);
 		loadedProjectId = null;
 		renderQueueStore.hydrate([], true);
-		void loadProjectRenderQueue(targetId)
+		void loadQueue(targetId)
 			.then((restored) => {
 				if (version !== loadVersion) return;
 				const restoredIds = new Set(restored.jobs.map((job) => job.id));
@@ -72,11 +92,7 @@
 		renderQueueRunner.start();
 		return () => {
 			if (loadedProjectId) {
-				void saveProjectRenderQueue(
-					loadedProjectId,
-					$renderQueueStore.jobs,
-					$renderQueueStore.isPaused
-				).catch((cause) => onerror(cause instanceof Error ? cause : new Error(String(cause))));
+				persist(loadedProjectId, 0);
 			}
 			renderQueueRunner.stop();
 		};

@@ -1,10 +1,12 @@
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BottomSheetProvider } from "@swmansion/react-native-bottom-sheet";
 import * as SplashScreen from "expo-splash-screen";
 import { ShareIntentProvider } from "expo-share-intent";
 import { StatusBar } from "expo-status-bar";
 import { useColorScheme } from "react-native";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { DARK_COLORS, LIGHT_COLORS } from "@/components/ui";
@@ -87,38 +89,45 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <QueryClientProvider client={queryClient}>
-        <ShareIntentProvider>
-          <ThemeProvider value={navigationTheme}>
-            <StatusBar style="auto" />
-            <Stack>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="onboarding/server"
-                options={{
-                  headerShown: !signedIn,
-                  title: "Server",
-                  headerBackTitle: "Back",
-                }}
-              />
-              <Stack.Screen name="onboarding/login" options={{ headerShown: false }} />
-              <Stack.Screen name="onboarding/pair" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="onboarding/workspace"
-                options={{ headerShown: false, gestureEnabled: false }}
-              />
-              <Stack.Screen
-                name="compose/[id]"
-                options={{
-                  presentation: "modal",
-                  title: "Compose",
-                  headerShown: false,
-                }}
-              />
-              <Stack.Screen name="post/[id]" options={{ title: "Post" }} />
-            </Stack>
-          </ThemeProvider>
-        </ShareIntentProvider>
+        <KeyboardProvider
+          navigationBarTranslucent
+          preload={false}
+          preserveEdgeToEdge
+          statusBarTranslucent
+        >
+          <BottomSheetProvider>
+            <ShareIntentProvider>
+              <ThemeProvider value={navigationTheme}>
+                <StatusBar style="auto" />
+                <Stack>
+                  <Stack.Screen name="index" options={{ headerShown: false }} />
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="onboarding/server"
+                    options={{
+                      headerShown: !signedIn,
+                      title: "Server",
+                      headerBackTitle: "Back",
+                    }}
+                  />
+                  <Stack.Screen name="onboarding/login" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding/pair" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding/workspace" options={{ headerShown: false }} />
+                  <Stack.Screen name="onboarding/destination" options={{ headerShown: false }} />
+                  <Stack.Screen
+                    name="publications/[id]/edit"
+                    options={{
+                      presentation: "modal",
+                      title: "Edit publication",
+                      headerShown: false,
+                    }}
+                  />
+                  <Stack.Screen name="publications/[id]" options={{ title: "Publication" }} />
+                </Stack>
+              </ThemeProvider>
+            </ShareIntentProvider>
+          </BottomSheetProvider>
+        </KeyboardProvider>
       </QueryClientProvider>
     </SafeAreaProvider>
   );

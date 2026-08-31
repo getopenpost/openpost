@@ -100,13 +100,15 @@ Bootstrap and data-plane settings stay deployment-only because OpenPost needs th
 | `OPENPOST_S3_FORCE_PATH_STYLE` | No | `false` | Force path-style S3 addressing for compatible providers that require it. |
 | `OPENPOST_IMAGE_EDITOR_ENABLED` | No | `true` | Enables OpenPost Image Editor routes and APIs. Set `false` for an operational rollback; Media upload and library features remain available and OpenPost Image Editor migrations still run. |
 | `OPENPOST_IMAGE_EDITOR_MODEL_BASE_URL` | No | `/image-editor-models` | Base URL for the background-removal model, WASM, and runtime assets. Leave unset to use the files embedded with OpenPost. |
-| `OPENPOST_VIDEO_MODEL_BASE_URL` | No | `/video-editor-models` | Base URL for the pinned transcription and voice-detection model files. Leave unset to use embedded files. |
 | `OPENPOST_STOCK_MEDIA_ENABLED` | No | `false` | Enables rate-limited stock search for providers that also have a configured server-side key. |
 | `OPENPOST_PEXELS_API_KEY` | No | empty | Server-only Pexels API key for photo and video search. |
 | `OPENPOST_UNSPLASH_ACCESS_KEY` | No | empty | Server-only Unsplash access key for photo search and required selection tracking. |
 | `OPENPOST_PIXABAY_API_KEY` | No | empty | Server-only Pixabay API key for image and video search. |
-| `OPENROUTER_API_KEY` | No | empty | Server-only OpenRouter key that enables automatic alt text for images without saved alt text when they are added to the text-and-thread composer. Supports `OPENROUTER_API_KEY_FILE`. |
+| `OPENROUTER_API_KEY` | No | empty | Server-only OpenRouter key that enables AI post building, meme suggestions, and automatic image alt text. Supports `OPENROUTER_API_KEY_FILE`. |
+| `OPENPOST_CONTENT_AI_PROVIDER` | No | image-caption provider | Exact OpenRouter provider slug allowed for post building and AI meme suggestions. The Hosted service requires `azure/eu`. |
+| `OPENPOST_CONTENT_AI_REQUIRE_ZDR` | No | image-caption ZDR policy | Require OpenRouter to use zero-data-retention endpoints for post building and AI meme suggestions. The Hosted service requires `true`. |
 | `OPENPOST_IMAGE_CAPTION_MODEL` | No | `openai/gpt-5.6-luna` | OpenRouter model ID used for automatic image alt text. |
+| `OPENPOST_TEXT_GENERATION_MODEL` | No | `openai/gpt-5.6-luna` | OpenRouter model ID used to build publication copy from an idea. |
 | `OPENPOST_IMAGE_CAPTION_PROVIDER` | No | empty | Exact OpenRouter provider slug allowed for automatic image alt text. An empty value uses normal eligible-provider routing. |
 | `OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR` | No | `false` | Require OpenRouter to use a zero-data-retention endpoint for automatic image alt text. Verify the configured model/provider pair supports ZDR before enabling. |
 | `OPENPOST_MEME_GENERATOR_ENABLED` | No | `true` | Enables the built-in template catalog, local previews and rendering, and durable OpenPost recipes. |
@@ -158,6 +160,10 @@ When enabled in `selfhost` mode, the Instance settings page lets an instance adm
 
 Successful responses are cached for 24 hours. Failed checks retry after 15 minutes, use a three-second timeout, and keep the last successful result as stale. Responses are limited to 64 KiB and release links must point back to the official OpenPost GitHub repository. The feature never downloads or installs an update. See [Update Status](/configuration/update-status) for the full boundary.
 
+## Custom connectors
+
+Self-hosted operators can load the custom connector registry from an absolute path with `OPENPOST_CONNECTORS_FILE`. The registry is read at startup. See [Custom Connectors](/configuration/custom-connectors) for the file schema and security boundary.
+
 ## Provider app registry
 
 OpenPost builds provider adapters at startup from active encrypted `provider_apps` database rows, legacy provider env vars, and optional `OPENPOST_PROVIDER_APPS` JSON. Environment-defined apps are authoritative over matching database rows.
@@ -171,6 +177,73 @@ Database rows are intended for administrator-managed installs. They store `clien
 Instance admins can manage encrypted database rows through `GET /api/v1/admin/provider-apps`, `POST /api/v1/admin/provider-apps`, and `DELETE /api/v1/admin/provider-apps/{id}`. API responses never return client secrets; send `client_secret` only when creating a row or rotating the existing secret.
 
 The backend exposes this registry through the instance-admin API and **Settings → Instance → Configuration → Provider apps**. Environment-defined apps appear as read-only. A matching database fallback stays visible and can be deleted while the environment app remains active. Admin-added client secrets are encrypted and never returned. Saves and deletes take effect after the next OpenPost server restart.
+
+## External analytics sources
+
+`OPENPOST_ANALYTICS_SOURCES` lets an operator override analytics collection per platform without changing publishing, OAuth, the analytics job cadence, unchanged-metric backoff, manual refresh, snapshots, sync state, or the per-account analytics feature gate. The configured source replaces only the platform's `AnalyticsAdapter` inside the analytics service.
+
+`OPENPOST_ANALYTICS_SOURCES` also supports `_FILE`, so `OPENPOST_ANALYTICS_SOURCES_FILE=/run/secrets/openpost-analytics-sources.json` works through the normal config loader.
+
+OpenPost validates this JSON at startup. Each entry needs a unique `platform`, an absolute `http` or `https` `base_url`, and a non-empty `bearer_token`. Query strings, fragments, and inline URL credentials are rejected. The client uses a fixed timeout, bounds response bodies to 64 KiB, rejects redirects, and never stores or exposes the source token or response body.
+
+| Variable                     | Required | Default | Description                                                                                                |
+| ---------------------------- | -------: | ------- | ---------------------------------------------------------------------------------------------------------- |
+| `OPENPOST_ANALYTICS_SOURCES` |       No | empty   | Structured JSON external analytics source registry. Each entry overrides analytics reads for one platform. |
+
+Example:
+
+```json
+[
+  {
+    "platform": "linkedin",
+    "base_url": "https://collector.example/openpost",
+    "bearer_token": "replace-me"
+  }
+]
+```
+
+For each configured platform, OpenPost calls:
+
+- `POST <base_url>/analytics/account` with `{"platform":"linkedin","account_id":"urn:li:person:123"}`
+- `POST <base_url>/analytics/content` with `{"platform":"linkedin","account_id":"urn:li:person:123","external_ids":["urn:li:share:456"],"published_at":"2026-08-28T12:00:00Z"}`
+
+Both requests send `Authorization: Bearer <bearer_token>` and `Content-Type: application/json`.
+
+Success responses return `metrics` as named non-negative integer counters:
+
+```json
+{ "metrics": { "followers": 1234 } }
+```
+
+```json
+{ "metrics": { "impressions": 5420, "reach": 3200, "likes": 156 } }
+```
+
+Failure responses return one explicit source status:
+
+```json
+{ "status": "unsupported", "code": "collector_not_enabled" }
+```
+
+```json
+{ "status": "permission_required", "code": "collector_auth" }
+```
+
+```json
+{
+  "status": "rate_limited",
+  "code": "collector_busy",
+  "retry_after_seconds": 3600
+}
+```
+
+```json
+{ "status": "not_found", "code": "post_missing" }
+```
+
+```json
+{ "status": "failed", "code": "collector_error", "retry_after_seconds": 300 }
+```
 
 ## X
 

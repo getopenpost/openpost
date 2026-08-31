@@ -38,6 +38,30 @@ func RunMigrations(db *bun.DB) error {
 	return runMigrations(db, migrationFiles)
 }
 
+// RequireCurrent verifies that every migration shipped in this binary has
+// already been applied. Long-lived process roles use this read-only check and
+// leave schema changes to the explicit migrate release phase.
+func RequireCurrent(ctx context.Context, db *bun.DB) error {
+	migrations, err := loadMigrations(db, migrationFiles)
+	if err != nil {
+		return err
+	}
+	var applied []SchemaMigration
+	if err := db.NewSelect().Model(&applied).Order("version ASC").Scan(ctx); err != nil {
+		return fmt.Errorf("failed to read schema migration history: %w", err)
+	}
+	appliedSet := make(map[int64]struct{}, len(applied))
+	for _, item := range applied {
+		appliedSet[item.Version] = struct{}{}
+	}
+	for _, item := range migrations {
+		if _, ok := appliedSet[item.version]; !ok {
+			return fmt.Errorf("migration %s has not been applied", item.name)
+		}
+	}
+	return nil
+}
+
 func runMigrations(db *bun.DB, source fs.FS) error {
 	ctx := context.Background()
 
@@ -56,35 +80,10 @@ func runMigrations(db *bun.DB, source fs.FS) error {
 		appliedSet[m.Version] = true
 	}
 
-	// Read embedded migration files
-	entries, err := fs.ReadDir(source, ".")
+	migrations, err := loadMigrations(db, source)
 	if err != nil {
-		return fmt.Errorf("failed to read migration files: %w", err)
+		return err
 	}
-
-	var migrations []migration
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
-			continue
-		}
-		version, err := parseVersion(entry.Name())
-		if err != nil {
-			return fmt.Errorf("invalid migration filename %q: %w", entry.Name(), err)
-		}
-		content, err := fs.ReadFile(source, entry.Name())
-		if err != nil {
-			return fmt.Errorf("failed to read migration %q: %w", entry.Name(), err)
-		}
-		migrations = append(migrations, migration{
-			version: version,
-			name:    entry.Name(),
-			sql:     normalizeMigrationSQL(db.Dialect().Name(), string(content)),
-		})
-	}
-
-	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i].version < migrations[j].version
-	})
 	if err := repairMigrationHistoryCollisions(ctx, db, appliedSet, migrations); err != nil {
 		return fmt.Errorf("migration history compatibility repair failed: %w", err)
 	}
@@ -105,6 +104,45 @@ func runMigrations(db *bun.DB, source fs.FS) error {
 	}
 
 	return finalizeMigrations(ctx, db, appliedSet)
+}
+
+func loadMigrations(db *bun.DB, source fs.FS) ([]migration, error) {
+	entries, err := fs.ReadDir(source, ".")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read migration files: %w", err)
+	}
+
+	var migrations []migration
+	versionNames := make(map[int64]string)
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		version, err := parseVersion(entry.Name())
+		if err != nil {
+			return nil, fmt.Errorf("invalid migration filename %q: %w", entry.Name(), err)
+		}
+		// Applied migrations are tracked by version alone, so two files sharing
+		// a version would silently skip whichever sorts second.
+		if existing, ok := versionNames[version]; ok {
+			return nil, fmt.Errorf("migration version collision: %q and %q both use version %d", existing, entry.Name(), version)
+		}
+		versionNames[version] = entry.Name()
+		content, err := fs.ReadFile(source, entry.Name())
+		if err != nil {
+			return nil, fmt.Errorf("failed to read migration %q: %w", entry.Name(), err)
+		}
+		migrations = append(migrations, migration{
+			version: version,
+			name:    entry.Name(),
+			sql:     normalizeMigrationSQL(db.Dialect().Name(), string(content)),
+		})
+	}
+
+	sort.Slice(migrations, func(i, j int) bool {
+		return migrations[i].version < migrations[j].version
+	})
+	return migrations, nil
 }
 
 func repairMigrationHistoryCollisions(
@@ -368,9 +406,7 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 		err = addPublishingFailureColumnsToPostDestinations(ctx, db)
 	case 41:
 		description = "publication editor backfill"
-		if err = ensurePublicationRepostOverride(ctx, db); err == nil {
-			err = backfillPublicationTextEditors(ctx, db)
-		}
+		err = preparePublicationEditorBackfill(ctx, db)
 	case 51:
 		description = "optional password"
 		err = makeUserPasswordOptional(ctx, db)
@@ -394,11 +430,52 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 107:
 		description = "drop retired video editor storage"
 		err = dropRetiredVideoProjectColumn(ctx, db)
+	case 111:
+		description = "workspace invitation delivery"
+		err = ensureWorkspaceInvitationsTable(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
+}
+
+func preparePublicationEditorBackfill(ctx context.Context, db *bun.DB) error {
+	if err := ensurePublicationRepostOverride(ctx, db); err != nil {
+		return err
+	}
+	return backfillPublicationTextEditors(ctx, db)
+}
+
+// ensureWorkspaceInvitationsTable creates workspace_invitations from migration
+// 111's frozen schema when migrations run before CreateSchema. The frozen schema
+// carries the delivery columns, so migration 111's ALTERs then no-op through the
+// duplicate-column path; upgraded databases keep their table and gain the columns.
+func ensureWorkspaceInvitationsTable(ctx context.Context, db *bun.DB) error {
+	_, err := db.NewCreateTable().Model((*workspaceInvitationMigration111)(nil)).IfNotExists().Exec(ctx)
+	return err
+}
+
+// workspaceInvitationMigration111 freezes the table shape migration 111 saw.
+// Historical migration behavior must not change when the live model gains fields.
+type workspaceInvitationMigration111 struct {
+	bun.BaseModel `bun:"table:workspace_invitations"`
+
+	ID                     string    `bun:",pk"`
+	WorkspaceID            string    `bun:",notnull"`
+	Email                  string    `bun:",notnull"`
+	Role                   string    `bun:",notnull,default:'editor'"`
+	InvitedByUserID        string    `bun:",notnull"`
+	AcceptedByUserID       string    `bun:",nullzero"`
+	TokenHash              string    `bun:",unique,notnull"`
+	ExpiresAt              time.Time `bun:",notnull"`
+	AcceptedAt             time.Time `bun:",nullzero"`
+	RevokedAt              time.Time `bun:",nullzero"`
+	LastSentAt             time.Time `bun:"last_sent_at,nullzero"`
+	EmailDeliveryStatus    string    `bun:"email_delivery_status,notnull,default:'unavailable'"`
+	EmailDeliveryJobID     string    `bun:"email_delivery_job_id,notnull,default:''"`
+	EmailDeliveryUpdatedAt time.Time `bun:"email_delivery_updated_at,nullzero"`
+	CreatedAt              time.Time `bun:",nullzero,notnull,default:current_timestamp"`
 }
 
 func ensureWorkspaceInvitationDeliveryUpdatedAt(ctx context.Context, db *bun.DB) error {

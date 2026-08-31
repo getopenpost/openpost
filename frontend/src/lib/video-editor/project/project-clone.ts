@@ -131,8 +131,10 @@ function remapItem(
 		(item.effects ?? []).map((effect) => effect.id),
 		createId
 	);
+	const clonedBackground = item.background ? structuredClone(item.background) : undefined;
 	return {
 		...item,
+		background: clonedBackground,
 		id: remappedId,
 		trackId: maps.track.get(item.trackId) ?? item.trackId,
 		mediaId: mapped(item.mediaId, mediaIdMap),
@@ -222,6 +224,9 @@ function remapItem(
 					keyframes?.map((keyframe) => ({ ...keyframe, id: createId() }))
 				])
 			)
+		}),
+		...(item.audioEffects && {
+			audioEffects: item.audioEffects.map((effect) => ({ ...effect, id: createId() }))
 		})
 	};
 }

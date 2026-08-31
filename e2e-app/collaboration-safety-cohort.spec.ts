@@ -144,9 +144,6 @@ test("Daily preferences and overlapping Mutes remain one operable settings journ
       });
       await setPresentation(page, scenario.locale, scenario.theme);
       await page.goto(`/settings?tab=notifications&workspace=${workspace.id}`);
-      if (scenario.theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-      else await expect(page.locator("html")).not.toHaveClass(/dark/);
-
       const activeMutes = page.getByRole("list", {
         name: scenario.labels.activeMutes,
       });

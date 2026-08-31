@@ -194,6 +194,7 @@ function scaleTrack(track: KeyframeTrack, scale: number, maxFrame: number): Keyf
 			id?: string;
 			easing?: EasingType;
 			easingConfig?: NonNullable<KeyframeTrack['easingConfigs']>[number];
+			source?: NonNullable<KeyframeTrack['sources']>[number];
 		}
 	>();
 	for (let index = 0; index < track.frames.length; index += 1) {
@@ -206,7 +207,8 @@ function scaleTrack(track: KeyframeTrack, scale: number, maxFrame: number): Keyf
 			value: track.values[index] ?? 0,
 			id: track.ids?.[index],
 			easing: track.easings?.[index],
-			easingConfig: track.easingConfigs?.[index]
+			easingConfig: track.easingConfigs?.[index],
+			source: track.sources?.[index]
 		});
 	}
 	const entries = [...byFrame.entries()].sort(([left], [right]) => left - right);
@@ -218,6 +220,7 @@ function scaleTrack(track: KeyframeTrack, scale: number, maxFrame: number): Keyf
 	if (track.easings) scaled.easings = entries.map(([, entry]) => entry.easing ?? 'linear');
 	if (track.easingConfigs)
 		scaled.easingConfigs = entries.map(([, entry]) => entry.easingConfig ?? null);
+	if (track.sources) scaled.sources = entries.map(([, entry]) => entry.source ?? null);
 	return scaled;
 }
 

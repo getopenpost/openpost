@@ -63,7 +63,8 @@ function activeTimelineSnapshot(): ProjectTimeline {
 		outPoint: timelineStore.outPoint ?? undefined,
 		markers: copy(timelineStore.markers),
 		masterVolumeDb: timelineStore.masterVolumeDb,
-		masterMuted: timelineStore.masterMuted
+		masterMuted: timelineStore.masterMuted,
+		busAudioEq: copy(timelineStore.busAudioEq)
 	};
 }
 
@@ -80,7 +81,8 @@ function applyTimeline(timeline: ProjectTimeline, fps: number): void {
 		zoomLevel: timeline.zoomLevel ?? 1,
 		scrollPosition: timeline.scrollPosition ?? 0,
 		masterVolumeDb: timeline.masterVolumeDb ?? 0,
-		masterMuted: timeline.masterMuted ?? false
+		masterMuted: timeline.masterMuted ?? false,
+		busAudioEq: copy(timeline.busAudioEq)
 	});
 }
 
@@ -96,7 +98,8 @@ function sequenceTimeline(composition: SubComposition, view?: SequenceViewState)
 		zoomLevel: view?.zoomLevel ?? 1,
 		scrollPosition: view?.scrollPosition ?? 0,
 		masterVolumeDb: composition.masterVolumeDb ?? 0,
-		masterMuted: composition.masterMuted ?? false
+		masterMuted: composition.masterMuted ?? false,
+		busAudioEq: copy(composition.busAudioEq)
 	};
 }
 
@@ -131,12 +134,15 @@ function flushActive(): void {
 		current.compositionControls,
 		snapshot.items
 	);
-	state.sequenceViewById[state.activeSequenceId] = {
+	const nextView = {
 		currentFrame: timelineStore.currentFrame,
 		zoomLevel: timelineStore.zoomLevel,
 		scrollPosition: timelineStore.scrollPosition
 	};
-	state.compositions[index] = {
+	if (!equal(state.sequenceViewById[state.activeSequenceId], nextView)) {
+		state.sequenceViewById[state.activeSequenceId] = nextView;
+	}
+	const nextComposition = {
 		...current,
 		compositionControls,
 		items: snapshot.items,
@@ -147,11 +153,13 @@ function flushActive(): void {
 		outPoint: snapshot.outPoint ?? null,
 		masterVolumeDb: snapshot.masterVolumeDb,
 		masterMuted: snapshot.masterMuted,
-		durationInFrames: snapshot.items.reduce(
-			(max, item) => Math.max(max, item.from + item.durationInFrames),
-			0
+		busAudioEq: copy(snapshot.busAudioEq),
+		durationInFrames: Math.max(
+			current.editorKind === 'composite-2d' ? current.durationInFrames : 0,
+			snapshot.items.reduce((max, item) => Math.max(max, item.from + item.durationInFrames), 0)
 		)
 	};
+	if (!equal(current, nextComposition)) state.compositions[index] = nextComposition;
 }
 
 export const sequenceStore = {
@@ -172,11 +180,24 @@ export const sequenceStore = {
 			? state.compositions.find((composition) => composition.id === state.activeSequenceId)
 			: undefined;
 	},
+	get rootResolution(): ProjectResolution {
+		return state.rootResolution;
+	},
 	get activeWidth(): number {
 		return sequenceStore.activeSequence?.width ?? state.rootResolution.width;
 	},
 	get activeHeight(): number {
 		return sequenceStore.activeSequence?.height ?? state.rootResolution.height;
+	},
+	_setRootResolution(resolution: ProjectResolution): void {
+		state.rootResolution = copy(resolution);
+	},
+	updateRootResolution(patch: Partial<ProjectResolution>): boolean {
+		if (state.activeSequenceId !== null) return false;
+		const next = { ...state.rootResolution, ...copy(patch) };
+		if (equal(next, state.rootResolution)) return false;
+		state.rootResolution = next;
+		return true;
 	},
 	load(timeline: ProjectTimeline, rootResolution: ProjectResolution): void {
 		state.compositions = copy(timeline.compositions ?? []).map((composition) => {
@@ -347,8 +368,8 @@ export const sequenceStore = {
 			if (equal(current, from)) currentById.set(id, copy(to));
 		}
 		const orderedIds = [
-			...state.compositions.map((composition) => composition.id),
-			...toSnapshot.compositions.map((composition) => composition.id)
+			...toSnapshot.compositions.map((composition) => composition.id),
+			...state.compositions.map((composition) => composition.id)
 		].filter((id, index, ids) => ids.indexOf(id) === index && currentById.has(id));
 		state.compositions = orderedIds.map((id) => currentById.get(id)!);
 
@@ -364,6 +385,13 @@ export const sequenceStore = {
 				state.topLevelSequenceIds = [...state.topLevelSequenceIds, id];
 			}
 		}
+		state.topLevelSequenceIds = [
+			...toSnapshot.topLevelSequenceIds,
+			...state.topLevelSequenceIds
+		].filter(
+			(id, index, ids) =>
+				ids.indexOf(id) === index && currentById.has(id) && state.topLevelSequenceIds.includes(id)
+		);
 
 		if (equal(state.rootTimeline, fromSnapshot.rootTimeline)) {
 			state.rootTimeline = copy(toSnapshot.rootTimeline);

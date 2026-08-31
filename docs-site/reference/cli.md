@@ -58,7 +58,7 @@ openpost [flags]
 
 Manage connected social accounts
 
-List, rename, and disconnect social accounts. Account slugs are the preferred selector for --accounts. New accounts are connected in the OpenPost web UI at &lt;instance&gt;/accounts.
+List, rename, and disconnect social accounts. Account slugs are the preferred selector for --accounts. New accounts are connected in the OpenPost web UI at &lt;instance&gt;/settings?tab=accounts.
 
 **Usage**
 

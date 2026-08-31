@@ -4,6 +4,9 @@
 	import { Input } from '$lib/components/ui/input';
 	import { showToast } from '$lib/toast';
 	import { importRemoteLottie } from '$lib/video-editor/media/import.svelte';
+	import { mediaPool } from '$lib/video-editor/media/pool.svelte';
+	import { insertMediaAtFrame } from '$lib/video-editor/timeline/actions/insert-media';
+	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import {
 		fetchLottieAnimations,
 		lottieFilesAttribution,
@@ -25,11 +28,13 @@
 	const categories: LottieBrowseCategory[] = ['featured', 'popular', 'recent'];
 	type LottieBrowserPanelProps = {
 		projectId: string;
+		oninserted?: (itemId: string) => void;
 		fetchAnimations?: typeof fetchLottieAnimations;
 		importAnimation?: typeof importRemoteLottie;
 	};
 	let {
 		projectId,
+		oninserted,
 		fetchAnimations = fetchLottieAnimations,
 		importAnimation = importRemoteLottie
 	}: LottieBrowserPanelProps = $props();
@@ -43,6 +48,7 @@
 	let totalCount = $state(0);
 	let importingIds = $state(new Set<string>());
 	let importedIds = $state(new Set<string>());
+	let importedMediaIds = $state<Record<string, string>>({});
 	let failedIds = $state(new Set<string>());
 	let previewFailedIds = $state(new Set<string>());
 	let controller: AbortController | null = null;
@@ -101,18 +107,29 @@
 	onDestroy(() => controller?.abort());
 
 	async function addAnimation(animation: LottieFilesAnimation): Promise<void> {
-		if (importingIds.has(animation.id) || importedIds.has(animation.id)) return;
+		if (importingIds.has(animation.id) || (importedIds.has(animation.id) && !oninserted)) return;
+		const insertionFrame = timelineStore.currentFrame;
 		importingIds = withId(importingIds, animation.id, true);
 		failedIds = withId(failedIds, animation.id, false);
 		try {
-			await importAnimation({
-				projectId,
-				url: animation.lottieUrl,
-				fileName: animation.name,
-				attribution: lottieFilesAttribution(animation)
-			});
+			const mediaId =
+				importedMediaIds[animation.id] ??
+				(await importAnimation({
+					projectId,
+					url: animation.lottieUrl,
+					fileName: animation.name,
+					attribution: lottieFilesAttribution(animation)
+				}));
+			importedMediaIds = { ...importedMediaIds, [animation.id]: mediaId };
+			const media = mediaPool.get(mediaId);
+			if (oninserted && media) oninserted(insertMediaAtFrame(media, insertionFrame));
 			importedIds = withId(importedIds, animation.id, true);
-			showToast(m.video_editor_lottiefiles_added({ name: animation.name }), 'success');
+			showToast(
+				oninserted
+					? m.video_editor_stock_added({ name: animation.name })
+					: m.video_editor_lottiefiles_added({ name: animation.name }),
+				'success'
+			);
 		} catch (reason) {
 			failedIds = withId(failedIds, animation.id, true);
 			showToast(
@@ -172,7 +189,10 @@
 	<div class="min-h-0 flex-1 overflow-y-auto p-2">
 		{#if status === 'loading' && items.length === 0}
 			<div class="flex h-24 items-center justify-center">
-				<LoaderIcon class="size-5 animate-spin text-[oklch(0.66_0.14_45)]" aria-hidden="true" />
+				<LoaderIcon
+					class="size-5 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
+					aria-hidden="true"
+				/>
 			</div>
 		{:else if status === 'error'}
 			<div class="flex flex-col items-center gap-2 py-8 text-center">
@@ -198,12 +218,16 @@
 							type="button"
 							class="relative aspect-square w-full overflow-hidden rounded-md border border-white/10 bg-[oklch(0.2_0.01_50)] hover:border-[oklch(0.66_0.14_45)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-default"
 							style:background-color={animation.bgColor ?? undefined}
-							disabled={isImporting || isImported}
-							aria-label={isImported
-								? m.video_editor_lottiefiles_added_short()
-								: isFailed
-									? m.video_editor_lottiefiles_retry_import()
-									: m.video_editor_lottiefiles_add()}
+							disabled={isImporting || (isImported && !oninserted)}
+							aria-label={`${
+								isImported && !oninserted
+									? m.video_editor_lottiefiles_added_short()
+									: isFailed
+										? m.video_editor_lottiefiles_retry_import()
+										: oninserted
+											? m.video_editor_stock_add_playhead()
+											: m.video_editor_lottiefiles_add()
+							}: ${animation.name}`}
 							onclick={() => void addAnimation(animation)}
 						>
 							{#if animation.gifUrl && !previewFailedIds.has(animation.id)}
@@ -218,7 +242,7 @@
 							{:else}
 								<FilmIcon class="absolute top-1/2 left-1/2 size-6 -translate-1/2 text-black/50" />
 							{/if}
-							{#if !isImporting && !isImported && !isFailed}
+							{#if !isImporting && (!isImported || oninserted) && !isFailed}
 								<span
 									class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100"
 								>
@@ -226,7 +250,10 @@
 								</span>
 							{:else if isImporting}
 								<span class="absolute inset-0 flex items-center justify-center bg-black/45">
-									<LoaderIcon class="size-5 animate-spin text-white" aria-hidden="true" />
+									<LoaderIcon
+										class="size-5 animate-spin text-white motion-reduce:animate-none"
+										aria-hidden="true"
+									/>
 								</span>
 							{:else if isImported}
 								<span

@@ -3,8 +3,14 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"log"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/openpost/backend/internal/database/migrations"
 	"github.com/openpost/backend/internal/jobregistry"
@@ -21,17 +27,68 @@ func InitDB(dsn string) (*bun.DB, error) {
 }
 
 func InitDBWithDriver(driver, dsn string) (*bun.DB, error) {
+	return InitDBWithDriverAndRole(driver, dsn, "all")
+}
+
+func InitDBWithDriverAndRole(driver, dsn, role string) (*bun.DB, error) {
 	switch strings.ToLower(strings.TrimSpace(driver)) {
 	case "", "sqlite":
 		return initSQLiteDB(dsn)
 	case "postgres":
-		return initPostgresDB(dsn)
+		pool := poolConfigForRole(role)
+		log.Printf(
+			"PostgreSQL connection pool configured: role=%s max_open=%d max_idle=%d max_lifetime=%s max_idle_time=%s",
+			strings.ToLower(strings.TrimSpace(role)),
+			pool.MaxOpenConnections,
+			pool.MaxIdleConnections,
+			pool.ConnectionMaxLifetime,
+			pool.ConnectionMaxIdleTime,
+		)
+		return initPostgresDB(dsn, pool)
 	default:
 		return nil, fmt.Errorf("unsupported database driver %q", driver)
 	}
 }
 
+type poolConfig struct {
+	MaxOpenConnections    int
+	MaxIdleConnections    int
+	ConnectionMaxLifetime time.Duration
+	ConnectionMaxIdleTime time.Duration
+}
+
+func poolConfigForRole(role string) poolConfig {
+	config := poolConfig{
+		MaxOpenConnections:    20,
+		MaxIdleConnections:    5,
+		ConnectionMaxLifetime: 30 * time.Minute,
+		ConnectionMaxIdleTime: 5 * time.Minute,
+	}
+	switch strings.ToLower(strings.TrimSpace(role)) {
+	case "web":
+		config.MaxOpenConnections = 16
+		config.MaxIdleConnections = 4
+	case "worker":
+		config.MaxOpenConnections = 8
+		config.MaxIdleConnections = 2
+	case "migrate", "maintenance":
+		config.MaxOpenConnections = 2
+		config.MaxIdleConnections = 1
+	}
+	return config
+}
+
 func initSQLiteDB(dsn string) (*bun.DB, error) {
+	// The driver does not create parent directories, and the failure surfaces
+	// as a misleading "unable to open database file: out of memory (14)" on
+	// the first statement. A container image can pre-create the directory,
+	// but a volume mounted over it masks that, so create it at open time.
+	if dir := sqliteFileDir(dsn); dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, fmt.Errorf("create sqlite database directory: %w", err)
+		}
+	}
+
 	// DSN e.g. "file:openpost.db?cache=shared&mode=rwc"
 	sqldb, err := sql.Open(sqliteshim.ShimName, dsn)
 	if err != nil {
@@ -61,13 +118,59 @@ func initSQLiteDB(dsn string) (*bun.DB, error) {
 	return db, nil
 }
 
-func initPostgresDB(dsn string) (*bun.DB, error) {
+// sqliteFileDir returns the parent directory of the DSN's database file, or ""
+// when the DSN does not reference a file outside the working directory
+// (memory databases, bare filenames).
+func sqliteFileDir(dsn string) string {
+	path := dsn
+	if strings.HasPrefix(dsn, "file:") {
+		parsed, err := url.Parse(dsn)
+		if err != nil {
+			return ""
+		}
+		if parsed.Query().Get("mode") == "memory" {
+			return ""
+		}
+		if parsed.Host != "" && !strings.EqualFold(parsed.Host, "localhost") {
+			return ""
+		}
+		path = parsed.Path
+		if parsed.Opaque != "" {
+			path, err = url.PathUnescape(parsed.Opaque)
+			if err != nil {
+				return ""
+			}
+		}
+	}
+	if path == "" || path == ":memory:" {
+		return ""
+	}
+	if dir := filepath.Dir(path); dir != "." && dir != string(filepath.Separator) {
+		return dir
+	}
+	return ""
+}
+
+func initPostgresDB(dsn string, pool poolConfig) (*bun.DB, error) {
 	if strings.TrimSpace(dsn) == "" {
 		return nil, fmt.Errorf("postgres database dsn is required")
 	}
+	parsedDSN, err := url.Parse(dsn)
+	if err != nil {
+		return nil, errors.New("parse postgres database dsn: invalid URL")
+	}
+	query := parsedDSN.Query()
+	query.Set("timezone", "UTC")
+	parsedDSN.RawQuery = query.Encode()
 
-	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(dsn)))
-	return bun.NewDB(sqldb, pgdialect.New()), nil
+	sqldb := sql.OpenDB(pgdriver.NewConnector(pgdriver.WithDSN(parsedDSN.String())))
+	sqldb.SetMaxOpenConns(pool.MaxOpenConnections)
+	sqldb.SetMaxIdleConns(pool.MaxIdleConnections)
+	sqldb.SetConnMaxLifetime(pool.ConnectionMaxLifetime)
+	sqldb.SetConnMaxIdleTime(pool.ConnectionMaxIdleTime)
+	db := bun.NewDB(sqldb, pgdialect.New())
+	db.AddQueryHook(newPoolObserverHook(log.Printf))
+	return db, nil
 }
 
 func CreateSchema(db *bun.DB) error {
@@ -90,6 +193,7 @@ func CreateSchema(db *bun.DB) error {
 		(*models.ProviderApp)(nil),
 		(*models.ProviderInstallation)(nil),
 		(*models.InstanceSetting)(nil),
+		(*models.AIPromptOverride)(nil),
 		(*models.SocialAccount)(nil),
 		(*models.ProviderAccountBinding)(nil),
 		(*models.ConnectorConnectionSession)(nil),

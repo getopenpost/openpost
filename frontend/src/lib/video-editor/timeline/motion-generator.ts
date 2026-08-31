@@ -37,7 +37,11 @@ function scaleValueAroundAnchor(
 }
 
 function propertyMinimum(property: MotionPresetKeyframePayload['property']): number {
-	return property === 'width' || property === 'height' ? 1 : property === 'opacity' ? 0 : -Infinity;
+	return property === 'scaleX' || property === 'scaleY'
+		? 0.01
+		: property === 'opacity'
+			? 0
+			: -Infinity;
 }
 
 function propertyMaximum(property: MotionPresetKeyframePayload['property']): number {

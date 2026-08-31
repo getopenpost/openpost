@@ -858,17 +858,9 @@ func reserveProviderCostOperation(
 		CreatedAt:          now,
 		UpdatedAt:          now,
 	}
-	_, err := providerCostOperationReservationQuery(tx, &counter).Exec(ctx)
-	return err
-}
-
-func providerCostOperationReservationQuery(
-	db bun.IDB,
-	counter *models.ProviderUsagePeriodCounter,
-) *bun.InsertQuery {
 	const targetAlias = "provider_usage_period_counter"
-	return db.NewInsert().
-		Model(counter).
+	_, err := tx.NewInsert().
+		Model(&counter).
 		On("CONFLICT (workspace_id, period_start, provider, operation) DO UPDATE").
 		Set(
 			"reserved_event_count = ? + EXCLUDED.reserved_event_count",
@@ -882,7 +874,9 @@ func providerCostOperationReservationQuery(
 			"reserved_cost_microusd = ? + EXCLUDED.reserved_cost_microusd",
 			bun.Ident(targetAlias+".reserved_cost_microusd"),
 		).
-		Set("updated_at = EXCLUDED.updated_at")
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
 }
 
 func confirmProviderCostTotal(

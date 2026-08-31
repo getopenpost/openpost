@@ -37,9 +37,8 @@ describe('account management modes', () => {
 		});
 	});
 
-	it('renders direct navigation without inferring or redirecting from route state', async () => {
+	it('renders account content without duplicating the Settings navigation', async () => {
 		const screen = await render(AccountManagement, {
-			mode: 'direct',
 			workspace,
 			workspaces: [workspace],
 			links,
@@ -48,9 +47,9 @@ describe('account management modes', () => {
 		});
 
 		await expect
-			.element(screen.getByRole('heading', { level: 1, name: 'Social accounts' }))
+			.element(screen.getByRole('heading', { level: 2, name: 'Connected channels' }))
 			.toBeVisible();
-		await expect.element(screen.getByTestId('settings-navigation')).toBeVisible();
+		await expect.element(screen.getByTestId('settings-navigation')).not.toBeInTheDocument();
 		expect(getMock).toHaveBeenCalledWith('/accounts', {
 			params: { query: { workspace_id: 'workspace-62' } }
 		});
@@ -59,7 +58,6 @@ describe('account management modes', () => {
 	it('embeds content in Settings and renders route-owned feedback', async () => {
 		const onFeedbackDismiss = vi.fn();
 		const screen = await render(AccountManagement, {
-			mode: 'settings',
 			workspace,
 			workspaces: [workspace],
 			links,

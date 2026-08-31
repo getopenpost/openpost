@@ -7,7 +7,7 @@ import (
 	"github.com/openpost/cli/internal/api"
 )
 
-func TestAccountsWebURL(t *testing.T) {
+func TestAccountSettingsURL(t *testing.T) {
 	tests := []struct {
 		name     string
 		instance string
@@ -36,36 +36,36 @@ func TestAccountsWebURL(t *testing.T) {
 		{
 			name:     "https with trailing slash",
 			instance: "https://op.example.com/",
-			want:     "https://op.example.com/accounts",
+			want:     "https://op.example.com/settings?tab=accounts",
 		},
 		{
 			name:     "https with subpath",
 			instance: "https://op.example.com/op/",
-			want:     "https://op.example.com/op/accounts",
+			want:     "https://op.example.com/op/settings?tab=accounts",
 		},
 		{
 			name:     "http local",
 			instance: "http://localhost:8080",
-			want:     "http://localhost:8080/accounts",
+			want:     "http://localhost:8080/settings?tab=accounts",
 		},
 		{
 			name:     "drops query and fragment",
 			instance: "https://op.example.com?x=1#y",
-			want:     "https://op.example.com/accounts",
+			want:     "https://op.example.com/settings?tab=accounts",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := accountsWebURL(tt.instance)
+			got := accountSettingsURL(tt.instance)
 			if got != tt.want {
-				t.Fatalf("accountsWebURL(%q) = %q, want %q", tt.instance, got, tt.want)
+				t.Fatalf("accountSettingsURL(%q) = %q, want %q", tt.instance, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestEmptyAccountsMessage(t *testing.T) {
-	const url = "https://op.example.com/accounts"
+	const url = "https://op.example.com/settings?tab=accounts"
 	tests := []struct {
 		name     string
 		platform string
@@ -74,7 +74,7 @@ func TestEmptyAccountsMessage(t *testing.T) {
 		wantNot  []string // substrings it must not contain
 	}{
 		{
-			name:     "no platform, instance given, points at /accounts",
+			name:     "no platform, instance given, points at account settings",
 			platform: "",
 			instance: "https://op.example.com",
 			wantHas:  []string{"No accounts are connected", url, "web UI"},
@@ -103,7 +103,7 @@ func TestEmptyAccountsMessage(t *testing.T) {
 			platform: "",
 			instance: "op.example.com",
 			wantHas:  []string{"No accounts are connected", "web UI"},
-			wantNot:  []string{"op.example.com/accounts"}, // would be a malformed URL
+			wantNot:  []string{"op.example.com/settings"}, // would be a malformed URL
 		},
 	}
 	for _, tt := range tests {

@@ -22,6 +22,7 @@ import (
 	"github.com/openpost/backend/internal/services/organizationdeletion"
 	"github.com/openpost/backend/internal/services/ratelimit"
 	"github.com/openpost/backend/internal/services/setupprojection"
+	"github.com/openpost/backend/internal/services/voiceprofiles"
 	"github.com/openpost/backend/internal/services/workspaceaccess"
 	"github.com/openpost/backend/internal/services/workspacedeletion"
 	"github.com/openpost/backend/internal/services/workspaceteam"
@@ -517,6 +518,14 @@ func (h *WorkspaceHandler) insertWorkspaceBoundary(ctx context.Context, organiza
 			return err
 		}
 		if _, err := tx.NewInsert().Model(member).Exec(txCtx); err != nil {
+			return err
+		}
+		if _, err := voiceprofiles.SeedDefault(txCtx, tx, voiceprofiles.DefaultSeed{
+			WorkspaceID: workspace.ID,
+			CreatedByID: userID,
+			Name:        workspace.Name,
+			Now:         workspace.CreatedAt,
+		}); err != nil {
 			return err
 		}
 		if _, _, err := jobregistry.EnqueueMediaCleanup(txCtx, tx, workspace.ID, time.Time{}); err != nil {

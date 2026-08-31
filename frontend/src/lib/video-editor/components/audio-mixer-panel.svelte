@@ -26,9 +26,17 @@
 		type MeterBallistics
 	} from '$lib/video-editor/audio/mixer-utils';
 	import LockIcon from '@lucide/svelte/icons/lock-keyhole';
+	import XIcon from '@lucide/svelte/icons/x';
 	import { isTrackEffectivelyLocked } from '$lib/video-editor/timeline/utils/track-groups';
+	import AudioEqPanel from './audio-eq-panel.svelte';
+	import type { AudioEqSettings } from '$lib/video-editor/audio/types';
+	import {
+		appendResolvedAudioEqSources,
+		isAudioEqStageActive
+	} from '$lib/video-editor/audio/audio-eq';
 
 	type FaderTarget = { kind: 'track'; trackId: string } | { kind: 'master' };
+	type EqTarget = { kind: 'track'; trackId: string } | { kind: 'master' };
 	interface FaderGesture {
 		target: FaderTarget;
 		pointerId: number;
@@ -47,6 +55,7 @@
 	let faderAnimationFrame: number | null = null;
 	let meterAnimationFrame: number | null = null;
 	let lastMeterPaint = 0;
+	let eqTarget = $state<EqTarget | null>(null);
 	const meterStates = new Map<string, MeterBallistics>();
 
 	const audioTracks = $derived(
@@ -269,6 +278,49 @@
 		setMixerMaster(timelineStore.masterVolumeDb, timelineStore.masterMuted);
 	}
 
+	function eqIsActive(settings?: AudioEqSettings): boolean {
+		return appendResolvedAudioEqSources(undefined, settings).some(isAudioEqStageActive);
+	}
+
+	function updateTrackEq(trackId: string, settings: AudioEqSettings): void {
+		const track = timelineStore.tracks.find((candidate) => candidate.id === trackId);
+		if (!track || isTrackEffectivelyLocked(trackId, timelineStore.tracks)) return;
+		commandHistory.execute({ type: 'UPDATE_TRACK_EQ', payload: { trackId } }, () =>
+			timelineStore._setTracks(
+				timelineStore.tracks.map((candidate) =>
+					candidate.id === trackId ? { ...candidate, audioEq: { ...settings } } : candidate
+				)
+			)
+		);
+	}
+
+	function updateMasterEq(settings: AudioEqSettings): void {
+		commandHistory.execute({ type: 'UPDATE_MASTER_EQ' }, () =>
+			timelineStore._setBusAudioEq(settings)
+		);
+	}
+
+	function eqTitle(target: EqTarget): string {
+		if (target.kind === 'master') {
+			return `${m.video_editor_mixer_master()} ${m.video_editor_audio_eq_title()}`;
+		}
+		const name = timelineStore.tracks.find((track) => track.id === target.trackId)?.name ?? '';
+		return `${name} ${m.video_editor_audio_eq_title()}`.trim();
+	}
+
+	function eqOwnerName(target: EqTarget): string {
+		if (target.kind === 'master') return m.video_editor_mixer_master();
+		return timelineStore.tracks.find((track) => track.id === target.trackId)?.name ?? '';
+	}
+
+	function toggleEq(target: EqTarget): void {
+		const sameTarget =
+			eqTarget?.kind === target.kind &&
+			(target.kind === 'master' ||
+				(eqTarget.kind === 'track' && eqTarget.trackId === target.trackId));
+		eqTarget = sameTarget ? null : target;
+	}
+
 	function paintMeter(key: string, state: MeterBallistics, now: number): void {
 		if (!root) return;
 		const escaped = CSS.escape(key);
@@ -309,7 +361,13 @@
 	}
 
 	function windowKeydown(event: KeyboardEvent): void {
-		if (event.key !== 'Escape' || !gesture) return;
+		if (event.key !== 'Escape') return;
+		if (eqTarget && !gesture) {
+			event.preventDefault();
+			eqTarget = null;
+			return;
+		}
+		if (!gesture) return;
 		event.preventDefault();
 		cancelFader();
 	}
@@ -329,11 +387,11 @@
 
 <section
 	bind:this={root}
-	class="border-y border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_55)]"
+	class="relative h-full border-y border-[oklch(0.25_0.015_55)] bg-[oklch(0.135_0.008_55)]"
 	aria-label={m.video_editor_mixer()}
 	data-audio-mixer
 >
-	<div class="flex h-56 min-w-0 overflow-x-auto overscroll-x-contain px-2 py-2">
+	<div class="flex h-full min-w-0 overflow-x-auto overscroll-x-contain px-2 py-2">
 		<div class="relative mr-1 w-6 shrink-0" aria-hidden="true">
 			{#each SCALE_MARKS as mark}
 				<span
@@ -354,7 +412,7 @@
 					>
 					{#if locked}<LockIcon class="size-3 shrink-0 text-amber-300/80" />{/if}
 				</div>
-				<div class="grid grid-cols-2 gap-1">
+				<div class="grid grid-cols-3 gap-1">
 					<button
 						type="button"
 						class="channel-button data-[active=true]:border-amber-300/60 data-[active=true]:bg-amber-400/20 data-[active=true]:text-amber-100"
@@ -376,6 +434,16 @@
 							: m.video_editor_mixer_track_mute({ name: track.name })}
 						disabled={locked}
 						onclick={() => updateTrackFlag(track.id, 'muted')}>M</button
+					>
+					<button
+						type="button"
+						class="channel-button px-1 data-[active=true]:border-sky-300/60 data-[active=true]:bg-sky-400/20 data-[active=true]:text-sky-100"
+						data-active={eqIsActive(track.audioEq)}
+						aria-expanded={eqTarget?.kind === 'track' && eqTarget.trackId === track.id}
+						aria-controls="mixer-eq-panel"
+						aria-label={`${m.video_editor_audio_eq_title()}: ${track.name}`}
+						disabled={locked}
+						onclick={() => toggleEq({ kind: 'track', trackId: track.id })}>EQ</button
 					>
 				</div>
 				<div class="flex min-h-0 flex-1 justify-center gap-2">
@@ -430,16 +498,27 @@
 			<div class="truncate text-[10px] font-semibold tracking-wide text-amber-100 uppercase">
 				{m.video_editor_mixer_master()}
 			</div>
-			<button
-				type="button"
-				class="channel-button data-[active=true]:border-red-300/60 data-[active=true]:bg-red-500/25 data-[active=true]:text-red-100"
-				data-active={timelineStore.masterMuted}
-				aria-pressed={timelineStore.masterMuted}
-				aria-label={timelineStore.masterMuted
-					? m.video_editor_mixer_master_unmute()
-					: m.video_editor_mixer_master_mute()}
-				onclick={toggleMasterMute}>M</button
-			>
+			<div class="grid grid-cols-2 gap-1">
+				<button
+					type="button"
+					class="channel-button data-[active=true]:border-red-300/60 data-[active=true]:bg-red-500/25 data-[active=true]:text-red-100"
+					data-active={timelineStore.masterMuted}
+					aria-pressed={timelineStore.masterMuted}
+					aria-label={timelineStore.masterMuted
+						? m.video_editor_mixer_master_unmute()
+						: m.video_editor_mixer_master_mute()}
+					onclick={toggleMasterMute}>M</button
+				>
+				<button
+					type="button"
+					class="channel-button px-1 data-[active=true]:border-sky-300/60 data-[active=true]:bg-sky-400/20 data-[active=true]:text-sky-100"
+					data-active={eqIsActive(timelineStore.busAudioEq)}
+					aria-expanded={eqTarget?.kind === 'master'}
+					aria-controls="mixer-eq-panel"
+					aria-label={`${m.video_editor_audio_eq_title()}: ${m.video_editor_mixer_master()}`}
+					onclick={() => toggleEq({ kind: 'master' })}>EQ</button
+				>
+			</div>
 			<div class="flex min-h-0 flex-1 justify-center gap-2">
 				<div class="flex w-3 gap-px" aria-hidden="true">
 					{#each ['left', 'right'] as channel}
@@ -488,6 +567,45 @@
 			</div>
 		</div>
 	</div>
+
+	{#if eqTarget}
+		<aside
+			id="mixer-eq-panel"
+			class="absolute inset-y-0 right-0 z-20 w-full max-w-md overflow-y-auto border-l border-white/10 bg-[oklch(0.145_0.01_55)] p-2 shadow-2xl"
+			aria-label={eqTitle(eqTarget)}
+			data-mixer-eq-panel
+		>
+			<div class="mb-2 flex min-h-9 items-center justify-between gap-2">
+				<h3 class="truncate text-xs font-semibold text-white/90">{eqOwnerName(eqTarget)}</h3>
+				<button
+					type="button"
+					class="grid size-9 shrink-0 place-items-center rounded-md border border-white/10 text-white/60 hover:bg-white/8 hover:text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+					aria-label={m.common_close()}
+					onclick={() => (eqTarget = null)}
+				>
+					<XIcon class="size-4" />
+				</button>
+			</div>
+			{#if eqTarget.kind === 'master'}
+				<AudioEqPanel
+					settings={timelineStore.busAudioEq}
+					title={eqTitle(eqTarget)}
+					onsettingschange={updateMasterEq}
+					open
+				/>
+			{:else}
+				{@const eqTrack = timelineStore.tracks.find((track) => track.id === eqTarget.trackId)}
+				{#if eqTrack}
+					<AudioEqPanel
+						settings={eqTrack.audioEq}
+						title={eqTitle(eqTarget)}
+						onsettingschange={(settings) => updateTrackEq(eqTrack.id, settings)}
+						open
+					/>
+				{/if}
+			{/if}
+		</aside>
+	{/if}
 </section>
 
 <style>

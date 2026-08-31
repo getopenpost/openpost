@@ -45,19 +45,21 @@ beforeEach(() => {
 });
 
 describe('MotionPresetsPanel layers', () => {
-	it('exposes additive layer section with 44 px targets and keyboard access', async () => {
+	it('moves an added layer into the applied summary with 44 px controls', async () => {
 		await page.viewport(320, 720);
 		const screen = await render(MotionPresetsPanel, props(['one']));
-		await expect.element(screen.getByRole('heading', { name: 'Additive layers' })).toBeVisible();
-		await expect.element(screen.getByText('No additive layers on the selection.')).toBeVisible();
+		expect(screen.getByRole('heading', { name: 'Applied to this clip' }).query()).toBeNull();
 		const add = screen.getByRole('button', { name: /^Add .* as additive layer$/ }).nth(0);
 		expect(add.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 		await add.click();
 		expect(timelineStore.itemById.get('one')?.motionLayers).toHaveLength(1);
-		await expect.element(screen.getByRole('heading', { name: 'Additive layers' })).toBeVisible();
-		const toggle = screen.container.querySelector<HTMLInputElement>('.layer-toggle input');
-		expect(toggle).not.toBeNull();
-		expect(toggle!.closest('label')?.getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
+		await expect
+			.element(screen.getByRole('heading', { name: 'Applied to this clip' }))
+			.toBeVisible();
+		const toggle = screen.getByRole('checkbox');
+		expect(
+			toggle.element().closest('label')?.getBoundingClientRect().height
+		).toBeGreaterThanOrEqual(44);
 		const remove = screen.getByRole('button', { name: /Remove .* layer/ });
 		expect(remove.element().getBoundingClientRect().height).toBeGreaterThanOrEqual(44);
 		expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
@@ -86,8 +88,7 @@ describe('MotionPresetsPanel layers', () => {
 			.nth(1)
 			.click();
 		const beforeToggle = commandHistory.undoStack.length;
-		const toggle = screen.container.querySelector<HTMLInputElement>('.layer-toggle input')!;
-		toggle.click();
+		await screen.getByRole('checkbox').click();
 		await vi.waitFor(() =>
 			expect(timelineStore.itemById.get('one')?.motionLayers?.[0].enabled).toBe(false)
 		);

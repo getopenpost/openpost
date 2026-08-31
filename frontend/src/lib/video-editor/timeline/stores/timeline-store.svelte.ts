@@ -12,8 +12,11 @@
  */
 
 import type { TimelineItem, TimelineMarker, TimelineTrack } from '$lib/video-editor/project/types';
+import type { AudioEqSettings } from '$lib/video-editor/audio/types';
 import { clampTimelineZoom } from '$lib/video-editor/timeline/zoom';
 import { calculateSplitSourceBoundaries } from '../utils/source-calculations';
+import { hasVariableSpeed, variableSpeedSplitBoundaries } from '../source-time-map';
+import { synchronizeTranscriptCaptionsAfterSplit } from '../../transcript/split-transcript-captions';
 
 export interface TimelineSettings {
 	fps: number;
@@ -64,6 +67,7 @@ interface TimelineState {
 	isDirty: boolean;
 	masterVolumeDb: number;
 	masterMuted: boolean;
+	busAudioEq?: AudioEqSettings;
 }
 
 const state = $state<TimelineState>({
@@ -85,13 +89,35 @@ const state = $state<TimelineState>({
 	seekLocked: false,
 	isDirty: false,
 	masterVolumeDb: 0,
-	masterMuted: false
+	masterMuted: false,
+	busAudioEq: undefined
 });
 
 let index = $state.raw<ItemsIndex>(buildIndex(state.items));
 
 function reindex(): void {
 	index = buildIndex(state.items);
+	state.isDirty = true;
+}
+
+function moveIndexedItemTrack(item: TimelineItem, nextTrackId: string): void {
+	if (item.trackId === nextTrackId) return;
+	const previous = index.itemsByTrackId.get(item.trackId);
+	if (previous) {
+		const itemIndex = previous.indexOf(item);
+		if (itemIndex >= 0) previous.splice(itemIndex, 1);
+		if (previous.length === 0) index.itemsByTrackId.delete(item.trackId);
+	}
+	const next = index.itemsByTrackId.get(nextTrackId);
+	if (next) next.push(item);
+	else index.itemsByTrackId.set(nextTrackId, [item]);
+	item.trackId = nextTrackId;
+}
+
+function finishPreviewMutation(maxItemEndFrame: number): void {
+	if (maxItemEndFrame > index.maxItemEndFrame) {
+		index = { ...index, maxItemEndFrame };
+	}
 	state.isDirty = true;
 }
 
@@ -147,6 +173,9 @@ export const timelineStore = {
 	get masterMuted(): boolean {
 		return state.masterMuted;
 	},
+	get busAudioEq(): AudioEqSettings | undefined {
+		return state.busAudioEq;
+	},
 	get itemsByTrackId(): Map<string, TimelineItem[]> {
 		return index.itemsByTrackId;
 	},
@@ -171,6 +200,7 @@ export const timelineStore = {
 		scrollPosition?: number;
 		masterVolumeDb?: number;
 		masterMuted?: boolean;
+		busAudioEq?: AudioEqSettings;
 	}): void {
 		if (next.items) state.items = next.items;
 		if (next.tracks) state.tracks = next.tracks;
@@ -201,6 +231,8 @@ export const timelineStore = {
 			);
 		}
 		if (next.masterMuted !== undefined) state.masterMuted = Boolean(next.masterMuted);
+		if ('busAudioEq' in next)
+			state.busAudioEq = next.busAudioEq ? { ...next.busAudioEq } : undefined;
 		reindex();
 	},
 
@@ -215,6 +247,7 @@ export const timelineStore = {
 		state.seekLocked = false;
 		state.masterVolumeDb = 0;
 		state.masterMuted = false;
+		state.busAudioEq = undefined;
 		state.isDirty = false;
 		reindex();
 	},
@@ -241,6 +274,11 @@ export const timelineStore = {
 		state.isDirty = true;
 	},
 
+	_setBusAudioEq(value?: AudioEqSettings): void {
+		state.busAudioEq = value ? { ...value } : undefined;
+		state.isDirty = true;
+	},
+
 	_addItem(item: TimelineItem): void {
 		state.items.push(item);
 		reindex();
@@ -263,7 +301,8 @@ export const timelineStore = {
 
 	_splitItem(
 		id: string,
-		frame: number
+		frame: number,
+		options: { synchronizeTranscriptCaptions?: boolean } = {}
 	): { leftItem: TimelineItem; rightItem: TimelineItem } | null {
 		const item = index.itemById.get(id);
 		if (!item) return null;
@@ -280,30 +319,41 @@ export const timelineStore = {
 			durationInFrames: rightDuration,
 			label: item.label
 		};
+		item.durationInFrames = leftDuration;
 		if (
 			rightItem.type === 'video' ||
 			rightItem.type === 'audio' ||
 			rightItem.type === 'composition'
 		) {
 			const sourceFps = item.sourceFps && item.sourceFps > 0 ? item.sourceFps : state.settings.fps;
-			const boundaries = calculateSplitSourceBoundaries(
-				item.sourceStart ?? 0,
-				leftDuration,
-				rightDuration,
-				item.speed ?? 1,
-				state.settings.fps,
-				sourceFps,
-				item.isReversed,
-				item.sourceEnd
-			);
+			const boundaries = hasVariableSpeed(rightItem)
+				? variableSpeedSplitBoundaries(rightItem, leftDuration, state.settings.fps)
+				: calculateSplitSourceBoundaries(
+						item.sourceStart ?? 0,
+						leftDuration,
+						rightDuration,
+						item.speed ?? 1,
+						state.settings.fps,
+						sourceFps,
+						item.isReversed,
+						item.sourceEnd
+					);
 			item.sourceStart = boundaries.left.sourceStart;
 			item.sourceEnd = boundaries.left.sourceEnd;
 			rightItem.sourceStart = boundaries.right.sourceStart;
 			rightItem.sourceEnd = boundaries.right.sourceEnd;
+			if (options.synchronizeTranscriptCaptions !== false) {
+				state.items = synchronizeTranscriptCaptionsAfterSplit(
+					state.items,
+					item,
+					rightItem,
+					frame,
+					state.settings.fps
+				);
+			}
 		} else if (rightItem.type === 'lottie') {
 			rightItem.lottiePhaseOffset = (item.lottiePhaseOffset ?? 0) + relative;
 		}
-		item.durationInFrames = leftDuration;
 		// Both halves carry the original's lineage so downstream range-removal
 		// can identify every piece of the clip that was edited.
 		if (!item.originId) item.originId = rightItem.originId;
@@ -321,6 +371,37 @@ export const timelineStore = {
 				item.trackId = update.trackId;
 			}
 		}
+		reindex();
+	},
+
+	/** Update gesture drafts without rebuilding whole-project indexes on every pointer frame. */
+	_previewMoveItems(updates: Array<{ id: string; from: number; trackId?: string }>): void {
+		let maxItemEndFrame = index.maxItemEndFrame;
+		for (const update of updates) {
+			const item = index.itemById.get(update.id);
+			if (!item) continue;
+			if (update.trackId) moveIndexedItemTrack(item, update.trackId);
+			item.from = update.from;
+			maxItemEndFrame = Math.max(maxItemEndFrame, item.from + item.durationInFrames);
+		}
+		finishPreviewMutation(maxItemEndFrame);
+	},
+
+	/** Apply gesture property drafts while keeping id and track indexes usable. */
+	_previewUpdateItems(updates: Array<{ id: string; patch: Partial<TimelineItem> }>): void {
+		let maxItemEndFrame = index.maxItemEndFrame;
+		for (const { id, patch } of updates) {
+			const item = index.itemById.get(id);
+			if (!item) continue;
+			if (patch.trackId) moveIndexedItemTrack(item, patch.trackId);
+			Object.assign(item, patch);
+			maxItemEndFrame = Math.max(maxItemEndFrame, item.from + item.durationInFrames);
+		}
+		finishPreviewMutation(maxItemEndFrame);
+	},
+
+	/** Rebuild exact duration and track indexes once after a gesture draft settles. */
+	_commitPreviewItems(): void {
 		reindex();
 	},
 
@@ -417,5 +498,6 @@ export const timelineStore = {
 		state.seekLocked = false;
 		state.masterVolumeDb = 0;
 		state.masterMuted = false;
+		state.busAudioEq = undefined;
 	}
 };

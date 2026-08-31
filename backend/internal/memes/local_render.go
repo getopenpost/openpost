@@ -31,8 +31,10 @@ import (
 )
 
 const (
-	builtinRenderHeight = 600
-	builtinMaxGIFFrames = 20
+	builtinRenderHeight       = 600
+	builtinMaxGIFFrames       = 20
+	builtinPILLineHeightScale = 1.15
+	builtinPILDefaultSpacing  = 4
 )
 
 var standaloneIRegexp = regexp.MustCompile(`\bi\b`)
@@ -247,19 +249,19 @@ func (p *BuiltinProvider) drawBuiltinCaption(canvas *image.NRGBA, field builtinT
 	rows := len(layout.lines)
 	yAdjust := builtinYAdjust(rows, isImpact)
 	metrics := layout.face.Metrics()
-	lineHeight := metrics.Height.Ceil()
-	textHeight := lineHeight * rows
-	descender := builtinDescenderOffset(layout.lines[rows-1], textHeight)
-	// Port upstream get_text_offset: vertical centering uses textHeight/yAdjust and descender.
-	effectiveHeight := int(float64(textHeight) / yAdjust)
-	baselineTop := (height-effectiveHeight)/2 + metrics.Ascent.Ceil()
-	// Row spacing mirrors PIL spacing = -offsetY/(rows*2). OffsetY approximates -(height-effective)/2, so spacing ~ (height-effective)/(rows*4*yAdjust) simplified to small extra.
-	offsetY := -(height-effectiveHeight)/2 + descender
+	textBounds := measureBuiltinLines(layout.face, layout.lines, layout.size)
+	descender := builtinDescenderOffset(layout.lines[rows-1], textBounds.height)
+	offsetY := textBounds.top - strokeWidth - int(math.Round(
+		(float64(height)-float64(textBounds.bottom+strokeWidth)/yAdjust)/2,
+	)) + descender
 	spacing := builtinRowSpacing(offsetY, rows)
 	for row, line := range layout.lines {
 		lineWidth := xfont.MeasureString(layout.face, line).Ceil()
 		x := builtinAlignX(width, lineWidth, field.Align)
-		y := baselineTop + descender + row*(lineHeight+spacing)
+		if strings.EqualFold(strings.TrimSpace(field.Align), "left") {
+			x += strokeWidth
+		}
+		y := -offsetY + metrics.Ascent.Ceil() + row*(builtinPILLineHeight(layout.size)+builtinPILDefaultSpacing+spacing)
 		for dy := -strokeWidth; dy <= strokeWidth; dy++ {
 			for dx := -strokeWidth; dx <= strokeWidth; dx++ {
 				if dx*dx+dy*dy > strokeWidth*strokeWidth {
@@ -311,7 +313,7 @@ func builtinRowSpacing(offsetY int, rows int) int {
 
 func builtinAlignX(width, lineWidth int, align string) int {
 	if strings.EqualFold(strings.TrimSpace(align), "left") {
-		return max(1, width/70)
+		return 0
 	}
 	return max(0, (width-lineWidth)/2)
 }
@@ -352,89 +354,125 @@ type builtinCaptionLayout struct {
 	size  int
 }
 
+type builtinLineBounds struct {
+	top    int
+	bottom int
+	width  int
+	height int
+}
+
+func measureBuiltinLines(face xfont.Face, lines []string, fontSize int) builtinLineBounds {
+	metrics := face.Metrics()
+	lineAdvance := builtinPILLineHeight(fontSize) + builtinPILDefaultSpacing
+	result := builtinLineBounds{}
+	for row, line := range lines {
+		bounds, _ := xfont.BoundString(face, line)
+		top := metrics.Ascent.Ceil() + bounds.Min.Y.Floor() + row*lineAdvance
+		bottom := metrics.Ascent.Ceil() + bounds.Max.Y.Ceil() + row*lineAdvance
+		if row == 0 || top < result.top {
+			result.top = top
+		}
+		result.bottom = max(result.bottom, bottom)
+		result.width = max(result.width, bounds.Max.X.Ceil()-bounds.Min.X.Floor())
+	}
+	result.height = max(0, result.bottom-result.top)
+	return result
+}
+
+func builtinPILLineHeight(fontSize int) int {
+	return int(math.Round(float64(fontSize) * builtinPILLineHeightScale))
+}
+
 func fitBuiltinCaption(fontSource *sfnt.Font, value string, width, height, maxSize int) (builtinCaptionLayout, error) {
 	if maxSize < 7 {
 		maxSize = 7
 	}
-	candidates := builtinLineCandidates(value)
-	var best builtinCaptionLayout
-	for _, lines := range candidates {
-		for size := maxSize; size >= 7; size-- {
-			face, err := opentype.NewFace(fontSource, &opentype.FaceOptions{
-				Size: float64(size), DPI: 72, Hinting: xfont.HintingFull,
-			})
-			if err != nil {
-				return builtinCaptionLayout{}, err
-			}
-			maxWidth := 0
-			for _, line := range lines {
-				maxWidth = max(maxWidth, xfont.MeasureString(face, line).Ceil())
-			}
-			totalHeight := face.Metrics().Height.Ceil() * len(lines)
-			if maxWidth <= width-width/35 && totalHeight <= height-height/10 {
-				if size > best.size || (size == best.size && len(lines) < len(best.lines)) {
-					best = builtinCaptionLayout{face: face, lines: lines, size: size}
-				}
-				break
-			}
-		}
+	if strings.Contains(value, "\n") {
+		return fitBuiltinLines(fontSource, strings.Split(value, "\n"), width, height, maxSize)
 	}
-	if best.face == nil {
-		face, err := opentype.NewFace(fontSource, &opentype.FaceOptions{Size: 7, DPI: 72})
+
+	oneLine, err := fitBuiltinLines(fontSource, []string{value}, width, height, maxSize)
+	if err != nil {
+		return builtinCaptionLayout{}, err
+	}
+	twoLines, err := fitBuiltinLines(fontSource, splitBuiltinCaptionTwo(value), width, height, maxSize)
+	if err != nil {
+		return builtinCaptionLayout{}, err
+	}
+	threeLines, err := fitBuiltinLines(fontSource, splitBuiltinCaptionThree(value), width, height, maxSize)
+	if err != nil {
+		return builtinCaptionLayout{}, err
+	}
+
+	if oneLine.size == twoLines.size && twoLines.size <= 7 {
+		return twoLines, nil
+	}
+	if oneLine.size >= twoLines.size {
+		return oneLine, nil
+	}
+	if measureBuiltinLines(threeLines.face, threeLines.lines, threeLines.size).width >= int(float64(width)*0.60) {
+		return threeLines, nil
+	}
+	if measureBuiltinLines(twoLines.face, twoLines.lines, twoLines.size).width >= int(float64(width)*0.60) {
+		return twoLines, nil
+	}
+	return oneLine, nil
+}
+
+func fitBuiltinLines(fontSource *sfnt.Font, lines []string, width, height, maxSize int) (builtinCaptionLayout, error) {
+	for size := maxSize; size >= 7; size-- {
+		face, err := opentype.NewFace(fontSource, &opentype.FaceOptions{
+			Size: float64(size), DPI: 72, Hinting: xfont.HintingFull,
+		})
 		if err != nil {
 			return builtinCaptionLayout{}, err
 		}
-		best = builtinCaptionLayout{face: face, lines: []string{value}, size: 7}
+		bounds := measureBuiltinLines(face, lines, size)
+		if bounds.width <= width-width/35 && bounds.height <= height-height/10 {
+			return builtinCaptionLayout{face: face, lines: lines, size: size}, nil
+		}
 	}
-	return best, nil
+	face, err := opentype.NewFace(fontSource, &opentype.FaceOptions{Size: 7, DPI: 72, Hinting: xfont.HintingFull})
+	if err != nil {
+		return builtinCaptionLayout{}, err
+	}
+	return builtinCaptionLayout{face: face, lines: lines, size: 7}, nil
 }
 
-func builtinLineCandidates(value string) [][]string {
-	manual := strings.Split(value, "\n")
-	if len(manual) > 1 {
-		return [][]string{manual}
+func splitBuiltinCaptionTwo(value string) []string {
+	runes := []rune(value)
+	if len(runes) < 2 {
+		return []string{value}
 	}
-	words := strings.Fields(value)
-	if len(words) < 2 {
-		return [][]string{{value}}
+	midpoint := len(runes)/2 - 1
+	for offset := 0; offset < len(runes)/4; offset++ {
+		for _, index := range []int{midpoint - offset, midpoint + offset} {
+			if index >= 0 && index < len(runes) && runes[index] == ' ' {
+				return []string{
+					strings.TrimSpace(string(runes[:index])),
+					strings.TrimSpace(string(runes[index:])),
+				}
+			}
+		}
 	}
-	result := [][]string{{value}}
-	for count := 2; count <= 3 && count <= len(words); count++ {
-		result = append(result, balanceBuiltinWords(words, count))
-	}
-	return result
+	return []string{value}
 }
 
-func balanceBuiltinWords(words []string, count int) []string {
-	total := 0
+func splitBuiltinCaptionThree(value string) []string {
+	words := strings.Split(value, " ")
+	lines := []string{"", "", ""}
+	lineIndex := 0
+	maxLength := float64(utf8.RuneCountInString(value)) / 3
 	for _, word := range words {
-		total += utf8.RuneCountInString(word)
-	}
-	total += len(words) - 1
-	target := float64(total) / float64(count)
-	lines := make([]string, 0, count)
-	current := make([]string, 0, len(words))
-	currentLength := 0
-	for index, word := range words {
-		wordLength := utf8.RuneCountInString(word)
-		remainingWords := len(words) - index
-		remainingLines := count - len(lines)
-		if len(current) > 0 && float64(currentLength+1+wordLength) > target && remainingWords >= remainingLines {
-			lines = append(lines, strings.Join(current, " "))
-			current = current[:0]
-			currentLength = 0
+		currentLength := utf8.RuneCountInString(lines[lineIndex])
+		nextLength := float64(currentLength) + float64(utf8.RuneCountInString(word))*0.7
+		if nextLength > maxLength && lineIndex < 2 {
+			lineIndex++
 		}
-		current = append(current, word)
-		if currentLength > 0 {
-			currentLength++
-		}
-		currentLength += wordLength
+		lines[lineIndex] += word + " "
 	}
-	if len(current) > 0 {
-		lines = append(lines, strings.Join(current, " "))
-	}
-	for len(lines) < count {
-		lines = append(lines, "")
+	for index := range lines {
+		lines[index] = strings.TrimSpace(lines[index])
 	}
 	return lines
 }

@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 
-import { relativeTime } from "./format";
+import { accountHandle, relativeTime } from "./format";
 
 const relativeTimeFormat = Intl.RelativeTimeFormat;
 
@@ -25,4 +25,10 @@ test("formats publication times when Hermes does not provide RelativeTimeFormat"
   } finally {
     Date.now = originalNow;
   }
+});
+
+test("formats account handles with exactly one at sign", () => {
+  expect(accountHandle("@rodrgds", "youtube-rodrgds")).toBe("@rodrgds");
+  expect(accountHandle("rodrgds", "youtube-rodrgds")).toBe("@rodrgds");
+  expect(accountHandle("", "youtube-rodrgds")).toBe("youtube-rodrgds");
 });

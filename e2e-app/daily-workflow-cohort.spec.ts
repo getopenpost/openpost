@@ -1,6 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { expectNoSeriousAccessibilityViolations } from "./accessibility";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  clickComposerDeliveryAction,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 type DeliveryStage = {
   state:
@@ -18,7 +23,12 @@ type DeliveryStage = {
 };
 
 const deliveryStages: DeliveryStage[] = [
-  { state: "queued", publicationStatus: "scheduled", label: "Queued", recoveryAction: "none" },
+  {
+    state: "queued",
+    publicationStatus: "scheduled",
+    label: "Queued",
+    recoveryAction: "none",
+  },
   {
     state: "submitted",
     publicationStatus: "scheduled",
@@ -37,7 +47,12 @@ const deliveryStages: DeliveryStage[] = [
     label: "Scheduled at provider",
     recoveryAction: "none",
   },
-  { state: "live", publicationStatus: "published", label: "Live", recoveryAction: "none" },
+  {
+    state: "live",
+    publicationStatus: "published",
+    label: "Live",
+    recoveryAction: "none",
+  },
   {
     state: "rejected",
     publicationStatus: "failed",
@@ -89,10 +104,12 @@ test("one persisted Rendition exposes every exact delivery outcome across daily 
       /\/api\/v1\/publications\/[^/]+\/publish-now$/u.test(new URL(response.url()).pathname) &&
       response.request().method() === "POST",
   );
-  await page.getByRole("button", { name: "Publish now" }).click();
+  await clickComposerDeliveryAction(page, "Publish Now");
   const publishResponse = await publishResponsePromise;
   expect(publishResponse.ok(), await publishResponse.text()).toBeTruthy();
-  const published = (await publishResponse.json()) as { publication_id: string };
+  const published = (await publishResponse.json()) as {
+    publication_id: string;
+  };
   expect(published.publication_id).toBeTruthy();
   await expect(page.getByTestId("composer-delivery-feedback")).toBeVisible();
 
@@ -136,9 +153,17 @@ test("one persisted Rendition exposes every exact delivery outcome across daily 
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ state, attempt_number: attemptNumber }),
           });
-          return { ok: response.ok, status: response.status, body: await response.text() };
+          return {
+            ok: response.ok,
+            status: response.status,
+            body: await response.text(),
+          };
         },
-        { publicationID: published.publication_id, state: stage.state, attemptNumber: index + 1 },
+        {
+          publicationID: published.publication_id,
+          state: stage.state,
+          attemptNumber: index + 1,
+        },
       );
       expect(projected.ok, `${projected.status}: ${projected.body}`).toBeTruthy();
 
@@ -150,7 +175,11 @@ test("one persisted Rendition exposes every exact delivery outcome across daily 
         status: string;
         renditions: Array<{
           id: string;
-          delivery?: { state: string; recovery_action: string; current_attempt_number: number };
+          delivery?: {
+            state: string;
+            recovery_action: string;
+            current_attempt_number: number;
+          };
         }>;
       };
       expect(publication.status).toBe(stage.publicationStatus);
@@ -174,7 +203,7 @@ test("one persisted Rendition exposes every exact delivery outcome across daily 
       if (index === deliveryStages.length - 1) {
         await expectNoSeriousAccessibilityViolations(page);
       }
-      await page.goto(`/activity?workspace=${workspace.id}`);
+      await page.goto(`/publications?workspace=${workspace.id}`);
       const activityTab =
         stage.publicationStatus === "published"
           ? "Published"
@@ -182,7 +211,10 @@ test("one persisted Rendition exposes every exact delivery outcome across daily 
             ? "Failed"
             : "Scheduled";
       await page.getByRole("tab", { name: activityTab, exact: true }).click();
-      const activity = page.getByRole("tabpanel", { name: activityTab, exact: true });
+      const activity = page.getByRole("tabpanel", {
+        name: activityTab,
+        exact: true,
+      });
       await expect(activity.getByText(stage.label, { exact: true }).first()).toBeVisible();
       await expectRecoveryAction(activity, stage);
       await expectNoDocumentOverflow(page);
@@ -227,20 +259,17 @@ async function connectMastodon(page: Page, workspaceID: string) {
       credentials: "same-origin",
     });
     if (!response.ok) throw new Error(await response.text());
-    localStorage.setItem("oauth_account_management_mode", "settings");
     localStorage.setItem("oauth_workspace_id", id);
     localStorage.setItem("oauth_mastodon_server", "OpenPost Daily E2E");
     localStorage.removeItem("oauth_mastodon_instance_url");
     return ((await response.json()) as { url: string }).url;
   }, workspaceID);
   await page.goto(authURL);
-  await expect(page).toHaveURL(new RegExp(`workspace_id=${workspaceID}`), { timeout: 15_000 });
-  if (new URL(page.url()).pathname === "/accounts/setup") {
-    await expect(page.getByRole("heading", { name: "Set up your new destinations" })).toBeVisible();
-    await page.getByRole("button", { name: "Keep all off" }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
-    await expect(page).toHaveURL(new RegExp(`workspace_id=${workspaceID}`));
-  }
+  await expect(page).toHaveURL(new RegExp(`workspace_id=${workspaceID}`), {
+    timeout: 15_000,
+  });
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+  await expect(page).toHaveURL(new RegExp(`workspace_id=${workspaceID}`));
   await expect(
     page.getByText("Composer ready. The requested destination is selected."),
   ).toBeVisible();

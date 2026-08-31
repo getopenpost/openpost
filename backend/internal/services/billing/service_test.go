@@ -79,6 +79,24 @@ func newBillingTestDB(t *testing.T) *bun.DB {
 		_, err := db.NewCreateTable().Model(model).IfNotExists().Exec(context.Background())
 		require.NoError(t, err)
 	}
+	_, err = db.ExecContext(context.Background(), `CREATE TABLE voice_profiles (
+		id TEXT PRIMARY KEY,
+		workspace_id TEXT NOT NULL,
+		name TEXT NOT NULL,
+		normalized_name TEXT NOT NULL,
+		is_default BOOLEAN NOT NULL DEFAULT false,
+		revision INTEGER NOT NULL DEFAULT 1,
+		schema_version INTEGER NOT NULL DEFAULT 1,
+		definition_json TEXT NOT NULL DEFAULT '{}',
+		created_by_id TEXT NOT NULL DEFAULT '',
+		created_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+		updated_at TIMESTAMP NOT NULL DEFAULT current_timestamp,
+		UNIQUE (id, workspace_id),
+		UNIQUE (workspace_id, normalized_name)
+	)`)
+	require.NoError(t, err)
+	_, err = db.ExecContext(context.Background(), `CREATE UNIQUE INDEX voice_profiles_default_idx ON voice_profiles (workspace_id) WHERE is_default = true`)
+	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Organization{ID: "org-1", Name: "OpenPost", CreatedByID: "owner", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}).Exec(context.Background())
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&models.Workspace{ID: "ws-1", Name: "Launch"}).Exec(context.Background())
@@ -202,7 +220,7 @@ func TestPurchaseChoiceCoversEveryCanonicalPlanAndBillingPeriod(t *testing.T) {
 	now := time.Date(2026, 8, 12, 10, 0, 0, 0, time.UTC)
 	service := NewService(nil, "", PaddleConfig{
 		Plans:                testCatalog(),
-		PurchaseChoiceSecret: "purchase-choice-secret-with-at-least-32-characters",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 	service.SetNowForTest(func() time.Time { return now })
 
@@ -241,7 +259,7 @@ func TestPurchaseChoiceRejectsMissingInvalidExpiredAndMismatchedValues(t *testin
 	now := time.Date(2026, 8, 12, 10, 0, 0, 0, time.UTC)
 	service := NewService(nil, "", PaddleConfig{
 		Plans:                testCatalog(),
-		PurchaseChoiceSecret: "purchase-choice-secret-with-at-least-32-characters",
+		PurchaseChoiceSecret: "pppppppppppppppppppppppppppppppp",
 	})
 	service.SetNowForTest(func() time.Time { return now })
 

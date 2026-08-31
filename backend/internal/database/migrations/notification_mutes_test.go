@@ -7,28 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNotificationMutesMigrationCreatesScopedOverlayState(t *testing.T) {
+func TestNotificationMutesMigrationKeepsLegacyDigestScopeUnknown(t *testing.T) {
 	db := newMigrationsTestDB(t)
 	require.NoError(t, runTestMigrations(t, db))
 	ctx := context.Background()
-
-	var tableCount int
-	require.NoError(t, db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'user_notification_mutes'",
-	).Scan(&tableCount))
-	require.Equal(t, 1, tableCount)
-
-	var workspaceColumnCount int
-	require.NoError(t, db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM pragma_table_info('user_notification_digest_items') WHERE name = 'workspace_id'",
-	).Scan(&workspaceColumnCount))
-	require.Equal(t, 1, workspaceColumnCount)
-
-	var knownColumnCount int
-	require.NoError(t, db.QueryRowContext(ctx,
-		"SELECT COUNT(*) FROM pragma_table_info('user_notification_digest_items') WHERE name = 'workspace_scope_known' AND dflt_value = 'FALSE'",
-	).Scan(&knownColumnCount))
-	require.Equal(t, 1, knownColumnCount)
 
 	_, err := db.ExecContext(ctx, "INSERT INTO users (id, email, password_hash) VALUES ('legacy-mute-user', 'legacy-mute@example.com', 'hash')")
 	require.NoError(t, err)

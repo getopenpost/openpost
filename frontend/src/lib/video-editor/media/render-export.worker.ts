@@ -15,6 +15,32 @@ if (workerGlobal.window === undefined) {
 }
 
 const activeRequests = new Map<string, AbortController>();
+const sequenceBatchAcks = new Map<string, () => void>();
+
+function sequenceBatchKey(requestId: string, batchId: number): string {
+	return `${requestId}:${batchId}`;
+}
+
+function waitForSequenceBatchAck(
+	requestId: string,
+	batchId: number,
+	signal: AbortSignal
+): Promise<void> {
+	if (signal.aborted) return Promise.reject(new DOMException('Export cancelled.', 'AbortError'));
+	return new Promise<void>((resolve, reject) => {
+		const key = sequenceBatchKey(requestId, batchId);
+		const onAbort = (): void => {
+			sequenceBatchAcks.delete(key);
+			reject(new DOMException('Export cancelled.', 'AbortError'));
+		};
+		sequenceBatchAcks.set(key, () => {
+			signal.removeEventListener('abort', onAbort);
+			sequenceBatchAcks.delete(key);
+			resolve();
+		});
+		signal.addEventListener('abort', onAbort, { once: true });
+	});
+}
 
 function respond(message: RenderExportWorkerResponse): void {
 	self.postMessage(message);
@@ -37,6 +63,10 @@ function fallbackError(error: Error | string): string {
 
 self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 	const message = event.data;
+	if (message.type === 'sequence-batch-ack') {
+		sequenceBatchAcks.get(sequenceBatchKey(message.requestId, message.batchId))?.();
+		return;
+	}
 	if (message.type === 'cancel') {
 		activeRequests.get(message.requestId)?.abort();
 		return;
@@ -70,7 +100,9 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 			timeline?.tracks ?? [],
 			message.project.metadata.fps,
 			timeline?.transitions ?? [],
-			timeline?.compositions ?? []
+			timeline?.compositions ?? [],
+			new Set(),
+			timeline?.busAudioEq
 		);
 		const hasAudio =
 			!smartCopyEligible &&
@@ -79,11 +111,55 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 			throw new Error('WORKER_REQUIRES_MAIN_THREAD:audio-context');
 		}
 
-		const { renderMultiTrackVideoArtifact, renderTimelineAudioArtifact } =
-			await import('./render-export');
 		const onProgress = (progress: RenderExportProgress): void => {
 			respond({ type: 'progress', requestId: message.requestId, progress });
 		};
+		if (message.mode === 'image-sequence') {
+			const { IMAGE_SEQUENCE_BATCH_SIZE, renderImageSequenceFrames } =
+				await import('./image-sequence-export');
+			let batch: import('./render-export-worker.types').WorkerSequenceBatchFrame[] = [];
+			let batchId = 0;
+			let totalBytes = 0;
+			let frameCount = 0;
+			for await (const frame of renderImageSequenceFrames(message.project, {
+				...message.options,
+				signal: controller.signal,
+				onProgress
+			})) {
+				batch.push(frame);
+				totalBytes += frame.blob.size;
+				frameCount += 1;
+				if (batch.length >= IMAGE_SEQUENCE_BATCH_SIZE) {
+					respond({
+						type: 'sequence-batch',
+						requestId: message.requestId,
+						batchId,
+						frames: batch
+					});
+					await waitForSequenceBatchAck(message.requestId, batchId, controller.signal);
+					batchId += 1;
+					batch = [];
+				}
+			}
+			if (batch.length > 0) {
+				respond({
+					type: 'sequence-batch',
+					requestId: message.requestId,
+					batchId,
+					frames: batch
+				});
+				await waitForSequenceBatchAck(message.requestId, batchId, controller.signal);
+			}
+			respond({
+				type: 'sequence-complete',
+				requestId: message.requestId,
+				frameCount,
+				totalBytes
+			});
+			return;
+		}
+		const { renderMultiTrackVideoArtifact, renderTimelineAudioArtifact } =
+			await import('./render-export');
 		const artifact =
 			message.mode === 'video'
 				? await renderMultiTrackVideoArtifact(message.project, {
@@ -106,6 +182,9 @@ self.onmessage = async (event: MessageEvent<RenderExportWorkerRequest>) => {
 		);
 	} finally {
 		activeRequests.delete(message.requestId);
+		for (const key of sequenceBatchAcks.keys()) {
+			if (key.startsWith(`${message.requestId}:`)) sequenceBatchAcks.delete(key);
+		}
 		try {
 			const { setWorkspaceRoot } = await import('../workspace-fs/root');
 			const { mediaPool } = await import('./pool.svelte');

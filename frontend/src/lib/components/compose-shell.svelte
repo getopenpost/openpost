@@ -17,6 +17,7 @@
 	const initialAccountIds = $derived(
 		(page.url.searchParams.get('account_ids') ?? '').split(',').filter(Boolean)
 	);
+	const initialMediaIds = $derived(page.url.searchParams.getAll('media_id'));
 	const composerResetCounter = $derived(ui.composerResetCounter);
 
 	function handleComposerReset() {
@@ -38,6 +39,7 @@
 				{initialScheduleTime}
 				{initialWorkspaceId}
 				{initialAccountIds}
+				{initialMediaIds}
 				{onHandoffSelected}
 				{hideSetupGuideOnDesktop}
 				onSuccess={handleComposerReset}

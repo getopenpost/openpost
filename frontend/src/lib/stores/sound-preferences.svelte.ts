@@ -27,7 +27,7 @@ export interface InterfaceSoundSettings {
 }
 
 export const DEFAULT_INTERFACE_SOUND_SETTINGS: InterfaceSoundSettings = {
-	enabled: false,
+	enabled: true,
 	volume: 0.6,
 	theme: 'signature'
 };

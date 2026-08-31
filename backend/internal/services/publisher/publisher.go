@@ -1563,30 +1563,14 @@ func (s *Service) requireRenditionReadiness(
 		return connectorErr
 	}
 	if connectorBacked {
-		settings := map[string]any{}
-		if err := json.Unmarshal([]byte(rendition.SettingsJSON), &settings); err != nil {
-			return fmt.Errorf("decode rendition connector settings: %w", err)
-		}
-		providerPolicyMode := providerreadiness.PublicationPolicyMode(*account, connectorCapability, settings)
-		if authorization != nil && authorization.ProviderPolicyMode != providerPolicyMode {
-			return fmt.Errorf("publication authorization validation failed: provider policy mode changed")
-		}
-		return nil
+		return validateRenditionPolicyMode(account, rendition, authorization, connectorCapability, "connector")
 	}
 	if s == nil || s.readiness == nil {
 		return &providerreadiness.NotReadyError{
 			Decision: providerreadiness.UnavailableDecision(providerreadiness.OperationPublishImmediate),
 		}
 	}
-	capability, found := capabilities.FindOutput(account.Platform, rendition.OutputProfile)
-	if !found {
-		capability, found = capabilities.Find(account.Platform, rendition.Profile)
-	}
-	if !found {
-		capability = capabilities.Capability{
-			Provider: account.Platform, Profile: rendition.Profile, OutputProfile: rendition.OutputProfile,
-		}
-	}
+	capability := publisherRenditionCapability(account, rendition)
 	settings := map[string]any{}
 	if err := json.Unmarshal([]byte(rendition.SettingsJSON), &settings); err != nil {
 		return fmt.Errorf("decode rendition provider policy settings: %w", err)
@@ -1611,6 +1595,36 @@ func (s *Service) requireRenditionReadiness(
 		return &providerreadiness.NotReadyError{Decision: decision}
 	}
 	return nil
+}
+
+func validateRenditionPolicyMode(
+	account *models.SocialAccount,
+	rendition *models.Rendition,
+	authorization *models.PublicationAuthorization,
+	capability capabilities.Capability,
+	settingsKind string,
+) error {
+	settings := map[string]any{}
+	if err := json.Unmarshal([]byte(rendition.SettingsJSON), &settings); err != nil {
+		return fmt.Errorf("decode rendition %s settings: %w", settingsKind, err)
+	}
+	providerPolicyMode := providerreadiness.PublicationPolicyMode(*account, capability, settings)
+	if authorization != nil && authorization.ProviderPolicyMode != providerPolicyMode {
+		return fmt.Errorf("publication authorization validation failed: provider policy mode changed")
+	}
+	return nil
+}
+
+func publisherRenditionCapability(account *models.SocialAccount, rendition *models.Rendition) capabilities.Capability {
+	if capability, found := capabilities.FindOutput(account.Platform, rendition.OutputProfile); found {
+		return capability
+	}
+	if capability, found := capabilities.Find(account.Platform, rendition.Profile); found {
+		return capability
+	}
+	return capabilities.Capability{
+		Provider: account.Platform, Profile: rendition.Profile, OutputProfile: rendition.OutputProfile,
+	}
 }
 
 func (s *Service) connectorCapabilityForAccount(
@@ -1672,7 +1686,7 @@ func (s *Service) publishProvider(
 		}
 	}
 	for _, item := range media {
-		reader, err := s.storage.Open(filepath.Base(item.FilePath))
+		reader, err := s.storage.Open(ctx, filepath.Base(item.FilePath))
 		if err != nil {
 			closeReaders()
 			return platform.PublishResult{}, fmt.Errorf("opening media file %s: %w", item.FilePath, err)
@@ -1925,7 +1939,7 @@ func (s *Service) uploadMediaToPlatform(ctx context.Context, account *models.Soc
 	if s.storage == nil {
 		return "", fmt.Errorf("media storage is not configured")
 	}
-	data, err := s.storage.Open(filepath.Base(media.FilePath))
+	data, err := s.storage.Open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
 		return "", fmt.Errorf("opening media file %s: %w", media.FilePath, err)
 	}
@@ -1968,7 +1982,7 @@ func (s *Service) uploadRenditionMediaToPlatform(ctx context.Context, account *m
 	if s.storage == nil {
 		return "", fmt.Errorf("media storage is not configured")
 	}
-	data, err := s.storage.Open(filepath.Base(media.FilePath))
+	data, err := s.storage.Open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
 		return "", fmt.Errorf("opening media file %s: %w", media.FilePath, err)
 	}
@@ -2009,7 +2023,7 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 	readers := make([]io.ReadCloser, 0, 3)
 	if openPrimaryReader {
 		var err error
-		data, err = s.storage.Open(storageKey)
+		data, err = s.storage.Open(ctx, storageKey)
 		if err != nil {
 			return platform.UploadMediaRequest{}, nil, fmt.Errorf("opening media file %s: %w", media.FilePath, err)
 		}
@@ -2048,7 +2062,7 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 		Settings:    settings,
 		Reader:      data,
 		OpenReaderAt: func(offset int64) (io.ReadCloser, error) {
-			return s.openMediaReaderAt(storageKey, offset)
+			return s.openMediaReaderAt(ctx, storageKey, offset)
 		},
 	}
 	if thumbnail != nil {
@@ -2066,14 +2080,14 @@ func (s *Service) renditionUploadRequest(ctx context.Context, rendition *models.
 	return req, closeReaders, nil
 }
 
-func (s *Service) openMediaReaderAt(storageKey string, offset int64) (io.ReadCloser, error) {
+func (s *Service) openMediaReaderAt(ctx context.Context, storageKey string, offset int64) (io.ReadCloser, error) {
 	if offset < 0 {
 		return nil, fmt.Errorf("invalid media offset %d", offset)
 	}
 	if ranged, ok := s.storage.(mediastore.RangeBlobStorage); ok {
-		return ranged.OpenRange(storageKey, offset)
+		return ranged.OpenRange(ctx, storageKey, offset)
 	}
-	reader, err := s.storage.Open(storageKey)
+	reader, err := s.storage.Open(ctx, storageKey)
 	if err != nil {
 		return nil, err
 	}
@@ -2105,7 +2119,7 @@ func (s *Service) openThumbnailFromSettings(ctx context.Context, settings map[st
 	if !strings.HasPrefix(strings.ToLower(thumbnail.MimeType), "image/") {
 		return nil, nil, fmt.Errorf("thumbnail media %s must be an image", thumbnailID)
 	}
-	reader, err := s.storage.Open(filepath.Base(thumbnail.FilePath))
+	reader, err := s.storage.Open(ctx, filepath.Base(thumbnail.FilePath))
 	if err != nil {
 		return nil, nil, fmt.Errorf("opening thumbnail media file %s: %w", thumbnail.FilePath, err)
 	}
@@ -2130,7 +2144,7 @@ func (s *Service) openSettingMedia(ctx context.Context, settings map[string]inte
 	if mimePrefix != "" && !strings.HasPrefix(strings.ToLower(media.MimeType), mimePrefix) {
 		return nil, nil, fmt.Errorf("%s media %s must use a %s MIME type", key, mediaID, mimePrefix)
 	}
-	reader, err := s.storage.Open(filepath.Base(media.FilePath))
+	reader, err := s.storage.Open(ctx, filepath.Base(media.FilePath))
 	if err != nil {
 		return nil, nil, fmt.Errorf("opening %s media file %s: %w", key, media.FilePath, err)
 	}

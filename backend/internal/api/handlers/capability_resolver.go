@@ -57,6 +57,46 @@ func NewCapabilityResolverHandler(
 	}
 }
 
+// publicationBuildAccountConstraints freezes the live account limits used by
+// the composer so generation does not target a catalog maximum that the
+// connected account cannot publish.
+func (h *CapabilityResolverHandler) publicationBuildAccountConstraints(
+	ctx context.Context,
+	account models.SocialAccount,
+	outputProfile string,
+) map[string]any {
+	if h == nil {
+		return nil
+	}
+	adapter := h.adapterForResolveAccount(account)
+	_, hasDynamicProvider := adapter.(platform.AccountCapabilityProvider)
+	if account.Platform != capabilities.ProviderX && (!hasDynamicProvider || h.tokenSource == nil) {
+		return nil
+	}
+
+	base := capabilities.Resolve(account.Platform, capabilities.ResolveInput{
+		RequestedOutputProfile: strings.TrimSpace(outputProfile),
+	})
+	resolved := base
+	h.mergeAccountCapability(ctx, account, "", "", nil, nil, &resolved)
+
+	constraints := map[string]any{}
+	if resolved.TextLimit != base.TextLimit || account.Platform == capabilities.ProviderX {
+		constraints["text_limit"] = resolved.TextLimit
+	}
+	for _, key := range []string{
+		"media_max_count",
+		"max_video_duration_seconds",
+		"max_video_size_bytes",
+		"allowed_mimes",
+	} {
+		if value, ok := resolved.ActiveConstraints[key]; ok {
+			constraints[key] = value
+		}
+	}
+	return constraints
+}
+
 func (h *CapabilityResolverHandler) SetPublicMediaVerifier(verifier *publicurl.MediaVerifier) {
 	h.publicMedia = verifier
 }

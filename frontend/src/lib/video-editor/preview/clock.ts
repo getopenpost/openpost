@@ -1,11 +1,13 @@
 /**
  * Playback clock — single source of truth for timeline playback time.
  *
- * rAF loop; frame = floor(startFrame + elapsed·fps·rate). Prefers a running
- * AudioContext.currentTime over performance.now() as the hardware time
- * source (eliminates A/V drift by construction), mapping epochs on source
- * switch. Supports in/out range playback, looping, rate changes with
- * re-anchor, visibility catch-up, throttled timeupdate.
+ * rAF loop; frame = (rate >= 0 ? floor : ceil)(startFrame + elapsed·fps·rate).
+ * Prefers a running AudioContext.currentTime over performance.now() as the
+ * hardware time source (eliminates A/V drift by construction), mapping epochs
+ * on source switch. Supports half-open range playback [start, end), looping,
+ * signed rates with re-anchor, visibility catch-up, throttled timeupdate.
+ * currentFrame never exposes values outside [start, end - 1] while a range is
+ * active. Forward end lands on end - 1, reverse end lands on start.
  *
  * Time sources are injectable for tests.
  *
@@ -70,7 +72,11 @@ export class Clock {
 	private readonly timeSource: ClockTimeSource;
 	private readonly timeUpdateInterval: number;
 	private readonly canSeek: () => boolean;
-	private onVisibility = (): void => this.catchUp();
+	private onVisibility = (): void => {
+		if (!document.hidden) this.catchUp();
+	};
+	private onFocus = (): void => this.catchUp();
+	private onPageShow = (): void => this.catchUp();
 
 	constructor(options: ClockOptions) {
 		this.fps = options.fps > 0 ? options.fps : 30;
@@ -81,6 +87,10 @@ export class Clock {
 		if (typeof document !== 'undefined') {
 			document.addEventListener('visibilitychange', this.onVisibility);
 		}
+		if (typeof window !== 'undefined') {
+			window.addEventListener('focus', this.onFocus);
+			window.addEventListener('pageshow', this.onPageShow);
+		}
 	}
 
 	dispose(): void {
@@ -88,6 +98,10 @@ export class Clock {
 		this.listeners.clear();
 		if (typeof document !== 'undefined') {
 			document.removeEventListener('visibilitychange', this.onVisibility);
+		}
+		if (typeof window !== 'undefined') {
+			window.removeEventListener('focus', this.onFocus);
+			window.removeEventListener('pageshow', this.onPageShow);
 		}
 	}
 
@@ -109,7 +123,15 @@ export class Clock {
 	}
 
 	get currentFrame(): number {
-		return this.playing ? this.computeFrame() : this.frame;
+		if (!this.playing) return this.frame;
+		return this.clampFrame(this.computeFrame());
+	}
+
+	private clampFrame(frame: number): number {
+		if (this.range) {
+			return Math.max(this.range.start, Math.min(frame, this.range.end - 1));
+		}
+		return Math.max(0, frame);
 	}
 
 	get isPlaying(): boolean {
@@ -123,12 +145,8 @@ export class Clock {
 	private computeFrame(): number {
 		const elapsed = Math.max(0, this.timeSource.now() - this.anchorWallSeconds);
 		let value = this.anchorFrame + elapsed * this.fps * this.rate;
-		if (this.range) {
-			value = Math.min(value, this.range.end);
-		}
-		if (this.playing && this.rate >= 0) {
-			// Forward playback floors; reverse ceils (FreeCut semantics).
-			value = Math.floor(value);
+		if (this.playing) {
+			value = this.rate >= 0 ? Math.floor(value) : Math.ceil(value);
 		}
 		return value;
 	}
@@ -140,8 +158,29 @@ export class Clock {
 
 	private catchUp(): void {
 		if (!this.playing) return;
-		const computed = this.computeFrame();
-		this.anchorAt(computed);
+		const frame = this.computeFrame();
+		if (!this.range && this.rate < 0 && frame < 0) {
+			this.stopAtBoundary(0, 0);
+			return;
+		}
+		if (this.range && this.rate >= 0 && frame >= this.range.end) {
+			if (this.loopRange) this.wrapLoop(this.loopRange.start);
+			else this.stopAtBoundary(this.range.end - 1, this.range.end);
+			return;
+		}
+		if (this.range && this.rate < 0 && frame < this.range.start) {
+			if (this.loopRange) this.wrapLoop(this.loopRange.end - 1);
+			else this.stopAtBoundary(this.range.start, this.range.start);
+			return;
+		}
+		const next = this.clampFrame(frame);
+		this.frame = next;
+		this.anchorAt(next);
+		if (next !== this.lastEmittedFrame) {
+			this.lastEmittedFrame = next;
+			this.emit('framechange', next);
+		}
+		this.emit('timeupdate', next);
 	}
 
 	seek(frame: number): void {
@@ -154,6 +193,14 @@ export class Clock {
 		this.emit('seek', next);
 		this.emit('framechange', next);
 		if (wasPlaying) this.play();
+	}
+
+	private get actualFirstFrame(): number {
+		return this.range ? this.range.start : 0;
+	}
+
+	private get actualLastFrame(): number {
+		return this.range ? this.range.end - 1 : Number.POSITIVE_INFINITY;
 	}
 
 	play(options?: { range?: { start: number; end: number }; loop?: boolean }): void {
@@ -169,8 +216,18 @@ export class Clock {
 			this.loopRange = this.resumeLoop ? this.resumeRange : null;
 		}
 		let start = this.frame;
-		if (this.range && start < this.range.start) start = this.range.start;
-		if (this.loopRange && start >= this.loopRange.end - 1) start = this.loopRange.start;
+		if (this.range) {
+			const first = this.actualFirstFrame;
+			const last = this.actualLastFrame;
+			if (this.rate >= 0) {
+				if (start < first) start = first;
+				if (start >= last + 1) start = first;
+				if (this.loopRange && start >= this.loopRange.end - 1) start = this.loopRange.start;
+			} else {
+				if (start >= this.range.end) start = last;
+				if (start <= first) start = last;
+			}
+		}
 		this.anchorAt(start);
 		this.playing = true;
 		this.emit('play', start);
@@ -179,7 +236,7 @@ export class Clock {
 
 	pause(): void {
 		if (!this.playing) return;
-		this.frame = this.computeFrame();
+		this.frame = this.clampFrame(this.computeFrame());
 		this.playing = false;
 		if (this.rafId !== null) {
 			cancelAnimationFrame(this.rafId);
@@ -190,9 +247,9 @@ export class Clock {
 	}
 
 	setRate(rate: number): void {
-		if (!Number.isFinite(rate) || rate <= 0 || rate === this.rate) return;
+		if (!Number.isFinite(rate) || rate === 0 || rate === this.rate) return;
 		if (this.playing) {
-			this.frame = this.computeFrame();
+			this.frame = this.currentFrame;
 			this.anchorAt(this.frame);
 		}
 		this.rate = rate;
@@ -208,20 +265,55 @@ export class Clock {
 		else this.frame = current;
 	}
 
+	private wrapLoop(frame: number): void {
+		this.frame = frame;
+		this.anchorAt(frame);
+		this.lastEmittedFrame = frame;
+		this.emit('seek', frame);
+		this.emit('framechange', frame);
+		this.emit('timeupdate', frame);
+	}
+
+	private stopAtBoundary(frame: number, endedFrame: number): void {
+		this.frame = frame;
+		this.playing = false;
+		if (this.rafId !== null) {
+			cancelAnimationFrame(this.rafId);
+			this.rafId = null;
+		}
+		this.emit('pause', frame);
+		this.emit('timeupdate', frame);
+		this.emit('ended', endedFrame);
+	}
+
 	private tick = (): void => {
 		if (!this.playing) return;
 		const frame = this.computeFrame();
+		if (!this.range && this.rate < 0 && frame < 0) {
+			this.stopAtBoundary(0, 0);
+			return;
+		}
 
-		if (this.range && frame >= this.range.end) {
-			if (this.loopRange) {
-				this.seek(this.loopRange.start);
-				this.emit('timeupdate', this.loopRange.start);
-				this.rafId = requestAnimationFrame(this.tick);
+		if (this.range) {
+			if (this.rate >= 0 && frame >= this.range.end) {
+				if (this.loopRange) {
+					this.wrapLoop(this.loopRange.start);
+					this.rafId = requestAnimationFrame(this.tick);
+					return;
+				}
+				this.stopAtBoundary(this.range.end - 1, this.range.end);
 				return;
 			}
-			this.pause();
-			this.emit('ended', this.range.end);
-			return;
+			if (this.rate < 0 && frame < this.range.start) {
+				if (this.loopRange) {
+					const target = this.loopRange.end - 1;
+					this.wrapLoop(target);
+					this.rafId = requestAnimationFrame(this.tick);
+					return;
+				}
+				this.stopAtBoundary(this.range.start, this.range.start);
+				return;
+			}
 		}
 
 		if (frame !== this.lastEmittedFrame) {

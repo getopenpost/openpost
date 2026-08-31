@@ -38,13 +38,78 @@ type Image struct {
 	Detail   ImageDetail
 }
 
+// File contains document bytes and the metadata needed to build a multimodal
+// request. Callers must apply feature-specific byte limits before Generate.
+// Adapters must not retain the bytes after Generate returns.
+type File struct {
+	Data     []byte
+	MIMEType string
+	Filename string
+}
+
+// Audio contains source audio for a multimodal request. The adapter validates
+// the declared format before it sends any bytes.
+type Audio struct {
+	Data     []byte
+	MIMEType string
+}
+
+// Video contains source video for a multimodal request. Callers must apply
+// feature-specific byte and duration limits before Generate.
+type Video struct {
+	Data     []byte
+	MIMEType string
+}
+
+// MultimodalPart binds one exact source identifier to one media payload.
+// Parts preserve caller order across media types. Adapters send the identifier
+// as bounded metadata next to its payload, never as instructions.
+type MultimodalPart struct {
+	SourceID string
+	Image    *Image
+	File     *File
+	Audio    *Audio
+	Video    *Video
+}
+
+type WebSearchContext string
+
+const (
+	WebSearchContextLow    WebSearchContext = "low"
+	WebSearchContextMedium WebSearchContext = "medium"
+	WebSearchContextHigh   WebSearchContext = "high"
+)
+
+// WebSearchConfig enables current web search for one request. The provider
+// adapter keeps this bounded so feature code cannot start an unbounded crawl.
+type WebSearchConfig struct {
+	Enabled    bool
+	MaxResults int
+	MaxUses    int
+	Context    WebSearchContext
+}
+
 type GenerateRequest struct {
 	Model           string
 	SystemPrompt    string
 	UserPrompt      string
+	ResponseSchema  *JSONSchema
+	Parts           []MultimodalPart
 	Images          []Image
+	Files           []File
+	Audio           []Audio
+	Videos          []Video
+	WebSearch       WebSearchConfig
 	MaxOutputTokens int64
 	ReasoningEffort ReasoningEffort
+}
+
+// JSONSchema asks a generator adapter to constrain its response to one strict,
+// machine-owned shape. Human-editable prompt text must not define this shape.
+type JSONSchema struct {
+	Name        string
+	Description string
+	Schema      map[string]any
 }
 
 type Usage struct {

@@ -414,7 +414,7 @@ test("publication delivery keeps exact provider target state across desktop and 
     await expect(history.getByText("Manual review required")).toBeVisible();
     await expect(history.getByRole("button", { name: "Review destination" })).toBeVisible();
     if (!retryQueued) {
-      await page.goto("/activity");
+      await page.goto("/publications");
       await page.getByRole("tab", { name: "Failed", exact: true }).click();
       const failedActivity = page.getByRole("tabpanel", { name: "Failed", exact: true });
       await expect(failedActivity.getByText("openpost", { exact: true }).first()).toBeVisible();

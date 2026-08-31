@@ -23,6 +23,7 @@ function mediaSummary(id: string, filename: string) {
 }
 
 const originalVideo = mediaSummary("video-old", "launch-original.mp4");
+const exportedVideo = mediaSummary("video-export", "launch-edited.mp4");
 
 test("composer preserves its draft through Image cancel and links out to the Video Editor", async ({
   page,
@@ -215,12 +216,12 @@ test("composer preserves its draft through Image cancel and links out to the Vid
       await route.fulfill({
         contentType: "application/json",
         json: {
-          media: [originalVideo].filter((item) => requestedIDs.includes(item.id)),
+          media: [originalVideo, exportedVideo].filter((item) => requestedIDs.includes(item.id)),
         },
       });
       return;
     }
-    if (/\/media\/video-old$/u.test(url.pathname)) {
+    if (/\/media\/(?:video-old|video-export)$/u.test(url.pathname)) {
       await route.fulfill({
         contentType: "video/mp4",
         headers: { "Content-Length": "0" },
@@ -284,5 +285,11 @@ test("composer preserves its draft through Image cancel and links out to the Vid
   const handoffParams = new URL(page.url()).searchParams;
   expect(handoffParams.get("source")).toBe("media:video-old");
   expect(handoffParams.get("return")).toBe("publication-handoff");
+
+  await page.goto(
+    `/publications/publication-handoff?workspace_id=${workspace.id}&media_id=video-export`,
+  );
+  await expect(page.locator('[data-composer-media-id="video-export"]')).toBeVisible();
+  await expect(page).toHaveURL(/\/publications\/publication-handoff$/u);
   expect(pageErrors).toEqual([]);
 });

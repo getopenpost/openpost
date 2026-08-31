@@ -9,6 +9,7 @@ import {
 	type AdaptiveFrameScore,
 	type FrameFeatures
 } from './adaptive-scene-detector';
+import type { SceneCut } from './scene-types';
 import { extractDominantColors, type PaletteEntry } from './dominant-colors';
 
 const THUMBNAIL_MAX_EDGE = 384;
@@ -18,7 +19,7 @@ export interface SceneAnalysisWorkerRequest {
 	type: 'analyze';
 	requestId: string;
 	blob: Blob;
-	method?: 'adaptive' | 'histogram';
+	includeThumbnails?: boolean;
 }
 
 export interface SceneAnalysisWorkerAbortRequest {
@@ -50,6 +51,7 @@ export interface SceneAnalysisWorkerComplete {
 	type: 'complete';
 	requestId: string;
 	durationSec: number;
+	cuts: SceneCut[];
 	scenes: ExtractedSceneFrame[];
 }
 
@@ -111,6 +113,7 @@ async function run(
 				type: 'complete',
 				requestId: request.requestId,
 				durationSec: 0,
+				cuts: [],
 				scenes: []
 			} satisfies SceneAnalysisWorkerComplete);
 			return;
@@ -150,11 +153,19 @@ async function run(
 		}
 		postProgress(request.requestId, 'detecting', 100, 100);
 
-		const cuts = classifyAdaptiveSceneCuts(scores).map((cut) => ({
-			timeSeconds: cut.time,
-			score: cut.score
-		}));
-		const boundaries = [0, ...cuts.map((cut) => cut.timeSeconds), durationSec]
+		const cuts = classifyAdaptiveSceneCuts(scores);
+		if (request.includeThumbnails === false) {
+			self.postMessage({
+				type: 'complete',
+				requestId: request.requestId,
+				durationSec,
+				cuts,
+				scenes: []
+			} satisfies SceneAnalysisWorkerComplete);
+			return;
+		}
+
+		const boundaries = [0, ...cuts.map((cut) => cut.time), durationSec]
 			.filter((time, index, values) => index === 0 || time - values[index - 1]! >= 0.05)
 			.toSorted((left, right) => left - right);
 		if (boundaries.at(-1)! < durationSec) boundaries.push(durationSec);
@@ -209,6 +220,7 @@ async function run(
 				type: 'complete',
 				requestId: request.requestId,
 				durationSec,
+				cuts,
 				scenes
 			} satisfies SceneAnalysisWorkerComplete);
 		}

@@ -608,6 +608,18 @@ func TestImageEditorReturnTokenRejectsExternalReturnURL(t *testing.T) {
 	require.Contains(t, err.Error(), "same-origin")
 }
 
+func TestImageEditorReturnTokenRejectsRetiredPostReturnURL(t *testing.T) {
+	t.Parallel()
+	handler, ctx := newImageEditorHandlerTest(t)
+	input := &CreateImageEditorReturnTokenInput{}
+	input.Body.WorkspaceID = "workspace-1"
+	input.Body.ReturnURL = "/posts/post-1"
+	input.Body.MaxSelection = 1
+	_, err := handler.createReturnToken(ctx, input)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not an allowed composer route")
+}
+
 func TestImageEditorReturnTokenEnforcesComposerMIMEConstraints(t *testing.T) {
 	t.Parallel()
 	handler, ctx := newImageEditorHandlerTest(t)

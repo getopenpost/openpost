@@ -101,7 +101,11 @@ export interface ComposerPublicationPayload {
 	source_text: string;
 	source_url?: string;
 	scheduled_at?: string;
-	metadata: { composer: 'publication'; intent: ComposerModeKey };
+	metadata: {
+		composer: 'publication';
+		intent: ComposerModeKey;
+		ai_publication_build?: unknown;
+	};
 	media: Array<{ media_id: string; role: string }>;
 	segments: Array<{
 		id: string;

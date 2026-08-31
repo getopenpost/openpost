@@ -4,6 +4,607 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [4.14.0] - 2026-08-30
+
+### Fixed
+
+- Kept the composer AI action contrast readable while it changes from Ideate to Build with AI.
+- Reject the public secret shown by older binary-install instructions and generate independent JWT and encryption keys in the current guide.
+- Kept X OAuth callbacks working across mixed keyring rollout peers and removed expired plaintext request secrets during encryption-key rotation.
+- Refuse to start when JWT or encryption secrets still use tracked public example placeholders, and keep bootstrap and data-plane credentials deployment-owned.
+- Added rollback-safe, versioned encryption-key rotation with dual reads, bounded database re-encryption, and authenticated current-key verification across every persisted ciphertext store.
+- Hosted readiness now proves PostgreSQL and required S3 write, read, and delete access with bounded requests, while release CI exercises the production-shaped data plane without skipped PostgreSQL coverage.
+- Blob operations now honor cancellation without corrupting local files, failed media writes roll back with bounded cleanup, and PostgreSQL pools have role-specific budgets plus saturation signals.
+- Made shutdown drain readiness, HTTP requests, and workers under one deadline, while persisting interrupted job state with a fresh bounded context.
+- Serialized schema setup across PostgreSQL replicas and SQLite processes.
+- Kept the Video Editor preview and timeline visible while phone-sized asset and edit tools open in contextual panels.
+- Removed the duplicate Properties heading, exposed selected asset tabs to assistive technology, and enlarged coarse-pointer controls without bloating desktop controls.
+- Kept Video Editor slider keys inside inspector controls, restored draft values on Escape, and preserved visible focus rings.
+- Restored timeout recovery for AI publication discovery and meme suggestions after the provider SDK exhausts its internal retries.
+- Kept the AI workspace fully inside the viewport at desktop and mobile sizes.
+- Open new video projects centered in Fit view, deselect clips from the empty preview, and keep Motion controls inside their pane.
+- Keep video clips from occupying the same track at the same time unless an explicit transition connects them.
+- Keep the compact stock-media search focused on search and filters instead of repeating provider guidance.
+- Show folder-backed Video Editor projects beside cloud Image Editor designs, with independent search, loading, permission, empty, and error states.
+- Rechecked destination setup after every cold launch instead of opening Drafts before an active account exists.
+- Made OAuth callback states and X request tokens atomic so one credential cannot authorize two concurrent callbacks.
+- Kept public-route evidence checks reliable when the release gate captures Turbo's build plan.
+- Prevented concurrent Threads account connections from mixing provider user IDs, and rejected token/profile identity mismatches.
+- Kept an Image Editor design open when device storage rejects the final save.
+- Marked the active Image Editor page for assistive technology and kept coarse-pointer color swatches inside the picker.
+- Keep effect and transition previews smooth by rendering only visible cards through bounded, deduplicated preview queues.
+- Apply effects to the current selection or a timed adjustment layer, and place transitions only on valid cuts without false errors when reapplying the current choice.
+- Remove duplicate Program and Scopes header rows from the Color workspace while preserving the labelled preview, compact scope controls, and resize seam.
+
+### Changed
+
+- Keep the mobile API schema current and publish Android builds with a monotonic version plus revision and APK digest evidence.
+- Align release Go and Bun toolchains, declare image and standalone media dependencies, and stop upgrading the pinned container base during builds.
+- Gate repository policy on redacted scans of both candidate commit history and current files.
+- Emit server and worker logs as revision-aware JSON on stdout and redact credential-shaped fields and values.
+- Kept the composer AI action anchored while it slides from Ideate to Build with AI as the draft gains text.
+- Open AI ideation in a compact brief dialog, then smoothly expand the same dialog into the full idea workspace.
+- Made short analytics series fill the available chart width.
+- Reworked the Video Editor media area into a full-height tool rail and resizable content pane, with the timeline starting beside it.
+- Made persistent side and bottom panes resizable across both editors, with keyboard controls and predictable reset sizes.
+- Restored local Video Editor projects to the Editors library alongside Image Editor designs.
+- Reserved mobile button depth for eight forward actions and kept routine filled controls flat.
+- Corrected Android availability metadata, current Settings paths, and the built-in AI creation guide.
+- Clarified who the home page and free tools serve before scripts load.
+- Aligned editor panel headings and expanded editor hit areas for coarse pointers without enlarging their visual marks.
+- Expanded the Video Editor tool rail with Stock, text templates, shapes, effects, transitions, Lottie, transcript, and AI creation tools that can add or drag content to the timeline.
+- Added the full FreeCut-inspired effect and transition catalogs with live visual previews and responsive, resizable workspace panes.
+
+### Added
+
+- Added explicit `all`, `web`, `worker`, and `migrate` process roles so hosted deployments can migrate once and scale HTTP and durable jobs independently.
+
+## [4.13.1] - 2026-08-30
+
+### Fixed
+
+- Kept source-anchored speed curves attached during slip edits, and mapped timeline waveforms and filmstrips through variable-speed playback.
+
+## [4.13.0] - 2026-08-30
+
+### Fixed
+
+- Kept transcript word shortcuts inside transcript editing, added keyboard access to word menus, and preserved Space playback while transcript words are focused.
+- Prevented growth discovery jobs from deadlocking on SQLite single-connection deployments when initializing sync state for newly connected social accounts.
+- Rebuilt Quick Cut segment controls so time ranges, cut mode, preview, and export stay readable on desktop and mobile, and kept mobile notifications within the viewport.
+
+### Added
+
+- Added source-anchored speed curves with linked audio/video editing, exact transcript and split mapping, pitch-preserving preview, and bounded variable-tempo export.
+
+## [4.12.0] - 2026-08-30
+
+### Changed
+
+- Rebuilt the Video Editor Color workspace around dedicated grading controls, graded filmstrips, scopes, curves, and full keyframe editing.
+- Matched FreeCut's grading readouts and section workflow with labeled scope guides, parade and vectorscope targets, visible grade actions and preset gallery, adjustment-layer creation, and per-section reset, bypass, and remove controls.
+- Matched FreeCut's effect-stack workflow with one-click effect insertion, compact stack controls, collapsible panels, selection-wide bypass, and Color-aware effect filtering.
+- Isolated Motion into its own composition preview and timeline, with blank composition creation, canvas controls, last-composition restore, and exact Edit return navigation.
+- Reorganized animation around FreeCut's source workflow with global search, compatibility filtering, an undoable applied-animation summary, and direct Edit-to-Motion clip creation.
+- Tracked each generated animation preset through keyframe edits so one applied preset can be removed without deleting manual animation.
+- Rebuilt clip transforms around FreeCut's Position, Size, Rotation, Anchor, and Appearance workflow with scrubbable unit-aware fields, mixed selections, linked dimensions, grouped blend modes, reset actions, and one-step undo.
+- Matched FreeCut's source-pixel crop workflow with multi-clip scrubbing, reset and auto-key controls, signed edge softness, and the same fixed-source crop geometry in preview and export.
+- Rebuilt playback controls around FreeCut's live speed and fade workflow, including mixed multi-clip values, linked A/V rate stretching, reset actions, reverse status, and one undo entry per gesture.
+- Matched FreeCut's multi-clip audio core with linked-audio selection, live dB gain and fade controls, throttled pitch editing, gain auto-keying, mixed values, and atomic resets while retaining OpenPost's advanced EQ and cleanup tools.
+- Rebuilt parametric EQ from FreeCut's source with an interactive logarithmic response graph, pointer and keyboard band editing, mixed multi-clip presets, linked-audio targeting, and one undo step per edit.
+- Added FreeCut's shape gradient swap and path-order controls, including undoable reverse and first-point actions in each path point's keyboard-accessible context menu.
+- Added FreeCut's independent None, Shadow, Outline, and Glow text effects, including atomic multi-text selection updates.
+- Added duration-preserving speed and reverse controls for animated GIF and WebP clips, detected from imported animation metadata rather than file names.
+- Completed FreeCut's transition inspector behavior with registry-wide search, duration and per-control resets, and handle-safe placement choices.
+- Matched FreeCut's marker inspector with live timecode, quick colors, reset, and the same color actions in the marker context menu.
+- Added FreeCut's remappable Razor and split-at-cursor commands, including pointer-precise linked-clip cuts and keyboard operation.
+- Added LosslessCut-style remove-ranges export to Quick Cut, with source-aware complements, project persistence, and lossless or exact output through the existing export path.
+- Added LosslessCut-style Smart Cut for exact Quick Cut exports: only the leading GOP and audio are re-encoded while unchanged video packets are copied, including compatible merged exports.
+- Added Quick Cut segment interchange for CSV, TSV, chapter text, and SRT, with editable labels and source-bound validation.
+- Added progressive selected-stream waveforms plus pointer-centered zoom, wheel panning, drag scrubbing, keyframe ticks, and playhead follow to the Quick Cut timeline.
+- Preserved container tags, raw same-format metadata, track names, languages, and dispositions across merged lossless, Smart Cut, and re-encoded Quick Cut exports.
+- Added source-resolution PNG and JPEG frame capture to Quick Cut, including clipboard copy and playback, mark, and capture actions on the video context menu.
+- Routed Quick Cut through the shared remappable editor shortcut catalog, including focused-button-safe playback, frame stepping, marks, range deletion, loop control, and live shortcut hints.
+- Added beat-driven editing from OpenReel's source workflows: smart, one-per-beat, and duration-preserving clip sync across selected tracks, offsets and beat cadence, plus four-beat source cuts.
+- Kept AI review inside the existing composer, with conflict-safe apply, original restoration, compact per-platform strategy summaries, and conservative adaptation for providers without a native creative model.
+- Moved all AI requests to the official OpenAI Go SDK while preserving OpenRouter provider routing, privacy controls, web search, and multimodal inputs.
+- Consolidated public documentation into canonical user, provider, configuration, installation, self-hosting, operations, and API routes, and removed duplicate or internal-only pages.
+- Kept one authoritative Docker Compose example, moved provider readiness and invitation delivery guidance to operator audiences, and updated generated documentation surfaces and links.
+- Consolidated the marketing self-hosting, AGPL source, contributor, and deployment-choice content at `/self-hosting`.
+- Removed the `/open-source` and `/compare` marketing route families and their evidence, discovery, navigation, and test surfaces.
+- Centralized marketing navigation views in one categorized registry.
+- Made the mobile first-use screen lead with Hosted sign-in while keeping self-hosted setup clear and secondary.
+- Reduced the depth of primary mobile buttons to match the flatter app hierarchy.
+- Simplified the marketing and documentation entry points around OpenPost's real publication workflow.
+- Grouped documentation navigation by user task and clarified that provider adapters and Hosted certification are separate.
+- Shortened the README product copy and added reproducible OpenPost Image Editor and OpenPost Video Editor screenshots.
+- Consolidated Publications, Inbox communications, and account management on their canonical routes across the web and mobile apps.
+- Removed the public app homepage and the legacy Studio, Video Studio, Activity, Posts, and standalone Accounts routes without redirects.
+- Flattened routine app and editor controls so depth marks only the current focal action or a temporary layer.
+- Made Editors visible in primary workspace navigation and added readable labels to mobile navigation.
+- Simplified the OpenPost Image Editor start screen to lead with real starter templates.
+- Reduced visual noise in the marketing hero and Image Editor template chooser.
+- Made the first Image Editor guidance select the primary editable text and avoid redundant desktop actions.
+
+### Fixed
+
+- Kept hidden grading effects stable during multi-clip reordering, bypass, reset, and removal actions.
+- Applied unanimated multi-clip transforms to every selected clip even when the playhead is outside some clips.
+- Migrated legacy ratio crop keyframes to source pixels so the keyframe graph, canvas handles, inspector, preview, and export use one unit contract.
+- Matched meme caption sizing and line spacing to the pinned memegen renderer, retried transient previews, and made meme and discovery JSON generation use strict schemas with bounded recovery.
+- Kept rejected AI builds on direction selection, aligned generated directions with create limits, and made ideation start from one optional brief and an explicit choice.
+- Kept CLI media usage output aligned with the Publication API contract.
+- Updated MCP prompts and the scheduler widget to use canonical Publication operations and results.
+- Corrected API migration, settings navigation, and provider-readiness wording in the public documentation.
+- Restored iOS builds on Xcode 26.2 while the pinned Expo packages await upstream Swift compatibility releases.
+
+### Added
+
+- Added composer-native AI ideation, five-direction drafting, durable platform-specific Rendition generation, voice profiles, internal source checks, and opt-in meme recommendations.
+- Analytics can now compare daily views, engagement, and follower changes by post, platform, or account. Summary stats and the publication table are easier to scan.
+
+## [4.11.0] - 2026-08-29
+
+### Changed
+
+- Simplified the Video Editor workspace around the preview, contextual inspector, and resizable timeline while keeping advanced actions in focused menus.
+
+### Fixed
+
+- Made Space control playback even when a menu button has focus, with Backspace lift delete and Delete ripple delete preserved.
+- AI generation now retries once when the provider SDK reaches its internal deadline before the feature request budget is exhausted.
+
+## [4.10.0] - 2026-08-29
+
+### Added
+
+- Added right-click and Shift+F10 segment actions to Quick Cut, including preview, export, enable or disable, ordering, and removal.
+- Added right-click and Shift+F10 actions for selecting, reconnecting, and removing Quick Cut sources.
+
+### Fixed
+
+- Let release planning retain the previous release owner for paths deleted since the last tag.
+- Kept Quick Cut playback on the saved transport shortcut when a non-editable button has focus.
+- Removed the duplicate Quick Cut segment action list while keeping Preview and Export visible on each segment.
+- Restored Quick Cut reconnect, success, and stream-selection reset messages in every supported locale.
+- Made the translation gate reject static frontend message calls that are missing from the catalogs.
+- Removed dependent segments, marks, saved handles, and stale preview URLs when a Quick Cut source is removed.
+- Kept source removal atomic when workspace persistence fails and returned cleanly to the empty state after removing the final source.
+- Kept multi-source controls compact by showing stream settings only for the active source.
+- Kept notifications inside narrow mobile viewports instead of extending past the right edge.
+
+## [4.9.0] - 2026-08-29
+
+### Added
+
+- Add direct right-click actions for reordering, resetting, toggling, and removing Video Editor effects.
+- Add transcript word context actions for copying, cutting, staging, restoring, and committing edits.
+- Add right-click actions for opening, renaming, duplicating, reordering, and closing Video Editor sequence tabs.
+- Add right-click Download and Delete actions to Video Editor saved export rows.
+- Add state-aware right-click actions to Video Editor render queue jobs.
+
+### Fixed
+
+- Stop context-menu listeners from surviving Video Editor navigation and reading stale interface state.
+- Reject static images before animated-frame extraction without logging an expected decode warning.
+
+## [4.8.0] - 2026-08-28
+
+### Fixed
+
+- Let production releases resume an already prepared candidate without trying to create an empty commit.
+- Show Video Editor shortcut keys using the active keyboard layout when the browser provides it.
+- Make Space control the active video monitor without clicking focused controls, with Backspace for lift delete and Delete for ripple delete.
+- Saved keyboard bindings now control duplicate, select all, group, nudge, reorder, copy, paste, and delete actions in the 2D composition timeline without hijacking focused controls.
+- Prevent touch-sized timeline resize controls from covering clips, transitions, and empty space in narrow windows used with a mouse or trackpad.
+- AI post building and meme suggestions now retry transient managed-provider failures within their full content-generation budget instead of failing after five seconds.
+- Keep video editor shortcuts active after selecting a timeline clip with the pointer.
+- Create the SQLite database directory before opening it, so a fresh install with a volume mounted over the data path boots instead of failing with a misleading "unable to open database file" error.
+- Duplicate migration version numbers no longer silently skip migrations. Versions 094 and 108 were each assigned to two files, so `108_idempotency_records.sql` never ran (requests carrying an `Idempotency-Key` failed with 503 "no such table: idempotency_records") and `094_workspace_invitation_delivery.sql` was skipped on upgraded databases. The skipped migrations are renumbered to 110 and 111 so existing installations heal on their next start, and the migration runner now refuses to start when two files share a version.
+- Make track rename and reorder shortcuts editable, removable, and portable through Video Editor shortcut presets.
+- Keep the Video Editor keyframe graph and dope sheet usable together at narrow widths.
+- Keep compact calendar date ranges visible and align published-history checks with the visible calendar item.
+- Keep the mobile Video Editor inspector actions clear of the timeline at short phone heights.
+- Release commands now stay bound to the OpenPost repository when a checkout has extra review remotes.
+
+### Added
+
+- Let mobile users add an image while starting a post, then review or remove it in the existing draft editor.
+- Choose a common social-video canvas or exact dimensions and frame rate when creating a Video Editor project.
+- Browse, seek, remove, or clear every Video Editor timeline marker from one compact list.
+- Change an existing Video Editor project's canvas size and background with undo and autosave.
+- Edit a Video Editor project's name, description, dimensions, and frame rate from the project library.
+- Use right-click or Shift+F10 for contextual Video Editor actions on clips, timeline space, tracks, markers, media, sequences, and projects.
+- Right-click the Program monitor to choose any overlapping visual layer under the pointer, including animated, rotated, and scaled layers.
+- Right-click 2D composition layer and group rows to rename, group, duplicate, copy, paste, or delete them with the same undoable actions as the toolbar.
+- Analyze, refresh, or cancel one video or image Scene Browser index from its media-row overflow or right-click menu.
+- Delete project media from its overflow or right-click menu with an exact timeline-impact warning, shared-file protection, and durable failure recovery.
+- Use target-aware timeline right-click menus for transitions and applicable clip actions such as join, freeze frame, layout, captions, and keyframe cleanup.
+- Open reverse, scene splitting, captions, speech cleanup, text-to-speech, and compound clip tools directly from timeline clip context menus.
+- Copy and paste color grades across selected clips from the timeline context menu.
+- Join a split clip directly with its previous or next continuous neighbor from the timeline context menu.
+- Choose a fast scan or frame-accurate local AI verification when splitting clips at scene changes.
+- Generate, refresh, extract, and consolidate clip captions from one target-aware timeline menu.
+- Generate, cancel, and remove preview proxies from each video source menu.
+- Rename reusable video sequences from their media-library menus.
+- Generate and reuse source transcripts from each audio or video media menu.
+- Relink missing or changed video editor media directly from its media-row menus.
+- Select media with Command/Ctrl-click or Shift-click, then generate missing proxies or delete the batch from one compact toolbar. Right-click preserves a selected group and reports partial deletion failures without hiding affected sources.
+- Select reusable sequences with Command/Ctrl-click or Shift-click, combine them with media sources, and delete the full asset selection from one confirmed, durable operation.
+- Let self-hosted operators collect account and content analytics through per-platform HTTP sources when provider analytics API access is unavailable.
+- Drag across project media and reusable sequences to select them together, then use focused Delete, Escape, or Command/Ctrl+A shortcuts without stealing timeline or text-editing keys.
+- Browse project media and reusable sequences in a responsive grid or compact list, with five persistent card-size choices.
+- Edit shape and mask points from a focused right-click menu without losing a multi-point selection.
+- Choose the default style for new transcript and AI captions without overwriting later caption edits.
+- Toggle canvas-object snapping independently from timeline snapping with `Shift+S`, the canvas magnet, or editor settings.
+- Switch timeline edit tools with `V`, `Y`, or `U`, and seek visible edit points with Up or Down.
+- Nudge selected visual items by 1 or 10 canvas pixels with remappable keyboard shortcuts.
+- Open Scene Browser and focus its search with a remappable Command/Ctrl+Shift+F shortcut.
+- Switch between Graph, Dope Sheet, and Split keyframe views and use remappable, scoped keyframe editing commands in Edit and Motion.
+- Edit graph and dope-sheet keyframes from target-aware right-click menus with keyboard access and saved shortcut labels.
+- Close one timeline gap from empty space or every gap on a track from its right-click menu, with sync-lock, linked-media, lock, and one-step undo safety.
+- Add video or audio tracks and remove every empty track from the track-header right-click menu, with safe handling for empty timelines and groups.
+- Let instance administrators edit the base and platform-specific writing prompts used for AI social-post generation.
+
+## [4.7.0] - 2026-08-28
+
+### Fixed
+
+- Reject malformed changelog fragments before release preparation can omit and delete them, and keep generated release notes formatter-clean.
+- Stop the Video Editor project catalog from migrating preserved schema backups and creating recursive backup copies before a project is opened.
+- Enabled Pop, Zoom, Spin, Pulse, and Breath motion on text without changing its layout or line wrapping.
+- Prevented unused or disconnected Quick Cut sources from blocking valid exports.
+- Keep long timeline waveforms responsive by rendering only the visible window, with centered peaks and exact trim and reverse mapping.
+- Merge Quick Cut sources with different selected audio-track counts without dropping tracks or failing during transcode.
+
+### Added
+
+- Preserve timestamp-derived frame-rate metrics for imported and relinked video so variable-rate and dropped-frame sources keep accurate trim and frame-selection behavior.
+
+### Changed
+
+- Batch consecutive color effects into one GPU pass so stacked grades preview and export with fewer full-frame draws while preserving the same ordered color output.
+
+## [4.6.2] - 2026-08-28
+
+### Changed
+
+- Document the disk-backed Video Editor, Quick Cut, Recorder, local models, export queue, and explicit Media handoff without retired cloud-project or return-token claims.
+
+### Fixed
+
+- Keep transcript cuts from removing or retiming captions tied to clips on locked tracks.
+- Keep corrected auto-caption lines, transcript search, karaoke, and edit-by-transcript words in sync while retaining usable word timing.
+- Keep auto-caption word timing inside edited cue bounds and treat a cleared word as deletion instead of retaining a blank transcript token.
+- Keep exact merged WebM Quick Cut exports in VP9 and Opus, show real export eligibility before rendering, and reject invalid ranges before they enter the project.
+- Keep camera and microphone recording available when a previously selected input was unplugged by falling back to the browser default and clearing the stale choice.
+- Preserve the originating draft when sending a Video Editor export to OpenPost and attach the uploaded video when the composer opens.
+- Resume a previously running Video Editor render queue after reload while keeping interrupted renders safely paused.
+- Refresh the open Saved exports list for every completed queue job, including jobs that finish within the same millisecond.
+- List saved image-sequence folders beside rendered files and delete a sequence folder recursively after confirmation.
+
+## [4.6.1] - 2026-08-28
+
+### Fixed
+
+- Restore the saved Video Editor workspace before opening a project deep link or creating a project from another OpenPost surface.
+- Keep selected-clip actions contained in a compact, touch-safe inspector toolbar.
+
+## [4.6.0] - 2026-08-27
+
+### Changed
+
+- Video Editor beat analysis and keyframe controls now stay out of the timeline until opened.
+- The Video Editor inspector now shows only relevant Properties, Motion, Effects, or Transcript controls while keeping export actions fixed in place.
+- FreeCut schema 15 projects now open as backed-up, writable OpenPost projects with their effects, audio levels, transitions, keyframes, captions, Lottie settings, and Motion compositions preserved.
+- The writing canvas is open again, scheduling is shorter, and the desktop media picker shows every source.
+- Interface sounds now start enabled for visitors who have not saved a preference.
+- The landing page leads with the product, the navigation is shorter, and pricing is easier to scan.
+
+## [4.5.0] - 2026-08-27
+
+### Added
+
+- Added Copy as draft for reusing a sent Publication without carrying over its delivery or schedule state.
+
+### Fixed
+
+- Kept connected accounts healthy when OAuth refresh fails because of a provider rate limit, server error, or timeout.
+- Blocked X videos outside the provider's supported aspect-ratio range and stopped retrying media that X rejected during processing.
+
+## [4.4.0] - 2026-08-27
+
+### Added
+
+- Video Editor audio ducking: per-clip sidechain settings (`duckOthersDb`, `attackSec`, `releaseSec`, `targetTrackIds`) lower other tracks while a clip plays. Inspector offers direct toggle, amount, attack/release, and scoped track selection with sensible copy. Preview and export share the same gain envelope, including attack/release ramps, deepest-duck overlap, muted/solo/visibility, speed and trim windows, nested sequences, and bus/master ordering. Changes are undoable.
+- Quick Cut now has per-source audio and video track selection with durable export semantics. Probing enumerates every video and audio track and stores the selected track indices per source. Project parsing remains backward compatible and validates impossible selections. Preflight, stream copy, transcode, and merged export honor the selection and can produce audio-only or video-only output.
+- Video Editor karaoke captions: per-word highlight mode for subtitle items using existing `SubtitleCue.words` timings with configurable active-word foreground and optional active-word background, exposed compactly in the subtitle properties panel.
+- Shared deterministic karaoke word selection and cached subtitle layout so preview and export resolve the identical active word at exact frame boundaries, with untimed cues falling back to normal captions without flicker and with line wrapping preserved.
+- PNG, JPEG, and WebP image-sequence export for full project, in/out range, and marker batches with exact frame counts, deterministic zero-padded names, and preserved FPS, dimensions, and effects.
+- Alpha behavior: PNG and WebP preserve transparent backgrounds; JPEG flattens to the project background. WebP has explicit capability detection with honest fallback/error copy and no silent conversion.
+- Bounded directory output via File System Access and ZIP fallback, with streaming/batched worker artifacts and accurate progress, cancellation, and cleanup.
+- Worker and main-thread ownership with queue support for image sequences.
+- Video Editor audio effect rack: compressor, stereo pan, reverb, delay, chorus, flanger, and distortion share a deep typed effect-chain abstraction and run identically in realtime preview and offline export. The rack is ordered, bypassable, resettable, bounded for safety, persisted/migrated, clone-safe, and undoable as one gesture. Compact accessible UI uses shared controls with good defaults.
+- Video Editor beat detection: browser-local, cancellable analyzer for the selected audio or video clip that generates deterministic beat and downbeat markers at project frames with deduped labels and colors. Timeline insertion is atomic and undoable, the analyzer yields to the main thread on long clips, and the compact accessible panel uses shared controls and Paraglide copy.
+- Local post-capture noise reduction for recorded mic/webcam/audio clips: per-clip persisted `audioNoiseReductionEnabled`/`audioNoiseReductionAmount` (0-100), compact accessible controls in clip properties, deterministic spectral gate that runs entirely on-device with identical preview and export output, bounded CPU/memory and abort/cleanup, no cloud upload, and correct ordering with EQ, pitch/speed, ducking and mixer.
+- Video Editor recording now detects browser capabilities, exposes an explicit cursor mode where supported, and preserves honest system/tab audio truth from capture through workspace artifact, media metadata, timeline import, preview, and export. Adds stable persisted capture metadata with migration for legacy media.
+- Procedural backgrounds for the Video Editor with mesh gradients (4-corner bilinear with smoothness, rotation, scale and offset) and repeatable patterns (dots, grid, stripes, checker) rendered deterministically at any resolution and frame. GPU fragment path is used for large tiles with exact CPU canvas fallback; preview and export share the same `CanvasStackCompositor` path so pixels are identical.
+- Typed persisted `background` item model (`background` item kind, `ProceduralBackground` union) with migration 4, normalization/clamping, clone-safe deep copy and keyframe-compatible parameters (`backgroundRotation`, `backgroundScale`, `backgroundOffsetX/Y`, `backgroundSmoothness`, `backgroundDensity`, `backgroundForegroundOpacity`) resolved through the existing animated-properties seam and undo history.
+- Eight built-in presets (Sunset/Ocean/Forest/Neon mesh + Dots/Grid/Stripes/Checker) stored immutably and cloned on apply; no mutable shared preset state and no bespoke parallel renderer.
+- Compact responsive inspector and creation UI using shared primitives (`Button`, `Input`, `Slider`, `AppSelect`, `Label`, `Tabs`): preset grid, kind switch, color pickers, pattern selectors, density/opacity/rotation/scale/offset sliders. Honest alpha/blend via item `transform.opacity` and `blendMode` on the shared stack; accessible labels, keyboard focus, visible focus ring, and 320px layout verified in Chromium.
+- Native concise copy for all ten editor locales (`en`, `es`, `fr`, `de`, `pt`, `pt-BR`, `tr`, `ja`, `ko`, `zh`) for the new panel and controls.
+
+### Changed
+
+- Preview and export audio graphs now apply the shared effect chain after EQ and before the mixer, preserving existing EQ, pitch, fades, and ducking and without creating extra AudioContexts.
+- Recording setup shows honest capability states for screen, cursor, and system audio and never claims an audio stream exists merely because requested. Cancellation and track teardown are clean and bounded.
+
+### Fixed
+
+- Preview and export use actual captured tracks without duplicating or dropping audio; inactive system audio is reported as unavailable rather than presented as present.
+
+## [4.3.2] - 2026-08-27
+
+### Fixed
+
+- Accept current npm metadata output when verifying a clean n8n community-node install.
+
+## [4.3.1] - 2026-08-27
+
+### Fixed
+
+- The official n8n package now passes current npm and n8n publication checks while keeping write-capable OpenPost actions unavailable to AI tools.
+
+## [4.3.0] - 2026-08-27
+
+### Added
+
+- Mobile idea capture can now turn a rough note into one editable post with destination-specific renditions, then send the reviewed result to the workspace's next queue slot. Manual writing and scheduling remain available when AI is disabled.
+- Failed publications can now be dismissed without deleting their delivery history and restored immediately with Undo from mobile or web.
+
+### Fixed
+
+- Android scheduling now opens the date and time steps reliably, calendar weeks always show all seven days, and composer drawers stay usable above the keyboard.
+
+## [4.2.0] - 2026-08-27
+
+### Added
+
+- Rolling and ripple edits now show a live 2-up OUT/IN comparison in the program monitor while dragging. The overlay is owned by the timeline gesture, publishes only from the snapped and validated plan, and clears on commit, Escape, pointer cancel, destroy, and tool changes. It reuses PreviewLayer and the existing decoder prewarm, proxy, and filmstrip path without a second owner, handles gaps, speed, reverse, sourceStart/sourceEnd/sourceFps, linked audio-to-visual companions, and image/composition/Lottie sources, and labels OUT, IN, and GAP with high-contrast timecodes that remain usable at 320 px without hiding export or quality failures. Slip shows new IN/OUT with baseline IN/OUT corners; slide shows the left OUT and right IN at the new cut with their pre-drag baselines as corner thumbnails, both rendered as fitted virtual items so the compared frame is always visible and aspect-correct.
+- Focused 2D composition timeline for Motion workspace. When a `composite-2d` composition is active the footer shows a single dedicated surface instead of stacking. The compact layout keeps layer names, in/out work area and FPS header always visible, uses a shared row model so sidebar labels and the scrollable bar/keyframe lanes stay aligned, and collapses to a single column below 640px without widening a 320px page. Scrubbing the ruler seeks via the shared clock without marking the project dirty or calling autosave.
+- Layer rows expose Position, Scale and Anchor as localized vector lanes. Diamonds are rendered in the scroll surface, culled via the shared timeline viewport, and use typed vector helpers without `as any`. Diamonds are interactive buttons wired to the shared `keyframeSelectionStore`; dragging a diamond repositions its frame through atomic keyframe actions with a single undo and restores on Escape or pointercancel.
+- Layer bars support pointer move and start/end trim with edge detection, adaptive snapping via shared snap targets, a single commit/undo on release, Escape/pointercancel restore, locked-track guards, and no autosave while drafting. Drafts reuse `planLinkedMoveGesture` and `planTrimGesture` instead of reimplementing semantics.
+- Transform parenting uses a pick-whip that highlights valid layer rows, validates only via `itemById` (no track ID casts), and shows localized cycle/duplicate errors. A successful link or detach clears to a localized success status (“Parent linked”/“Parent removed”), records exactly one undo, and cleans window listeners on destroy.
+- In/out handles snapshot once, draft via raw setters, add exactly one undo only if the range actually changed, and restore on pointercancel.
+- Edit by Transcript now supports Selection and Project scope, contiguous drag and Shift selection, active-word tracking, Backspace staging, and Ctrl or Command+Enter commit. Transcript tokens keep exact timeline ownership across repeated source uses and linked A/V pairs, while one undoable cut removes the selected phrase and its internal pauses without trimming another use of the same media.
+- Transcript Copy and Cut now carry source-trimmed media, linked audio, effects, and timing gaps into the shared timeline clipboard. Paste keeps multi-track alignment, shifts the group past collisions, creates independent links and origins, and lands as one undo step. Reversed clips map transcript ranges back to ascending timeline frames without losing their source span.
+- Auto-captions now queue multiple clips, show per-clip progress and queue position, and share one decode across repeated placements of the same source window. Retranscription replaces duplicate generated captions in one undo step, cancellation stays clip-owned, and results cannot attach after the source clip changes or disappears. Generated captions split with their exact source clip, while reverse playback keeps word order, filler removal, and transcript edits mapped to the correct source seconds.
+- Screen, camera, and microphone captures now stay linked after insertion. Recorder chunks commit to local storage as they arrive, and a versioned session manifest restores flushed tracks with their original offsets after a tab or browser failure. Recovery remains available until the user adds, downloads, or removes it, and another live recording tab keeps ownership of its active session.
+- Recording setup now keeps source, device, countdown, duration, video quality, camera direction, and microphone processing choices across sessions. Screen and camera capture support 720p, 1080p, or 4K at 24, 30, or 60 fps with matching encoder bitrates and storage estimates. A live input meter confirms microphone activity while recording.
+- Local voice generation now exposes Supertonic laugh, breath, and sigh tags, remembers the chosen engine, and keeps each preview tied to the text clip that requested it. Older previews can no longer link to a newer text selection by mistake.
+- Mixer tracks and the master bus now have separate six-band parametric EQ controls. Their settings persist with projects and compositions, remain undoable, apply in the same order during live preview and export, and correctly disable Quick Cut when audio must be rendered.
+- Text items in the focused 2D composition timeline now show typed In, Loop and Out bands derived from the real `textMotion` spec via the shared `getTextMotionTimelineBands` math (including `segmentTextUnits` unit counts, stagger, and half-clip clamping, exact to FreeCut). Bands are rendered in both the sticky layer list and the scrollable lane, culled via the shared viewport, with localized preset and slot labels, duration and unit suffixes, and offset metadata.
+- In and Out band bodies drag to change `offsetFrames` from the clip edge; Loop bodies do not offer offset. Band edges drag to change `durationFrames` (In right edge, Out left edge, Loop right handle). Loop duration edits do not create a false offset. All drags use `beginTextMotionEdit` / `updateTextMotionLive` / `commitTextMotionEdit` with a single undo per gesture, live preview via the shared store, `isTrackEffectivelyLocked` group-lock guards, pointer capture with `lostpointercapture` handling, a single stored cleanup for `pointermove` / `up` / `cancel` / `keydown` / `lostcapture` called on every terminal path and onDestroy, Escape and pointercancel restore the exact snapshot even before the 3px threshold, and `pointercancel`/`lostcapture`/`unmount` do not synthesize PointerEvent. No-op drags (clamped to start) add no undo and do not call `onedit`.
+- Advertise the hosted API, authentication flow, Markdown pages, sitemap, and OpenAPI contract through an RFC 9727 API catalog, `/auth.md`, and homepage HTTP Link headers.
+- Meme Maker now uses OpenPost's own fast, watermark-free renderer, a full built-in template catalog, a larger editing workbench, and template-specific AI guidance.
+- Added the official `@getopenpost/n8n-nodes-openpost` package with importable workspace-listing and draft-creation workflows.
+- Added a dedicated n8n CI gate for generated contracts, types, tests, lint, builds, package loading, npm payload inspection, and package version discipline.
+- Video Editor preview and export now share one WebGL2 compositor and a bounded GPU texture/framebuffer pool. The ping-pong targets reuse exact-size allocations across resize cycles, clear stale pixels, stay isolated per GL context, cap at 96 MB/8 entries, and release on device loss/dispose without leaking ImageBitmap or OffscreenCanvas. Transition branches no longer detach from their canvases on parent resize, and disposing one live stack does not invalidate another. Real Chromium WebGL2 tests cover reuse, resize, context separation, dispose, transition pixel regression, and a layered-timeline allocation benchmark proving second-frame reuse.
+- Animated GIF and animated WebP imports now play as real animations instead of frozen first frames. Import probes the true composited frame count, loop duration, and effective frame rate, inserts span one full animation loop, a cancellable worker extracts every frame with exact per-frame container delays into a bounded memory cache with OPFS persistence, and the timeline filmstrip, live preview (including speed and reverse), still capture, and full or range export all read the exact same decoded frames with looping playback.
+- The Video Editor now has persisted Edit, Color, and Motion workspaces that keep the same project, playhead, selection, program monitor, and timeline while changing the tools around them. Color uses one fitted dock for grading, effects, and scopes; Motion focuses transforms, presets, text motion, keyframes, property links, and expressions.
+- Motion can now create and enter focused 2D compositions, return to the parent sequence, add non-rendering controllers, and attach or detach transform parents. Animated parent chains keep their pose across canvas edits, deletion, compound boundaries, duplication, and project cloning, share cycle guards with property links, and resolve the same way in preview and export.
+- Motion compositions now reuse full layer-group controls and can publish plain text and solid text or shape colors. Every placed instance gets independent resettable overrides without changing the source, with matching nested live preview and export output.
+- Video Editor ASCII and Paper halftone effects now include their full typed control surfaces and render in both preview and export.
+- GPU effects now render on image, text, and subtitle clips as well as video, with one text raster path shared by preview and export.
+- The full 54-effect FreeCut GPU catalog now runs in OpenPost, including exact HQ pixel sort and complete direction/order controls for the streak variant.
+- Timed adjustment layers now apply ordered CSS and GPU effects to every active visual clip below them in preview and export.
+- All 25 clip blend modes now composite against the finished layers below in live preview and export, with one shared GPU stack and an exact CPU fallback.
+- A full keyframe value graph now exposes sampled easing curves, direct Bezier handles, shared multi-key selection and movement, snapping, zoom, pan, fit, Alt duplication, keyboard edits, and transition-safe ranges.
+- The full dope sheet now supports cross-row marquee and Shift selection, atomic multi-key retime and Alt duplication, keyboard edits, property locks and filters, normalized copy/cut/paste, and reusable cubic or spring easing presets.
+- The color workspace now adds RGB Parade, frame-aware auto balance, loupe-based white/black/white point pickers, multi-clip grade copy/paste, saved grade presets, and preview-only before/after or draggable split comparison.
+- The Color workspace now includes a whole-project navigator with media thumbnails, compact visual track lanes, markers, in/out range, and a preview-only scrub path that selects clips and commits the exact release frame without adding undo history.
+- On-canvas editing now includes rotated source-pixel crop handles, pose-preserving anchor moves, scaled direct text editing, and editable position motion paths with versioned vector keys, smooth or split spatial Bezier handles, keyboard control, cancellation, transition guards, and atomic undo.
+- The on-canvas transform gizmo now adds eight rotation-aware edge and corner handles, center or opposite-side scaling, media aspect-ratio control, snapped or free rotation, large touch targets, and precise keyboard edits.
+- The complete 44-effect FreeCut transition catalog now includes searchable grouped controls, placement, easing, direction, effect parameters, timeline selection and resizing, exact endpoint timing, undo, and matching preview/export rendering through lazy WebGPU pipelines with Canvas2D fallbacks.
+- Transition audio now uses full cut-centered source-handle overlap and sample-level equal-power curves in preview, full export, and range export, while synced audio companions suppress duplicate embedded video audio.
+- Projects now support reusable sequences and compound clips with ordered tabs, per-sequence view and undo state, cycle-safe nesting, source-window-correct dissolve, and recursive visual/audio preview and export. Media-pool cards render cached frames from the real nested compositor, create deep independent duplicates, and confirm the exact root and nested reference impact before undoable deletion.
+- The Scene Browser now detects cuts off the main thread, stores lazy thumbnails and Lab palettes, captions scenes with local LFM, indexes text and images with MiniLM and CLIP, ranks keyword, semantic, color, and palette searches, and inserts exact source ranges by button or drag with progress, cancellation, and undo.
+- Local auto-captions now use a complete Parakeet and Whisper engine registry with model and language controls, safe fallback, streamed decode, warm worker reuse, staged download and inference progress, cancellation, source-window and playback-speed mapping, and removable browser model caches.
+- Local voice generation now matches FreeCut with Kokoro, Supertonic 3, and MOSS Nano, all engine voices and language controls, real progress and cancellation, reusable previews, one-time media-pool saves, and atomic insertion at the playhead. OpenPost also pins the Supertonic and MOSS revisions, verifies resumable MOSS files, falls back from unavailable WebGPU adapters, and allows MOSS speed adjustment.
+- The complete Video Editor now ships in English, Spanish, French, German, European and Brazilian Portuguese, Turkish, Japanese, Korean, and Simplified Chinese, with native language labels and strict catalog and placeholder checks.
+- Shape clips now include rectangle, circle, ellipse, triangle, star, polygon, and heart presets with solid or linear fills, strokes, rounded geometry, direct transforms, effects, blending, nested composition support, and one shared preview/export renderer.
+- Shape strokes now support arc-length trim ranges, cyclic offsets, open-path wrapping, animated variable-width start and end tapers, cap-aware outlines, bounded project loading, and the same pixels in preview and export.
+- The Video Editor pen tool now draws open or closed Bezier paths with click-or-drag knots, exact curve-preserving point insertion, corner and continuous tangents, direct point and handle editing, keyboard controls, and automatic bounds fitting.
+- Shape clips can now act as hard clip or feathered alpha masks with opacity and inversion. Masks affect only lower tracks and render through the same animated compositor in live preview, transitions, nested sequences, still capture, and export; path masks reuse the full Bezier editor and always stay closed.
+- Visual clips now support four-point corner pinning with direct canvas handles, keyboard nudges, exact local-pixel controls, size-stable offsets, and the same projective mesh in live preview, masks, transitions, nested sequences, still capture, and export.
+- Lottie JSON and dotLottie archives now import as frame-accurate clips with validated native timing, generated thumbnails, speed, reverse, loop and ping-pong modes, source-frame segments, named markers, and one deterministic renderer shared by live preview, nested sequences, still capture, and export.
+- The Video Editor now browses featured, popular, recent, and searched public LottieFiles animations with live previews, cancellation, pagination, safe bounded imports, visible license guidance, and persisted creator and license details.
+- The Video Editor now groups shapes, stock, stickers, and Lottie under one Assets panel. It searches configured Pexels, Unsplash, and Pixabay sources, enforces streamed import limits, keeps creator and license details, and places stock at the playhead. A lazy local catalog adds 3,145 transparent Microsoft Fluent Emoji stickers with search, reuse, direct insertion, and stored MIT provenance.
+- Lottie template clips now expose bundled animation and theme pickers, author text and color controls, grouped palettes, and native scalar or two-axis slots, with the same cached source patch used by preview and export.
+- The media pool now opens an independent source monitor for image, audio, video, and Lottie assets, with exact in/out marks, range dragging and playback, timecode or frame display, active-track V/A patching, and keyboard editing.
+- Source insert and overwrite edits now place linked native-frame ranges at the playhead, convert frame rates, create requested tracks, preserve surrounding material and split Lottie phase, reject locked targets, and undo as one action.
+- Video and audio clips now support exact reverse playback with linked undoable controls, mirrored timeline filmstrips and waveforms, reversed PCM monitoring and export, frame-accurate video export, and a shared cancellable 720p preview conform cached by source fingerprint.
+- Continuous split siblings can now be joined from the timeline toolbar or with Shift+J, including linked A/V clips, reversed source windows, transition repair, locked-track guards, and one-step undo.
+- Video clips can now insert an exact native-resolution two-second freeze frame from the timeline toolbar or Shift+F, with reversed-source mapping, animated visual-state capture, transition repair, race-safe media cleanup, and one-step undo.
+- Timeline ruler scrubbing now plays exact 45 ms audio grains with a persisted toggle, pointer and keyboard control, reverse and nested-composition mapping, mute and solo rules, linked A/V de-duplication, stale-seek dropping, and a decoded Web Audio fallback.
+- Timeline tracks now resize from 48 to 140 pixels by pointer or keyboard, support Alt resize-all and double-click reset, cancel cleanly with Escape, persist with the project, scroll vertically, and undo each completed gesture in one step.
+- Project markers now render on the ruler with names and colors, drag or move by keyboard, edit label/frame/color, jump with controls or bracket shortcuts, delete with Shift+M, and participate correctly in snapshot undo and redo.
+- Timeline zoom now matches FreeCut with a logarithmic control, pointer-anchored coalesced wheel zoom, playhead-anchored buttons, fit and 100% controls, and the full keyboard shortcut set.
+- Hovering the timeline now skims the program monitor through a separate ghost playhead and timecode without moving the edit position or seeking audio. Pointer work is coalesced to one update per animation frame and stops during playback, touch input, zoom, dialogs, and edit gestures.
+- All 36 supported Video Editor commands now use one customizable shortcut catalog with browser-local persistence, physical-key capture, command and browser conflict checks, unassign and reset controls, search and filters, and versioned OpenPost or matching FreeCut preset import and export.
+- Selected clips can clear all animation or one property with Shift+A or the timeline toolbar. The confirmation reports the exact key count, keeps locked tracks unchanged, and records the whole multi-clip edit as one undo step.
+- Canvas move and resize gestures now snap to canvas edges, centers, quarter positions, and neighboring layer bounds with screen-stable hysteresis, localized live guides, rotation-aware bounds, and Alt bypass. The timeline magnet controls both timeline and canvas snapping.
+- Interface sounds are now opt-in with persisted volume and Signature, Velvet, or Crisp themes. Editor cues stop during preview playback, stay out of exports, and give one result cue for selection, split, delete, effect, snap, linked-selection, skimming, workspace, and track-state actions.
+- Preview diagnostics now report measured frame and renderer data, adaptive quality, proxy state, GPU fallbacks, and skipped preview frames. Optional overlays stay local to the browser, while copied reports omit project names, clip labels, media IDs, and file paths.
+- ProRes footage now imports with real metadata and thumbnails, prepares a playable compatibility proxy with visible progress, remains viewable at Full preview quality, supports source-monitor audio, filmstrips, scene tools, freeze frames, and exports from the original full-quality source.
+- AC-3 and E-AC-3 audio now decode through a lazy worker-safe codec in source and timeline preview, waveforms, silence analysis, transcription, processed media, and export. DTS and TrueHD imports now name the codec and require an explicit choice before importing the video with a silent audio track.
+- Delete now leaves an intentional gap, while Ctrl or Command + Delete performs a sync-lock-aware ripple delete across linked tracks with one undo step.
+- Effect stacks now support ordered move controls, default-aware reset, bypass and enable, and removal across compatible multi-clip selections with one undo step per action.
+- The searchable effect picker now shows real shader-backed previews for every GPU effect plus CSS previews, with full-strength posters, hover sweeps, reduced-motion support, and lazy rendering inside the picker viewport.
+- The effect picker now includes FreeCut's nine built-in effect stacks and user-saved full-stack presets, preserving parameters and bypass state across preview, drag, atomic multi-clip apply, update, and deletion.
+- GPU effect parameters now support FreeCut-compatible numeric and color keyframes, per-parameter auto-key controls, perceptual color interpolation, shared preview and export output, and automatic cleanup when an effect is removed.
+- GPU effect keyframe lanes now follow FreeCut's parameter metadata: temporal rate controls stay static while pixel-sort length remains animatable.
+- The seven center-based GPU effects now have a direct one-point canvas editor with source-accurate crop, transform, flip, rotation, parent-motion, and corner-pin mapping, live preview, paired keyframe writes, keyboard control, locked-track guards, and clean cancellation.
+- Live histogram, waveform, RGB Parade, and vectorscope views now use FreeCut's exact WebGPU compute and phosphor-rendering path with high-DPI output, channel modes, direct graded-canvas uploads, playback-aware sampling, device-loss recovery, and an aligned BT.709 CPU fallback.
+- The clip inspector now includes all 20 FreeCut Entrance, Exit, and Emphasis motion presets with animated previews, exact generator timing and easing, duration, intensity, and multi-clip stagger controls, region-scoped Replace and collision-safe Add modes, coupled position support, transition-wide safety, and one-step undo.
+- Float drift, sway, breath pulse, spin, and micro shake now stay live as compact procedural motion records with deterministic preview and export output, per-channel gains, multi-clip staggering, editable speed and intensity, reduced-motion thumbnails, and coalesced undo while tuning.
+- Live motion can now be baked into adaptive editable keyframes across a whole selection with transition-safe atomic undo, while an explicit cleanup removes animation parked past trimmed clip bounds without changing the final visible pose.
+- Projects now carry a searchable saved-animation library that preserves scalar and coupled motion, easing and spatial handles, same-type effect instances, and live behaviors, with playhead apply, optional retiming, Replace/Add semantics, compatibility checks, confirmed deletion, and atomic multi-clip undo.
+- Text clips now support all 17 FreeCut In, Out, and Loop text-motion presets with character, word, line, and whole-clip units, deterministic ordering, live stagger, duration, and intensity controls, saved-animation reuse, and matching preview and export rendering.
+- Visual properties now support cycle-safe direct links with frame offsets and a bounded expression editor with scalar or vector math, `prop()` references, live validation, link and reference pick whips, duplicate-group remapping, undo, and matching preview and export evaluation.
+- Position, scale, and anchor animation now support coupled vector lanes or separate X/Y tracks, safe value-preserving conversion, exact per-frame baking for mismatched and spatial timing, percentage scale curves, and the same editable result across presets, preview, and export.
+- Pen and mask paths now animate every point and Bezier handle through topology-locked scalar lanes, with selected or all-point keying, Shift multi-selection, focused or complete timeline rows, saved-animation reuse, and matching preview and export geometry.
+- Text clips now include all 13 current FreeCut templates, reversible one-, two-, and three-span copy layouts, per-span typography, template scaling, content-fit backgrounds, real bundled fonts, wrapped mixed-style lines, and one raster layout shared by preview and export.
+- The text inspector now edits full block typography, including horizontal and vertical alignment, padding, background, stroke, shadow, font metrics, and colors, while base property edits remain available when the playhead sits outside the selected clip.
+- Caption clips now include the exact Netflix, YouTube, Bold Yellow, Outlined, and TikTok recipes with bundled fonts, canvas-relative placement, one-step undo, compact previews, and direct style controls.
+- Subtitle cues now parse common SRT, VTT, and ASS formatting, hide markup during transcript edits, preserve cue alignment and Bold, Italic, and Underline flags through word edits, and render the same mixed-font raster in preview and export.
+- Inline text now measures and paints each styled run with its own font metrics and breaks overlong words without losing span styling.
+- Caption clips linked to the same source can now consolidate into one editable subtitle item with exact absolute cue timing, shared styling, linked groups, locked-track safety, and one-step undo.
+- MKV, MKA, and WebM media now expose embedded UTF-8, WebVTT, ASS, and SSA subtitle tracks with streaming scan progress, cancellation, source-fingerprinted caching, default and forced track selection, and atomic trim- and speed-aware timeline insertion.
+- Export preflight now checks the exact range, visible or audible content, source readiness, device codec support, subtitle compatibility, expected duration, and output size before rendering. It blocks unsafe jobs, explains fixes, and passes the checked frame range to the renderer.
+- Render jobs can now be queued from frozen timeline, nested-sequence, range, and output settings. The project queue persists locally, runs one job at a time, supports pause, reorder, cancel, retry, and clear controls, and restores interrupted work in a paused state.
+- Queued exports can now split the active range at timeline markers or into fixed 10, 30, or 60 second jobs. Segment batches share one frozen timeline snapshot, keep exact frame bounds and remainder frames, and can turn an output above the in-memory limit into safe smaller renders.
+- The Exports dialog now lists project files saved in the local workspace, refreshes after queued renders finish, downloads the exact saved file, and confirms permanent deletion with clear loading, empty, missing-file, and retry states.
+- Immediate and queued video or audio exports now show preparing, mixing, frame rendering, encoding, and file-finalization phases with percent, frame, and elapsed-time counters, plus direct cancellation.
+- Full video exports now prefer a dedicated render worker, keep progress and cancellation live, and fall back to the main thread only for known browser or worker limits. Workers return bytes while the main thread saves each output once.
+- Heavy timeline footage now prepares one background proxy at a time, switches preview visuals to the smaller local file without losing source audio, and keeps Full-quality preview and every export on the original source.
+- Stalled proxy scrubs now show the nearest cached filmstrip frame after a short delay and replace it as soon as the exact decoded frame settles.
+- Auto preview now lowers actual GPU and stacked-canvas resolution after sustained missed frame budgets, recovers in stable playback, and predecodes exact upcoming clip, transition-handle, and recursively nested composition boundary frames in a serialized worker so new visuals appear without a cold decoder pause. The planner honors nested source trims, speed, hidden tracks, and cycle guards while retaining only the bounded nearest targets. The quality menu shows the active render percentage while adapted.
+- Untouched single-source exports now use a strict keyframe-aligned fast-copy path across MP4, MOV, WebM, and MKV. It preserves the original encoded video and audio packet payloads, skips encoder checks, works in queued and shortcut exports, reports the path before export, and falls back to the full renderer for any visual, audio, subtitle, transition, codec, size, or source mismatch.
+- Speech cleanup now reviews filler words, phrases, signal silence, and transcript gaps before editing. A local CLAP audio model ranks transcript matches by confidence, leaves low-confidence words unchecked, reports model and scoring progress, falls back to explicit review when audio is unavailable, and unloads through shared model controls. Cleanup also supports presets, custom detection lists, exact cut totals, audition, selection, cancellation, caption retiming, and one locked-track-safe, sync-lock-aware ripple undo.
+- Transcript editing can now stage words without changing the timeline, show exact struck-through words and duration, restore any selection, clear the review, and commit every staged source-time span as one caption-aware ripple edit and one undo step.
+- Transcript search now finds exact phrases as they are typed, falls back to bounded typo-tolerant word matches only when exact search fails, highlights every result, and jumps between timed words from a compact keyboard-friendly control.
+- Editor settings now persist undo depth, snapping, timeline detail, local transcription defaults, and an optional 5 to 30 minute safety save. OpenPost still saves completed edits after 800 ms, while the safety timer catches dirty work during long idle sessions without overlapping an active write. The Storage section prepares proxies, clears only rebuildable waveform and filmstrip data, regenerates thumbnails, removes session proxies, and manages local models without touching source media, edits, or exports.
+- The project media panel now imports direct URLs, GIFs, and safe SVG files; searches, filters, sorts, and groups assets; and shows codec, size, storage, tag, and attribution details without leaving the editor.
+- Projects now detect unavailable media on open, restore expired file access, relink moved sources with fresh metadata and previews, and recover orphaned timeline clips through safe automatic or manual replacements with locked-track checks and atomic undo.
+- The project browser now shows cover images, duration, resolution, aspect ratio, and frame rate; searches, filters, and sorts in either direction; supports range and keyboard multi-selection with one bulk action; renames projects; and creates deep duplicates. Its Trash section restores projects, deletes one or all projects with shared-media checks, reports partial cleanup, and removes entries older than 30 days. Duplicates preserve media links and cover art while remapping timeline, caption, effect, keyframe, expression, transition, and saved-animation IDs.
+- Project files now upgrade through an ordered, append-only schema registry. OpenPost writes a legacy project backup with media links, cover art, and external folder access before it persists the new document, and it leaves projects from newer editor versions untouched.
+- Projects can now export and import checksummed `.openpost.json` snapshots. Imports migrate old projects, reject newer schemas, remap project IDs, match available media without copying it, keep missing sources recoverable, and roll back failed writes.
+- Projects can now travel as `.openpost.zip` bundles with their source media, saved animations, and cover image. Export streams bytes to disk with live progress, cancellation, and no media recompression; import verifies every path, size, and SHA-256 hash before it remaps IDs, reuses safe local media, or commits the project, and cancellation removes partial files.
+- Color grading now includes a direct Master, Red, Green, and Blue curves graph with arbitrary control points, large touch targets, precise keyboard edits, live preview, channel reset, and one-step undo across compatible selected clips. Preview and export share the same exact 256-sample GPU lookup texture.
+- Background media work now stays visible in one compact project footer across panel changes. It combines real import, proxy, filmstrip, waveform, scene-analysis, transcription, voice-generation, and reverse-preview progress, expands into per-job stages and counters, and offers cancellation only when the worker can stop safely.
+- Long timeline filmstrips now fill the visible clip with stable, viewport-sized tiles, decode visible source seconds before background samples, stop work when clips leave the viewport, and transfer display bitmaps before JPEG cache writes finish.
+- Long and dense timelines now mount only a bounded viewport slice, collapse compact clips into interactive density buckets, preserve geometry-based marquee selection across unmounted clips, and add a project navigator with direct pan and edge zoom. Root caps, animation-frame-coalesced scroll work, keyboard control, coarse-pointer handles, and clean cancellation keep 30,000-clip projects responsive without widening a 320 px page.
+- Timeline waveforms now render for audio-only clips as well as videos, stream visible peak chunks during long decodes, preserve FreeCut's 500-sample-per-second detail in a bounded cache, cancel safely, and replace old low-resolution persisted peaks. Incremental peak indexing and one path calculation per clip keep long-source redraws bounded. Real Chromium covers worker decoding and audio timeline rendering.
+- Media-pool clips and nested sequences now drag to an exact timeline track and frame with snapping, edge auto-scroll, compatible-row and collision rejection, linked visual and audio ghosts, and one-step insertion. The same honest placement mode supports touch and keyboard input without widening a 320 px page.
+- Track push/pull now shifts every clip at or after a chosen cut across all tracks with a live frame-coalesced preview, magnetic snapping, the tightest safe left clamp, keyboard and touch input, clean cancellation, transition repair, and one-step undo. Hidden clips stay in sync, while any affected locked track blocks the whole edit instead of moving locked content.
+- Multi-selected visual clips now move, scale, rotate, align to every canvas edge or center, and distribute by equal visual gaps through one compact on-canvas control. Rotated custom anchors, transform parents, snapping, keyframes, locks, cancellation, keyboard input, touch targets, and one-step rollback-safe undo all share the same preview and saved transform truth.
+- The timeline now records voiceover takes while playback runs, with microphone selection, live levels, narration processing, exact mute restoration, pause and resume, timing offset, seek locking, a live range overlay, project-switch cleanup, and one-step insertion on a named audio track.
+- Screen, camera, and microphone recording now produces separate synchronized artifacts with measured start offsets, device selection, optional system audio, countdown, live size counters, and local-space preflight. Ordered OPFS scratch writes keep long captures off the heap, a bounded fallback stops cleanly before memory can grow without limit, partial files stay downloadable after insertion failure, and successful timeline insertion rolls back every imported artifact if any later step fails.
+- Timeline tracks now form one-level groups with inherited visibility, lock, mute, and solo behavior across editing, preview, and export. Groups support collapse, rename, block-safe reorder, undoable creation, safe ungrouping, and a separate confirmed action for removing grouped tracks and clips.
+- Selected visual clips now arrange into automatic grids, rows, columns, picture-in-picture, focus-and-sidebar, or fixed grids through a live preview with transition-chain cells, reorder controls, canvas spacing, saved presets, grouped-lock safety, active-sequence sizing, and one-step undo.
+- Project video can now create first-class 2x Anime4K upscales for live action, animation, or 3D footage and 2x through 8x RIFE frame-interpolated copies. Both tools serialize GPU work, prefer WebGPU with a WASM fallback, stream MP4 output through local scratch storage, copy compatible audio without re-encoding, show stages, bytes, progress, ETA, and cancellation, and import the playable result back into the project media library.
+- Save Frame and Freeze Frame now verify their rendered pixels, create small media-library thumbnails, persist complete workspace metadata, and roll back partial writes before exposing the generated still to the project.
+- The Video Editor can now create 2 to 120 second instrumental tracks locally with ACE-Step 1.5 XL Turbo, using standard or high-precision browser models. For 2 to 9 second stingers it renders the model's 10-second minimum once, then trims the PCM WAV at an exact sample frame without re-encoding. It shows the full first-run size and origin quota before downloading, serializes the GPU with video enhancement jobs, reports byte and inference progress, cancels cleanly, manages cached OPFS model data, previews each WAV, and saves or inserts it at the playhead without duplicating media.
+- ACE-Step storage checks now count only the assets used by the Turbo generation path. Standard and High first-use totals, progress, cache readiness, and quota preflight no longer include the unused semantic-code detokenizer.
+- Clip properties now include playhead-aware anchor and transform values, horizontal and vertical flip, exact linked A/V speed retiming, visual and audio fades, and -60 dB to +12 dB gain. Preview and export share the same fade curves, linked edits stay atomic, and retimed keyframes keep their timing.
+- Clip audio now preserves pitch across 0.1x to 10x speed changes, adds independent semitone and cent tuning, shaped fades, 15 EQ presets, and a complete six-band parametric EQ. Top-level and nested preview use a low-latency SoundTouch worklet and native Web Audio filters, while export applies the same phase-coherent stereo stretch and EQ without allowing the fast-copy path to skip audible edits.
+- Long video and audio exports now keep decode, time-stretch, pitch, EQ, sample-rate conversion, automation, and mixdown in fixed five-second windows while preserving one continuous DSP state across every boundary. Final mux bytes stream to local scratch storage instead of growing one whole-file heap buffer, cancellation removes partial output, stale scratch expires automatically, video-only clips no longer create false audio failures, and decode errors stop the export instead of publishing missing sound.
+- The timeline now opens a compact audio mixer with per-track and master faders, mute and solo, true stereo meters, peak hold, and clipping feedback. One shared Web Audio bus graph keeps preview routing exact, while root and nested master settings persist through undo, project saves, direct exports, queued exports, and smart-copy checks.
+- Local model storage now tracks and unloads every resident transcription, search, caption, voice, music, interpolation, and upscaling runtime. Removing a model first releases its worker or sessions, concurrent clears share one operation, active work settles cleanly, and partial cache failures stay visible.
+- The Edit workspace now uses compact Assets, Program, and Edit panes below desktop width, keeps the program monitor and inspector usable down to 320 px, and contains wide timeline controls inside their own scroller instead of widening the page.
+- Editing workspace folders can now be added, switched, and removed from one compact project-browser control. The active folder stays clear, permission loss returns to the named reconnect flow, and switching refreshes the project list without a stale workspace view.
+- Motion now supports FreeCut-parity additive MotionAnimationLayers: durable typed layers with add and multiply blending evaluated after base keyframes and before procedural modifiers, independent enable and disable, named independently removable layers, preset-as-layer application with merge semantics, multi-selection one-step undo, preview and export parity through the shared evaluator, saved-animation capture with cloned layers, and a focused accessible Motion workspace UI with 44 px phone targets, 320 px narrow-width proof, and i18n across 10 locales. Each preset can be added as a non-destructive layer without touching authored diamonds, baked later into keyframes, or removed without affecting base animation or live modifiers. Direct canvas moves, resizes, and rotations now remove active layer and procedural contributions before writing the editable base, so a gesture cannot double-count live motion.
+- Video Editor now has a first-class persisted `ai-captions` caption source distinct from `transcript`, `subtitle-import`, and `embedded-subtitles`. Local scene analysis output (LFM vision model via the existing `sceneCaptionProvider` / `analyzeSceneContent` stack, no new model layer) creates an editable subtitle layer without replacing transcript captions. Captions derive placement and width from the actual project canvas (16:9, 1:1, 9:16) and share preview and burn/sidecar/embedded export through the common subtitle pipeline, with correction in the transcript panel, atomic undo, and repeat-run replacement of only its own previous `ai-captions` item. The timeline tools panel now exposes direct AI caption entry with progress, cancel, and error states through shared `mediaTasks` and shared UI primitives, with responsive 44px targets, 320/390 and dark-theme Chromium coverage, and serialised per-clip AI jobs that guard rapid repeats and shared scene-worker contention.
+- FreeCut 4d62e80 J/K/L shuttle parity across program and source monitors with editable `SHUTTLE_FORWARD` (`l`), `SHUTTLE_REVERSE` (`j`), and `SHUTTLE_PAUSE` (`k`) commands, saved remaps, repeat suppression, editable-field guards, and localized labels in all ten editor locales.
+
+### Fixed
+
+- Made clean frontend test runs generate SvelteKit's ignored configuration before Vitest starts, so fresh Linux release candidates no longer fail during dependency optimization.
+- Kept Android release builds reproducible by aligning the standalone app with the current Expo SDK 57 patch set and resolving one shared linking module across all native packages.
+- Updated ZIP extraction used by local AI model tooling to the patched release that rejects crafted archives with abusive memory sizes.
+- Edit comparison frame mapping is covered by pure tests for gaps, speed, reverse, sourceFps, linked companions, images/compositions, and timecodes, plus Chromium pointer tests that drive real timeline drags for rolling, ripple, slip, and slide, verify baseline-vs-dynamic distinction, audio-linked visual resolution, cancellation cleanup, single undo entries, absence of URL leaks, and 320 px layout.
+- Composition fps header no longer hardcodes 30 due to missing parentheses.
+- Keyboard Delete/Arrow nudge now works from the focusable, correctly named timeline region (`role="region"` with `aria-label`) as well as the window, with proper focus and a single undo entry.
+- Motion gestures now share one pointer session with exact ownership, frame-coalesced previews, outside-release commits, and Escape, capture-loss, supersession, and destroy cancellation. Media drops use real pool metadata and exact lanes; work-area trims preserve source bounds; published controls, property links, all compositor blend modes, and program-monitor ghost scrubbing use their canonical runtime paths. Variable-height sidebar virtualization keeps large compositions bounded while preserving expanded rows, and source-aware timing edits, inherited locks, and atomic undo now cover every inline edit.
+- Text motion band math now matches `references/freecut/src/shared/timeline/text-motion-timeline.ts` exactly, with pure tests for In/Out/Loop placement, half-clip clamping, and max offset.
+- Filler, silence, and transcript range removal now repair generated captions once from their source timing instead of first splitting the caption item through the normal clip-split hook. Linked video and audio still ripple together, later caption words keep their timing, and one undo restores the full edit.
+- Quick Cut now uses direct English labels for its empty state, in/out marks, preview, and export actions. Imported projects also stay within 320 px by shrinking grid tracks, truncating long source names, and stacking per-segment export controls on phones.
+- Every built-in transition now reaches exact outgoing and incoming endpoint pixels in its Canvas2D path. Spiral and X wipes no longer cut a one-pixel seam at zero progress, shape and iris apertures cannot leave edge fragments at completion, sparkle glow ends cleanly, and the Chromatic, Liquid Distort, Glitch, and Pixelate fallbacks retain their direction and visual character instead of collapsing to a plain crossfade or hard cut.
+- Render queues now save live phase and frame progress through bounded, ordered workspace writes, preserve the latest progress document after a crash, and flush the correct project before a workspace switch or editor close.
+- Video Editor workspace tabs, mobile pane controls, canvas tools, timeline markers, trim edges, transition edges, audio gain lines, and track resize handles now keep 44 px interaction targets on phones and coarse pointers without enlarging desktop editing chrome. The compact phone header keeps recording and settings clear of every workspace tab.
+- The Export dialog now traps keyboard focus, returns focus to its Render control, closes with Escape or an outside click while idle, and blocks accidental dismissal during an active render.
+- Video Editor loading, generation, recording, recovery, waveform, and progress indicators now stop continuous spin and pulse animation when the browser requests reduced motion.
+- Streaming video output now settles close, cancellation, write failure, and cleanup through one terminal operation, so an abort cannot race a second file close, expose a partial file, or leave callers waiting forever.
+- Creating a Video Editor project now opens it only after route navigation settles instead of leaving the new project on the workspace list.
+- Filler confidence now decodes only each candidate's short source-time window instead of retaining the full clip.
+- Filler-word cleanup now treats only explicit hesitation sounds such as "um" and "uh" as audio evidence. The broad CLAP "filler word" label no longer marks ordinary clean speech as high-confidence filler.
+- Stock-media filters now open without a delayed outro that could keep reactive provider state alive after the browser closed.
+- Recently used Video Editor workspaces now keep a strict newest-first order even when two folders are picked within the same millisecond, and switching to a known workspace moves it back to the front.
+- Large project bundles now check cancellation at fixed 256 KiB hash boundaries, settle storage write failures as soon as they occur, and clean up partial imports without a late unhandled rejection.
+- Preview audio gain updates now tolerate media elements leaving the page during proxy changes, and the workspace picker exposes its interactive popover as a labeled dialog.
+- Lottie source-monitor playback now reacts to frame changes without a dead reactive expression that failed editor lint.
+- Moving a Video Editor project to trash keeps its project folder and media recoverable until restore, permanent deletion, Empty Trash, or the 30-day cleanup.
+- Video Editor effect-drop targets now use the editor selection color and only offer drag guidance when a clip can accept it.
+- GPU effects now compile all blend modes in WebGL2 and keep source textures bound when creating LUTs or glyph atlases.
+- 3D LUT effect now declares `highp sampler3D` precision and the shared WebGL2 effect pipeline declares `sampler2D`/`sampler3D` precision, so LUT preview and export render instead of failing with `sampler3D: No precision specified`.
+- Image effects now wait for decoded pixels before replacing the source preview.
+- Burned subtitles now keep their timeline track stacking order during export.
+- Video Editor playback now advances the shared timeline playhead so timecode, subtitles, keyframes, nested sequences, and frame-aware effects stay on the clock frame.
+- Video Editor migration keeps newer schema versions intact and repairs nested sequence durations that would otherwise clip their own content.
+- Render planning now uses a store-free keyframe evaluator, so worker and server tests can calculate animated volume without loading Svelte editor state.
+- Splitting a reversed clip now preserves descending source continuity across both resulting pieces.
+- Splitting a clip that owns transcript or AI captions now slices both caption types alongside their source, keeping cues aligned with one-step undo.
+- Newly added and removed clips now update visible timeline rows immediately instead of leaving a stale derived track index until another render.
+- The clip Speed field now has an explicit accessible label, and the 320 px transport keeps primary playback, voiceover, timecode, and fullscreen controls visible without page overflow.
+- Shared ONNX model downloads now retry two transient network or server failures while permanent client errors still fail at once, so RIFE, transcription, and local voice setup recover from a dropped request without hiding a bad model URL.
+- Verified cleanup and unmount paths clear shuttle timers, animation frames, and Clock listeners, and that rapid direction changes and repeated presses do not create duplicate rAF loops or stacked renders.
+- Grow no longer crashes when a follow finishes during a recommendation refresh.
+- The mobile app now restores its workspace before loading data, keeps caches separate by workspace, and reports load failures instead of false empty states.
+- Draft lists no longer crash on Android when formatting relative dates.
+- The mobile workspace menu now opens as a safe-area-aware bottom sheet, and the calendar keeps its full-width grid.
+
+### Changed
+
+- App releases now publish an unpublished n8n package version only after the exact backend revision is live, then verify registry integrity, provenance, the n8n community-package scan, and a clean n8n install before making the GitHub release public.
+- Extended `Clock` to support signed transport rates with FreeCut-accurate ceil/floor framing, precise `[start, end)` range boundaries, forward and reverse looping, pause-and-restore range semantics, one animation-frame loop across wraps, and a hard stop at timeline zero. Successive J/L presses advance `1x`/`2x`/`4x` and direction changes reset to `1x`; negative `playbackRate` never reaches `HTMLMediaElement.playbackRate`.
+- Program preview now shows real reverse frame progression via the Clock frame queue and schedules short decoded reverse-audio grains through the existing track, clip, fade, and master gain paths. Media elements stay paused and are driven by drift-checked seeks; the stacked compositor and prewarm paths remain unchanged.
+- Source Monitor now owns hover and focus routing, uses native positive `playbackRate` where browser audio stays safe, and falls back to exact frame-by-frame `requestAnimationFrame` seeking plus reverse-audio grains for reverse shuttle with correct `in`/`out` clamping. `K` pauses only the active monitor and leaves the other transport untouched.
+- Added a compact localized shuttle indicator (`J`/`L` with direction arrow and speed) for transient shuttle mode, including the first `1x` press, with subtle styling at `1x` and highlighted styling at `2x`/`4x`. Normal play and every explicit pause reset the transport to `1x` normal mode.
+- Mobile pairing now identifies the app and platform, and the approval page uses the requesting app name with device-neutral copy.
+- The mobile launcher icon now gives the OpenPost mark more space.
+- Grow can now focus on people who already follow you, require a minimum number of mutual connections, and sort by best match, follow-back potential, or most mutuals.
+- Connected account settings now open in a compact side drawer with a fixed action bar and a collapsed developer shortcut instead of a tall modal.
+
+### Quick Cut — multi-source, bounded streaming, and export semantics
+
+- Quick Cut now uses stable multi-source IDs with `File`/`FileSystemFileHandle` resolution (`probeSourceFile` via `displayWidth`/`displayHeight`/`codec`/`sampleRate`/`channels`/`rotation`/`fps` and `EncodedPacketSink` keyframes) and `QuickCutSegment.sourceId`. The route opens multiple files in one picker, shows a source selector with missing-file warning, and adds segments from any source. Project JSON persists `sources` metadata and reconnects via `handles-db` with fingerprint verification before binding.
+- Preview and segment editing switch to the segment's source. Timeline, timecode, and duration use the active source's metadata. Loop modes handle source switches at segment boundaries.
+- Merge preflight compares real `videoCodec`/`audioCodec`/`width`/`height`/`sampleRate`/`channels`/`rotation`/`container` support via `getSupportedVideoCodecs` and FPS/timebase, estimates output bytes, and checks `navigator.storage.estimate` with a fixed reserve and explicit unknown/pending state (one storage contract). Incompatible merges require a unified transcode with a visible reason.
+- Streaming is bounded: every scalable path writes to an OPFS `StreamTarget` scratch file. Export helpers return a plain `{scratchPath, fileName, scratchFile, wasLossless, reason, estimatedBytes}` token (serializable, no closure) and a production `discardScratchFile` helper (tested via `structuredClone`). Only the main thread copies chunkwise (4 MiB) via `openBlobWriter` (static imports, reader cancel/release in `finally`, partial final rollback). No `BufferTarget` or `arrayBuffer` for large outputs; temp files for merged transcode are also streaming and cleaned on success/cancel/init/encode/mux failure.
+- Export semantics: no dummy `import('mediabunny')`, no speculative comments; `Conversion.isValid===false` throws `UnsupportedStreamCopyError` without retry, `AbortError`/mux failures are not retried, fallback only from explicit preflight before `output.start()`; sequence numbers monotonic per track; exact merged retains ordered segments without gaps; nearest-keyframe requires explicit before/after choice (default before with delta shown) and never includes outside content without UI warning; audio respects exact kept boundary and encoder delay; every early throw disposes `Input` and discards scratch; decoder configs handled per source or forced to one consistent encode.
+- Preflight is per segment for individual exports; one non-keyframe exact segment does not force other independent segments to transcode. Merged export chooses one unified path.
+- UI is exercised for multi-file picker, source switching, segment preview/loop across A/B/A, reconnect, project import/export, sequential individual and merged exports, cancellation, send-to-OpenPost, keyboard I/O/frame-step, 44 px targets and 320/390/desktop no-overflow, light/dark, with console clean.
+- Local editing assistant now runs fully on device behind a WebGPU gate with a cancellable Gemma worker, streamed status, bounded history, grounded clip refs, typed and runtime-validated tool registry, one corrective retry for invalid model JSON, one bounded transcript lookup hop, explicit plan review before any mutation with destructive and review labels, sequential step results that stop on first failure, each timeline edit undoable through existing public actions, model runtime registration and unload, model cache visibility and quota-aware first-load preflight that blocks when insufficient, and no fake persistence. Tools cover find clips, search transcript, select, seek, add title, split, ripple delete, set speed, set volume, trim, add transition, open silence review and open filler review with scoped targets. The left rail adds an Assistant versus Generate switcher above voice and music with short direct copy, keyboard tabs, visible focus, 44px touch targets, 320px and 390px fit and dark theme support. Wired through the video editor route with project-scoped state and autosave. Includes pure tests for invalid JSON correction, stale refs, confirmation before mutation, cancellation, sequential results and scoped handoff, and browser tests for plan review, mobile overflow and keyboard behavior.
+- Video Editor browser storage for presets, diagnostics, voiceover preferences, local AI models, processing scratch files, exports, and recorder recovery now has an exact privacy-inventory entry with its purpose and retention. Non-cache local AI backends no longer carry fake Cache Storage names.
+- Marketing type checks now follow only the shared frontend modules the site imports instead of treating the full Video Editor source and test tree as marketing code.
+- The public homepage now identifies solo founders as its audience in the server-rendered hero before JavaScript runs.
+- Public marketing and connector-guide pages now state their intended audience before hydration, and the reviewed no-JavaScript evidence matches the visible production copy.
+- Source monitoring, timeline marker editing, and composition authoring now use the shared input, slider, checkbox, and select controls while keeping frame-accurate keyboard edits, grouped blend modes, compact editor sizing, and narrow-screen fit.
+- All 21 WebGPU transitions now compile and render through a real Chromium GPU adapter in browser tests, with read-back pixel proof for outgoing, midpoint, incoming, and advertised direction behavior. Sparkles, Chromatic, Liquid Distort, and Light Leak Burn now preserve exact endpoint frames.
+- Motion, shape, Lottie, color, effect, expression, and published-control panels now use shared editor controls. Repeated keyboard slider input previews every step but commits one undo entry when the key gesture ends.
+- Quick Cut, recording, transcription, local AI, scene, project, keyframe, shortcut, and timeline tools now use the same accessible form controls as the rest of OpenPost. Select menus keep their labels and disabled states, checked recording sources retain their visible selection, and the editor has no remaining native form-control exceptions.
+
+### Tests
+
+- Added deterministic Clock tests for negative-rate ceil semantics, range start/end boundaries, single-loop scheduling, zero clamping, successive J/L speeds and direction changes, and throttled `timeupdate`; exact reverse-audio sample, rate, envelope, cleanup, and boundary tests; shortcut and ownership tests; and Chromium coverage for the localized shuttle indicator and its 320px fit.
+
+## [4.1.0] - 2026-08-23
+
+### Added
+
+- Add public About, Contact, and Developers pages, linked product and operator structured data, an Atom changelog feed, direct agent interface guidance, and explicit search and model-training permission for public marketing content.
+
+### Changed
+
+- Add server, support, terms, license, and usage metadata to the generated OpenAPI contract.
+
+## [4.0.1] - 2026-08-23
+
+### Fixed
+
+- PostgreSQL upgrades now remove the retired Video Editor tables in foreign-key order instead of failing during startup.
+
 ## [4.0.0] - 2026-08-22
 
 ### Changed

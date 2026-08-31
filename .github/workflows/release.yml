@@ -288,6 +288,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
       - name: Download the unsigned APK built by candidate CI
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -297,6 +300,13 @@ jobs:
           gh run download "$CI_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ANDROID_ARTIFACT" --dir candidate-android
           cd candidate-android
           sha256sum --check openpost-app-android-unsigned.sha256
+          cd ..
+          bun scripts/mobile-release.mjs verify \
+            --config mobile/app.json \
+            --package mobile/package.json \
+            --revision "$GITHUB_SHA" \
+            --apk candidate-android/openpost-app-android-unsigned.apk \
+            --manifest candidate-android/openpost-app-android-candidate.json
       - name: Check signing secret
         id: signing
         env:
@@ -326,6 +336,12 @@ jobs:
             --out openpost-app-android.apk \
             candidate-android/openpost-app-android-unsigned.apk
           "$apksigner" verify --verbose --print-certs openpost-app-android.apk
+          bun scripts/mobile-release.mjs create \
+            --config mobile/app.json \
+            --package mobile/package.json \
+            --revision "$GITHUB_SHA" \
+            --apk openpost-app-android.apk \
+            --output openpost-app-android-release.json
       - name: Refuse to publish an unsigned Android application
         if: steps.signing.outputs.has_keystore != 'true'
         run: |
@@ -336,7 +352,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          bash scripts/release-asset-upload.sh openpost-app-android.apk
+          bash scripts/release-asset-upload.sh \
+            openpost-app-android.apk \
+            openpost-app-android-release.json
 
   promote-image:
     name: Promote tested image
@@ -368,7 +386,7 @@ jobs:
             --notes-file release-notes.md \
             --phase complete-draft
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
-      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -396,7 +414,7 @@ jobs:
     name: Deploy production
     runs-on: ubuntu-latest
     needs: promote-image
-    timeout-minutes: 10
+    timeout-minutes: 70
     steps:
       - name: Trigger the verified VPS deployment
         env:
@@ -405,18 +423,26 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          request_path=/hooks/deploy-openpost
+          issued_at=$(date +%s)
+          delivery_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-${GITHUB_SHA}"
           payload=$(printf '{"repository":"%s","sha":"%s","tag":"%s","digest":"%s"}' \
             "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_REF_NAME" "$IMAGE_DIGEST")
-          signature=$(printf '%s' "$payload" | openssl dgst -sha256 -hmac "$DEPLOY_WEBHOOK_SECRET" | awk '{print "sha256=" $2}')
+          body_digest=$(printf '%s' "$payload" | openssl dgst -sha256 | awk '{print $2}')
+          canonical_request=$(printf 'POST\n%s\n%s\n%s\n%s' \
+            "$request_path" "$issued_at" "$delivery_id" "$body_digest")
+          signature=$(printf '%s' "$canonical_request" | openssl dgst -sha256 -hmac "$DEPLOY_WEBHOOK_SECRET" | awk '{print "sha256=" $2}')
           response=$(curl --fail-with-body --silent --show-error \
             --connect-timeout 10 \
-            --max-time 300 \
+            --max-time 3660 \
             -H 'Content-Type: application/json' \
-            -H "X-Hub-Signature-256: $signature" \
-            --data "$payload" \
-            https://webhooks.rgo.pt/hooks/deploy-openpost)
+            -H "X-Deploy-Timestamp: $issued_at" \
+            -H "X-Deploy-Delivery: $delivery_id" \
+            -H "X-Deploy-Signature-256: $signature" \
+            --data-binary "$payload" \
+            "https://webhooks.rgo.pt$request_path")
           printf '%s\n' "$response"
-          grep -q "DEPLOY_OK openpost ${GITHUB_SHA}" <<<"$response"
+          [ "$response" = '{"status":"completed"}' ]
       - name: Verify public readiness, version, and revision
         shell: bash
         run: |
@@ -433,11 +459,64 @@ jobs:
           echo "Production did not become ready at $GITHUB_REF_NAME revision $GITHUB_SHA." >&2
           exit 1
 
+  publish-n8n:
+    name: Publish and verify n8n package
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      N8N_SMOKE_VERSION: "2.35.7"
+      NPM_CLI_VERSION: "12.0.2"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.19.0"
+      - name: Install the trusted-publishing npm CLI
+        run: npm install --global "npm@${NPM_CLI_VERSION}"
+      - run: bun install --frozen-lockfile
+      - name: Check the exact package source before publication
+        run: bun run check:n8n
+      - name: Publish once or reconcile the existing registry version
+        id: package
+        run: bun scripts/n8n-package-release.mjs publish
+      - name: Run the n8n community package scanner against npm
+        shell: bash
+        env:
+          PACKAGE_SPEC: ${{ steps.package.outputs.package_spec }}
+        run: |
+          set -o pipefail
+          npx --yes @n8n/scan-community-package@0.32.0 "$PACKAGE_SPEC" 2>&1 | tee n8n-package-scan.txt
+          grep -F "has passed all security checks" n8n-package-scan.txt
+      - name: Verify provenance, integrity, and a clean n8n install
+        env:
+          PACKAGE_SPEC: ${{ steps.package.outputs.package_spec }}
+          PACKAGE_INTEGRITY: ${{ steps.package.outputs.integrity }}
+        run: |
+          bun scripts/verify-published-n8n-package.mjs \
+            --package-spec "$PACKAGE_SPEC" \
+            --integrity "$PACKAGE_INTEGRITY" \
+            --n8n-version "$N8N_SMOKE_VERSION"
+
   publish-release:
     name: Publish complete deployed release
     runs-on: ubuntu-latest
     needs:
-      [prepare-draft, build-binaries, build-cli, build-android, promote-image, deploy-production]
+      [
+        prepare-draft,
+        build-binaries,
+        build-cli,
+        build-android,
+        promote-image,
+        deploy-production,
+        publish-n8n,
+      ]
     permissions:
       contents: write
     steps:

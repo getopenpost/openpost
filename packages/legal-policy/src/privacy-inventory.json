@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "reviewed_on": "2026-08-11",
-  "next_review_on": "2026-11-11",
+  "reviewed_on": "2026-08-28",
+  "next_review_on": "2026-11-28",
   "summary_notice": "This plain-language summary is a guide, not a replacement for the Privacy Policy. If it differs from the full policy, the full policy controls.",
   "summary_points": [
     "The managed service stores the account, workspace, publishing, media, security, billing, and support data needed to provide OpenPost.",
     "Social credentials are encrypted. Passwords are hashed. OpenPost does not receive full payment-card details.",
     "OpenPost sends data to a social network, identity provider, stock-media service, or AI provider only for the connection or action described in the full policy.",
     "You can export or request deletion of account data. Shared ownership, active billing, legal duties, security needs, and short-lived recovery copies can delay or limit deletion.",
-    "Some editor projects and recovery data stay only in your browser unless you choose a cloud save, Media save, or post handoff. Preferences and downloaded models also stay browser-local."
+    "Video Editor projects stay in the workspace folder you choose. Local Image Editor work, recovery data, preferences, and downloaded models stay in browser storage until you clear them or choose an explicit OpenPost save or upload."
   ],
   "managed_retention": [
     {
@@ -112,8 +112,8 @@
       "category": "One-time verification, reset, and sign-in records",
       "owner": "Managed OpenPost service",
       "purpose": "Complete time-limited identity, account recovery, authorization, native sign-in, and editor-return operations without storing reusable plaintext secrets.",
-      "includes": "Email verification challenges, email-change challenges with old and new addresses and keyed code hashes, password-reset token hashes, MFA or passkey authentication challenges, OIDC authorization requests, native handoffs, logout events, social OAuth request tokens and account selections, CLI authorization sessions, OAuth codes, and short-lived editor return tokens.",
-      "duration": "Email verification codes are valid for 10 minutes and records more than 24 hours past expiry are pruned when a later challenge is created. Email-change codes are valid for 15 minutes; records more than 24 hours past expiry are pruned when a later email-change challenge is created. Password-reset tokens are valid for one hour and the prior unused token is replaced by a new request. OIDC authorization requests are valid for 10 minutes. Image and Video Editor return tokens are valid for two hours. Other one-time records use their stored expiry.",
+      "includes": "Email verification challenges, email-change challenges with old and new addresses and keyed code hashes, password-reset token hashes, MFA or passkey authentication challenges, OIDC authorization requests, native handoffs, logout events, social OAuth request tokens and account selections, CLI authorization sessions, OAuth codes, and short-lived Image Editor return tokens.",
+      "duration": "Email verification codes are valid for 10 minutes and records more than 24 hours past expiry are pruned when a later challenge is created. Email-change codes are valid for 15 minutes; records more than 24 hours past expiry are pruned when a later email-change challenge is created. Password-reset tokens are valid for one hour and the prior unused token is replaced by a new request. OIDC authorization requests are valid for 10 minutes. Image Editor return tokens are valid for two hours. Other one-time records use their stored expiry.",
       "deletion_trigger": "Use or expiry ends authorization. Replacement, explicit cancellation where supported, cleanup during a later related operation, or account/workspace deletion can remove the stored row.",
       "exceptions": "Use and expiry do not always physically remove a row immediately, but they prevent the one-time record from being accepted again.",
       "evidence": [
@@ -191,13 +191,13 @@
     },
     {
       "id": "managed-editor-brand-data",
-      "category": "Cloud-saved editor projects, templates, and brand data",
+      "category": "Cloud-saved Image Editor projects, templates, and brand data",
       "owner": "Managed OpenPost service",
-      "purpose": "Restore explicitly cloud-saved creative work, provide reusable customer templates and brand resources, and support safe revision recovery.",
-      "includes": "Image Editor designs, Video Editor projects, project assets, templates, brand kits, licensed font records, saved revisions, previews, and handoff results explicitly saved to OpenPost.",
-      "duration": "Current projects, named checkpoints, templates, and brand data remain until the user deletes the item or its workspace or account is deleted. Image and Video Editor autosaves are capped at the 20 most recent during later saves. Both receive a 30-day expiry timestamp, but only the Video Editor currently deletes expired autosaves during a later project save; the Image Editor has no separate age-based purge for that timestamp.",
-      "deletion_trigger": "Project, template, brand item, workspace, or account deletion. Later saves remove excess autosaves in both editors and expired autosaves in the Video Editor.",
-      "exceptions": "Browser-only projects are covered by the browser-storage inventory, not this managed-service schedule. Referenced media follows the media lifecycle.",
+      "purpose": "Restore explicitly cloud-saved Image Editor work, provide reusable customer templates and brand resources, and support safe revision recovery.",
+      "includes": "Image Editor designs and assets, templates, brand kits, licensed font records, saved revisions, previews, and handoff results explicitly saved to OpenPost.",
+      "duration": "Current designs, named checkpoints, templates, and brand data remain until the user deletes the item or its workspace or account is deleted. Image Editor autosaves are capped at the 20 most recent during later saves and receive a 30-day expiry timestamp, but there is no separate age-based purge for that timestamp.",
+      "deletion_trigger": "Design, template, brand item, workspace, or account deletion. Later saves remove excess Image Editor autosaves.",
+      "exceptions": "Browser-only designs are covered by the browser-storage inventory. Disk-backed Video Editor projects remain outside managed-service retention; their browser-held handles, preferences, caches, and scratch data are inventoried below. Referenced Media follows the managed Media lifecycle.",
       "evidence": [
         "backend/internal/api/handlers/image_editor.go",
         "backend/internal/models/models.go"
@@ -499,21 +499,6 @@
       "source_refs": ["frontend/src/lib/stores/sound-preferences.svelte.ts"]
     },
     {
-      "id": "local-oauth-account-management-mode",
-      "technology": "localStorage",
-      "owner": "OpenPost social-account connection flow",
-      "identifier_kind": "exact",
-      "identifier": "oauth_account_management_mode",
-      "purpose": "Returns a social-account connection to the direct Accounts page or the embedded Settings account manager that started it.",
-      "scope": "Application origin.",
-      "duration": "Removed after the OAuth return is interpreted or account-data cleanup runs; otherwise retained until another connection replaces it or site data is cleared.",
-      "necessity": "strictly_necessary",
-      "source_refs": [
-        "frontend/src/lib/account-management-route.ts",
-        "frontend/src/lib/components/account-data-card.svelte"
-      ]
-    },
-    {
       "id": "local-oauth-workspace",
       "technology": "localStorage",
       "owner": "OpenPost social-account connection flow",
@@ -524,7 +509,7 @@
       "duration": "Removed after a successful Mastodon exchange or account-data cleanup; otherwise retained until replaced or site data is cleared.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/routes/accounts/+page.svelte",
+        "frontend/src/lib/account-management-route.ts",
         "frontend/src/routes/accounts/mastodon/callback/+page.svelte",
         "frontend/src/lib/components/account-data-card.svelte"
       ]
@@ -540,7 +525,7 @@
       "duration": "Removed after a successful exchange, when another Mastodon connection mode replaces it, or when account/site data is cleared.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/routes/accounts/+page.svelte",
+        "frontend/src/lib/account-management-route.ts",
         "frontend/src/routes/accounts/mastodon/callback/+page.svelte"
       ]
     },
@@ -555,7 +540,7 @@
       "duration": "Removed after a successful exchange, when another Mastodon connection mode replaces it, or when account/site data is cleared.",
       "necessity": "strictly_necessary",
       "source_refs": [
-        "frontend/src/routes/accounts/+page.svelte",
+        "frontend/src/lib/account-management-route.ts",
         "frontend/src/routes/accounts/mastodon/callback/+page.svelte"
       ]
     },
@@ -647,6 +632,90 @@
       "source_refs": ["frontend/src/lib/video-editor/preview/playback-settings.svelte.ts"]
     },
     {
+      "id": "local-video-color-keyframe-view",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "timeline:keyframeEditorMode",
+      "purpose": "Keeps the user's Color keyframe editor in the dope-sheet or graph view they last selected.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until the view is replaced or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/components/color-keyframe-panel.svelte"]
+    },
+    {
+      "id": "local-video-color-scope-view",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "timeline:scopes:stackLayout",
+      "purpose": "Keeps the user's selected Color scope, such as RGB Parade, waveform, vectorscope, or histogram.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until the scope is replaced or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/components/color-scopes.svelte"]
+    },
+    {
+      "id": "local-video-grade-presets",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-editor-grade-presets",
+      "purpose": "Keeps the user's named color-grade presets for reuse across browser-local Video Editor projects.",
+      "scope": "Application origin and current browser profile; at most 64 presets.",
+      "duration": "Until a preset is removed or replaced, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/effects/color-grade-presets.ts"]
+    },
+    {
+      "id": "local-video-effect-presets",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-editor-effect-presets",
+      "purpose": "Keeps the user's named visual-effect presets for reuse across browser-local Video Editor projects.",
+      "scope": "Application origin and current browser profile; the stored catalogue and each preset are size-bounded.",
+      "duration": "Until a preset is removed or replaced, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/effects/effect-presets.ts"]
+    },
+    {
+      "id": "local-video-diagnostics",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-editor-diagnostics",
+      "purpose": "Keeps the user's performance-overlay and clip-timing-overlay choices. It does not store project names, media identifiers, clip labels, or file paths.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until the choices are replaced or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/preview/diagnostics.svelte.ts"]
+    },
+    {
+      "id": "local-video-voiceover",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor voiceover recorder",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-editor-voiceover-v1",
+      "purpose": "Keeps voiceover input, noise suppression, automatic gain, timeline mute, and sync-offset preferences. It does not store recorded audio.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until the preferences are replaced or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/recorder/voiceover-recorder.svelte.ts"]
+    },
+    {
+      "id": "local-video-easing-presets",
+      "technology": "localStorage",
+      "owner": "OpenPost Video Editor",
+      "identifier_kind": "exact",
+      "identifier": "openpost-video-editor-easing-presets",
+      "purpose": "Keeps the user's named cubic-Bezier and spring easing presets for reuse across browser-local Video Editor projects.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "Until a preset is removed or replaced, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/timeline/custom-easing-presets.ts"]
+    },
+    {
       "id": "session-chunk-reload",
       "technology": "sessionStorage",
       "owner": "OpenPost application shell",
@@ -691,30 +760,6 @@
       "purpose": "Restores the composer destination and unsaved snapshot after an Image or Video Editor handoff.",
       "scope": "Application origin and current browser tab session; one random-token suffix per handoff.",
       "duration": "It becomes unusable at its stored expiry and is removed on a later read. Explicit clearing, the end of the tab session, or site-data clearing can remove it sooner.",
-      "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/editor-handoff.ts"]
-    },
-    {
-      "id": "session-editor-handoff-legacy-image",
-      "technology": "sessionStorage",
-      "owner": "OpenPost editor handoff compatibility layer",
-      "identifier_kind": "prefix",
-      "identifier": "openpost:image-editor:return:",
-      "purpose": "Reads and removes pre-v2 Image Editor handoff recovery written by older OpenPost versions.",
-      "scope": "Application origin and current browser tab session.",
-      "duration": "Removed when consumed or cleared; otherwise ends with the tab session.",
-      "necessity": "strictly_necessary",
-      "source_refs": ["frontend/src/lib/editor-handoff.ts"]
-    },
-    {
-      "id": "session-editor-handoff-legacy-studio",
-      "technology": "sessionStorage",
-      "owner": "OpenPost editor handoff compatibility layer",
-      "identifier_kind": "prefix",
-      "identifier": "openpost:studio:return:",
-      "purpose": "Reads and removes pre-rename Studio handoff recovery written by older OpenPost versions.",
-      "scope": "Application origin and current browser tab session.",
-      "duration": "Removed when consumed or cleared; otherwise ends with the tab session.",
       "necessity": "strictly_necessary",
       "source_refs": ["frontend/src/lib/editor-handoff.ts"]
     },
@@ -887,6 +932,82 @@
       "source_refs": ["frontend/src/lib/video-editor/media/opfs-cache.ts"]
     },
     {
+      "id": "opfs-video-moss-model-root",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor local voice generator",
+      "identifier_kind": "exact",
+      "identifier": "nano-reader-browser-model-store",
+      "purpose": "Holds the browser-local directory used by the MOSS text-to-speech runtime.",
+      "scope": "Application origin and current browser profile.",
+      "duration": "The selected MOSS model remains until the user clears that local model, the browser evicts it, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/local-ai/tts/moss-model-storage.ts"]
+    },
+    {
+      "id": "opfs-video-moss-model",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor local voice generator",
+      "identifier_kind": "exact",
+      "identifier": "openpost-moss-tts-f52645-ceff0d",
+      "purpose": "Stores the versioned MOSS speech and audio-tokenizer model files beneath the local voice-model root.",
+      "scope": "Application origin and current browser profile; 16 model files with an expected total size of about 763 MB.",
+      "duration": "Until the user clears the MOSS local model, the browser evicts it, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": ["frontend/src/lib/video-editor/local-ai/tts/moss-model-storage.ts"]
+    },
+    {
+      "id": "opfs-video-interpolation-scratch",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor frame interpolation",
+      "identifier_kind": "exact",
+      "identifier": "interpolation-tmp",
+      "purpose": "Temporarily holds generated frame-interpolation output while the editor imports it into the current project.",
+      "scope": "Application origin and current browser profile; one generated file per active interpolation job.",
+      "duration": "The job removes its file after import, cancellation, or failure when possible. Browser eviction or site-data clearing also removes it.",
+      "necessity": "strictly_necessary",
+      "source_refs": [
+        "frontend/src/lib/video-editor/media/processing/interpolation/frame-interpolation-service.svelte.ts"
+      ]
+    },
+    {
+      "id": "opfs-video-upscale-scratch",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor upscaling",
+      "identifier_kind": "exact",
+      "identifier": "upscale-tmp",
+      "purpose": "Temporarily holds generated video-upscale output while the editor imports it into the current project.",
+      "scope": "Application origin and current browser profile; one generated file per active upscale job.",
+      "duration": "The job removes its file after import, cancellation, or failure when possible. Browser eviction or site-data clearing also removes it.",
+      "necessity": "strictly_necessary",
+      "source_refs": [
+        "frontend/src/lib/video-editor/media/processing/upscale/upscale-service.svelte.ts"
+      ]
+    },
+    {
+      "id": "opfs-video-export-scratch",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor export pipeline",
+      "identifier_kind": "exact",
+      "identifier": "openpost-export-scratch",
+      "purpose": "Holds a completed or partial local export when the browser cannot keep the encoded result in memory.",
+      "scope": "Application origin and current browser profile; one randomly named file per OPFS-backed export.",
+      "duration": "Aborted outputs are removed when possible. Completed files older than 24 hours are pruned when another export starts; browser eviction or site-data clearing can remove them sooner.",
+      "necessity": "strictly_necessary",
+      "source_refs": ["frontend/src/lib/video-editor/media/render-export.ts"]
+    },
+    {
+      "id": "opfs-video-recorder-scratch",
+      "technology": "OPFS",
+      "owner": "OpenPost Video Editor recorder",
+      "identifier_kind": "exact",
+      "identifier": "recorder-scratch",
+      "purpose": "Holds bounded screen, camera, and microphone recording chunks plus recovery manifests until the editor imports or discards the capture.",
+      "scope": "Application origin and current browser profile; generated names are tied to a recorder session when recovery is enabled.",
+      "duration": "Imported, discarded, and rejected captures are removed when possible. Recoverable sessions remain until the user recovers or discards them, the browser evicts them, or site data is cleared.",
+      "necessity": "strictly_necessary",
+      "source_refs": ["frontend/src/lib/video-editor/recorder/recorder-scratch.ts"]
+    },
+    {
       "id": "opfs-video-stream-files",
       "technology": "OPFS",
       "owner": "OpenPost Video Editor export pipeline",
@@ -933,6 +1054,36 @@
       "duration": "Up to 365 days, subject to versioned-cache replacement, entry-count eviction, browser pressure, or site-data clearing.",
       "necessity": "functional",
       "source_refs": ["frontend/vite.config.ts"]
+    },
+    {
+      "id": "cache-video-transformers-models",
+      "technology": "Cache Storage",
+      "owner": "OpenPost Video Editor local AI tools",
+      "identifier_kind": "exact",
+      "identifier": "transformers-cache",
+      "purpose": "Stores model, tokenizer, and configuration files downloaded for local transcription, captions, semantic and visual search, voice generation, and the on-device editing assistant.",
+      "scope": "Application origin and current browser profile; cache entries are separated by model URL.",
+      "duration": "A model remains until the user clears that local model, the browser evicts it, its version changes, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": [
+        "frontend/src/lib/video-editor/agent/storage.ts",
+        "frontend/src/lib/video-editor/local-ai/model-cache.ts"
+      ]
+    },
+    {
+      "id": "cache-video-onnx-models",
+      "technology": "Cache Storage",
+      "owner": "OpenPost Video Editor local AI tools",
+      "identifier_kind": "exact",
+      "identifier": "openpost-onnx-models-v1",
+      "purpose": "Stores ONNX model files downloaded for local transcription, frame interpolation, and voice generation.",
+      "scope": "Application origin and current browser profile; cache entries are separated by model URL.",
+      "duration": "A model remains until the user clears that local model, the browser evicts it, the cache version changes, or site data is cleared.",
+      "necessity": "functional",
+      "source_refs": [
+        "frontend/src/lib/video-editor/local-ai/model-cache.ts",
+        "frontend/src/lib/video-editor/transcript/engine/onnx-model-cache.ts"
+      ]
     },
     {
       "id": "cache-workbox-precache",

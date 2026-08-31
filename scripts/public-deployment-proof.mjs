@@ -18,7 +18,7 @@ const sampleRoutes = Object.freeze({
     { category: "core", route: "/features" },
     { category: "legal", route: "/privacy" },
     { category: "platform", route: "/platforms/x" },
-    { category: "comparison", route: "/compare/buffer" },
+    { category: "self-hosting", route: "/self-hosting" },
     { category: "tool", route: "/tools/multi-platform-character-counter" },
   ],
   documentation: [

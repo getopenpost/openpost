@@ -1,81 +1,75 @@
 # OpenPost Video Editor
 
-OpenPost Video Editor is a local-first editor for social videos and recordings up to two hours. Open `/video-editor` in current Chrome or Edge on a device that provides WebCodecs, origin-private file storage, and WebGL2 to import or record footage, edit it, and export without an account or watermark. Desktop uses the full four-zone workbench. Phones use a compact touch timeline, bottom tool dock, and contextual inspector sheets.
+OpenPost Video Editor is a local-first multitrack editor for social video. Open [app.openpost.social/video-editor](https://app.openpost.social/video-editor) in current Chrome or Edge, choose a folder on your computer, and create a project. Editing does not require an account and does not add a watermark.
 
-The editor is available on every OpenPost instance. Operators can change the model asset base URL, but there is no Video Editor feature toggle.
+Use [Quick Cut](/usage/quick-cut) when you only need to remove ranges without changing the picture or mix. Use the [Recorder](/usage/recording) to capture a screen, camera, or microphone before editing.
 
-## What stays on your device
+## Choose a workspace folder
 
-Guest projects, source files, recordings, captions, analysis results, proxies, and exports stay in browser-managed storage. OpenPost Video Editor does not create a cloud project or upload a source until you choose **Save to OpenPost** or **Use in a post**. Clearing site data can remove local projects, so use **Protect local projects** when the browser offers persistent storage and keep downloads of important exports.
+The folder you choose is the source of truth for Video Editor work. OpenPost creates readable `projects`, `media`, `recordings`, and `exports` folders inside it. Project documents, copied media, linked-file references, thumbnails, waveforms, transcripts, proxies, render jobs, and finished exports stay on your computer.
 
-Local voice detection and multilingual transcription download their disclosed model files only after you start the tool and confirm the download. The files are cached for offline reuse and can be removed from **Models**. Editing continues while analysis runs.
+The browser stores the permission handles needed to reopen known workspace folders, small editor preferences, bounded derived-media and model caches, and temporary recovery data for active recording or export work. It may ask you to reconnect a folder after a browser restart or permission change. Back up the workspace folder like any other work folder. Clearing browser data can remove saved handles, preferences, caches, and recovery data, but it does not delete the workspace folder on disk.
 
-## Choose Quick Cut or Full Editor
+You can keep several known workspace folders, switch between them, or forget a handle without deleting its files. Project trash is recoverable for seven days. Portable `.openpost.zip` bundles include the project and collected media with checksums; JSON snapshots contain the project document without source bytes.
 
-**Quick Cut** is for one video source when the edit only removes source ranges. It shows the original source scale, lets you mark, split, and remove kept sections, and snaps every in point to an exact verified source keyframe. Fast export can combine the kept sections or export one section at a time. It copies the encoded primary video and every supported audio track into a compatible MP4 or WebM container without transcoding. It keeps source metadata, streams to the selected file, and rejects subtitle, data, unknown-audio, or extra-video tracks rather than silently dropping them. If a kept section starts between keyframes, use **Snap for fast export** or **Precise export**. Precise export uses the complete renderer and transcodes the result. Pixel changes, speed changes, fades, mixed sources, captions, overlays, and audio adjustments also require **Full Editor**.
+## Import and organize media
 
-**Full Editor** uses a four-zone desktop layout: tool rail, active media or effect panel, preview, inspector, and resizable multitrack timeline. On a phone, the same project model uses a touch timeline plus bottom tool and inspector sheets. The editor keeps common split and ripple actions close to the timeline and moves secondary settings into the selection inspector.
+Import video, audio, images, Lottie files, and supported subtitle tracks into the Media pool. A collected source is copied into the workspace. A linked source stays at its existing location and must remain available. The editor detects duplicate media, preserves technical metadata, and builds thumbnails, filmstrips, waveforms, and preview proxies in the background.
 
-## Edit one sequence for four formats
+Browser-undecodable ProRes sources keep a local compatibility proxy for preview. Full export still reads the original source. MKV, MKA, and WebM files can expose UTF-8, WebVTT, ASS, and SSA subtitle tracks for insertion into the timeline.
 
-The primary sequence uses ripple editing: split, trim, reorder, duplicate, freeze, or remove a clip and later clips follow it. Add video or image overlays, camera footage, text, captions, shapes, audio, transitions, fades, color adjustments, and guided keyframes.
+## Edit on the timeline
 
-The shared sequence controls cuts, speed, audio, transcript content, and transition timing. Portrait (9:16), feed portrait (4:5), square (1:1), and landscape (16:9) can each override framing, overlay placement, text wrapping, camera placement, and caption layout without changing another format.
+The desktop editor has a tool rail, active panel, preview, inspector, and resizable multitrack timeline. Narrow screens use a touch timeline, bottom tool dock, and contextual sheets. You can split, trim, ripple-delete, slip, slide, roll, duplicate, freeze, reverse, group, nest, and reorder clips. In and Out points can limit playback and export.
 
-OpenPost Video Editor keeps the inspector focused on the current selection. Common keyboard controls include Space to play or pause, `S` to split, `Shift+Delete` to ripple-delete, arrow keys to move the playhead, and the standard undo and redo shortcuts.
+The timeline supports video, audio, image, Lottie, text, subtitle, shape, adjustment, controller, and nested composition items. Track locks, mute and solo state, snapping, markers, linked clips, multi-selection, clipboard operations, undo, redo, zoom, scrubbing, and keyboard shortcuts share one command model. Change shortcuts in Editor settings instead of relying on fixed keys.
 
-Four source-free starter templates set useful caption and canvas defaults for clean captions, product demos, talking-head clips, and announcements. Signed-in workspaces can also load their existing Brand kit colors, fonts, and text styles. Guests can save text styles in local browser storage.
+Projects can hold reusable sequences and nested compositions. Published composition controls let one composition expose selected text, color, number, toggle, and media values to each instance.
 
-## Captions and cleanup suggestions
+## Motion, effects, color, and audio
 
-Transcription, voice activity detection, filler candidates, smart framing, and focus zooms run locally. They produce suggestions and never change the project until you apply them. Low-confidence words remain visible for review. Focus zooms expose the focal point, amount, duration, and motion curve; the generated scale and position keyframes remain editable on the selected clip.
+Animate transforms, masks, effect values, text, and other supported properties with keyframes. The keyframe editor switches between Dope Sheet, Graph, and Split views in Edit and Motion. Its scoped shortcuts change views with 1, 2, and 3, add or update a key with K in Edit, move between keys with Option/Alt+[ and ], toggle auto-key with A, and fit the active view with F. You can remap or unassign every command in Editor settings. Spatial motion paths, easing presets, motion presets, parenting, links, expressions, and modifiers edit the same keyframe data. Direct canvas gestures commit once when the gesture ends so undo remains useful.
 
-Changing caption text changes only the caption. Each locally timed transcript word is also a selectable edit range. Select one or more words, then remove them as one undoable ripple edit that retimes the remaining caption words, overlays, detached audio, markers, fades, and keyframes. Removing a complete timed passage still supports a ripple cut. Silence and filler batches show the time they remove, preview before application, and apply as one undoable action.
+Visual tools include crop, corner pinning, masks, blend modes, adjustment layers, transitions, caption and text styles, backgrounds, stickers, color wheels, curves, scopes, LUTs, and reusable grade and effect presets. Preview and export use the same effect and compositing rules.
 
-MKV, MKA, and WebM sources with text subtitle tracks show an **Extract embedded subtitles** action in the media pool. The picker lists each track's language, codec, cue count, and default or forced status. Inserting a track maps its cues through every matching clip's trim and speed, clips cues to visible source ranges, and replaces an earlier embedded-subtitle import as one undoable edit. UTF-8, WebVTT, ASS, and SSA text tracks are supported; image-based subtitle tracks are not. Select caption clips and choose **Consolidate captions** to turn them into one editable subtitle item per source without changing their timing.
+Audio tools include clip and track volume, fades, envelopes, meters, loudness normalization, ducking, channel routing, equalization, noise reduction, speed and pitch controls, compressor, pan, reverb, delay, chorus, flanger, and distortion. You can record a synced voiceover while the timeline plays.
 
-## Record screen, camera, and sound
+## Transcribe and edit by text
 
-The browser chooser controls which screen, window, or tab is shared. Camera, microphone, and browser-supplied system or tab audio are recorded as separate synchronized sources. System audio depends on the browser and operating system and is available only when the returned capture stream includes it.
+Transcription runs on your device. Parakeet is the default on supported WebGPU devices; Whisper Tiny, Base, Small, and Large v3 Turbo are also available. The selected model downloads on first use and remains in the browser cache until you clear it in **Models** or clear site data.
 
-Camera and screen preview begin only after you choose the related action. Optional camera video is recorded locally with the other selected tracks. The recording, project, and export stay in browser-managed storage until you explicitly choose **Save to OpenPost**, **Save to Media**, or **Use in a post**. A still photo captured in the Image Editor is separate and is uploaded only after you choose to use it.
+Correcting a word updates the timed transcript and linked caption cue. Select timed words to remove the matching media range as one undoable ripple edit. Silence and filler tools show proposed ranges and the total time removed before they change the timeline. Quiet-section detection measures level; speech-pause detection uses the local speech model.
 
-Recording chunks and an append-only manifest are written to origin-private storage. Each chunk records its byte range, session and media timestamps, flush sequence, and SHA-256 checksum. Recovery stops at the first invalid chunk and steps back to a decodable boundary. During capture, OpenPost Video Editor checks storage headroom against the current recording rate and stops cleanly before the browser runs out of space. If a camera or microphone disappears, it tries the selected device, falls back to the default device, and records the recovered stream as a synchronized segment. If a tab closes or recovery cannot continue, the editor offers the flushed tracks. A browser recording contains cursor pixels, not native cursor or click telemetry; focus zoom and click-pulse tools remain manual or reviewable suggestions.
+Caption tools can create editable caption clips, consolidate them into subtitle items, apply style presets, burn captions into video, export SRT or VTT sidecars, or add a soft subtitle track where the chosen container supports it.
 
-## Save, recover, and export
+## Local generation and analysis
 
-Autosave runs after editing pauses and at important workflow boundaries. **Version history** separates versions saved in this browser from versions saved to OpenPost. Browser history keeps the latest 20 automatic versions, while named checkpoints and restore points remain with the local project. Cloud automatic versions are kept for up to 30 days, with at most 20 retained; named cloud checkpoints and restore points do not expire automatically. Choose **Load more** to reach older named cloud versions beyond the first page.
+Optional local tools cover scene detection, semantic and visual search, smart framing, focus zoom suggestions, image generation, frame interpolation, upscaling, music generation, and text to speech. Each tool shows its model and download state. Large models are downloaded only when you start the related tool and can be removed from **Models**. Generated media is committed to the workspace before it is added to the timeline.
 
-Select a version before restoring it. The preview and change summary cover the project title and editing mode, primary sequence and track order, visual and audio items, captions, markers, variants, duration, export settings, and cover. Browser versions are labeled as saved in this browser. Cloud versions show their saved time and the OpenPost actor; their full document is fetched only after selection.
+## Save, recover, and share projects
 
-OpenPost confirms the consequences before a restore. A browser-only restore uses the local revision check and first records the exact current browser head as **Before restore**. A cloud restore uses the cloud revision check, records the exact current cloud head, restores the target and any target source or cover media from workspace trash in one transaction, then records and applies the matching browser head. The canonical cloud cover remains distinct from its browser source, so save, rename, reopen, and restore keep the same cover. Restore points and named checkpoints remain available in both directions.
+Edits autosave to the project document in the selected workspace. Version history, named checkpoints, restore points, project duplication, trash recovery, snapshots, and portable bundles are local. Video Editor does not create or sync cloud projects.
 
-If another tab changes a browser project, OpenPost does not overwrite it; reload the latest browser version or save the current tab as a copy. If another browser changes a cloud project, load the OpenPost version or save the local edit as a new project. If the cloud restore commits but the browser revision changes before local application, OpenPost does not retry the server restore. It loads the restored cloud head against the latest local head, preserves that latest browser head as a restore point, and asks again if another local revision wins the race.
+If another tab changes the same project, the editor protects the newer disk revision instead of overwriting it. Reopen the project or save your current work as a copy. Atomic writes and temporary-file cleanup protect project documents from interrupted saves.
 
-Preview and export use the same frame evaluator and bounded WebGL2 compositor. Preview keeps at most three video decoders active and coalesces stale video-frame requests instead of growing a queue. Long, 4K, 60 fps, HEVC, AV1, and browser-undecodable ProRes sources get a local VP9 preview proxy capped at 540p. A ProRes proxy remains active even when Full preview quality is selected because the browser video element cannot play the original. The source monitor keeps original audio, while thumbnails, filmstrips, scene tools, freeze frames, and exports decode the full-quality source. Exact keyframes and frame-rate data are indexed first. Thumbnail and waveform phases persist independently, so interrupted preparation keeps completed work. Proxy encoding runs in a worker, shows progress, and restarts from zero after cancellation because a partial WebM is not a valid preview source. Exports always read the original source and currently assemble the final output in browser memory before saving it to the workspace. The supported ceiling is 1080p at up to 60 fps. MP4 uses H.264 and AAC only when the exact selected profile, dimensions, frame rate, bitrate, and audio configuration pass browser probing; otherwise the editor offers WebM for download and explains why OpenPost handoff is unavailable.
+## Export
 
-Before rendering, the export panel checks the exact frame range, visible or audible content, source availability, selected codec, subtitle format, estimated duration, and estimated file size. Blocking issues disable export and explain what to change. Long renders warn you to keep the tab open. The current full renderer builds its final output in browser memory, so an estimate at or above 2 GB must use a shorter range or lower quality.
+The export dialog validates the selected range, visible or audible content, missing sources, codec support, subtitles, expected render path, duration, and estimated size before rendering. Formats include MP4, MOV, WebM, MKV, audio-only output, and PNG, JPEG, or WebP image sequences. Available video codecs depend on the container and browser.
 
-Choose **Add to queue** to keep editing while OpenPost renders saved jobs one at a time. Add the current range, split it at each timeline marker, or create fixed 10, 30, or 60 second jobs. Fixed segments can keep each job below the in-memory output limit when one full render is too large. Each batch freezes its timeline, nested sequences, frame ranges, format, codec, quality, resolution, and subtitle mode when you add it, so later edits do not change those renders. The project queue stays in local workspace storage. You can pause pending jobs, reorder them, cancel the active job, retry failed or cancelled jobs, and clear finished or all jobs. Closing or reloading the editor stops the active render; interrupted and pending jobs return paused when you reopen the project so you can review them before resuming.
+An eligible unmodified source range uses packet copy, preserving encoded video and audio without a decode and re-encode cycle. Other projects use the full compositor and audio mixer. Export always reads original sources at the chosen output resolution. Long or large outputs stream through browser-managed scratch storage when needed and are committed to the workspace only after success.
 
-Run `devenv shell -- bun run benchmark:video-editor` (or `bun run benchmark:video-editor` after direnv loads) to generate a deterministic one-hour 1920×1080, 60 fps H.264 fixture and measure import readiness, seven random seeks, native decoded-frame throughput and drops, coalesced worker requests, proxy use, and peak decoder count. The command records a JSON attachment in the Playwright result. It is a local hardware benchmark, not a promise that every device or codec will produce the same timing.
+Add one job, marker ranges, or fixed-duration ranges to the render queue. Jobs freeze their timeline and export settings when queued. The project queue renders one job at a time, survives reloads, resumes runnable pending work, and lets you pause, reorder, cancel, retry, or clear jobs. Finished files and image-sequence folders remain available in **Exports** until you delete them.
 
-## Use an export in a post
+## Send an export to OpenPost
 
-Open OpenPost Video Editor from Media, a Story, short-video, or video composer, or the main create menu. In the text-and-thread composer, choose **Edit in Video Editor** with one selected video to replace that item, or choose **Create video** to add a new item. OpenPost saves the current draft before it leaves the composer and restores its text, destinations, schedule, media, and destination-specific variants after a cancel, recoverable error, or completed export.
+**Send to OpenPost** uploads the selected finished export to the current OpenPost Workspace Media library. After upload, **Open composer** opens a new composer with that exact media item attached. Video Editor does not upload the project, sources, proxies, transcripts, or other exports.
 
-The composer tells OpenPost Video Editor which unique format variants are required. OpenPost Video Editor uploads only the selected final exports, assigns each one to the matching destination rendition, and returns to the exact originating draft. The return token is scoped to its user, workspace, and safe return path, expires, and can be used only once. Publishing and scheduling remain in the composer.
+Publishing and scheduling stay in the composer. If you are signed out or have no OpenPost Workspace selected, download the export or sign in before sending.
 
-## Stock media and credits
+## Browser and device limits
 
-When the operator configures them, Pexels supplies photos and video, Unsplash supplies photos, and Pixabay supplies images and video. Search results show the creator and provider. Selection tracking follows each provider's API rules, the chosen bytes become a durable local source, and the project keeps provenance for its Credits panel and cloud Media record.
-
-The included audio pack contains eight checked-in mastered loops and twelve checked-in interface or transition sounds. Its machine-readable manifest records each file's CC0 license, author, duration, loop points, mastering targets, size, and SHA-256 hash. OpenPost Video Editor verifies the selected file before importing it. Third-party music search is not enabled.
-
-## Limits
-
-- Current Chrome and Edge are the supported editing target when WebCodecs, origin-private file storage, and WebGL2 are available. Desktop gets the four-zone workbench; capable phones get the compact touch editor. Screen capture, file-picker streaming, codecs, and export profiles still vary by browser and operating system.
-- Projects are limited to 2 hours, 250 sources, 2,000 non-caption timeline items, 5,000 caption cues, four visual overlay tracks, eight audio tracks, two caption tracks, and a 5 MiB project document. Long, high-frame-rate sources use local preview proxies; exports always read the original source.
-- 4K files can be imported, but preview artifacts and exports are limited to 1080p.
-- OpenPost Video Editor has no server render, transcription, or AI fallback.
-- Native cursor replacement, 4K or HDR export, live background removal, and direct publishing are not included.
+- Current desktop Chrome and Edge are the supported target because the full editor needs the File System Access API, WebCodecs, WebGL2, workers, and origin-private storage.
+- Codec, WebGPU, screen-capture, hardware-acceleration, and file-streaming support varies by browser, operating system, and device. The editor probes the selected operation and explains an unavailable option.
+- Local models can require hundreds of megabytes or more. The Models panel shows stored size and provides removal controls.
+- Keep the tab open while a render or local model job is active. Saved projects and queued work remain in the workspace if the page closes.
+- Editing and rendering are local. OpenPost does not provide server rendering, cloud project sync, or a server transcription fallback.

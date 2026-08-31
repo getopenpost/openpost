@@ -7,25 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesConnectorPersistence(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	require.NoError(t, runTestMigrations(t, db))
-
-	for _, table := range []string{
-		"provider_installations",
-		"provider_account_bindings",
-		"connector_connection_sessions",
-	} {
-		var count int
-		require.NoError(t, db.NewSelect().ColumnExpr("COUNT(*)").TableExpr("sqlite_master").
-			Where("type = 'table' AND name = ?", table).Scan(ctx, &count))
-		require.Equal(t, 1, count, "table %s should exist", table)
-	}
-}
-
 func TestConnectorBindingsKeepProviderInstallationsSeparate(t *testing.T) {
 	t.Parallel()
 

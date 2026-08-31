@@ -16,15 +16,21 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
-	import AnalyticsTrend from '$lib/components/analytics-trend.svelte';
+	import AnalyticsPerformanceChart from '$lib/components/analytics-performance-chart.svelte';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import AnalyticsIcon from '@lucide/svelte/icons/chart-no-axes-combined';
 	import AccountsIcon from '@lucide/svelte/icons/users';
+	import EyeIcon from '@lucide/svelte/icons/eye';
+	import HeartIcon from '@lucide/svelte/icons/heart';
+	import SendIcon from '@lucide/svelte/icons/send';
+	import UsersIcon from '@lucide/svelte/icons/users-round';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
 	import RefreshIcon from '@lucide/svelte/icons/refresh-cw';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { hasEngagementMeasurement, type AnalyticsSortMode } from '$lib/analytics-overview';
 	import {
 		allFeatureEffectiveDisabled,
@@ -39,11 +45,13 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	type AnalyticsPublication = components['schemas']['PublicationOverview'];
 	type MetricSummary = components['schemas']['MetricSummary'];
 	type RangeDays = 7 | 30 | 90;
+	type ChartMetric = 'followers' | 'engagement' | 'views';
 	type FeatureState = FeatureComponents['schemas']['FeatureStateResponse'];
 
 	let overview = $state.raw<AnalyticsOverview | null>(null);
 	let rangeDays = $state<RangeDays>(30);
 	let selectedAccountID = $state('all');
+	let chartMetric = $state<ChartMetric>('views');
 	let sortMode = $state<AnalyticsSortMode>('engagement');
 	let expandedPublicationID = $state('');
 	let loading = $state(true);
@@ -63,8 +71,20 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			? undefined
 			: (accounts.find((account) => account.id === selectedAccountID) ?? accounts[0])
 	);
-	const selectedFollowerSeries = $derived(
-		selectedAccount ? (selectedAccount.follower_series ?? []) : (overview?.follower_series ?? [])
+	const chartPoints = $derived(overview?.trends?.[chartMetric] ?? []);
+	const chartTitle = $derived(
+		chartMetric === 'followers'
+			? m.analytics_daily_followers()
+			: chartMetric === 'engagement'
+				? m.analytics_daily_engagement()
+				: m.analytics_daily_views()
+	);
+	const chartDescription = $derived(
+		chartMetric === 'followers'
+			? m.analytics_daily_followers_description()
+			: chartMetric === 'engagement'
+				? m.analytics_daily_engagement_description()
+				: m.analytics_daily_views_description()
 	);
 	const accountsNeedingReconnect = $derived(
 		accounts.filter(
@@ -102,30 +122,35 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		if (!summary) return [];
 		return [
 			{
+				key: 'followers',
 				label: m.analytics_summary_followers(),
 				metric: summary.followers,
 				denominator: selectedAccount ? 1 : accounts.length,
 				unit: 'account' as const
 			},
 			{
+				key: 'engagement',
 				label: m.analytics_summary_engagement(),
 				metric: summary.engagement,
 				denominator: destinationCount,
 				unit: 'destination' as const
 			},
 			{
+				key: 'views',
 				label: m.analytics_views(),
 				metric: summary.views,
 				denominator: destinationCount,
 				unit: 'destination' as const
 			},
 			{
+				key: 'impressions',
 				label: m.analytics_impressions(),
 				metric: summary.impressions,
 				denominator: destinationCount,
 				unit: 'destination' as const
 			},
 			{
+				key: 'reach',
 				label: m.analytics_reach(),
 				metric: summary.reach,
 				denominator: destinationCount,
@@ -133,8 +158,13 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			}
 		];
 	});
-	const availableSummaryMetrics = $derived(
-		summaryMetrics.filter((item) => item.metric.measured > 0)
+	const featuredSummaryMetrics = $derived(
+		summaryMetrics.filter((item) => ['followers', 'engagement', 'views'].includes(item.key))
+	);
+	const secondarySummaryMetrics = $derived(
+		summaryMetrics.filter(
+			(item) => ['impressions', 'reach'].includes(item.key) && item.metric.measured > 0
+		)
 	);
 	const unavailableSummaryMetrics = $derived(
 		summaryMetrics.filter((item) => item.metric.measured === 0)
@@ -161,7 +191,9 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			insights.push({
 				title: m.analytics_insight_top_destination(),
 				body: m.analytics_insight_top_destination_body({
-					account: strongestDestination.username,
+					account:
+						formatSocialAccountName(strongestDestination.username, strongestDestination.platform) ||
+						getPlatformName(strongestDestination.platform),
 					engagement: formatNumber(strongestDestination.engagement)
 				})
 			});
@@ -173,7 +205,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			insights.push({
 				title: m.analytics_insight_follower_decline(),
 				body: m.analytics_insight_follower_decline_body({
-					account: decliningAccount.username,
+					account: accountName(decliningAccount),
 					count: formatNumber(Math.abs(decliningAccount.follower_delta ?? 0))
 				})
 			});
@@ -311,6 +343,14 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		}).format(new Date(value));
 	}
 
+	function formatShortDate(value: string) {
+		return new Intl.DateTimeFormat(getLocaleTag(), {
+			month: 'short',
+			day: 'numeric',
+			timeZone: 'UTC'
+		}).format(new Date(`${value}T00:00:00Z`));
+	}
+
 	function formatDateTime(value: string) {
 		return new Intl.DateTimeFormat(getLocaleTag(), {
 			month: 'short',
@@ -321,6 +361,26 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		}).format(new Date(value));
 	}
 
+	function accountName(account: AnalyticsAccount): string {
+		return formatSocialAccountName(account.username, account.platform) || account.platform;
+	}
+
+	function accountFilterLabel(account: AnalyticsAccount | undefined): string {
+		if (!account) return m.analytics_account_filter();
+		return `${m.analytics_account_filter()}: ${accountName(account)}, ${getPlatformName(account.platform)}`;
+	}
+
+	function renditionAccount(rendition: AnalyticsContent): AnalyticsAccount | undefined {
+		return accounts.find((account) => account.id === rendition.account_id);
+	}
+
+	function renditionName(rendition: AnalyticsContent): string {
+		return (
+			formatSocialAccountName(rendition.username, rendition.platform) ||
+			getPlatformName(rendition.platform)
+		);
+	}
+
 	function metricValue(metric: MetricSummary) {
 		return metric.measured > 0 ? formatNumber(metric.value) : '—';
 	}
@@ -329,42 +389,6 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		return unit === 'account'
 			? m.analytics_account_coverage({ measured, total: denominator })
 			: m.analytics_destination_coverage({ measured, total: denominator });
-	}
-
-	function accountStatus(account: AnalyticsAccount) {
-		if (
-			account.status === 'permission_required' ||
-			(account.missing_content_scopes?.length ?? 0) > 0
-		) {
-			return account.error_message || m.analytics_permission_required();
-		}
-		if (account.status === 'unsupported') {
-			return account.error_message || m.analytics_unsupported();
-		}
-		if (account.status === 'rate_limited') return m.analytics_rate_limited();
-		if (account.status === 'not_found') return m.analytics_not_found();
-		if (account.status === 'temporarily_unavailable')
-			return account.error_message || m.analytics_collection_delayed();
-		if (account.status === 'failed') return m.analytics_collection_failed();
-		if (account.stale) {
-			return account.next_sync_at
-				? m.analytics_stale_retry({ date: formatDateTime(account.next_sync_at) })
-				: m.analytics_stale();
-		}
-		if (!account.last_synced_at) return m.analytics_no_measurement();
-		return '';
-	}
-
-	function accountStatusClass(account: AnalyticsAccount) {
-		if (
-			account.status === 'permission_required' ||
-			(account.missing_content_scopes?.length ?? 0) > 0
-		) {
-			return 'text-amber-700 dark:text-amber-300';
-		}
-		if (account.status === 'failed') return 'text-destructive';
-		if (account.status === 'rate_limited') return 'text-amber-700 dark:text-amber-300';
-		return 'text-muted-foreground';
 	}
 
 	function contentStatus(item: AnalyticsContent) {
@@ -382,10 +406,6 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		}
 		if (!item.last_synced_at) return m.analytics_no_measurement();
 		return '';
-	}
-
-	function publicationExposure(publication: AnalyticsPublication) {
-		return exposureMetrics(publication.metrics, publication.measured);
 	}
 
 	function engagementMetrics(metrics: Record<string, number>, measured: Record<string, number>) {
@@ -428,6 +448,12 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 
 	function publicationLabel(publication: AnalyticsPublication) {
 		return publication.title || publication.excerpt || m.analytics_untitled_publication();
+	}
+
+	function publicationViews(publication: AnalyticsPublication) {
+		return (publication.measured.views ?? 0) > 0
+			? formatNumber(publication.metrics.views ?? 0)
+			: '—';
 	}
 </script>
 
@@ -550,7 +576,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			{#each accountsNeedingReconnect as account (account.id)}
 				<InlineNotice
 					tone="warning"
-					message={`${account.username}: ${account.error_message || m.analytics_permission_required()}`}
+					message={`${accountName(account)}: ${account.error_message || m.analytics_permission_required()}`}
 				>
 					{#snippet actions()}
 						<Button href="/settings?tab=accounts" variant="outline" size="sm"
@@ -568,37 +594,48 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 				/>
 			{/if}
 
-			<section aria-label={m.analytics_title()} class="border-y border-border">
-				<div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
-					{#each availableSummaryMetrics as item (item.label)}
-						<div
-							class="min-w-0 border-b border-border px-3 py-4 odd:border-r md:border-r lg:border-b-0"
-						>
-							<p class="text-xs text-muted-foreground">{item.label}</p>
-							<p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+			<section aria-label={m.analytics_title()}>
+				<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+					{#each featuredSummaryMetrics as item (item.key)}
+						<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex items-center gap-2 text-sm text-muted-foreground">
+									{#if item.key === 'followers'}
+										<UsersIcon class="size-4" />
+									{:else if item.key === 'engagement'}
+										<HeartIcon class="size-4" />
+									{:else}
+										<EyeIcon class="size-4" />
+									{/if}
+									<span>{item.label}</span>
+								</div>
+								{#if item.metric.delta !== undefined}
+									<span
+										class={[
+											'text-xs font-medium tabular-nums',
+											item.metric.delta >= 0
+												? 'text-emerald-700 dark:text-emerald-300'
+												: 'text-destructive'
+										]}
+									>
+										{item.metric.delta >= 0 ? '+' : ''}{formatNumber(item.metric.delta)}
+									</span>
+								{/if}
+							</div>
+							<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
 								{metricValue(item.metric)}
 							</p>
 							<p class="mt-1 text-xs text-muted-foreground">
 								{coverageLabel(item.metric.measured, item.denominator, item.unit)}
 							</p>
-							{#if item.metric.delta !== undefined}
-								<p
-									class={[
-										'mt-1 text-xs font-medium tabular-nums',
-										item.metric.delta >= 0
-											? 'text-emerald-700 dark:text-emerald-300'
-											: 'text-destructive'
-									]}
-								>
-									{item.metric.delta >= 0 ? '+' : ''}{formatNumber(item.metric.delta)}
-									{m.analytics_previous_period()}
-								</p>
-							{/if}
 						</div>
 					{/each}
-					<div class="min-w-0 px-3 py-4">
-						<p class="text-xs text-muted-foreground">{m.analytics_published()}</p>
-						<p class="mt-1 text-2xl font-semibold tracking-tight tabular-nums">
+					<div class="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground">
+						<div class="flex items-center gap-2 text-sm text-muted-foreground">
+							<SendIcon class="size-4" />
+							<span>{m.analytics_published()}</span>
+						</div>
+						<p class="mt-5 text-3xl font-semibold tracking-[-0.03em] tabular-nums">
 							{formatNumber(displayedSummary?.published ?? 0)}
 						</p>
 						<p class="mt-1 text-xs text-muted-foreground">
@@ -606,26 +643,163 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						</p>
 					</div>
 				</div>
-				{#if unavailableSummaryMetrics.length}
-					<p class="border-t border-border px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-						{m.analytics_unavailable_metrics({
-							metrics: unavailableSummaryMetrics.map((item) => item.label).join(', ')
-						})}
-					</p>
-				{/if}
-				<p class="border-t border-border px-3 py-2.5 text-xs leading-5 text-muted-foreground">
-					{m.analytics_metric_definitions()}
+				<div
+					class="mt-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5 text-xs leading-5 text-muted-foreground"
+				>
+					{#if secondarySummaryMetrics.length}
+						<span class="me-3">
+							{#each secondarySummaryMetrics as item, index (item.key)}
+								{#if index > 0}<span aria-hidden="true"> · </span>{/if}
+								<span
+									>{item.label}
+									<strong class="font-medium text-foreground">{metricValue(item.metric)}</strong
+									></span
+								>
+							{/each}
+						</span>
+					{/if}
+					{#if unavailableSummaryMetrics.length}
+						<span>
+							{m.analytics_unavailable_metrics({
+								metrics: unavailableSummaryMetrics.map((item) => item.label).join(', ')
+							})}
+						</span>
+					{/if}
+					<span class="block sm:inline sm:before:mx-2 sm:before:content-['·']">
+						{m.analytics_metric_definitions()}
+					</span>
+				</div>
+			</section>
+
+			{#if !hasMeasurements}
+				<InlineNotice tone="info" message={m.analytics_waiting_description()} />
+			{/if}
+
+			<section
+				class="min-w-0 rounded-xl border border-border bg-card text-card-foreground"
+				aria-labelledby="analytics-trend-heading"
+			>
+				<div
+					class="flex flex-col gap-4 border-b border-border p-4 lg:flex-row lg:items-end lg:justify-between"
+				>
+					<div class="min-w-0">
+						<h2 id="analytics-trend-heading" class="text-base font-semibold">{chartTitle}</h2>
+						<p class="mt-1 max-w-2xl text-sm text-muted-foreground">
+							{chartDescription}
+							{#if selectedAccount}
+								<span>
+									{m.analytics_filtered_to_account({ account: accountName(selectedAccount) })}</span
+								>
+							{/if}
+						</p>
+					</div>
+					<div class="flex flex-col gap-2 sm:flex-row">
+						<div
+							class="flex min-h-11 items-center rounded-md border border-border p-1 sm:min-h-9"
+							role="group"
+							aria-label={m.analytics_chart_metric_label()}
+						>
+							{#each ['views', 'engagement', 'followers'] as metric (metric)}
+								<button
+									type="button"
+									class={[
+										'min-h-9 flex-1 rounded-sm px-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:min-h-7',
+										chartMetric === metric
+											? 'bg-secondary text-secondary-foreground'
+											: 'text-muted-foreground hover:text-foreground'
+									]}
+									aria-pressed={chartMetric === metric}
+									onclick={() => (chartMetric = metric as ChartMetric)}
+								>
+									{metric === 'views'
+										? m.analytics_views()
+										: metric === 'engagement'
+											? m.analytics_summary_engagement()
+											: m.analytics_summary_followers()}
+								</button>
+							{/each}
+						</div>
+						<Select.Root
+							type="single"
+							value={selectedAccountID}
+							onValueChange={(value) => (selectedAccountID = value)}
+						>
+							<Select.Trigger
+								class="h-11 w-full sm:h-9 sm:w-60"
+								aria-label={accountFilterLabel(selectedAccount)}
+							>
+								{#if selectedAccount}
+									<SocialAccountIdentity
+										name={accountName(selectedAccount)}
+										platform={selectedAccount.platform}
+										avatarUrl={selectedAccount.avatar_url}
+										size="sm"
+									/>
+								{:else}
+									<span class="flex items-center gap-2">
+										<AccountsIcon class="size-4 text-muted-foreground" aria-hidden="true" />
+										{m.analytics_all_accounts()}
+									</span>
+								{/if}
+							</Select.Trigger>
+							<Select.Content class="w-72 max-w-[calc(100vw-1rem)]">
+								<Select.Item value="all" class="min-h-11">
+									<span class="flex items-center gap-2.5">
+										<span
+											class="flex size-8 items-center justify-center rounded-full bg-muted text-muted-foreground"
+										>
+											<AccountsIcon class="size-4" aria-hidden="true" />
+										</span>
+										<span class="font-medium">{m.analytics_all_accounts()}</span>
+									</span>
+								</Select.Item>
+								{#each accounts as account (account.id)}
+									<Select.Item value={account.id} class="min-h-12 py-2">
+										<SocialAccountIdentity
+											name={accountName(account)}
+											platform={account.platform}
+											avatarUrl={account.avatar_url}
+										/>
+									</Select.Item>
+								{/each}
+							</Select.Content>
+						</Select.Root>
+					</div>
+				</div>
+				<div class="p-2 pt-3 sm:p-4">
+					<AnalyticsPerformanceChart
+						points={chartPoints}
+						metric={chartMetric}
+						label={chartTitle}
+						emptyLabel={m.analytics_no_daily_changes()}
+						otherLabel={chartMetric === 'followers'
+							? m.analytics_other_accounts()
+							: m.analytics_other_posts()}
+						formatValue={formatNumber}
+						formatDate={formatShortDate}
+					/>
+				</div>
+				<p class="border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+					{chartMetric === 'followers'
+						? m.analytics_follower_chart_legend()
+						: m.analytics_content_chart_legend()}
 				</p>
 			</section>
 
 			{#if analyticsInsights.length}
-				<section aria-labelledby="analytics-insights-heading">
-					<h2 id="analytics-insights-heading" class="mb-3 text-base font-semibold">
+				<section
+					class="rounded-xl border border-border"
+					aria-labelledby="analytics-insights-heading"
+				>
+					<h2
+						id="analytics-insights-heading"
+						class="border-b border-border px-4 py-3 text-sm font-semibold"
+					>
 						{m.analytics_insights_title()}
 					</h2>
-					<div class="grid gap-3 md:grid-cols-3">
+					<div class="grid divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
 						{#each analyticsInsights as insight (insight.title)}
-							<div class="rounded-xl border bg-muted/20 p-4">
+							<div class="p-4">
 								<p class="text-sm font-semibold">{insight.title}</p>
 								<p class="mt-1 text-sm leading-5 text-muted-foreground">{insight.body}</p>
 							</div>
@@ -633,112 +807,6 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 					</div>
 				</section>
 			{/if}
-
-			{#if !hasMeasurements}
-				<InlineNotice tone="info" message={m.analytics_waiting_description()} />
-			{/if}
-
-			<div class="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_19rem]">
-				<section class="min-w-0" aria-labelledby="analytics-trend-heading">
-					<div class="mb-5">
-						<h2 id="analytics-trend-heading" class="text-base font-semibold">
-							{m.analytics_trend_title()}
-						</h2>
-						<p class="mt-1 text-sm text-muted-foreground">
-							{selectedAccount
-								? `${selectedAccount.username} · ${m.analytics_trend_description()}`
-								: m.analytics_unified_trend_description()}
-						</p>
-					</div>
-					<AnalyticsTrend
-						points={selectedFollowerSeries}
-						label={`${m.analytics_trend_title()}: ${selectedAccount?.username ?? m.analytics_all_accounts()}`}
-						emptyLabel={m.analytics_no_trend()}
-						formatValue={formatNumber}
-					/>
-				</section>
-
-				<section aria-labelledby="analytics-accounts-heading">
-					<h2 id="analytics-accounts-heading" class="text-base font-semibold">
-						{m.analytics_accounts_title()}
-					</h2>
-					<div
-						class="mt-3 divide-y divide-border border-y border-border lg:max-h-72 lg:overflow-y-auto lg:overscroll-contain lg:pe-1"
-					>
-						<button
-							type="button"
-							class={[
-								'flex min-h-16 w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-								selectedAccountID === 'all' && 'bg-muted/70'
-							]}
-							aria-pressed={selectedAccountID === 'all'}
-							onclick={() => (selectedAccountID = 'all')}
-						>
-							<span
-								class="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background"
-							>
-								<AccountsIcon class="size-4" />
-							</span>
-							<span class="min-w-0 flex-1">
-								<span class="block truncate text-sm font-medium">{m.analytics_all_accounts()}</span>
-								<span class="mt-0.5 block text-xs text-muted-foreground">
-									{overview?.summary.followers.measured
-										? `${formatNumber(overview.summary.followers.value)} ${m.analytics_summary_followers().toLowerCase()}`
-										: m.analytics_no_measurement()}
-								</span>
-							</span>
-						</button>
-						{#each accounts as account (account.id)}
-							<button
-								type="button"
-								class={[
-									'flex min-h-16 w-full items-center gap-3 px-2 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
-									selectedAccount?.id === account.id && 'bg-muted/70'
-								]}
-								aria-pressed={selectedAccount?.id === account.id}
-								onclick={() => (selectedAccountID = account.id)}
-							>
-								<span
-									class="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-background"
-								>
-									<PlatformIcon platform={account.platform} class="size-4" />
-								</span>
-								<span class="min-w-0 flex-1">
-									<span class="block truncate text-sm font-medium">{account.username}</span>
-									{#if accountStatus(account)}
-										<span
-											class={['mt-0.5 line-clamp-2 block text-xs', accountStatusClass(account)]}
-										>
-											{accountStatus(account)}
-										</span>
-									{:else if 'followers' in account.metrics}
-										<span class="mt-0.5 block text-xs text-muted-foreground">
-											{formatNumber(account.metrics.followers)}
-											{m.analytics_summary_followers().toLowerCase()}
-										</span>
-									{:else}
-										<span class="mt-0.5 block text-xs text-muted-foreground">
-											{m.analytics_no_measurement()}
-										</span>
-									{/if}
-								</span>
-								{#if account.follower_delta !== undefined}
-									<span
-										class={[
-											'text-xs font-medium tabular-nums',
-											account.follower_delta >= 0
-												? 'text-emerald-700 dark:text-emerald-300'
-												: 'text-destructive'
-										]}
-									>
-										{account.follower_delta >= 0 ? '+' : ''}{formatNumber(account.follower_delta)}
-									</span>
-								{/if}
-							</button>
-						{/each}
-					</div>
-				</section>
-			</div>
 
 			<section aria-labelledby="analytics-content-heading">
 				<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
@@ -748,7 +816,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{selectedAccount
-								? m.analytics_content_for_account({ account: selectedAccount.username })
+								? m.analytics_content_for_account({ account: accountName(selectedAccount) })
 								: m.analytics_content_description()}
 						</p>
 					</div>
@@ -776,149 +844,172 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						{m.analytics_content_empty()}
 					</p>
 				{:else}
-					<div class="divide-y divide-border border-y border-border">
-						{#each publications as publication (publication.publication_id)}
-							{@const renditions = publication.renditions ?? []}
-							{@const exposures = publicationExposure(publication)}
-							{@const expanded = expandedPublicationID === publication.publication_id}
-							<article>
-								<div
-									class="grid min-w-0 gap-4 px-1 py-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center"
-								>
-									<div class="min-w-0">
-										<a
-											href={resolve('/publications/[id]', { id: publication.publication_id })}
-											class="line-clamp-2 font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-										>
-											{publicationLabel(publication)}
-										</a>
-										<div
-											class="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground"
-										>
-											<span>{formatDate(publication.published_at)}</span>
-											<span aria-hidden="true">·</span>
-											<span
-												>{renditions.length === 1
-													? m.analytics_destination_singular()
-													: m.analytics_destinations({ count: renditions.length })}</span
+					<div class="overflow-hidden rounded-xl border border-border">
+						<div
+							data-testid="analytics-content-table-header"
+							class="hidden grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_6rem_6rem_7.5rem_auto] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground md:grid"
+							aria-hidden="true"
+						>
+							<span>{m.analytics_table_post()}</span>
+							<span>{m.analytics_table_platforms()}</span>
+							<span class="text-end">{m.analytics_summary_engagement()}</span>
+							<span class="text-end">{m.analytics_views()}</span>
+							<span>{m.analytics_table_published()}</span>
+							<span class="sr-only">{m.analytics_table_actions()}</span>
+						</div>
+						<div class="divide-y divide-border">
+							{#each publications as publication (publication.publication_id)}
+								{@const renditions = publication.renditions ?? []}
+								{@const expanded = expandedPublicationID === publication.publication_id}
+								<article>
+									<div
+										class="grid min-w-0 gap-4 px-4 py-4 md:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_6rem_6rem_7.5rem_auto] md:items-center"
+									>
+										<div class="min-w-0">
+											<a
+												href={resolve('/publications/[id]', { id: publication.publication_id })}
+												class="line-clamp-2 font-medium hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 											>
-											<span class="flex items-center gap-1" aria-hidden="true">
-												{#each renditions.slice(0, 6) as rendition (rendition.rendition_id)}
-													<PlatformIcon platform={rendition.platform} class="size-3.5" />
+												{publicationLabel(publication)}
+											</a>
+											<div class="mt-1 text-xs text-muted-foreground md:hidden">
+												{formatDate(publication.published_at)}
+											</div>
+										</div>
+
+										<div class="flex min-w-0 items-center gap-2 text-sm">
+											<span class="flex shrink-0 items-center gap-1" aria-hidden="true">
+												{#each renditions.slice(0, 4) as rendition (rendition.rendition_id)}
+													<span
+														class="flex size-7 items-center justify-center rounded-full border border-border bg-background"
+													>
+														<PlatformIcon platform={rendition.platform} class="size-3.5" />
+													</span>
 												{/each}
 											</span>
-										</div>
-									</div>
-
-									<div class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
-										<div>
-											<span class="block text-xs text-muted-foreground">
-												{m.analytics_summary_engagement()}
+											<span class="truncate text-xs text-muted-foreground">
+												{renditions.length === 1
+													? m.analytics_destination_singular()
+													: m.analytics_destinations({ count: renditions.length })}
 											</span>
+										</div>
+
+										<div
+											class="flex items-baseline justify-between gap-3 text-sm md:block md:text-end"
+										>
+											<span class="text-xs text-muted-foreground md:hidden"
+												>{m.analytics_summary_engagement()}</span
+											>
 											<span class="font-medium tabular-nums">
 												{publication.engagement_measured > 0
 													? formatNumber(publication.engagement)
 													: '—'}
 											</span>
 										</div>
-										{#each exposures as metric (metric.key)}
-											<div>
-												<span class="block text-xs text-muted-foreground">{metric.label}</span>
-												<span class="font-medium tabular-nums">{formatNumber(metric.value)}</span>
-											</div>
-										{/each}
+										<div
+											class="flex items-baseline justify-between gap-3 text-sm md:block md:text-end"
+										>
+											<span class="text-xs text-muted-foreground md:hidden"
+												>{m.analytics_views()}</span
+											>
+											<span class="font-medium tabular-nums">{publicationViews(publication)}</span>
+										</div>
+										<div class="hidden text-sm text-muted-foreground md:block">
+											{formatDate(publication.published_at)}
+										</div>
+
+										<Button
+											variant="ghost"
+											size="sm"
+											class="w-full justify-between md:w-auto md:justify-self-end"
+											aria-expanded={expanded}
+											aria-controls={`analytics-publication-${publication.publication_id}`}
+											onclick={() =>
+												(expandedPublicationID = expanded ? '' : publication.publication_id)}
+										>
+											{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
+											<ChevronDownIcon
+												class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+											/>
+										</Button>
 									</div>
 
-									<Button
-										variant="ghost"
-										size="sm"
-										class="justify-self-start md:justify-self-end"
-										aria-expanded={expanded}
-										aria-controls={`analytics-publication-${publication.publication_id}`}
-										onclick={() =>
-											(expandedPublicationID = expanded ? '' : publication.publication_id)}
-									>
-										{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
-										<ChevronDownIcon
-											class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-										/>
-									</Button>
-								</div>
-
-								{#if expanded}
-									<div
-										id={`analytics-publication-${publication.publication_id}`}
-										class="border-t border-border bg-muted/20 px-2 py-2 sm:px-4"
-									>
-										{#each renditions as rendition (rendition.rendition_id)}
-											{@const renditionExposures = renditionExposure(rendition)}
-											{@const renditionEngagementMetrics = renditionEngagement(rendition)}
-											<div
-												class="grid min-w-0 gap-3 border-b border-border py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-											>
-												<div class="flex min-w-0 items-start gap-2.5">
-													<PlatformIcon
-														platform={rendition.platform}
-														class="mt-0.5 size-4 shrink-0"
-													/>
+									{#if expanded}
+										<div
+											id={`analytics-publication-${publication.publication_id}`}
+											class="border-t border-border bg-muted/20 px-2 py-2 sm:px-4"
+										>
+											{#each renditions as rendition (rendition.rendition_id)}
+												{@const renditionExposures = renditionExposure(rendition)}
+												{@const renditionEngagementMetrics = renditionEngagement(rendition)}
+												{@const account = renditionAccount(rendition)}
+												<div
+													class="grid min-w-0 gap-3 border-b border-border py-3 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+												>
 													<div class="min-w-0">
-														<p class="truncate text-sm font-medium">{rendition.username}</p>
-														{#if contentStatus(rendition)}
-															<p
-																class={[
-																	'mt-0.5 line-clamp-2 text-xs',
-																	rendition.status === 'permission_required' ||
-																	rendition.status === 'rate_limited'
-																		? 'text-amber-700 dark:text-amber-300'
-																		: 'text-muted-foreground'
-																]}
+														<SocialAccountIdentity
+															name={renditionName(rendition)}
+															platform={rendition.platform}
+															avatarUrl={account?.avatar_url}
+														/>
+														<div class="mt-1 pl-11">
+															{#if contentStatus(rendition)}
+																<p
+																	class={[
+																		'mt-0.5 line-clamp-2 text-xs',
+																		rendition.status === 'permission_required' ||
+																		rendition.status === 'rate_limited'
+																			? 'text-amber-700 dark:text-amber-300'
+																			: 'text-muted-foreground'
+																	]}
+																>
+																	{contentStatus(rendition)}
+																</p>
+															{/if}
+														</div>
+													</div>
+													<div class="flex flex-wrap gap-x-5 gap-y-1 text-xs">
+														<span>
+															<span class="text-muted-foreground">
+																{m.analytics_summary_engagement()}:
+															</span>
+															{hasEngagementMeasurement(rendition)
+																? formatNumber(rendition.engagement)
+																: '—'}
+														</span>
+														{#each renditionExposures as metric (metric.key)}
+															<span>
+																<span class="text-muted-foreground">{metric.label}:</span>
+																{formatNumber(metric.value)}
+															</span>
+														{/each}
+														{#each renditionEngagementMetrics as metric (metric.key)}
+															<span>
+																<span class="text-muted-foreground">{metric.label}:</span>
+																{formatNumber(metric.value)}
+															</span>
+														{/each}
+														{#if rendition.external_url}
+															<Button
+																href={rendition.external_url}
+																target="_blank"
+																rel="noreferrer"
+																variant="ghost"
+																size="icon-xs"
+																aria-label={m.analytics_open_native()}
+																title={m.analytics_open_native()}
 															>
-																{contentStatus(rendition)}
-															</p>
+																<ExternalLinkIcon class="size-3.5" />
+															</Button>
 														{/if}
 													</div>
 												</div>
-												<div class="flex flex-wrap gap-x-5 gap-y-1 text-xs">
-													<span>
-														<span class="text-muted-foreground">
-															{m.analytics_summary_engagement()}:
-														</span>
-														{hasEngagementMeasurement(rendition)
-															? formatNumber(rendition.engagement)
-															: '—'}
-													</span>
-													{#each renditionExposures as metric (metric.key)}
-														<span>
-															<span class="text-muted-foreground">{metric.label}:</span>
-															{formatNumber(metric.value)}
-														</span>
-													{/each}
-													{#each renditionEngagementMetrics as metric (metric.key)}
-														<span>
-															<span class="text-muted-foreground">{metric.label}:</span>
-															{formatNumber(metric.value)}
-														</span>
-													{/each}
-													{#if rendition.external_url}
-														<Button
-															href={rendition.external_url}
-															target="_blank"
-															rel="noreferrer"
-															variant="ghost"
-															size="icon-xs"
-															aria-label={m.analytics_open_native()}
-															title={m.analytics_open_native()}
-														>
-															<ExternalLinkIcon class="size-3.5" />
-														</Button>
-													{/if}
-												</div>
-											</div>
-										{/each}
-									</div>
-								{/if}
-							</article>
-						{/each}
+											{/each}
+										</div>
+									{/if}
+								</article>
+							{/each}
+						</div>
 					</div>
 					<div class="mt-4 flex flex-wrap items-center justify-between gap-3">
 						<p class="text-xs text-muted-foreground">

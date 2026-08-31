@@ -1,6 +1,8 @@
 import type { MediaMetadata } from '../media/types';
 import type { TimelineItem, TimelineTrack } from '../project/types';
-import { execute } from '../timeline/commands/command-store.svelte';
+import { execute, executeAtomic } from '../timeline/commands/command-store.svelte';
+import { linkItems } from '../timeline/actions/items';
+import { insertMediaAtFrame } from '../timeline/actions/insert-media';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
 
 /**
@@ -73,5 +75,28 @@ export function insertVoiceoverOnNewTrack(
 	return insertAudioOnNewTrack(media, playheadFrame, {
 		commandType: 'INSERT_VOICEOVER',
 		trackName
+	});
+}
+
+/**
+ * Insert generated speech at its source text item and link both items as one
+ * edit. Reusing normal media placement keeps track collision and duration
+ * rules aligned with every other audio import.
+ */
+export function insertGeneratedAudioForText(
+	media: MediaMetadata,
+	sourceTextItemId: string
+): string {
+	const source = timelineStore.itemById.get(sourceTextItemId);
+	if (!source || source.type !== 'text') {
+		throw new Error('The source text item is no longer available.');
+	}
+
+	return executeAtomic('INSERT_LINKED_TEXT_AUDIO', () => {
+		const audioItemId = insertMediaAtFrame(media, source.from);
+		if (!linkItems([sourceTextItemId, audioItemId])) {
+			throw new Error('The generated audio could not be linked to its source text.');
+		}
+		return audioItemId;
 	});
 }

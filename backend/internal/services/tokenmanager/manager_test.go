@@ -21,6 +21,7 @@ import (
 type stubAdapter struct {
 	capability platform.RefreshCapability
 	tokenResp  *platform.TokenResult
+	refreshErr error
 	gotInput   platform.RefreshTokenInput
 }
 
@@ -31,7 +32,7 @@ func (s *stubAdapter) ExchangeCode(context.Context, string, map[string]string) (
 func (s *stubAdapter) RefreshCapability() platform.RefreshCapability { return s.capability }
 func (s *stubAdapter) RefreshToken(_ context.Context, input platform.RefreshTokenInput) (*platform.TokenResult, error) {
 	s.gotInput = input
-	return s.tokenResp, nil
+	return s.tokenResp, s.refreshErr
 }
 func (s *stubAdapter) GetProfile(context.Context, string) (*platform.UserProfile, error) {
 	return nil, nil
@@ -258,4 +259,70 @@ func TestForceRefreshAccessTokenUpdatesExpiryFromBlueskyRefresh(t *testing.T) {
 		Scan(context.Background())
 	require.NoError(t, err)
 	require.WithinDuration(t, stored.TokenExpiresAt.Add(-refreshLeadTime), pendingJob.RunAt, 10*time.Second)
+}
+
+func TestForceRefreshAccessTokenKeepsGrantHealthyAfterTransientProviderFailure(t *testing.T) {
+	for name, refreshErr := range map[string]error{
+		"rate limit":     &platform.HTTPError{StatusCode: 429, Code: "rate_limited"},
+		"provider error": &platform.HTTPError{StatusCode: 503, Code: "temporarily_unavailable"},
+		"timeout":        context.DeadlineExceeded,
+	} {
+		t.Run(name, func(t *testing.T) {
+			db := newGrantSQLiteDB(t)
+			encryptor := crypto.NewTokenEncryptor("grant-concurrency-secret")
+			seedSharedGrant(t, db, encryptor)
+			manager := NewTokenManager(db, encryptor)
+			manager.SetProvider("linkedin", &stubAdapter{
+				capability: platform.RefreshCapability{
+					Supported:        true,
+					CredentialSource: platform.RefreshCredentialRefreshToken,
+				},
+				refreshErr: refreshErr,
+			})
+
+			_, err := manager.ForceRefreshAccessToken(t.Context(), "destination-person")
+			require.Error(t, err)
+
+			var grant models.OAuthGrant
+			require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", "grant-shared").Scan(t.Context()))
+			require.Equal(t, "valid", grant.ValidationStatus)
+			require.Empty(t, grant.RefreshLeaseOwner)
+			require.Equal(t, "provider_refresh_transient", grant.LastRefreshError)
+
+			var accounts []models.SocialAccount
+			require.NoError(t, db.NewSelect().Model(&accounts).Where("oauth_grant_id = ?", grant.ID).Scan(t.Context()))
+			for _, account := range accounts {
+				require.Empty(t, account.ErrorMessage)
+			}
+		})
+	}
+}
+
+func TestForceRefreshAccessTokenMarksGrantFailedAfterPermanentProviderFailure(t *testing.T) {
+	db := newGrantSQLiteDB(t)
+	encryptor := crypto.NewTokenEncryptor("grant-concurrency-secret")
+	seedSharedGrant(t, db, encryptor)
+	manager := NewTokenManager(db, encryptor)
+	manager.SetProvider("linkedin", &stubAdapter{
+		capability: platform.RefreshCapability{
+			Supported:        true,
+			CredentialSource: platform.RefreshCredentialRefreshToken,
+		},
+		refreshErr: &platform.HTTPError{StatusCode: 401, Code: "invalid_grant"},
+	})
+
+	_, err := manager.ForceRefreshAccessToken(t.Context(), "destination-person")
+	require.Error(t, err)
+
+	var grant models.OAuthGrant
+	require.NoError(t, db.NewSelect().Model(&grant).Where("id = ?", "grant-shared").Scan(t.Context()))
+	require.Equal(t, "refresh_failed", grant.ValidationStatus)
+	require.Empty(t, grant.RefreshLeaseOwner)
+	require.Equal(t, "provider_refresh_failed", grant.LastRefreshError)
+
+	var accounts []models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&accounts).Where("oauth_grant_id = ?", grant.ID).Scan(t.Context()))
+	for _, account := range accounts {
+		require.Contains(t, account.ErrorMessage, "Reconnect")
+	}
 }

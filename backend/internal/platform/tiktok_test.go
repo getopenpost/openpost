@@ -93,7 +93,7 @@ func TestTikTokExchangeCodeAndProfile(t *testing.T) {
 			if req.Header.Get(headerAuthorization) != bearerPrefix+"access" {
 				t.Fatalf("unexpected profile auth header %q", req.Header.Get(headerAuthorization))
 			}
-			return jsonResponse(req, `{"data":{"user":{"open_id":"open-1","display_name":"Creator","username":"creator"}},"error":{"code":"ok","message":"","log_id":"log"}}`), nil
+			return jsonResponse(req, `{"data":{"user":{"open_id":"open-1","display_name":"Creator","username":"creator","avatar_url":"https://cdn.tiktok.example/avatar.jpg"}},"error":{"code":"ok","message":"","log_id":"log"}}`), nil
 		default:
 			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
 			return nil, nil
@@ -115,6 +115,9 @@ func TestTikTokExchangeCodeAndProfile(t *testing.T) {
 	}
 	if profile.ID != "open-1" || profile.Username != "creator" || profile.DisplayName != "Creator" {
 		t.Fatalf("unexpected profile: %#v", profile)
+	}
+	if profile.AvatarURL != "https://cdn.tiktok.example/avatar.jpg" {
+		t.Fatalf("unexpected profile avatar: %#v", profile)
 	}
 }
 

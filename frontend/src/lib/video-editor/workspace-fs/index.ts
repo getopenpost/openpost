@@ -13,3 +13,4 @@ export * from './media';
 export * from './project-media';
 export * from './trash';
 export * from './exports';
+export * from './source-transcripts';

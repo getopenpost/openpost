@@ -8,6 +8,7 @@ type AccountFixture = {
   platform: string;
   account_id: string;
   account_username: string;
+  account_avatar_url: string;
   is_active: boolean;
   slug: string;
   thread_replies_supported: boolean;
@@ -20,13 +21,19 @@ type AccountFixture = {
 test("accounts distinguishes destination disconnect from credential revocation", async ({
   page,
   request,
-}) => {
+}, testInfo) => {
   const unique = Date.now().toString(36);
   const auth = await registerUser(request, `account-grants-${unique}@example.com`);
   const workspace = (await createWorkspace(request, auth.token, "Grant Actions E2E")) as {
     id: string;
   };
   await authenticatePage(page, auth.token);
+  await page.route("https://cdn.openpost.test/linkedin-*.svg", async (route) => {
+    await route.fulfill({
+      contentType: "image/svg+xml",
+      body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#0a66c2"/><text x="32" y="39" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="700" fill="white">in</text></svg>',
+    });
+  });
 
   let accounts: AccountFixture[] = [
     accountFixture(workspace.id, "shared-a", "shared_a", "grant-one", 2),
@@ -76,7 +83,24 @@ test("accounts distinguishes destination disconnect from credential revocation",
 
   await page.goto("/settings?tab=accounts");
 
-  await openAccountMenu(page, "shared-a", "@shared_a");
+  const sharedAccountCard = page.getByTestId("account-card-shared-a");
+  await expect(sharedAccountCard.locator('[data-slot="social-account-platform"]')).toContainText(
+    "LinkedIn",
+  );
+  await expect(sharedAccountCard.locator('[data-slot="avatar-image"]')).toHaveAttribute(
+    "src",
+    "https://cdn.openpost.test/linkedin-shared-a.svg",
+  );
+  await expect
+    .poll(() =>
+      sharedAccountCard
+        .locator('[data-slot="avatar-image"]')
+        .evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+    )
+    .toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("accounts-1280-identities.png") });
+
+  await openAccountMenu(page, "shared-a", "shared_a");
   let menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: "Disconnect this destination" })).toBeVisible();
   await expect(
@@ -86,15 +110,15 @@ test("accounts distinguishes destination disconnect from credential revocation",
   ).toBeVisible();
   await menu.getByRole("menuitem", { name: "Disconnect this destination" }).click();
 
-  let dialog = page.getByRole("dialog", { name: "Disconnect @shared_a?" });
-  await expect(dialog).toContainText("@shared_a is one of 2 destinations");
+  let dialog = page.getByRole("dialog", { name: "Disconnect shared_a?" });
+  await expect(dialog).toContainText("shared_a is one of 2 destinations");
   await expect(dialog).toContainText("every other destination stays connected");
   await dialog.getByRole("button", { name: "Disconnect this destination" }).click();
   await expect.poll(() => deletePaths).toContain("/api/v1/accounts/shared-a");
   await expect(page.getByTestId("account-card-shared-a")).toHaveCount(0);
   await expect(page.getByTestId("account-card-shared-b")).toBeVisible();
 
-  await openAccountMenu(page, "shared-c", "@shared_c");
+  await openAccountMenu(page, "shared-c", "shared_c");
   menu = page.getByRole("menu");
   await menu
     .getByRole("menuitem", {
@@ -112,13 +136,13 @@ test("accounts distinguishes destination disconnect from credential revocation",
   await expect(page.getByTestId("account-card-shared-c")).toHaveCount(0);
   await expect(page.getByTestId("account-card-shared-d")).toHaveCount(0);
 
-  await openAccountMenu(page, "solo", "@solo");
+  await openAccountMenu(page, "solo", "solo");
   menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: "Remove connection" })).toBeVisible();
   await expect(menu.getByRole("menuitem", { name: "Disconnect this destination" })).toHaveCount(0);
   await menu.getByRole("menuitem", { name: "Remove connection" }).click();
-  dialog = page.getByRole("dialog", { name: "Remove @solo?" });
-  await expect(dialog).toContainText("delete its saved provider credentials and disconnect @solo");
+  dialog = page.getByRole("dialog", { name: "Remove solo?" });
+  await expect(dialog).toContainText("delete its saved provider credentials and disconnect solo");
   await expect(dialog).toContainText("does not disable the credential at LinkedIn");
   await dialog.getByRole("button", { name: "Remove connection" }).click();
   await expect.poll(() => deletePaths).toContain("/api/v1/accounts/solo/grant");
@@ -139,6 +163,7 @@ function accountFixture(
     platform: "linkedin",
     account_id: `urn:li:organization:${id}`,
     account_username: username,
+    account_avatar_url: `https://cdn.openpost.test/linkedin-${id}.svg`,
     is_active: true,
     slug: id,
     thread_replies_supported: true,

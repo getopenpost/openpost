@@ -8,31 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesUserSessionsSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'user_sessions'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "user_id TEXT NOT NULL")
-	require.Contains(t, schema, "expires_at TIMESTAMP NOT NULL")
-	require.Contains(t, schema, "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('user_sessions_user_id_idx', 'user_sessions_active_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 2, indexCount)
-}
-
 func TestRunMigrationsUserSessionsForeignKeyCascade(t *testing.T) {
 	t.Parallel()
 

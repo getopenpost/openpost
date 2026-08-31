@@ -1,11 +1,17 @@
 import type { Project } from '../project/types';
-import type { RenderExportProgress, RenderExportResult } from '../media/render-export';
+import type { RenderExportProgress } from '../media/render-export';
 import { renderQueueStore, type RenderQueueJob, type RenderQueueStore } from './render-queue-store';
+
+export type QueueExecutionResult =
+	| { kind: 'artifact'; savedPath: string; outputLabel: string; fileSize: number }
+	| { kind: 'directory'; savedPath: string; outputLabel: string; fileSize: number }
+	| { kind: 'external-directory'; savedPath: null; outputLabel: string; fileSize: number }
+	| { kind: 'download'; savedPath: null; outputLabel: string; fileSize: number };
 
 export type RenderQueueExecutor = (
 	job: RenderQueueJob,
 	options: { signal: AbortSignal; onProgress: (progress: RenderExportProgress) => void }
-) => Promise<RenderExportResult>;
+) => Promise<QueueExecutionResult>;
 
 function projectForJob(job: RenderQueueJob): Project {
 	const { snapshot } = job;
@@ -28,7 +34,8 @@ function projectForJob(job: RenderQueueJob): Project {
 			transitions: snapshot.transitions,
 			compositions: snapshot.compositions,
 			masterVolumeDb: snapshot.masterVolumeDb ?? 0,
-			masterMuted: snapshot.masterMuted ?? false
+			masterMuted: snapshot.masterMuted ?? false,
+			busAudioEq: snapshot.busAudioEq
 		}
 	};
 }
@@ -36,8 +43,9 @@ function projectForJob(job: RenderQueueJob): Project {
 async function executeRenderJob(
 	job: RenderQueueJob,
 	options: { signal: AbortSignal; onProgress: (progress: RenderExportProgress) => void }
-): Promise<RenderExportResult> {
-	const { renderVideoExport, renderAudioExport } = await import('../media/render-execution');
+): Promise<QueueExecutionResult> {
+	const { renderVideoExport, renderAudioExport, renderImageSequenceExport } =
+		await import('../media/render-execution');
 	const project = projectForJob(job);
 	const range = job.settings.range;
 	if (
@@ -45,14 +53,85 @@ async function executeRenderJob(
 		job.settings.format === 'aac' ||
 		job.settings.format === 'wav'
 	) {
-		return renderAudioExport(project, {
+		const artifact = await renderAudioExport(project, {
 			format: job.settings.format,
 			range,
 			signal: options.signal,
 			onProgress: options.onProgress
 		});
+		return {
+			kind: 'artifact',
+			savedPath: artifact.relPath,
+			outputLabel: artifact.fileName,
+			fileSize: artifact.blob.size
+		};
 	}
-	return renderVideoExport(project, {
+	if (
+		job.settings.format === 'png-sequence' ||
+		job.settings.format === 'jpeg-sequence' ||
+		job.settings.format === 'webp-sequence'
+	) {
+		const format =
+			job.settings.format === 'png-sequence'
+				? 'png'
+				: job.settings.format === 'webp-sequence'
+					? 'webp'
+					: 'jpeg';
+		const { result } = await renderImageSequenceExport({
+			project,
+			options: {
+				format,
+				width: job.settings.width,
+				height: job.settings.height,
+				range,
+				jpegQuality: job.settings.jpegQuality
+			},
+			signal: options.signal,
+			onProgress: options.onProgress
+		});
+		if (result.kind === 'workspace-directory') {
+			return {
+				kind: 'directory',
+				savedPath: result.relPath,
+				outputLabel: result.directoryName,
+				fileSize: result.totalBytes
+			};
+		}
+		if (result.kind === 'zip') {
+			if (result.savedToWorkspace && result.relPath) {
+				return {
+					kind: 'artifact',
+					savedPath: result.relPath,
+					outputLabel: result.fileName,
+					fileSize: result.blob.size
+				};
+			}
+			// Download-only: trigger download truthfully; surface failures instead of swallowing.
+			if (typeof document === 'undefined') {
+				throw new Error('Download not supported in this environment and workspace save failed');
+			}
+			const url = URL.createObjectURL(result.blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = result.fileName;
+			a.click();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+			return {
+				kind: 'download',
+				savedPath: null,
+				outputLabel: result.fileName,
+				fileSize: result.blob.size
+			};
+		}
+		// External directory-handle: truthfully no workspace path; expose directory name for display.
+		return {
+			kind: 'external-directory',
+			savedPath: null,
+			outputLabel: result.directoryName,
+			fileSize: result.totalBytes
+		};
+	}
+	const artifact = await renderVideoExport(project, {
 		format: job.settings.format,
 		codec: job.settings.codec,
 		quality: job.settings.quality,
@@ -63,6 +142,12 @@ async function executeRenderJob(
 		signal: options.signal,
 		onProgress: options.onProgress
 	});
+	return {
+		kind: 'artifact',
+		savedPath: artifact.relPath,
+		outputLabel: artifact.fileName,
+		fileSize: artifact.blob.size
+	};
 }
 
 export class RenderQueueRunner {
@@ -122,8 +207,9 @@ export class RenderQueueRunner {
 				onProgress: (progress) => this.queue.updateProgress(job.id, progress)
 			});
 			this.queue.markCompleted(job.id, {
-				savedPath: result.relPath,
-				fileSize: result.blob.size
+				savedPath: result.savedPath,
+				outputLabel: result.outputLabel,
+				fileSize: result.fileSize
 			});
 		} catch (error) {
 			if (error instanceof DOMException && error.name === 'AbortError') {

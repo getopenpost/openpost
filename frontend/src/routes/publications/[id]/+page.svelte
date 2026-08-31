@@ -12,12 +12,14 @@
 	import PublicationDeliveryCard from '$lib/components/publication-delivery-card.svelte';
 	import PublicationHistory from '$lib/components/publication-history.svelte';
 	import ComposeTextPost from '$lib/components/compose-text-post.svelte';
+	import { publicationDraftCopy } from '$lib/composer/publication-client';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { ui } from '$lib/stores/ui.svelte';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
 	import ArrowLeftIcon from '@lucide/svelte/icons/arrow-left';
-	import HistoryIcon from '@lucide/svelte/icons/history';
+	import CopyIcon from '@lucide/svelte/icons/copy';
+	import LoaderCircleIcon from '@lucide/svelte/icons/loader-circle';
 
 	type Publication = components['schemas']['PublicationResponse'];
 	let publication = $state.raw<Publication | null>(null);
@@ -29,8 +31,13 @@
 	let retryingRenditionID = $state('');
 	let recoveryMessage = $state('');
 	let recoveryFailed = $state(false);
+	let copying = $state(false);
+	let copyError = $state('');
+	let copyRequestKey = '';
 
 	const publicationId = $derived(page.params.id);
+	const initialWorkspaceId = $derived(page.url.searchParams.get('workspace_id'));
+	const initialMediaIds = $derived(page.url.searchParams.getAll('media_id'));
 	const readOnlyPublication = $derived(
 		publication?.status === 'published' ||
 			publication?.status === 'publishing' ||
@@ -113,6 +120,55 @@
 		);
 	}
 
+	async function toggleFailureDismissal() {
+		if (!publication || publication.status !== 'failed') return;
+		recoveryMessage = '';
+		recoveryFailed = false;
+		const response = publication.failure_dismissed_at
+			? await client.DELETE('/publications/{id}/failure-dismissal', {
+					params: { path: { id: publication.id } }
+				})
+			: await client.POST('/publications/{id}/failure-dismissal', {
+					params: { path: { id: publication.id } }
+				});
+		if (response.error) {
+			recoveryFailed = true;
+			recoveryMessage = m.activity_dismiss_failed_error();
+			return;
+		}
+		recoveryMessage = publication.failure_dismissed_at
+			? m.activity_restore_failed()
+			: m.activity_dismissed_failed();
+		await loadPublication(publication.id, true);
+	}
+
+	async function copyAsDraft() {
+		if (!publication || copying) return;
+		copying = true;
+		copyError = '';
+		// Reuse this key after an ambiguous response so a retry cannot create a second draft.
+		copyRequestKey ||= crypto.randomUUID();
+		try {
+			const { data, error: createError } = await client.POST('/publications', {
+				params: { header: { 'Idempotency-Key': copyRequestKey } },
+				body: publicationDraftCopy(publication)
+			});
+			if (createError || !data) {
+				copyError = createError?.detail || m.publication_copy_failed();
+				return;
+			}
+			ui.invalidatePublications({
+				workspaceId: publication.workspace_id,
+				scopes: ['drafts', 'activity']
+			});
+			await goto(resolve(`/publications/${data.id}`));
+		} catch {
+			copyError = m.publication_copy_failed();
+		} finally {
+			copying = false;
+		}
+	}
+
 	$effect(() => {
 		if (publicationId && publicationId !== requestedPublicationId) {
 			requestedPublicationId = publicationId;
@@ -130,6 +186,18 @@
 			: m.publication_edit_loading_title()} - {m.common_openpost()}</title
 	>
 </svelte:head>
+
+{#snippet copyAsDraftButton()}
+	<Button variant="outline" onclick={copyAsDraft} disabled={copying}>
+		{#if copying}
+			<LoaderCircleIcon class="mr-1.5 size-4 animate-spin" />
+			{m.publication_copying()}
+		{:else}
+			<CopyIcon class="mr-1.5 size-4" />
+			{m.publication_copy_as_draft()}
+		{/if}
+	</Button>
+{/snippet}
 
 {#if !hasLoaded}
 	<div class="flex flex-1 flex-col" aria-busy="true">
@@ -154,6 +222,14 @@
 		description={m.publication_detail_description({ status: statusLabel(publication.status) })}
 	>
 		{#snippet actions()}
+			{#if publication.status === 'failed'}
+				<Button variant="outline" onclick={toggleFailureDismissal}>
+					{publication.failure_dismissed_at
+						? m.activity_restore_failed()
+						: m.activity_dismiss_failed()}
+				</Button>
+			{/if}
+			{@render copyAsDraftButton()}
 			<Button variant="outline" onclick={() => history.back()}>
 				<ArrowLeftIcon class="mr-1.5 size-4" />
 				{m.common_back()}
@@ -166,6 +242,9 @@
 			{/if}
 			{#if recoveryMessage}
 				<InlineNotice tone={recoveryFailed ? 'error' : 'info'} message={recoveryMessage} />
+			{/if}
+			{#if copyError}
+				<InlineNotice tone="error" message={copyError} />
 			{/if}
 
 			<section class="rounded-xl border bg-card p-4 sm:p-6">
@@ -215,16 +294,20 @@
 	</PageContainer>
 {:else if publication}
 	<div class="flex flex-1 flex-col overflow-hidden">
-		<div class="flex shrink-0 justify-end border-b px-3 py-2 sm:px-4">
-			<Button variant="ghost" size="sm" onclick={() => (historyOpen = true)}>
-				<HistoryIcon class="mr-1.5 size-4" />
-				{m.image_editor_version_history()}
-			</Button>
-		</div>
+		{#if copyError}
+			<div class="shrink-0 px-3 pt-2 sm:px-4">
+				<InlineNotice tone="error" message={copyError} />
+			</div>
+		{/if}
 		<ComposeTextPost
 			initialPublication={publication}
+			{initialWorkspaceId}
+			{initialMediaIds}
 			onSuccess={handleSuccess}
 			onDeleted={handleSuccess}
+			onOpenVersionHistory={() => (historyOpen = true)}
+			onCopyAsDraft={publication.status === 'scheduled' ? copyAsDraft : undefined}
+			copyingDraft={copying}
 		/>
 		<Sheet.Root bind:open={historyOpen}>
 			<Sheet.Content

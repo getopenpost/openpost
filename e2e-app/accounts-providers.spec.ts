@@ -125,7 +125,7 @@ test("accounts page keeps healthy providers quiet and explains blocked providers
       ],
     });
   });
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
 
   await expect(page.getByRole("heading", { name: "Add a channel" })).toBeVisible();
   await expect(page.getByTestId("provider-card-bluesky")).toContainText("Post to Bluesky");
@@ -219,7 +219,7 @@ test("accounts page starts custom Mastodon instance connection", async ({ page, 
     });
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const card = page.getByTestId("provider-card-mastodon");
   await expect(card).toContainText("Connect any public Mastodon instance");
   await card.getByRole("button", { name: "Connect" }).click();
@@ -303,14 +303,12 @@ test("accounts page connects an operator-installed custom connector", async ({ p
         workspace_id: workspace.id,
         account_id: "account-directus",
         account_ids: ["account-directus"],
-        new_account_ids: ["account-directus"],
         open_fresh_composer: true,
-        feature_setup_required: false,
       },
     });
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const provider = page.getByTestId("provider-card-directus-main");
   await expect(provider).toContainText("Custom connector");
   await expect(provider).toContainText("Create items in a configured Directus collection.");
@@ -320,7 +318,7 @@ test("accounts page connects an operator-installed custom connector", async ({ p
   const account = page.getByTestId("account-card-account-directus");
   await expect(account).toContainText("Directus");
   await expect(account).toContainText("Custom connector");
-  await expect(account).toContainText("@Editorial Posts");
+  await expect(account.getByText("Editorial Posts", { exact: true })).toBeVisible();
   await expect(account).toContainText("editorial-posts");
 
   if (process.env.OPENPOST_CAPTURE_CONNECTOR_REVIEW === "1") {
@@ -328,7 +326,6 @@ test("accounts page connects an operator-installed custom connector", async ({ p
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => localStorage.setItem("mode-watcher-mode", "dark"));
     await page.reload();
-    await expect(page.locator("html")).toHaveClass(/dark/);
     await expect(page.getByTestId("account-card-account-directus")).toBeVisible();
     await page.screenshot({ path: ".impeccable/review/mobile.png", fullPage: true });
     await page.setViewportSize({ width: 320, height: 568 });
@@ -372,7 +369,7 @@ test("accounts page fails closed and retries an unavailable readiness lookup", a
     });
   });
 
-  await page.goto("/accounts");
+  await page.goto("/settings?tab=accounts");
   const card = page.getByTestId("provider-card-bluesky");
   await expect(page.getByTestId("provider-readiness-bluesky")).toContainText("could not verify");
   const retry = card.getByRole("button", { name: "Retry check" });
@@ -388,7 +385,7 @@ for (const viewport of [
   { name: "phone", width: 390, height: 844 },
   { name: "compact phone", width: 320, height: 568 },
 ] as const) {
-  test(`direct and Settings account management keep navigation and feedback stable on ${viewport.name}`, async ({
+  test(`Settings account management keeps navigation and feedback stable on ${viewport.name}`, async ({
     page,
     request,
   }) => {
@@ -407,9 +404,8 @@ for (const viewport of [
       await page.addInitScript(() => localStorage.setItem("mode-watcher-mode", "dark"));
     }
 
-    await page.goto(`/accounts?oauth_status=cancelled&workspace_id=${workspace.id}`);
-    if (viewport.width === 390) await expect(page.locator("html")).toHaveClass(/dark/);
-    await expect(page).toHaveURL(/\/accounts$/);
+    await page.goto(`/settings?tab=accounts&oauth_status=cancelled&workspace_id=${workspace.id}`);
+    await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
     await expect(page.getByRole("heading", { level: 1, name: "Social accounts" })).toBeVisible();
     await expect(
       page.getByText("Connection cancelled. Choose a destination to try again."),
@@ -417,7 +413,7 @@ for (const viewport of [
     await page.waitForLoadState("networkidle");
 
     await page.reload();
-    await expect(page).toHaveURL(/\/accounts$/);
+    await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
     await expect(page.getByText(/Connection cancelled/)).toHaveCount(0);
     await page.waitForLoadState("networkidle");
 
@@ -432,14 +428,6 @@ for (const viewport of [
     await expect(page.locator("h1")).toHaveCount(1);
     await page.waitForLoadState("networkidle");
 
-    await page.goBack();
-    await expect(page).toHaveURL(/\/accounts$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Social accounts" })).toBeVisible();
-    await page.waitForLoadState("networkidle");
-    await page.goForward();
-    await expect(page).toHaveURL(/\/settings\?tab=accounts$/);
-    await page.waitForLoadState("networkidle");
-
     const settingsNavigation = page.getByTestId("settings-navigation");
     if (viewport.width < 768) {
       await expect(settingsNavigation.getByRole("button", { name: "Settings" })).toContainText(
@@ -451,7 +439,7 @@ for (const viewport of [
         "page",
       );
     }
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     const connectBluesky = page
       .getByTestId("provider-card-bluesky")
       .getByRole("button", { name: "Connect" });

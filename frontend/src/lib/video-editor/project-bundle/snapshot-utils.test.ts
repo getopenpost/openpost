@@ -19,6 +19,48 @@ function snapshot(): ProjectSnapshot {
 }
 
 describe('project snapshot validation', () => {
+	it('accepts every current timeline item kind and preserves transition presentations', () => {
+		const candidate = snapshot();
+		const trackId = candidate.project.timeline!.tracks[0]!.id;
+		const itemKinds = [
+			'video',
+			'audio',
+			'image',
+			'lottie',
+			'text',
+			'subtitle',
+			'shape',
+			'adjustment',
+			'controller',
+			'composition'
+		] as const;
+		candidate.project.timeline!.items = itemKinds.map((type, index) => ({
+			id: `item-${type}`,
+			trackId,
+			from: index * 30,
+			durationInFrames: 30,
+			label: type,
+			type
+		}));
+		candidate.project.timeline!.transitions = [
+			{
+				id: 'transition-x-wipe',
+				type: 'crossfade',
+				presentation: 'xWipe',
+				timing: 'ease-in-out',
+				durationInFrames: 12,
+				fromItemId: 'item-video',
+				toItemId: 'item-image'
+			}
+		];
+
+		const result = validateProjectSnapshot(candidate);
+
+		expect(result.errors).toEqual([]);
+		expect(result.snapshot?.project.timeline?.items.map((item) => item.type)).toEqual(itemKinds);
+		expect(result.snapshot?.project.timeline?.transitions?.[0]?.presentation).toBe('xWipe');
+	});
+
 	it('rejects malformed timeline data with a useful path', () => {
 		const candidate = snapshot();
 		candidate.project.timeline!.items = [

@@ -51,7 +51,7 @@ function browserProps(projects: Project[]) {
 		onimportjson: vi.fn(async () => undefined),
 		onimportbundle: vi.fn(async () => undefined),
 		onopen: vi.fn(),
-		onrename: vi.fn(async () => undefined),
+		onupdate: vi.fn(async () => null),
 		onduplicate: vi.fn(async () => undefined),
 		onexportjson: vi.fn(async () => undefined),
 		onexportbundle: vi.fn(async () => undefined),
@@ -81,8 +81,8 @@ it('keeps project search and compact actions usable at 320 pixels', async () => 
 
 	const search = screen.getByRole('textbox', { name: 'Search projects' });
 	await search.fill('alpha');
-	await expect.element(screen.getByText('Alpha launch')).toBeVisible();
-	await expect.element(screen.getByText('Beta update')).not.toBeInTheDocument();
+	await expect.element(screen.getByText('Alpha launch', { exact: true })).toBeVisible();
+	await expect.element(screen.getByText('Beta update', { exact: true })).not.toBeInTheDocument();
 	await search.fill('');
 	await page.screenshot({
 		element: screen.container,
@@ -101,6 +101,125 @@ it('keeps project search and compact actions usable at 320 pixels', async () => 
 	await screen.getByRole('button', { name: 'Import project' }).click();
 	await expect.element(screen.getByRole('menuitem', { name: 'Import bundle' })).toBeVisible();
 	expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+	await settleUnmount(screen.unmount);
+});
+
+it('opens project actions from right click without opening the project', async () => {
+	const props = browserProps([project('alpha', 'Alpha launch', 100)]);
+	const screen = await render(ProjectBrowser, props);
+	const projectButton = screen.getByRole('button', { name: /^16:9 Alpha launch/ }).element();
+
+	projectButton.dispatchEvent(
+		new MouseEvent('contextmenu', {
+			bubbles: true,
+			cancelable: true,
+			clientX: 120,
+			clientY: 80
+		})
+	);
+
+	await expect.element(screen.getByRole('menuitem', { name: 'Edit project' })).toBeVisible();
+	expect(props.onopen).not.toHaveBeenCalled();
+	await screen.getByRole('menuitem', { name: 'Duplicate' }).click();
+	expect(props.onduplicate).toHaveBeenCalledWith(expect.objectContaining({ id: 'alpha' }));
+});
+
+it('creates a project from a compact canvas preset at 320 pixels', async () => {
+	await page.viewport(320, 760);
+	const oncreate = vi.fn(async () => true);
+	const screen = await render(ProjectBrowser, {
+		...browserProps([]),
+		oncreate
+	});
+	screen.container.style.width = '320px';
+	screen.container.style.padding = '16px';
+
+	await screen.getByRole('button', { name: 'New project' }).click();
+	await screen.getByRole('button', { name: /Shorts, TikTok and Reels.*1080.*1920/ }).click();
+	await screen.getByRole('textbox', { name: 'Project name' }).fill('Launch vertical');
+	await page.screenshot({
+		element: screen.container,
+		path: '../../../../.svelte-kit/openpost-project-create-phone.png'
+	});
+	await screen.getByRole('button', { name: 'Create' }).click();
+
+	expect(oncreate).toHaveBeenCalledWith('Launch vertical', {
+		width: 1080,
+		height: 1920,
+		fps: 30
+	});
+	expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+	await settleUnmount(screen.unmount);
+});
+
+it('edits all project details, keeps failures visible, and fits at 320 pixels', async () => {
+	await page.viewport(320, 760);
+	const source = project('alpha', 'Alpha launch', 100);
+	const onupdate = vi
+		.fn()
+		.mockResolvedValueOnce('Workspace write failed.')
+		.mockResolvedValueOnce(null);
+	const screen = await render(ProjectBrowser, {
+		...browserProps([source]),
+		onupdate
+	});
+	screen.container.style.width = '320px';
+	screen.container.style.overflow = 'hidden';
+
+	await expect.element(screen.getByText('Alpha launch campaign')).toBeVisible();
+	await screen.getByRole('button', { name: 'Actions for Alpha launch' }).click();
+	await screen.getByRole('menuitem', { name: 'Edit project' }).click();
+	const dialog = screen.getByRole('dialog');
+	await expect.element(dialog).toBeVisible();
+	await dialog.getByRole('textbox', { name: 'Project name' }).fill('Vertical launch');
+	await dialog.getByRole('textbox', { name: 'Description' }).fill('Approved social cut');
+	await dialog.getByRole('spinbutton', { name: 'Width' }).fill('1080');
+	await dialog.getByRole('spinbutton', { name: 'Height' }).fill('1920');
+	await dialog.getByRole('button', { name: 'Frame rate' }).click();
+	await page.getByRole('option', { name: '60 fps' }).click();
+	await dialog.getByRole('button', { name: 'Save changes' }).click();
+
+	await expect.element(dialog.getByText('Workspace write failed.')).toBeVisible();
+	expect(onupdate).toHaveBeenCalledWith(source, {
+		name: 'Vertical launch',
+		description: 'Approved social cut',
+		metadata: { width: 1080, height: 1920, fps: 60 },
+		duration: 0
+	});
+	expect(dialog.element().scrollWidth).toBeLessThanOrEqual(dialog.element().clientWidth);
+	expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+	await page.screenshot({
+		path: '../../../../.svelte-kit/openpost-project-details-phone.png'
+	});
+
+	await dialog.getByRole('button', { name: 'Save changes' }).click();
+	await expect.element(dialog).not.toBeInTheDocument();
+	expect(onupdate).toHaveBeenCalledTimes(2);
+	await settleUnmount(screen.unmount);
+});
+
+it('creates a project with custom canvas settings', async () => {
+	const oncreate = vi.fn(async () => true);
+	const screen = await render(ProjectBrowser, {
+		...browserProps([]),
+		oncreate
+	});
+
+	await screen.getByRole('button', { name: 'New project' }).click();
+	await screen.getByRole('button', { name: /Custom/ }).click();
+	await screen.getByRole('spinbutton', { name: 'Width' }).fill('200');
+	await expect.element(screen.getByRole('button', { name: 'Create' })).toBeDisabled();
+	await screen.getByRole('spinbutton', { name: 'Width' }).fill('2048');
+	await screen.getByRole('spinbutton', { name: 'Height' }).fill('858');
+	await screen.getByRole('button', { name: 'Frame rate: 30 fps' }).click();
+	await screen.getByRole('option', { name: '24 fps' }).click();
+	await screen.getByRole('button', { name: 'Create' }).click();
+
+	expect(oncreate).toHaveBeenCalledWith('', {
+		width: 2048,
+		height: 858,
+		fps: 24
+	});
 	await settleUnmount(screen.unmount);
 });
 
@@ -165,8 +284,8 @@ it('filters project metadata and completes restore and permanent-delete flows', 
 	await expect.element(screen.getByText('1:05 long')).toBeVisible();
 	await screen.getByText('All resolutions').click();
 	await screen.getByRole('option', { name: '1280×720' }).click();
-	await expect.element(screen.getByText('Beta update')).toBeVisible();
-	await expect.element(screen.getByText('Alpha launch')).not.toBeInTheDocument();
+	await expect.element(screen.getByText('Beta update', { exact: true })).toBeVisible();
+	await expect.element(screen.getByText('Alpha launch', { exact: true })).not.toBeInTheDocument();
 
 	await screen.getByRole('button', { name: /Trash/ }).click();
 	await page.screenshot({

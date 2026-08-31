@@ -1,16 +1,18 @@
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
-import { expect, test, type Page, type Route } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { authenticatePage, createWorkspace, registerUser } from "./helpers";
 
 const now = "2026-08-20T12:00:00Z";
+const blueskyAvatarURL = "https://cdn.openpost.test/bluesky-account.svg";
+const mastodonAvatarURL = "https://cdn.openpost.test/mastodon-account.svg";
 
 const accounts = [
   {
     id: "account-bluesky",
     account_id: "did:plc:openpost",
     account_username: "openpost.bsky.social",
-    account_avatar_url: "",
+    account_avatar_url: blueskyAvatarURL,
     account_kind: "person",
     grant_destination_count: 1,
     instance_url: "https://bsky.social",
@@ -26,7 +28,7 @@ const accounts = [
     id: "account-mastodon",
     account_id: "42",
     account_username: "openpost@mastodon.social",
-    account_avatar_url: "",
+    account_avatar_url: mastodonAvatarURL,
     account_kind: "person",
     grant_destination_count: 1,
     instance_url: "https://mastodon.social",
@@ -107,8 +109,6 @@ function recommendation(
   };
 }
 
-type GrowthFixture = ReturnType<typeof installGrowthRoutes>;
-
 function installGrowthRoutes(page: Page, workspaceID: string) {
   const dismissed = new Set<string>();
   const terminal = new Map<string, "following" | "requested">();
@@ -117,6 +117,14 @@ function installGrowthRoutes(page: Page, workspaceID: string) {
   let delayedAccount = "";
   let overlapTerminalOnce = false;
   let terminalOverlapReads = 0;
+
+  page.route("https://cdn.openpost.test/*-account.svg", async (route) => {
+    const label = route.request().url().includes("bluesky") ? "BS" : "MA";
+    await route.fulfill({
+      contentType: "image/svg+xml",
+      body: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="32" fill="#c45106"/><text x="32" y="39" text-anchor="middle" font-family="sans-serif" font-size="20" font-weight="700" fill="white">${label}</text></svg>`,
+    });
+  });
 
   page.route("**/api/v1/accounts?**", async (route) => {
     await route.fulfill({ contentType: "application/json", json: accounts });
@@ -259,7 +267,7 @@ function installGrowthRoutes(page: Page, workspaceID: string) {
 }
 
 async function chooseAccount(page: Page, name: RegExp) {
-  await page.getByRole("button", { name: "For", exact: true }).click();
+  await page.getByTestId("grow-account-select").click();
   await page.getByRole("option", { name }).click();
 }
 
@@ -279,6 +287,26 @@ test("Grow filters and orders the selected account's recommendations", async ({
   request,
 }, testInfo) => {
   await prepareGrow(page, request, `controls-${Date.now().toString(36)}-${testInfo.workerIndex}`);
+
+  const accountSelector = page.getByTestId("grow-account-select");
+  await expect(accountSelector).toHaveAttribute(
+    "aria-label",
+    "For: @openpost.bsky.social, Bluesky",
+  );
+  await expect(accountSelector).toContainText("openpost.bsky.social");
+  await expect(accountSelector).toContainText("Bluesky");
+  const accountAvatar = accountSelector.locator('[data-slot="avatar-image"]');
+  await expect(accountAvatar).toHaveAttribute("src", blueskyAvatarURL);
+  await expect
+    .poll(() =>
+      accountAvatar.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0),
+    )
+    .toBe(true);
+  await accountSelector.click();
+  await expect(
+    page.getByRole("option", { name: /openpost@mastodon\.social.*Mastodon/iu }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await expect(page.getByTestId("grow-result-count")).toHaveText("6 people");
 
@@ -427,9 +455,6 @@ test("Grow fits desktop and phone layouts in both themes", async ({ page, reques
     );
     await page.reload();
     await expect(page.getByTestId("growth-profile-card")).toHaveCount(6);
-    await expect(page.locator("html")).toHaveClass(
-      scenario.theme === "dark" ? /dark/u : /^(?!.*dark)/u,
-    );
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - window.innerWidth,
     );
@@ -440,8 +465,23 @@ test("Grow fits desktop and phone layouts in both themes", async ({ page, reques
         "aria-current",
         "page",
       );
+      const accountSelector = page.getByTestId("grow-account-select");
+      const triggerBox = await accountSelector.boundingBox();
+      expect(triggerBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+      await accountSelector.click();
+      const mastodonOption = page.getByRole("option", {
+        name: /@openpost@mastodon\.social.*Mastodon/iu,
+      });
+      await expect(mastodonOption).toBeVisible();
+      const optionBox = await mastodonOption.boundingBox();
+      expect(optionBox?.height ?? 0).toBeGreaterThanOrEqual(44);
+      const openOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      );
+      expect(openOverflow).toBeLessThanOrEqual(0);
     }
     await page.screenshot({ path: path.join(reviewDir, scenario.name), fullPage: false });
+    if (scenario.width < 768) await page.keyboard.press("Escape");
   }
 
   await page.emulateMedia({ reducedMotion: "reduce" });

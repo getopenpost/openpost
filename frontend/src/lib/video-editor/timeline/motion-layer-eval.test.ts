@@ -12,6 +12,8 @@ const anchor: ResolvedMotionTransform = {
 	y: 50,
 	width: 200,
 	height: 100,
+	scaleX: 1,
+	scaleY: 1,
 	rotation: 10,
 	opacity: 1
 };

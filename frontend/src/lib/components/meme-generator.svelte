@@ -51,13 +51,15 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		language?: string;
 		initialIdea?: string;
 		initialTone?: MemeTone;
+		initialCandidate?: MemeSuggestionCandidate;
+		initialPreview?: string;
 		parentMediaId?: string;
 		api?: MemeGeneratorAPI;
 		onPickOverlay?: (
 			index: number,
 			current: MemeOverlaySelection | null
 		) => MemeOverlaySelection | null | Promise<MemeOverlaySelection | null>;
-		onAttach: (result: MemeRenderResult) => void | Promise<void>;
+		onAttach: (result: MemeRenderResult) => void | boolean | Promise<void | boolean>;
 	}
 
 	let {
@@ -65,6 +67,8 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 		language = 'en',
 		initialIdea = '',
 		initialTone = 'balanced',
+		initialCandidate,
+		initialPreview = '',
 		parentMediaId = '',
 		api = memeGeneratorAPI,
 		onPickOverlay,
@@ -154,6 +158,16 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 	onMount(() => {
 		idea = initialIdea;
 		tone = initialTone;
+		if (initialCandidate) {
+			const key = candidateKey(initialCandidate);
+			suggestions = [initialCandidate];
+			hasRequestedSuggestions = true;
+			if (initialPreview) {
+				candidatePreviews = { [key]: initialPreview };
+				candidatePreviewStates = { [key]: 'ready' };
+			}
+			selectCandidate(initialCandidate);
+		}
 		void loadTemplates('');
 	});
 
@@ -689,7 +703,11 @@ FORM: Operate-mode extension of the established composer, using a responsive wor
 			if (controller.signal.aborted) return;
 			pendingAttachment = result;
 			try {
-				await onAttach(result);
+				const attachmentAccepted = await onAttach(result);
+				if (attachmentAccepted === false) {
+					editorError = m.meme_generator_attach_failed();
+					return;
+				}
 			} catch (cause) {
 				if (isAbortError(cause)) return;
 				editorError = m.meme_generator_attach_failed();

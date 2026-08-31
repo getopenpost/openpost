@@ -1,6 +1,11 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { expectNoSeriousAccessibilityViolations } from "./accessibility";
-import { password, routeBrowserRegistration } from "./helpers";
+import {
+  clickComposerDeliveryAction,
+  composerDeliveryAction,
+  password,
+  routeBrowserRegistration,
+} from "./helpers";
 
 const appPort = Number(process.env.OPENPOST_APP_E2E_PORT ?? 18180);
 const boundaryURL = `http://127.0.0.1:${appPort + 12}`;
@@ -194,12 +199,8 @@ test("signup through Activation is one resumable, accessible browser journey", a
   await expect(page).toHaveURL(new RegExp(`workspace_id=${welcome.workspace_id}`), {
     timeout: 15_000,
   });
-  if (new URL(page.url()).pathname === "/accounts/setup") {
-    await expect(page.getByRole("heading", { name: "Set up your new destinations" })).toBeVisible();
-    await page.getByRole("button", { name: "Keep all off" }).click();
-    await expect.poll(() => new URL(page.url()).pathname).toBe("/");
-    await expect(page).toHaveURL(new RegExp(`workspace_id=${welcome.workspace_id}`));
-  }
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/");
+  await expect(page).toHaveURL(new RegExp(`workspace_id=${welcome.workspace_id}`));
   await expect(
     page.getByText("Composer ready. The requested destination is selected."),
   ).toBeVisible();
@@ -217,7 +218,8 @@ test("signup through Activation is one resumable, accessible browser journey", a
       "This first publication is intentionally much longer than the configured Mastodon instance permits for one status.",
     );
   await expect(page.getByText("113/80", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Publish now" })).toBeDisabled();
+  await expect(await composerDeliveryAction(page, "Publish Now")).toBeDisabled();
+  await page.keyboard.press("Escape");
   await expectNoSeriousAccessibilityViolations(page);
 
   const publishResponsePromise = page.waitForResponse(
@@ -226,8 +228,9 @@ test("signup through Activation is one resumable, accessible browser journey", a
       response.request().method() === "POST",
   );
   await page.getByLabel("Post text").fill("A first useful publication");
-  await expect(page.getByRole("button", { name: "Publish now" })).toBeEnabled();
-  await page.getByRole("button", { name: "Publish now" }).click();
+  await expect(await composerDeliveryAction(page, "Publish Now")).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await clickComposerDeliveryAction(page, "Publish Now");
   const publishResponse = await publishResponsePromise;
   expect(publishResponse.ok(), await publishResponse.text()).toBeTruthy();
   const published = (await publishResponse.json()) as {

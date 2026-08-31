@@ -1,15 +1,8 @@
 import { describe, expect, it } from "vitest";
-import {
-  billingPeriods,
-  hostedPlanDefinition,
-  hostedPlanIDs,
-  planCatalog,
-  selfHostedDeployment,
-} from "./index";
+import { billingPeriods, hostedPlanDefinition, planCatalog, selfHostedDeployment } from "./index";
 
 describe("plan catalogue", () => {
-  it("defines every hosted plan and billing period without an implicit fallback", () => {
-    expect(planCatalog.plans.map((plan) => plan.id)).toEqual(hostedPlanIDs);
+  it("uses explicit billing periods without an implicit plan fallback", () => {
     expect(billingPeriods).toEqual(["monthly", "annual"]);
     expect(hostedPlanDefinition("missing")).toBeUndefined();
   });

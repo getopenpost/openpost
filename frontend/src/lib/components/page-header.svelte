@@ -13,6 +13,8 @@
 		actions?: Snippet;
 		loading?: boolean;
 		loadingActionCount?: number;
+		contentClass?: string;
+		titleClass?: string;
 		class?: string;
 	}
 
@@ -25,6 +27,8 @@
 		actions,
 		loading = false,
 		loadingActionCount = 2,
+		contentClass,
+		titleClass,
 		class: className
 	}: Props = $props();
 
@@ -41,7 +45,7 @@
 	data-testid="page-header"
 	class={cn('page-header flex min-w-0 flex-col gap-4', className)}
 >
-	<div class="min-w-0">
+	<div class={cn('min-w-0', contentClass)}>
 		{#if eyebrow}
 			<div class="mb-1 flex items-center gap-2 text-xs font-medium text-muted-foreground">
 				{#if Icon}
@@ -54,7 +58,7 @@
 			{#if Icon && !eyebrow}
 				<Icon class="size-5 shrink-0 text-primary" />
 			{/if}
-			<span class="min-w-0 break-words">{title}</span>
+			<span class={cn('min-w-0 break-words', titleClass)}>{title}</span>
 		</h1>
 		{#if description}
 			<p class="mt-1 max-w-2xl text-sm leading-5 text-muted-foreground">{description}</p>

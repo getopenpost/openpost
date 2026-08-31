@@ -84,6 +84,12 @@ function drawSpiralCutout(
 	height: number,
 	progress: number
 ): void {
+	const p = clamp01(progress);
+	if (p <= 0) return;
+	if (p >= 1) {
+		ctx.clearRect(0, 0, width, height);
+		return;
+	}
 	const cx = width / 2;
 	const cy = height / 2;
 	const maxRadius = Math.sqrt(width * width + height * height) * 0.58;
@@ -94,7 +100,7 @@ function drawSpiralCutout(
 	ctx.globalCompositeOperation = 'destination-out';
 	ctx.lineCap = 'round';
 	ctx.lineJoin = 'round';
-	ctx.lineWidth = getSpiralStrokeWidth(width, height, progress);
+	ctx.lineWidth = getSpiralStrokeWidth(width, height, p);
 	ctx.beginPath();
 	for (let index = 0; index <= steps; index += 1) {
 		const t = index / steps;
@@ -118,10 +124,16 @@ function drawXCutout(
 	height: number,
 	progress: number
 ): void {
+	const p = clamp01(progress);
+	if (p <= 0) return;
+	if (p >= 1) {
+		ctx.clearRect(0, 0, width, height);
+		return;
+	}
 	ctx.save();
 	ctx.globalCompositeOperation = 'destination-out';
 	ctx.lineCap = 'butt';
-	ctx.lineWidth = getXStrokeWidth(width, height, progress);
+	ctx.lineWidth = getXStrokeWidth(width, height, p);
 	ctx.beginPath();
 	ctx.moveTo(0, 0);
 	ctx.lineTo(width, height);

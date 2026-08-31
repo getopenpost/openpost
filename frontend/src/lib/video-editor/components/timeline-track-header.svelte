@@ -3,7 +3,13 @@
 	import { Portal } from 'bits-ui';
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import { Input } from '$lib/components/ui/input';
 	import type { TimelineTrack } from '$lib/video-editor/project/types';
+	import {
+		eventMatchesShortcut,
+		formatShortcutAriaKey
+	} from '$lib/video-editor/settings/keyboard-shortcuts';
+	import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 	import EyeIcon from '@lucide/svelte/icons/eye';
 	import EyeOffIcon from '@lucide/svelte/icons/eye-off';
 	import ChevronDownIcon from '@lucide/svelte/icons/chevron-down';
@@ -82,6 +88,16 @@
 	let moreMenuContent = $state<HTMLDivElement | null>(null);
 	let moreMenuLeft = $state(0);
 	let moreMenuTop = $state(0);
+	const nameAriaKeyShortcuts = $derived(
+		[
+			keyboardShortcuts.bindings.TRACK_RENAME,
+			keyboardShortcuts.bindings.TRACK_MOVE_UP,
+			keyboardShortcuts.bindings.TRACK_MOVE_DOWN
+		]
+			.filter(Boolean)
+			.map((binding) => formatShortcutAriaKey(binding))
+			.join(' ')
+	);
 
 	function runMoreAction(action: () => void): void {
 		moreOpen = false;
@@ -131,13 +147,14 @@
 	}
 
 	function nameKeydown(event: KeyboardEvent): void {
-		if (event.key === 'F2') {
+		const bindings = keyboardShortcuts.bindings;
+		if (eventMatchesShortcut(event, bindings.TRACK_RENAME)) {
 			event.preventDefault();
 			void startRename();
-		} else if (event.altKey && event.key === 'ArrowUp') {
+		} else if (eventMatchesShortcut(event, bindings.TRACK_MOVE_UP)) {
 			event.preventDefault();
 			onmoveup();
-		} else if (event.altKey && event.key === 'ArrowDown') {
+		} else if (eventMatchesShortcut(event, bindings.TRACK_MOVE_DOWN)) {
 			event.preventDefault();
 			onmovedown();
 		}
@@ -180,10 +197,10 @@
 			<FolderIcon class="size-3.5 shrink-0 text-[oklch(0.76_0.14_45)]" />
 		{/if}
 		{#if editingName}
-			<input
-				bind:this={nameInput}
+			<Input
+				bind:ref={nameInput}
 				bind:value={nameDraft}
-				class="h-5 min-w-0 flex-1 rounded border border-[oklch(0.66_0.14_45)] bg-[oklch(0.12_0.008_55)] px-1 text-[11px] text-white outline-none"
+				class="h-5 min-w-0 flex-1 rounded border border-[oklch(0.66_0.14_45)] bg-[oklch(0.12_0.008_55)] px-1 text-[11px] text-white shadow-none focus-visible:ring-0"
 				aria-label={m.video_editor_track_rename()}
 				onblur={() => finishRename(true)}
 				onkeydown={(event) => {
@@ -196,7 +213,7 @@
 				type="button"
 				class="min-w-0 flex-1 truncate rounded-sm text-left text-[11px] font-medium text-white/90 focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
 				aria-pressed={selected}
-				aria-keyshortcuts="F2 Alt+ArrowUp Alt+ArrowDown"
+				aria-keyshortcuts={nameAriaKeyShortcuts || undefined}
 				data-track-primary-control
 				title={m.video_editor_track_name_hint({ name: track.name })}
 				onclick={onselect}

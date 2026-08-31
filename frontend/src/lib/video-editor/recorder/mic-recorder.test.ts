@@ -4,7 +4,8 @@ import {
 	createBestEffortAudioContext,
 	micRecordingExtension,
 	microphoneConstraints,
-	pickMicRecorderMimeType
+	pickMicRecorderMimeType,
+	startMicLevelMeter
 } from './mic-recorder';
 
 class FakeMediaRecorder extends EventTarget {
@@ -151,7 +152,6 @@ describe('MicRecorder', () => {
 		expect(micRecordingExtension('audio/mp4')).toBe('m4a');
 		expect(micRecordingExtension('')).toBe('webm');
 		expect(microphoneConstraints({})).toEqual({
-			deviceId: undefined,
 			echoCancellation: true,
 			noiseSuppression: true,
 			autoGainControl: false
@@ -169,5 +169,46 @@ describe('MicRecorder', () => {
 		);
 
 		expect(createBestEffortAudioContext()).toBeNull();
+	});
+
+	it('reports RMS input level and releases every meter resource', () => {
+		const disconnectSource = vi.fn();
+		const disconnectAnalyser = vi.fn();
+		const close = vi.fn(async () => undefined);
+		const cancelAnimationFrame = vi.fn();
+		vi.stubGlobal(
+			'requestAnimationFrame',
+			vi.fn(() => 17)
+		);
+		vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
+		vi.stubGlobal(
+			'AudioContext',
+			class {
+				createMediaStreamSource() {
+					return { connect: vi.fn(), disconnect: disconnectSource };
+				}
+				createAnalyser() {
+					return {
+						fftSize: 0,
+						smoothingTimeConstant: 0,
+						getFloatTimeDomainData: (samples: Float32Array) => samples.fill(0.25),
+						disconnect: disconnectAnalyser
+					};
+				}
+				close = close;
+			}
+		);
+		const levels: number[] = [];
+		// SAFETY: The fake audio context never reads MediaStream fields in this meter lifecycle test.
+		const stop = startMicLevelMeter({} as MediaStream, (level) => levels.push(level));
+
+		expect(levels[0]).toBeCloseTo(0.75);
+		stop();
+
+		expect(levels.at(-1)).toBe(0);
+		expect(cancelAnimationFrame).toHaveBeenCalledWith(17);
+		expect(disconnectSource).toHaveBeenCalledOnce();
+		expect(disconnectAnalyser).toHaveBeenCalledOnce();
+		expect(close).toHaveBeenCalledOnce();
 	});
 });

@@ -1,5 +1,6 @@
 /** Geometry shared by preview and export. Ported from FreeCut (MIT). */
 import type { TimelineItem } from '$lib/video-editor/project/types';
+import { calculateMediaCropLayout, type CropInsets, type Rect } from './crop-layout';
 
 export interface MediaDrawGeometry {
 	centerX: number;
@@ -10,6 +11,9 @@ export interface MediaDrawGeometry {
 	sourceY: number;
 	sourceWidth: number;
 	sourceHeight: number;
+	mediaRect: Rect;
+	viewportRect: Rect;
+	featherPixels: CropInsets;
 	anchorX: number;
 	anchorY: number;
 }
@@ -75,27 +79,27 @@ export function mediaDrawGeometry(
 	const defaultHeight = sourceHeight * fit;
 	const drawWidth = Math.max(1, transform.width ?? defaultWidth);
 	const drawHeight = Math.max(1, transform.height ?? defaultHeight);
-	const crop = item.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
-	const left = clampFraction(crop.left);
-	const right = clampFraction(crop.right);
-	const top = clampFraction(crop.top);
-	const bottom = clampFraction(crop.bottom);
-	const sourceX = sourceWidth * left;
-	const sourceY = sourceHeight * top;
+	const cropLayout = calculateMediaCropLayout(
+		sourceWidth,
+		sourceHeight,
+		drawWidth,
+		drawHeight,
+		item.crop,
+		'fill'
+	);
 	return {
 		centerX: canvasWidth / 2 + (transform.x ?? 0),
 		centerY: canvasHeight / 2 + (transform.y ?? 0),
 		drawWidth,
 		drawHeight,
-		sourceX,
-		sourceY,
-		sourceWidth: Math.max(1, sourceWidth * Math.max(0.001, 1 - left - right)),
-		sourceHeight: Math.max(1, sourceHeight * Math.max(0.001, 1 - top - bottom)),
+		sourceX: 0,
+		sourceY: 0,
+		sourceWidth,
+		sourceHeight,
+		mediaRect: cropLayout.mediaRect,
+		viewportRect: cropLayout.viewportRect,
+		featherPixels: cropLayout.featherPixels,
 		anchorX: transform.anchorX ?? drawWidth / 2,
 		anchorY: transform.anchorY ?? drawHeight / 2
 	};
-}
-
-function clampFraction(value: number | undefined): number {
-	return Math.min(0.999, Math.max(0, value ?? 0));
 }

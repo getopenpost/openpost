@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GpuEffect } from './types';
 import type { TimelineItem } from '../project/types';
-import { getGpuEffectDefaultParams } from './gpu/registry';
+import { getGpuEffect, getGpuEffectDefaultParams } from './gpu/registry';
 import { colorStringToKeyframeValue } from '../timeline/color-keyframes';
 import {
 	buildEffectKeyframeProperty,
@@ -59,6 +59,47 @@ describe('effect keyframe properties', () => {
 		const customColorProperties = getAnimatableEffectPropertiesForItem(item(ascii));
 		expect(customColorProperties).toContain('effect:gpu-ascii:ascii:textColor');
 		expect(customColorProperties).not.toContain('effect:gpu-ascii:ascii:colorSaturation');
+	});
+
+	it('matches FreeCut time-control and pixel-sort animation metadata', () => {
+		const nonAnimatableTimeControls = [
+			gpuEffect('hue', 'gpu-hue-shift'),
+			gpuEffect('wave', 'gpu-trigger-wave'),
+			gpuEffect('vhs', 'gpu-vhs')
+		] as const;
+		const paramNames = ['flow', 'speed', 'speed'] as const;
+
+		for (const [index, effect] of nonAnimatableTimeControls.entries()) {
+			expect(getGpuEffectKeyframeProperty(effect, paramNames[index]!)).toBeNull();
+		}
+
+		const pixelSort = gpuEffect('sort', 'gpu-pixel-sort');
+		expect(getGpuEffectKeyframeProperty(pixelSort, 'length')).toBeNull();
+	});
+
+	it('keeps FreeCut animation and quality metadata on the owning schemas', () => {
+		const metadata = [
+			['gpu-gaussian-blur', 'samples', false, true],
+			['gpu-motion-blur', 'samples', false, true],
+			['gpu-radial-blur', 'samples', false, true],
+			['gpu-zoom-blur', 'samples', false, true],
+			['gpu-hue-shift', 'flow', false, undefined],
+			['gpu-trigger-wave', 'speed', false, undefined],
+			['gpu-grain', 'speed', false, undefined],
+			['gpu-glow', 'rings', false, true],
+			['gpu-glow', 'samplesPerRing', false, true],
+			['gpu-scanlines', 'speed', false, undefined],
+			['gpu-color-glitch', 'speed', false, undefined],
+			['gpu-block-glitch', 'speed', false, undefined],
+			['gpu-vhs', 'speed', false, undefined],
+			['gpu-pixel-sort', 'length', false, true]
+		] as const;
+
+		for (const [effectId, paramName, animatable, quality] of metadata) {
+			const schema = getGpuEffect(effectId)?.schema.find((param) => param.name === paramName);
+			expect(schema?.quality, `${effectId}:${paramName}`).toBe(quality);
+			expect(schema?.animatable, `${effectId}:${paramName}`).toBe(animatable);
+		}
 	});
 
 	it('patches the exact effect instance without changing the rest of the stack', () => {

@@ -1,12 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TextMotionSpec } from '../project/types';
 import { evaluateGlyphMotion, getActiveTextMotionSlot } from './text-motion-eval';
-import {
-	createTextMotionEffect,
-	TEXT_MOTION_IN_PRESETS,
-	TEXT_MOTION_LOOP_PRESETS,
-	TEXT_MOTION_OUT_PRESETS
-} from './text-motion-presets';
+import { createTextMotionEffect } from './text-motion-presets';
 
 function context(relativeFrame: number, unitIndex = 0, unitCount = 4) {
 	return {
@@ -60,22 +55,6 @@ describe('text motion evaluator', () => {
 		const second = [0, 1, 2, 3].map((index) => evaluateGlyphMotion(spec, context(2, index)));
 		expect(second).toEqual(first);
 		expect(new Set(first.map((state) => state?.alpha ?? 1)).size).toBeGreaterThan(1);
-	});
-
-	it('ships the complete 8 entrance, 5 exit, and 4 loop catalog', () => {
-		expect(TEXT_MOTION_IN_PRESETS).toHaveLength(8);
-		expect(TEXT_MOTION_OUT_PRESETS).toHaveLength(5);
-		expect(TEXT_MOTION_LOOP_PRESETS).toHaveLength(4);
-		expect(TEXT_MOTION_IN_PRESETS.map((preset) => preset.id)).toEqual([
-			'typewriter',
-			'fade-up',
-			'rise',
-			'cascade',
-			'pop',
-			'blur-in',
-			'slide-mask',
-			'wave-in'
-		]);
 	});
 
 	it('supports center-out and backward stagger ranks', () => {

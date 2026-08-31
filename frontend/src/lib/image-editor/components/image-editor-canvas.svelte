@@ -1596,6 +1596,7 @@
 		};
 		capturePointer(event.currentTarget, event.pointerId);
 		event.preventDefault();
+		event.stopPropagation();
 		return true;
 	}
 
@@ -1969,8 +1970,12 @@
 			startPan(event);
 			return;
 		}
-		const outsideStage = !(event.target instanceof Node) || !stageElement?.contains(event.target);
-		if (outsideStage && event.button === 0 && editor.activeTool === 'select' && !spacePressed) {
+		if (
+			event.button === 0 &&
+			editor.activeTool === 'select' &&
+			!spacePressed &&
+			!adapter?.hasInteractiveTarget(event)
+		) {
 			if (startObjectSelection(event)) return;
 		}
 		startPan(event);

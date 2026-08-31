@@ -8,8 +8,9 @@ import type {
 	TimelineTrack,
 	TimelineTransition
 } from '../project/types';
-import { commandHistory, execute } from '../timeline/commands/command-store.svelte';
+import { commandHistory, execute, executeAtomic } from '../timeline/commands/command-store.svelte';
 import { clonePropertyRuntime } from '../timeline/actions/property-runtime';
+import { ensureOpenTrackForRange } from '../timeline/actions/track-placement';
 import {
 	detachedTransformParentBinding,
 	detachTransformChildrenForRemoval
@@ -100,6 +101,71 @@ function assertCompositionCanNest(compositionId: string): SubComposition {
 	return composition;
 }
 
+export interface CreateCompositeCompositionOptions {
+	name: string;
+	width: number;
+	height: number;
+	fps: number;
+	durationInFrames: number;
+	backgroundColor?: string;
+}
+
+export type CompositeCompositionCanvasPatch = Partial<
+	Pick<SubComposition, 'width' | 'height' | 'backgroundColor'>
+>;
+
+/** Create an empty Motion composition without exposing it as an editorial sequence tab. */
+export function createCompositeComposition(options: CreateCompositeCompositionOptions): string {
+	return execute('CREATE_COMPOSITE_COMPOSITION', () => {
+		const id = crypto.randomUUID();
+		const fps = Math.round(Math.min(120, Math.max(1, options.fps)));
+		const composition: SubComposition = {
+			id,
+			name: options.name.trim() || 'Motion composition',
+			editorKind: 'composite-2d',
+			items: [],
+			tracks: [],
+			transitions: [],
+			fps,
+			width: Math.round(Math.min(7680, Math.max(1, options.width))),
+			height: Math.round(Math.min(4320, Math.max(1, options.height))),
+			durationInFrames: Math.round(Math.min(fps * 60 * 60, Math.max(1, options.durationInFrames)))
+		};
+		if (options.backgroundColor) composition.backgroundColor = options.backgroundColor;
+		sequenceStore.addComposition(composition);
+		return id;
+	});
+}
+
+export function updateCompositeCompositionCanvas(
+	compositionId: string,
+	patch: CompositeCompositionCanvasPatch
+): boolean {
+	const composition = sequenceStore.compositionById.get(compositionId);
+	if (!composition || composition.editorKind !== 'composite-2d') return false;
+	const normalized: CompositeCompositionCanvasPatch = {
+		...(patch.width !== undefined && {
+			width: Math.round(Math.min(7680, Math.max(1, patch.width)))
+		}),
+		...(patch.height !== undefined && {
+			height: Math.round(Math.min(4320, Math.max(1, patch.height)))
+		}),
+		...(patch.backgroundColor !== undefined && { backgroundColor: patch.backgroundColor })
+	};
+	if (
+		(normalized.width === undefined || normalized.width === composition.width) &&
+		(normalized.height === undefined || normalized.height === composition.height) &&
+		(normalized.backgroundColor === undefined ||
+			normalized.backgroundColor.toLowerCase() ===
+				(composition.backgroundColor ?? '#000000').toLowerCase())
+	) {
+		return false;
+	}
+	return execute('UPDATE_COMPOSITION_CANVAS', () =>
+		sequenceStore.updateComposition(compositionId, normalized)
+	);
+}
+
 function visualTrackFor(items: TimelineItem[], tracks: TimelineTrack[]): TimelineTrack | undefined {
 	const selectedTrackIds = new Set(items.map((item) => item.trackId));
 	return tracks
@@ -179,15 +245,22 @@ export interface SequenceDeletionImpact {
 }
 
 export function sequenceDeletionImpact(compositionId: string): SequenceDeletionImpact {
+	return sequenceDeletionImpactFor([compositionId]);
+}
+
+export function sequenceDeletionImpactFor(compositionIds: string[]): SequenceDeletionImpact {
 	const timeline = sequenceStore.projectTimeline();
+	const targetIds = new Set(compositionIds);
 	const rootReferenceCount = timeline.items.filter(
-		(item) => item.compositionId === compositionId
+		(item) => item.compositionId && targetIds.has(item.compositionId)
 	).length;
 	const nestedReferenceCount = (timeline.compositions ?? [])
-		.filter((composition) => composition.id !== compositionId)
+		.filter((composition) => !targetIds.has(composition.id))
 		.reduce(
 			(count, composition) =>
-				count + composition.items.filter((item) => item.compositionId === compositionId).length,
+				count +
+				composition.items.filter((item) => item.compositionId && targetIds.has(item.compositionId))
+					.length,
 			0
 		);
 	return {
@@ -200,10 +273,22 @@ export function sequenceDeletionImpact(compositionId: string): SequenceDeletionI
 export function nestSequence(compositionId: string, from = timelineStore.currentFrame): string[] {
 	return execute('NEST_SEQUENCE', () => {
 		const composition = assertCompositionCanNest(compositionId);
+		const durationInFrames = Math.max(1, composition.durationInFrames);
 		const effectiveTracks = effectiveMediaTracks(timelineStore.tracks);
-		const visualTrack = effectiveTracks
+		const preferredVisualTrack = effectiveTracks
 			.filter((track) => track.kind !== 'audio' && !track.locked)
 			.toSorted((left, right) => left.order - right.order)[0];
+		const visualTrack =
+			hasVisual(composition.items) && preferredVisualTrack
+				? ensureOpenTrackForRange({
+						kind: 'video',
+						itemType: 'composition',
+						from,
+						durationInFrames,
+						label: composition.name,
+						preferredTrackId: preferredVisualTrack.id
+					})
+				: undefined;
 		const audioTrack = effectiveTracks
 			.filter((track) => track.kind === 'audio' && !track.locked)
 			.toSorted((left, right) => right.order - left.order)[0];
@@ -316,7 +401,18 @@ export function createCompoundClip(
 					!expandedIds.has(transition.fromItemId) && !expandedIds.has(transition.toItemId)
 			)
 		);
-		const visualTrack = visualTrackFor(selected, timelineStore.tracks);
+		const preferredVisualTrack = visualTrackFor(selected, timelineStore.tracks);
+		const visualTrack =
+			hasVisual(selected) && preferredVisualTrack
+				? ensureOpenTrackForRange({
+						kind: 'video',
+						itemType: 'composition',
+						from: minFrom,
+						durationInFrames: composition.durationInFrames,
+						label: name,
+						preferredTrackId: preferredVisualTrack.id
+					})
+				: undefined;
 		const audioTrack = audioTrackFor(selected, timelineStore.tracks);
 		const linkedGroupId =
 			hasVisual(selected) && hasAudio(selected) ? crypto.randomUUID() : undefined;
@@ -545,6 +641,20 @@ export function deleteSequence(compositionId: string): boolean {
 	return execute('DELETE_SEQUENCE', () => {
 		const removed = sequenceStore.deleteCompositionAndReferences(compositionId);
 		if (removed) commandHistory.removeContext(compositionId);
+		return removed;
+	});
+}
+
+export function deleteSequences(compositionIds: string[]): string[] {
+	const availableIds = new Set(sequenceStore.compositions.map((composition) => composition.id));
+	const targets = [...new Set(compositionIds)].filter((id) => availableIds.has(id));
+	if (targets.length === 0) return [];
+	if (sequenceStore.activeSequenceId && targets.includes(sequenceStore.activeSequenceId)) {
+		if (!switchSequence(null)) return [];
+	}
+	return executeAtomic('DELETE_SEQUENCES', () => {
+		const removed = targets.filter((id) => sequenceStore.deleteCompositionAndReferences(id));
+		for (const id of removed) commandHistory.removeContext(id);
 		return removed;
 	});
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/openpost/backend/internal/memes"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/accountfeatures"
+	"github.com/openpost/backend/internal/services/aiprompts"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/auth"
@@ -36,8 +37,11 @@ import (
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationownership"
 	"github.com/openpost/backend/internal/services/passwordmail"
+	"github.com/openpost/backend/internal/services/postgeneration"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
+	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
@@ -48,6 +52,7 @@ import (
 
 type RouteDeps struct {
 	DB                           *bun.DB
+	Readiness                    *Readiness
 	AuthService                  *auth.Service
 	Authenticator                middleware.Authenticator
 	SessionService               *sessions.Service
@@ -60,6 +65,12 @@ type RouteDeps struct {
 	ImageCaptioner               imagecaption.Captioner
 	MemeProvider                 memes.Provider
 	MemeSuggester                memegeneration.Suggester
+	PostBuilder                  postgeneration.Builder
+	ContentBuilderEnabled        bool
+	ContentDiscoveryEnabled      bool
+	PublicationBuilder           *publicationbuilder.Application
+	PublicationPlanner           *publicationbuilder.Service
+	PublicationDiscovery         publicationdiscovery.Discoverer
 	PublicMediaVerifier          *publicurl.MediaVerifier
 	Entitlement                  entitlements.Service
 	TokenEncryptor               *servicecrypto.TokenEncryptor
@@ -91,6 +102,7 @@ type RouteDeps struct {
 	FeedbackService              *feedback.Service
 	IdentityService              *identity.Service
 	InstanceSettingsService      *instancesettings.Service
+	AIPromptService              *aiprompts.Service
 	AnalyticsService             *analyticsservice.Service
 	MessagingService             *messagingservice.Service
 	EngagementService            *engagementservice.Service
@@ -255,6 +267,14 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	publicationHandler.SetProviderReadiness(deps.ProviderReadinessService)
 	publicationHandler.SetTelemetry(deps.Telemetry)
 	publicationHandler.RegisterRoutes(api)
+	publicationBuildHandler := handlers.NewPublicationBuildHandler(deps.DB, deps.Authenticator, deps.PublicationBuilder)
+	publicationBuildHandler.SetPublicationApplication(publicationHandler.BuilderApplication())
+	publicationBuildHandler.SetCapabilityResolver(capabilityResolverHandler)
+	publicationBuildHandler.SetPlanner(deps.PublicationPlanner)
+	publicationBuildHandler.RegisterRoutes(api)
+	handlers.NewPublicationDiscoveryHandler(deps.DB, deps.Authenticator, deps.PublicationDiscovery).RegisterRoutes(api)
+	handlers.NewVoiceProfileHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewPostBuilderHandler(deps.DB, deps.Authenticator, deps.PostBuilder).RegisterRoutes(api)
 	handlers.NewSocialSetHandler(deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewRepostHandler(deps.DB, deps.RepostService, deps.Authenticator).RegisterRoutes(api)
 	commentHandler := handlers.NewCommentHandler(deps.DB, deps.Authenticator, deps.Providers, deps.TokenEncryptor)
@@ -275,6 +295,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		deps.FrontendURL,
 	).RegisterRoutes(api)
 	handlers.NewInstanceSettingsHandler(deps.InstanceSettingsService, deps.DB, deps.Authenticator).RegisterRoutes(api)
+	handlers.NewAIPromptHandler(deps.AIPromptService, deps.DB, deps.Authenticator).RegisterRoutes(api)
 	handlers.NewUpdateStatusHandler(deps.DB, deps.Authenticator, deps.UpdateStatusService, deps.InstanceSettingsService).RegisterRoutes(api)
 
 	mcpOAuthHandler := deps.MCPOAuthHandler
@@ -397,7 +418,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	engagementMessagingHandler.SetFeatureGate(afhService)
 	growthHandler.SetFeatureGate(afhService)
 
-	RegisterHealth(api, deps.DB)
+	RegisterHealth(api, deps.DB, deps.Readiness, deps.MediaStorage)
 	RegisterVersion(api, BuildInfo{
 		Version:  deps.AppVersion,
 		Revision: deps.AppRevision,
@@ -460,7 +481,7 @@ func RegisterVersion(api huma.API, info BuildInfo) {
 	})
 }
 
-func RegisterHealth(api huma.API, db *bun.DB) {
+func RegisterHealth(api huma.API, db *bun.DB, readiness *Readiness, storage mediastore.BlobStorage) {
 	huma.Register(api, huma.Operation{
 		OperationID: "health-check",
 		Method:      http.MethodGet,
@@ -492,8 +513,12 @@ func RegisterHealth(api huma.API, db *bun.DB) {
 		Body struct {
 			Status   string `json:"status" doc:"Readiness status"`
 			Database string `json:"database" doc:"Database dependency status"`
+			Storage  string `json:"storage,omitempty" doc:"Required object storage dependency status"`
 		}
 	}, error) {
+		if !readiness.IsReady() {
+			return nil, huma.NewError(http.StatusServiceUnavailable, "process is draining")
+		}
 		if db == nil {
 			return nil, huma.NewError(http.StatusServiceUnavailable, "database is not ready")
 		}
@@ -501,14 +526,26 @@ func RegisterHealth(api huma.API, db *bun.DB) {
 		if err := db.NewSelect().ColumnExpr("1").Scan(ctx, &one); err != nil {
 			return nil, huma.NewError(http.StatusServiceUnavailable, "database is not ready")
 		}
+		remoteStorageReady := false
+		if storage != nil && storage.Driver() == "s3" {
+			checker, ok := storage.(mediastore.ReadinessStorage)
+			if !ok || checker.CheckReady(ctx) != nil {
+				return nil, huma.NewError(http.StatusServiceUnavailable, "object storage is not ready")
+			}
+			remoteStorageReady = true
+		}
 		resp := &struct {
 			Body struct {
 				Status   string `json:"status" doc:"Readiness status"`
 				Database string `json:"database" doc:"Database dependency status"`
+				Storage  string `json:"storage,omitempty" doc:"Required object storage dependency status"`
 			}
 		}{}
 		resp.Body.Status = "ready"
 		resp.Body.Database = "ok"
+		if remoteStorageReady {
+			resp.Body.Storage = "ok"
+		}
 		return resp, nil
 	})
 }

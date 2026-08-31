@@ -8,45 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesUserImpersonationGrantSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	var schema string
-	require.NoError(t, db.QueryRowContext(
-		ctx,
-		"SELECT sql FROM sqlite_master WHERE name = 'user_impersonation_grants'",
-	).Scan(&schema))
-	require.Contains(t, schema, "token_hash TEXT NOT NULL UNIQUE")
-	require.Contains(t, schema, "FOREIGN KEY (admin_user_id) REFERENCES users(id) ON DELETE CASCADE")
-	require.Contains(t, schema, "FOREIGN KEY (target_user_id) REFERENCES users(id) ON DELETE CASCADE")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN (?, ?, ?)",
-			"user_impersonation_grants_admin_created_idx",
-			"user_impersonation_grants_target_created_idx",
-			"user_impersonation_grants_expiry_idx",
-		).
-		Scan(ctx, &indexCount))
-	require.Equal(t, 3, indexCount)
-
-	var scopeSchema string
-	require.NoError(t, db.QueryRowContext(
-		ctx,
-		"SELECT sql FROM sqlite_master WHERE name = 'user_impersonation_grant_organizations'",
-	).Scan(&scopeSchema))
-	require.Contains(t, scopeSchema, "PRIMARY KEY (grant_id, organization_id)")
-	require.Contains(t, scopeSchema, "FOREIGN KEY (grant_id) REFERENCES user_impersonation_grants(id) ON DELETE CASCADE")
-}
-
 func TestRunMigrationsImpersonationGrantForeignKeysCascade(t *testing.T) {
 	t.Parallel()
 

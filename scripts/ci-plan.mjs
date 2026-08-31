@@ -34,6 +34,17 @@ export function planCI(files, manifest, { full = false } = {}) {
     marketing: full || delivery || touched.has("marketing") || touched.has("shared-assets"),
     documentation: full || delivery || touched.has("documentation") || touched.has("shared-assets"),
     cli: matches(["cli/"], ["go.work", "go.work.sum"]),
+    n8n: matches(
+      ["packages/n8n-nodes-openpost/"],
+      [
+        "bun.lock",
+        "package.json",
+        "scripts/generate-selected-automation-contract.mjs",
+        "scripts/generate-selected-automation-contract.test.mjs",
+        "scripts/n8n-package-release.mjs",
+        "scripts/n8n-package-release.test.mjs",
+      ],
+    ),
     security: matches(
       ["backend/", "cli/", "frontend/", "mobile/", "packages/"],
       ["bun.lock", "package.json", "go.work", "go.work.sum"],

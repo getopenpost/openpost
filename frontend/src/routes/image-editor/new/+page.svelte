@@ -34,6 +34,7 @@
 	let enabled = $state(true);
 	let presets = $state<ImageEditorPreset[]>([]);
 	let templates = $state<ImageEditorTemplate[]>([]);
+	let showAllTemplates = $state(false);
 	let customWidth = $state(1080);
 	let customHeight = $state(1080);
 	let workspaceID = $derived(
@@ -45,6 +46,18 @@
 	let sourceWidth = $derived(Number($page.url.searchParams.get('width') || 0));
 	let sourceHeight = $derived(Number($page.url.searchParams.get('height') || 0));
 	let initialAction = $derived($page.url.searchParams.get('action') || '');
+	const featuredTemplateIDs = new Set([
+		'builtin-quick-announcement',
+		'builtin-photo-caption',
+		'builtin-quote-card',
+		'builtin-how-to-carousel',
+		'builtin-story-prompt',
+		'builtin-linkedin-insight'
+	]);
+	let featuredTemplates = $derived(
+		templates.filter((template) => featuredTemplateIDs.has(template.id))
+	);
+	let visibleTemplates = $derived(showAllTemplates ? templates : featuredTemplates);
 
 	onMount(() => {
 		void initialize();
@@ -234,28 +247,6 @@
 				return template.name;
 		}
 	}
-
-	function templateCategory(template: ImageEditorTemplate): string {
-		if (!template.built_in) return template.category;
-		switch (template.category) {
-			case 'Announcements':
-				return m.image_editor_template_category_announcements();
-			case 'Photo-led':
-				return m.image_editor_template_category_photo();
-			case 'Quotes':
-				return m.image_editor_template_category_quotes();
-			case 'Education':
-				return m.image_editor_template_category_education();
-			case 'Stories':
-				return m.image_editor_template_category_stories();
-			case 'Professional':
-				return m.image_editor_template_category_professional();
-			case 'Thumbnails':
-				return m.image_editor_template_category_thumbnails();
-			default:
-				return template.category;
-		}
-	}
 </script>
 
 <svelte:head><title>{m.image_editor_new_design()} · {m.image_editor_title()}</title></svelte:head>
@@ -270,13 +261,10 @@
 			onclick={goBack}
 			aria-label={returnToken ? m.editor_back_to_post() : m.common_back()}><ArrowLeftIcon /></Button
 		>
-		<div class="ml-2">
-			<h1 class="text-sm font-semibold">{m.image_editor_new_design()}</h1>
-			<p class="text-xs text-muted-foreground">{m.image_editor_title()}</p>
-		</div>
+		<h1 class="ml-2 text-sm font-semibold">{m.image_editor_new_design()}</h1>
 	</header>
 
-	<main class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+	<main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
 		{#if loading}
 			<div class="flex min-h-[60dvh] items-center justify-center text-muted-foreground">
 				<LoaderIcon class="mr-2 size-5 animate-spin" />
@@ -285,7 +273,7 @@
 		{:else if !enabled}
 			<div class="mx-auto max-w-lg rounded-2xl border bg-card p-8 text-center">
 				<PaletteIcon class="mx-auto mb-4 size-8 text-muted-foreground" />
-				<h1 class="text-xl font-semibold">{m.image_editor_not_enabled()}</h1>
+				<h2 class="text-xl font-semibold">{m.image_editor_not_enabled()}</h2>
 				<p class="mt-2 text-sm text-muted-foreground">
 					{m.image_editor_not_enabled_body()}
 				</p>
@@ -294,29 +282,67 @@
 				>
 			</div>
 		{:else}
-			<div class="mb-8 max-w-2xl">
-				<p class="text-sm font-medium text-primary">{m.image_editor_title()}</p>
-				<h1 class="mt-1 text-3xl font-semibold tracking-tight">{m.image_editor_choose_format()}</h1>
-				<p class="mt-2 text-muted-foreground">
-					{m.image_editor_choose_format_body()}
-				</p>
-			</div>
-
 			{#if error}
 				<div class="mb-5 rounded-lg bg-destructive/10 p-3 text-sm text-destructive" role="alert">
 					{error}
 				</div>
 			{/if}
 
-			<section aria-labelledby="preset-heading">
-				<h2 id="preset-heading" class="mb-3 text-sm font-semibold">
+			<section aria-labelledby="templates-heading">
+				<div class="mb-3">
+					<h2 id="templates-heading" class="text-base font-semibold">
+						{m.image_editor_starter_templates()}
+					</h2>
+					<p class="mt-0.5 text-sm text-muted-foreground">
+						{m.image_editor_starter_templates_body()}
+					</p>
+				</div>
+				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+					{#each visibleTemplates as template (template.id)}
+						<button
+							type="button"
+							class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
+							onclick={() => createTemplate(template)}
+							disabled={Boolean(creating)}
+						>
+							<div class="mb-3 aspect-[4/3] overflow-hidden rounded-lg border">
+								<TemplatePreview
+									document={template.document}
+									label={templateName(template)}
+									compact
+								/>
+							</div>
+							<div class="flex items-center gap-2">
+								<span class="min-w-0 flex-1 truncate text-sm font-medium"
+									>{templateName(template)}</span
+								>
+								{#if creating === template.id}<LoaderIcon class="size-4 animate-spin" />{/if}
+							</div>
+						</button>
+					{/each}
+				</div>
+				{#if templates.length > featuredTemplates.length}
+					<Button
+						class="mt-4"
+						variant="outline"
+						onclick={() => (showAllTemplates = !showAllTemplates)}
+					>
+						{showAllTemplates
+							? m.image_editor_show_fewer_templates()
+							: m.image_editor_show_all_templates({ count: templates.length })}
+					</Button>
+				{/if}
+			</section>
+
+			<section class="mt-10" aria-labelledby="preset-heading">
+				<h2 id="preset-heading" class="mb-3 text-base font-semibold">
 					{m.image_editor_social_presets()}
 				</h2>
 				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
 					{#each presets as preset (preset.key)}
 						<button
 							type="button"
-							class="group relative rounded-xl border bg-card p-3 text-left transition after:absolute after:inset-x-0 after:-bottom-1.5 after:content-[''] hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-sm"
+							class="rounded-xl border bg-card p-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/2 focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:outline-none"
 							onclick={() => createPreset(preset.key)}
 							disabled={Boolean(creating)}
 						>
@@ -324,7 +350,7 @@
 								class="mb-3 flex aspect-[4/3] items-center justify-center rounded-lg bg-neutral-800 p-4"
 							>
 								<div
-									class="max-h-full max-w-full bg-orange-50 shadow-sm"
+									class="max-h-full max-w-full bg-orange-50"
 									style:aspect-ratio={`${preset.width_px}/${preset.height_px}`}
 									style:height={preset.height_px > preset.width_px ? '100%' : 'auto'}
 									style:width={preset.width_px >= preset.height_px ? '100%' : 'auto'}
@@ -343,7 +369,7 @@
 				</div>
 			</section>
 
-			<section class="mt-8 rounded-2xl border bg-card p-4" aria-labelledby="custom-heading">
+			<section class="mt-8 rounded-xl border bg-card p-4" aria-labelledby="custom-heading">
 				<h2 id="custom-heading" class="text-sm font-semibold">{m.image_editor_custom_size()}</h2>
 				<p class="mt-1 text-xs text-muted-foreground">{m.image_editor_custom_limits()}</p>
 				<div class="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
@@ -362,44 +388,6 @@
 					>
 						{m.image_editor_create_custom()}
 					</Button>
-				</div>
-			</section>
-
-			<section class="mt-10" aria-labelledby="templates-heading">
-				<div class="mb-3">
-					<h2 id="templates-heading" class="text-sm font-semibold">
-						{m.image_editor_starter_templates()}
-					</h2>
-					<p class="text-xs text-muted-foreground">
-						{m.image_editor_starter_templates_body()}
-					</p>
-				</div>
-				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-					{#each templates as template (template.id)}
-						<button
-							type="button"
-							class="rounded-xl border bg-card p-3 text-left hover:border-primary/40 hover:shadow-sm"
-							onclick={() => createTemplate(template)}
-							disabled={Boolean(creating)}
-						>
-							<div class="mb-3 aspect-[4/3] overflow-hidden rounded-lg border">
-								<TemplatePreview
-									document={template.document}
-									label={templateName(template)}
-									compact
-								/>
-							</div>
-							<div class="flex items-center gap-2">
-								<span class="min-w-0 flex-1 truncate text-sm font-medium"
-									>{templateName(template)}</span
-								>
-								{#if creating === template.id}<LoaderIcon class="size-4 animate-spin" />{/if}
-							</div>
-							<p class="mt-0.5 truncate text-xs text-muted-foreground">
-								{templateCategory(template)}
-							</p>
-						</button>
-					{/each}
 				</div>
 			</section>
 		{/if}

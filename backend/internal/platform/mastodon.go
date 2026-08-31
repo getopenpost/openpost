@@ -109,8 +109,11 @@ func (m *MastodonAdapter) RefreshToken(_ context.Context, _ RefreshTokenInput) (
 
 func (m *MastodonAdapter) GetProfile(ctx context.Context, accessToken string) (*UserProfile, error) {
 	type mastodonProfile struct {
-		ID   string `json:"id"`
-		Acct string `json:"acct"`
+		ID           string `json:"id"`
+		Acct         string `json:"acct"`
+		DisplayName  string `json:"display_name"`
+		Avatar       string `json:"avatar"`
+		AvatarStatic string `json:"avatar_static"`
 	}
 
 	profile, err := DoBearerJSON[mastodonProfile](ctx, "GET", m.instanceURL+"/api/v1/accounts/verify_credentials", accessToken, nil, "mastodon profile")
@@ -119,8 +122,10 @@ func (m *MastodonAdapter) GetProfile(ctx context.Context, accessToken string) (*
 	}
 
 	return &UserProfile{
-		ID:       profile.ID,
-		Username: profile.Acct,
+		ID:          profile.ID,
+		Username:    profile.Acct,
+		DisplayName: profile.DisplayName,
+		AvatarURL:   firstNonEmptyString(profile.AvatarStatic, profile.Avatar),
 	}, nil
 }
 

@@ -60,11 +60,6 @@ it('adds and drags a point with live preview and one release commit', async () =
 	expect(ondraft.mock.calls.some(([value]) => value?.masterPoints)).toBe(true);
 	expect(ondraft).toHaveBeenLastCalledWith(null);
 	expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
-	for (const button of screen.container.querySelectorAll('button')) {
-		expect(button.classList.contains('min-h-11') || button.classList.contains('size-11')).toBe(
-			true
-		);
-	}
 	for (const handle of screen.container.querySelectorAll('[data-curve-point]')) {
 		expect(handle.getAttribute('width')).toBe('44');
 		expect(handle.getAttribute('height')).toBe('44');

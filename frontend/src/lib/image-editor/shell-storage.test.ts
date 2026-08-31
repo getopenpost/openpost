@@ -51,10 +51,11 @@ describe('image editor shell storage boundaries', () => {
 	});
 
 	it('parses layout and view values through their owned contracts', () => {
-		expect(parseImageEditorLayoutPreferences('{"assets":320,"layers":"200"}')).toEqual({
+		expect(parseImageEditorLayoutPreferences('{"assets":320,"layers":"200","pages":184}')).toEqual({
 			assets: 320,
 			inspector: undefined,
-			layers: undefined
+			layers: undefined,
+			pages: 184
 		});
 		expect(
 			parseImageEditorViewPreferences('{"snapping":false,"gridSize":25,"grid":"true"}')
@@ -78,7 +79,13 @@ describe('image editor shell storage boundaries', () => {
 	});
 
 	it('normalizes cross-tab messages', () => {
-		expect(parseImageEditorTabMessage({ tabID: 'tab-1', type: 'saved', revision: 8 })).toEqual({
+		expect(
+			parseImageEditorTabMessage({
+				tabID: 'tab-1',
+				type: 'saved',
+				revision: 8
+			})
+		).toEqual({
 			tabID: 'tab-1',
 			type: 'saved',
 			revision: 8

@@ -107,7 +107,7 @@
 			class="flex flex-1 items-center justify-center gap-2 p-4 text-xs text-[oklch(0.65_0.015_55)]"
 			role="status"
 		>
-			<LoaderIcon class="size-4 animate-spin" aria-hidden="true" />
+			<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 			{m.video_editor_stickers_loading()}
 		</div>
 	{:else if status === 'error'}
@@ -151,7 +151,10 @@
 							</span>
 							{#if inserting === sticker.name}
 								<span class="absolute inset-0 flex items-center justify-center bg-black/55">
-									<LoaderIcon class="size-4 animate-spin text-white" aria-hidden="true" />
+									<LoaderIcon
+										class="size-4 animate-spin text-white motion-reduce:animate-none"
+										aria-hidden="true"
+									/>
 								</span>
 							{:else}
 								<PlusIcon

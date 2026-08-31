@@ -23,11 +23,13 @@
 	let {
 		gpuEffect,
 		ondraft,
-		oncommit
+		oncommit,
+		compact = false
 	}: {
 		gpuEffect: GpuEffect;
 		ondraft: (params: GpuParamValues | null) => void;
 		oncommit: (params: GpuParamValues) => void;
+		compact?: boolean;
 	} = $props();
 
 	type ChannelDraft = Record<CurveChannel, CurvePoint[]>;
@@ -358,26 +360,36 @@
 	});
 </script>
 
-<div class="mt-2 rounded-lg border border-[oklch(0.31_0.018_55)] bg-[oklch(0.15_0.008_55)] p-2">
-	<div class="mb-2 flex flex-wrap items-center gap-1">
-		<span class="mr-auto text-[10px] font-medium text-[oklch(0.65_0.015_55)] uppercase">
+<div
+	class="bg-[oklch(0.15_0.008_55)] {compact
+		? 'flex h-full min-h-0 flex-col p-1'
+		: 'mt-2 rounded-lg border border-[oklch(0.31_0.018_55)] p-2'}"
+>
+	<div class="flex items-center gap-1 {compact ? 'mb-1 shrink-0' : 'mb-2 flex-wrap'}">
+		<span
+			class="mr-auto text-[10px] font-medium text-[oklch(0.65_0.015_55)] uppercase {compact
+				? 'sr-only'
+				: ''}"
+		>
 			{m.video_editor_curves_channel()}
 		</span>
 		{#each CURVE_CHANNELS as channel (channel)}
 			<button
 				type="button"
-				class={`min-h-11 min-w-11 rounded px-2 text-xs font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] ${activeChannel === channel ? 'bg-[oklch(0.3_0.025_55)] text-white' : 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)]'}`}
+				class={`${compact ? 'h-6 min-w-0 flex-1 overflow-hidden px-1 text-[8px]' : 'min-h-11 min-w-11 px-2 text-xs'} rounded font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] ${activeChannel === channel ? 'bg-[oklch(0.3_0.025_55)] text-white' : 'text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)]'}`}
 				disabled={!gpuEffect.enabled || drag !== null}
 				aria-pressed={activeChannel === channel}
 				style:color={activeChannel === channel ? channelColors[channel] : undefined}
 				onclick={() => selectChannel(channel)}
 			>
-				{channelLabels[channel]}
+				{compact ? channelLabels[channel].slice(0, 1) : channelLabels[channel]}
 			</button>
 		{/each}
 		<button
 			type="button"
-			class="flex size-11 items-center justify-center rounded text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] disabled:opacity-35"
+			class="flex {compact
+				? 'size-6'
+				: 'size-11'} items-center justify-center rounded text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] disabled:opacity-35"
 			disabled={!gpuEffect.enabled ||
 				drag !== null ||
 				selectedPointIndex === null ||
@@ -391,7 +403,9 @@
 		</button>
 		<button
 			type="button"
-			class="flex size-11 items-center justify-center rounded text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] disabled:opacity-35"
+			class="flex {compact
+				? 'size-6'
+				: 'size-11'} items-center justify-center rounded text-[oklch(0.68_0.015_55)] hover:bg-[oklch(0.23_0.012_55)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[oklch(0.72_0.14_45)] disabled:opacity-35"
 			disabled={!gpuEffect.enabled || drag !== null || isIdentityCurve(activePoints)}
 			aria-label={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}
 			title={m.video_editor_curves_reset_channel({ channel: channelLabels[activeChannel] })}
@@ -402,11 +416,14 @@
 	</div>
 
 	<div
-		class="relative aspect-square w-full overflow-hidden rounded-md border border-white/10 bg-black/55"
+		class="relative w-full overflow-hidden rounded-md border border-white/10 bg-black/55 {compact
+			? 'min-h-0 flex-1'
+			: 'aspect-square'}"
 	>
 		<svg
 			bind:this={svg}
 			viewBox={`0 0 ${SIZE} ${SIZE}`}
+			preserveAspectRatio={compact ? 'none' : 'xMidYMid meet'}
 			class={gpuEffect.enabled
 				? 'size-full touch-none select-none'
 				: 'pointer-events-none size-full opacity-55'}
@@ -513,7 +530,9 @@
 			{/each}
 		</svg>
 	</div>
-	<p class="mt-1.5 text-[10px] leading-4 text-[oklch(0.62_0.015_55)]">
-		{m.video_editor_curves_hint()}
-	</p>
+	{#if !compact}
+		<p class="mt-1.5 text-[10px] leading-4 text-[oklch(0.62_0.015_55)]">
+			{m.video_editor_curves_hint()}
+		</p>
+	{/if}
 </div>

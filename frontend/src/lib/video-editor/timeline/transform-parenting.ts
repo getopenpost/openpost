@@ -17,6 +17,8 @@ interface AffineMatrix {
 export interface ResolvedTransform extends TransformReference {
 	anchorX: number;
 	anchorY: number;
+	scaleX: number;
+	scaleY: number;
 	opacity: number;
 	cornerRadius: number;
 }

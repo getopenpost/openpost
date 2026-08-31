@@ -17,7 +17,7 @@ test("collects nested VitePress nav and sidebar links once", () => {
         { text: "Guide", link: "/guide/" },
         {
           text: "More",
-          items: [{ text: "Studio", link: "/usage/studio" }],
+          items: [{ text: "Image Editor", link: "/usage/image-editor" }],
         },
       ],
       sidebar: {
@@ -34,7 +34,7 @@ test("collects nested VitePress nav and sidebar links once", () => {
     },
   });
 
-  assert.deepEqual(targets, ["/guide/", "/guide/setup", "/usage/studio"]);
+  assert.deepEqual(targets, ["/guide/", "/guide/setup", "/usage/image-editor"]);
 });
 
 test("every configured local VitePress navigation target resolves", async () => {

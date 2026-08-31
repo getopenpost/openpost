@@ -71,7 +71,7 @@
 	</Popover.Trigger>
 	<Popover.Content
 		align="end"
-		side="right"
+		side="bottom"
 		class="video-editor-theme max-h-[min(80vh,32rem)] w-72 max-w-[calc(100vw-1rem)] overflow-y-auto border-[oklch(0.31_0.018_55)] bg-[oklch(0.16_0.012_50)] p-3 text-[var(--video-editor-text)]"
 	>
 		<div class="border-b border-[oklch(0.28_0.014_55)] pb-2">

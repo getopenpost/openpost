@@ -9,7 +9,8 @@
 	import DestructiveConfirmDialog from './destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import InlineNotice from './inline-notice.svelte';
-	import PlatformIcon from './platform-icon.svelte';
+	import SocialAccountAvatar from './social-account-avatar.svelte';
+	import SocialAccountIdentity from './social-account-identity.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import * as Dialog from '$lib/components/ui/dialog';
@@ -20,7 +21,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import { getPlatformName } from '$lib/utils';
+	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 
 	type SocialSet = components['schemas']['SocialSetResponse'];
@@ -82,6 +83,13 @@
 		selectedSet?.name ||
 			(selectedAccountIds.length > 0 ? m.social_set_custom_selection() : m.social_set_select())
 	);
+	const destinationAccessibleValue = $derived.by(() => {
+		if (selectedSet) return selectedSet.name;
+		if (selectedAccounts.length === 0) return m.social_set_select();
+		return selectedAccounts
+			.map((account) => `${accountLabel(account)}, ${getPlatformName(account.platform)}`)
+			.join('; ');
+	});
 
 	onMount(() => {
 		if (workspaceId) void loadSets();
@@ -220,7 +228,12 @@
 	}
 
 	function accountLabel(account: SocialAccount) {
-		return account.account_username || account.slug || getPlatformName(account.platform);
+		return (
+			formatSocialAccountName(account.account_username, account.platform) ||
+			account.slug ||
+			account.account_id ||
+			getPlatformName(account.platform)
+		);
 	}
 
 	function handleManageOpenChange(next: boolean) {
@@ -264,18 +277,20 @@
 					variant="outline"
 					size="sm"
 					class="h-11 max-w-[min(22rem,70vw)] gap-2 px-2.5 md:h-9"
-					aria-label={`${m.compose_destinations()}: ${destinationLabel}`}
+					aria-label={`${m.compose_destinations()}: ${destinationAccessibleValue}`}
 					disabled={disabled || loading}
 					data-testid="composer-account-control"
 				>
 					<span class="isolate flex shrink-0 items-center -space-x-1" aria-hidden="true">
 						{#each selectedAccounts.slice(0, 3) as account (account.id)}
-							<span
-								class="flex size-5 items-center justify-center rounded-full border border-border bg-background ring-1 ring-background"
+							<SocialAccountAvatar
+								name={accountLabel(account)}
+								platform={account.platform}
+								avatarUrl={account.account_avatar_url}
+								size="sm"
+								class="ring-1 ring-background"
 								data-testid="composer-account-icon"
-							>
-								<PlatformIcon platform={account.platform} class="size-4" />
-							</span>
+							/>
 						{/each}
 						{#if selectedAccounts.length > 3}
 							<span class="z-10 ml-2 text-xs font-medium text-muted-foreground"
@@ -322,11 +337,13 @@
 										(candidate) => candidate.id === membership.social_account_id
 									)}
 									{#if account}
-										<span
-											class="flex size-6 items-center justify-center rounded-full border border-border bg-popover ring-1 ring-popover"
-										>
-											<PlatformIcon platform={account.platform} class="size-4" />
-										</span>
+										<SocialAccountAvatar
+											name={accountLabel(account)}
+											platform={account.platform}
+											avatarUrl={account.account_avatar_url}
+											size="sm"
+											class="ring-1 ring-popover"
+										/>
 									{/if}
 								{/each}
 								{#if (set.accounts ?? []).length > 4}
@@ -348,15 +365,15 @@
 						class="flex min-h-12 cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-accent"
 						data-testid="composer-account-row"
 					>
-						<PlatformIcon platform={account.platform} class="size-5" />
 						<div class="min-w-0 flex-1">
-							<span class="block truncate font-medium">{accountLabel(account)}</span>
-							<span class="block truncate text-xs text-muted-foreground"
-								>{getPlatformName(account.platform)}{#if issues.length}
-									· {m.compose_needs_attention()}{/if}</span
-							>
+							<SocialAccountIdentity
+								name={accountLabel(account)}
+								platform={account.platform}
+								avatarUrl={account.account_avatar_url}
+								detail={issues.length ? m.compose_needs_attention() : ''}
+							/>
 							{#if issues.length}
-								<ul class="mt-1 space-y-0.5 text-xs leading-snug text-destructive">
+								<ul class="mt-1 space-y-0.5 pl-10 text-xs leading-snug text-destructive">
 									{#each issues as issue (issue)}
 										<li>{issue}</li>
 									{/each}
@@ -433,15 +450,17 @@
 						<legend class="text-sm font-medium">{m.social_set_accounts()}</legend>
 						{#each accounts as account (account.id)}
 							<div class="rounded-md border px-3 py-2.5">
-								<label class="flex min-h-8 items-center gap-3 text-sm">
+								<label class="flex min-h-11 items-center gap-3 text-sm">
 									<Checkbox
 										checked={editorAccountIds.includes(account.id)}
 										onCheckedChange={() => toggleEditorAccount(account.id)}
 									/>
-									<span class="min-w-0 truncate font-medium">{accountLabel(account)}</span>
-									<span class="ml-auto text-xs text-muted-foreground">
-										{getPlatformName(account.platform)}
-									</span>
+									<SocialAccountIdentity
+										class="min-w-0 flex-1"
+										name={accountLabel(account)}
+										platform={account.platform}
+										avatarUrl={account.account_avatar_url}
+									/>
 								</label>
 							</div>
 						{/each}

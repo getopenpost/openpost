@@ -38,7 +38,7 @@ import { mediaPool } from './pool.svelte';
 import { resolveMediaBlob } from './resolve-media-blob';
 import { resolveAnimatedItemAt } from '../timeline/animated-properties';
 import { scaleItemForCanvas } from './render-geometry';
-import { renderSubtitleRaster, renderTextItemRaster } from './text-raster';
+import { renderSubtitleCueRaster, renderSubtitleRaster, renderTextItemRaster } from './text-raster';
 import { renderShapeItemRaster } from '../shapes/render';
 import { animatedFrameIndexForItem, isAnimatedImageMedia } from './animated-image-plan';
 import { animatedImageCache } from './animated-image-client';
@@ -256,6 +256,7 @@ export interface TimelineFrameRenderOptions {
 	width?: number;
 	height?: number;
 	burnSubtitles?: boolean;
+	backgroundColor?: string | null;
 }
 
 /** Shared full-resolution compositor used by export and still-frame capture. */
@@ -263,7 +264,7 @@ export class TimelineFrameRenderer {
 	readonly canvas: OffscreenCanvas;
 	private readonly width: number;
 	private readonly height: number;
-	private readonly backgroundColor: string;
+	private readonly backgroundColor: string | null;
 	private readonly fps: number;
 	private readonly orderedItems: TimelineItem[];
 	private readonly transitions: TimelineTransition[];
@@ -291,7 +292,10 @@ export class TimelineFrameRenderer {
 		this.height = options.height ?? project.metadata.height;
 		this.canvas = new OffscreenCanvas(this.width, this.height);
 		this.stackCompositor = new CanvasStackCompositor(this.canvas);
-		this.backgroundColor = project.metadata.backgroundColor ?? '#000000';
+		this.backgroundColor =
+			options.backgroundColor !== undefined
+				? options.backgroundColor
+				: (project.metadata.backgroundColor ?? '#000000');
 		this.fps = project.metadata.fps;
 		const items = project.timeline?.items ?? [];
 		const tracks = project.timeline?.tracks ?? [];
@@ -305,6 +309,7 @@ export class TimelineFrameRenderer {
 				item.type === 'lottie' ||
 				item.type === 'text' ||
 				item.type === 'shape' ||
+				item.type === 'background' ||
 				item.type === 'composition' ||
 				(this.burnSubtitles && item.type === 'subtitle')
 		);
@@ -337,6 +342,25 @@ export class TimelineFrameRenderer {
 		const context = this.textCanvas.getContext('2d');
 		if (!context) throw new Error('Failed to create the subtitle raster context.');
 		renderSubtitleRaster(context, text, item, width, height);
+		return {
+			source: this.textCanvas,
+			width,
+			height
+		};
+	}
+
+	private karaokeSubtitleSource(
+		item: TimelineItem,
+		cue: import('../project/types').SubtitleCue,
+		frame: number
+	) {
+		const width = Math.max(1, Math.round(item.transform?.width ?? this.width));
+		const height = Math.max(1, Math.round(item.transform?.height ?? this.height));
+		this.textCanvas.width = width;
+		this.textCanvas.height = height;
+		const context = this.textCanvas.getContext('2d');
+		if (!context) throw new Error('Failed to create the subtitle raster context.');
+		renderSubtitleCueRaster(context, cue, item, width, height, frame);
 		return {
 			source: this.textCanvas,
 			width,
@@ -457,9 +481,16 @@ export class TimelineFrameRenderer {
 		originalItem: TimelineItem,
 		frame: number
 	): Promise<StackLayerSource | null> {
+		if (resolvedItem.type === 'background') return null;
 		if (resolvedItem.type === 'subtitle') {
 			const cue = selectCuesAtFrame(resolvedItem.cues ?? [], frame)[0];
-			return cue ? this.subtitleSource(resolvedItem, cue.text) : null;
+			if (!cue) return null;
+			// Shared karaoke helper guarantees preview and export resolve the same active word
+			// at exact frame boundaries; fallback renders exactly as a normal caption.
+			if (resolvedItem.captionHighlightMode === 'karaoke' && cue.words && cue.words.length > 0) {
+				return this.karaokeSubtitleSource(resolvedItem, cue, frame);
+			}
+			return this.subtitleSource(resolvedItem, cue.text);
 		}
 		if (resolvedItem.type === 'text') return this.textSource(resolvedItem, frame);
 		if (resolvedItem.type === 'shape') return this.shapeSource(resolvedItem);
@@ -496,18 +527,18 @@ export class TimelineFrameRenderer {
 					{
 						width: composition.width,
 						height: composition.height,
-						burnSubtitles: true
+						burnSubtitles: true,
+						backgroundColor: composition.backgroundColor ?? this.backgroundColor
 					},
 					new Set([...this.ancestry, composition.id])
 				);
 				this.nestedRenderers.set(rendererKey, renderer);
 			}
-			const sourceFps = originalItem.sourceFps ?? composition.fps;
 			const nestedFrame = Math.max(
 				0,
 				Math.floor(
-					(originalItem.sourceStart ?? 0) +
-						((frame - originalItem.from) / this.fps) * (originalItem.speed ?? 1) * sourceFps
+					frameToSourceSeconds(originalItem, frame, this.fps) *
+						(originalItem.sourceFps ?? composition.fps)
 				)
 			);
 			const source = await renderer.render(nestedFrame);
@@ -616,20 +647,18 @@ export class TimelineFrameRenderer {
 				frame
 			);
 			const source = await this.sourceForItem(resolvedItem, item, frame);
-			return source
-				? {
-						source,
-						item: resolvedItem,
-						alpha:
-							itemOpacity(resolvedItem) *
-							visualClipFadeOpacityAtFrame(resolvedItem, frame, this.fps),
-						masks: shapeMasksForTrack(
-							activeMasks,
-							this.trackOrderById.get(item.trackId) ?? 0,
-							this.trackOrderById
-						)
-					}
-				: null;
+			if (!source && resolvedItem.type !== 'background') return null;
+			return {
+				source,
+				item: resolvedItem,
+				alpha:
+					itemOpacity(resolvedItem) * visualClipFadeOpacityAtFrame(resolvedItem, frame, this.fps),
+				masks: shapeMasksForTrack(
+					activeMasks,
+					this.trackOrderById.get(item.trackId) ?? 0,
+					this.trackOrderById
+				)
+			};
 		};
 		let transitionRendered = false;
 		for (const item of this.orderedItems) {
@@ -750,7 +779,15 @@ export async function renderMultiTrackVideoArtifact(
 	const mixEntries = entriesWithAudioSources(
 		sliceMixEntries(
 			applyMixEntryGain(
-				planNestedMixdown(items, tracks, fps, transitions, timeline?.compositions ?? []),
+				planNestedMixdown(
+					items,
+					tracks,
+					fps,
+					transitions,
+					timeline?.compositions ?? [],
+					new Set(),
+					timeline?.busAudioEq
+				),
 				masterBusGain(timeline)
 			),
 			startFrame / fps,
@@ -955,7 +992,15 @@ export async function renderTimelineAudioArtifact(
 	const entries = entriesWithAudioSources(
 		sliceMixEntries(
 			applyMixEntryGain(
-				planNestedMixdown(items, tracks, fps, transitions, project.timeline?.compositions ?? []),
+				planNestedMixdown(
+					items,
+					tracks,
+					fps,
+					transitions,
+					project.timeline?.compositions ?? [],
+					new Set(),
+					project.timeline?.busAudioEq
+				),
 				masterBusGain(project.timeline)
 			),
 			startFrame / fps,

@@ -25,6 +25,10 @@ const (
 	ProviderTikTok    = "tiktok"
 	ProviderX         = "x"
 	ProviderYouTube   = "youtube"
+
+	capabilityRevision   = "2026-08-27.1"
+	xMinVideoAspectRatio = "1:3"
+	xMaxVideoAspectRatio = "3:1"
 )
 
 type Profile struct {
@@ -123,6 +127,8 @@ type MediaConstraint struct {
 	MaxCount               int      `json:"max_count"`
 	AllowedMIMEs           []string `json:"allowed_mimes"`
 	AspectRatios           []string `json:"aspect_ratios,omitempty"`
+	MinVideoAspectRatio    string   `json:"min_video_aspect_ratio,omitempty"`
+	MaxVideoAspectRatio    string   `json:"max_video_aspect_ratio,omitempty"`
 	MaxDurationSeconds     int      `json:"max_duration_seconds,omitempty"`
 	MaxSizeBytes           int64    `json:"max_size_bytes,omitempty"`
 	MinWidth               int      `json:"min_width,omitempty"`
@@ -300,7 +306,11 @@ func All() []Capability {
 	shortVideo.MaxDurationSeconds = 180
 	shortVideo.AspectRatios = []string{"9:16", "1:1"}
 	blueskyVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 100 * 1024 * 1024}
-	xVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 512 * 1024 * 1024, MaxDurationSeconds: 140}
+	xVideo := MediaConstraint{
+		MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"},
+		MinVideoAspectRatio: xMinVideoAspectRatio, MaxVideoAspectRatio: xMaxVideoAspectRatio,
+		MaxSizeBytes: 512 * 1024 * 1024, MaxDurationSeconds: 140,
+	}
 	mastodonVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4", "video/quicktime", "video/webm"}, MaxSizeBytes: 99 * 1024 * 1024}
 	linkedinVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4"}, MaxSizeBytes: 500 * 1024 * 1024, MaxDurationSeconds: 30 * 60}
 	tiktokVideo := MediaConstraint{MinCount: 1, MaxCount: 1, AllowedMIMEs: []string{"video/mp4", "video/quicktime", "video/webm"}, MaxSizeBytes: 4 * 1024 * 1024 * 1024, MaxDurationSeconds: 10 * 60, AspectRatios: []string{"9:16", "1:1"}}
@@ -321,11 +331,13 @@ func All() []Capability {
 	longVideo := video
 	longVideo.MaxDurationSeconds = 43200
 	xThreadMedia := MediaConstraint{
-		MinCount:           0,
-		MaxCount:           4,
-		AllowedMIMEs:       []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime"},
-		MaxSizeBytes:       512 * 1024 * 1024,
-		MaxDurationSeconds: 140,
+		MinCount:            0,
+		MaxCount:            4,
+		AllowedMIMEs:        []string{"image/jpeg", "image/png", "image/webp", "image/gif", "video/mp4", "video/quicktime"},
+		MinVideoAspectRatio: xMinVideoAspectRatio,
+		MaxVideoAspectRatio: xMaxVideoAspectRatio,
+		MaxSizeBytes:        512 * 1024 * 1024,
+		MaxDurationSeconds:  140,
 	}
 
 	defaultQueued := func(c Capability) Capability {
@@ -337,7 +349,7 @@ func All() []Capability {
 		c.MediaShapes = mediaShapesFor(c.Profile, c.Media)
 		c.Settings = normalizeSettingDefinitions(c)
 		c.ValidationCategories = validationCategories(c)
-		c.CapabilityRevision = "2026-08-03.1"
+		c.CapabilityRevision = capabilityRevision
 		return c
 	}
 
@@ -650,7 +662,7 @@ func ResolveCatalog(provider string, catalog []Capability, input ResolveInput) R
 				Provider:           provider,
 				Intents:            []string{preset},
 				MediaShapes:        []string{shape},
-				CapabilityRevision: "2026-08-03.1",
+				CapabilityRevision: capabilityRevision,
 			},
 			Compatible:       false,
 			SegmentStrategy:  "preserve",
@@ -1865,6 +1877,22 @@ func validateMediaItem(capability Capability, item MediaItem) []ValidationIssue 
 	if len(capability.Media.AspectRatios) > 0 && item.Width > 0 && item.Height > 0 && !ratioAllowed(item.Width, item.Height, capability.Media.AspectRatios) {
 		issues = append(issues, ValidationIssue{Severity: "warning", Code: "media_aspect", Message: "Media should be vertical or square for this profile", Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	}
+	if strings.HasPrefix(item.MimeType, "video/") && videoAspectRatioConstrained(capability.Media) {
+		switch {
+		case item.Width <= 0 || item.Height <= 0:
+			issues = append(issues, ValidationIssue{
+				Severity: "error", Code: "media_video_dimensions_missing",
+				Message:  "Video dimensions are required to validate the aspect ratio",
+				Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID,
+			})
+		case !videoAspectRatioAllowed(item.Width, item.Height, capability.Media):
+			issues = append(issues, ValidationIssue{
+				Severity: "error", Code: "media_video_aspect_range",
+				Message:  videoAspectRatioMessage(capability.Media),
+				Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID,
+			})
+		}
+	}
 	if capability.Media.RequiresPublicURL && !item.PublicURLReady {
 		issues = append(issues, ValidationIssue{Severity: "error", Code: "public_url_unreachable", Message: firstNonEmpty(item.PublicURLError, "Media publishing to this account requires a public HTTPS media URL. Ask an OpenPost administrator to configure OPENPOST_MEDIA_URL."), Provider: capability.Provider, Profile: capability.Profile, MediaID: item.ID})
 	} else if !capability.Media.RequiresPublicURL && capability.Media.RequiresHTTPSFetchable && item.URL != "" {
@@ -1892,6 +1920,9 @@ func validationCategories(c Capability) []string {
 	}
 	if len(c.Media.AspectRatios) > 0 {
 		categories = append(categories, "aspect")
+	}
+	if c.Media.MinVideoAspectRatio != "" || c.Media.MaxVideoAspectRatio != "" {
+		categories = append(categories, "video_aspect_range")
 	}
 	if acceptsDocument(c.Media.AllowedMIMEs) {
 		categories = append(categories, "document")
@@ -1959,6 +1990,44 @@ func ratioAllowed(width, height int, ratios []string) bool {
 		}
 	}
 	return false
+}
+
+func videoAspectRatioAllowed(width, height int, constraint MediaConstraint) bool {
+	actual := float64(width) / float64(height)
+	if minimum, ok := parseAspectRatio(constraint.MinVideoAspectRatio); ok && actual < minimum {
+		return false
+	}
+	if maximum, ok := parseAspectRatio(constraint.MaxVideoAspectRatio); ok && actual > maximum {
+		return false
+	}
+	return true
+}
+
+func videoAspectRatioConstrained(constraint MediaConstraint) bool {
+	return constraint.MinVideoAspectRatio != "" || constraint.MaxVideoAspectRatio != ""
+}
+
+func parseAspectRatio(value string) (float64, bool) {
+	parts := strings.Split(value, ":")
+	if len(parts) != 2 {
+		return 0, false
+	}
+	width, widthErr := strconv.ParseFloat(parts[0], 64)
+	height, heightErr := strconv.ParseFloat(parts[1], 64)
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return 0, false
+	}
+	return width / height, true
+}
+
+func videoAspectRatioMessage(constraint MediaConstraint) string {
+	if constraint.MinVideoAspectRatio != "" && constraint.MaxVideoAspectRatio != "" {
+		return fmt.Sprintf("Video aspect ratio must be between %s and %s", constraint.MinVideoAspectRatio, constraint.MaxVideoAspectRatio)
+	}
+	if constraint.MinVideoAspectRatio != "" {
+		return fmt.Sprintf("Video aspect ratio must be at least %s", constraint.MinVideoAspectRatio)
+	}
+	return fmt.Sprintf("Video aspect ratio must be at most %s", constraint.MaxVideoAspectRatio)
 }
 
 func acceptsDocument(allowed []string) bool {

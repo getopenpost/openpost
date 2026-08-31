@@ -16,7 +16,7 @@ func TestPublisherEntersWriteFenceBeforeConnectorMutation(t *testing.T) {
 	t.Parallel()
 
 	var fenceEntered atomic.Bool
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		require.True(t, fenceEntered.Load(), "write fence must be durable before the connector receives the request")
 		response.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(response).Encode(PublishResponse{
@@ -51,7 +51,7 @@ func TestPublisherEntersWriteFenceBeforeConnectorMutation(t *testing.T) {
 func TestPublisherMapsPendingResponseToReconciliation(t *testing.T) {
 	t.Parallel()
 
-	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, _ *http.Request) {
 		response.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(response).Encode(PublishResponse{
 			Status: "pending", ProviderReference: "directus-job-8", PollAfterSeconds: 4,

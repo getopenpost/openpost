@@ -390,6 +390,26 @@ func TestListMedia_WireFormat(t *testing.T) {
 	}
 }
 
+func TestGetMediaUsage_WireFormat(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/media/m_1/usage" {
+			t.Fatalf("path = %s, want /api/v1/media/m_1/usage", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"usage":[{"kind":"publication","id":"usage_1","label":"Launch","publication_id":"pub_1","status":"scheduled","scheduled_at":"2026-08-30T10:00:00Z"}],"count":1}`))
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "")
+	got, err := c.GetMediaUsage(context.Background(), "m_1")
+	if err != nil {
+		t.Fatalf("GetMediaUsage returned error: %v", err)
+	}
+	if len(got.Usage) != 1 || got.Usage[0].PublicationID != "pub_1" {
+		t.Fatalf("media usage wrong: %+v", got.Usage)
+	}
+}
+
 // TestListMedia_EmptyResponse_DoesNotSilentlySucceed guards against
 // the prior bug where the client decoded `{media: null, total: 0}`
 // into `{body: {media, total}}`, which silently produced a nil

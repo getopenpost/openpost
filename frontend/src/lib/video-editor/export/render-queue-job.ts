@@ -5,6 +5,7 @@ import type {
 	TimelineTrack,
 	TimelineTransition
 } from '../project/types';
+import type { AudioEqSettings } from '../audio/types';
 import type { ExportPreflightResult } from '../media/export-preflight';
 import type {
 	RenderQueueJob,
@@ -31,6 +32,7 @@ interface RenderQueueJobBuildOptions {
 	compositions: readonly SubComposition[];
 	masterVolumeDb?: number;
 	masterMuted?: boolean;
+	busAudioEq?: AudioEqSettings;
 }
 
 export function captureRenderSnapshot(
@@ -40,7 +42,8 @@ export function captureRenderSnapshot(
 	transitions: readonly TimelineTransition[],
 	compositions: readonly SubComposition[],
 	masterVolumeDb = project.timeline?.masterVolumeDb ?? 0,
-	masterMuted = project.timeline?.masterMuted ?? false
+	masterMuted = project.timeline?.masterMuted ?? false,
+	busAudioEq = project.timeline?.busAudioEq
 ): RenderQueueSnapshot {
 	return {
 		projectId: project.id,
@@ -54,7 +57,8 @@ export function captureRenderSnapshot(
 		transitions: cloneTimeline([...transitions]),
 		compositions: cloneTimeline([...compositions]),
 		masterVolumeDb,
-		masterMuted
+		masterMuted,
+		busAudioEq: busAudioEq ? cloneTimeline(busAudioEq) : undefined
 	};
 }
 
@@ -84,7 +88,8 @@ function captureFromOptions(options: RenderQueueJobBuildOptions): RenderQueueSna
 		options.transitions,
 		options.compositions,
 		options.masterVolumeDb,
-		options.masterMuted
+		options.masterMuted,
+		options.busAudioEq
 	);
 }
 

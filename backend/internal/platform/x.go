@@ -43,6 +43,7 @@ const (
 	XStandardVideoDurationSeconds    = 140
 	XPremiumVideoDurationSeconds     = 4 * 60 * 60
 	XStandardVideoSizeBytes          = 512 * 1024 * 1024
+	XOAuthRequestLifetime            = 10 * time.Minute
 	XPremiumVideoSizeBytes           = 16 * 1024 * 1024 * 1024
 	XCapabilityStateFreshness        = 24 * time.Hour
 	xAccountCapabilityRevision       = "x-subscription-type.2026-07-26"
@@ -101,7 +102,6 @@ func (x *XAdapter) cleanupLoop() {
 }
 
 func (x *XAdapter) purgeOldEntries() {
-	const maxAge = 10 * time.Minute
 	now := time.Now()
 
 	x.requestMeta.Range(func(key, value any) bool {
@@ -109,7 +109,7 @@ func (x *XAdapter) purgeOldEntries() {
 		if !ok {
 			return true
 		}
-		if now.Sub(meta.CreatedAt) > maxAge {
+		if now.Sub(meta.CreatedAt) > XOAuthRequestLifetime {
 			x.requestMeta.Delete(key)
 		}
 		return true
@@ -176,7 +176,7 @@ func (x *XAdapter) GetWorkspaceIDForRequestToken(requestToken string) (string, b
 
 func (x *XAdapter) GetRequestMetaForRequestToken(requestToken string) (XRequestMeta, bool) {
 	if x.requestStore != nil {
-		meta, ok, err := x.requestStore.Consume(requestToken, 10*time.Minute)
+		meta, ok, err := x.requestStore.Consume(requestToken, XOAuthRequestLifetime)
 		if err != nil || !ok {
 			return XRequestMeta{}, false
 		}
@@ -206,7 +206,7 @@ func (x *XAdapter) ExchangeCode(_ context.Context, _ string, extra map[string]st
 	)
 
 	if x.requestStore != nil {
-		consumed, found, err := x.requestStore.Consume(oauthToken, 10*time.Minute)
+		consumed, found, err := x.requestStore.Consume(oauthToken, XOAuthRequestLifetime)
 		if err != nil {
 			return nil, fmt.Errorf("x oauth1 request token lookup failed: %w", err)
 		}
@@ -290,6 +290,7 @@ func (x *XAdapter) GetProfile(ctx context.Context, accessToken string) (*UserPro
 		ID:          user.ID,
 		Username:    user.Username,
 		DisplayName: user.Name,
+		AvatarURL:   user.ProfileImageURL,
 		CapabilityState: map[string]string{
 			XCapabilityStateSubscriptionType: normalizeXSubscriptionType(user.SubscriptionType),
 		},
@@ -300,11 +301,12 @@ type xAuthenticatedUser struct {
 	ID               string `json:"id"`
 	Name             string `json:"name"`
 	Username         string `json:"username"`
+	ProfileImageURL  string `json:"profile_image_url"`
 	SubscriptionType string `json:"subscription_type"`
 }
 
 func (x *XAdapter) getAuthenticatedUser(ctx context.Context, accessToken string, includeSubscription bool) (xAuthenticatedUser, error) {
-	fields := "id,name,username"
+	fields := "id,name,username,profile_image_url"
 	if includeSubscription {
 		fields += ",subscription_type"
 	}
@@ -597,12 +599,20 @@ func (x *XAdapter) uploadMediaChunked(ctx context.Context, accessToken, mimeType
 }
 
 type xMediaProcessingInfo struct {
-	State           string `json:"state"`
-	CheckAfterSecs  int    `json:"check_after_secs"`
-	ProgressPercent int    `json:"progress_percent"`
+	State           string                 `json:"state"`
+	CheckAfterSecs  int                    `json:"check_after_secs"`
+	ProgressPercent int                    `json:"progress_percent"`
+	Error           *xMediaProcessingError `json:"error,omitempty"`
+}
+
+type xMediaProcessingError struct {
+	Message string `json:"message"`
 }
 
 func (x *XAdapter) waitForMediaProcessing(ctx context.Context, accessToken, mediaID string, info *xMediaProcessingInfo) error {
+	if info.State == "failed" {
+		return xTerminalMediaProcessingError(info)
+	}
 	for info.State == "pending" || info.State == "in_progress" {
 		if info.CheckAfterSecs > 0 {
 			select {
@@ -631,7 +641,7 @@ func (x *XAdapter) waitForMediaProcessing(ctx context.Context, accessToken, medi
 		*info = *statusResp.ProcessingInfo
 
 		if info.State == "failed" {
-			return fmt.Errorf("x media processing failed")
+			return xTerminalMediaProcessingError(info)
 		}
 	}
 
@@ -639,6 +649,17 @@ func (x *XAdapter) waitForMediaProcessing(ctx context.Context, accessToken, medi
 		return nil
 	}
 	return fmt.Errorf("x media processing unexpected state: %s", info.State)
+}
+
+func xTerminalMediaProcessingError(info *xMediaProcessingInfo) error {
+	message := "provider rejected the media"
+	if info != nil && info.Error != nil && strings.TrimSpace(info.Error.Message) != "" {
+		message = strings.TrimSpace(info.Error.Message)
+	}
+	return &MediaUploadError{
+		RetryClassification: MediaRetryTerminal,
+		Err:                 fmt.Errorf("x media processing failed: %s", message),
+	}
 }
 
 func (x *XAdapter) Publish(ctx context.Context, accessToken, _ string, req *PublishRequest) (PublishResult, error) {

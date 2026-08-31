@@ -8,7 +8,7 @@ import {
 } from './animation-easing';
 
 export type MotionPresetCategory = 'entrance' | 'exit' | 'emphasis';
-export type MotionPresetProperty = 'x' | 'y' | 'width' | 'height' | 'rotation' | 'opacity';
+export type MotionPresetProperty = 'x' | 'y' | 'scaleX' | 'scaleY' | 'rotation' | 'opacity';
 
 export type MotionPresetId =
 	| 'fade-in'
@@ -37,6 +37,8 @@ export interface ResolvedMotionTransform {
 	y: number;
 	width: number;
 	height: number;
+	scaleX: number;
+	scaleY: number;
 	rotation: number;
 	opacity: number;
 }
@@ -270,23 +272,23 @@ export const MOTION_PRESETS: MotionPreset[] = [
 		category: 'entrance',
 		labelKey: 'popIn',
 		thumbnail: { kind: 'scale', direction: 1 },
-		properties: ['width', 'height', 'opacity'],
+		properties: ['scaleX', 'scaleY', 'opacity'],
 		build: (context) =>
 			buildEntrance(context, (start, end) => [
 				...entrancePair(
-					'width',
+					'scaleX',
 					start,
 					end,
-					context.anchor.width * 0.6,
-					context.anchor.width,
+					context.anchor.scaleX * 0.6,
+					context.anchor.scaleX,
 					OVERSHOOT
 				),
 				...entrancePair(
-					'height',
+					'scaleY',
 					start,
 					end,
-					context.anchor.height * 0.6,
-					context.anchor.height,
+					context.anchor.scaleY * 0.6,
+					context.anchor.scaleY,
 					OVERSHOOT
 				),
 				...entrancePair('opacity', start, end, 0, context.anchor.opacity, EASE_OUT_SOFT)
@@ -297,23 +299,23 @@ export const MOTION_PRESETS: MotionPreset[] = [
 		category: 'entrance',
 		labelKey: 'zoomIn',
 		thumbnail: { kind: 'scale', direction: -1 },
-		properties: ['width', 'height', 'opacity'],
+		properties: ['scaleX', 'scaleY', 'opacity'],
 		build: (context) =>
 			buildEntrance(context, (start, end) => [
 				...entrancePair(
-					'width',
+					'scaleX',
 					start,
 					end,
-					context.anchor.width * 1.4,
-					context.anchor.width,
+					context.anchor.scaleX * 1.4,
+					context.anchor.scaleX,
 					EASE_OUT_SOFT
 				),
 				...entrancePair(
-					'height',
+					'scaleY',
 					start,
 					end,
-					context.anchor.height * 1.4,
-					context.anchor.height,
+					context.anchor.scaleY * 1.4,
+					context.anchor.scaleY,
 					EASE_OUT_SOFT
 				),
 				...entrancePair('opacity', start, end, 0, context.anchor.opacity, EASE_OUT_SOFT)
@@ -324,7 +326,7 @@ export const MOTION_PRESETS: MotionPreset[] = [
 		category: 'entrance',
 		labelKey: 'spinIn',
 		thumbnail: { kind: 'spin' },
-		properties: ['rotation', 'width', 'height', 'opacity'],
+		properties: ['rotation', 'scaleX', 'scaleY', 'opacity'],
 		build: (context) =>
 			buildEntrance(context, (start, end) => [
 				...entrancePair(
@@ -336,19 +338,19 @@ export const MOTION_PRESETS: MotionPreset[] = [
 					SPRING_SETTLE
 				),
 				...entrancePair(
-					'width',
+					'scaleX',
 					start,
 					end,
-					context.anchor.width * 0.8,
-					context.anchor.width,
+					context.anchor.scaleX * 0.8,
+					context.anchor.scaleX,
 					SPRING_SETTLE
 				),
 				...entrancePair(
-					'height',
+					'scaleY',
 					start,
 					end,
-					context.anchor.height * 0.8,
-					context.anchor.height,
+					context.anchor.scaleY * 0.8,
+					context.anchor.scaleY,
 					SPRING_SETTLE
 				),
 				...entrancePair('opacity', start, end, 0, context.anchor.opacity, EASE_OUT_SOFT)
@@ -459,11 +461,11 @@ export const MOTION_PRESETS: MotionPreset[] = [
 		category: 'exit',
 		labelKey: 'popOut',
 		thumbnail: { kind: 'scale', direction: -1 },
-		properties: ['width', 'height', 'opacity'],
+		properties: ['scaleX', 'scaleY', 'opacity'],
 		build: (context) =>
 			buildExit(context, (start, end) => [
-				...exitPair('width', start, end, context.anchor.width, context.anchor.width * 0.6),
-				...exitPair('height', start, end, context.anchor.height, context.anchor.height * 0.6),
+				...exitPair('scaleX', start, end, context.anchor.scaleX, context.anchor.scaleX * 0.6),
+				...exitPair('scaleY', start, end, context.anchor.scaleY, context.anchor.scaleY * 0.6),
 				...exitPair('opacity', start, end, context.anchor.opacity, 0)
 			])
 	},
@@ -472,11 +474,11 @@ export const MOTION_PRESETS: MotionPreset[] = [
 		category: 'exit',
 		labelKey: 'zoomOut',
 		thumbnail: { kind: 'scale', direction: 1 },
-		properties: ['width', 'height', 'opacity'],
+		properties: ['scaleX', 'scaleY', 'opacity'],
 		build: (context) =>
 			buildExit(context, (start, end) => [
-				...exitPair('width', start, end, context.anchor.width, context.anchor.width * 1.4),
-				...exitPair('height', start, end, context.anchor.height, context.anchor.height * 1.4),
+				...exitPair('scaleX', start, end, context.anchor.scaleX, context.anchor.scaleX * 1.4),
+				...exitPair('scaleY', start, end, context.anchor.scaleY, context.anchor.scaleY * 1.4),
 				...exitPair('opacity', start, end, context.anchor.opacity, 0)
 			])
 	},
@@ -485,15 +487,15 @@ export const MOTION_PRESETS: MotionPreset[] = [
 		category: 'emphasis',
 		labelKey: 'pulse',
 		thumbnail: { kind: 'pulse' },
-		properties: ['width', 'height'],
+		properties: ['scaleX', 'scaleY'],
 		build: (context) =>
 			buildEmphasis(context, (start, middle, end) => [
-				keyframe('width', start, context.anchor.width, 'ease-out'),
-				keyframe('width', middle, context.anchor.width * 1.15, 'ease-in-out'),
-				keyframe('width', end, context.anchor.width, 'ease-in'),
-				keyframe('height', start, context.anchor.height, 'ease-out'),
-				keyframe('height', middle, context.anchor.height * 1.15, 'ease-in-out'),
-				keyframe('height', end, context.anchor.height, 'ease-in')
+				keyframe('scaleX', start, context.anchor.scaleX, 'ease-out'),
+				keyframe('scaleX', middle, context.anchor.scaleX * 1.15, 'ease-in-out'),
+				keyframe('scaleX', end, context.anchor.scaleX, 'ease-in'),
+				keyframe('scaleY', start, context.anchor.scaleY, 'ease-out'),
+				keyframe('scaleY', middle, context.anchor.scaleY * 1.15, 'ease-in-out'),
+				keyframe('scaleY', end, context.anchor.scaleY, 'ease-in')
 			])
 	},
 	{
@@ -564,7 +566,3 @@ export function motionPresetById(id: MotionPresetId): MotionPreset {
 }
 
 export const MOTION_PRESET_CATEGORIES: MotionPresetCategory[] = ['entrance', 'exit', 'emphasis'];
-
-export function motionPresetScalesBox(preset: MotionPreset): boolean {
-	return preset.properties.includes('width') || preset.properties.includes('height');
-}

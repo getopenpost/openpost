@@ -4,6 +4,7 @@ import type {
 	AnimationPresetKeyframe,
 	AnimationPresetProperty,
 	AnimationPresetVectorProperty,
+	AnimationPresetVectorKeyframe,
 	EasingConfig,
 	KeyframeProperty,
 	KeyframeTrack,
@@ -186,9 +187,10 @@ function cloneMotionModifier(modifier: MotionModifier): MotionModifier {
 	};
 }
 
-function cloneVectorKeyframe(keyframe: VectorKeyframe): VectorKeyframe {
+function cloneVectorKeyframe(keyframe: VectorKeyframe): AnimationPresetVectorKeyframe {
+	const { source: _source, ...portableKeyframe } = keyframe;
 	return {
-		...keyframe,
+		...portableKeyframe,
 		value: { ...keyframe.value },
 		...(keyframe.easingConfig && { easingConfig: cloneEasingConfig(keyframe.easingConfig) }),
 		...(keyframe.spatial && {

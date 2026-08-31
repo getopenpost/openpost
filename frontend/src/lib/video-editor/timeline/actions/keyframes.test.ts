@@ -13,7 +13,10 @@ import { buildEffectKeyframeProperty } from '../../effects/effect-keyframes';
 import { createDefaultTracks } from '../../project/defaults';
 import {
 	activeValueAt,
+	beginAnimatedPropertyEdit,
+	cancelAnimatedPropertyEdit,
 	clearKeyframesForItems,
+	commitAnimatedPropertyEdit,
 	createPositionSpatialTangents,
 	duplicateKeyframes,
 	insertKeyframes,
@@ -26,6 +29,7 @@ import {
 	setPositionSpatialTangents,
 	setKeyframe,
 	setKeyframeEasing,
+	updateAnimatedPropertiesLive,
 	updateKeyframes
 } from './keyframes';
 
@@ -738,6 +742,36 @@ describe('setAnimatedProperty', () => {
 		setAnimatedProperties('animated', 15, { x: 12, y: -8 }, () => false);
 		expect(getItem('animated').transform).toMatchObject({ x: 12, y: -8 });
 		expect(commandHistory.undoStack).toHaveLength(1);
+	});
+
+	it('updates unanimated base properties when the playhead is outside the clip', () => {
+		expect(setAnimatedProperties('animated', 0, { x: 12, y: -8 }, () => false)).toBe(true);
+		expect(getItem('animated').transform).toMatchObject({ x: 12, y: -8 });
+	});
+
+	it('collapses repeated inspector preview writes into one undoable edit', () => {
+		const before = beginAnimatedPropertyEdit();
+		updateAnimatedPropertiesLive('animated', 15, { x: 120, y: 40 }, () => false);
+		updateAnimatedPropertiesLive('animated', 15, { x: 240, y: 80 }, () => false);
+		expect(commandHistory.undoStack).toHaveLength(0);
+
+		commitAnimatedPropertyEdit(before, ['animated'], ['x', 'y']);
+		expect(getItem('animated').transform).toMatchObject({ x: 240, y: 80 });
+		expect(commandHistory.undoStack).toHaveLength(1);
+
+		commandHistory.undo();
+		expect(getItem('animated').transform).toMatchObject({ x: 0 });
+		expect(getItem('animated').transform?.y).toBeUndefined();
+	});
+
+	it('restores the pre-gesture state when an inspector scrub is cancelled', () => {
+		const before = beginAnimatedPropertyEdit();
+		updateAnimatedPropertiesLive('animated', 15, { x: 320 }, () => false);
+		expect(getItem('animated').transform?.x).toBe(320);
+
+		cancelAnimatedPropertyEdit(before);
+		expect(getItem('animated').transform?.x).toBe(0);
+		expect(commandHistory.undoStack).toHaveLength(0);
 	});
 
 	it('edits a motion point as one X/Y undo entry', () => {

@@ -5,6 +5,11 @@
 	import { editorSession } from '$lib/video-editor/editor.svelte';
 	import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 	import { resolveAnimatedItemAt } from '$lib/video-editor/timeline/animated-properties';
+	import {
+		getShuttleMediaPlaybackRate,
+		isReverseShuttleRate
+	} from '$lib/video-editor/preview/shuttle';
+	import { resolveAudioOwner } from '$lib/video-editor/preview/audio-owner';
 	import { effectsToCssFilter } from '$lib/video-editor/effects/filter';
 	import { SeekScheduler, seekDriftExceeded } from '$lib/video-editor/preview/seek-throttle';
 	import { frameToSourceSeconds } from '$lib/video-editor/media/render-plan';
@@ -38,8 +43,12 @@
 		hasLinkedAudioCompanion
 	} from '$lib/video-editor/audio/transition-crossfade';
 	import { transitionsStore } from '$lib/video-editor/timeline/actions/transitions.svelte';
-	import { requiresProcessedPreviewAudio } from '$lib/video-editor/audio/preview-processing';
-	import { renderSubtitleRaster, renderTextItemRaster } from '$lib/video-editor/media/text-raster';
+	import { requiresProcessedPreviewAudioForTimeline } from '$lib/video-editor/audio/preview-processing';
+	import {
+		renderSubtitleCueRaster,
+		renderSubtitleRaster,
+		renderTextItemRaster
+	} from '$lib/video-editor/media/text-raster';
 	import { isTextMotionActive } from '$lib/video-editor/timeline/text-motion-eval';
 	import { renderShapeItemRaster } from '$lib/video-editor/shapes/render';
 	import type { ItemEffect } from '$lib/video-editor/effects/types';
@@ -71,7 +80,11 @@
 		PROXY_SEEK_STALL_MS
 	} from '$lib/video-editor/preview/scrub-proxy-fallback';
 	import { clonePrewarmedPreviewFrame } from '$lib/video-editor/preview/decoder-prewarm-client';
-	import { previewAudioContext } from '$lib/video-editor/audio/reverse-preview-audio';
+	import {
+		decodedPreviewAudio,
+		previewAudioContext
+	} from '$lib/video-editor/audio/reverse-preview-audio';
+	import { createReverseShuttleScheduler } from '$lib/video-editor/audio/reverse-shuttle-scheduler';
 	import { attachAudioSourceToMixer, setMixerMaster } from '$lib/video-editor/audio/audio-mixer';
 	import { mixerDbToGain } from '$lib/video-editor/audio/mixer-utils';
 
@@ -120,6 +133,9 @@
 	let proxyAudioElement = $state<HTMLAudioElement | null>(null);
 	let videoMixerGain: GainNode | null = null;
 	let proxyMixerGain: GainNode | null = null;
+	let shuttleScheduler: ReturnType<typeof createReverseShuttleScheduler> | null = null;
+	let shuttleGainNode: GainNode | null = null;
+	let detachShuttle: (() => void) | null = null;
 	let syncVideoFrame = $state<(() => void) | null>(null);
 	let videoRevision = $state(0);
 	let proxyFallbackCanvas = $state<HTMLCanvasElement | null>(null);
@@ -199,12 +215,13 @@
 		const height = transform.height ?? canvasHeight;
 		const anchorX = transform.anchorX ?? width / 2;
 		const anchorY = transform.anchorY ?? height / 2;
+		const crop = resolved.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
 		return [
 			`left:${50 + ((transform.x ?? 0) / canvasWidth) * 100}%`,
 			`top:${50 + ((transform.y ?? 0) / canvasHeight) * 100}%`,
 			`width:${(width / canvasWidth) * 100}%`,
 			`height:${(height / canvasHeight) * 100}%`,
-			`transform:translate(${(-anchorX / width) * 100}%,${(-anchorY / height) * 100}%) rotate(${transform.rotation ?? 0}deg) scaleX(${transform.flipHorizontal ? -1 : 1}) scaleY(${transform.flipVertical ? -1 : 1})`,
+			`transform:translate(${(-anchorX / width) * 100}%,${(-anchorY / height) * 100}%) rotate(${transform.rotation ?? 0}deg) scaleX(${(transform.flipHorizontal ? -1 : 1) * (transform.scaleX ?? 1)}) scaleY(${(transform.flipVertical ? -1 : 1) * (transform.scaleY ?? 1)})`,
 			`opacity:${
 				deferEffects
 					? 0
@@ -219,24 +236,11 @@
 						)
 			}`,
 			`border-radius:${(Math.max(0, transform.cornerRadius ?? 0) / canvasWidth) * 100}cqw`,
-			`filter:${deferEffects ? 'none' : effectsToCssFilter(renderEffects)}`
+			`filter:${deferEffects ? 'none' : effectsToCssFilter(renderEffects)}`,
+			`clip-path:inset(${Math.max(0, crop.top) * 100}% ${Math.max(0, crop.right) * 100}% ${Math.max(0, crop.bottom) * 100}% ${Math.max(0, crop.left) * 100}%)`
 		].join(';');
 	});
-	const mediaCropStyle = $derived.by(() => {
-		const crop = resolved.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
-		const left = Math.min(0.999, Math.max(0, crop.left));
-		const right = Math.min(0.999, Math.max(0, crop.right));
-		const top = Math.min(0.999, Math.max(0, crop.top));
-		const bottom = Math.min(0.999, Math.max(0, crop.bottom));
-		const visibleWidth = Math.max(0.001, 1 - left - right);
-		const visibleHeight = Math.max(0.001, 1 - top - bottom);
-		return [
-			`left:${(-left / visibleWidth) * 100}%`,
-			`top:${(-top / visibleHeight) * 100}%`,
-			`width:${100 / visibleWidth}%`,
-			`height:${100 / visibleHeight}%`
-		].join(';');
-	});
+	const mediaCropStyle = 'left:0;top:0;width:100%;height:100%';
 	const activeSubtitle = $derived(
 		resolved.type === 'subtitle'
 			? selectCuesAtFrame(resolved.cues ?? [], visualFrame)[0]
@@ -275,10 +279,80 @@
 			!item.isReversed &&
 			Boolean(previewMediaUrl && audioUrl && previewMediaUrl !== audioUrl)
 	);
-	const usesProcessedAudio = $derived(item.type === 'video' && requiresProcessedPreviewAudio(item));
+	const usesProcessedAudio = $derived(
+		item.type === 'video' &&
+			requiresProcessedPreviewAudioForTimeline(item, timelineStore.tracks, timelineStore.busAudioEq)
+	);
+
+	const transportRate = $derived(editorSession.playbackRate);
+	const isShuttleReverse = $derived(isReverseShuttleRate(transportRate) && editorSession.isPlaying);
+
+	$effect(() => {
+		const transportRate = editorSession.playbackRate;
+		const isPlaying = editorSession.isPlaying;
+		const audioOwner = resolveAudioOwner({
+			item,
+			tracks: timelineStore.tracks,
+			allItems: timelineStore.items,
+			mediaEntry: item.mediaId ? mediaPool.entry(item.mediaId) : null,
+			usesSeparateProxyAudio,
+			usesProcessedAudio
+		});
+		const ownsShuttleAudio = audioOwner === 'embedded' || audioOwner === 'separateProxy';
+		const sourceUrl = audioOwner === 'separateProxy' ? audioUrl : url;
+		if (!isPlaying || !isReverseShuttleRate(transportRate) || !ownsShuttleAudio || !sourceUrl) {
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+			return;
+		}
+		let stale = false;
+		void decodedPreviewAudio(sourceUrl, mediaPool.get(item.mediaId ?? '')?.audioCodec)
+			.then((buffer) => {
+				if (stale || !buffer) return;
+				const context = previewAudioContext();
+				const gain = context.createGain();
+				gain.gain.value = previewVolume;
+				const detach = attachAudioSourceToMixer(gain, `shuttle-video:${item.id}`);
+				shuttleGainNode = gain;
+				detachShuttle = detach;
+				const scheduler = createReverseShuttleScheduler({
+					context,
+					buffer,
+					bufferStartSeconds: 0,
+					getSourceCursorSeconds: () =>
+						frameToSourceSeconds(item, timelineStore.currentFrame, editorSession.fps),
+					authoredPlaybackRate: item.speed ?? 1,
+					authoredReversed: !!item.isReversed,
+					getTransportRate: () => editorSession.playbackRate,
+					getGain: () => 1,
+					destination: gain
+				});
+				shuttleScheduler = scheduler;
+				scheduler.start();
+			})
+			.catch(() => undefined);
+		return () => {
+			stale = true;
+			shuttleScheduler?.dispose();
+			shuttleScheduler = null;
+			if (shuttleGainNode) {
+				shuttleGainNode.disconnect();
+				detachShuttle?.();
+				shuttleGainNode = null;
+				detachShuttle = null;
+			}
+		};
+	});
 
 	$effect(() => {
 		setMixerMaster(timelineStore.masterVolumeDb, timelineStore.masterMuted);
+		if (shuttleGainNode) shuttleGainNode.gain.value = previewVolume;
 		const video = mediaElement;
 		if (videoMixerGain) {
 			const gain = usesSeparateProxyAudio || usesProcessedAudio ? 0 : previewVolume;
@@ -431,7 +505,7 @@
 	}
 
 	function scheduleSeekFallback(timestampSeconds: number): void {
-		if (editorSession.clock.isPlaying || !item.mediaId) return;
+		if (editorSession.isPlaying || !item.mediaId) return;
 		const generation = ++proxyFallbackGeneration;
 		if (proxyFallbackTimer !== null) clearTimeout(proxyFallbackTimer);
 		proxyFallbackTimer = setTimeout(() => {
@@ -540,6 +614,12 @@
 				? visualFrame
 				: null,
 			resolved.subtitleStyleScale,
+			resolved.captionHighlightMode,
+			resolved.karaokeActiveColor,
+			resolved.karaokeActiveBackground,
+			activeSubtitle?.id,
+			activeSubtitle?.words?.length,
+			visualFrame,
 			resolved.shapeType,
 			resolved.fillColor,
 			resolved.fillEnabled,
@@ -573,7 +653,13 @@
 				absoluteFrame: visualFrame
 			});
 		} else if (activeSubtitle) {
-			renderSubtitleRaster(context, activeSubtitle.text, resolved, width, height);
+			// Karaoke highlight requires the exact cue words and the absolute frame; the shared
+			// helper falls back to normal rendering when karaoke is disabled or timings are unusable.
+			if (resolved.captionHighlightMode === 'karaoke' && activeSubtitle.words?.length) {
+				renderSubtitleCueRaster(context, activeSubtitle, resolved, width, height, visualFrame);
+			} else {
+				renderSubtitleRaster(context, activeSubtitle.text, resolved, width, height);
+			}
 		} else {
 			context.clearRect(0, 0, width, height);
 		}
@@ -611,23 +697,35 @@
 				item.isReversed && conform
 					? sourceSecondsToReverseConformSeconds(conform, originalSourceTime)
 					: originalSourceTime;
-			if (seekDriftExceeded(video.currentTime, sourceTime, 0.08 / Math.max(0.1, speed))) {
+			const transportRate = editorSession.playbackRate;
+			const combinedRate = getShuttleMediaPlaybackRate(speed, Math.abs(transportRate));
+			const driftThreshold = 0.08 / Math.max(0.1, combinedRate);
+			if (seekDriftExceeded(video.currentTime, sourceTime, driftThreshold)) {
 				videoScheduler.request(sourceTime);
 				scheduleSeekFallback(originalSourceTime);
 			}
-			video.playbackRate = Math.min(16, Math.max(0.0625, speed));
+			video.playbackRate = combinedRate;
 			if (audio) {
-				if (seekDriftExceeded(audio.currentTime, sourceTime, 0.08 / Math.max(0.1, speed)))
+				if (seekDriftExceeded(audio.currentTime, sourceTime, driftThreshold))
 					audioScheduler?.request(sourceTime);
-				audio.playbackRate = video.playbackRate;
+				audio.playbackRate = combinedRate;
 			}
-			if (editorSession.clock.isPlaying && video.paused && (!item.isReversed || conform !== null))
+			const shuttleReverse = isReverseShuttleRate(transportRate) && editorSession.isPlaying;
+			if (
+				editorSession.isPlaying &&
+				!shuttleReverse &&
+				video.paused &&
+				(!item.isReversed || conform !== null)
+			)
 				void video.play().catch(() => undefined);
-			if (editorSession.clock.isPlaying) clearProxySeekFallback();
-			if (editorSession.clock.isPlaying && audio?.paused) void audio.play().catch(() => undefined);
+			if (shuttleReverse && !video.paused) video.pause();
+			if (editorSession.isPlaying && !shuttleReverse) clearProxySeekFallback();
+			if (editorSession.isPlaying && !shuttleReverse && audio?.paused)
+				void audio.play().catch(() => undefined);
+			if (shuttleReverse && audio && !audio.paused) audio.pause();
 			if (item.isReversed && !conform && !video.paused) video.pause();
-			if (!editorSession.clock.isPlaying && !video.paused) video.pause();
-			if (!editorSession.clock.isPlaying && audio && !audio.paused) audio.pause();
+			if (!editorSession.isPlaying && !video.paused) video.pause();
+			if (!editorSession.isPlaying && audio && !audio.paused) audio.pause();
 			if (selected && !needsGpu && !deferEffects)
 				requestAnimationFrame(() => publishScopeSample(video));
 		};
@@ -635,9 +733,11 @@
 		sync();
 		const offPlay = editorSession.clock.on('play', sync);
 		const offPause = editorSession.clock.on('pause', sync);
+		const offRate = editorSession.clock.on('ratechange', sync);
 		return () => {
 			offPlay();
 			offPause();
+			offRate();
 			if (syncVideoFrame === sync) syncVideoFrame = null;
 			videoScheduler.detach();
 			audioScheduler?.detach();
@@ -685,12 +785,10 @@
 		const draw = async () => {
 			const revision = ++request;
 			const frame = untrack(() => visualFrame);
-			const sourceFps = item.sourceFps ?? composition.fps;
 			const nestedFrame = Math.max(
 				0,
 				Math.floor(
-					(item.sourceStart ?? 0) +
-						((frame - item.from) / editorSession.fps) * (item.speed ?? 1) * sourceFps
+					frameToSourceSeconds(item, frame, editorSession.fps) * (item.sourceFps ?? composition.fps)
 				)
 			);
 			const source = await renderer.render(nestedFrame);
@@ -1076,7 +1174,7 @@
 
 	function publishScopeSample(source: CanvasImageSource): void {
 		const now = performance.now();
-		if (now - lastScopeAt < (editorSession.clock.isPlaying ? 66 : 200)) return;
+		if (now - lastScopeAt < (editorSession.isPlaying ? 66 : 200)) return;
 		lastScopeAt = now;
 		const canvas = new OffscreenCanvas(256, 144);
 		const context = canvas.getContext('2d');

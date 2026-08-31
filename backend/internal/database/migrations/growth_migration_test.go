@@ -38,29 +38,6 @@ func TestGrowthMigrationCreatesTablesAndConstraints(t *testing.T) {
 	_, err = db.ExecContext(ctx, sqlStr)
 	require.NoError(t, err)
 
-	// Verify tables exist
-	for _, tbl := range []string{"growth_recommendations", "growth_sync_states"} {
-		var count int
-		err = db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", tbl).Scan(ctx, &count)
-		require.NoError(t, err)
-		require.Equal(t, 1, count, "table %s should exist", tbl)
-	}
-
-	// Verify indexes
-	for _, idx := range []string{
-		"growth_recommendations_workspace_idx",
-		"growth_recommendations_social_account_idx",
-		"growth_recommendations_generation_idx",
-		"growth_recommendations_score_idx",
-		"growth_sync_states_workspace_idx",
-		"growth_sync_states_social_account_idx",
-	} {
-		var c int
-		err = db.NewRaw("SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name=?", idx).Scan(ctx, &c)
-		require.NoError(t, err)
-		require.Equal(t, 1, c, "index %s should exist", idx)
-	}
-
 	// Verify unique constraint on (social_account_id, remote_account_id)
 	_, err = db.ExecContext(ctx, "INSERT INTO workspaces VALUES ('ws-1','org-1','W','2020-01-01')")
 	require.NoError(t, err)

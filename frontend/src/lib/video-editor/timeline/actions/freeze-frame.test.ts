@@ -107,13 +107,13 @@ describe('commitFreezeFrame', () => {
 			sourceEnd: 60
 		});
 		expect(timelineStore.itemById.get('next')?.from).toBe(150);
+		expect(freeze?.crop?.left).toBeCloseTo(40 / 1920);
 		expect(freeze).toMatchObject({
 			type: 'image',
 			from: 50,
 			durationInFrames: 60,
 			mediaId: 'freeze-media',
-			transform: { x: 50, opacity: 0.75 },
-			crop: { left: 40 }
+			transform: { x: 50, opacity: 0.75 }
 		});
 		expect(freeze?.keyframes).toBeUndefined();
 		expect(transitionsStore.list[0]).toMatchObject({

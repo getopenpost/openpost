@@ -25,6 +25,16 @@ const browserScopes = ["e2e", "e2e-app", "e2e-docs"];
 
 const checks = {
   contracts: stage("generated contracts", [bun("scripts/check-contracts.mjs")]),
+  "n8n-package": stage("n8n package", [
+    bunTest("scripts/n8n-package-release.test.mjs"),
+    bunTest("scripts/generate-selected-automation-contract.test.mjs"),
+    bun("scripts/generate-selected-automation-contract.mjs", "--check"),
+    commandStep("bun", "run", "check", { cwd: "packages/n8n-nodes-openpost" }),
+    commandStep("bun", "run", "test", { cwd: "packages/n8n-nodes-openpost" }),
+    commandStep("bun", "run", "lint", { cwd: "packages/n8n-nodes-openpost" }),
+    commandStep("bun", "run", "build", { cwd: "packages/n8n-nodes-openpost" }),
+    bun("scripts/check-n8n-package-build.mjs"),
+  ]),
   "build-graph": stage("build graph", [
     bunTest(
       "scripts/build-graph.test.mjs",
@@ -57,6 +67,8 @@ const checks = {
   "release-version": stage("release version", [
     bunTest(
       "scripts/next-release-version.test.mjs",
+      "scripts/n8n-package-release.test.mjs",
+      "scripts/mobile-release.test.mjs",
       "scripts/release-manifest.test.mjs",
       "scripts/release-assets.test.mjs",
       "scripts/release-lifecycle.test.mjs",
@@ -75,6 +87,7 @@ const checks = {
   "public-routes": stage("public routes", [
     bunTest("scripts/cloudflare-edge-plan.test.mjs"),
     bunTest("scripts/check-marketing-route-manifest.test.mjs"),
+    bunTest("scripts/marketing-agent-readiness.test.mjs"),
     bunTest("scripts/generate-agent-surfaces.test.mjs"),
     bunTest("scripts/public-deployment-proof.test.mjs"),
     bun("scripts/check-marketing-route-manifest.mjs"),
@@ -132,6 +145,7 @@ const checks = {
     commandStep("scripts/check-go-deadcode.sh"),
     commandStep("bunx", "knip", "--production", "--include", "files", "--no-config-hints"),
   ]),
+  "secret-scan": stage("secret scan", [commandStep("bash", "scripts/scan-secrets.sh")]),
   compatibility: stage("compatibility surfaces", [
     bunTest("scripts/compatibility-surfaces.test.mjs"),
     bun("scripts/compatibility-surfaces.mjs"),
@@ -145,6 +159,7 @@ const checks = {
     bunTest(
       "scripts/tasks.test.mjs",
       "scripts/changed-files-check.test.mjs",
+      "scripts/secret-scan-contract.test.mjs",
       "scripts/turbo-cache.test.mjs",
     ),
   ]),
@@ -154,7 +169,15 @@ const checks = {
 };
 
 const policyGroups = [
-  ["build-graph", "assets", "image-policy", "mcp-registry", "docs", "release-version"],
+  [
+    "build-graph",
+    "assets",
+    "image-policy",
+    "mcp-registry",
+    "docs",
+    "release-version",
+    "secret-scan",
+  ],
   [
     "app-routes",
     "public-routes",
@@ -174,35 +197,37 @@ const policyGroups = [
   ],
 ];
 
-try {
-  const plan = resolvePlan(command, scope, options);
-  if (options.has("--plan")) {
-    console.log(JSON.stringify(publicPlan(plan), null, 2));
-  } else {
-    const cacheDirectory = resolveTurboCacheDirectory({ repositoryRoot: root });
-    if (process.env.OPENPOST_ROOT_TASK_LOCKED === "1") {
-      await execute(plan, { cacheDirectory, enforceCacheLimit: false });
+if (import.meta.main) {
+  try {
+    const plan = resolvePlan(command, scope, options);
+    if (options.has("--plan")) {
+      console.log(JSON.stringify(publicPlan(plan), null, 2));
     } else {
-      const worktreeLock = path.join(root, ".turbo", "root-task");
-      if (plan.command === "dev") {
-        await withTurboCacheLock({ directory: worktreeLock }, async () => {
-          await removeLegacyTurboCache(path.join(root, ".turbo", "cache"));
-        });
+      const cacheDirectory = resolveTurboCacheDirectory({ repositoryRoot: root });
+      if (process.env.OPENPOST_ROOT_TASK_LOCKED === "1") {
         await execute(plan, { cacheDirectory, enforceCacheLimit: false });
       } else {
-        await withTurboCacheLock({ directory: worktreeLock }, async () => {
-          await removeLegacyTurboCache(path.join(root, ".turbo", "cache"));
-          await executeWithCacheLease(plan, cacheDirectory);
-        });
+        const worktreeLock = path.join(root, ".turbo", "root-task");
+        if (plan.command === "dev") {
+          await withTurboCacheLock({ directory: worktreeLock }, async () => {
+            await removeLegacyTurboCache(path.join(root, ".turbo", "cache"));
+          });
+          await execute(plan, { cacheDirectory, enforceCacheLimit: false });
+        } else {
+          await withTurboCacheLock({ directory: worktreeLock }, async () => {
+            await removeLegacyTurboCache(path.join(root, ".turbo", "cache"));
+            await executeWithCacheLease(plan, cacheDirectory);
+          });
+        }
       }
     }
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
   }
-} catch (error) {
-  console.error(error.message);
-  process.exitCode = 1;
 }
 
-function resolvePlan(requestedCommand, requestedScope, requestedOptions) {
+export function resolvePlan(requestedCommand, requestedScope, requestedOptions = new Set()) {
   if (!requestedCommand) throw new Error(help());
   switch (requestedCommand) {
     case "dev":
@@ -222,11 +247,8 @@ function resolvePlan(requestedCommand, requestedScope, requestedOptions) {
       if (requestedScope) throw unsupported("verify", requestedScope, []);
       return plan("verify", undefined, [
         [taskStage("static checks", "check")],
-        [
-          taskStage("format check", "format:check"),
-          taskStage("lint", "lint"),
-          taskStage("tests", "test"),
-        ],
+        [taskStage("format check", "format:check"), taskStage("lint", "lint")],
+        [taskStage("tests", "test")],
         [taskStage("production builds", "build")],
       ]);
     default:
@@ -392,7 +414,9 @@ function testPlan(requestedScope, requestedOptions) {
       "@openpost/social-preview",
     ),
   ]);
-  const workspace = stage("workspace tests", [commandStep("bunx", "turbo", "run", "test")]);
+  const workspace = stage("workspace tests", [
+    commandStep("bunx", "turbo", "run", "test", "--concurrency", "1"),
+  ]);
   const repository = stage("repository tests", [bunTest("./scripts")]);
   const nonBrowserFrontend = stage("frontend server tests", [
     commandStep("bunx", "turbo", "run", "test:server", "--filter", "@openpost/web"),
@@ -400,6 +424,7 @@ function testPlan(requestedScope, requestedOptions) {
   const marketing = stage("marketing tests", [
     bunTest(
       "scripts/check-marketing-route-manifest.test.mjs",
+      "scripts/marketing-agent-readiness.test.mjs",
       "scripts/marketing-claims.test.mjs",
       "scripts/legal-policy-manifest.test.mjs",
     ),
@@ -440,7 +465,7 @@ function testPlan(requestedScope, requestedOptions) {
     ]);
     return plan("test", undefined, [[backend, cli, nonBrowserFrontend, nonBrowserWorkspace]]);
   }
-  return plan("test", undefined, [[backend, cli, workspace, repository]]);
+  return plan("test", undefined, [[backend, cli, repository], [workspace]]);
 }
 
 function buildPlan(requestedScope) {
@@ -638,14 +663,17 @@ function plan(requestedCommand, requestedScope, phases) {
   return { command: requestedCommand, scope: requestedScope, phases };
 }
 
-function publicPlan(taskPlan) {
+export function publicPlan(taskPlan) {
   return {
     command: taskPlan.command,
     scope: taskPlan.scope ?? null,
-    stages: taskPlan.phases.flat().map((item) => ({
-      label: item.label,
-      commands: item.steps.map((step) => step.display ?? step.argv?.join(" ") ?? step.type),
-    })),
+    stages: taskPlan.phases.flatMap((items, phase) =>
+      items.map((item) => ({
+        phase,
+        label: item.label,
+        commands: item.steps.map((step) => step.display ?? step.argv?.join(" ") ?? step.type),
+      })),
+    ),
   };
 }
 
@@ -674,7 +702,10 @@ function bunRun(...args) {
 }
 
 function bunTest(...args) {
-  return commandStep("bun", "test", ...args);
+  const exactPaths = args.map((arg) =>
+    arg.startsWith(".") || arg.startsWith("-") || path.isAbsolute(arg) ? arg : `./${arg}`,
+  );
+  return commandStep("bun", "test", ...exactPaths);
 }
 
 function go(...values) {

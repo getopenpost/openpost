@@ -22,6 +22,12 @@ type MastodonServerConfig struct {
 	InstanceURL  string `json:"instance_url"`
 }
 
+type AnalyticsSourceConfig struct {
+	Platform    string `json:"platform"`
+	BaseURL     string `json:"base_url"`
+	BearerToken string `json:"bearer_token"`
+}
+
 type Config struct {
 	Edition                  string
 	AppE2EHostedSignup       bool
@@ -32,6 +38,9 @@ type Config struct {
 	DatabaseURL              string
 	JWTSecret                string
 	EncryptionKey            string
+	EncryptionKeyID          string
+	EncryptionPreviousKeys   map[string]string
+	MediaSigningKey          string
 	DisableRegistrations     bool
 	PublicProfilesEnabled    bool
 	FrontendURL              string
@@ -45,9 +54,12 @@ type Config struct {
 	PrivacyVersion           string
 	SupportEmail             string
 	OpenRouterAPIKey         string
+	ContentAIProvider        string
+	ContentAIRequireZDR      bool
 	ImageCaptionModel        string
 	ImageCaptionProvider     string
 	ImageCaptionRequireZDR   bool
+	TextGenerationModel      string
 	MemeGeneratorEnabled     bool
 	MemeGenerationModel      string
 	ImageEditorEnabled       bool
@@ -117,6 +129,7 @@ type Config struct {
 	ThreadsRedirectURI  string
 
 	ProviderApps                  []platform.AppConfig
+	AnalyticsSources              []AnalyticsSourceConfig
 	ConnectorsFile                string
 	DisabledProviders             []string
 	ProviderCertificationEnforced bool
@@ -148,6 +161,9 @@ type Config struct {
 	PaddleTeamAnnualPriceID     string
 	PaddleAgencyMonthlyPriceID  string
 	PaddleAgencyAnnualPriceID   string
+
+	analyticsSourcesParseErr error
+	encryptionKeyringLoadErr error
 }
 
 const (
@@ -186,6 +202,7 @@ func Load() *Config {
 	defaultTermsVersion := ""
 	defaultPrivacyVersion := ""
 	defaultSupportEmail := ""
+	encryptionKeyID, encryptionKeyIDErr := getEncryptionKeyringEnvDefault("OPENPOST_ENCRYPTION_KEY_ID", "")
 	if legalRequired {
 		defaultTermsURL = legalpolicy.TermsURL
 		defaultPrivacyURL = legalpolicy.PrivacyURL
@@ -202,6 +219,7 @@ func Load() *Config {
 		DatabaseURL:             getEnvWithFallbacks("OPENPOST_DATABASE_URL", "", "DATABASE_URL"),
 		JWTSecret:               getEnvWithFallbacks("OPENPOST_JWT_SECRET", "", "JWT_SECRET"),
 		EncryptionKey:           getEnvWithFallbacks("OPENPOST_ENCRYPTION_KEY", "", "ENCRYPTION_KEY"),
+		EncryptionKeyID:         strings.TrimSpace(encryptionKeyID),
 		DisableRegistrations:    getEnvBoolWithAliases(false, "OPENPOST_DISABLE_REGISTRATIONS"),
 		PublicProfilesEnabled:   getEnvBoolWithAliases(true, "OPENPOST_PUBLIC_PROFILES_ENABLED"),
 		FrontendURL:             frontendURL,
@@ -213,9 +231,12 @@ func Load() *Config {
 		PrivacyVersion:          getEnvDefault("OPENPOST_PRIVACY_VERSION", defaultPrivacyVersion),
 		SupportEmail:            getEnvDefault("OPENPOST_SUPPORT_EMAIL", defaultSupportEmail),
 		OpenRouterAPIKey:        strings.TrimSpace(getEnvDefault("OPENROUTER_API_KEY", "")),
+		ContentAIProvider:       strings.TrimSpace(getEnvWithFallbacks("OPENPOST_CONTENT_AI_PROVIDER", "", "OPENPOST_IMAGE_CAPTION_PROVIDER")),
+		ContentAIRequireZDR:     getEnvBoolWithAliases(false, "OPENPOST_CONTENT_AI_REQUIRE_ZDR", "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR"),
 		ImageCaptionModel:       strings.TrimSpace(getEnvDefault("OPENPOST_IMAGE_CAPTION_MODEL", "openai/gpt-5.6-luna")),
 		ImageCaptionProvider:    strings.TrimSpace(getEnvDefault("OPENPOST_IMAGE_CAPTION_PROVIDER", "")),
 		ImageCaptionRequireZDR:  getEnvBoolWithAliases(false, "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR"),
+		TextGenerationModel:     strings.TrimSpace(getEnvDefault("OPENPOST_TEXT_GENERATION_MODEL", "openai/gpt-5.6-luna")),
 		MemeGeneratorEnabled:    getEnvBoolWithAliases(true, "OPENPOST_MEME_GENERATOR_ENABLED"),
 		MemeGenerationModel:     strings.TrimSpace(getEnvDefault("OPENPOST_MEME_GENERATION_MODEL", "openai/gpt-5.6-luna")),
 		ImageEditorEnabled: getEnvBoolWithAliases(
@@ -332,6 +353,7 @@ func Load() *Config {
 		PaddleAgencyMonthlyPriceID:  getEnvDefault("OPENPOST_PADDLE_AGENCY_MONTHLY_PRICE_ID", ""),
 		PaddleAgencyAnnualPriceID:   getEnvDefault("OPENPOST_PADDLE_AGENCY_ANNUAL_PRICE_ID", ""),
 	}
+	cfg.setEncryptionKeyringLoadError(encryptionKeyIDErr)
 
 	if cfg.PublicURL == "" {
 		cfg.PublicURL = cfg.FrontendURL
@@ -373,6 +395,11 @@ func Load() *Config {
 			cfg.ProviderApps = mergeProviderApps(cfg.ProviderApps, defaultProviderAppConfig(cfg, apps)...)
 		}
 	}
+	loadAnalyticsSources(cfg)
+	loadPreviousEncryptionKeys(cfg)
+	mediaSigningKey, mediaSigningKeyErr := getEncryptionKeyringEnvDefault("OPENPOST_MEDIA_SIGNING_KEY", cfg.EncryptionKey)
+	cfg.MediaSigningKey = mediaSigningKey
+	cfg.setEncryptionKeyringLoadError(mediaSigningKeyErr)
 
 	cfg.CORSOrigins = buildCORSOrigins(
 		cfg.Edition,
@@ -529,6 +556,82 @@ func parseStringList(raw string) []string {
 	return values
 }
 
+func normalizeAnalyticsSources(sources []AnalyticsSourceConfig) []AnalyticsSourceConfig {
+	normalized := make([]AnalyticsSourceConfig, 0, len(sources))
+	for _, source := range sources {
+		source.Platform = strings.ToLower(strings.TrimSpace(source.Platform))
+		source.BaseURL = strings.TrimRight(strings.TrimSpace(source.BaseURL), "/")
+		source.BearerToken = strings.TrimSpace(source.BearerToken)
+		normalized = append(normalized, source)
+	}
+	return normalized
+}
+
+func loadAnalyticsSources(cfg *Config) {
+	raw := getEnvDefault("OPENPOST_ANALYTICS_SOURCES", "")
+	if raw == "" {
+		return
+	}
+	var sources []AnalyticsSourceConfig
+	if err := json.Unmarshal([]byte(raw), &sources); err != nil {
+		cfg.analyticsSourcesParseErr = fmt.Errorf("OPENPOST_ANALYTICS_SOURCES must be valid JSON: %w", err)
+		return
+	}
+	cfg.AnalyticsSources = normalizeAnalyticsSources(sources)
+}
+
+func loadPreviousEncryptionKeys(cfg *Config) {
+	raw, err := getEncryptionKeyringEnvDefault("OPENPOST_ENCRYPTION_PREVIOUS_KEYS", "")
+	if err != nil {
+		cfg.setEncryptionKeyringLoadError(err)
+		return
+	}
+	if raw == "" {
+		return
+	}
+	var keys map[string]string
+	if err := json.Unmarshal([]byte(raw), &keys); err != nil || keys == nil {
+		cfg.setEncryptionKeyringLoadError(fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS must be a valid JSON object"))
+		return
+	}
+	cfg.EncryptionPreviousKeys = make(map[string]string, len(keys))
+	for keyID, key := range keys {
+		normalizedKeyID := strings.TrimSpace(keyID)
+		if _, exists := cfg.EncryptionPreviousKeys[normalizedKeyID]; exists {
+			cfg.setEncryptionKeyringLoadError(fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS contains duplicate normalized key IDs"))
+			return
+		}
+		cfg.EncryptionPreviousKeys[normalizedKeyID] = key
+	}
+}
+
+func (c *Config) setEncryptionKeyringLoadError(err error) {
+	if err != nil && c.encryptionKeyringLoadErr == nil {
+		c.encryptionKeyringLoadErr = err
+	}
+}
+
+func getEncryptionKeyringEnvDefault(key, fallback string) (string, error) {
+	if value := os.Getenv(key); value != "" {
+		return value, nil
+	}
+
+	fileKey := key + "_FILE"
+	path := strings.TrimSpace(os.Getenv(fileKey))
+	if path == "" {
+		return fallback, nil
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("%s must reference a readable file", fileKey)
+	}
+	value := strings.TrimSpace(string(raw))
+	if value == "" {
+		return "", fmt.Errorf("%s must reference a nonempty file", fileKey)
+	}
+	return value, nil
+}
+
 func (c *Config) DatabaseDSN() string {
 	if c.DatabaseDriver == DatabaseDriverPostgres && c.DatabaseURL != "" {
 		return c.DatabaseURL
@@ -537,7 +640,13 @@ func (c *Config) DatabaseDSN() string {
 }
 
 func (c *Config) ValidateRuntime() error {
+	if err := c.ValidateEncryptionKeyring(); err != nil {
+		return err
+	}
 	if err := c.ValidateManagedSettings(); err != nil {
+		return err
+	}
+	if err := c.validateAnalyticsSources(); err != nil {
 		return err
 	}
 	if c.Edition != EditionCloud {
@@ -547,6 +656,7 @@ func (c *Config) ValidateRuntime() error {
 	missing := append(c.missingCloudDataPlaneConfig(), c.missingCloudBillingConfig()...)
 	missing = append(missing, c.missingCloudAccountConfig()...)
 	missing = append(missing, c.invalidCloudImageCaptionConfig()...)
+	missing = append(missing, c.invalidCloudContentAIConfig()...)
 	missing = append(missing, c.invalidCloudCORSConfig()...)
 	missing = append(missing, c.missingCloudTelemetryConfig()...)
 	if c.XMonthlyBudgetMicrousd < 0 {
@@ -565,6 +675,117 @@ func (c *Config) ValidateRuntime() error {
 		return fmt.Errorf("OPENPOST_EDITION=cloud requires: %s", strings.Join(missing, ", "))
 	}
 	return nil
+}
+
+func (c *Config) ValidateEncryptionKeyring() error {
+	if c.encryptionKeyringLoadErr != nil {
+		return c.encryptionKeyringLoadErr
+	}
+	if c.EncryptionKeyID == "" {
+		if len(c.EncryptionPreviousKeys) > 0 {
+			return fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS requires an explicit OPENPOST_ENCRYPTION_KEY_ID")
+		}
+		return validateMediaSigningKey(c.MediaSigningKey, c.EncryptionKey)
+	}
+	if err := validateEncryptionKeyID(c.EncryptionKeyID); err != nil {
+		return fmt.Errorf("OPENPOST_ENCRYPTION_KEY_ID is invalid: %w", err)
+	}
+
+	keyIDs := make([]string, 0, len(c.EncryptionPreviousKeys))
+	for keyID := range c.EncryptionPreviousKeys {
+		keyIDs = append(keyIDs, keyID)
+	}
+	sort.Strings(keyIDs)
+	for _, keyID := range keyIDs {
+		if err := validateEncryptionKeyID(keyID); err != nil {
+			return fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS contains an invalid key ID: %w", err)
+		}
+		if keyID == c.EncryptionKeyID {
+			return fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS must not contain the current primary key ID")
+		}
+		key := c.EncryptionPreviousKeys[keyID]
+		if len(key) < minSecretLength {
+			return fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS key %q must be at least %d characters", keyID, minSecretLength)
+		}
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(key)), "change-this-") {
+			return fmt.Errorf("OPENPOST_ENCRYPTION_PREVIOUS_KEYS key %q must not use a public example placeholder", keyID)
+		}
+	}
+	return validateMediaSigningKey(c.MediaSigningKey, c.EncryptionKey)
+}
+
+func validateMediaSigningKey(key, encryptionKey string) error {
+	if key == "" || key == encryptionKey {
+		return nil
+	}
+	if len(key) < minSecretLength {
+		return fmt.Errorf("OPENPOST_MEDIA_SIGNING_KEY must be at least %d characters", minSecretLength)
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(key)), "change-this-") {
+		return fmt.Errorf("OPENPOST_MEDIA_SIGNING_KEY must not use a public example placeholder")
+	}
+	return nil
+}
+
+func validateEncryptionKeyID(keyID string) error {
+	if keyID == "" {
+		return fmt.Errorf("a key ID is required")
+	}
+	if len(keyID) > 255 {
+		return fmt.Errorf("a key ID must not exceed 255 bytes")
+	}
+	for _, character := range keyID {
+		if character >= 'a' && character <= 'z' ||
+			character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' ||
+			character == '.' || character == '_' || character == '-' {
+			continue
+		}
+		return fmt.Errorf("key IDs may contain only letters, numbers, periods, underscores, and hyphens")
+	}
+	return nil
+}
+
+func (c *Config) validateAnalyticsSources() error {
+	if c.analyticsSourcesParseErr != nil {
+		return c.analyticsSourcesParseErr
+	}
+	if len(c.AnalyticsSources) == 0 {
+		return nil
+	}
+	invalid := make([]string, 0, len(c.AnalyticsSources))
+	seenPlatforms := make(map[string]struct{}, len(c.AnalyticsSources))
+	for _, source := range c.AnalyticsSources {
+		invalid = append(invalid, analyticsSourceValidationIssues(source, seenPlatforms)...)
+	}
+	if len(invalid) == 0 {
+		return nil
+	}
+	sort.Strings(invalid)
+	return fmt.Errorf("OPENPOST_ANALYTICS_SOURCES invalid: %s", strings.Join(invalid, ", "))
+}
+
+func analyticsSourceValidationIssues(source AnalyticsSourceConfig, seenPlatforms map[string]struct{}) []string {
+	platformName := strings.TrimSpace(source.Platform)
+	invalid := make([]string, 0, 3)
+	if platformName == "" {
+		invalid = append(invalid, "platform is required")
+	} else if _, exists := seenPlatforms[platformName]; exists {
+		invalid = append(invalid, fmt.Sprintf("duplicate platform %q", platformName))
+	} else {
+		seenPlatforms[platformName] = struct{}{}
+	}
+	if strings.TrimSpace(source.BearerToken) == "" {
+		invalid = append(invalid, fmt.Sprintf("platform %q requires bearer_token", platformName))
+	}
+	parsed, err := url.Parse(strings.TrimSpace(source.BaseURL))
+	if err != nil || parsed == nil || !parsed.IsAbs() || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return append(invalid, fmt.Sprintf("platform %q requires an absolute http(s) URL", platformName))
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		invalid = append(invalid, fmt.Sprintf("platform %q base_url must not include credentials, query, or fragment", platformName))
+	}
+	return invalid
 }
 
 func (c *Config) missingCloudTelemetryConfig() []string {
@@ -596,6 +817,20 @@ func (c *Config) invalidCloudImageCaptionConfig() []string {
 	}
 	if !c.ImageCaptionRequireZDR {
 		invalid = append(invalid, "OPENPOST_IMAGE_CAPTION_REQUIRE_ZDR=true")
+	}
+	return invalid
+}
+
+func (c *Config) invalidCloudContentAIConfig() []string {
+	if strings.TrimSpace(c.OpenRouterAPIKey) == "" {
+		return nil
+	}
+	var invalid []string
+	if c.ContentAIProvider != "azure/eu" {
+		invalid = append(invalid, "OPENPOST_CONTENT_AI_PROVIDER=azure/eu")
+	}
+	if !c.ContentAIRequireZDR {
+		invalid = append(invalid, "OPENPOST_CONTENT_AI_REQUIRE_ZDR=true")
 	}
 	return invalid
 }
@@ -983,17 +1218,31 @@ func oauthRedirectFromFrontend(primary, alias, frontend, path string) string {
 func Init() {
 	jwtSecret := getEnvWithFallbacks("OPENPOST_JWT_SECRET", "", "JWT_SECRET")
 	encryptionKey := getEnvWithFallbacks("OPENPOST_ENCRYPTION_KEY", "", "ENCRYPTION_KEY")
+	if err := validateBootstrapSecrets(jwtSecret, encryptionKey); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	if jwtSecret == "" {
-		log.Fatal("FATAL: OPENPOST_JWT_SECRET is required")
+func validateBootstrapSecrets(jwtSecret, encryptionKey string) error {
+	const documentedRandomSecretPlaceholder = "replace-with-a-random-secret-at-least-32-characters-long"
+
+	for _, secret := range []struct {
+		name  string
+		value string
+	}{
+		{name: "OPENPOST_JWT_SECRET", value: jwtSecret},
+		{name: "OPENPOST_ENCRYPTION_KEY", value: encryptionKey},
+	} {
+		if secret.value == "" {
+			return fmt.Errorf("FATAL: %s is required", secret.name)
+		}
+		if len(secret.value) < minSecretLength {
+			return fmt.Errorf("FATAL: %s must be at least %d characters (got %d)", secret.name, minSecretLength, len(secret.value))
+		}
+		normalized := strings.ToLower(strings.TrimSpace(secret.value))
+		if strings.HasPrefix(normalized, "change-this-") || normalized == documentedRandomSecretPlaceholder {
+			return fmt.Errorf("FATAL: %s must not use a public example placeholder", secret.name)
+		}
 	}
-	if len(jwtSecret) < minSecretLength {
-		log.Fatalf("FATAL: OPENPOST_JWT_SECRET must be at least %d characters (got %d)", minSecretLength, len(jwtSecret))
-	}
-	if encryptionKey == "" {
-		log.Fatal("FATAL: OPENPOST_ENCRYPTION_KEY is required")
-	}
-	if len(encryptionKey) < minSecretLength {
-		log.Fatalf("FATAL: OPENPOST_ENCRYPTION_KEY must be at least %d characters (got %d)", minSecretLength, len(encryptionKey))
-	}
+	return nil
 }

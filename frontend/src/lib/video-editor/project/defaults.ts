@@ -13,8 +13,12 @@ import type {
 	TimelineTrack
 } from './types';
 import { CURRENT_SCHEMA_VERSION, getMigrationsToApply } from './migrations';
+import { clampBackground } from '../backgrounds/types';
 import { mediaTracks, normalizeTrackGroups } from '../timeline/utils/track-groups';
 import { m } from '$lib/paraglide/messages';
+import { normalizeAudioEffects } from '../audio/audio-effects';
+import { convertFreeCutProjectDocument, isFreeCutProjectDocument } from './freecut-compat';
+import { isValidProjectCreationSettings, type ProjectCreationSettings } from './project-presets';
 
 export { CURRENT_SCHEMA_VERSION } from './migrations';
 
@@ -71,7 +75,13 @@ export function createEmptyTimeline(): ProjectTimeline {
 	};
 }
 
-export function createBlankProject(name: string = m.video_editor_project_untitled()): Project {
+export function createBlankProject(
+	name: string = m.video_editor_project_untitled(),
+	settings?: ProjectCreationSettings
+): Project {
+	if (settings && !isValidProjectCreationSettings(settings)) {
+		throw new RangeError('Project canvas settings are invalid.');
+	}
 	const now = Date.now();
 	return {
 		id: crypto.randomUUID(),
@@ -81,10 +91,11 @@ export function createBlankProject(name: string = m.video_editor_project_untitle
 		updatedAt: now,
 		duration: 0,
 		schemaVersion: CURRENT_SCHEMA_VERSION,
+		schemaFamily: 'openpost',
 		metadata: {
-			width: DEFAULT_PROJECT_WIDTH,
-			height: DEFAULT_PROJECT_HEIGHT,
-			fps: DEFAULT_PROJECT_FPS,
+			width: settings?.width ?? DEFAULT_PROJECT_WIDTH,
+			height: settings?.height ?? DEFAULT_PROJECT_HEIGHT,
+			fps: settings?.fps ?? DEFAULT_PROJECT_FPS,
 			backgroundColor: '#000000'
 		},
 		timeline: createEmptyTimeline(),
@@ -104,6 +115,43 @@ export interface ProjectWarning {
 export interface NormalizedProject {
 	project: Project;
 	warnings: ProjectWarning[];
+}
+
+function normalizeBackground(item: TimelineItem): TimelineItem {
+	if (item.type !== 'background') return item;
+	if (!item.background) {
+		return {
+			...item,
+			background: {
+				kind: 'mesh-gradient',
+				colors: ['#ff7a18', '#af002d', '#319197', '#1a1a2e'],
+				smoothness: 0.55,
+				rotation: 0,
+				scale: 1,
+				offsetX: 0,
+				offsetY: 0
+			}
+		};
+	}
+	const clamped = clampBackground(item.background);
+	if (JSON.stringify(clamped) === JSON.stringify(item.background)) return item;
+	return { ...item, background: clamped };
+}
+
+function normalizeAudioEffectsForItem(item: TimelineItem): TimelineItem {
+	if (!item.audioEffects || !Array.isArray(item.audioEffects)) return item;
+	const normalized = normalizeAudioEffects(item.audioEffects);
+	const original = item.audioEffects;
+	if (
+		normalized.length === original.length &&
+		normalized.every((e, i) => JSON.stringify(e) === JSON.stringify(original[i]))
+	)
+		return item;
+	if (normalized.length === 0) {
+		const { audioEffects: _omit, ...rest } = item;
+		return rest;
+	}
+	return { ...item, audioEffects: normalized };
 }
 
 function normalizeShapeStrokeStyle(item: TimelineItem): TimelineItem {
@@ -139,7 +187,17 @@ export function normalizeProject(project: Project): NormalizedProject {
 	let shapeStylesRepaired = false;
 	const normalizeItems = (items: TimelineItem[]): TimelineItem[] =>
 		items.map((item) => {
-			const normalized = normalizeShapeStrokeStyle(item);
+			let normalized = normalizeShapeStrokeStyle(item);
+			const bgNormalized = normalizeBackground(normalized);
+			if (bgNormalized !== normalized) {
+				normalized = bgNormalized;
+				shapeStylesRepaired = true;
+			}
+			const withEffects = normalizeAudioEffectsForItem(normalized);
+			if (withEffects !== normalized) {
+				normalized = withEffects;
+				shapeStylesRepaired = true;
+			}
 			if (normalized !== item) shapeStylesRepaired = true;
 			return normalized;
 		});
@@ -230,7 +288,7 @@ function normalizeSubComposition(
 	const durationInFrames = Math.max(0, composition.durationInFrames ?? 0, contentDuration);
 	return {
 		...composition,
-		editorKind: 'sequence',
+		editorKind: composition.editorKind === 'composite-2d' ? 'composite-2d' : 'sequence',
 		items,
 		tracks,
 		transitions: composition.transitions ?? [],
@@ -260,6 +318,23 @@ export interface MigratedProject {
 export function migrateProjectDocument(stored: Project): MigratedProject {
 	// SAFETY: documents without schemaVersion are v1 by contract.
 	const version = Number.isFinite(stored.schemaVersion) ? (stored.schemaVersion ?? 1) : 1;
+	if (isFreeCutProjectDocument(stored)) {
+		const normalized = normalizeProject(
+			convertFreeCutProjectDocument(stored, CURRENT_SCHEMA_VERSION)
+		);
+		normalized.warnings.unshift({
+			code: 'FREECUT_SCHEMA_IMPORTED',
+			message: `Converted FreeCut schema ${version} to the OpenPost project format.`
+		});
+		return {
+			project: normalized.project,
+			migrated: true,
+			appliedMigrations: [CURRENT_SCHEMA_VERSION],
+			fromVersion: version,
+			toVersion: CURRENT_SCHEMA_VERSION,
+			warnings: normalized.warnings
+		};
+	}
 	if (version > CURRENT_SCHEMA_VERSION) {
 		return {
 			project: stored,

@@ -1,6 +1,5 @@
 import type { Workspace } from '$lib/api/client';
 
-export type AccountManagementMode = 'direct' | 'settings';
 export type AccountManagementFeedback = {
 	message: string;
 	tone: 'error' | 'success' | 'warning' | 'info';
@@ -26,7 +25,6 @@ export type AccountManagementContinuation =
 	  };
 
 export interface AccountManagementProps {
-	mode: AccountManagementMode;
 	workspace: Workspace | null;
 	workspaces: Workspace[];
 	links: AccountManagementLinks;

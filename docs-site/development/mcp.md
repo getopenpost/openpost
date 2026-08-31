@@ -93,8 +93,7 @@ newline-delimited JSON framing on stdin/stdout, accepts legacy `Content-Length`
 framing from older clients, advertises both Streamable HTTP response types, and
 forwards the negotiated `MCP-Protocol-Version` on later requests.
 
-Recent MCP tool calls are available in Settings under **CLI Devices & API
-Tokens**. The same data is exposed to authenticated API clients at:
+Recent MCP tool calls are available under **Settings → Personal → Developer access**. The same data is exposed to authenticated API clients at:
 
 ```txt
 GET /api/v1/mcp/activity?limit=20

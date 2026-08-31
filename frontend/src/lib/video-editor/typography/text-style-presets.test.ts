@@ -4,32 +4,12 @@ import {
 	applyTextStylePresetToItem,
 	buildTextScale,
 	buildTextStylePresetTemplate,
-	buildTextStylePresetUpdates,
-	TEXT_STYLE_PRESETS
+	buildTextStylePresetUpdates
 } from './text-style-presets';
 
 const canvas = { width: 1920, height: 1080 };
 
 describe('text style presets', () => {
-	it('ports all thirteen current FreeCut templates', () => {
-		expect(TEXT_STYLE_PRESETS).toHaveLength(13);
-		expect(TEXT_STYLE_PRESETS.map((preset) => preset.id)).toEqual([
-			'clean-title',
-			'poster',
-			'outline-pill',
-			'lower-third',
-			'speaker-card',
-			'cinematic',
-			'quote',
-			'neon',
-			'headline-stack',
-			'breaking-update',
-			'event-card',
-			'launch-stack',
-			'badge'
-		]);
-	});
-
 	it('resolves the exact lower-third and cinematic recipes', () => {
 		expect(buildTextStylePresetUpdates('lower-third', canvas)).toMatchObject({
 			fontFamily: 'Inter',

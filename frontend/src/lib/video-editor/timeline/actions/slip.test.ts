@@ -31,6 +31,40 @@ describe('slipItem', () => {
 		expect(commandHistory.undoStack.length).toBe(1);
 	});
 
+	it('shifts source-anchored speed points by the actual clamped slip delta', () => {
+		timelineStore._setItems([
+			{
+				id: 'a',
+				trackId: 't',
+				from: 100,
+				durationInFrames: 30,
+				label: '',
+				type: 'video',
+				sourceStart: 10,
+				sourceEnd: 40,
+				sourceDuration: 45,
+				speedRamp: [
+					{ id: 'start', sourceFrame: 10, speed: 1, easing: 'hold' },
+					{ id: 'fast', sourceFrame: 25, speed: 2, easing: 'hold' },
+					{ id: 'end', sourceFrame: 40, speed: 1, easing: 'linear' }
+				]
+			}
+		]);
+
+		slipItem('a', 500);
+
+		expect(timelineStore.itemById.get('a')).toMatchObject({
+			from: 100,
+			sourceStart: 15,
+			sourceEnd: 45,
+			speedRamp: [
+				{ id: 'start', sourceFrame: 15, speed: 1, easing: 'hold' },
+				{ id: 'fast', sourceFrame: 30, speed: 2, easing: 'hold' },
+				{ id: 'end', sourceFrame: 45, speed: 1, easing: 'linear' }
+			]
+		});
+	});
+
 	it('clamps at both edges of the source material', () => {
 		timelineStore._setItems([
 			{

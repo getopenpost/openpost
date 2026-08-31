@@ -7,49 +7,32 @@
 	import Logo from '$lib/components/Logo.svelte';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { soundPreferences } from '$lib/stores/sound-preferences.svelte';
-	import {
-		developerDocsUrl,
-		discordCommunityUrl,
-		platforms,
-		resourceItems,
-		selfHostingDocsUrl,
-		userDocsUrl
-	} from '../_marketing';
+	import { marketingNavigation, platforms } from '../_marketing';
 
-	const groups = [
-		{
-			title: 'Product',
-			links: [
-				{ label: 'Overview', href: '/#product' },
-				{ label: 'Features', href: '/features' },
-				{ label: 'Platforms', href: '/platforms' },
-				{ label: 'Pricing', href: '/pricing' },
-				{ label: 'Free tools', href: '/tools' },
-				{ label: 'Compare', href: '/compare' }
-			]
-		},
-		{
-			title: 'Resources',
-			links: resourceItems
-				.filter((item) => !['/platforms', '/compare'].includes(item.href))
-				.map((item) => ({ label: item.label, href: item.href }))
-		},
-		{
-			title: 'Documentation',
-			links: [
-				{ label: 'User docs', href: userDocsUrl },
-				{ label: 'Self-hosting', href: selfHostingDocsUrl },
-				{ label: 'Developer docs', href: developerDocsUrl },
-				...platforms.slice(0, 3).map((platform) => ({
-					label: `${platform.name} guide`,
-					href: `/platforms/${platform.slug}`
-				}))
-			]
-		}
-	];
+	const groups = marketingNavigation.footerGroups.map((group) => ({
+		...group,
+		links:
+			group.title === 'Documentation'
+				? [
+						...group.links,
+						...platforms.slice(0, 3).map((platform) => ({
+							label: `${platform.name} guide`,
+							href: `/platforms/${platform.slug}`
+						}))
+					]
+				: group.links
+	}));
 
 	function externalHref(source: string) {
 		return { href: new URL(source).href } as const;
+	}
+
+	function navigationLink(label: string) {
+		const item = marketingNavigation.footerGroups
+			.flatMap((group) => group.links)
+			.find((candidate) => candidate.label === label);
+		if (!item) throw new Error(`Missing marketing navigation item: ${label}`);
+		return item.href;
 	}
 </script>
 
@@ -67,12 +50,12 @@
 				>
 			</a>
 			<p class="mt-4 max-w-xs text-sm leading-6 text-muted-foreground">
-				The content workspace for solo founders. Create once, adapt for every platform, stay visible
-				everywhere.
+				The content workspace for solo founders. Create once, adapt for each destination, and keep
+				publishing state clear.
 			</p>
 			<div class="mt-5 flex flex-wrap gap-x-5">
 				<a
-					href="https://github.com/getopenpost/openpost"
+					href={navigationLink('GitHub source')}
 					target="_blank"
 					rel="noreferrer"
 					class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -81,7 +64,7 @@
 					GitHub source
 				</a>
 				<a
-					{...externalHref(discordCommunityUrl)}
+					{...externalHref(navigationLink('Discord community'))}
 					target="_blank"
 					rel="noreferrer"
 					class="focus-ring inline-flex min-h-11 items-center gap-2 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -91,7 +74,7 @@
 				</a>
 			</div>
 			<div
-				class="mt-6 flex flex-wrap items-center gap-1 text-muted-foreground"
+				class="platform-guides mt-6 text-muted-foreground"
 				aria-label="Platform publishing guides"
 			>
 				{#each platforms as platform (platform.slug)}
@@ -140,9 +123,9 @@
 		<div
 			class="marketing-shell flex flex-col gap-3 py-5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between"
 		>
-			<span>© 2026 OpenPost Contributors · AGPL-3.0-only</span>
+			<span>© 2026 OpenPost</span>
 			<span class="flex flex-wrap items-center gap-x-5 gap-y-1">
-				<span class="hidden sm:inline">Made for companies of one</span>
+				<span class="hidden sm:inline">Made for YOUR company</span>
 				<button
 					type="button"
 					class="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-md transition-colors hover:text-foreground"
@@ -177,3 +160,17 @@
 		</div>
 	</div>
 </footer>
+
+<style>
+	.platform-guides {
+		display: grid;
+		grid-template-columns: repeat(5, 2.75rem);
+		gap: 0.25rem;
+	}
+
+	@media (min-width: 30rem) {
+		.platform-guides {
+			grid-template-columns: repeat(7, 2.75rem);
+		}
+	}
+</style>

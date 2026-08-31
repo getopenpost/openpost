@@ -23,12 +23,11 @@ type Store struct {
 }
 
 type Payload struct {
-	UserID                string `json:"user_id"`
-	WorkspaceID           string `json:"workspace_id"`
-	Platform              string `json:"platform"`
-	ServerName            string `json:"server_name,omitempty"`
-	ExecutionIntent       string `json:"execution_intent"`
-	AccountManagementMode string `json:"account_management_mode,omitempty"`
+	UserID          string `json:"user_id"`
+	WorkspaceID     string `json:"workspace_id"`
+	Platform        string `json:"platform"`
+	ServerName      string `json:"server_name,omitempty"`
+	ExecutionIntent string `json:"execution_intent"`
 }
 
 func NewStore(db *bun.DB) *Store {
@@ -60,22 +59,15 @@ func (s *Store) Create(ctx context.Context, payload Payload) (string, error) {
 
 func (s *Store) Consume(ctx context.Context, state string) (*Payload, error) {
 	challenge := new(models.AuthChallenge)
-	if err := s.db.NewSelect().
+	if err := s.db.NewDelete().
 		Model(challenge).
 		Where("id = ?", state).
 		Where("type = ?", challengeType).
+		Returning("*").
 		Scan(ctx); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrInvalidState
 		}
-		return nil, err
-	}
-
-	if _, err := s.db.NewDelete().
-		Model((*models.AuthChallenge)(nil)).
-		Where("id = ?", challenge.ID).
-		Where("type = ?", challengeType).
-		Exec(ctx); err != nil {
 		return nil, err
 	}
 

@@ -77,6 +77,7 @@ describe('ColorWorkspace', () => {
 	it('saves, applies, and deletes a browser-wide grade preset', async () => {
 		const onedit = vi.fn();
 		const screen = await render(ColorWorkspace, { itemId: 'video', onedit });
+		await screen.getByRole('button', { name: 'Saved grade presets' }).click();
 		const name = document.querySelector<HTMLInputElement>('[aria-label="Grade preset name"]');
 		expect(name).not.toBeNull();
 		if (!name) return;
@@ -92,12 +93,9 @@ describe('ColorWorkspace', () => {
 			expect(localStorage.getItem(COLOR_GRADE_PRESETS_STORAGE_KEY)).toContain('Warm launch');
 		});
 		await expect.element(screen.getByText('Warm launch', { exact: true })).toBeVisible();
-		const apply = Array.from(document.querySelectorAll<HTMLButtonElement>('button')).find(
-			(button) => button.textContent?.trim() === 'Apply'
-		);
-		apply?.click();
+		await screen.getByRole('button', { name: 'Warm launch', exact: true }).click();
 		await vi.waitFor(() => expect(onedit).toHaveBeenCalledTimes(1));
-		document.querySelector<HTMLButtonElement>('[aria-label="Delete grade preset"]')?.click();
+		await screen.getByRole('button', { name: 'Delete grade preset: Warm launch' }).click();
 		await vi.waitFor(() => {
 			expect(localStorage.getItem(COLOR_GRADE_PRESETS_STORAGE_KEY)).toBe('[]');
 		});
@@ -113,5 +111,19 @@ describe('ColorWorkspace', () => {
 		await vi.waitFor(() => expect(colorPreviewStore.comparisonMode).toBe('split'));
 		expect(JSON.stringify(timelineStore.items)).toBe(before);
 		expect(commandHistory.undoStack).toHaveLength(0);
+	});
+
+	it('surfaces the grading actions and delegates adjustment-layer creation', async () => {
+		const oncreateadjustment = vi.fn();
+		const screen = await render(ColorWorkspace, {
+			itemId: 'video',
+			onedit: vi.fn(),
+			oncreateadjustment
+		});
+
+		await expect.element(screen.getByRole('button', { name: 'Copy grade' })).toBeVisible();
+		await expect.element(screen.getByRole('button', { name: 'Paste grade' })).toBeVisible();
+		await screen.getByRole('button', { name: 'Adjustment layer' }).click();
+		expect(oncreateadjustment).toHaveBeenCalledOnce();
 	});
 });

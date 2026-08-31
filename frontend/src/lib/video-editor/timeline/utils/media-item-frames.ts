@@ -10,6 +10,7 @@
  */
 
 import type { TimelineItem } from '../../project/types';
+import { hasVariableSpeed, sourceFrameToTimelineOffset } from '../source-time-map';
 import {
 	getSourceProperties,
 	sourceToTimelineFrames,
@@ -26,6 +27,28 @@ function getMediaSpeed(item: TimelineItem): number {
 	return item.type === 'video' || item.type === 'audio' ? (item.speed ?? 1) : 1;
 }
 
+/** Map source seconds onto the continuous timeline position before boundary rounding. */
+export function sourceSecondsToTimelinePosition(
+	item: TimelineItem,
+	sourceSeconds: number,
+	timelineFps: number
+): number {
+	const sourceFps = getMediaSourceFps(item, timelineFps);
+	const sourceFrame = sourceSeconds * sourceFps;
+	if (hasVariableSpeed(item)) {
+		return item.from + sourceFrameToTimelineOffset(item, sourceFrame, timelineFps);
+	}
+	const isMedia = item.type === 'video' || item.type === 'audio';
+	const sourceStart = isMedia ? (item.sourceStart ?? 0) : 0;
+	const sourceEnd = isMedia
+		? (item.sourceEnd ??
+			sourceStart +
+				timelineToSourceFrames(item.durationInFrames, getMediaSpeed(item), timelineFps, sourceFps))
+		: sourceStart;
+	const deltaSourceFrames = item.isReversed ? sourceEnd - sourceFrame : sourceFrame - sourceStart;
+	return item.from + (deltaSourceFrames / sourceFps / getMediaSpeed(item)) * timelineFps;
+}
+
 /**
  * Map a source-native time (seconds) onto the item's absolute timeline frame.
  * Returns the frame relative to `item.from` plus that offset — callers compare
@@ -38,6 +61,9 @@ export function sourceSecondsToTimelineFrame(
 ): number {
 	const sourceFps = getMediaSourceFps(item, timelineFps);
 	const sourceFrame = Math.round(sourceSeconds * sourceFps);
+	if (hasVariableSpeed(item)) {
+		return Math.round(item.from + sourceFrameToTimelineOffset(item, sourceFrame, timelineFps));
+	}
 	const isMedia = item.type === 'video' || item.type === 'audio';
 	const sourceStart = isMedia ? (item.sourceStart ?? 0) : 0;
 	const sourceEnd = isMedia
@@ -45,7 +71,7 @@ export function sourceSecondsToTimelineFrame(
 			sourceStart +
 				timelineToSourceFrames(item.durationInFrames, getMediaSpeed(item), timelineFps, sourceFps))
 		: sourceStart;
-	const deltaSourceFrames = sourceFrame - sourceStart;
+	const deltaSourceFrames = item.isReversed ? sourceEnd - sourceFrame : sourceFrame - sourceStart;
 	const timelineDelta = sourceToTimelineFrames(
 		deltaSourceFrames,
 		getMediaSpeed(item),
@@ -65,8 +91,5 @@ export function getItemSourceSpanSeconds(
 	const sourceFps = getMediaSourceFps(item, timelineFps);
 	const sourceFrames = timelineToSourceFrames(item.durationInFrames, speed, timelineFps, sourceFps);
 	const sourceEnd = item.sourceEnd ?? sourceStart + sourceFrames;
-	return {
-		start: sourceStart / sourceFps,
-		end: sourceEnd / sourceFps
-	};
+	return { start: sourceStart / sourceFps, end: sourceEnd / sourceFps };
 }

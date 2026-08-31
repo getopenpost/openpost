@@ -21,3 +21,7 @@ export function showToast(
 					? toast.warning(message, data)
 					: toast(message, data);
 }
+
+export function dismissToast(id?: string | number): void {
+	toast.dismiss(id);
+}

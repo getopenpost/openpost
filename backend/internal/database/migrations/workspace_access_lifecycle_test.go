@@ -51,7 +51,7 @@ func TestWorkspaceAccessLifecycleMigrationPostgres(t *testing.T) {
 
 	scopedSQLDB := sql.OpenDB(pgdriver.NewConnector(
 		pgdriver.WithDSN(dsn),
-		pgdriver.WithConnParams(map[string]any{"search_path": schema}),
+		pgdriver.WithConnParams(map[string]any{"search_path": schema, "timezone": "UTC"}),
 	))
 	scopedSQLDB.SetMaxOpenConns(16)
 	db := bun.NewDB(scopedSQLDB, pgdialect.New())
@@ -83,7 +83,7 @@ func exerciseWorkspaceAccessLifecycleMigration(t *testing.T, db *bun.DB, concurr
 		`INSERT INTO workspace_members (workspace_id, user_id, role) VALUES ('workspace-1', 'admin-1', 'admin')`,
 		`INSERT INTO workspace_invitations (
 			id, workspace_id, email, role, invited_by_user_id, token_hash, expires_at
-		) VALUES ('legacy-invite', 'workspace-1', 'legacy@example.com', 'viewer', 'admin-1', 'legacy-hash', current_timestamp)`,
+		) VALUES ('legacy-invite', 'workspace-1', 'legacy@example.com', 'viewer', 'admin-1', 'legacy-hash', '2000-01-01 00:00:00')`,
 	} {
 		_, err := db.ExecContext(ctx, statement)
 		require.NoError(t, err)
@@ -112,6 +112,14 @@ func exerciseWorkspaceAccessLifecycleMigration(t *testing.T, db *bun.DB, concurr
 	require.NoError(t, err)
 
 	if concurrent {
+		for _, statement := range []string{
+			`ALTER TABLE workspace_invitations ADD COLUMN email_delivery_status TEXT NOT NULL DEFAULT 'unavailable'`,
+			`ALTER TABLE workspace_invitations ADD COLUMN email_delivery_job_id TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE workspace_invitations ADD COLUMN email_delivery_updated_at TIMESTAMP`,
+		} {
+			_, err := db.ExecContext(ctx, statement)
+			require.NoError(t, err)
+		}
 		exerciseWorkspaceSeatSerialization(t, db)
 	}
 	_, err = db.ExecContext(ctx, `DELETE FROM workspaces WHERE id = 'workspace-1'`)

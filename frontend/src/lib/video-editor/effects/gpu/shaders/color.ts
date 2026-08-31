@@ -115,7 +115,15 @@ vec4 hueShiftFragment(vec2 vUv) {
 	schema: [
 		{ name: 'shift', label: 'Shift', default: 0, min: 0, max: 1, step: 0.01 },
 		{ name: 'span', label: 'Span', default: 1, min: 0, max: 2, step: 0.01 },
-		{ name: 'flow', label: 'Flow', default: 0, min: 0, max: 2, step: 0.05 }
+		{
+			name: 'flow',
+			label: 'Flow',
+			default: 0,
+			min: 0,
+			max: 2,
+			step: 0.05,
+			animatable: false
+		}
 	],
 	uniformValues: (p, _w, _h, time) => ({
 		uShift: readNumber(p, 'shift', 0),

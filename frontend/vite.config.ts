@@ -13,6 +13,7 @@ const rawParaglidePlugin = paraglideVitePlugin({
 const paraglidePlugin = rawParaglidePlugin as PluginOption;
 const usesPrecompiledParaglide = process.env.OPENPOST_PARAGLIDE_PRECOMPILED === '1';
 const isVitest = process.env.VITEST === 'true';
+const apiProxyTimeoutMs = 120_000;
 const sourceMaps = postHogSourceMaps('app');
 const svelteKitPlugins = await sveltekit();
 const appFrameworkPlugins = isVitest
@@ -32,6 +33,7 @@ const testMediaStubPlugin: Plugin = {
 };
 
 export default defineConfig({
+	publicDir: isVitest ? 'static' : undefined,
 	define: {
 		'import.meta.env.VITE_APP_MODE': JSON.stringify(process.env.VITE_APP_MODE || 'web')
 	},
@@ -185,8 +187,8 @@ export default defineConfig({
 			'/api': {
 				target: 'http://localhost:8080',
 				changeOrigin: false,
-				timeout: 30_000,
-				proxyTimeout: 30_000
+				timeout: apiProxyTimeoutMs,
+				proxyTimeout: apiProxyTimeoutMs
 			},
 			'^/media/[^/]+': {
 				target: 'http://localhost:8080'

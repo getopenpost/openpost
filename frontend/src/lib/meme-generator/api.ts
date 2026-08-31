@@ -141,16 +141,25 @@ function recipeBody(input: MemeRecipeInput) {
 }
 
 export async function previewMeme(input: MemeRecipeInput): Promise<MemePreviewResult> {
-	const result = await client.POST('/memes/preview', {
-		body: recipeBody(input),
-		signal: input.signal
-	});
+	const request = () =>
+		client.POST('/memes/preview', {
+			body: recipeBody(input),
+			signal: input.signal
+		});
+	let result = await request();
+	if (retryableMemePreviewStatus(result.response.status) && !input.signal?.aborted) {
+		result = await request();
+	}
 	return responseData(
 		result.data,
 		result.error,
 		result.response,
 		m.meme_generator_preview_failed()
 	);
+}
+
+function retryableMemePreviewStatus(status: number): boolean {
+	return status === 503 || status === 504 || status === 524 || status === 529;
 }
 
 export async function renderMeme(input: MemeRecipeInput): Promise<MemeRenderResult> {

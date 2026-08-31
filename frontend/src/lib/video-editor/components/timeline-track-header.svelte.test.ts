@@ -1,8 +1,9 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'vitest-browser-svelte';
 import { userEvent } from 'vitest/browser';
 import '../../../routes/layout.css';
 import type { TimelineTrack } from '$lib/video-editor/project/types';
+import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 import TimelineTrackHeader from './timeline-track-header.svelte';
 
 function track(overrides: Partial<TimelineTrack> = {}): TimelineTrack {
@@ -22,6 +23,8 @@ function track(overrides: Partial<TimelineTrack> = {}): TimelineTrack {
 }
 
 describe('TimelineTrackHeader', () => {
+	beforeEach(() => keyboardShortcuts.resetAll());
+
 	it('exposes every track state as a named control', async () => {
 		const callbacks = {
 			onvisibility: vi.fn(),
@@ -175,6 +178,40 @@ describe('TimelineTrackHeader', () => {
 		expect(onrename).toHaveBeenCalledWith('Primary video');
 		await screen.getByRole('button', { name: 'Video 1' }).click();
 		await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+		expect(onmovedown).toHaveBeenCalledOnce();
+	});
+
+	it('uses remapped track commands and stops accepting their old bindings', async () => {
+		keyboardShortcuts.setBinding('TRACK_RENAME', 'alt+8');
+		keyboardShortcuts.setBinding('TRACK_MOVE_DOWN', 'alt+9');
+		const onmovedown = vi.fn();
+		const screen = await render(TimelineTrackHeader, {
+			track: track(),
+			itemCount: 0,
+			canDelete: true,
+			onrename: vi.fn(),
+			onmovedown,
+			onvisibility: vi.fn(),
+			onmute: vi.fn(),
+			onsolo: vi.fn(),
+			onlock: vi.fn(),
+			onsynclock: vi.fn(),
+			ondelete: vi.fn()
+		});
+		const name = screen.getByRole('button', { name: 'Video 1' });
+		await name.click();
+		await userEvent.keyboard('{F2}');
+		await expect
+			.element(screen.getByRole('textbox', { name: 'Rename track' }))
+			.not.toBeInTheDocument();
+		await userEvent.keyboard('{Alt>}{8}{/Alt}');
+		await expect.element(screen.getByRole('textbox', { name: 'Rename track' })).toBeVisible();
+		await userEvent.keyboard('{Escape}');
+
+		await name.click();
+		await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+		expect(onmovedown).not.toHaveBeenCalled();
+		await userEvent.keyboard('{Alt>}{9}{/Alt}');
 		expect(onmovedown).toHaveBeenCalledOnce();
 	});
 });

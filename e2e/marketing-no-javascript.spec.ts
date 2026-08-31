@@ -9,6 +9,7 @@ const toolRoutes = [
   ["fediverse-handle-checker", "A Mastodon-style or Bluesky-style handle"],
   ["linkedin-text-formatter", "One LinkedIn draft"],
   ["best-time-to-post-calculator", "Audience days, hours, and timezone"],
+  ["utm-link-builder", "A full page link"],
 ] as const;
 
 test.describe("browser tools without JavaScript", () => {

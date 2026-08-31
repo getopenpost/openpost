@@ -39,7 +39,6 @@ function makeItem(): TimelineItem {
 
 describe('graph parity - easing presets', () => {
 	it('exposes FreeCut bezier presets without loss', () => {
-		expect(BEZIER_PRESETS.length).toBe(17);
 		const soft = BEZIER_PRESETS.find((p) => p.value === 'soft');
 		expect(soft?.points).toEqual({ x1: 0.42, y1: 0, x2: 0.58, y2: 1 });
 		const overshoot = BEZIER_PRESETS.find((p) => p.value === 'overshoot');
@@ -133,7 +132,6 @@ describe('graph parity - easing presets', () => {
 				}
 			}
 		]);
-		// SAFETY: test stub transition with minimal fields for blocked-range logic
 		transitionsStore.setAll([
 			{
 				id: 'tr',
@@ -141,7 +139,7 @@ describe('graph parity - easing presets', () => {
 				durationInFrames: 10,
 				fromItemId: 'clip',
 				toItemId: 'other'
-			} as unknown as import('$lib/video-editor/project/types').TimelineTransition
+			}
 		]);
 		// Move two middle keys as one transaction
 		const edits = [

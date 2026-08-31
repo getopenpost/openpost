@@ -36,6 +36,26 @@ type fakeDirectUploadStorage struct {
 	objects   map[string][]byte
 	deleted   []string
 	lastInput mediastore.DirectUploadInput
+	sessions  int
+}
+
+type cancelingUploadStorage struct {
+	cancel           context.CancelFunc
+	deleteContextErr error
+}
+
+func (*cancelingUploadStorage) Driver() string { return "canceling" }
+func (s *cancelingUploadStorage) Save(ctx context.Context, _ string, _ io.Reader) (string, error) {
+	s.cancel()
+	return "", ctx.Err()
+}
+func (s *cancelingUploadStorage) Delete(ctx context.Context, _ string) error {
+	s.deleteContextErr = ctx.Err()
+	return nil
+}
+func (*cancelingUploadStorage) GetURL(string) string { return "" }
+func (*cancelingUploadStorage) Open(context.Context, string) (io.ReadCloser, error) {
+	return nil, errMediaNotFoundForTest{}
 }
 
 func newFakeDirectUploadStorage() *fakeDirectUploadStorage {
@@ -46,7 +66,7 @@ func (s *fakeDirectUploadStorage) Driver() string {
 	return "s3"
 }
 
-func (s *fakeDirectUploadStorage) Save(id string, reader io.Reader) (string, error) {
+func (s *fakeDirectUploadStorage) Save(_ context.Context, id string, reader io.Reader) (string, error) {
 	data, err := io.ReadAll(reader)
 	if err != nil {
 		return "", err
@@ -55,7 +75,7 @@ func (s *fakeDirectUploadStorage) Save(id string, reader io.Reader) (string, err
 	return id, nil
 }
 
-func (s *fakeDirectUploadStorage) Delete(id string) error {
+func (s *fakeDirectUploadStorage) Delete(_ context.Context, id string) error {
 	delete(s.objects, id)
 	s.deleted = append(s.deleted, id)
 	return nil
@@ -65,7 +85,7 @@ func (s *fakeDirectUploadStorage) GetURL(id string) string {
 	return "https://media.openpost.test/" + id
 }
 
-func (s *fakeDirectUploadStorage) Open(id string) (io.ReadCloser, error) {
+func (s *fakeDirectUploadStorage) Open(_ context.Context, id string) (io.ReadCloser, error) {
 	data, ok := s.objects[id]
 	if !ok {
 		return nil, errMediaNotFoundForTest{}
@@ -74,6 +94,7 @@ func (s *fakeDirectUploadStorage) Open(id string) (io.ReadCloser, error) {
 }
 
 func (s *fakeDirectUploadStorage) CreateDirectUploadSession(_ context.Context, input mediastore.DirectUploadInput) (*mediastore.DirectUploadSession, error) {
+	s.sessions++
 	s.lastInput = input
 	return &mediastore.DirectUploadSession{
 		Method: http.MethodPut,
@@ -184,6 +205,71 @@ func TestCreateMediaUploadSessionSupportsLocalStreaming(t *testing.T) {
 	upload := out["upload"].(map[string]any)
 	require.Equal(t, http.MethodPut, upload["method"])
 	require.Equal(t, "/api/v1/media/upload-session/"+mediaID+"/content", upload["url"])
+}
+
+func TestCanceledStreamingUploadReturnsSessionToPending(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	storage := &cancelingUploadStorage{cancel: cancel}
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	media := &models.MediaAttachment{
+		ID:               "canceled-stream",
+		WorkspaceID:      "ws-1",
+		FilePath:         "canceled-stream.txt",
+		StorageType:      storage.Driver(),
+		MimeType:         "text/plain",
+		ProcessingStatus: mediaProcessingStatus,
+		Size:             7,
+		OriginalFilename: "canceled-stream.txt",
+		CreatedAt:        time.Now().UTC(),
+	}
+	_, err := srv.db.NewInsert().Model(media).Exec(t.Context())
+	require.NoError(t, err)
+	req := httptest.NewRequestWithContext(ctx, http.MethodPut, "/api/v1/media/upload-session/"+media.ID+"/content", bytes.NewBufferString("content"))
+	req.Header.Set("Authorization", "Bearer web-token")
+	recorder := httptest.NewRecorder()
+
+	srv.echo.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusBadRequest, recorder.Code, recorder.Body.String())
+	require.NoError(t, storage.deleteContextErr)
+	var stored models.MediaAttachment
+	require.NoError(t, srv.db.NewSelect().Model(&stored).Where("id = ?", media.ID).Scan(t.Context()))
+	require.Equal(t, mediaProcessingStatus, stored.ProcessingStatus)
+}
+
+func TestCreateMediaUploadSessionIdempotencyReplaysTheReservedTarget(t *testing.T) {
+	t.Parallel()
+
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	createIdempotencyRecordTable(t, srv.db)
+	body := map[string]any{
+		"workspace_id": "ws-1",
+		"filename":     "launch.png",
+		"mime_type":    "image/png",
+		"size":         12,
+	}
+	create := func() *httptest.ResponseRecorder {
+		var payload bytes.Buffer
+		require.NoError(t, json.NewEncoder(&payload).Encode(body))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/media/upload-session", &payload)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer web-token")
+		req.Header.Set("Idempotency-Key", "workflow-item-7")
+		rec := httptest.NewRecorder()
+		srv.echo.ServeHTTP(rec, req)
+		return rec
+	}
+
+	first := create()
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	replay := create()
+	require.Equal(t, http.StatusOK, replay.Code, replay.Body.String())
+	require.JSONEq(t, first.Body.String(), replay.Body.String())
+	require.Equal(t, 1, storage.sessions)
+	mediaCount, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, mediaCount)
 }
 
 type zeroMediaReader struct{}
@@ -577,6 +663,103 @@ func TestCompleteMediaUploadSessionDedupesExistingMedia(t *testing.T) {
 	current, err := srv.usage.CurrentMonthly(context.Background(), "ws-1", entitlements.LimitMediaBytesUploadedMonthly, time.Now())
 	require.NoError(t, err)
 	require.Equal(t, int64(0), current)
+}
+
+func TestMediaRollbackCompletesAfterRequestCancellation(t *testing.T) {
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	media := &models.MediaAttachment{
+		ID:               "rollback-media",
+		WorkspaceID:      "ws-1",
+		FilePath:         "rollback-media.txt",
+		StorageType:      "s3",
+		MimeType:         "text/plain",
+		ProcessingStatus: mediaReadyStatus,
+		Size:             7,
+		OriginalFilename: "rollback-media.txt",
+		CreatedAt:        time.Now().UTC(),
+	}
+	_, err := srv.db.NewInsert().Model(media).Exec(t.Context())
+	require.NoError(t, err)
+	storage.objects[media.FilePath] = []byte("content")
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	handler := NewMediaHandler(srv.db, storage, nil, testAuthenticator{}, nil)
+
+	require.NoError(t, handler.rollbackMediaRecord(ctx, media))
+	count, err := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", media.ID).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
+	require.NotContains(t, storage.objects, media.FilePath)
+}
+
+func TestFailedMediaInsertReconcilesCommittedRowBeforeDeletingFiles(t *testing.T) {
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	_, err := srv.db.ExecContext(t.Context(), `
+		CREATE TRIGGER fail_after_media_insert
+		AFTER INSERT ON media_attachments
+		BEGIN
+			SELECT RAISE(FAIL, 'ambiguous media insert result');
+		END
+	`)
+	require.NoError(t, err)
+	handler := NewMediaHandler(srv.db, storage, nil, testAuthenticator{}, nil)
+	content := []byte("ambiguous upload")
+
+	_, err = handler.processUploadBytes(t.Context(), mediaUploadBytesInput{
+		WorkspaceID:      "ws-1",
+		Filename:         "ambiguous.txt",
+		DeclaredMimeType: "text/plain",
+		Size:             int64(len(content)),
+		Content:          content,
+	})
+
+	require.ErrorContains(t, err, "failed to save media record")
+	count, countErr := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Count(t.Context())
+	require.NoError(t, countErr)
+	require.Zero(t, count, "an insert that returned an error must not leave a row after its blob is deleted")
+	require.Empty(t, storage.objects)
+}
+
+func TestStreamingMediaRollbackCompletesAfterRequestCancellation(t *testing.T) {
+	storage := newFakeDirectUploadStorage()
+	srv := newMediaDirectUploadTestServer(t, storage, entitlements.NewSelfHostedService())
+	_, err := srv.db.NewCreateTable().Model((*models.MediaProvenance)(nil)).IfNotExists().Exec(t.Context())
+	require.NoError(t, err)
+	handler := NewMediaHandler(srv.db, storage, nil, testAuthenticator{}, nil)
+	ctx, cancel := context.WithCancel(t.Context())
+	content := []byte("streamed stock media")
+	var created models.MediaAttachment
+
+	_, err = handler.processStreamUpload(
+		ctx,
+		mediaUploadBytesInput{
+			WorkspaceID:      "ws-1",
+			Filename:         "streamed.txt",
+			DeclaredMimeType: "text/plain",
+			Size:             int64(len(content)),
+			StockProvenance: &StockMediaProvenance{
+				Provider:   "test",
+				ExternalID: "asset-1",
+			},
+			OnCreated: func(media models.MediaAttachment) {
+				created = media
+				cancel()
+			},
+		},
+		"stock_import",
+		"library",
+		bytes.NewReader(content),
+		int64(len(content)),
+	)
+
+	require.ErrorContains(t, err, "failed to save stock media provenance")
+	require.NotEmpty(t, created.ID)
+	count, countErr := srv.db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", created.ID).Count(t.Context())
+	require.NoError(t, countErr)
+	require.Zero(t, count)
+	require.Empty(t, storage.objects)
 }
 
 func (s *mediaDirectUploadTestServer) createUploadSession(t *testing.T, filename string, mimeType string, size int64) string {

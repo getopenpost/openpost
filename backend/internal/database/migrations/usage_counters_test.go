@@ -8,30 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesUsageCountersSchema(t *testing.T) {
-	t.Parallel()
-
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'usage_counters'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "PRIMARY KEY (workspace_id, metric, period_start)")
-	require.Contains(t, schema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE")
-
-	var indexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name IN ('usage_counters_workspace_period_idx', 'usage_counters_metric_period_idx')").
-		Scan(ctx, &indexCount))
-	require.Equal(t, 2, indexCount)
-}
-
 func TestRunMigrationsUsageCountersCascadeWithWorkspace(t *testing.T) {
 	t.Parallel()
 

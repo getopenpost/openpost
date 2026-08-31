@@ -53,7 +53,6 @@ function deferred<T>() {
 describe('account OAuth callback selection flow', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		localStorage.setItem('oauth_account_management_mode', 'direct');
 		mocks.get.mockResolvedValue({ data: pendingSelection, error: null });
 		mocks.post.mockResolvedValue({
 			data: {
@@ -80,7 +79,7 @@ describe('account OAuth callback selection flow', () => {
 			)
 			.toBeVisible();
 		await expect.element(screen.getByText('OpenPost Page')).toBeVisible();
-		await expect.element(screen.getByText('@openpost · page')).toBeVisible();
+		expect(screen.container.textContent).toMatch(/Facebook\s*·\s*openpost\s*·\s*page/);
 		await expect.element(screen.getByText('followers: 1,240')).toBeVisible();
 		await expect
 			.element(screen.getByText(/This deadline only applies to this selection step/))
@@ -115,7 +114,7 @@ describe('account OAuth callback selection flow', () => {
 			body: { selection_id: 'page_1' }
 		});
 		expect(screen.container.textContent).not.toContain('Account connected');
-		expect(screen.container.textContent).not.toContain('Redirecting you back to accounts');
+		expect(screen.container.textContent).not.toContain('Redirecting you back to Settings');
 
 		post.resolve({
 			data: {
@@ -178,28 +177,7 @@ describe('account OAuth callback selection flow', () => {
 		);
 	});
 
-	it('returns re-authorization to account management instead of opening first-use composer', async () => {
-		mocks.post.mockResolvedValue({
-			data: {
-				id: 'saved_account',
-				workspace_id: 'workspace_123',
-				account_ids: ['saved_account'],
-				open_fresh_composer: false
-			},
-			error: null
-		});
-		setCallbackUrl('status=selection_required&platform=facebook&connection_id=conn_123');
-
-		const screen = await renderCallbackPage();
-		await screen.getByRole('radio', { name: /OpenPost Page/ }).click();
-		await screen.getByRole('button', { name: 'Connect selected account' }).click();
-
-		await vi.waitFor(() => expect(mocks.goto).toHaveBeenCalledWith('/accounts'));
-		expect(screen.container.textContent).not.toContain('Account connected');
-	});
-
-	it('returns Settings-started re-authorization to the embedded account manager', async () => {
-		localStorage.setItem('oauth_account_management_mode', 'settings');
+	it('returns re-authorization to Settings instead of opening the first-use composer', async () => {
 		mocks.post.mockResolvedValue({
 			data: {
 				id: 'saved_account',
@@ -216,6 +194,7 @@ describe('account OAuth callback selection flow', () => {
 		await screen.getByRole('button', { name: 'Connect selected account' }).click();
 
 		await vi.waitFor(() => expect(mocks.goto).toHaveBeenCalledWith('/settings?tab=accounts'));
+		expect(screen.container.textContent).not.toContain('Account connected');
 	});
 
 	it('connects several LinkedIn identities from one grant', async () => {
@@ -281,7 +260,7 @@ describe('account OAuth callback selection flow', () => {
 
 		await vi.waitFor(() =>
 			expect(mocks.goto).toHaveBeenCalledWith(
-				'/accounts?oauth_status=failed&workspace_id=workspace_123'
+				'/settings?tab=accounts&oauth_status=failed&workspace_id=workspace_123'
 			)
 		);
 	});
@@ -297,7 +276,7 @@ describe('account OAuth callback selection flow', () => {
 
 		await vi.waitFor(() =>
 			expect(mocks.goto).toHaveBeenCalledWith(
-				'/accounts?oauth_status=failed&workspace_id=workspace_123'
+				'/settings?tab=accounts&oauth_status=failed&workspace_id=workspace_123'
 			)
 		);
 	});

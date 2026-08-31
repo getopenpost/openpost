@@ -156,6 +156,8 @@ func TestBuiltinProviderRendersEveryCatalogTemplate(t *testing.T) {
 
 	for _, template := range catalog.Templates {
 		t.Run(template.ID, func(t *testing.T) {
+			t.Parallel()
+
 			captions := make([]string, template.Lines)
 			for index := range captions {
 				captions[index] = fmt.Sprintf("Field %d", index+1)

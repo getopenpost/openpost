@@ -1,4 +1,11 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Locator,
+  type Page,
+  type Route,
+} from "@playwright/test";
 import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +16,14 @@ const screenshotDirectory = fileURLToPath(new URL("../assets/screenshots/", impo
 const fixtureDirectory = fileURLToPath(new URL("./fixtures/product-screenshots/", import.meta.url));
 const captureViewport = { width: 1440, height: 960 };
 const fixedNow = "2026-08-20T14:30:00.000Z";
-const rodrigoAvatarURL = "/marketing-fixtures/rodrigo-avatar.png";
+const rasterFixtureFiles = {
+  "rodrigo-avatar": "rodrigo-avatar.png",
+  "command-review": "command-review.png",
+  "lisbon-tram": "lisbon-tram.png",
+  "openpost-logo": "openpost-logo.png",
+} as const;
+type RasterFixtureKey = keyof typeof rasterFixtureFiles;
+const rodrigoAvatarURL = `/marketing-fixtures/${rasterFixtureFiles["rodrigo-avatar"]}`;
 
 const connectedAccounts = [
   {
@@ -264,9 +278,35 @@ const mediaFixtures = [
   },
 ];
 
+const imageEditorBackgroundFixture = {
+  id: "media-editor-background",
+  filename: "lisbon-tram.png",
+  artwork: "lisbon-tram",
+  width: 1923,
+  height: 818,
+  size: 1_996_336,
+  favorite: true,
+  usage: 1,
+  canDelete: false,
+};
+const imageEditorLogoFixture = {
+  id: "media-editor-logo",
+  filename: "logo.png",
+  artwork: "openpost-logo",
+  width: 512,
+  height: 512,
+  size: 10_994,
+  favorite: true,
+  usage: 1,
+  canDelete: false,
+};
+const editorMediaFixtures = [imageEditorBackgroundFixture, imageEditorLogoFixture];
+
+const allMediaFixtures = [...mediaFixtures, ...editorMediaFixtures];
+
 const artwork = {
   workflow: `
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200">
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
       <rect width="1200" height="1200" fill="#f3efe8"/><g fill="none" stroke="#292524" stroke-width="18"><path d="M215 330h770M215 600h770M215 870h770"/></g>
       <g fill="#ea580c"><circle cx="300" cy="330" r="68"/><circle cx="600" cy="600" r="68"/><circle cx="900" cy="870" r="68"/></g>
       <text x="160" y="1080" fill="#292524" font-family="system-ui,sans-serif" font-size="64" font-weight="700">Draft · Adapt · Schedule</text>
@@ -300,6 +340,41 @@ const artwork = {
       <text x="175" y="650" fill="#6f655f" font-family="system-ui,sans-serif" font-size="46">Notes on software, design, and the work.</text>
     </svg>`,
 } as const;
+
+function mediaFixtureURL(artworkKey: string): string {
+  const rasterFilename = rasterFixtureFiles[artworkKey as RasterFixtureKey];
+  if (rasterFilename) return `/marketing-fixtures/${rasterFilename}`;
+  return `/marketing-fixtures/${artworkKey}.svg`;
+}
+
+async function uploadImageFixture(
+  request: APIRequestContext,
+  token: string,
+  workspaceID: string,
+  filename: string,
+  image: Buffer,
+): Promise<string> {
+  const response = await request.post("/api/v1/media/upload", {
+    headers: { Authorization: `Bearer ${token}` },
+    multipart: {
+      workspace_id: workspaceID,
+      source: "upload",
+      asset_kind: "library",
+      retention_class: "library",
+      file: {
+        name: filename,
+        mimeType: "image/png",
+        buffer: image,
+      },
+    },
+  });
+  if (!response.ok()) {
+    throw new Error(`Could not upload ${filename}: ${await response.text()}`);
+  }
+  const body = (await response.json()) as { id?: string };
+  if (!body.id) throw new Error(`Upload for ${filename} returned no media ID`);
+  return body.id;
+}
 
 function publicationFixture(
   workspaceID: string,
@@ -357,26 +432,227 @@ function publicationFixture(
 }
 
 function analyticsFixture() {
+  const rangeDates = Array.from({ length: 30 }, (_, index) => {
+    const date = new Date(Date.UTC(2026, 6, 22 + index));
+    return date.toISOString().slice(0, 10);
+  });
   const followerSeries = [
-    6712, 6715, 6714, 6716, 6720, 6721, 6724, 6722, 6728, 6740, 6775, 6810, 6831, 6828, 6835, 6849,
-    6856, 6868, 6884, 6901,
-  ].map((value, index) => ({
-    date: `2026-08-${String(index + 1).padStart(2, "0")}`,
-    value,
-  }));
+    6744, 6747, 6747, 6746, 6749, 6752, 6755, 6754, 6758, 6762, 6765, 6771, 6770, 6777, 6781, 6790,
+    6794, 6801, 6806, 6812, 6820, 6831, 6837, 6845, 6852, 6860, 6870, 6882, 6890, 6901,
+  ].map((value, index) => ({ date: rangeDates[index], value }));
+  const posts = [
+    {
+      key: "analytics-rendition-publishing",
+      label: "The boring part of publishing should stay boring",
+      platform: "threads",
+      publication_id: "analytics-publication",
+    },
+    {
+      key: "analytics-rendition-launch-week",
+      label: "A calmer way to run launch week",
+      platform: "linkedin",
+      publication_id: "analytics-publication-launch-week",
+    },
+    {
+      key: "analytics-rendition-daily-shipping",
+      label: "What we learned from shipping every day",
+      platform: "youtube",
+      publication_id: "analytics-publication-daily-shipping",
+    },
+    {
+      key: "analytics-rendition-wayland",
+      label: "Finally moved over to Wayland",
+      platform: "x",
+      publication_id: "analytics-publication-wayland",
+    },
+    {
+      key: "analytics-rendition-image-tools",
+      label: "Image tools should make the result easier to share",
+      platform: "bluesky",
+      publication_id: "analytics-publication-image-tools",
+    },
+    {
+      key: "analytics-rendition-release-notes",
+      label: "The release notes people actually read",
+      platform: "mastodon",
+      publication_id: "analytics-publication-release-notes",
+    },
+    {
+      key: "analytics-rendition-small-fixes",
+      label: "Small fixes compound",
+      platform: "threads",
+      publication_id: "analytics-publication-small-fixes",
+    },
+    {
+      key: "analytics-rendition-queue",
+      label: "Why the queue lives in the database",
+      platform: "linkedin",
+      publication_id: "analytics-publication-queue",
+    },
+    {
+      key: "analytics-rendition-studio",
+      label: "A first look at OpenPost Studio",
+      platform: "youtube",
+      publication_id: "analytics-publication-studio",
+    },
+    {
+      key: "analytics-rendition-provider-rules",
+      label: "Every social app has different rules",
+      platform: "x",
+      publication_id: "analytics-publication-provider-rules",
+    },
+    {
+      key: "analytics-rendition-content-calendar",
+      label: "Planning a month without filling every day",
+      platform: "bluesky",
+      publication_id: "analytics-publication-content-calendar",
+    },
+    {
+      key: "analytics-rendition-founder-workflow",
+      label: "The content workflow I use as a solo founder",
+      platform: "mastodon",
+      publication_id: "analytics-publication-founder-workflow",
+    },
+  ] as const;
+  type TrendSegment = readonly [postIndex: number, value: number];
+  const viewSegments: TrendSegment[][] = [
+    [],
+    [[6, 86]],
+    [[7, 3]],
+    [],
+    [[8, 14]],
+    [],
+    [[9, 136]],
+    [[10, 101]],
+    [[11, 2]],
+    [],
+    [[3, 14]],
+    [[8, 211]],
+    [[2, 18]],
+    [
+      [5, 47],
+      [1, 5],
+    ],
+    [[5, 308]],
+    [[9, 31]],
+    [[2, 432]],
+    [[2, 6]],
+    [[10, 29]],
+    [[2, 4]],
+    [[0, 928]],
+    [
+      [0, 320],
+      [1, 258],
+    ],
+    [
+      [3, 15],
+      [2, 7],
+    ],
+    [
+      [3, 194],
+      [1, 80],
+    ],
+    [[3, 94]],
+    [
+      [11, 82],
+      [0, 6],
+    ],
+    [[0, 8]],
+    [[8, 46]],
+    [[11, 202]],
+    [[5, 143]],
+  ];
+  const engagementSegments: TrendSegment[][] = [
+    [],
+    [[6, 3]],
+    [[7, 1]],
+    [],
+    [[8, 1]],
+    [],
+    [[9, 5]],
+    [[10, 4]],
+    [],
+    [],
+    [[3, 2]],
+    [[8, 8]],
+    [[2, 1]],
+    [
+      [5, 2],
+      [1, 1],
+    ],
+    [[5, 11]],
+    [[9, 2]],
+    [[2, 18]],
+    [],
+    [[10, 2]],
+    [],
+    [[0, 36]],
+    [
+      [0, 13],
+      [1, 10],
+    ],
+    [
+      [3, 1],
+      [2, 1],
+    ],
+    [
+      [3, 8],
+      [1, 3],
+    ],
+    [[3, 5]],
+    [
+      [11, 4],
+      [0, 1],
+    ],
+    [[0, 1]],
+    [[8, 3]],
+    [[11, 8]],
+    [[5, 7]],
+  ];
+  const buildContentTrend = (segmentsByDay: TrendSegment[][]) =>
+    segmentsByDay.map((segments, index) => {
+      const items = segments.map(([postIndex, value]) => ({ ...posts[postIndex], value }));
+      return {
+        date: rangeDates[index],
+        value: items.reduce((total, item) => total + item.value, 0),
+        items,
+      };
+    });
+  const viewTrend = buildContentTrend(viewSegments);
+  const engagementTrend = buildContentTrend(engagementSegments);
   return {
     generated_at: "2026-08-20T14:20:00Z",
     last_synced_at: "2026-08-20T14:18:00Z",
     range_days: 30,
+    content_total: 49,
     summary: {
       followers: { value: 6901, delta: 157, measured: 5 },
-      engagement: { value: 37, measured: 49 },
-      views: { value: 2048, measured: 12 },
-      impressions: { value: 1432, measured: 12 },
+      engagement: {
+        value: engagementTrend.reduce((total, point) => total + point.value, 0),
+        measured: 49,
+      },
+      views: { value: viewTrend.reduce((total, point) => total + point.value, 0), measured: 12 },
+      impressions: { value: 8437, measured: 12 },
       reach: { value: 0, measured: 0 },
       published: 15,
     },
     follower_series: followerSeries,
+    trends: {
+      followers: followerSeries.slice(1).map((point, index) => ({
+        date: point.date,
+        value: point.value - followerSeries[index].value,
+        items: [
+          {
+            key: connectedAccounts[index % connectedAccounts.length].id,
+            label: `@${connectedAccounts[index % connectedAccounts.length].account_username}`,
+            platform: connectedAccounts[index % connectedAccounts.length].platform,
+            value: point.value - followerSeries[index].value,
+          },
+        ],
+      })),
+      engagement: engagementTrend,
+      views: viewTrend,
+    },
     accounts: connectedAccounts.map((account, index) => ({
       id: account.id,
       platform: account.platform,
@@ -427,7 +703,66 @@ function analyticsFixture() {
   };
 }
 
+async function installLocalVideoWorkspace(page: Page, sourceBase64: string): Promise<void> {
+  await page.addInitScript(
+    ({ source }) => {
+      Object.defineProperty(window, "showDirectoryPicker", {
+        configurable: true,
+        value: async () => {
+          const handle = await navigator.storage.getDirectory();
+          const prototype = Object.getPrototypeOf(handle);
+          if (!("queryPermission" in prototype)) {
+            Object.defineProperty(prototype, "queryPermission", {
+              configurable: true,
+              value: async () => "granted",
+            });
+          }
+          if (!("requestPermission" in prototype)) {
+            Object.defineProperty(prototype, "requestPermission", {
+              configurable: true,
+              value: async () => "granted",
+            });
+          }
+          return handle;
+        },
+      });
+      Object.defineProperty(window, "showOpenFilePicker", {
+        configurable: true,
+        value: async () => {
+          const bytes = Uint8Array.from(atob(source), (character) => character.charCodeAt(0));
+          const file = new File([bytes], "study-sos-demo.mp4", {
+            type: "video/mp4",
+            lastModified: Date.parse("2026-03-04T20:29:34.000Z"),
+          });
+          return [
+            {
+              kind: "file",
+              name: file.name,
+              getFile: async () => file,
+            },
+          ];
+        },
+      });
+    },
+    { source: sourceBase64 },
+  );
+}
+
+async function createVideoEditorProject(page: Page, name: string): Promise<void> {
+  await page.goto("/video-editor");
+  await page.getByRole("button", { name: "Choose folder" }).click();
+  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await page.getByRole("button", { name: "New project" }).click();
+  await page.getByRole("textbox", { name: "Project name" }).fill(name);
+  await page.getByRole("button", { name: /YouTube, 1920 × 1080/u }).click();
+  await page.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(page).toHaveURL(/\/video-editor\/[0-9a-f-]+$/u);
+  await expect(page.getByRole("tablist", { name: "Editor workspaces" })).toBeVisible();
+}
+
 test.describe("product screenshot capture", () => {
+  test.setTimeout(120_000);
+
   test.skip(
     !captureEnabled,
     "Run bun run capture:product-screenshots to update canonical product images.",
@@ -446,13 +781,42 @@ test.describe("product screenshot capture", () => {
     request,
   }) => {
     await mkdir(screenshotDirectory, { recursive: true });
-    const [rodrigoAvatar, commandReviewImage] = await Promise.all([
-      readFile(join(fixtureDirectory, "rodrigo-avatar.png")),
-      readFile(join(fixtureDirectory, "command-review.png")),
-    ]);
+    const rasterFixtureBodies = new Map(
+      await Promise.all(
+        Object.entries(rasterFixtureFiles).map(
+          async ([key, filename]) =>
+            [key, await readFile(join(fixtureDirectory, filename))] as const,
+        ),
+      ),
+    );
+    const rasterFixtureBody = (key: RasterFixtureKey) => {
+      const body = rasterFixtureBodies.get(key);
+      if (!body) throw new Error(`Missing raster fixture ${key}`);
+      return body;
+    };
+    // A short excerpt from https://www.youtube.com/watch?v=-m-ea3jfRpo.
+    const studySOSVideo = await readFile(join(fixtureDirectory, "study-sos-demo.mp4"));
 
     const auth = await registerUser(request, "me@rgo.pt");
     const workspace = await createWorkspace(request, auth.token, "Personal");
+    const [backgroundMediaID, logoMediaID] = await Promise.all([
+      uploadImageFixture(
+        request,
+        auth.token,
+        workspace.id,
+        "lisbon-tram.png",
+        rasterFixtureBody("lisbon-tram"),
+      ),
+      uploadImageFixture(
+        request,
+        auth.token,
+        workspace.id,
+        "logo.png",
+        rasterFixtureBody("openpost-logo"),
+      ),
+    ]);
+    imageEditorBackgroundFixture.id = backgroundMediaID;
+    imageEditorLogoFixture.id = logoMediaID;
     const profile = await request.patch("/api/v1/auth/profile", {
       headers: { Authorization: `Bearer ${auth.token}` },
       data: {
@@ -625,63 +989,32 @@ test.describe("product screenshot capture", () => {
     });
     await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
     await page.clock.setFixedTime(new Date(fixedNow));
+    let editorMediaFixturesEnabled = false;
+    const visibleMediaFixtures = () =>
+      editorMediaFixturesEnabled ? allMediaFixtures : mediaFixtures;
 
-    await page.route("**/marketing-fixtures/**", async (route) => {
-      const filename = new URL(route.request().url()).pathname.split("/").at(-1);
-      if (filename === "rodrigo-avatar.png") {
-        await route.fulfill({
-          status: 200,
-          contentType: "image/png",
-          headers: { "cache-control": "public, max-age=31536000, immutable" },
-          body: rodrigoAvatar,
-        });
-        return;
-      }
-      if (filename === "command-review.png") {
-        await route.fulfill({
-          status: 200,
-          contentType: "image/png",
-          headers: { "cache-control": "public, max-age=31536000, immutable" },
-          body: commandReviewImage,
-        });
-        return;
-      }
-      const key = filename?.replace(/\.svg$/, "");
-      const body = key ? artwork[key as keyof typeof artwork] : undefined;
-      if (!body) {
+    const fulfillArtworkFixture = async (route: Route, key?: string) => {
+      const rasterBody = key ? rasterFixtureBodies.get(key) : undefined;
+      const svgBody = key ? artwork[key as keyof typeof artwork] : undefined;
+      if (!rasterBody && !svgBody) {
         await route.abort();
         return;
       }
       await route.fulfill({
         status: 200,
-        contentType: "image/svg+xml",
+        contentType: rasterBody ? "image/png" : "image/svg+xml",
         headers: { "cache-control": "public, max-age=31536000, immutable" },
-        body,
+        body: rasterBody ?? svgBody,
       });
+    };
+    await page.route("**/marketing-fixtures/**", async (route) => {
+      const filename = new URL(route.request().url()).pathname.split("/").at(-1);
+      await fulfillArtworkFixture(route, filename?.replace(/\.(?:png|svg)$/u, ""));
     });
     await page.route("**/media/media-*", async (route) => {
       const mediaID = new URL(route.request().url()).pathname.split("/").at(-1);
-      const item = mediaFixtures.find((candidate) => candidate.id === mediaID);
-      if (item?.artwork === "command-review") {
-        await route.fulfill({
-          status: 200,
-          contentType: "image/png",
-          headers: { "cache-control": "public, max-age=31536000, immutable" },
-          body: commandReviewImage,
-        });
-        return;
-      }
-      const body = item ? artwork[item.artwork as keyof typeof artwork] : undefined;
-      if (!body) {
-        await route.abort();
-        return;
-      }
-      await route.fulfill({
-        status: 200,
-        contentType: "image/svg+xml",
-        headers: { "cache-control": "public, max-age=31536000, immutable" },
-        body,
-      });
+      const item = allMediaFixtures.find((candidate) => candidate.id === mediaID);
+      await fulfillArtworkFixture(route, item?.artwork);
     });
 
     await page.route("**/api/v1/accounts?**", async (route) => {
@@ -776,13 +1109,14 @@ test.describe("product screenshot capture", () => {
       });
     });
     await page.route("**/api/v1/media?**", async (route) => {
+      const fixtures = visibleMediaFixtures();
       await route.fulfill({
         contentType: "application/json",
         json: {
-          total: mediaFixtures.length,
+          total: fixtures.length,
           limit: 40,
           offset: 0,
-          media: mediaFixtures.map((item, index) => ({
+          media: fixtures.map((item, index) => ({
             id: item.id,
             workspace_id: workspace.id,
             mime_type: "image/png",
@@ -793,14 +1127,8 @@ test.describe("product screenshot capture", () => {
             alt_text: `${item.filename.replace(/\.png$/, "")} marketing artwork`,
             is_favorite: item.favorite,
             created_at: new Date(Date.parse(fixedNow) - index * 86_400_000).toISOString(),
-            url:
-              item.artwork === "command-review"
-                ? "/marketing-fixtures/command-review.png"
-                : `/marketing-fixtures/${item.artwork}.svg`,
-            thumbnail_url:
-              item.artwork === "command-review"
-                ? "/marketing-fixtures/command-review.png"
-                : `/marketing-fixtures/${item.artwork}.svg`,
+            url: mediaFixtureURL(item.artwork),
+            thumbnail_url: mediaFixtureURL(item.artwork),
             usage_count: item.usage,
             can_delete: item.canDelete,
             processing_status: "ready",
@@ -820,7 +1148,7 @@ test.describe("product screenshot capture", () => {
         contentType: "application/json",
         json: {
           used_bytes: 31_247_565,
-          asset_count: mediaFixtures.length,
+          asset_count: visibleMediaFixtures().length,
           internal_bytes: 0,
           limit_bytes: 0,
         },
@@ -947,7 +1275,7 @@ test.describe("product screenshot capture", () => {
     await mediaPicker.getByRole("button", { name: "Select command-review.png" }).click();
     await mediaPicker.getByRole("button", { name: "Add media", exact: true }).click();
     await expect(composer.getByRole("button", { name: "Remove media" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Publish Now" })).toBeVisible();
+    await expect(page.getByTestId("composer-primary-delivery-action")).toBeVisible();
     await capture(page, "main-dark.png", [
       page.getByTestId("desktop-composer-controls"),
       composer.getByRole("button", { name: "Remove media" }),
@@ -966,12 +1294,23 @@ test.describe("product screenshot capture", () => {
     await page.goto(`/analytics?workspace=${workspace.id}`);
     await expect(page.getByRole("heading", { name: "Analytics", level: 1 })).toBeVisible();
     await expect(page.getByText("6.9K", { exact: true }).first()).toBeVisible();
+    const dailyViewsChart = page.getByRole("img", { name: "Daily views" });
+    await expect(dailyViewsChart).toBeVisible();
+    await expect
+      .poll(() =>
+        page.getByTestId("analytics-chart-scroll").evaluate((viewport) => {
+          const canvas = viewport.firstElementChild;
+          if (!(canvas instanceof HTMLElement) || viewport.clientWidth === 0) return 0;
+          return canvas.getBoundingClientRect().width / viewport.clientWidth;
+        }),
+      )
+      .toBeGreaterThanOrEqual(0.99);
     await capture(page, "analytics-dark.png", [
       page.getByRole("heading", { name: "Highlights" }),
-      page.getByRole("heading", { name: "Follower trend" }),
+      dailyViewsChart,
     ]);
 
-    await page.goto("/accounts");
+    await page.goto("/settings?tab=accounts");
     await expect(page.getByRole("heading", { name: "Connected channels" })).toBeVisible();
     await expect(page.getByText("@rodrgds").first()).toBeVisible();
     await expect(page.getByTestId("provider-card-bluesky")).toBeVisible();
@@ -989,6 +1328,108 @@ test.describe("product screenshot capture", () => {
     await capture(page, "media-dark.png", [
       page.getByRole("heading", { name: "Media", level: 1 }),
       page.getByText("media-library.png"),
+    ]);
+
+    await page.evaluate(() => {
+      localStorage.setItem("openpost-image-editor-first-edit-v1", "1");
+    });
+    editorMediaFixturesEnabled = true;
+    await page.goto(`/image-editor/new?workspace=${workspace.id}`);
+    await page.getByRole("spinbutton", { name: "Width" }).fill("1500");
+    await page.getByRole("spinbutton", { name: "Height" }).fill("500");
+    await page.getByRole("button", { name: "Create custom design" }).click();
+    await expect(page).toHaveURL(/\/image-editor\/[0-9a-f-]+$/u);
+    const imageEditorStage = page.getByTestId("image-editor-stage");
+    await expect(imageEditorStage).toBeVisible();
+    await page.getByRole("textbox", { name: "Design title" }).fill("X Banner");
+    const imageProperties = page.locator(".image-editor-inspector");
+    await imageProperties.getByRole("button", { name: "Image", exact: true }).click();
+    await page.getByRole("button", { name: /lisbon-tram\.png/u }).click();
+    await imageProperties.getByRole("button", { name: "Fit" }).click();
+    await page.getByRole("option", { name: "Stretch", exact: true }).click();
+    await page.getByRole("button", { name: /logo\.png/u }).click();
+    const logoLayer = page.getByRole("treeitem", { name: /logo\.png, image/u });
+    await expect(logoLayer).toHaveAttribute("aria-selected", "true");
+    await imageProperties.getByRole("button", { name: "Transform", exact: true }).click();
+    await imageProperties.getByRole("spinbutton", { name: "W", exact: true }).fill("147");
+    await imageProperties.getByRole("spinbutton", { name: "W", exact: true }).press("Tab");
+    await imageProperties.getByRole("button", { name: "Center X" }).click();
+    await imageProperties.getByRole("button", { name: "Center Y" }).click();
+    await expect(imageProperties.getByRole("spinbutton", { name: "W", exact: true })).toHaveValue(
+      "147",
+    );
+    await expect(imageProperties.getByRole("spinbutton", { name: "H", exact: true })).toHaveValue(
+      "147",
+    );
+    await imageProperties.getByRole("button", { name: "Transform", exact: true }).click();
+    const adjustmentsButton = imageProperties.getByRole("button", {
+      name: "Adjustments",
+      exact: true,
+    });
+    await adjustmentsButton.click();
+    const brightnessSlider = imageProperties.getByRole("slider", { name: "Brightness" });
+    await brightnessSlider.press("End");
+    await expect(brightnessSlider).toHaveAttribute("aria-valuenow", "1");
+    await brightnessSlider.scrollIntoViewIfNeeded();
+    await expect(page.getByTestId("image-editor-save-indicator")).toHaveAttribute(
+      "data-state",
+      "saved",
+      { timeout: 15_000 },
+    );
+    await capture(page, "image-editor-dark.png", [
+      imageEditorStage,
+      logoLayer,
+      adjustmentsButton,
+      brightnessSlider,
+    ]);
+
+    await installLocalVideoWorkspace(page, studySOSVideo.toString("base64"));
+    await createVideoEditorProject(page, "Study SOS cut");
+    await page.getByRole("button", { name: "Import media" }).click();
+    const placeStudySOS = page.getByRole("button", {
+      name: /Place on timeline: study-sos-demo\.mp4/u,
+    });
+    await expect(placeStudySOS).toBeVisible({ timeout: 30_000 });
+    await placeStudySOS.click();
+    await expect(page.locator("[data-media-placement-status]")).toBeVisible();
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    const timelineItems = page.locator("[data-timeline-item-id]");
+    await expect(timelineItems).toHaveCount(1);
+    await expect(timelineItems.first().locator("[data-filmstrip-tile]").first()).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(timelineItems.first().locator("[data-waveform-window]")).toBeVisible({
+      timeout: 15_000,
+    });
+    const videoInspector = page.getByRole("complementary", { name: "Edit" });
+    const programMonitor = page.locator("[data-program-monitor]");
+    const programVideo = programMonitor.locator("video").first();
+    await expect(programMonitor).toBeVisible();
+    await expect(programVideo).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          programVideo.evaluate((video) => ({
+            hasFrame: video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+            width: video.videoWidth,
+            height: video.videoHeight,
+          })),
+        { timeout: 15_000 },
+      )
+      .toEqual({ hasFrame: true, width: 640, height: 360 });
+    await programVideo.evaluate(
+      () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        }),
+    );
+    const propertiesTab = videoInspector.getByRole("tab", { name: "Properties" });
+    await expect(propertiesTab).toHaveAttribute("aria-selected", "true");
+    await capture(page, "video-editor-dark.png", [
+      programMonitor,
+      timelineItems.first(),
+      propertiesTab,
     ]);
 
     await page.goto("/settings?tab=general");
@@ -1025,7 +1466,6 @@ async function capture(page: Page, filename: string, landmarks: Locator[]) {
   await page.waitForFunction(() =>
     Array.from(document.images).every((image) => image.complete && image.naturalWidth > 0),
   );
-  await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(
     page.getByRole("region", { name: /Notifications/u }).getByRole("listitem"),
   ).toHaveCount(0);

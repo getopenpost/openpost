@@ -48,6 +48,7 @@ class FakeMediaRecorder extends EventTarget {
 
 	mimeType: string;
 	state: RecordingState = 'inactive';
+	readonly options: MediaRecorderOptions | undefined;
 	requestData = vi.fn();
 	pause = vi.fn();
 	resume = vi.fn();
@@ -66,6 +67,7 @@ class FakeMediaRecorder extends EventTarget {
 
 	constructor(stream: MediaStream, options?: MediaRecorderOptions) {
 		super();
+		this.options = options;
 		this.kind = fakeStream(stream)
 			.getTracks()
 			.map((track) => track.kind)
@@ -115,6 +117,8 @@ describe('ScreenCaptureRecorder', () => {
 				getDisplayMedia,
 				getUserMedia,
 				enumerateDevices: vi.fn(async () => []),
+				// SAFETY: test returns only cursor flag for capability probe
+				getSupportedConstraints: () => ({ cursor: true }) satisfies MediaTrackSupportedConstraints,
 				addEventListener: vi.fn(),
 				removeEventListener: vi.fn()
 			},
@@ -136,6 +140,63 @@ describe('ScreenCaptureRecorder', () => {
 		).toBeGreaterThan(estimateBytesPerMinute({ screen: false, camera: false, microphone: true }));
 	});
 
+	it('applies persisted quality, facing, and microphone processing preferences', async () => {
+		const recorder = new ScreenCaptureRecorder();
+		await recorder.startWithSelection(
+			{ screen: true, camera: true, microphone: true },
+			{
+				videoResolution: '2160p',
+				videoFrameRate: 60,
+				cameraFacingMode: 'environment',
+				noiseSuppression: false,
+				autoGainControl: true
+			}
+		);
+
+		expect(getDisplayMedia).toHaveBeenCalledWith({
+			video: {
+				cursor: 'always',
+				width: { ideal: 3840 },
+				height: { ideal: 2160 },
+				frameRate: { ideal: 60 }
+			},
+			audio: true
+		});
+		expect(getUserMedia).toHaveBeenNthCalledWith(1, {
+			video: {
+				width: { ideal: 3840 },
+				height: { ideal: 2160 },
+				frameRate: { ideal: 60 },
+				facingMode: { ideal: 'environment' }
+			},
+			audio: false
+		});
+		expect(getUserMedia).toHaveBeenNthCalledWith(2, {
+			audio: {
+				echoCancellation: true,
+				noiseSuppression: false,
+				autoGainControl: true
+			},
+			video: false
+		});
+		expect(FakeMediaRecorder.instances.map((instance) => instance.options)).toEqual([
+			{
+				mimeType: 'video/webm;codecs=vp9,opus',
+				videoBitsPerSecond: 40_000_000,
+				audioBitsPerSecond: 128_000
+			},
+			{
+				mimeType: 'video/webm;codecs=vp9,opus',
+				videoBitsPerSecond: 40_000_000
+			},
+			{
+				mimeType: 'audio/webm;codecs=opus',
+				audioBitsPerSecond: 128_000
+			}
+		]);
+		await recorder.cancel();
+	});
+
 	it('records separate ordered artifacts on one monotonic timebase', async () => {
 		const recorder = new ScreenCaptureRecorder();
 		await recorder.startWithSelection(
@@ -143,7 +204,20 @@ describe('ScreenCaptureRecorder', () => {
 			{ includeSystemAudio: true }
 		);
 		expect(getDisplayMedia).toHaveBeenCalledOnce();
+		expect(getDisplayMedia).toHaveBeenCalledWith({
+			video: { cursor: 'always' },
+			audio: true
+		});
 		expect(getUserMedia).toHaveBeenCalledTimes(2);
+		expect(getUserMedia).toHaveBeenNthCalledWith(1, { video: {}, audio: false });
+		expect(getUserMedia).toHaveBeenNthCalledWith(2, {
+			audio: {
+				echoCancellation: true,
+				noiseSuppression: true,
+				autoGainControl: false
+			},
+			video: false
+		});
 		expect(FakeMediaRecorder.instances).toHaveLength(3);
 		for (const instance of FakeMediaRecorder.instances) {
 			expect(instance.start).toHaveBeenCalledWith(1000);
@@ -183,13 +257,65 @@ describe('ScreenCaptureRecorder', () => {
 		getUserMedia.mockRejectedValueOnce(new DOMException('Denied', 'NotAllowedError'));
 		const recorder = new ScreenCaptureRecorder();
 		await expect(
-			recorder.startWithSelection({ screen: true, camera: true }, {})
+			recorder.startWithSelection(
+				{ screen: true, camera: true },
+				{ cameraDeviceId: 'selected-camera' }
+			)
 		).rejects.toMatchObject({ name: 'NotAllowedError' });
 		expect(recorder.error).toBe('permission-denied');
+		expect(getUserMedia).toHaveBeenCalledOnce();
 		expect(displayStream.getTracks().every((track) => track.stop.mock.calls.length === 1)).toBe(
 			true
 		);
 		expect(recorder.screenStream).toBeNull();
+	});
+
+	it('falls back to default inputs when saved camera and microphone devices disappeared', async () => {
+		let request = 0;
+		getUserMedia.mockImplementation(async (constraints: MediaStreamConstraints) => {
+			request += 1;
+			if (request === 1 || request === 3) {
+				throw new DOMException('Saved device is unavailable', 'OverconstrainedError');
+			}
+			return constraints.video ? mediaStream(cameraStream) : mediaStream(microphoneStream);
+		});
+		const onDeviceFallback = vi.fn();
+		const recorder = new ScreenCaptureRecorder();
+
+		await recorder.startWithSelection(
+			{ screen: false, camera: true, microphone: true },
+			{
+				cameraDeviceId: 'missing-camera',
+				microphoneDeviceId: 'missing-microphone',
+				onDeviceFallback
+			}
+		);
+
+		expect(getUserMedia).toHaveBeenNthCalledWith(1, {
+			video: { deviceId: { exact: 'missing-camera' } },
+			audio: false
+		});
+		expect(getUserMedia).toHaveBeenNthCalledWith(2, { video: {}, audio: false });
+		expect(getUserMedia).toHaveBeenNthCalledWith(3, {
+			audio: {
+				echoCancellation: true,
+				noiseSuppression: true,
+				autoGainControl: false,
+				deviceId: { exact: 'missing-microphone' }
+			},
+			video: false
+		});
+		expect(getUserMedia).toHaveBeenNthCalledWith(4, {
+			audio: {
+				echoCancellation: true,
+				noiseSuppression: true,
+				autoGainControl: false
+			},
+			video: false
+		});
+		expect(onDeviceFallback.mock.calls).toEqual([['camera'], ['microphone']]);
+		expect(recorder.status).toBe('recording');
+		await recorder.cancel();
 	});
 
 	it('cancels a countdown without starting MediaRecorder', async () => {
@@ -264,6 +390,30 @@ describe('ScreenCaptureRecorder', () => {
 		expect(recorder.status).toBe('idle');
 		expect(recorder.screenStream).toBeNull();
 		expect(recorder.cameraStream).toBeNull();
+	});
+
+	it('keeps a replacement capture alive when an older permission prompt resolves late', async () => {
+		let resolveCamera!: (stream: MediaStream) => void;
+		const pendingCamera = new Promise<MediaStream>((resolve) => {
+			resolveCamera = resolve;
+		});
+		getUserMedia.mockImplementationOnce(() => pendingCamera);
+		const recorder = new ScreenCaptureRecorder();
+		const staleStart = recorder.startWithSelection({ screen: true, camera: true }, {});
+		await vi.waitFor(() => expect(recorder.status).toBe('requesting'));
+		await recorder.cancel();
+
+		await recorder.startWithSelection({ screen: false, camera: false, microphone: true }, {});
+		expect(recorder.status).toBe('recording');
+		expect(microphoneStream.getTracks()[0]?.stop).not.toHaveBeenCalled();
+
+		resolveCamera(mediaStream(cameraStream));
+		await staleStart;
+
+		expect(cameraStream.getTracks()[0]?.stop).toHaveBeenCalledOnce();
+		expect(microphoneStream.getTracks()[0]?.stop).not.toHaveBeenCalled();
+		expect(recorder.status).toBe('recording');
+		await recorder.cancel();
 	});
 
 	it('maps browser and storage failures to stable error codes', () => {

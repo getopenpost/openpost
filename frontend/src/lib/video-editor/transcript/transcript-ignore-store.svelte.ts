@@ -1,5 +1,6 @@
 import type { SourceRange } from '../timeline/actions/range-removal';
 import type { TranscriptSourceWord } from './speech-cleanup';
+import type { TranscriptSelectionTargets } from './transcript-edit-model';
 
 export interface TranscriptIgnoreRanges {
 	[mediaId: string]: SourceRange[];
@@ -54,53 +55,93 @@ export function isTranscriptWordIgnored(
 	return covered / duration >= 0.5;
 }
 
-function rangesForWords(words: readonly TranscriptSourceWord[]): TranscriptIgnoreRanges {
-	const ranges: TranscriptIgnoreRanges = {};
+function targetsForWords(words: readonly TranscriptSourceWord[]): TranscriptSelectionTargets {
+	const targets: TranscriptSelectionTargets = {};
 	for (const word of words) {
-		(ranges[word.mediaId] ??= []).push({ start: word.start, end: word.end });
+		if (!word.sourceItemId) continue;
+		const target = (targets[word.sourceItemId] ??= { mediaId: word.mediaId, ranges: [] });
+		target.ranges.push({ start: word.start, end: word.end });
 	}
-	return ranges;
+	return targets;
+}
+
+function cloneTargets(targets: TranscriptSelectionTargets): TranscriptSelectionTargets {
+	return Object.fromEntries(
+		Object.entries(targets).map(([sourceItemId, target]) => [
+			sourceItemId,
+			{ mediaId: target.mediaId, ranges: target.ranges.map((range) => ({ ...range })) }
+		])
+	);
 }
 
 class TranscriptIgnoreStore {
-	ranges = $state<TranscriptIgnoreRanges>({});
+	targets = $state<TranscriptSelectionTargets>({});
+
+	get ranges(): TranscriptIgnoreRanges {
+		const ranges: TranscriptIgnoreRanges = {};
+		for (const target of Object.values(this.targets)) {
+			(ranges[target.mediaId] ??= []).push(...target.ranges);
+		}
+		return Object.fromEntries(
+			Object.entries(ranges).map(([mediaId, entries]) => [
+				mediaId,
+				normalizeTranscriptIgnoreRanges(entries)
+			])
+		);
+	}
 
 	ignore(words: readonly TranscriptSourceWord[]): void {
-		const additions = rangesForWords(words);
-		const next: TranscriptIgnoreRanges = { ...this.ranges };
-		for (const [mediaId, ranges] of Object.entries(additions)) {
-			next[mediaId] = normalizeTranscriptIgnoreRanges([...(next[mediaId] ?? []), ...ranges]);
+		this.ignoreTargets(targetsForWords(words));
+	}
+
+	ignoreTargets(additions: TranscriptSelectionTargets): void {
+		const next = cloneTargets(this.targets);
+		for (const [sourceItemId, addition] of Object.entries(additions)) {
+			const current = next[sourceItemId];
+			next[sourceItemId] = {
+				mediaId: addition.mediaId,
+				ranges: normalizeTranscriptIgnoreRanges([...(current?.ranges ?? []), ...addition.ranges])
+			};
 		}
-		this.ranges = next;
+		this.targets = next;
 	}
 
 	restore(words: readonly TranscriptSourceWord[]): void {
-		const removals = rangesForWords(words);
-		const next: TranscriptIgnoreRanges = { ...this.ranges };
-		for (const [mediaId, ranges] of Object.entries(removals)) {
-			const remaining = subtractTranscriptIgnoreRanges(next[mediaId] ?? [], ranges);
-			if (remaining.length === 0) delete next[mediaId];
-			else next[mediaId] = remaining;
+		this.restoreTargets(targetsForWords(words));
+	}
+
+	restoreTargets(removals: TranscriptSelectionTargets): void {
+		const next = cloneTargets(this.targets);
+		for (const [sourceItemId, removal] of Object.entries(removals)) {
+			const current = next[sourceItemId];
+			if (!current) continue;
+			const remaining = subtractTranscriptIgnoreRanges(current.ranges, removal.ranges);
+			if (remaining.length === 0) delete next[sourceItemId];
+			else next[sourceItemId] = { ...current, ranges: remaining };
 		}
-		this.ranges = next;
+		this.targets = next;
 	}
 
 	clear(): void {
-		this.ranges = {};
+		this.targets = {};
 	}
 
-	isIgnored(word: Pick<TranscriptSourceWord, 'mediaId' | 'start' | 'end'>): boolean {
-		return isTranscriptWordIgnored(word, this.ranges);
+	isIgnored(
+		word: Pick<TranscriptSourceWord, 'sourceItemId' | 'mediaId' | 'start' | 'end'>
+	): boolean {
+		const target = word.sourceItemId ? this.targets[word.sourceItemId] : undefined;
+		if (!target) return false;
+		return isTranscriptWordIgnored(word, { [target.mediaId]: target.ranges });
 	}
 
 	get spanCount(): number {
-		return Object.values(this.ranges).reduce((total, ranges) => total + ranges.length, 0);
+		return Object.values(this.targets).reduce((total, target) => total + target.ranges.length, 0);
 	}
 
 	get durationSeconds(): number {
-		return Object.values(this.ranges).reduce(
-			(total, ranges) =>
-				total + ranges.reduce((sum, range) => sum + Math.max(0, range.end - range.start), 0),
+		return Object.values(this.targets).reduce(
+			(total, target) =>
+				total + target.ranges.reduce((sum, range) => sum + Math.max(0, range.end - range.start), 0),
 			0
 		);
 	}

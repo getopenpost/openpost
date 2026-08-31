@@ -19,14 +19,15 @@ import {
 	saveWorkspaceHandleRecord,
 	type HandleRecord
 } from '../workspace-fs/handles-db';
-import { onPermissionLost, setWorkspaceRoot } from '../workspace-fs/root';
+import { getWorkspaceRoot, onPermissionLost, setWorkspaceRoot } from '../workspace-fs/root';
 import { bootstrapWorkspace } from '../workspace-fs/bootstrap';
 
 export type WorkspaceGateState = 'initializing' | 'unavailable' | 'pick' | 'reconnect' | 'ready';
 
 export function createWorkspaceGate() {
-	let state = $state<WorkspaceGateState>('initializing');
-	let workspaceName = $state('');
+	const existingRoot = getWorkspaceRoot();
+	let state = $state<WorkspaceGateState>(existingRoot ? 'ready' : 'initializing');
+	let workspaceName = $state(existingRoot?.name ?? '');
 	let activeWorkspaceId = $state<string | null>(null);
 	let workspaceRevision = $state(0);
 	let knownWorkspaces = $state.raw<HandleRecord[]>([]);

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import type { TimelineItem, TimelineTrack } from '$lib/video-editor/project/types';
 import { setCurrentFrame } from '$lib/video-editor/timeline/actions/items';
@@ -8,6 +9,7 @@ import { keyframeSelectionStore } from '$lib/video-editor/timeline/stores/keyfra
 import { timelineStore } from '$lib/video-editor/timeline/stores/timeline-store.svelte';
 import { CUSTOM_EASING_PRESETS_STORAGE_KEY } from '$lib/video-editor/timeline/custom-easing-presets';
 import TimelinePanel from './timeline-panel.svelte';
+import { keyboardShortcuts } from '$lib/video-editor/settings/keyboard-shortcuts.svelte';
 
 const videoTrack: TimelineTrack = {
 	id: 'video-track',
@@ -73,6 +75,16 @@ function center(element: Element) {
 	return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 }
 
+async function renderTimelinePanel(props: {
+	onedit: () => void;
+	selectedItemId: string;
+	selectedItemIds: string[];
+}) {
+	const screen = await render(TimelinePanel, props);
+	await screen.getByRole('button', { name: 'Keyframes' }).click();
+	return screen;
+}
+
 beforeEach(() => {
 	timelineStore.__resetForTesting();
 	commandHistory.clearHistory();
@@ -80,12 +92,13 @@ beforeEach(() => {
 	keyframeSelectionStore.clearClipboard();
 	transitionsStore.clear();
 	localStorage.removeItem(CUSTOM_EASING_PRESETS_STORAGE_KEY);
+	keyboardShortcuts.resetAll();
 	timelineStore.setAll({ tracks: [videoTrack], items: [structuredClone(animatedItem)], fps: 30 });
 });
 
 describe('KeyframeDopesheet', () => {
 	it('filters animated and all properties and exposes row locks', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -108,7 +121,8 @@ describe('KeyframeDopesheet', () => {
 		await expect.element(screen.getByRole('group', { name: 'rotation keyframes' })).toBeVisible();
 		expect(screen.container.querySelector('[aria-label="x keyframes"]')).toBeNull();
 		await search.clear();
-		await screen.getByRole('combobox', { name: 'Property group' }).selectOptions('audio');
+		await screen.getByRole('button', { name: 'Property group' }).click();
+		await page.getByRole('option', { name: 'Audio' }).click();
 		await expect
 			.element(screen.getByRole('button', { name: 'Add volume keyframe at playhead' }))
 			.toBeVisible();
@@ -117,7 +131,7 @@ describe('KeyframeDopesheet', () => {
 
 	it('moves a multi-key selection as one collision-safe retime', async () => {
 		const onedit = vi.fn();
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit,
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -155,7 +169,7 @@ describe('KeyframeDopesheet', () => {
 	});
 
 	it('duplicates the selected key with Alt-drag and preserves easing', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -183,7 +197,7 @@ describe('KeyframeDopesheet', () => {
 	});
 
 	it('copies and pastes normalized keyframes at the playhead in one undo step', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -211,8 +225,56 @@ describe('KeyframeDopesheet', () => {
 		expect(commandHistory.undoStack).toHaveLength(1);
 	});
 
+	it('opens target-aware edit actions by pointer and keyboard', async () => {
+		const onedit = vi.fn();
+		const screen = await renderTimelinePanel({
+			onedit,
+			selectedItemId: animatedItem.id,
+			selectedItemIds: [animatedItem.id]
+		});
+		const first = screen.container.querySelector<HTMLElement>(
+			'[data-dopesheet-keyframe-id="first"]'
+		)!;
+		const middle = screen.container.querySelector<HTMLElement>(
+			'[data-dopesheet-keyframe-id="middle"]'
+		)!;
+		const firstPoint = center(first);
+		const middlePoint = center(middle);
+		pointer(first, 'pointerdown', firstPoint.x, firstPoint.y);
+		pointer(window, 'pointerup', firstPoint.x, firstPoint.y);
+		pointer(middle, 'pointerdown', middlePoint.x, middlePoint.y, { ctrlKey: true });
+		pointer(window, 'pointerup', middlePoint.x, middlePoint.y, { ctrlKey: true });
+
+		first.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				cancelable: true,
+				clientX: firstPoint.x,
+				clientY: firstPoint.y
+			})
+		);
+		await expect
+			.element(screen.getByRole('menuitem', { name: /^Cut selected keyframes/ }))
+			.toBeVisible();
+		expect(keyframeSelectionStore.forItem(animatedItem.id).size).toBe(2);
+		await screen.getByRole('menuitem', { name: /^Copy selected keyframes/ }).click();
+		expect(keyframeSelectionStore.clipboard?.keyframes).toHaveLength(2);
+
+		const sheet = screen.getByRole('region', { name: 'Keyframe dope sheet' }).element();
+		sheet.focus();
+		await userEvent.keyboard('{Shift>}{F10}{/Shift}');
+		await expect
+			.element(screen.getByRole('menuitem', { name: /^Select all graph keyframes/ }))
+			.toBeVisible();
+		await screen.getByRole('menuitem', { name: /^Delete/ }).click();
+		await vi.waitFor(() => {
+			expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.frames).toEqual([30]);
+		});
+		expect(onedit).toHaveBeenCalledOnce();
+	});
+
 	it('Shift-selects a lane range and removes it atomically with the keyboard', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -243,7 +305,7 @@ describe('KeyframeDopesheet', () => {
 	});
 
 	it('nudges the selected key one frame with the keyboard', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -266,8 +328,41 @@ describe('KeyframeDopesheet', () => {
 		expect(commandHistory.getLastCommandType()).toBe('UPDATE_KEYFRAMES');
 	});
 
+	it('uses the saved dope sheet nudge binding and ignores its replaced default', async () => {
+		const screen = await renderTimelinePanel({
+			onedit: vi.fn(),
+			selectedItemId: animatedItem.id,
+			selectedItemIds: [animatedItem.id]
+		});
+		const first = screen.container.querySelector<HTMLElement>(
+			'[data-dopesheet-keyframe-id="first"]'
+		);
+		const sheet = screen.getByRole('region', { name: 'Keyframe dope sheet' }).element();
+		expect(first).not.toBeNull();
+		if (!first) return;
+		const point = center(first);
+		pointer(first, 'pointerdown', point.x, point.y);
+		pointer(window, 'pointerup', point.x, point.y);
+		keyboardShortcuts.setBinding('GRAPH_NUDGE_RIGHT', 'alt+8');
+		sheet.dispatchEvent(
+			new KeyboardEvent('keydown', { key: 'ArrowRight', code: 'ArrowRight', bubbles: true })
+		);
+		expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.frames?.[0]).toBe(10);
+		sheet.dispatchEvent(
+			new KeyboardEvent('keydown', {
+				key: '8',
+				code: 'Digit8',
+				altKey: true,
+				bubbles: true
+			})
+		);
+		await vi.waitFor(() => {
+			expect(timelineStore.itemById.get(animatedItem.id)?.keyframes?.opacity?.frames?.[0]).toBe(11);
+		});
+	});
+
 	it('marquee-selects overlapping diamonds across property rows', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -294,7 +389,7 @@ describe('KeyframeDopesheet', () => {
 	});
 
 	it('cuts now, moves from the clipboard later, and clears cut state', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -335,7 +430,7 @@ describe('KeyframeDopesheet', () => {
 				toItemId: 'next'
 			}
 		]);
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]
@@ -346,7 +441,7 @@ describe('KeyframeDopesheet', () => {
 	});
 
 	it('saves, updates, and removes a reusable custom easing preset', async () => {
-		const screen = await render(TimelinePanel, {
+		const screen = await renderTimelinePanel({
 			onedit: vi.fn(),
 			selectedItemId: animatedItem.id,
 			selectedItemIds: [animatedItem.id]

@@ -5,19 +5,10 @@ import type {
 	MotionLayerTrack,
 	TransformAnimatableProperty
 } from '$lib/video-editor/project/types';
+import { TRANSFORM_ANIMATABLE_PROPERTIES } from '$lib/video-editor/project/types';
 import type { ResolvedMotionTransform } from './motion-presets';
 
-const TRANSFORM_PROPERTIES = new Set([
-	'x',
-	'y',
-	'width',
-	'height',
-	'anchorX',
-	'anchorY',
-	'rotation',
-	'opacity',
-	'cornerRadius'
-] as const);
+const TRANSFORM_PROPERTIES = new Set(TRANSFORM_ANIMATABLE_PROPERTIES);
 function isTransformAnimatableProperty(property: string): property is TransformAnimatableProperty {
 	// SAFETY: Set holds the closed union of TransformAnimatableProperty values.
 	return TRANSFORM_PROPERTIES.has(property as TransformAnimatableProperty);
@@ -32,7 +23,7 @@ export interface MotionLayerPayload {
 }
 
 function blendForProperty(property: TransformAnimatableProperty): MotionLayerBlendMode {
-	return property === 'width' || property === 'height' ? 'multiply' : 'add';
+	return ['width', 'height', 'scaleX', 'scaleY'].includes(property) ? 'multiply' : 'add';
 }
 
 function identityForBlend(blend: MotionLayerBlendMode): number {
@@ -44,7 +35,7 @@ function contributionValue(
 	value: number,
 	anchor: ResolvedMotionTransform
 ): number {
-	if (property === 'width' || property === 'height') {
+	if (['width', 'height', 'scaleX', 'scaleY'].includes(property)) {
 		return anchor[property] === 0 ? 1 : value / anchor[property];
 	}
 	return value - anchor[property];
@@ -159,6 +150,8 @@ export interface MotionContribution {
 	dOpacity: number;
 	scaleWidth: number;
 	scaleHeight: number;
+	scaleX: number;
+	scaleY: number;
 }
 
 const IDENTITY_CONTRIBUTION: MotionContribution = {
@@ -167,7 +160,9 @@ const IDENTITY_CONTRIBUTION: MotionContribution = {
 	dRotation: 0,
 	dOpacity: 0,
 	scaleWidth: 1,
-	scaleHeight: 1
+	scaleHeight: 1,
+	scaleX: 1,
+	scaleY: 1
 };
 
 function evaluateMotionAnimationLayers(
@@ -200,6 +195,12 @@ function evaluateMotionAnimationLayers(
 				case 'height':
 					out.scaleHeight *= value;
 					break;
+				case 'scaleX':
+					out.scaleX *= value;
+					break;
+				case 'scaleY':
+					out.scaleY *= value;
+					break;
 				case 'anchorX':
 				case 'anchorY':
 				case 'cornerRadius':
@@ -228,6 +229,8 @@ export function applyMotionAnimationLayers(
 		rotation: resolved.rotation + contribution.dRotation,
 		width: Math.max(1, resolved.width * contribution.scaleWidth),
 		height: Math.max(1, resolved.height * contribution.scaleHeight),
+		scaleX: (resolved.scaleX ?? 1) * contribution.scaleX,
+		scaleY: (resolved.scaleY ?? 1) * contribution.scaleY,
 		opacity: clamp(resolved.opacity + contribution.dOpacity, 0, 1)
 	};
 }
@@ -248,6 +251,14 @@ export function removeMotionAnimationLayers(
 			contribution.scaleWidth === 0 ? resolved.width : resolved.width / contribution.scaleWidth,
 		height:
 			contribution.scaleHeight === 0 ? resolved.height : resolved.height / contribution.scaleHeight,
+		scaleX:
+			contribution.scaleX === 0
+				? (resolved.scaleX ?? 1)
+				: (resolved.scaleX ?? 1) / contribution.scaleX,
+		scaleY:
+			contribution.scaleY === 0
+				? (resolved.scaleY ?? 1)
+				: (resolved.scaleY ?? 1) / contribution.scaleY,
 		opacity: clamp(resolved.opacity - contribution.dOpacity, 0, 1)
 	};
 }

@@ -88,7 +88,7 @@
 			<div class="space-y-4" data-testid="instance-update-status">
 				{#if status.state === 'update_available'}
 					<InlineNotice tone="warning">
-						<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								<p class="font-medium">
 									{m.settings_instance_update_available({ version: status.latest_version ?? '' })}

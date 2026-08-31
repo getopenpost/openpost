@@ -1,8 +1,7 @@
 /**
- * Full easings.dev catalog, ported verbatim from FreeCut 4d62e80
- * (MIT) - features/keyframes/components/dopesheet-editor/easings-dev-presets.ts
- * 28 cubic-bezier curves + 10 spring presets, with direction filters and exact
- * easings.dev values. Tension = stiffness, friction = damping.
+ * Full easings.dev catalog from FreeCut 4d62e80 (MIT),
+ * features/keyframes/components/dopesheet-editor/easings-dev-presets.ts.
+ * Tension maps to stiffness and friction maps to damping.
  */
 import type {
 	BezierControlPoints,
@@ -83,18 +82,17 @@ export function presetDirection(name: string): EasingDirection {
 }
 
 export function presetToEasing(preset: EasingPreset) {
-	if (preset.type === 'Spring' && preset.spring) {
+	if (preset.type === 'Spring') {
 		return {
 			easing: 'spring' as const,
 			easingConfig: { type: 'spring' as const, spring: { ...preset.spring } }
 		} satisfies { easing: EasingType; easingConfig: EasingConfig };
 	}
-	// SAFETY: preset.bezier is validated by EASINGS_DEV_PRESETS construction
 	return {
 		easing: 'cubic-bezier' as const,
 		easingConfig: {
 			type: 'cubic-bezier' as const,
-			bezier: { ...(preset.bezier as BezierControlPoints) }
+			bezier: { ...preset.bezier }
 		}
 	} satisfies { easing: EasingType; easingConfig: EasingConfig };
 }
@@ -124,18 +122,18 @@ export function presetMatchesEasing(
 		if (config?.type !== 'spring' || !config.spring) return false;
 		const s = config.spring;
 		return (
-			near(preset.spring!.tension, s.tension) &&
-			near(preset.spring!.friction, s.friction) &&
-			near(preset.spring!.mass, s.mass)
+			near(preset.spring.tension, s.tension) &&
+			near(preset.spring.friction, s.friction) &&
+			near(preset.spring.mass, s.mass)
 		);
 	}
 	if (config?.type === 'spring') return false;
 	const b = effectiveBezier(easing, config);
 	return (
-		near(preset.bezier!.x1, b.x1) &&
-		near(preset.bezier!.y1, b.y1) &&
-		near(preset.bezier!.x2, b.x2) &&
-		near(preset.bezier!.y2, b.y2)
+		near(preset.bezier.x1, b.x1) &&
+		near(preset.bezier.y1, b.y1) &&
+		near(preset.bezier.x2, b.x2) &&
+		near(preset.bezier.y2, b.y2)
 	);
 }
 

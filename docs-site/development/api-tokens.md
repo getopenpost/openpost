@@ -1,6 +1,6 @@
 # API Tokens
 
-OpenPost API tokens are account credentials for the REST API, MCP clients, the CLI, and automation. Create one token per client in **Settings → Developer access**, give it the narrowest scope and workspace boundary that works, and revoke it when that client no longer needs access.
+OpenPost API tokens are account credentials for the REST API, MCP clients, the CLI, and automation. Create one token per client in **Settings → Personal → Developer access**, give it the narrowest scope and workspace boundary that works, and revoke it when that client no longer needs access.
 
 ## Create and store a token
 

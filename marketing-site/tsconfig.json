@@ -12,5 +12,5 @@
 		"sourceMap": true,
 		"strict": true
 	},
-	"exclude": ["../frontend/src/lib/paraglide/**"]
+	"exclude": ["../frontend/src/lib/**"]
 }

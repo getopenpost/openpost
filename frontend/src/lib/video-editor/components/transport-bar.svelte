@@ -49,7 +49,7 @@
 		onvoiceoverinserted = () => {}
 	}: { projectId: string; onvoiceoverinserted?: (itemId: string) => void } = $props();
 
-	const playing = $derived(editorSession.clock.isPlaying);
+	const playing = $derived(editorSession.isPlaying);
 	const fps = $derived(editorSession.fps);
 	const totalFrames = $derived(outputDurationFrames(timelineStore.items));
 	const monitorPercent = $derived(Math.round(previewPlaybackSettings.volume * 100));
@@ -158,7 +158,7 @@
 </script>
 
 <div
-	class="flex min-h-10 items-center gap-1 border-t border-[oklch(0.25_0.015_55)] px-2 py-1.5 sm:gap-2 sm:px-3"
+	class="flex min-h-10 flex-wrap items-center gap-1 border-t border-[oklch(0.25_0.015_55)] px-2 py-1.5 sm:gap-2 sm:px-3"
 >
 	<div class="flex shrink-0 items-center gap-1">
 		<Button
@@ -285,7 +285,9 @@
 			title={m.video_editor_save_frame()}
 			onclick={() => void saveCurrentFrame()}
 		>
-			{#if savingFrame}<LoaderIcon class="animate-spin" />{:else}<CameraIcon />{/if}
+			{#if savingFrame}<LoaderIcon
+					class="animate-spin motion-reduce:animate-none"
+				/>{:else}<CameraIcon />{/if}
 		</Button>
 	</div>
 

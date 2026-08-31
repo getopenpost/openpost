@@ -9,6 +9,7 @@
 	} from '$lib/video-editor/timeline/actions/path-vertex-keyframes';
 	import { hasPathVertexKeyframes } from '$lib/video-editor/timeline/path-vertex-keyframes';
 	import { pathVertexSelectionStore } from '$lib/video-editor/timeline/stores/path-vertex-selection-store.svelte';
+	import * as ContextMenu from '$lib/components/ui/context-menu';
 	import {
 		closestPathSegment,
 		fitDrawnPath,
@@ -18,7 +19,9 @@
 		pathSvgData,
 		pathVertexToBezier,
 		pathVertexToCorner,
-		removePathVertex
+		removePathVertex,
+		reversePathVertices,
+		rotateClosedPathStart
 	} from '$lib/video-editor/shapes/path-edit';
 
 	let {
@@ -69,6 +72,34 @@
 	);
 	const selectedVertex = $derived(
 		selectedIndex === null ? undefined : visibleVertices[selectedIndex]
+	);
+	const minimumVertexCount = $derived(mustClose || item.pathClosed !== false ? 3 : 2);
+	const canDeleteSelected = $derived(
+		!topologyLocked &&
+			selectedIndices.length > 0 &&
+			storedVertices.length - selectedIndices.length >= minimumVertexCount
+	);
+	const canConvertSelectedToCurve = $derived(
+		selectedIndices.some((index) => {
+			const vertex = storedVertices[index];
+			if (!vertex) return false;
+			return (
+				vertex.tangentMode === 'corner' ||
+				(!vertex.inHandle.some((value) => value !== 0) &&
+					!vertex.outHandle.some((value) => value !== 0))
+			);
+		})
+	);
+	const canConvertSelectedToCorner = $derived(
+		selectedIndices.some((index) => {
+			const vertex = storedVertices[index];
+			if (!vertex) return false;
+			return (
+				vertex.tangentMode !== 'corner' ||
+				vertex.inHandle.some((value) => value !== 0) ||
+				vertex.outHandle.some((value) => value !== 0)
+			);
+		})
 	);
 
 	$effect(() => {
@@ -318,16 +349,74 @@
 
 	function removeSelected(): void {
 		if (selectedIndex === null || topologyLocked) return;
-		const minimum = mustClose || item.pathClosed !== false ? 3 : 2;
-		if (storedVertices.length - selectedIndices.length < minimum) return;
+		if (storedVertices.length - selectedIndices.length < minimumVertexCount) return;
 		let vertices: ShapePathVertex[] | null = storedVertices;
 		for (const index of selectedIndices.toSorted((left, right) => right - left)) {
-			vertices = vertices ? removePathVertex(vertices, index, minimum) : null;
+			vertices = vertices ? removePathVertex(vertices, index, minimumVertexCount) : null;
 		}
 		if (!vertices) return;
 		const nextIndex = Math.min(selectedIndex, vertices.length - 1);
 		selectVertices([nextIndex], nextIndex);
 		commitTopology({ pathVertices: vertices });
+	}
+
+	function prepareVertexContextMenu(index: number): void {
+		selectVertices(selectedIndices.includes(index) ? selectedIndices : [index], index);
+	}
+
+	function openVertexContextMenuFromKeyboard(event: KeyboardEvent): boolean {
+		if (event.key !== 'ContextMenu' && !(event.shiftKey && event.key === 'F10')) return false;
+		if (!(event.currentTarget instanceof SVGCircleElement)) return false;
+		event.preventDefault();
+		const rect = event.currentTarget.getBoundingClientRect();
+		event.currentTarget.dispatchEvent(
+			new MouseEvent('contextmenu', {
+				bubbles: true,
+				cancelable: true,
+				clientX: rect.left + rect.width / 2,
+				clientY: rect.top + rect.height / 2
+			})
+		);
+		return true;
+	}
+
+	function convertSelectedVertices(mode: 'corner' | 'curve'): void {
+		if (selectedIndices.length === 0) return;
+		if (mode === 'corner' && !canConvertSelectedToCorner) return;
+		if (mode === 'curve' && !canConvertSelectedToCurve) return;
+		let vertices = storedVertices;
+		for (const index of selectedIndices) {
+			vertices =
+				mode === 'corner'
+					? pathVertexToCorner(vertices, index)
+					: pathVertexToBezier(vertices, index, item.pathClosed !== false);
+		}
+		commitGeometry(vertices);
+	}
+
+	function reversePath(): void {
+		if (topologyLocked || storedVertices.length < 2) return;
+		const reversedSelection = selectedIndices.map((index) => storedVertices.length - 1 - index);
+		const nextSelectedIndex =
+			selectedIndex === null ? null : storedVertices.length - 1 - selectedIndex;
+		selectVertices(reversedSelection, nextSelectedIndex);
+		commitTopology({ pathVertices: reversePathVertices(storedVertices) });
+	}
+
+	function setFirstPoint(): void {
+		if (
+			topologyLocked ||
+			item.pathClosed === false ||
+			selectedIndex === null ||
+			storedVertices.length < 2
+		)
+			return;
+		const offset = selectedIndex;
+		const rotatedSelection = selectedIndices.map(
+			(index) => (index - offset + storedVertices.length) % storedVertices.length
+		);
+		selectVertices(rotatedSelection, 0);
+		commitTopology({ pathVertices: rotateClosedPathStart(storedVertices, offset) });
 	}
 
 	function vertexKeydown(event: KeyboardEvent, index: number): void {
@@ -493,25 +582,74 @@
 
 		{#each visibleVertices as vertex, index (index)}
 			{@const point = vertexPoint(vertex)}
-			<circle
-				cx={point.x}
-				cy={point.y}
-				r={drawing && index === 0 ? 9 / screenScale : 7 / screenScale}
-				fill={selectedIndices.includes(index) ? 'white' : 'oklch(0.78 0.16 45)'}
-				stroke="black"
-				stroke-width="2"
-				vector-effect="non-scaling-stroke"
-				class="cursor-move focus:outline-none focus-visible:stroke-white"
-				role="button"
-				tabindex="0"
-				aria-pressed={selectedIndices.includes(index)}
-				aria-label={drawing && index === 0
-					? m.video_editor_path_close()
-					: m.video_editor_path_vertex({ index: index + 1 })}
-				onpointerdown={(event) => startVertex(event, index)}
-				ondblclick={(event) => toggleVertex(event, index)}
-				onkeydown={(event) => vertexKeydown(event, index)}
-			></circle>
+			<ContextMenu.Root>
+				<ContextMenu.Trigger disabled={drawing}>
+					{#snippet child({ props })}
+						<circle
+							{...props}
+							cx={point.x}
+							cy={point.y}
+							r={drawing && index === 0 ? 9 / screenScale : 7 / screenScale}
+							fill={selectedIndices.includes(index) ? 'white' : 'oklch(0.78 0.16 45)'}
+							stroke="black"
+							stroke-width="2"
+							vector-effect="non-scaling-stroke"
+							class="cursor-move focus:outline-none focus-visible:stroke-white"
+							role="button"
+							tabindex="0"
+							aria-pressed={selectedIndices.includes(index)}
+							aria-label={drawing && index === 0
+								? m.video_editor_path_close()
+								: m.video_editor_path_vertex({ index: index + 1 })}
+							onpointerdown={(event) => startVertex(event, index)}
+							ondblclick={(event) => toggleVertex(event, index)}
+							oncontextmenu={(event) => {
+								prepareVertexContextMenu(index);
+								props.oncontextmenu?.(event);
+							}}
+							onkeydown={(event) => {
+								vertexKeydown(event, index);
+								if (!openVertexContextMenuFromKeyboard(event)) props.onkeydown?.(event);
+							}}
+						></circle>
+					{/snippet}
+				</ContextMenu.Trigger>
+				<ContextMenu.Content class="video-editor-theme w-48">
+					<ContextMenu.Item disabled={topologyLocked} onclick={insertAfterSelected}>
+						{m.video_editor_path_add_point()}
+					</ContextMenu.Item>
+					<ContextMenu.Item disabled={!canDeleteSelected} onclick={removeSelected}>
+						{m.video_editor_path_delete_point()}
+					</ContextMenu.Item>
+					<ContextMenu.Separator />
+					<ContextMenu.Item
+						disabled={!canConvertSelectedToCurve}
+						onclick={() => convertSelectedVertices('curve')}
+					>
+						{m.video_editor_path_convert_curve()}
+					</ContextMenu.Item>
+					<ContextMenu.Item
+						disabled={!canConvertSelectedToCorner}
+						onclick={() => convertSelectedVertices('corner')}
+					>
+						{m.video_editor_path_convert_corner()}
+					</ContextMenu.Item>
+					<ContextMenu.Separator />
+					<ContextMenu.Item disabled={topologyLocked} onclick={reversePath}>
+						{m.video_editor_path_reverse()}
+					</ContextMenu.Item>
+					<ContextMenu.Item
+						disabled={topologyLocked || item.pathClosed === false || selectedIndex === 0}
+						onclick={setFirstPoint}
+					>
+						{m.video_editor_path_set_first()}
+					</ContextMenu.Item>
+					<ContextMenu.Separator />
+					<ContextMenu.Item onclick={keySelectedVertices}>
+						{m.video_editor_path_key_selected()}
+					</ContextMenu.Item>
+				</ContextMenu.Content>
+			</ContextMenu.Root>
 		{/each}
 	</svg>
 

@@ -5,7 +5,7 @@ import type { TimelineItem, TimelineTrack } from '../project/types';
 import { importGeneratedVideo, importRecordedAudio } from '../media/import.svelte';
 import { rollbackNewGeneratedMedia } from '../media/import.svelte';
 import type { CaptureArtifact, RecorderKind } from './recorder.svelte';
-import type { MediaMetadata } from '../media/types';
+import type { MediaMetadata, RecordingCaptureMetadata } from '../media/types';
 
 const logger = createLogger('InsertRecording');
 
@@ -15,8 +15,14 @@ export type InsertRecordingResult = {
 };
 
 export interface RecordingImportRuntime {
-	importVideo(file: File, options: { projectId: string; tags: string[] }): Promise<MediaMetadata>;
-	importAudio(file: File, options: { projectId: string; duration: number }): Promise<MediaMetadata>;
+	importVideo(
+		file: File,
+		options: { projectId: string; tags: string[]; capture?: RecordingCaptureMetadata }
+	): Promise<MediaMetadata>;
+	importAudio(
+		file: File,
+		options: { projectId: string; duration: number; capture?: RecordingCaptureMetadata }
+	): Promise<MediaMetadata>;
 	rollback(projectId: string, mediaId: string): Promise<void>;
 }
 
@@ -50,6 +56,31 @@ function mimeExtension(mimeType: string): string {
 	return 'webm';
 }
 
+function captureMetadataForArtifact(
+	artifact: CaptureArtifact
+): RecordingCaptureMetadata | undefined {
+	if (!artifact.capture) return undefined;
+	const truth = artifact.capture;
+	const result: RecordingCaptureMetadata = {
+		version: 1,
+		kind: artifact.kind,
+		capturedAt: truth.capturedAt
+	};
+	if (artifact.kind === 'screen') {
+		result.cursor = {
+			requested: truth.cursorRequested,
+			actual: truth.cursorActual,
+			supported: truth.cursorSupported
+		};
+		result.systemAudio = {
+			requested: truth.systemAudioRequested,
+			active: truth.systemAudioActive,
+			status: truth.systemAudioStatus
+		};
+	}
+	return result;
+}
+
 export async function insertRecordingArtifacts(
 	projectId: string,
 	artifacts: CaptureArtifact[],
@@ -78,9 +109,14 @@ export async function insertRecordingArtifacts(
 				type: artifact.mimeType || artifact.blob.type,
 				lastModified: Date.now()
 			});
+			const capture = captureMetadataForArtifact(artifact);
 			if (kindLabel === 'microphone') {
 				const durationSec = Math.max(0.1, artifact.durationMs / 1000);
-				const media = await runtime.importAudio(file, { projectId, duration: durationSec });
+				const media = await runtime.importAudio(file, {
+					projectId,
+					duration: durationSec,
+					capture
+				});
 				imported.push({
 					kind: kindLabel,
 					mediaId: media.id,
@@ -91,7 +127,8 @@ export async function insertRecordingArtifacts(
 			} else {
 				const media = await runtime.importVideo(file, {
 					projectId,
-					tags: ['recorded', kindLabel]
+					tags: ['recorded', kindLabel],
+					capture
 				});
 				imported.push({
 					kind: kindLabel,
@@ -113,6 +150,7 @@ export async function insertRecordingArtifacts(
 		return executeAtomic('INSERT_RECORDING', () => {
 			const itemIds: string[] = [];
 			const mediaIds = imported.map((entry) => entry.mediaId);
+			const linkedGroupId = artifacts.length > 1 ? crypto.randomUUID() : undefined;
 			artifacts.forEach((artifact, index) => {
 				const importedEntry = imported[index];
 				if (!importedEntry) return;
@@ -149,6 +187,7 @@ export async function insertRecordingArtifacts(
 					type: trackKind === 'audio' ? 'audio' : 'video',
 					mediaId: importedEntry.mediaId,
 					originId: crypto.randomUUID(),
+					linkedGroupId,
 					sourceStart: 0,
 					sourceEnd: sourceDuration,
 					sourceDuration,

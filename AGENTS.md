@@ -21,18 +21,26 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 - Reuse established UI patterns. Consistency builds trust.
 - Keep keyboard access, visible focus, readable contrast, reduced motion, and touch targets.
 
+## Project state and memory
+
+- The **OpenPost** Vikunja project is the authority for private/internal active work, specs, priorities and execution state. Create and update those tasks through Executor. GitHub Issues remain only for public reports and contributor-facing discussion.
+- Hindsight bank `rodrigo` is the authority for durable cross-agent product context, domain language, decisions, constraints and project history. Recall with `project:openpost` before substantial work. Retain only verified durable facts with `project:openpost` and `source:<agent>`; never retain secrets, raw logs, temporary task state, completed-work reports or unverified claims.
+- Code, tests, generated contracts, build commands, public docs and hard engineering constraints remain versioned here. Do not create new `CONTEXT.md`, mutable ADR folders, local issue stores, task boards or agent-memory files.
+- Treat recalled memory as historical context, not proof of current behavior. Verify it against code, Vikunja or the live system. Correct superseded memories rather than adding contradictions.
+
 ## Working model
 
 - Substantial, ambiguous, or multi-ticket work follows the `agent-workflow` skill; tiny, well-scoped fixes skip the flow.
-- Match the work to its reference: UI/UX/visual/copy → `ux-consistency` (plus `impeccable` for design critique), `DESIGN.md`, `PRODUCT.md`; interaction sounds → `cuelume`; Go API → `huma`; TypeScript client → `openapi-typescript`; domain terms → `CONTEXT.md`; paths and seams → `docs/agents/repository-map.md` (confirm with `rg`); issues and triage → `docs/agents/issue-tracker.md` + `docs/agents/triage-labels.md`; domain-doc usage → `docs/agents/domain.md`.
+- Match the work to its reference: UI/UX/visual/copy → `ux-consistency` (plus `impeccable` for design critique), `DESIGN.md`, `PRODUCT.md`; interaction sounds → `cuelume`; Go API → `huma`; TypeScript client → `openapi-typescript`; durable domain/decision context → Hindsight plus current code; paths and seams → `docs/agents/repository-map.md` (confirm with `rg`); internal work → Vikunja; public issue/PR triage → GitHub.
 - Use Devenv for the environment; run verification, build, and release through the root `bun run` commands.
 - Do routine, non-destructive work yourself rather than delegating manual steps; production, external, and reputational mutations stay gated (see Delivery).
-- Canonical backlog: `AUDIT_REMEDIATION_TODO.md`. P0 = active security/privacy/data-integrity emergency or a safety gate before an external-write path; P1 = before the next broad release or paid-growth push; P2 = planned work. Treat it as an ordered queue, not one flat list.
+- Canonical backlog: the OpenPost Vikunja project. P0 = active security/privacy/data-integrity emergency or a safety gate before an external-write path; P1 = before the next broad release or paid-growth push; P2 = planned work. Treat it as an ordered queue, not one flat list.
 
 ## Architecture
 
 - SvelteKit builds the interface; a Go server embeds it into one binary. Echo serves HTTP, Huma owns OpenAPI, Bun ORM owns database access. SQLite is the default; PostgreSQL supports hosted use.
 - Persistent work uses database jobs, not in-memory goroutines. Media goes through `BlobStorage`. Provider code lives in `backend/internal/platform/`.
+- The binary exposes `all`, `web`, `worker`, and `migrate` process roles. `all` is the self-host default and auto-migrates; hosted rollouts run `migrate` once, then start `web` and `worker` against the current schema.
 - Page reads use stored state; provider calls happen in explicit sync or job flows. Publications are the canonical user-visible content inventory.
 - Svelte uses runes, the typed API client, and shared UI/page controls; visible form fields belong in shared primitives. Secrets stay out of code and logs; stored provider tokens are encrypted.
 - Video Editor on-canvas gestures keep drafts out of undo history and commit once on release. Animated position uses versioned vector keys with temporal easing and spatial Bezier tangents; legacy scalar X/Y tracks promote lazily on the first vector edit.
@@ -41,6 +49,7 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 - Meme Maker embeds a pinned template catalog and renders in process; captions and workspace overlay bytes stay server-side, while optional AI suggestions receive only bounded written template semantics. Refresh the audited snapshot with `scripts/sync-meme-catalog.mjs <pinned-checkout>`.
 - Video Editor GPU effects share one WebGL2 ping-pong compositor; use point-scatter vertex passes for exact cross-texel writes that a fragment pass cannot express.
 - Video Editor adjustment layers are timed, non-rendering items; preview and export apply their enabled effects, top-first, to active visual items on higher-order tracks.
+- Video Editor live edits keep visible items non-overlapping on the same track through `timeline/track-occupancy.ts`; preserve loaded and undo-restored overlap, cross-track compositing, audio mixing, and adjustment/controller overlap. Plan placement before calling raw `addItems` or `moveItems`.
 - Video Editor export workers return in-memory artifacts; only the main thread writes final workspace files. Fall back only for explicit worker limits, availability, runtime, or message-clone failures, and never retry a worker render error as a second render.
 - Video Editor Auto preview serializes heavy-media proxy work, keeps proxy visuals separate from original-source audio, and applies a hysteretic render-scale cap to real GPU and stacked canvases. A bounded worker cache predecodes upcoming boundary frames; stalled seeks may present exact prewarm or filmstrip fallbacks until the video element settles. Full preview and export always use the original source at full resolution.
 - Non-normal Video Editor blend modes use the shared `CanvasStackCompositor` in preview and export so each transformed layer blends against the finished frame below; keep the exact CPU fallback aligned with the GPU shader.
@@ -65,9 +74,12 @@ OpenPost is an all-in-one social publishing workspace. It helps solo founders, c
 - Push, release, and deploy at the end, and only when asked. A push is not a deployment: releases run from `v*` tags after passing CI, live readiness, and an exact-revision check.
 - Production-affecting mutations (tag push, release, deploy, destructive live actions) require explicit authorization. State the exact changes and their effect before acting.
 - CI reuses Devenv/Nix/Bun/git caches and should stay fast (target under ~2 minutes where realistic).
+- n8n package release work must follow `docs/agents/n8n-package-release.md`; npm publication follows exact production readiness and uses its own stable SemVer.
 
 ## Verify and deliver
 
+- Tests need an independent reason to exist: reproduce a real failure through the closest stable boundary or check an externally defined contract. Each test must fail on a plausible behavior regression, not merely because the implementation was refactored.
+- Remove circular tests that call a new private helper or guard and assert its own literals, branches, fields, or error text. When no meaningful behavior test exists, use focused practical verification and add no test.
 - During development, run the nearest relevant check after each edit: `bun run check:frontend:types` for Svelte/TS type checking only, `bun run check:contracts` for generated contracts, `bun run test:file -- <path>` for a single test, `bun run test:backend:pkg -- <package>` for one Go package. Use `bun run check -- <scope>` for a full surface gate once the candidate is stable. Use `bun run doctor` before broad, browser, or release work; `bun run release -- check` before releases; `bun run verify` only for high-risk local build proof.
 - UI and copy changes must pass the `ux-consistency` acceptance bar before finishing.
 - Behavior changes: sync docs, product copy, and contracts under `Unreleased`. Write changelog entries to `changes/<issue-number>.md`, not directly to `CHANGELOG.md`, to avoid conflicts when parallel tickets are in flight.

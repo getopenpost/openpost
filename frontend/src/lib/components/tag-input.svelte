@@ -58,11 +58,11 @@
 </script>
 
 <div
-	class="mt-1 flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-primary/35 bg-background px-2 py-1.5 shadow-[0_2px_0_color-mix(in_oklch,var(--primary)_42%,black)] transition-[border-color,box-shadow] duration-100 focus-within:border-primary focus-within:shadow-[0_3px_0_color-mix(in_oklch,var(--primary)_55%,black)] focus-within:ring-2 focus-within:ring-primary/20"
+	class="mt-1 flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-input bg-background px-2 py-1.5 transition-[border-color,box-shadow] duration-100 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20"
 >
 	{#each tags as tag, index (`${tag}-${index}`)}
 		<span
-			class="inline-flex min-h-7 items-center gap-1 rounded-lg border border-primary/25 bg-primary/8 px-2 text-xs font-medium shadow-[0_1px_0_color-mix(in_oklch,var(--primary)_40%,black)]"
+			class="inline-flex min-h-7 items-center gap-1 rounded-lg border border-primary/25 bg-primary/8 px-2 text-xs font-medium"
 		>
 			<span>{tag}</span>
 			<Button

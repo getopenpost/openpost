@@ -117,6 +117,27 @@ describe('frameToSourceSeconds', () => {
 		expect(frameToSourceSeconds(clip, 15, 30)).toBeCloseTo(104 / 30);
 		expect(frameToSourceSeconds(clip, 75, 30)).toBeCloseTo(44 / 30);
 	});
+
+	it('maps a persisted variable-speed curve to the same source frames used by export', () => {
+		const clip = item({
+			durationInFrames: 90,
+			sourceStart: 0,
+			sourceEnd: 120,
+			sourceFps: 30,
+			speed: 1,
+			speedRamp: [
+				{ id: 'normal-in', sourceFrame: 0, speed: 1, easing: 'hold' },
+				{ id: 'fast', sourceFrame: 30, speed: 2, easing: 'hold' },
+				{ id: 'normal-out', sourceFrame: 90, speed: 1, easing: 'hold' },
+				{ id: 'end', sourceFrame: 120, speed: 1, easing: 'linear' }
+			]
+		});
+
+		expect(frameToSourceSeconds(clip, 0, 30)).toBeCloseTo(0);
+		expect(frameToSourceSeconds(clip, 30, 30)).toBeCloseTo(1);
+		expect(frameToSourceSeconds(clip, 60, 30)).toBeCloseTo(3);
+		expect(frameToSourceSeconds(clip, 90, 30)).toBeCloseTo(4);
+	});
 });
 
 describe('planMixdown', () => {
@@ -215,6 +236,43 @@ describe('planMixdown', () => {
 		);
 		expect(entries[0]?.playbackRate).toBe(2);
 		expect(entries[0]?.durationSeconds).toBeCloseTo(2);
+	});
+
+	it('plans the exact source window and tempo curve for variable-speed audio export', () => {
+		const [entry] = planMixdown(
+			[
+				item({
+					type: 'audio',
+					trackId: 'track-audio',
+					mediaId: 'voice',
+					durationInFrames: 90,
+					sourceStart: 0,
+					sourceEnd: 120,
+					sourceFps: 30,
+					speedRamp: [
+						{ id: 'normal-in', sourceFrame: 0, speed: 1, easing: 'hold' },
+						{ id: 'fast', sourceFrame: 30, speed: 2, easing: 'hold' },
+						{ id: 'normal-out', sourceFrame: 90, speed: 1, easing: 'hold' },
+						{ id: 'end', sourceFrame: 120, speed: 1, easing: 'linear' }
+					]
+				})
+			],
+			[track('track-audio', 'audio', 0)],
+			30
+		);
+
+		expect(entry?.sourceWindowStartSeconds).toBeCloseTo(0);
+		expect(entry?.sourceWindowEndSeconds).toBeCloseTo(4);
+		expect(entry?.durationSeconds).toBeCloseTo(3);
+		expect(entry?.playbackRateCurve?.find((point) => point.atSeconds === 1)?.rate).toBe(2);
+		expect(entry?.playbackRateCurve?.find((point) => point.atSeconds === 2)?.rate).toBe(1);
+
+		const sliced = sliceMixEntries([entry!], 1, 2)[0]!;
+		expect(sliced.sourceOffsetSeconds).toBeCloseTo(1, 5);
+		expect(sliced.sourceWindowStartSeconds).toBeCloseTo(1, 5);
+		expect(sliced.sourceWindowEndSeconds).toBeCloseTo(3, 5);
+		expect(sliced.playbackRate).toBe(2);
+		expect(sliced.durationSeconds).toBe(1);
 	});
 
 	it('plans independent pitch and the clip EQ without changing gain or tempo', () => {

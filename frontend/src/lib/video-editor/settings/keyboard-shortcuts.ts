@@ -11,18 +11,54 @@ export const DEFAULT_EDITOR_SHORTCUTS = {
 	NEXT_FRAME: 'right',
 	GO_TO_START: 'home',
 	GO_TO_END: 'end',
+	NEXT_SNAP_POINT: 'down',
+	PREVIOUS_SNAP_POINT: 'up',
+	SHUTTLE_REVERSE: 'j',
+	SHUTTLE_PAUSE: 'k',
+	SHUTTLE_FORWARD: 'l',
+	MARK_IN: 'i',
+	MARK_OUT: 'o',
+	CLEAR_IN_OUT: 'alt+x',
+	QUICK_CUT_ADD_SEGMENT: 'enter',
+	QUICK_CUT_TOGGLE_LOOP: 'alt+l',
+	INSERT_EDIT: 'comma',
+	OVERWRITE_EDIT: 'period',
 	SPLIT_AT_PLAYHEAD: 'alt+c',
 	SPLIT_AT_PLAYHEAD_ALT: 'b',
+	SPLIT_AT_CURSOR: 'shift+c',
 	JOIN_ITEMS: 'shift+j',
 	CLEAR_KEYFRAMES: 'shift+a',
-	DELETE_SELECTED: 'delete',
-	DELETE_SELECTED_ALT: 'backspace',
-	RIPPLE_DELETE: 'mod+delete',
-	RIPPLE_DELETE_ALT: 'mod+backspace',
+	DELETE_SELECTED: 'backspace',
+	DELETE_SELECTED_ALT: 'shift+backspace',
+	RIPPLE_DELETE: 'delete',
+	RIPPLE_DELETE_ALT: 'mod+delete',
 	FREEZE_FRAME: 'shift+f',
 	LINK_AUDIO_VIDEO: 'mod+alt+l',
 	UNLINK_AUDIO_VIDEO: 'alt+shift+l',
 	TOGGLE_LINKED_SELECTION: 'shift+l',
+	NUDGE_LEFT: 'shift+left',
+	NUDGE_RIGHT: 'shift+right',
+	NUDGE_UP: 'shift+up',
+	NUDGE_DOWN: 'shift+down',
+	NUDGE_LEFT_LARGE: 'mod+shift+left',
+	NUDGE_RIGHT_LARGE: 'mod+shift+right',
+	NUDGE_UP_LARGE: 'mod+shift+up',
+	NUDGE_DOWN_LARGE: 'mod+shift+down',
+	COPY: 'mod+c',
+	CUT: 'mod+x',
+	PASTE: 'mod+v',
+	COMPOSITION_DUPLICATE: 'mod+d',
+	COMPOSITION_SELECT_ALL: 'mod+a',
+	COMPOSITION_GROUP: 'mod+g',
+	COMPOSITION_NUDGE_LEFT: 'left',
+	COMPOSITION_NUDGE_RIGHT: 'right',
+	COMPOSITION_NUDGE_LEFT_FAST: 'shift+left',
+	COMPOSITION_NUDGE_RIGHT_FAST: 'shift+right',
+	COMPOSITION_REORDER_UP: 'alt+up',
+	COMPOSITION_REORDER_DOWN: 'alt+down',
+	TRACK_RENAME: 'f2',
+	TRACK_MOVE_UP: 'alt+up',
+	TRACK_MOVE_DOWN: 'alt+down',
 	UNDO: 'mod+z',
 	REDO: 'mod+shift+z',
 	ZOOM_IN: 'mod+equal',
@@ -31,10 +67,16 @@ export const DEFAULT_EDITOR_SHORTCUTS = {
 	ZOOM_TO_100: 'shift+backslash',
 	ZOOM_TO_100_ALT: 'mod+0',
 	RATE_STRETCH_TOOL: 'r',
+	RAZOR_TOOL: 'c',
+	SELECTION_TOOL: 'v',
+	SLIP_TOOL: 'y',
+	SLIDE_TOOL: 'u',
 	SAVE: 'mod+s',
 	EXPORT: 'mod+shift+e',
 	OPEN_SETTINGS: 'mod+comma',
+	OPEN_SCENE_BROWSER: 'mod+shift+f',
 	TOGGLE_SNAP: 's',
+	TOGGLE_CANVAS_SNAP: 'shift+s',
 	WORKSPACE_EDIT: 'alt+1',
 	WORKSPACE_COLOR: 'alt+2',
 	WORKSPACE_MOTION: 'alt+3',
@@ -51,7 +93,15 @@ export const DEFAULT_EDITOR_SHORTCUTS = {
 	GRAPH_NUDGE_LEFT_FAST: 'shift+left',
 	GRAPH_NUDGE_RIGHT_FAST: 'shift+right',
 	GRAPH_NUDGE_UP_FAST: 'shift+up',
-	GRAPH_NUDGE_DOWN_FAST: 'shift+down'
+	GRAPH_NUDGE_DOWN_FAST: 'shift+down',
+	KEYFRAME_EDITOR_GRAPH: '1',
+	KEYFRAME_EDITOR_DOPESHEET: '2',
+	KEYFRAME_EDITOR_SPLIT: '3',
+	EDIT_KEYFRAME_ADD: 'k',
+	KEYFRAME_PREVIOUS: 'alt+bracketleft',
+	KEYFRAME_NEXT: 'alt+bracketright',
+	KEYFRAME_TOGGLE_AUTO: 'a',
+	KEYFRAME_FIT: 'f'
 } as const;
 
 export type EditorShortcutId = keyof typeof DEFAULT_EDITOR_SHORTCUTS;
@@ -70,8 +120,21 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'NEXT_FRAME', section: 'playback' },
 	{ id: 'GO_TO_START', section: 'playback' },
 	{ id: 'GO_TO_END', section: 'playback' },
+	{ id: 'PREVIOUS_SNAP_POINT', section: 'playback' },
+	{ id: 'NEXT_SNAP_POINT', section: 'playback' },
+	{ id: 'SHUTTLE_REVERSE', section: 'playback' },
+	{ id: 'SHUTTLE_PAUSE', section: 'playback' },
+	{ id: 'SHUTTLE_FORWARD', section: 'playback' },
+	{ id: 'MARK_IN', section: 'editing' },
+	{ id: 'MARK_OUT', section: 'editing' },
+	{ id: 'CLEAR_IN_OUT', section: 'editing' },
+	{ id: 'QUICK_CUT_ADD_SEGMENT', section: 'editing' },
+	{ id: 'QUICK_CUT_TOGGLE_LOOP', section: 'playback' },
+	{ id: 'INSERT_EDIT', section: 'editing' },
+	{ id: 'OVERWRITE_EDIT', section: 'editing' },
 	{ id: 'SPLIT_AT_PLAYHEAD', section: 'editing' },
 	{ id: 'SPLIT_AT_PLAYHEAD_ALT', section: 'editing' },
+	{ id: 'SPLIT_AT_CURSOR', section: 'editing' },
 	{ id: 'JOIN_ITEMS', section: 'editing' },
 	{ id: 'CLEAR_KEYFRAMES', section: 'editing' },
 	{ id: 'DELETE_SELECTED', section: 'editing' },
@@ -82,6 +145,29 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'LINK_AUDIO_VIDEO', section: 'editing' },
 	{ id: 'UNLINK_AUDIO_VIDEO', section: 'editing' },
 	{ id: 'TOGGLE_LINKED_SELECTION', section: 'editing' },
+	{ id: 'NUDGE_LEFT', section: 'editing' },
+	{ id: 'NUDGE_RIGHT', section: 'editing' },
+	{ id: 'NUDGE_UP', section: 'editing' },
+	{ id: 'NUDGE_DOWN', section: 'editing' },
+	{ id: 'NUDGE_LEFT_LARGE', section: 'editing' },
+	{ id: 'NUDGE_RIGHT_LARGE', section: 'editing' },
+	{ id: 'NUDGE_UP_LARGE', section: 'editing' },
+	{ id: 'NUDGE_DOWN_LARGE', section: 'editing' },
+	{ id: 'COPY', section: 'editing' },
+	{ id: 'CUT', section: 'editing' },
+	{ id: 'PASTE', section: 'editing' },
+	{ id: 'COMPOSITION_DUPLICATE', section: 'editing' },
+	{ id: 'COMPOSITION_SELECT_ALL', section: 'editing' },
+	{ id: 'COMPOSITION_GROUP', section: 'editing' },
+	{ id: 'COMPOSITION_NUDGE_LEFT', section: 'timeline' },
+	{ id: 'COMPOSITION_NUDGE_RIGHT', section: 'timeline' },
+	{ id: 'COMPOSITION_NUDGE_LEFT_FAST', section: 'timeline' },
+	{ id: 'COMPOSITION_NUDGE_RIGHT_FAST', section: 'timeline' },
+	{ id: 'COMPOSITION_REORDER_UP', section: 'timeline' },
+	{ id: 'COMPOSITION_REORDER_DOWN', section: 'timeline' },
+	{ id: 'TRACK_RENAME', section: 'timeline' },
+	{ id: 'TRACK_MOVE_UP', section: 'timeline' },
+	{ id: 'TRACK_MOVE_DOWN', section: 'timeline' },
 	{ id: 'UNDO', section: 'editing' },
 	{ id: 'REDO', section: 'editing' },
 	{ id: 'GRAPH_SELECT_ALL', section: 'editing' },
@@ -94,13 +180,26 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'GRAPH_NUDGE_RIGHT_FAST', section: 'editing' },
 	{ id: 'GRAPH_NUDGE_UP_FAST', section: 'editing' },
 	{ id: 'GRAPH_NUDGE_DOWN_FAST', section: 'editing' },
+	{ id: 'KEYFRAME_EDITOR_GRAPH', section: 'editing' },
+	{ id: 'KEYFRAME_EDITOR_DOPESHEET', section: 'editing' },
+	{ id: 'KEYFRAME_EDITOR_SPLIT', section: 'editing' },
+	{ id: 'EDIT_KEYFRAME_ADD', section: 'editing' },
+	{ id: 'KEYFRAME_PREVIOUS', section: 'editing' },
+	{ id: 'KEYFRAME_NEXT', section: 'editing' },
+	{ id: 'KEYFRAME_TOGGLE_AUTO', section: 'editing' },
+	{ id: 'KEYFRAME_FIT', section: 'editing' },
 	{ id: 'ZOOM_IN', section: 'timeline' },
 	{ id: 'ZOOM_OUT', section: 'timeline' },
 	{ id: 'ZOOM_TO_FIT', section: 'timeline' },
 	{ id: 'ZOOM_TO_100', section: 'timeline' },
 	{ id: 'ZOOM_TO_100_ALT', section: 'timeline' },
 	{ id: 'RATE_STRETCH_TOOL', section: 'timeline' },
+	{ id: 'RAZOR_TOOL', section: 'timeline' },
+	{ id: 'SELECTION_TOOL', section: 'timeline' },
+	{ id: 'SLIP_TOOL', section: 'timeline' },
+	{ id: 'SLIDE_TOOL', section: 'timeline' },
 	{ id: 'TOGGLE_SNAP', section: 'timeline' },
+	{ id: 'TOGGLE_CANVAS_SNAP', section: 'timeline' },
 	{ id: 'ADD_MARKER', section: 'timeline' },
 	{ id: 'REMOVE_MARKER', section: 'timeline' },
 	{ id: 'PREVIOUS_MARKER', section: 'timeline' },
@@ -108,12 +207,14 @@ export const EDITOR_SHORTCUT_DEFINITIONS: readonly EditorShortcutDefinition[] = 
 	{ id: 'SAVE', section: 'project' },
 	{ id: 'EXPORT', section: 'project' },
 	{ id: 'OPEN_SETTINGS', section: 'project' },
+	{ id: 'OPEN_SCENE_BROWSER', section: 'project' },
 	{ id: 'WORKSPACE_EDIT', section: 'project' },
 	{ id: 'WORKSPACE_COLOR', section: 'project' },
 	{ id: 'WORKSPACE_MOTION', section: 'project' }
 ] as const;
 
 const MODIFIERS = ['mod', 'alt', 'shift'] as const;
+const FUNCTION_KEY_COUNT = 12;
 const MODIFIER_SET = new Set<string>(MODIFIERS);
 const MODIFIER_ORDER = new Map<string, number>(MODIFIERS.map((token, index) => [token, index]));
 
@@ -161,6 +262,9 @@ const KEY_LABELS = new Map<string, string>([
 	['enter', 'Enter']
 ]);
 
+for (let index = 1; index <= FUNCTION_KEY_COUNT; index += 1)
+	KEY_LABELS.set(`f${index}`, `F${index}`);
+
 const CODE_TOKENS = new Map<string, string>([
 	['Space', 'space'],
 	['Comma', 'comma'],
@@ -186,6 +290,9 @@ const CODE_TOKENS = new Map<string, string>([
 	['Tab', 'tab'],
 	['Enter', 'enter']
 ]);
+
+for (let index = 1; index <= FUNCTION_KEY_COUNT; index += 1)
+	CODE_TOKENS.set(`F${index}`, `f${index}`);
 
 export interface ShortcutEventData {
 	key?: string;
@@ -304,6 +411,27 @@ export function eventMatchesShortcut(event: ShortcutEventData, binding: string):
 	return shortcutBindingFromEvent(event) === normalizeShortcutBinding(binding);
 }
 
+export type EditorDeleteMode = 'lift' | 'ripple';
+
+export function editorDeleteModeForEvent(
+	event: ShortcutEventData,
+	bindings: EditorShortcutBindingMap
+): EditorDeleteMode | null {
+	if (
+		eventMatchesShortcut(event, bindings.RIPPLE_DELETE) ||
+		eventMatchesShortcut(event, bindings.RIPPLE_DELETE_ALT)
+	) {
+		return 'ripple';
+	}
+	if (
+		eventMatchesShortcut(event, bindings.DELETE_SELECTED) ||
+		eventMatchesShortcut(event, bindings.DELETE_SELECTED_ALT)
+	) {
+		return 'lift';
+	}
+	return null;
+}
+
 export function findShortcutConflicts(
 	bindings: EditorShortcutBindingMap,
 	binding: string,
@@ -329,12 +457,47 @@ function platformIsMac(platformValue?: string): boolean {
 }
 
 export function formatShortcutBinding(binding: string, platformValue?: string): string {
+	return formatShortcutBindingWithLabels(binding, { platform: platformValue });
+}
+
+const ARIA_KEY_TOKENS = new Map<string, string>([
+	['left', 'ArrowLeft'],
+	['right', 'ArrowRight'],
+	['up', 'ArrowUp'],
+	['down', 'ArrowDown'],
+	['escape', 'Escape'],
+	['space', 'Space']
+]);
+
+export function formatShortcutAriaKey(binding: string, platformValue?: string): string {
 	const mac = platformIsMac(platformValue);
+	return splitShortcutBinding(normalizeShortcutBinding(binding))
+		.map((token) => {
+			if (token === 'mod') return mac ? 'Meta' : 'Control';
+			if (token === 'alt') return 'Alt';
+			if (token === 'shift') return 'Shift';
+			return ARIA_KEY_TOKENS.get(token) ?? KEY_LABELS.get(token) ?? token.toUpperCase();
+		})
+		.join('+');
+}
+
+export interface ShortcutBindingLabelOptions {
+	platform?: string;
+	labelForToken?: (token: string) => string | null;
+}
+
+export function formatShortcutBindingWithLabels(
+	binding: string,
+	options: ShortcutBindingLabelOptions = {}
+): string {
+	const mac = platformIsMac(options.platform);
 	return splitShortcutBinding(normalizeShortcutBinding(binding))
 		.map((token) => {
 			if (token === 'mod') return mac ? 'Cmd' : 'Ctrl';
 			if (token === 'alt') return mac ? 'Option' : 'Alt';
 			if (token === 'shift') return 'Shift';
+			const layoutLabel = options.labelForToken?.(token);
+			if (layoutLabel) return layoutLabel;
 			const label = KEY_LABELS.get(token);
 			if (label) return label;
 			return /^[a-z]$/.test(token) ? token.toUpperCase() : token;
@@ -443,12 +606,70 @@ export function parseShortcutPreset(
 }
 
 export function editorShortcutTargetIsDisabled(target: EventTarget | null): boolean {
+	if (!(target instanceof HTMLElement)) return false;
+	if (target.closest('[data-editor-shortcuts-disabled]')) return true;
+	if (target.closest('[data-editor-shortcuts-enabled]')) return false;
+	if (target.closest('[data-editor-shortcuts-owned]')) return true;
+	return Boolean(target.closest('input, textarea, select, button, a, [contenteditable="true"]'));
+}
+
+function editorPlaybackTargetIsDisabled(target: EventTarget | null): boolean {
 	return (
 		target instanceof HTMLElement &&
 		Boolean(
 			target.closest(
-				'input, textarea, select, button, a, [contenteditable="true"], [data-editor-shortcuts-disabled]'
+				'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
 			)
 		)
 	);
+}
+
+export function handleGlobalPlayPauseShortcut(
+	event: KeyboardEvent,
+	binding: string,
+	onToggle: () => void
+): boolean {
+	if (
+		event.repeat ||
+		event.defaultPrevented ||
+		!eventMatchesShortcut(event, binding) ||
+		editorPlaybackTargetIsDisabled(event.target)
+	) {
+		return false;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	event.stopImmediatePropagation();
+	onToggle();
+	return true;
+}
+
+function sceneBrowserShortcutTargetIsDisabled(target: EventTarget | null): boolean {
+	return (
+		target instanceof HTMLElement &&
+		Boolean(
+			target.closest(
+				'input, textarea, select, [contenteditable="true"], [data-editor-shortcuts-disabled]'
+			)
+		)
+	);
+}
+
+export function handleOpenSceneBrowserShortcut(
+	event: KeyboardEvent,
+	binding: string,
+	onOpen: () => void
+): boolean {
+	if (
+		event.repeat ||
+		event.defaultPrevented ||
+		!eventMatchesShortcut(event, binding) ||
+		sceneBrowserShortcutTargetIsDisabled(event.target)
+	)
+		return false;
+	event.preventDefault();
+	event.stopPropagation();
+	event.stopImmediatePropagation();
+	onOpen();
+	return true;
 }

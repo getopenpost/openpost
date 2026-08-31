@@ -6,6 +6,41 @@ const inFlight = new Map<
 	string,
 	{ promise: Promise<ArrayBuffer>; listeners: Set<ProgressCallback> }
 >();
+const MODEL_FETCH_RETRY_DELAYS_MS = [0, 500] as const;
+
+class PermanentModelFetchError extends Error {}
+
+function canRetryStatus(status: number): boolean {
+	return status === 408 || status === 425 || status === 429 || status >= 500;
+}
+
+async function retryTransientDownload<T>(operation: () => Promise<T>): Promise<T> {
+	let lastError: unknown;
+	for (let attempt = 0; attempt <= MODEL_FETCH_RETRY_DELAYS_MS.length; attempt++) {
+		try {
+			return await operation();
+		} catch (error) {
+			if (error instanceof PermanentModelFetchError) throw error;
+			if (error instanceof DOMException && error.name === 'AbortError') throw error;
+			lastError = error;
+			const delay = MODEL_FETCH_RETRY_DELAYS_MS[attempt];
+			if (delay === undefined) break;
+			if (delay > 0) await new Promise((resolve) => setTimeout(resolve, delay));
+		}
+	}
+	const detail = lastError instanceof Error ? lastError.message : String(lastError);
+	throw new Error(
+		`Model download failed after ${MODEL_FETCH_RETRY_DELAYS_MS.length + 1} attempts: ${detail}`,
+		{ cause: lastError }
+	);
+}
+
+function requireSuccessfulResponse(response: Response): Response {
+	if (response.ok) return response;
+	const error = new Error(`Failed to fetch model asset (${response.status})`);
+	if (canRetryStatus(response.status)) throw error;
+	throw new PermanentModelFetchError(error.message);
+}
 
 async function openCache(): Promise<Cache | null> {
 	if (!('caches' in globalThis)) return null;
@@ -46,15 +81,19 @@ async function download(url: string, onBytes: ProgressCallback): Promise<ArrayBu
 	const cache = await openCache();
 	const cached = await cache?.match(url).catch(() => undefined);
 	if (cached) return readBytes(cached, onBytes, true);
-	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Failed to fetch model asset (${response.status})`);
-	const bytes = await readBytes(response, onBytes, false);
+	const { bytes, contentType } = await retryTransientDownload(async () => {
+		const response = requireSuccessfulResponse(await fetch(url));
+		return {
+			bytes: await readBytes(response, onBytes, false),
+			contentType: response.headers.get('content-type') ?? 'application/octet-stream'
+		};
+	});
 	await cache
 		?.put(
 			url,
 			new Response(bytes, {
 				headers: {
-					'content-type': response.headers.get('content-type') ?? 'application/octet-stream',
+					'content-type': contentType,
 					'content-length': String(bytes.byteLength)
 				}
 			})
@@ -83,8 +122,15 @@ export async function fetchOnnxModelText(url: string): Promise<string> {
 	const cache = await openCache();
 	const cached = await cache?.match(url).catch(() => undefined);
 	if (cached) return cached.text();
-	const response = await fetch(url);
-	if (!response.ok) throw new Error(`Failed to fetch model asset (${response.status})`);
-	await cache?.put(url, response.clone()).catch(() => undefined);
-	return response.text();
+	const { text, contentType } = await retryTransientDownload(async () => {
+		const response = requireSuccessfulResponse(await fetch(url));
+		return {
+			text: await response.text(),
+			contentType: response.headers.get('content-type') ?? 'text/plain'
+		};
+	});
+	await cache
+		?.put(url, new Response(text, { headers: { 'content-type': contentType } }))
+		.catch(() => undefined);
+	return text;
 }

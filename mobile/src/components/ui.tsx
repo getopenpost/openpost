@@ -13,6 +13,7 @@ import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 
 import { STATUS_LABEL, statusColor } from "@/lib/format";
+import { pressHaptic } from "@/lib/haptics";
 
 export const LIGHT_COLORS = {
   dark: false,
@@ -24,6 +25,7 @@ export const LIGHT_COLORS = {
   tint: "#b74c05",
   onTint: "#ffffff",
   tintSoft: "#f7e9de",
+  buttonDepth: "#7e3300",
   danger: "#b3261e",
   inputBg: "#f3efeb",
   success: "#376b51",
@@ -39,6 +41,7 @@ export const DARK_COLORS = {
   tint: "#e9823a",
   onTint: "#21140c",
   tintSoft: "#3b281d",
+  buttonDepth: "#8f3a00",
   danger: "#ffb4ab",
   inputBg: "#2a2521",
   success: "#8fcfac",
@@ -92,7 +95,7 @@ export function SectionHeader({ label }: { label: string }) {
         },
       ]}
     >
-      {label.toUpperCase()}
+      {label}
     </Text>
   );
 }
@@ -103,39 +106,57 @@ export function Button({
   variant = "filled",
   disabled,
   loading = false,
+  accessibilityRole = "button",
+  accessibilityHint,
+  accessibilityState,
   style,
 }: {
   title: string;
   onPress: () => void;
-  variant?: "filled" | "tinted" | "plain" | "destructive";
+  variant?: "filled" | "focal" | "tinted" | "plain" | "destructive";
   disabled?: boolean;
   loading?: boolean;
+  accessibilityRole?: React.ComponentProps<typeof Pressable>["accessibilityRole"];
+  accessibilityHint?: string;
+  accessibilityState?: React.ComponentProps<typeof Pressable>["accessibilityState"];
   style?: StyleProp<ViewStyle>;
 }) {
   const colors = useColors();
-  const background =
-    variant === "filled"
-      ? colors.tint
-      : variant === "destructive"
-        ? "transparent"
-        : variant === "tinted"
-          ? colors.tintSoft
-          : "transparent";
-  const color =
-    variant === "filled" ? colors.onTint : variant === "destructive" ? colors.danger : colors.tint;
+  const isPrimary = variant === "filled" || variant === "focal";
+  const background = isPrimary
+    ? colors.tint
+    : variant === "destructive"
+      ? "transparent"
+      : variant === "tinted"
+        ? colors.tintSoft
+        : "transparent";
+  const color = isPrimary ? colors.onTint : variant === "destructive" ? colors.danger : colors.tint;
   const inactive = disabled || loading;
+  const hasDepth = variant === "focal";
+  const hasBorder = hasDepth || variant === "tinted";
   return (
     <Pressable
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={title}
-      accessibilityState={{ disabled: inactive, busy: loading }}
+      accessibilityHint={accessibilityHint}
+      accessibilityState={{ ...accessibilityState, disabled: inactive, busy: loading }}
       disabled={inactive}
+      onPressIn={() => void pressHaptic()}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
         {
           backgroundColor: background,
-          opacity: inactive ? 0.45 : pressed ? 0.72 : 1,
+          borderColor: isPrimary
+            ? colors.tint
+            : variant === "tinted"
+              ? `${colors.tint}66`
+              : "transparent",
+          borderBottomColor: hasDepth ? colors.buttonDepth : undefined,
+          borderBottomWidth: hasDepth ? (pressed ? 1 : 2) : undefined,
+          borderWidth: hasBorder ? (hasDepth ? 1 : StyleSheet.hairlineWidth) : 0,
+          opacity: inactive ? 0.45 : pressed && !hasDepth ? 0.68 : 1,
+          transform: pressed && hasDepth ? [{ translateY: 2 }] : undefined,
         },
         style,
       ]}
@@ -185,8 +206,14 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={label}
       hitSlop={4}
+      onPressIn={() => void pressHaptic()}
       onPress={onPress}
-      style={({ pressed }) => [styles.iconButton, pressed && { backgroundColor: colors.tintSoft }]}
+      style={({ pressed }) => [
+        styles.iconButton,
+        pressed && {
+          backgroundColor: colors.tintSoft,
+        },
+      ]}
     >
       <SymbolView name={name} size={24} tintColor={color ?? colors.text} />
     </Pressable>
@@ -223,9 +250,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sectionHeader: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "600",
-    letterSpacing: 0.4,
     marginBottom: 8,
     marginHorizontal: 4,
   },

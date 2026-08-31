@@ -19,14 +19,21 @@ import (
 	"github.com/uptrace/bun"
 )
 
-type directOAuthTestAdapter struct{}
+type directOAuthTestAdapter struct {
+	tokenUserID string
+	profileID   string
+}
 
 func (a *directOAuthTestAdapter) GenerateAuthURL(state string) (string, map[string]string) {
 	return "https://provider.example/oauth?state=" + url.QueryEscape(state), nil
 }
 
 func (a *directOAuthTestAdapter) ExchangeCode(context.Context, string, map[string]string) (*platform.TokenResult, error) {
-	return &platform.TokenResult{AccessToken: "access-token", TokenType: "Bearer"}, nil
+	token := &platform.TokenResult{AccessToken: "access-token", TokenType: "Bearer"}
+	if a.tokenUserID != "" {
+		token.Extra = map[string]string{"user_id": a.tokenUserID}
+	}
+	return token, nil
 }
 
 func (a *directOAuthTestAdapter) RefreshCapability() platform.RefreshCapability {
@@ -38,7 +45,34 @@ func (a *directOAuthTestAdapter) RefreshToken(context.Context, platform.RefreshT
 }
 
 func (a *directOAuthTestAdapter) GetProfile(context.Context, string) (*platform.UserProfile, error) {
-	return &platform.UserProfile{ID: "provider-user", Username: "openpost"}, nil
+	profileID := a.profileID
+	if profileID == "" {
+		profileID = "provider-user"
+	}
+	return &platform.UserProfile{
+		ID:        profileID,
+		Username:  "openpost",
+		AvatarURL: "https://cdn.provider.example/openpost.jpg",
+	}, nil
+}
+
+func TestThreadsOAuthCallbackRejectsTokenAndProfileIdentityMismatch(t *testing.T) {
+	t.Parallel()
+
+	e, state, db := newOAuthCallbackRedirectTestServer(t, "threads", &directOAuthTestAdapter{
+		tokenUserID: "token-user",
+		profileID:   "profile-user",
+	})
+	rec := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/threads/callback?code=provider-code&state="+url.QueryEscape(state), nil, false)
+	result := rec.Result()
+	t.Cleanup(func() { _ = result.Body.Close() })
+
+	require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode)
+	require.Equal(t, "https://app.openpost.test/settings?oauth_status=failed&tab=accounts&workspace_id=ws-1", result.Header.Get("Location"))
+
+	count, err := db.NewSelect().Model((*models.SocialAccount)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, count)
 }
 
 func (a *directOAuthTestAdapter) UploadMedia(context.Context, string, string, string, io.Reader) (string, error) {
@@ -77,7 +111,10 @@ func TestOAuthCallbackAccountSelectionRedirectsExposeFinalLocationHeader(t *test
 func TestOAuthCallbackDirectSuccessRedirectsToScopedComposer(t *testing.T) {
 	t.Parallel()
 
-	e, state, _ := newOAuthCallbackRedirectTestServer(t, "threads", &directOAuthTestAdapter{})
+	e, state, db := newOAuthCallbackRedirectTestServer(t, "threads", &directOAuthTestAdapter{
+		tokenUserID: "provider-user",
+		profileID:   "provider-user",
+	})
 	rec := oauthSelectionRequest(t, e, http.MethodGet, "/api/v1/accounts/threads/callback?code=provider-code&state="+url.QueryEscape(state), nil, false)
 	result := rec.Result()
 	t.Cleanup(func() { _ = result.Body.Close() })
@@ -91,6 +128,10 @@ func TestOAuthCallbackDirectSuccessRedirectsToScopedComposer(t *testing.T) {
 	require.Empty(t, location.Query().Get("connected"))
 	require.NotContains(t, location.RawQuery, "provider-code")
 	require.NotContains(t, location.RawQuery, "token")
+
+	var account models.SocialAccount
+	require.NoError(t, db.NewSelect().Model(&account).Where("account_id = ?", "provider-user").Scan(t.Context()))
+	require.Equal(t, "https://cdn.provider.example/openpost.jpg", account.AccountAvatarURL)
 }
 
 func TestOAuthCallbackReauthorizationOfInactiveDestinationReturnsToAccounts(t *testing.T) {
@@ -163,7 +204,7 @@ func TestXOAuthCallbackDenialPreservesWorkspaceScope(t *testing.T) {
 	require.NoError(t, err)
 
 	xAdapter := platform.NewXAdapter("client-id", "client-secret", "https://app.openpost.test/api/v1/accounts/x/callback")
-	xAdapter.SetRequestStore(newXRequestStore(db))
+	xAdapter.SetRequestStore(newXRequestStore(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef")))
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	handler := NewOAuthHandler(db, crypto.NewTokenEncryptor("0123456789abcdef0123456789abcdef"), map[string]platform.Adapter{

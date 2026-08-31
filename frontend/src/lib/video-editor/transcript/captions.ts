@@ -9,6 +9,7 @@ import { parseSrt } from './srt';
 import type { SrtCue } from './srt';
 import { execute } from '../timeline/commands/command-store.svelte';
 import { timelineStore } from '../timeline/stores/timeline-store.svelte';
+import { ensureOpenTrackForRange } from '../timeline/actions/track-placement';
 
 export function srtToCues(cues: SrtCue[], fps: number): SubtitleCue[] {
 	return cues.map((cue) => ({
@@ -29,17 +30,23 @@ export function addSubtitleItemFromSrt(content: string): string {
 			const fps = timelineStore.fps;
 			const cues = srtToCues(parsed, fps);
 			const end = cues.reduce((max, cue) => Math.max(max, cue.endFrame), 0);
-			const topTrack =
-				timelineStore.tracks.find((track) => track.kind === 'video') ?? timelineStore.tracks[0]!;
+			const label = m.video_editor_export_subtitles();
+			const targetTrack = ensureOpenTrackForRange({
+				kind: 'video',
+				itemType: 'subtitle',
+				from: 0,
+				durationInFrames: end,
+				label
+			});
 			const id = crypto.randomUUID();
 			timelineStore._setItems([
 				...timelineStore.items,
 				{
 					id,
-					trackId: topTrack.id,
+					trackId: targetTrack.id,
 					from: 0,
 					durationInFrames: end,
-					label: m.video_editor_export_subtitles(),
+					label,
 					type: 'subtitle',
 					captionSource: { type: 'subtitle-import', clipId: id, mediaId: 'captions' },
 					cues

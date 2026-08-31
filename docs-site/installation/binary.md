@@ -14,9 +14,15 @@ Expected release assets:
 
 ## 2. Create `.env`
 
-Create a working directory and write a complete `.env` file:
+Create a working directory, generate two independent secrets, and write a
+private `.env` file:
 
-```dotenv
+```bash
+umask 077
+jwt_secret="$(openssl rand -hex 32)"
+encryption_key="$(openssl rand -hex 32)"
+
+cat > .env <<EOF
 OPENPOST_PORT=8080
 OPENPOST_DATABASE_PATH=/var/lib/openpost/openpost.db
 OPENPOST_MEDIA_PATH=/var/lib/openpost/media
@@ -24,8 +30,8 @@ OPENPOST_APP_URL=https://social.example.com
 OPENPOST_PUBLIC_URL=https://social.example.com
 OPENPOST_MEDIA_URL=https://social.example.com/media
 
-OPENPOST_JWT_SECRET=replace-with-a-random-secret-at-least-32-characters-long
-OPENPOST_ENCRYPTION_KEY=replace-with-a-random-secret-at-least-32-characters-long
+OPENPOST_JWT_SECRET=${jwt_secret}
+OPENPOST_ENCRYPTION_KEY=${encryption_key}
 
 # Optional but commonly useful
 OPENPOST_DISABLE_REGISTRATIONS=false
@@ -38,6 +44,9 @@ OPENPOST_DISABLE_REGISTRATIONS=false
 # LINKEDIN_CLIENT_SECRET=
 # THREADS_CLIENT_ID=
 # THREADS_CLIENT_SECRET=
+EOF
+
+unset jwt_secret encryption_key
 ```
 
 ## 3. Prepare production paths
@@ -93,6 +102,24 @@ cd C:\OpenPost
 ```
 
 By default, OpenPost listens on `http://localhost:8080`.
+
+With no argument, the binary runs the `all` role. `./openpost all` is the
+explicit equivalent: it applies pending migrations, serves HTTP, and processes
+durable jobs. This keeps the single-binary self-host workflow intact.
+
+For a hosted or independently scaled formation, run these commands from the
+same release and configuration:
+
+```bash
+./openpost migrate  # one bounded release command
+./openpost web      # HTTP only
+./openpost worker   # durable jobs and recurring schedules only
+```
+
+Run `migrate` once before starting the new `web` and `worker` processes. Those
+long-lived roles only verify the schema and fail with an operator-facing error
+if a migration is missing. Concurrent migration commands serialize across the
+shared PostgreSQL database or SQLite volume.
 
 OpenPost loads `.env` from the process working directory. When running it as a Windows service, either set the service working directory to the folder containing `.env` or configure the environment variables directly in the service wrapper.
 

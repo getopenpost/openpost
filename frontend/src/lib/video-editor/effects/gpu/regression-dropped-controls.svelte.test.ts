@@ -20,15 +20,11 @@ function selectOptions(schema: GpuSelectParamSchema): string[] {
 	return schema.options.map((option) => option.value);
 }
 
-function isSelectParam(
-	param: { type?: string } | undefined
-): param is GpuSelectParamSchema {
+function isSelectParam(param: { type?: string } | undefined): param is GpuSelectParamSchema {
 	return param?.type === 'select';
 }
 
-function isBooleanParam(
-	param: { type?: string } | undefined
-): param is GpuBooleanParamSchema {
+function isBooleanParam(param: { type?: string } | undefined): param is GpuBooleanParamSchema {
 	return param?.type === 'boolean';
 }
 
@@ -294,7 +290,8 @@ describe('dropped-controls regression - schema parity with FreeCut 4d62e80', () 
 		);
 		const horizontalParam = mirror.schema.find((param) => param.name === 'horizontal');
 		expect(horizontalParam).toBeDefined();
-		if (!horizontalParam || !isBooleanParam(horizontalParam)) throw new Error('horizontal not boolean');
+		if (!horizontalParam || !isBooleanParam(horizontalParam))
+			throw new Error('horizontal not boolean');
 		const paramsA: GpuParamValues = { horizontal: false, vertical: true };
 		expect(mirror.uniformValues(paramsA, 10, 10, 0).uHorizontal).toBe(0);
 		expect(mirror.uniformValues(paramsA, 10, 10, 0).uVertical).toBe(1);

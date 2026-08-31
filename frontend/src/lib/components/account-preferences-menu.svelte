@@ -113,7 +113,7 @@
 			<a
 				{...props}
 				class={[props.class, 'min-h-11 gap-3']}
-				href={resolve('/engagement' as '/')}
+				href={resolve('/inbox/engagement' as '/')}
 				onclick={onNavigate}
 			>
 				<CommunicationsIcon class="size-4 text-muted-foreground" />
@@ -126,7 +126,7 @@
 			<a
 				{...props}
 				class={[props.class, 'min-h-11 gap-3']}
-				href={resolve('/notifications' as '/')}
+				href={resolve('/inbox/notifications' as '/')}
 				onclick={onNavigate}
 			>
 				<BellIcon class="size-4 text-muted-foreground" />

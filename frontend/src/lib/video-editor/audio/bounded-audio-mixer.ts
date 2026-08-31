@@ -1,8 +1,12 @@
+/* oxlint-disable anti-slop/no-conditional-empty-object-spread, anti-slop/require-safety-comment-for-type-assertion */
 import type { MixEntry } from '../media/render-plan';
+import { collectMixEntryDuckWindows, type MixEntryDuckWindow } from './audio-ducking';
 import { mediaPool } from '../media/pool.svelte';
 import { resolveMediaBlob } from '../media/resolve-media-blob';
 import { ensureAc3DecoderForCodec } from '../media/ac3-decoder';
 import { StreamingAudioEq } from './audio-eq';
+import { getAudioEffectTailSeconds, StreamingAudioEffectChain } from './audio-effects';
+import { isNoiseReductionActive, StreamingNoiseReduction } from './audio-noise-reduction';
 import { StreamingTimeStretch } from './process-audio';
 import { AbsolutePhaseResampler, downmixToOutputChannels } from './sample-rate-converter';
 import { transitionGainAtProgress } from './transition-crossfade';
@@ -16,6 +20,64 @@ export const MIX_WINDOW_SAMPLES = MIX_WINDOW_SECONDS * MIX_SAMPLE_RATE;
 const SOURCE_WINDOW_SECONDS = 5;
 const SOURCE_GUARD_SECONDS = 0;
 const ACTIVE_EPSILON = 0.0001;
+
+export class CompiledTargetDuck {
+	private readonly sorted: MixEntryDuckWindow[];
+	private active: MixEntryDuckWindow[] = [];
+	private nextIndex = 0;
+	private evaluations = 0;
+
+	constructor(
+		windows: MixEntryDuckWindow[],
+		target: { itemId: string; trackId?: string; trackAliases?: string[] }
+	) {
+		const targetAliases = target.trackAliases ?? (target.trackId ? [target.trackId] : []);
+		this.sorted = windows
+			.filter((w) => {
+				if (w.itemId === target.itemId) return false;
+				if (!w.targetTrackIds) return true;
+				const direct = w.targetTrackIds.includes(target.trackId ?? '');
+				const aliasMatch = targetAliases.some((alias) => w.targetTrackIds!.includes(alias));
+				return direct || aliasMatch;
+			})
+			.toSorted((a, b) => a.startSeconds - b.startSeconds);
+	}
+
+	gainAt(timeSeconds: number): number {
+		while (
+			this.nextIndex < this.sorted.length &&
+			this.sorted[this.nextIndex]!.startSeconds <= timeSeconds
+		) {
+			this.active.push(this.sorted[this.nextIndex]!);
+			this.nextIndex++;
+		}
+		let write = 0;
+		for (let read = 0; read < this.active.length; read++) {
+			const w = this.active[read]!;
+			if (timeSeconds <= w.endSeconds + w.releaseSeconds) {
+				this.active[write++] = w;
+			}
+		}
+		this.active.length = write;
+		let deepest = 0;
+		for (const w of this.active) {
+			this.evaluations++;
+			let db = 0;
+			if (timeSeconds < w.startSeconds) db = 0;
+			else if (w.attackSeconds > 0 && timeSeconds < w.startSeconds + w.attackSeconds) {
+				db = w.duckDb * ((timeSeconds - w.startSeconds) / w.attackSeconds);
+			} else if (timeSeconds <= w.endSeconds) db = w.duckDb;
+			else if (w.releaseSeconds > 0 && timeSeconds <= w.endSeconds + w.releaseSeconds)
+				db = w.duckDb * (1 - (timeSeconds - w.endSeconds) / w.releaseSeconds);
+			if (db < deepest) deepest = db;
+		}
+		return deepest === 0 ? 1 : Math.pow(10, deepest / 20);
+	}
+
+	get evaluationCount(): number {
+		return this.evaluations;
+	}
+}
 
 export interface AudioMixDiagnostics {
 	onOutputWindow?: (frames: number) => void;
@@ -48,10 +110,7 @@ async function decodeSourceSlice(
 	signal?: AbortSignal
 ): Promise<DecodedAudioChunk> {
 	throwIfAborted(signal);
-	const input = new Input({
-		source: new BlobSource(blob),
-		formats: ALL_FORMATS
-	});
+	const input = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
 	let sink: AudioSampleSink | null = null;
 	try {
 		const track = await input.getPrimaryAudioTrack();
@@ -207,6 +266,22 @@ class EntryAutomation {
 	}
 }
 
+function playbackRateAtEntrySecond(entry: MixEntry, seconds: number): number {
+	const curve = entry.playbackRateCurve;
+	if (!curve || curve.length === 0) return entry.playbackRate;
+	if (seconds <= curve[0]!.atSeconds) return curve[0]!.rate;
+	for (let index = 1; index < curve.length; index += 1) {
+		const right = curve[index]!;
+		if (seconds > right.atSeconds) continue;
+		const left = curve[index - 1]!;
+		const duration = right.atSeconds - left.atSeconds;
+		if (duration <= 0) return right.rate;
+		const progress = (seconds - left.atSeconds) / duration;
+		return left.rate + (right.rate - left.rate) * progress;
+	}
+	return curve.at(-1)!.rate;
+}
+
 async function* streamEntryAudio(
 	entry: MixEntry,
 	signal?: AbortSignal,
@@ -219,30 +294,43 @@ async function* streamEntryAudio(
 		blob = await resolveMediaBlob(media);
 	} catch (error) {
 		if (isAbortError(error)) throw error;
-		throw new Error("A timeline clip's media could not be opened.", {
-			cause: error
-		});
+		throw new Error("A timeline clip's media could not be opened.", { cause: error });
 	}
 
 	const targetFrames = Math.max(0, Math.ceil(entry.durationSeconds * MIX_SAMPLE_RATE));
+	const hasVariableSpeed = (entry.playbackRateCurve?.length ?? 0) > 0;
 	const sourceDuration = entry.durationSeconds * entry.playbackRate + SOURCE_GUARD_SECONDS;
-	const sourceStart = entry.reversed
-		? Math.max(0, entry.sourceOffsetSeconds - sourceDuration)
-		: Math.max(0, entry.sourceOffsetSeconds);
-	const sourceEnd = entry.reversed
-		? Math.max(0, entry.sourceOffsetSeconds)
-		: sourceStart + sourceDuration;
+	const sourceStart = hasVariableSpeed
+		? Math.max(
+				0,
+				(entry.sourceWindowStartSeconds ?? 0) - (entry.reversed ? SOURCE_GUARD_SECONDS : 0)
+			)
+		: entry.reversed
+			? Math.max(0, entry.sourceOffsetSeconds - sourceDuration)
+			: Math.max(0, entry.sourceOffsetSeconds);
+	const sourceEnd = hasVariableSpeed
+		? Math.max(
+				sourceStart,
+				(entry.sourceWindowEndSeconds ?? sourceStart) + (entry.reversed ? 0 : SOURCE_GUARD_SECONDS)
+			)
+		: entry.reversed
+			? Math.max(0, entry.sourceOffsetSeconds)
+			: sourceStart + sourceDuration;
 	let cursor = entry.reversed ? sourceEnd : sourceStart;
 	let sampleRate = 0;
 	let channelCount = 0;
 	let timeStretch: StreamingTimeStretch | null = null;
 	let eq: StreamingAudioEq | null = null;
+	let effectChain: StreamingAudioEffectChain | null = null;
+	let noiseReduction: StreamingNoiseReduction | null = null;
 	let resamplers: AbsolutePhaseResampler[] | null = null;
 	let emittedFrames = 0;
-	const sourceWindowSeconds = SOURCE_WINDOW_SECONDS * Math.min(1, entry.playbackRate);
 
 	while (emittedFrames < targetFrames) {
 		throwIfAborted(signal);
+		const currentRate = playbackRateAtEntrySecond(entry, emittedFrames / MIX_SAMPLE_RATE);
+		const sourceWindowSeconds =
+			(hasVariableSpeed ? 0.12 : SOURCE_WINDOW_SECONDS) * Math.min(1, currentRate);
 		const chunkStart = entry.reversed
 			? Math.max(sourceStart, cursor - sourceWindowSeconds)
 			: cursor;
@@ -253,9 +341,7 @@ async function* streamEntryAudio(
 			decoded = await decodeSourceSlice(blob, chunkStart, chunkEnd, signal);
 		} catch (error) {
 			if (isAbortError(error)) throw error;
-			throw new Error('A timeline clip could not be decoded.', {
-				cause: error
-			});
+			throw new Error('A timeline clip could not be decoded.', { cause: error });
 		}
 		cursor = entry.reversed ? chunkStart : chunkEnd;
 		const sourceFinished = entry.reversed ? cursor <= sourceStart : cursor >= sourceEnd;
@@ -268,6 +354,7 @@ async function* streamEntryAudio(
 			sampleRate = decoded.sampleRate;
 			channelCount = decoded.channels.length;
 			const needsStretch =
+				hasVariableSpeed ||
 				Math.abs(entry.playbackRate - 1) > ACTIVE_EPSILON ||
 				Math.abs(entry.pitchShiftSemitones) > ACTIVE_EPSILON;
 			if (needsStretch) {
@@ -278,6 +365,14 @@ async function* streamEntryAudio(
 				);
 			}
 			eq = new StreamingAudioEq(channelCount, sampleRate, entry.audioEqStages);
+			effectChain = new StreamingAudioEffectChain(entry.audioEffects, sampleRate, channelCount);
+			if (isNoiseReductionActive(entry.noiseReduction)) {
+				noiseReduction = new StreamingNoiseReduction(
+					channelCount,
+					sampleRate,
+					entry.noiseReduction!
+				);
+			}
 			if (sampleRate !== MIX_SAMPLE_RATE) {
 				resamplers = Array.from(
 					{ length: channelCount },
@@ -289,9 +384,19 @@ async function* streamEntryAudio(
 		}
 
 		let channels = entry.reversed ? reverseChannels(decoded.channels) : decoded.channels;
-		if (timeStretch) channels = timeStretch.process(channels, sourceFinished);
+		if (noiseReduction) channels = noiseReduction.process(channels, sourceFinished, signal);
+		if (channels[0]?.length === 0) continue;
+		if (timeStretch) {
+			timeStretch.setTempo(currentRate);
+			channels = timeStretch.process(
+				channels,
+				sourceFinished,
+				Math.ceil(entry.durationSeconds * sampleRate)
+			);
+		}
 		if (channels[0]?.length === 0) continue;
 		channels = eq!.process(channels);
+		if (effectChain && !effectChain.isEmpty()) channels = effectChain.process(channels);
 		if (resamplers) {
 			channels = channels.map((channel, index) =>
 				resamplers![index]!.processChunk(channel, sourceFinished)
@@ -308,6 +413,29 @@ async function* streamEntryAudio(
 	}
 	if (emittedFrames < targetFrames) {
 		throw new Error('A timeline clip ended before its planned audio duration.');
+	}
+	const tailSeconds = getAudioEffectTailSeconds(entry.audioEffects);
+	if (tailSeconds > 0.001 && effectChain && !effectChain.isEmpty() && sampleRate !== 0) {
+		const tailSamplesMix = Math.ceil(tailSeconds * MIX_SAMPLE_RATE);
+		let remainingMix = tailSamplesMix;
+		const drainChunkMix = 2048;
+		while (remainingMix > 0) {
+			throwIfAborted(signal);
+			const countMix = Math.min(drainChunkMix, remainingMix);
+			const countSrc = Math.max(1, Math.ceil((countMix * sampleRate) / MIX_SAMPLE_RATE));
+			let tailChannels = effectChain.drain(countSrc);
+			if (sampleRate !== MIX_SAMPLE_RATE && resamplers) {
+				tailChannels = tailChannels.map((ch, idx) =>
+					resamplers![idx]!.processChunk(ch, remainingMix <= drainChunkMix)
+				);
+				if (tailChannels[0]!.length === 0) break;
+			}
+			let mapped = downmixToOutputChannels(tailChannels, MIX_CHANNELS);
+			if (mapped[0]!.length > remainingMix) mapped = mapped.map((c) => c.slice(0, remainingMix));
+			yield mapped;
+			remainingMix -= mapped[0]!.length;
+			if (mapped[0]!.length === 0) break;
+		}
 	}
 }
 
@@ -384,24 +512,33 @@ export async function* mixAudioWindows(
 	durationSeconds: number,
 	signal?: AbortSignal,
 	diagnostics?: AudioMixDiagnostics
-): AsyncGenerator<{
-	samples: Float32Array[];
-	sampleRate: number;
-	channels: number;
-}> {
+): AsyncGenerator<{ samples: Float32Array[]; sampleRate: number; channels: number }> {
 	throwIfAborted(signal);
 	if (entries.length === 0 || durationSeconds <= 0) return;
 	const totalSamples = Math.ceil(durationSeconds * MIX_SAMPLE_RATE);
+	const duckSources = collectMixEntryDuckWindows(entries);
 	const prepared: PreparedEntry[] = entries.map((entry) => {
 		const startSample = Math.floor(entry.whenSeconds * MIX_SAMPLE_RATE);
+		const tailSamples = Math.ceil(getAudioEffectTailSeconds(entry.audioEffects) * MIX_SAMPLE_RATE);
 		return {
 			entry,
 			startSample,
-			endSample: startSample + Math.ceil(entry.durationSeconds * MIX_SAMPLE_RATE),
+			endSample: Math.min(
+				totalSamples,
+				startSample + Math.ceil(entry.durationSeconds * MIX_SAMPLE_RATE) + tailSamples
+			),
 			automation: new EntryAutomation(entry, diagnostics),
 			reader: null
 		};
 	});
+	const compiledDucks = prepared.map(
+		(p) =>
+			new CompiledTargetDuck(duckSources, {
+				itemId: p.entry.itemId,
+				trackId: p.entry.trackId,
+				trackAliases: p.entry.duckTrackAliases ?? (p.entry.trackId ? [p.entry.trackId] : undefined)
+			})
+	);
 	try {
 		for (let windowStart = 0; windowStart < totalSamples; windowStart += MIX_WINDOW_SAMPLES) {
 			throwIfAborted(signal);
@@ -409,7 +546,8 @@ export async function* mixAudioWindows(
 			const windowLength = windowEnd - windowStart;
 			diagnostics?.onOutputWindow?.(windowLength);
 			const mix = [new Float32Array(windowLength), new Float32Array(windowLength)];
-			for (const current of prepared) {
+			for (let idx = 0; idx < prepared.length; idx++) {
+				const current = prepared[idx]!;
 				const overlapStart = Math.max(windowStart, current.startSample);
 				const overlapEnd = Math.min(windowEnd, current.endSample);
 				if (overlapEnd <= overlapStart) continue;
@@ -428,7 +566,9 @@ export async function* mixAudioWindows(
 				const windowOffset = overlapStart - windowStart;
 				for (let sample = 0; sample < overlapLength; sample++) {
 					const timelineSample = overlapStart + sample;
-					const gain = current.automation.gainAt(timelineSample);
+					const baseGain = current.automation.gainAt(timelineSample);
+					const duckGain = compiledDucks[idx]!.gainAt(timelineSample / MIX_SAMPLE_RATE);
+					const gain = baseGain * duckGain;
 					mix[0]![windowOffset + sample]! += (channels[0]![sample] ?? 0) * gain;
 					mix[1]![windowOffset + sample]! += (channels[1]![sample] ?? 0) * gain;
 				}
@@ -438,11 +578,7 @@ export async function* mixAudioWindows(
 					if (Math.abs(channel[sample]!) > 1) channel[sample] = Math.tanh(channel[sample]!);
 				}
 			}
-			yield {
-				samples: mix,
-				sampleRate: MIX_SAMPLE_RATE,
-				channels: MIX_CHANNELS
-			};
+			yield { samples: mix, sampleRate: MIX_SAMPLE_RATE, channels: MIX_CHANNELS };
 		}
 	} finally {
 		await Promise.all(prepared.map((entry) => entry.reader?.close()));

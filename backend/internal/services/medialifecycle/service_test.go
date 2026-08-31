@@ -5,11 +5,9 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
-	"errors"
+	"encoding/json"
 	"fmt"
-	"io"
 	"reflect"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,6 +18,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/stretchr/testify/require"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 )
 
@@ -36,36 +35,6 @@ func (counter *lifecycleQueryCounter) BeforeQuery(ctx context.Context, _ *bun.Qu
 }
 
 func (*lifecycleQueryCounter) AfterQuery(context.Context, *bun.QueryEvent) {}
-
-type blockingLifecycleStorage struct {
-	started chan struct{}
-	release chan struct{}
-	once    sync.Once
-	deletes atomic.Int64
-}
-
-func newBlockingLifecycleStorage() *blockingLifecycleStorage {
-	return &blockingLifecycleStorage{started: make(chan struct{}), release: make(chan struct{})}
-}
-
-func (*blockingLifecycleStorage) Driver() string { return "test" }
-
-func (*blockingLifecycleStorage) Save(string, io.Reader) (string, error) {
-	return "", errors.New("unexpected save")
-}
-
-func (storage *blockingLifecycleStorage) Delete(string) error {
-	storage.deletes.Add(1)
-	storage.once.Do(func() { close(storage.started) })
-	<-storage.release
-	return nil
-}
-
-func (*blockingLifecycleStorage) GetURL(string) string { return "" }
-
-func (*blockingLifecycleStorage) Open(string) (io.ReadCloser, error) {
-	return nil, errors.New("unexpected open")
-}
 
 func TestNormalizeRetentionPromotesOrganizedMedia(t *testing.T) {
 	t.Parallel()
@@ -636,10 +605,10 @@ func TestSweepRewritesHistoricalJSONBeforePurge(t *testing.T) {
 	}
 }
 
-func TestSweepCommitsBeforeDeletingSQLiteStorageObjects(t *testing.T) {
+func TestSweepPersistsSQLiteStorageCleanupBeforeRemovingOwnership(t *testing.T) {
 	t.Parallel()
 
-	assertSweepCommitsBeforeDeletingStorageObjects(t, newMediaLifecycleTestDB(t))
+	assertSweepPersistsStorageCleanupBeforeRemovingOwnership(t, newMediaLifecycleTestDB(t))
 }
 
 func TestConcurrentSQLiteSweepsDoNotDoublePurge(t *testing.T) {
@@ -743,44 +712,30 @@ func gzipLifecycleSnapshot(t *testing.T, data []byte) []byte {
 	return compressed.Bytes()
 }
 
-func assertSweepCommitsBeforeDeletingStorageObjects(t *testing.T, db *bun.DB) {
+func assertSweepPersistsStorageCleanupBeforeRemovingOwnership(t *testing.T, db *bun.DB) {
 	t.Helper()
 	now := time.Now().UTC()
 	insertLifecycleMedia(t, db, "due-storage", RetentionLibrary, now.Add(-30*24*time.Hour), now.Add(-8*24*time.Hour), now.Add(-time.Hour))
-	storage := newBlockingLifecycleStorage()
-	released := false
-	defer func() {
-		if !released {
-			close(storage.release)
-		}
-	}()
-	done := make(chan error, 1)
-	go func() {
-		done <- NewService(db, storage).Sweep(context.Background(), "workspace-1", now)
-	}()
-	select {
-	case <-storage.started:
-	case <-time.After(3 * time.Second):
-		t.Fatal("storage deletion did not start")
-	}
-
-	writeCtx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
-	defer cancel()
-	_, err := db.ExecContext(
-		writeCtx,
-		"INSERT INTO media_attachments (id, workspace_id, file_path, retention_class, created_at) VALUES ('db-write-after-commit', 'workspace-1', 'db-write-after-commit', ?, ?)",
-		RetentionLibrary,
-		now,
-	)
-	require.NoError(t, err, "storage deletion must not retain a database transaction or connection")
-	close(storage.release)
-	released = true
-	require.NoError(t, <-done)
-	require.Equal(t, int64(1), storage.deletes.Load())
+	require.NoError(t, NewService(db, nil).Sweep(t.Context(), "workspace-1", now))
 
 	count, err := db.NewSelect().Model((*models.MediaAttachment)(nil)).Where("id = ?", "due-storage").Count(t.Context())
 	require.NoError(t, err)
 	require.Zero(t, count)
+
+	var jobs []models.Job
+	require.NoError(t, db.NewSelect().Model(&jobs).Where("type = ?", "storage_delete").Scan(t.Context()))
+	var matchingJobs int
+	for _, job := range jobs {
+		var payload struct {
+			Keys []string `json:"keys"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(job.Payload), &payload))
+		if reflect.DeepEqual(payload.Keys, []string{"due-storage"}) {
+			require.Equal(t, "pending", job.Status)
+			matchingJobs++
+		}
+	}
+	require.Equal(t, 1, matchingJobs, "the purge transaction must persist exactly one cleanup job for its object")
 }
 
 func newMediaLifecycleTestDB(t *testing.T) *bun.DB {
@@ -800,6 +755,12 @@ func createMediaLifecycleTestTables(t *testing.T, db *bun.DB) {
 	t.Helper()
 	_, err := db.NewCreateTable().Model((*models.MediaAttachment)(nil)).Exec(t.Context())
 	require.NoError(t, err)
+	_, err = db.NewCreateTable().Model((*models.Job)(nil)).Exec(t.Context())
+	require.NoError(t, err)
+	binaryType := "BLOB"
+	if db.Dialect().Name() == dialect.PG {
+		binaryType = "BYTEA"
+	}
 	statements := []string{
 		`CREATE TABLE media_tags (id TEXT PRIMARY KEY, workspace_id TEXT)`,
 		`CREATE TABLE media_tag_assignments (tag_id TEXT, media_id TEXT)`,
@@ -816,11 +777,11 @@ func createMediaLifecycleTestTables(t *testing.T, db *bun.DB) {
 			FOREIGN KEY (design_document_id) REFERENCES design_documents(id) ON DELETE CASCADE,
 			FOREIGN KEY (media_id) REFERENCES media_attachments(id) ON DELETE RESTRICT
 		)`,
-		`CREATE TABLE design_revisions (
-			id TEXT PRIMARY KEY, design_document_id TEXT, snapshot BLOB,
+		fmt.Sprintf(`CREATE TABLE design_revisions (
+			id TEXT PRIMARY KEY, design_document_id TEXT, snapshot %s,
 			kind TEXT NOT NULL DEFAULT 'autosave', expires_at TIMESTAMP,
 			FOREIGN KEY (design_document_id) REFERENCES design_documents(id) ON DELETE CASCADE
-		)`,
+		)`, binaryType),
 		`CREATE TABLE design_revision_media_references (
 			revision_id TEXT NOT NULL, media_id TEXT NOT NULL,
 			usage TEXT NOT NULL DEFAULT 'snapshot',

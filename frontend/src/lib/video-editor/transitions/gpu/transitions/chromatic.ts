@@ -32,6 +32,14 @@ struct ChromaticParams {
 fn chromaticFragment(input: VertexOutput) -> @location(0) vec4f {
   let uv = input.uv;
   let p = params.progress;
+  let leftEndpoint = textureSample(leftTex, texSampler, uv);
+  let rightEndpoint = textureSample(rightTex, texSampler, uv);
+  if (p <= 0.0) {
+    return leftEndpoint;
+  }
+  if (p >= 1.0) {
+    return rightEndpoint;
+  }
 
   // Intensity envelope — strongest at midpoint
   let envelope = sin(p * PI);

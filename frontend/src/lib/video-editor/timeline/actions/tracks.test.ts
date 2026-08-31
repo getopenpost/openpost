@@ -8,6 +8,7 @@ import {
 	moveTrack,
 	renameTrack,
 	removeTrackGroupWithContents,
+	removeEmptyTracks,
 	removeTrack,
 	toggleTrackLock,
 	toggleTrackMute,
@@ -59,6 +60,37 @@ describe('timeline track actions', () => {
 
 		for (const track of timelineStore.tracks.slice(1)) removeTrack(track.id);
 		expect(removeTrack(timelineStore.tracks[0]!.id)).toBe(false);
+	});
+
+	it('removes empty tracks and their orphaned groups in one undoable edit', () => {
+		timelineStore._setItems([
+			{
+				id: 'clip',
+				trackId: 'track-video-main',
+				from: 0,
+				durationInFrames: 30,
+				label: 'Clip',
+				type: 'video'
+			}
+		]);
+		const groupId = createTrackGroup(['track-video-overlay'], 'Empty overlays')!;
+		commandHistory.clearHistory();
+
+		expect(removeEmptyTracks('track-video-main')).toEqual(['track-video-overlay', 'track-audio']);
+		expect(timelineStore.tracks.map((track) => track.id)).toEqual(['track-video-main']);
+		expect(timelineStore.tracks.some((track) => track.id === groupId)).toBe(false);
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(commandHistory.getLastCommandType()).toBe('REMOVE_EMPTY_TRACKS');
+
+		commandHistory.undo();
+		expect(timelineStore.tracks.some((track) => track.id === groupId)).toBe(true);
+		expect(timelineStore.tracks).toHaveLength(4);
+	});
+
+	it('preserves the context track when every track is empty', () => {
+		expect(removeEmptyTracks('track-audio')).toEqual(['track-video-overlay', 'track-video-main']);
+		expect(timelineStore.tracks.map((track) => track.id)).toEqual(['track-audio']);
+		expect(commandHistory.undoStack).toHaveLength(1);
 	});
 
 	it('toggles lock, sync lock, visibility, mute, and solo independently', () => {

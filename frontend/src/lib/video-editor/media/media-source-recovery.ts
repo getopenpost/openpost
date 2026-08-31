@@ -15,7 +15,7 @@ import type { MediaSourceIssue } from './media-recovery';
 import { mediaPool } from './pool.svelte';
 import { probeMediaFile } from './probe-client';
 import { clearProxyCache } from './proxy-client';
-import type { MediaMetadata } from './types';
+import type { MediaMetadata, VideoFrameRateMetrics } from './types';
 import { clearWaveformCache } from './waveform-client';
 
 interface ReplacementProbe {
@@ -24,6 +24,7 @@ interface ReplacementProbe {
 	width: number;
 	height: number;
 	fps: number;
+	frameRateMetrics?: VideoFrameRateMetrics;
 	codec: string;
 	audioCodec?: string;
 	keyframeTimestamps?: number[];
@@ -83,6 +84,7 @@ async function probeReplacement(file: File): Promise<ReplacementProbe> {
 		width: probe.width,
 		height: probe.height,
 		fps: probe.fps,
+		frameRateMetrics: probe.frameRateMetrics,
 		codec: probe.videoCodec ?? '',
 		audioCodec: probe.audioCodec,
 		audioCodecSupported: probe.audioCodecSupported,
@@ -168,6 +170,7 @@ export function createMediaSourceRecovery(runtime: MediaSourceRecoveryRuntime) {
 			width: probe.width,
 			height: probe.height,
 			fps: probe.fps,
+			frameRateMetrics: probe.frameRateMetrics,
 			codec: probe.codec,
 			audioCodec: probe.audioCodec,
 			audioCodecSupported: probe.audioCodecSupported,

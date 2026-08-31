@@ -4,7 +4,7 @@
   "build_bases": [
     {
       "stage": "backend-builder",
-      "reference": "golang:1.26.6-alpine@sha256:af8d6740070b8906d12eae1c3e3ea0957fb63f492051ea05e354c38ef9fe88df"
+      "reference": "golang:1.26.6-alpine@sha256:3889b425f035be855a72fb4755265311293b6d414521f0a519d819df32222d83"
     }
   ],
   "runtime_base": {
@@ -13,6 +13,20 @@
     "support_ends": "2028-06-01",
     "reviewed_on": "2026-08-09",
     "lifecycle_url": "https://www.alpinelinux.org/releases/"
+  },
+  "runtime_packages": [
+    "ca-certificates",
+    "ffmpeg",
+    "tzdata",
+    "sqlite",
+    "libcrypto3>=3.5.8-r0",
+    "libssl3>=3.5.8-r0"
+  ],
+  "standalone_runtime": {
+    "media_commands": ["ffmpeg", "ffprobe"],
+    "development_package": "pkgs.ffmpeg",
+    "lock_file": "devenv.lock",
+    "bundled": false
   },
   "assurance": {
     "scanner_action": "aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25",

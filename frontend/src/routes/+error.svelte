@@ -29,7 +29,7 @@
 
 	const links = {
 		home: resolve('/'),
-		activity: resolve('/activity'),
+		activity: resolve('/publications'),
 		calendar: resolve('/calendar'),
 		media: resolve('/media')
 	};

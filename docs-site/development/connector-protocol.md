@@ -4,6 +4,8 @@ description: Implement the authenticated Connector Protocol 1.0 contract for cus
 
 # Connector Protocol 1.0
 
+For connector authors implementing the authenticated Connector Protocol 1.0 text publishing contract.
+
 Connector Protocol 1.0 lets a self-hosted OpenPost instance publish text through an operator-run service. Use it for a destination that has a stable API and does not fit a built-in provider.
 
 Do not use a connector to load code into OpenPost or to expose an arbitrary user-supplied URL. The connector runs as its own process and keeps all destination credentials.

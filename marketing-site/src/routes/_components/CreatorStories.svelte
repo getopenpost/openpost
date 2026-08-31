@@ -106,11 +106,11 @@
 <section class="stories" aria-labelledby="stories-title">
 	<div class="marketing-shell">
 		<header class="stories-heading">
-			<p class="section-label">In the work</p>
+			<p class="section-label">Fictional examples</p>
 			<h2 id="stories-title">How people put OpenPost to work.</h2>
 			<p>
-				Example stories showing how launches, weekly planning, media, replies, and results can stay
-				in one workspace. Written to illustrate typical use, not quotes from named customers.
+				Fictional stories showing how launches, weekly planning, media, replies, and results can
+				stay in one workspace. They illustrate typical use and are not quotes from customers.
 			</p>
 		</header>
 

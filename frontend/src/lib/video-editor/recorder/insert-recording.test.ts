@@ -42,25 +42,36 @@ beforeEach(() => {
 describe('recording artifact insertion', () => {
 	it('inserts aligned native-rate clips as one undoable timeline action', async () => {
 		const runtime: RecordingImportRuntime = {
-			importVideo: vi.fn(async () => media('screen-media', 'video')),
+			importVideo: vi
+				.fn()
+				.mockResolvedValueOnce(media('screen-media', 'video'))
+				.mockResolvedValueOnce(media('camera-media', 'video')),
 			importAudio: vi.fn(async () => media('mic-media', 'audio')),
 			rollback: vi.fn(async () => undefined)
 		};
 
 		const result = await insertRecordingArtifacts(
 			'project',
-			[artifact('screen', 0), artifact('microphone', 100)],
+			[artifact('screen', 0), artifact('camera', 50), artifact('microphone', 100)],
 			60,
 			runtime
 		);
 
-		expect(result.mediaIds).toEqual(['screen-media', 'mic-media']);
-		expect(timelineStore.tracks).toHaveLength(2);
-		expect(timelineStore.items).toHaveLength(2);
+		expect(result.mediaIds).toEqual(['screen-media', 'camera-media', 'mic-media']);
+		expect(timelineStore.tracks).toHaveLength(3);
+		expect(timelineStore.items).toHaveLength(3);
 		const screen = timelineStore.items.find((item) => item.mediaId === 'screen-media');
+		const camera = timelineStore.items.find((item) => item.mediaId === 'camera-media');
 		const microphone = timelineStore.items.find((item) => item.mediaId === 'mic-media');
 		expect(screen).toMatchObject({
 			from: 60,
+			durationInFrames: 30,
+			sourceFps: 24,
+			sourceEnd: 24,
+			sourceDuration: 24
+		});
+		expect(camera).toMatchObject({
+			from: 62,
 			durationInFrames: 30,
 			sourceFps: 24,
 			sourceEnd: 24,
@@ -73,10 +84,26 @@ describe('recording artifact insertion', () => {
 			sourceEnd: 30,
 			sourceDuration: 30
 		});
+		const linkedGroupIds = new Set(timelineStore.items.map((item) => item.linkedGroupId));
+		expect(linkedGroupIds.size).toBe(1);
+		expect([...linkedGroupIds][0]).toEqual(expect.any(String));
 
 		commandHistory.undo();
 		expect(timelineStore.items).toHaveLength(0);
 		expect(timelineStore.tracks).toHaveLength(0);
+	});
+
+	it('leaves a single captured stream unlinked', async () => {
+		const runtime: RecordingImportRuntime = {
+			importVideo: vi.fn(async () => media('screen-media', 'video')),
+			importAudio: vi.fn(async () => media('mic-media', 'audio')),
+			rollback: vi.fn(async () => undefined)
+		};
+
+		await insertRecordingArtifacts('project', [artifact('screen', 0)], 0, runtime);
+
+		expect(timelineStore.items).toHaveLength(1);
+		expect(timelineStore.items[0]?.linkedGroupId).toBeUndefined();
 	});
 
 	it('rolls back every earlier media import when a later artifact fails', async () => {

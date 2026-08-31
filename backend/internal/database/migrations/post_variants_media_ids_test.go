@@ -55,23 +55,6 @@ func newPostVariantsTestDB(t *testing.T) *bun.DB {
 	return db
 }
 
-func TestRunMigrationsAddsMediaIDsColumnToPostVariants(t *testing.T) {
-	t.Parallel()
-
-	db := newPostVariantsTestDB(t)
-	ctx := context.Background()
-
-	runMigrationsThrough(t, db, 27)
-
-	var variants []models.PostVariant
-	require.NoError(t, db.NewSelect().Model(&variants).Scan(ctx))
-
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'post_variants'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "media_ids", "post_variants must have media_ids column")
-}
-
 func TestRunMigrationsMediaIDsColumnDefaultsEmpty(t *testing.T) {
 	t.Parallel()
 
@@ -146,12 +129,17 @@ func TestRunMigrationsMediaIDsIdempotent(t *testing.T) {
 	t.Parallel()
 
 	db := newPostVariantsTestDB(t)
+	ctx := context.Background()
 
 	runMigrationsThrough(t, db, 27)
 	runMigrationsThrough(t, db, 27)
 
-	row := db.QueryRowContext(context.Background(), "SELECT sql FROM sqlite_master WHERE name = 'post_variants'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "media_ids")
+	_, err := db.NewInsert().Model(&models.Workspace{ID: "ws-idempotent", Name: "Test"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.User{ID: "user-idempotent", Email: "idempotent@test.com", PasswordHash: "hash"}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.Post{ID: "post-idempotent", WorkspaceID: "ws-idempotent", CreatedByID: "user-idempotent", Content: "hello", Status: models.PostStatusDraft}).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.PostVariant{ID: "variant-idempotent", PostID: "post-idempotent", SocialAccountID: "account-idempotent", Content: "variant", MediaIDs: `["media-1"]`}).Exec(ctx)
+	require.NoError(t, err)
 }

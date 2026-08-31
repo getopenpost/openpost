@@ -232,30 +232,52 @@ func validateConnectionResponse(response ConnectionResponse) error {
 	}
 	seen := make(map[string]struct{}, len(response.Accounts))
 	for _, account := range response.Accounts {
-		if !opaqueIDPattern.MatchString(account.ID) {
-			return fmt.Errorf("connector returned invalid account id %q", account.ID)
-		}
-		if _, ok := seen[account.ID]; ok {
-			return fmt.Errorf("connector returned duplicate account id %q", account.ID)
-		}
-		seen[account.ID] = struct{}{}
-		if err := validateOptionalText("account username", account.Username, 120); err != nil {
+		if err := validateConnectionAccount(account, seen); err != nil {
 			return err
-		}
-		if err := validateOptionalText("account display_name", account.DisplayName, 120); err != nil {
-			return err
-		}
-		if account.AvatarURL != "" {
-			avatar, err := url.Parse(account.AvatarURL)
-			if err != nil || avatar.Scheme != "https" || avatar.Hostname() == "" || avatar.User != nil {
-				return fmt.Errorf("connector returned an invalid account avatar URL")
-			}
 		}
 	}
 	return nil
 }
 
+func validateConnectionAccount(account ConnectionAccount, seen map[string]struct{}) error {
+	if !opaqueIDPattern.MatchString(account.ID) {
+		return fmt.Errorf("connector returned invalid account id %q", account.ID)
+	}
+	if _, ok := seen[account.ID]; ok {
+		return fmt.Errorf("connector returned duplicate account id %q", account.ID)
+	}
+	seen[account.ID] = struct{}{}
+	if err := validateOptionalText("account username", account.Username, 120); err != nil {
+		return err
+	}
+	if err := validateOptionalText("account display_name", account.DisplayName, 120); err != nil {
+		return err
+	}
+	if account.AvatarURL == "" {
+		return nil
+	}
+	if err := validateHTTPSURL(account.AvatarURL); err != nil {
+		return fmt.Errorf("connector returned an invalid account avatar URL")
+	}
+	return nil
+}
+
 func validatePublishResponse(response PublishResponse) error {
+	if err := validatePublishStatus(response); err != nil {
+		return err
+	}
+	if response.ExternalURL != "" {
+		if err := validateHTTPSURL(response.ExternalURL); err != nil {
+			return fmt.Errorf("connector returned an invalid external URL")
+		}
+	}
+	if response.IdempotencyTTL < 0 || response.IdempotencyTTL > int((365*24*time.Hour)/time.Second) {
+		return fmt.Errorf("connector returned an invalid idempotency TTL")
+	}
+	return nil
+}
+
+func validatePublishStatus(response PublishResponse) error {
 	switch response.Status {
 	case "published":
 		if strings.TrimSpace(response.ExternalID) == "" || len(response.ExternalID) > 1024 {
@@ -270,14 +292,13 @@ func validatePublishResponse(response PublishResponse) error {
 	default:
 		return fmt.Errorf("connector returned unsupported publish status %q", response.Status)
 	}
-	if response.ExternalURL != "" {
-		parsed, err := url.Parse(response.ExternalURL)
-		if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
-			return fmt.Errorf("connector returned an invalid external URL")
-		}
-	}
-	if response.IdempotencyTTL < 0 || response.IdempotencyTTL > int((365*24*time.Hour)/time.Second) {
-		return fmt.Errorf("connector returned an invalid idempotency TTL")
+	return nil
+}
+
+func validateHTTPSURL(raw string) error {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil {
+		return fmt.Errorf("invalid HTTPS URL")
 	}
 	return nil
 }
@@ -298,40 +319,66 @@ func newPrivateTransport(endpoint EndpointConfig, resolver Resolver) (*http.Tran
 	transport.TLSClientConfig = cloneTLSConfig(transport.TLSClientConfig)
 	dialer := &net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}
 	transport.DialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
-		host, rawPort, splitErr := net.SplitHostPort(address)
-		if splitErr != nil {
-			return nil, splitErr
-		}
-		if !slices.Contains(endpoint.AllowedHosts, strings.ToLower(host)) {
-			return nil, fmt.Errorf("connector host is outside the private connector allowlist")
-		}
-		port, parseErr := strconv.Atoi(rawPort)
-		if parseErr != nil || !slices.Contains(endpoint.AllowedPorts, port) {
-			return nil, fmt.Errorf("connector port is outside the private connector allowlist")
-		}
-		addresses, resolveErr := resolver.LookupIPAddr(ctx, host)
-		if resolveErr != nil || len(addresses) == 0 {
-			return nil, fmt.Errorf("failed to resolve private connector host")
-		}
-		allowed := make([]net.IPAddr, 0, len(addresses))
-		for _, address := range addresses {
-			parsed, ok := netip.AddrFromSlice(address.IP)
-			if !ok || !addressAllowed(parsed.Unmap(), endpoint.AllowedCIDRs) {
-				return nil, fmt.Errorf("connector address is outside the private connector allowlist")
-			}
-			allowed = append(allowed, address)
-		}
-		var lastErr error
-		for _, address := range allowed {
-			connection, dialErr := dialer.DialContext(ctx, network, net.JoinHostPort(address.IP.String(), rawPort))
-			if dialErr == nil {
-				return connection, nil
-			}
-			lastErr = dialErr
-		}
-		return nil, lastErr
+		return dialPrivateConnector(ctx, network, address, endpoint, resolver, dialer)
 	}
 	return transport, nil
+}
+
+func dialPrivateConnector(
+	ctx context.Context,
+	network string,
+	address string,
+	endpoint EndpointConfig,
+	resolver Resolver,
+	dialer *net.Dialer,
+) (net.Conn, error) {
+	host, rawPort, err := net.SplitHostPort(address)
+	if err != nil {
+		return nil, err
+	}
+	if !slices.Contains(endpoint.AllowedHosts, strings.ToLower(host)) {
+		return nil, fmt.Errorf("connector host is outside the private connector allowlist")
+	}
+	port, err := strconv.Atoi(rawPort)
+	if err != nil || !slices.Contains(endpoint.AllowedPorts, port) {
+		return nil, fmt.Errorf("connector port is outside the private connector allowlist")
+	}
+	addresses, err := allowedPrivateAddresses(ctx, resolver, host, endpoint.AllowedCIDRs)
+	if err != nil {
+		return nil, err
+	}
+	var lastErr error
+	for _, candidate := range addresses {
+		connection, dialErr := dialer.DialContext(
+			ctx,
+			network,
+			net.JoinHostPort(candidate.IP.String(), rawPort),
+		)
+		if dialErr == nil {
+			return connection, nil
+		}
+		lastErr = dialErr
+	}
+	return nil, lastErr
+}
+
+func allowedPrivateAddresses(
+	ctx context.Context,
+	resolver Resolver,
+	host string,
+	allowedCIDRs []netip.Prefix,
+) ([]net.IPAddr, error) {
+	addresses, err := resolver.LookupIPAddr(ctx, host)
+	if err != nil || len(addresses) == 0 {
+		return nil, fmt.Errorf("failed to resolve private connector host")
+	}
+	for _, address := range addresses {
+		parsed, ok := netip.AddrFromSlice(address.IP)
+		if !ok || !addressAllowed(parsed.Unmap(), allowedCIDRs) {
+			return nil, fmt.Errorf("connector address is outside the private connector allowlist")
+		}
+	}
+	return addresses, nil
 }
 
 func newUnixTransport(socketPath string) *http.Transport {

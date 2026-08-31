@@ -33,6 +33,11 @@ import {
 	setPathVertexPropertyValue
 } from './path-vertex-keyframes';
 import { resolveTransformHierarchy, type ResolvedTransform } from './transform-parenting';
+import {
+	cropSourceDimensions,
+	cropWithPropertyPixels,
+	type CropKeyframeProperty
+} from '$lib/video-editor/media/crop-properties';
 
 export interface AnimatedItemMotionContext {
 	fps: number;
@@ -47,6 +52,8 @@ const VISUAL_PROPERTIES: KeyframeProperty[] = [
 	'y',
 	'width',
 	'height',
+	'scaleX',
+	'scaleY',
 	'anchorX',
 	'anchorY',
 	'rotation',
@@ -63,11 +70,16 @@ const VIDEO_PROPERTIES: KeyframeProperty[] = [
 	'volume'
 ];
 
-const CROP_PROPERTIES: KeyframeProperty[] = VIDEO_PROPERTIES.filter(
-	(property) => property !== 'volume'
+const CROP_PROPERTIES: CropKeyframeProperty[] = VIDEO_PROPERTIES.filter(
+	(property): property is CropKeyframeProperty => property !== 'volume'
 );
 
+function isCropKeyframeProperty(property: KeyframeProperty): property is CropKeyframeProperty {
+	return CROP_PROPERTIES.some((candidate) => candidate === property);
+}
+
 const TEXT_PROPERTIES: KeyframeProperty[] = [
+	'textStyleScale',
 	'fontSize',
 	'fontWeight',
 	'lineHeight',
@@ -92,6 +104,16 @@ const SHAPE_STROKE_PROPERTIES: KeyframeProperty[] = [
 	'taperEndLength'
 ];
 
+const BACKGROUND_PROPERTIES: KeyframeProperty[] = [
+	'backgroundRotation',
+	'backgroundScale',
+	'backgroundOffsetX',
+	'backgroundOffsetY',
+	'backgroundSmoothness',
+	'backgroundDensity',
+	'backgroundForegroundOpacity'
+];
+
 export function getAnimatablePropertiesForItem(item: TimelineItem): KeyframeProperty[] {
 	let builtIn: KeyframeProperty[];
 	switch (item.type) {
@@ -108,9 +130,11 @@ export function getAnimatablePropertiesForItem(item: TimelineItem): KeyframeProp
 			builtIn = [...VISUAL_PROPERTIES, ...CROP_PROPERTIES];
 			break;
 		case 'subtitle':
-		case 'composition':
 		case 'controller':
 			builtIn = [...VISUAL_PROPERTIES];
+			break;
+		case 'composition':
+			builtIn = [...VISUAL_PROPERTIES, ...CROP_PROPERTIES];
 			break;
 		case 'shape':
 			builtIn = [
@@ -121,6 +145,9 @@ export function getAnimatablePropertiesForItem(item: TimelineItem): KeyframeProp
 			break;
 		case 'adjustment':
 			builtIn = [];
+			break;
+		case 'background':
+			builtIn = [...VISUAL_PROPERTIES, ...BACKGROUND_PROPERTIES];
 			break;
 	}
 	return [...builtIn, ...getAnimatableEffectPropertiesForItem(item)];
@@ -181,6 +208,8 @@ export function resolveAnimatedItemLocalAt(
 			y: transform.y ?? 0,
 			width: Math.max(1, transform.width ?? resolved.sourceWidth ?? motionContext.frameWidth),
 			height: Math.max(1, transform.height ?? resolved.sourceHeight ?? motionContext.frameHeight),
+			scaleX: transform.scaleX ?? 1,
+			scaleY: transform.scaleY ?? 1,
 			rotation: transform.rotation ?? 0,
 			opacity: transform.opacity ?? 1
 		};
@@ -209,6 +238,8 @@ export function resolvedTransformForItem(
 		y: transform.y ?? 0,
 		width,
 		height,
+		scaleX: transform.scaleX ?? 1,
+		scaleY: transform.scaleY ?? 1,
 		anchorX: transform.anchorX ?? width / 2,
 		anchorY: transform.anchorY ?? height / 2,
 		rotation: transform.rotation ?? 0,
@@ -226,6 +257,7 @@ export function resolvePreExpressionItemAt(
 		transform: item.transform ? { ...item.transform } : undefined,
 		crop: item.crop ? { ...item.crop } : undefined,
 		textShadow: item.textShadow ? { ...item.textShadow } : undefined,
+		background: item.background ? { ...item.background } : undefined,
 		effects: resolveAnimatedEffectsAt(item, absoluteFrame)
 	};
 	const activeVectors = new Set<VectorKeyframeProperty>();
@@ -271,19 +303,16 @@ function applyResolvedValue(
 	if (isTransformProperty(property)) {
 		return { ...item, transform: { ...item.transform, [property]: value } };
 	}
+	if (isCropKeyframeProperty(property)) {
+		return {
+			...item,
+			crop: cropWithPropertyPixels(item.crop, property, value, cropSourceDimensions(item))
+		};
+	}
 
 	switch (property) {
-		case 'cropLeft':
-			return { ...item, crop: { ...cropOrDefault(item), left: value } };
-		case 'cropRight':
-			return { ...item, crop: { ...cropOrDefault(item), right: value } };
-		case 'cropTop':
-			return { ...item, crop: { ...cropOrDefault(item), top: value } };
-		case 'cropBottom':
-			return { ...item, crop: { ...cropOrDefault(item), bottom: value } };
-		case 'cropSoftness':
-			return { ...item, crop: { ...cropOrDefault(item), softness: value } };
 		case 'volume':
+		case 'textStyleScale':
 		case 'fontSize':
 		case 'fontWeight':
 		case 'lineHeight':
@@ -315,6 +344,34 @@ function applyResolvedValue(
 				...item,
 				textShadow: { ...shadowOrDefault(item), blur: Math.max(0, value) }
 			};
+		case 'backgroundRotation': {
+			if (!item.background) return item;
+			return { ...item, background: { ...item.background, rotation: value } };
+		}
+		case 'backgroundScale': {
+			if (!item.background) return item;
+			return { ...item, background: { ...item.background, scale: value } };
+		}
+		case 'backgroundOffsetX': {
+			if (!item.background) return item;
+			return { ...item, background: { ...item.background, offsetX: value } };
+		}
+		case 'backgroundOffsetY': {
+			if (!item.background) return item;
+			return { ...item, background: { ...item.background, offsetY: value } };
+		}
+		case 'backgroundSmoothness':
+			return item.background?.kind === 'mesh-gradient'
+				? { ...item, background: { ...item.background, smoothness: value } }
+				: item;
+		case 'backgroundDensity':
+			return item.background?.kind === 'pattern'
+				? { ...item, background: { ...item.background, density: value } }
+				: item;
+		case 'backgroundForegroundOpacity':
+			return item.background?.kind === 'pattern'
+				? { ...item, background: { ...item.background, foregroundOpacity: value } }
+				: item;
 	}
 	return item;
 }
@@ -323,10 +380,6 @@ function isTransformProperty(
 	property: KeyframeProperty
 ): property is keyof NonNullable<TimelineItem['transform']> & KeyframeProperty {
 	return VISUAL_PROPERTIES.includes(property);
-}
-
-function cropOrDefault(item: TimelineItem): NonNullable<TimelineItem['crop']> {
-	return item.crop ?? { top: 0, right: 0, bottom: 0, left: 0 };
 }
 
 function shadowOrDefault(item: TimelineItem): NonNullable<TimelineItem['textShadow']> {

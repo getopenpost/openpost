@@ -4,12 +4,14 @@ import { commandHistory } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import {
 	addEffectTemplates,
+	addAdjustmentLayerWithEffects,
 	addGpuEffect,
 	isEffectAtDefaults,
 	moveEffectOnItems,
 	removeEffectOnItems,
 	replaceColorGradeEffects,
 	resetEffectOnItems,
+	setAllEffectsEnabledOnItems,
 	setEffectEnabledOnItems,
 	setGpuEffectParam,
 	upsertGpuEffectParams,
@@ -51,6 +53,31 @@ beforeEach(() => {
 });
 
 describe('addEffectTemplates', () => {
+	it('creates a populated adjustment layer in one undo step', () => {
+		const itemId = addAdjustmentLayerWithEffects('Warm', [
+			{
+				kind: 'gpu',
+				effectId: 'gpu-temperature',
+				params: { temperature: 0.3 }
+			}
+		]);
+		expect(timelineStore.itemById.get(itemId)).toMatchObject({
+			type: 'adjustment',
+			effects: [
+				{
+					type: 'gpu',
+					effectId: 'gpu-temperature',
+					params: { temperature: 0.3 }
+				}
+			]
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(commandHistory.getLastCommandType()).toBe('ADD_ADJUSTMENT_LAYER_WITH_EFFECTS');
+
+		commandHistory.undo();
+		expect(timelineStore.itemById.has(itemId)).toBe(false);
+	});
+
 	it('applies fresh effect instances to visual clips as one undoable edit', () => {
 		expect(
 			addEffectTemplates(
@@ -95,7 +122,12 @@ describe('addEffectTemplates', () => {
 		).toBe(true);
 		expect(timelineStore.itemById.get('video')?.effects).toMatchObject([
 			{ type: 'blur', amount: 20, enabled: false },
-			{ type: 'gpu', effectId: 'gpu-contrast', params: { amount: 3 }, enabled: false }
+			{
+				type: 'gpu',
+				effectId: 'gpu-contrast',
+				params: { amount: 3 },
+				enabled: false
+			}
 		]);
 	});
 });
@@ -135,8 +167,18 @@ describe('effect stack actions', () => {
 	beforeEach(() => {
 		const defaults = getGpuEffectDefaultParams('gpu-gaussian-blur');
 		const stack = (prefix: string) => [
-			{ id: `${prefix}-brightness`, type: 'brightness' as const, amount: 1.8, enabled: true },
-			{ id: `${prefix}-contrast`, type: 'contrast' as const, amount: 1.25, enabled: true },
+			{
+				id: `${prefix}-brightness`,
+				type: 'brightness' as const,
+				amount: 1.8,
+				enabled: true
+			},
+			{
+				id: `${prefix}-contrast`,
+				type: 'contrast' as const,
+				amount: 1.25,
+				enabled: true
+			},
 			{
 				id: `${prefix}-blur`,
 				type: 'gpu' as const,
@@ -199,6 +241,83 @@ describe('effect stack actions', () => {
 			'brightness',
 			'gpu'
 		]);
+	});
+
+	it('bypasses and restores complete selected stacks as one undoable edit', () => {
+		expect(setAllEffectsEnabledOnItems(['video', 'title', 'audio'], false)).toBe(true);
+		for (const itemId of ['video', 'title']) {
+			expect(timelineStore.itemById.get(itemId)?.effects?.every((effect) => !effect.enabled)).toBe(
+				true
+			);
+		}
+		expect(timelineStore.itemById.get('audio')?.effects).toBeUndefined();
+		expect(commandHistory.undoStack).toHaveLength(1);
+		expect(commandHistory.getLastCommandType()).toBe('SET_ALL_EFFECTS_ENABLED');
+		expect(setAllEffectsEnabledOnItems(['video', 'title'], false)).toBe(false);
+
+		commandHistory.undo();
+		for (const itemId of ['video', 'title']) {
+			expect(timelineStore.itemById.get(itemId)?.effects?.map((effect) => effect.enabled)).toEqual([
+				true,
+				true,
+				false
+			]);
+		}
+	});
+
+	it('maps visible stack actions around hidden grading effects', () => {
+		const wheels = (prefix: string) => ({
+			id: `${prefix}-wheels`,
+			type: 'gpu' as const,
+			effectId: 'gpu-color-wheels',
+			params: getGpuEffectDefaultParams('gpu-color-wheels'),
+			enabled: true
+		});
+		for (const itemId of ['video', 'title']) {
+			timelineStore._updateItems([
+				{
+					id: itemId,
+					patch: {
+						effects: [
+							{
+								id: `${itemId}-brightness`,
+								type: 'brightness',
+								amount: 1.2,
+								enabled: true
+							},
+							wheels(itemId),
+							{
+								id: `${itemId}-contrast`,
+								type: 'contrast',
+								amount: 1,
+								enabled: true
+							}
+						]
+					}
+				}
+			]);
+		}
+		commandHistory.clearHistory();
+		const hidden = ['gpu-color-wheels'];
+
+		expect(moveEffectOnItems('video', ['video', 'title'], 'video-contrast', -1, hidden)).toBe(true);
+		for (const itemId of ['video', 'title']) {
+			expect(timelineStore.itemById.get(itemId)?.effects?.map((effect) => effect.type)).toEqual([
+				'contrast',
+				'gpu',
+				'brightness'
+			]);
+		}
+
+		expect(setAllEffectsEnabledOnItems(['video', 'title'], false, hidden)).toBe(true);
+		for (const itemId of ['video', 'title']) {
+			expect(timelineStore.itemById.get(itemId)?.effects?.map((effect) => effect.enabled)).toEqual([
+				false,
+				true,
+				false
+			]);
+		}
+		expect(commandHistory.undoStack).toHaveLength(2);
 	});
 
 	it('prunes mapped effect lanes when the owning effect leaves the stack', () => {
@@ -269,8 +388,16 @@ describe('color grade actions', () => {
 			replaceColorGradeEffects(
 				['video', 'title', 'audio'],
 				[
-					{ effectId: 'gpu-color-wheels', params: { lift: -0.4 }, enabled: true },
-					{ effectId: 'gpu-curves', params: { masterShadowY: 0.15 }, enabled: true }
+					{
+						effectId: 'gpu-color-wheels',
+						params: { lift: -0.4 },
+						enabled: true
+					},
+					{
+						effectId: 'gpu-curves',
+						params: { masterShadowY: 0.15 },
+						enabled: true
+					}
 				]
 			)
 		).toBe(true);

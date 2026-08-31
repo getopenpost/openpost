@@ -14,37 +14,32 @@ export const SCENE_SAMPLE_INTERVAL_SECONDS = 0.25;
 
 export const SCENE_GRID_WIDTH = 32;
 export const SCENE_GRID_HEIGHT = 18;
-/** Grid cells are CELL×CELL blocks of the downscaled frame (6×3 cells). */
-export const SCENE_CELL_SIZE = 6;
-const LUMA_R = 0.2126;
-const LUMA_G = 0.7152;
-const LUMA_B = 0.0722;
+export const SCENE_HISTOGRAM_BINS = 32;
 
 /**
- * Build one histogram from RGBA pixel data of a `width × height` frame:
- * average luma per grid cell, normalized so the buckets sum to 1.
+ * Build normalized RGB histograms from one downscaled RGBA frame. Each
+ * channel occupies its own bucket range and sums to 1, preserving color
+ * changes that a normalized luma grid loses on uniform shots.
  */
-export function lumaGridHistogram(
+export function rgbHistogram(
 	pixels: Uint8ClampedArray,
 	width: number,
 	height: number
 ): FrameHistogram['buckets'] {
-	const cols = Math.max(1, Math.ceil(width / SCENE_CELL_SIZE));
-	const rows = Math.max(1, Math.ceil(height / SCENE_CELL_SIZE));
-	const sums = new Float64Array(cols * rows);
-	for (let y = 0; y < height; y++) {
-		const row = Math.min(rows - 1, Math.floor(y / SCENE_CELL_SIZE));
-		for (let x = 0; x < width; x++) {
-			const col = Math.min(cols - 1, Math.floor(x / SCENE_CELL_SIZE));
-			const index = (y * width + x) * 4;
-			sums[row * cols + col] +=
-				LUMA_R * pixels[index]! + LUMA_G * pixels[index + 1]! + LUMA_B * pixels[index + 2]!;
+	const pixelCount = width * height;
+	const buckets = new Array<number>(SCENE_HISTOGRAM_BINS * 3).fill(0);
+	if (pixelCount <= 0) return buckets;
+	const binScale = SCENE_HISTOGRAM_BINS / 256;
+	for (let index = 0; index < pixels.length; index += 4) {
+		for (let channel = 0; channel < 3; channel += 1) {
+			const bin = Math.min(
+				SCENE_HISTOGRAM_BINS - 1,
+				Math.floor(pixels[index + channel]! * binScale)
+			);
+			buckets[channel * SCENE_HISTOGRAM_BINS + bin]! += 1;
 		}
 	}
-	let total = 0;
-	for (const value of sums) total += value;
-	if (!(total > 0)) return new Array<number>(cols * rows).fill(0);
-	return Array.from(sums, (value) => value / total);
+	return buckets.map((value) => value / pixelCount);
 }
 
 export interface CutFrameMapping {

@@ -17,7 +17,7 @@
 		{align}
 		{sideOffset}
 		class={cn(
-			'z-50 w-72 rounded-xl border border-primary/30 bg-popover p-4 text-popover-foreground shadow-[0_4px_0_color-mix(in_oklch,var(--primary)_44%,black),0_16px_36px_-20px_color-mix(in_oklch,var(--foreground)_36%,transparent)] outline-none',
+			'z-50 w-72 rounded-xl border border-border bg-popover p-4 text-popover-foreground shadow-lg outline-none',
 			className
 		)}
 		{...restProps}

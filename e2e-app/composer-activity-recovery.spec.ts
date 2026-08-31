@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { authenticatePage, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  clickComposerDeliveryAction,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 function socialAccount(id: string, workspaceID: string, username: string) {
   return {
@@ -131,7 +136,7 @@ test("composer ignores stale accounts and recovers the current workspace", async
   await expect(page.locator("[data-sonner-toast]")).toHaveCount(0);
   await page.getByTestId("composer-account-control").click();
   await expect(
-    page.getByTestId("composer-account-row").getByText("current_workspace", { exact: true }),
+    page.getByTestId("composer-account-row").getByText("@current_workspace", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("stale_previous", { exact: true })).toHaveCount(0);
   expect(secondRequests).toBe(2);
@@ -247,7 +252,7 @@ test("activity clears cross-workspace data and preserves a valid view on refresh
     await route.fulfill({ contentType: "application/json", json: [] });
   });
 
-  await page.goto("/activity?tab=drafts");
+  await page.goto("/publications?tab=drafts");
   await expect(page.locator("main").getByText("Previous workspace post")).toBeVisible();
   gateNextFirstRefresh = true;
   await page.getByRole("button", { name: "Refresh" }).click();
@@ -377,7 +382,7 @@ test("composer sends workspace-local wall time as the exact scheduled instant", 
   await page.goto("/");
   await expect(page.getByTestId("composer-account-control")).toBeVisible();
   await page.getByLabel("Post text").fill("Schedule in the workspace timezone.");
-  await page.getByRole("button", { name: "Schedule", exact: true }).first().click();
+  await clickComposerDeliveryAction(page, "Schedule");
   const dialog = page.getByTestId("schedule-dialog-shell");
   await expect(dialog).toContainText("America/New_York");
   await dialog.getByLabel("Schedule time").fill("2099-07-21T09:00");

@@ -16,6 +16,24 @@ const MAX_SEGMENTS = 200;
 const MAX_KEYFRAMES = 20000;
 const MAX_NAME_LENGTH = 100;
 
+const videoStreamSchema = z.object({
+	index: z.number().min(0).max(32),
+	codec: z.string().nullable(),
+	width: z.number().min(0).max(8192),
+	height: z.number().min(0).max(8192),
+	rotation: z.number(),
+	fps: z.number().nullable(),
+	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES).optional(),
+	keyframeState: z.enum(['known', 'unknown']).optional()
+});
+
+const audioStreamSchema = z.object({
+	index: z.number().min(0).max(64),
+	codec: z.string().nullable(),
+	sampleRate: z.number().nullable(),
+	channels: z.number().nullable()
+});
+
 const sourceMetaSchema = z.object({
 	id: z.string().min(1).max(64),
 	name: z.string().min(1).max(MAX_NAME_LENGTH),
@@ -39,7 +57,11 @@ const sourceMetaSchema = z.object({
 	keyframeTimestamps: z.array(z.number()).max(MAX_KEYFRAMES),
 	keyframeState: z.enum(['known', 'unknown', 'audio-only']),
 	lastModified: z.number().optional(),
-	contentFingerprint: z.string().optional()
+	contentFingerprint: z.string().optional(),
+	videoStreams: z.array(videoStreamSchema).max(32).optional(),
+	audioStreams: z.array(audioStreamSchema).max(64).optional(),
+	selectedVideoTrackIndex: z.number().min(0).max(32).nullable().optional(),
+	selectedAudioTrackIndices: z.array(z.number().min(0).max(64)).max(16).optional()
 });
 
 const segmentSchema = z.object({
@@ -48,7 +70,8 @@ const segmentSchema = z.object({
 	start: z.number().min(0),
 	end: z.number().min(0),
 	name: z.string().max(MAX_NAME_LENGTH).optional(),
-	enabled: z.boolean().optional()
+	enabled: z.boolean().optional(),
+	cutMode: z.enum(['nearestKeyframe', 'exact']).optional()
 });
 
 const projectSchema = z.object({
@@ -59,6 +82,7 @@ const projectSchema = z.object({
 	segments: z.array(segmentSchema).max(MAX_SEGMENTS),
 	cutMode: z.enum(['nearestKeyframe', 'exact']),
 	merge: z.boolean(),
+	removeMarkedRanges: z.boolean().default(false),
 	createdAt: z.number(),
 	updatedAt: z.number()
 });
@@ -84,9 +108,63 @@ const legacyProjectSchema = z.object({
 	segments: z.array(legacySegmentSchema).optional(),
 	cutMode: z.enum(['nearestKeyframe', 'exact']).optional(),
 	merge: z.boolean().optional(),
+	removeMarkedRanges: z.boolean().optional(),
 	createdAt: z.number().optional(),
 	updatedAt: z.number().optional()
 });
+
+function normalizeSourceStreams(source: QuickCutSourceMetadata): QuickCutSourceMetadata {
+	let videoStreams = source.videoStreams ?? [];
+	let audioStreams = source.audioStreams ?? [];
+	if (videoStreams.length === 0 && source.videoCodec !== null) {
+		videoStreams = [
+			{
+				index: 0,
+				codec: source.videoCodec,
+				width: source.width,
+				height: source.height,
+				rotation: source.rotation,
+				fps: source.fps,
+				keyframeTimestamps: source.keyframeTimestamps ?? [],
+				keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
+			}
+		];
+	} else {
+		videoStreams = videoStreams.map((vs, idx) => {
+			if (vs.keyframeTimestamps !== undefined && vs.keyframeState !== undefined) return vs;
+			if (idx === 0 && source.keyframeTimestamps && source.keyframeState !== 'audio-only') {
+				return {
+					...vs,
+					keyframeTimestamps: source.keyframeTimestamps,
+					keyframeState: source.keyframeState === 'known' ? 'known' : 'unknown'
+				};
+			}
+			return {
+				...vs,
+				keyframeTimestamps: vs.keyframeTimestamps ?? [],
+				keyframeState: vs.keyframeState ?? 'unknown'
+			};
+		});
+	}
+	if (audioStreams.length === 0 && source.audioCodec !== null) {
+		audioStreams = [
+			{
+				index: 0,
+				codec: source.audioCodec,
+				sampleRate: source.sampleRate,
+				channels: source.channels
+			}
+		];
+	}
+	const normalized: QuickCutSourceMetadata = {
+		...source,
+		videoStreams,
+		audioStreams,
+		selectedVideoTrackIndex: source.selectedVideoTrackIndex,
+		selectedAudioTrackIndices: source.selectedAudioTrackIndices
+	};
+	return normalized;
+}
 
 function validateProject(data: QuickCutProject): QuickCutProject {
 	const sourceIds = new Set(data.sources.map((s) => s.id));
@@ -101,6 +179,52 @@ function validateProject(data: QuickCutProject): QuickCutProject {
 	}
 	if (new Set(data.sources.map((s) => s.id)).size !== data.sources.length)
 		throw new Error('Duplicate source id');
+	for (const src of data.sources) {
+		if (
+			src.selectedVideoTrackIndex !== undefined &&
+			src.selectedVideoTrackIndex !== null &&
+			!src.videoStreams.some((s) => s.index === src.selectedVideoTrackIndex)
+		) {
+			throw new Error(
+				`Source ${src.id} selected video track ${src.selectedVideoTrackIndex} does not exist`
+			);
+		}
+		if (src.selectedAudioTrackIndices) {
+			for (const idx of src.selectedAudioTrackIndices) {
+				if (!src.audioStreams.some((s) => s.index === idx))
+					throw new Error(`Source ${src.id} selected audio track ${idx} does not exist`);
+			}
+			if (new Set(src.selectedAudioTrackIndices).size !== src.selectedAudioTrackIndices.length)
+				throw new Error(`Source ${src.id} has duplicate audio track selections`);
+		}
+		// Legacy sources may have empty stream catalogs; fall back to codec fields for validation
+		const hasVideoStreams = src.videoStreams.length > 0;
+		const hasAudioStreams = src.audioStreams.length > 0;
+		const hasVideo = (() => {
+			if (!hasVideoStreams && !hasAudioStreams) {
+				// Legacy project without stream catalogs: infer from codec
+				if (src.videoCodec !== null) return src.selectedVideoTrackIndex !== null;
+				return false;
+			}
+			if (src.videoStreams.length === 0) return false;
+			if (src.selectedVideoTrackIndex === null) return false;
+			if (src.selectedVideoTrackIndex === undefined) return src.videoStreams.length > 0;
+			return src.videoStreams.some((s) => s.index === src.selectedVideoTrackIndex);
+		})();
+		const hasAudio = (() => {
+			if (!hasVideoStreams && !hasAudioStreams) {
+				if (src.audioCodec !== null) {
+					if (src.selectedAudioTrackIndices === undefined) return true;
+					return src.selectedAudioTrackIndices.length > 0;
+				}
+				return false;
+			}
+			if (src.audioStreams.length === 0) return false;
+			if (src.selectedAudioTrackIndices === undefined) return src.audioStreams.length > 0;
+			return src.selectedAudioTrackIndices.length > 0;
+		})();
+		if (!hasVideo && !hasAudio) throw new Error(`Source ${src.id} has no tracks selected`);
+	}
 	return data;
 }
 
@@ -112,7 +236,10 @@ export function parseProject(json: string): QuickCutProject {
 		throw new Error('Invalid JSON');
 	}
 	const current = projectSchema.safeParse(parsed);
-	if (current.success) return validateProject(current.data);
+	if (current.success) {
+		const normalizedSources = current.data.sources.map(normalizeSourceStreams);
+		return validateProject({ ...current.data, sources: normalizedSources });
+	}
 	const legacy = legacyProjectSchema.safeParse(parsed);
 	if (legacy.success) {
 		const o = legacy.data;
@@ -137,7 +264,9 @@ export function parseProject(json: string): QuickCutProject {
 					keyframeTimestamps: [],
 					keyframeState: 'unknown',
 					lastModified: undefined,
-					contentFingerprint: undefined
+					contentFingerprint: undefined,
+					videoStreams: [],
+					audioStreams: []
 				}
 			];
 			const segs = o.segments ?? [];
@@ -157,6 +286,7 @@ export function parseProject(json: string): QuickCutProject {
 				segments: migratedSegments,
 				cutMode: o.cutMode ?? 'nearestKeyframe',
 				merge: o.merge ?? false,
+				removeMarkedRanges: o.removeMarkedRanges ?? false,
 				createdAt: o.createdAt ?? Date.now(),
 				updatedAt: o.updatedAt ?? Date.now()
 			};
@@ -166,6 +296,63 @@ export function parseProject(json: string): QuickCutProject {
 	throw new Error(`Invalid project: ${current.error.issues[0]?.message ?? 'schema error'}`);
 }
 
+export function reconcileSourceAfterProbe(oldMeta: QuickCutSourceMetadata, probed: QuickCutSource) {
+	let didMigrate = false;
+	let videoWasValid = true;
+	let audioWasValid = true;
+	let newSelectedVideoTrackIndex: number | null | undefined = oldMeta.selectedVideoTrackIndex;
+	let newSelectedAudioTrackIndices: number[] | undefined = oldMeta.selectedAudioTrackIndices;
+	if (oldMeta.selectedVideoTrackIndex === undefined) {
+		didMigrate = true;
+		if (probed.videoStreams.length > 0) newSelectedVideoTrackIndex = probed.videoStreams[0]!.index;
+		else newSelectedVideoTrackIndex = null;
+	} else if (oldMeta.selectedVideoTrackIndex !== null) {
+		const exists = probed.videoStreams.some((vs) => vs.index === oldMeta.selectedVideoTrackIndex);
+		if (!exists) {
+			videoWasValid = false;
+			newSelectedVideoTrackIndex = null;
+		}
+	}
+	if (oldMeta.selectedAudioTrackIndices === undefined) {
+		didMigrate = true;
+		if (probed.audioStreams.length > 0)
+			newSelectedAudioTrackIndices = [probed.audioStreams[0]!.index];
+		else newSelectedAudioTrackIndices = [];
+	} else {
+		const allExist = oldMeta.selectedAudioTrackIndices.every((idx) =>
+			probed.audioStreams.some((as) => as.index === idx)
+		);
+		if (!allExist) {
+			audioWasValid = false;
+			newSelectedAudioTrackIndices = [];
+		}
+	}
+	const reconciled: QuickCutSourceMetadata = {
+		...oldMeta,
+		name: probed.name,
+		size: probed.size,
+		mimeType: probed.mimeType,
+		duration: probed.duration,
+		width: probed.width,
+		height: probed.height,
+		videoCodec: probed.videoCodec,
+		audioCodec: probed.audioCodec,
+		sampleRate: probed.sampleRate,
+		channels: probed.channels,
+		rotation: probed.rotation,
+		fps: probed.fps,
+		keyframeTimestamps: probed.keyframeTimestamps,
+		keyframeState: probed.keyframeState,
+		lastModified: probed.lastModified,
+		contentFingerprint: probed.contentFingerprint,
+		videoStreams: probed.videoStreams,
+		audioStreams: probed.audioStreams,
+		selectedVideoTrackIndex: newSelectedVideoTrackIndex,
+		selectedAudioTrackIndices: newSelectedAudioTrackIndices
+	};
+	return { reconciled, videoWasValid, audioWasValid, didMigrate };
+}
+
 export function createNewProject(
 	sources: QuickCutSourceMetadata[] | string,
 	cutMode: QuickCutProject['cutMode'] = 'nearestKeyframe'
@@ -173,7 +360,7 @@ export function createNewProject(
 	const now = Date.now();
 	let srcArray: QuickCutSourceMetadata[];
 	if (Array.isArray(sources)) {
-		srcArray = sources;
+		srcArray = sources.map(normalizeSourceStreams);
 	} else {
 		srcArray = [
 			{
@@ -193,7 +380,9 @@ export function createNewProject(
 				keyframeTimestamps: [],
 				keyframeState: 'unknown',
 				lastModified: undefined,
-				contentFingerprint: undefined
+				contentFingerprint: undefined,
+				videoStreams: [],
+				audioStreams: []
 			}
 		];
 	}
@@ -206,6 +395,7 @@ export function createNewProject(
 		segments: [],
 		cutMode,
 		merge: false,
+		removeMarkedRanges: false,
 		createdAt: now,
 		updatedAt: now
 	};
@@ -287,6 +477,10 @@ export function serializeProject(project: QuickCutProject): string {
 
 export function deserializeProject(json: string): QuickCutProject {
 	return parseProject(json);
+}
+
+export function snapshotProject(project: QuickCutProject): QuickCutProject {
+	return deserializeProject(serializeProject(project));
 }
 
 export function projectFileName(project: QuickCutProject): string {

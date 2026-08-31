@@ -275,7 +275,7 @@
 		border-radius: 1.1rem;
 		background: color-mix(in oklch, var(--card) 92%, transparent);
 		color: var(--brand);
-		box-shadow: 0 1.2rem 2.8rem color-mix(in oklch, var(--foreground) 22%, transparent);
+		box-shadow: 0 0.55rem 1.6rem color-mix(in oklch, var(--foreground) 14%, transparent);
 		animation: drift 6.8s ease-in-out var(--delay) infinite;
 		transform: rotate(var(--turn));
 		will-change: transform;
@@ -292,7 +292,7 @@
 	:global(.dark) .network-card {
 		border-color: rgb(255 255 255 / 0.13);
 		background: oklch(0.2 0.012 52 / 0.92);
-		box-shadow: 0 1.2rem 2.8rem rgb(0 0 0 / 0.38);
+		box-shadow: 0 0.55rem 1.6rem rgb(0 0 0 / 0.26);
 	}
 
 	.network-card img {
@@ -313,7 +313,7 @@
 
 	@media (max-width: 47.99rem) {
 		.floating-network-field {
-			inset: 16rem 0 0;
+			inset: 28rem 0 0;
 		}
 
 		.network-orbit {
@@ -371,6 +371,100 @@
 		.network-orbit:nth-child(12) {
 			top: 3%;
 			left: 76%;
+		}
+	}
+
+	@media (min-width: 48rem) {
+		.network-orbit {
+			--mark-size: clamp(2.75rem, 4vw, 3.35rem) !important;
+		}
+
+		.network-orbit:nth-child(1) {
+			top: 5%;
+			left: 2.5%;
+		}
+		.network-orbit:nth-child(2) {
+			top: 94%;
+			left: 5.25%;
+		}
+		.network-orbit:nth-child(3) {
+			top: 22%;
+			left: 5.5%;
+		}
+		.network-orbit:nth-child(4) {
+			top: 43%;
+			left: 2.75%;
+		}
+		.network-orbit:nth-child(5) {
+			top: 11%;
+			left: 97%;
+		}
+		.network-orbit:nth-child(6) {
+			top: 29%;
+			left: 94.75%;
+		}
+		.network-orbit:nth-child(7) {
+			top: 46%;
+			left: 97.5%;
+		}
+		.network-orbit:nth-child(8) {
+			top: 64%;
+			left: 94.5%;
+		}
+		.network-orbit:nth-child(9) {
+			top: 61%;
+			left: 5.25%;
+		}
+		.network-orbit:nth-child(10) {
+			top: 82%;
+			left: 97%;
+		}
+		.network-orbit:nth-child(11) {
+			top: 78%;
+			left: 2.5%;
+		}
+		.network-orbit:nth-child(12) {
+			top: 96%;
+			left: 95.5%;
+		}
+	}
+
+	@media (min-width: 64rem) {
+		.network-orbit:nth-child(1) {
+			left: 4%;
+		}
+		.network-orbit:nth-child(2) {
+			left: 8%;
+		}
+		.network-orbit:nth-child(3) {
+			left: 7.5%;
+		}
+		.network-orbit:nth-child(4) {
+			left: 2.5%;
+		}
+		.network-orbit:nth-child(5) {
+			left: 96.5%;
+		}
+		.network-orbit:nth-child(6) {
+			left: 92%;
+		}
+		.network-orbit:nth-child(7) {
+			left: 97.5%;
+		}
+		.network-orbit:nth-child(8) {
+			left: 92%;
+		}
+		.network-orbit:nth-child(9) {
+			left: 6%;
+		}
+		.network-orbit:nth-child(10) {
+			left: 95%;
+		}
+		.network-orbit:nth-child(11) {
+			left: 3.5%;
+		}
+		.network-orbit:nth-child(12) {
+			left: 92.5%;
 		}
 	}
 

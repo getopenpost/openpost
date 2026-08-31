@@ -45,7 +45,7 @@ test("Messages prepends older history without moving the visible message", async
     route.fulfill({ json: { ...messageFixture(workspace.id, 236), direction: "outbound" } }),
   );
 
-  await page.goto(`/messages?workspace=${workspace.id}`);
+  await page.goto(`/inbox/messages?workspace=${workspace.id}`);
   await page.getByRole("button", { name: /Conversation person/ }).click();
   const viewport = page.getByTestId("message-history");
   await expect(page.getByText("Message 234", { exact: true })).toBeVisible();
@@ -118,7 +118,7 @@ test("Messages ignores an older page after the active conversation changes", asy
     }),
   );
 
-  await page.goto(`/messages?workspace=${workspace.id}`);
+  await page.goto(`/inbox/messages?workspace=${workspace.id}`);
   await page.getByRole("button", { name: /Conversation person/ }).click();
   await page.getByTestId("message-history").evaluate((element) => (element.scrollTop = 0));
   await olderRequested;

@@ -10,6 +10,8 @@ import { wouldCreateTransformParentCycle } from '../transform-parenting';
 import { execute } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 
+export { clonePropertyRuntime } from '../property-runtime-clone';
+
 export type SetPropertyLinkResult =
 	| { ok: true }
 	| { ok: false; reason: 'missing-item' | 'missing-source' | 'incompatible' | 'cycle' };
@@ -145,35 +147,4 @@ export function wouldCreateDirectPropertyLinkCycle(
 		currentItemId = next.sourceItemId;
 		currentProperty = next.sourceProperty;
 	}
-}
-
-export function clonePropertyRuntime(
-	item: TimelineItem,
-	duplicatedItemIdMap: ReadonlyMap<string, string>
-): Pick<TimelineItem, 'propertyLinks' | 'expressions' | 'transformParent'> {
-	return {
-		...(item.transformParent && {
-			transformParent: {
-				...item.transformParent,
-				parentItemId: item.transformParent.parentItemId
-					? (duplicatedItemIdMap.get(item.transformParent.parentItemId) ??
-						item.transformParent.parentItemId)
-					: undefined,
-				parentReference: item.transformParent.parentReference
-					? { ...item.transformParent.parentReference }
-					: undefined,
-				childLocalReference: { ...item.transformParent.childLocalReference },
-				childWorldReference: { ...item.transformParent.childWorldReference }
-			}
-		}),
-		...(item.propertyLinks && {
-			propertyLinks: item.propertyLinks.map((link) => ({
-				...link,
-				sourceItemId: duplicatedItemIdMap.get(link.sourceItemId) ?? link.sourceItemId
-			}))
-		}),
-		...(item.expressions && {
-			expressions: item.expressions.map((expression) => ({ ...expression }))
-		})
-	};
 }

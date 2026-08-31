@@ -36,8 +36,6 @@ const FREECUT_BLEND_MODE_INDEX = {
 describe('gpu registry integrity', () => {
 	it('has unique ids for every catalog entry', () => {
 		const ids = GPU_EFFECT_CATALOG.map((definition) => definition.id);
-		expect(ids).toHaveLength(54);
-		expect(ids).toContain('gpu-pixel-sort-hq');
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 

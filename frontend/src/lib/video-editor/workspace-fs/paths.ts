@@ -282,6 +282,11 @@ export function aiOutputPath(mediaId: string, kind: string): string[] {
 	return [...aiOutputsDir(mediaId), `${kind}.json`];
 }
 
+/** Reusable word-timed transcript for one complete source file. */
+export function sourceTranscriptPath(mediaId: string): string[] {
+	return aiOutputPath(mediaId, 'transcript');
+}
+
 /** Scene Browser analysis envelope for one source file. */
 export function sceneAnalysisPath(mediaId: string): string[] {
 	return aiOutputPath(mediaId, 'scene-browser');

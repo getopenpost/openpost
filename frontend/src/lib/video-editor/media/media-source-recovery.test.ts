@@ -52,6 +52,19 @@ function runtime() {
 			width: replacementKind === 'video' ? 1920 : 0,
 			height: replacementKind === 'video' ? 1080 : 0,
 			fps: replacementKind === 'video' ? 24 : 0,
+			frameRateMetrics:
+				replacementKind === 'video'
+					? {
+							underlyingFrameRate: null,
+							bestGuessFrameRate: 24,
+							minFrameRate: 23.976,
+							maxFrameRate: 30,
+							averageFrameRate: 24.5,
+							medianFrameRate: 24,
+							frameRateIsConstant: false,
+							probedPacketCount: 256
+						}
+					: undefined,
 			codec: replacementKind === 'video' ? 'avc1' : '',
 			audioCodec: replacementKind === 'video' ? 'aac' : 'pcm',
 			thumbnailBlob:
@@ -131,6 +144,11 @@ describe('media source recovery', () => {
 					width: 1920,
 					height: 1080,
 					fps: 24,
+					frameRateMetrics: expect.objectContaining({
+						underlyingFrameRate: null,
+						bestGuessFrameRate: 24,
+						frameRateIsConstant: false
+					}),
 					codec: 'avc1',
 					tags: ['favorite', 'video']
 				})

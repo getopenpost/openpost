@@ -34,6 +34,26 @@ type SeriesPoint struct {
 	Value int64  `json:"value"`
 }
 
+type DailyBreakdownItem struct {
+	Key           string `json:"key"`
+	Label         string `json:"label"`
+	Platform      string `json:"platform"`
+	PublicationID string `json:"publication_id,omitempty"`
+	Value         int64  `json:"value"`
+}
+
+type DailyBreakdownPoint struct {
+	Date  string               `json:"date"`
+	Value int64                `json:"value"`
+	Items []DailyBreakdownItem `json:"items"`
+}
+
+type TrendSeries struct {
+	Followers  []DailyBreakdownPoint `json:"followers"`
+	Engagement []DailyBreakdownPoint `json:"engagement"`
+	Views      []DailyBreakdownPoint `json:"views"`
+}
+
 type AccountOverview struct {
 	ID                   string                   `json:"id"`
 	Platform             string                   `json:"platform"`
@@ -94,6 +114,7 @@ type Overview struct {
 	Summary               Summary               `json:"summary"`
 	Accounts              []AccountOverview     `json:"accounts"`
 	FollowerSeries        []SeriesPoint         `json:"follower_series"`
+	Trends                TrendSeries           `json:"trends"`
 	Publications          []PublicationOverview `json:"publications"`
 	Content               []ContentOverview     `json:"content"`
 	PublicationTotal      int                   `json:"publication_total"`
@@ -124,8 +145,13 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 		RangeDays:      days,
 		Accounts:       []AccountOverview{},
 		FollowerSeries: []SeriesPoint{},
-		Publications:   []PublicationOverview{},
-		Content:        []ContentOverview{},
+		Trends: TrendSeries{
+			Followers:  []DailyBreakdownPoint{},
+			Engagement: []DailyBreakdownPoint{},
+			Views:      []DailyBreakdownPoint{},
+		},
+		Publications: []PublicationOverview{},
+		Content:      []ContentOverview{},
 	}
 
 	activeAccounts, accountByID, err := s.loadOverviewAccounts(ctx, workspaceID)
@@ -144,6 +170,16 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 
 	result.Accounts = s.buildAccountOverviews(activeAccounts, stateByID, history, &result.Summary)
 	result.FollowerSeries = combinedFollowerSeries(result.Accounts)
+	result.Trends.Followers = dailyFollowerTrend(result.Accounts, options.AccountID)
+	result.Trends.Engagement, result.Trends.Views, err = s.loadDailyContentTrends(
+		ctx,
+		workspaceID,
+		start,
+		options.AccountID,
+	)
+	if err != nil {
+		return Overview{}, err
+	}
 
 	totals, err := s.loadOverviewContentTotals(ctx, workspaceID, start, options.AccountID)
 	if err != nil {

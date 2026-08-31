@@ -13,7 +13,7 @@
  */
 
 import type { MediaMetadata } from './types';
-import { computeCumulativeDelays } from './animated-image-plan';
+import { computeCumulativeDelays, isAnimatedImageMedia } from './animated-image-plan';
 import { SizedAccessedMemoryCache } from './sized-accessed-memory-cache';
 import type { AnimatedImageWorkerResponse } from './animated-image-extraction.worker';
 import {
@@ -135,6 +135,8 @@ class AnimatedImageCacheService {
 		media: MediaMetadata,
 		options: { onProgress?: (progress: number) => void } = {}
 	): Promise<AnimatedImageFrames> {
+		if (!isAnimatedImageMedia(media)) throw new Error('This image is not animated.');
+
 		const pendingClear = this.clearInFlight.get(media.id);
 		if (pendingClear) await pendingClear.catch(() => undefined);
 		const cached = this.cache.peek(media.id)?.frames ?? null;

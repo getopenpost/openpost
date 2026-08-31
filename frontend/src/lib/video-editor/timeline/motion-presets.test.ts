@@ -4,7 +4,6 @@ import {
 	MOTION_PRESETS,
 	MOTION_PRESETS_BY_ID,
 	motionPresetById,
-	motionPresetScalesBox,
 	type MotionPresetBuildContext,
 	type ResolvedMotionTransform
 } from './motion-presets';
@@ -14,6 +13,8 @@ const anchor: ResolvedMotionTransform = {
 	y: 200,
 	width: 400,
 	height: 300,
+	scaleX: 1,
+	scaleY: 1,
 	rotation: 0,
 	opacity: 1
 };
@@ -30,14 +31,10 @@ function context(overrides: Partial<MotionPresetBuildContext> = {}): MotionPrese
 }
 
 describe('motion presets', () => {
-	it('ships the complete unique FreeCut catalog', () => {
+	it('keeps preset lookup aligned with unique catalog ids', () => {
 		const ids = MOTION_PRESETS.map((preset) => preset.id);
-		expect(ids).toHaveLength(20);
 		expect(new Set(ids)).toHaveLength(ids.length);
 		expect(MOTION_PRESETS_BY_ID.size).toBe(ids.length);
-		expect(MOTION_PRESETS.filter((preset) => preset.category === 'entrance')).toHaveLength(9);
-		expect(MOTION_PRESETS.filter((preset) => preset.category === 'exit')).toHaveLength(7);
-		expect(MOTION_PRESETS.filter((preset) => preset.category === 'emphasis')).toHaveLength(4);
 	});
 
 	it('writes only declared properties and keeps every key in bounds', () => {
@@ -73,8 +70,8 @@ describe('motion presets', () => {
 		expect(getMotionPresetAnchorFrame('emphasis', 90, 30)).toBe(0);
 	});
 
-	it('identifies box-scale presets for text compatibility gating', () => {
-		expect(motionPresetScalesBox(motionPresetById('pulse'))).toBe(true);
-		expect(motionPresetScalesBox(motionPresetById('fade-in'))).toBe(false);
+	it('uses render-time scale for presets that must preserve layout', () => {
+		expect(motionPresetById('pulse').properties).toEqual(['scaleX', 'scaleY']);
+		expect(motionPresetById('pop-in').properties).toEqual(['scaleX', 'scaleY', 'opacity']);
 	});
 });

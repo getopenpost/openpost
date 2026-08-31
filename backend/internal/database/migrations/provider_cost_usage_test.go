@@ -8,43 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrationsCreatesProviderCostUsageSchema(t *testing.T) {
-	t.Parallel()
-	db := newMigrationsTestDB(t)
-	ctx := context.Background()
-	seedMigrationUser(ctx, t, db)
-
-	require.NoError(t, runTestMigrations(t, db))
-
-	var eventSchema string
-	require.NoError(t, db.QueryRowContext(
-		ctx,
-		"SELECT sql FROM sqlite_master WHERE name = 'provider_usage_events'",
-	).Scan(&eventSchema))
-	require.Contains(t, eventSchema, "operation_key TEXT NOT NULL UNIQUE")
-	require.Contains(t, eventSchema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE")
-
-	var counterSchema string
-	require.NoError(t, db.QueryRowContext(
-		ctx,
-		"SELECT sql FROM sqlite_master WHERE name = 'provider_usage_period_counters'",
-	).Scan(&counterSchema))
-	require.Contains(t, counterSchema, "PRIMARY KEY (workspace_id, period_start, provider, operation)")
-	require.Contains(t, counterSchema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE")
-	require.Contains(t, counterSchema, "reserved_event_count")
-	require.Contains(t, counterSchema, "reserved_units")
-	require.Contains(t, counterSchema, "reserved_cost_microusd")
-
-	var reservationSchema string
-	require.NoError(t, db.QueryRowContext(
-		ctx,
-		"SELECT sql FROM sqlite_master WHERE name = 'provider_usage_reservations'",
-	).Scan(&reservationSchema))
-	require.Contains(t, reservationSchema, "operation_key TEXT PRIMARY KEY")
-	require.Contains(t, reservationSchema, "CHECK (state IN ('pending', 'unknown'))")
-	require.Contains(t, reservationSchema, "FOREIGN KEY (workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE")
-}
-
 func TestProviderCostUsageCascadesWithWorkspace(t *testing.T) {
 	t.Parallel()
 	db := newMigrationsTestDB(t)

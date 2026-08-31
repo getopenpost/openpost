@@ -176,6 +176,14 @@ function renderSparklesCanvas(
 	const p = clamp01(progress);
 	const w = canvas?.width ?? leftCanvas.width;
 	const h = canvas?.height ?? leftCanvas.height;
+	if (p <= 0) {
+		ctx.drawImage(leftCanvas, 0, 0, w, h);
+		return;
+	}
+	if (p >= 1) {
+		ctx.drawImage(rightCanvas, 0, 0, w, h);
+		return;
+	}
 	const sparkleScale = Math.max(0.55, getNumericProperty(properties, 'sparkleScale', 1));
 	const intensity = Math.max(0.35, getNumericProperty(properties, 'intensity', 1));
 	const density = Math.max(0.5, getNumericProperty(properties, 'density', 1));
@@ -625,13 +633,38 @@ const sparklesDef: TransitionDefinition = {
 
 const glitchRenderer: TransitionRenderer = {
 	gpuTransitionId: 'glitch',
-	renderCanvas(ctx, leftCanvas, rightCanvas, progress) {
-		// Canvas 2D fallback: simple hard cut
+	renderCanvas(ctx, leftCanvas, rightCanvas, progress, _direction, canvas, properties) {
 		const p = clamp01(progress);
-		if (p < 0.5) {
-			ctx.drawImage(leftCanvas, 0, 0);
-		} else {
-			ctx.drawImage(rightCanvas, 0, 0);
+		const w = canvas?.width ?? leftCanvas.width;
+		const h = canvas?.height ?? leftCanvas.height;
+		if (p <= 0 || p >= 1) {
+			ctx.drawImage(p <= 0 ? leftCanvas : rightCanvas, 0, 0, w, h);
+			return;
+		}
+		const intensity = Math.max(0, getNumericProperty(properties, 'intensity', 1));
+		const blockSize = Math.max(6, getNumericProperty(properties, 'blockSize', 30));
+		const rgbSplit = Math.max(0, getNumericProperty(properties, 'rgbSplit', 1));
+		const envelope = Math.sin(p * Math.PI);
+		renderCrossDissolveCanvas(ctx, leftCanvas, rightCanvas, p, canvas);
+		const bandHeight = Math.max(2, Math.round(blockSize / 5));
+		const bandCount = Math.ceil(h / bandHeight);
+		for (let band = 0; band < bandCount; band += 1) {
+			const y = band * bandHeight;
+			const height = Math.min(bandHeight, h - y);
+			const noise = seededRandom(band * 19.7 + Math.floor(p * 97));
+			const source = noise < p ? rightCanvas : leftCanvas;
+			const displacement =
+				(seededRandom(band * 41.3 + Math.floor(p * 131)) - 0.5) * blockSize * intensity * envelope;
+			ctx.drawImage(source, 0, y, w, height, displacement, y, w, height);
+		}
+		if (rgbSplit > 0 && envelope > 0) {
+			const shift = Math.max(1, Math.round(rgbSplit * intensity * envelope * 3));
+			ctx.save();
+			ctx.globalAlpha = Math.min(0.2, 0.07 * rgbSplit * envelope);
+			ctx.globalCompositeOperation = 'screen';
+			ctx.filter = 'saturate(220%) hue-rotate(70deg)';
+			ctx.drawImage(p < 0.5 ? leftCanvas : rightCanvas, shift, 0, w, h);
+			ctx.restore();
 		}
 	}
 };
@@ -686,16 +719,48 @@ const glitchDef: TransitionDefinition = {
 // Pixelate
 // ============================================================================
 
+let pixelateScratch: OffscreenCanvas | null = null;
+
+function getPixelateScratch(width: number, height: number): OffscreenCanvas {
+	if (!pixelateScratch) pixelateScratch = new OffscreenCanvas(width, height);
+	if (pixelateScratch.width !== width) pixelateScratch.width = width;
+	if (pixelateScratch.height !== height) pixelateScratch.height = height;
+	return pixelateScratch;
+}
+
 const pixelateRenderer: TransitionRenderer = {
 	gpuTransitionId: 'pixelate',
-	renderCanvas(ctx, leftCanvas, rightCanvas, progress) {
-		// Canvas 2D fallback: hard cut at midpoint
+	renderCanvas(ctx, leftCanvas, rightCanvas, progress, _direction, canvas, properties) {
 		const p = clamp01(progress);
-		if (p < 0.5) {
-			ctx.drawImage(leftCanvas, 0, 0);
-		} else {
-			ctx.drawImage(rightCanvas, 0, 0);
+		const w = canvas?.width ?? leftCanvas.width;
+		const h = canvas?.height ?? leftCanvas.height;
+		if (p <= 0 || p >= 1) {
+			ctx.drawImage(p <= 0 ? leftCanvas : rightCanvas, 0, 0, w, h);
+			return;
 		}
+		const maxBlockSize = Math.max(1, getNumericProperty(properties, 'maxBlockSize', 48));
+		const blockSize = 1 + Math.sin(p * Math.PI) * (maxBlockSize - 1);
+		const sampleWidth = Math.max(1, Math.ceil(w / blockSize));
+		const sampleHeight = Math.max(1, Math.ceil(h / blockSize));
+		const scratch = getPixelateScratch(sampleWidth, sampleHeight);
+		const scratchContext = scratch.getContext('2d');
+		if (!scratchContext) {
+			renderCrossDissolveCanvas(ctx, leftCanvas, rightCanvas, p, canvas);
+			return;
+		}
+		const mix = crossDissolveT(p);
+		scratchContext.imageSmoothingEnabled = true;
+		scratchContext.globalCompositeOperation = 'copy';
+		scratchContext.globalAlpha = 1;
+		scratchContext.drawImage(leftCanvas, 0, 0, sampleWidth, sampleHeight);
+		scratchContext.globalCompositeOperation = 'source-over';
+		scratchContext.globalAlpha = mix;
+		scratchContext.drawImage(rightCanvas, 0, 0, sampleWidth, sampleHeight);
+		scratchContext.globalAlpha = 1;
+		ctx.save();
+		ctx.imageSmoothingEnabled = false;
+		ctx.drawImage(scratch, 0, 0, sampleWidth, sampleHeight, 0, 0, w, h);
+		ctx.restore();
 	}
 };
 
@@ -731,21 +796,43 @@ const pixelateDef: TransitionDefinition = {
 
 const chromaticRenderer: TransitionRenderer = {
 	gpuTransitionId: 'chromatic',
-	renderCanvas(ctx, leftCanvas, rightCanvas, progress, _direction, canvas) {
-		// Canvas 2D fallback: directional crossfade
+	renderCanvas(ctx, leftCanvas, rightCanvas, progress, direction, canvas, properties) {
+		// Canvas2D fallback keeps the directional sweep and adds a bounded color-shift echo.
 		const p = clamp01(progress);
 		const w = canvas?.width ?? leftCanvas.width;
 		const h = canvas?.height ?? leftCanvas.height;
-
+		const dir = direction ?? 'from-left';
+		const spread = getNumericProperty(properties, 'spread', 1.5);
+		const intensity = getNumericProperty(properties, 'intensity', 1);
+		const envelope = Math.sin(p * Math.PI);
+		const offset = Math.max(0, spread * intensity * envelope * 0.8);
+		const [dx, dy] =
+			dir === 'from-left'
+				? [offset, 0]
+				: dir === 'from-right'
+					? [-offset, 0]
+					: dir === 'from-top'
+						? [0, offset]
+						: [0, -offset];
 		ctx.save();
-		ctx.globalAlpha = fadeOpacity(p, false);
+		ctx.drawImage(leftCanvas, 0, 0, w, h);
+		ctx.beginPath();
+		if (dir === 'from-left') ctx.rect(0, 0, w * p, h);
+		else if (dir === 'from-right') ctx.rect(w * (1 - p), 0, w * p, h);
+		else if (dir === 'from-top') ctx.rect(0, 0, w, h * p);
+		else ctx.rect(0, h * (1 - p), w, h * p);
+		ctx.clip();
 		ctx.drawImage(rightCanvas, 0, 0, w, h);
 		ctx.restore();
 
-		ctx.save();
-		ctx.globalAlpha = fadeOpacity(p, true);
-		ctx.drawImage(leftCanvas, 0, 0, w, h);
-		ctx.restore();
+		if (offset > 0) {
+			ctx.save();
+			ctx.globalAlpha = Math.min(0.24, 0.08 * intensity * envelope);
+			ctx.globalCompositeOperation = 'screen';
+			ctx.filter = 'saturate(180%) hue-rotate(35deg)';
+			ctx.drawImage(p < 0.5 ? leftCanvas : rightCanvas, dx, dy, w, h);
+			ctx.restore();
+		}
 	}
 };
 
@@ -847,23 +934,39 @@ const radialBlurDef: TransitionDefinition = {
 
 const liquidDistortRenderer: TransitionRenderer = {
 	gpuTransitionId: 'liquidDistort',
-	renderCanvas(ctx, leftCanvas, rightCanvas, progress, _direction, canvas) {
+	renderCanvas(ctx, leftCanvas, rightCanvas, progress, direction, canvas) {
 		const { p, w, h, envelope } = getCanvasTransitionFrame(leftCanvas, progress, canvas);
 		const offset = Math.sin(p * Math.PI * 2.4) * envelope * 5;
+		const dir = direction ?? 'from-left';
+		const [flowX, flowY] =
+			dir === 'from-left'
+				? [offset, -offset * 0.35]
+				: dir === 'from-right'
+					? [-offset, -offset * 0.35]
+					: dir === 'from-top'
+						? [-offset * 0.35, offset]
+						: [-offset * 0.35, -offset];
 
 		ctx.save();
 		ctx.globalAlpha = fadeOpacity(p, false);
-		ctx.drawImage(rightCanvas, offset, -offset * 0.35, w, h);
+		ctx.drawImage(rightCanvas, flowX, flowY, w, h);
 		ctx.restore();
 
 		ctx.save();
 		ctx.globalAlpha = fadeOpacity(p, true);
-		ctx.drawImage(leftCanvas, -offset * 0.65, offset * 0.25, w, h);
+		ctx.drawImage(leftCanvas, -flowX * 0.65, -flowY * 0.65, w, h);
 		ctx.restore();
 
 		if (envelope <= 0.08) return;
 
-		const gradient = ctx.createLinearGradient(0, 0, w, h);
+		const gradient =
+			dir === 'from-left'
+				? ctx.createLinearGradient(0, 0, w, 0)
+				: dir === 'from-right'
+					? ctx.createLinearGradient(w, 0, 0, 0)
+					: dir === 'from-top'
+						? ctx.createLinearGradient(0, 0, 0, h)
+						: ctx.createLinearGradient(0, h, 0, 0);
 		gradient.addColorStop(0, `rgba(180, 225, 255, ${0.12 * envelope})`);
 		gradient.addColorStop(0.5, `rgba(255, 255, 255, ${0.08 * envelope})`);
 		gradient.addColorStop(1, 'rgba(180, 225, 255, 0)');

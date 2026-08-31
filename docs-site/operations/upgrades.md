@@ -6,9 +6,14 @@ OpenPost uses SemVer. Read the [release notes](https://github.com/getopenpost/op
 
 ```bash
 docker compose pull
+docker compose run --rm openpost ./openpost migrate
 docker compose up -d
 docker compose logs -f openpost
 ```
+
+The default `all` role also applies migrations for one-container self-hosting.
+Running the explicit command first makes the release phase visible and is
+required when `web` and `worker` run as separate processes.
 
 ## Checklist
 
@@ -22,4 +27,4 @@ docker compose logs -f openpost
 
 ## Optional account features after upgrade
 
-Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. New accounts start with each feature off and the setup step shows only supported features. Existing accounts keep their current behavior: previous Inbox opt-ins become Direct messages choices, current Analytics and Engagement behavior remains enabled, Grow becomes enabled only where OpenPost already has stored Grow sync state, and other accounts receive explicit off choices so the prompt does not appear on routine reauthorization.
+Direct messages, Comments and replies, Analytics, and Grow are optional and per connected account. New accounts start with each feature off. Manage supported features in the Account details drawer under **Settings → Workspace → Social accounts**. Existing accounts keep their current behavior: previous Inbox opt-ins become Direct messages choices, current Analytics and Engagement behavior remains enabled, Grow becomes enabled only where OpenPost already has stored Grow sync state, and other accounts receive explicit off choices.

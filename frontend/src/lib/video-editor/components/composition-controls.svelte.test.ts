@@ -80,13 +80,16 @@ test('publishes a source property from an active Motion composition', async () =
 	const onedit = vi.fn();
 	const screen = await render(CompositionControlsAuthoring, { onedit });
 
-	await screen
-		.getByRole('combobox', { name: 'Property to expose' })
-		.selectOptions(JSON.stringify(['title', 'text.text']));
+	await screen.getByRole('button', { name: 'Property to expose' }).click();
+	await screen.getByRole('option', { name: 'Title - Text', exact: true }).click();
 	await screen.getByRole('button', { name: 'Expose property' }).click();
 
 	expect(sequenceStore.compositionById.get('card')?.compositionControls?.controls[0]).toMatchObject(
-		{ name: 'Title', targetItemId: 'title', property: 'text.text' }
+		{
+			name: 'Title',
+			targetItemId: 'title',
+			property: 'text.text'
+		}
 	);
 	expect(onedit).toHaveBeenCalledOnce();
 });
@@ -111,7 +114,10 @@ test('edits and resets one reusable composition instance', async () => {
 		{ width: 1920, height: 1080, fps: 30 }
 	);
 	const onedit = vi.fn();
-	const screen = await render(CompositionControlOverrides, { item: wrapper, onedit });
+	const screen = await render(CompositionControlOverrides, {
+		item: wrapper,
+		onedit
+	});
 	const input = screen.getByRole('textbox', { name: 'Headline' });
 
 	await input.fill('Instance title');
@@ -132,7 +138,9 @@ test('keeps published control authoring inside a phone viewport', async () => {
 		{ width: 1920, height: 1080, fps: 30 }
 	);
 	sequenceStore.switchTo('card');
-	const screen = await render(CompositionControlsAuthoring, { onedit: vi.fn() });
+	const screen = await render(CompositionControlsAuthoring, {
+		onedit: vi.fn()
+	});
 	const section = screen
 		.getByRole('heading', { name: 'Published controls (1)' })
 		.element().parentElement;

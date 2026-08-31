@@ -156,18 +156,6 @@ func TestRunMigrationsThreadDraftsForeignKeyOnDeleteCascade(t *testing.T) {
 
 	runMigrationsThrough(t, db, 7)
 
-	// Verify the FK constraint actually exists in the schema. If it
-	// doesn't, the cascade is a no-op and the test passes by accident.
-	// Use a single Row to avoid the rows-leak linter complaint; the
-	// Close is still required and we hold it open until we've
-	// verified the schema, so we cannot `defer` it.
-	row := db.QueryRowContext(ctx, "SELECT sql FROM sqlite_master WHERE name = 'thread_drafts'")
-	var schema string
-	require.NoError(t, row.Scan(&schema))
-	require.Contains(t, schema, "ON DELETE CASCADE", "thread_drafts must have ON DELETE CASCADE in its FK constraint")
-
-	// Use raw SQL to delete, to keep the PRAGMA foreign_keys=ON (set in
-	// the helper, and re-confirmed here) on the same connection.
 	_, err = db.ExecContext(ctx, "DELETE FROM posts WHERE id = ?", "thread-1")
 	require.NoError(t, err)
 

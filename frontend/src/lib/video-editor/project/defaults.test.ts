@@ -30,6 +30,29 @@ describe('createBlankProject', () => {
 		expect(project.animationPresets).toEqual([]);
 	});
 
+	it('creates a project with explicit canvas settings', () => {
+		const project = createBlankProject('Vertical cut', {
+			width: 1080,
+			height: 1920,
+			fps: 60
+		});
+		expect(project.metadata).toMatchObject({
+			width: 1080,
+			height: 1920,
+			fps: 60
+		});
+	});
+
+	it('rejects invalid canvas settings at the project boundary', () => {
+		expect(() =>
+			createBlankProject('Invalid', {
+				width: 200,
+				height: 1080,
+				fps: 29
+			})
+		).toThrow(RangeError);
+	});
+
 	it('generates unique ids', () => {
 		expect(createBlankProject().id).not.toBe(createBlankProject().id);
 	});
@@ -192,7 +215,7 @@ describe('migrateProjectDocument', () => {
 		];
 
 		const result = migrateProjectDocument(stored);
-		expect(result.appliedMigrations).toEqual([2, 3]);
+		expect(result.appliedMigrations).toEqual([2, 3, 4, 5, 6]);
 		expect(result.project.timeline?.tracks.map((track) => [track.id, track.order])).toEqual([
 			['earlier', 0],
 			['later', 1]

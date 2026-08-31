@@ -540,7 +540,7 @@
 			<button
 				type="button"
 				class="rounded-sm px-1.5 py-1 text-xs font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:outline-none"
-				onclick={() => onNavigate('/activity?tab=drafts')}
+				onclick={() => onNavigate('/publications?tab=drafts')}
 			>
 				{m.sidebar_view_all()}
 			</button>

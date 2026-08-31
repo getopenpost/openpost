@@ -7,9 +7,11 @@ import { isTrackSyncLockActive } from '../utils/track-sync-lock';
 import {
 	isTrackGroup,
 	mediaTracks,
+	normalizeTrackGroups,
 	renumberTrackOrder,
 	trackChildren
 } from '../utils/track-groups';
+import { emptyTrackIdsForRemoval } from '../track-removal';
 import { pruneOrphanedTransitions } from './transitions.svelte';
 
 export type TrackKind = NonNullable<TimelineTrack['kind']>;
@@ -204,6 +206,26 @@ export function removeTrack(id: string): boolean {
 		);
 		pruneOrphanedTransitions();
 		return true;
+	});
+}
+
+export function removeEmptyTracks(contextTrackId: string): string[] {
+	const removingIds = emptyTrackIdsForRemoval(
+		timelineStore.tracks,
+		timelineStore.items,
+		contextTrackId
+	);
+	if (removingIds.length === 0) return [];
+	const removingSet = new Set(removingIds);
+
+	return execute('REMOVE_EMPTY_TRACKS', () => {
+		const remainingTracks = normalizeTrackGroups(
+			timelineStore.tracks.filter((track) => !removingSet.has(track.id))
+		);
+		timelineStore._setTracks(
+			renumberTrackOrder(remainingTracks.toSorted((left, right) => left.order - right.order))
+		);
+		return removingIds;
 	});
 }
 

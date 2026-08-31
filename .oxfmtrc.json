@@ -5,6 +5,7 @@
     ".agents/",
     ".commandcode/",
     ".impeccable/",
+    "**/.svelte-kit/",
     "backend/internal/memes/catalog/",
     "launch-kit/",
     "provider-certification/",

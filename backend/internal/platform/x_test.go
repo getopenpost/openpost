@@ -231,8 +231,11 @@ func TestXGetProfileFallsBackWhenSubscriptionFieldIsUnavailable(t *testing.T) {
 			http.Error(w, `{"detail":"field unavailable"}`, http.StatusBadRequest)
 			return
 		}
+		if !strings.Contains(fields, "profile_image_url") {
+			t.Fatalf("profile request omitted profile_image_url: %q", fields)
+		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"data":{"id":"42","name":"Ada","username":"ada"}}`)
+		_, _ = io.WriteString(w, `{"data":{"id":"42","name":"Ada","username":"ada","profile_image_url":"https://pbs.twimg.com/profile_images/42/avatar_normal.jpg"}}`)
 	}))
 	defer server.Close()
 
@@ -249,6 +252,9 @@ func TestXGetProfileFallsBackWhenSubscriptionFieldIsUnavailable(t *testing.T) {
 	}
 	if profile.ID != "42" || profile.Username != "ada" {
 		t.Fatalf("unexpected profile: %#v", profile)
+	}
+	if profile.AvatarURL != "https://pbs.twimg.com/profile_images/42/avatar_normal.jpg" {
+		t.Fatalf("unexpected profile avatar: %#v", profile)
 	}
 	if profile.CapabilityState[XCapabilityStateSubscriptionType] != XSubscriptionTypeUnknown {
 		t.Fatalf("expected unknown subscription state: %#v", profile.CapabilityState)
@@ -317,5 +323,30 @@ func TestXChunkedUploadStreamsBoundedSegments(t *testing.T) {
 	want := []int{xMediaUploadChunkSize, 37}
 	if !reflect.DeepEqual(appendSizes, want) {
 		t.Fatalf("unexpected APPEND sizes: got %v want %v", appendSizes, want)
+	}
+}
+
+func TestXMediaProcessingFailureIsTerminal(t *testing.T) {
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+
+	err := adapter.waitForMediaProcessing(
+		t.Context(),
+		"access-token|access-secret",
+		"media-1",
+		&xMediaProcessingInfo{
+			State: "failed",
+			Error: &xMediaProcessingError{Message: "unsupported resolution"},
+		},
+	)
+	if err == nil {
+		t.Fatal("expected failed X processing to return an error")
+	}
+	if !strings.Contains(err.Error(), "unsupported resolution") {
+		t.Fatalf("expected provider processing error, got %v", err)
+	}
+	classification, ok := MediaRetryClassificationForError(err)
+	if !ok || classification != MediaRetryTerminal {
+		t.Fatalf("expected terminal media failure, got %q, %v", classification, ok)
 	}
 }

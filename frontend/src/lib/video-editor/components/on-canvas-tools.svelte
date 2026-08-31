@@ -615,7 +615,11 @@
 		const next = draftCrop;
 		if (next) {
 			const property = CROP_EDGE_PROPERTY[edge];
-			if (oncommitvalues(currentFrame, { [property]: next[edge] })) onedit();
+			const sourceDimension =
+				edge === 'left' || edge === 'right'
+					? (item.sourceWidth ?? item.compositionWidth ?? Math.round(width))
+					: (item.sourceHeight ?? item.compositionHeight ?? Math.round(height));
+			if (oncommitvalues(currentFrame, { [property]: next[edge] * sourceDimension })) onedit();
 		}
 		draftCrop = null;
 		oncropdraft(null);
@@ -944,35 +948,35 @@
 
 <div bind:this={root} class="pointer-events-none absolute inset-0 z-20" data-on-canvas-tools>
 	<div
-		class="pointer-events-auto absolute top-2 left-1/2 z-30 flex -translate-x-1/2 gap-0.5 rounded-md border border-white/15 bg-black/80 p-0.5 text-[10px] text-white shadow-lg backdrop-blur"
+		class="pointer-events-auto absolute top-2 left-1/2 z-30 flex max-w-[calc(100%_-_1rem)] -translate-x-1/2 gap-0.5 overflow-x-auto rounded-md border border-white/15 bg-black/80 p-0.5 text-[10px] text-white shadow-lg backdrop-blur"
 		role="toolbar"
 		aria-label={m.video_editor_canvas_tools()}
 	>
 		<button
 			type="button"
 			class:active={activeTool === 'transform'}
-			class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black"
+			class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 			onclick={() => setTool('transform')}>{m.video_editor_canvas_tool_transform()}</button
 		>
 		{#if canCrop}
 			<button
 				type="button"
 				class:active={activeTool === 'crop'}
-				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black"
+				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 				onclick={() => setTool('crop')}>{m.video_editor_canvas_tool_crop()}</button
 			>
 		{/if}
 		<button
 			type="button"
 			class:active={activeTool === 'anchor'}
-			class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black"
+			class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 			onclick={() => setTool('anchor')}>{m.video_editor_canvas_tool_anchor()}</button
 		>
 		{#if canEditText}
 			<button
 				type="button"
 				class:active={activeTool === 'text'}
-				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black"
+				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 				onclick={() => setTool('text')}>{m.video_editor_canvas_tool_text()}</button
 			>
 		{/if}
@@ -980,7 +984,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'motion'}
-				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black"
+				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 				onclick={() => setTool('motion')}>{m.video_editor_canvas_tool_motion()}</button
 			>
 		{/if}
@@ -988,7 +992,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'path'}
-				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black"
+				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.72_0.16_45)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 				onclick={() => setTool('path')}>{m.video_editor_canvas_tool_path()}</button
 			>
 		{/if}
@@ -996,7 +1000,7 @@
 			<button
 				type="button"
 				class:active={activeTool === 'corner-pin'}
-				class="rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white [&.active]:bg-[oklch(0.76_0.13_220)] [&.active]:text-black"
+				class="min-h-11 shrink-0 rounded px-2 py-1 hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white md:min-h-7 [&.active]:bg-[oklch(0.76_0.13_220)] [&.active]:text-black [@media(pointer:coarse)]:min-h-11"
 				onclick={() => setTool('corner-pin')}>{m.video_editor_canvas_tool_corner_pin()}</button
 			>
 		{/if}

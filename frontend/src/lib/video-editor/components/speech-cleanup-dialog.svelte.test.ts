@@ -20,7 +20,15 @@ const videoTrack: TimelineTrack = {
 	order: 0
 };
 
-const captionTrack: TimelineTrack = { ...videoTrack, id: 'captions', name: 'Captions', order: 1 };
+const audioTrack: TimelineTrack = {
+	...videoTrack,
+	id: 'audio-track',
+	name: 'Audio',
+	kind: 'audio',
+	order: 1
+};
+
+const captionTrack: TimelineTrack = { ...videoTrack, id: 'captions', name: 'Captions', order: 2 };
 
 const video: TimelineItem = {
 	id: 'video',
@@ -33,7 +41,16 @@ const video: TimelineItem = {
 	sourceStart: 0,
 	sourceEnd: 180,
 	sourceFps: 30,
-	speed: 1
+	speed: 1,
+	linkedGroupId: 'interview-av'
+};
+
+const audio: TimelineItem = {
+	...video,
+	id: 'audio',
+	trackId: audioTrack.id,
+	type: 'audio',
+	linkedGroupId: 'interview-av'
 };
 
 const captions: TimelineItem = {
@@ -87,7 +104,11 @@ async function scoreFillers(ranges: FillerRangesByMediaId): Promise<FillerRanges
 beforeEach(() => {
 	commandHistory.clearHistory();
 	timelineStore.__resetForTesting();
-	timelineStore.setAll({ tracks: [videoTrack, captionTrack], items: [video, captions], fps: 30 });
+	timelineStore.setAll({
+		tracks: [videoTrack, audioTrack, captionTrack],
+		items: [video, audio, captions],
+		fps: 30
+	});
 });
 
 describe('SpeechCleanupDialog', () => {
@@ -124,8 +145,40 @@ describe('SpeechCleanupDialog', () => {
 		await screen.getByRole('button', { name: 'Remove selected fillers' }).click();
 
 		expect(onapplied).toHaveBeenCalledOnce();
-		expect(timelineStore.items.filter((item) => item.type === 'video')).toHaveLength(2);
+		const videoPieces = timelineStore.items.filter((item) => item.type === 'video');
+		const audioPieces = timelineStore.items.filter((item) => item.type === 'audio');
+		expect(videoPieces).toHaveLength(2);
+		expect(audioPieces).toHaveLength(2);
+		expect(videoPieces.map((item) => [item.from, item.durationInFrames])).toEqual([
+			[0, 29],
+			[29, 137]
+		]);
+		expect(audioPieces.map((item) => [item.from, item.durationInFrames])).toEqual([
+			[0, 29],
+			[29, 137]
+		]);
+		const repairedCaptions = timelineStore.items.find((item) => item.id === captions.id);
+		expect(repairedCaptions).toMatchObject({
+			durationInFrames: 166,
+			cues: [
+				{
+					startFrame: 15,
+					endFrame: 136,
+					text: 'Well let us begin',
+					words: [
+						{ id: 'well', startFrame: 15, endFrame: 25 },
+						{ id: 'let', startFrame: 76, endFrame: 86 },
+						{ id: 'us', startFrame: 88, endFrame: 96 },
+						{ id: 'begin', startFrame: 101, endFrame: 136 }
+					]
+				}
+			]
+		});
 		expect(commandHistory.undoStack).toHaveLength(1);
+		commandHistory.undo();
+		expect(timelineStore.items.filter((item) => item.type === 'video')).toEqual([video]);
+		expect(timelineStore.items.filter((item) => item.type === 'audio')).toEqual([audio]);
+		expect(timelineStore.itemById.get(captions.id)).toEqual(captions);
 		await expect.element(screen.getByRole('dialog')).not.toBeInTheDocument();
 	});
 

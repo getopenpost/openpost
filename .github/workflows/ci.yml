@@ -15,6 +15,8 @@ concurrency:
 
 env:
   BUN_VERSION: "1.3.11"
+  GITLEAKS_VERSION: "8.30.1"
+  GITLEAKS_LINUX_X64_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
 
 jobs:
   plan:
@@ -27,6 +29,7 @@ jobs:
       marketing: ${{ steps.plan.outputs.marketing }}
       documentation: ${{ steps.plan.outputs.documentation }}
       cli: ${{ steps.plan.outputs.cli }}
+      n8n: ${{ steps.plan.outputs.n8n }}
       security: ${{ steps.plan.outputs.security }}
       image: ${{ steps.plan.outputs.image }}
       android: ${{ steps.plan.outputs.android }}
@@ -61,6 +64,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -71,14 +76,28 @@ jobs:
             backend/go.sum
             cli/go.sum
       - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: bun-${{ runner.os }}-
       - run: bash scripts/ci-timing-summary.sh start policy
+      - name: Install the pinned secret scanner
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/gitleaks.tar.gz"
+          curl --fail --location --silent --show-error \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            --output "$archive"
+          printf '%s  %s\n' "$GITLEAKS_LINUX_X64_SHA256" "$archive" | sha256sum --check --status
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          chmod +x "$RUNNER_TEMP/gitleaks"
+          echo "$RUNNER_TEMP" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - name: Check formatting, generated contracts, and repository policy
+        env:
+          OPENPOST_SECRET_SCAN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          OPENPOST_SECRET_SCAN_HEAD: ${{ github.sha }}
         run: bun run format:check && bun run check -- policy
       - if: always()
         run: bash scripts/ci-timing-summary.sh finish policy
@@ -138,7 +157,7 @@ jobs:
           cache-dependency-path: |
             backend/go.sum
             cli/go.sum
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -206,6 +225,109 @@ jobs:
           OPENPOST_GO_TEST_RACE: "1"
         run: bun run test -- backend
 
+  hosted-data-plane:
+    name: Hosted PostgreSQL and object storage
+    needs: plan
+    if: needs.plan.outputs.backend == 'true' || needs.plan.outputs.image == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17.9-alpine@sha256:c7526c0f6c3f30260a563d7bcf8ad778effac59a44f8ffa86678c35418338609
+        env:
+          POSTGRES_DB: openpost
+          POSTGRES_USER: openpost
+          POSTGRES_PASSWORD: openpost-ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U openpost -d openpost"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          sparse-checkout: |
+            /*
+            !/frontend/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - run: bash scripts/ci-timing-summary.sh start hosted-data-plane
+      - name: Start the pinned S3-compatible service
+        run: |
+          docker run --detach --name openpost-minio \
+            --publish 9000:9000 \
+            --env MINIO_ROOT_USER=openpost-ci \
+            --env MINIO_ROOT_PASSWORD=openpost-ci-password \
+            quay.io/minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e \
+            server /data --address :9000
+          for _ in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:9000/minio/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs openpost-minio
+          exit 1
+      - name: Exercise hosted database migrations, queue claims, and object storage
+        working-directory: backend
+        env:
+          OPENPOST_TEST_POSTGRES_URL: postgres://openpost:openpost-ci-password@127.0.0.1:5432/openpost?sslmode=disable
+          OPENPOST_TEST_S3_ENDPOINT: http://127.0.0.1:9000
+          OPENPOST_TEST_S3_REGION: us-east-1
+          OPENPOST_TEST_S3_ACCESS_KEY_ID: openpost-ci
+          OPENPOST_TEST_S3_SECRET_ACCESS_KEY: openpost-ci-password
+          OPENPOST_TEST_S3_BUCKET: openpost-ci-${{ github.run_id }}-${{ github.run_attempt }}
+        shell: bash
+        run: |
+          set -o pipefail
+          go test -tags dev -count=1 -json \
+            ./internal/database \
+            ./internal/database/migrations \
+            ./internal/queue \
+            ./internal/services/apitokens \
+            ./internal/services/billing \
+            ./internal/services/credentialguard \
+            ./internal/services/feedback \
+            ./internal/services/medialifecycle \
+            ./internal/services/mediastore \
+            ./internal/services/providerwrite \
+            ./internal/services/tokenmanager \
+            | tee hosted-data-plane.json
+          if jq -s -e 'any(.[]; .Action == "skip" and .Test != null)' hosted-data-plane.json >/dev/null; then
+            echo "A hosted data-plane test was skipped." >&2
+            jq -r 'select(.Action == "skip" and .Test != null) | .Package + ": " + .Test' hosted-data-plane.json >&2
+            exit 1
+          fi
+          for required_test in \
+            TestRevisionMediaReferencesMigrationPostgres \
+            TestPostgresWorkersClaimDifferentDueJobsWithoutWaiting \
+            TestS3CompatibleStorageIntegration; do
+            jq -e --arg test "$required_test" \
+              'select(.Action == "pass" and .Test == $test)' \
+              hosted-data-plane.json >/dev/null || {
+                echo "Required hosted data-plane test did not pass: $required_test" >&2
+                exit 1
+              }
+          done
+      - if: always()
+        run: |
+          docker logs openpost-minio > backend/minio.log 2>&1 || true
+          bash scripts/ci-timing-summary.sh finish hosted-data-plane
+      - if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: hosted-data-plane-${{ github.sha }}-${{ github.run_attempt }}
+          path: |
+            backend/hosted-data-plane.json
+            backend/minio.log
+          if-no-files-found: ignore
+          retention-days: 14
+
   frontend-build:
     name: Frontend tests and canonical build
     needs: plan
@@ -216,10 +338,10 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.19.0"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -262,10 +384,10 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.19.0"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -276,7 +398,7 @@ jobs:
           VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
           VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-          VITE_OPENPOST_ENVIRONMENT: production
+          VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
           VITE_OPENPOST_REVISION: ${{ github.sha }}
           POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
@@ -307,7 +429,7 @@ jobs:
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.19.0"
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -316,7 +438,7 @@ jobs:
           cache-dependency-path: |
             backend/go.sum
             cli/go.sum
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.bun/install/cache
           key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
@@ -327,7 +449,7 @@ jobs:
           VITE_POSTHOG_PROJECT_TOKEN: ${{ vars.POSTHOG_PROJECT_TOKEN }}
           VITE_POSTHOG_API_HOST: ${{ vars.POSTHOG_BROWSER_HOST }}
           VITE_POSTHOG_UI_HOST: ${{ vars.POSTHOG_UI_HOST }}
-          VITE_OPENPOST_ENVIRONMENT: production
+          VITE_OPENPOST_ENVIRONMENT: ${{ github.event_name == 'push' && 'production' || 'ci' }}
           VITE_OPENPOST_REVISION: ${{ github.sha }}
           POSTHOG_SOURCEMAPS_ENABLED: ${{ github.event_name == 'push' && secrets.POSTHOG_PERSONAL_API_KEY != '' && vars.POSTHOG_PROJECT_ID != '' && '1' || '0' }}
           POSTHOG_PERSONAL_API_KEY: ${{ secrets.POSTHOG_PERSONAL_API_KEY }}
@@ -365,7 +487,7 @@ jobs:
         run: |
           artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "frontend-public-${GITHUB_SHA}-")"
           echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ steps.frontend-artifact.outputs.name }}
           path: backend/cmd/openpost/public
@@ -403,7 +525,7 @@ jobs:
         run: |
           artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "marketing-static-${GITHUB_SHA}-")"
           echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ steps.marketing-artifact.outputs.name }}
           path: marketing-site/dist
@@ -435,7 +557,7 @@ jobs:
         run: |
           artifact_name="$(bun scripts/ci-artifacts.mjs resolve --repository "${GITHUB_REPOSITORY}" --run-id "${GITHUB_RUN_ID}" --prefix "docs-static-${GITHUB_SHA}-")"
           echo "name=${artifact_name}" >> "${GITHUB_OUTPUT}"
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ steps.docs-artifact.outputs.name }}
           path: docs-site/.vitepress/dist
@@ -457,6 +579,46 @@ jobs:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
       - run: bun run check -- frontend-build-cache
+
+  n8n:
+    name: n8n community package
+    needs: plan
+    if: needs.plan.outputs.n8n == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          sparse-checkout: |
+            /*
+            !/frontend/static/image-editor-models/
+          sparse-checkout-cone-mode: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24.19.0"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - name: Require a package version increase for publishable changes
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if [[ "$BASE_SHA" =~ ^0+$ ]]; then
+            echo "Initial repository push has no version base."
+          else
+            bun scripts/n8n-package-release.mjs check-version --base "$BASE_SHA" --head "$GITHUB_SHA"
+          fi
+      - name: Check, test, lint, build, and load the package
+        run: bun run check:n8n
+      - name: Inspect the exact npm payload
+        working-directory: packages/n8n-nodes-openpost
+        run: npm pack --dry-run --ignore-scripts
 
   security:
     name: Security
@@ -512,13 +674,15 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version: ${{ env.BUN_VERSION }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "24.19.0"
-      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+      - uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
         with:
           java-version: "21"
           distribution: temurin
@@ -531,7 +695,7 @@ jobs:
             build-tools;36.0.0
             ndk;27.1.12297006
             cmake;3.22.1
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.bun/install/cache
@@ -545,6 +709,16 @@ jobs:
       - name: Check the standalone mobile app
         working-directory: mobile
         run: bun run check
+      - name: Check the monotonic Android release identity
+        working-directory: mobile
+        run: |
+          latest_tag="$(git for-each-ref --count=1 --sort=-version:refname --format='%(refname:short)' 'refs/tags/v*')"
+          [[ -n "$latest_tag" ]]
+          git show "$latest_tag:mobile/app.json" > previous-release-app.json
+          bun ../scripts/mobile-release.mjs check \
+            --config app.json \
+            --package package.json \
+            --previous-config previous-release-app.json
       - name: Build the native Expo Android candidate
         working-directory: mobile
         run: bun run build:android:candidate
@@ -552,6 +726,12 @@ jobs:
           cp mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk openpost-app-android-unsigned.apk
           unzip -t openpost-app-android-unsigned.apk
           sha256sum openpost-app-android-unsigned.apk > openpost-app-android-unsigned.sha256
+          bun scripts/mobile-release.mjs create \
+            --config mobile/app.json \
+            --package mobile/package.json \
+            --revision "$GITHUB_SHA" \
+            --apk openpost-app-android-unsigned.apk \
+            --output openpost-app-android-candidate.json
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign \
             --ks mobile/android/app/debug.keystore \
             --ks-key-alias androiddebugkey \
@@ -567,6 +747,7 @@ jobs:
           path: |
             openpost-app-android-unsigned.apk
             openpost-app-android-unsigned.sha256
+            openpost-app-android-candidate.json
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -594,7 +775,7 @@ jobs:
             /*
             !/frontend/static/image-editor-models/
           sparse-checkout-cone-mode: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: frontend-public-${{ github.sha }}-${{ github.run_attempt }}
           path: backend/cmd/openpost/public
@@ -604,7 +785,7 @@ jobs:
       - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
       - name: Log in to GHCR
         if: github.event_name == 'push'
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -711,6 +892,7 @@ jobs:
         frontend-quality,
         backend,
         backend-race,
+        hosted-data-plane,
         frontend-build,
         marketing-build,
         docs-build,
@@ -718,6 +900,7 @@ jobs:
         browser-marketing,
         browser-docs,
         cache-contract,
+        n8n,
         security,
         cli,
         android,

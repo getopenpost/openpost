@@ -88,8 +88,8 @@ export class ShapeMaskRasterizer {
 		this.matteContext.translate(geometry.centerX, geometry.centerY);
 		this.matteContext.rotate(((transform.rotation ?? 0) * Math.PI) / 180);
 		this.matteContext.scale(
-			transform.flipHorizontal === true ? -1 : 1,
-			transform.flipVertical === true ? -1 : 1
+			(transform.flipHorizontal === true ? -1 : 1) * (transform.scaleX ?? 1),
+			(transform.flipVertical === true ? -1 : 1) * (transform.scaleY ?? 1)
 		);
 		const pin = resolveCornerPinForSize(mask.cornerPin, localWidth, localHeight);
 		if (pin && hasCornerPin(pin)) {

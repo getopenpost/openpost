@@ -152,7 +152,7 @@
 			{/if}
 			{#if loading && summaries.length === 0}
 				<div class="flex items-center gap-1 px-1 py-2 text-[10px] text-[oklch(0.6_0.012_55)]">
-					<LoaderIcon class="size-3 animate-spin" aria-hidden="true" />
+					<LoaderIcon class="size-3 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 					{m.video_editor_local_models_checking()}
 				</div>
 			{:else}

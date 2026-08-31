@@ -4,6 +4,8 @@ description: Add operator-run text publishing destinations to a self-hosted Open
 
 # Custom connectors
 
+For self-hosted operators installing publishing destinations that OpenPost does not ship with.
+
 Custom connectors add publishing destinations that OpenPost does not ship with. They work only on self-hosted instances.
 
 A connector is a service that you install and operate beside OpenPost. OpenPost calls it through Connector Protocol 1.0 over authenticated HTTP/JSON or a Unix socket. OpenPost never loads connector code into its process.

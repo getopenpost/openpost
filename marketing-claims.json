@@ -8,7 +8,7 @@
     {
       "id": "creator-workflows",
       "source": "marketing-site/src/routes/_components/CreatorStories.svelte",
-      "label": "Illustrative workflows",
+      "label": "Fictional examples",
       "description": "Fictional workflow examples with generated portraits; they are not testimonials or customer identities."
     }
   ]

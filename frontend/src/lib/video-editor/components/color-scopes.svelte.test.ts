@@ -6,6 +6,7 @@ import '../../../routes/layout.css';
 import ColorScopes from './color-scopes.svelte';
 
 beforeEach(() => {
+	localStorage.removeItem('timeline:scopes:stackLayout');
 	scopeSamples.publish(
 		'clip',
 		new ImageData(
@@ -22,6 +23,17 @@ afterEach(async () => {
 });
 
 describe('ColorScopes', () => {
+	it("opens on FreeCut's RGB Parade default and remembers scope changes", async () => {
+		const screen = await render(ColorScopes, { itemId: 'clip' });
+		const picker = screen.getByRole('button', { name: 'Live color scope' });
+		await expect.element(picker).toHaveTextContent('RGB Parade');
+		await picker.click();
+		await screen.getByRole('option', { name: 'Histogram' }).click();
+		await vi.waitFor(() => {
+			expect(localStorage.getItem('timeline:scopes:stackLayout')).toBe('histogram');
+		});
+	});
+
 	it('renders every scope and keeps the grading dock fitted at 320px', async () => {
 		await page.viewport(320, 720);
 		const screen = await render(ColorScopes, { itemId: 'clip' });
@@ -54,6 +66,26 @@ describe('ColorScopes', () => {
 		});
 		expect(section.scrollWidth).toBeLessThanOrEqual(section.clientWidth);
 		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+	});
+
+	it('keeps the source-defined measurement guides visible across scope renderers', async () => {
+		const screen = await render(ColorScopes, { itemId: 'clip' });
+		const picker = screen.getByRole('button', { name: 'Live color scope' });
+
+		await expect.element(screen.getByText('R', { exact: true })).toBeVisible();
+		await expect.element(screen.getByText('G', { exact: true })).toBeVisible();
+		await expect.element(screen.getByText('B', { exact: true })).toBeVisible();
+
+		await picker.click();
+		await screen.getByRole('option', { name: 'Histogram' }).click();
+		await expect.element(screen.getByText('255', { exact: true })).toBeVisible();
+
+		await picker.click();
+		await screen.getByRole('option', { name: 'Vectorscope' }).click();
+		await expect.element(screen.getByText('skin', { exact: true })).toBeVisible();
+		await expect.element(screen.getByText('Mg', { exact: true })).toBeVisible();
+		await expect.element(screen.getByText('Cy', { exact: true })).toBeVisible();
+		await expect.element(screen.getByText('Yl', { exact: true })).toBeVisible();
 	});
 
 	it('exposes the FreeCut channel modes when WebGPU is active', async () => {

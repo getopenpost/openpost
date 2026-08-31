@@ -130,7 +130,7 @@ test("Engagement reaches every older item and keeps filters and selections durin
     });
   });
 
-  await page.goto(`/engagement?workspace=${workspace.id}`);
+  await page.goto(`/inbox/engagement?workspace=${workspace.id}`);
   const engagementMain = page.locator("#main-content");
   await page.getByText("Unread only", { exact: true }).click();
   await expect(page.getByText("Initial engagement failed")).toBeVisible();

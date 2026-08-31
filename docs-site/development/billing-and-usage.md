@@ -11,7 +11,7 @@ Hosted service billing uses saved plan limits and durable usage counters. The ba
 - Hosted password and explicit identity-provider signup require that purchase choice. Password signup carries it through email verification; identity-provider signup validates it before redirecting and rebuilds the stored onboarding return path from the verified claims. Missing, invalid, expired, or mismatched choices fail closed and require a new pricing selection.
 - `POST /api/v1/billing/welcome`: confirms the first Workspace name and exact signed purchase choice. It creates the Organization, Workspace, Owner memberships, and bound checkout attempt in one transaction. An exact retry returns the same attempt; a replay with different Workspace, plan, period, or return path fails closed.
 - `GET /api/v1/billing/checkout/{attempt_id}`: resumes the browser-safe checkout configuration for the authenticated user who created the attempt. It never creates another Workspace or checkout attempt.
-- `GET /api/v1/workspaces/{id}/setup`: projects the current user's applicable setup guidance from the Workspace name, hosted subscription, active destinations, and scheduled or submitted Publications. It stores no separate onboarding state. Organization Owners receive the complete applicable journey; Organization administrators receive authorized billing guidance; Workspace administrators and editors receive only destination and Publication actions they may perform; viewers receive no setup steps or actions; self-hosted deployments receive no Hosted service plan or checkout steps. The home, Accounts, and composer surfaces re-read this projection after refresh and return flows.
+- `GET /api/v1/workspaces/{id}/setup`: projects the current user's applicable setup guidance from the Workspace name, hosted subscription, active destinations, and scheduled or submitted Publications. It stores no separate onboarding state. Organization Owners receive the complete applicable journey; Organization administrators receive authorized billing guidance; Workspace administrators and editors receive only destination and Publication actions they may perform; viewers receive no setup steps or actions; self-hosted deployments receive no Hosted service plan or checkout steps. The composer and Settings surfaces re-read this projection after refresh and return flows.
 - `entitlements.Service`: evaluates plan limits and keeps self-hosted defaults unlimited.
 - `usage_counters`: monthly durable counters keyed by workspace, metric, and UTC month.
 - `billing_customers`: Paddle customer mirrors keyed by organization, with no payment-card data.
@@ -51,7 +51,7 @@ The default per-workspace budget is $5.00 per UTC month. A request that would ma
 - `OPENPOST_X_POST_CREATE_COST_MICROUSD=15000`
 - `OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD=200000`
 
-Review these prices when X changes its pay-per-use catalog. OpenPost exposes confirmed cost estimates and unresolved reserved exposure under **Settings → Plan & usage**. Reserved exposure protects the safety limit after an ambiguous result, but it is not presented as billed cost. X pricing and the X Developer Console remain authoritative.
+Review these prices when X changes its pay-per-use catalog. OpenPost exposes confirmed cost estimates and unresolved reserved exposure under **Settings → Organization → Plan & usage**. Reserved exposure protects the safety limit after an ambiguous result, but it is not presented as billed cost. X pricing and the X Developer Console remain authoritative.
 
 ## Monthly metrics
 
@@ -122,4 +122,4 @@ See Paddle's documentation for [`past_due` subscription recovery](https://develo
 
 Access is granted only for `active` and `trialing` subscriptions. A scheduled cancellation keeps access while Paddle still reports one of those states. `past_due`, paused, and canceled subscriptions do not grant paid-plan access. API handlers consume the local snapshot only.
 
-All Hosted service plans use a card-required 14-day trial. Prices are USD-first: Starter $15 monthly or $150 annually, Founder $25 or $250, Pro $49 or $490, Team $99 or $990, and Agency $199 or $1,990.
+See the [canonical Hosted service pricing](https://openpost.social/pricing) for current plan names, prices, trial terms, and limits.

@@ -11,8 +11,17 @@ import {
   View,
 } from "react-native";
 
-import { BodyText, Button, Card, IconButton, Screen, StatusBadge, useColors } from "@/components/ui";
+import {
+  BodyText,
+  Button,
+  Card,
+  IconButton,
+  Screen,
+  StatusBadge,
+  useColors,
+} from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
+import { calendarWeeks } from "@/lib/calendar";
 import { calendarOccurrence, dayKey, statusColor } from "@/lib/format";
 import { useWorkspaceId } from "@/lib/queries";
 
@@ -74,17 +83,7 @@ export default function CalendarScreen() {
     return map;
   }, [publications.data]);
 
-  const cells = useMemo(() => {
-    const firstWeekday = month.getDay();
-    const daysInMonth = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-    const result: (Date | null)[] = [];
-    for (let i = 0; i < firstWeekday; i += 1) result.push(null);
-    for (let day = 1; day <= daysInMonth; day += 1) {
-      result.push(new Date(month.getFullYear(), month.getMonth(), day));
-    }
-    while (result.length % 7 !== 0) result.push(null);
-    return result;
-  }, [month]);
+  const weeks = useMemo(() => calendarWeeks(month), [month]);
 
   const selectedItems = byDay.get(selectedDay) ?? [];
 
@@ -149,7 +148,11 @@ export default function CalendarScreen() {
                 ? publications.error.message
                 : "Check your connection and try again."}
             </BodyText>
-            <Button title="Try again" variant="tinted" onPress={() => void publications.refetch()} />
+            <Button
+              title="Try again"
+              variant="tinted"
+              onPress={() => void publications.refetch()}
+            />
           </Card>
         ) : null}
 
@@ -166,58 +169,62 @@ export default function CalendarScreen() {
         </View>
 
         <View style={styles.grid}>
-          {cells.map((date, index) => {
-            if (!date) return <View key={`blank-${index}`} style={styles.cell} />;
-            const key = dayKey(date);
-            const items = byDay.get(key) ?? [];
-            const isToday = key === dayKey(today);
-            const isSelected = key === selectedDay;
-            return (
-              <Pressable
-                key={key}
-                accessibilityRole="button"
-                accessibilityLabel={`${date.toLocaleDateString("en", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => setSelectedDay(key)}
-                style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
-              >
-                <View
-                  style={[
-                    styles.dayCircle,
-                    isSelected && { backgroundColor: colors.tint },
-                    !isSelected && isToday && { borderWidth: 1.5, borderColor: colors.tint },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.dayNumber,
-                      { color: colors.text },
-                      isSelected && { color: colors.onTint, fontWeight: "700" },
-                    ]}
+          {weeks.map((week, weekIndex) => (
+            <View key={`week-${weekIndex}`} style={styles.weekRow}>
+              {week.map((date, dayIndex) => {
+                if (!date) {
+                  return <View key={`blank-${weekIndex}-${dayIndex}`} style={styles.cell} />;
+                }
+                const key = dayKey(date);
+                const items = byDay.get(key) ?? [];
+                const isToday = key === dayKey(today);
+                const isSelected = key === selectedDay;
+                return (
+                  <Pressable
+                    key={key}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${date.toLocaleDateString("en", {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                    })}. ${items.length === 0 ? "Nothing planned" : `${items.length} planned`}`}
+                    accessibilityState={{ selected: isSelected }}
+                    onPress={() => setSelectedDay(key)}
+                    style={({ pressed }) => [styles.cell, pressed && { opacity: 0.6 }]}
                   >
-                    {date.getDate()}
-                  </Text>
-                </View>
-                <View style={styles.dots}>
-                  {items.slice(0, 3).map((item) => (
                     <View
-                      key={item.id}
                       style={[
-                        styles.dot,
-                        {
-                          backgroundColor: statusColor(item.status, colors.dark),
-                        },
+                        styles.dayCircle,
+                        isSelected && { backgroundColor: colors.tint },
+                        !isSelected && isToday && { borderWidth: 1.5, borderColor: colors.tint },
                       ]}
-                    />
-                  ))}
-                </View>
-              </Pressable>
-            );
-          })}
+                    >
+                      <Text
+                        style={[
+                          styles.dayNumber,
+                          { color: colors.text },
+                          isSelected && { color: colors.onTint, fontWeight: "700" },
+                        ]}
+                      >
+                        {date.getDate()}
+                      </Text>
+                    </View>
+                    <View style={styles.dots}>
+                      {items.slice(0, 3).map((item) => (
+                        <View
+                          key={item.id}
+                          style={[
+                            styles.dot,
+                            { backgroundColor: statusColor(item.status, colors.dark) },
+                          ]}
+                        />
+                      ))}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
         </View>
 
         <Card style={styles.daySheet}>
@@ -239,7 +246,7 @@ export default function CalendarScreen() {
                 accessibilityRole="button"
                 onPress={() =>
                   router.push({
-                    pathname: "/post/[id]",
+                    pathname: "/publications/[id]",
                     params: { id: item.id },
                   })
                 }
@@ -319,11 +326,13 @@ const styles = StyleSheet.create({
   },
   grid: {
     width: "100%",
+  },
+  weekRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
+    width: "100%",
   },
   cell: {
-    width: `${100 / 7}%`,
+    flex: 1,
     alignItems: "center",
     paddingVertical: 3,
     minHeight: 52,

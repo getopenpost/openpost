@@ -13,6 +13,8 @@ const images = [
   { name: "analytics-dark", width: 960 },
   { name: "media-dark", width: 960 },
   { name: "accounts-dark", width: 960 },
+  { name: "image-editor-dark", width: 1440 },
+  { name: "video-editor-dark", width: 1440 },
 ];
 
 export async function optimizeReadmeImages() {

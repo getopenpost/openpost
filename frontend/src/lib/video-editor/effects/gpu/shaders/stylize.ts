@@ -104,7 +104,15 @@ vec4 grainFragment(vec2 vUv) {
 			step: 0.01
 		},
 		{ name: 'size', label: 'Size', default: 1, min: 0.5, max: 5, step: 0.1 },
-		{ name: 'speed', label: 'Speed', default: 1, min: 0, max: 5, step: 0.1 }
+		{
+			name: 'speed',
+			label: 'Speed',
+			default: 1,
+			min: 0,
+			max: 5,
+			step: 0.1,
+			animatable: false
+		}
 	],
 	uniformValues: (p, _w, _h, time) => ({
 		uAmount: readNumber(p, 'amount', 0.1),
@@ -242,14 +250,25 @@ vec4 glowFragment(vec2 vUv) {
 			max: 1,
 			step: 0.05
 		},
-		{ name: 'rings', label: 'Rings', default: 4, min: 1, max: 32, step: 1 },
+		{
+			name: 'rings',
+			label: 'Rings',
+			default: 4,
+			min: 1,
+			max: 32,
+			step: 1,
+			animatable: false,
+			quality: true
+		},
 		{
 			name: 'samplesPerRing',
 			label: 'Samples/Ring',
 			default: 16,
 			min: 4,
 			max: 64,
-			step: 1
+			step: 1,
+			animatable: false,
+			quality: true
 		}
 	],
 	uniformValues: (p, w, h) => ({
@@ -355,7 +374,8 @@ vec4 scanlinesFragment(vec2 vUv) {
 			default: 0,
 			min: 0,
 			max: 5,
-			step: 0.1
+			step: 0.1,
+			animatable: false
 		}
 	],
 	uniformValues: (p, _w, _h, time) => ({
@@ -425,7 +445,15 @@ vec4 colorGlitchFragment(vec2 vUv) {
 			max: 1,
 			step: 0.01
 		},
-		{ name: 'speed', label: 'Speed', default: 1, min: 0.1, max: 5, step: 0.1 }
+		{
+			name: 'speed',
+			label: 'Speed',
+			default: 1,
+			min: 0.1,
+			max: 5,
+			step: 0.1,
+			animatable: false
+		}
 	],
 	uniformValues: (p, _w, _h, time) => ({
 		uIntensity: readNumber(p, 'intensity', 0.5),
@@ -521,7 +549,15 @@ vec4 blockGlitchFragment(vec2 vUv) {
 			max: 200,
 			step: 1
 		},
-		{ name: 'speed', label: 'Speed', default: 1, min: 0.1, max: 5, step: 0.1 }
+		{
+			name: 'speed',
+			label: 'Speed',
+			default: 1,
+			min: 0.1,
+			max: 5,
+			step: 0.1,
+			animatable: false
+		}
 	],
 	uniformValues: (p, w, h, time) => ({
 		uCoverage: readNumber(p, 'coverage', 0.3),
@@ -1144,7 +1180,15 @@ vec4 vhsFragment(vec2 vUv) {
 			max: 1,
 			step: 0.01
 		},
-		{ name: 'speed', label: 'Speed', default: 1, min: 0, max: 4, step: 0.1 }
+		{
+			name: 'speed',
+			label: 'Speed',
+			default: 1,
+			min: 0,
+			max: 4,
+			step: 0.1,
+			animatable: false
+		}
 	],
 	uniformValues: (p, w, h, time) => ({
 		uBleed: readNumber(p, 'bleed', 0.4),
@@ -1410,7 +1454,16 @@ vec4 pixelSortFragment(vec2 vUv) {
 			max: 1,
 			step: 0.01
 		},
-		{ name: 'length', label: 'Length', default: 60, min: 2, max: 400, step: 1 }
+		{
+			name: 'length',
+			label: 'Length',
+			default: 60,
+			min: 2,
+			max: 400,
+			step: 1,
+			animatable: false,
+			quality: true
+		}
 	],
 	uniformValues: (p, w, h) => {
 		let dirX = 1;

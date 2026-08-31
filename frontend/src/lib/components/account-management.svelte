@@ -13,18 +13,18 @@
 	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import SectionHeader from '$lib/components/section-header.svelte';
+	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import WorkspaceSetupGuide from '$lib/components/workspace-setup-guide.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import { formatAccountHandle, getPlatformName, getPlatformColor } from '$lib/utils';
+	import { formatSocialAccountName, getPlatformName, getPlatformColor } from '$lib/utils';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
-	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
-	import { accountSetupHref } from '$lib/account-management-route';
+	import { continuationHrefForNormalizedConnection } from '$lib/account-management-route';
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import UsersIcon from '@lucide/svelte/icons/users';
 	import { m } from '$lib/paraglide/messages';
@@ -43,7 +43,6 @@
 
 	type ProviderEntry = ProviderInfo;
 	let {
-		mode,
 		workspace,
 		workspaces,
 		links,
@@ -68,7 +67,7 @@
 		return provider.auth_mode === 'preconfigured' && Boolean(provider.installation_id);
 	}
 
-	let embedded = $derived(mode === 'settings');
+	let embedded = true;
 	let selectedWorkspaceId = $derived(workspace?.id ?? '');
 	let canEditWorkspace = $derived(workspace?.can_edit ?? false);
 	let error = $state('');
@@ -148,72 +147,6 @@
 	let accountRemovalAction = $state.raw<AccountRemovalAction | null>(null);
 	const accountSlugPattern = '[a-z0-9][a-z0-9-]{0,62}';
 
-	type Feature = components['schemas']['FeatureStateResponse'];
-	let accountFeatures = $state<Feature[]>([]);
-	let accountFeaturesLoading = $state(false);
-	let undecidedAccountIds = $derived.by(() => {
-		const grouped = new Map<string, Feature[]>();
-		for (const f of accountFeatures) {
-			if (!grouped.has(f.social_account_id)) grouped.set(f.social_account_id, []);
-			grouped.get(f.social_account_id)!.push(f);
-		}
-		const ids: string[] = [];
-		for (const [accountId, feats] of grouped) {
-			const hasUndecided = feats.some((f) => f.supported && !f.stored_exists);
-			if (hasUndecided) ids.push(accountId);
-		}
-		return ids;
-	});
-	let showFeatureReminder = $derived(
-		undecidedAccountIds.length > 0 && !accountsLoading && !accountFeaturesLoading
-	);
-
-	async function loadAccountFeatures(workspaceID: string, accountIds: string[]) {
-		if (!workspaceID || accountIds.length === 0) {
-			accountFeatures = [];
-			return;
-		}
-		accountFeaturesLoading = true;
-		try {
-			const { data, error: err } = await client.GET('/account-features', {
-				params: {
-					query: {
-						workspace_id: workspaceID,
-						account_ids: accountIds.join(',')
-					}
-				}
-			});
-			if (err) {
-				accountFeatures = [];
-				return;
-			}
-			accountFeatures = data ?? [];
-		} catch {
-			accountFeatures = [];
-		} finally {
-			accountFeaturesLoading = false;
-		}
-	}
-
-	function reminderAccountName(): string {
-		if (undecidedAccountIds.length === 1) {
-			const id = undecidedAccountIds[0];
-			const acc = accounts.find((a) => a.id === id);
-			if (acc) return formatAccountHandle(acc.account_username) || getPlatformName(acc.platform);
-			return id.slice(0, 8);
-		}
-		return '';
-	}
-
-	function reminderSetupHref(): string {
-		return accountSetupHref({
-			workspaceID: selectedWorkspaceId,
-			accountIDs: accounts.map((a) => a.id),
-			newAccountIDs: undecidedAccountIds,
-			openFreshComposer: false
-		});
-	}
-
 	function clearToast() {
 		toastMessage = '';
 		toastActionHref = '';
@@ -292,14 +225,6 @@
 			if (err) throw new Error(err.detail || m.accounts_load_failed());
 			if (!isCurrentRequest()) return;
 			accounts = data ?? [];
-			if (accounts.length > 0) {
-				void loadAccountFeatures(
-					workspaceID,
-					accounts.map((a) => a.id)
-				);
-			} else {
-				accountFeatures = [];
-			}
 		} catch (e) {
 			if (!isCurrentRequest()) return;
 			console.error('Failed to load accounts:', e);
@@ -443,8 +368,8 @@
 	}
 
 	function accountDisplayName(account: SocialAccount): string {
-		const handle = formatAccountHandle(account.account_username);
-		if (handle) return handle;
+		const displayName = formatSocialAccountName(account.account_username, account.platform);
+		if (displayName) return displayName;
 		if (account.instance_url) return account.instance_url.replace('https://', '');
 		return account.account_id || account.platform;
 	}
@@ -469,6 +394,11 @@
 		} catch {
 			return account.instance_url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 		}
+	}
+
+	function accountKindLabel(account: SocialAccount): string {
+		const label = account.account_kind?.replaceAll('_', ' ').trim() ?? '';
+		return label ? label[0].toUpperCase() + label.slice(1) : '';
 	}
 
 	async function openEditAccount(account: SocialAccount) {
@@ -567,8 +497,7 @@
 				params: {
 					path: { platform: 'x' },
 					query: {
-						workspace_id: selectedWorkspaceId,
-						account_management_mode: mode
+						workspace_id: selectedWorkspaceId
 					}
 				}
 			});
@@ -606,8 +535,7 @@
 				query: {
 					workspace_id: selectedWorkspaceId,
 					server_name: options.serverName,
-					instance_url: options.instanceURL,
-					account_management_mode: mode
+					instance_url: options.instanceURL
 				}
 			}
 		});
@@ -664,26 +592,17 @@
 				body: {
 					workspace_id: selectedWorkspaceId,
 					handle: blueskyHandle.trim(),
-					app_password: blueskyAppPassword.trim(),
-					account_management_mode: mode
+					app_password: blueskyAppPassword.trim()
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_login_failed());
 			blueskyModalOpen = false;
-			if (data?.feature_setup_required && data.new_account_ids?.length) {
-				if (browser) {
-					try {
-						localStorage.setItem('oauth_account_management_mode', mode);
-					} catch {
-						// Storage may be unavailable in hardened browser contexts; navigation still succeeds.
-					}
-				}
+			if (data?.open_fresh_composer) {
 				await goto(
 					resolveAppPath(
-						accountSetupHref({
+						continuationHrefForNormalizedConnection({
 							workspaceID: data.workspace_id,
 							accountIDs: data.account_ids ?? [],
-							newAccountIDs: data.new_account_ids ?? [],
 							openFreshComposer: data.open_fresh_composer
 						})
 					)
@@ -725,26 +644,17 @@
 			const { data, error: err } = await client.POST('/accounts/discord/webhook', {
 				body: {
 					workspace_id: selectedWorkspaceId,
-					webhook_url: discordWebhookUrl.trim(),
-					account_management_mode: mode
+					webhook_url: discordWebhookUrl.trim()
 				}
 			});
 			if (err) throw new Error(err.detail || m.accounts_connect_failed());
 			discordModalOpen = false;
-			if (data?.feature_setup_required && data.new_account_ids?.length) {
-				if (browser) {
-					try {
-						localStorage.setItem('oauth_account_management_mode', mode);
-					} catch {
-						// Storage may be unavailable in hardened browser contexts; navigation still succeeds.
-					}
-				}
+			if (data?.open_fresh_composer) {
 				await goto(
 					resolveAppPath(
-						accountSetupHref({
+						continuationHrefForNormalizedConnection({
 							workspaceID: data.workspace_id,
 							accountIDs: data.account_ids ?? [],
-							newAccountIDs: data.new_account_ids ?? [],
 							openFreshComposer: data.open_fresh_composer
 						})
 					)
@@ -775,8 +685,7 @@
 				params: {
 					path: { platform },
 					query: {
-						workspace_id: selectedWorkspaceId,
-						account_management_mode: mode
+						workspace_id: selectedWorkspaceId
 					}
 				}
 			});
@@ -1036,8 +945,7 @@
 		const query = {
 			workspace_id: selectedWorkspaceId,
 			server_name: options.serverName,
-			instance_url: options.instanceURL,
-			account_management_mode: mode
+			instance_url: options.instanceURL
 		};
 
 		try {
@@ -1238,41 +1146,6 @@
 					/>
 				{/if}
 
-				{#if showFeatureReminder}
-					<div
-						data-testid="account-setup-reminder"
-						class="mb-6 rounded-lg border bg-amber-500/5 p-3 sm:p-4"
-					>
-						<div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-							<div class="space-y-1">
-								<p class="text-sm font-medium">
-									{m.account_features_reminder_title()}
-								</p>
-								<p class="text-xs leading-5 text-muted-foreground">
-									{#if undecidedAccountIds.length === 1}
-										{m.account_features_reminder_body({
-											account: reminderAccountName()
-										})}
-									{:else}
-										{m.account_features_reminder_body_plural({
-											count: undecidedAccountIds.length
-										})}
-									{/if}
-								</p>
-							</div>
-							<div class="flex gap-2">
-								<Button
-									href={resolveAppPath(reminderSetupHref())}
-									size="sm"
-									class="min-h-11 sm:min-h-9"
-								>
-									{m.account_features_reminder_action()}
-								</Button>
-							</div>
-						</div>
-					</div>
-				{/if}
-
 				<!-- Connected Accounts -->
 				<div class="mb-10">
 					<SectionHeader
@@ -1331,18 +1204,17 @@
 									class="flex min-h-28 flex-col justify-between gap-3 bg-background p-4"
 								>
 									<div class="flex items-start gap-3">
-										<div
-											class="flex size-10 shrink-0 items-center justify-center rounded-lg {getPlatformColor(
-												account.platform
-											)}"
-										>
-											<PlatformIcon platform={account.platform} class="size-5 text-white" />
-										</div>
-										<div class="min-w-0 flex-1">
-											<div class="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-												<h3 class="line-clamp-2 min-w-0 text-sm font-semibold break-words">
-													{accountPlatformName(account)}
-												</h3>
+										<div class="flex min-w-0 flex-1 flex-wrap items-start gap-x-2 gap-y-1">
+											<h3 class="min-w-0 flex-1">
+												<SocialAccountIdentity
+													name={accountDisplayName(account)}
+													platform={account.platform}
+													platformLabel={accountPlatformName(account)}
+													avatarUrl={account.account_avatar_url}
+													size="lg"
+												/>
+											</h3>
+											<div class="flex shrink-0 items-center gap-2 pt-0.5">
 												{#if isConnectorAccount(account)}
 													<Badge
 														class="shrink-0 rounded-full border-border bg-muted text-[11px] whitespace-nowrap text-muted-foreground shadow-none"
@@ -1357,9 +1229,6 @@
 													></span>
 												{/if}
 											</div>
-											<p class="mt-1 truncate text-sm text-muted-foreground">
-												{accountDisplayName(account)}
-											</p>
 										</div>
 										{#if canEditWorkspace}<DropdownMenu.Root>
 												<DropdownMenu.Trigger>
@@ -1880,26 +1749,15 @@
 					data-testid="account-settings-scroll"
 				>
 					<div class="flex items-center gap-3 rounded-lg border bg-muted/20 p-3">
-						<div
-							class="flex size-10 shrink-0 items-center justify-center rounded-lg {getPlatformColor(
-								editingAccount.platform
-							)}"
-						>
-							<PlatformIcon platform={editingAccount.platform} class="size-5 text-white" />
-						</div>
 						<div class="min-w-0 flex-1">
-							<div class="truncate text-sm font-semibold">
-								{accountDisplayName(editingAccount)}
-							</div>
-							<div class="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-								<span>{getPlatformName(editingAccount.platform)}</span>
-								{#if editingAccount.account_kind}
-									<span aria-hidden="true">·</span>
-									<span class="capitalize">
-										{editingAccount.account_kind.replaceAll('_', ' ')}
-									</span>
-								{/if}
-							</div>
+							<SocialAccountIdentity
+								name={accountDisplayName(editingAccount)}
+								platform={editingAccount.platform}
+								platformLabel={accountPlatformName(editingAccount)}
+								avatarUrl={editingAccount.account_avatar_url}
+								detail={accountKindLabel(editingAccount)}
+								size="lg"
+							/>
 							{#if accountServer(editingAccount)}
 								<div class="truncate text-xs text-muted-foreground">
 									{m.accounts_server()}: {accountServer(editingAccount)}

@@ -41,7 +41,7 @@ The SvelteKit interface is embedded in the Go binary. A standalone Expo mobile a
 
 The product is named OpenPost. Use the Converge mark from `assets/brand/` and its synchronized copies in the frontend, marketing, documentation, application icons, and social assets. The symbol has four equal modules around one centered opening; preserve its four-fold symmetry, clear axis gaps, and rounded outer corners at every size. The voice is direct, calm, and factual: focused, efficient, and clean without sounding cold. Prefer precise product terms and visible caveats over hype, stock metaphors, or broad claims.
 
-The established identity uses Workshop Orange (`#B74C05`) as its product signal, Carbon Ink (`#302B28`) for primary type, warm-tinted neutrals, a Manrope Semibold wordmark, Geist interface type, and equally supported light and dark modes. “Publish clearly.” is the approved short brand line; omit it when a surface does not need a slogan. Future work should preserve this identity unless the user explicitly requests a redesign.
+The established identity uses Workshop Orange (`#B74C05`) as its product signal, Carbon Ink (`#302B28`) for primary type, warm-tinted neutrals, a Manrope Semibold wordmark, Geist interface type, and equally supported light and dark modes. “Your socials, on steroids.” is the approved brand headline; omit it when a surface does not need a slogan. Future work should preserve this identity unless the user explicitly requests a redesign.
 
 ## Evidence on Hand
 

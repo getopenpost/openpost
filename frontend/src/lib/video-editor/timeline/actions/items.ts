@@ -6,7 +6,13 @@
  * aligned with linked selection, transitions, and sync-lock ripple rules.
  */
 
-import type { ShapeType, TimelineItem } from '$lib/video-editor/project/types';
+import type {
+	EasingType,
+	ShapeType,
+	SpeedRampPoint,
+	TextStylePresetId,
+	TimelineItem
+} from '$lib/video-editor/project/types';
 import { timelineStore } from '../stores/timeline-store.svelte';
 import { detachTransformChildrenForRemoval } from './transform-parenting';
 import { editorSession } from '../../editor.svelte';
@@ -30,11 +36,27 @@ import { effectiveMediaTracks } from '../utils/track-groups';
 import { sequenceStore } from '../../sequences/sequence-store.svelte';
 import { scaleItemKeyframes } from '../edit-constraints';
 import { scaleItemVectorKeyframes } from '../vector-keyframes';
+import { buildTrackGapClosePlan, type TrackGapClosePlan } from '../gap-closing';
 import {
 	clampSpeed,
 	sourceToTimelineFrames,
 	timelineToSourceFrames
 } from '../utils/source-calculations';
+import { DEFAULT_MARKER_COLOR } from '../markers';
+import { ensureOpenTrackForRange } from './track-placement';
+import {
+	findForwardOpenTrackShift,
+	updatesIntroduceExclusiveTrackOverlap
+} from '../track-occupancy';
+import {
+	buildTextStylePresetTemplate,
+	type TextStylePresetCopy
+} from '../../typography/text-style-presets';
+import {
+	shiftSpeedRampSourceFrames,
+	timelineOffsetToSourceFrame,
+	variableSpeedDurationInFrames
+} from '../source-time-map';
 
 export function addItems(newItems: TimelineItem[]): void {
 	execute('ADD_ITEMS', () => {
@@ -44,17 +66,28 @@ export function addItems(newItems: TimelineItem[]): void {
 
 export function addTextItem(label: string): string {
 	return execute('ADD_TEXT_ITEM', () => {
-		const topVisualTrack = effectiveMediaTracks(timelineStore.tracks)
-			.filter((track) => track.kind !== 'audio' && !track.locked)
-			.toSorted((left, right) => left.order - right.order)[0];
-		if (!topVisualTrack) throw new Error('An unlocked visual track is required to add text.');
-
+		if (
+			!effectiveMediaTracks(timelineStore.tracks).some(
+				(track) => track.kind !== 'audio' && !track.locked
+			)
+		) {
+			throw new Error('An unlocked visual track is required to add text.');
+		}
+		const from = timelineStore.currentFrame;
+		const durationInFrames = timelineStore.fps * 3;
+		const targetTrack = ensureOpenTrackForRange({
+			kind: 'video',
+			itemType: 'text',
+			from,
+			durationInFrames,
+			label
+		});
 		const id = crypto.randomUUID();
 		timelineStore._addItem({
 			id,
-			trackId: topVisualTrack.id,
-			from: timelineStore.currentFrame,
-			durationInFrames: timelineStore.fps * 3,
+			trackId: targetTrack.id,
+			from,
+			durationInFrames,
 			label,
 			text: label,
 			type: 'text'
@@ -63,20 +96,82 @@ export function addTextItem(label: string): string {
 	});
 }
 
-export function addTextItemAtFrame(label: string, frame: number): string {
+export function addTextItemAtFrame(
+	label: string,
+	frame: number,
+	preferredTrackId?: string
+): string {
 	return execute('ADD_TEXT_ITEM', () => {
-		const topVisualTrack = effectiveMediaTracks(timelineStore.tracks)
-			.filter((track) => track.kind !== 'audio' && !track.locked)
-			.toSorted((left, right) => left.order - right.order)[0];
-		if (!topVisualTrack) throw new Error('An unlocked visual track is required to add text.');
+		if (
+			!effectiveMediaTracks(timelineStore.tracks).some(
+				(track) => track.kind !== 'audio' && !track.locked
+			)
+		) {
+			throw new Error('An unlocked visual track is required to add text.');
+		}
+		const durationInFrames = timelineStore.fps * 3;
+		const targetTrack = ensureOpenTrackForRange({
+			kind: 'video',
+			itemType: 'text',
+			from: frame,
+			durationInFrames,
+			label,
+			preferredTrackId
+		});
 		const id = crypto.randomUUID();
 		timelineStore._addItem({
 			id,
-			trackId: topVisualTrack.id,
+			trackId: targetTrack.id,
 			from: frame,
-			durationInFrames: timelineStore.fps * 3,
+			durationInFrames,
 			label,
 			text: label,
+			type: 'text'
+		});
+		return id;
+	});
+}
+
+export function addTextTemplateItem(
+	presetId: TextStylePresetId,
+	copy: TextStylePresetCopy,
+	placement: { frame?: number; preferredTrackId?: string } = {}
+): string {
+	return execute('ADD_TEXT_ITEM', () => {
+		if (
+			!effectiveMediaTracks(timelineStore.tracks).some(
+				(track) => track.kind !== 'audio' && !track.locked
+			)
+		) {
+			throw new Error('An unlocked visual track is required to add text.');
+		}
+		const from = placement.frame ?? timelineStore.currentFrame;
+		const durationInFrames = timelineStore.fps * 3;
+		const targetTrack = ensureOpenTrackForRange({
+			kind: 'video',
+			itemType: 'text',
+			from,
+			durationInFrames,
+			label: copy.label,
+			preferredTrackId: placement.preferredTrackId
+		});
+		const projectWidth = editorSession.project?.metadata.width ?? 1920;
+		const projectHeight = editorSession.project?.metadata.height ?? 1080;
+		const template = buildTextStylePresetTemplate(
+			presetId,
+			{ width: projectWidth, height: projectHeight },
+			1,
+			copy
+		);
+		const id = crypto.randomUUID();
+		timelineStore._addItem({
+			...template,
+			id,
+			trackId: targetTrack.id,
+			from,
+			durationInFrames,
+			label: template.label ?? copy.label,
+			text: template.text ?? copy.sample.title,
 			type: 'text'
 		});
 		return id;
@@ -103,14 +198,7 @@ export function addTransformController(label: string): string {
 			durationInFrames: Math.max(timelineStore.fps, timelineStore.maxItemEndFrame),
 			label,
 			type: 'controller',
-			transform: {
-				x: 0,
-				y: 0,
-				width: size,
-				height: size,
-				rotation: 0,
-				opacity: 1
-			}
+			transform: { x: 0, y: 0, width: size, height: size, rotation: 0, opacity: 1 }
 		});
 		return id;
 	});
@@ -127,27 +215,57 @@ const SHAPE_LABELS = {
 	path: 'Path'
 } satisfies Record<ShapeType, string>;
 
-/** Add a styled three-second shape on the top unlocked visual track. */
-export function addShapeItem(shapeType: ShapeType, label = SHAPE_LABELS[shapeType]): string {
-	return execute('ADD_SHAPE_ITEM', () => {
-		const topVisualTrack = effectiveMediaTracks(timelineStore.tracks)
-			.filter((track) => track.kind !== 'audio' && !track.locked)
-			.toSorted((left, right) => left.order - right.order)[0];
-		if (!topVisualTrack) throw new Error('An unlocked visual track is required to add a shape.');
+export interface AddShapeItemStyle {
+	fillType?: TimelineItem['fillType'];
+	fillColor?: string;
+	gradientStartColor?: string;
+	gradientEndColor?: string;
+	gradientAngle?: number;
+	sizeMode?: 'default' | 'canvas';
+}
 
+/** Add a styled three-second shape on the top unlocked visual track. */
+export function addShapeItem(
+	shapeType: ShapeType,
+	label = SHAPE_LABELS[shapeType],
+	style: AddShapeItemStyle = {},
+	placement: { frame?: number; preferredTrackId?: string } = {}
+): string {
+	return execute('ADD_SHAPE_ITEM', () => {
+		if (
+			!effectiveMediaTracks(timelineStore.tracks).some(
+				(track) => track.kind !== 'audio' && !track.locked
+			)
+		) {
+			throw new Error('An unlocked visual track is required to add a shape.');
+		}
 		const projectWidth = editorSession.project?.metadata.width ?? 1920;
 		const projectHeight = editorSession.project?.metadata.height ?? 1080;
 		const size = Math.max(80, Math.round(Math.min(projectWidth, projectHeight) * 0.28));
+		const from = placement.frame ?? timelineStore.currentFrame;
+		const durationInFrames = timelineStore.fps * 3;
+		const targetTrack = ensureOpenTrackForRange({
+			kind: 'video',
+			itemType: 'shape',
+			from,
+			durationInFrames,
+			label,
+			preferredTrackId: placement.preferredTrackId
+		});
 		const id = crypto.randomUUID();
 		timelineStore._addItem({
 			id,
-			trackId: topVisualTrack.id,
-			from: timelineStore.currentFrame,
-			durationInFrames: timelineStore.fps * 3,
+			trackId: targetTrack.id,
+			from,
+			durationInFrames,
 			label,
 			type: 'shape',
 			shapeType,
-			fillColor: '#f97316',
+			fillType: style.fillType,
+			fillColor: style.fillColor ?? '#f97316',
+			gradientStartColor: style.gradientStartColor,
+			gradientEndColor: style.gradientEndColor,
+			gradientAngle: style.gradientAngle,
 			fillEnabled: shapeType !== 'path',
 			strokeColor: '#ffffff',
 			strokeEnabled: shapeType === 'path',
@@ -156,12 +274,12 @@ export function addShapeItem(shapeType: ShapeType, label = SHAPE_LABELS[shapeTyp
 			shapeInnerRadius: shapeType === 'star' ? 0.5 : undefined,
 			transform: {
 				width:
-					shapeType === 'path'
+					style.sizeMode === 'canvas' || shapeType === 'path'
 						? projectWidth
 						: shapeType === 'rectangle' || shapeType === 'ellipse'
 							? Math.round(size * 1.35)
 							: size,
-				height: shapeType === 'path' ? projectHeight : size,
+				height: style.sizeMode === 'canvas' || shapeType === 'path' ? projectHeight : size,
 				aspectRatioLocked:
 					shapeType !== 'path' && shapeType !== 'rectangle' && shapeType !== 'ellipse'
 			}
@@ -170,15 +288,22 @@ export function addShapeItem(shapeType: ShapeType, label = SHAPE_LABELS[shapeTyp
 	});
 }
 
-/** Add a three-second adjustment layer on the top visual track at the playhead. */
-export function addAdjustmentLayer(label: string): string {
+export interface AddAdjustmentLayerOptions {
+	frame?: number;
+	preferredTrackId?: string;
+}
+
+/** Add a three-second adjustment layer at the requested timeline position. */
+export function addAdjustmentLayer(label: string, options: AddAdjustmentLayerOptions = {}): string {
 	return execute('ADD_ADJUSTMENT_LAYER', () => {
-		let topVisualTrack = effectiveMediaTracks(timelineStore.tracks)
+		const visualTracks = effectiveMediaTracks(timelineStore.tracks)
 			.filter((track) => track.kind !== 'audio' && !track.locked)
-			.toSorted((left, right) => left.order - right.order)[0];
+			.toSorted((left, right) => left.order - right.order);
+		let topVisualTrack =
+			visualTracks.find((track) => track.id === options.preferredTrackId) ?? visualTracks[0];
 		if (!topVisualTrack) throw new Error('An unlocked visual track is required.');
 
-		const from = timelineStore.currentFrame;
+		const from = Math.max(0, Math.round(options.frame ?? timelineStore.currentFrame));
 		const durationInFrames = timelineStore.fps * 3;
 		const end = from + durationInFrames;
 		const topTrackOccupied = (timelineStore.itemsByTrackId.get(topVisualTrack.id) ?? []).some(
@@ -233,6 +358,23 @@ export function removeItems(
 		pruneOrphanedTransitions();
 		return deletableIds;
 	});
+}
+
+/**
+ * Remove confirmed project-media references even when their timeline tracks are locked.
+ * The media deletion workflow owns durability and deliberately keeps this irreversible edit
+ * out of command history.
+ */
+export function removeItemsForMediaDeletion(ids: readonly string[]): string[] {
+	const requested = new Set(ids);
+	const existingIds = timelineStore.items
+		.filter((item) => requested.has(item.id))
+		.map((item) => item.id);
+	if (existingIds.length === 0) return [];
+	detachTransformChildrenForRemoval(existingIds);
+	timelineStore._removeItems(existingIds);
+	pruneOrphanedTransitions();
+	return existingIds;
 }
 
 export function moveItems(updates: Array<{ id: string; from: number; trackId?: string }>): void {
@@ -377,6 +519,11 @@ export function duplicateItems(ids: string[]): string[] {
 				from: item.from + item.durationInFrames
 			});
 		}
+		const shift = findForwardOpenTrackShift(duplicates, timelineStore.items);
+		if (shift === null) return [];
+		if (shift > 0) {
+			for (const duplicate of duplicates) duplicate.from += shift;
+		}
 		if (duplicates.length > 0) {
 			timelineStore._setItems([...timelineStore.items, ...duplicates]);
 		}
@@ -416,6 +563,21 @@ export function unlinkItems(ids: string[]): boolean {
 	return true;
 }
 
+function splitBlockedItemIds(): Set<string> {
+	const trackById = new Map(
+		effectiveMediaTracks(timelineStore.tracks).map((track) => [track.id, track])
+	);
+	const blocked = new Set(
+		timelineStore.items.filter((item) => trackById.get(item.trackId)?.locked).map((item) => item.id)
+	);
+	for (const item of timelineStore.items) {
+		if (item.captionSource?.type === 'transcript' && trackById.get(item.trackId)?.locked) {
+			blocked.add(item.captionSource.clipId);
+		}
+	}
+	return blocked;
+}
+
 /**
  * Split every item crossing `frame` on the given track (or all tracks when
  * undefined). One undo step; keeps selection semantics simple by returning
@@ -425,12 +587,20 @@ export function splitAtFrame(frame: number, trackId?: string): { left: string[];
 	return execute('SPLIT_ITEMS', () => {
 		const left: string[] = [];
 		const right: string[] = [];
-		const targets = timelineStore.items.filter(
-			(item) =>
-				(!trackId || item.trackId === trackId) &&
-				frame > item.from &&
-				frame < item.from + item.durationInFrames
-		);
+		const blockedIds = splitBlockedItemIds();
+		const targets = timelineStore.items
+			.filter(
+				(item) =>
+					(!trackId || item.trackId === trackId) &&
+					!blockedIds.has(item.id) &&
+					frame > item.from &&
+					frame < item.from + item.durationInFrames
+			)
+			.toSorted(
+				(left, right) =>
+					Number(left.captionSource?.type === 'transcript') -
+					Number(right.captionSource?.type === 'transcript')
+			);
 		for (const item of targets) {
 			const result = timelineStore._splitItem(item.id, frame);
 			if (result) {
@@ -450,9 +620,20 @@ export function splitItemsAtFrame(
 		const left: string[] = [];
 		const right: string[] = [];
 		const idSet = new Set(itemIds);
-		const targets = timelineStore.items.filter(
-			(item) => idSet.has(item.id) && frame > item.from && frame < item.from + item.durationInFrames
-		);
+		const blockedIds = splitBlockedItemIds();
+		const targets = timelineStore.items
+			.filter(
+				(item) =>
+					idSet.has(item.id) &&
+					!blockedIds.has(item.id) &&
+					frame > item.from &&
+					frame < item.from + item.durationInFrames
+			)
+			.toSorted(
+				(left, right) =>
+					Number(left.captionSource?.type === 'transcript') -
+					Number(right.captionSource?.type === 'transcript')
+			);
 		for (const item of targets) {
 			const result = timelineStore._splitItem(item.id, frame);
 			if (result) {
@@ -472,6 +653,8 @@ export function splitItemsAtFrame(
  */
 export function splitAtScenes(id: string, frames: number[]): number {
 	return execute('SPLIT_AT_SCENES', () => {
+		const source = timelineStore.itemById.get(id);
+		if (!source || splitBlockedItemIds().has(source.id)) return 0;
 		let count = 0;
 		for (const frame of [...frames].sort((a, b) => b - a)) {
 			if (timelineStore._splitItem(id, frame)) count++;
@@ -487,10 +670,7 @@ export function trimItemStart(id: string, newFrom: number, newSourceStart?: numb
 		const delta = newFrom - item.from;
 		const nextDuration = item.durationInFrames - delta;
 		if (nextDuration <= 0 || delta < 0) return false;
-		const patch: Partial<TimelineItem> = {
-			from: newFrom,
-			durationInFrames: nextDuration
-		};
+		const patch: Partial<TimelineItem> = { from: newFrom, durationInFrames: nextDuration };
 		if ((item.type === 'video' || item.type === 'audio') && newSourceStart !== undefined) {
 			patch.sourceStart = newSourceStart;
 		}
@@ -500,16 +680,18 @@ export function trimItemStart(id: string, newFrom: number, newSourceStart?: numb
 }
 
 export function trimItemEnd(id: string, newEnd: number, newSourceEnd?: number): boolean {
+	const item = timelineStore.itemById.get(id);
+	if (!item) return false;
+	const nextDuration = newEnd - item.from;
+	if (nextDuration <= 0 || newEnd < item.from + 1) return false;
+	const patch: Partial<TimelineItem> = { durationInFrames: nextDuration };
+	if ((item.type === 'video' || item.type === 'audio') && newSourceEnd !== undefined) {
+		patch.sourceEnd = newSourceEnd;
+	}
+	const updates = [{ id, patch }];
+	if (updatesIntroduceExclusiveTrackOverlap(timelineStore.items, updates)) return false;
 	return execute('TRIM_ITEM_END', () => {
-		const item = timelineStore.itemById.get(id);
-		if (!item) return false;
-		const nextDuration = newEnd - item.from;
-		if (nextDuration <= 0 || newEnd < item.from + 1) return false;
-		const patch: Partial<TimelineItem> = { durationInFrames: nextDuration };
-		if ((item.type === 'video' || item.type === 'audio') && newSourceEnd !== undefined) {
-			patch.sourceEnd = newSourceEnd;
-		}
-		timelineStore._updateItems([{ id, patch }]);
+		timelineStore._updateItems(updates);
 		return true;
 	});
 }
@@ -597,29 +779,103 @@ export function rippleDeleteItems(
 	});
 }
 
-/** Close one gap between neighbors on a track by sliding the right side left. */
-export function closeGapAtPosition(trackId: string, position: number): void {
-	execute('CLOSE_GAP', () => {
-		const trackItems = (timelineStore.itemsByTrackId.get(trackId) ?? [])
-			.slice()
-			.sort((a, b) => a.from - b.from);
-		const leftEnd = Math.max(
-			...trackItems
-				.filter((i) => i.from + i.durationInFrames <= position)
-				.map((i) => i.from + i.durationInFrames),
-			0
-		);
-		const updates: Array<{ id: string; from: number }> = [];
-		for (const item of trackItems) {
-			if (item.from >= position) {
-				updates.push({
-					id: item.id,
-					from: Math.max(item.from - (position - leftEnd), leftEnd)
+interface ResolvedTrackGapClosePlan extends TrackGapClosePlan {
+	updates: Array<{ id: string; from: number }>;
+}
+
+function resolveTrackGapClosePlan(
+	trackId: string,
+	frame: number | undefined
+): ResolvedTrackGapClosePlan | null {
+	const effectiveTracks = effectiveMediaTracks(timelineStore.tracks);
+	const targetTrack = effectiveTracks.find((track) => track.id === trackId);
+	if (!targetTrack || targetTrack.locked) return null;
+	const plan = buildTrackGapClosePlan(timelineStore.items, trackId, frame);
+	if (!plan) return null;
+	const updatesById = new Map(plan.updates.map((update) => [update.id, update]));
+	const linkedUpdateIds = new Set<string>();
+
+	if (timelineStore.linkedSelectionEnabled) {
+		const effectiveTracksById = new Map(effectiveTracks.map((track) => [track.id, track]));
+		for (const update of plan.updates) {
+			const anchor = timelineStore.itemById.get(update.id);
+			if (!anchor) continue;
+			const shift = anchor.from - update.from;
+			for (const companion of getSynchronizedLinkedItems(timelineStore.items, anchor.id)) {
+				if (companion.id === anchor.id || companion.trackId === trackId) continue;
+				const companionTrack = effectiveTracksById.get(companion.trackId);
+				if (companionTrack?.locked) return null;
+				if (isTrackSyncLockEnabled(companionTrack)) continue;
+				updatesById.set(companion.id, {
+					id: companion.id,
+					from: Math.max(0, companion.from - shift)
 				});
+				linkedUpdateIds.add(companion.id);
 			}
 		}
-		timelineStore._moveItems(updates);
-	});
+	}
+
+	const updates = [...updatesById.values()];
+	const nextFromById = new Map(updates.map((update) => [update.id, update.from]));
+	for (const movedId of linkedUpdateIds) {
+		const moved = timelineStore.itemById.get(movedId);
+		if (!moved) continue;
+		const movedFrom = nextFromById.get(moved.id);
+		if (movedFrom === undefined) continue;
+		for (const other of timelineStore.items) {
+			if (other.id === moved.id || other.trackId !== moved.trackId) continue;
+			const otherFrom = nextFromById.get(other.id) ?? other.from;
+			const overlapsAfter =
+				movedFrom < otherFrom + other.durationInFrames &&
+				movedFrom + moved.durationInFrames > otherFrom;
+			const overlappedBefore =
+				moved.from < other.from + other.durationInFrames &&
+				moved.from + moved.durationInFrames > other.from;
+			if (overlapsAfter && !overlappedBefore) return null;
+		}
+	}
+	return { ...plan, updates };
+}
+
+export function canCloseGapAtPosition(trackId: string, frame: number): boolean {
+	return resolveTrackGapClosePlan(trackId, frame) !== null;
+}
+
+export function canCloseAllGapsOnTrack(trackId: string): boolean {
+	return resolveTrackGapClosePlan(trackId, undefined) !== null;
+}
+
+function closeTrackGapPlan(
+	trackId: string,
+	frame: number | undefined,
+	command: 'CLOSE_GAP' | 'CLOSE_ALL_GAPS'
+): boolean {
+	const plan = resolveTrackGapClosePlan(trackId, frame);
+	if (!plan) return false;
+
+	return execute(
+		command,
+		() => {
+			timelineStore._moveItems(plan.updates);
+			propagateRemovedIntervalsToSyncLockedTracks({
+				editedTrackIds: new Set([trackId]),
+				intervals: plan.intervals
+			});
+			pruneInvalidTransitions();
+			return true;
+		},
+		frame === undefined ? { trackId } : { trackId, frame: Math.max(0, Math.round(frame)) }
+	);
+}
+
+/** Close the bounded gap under a frame and ripple the same interval through sync-locked tracks. */
+export function closeGapAtPosition(trackId: string, frame: number): boolean {
+	return closeTrackGapPlan(trackId, frame, 'CLOSE_GAP');
+}
+
+/** Close every bounded gap on one track as a single undoable ripple edit. */
+export function closeAllGapsOnTrack(trackId: string): boolean {
+	return closeTrackGapPlan(trackId, undefined, 'CLOSE_ALL_GAPS');
 }
 
 export function setInPoint(frame: number | null): void {
@@ -634,7 +890,7 @@ export function addMarker(frame: number): string {
 	// SAFETY: execute returns the action's own string id unchanged.
 	return execute('ADD_MARKER', () => {
 		const id = crypto.randomUUID();
-		timelineStore._addMarker({ id, frame, color: '#d97746' });
+		timelineStore._addMarker({ id, frame, color: DEFAULT_MARKER_COLOR });
 		return id;
 	}) as string;
 }
@@ -649,6 +905,14 @@ export function updateMarker(
 ): boolean {
 	if (!timelineStore.markers.some((marker) => marker.id === id)) return false;
 	execute('UPDATE_MARKER', () => timelineStore._updateMarker(id, patch));
+	return true;
+}
+
+export function selectMarker(id: string): boolean {
+	const marker = timelineStore.markers.find((candidate) => candidate.id === id);
+	if (!marker) return false;
+	timelineStore._setSelectedMarkerId(id);
+	setCurrentFrame(marker.frame);
 	return true;
 }
 
@@ -678,9 +942,60 @@ export function slipItem(id: string, deltaSourceFrames: number): void {
 		const end = item.sourceEnd ?? start + item.durationInFrames;
 		const limit = (item.sourceDuration ?? end) - (end - start);
 		const next = Math.min(Math.max(start + deltaSourceFrames, 0), Math.max(limit, 0));
+		const sourceDelta = next - start;
+		const patch: Partial<TimelineItem> = {
+			sourceStart: next,
+			sourceEnd: next + (end - start)
+		};
+		if (item.speedRamp?.length) {
+			patch.speedRamp = shiftSpeedRampSourceFrames(item.speedRamp, sourceDelta);
+		}
 		timelineStore._updateItems([
-			{ id, patch: { sourceStart: next, sourceEnd: next + (end - start) } }
+			{
+				id,
+				patch
+			}
 		]);
+	});
+}
+
+function buildRateStretchUpdates(targets: readonly TimelineItem[], speed: number) {
+	return targets.map((candidate) => {
+		const sourceFps = candidate.sourceFps ?? timelineStore.fps;
+		const currentSpeed = candidate.speed ?? 1;
+		const sourceFrames =
+			candidate.sourceStart !== undefined && candidate.sourceEnd !== undefined
+				? Math.max(1, candidate.sourceEnd - candidate.sourceStart)
+				: timelineToSourceFrames(
+						candidate.durationInFrames,
+						currentSpeed,
+						timelineStore.fps,
+						sourceFps
+					);
+		const durationInFrames = Math.max(
+			1,
+			sourceToTimelineFrames(sourceFrames, speed, sourceFps, timelineStore.fps)
+		);
+		return {
+			id: candidate.id,
+			patch: {
+				speed,
+				speedRamp: undefined,
+				durationInFrames,
+				keyframes: scaleItemKeyframes(
+					candidate.keyframes,
+					candidate.durationInFrames,
+					durationInFrames
+				),
+				...(candidate.vectorKeyframes && {
+					vectorKeyframes: scaleItemVectorKeyframes(
+						candidate.vectorKeyframes,
+						candidate.durationInFrames,
+						durationInFrames
+					)
+				})
+			} satisfies Partial<TimelineItem>
+		};
 	});
 }
 
@@ -704,56 +1019,36 @@ export function setItemSpeed(id: string, speed: number): boolean {
 	}
 
 	const clamped = clampSpeed(speed);
-	if (targets.every((candidate) => Math.abs((candidate.speed ?? 1) - clamped) < 1e-9)) {
+	if (
+		targets.every(
+			(candidate) =>
+				Math.abs((candidate.speed ?? 1) - clamped) < 1e-9 &&
+				(candidate.speedRamp?.length ?? 0) === 0
+		)
+	) {
 		return false;
 	}
+	const updates = buildRateStretchUpdates(targets, clamped);
+	if (updatesIntroduceExclusiveTrackOverlap(timelineStore.items, updates)) return false;
 	execute('SET_ITEM_SPEED', () => {
-		const updates = targets.map((candidate) => {
-			const sourceFps = candidate.sourceFps ?? timelineStore.fps;
-			const currentSpeed = candidate.speed ?? 1;
-			const sourceFrames =
-				candidate.sourceStart !== undefined && candidate.sourceEnd !== undefined
-					? Math.max(1, candidate.sourceEnd - candidate.sourceStart)
-					: timelineToSourceFrames(
-							candidate.durationInFrames,
-							currentSpeed,
-							timelineStore.fps,
-							sourceFps
-						);
-			const durationInFrames = Math.max(
-				1,
-				sourceToTimelineFrames(sourceFrames, clamped, sourceFps, timelineStore.fps)
-			);
-			return {
-				id: candidate.id,
-				patch: {
-					speed: clamped,
-					durationInFrames,
-					keyframes: scaleItemKeyframes(
-						candidate.keyframes,
-						candidate.durationInFrames,
-						durationInFrames
-					),
-					...(candidate.vectorKeyframes && {
-						vectorKeyframes: scaleItemVectorKeyframes(
-							candidate.vectorKeyframes,
-							candidate.durationInFrames,
-							durationInFrames
-						)
-					})
-				} satisfies Partial<TimelineItem>
-			};
-		});
 		timelineStore._updateItems(updates);
 		pruneInvalidTransitions();
 	});
 	return true;
 }
 
-export function setItemsSpeed(
-	itemIds: string[],
-	speed: number
-): { changed: number; locked: number; noop: number } {
+export interface SetItemsSpeedResult {
+	changed: number;
+	locked: number;
+	noop: number;
+}
+
+export function setItemsSpeed(itemIds: string[], speed: number): SetItemsSpeedResult {
+	return execute('SET_ITEMS_SPEED', () => setItemsSpeedLive(itemIds, speed));
+}
+
+/** Apply a rate stretch during an inspector gesture without growing undo history. */
+export function setItemsSpeedLive(itemIds: string[], speed: number): SetItemsSpeedResult {
 	const clamped = clampSpeed(speed);
 	if (!Number.isFinite(clamped)) return { changed: 0, locked: 0, noop: 0 };
 	const expanded = new Map<string, TimelineItem>();
@@ -777,7 +1072,10 @@ export function setItemsSpeed(
 			locked++;
 			continue;
 		}
-		if (Math.abs((candidate.speed ?? 1) - clamped) < 1e-9) {
+		if (
+			Math.abs((candidate.speed ?? 1) - clamped) < 1e-9 &&
+			(candidate.speedRamp?.length ?? 0) === 0
+		) {
 			noop++;
 			continue;
 		}
@@ -785,53 +1083,193 @@ export function setItemsSpeed(
 	}
 	if (toUpdate.length === 0) return { changed: 0, locked, noop };
 	if (locked > 0) return { changed: 0, locked, noop };
-	execute('SET_ITEMS_SPEED', () => {
-		const updates = toUpdate.map((candidate) => {
-			const sourceFps = candidate.sourceFps ?? timelineStore.fps;
-			const currentSpeed = candidate.speed ?? 1;
-			const sourceFrames =
-				candidate.sourceStart !== undefined && candidate.sourceEnd !== undefined
-					? Math.max(1, candidate.sourceEnd - candidate.sourceStart)
-					: timelineToSourceFrames(
-							candidate.durationInFrames,
-							currentSpeed,
-							timelineStore.fps,
-							sourceFps
-						);
-			const durationInFrames = Math.max(
-				1,
-				sourceToTimelineFrames(sourceFrames, clamped, sourceFps, timelineStore.fps)
-			);
-			return {
-				id: candidate.id,
-				patch: {
-					speed: clamped,
-					durationInFrames,
-					keyframes: scaleItemKeyframes(
-						candidate.keyframes,
-						candidate.durationInFrames,
-						durationInFrames
-					),
-					...(candidate.vectorKeyframes && {
-						vectorKeyframes: scaleItemVectorKeyframes(
-							candidate.vectorKeyframes,
-							candidate.durationInFrames,
-							durationInFrames
-						)
-					})
-				} satisfies Partial<TimelineItem>
-			};
-		});
-		timelineStore._updateItems(updates);
-		pruneInvalidTransitions();
-	});
+	const updates = buildRateStretchUpdates(toUpdate, clamped);
+	if (updatesIntroduceExclusiveTrackOverlap(timelineStore.items, updates)) {
+		return { changed: 0, locked, noop: 0 };
+	}
+	timelineStore._updateItems(updates);
+	pruneInvalidTransitions();
 	return { changed: toUpdate.length, locked, noop };
 }
 
-export function setItemsVolume(
+export interface SpeedRampEditResult {
+	changed: string[];
+	locked: number;
+	pointId?: string;
+}
+
+interface SpeedRampTargets {
+	targets: TimelineItem[];
+	locked: number;
+}
+
+function speedRampTargets(itemIds: string[]): SpeedRampTargets {
+	const expanded = new Map<string, TimelineItem>();
+	for (const id of itemIds) {
+		const item = timelineStore.itemById.get(id);
+		if (!item || (item.type !== 'video' && item.type !== 'audio')) continue;
+		const synchronized = getSynchronizedLinkedItems(timelineStore.items, id).filter(
+			(candidate) => candidate.type === 'video' || candidate.type === 'audio'
+		);
+		for (const candidate of synchronized) {
+			if (candidate.type === 'video' || candidate.type === 'audio') {
+				expanded.set(candidate.id, candidate);
+			}
+		}
+		if (synchronized.length === 0) expanded.set(item.id, item);
+	}
+	const trackById = new Map(
+		effectiveMediaTracks(timelineStore.tracks).map((track) => [track.id, track])
+	);
+	const targets = [...expanded.values()];
+	return {
+		targets,
+		locked: targets.filter((candidate) => trackById.get(candidate.trackId)?.locked).length
+	};
+}
+
+function speedRampUpdate(
+	candidate: TimelineItem,
+	speedRamp: SpeedRampPoint[]
+): Partial<TimelineItem> {
+	const nextItem = { ...candidate, speedRamp };
+	const durationInFrames = Math.max(
+		1,
+		Math.round(variableSpeedDurationInFrames(nextItem, timelineStore.fps))
+	);
+	return {
+		speedRamp,
+		durationInFrames,
+		keyframes: scaleItemKeyframes(
+			candidate.keyframes,
+			candidate.durationInFrames,
+			durationInFrames
+		),
+		...(candidate.vectorKeyframes && {
+			vectorKeyframes: scaleItemVectorKeyframes(
+				candidate.vectorKeyframes,
+				candidate.durationInFrames,
+				durationInFrames
+			)
+		})
+	};
+}
+
+/** Add one source-anchored speed point at an absolute timeline frame. */
+export function addItemsSpeedPoint(itemIds: string[], timelineFrame: number): SpeedRampEditResult {
+	const { targets, locked } = speedRampTargets(itemIds);
+	if (targets.length === 0 || locked > 0) return { changed: [], locked };
+	const pointId = crypto.randomUUID();
+	const startId = crypto.randomUUID();
+	const endId = crypto.randomUUID();
+	const updates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
+	for (const candidate of targets) {
+		if (
+			timelineFrame < candidate.from ||
+			timelineFrame > candidate.from + candidate.durationInFrames
+		) {
+			continue;
+		}
+		const sourceStart = candidate.sourceStart ?? 0;
+		const sourceEnd = candidate.sourceEnd;
+		if (sourceEnd === undefined || sourceEnd <= sourceStart) continue;
+		const sourceFrame = Math.max(
+			sourceStart,
+			Math.min(
+				sourceEnd,
+				Math.round(
+					timelineOffsetToSourceFrame(candidate, timelineFrame - candidate.from, timelineStore.fps)
+				)
+			)
+		);
+		const existing = candidate.speedRamp ?? [];
+		if (existing.some((point) => point.sourceFrame === sourceFrame)) continue;
+		const baseSpeed = candidate.speed ?? 1;
+		const initial =
+			existing.length > 0
+				? existing
+				: [
+						{
+							id: sourceFrame === sourceStart ? pointId : startId,
+							sourceFrame: sourceStart,
+							speed: baseSpeed,
+							easing: 'linear' as const
+						},
+						{
+							id: sourceFrame === sourceEnd ? pointId : endId,
+							sourceFrame: sourceEnd,
+							speed: baseSpeed,
+							easing: 'linear' as const
+						}
+					];
+		const speedRamp = initial.some((point) => point.sourceFrame === sourceFrame)
+			? initial
+			: [
+					...initial,
+					{ id: pointId, sourceFrame, speed: baseSpeed, easing: 'linear' as const }
+				].sort((left, right) => left.sourceFrame - right.sourceFrame);
+		updates.push({ id: candidate.id, patch: speedRampUpdate(candidate, speedRamp) });
+	}
+	if (updates.length === 0) return { changed: [], locked, pointId };
+	execute('ADD_ITEMS_SPEED_POINT', () => {
+		timelineStore._updateItems(updates);
+		pruneInvalidTransitions();
+	});
+	return { changed: updates.map((update) => update.id), locked, pointId };
+}
+
+export function updateItemsSpeedPoint(
 	itemIds: string[],
-	volume: number
-): { changed: number; locked: number } {
+	pointId: string,
+	patch: { speed?: number; easing?: EasingType }
+): SpeedRampEditResult {
+	const { targets, locked } = speedRampTargets(itemIds);
+	if (targets.length === 0 || locked > 0) return { changed: [], locked, pointId };
+	const updates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
+	for (const candidate of targets) {
+		const current = candidate.speedRamp ?? [];
+		const currentPoint = current.find((point) => point.id === pointId);
+		if (!currentPoint) continue;
+		const nextSpeed = patch.speed === undefined ? currentPoint.speed : clampSpeed(patch.speed);
+		const nextEasing = patch.easing ?? currentPoint.easing;
+		if (nextSpeed === currentPoint.speed && nextEasing === currentPoint.easing) continue;
+		const speedRamp = current.map((point) =>
+			point.id === pointId ? { ...point, speed: nextSpeed, easing: nextEasing } : point
+		);
+		updates.push({ id: candidate.id, patch: speedRampUpdate(candidate, speedRamp) });
+	}
+	if (updates.length === 0) return { changed: [], locked, pointId };
+	execute('UPDATE_ITEMS_SPEED_POINT', () => {
+		timelineStore._updateItems(updates);
+		pruneInvalidTransitions();
+	});
+	return { changed: updates.map((update) => update.id), locked, pointId };
+}
+
+export function removeItemsSpeedPoint(itemIds: string[], pointId: string): SpeedRampEditResult {
+	const { targets, locked } = speedRampTargets(itemIds);
+	if (targets.length === 0 || locked > 0) return { changed: [], locked, pointId };
+	const updates: Array<{ id: string; patch: Partial<TimelineItem> }> = [];
+	for (const candidate of targets) {
+		const current = candidate.speedRamp ?? [];
+		const speedRamp = current.filter((point) => point.id !== pointId);
+		if (speedRamp.length === current.length) continue;
+		updates.push({ id: candidate.id, patch: speedRampUpdate(candidate, speedRamp) });
+	}
+	if (updates.length === 0) return { changed: [], locked, pointId };
+	execute('REMOVE_ITEMS_SPEED_POINT', () => {
+		timelineStore._updateItems(updates);
+		pruneInvalidTransitions();
+	});
+	return { changed: updates.map((update) => update.id), locked, pointId };
+}
+
+export interface SetItemsVolumeResult {
+	changed: number;
+	locked: number;
+}
+
+export function setItemsVolume(itemIds: string[], volume: number): SetItemsVolumeResult {
 	const clamped = Math.max(0, Math.min(1, volume));
 	if (!Number.isFinite(clamped)) return { changed: 0, locked: 0 };
 	const expanded = new Map<string, TimelineItem>();
@@ -860,7 +1298,10 @@ export function setItemsVolume(
 	if (locked > 0) return { changed: 0, locked };
 	execute('SET_ITEMS_VOLUME', () => {
 		timelineStore._updateItems(
-			toUpdate.map((candidate) => ({ id: candidate.id, patch: { volume: clamped } }))
+			toUpdate.map((candidate) => ({
+				id: candidate.id,
+				patch: { volume: clamped }
+			}))
 		);
 	});
 	return { changed: toUpdate.length, locked };

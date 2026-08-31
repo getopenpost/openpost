@@ -188,6 +188,28 @@ describe('_splitItem source boundaries', () => {
 		expect(result?.rightItem).toMatchObject({ sourceStart: 300, sourceEnd: 342 });
 	});
 
+	it('splits a variable-speed clip at the source frame shown at the cut', () => {
+		const item = videoItem({
+			durationInFrames: 90,
+			sourceStart: 0,
+			sourceEnd: 120,
+			sourceFps: 30,
+			speedRamp: [
+				{ id: 'normal-in', sourceFrame: 0, speed: 1, easing: 'hold' },
+				{ id: 'fast', sourceFrame: 30, speed: 2, easing: 'hold' },
+				{ id: 'normal-out', sourceFrame: 90, speed: 1, easing: 'hold' },
+				{ id: 'end', sourceFrame: 120, speed: 1, easing: 'linear' }
+			]
+		});
+		timelineStore._setItems([item]);
+
+		const result = timelineStore._splitItem(item.id, item.from + 60);
+
+		expect(result?.leftItem).toMatchObject({ sourceStart: 0, sourceEnd: 90 });
+		expect(result?.rightItem).toMatchObject({ sourceStart: 90, sourceEnd: 120 });
+		expect(result?.rightItem.speedRamp).toEqual(item.speedRamp);
+	});
+
 	it('refuses to split outside the item span', () => {
 		const item = videoItem();
 		timelineStore._setItems([item]);

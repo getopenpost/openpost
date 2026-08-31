@@ -26,6 +26,8 @@ import {
 	getSynchronizedLinkedCounterpartPair,
 	getSynchronizedLinkedItems
 } from './utils/linked-items';
+import { clampMoveDeltaToTrackGaps } from './track-occupancy';
+import { shiftSpeedRampSourceFrames } from './source-time-map';
 
 export interface TrimGesturePlan {
 	patch: Partial<TimelineItem>;
@@ -102,7 +104,7 @@ export function planLinkedMoveGesture(
 	participantById.set(item.id, item);
 	const participants = [...participantById.values()];
 	let delta = proposedFrom - item.from;
-	for (const participant of participants) delta = Math.max(delta, -participant.from);
+	delta = clampMoveDeltaToTrackGaps(items, new Set(participantById.keys()), delta);
 	return participants.map((participant) => ({
 		id: participant.id,
 		from: participant.from + delta
@@ -294,7 +296,7 @@ export function planSlipGesture(
 	item: TimelineItem,
 	deltaTimelineFrames: number,
 	timelineFps: number
-): Pick<TimelineItem, 'sourceStart' | 'sourceEnd'> | null {
+): Pick<TimelineItem, 'sourceStart' | 'sourceEnd' | 'speedRamp'> | null {
 	if (item.type !== 'video' && item.type !== 'audio') return null;
 	const { sourceStart, sourceEnd, sourceDuration, sourceFps, speed } = getSourceProperties(item);
 	if (sourceEnd === undefined) return null;
@@ -311,7 +313,15 @@ export function planSlipGesture(
 			? Number.POSITIVE_INFINITY
 			: Math.max(0, sourceDuration - windowFrames);
 	const nextStart = Math.min(Math.max(sourceStart + requestedDelta, 0), maxStart);
-	return { sourceStart: nextStart, sourceEnd: nextStart + windowFrames };
+	const sourceDelta = nextStart - sourceStart;
+	const patch: Pick<TimelineItem, 'sourceStart' | 'sourceEnd' | 'speedRamp'> = {
+		sourceStart: nextStart,
+		sourceEnd: nextStart + windowFrames
+	};
+	if (item.speedRamp?.length) {
+		patch.speedRamp = shiftSpeedRampSourceFrames(item.speedRamp, sourceDelta);
+	}
+	return patch;
 }
 
 /** Plan one source-space slip across every still-synchronized linked clip. */
@@ -343,13 +353,17 @@ export function planLinkedSlipGesture(
 		participants.flatMap((participant) => {
 			if (participant.sourceEnd === undefined) return [];
 			const sourceStart = (participant.sourceStart ?? 0) + delta;
+			const patch: Partial<TimelineItem> = {
+				sourceStart,
+				sourceEnd: participant.sourceEnd + delta
+			};
+			if (participant.speedRamp?.length) {
+				patch.speedRamp = shiftSpeedRampSourceFrames(participant.speedRamp, delta);
+			}
 			return [
 				{
 					id: participant.id,
-					patch: {
-						sourceStart,
-						sourceEnd: participant.sourceEnd + delta
-					}
+					patch
 				}
 			];
 		});

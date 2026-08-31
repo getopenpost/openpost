@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages';
 	import { Button } from '$lib/components/ui/button';
+	import * as Select from '$lib/components/ui/select';
 	import LocalModelCacheControl from './local-model-cache-control.svelte';
 	import {
 		TRANSCRIPTION_LANGUAGE_OPTIONS,
@@ -21,10 +22,14 @@
 		TranscriptionSelection
 	} from '$lib/video-editor/transcript/engine/types';
 	import { editorSettings } from '$lib/video-editor/settings/editor-settings.svelte';
+	import type { TranscriptionJobStatus } from '$lib/video-editor/transcript/transcription-service.svelte';
 
 	let {
 		canTranscribe,
 		busy,
+		status,
+		queuePosition,
+		queueTotal,
 		progress,
 		backend,
 		fallback,
@@ -33,6 +38,9 @@
 	}: {
 		canTranscribe: boolean;
 		busy: boolean;
+		status?: TranscriptionJobStatus;
+		queuePosition?: number | null;
+		queueTotal?: number;
 		progress: TranscribeProgress | null;
 		backend: 'webgpu' | 'wasm' | null;
 		fallback: ResolvedTranscriptionEngine | null;
@@ -69,42 +77,65 @@
 <div
 	class="grid grid-cols-2 gap-1 rounded-md border border-[oklch(0.25_0.015_55)] bg-[oklch(0.17_0.008_55)] p-1.5"
 >
-	<label class="col-span-2 text-[10px] text-[oklch(0.66_0.015_55)]">
-		{m.video_editor_transcribe_model()}
-		<select
-			class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1.5 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-			bind:value={model}
-			disabled={busy}
-		>
-			{#each TRANSCRIPTION_MODEL_OPTIONS as option}
-				<option value={option.value}>{transcriptionModelUiLabel(option.value)}</option>
-			{/each}
-		</select>
-	</label>
-	<label class="text-[10px] text-[oklch(0.66_0.015_55)]">
-		{m.video_editor_transcribe_language()}
-		<select
-			class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
-			bind:value={language}
-			disabled={busy}
-		>
-			{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
-				<option value={option.value}>{transcriptionLanguageUiLabel(option.value)}</option>
-			{/each}
-		</select>
-	</label>
-	<label class="text-[10px] text-[oklch(0.66_0.015_55)]">
-		{m.video_editor_transcribe_quality()}
-		<select
-			class="mt-0.5 w-full rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-1 py-1 text-[11px] text-white focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)]"
+	<div class="col-span-2 text-[10px] text-[oklch(0.66_0.015_55)]">
+		<label for="transcription-model">{m.video_editor_transcribe_model()}</label>
+		<Select.Root type="single" bind:value={model} disabled={busy}>
+			<Select.Trigger
+				id="transcription-model"
+				aria-label={m.video_editor_transcribe_model()}
+				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+			>
+				<span class="truncate">{transcriptionModelUiLabel(model)}</span>
+			</Select.Trigger>
+			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				{#each TRANSCRIPTION_MODEL_OPTIONS as option}
+					<Select.Item value={option.value}>{transcriptionModelUiLabel(option.value)}</Select.Item>
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
+	<div class="text-[10px] text-[oklch(0.66_0.015_55)]">
+		<label for="transcription-language">{m.video_editor_transcribe_language()}</label>
+		<Select.Root type="single" bind:value={language} disabled={busy}>
+			<Select.Trigger
+				id="transcription-language"
+				aria-label={m.video_editor_transcribe_language()}
+				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+			>
+				<span class="truncate">{transcriptionLanguageUiLabel(language)}</span>
+			</Select.Trigger>
+			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				{#each TRANSCRIPTION_LANGUAGE_OPTIONS as option}
+					<Select.Item value={option.value}
+						>{transcriptionLanguageUiLabel(option.value)}</Select.Item
+					>
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
+	<div class="text-[10px] text-[oklch(0.66_0.015_55)]">
+		<label for="transcription-quality">{m.video_editor_transcribe_quality()}</label>
+		<Select.Root
+			type="single"
 			bind:value={quantization}
 			disabled={busy || model === 'parakeet-tdt-v3'}
 		>
-			{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
-				<option value={option.value}>{transcriptionQuantizationUiLabel(option.value)}</option>
-			{/each}
-		</select>
-	</label>
+			<Select.Trigger
+				id="transcription-quality"
+				aria-label={m.video_editor_transcribe_quality()}
+				class="mt-0.5 h-8 w-full justify-between rounded border border-[oklch(0.29_0.015_55)] bg-[oklch(0.21_0.01_55)] px-2 text-[11px] text-white shadow-none"
+			>
+				<span class="truncate">{transcriptionQuantizationUiLabel(quantization)}</span>
+			</Select.Trigger>
+			<Select.Content class="video-editor-theme bg-[oklch(0.18_0.008_55)] text-white">
+				{#each TRANSCRIPTION_QUANTIZATION_OPTIONS as option}
+					<Select.Item value={option.value}
+						>{transcriptionQuantizationUiLabel(option.value)}</Select.Item
+					>
+				{/each}
+			</Select.Content>
+		</Select.Root>
+	</div>
 	<p class="col-span-2 text-[9px] leading-tight text-[oklch(0.58_0.012_55)]">
 		{transcriptionModelUiDescription(model)}
 	</p>
@@ -113,7 +144,24 @@
 			class="col-span-2 rounded bg-[oklch(0.24_0.045_65)] px-1.5 py-1 text-[10px] text-[oklch(0.84_0.08_70)]"
 			role="status"
 		>
-			{m.video_editor_transcribe_fallback({ model: transcriptionModelUiLabel(fallback.model) })}
+			{fallback.fallbackReason === 'out-of-memory'
+				? m.video_editor_transcribe_memory_fallback({
+						model: transcriptionModelUiLabel(fallback.model)
+					})
+				: m.video_editor_transcribe_fallback({
+						model: transcriptionModelUiLabel(fallback.model)
+					})}
+		</p>
+	{/if}
+	{#if busy && status === 'queued'}
+		<p
+			class="col-span-2 rounded bg-[oklch(0.22_0.015_55)] px-1.5 py-1 text-[10px] text-[oklch(0.76_0.02_55)]"
+			role="status"
+		>
+			{m.video_editor_transcribe_queued({
+				position: queuePosition ?? 1,
+				total: Math.max(queueTotal ?? 1, queuePosition ?? 1)
+			})}
 		</p>
 	{/if}
 	{#if busy && progress}

@@ -1,22 +1,6 @@
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
 import { parseChangelog } from '@openpost/changelog';
+import { readCanonicalChangelog } from '../../lib/changelog';
 import type { PageServerLoad } from './$types';
-
-async function readCanonicalChangelog() {
-	const candidates = [
-		resolve(process.cwd(), 'CHANGELOG.md'),
-		resolve(process.cwd(), '..', 'CHANGELOG.md')
-	];
-	for (const candidate of candidates) {
-		try {
-			return await readFile(candidate, 'utf8');
-		} catch {
-			// Build commands can run from the repository root or the package root.
-		}
-	}
-	throw new Error('Could not find the repository CHANGELOG.md');
-}
 
 export const prerender = true;
 

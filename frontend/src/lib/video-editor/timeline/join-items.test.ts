@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineItem } from '../project/types';
-import { canJoinItems, canJoinMultipleItems, joinedTimelineItem } from './join-items';
+import {
+	canJoinItems,
+	canJoinMultipleItems,
+	joinableItemNeighbors,
+	joinedTimelineItem
+} from './join-items';
 
 function clip(overrides: Partial<TimelineItem> = {}): TimelineItem {
 	return {
@@ -49,6 +54,25 @@ describe('join item planning', () => {
 			sourceEnd: 90,
 			isReversed: true
 		});
+	});
+
+	it('resolves the continuous split siblings on either side of one clip', () => {
+		const left = clip();
+		const middle = clip({ id: 'middle', from: 30, sourceStart: 30, sourceEnd: 60 });
+		const right = clip({ id: 'right', from: 60, sourceStart: 60, sourceEnd: 90 });
+		const unrelated = clip({
+			id: 'unrelated',
+			originId: 'other',
+			from: 60,
+			sourceStart: 60,
+			sourceEnd: 90
+		});
+
+		expect(joinableItemNeighbors([unrelated, right, left, middle], middle)).toEqual({
+			previous: left,
+			next: right
+		});
+		expect(joinableItemNeighbors([middle, unrelated], middle)).toEqual({});
 	});
 
 	it('rejects gaps, different speeds, directions, sources, tracks, and lineages', () => {

@@ -582,10 +582,10 @@ func mcpPromptsForScope(scope string) []map[string]any {
 func mcpPlanSocialPostPrompt() map[string]any {
 	return map[string]any{
 		"name":        mcpPromptPlanPost,
-		"title":       "Plan social post",
-		"description": "Turn an idea into a workspace-aware OpenPost draft plan.",
+		"title":       "Plan a publication",
+		"description": "Turn an idea into a workspace-aware OpenPost Publication draft.",
 		"arguments": []map[string]any{
-			{"name": "idea", "description": "The source idea, note, link, or rough post to develop.", "required": true},
+			{"name": "idea", "description": "The source idea, note, link, or rough content to develop.", "required": true},
 			{"name": "workspace_id", "description": "Optional workspace ID if already known.", "required": false},
 			{"name": "platforms", "description": "Optional comma-separated destination platforms to consider.", "required": false},
 		},
@@ -596,10 +596,10 @@ func mcpAdaptPlatformRenditionsPrompt() map[string]any {
 	return map[string]any{
 		"name":        mcpPromptRenditions,
 		"title":       "Adapt platform renditions",
-		"description": "Rewrite a draft or scheduled post into platform-native destination copy.",
+		"description": "Rewrite a Publication in draft or scheduled state into platform-native destination copy.",
 		"arguments": []map[string]any{
-			{"name": "workspace_id", "description": "Workspace ID that owns the post.", "required": true},
-			{"name": "post_id", "description": "Draft or scheduled post ID to adapt.", "required": true},
+			{"name": "workspace_id", "description": "Workspace ID that owns the Publication.", "required": true},
+			{"name": "publication_id", "description": "Draft or scheduled Publication ID to adapt.", "required": true},
 			{"name": "goal", "description": "Optional campaign goal, audience, or tone guidance.", "required": false},
 		},
 	}
@@ -609,7 +609,7 @@ func mcpReviewSchedulePrompt() map[string]any {
 	return map[string]any{
 		"name":        mcpPromptReviewQueue,
 		"title":       "Review publishing queue",
-		"description": "Inspect upcoming scheduled posts and recommend useful next actions.",
+		"description": "Inspect upcoming scheduled Publications and recommend useful next actions.",
 		"arguments": []map[string]any{
 			{"name": "workspace_id", "description": "Workspace ID to inspect.", "required": true},
 			{"name": "window", "description": "Optional time window, such as today, this week, or next 14 days.", "required": false},
@@ -630,9 +630,9 @@ func mcpGetPrompt(raw json.RawMessage, readOnly ...bool) (any, *mcpError) {
 	}
 	switch params.Name {
 	case mcpPromptPlanPost:
-		return mcpPromptResult("Plan an OpenPost draft from an idea.", mcpPlanPostPromptText(params.Arguments)), nil
+		return mcpPromptResult("Plan an OpenPost Publication draft from an idea.", mcpPlanPostPromptText(params.Arguments)), nil
 	case mcpPromptRenditions:
-		return mcpPromptResult("Adapt a post into platform-native renditions.", mcpRenditionsPromptText(params.Arguments)), nil
+		return mcpPromptResult("Adapt a Publication into platform-native renditions.", mcpRenditionsPromptText(params.Arguments)), nil
 	case mcpPromptReviewQueue:
 		return mcpPromptResult("Review the scheduled publishing queue.", mcpReviewQueuePromptText(params.Arguments)), nil
 	default:
@@ -646,7 +646,7 @@ func (h *MCPHandler) listMCPResources() any {
 			"uri":         mcpAppWidgetURI,
 			"name":        "openpost_scheduler",
 			"title":       "OpenPost Scheduler",
-			"description": "Renders OpenPost workspaces, accounts, media, drafts, scheduled posts, provider status, and post details in ChatGPT.",
+			"description": "Renders OpenPost workspaces, accounts, media, Publications, Renditions, schedules, and provider status in ChatGPT.",
 			"mimeType":    mcpAppWidgetMimeType,
 			"_meta":       h.mcpAppWidgetResourceMeta(),
 		}},
@@ -681,7 +681,7 @@ func (h *MCPHandler) mcpAppWidgetResourceMeta() map[string]any {
 	}
 	meta := map[string]any{
 		"ui":                         ui,
-		"openai/widgetDescription":   "OpenPost scheduler view for workspaces, accounts, media, drafts, scheduled posts, provider status, and post details.",
+		"openai/widgetDescription":   "OpenPost scheduler view for workspaces, accounts, media, Publications, Renditions, schedules, and provider status.",
 		"openai/widgetPrefersBorder": true,
 		"openai/widgetCSP":           legacyCSP,
 	}
@@ -768,6 +768,8 @@ h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
     return payload;
   }
   function inferView(data) {
+    if (data.publication) return "publication";
+    if (data.publications) return "publications";
     if (data.post) return "post";
     if (data.posts) return "posts";
     if (data.media) return "media";
@@ -799,18 +801,21 @@ h1 { margin: 0; font-size: 20px; line-height: 1.2; letter-spacing: 0; }
       return '<section class="card"><div class="row"><div class="title">' + title + '</div><span class="' + statusClass(status) + '">' + (status || "ready") + '</span></div><div class="muted">' + escapeHTML(secondary) + '</div></section>';
     }).join("") + '</div>';
   }
-  function renderPost(post) {
-    if (!post) return '<div class="empty">No post data to show.</div>';
-    var destinations = array(post.destinations).map(function (dest) {
-      return '<div class="row"><span class="muted">' + escapeHTML(dest.platform || dest.social_account_id || "destination") + '</span><span class="' + statusClass(dest.status) + '">' + escapeHTML(dest.status || "pending") + '</span></div>';
+  function renderPublication(publication) {
+    if (!publication) return '<div class="empty">No Publication data to show.</div>';
+    var renditions = array(publication.renditions || publication.destinations).map(function (rendition) {
+      return '<div class="row"><span class="muted">' + escapeHTML(rendition.platform || rendition.social_account_id || "destination") + '</span><span class="' + statusClass(rendition.status) + '">' + escapeHTML(rendition.status || "pending") + '</span></div>';
     }).join("");
-    var media = array(post.media).map(function (item) {
+    var media = array(publication.media).map(function (item) {
       return '<div class="row"><span class="muted">' + escapeHTML(item.original_filename || item.media_id || "media") + '</span><span class="pill idle">' + escapeHTML(item.mime_type || "asset") + '</span></div>';
     }).join("");
-    return '<section class="card"><div class="title">' + escapeHTML(post.content || post.id || "Post") + '</div><div class="muted">' + escapeHTML(post.scheduled_at || post.created_at || "") + '</div>' + destinations + media + '</section>';
+    var title = publication.title || publication.source_text || publication.content || publication.id || "Publication";
+    return '<section class="card"><div class="title">' + escapeHTML(title) + '</div><div class="muted">' + escapeHTML(publication.scheduled_at || publication.created_at || "") + '</div>' + renditions + media + '</section>';
   }
   function renderData(view, data) {
-    if (view === "post") return renderPost(data.post);
+    if (view === "publication") return renderPublication(data.publication);
+    if (view === "publications") return renderCards(array(data.publications));
+    if (view === "post") return renderPublication(data.post);
     if (view === "posts") return renderCards(array(data.posts));
     if (view === "media") return renderCards(array(data.media));
     if (view === "accounts") return renderCards(array(data.accounts));
@@ -869,11 +874,11 @@ Source idea:
 %s
 
 Workflow:
-1. Use search to load the schemas for list_workspaces, list_provider_catalog, list_accounts, list_media, upload_media_from_url, and create_draft as needed.
-2. If workspace_id is missing, query list_workspaces and ask which workspace to use.
-3. Query list_provider_catalog and list_accounts to choose available destinations matching these platform hints: %s.
-4. Query list_media if the idea needs existing media, or execute upload_media_from_url if the user supplied a public media URL.
-5. Execute create_draft with one concise draft and relevant media_ids. Do not schedule it until the user approves timing and destinations.
+1. Call search_operations to load the schemas for list_workspaces, list_provider_catalog, list_accounts, list_media, upload_media_from_url, and create_publication as needed.
+2. If workspace_id is missing, call query_operation with list_workspaces and ask which workspace to use.
+3. Call query_operation with list_provider_catalog and list_accounts to choose available destinations matching these platform hints: %s.
+4. Call query_operation with list_media if the idea needs existing media, or call execute_operation with upload_media_from_url if the user supplied a public media URL.
+5. Call execute_operation with create_publication to create one concise draft and relevant media_ids. Do not schedule it until the user approves timing and destinations.
 6. Explain what you created and suggest the next scheduling step.
 
 workspace_id: %s
@@ -882,19 +887,19 @@ workspace_id: %s
 
 func mcpRenditionsPromptText(args map[string]string) string {
 	return strings.TrimSpace(fmt.Sprintf(`
-Adapt an existing OpenPost post into platform-native renditions.
+Adapt an existing OpenPost Publication into platform-native renditions.
 
 workspace_id: %s
-post_id: %s
+publication_id: %s
 goal: %s
 
 Workflow:
-1. Use search to load the get_post_status and set_post_renditions schemas.
-2. Query get_post_status to inspect destinations and current state.
+1. Call search_operations to load the get_publication and set_publication_renditions schemas.
+2. Call query_operation with get_publication to inspect destinations and current state.
 3. Write concise, platform-native copy for each destination account.
-4. Execute set_post_renditions with one rendition per destination account.
+4. Call execute_operation with set_publication_renditions and one rendition per destination account.
 5. Summarize what changed and mention any platforms that need media, hashtags, or shorter copy.
-`, promptArg(args, "workspace_id", "(required)"), promptArg(args, "post_id", "(required)"), promptArg(args, "goal", "match the source post and audience")))
+`, promptArg(args, "workspace_id", "(required)"), promptArg(args, "publication_id", "(required)"), promptArg(args, "goal", "match the source Publication and audience")))
 }
 
 func mcpReviewQueuePromptText(args map[string]string) string {
@@ -905,10 +910,10 @@ workspace_id: %s
 window: %s
 
 Workflow:
-1. Use search to load the list_scheduled_posts and suggest_next_slot schemas.
-2. Query list_scheduled_posts for the workspace and requested window.
-3. Look for collisions, empty stretches, missing platform coverage, and posts that need destination-specific renditions.
-4. Query suggest_next_slot if a useful new slot is needed.
+1. Call search_operations to load the list_publications and suggest_next_slot schemas.
+2. Call query_operation with list_publications for the workspace and requested window. Use activity_bucket scheduled and calendar_from or calendar_before when the window can be expressed as timestamps.
+3. Look for collisions, empty stretches, missing platform coverage, and Publications that need destination-specific Renditions.
+4. Call query_operation with suggest_next_slot if a useful new slot is needed.
 5. Recommend concrete actions without canceling or scheduling anything unless the user explicitly asks.
 `, promptArg(args, "workspace_id", "(required)"), promptArg(args, "window", "upcoming queue")))
 }
@@ -1176,7 +1181,7 @@ func mcpObjectInputExample(name string, schema map[string]any) map[string]any {
 func mcpOpenObjectInputExample(name string) map[string]any {
 	examples := map[string]map[string]any{
 		"arguments": {"workspace_id": "2f4aa6c2-3c8f-4e1f-91ac-43de2c2b67b1"},
-		"data":      {"posts": []any{}},
+		"data":      {"publications": []any{}},
 		"metadata":  {"campaign": "spring-launch"},
 	}
 	if example, ok := examples[name]; ok {
@@ -1201,7 +1206,6 @@ func mcpStringInputExample(name string, schema map[string]any) string {
 var mcpStringInputExamples = map[string]string{
 	"workspace_id":      "2f4aa6c2-3c8f-4e1f-91ac-43de2c2b67b1",
 	"social_account_id": "7a763db0-7c0f-4a81-b4aa-c4d5b44e786c",
-	"post_id":           "f9ce8f58-1c6c-4df1-8332-7fbda74542b8",
 	"publication_id":    "c66d7139-0549-4666-9374-124e988f97e7",
 	"rendition_id":      "08ac072f-f39f-4583-8202-53f5ddf47eb6",
 	"media_id":          "30454fbe-246c-4d9d-9289-13e2c8df7f1e",
@@ -1219,7 +1223,7 @@ var mcpStringInputExamples = map[string]string{
 	"filename":          "launch-demo.mp4",
 	"role":              "attachment",
 	"parent_id":         "provider-comment-123",
-	"view":              "posts",
+	"view":              "publications",
 	"profile":           "short_text",
 	"content_profile":   "short_text",
 	"status":            "draft",
@@ -2641,7 +2645,7 @@ func (h *MCPHandler) renderSchedulerWidget(args map[string]any) (any, *mcpError)
 }
 
 func mcpSchedulerWidgetViews() []string {
-	return []string{"summary", "workspaces", "providers", "accounts", "media", "post", "posts", "suggestion", "renditions"}
+	return []string{"summary", "workspaces", "providers", "accounts", "media", "publication", "publications", "post", "posts", "suggestion", "renditions"}
 }
 
 func mcpValidSchedulerWidgetView(view string) bool {
@@ -2655,6 +2659,10 @@ func mcpValidSchedulerWidgetView(view string) bool {
 
 func mcpInferSchedulerWidgetView(data map[string]any) string {
 	switch {
+	case data["publication"] != nil:
+		return "publication"
+	case data["publications"] != nil:
+		return "publications"
 	case data["post"] != nil:
 		return "post"
 	case data["posts"] != nil:

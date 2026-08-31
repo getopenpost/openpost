@@ -16,6 +16,12 @@ function item(overrides: Partial<TimelineItem> = {}): TimelineItem {
 
 describe('saved animation capture', () => {
 	it('normalizes scalar and coupled keyframes to the earliest authored frame', () => {
+		const generatedSource = {
+			applicationId: 'source-application',
+			kind: 'built-in-preset' as const,
+			presetId: 'slide-in-left',
+			presetName: 'Slide left'
+		};
 		const preset = captureAnimationFromItem(
 			item({
 				keyframes: {
@@ -27,7 +33,15 @@ describe('saved animation capture', () => {
 					}
 				},
 				vectorKeyframes: {
-					position: [{ id: 'position-a', frame: 20, value: { x: 1, y: 2 }, easing: 'linear' }],
+					position: [
+						{
+							id: 'position-a',
+							frame: 20,
+							value: { x: 1, y: 2 },
+							easing: 'linear',
+							source: generatedSource
+						}
+					],
 					scale: [{ id: 'scale-a', frame: 30, value: { x: 150, y: 80 }, easing: 'linear' }],
 					anchor: [{ id: 'anchor-a', frame: 40, value: { x: 50, y: 25 }, easing: 'linear' }]
 				}
@@ -47,6 +61,7 @@ describe('saved animation capture', () => {
 				{ property: 'anchor', keyframes: [{ frame: 30 }] }
 			]
 		});
+		expect(preset?.vectorProperties?.[0]?.keyframes[0]).not.toHaveProperty('source');
 	});
 
 	it('carries every referenced same-type effect instance without collapsing them', () => {

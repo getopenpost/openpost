@@ -20,17 +20,17 @@ type fakePublisherStorage struct {
 }
 
 func (f *fakePublisherStorage) Driver() string { return "s3" }
-func (f *fakePublisherStorage) Save(string, io.Reader) (string, error) {
+func (f *fakePublisherStorage) Save(context.Context, string, io.Reader) (string, error) {
 	return "", nil
 }
-func (f *fakePublisherStorage) Delete(string) error { return nil }
+func (f *fakePublisherStorage) Delete(context.Context, string) error { return nil }
 func (f *fakePublisherStorage) GetURL(id string) string {
 	if f.publicURL == "" {
 		return ""
 	}
 	return strings.TrimRight(f.publicURL, "/") + "/" + id
 }
-func (f *fakePublisherStorage) Open(id string) (io.ReadCloser, error) {
+func (f *fakePublisherStorage) Open(_ context.Context, id string) (io.ReadCloser, error) {
 	f.opened = append(f.opened, id)
 	body := f.body
 	if f.bodies != nil {

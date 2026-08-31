@@ -419,7 +419,7 @@ export class OpenPostFabricAdapter {
 					width: this.document.width_px,
 					height: this.document.height_px,
 					backgroundColor: 'transparent',
-					selection: !this.readOnly,
+					selection: false,
 					preserveObjectStacking: true,
 					renderOnAddRemove: false,
 					stopContextMenu: true,
@@ -951,7 +951,7 @@ export class OpenPostFabricAdapter {
 		const canvas = this.interactiveCanvas();
 		if (!canvas) return;
 		const areaSelection = this.usesAreaSelection();
-		canvas.selection = !this.readOnly && !areaSelection;
+		canvas.selection = false;
 		canvas.defaultCursor = areaSelection ? 'crosshair' : 'default';
 		canvas.hoverCursor = areaSelection ? 'crosshair' : 'move';
 		for (const object of imageEditorFabricObjects(canvas.getObjects())) {
@@ -981,6 +981,11 @@ export class OpenPostFabricAdapter {
 		const current = this.selectedIDs();
 		if (current.length === ids.length && current.every((id, index) => id === ids[index])) return;
 		this.restoreSelection(ids);
+	}
+
+	hasInteractiveTarget(event: PointerEvent): boolean {
+		if (this.readOnly || this.interactionTool !== 'select') return false;
+		return Boolean(this.interactiveCanvas()?.findTarget(event).target);
 	}
 
 	enterTextEditing(id: string): void {

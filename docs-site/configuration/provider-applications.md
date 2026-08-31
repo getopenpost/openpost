@@ -61,4 +61,4 @@ Deleting or deactivating a database row does not revoke credentials at the socia
 
 If an active database row cannot be decrypted, startup fails instead of silently loading a broken provider adapter. Restore the matching encryption key before retrying the start. If that key is unavailable, recover a database-and-key backup that was captured as one matched set.
 
-See [Environment Variables](/configuration/environment-variables) for the JSON schema and legacy variables, [Callback URLs](/reference/callback-urls) for exact redirect paths, and [Provider Readiness and Launch Gate](/providers/launch-matrix) for the separate approval and live-verification requirements.
+See [Environment Variables](/configuration/environment-variables) for the JSON schema and legacy variables, [Callback URLs](/reference/callback-urls) for exact redirect paths, and [Provider Readiness and Launch Gate](/operations/provider-launch-matrix) for the separate approval and live-verification requirements.

@@ -40,6 +40,29 @@ describe('timeline viewport planning', () => {
 		]);
 	});
 
+	it('matches a full overlap scan for unsorted and deeply nested intervals', () => {
+		const items = Array.from({ length: 4_000 }, (_, offset) =>
+			item(
+				`nested-${offset}`,
+				(offset * 7_919) % 20_000,
+				offset % 19 === 0 ? 30_000 - offset : (offset % 47) + 1
+			)
+		).toReversed();
+		const index = buildTimelineItemRangeIndex(items);
+		for (let offset = 0; offset < 20_000; offset += 137) {
+			const range = { start: offset, end: offset + 83 };
+			const expected = index.items
+				.filter(
+					(candidate) =>
+						candidate.from < range.end && candidate.from + candidate.durationInFrames > range.start
+				)
+				.map((candidate) => candidate.id);
+			expect(queryTimelineItemRange(index, range).map((candidate) => candidate.id)).toEqual(
+				expected
+			);
+		}
+	});
+
 	it('uses a smaller stable overscan for dense tracks', () => {
 		expect(
 			timelineCullRange({

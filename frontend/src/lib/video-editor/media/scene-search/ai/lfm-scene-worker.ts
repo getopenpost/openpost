@@ -187,7 +187,7 @@ async function loadModel(): Promise<void> {
 }
 
 const VERIFY_PROMPT =
-	'This image shows two video frames side by side: the left frame is ~1 second before, the right frame is at the potential cut point. Is there an editorial cut between them?\n\n' +
+	'This image shows two adjacent video frames side by side: the left frame is immediately before the potential cut and the right frame is at the potential cut. Is there an editorial cut between them?\n\n' +
 	'NOT a cut - answer SAME:\n' +
 	'- Camera movement: pan, tilt, zoom, dolly, tracking, crane, or handheld shake\n' +
 	'- Whip pan or motion blur (fast continuous camera move)\n' +

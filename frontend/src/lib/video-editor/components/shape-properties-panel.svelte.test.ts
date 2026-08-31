@@ -41,6 +41,42 @@ beforeEach(() => {
 });
 
 describe('ShapePropertiesPanel masks', () => {
+	it('swaps resolved gradient stops in one undoable edit', async () => {
+		timelineStore.setAll({
+			tracks: [track],
+			items: [
+				shape({
+					shapeType: 'rectangle',
+					fillType: 'linear',
+					fillColor: '#111111',
+					gradientStartColor: '#112233',
+					gradientEndColor: '#445566'
+				})
+			],
+			currentFrame: 0,
+			fps: 30
+		});
+		const onedit = vi.fn();
+		const screen = await render(ShapePropertiesPanel, {
+			item: timelineStore.itemById.get('shape')!,
+			onedit
+		});
+
+		await screen.getByRole('button', { name: 'Swap' }).click();
+		expect(timelineStore.itemById.get('shape')).toMatchObject({
+			fillColor: '#445566',
+			gradientStartColor: '#445566',
+			gradientEndColor: '#112233'
+		});
+		expect(commandHistory.undoStack).toHaveLength(1);
+		commandHistory.undo();
+		expect(timelineStore.itemById.get('shape')).toMatchObject({
+			gradientStartColor: '#112233',
+			gradientEndColor: '#445566'
+		});
+		expect(onedit).toHaveBeenCalledOnce();
+	});
+
 	it('enables a closed clip mask and exposes alpha controls through undoable commands', async () => {
 		const onedit = vi.fn();
 		const screen = await render(ShapePropertiesPanel, {
@@ -65,7 +101,8 @@ describe('ShapePropertiesPanel masks', () => {
 			.element(screen.getByText('Masks every visible clip on the tracks below.'))
 			.toBeVisible();
 
-		await screen.getByRole('combobox', { name: 'Mask type' }).selectOptions('alpha');
+		await screen.getByRole('button', { name: 'Mask type' }).click();
+		await screen.getByRole('option', { name: 'Alpha' }).click();
 		item = timelineStore.itemById.get('shape');
 		expect(item?.maskType).toBe('alpha');
 		expect(item?.maskFeather).toBe(10);

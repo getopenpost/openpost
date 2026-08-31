@@ -112,6 +112,13 @@ function itemAnchor(transform: GroupTransform, canvasWidth: number, canvasHeight
 	return { x: canvasWidth / 2 + transform.x, y: canvasHeight / 2 + transform.y };
 }
 
+function scaledLocalPoint(point: Point, transform: GroupTransform): Point {
+	return {
+		x: point.x * (transform.scaleX ?? 1),
+		y: point.y * (transform.scaleY ?? 1)
+	};
+}
+
 export function groupItemBounds(
 	transform: GroupTransform,
 	canvasWidth: number,
@@ -127,7 +134,7 @@ export function groupItemBounds(
 		{ x: -anchorX, y: transform.height - anchorY }
 	];
 	const corners = localCorners.map((corner) => {
-		const rotated = rotate(corner, transform.rotation);
+		const rotated = rotate(scaledLocalPoint(corner, transform), transform.rotation);
 		return { x: anchor.x + rotated.x, y: anchor.y + rotated.y };
 	});
 	const left = Math.min(...corners.map((corner) => corner.x));
@@ -365,7 +372,11 @@ export function groupItemContainsPoint(
 	canvasHeight: number
 ): boolean {
 	const anchor = itemAnchor(transform, canvasWidth, canvasHeight);
-	const local = rotate({ x: point.x - anchor.x, y: point.y - anchor.y }, -transform.rotation);
+	const rotated = rotate({ x: point.x - anchor.x, y: point.y - anchor.y }, -transform.rotation);
+	const scaleX = transform.scaleX ?? 1;
+	const scaleY = transform.scaleY ?? 1;
+	if (Math.abs(scaleX) < Number.EPSILON || Math.abs(scaleY) < Number.EPSILON) return false;
+	const local = { x: rotated.x / scaleX, y: rotated.y / scaleY };
 	const anchorX = transform.anchorX ?? transform.width / 2;
 	const anchorY = transform.anchorY ?? transform.height / 2;
 	return (

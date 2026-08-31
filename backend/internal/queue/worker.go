@@ -2,12 +2,14 @@ package queue
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	databasemigrations "github.com/openpost/backend/internal/database/migrations"
@@ -24,27 +26,31 @@ import (
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationownership"
 	"github.com/openpost/backend/internal/services/providerwrite"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/videoprocessing"
 	"github.com/openpost/backend/internal/telemetry"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
 
 const (
 	// StorageDeleteMaxKeys is the largest storage deletion payload the worker accepts.
-	StorageDeleteMaxKeys      = 10_000
-	jobTypePublishPublication = jobregistry.TypePublishPublication
-	jobTypeMediaCleanup       = jobregistry.TypeMediaCleanup
-	jobTypeStorageDelete      = jobregistry.TypeStorageDelete
-	jobTypeRefreshToken       = jobregistry.TypeRefreshToken
-	jobStatusPending          = jobregistry.StatusPending
-	jobStatusProcessing       = jobregistry.StatusProcessing
-	jobStatusFailed           = jobregistry.StatusFailed
-	jobStatusCompleted        = jobregistry.StatusCompleted
-	staleProcessingJobAge     = 15 * time.Minute
-	processingHeartbeat       = staleProcessingJobAge / 3
+	StorageDeleteMaxKeys               = jobregistry.StorageDeleteMaxKeys
+	jobTypePublishPublication          = jobregistry.TypePublishPublication
+	jobTypeMediaCleanup                = jobregistry.TypeMediaCleanup
+	jobTypeStorageDelete               = jobregistry.TypeStorageDelete
+	jobTypeRefreshToken                = jobregistry.TypeRefreshToken
+	jobStatusPending                   = jobregistry.StatusPending
+	jobStatusProcessing                = jobregistry.StatusProcessing
+	jobStatusFailed                    = jobregistry.StatusFailed
+	jobStatusCompleted                 = jobregistry.StatusCompleted
+	staleProcessingJobAge              = 15 * time.Minute
+	processingHeartbeat                = staleProcessingJobAge / 3
+	publicationBuilderUnavailableRetry = time.Minute
+	jobFinalizationTimeout             = 3 * time.Second
 )
 
 // BackgroundWorker polls the configured database for pending jobs.
@@ -65,9 +71,12 @@ type BackgroundWorker struct {
 	reposts               *repostservice.Service
 	video                 *videoprocessing.Service
 	growth                *growthservice.Service
+	publicationBuilder    *publicationbuilder.Application
 	telemetry             telemetry.Recorder
 	executors             map[jobregistry.ExecutionKind]jobExecutor
 	done                  chan struct{}
+	quiesce               chan struct{}
+	quiesceOnce           sync.Once
 }
 
 type jobExecutor func(context.Context, *models.Job) error
@@ -172,6 +181,16 @@ func (w *BackgroundWorker) SetGrowthService(service *growthservice.Service) {
 	}
 }
 
+func (w *BackgroundWorker) SetPublicationBuilderService(service *publicationbuilder.Application) {
+	w.publicationBuilder = service
+	w.executors[jobregistry.ExecutePublicationBuild] = func(ctx context.Context, job *models.Job) error {
+		if w.publicationBuilder == nil {
+			return publicationbuilder.ErrRuntimeUnavailable
+		}
+		return w.publicationBuilder.HandleJob(ctx, job.Type, job.Payload)
+	}
+}
+
 func (w *BackgroundWorker) SetTelemetry(recorder telemetry.Recorder) {
 	w.telemetry = recorder
 }
@@ -186,6 +205,7 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 		storage:   storage,
 		executors: map[jobregistry.ExecutionKind]jobExecutor{},
 		done:      make(chan struct{}),
+		quiesce:   make(chan struct{}),
 	}
 	w.executors[jobregistry.ExecutePublishPublication] = func(ctx context.Context, job *models.Job) error {
 		if w.publisher == nil {
@@ -199,8 +219,8 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 	w.executors[jobregistry.ExecuteMediaCleanup] = func(ctx context.Context, job *models.Job) error {
 		return w.handleMediaCleanup(ctx, job.Payload)
 	}
-	w.executors[jobregistry.ExecuteStorageDelete] = func(_ context.Context, job *models.Job) error {
-		return w.handleStorageDelete(job.Payload)
+	w.executors[jobregistry.ExecuteStorageDelete] = func(ctx context.Context, job *models.Job) error {
+		return w.handleStorageDelete(ctx, job.Payload)
 	}
 	return w
 }
@@ -208,8 +228,12 @@ func NewWorker(db *bun.DB, id string, interval time.Duration, pub *publisher.Ser
 func (w *BackgroundWorker) Start(ctx context.Context) {
 	ticker := time.NewTicker(w.interval)
 	defer ticker.Stop()
+	defer close(w.done)
 
 	log.Printf("Worker %s started polling every %v\n", w.workerID, w.interval)
+	if w.isQuiescing() {
+		return
+	}
 	w.ensureMediaLifecycleJobs(ctx)
 	w.processDueJobs(ctx)
 
@@ -217,7 +241,9 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			log.Printf("Worker %s shutting down\n", w.workerID)
-			close(w.done)
+			return
+		case <-w.quiesce:
+			log.Printf("Worker %s drained\n", w.workerID)
 			return
 		case <-ticker.C:
 			w.processDueJobs(ctx)
@@ -225,18 +251,51 @@ func (w *BackgroundWorker) Start(ctx context.Context) {
 	}
 }
 
-// Stop signals the worker to stop and waits for it to finish.
+// Quiesce stops the worker from claiming another job. A job already running is
+// allowed to finish so its durable status can be committed safely.
+func (w *BackgroundWorker) Quiesce() {
+	w.quiesceOnce.Do(func() { close(w.quiesce) })
+}
+
+// Wait waits until the worker has drained or the caller's termination budget
+// expires.
+func (w *BackgroundWorker) Wait(ctx context.Context) error {
+	select {
+	case <-w.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Stop preserves the old blocking API for callers outside the process runner.
 func (w *BackgroundWorker) Stop() {
-	<-w.done
+	w.Quiesce()
+	_ = w.Wait(context.Background())
+}
+
+func (w *BackgroundWorker) isQuiescing() bool {
+	select {
+	case <-w.quiesce:
+		return true
+	default:
+		return false
+	}
 }
 
 func (w *BackgroundWorker) processDueJobs(ctx context.Context) {
+	if w.isQuiescing() {
+		return
+	}
 	requeuedPublicationJobIDs := w.requeueStaleProcessingJobs(ctx)
 	if err := databasemigrations.ReconcileActiveLegacyPublicationJobs(ctx, w.db, requeuedPublicationJobIDs); err != nil {
 		log.Printf("[Worker %s] failed to reconcile requeued publication jobs: %v\n", w.workerID, err)
 		return
 	}
 	for {
+		if w.isQuiescing() {
+			return
+		}
 		if !w.processNextJobIfAvailable(ctx) {
 			return
 		}
@@ -345,17 +404,36 @@ func (w *BackgroundWorker) failAmbiguousStaleJobs(ctx context.Context, cutoff ti
 func (w *BackgroundWorker) processNextJobIfAvailable(ctx context.Context) bool {
 	job := new(models.Job)
 
-	err := w.db.NewRaw(`
+	var err error
+	if w.db.Dialect().Name() == dialect.PG {
+		err = w.db.NewRaw(`
+			WITH next_job AS (
+				SELECT id
+				FROM jobs
+				WHERE status = ? AND run_at <= CURRENT_TIMESTAMP
+				ORDER BY run_at ASC, id ASC
+				FOR UPDATE SKIP LOCKED
+				LIMIT 1
+			)
+			UPDATE jobs
+			SET status = ?, locked_at = CURRENT_TIMESTAMP, locked_by = ?
+			FROM next_job
+			WHERE jobs.id = next_job.id AND jobs.status = ?
+			RETURNING jobs.*
+		`, jobStatusPending, jobStatusProcessing, w.workerID, jobStatusPending).Scan(ctx, job)
+	} else {
+		err = w.db.NewRaw(`
 		UPDATE jobs
 		SET status = ?, locked_at = CURRENT_TIMESTAMP, locked_by = ?
 		WHERE status = ? AND id = (
-			SELECT id FROM jobs 
+			SELECT id FROM jobs
 			WHERE status = ? AND run_at <= CURRENT_TIMESTAMP
-			ORDER BY run_at ASC 
+			ORDER BY run_at ASC, id ASC
 			LIMIT 1
 		)
 		RETURNING *
-	`, jobStatusProcessing, w.workerID, jobStatusPending, jobStatusPending).Scan(ctx, job)
+		`, jobStatusProcessing, w.workerID, jobStatusPending, jobStatusPending).Scan(ctx, job)
+	}
 
 	if err != nil {
 		if err.Error() != "sql: no rows in result set" {
@@ -380,9 +458,11 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 	processErr := w.executeJob(ctx, job)
 	cancelHeartbeat()
 	<-heartbeatDone
+	finalizeCtx, cancelFinalize := workerFinalizationContext(ctx)
+	defer cancelFinalize()
 
 	if processErr != nil {
-		w.finishFailedJob(ctx, job, processErr)
+		w.finishFailedJob(finalizeCtx, job, processErr)
 		return
 	}
 	if definition, ok := jobregistry.Lookup(job.Type); ok && definition.Recurrence > 0 {
@@ -395,31 +475,46 @@ func (w *BackgroundWorker) handleLockedJob(ctx context.Context, job *models.Job)
 			Set("locked_at = NULL").
 			Set("locked_by = ''").
 			Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
-			Exec(ctx); dbErr != nil {
+			Exec(finalizeCtx); dbErr != nil {
 			log.Printf("[Worker %s] failed to reschedule recurring job %s: %v\n", w.workerID, job.ID, dbErr)
 		}
 		log.Printf("[Worker %s] recurring job %s scheduled for %s\n", w.workerID, job.ID, nextRun.Format(time.RFC3339))
 		return
 	}
 
-	if _, dbErr := w.db.NewUpdate().Model(job).
+	result, dbErr := w.db.NewUpdate().Model((*models.Job)(nil)).
 		Set("status = ?", jobStatusCompleted).
 		Set("locked_at = NULL").
 		Set("locked_by = ''").
-		Where("id = ?", job.ID).
-		Exec(ctx); dbErr != nil {
+		Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
+		Exec(finalizeCtx)
+	if dbErr != nil {
 		log.Printf("[Worker %s] failed to mark job %s as completed: %v\n", w.workerID, job.ID, dbErr)
+		return
 	}
-
-	log.Printf("[Worker %s] job %s completed successfully\n", w.workerID, job.ID)
+	if rows, rowsErr := result.RowsAffected(); rowsErr != nil {
+		log.Printf("[Worker %s] failed to inspect completion of job %s: %v\n", w.workerID, job.ID, rowsErr)
+	} else if rows == 1 {
+		log.Printf("[Worker %s] job %s completed successfully\n", w.workerID, job.ID)
+	}
 }
 
+func workerFinalizationContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(ctx), jobFinalizationTimeout)
+}
+
+//nolint:gocyclo // Durable retry, fencing, and terminal persistence share this transaction-aware path.
 func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job, processErr error) {
 	log.Printf("[Worker %s] job %s failed\n", w.workerID, job.ID)
-	job.Attempts++
 	failure := w.classifyJobFailure(ctx, job, processErr)
+	if !failure.preserveAttempts {
+		job.Attempts++
+	}
 	definition, registered := jobregistry.Lookup(job.Type)
 	switch {
+	case failure.preserveAttempts:
+		job.Status = jobStatusPending
+		job.RunAt = time.Now().UTC().Add(failure.retryAfter)
 	case registered && definition.Recurrence > 0 && failure.retryable && job.Attempts >= job.MaxAttempts:
 		job.Status = jobStatusPending
 		job.Attempts = 0
@@ -439,16 +534,41 @@ func (w *BackgroundWorker) finishFailedJob(ctx context.Context, job *models.Job,
 	}
 	job.LastError = failure.message
 
-	if _, dbErr := w.db.NewUpdate().Model((*models.Job)(nil)).
-		Set("status = ?", job.Status).
-		Set("attempts = ?", job.Attempts).
-		Set("last_error = ?", job.LastError).
-		Set("run_at = ?", job.RunAt).
-		Set("locked_at = NULL").
-		Set("locked_by = ''").
-		Where("id = ?", job.ID).
-		Exec(ctx); dbErr != nil {
+	persistFailure := func(db bun.IDB) (int64, error) {
+		result, err := db.NewUpdate().Model((*models.Job)(nil)).
+			Set("status = ?", job.Status).
+			Set("attempts = ?", job.Attempts).
+			Set("last_error = ?", job.LastError).
+			Set("run_at = ?", job.RunAt).
+			Set("locked_at = NULL").
+			Set("locked_by = ''").
+			Where("id = ? AND status = ? AND locked_by = ?", job.ID, jobStatusProcessing, w.workerID).
+			Exec(ctx)
+		if err != nil {
+			return 0, err
+		}
+		return result.RowsAffected()
+	}
+
+	var rows int64
+	var dbErr error
+	if job.Status == jobStatusFailed && job.Type == jobregistry.TypePublicationBuild && w.publicationBuilder != nil {
+		dbErr = w.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+			var err error
+			rows, err = persistFailure(tx)
+			if err != nil || rows == 0 {
+				return err
+			}
+			return w.publicationBuilder.MarkTerminalJobFailure(txCtx, tx, job.Payload)
+		})
+	} else {
+		rows, dbErr = persistFailure(w.db)
+	}
+	if dbErr != nil {
 		log.Printf("[Worker %s] failed to update job %s status: %v\n", w.workerID, job.ID, dbErr)
+		return
+	}
+	if rows == 0 {
 		return
 	}
 	if job.Status != jobStatusFailed {
@@ -482,12 +602,24 @@ func (w *BackgroundWorker) recordTerminalFailure(ctx context.Context, job *model
 }
 
 type classifiedJobFailure struct {
-	retryable  bool
-	retryAfter time.Duration
-	message    string
+	retryable        bool
+	retryAfter       time.Duration
+	message          string
+	preserveAttempts bool
 }
 
 func (w *BackgroundWorker) classifyJobFailure(ctx context.Context, job *models.Job, processErr error) classifiedJobFailure {
+	if job.Type == jobregistry.TypePublicationBuild {
+		switch {
+		case errors.Is(processErr, publicationbuilder.ErrRuntimeUnavailable):
+			return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is temporarily unavailable. OpenPost will retry when it is configured.", preserveAttempts: true}
+		case errors.Is(processErr, publicationbuilder.ErrTooManyActiveBuilds):
+			return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is waiting for an active build slot.", preserveAttempts: true}
+		case errors.Is(processErr, publicationbuilder.ErrBuildLeaseActive):
+			return classifiedJobFailure{retryable: true, retryAfter: publicationBuilderUnavailableRetry, message: "Publication Builder is waiting for the active generation lease.", preserveAttempts: true}
+		}
+		return classifiedJobFailure{retryable: true, message: "Publication Builder could not complete this build. OpenPost will retry when possible."}
+	}
 	result := classifiedJobFailure{retryable: true, message: processErr.Error()}
 	definition, ok := jobregistry.Lookup(job.Type)
 	if !ok {
@@ -567,7 +699,7 @@ func (w *BackgroundWorker) executeJob(ctx context.Context, job *models.Job) erro
 	return executor(ctx, job)
 }
 
-func (w *BackgroundWorker) handleStorageDelete(payload string) error {
+func (w *BackgroundWorker) handleStorageDelete(ctx context.Context, payload string) error {
 	if w.storage == nil {
 		return fmt.Errorf("storage is not configured")
 	}
@@ -585,7 +717,7 @@ func (w *BackgroundWorker) handleStorageDelete(payload string) error {
 		if key == "." || filepath.IsAbs(key) || key == ".." || strings.HasPrefix(key, ".."+string(filepath.Separator)) {
 			return fmt.Errorf("storage deletion payload contains an invalid key")
 		}
-		if err := w.storage.Delete(key); err != nil {
+		if err := w.storage.Delete(ctx, key); err != nil {
 			return fmt.Errorf("delete storage object %q: %w", key, err)
 		}
 	}

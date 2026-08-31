@@ -8,6 +8,7 @@ function renderActions(overrides: Partial<ComponentProps<typeof ComposerPublishA
 		scheduleLabel: 'Schedule',
 		quickScheduleLabel: 'Schedule to next free slot',
 		publishLabel: 'Publish Now',
+		moreLabel: 'More delivery actions',
 		onSchedule: vi.fn(),
 		onQuickSchedule: vi.fn(),
 		onPublish: vi.fn(),
@@ -16,40 +17,34 @@ function renderActions(overrides: Partial<ComponentProps<typeof ComposerPublishA
 }
 
 describe('ComposerPublishActions', () => {
-	it('uses the arrow action for the next free slot', async () => {
+	it('makes the next free slot the primary delivery action', async () => {
 		const onQuickSchedule = vi.fn();
 		const screen = await renderActions({ onQuickSchedule });
 		const quickSchedule = screen.getByRole('button', {
 			name: 'Schedule to next free slot'
 		});
 
-		expect(
-			screen.container.querySelector(
-				'button[aria-label="Schedule to next free slot"] .lucide-arrow-right'
-			)
-		).not.toBeNull();
+		await expect.element(quickSchedule).toBeEnabled();
+		expect(quickSchedule.element().dataset.testid).toBe('composer-primary-delivery-action');
 		await quickSchedule.click();
 		expect(onQuickSchedule).toHaveBeenCalledOnce();
 	});
 
-	it('uses a send action when a complete schedule is selected', async () => {
-		const onQuickSchedule = vi.fn();
+	it('keeps schedule and immediate publish available in the delivery menu', async () => {
+		const onSchedule = vi.fn();
+		const onPublish = vi.fn();
 		const screen = await renderActions({
 			scheduleLabel: 'Tomorrow 10:30',
-			quickScheduleLabel: 'Schedule for Tomorrow 10:30',
-			scheduleSelected: true,
-			onQuickSchedule
-		});
-		const quickSchedule = screen.getByRole('button', {
-			name: 'Schedule for Tomorrow 10:30'
+			onSchedule,
+			onPublish
 		});
 
-		expect(
-			screen.container.querySelector(
-				'button[aria-label="Schedule for Tomorrow 10:30"] .lucide-send'
-			)
-		).not.toBeNull();
-		await quickSchedule.click();
-		expect(onQuickSchedule).toHaveBeenCalledOnce();
+		await screen.getByRole('button', { name: 'More delivery actions' }).click();
+		await screen.getByRole('menuitem', { name: 'Tomorrow 10:30' }).click();
+		expect(onSchedule).toHaveBeenCalledOnce();
+
+		await screen.getByRole('button', { name: 'More delivery actions' }).click();
+		await screen.getByRole('menuitem', { name: 'Publish Now' }).click();
+		expect(onPublish).toHaveBeenCalledOnce();
 	});
 });

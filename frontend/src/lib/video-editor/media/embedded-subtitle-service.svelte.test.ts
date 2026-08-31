@@ -148,4 +148,33 @@ describe('insertEmbeddedSubtitleTrack', () => {
 		expect(timelineStore.itemById.has('stale')).toBe(true);
 		expect(timelineStore.tracks).toEqual([videoTrack, audioTrack]);
 	});
+
+	it('preserves embedded captions beneath a locked track group', () => {
+		const group: TimelineTrack = {
+			id: 'locked-group',
+			name: 'Locked captions',
+			height: 96,
+			locked: true,
+			visible: true,
+			muted: false,
+			solo: false,
+			order: -1,
+			isGroup: true
+		};
+		timelineStore.setAll({
+			tracks: [group, { ...videoTrack, parentTrackId: group.id }, audioTrack],
+			items,
+			fps: 30,
+			currentFrame: 0
+		});
+
+		expect(() =>
+			insertEmbeddedSubtitleTrack(media, subtitleTrack, {
+				canvasWidth: 1920,
+				canvasHeight: 1080
+			})
+		).toThrow('Unlock the existing caption track before retranscribing this clip.');
+		expect(timelineStore.itemById.get('stale')).toEqual(items[2]);
+		expect(commandHistory.undoStack).toHaveLength(0);
+	});
 });

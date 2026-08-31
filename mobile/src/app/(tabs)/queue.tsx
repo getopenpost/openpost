@@ -1,4 +1,3 @@
-import * as Haptics from "expo-haptics";
 import { router, Stack } from "expo-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -11,16 +10,19 @@ import {
   View,
 } from "react-native";
 import { useState } from "react";
+import Swipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 
 import { BodyText, Button, Card, Screen, StatusBadge, useColors } from "@/components/ui";
 import { api, errorMessage } from "@/lib/api/client";
 import { formatDateTime, platformLabel, relativeTime } from "@/lib/format";
+import { errorHaptic, selectionHaptic, successHaptic } from "@/lib/haptics";
 import { usePublications, type PublicationListItem } from "@/lib/queries";
 
 export default function QueueScreen() {
   const colors = useColors();
   const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<PublicationListItem | null>(null);
 
   const scheduled = usePublications("scheduled");
   const failed = usePublications("failed");
@@ -33,10 +35,50 @@ export default function QueueScreen() {
       if (error) throw new Error(await errorMessage(response, "Retry failed"));
     },
     onSuccess: () => {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void successHaptic();
       void queryClient.invalidateQueries({ queryKey: ["publications"] });
     },
-    onError: (err) => setActionError(err.message),
+    onError: (err) => {
+      setActionError(err.message);
+      void errorHaptic();
+    },
+  });
+
+  const dismissFailed = useMutation({
+    mutationFn: async (publication: PublicationListItem) => {
+      const { error, response } = await api().POST("/publications/{id}/failure-dismissal", {
+        params: { path: { id: publication.id } },
+      });
+      if (error) throw new Error(await errorMessage(response, "Could not dismiss failed post"));
+      return publication;
+    },
+    onSuccess: (publication) => {
+      setDismissed(publication);
+      setActionError(null);
+      void selectionHaptic();
+      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    },
+    onError: (err) => {
+      setActionError(err.message);
+      void errorHaptic();
+    },
+  });
+
+  const restoreFailed = useMutation({
+    mutationFn: async (publicationId: string) => {
+      const { error, response } = await api().DELETE("/publications/{id}/failure-dismissal", {
+        params: { path: { id: publicationId } },
+      });
+      if (error) throw new Error(await errorMessage(response, "Could not restore failed post"));
+    },
+    onSuccess: () => {
+      setDismissed(null);
+      void queryClient.invalidateQueries({ queryKey: ["publications"] });
+    },
+    onError: (err) => {
+      setActionError(err.message);
+      void errorHaptic();
+    },
   });
 
   const refreshing = scheduled.isRefetching || failed.isRefetching;
@@ -79,6 +121,7 @@ export default function QueueScreen() {
               key={publication.id}
               publication={publication}
               onRetry={() => retryFailed.mutate(publication.id)}
+              onDismiss={() => dismissFailed.mutate(publication)}
               pending={retryFailed.isPending && retryFailed.variables === publication.id}
             />
           ))}
@@ -101,6 +144,18 @@ export default function QueueScreen() {
           ) : null}
         </Section>
       </ScrollView>
+      {dismissed ? (
+        <View style={[styles.undoBar, { backgroundColor: colors.text }]} accessibilityRole="alert">
+          <Text style={{ color: colors.bg, flex: 1 }}>Failed post dismissed</Text>
+          <Button
+            title="Undo"
+            variant="plain"
+            onPress={() => restoreFailed.mutate(dismissed.id)}
+            loading={restoreFailed.isPending}
+            style={styles.undoButton}
+          />
+        </View>
+      ) : null}
     </Screen>
   );
 }
@@ -151,7 +206,9 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={() => router.push({ pathname: "/post/[id]", params: { id: publication.id } })}
+      onPress={() =>
+        router.push({ pathname: "/publications/[id]", params: { id: publication.id } })
+      }
     >
       {({ pressed }) => (
         <Card style={[styles.row, pressed && { opacity: 0.6 }]}>
@@ -174,10 +231,12 @@ function QueueRow({ publication }: { publication: PublicationListItem }) {
 function FailedCard({
   publication,
   onRetry,
+  onDismiss,
   pending,
 }: {
   publication: PublicationListItem;
   onRetry: () => void;
+  onDismiss: () => void;
   pending: boolean;
 }) {
   const colors = useColors();
@@ -188,40 +247,55 @@ function FailedCard({
       message: rendition.error_message,
     }));
   return (
-    <Card style={styles.row}>
-      <Pressable
-        accessibilityRole="button"
-        style={{ flex: 1 }}
-        onPress={() =>
-          router.push({
-            pathname: "/post/[id]",
-            params: { id: publication.id },
-          })
-        }
-      >
-        <View style={{ gap: 6 }}>
-          <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
-            {titleFor(publication)}
-          </Text>
-          <StatusBadge status="failed" />
-          {errors.slice(0, 2).map((error, index) => (
-            <BodyText key={index} numberOfLines={2}>
-              {error.platform ? `${platformLabel(error.platform)}: ` : ""}
-              {error.message ?? "Publication failed"}
-            </BodyText>
-          ))}
-          <BodyText>{relativeTime(publication.updated_at)}</BodyText>
+    <Swipeable
+      friction={1.6}
+      leftThreshold={72}
+      overshootLeft={false}
+      renderLeftActions={() => (
+        <View style={[styles.swipeAction, { backgroundColor: colors.success }]}>
+          <Text style={styles.swipeActionText}>Dismiss</Text>
         </View>
-      </Pressable>
-      <Button
-        title="Retry"
-        variant="tinted"
-        onPress={onRetry}
-        disabled={pending}
-        loading={pending}
-        style={styles.retryButton}
-      />
-    </Card>
+      )}
+      onSwipeableOpen={onDismiss}
+    >
+      <Card style={styles.row}>
+        <Pressable
+          accessibilityRole="button"
+          style={{ flex: 1 }}
+          onPress={() =>
+            router.push({
+              pathname: "/publications/[id]",
+              params: { id: publication.id },
+            })
+          }
+        >
+          <View style={{ gap: 6 }}>
+            <Text style={[styles.rowTitle, { color: colors.text }]} numberOfLines={2}>
+              {titleFor(publication)}
+            </Text>
+            <StatusBadge status="failed" />
+            {errors.slice(0, 2).map((error, index) => (
+              <BodyText key={index} numberOfLines={2}>
+                {error.platform ? `${platformLabel(error.platform)}: ` : ""}
+                {error.message ?? "Publication failed"}
+              </BodyText>
+            ))}
+            <BodyText>{relativeTime(publication.updated_at)}</BodyText>
+          </View>
+        </Pressable>
+        <View style={styles.failedActions}>
+          <Button
+            title="Retry"
+            variant="tinted"
+            onPress={onRetry}
+            disabled={pending}
+            loading={pending}
+            style={styles.retryButton}
+          />
+          <Button title="Dismiss" variant="plain" onPress={onDismiss} />
+        </View>
+      </Card>
+    </Swipeable>
   );
 }
 
@@ -275,6 +349,35 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     paddingHorizontal: 12,
+  },
+  failedActions: {
+    alignItems: "stretch",
+    gap: 2,
+  },
+  swipeAction: {
+    alignItems: "flex-start",
+    borderRadius: 12,
+    justifyContent: "center",
+    paddingHorizontal: 20,
+    width: 112,
+  },
+  swipeActionText: {
+    color: "#ffffff",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  undoBar: {
+    alignItems: "center",
+    borderRadius: 14,
+    bottom: 18,
+    flexDirection: "row",
+    left: 20,
+    paddingLeft: 16,
+    position: "absolute",
+    right: 20,
+  },
+  undoButton: {
+    minHeight: 48,
   },
   error: {
     gap: 12,

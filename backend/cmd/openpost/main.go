@@ -12,12 +12,11 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
-	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -31,8 +30,10 @@ import (
 	"github.com/openpost/backend/internal/connectors"
 	"github.com/openpost/backend/internal/database"
 	"github.com/openpost/backend/internal/memes"
+	operationallogging "github.com/openpost/backend/internal/operational/logging"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/queue"
+	"github.com/openpost/backend/internal/services/aiprompts"
 	analyticsservice "github.com/openpost/backend/internal/services/analytics"
 	"github.com/openpost/backend/internal/services/apitokens"
 	"github.com/openpost/backend/internal/services/auth"
@@ -41,6 +42,7 @@ import (
 	"github.com/openpost/backend/internal/services/crypto"
 	"github.com/openpost/backend/internal/services/emailchange"
 	"github.com/openpost/backend/internal/services/emailverification"
+	"github.com/openpost/backend/internal/services/encryptionrotation"
 	engagementservice "github.com/openpost/backend/internal/services/engagement"
 	"github.com/openpost/backend/internal/services/entitlements"
 	"github.com/openpost/backend/internal/services/feedback"
@@ -59,12 +61,16 @@ import (
 	"github.com/openpost/backend/internal/services/notifications"
 	"github.com/openpost/backend/internal/services/organizationownership"
 	"github.com/openpost/backend/internal/services/passwordmail"
+	"github.com/openpost/backend/internal/services/postgeneration"
 	"github.com/openpost/backend/internal/services/providerapps"
 	"github.com/openpost/backend/internal/services/providerreadiness"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
+	"github.com/openpost/backend/internal/services/publicationdiscovery"
 	"github.com/openpost/backend/internal/services/publicurl"
 	"github.com/openpost/backend/internal/services/publisher"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/openpost/backend/internal/services/sessions"
+	"github.com/openpost/backend/internal/services/sourcecontext"
 	"github.com/openpost/backend/internal/services/tokenmanager"
 	"github.com/openpost/backend/internal/services/updatestatus"
 	"github.com/openpost/backend/internal/services/usage"
@@ -76,14 +82,36 @@ import (
 var version = "dev"
 var commit = "unknown"
 
+const (
+	processShutdownTimeout    = 10 * time.Second
+	workerCancellationReserve = 3 * time.Second
+	encryptionRotationTimeout = 15 * time.Minute
+)
+
+func newWorkerID() string {
+	return "worker-" + uuid.NewString()
+}
+
 //nolint:gocyclo
 func main() {
+	runtimeLogger := operationallogging.New(os.Stdout, "openpost", runningBuildRevision())
+	log.SetFlags(0)
+	log.SetOutput(runtimeLogger.LegacyWriter())
+
+	command, commandErr := parseProcessCommand(os.Args[1:])
+	if commandErr != nil {
+		log.Fatal(commandErr)
+	}
+	if command.showHelp {
+		fmt.Println(processUsage)
+		return
+	}
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
 
 	cfg := config.Load()
-	if len(os.Args) == 2 && os.Args[1] == "check-config" {
+	if command.checkConfig {
 		if err := cfg.ValidateRuntime(); err != nil {
 			log.Fatal(err)
 		}
@@ -99,17 +127,83 @@ func main() {
 		return
 	}
 	config.Init()
+	if err := cfg.ValidateEncryptionKeyring(); err != nil {
+		log.Fatal(err)
+	}
+	if command.rotateEncryptionKey && cfg.EncryptionKeyID == "" {
+		log.Fatal("rotate-encryption-key requires an explicit OPENPOST_ENCRYPTION_KEY_ID")
+	}
+	if command.role == processRoleMigrate || command.role == processRoleMaintenance {
+		if err := cfg.ValidateRuntime(); err != nil {
+			log.Fatal(err)
+		}
+	}
 
-	db, err := database.InitDBWithDriver(cfg.DatabaseDriver, cfg.DatabaseDSN())
+	db, err := database.InitDBWithDriverAndRole(
+		cfg.DatabaseDriver,
+		cfg.DatabaseDSN(),
+		string(command.role),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if err := database.CreateSchema(db); err != nil {
-		log.Fatalf("database schema initialization failed: %v", err)
+	closeDatabase := func() {
+		if closeErr := db.Close(); closeErr != nil {
+			log.Printf("database shutdown failed: %v", closeErr)
+		}
+	}
+	if command.role.autoMigrates() {
+		if err := database.CreateSchemaLocked(context.Background(), db, cfg.DatabaseDriver, cfg.DatabaseDSN()); err != nil {
+			log.Fatalf("database schema initialization failed: %v", err)
+		}
+	} else if err := database.RequireCurrentSchema(context.Background(), db); err != nil {
+		log.Fatal(err)
+	}
+	if command.role == processRoleMigrate {
+		if err := json.NewEncoder(os.Stdout).Encode(map[string]string{
+			"status":          "migrated",
+			"database_driver": cfg.DatabaseDriver,
+		}); err != nil {
+			log.Fatal(err)
+		}
+		closeDatabase()
+		return
 	}
 
-	tokenEncryptor := crypto.NewTokenEncryptor(cfg.EncryptionKey)
+	var tokenEncryptor *crypto.TokenEncryptor
+	if cfg.EncryptionKeyID == "" {
+		tokenEncryptor = crypto.NewTokenEncryptor(cfg.EncryptionKey)
+	} else {
+		tokenEncryptor, err = crypto.NewTokenEncryptorWithKeyring(
+			cfg.EncryptionKeyID,
+			cfg.EncryptionKey,
+			cfg.EncryptionPreviousKeys,
+		)
+		if err != nil {
+			closeDatabase()
+			log.Fatalf("invalid encryption keyring configuration: %v", err)
+		}
+	}
+	if command.rotateEncryptionKey {
+		rotationCtx, cancelRotation := context.WithTimeout(context.Background(), encryptionRotationTimeout)
+		result, rotationErr := encryptionrotation.Rotate(rotationCtx, db, tokenEncryptor)
+		cancelRotation()
+		if rotationErr != nil {
+			closeDatabase()
+			log.Fatalf("encryption key rotation failed: %v", rotationErr)
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(struct {
+			Status string `json:"status"`
+			encryptionrotation.Result
+		}{Status: "rotated", Result: result}); err != nil {
+			closeDatabase()
+			log.Fatal(err)
+		}
+		closeDatabase()
+		return
+	}
 	instanceSettingsService := instancesettings.NewService(db, tokenEncryptor, cfg)
+	aiPromptService := aiprompts.NewService(db, tokenEncryptor)
 	if err := instanceSettingsService.ApplyStored(context.Background(), cfg); err != nil {
 		log.Fatalf("failed to load administrator-managed instance settings: %v", err)
 	}
@@ -131,6 +225,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	readiness := apiroutes.NewReadiness()
 	e := echo.New()
 	e.Use(echo.WrapMiddleware(telemetryRecorder.WrapHTTP))
 	e.Use(middleware.RequestID())
@@ -148,18 +243,18 @@ func main() {
 		HandleError:     true,
 		LogValuesFunc: func(_ echo.Context, values middleware.RequestLoggerValues) error {
 			route := normalizedRequestRoute(values.RoutePath)
-			log.Printf(
-				"request method=%s path=%s route=%s consumer=%s status=%d latency=%s bytes_out=%d remote_ip=%s request_id=%s error=%v",
-				values.Method,
-				values.URIPath,
-				route,
-				requestConsumerClass(route, values.UserAgent),
-				values.Status,
-				values.Latency,
-				values.ResponseSize,
-				values.RemoteIP,
-				values.RequestID,
-				values.Error,
+			runtimeLogger.Info(
+				"http_request",
+				"method", values.Method,
+				"path", values.URIPath,
+				"route", route,
+				"consumer", requestConsumerClass(route, values.UserAgent),
+				"status", values.Status,
+				"latency_ms", values.Latency.Milliseconds(),
+				"bytes_out", values.ResponseSize,
+				"remote_ip", values.RemoteIP,
+				"request_id", values.RequestID,
+				"error", values.Error,
 			)
 			return nil
 		},
@@ -237,7 +332,7 @@ func main() {
 	authenticator := apimiddleware.NewCompositeServiceWithSessions(authService, apiTokenService, sessionService)
 	cliAuthService := cliauth.NewService(db, apiTokenService)
 	mcpOAuthService := mcpoauth.NewService(db, apiTokenService)
-	mediaSigner := mediasigner.New(cfg.EncryptionKey)
+	mediaSigner := mediasigner.New(cfg.MediaSigningKey)
 	mfaService, err := mfa.NewService("OpenPost", mfa.RelyingPartyConfig{
 		Name:    "OpenPost",
 		ID:      cfg.WebAuthnRPID,
@@ -426,6 +521,14 @@ func main() {
 		repostService.SetProvider(name, adapter)
 		growthService.SetProvider(name, adapter)
 	}
+	for _, source := range cfg.AnalyticsSources {
+		adapter, err := analyticsservice.NewExternalAnalyticsAdapter(source.Platform, source.BaseURL, source.BearerToken)
+		if err != nil {
+			log.Fatalf("failed to initialize external analytics source for %s: %v", source.Platform, err)
+		}
+		analyticsService.SetExternalSource(source.Platform, adapter)
+		log.Printf("Registered external analytics source: %s", source.Platform)
+	}
 
 	storage, err := mediastore.New(context.Background(), mediastore.Config{
 		Driver:    cfg.StorageDriver,
@@ -453,23 +556,24 @@ func main() {
 	mediaHandler.SetVideoProcessor(videoProcessingService)
 	profileHandler := handlers.NewProfileHandler(db, authenticator, storage)
 
-	var generator ai.Generator
+	var imageGenerator ai.Generator
+	var contentGenerator ai.Generator
 	if cfg.OpenRouterAPIKey != "" {
-		generator, err = ai.NewOpenRouter(ai.OpenRouterConfig{
-			APIKey:      cfg.OpenRouterAPIKey,
-			HTTPReferer: cfg.PublicURL,
-			XTitle:      "OpenPost",
-			Provider:    cfg.ImageCaptionProvider,
-			RequireZDR:  cfg.ImageCaptionRequireZDR,
-		})
+		imageConfig, contentConfig := openRouterConfigs(cfg)
+		imageGenerator, err = ai.NewOpenRouter(imageConfig)
 		if err != nil {
-			log.Fatalf("failed to initialize OpenRouter: %v", err)
+			log.Fatalf("failed to initialize OpenRouter image generator: %v", err)
+		}
+		contentGenerator, err = ai.NewOpenRouter(contentConfig)
+		if err != nil {
+			log.Fatalf("failed to initialize OpenRouter text generator: %v", err)
 		}
 	}
 
 	var imageCaptioner imagecaption.Captioner
-	if generator != nil {
-		imageCaptioner, err = imagecaption.New(generator, cfg.ImageCaptionModel)
+	var postBuilder postgeneration.Builder
+	if imageGenerator != nil {
+		imageCaptioner, err = imagecaption.New(imageGenerator, cfg.ImageCaptionModel)
 		if err != nil {
 			log.Fatalf("failed to initialize automatic image captioning: %v", err)
 		}
@@ -480,6 +584,52 @@ func main() {
 			cfg.ImageCaptionRequireZDR,
 		)
 	}
+	if contentGenerator != nil {
+		postBuilder, err = postgeneration.New(contentGenerator, cfg.TextGenerationModel, aiPromptService)
+		if err != nil {
+			log.Fatalf("failed to initialize AI post builder: %v", err)
+		}
+		log.Printf(
+			"AI post builder enabled with model %s provider %s zero_data_retention=%t",
+			cfg.TextGenerationModel,
+			cfg.ContentAIProvider,
+			cfg.ContentAIRequireZDR,
+		)
+	}
+
+	var publicSourceLoader sourcecontext.Loader
+	var publicationBuilderApplication *publicationbuilder.Application
+	var publicationBuilderService *publicationbuilder.Service
+	var publicationDiscoveryService publicationdiscovery.Discoverer
+	if contentGenerator != nil {
+		publicSourceLoader, err = sourcecontext.New(sourcecontext.Config{})
+		if err != nil {
+			log.Fatalf("failed to initialize public source loader: %v", err)
+		}
+		publicationBuilderService, err = publicationbuilder.New(contentGenerator, publicationbuilder.Config{Model: cfg.TextGenerationModel})
+		if err != nil {
+			log.Fatalf("failed to initialize publication builder: %v", err)
+		}
+		publicationBuilderApplication, err = publicationbuilder.NewApplication(
+			db,
+			publicationBuilderService,
+			publicationbuilder.ApplicationConfig{
+				Model:        cfg.TextGenerationModel,
+				SourceLoader: publicSourceLoader,
+				AssetLoader:  publicationbuilder.NewMediaAssetLoader(db, storage),
+			},
+		)
+		if err != nil {
+			log.Fatalf("failed to initialize durable publication builder: %v", err)
+		}
+		publicationDiscoveryService, err = publicationdiscovery.New(contentGenerator, publicationdiscovery.Config{
+			Model:        cfg.TextGenerationModel,
+			SourceLoader: publicSourceLoader,
+		})
+		if err != nil {
+			log.Fatalf("failed to initialize publication discovery: %v", err)
+		}
+	}
 
 	var memeProvider memes.Provider
 	var memeSuggester memegeneration.Suggester
@@ -488,8 +638,8 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to initialize built-in meme catalog: %v", err)
 		}
-		if generator != nil {
-			memeSuggester, err = memegeneration.New(generator, cfg.MemeGenerationModel)
+		if contentGenerator != nil {
+			memeSuggester, err = memegeneration.New(contentGenerator, cfg.MemeGenerationModel)
 			if err != nil {
 				log.Fatalf("failed to initialize AI meme suggestions: %v", err)
 			}
@@ -515,39 +665,43 @@ func main() {
 		AppVersion: version,
 	}, feedbackDestination)
 
-	worker := queue.NewWorker(db, "worker-1", 1*time.Second, publishSvc, tokenManager, storage)
-	worker.SetFeedbackService(feedbackService)
-	worker.SetAnalyticsService(analyticsService)
-	worker.SetBillingService(billingService)
-	worker.SetEngagementService(engagementService)
-	worker.SetMessagingService(messagingService)
-	worker.SetNotificationService(notificationService)
 	organizationOwnershipService := organizationownership.NewService(db, notificationService, identityService)
-	worker.SetOrganizationOwnershipService(organizationOwnershipService)
-	worker.SetRepostService(repostService)
-	worker.SetVideoProcessingService(videoProcessingService)
-	worker.SetGrowthService(growthService)
-	worker.SetTelemetry(telemetryRecorder)
-	if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
-		log.Fatalf("failed to schedule pending video analysis: %v", err)
-	}
-	if err := analyticsService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule analytics collection: %v", err)
-	}
-	if err := engagementService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule engagement collection: %v", err)
-	}
-	if err := messagingService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule messaging collection: %v", err)
-	}
-	if err := repostService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
-		log.Fatalf("failed to schedule repost automation: %v", err)
+	var worker *queue.BackgroundWorker
+	if command.role.runsWorker() {
+		worker = queue.NewWorker(db, newWorkerID(), 1*time.Second, publishSvc, tokenManager, storage)
+		worker.SetFeedbackService(feedbackService)
+		worker.SetAnalyticsService(analyticsService)
+		worker.SetBillingService(billingService)
+		worker.SetEngagementService(engagementService)
+		worker.SetMessagingService(messagingService)
+		worker.SetNotificationService(notificationService)
+		worker.SetOrganizationOwnershipService(organizationOwnershipService)
+		worker.SetRepostService(repostService)
+		worker.SetVideoProcessingService(videoProcessingService)
+		worker.SetGrowthService(growthService)
+		worker.SetPublicationBuilderService(publicationBuilderApplication)
+		worker.SetTelemetry(telemetryRecorder)
+		if err := videoProcessingService.EnqueuePendingAnalysis(context.Background()); err != nil {
+			log.Fatalf("failed to schedule pending video analysis: %v", err)
+		}
+		if err := analyticsService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule analytics collection: %v", err)
+		}
+		if err := engagementService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule engagement collection: %v", err)
+		}
+		if err := messagingService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule messaging collection: %v", err)
+		}
+		if err := repostService.ScheduleSweep(context.Background(), time.Now().UTC()); err != nil {
+			log.Fatalf("failed to schedule repost automation: %v", err)
+		}
 	}
 
 	apiGroup := e.Group("/api/v1")
 	apiGroup.Use(handlers.FeedbackBodyLimitMiddleware)
 	apiGroup.Use(handlers.MemeBodyLimitMiddleware)
-	humaConfig := huma.DefaultConfig("OpenPost API", "1.0.0")
+	humaConfig := apiroutes.OpenAPIConfig("1.0.0")
 	api := humaecho.NewWithGroup(e, apiGroup, humaConfig)
 
 	mediaHandler.RegisterLegacyRoutes(e)
@@ -561,6 +715,7 @@ func main() {
 	if err := registerE2EDeliveryProjection(e, db, authenticator, cfg.AppE2EDeliveryProjection); err != nil {
 		log.Fatalf("failed to configure E2E delivery projection: %v", err)
 	}
+	defer closeDatabase()
 
 	e.GET("/openapi.json", func(c echo.Context) error {
 		spec := api.OpenAPI()
@@ -607,6 +762,7 @@ func main() {
 	})
 	apiroutes.RegisterHumaRoutes(api, apiroutes.RouteDeps{
 		DB:                        db,
+		Readiness:                 readiness,
 		AuthService:               authService,
 		Authenticator:             authenticator,
 		SessionService:            sessionService,
@@ -619,6 +775,12 @@ func main() {
 		ImageCaptioner:            imageCaptioner,
 		MemeProvider:              memeProvider,
 		MemeSuggester:             memeSuggester,
+		PostBuilder:               postBuilder,
+		ContentBuilderEnabled:     publicationBuilderApplication != nil,
+		ContentDiscoveryEnabled:   publicationDiscoveryService != nil,
+		PublicationBuilder:        publicationBuilderApplication,
+		PublicationPlanner:        publicationBuilderService,
+		PublicationDiscovery:      publicationDiscoveryService,
 		Entitlement:               entitlementService,
 		TokenEncryptor:            tokenEncryptor,
 		TokenSource:               tokenManager,
@@ -675,6 +837,7 @@ func main() {
 		FeedbackService:              feedbackService,
 		IdentityService:              identityService,
 		InstanceSettingsService:      instanceSettingsService,
+		AIPromptService:              aiPromptService,
 		AnalyticsService:             analyticsService,
 		MessagingService:             messagingService,
 		EngagementService:            engagementService,
@@ -694,69 +857,67 @@ func main() {
 		MCPOAuthHandler:              mcpOAuthHandler,
 		MCPHandler:                   mcpHandler,
 	})
+	apiroutes.FinalizeOpenAPIContract(api)
 
 	RegisterSpaRoutes(e, db, cfg.PublicURL, cfg.Edition == config.EditionCloud, cfg.PublicProfilesEnabled)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	workerCtx, cancelWorker := context.WithCancel(context.Background())
+	defer cancelWorker()
+	if worker != nil {
+		go worker.Start(workerCtx)
+		log.Printf("Starting OpenPost %s process", command.role)
+	}
 
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		worker.Start(ctx)
-	}()
-
-	log.Println("Starting OpenPost on :" + cfg.Port)
-	log.Println("OpenAPI spec available at http://localhost:" + cfg.Port + "/openapi.json")
-
-	serverErrCh := make(chan error, 1)
-	go func() {
-		serverErrCh <- e.Start(":" + cfg.Port)
-	}()
+	var serverErrCh <-chan error
+	if command.role.runsWeb() {
+		log.Println("Starting OpenPost on :" + cfg.Port)
+		log.Println("OpenAPI spec available at http://localhost:" + cfg.Port + "/openapi.json")
+		serverErrors := make(chan error, 1)
+		serverErrCh = serverErrors
+		go func() {
+			serverErrors <- e.Start(":" + cfg.Port)
+		}()
+	}
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(sigCh)
 
+	var runtimeErr error
 	select {
 	case sig := <-sigCh:
 		log.Printf("Shutting down after %s...", sig)
 	case err := <-serverErrCh:
 		if err != nil && err != http.ErrServerClosed {
-			cancel()
-			signal.Stop(sigCh)
-			worker.Stop()
-			wg.Wait()
-			closeTelemetry(telemetryRecorder)
-			log.Printf("Server error: %v", err)
-			return
+			runtimeErr = err
 		}
-		cancel()
-		worker.Stop()
-		wg.Wait()
-		closeTelemetry(telemetryRecorder)
-		log.Println("Server stopped")
+	}
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), processShutdownTimeout)
+	defer shutdownCancel()
+	var forceWorkerCancellation *time.Timer
+	if worker != nil {
+		forceWorkerCancellation = time.AfterFunc(processShutdownTimeout-workerCancellationReserve, cancelWorker)
+		defer forceWorkerCancellation.Stop()
+	}
+	var webRuntime webProcess
+	if command.role.runsWeb() {
+		webRuntime = e
+	}
+	var workerRuntime workerProcess
+	if worker != nil {
+		workerRuntime = worker
+	}
+	for _, err := range drainRuntime(shutdownCtx, readiness, webRuntime, workerRuntime) {
+		log.Printf("Process drain error: %v", err)
+	}
+	cancelWorker()
+	closeTelemetry(telemetryRecorder)
+	if runtimeErr != nil {
+		log.Printf("Server error: %v", runtimeErr)
 		return
 	}
-
-	cancel()
-	worker.Stop()
-
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer shutdownCancel()
-
-	if err := e.Shutdown(shutdownCtx); err != nil {
-		log.Printf("Echo shutdown error: %v", err)
-	}
-
-	if err := <-serverErrCh; err != nil && err != http.ErrServerClosed {
-		log.Printf("Echo server error: %v", err)
-	}
-
-	wg.Wait()
-	closeTelemetry(telemetryRecorder)
-	log.Println("Server stopped")
+	log.Printf("OpenPost %s process stopped", command.role)
 }
 
 func closeTelemetry(recorder telemetry.Recorder) {

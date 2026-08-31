@@ -48,6 +48,18 @@ func TestServiceSuggestBuildsPrivateBoundedRequestAndValidatesResult(t *testing.
 		require.Equal(t, DefaultModel, request.Model)
 		require.Equal(t, int64(maxOutputTokens), request.MaxOutputTokens)
 		require.Equal(t, ai.ReasoningEffortLow, request.ReasoningEffort)
+		require.NotNil(t, request.ResponseSchema)
+		require.Equal(t, "meme_suggestions", request.ResponseSchema.Name)
+		require.Equal(t, "object", request.ResponseSchema.Schema["type"])
+		properties := request.ResponseSchema.Schema["properties"].(map[string]any)
+		candidateAlternatives := properties["candidates"].(map[string]any)["anyOf"].([]any)
+		require.Equal(t, 0, candidateAlternatives[0].(map[string]any)["maxItems"])
+		require.Equal(t, 2, candidateAlternatives[1].(map[string]any)["minItems"])
+		templateAlternatives := candidateAlternatives[1].(map[string]any)["items"].(map[string]any)["anyOf"].([]any)
+		require.Len(t, templateAlternatives, 2)
+		drakeProperties := templateAlternatives[0].(map[string]any)["properties"].(map[string]any)
+		require.Equal(t, 2, drakeProperties["caption_lines"].(map[string]any)["minItems"])
+		require.Equal(t, 2, drakeProperties["caption_lines"].(map[string]any)["maxItems"])
 		require.Empty(t, request.Images)
 		require.NotContains(t, request.SystemPrompt, idea)
 		require.Contains(t, request.SystemPrompt, "untrusted reference data")
@@ -93,6 +105,33 @@ func TestServiceSuggestBuildsPrivateBoundedRequestAndValidatesResult(t *testing.
 	require.Equal(t, "request-123", result.RequestID)
 	require.Equal(t, int64(620), result.Usage.TotalTokens)
 	require.Equal(t, usageCost, *result.Usage.CostUSD)
+}
+
+func TestServiceSuggestRetriesOneInvalidStructuredResponse(t *testing.T) {
+	t.Parallel()
+
+	calls := 0
+	prompts := make([]string, 0, 2)
+	service, err := New(generatorFunc(func(_ context.Context, request ai.GenerateRequest) (ai.GenerateResult, error) {
+		calls++
+		prompts = append(prompts, request.UserPrompt)
+		require.NotNil(t, request.ResponseSchema)
+		if calls == 1 {
+			return ai.GenerateResult{Text: `{"candidates":[{"template_id":"aag","caption_lines":["only one"],"rationale":"fit","alt_text":"description"}]}`}, nil
+		}
+		return ai.GenerateResult{Text: `{"candidates":[{"template_id":"aag","caption_lines":["one","two"],"rationale":"fit","alt_text":"description"}]}`}, nil
+	}), DefaultModel)
+	require.NoError(t, err)
+
+	result, err := service.Suggest(t.Context(), Input{
+		Idea:      "deployment joke",
+		Templates: []Template{{ID: "aag", Name: "Ancient Aliens Guy", LineCount: 2}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, 2, calls)
+	require.NotEqual(t, prompts[0], prompts[1])
+	require.Contains(t, prompts[1], "Correction: the previous response")
+	require.Equal(t, []string{"one", "two"}, result.Candidates[0].CaptionLines)
 }
 
 func TestServiceSuggestDefaultsToneLanguageCountAndModelResult(t *testing.T) {

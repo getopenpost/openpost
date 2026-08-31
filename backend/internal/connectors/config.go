@@ -152,79 +152,126 @@ func normalizeEndpoint(source endpointConfigFile) (EndpointConfig, error) {
 	mode := strings.TrimSpace(source.Mode)
 	baseURL := strings.TrimRight(strings.TrimSpace(source.BaseURL), "/")
 	socketPath := strings.TrimSpace(source.SocketPath)
-	hosts, err := normalizedUniqueStrings(source.AllowedHosts, "allowed_hosts")
+	hosts, err := normalizeAllowedHosts(source.AllowedHosts)
 	if err != nil {
 		return EndpointConfig{}, err
 	}
-	for index := range hosts {
-		hosts[index] = strings.ToLower(hosts[index])
+	ports, err := normalizeAllowedPorts(source.AllowedPorts)
+	if err != nil {
+		return EndpointConfig{}, err
 	}
-	ports := slices.Clone(source.AllowedPorts)
-	slices.Sort(ports)
-	ports = slices.Compact(ports)
-	for _, port := range ports {
-		if port < 1 || port > 65535 {
-			return EndpointConfig{}, fmt.Errorf("allowed port %d is outside 1 through 65535", port)
-		}
-	}
-	prefixes := make([]netip.Prefix, 0, len(source.AllowedCIDRs))
-	for _, raw := range source.AllowedCIDRs {
-		prefix, parseErr := netip.ParsePrefix(strings.TrimSpace(raw))
-		if parseErr != nil {
-			return EndpointConfig{}, fmt.Errorf("invalid allowed CIDR %q", raw)
-		}
-		prefixes = append(prefixes, prefix.Masked())
+	prefixes, err := normalizeAllowedCIDRs(source.AllowedCIDRs)
+	if err != nil {
+		return EndpointConfig{}, err
 	}
 
 	result := EndpointConfig{
 		Mode: mode, BaseURL: baseURL, SocketPath: socketPath,
 		AllowedHosts: hosts, AllowedCIDRs: prefixes, AllowedPorts: ports,
 	}
-	switch mode {
-	case TransportPublicHTTPS:
-		if err := validateBaseURL(baseURL, "https"); err != nil {
-			return EndpointConfig{}, err
-		}
-		if socketPath != "" || len(hosts) != 0 || len(prefixes) != 0 || len(ports) != 0 {
-			return EndpointConfig{}, fmt.Errorf("public_https cannot include private or Unix allowlist fields")
-		}
-	case TransportPrivateAllow:
-		if err := validateBaseURL(baseURL, "http", "https"); err != nil {
-			return EndpointConfig{}, err
-		}
-		parsed, _ := url.Parse(baseURL)
-		if !slices.Contains(hosts, strings.ToLower(parsed.Hostname())) {
-			return EndpointConfig{}, fmt.Errorf("private base_url host must appear in allowed_hosts")
-		}
-		port := parsed.Port()
-		if port == "" {
-			if parsed.Scheme == "https" {
-				port = "443"
-			} else {
-				port = "80"
-			}
-		}
-		if len(prefixes) == 0 {
-			return EndpointConfig{}, fmt.Errorf("private_allowlist requires allowed_cidrs")
-		}
-		if len(ports) == 0 || !slices.Contains(ports, parsePort(port)) {
-			return EndpointConfig{}, fmt.Errorf("private base_url port must appear in allowed_ports")
-		}
-		if socketPath != "" {
-			return EndpointConfig{}, fmt.Errorf("private_allowlist cannot include socket_path")
-		}
-	case TransportUnixSocket:
-		if !filepath.IsAbs(socketPath) {
-			return EndpointConfig{}, fmt.Errorf("socket_path must be an absolute path")
-		}
-		if baseURL != "" || len(hosts) != 0 || len(prefixes) != 0 || len(ports) != 0 {
-			return EndpointConfig{}, fmt.Errorf("unix_socket cannot include HTTP allowlist fields")
-		}
-		result.BaseURL = "http://connector"
-	default:
-		return EndpointConfig{}, fmt.Errorf("unsupported endpoint mode %q", mode)
+	if err := validateEndpointConfig(&result); err != nil {
+		return EndpointConfig{}, err
 	}
 	return result, nil
+}
+
+func normalizeAllowedHosts(values []string) ([]string, error) {
+	hosts, err := normalizedUniqueStrings(values, "allowed_hosts")
+	if err != nil {
+		return nil, err
+	}
+	for index := range hosts {
+		hosts[index] = strings.ToLower(hosts[index])
+	}
+	return hosts, nil
+}
+
+func normalizeAllowedPorts(values []int) ([]int, error) {
+	ports := slices.Clone(values)
+	slices.Sort(ports)
+	ports = slices.Compact(ports)
+	for _, port := range ports {
+		if port < 1 || port > 65535 {
+			return nil, fmt.Errorf("allowed port %d is outside 1 through 65535", port)
+		}
+	}
+	return ports, nil
+}
+
+func normalizeAllowedCIDRs(values []string) ([]netip.Prefix, error) {
+	prefixes := make([]netip.Prefix, 0, len(values))
+	for _, raw := range values {
+		prefix, err := netip.ParsePrefix(strings.TrimSpace(raw))
+		if err != nil {
+			return nil, fmt.Errorf("invalid allowed CIDR %q", raw)
+		}
+		prefixes = append(prefixes, prefix.Masked())
+	}
+	return prefixes, nil
+}
+
+func validateEndpointConfig(endpoint *EndpointConfig) error {
+	switch endpoint.Mode {
+	case TransportPublicHTTPS:
+		return validatePublicEndpoint(*endpoint)
+	case TransportPrivateAllow:
+		return validatePrivateEndpoint(*endpoint)
+	case TransportUnixSocket:
+		return validateUnixEndpoint(endpoint)
+	default:
+		return fmt.Errorf("unsupported endpoint mode %q", endpoint.Mode)
+	}
+}
+
+func validatePublicEndpoint(endpoint EndpointConfig) error {
+	if err := validateBaseURL(endpoint.BaseURL, "https"); err != nil {
+		return err
+	}
+	if endpoint.SocketPath != "" || len(endpoint.AllowedHosts) != 0 || len(endpoint.AllowedCIDRs) != 0 || len(endpoint.AllowedPorts) != 0 {
+		return fmt.Errorf("public_https cannot include private or Unix allowlist fields")
+	}
+	return nil
+}
+
+func validatePrivateEndpoint(endpoint EndpointConfig) error {
+	if err := validateBaseURL(endpoint.BaseURL, "http", "https"); err != nil {
+		return err
+	}
+	parsed, _ := url.Parse(endpoint.BaseURL)
+	if !slices.Contains(endpoint.AllowedHosts, strings.ToLower(parsed.Hostname())) {
+		return fmt.Errorf("private base_url host must appear in allowed_hosts")
+	}
+	if len(endpoint.AllowedCIDRs) == 0 {
+		return fmt.Errorf("private_allowlist requires allowed_cidrs")
+	}
+	if !slices.Contains(endpoint.AllowedPorts, endpointPort(parsed)) {
+		return fmt.Errorf("private base_url port must appear in allowed_ports")
+	}
+	if endpoint.SocketPath != "" {
+		return fmt.Errorf("private_allowlist cannot include socket_path")
+	}
+	return nil
+}
+
+func endpointPort(endpoint *url.URL) int {
+	if endpoint.Port() != "" {
+		return parsePort(endpoint.Port())
+	}
+	if endpoint.Scheme == "https" {
+		return 443
+	}
+	return 80
+}
+
+func validateUnixEndpoint(endpoint *EndpointConfig) error {
+	if !filepath.IsAbs(endpoint.SocketPath) {
+		return fmt.Errorf("socket_path must be an absolute path")
+	}
+	if endpoint.BaseURL != "" || len(endpoint.AllowedHosts) != 0 || len(endpoint.AllowedCIDRs) != 0 || len(endpoint.AllowedPorts) != 0 {
+		return fmt.Errorf("unix_socket cannot include HTTP allowlist fields")
+	}
+	endpoint.BaseURL = "http://connector"
+	return nil
 }
 
 func validateBaseURL(raw string, schemes ...string) error {

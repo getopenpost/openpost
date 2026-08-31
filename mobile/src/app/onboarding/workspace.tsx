@@ -1,37 +1,24 @@
-import { router, Stack, useFocusEffect, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  ActivityIndicator,
-  BackHandler,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { BodyText, Button, Card, Screen, SectionHeader, useColors } from "@/components/ui";
 import { Brand } from "@/components/brand";
 import { api, errorMessage } from "@/lib/api/client";
 import { getWorkspaceId, loadWorkspaceId, saveWorkspaceId } from "@/lib/api/token-store";
-import * as Haptics from "expo-haptics";
+import { destinationState, workspaceEmptyState } from "@/lib/first-use";
+import { selectionHaptic } from "@/lib/haptics";
+import { getServer } from "@/lib/server";
 
 export default function WorkspaceScreen() {
   const colors = useColors();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { from, mode } = useLocalSearchParams<{ from?: string; mode?: string }>();
   const switching = mode === "switch";
   const [selected, setSelected] = useState<string | null>(null);
-
-  useFocusEffect(
-    useCallback(() => {
-      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-        if (switching) router.back();
-        return true;
-      });
-      return () => subscription.remove();
-    }, [switching]),
-  );
+  const server = getServer();
+  const emptyState = server ? workspaceEmptyState(server.baseUrl) : null;
 
   const workspaces = useQuery({
     queryKey: ["workspaces"],
@@ -52,19 +39,19 @@ export default function WorkspaceScreen() {
   const finish = useCallback(async (id: string) => {
     setSelected(id);
     await saveWorkspaceId(id);
-    router.replace("/(tabs)/drafts");
+    router.replace(destinationState(null).route);
   }, []);
 
   useEffect(() => {
-    if (list.length === 0) return;
+    if (switching || selected || list.length === 0) return;
     const stored = getWorkspaceId();
     let automatic: string | null = null;
     if (stored && list.some((workspace) => workspace.id === stored)) automatic = stored;
     else if (list.length === 1) automatic = list[0].id;
     if (automatic) {
-      void saveWorkspaceId(automatic).then(() => router.replace("/(tabs)/drafts"));
+      void saveWorkspaceId(automatic).then(() => router.replace(destinationState(null).route));
     }
-  }, [list]);
+  }, [list, selected, switching]);
 
   return (
     <Screen>
@@ -74,7 +61,14 @@ export default function WorkspaceScreen() {
         <Text style={[styles.title, { color: colors.text }]}>Choose workspace</Text>
         <BodyText style={styles.subtitle}>Each workspace has its own posts and accounts.</BodyText>
         {switching ? (
-          <Button title="Cancel" variant="plain" onPress={() => router.back()} style={styles.cancel} />
+          <Button
+            title="Cancel"
+            variant="plain"
+            onPress={() =>
+              from === "destination" ? router.replace("/onboarding/destination") : router.back()
+            }
+            style={styles.cancel}
+          />
         ) : null}
 
         {workspaces.isLoading ? <ActivityIndicator color={colors.tint} /> : null}
@@ -83,7 +77,7 @@ export default function WorkspaceScreen() {
             <BodyText accessibilityRole="alert" style={{ color: colors.danger }}>
               {workspaces.error instanceof Error ? workspaces.error.message : "Failed to load"}
             </BodyText>
-            <Button title="Try again" variant="tinted" onPress={() => void workspaces.refetch()} />
+            <Button title="Retry" variant="tinted" onPress={() => void workspaces.refetch()} />
           </View>
         ) : null}
 
@@ -93,10 +87,27 @@ export default function WorkspaceScreen() {
               No workspaces found
             </Text>
             <BodyText>Create a workspace in the web app, then return here and try again.</BodyText>
+            {emptyState ? (
+              <>
+                <Button
+                  title={emptyState.actions[0].label}
+                  variant="focal"
+                  accessibilityRole="link"
+                  onPress={() => void WebBrowser.openBrowserAsync(emptyState.actions[0].url)}
+                  style={styles.emptyPrimary}
+                />
+                <Button
+                  title={emptyState.actions[1].label}
+                  variant="tinted"
+                  loading={workspaces.isFetching}
+                  onPress={() => void workspaces.refetch()}
+                />
+              </>
+            ) : null}
           </Card>
         ) : null}
 
-        {list.length > 1 ? (
+        {list.length > 1 || (switching && list.length > 0) ? (
           <>
             <SectionHeader label="Your workspaces" />
             <Card style={styles.list}>
@@ -107,7 +118,7 @@ export default function WorkspaceScreen() {
                   accessibilityState={{ busy: selected === workspace.id }}
                   disabled={selected !== null}
                   onPress={() => {
-                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    void selectionHaptic();
                     void finish(workspace.id);
                   }}
                   style={({ pressed }) => [
@@ -127,6 +138,15 @@ export default function WorkspaceScreen() {
               ))}
             </Card>
           </>
+        ) : null}
+
+        {!switching ? (
+          <Button
+            title={emptyState?.actions[2].label ?? "Back to sign in"}
+            variant="plain"
+            onPress={() => router.replace(emptyState?.actions[2].route ?? "/onboarding/login")}
+            style={styles.back}
+          />
         ) : null}
       </ScrollView>
     </Screen>
@@ -175,5 +195,11 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     gap: 6,
+  },
+  emptyPrimary: {
+    marginTop: 10,
+  },
+  back: {
+    marginTop: 12,
   },
 });

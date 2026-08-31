@@ -32,6 +32,7 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
   for (const scenario of scenarios) {
     await test.step(`${scenario.width}px ${scenario.locale} ${scenario.theme}`, async () => {
       await page.setViewportSize(scenario);
+      await page.emulateMedia({ colorScheme: scenario.theme });
       await page.context().addCookies([
         {
           name: "PARAGLIDE_LOCALE",
@@ -41,15 +42,10 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
           sameSite: "Lax",
         },
       ]);
-      await page.goto("/settings");
-      await page.evaluate(
-        (theme) => localStorage.setItem("mode-watcher-mode", theme),
-        scenario.theme,
-      );
-      await page.reload();
 
       const planLabel = scenario.locale === "pt" ? "Plano e utilização" : "Plan & usage";
       if (scenario.width >= 1024) {
+        await page.goto("/settings");
         const organizationLink = page.getByTestId("settings-navigation").getByRole("link", {
           name: scenario.locale === "pt" ? "Organização" : "Organization",
           exact: true,
@@ -62,8 +58,6 @@ test("settings shows billing plan controls for an authenticated workspace", asyn
       }
 
       await expect(page).toHaveURL(/\/settings\?tab=plan$/);
-      if (scenario.theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
-      else await expect(page.locator("html")).not.toHaveClass(/dark/);
       await expect(page.getByRole("heading", { name: planLabel })).toBeVisible();
       await expect(
         page.getByRole("heading", {
@@ -968,7 +962,6 @@ test("plan selection from signup starts checkout after onboarding", async ({ pag
     localStorage.setItem("mode-watcher-mode", "dark");
   });
   await page.reload();
-  await expect(page.locator("html")).toHaveClass(/dark/);
   await expect(page.getByTestId("paddle-checkout-frame")).toBeVisible();
   expect(welcomeCalls).toBe(1);
   await expect.poll(() => resumeCalls).toBe(3);

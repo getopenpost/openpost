@@ -27,8 +27,11 @@
 				per platform, keeps them visible in the editor, and tells you when an adapter still needs
 				provider approval or a live test.
 			</p>
+			<p class="mt-4 text-sm font-medium text-muted-foreground">
+				For operators deciding which social accounts to connect.
+			</p>
 			<div class="mt-7 flex flex-wrap gap-3">
-				<Button href={managedSignupUrl} size="lg">Try OpenPost</Button>
+				<Button href={managedSignupUrl} size="lg">Start 14-day trial</Button>
 				<Button href="/tools/post-preview-generator" variant="outline" size="lg">
 					Open the preview tool
 				</Button>

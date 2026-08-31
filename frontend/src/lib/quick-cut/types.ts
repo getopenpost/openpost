@@ -3,6 +3,24 @@ import type { Rotation } from 'mediabunny';
 export type CutMode = 'nearestKeyframe' | 'exact';
 export type LoopMode = 'off' | 'segment' | 'all';
 
+export interface QuickCutVideoStream {
+	index: number;
+	codec: string | null;
+	width: number;
+	height: number;
+	rotation: Rotation;
+	fps: number | null;
+	keyframeTimestamps: number[];
+	keyframeState: 'known' | 'unknown';
+}
+
+export interface QuickCutAudioStream {
+	index: number;
+	codec: string | null;
+	sampleRate: number | null;
+	channels: number | null;
+}
+
 export interface QuickCutSource {
 	id: string;
 	name: string;
@@ -23,6 +41,12 @@ export interface QuickCutSource {
 	contentFingerprint?: string;
 	handle?: FileSystemFileHandle;
 	file?: File;
+	videoStreams: QuickCutVideoStream[];
+	audioStreams: QuickCutAudioStream[];
+	/** null = video disabled, undefined = auto (first video track if any) */
+	selectedVideoTrackIndex?: number | null;
+	/** undefined = auto (primary audio if any), empty array = no audio */
+	selectedAudioTrackIndices?: number[];
 }
 
 export interface QuickCutSourceMetadata {
@@ -43,6 +67,10 @@ export interface QuickCutSourceMetadata {
 	keyframeState: 'known' | 'unknown' | 'audio-only';
 	lastModified?: number;
 	contentFingerprint?: string;
+	videoStreams: QuickCutVideoStream[];
+	audioStreams: QuickCutAudioStream[];
+	selectedVideoTrackIndex?: number | null;
+	selectedAudioTrackIndices?: number[];
 }
 
 export interface QuickCutSegment {
@@ -52,6 +80,8 @@ export interface QuickCutSegment {
 	end: number;
 	name?: string;
 	enabled?: boolean;
+	/** Overrides the project cut mode for this kept range. */
+	cutMode?: CutMode;
 }
 
 export interface QuickCutProject {
@@ -62,6 +92,8 @@ export interface QuickCutProject {
 	segments: QuickCutSegment[];
 	cutMode: CutMode;
 	merge: boolean;
+	/** Export the material outside the enabled marked ranges. */
+	removeMarkedRanges: boolean;
 	createdAt: number;
 	updatedAt: number;
 }

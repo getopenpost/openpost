@@ -38,6 +38,93 @@ func TestThreadsExchangeCodeRecordsGrantedOptionalScopes(t *testing.T) {
 	}
 }
 
+func TestThreadsExchangeCodeKeepsUserIDRequestLocal(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	firstLongLivedStarted := make(chan struct{})
+	releaseFirstLongLived := make(chan struct{})
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		switch req.URL.Path {
+		case "/oauth/access_token":
+			body, err := io.ReadAll(req.Body)
+			if err != nil {
+				return nil, err
+			}
+			form, err := url.ParseQuery(string(body))
+			if err != nil {
+				return nil, err
+			}
+			switch form.Get(oauthParamCode) {
+			case "first-code":
+				return jsonResponse(req, `{"access_token":"first-short","user_id":111}`), nil
+			case "second-code":
+				return jsonResponse(req, `{"access_token":"second-short","user_id":222}`), nil
+			default:
+				t.Fatalf("unexpected authorization code %q", form.Get(oauthParamCode))
+			}
+		case "/access_token":
+			if req.URL.Query().Get(oauthParamAccessToken) == "first-short" {
+				close(firstLongLivedStarted)
+				<-releaseFirstLongLived
+			}
+			return jsonResponse(req, `{"access_token":"long","expires_in":5184000}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+		}
+		return nil, nil
+	})}
+
+	adapter := NewThreadsAdapter("client", "secret", "https://app.example/callback")
+	type exchangeResult struct {
+		token *TokenResult
+		err   error
+	}
+	firstResult := make(chan exchangeResult, 1)
+	go func() {
+		token, err := adapter.ExchangeCode(context.Background(), "first-code", nil)
+		firstResult <- exchangeResult{token: token, err: err}
+	}()
+
+	<-firstLongLivedStarted
+	secondToken, err := adapter.ExchangeCode(context.Background(), "second-code", nil)
+	if err != nil {
+		t.Fatalf("second ExchangeCode returned error: %v", err)
+	}
+	close(releaseFirstLongLived)
+	first := <-firstResult
+	if first.err != nil {
+		t.Fatalf("first ExchangeCode returned error: %v", first.err)
+	}
+
+	if first.token.Extra["user_id"] != "111" {
+		t.Fatalf("first exchange received another request's user ID: %#v", first.token.Extra)
+	}
+	if secondToken.Extra["user_id"] != "222" {
+		t.Fatalf("second exchange received another request's user ID: %#v", secondToken.Extra)
+	}
+}
+
+func TestThreadsGetProfileRequestsAvatar(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Query().Get("fields") != "id,username,name,threads_profile_picture_url" {
+			t.Fatalf("unexpected profile fields %q", req.URL.Query().Get("fields"))
+		}
+		return jsonResponse(req, `{"id":"threads-1","username":"creator","name":"Creator","threads_profile_picture_url":"https://threads.example/avatar.jpg"}`), nil
+	})}
+
+	profile, err := NewThreadsAdapter("", "", "").GetProfile(context.Background(), "threads-token")
+	if err != nil {
+		t.Fatalf("GetProfile returned error: %v", err)
+	}
+	if profile.AvatarURL != "https://threads.example/avatar.jpg" {
+		t.Fatalf("unexpected profile: %#v", profile)
+	}
+}
+
 func TestThreadsListCommentsMapsReplies(t *testing.T) {
 	originalClient := httpClient
 	defer func() { httpClient = originalClient }()

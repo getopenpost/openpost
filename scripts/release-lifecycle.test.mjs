@@ -4,6 +4,7 @@ import test from "node:test";
 import { expectedReleaseAssets } from "./release-assets.mjs";
 import {
   releasePhases,
+  releasePreparationHasChanges,
   requireConventionalCommitMessage,
   selectWorkflowRun,
   validateReleasePhase,
@@ -112,4 +113,10 @@ test("local preparation and workflow selection share lifecycle decisions", () =>
       ),
     /CI failed for abc/u,
   );
+});
+
+test("release preparation resumes clean candidates without an empty commit", () => {
+  assert.equal(releasePreparationHasChanges(""), false);
+  assert.equal(releasePreparationHasChanges("\n"), false);
+  assert.equal(releasePreparationHasChanges("CHANGELOG.md\n"), true);
 });

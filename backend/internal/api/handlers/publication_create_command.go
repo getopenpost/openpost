@@ -5,13 +5,16 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/openpost/backend/internal/models"
+	"github.com/openpost/backend/internal/services/publicationbuilder"
 	publicationservice "github.com/openpost/backend/internal/services/publications"
 	repostservice "github.com/openpost/backend/internal/services/reposts"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
 )
 
 type preparedPublicationCreate struct {
@@ -93,26 +96,84 @@ func (command publicationApplication) persistCreate(
 	ctx context.Context,
 	publication *models.Publication,
 	prepared preparedPublicationCreate,
-) error {
-	return command.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
-		if _, err := tx.NewInsert().Model(publication).Exec(txCtx); err != nil {
-			return fmt.Errorf("insert publication: %w", err)
-		}
-		segments, err := command.handler.insertPublicationSegments(txCtx, tx, publication, prepared.input.Segments)
-		if err != nil {
-			return err
-		}
-		return command.handler.insertRenditions(
-			txCtx,
-			tx,
-			publication,
-			segments,
-			prepared.input.Segments,
-			prepared.input.Renditions,
-			prepared.input.Media,
-			prepared.accounts,
-		)
+) (PublicationResponse, error) {
+	var response PublicationResponse
+	err := command.handler.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		var err error
+		response, err = command.persistCreateTx(txCtx, tx, publication, prepared)
+		return err
 	})
+	return response, err
+}
+
+func (command publicationApplication) persistCreateTx(
+	ctx context.Context,
+	tx bun.Tx,
+	publication *models.Publication,
+	prepared preparedPublicationCreate,
+) (PublicationResponse, error) {
+	if _, err := tx.NewInsert().Model(publication).Exec(ctx); err != nil {
+		return PublicationResponse{}, fmt.Errorf("insert publication: %w", err)
+	}
+	segments, err := command.handler.insertPublicationSegments(ctx, tx, publication, prepared.input.Segments)
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	if err := command.handler.insertRenditions(
+		ctx,
+		tx,
+		publication,
+		segments,
+		prepared.input.Segments,
+		prepared.input.Renditions,
+		prepared.input.Media,
+		prepared.accounts,
+	); err != nil {
+		return PublicationResponse{}, err
+	}
+	responses, err := command.handler.loadPublicationResponsesWithDB(ctx, tx, []models.Publication{*publication})
+	if err != nil {
+		return PublicationResponse{}, err
+	}
+	if len(responses) != 1 {
+		return PublicationResponse{}, errors.New("failed to load created publication")
+	}
+	return responses[0], nil
+}
+
+func validateReadyPublicationMediaTx(
+	ctx context.Context,
+	tx bun.Tx,
+	input CreatePublicationBody,
+	readyMediaIDs []string,
+) error {
+	readyMediaIDs = uniqueNonEmpty(readyMediaIDs)
+	if len(readyMediaIDs) == 0 {
+		return nil
+	}
+	commandMediaIDs := uniqueNonEmpty(allPublicationMediaIDs(input.Media, input.Segments, input.Renditions))
+	for _, mediaID := range readyMediaIDs {
+		if !slices.Contains(commandMediaIDs, mediaID) {
+			return publicationbuilder.ErrBuildSourceUnavailable
+		}
+	}
+	var media []models.MediaAttachment
+	query := tx.NewSelect().Model(&media).
+		Where("workspace_id = ?", input.WorkspaceID).
+		Where("processing_status = ?", "ready").
+		Where("trashed_at IS NULL").
+		Where("id IN (?)", bun.List(readyMediaIDs)).
+		Order("id ASC")
+	if tx.Dialect().Name() == dialect.PG {
+		query = query.For("UPDATE")
+	}
+	if err := query.Scan(ctx); err != nil {
+		return fmt.Errorf("lock publication build source media: %w", err)
+	}
+	if len(media) != len(readyMediaIDs) {
+		return publicationbuilder.ErrBuildSourceUnavailable
+	}
+	return nil
 }
 
 func normalizePublicationCreateBody(input *CreatePublicationBody) {

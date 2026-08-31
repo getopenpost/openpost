@@ -5,6 +5,7 @@
 	import { drawCpuScope, type ColorScope } from '$lib/video-editor/effects/scope-cpu-renderer';
 	import { ScopeRenderer } from '$lib/video-editor/effects/gpu-scopes';
 	import { scopeSamples, type ScopeSample } from '$lib/video-editor/effects/scope-samples.svelte';
+	import ColorScopeOverlay from './color-scope-overlay.svelte';
 
 	type ScopeViewMode = 'rgb' | 'r' | 'g' | 'b' | 'luma';
 
@@ -15,6 +16,8 @@
 		b: 3,
 		luma: 4
 	} as const satisfies Readonly<Record<ScopeViewMode, number>>;
+	const SCOPE_STORAGE_KEY = 'timeline:scopes:stackLayout';
+	const SCOPE_OPTIONS: readonly ColorScope[] = ['waveform', 'parade', 'vectorscope', 'histogram'];
 	interface CanvasShape {
 		width: number;
 		height: number;
@@ -31,19 +34,31 @@
 		{ value: 'luma', label: 'Y', color: '#ccccaa' }
 	];
 
-	let { itemId }: { itemId: string | null } = $props();
+	let { itemId, embedded = false }: { itemId: string | null; embedded?: boolean } = $props();
 	let gpuCanvas = $state<HTMLCanvasElement | null>(null);
 	let cpuCanvas = $state<HTMLCanvasElement | null>(null);
 	let renderer = $state.raw<ScopeRenderer | null>(null);
 	let gpuReady = $state(false);
 	let gpuFailure = $state('');
 	let canvasRevision = $state(0);
-	let scope = $state<ColorScope>('histogram');
+	let scope = $state<ColorScope>('parade');
 	let viewMode = $state<ScopeViewMode>('rgb');
+	let scopeStorageReady = $state(false);
 	const active = $derived(scopeSamples.current?.itemId === itemId ? scopeSamples.current : null);
 	const showViewModes = $derived(gpuReady && (scope === 'histogram' || scope === 'waveform'));
+	function isColorScope(value: string | null): value is ColorScope {
+		return value !== null && SCOPE_OPTIONS.some((candidate) => candidate === value);
+	}
 
 	onMount(() => {
+		try {
+			const saved = localStorage.getItem(SCOPE_STORAGE_KEY);
+			if (isColorScope(saved)) scope = saved;
+		} catch {
+			// Storage is optional; RGB Parade remains the source-defined default.
+		}
+		scopeStorageReady = true;
+		if (!itemId) return;
 		let disposed = false;
 		let created: ScopeRenderer | null = null;
 		void ScopeRenderer.create((message) => {
@@ -72,6 +87,15 @@
 			created?.destroy();
 			renderer = null;
 		};
+	});
+
+	$effect(() => {
+		if (!scopeStorageReady) return;
+		try {
+			localStorage.setItem(SCOPE_STORAGE_KEY, scope);
+		} catch {
+			// The selected scope still works for this session when storage is unavailable.
+		}
 	});
 
 	$effect(() => {
@@ -183,7 +207,9 @@
 </script>
 
 <section
-	class="mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2"
+	class="flex min-h-0 flex-col {embedded
+		? 'h-full p-2'
+		: 'mt-2 border-t border-[oklch(0.25_0.015_55)] pt-2'}"
 	data-scope-backend={gpuReady ? 'webgpu' : 'cpu'}
 	data-scope-error={gpuFailure || undefined}
 >
@@ -231,21 +257,28 @@
 		</div>
 	{/if}
 
-	{#if gpuReady}
-		<canvas
-			bind:this={gpuCanvas}
-			data-color-scope-canvas
-			class="rounded bg-black {canvasClass(scope)}"
-			aria-label={m.video_editor_scope_live()}
-		></canvas>
-	{:else}
-		<canvas
-			bind:this={cpuCanvas}
-			data-color-scope-canvas
-			class="rounded bg-black {canvasClass(scope)}"
-			aria-label={m.video_editor_scope_live()}
-		></canvas>
-	{/if}
+	<div
+		class="relative min-h-0 overflow-hidden rounded border border-white/10 bg-black/80 {embedded
+			? 'flex-1'
+			: ''} {canvasClass(scope)}"
+	>
+		{#if gpuReady}
+			<canvas
+				bind:this={gpuCanvas}
+				data-color-scope-canvas
+				class="size-full object-contain"
+				aria-label={m.video_editor_scope_live()}
+			></canvas>
+		{:else}
+			<canvas
+				bind:this={cpuCanvas}
+				data-color-scope-canvas
+				class="size-full object-contain"
+				aria-label={m.video_editor_scope_live()}
+			></canvas>
+		{/if}
+		<ColorScopeOverlay {scope} />
+	</div>
 </section>
 
 <style>

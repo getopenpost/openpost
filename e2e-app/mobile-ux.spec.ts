@@ -1,5 +1,11 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { authenticatePage, createPublication, createWorkspace, registerUser } from "./helpers";
+import {
+  authenticatePage,
+  composerDeliveryAction,
+  createPublication,
+  createWorkspace,
+  registerUser,
+} from "./helpers";
 
 const tinyPNG = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
@@ -161,14 +167,16 @@ test("mobile shell and composer expose touch-first controls without overflow", a
   await expect(page.getByTestId("composer-account-loading")).toHaveCount(0);
   const actions = controls.getByTestId("composer-action-controls");
   await expect(actions).toBeVisible();
-  await expect(actions.getByRole("button", { name: "Publish Now", exact: true })).toHaveCount(1);
-  await expect(actions.getByRole("button", { name: "Schedule", exact: true })).toHaveCount(1);
+  await expect(actions.getByRole("button", { name: "More", exact: true })).toHaveCount(1);
   await expect(
     actions.getByRole("button", {
-      name: "Schedule to next free slot",
+      name: "Queue next slot",
       exact: true,
     }),
   ).toHaveCount(1);
+  await expect(await composerDeliveryAction(page, "Schedule")).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Publish Now", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   await expectMinimumTouchTarget(
     page.getByRole("button", { name: "Add media" }).first(),
@@ -176,12 +184,12 @@ test("mobile shell and composer expose touch-first controls without overflow", a
   );
   await expect(controls.getByRole("button", { name: "Save draft", exact: true })).toHaveCount(0);
   await expectMinimumTouchTarget(
-    actions.getByRole("button", { name: "Schedule", exact: true }),
-    "schedule button",
+    actions.getByRole("button", { name: "More", exact: true }),
+    "delivery menu button",
   );
   await expectMinimumTouchTarget(
     actions.getByRole("button", {
-      name: "Schedule to next free slot",
+      name: "Queue next slot",
       exact: true,
     }),
     "quick schedule button",
@@ -227,8 +235,8 @@ test("mobile shell and composer expose touch-first controls without overflow", a
   expect(Math.max(...compactOverflow.childRightEdges)).toBeLessThanOrEqual(320);
   await expectMinimumTouchTarget(accountControl, "compact account control");
   await expectMinimumTouchTarget(
-    actions.getByRole("button", { name: "Schedule", exact: true }),
-    "compact schedule button",
+    actions.getByRole("button", { name: "More", exact: true }),
+    "compact delivery menu button",
   );
 
   await page.setViewportSize({ width: 1280, height: 800 });
@@ -237,18 +245,16 @@ test("mobile shell and composer expose touch-first controls without overflow", a
   await expect(page.getByTestId("composer-account-control")).toHaveCount(1);
   const desktopActions = desktopControls.getByTestId("composer-action-controls");
   await expect(desktopActions).toBeVisible();
-  await expect(
-    desktopActions.getByRole("button", { name: "Publish Now", exact: true }),
-  ).toHaveCount(1);
-  await expect(desktopActions.getByRole("button", { name: "Schedule", exact: true })).toHaveCount(
-    1,
-  );
+  await expect(desktopActions.getByRole("button", { name: "More", exact: true })).toHaveCount(1);
   await expect(
     desktopControls.getByRole("button", {
-      name: "Schedule to next free slot",
+      name: "Queue next slot",
       exact: true,
     }),
   ).toHaveCount(1);
+  await expect(await composerDeliveryAction(page, "Schedule")).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Publish Now", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
 });
 
 test("attached media controls stay touch accessible on mobile and desktop", async ({

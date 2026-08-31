@@ -83,7 +83,7 @@ func NewOAuthHandler(
 	providers = cloneProviderAdapters(providers)
 	if xProvider, ok := providers["x"]; ok {
 		if xAdapter, castOk := xProvider.(*platform.XAdapter); castOk {
-			xAdapter.SetRequestStore(newXRequestStore(db))
+			xAdapter.SetRequestStore(newXRequestStore(db, encryptor))
 		}
 	}
 
@@ -199,12 +199,11 @@ type ListMastodonServersOutput struct {
 }
 
 type GetAuthURLInput struct {
-	Platform              string `path:"platform" doc:"Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)"`
-	WorkspaceID           string `query:"workspace_id" required:"true" doc:"Workspace ID to link account to"`
-	ServerName            string `query:"server_name" doc:"Mastodon server name from config (required for mastodon)"`
-	InstanceURL           string `query:"instance_url" doc:"Mastodon instance URL to dynamically register"`
-	Intent                string `query:"intent" enum:"production,certification_test" default:"production" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
-	AccountManagementMode string `query:"account_management_mode" enum:"direct,settings" required:"false" doc:"Where the user started the connection flow"`
+	Platform    string `path:"platform" doc:"Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)"`
+	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID to link account to"`
+	ServerName  string `query:"server_name" doc:"Mastodon server name from config (required for mastodon)"`
+	InstanceURL string `query:"instance_url" doc:"Mastodon instance URL to dynamically register"`
+	Intent      string `query:"intent" enum:"production,certification_test" default:"production" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
 }
 
 type GetAuthURLOutput struct {
@@ -240,12 +239,10 @@ type ExchangeCodeOutput struct {
 }
 
 type AccountConnectionResponse struct {
-	WorkspaceID          string   `json:"workspace_id" doc:"Workspace receiving the connected destination"`
-	AccountID            string   `json:"account_id" doc:"OpenPost destination account ID"`
-	AccountIDs           []string `json:"account_ids" doc:"All connected OpenPost account IDs"`
-	NewAccountIDs        []string `json:"new_account_ids" doc:"Genuinely new OpenPost account IDs"`
-	OpenFreshComposer    bool     `json:"open_fresh_composer" doc:"Whether this is the Workspace's first connected destination"`
-	FeatureSetupRequired bool     `json:"feature_setup_required" doc:"Whether feature setup is required for new accounts"`
+	WorkspaceID       string   `json:"workspace_id" doc:"Workspace receiving the connected destination"`
+	AccountID         string   `json:"account_id" doc:"OpenPost destination account ID"`
+	AccountIDs        []string `json:"account_ids" doc:"All connected OpenPost account IDs"`
+	OpenFreshComposer bool     `json:"open_fresh_composer" doc:"Whether this is the Workspace's first connected destination"`
 }
 
 type ListAccountsInput struct {
@@ -306,11 +303,9 @@ type CompleteAccountSelectionOutput struct {
 
 type AccountSelectionCompletionResponse struct {
 	AccountResponse
-	WorkspaceID          string   `json:"workspace_id" doc:"Workspace receiving the connected destinations"`
-	AccountIDs           []string `json:"account_ids" doc:"OpenPost destination account IDs created by this selection"`
-	NewAccountIDs        []string `json:"new_account_ids" doc:"Genuinely new OpenPost account IDs"`
-	OpenFreshComposer    bool     `json:"open_fresh_composer" doc:"Whether these are the Workspace's first connected destinations"`
-	FeatureSetupRequired bool     `json:"feature_setup_required" doc:"Whether feature setup is required for new accounts"`
+	WorkspaceID       string   `json:"workspace_id" doc:"Workspace receiving the connected destinations"`
+	AccountIDs        []string `json:"account_ids" doc:"OpenPost destination account IDs created by this selection"`
+	OpenFreshComposer bool     `json:"open_fresh_composer" doc:"Whether these are the Workspace's first connected destinations"`
 }
 
 type UpdateAccountInput struct {
@@ -831,14 +826,6 @@ func (h *OAuthHandler) authURLProvider(
 	return adapter, "", nil
 }
 
-func normalizeAccountManagementMode(raw string) string {
-	m := strings.TrimSpace(strings.ToLower(raw))
-	if m == "direct" {
-		return "direct"
-	}
-	return "settings"
-}
-
 func (h *OAuthHandler) generateProviderAuthURL(
 	ctx context.Context,
 	input *GetAuthURLInput,
@@ -850,11 +837,9 @@ func (h *OAuthHandler) generateProviderAuthURL(
 	if input.Platform == "x" {
 		return generateXAuthURL(input, userID, adapter, intent)
 	}
-	mode := normalizeAccountManagementMode(input.AccountManagementMode)
 	state, err := h.oauthStates.Create(ctx, oauthstate.Payload{
 		UserID: userID, WorkspaceID: input.WorkspaceID, Platform: input.Platform,
 		ServerName: firstNonEmpty(serverNameForState, input.ServerName), ExecutionIntent: string(intent),
-		AccountManagementMode: mode,
 	})
 	if err != nil {
 		return nil, huma.Error500InternalServerError("failed to create oauth state")
@@ -922,7 +907,6 @@ func (h *OAuthHandler) Callback(api huma.API) {
 		userID := ""
 		executionIntent := ""
 		instanceRef := ""
-		accountManagementMode := "settings"
 		var adapter platform.Adapter
 
 		extra := make(map[string]string)
@@ -959,7 +943,6 @@ func (h *OAuthHandler) Callback(api huma.API) {
 			userID = statePayload.UserID
 			workspaceID = statePayload.WorkspaceID
 			executionIntent = statePayload.ExecutionIntent
-			accountManagementMode = normalizeAccountManagementMode(statePayload.AccountManagementMode)
 			if input.Platform == mastodonProvider {
 				input.ServerName = statePayload.ServerName
 				instanceRef = statePayload.ServerName
@@ -1031,9 +1014,8 @@ func (h *OAuthHandler) Callback(api huma.API) {
 		}
 
 		return h.saveAccountAndRedirect(
-			ctx, userID, input.Platform, workspaceID, profile.ID, profile.Username,
-			instanceRef, executionIntent, profile.CapabilityState, tokenResp, adapter,
-			accountManagementMode,
+			ctx, userID, input.Platform, workspaceID, instanceRef, executionIntent,
+			profile, tokenResp, adapter,
 		)
 	})
 }
@@ -1205,15 +1187,17 @@ func (h *OAuthHandler) createPendingAccountSelection(
 
 func (h *OAuthHandler) saveAccountAndRedirect(
 	ctx context.Context,
-	userID, platformName, workspaceID, accountID, accountUsername, instanceURL, executionIntent string,
-	capabilityState map[string]string,
+	userID, platformName, workspaceID, instanceURL, executionIntent string,
+	profile *platform.UserProfile,
 	tokenResp *platform.TokenResult,
 	adapter platform.Adapter,
-	accountManagementMode string,
 ) (*huma.StreamResponse, error) {
-	// For Threads, the account ID comes from the token response extra
-	if tokenResp.Extra != nil {
+	accountID := profile.ID
+	if platformName == "threads" && tokenResp.Extra != nil {
 		if uid, ok := tokenResp.Extra["user_id"]; ok && uid != "" {
+			if profile.ID != "" && uid != profile.ID {
+				return h.redirectWithError("provider account identity mismatch", workspaceID)
+			}
 			accountID = uid
 		}
 	}
@@ -1224,16 +1208,17 @@ func (h *OAuthHandler) saveAccountAndRedirect(
 	}
 
 	account, err := h.accountSaver.SaveAccountFromInput(ctx, account_saver.SaveAccountInput{
-		Actor:           workspaceActor(ctx, userID),
-		UserID:          userID,
-		PlatformName:    platformName,
-		WorkspaceID:     workspaceID,
-		AccountID:       accountID,
-		AccountUsername: accountUsername,
-		InstanceURL:     instanceURL,
-		Token:           tokenResp,
-		CapabilityState: capabilityState,
-		Grant:           authorizationGrantInput(adapter, accountID),
+		Actor:            workspaceActor(ctx, userID),
+		UserID:           userID,
+		PlatformName:     platformName,
+		WorkspaceID:      workspaceID,
+		AccountID:        accountID,
+		AccountUsername:  profile.Username,
+		AccountAvatarURL: profile.AvatarURL,
+		InstanceURL:      instanceURL,
+		Token:            tokenResp,
+		CapabilityState:  profile.CapabilityState,
+		Grant:            authorizationGrantInput(adapter, accountID),
 	})
 	if err != nil {
 		log.Printf("[Callback] Failed to save account: %v", err)
@@ -1243,19 +1228,10 @@ func (h *OAuthHandler) saveAccountAndRedirect(
 	h.captureDestinationConnected(ctx, userID, workspaceID, platformName, 1, firstConnection)
 
 	log.Printf("[Callback] Account saved successfully: ID=%s", account.ID)
-	// Compute normalized feature setup state
-	var newIDs []string
-	if account.IsNewlyInserted {
-		newIDs = []string{account.ID}
-	}
-	featureSetupRequired := h.isFeatureSetupRequired(ctx, workspaceID, userID, newIDs)
-	if featureSetupRequired && len(newIDs) > 0 {
-		return redirectResponse(h.setupConnectionURL(workspaceID, []string{account.ID}, newIDs, firstConnection)), nil
-	}
 	if firstConnection {
 		return redirectResponse(h.composerConnectionURL(workspaceID, []string{account.ID})), nil
 	}
-	return redirectResponse(h.accountManagementRedirectURL(accountManagementMode)), nil
+	return redirectResponse(h.accountManagementRedirectURL()), nil
 }
 
 func redirectResponse(location string) *huma.StreamResponse {
@@ -1274,66 +1250,24 @@ func (h *OAuthHandler) composerConnectionURL(workspaceID string, accountIDs []st
 	return h.frontendURL + "/?" + query.Encode()
 }
 
-func (h *OAuthHandler) setupConnectionURL(workspaceID string, accountIDs, newAccountIDs []string, openFreshComposer bool) string {
-	query := url.Values{}
-	query.Set("workspace_id", workspaceID)
-	if len(accountIDs) > 0 {
-		query.Set("account_ids", strings.Join(accountIDs, ","))
-	}
-	if len(newAccountIDs) > 0 {
-		query.Set("new_account_ids", strings.Join(newAccountIDs, ","))
-	}
-	if openFreshComposer {
-		query.Set("open_fresh_composer", "true")
-	}
-	return h.frontendURL + "/accounts/setup?" + query.Encode()
-}
-
-func (h *OAuthHandler) accountManagementRedirectURL(mode string) string {
-	if normalizeAccountManagementMode(mode) == "direct" {
-		return h.frontendURL + "/accounts"
-	}
+func (h *OAuthHandler) accountManagementRedirectURL() string {
 	return h.frontendURL + "/settings?tab=accounts"
 }
 
-func (h *OAuthHandler) isFeatureSetupRequired(ctx context.Context, workspaceID, userID string, newAccountIDs []string) bool {
-	if len(newAccountIDs) == 0 || h.accountFeatures == nil {
-		return false
-	}
-	actor := workspaceActor(ctx, userID)
-	resolved, err := h.accountFeatures.Read(ctx, workspaceID, actor, newAccountIDs)
-	if err != nil {
-		return false
-	}
-	for _, r := range resolved {
-		if r.Supported {
-			return true
-		}
-	}
-	return false
-}
-
-func (h *OAuthHandler) normalizedAccountConnectionResponse(ctx context.Context, workspaceID string, accounts []*models.SocialAccount, openFreshComposer bool, userID string) AccountConnectionResponse {
+func (h *OAuthHandler) normalizedAccountConnectionResponse(workspaceID string, accounts []*models.SocialAccount, openFreshComposer bool) AccountConnectionResponse {
 	accountIDs := make([]string, 0, len(accounts))
-	newIDs := make([]string, 0)
 	for _, a := range accounts {
 		accountIDs = append(accountIDs, a.ID)
-		if a.IsNewlyInserted {
-			newIDs = append(newIDs, a.ID)
-		}
 	}
-	featureSetup := h.isFeatureSetupRequired(ctx, workspaceID, userID, newIDs)
 	firstID := ""
 	if len(accounts) > 0 {
 		firstID = accounts[0].ID
 	}
 	return AccountConnectionResponse{
-		WorkspaceID:          workspaceID,
-		AccountID:            firstID,
-		AccountIDs:           accountIDs,
-		NewAccountIDs:        newIDs,
-		OpenFreshComposer:    openFreshComposer,
-		FeatureSetupRequired: featureSetup,
+		WorkspaceID:       workspaceID,
+		AccountID:         firstID,
+		AccountIDs:        accountIDs,
+		OpenFreshComposer: openFreshComposer,
 	}
 }
 
@@ -1409,15 +1343,16 @@ func (h *OAuthHandler) ExchangeCode(api huma.API) {
 		}
 
 		account, err := h.accountSaver.SaveAccountFromInput(ctx, account_saver.SaveAccountInput{
-			Actor:           workspaceActor(ctx, userID),
-			UserID:          userID,
-			PlatformName:    mastodonProvider,
-			WorkspaceID:     input.Body.WorkspaceID,
-			AccountID:       profile.ID,
-			AccountUsername: profile.Username,
-			InstanceURL:     instanceURL,
-			Token:           tokenResp,
-			Grant:           authorizationGrantInput(adapter, profile.ID),
+			Actor:            workspaceActor(ctx, userID),
+			UserID:           userID,
+			PlatformName:     mastodonProvider,
+			WorkspaceID:      input.Body.WorkspaceID,
+			AccountID:        profile.ID,
+			AccountUsername:  profile.Username,
+			AccountAvatarURL: profile.AvatarURL,
+			InstanceURL:      instanceURL,
+			Token:            tokenResp,
+			Grant:            authorizationGrantInput(adapter, profile.ID),
 		})
 		if err != nil {
 			log.Printf("[ExchangeCode] Failed to save account: %v", err)
@@ -1426,18 +1361,17 @@ func (h *OAuthHandler) ExchangeCode(api huma.API) {
 		firstConnection := account.ClaimedFirst
 
 		log.Printf("[ExchangeCode] Account saved successfully")
-		resp := h.normalizedAccountConnectionResponse(ctx, input.Body.WorkspaceID, []*models.SocialAccount{account}, firstConnection, userID)
+		resp := h.normalizedAccountConnectionResponse(input.Body.WorkspaceID, []*models.SocialAccount{account}, firstConnection)
 		return &ExchangeCodeOutput{Body: resp}, nil
 	})
 }
 
 type BlueskyLoginInput struct {
 	Body struct {
-		WorkspaceID           string `json:"workspace_id" doc:"Workspace ID"`
-		Handle                string `json:"handle" doc:"Bluesky handle (e.g. user.bsky.social)"`
-		AppPassword           string `json:"app_password" doc:"Bluesky app password (Settings > App Passwords)"`
-		Intent                string `json:"intent,omitempty" enum:"production,certification_test" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
-		AccountManagementMode string `json:"account_management_mode,omitempty" enum:"direct,settings" doc:"Where the user started the connection flow"`
+		WorkspaceID string `json:"workspace_id" doc:"Workspace ID"`
+		Handle      string `json:"handle" doc:"Bluesky handle (e.g. user.bsky.social)"`
+		AppPassword string `json:"app_password" doc:"Bluesky app password (Settings > App Passwords)"`
+		Intent      string `json:"intent,omitempty" enum:"production,certification_test" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
 	}
 }
 
@@ -1477,7 +1411,7 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			return nil, huma.Error500InternalServerError("bluesky adapter type mismatch")
 		}
 
-		did, accessToken, refreshToken, expiresIn, err := blueskyAdapter.CreateSession(ctx, input.Body.Handle, input.Body.AppPassword)
+		did, handle, accessToken, refreshToken, expiresIn, err := blueskyAdapter.CreateSession(ctx, input.Body.Handle, input.Body.AppPassword)
 		if err != nil {
 			return nil, huma.Error500InternalServerError(fmt.Sprintf("bluesky login failed: %s", err.Error()))
 		}
@@ -1494,34 +1428,54 @@ func (h *OAuthHandler) BlueskyLogin(api huma.API) {
 			ExpiresIn:    expiresIn,
 			Extra:        nil,
 		}
+		profile := &platform.UserProfile{
+			ID:       did,
+			Username: firstNonEmpty(handle, input.Body.Handle),
+		}
+		providerProfile, profileErr := blueskyAdapter.GetProfile(ctx, accessToken)
+		if profileErr != nil {
+			log.Printf("[BlueskyLogin] Profile unavailable after session creation: %v", profileErr)
+		} else if providerProfile != nil {
+			profile.ID = firstNonEmpty(providerProfile.ID, profile.ID)
+			profile.Username = firstNonEmpty(providerProfile.Username, profile.Username)
+			profile.DisplayName = providerProfile.DisplayName
+			profile.AvatarURL = providerProfile.AvatarURL
+			profile.CapabilityState = providerProfile.CapabilityState
+		}
+		if err := h.requireProviderConnectionCompletion(
+			ctx, "bluesky", "", string(intent), userID,
+		); err != nil {
+			return nil, err
+		}
+		accountID := firstNonEmpty(profile.ID, did)
 
 		account, err := h.accountSaver.SaveAccountFromInput(ctx, account_saver.SaveAccountInput{
-			Actor:           workspaceActor(ctx, userID),
-			UserID:          userID,
-			PlatformName:    "bluesky",
-			WorkspaceID:     input.Body.WorkspaceID,
-			AccountID:       did,
-			AccountUsername: input.Body.Handle,
-			InstanceURL:     "https://bsky.social",
-			Token:           tokenResp,
-			Grant:           authorizationGrantInput(adapter, did),
+			Actor:            workspaceActor(ctx, userID),
+			UserID:           userID,
+			PlatformName:     "bluesky",
+			WorkspaceID:      input.Body.WorkspaceID,
+			AccountID:        accountID,
+			AccountUsername:  firstNonEmpty(profile.Username, input.Body.Handle),
+			AccountAvatarURL: profile.AvatarURL,
+			InstanceURL:      "https://bsky.social",
+			Token:            tokenResp,
+			Grant:            authorizationGrantInput(adapter, accountID),
 		})
 		if err != nil {
 			log.Printf("[BlueskyLogin] Failed to save account: %v", err)
 			return nil, huma.Error403Forbidden(accountConnectionErrorMessage(err))
 		}
 
-		resp := h.normalizedAccountConnectionResponse(ctx, input.Body.WorkspaceID, []*models.SocialAccount{account}, account.ClaimedFirst, userID)
+		resp := h.normalizedAccountConnectionResponse(input.Body.WorkspaceID, []*models.SocialAccount{account}, account.ClaimedFirst)
 		return &BlueskyLoginOutput{Body: resp}, nil
 	})
 }
 
 type DiscordWebhookLoginInput struct {
 	Body struct {
-		WorkspaceID           string `json:"workspace_id" doc:"Workspace ID"`
-		WebhookURL            string `json:"webhook_url" doc:"Discord incoming webhook URL"`
-		Intent                string `json:"intent,omitempty" enum:"production,certification_test" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
-		AccountManagementMode string `json:"account_management_mode,omitempty" enum:"direct,settings" doc:"Where the user started the connection flow"`
+		WorkspaceID string `json:"workspace_id" doc:"Workspace ID"`
+		WebhookURL  string `json:"webhook_url" doc:"Discord incoming webhook URL"`
+		Intent      string `json:"intent,omitempty" enum:"production,certification_test" doc:"Typed execution intent; certification_test requires an unscoped instance administrator"`
 	}
 }
 
@@ -1569,20 +1523,21 @@ func (h *OAuthHandler) DiscordWebhookLogin(api huma.API) {
 			TokenType:   "Webhook",
 		}
 		account, err := h.accountSaver.SaveAccountFromInput(ctx, account_saver.SaveAccountInput{
-			Actor:           workspaceActor(ctx, userID),
-			UserID:          userID,
-			PlatformName:    "discord",
-			WorkspaceID:     input.Body.WorkspaceID,
-			AccountID:       profile.ID,
-			AccountUsername: firstNonEmpty(profile.DisplayName, profile.Username),
-			Token:           token,
-			CapabilityState: profile.CapabilityState,
-			Grant:           authorizationGrantInput(adapter, profile.ID),
+			Actor:            workspaceActor(ctx, userID),
+			UserID:           userID,
+			PlatformName:     "discord",
+			WorkspaceID:      input.Body.WorkspaceID,
+			AccountID:        profile.ID,
+			AccountUsername:  firstNonEmpty(profile.DisplayName, profile.Username),
+			AccountAvatarURL: profile.AvatarURL,
+			Token:            token,
+			CapabilityState:  profile.CapabilityState,
+			Grant:            authorizationGrantInput(adapter, profile.ID),
 		})
 		if err != nil {
 			return nil, huma.Error403Forbidden(accountConnectionErrorMessage(err))
 		}
-		resp := h.normalizedAccountConnectionResponse(ctx, input.Body.WorkspaceID, []*models.SocialAccount{account}, account.ClaimedFirst, userID)
+		resp := h.normalizedAccountConnectionResponse(input.Body.WorkspaceID, []*models.SocialAccount{account}, account.ClaimedFirst)
 		return &DiscordWebhookLoginOutput{Body: resp}, nil
 	})
 }
@@ -1738,15 +1693,10 @@ func (h *OAuthHandler) CompleteAccountSelection(api huma.API) {
 			return nil, huma.Error403Forbidden(accountConnectionErrorMessage(err))
 		}
 		accountIDs := make([]string, len(accounts))
-		newAccountIDs := make([]string, 0, len(accounts))
 		for index, account := range accounts {
 			accountIDs[index] = account.ID
-			if account.IsNewlyInserted {
-				newAccountIDs = append(newAccountIDs, account.ID)
-			}
 		}
 		firstConnection := accounts[0].ClaimedFirst
-		featureSetupRequired := h.isFeatureSetupRequired(ctx, pending.WorkspaceID, userID, newAccountIDs)
 		h.captureDestinationConnected(ctx, userID, pending.WorkspaceID, pending.Platform, len(accounts), firstConnection)
 		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
 			if _, err := tx.NewUpdate().Model((*models.OAuthAccountSelection)(nil)).
@@ -1762,12 +1712,10 @@ func (h *OAuthHandler) CompleteAccountSelection(api huma.API) {
 		selectionCompleted = true
 
 		return &CompleteAccountSelectionOutput{Body: AccountSelectionCompletionResponse{
-			AccountResponse:      accountResponse(*accounts[0], h.disableLinkedInThreadReplies),
-			WorkspaceID:          pending.WorkspaceID,
-			AccountIDs:           accountIDs,
-			NewAccountIDs:        newAccountIDs,
-			OpenFreshComposer:    firstConnection,
-			FeatureSetupRequired: featureSetupRequired,
+			AccountResponse:   accountResponse(*accounts[0], h.disableLinkedInThreadReplies),
+			WorkspaceID:       pending.WorkspaceID,
+			AccountIDs:        accountIDs,
+			OpenFreshComposer: firstConnection,
 		}}, nil
 	})
 }

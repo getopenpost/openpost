@@ -2,47 +2,27 @@ import { describe, expect, it } from 'vitest';
 import {
 	isNavigationItemActive,
 	isOrganizationOwnershipSettingsRoute,
-	mobileNavigation,
 	primaryNavigation
 } from './app-navigation';
 
 describe('primary application navigation', () => {
-	it('keeps every core destination visible instead of hiding it in account menus', () => {
-		expect(primaryNavigation.map((item) => item.label)).toEqual([
-			'New post',
-			'Calendar',
-			'Posts',
-			'Inbox',
-			'Grow',
-			'Analytics',
-			'Media',
-			'Editors',
-			'Settings'
-		]);
-	});
-
-	it('places Grow between Inbox and Analytics and away from the mobile bar', () => {
-		const ids = primaryNavigation.map((item) => item.id);
-		expect(ids.indexOf('growth')).toBeGreaterThan(ids.indexOf('communications'));
-		expect(ids.indexOf('growth')).toBeLessThan(ids.indexOf('analytics'));
-		expect(primaryNavigation.find((item) => item.id === 'growth')).toMatchObject({
-			href: '/grow',
-			match: ['/grow'],
-			mobile: false
-		});
-	});
-
-	it('treats post details as part of Posts without claiming the composer root', () => {
-		const posts = primaryNavigation.find((item) => item.id === 'posts');
+	it('treats publication details as part of Publications without claiming the composer root', () => {
+		const publications = primaryNavigation.find((item) => item.id === 'publications');
 		const composer = primaryNavigation.find((item) => item.id === 'new');
 
-		expect(posts && isNavigationItemActive(posts, '/posts/post-123')).toBe(true);
-		expect(composer && isNavigationItemActive(composer, '/posts/post-123')).toBe(false);
+		expect(publications && isNavigationItemActive(publications, '/publications/pub-123')).toBe(
+			true
+		);
+		expect(composer && isNavigationItemActive(composer, '/publications/pub-123')).toBe(false);
 		expect(composer && isNavigationItemActive(composer, '/')).toBe(true);
 	});
 
-	it('keeps four content destinations in the mobile bar before the More menu', () => {
-		expect(mobileNavigation.map((item) => item.id)).toEqual(['calendar', 'posts', 'new', 'media']);
+	it('shares the communications route family across every Inbox destination', () => {
+		const inbox = primaryNavigation.find((item) => item.id === 'communications');
+
+		expect(inbox && isNavigationItemActive(inbox, '/inbox/engagement')).toBe(true);
+		expect(inbox && isNavigationItemActive(inbox, '/inbox/messages')).toBe(true);
+		expect(inbox && isNavigationItemActive(inbox, '/inbox/notifications')).toBe(true);
 	});
 
 	it('recognizes both supported ownership Settings URLs without a Workspace', () => {

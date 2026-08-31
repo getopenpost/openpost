@@ -16,6 +16,27 @@ function cloneVertex(vertex: ShapePathVertex): ShapePathVertex {
 	};
 }
 
+/** Reverse path traversal while leaving every cubic segment in place. */
+export function reversePathVertices(vertices: ShapePathVertex[]): ShapePathVertex[] {
+	return vertices.toReversed().map((vertex) => ({
+		...cloneVertex(vertex),
+		inHandle: [...vertex.outHandle],
+		outHandle: [...vertex.inHandle]
+	}));
+}
+
+/** Choose a new first point for a closed path without changing its geometry. */
+export function rotateClosedPathStart(
+	vertices: ShapePathVertex[],
+	firstIndex: number
+): ShapePathVertex[] {
+	if (vertices.length === 0) return [];
+	const normalizedIndex = ((firstIndex % vertices.length) + vertices.length) % vertices.length;
+	return [...vertices.slice(normalizedIndex), ...vertices.slice(0, normalizedIndex)].map(
+		cloneVertex
+	);
+}
+
 function length(vector: readonly [number, number]): number {
 	return Math.hypot(vector[0], vector[1]);
 }

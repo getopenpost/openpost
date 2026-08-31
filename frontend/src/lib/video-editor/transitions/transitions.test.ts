@@ -16,6 +16,7 @@ import {
 } from './renderers/gpu';
 import { GPU_TRANSITION_REGISTRY, getGpuTransition, getGpuTransitionIds } from './gpu/registry';
 import { TransitionPipeline } from './gpu/pipeline';
+import { transitionPosterProgress } from './preview/transition-preview-engine';
 
 const EXPECTED_IDS = [
 	'fade',
@@ -65,6 +66,12 @@ const EXPECTED_IDS = [
 ] as const;
 
 describe('transition registry - 44 entry contract', () => {
+	it('uses readable posters for transitions that go dark at their midpoint', () => {
+		expect(transitionPosterProgress('fade')).toBe(0.1);
+		expect(transitionPosterProgress('dipToColorDissolve')).toBe(0.1);
+		expect(transitionPosterProgress('flip')).toBe(0.1);
+		expect(transitionPosterProgress('dissolve')).toBe(0.5);
+	});
 	it('registers exactly 44 transitions', () => {
 		expect(transitionRegistry.size).toBe(44);
 		expect(transitionRegistry.getIds().sort()).toEqual([...EXPECTED_IDS].sort());
@@ -257,7 +264,11 @@ describe('graceful GPU unavailability', () => {
 			createRenderPipeline: () => ({}),
 			createTexture: () => ({ createView: () => ({}), destroy: () => {} }),
 			createBuffer: () => ({ size: 64, destroy: () => {} }),
-			queue: { writeBuffer: () => {}, copyExternalImageToTexture: () => {}, submit: () => {} },
+			queue: {
+				writeBuffer: () => {},
+				copyExternalImageToTexture: () => {},
+				submit: () => {}
+			},
 			createCommandEncoder: () => ({
 				beginRenderPass: () => ({
 					setPipeline: () => {},
@@ -275,7 +286,11 @@ describe('graceful GPU unavailability', () => {
 			expect(pipeline.has('nope')).toBe(false);
 			const fakeLeft = { width: 2, height: 2 } as unknown as OffscreenCanvas;
 			const fakeRight = { width: 2, height: 2 } as unknown as OffscreenCanvas;
-			const fakeTex = { width: 2, height: 2, createView: () => ({}) } as unknown as any;
+			const fakeTex = {
+				width: 2,
+				height: 2,
+				createView: () => ({})
+			} as unknown as any;
 			expect(pipeline.render('nope', fakeLeft, fakeRight, 0.5, 2, 2)).toBeNull();
 			expect(pipeline.render('fade', fakeLeft, fakeRight, 0.5, 1, 1)).toBeNull(); // too small
 			expect(pipeline.renderToTexture('fade', fakeLeft, fakeRight, fakeTex, 0.5, 2, 2)).toBe(false);

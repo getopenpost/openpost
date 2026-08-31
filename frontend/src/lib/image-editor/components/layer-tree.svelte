@@ -328,7 +328,7 @@
 
 <div class="flex h-full min-h-0 flex-col" role="tree" aria-label={m.image_editor_layers()}>
 	<div class="flex min-h-10 items-center border-b px-3">
-		<h2 class="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+		<h2 class="text-sm font-medium text-foreground">
 			{m.image_editor_layers()}
 		</h2>
 		<div class="ml-auto flex items-center gap-1">

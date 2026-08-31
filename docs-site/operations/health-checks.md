@@ -30,7 +30,13 @@ Expected response:
 { "status": "ready", "database": "ok" }
 ```
 
-Use this endpoint for load-balancer traffic admission, deploy rollouts, and external uptime probes that should fail when the database is unavailable. It returns `503` when OpenPost cannot run a database probe.
+An S3-backed instance also reports its required object store:
+
+```json
+{ "status": "ready", "database": "ok", "storage": "ok" }
+```
+
+Use this endpoint for load-balancer traffic admission, deploy rollouts, and external uptime probes that should fail when a required data-plane dependency is unavailable. It returns `503` when OpenPost cannot run a database probe or the configured S3 bucket fails its bounded capability check.
 
 Compose does not remove traffic when readiness fails by itself. Configure the reverse proxy, load balancer, deploy hook, or monitor that owns traffic to call this endpoint.
 

@@ -23,6 +23,24 @@ let pipeline: PreviewPipeline | null = null;
 let pipelinePromise: Promise<PreviewPipeline | null> | null = null;
 let samplePromise: Promise<HTMLCanvasElement | OffscreenCanvas | null> | null = null;
 let cssPreviewCanvas: HTMLCanvasElement | OffscreenCanvas | null = null;
+const posterCache = new Map<string, EffectPreviewFrame>();
+
+interface PosterJob {
+	effects: readonly EffectTemplate[];
+	key: string;
+	waiters: PosterWaiter[];
+}
+
+interface PosterWaiter {
+	signal?: AbortSignal;
+	resolve: (frame: EffectPreviewFrame | null) => void;
+}
+
+const posterQueue: PosterJob[] = [];
+const posterJobsByKey = new Map<string, PosterJob>();
+let posterQueueScheduled = false;
+let posterQueueRunning = false;
+const POSTERS_PER_FRAME = 1;
 
 export interface EffectPreviewFrame {
 	canvas: HTMLCanvasElement | OffscreenCanvas;
@@ -43,6 +61,116 @@ function createHtmlCanvas(width: number, height: number): HTMLCanvasElement | nu
 
 function createOffscreenCanvas(width: number, height: number): OffscreenCanvas | null {
 	return typeof OffscreenCanvas === 'undefined' ? null : new OffscreenCanvas(width, height);
+}
+
+function clonePreviewCanvas(
+	source: HTMLCanvasElement | OffscreenCanvas
+): HTMLCanvasElement | OffscreenCanvas | null {
+	const copy = createCanvas(EFFECT_PREVIEW_WIDTH, EFFECT_PREVIEW_HEIGHT);
+	const context = copy?.getContext('2d');
+	if (!copy || !context) return null;
+	context.drawImage(source, 0, 0, EFFECT_PREVIEW_WIDTH, EFFECT_PREVIEW_HEIGHT);
+	return copy;
+}
+
+function previewKey(effects: readonly EffectTemplate[]): string {
+	return JSON.stringify(
+		effects.map((effect) =>
+			effect.kind === 'gpu'
+				? ['gpu', effect.effectId, effect.enabled !== false, effect.params ?? null]
+				: ['css', effect.effectType, effect.enabled !== false, effect.amount ?? null]
+		)
+	);
+}
+
+function schedulePosterQueue(): void {
+	if (posterQueueScheduled || posterQueueRunning || posterQueue.length === 0) return;
+	posterQueueScheduled = true;
+	const run = () => {
+		posterQueueScheduled = false;
+		void drainPosterQueue();
+	};
+	// oxlint-disable-next-line anti-slop/no-runtime-typeof -- SSR and unit tests may not expose the optional browser scheduler.
+	if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+	else queueMicrotask(run);
+}
+
+function activePosterWaiters(job: PosterJob): PosterWaiter[] {
+	const active: PosterWaiter[] = [];
+	for (const waiter of job.waiters) {
+		if (waiter.signal?.aborted) waiter.resolve(null);
+		else active.push(waiter);
+	}
+	job.waiters = active;
+	return active;
+}
+
+async function renderPosterJob(job: PosterJob): Promise<EffectPreviewFrame | null> {
+	const cached = posterCache.get(job.key);
+	if (cached) return cached;
+	const sample = await getEffectPreviewSample();
+	if (!sample || activePosterWaiters(job).length === 0) return null;
+	if (job.effects.some((effect) => effect.kind === 'gpu')) {
+		await ensureEffectPreviewPipeline();
+		if (activePosterWaiters(job).length === 0) return null;
+	}
+	const rendered = renderEffectPreviewFrame(sample, job.effects, 1);
+	const canvas = clonePreviewCanvas(rendered.canvas);
+	if (!canvas) return null;
+	const poster = { canvas, mode: rendered.mode } satisfies EffectPreviewFrame;
+	posterCache.set(job.key, poster);
+	return poster;
+}
+
+async function drainPosterQueue(): Promise<void> {
+	if (posterQueueRunning) return;
+	posterQueueRunning = true;
+	try {
+		const batch: PosterJob[] = [];
+		while (batch.length < POSTERS_PER_FRAME && posterQueue.length > 0) {
+			const job = posterQueue.shift();
+			if (!job) break;
+			if (activePosterWaiters(job).length === 0) {
+				posterJobsByKey.delete(job.key);
+				continue;
+			}
+			batch.push(job);
+		}
+		for (const job of batch) {
+			const frame = await renderPosterJob(job);
+			for (const waiter of activePosterWaiters(job)) waiter.resolve(frame);
+			job.waiters = [];
+			posterJobsByKey.delete(job.key);
+		}
+	} finally {
+		posterQueueRunning = false;
+		schedulePosterQueue();
+	}
+}
+
+/** Queue and cache static cards so opening or scrolling the catalog cannot compile every shader at once. */
+export function getEffectPreviewPoster(
+	effects: readonly EffectTemplate[],
+	signal?: AbortSignal
+): Promise<EffectPreviewFrame | null> {
+	const key = previewKey(effects);
+	const cached = posterCache.get(key);
+	if (cached) return Promise.resolve(cached);
+	if (signal?.aborted) return Promise.resolve(null);
+	return new Promise((resolve) => {
+		const existing = posterJobsByKey.get(key);
+		if (existing) existing.waiters.push({ signal, resolve });
+		else {
+			const job = {
+				effects,
+				key,
+				waiters: [{ signal, resolve }]
+			} satisfies PosterJob;
+			posterJobsByKey.set(key, job);
+			posterQueue.push(job);
+		}
+		schedulePosterQueue();
+	});
 }
 
 export function ensureEffectPreviewPipeline(): Promise<PreviewPipeline | null> {
@@ -202,7 +330,7 @@ export function renderEffectPreviewFrame(
 					return cssPreviewFilter(effect.effectType, effect.amount ?? fallback ?? 0, strength);
 				})
 				.join(' ');
-			context.drawImage(sample, 0, 0, EFFECT_PREVIEW_WIDTH, EFFECT_PREVIEW_HEIGHT);
+			context.drawImage(source, 0, 0, EFFECT_PREVIEW_WIDTH, EFFECT_PREVIEW_HEIGHT);
 			context.restore();
 			source = cssPreviewCanvas;
 		}

@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humaecho"
@@ -66,14 +69,10 @@ func newNormServer(t *testing.T, providers map[string]platform.Adapter) (*echo.E
 	return e, handler
 }
 
-func doNormCallback(t *testing.T, e *echo.Echo, mode string) *http.Response {
+func doNormCallback(t *testing.T, e *echo.Echo) *http.Response {
 	t.Helper()
 	const provider = "threads"
-	const workspaceID = "ws-1"
-	q := "/api/v1/accounts/" + provider + "/auth-url?workspace_id=" + url.QueryEscape(workspaceID)
-	if mode != "" {
-		q += "&account_management_mode=" + url.QueryEscape(mode)
-	}
+	q := "/api/v1/accounts/" + provider + "/auth-url?workspace_id=ws-1"
 	authResp := oauthSelectionRequest(t, e, http.MethodGet, q, nil, true)
 	require.Equal(t, http.StatusOK, authResp.Code, authResp.Body.String())
 	var body struct {
@@ -126,66 +125,116 @@ func (m *normMessagingAdapter) Publish(_ context.Context, _, _ string, _ *platfo
 	return platform.PublishResult{}, nil
 }
 
-func TestNormSetupRedirectForNewAccountWithSupportedFeatures(t *testing.T) {
+func TestNormRoutesNewAccountWithSupportedFeaturesToComposer(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
 	}
 	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e, "direct")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
 	loc := resp.Header.Get("Location")
-	require.Contains(t, loc, "/accounts/setup")
 	u, _ := url.Parse(loc)
+	require.Equal(t, "/", u.Path)
 	require.Equal(t, "ws-1", u.Query().Get("workspace_id"))
 	require.NotEmpty(t, u.Query().Get("account_ids"))
-	require.NotEmpty(t, u.Query().Get("new_account_ids"))
-	require.Equal(t, u.Query().Get("account_ids"), u.Query().Get("new_account_ids"))
 	require.NotContains(t, loc, "access_token")
 }
 
-func TestNormBypassesSetupWhenNoSupportedFeatures(t *testing.T) {
-	t.Parallel()
-	providers := map[string]platform.Adapter{
-		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: false}},
-	}
-	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e, "settings")
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusTemporaryRedirect, resp.StatusCode)
-	loc := resp.Header.Get("Location")
-	require.NotContains(t, loc, "/accounts/setup")
+func TestBlueskyLoginPersistsProfileAvatar(t *testing.T) {
+	payload, err := json.Marshal(map[string]int64{"exp": time.Now().Add(time.Hour).Unix()})
+	require.NoError(t, err)
+	accessJWT := "e30." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+
+	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.server.createSession":
+			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"creator.bsky.social","accessJwt":"`+accessJWT+`","refreshJwt":"refresh-token"}`)
+		case "/xrpc/com.atproto.server.getSession":
+			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"creator.bsky.social"}`)
+		case "/xrpc/app.bsky.actor.getProfile":
+			require.Equal(t, "did:plc:creator", r.URL.Query().Get("actor"))
+			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"creator.bsky.social","displayName":"Creator","avatar":"https://cdn.bsky.app/avatar.jpg"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(pds.Close)
+
+	e, handler := newNormServer(t, map[string]platform.Adapter{
+		"bluesky": platform.NewBlueskyAdapter(pds.URL),
+	})
+	response := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/bluesky/login", map[string]string{
+		"workspace_id": "ws-1",
+		"handle":       "creator.bsky.social",
+		"app_password": "app-password",
+	}, true)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+
+	var account models.SocialAccount
+	require.NoError(t, handler.db.NewSelect().Model(&account).Where("account_id = ?", "did:plc:creator").Scan(t.Context()))
+	require.Equal(t, "https://cdn.bsky.app/avatar.jpg", account.AccountAvatarURL)
 }
 
-func TestNormPreservesFirstDestinationAndMode(t *testing.T) {
+func TestBlueskyLoginUsesSessionIdentityWhenActorProfileIsUnavailable(t *testing.T) {
+	payload, err := json.Marshal(map[string]int64{"exp": time.Now().Add(time.Hour).Unix()})
+	require.NoError(t, err)
+	accessJWT := "e30." + base64.RawURLEncoding.EncodeToString(payload) + ".signature"
+
+	pds := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/xrpc/com.atproto.server.createSession":
+			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"canonical.bsky.social","accessJwt":"`+accessJWT+`","refreshJwt":"refresh-token"}`)
+		case "/xrpc/com.atproto.server.getSession":
+			_, _ = io.WriteString(w, `{"did":"did:plc:creator","handle":"canonical.bsky.social"}`)
+		case "/xrpc/app.bsky.actor.getProfile":
+			http.Error(w, `{"error":"ProfileNotFound","message":"Profile not found"}`, http.StatusServiceUnavailable)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	t.Cleanup(pds.Close)
+
+	e, handler := newNormServer(t, map[string]platform.Adapter{
+		"bluesky": platform.NewBlueskyAdapter(pds.URL),
+	})
+	response := oauthSelectionRequest(t, e, http.MethodPost, "/api/v1/accounts/bluesky/login", map[string]string{
+		"workspace_id": "ws-1",
+		"handle":       "submitted.bsky.social",
+		"app_password": "app-password",
+	}, true)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+
+	var account models.SocialAccount
+	require.NoError(t, handler.db.NewSelect().Model(&account).Where("account_id = ?", "did:plc:creator").Scan(t.Context()))
+	require.Equal(t, "canonical.bsky.social", account.AccountUsername)
+	require.Empty(t, account.AccountAvatarURL)
+}
+
+func TestNormRoutesFirstAndExistingDestinationsToTheirCanonicalPages(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: false}},
 	}
 	e1, _ := newNormServer(t, providers)
-	resp1 := doNormCallback(t, e1, "direct")
+	resp1 := doNormCallback(t, e1)
 	defer resp1.Body.Close()
 	require.Contains(t, resp1.Header.Get("Location"), "workspace_id=ws-1")
 	require.Contains(t, resp1.Header.Get("Location"), "account_ids=")
 	require.NotContains(t, resp1.Header.Get("Location"), "settings")
 
 	e2, _ := newNormServer(t, providers)
-	respDiscard := doNormCallback(t, e2, "direct")
+	respDiscard := doNormCallback(t, e2)
 	respDiscard.Body.Close()
-	resp2 := doNormCallback(t, e2, "direct")
+	resp2 := doNormCallback(t, e2)
 	defer resp2.Body.Close()
-	require.Equal(t, "https://app.openpost.test/accounts", resp2.Header.Get("Location"))
-
-	e3, _ := newNormServer(t, providers)
-	respDiscard2 := doNormCallback(t, e3, "settings")
-	respDiscard2.Body.Close()
-	resp3 := doNormCallback(t, e3, "settings")
-	defer resp3.Body.Close()
-	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", resp3.Header.Get("Location"))
+	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", resp2.Header.Get("Location"))
 }
 
-func TestNormReactivatedDoesNotTriggerSetup(t *testing.T) {
+func TestNormReactivatedAccountReturnsToSettings(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
@@ -199,27 +248,27 @@ func TestNormReactivatedDoesNotTriggerSetup(t *testing.T) {
 	_, err = h.db.NewInsert().Model(&models.WorkspaceFirstConnection{WorkspaceID: "ws-1", AccountID: "existing-id"}).Exec(ctx)
 	require.NoError(t, err)
 
-	resp := doNormCallback(t, e, "settings")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	require.NotContains(t, resp.Header.Get("Location"), "/accounts/setup")
 	require.Equal(t, "https://app.openpost.test/settings?tab=accounts", resp.Header.Get("Location"))
 }
 
-func TestNormContinuationDataInSetupRedirect(t *testing.T) {
+func TestNormComposerRedirectContainsOnlyContinuationData(t *testing.T) {
 	t.Parallel()
 	providers := map[string]platform.Adapter{
 		"threads": &normMessagingAdapter{support: platform.MessagingSupport{Enabled: true}},
 	}
 	e, _ := newNormServer(t, providers)
-	resp := doNormCallback(t, e, "direct")
+	resp := doNormCallback(t, e)
 	defer resp.Body.Close()
 	loc := resp.Header.Get("Location")
-	require.Contains(t, loc, "/accounts/setup")
 	u, _ := url.Parse(loc)
+	require.Equal(t, "/", u.Path)
 	require.Equal(t, "ws-1", u.Query().Get("workspace_id"))
 	require.NotEmpty(t, u.Query().Get("account_ids"))
-	require.NotEmpty(t, u.Query().Get("new_account_ids"))
-	require.Equal(t, "true", u.Query().Get("open_fresh_composer"))
+	require.Empty(t, u.Query().Get("new_account_ids"))
+	require.Empty(t, u.Query().Get("open_fresh_composer"))
 	require.NotContains(t, loc, "code")
 }
 
@@ -252,7 +301,6 @@ func TestNormCompleteSelectionContainsNormalizedFields(t *testing.T) {
 	require.NoError(t, json.Unmarshal(completeResp.Body.Bytes(), &out))
 	require.NotEmpty(t, out.WorkspaceID)
 	require.NotEmpty(t, out.AccountIDs)
-	require.NotEmpty(t, out.NewAccountIDs)
-	require.Contains(t, completeResp.Body.String(), "feature_setup_required")
-	require.Contains(t, completeResp.Body.String(), "new_account_ids")
+	require.NotContains(t, completeResp.Body.String(), "feature_setup_required")
+	require.NotContains(t, completeResp.Body.String(), "new_account_ids")
 }

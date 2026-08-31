@@ -29,6 +29,7 @@
 	} from '$lib/editor-catalog';
 	import { getAuthenticatedMediaURL } from '$lib/media-url';
 	import PageContainer from '$lib/components/page-container.svelte';
+	import PageLoading from '$lib/components/page-loading.svelte';
 	import EmptyState from '$lib/components/empty-state.svelte';
 	import InlineNotice from '$lib/components/inline-notice.svelte';
 	import AppToast from '$lib/components/app-toast.svelte';
@@ -37,7 +38,11 @@
 	import RenameDialog from '$lib/components/rename-dialog.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
+	import { createWorkspaceGate } from '$lib/video-editor/gate/workspace-gate.svelte';
+	import { filterLocalVideoProjects } from '$lib/video-editor/project/workspace-project-catalog';
+	import { createWorkspaceProjectCatalog } from '$lib/video-editor/project/workspace-project-catalog.svelte';
 	import ClapperboardIcon from '@lucide/svelte/icons/clapperboard';
+	import FolderPlusIcon from '@lucide/svelte/icons/folder-plus';
 	import ImageIcon from '@lucide/svelte/icons/image';
 	import VideoIcon from '@lucide/svelte/icons/video';
 	import PlusIcon from '@lucide/svelte/icons/plus';
@@ -47,6 +52,7 @@
 	import LoaderIcon from '@lucide/svelte/icons/loader-2';
 	import TrashIcon from '@lucide/svelte/icons/trash-2';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
+	import RefreshCwIcon from '@lucide/svelte/icons/refresh-cw';
 	import { m } from '$lib/paraglide/messages';
 
 	type CatalogView = EditorCatalogSnapshot & {
@@ -67,6 +73,8 @@
 	const catalogRequests = new EditorCatalogRequestGate();
 	const designPageRequests = new EditorCatalogRequestGate();
 	const pendingDeletes = new SvelteSet<string>();
+	const videoWorkspaceGate = createWorkspaceGate();
+	const videoProjectCatalog = createWorkspaceProjectCatalog(videoWorkspaceGate);
 
 	let search = $state('');
 	let toastMessage = $state('');
@@ -83,12 +91,15 @@
 	let query = $derived(normalizeEditorCatalogQuery(search));
 	let activeCatalogKey = $derived(editorCatalogKey(workspaceID, query));
 	let hasMoreDesigns = $derived(catalog.designOffset < catalog.designTotal);
-	let catalogSurface = $derived(
+	let imageCatalogSurface = $derived(
 		resolveEditorCatalogSurface({
 			loading: catalog.loading,
 			error: catalog.error,
 			designCount: catalog.designs.length
 		})
+	);
+	let visibleVideoProjects = $derived(
+		filterLocalVideoProjects(videoProjectCatalog.projects, query)
 	);
 
 	onMount(() => {
@@ -300,8 +311,18 @@
 		}
 	}
 
-	function formatDate(value: string): string {
+	function formatDate(value: string | number): string {
 		return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(value));
+	}
+
+	function formatDuration(seconds: number): string {
+		const rounded = Math.max(0, Math.round(seconds));
+		const hours = Math.floor(rounded / 3600);
+		const minutes = Math.floor((rounded % 3600) / 60);
+		const remainingSeconds = rounded % 60;
+		return hours > 0
+			? `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`
+			: `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
 	}
 
 	function notify(message: string, tone: 'neutral' | 'success' | 'error' = 'neutral'): void {
@@ -454,64 +475,38 @@
 	title={m.editors_title()}
 	description={m.editors_description()}
 	icon={ClapperboardIcon}
-	loading={catalogSurface === 'loading'}
-	loadingMessage={m.editors_loading()}
-	loadingLayout="gallery"
-	loadingItems={8}
 >
 	{#snippet actions()}
-		{#if catalogSurface !== 'error'}
-			<div class="flex flex-wrap gap-2">
-				<Button variant="outline" href="/video-editor">
-					<VideoIcon />
-					{m.editors_new_video()}
-				</Button>
-				<Button
-					disabled={!workspaceID}
-					onclick={() =>
-						goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
-				>
-					<PlusIcon />
-					{m.editors_new_design()}
-				</Button>
-			</div>
-		{/if}
+		<div class="flex flex-wrap gap-2">
+			<Button variant="outline" href="/video-editor">
+				<VideoIcon />
+				{m.editors_new_video()}
+			</Button>
+			<Button
+				disabled={!workspaceID}
+				onclick={() =>
+					goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
+			>
+				<PlusIcon />
+				{m.editors_new_design()}
+			</Button>
+		</div>
 	{/snippet}
 
-	{#if catalog.error}
-		<InlineNotice tone="error" message={catalog.error}>
-			{#snippet actions()}
-				<Button variant="outline" size="sm" onclick={retryCatalog}>{m.editors_retry()}</Button>
-			{/snippet}
-		</InlineNotice>
-	{/if}
-
-	{#if catalogSurface !== 'error'}
-		<div class="relative">
-			<SearchIcon
-				class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-			/>
-			<Input
-				bind:ref={catalogReturnFocus}
-				bind:value={search}
-				class="h-11 pl-9"
-				placeholder={m.editors_search()}
-				aria-label={m.editors_search()}
-			/>
-		</div>
-	{/if}
-
-	{#if catalogSurface === 'empty'}
-		<EmptyState
-			icon={ClapperboardIcon}
-			title={query ? m.editors_no_match() : m.editors_empty()}
-			description={query ? m.editors_no_match_body() : m.editors_empty_body()}
-			actionLabel={query ? undefined : m.editors_create_design()}
-			onAction={() =>
-				goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
-			variant="dashed"
+	<div class="relative">
+		<SearchIcon
+			class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
 		/>
-	{:else if catalogSurface === 'content'}
+		<Input
+			bind:ref={catalogReturnFocus}
+			bind:value={search}
+			class="h-11 pl-9"
+			placeholder={m.editors_search()}
+			aria-label={m.editors_search()}
+		/>
+	</div>
+
+	<div class="space-y-8">
 		<section
 			class="space-y-3"
 			aria-labelledby="editor-catalog-designs-heading"
@@ -523,104 +518,279 @@
 				</h2>
 				<p class="text-sm text-muted-foreground">{m.editors_image_designs_body()}</p>
 			</div>
-			<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-				{#each catalog.designs as design (design.id)}
-					<ContextMenu.Root>
-						<ContextMenu.Trigger>
-							{#snippet child({ props })}
-								<a
-									{...props}
-									class="group overflow-hidden rounded-xl border bg-card hover:border-foreground/25"
-									href={resolve(`/image-editor/${design.id}` as '/')}
-								>
-									<div
-										class="relative flex aspect-square items-center justify-center overflow-hidden bg-neutral-900 p-3"
+
+			{#if catalog.error}
+				<InlineNotice tone="error" message={catalog.error}>
+					{#snippet actions()}
+						<Button variant="outline" size="sm" onclick={retryCatalog}>{m.editors_retry()}</Button>
+					{/snippet}
+				</InlineNotice>
+			{/if}
+
+			{#if imageCatalogSurface === 'loading'}
+				<PageLoading layout="gallery" items={5} label={m.editors_loading()} />
+			{:else if catalog.designs.length === 0 && !catalog.error}
+				<EmptyState
+					icon={ImageIcon}
+					title={query ? m.editors_no_match() : m.editors_empty()}
+					description={query ? m.editors_no_match_body() : m.editors_image_designs_body()}
+					actionLabel={query ? undefined : m.editors_create_design()}
+					onAction={() =>
+						goto(resolve(`/image-editor/new?workspace=${encodeURIComponent(workspaceID)}` as '/'))}
+					variant="dashed"
+					headingLevel={3}
+				/>
+			{:else if catalog.designs.length > 0}
+				<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+					{#each catalog.designs as design (design.id)}
+						<ContextMenu.Root>
+							<ContextMenu.Trigger>
+								{#snippet child({ props })}
+									<a
+										{...props}
+										class="group overflow-hidden rounded-xl border bg-card hover:border-foreground/25"
+										href={resolve(`/image-editor/${design.id}` as '/')}
 									>
-										{#if design.cover_preview_media_id}
-											<img
-												class="max-h-full max-w-full object-contain shadow-md"
-												src={getAuthenticatedMediaURL(`/media/${design.cover_preview_media_id}`)}
-												alt=""
-											/>
-										{:else}<ImageIcon class="size-8 text-neutral-500" />{/if}
-										{#if design.is_favorite}
-											<span class="absolute right-2 bottom-2 rounded-full bg-background/90 p-1.5">
-												<HeartIcon class="size-3.5 fill-red-500 text-red-500" />
-											</span>
-										{/if}
-									</div>
-									<div class="p-3">
-										<p class="truncate text-sm font-medium">{design.title}</p>
-										<p class="mt-1 text-xs text-muted-foreground">
-											{design.page_count === 1
-												? m.editors_page_count_one({ count: design.page_count })
-												: m.editors_page_count_many({ count: design.page_count })} · {formatDate(
-												design.updated_at
-											)}
-										</p>
-									</div>
-								</a>
-							{/snippet}
-						</ContextMenu.Trigger>
-						<ContextMenu.Portal>
-							<ContextMenu.Content class={contextContentClass}>
-								<ContextMenu.Item
-									class={contextItemClass}
-									disabled={!catalog.canEditDesigns}
-									onclick={() => requestRenameDesign(design)}
-								>
-									<PencilIcon class="size-4" />
-									{m.common_rename()}
-								</ContextMenu.Item>
-								<ContextMenu.Item
-									class={contextItemClass}
-									disabled={!catalog.canEditDesigns}
-									onclick={() => duplicateDesign(design)}
-								>
-									<CopyIcon class="size-4" />
-									{m.image_editor_duplicate_design()}
-								</ContextMenu.Item>
-								<ContextMenu.Item
-									class={contextItemClass}
-									disabled={!catalog.canEditDesigns}
-									onclick={() => toggleFavorite(design)}
-								>
-									<HeartIcon class="size-4" fill={design.is_favorite ? 'currentColor' : 'none'} />
-									{design.is_favorite ? m.media_unfavorite() : m.media_favorite()}
-								</ContextMenu.Item>
-								{#if catalog.canEditDesigns}
-									<ContextMenu.Separator class="my-1 h-px bg-border" />
+										<div
+											class="relative flex aspect-square items-center justify-center overflow-hidden bg-neutral-900 p-3"
+										>
+											{#if design.cover_preview_media_id}
+												<img
+													class="max-h-full max-w-full object-contain shadow-md"
+													src={getAuthenticatedMediaURL(`/media/${design.cover_preview_media_id}`)}
+													alt=""
+												/>
+											{:else}<ImageIcon class="size-8 text-neutral-500" />{/if}
+											{#if design.is_favorite}
+												<span class="absolute right-2 bottom-2 rounded-full bg-background/90 p-1.5">
+													<HeartIcon class="size-3.5 fill-red-500 text-red-500" />
+												</span>
+											{/if}
+										</div>
+										<div class="p-3">
+											<p class="truncate text-sm font-medium">{design.title}</p>
+											<p class="mt-1 text-xs text-muted-foreground">
+												{design.page_count === 1
+													? m.editors_page_count_one({ count: design.page_count })
+													: m.editors_page_count_many({ count: design.page_count })} · {formatDate(
+													design.updated_at
+												)}
+											</p>
+										</div>
+									</a>
+								{/snippet}
+							</ContextMenu.Trigger>
+							<ContextMenu.Portal>
+								<ContextMenu.Content class={contextContentClass}>
 									<ContextMenu.Item
-										class="{contextItemClass} text-destructive data-highlighted:text-destructive"
-										onclick={() => requestDeleteDesign(design)}
+										class={contextItemClass}
+										disabled={!catalog.canEditDesigns}
+										onclick={() => requestRenameDesign(design)}
 									>
-										<TrashIcon class="size-4" />
-										{m.common_delete()}
+										<PencilIcon class="size-4" />
+										{m.common_rename()}
 									</ContextMenu.Item>
-								{/if}
-							</ContextMenu.Content>
-						</ContextMenu.Portal>
-					</ContextMenu.Root>
-				{/each}
-			</div>
-			{#if hasMoreDesigns}
-				<div class="flex justify-center">
-					<Button
-						variant="outline"
-						disabled={catalog.loadingMoreDesigns}
-						onclick={() => void loadMoreDesigns()}
-					>
-						{#if catalog.loadingMoreDesigns}
-							<LoaderIcon class="size-4 animate-spin" />
-							{m.editors_loading_more()}
-						{:else}
-							{m.editors_load_more_designs()}
-						{/if}
-					</Button>
+									<ContextMenu.Item
+										class={contextItemClass}
+										disabled={!catalog.canEditDesigns}
+										onclick={() => duplicateDesign(design)}
+									>
+										<CopyIcon class="size-4" />
+										{m.image_editor_duplicate_design()}
+									</ContextMenu.Item>
+									<ContextMenu.Item
+										class={contextItemClass}
+										disabled={!catalog.canEditDesigns}
+										onclick={() => toggleFavorite(design)}
+									>
+										<HeartIcon class="size-4" fill={design.is_favorite ? 'currentColor' : 'none'} />
+										{design.is_favorite ? m.media_unfavorite() : m.media_favorite()}
+									</ContextMenu.Item>
+									{#if catalog.canEditDesigns}
+										<ContextMenu.Separator class="my-1 h-px bg-border" />
+										<ContextMenu.Item
+											class="{contextItemClass} text-destructive data-highlighted:text-destructive"
+											onclick={() => requestDeleteDesign(design)}
+										>
+											<TrashIcon class="size-4" />
+											{m.common_delete()}
+										</ContextMenu.Item>
+									{/if}
+								</ContextMenu.Content>
+							</ContextMenu.Portal>
+						</ContextMenu.Root>
+					{/each}
 				</div>
+				{#if hasMoreDesigns}
+					<div class="flex justify-center">
+						<Button
+							variant="outline"
+							disabled={catalog.loadingMoreDesigns}
+							onclick={() => void loadMoreDesigns()}
+						>
+							{#if catalog.loadingMoreDesigns}
+								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+								{m.editors_loading_more()}
+							{:else}
+								{m.editors_load_more_designs()}
+							{/if}
+						</Button>
+					</div>
+				{/if}
 			{/if}
 		</section>
-	{/if}
+
+		<section
+			class="space-y-3"
+			aria-labelledby="editor-catalog-videos-heading"
+			aria-busy={videoProjectCatalog.loading || videoProjectCatalog.refreshing}
+		>
+			<div>
+				<h2 id="editor-catalog-videos-heading" class="text-base font-semibold">
+					{m.editors_video_projects()}
+				</h2>
+				<p class="text-sm text-muted-foreground">{m.editors_video_projects_body()}</p>
+			</div>
+
+			{#if videoWorkspaceGate.error}
+				<InlineNotice tone="error" message={videoWorkspaceGate.error} />
+			{/if}
+
+			{#if videoWorkspaceGate.state === 'initializing'}
+				<PageLoading layout="gallery" items={4} label={m.editors_loading()} />
+			{:else if videoWorkspaceGate.state === 'unavailable'}
+				<InlineNotice>
+					<div>
+						<h3 class="font-medium">{m.video_editor_gate_unavailable_title()}</h3>
+						<p class="mt-0.5 text-muted-foreground">{m.video_editor_gate_unavailable_body()}</p>
+					</div>
+				</InlineNotice>
+			{:else if videoWorkspaceGate.state === 'pick'}
+				<InlineNotice>
+					<div>
+						<h3 class="font-medium">{m.video_editor_gate_pick_title()}</h3>
+						<p class="mt-0.5 text-muted-foreground">{m.video_editor_gate_pick_body()}</p>
+					</div>
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={videoWorkspaceGate.busy}
+							onclick={() => void videoWorkspaceGate.pickFolder()}
+						>
+							{#if videoWorkspaceGate.busy}
+								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+							{:else}
+								<FolderPlusIcon class="size-4" />
+							{/if}
+							{m.video_editor_gate_pick_cta()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{:else if videoWorkspaceGate.state === 'reconnect'}
+				<InlineNotice>
+					<div>
+						<h3 class="font-medium">{m.video_editor_gate_reconnect_title()}</h3>
+						<p class="mt-0.5 text-muted-foreground">
+							{m.video_editor_gate_reconnect_body({ folder: videoWorkspaceGate.workspaceName })}
+						</p>
+					</div>
+					{#snippet actions()}
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={videoWorkspaceGate.busy}
+							onclick={() => void videoWorkspaceGate.reconnect()}
+						>
+							{#if videoWorkspaceGate.busy}
+								<LoaderIcon class="size-4 animate-spin motion-reduce:animate-none" />
+							{:else}
+								<RefreshCwIcon class="size-4" />
+							{/if}
+							{m.video_editor_gate_reconnect_cta()}
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							disabled={videoWorkspaceGate.busy}
+							onclick={() => void videoWorkspaceGate.chooseDifferentFolder()}
+						>
+							{m.video_editor_gate_different_folder()}
+						</Button>
+					{/snippet}
+				</InlineNotice>
+			{:else}
+				{#if videoProjectCatalog.error}
+					<InlineNotice tone="error" message={videoProjectCatalog.error}>
+						{#snippet actions()}
+							<Button
+								variant="outline"
+								size="sm"
+								onclick={() => void videoProjectCatalog.refresh()}
+							>
+								{m.editors_retry()}
+							</Button>
+						{/snippet}
+					</InlineNotice>
+				{/if}
+
+				{#if videoProjectCatalog.loading}
+					<PageLoading layout="gallery" items={4} label={m.editors_loading()} />
+				{:else if visibleVideoProjects.length === 0 && !videoProjectCatalog.error}
+					<EmptyState
+						icon={VideoIcon}
+						title={query ? m.editors_no_match() : m.video_editor_projects_empty()}
+						description={query ? m.editors_no_match_body() : m.editors_video_projects_body()}
+						actionLabel={query ? undefined : m.editors_open_video()}
+						actionHref="/video-editor"
+						variant="dashed"
+						headingLevel={3}
+					/>
+				{:else if visibleVideoProjects.length > 0}
+					<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+						{#each visibleVideoProjects as project (project.id)}
+							<a
+								class="group min-w-0 overflow-hidden rounded-xl border bg-card hover:border-foreground/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+								href={resolve(`/video-editor/${project.id}` as '/')}
+							>
+								<div
+									class="flex aspect-video items-center justify-center overflow-hidden bg-neutral-900"
+								>
+									{#if videoProjectCatalog.thumbnailUrls[project.id]}
+										<img
+											class="size-full object-contain"
+											src={videoProjectCatalog.thumbnailUrls[project.id]}
+											alt={m.video_editor_project_thumbnail_alt({ name: project.name })}
+											loading="lazy"
+										/>
+									{:else}
+										<VideoIcon class="size-8 text-neutral-500" />
+									{/if}
+								</div>
+								<div class="min-w-0 p-3">
+									<p class="truncate text-sm font-medium">{project.name}</p>
+									{#if project.description.trim()}
+										<p class="mt-1 line-clamp-2 text-xs text-muted-foreground">
+											{project.description}
+										</p>
+									{/if}
+									<p class="mt-1 flex flex-wrap gap-x-2 text-xs text-muted-foreground">
+										<span>{project.metadata.width}×{project.metadata.height}</span>
+										<span>{project.metadata.fps} fps</span>
+									</p>
+									<p class="mt-1 text-xs text-muted-foreground">
+										{m.video_editor_project_duration({
+											duration: formatDuration(project.duration)
+										})} · {formatDate(project.updatedAt)}
+									</p>
+								</div>
+							</a>
+						{/each}
+					</div>
+				{/if}
+			{/if}
+		</section>
+	</div>
 </PageContainer>
 
 <DestructiveConfirmDialog

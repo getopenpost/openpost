@@ -20,6 +20,42 @@ export interface MediaAttribution {
 	licenseUrl?: string;
 }
 
+export type RecorderCursorMode = 'always' | 'motion' | 'never' | 'unsupported' | 'unknown';
+
+export type RecordingSystemAudioStatus =
+	| 'not-requested'
+	| 'active'
+	| 'inactive'
+	| 'unavailable'
+	| 'denied';
+
+export interface RecordingCaptureMetadata {
+	version: 1;
+	kind: 'screen' | 'camera' | 'microphone';
+	capturedAt: string;
+	cursor?: {
+		requested: RecorderCursorMode;
+		actual: RecorderCursorMode;
+		supported: boolean;
+	};
+	systemAudio?: {
+		requested: boolean;
+		active: boolean;
+		status: RecordingSystemAudioStatus;
+	};
+}
+
+export interface VideoFrameRateMetrics {
+	underlyingFrameRate: number | null;
+	bestGuessFrameRate: number;
+	minFrameRate: number;
+	maxFrameRate: number;
+	averageFrameRate: number;
+	medianFrameRate: number;
+	frameRateIsConstant: boolean;
+	probedPacketCount: number;
+}
+
 export interface MediaMetadata {
 	id: string;
 	storageType: MediaStorageType;
@@ -38,6 +74,8 @@ export interface MediaMetadata {
 	width: number;
 	height: number;
 	fps: number;
+	/** Timestamp-derived source frame-rate truth. Absent on media imported before MediaBunny 1.54. */
+	frameRateMetrics?: VideoFrameRateMetrics;
 	codec: string;
 	bitrate: number;
 	audioCodec?: string;
@@ -57,4 +95,5 @@ export interface MediaMetadata {
 	lottieMarkers?: Array<{ name: string; start: number; duration: number }>;
 	attribution?: MediaAttribution;
 	tags: string[];
+	capture?: RecordingCaptureMetadata;
 }

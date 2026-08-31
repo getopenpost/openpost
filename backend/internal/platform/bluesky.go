@@ -38,7 +38,7 @@ func (b *BlueskyAdapter) GenerateAuthURL(_ string) (string, map[string]string) {
 	return "", nil
 }
 
-func (b *BlueskyAdapter) CreateSession(ctx context.Context, handle, appPassword string) (did string, accessToken string, refreshToken string, expiresIn int, err error) {
+func (b *BlueskyAdapter) CreateSession(ctx context.Context, handle, appPassword string) (did string, canonicalHandle string, accessToken string, refreshToken string, expiresIn int, err error) {
 	payload := map[string]string{
 		"identifier": handle,
 		"password":   appPassword,
@@ -46,14 +46,14 @@ func (b *BlueskyAdapter) CreateSession(ctx context.Context, handle, appPassword 
 
 	body, err := jsonMarshal(payload)
 	if err != nil {
-		return "", "", "", 0, err
+		return "", "", "", "", 0, err
 	}
 
 	respBody, err := DoRequest(ctx, "POST", b.pdsURL+"/xrpc/com.atproto.server.createSession", bytes.NewReader(body), map[string]string{
 		headerContentType: contentTypeJSON,
 	})
 	if err != nil {
-		return "", "", "", 0, fmt.Errorf("bluesky create session: %w", err)
+		return "", "", "", "", 0, fmt.Errorf("bluesky create session: %w", err)
 	}
 
 	var session struct {
@@ -63,15 +63,15 @@ func (b *BlueskyAdapter) CreateSession(ctx context.Context, handle, appPassword 
 		RefreshJwt string `json:"refreshJwt"`
 	}
 	if err := json.Unmarshal(respBody, &session); err != nil {
-		return "", "", "", 0, fmt.Errorf("decoding bluesky session: %w", err)
+		return "", "", "", "", 0, fmt.Errorf("decoding bluesky session: %w", err)
 	}
 
 	expiresIn, err = blueskyJWTExpiresIn(session.AccessJwt)
 	if err != nil {
-		return "", "", "", 0, err
+		return "", "", "", "", 0, err
 	}
 
-	return session.Did, session.AccessJwt, session.RefreshJwt, expiresIn, nil
+	return session.Did, session.Handle, session.AccessJwt, session.RefreshJwt, expiresIn, nil
 }
 
 func (b *BlueskyAdapter) ExchangeCode(_ context.Context, _ string, _ map[string]string) (*TokenResult, error) {
@@ -156,10 +156,30 @@ func (b *BlueskyAdapter) GetProfile(ctx context.Context, accessToken string) (*U
 	if err != nil {
 		return nil, err
 	}
+	type blueskyActorProfile struct {
+		Did         string `json:"did"`
+		Handle      string `json:"handle"`
+		DisplayName string `json:"displayName"`
+		Avatar      string `json:"avatar"`
+	}
+	params := url.Values{"actor": []string{session.Did}}
+	profile, err := DoBearerJSON[blueskyActorProfile](
+		ctx,
+		"GET",
+		b.pdsURL+"/xrpc/app.bsky.actor.getProfile?"+params.Encode(),
+		accessToken,
+		nil,
+		"bluesky profile",
+	)
+	if err != nil {
+		return nil, err
+	}
 
 	return &UserProfile{
-		ID:       session.Did,
-		Username: session.Handle,
+		ID:          firstNonEmptyString(profile.Did, session.Did),
+		Username:    firstNonEmptyString(profile.Handle, session.Handle),
+		DisplayName: profile.DisplayName,
+		AvatarURL:   profile.Avatar,
 	}, nil
 }
 

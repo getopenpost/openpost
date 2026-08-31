@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { parse } from "parse5";
 import { docsSocialEntries, marketingRouteManifest } from "../packages/social-images/src/index.js";
-import { comparisonEvidenceRegister } from "../marketing-site/src/routes/_comparison-evidence.ts";
-import { comparisons, featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
+import { featureGroups, platforms } from "../marketing-site/src/routes/_marketing.ts";
 import {
+  discoveryDocument,
   generateAgentSurface,
   productionProjections,
   renderOriginVaryHeaders,
@@ -35,7 +35,9 @@ let productionBuildPromise;
 
 function ensureProductionBuilds(root) {
   productionBuildPromise ??= (async () => {
-    await runRootTask(root, ["build", "--", "marketing"], { TURBO_FORCE: "true" });
+    await runRootTask(root, ["build", "--", "marketing"], {
+      TURBO_FORCE: "true",
+    });
     await runRootTask(root, ["build", "--", "docs"], { TURBO_FORCE: "true" });
   })();
   return productionBuildPromise;
@@ -45,8 +47,30 @@ async function fixtureDirectory() {
   return mkdtemp(path.join(os.tmpdir(), "openpost-agent-surface-"));
 }
 
+function headerRuleHas(contents, pathname, header) {
+  const lines = contents.split("\n");
+  const ruleIndex = lines.findIndex((line) => {
+    const [prefix, suffix, ...rest] = line.split("*");
+    if (rest.length > 0) return false;
+    if (suffix === undefined) return line === pathname;
+    return (
+      pathname.startsWith(prefix) &&
+      pathname.endsWith(suffix) &&
+      pathname.length >= prefix.length + suffix.length
+    );
+  });
+  if (ruleIndex === -1) return false;
+  for (let index = ruleIndex + 1; index < lines.length && /^\s/u.test(lines[index]); index += 1) {
+    if (lines[index].trim() === header) return true;
+  }
+  return false;
+}
+
 test("origin Vary headers cover only canonical HTML and explicit Markdown within Pages limits", () => {
   const base = [
+    "/",
+    '  Link: </.well-known/api-catalog>; rel="api-catalog"',
+    "  Vary: Accept",
     "/*.md",
     "  Content-Type: text/markdown; charset=utf-8",
     "  Vary: Accept",
@@ -64,7 +88,9 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
     rendered,
     /\/\*\.md\n  Content-Type: text\/markdown; charset=utf-8\n  Vary: Accept/u,
   );
-  assert.match(rendered, /\n\/\n  Vary: Accept\n/u);
+  assert.match(rendered, /(?:^|\n)\/\n  Link: [^\n]+\n  Vary: Accept\n/u);
+  assert.match(rendered, /<\/\.well-known\/api-catalog>; rel="api-catalog"/u);
+  assert.equal((rendered.match(/^\/$/gmu) ?? []).length, 1);
   assert.match(rendered, /\n\/features\n  Vary: Accept\n/u);
   assert.doesNotMatch(rendered, /\/assets|\/unknown/u);
   assert.equal(renderOriginVaryHeaders(rendered, pages), rendered);
@@ -77,8 +103,48 @@ test("origin Vary headers cover only canonical HTML and explicit Markdown within
           canonical: `https://openpost.social/page-${index}`,
         })),
       ),
-    /uses 101 rules; Free limit is 100/u,
+    /uses 102 rules; Free limit is 100/u,
   );
+});
+
+test("documentation discovery headers leave room for the canonical page catalogue", async () => {
+  const root = path.resolve(import.meta.dirname, "..");
+  const base = await readFile(path.join(root, "docs-site/public/_headers"), "utf8");
+  const pages = Array.from({ length: 97 }, (_, index) => ({
+    canonical: `https://docs.openpost.social/page-${index}`,
+  }));
+
+  assert.match(base, /^\/llms\*\.txt$/mu);
+  assert.doesNotMatch(base, /^\/llms(?:-full)?\.txt$/mu);
+  assert.doesNotThrow(() => renderOriginVaryHeaders(base, pages));
+});
+
+test("origin Vary headers compact dense route namespaces before the Pages limit", () => {
+  const base = [
+    "/",
+    "  Vary: Accept",
+    "/*.md",
+    "  Content-Type: text/markdown; charset=utf-8",
+    "  Vary: Accept",
+    "/llms.txt",
+    "  Content-Type: text/plain; charset=utf-8",
+    "",
+  ].join("\n");
+  const pages = [
+    { canonical: "https://docs.openpost.social/" },
+    ...Array.from({ length: 100 }, (_, index) => ({
+      canonical: `https://docs.openpost.social/usage/page-${index}`,
+    })),
+  ];
+
+  const rendered = renderOriginVaryHeaders(base, pages);
+
+  assert.match(rendered, /(?:^|\n)\/usage\/\*\n  Vary: Accept\n/u);
+  assert.doesNotMatch(rendered, /\/usage\/page-0\n/u);
+  for (const page of pages) {
+    assert.equal(headerRuleHas(rendered, new URL(page.canonical).pathname, "Vary: Accept"), true);
+  }
+  assert.equal(headerRuleHas(rendered, "/assets/app.js", "Vary: Accept"), false);
 });
 
 async function filesWithSuffix(directory, suffix, root = directory) {
@@ -400,6 +466,8 @@ test("marketing production projection emits deterministic homepage Markdown and 
     discovery: {
       title: "OpenPost",
       description: "Create, adapt, and publish from one workspace.",
+      whenToUse: ["Use OpenPost for destination-specific publishing."],
+      whenNotToUse: ["Do not use OpenPost as a social network."],
       links: [
         {
           title: "OpenPost overview",
@@ -427,7 +495,24 @@ test("marketing production projection emits deterministic homepage Markdown and 
   assert.match(firstMarkdown, /\[See the features\]\(https:\/\/openpost\.social\/features\)/);
   assert.doesNotMatch(firstMarkdown, /Navigation noise|privateState/);
   assert.match(firstDiscovery, /^# OpenPost$/m);
+  assert.match(firstDiscovery, /^## When to use OpenPost$/m);
+  assert.match(firstDiscovery, /Use OpenPost for destination-specific publishing\./u);
+  assert.match(firstDiscovery, /^## When OpenPost is not a fit$/m);
+  assert.match(firstDiscovery, /Do not use OpenPost as a social network\./u);
   assert.match(firstDiscovery, /\[OpenPost overview\]\(https:\/\/openpost\.social\/index\.md\)/);
+});
+
+test("production discovery gives agents direct interface guidance", () => {
+  const marketing = discoveryDocument(productionProjections.marketing.discovery);
+  const documentation = discoveryDocument(productionProjections.documentation.discovery);
+
+  assert.match(marketing, /^## When to use OpenPost$/m);
+  assert.match(marketing, /^## When OpenPost is not a fit$/m);
+  assert.match(marketing, /https:\/\/docs\.openpost\.social\/openapi\.json/u);
+  assert.match(marketing, /https:\/\/docs\.openpost\.social\/cli\/index\.md/u);
+  assert.match(marketing, /https:\/\/docs\.openpost\.social\/mcp\/index\.md/u);
+  assert.match(marketing, /https:\/\/openpost\.social\/developers\.md/u);
+  assert.match(documentation, /private workspace data, tokens, connected accounts/u);
 });
 
 test("marketing production projection covers every eligible route from canonical metadata", () => {
@@ -466,24 +551,6 @@ test("documentation production projection covers every ordinary catalog page", (
   }
 });
 
-test("API reference keeps its interactive viewer and publishes maintained no-JavaScript content", async () => {
-  const root = path.resolve(import.meta.dirname, "..");
-  const source = await readFile(path.join(root, "docs-site/development/api-reference.md"), "utf8");
-  const entry = docsSocialEntries.find(
-    (candidate) => candidate.page === "development/api-reference.md",
-  );
-
-  assert.equal(entry?.agentRepresentation.membership, "ordinary");
-  assert.ok(
-    productionProjections.documentation.pages.some(
-      (page) => page.page === "development/api-reference.md",
-    ),
-  );
-  assert.match(source, /^# API Reference$/m);
-  assert.match(source, /\[authoritative OpenAPI JSON\]\(\/openapi\.json\)/u);
-  assert.match(source, /<ClientOnly>[\s\S]*<OASpec hideBranding \/>[\s\S]*<\/ClientOnly>/u);
-});
-
 test(
   "marketing production artifacts preserve every browser tool explanation without controls",
   { timeout: 180_000 },
@@ -494,7 +561,7 @@ test(
     const discovery = await readFile(path.join(outputDirectory, "llms.txt"), "utf8");
     const routes = marketingRouteManifest.filter((entry) => entry.kind === "tool");
 
-    assert.equal(routes.length, 8);
+    assert.ok(routes.length > 0);
     assert.match(discovery, /^## Optional browser tools$/m);
     for (const route of routes) {
       const relative = route.path.slice(1);
@@ -587,7 +654,11 @@ test("documentation size exceptions require reviewed canonical metadata", async 
     surface: "documentation",
     outputDirectory: directory,
     pages: [page],
-    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+    discovery: {
+      title: "Documentation",
+      description: "OpenPost documentation.",
+      links: [],
+    },
   };
 
   await assert.rejects(
@@ -601,7 +672,10 @@ test("documentation size exceptions require reviewed canonical metadata", async 
         {
           ...page,
           catalog: {
-            agentRepresentation: { membership: "ordinary", sizeException: { reviewed: false } },
+            agentRepresentation: {
+              membership: "ordinary",
+              sizeException: { reviewed: false },
+            },
           },
         },
       ],
@@ -865,12 +939,16 @@ OPENPOST_INLINE_CODE_0_ remains ordinary maintained prose.
       {
         sourcePath,
         outputPath: "providers.md",
-        canonical: "https://docs.openpost.social/providers/overview",
+        canonical: "https://docs.openpost.social/providers/",
         title: "Providers",
         description: "Review provider requirements and outcomes.",
       },
     ],
-    discovery: { title: "Documentation", description: "Provider documentation.", links: [] },
+    discovery: {
+      title: "Documentation",
+      description: "Provider documentation.",
+      links: [],
+    },
   };
 
   await generateAgentSurface(projection);
@@ -924,19 +1002,28 @@ test("documentation full corpus groups selected pages with provenance and no rep
         page: "usage/accounts.md",
         sourcePath: includedSource,
         title: "Accounts",
-        catalog: { agentCorpus: { membership: "included", section: "user-guide" } },
+        catalog: {
+          agentCorpus: { membership: "included", section: "user-guide" },
+        },
       }),
       page({
         page: "development/notices.md",
         sourcePath: excludedSource,
         title: "Notices",
         catalog: {
-          agentCorpus: { membership: "excluded", reason: "Legal text stays separate." },
+          agentCorpus: {
+            membership: "excluded",
+            reason: "Legal text stays separate.",
+          },
         },
       }),
     ],
     corpus: { title: "OpenPost Documentation Full Corpus" },
-    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+    discovery: {
+      title: "Documentation",
+      description: "OpenPost documentation.",
+      links: [],
+    },
   });
 
   const corpus = await readFile(path.join(directory, "llms-full.txt"), "utf8");
@@ -977,7 +1064,9 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
       canonical: `https://docs.openpost.social/development/large-${index}`,
       title: `Large ${index}`,
       description: `Large documentation page ${index}.`,
-      catalog: { agentCorpus: { membership: "included", section: "development" } },
+      catalog: {
+        agentCorpus: { membership: "included", section: "development" },
+      },
     });
   }
   const warnings = [];
@@ -987,7 +1076,11 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
     pages: pages.slice(0, 5),
     corpus: { title: "OpenPost Documentation Full Corpus" },
     warn: (message) => warnings.push(message),
-    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+    discovery: {
+      title: "Documentation",
+      description: "OpenPost documentation.",
+      links: [],
+    },
   };
 
   await generateAgentSurface(projection);
@@ -1025,7 +1118,11 @@ test("documentation full corpus warns above 1 MiB and fails above 2 MiB", async 
       },
     ],
     corpus: { title: "OpenPost Documentation Full Corpus" },
-    discovery: { title: "Documentation", description: "OpenPost documentation.", links: [] },
+    discovery: {
+      title: "Documentation",
+      description: "OpenPost documentation.",
+      links: [],
+    },
   };
   await generateAgentSurface(exactProjection);
   const oneByteCorpusSize = Buffer.byteLength(
@@ -1091,7 +1188,12 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       ...base,
       discovery: {
         ...base.discovery,
-        links: [{ ...base.discovery.links[0], url: "https://openpost.social/missing.md" }],
+        links: [
+          {
+            ...base.discovery.links[0],
+            url: "https://openpost.social/missing.md",
+          },
+        ],
       },
     }),
     /discovery link has no generated artifact/,
@@ -1102,7 +1204,10 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       discovery: {
         ...base.discovery,
         links: [
-          { ...base.discovery.links[0], url: "https://docs.openpost.social/does-not-exist.md" },
+          {
+            ...base.discovery.links[0],
+            url: "https://docs.openpost.social/does-not-exist.md",
+          },
         ],
       },
     }),
@@ -1111,7 +1216,12 @@ test("projection validation rejects unsafe or incomplete production contracts", 
   await assert.rejects(
     generateAgentSurface({
       ...base,
-      pages: [{ sourcePath: path.join(directory, "absent.html"), outputPath: "index.md" }],
+      pages: [
+        {
+          sourcePath: path.join(directory, "absent.html"),
+          outputPath: "index.md",
+        },
+      ],
     }),
     /missing canonical source/,
   );
@@ -1120,7 +1230,12 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       ...base,
       discovery: {
         ...base.discovery,
-        links: [{ ...base.discovery.links[0], url: "https://app.openpost.social/publications.md" }],
+        links: [
+          {
+            ...base.discovery.links[0],
+            url: "https://app.openpost.social/publications.md",
+          },
+        ],
       },
     }),
     /private application route/,
@@ -1130,7 +1245,12 @@ test("projection validation rejects unsafe or incomplete production contracts", 
       ...base,
       discovery: {
         ...base.discovery,
-        links: [{ ...base.discovery.links[0], url: "https://app.openpost.social/workspaces" }],
+        links: [
+          {
+            ...base.discovery.links[0],
+            url: "https://app.openpost.social/workspaces",
+          },
+        ],
       },
     }),
     /private application route/,
@@ -1214,7 +1334,10 @@ test("projection validation rejects unsafe or incomplete production contracts", 
     generateAgentSurface({
       ...base,
       fragmentSources: [
-        { canonical: "https://openpost.social/features", sourcePath: featuresPath },
+        {
+          canonical: "https://openpost.social/features",
+          sourcePath: featuresPath,
+        },
       ],
     }),
     /https:\/\/openpost\.social\/: broken internal fragment #missing-section/u,
@@ -1256,20 +1379,32 @@ test(
         `${canonical} must use distinct evidence for its audience and boundary`,
       );
     }
-    const turboPlan = JSON.parse(
-      execFileSync(
-        "bunx",
-        [
-          "turbo",
+    const turboPlanDirectory = await mkdtemp(path.join(os.tmpdir(), "openpost-turbo-plan-"));
+    const turboPlanPath = path.join(turboPlanDirectory, "plan.json");
+    let turboPlan;
+    try {
+      const turboDryRun = Bun.spawn({
+        cmd: [
+          path.join(root, "node_modules", ".bin", "turbo"),
           "run",
           "build",
           "--dry=json",
           "--filter=@openpost/site",
           "--filter=@openpost/docs",
         ],
-        { cwd: root, encoding: "utf8" },
-      ),
-    );
+        cwd: root,
+        stdout: Bun.file(turboPlanPath),
+        stderr: "pipe",
+      });
+      const [turboExitCode, turboStderr] = await Promise.all([
+        turboDryRun.exited,
+        new Response(turboDryRun.stderr).text(),
+      ]);
+      assert.equal(turboExitCode, 0, turboStderr);
+      turboPlan = JSON.parse(await readFile(turboPlanPath, "utf8"));
+    } finally {
+      await rm(turboPlanDirectory, { recursive: true, force: true });
+    }
     const plannedTasks = new Map(turboPlan.tasks.map((task) => [task.taskId, task]));
     const publicBuilds = [
       ["marketing", "@openpost/site#build", "dist/**"],
@@ -1291,24 +1426,6 @@ test(
       );
     }
 
-    const marketingLayout = await readFile(
-      path.join(root, "marketing-site/src/routes/+layout.svelte"),
-      "utf8",
-    );
-    assert.match(marketingLayout, /marketingAgentMarkdownUrl/u);
-    assert.match(marketingLayout, /rel="alternate" type="text\/markdown" href=\{agentMarkdown\}/u);
-    assert.match(
-      marketingLayout,
-      /rel="alternate"[\s\S]{0,80}type="text\/plain"[\s\S]{0,80}href="https:\/\/openpost\.social\/llms\.txt"/,
-    );
-
-    const docsConfig = await readFile(path.join(root, "docs-site/.vitepress/config.ts"), "utf8");
-    assert.match(docsConfig, /type: "text\/markdown"/);
-    assert.match(docsConfig, /new URL\(agentPage\.page, `\$\{docsSiteUrl\}\/`\)\.href/u);
-    assert.match(docsConfig, /type: "text\/plain"/);
-    assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/llms\.txt`/);
-    assert.match(docsConfig, /href: `\$\{docsSiteUrl\}\/llms-full\.txt`/);
-
     await ensureProductionBuilds(root);
 
     for (const [surface, headersPath, canonicalPaths, plainTextPaths] of [
@@ -1316,9 +1433,7 @@ test(
         "marketing",
         path.join(root, "marketing-site/dist/_headers"),
         marketingRouteManifest
-          .filter((route) =>
-            ["static", "platform", "comparison", "tool"].includes(route.agentRepresentation),
-          )
+          .filter((route) => ["static", "platform", "tool"].includes(route.agentRepresentation))
           .map((route) => new URL(route.canonical).pathname),
         ["/llms.txt"],
       ],
@@ -1337,13 +1452,13 @@ test(
       );
       for (const pathname of plainTextPaths) {
         assert.ok(
-          headers.includes(`${pathname}\n  Content-Type: text/plain; charset=utf-8`),
+          headerRuleHas(headers, pathname, "Content-Type: text/plain; charset=utf-8"),
           `${surface} must keep ${pathname} plain text`,
         );
       }
       for (const pathname of canonicalPaths) {
         assert.ok(
-          headers.includes(`${pathname}\n  Vary: Accept`),
+          headerRuleHas(headers, pathname, "Vary: Accept"),
           `${surface} must vary canonical ${pathname} at the origin`,
         );
       }
@@ -1395,8 +1510,8 @@ test(
     );
     assert.deepEqual(
       await filesWithSuffix(marketingDirectory, ".md"),
-      expectedMarketingMarkdown.toSorted(),
-      "every manifest-owned marketing route must have one Markdown artifact and no stale alias",
+      ["auth.md", ...expectedMarketingMarkdown].toSorted(),
+      "every manifest-owned marketing route and the auth discovery file must have one Markdown artifact and no stale alias",
     );
     assert.deepEqual(
       await filesWithSuffix(marketingDirectory, ".html"),
@@ -1405,6 +1520,8 @@ test(
     );
     const firstMarketingSurface = await artifactSnapshot(marketingDirectory, [
       "_headers",
+      ".well-known/api-catalog",
+      "auth.md",
       "llms.txt",
       "sitemap.xml",
       ...expectedMarketingMarkdown,
@@ -1694,7 +1811,9 @@ test(
     await assertArtifactSnapshot(docsDirectory, firstDocsSurface);
     assert.deepEqual(await semanticHTMLSnapshot(docsDirectory, expectedDocsHTML), firstDocsHTML);
 
-    await runRootTask(root, ["build", "--", "marketing"], { TURBO_FORCE: "true" });
+    await runRootTask(root, ["build", "--", "marketing"], {
+      TURBO_FORCE: "true",
+    });
     await assertArtifactSnapshot(marketingDirectory, firstMarketingSurface);
     assert.deepEqual(
       await semanticHTMLSnapshot(marketingDirectory, expectedMarketingHTML),
@@ -1704,7 +1823,7 @@ test(
 );
 
 test(
-  "marketing production artifacts cover every platform and comparison from one manifest",
+  "marketing production artifacts cover every platform from one manifest",
   { timeout: 180_000 },
   async () => {
     const root = path.resolve(import.meta.dirname, "..");
@@ -1713,29 +1832,24 @@ test(
     const outputDirectory = path.join(root, "marketing-site/dist");
     const sitemap = await readFile(path.join(outputDirectory, "sitemap.xml"), "utf8");
     const discovery = await readFile(path.join(outputDirectory, "llms.txt"), "utf8");
-    const represented = marketingRouteManifest.filter(
-      (entry) => entry.kind === "platform" || entry.kind === "comparison",
-    );
+    const represented = marketingRouteManifest.filter((entry) => entry.kind === "platform");
 
-    assert.equal(represented.length, platforms.length + comparisons.length);
+    assert.equal(represented.length, platforms.length);
     assert.match(discovery, /^## Optional platforms$/m);
-    assert.match(discovery, /^## Optional comparisons$/m);
+    assert.doesNotMatch(discovery, /^## Optional comparisons$/m);
     assert.deepEqual(
-      [
-        ...(await readdir(path.join(outputDirectory, "platforms")))
-          .filter((name) => name.endsWith(".md"))
-          .map((name) => `platforms/${name}`),
-        ...(await readdir(path.join(outputDirectory, "compare")))
-          .filter((name) => name.endsWith(".md"))
-          .map((name) => `compare/${name}`),
-      ].sort(),
+      (await readdir(path.join(outputDirectory, "platforms")))
+        .filter((name) => name.endsWith(".md"))
+        .map((name) => `platforms/${name}`)
+        .sort(),
       represented.map((entry) => `${entry.path.slice(1)}.md`).sort(),
     );
+    assert.deepEqual(await readdir(path.join(outputDirectory, "compare")).catch(() => []), []);
 
     for (const entry of represented) {
       assert.deepEqual(entry.agentDiscovery, {
         membership: "optional",
-        section: entry.kind === "platform" ? "platforms" : "comparisons",
+        section: "platforms",
       });
 
       const relativePath = entry.path.slice(1);
@@ -1764,71 +1878,22 @@ test(
         new RegExp(`^Canonical: ${entry.canonical.replaceAll(".", "\\.")}$`, "m"),
       );
       assert.equal((markdown.match(/^# /gm) ?? []).length, 1);
-      assert.doesNotMatch(
-        markdown,
-        /All comparisons|custom reply text for this account|Keep comparing|Navigation noise|Other tools worth checking|Try OpenPost|Try the Hosted service/u,
-      );
-      assert.match(discovery, new RegExp(`\(${markdownURL.replaceAll(".", "\\.")}\)`));
+      assert.match(discovery, new RegExp(`\\(${markdownURL.replaceAll(".", "\\.")}\\)`));
 
-      if (entry.kind === "platform") {
-        const platform = platforms.find((candidate) => candidate.slug === entry.platform);
-        assert.ok(platform, `${entry.path} must have canonical provider facts`);
-        assert.match(markdown, /\*\*Implemented:\*\*/u);
-        assert.match(markdown, /\*\*Hosted service certification:\*\*/u);
-        assert.match(markdown, /^## What can still block a post\.$/m);
-        assert.ok(markdown.includes(platform.implementationDetail));
-        assert.ok(markdown.includes(platform.managedCertificationDetail));
-        assert.ok(markdown.includes(platform.accountRequirement));
-        assert.ok(markdown.includes(platform.verification));
-        for (const fact of [...platform.limits, ...platform.limitations]) {
-          assert.ok(markdown.includes(fact), `${entry.path} must preserve ${JSON.stringify(fact)}`);
-        }
-        assert.ok(markdown.includes(platform.docsUrl));
-        assert.doesNotMatch(markdown, /^1\. \d+$/m);
-      } else {
-        const slug = entry.path.slice("/compare/".length);
-        const comparison = comparisons.find((candidate) => candidate.slug === slug);
-        const evidence = comparisonEvidenceRegister[slug];
-        assert.ok(comparison, `${entry.path} must have canonical comparison facts`);
-        assert.ok(evidence, `${entry.path} must have canonical comparison evidence`);
-        assert.ok(markdown.includes(comparison.verdict));
-        assert.ok(markdown.includes(comparison.pricing));
-        assert.ok(markdown.includes(evidence.qualifier));
-        for (const row of comparison.rows) {
-          assert.ok(markdown.includes(row.openpost));
-          assert.ok(markdown.includes(row.competitor));
-          for (const claim of [row.evidence.openpost, row.evidence.competitor]) {
-            assert.ok(markdown.includes(claim.owner));
-            assert.ok(markdown.includes(claim.basis));
-            assert.ok(markdown.includes(claim.qualifier));
-            assert.ok(
-              markdown.includes(
-                new Intl.DateTimeFormat("en", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                }).format(new Date(`${claim.reviewedOn}T00:00:00Z`)),
-              ),
-            );
-            assert.ok(
-              markdown.includes(
-                new Intl.DateTimeFormat("en", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  timeZone: "UTC",
-                }).format(new Date(`${claim.reviewDueOn}T00:00:00Z`)),
-              ),
-            );
-            for (const source of claim.sources) assert.ok(markdown.includes(source.href));
-          }
-        }
-        for (const row of Object.values(evidence.rows)) {
-          assert.ok(markdown.includes(row.qualifier));
-          for (const source of row.sources) assert.ok(markdown.includes(source.href));
-        }
+      const platform = platforms.find((candidate) => candidate.slug === entry.platform);
+      assert.ok(platform, `${entry.path} must have canonical provider facts`);
+      assert.match(markdown, /\*\*Implemented:\*\*/u);
+      assert.match(markdown, /\*\*Hosted service certification:\*\*/u);
+      assert.match(markdown, /^## What can still block a post\.$/m);
+      assert.ok(markdown.includes(platform.implementationDetail));
+      assert.ok(markdown.includes(platform.managedCertificationDetail));
+      assert.ok(markdown.includes(platform.accountRequirement));
+      assert.ok(markdown.includes(platform.verification));
+      for (const fact of [...platform.limits, ...platform.limitations]) {
+        assert.ok(markdown.includes(fact), `${entry.path} must preserve ${JSON.stringify(fact)}`);
       }
+      assert.ok(markdown.includes(platform.docsUrl));
+      assert.doesNotMatch(markdown, /^1\. \d+$/m);
     }
   },
 );

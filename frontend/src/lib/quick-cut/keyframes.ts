@@ -1,5 +1,32 @@
 import { ALL_FORMATS, BlobSource, EncodedPacketSink, Input } from 'mediabunny';
 
+interface KeyPacketLike {
+	timestamp: number;
+	type: 'key' | 'delta';
+}
+
+interface KeyPacketNavigator<TPacket extends KeyPacketLike> {
+	getFirstPacket(options: { verifyKeyPackets: boolean }): Promise<TPacket | null>;
+	getNextKeyPacket(
+		packet: TPacket,
+		options: { verifyKeyPackets: boolean }
+	): Promise<TPacket | null>;
+}
+
+export async function collectKeyframeTimestamps<TPacket extends KeyPacketLike>(
+	sink: KeyPacketNavigator<TPacket>,
+	signal?: AbortSignal
+): Promise<number[]> {
+	const timestamps: number[] = [];
+	let packet = await sink.getFirstPacket({ verifyKeyPackets: true });
+	while (packet) {
+		signal?.throwIfAborted();
+		if (packet.type === 'key') timestamps.push(packet.timestamp);
+		packet = await sink.getNextKeyPacket(packet, { verifyKeyPackets: true });
+	}
+	return timestamps;
+}
+
 export async function extractKeyframeTimestamps(
 	file: File,
 	signal?: AbortSignal
@@ -9,13 +36,7 @@ export async function extractKeyframeTimestamps(
 		const videoTrack = await input.getPrimaryVideoTrack();
 		if (!videoTrack) return [];
 		const sink = new EncodedPacketSink(videoTrack);
-		const packets: number[] = [];
-		for await (const packet of sink.packets(undefined, undefined, { verifyKeyPackets: false })) {
-			signal?.throwIfAborted();
-			if (packet.type === 'key') packets.push(packet.timestamp);
-		}
-		packets.sort((a, b) => a - b);
-		return packets;
+		return await collectKeyframeTimestamps(sink, signal);
 	} finally {
 		try {
 			input.dispose?.();

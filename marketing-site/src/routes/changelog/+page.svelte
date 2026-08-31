@@ -47,7 +47,10 @@
 	<div class="reading-shell">
 		<div class="divide-y border-y">
 			{#each data.sections as entry (entry.label)}
-				<article class="py-10">
+				<article
+					id={entry.label === 'Unreleased' ? 'unreleased' : `v${entry.label}`}
+					class="scroll-mt-24 py-10"
+				>
 					<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
 						{#if entry.date}
 							<time datetime={entry.date} class="font-mono text-sm text-primary">{entry.date}</time>

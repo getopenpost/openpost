@@ -106,7 +106,7 @@ func (s *Service) handleDiscovery(ctx context.Context, p growthDiscoveryPayload)
 			if err != nil {
 				return err
 			}
-			reloaded, reloadErr := s.loadSyncState(txCtx, p.SocialAccountID)
+			reloaded, reloadErr := s.loadSyncStateDB(txCtx, tx, p.SocialAccountID)
 			if reloadErr != nil {
 				return reloadErr
 			}
@@ -520,8 +520,12 @@ func normalizeCandidate(c platform.GrowthCandidate) platform.GrowthCandidate {
 }
 
 func (s *Service) loadSyncState(ctx context.Context, socialAccountID string) (*models.GrowthSyncState, error) {
+	return s.loadSyncStateDB(ctx, s.db, socialAccountID)
+}
+
+func (s *Service) loadSyncStateDB(ctx context.Context, db bun.IDB, socialAccountID string) (*models.GrowthSyncState, error) {
 	var state models.GrowthSyncState
-	if err := s.db.NewSelect().Model(&state).Where("social_account_id = ?", socialAccountID).Scan(ctx); err != nil {
+	if err := db.NewSelect().Model(&state).Where("social_account_id = ?", socialAccountID).Scan(ctx); err != nil {
 		return nil, err
 	}
 	return &state, nil

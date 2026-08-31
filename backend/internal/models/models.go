@@ -976,6 +976,19 @@ type InstanceSetting struct {
 	UpdatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
+// AIPromptOverride stores one instance-wide administrator replacement for a
+// code-owned AI prompt. The prompt catalogue remains source-controlled, so a
+// missing row always means "use the current built-in prompt".
+type AIPromptOverride struct {
+	bun.BaseModel `bun:"table:ai_prompt_overrides"`
+
+	Key            string    `bun:",pk" json:"key"`
+	ValueEncrypted []byte    `bun:"value_encrypted,notnull" json:"-"`
+	UpdatedByID    string    `bun:"updated_by_id,nullzero" json:"updated_by_id,omitempty"`
+	CreatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt      time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
 // OAuthGrant is one provider authorization. Destination accounts reference a
 // grant instead of owning credential copies so token rotation and revocation
 // have one atomic consistency boundary.
@@ -1030,7 +1043,7 @@ type SocialAccount struct {
 	// test fixtures. Runtime credential reads and writes use OAuthGrant.
 	AccessTokenEnc      []byte    `bun:"access_token_encrypted,notnull" json:"-"`
 	RefreshTokenEnc     []byte    `bun:"refresh_token_encrypted" json:"-"`
-	TokenExpiresAt      time.Time `json:"token_expires_at"`
+	TokenExpiresAt      time.Time `bun:"token_expires_at,nullzero" json:"token_expires_at"`
 	GrantedScopes       string    `bun:"granted_scopes,notnull,default:''" json:"granted_scopes,omitempty"`
 	CapabilityState     string    `bun:"capability_state_json,notnull,default:'{}'" json:"-"`
 	CapabilityCheckedAt time.Time `bun:"capability_checked_at,nullzero" json:"-"`
@@ -1195,6 +1208,7 @@ type Publication struct {
 	Revision            int       `bun:",notnull,default:1" json:"revision"`
 	ScheduledAt         time.Time `bun:"scheduled_at,nullzero" json:"scheduled_at"`
 	ActualRunAt         time.Time `bun:"actual_run_at,nullzero" json:"actual_run_at"`
+	FailureDismissedAt  time.Time `bun:"failure_dismissed_at,nullzero" json:"failure_dismissed_at"`
 	RandomDelayMinutes  int       `bun:"random_delay_minutes,notnull,default:0" json:"random_delay_minutes"`
 	RandomDelayExplicit bool      `bun:"random_delay_explicit,notnull,default:false" json:"-"`
 	MetadataJSON        string    `bun:"metadata_json,notnull,default:'{}'" json:"metadata_json"`
@@ -1835,8 +1849,8 @@ type Post struct {
 
 	Status             string    `bun:",notnull" json:"status"` // 'draft', 'scheduled', 'publishing', 'published', 'failed'
 	Revision           int       `bun:",notnull,default:1" json:"revision"`
-	ScheduledAt        time.Time `json:"scheduled_at"`
-	PublishedAt        time.Time `json:"published_at"`
+	ScheduledAt        time.Time `bun:"scheduled_at,nullzero" json:"scheduled_at"`
+	PublishedAt        time.Time `bun:"published_at,nullzero" json:"published_at"`
 	RandomDelayMinutes int       `bun:",default:0" json:"random_delay_minutes"`
 	ActualRunAt        time.Time `bun:",nullzero" json:"actual_run_at"` // Set by worker, differs from ScheduledAt if randomized
 	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
@@ -2251,7 +2265,7 @@ type Job struct {
 	Attempts    int       `bun:",default:0" json:"attempts"`
 	MaxAttempts int       `bun:",default:3" json:"max_attempts"`
 	LastError   string    `json:"last_error"`
-	LockedAt    time.Time `json:"locked_at"`
+	LockedAt    time.Time `bun:"locked_at,nullzero" json:"locked_at"`
 	LockedBy    string    `json:"locked_by"`
 }
 

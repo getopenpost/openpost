@@ -62,6 +62,12 @@ export function platformLabel(platform: string): string {
   );
 }
 
+export function accountHandle(username: string | null | undefined, fallback: string): string {
+  const value = username?.trim();
+  if (!value) return fallback;
+  return value.startsWith("@") ? value : `@${value}`;
+}
+
 export function relativeTime(iso: string | null | undefined): string {
   if (!iso) return "";
   const date = new Date(iso);

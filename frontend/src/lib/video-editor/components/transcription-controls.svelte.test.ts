@@ -1,11 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { page } from 'vitest/browser';
 import { render } from 'vitest-browser-svelte';
 import TranscriptionControls from './transcription-controls.svelte';
-
-function select(element: HTMLSelectElement, value: string): void {
-	element.value = value;
-	element.dispatchEvent(new Event('change', { bubbles: true }));
-}
 
 describe('TranscriptionControls', () => {
 	it('submits the chosen engine, language, and precision', async () => {
@@ -19,11 +15,12 @@ describe('TranscriptionControls', () => {
 			onstart,
 			oncancel: vi.fn()
 		});
-		const selects = screen.container.querySelectorAll('select');
-		expect(selects).toHaveLength(3);
-		select(selects[0]!, 'whisper-small');
-		select(selects[1]!, 'pt');
-		select(selects[2]!, 'q8');
+		await screen.getByRole('button', { name: 'Speech model' }).click();
+		await screen.getByRole('option', { name: /Whisper Small/ }).click();
+		await screen.getByRole('button', { name: 'Language', exact: true }).click();
+		await screen.getByRole('option', { name: /Portuguese|PT|Português/ }).click();
+		await screen.getByRole('button', { name: 'Model quality' }).click();
+		await screen.getByRole('option', { name: 'Q8' }).click();
 		await screen.getByRole('button', { name: 'Auto-captions' }).click();
 		expect(onstart).toHaveBeenCalledWith({
 			model: 'whisper-small',
@@ -72,5 +69,28 @@ describe('TranscriptionControls', () => {
 			oncancel: vi.fn()
 		});
 		await expect.element(screen.getByRole('button', { name: 'Auto-captions' })).toBeDisabled();
+	});
+
+	it('shows the selected clip queue position and keeps cancellation reachable at 320px', async () => {
+		const oncancel = vi.fn();
+		const screen = await render(TranscriptionControls, {
+			canTranscribe: true,
+			busy: true,
+			status: 'queued',
+			queuePosition: 2,
+			queueTotal: 3,
+			progress: null,
+			backend: null,
+			fallback: null,
+			onstart: vi.fn(),
+			oncancel
+		});
+		screen.container.style.width = '320px';
+		await expect.element(screen.getByText('Queued 2 of 3')).toBeVisible();
+		const cancel = screen.getByRole('button', { name: 'Cancel transcription' });
+		await expect.element(cancel).toBeVisible();
+		expect(screen.container.scrollWidth).toBeLessThanOrEqual(screen.container.clientWidth);
+		await cancel.click();
+		expect(oncancel).toHaveBeenCalledOnce();
 	});
 });

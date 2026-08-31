@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
+	import { Textarea } from '$lib/components/ui/textarea';
 	import { m } from '$lib/paraglide/messages';
 	import { onMount } from 'svelte';
 	import { agentStore } from '$lib/video-editor/agent/store.svelte';
@@ -151,7 +152,7 @@
 					role="status"
 					aria-live="polite"
 				>
-					<LoaderIcon class="size-3.5 animate-spin" aria-hidden="true" />
+					<LoaderIcon class="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden="true" />
 					{#if agentStore.modelStatus === 'loading'}
 						<span>{m.video_editor_agent_loading_model({ percent: agentStore.loadPercent })}</span>
 					{:else}
@@ -175,7 +176,7 @@
 							<li class="flex items-start gap-2 text-xs">
 								{#if step.status === 'running'}
 									<LoaderIcon
-										class="mt-0.5 size-3.5 shrink-0 animate-spin text-[oklch(0.66_0.14_45)]"
+										class="mt-0.5 size-3.5 shrink-0 animate-spin text-[oklch(0.66_0.14_45)] motion-reduce:animate-none"
 										aria-hidden="true"
 									/>
 								{:else if step.status === 'done'}
@@ -256,7 +257,7 @@
 					{#if agentStore.phase === 'running'}
 						<p class="mt-2 flex items-center gap-1.5 text-[11px] text-[oklch(0.65_0.015_55)]">
 							<LoaderIcon
-								class="size-3 animate-spin"
+								class="size-3 animate-spin motion-reduce:animate-none"
 								aria-hidden="true"
 							/>{m.video_editor_agent_running()}
 						</p>
@@ -292,17 +293,18 @@
 				</div>
 			{/if}
 			<div class="flex items-end gap-1.5">
-				<textarea
-					bind:this={textareaRef}
+				<Textarea
+					bind:ref={textareaRef}
 					bind:value={input}
 					onkeydown={handleKeydown}
-					rows="1"
+					rows={1}
 					placeholder={composerDisabledReason ?? m.video_editor_agent_placeholder()}
 					disabled={!!composerDisabledReason && agentStore.phase === 'idle'}
-					maxlength="500"
+					maxlength={500}
 					class="max-h-28 min-h-11 flex-1 resize-none rounded-md border border-[oklch(0.28_0.012_55)] bg-[oklch(0.18_0.008_55)] px-2.5 py-2.5 text-xs leading-relaxed text-white placeholder:text-[oklch(0.55_0.015_55)] focus-visible:outline-2 focus-visible:outline-[oklch(0.66_0.14_45)] disabled:cursor-not-allowed disabled:opacity-60 md:min-h-9 md:py-1.5"
 					aria-label="Assistant message"
-					aria-describedby="agent-input-limit"></textarea>
+					aria-describedby="agent-input-limit"
+				/>
 				{#if agentStore.phase === 'planning'}
 					<Button
 						size="icon"

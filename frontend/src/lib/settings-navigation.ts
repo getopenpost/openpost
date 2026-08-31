@@ -139,6 +139,13 @@ const settingsDestinationDefinitions = [
 		loadingVariant: 'list'
 	},
 	{
+		id: 'ai-prompts',
+		group: 'instance',
+		label: m.settings_ai_prompts,
+		description: m.settings_ai_prompts_description,
+		loadingVariant: 'form'
+	},
+	{
 		id: 'users',
 		group: 'instance',
 		label: m.settings_instance_users,

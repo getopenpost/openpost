@@ -1,13 +1,15 @@
 import type {
 	CutMode,
+	QuickCutAudioStream,
 	QuickCutSegment,
 	QuickCutSource,
 	QuickCutSourceMetadata,
+	QuickCutVideoStream,
 	SegmentValidationError
 } from './types';
 
-const KEYFRAME_TOLERANCE = 0.05;
-const MIN_SEGMENT_DURATION = 0.05;
+export const KEYFRAME_TOLERANCE_SECONDS = 0.001;
+export const MIN_SEGMENT_DURATION_SECONDS = 0.05;
 
 function isFiniteNumber(value: number): boolean {
 	return Number.isFinite(value) && !Number.isNaN(value);
@@ -16,7 +18,7 @@ function isFiniteNumber(value: number): boolean {
 export function createSegment(
 	start: number,
 	end: number,
-	opts: { name?: string; id?: string; sourceId?: string } = {}
+	opts: { name?: string; id?: string; sourceId?: string; cutMode?: CutMode } = {}
 ): QuickCutSegment {
 	return {
 		id: opts.id ?? crypto.randomUUID(),
@@ -24,8 +26,16 @@ export function createSegment(
 		start,
 		end,
 		name: opts.name,
-		enabled: true
+		enabled: true,
+		cutMode: opts.cutMode
 	};
+}
+
+export function resolveSegmentCutMode(
+	segment: Pick<QuickCutSegment, 'cutMode'>,
+	projectCutMode: CutMode
+): CutMode {
+	return segment.cutMode ?? projectCutMode;
 }
 
 export function sortSegments(segments: QuickCutSegment[]): QuickCutSegment[] {
@@ -53,7 +63,8 @@ export function normalizeSegments(segments: QuickCutSegment[]): QuickCutSegment[
 			current.sourceId === seg.sourceId &&
 			seg.start <= current.end &&
 			seg.enabled !== false &&
-			current.enabled !== false;
+			current.enabled !== false &&
+			current.cutMode === seg.cutMode;
 		if (canMerge) {
 			current = {
 				...current,
@@ -67,6 +78,78 @@ export function normalizeSegments(segments: QuickCutSegment[]): QuickCutSegment[
 	}
 	if (current) merged.push(current);
 	return merged;
+}
+
+export function segmentsOutsideMarkedRanges(
+	segments: QuickCutSegment[],
+	sources: ReadonlyArray<Pick<QuickCutSource | QuickCutSourceMetadata, 'id' | 'duration'>>
+): QuickCutSegment[] {
+	const enabledBySource = new Map<string, QuickCutSegment[]>();
+	for (const segment of segments) {
+		if (segment.enabled === false) continue;
+		const sourceSegments = enabledBySource.get(segment.sourceId) ?? [];
+		sourceSegments.push(segment);
+		enabledBySource.set(segment.sourceId, sourceSegments);
+	}
+
+	const outside: QuickCutSegment[] = [];
+	for (const source of sources) {
+		const marked = enabledBySource.get(source.id);
+		if (source.duration < MIN_SEGMENT_DURATION_SECONDS) continue;
+		if (!marked || marked.length === 0) {
+			outside.push(
+				createSegment(0, source.duration, {
+					id: `outside:${source.id}:0`,
+					sourceId: source.id
+				})
+			);
+			continue;
+		}
+
+		const clamped = marked
+			.map((segment) => ({
+				start: Math.max(0, Math.min(source.duration, segment.start)),
+				end: Math.max(0, Math.min(source.duration, segment.end))
+			}))
+			.filter((segment) => segment.end > segment.start)
+			.sort((a, b) => a.start - b.start || a.end - b.end);
+		if (clamped.length === 0) continue;
+
+		const removed: Array<{ start: number; end: number }> = [];
+		for (const range of clamped) {
+			const previous = removed.at(-1);
+			if (previous && range.start <= previous.end + KEYFRAME_TOLERANCE_SECONDS) {
+				previous.end = Math.max(previous.end, range.end);
+			} else {
+				removed.push({ ...range });
+			}
+		}
+
+		let cursor = 0;
+		let outputIndex = 0;
+		for (const range of removed) {
+			if (range.start - cursor >= MIN_SEGMENT_DURATION_SECONDS) {
+				outside.push(
+					createSegment(cursor, range.start, {
+						id: `outside:${source.id}:${outputIndex}`,
+						sourceId: source.id
+					})
+				);
+				outputIndex += 1;
+			}
+			cursor = Math.max(cursor, range.end);
+		}
+		if (source.duration - cursor >= MIN_SEGMENT_DURATION_SECONDS) {
+			outside.push(
+				createSegment(cursor, source.duration, {
+					id: `outside:${source.id}:${outputIndex}`,
+					sourceId: source.id
+				})
+			);
+		}
+	}
+
+	return outside;
 }
 
 export function validateSegment(
@@ -103,7 +186,7 @@ export function validateSegment(
 			message: 'End must be after start.'
 		});
 	}
-	if (segment.end - segment.start < MIN_SEGMENT_DURATION) {
+	if (segment.end - segment.start < MIN_SEGMENT_DURATION_SECONDS) {
 		errors.push({
 			segmentId: segment.id,
 			kind: 'zero_length',
@@ -224,7 +307,9 @@ export function reorderSegment(
 export function editSegment(
 	segments: QuickCutSegment[],
 	id: string,
-	patch: Partial<Pick<QuickCutSegment, 'start' | 'end' | 'name' | 'enabled' | 'sourceId'>>
+	patch: Partial<
+		Pick<QuickCutSegment, 'start' | 'end' | 'name' | 'enabled' | 'sourceId' | 'cutMode'>
+	>
 ): QuickCutSegment[] {
 	return segments.map((s) => (s.id === id ? { ...s, ...patch } : s));
 }
@@ -251,7 +336,7 @@ export function moveSegmentBy(
 export function findNearestKeyframe(
 	time: number,
 	keyframes: number[],
-	tolerance = KEYFRAME_TOLERANCE
+	tolerance = KEYFRAME_TOLERANCE_SECONDS
 ) {
 	if (keyframes.length === 0) return { nearest: null, distance: null, aligned: false };
 	let nearest = keyframes[0]!;
@@ -328,7 +413,7 @@ export function assessExport(
 	sources?: QuickCutSource[] | QuickCutSourceMetadata[]
 ) {
 	if (segments.length === 0) return { wasLossless: false, reason: 'No segments selected.' };
-	const tolerance = 0.06;
+	const tolerance = KEYFRAME_TOLERANCE_SECONDS;
 	const getKfs = (sid: string): number[] => {
 		if (Array.isArray(keyframesBySource)) return keyframesBySource;
 		return keyframesBySource.get(sid) ?? [];
@@ -353,8 +438,13 @@ export function assessExport(
 		const kfs = getKfs(sid);
 		return findNearestKeyframe(time, kfs, tolerance).aligned;
 	};
-	if (cutMode === 'exact') {
+	const hasExact = segments.some((segment) => resolveSegmentCutMode(segment, cutMode) === 'exact');
+	const hasNearest = segments.some(
+		(segment) => resolveSegmentCutMode(segment, cutMode) === 'nearestKeyframe'
+	);
+	if (hasExact) {
 		for (const seg of segments) {
+			if (resolveSegmentCutMode(seg, cutMode) !== 'exact') continue;
 			const state = getState(seg.sourceId);
 			if (state === 'unknown') {
 				return {
@@ -370,9 +460,9 @@ export function assessExport(
 				};
 			}
 		}
-		return { wasLossless: true, reason: 'All starts are on keyframes. Stream copy is possible.' };
 	}
 	for (const seg of segments) {
+		if (resolveSegmentCutMode(seg, cutMode) === 'exact') continue;
 		const state = getState(seg.sourceId);
 		if (state === 'unknown') {
 			return {
@@ -399,7 +489,15 @@ export function assessExport(
 			};
 		}
 	}
-	return { wasLossless: true, reason: 'Lossless copy using nearest keyframes.' };
+	return {
+		wasLossless: true,
+		reason:
+			hasExact && hasNearest
+				? 'Exact starts align; remaining starts use nearest keyframes.'
+				: hasExact
+					? 'All exact starts are on keyframes. Stream copy is possible.'
+					: 'Lossless copy using nearest keyframes.'
+	};
 }
 
 export function parseTimecode(input: string): number | null {
@@ -423,6 +521,59 @@ export function parseTimecode(input: string): number | null {
 		if (!isFiniteNumber(h) || !isFiniteNumber(m) || !isFiniteNumber(s)) return null;
 		return h * 3600 + m * 60 + s;
 	}
+	return null;
+}
+
+export function getSelectedVideoStream(
+	source: QuickCutSource | QuickCutSourceMetadata
+): QuickCutVideoStream | null {
+	const streams = source.videoStreams ?? [];
+	if (streams.length === 0) return null;
+	if (source.selectedVideoTrackIndex === null) return null;
+	if (source.selectedVideoTrackIndex === undefined) return streams[0] ?? null;
+	return streams.find((s) => s.index === source.selectedVideoTrackIndex) ?? null;
+}
+
+export function getSelectedAudioStreams(
+	source: QuickCutSource | QuickCutSourceMetadata
+): QuickCutAudioStream[] {
+	const streams = source.audioStreams ?? [];
+	if (streams.length === 0) return [];
+	if (source.selectedAudioTrackIndices === undefined) {
+		// Backward compat: keep primary audio only (index 0) if source has audio
+		return streams.length > 0 ? [streams[0]!] : [];
+	}
+	return source.selectedAudioTrackIndices
+		.map((idx) => streams.find((s) => s.index === idx))
+		.filter((s): s is QuickCutAudioStream => s !== undefined);
+}
+
+export function hasSelectedTracks(source: QuickCutSource | QuickCutSourceMetadata): boolean {
+	return getSelectedVideoStream(source) !== null || getSelectedAudioStreams(source).length > 0;
+}
+
+export function validateStreamSelection(
+	source: QuickCutSource | QuickCutSourceMetadata
+): string | null {
+	const videoStreams = source.videoStreams ?? [];
+	const audioStreams = source.audioStreams ?? [];
+	if (
+		source.selectedVideoTrackIndex !== undefined &&
+		source.selectedVideoTrackIndex !== null &&
+		!videoStreams.some((s) => s.index === source.selectedVideoTrackIndex)
+	) {
+		return `Selected video track ${source.selectedVideoTrackIndex} does not exist.`;
+	}
+	if (source.selectedAudioTrackIndices !== undefined) {
+		for (const idx of source.selectedAudioTrackIndices) {
+			if (!audioStreams.some((s) => s.index === idx))
+				return `Selected audio track ${idx} does not exist.`;
+		}
+		if (new Set(source.selectedAudioTrackIndices).size !== source.selectedAudioTrackIndices.length)
+			return 'Duplicate audio tracks selected.';
+	}
+	if (!hasSelectedTracks(source))
+		return 'No tracks selected. Choose at least one video or audio track.';
 	return null;
 }
 

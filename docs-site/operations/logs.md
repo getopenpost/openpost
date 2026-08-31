@@ -28,7 +28,7 @@ The `consumer` field is a low-cardinality hint: `web`, `cli`, `mcp`, `mcp-media`
 
 Instance administrators can inspect consequential identity, impersonation,
 billing, provider, MCP, access, Publication, and destructive outcomes in
-**Settings → Instance audit**. This is a read projection over each domain's
+**Settings → Instance → Instance audit**. This is a read projection over each domain's
 authoritative records. It does not replace application logs or drive domain
 state.
 

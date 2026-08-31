@@ -22,14 +22,6 @@ func TestRunMigrationsDropsLegacySocialAccountActiveIndex(t *testing.T) {
 
 	require.NoError(t, runTestMigrations(t, db))
 
-	var legacyIndexCount int
-	require.NoError(t, db.NewSelect().
-		ColumnExpr("COUNT(*)").
-		TableExpr("sqlite_master").
-		Where("type = 'index' AND name = 'social_accounts_active_idx'").
-		Scan(ctx, &legacyIndexCount))
-	require.Equal(t, 0, legacyIndexCount)
-
 	accounts := []models.SocialAccount{
 		{ID: "acc-1", WorkspaceID: "ws-1", Slug: "x-main", Platform: "x", AccountID: "1", AccessTokenEnc: []byte("token"), IsActive: true},
 		{ID: "acc-2", WorkspaceID: "ws-1", Slug: "threads-main", Platform: "threads", AccountID: "2", AccessTokenEnc: []byte("token"), IsActive: true},

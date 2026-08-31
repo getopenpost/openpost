@@ -53,6 +53,12 @@ fn liquidFlow(uv: vec2f, p: f32, scale: f32, turbulence: f32) -> vec2f {
 fn liquidDistortFragment(input: VertexOutput) -> @location(0) vec4f {
   let uv = input.uv;
   let p = clamp(params.progress, 0.0, 1.0);
+  if (p <= 0.0) {
+    return textureSampleLevel(leftTex, texSampler, uv, 0.0);
+  }
+  if (p >= 1.0) {
+    return textureSampleLevel(rightTex, texSampler, uv, 0.0);
+  }
   let dir = u32(params.direction);
   let envelope = sin(p * PI);
   let axis = liquidAxis(uv, dir);

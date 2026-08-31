@@ -154,7 +154,7 @@
 	>
 		<div class="flex items-center gap-2 text-[10px]">
 			<LoaderIcon
-				class="size-3.5 shrink-0 animate-spin text-[oklch(0.72_0.12_190)]"
+				class="size-3.5 shrink-0 animate-spin text-[oklch(0.72_0.12_190)] motion-reduce:animate-none"
 				aria-hidden="true"
 			/>
 			<button
@@ -192,7 +192,7 @@
 			<div
 				class="h-full rounded-full bg-[oklch(0.69_0.13_190)] transition-[width] duration-300 {averageProgress ===
 				null
-					? 'w-1/3 animate-pulse'
+					? 'w-1/3 animate-pulse motion-reduce:animate-none'
 					: ''}"
 				style:width={averageProgress === null ? undefined : `${averageProgress * 100}%`}
 			></div>

@@ -25,6 +25,55 @@ import { buildTextItemLabelFromText } from '../../typography/text-item-spans';
 import { execute } from '../commands/command-store.svelte';
 import { timelineStore } from '../stores/timeline-store.svelte';
 
+export type TextEffectPresetId = 'none' | 'shadow' | 'outline' | 'glow';
+
+function textEffectPatch(presetId: TextEffectPresetId, color: string): Partial<TimelineItem> {
+	switch (presetId) {
+		case 'none':
+			return {
+				textShadow: undefined,
+				strokeWidth: undefined,
+				strokeColor: undefined
+			};
+		case 'shadow':
+			return {
+				textShadow: { offsetX: 4, offsetY: 6, blur: 12, color: '#000000' },
+				strokeWidth: undefined,
+				strokeColor: undefined
+			};
+		case 'outline':
+			return {
+				textShadow: undefined,
+				strokeWidth: 3,
+				strokeColor: '#111827'
+			};
+		case 'glow':
+			return {
+				textShadow: { offsetX: 0, offsetY: 0, blur: 18, color },
+				strokeWidth: 1,
+				strokeColor: color
+			};
+	}
+}
+
+/** Apply FreeCut's independent text effects to every selected text clip as one edit. */
+export function applyTextEffectPreset(
+	itemIds: readonly string[],
+	presetId: TextEffectPresetId
+): number {
+	const items = [...new Set(itemIds)]
+		.map((itemId) => timelineStore.itemById.get(itemId))
+		.filter((item): item is TimelineItem => item?.type === 'text');
+	if (items.length === 0) return 0;
+
+	const effectColor = items[0]?.color ?? '#ffffff';
+	const patch = textEffectPatch(presetId, effectColor);
+	execute('APPLY_TEXT_EFFECT_PRESET', () => {
+		timelineStore._updateItems(items.map((item) => ({ id: item.id, patch })));
+	});
+	return items.length;
+}
+
 function currentTextItem(itemId: string): TimelineItem | undefined {
 	const item = timelineStore.itemById.get(itemId);
 	return item?.type === 'text' ? item : undefined;

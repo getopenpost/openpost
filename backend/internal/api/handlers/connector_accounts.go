@@ -96,7 +96,7 @@ func (h *OAuthHandler) ConnectConnector(api huma.API) {
 		}
 		openFreshComposer := len(accounts) > 0 && accounts[0].ClaimedFirst
 		return &ConnectConnectorOutput{Body: h.normalizedAccountConnectionResponse(
-			ctx, workspaceID, accounts, openFreshComposer, userID,
+			workspaceID, accounts, openFreshComposer,
 		)}, nil
 	})
 }

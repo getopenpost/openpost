@@ -97,6 +97,30 @@ describe('AudioMixerPanel', () => {
 		await expect
 			.element(screen.getByRole('slider', { name: 'Music volume' }))
 			.toHaveAttribute('tabindex', '-1');
+		await expect
+			.element(screen.getByRole('button', { name: 'Parametric EQ: Music' }))
+			.toBeDisabled();
+	});
+
+	it('edits track and master EQ in the mixer with atomic undo', async () => {
+		const screen = await render(AudioMixerPanel);
+
+		await screen.getByRole('button', { name: 'Parametric EQ: Dialogue' }).click();
+		await expect.element(screen.getByLabelText('Dialogue Parametric EQ')).toBeVisible();
+		await screen.getByRole('button', { name: 'Bypass', exact: true }).click();
+		expect(timelineStore.tracks[0]?.audioEq?.enabled).toBe(false);
+		expect(commandHistory.undoStack).toHaveLength(1);
+		commandHistory.undo();
+		expect(timelineStore.tracks[0]?.audioEq).toBeUndefined();
+
+		await screen.getByRole('button', { name: 'Close', exact: true }).click();
+		await screen.getByRole('button', { name: 'Parametric EQ: Master' }).click();
+		await expect.element(screen.getByLabelText('Master Parametric EQ')).toBeVisible();
+		await screen.getByRole('button', { name: 'Bypass', exact: true }).click();
+		expect(timelineStore.busAudioEq?.enabled).toBe(false);
+		expect(commandHistory.undoStack).toHaveLength(1);
+		commandHistory.undo();
+		expect(timelineStore.busAudioEq).toBeUndefined();
 	});
 
 	it('cancels an unfinished fader draft when the mixer closes', async () => {
@@ -128,6 +152,15 @@ describe('AudioMixerPanel', () => {
 		await page.screenshot({
 			element: panel,
 			path: '../../../../.svelte-kit/openpost-audio-mixer-320.png'
+		});
+
+		await screen.getByRole('button', { name: 'Parametric EQ: Dialogue' }).click();
+		const eqPanel = panel.querySelector<HTMLElement>('[data-mixer-eq-panel]')!;
+		expect(eqPanel.clientWidth).toBeLessThanOrEqual(320);
+		expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(320);
+		await page.screenshot({
+			element: panel,
+			path: '../../../../.svelte-kit/openpost-audio-mixer-eq-320.png'
 		});
 	});
 });

@@ -26,22 +26,24 @@ function recordingEngine() {
 }
 
 describe('interface sound preferences', () => {
-	it('starts silent, persists volume and theme, and emits one cue per state change', () => {
+	it('starts enabled, persists volume and theme, and emits one cue per state change', () => {
 		const storage = memoryStorage();
 		const engine = recordingEngine();
 		const sounds = createSoundPreferences(storage, engine);
 		sounds.initialize(document);
 
-		expect(sounds.enabled).toBe(false);
+		expect(sounds.enabled).toBe(true);
 		expect(sounds.volume).toBe(0.6);
-		expect(engine.events).toEqual(['volume:0.6', 'enabled:false', 'bind']);
+		expect(engine.events).toEqual(['volume:0.6', 'enabled:true', 'bind']);
 
-		sounds.setEnabled(true);
+		sounds.setEnabled(false);
+		sounds.setEnabled(false);
 		sounds.setEnabled(true);
 		sounds.setVolume(2);
 		sounds.setTheme('crisp');
 		sounds.playSemantic('confirm');
 		expect(engine.events.filter((event) => event.startsWith('play:'))).toEqual([
+			'play:toggle',
 			'play:toggle',
 			'play:ready'
 		]);
@@ -65,7 +67,7 @@ describe('interface sound preferences', () => {
 			theme: 'signature'
 		});
 		expect(parseInterfaceSoundSettings('{broken')).toEqual({
-			enabled: false,
+			enabled: true,
 			volume: 0.6,
 			theme: 'signature'
 		});

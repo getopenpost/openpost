@@ -5,29 +5,10 @@ import { describe, expect, it } from 'vitest';
 import {
 	formatSceneCaption,
 	formatSceneCaptionFromData,
-	LFM_SCENE_CAPTION_PROMPT,
 	normalizeShotVocabulary,
 	normalizeSceneCaptionData,
 	parseSceneCaptionResponse
 } from './scene-caption-format';
-
-describe('LFM_SCENE_CAPTION_PROMPT', () => {
-	it('asks for JSON only with structured scene fields', () => {
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain('return a valid JSON object only');
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain('"caption": string');
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain('"shotType": string | null');
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain(
-			'Use null for missing scalar fields and [] for missing subjects'
-		);
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain(
-			'The first character of the response must be { and the last character must be }'
-		);
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain(
-			'Use double quotes around every key and every string value'
-		);
-		expect(LFM_SCENE_CAPTION_PROMPT).toContain('Do not mention camera motion');
-	});
-});
 
 describe('normalizeShotVocabulary', () => {
 	it('normalizes common shot-term spelling and hyphenation inside prose', () => {

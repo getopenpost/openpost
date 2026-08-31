@@ -1,5 +1,13 @@
+/
+  Link: </.well-known/api-catalog>; rel="api-catalog", <https://docs.openpost.social/openapi.json>; rel="service-desc"; type="application/vnd.oai.openapi+json", <https://docs.openpost.social/development/api-reference>; rel="service-doc"; type="text/html", </auth.md>; rel="describedby"; type="text/markdown", </llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"; type="application/xml", </index.md>; rel="alternate"; type="text/markdown"
+  Vary: Accept
+/.well-known/api-catalog
+  Content-Type: application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"
+  Link: </.well-known/api-catalog>; rel="api-catalog"
 /*.md
   Content-Type: text/markdown; charset=utf-8
   Vary: Accept
 /llms.txt
   Content-Type: text/plain; charset=utf-8
+/robots.txt
+  Content-Signal: search=yes, ai-input=yes, ai-train=yes, use=reference

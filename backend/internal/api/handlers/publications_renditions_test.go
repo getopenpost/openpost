@@ -93,18 +93,19 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 	seedHandlerAccount(t, db, "account-2", "mastodon")
 	seedHandlerAccount(t, db, "account-3", "linkedin")
 	_, err = db.NewInsert().Model(&models.Publication{
-		ID:              "publication-1",
-		WorkspaceID:     "workspace-1",
-		CreatedByID:     "user-1",
-		Title:           "Launch",
-		ContentProfile:  models.ContentProfileShortText,
-		SourceText:      "Launch",
-		SourceContent:   "Launch",
-		Status:          models.PublicationStatusFailed,
-		MetadataJSON:    "{}",
-		ReleasePlanJSON: "{}",
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 "publication-1",
+		WorkspaceID:        "workspace-1",
+		CreatedByID:        "user-1",
+		Title:              "Launch",
+		ContentProfile:     models.ContentProfileShortText,
+		SourceText:         "Launch",
+		SourceContent:      "Launch",
+		Status:             models.PublicationStatusFailed,
+		FailureDismissedAt: now.Add(-time.Hour),
+		MetadataJSON:       "{}",
+		ReleasePlanJSON:    "{}",
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	}).Exec(ctx)
 	require.NoError(t, err)
 	_, err = db.NewInsert().Model(&[]models.Rendition{
@@ -185,6 +186,9 @@ func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.
 	require.Equal(t, models.RenditionStatusFailed, statusByID["permanent-rendition"])
 	require.Equal(t, models.RenditionStatusPublished, statusByID["published-rendition"])
 	require.Equal(t, models.RenditionStatusScheduled, statusByID["retryable-rendition"])
+	var retriedPublication models.Publication
+	require.NoError(t, db.NewSelect().Model(&retriedPublication).Where("id = ?", "publication-1").Scan(ctx))
+	require.True(t, retriedPublication.FailureDismissedAt.IsZero())
 
 	var jobs []models.Job
 	require.NoError(t, db.NewSelect().Model(&jobs).Where("status = ?", jobStatusPending).Scan(ctx))

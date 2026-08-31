@@ -277,6 +277,64 @@
 				],
 				"type": "object"
 			},
+			"AccountDiscoveryCoverage": {
+				"additionalProperties": false,
+				"properties": {
+					"account_id": {
+						"type": "string"
+					},
+					"backfill_watermark": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"description": {
+						"type": "string"
+					},
+					"failure_code": {
+						"type": "string"
+					},
+					"failure_message": {
+						"type": "string"
+					},
+					"initial_completed_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"initial_items_discovered": {
+						"format": "int64",
+						"type": "integer"
+					},
+					"last_attempted_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"last_success_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"next_eligible_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"platform": {
+						"type": "string"
+					},
+					"status": {
+						"enum": [
+							"complete",
+							"partial",
+							"permission_required",
+							"rate_limited",
+							"cost_limited",
+							"unsupported",
+							"failed"
+						],
+						"type": "string"
+					}
+				},
+				"required": ["account_id", "platform", "status", "initial_items_discovered"],
+				"type": "object"
+			},
 			"AccountExport": {
 				"additionalProperties": false,
 				"properties": {
@@ -3313,10 +3371,39 @@
 				"required": ["body", "title", "description", "alt_text"],
 				"type": "object"
 			},
+			"ContentMeasurement": {
+				"additionalProperties": false,
+				"properties": {
+					"availability": {
+						"enum": ["available"],
+						"type": "string"
+					},
+					"collected_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"metadata": {
+						"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+					},
+					"value": {
+						"format": "int64",
+						"type": "integer"
+					}
+				},
+				"required": ["value", "availability", "collected_at", "metadata"],
+				"type": "object"
+			},
 			"ContentOverview": {
 				"additionalProperties": false,
 				"properties": {
 					"account_id": {
+						"type": "string"
+					},
+					"collected_at": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"content_profile": {
 						"type": "string"
 					},
 					"engagement": {
@@ -3337,6 +3424,16 @@
 					},
 					"last_synced_at": {
 						"format": "date-time",
+						"type": "string"
+					},
+					"measurements": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/ContentMeasurement"
+						},
+						"type": "object"
+					},
+					"metric_availability": {
+						"enum": ["available", "pending", "unavailable"],
 						"type": "string"
 					},
 					"metric_metadata": {
@@ -3366,7 +3463,14 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"reference": {
+						"$ref": "#/components/schemas/ContentReference"
+					},
 					"rendition_id": {
+						"type": "string"
+					},
+					"source": {
+						"enum": ["openpost", "external"],
 						"type": "string"
 					},
 					"stale": {
@@ -3383,20 +3487,43 @@
 					}
 				},
 				"required": [
-					"publication_id",
-					"rendition_id",
+					"reference",
+					"source",
 					"title",
 					"excerpt",
+					"content_profile",
 					"platform",
 					"account_id",
 					"username",
 					"published_at",
 					"status",
+					"metric_availability",
 					"metrics",
 					"metric_metadata",
+					"measurements",
 					"engagement",
 					"stale"
 				],
+				"type": "object"
+			},
+			"ContentReference": {
+				"additionalProperties": false,
+				"properties": {
+					"account_content_id": {
+						"type": "string"
+					},
+					"publication_id": {
+						"type": "string"
+					},
+					"rendition_id": {
+						"type": "string"
+					},
+					"type": {
+						"enum": ["openpost", "external"],
+						"type": "string"
+					}
+				},
+				"required": ["type"],
 				"type": "object"
 			},
 			"Conversation": {
@@ -11082,6 +11209,10 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"account_growth_scope": {
+						"enum": ["account_wide"],
+						"type": "string"
+					},
 					"accounts": {
 						"items": {
 							"$ref": "#/components/schemas/AccountOverview"
@@ -11094,9 +11225,18 @@
 						},
 						"type": ["array", "null"]
 					},
+					"content_next_cursor": {
+						"type": "string"
+					},
 					"content_total": {
 						"format": "int64",
 						"type": "integer"
+					},
+					"coverage": {
+						"items": {
+							"$ref": "#/components/schemas/AccountDiscoveryCoverage"
+						},
+						"type": ["array", "null"]
 					},
 					"follower_series": {
 						"items": {
@@ -11129,6 +11269,10 @@
 						"format": "int64",
 						"type": "integer"
 					},
+					"source": {
+						"enum": ["all", "openpost", "external"],
+						"type": "string"
+					},
 					"summary": {
 						"$ref": "#/components/schemas/Summary"
 					},
@@ -11145,6 +11289,9 @@
 					"trends",
 					"publications",
 					"content",
+					"coverage",
+					"source",
+					"account_growth_scope",
 					"publication_total",
 					"content_total"
 				],
@@ -16118,6 +16265,10 @@
 					"engagement": {
 						"$ref": "#/components/schemas/MetricSummary"
 					},
+					"follower_scope": {
+						"enum": ["account_wide"],
+						"type": "string"
+					},
 					"followers": {
 						"$ref": "#/components/schemas/MetricSummary"
 					},
@@ -16135,7 +16286,15 @@
 						"$ref": "#/components/schemas/MetricSummary"
 					}
 				},
-				"required": ["followers", "engagement", "views", "impressions", "reach", "published"],
+				"required": [
+					"followers",
+					"follower_scope",
+					"engagement",
+					"views",
+					"impressions",
+					"reach",
+					"published"
+				],
 				"type": "object"
 			},
 			"SyncStateView": {
@@ -21051,12 +21210,24 @@
 						}
 					},
 					{
-						"description": "Optional social account ID used to filter results and totals",
+						"description": "Optional social account ID used to filter results and content totals",
 						"explode": false,
 						"in": "query",
 						"name": "account_id",
 						"schema": {
-							"description": "Optional social account ID used to filter results and totals",
+							"description": "Optional social account ID used to filter results and content totals",
+							"type": "string"
+						}
+					},
+					{
+						"description": "Content source filter; account growth remains account-wide",
+						"explode": false,
+						"in": "query",
+						"name": "source",
+						"schema": {
+							"default": "all",
+							"description": "Content source filter; account growth remains account-wide",
+							"enum": ["all", "openpost", "external"],
 							"type": "string"
 						}
 					},
@@ -21073,23 +21244,23 @@
 						}
 					},
 					{
-						"description": "Opaque publication-page cursor",
+						"description": "Opaque source-bound content cursor",
 						"explode": false,
 						"in": "query",
 						"name": "cursor",
 						"schema": {
-							"description": "Opaque publication-page cursor",
+							"description": "Opaque source-bound content cursor",
 							"type": "string"
 						}
 					},
 					{
-						"description": "Publication results per page",
+						"description": "Content results per page",
 						"explode": false,
 						"in": "query",
 						"name": "limit",
 						"schema": {
 							"default": 50,
-							"description": "Publication results per page",
+							"description": "Content results per page",
 							"format": "int64",
 							"maximum": 100,
 							"minimum": 1,
@@ -21149,7 +21320,7 @@
 						"description": "Internal Server Error"
 					}
 				},
-				"summary": "Get stored account and publication analytics",
+				"summary": "Get stored whole-account content analytics",
 				"tags": ["Analytics"]
 			}
 		},

@@ -97,13 +97,138 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.Len(t, seen, 121)
 }
 
-func TestOverviewCursorCannotCrossAccountOrSortScope(t *testing.T) {
-	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Sort: "newest", Limit: 1})
+func TestOverviewCursorCannotCrossAccountSortOrSourceScope(t *testing.T) {
+	options := normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "all", Sort: "newest", Limit: 1})
 	cursor := encodeOverviewNextCursor(0, 1, 2, options, 30)
 	options.AccountID = "account-b"
 	options.Cursor = cursor
 	_, err := decodeOverviewOffset(options, 30, 2)
 	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+
+	options = normalizeOverviewOptions(OverviewOptions{AccountID: "account-a", Source: "external", Sort: "newest", Limit: 1, Cursor: cursor})
+	_, err = decodeOverviewOffset(options, 30, 2)
+	require.ErrorIs(t, err, ErrInvalidOverviewCursor)
+}
+
+func TestWholeAccountOverviewMixesSourcesWithoutDoubleCountingOrInventingManagedIDs(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := t.Context()
+	account := seedAnalyticsAccount(t, db, "content.read")
+	now := time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC)
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-managed", now)
+	rendition := models.Rendition{
+		ID: "rendition-managed", PublicationID: publication.ID, SocialAccountID: account.ID,
+		Platform: account.Platform, Profile: models.ContentProfileLongVideo, Status: models.RenditionStatusPublished,
+		ExternalID: "provider-managed", ExternalURL: "https://provider.example/managed", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(&rendition).Exec(ctx)
+	require.NoError(t, err)
+	inventory := []models.AccountContent{
+		{
+			ID: "content-managed", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID,
+			Platform: account.Platform, ProviderContentID: rendition.ExternalID, ContentProfile: models.ContentProfileLongVideo,
+			Title: "Managed provider title", Text: "Managed provider text", ExternalURL: rendition.ExternalURL,
+			PublishedAt: now.Add(-time.Hour), Origin: string(platform.AccountContentOriginOpenPost),
+			OriginConfidence: string(platform.AccountContentOriginConfidenceExact), RenditionID: rendition.ID,
+			FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+		},
+		{
+			ID: "content-external", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID,
+			Platform: account.Platform, ProviderContentID: "provider-external", ContentProfile: models.ContentProfileLongVideo,
+			Title: "External provider title", Text: "External provider text", ExternalURL: "https://provider.example/external",
+			PublishedAt: now.Add(-2 * time.Hour), Origin: string(platform.AccountContentOriginExternal),
+			OriginConfidence:  string(platform.AccountContentOriginConfidenceExact),
+			FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+		},
+	}
+	_, err = db.NewInsert().Model(&inventory).Exec(ctx)
+	require.NoError(t, err)
+	metadata := `{"views":{"unit":"count","aggregation":"lifetime_total","source":"provider-native"}}`
+	capturedAt := now.Add(-10 * time.Minute)
+	snapshots := []models.AnalyticsAccountContentSnapshot{
+		{ID: "snapshot-managed", WorkspaceID: account.WorkspaceID, AccountContentID: "content-managed", SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"views":10}`, MetricMetadataJSON: metadata, CaptureKey: "managed", CapturedAt: capturedAt},
+		{ID: "snapshot-external", WorkspaceID: account.WorkspaceID, AccountContentID: "content-external", SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"views":20}`, MetricMetadataJSON: metadata, CaptureKey: "external", CapturedAt: capturedAt},
+	}
+	_, err = db.NewInsert().Model(&snapshots).Exec(ctx)
+	require.NoError(t, err)
+	states := []models.AnalyticsSyncState{
+		{
+			ID: stateID(subjectRendition, rendition.ID), WorkspaceID: account.WorkspaceID,
+			SubjectType: subjectRendition, SubjectID: rendition.ID, SocialAccountID: account.ID, Platform: account.Platform,
+			Status: string(platform.AnalyticsStatusOK), MetricsJSON: `{"views":999}`, LastSuccessAt: now,
+		},
+		{
+			ID: stateID(subjectAccount, account.ID), WorkspaceID: account.WorkspaceID,
+			SubjectType: subjectAccount, SubjectID: account.ID, SocialAccountID: account.ID, Platform: account.Platform,
+			Status: string(platform.AnalyticsStatusOK), MetricsJSON: `{"followers":50}`, LastSuccessAt: now,
+		},
+	}
+	_, err = db.NewInsert().Model(&states).Exec(ctx)
+	require.NoError(t, err)
+	accountSnapshots := []models.AnalyticsAccountSnapshot{
+		{ID: "account-old", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"followers":40}`, CapturedAt: now.Add(-7 * 24 * time.Hour)},
+		{ID: "account-new", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform, MetricsJSON: `{"followers":50}`, CapturedAt: now},
+	}
+	_, err = db.NewInsert().Model(&accountSnapshots).Exec(ctx)
+	require.NoError(t, err)
+	_, err = db.NewInsert().Model(&models.AccountContentDiscoveryState{
+		ID: "coverage-1", WorkspaceID: account.WorkspaceID, SocialAccountID: account.ID, Platform: account.Platform,
+		Status: string(platform.AccountContentDiscoveryComplete), CoverageStatus: string(platform.AccountContentDiscoveryComplete),
+		CoverageDescription: "Recent provider history is complete.", InitialItemsDiscovered: 2, LastSuccessAt: now,
+		CreatedAt: now, UpdatedAt: now,
+	}).Exec(ctx)
+	require.NoError(t, err)
+
+	service := NewService(db, staticTokenSource{})
+	service.now = func() time.Time { return now }
+
+	all, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Source: "all", Sort: "newest"})
+	require.NoError(t, err)
+	require.Equal(t, "all", all.Source)
+	require.Equal(t, "account_wide", all.AccountGrowthScope)
+	require.Equal(t, "account_wide", all.Summary.FollowerScope)
+	require.Equal(t, 2, all.ContentTotal)
+	require.Equal(t, 2, all.Summary.Published)
+	require.Equal(t, 1, all.PublicationTotal)
+	require.Equal(t, int64(30), all.Summary.Views.Value, "the linked managed rendition is represented only by its inventory snapshot")
+	require.Equal(t, 2, all.Summary.Views.Measured)
+	require.Len(t, all.Coverage, 1)
+	require.Equal(t, string(platform.AccountContentDiscoveryComplete), all.Coverage[0].Status)
+	require.Equal(t, 2, all.Coverage[0].InitialItemsDiscovered)
+
+	managed := all.Content[0]
+	require.Equal(t, "openpost", managed.Reference.Type)
+	require.Equal(t, publication.ID, managed.Reference.PublicationID)
+	require.Equal(t, rendition.ID, managed.Reference.RenditionID)
+	require.Empty(t, managed.Reference.AccountContentID)
+	require.Equal(t, rendition.ExternalURL, managed.ExternalURL)
+	require.True(t, capturedAt.Equal(managed.Measurements[platform.MetricViews].CollectedAt))
+	require.Equal(t, "provider-native", managed.Measurements[platform.MetricViews].Metadata.Source)
+	require.Equal(t, "available", managed.MetricAvailability)
+
+	external := all.Content[1]
+	require.Equal(t, "external", external.Reference.Type)
+	require.Equal(t, "content-external", external.Reference.AccountContentID)
+	require.Empty(t, external.Reference.PublicationID)
+	require.Empty(t, external.Reference.RenditionID)
+	require.Empty(t, external.PublicationID)
+	require.Empty(t, external.RenditionID)
+	externalJSON, err := json.Marshal(external)
+	require.NoError(t, err)
+	require.NotContains(t, string(externalJSON), "publication_id")
+	require.NotContains(t, string(externalJSON), "rendition_id")
+
+	openpost, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Source: "openpost"})
+	require.NoError(t, err)
+	require.Equal(t, 1, openpost.ContentTotal)
+	require.Equal(t, int64(10), openpost.Summary.Views.Value)
+	externalOnly, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Source: "external"})
+	require.NoError(t, err)
+	require.Equal(t, 1, externalOnly.ContentTotal)
+	require.Equal(t, int64(20), externalOnly.Summary.Views.Value)
+	require.Equal(t, all.Summary.Followers, openpost.Summary.Followers)
+	require.Equal(t, all.Summary.Followers, externalOnly.Summary.Followers)
+	require.Equal(t, all.Trends.Followers, externalOnly.Trends.Followers)
 }
 
 type staticTokenSource struct{}

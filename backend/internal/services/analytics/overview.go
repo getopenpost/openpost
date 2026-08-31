@@ -21,12 +21,13 @@ type MetricSummary struct {
 }
 
 type Summary struct {
-	Followers   MetricSummary `json:"followers"`
-	Engagement  MetricSummary `json:"engagement"`
-	Views       MetricSummary `json:"views"`
-	Impressions MetricSummary `json:"impressions"`
-	Reach       MetricSummary `json:"reach"`
-	Published   int           `json:"published"`
+	Followers     MetricSummary `json:"followers"`
+	FollowerScope string        `json:"follower_scope" enum:"account_wide"`
+	Engagement    MetricSummary `json:"engagement"`
+	Views         MetricSummary `json:"views"`
+	Impressions   MetricSummary `json:"impressions"`
+	Reach         MetricSummary `json:"reach"`
+	Published     int           `json:"published"`
 }
 
 type SeriesPoint struct {
@@ -75,25 +76,60 @@ type AccountOverview struct {
 	Stale                bool                                        `json:"stale"`
 }
 
+type ContentReference struct {
+	Type             string `json:"type" enum:"openpost,external"`
+	PublicationID    string `json:"publication_id,omitempty"`
+	RenditionID      string `json:"rendition_id,omitempty"`
+	AccountContentID string `json:"account_content_id,omitempty"`
+}
+
+type ContentMeasurement struct {
+	Value        int64                            `json:"value"`
+	Availability string                           `json:"availability" enum:"available"`
+	CollectedAt  time.Time                        `json:"collected_at"`
+	Metadata     platform.AnalyticsMetricMetadata `json:"metadata"`
+}
+
 type ContentOverview struct {
-	PublicationID  string                                      `json:"publication_id"`
-	RenditionID    string                                      `json:"rendition_id"`
-	Title          string                                      `json:"title"`
-	Excerpt        string                                      `json:"excerpt"`
-	Platform       string                                      `json:"platform"`
-	AccountID      string                                      `json:"account_id"`
-	Username       string                                      `json:"username"`
-	ExternalURL    string                                      `json:"external_url,omitempty"`
-	PublishedAt    time.Time                                   `json:"published_at"`
-	Status         string                                      `json:"status"`
-	ErrorCode      string                                      `json:"error_code,omitempty"`
-	ErrorMessage   string                                      `json:"error_message,omitempty"`
-	Metrics        platform.AnalyticsValues                    `json:"metrics"`
-	MetricMetadata map[string]platform.AnalyticsMetricMetadata `json:"metric_metadata"`
-	Engagement     int64                                       `json:"engagement"`
-	LastSyncedAt   time.Time                                   `json:"last_synced_at,omitempty"`
-	NextSyncAt     time.Time                                   `json:"next_sync_at,omitempty"`
-	Stale          bool                                        `json:"stale"`
+	Reference          ContentReference                            `json:"reference"`
+	Source             string                                      `json:"source" enum:"openpost,external"`
+	PublicationID      string                                      `json:"publication_id,omitempty"`
+	RenditionID        string                                      `json:"rendition_id,omitempty"`
+	Title              string                                      `json:"title"`
+	Excerpt            string                                      `json:"excerpt"`
+	ContentProfile     string                                      `json:"content_profile"`
+	Platform           string                                      `json:"platform"`
+	AccountID          string                                      `json:"account_id"`
+	Username           string                                      `json:"username"`
+	ExternalURL        string                                      `json:"external_url,omitempty"`
+	PublishedAt        time.Time                                   `json:"published_at"`
+	Status             string                                      `json:"status"`
+	MetricAvailability string                                      `json:"metric_availability" enum:"available,pending,unavailable"`
+	CollectedAt        time.Time                                   `json:"collected_at,omitempty"`
+	ErrorCode          string                                      `json:"error_code,omitempty"`
+	ErrorMessage       string                                      `json:"error_message,omitempty"`
+	Metrics            platform.AnalyticsValues                    `json:"metrics"`
+	MetricMetadata     map[string]platform.AnalyticsMetricMetadata `json:"metric_metadata"`
+	Measurements       map[string]ContentMeasurement               `json:"measurements"`
+	Engagement         int64                                       `json:"engagement"`
+	LastSyncedAt       time.Time                                   `json:"last_synced_at,omitempty"`
+	NextSyncAt         time.Time                                   `json:"next_sync_at,omitempty"`
+	Stale              bool                                        `json:"stale"`
+}
+
+type AccountDiscoveryCoverage struct {
+	AccountID              string    `json:"account_id"`
+	Platform               string    `json:"platform"`
+	Status                 string    `json:"status" enum:"complete,partial,permission_required,rate_limited,cost_limited,unsupported,failed"`
+	Description            string    `json:"description,omitempty"`
+	BackfillWatermark      time.Time `json:"backfill_watermark,omitempty"`
+	InitialItemsDiscovered int       `json:"initial_items_discovered"`
+	InitialCompletedAt     time.Time `json:"initial_completed_at,omitempty"`
+	LastSuccessAt          time.Time `json:"last_success_at,omitempty"`
+	LastAttemptedAt        time.Time `json:"last_attempted_at,omitempty"`
+	FailureCode            string    `json:"failure_code,omitempty"`
+	FailureMessage         string    `json:"failure_message,omitempty"`
+	NextEligibleAt         time.Time `json:"next_eligible_at,omitempty"`
 }
 
 type PublicationOverview struct {
@@ -110,18 +146,22 @@ type PublicationOverview struct {
 }
 
 type Overview struct {
-	GeneratedAt           time.Time             `json:"generated_at"`
-	LastSyncedAt          time.Time             `json:"last_synced_at,omitempty"`
-	RangeDays             int                   `json:"range_days"`
-	Summary               Summary               `json:"summary"`
-	Accounts              []AccountOverview     `json:"accounts"`
-	FollowerSeries        []SeriesPoint         `json:"follower_series"`
-	Trends                TrendSeries           `json:"trends"`
-	Publications          []PublicationOverview `json:"publications"`
-	Content               []ContentOverview     `json:"content"`
-	PublicationTotal      int                   `json:"publication_total"`
-	PublicationNextCursor string                `json:"publication_next_cursor,omitempty"`
-	ContentTotal          int                   `json:"content_total"`
+	GeneratedAt           time.Time                  `json:"generated_at"`
+	LastSyncedAt          time.Time                  `json:"last_synced_at,omitempty"`
+	RangeDays             int                        `json:"range_days"`
+	Summary               Summary                    `json:"summary"`
+	Accounts              []AccountOverview          `json:"accounts"`
+	FollowerSeries        []SeriesPoint              `json:"follower_series"`
+	Trends                TrendSeries                `json:"trends"`
+	Publications          []PublicationOverview      `json:"publications"`
+	Content               []ContentOverview          `json:"content"`
+	Coverage              []AccountDiscoveryCoverage `json:"coverage"`
+	Source                string                     `json:"source" enum:"all,openpost,external"`
+	AccountGrowthScope    string                     `json:"account_growth_scope" enum:"account_wide"`
+	PublicationTotal      int                        `json:"publication_total"`
+	PublicationNextCursor string                     `json:"publication_next_cursor,omitempty"`
+	ContentNextCursor     string                     `json:"content_next_cursor,omitempty"`
+	ContentTotal          int                        `json:"content_total"`
 }
 
 func (s *Service) Overview(ctx context.Context, workspaceID string, days int) (Overview, error) {
@@ -130,6 +170,7 @@ func (s *Service) Overview(ctx context.Context, workspaceID string, days int) (O
 
 type OverviewOptions struct {
 	AccountID string
+	Source    string
 	Sort      string
 	Cursor    string
 	Limit     int
@@ -143,10 +184,14 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	now := s.now()
 	start := now.AddDate(0, 0, -days)
 	result := Overview{
-		GeneratedAt:    now,
-		RangeDays:      days,
-		Accounts:       []AccountOverview{},
-		FollowerSeries: []SeriesPoint{},
+		GeneratedAt:        now,
+		RangeDays:          days,
+		Source:             options.Source,
+		AccountGrowthScope: "account_wide",
+		Summary:            Summary{FollowerScope: "account_wide"},
+		Accounts:           []AccountOverview{},
+		Coverage:           []AccountDiscoveryCoverage{},
+		FollowerSeries:     []SeriesPoint{},
 		Trends: TrendSeries{
 			Followers:  []DailyBreakdownPoint{},
 			Engagement: []DailyBreakdownPoint{},
@@ -173,58 +218,52 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	result.Accounts = s.buildAccountOverviews(activeAccounts, stateByID, history, &result.Summary)
 	result.FollowerSeries = combinedFollowerSeries(result.Accounts)
 	result.Trends.Followers = dailyFollowerTrend(result.Accounts, options.AccountID)
-	result.Trends.Engagement, result.Trends.Views, err = s.loadDailyContentTrends(
-		ctx,
-		workspaceID,
-		start,
-		options.AccountID,
-	)
+	result.Trends.Engagement, result.Trends.Views, err = s.loadDailyContentTrends(ctx, workspaceID, start, options.AccountID)
+	if err != nil {
+		return Overview{}, err
+	}
+	result.Coverage, err = s.loadAccountDiscoveryCoverage(ctx, activeAccounts, options.AccountID)
 	if err != nil {
 		return Overview{}, err
 	}
 
-	totals, err := s.loadOverviewContentTotals(ctx, workspaceID, start, options.AccountID)
+	allContent, err := s.loadWholeAccountContent(ctx, workspaceID, start, options, accountByID, now)
 	if err != nil {
 		return Overview{}, err
 	}
-	result.PublicationTotal = totals.Publications
-	result.ContentTotal = totals.Content
-	result.Summary = mergeOverviewContentSummary(result.Summary, totals.Summary, result.Accounts, options.AccountID)
-	if totals.Publications == 0 {
-		return result, nil
-	}
-	offset, err := decodeOverviewOffset(options, days, totals.Publications)
+	orderContentOverviews(allContent, options.Sort)
+	result.ContentTotal = len(allContent)
+	result.PublicationTotal = uniqueManagedPublicationCount(allContent)
+	contentSummary := summarizeWholeAccountContent(allContent)
+	result.Summary = mergeOverviewContentSummary(result.Summary, contentSummary, result.Accounts, options.AccountID)
+
+	offset, err := decodeOverviewOffset(options, days, len(allContent))
 	if err != nil {
 		return Overview{}, err
 	}
-	publicationIDs, err := s.loadOverviewPublicationPageIDs(ctx, workspaceID, start, options, offset)
-	if err != nil {
-		return Overview{}, err
+	end := min(offset+options.Limit, len(allContent))
+	result.Content = allContent[offset:end]
+	managedPage := make([]ContentOverview, 0, len(result.Content))
+	for _, item := range result.Content {
+		if item.Reference.Type == string(platform.AccountContentOriginOpenPost) {
+			managedPage = append(managedPage, item)
+		}
 	}
-	publicationByID, err := s.loadOverviewPublicationsByID(ctx, publicationIDs)
-	if err != nil {
-		return Overview{}, err
-	}
-	renditions, err := s.loadOverviewPageRenditions(ctx, publicationIDs, options.AccountID)
-	if err != nil {
-		return Overview{}, err
-	}
-	renditionStates, err := s.loadOverviewRenditionStates(ctx, workspaceID, renditions)
-	if err != nil {
-		return Overview{}, err
-	}
-	unusedSummary := Summary{}
-	content := buildContentOverviews(renditions, publicationByID, accountByID, renditionStates, now, &unusedSummary)
-	publicationOverviews := buildPublicationOverviews(content)
-	orderPublicationOverviews(publicationOverviews, publicationIDs)
-	result.Publications = publicationOverviews
-	result.Content = flattenPublicationContent(publicationOverviews)
-	result.PublicationNextCursor = encodeOverviewNextCursor(offset, len(publicationIDs), totals.Publications, options, days)
+	result.Publications = buildPublicationOverviews(managedPage)
+	nextCursor := encodeOverviewNextCursor(offset, len(result.Content), len(allContent), options, days)
+	result.ContentNextCursor = nextCursor
+	result.PublicationNextCursor = nextCursor
 	return result, nil
 }
 
 func normalizeOverviewOptions(options OverviewOptions) OverviewOptions {
 	options.AccountID = strings.TrimSpace(options.AccountID)
+	options.Source = strings.ToLower(strings.TrimSpace(options.Source))
+	switch options.Source {
+	case string(platform.AccountContentOriginOpenPost), string(platform.AccountContentOriginExternal):
+	default:
+		options.Source = "all"
+	}
 	options.Sort = strings.ToLower(strings.TrimSpace(options.Sort))
 	switch options.Sort {
 	case "views", "newest":
@@ -477,33 +516,35 @@ func buildContentOverview(
 	}
 	externalURL := rendition.ExternalURL
 	if !platform.IsSafeContentURL(externalURL) {
-		externalURL = platform.DeterministicContentURL(
-			account.Platform,
-			account.AccountID,
-			account.AccountUsername,
-			account.InstanceURL,
-			rendition.ExternalID,
-		)
+		externalURL = ""
 	}
 	item := ContentOverview{
-		PublicationID:  publication.ID,
-		RenditionID:    rendition.ID,
-		Title:          publication.Title,
-		Excerpt:        firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
-		Platform:       rendition.Platform,
-		AccountID:      account.ID,
-		Username:       account.AccountUsername,
-		ExternalURL:    externalURL,
-		PublishedAt:    publishedAt,
-		Status:         string(platform.AnalyticsStatusPending),
-		Metrics:        platform.AnalyticsValues{},
-		MetricMetadata: map[string]platform.AnalyticsMetricMetadata{},
+		Reference: ContentReference{
+			Type: string(platform.AccountContentOriginOpenPost), PublicationID: publication.ID, RenditionID: rendition.ID,
+		},
+		Source:             string(platform.AccountContentOriginOpenPost),
+		PublicationID:      publication.ID,
+		RenditionID:        rendition.ID,
+		Title:              publication.Title,
+		Excerpt:            firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
+		ContentProfile:     rendition.Profile,
+		Platform:           rendition.Platform,
+		AccountID:          account.ID,
+		Username:           account.AccountUsername,
+		ExternalURL:        externalURL,
+		PublishedAt:        publishedAt,
+		Status:             string(platform.AnalyticsStatusPending),
+		MetricAvailability: "pending",
+		Metrics:            platform.AnalyticsValues{},
+		MetricMetadata:     map[string]platform.AnalyticsMetricMetadata{},
+		Measurements:       map[string]ContentMeasurement{},
 	}
 	if state.ID != "" {
 		item.Status = state.Status
 		item.ErrorCode = state.ErrorCode
 		item.ErrorMessage = state.ErrorMessage
 		item.LastSyncedAt = state.LastSuccessAt
+		item.CollectedAt = state.LastSuccessAt
 		item.NextSyncAt = state.NextSyncAt
 		item.Stale = analyticsStateStale(state, now)
 		item.Metrics, item.MetricMetadata = decodeAnalyticsMetrics(
@@ -512,6 +553,8 @@ func buildContentOverview(
 			platform.AnalyticsMetricSubjectContent,
 			state.Platform,
 		)
+		item.Measurements = contentMeasurements(item.Metrics, item.MetricMetadata, item.CollectedAt)
+		item.MetricAvailability = metricAvailability(item.Status, len(item.Measurements))
 	}
 	return item
 }
@@ -581,16 +624,9 @@ func buildPublicationOverviews(content []ContentOverview) []PublicationOverview 
 type overviewCursor struct {
 	Offset    int    `json:"offset"`
 	AccountID string `json:"account_id"`
+	Source    string `json:"source"`
 	Sort      string `json:"sort"`
 	Days      int    `json:"days"`
-}
-
-func flattenPublicationContent(publications []PublicationOverview) []ContentOverview {
-	var content []ContentOverview
-	for _, publication := range publications {
-		content = append(content, publication.Renditions...)
-	}
-	return content
 }
 
 func combinedFollowerSeries(accounts []AccountOverview) []SeriesPoint {

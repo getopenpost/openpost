@@ -586,7 +586,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get stored account and publication analytics */
+        /** Get stored whole-account content analytics */
         get: operations["get-analytics-overview"];
         put?: never;
         post?: never;
@@ -4560,6 +4560,27 @@ export interface components {
             /** Format: int64 */
             workspaces: number;
         };
+        AccountDiscoveryCoverage: {
+            account_id: string;
+            /** Format: date-time */
+            backfill_watermark?: string;
+            description?: string;
+            failure_code?: string;
+            failure_message?: string;
+            /** Format: date-time */
+            initial_completed_at?: string;
+            /** Format: int64 */
+            initial_items_discovered: number;
+            /** Format: date-time */
+            last_attempted_at?: string;
+            /** Format: date-time */
+            last_success_at?: string;
+            /** Format: date-time */
+            next_eligible_at?: string;
+            platform: string;
+            /** @enum {string} */
+            status: "complete" | "partial" | "permission_required" | "rate_limited" | "cost_limited" | "unsupported" | "failed";
+        };
         AccountExport: {
             /**
              * Format: uri
@@ -5801,8 +5822,20 @@ export interface components {
             description: components["schemas"]["TextConstraint"];
             title: components["schemas"]["TextConstraint"];
         };
+        ContentMeasurement: {
+            /** @enum {string} */
+            availability: "available";
+            /** Format: date-time */
+            collected_at: string;
+            metadata: components["schemas"]["AnalyticsMetricMetadata"];
+            /** Format: int64 */
+            value: number;
+        };
         ContentOverview: {
             account_id: string;
+            /** Format: date-time */
+            collected_at?: string;
+            content_profile: string;
             /** Format: int64 */
             engagement: number;
             error_code?: string;
@@ -5811,6 +5844,11 @@ export interface components {
             external_url?: string;
             /** Format: date-time */
             last_synced_at?: string;
+            measurements: {
+                [key: string]: components["schemas"]["ContentMeasurement"];
+            };
+            /** @enum {string} */
+            metric_availability: "available" | "pending" | "unavailable";
             metric_metadata: {
                 [key: string]: components["schemas"]["AnalyticsMetricMetadata"];
             };
@@ -5820,14 +5858,24 @@ export interface components {
             /** Format: date-time */
             next_sync_at?: string;
             platform: string;
-            publication_id: string;
+            publication_id?: string;
             /** Format: date-time */
             published_at: string;
-            rendition_id: string;
+            reference: components["schemas"]["ContentReference"];
+            rendition_id?: string;
+            /** @enum {string} */
+            source: "openpost" | "external";
             stale: boolean;
             status: string;
             title: string;
             username: string;
+        };
+        ContentReference: {
+            account_content_id?: string;
+            publication_id?: string;
+            rendition_id?: string;
+            /** @enum {string} */
+            type: "openpost" | "external";
         };
         Conversation: {
             /** Format: date-time */
@@ -9167,10 +9215,14 @@ export interface components {
              * @example https://example.com/schemas/Overview.json
              */
             readonly $schema?: string;
+            /** @enum {string} */
+            account_growth_scope: "account_wide";
             accounts: components["schemas"]["AccountOverview"][] | null;
             content: components["schemas"]["ContentOverview"][] | null;
+            content_next_cursor?: string;
             /** Format: int64 */
             content_total: number;
+            coverage: components["schemas"]["AccountDiscoveryCoverage"][] | null;
             follower_series: components["schemas"]["SeriesPoint"][] | null;
             /** Format: date-time */
             generated_at: string;
@@ -9182,6 +9234,8 @@ export interface components {
             publications: components["schemas"]["PublicationOverview"][] | null;
             /** Format: int64 */
             range_days: number;
+            /** @enum {string} */
+            source: "all" | "openpost" | "external";
             summary: components["schemas"]["Summary"];
             trends: components["schemas"]["TrendSeries"];
         };
@@ -11340,6 +11394,8 @@ export interface components {
         };
         Summary: {
             engagement: components["schemas"]["MetricSummary"];
+            /** @enum {string} */
+            follower_scope: "account_wide";
             followers: components["schemas"]["MetricSummary"];
             impressions: components["schemas"]["MetricSummary"];
             /** Format: int64 */
@@ -14303,13 +14359,15 @@ export interface operations {
                 workspace_id: string;
                 /** @description Reporting window in days (7, 30, or 90) */
                 days?: number;
-                /** @description Optional social account ID used to filter results and totals */
+                /** @description Optional social account ID used to filter results and content totals */
                 account_id?: string;
+                /** @description Content source filter; account growth remains account-wide */
+                source?: "all" | "openpost" | "external";
                 /** @description Stored result ordering */
                 sort?: "engagement" | "views" | "newest";
-                /** @description Opaque publication-page cursor */
+                /** @description Opaque source-bound content cursor */
                 cursor?: string;
-                /** @description Publication results per page */
+                /** @description Content results per page */
                 limit?: number;
             };
             header?: never;

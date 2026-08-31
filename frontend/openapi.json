@@ -1509,10 +1509,11 @@
 						"type": "string"
 					},
 					"operation": {
-						"enum": ["publish_immediate", "publish_scheduled"],
+						"enum": ["discover", "analytics", "publish_immediate", "publish_scheduled"],
 						"type": "string"
 					},
 					"output_profile": {
+						"description": "Required for publishing certification; omitted for account discovery and analytics",
 						"type": "string"
 					},
 					"policy_mode": {
@@ -1538,7 +1539,6 @@
 					"approval_review_id",
 					"workspace_id",
 					"social_account_id",
-					"output_profile",
 					"operation",
 					"kind",
 					"tested_at",
@@ -4683,6 +4683,9 @@
 					"advertisable": {
 						"type": "boolean"
 					},
+					"analytics_ready": {
+						"type": "boolean"
+					},
 					"blockers": {
 						"items": {
 							"$ref": "#/components/schemas/Blocker"
@@ -4694,6 +4697,9 @@
 					},
 					"contract_digest": {
 						"type": "string"
+					},
+					"discoverable": {
+						"type": "boolean"
 					},
 					"executable": {
 						"type": "boolean"
@@ -4708,7 +4714,16 @@
 						"type": "string"
 					}
 				},
-				"required": ["state", "executable", "connectable", "publishable", "advertisable", "facts"],
+				"required": [
+					"state",
+					"executable",
+					"connectable",
+					"publishable",
+					"discoverable",
+					"analytics_ready",
+					"advertisable",
+					"facts"
+				],
 				"type": "object"
 			},
 			"Definition": {
@@ -12302,9 +12317,31 @@
 				"required": ["platform", "display_name", "auth_mode", "configured", "readiness"],
 				"type": "object"
 			},
+			"ProviderReadinessAccountRead": {
+				"additionalProperties": false,
+				"properties": {
+					"analytics": {
+						"$ref": "#/components/schemas/Decision"
+					},
+					"discovery": {
+						"$ref": "#/components/schemas/Decision"
+					},
+					"social_account_id": {
+						"type": "string"
+					}
+				},
+				"required": ["social_account_id", "discovery", "analytics"],
+				"type": "object"
+			},
 			"ProviderReadinessItem": {
 				"additionalProperties": false,
 				"properties": {
+					"account_reads": {
+						"items": {
+							"$ref": "#/components/schemas/ProviderReadinessAccountRead"
+						},
+						"type": ["array", "null"]
+					},
 					"advertisable": {
 						"type": "boolean"
 					},

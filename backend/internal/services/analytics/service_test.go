@@ -268,11 +268,13 @@ func (f *fakeExternalAnalyticsAdapter) FetchContentAnalytics(_ context.Context, 
 
 type fakeAnalyticsAdapter struct {
 	platform.Adapter
-	support    platform.AnalyticsSupport
-	account    platform.AnalyticsValues
-	content    platform.AnalyticsValues
-	accountErr error
-	contentErr error
+	support      platform.AnalyticsSupport
+	account      platform.AnalyticsValues
+	content      platform.AnalyticsValues
+	accountErr   error
+	contentErr   error
+	accountCalls int
+	contentCalls int
 }
 
 type fakeSemanticAnalyticsAdapter struct {
@@ -294,10 +296,12 @@ func (f *fakeAnalyticsAdapter) AnalyticsSupport() platform.AnalyticsSupport {
 }
 
 func (f *fakeAnalyticsAdapter) FetchAccountAnalytics(context.Context, string, platform.AccountAnalyticsRequest) (platform.AnalyticsValues, error) {
+	f.accountCalls++
 	return f.account, f.accountErr
 }
 
 func (f *fakeAnalyticsAdapter) FetchContentAnalytics(context.Context, string, platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
+	f.contentCalls++
 	return f.content, f.contentErr
 }
 
@@ -322,6 +326,38 @@ func TestYouTubeLifetimeAndReportingMetricsAreIncompatibleForAggregation(t *test
 	compatible := compatibleContentValues(values, metadata)
 	require.Equal(t, platform.AnalyticsValues{platform.MetricViews: 900}, compatible)
 	require.NotContains(t, compatible, platform.MetricReportViews)
+}
+
+func TestPinterestAnalyticsReadinessFailsClosedBeforeProviderCallAndPreservesHistory(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "pins:read user_accounts:read")
+	account.Platform = "pinterest"
+	_, err := db.NewUpdate().Model(&account).Column("platform", "granted_scopes").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
+	existing := &models.AnalyticsSyncState{
+		ID: stateID(subjectAccount, account.ID), WorkspaceID: account.WorkspaceID,
+		SubjectType: subjectAccount, SubjectID: account.ID, SocialAccountID: account.ID, Platform: account.Platform,
+		Status: string(platform.AnalyticsStatusOK), MetricsJSON: `{"impressions":42}`,
+		MetricMetadataJSON: `{}`, LastSuccessAt: now.Add(-time.Hour), CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	_, err = db.NewInsert().Model(existing).Exec(t.Context())
+	require.NoError(t, err)
+	adapter := &fakeAnalyticsAdapter{
+		support: platform.AnalyticsSupport{Account: true, AccountRequiredScopes: []string{"pins:read", "user_accounts:read"}},
+		account: platform.AnalyticsValues{platform.MetricImpressions: 99},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("pinterest", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.now = func() time.Time { return now }
+
+	require.NoError(t, service.syncAccount(t.Context(), account.ID))
+	require.Zero(t, adapter.accountCalls, "readiness must be checked before the Pinterest provider call")
+	state, err := service.loadState(t.Context(), subjectAccount, account.ID)
+	require.NoError(t, err)
+	require.Equal(t, "provider_readiness_blocked", state.ErrorCode)
+	require.JSONEq(t, `{"impressions":42}`, state.MetricsJSON, "blocking stale or missing certification must not delete stored history")
 }
 
 func TestSemanticMeasurementsRoundTripAndIncompatibleMetricsDoNotAggregate(t *testing.T) {

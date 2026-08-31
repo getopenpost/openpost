@@ -60,8 +60,8 @@ type AppendProviderCertificationInput struct {
 		ApprovalReviewID string                          `json:"approval_review_id" required:"true"`
 		WorkspaceID      string                          `json:"workspace_id" required:"true"`
 		SocialAccountID  string                          `json:"social_account_id" required:"true"`
-		OutputProfile    string                          `json:"output_profile" required:"true"`
-		Operation        providerreadiness.Operation     `json:"operation" enum:"publish_immediate,publish_scheduled"`
+		OutputProfile    string                          `json:"output_profile,omitempty" doc:"Required for publishing certification; omitted for account discovery and analytics"`
+		Operation        providerreadiness.Operation     `json:"operation" enum:"discover,analytics,publish_immediate,publish_scheduled"`
 		PolicySettings   map[string]any                  `json:"policy_settings,omitempty"`
 		PolicyMode       string                          `json:"policy_mode,omitempty" doc:"Optional asserted normalized policy mode; the server derives and verifies it"`
 		Kind             providerreadiness.EvidenceKind  `json:"kind" enum:"local,live"`

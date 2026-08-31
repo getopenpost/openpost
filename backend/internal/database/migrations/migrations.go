@@ -389,6 +389,7 @@ func repairAppliedSchema(ctx context.Context, db *bun.DB, appliedSet map[int64]b
 	return nil
 }
 
+//nolint:gocyclo // Version dispatch intentionally keeps migration preparation in one auditable boundary.
 func prepareMigration(ctx context.Context, db *bun.DB, migration migration) error {
 	var (
 		err         error
@@ -433,6 +434,9 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 	case 111:
 		description = "workspace invitation delivery"
 		err = ensureWorkspaceInvitationsTable(ctx, db)
+	case 122:
+		description = "Pinterest readiness operations"
+		err = extendProviderReadinessOperations(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
@@ -1141,6 +1145,121 @@ func ensurePublicationAuthorizationSchema(ctx context.Context, db *bun.DB) error
 		}
 	}
 	return nil
+}
+
+func extendProviderReadinessOperations(ctx context.Context, db *bun.DB) error {
+	switch db.Dialect().Name() {
+	case dialect.SQLite:
+		return extendSQLiteProviderReadinessOperations(ctx, db)
+	case dialect.PG:
+		statements := []string{
+			`ALTER TABLE provider_certification_runs DROP CONSTRAINT IF EXISTS provider_certification_runs_operation_check`,
+			`ALTER TABLE provider_certification_runs ADD CONSTRAINT provider_certification_runs_operation_check CHECK (operation IN ('connect', 'discover', 'analytics', 'publish_immediate', 'publish_scheduled', 'refresh', 'revoke'))`,
+			`ALTER TABLE provider_certification_checks DROP CONSTRAINT IF EXISTS provider_certification_checks_kind_check`,
+			`ALTER TABLE provider_certification_checks ADD CONSTRAINT provider_certification_checks_kind_check CHECK (kind IN ('connect', 'authorization', 'discovery', 'analytics', 'publish_immediate', 'publish_scheduled', 'final_result', 'refresh', 'revoke'))`,
+			`ALTER TABLE provider_runtime_control_events DROP CONSTRAINT IF EXISTS provider_runtime_control_events_operation_check`,
+			`ALTER TABLE provider_runtime_control_events ADD CONSTRAINT provider_runtime_control_events_operation_check CHECK (operation IN ('', 'connect', 'discover', 'analytics', 'publish_immediate', 'publish_scheduled', 'refresh', 'revoke'))`,
+		}
+		for _, statement := range statements {
+			if _, err := db.ExecContext(ctx, statement); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return fmt.Errorf("unsupported database dialect %s", db.Dialect().Name())
+	}
+}
+
+func extendSQLiteProviderReadinessOperations(ctx context.Context, db *bun.DB) error {
+	if _, err := db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+		return err
+	}
+	defer func() { _, _ = db.ExecContext(context.Background(), `PRAGMA foreign_keys = ON`) }()
+	return db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		for _, table := range []string{"provider_certification_runs", "provider_certification_checks", "provider_runtime_control_events"} {
+			for _, operation := range []string{"update", "delete"} {
+				if _, err := tx.ExecContext(txCtx, "DROP TRIGGER IF EXISTS "+table+"_append_only_"+operation); err != nil {
+					return err
+				}
+			}
+		}
+		statements := []string{
+			`ALTER TABLE provider_certification_checks RENAME TO provider_certification_checks_120`,
+			`ALTER TABLE provider_certification_runs RENAME TO provider_certification_runs_120`,
+			`ALTER TABLE provider_runtime_control_events RENAME TO provider_runtime_control_events_120`,
+			`CREATE TABLE provider_certification_runs (
+				id TEXT PRIMARY KEY, approval_review_id TEXT NOT NULL, evidence_kind TEXT NOT NULL,
+				subject_digest TEXT NOT NULL, provider TEXT NOT NULL, app_fingerprint TEXT NOT NULL,
+				deployment_environment TEXT NOT NULL, provider_environment TEXT NOT NULL,
+				instance_fingerprint TEXT NOT NULL DEFAULT '', account_kind TEXT NOT NULL DEFAULT '',
+				account_reference_hash TEXT NOT NULL DEFAULT '', output_profile TEXT NOT NULL DEFAULT '',
+				operation TEXT NOT NULL, policy_mode TEXT NOT NULL, tested_revision TEXT NOT NULL,
+				contract_digest TEXT NOT NULL, approval_state_at_test TEXT NOT NULL, approval_tier_at_test TEXT NOT NULL,
+				required_scopes_json TEXT NOT NULL, granted_scopes_json TEXT NOT NULL, operator_ref TEXT NOT NULL,
+				tested_at DATETIME NOT NULL, expires_at DATETIME NOT NULL, created_at DATETIME NOT NULL DEFAULT current_timestamp,
+				FOREIGN KEY (approval_review_id, provider, app_fingerprint, provider_environment, instance_fingerprint, approval_state_at_test, approval_tier_at_test)
+					REFERENCES provider_approval_reviews (id, provider, app_fingerprint, provider_environment, instance_fingerprint, approval_state, approval_tier),
+				CHECK (evidence_kind IN ('local', 'live')), CHECK (subject_digest LIKE 'sha256:%'), CHECK (provider <> ''),
+				CHECK (app_fingerprint LIKE 'sha256:%'), CHECK (deployment_environment IN ('local', 'staging', 'production')),
+				CHECK (provider_environment IN ('development', 'sandbox', 'production')),
+				CHECK (instance_fingerprint = '' OR instance_fingerprint LIKE 'sha256:%'),
+				CHECK (account_reference_hash = '' OR account_reference_hash LIKE 'sha256:%'),
+				CHECK (evidence_kind <> 'live' OR account_reference_hash LIKE 'sha256:%'),
+				CHECK (operation IN ('connect', 'discover', 'analytics', 'publish_immediate', 'publish_scheduled', 'refresh', 'revoke')),
+				CHECK (policy_mode <> ''), CHECK (length(tested_revision) = 40), CHECK (contract_digest LIKE 'sha256:%'),
+				CHECK (approval_state_at_test IN ('unknown', 'not_required', 'pending', 'trial', 'approved', 'restricted', 'revoked')),
+				CHECK (approval_tier_at_test <> ''), CHECK (required_scopes_json LIKE '[%'), CHECK (granted_scopes_json LIKE '[%'),
+				CHECK (operator_ref <> ''), CHECK (expires_at > tested_at)
+			)`,
+			`INSERT INTO provider_certification_runs SELECT * FROM provider_certification_runs_120`,
+			`CREATE TABLE provider_certification_checks (
+				id TEXT PRIMARY KEY, certification_run_id TEXT NOT NULL, kind TEXT NOT NULL, outcome TEXT NOT NULL,
+				error_class TEXT NOT NULL DEFAULT '', not_applicable_reason TEXT NOT NULL DEFAULT '',
+				external_reference_hash TEXT NOT NULL DEFAULT '', completed_at DATETIME NOT NULL,
+				created_at DATETIME NOT NULL DEFAULT current_timestamp,
+				FOREIGN KEY (certification_run_id) REFERENCES provider_certification_runs(id), UNIQUE (certification_run_id, kind),
+				CHECK (kind IN ('connect', 'authorization', 'discovery', 'analytics', 'publish_immediate', 'publish_scheduled', 'final_result', 'refresh', 'revoke')),
+				CHECK (outcome IN ('passed', 'failed', 'not_applicable')),
+				CHECK (external_reference_hash = '' OR external_reference_hash LIKE 'sha256:%'),
+				CHECK (outcome <> 'passed' OR kind NOT IN ('publish_immediate', 'publish_scheduled', 'final_result') OR external_reference_hash LIKE 'sha256:%'),
+				CHECK ((outcome = 'passed' AND error_class = '' AND not_applicable_reason = '') OR
+					(outcome = 'failed' AND error_class <> '' AND not_applicable_reason = '') OR
+					(outcome = 'not_applicable' AND error_class = '' AND not_applicable_reason <> ''))
+			)`,
+			`INSERT INTO provider_certification_checks SELECT * FROM provider_certification_checks_120`,
+			`CREATE TABLE provider_runtime_control_events (
+				id TEXT PRIMARY KEY, provider TEXT NOT NULL, app_fingerprint TEXT NOT NULL DEFAULT '',
+				deployment_environment TEXT NOT NULL DEFAULT '', provider_environment TEXT NOT NULL DEFAULT '',
+				instance_fingerprint TEXT NOT NULL DEFAULT '', account_kind TEXT NOT NULL DEFAULT '', output_profile TEXT NOT NULL DEFAULT '',
+				operation TEXT NOT NULL DEFAULT '', policy_mode TEXT NOT NULL DEFAULT '', state TEXT NOT NULL, reason_code TEXT NOT NULL,
+				starts_at DATETIME NOT NULL, expires_at DATETIME, operator_ref TEXT NOT NULL, created_at DATETIME NOT NULL DEFAULT current_timestamp,
+				CHECK (provider <> ''), CHECK (app_fingerprint = '' OR app_fingerprint LIKE 'sha256:%'),
+				CHECK (deployment_environment IN ('', 'local', 'staging', 'production')),
+				CHECK (provider_environment IN ('', 'development', 'sandbox', 'production')),
+				CHECK (instance_fingerprint = '' OR instance_fingerprint LIKE 'sha256:%'),
+				CHECK (operation IN ('', 'connect', 'discover', 'analytics', 'publish_immediate', 'publish_scheduled', 'refresh', 'revoke')),
+				CHECK (state IN ('enabled', 'degraded', 'disabled')), CHECK (reason_code <> ''),
+				CHECK (expires_at IS NULL OR expires_at > starts_at), CHECK (operator_ref <> '')
+			)`,
+			`INSERT INTO provider_runtime_control_events SELECT * FROM provider_runtime_control_events_120`,
+			`DROP TABLE provider_certification_checks_120`,
+			`DROP TABLE provider_certification_runs_120`,
+			`DROP TABLE provider_runtime_control_events_120`,
+			`CREATE INDEX provider_certification_runs_subject_idx ON provider_certification_runs (provider, app_fingerprint, deployment_environment, provider_environment, instance_fingerprint, account_kind, output_profile, operation, policy_mode, evidence_kind, tested_at, created_at)`,
+			`CREATE INDEX provider_certification_runs_live_account_idx ON provider_certification_runs (provider, app_fingerprint, deployment_environment, provider_environment, instance_fingerprint, account_kind, output_profile, operation, policy_mode, evidence_kind, account_reference_hash, tested_at, created_at)`,
+			`CREATE INDEX provider_certification_runs_contract_idx ON provider_certification_runs (contract_digest, expires_at)`,
+			`CREATE INDEX provider_certification_runs_approval_idx ON provider_certification_runs (approval_review_id)`,
+			`CREATE INDEX provider_certification_checks_run_idx ON provider_certification_checks (certification_run_id, kind)`,
+			`CREATE INDEX provider_runtime_control_events_match_idx ON provider_runtime_control_events (provider, starts_at, created_at, app_fingerprint, deployment_environment, provider_environment, operation)`,
+		}
+		for _, statement := range statements {
+			if _, err := tx.ExecContext(txCtx, statement); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 var providerReadinessLedgerTables = []string{

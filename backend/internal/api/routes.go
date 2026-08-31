@@ -408,6 +408,7 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 	// Inject shared feature resolver into every feature service and handler. Avoid duplicating support/scope/plan rules.
 	if deps.AnalyticsService != nil {
 		deps.AnalyticsService.SetFeatureGate(afhService)
+		deps.AnalyticsService.SetProviderReadiness(deps.ProviderReadinessService)
 	}
 	if deps.MessagingService != nil {
 		deps.MessagingService.SetFeatureGate(afhService)

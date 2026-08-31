@@ -38,6 +38,37 @@ func (f *fakeBatchAccountContentDiscoverer) FetchAccountContentBatchMeasurements
 	return f.measure(ctx, token, request)
 }
 
+func TestPinterestDiscoveryReadinessFailsClosedWithoutCreatingPublications(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "pins:read")
+	account.Platform = "pinterest"
+	_, err := db.NewUpdate().Model(&account).Column("platform", "granted_scopes").WherePK().Exec(t.Context())
+	require.NoError(t, err)
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	calls := 0
+	adapter := &fakeAccountContentDiscoverer{
+		support: platform.AccountContentDiscoverySupport{Supported: true, RequiredScopes: []string{"pins:read"}},
+		discover: func(context.Context, string, platform.AccountContentDiscoveryRequest) (platform.AccountContentPage, error) {
+			calls++
+			return platform.AccountContentPage{}, nil
+		},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider("pinterest", adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.now = func() time.Time { return now }
+	created, err := service.ReconsiderAccountContentDiscovery(t.Context(), account.ID)
+	require.NoError(t, err)
+	require.False(t, created)
+	require.Zero(t, calls, "readiness must be checked before the Pinterest provider call")
+	var state models.AccountContentDiscoveryState
+	require.NoError(t, db.NewSelect().Model(&state).Where("social_account_id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, "provider_readiness_blocked", state.FailureCode)
+	publicationCount, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Zero(t, publicationCount)
+}
+
 func TestDiscoveryLinksExactRenditionOnceAndKeepsExternalUploadsPublicationFree(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "content.read")

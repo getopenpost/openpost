@@ -47,6 +47,8 @@ type Operation string
 
 const (
 	OperationConnect          Operation = "connect"
+	OperationDiscover         Operation = "discover"
+	OperationAnalytics        Operation = "analytics"
 	OperationPublishImmediate Operation = "publish_immediate"
 	OperationPublishScheduled Operation = "publish_scheduled"
 	OperationRefresh          Operation = "refresh"
@@ -55,6 +57,10 @@ const (
 
 func (o Operation) IsPublish() bool {
 	return o == OperationPublishImmediate || o == OperationPublishScheduled
+}
+
+func (o Operation) IsAccountRead() bool {
+	return o == OperationDiscover || o == OperationAnalytics
 }
 
 type ExecutionIntent string
@@ -124,6 +130,8 @@ type CheckKind string
 const (
 	CheckConnect          CheckKind = "connect"
 	CheckAuthorization    CheckKind = "authorization"
+	CheckDiscovery        CheckKind = "discovery"
+	CheckAnalytics        CheckKind = "analytics"
 	CheckPublishImmediate CheckKind = "publish_immediate"
 	CheckPublishScheduled CheckKind = "publish_scheduled"
 	CheckFinalResult      CheckKind = "final_result"
@@ -380,6 +388,8 @@ type Decision struct {
 	Executable     bool           `json:"executable"`
 	Connectable    bool           `json:"connectable"`
 	Publishable    bool           `json:"publishable"`
+	Discoverable   bool           `json:"discoverable"`
+	AnalyticsReady bool           `json:"analytics_ready"`
 	Advertisable   bool           `json:"advertisable"`
 	Facts          Facts          `json:"facts"`
 	Blockers       []Blocker      `json:"blockers,omitempty"`

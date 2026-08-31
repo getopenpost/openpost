@@ -126,6 +126,39 @@ func TestPinterestManagedContractsRequireCurrentStandardApprovalAndOrganicScopes
 	}
 }
 
+func TestPinterestReadContractsSeparateDiscoveryAnalyticsAndPublishingEvidence(t *testing.T) {
+	t.Parallel()
+
+	discovery, err := AccountReadContract(capabilities.ProviderPinterest, OperationDiscover, true, "standard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	analytics, err := AccountReadContract(capabilities.ProviderPinterest, OperationAnalytics, true, "standard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	capability, ok := capabilities.Find(capabilities.ProviderPinterest, models.ContentProfileImagePost)
+	if !ok {
+		t.Fatal("Pinterest image capability is missing")
+	}
+	publishing, err := PublicationContract(capability, OperationPublishImmediate, true, "standard", "pinterest.unspecified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	discoveryDigest, _ := discovery.Digest()
+	analyticsDigest, _ := analytics.Digest()
+	publishingDigest, _ := publishing.Digest()
+	if discoveryDigest == analyticsDigest || discoveryDigest == publishingDigest || analyticsDigest == publishingDigest {
+		t.Fatalf("Pinterest readiness operations share certification evidence: discover=%q analytics=%q publish=%q", discoveryDigest, analyticsDigest, publishingDigest)
+	}
+	if !slices.Equal(discovery.Requirements.RequiredScopes, []string{"pins:read"}) {
+		t.Fatalf("discovery scopes = %#v", discovery.Requirements.RequiredScopes)
+	}
+	if !slices.Equal(analytics.Requirements.RequiredScopes, []string{"pins:read", "user_accounts:read"}) {
+		t.Fatalf("analytics scopes = %#v", analytics.Requirements.RequiredScopes)
+	}
+}
+
 func TestDiscordBotAccountUsesBotConfigurationWithoutPersistedInstanceURL(t *testing.T) {
 	t.Parallel()
 	account := models.SocialAccount{

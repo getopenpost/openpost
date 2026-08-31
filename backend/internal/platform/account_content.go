@@ -131,6 +131,8 @@ type AccountContentBatchMeasurementRequest struct {
 	GrantedScopes      []string
 	CapabilityState    map[string]string
 	ProviderContentIDs []string
+	PeriodStart        time.Time
+	PeriodEnd          time.Time
 }
 
 // AccountContentBatchMeasurements is keyed by stable provider content ID. A

@@ -29,6 +29,9 @@ const (
 	pinterestMediaPollMaxDelay           = 16 * time.Second
 	pinterestPinReconcileDelay           = 30 * time.Second
 	pinterestPinReferencePrefix          = "pin1:"
+	pinterestDiscoveryPageSize           = 1
+	pinterestAnalyticsMaxWindow          = 90 * 24 * time.Hour
+	pinterestAnalyticsSource             = "pinterest_analytics_api"
 )
 
 var pinterestProviderID = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
@@ -178,6 +181,224 @@ func (p *PinterestAdapter) GetProfile(ctx context.Context, accessToken string) (
 			"pinterest_account_type": account.AccountType,
 		},
 	}, nil
+}
+
+func (p *PinterestAdapter) AnalyticsSupport() AnalyticsSupport {
+	return AnalyticsSupport{
+		Account: true, Content: true,
+		AccountRequiredScopes: []string{"pins:read", "user_accounts:read"},
+		ContentRequiredScopes: []string{"pins:read", "user_accounts:read"},
+	}
+}
+
+func (p *PinterestAdapter) FetchAccountAnalytics(ctx context.Context, accessToken string, input AccountAnalyticsRequest) (AnalyticsValues, error) {
+	measurements, err := p.FetchAccountAnalyticsMeasurements(ctx, accessToken, input)
+	if err != nil {
+		return nil, err
+	}
+	values, _, err := measurements.ValuesAndMetadata(pinterestAnalyticsSource)
+	return values, err
+}
+
+func (p *PinterestAdapter) FetchContentAnalytics(ctx context.Context, accessToken string, input ContentAnalyticsRequest) (AnalyticsValues, error) {
+	measurements, err := p.FetchContentAnalyticsMeasurements(ctx, accessToken, input)
+	if err != nil {
+		return nil, err
+	}
+	values, _, err := measurements.ValuesAndMetadata(pinterestAnalyticsSource)
+	return values, err
+}
+
+func (p *PinterestAdapter) FetchAccountAnalyticsMeasurements(ctx context.Context, accessToken string, input AccountAnalyticsRequest) (AnalyticsMeasurements, error) {
+	return p.fetchPinterestAnalytics(ctx, accessToken, pinterestAPIBaseURL+"/user_account/analytics", input.ReportingPeriodStart, input.ReportingPeriodEnd)
+}
+
+func (p *PinterestAdapter) FetchContentAnalyticsMeasurements(ctx context.Context, accessToken string, input ContentAnalyticsRequest) (AnalyticsMeasurements, error) {
+	ids := uniqueNonEmpty(input.ExternalIDs)
+	if len(ids) == 0 {
+		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "missing_external_id")
+	}
+	combined := AnalyticsMeasurements{}
+	measuredPins := 0
+	for _, id := range ids {
+		if !pinterestProviderID.MatchString(id) {
+			continue
+		}
+		measurements, err := p.fetchPinterestAnalytics(
+			ctx, accessToken, pinterestAPIBaseURL+"/pins/"+url.PathEscape(id)+"/analytics", input.ReportingPeriodStart, input.ReportingPeriodEnd,
+		)
+		if err != nil {
+			return nil, err
+		}
+		addPinterestMeasurements(combined, measurements, measuredPins == 0)
+		measuredPins++
+	}
+	if measuredPins == 0 || len(combined) == 0 {
+		return nil, NewAnalyticsError(AnalyticsStatusNotFound, "pin_not_found")
+	}
+	derivePinterestClickRate(combined)
+	return combined, nil
+}
+
+var pinterestAnalyticsMetricTypes = []string{
+	"IMPRESSION", "ENGAGEMENT", "SAVE", "PIN_CLICK", "OUTBOUND_CLICK", "VIDEO_MRC_VIEW",
+}
+
+var pinterestMetricNames = map[string]string{
+	"IMPRESSION":     MetricImpressions,
+	"ENGAGEMENT":     MetricEngagements,
+	"SAVE":           MetricSaves,
+	"PIN_CLICK":      MetricPinClicks,
+	"OUTBOUND_CLICK": MetricOutboundClicks,
+	"VIDEO_MRC_VIEW": MetricVideoViews,
+}
+
+type pinterestAnalyticsGroup struct {
+	DailyMetrics []struct {
+		Metrics map[string]json.Number `json:"metrics"`
+	} `json:"daily_metrics"`
+	SummaryMetrics map[string]json.Number `json:"summary_metrics"`
+}
+
+func (p *PinterestAdapter) fetchPinterestAnalytics(
+	ctx context.Context,
+	accessToken, endpoint string,
+	periodStart, periodEnd time.Time,
+) (AnalyticsMeasurements, error) {
+	start, end, err := pinterestAnalyticsWindow(periodStart, periodEnd)
+	if err != nil {
+		return nil, err
+	}
+	query := url.Values{
+		"start_date":   {start.Format(time.DateOnly)},
+		"end_date":     {end.Format(time.DateOnly)},
+		"metric_types": {strings.Join(pinterestAnalyticsMetricTypes, ",")},
+		"split_field":  {"NO_SPLIT"},
+	}
+	body, err := DoRequest(ctx, http.MethodGet, endpoint+"?"+query.Encode(), nil, bearerHeaders(accessToken))
+	if err != nil {
+		return nil, fmt.Errorf("pinterest analytics: %w", err)
+	}
+	var response struct {
+		All pinterestAnalyticsGroup `json:"all"`
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return nil, fmt.Errorf("decoding pinterest analytics: %w", err)
+	}
+	metrics := response.All.SummaryMetrics
+	if len(metrics) == 0 {
+		metrics = sumPinterestDailyMetrics(response.All.DailyMetrics)
+	}
+	measurements := pinterestAnalyticsMeasurements(metrics, start, end)
+	derivePinterestClickRate(measurements)
+	return measurements, nil
+}
+
+func pinterestAnalyticsWindow(start, end time.Time) (time.Time, time.Time, error) {
+	start, end = start.UTC(), end.UTC()
+	if start.IsZero() || end.IsZero() || !start.Before(end) {
+		return time.Time{}, time.Time{}, NewAnalyticsError(AnalyticsStatusFailed, "invalid_reporting_window")
+	}
+	if end.Sub(start) > pinterestAnalyticsMaxWindow {
+		return time.Time{}, time.Time{}, NewAnalyticsError(AnalyticsStatusFailed, "reporting_window_too_large")
+	}
+	return start, end, nil
+}
+
+func sumPinterestDailyMetrics(days []struct {
+	Metrics map[string]json.Number `json:"metrics"`
+}) map[string]json.Number {
+	totals := map[string]json.Number{}
+	values := map[string]float64{}
+	measuredDays := map[string]int{}
+	for _, day := range days {
+		for providerMetric := range pinterestMetricNames {
+			raw, present := day.Metrics[providerMetric]
+			if !present {
+				continue
+			}
+			value, err := raw.Float64()
+			if err != nil || value < 0 {
+				continue
+			}
+			values[providerMetric] += value
+			measuredDays[providerMetric]++
+		}
+	}
+	for metric, value := range values {
+		if measuredDays[metric] != len(days) {
+			continue
+		}
+		totals[metric] = json.Number(strconv.FormatFloat(value, 'f', -1, 64))
+	}
+	return totals
+}
+
+func pinterestAnalyticsMeasurements(metrics map[string]json.Number, start, end time.Time) AnalyticsMeasurements {
+	measurements := AnalyticsMeasurements{}
+	for providerMetric, metric := range pinterestMetricNames {
+		raw, present := metrics[providerMetric]
+		if !present {
+			continue
+		}
+		value, err := raw.Float64()
+		if err != nil || value < 0 {
+			continue
+		}
+		measurements[metric] = AnalyticsMeasurement{
+			Value: int64(value + 0.5),
+			AnalyticsMetricMetadata: AnalyticsMetricMetadata{
+				Unit: AnalyticsMetricUnitCount, Aggregation: AnalyticsMetricAggregationReportingPeriodTotal,
+				Source: pinterestAnalyticsSource, PeriodStart: &start, PeriodEnd: &end,
+			},
+		}
+	}
+	return measurements
+}
+
+func addPinterestMeasurements(target, values AnalyticsMeasurements, first bool) {
+	if !first {
+		for metric := range target {
+			if metric == MetricClickRate {
+				delete(target, metric)
+				continue
+			}
+			if _, measured := values[metric]; !measured {
+				delete(target, metric)
+			}
+		}
+	}
+	for metric, measurement := range values {
+		if metric == MetricClickRate {
+			continue
+		}
+		if current, present := target[metric]; present {
+			current.Value += measurement.Value
+			target[metric] = current
+		} else if first {
+			target[metric] = measurement
+		}
+	}
+}
+
+func derivePinterestClickRate(measurements AnalyticsMeasurements) {
+	clicks, clicksPresent := measurements[MetricPinClicks]
+	impressions, impressionsPresent := measurements[MetricImpressions]
+	if !clicksPresent || !impressionsPresent || impressions.Value <= 0 ||
+		clicks.Aggregation != impressions.Aggregation || clicks.PeriodStart == nil || impressions.PeriodStart == nil ||
+		clicks.PeriodEnd == nil || impressions.PeriodEnd == nil || !clicks.PeriodStart.Equal(*impressions.PeriodStart) ||
+		!clicks.PeriodEnd.Equal(*impressions.PeriodEnd) {
+		delete(measurements, MetricClickRate)
+		return
+	}
+	start, end := *impressions.PeriodStart, *impressions.PeriodEnd
+	measurements[MetricClickRate] = AnalyticsMeasurement{
+		Value: (clicks.Value*10_000 + impressions.Value/2) / impressions.Value,
+		AnalyticsMetricMetadata: AnalyticsMetricMetadata{
+			Unit: AnalyticsMetricUnitBasisPoints, Aggregation: AnalyticsMetricAggregationReportingPeriodAverage,
+			Source: pinterestAnalyticsSource, PeriodStart: &start, PeriodEnd: &end,
+		},
+	}
 }
 
 func (p *PinterestAdapter) ListDestinationOptions(ctx context.Context, accessToken string, _ DestinationOptionsInput) (map[string][]DestinationOption, error) {
@@ -1076,6 +1297,101 @@ func validatePinterestMedia(media []MediaItem) []MediaValidationIssue {
 		issues = append(issues, MediaValidationIssue{Provider: providerPinterest, Severity: severityError, Message: "Pinterest supports at most five images."})
 	}
 	return issues
+}
+
+func (p *PinterestAdapter) AccountContentDiscoverySupport(AnalyticsAccountContext) AccountContentDiscoverySupport {
+	return AccountContentDiscoverySupport{
+		Supported: true, RequiredScopes: []string{"pins:read"}, MaxPageSize: pinterestDiscoveryPageSize,
+	}
+}
+
+type pinterestPin struct {
+	ID          string `json:"id"`
+	CreatedAt   string `json:"created_at"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Media       struct {
+		MediaType string `json:"media_type"`
+	} `json:"media"`
+}
+
+func (p *PinterestAdapter) DiscoverAccountContent(ctx context.Context, accessToken string, input AccountContentDiscoveryRequest) (AccountContentPage, error) {
+	pageSize := min(max(1, input.PageSize), pinterestDiscoveryPageSize)
+	query := url.Values{"page_size": {strconv.Itoa(pageSize)}, "pin_filter": {"ORGANIC"}}
+	if bookmark := strings.TrimSpace(input.Cursor); bookmark != "" {
+		query.Set("bookmark", bookmark)
+	}
+	response, err := pinterestGetPage[pinterestPin](ctx, accessToken, pinterestAPIBaseURL+"/pins?"+query.Encode(), "Pins")
+	if err != nil {
+		return AccountContentPage{}, err
+	}
+	page := AccountContentPage{Coverage: AccountContentCoverage{
+		Status: AccountContentDiscoveryComplete, Description: "Pins in the requested account history window are complete.",
+	}}
+	reachedLowerBound := false
+	seen := map[string]struct{}{}
+	for _, pin := range response.Items {
+		publishedAt, parseErr := time.Parse(time.RFC3339, strings.TrimSpace(pin.CreatedAt))
+		if parseErr != nil || (!input.PublishedAfter.IsZero() && publishedAt.Before(input.PublishedAfter)) {
+			reachedLowerBound = reachedLowerBound || parseErr == nil
+			continue
+		}
+		if _, duplicate := seen[pin.ID]; duplicate {
+			continue
+		}
+		seen[pin.ID] = struct{}{}
+		item, normalizeErr := NormalizeAccountContentItem(providerPinterest, AccountContentItem{
+			ProviderContentID: pin.ID, ContentProfile: pinterestPinContentProfile(pin.Media.MediaType),
+			Title: pin.Title, Text: pin.Description, ExternalURL: pinterestPinURL(pin.ID), PublishedAt: publishedAt,
+			Origin: AccountContentOriginExternal, OriginConfidence: AccountContentOriginConfidenceExact,
+		})
+		if normalizeErr != nil {
+			continue
+		}
+		page.Items = append(page.Items, item)
+		if page.BackfillWatermark.IsZero() || publishedAt.Before(page.BackfillWatermark) {
+			page.BackfillWatermark = publishedAt
+		}
+	}
+	if reachedLowerBound || response.Bookmark == "" || response.Bookmark == input.Cursor {
+		return page, nil
+	}
+	page.NextCursor = response.Bookmark
+	page.Coverage.Status = AccountContentDiscoveryPartial
+	page.Coverage.Description = "More Pins remain within the requested account history window."
+	return page, nil
+}
+
+func pinterestPinContentProfile(mediaType string) string {
+	switch strings.ToLower(strings.TrimSpace(mediaType)) {
+	case "video":
+		return "short_video"
+	case "multiple_images", "multiple_image", "carousel":
+		return "carousel"
+	default:
+		return "image_post"
+	}
+}
+
+func (p *PinterestAdapter) FetchAccountContentBatchMeasurements(
+	ctx context.Context,
+	accessToken string,
+	input AccountContentBatchMeasurementRequest,
+) (AccountContentBatchMeasurements, error) {
+	result := AccountContentBatchMeasurements{}
+	for _, id := range uniqueNonEmpty(input.ProviderContentIDs) {
+		if !pinterestProviderID.MatchString(id) {
+			continue
+		}
+		measurements, err := p.fetchPinterestAnalytics(
+			ctx, accessToken, pinterestAPIBaseURL+"/pins/"+url.PathEscape(id)+"/analytics", input.PeriodStart, input.PeriodEnd,
+		)
+		if err != nil {
+			return nil, err
+		}
+		result[id] = measurements
+	}
+	return result, nil
 }
 
 type pinterestBoard struct {

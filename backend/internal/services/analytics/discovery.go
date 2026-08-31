@@ -16,6 +16,7 @@ import (
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/organizationguard"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/uptrace/bun"
 )
@@ -133,6 +134,10 @@ func (s *Service) reconsiderAccountContentDiscovery(ctx context.Context, account
 		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryPermissionRequired,
 			"feature_disabled", "Analytics is disabled for this account.", now.Add(routineDiscoveryCadence), now, false)
 	}
+	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationDiscover) {
+		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryPermissionRequired,
+			"provider_readiness_blocked", "Pinterest discovery requires current Standard access and certification.", now.Add(routineDiscoveryCadence), now, false)
+	}
 	if discoverer == nil {
 		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryUnsupported,
 			"discovery_not_supported", "This provider does not expose account content discovery in OpenPost.", now.Add(routineDiscoveryCadence), now, false)
@@ -230,6 +235,10 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 		}
 		return fmt.Errorf("load account content discovery account: %w", err)
 	}
+	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationDiscover) {
+		return s.recordDiscoveryOutcome(ctx, account, nil, platform.AccountContentDiscoveryPermissionRequired,
+			"provider_readiness_blocked", "Pinterest discovery requires current Standard access and certification.", now.Add(routineDiscoveryCadence), now, true)
+	}
 	discoverer := s.accountContentDiscoverer(account)
 	if discoverer == nil {
 		return s.recordDiscoveryOutcome(ctx, account, nil, platform.AccountContentDiscoveryUnsupported,
@@ -313,6 +322,7 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 			measurements, measurementErr := measurer.FetchAccountContentBatchMeasurements(ctx, token, platform.AccountContentBatchMeasurementRequest{
 				AccountID: account.AccountID, GrantedScopes: strings.Fields(account.GrantedScopes),
 				CapabilityState: analyticsCapabilityState(account.CapabilityState), ProviderContentIDs: providerIDs,
+				PeriodStart: state.CyclePublishedAfter, PeriodEnd: now,
 			})
 			if measurementErr != nil {
 				return s.recordDiscoveryProviderError(ctx, account, state, measurementErr, now)

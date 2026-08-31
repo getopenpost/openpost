@@ -44,6 +44,8 @@ func Evaluate(input EvaluationInput) Decision {
 		Executable:     executable,
 		Connectable:    executable && input.Subject.Operation == OperationConnect,
 		Publishable:    executable && input.Subject.Operation.IsPublish(),
+		Discoverable:   executable && input.Subject.Operation == OperationDiscover,
+		AnalyticsReady: executable && input.Subject.Operation == OperationAnalytics,
 		Facts:          facts,
 		Blockers:       blockers,
 	}
@@ -322,7 +324,7 @@ func validationBlockers(input EvaluationInput) []Blocker {
 	if input.Now.IsZero() || !validIntent(input.Intent) || !validContractForSubject(input.Contract, input.Subject) {
 		result = append(result, blocker(BlockerInvalidEvaluation))
 	}
-	if input.Subject.Operation.IsPublish() && !digestPattern.MatchString(input.CurrentAccountReferenceHash) {
+	if (input.Subject.Operation.IsPublish() || input.Subject.Operation.IsAccountRead()) && !digestPattern.MatchString(input.CurrentAccountReferenceHash) {
 		result = append(result, blocker(BlockerInvalidEvaluation))
 	}
 	if !validFactEvidence(input) {
@@ -358,7 +360,13 @@ func validSubjectProfile(subject Subject) bool {
 	if subject.OutputProfile != "" && !providerPattern.MatchString(subject.OutputProfile) {
 		return false
 	}
-	return !subject.Operation.IsPublish() || (subject.AccountKind != "" && subject.OutputProfile != "")
+	if subject.Operation.IsPublish() {
+		return subject.AccountKind != "" && subject.OutputProfile != ""
+	}
+	if subject.Operation.IsAccountRead() {
+		return subject.AccountKind != "" && subject.OutputProfile == ""
+	}
+	return subject.OutputProfile == ""
 }
 
 func validFactEvidence(input EvaluationInput) bool {
@@ -445,7 +453,7 @@ func validContractForSubject(contract CertificationContract, subject Subject) bo
 }
 
 func validPublicationContract(requirements Requirements, operation Operation) bool {
-	if !operation.IsPublish() {
+	if !operation.IsPublish() && !operation.IsAccountRead() {
 		return true
 	}
 	if !requirements.RequireConfiguration || !requirements.RequireAuthorization {
@@ -483,6 +491,10 @@ func validEvidenceRequirementShape(required bool, checks []CheckRequirement, ope
 func containsRequiredChecks(requirements []CheckRequirement, operation Operation) bool {
 	requiredKinds := []CheckKind{CheckConnect, CheckAuthorization}
 	switch operation {
+	case OperationDiscover:
+		requiredKinds = append(requiredKinds, CheckDiscovery)
+	case OperationAnalytics:
+		requiredKinds = append(requiredKinds, CheckAnalytics)
 	case OperationPublishImmediate:
 		requiredKinds = append(requiredKinds, CheckPublishImmediate, CheckFinalResult, CheckRefresh, CheckRevoke)
 	case OperationPublishScheduled:
@@ -760,7 +772,8 @@ func validProviderEnvironment(environment ProviderEnvironment) bool {
 }
 
 func validOperation(operation Operation) bool {
-	return operation == OperationConnect || operation == OperationPublishImmediate || operation == OperationPublishScheduled || operation == OperationRefresh || operation == OperationRevoke
+	return operation == OperationConnect || operation == OperationDiscover || operation == OperationAnalytics ||
+		operation == OperationPublishImmediate || operation == OperationPublishScheduled || operation == OperationRefresh || operation == OperationRevoke
 }
 
 func validIntent(intent ExecutionIntent) bool {
@@ -797,7 +810,8 @@ func validRuntimeControlState(state RuntimeControlState) bool {
 }
 
 func validCheckKind(kind CheckKind) bool {
-	return kind == CheckConnect || kind == CheckAuthorization || kind == CheckPublishImmediate || kind == CheckPublishScheduled || kind == CheckFinalResult || kind == CheckRefresh || kind == CheckRevoke
+	return kind == CheckConnect || kind == CheckAuthorization || kind == CheckDiscovery || kind == CheckAnalytics ||
+		kind == CheckPublishImmediate || kind == CheckPublishScheduled || kind == CheckFinalResult || kind == CheckRefresh || kind == CheckRevoke
 }
 
 func validCheckOutcome(outcome CheckOutcome) bool {

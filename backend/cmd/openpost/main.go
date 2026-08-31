@@ -528,6 +528,7 @@ func main() {
 	publishSvc.SetTelemetry(telemetryRecorder)
 
 	analyticsService := analyticsservice.NewService(db, tokenManager)
+	analyticsService.SetProviderReadiness(providerReadinessService)
 	analyticsService.SetDiscoveryPolicy("x", analyticsservice.DiscoveryPolicy{
 		ProviderConcurrency: 1,
 		ReadRequestsPerDay:  cfg.XAccountHistoryReadRequestsPerDay,

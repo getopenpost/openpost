@@ -285,6 +285,49 @@ func PublicationContract(
 	}, nil
 }
 
+func AccountReadContract(provider string, operation Operation, enforceCertification bool, accountKind string) (CertificationContract, error) {
+	if operation != OperationDiscover && operation != OperationAnalytics {
+		return CertificationContract{}, errors.New("account read readiness operation is invalid")
+	}
+	provider = strings.TrimSpace(provider)
+	if provider != capabilities.ProviderPinterest {
+		return CertificationContract{}, errors.New("account read readiness is not implemented for this provider")
+	}
+	accountKind = normalizedPolicyToken(accountKind, "standard")
+	policyMode := provider + "." + string(operation)
+	capabilityDigest, err := digestJSON(struct {
+		SchemaVersion int       `json:"schema_version"`
+		Provider      string    `json:"provider"`
+		Operation     Operation `json:"operation"`
+	}{SchemaVersion: 1, Provider: provider, Operation: operation})
+	if err != nil {
+		return CertificationContract{}, err
+	}
+	subject := Subject{Provider: provider, AccountKind: accountKind, Operation: operation, PolicyMode: policyMode}
+	scopes := RequiredScopesForSubject(subject)
+	policyDigest, err := policyDigest(provider, "account", operation, policyMode, scopes)
+	if err != nil {
+		return CertificationContract{}, err
+	}
+	requirements := Requirements{
+		RequireConfiguration: true, RequireAuthorization: true,
+		RequireProductionDeployment: enforceCertification, RequireProductionProviderApp: enforceCertification,
+		RequireApproval: enforceCertification, RequireLocalEvidence: enforceCertification, RequireLiveEvidence: enforceCertification,
+		AllowTrialExecution: enforceCertification,
+	}
+	if enforceCertification {
+		requirements.RequiredApprovalTier = "standard"
+		requirements.RequiredScopes = scopes
+		checks := accountReadCheckRequirements(operation)
+		requirements.RequiredLocalChecks = append([]CheckRequirement(nil), checks...)
+		requirements.RequiredLiveChecks = append([]CheckRequirement(nil), checks...)
+	}
+	return CertificationContract{
+		SchemaVersion: CertificationContractSchemaVersion, CapabilityDigest: capabilityDigest,
+		PolicyDigest: policyDigest, Requirements: requirements,
+	}, nil
+}
+
 func ConnectionContract(provider string, enforceCertification bool) (CertificationContract, error) {
 	provider = strings.TrimSpace(provider)
 	capabilityDigest, err := digestJSON(struct {
@@ -336,6 +379,14 @@ func normalizedPolicyToken(value, fallback string) string {
 // RequiredScopesForSubject binds authorization evidence to account kind,
 // output, operation, and provider policy rather than a provider-wide union.
 func RequiredScopesForSubject(subject Subject) []string {
+	if subject.Provider == capabilities.ProviderPinterest {
+		switch subject.Operation {
+		case OperationDiscover:
+			return []string{"pins:read"}
+		case OperationAnalytics:
+			return []string{"pins:read", "user_accounts:read"}
+		}
+	}
 	if !subject.Operation.IsPublish() {
 		return nil
 	}
@@ -424,6 +475,19 @@ func splitScopeSet(raw string) []string {
 	}
 	slices.Sort(result)
 	return result
+}
+
+func accountReadCheckRequirements(operation Operation) []CheckRequirement {
+	checks := []CheckRequirement{{Kind: CheckConnect}, {Kind: CheckAuthorization}}
+	if operation == OperationDiscover {
+		checks = append(checks, CheckRequirement{Kind: CheckDiscovery})
+	} else {
+		checks = append(checks, CheckRequirement{Kind: CheckAnalytics})
+	}
+	return append(checks,
+		CheckRequirement{Kind: CheckRefresh, AllowNotApplicable: true},
+		CheckRequirement{Kind: CheckRevoke, AllowNotApplicable: true},
+	)
 }
 
 func publicationCheckRequirements(operation Operation) []CheckRequirement {

@@ -153,6 +153,14 @@ func exerciseProviderReadinessCertificationMigration(t *testing.T, db *bun.DB) {
 	require.Empty(t, legacyXIntent, "legacy request tokens must fail closed rather than inherit production intent")
 	require.Empty(t, legacySelectionIntent, "legacy account selections must fail closed rather than inherit production intent")
 	require.NoError(t, runMigration(ctx, db, item))
+	readinessOperationsRaw, err := migrationFiles.ReadFile("122_pinterest_readiness_operations.sql")
+	require.NoError(t, err)
+	readinessOperations := migration{
+		version: 122, name: "122_pinterest_readiness_operations.sql",
+		sql: normalizeMigrationSQL(db.Dialect().Name(), string(readinessOperationsRaw)),
+	}
+	require.NoError(t, prepareMigration(ctx, db, readinessOperations))
+	require.NoError(t, runMigration(ctx, db, readinessOperations))
 	require.NoError(t, ensureProviderReadinessSchema(ctx, db))
 	require.NoError(t, ensureProviderReadinessSchema(ctx, db), "finalization must remain idempotent")
 	_, err = db.ExecContext(ctx, `INSERT INTO publication_authorizations (id) VALUES ('production-receipt')`)
@@ -215,6 +223,17 @@ func exerciseProviderReadinessCertificationMigration(t *testing.T, db *bun.DB) {
 	) VALUES (?, 'mastodon', 'enabled', 'certification_enabled', ?, 'operator:sha256:reviewer', ?)`,
 		"control-1", now, now)
 	require.NoError(t, err)
+	_, err = db.ExecContext(ctx, `INSERT INTO provider_runtime_control_events (
+		id, provider, operation, state, reason_code, starts_at, operator_ref, created_at
+	) VALUES (?, 'mastodon', 'analytics', 'enabled', 'analytics_certified', ?, 'operator:sha256:reviewer', ?)`,
+		"control-analytics", now, now)
+	require.NoError(t, err, "analytics must be an independently selectable runtime operation")
+	_, err = db.ExecContext(ctx, `INSERT INTO provider_certification_checks (
+		id, certification_run_id, kind, outcome, error_class,
+		not_applicable_reason, external_reference_hash, completed_at, created_at
+	) VALUES (?, 'run-1', 'analytics', 'passed', '', '', '', ?, ?)`,
+		"check-analytics", now, now)
+	require.NoError(t, err, "analytics must be a persistable certification check")
 
 	assertProviderReadinessTablesAppendOnly(t, db)
 

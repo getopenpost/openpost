@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -131,6 +132,84 @@ func TestPinterestListsEveryBoardPageWithoutLossOrDuplicatesAndLoadsSectionsLazi
 	require.Equal(t, []DestinationOption{{Value: "section-1", Label: "Product"}}, sections.Options)
 	require.Equal(t, "sections-2", sections.NextCursor)
 	require.Equal(t, 1, sectionCalls)
+}
+
+func TestPinterestDiscoversBoundedPinsAndStopsAtReportingWindow(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	calls := 0
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, "/v5/pins", req.URL.Path)
+		require.Equal(t, "1", req.URL.Query().Get("page_size"))
+		require.Equal(t, "ORGANIC", req.URL.Query().Get("pin_filter"))
+		calls++
+		if req.URL.Query().Get("bookmark") == "pins-page-2" {
+			return jsonResponse(req, pinterestFixture(t, "pins_page_2.json")), nil
+		}
+		return jsonResponse(req, pinterestFixture(t, "pins_page_1.json")), nil
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	first, err := adapter.DiscoverAccountContent(t.Context(), "access", AccountContentDiscoveryRequest{
+		PublishedAfter: start, PageSize: 100,
+	})
+	require.NoError(t, err)
+	require.Len(t, first.Items, 1)
+	require.Equal(t, "993607355001234567", first.Items[0].ProviderContentID)
+	require.Equal(t, "pins-page-2", first.NextCursor)
+	require.Equal(t, AccountContentDiscoveryPartial, first.Coverage.Status)
+
+	second, err := adapter.DiscoverAccountContent(t.Context(), "access", AccountContentDiscoveryRequest{
+		PublishedAfter: start, PageSize: 100, Cursor: first.NextCursor,
+	})
+	require.NoError(t, err)
+	require.Empty(t, second.Items)
+	require.Empty(t, second.NextCursor, "a Pin older than the explicit window must stop pagination")
+	require.Equal(t, 2, calls)
+}
+
+func TestPinterestAnalyticsUsesCompatibleWeightedTotalsAndPreservesMissingMetrics(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	fixture := "analytics_daily_weighted.json"
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, "2026-08-01", req.URL.Query().Get("start_date"))
+		require.Equal(t, "2026-09-01", req.URL.Query().Get("end_date"))
+		require.Equal(t, "NO_SPLIT", req.URL.Query().Get("split_field"))
+		require.Contains(t, req.URL.Query().Get("metric_types"), "VIDEO_MRC_VIEW")
+		return jsonResponse(req, pinterestFixture(t, fixture)), nil
+	})}
+
+	adapter := NewPinterestAdapter("", "", "")
+	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	measurements, err := adapter.FetchContentAnalyticsMeasurements(t.Context(), "access", ContentAnalyticsRequest{
+		ExternalIDs: []string{"993607355001234567"}, ReportingPeriodStart: start, ReportingPeriodEnd: end,
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(100), measurements[MetricImpressions].Value)
+	require.Equal(t, int64(10), measurements[MetricEngagements].Value)
+	require.Equal(t, int64(3), measurements[MetricSaves].Value)
+	require.Equal(t, int64(14), measurements[MetricPinClicks].Value)
+	require.Equal(t, int64(5), measurements[MetricOutboundClicks].Value)
+	require.Equal(t, int64(10), measurements[MetricVideoViews].Value)
+	require.Equal(t, int64(1400), measurements[MetricClickRate].Value,
+		"click rate must be derived from total Pin clicks divided by total impressions, not averaged daily rates")
+	require.Equal(t, AnalyticsMetricUnitBasisPoints, measurements[MetricClickRate].Unit)
+
+	fixture = "analytics_missing_metrics.json"
+	missing, err := adapter.FetchAccountAnalyticsMeasurements(t.Context(), "access", AccountAnalyticsRequest{
+		ReportingPeriodStart: start, ReportingPeriodEnd: end,
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(0), missing[MetricImpressions].Value, "measured zero must remain present")
+	require.Equal(t, int64(0), missing[MetricSaves].Value)
+	require.NotContains(t, missing, MetricEngagements)
+	require.NotContains(t, missing, MetricPinClicks)
+	require.NotContains(t, missing, MetricClickRate)
 }
 
 func TestPinterestPublishesCertifiedSingleAndOrderedMultiImageRequestFixtures(t *testing.T) {

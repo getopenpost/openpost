@@ -12,10 +12,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/jobregistry"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 	"github.com/openpost/backend/internal/services/organizationguard"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	"github.com/openpost/backend/internal/services/providerwrite"
 	"github.com/uptrace/bun"
 )
@@ -48,6 +50,7 @@ type Service struct {
 	sources           map[string]platform.AnalyticsAdapter
 	now               func() time.Time
 	featureGate       FeatureGate
+	readiness         *providerreadiness.Service
 	discoveryPolicies map[string]DiscoveryPolicy
 }
 
@@ -76,6 +79,24 @@ func (s *Service) SetExternalSource(platformName string, adapter platform.Analyt
 
 func (s *Service) SetFeatureGate(g FeatureGate) {
 	s.featureGate = g
+}
+
+func (s *Service) SetProviderReadiness(readiness *providerreadiness.Service) {
+	s.readiness = readiness
+}
+
+func (s *Service) isProviderReadEnabled(ctx context.Context, account models.SocialAccount, operation providerreadiness.Operation) bool {
+	if account.Platform != capabilities.ProviderPinterest {
+		return true
+	}
+	if s.readiness == nil {
+		return false
+	}
+	decision := s.readiness.DecideAccountRead(ctx, account, operation, providerreadiness.ExecutionIntentProduction)
+	if operation == providerreadiness.OperationDiscover {
+		return decision.Discoverable
+	}
+	return operation == providerreadiness.OperationAnalytics && decision.AnalyticsReady
 }
 
 func (s *Service) isAnalyticsEnabled(ctx context.Context, accountID string) bool {
@@ -213,6 +234,9 @@ func (s *Service) enqueueAccountJob(ctx context.Context, account models.SocialAc
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
+	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
 		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusUnsupported, "analytics_not_supported", "This provider does not expose account analytics in OpenPost.")
@@ -299,6 +323,9 @@ func (s *Service) enqueueRenditionJob(
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
+	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusUnsupported, "analytics_not_supported", "This provider does not expose content analytics in OpenPost.")
@@ -346,6 +373,9 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
+	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusUnsupported, "analytics_not_supported", "")
@@ -376,6 +406,7 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	return s.recordSuccess(ctx, subjectAccount, account.ID, account, "", "", values, metadata, accountCadence)
 }
 
+//nolint:gocyclo // Sync keeps feature, readiness, scope, identity, and provider failure gates before one read.
 func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	var rendition models.Rendition
 	if err := s.db.NewSelect().Model(&rendition).Where("id = ? AND status = ?", renditionID, models.RenditionStatusPublished).Scan(ctx); err != nil {
@@ -393,6 +424,9 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	}
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
+	}
+	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {

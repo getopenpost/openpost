@@ -5044,8 +5044,9 @@ export interface components {
       /** @enum {string} */
       kind: "local" | "live";
       /** @enum {string} */
-      operation: "publish_immediate" | "publish_scheduled";
-      output_profile: string;
+      operation: "discover" | "analytics" | "publish_immediate" | "publish_scheduled";
+      /** @description Required for publishing certification; omitted for account discovery and analytics */
+      output_profile?: string;
       /** @description Optional asserted normalized policy mode; the server derives and verifies it */
       policy_mode?: string;
       policy_settings?: {
@@ -6498,9 +6499,11 @@ export interface components {
     };
     Decision: {
       advertisable: boolean;
+      analytics_ready: boolean;
       blockers?: components["schemas"]["Blocker"][] | null;
       connectable: boolean;
       contract_digest?: string;
+      discoverable: boolean;
       executable: boolean;
       facts: components["schemas"]["Facts"];
       publishable: boolean;
@@ -9748,7 +9751,13 @@ export interface components {
       /** @description Provider launch status: available, needs_configuration, or planned */
       status?: string;
     };
+    ProviderReadinessAccountRead: {
+      analytics: components["schemas"]["Decision"];
+      discovery: components["schemas"]["Decision"];
+      social_account_id: string;
+    };
     ProviderReadinessItem: {
+      account_reads?: components["schemas"]["ProviderReadinessAccountRead"][] | null;
       advertisable: boolean;
       blocking_issues?: string[] | null;
       configured_app_state: string;

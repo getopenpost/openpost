@@ -538,6 +538,7 @@ func main() {
 	publishSvc.SetNotificationService(notificationService)
 	publishSvc.SetRepostScheduler(repostService)
 	engagementService := engagementservice.NewService(db, tokenManager, notificationService)
+	engagementService.SetXDailyReadBudget(cfg.XEngagementDailyReadBudget)
 	messagingService := messagingservice.NewService(db, tokenManager, notificationService)
 	for name, adapter := range providers {
 		tokenManager.SetProvider(name, adapter)

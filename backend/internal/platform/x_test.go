@@ -2,6 +2,7 @@ package platform
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,72 @@ import (
 	"testing"
 	"time"
 )
+
+func TestXIncrementalCommentsSendSinceIDAndBoundedNextToken(t *testing.T) {
+	requestCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestCount++
+		if r.URL.Path != "/2/tweets/search/recent" {
+			t.Fatalf("unexpected path %q", r.URL.Path)
+		}
+		query := r.URL.Query()
+		requireQuery := func(key, want string) {
+			if got := query.Get(key); got != want {
+				t.Fatalf("%s: got %q, want %q", key, got, want)
+			}
+		}
+		requireQuery("query", "conversation_id:post-1")
+		requireQuery("max_results", "25")
+		if requestCount == 1 {
+			requireQuery("since_id", "100")
+			requireQuery("next_token", "")
+		} else {
+			requireQuery("since_id", "100")
+			requireQuery("next_token", "opaque-page-2")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[{"id":"101","text":"Reply","author_id":"reader","conversation_id":"post-1"}],"meta":{"newest_id":"101","next_token":"opaque-page-2"}}`))
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	page, err := adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{SinceID: "100", Limit: 25})
+	if err != nil {
+		t.Fatalf("first page: %v", err)
+	}
+	if page.HighestID != "101" || page.NextToken != "opaque-page-2" || len(page.Comments) != 1 {
+		t.Fatalf("unexpected page: %#v", page)
+	}
+	_, err = adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{SinceID: "100", NextToken: page.NextToken, Limit: 25})
+	if err != nil {
+		t.Fatalf("second page: %v", err)
+	}
+}
+
+func TestXIncrementalCommentsClassifyDepletedCreditsWithoutResponseBody(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusPaymentRequired)
+		_, _ = w.Write([]byte(`{"title":"private provider response"}`))
+	}))
+	defer server.Close()
+	adapter := NewXAdapter("consumer-key", "consumer-secret", "")
+	defer close(adapter.cleanupDone)
+	adapter.apiBaseURL = server.URL
+
+	_, err := adapter.ListCommentPage(t.Context(), "access-token|access-secret", "account-1", "post-1", IncrementalCommentRequest{})
+	var providerErr *HTTPError
+	if !errors.As(err, &providerErr) {
+		t.Fatalf("expected HTTPError, got %v", err)
+	}
+	if providerErr.Code != "credits_depleted" || providerErr.RetryAfter != 24*time.Hour {
+		t.Fatalf("unexpected depleted-credit classification: %#v", providerErr)
+	}
+	if strings.Contains(err.Error(), "private provider response") || strings.Contains(err.Error(), "access-token") {
+		t.Fatalf("error retained provider body or credential: %v", err)
+	}
+}
 
 type consumeOnceXRequestStore struct {
 	meta     XRequestMeta

@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 )
 
 func (m *MastodonAdapter) EngagementSupport() EngagementSupport {
@@ -187,17 +189,42 @@ func (x *XAdapter) EngagementSupport() EngagementSupport {
 }
 
 func (x *XAdapter) ListComments(ctx context.Context, accessToken, accountID, externalID string) ([]Comment, error) {
+	page, err := x.ListCommentPage(ctx, accessToken, accountID, externalID, IncrementalCommentRequest{Limit: 100})
+	return page.Comments, err
+}
+
+//nolint:gocyclo // One bounded page maps X query cursors, expansions, attachments, and safe provider errors.
+func (x *XAdapter) ListCommentPage(
+	ctx context.Context,
+	accessToken, accountID, externalID string,
+	request IncrementalCommentRequest,
+) (IncrementalCommentPage, error) {
+	limit := request.Limit
+	if limit < 10 || limit > 100 {
+		limit = 100
+	}
 	query := url.Values{
 		"query":        {"conversation_id:" + externalID},
 		"tweet.fields": {"author_id,created_at,conversation_id,in_reply_to_user_id,referenced_tweets,attachments"},
 		"expansions":   {"author_id,attachments.media_keys"},
 		"user.fields":  {"username,name,profile_image_url"},
 		"media.fields": {"media_key,type,url,preview_image_url,alt_text"},
-		"max_results":  {"100"},
+		"max_results":  {fmt.Sprintf("%d", limit)},
+	}
+	if sinceID := strings.TrimSpace(request.SinceID); sinceID != "" {
+		query.Set("since_id", sinceID)
+	}
+	if nextToken := strings.TrimSpace(request.NextToken); nextToken != "" {
+		query.Set("next_token", nextToken)
 	}
 	body, err := x.doSignedRequest(ctx, accessToken, http.MethodGet, x.apiURL("/2/tweets/search/recent")+"?"+query.Encode(), nil, nil)
 	if err != nil {
-		return nil, fmt.Errorf("fetching X replies: %w", err)
+		var providerErr *HTTPError
+		if errors.As(err, &providerErr) && providerErr.StatusCode == http.StatusPaymentRequired {
+			providerErr.Code = "credits_depleted"
+			providerErr.RetryAfter = 24 * time.Hour
+		}
+		return IncrementalCommentPage{}, fmt.Errorf("fetching X replies: %w", err)
 	}
 	var response struct {
 		Data []struct {
@@ -229,9 +256,13 @@ func (x *XAdapter) ListComments(ctx context.Context, accessToken, accountID, ext
 				AltText         string `json:"alt_text"`
 			} `json:"media"`
 		} `json:"includes"`
+		Meta struct {
+			NewestID  string `json:"newest_id"`
+			NextToken string `json:"next_token"`
+		} `json:"meta"`
 	}
 	if err := json.Unmarshal(body, &response); err != nil {
-		return nil, fmt.Errorf("decoding X replies: %w", err)
+		return IncrementalCommentPage{}, fmt.Errorf("decoding X replies: %w", err)
 	}
 	users := map[string]struct{ Username, Name, Avatar string }{}
 	for _, user := range response.Includes.Users {
@@ -270,7 +301,9 @@ func (x *XAdapter) ListComments(ctx context.Context, accessToken, accountID, ext
 			CanLike: true, CanUnlike: true,
 		})
 	}
-	return comments, nil
+	return IncrementalCommentPage{
+		Comments: comments, NextToken: strings.TrimSpace(response.Meta.NextToken), HighestID: strings.TrimSpace(response.Meta.NewestID),
+	}, nil
 }
 
 func (x *XAdapter) ReplyToComment(ctx context.Context, accessToken, accountID, commentID, message string) (string, error) {

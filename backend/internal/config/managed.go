@@ -123,6 +123,7 @@ var managedSettingDefinitions = []ManagedSettingDefinition{
 	{Key: "OPENPOST_X_MONTHLY_BUDGET_MICROUSD", Group: "providers", Label: "X monthly API budget", Description: "Hosted X API budget in millionths of a US dollar.", Kind: ManagedSettingInteger, EnvVars: []string{"OPENPOST_X_MONTHLY_BUDGET_MICROUSD"}},
 	{Key: "OPENPOST_X_POST_CREATE_COST_MICROUSD", Group: "providers", Label: "X post API cost", Description: "Estimated cost of an X post request in millionths of a US dollar.", Kind: ManagedSettingInteger, EnvVars: []string{"OPENPOST_X_POST_CREATE_COST_MICROUSD"}},
 	{Key: "OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", Group: "providers", Label: "X post-with-URL API cost", Description: "Estimated cost of an X post request containing a URL.", Kind: ManagedSettingInteger, EnvVars: []string{"OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD"}},
+	{Key: "OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", Group: "providers", Label: "X engagement daily read budget", Description: "Maximum provider-reaching X engagement read attempts per account and UTC day.", Kind: ManagedSettingInteger, EnvVars: []string{"OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET"}},
 	{Key: "OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", Group: "providers", Label: "Provider usage retention", Description: "Days to keep provider usage and reservation records. Use zero to keep them.", Kind: ManagedSettingInteger, EnvVars: []string{"OPENPOST_PROVIDER_USAGE_RETENTION_DAYS"}},
 }
 
@@ -275,6 +276,7 @@ var managedSettingBindings = map[string]managedSettingBinding{
 	"OPENPOST_X_MONTHLY_BUDGET_MICROUSD":            int64Binding(func(c *Config) *int64 { return &c.XMonthlyBudgetMicrousd }),
 	"OPENPOST_X_POST_CREATE_COST_MICROUSD":          int64Binding(func(c *Config) *int64 { return &c.XPostCreateCostMicrousd }),
 	"OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD": int64Binding(func(c *Config) *int64 { return &c.XPostCreateWithURLCostMicrousd }),
+	"OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET":       intBinding(func(c *Config) *int { return &c.XEngagementDailyReadBudget }),
 	"OPENPOST_PROVIDER_USAGE_RETENTION_DAYS":        intBinding(func(c *Config) *int { return &c.ProviderUsageRetentionDays }),
 }
 

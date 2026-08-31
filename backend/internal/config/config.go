@@ -113,6 +113,7 @@ type Config struct {
 	XMonthlyBudgetMicrousd         int64
 	XPostCreateCostMicrousd        int64
 	XPostCreateWithURLCostMicrousd int64
+	XEngagementDailyReadBudget     int
 	ProviderUsageRetentionDays     int
 
 	MastodonRedirectURI string
@@ -304,6 +305,7 @@ func Load() *Config {
 		XMonthlyBudgetMicrousd:         getEnvInt64("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", 5_000_000),
 		XPostCreateCostMicrousd:        getEnvInt64("OPENPOST_X_POST_CREATE_COST_MICROUSD", 15_000),
 		XPostCreateWithURLCostMicrousd: getEnvInt64("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", 200_000),
+		XEngagementDailyReadBudget:     getEnvInt("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", 12),
 		ProviderUsageRetentionDays:     getEnvInt("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", 180),
 
 		// Mastodon's OOB flow uses a special URI scheme rather than a
@@ -669,6 +671,9 @@ func (c *Config) ValidateRuntime() error {
 	}
 	if c.XPostCreateWithURLCostMicrousd < 0 {
 		missing = append(missing, "OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD >= 0")
+	}
+	if c.XEngagementDailyReadBudget < 0 {
+		missing = append(missing, "OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET >= 0")
 	}
 	if c.ProviderUsageRetentionDays < 0 {
 		missing = append(missing, "OPENPOST_PROVIDER_USAGE_RETENTION_DAYS >= 0")

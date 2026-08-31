@@ -29,7 +29,12 @@ const (
 	JobTypeEngagementAct  = jobregistry.TypeEngagementAction
 )
 
-const sweepInterval = 5 * time.Minute
+const (
+	sweepInterval           = 5 * time.Minute
+	defaultXDailyReadBudget = 12
+	xCommentPageSize        = 100
+	xMaxCommentPagesPerSync = 1
+)
 
 var (
 	ErrAccessDenied = errors.New("workspace access denied")
@@ -47,22 +52,24 @@ type FeatureGate interface {
 }
 
 type Service struct {
-	db            *bun.DB
-	tokenSource   TokenSource
-	notifications *notifications.Service
-	providersMu   sync.RWMutex
-	providers     map[string]platform.EngagementAdapter
-	now           func() time.Time
-	featureGate   FeatureGate
+	db               *bun.DB
+	tokenSource      TokenSource
+	notifications    *notifications.Service
+	providersMu      sync.RWMutex
+	providers        map[string]platform.EngagementAdapter
+	now              func() time.Time
+	featureGate      FeatureGate
+	xDailyReadBudget int
 }
 
 func NewService(db *bun.DB, tokenSource TokenSource, notificationService *notifications.Service) *Service {
 	return &Service{
-		db:            db,
-		tokenSource:   tokenSource,
-		notifications: notificationService,
-		providers:     make(map[string]platform.EngagementAdapter),
-		now:           func() time.Time { return time.Now().UTC() },
+		db:               db,
+		tokenSource:      tokenSource,
+		notifications:    notificationService,
+		providers:        make(map[string]platform.EngagementAdapter),
+		now:              func() time.Time { return time.Now().UTC() },
+		xDailyReadBudget: defaultXDailyReadBudget,
 	}
 }
 
@@ -74,6 +81,13 @@ func (s *Service) SetProvider(name string, adapter platform.EngagementAdapter) {
 
 func (s *Service) SetFeatureGate(g FeatureGate) {
 	s.featureGate = g
+}
+
+// SetXDailyReadBudget applies the deployment-owned per-account UTC-day policy.
+func (s *Service) SetXDailyReadBudget(limit int) {
+	if limit >= 0 {
+		s.xDailyReadBudget = limit
+	}
 }
 
 func (s *Service) isEngagementEnabled(ctx context.Context, accountID string) bool {
@@ -180,7 +194,6 @@ func (s *Service) handleSweep(ctx context.Context) error {
 	return combined
 }
 
-//nolint:gocyclo // One sweep applies capability, scope, opt-in, cadence, and job-uniqueness gates.
 func (s *Service) RefreshWorkspace(ctx context.Context, actor Actor, workspaceID string, force bool) (int, error) {
 	if err := s.authorize(ctx, workspaceID, actor, workspaceaccess.LevelEdit); err != nil {
 		return 0, err
@@ -188,15 +201,19 @@ func (s *Service) RefreshWorkspace(ctx context.Context, actor Actor, workspaceID
 	return s.refreshWorkspace(ctx, workspaceID, force)
 }
 
+//nolint:gocyclo // Scheduling keeps capability, scope, cadence, backoff, budget, and fairness gates in one pass.
 func (s *Service) refreshWorkspace(ctx context.Context, workspaceID string, force bool) (int, error) {
 	now := s.now()
 	queued := 0
 	var renditions []models.Rendition
 	err := s.db.NewSelect().Model(&renditions).
 		Join("JOIN publications AS publication ON publication.id = rendition.publication_id").
+		Join("LEFT JOIN engagement_sync_states AS engagement_state ON engagement_state.rendition_id = rendition.id").
 		Where("publication.workspace_id = ?", workspaceID).
 		Where("rendition.status = ? AND rendition.external_id != ''", models.RenditionStatusPublished).
 		Where("COALESCE(publication.actual_run_at, publication.updated_at) >= ?", now.Add(-90*24*time.Hour)).
+		OrderExpr("CASE WHEN engagement_state.last_attempted_at IS NULL THEN 0 ELSE 1 END ASC").
+		Order("engagement_state.last_attempted_at ASC", "rendition.id ASC").
 		Scan(ctx)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return 0, err
@@ -222,11 +239,29 @@ func (s *Service) refreshWorkspace(ctx context.Context, workspaceID string, forc
 			_ = s.recordState(ctx, rendition.ID, account, "permission_required", "missing_scope", "Reconnect this account and grant engagement access.", false, 24*time.Hour, 0)
 			continue
 		}
-		if !force && !s.due(ctx, rendition.ID, now) {
+		state := s.loadState(ctx, rendition.ID)
+		if !force && state != nil && state.NextSyncAt.After(now) {
 			continue
 		}
+		if account.Platform == "x" {
+			if force && xProviderBackoffActive(state, now) {
+				continue
+			}
+			available, next, budgetErr := s.xReadAvailable(ctx, account, now)
+			if budgetErr != nil {
+				return queued, budgetErr
+			}
+			if !available {
+				_ = s.recordXDeferredState(ctx, rendition.ID, account, "budget_exhausted", "daily_read_budget", "X engagement collection reached this account's daily read budget.", next)
+				continue
+			}
+		}
 		payload, _ := json.Marshal(subjectJob{ID: rendition.ID})
-		inserted, enqueueErr := s.enqueue(ctx, workspaceID, JobTypeEngagementSync, string(payload), now)
+		runAt := now
+		if account.Platform == "x" {
+			runAt = runAt.Add(time.Duration(queued) * time.Millisecond)
+		}
+		inserted, enqueueErr := s.enqueue(ctx, workspaceID, JobTypeEngagementSync, string(payload), runAt)
 		if enqueueErr != nil {
 			return queued, enqueueErr
 		}
@@ -237,6 +272,7 @@ func (s *Service) refreshWorkspace(ctx context.Context, workspaceID string, forc
 	return queued, nil
 }
 
+//nolint:gocyclo // One sync preserves the shared provider gates while selecting the optional X incremental seam.
 func (s *Service) syncEngagement(ctx context.Context, renditionID string) error {
 	var rendition models.Rendition
 	if err := s.db.NewSelect().Model(&rendition).Where("id = ?", renditionID).Scan(ctx); err != nil {
@@ -265,9 +301,26 @@ func (s *Service) syncEngagement(ctx context.Context, renditionID string) error 
 		return s.recordState(ctx, rendition.ID, account, "permission_required", "authentication", "Reconnect this account to resume engagement collection.", true, 24*time.Hour, 0)
 	}
 	s.resolveAndStoreContentURL(ctx, commenter, token, account, &rendition)
+	if account.Platform == "x" {
+		if incremental, ok := commenter.(platform.IncrementalCommentAdapter); ok {
+			return s.syncXEngagement(ctx, incremental, token, rendition, account)
+		}
+		allowed, next, budgetErr := s.reserveXReadAttempt(ctx, account, s.now())
+		if budgetErr != nil {
+			return budgetErr
+		}
+		if !allowed {
+			return s.recordXDeferredState(ctx, rendition.ID, account, "budget_exhausted", "daily_read_budget", "X engagement collection reached this account's daily read budget.", next)
+		}
+	}
 	comments, err := commenter.ListComments(ctx, token, account.AccountID, rendition.ExternalID)
 	if err != nil {
 		status, code, message, cadence := classifyEngagementReadError(err)
+		if account.Platform == "x" {
+			if blockErr := s.blockXReadsForError(ctx, account, err, cadence); blockErr != nil {
+				return blockErr
+			}
+		}
 		return s.recordState(ctx, rendition.ID, account, status, code, message, true, cadence, 0)
 	}
 	now := s.now()
@@ -281,7 +334,179 @@ func (s *Service) syncEngagement(ctx context.Context, renditionID string) error 
 		publishedAt = firstNonZeroTime(publication.UpdatedAt, publication.CreatedAt)
 	}
 	cadence := engagementCadence(publishedAt, now, len(comments) == 0)
+	if account.Platform == "x" {
+		cadence = xEngagementCadence(publishedAt, now, len(comments) == 0)
+	}
 	return s.recordState(ctx, rendition.ID, account, "ok", "", "", true, cadence, boolToInt(len(comments) == 0))
+}
+
+type xCommentCursor struct {
+	SinceID       string `json:"since_id,omitempty"`
+	NextToken     string `json:"next_token,omitempty"`
+	PendingHighID string `json:"pending_high_id,omitempty"`
+}
+
+func (s *Service) syncXEngagement(
+	ctx context.Context,
+	incremental platform.IncrementalCommentAdapter,
+	token string,
+	rendition models.Rendition,
+	account models.SocialAccount,
+) error {
+	var publication models.Publication
+	_ = s.db.NewSelect().Model(&publication).Where("id = ?", rendition.PublicationID).Scan(ctx)
+	state := s.loadState(ctx, rendition.ID)
+	cursor := decodeXCommentCursor(state)
+	totalComments := 0
+
+	for pageNumber := 0; pageNumber < xMaxCommentPagesPerSync; pageNumber++ {
+		now := s.now()
+		allowed, next, budgetErr := s.reserveXReadAttempt(ctx, account, now)
+		if budgetErr != nil {
+			return budgetErr
+		}
+		if !allowed {
+			return s.recordXDeferredState(ctx, rendition.ID, account, "budget_exhausted", "daily_read_budget", "X engagement collection reached this account's daily read budget.", next)
+		}
+		page, err := incremental.ListCommentPage(ctx, token, account.AccountID, rendition.ExternalID, platform.IncrementalCommentRequest{
+			SinceID: cursor.SinceID, NextToken: cursor.NextToken, Limit: xCommentPageSize,
+		})
+		if err != nil {
+			status, code, message, cadence := classifyEngagementReadError(err)
+			if blockErr := s.blockXReadsForError(ctx, account, err, cadence); blockErr != nil {
+				return blockErr
+			}
+			return s.recordState(ctx, rendition.ID, account, status, code, message, cursor.NextToken == "", cadence, 0)
+		}
+		totalComments += len(page.Comments)
+		cursor.PendingHighID = maxProviderID(cursor.PendingHighID, page.HighestID)
+		for _, comment := range page.Comments {
+			cursor.PendingHighID = maxProviderID(cursor.PendingHighID, comment.ID)
+		}
+		cursor.NextToken = boundedText(page.NextToken, 2048)
+		complete := cursor.NextToken == ""
+		if complete {
+			cursor.SinceID = maxProviderID(cursor.SinceID, cursor.PendingHighID)
+			cursor.PendingHighID = ""
+		}
+		publishedAt := publication.ActualRunAt
+		if publishedAt.IsZero() {
+			publishedAt = firstNonZeroTime(publication.UpdatedAt, publication.CreatedAt)
+		}
+		cadence := time.Duration(0)
+		status := "syncing"
+		if complete || pageNumber == xMaxCommentPagesPerSync-1 {
+			cadence = xEngagementCadence(publishedAt, now, totalComments == 0)
+			status = "ok"
+		}
+		if err := s.persistXCommentPage(ctx, rendition, account, publication, page.Comments, cursor, status, cadence, complete, totalComments == 0, now); err != nil {
+			return err
+		}
+		if complete {
+			return nil
+		}
+	}
+	return nil
+}
+
+func decodeXCommentCursor(state *models.EngagementSyncState) xCommentCursor {
+	if state == nil || strings.TrimSpace(state.Cursor) == "" {
+		return xCommentCursor{}
+	}
+	var cursor xCommentCursor
+	if json.Unmarshal([]byte(state.Cursor), &cursor) != nil {
+		cursor.SinceID = boundedText(state.Cursor, 512)
+	}
+	cursor.SinceID = boundedText(cursor.SinceID, 512)
+	cursor.NextToken = boundedText(cursor.NextToken, 2048)
+	cursor.PendingHighID = boundedText(cursor.PendingHighID, 512)
+	return cursor
+}
+
+func encodeXCommentCursor(cursor xCommentCursor) string {
+	encoded, _ := json.Marshal(cursor)
+	return string(encoded)
+}
+
+func maxProviderID(left, right string) string {
+	left = strings.TrimSpace(left)
+	right = strings.TrimSpace(right)
+	if left == "" {
+		return right
+	}
+	if right == "" {
+		return left
+	}
+	if len(left) != len(right) {
+		if len(right) > len(left) {
+			return right
+		}
+		return left
+	}
+	if right > left {
+		return right
+	}
+	return left
+}
+
+func (s *Service) persistXCommentPage(
+	ctx context.Context,
+	rendition models.Rendition,
+	account models.SocialAccount,
+	publication models.Publication,
+	comments []platform.Comment,
+	cursor xCommentCursor,
+	status string,
+	cadence time.Duration,
+	complete, empty bool,
+	now time.Time,
+) error {
+	return s.db.RunInTx(ctx, &sql.TxOptions{}, func(ctx context.Context, tx bun.Tx) error {
+		for _, comment := range comments {
+			item, isNew, err := persistEngagementComment(ctx, tx, rendition, account, comment, now)
+			if err != nil {
+				return err
+			}
+			if isNew {
+				if err := s.notifyNewEngagement(ctx, tx, publication, rendition, account, item); err != nil {
+					return err
+				}
+			}
+		}
+		var old models.EngagementSyncState
+		oldErr := tx.NewSelect().Model(&old).Where("id = ?", syncStateID(rendition.ID)).Scan(ctx)
+		if oldErr != nil && !errors.Is(oldErr, sql.ErrNoRows) {
+			return oldErr
+		}
+		next := time.Time{}
+		if cadence > 0 {
+			next = now.Add(cadence)
+		}
+		state := &models.EngagementSyncState{
+			ID: syncStateID(rendition.ID), WorkspaceID: account.WorkspaceID, RenditionID: rendition.ID,
+			SocialAccountID: account.ID, Platform: account.Platform, Status: status,
+			Cursor: encodeXCommentCursor(cursor), BackfillComplete: complete,
+			LastAttemptedAt: now, LastSuccessAt: old.LastSuccessAt, NextSyncAt: next,
+			EmptyStreak: boolToInt(empty), CreatedAt: firstNonZeroTime(old.CreatedAt, now), UpdatedAt: now,
+		}
+		if status == "ok" {
+			state.LastSuccessAt = now
+		}
+		_, err := tx.NewInsert().Model(state).
+			On("CONFLICT (id) DO UPDATE").
+			Set("status = EXCLUDED.status").
+			Set("error_code = EXCLUDED.error_code").
+			Set("error_message = EXCLUDED.error_message").
+			Set("cursor = EXCLUDED.cursor").
+			Set("backfill_complete = EXCLUDED.backfill_complete").
+			Set("last_attempted_at = EXCLUDED.last_attempted_at").
+			Set("last_success_at = EXCLUDED.last_success_at").
+			Set("next_sync_at = EXCLUDED.next_sync_at").
+			Set("empty_streak = EXCLUDED.empty_streak").
+			Set("updated_at = EXCLUDED.updated_at").
+			Exec(ctx)
+		return err
+	})
 }
 
 func (s *Service) persistEngagementComments(
@@ -1384,9 +1609,162 @@ func engagementProviderKey(account models.SocialAccount) string {
 	return key
 }
 
-func (s *Service) due(ctx context.Context, renditionID string, now time.Time) bool {
-	state := s.loadState(ctx, renditionID)
-	return state == nil || state.NextSyncAt.IsZero() || !state.NextSyncAt.After(now)
+func xBudgetWindow(now time.Time) (time.Time, time.Time) {
+	now = now.UTC()
+	start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	return start, start.Add(24 * time.Hour)
+}
+
+func (s *Service) xReadAvailable(ctx context.Context, account models.SocialAccount, now time.Time) (bool, time.Time, error) {
+	if s.xDailyReadBudget <= 0 {
+		_, next := xBudgetWindow(now)
+		return false, next, nil
+	}
+	var budget models.XEngagementReadBudget
+	err := s.db.NewSelect().Model(&budget).Where("social_account_id = ?", account.ID).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return true, time.Time{}, nil
+	}
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("load X engagement read budget: %w", err)
+	}
+	start, next := xBudgetWindow(now)
+	if budget.BlockedUntil.After(now) {
+		return false, budget.BlockedUntil, nil
+	}
+	if !budget.WindowStart.Equal(start) || budget.AttemptsUsed < s.xDailyReadBudget {
+		return true, time.Time{}, nil
+	}
+	return false, next, nil
+}
+
+func (s *Service) reserveXReadAttempt(ctx context.Context, account models.SocialAccount, now time.Time) (bool, time.Time, error) {
+	available, next, err := s.xReadAvailable(ctx, account, now)
+	if err != nil || !available {
+		return available, next, err
+	}
+	start, nextWindow := xBudgetWindow(now)
+	result, err := s.db.ExecContext(ctx, `
+INSERT INTO x_engagement_read_budgets (
+  social_account_id, workspace_id, window_start, attempts_used,
+  blocked_until, block_code, created_at, updated_at
+) VALUES (?, ?, ?, 1, NULL, '', ?, ?)
+ON CONFLICT (social_account_id) DO UPDATE SET
+  workspace_id = excluded.workspace_id,
+  window_start = excluded.window_start,
+  attempts_used = CASE
+    WHEN x_engagement_read_budgets.window_start = excluded.window_start
+      THEN x_engagement_read_budgets.attempts_used + 1
+    ELSE 1
+  END,
+  blocked_until = NULL,
+  block_code = '',
+  updated_at = excluded.updated_at
+WHERE (x_engagement_read_budgets.blocked_until IS NULL OR x_engagement_read_budgets.blocked_until <= excluded.updated_at)
+  AND (x_engagement_read_budgets.window_start <> excluded.window_start OR x_engagement_read_budgets.attempts_used < ?)
+`, account.ID, account.WorkspaceID, start, now, now, s.xDailyReadBudget)
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("reserve X engagement read budget: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, time.Time{}, fmt.Errorf("read X engagement budget reservation: %w", err)
+	}
+	if rows == 0 {
+		available, next, loadErr := s.xReadAvailable(ctx, account, now)
+		if loadErr != nil {
+			return false, time.Time{}, loadErr
+		}
+		if available {
+			next = nextWindow
+		}
+		return false, next, nil
+	}
+	return true, time.Time{}, nil
+}
+
+func (s *Service) blockXReadsForError(ctx context.Context, account models.SocialAccount, err error, fallback time.Duration) error {
+	var providerErr *platform.HTTPError
+	if !errors.As(err, &providerErr) || (providerErr.StatusCode != 429 && providerErr.StatusCode != 402) {
+		return nil
+	}
+	delay := providerErr.RetryAfter
+	if delay <= 0 {
+		delay = fallback
+	}
+	if delay <= 0 {
+		delay = time.Hour
+	}
+	now := s.now()
+	blockedUntil := now.Add(delay)
+	code := firstNonEmpty(providerErr.Code, "rate_limited")
+	result, updateErr := s.db.NewUpdate().Model((*models.XEngagementReadBudget)(nil)).
+		Set("blocked_until = ?", blockedUntil).
+		Set("block_code = ?", code).
+		Set("updated_at = ?", now).
+		Where("social_account_id = ?", account.ID).
+		Where("blocked_until IS NULL OR blocked_until < ?", blockedUntil).
+		Exec(ctx)
+	if updateErr != nil {
+		return fmt.Errorf("store X engagement provider backoff: %w", updateErr)
+	}
+	rows, rowsErr := result.RowsAffected()
+	if rowsErr != nil {
+		return fmt.Errorf("read X engagement provider backoff result: %w", rowsErr)
+	}
+	if rows > 0 {
+		return nil
+	}
+	start, _ := xBudgetWindow(now)
+	_, insertErr := s.db.NewInsert().Model(&models.XEngagementReadBudget{
+		SocialAccountID: account.ID, WorkspaceID: account.WorkspaceID, WindowStart: start,
+		AttemptsUsed: 1, BlockedUntil: blockedUntil, BlockCode: code, CreatedAt: now, UpdatedAt: now,
+	}).On("CONFLICT (social_account_id) DO NOTHING").Exec(ctx)
+	if insertErr != nil {
+		return fmt.Errorf("create X engagement provider backoff: %w", insertErr)
+	}
+	return nil
+}
+
+func xProviderBackoffActive(state *models.EngagementSyncState, now time.Time) bool {
+	if state == nil || !state.NextSyncAt.After(now) {
+		return false
+	}
+	return state.Status == "rate_limited" || state.ErrorCode == "credits_depleted"
+}
+
+func (s *Service) recordXDeferredState(
+	ctx context.Context,
+	renditionID string,
+	account models.SocialAccount,
+	status, code, message string,
+	next time.Time,
+) error {
+	now := s.now()
+	old := s.loadState(ctx, renditionID)
+	state := &models.EngagementSyncState{
+		ID: syncStateID(renditionID), WorkspaceID: account.WorkspaceID, RenditionID: renditionID,
+		SocialAccountID: account.ID, Platform: account.Platform, Status: status,
+		ErrorCode: code, ErrorMessage: message, NextSyncAt: next,
+		CreatedAt: now, UpdatedAt: now,
+	}
+	if old != nil {
+		state.Cursor = old.Cursor
+		state.BackfillComplete = old.BackfillComplete
+		state.LastAttemptedAt = old.LastAttemptedAt
+		state.LastSuccessAt = old.LastSuccessAt
+		state.EmptyStreak = old.EmptyStreak
+		state.CreatedAt = old.CreatedAt
+	}
+	_, err := s.db.NewInsert().Model(state).
+		On("CONFLICT (id) DO UPDATE").
+		Set("status = EXCLUDED.status").
+		Set("error_code = EXCLUDED.error_code").
+		Set("error_message = EXCLUDED.error_message").
+		Set("next_sync_at = EXCLUDED.next_sync_at").
+		Set("updated_at = EXCLUDED.updated_at").
+		Exec(ctx)
+	return err
 }
 
 func (s *Service) loadState(ctx context.Context, renditionID string) *models.EngagementSyncState {
@@ -1412,7 +1790,9 @@ func (s *Service) recordState(ctx context.Context, renditionID string, account m
 	}
 	old := s.loadState(ctx, renditionID)
 	if old != nil {
+		state.Cursor = old.Cursor
 		state.LastSuccessAt = old.LastSuccessAt
+		state.CreatedAt = old.CreatedAt
 	}
 	if status == "ok" {
 		state.LastSuccessAt = now
@@ -1491,6 +1871,23 @@ func engagementCadence(publishedAt, now time.Time, empty bool) time.Duration {
 	}
 }
 
+func xEngagementCadence(publishedAt, now time.Time, quiet bool) time.Duration {
+	age := now.Sub(publishedAt)
+	switch {
+	case publishedAt.IsZero() || age > 30*24*time.Hour:
+		if quiet {
+			return 7 * 24 * time.Hour
+		}
+		return 24 * time.Hour
+	case age < 24*time.Hour:
+		return 30 * time.Minute
+	case age < 7*24*time.Hour:
+		return 4 * time.Hour
+	default:
+		return 24 * time.Hour
+	}
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
@@ -1515,6 +1912,12 @@ func classifyEngagementReadError(err error) (status, code, message string, caden
 			return "permission_required", firstNonEmpty(providerErr.Code, "authentication"), "Reconnect this account to resume engagement collection.", 24 * time.Hour
 		case providerErr.StatusCode == 404:
 			return "not_found", firstNonEmpty(providerErr.Code, "not_found"), "The provider no longer exposes this post or its replies.", 7 * 24 * time.Hour
+		case providerErr.StatusCode == 402:
+			retryAfter := providerErr.RetryAfter
+			if retryAfter <= 0 {
+				retryAfter = 24 * time.Hour
+			}
+			return "rate_limited", firstNonEmpty(providerErr.Code, "credits_depleted"), "X API read credits are depleted. OpenPost will wait before collecting replies again.", retryAfter
 		case providerErr.StatusCode == 429:
 			retryAfter := providerErr.RetryAfter
 			if retryAfter <= 0 {

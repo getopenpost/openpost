@@ -202,6 +202,7 @@ func TestLoadProductionPrimitiveDefaults(t *testing.T) {
 	require.Equal(t, int64(5_000_000), cfg.XMonthlyBudgetMicrousd)
 	require.Equal(t, int64(15_000), cfg.XPostCreateCostMicrousd)
 	require.Equal(t, int64(200_000), cfg.XPostCreateWithURLCostMicrousd)
+	require.Equal(t, 12, cfg.XEngagementDailyReadBudget)
 	require.Equal(t, 180, cfg.ProviderUsageRetentionDays)
 	require.Equal(t, "https://openpost.example.com/media", cfg.MediaURL)
 }
@@ -271,6 +272,7 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	t.Setenv("OPENPOST_X_MONTHLY_BUDGET_MICROUSD", "1230000")
 	t.Setenv("OPENPOST_X_POST_CREATE_COST_MICROUSD", "16000")
 	t.Setenv("OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD", "210000")
+	t.Setenv("OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET", "7")
 	t.Setenv("OPENPOST_PROVIDER_USAGE_RETENTION_DAYS", "90")
 
 	cfg := Load()
@@ -279,6 +281,7 @@ func TestLoadProviderCostGuardrailConfiguration(t *testing.T) {
 	require.Equal(t, int64(1_230_000), cfg.XMonthlyBudgetMicrousd)
 	require.Equal(t, int64(16_000), cfg.XPostCreateCostMicrousd)
 	require.Equal(t, int64(210_000), cfg.XPostCreateWithURLCostMicrousd)
+	require.Equal(t, 7, cfg.XEngagementDailyReadBudget)
 	require.Equal(t, 90, cfg.ProviderUsageRetentionDays)
 }
 
@@ -783,6 +786,7 @@ func TestValidateRuntimeRejectsNegativeProviderCostConfiguration(t *testing.T) {
 	cfg.XMonthlyBudgetMicrousd = -1
 	cfg.XPostCreateCostMicrousd = -1
 	cfg.XPostCreateWithURLCostMicrousd = -1
+	cfg.XEngagementDailyReadBudget = -1
 	cfg.ProviderUsageRetentionDays = -1
 
 	err := cfg.ValidateRuntime()
@@ -791,6 +795,7 @@ func TestValidateRuntimeRejectsNegativeProviderCostConfiguration(t *testing.T) {
 	require.ErrorContains(t, err, "OPENPOST_X_MONTHLY_BUDGET_MICROUSD >= 0")
 	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_COST_MICROUSD >= 0")
 	require.ErrorContains(t, err, "OPENPOST_X_POST_CREATE_WITH_URL_COST_MICROUSD >= 0")
+	require.ErrorContains(t, err, "OPENPOST_X_ENGAGEMENT_DAILY_READ_BUDGET >= 0")
 	require.ErrorContains(t, err, "OPENPOST_PROVIDER_USAGE_RETENTION_DAYS >= 0")
 }
 

@@ -1705,6 +1705,21 @@ type EngagementSyncState struct {
 	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
+// XEngagementReadBudget is the durable UTC-day provider-read fence shared by
+// scheduled and manual engagement collection for one X account.
+type XEngagementReadBudget struct {
+	bun.BaseModel `bun:"table:x_engagement_read_budgets"`
+
+	SocialAccountID string    `bun:"social_account_id,pk" json:"social_account_id"`
+	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	WindowStart     time.Time `bun:"window_start,notnull" json:"window_start"`
+	AttemptsUsed    int       `bun:"attempts_used,notnull,default:0" json:"attempts_used"`
+	BlockedUntil    time.Time `bun:"blocked_until,nullzero" json:"blocked_until"`
+	BlockCode       string    `bun:"block_code,notnull,default:''" json:"block_code"`
+	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+}
+
 // MessagingSyncState is the latest safe cursor and collection state for one account inbox.
 type MessagingSyncState struct {
 	bun.BaseModel `bun:"table:messaging_sync_states"`

@@ -123,6 +123,7 @@ func newFeatureEnforcementDB(t *testing.T) *bun.DB {
 		(*models.MessagingSyncState)(nil),
 		(*models.EngagementItem)(nil),
 		(*models.EngagementSyncState)(nil),
+		(*models.XEngagementReadBudget)(nil),
 		(*models.Publication)(nil),
 		(*models.Rendition)(nil),
 		(*models.AnalyticsSyncState)(nil),

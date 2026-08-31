@@ -1,5 +1,5 @@
-let hovered = $state(false);
-let focused = $state(false);
+let hovered = false;
+let focused = false;
 
 export const sourceHoverStore = {
 	get isHovered(): boolean {

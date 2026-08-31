@@ -40,6 +40,15 @@ func PublishingSettingsContract(provider string) PublishingSettingContract {
 			AdapterKeys:  []string{"content_posting_method", "privacy_level", "duet", "stitch", "comment", "photo_title", "cover_index", "auto_add_music", "brand_content_toggle", "brand_organic_toggle", "is_aigc", "cover_timestamp_ms"},
 			PipelineKeys: []string{"music_usage_confirmed"},
 		},
+		providerPinterest: {
+			AdapterKeys: []string{"board_id", "section_id", "pin_title", "destination_link", "alt_text", "is_ai_generated"},
+		},
+		providerTelegram: {
+			AdapterKeys: []string{"chat_id", "disable_notification", "protect_content"},
+		},
+		providerDiscord: {
+			AdapterKeys: []string{"channel_id", "embed", "mention_policy", "mention_user_ids", "mention_role_ids"},
+		},
 	}
 	return contracts[provider]
 }

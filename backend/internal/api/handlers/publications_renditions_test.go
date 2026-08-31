@@ -70,6 +70,14 @@ func TestInsertRenditionsPersistsIndependentTargetsForOneAccount(t *testing.T) {
 			}, nil, map[string]models.SocialAccount{account.ID: account},
 		)
 	}), "each social account target may appear only once")
+
+	require.ErrorContains(t, db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		return handler.insertRenditions(
+			txCtx, tx, publication, nil, nil,
+			[]RenditionInput{{SocialAccountID: account.ID, TargetKey: "telegram:chat:-100123"}},
+			nil, map[string]models.SocialAccount{account.ID: account},
+		)
+	}), "must belong to the selected social account provider")
 }
 
 func TestRetryFailedPublicationRenditionsQueuesOnlyRetryableFailures(t *testing.T) {

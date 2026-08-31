@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
@@ -4138,16 +4137,8 @@ func normalizeRenditionTargetKey(account models.SocialAccount, requested string)
 	if target == "" {
 		return base, nil
 	}
-	if len(target) > 255 {
-		return "", errors.New("target_key must be at most 255 bytes")
-	}
-	for _, char := range target {
-		if unicode.IsControl(char) || unicode.IsSpace(char) {
-			return "", errors.New("target_key cannot contain whitespace or control characters")
-		}
-	}
-	if target != base && !strings.HasPrefix(target, base+":") {
-		return "", errors.New("target_key must belong to the selected social account provider")
+	if err := platform.ValidateTargetKey(account.Platform, base, target); err != nil {
+		return "", err
 	}
 	return target, nil
 }

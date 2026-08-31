@@ -39,6 +39,35 @@ func TestAppFingerprintTracksIdentityButNotSecretRotation(t *testing.T) {
 	}
 }
 
+func TestBotAppFingerprintTracksPublicIdentityButNotSecrets(t *testing.T) {
+	t.Parallel()
+	app := platform.AppConfig{
+		Provider: capabilities.ProviderTelegram, ConnectionMode: platform.ConnectionModeBot,
+		BotUsername: "openpost_bot", BotToken: "token-1", WebhookSecret: "webhook-1",
+	}
+	want, err := AppFingerprint(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.BotToken = "token-2"
+	app.WebhookSecret = "webhook-2"
+	got, err := AppFingerprint(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Fatalf("bot secret rotation changed app fingerprint: %q != %q", got, want)
+	}
+	app.BotUsername = "renamed_bot"
+	got, err = AppFingerprint(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == want {
+		t.Fatalf("bot public identity change retained fingerprint %q", got)
+	}
+}
+
 func TestConfigurationCatalogUsesRuntimePrecedenceAndExactInstance(t *testing.T) {
 	t.Parallel()
 	databaseApp := platform.AppConfig{Provider: "mastodon", ClientID: "db", RedirectURI: "urn:ietf:wg:oauth:2.0:oob", InstanceURL: "https://social.example"}

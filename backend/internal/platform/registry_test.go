@@ -61,6 +61,44 @@ func TestBuildAdapterRegistryRejectsUnsupportedOrIncompleteApps(t *testing.T) {
 	require.ErrorContains(t, err, "youtube provider app requires client_id")
 }
 
+func TestBuildAdapterRegistryAcceptsCompleteContractOnlyApps(t *testing.T) {
+	t.Parallel()
+
+	adapters, entries, err := BuildAdapterRegistry([]AppConfig{
+		{Provider: "pinterest", ClientID: "pin-client", ClientSecret: "pin-secret", RedirectURI: "https://app.test/api/v1/accounts/pinterest/callback"},
+		{Provider: "telegram", BotToken: "telegram-token", BotUsername: "@openpost_test_bot", WebhookSecret: "telegram-webhook-secret"},
+		{Provider: "discord", ConnectionMode: "webhook"},
+		{Provider: "discord", ConnectionMode: "bot", ClientID: "discord-app", ClientSecret: "discord-client-secret", BotToken: "discord-bot-token", RedirectURI: "https://app.test/api/v1/accounts/discord/callback"},
+	}, RegistryOptions{})
+
+	require.NoError(t, err)
+	require.Contains(t, adapters, "discord")
+	require.Len(t, entries, 1)
+	require.Equal(t, ConnectionModeWebhook, entries[0].ConnectionMode)
+}
+
+func TestValidateAppConfigFailsClosedForHostedAndSelfHostedBotShapes(t *testing.T) {
+	t.Parallel()
+
+	complete := []AppConfig{
+		{Provider: "pinterest", ClientID: "hosted-client", ClientSecret: "hosted-secret", RedirectURI: "https://app.openpost.social/api/v1/accounts/pinterest/callback"},
+		{Provider: "telegram", BotToken: "selfhost-token", BotUsername: "openpost_bot", WebhookSecret: "selfhost-webhook-secret"},
+		{Provider: "discord", ConnectionMode: "bot", ClientID: "discord-app", ClientSecret: "discord-secret", BotToken: "discord-token", RedirectURI: "https://selfhost.test/api/v1/accounts/discord/callback"},
+	}
+	for _, app := range complete {
+		require.NoError(t, ValidateAppConfig(app), app.Provider)
+	}
+
+	incomplete := []AppConfig{
+		{Provider: "pinterest", ClientID: "pin-client"},
+		{Provider: "telegram", BotToken: "telegram-token", BotUsername: "openpost_bot"},
+		{Provider: "discord", ConnectionMode: "bot", ClientID: "discord-app", ClientSecret: "discord-secret", RedirectURI: "https://selfhost.test/callback"},
+	}
+	for _, app := range incomplete {
+		require.Error(t, ValidateAppConfig(app), app.Provider)
+	}
+}
+
 func TestMergeAppConfigsOverridesByCanonicalProviderKey(t *testing.T) {
 	t.Parallel()
 

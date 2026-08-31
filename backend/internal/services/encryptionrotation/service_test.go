@@ -42,7 +42,7 @@ func rotationTestDB(t *testing.T) *bun.DB {
 		`CREATE TABLE oidc_auth_requests (id TEXT PRIMARY KEY, pkce_verifier_encrypted BLOB)`,
 		`CREATE TABLE oidc_native_handoffs (id TEXT PRIMARY KEY, token_encrypted BLOB)`,
 		`CREATE TABLE mastodon_instances (id TEXT PRIMARY KEY, client_secret_encrypted BLOB)`,
-		`CREATE TABLE provider_apps (id TEXT PRIMARY KEY, client_secret_encrypted BLOB)`,
+		`CREATE TABLE provider_apps (id TEXT PRIMARY KEY, client_secret_encrypted BLOB, bot_token_encrypted BLOB, webhook_secret_encrypted BLOB)`,
 		`CREATE TABLE instance_settings (key TEXT PRIMARY KEY, value_encrypted BLOB)`,
 		`CREATE TABLE ai_prompt_overrides (key TEXT PRIMARY KEY, value_encrypted BLOB)`,
 		`CREATE TABLE oauth_grants (id TEXT PRIMARY KEY, access_token_encrypted BLOB, refresh_token_encrypted BLOB)`,
@@ -82,6 +82,8 @@ func seedEncryptedColumns(t *testing.T, db *bun.DB, key string) []encryptedFixtu
 		{table: "oidc_native_handoffs", column: "token_encrypted", primaryKey: []string{"id"}, keyValues: []string{"handoff"}, plaintext: "native-token"},
 		{table: "mastodon_instances", column: "client_secret_encrypted", primaryKey: []string{"id"}, keyValues: []string{"mastodon"}, plaintext: "mastodon-secret"},
 		{table: "provider_apps", column: "client_secret_encrypted", primaryKey: []string{"id"}, keyValues: []string{"provider"}, plaintext: "provider-secret"},
+		{table: "provider_apps", column: "bot_token_encrypted", primaryKey: []string{"id"}, keyValues: []string{"provider"}, plaintext: "provider-bot-token"},
+		{table: "provider_apps", column: "webhook_secret_encrypted", primaryKey: []string{"id"}, keyValues: []string{"provider"}, plaintext: "provider-webhook-secret"},
 		{table: "instance_settings", column: "value_encrypted", primaryKey: []string{"key"}, keyValues: []string{"setting"}, plaintext: "instance-setting"},
 		{table: "ai_prompt_overrides", column: "value_encrypted", primaryKey: []string{"key"}, keyValues: []string{"prompt"}, plaintext: "ai-prompt"},
 		{table: "oauth_grants", column: "access_token_encrypted", primaryKey: []string{"id"}, keyValues: []string{"grant"}, plaintext: "grant-access"},
@@ -159,8 +161,8 @@ func TestRotateReencryptsEveryPersistedCiphertextAndVerifiesCurrentKey(t *testin
 	result, err := Rotate(t.Context(), db, encryptor)
 
 	require.NoError(t, err)
-	require.Equal(t, 17, result.RotatedCiphertexts)
-	require.Equal(t, 17, result.VerifiedCiphertexts)
+	require.Equal(t, 19, result.RotatedCiphertexts)
+	require.Equal(t, 19, result.VerifiedCiphertexts)
 	for _, fixture := range fixtures {
 		var ciphertext []byte
 		arguments := make([]any, 0, len(fixture.keyValues))
@@ -187,7 +189,7 @@ func TestRotateReencryptsEveryPersistedCiphertextAndVerifiesCurrentKey(t *testin
 	secondResult, err := Rotate(t.Context(), db, encryptor)
 	require.NoError(t, err)
 	require.Zero(t, secondResult.RotatedCiphertexts)
-	require.Equal(t, 17, secondResult.VerifiedCiphertexts)
+	require.Equal(t, 19, secondResult.VerifiedCiphertexts)
 }
 
 func TestRotateRollsBackWhenAnyCiphertextCannotBeVerified(t *testing.T) {

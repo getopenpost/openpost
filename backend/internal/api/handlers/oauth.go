@@ -173,17 +173,18 @@ type MastodonServerInfo struct {
 }
 
 type ProviderInfo struct {
-	Platform       string                     `json:"platform" doc:"Provider key"`
-	InstallationID string                     `json:"installation_id,omitempty" doc:"Operator installation used for a custom connector"`
-	DisplayName    string                     `json:"display_name" doc:"Human-readable provider name"`
-	AuthMode       string                     `json:"auth_mode" doc:"Connection method: oauth, app_password, or oauth_oob"`
-	Configured     bool                       `json:"configured" doc:"Whether this provider can currently be connected"`
-	Status         string                     `json:"status,omitempty" doc:"Provider launch status: available, needs_configuration, or planned"`
-	Description    string                     `json:"description,omitempty" doc:"Short connection or launch note for this provider"`
-	Capabilities   []string                   `json:"capabilities,omitempty" doc:"High-level OpenPost capabilities available or planned for this provider"`
-	Name           string                     `json:"name,omitempty" doc:"Provider app or server display name"`
-	InstanceURL    string                     `json:"instance_url,omitempty" doc:"Federated server URL, when applicable"`
-	Readiness      providerreadiness.Decision `json:"readiness"`
+	Platform        string                     `json:"platform" doc:"Provider key"`
+	InstallationID  string                     `json:"installation_id,omitempty" doc:"Operator installation used for a custom connector"`
+	DisplayName     string                     `json:"display_name" doc:"Human-readable provider name"`
+	AuthMode        string                     `json:"auth_mode" doc:"Primary connection method retained for compatibility"`
+	ConnectionModes []string                   `json:"connection_modes,omitempty" doc:"Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot"`
+	Configured      bool                       `json:"configured" doc:"Whether this provider can currently be connected"`
+	Status          string                     `json:"status,omitempty" doc:"Provider launch status: available, needs_configuration, or planned"`
+	Description     string                     `json:"description,omitempty" doc:"Short connection or launch note for this provider"`
+	Capabilities    []string                   `json:"capabilities,omitempty" doc:"High-level OpenPost capabilities available or planned for this provider"`
+	Name            string                     `json:"name,omitempty" doc:"Provider app or server display name"`
+	InstanceURL     string                     `json:"instance_url,omitempty" doc:"Federated server URL, when applicable"`
+	Readiness       providerreadiness.Decision `json:"readiness"`
 }
 
 type ListProvidersOutput struct {
@@ -332,18 +333,36 @@ var coreProviderCapabilities = []string{"Text posts", "Media posts", "Scheduling
 
 var providerCatalog = []ProviderInfo{
 	{
-		Platform:     "bluesky",
-		DisplayName:  "Bluesky",
-		AuthMode:     "app_password",
-		Description:  "Handle and app-password connection with no server app setup.",
-		Capabilities: coreProviderCapabilities,
+		Platform:        "bluesky",
+		DisplayName:     "Bluesky",
+		AuthMode:        "app_password",
+		ConnectionModes: []string{"app_password"},
+		Description:     "Handle and app-password connection with no server app setup.",
+		Capabilities:    coreProviderCapabilities,
 	},
 	{
-		Platform:     "discord",
-		DisplayName:  "Discord",
-		AuthMode:     "webhook",
-		Description:  "Connect a Discord channel with its incoming webhook URL.",
-		Capabilities: []string{"Text posts", "Media attachments", "Scheduling", "Message deletion", "MCP workflows"},
+		Platform:        "discord",
+		DisplayName:     "Discord",
+		AuthMode:        "webhook",
+		ConnectionModes: []string{"webhook", "bot"},
+		Description:     "Incoming webhooks remain available; bot connections stay gated until configured and certified.",
+		Capabilities:    []string{"Text posts", "Media attachments", "Scheduling", "Message deletion", "MCP workflows"},
+	},
+	{
+		Platform:        "pinterest",
+		DisplayName:     "Pinterest",
+		AuthMode:        "oauth",
+		ConnectionModes: []string{"oauth"},
+		Status:          providerStatusPlanned,
+		Description:     "Pinterest connections stay gated until provider access and certification are complete.",
+	},
+	{
+		Platform:        "telegram",
+		DisplayName:     "Telegram",
+		AuthMode:        "bot",
+		ConnectionModes: []string{"bot"},
+		Status:          providerStatusPlanned,
+		Description:     "Telegram bot connections stay gated until bot certification is complete.",
 	},
 	{
 		Platform:     "x",
@@ -545,11 +564,18 @@ func applyProviderAvailabilityReadiness(
 		for index := range infos {
 			infos[index].Readiness = providerreadiness.UnavailableDecision(providerreadiness.OperationConnect)
 			infos[index].Configured = false
-			infos[index].Status = string(providerreadiness.EffectiveStateDegraded)
+			if infos[index].Status != providerStatusPlanned {
+				infos[index].Status = string(providerreadiness.EffectiveStateDegraded)
+			}
 		}
 		return infos
 	}
 	for index := range infos {
+		if infos[index].Status == providerStatusPlanned {
+			infos[index].Readiness = providerreadiness.UnavailableDecision(providerreadiness.OperationConnect)
+			infos[index].Configured = false
+			continue
+		}
 		decision := readiness.DecideConnection(
 			ctx,
 			infos[index].Platform,

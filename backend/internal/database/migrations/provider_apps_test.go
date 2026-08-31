@@ -16,6 +16,12 @@ func TestRunMigrationsProviderAppsEnforcesOneAppPerProviderInstance(t *testing.T
 
 	require.NoError(t, runTestMigrations(t, db))
 
+	for _, column := range []string{"connection_mode", "bot_token_encrypted", "bot_username", "webhook_secret_encrypted"} {
+		var count int
+		require.NoError(t, db.NewRaw(`SELECT COUNT(*) FROM pragma_table_info('provider_apps') WHERE name = ?`, column).Scan(ctx, &count))
+		require.Equal(t, 1, count, column)
+	}
+
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO provider_apps (id, provider, client_id)
 		VALUES ('x-1', 'x', 'client-1')

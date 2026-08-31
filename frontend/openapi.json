@@ -11749,8 +11749,20 @@
 			"ProviderAppResponse": {
 				"additionalProperties": false,
 				"properties": {
+					"bot_token_configured": {
+						"description": "Whether an encrypted bot token is stored",
+						"type": "boolean"
+					},
+					"bot_username": {
+						"description": "Public bot username without the at-sign",
+						"type": "string"
+					},
 					"client_id": {
-						"description": "OAuth client ID",
+						"description": "OAuth client or application ID",
+						"type": "string"
+					},
+					"connection_mode": {
+						"description": "Instance-owned provider connection mode",
 						"type": "string"
 					},
 					"created_at": {
@@ -11805,14 +11817,21 @@
 					"updated_at": {
 						"description": "Last update time",
 						"type": "string"
+					},
+					"webhook_secret_configured": {
+						"description": "Whether an encrypted webhook verification secret is stored",
+						"type": "boolean"
 					}
 				},
 				"required": [
 					"id",
 					"provider",
+					"connection_mode",
 					"client_id",
 					"is_active",
 					"secret_configured",
+					"bot_token_configured",
+					"webhook_secret_configured",
 					"created_at",
 					"updated_at",
 					"source",
@@ -12014,7 +12033,7 @@
 				"additionalProperties": false,
 				"properties": {
 					"auth_mode": {
-						"description": "Connection method: oauth, app_password, or oauth_oob",
+						"description": "Primary connection method retained for compatibility",
 						"type": "string"
 					},
 					"capabilities": {
@@ -12027,6 +12046,13 @@
 					"configured": {
 						"description": "Whether this provider can currently be connected",
 						"type": "boolean"
+					},
+					"connection_modes": {
+						"description": "Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot",
+						"items": {
+							"type": "string"
+						},
+						"type": ["array", "null"]
 					},
 					"description": {
 						"description": "Short connection or launch note for this provider",
@@ -14956,12 +14982,24 @@
 						"readOnly": true,
 						"type": "string"
 					},
+					"bot_token": {
+						"description": "Bot token. Omit to preserve the encrypted value when updating.",
+						"type": "string"
+					},
+					"bot_username": {
+						"description": "Public Telegram bot username",
+						"type": "string"
+					},
 					"client_id": {
-						"description": "OAuth client ID",
+						"description": "OAuth client or application ID",
 						"type": "string"
 					},
 					"client_secret": {
 						"description": "OAuth client secret. Omit to preserve the existing secret when updating.",
+						"type": "string"
+					},
+					"connection_mode": {
+						"description": "Provider connection mode; inferred when omitted",
 						"type": "string"
 					},
 					"instance_url": {
@@ -14983,9 +15021,13 @@
 					"redirect_uri": {
 						"description": "OAuth redirect URI",
 						"type": "string"
+					},
+					"webhook_secret": {
+						"description": "Webhook verification secret. Omit to preserve the encrypted value when updating.",
+						"type": "string"
 					}
 				},
-				"required": ["provider", "client_id"],
+				"required": ["provider"],
 				"type": "object"
 			},
 			"SaveProviderAppResponse": {

@@ -73,7 +73,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 		t,
 		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
 		platform.AppConfig{Provider: "bluesky", ClientID: "bluesky-app"},
-		platform.AppConfig{Provider: "discord", ClientID: "discord-app"},
+		platform.AppConfig{Provider: "discord", ConnectionMode: "webhook"},
 		platform.AppConfig{Provider: "x", ClientID: "x-app"},
 		platform.AppConfig{Provider: mastodonProvider, ClientID: "mastodon-app", InstanceURL: "https://masto.pt"},
 	)
@@ -87,7 +87,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 	var out []ProviderInfo
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &out))
-	require.Len(t, out, 10)
+	require.Len(t, out, 12)
 	require.Equal(t, "bluesky", out[0].Platform)
 	require.Equal(t, providerStatusAvailable, out[0].Status)
 	require.True(t, out[0].Configured)
@@ -95,39 +95,35 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.Equal(t, "discord", out[1].Platform)
 	require.Equal(t, providerStatusAvailable, out[1].Status)
 	require.True(t, out[1].Configured)
-	require.Equal(t, "x", out[2].Platform)
-	require.Equal(t, providerStatusAvailable, out[2].Status)
-	require.True(t, out[2].Configured)
-	require.Equal(t, "mastodon", out[3].Platform)
-	require.Equal(t, "Mastodon", out[3].DisplayName)
-	require.Equal(t, "oauth_oob", out[3].AuthMode)
-	require.True(t, out[3].Configured)
-	require.Equal(t, providerStatusAvailable, out[3].Status)
-	require.Equal(t, "Connect this configured Mastodon instance.", out[3].Description)
-	require.Equal(t, coreProviderCapabilities, out[3].Capabilities)
-	require.Equal(t, "Personal", out[3].Name)
-	require.Equal(t, "https://masto.pt", out[3].InstanceURL)
-	require.True(t, out[3].Readiness.Connectable)
-	require.Equal(t, "linkedin", out[4].Platform)
-	require.Equal(t, providerStatusNeedsConfiguration, out[4].Status)
-	require.False(t, out[4].Configured)
-	require.Equal(t, "threads", out[5].Platform)
-	require.Equal(t, providerStatusNeedsConfiguration, out[5].Status)
-	require.False(t, out[5].Configured)
-	require.Equal(t, "instagram", out[6].Platform)
-	require.Equal(t, providerStatusNeedsConfiguration, out[6].Status)
-	require.False(t, out[6].Configured)
-	require.Equal(t, "facebook", out[7].Platform)
-	require.Equal(t, providerStatusNeedsConfiguration, out[7].Status)
-	require.Equal(t, "youtube", out[8].Platform)
-	require.Equal(t, providerStatusNeedsConfiguration, out[8].Status)
-	require.False(t, out[8].Configured)
-	require.Equal(t, "tiktok", out[9].Platform)
-	require.Equal(t, providerStatusNeedsConfiguration, out[9].Status)
-	require.False(t, out[9].Configured)
-	require.Equal(t, "OAuth app connection for TikTok videos and photo posts.", out[9].Description)
-	require.Contains(t, out[9].Capabilities, "Short videos")
-	require.Contains(t, out[9].Capabilities, "Photo posts")
+	require.ElementsMatch(t, []string{"webhook", "bot"}, out[1].ConnectionModes)
+	require.Equal(t, "pinterest", out[2].Platform)
+	require.Equal(t, providerStatusPlanned, out[2].Status)
+	require.False(t, out[2].Configured)
+	require.Equal(t, "telegram", out[3].Platform)
+	require.Equal(t, providerStatusPlanned, out[3].Status)
+	require.False(t, out[3].Configured)
+	require.Equal(t, "x", out[4].Platform)
+	require.Equal(t, providerStatusAvailable, out[4].Status)
+	require.True(t, out[4].Configured)
+	require.Equal(t, "mastodon", out[5].Platform)
+	require.Equal(t, "Mastodon", out[5].DisplayName)
+	require.Equal(t, "oauth_oob", out[5].AuthMode)
+	require.True(t, out[5].Configured)
+	require.Equal(t, providerStatusAvailable, out[5].Status)
+	require.Equal(t, "Connect this configured Mastodon instance.", out[5].Description)
+	require.Equal(t, coreProviderCapabilities, out[5].Capabilities)
+	require.Equal(t, "Personal", out[5].Name)
+	require.Equal(t, "https://masto.pt", out[5].InstanceURL)
+	require.True(t, out[5].Readiness.Connectable)
+	require.Equal(t, "linkedin", out[6].Platform)
+	require.Equal(t, "threads", out[7].Platform)
+	require.Equal(t, "instagram", out[8].Platform)
+	require.Equal(t, "facebook", out[9].Platform)
+	require.Equal(t, "youtube", out[10].Platform)
+	require.Equal(t, "tiktok", out[11].Platform)
+	require.Equal(t, "OAuth app connection for TikTok videos and photo posts.", out[11].Description)
+	require.Contains(t, out[11].Capabilities, "Short videos")
+	require.Contains(t, out[11].Capabilities, "Photo posts")
 }
 
 func TestListProvidersIncludesUnavailableMastodonPlaceholder(t *testing.T) {
@@ -142,11 +138,11 @@ func TestListProvidersIncludesUnavailableMastodonPlaceholder(t *testing.T) {
 	}
 	out := handler.providerAvailability()
 
-	require.Len(t, out, 10)
-	require.Equal(t, "mastodon", out[3].Platform)
-	require.False(t, out[3].Configured)
-	require.Equal(t, providerStatusNeedsConfiguration, out[3].Status)
-	require.Equal(t, providerreadiness.EffectiveStateNeedsConfiguration, out[3].Readiness.State)
+	require.Len(t, out, 12)
+	require.Equal(t, "mastodon", out[5].Platform)
+	require.False(t, out[5].Configured)
+	require.Equal(t, providerStatusNeedsConfiguration, out[5].Status)
+	require.Equal(t, providerreadiness.EffectiveStateNeedsConfiguration, out[5].Readiness.State)
 }
 
 func TestListProvidersReportsDynamicMastodonAvailable(t *testing.T) {
@@ -163,10 +159,10 @@ func TestListProvidersReportsDynamicMastodonAvailable(t *testing.T) {
 	}
 	out := handler.providerAvailability()
 
-	require.Len(t, out, 10)
-	require.Equal(t, "mastodon", out[3].Platform)
-	require.True(t, out[3].Configured)
-	require.Equal(t, providerStatusAvailable, out[3].Status)
-	require.Equal(t, "Custom instance", out[3].Name)
-	require.True(t, out[3].Readiness.Connectable)
+	require.Len(t, out, 12)
+	require.Equal(t, "mastodon", out[5].Platform)
+	require.True(t, out[5].Configured)
+	require.Equal(t, providerStatusAvailable, out[5].Status)
+	require.Equal(t, "Custom instance", out[5].Name)
+	require.True(t, out[5].Readiness.Connectable)
 }

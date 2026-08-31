@@ -489,7 +489,7 @@ func TestVideoCapabilitiesUseSafeProviderSpecificLimits(t *testing.T) {
 			require.Equal(t, tt.maxBytes, capability.Media.MaxSizeBytes)
 			require.Equal(t, tt.maxDuration, capability.Media.MaxDurationSeconds)
 			require.ElementsMatch(t, tt.allowedMIMEs, capability.Media.AllowedMIMEs)
-			require.Equal(t, "2026-08-27.1", capability.CapabilityRevision)
+			require.Equal(t, "2026-09-03.1", capability.CapabilityRevision)
 		})
 	}
 }
@@ -745,6 +745,52 @@ func TestValidateBlocksMastodonPollWithMedia(t *testing.T) {
 	}}, map[string]any{"poll_options": "One\nTwo"})
 
 	requireIssueCode(t, issues, "mastodon_poll_media_conflict")
+}
+
+func TestPinterestTelegramAndDiscordExposeTypedDestinationSettings(t *testing.T) {
+	t.Parallel()
+
+	pinterest, ok := Find(ProviderPinterest, models.ContentProfileImagePost)
+	require.True(t, ok)
+	require.Contains(t, capabilitySettingKeys(pinterest.Settings), "board_id")
+	require.Contains(t, capabilitySettingKeys(pinterest.Settings), "section_id")
+	require.NotEmpty(t, pinterest.UnavailableReason)
+
+	telegram, ok := Find(ProviderTelegram, models.ContentProfileShortText)
+	require.True(t, ok)
+	require.Contains(t, capabilitySettingKeys(telegram.Settings), "chat_id")
+	require.NotEmpty(t, telegram.UnavailableReason)
+
+	discord, ok := Find(ProviderDiscord, models.ContentProfileShortText)
+	require.True(t, ok)
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "channel_id")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "embed")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_policy")
+
+	// Existing webhook renditions predate bot settings and must remain valid.
+	requireNoIssueCode(t, Validate(ProviderDiscord, models.ContentProfileShortText, "hello", "", "", nil, nil), "setting_required")
+}
+
+func TestProviderSettingsRejectCrossProviderKeys(t *testing.T) {
+	t.Parallel()
+
+	issues := Validate(ProviderPinterest, models.ContentProfileImagePost, "caption", "", "", []MediaItem{{
+		ID: "image-1", MimeType: "image/jpeg", Size: 1024,
+	}}, map[string]any{"board_id": "board-1", "chat_id": "-100123"})
+	requireIssueCode(t, issues, "unsupported_setting")
+
+	issues = Validate(ProviderTelegram, models.ContentProfileShortText, "hello", "", "", nil, map[string]any{
+		"chat_id": "-100123", "channel_id": "discord-channel",
+	})
+	requireIssueCode(t, issues, "unsupported_setting")
+}
+
+func capabilitySettingKeys(settings []SettingDefinition) []string {
+	keys := make([]string, 0, len(settings))
+	for _, setting := range settings {
+		keys = append(keys, setting.Key)
+	}
+	return keys
 }
 
 func TestValidateFlagsUnsupportedProviderSettings(t *testing.T) {

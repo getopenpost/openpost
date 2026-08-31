@@ -860,16 +860,20 @@ type MastodonInstance struct {
 type ProviderApp struct {
 	bun.BaseModel `bun:"table:provider_apps"`
 
-	ID              string    `bun:",pk" json:"id"`
-	Provider        string    `bun:",notnull" json:"provider"`
-	Name            string    `bun:",notnull,default:''" json:"name"`
-	ClientID        string    `bun:",notnull,default:''" json:"client_id"`
-	ClientSecretEnc []byte    `bun:"client_secret_encrypted" json:"-"`
-	RedirectURI     string    `bun:",notnull,default:''" json:"redirect_uri"`
-	InstanceURL     string    `bun:",notnull,default:''" json:"instance_url"`
-	IsActive        bool      `bun:",notnull,default:true" json:"is_active"`
-	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	ID               string    `bun:",pk" json:"id"`
+	Provider         string    `bun:",notnull" json:"provider"`
+	ConnectionMode   string    `bun:"connection_mode,notnull,default:''" json:"connection_mode"`
+	Name             string    `bun:",notnull,default:''" json:"name"`
+	ClientID         string    `bun:",notnull,default:''" json:"client_id"`
+	ClientSecretEnc  []byte    `bun:"client_secret_encrypted" json:"-"`
+	RedirectURI      string    `bun:",notnull,default:''" json:"redirect_uri"`
+	InstanceURL      string    `bun:",notnull,default:''" json:"instance_url"`
+	BotTokenEnc      []byte    `bun:"bot_token_encrypted" json:"-"`
+	BotUsername      string    `bun:"bot_username,notnull,default:''" json:"bot_username"`
+	WebhookSecretEnc []byte    `bun:"webhook_secret_encrypted" json:"-"`
+	IsActive         bool      `bun:",notnull,default:true" json:"is_active"`
+	CreatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt        time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // ProviderApprovalReview is an append-only operator review of the approval

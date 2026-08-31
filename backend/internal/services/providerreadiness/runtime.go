@@ -59,7 +59,7 @@ func OperatorRuntimeApps(configs []platform.AppConfig, environment ProviderEnvir
 	result := RuntimeApps(configs, ConfigurationSourceEnvironment, environment)
 	for index := range result {
 		config := platform.NormalizeAppConfig(result[index].Config)
-		if (config.Provider == capabilities.ProviderBluesky || config.Provider == capabilities.ProviderDiscord) && config.ClientID == "" {
+		if platform.IsBuiltInAppConfig(config) {
 			result[index].Source = ConfigurationSourceBuiltIn
 		}
 	}
@@ -153,6 +153,19 @@ func AppFingerprint(config platform.AppConfig) (string, error) {
 	config = platform.NormalizeAppConfig(config)
 	if !providerPattern.MatchString(config.Provider) {
 		return "", errors.New("provider app is invalid")
+	}
+	if config.Provider == capabilities.ProviderPinterest || config.Provider == capabilities.ProviderTelegram ||
+		(config.Provider == capabilities.ProviderDiscord && config.ConnectionMode == platform.ConnectionModeBot) {
+		return digestJSON(struct {
+			Provider       string `json:"provider"`
+			ConnectionMode string `json:"connection_mode"`
+			ClientID       string `json:"client_id"`
+			BotUsername    string `json:"bot_username"`
+			RedirectURI    string `json:"redirect_uri"`
+		}{
+			Provider: config.Provider, ConnectionMode: config.ConnectionMode, ClientID: config.ClientID,
+			BotUsername: config.BotUsername, RedirectURI: config.RedirectURI,
+		})
 	}
 	return digestJSON(struct {
 		Provider    string `json:"provider"`

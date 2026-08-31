@@ -9465,8 +9465,14 @@ export interface components {
       workspace_id?: string;
     };
     ProviderAppResponse: {
-      /** @description OAuth client ID */
+      /** @description Whether an encrypted bot token is stored */
+      bot_token_configured: boolean;
+      /** @description Public bot username without the at-sign */
+      bot_username?: string;
+      /** @description OAuth client or application ID */
       client_id: string;
+      /** @description Instance-owned provider connection mode */
+      connection_mode: string;
       /** @description Creation time */
       created_at: string;
       /** @description Whether the database row can be deleted through the admin API */
@@ -9496,6 +9502,8 @@ export interface components {
       source: "environment" | "database";
       /** @description Last update time */
       updated_at: string;
+      /** @description Whether an encrypted webhook verification secret is stored */
+      webhook_secret_configured: boolean;
     };
     ProviderCostOperationSummary: {
       /**
@@ -9600,12 +9608,14 @@ export interface components {
       terminal_reason?: string;
     };
     ProviderInfo: {
-      /** @description Connection method: oauth, app_password, or oauth_oob */
+      /** @description Primary connection method retained for compatibility */
       auth_mode: string;
       /** @description High-level OpenPost capabilities available or planned for this provider */
       capabilities?: string[] | null;
       /** @description Whether this provider can currently be connected */
       configured: boolean;
+      /** @description Supported distinct connection methods: oauth, app_password, oauth_oob, webhook, or bot */
+      connection_modes?: string[] | null;
       /** @description Short connection or launch note for this provider */
       description?: string;
       /** @description Human-readable provider name */
@@ -10869,10 +10879,16 @@ export interface components {
        * @example https://example.com/schemas/SaveProviderAppInputBody.json
        */
       readonly $schema?: string;
-      /** @description OAuth client ID */
-      client_id: string;
+      /** @description Bot token. Omit to preserve the encrypted value when updating. */
+      bot_token?: string;
+      /** @description Public Telegram bot username */
+      bot_username?: string;
+      /** @description OAuth client or application ID */
+      client_id?: string;
       /** @description OAuth client secret. Omit to preserve the existing secret when updating. */
       client_secret?: string;
+      /** @description Provider connection mode; inferred when omitted */
+      connection_mode?: string;
       /** @description Federated provider instance URL */
       instance_url?: string;
       /** @description Whether this app should be active. Defaults to true. */
@@ -10883,6 +10899,8 @@ export interface components {
       provider: string;
       /** @description OAuth redirect URI */
       redirect_uri?: string;
+      /** @description Webhook verification secret. Omit to preserve the encrypted value when updating. */
+      webhook_secret?: string;
     };
     SaveProviderAppResponse: {
       /**

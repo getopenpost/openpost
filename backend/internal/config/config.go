@@ -486,7 +486,7 @@ func defaultProviderAppConfig(cfg *Config, apps []platform.AppConfig) []platform
 	out := make([]platform.AppConfig, 0, len(apps))
 	for _, app := range apps {
 		app = platform.NormalizeAppConfig(app)
-		if app.RedirectURI == "" {
+		if app.RedirectURI == "" && (app.Provider != "discord" || app.ConnectionMode != platform.ConnectionModeWebhook) {
 			app.RedirectURI = providerRedirectURI(cfg, app.Provider)
 		}
 		out = append(out, app)
@@ -497,9 +497,11 @@ func defaultProviderAppConfig(cfg *Config, apps []platform.AppConfig) []platform
 func providerRedirectURI(cfg *Config, provider string) string {
 	redirects := map[string]string{
 		"x":         cfg.TwitterRedirectURI,
+		"discord":   oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/discord/callback"),
 		"facebook":  oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/facebook/callback"),
 		"instagram": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/instagram/callback"),
 		"mastodon":  cfg.MastodonRedirectURI,
+		"pinterest": oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/pinterest/callback"),
 		"linkedin":  cfg.LinkedInRedirectURI,
 		"threads":   cfg.ThreadsRedirectURI,
 		"tiktok":    oauthRedirectFromFrontend("", "", cfg.FrontendURL, "/api/v1/accounts/tiktok/callback"),

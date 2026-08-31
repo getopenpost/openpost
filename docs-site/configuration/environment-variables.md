@@ -358,7 +358,7 @@ If `redirect_uri` is omitted, OpenPost derives `https://your-domain.com/api/v1/a
 ## Notes
 
 - The preferred names above are what new deployments should use.
-- `OPENPOST_PROVIDER_APPS` accepts an array of objects with `provider`, `name`, `client_id`, `client_secret`, `redirect_uri`, and `instance_url`. The Configuration screen stores the same logical fields in `provider_apps`, with `client_secret` encrypted into `client_secret_encrypted`. Both support `x`, `mastodon`, `linkedin`, `threads`, `facebook`, `instagram`, `tiktok`, and `youtube`; Bluesky uses app-password login and Discord uses a webhook.
+- `OPENPOST_PROVIDER_APPS` accepts provider metadata plus instance-owned secrets. OAuth apps use `client_id`, `client_secret`, and `redirect_uri`; Telegram uses `bot_token`, `bot_username`, and `webhook_secret`; Discord bot apps use `connection_mode: "bot"`, `client_id` (the application ID), `client_secret`, `bot_token`, and `redirect_uri`. Database-backed secrets are encrypted. Supported configured identities include `x`, `mastodon`, `linkedin`, `threads`, `facebook`, `instagram`, `tiktok`, `youtube`, `pinterest`, `telegram`, and Discord bot mode. Bluesky credentials and Discord incoming webhooks remain user-owned connection modes.
 - Backward-compatible aliases still work for existing installs: `DATABASE_URL`, `OPENPOST_DB_PATH`, `OPENPOST_FRONTEND_URL`, `OPENPOST_CORS_EXTRA_ORIGINS`, `JWT_SECRET`, `ENCRYPTION_KEY`, `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET`, `TWITTER_REDIRECT_URI`, and `LINKEDIN_DISABLE_THREAD_REPLIES`.
 - File-backed aliases also work for existing installs, such as `DATABASE_URL_FILE`, `JWT_SECRET_FILE`, and `ENCRYPTION_KEY_FILE`.
 - The root `.env.example` is the best copy-paste starting point.

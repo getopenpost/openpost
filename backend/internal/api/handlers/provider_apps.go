@@ -25,20 +25,24 @@ type ProviderAppHandler struct {
 }
 
 type ProviderAppResponse struct {
-	ID               string `json:"id" doc:"Provider app ID"`
-	Provider         string `json:"provider" doc:"Provider key"`
-	Name             string `json:"name,omitempty" doc:"Optional provider app display name"`
-	ClientID         string `json:"client_id" doc:"OAuth client ID"`
-	RedirectURI      string `json:"redirect_uri,omitempty" doc:"OAuth redirect URI"`
-	InstanceURL      string `json:"instance_url,omitempty" doc:"Federated provider instance URL"`
-	IsActive         bool   `json:"is_active" doc:"Whether this app is active"`
-	SecretConfigured bool   `json:"secret_configured" doc:"Whether an encrypted client secret is stored"`
-	CreatedAt        string `json:"created_at" doc:"Creation time"`
-	UpdatedAt        string `json:"updated_at" doc:"Last update time"`
-	Source           string `json:"source" enum:"environment,database" doc:"Configuration source"`
-	Editable         bool   `json:"editable" doc:"Whether the row can be changed through the admin API"`
-	Deletable        bool   `json:"deletable" doc:"Whether the database row can be deleted through the admin API"`
-	Shadowed         bool   `json:"shadowed_by_environment" doc:"Whether an environment app currently takes precedence over this database row"`
+	ID                      string `json:"id" doc:"Provider app ID"`
+	Provider                string `json:"provider" doc:"Provider key"`
+	ConnectionMode          string `json:"connection_mode" doc:"Instance-owned provider connection mode"`
+	Name                    string `json:"name,omitempty" doc:"Optional provider app display name"`
+	ClientID                string `json:"client_id" doc:"OAuth client or application ID"`
+	RedirectURI             string `json:"redirect_uri,omitempty" doc:"OAuth redirect URI"`
+	InstanceURL             string `json:"instance_url,omitempty" doc:"Federated provider instance URL"`
+	BotUsername             string `json:"bot_username,omitempty" doc:"Public bot username without the at-sign"`
+	IsActive                bool   `json:"is_active" doc:"Whether this app is active"`
+	SecretConfigured        bool   `json:"secret_configured" doc:"Whether an encrypted client secret is stored"`
+	BotTokenConfigured      bool   `json:"bot_token_configured" doc:"Whether an encrypted bot token is stored"`
+	WebhookSecretConfigured bool   `json:"webhook_secret_configured" doc:"Whether an encrypted webhook verification secret is stored"`
+	CreatedAt               string `json:"created_at" doc:"Creation time"`
+	UpdatedAt               string `json:"updated_at" doc:"Last update time"`
+	Source                  string `json:"source" enum:"environment,database" doc:"Configuration source"`
+	Editable                bool   `json:"editable" doc:"Whether the row can be changed through the admin API"`
+	Deletable               bool   `json:"deletable" doc:"Whether the database row can be deleted through the admin API"`
+	Shadowed                bool   `json:"shadowed_by_environment" doc:"Whether an environment app currently takes precedence over this database row"`
 }
 
 type ListProviderAppsOutput struct {
@@ -47,13 +51,17 @@ type ListProviderAppsOutput struct {
 
 type SaveProviderAppInput struct {
 	Body struct {
-		Provider     string  `json:"provider" doc:"Provider key"`
-		Name         string  `json:"name,omitempty" doc:"Optional provider app display name"`
-		ClientID     string  `json:"client_id" doc:"OAuth client ID"`
-		ClientSecret *string `json:"client_secret,omitempty" doc:"OAuth client secret. Omit to preserve the existing secret when updating."`
-		RedirectURI  string  `json:"redirect_uri,omitempty" doc:"OAuth redirect URI"`
-		InstanceURL  string  `json:"instance_url,omitempty" doc:"Federated provider instance URL"`
-		IsActive     *bool   `json:"is_active,omitempty" doc:"Whether this app should be active. Defaults to true."`
+		Provider       string  `json:"provider" doc:"Provider key"`
+		ConnectionMode string  `json:"connection_mode,omitempty" doc:"Provider connection mode; inferred when omitted"`
+		Name           string  `json:"name,omitempty" doc:"Optional provider app display name"`
+		ClientID       string  `json:"client_id,omitempty" doc:"OAuth client or application ID"`
+		ClientSecret   *string `json:"client_secret,omitempty" doc:"OAuth client secret. Omit to preserve the existing secret when updating."`
+		RedirectURI    string  `json:"redirect_uri,omitempty" doc:"OAuth redirect URI"`
+		InstanceURL    string  `json:"instance_url,omitempty" doc:"Federated provider instance URL"`
+		BotToken       *string `json:"bot_token,omitempty" doc:"Bot token. Omit to preserve the encrypted value when updating."`
+		BotUsername    string  `json:"bot_username,omitempty" doc:"Public Telegram bot username"`
+		WebhookSecret  *string `json:"webhook_secret,omitempty" doc:"Webhook verification secret. Omit to preserve the encrypted value when updating."`
+		IsActive       *bool   `json:"is_active,omitempty" doc:"Whether this app should be active. Defaults to true."`
 	}
 }
 
@@ -85,7 +93,7 @@ func WithEnvironmentProviderApps(apps []platform.AppConfig) ProviderAppHandlerOp
 	return func(handler *ProviderAppHandler) {
 		for _, app := range apps {
 			app = platform.NormalizeAppConfig(app)
-			if app.Provider == "bluesky" || app.Provider == "discord" || app.ClientID == "" {
+			if platform.IsBuiltInAppConfig(app) {
 				continue
 			}
 			handler.environmentApps[platform.AppConfigMergeKey(app)] = app
@@ -152,7 +160,7 @@ func (h *ProviderAppHandler) listProviderApps(ctx context.Context, _ *struct{}) 
 	}
 	out := make([]ProviderAppResponse, 0, len(apps)+len(h.environmentApps))
 	for _, app := range apps {
-		key := platform.AppConfigMergeKey(platform.AppConfig{Provider: app.Provider, InstanceURL: app.InstanceURL})
+		key := platform.AppConfigMergeKey(platform.AppConfig{Provider: app.Provider, ConnectionMode: app.ConnectionMode, InstanceURL: app.InstanceURL})
 		response := providerAppResponse(app)
 		_, response.Shadowed = h.environmentApps[key]
 		response.Editable = !response.Shadowed
@@ -160,17 +168,21 @@ func (h *ProviderAppHandler) listProviderApps(ctx context.Context, _ *struct{}) 
 	}
 	for key, app := range h.environmentApps {
 		out = append(out, ProviderAppResponse{
-			ID:               "environment:" + key,
-			Provider:         app.Provider,
-			Name:             app.Name,
-			ClientID:         app.ClientID,
-			RedirectURI:      app.RedirectURI,
-			InstanceURL:      app.InstanceURL,
-			IsActive:         true,
-			SecretConfigured: app.ClientSecret != "",
-			Source:           "environment",
-			Editable:         false,
-			Deletable:        false,
+			ID:                      "environment:" + key,
+			Provider:                app.Provider,
+			ConnectionMode:          app.ConnectionMode,
+			Name:                    app.Name,
+			ClientID:                app.ClientID,
+			RedirectURI:             app.RedirectURI,
+			InstanceURL:             app.InstanceURL,
+			BotUsername:             app.BotUsername,
+			IsActive:                true,
+			SecretConfigured:        app.ClientSecret != "",
+			BotTokenConfigured:      app.BotToken != "",
+			WebhookSecretConfigured: app.WebhookSecret != "",
+			Source:                  "environment",
+			Editable:                false,
+			Deletable:               false,
 		})
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -190,30 +202,37 @@ func (h *ProviderAppHandler) saveProviderApp(ctx context.Context, input *SavePro
 		isActive = *input.Body.IsActive
 	}
 	appConfig := platform.NormalizeAppConfig(platform.AppConfig{
-		Provider:    input.Body.Provider,
-		Name:        input.Body.Name,
-		ClientID:    input.Body.ClientID,
-		RedirectURI: input.Body.RedirectURI,
-		InstanceURL: input.Body.InstanceURL,
+		Provider:       input.Body.Provider,
+		ConnectionMode: input.Body.ConnectionMode,
+		Name:           input.Body.Name,
+		ClientID:       input.Body.ClientID,
+		RedirectURI:    input.Body.RedirectURI,
+		InstanceURL:    input.Body.InstanceURL,
+		BotUsername:    input.Body.BotUsername,
 	})
 	if _, managed := h.environmentApps[platform.AppConfigMergeKey(appConfig)]; managed {
 		return nil, huma.Error409Conflict("provider app is managed by the environment")
 	}
 	if appConfig.RedirectURI == "" && h.frontendURL != "" {
-		if appConfig.Provider == "mastodon" {
+		switch {
+		case appConfig.Provider == "mastodon":
 			appConfig.RedirectURI = "urn:ietf:wg:oauth:2.0:oob"
-		} else {
+		case appConfig.ConnectionMode == platform.ConnectionModeOAuth || (appConfig.Provider == "discord" && appConfig.ConnectionMode == platform.ConnectionModeBot):
 			appConfig.RedirectURI = h.frontendURL + "/api/v1/accounts/" + appConfig.Provider + "/callback"
 		}
 	}
 	app, existed, err := h.service.UpsertProviderApp(ctx, providerapps.UpsertInput{
-		Provider:     appConfig.Provider,
-		Name:         appConfig.Name,
-		ClientID:     appConfig.ClientID,
-		ClientSecret: input.Body.ClientSecret,
-		RedirectURI:  appConfig.RedirectURI,
-		InstanceURL:  appConfig.InstanceURL,
-		IsActive:     isActive,
+		Provider:       appConfig.Provider,
+		ConnectionMode: appConfig.ConnectionMode,
+		Name:           appConfig.Name,
+		ClientID:       appConfig.ClientID,
+		ClientSecret:   input.Body.ClientSecret,
+		RedirectURI:    appConfig.RedirectURI,
+		InstanceURL:    appConfig.InstanceURL,
+		BotToken:       input.Body.BotToken,
+		BotUsername:    appConfig.BotUsername,
+		WebhookSecret:  input.Body.WebhookSecret,
+		IsActive:       isActive,
 	})
 	if err != nil {
 		return nil, providerAppServiceError(err)
@@ -251,20 +270,28 @@ func providerAppServiceError(err error) error {
 }
 
 func providerAppResponse(app models.ProviderApp) ProviderAppResponse {
+	config := platform.NormalizeAppConfig(platform.AppConfig{
+		Provider: app.Provider, ConnectionMode: app.ConnectionMode, ClientID: app.ClientID,
+		BotToken: string(app.BotTokenEnc),
+	})
 	return ProviderAppResponse{
-		ID:               app.ID,
-		Provider:         app.Provider,
-		Name:             app.Name,
-		ClientID:         app.ClientID,
-		RedirectURI:      app.RedirectURI,
-		InstanceURL:      app.InstanceURL,
-		IsActive:         app.IsActive,
-		SecretConfigured: len(app.ClientSecretEnc) > 0,
-		CreatedAt:        formatProviderAppTime(app.CreatedAt),
-		UpdatedAt:        formatProviderAppTime(app.UpdatedAt),
-		Source:           "database",
-		Editable:         true,
-		Deletable:        true,
+		ID:                      app.ID,
+		Provider:                app.Provider,
+		ConnectionMode:          config.ConnectionMode,
+		Name:                    app.Name,
+		ClientID:                app.ClientID,
+		RedirectURI:             app.RedirectURI,
+		InstanceURL:             app.InstanceURL,
+		BotUsername:             app.BotUsername,
+		IsActive:                app.IsActive,
+		SecretConfigured:        len(app.ClientSecretEnc) > 0,
+		BotTokenConfigured:      len(app.BotTokenEnc) > 0,
+		WebhookSecretConfigured: len(app.WebhookSecretEnc) > 0,
+		CreatedAt:               formatProviderAppTime(app.CreatedAt),
+		UpdatedAt:               formatProviderAppTime(app.UpdatedAt),
+		Source:                  "database",
+		Editable:                true,
+		Deletable:               true,
 	}
 }
 

@@ -785,6 +785,18 @@ func TestPinterestTelegramAndDiscordExposeTypedDestinationSettings(t *testing.T)
 	require.Contains(t, capabilitySettingKeys(discord.Settings), "channel_id")
 	require.Contains(t, capabilitySettingKeys(discord.Settings), "embed")
 	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_policy")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_user_ids")
+	require.Contains(t, capabilitySettingKeys(discord.Settings), "mention_role_ids")
+	for _, setting := range discord.Settings {
+		if setting.Key == "mention_user_ids" {
+			require.Equal(t, "remote_picker", setting.Control)
+			require.Equal(t, "discord_members", setting.OptionsSource)
+		}
+		if setting.Key == "mention_role_ids" {
+			require.Equal(t, "remote_picker", setting.Control)
+			require.Equal(t, "discord_roles", setting.OptionsSource)
+		}
+	}
 
 	// Existing webhook renditions predate bot settings and must remain valid.
 	requireNoIssueCode(t, Validate(ProviderDiscord, models.ContentProfileShortText, "hello", "", "", nil, nil), "setting_required")

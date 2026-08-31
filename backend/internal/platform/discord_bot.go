@@ -12,20 +12,26 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
-	discordAPIBase                   = "https://discord.com/api/v10"
-	discordOAuthAuthorizeURL         = "https://discord.com/oauth2/authorize"
-	discordGuildTextChannel          = 0
-	discordGuildAnnouncementChannel  = 5
-	discordPermissionAdministrator   = uint64(1 << 3)
-	discordPermissionManageGuild     = uint64(1 << 5)
-	discordPermissionViewChannel     = uint64(1 << 10)
-	discordPermissionSendMessages    = uint64(1 << 11)
-	discordInstallPermissions        = discordPermissionViewChannel | discordPermissionSendMessages
-	discordGuildCredentialPrefix     = "discord-guild:"
-	discordChannelPermissionLostCode = "discord_channel_permission_lost"
+	discordAPIBase                     = "https://discord.com/api/v10"
+	discordOAuthAuthorizeURL           = "https://discord.com/oauth2/authorize"
+	discordGuildTextChannel            = 0
+	discordGuildAnnouncementChannel    = 5
+	discordPermissionAdministrator     = uint64(1 << 3)
+	discordPermissionManageGuild       = uint64(1 << 5)
+	discordPermissionViewChannel       = uint64(1 << 10)
+	discordPermissionSendMessages      = uint64(1 << 11)
+	discordPermissionMentionEveryone   = uint64(1 << 17)
+	discordApplicationGuildMembers     = uint64(1 << 14)
+	discordApplicationGuildMembersLite = uint64(1 << 15)
+	discordInstallPermissions          = discordPermissionViewChannel | discordPermissionSendMessages
+	discordGuildCredentialPrefix       = "discord-guild:"
+	discordChannelPermissionLostCode   = "discord_channel_permission_lost"
+	discordMentionPermissionLostCode   = "discord_mention_permission_lost"
+	discordEmbedInvalidCode            = "discord_embed_invalid"
 )
 
 type DiscordBotAdapter struct {
@@ -205,47 +211,119 @@ func (d *DiscordBotAdapter) ListDestinationOptions(ctx context.Context, credenti
 }
 
 func (d *DiscordBotAdapter) SearchPublishingOptions(ctx context.Context, credential string, input PublishingOptionsInput) (PublishingOptionsPage, error) {
-	if input.Source != "discord_channels" {
-		return PublishingOptionsPage{}, nil
-	}
-	groups, err := d.ListDestinationOptions(ctx, credential, DestinationOptionsInput{})
+	guildID, err := discordGuildIDFromCredential(credential)
 	if err != nil {
 		return PublishingOptionsPage{}, err
-	}
-	options := groups[input.Source]
-	query := strings.ToLower(strings.TrimSpace(input.Search))
-	filtered := make([]DestinationOption, 0, len(options))
-	for _, option := range options {
-		if query == "" || strings.Contains(strings.ToLower(option.Label), query) {
-			filtered = append(filtered, option)
-		}
-	}
-	offset, _ := strconv.Atoi(input.Cursor)
-	if offset < 0 || offset > len(filtered) {
-		offset = 0
 	}
 	limit := input.Limit
 	if limit <= 0 || limit > 100 {
 		limit = 25
 	}
-	end := min(offset+limit, len(filtered))
-	page := PublishingOptionsPage{Options: filtered[offset:end]}
-	if end < len(filtered) {
-		page.NextCursor = strconv.Itoa(end)
+	switch input.Source {
+	case "discord_channels":
+		groups, listErr := d.ListDestinationOptions(ctx, credential, DestinationOptionsInput{})
+		if listErr != nil {
+			return PublishingOptionsPage{}, listErr
+		}
+		return paginateDiscordOptions(groups[input.Source], input.Search, input.Cursor, limit), nil
+	case "discord_roles":
+		return d.searchDiscordRoles(ctx, guildID, input, limit)
+	case "discord_members":
+		return d.searchDiscordMembers(ctx, guildID, input, limit)
+	default:
+		return PublishingOptionsPage{}, nil
 	}
-	return page, nil
 }
 
-func (d *DiscordBotAdapter) ResolveAccountPublishingCapabilities(ctx context.Context, credential string, _ AccountCapabilityInput) (AccountCapabilityResult, error) {
-	groups, err := d.ListDestinationOptions(ctx, credential, DestinationOptionsInput{})
+func (d *DiscordBotAdapter) searchDiscordRoles(ctx context.Context, guildID string, input PublishingOptionsInput, limit int) (PublishingOptionsPage, error) {
+	permissionContext, err := d.permissionContext(ctx, guildID)
+	if err != nil {
+		return PublishingOptionsPage{}, err
+	}
+	permissions, permitted := permissionContext.channelPermissions(discordPublishingContextChannelID(input.Context))
+	if !permitted {
+		return PublishingOptionsPage{}, nil
+	}
+	options := make([]DestinationOption, 0, len(permissionContext.guild.Roles))
+	for _, role := range permissionContext.guild.Roles {
+		if role.ID == permissionContext.guild.ID || (!role.Mentionable && permissions&discordPermissionMentionEveryone == 0) {
+			continue
+		}
+		options = append(options, DestinationOption{Value: role.ID, Label: "@" + role.Name})
+	}
+	sort.Slice(options, func(i, j int) bool { return strings.ToLower(options[i].Label) < strings.ToLower(options[j].Label) })
+	return paginateDiscordOptions(options, input.Search, input.Cursor, limit), nil
+}
+
+func (d *DiscordBotAdapter) searchDiscordMembers(ctx context.Context, guildID string, input PublishingOptionsInput, limit int) (PublishingOptionsPage, error) {
+	query := strings.TrimSpace(input.Search)
+	if query == "" {
+		return PublishingOptionsPage{}, nil
+	}
+	permissionContext, err := d.permissionContext(ctx, guildID)
+	if err != nil {
+		return PublishingOptionsPage{}, err
+	}
+	if _, permitted := permissionContext.channelPermissions(discordPublishingContextChannelID(input.Context)); !permitted {
+		return PublishingOptionsPage{}, nil
+	}
+	approved, err := d.memberSearchApproved(ctx)
+	if err != nil || !approved {
+		return PublishingOptionsPage{}, err
+	}
+	var members []discordGuildMember
+	path := "/guilds/" + url.PathEscape(guildID) + "/members/search?query=" + url.QueryEscape(query) + "&limit=" + strconv.Itoa(limit)
+	if err := d.discordGetJSON(ctx, path, "Bot "+d.botToken, &members); err != nil {
+		return PublishingOptionsPage{}, normalizeDiscordMentionPermissionError(err)
+	}
+	options := make([]DestinationOption, 0, len(members))
+	for _, member := range members {
+		if member.User.ID == "" {
+			continue
+		}
+		label := firstNonEmptyString(member.Nick, member.User.GlobalName, member.User.Username, member.User.ID)
+		options = append(options, DestinationOption{Value: member.User.ID, Label: "@" + label})
+	}
+	return PublishingOptionsPage{Options: options}, nil
+}
+
+func (d *DiscordBotAdapter) ResolveAccountPublishingCapabilities(ctx context.Context, credential string, input AccountCapabilityInput) (AccountCapabilityResult, error) {
+	guildID, err := discordGuildIDFromCredential(credential)
 	if err != nil {
 		return AccountCapabilityResult{}, err
 	}
+	permissionContext, err := d.permissionContext(ctx, guildID)
+	if err != nil {
+		return AccountCapabilityResult{}, err
+	}
+	groups := map[string][]DestinationOption{"discord_channels": discordDestinationOptions(permissionContext.permittedChannels())}
+	channelPermissions, channelPermitted := permissionContext.channelPermissions(strings.TrimSpace(stringSetting(input.Settings, "channel_id")))
+	memberSearchApproved := false
+	if channelPermitted {
+		memberSearchApproved, err = d.memberSearchApproved(ctx)
+		if err != nil {
+			return AccountCapabilityResult{}, err
+		}
+	}
+	roleMentionsApproved := false
+	if channelPermitted {
+		for _, role := range permissionContext.guild.Roles {
+			if role.ID != permissionContext.guild.ID && (role.Mentionable || channelPermissions&discordPermissionMentionEveryone != 0) {
+				roleMentionsApproved = true
+				break
+			}
+		}
+	}
 	result := AccountCapabilityResult{
-		Revision: "discord-bot-v1", Options: groups,
-		Constraints:       map[string]interface{}{"text_limit": 2000, "media_max_count": 10},
-		AvailableFeatures: map[string]bool{"channel_id": len(groups["discord_channels"]) > 0},
-		State:             map[string]string{"connection_type": ConnectionModeBot},
+		Revision: "discord-bot-v2", Options: groups,
+		Constraints: map[string]interface{}{"text_limit": 2000, "media_max_count": 10},
+		AvailableFeatures: map[string]bool{
+			"channel_id":       len(groups["discord_channels"]) > 0,
+			"mention_policy":   channelPermitted && (memberSearchApproved || roleMentionsApproved),
+			"mention_user_ids": memberSearchApproved,
+			"mention_role_ids": roleMentionsApproved,
+		},
+		State: map[string]string{"connection_type": ConnectionModeBot},
 	}
 	if len(groups["discord_channels"]) == 0 {
 		result.UnavailableReason = "The bot cannot currently view and send to any text or announcement channel."
@@ -269,63 +347,125 @@ func (d *DiscordBotAdapter) PublishWithMedia(ctx context.Context, _ string, guil
 }
 
 func (d *DiscordBotAdapter) publish(ctx context.Context, guildID string, req *PublishRequest, media []UploadMediaRequest) (PublishResult, error) {
+	guildID = strings.TrimSpace(guildID)
 	channelID := strings.TrimSpace(stringSetting(req.Settings, "channel_id"))
 	if channelID == "" {
 		return PublishResult{}, &HTTPError{StatusCode: http.StatusBadRequest, Code: "discord_channel_required"}
 	}
-	permitted, err := d.channelPermitted(ctx, strings.TrimSpace(guildID), channelID)
+	embeds, err := discordEmbeds(req.Settings)
+	if err != nil {
+		return PublishResult{}, &HTTPError{StatusCode: http.StatusBadRequest, Code: discordEmbedInvalidCode}
+	}
+	permissionContext, err := d.permissionContext(ctx, guildID)
 	if err != nil {
 		return PublishResult{}, err
 	}
+	channelPermissions, permitted := permissionContext.channelPermissions(channelID)
 	if !permitted {
 		return PublishResult{}, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
 	}
+	mentionUsers, mentionRoles, err := d.approvedMentions(ctx, permissionContext, channelPermissions, req.Settings)
+	if err != nil {
+		return PublishResult{}, err
+	}
 
-	payload := map[string]any{
-		"content":          strings.TrimSpace(req.Content),
-		"allowed_mentions": discordAllowedMentions(req.Settings),
-	}
-	if len(media) > 0 {
-		attachments := make([]map[string]any, 0, len(media))
-		for index, item := range media {
-			attachment := map[string]any{"id": index, "filename": discordFilename(item.Filename, index)}
-			if index < len(req.MediaAltTexts) && strings.TrimSpace(req.MediaAltTexts[index]) != "" {
-				attachment["description"] = strings.TrimSpace(req.MediaAltTexts[index])
-			}
-			attachments = append(attachments, attachment)
-		}
-		payload["attachments"] = attachments
-	}
-	body, err := json.Marshal(payload)
+	body, err := json.Marshal(discordBotMessagePayload(req, media, embeds, mentionUsers, mentionRoles))
 	if err != nil {
 		return PublishResult{}, fmt.Errorf("encoding discord bot message: %w", err)
 	}
-	prepared := PublishResult{ProviderState: "execute_bot_message", RetrySafety: PublishRetryNever}
-	return executePreparedPublishWrite(req, prepared, func() (string, error) {
-		endpoint := discordAPIBase + "/channels/" + url.PathEscape(channelID) + "/messages"
-		headers := map[string]string{headerAuthorization: "Bot " + d.botToken}
-		var response []byte
-		var requestErr error
-		if len(media) == 0 {
-			headers[headerContentType] = contentTypeJSON
-			response, requestErr = DoRequest(ctx, http.MethodPost, endpoint, bytes.NewReader(body), headers)
-		} else {
-			response, requestErr = doDiscordMultipartWithHeaders(ctx, endpoint, body, media, headers)
+	prepared := PublishResult{
+		SubmissionState: PublishSubmissionUnknown,
+		ProviderState:   "execute_bot_message",
+		RetrySafety:     PublishRetryNever,
+	}
+	if err := req.BeginWrite(prepared); err != nil {
+		return PublishResult{}, err
+	}
+	message, err := d.sendDiscordBotMessage(ctx, channelID, body, media)
+	if err != nil {
+		return prepared, err
+	}
+	result := discordAcceptedMessageResult(guildID, channelID, message)
+	if err := req.Checkpoint(result); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+func discordBotMessagePayload(req *PublishRequest, media []UploadMediaRequest, embeds []discordEmbed, mentionUsers, mentionRoles []string) map[string]any {
+	payload := map[string]any{
+		"content":          strings.TrimSpace(req.Content),
+		"allowed_mentions": discordAllowedMentions(mentionUsers, mentionRoles),
+	}
+	if len(embeds) > 0 {
+		payload["embeds"] = embeds
+	}
+	if len(media) == 0 {
+		return payload
+	}
+	attachments := make([]map[string]any, 0, len(media))
+	for index, item := range media {
+		attachment := map[string]any{"id": index, "filename": discordFilename(item.Filename, index)}
+		if index < len(req.MediaAltTexts) && strings.TrimSpace(req.MediaAltTexts[index]) != "" {
+			attachment["description"] = strings.TrimSpace(req.MediaAltTexts[index])
 		}
-		if requestErr != nil {
-			return "", fmt.Errorf("sending discord bot message: %w", requestErr)
-		}
-		var message struct {
-			ID string `json:"id"`
-		}
-		if err := json.Unmarshal(response, &message); err != nil {
-			return "", fmt.Errorf("decoding discord bot response: %w", err)
-		}
-		if message.ID == "" {
-			return "", fmt.Errorf("discord bot response did not include a message id")
-		}
-		return message.ID, nil
-	})
+		attachments = append(attachments, attachment)
+	}
+	payload["attachments"] = attachments
+	return payload
+}
+
+func (d *DiscordBotAdapter) sendDiscordBotMessage(ctx context.Context, channelID string, body []byte, media []UploadMediaRequest) (discordMessage, error) {
+	endpoint := discordAPIBase + "/channels/" + url.PathEscape(channelID) + "/messages"
+	headers := map[string]string{headerAuthorization: "Bot " + d.botToken}
+	var response []byte
+	var err error
+	if len(media) == 0 {
+		headers[headerContentType] = contentTypeJSON
+		response, err = DoRequest(ctx, http.MethodPost, endpoint, bytes.NewReader(body), headers)
+	} else {
+		response, err = doDiscordMultipartWithHeaders(ctx, endpoint, body, media, headers)
+	}
+	if err != nil {
+		return discordMessage{}, fmt.Errorf("sending discord bot message: %w", err)
+	}
+	var message discordMessage
+	if err := json.Unmarshal(response, &message); err != nil {
+		return discordMessage{}, fmt.Errorf("decoding discord bot response: %w", err)
+	}
+	if message.ID == "" {
+		return discordMessage{}, fmt.Errorf("discord bot response did not include a message id")
+	}
+	if message.ChannelID != "" && message.ChannelID != channelID {
+		return discordMessage{}, fmt.Errorf("discord bot response identified an unexpected channel")
+	}
+	return message, nil
+}
+
+func (d *DiscordBotAdapter) ReconcilePublish(ctx context.Context, _ string, guildID, providerReference string) (PublishResult, error) {
+	channelID, messageID, _, ok := parseDiscordMessageReference(providerReference)
+	if !ok {
+		return PublishResult{}, &HTTPError{StatusCode: http.StatusBadRequest, Code: "discord_message_reference_invalid"}
+	}
+	permissionContext, err := d.permissionContext(ctx, strings.TrimSpace(guildID))
+	if err != nil {
+		return PublishResult{}, err
+	}
+	if _, permitted := permissionContext.channelPermissions(channelID); !permitted {
+		return PublishResult{}, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
+	}
+	var message discordMessage
+	err = d.discordGetJSON(ctx, "/channels/"+url.PathEscape(channelID)+"/messages/"+url.PathEscape(messageID), "Bot "+d.botToken, &message)
+	if discordHTTPStatus(err) == http.StatusNotFound {
+		return PublishResult{SubmissionState: PublishSubmissionRejected, ProviderState: "discord_message_missing", ProviderReference: providerReference, RetrySafety: PublishRetryNever}, &HTTPError{StatusCode: http.StatusNotFound, Code: "discord_message_not_found"}
+	}
+	if err != nil {
+		return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: "discord_message_reconcile", ProviderReference: providerReference, RetrySafety: PublishRetryReconcileOnly}, err
+	}
+	if message.ID != messageID || (message.ChannelID != "" && message.ChannelID != channelID) {
+		return PublishResult{SubmissionState: PublishSubmissionPending, ProviderState: "discord_message_reconcile", ProviderReference: providerReference, RetrySafety: PublishRetryReconcileOnly}, fmt.Errorf("discord message reconciliation returned an unexpected identity")
+	}
+	return discordAcceptedMessageResult(strings.TrimSpace(guildID), channelID, message), nil
 }
 
 type discordUser struct {
@@ -346,7 +486,9 @@ type discordGuildSummary struct {
 
 type discordRole struct {
 	ID          string `json:"id"`
+	Name        string `json:"name"`
 	Permissions string `json:"permissions"`
+	Mentionable bool   `json:"mentionable"`
 }
 
 type discordGuild struct {
@@ -357,8 +499,57 @@ type discordGuild struct {
 }
 
 type discordGuildMember struct {
+	Nick  string      `json:"nick"`
 	Roles []string    `json:"roles"`
 	User  discordUser `json:"user"`
+}
+
+type discordApplication struct {
+	Flags uint64 `json:"flags"`
+}
+
+type discordMessageAttachment struct {
+	ID string `json:"id"`
+}
+
+type discordMessage struct {
+	ID          string                     `json:"id"`
+	ChannelID   string                     `json:"channel_id"`
+	Attachments []discordMessageAttachment `json:"attachments"`
+}
+
+type discordEmbed struct {
+	Title       string              `json:"title,omitempty"`
+	Description string              `json:"description,omitempty"`
+	URL         string              `json:"url,omitempty"`
+	Timestamp   string              `json:"timestamp,omitempty"`
+	Color       *int                `json:"color,omitempty"`
+	Footer      *discordEmbedFooter `json:"footer,omitempty"`
+	Image       *discordEmbedMedia  `json:"image,omitempty"`
+	Thumbnail   *discordEmbedMedia  `json:"thumbnail,omitempty"`
+	Author      *discordEmbedAuthor `json:"author,omitempty"`
+	Fields      []discordEmbedField `json:"fields,omitempty"`
+}
+
+type discordEmbedFooter struct {
+	Text    string `json:"text"`
+	IconURL string `json:"icon_url,omitempty"`
+}
+
+type discordEmbedMedia struct {
+	URL string `json:"url"`
+}
+
+type discordEmbedAuthor struct {
+	Name    string `json:"name"`
+	URL     string `json:"url,omitempty"`
+	IconURL string `json:"icon_url,omitempty"`
+}
+
+type discordEmbedField struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Inline bool   `json:"inline,omitempty"`
 }
 
 type discordPermissionOverwrite struct {
@@ -405,35 +596,45 @@ func (d *DiscordBotAdapter) botInstalledInGuild(ctx context.Context, guildID str
 	return false, fmt.Errorf("verifying discord bot installation: %w", err)
 }
 
-func (d *DiscordBotAdapter) permittedChannels(ctx context.Context, guildID string) ([]discordChannel, error) {
+type discordPermissionContext struct {
+	guild    discordGuild
+	bot      discordGuildMember
+	channels []discordChannel
+}
+
+func (d *DiscordBotAdapter) permissionContext(ctx context.Context, guildID string) (discordPermissionContext, error) {
 	var guild discordGuild
 	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID), "Bot "+d.botToken, &guild); err != nil {
-		return nil, normalizeDiscordPermissionCheckError(err)
+		return discordPermissionContext{}, normalizeDiscordPermissionCheckError(err)
 	}
 	if guild.ID != guildID {
-		return nil, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
+		return discordPermissionContext{}, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
 	}
 	var botUser discordUser
 	if err := d.discordGetJSON(ctx, "/users/@me", "Bot "+d.botToken, &botUser); err != nil {
-		return nil, normalizeDiscordPermissionCheckError(err)
+		return discordPermissionContext{}, normalizeDiscordPermissionCheckError(err)
 	}
 	if botUser.ID == "" {
-		return nil, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
+		return discordPermissionContext{}, &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
 	}
 	var member discordGuildMember
 	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID)+"/members/"+url.PathEscape(botUser.ID), "Bot "+d.botToken, &member); err != nil {
-		return nil, normalizeDiscordPermissionCheckError(err)
+		return discordPermissionContext{}, normalizeDiscordPermissionCheckError(err)
 	}
 	if member.User.ID == "" {
 		member.User = botUser
 	}
 	var channels []discordChannel
 	if err := d.discordGetJSON(ctx, "/guilds/"+url.PathEscape(guildID)+"/channels", "Bot "+d.botToken, &channels); err != nil {
-		return nil, normalizeDiscordPermissionCheckError(err)
+		return discordPermissionContext{}, normalizeDiscordPermissionCheckError(err)
 	}
-	permitted := channels[:0]
-	for _, channel := range channels {
-		if channel.GuildID == guildID && discordPermittedChannel(guild, member, channel) {
+	return discordPermissionContext{guild: guild, bot: member, channels: channels}, nil
+}
+
+func (c discordPermissionContext) permittedChannels() []discordChannel {
+	permitted := make([]discordChannel, 0, len(c.channels))
+	for _, channel := range c.channels {
+		if channel.GuildID == c.guild.ID && discordPermittedChannel(c.guild, c.bot, channel) {
 			permitted = append(permitted, channel)
 		}
 	}
@@ -443,23 +644,34 @@ func (d *DiscordBotAdapter) permittedChannels(ctx context.Context, guildID strin
 		}
 		return strings.ToLower(permitted[i].Name) < strings.ToLower(permitted[j].Name)
 	})
-	return permitted, nil
+	return permitted
 }
 
-func (d *DiscordBotAdapter) channelPermitted(ctx context.Context, guildID, channelID string) (bool, error) {
-	if guildID == "" || channelID == "" {
-		return false, nil
+func (c discordPermissionContext) channelPermissions(channelID string) (uint64, bool) {
+	if c.guild.ID == "" || strings.TrimSpace(channelID) == "" {
+		return 0, false
 	}
-	channels, err := d.permittedChannels(ctx, guildID)
-	if err != nil {
-		return false, err
-	}
-	for _, channel := range channels {
-		if channel.ID == channelID {
-			return true, nil
+	for _, channel := range c.channels {
+		if channel.ID != channelID || channel.GuildID != c.guild.ID || (channel.Type != discordGuildTextChannel && channel.Type != discordGuildAnnouncementChannel) {
+			continue
 		}
+		permissions := discordBasePermissions(c.guild, c.bot)
+		if permissions&discordPermissionAdministrator != 0 {
+			return ^uint64(0), true
+		}
+		permissions = discordApplyOverwrites(permissions, c.guild.ID, c.bot, channel.PermissionOverwrites)
+		needed := discordPermissionViewChannel | discordPermissionSendMessages
+		return permissions, permissions&needed == needed
 	}
-	return false, nil
+	return 0, false
+}
+
+func (d *DiscordBotAdapter) permittedChannels(ctx context.Context, guildID string) ([]discordChannel, error) {
+	permissionContext, err := d.permissionContext(ctx, guildID)
+	if err != nil {
+		return nil, err
+	}
+	return permissionContext.permittedChannels(), nil
 }
 
 func discordPermittedChannel(guild discordGuild, member discordGuildMember, channel discordChannel) bool {
@@ -550,18 +762,133 @@ func discordGuildIDFromCredential(credential string) (string, error) {
 	return guildID, nil
 }
 
-func discordAllowedMentions(settings map[string]interface{}) map[string]any {
-	allowed := map[string]any{"parse": []string{}}
+func (d *DiscordBotAdapter) approvedMentions(ctx context.Context, permissionContext discordPermissionContext, channelPermissions uint64, settings map[string]interface{}) ([]string, []string, error) {
 	if strings.TrimSpace(stringSetting(settings, "mention_policy")) != "selected" {
-		return allowed
+		return nil, nil, nil
 	}
-	if users := stringSliceSetting(settings, "mention_user_ids"); len(users) > 0 {
+	users := uniqueDiscordIDs(stringSliceSetting(settings, "mention_user_ids"))
+	roles := uniqueDiscordIDs(stringSliceSetting(settings, "mention_role_ids"))
+	if len(users) > 100 || len(roles) > 100 {
+		return nil, nil, &HTTPError{StatusCode: http.StatusBadRequest, Code: "discord_mentions_limit"}
+	}
+	if err := d.validateDiscordMemberMentions(ctx, permissionContext.guild.ID, users); err != nil {
+		return nil, nil, err
+	}
+	if err := validateDiscordRoleMentions(permissionContext.guild, channelPermissions, roles); err != nil {
+		return nil, nil, err
+	}
+	return users, roles, nil
+}
+
+func (d *DiscordBotAdapter) validateDiscordMemberMentions(ctx context.Context, guildID string, users []string) error {
+	if len(users) == 0 {
+		return nil
+	}
+	approved, err := d.memberSearchApproved(ctx)
+	if err != nil {
+		return err
+	}
+	if !approved {
+		return &HTTPError{StatusCode: http.StatusForbidden, Code: discordMentionPermissionLostCode}
+	}
+	for _, userID := range users {
+		var member discordGuildMember
+		path := "/guilds/" + url.PathEscape(guildID) + "/members/" + url.PathEscape(userID)
+		if err := d.discordGetJSON(ctx, path, "Bot "+d.botToken, &member); err != nil {
+			return normalizeDiscordMentionPermissionError(err)
+		}
+		if member.User.ID != userID {
+			return &HTTPError{StatusCode: http.StatusForbidden, Code: discordMentionPermissionLostCode}
+		}
+	}
+	return nil
+}
+
+func validateDiscordRoleMentions(guild discordGuild, channelPermissions uint64, roles []string) error {
+	if len(roles) == 0 {
+		return nil
+	}
+	available := make(map[string]bool, len(guild.Roles))
+	for _, role := range guild.Roles {
+		if role.ID != guild.ID {
+			available[role.ID] = role.Mentionable || channelPermissions&discordPermissionMentionEveryone != 0
+		}
+	}
+	for _, roleID := range roles {
+		if !available[roleID] {
+			return &HTTPError{StatusCode: http.StatusForbidden, Code: discordMentionPermissionLostCode}
+		}
+	}
+	return nil
+}
+
+func (d *DiscordBotAdapter) memberSearchApproved(ctx context.Context) (bool, error) {
+	var application discordApplication
+	if err := d.discordGetJSON(ctx, "/oauth2/applications/@me", "Bot "+d.botToken, &application); err != nil {
+		return false, normalizeDiscordMentionPermissionError(err)
+	}
+	approvedFlags := discordApplicationGuildMembers | discordApplicationGuildMembersLite
+	return application.Flags&approvedFlags != 0, nil
+}
+
+func discordAllowedMentions(users, roles []string) map[string]any {
+	allowed := map[string]any{"parse": []string{}, "replied_user": false}
+	if len(users) > 0 {
 		allowed["users"] = users
 	}
-	if roles := stringSliceSetting(settings, "mention_role_ids"); len(roles) > 0 {
+	if len(roles) > 0 {
 		allowed["roles"] = roles
 	}
 	return allowed
+}
+
+func uniqueDiscordIDs(values []string) []string {
+	seen := make(map[string]struct{}, len(values))
+	unique := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		unique = append(unique, value)
+	}
+	return unique
+}
+
+func discordPublishingContextChannelID(contextValues map[string]string) string {
+	raw := strings.TrimSpace(contextValues["value"])
+	if raw == "" {
+		return ""
+	}
+	var settings map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(stringSetting(settings, "channel_id"))
+}
+
+func paginateDiscordOptions(options []DestinationOption, search, cursor string, limit int) PublishingOptionsPage {
+	query := strings.ToLower(strings.TrimSpace(search))
+	filtered := make([]DestinationOption, 0, len(options))
+	for _, option := range options {
+		if query == "" || strings.Contains(strings.ToLower(option.Label), query) {
+			filtered = append(filtered, option)
+		}
+	}
+	offset, _ := strconv.Atoi(cursor)
+	if offset < 0 || offset > len(filtered) {
+		offset = 0
+	}
+	end := min(offset+limit, len(filtered))
+	page := PublishingOptionsPage{Options: filtered[offset:end]}
+	if end < len(filtered) {
+		page.NextCursor = strconv.Itoa(end)
+	}
+	return page
 }
 
 func stringSetting(settings map[string]interface{}, key string) string {
@@ -573,9 +900,15 @@ func stringSetting(settings map[string]interface{}, key string) string {
 }
 
 func stringSliceSetting(settings map[string]interface{}, key string) []string {
+	if settings == nil {
+		return nil
+	}
 	values, ok := settings[key].([]string)
 	if ok {
 		return values
+	}
+	if value, ok := settings[key].(string); ok {
+		return strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == '\n' })
 	}
 	raw, ok := settings[key].([]interface{})
 	if !ok {
@@ -588,6 +921,163 @@ func stringSliceSetting(settings map[string]interface{}, key string) []string {
 		}
 	}
 	return values
+}
+
+func discordEmbeds(settings map[string]interface{}) ([]discordEmbed, error) {
+	if settings == nil || settings["embed"] == nil || strings.TrimSpace(fmt.Sprint(settings["embed"])) == "" {
+		return nil, nil
+	}
+	var raw []byte
+	var err error
+	switch value := settings["embed"].(type) {
+	case string:
+		raw = []byte(strings.TrimSpace(value))
+	default:
+		raw, err = json.Marshal(value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var embed discordEmbed
+	if err := decoder.Decode(&embed); err != nil {
+		return nil, err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return nil, fmt.Errorf("embed contains trailing data")
+	}
+	if err := validateDiscordEmbed(embed); err != nil {
+		return nil, err
+	}
+	return []discordEmbed{embed}, nil
+}
+
+func validateDiscordEmbed(embed discordEmbed) error {
+	if !discordEmbedHasVisibleContent(embed) {
+		return fmt.Errorf("embed must contain visible content")
+	}
+	if len([]rune(embed.Title)) > 256 || len([]rune(embed.Description)) > 4096 || len(embed.Fields) > 25 {
+		return fmt.Errorf("embed exceeds Discord limits")
+	}
+	if embed.Color != nil && (*embed.Color < 0 || *embed.Color > 0xFFFFFF) {
+		return fmt.Errorf("embed color is outside the RGB range")
+	}
+	if embed.Timestamp != "" {
+		if _, err := time.Parse(time.RFC3339, embed.Timestamp); err != nil {
+			return fmt.Errorf("embed timestamp must use RFC 3339")
+		}
+	}
+	if err := validateDiscordEmbedURLs(embed); err != nil {
+		return err
+	}
+	return validateDiscordEmbedParts(embed)
+}
+
+func discordEmbedHasVisibleContent(embed discordEmbed) bool {
+	return strings.TrimSpace(embed.Title) != "" || strings.TrimSpace(embed.Description) != "" || embed.Author != nil || embed.Footer != nil || embed.Image != nil || embed.Thumbnail != nil || len(embed.Fields) > 0
+}
+
+func validateDiscordEmbedURLs(embed discordEmbed) error {
+	values := []string{embed.URL, discordEmbedMediaURL(embed.Image), discordEmbedMediaURL(embed.Thumbnail), discordEmbedFooterIconURL(embed.Footer), discordEmbedAuthorURL(embed.Author), discordEmbedAuthorIconURL(embed.Author)}
+	for _, rawURL := range values {
+		if rawURL == "" {
+			continue
+		}
+		parsed, err := url.Parse(rawURL)
+		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil {
+			return fmt.Errorf("embed URL is invalid")
+		}
+	}
+	return nil
+}
+
+func validateDiscordEmbedParts(embed discordEmbed) error {
+	if embed.Footer != nil && (strings.TrimSpace(embed.Footer.Text) == "" || len([]rune(embed.Footer.Text)) > 2048) {
+		return fmt.Errorf("embed footer is invalid")
+	}
+	if embed.Author != nil && (strings.TrimSpace(embed.Author.Name) == "" || len([]rune(embed.Author.Name)) > 256) {
+		return fmt.Errorf("embed author is invalid")
+	}
+	totalLength := len([]rune(embed.Title)) + len([]rune(embed.Description))
+	if embed.Footer != nil {
+		totalLength += len([]rune(embed.Footer.Text))
+	}
+	if embed.Author != nil {
+		totalLength += len([]rune(embed.Author.Name))
+	}
+	for _, field := range embed.Fields {
+		if strings.TrimSpace(field.Name) == "" || strings.TrimSpace(field.Value) == "" || len([]rune(field.Name)) > 256 || len([]rune(field.Value)) > 1024 {
+			return fmt.Errorf("embed field is invalid")
+		}
+		totalLength += len([]rune(field.Name)) + len([]rune(field.Value))
+	}
+	if totalLength > 6000 {
+		return fmt.Errorf("embed exceeds Discord's total character limit")
+	}
+	return nil
+}
+
+func discordEmbedMediaURL(media *discordEmbedMedia) string {
+	if media == nil {
+		return ""
+	}
+	return strings.TrimSpace(media.URL)
+}
+
+func discordEmbedFooterIconURL(footer *discordEmbedFooter) string {
+	if footer == nil {
+		return ""
+	}
+	return strings.TrimSpace(footer.IconURL)
+}
+
+func discordEmbedAuthorURL(author *discordEmbedAuthor) string {
+	if author == nil {
+		return ""
+	}
+	return strings.TrimSpace(author.URL)
+}
+
+func discordEmbedAuthorIconURL(author *discordEmbedAuthor) string {
+	if author == nil {
+		return ""
+	}
+	return strings.TrimSpace(author.IconURL)
+}
+
+func discordAcceptedMessageResult(guildID, channelID string, message discordMessage) PublishResult {
+	attachmentIDs := make([]string, 0, len(message.Attachments))
+	for _, attachment := range message.Attachments {
+		if attachment.ID != "" {
+			attachmentIDs = append(attachmentIDs, attachment.ID)
+		}
+	}
+	return PublishResult{
+		ExternalID:        message.ID,
+		ExternalURL:       "https://discord.com/channels/" + url.PathEscape(guildID) + "/" + url.PathEscape(channelID) + "/" + url.PathEscape(message.ID),
+		SubmissionState:   PublishSubmissionAccepted,
+		ProviderState:     "discord_message_published",
+		ProviderReference: discordMessageReference(channelID, message.ID, attachmentIDs),
+		RetrySafety:       PublishRetryReconcileOnly,
+	}
+}
+
+func discordMessageReference(channelID, messageID string, attachmentIDs []string) string {
+	return strings.Join([]string{"discord", channelID, messageID, strings.Join(attachmentIDs, ",")}, ":")
+}
+
+func parseDiscordMessageReference(reference string) (string, string, []string, bool) {
+	parts := strings.SplitN(strings.TrimSpace(reference), ":", 4)
+	if len(parts) != 4 || parts[0] != "discord" || parts[1] == "" || parts[2] == "" {
+		return "", "", nil, false
+	}
+	attachments := []string(nil)
+	if parts[3] != "" {
+		attachments = strings.Split(parts[3], ",")
+	}
+	return parts[1], parts[2], attachments, true
 }
 
 func (d *DiscordBotAdapter) discordGetJSON(ctx context.Context, path, authorization string, output any) error {
@@ -630,6 +1120,14 @@ func normalizeDiscordPermissionCheckError(err error) error {
 	status := discordHTTPStatus(err)
 	if status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusNotFound {
 		return &HTTPError{StatusCode: http.StatusForbidden, Code: discordChannelPermissionLostCode}
+	}
+	return err
+}
+
+func normalizeDiscordMentionPermissionError(err error) error {
+	status := discordHTTPStatus(err)
+	if status == http.StatusUnauthorized || status == http.StatusForbidden || status == http.StatusNotFound {
+		return &HTTPError{StatusCode: http.StatusForbidden, Code: discordMentionPermissionLostCode}
 	}
 	return err
 }

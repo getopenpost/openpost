@@ -2202,10 +2202,10 @@ func telegramSettings() []SettingField {
 func discordSettings() []SettingField {
 	return []SettingField{
 		{Key: "channel_id", Label: "Channel", Type: "select", Control: "remote_picker", OptionsSource: "discord_channels"},
-		{Key: "embed", Label: "Embed", Type: "json", Control: "structured_editor"},
+		{Key: "embed", Label: "Embed", Type: "json", Control: "structured_editor", Help: "Add one typed Discord embed object. Unknown fields are rejected."},
 		{Key: "mention_policy", Label: "Mentions", Type: "select", Default: "none", Options: []string{"none", "selected"}},
-		{Key: "mention_user_ids", Label: "Mention people", Type: "tags", Control: "user_picker", Dependencies: []SettingCondition{{Key: "mention_policy", Operator: "equals", Value: "selected"}}},
-		{Key: "mention_role_ids", Label: "Mention roles", Type: "tags", Control: "remote_picker", OptionsSource: "discord_roles", Dependencies: []SettingCondition{{Key: "mention_policy", Operator: "equals", Value: "selected"}}},
+		{Key: "mention_user_ids", Label: "Mention person", Type: "select", Control: "remote_picker", OptionsSource: "discord_members", Dependencies: []SettingCondition{{Key: "mention_policy", Operator: "equals", Value: "selected"}, {Key: "channel_id", Operator: "present"}}},
+		{Key: "mention_role_ids", Label: "Mention role", Type: "select", Control: "remote_picker", OptionsSource: "discord_roles", Dependencies: []SettingCondition{{Key: "mention_policy", Operator: "equals", Value: "selected"}, {Key: "channel_id", Operator: "present"}}},
 	}
 }
 

@@ -1522,6 +1522,8 @@ test(
     const firstMarketingSurface = await artifactSnapshot(marketingDirectory, [
       "_headers",
       ".well-known/api-catalog",
+      ".well-known/integrations.json",
+      ".well-known/mcp/server-card.json",
       "auth.md",
       "llms.txt",
       "sitemap.xml",

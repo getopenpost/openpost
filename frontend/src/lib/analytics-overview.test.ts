@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { hasEngagementMeasurement, measuredMetricKeys } from './analytics-overview';
+import {
+	analyticsSourceLabelKey,
+	hasEngagementMeasurement,
+	insightHasRanking,
+	measuredMetricKeys
+} from './analytics-overview';
 
 describe('analytics overview helpers', () => {
 	it('distinguishes an explicit zero measurement from a missing metric', () => {
@@ -31,5 +36,32 @@ describe('analytics overview helpers', () => {
 				'report_shares'
 			])
 		).toEqual(['report_views', 'average_view_percentage']);
+	});
+
+	it('keeps managed and external source labels explicit', () => {
+		expect(analyticsSourceLabelKey('openpost')).toBe('published_with_openpost');
+		expect(analyticsSourceLabelKey('external')).toBe('published_elsewhere');
+	});
+
+	it('does not treat an insufficient low sample as a ranking', () => {
+		const base = {
+			kind: 'most_engagement_actions' as const,
+			period: {
+				filter_start: '2026-08-01T00:00:00Z',
+				filter_end: '2026-08-31T00:00:00Z',
+				aggregation: 'lifetime_total' as const
+			},
+			metric: 'engagement_actions',
+			measured_count: 1,
+			comparison_sample: 4
+		};
+		expect(
+			insightHasRanking({
+				...base,
+				status: 'insufficient_data',
+				reason: 'low_sample'
+			})
+		).toBe(false);
+		expect(insightHasRanking({ ...base, status: 'available', value: 0 })).toBe(true);
 	});
 });

@@ -8,6 +8,7 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   const consoleErrors: string[] = [];
   const unauthorizedResponses: string[] = [];
   const requestedRanges: string[] = [];
+  const requestedSources: string[] = [];
   let refreshRequests = 0;
 
   page.on("console", (message) => {
@@ -41,20 +42,24 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
       return;
     }
     requestedRanges.push(requestURL.searchParams.get("days") ?? "");
+    requestedSources.push(requestURL.searchParams.get("source") ?? "");
     await route.fulfill({
       contentType: "application/json",
       json: {
         generated_at: "2026-07-26T12:00:00Z",
         last_synced_at: "2026-07-26T11:55:00Z",
         range_days: Number(requestURL.searchParams.get("days") ?? "30"),
-        content_total: 2,
+        source: "all",
+        account_growth_scope: "account_wide",
+        content_total: 3,
         summary: {
           followers: { value: 1240, delta: 40, measured: 1 },
-          engagement: { value: 58, measured: 1 },
+          engagement: { value: 62, measured: 2 },
           views: { value: 5100, measured: 1 },
           impressions: { value: 8800, measured: 1 },
           reach: { value: 0, measured: 0 },
-          published: 2,
+          follower_scope: "account_wide",
+          published: 3,
         },
         follower_series: [
           { date: "2026-07-01", value: 1200 },
@@ -255,35 +260,183 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
         ],
         content: [
           {
+            reference: {
+              type: "openpost",
+              publication_id: "publication-1",
+              rendition_id: "rendition-x",
+            },
+            source: "openpost",
             publication_id: "publication-1",
             rendition_id: "rendition-x",
             title: "Launch notes",
+            excerpt: "OpenPost now keeps one result across destinations.",
+            content_profile: "short_text",
             platform: "x",
             account_id: "account-x",
             username: "@openpost",
+            external_url: "https://x.com/openpost/status/1",
             published_at: "2026-07-25T09:00:00Z",
             status: "ok",
+            metric_availability: "available",
+            collected_at: "2026-07-26T11:55:00Z",
             metrics: {
               likes: 40,
               comments: 10,
               reposts: 8,
               impressions: 8800,
             },
+            metric_metadata: {
+              likes: { unit: "count", aggregation: "lifetime_total", source: "x" },
+              comments: { unit: "count", aggregation: "lifetime_total", source: "x" },
+              reposts: { unit: "count", aggregation: "lifetime_total", source: "x" },
+              impressions: { unit: "count", aggregation: "lifetime_total", source: "x" },
+            },
+            measurements: {},
             engagement: 58,
             last_synced_at: "2026-07-26T11:55:00Z",
+            stale: false,
           },
           {
+            reference: {
+              type: "openpost",
+              publication_id: "publication-2",
+              rendition_id: "rendition-youtube",
+            },
+            source: "openpost",
             publication_id: "publication-2",
             rendition_id: "rendition-youtube",
             title: "Product walkthrough",
+            excerpt: "A complete product walkthrough.",
+            content_profile: "long_video",
             platform: "youtube",
             account_id: "account-x",
             username: "OpenPost",
+            external_url: "https://www.youtube.com/watch?v=video-1",
             published_at: "2026-07-24T09:00:00Z",
             status: "ok",
+            metric_availability: "available",
+            collected_at: "2026-07-26T11:54:00Z",
             metrics: { views: 5100 },
+            metric_metadata: {
+              views: { unit: "count", aggregation: "lifetime_total", source: "youtube" },
+            },
+            measurements: {},
             engagement: 0,
             last_synced_at: "2026-07-26T11:54:00Z",
+            stale: false,
+          },
+          {
+            reference: { type: "external", account_content_id: "external-1" },
+            source: "external",
+            title: "Published elsewhere update",
+            excerpt: "An update published directly on YouTube.",
+            content_profile: "long_video",
+            platform: "youtube",
+            account_id: "account-x",
+            username: "OpenPost",
+            external_url: "https://www.youtube.com/watch?v=external-1",
+            published_at: "2026-07-23T09:00:00Z",
+            status: "ok",
+            metric_availability: "available",
+            collected_at: "2026-07-26T11:53:00Z",
+            metrics: { likes: 4 },
+            metric_metadata: {
+              likes: { unit: "count", aggregation: "lifetime_total", source: "youtube" },
+            },
+            measurements: {},
+            engagement: 4,
+            last_synced_at: "2026-07-26T11:53:00Z",
+            stale: false,
+          },
+        ],
+        insights: [
+          {
+            kind: "most_engagement_actions",
+            status: "available",
+            period: {
+              filter_start: "2026-06-26T12:00:00Z",
+              filter_end: "2026-07-26T12:00:00Z",
+              aggregation: "lifetime_total",
+            },
+            metric: "engagement_actions",
+            value: 58,
+            measured_count: 2,
+            comparison_sample: 3,
+            account_id: "account-x",
+            platform: "x",
+            username: "@openpost",
+            caveat: "filtered_content_lifetime_totals",
+            content: {
+              reference: {
+                type: "openpost",
+                publication_id: "publication-1",
+                rendition_id: "rendition-x",
+              },
+              source: "openpost",
+              title: "Launch notes",
+              excerpt: "OpenPost now keeps one result across destinations.",
+              platform: "x",
+              account_id: "account-x",
+              username: "@openpost",
+              published_at: "2026-07-25T09:00:00Z",
+              collected_at: "2026-07-26T11:55:00Z",
+            },
+          },
+          {
+            kind: "least_engagement_actions",
+            status: "available",
+            period: {
+              filter_start: "2026-06-26T12:00:00Z",
+              filter_end: "2026-07-26T12:00:00Z",
+              aggregation: "lifetime_total",
+            },
+            metric: "engagement_actions",
+            value: 4,
+            measured_count: 2,
+            comparison_sample: 3,
+            account_id: "account-x",
+            platform: "youtube",
+            username: "OpenPost",
+            caveat: "filtered_content_lifetime_totals",
+            content: {
+              reference: { type: "external", account_content_id: "external-1" },
+              source: "external",
+              title: "Published elsewhere update",
+              excerpt: "An update published directly on YouTube.",
+              platform: "youtube",
+              account_id: "account-x",
+              username: "OpenPost",
+              published_at: "2026-07-23T09:00:00Z",
+              collected_at: "2026-07-26T11:53:00Z",
+            },
+          },
+          {
+            kind: "strongest_measured_destination",
+            status: "insufficient_data",
+            reason: "low_sample",
+            period: {
+              filter_start: "2026-06-26T12:00:00Z",
+              filter_end: "2026-07-26T12:00:00Z",
+              aggregation: "lifetime_total",
+            },
+            metric: "engagement_actions",
+            measured_count: 2,
+            comparison_sample: 3,
+            destination_count: 1,
+          },
+          {
+            kind: "follower_decline",
+            status: "insufficient_data",
+            reason: "no_decline",
+            period: {
+              filter_start: "2026-06-26T12:00:00Z",
+              filter_end: "2026-07-26T12:00:00Z",
+              aggregation: "current_snapshot",
+            },
+            metric: "followers",
+            caveat: "account_wide",
+            measured_count: 1,
+            comparison_sample: 9,
           },
         ],
         publications: [
@@ -431,14 +584,34 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
       unauthorizedResponses: [],
       url: expect.stringContaining("/analytics"),
     });
-  const launch = page.getByRole("article").filter({ hasText: "Launch notes" });
-  const walkthrough = page.getByRole("article").filter({ hasText: "Product walkthrough" });
+  const contentRows = page.getByTestId("analytics-content-row");
+  const launch = contentRows.filter({ hasText: "Launch notes" });
+  const walkthrough = contentRows.filter({ hasText: "Product walkthrough" });
+  const externalUpdate = contentRows.filter({ hasText: "Published elsewhere update" });
   await page.screenshot({ path: testInfo.outputPath("analytics-1280-overview.png") });
   await expect(launch.getByText("58", { exact: true })).toBeVisible();
   await expect(walkthrough.getByText("5.1K")).toBeVisible();
   await expect(walkthrough.getByText("—", { exact: true })).toBeVisible();
+  await expect(launch.getByText("Published with OpenPost", { exact: true })).toBeVisible();
+  await expect(externalUpdate.getByText("Published elsewhere", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("analytics-insight-least_engagement_actions")).toContainText(
+    "Published elsewhere",
+  );
+  await expect(page.getByTestId("analytics-insight-strongest_measured_destination")).toContainText(
+    "At least two measured destinations are needed for a ranking.",
+  );
+  await page.getByRole("heading", { name: "Measured insights" }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: testInfo.outputPath("analytics-1280-insights.png") });
+  await page.getByRole("button", { name: "Elsewhere", exact: true }).click();
+  await expect.poll(() => requestedSources.at(-1)).toBe("external");
+  await expect(page.getByRole("button", { name: "Elsewhere", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.getByRole("button", { name: "All content", exact: true }).click();
+  await expect.poll(() => requestedSources.at(-1)).toBe("all");
   await walkthrough.getByRole("button", { name: "Show platform details" }).click();
-  await expect(walkthrough.getByText("OpenPost")).toBeVisible();
+  await expect(walkthrough.getByText("Published with OpenPost", { exact: true })).toBeVisible();
   await expect(walkthrough.getByRole("button", { name: "Hide platform details" })).toBeVisible();
   const youtubeNativePost = walkthrough.getByRole("link", {
     name: "Open post on platform",
@@ -448,9 +621,8 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
     "https://www.youtube.com/watch?v=video-1",
   );
   await expect(youtubeNativePost).toHaveAttribute("target", "_blank");
-  await expect(youtubeNativePost).toHaveCSS("width", "28px");
   await launch.getByRole("button", { name: "Show platform details" }).click();
-  await expect(launch.getByText(/Impressions: 8\.8K/u)).toBeVisible();
+  await expect(launch.getByText(/Impressions \(lifetime\): 8\.8K/u)).toBeVisible();
   await expect(launch.getByRole("link", { name: "Open post on platform" })).toHaveAttribute(
     "href",
     "https://x.com/openpost/status/1",

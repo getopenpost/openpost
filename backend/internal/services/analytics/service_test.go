@@ -63,7 +63,8 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.NoError(t, err)
 
 	service := NewService(db, staticTokenSource{})
-
+	adapter := &fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true, Content: true}}
+	service.SetProvider(account.Platform, adapter)
 	service.SetFeatureGate(alwaysEnabledGate{})
 	service.now = func() time.Time { return now }
 	options := normalizeOverviewOptions(OverviewOptions{Sort: "newest", Limit: 50})
@@ -86,6 +87,14 @@ func TestOverviewPaginationKeepsAllResultsReachableInStableOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, third.Publications, 21)
 	require.Empty(t, third.PublicationNextCursor)
+	require.Equal(t, first.Insights, second.Insights, "insights use the complete population, not the current page")
+	require.Equal(t, first.Insights, third.Insights, "load-more state cannot change insights")
+
+	engagementSorted, err := service.OverviewWithOptions(ctx, account.WorkspaceID, 30, OverviewOptions{Sort: "engagement", Limit: 7})
+	require.NoError(t, err)
+	require.Equal(t, first.Insights, engagementSorted.Insights, "display sort and page size cannot change insights")
+	require.Zero(t, adapter.accountCalls, "analytics reads must not call providers")
+	require.Zero(t, adapter.contentCalls, "insights must use stored snapshots only")
 
 	seen := map[string]bool{}
 	for _, page := range [][]PublicationOverview{first.Publications, second.Publications, third.Publications} {

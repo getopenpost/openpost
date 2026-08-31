@@ -7974,6 +7974,63 @@ export interface components {
       /** @description One-time grant for organization.ownership.transfer */
       reauth_grant: string;
     };
+    Insight: {
+      account_id?: string;
+      /** @enum {string} */
+      caveat?:
+        | "filtered_content_lifetime_totals"
+        | "filtered_content_reporting_period_totals"
+        | "account_wide";
+      /** Format: int64 */
+      comparison_sample: number;
+      content?: components["schemas"]["InsightContentEvidence"];
+      /** Format: int64 */
+      destination_count?: number;
+      /** @enum {string} */
+      kind:
+        | "most_engagement_actions"
+        | "least_engagement_actions"
+        | "strongest_measured_destination"
+        | "follower_decline";
+      /** Format: int64 */
+      measured_count: number;
+      metric: string;
+      period: components["schemas"]["InsightPeriod"];
+      platform?: string;
+      /** @enum {string} */
+      reason?: "missing_measurements" | "low_sample" | "incompatible_semantics" | "no_decline";
+      /** @enum {string} */
+      status: "available" | "insufficient_data";
+      username?: string;
+      /** Format: int64 */
+      value?: number;
+    };
+    InsightContentEvidence: {
+      account_id: string;
+      /** Format: date-time */
+      collected_at: string;
+      excerpt: string;
+      platform: string;
+      /** Format: date-time */
+      published_at: string;
+      reference: components["schemas"]["ContentReference"];
+      /** @enum {string} */
+      source: "openpost" | "external";
+      title: string;
+      username: string;
+    };
+    InsightPeriod: {
+      /** @enum {string} */
+      aggregation: "unavailable" | "current_snapshot" | "lifetime_total" | "reporting_period_total";
+      /** Format: date-time */
+      filter_end: string;
+      /** Format: date-time */
+      filter_start: string;
+      /** Format: date-time */
+      measurement_end?: string;
+      /** Format: date-time */
+      measurement_start?: string;
+    };
     InstanceAuditJSONExport: {
       /**
        * Format: uri
@@ -9275,6 +9332,7 @@ export interface components {
       follower_series: components["schemas"]["SeriesPoint"][] | null;
       /** Format: date-time */
       generated_at: string;
+      insights: components["schemas"]["Insight"][] | null;
       /** Format: date-time */
       last_synced_at?: string;
       publication_next_cursor?: string;

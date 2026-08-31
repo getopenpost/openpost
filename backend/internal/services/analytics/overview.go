@@ -91,30 +91,31 @@ type ContentMeasurement struct {
 }
 
 type ContentOverview struct {
-	Reference          ContentReference                            `json:"reference"`
-	Source             string                                      `json:"source" enum:"openpost,external"`
-	PublicationID      string                                      `json:"publication_id,omitempty"`
-	RenditionID        string                                      `json:"rendition_id,omitempty"`
-	Title              string                                      `json:"title"`
-	Excerpt            string                                      `json:"excerpt"`
-	ContentProfile     string                                      `json:"content_profile"`
-	Platform           string                                      `json:"platform"`
-	AccountID          string                                      `json:"account_id"`
-	Username           string                                      `json:"username"`
-	ExternalURL        string                                      `json:"external_url,omitempty"`
-	PublishedAt        time.Time                                   `json:"published_at"`
-	Status             string                                      `json:"status"`
-	MetricAvailability string                                      `json:"metric_availability" enum:"available,pending,unavailable"`
-	CollectedAt        time.Time                                   `json:"collected_at,omitempty"`
-	ErrorCode          string                                      `json:"error_code,omitempty"`
-	ErrorMessage       string                                      `json:"error_message,omitempty"`
-	Metrics            platform.AnalyticsValues                    `json:"metrics"`
-	MetricMetadata     map[string]platform.AnalyticsMetricMetadata `json:"metric_metadata"`
-	Measurements       map[string]ContentMeasurement               `json:"measurements"`
-	Engagement         int64                                       `json:"engagement"`
-	LastSyncedAt       time.Time                                   `json:"last_synced_at,omitempty"`
-	NextSyncAt         time.Time                                   `json:"next_sync_at,omitempty"`
-	Stale              bool                                        `json:"stale"`
+	insightSnapshotBacked bool
+	Reference             ContentReference                            `json:"reference"`
+	Source                string                                      `json:"source" enum:"openpost,external"`
+	PublicationID         string                                      `json:"publication_id,omitempty"`
+	RenditionID           string                                      `json:"rendition_id,omitempty"`
+	Title                 string                                      `json:"title"`
+	Excerpt               string                                      `json:"excerpt"`
+	ContentProfile        string                                      `json:"content_profile"`
+	Platform              string                                      `json:"platform"`
+	AccountID             string                                      `json:"account_id"`
+	Username              string                                      `json:"username"`
+	ExternalURL           string                                      `json:"external_url,omitempty"`
+	PublishedAt           time.Time                                   `json:"published_at"`
+	Status                string                                      `json:"status"`
+	MetricAvailability    string                                      `json:"metric_availability" enum:"available,pending,unavailable"`
+	CollectedAt           time.Time                                   `json:"collected_at,omitempty"`
+	ErrorCode             string                                      `json:"error_code,omitempty"`
+	ErrorMessage          string                                      `json:"error_message,omitempty"`
+	Metrics               platform.AnalyticsValues                    `json:"metrics"`
+	MetricMetadata        map[string]platform.AnalyticsMetricMetadata `json:"metric_metadata"`
+	Measurements          map[string]ContentMeasurement               `json:"measurements"`
+	Engagement            int64                                       `json:"engagement"`
+	LastSyncedAt          time.Time                                   `json:"last_synced_at,omitempty"`
+	NextSyncAt            time.Time                                   `json:"next_sync_at,omitempty"`
+	Stale                 bool                                        `json:"stale"`
 }
 
 type AccountDiscoveryCoverage struct {
@@ -156,6 +157,7 @@ type Overview struct {
 	Publications          []PublicationOverview      `json:"publications"`
 	Content               []ContentOverview          `json:"content"`
 	Coverage              []AccountDiscoveryCoverage `json:"coverage"`
+	Insights              []Insight                  `json:"insights"`
 	Source                string                     `json:"source" enum:"all,openpost,external"`
 	AccountGrowthScope    string                     `json:"account_growth_scope" enum:"account_wide"`
 	PublicationTotal      int                        `json:"publication_total"`
@@ -199,6 +201,7 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 		},
 		Publications: []PublicationOverview{},
 		Content:      []ContentOverview{},
+		Insights:     []Insight{},
 	}
 
 	activeAccounts, accountByID, err := s.loadOverviewAccounts(ctx, workspaceID)
@@ -231,6 +234,11 @@ func (s *Service) OverviewWithOptions(ctx context.Context, workspaceID string, d
 	if err != nil {
 		return Overview{}, err
 	}
+	insightContent, err := s.loadStoredInsightContent(ctx, workspaceID, allContent)
+	if err != nil {
+		return Overview{}, err
+	}
+	result.Insights = buildOverviewInsights(insightContent, result.Accounts, options.AccountID, start, now)
 	orderContentOverviews(allContent, options.Sort)
 	result.ContentTotal = len(allContent)
 	result.PublicationTotal = uniqueManagedPublicationCount(allContent)

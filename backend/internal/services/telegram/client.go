@@ -21,7 +21,6 @@ var RequiredUpdateTypes = []string{
 	"message",
 	"channel_post",
 	"my_chat_member",
-	"message_reaction",
 	"message_reaction_count",
 }
 
@@ -30,6 +29,10 @@ type BotAPI interface {
 	GetChat(context.Context, string) (Chat, error)
 	GetChatMember(context.Context, string, int64) (ChatMember, error)
 	SetWebhook(context.Context, SetWebhookRequest) error
+}
+
+type MemberCountBotAPI interface {
+	GetChatMemberCount(context.Context, string) (int64, error)
 }
 
 type User struct {
@@ -128,6 +131,14 @@ func (api *HTTPBotAPI) GetChatMember(ctx context.Context, chatID string, userID 
 		return ChatMember{}, err
 	}
 	return member, nil
+}
+
+func (api *HTTPBotAPI) GetChatMemberCount(ctx context.Context, chatID string) (int64, error) {
+	var count int64
+	if err := api.call(ctx, "getChatMemberCount", map[string]string{"chat_id": chatID}, &count); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 func (api *HTTPBotAPI) SetWebhook(ctx context.Context, request SetWebhookRequest) error {

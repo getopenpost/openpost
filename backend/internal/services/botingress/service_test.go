@@ -42,7 +42,8 @@ func openBotIngressTestDB(t *testing.T, path string, initialize bool) *bun.DB {
 			kind TEXT NOT NULL, workspace_id TEXT,
 			social_account_id TEXT NOT NULL DEFAULT '', connection_nonce_id TEXT NOT NULL DEFAULT '',
 			subject_reference TEXT NOT NULL DEFAULT '', parent_reference TEXT NOT NULL DEFAULT '',
-			occurred_at DATETIME NOT NULL, processed_at DATETIME,
+			content_profile TEXT NOT NULL DEFAULT '', content_text TEXT NOT NULL DEFAULT '',
+			metrics_json TEXT NOT NULL DEFAULT '{}', occurred_at DATETIME NOT NULL, processed_at DATETIME,
 			safe_error_code TEXT NOT NULL DEFAULT '', created_at DATETIME NOT NULL,
 			UNIQUE (provider, provider_event_id)
 		);

@@ -163,7 +163,7 @@ func (s *Service) ResolveCertificationContext(
 		policyMode = PublicationPolicyMode(account, capability, settings)
 		contract, err = PublicationContract(capability, operation, s.managedProduction, accountKind, policyMode)
 	} else {
-		contract, err = AccountReadContract(account.Platform, operation, s.managedProduction, accountKind)
+		contract, err = OperationContract(account.Platform, operation, s.managedProduction, accountKind)
 	}
 	if claimedPolicyMode = strings.TrimSpace(claimedPolicyMode); claimedPolicyMode != "" && claimedPolicyMode != policyMode {
 		return CertificationContext{}, errors.New("provider certification policy mode does not match the account settings")
@@ -220,29 +220,6 @@ func (s *Service) DecideConnection(ctx context.Context, provider, instanceURL st
 	})
 }
 
-func (s *Service) DecideAccountRead(ctx context.Context, account models.SocialAccount, operation Operation, intent ExecutionIntent) Decision {
-	configuration := s.resolveConfiguration(account.Platform, accountConfigurationRef(account))
-	accountKind := AccountKind(account)
-	policyMode := account.Platform + "." + string(operation)
-	contract, _ := AccountReadContract(account.Platform, operation, s != nil && s.enforceCertification, accountKind)
-	accountReferenceHash, referenceErr := AccountReferenceHash(account)
-	request := DecisionRequest{
-		Implemented:                 account.Platform == capabilities.ProviderPinterest && s.isImplemented(account.Platform) && operation.IsAccountRead(),
-		Subject:                     s.subject(configuration, accountKind, "", operation, policyMode),
-		CurrentAccountReferenceHash: accountReferenceHash, Intent: intent, CurrentRevision: s.revision(),
-		Contract: contract, Configuration: configuration.Evidence, Policy: PolicyEvidence{State: PolicyStateAllowed},
-	}
-	if s == nil || s.authorizations == nil {
-		return unavailableDecision(request, s.currentTime())
-	}
-	authorization, err := s.authorizations.AuthorizationForAccount(ctx, account, s.currentTime())
-	if err != nil || referenceErr != nil {
-		return unavailableDecision(request, s.currentTime())
-	}
-	request.Authorization = authorization
-	return s.Decide(ctx, request)
-}
-
 func (s *Service) DecidePublication(ctx context.Context, input PublicationDecisionInput) Decision {
 	return s.decidePublication(ctx, input, nil)
 }
@@ -274,6 +251,41 @@ func (s *Service) DecideAccountPublication(
 		Operation: operation, Intent: intent, PolicyMode: policyMode,
 		CurrentAccountReferenceHash: accountReferenceHash, Authorization: authorization,
 	}, err)
+}
+
+// DecideAccountOperation evaluates discovery, observation, and analytics
+// independently from connection and publishing.
+func (s *Service) DecideAccountOperation(ctx context.Context, account models.SocialAccount, operation Operation, intent ExecutionIntent) Decision {
+	configuration := s.resolveConfiguration(account.Platform, accountConfigurationRef(account))
+	accountKind := AccountKind(account)
+	policyMode := account.Platform + "." + string(operation)
+	contract, _ := OperationContract(account.Platform, operation, s != nil && s.enforceCertification, accountKind)
+	accountReferenceHash, referenceErr := AccountReferenceHash(account)
+	request := DecisionRequest{
+		Implemented:                 s.isAccountOperationImplemented(account, operation),
+		Subject:                     s.subject(configuration, accountKind, "", operation, policyMode),
+		CurrentAccountReferenceHash: accountReferenceHash,
+		Intent:                      intent,
+		CurrentRevision:             s.revision(),
+		Contract:                    contract,
+		Configuration:               configuration.Evidence,
+		Authorization:               AuthorizationEvidence{State: AuthorizationStateNotApplicable},
+		Policy:                      PolicyEvidence{State: PolicyStateAllowed},
+	}
+	if referenceErr != nil {
+		return unavailableDecision(request, s.currentTime())
+	}
+	if account.Platform == capabilities.ProviderPinterest {
+		if s == nil || s.authorizations == nil {
+			return unavailableDecision(request, s.currentTime())
+		}
+		authorization, err := s.authorizations.AuthorizationForAccount(ctx, account, s.currentTime())
+		if err != nil {
+			return unavailableDecision(request, s.currentTime())
+		}
+		request.Authorization = authorization
+	}
+	return s.Decide(ctx, request)
 }
 
 func accountConfigurationRef(account models.SocialAccount) string {
@@ -380,6 +392,22 @@ func (s *Service) isImplemented(provider string) bool {
 	}
 	_, ok := s.implemented[strings.ToLower(strings.TrimSpace(provider))]
 	return ok
+}
+
+func (s *Service) isAccountOperationImplemented(account models.SocialAccount, operation Operation) bool {
+	if !s.isImplemented(account.Platform) {
+		return false
+	}
+	switch operation {
+	case OperationDiscover:
+		return account.Platform == capabilities.ProviderPinterest
+	case OperationObservation:
+		return account.Platform == capabilities.ProviderTelegram
+	case OperationAnalytics:
+		return account.Platform == capabilities.ProviderPinterest || account.Platform == capabilities.ProviderTelegram
+	default:
+		return false
+	}
 }
 
 func (s *Service) isPublicationImplemented(provider, outputProfile string) bool {
@@ -526,7 +554,7 @@ func (s *Service) validateCertificationContract(evidence CertificationEvidence) 
 			evidence.Subject.AccountKind, evidence.Subject.PolicyMode,
 		)
 	} else {
-		contract, err = AccountReadContract(
+		contract, err = OperationContract(
 			evidence.Subject.Provider, evidence.Subject.Operation, s.managedProduction, evidence.Subject.AccountKind,
 		)
 	}

@@ -4707,6 +4707,9 @@
 					"facts": {
 						"$ref": "#/components/schemas/Facts"
 					},
+					"observable": {
+						"type": "boolean"
+					},
 					"publishable": {
 						"type": "boolean"
 					},
@@ -4720,6 +4723,7 @@
 					"connectable",
 					"publishable",
 					"discoverable",
+					"observable",
 					"analytics_ready",
 					"advertisable",
 					"facts"
@@ -12317,7 +12321,7 @@
 				"required": ["platform", "display_name", "auth_mode", "configured", "readiness"],
 				"type": "object"
 			},
-			"ProviderReadinessAccountRead": {
+			"ProviderReadinessAccount": {
 				"additionalProperties": false,
 				"properties": {
 					"analytics": {
@@ -12326,19 +12330,22 @@
 					"discovery": {
 						"$ref": "#/components/schemas/Decision"
 					},
+					"observation": {
+						"$ref": "#/components/schemas/Decision"
+					},
 					"social_account_id": {
 						"type": "string"
 					}
 				},
-				"required": ["social_account_id", "discovery", "analytics"],
+				"required": ["social_account_id"],
 				"type": "object"
 			},
 			"ProviderReadinessItem": {
 				"additionalProperties": false,
 				"properties": {
-					"account_reads": {
+					"accounts": {
 						"items": {
-							"$ref": "#/components/schemas/ProviderReadinessAccountRead"
+							"$ref": "#/components/schemas/ProviderReadinessAccount"
 						},
 						"type": ["array", "null"]
 					},

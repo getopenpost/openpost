@@ -2396,6 +2396,9 @@ type BotIngressEvent struct {
 	ConnectionNonceID string    `bun:"connection_nonce_id,notnull,default:''" json:"connection_nonce_id,omitempty"`
 	SubjectReference  string    `bun:"subject_reference,notnull,default:''" json:"subject_reference,omitempty"`
 	ParentReference   string    `bun:"parent_reference,notnull,default:''" json:"parent_reference,omitempty"`
+	ContentProfile    string    `bun:"content_profile,notnull,default:''" json:"content_profile,omitempty"`
+	ContentText       string    `bun:"content_text,notnull,default:''" json:"content_text,omitempty"`
+	MetricsJSON       string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json,omitempty"`
 	OccurredAt        time.Time `bun:"occurred_at,notnull" json:"occurred_at"`
 	ProcessedAt       time.Time `bun:"processed_at,nullzero" json:"processed_at,omitempty"`
 	SafeErrorCode     string    `bun:"safe_error_code,notnull,default:''" json:"safe_error_code,omitempty"`

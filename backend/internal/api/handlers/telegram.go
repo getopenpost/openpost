@@ -12,6 +12,7 @@ import (
 	account_saver "github.com/openpost/backend/internal/services/account_saver"
 	"github.com/openpost/backend/internal/services/botingress"
 	"github.com/openpost/backend/internal/services/entitlements"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/uptrace/bun"
 )
@@ -59,7 +60,8 @@ func (handler *TelegramConnectionHandler) RegisterRoutes(api huma.API) {
 }
 
 func (handler *TelegramConnectionHandler) issueCode(ctx context.Context, input *IssueTelegramConnectionCodeInput) (*IssueTelegramConnectionCodeOutput, error) {
-	if handler == nil || handler.db == nil || handler.ingress == nil || handler.telegram == nil || !handler.telegram.Available() {
+	if handler == nil || handler.db == nil || handler.ingress == nil || handler.telegram == nil || !handler.telegram.Available() ||
+		!handler.telegram.OperationReady(ctx, providerreadiness.OperationConnect) {
 		return nil, huma.Error503ServiceUnavailable("telegram connections are unavailable")
 	}
 	workspaceID := strings.TrimSpace(input.Body.WorkspaceID)

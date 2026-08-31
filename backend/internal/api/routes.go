@@ -7,6 +7,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/openpost/backend/internal/api/handlers"
 	"github.com/openpost/backend/internal/api/middleware"
+	"github.com/openpost/backend/internal/capabilities"
 	"github.com/openpost/backend/internal/connectors"
 	"github.com/openpost/backend/internal/memes"
 	"github.com/openpost/backend/internal/platform"
@@ -397,6 +398,9 @@ func RegisterHumaRoutes(api huma.API, deps RouteDeps) {
 		planPolicy = &accountfeatures.EntitlementPlanPolicy{Entitlements: deps.Entitlement}
 	}
 	afhService := accountfeatures.NewService(deps.DB, oauthHandler.ProviderMap(), planPolicy)
+	if deps.TelegramService != nil {
+		afhService.SetAnalyticsSource(capabilities.ProviderTelegram, deps.TelegramService)
+	}
 	if deps.MCPHandler != nil {
 		deps.MCPHandler.SetFeatureGate(afhService)
 	}

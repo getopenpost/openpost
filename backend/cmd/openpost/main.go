@@ -433,14 +433,6 @@ func main() {
 		publishSvc.SetProvider(capabilities.ProviderTelegram, telegramConnectionService)
 		break
 	}
-	if command.role.runsWeb() && telegramConnectionService != nil {
-		configureCtx, cancelConfigure := context.WithTimeout(context.Background(), 15*time.Second)
-		if err := telegramConnectionService.ConfigureWebhook(configureCtx, cfg.PublicURL); err != nil {
-			cancelConfigure()
-			log.Fatal("failed to configure Telegram webhook")
-		}
-		cancelConfigure()
-	}
 	providerEnvironment := providerreadiness.ProviderEnvironmentDevelopment
 	defaultProviderControl := providerreadiness.RuntimeControlStateEnabled
 	managedProviderProduction := cfg.Edition == config.EditionCloud
@@ -471,6 +463,17 @@ func main() {
 			DefaultControl:               defaultProviderControl,
 		},
 	)
+	if telegramConnectionService != nil {
+		telegramConnectionService.SetProviderReadiness(providerReadinessService)
+	}
+	if command.role.runsWeb() && telegramConnectionService != nil {
+		configureCtx, cancelConfigure := context.WithTimeout(context.Background(), 15*time.Second)
+		if err := telegramConnectionService.ConfigureWebhook(configureCtx, cfg.PublicURL); err != nil {
+			cancelConfigure()
+			log.Fatal("failed to configure Telegram webhook")
+		}
+		cancelConfigure()
+	}
 	providers, providerEntries, err := platform.BuildAdapterRegistry(providerAppConfigs, platform.RegistryOptions{
 		DisableLinkedInThreadReplies: cfg.DisableLinkedInThreadReplies,
 		EnableLinkedInOrganizations:  cfg.EnableLinkedInOrganizations,
@@ -534,6 +537,10 @@ func main() {
 		ReadRequestsPerDay:  cfg.XAccountHistoryReadRequestsPerDay,
 		PageSize:            platform.AccountContentMaxPageSize,
 	})
+	if telegramConnectionService != nil {
+		telegramConnectionService.SetAccountContentStore(analyticsService)
+		analyticsService.SetExternalSource(capabilities.ProviderTelegram, telegramConnectionService)
+	}
 	repostService := repostservice.NewService(db, tokenManager)
 	repostService.SetUsage(usageService)
 	repostService.SetEntitlement(entitlementService)

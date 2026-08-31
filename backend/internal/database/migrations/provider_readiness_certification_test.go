@@ -161,6 +161,8 @@ func exerciseProviderReadinessCertificationMigration(t *testing.T, db *bun.DB) {
 	}
 	require.NoError(t, prepareMigration(ctx, db, readinessOperations))
 	require.NoError(t, runMigration(ctx, db, readinessOperations))
+	observationOperations := migration{version: 123, name: "123_telegram_observations.sql"}
+	require.NoError(t, prepareMigration(ctx, db, observationOperations))
 	require.NoError(t, ensureProviderReadinessSchema(ctx, db))
 	require.NoError(t, ensureProviderReadinessSchema(ctx, db), "finalization must remain idempotent")
 	_, err = db.ExecContext(ctx, `INSERT INTO publication_authorizations (id) VALUES ('production-receipt')`)
@@ -228,6 +230,11 @@ func exerciseProviderReadinessCertificationMigration(t *testing.T, db *bun.DB) {
 	) VALUES (?, 'mastodon', 'analytics', 'enabled', 'analytics_certified', ?, 'operator:sha256:reviewer', ?)`,
 		"control-analytics", now, now)
 	require.NoError(t, err, "analytics must be an independently selectable runtime operation")
+	_, err = db.ExecContext(ctx, `INSERT INTO provider_runtime_control_events (
+		id, provider, operation, state, reason_code, starts_at, operator_ref, created_at
+	) VALUES (?, 'mastodon', 'observation', 'disabled', 'observation_paused', ?, 'operator:sha256:reviewer', ?)`,
+		"control-observation", now, now)
+	require.NoError(t, err, "observation readiness must have an independent persisted control")
 	_, err = db.ExecContext(ctx, `INSERT INTO provider_certification_checks (
 		id, certification_run_id, kind, outcome, error_class,
 		not_applicable_reason, external_reference_hash, completed_at, created_at

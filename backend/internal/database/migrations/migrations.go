@@ -436,12 +436,55 @@ func prepareMigration(ctx context.Context, db *bun.DB, migration migration) erro
 		err = ensureWorkspaceInvitationsTable(ctx, db)
 	case 122:
 		description = "Pinterest readiness operations"
+		err = extendPinterestReadinessOperations(ctx, db)
+	case 123:
+		description = "provider observation readiness operations"
 		err = extendProviderReadinessOperations(ctx, db)
 	}
 	if err != nil {
 		return fmt.Errorf("migration %s %s preparation failed: %w", migration.name, description, err)
 	}
 	return nil
+}
+
+func extendProviderReadinessOperations(ctx context.Context, db *bun.DB) error {
+	if db.Dialect().Name() == dialect.PG {
+		for _, statement := range []string{
+			`ALTER TABLE provider_certification_runs DROP CONSTRAINT IF EXISTS provider_certification_runs_operation_check`,
+			`ALTER TABLE provider_certification_runs ADD CONSTRAINT provider_certification_runs_operation_check CHECK (operation IN ('connect', 'discover', 'observation', 'analytics', 'publish_immediate', 'publish_scheduled', 'refresh', 'revoke'))`,
+			`ALTER TABLE provider_certification_checks DROP CONSTRAINT IF EXISTS provider_certification_checks_kind_check`,
+			`ALTER TABLE provider_certification_checks ADD CONSTRAINT provider_certification_checks_kind_check CHECK (kind IN ('connect', 'authorization', 'discovery', 'observation', 'analytics', 'publish_immediate', 'publish_scheduled', 'final_result', 'refresh', 'revoke'))`,
+			`ALTER TABLE provider_runtime_control_events DROP CONSTRAINT IF EXISTS provider_runtime_control_events_operation_check`,
+			`ALTER TABLE provider_runtime_control_events ADD CONSTRAINT provider_runtime_control_events_operation_check CHECK (operation IN ('', 'connect', 'discover', 'observation', 'analytics', 'publish_immediate', 'publish_scheduled', 'refresh', 'revoke'))`,
+		} {
+			if _, err := db.ExecContext(ctx, statement); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if _, err := db.ExecContext(ctx, `PRAGMA writable_schema = ON`); err != nil {
+		return err
+	}
+	defer func() { _, _ = db.ExecContext(context.WithoutCancel(ctx), `PRAGMA writable_schema = OFF`) }()
+	statements := []string{
+		`UPDATE sqlite_schema SET sql = REPLACE(sql, '''discover'', ''analytics''', '''discover'', ''observation'', ''analytics''') WHERE type = 'table' AND name IN ('provider_certification_runs', 'provider_runtime_control_events')`,
+		`UPDATE sqlite_schema SET sql = REPLACE(sql, '''discovery'', ''analytics''', '''discovery'', ''observation'', ''analytics''') WHERE type = 'table' AND name = 'provider_certification_checks'`,
+	}
+	for _, statement := range statements {
+		if _, err := db.ExecContext(ctx, statement); err != nil {
+			return err
+		}
+	}
+	if _, err := db.ExecContext(ctx, `PRAGMA writable_schema = OFF`); err != nil {
+		return err
+	}
+	var schemaVersion int
+	if err := db.QueryRowContext(ctx, `PRAGMA schema_version`).Scan(&schemaVersion); err != nil {
+		return err
+	}
+	_, err := db.ExecContext(ctx, fmt.Sprintf(`PRAGMA schema_version = %d`, schemaVersion+1))
+	return err
 }
 
 func preparePublicationEditorBackfill(ctx context.Context, db *bun.DB) error {
@@ -1147,7 +1190,7 @@ func ensurePublicationAuthorizationSchema(ctx context.Context, db *bun.DB) error
 	return nil
 }
 
-func extendProviderReadinessOperations(ctx context.Context, db *bun.DB) error {
+func extendPinterestReadinessOperations(ctx context.Context, db *bun.DB) error {
 	switch db.Dialect().Name() {
 	case dialect.SQLite:
 		return extendSQLiteProviderReadinessOperations(ctx, db)

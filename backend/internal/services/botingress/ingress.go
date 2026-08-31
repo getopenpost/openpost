@@ -62,6 +62,9 @@ type NormalizedEvent struct {
 	SocialAccountID      string
 	SubjectReference     string
 	ParentReference      string
+	ContentProfile       string
+	ContentText          string
+	MetricsJSON          string
 	OccurredAt           time.Time
 	ConnectionCredential string
 }
@@ -131,7 +134,8 @@ func (s *Service) prepareEvent(request AcceptRequest) (*models.BotIngressEvent, 
 		ID: uuid.NewString(), Provider: provider, ProviderEventID: normalized.ProviderEventID,
 		Kind: normalized.Kind, WorkspaceID: normalized.WorkspaceID,
 		SocialAccountID: normalized.SocialAccountID, SubjectReference: normalized.SubjectReference,
-		ParentReference: normalized.ParentReference, OccurredAt: normalized.OccurredAt,
+		ParentReference: normalized.ParentReference, ContentProfile: normalized.ContentProfile,
+		ContentText: normalized.ContentText, MetricsJSON: normalized.MetricsJSON, OccurredAt: normalized.OccurredAt,
 		CreatedAt: now,
 	}
 	if !claimsEmpty(claims) {
@@ -250,6 +254,12 @@ func normalizeEvent(event NormalizedEvent) NormalizedEvent {
 	event.SocialAccountID = strings.TrimSpace(event.SocialAccountID)
 	event.SubjectReference = strings.TrimSpace(event.SubjectReference)
 	event.ParentReference = strings.TrimSpace(event.ParentReference)
+	event.ContentProfile = strings.TrimSpace(event.ContentProfile)
+	event.ContentText = strings.TrimSpace(event.ContentText)
+	event.MetricsJSON = strings.TrimSpace(event.MetricsJSON)
+	if event.MetricsJSON == "" {
+		event.MetricsJSON = "{}"
+	}
 	event.ConnectionCredential = strings.TrimSpace(event.ConnectionCredential)
 	if !event.OccurredAt.IsZero() {
 		event.OccurredAt = event.OccurredAt.UTC()
@@ -260,7 +270,9 @@ func normalizeEvent(event NormalizedEvent) NormalizedEvent {
 func validNormalizedEvent(event NormalizedEvent) bool {
 	return validReference(event.ProviderEventID, 200, true) && validKind(event.Kind) &&
 		validReference(event.WorkspaceID, 200, false) && validReference(event.SocialAccountID, 200, false) &&
-		validReference(event.SubjectReference, 500, false) && validReference(event.ParentReference, 500, false)
+		validReference(event.SubjectReference, 500, false) && validReference(event.ParentReference, 500, false) &&
+		validReference(event.ContentProfile, 64, false) && validReference(event.ContentText, 10000, false) &&
+		validReference(event.MetricsJSON, 2000, true)
 }
 
 func claimsEmpty(claims credentialClaims) bool { return claims.ID == "" }

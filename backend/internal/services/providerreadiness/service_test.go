@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/openpost/backend/internal/capabilities"
+	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/platform"
 )
 
@@ -311,6 +312,49 @@ func TestServiceAppendsOnlyEvidenceForTheCurrentRuntimeContract(t *testing.T) {
 	}
 }
 
+func TestTelegramConnectPublishObservationAndAnalyticsReadinessAreIndependent(t *testing.T) {
+	now := time.Date(2026, time.August, 31, 12, 0, 0, 0, time.UTC)
+	catalog, err := NewConfigurationCatalog(RuntimeApps([]platform.AppConfig{{
+		Provider: capabilities.ProviderTelegram, ConnectionMode: platform.ConnectionModeBot, BotUsername: "openpost_bot",
+	}}, ConfigurationSourceEnvironment, ProviderEnvironmentDevelopment))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger := &fakeLedger{
+		control: RuntimeControl{State: RuntimeControlStateEnabled},
+		controls: map[Operation]RuntimeControl{
+			OperationObservation: {State: RuntimeControlStateDisabled, ReasonCode: "observation_paused"},
+		},
+		approvalErr: ErrLedgerFactNotFound, localErr: ErrLedgerFactNotFound, liveErr: ErrLedgerFactNotFound,
+	}
+	service := NewService(ledger, ServiceOptions{
+		Now: func() time.Time { return now }, Configurations: catalog, DefaultControl: RuntimeControlStateEnabled,
+	})
+	account := models.SocialAccount{
+		ID: "telegram-account", WorkspaceID: "workspace-1", Platform: capabilities.ProviderTelegram,
+		AccountID: "-1001", CapabilityState: `{"connection_mode":"bot"}`, IsActive: true,
+	}
+	connect := service.DecideConnection(t.Context(), capabilities.ProviderTelegram, "", ExecutionIntentProduction)
+	observation := service.DecideAccountOperation(t.Context(), account, OperationObservation, ExecutionIntentProduction)
+	analytics := service.DecideAccountOperation(t.Context(), account, OperationAnalytics, ExecutionIntentProduction)
+	if !connect.Connectable || observation.Observable || observation.State != EffectiveStateDisabled || !analytics.AnalyticsReady {
+		t.Fatalf("Telegram readiness gates were not independent: connect=%#v observation=%#v analytics=%#v", connect, observation, analytics)
+	}
+	capability, ok := capabilities.Find(capabilities.ProviderTelegram, models.ContentProfileShortText)
+	if !ok {
+		t.Fatal("Telegram publish capability is missing")
+	}
+	publish := service.DecidePublication(t.Context(), PublicationDecisionInput{
+		Provider: capabilities.ProviderTelegram, AccountKind: "standard", Capability: capability,
+		Operation: OperationPublishImmediate, Intent: ExecutionIntentProduction, PolicyMode: "telegram.unspecified",
+		CurrentAccountReferenceHash: "sha256:" + strings.Repeat("a", 64),
+		Authorization:               AuthorizationEvidence{State: AuthorizationStateValid, ValidatedAt: now.Add(-time.Minute)},
+	})
+	if !publish.Publishable {
+		t.Fatalf("observation control disabled publishing: %#v", publish)
+	}
+}
+
 func decisionRequest(input EvaluationInput) DecisionRequest {
 	return DecisionRequest{
 		Implemented:                 input.Implemented,
@@ -329,6 +373,7 @@ type fakeLedger struct {
 	approval              *ApprovalReview
 	approvalErr           error
 	control               RuntimeControl
+	controls              map[Operation]RuntimeControl
 	controlErr            error
 	local                 *CertificationEvidence
 	localErr              error
@@ -355,8 +400,11 @@ func (f *fakeLedger) LatestCertification(_ context.Context, _ Subject, kind Evid
 	return f.live, f.liveErr
 }
 
-func (f *fakeLedger) EffectiveRuntimeControl(context.Context, Subject, time.Time) (RuntimeControl, error) {
+func (f *fakeLedger) EffectiveRuntimeControl(_ context.Context, subject Subject, _ time.Time) (RuntimeControl, error) {
 	f.reads++
+	if control, ok := f.controls[subject.Operation]; ok {
+		return control, f.controlErr
+	}
 	return f.control, f.controlErr
 }
 

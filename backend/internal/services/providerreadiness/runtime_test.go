@@ -129,11 +129,11 @@ func TestPinterestManagedContractsRequireCurrentStandardApprovalAndOrganicScopes
 func TestPinterestReadContractsSeparateDiscoveryAnalyticsAndPublishingEvidence(t *testing.T) {
 	t.Parallel()
 
-	discovery, err := AccountReadContract(capabilities.ProviderPinterest, OperationDiscover, true, "standard")
+	discovery, err := OperationContract(capabilities.ProviderPinterest, OperationDiscover, true, "standard")
 	if err != nil {
 		t.Fatal(err)
 	}
-	analytics, err := AccountReadContract(capabilities.ProviderPinterest, OperationAnalytics, true, "standard")
+	analytics, err := OperationContract(capabilities.ProviderPinterest, OperationAnalytics, true, "standard")
 	if err != nil {
 		t.Fatal(err)
 	}

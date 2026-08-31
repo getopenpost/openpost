@@ -1798,7 +1798,7 @@ func TestMCPCallProviderReadiness(t *testing.T) {
 	result := out["result"].(map[string]any)
 	structured := result["structuredContent"].(map[string]any)
 	providers := structured["providers"].([]any)
-	require.Len(t, providers, 11)
+	require.Len(t, providers, 12)
 	byProvider := map[string]map[string]any{}
 	for _, provider := range providers {
 		item := provider.(map[string]any)

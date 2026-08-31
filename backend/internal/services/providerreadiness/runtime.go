@@ -285,13 +285,13 @@ func PublicationContract(
 	}, nil
 }
 
-func AccountReadContract(provider string, operation Operation, enforceCertification bool, accountKind string) (CertificationContract, error) {
-	if operation != OperationDiscover && operation != OperationAnalytics {
-		return CertificationContract{}, errors.New("account read readiness operation is invalid")
-	}
+// OperationContract binds each non-publishing provider operation to independent
+// readiness evidence rather than borrowing connect or publish certification.
+func OperationContract(provider string, operation Operation, enforceCertification bool, accountKind string) (CertificationContract, error) {
 	provider = strings.TrimSpace(provider)
-	if provider != capabilities.ProviderPinterest {
-		return CertificationContract{}, errors.New("account read readiness is not implemented for this provider")
+	if (provider != capabilities.ProviderPinterest || (operation != OperationDiscover && operation != OperationAnalytics)) &&
+		(provider != capabilities.ProviderTelegram || (operation != OperationObservation && operation != OperationAnalytics)) {
+		return CertificationContract{}, errors.New("provider readiness operation is not implemented")
 	}
 	accountKind = normalizedPolicyToken(accountKind, "standard")
 	policyMode := provider + "." + string(operation)
@@ -310,15 +310,21 @@ func AccountReadContract(provider string, operation Operation, enforceCertificat
 		return CertificationContract{}, err
 	}
 	requirements := Requirements{
-		RequireConfiguration: true, RequireAuthorization: true,
-		RequireProductionDeployment: enforceCertification, RequireProductionProviderApp: enforceCertification,
-		RequireApproval: enforceCertification, RequireLocalEvidence: enforceCertification, RequireLiveEvidence: enforceCertification,
-		AllowTrialExecution: enforceCertification,
+		RequireConfiguration:         true,
+		RequireAuthorization:         provider == capabilities.ProviderPinterest,
+		RequireProductionDeployment:  enforceCertification,
+		RequireProductionProviderApp: enforceCertification,
+		RequireApproval:              enforceCertification,
+		RequireLocalEvidence:         enforceCertification,
+		RequireLiveEvidence:          enforceCertification,
+		AllowTrialExecution:          enforceCertification && provider == capabilities.ProviderPinterest,
 	}
 	if enforceCertification {
-		requirements.RequiredApprovalTier = "standard"
-		requirements.RequiredScopes = scopes
-		checks := accountReadCheckRequirements(operation)
+		if provider == capabilities.ProviderPinterest {
+			requirements.RequiredApprovalTier = "standard"
+			requirements.RequiredScopes = scopes
+		}
+		checks := operationCheckRequirements(operation)
 		requirements.RequiredLocalChecks = append([]CheckRequirement(nil), checks...)
 		requirements.RequiredLiveChecks = append([]CheckRequirement(nil), checks...)
 	}
@@ -477,11 +483,14 @@ func splitScopeSet(raw string) []string {
 	return result
 }
 
-func accountReadCheckRequirements(operation Operation) []CheckRequirement {
+func operationCheckRequirements(operation Operation) []CheckRequirement {
 	checks := []CheckRequirement{{Kind: CheckConnect}, {Kind: CheckAuthorization}}
-	if operation == OperationDiscover {
+	switch operation {
+	case OperationDiscover:
 		checks = append(checks, CheckRequirement{Kind: CheckDiscovery})
-	} else {
+	case OperationObservation:
+		checks = append(checks, CheckRequirement{Kind: CheckObservation})
+	case OperationAnalytics:
 		checks = append(checks, CheckRequirement{Kind: CheckAnalytics})
 	}
 	return append(checks,

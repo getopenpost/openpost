@@ -48,6 +48,7 @@ type Operation string
 const (
 	OperationConnect          Operation = "connect"
 	OperationDiscover         Operation = "discover"
+	OperationObservation      Operation = "observation"
 	OperationAnalytics        Operation = "analytics"
 	OperationPublishImmediate Operation = "publish_immediate"
 	OperationPublishScheduled Operation = "publish_scheduled"
@@ -60,7 +61,7 @@ func (o Operation) IsPublish() bool {
 }
 
 func (o Operation) IsAccountRead() bool {
-	return o == OperationDiscover || o == OperationAnalytics
+	return o == OperationDiscover || o == OperationObservation || o == OperationAnalytics
 }
 
 type ExecutionIntent string
@@ -131,6 +132,7 @@ const (
 	CheckConnect          CheckKind = "connect"
 	CheckAuthorization    CheckKind = "authorization"
 	CheckDiscovery        CheckKind = "discovery"
+	CheckObservation      CheckKind = "observation"
 	CheckAnalytics        CheckKind = "analytics"
 	CheckPublishImmediate CheckKind = "publish_immediate"
 	CheckPublishScheduled CheckKind = "publish_scheduled"
@@ -389,6 +391,7 @@ type Decision struct {
 	Connectable    bool           `json:"connectable"`
 	Publishable    bool           `json:"publishable"`
 	Discoverable   bool           `json:"discoverable"`
+	Observable     bool           `json:"observable"`
 	AnalyticsReady bool           `json:"analytics_ready"`
 	Advertisable   bool           `json:"advertisable"`
 	Facts          Facts          `json:"facts"`

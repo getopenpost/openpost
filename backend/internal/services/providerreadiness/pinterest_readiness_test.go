@@ -96,7 +96,7 @@ func pinterestReadinessInput(t *testing.T, operation Operation) EvaluationInput 
 		contract, err = PublicationContract(capability, operation, true, "standard", input.Subject.PolicyMode)
 	} else {
 		input.Subject.OutputProfile = ""
-		contract, err = AccountReadContract(capabilities.ProviderPinterest, operation, true, "standard")
+		contract, err = OperationContract(capabilities.ProviderPinterest, operation, true, "standard")
 	}
 	if err != nil {
 		t.Fatal(err)

@@ -14,9 +14,19 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/openpost/backend/internal/models"
 	"github.com/openpost/backend/internal/services/botingress"
+	"github.com/openpost/backend/internal/services/providerreadiness"
 	telegramservice "github.com/openpost/backend/internal/services/telegram"
 	"github.com/stretchr/testify/require"
 )
+
+type issueCodeReadiness struct{}
+
+func (issueCodeReadiness) DecideConnection(context.Context, string, string, providerreadiness.ExecutionIntent) providerreadiness.Decision {
+	return providerreadiness.Decision{Executable: true, Connectable: true}
+}
+func (issueCodeReadiness) DecideAccountOperation(context.Context, models.SocialAccount, providerreadiness.Operation, providerreadiness.ExecutionIntent) providerreadiness.Decision {
+	return providerreadiness.Decision{}
+}
 
 type issueCodeBotAPI struct{}
 
@@ -52,6 +62,7 @@ func TestTelegramConnectionCodeIsWorkspaceBoundAndReturnedOnlyAtIssuance(t *test
 	ingress := botingress.New(db, []byte("test-signing-key-that-is-not-returned"))
 	ingress.SetNowForTest(func() time.Time { return now })
 	telegram := telegramservice.NewService(db, issueCodeBotAPI{}, "openpost_bot", "private-webhook-secret")
+	telegram.SetProviderReadiness(issueCodeReadiness{})
 	e := echo.New()
 	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
 	NewTelegramConnectionHandler(db, testAuthenticator{}, ingress, telegram, nil).RegisterRoutes(api)

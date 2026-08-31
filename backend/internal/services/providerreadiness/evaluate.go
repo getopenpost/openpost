@@ -45,6 +45,7 @@ func Evaluate(input EvaluationInput) Decision {
 		Connectable:    executable && input.Subject.Operation == OperationConnect,
 		Publishable:    executable && input.Subject.Operation.IsPublish(),
 		Discoverable:   executable && input.Subject.Operation == OperationDiscover,
+		Observable:     executable && input.Subject.Operation == OperationObservation,
 		AnalyticsReady: executable && input.Subject.Operation == OperationAnalytics,
 		Facts:          facts,
 		Blockers:       blockers,
@@ -456,7 +457,7 @@ func validPublicationContract(requirements Requirements, operation Operation) bo
 	if !operation.IsPublish() && !operation.IsAccountRead() {
 		return true
 	}
-	if !requirements.RequireConfiguration || !requirements.RequireAuthorization {
+	if !requirements.RequireConfiguration || (operation.IsPublish() && !requirements.RequireAuthorization) {
 		return false
 	}
 	managedProduction := requirements.RequireProductionDeployment || requirements.RequireProductionProviderApp
@@ -493,6 +494,8 @@ func containsRequiredChecks(requirements []CheckRequirement, operation Operation
 	switch operation {
 	case OperationDiscover:
 		requiredKinds = append(requiredKinds, CheckDiscovery)
+	case OperationObservation:
+		requiredKinds = append(requiredKinds, CheckObservation)
 	case OperationAnalytics:
 		requiredKinds = append(requiredKinds, CheckAnalytics)
 	case OperationPublishImmediate:
@@ -772,7 +775,7 @@ func validProviderEnvironment(environment ProviderEnvironment) bool {
 }
 
 func validOperation(operation Operation) bool {
-	return operation == OperationConnect || operation == OperationDiscover || operation == OperationAnalytics ||
+	return operation == OperationConnect || operation == OperationDiscover || operation == OperationObservation || operation == OperationAnalytics ||
 		operation == OperationPublishImmediate || operation == OperationPublishScheduled || operation == OperationRefresh || operation == OperationRevoke
 }
 
@@ -810,7 +813,7 @@ func validRuntimeControlState(state RuntimeControlState) bool {
 }
 
 func validCheckKind(kind CheckKind) bool {
-	return kind == CheckConnect || kind == CheckAuthorization || kind == CheckDiscovery || kind == CheckAnalytics ||
+	return kind == CheckConnect || kind == CheckAuthorization || kind == CheckDiscovery || kind == CheckObservation || kind == CheckAnalytics ||
 		kind == CheckPublishImmediate || kind == CheckPublishScheduled || kind == CheckFinalResult || kind == CheckRefresh || kind == CheckRevoke
 }
 

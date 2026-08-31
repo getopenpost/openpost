@@ -125,6 +125,12 @@ func (s *Service) ReconsiderAccountContentDiscovery(ctx context.Context, account
 
 //nolint:gocyclo // Eligibility deliberately centralizes independent support, cadence, backoff, and budget gates.
 func (s *Service) reconsiderAccountContentDiscovery(ctx context.Context, account models.SocialAccount, now time.Time) (bool, error) {
+	// Telegram channel inventory is webhook-observed from installation onward.
+	// It has no history endpoint, so it must never enter a backfill job that
+	// would overwrite the explicit installation coverage with "unsupported".
+	if account.Platform == "telegram" {
+		return false, nil
+	}
 	state, err := s.loadDiscoveryState(ctx, account.ID)
 	if err != nil {
 		return false, err
@@ -134,7 +140,7 @@ func (s *Service) reconsiderAccountContentDiscovery(ctx context.Context, account
 		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryPermissionRequired,
 			"feature_disabled", "Analytics is disabled for this account.", now.Add(routineDiscoveryCadence), now, false)
 	}
-	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationDiscover) {
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationDiscover) {
 		return false, s.recordDiscoveryOutcome(ctx, account, state, platform.AccountContentDiscoveryPermissionRequired,
 			"provider_readiness_blocked", "Pinterest discovery requires current Standard access and certification.", now.Add(routineDiscoveryCadence), now, false)
 	}
@@ -235,7 +241,7 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 		}
 		return fmt.Errorf("load account content discovery account: %w", err)
 	}
-	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationDiscover) {
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationDiscover) {
 		return s.recordDiscoveryOutcome(ctx, account, nil, platform.AccountContentDiscoveryPermissionRequired,
 			"provider_readiness_blocked", "Pinterest discovery requires current Standard access and certification.", now.Add(routineDiscoveryCadence), now, true)
 	}

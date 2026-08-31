@@ -6506,6 +6506,7 @@ export interface components {
       discoverable: boolean;
       executable: boolean;
       facts: components["schemas"]["Facts"];
+      observable: boolean;
       publishable: boolean;
       state: string;
     };
@@ -9751,13 +9752,14 @@ export interface components {
       /** @description Provider launch status: available, needs_configuration, or planned */
       status?: string;
     };
-    ProviderReadinessAccountRead: {
-      analytics: components["schemas"]["Decision"];
-      discovery: components["schemas"]["Decision"];
+    ProviderReadinessAccount: {
+      analytics?: components["schemas"]["Decision"];
+      discovery?: components["schemas"]["Decision"];
+      observation?: components["schemas"]["Decision"];
       social_account_id: string;
     };
     ProviderReadinessItem: {
-      account_reads?: components["schemas"]["ProviderReadinessAccountRead"][] | null;
+      accounts?: components["schemas"]["ProviderReadinessAccount"][] | null;
       advertisable: boolean;
       blocking_issues?: string[] | null;
       configured_app_state: string;

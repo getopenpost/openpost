@@ -85,18 +85,24 @@ func (s *Service) SetProviderReadiness(readiness *providerreadiness.Service) {
 	s.readiness = readiness
 }
 
-func (s *Service) isProviderReadEnabled(ctx context.Context, account models.SocialAccount, operation providerreadiness.Operation) bool {
-	if account.Platform != capabilities.ProviderPinterest {
+func (s *Service) isProviderOperationEnabled(ctx context.Context, account models.SocialAccount, operation providerreadiness.Operation) bool {
+	if account.Platform != capabilities.ProviderPinterest && account.Platform != capabilities.ProviderTelegram {
 		return true
 	}
 	if s.readiness == nil {
 		return false
 	}
-	decision := s.readiness.DecideAccountRead(ctx, account, operation, providerreadiness.ExecutionIntentProduction)
-	if operation == providerreadiness.OperationDiscover {
+	decision := s.readiness.DecideAccountOperation(ctx, account, operation, providerreadiness.ExecutionIntentProduction)
+	switch operation {
+	case providerreadiness.OperationDiscover:
 		return decision.Discoverable
+	case providerreadiness.OperationObservation:
+		return decision.Observable
+	case providerreadiness.OperationAnalytics:
+		return decision.AnalyticsReady
+	default:
+		return false
 	}
-	return operation == providerreadiness.OperationAnalytics && decision.AnalyticsReady
 }
 
 func (s *Service) isAnalyticsEnabled(ctx context.Context, accountID string) bool {
@@ -234,8 +240,8 @@ func (s *Service) enqueueAccountJob(ctx context.Context, account models.SocialAc
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
-		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return false, s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
@@ -323,8 +329,8 @@ func (s *Service) enqueueRenditionJob(
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
-		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return false, s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
@@ -373,8 +379,8 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
-		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return s.recordUnavailable(ctx, subjectAccount, account.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {
@@ -425,8 +431,8 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 	if !s.isAnalyticsEnabled(ctx, account.ID) {
 		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "feature_disabled", "Analytics is disabled for this account.")
 	}
-	if !s.isProviderReadEnabled(ctx, account, providerreadiness.OperationAnalytics) {
-		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Pinterest analytics require current Standard access and certification.")
+	if !s.isProviderOperationEnabled(ctx, account, providerreadiness.OperationAnalytics) {
+		return s.recordUnavailable(ctx, subjectRendition, rendition.ID, account, platform.AnalyticsStatusPermissionRequired, "provider_readiness_blocked", "Provider analytics readiness is disabled.")
 	}
 	adapter := s.analyticsAdapter(account)
 	if adapter == nil {

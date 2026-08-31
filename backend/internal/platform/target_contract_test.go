@@ -6,6 +6,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestResolvePinterestTargetKeyUsesTypedBoardIdentity(t *testing.T) {
+	t.Parallel()
+
+	resolved, err := ResolveTargetKey("pinterest", "pinterest", "", map[string]interface{}{"board_id": "launches"})
+	require.NoError(t, err)
+	require.Equal(t, "pinterest:board:launches", resolved)
+
+	_, err = ResolveTargetKey("pinterest", "pinterest", "pinterest:board:other", map[string]interface{}{"board_id": "launches"})
+	require.ErrorContains(t, err, "does not match")
+}
+
 func TestPublishingTargetContractsRejectCrossProviderAndMalformedKeys(t *testing.T) {
 	t.Parallel()
 

@@ -1384,6 +1384,9 @@
 						)
 					)
 				};
+				for (const source of invalidated.optionSources) {
+					void loadDestinationOptions(account, true, source);
+				}
 			}
 		}
 		validationIssues = [];
@@ -2052,7 +2055,11 @@
 		search = '',
 		append = false
 	) {
-		let sources = loadableDestinationOptionSources(visibleSettings(account), onlySource);
+		let sources = loadableDestinationOptionSources(
+			visibleSettings(account),
+			onlySource,
+			settingsForAccount(account)
+		);
 		if (!force && !search) {
 			sources = sources.filter(
 				(source) => destinationOptionsByAccount[account.id]?.[source] === undefined

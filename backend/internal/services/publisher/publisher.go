@@ -488,13 +488,16 @@ func (s *Service) publishRendition(
 			return fmt.Errorf("auth error: %v", err)
 		}
 	}
+	settings := map[string]interface{}{}
+	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)
+	if err := validatePublishingTarget(ctx, provider, token, account.AccountID, settings); err != nil {
+		return err
+	}
 	mediaAttachments, mediaAltTexts, mediaSettings, err := s.loadRenditionMedia(ctx, rendition.ID)
 	if err != nil {
 		return err
 	}
 
-	settings := map[string]interface{}{}
-	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &settings)
 	if err := s.hydratePublicSettingMediaURLs(ctx, publication.WorkspaceID, account.Platform, settings); err != nil {
 		return err
 	}
@@ -640,6 +643,9 @@ func (s *Service) publishRenditionSegments(
 	}
 	destinationSettings := map[string]interface{}{}
 	_ = json.Unmarshal([]byte(rendition.SettingsJSON), &destinationSettings)
+	if err := validatePublishingTarget(ctx, provider, token, account.AccountID, destinationSettings); err != nil {
+		return err
+	}
 
 	parentExternalID := ""
 	rootExternalID := ""
@@ -1661,6 +1667,22 @@ func (s *Service) connectorCapabilityForAccount(
 		"connector installation %q does not support output profile %q",
 		binding.InstallationID, outputProfile,
 	)
+}
+
+func validatePublishingTarget(
+	ctx context.Context,
+	provider platform.Publisher,
+	accessToken, accountID string,
+	settings map[string]interface{},
+) error {
+	validator, ok := provider.(platform.PublishingTargetValidator)
+	if !ok {
+		return nil
+	}
+	if err := validator.ValidatePublishingTarget(ctx, accessToken, accountID, settings); err != nil {
+		return fmt.Errorf("publishing target validation failed: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) publishProvider(

@@ -97,6 +97,35 @@ func TestConfigurationCatalogUsesRuntimePrecedenceAndExactInstance(t *testing.T)
 	}
 }
 
+func TestPinterestManagedContractsRequireCurrentStandardApprovalAndOrganicScopes(t *testing.T) {
+	t.Parallel()
+
+	capability, ok := capabilities.Find(capabilities.ProviderPinterest, models.ContentProfileImagePost)
+	if !ok {
+		t.Fatal("Pinterest image capability is missing")
+	}
+	managed, err := PublicationContract(capability, OperationPublishImmediate, true, "standard", "pinterest.unspecified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if managed.Requirements.RequiredApprovalTier != "standard" {
+		t.Fatalf("managed Pinterest approval tier = %q", managed.Requirements.RequiredApprovalTier)
+	}
+	for _, scope := range []string{"boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"} {
+		if !slices.Contains(managed.Requirements.RequiredScopes, scope) {
+			t.Fatalf("managed Pinterest contract omitted scope %q: %#v", scope, managed.Requirements.RequiredScopes)
+		}
+	}
+
+	development, err := PublicationContract(capability, OperationPublishImmediate, false, "standard", "pinterest.unspecified")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if development.Requirements.RequiredApprovalTier != "" || len(development.Requirements.RequiredScopes) != 0 {
+		t.Fatalf("development Pinterest contract enabled production gates: %#v", development.Requirements)
+	}
+}
+
 func TestManagedAndSelfHostedPublicationContractsHaveDifferentEvidenceGates(t *testing.T) {
 	t.Parallel()
 	capability := capabilities.Resolve("x", capabilities.ResolveInput{CreationPreset: "post"}).Capability

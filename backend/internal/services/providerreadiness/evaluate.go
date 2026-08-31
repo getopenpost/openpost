@@ -186,6 +186,11 @@ func addApprovalBlockers(groups blockerGroups, input EvaluationInput) blockerGro
 	state := effectiveApprovalState(input.Approval, input.Now)
 	switch state {
 	case ApprovalStateApproved:
+		requiredTier := strings.TrimSpace(input.Contract.Requirements.RequiredApprovalTier)
+		if requiredTier == "" || strings.EqualFold(requiredTier, strings.TrimSpace(input.Approval.Tier)) {
+			return groups
+		}
+		groups.approval = append(groups.approval, blockerWithDetail(BlockerApprovalRequired, requiredTier))
 		return groups
 	case ApprovalStateNotRequired:
 		if !input.Contract.Requirements.RequireApproval {
@@ -422,7 +427,8 @@ func validOptionalSafeCode(value string) bool {
 }
 
 func validRequirements(requirements Requirements) bool {
-	return validUniqueScopes(requirements.RequiredScopes) &&
+	return validOptionalSafeCode(requirements.RequiredApprovalTier) &&
+		validUniqueScopes(requirements.RequiredScopes) &&
 		validUniqueChecks(requirements.RequiredLocalChecks) &&
 		validUniqueChecks(requirements.RequiredLiveChecks)
 }
@@ -459,6 +465,9 @@ func validContractRelationships(requirements Requirements) bool {
 		return false
 	}
 	if requirements.AllowTrialExecution && !requirements.RequireApproval {
+		return false
+	}
+	if requirements.RequiredApprovalTier != "" && !requirements.RequireApproval {
 		return false
 	}
 	if requirements.RequireProductionProviderApp && !requirements.RequireConfiguration {

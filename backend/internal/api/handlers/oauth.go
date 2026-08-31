@@ -200,7 +200,7 @@ type ListMastodonServersOutput struct {
 }
 
 type GetAuthURLInput struct {
-	Platform    string `path:"platform" doc:"Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)"`
+	Platform    string `path:"platform" doc:"Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest)"`
 	WorkspaceID string `query:"workspace_id" required:"true" doc:"Workspace ID to link account to"`
 	ServerName  string `query:"server_name" doc:"Mastodon server name from config (required for mastodon)"`
 	InstanceURL string `query:"instance_url" doc:"Mastodon instance URL to dynamically register"`
@@ -353,8 +353,8 @@ var providerCatalog = []ProviderInfo{
 		DisplayName:     "Pinterest",
 		AuthMode:        "oauth",
 		ConnectionModes: []string{"oauth"},
-		Status:          providerStatusPlanned,
-		Description:     "Pinterest connections stay gated until provider access and certification are complete.",
+		Description:     "Trial access supports development and certification; production requires current Standard access and live certification.",
+		Capabilities:    []string{"Board targeting", "Optional board sections"},
 	},
 	{
 		Platform:        "telegram",
@@ -2230,12 +2230,16 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		Summary:     "Revoke a provider grant and disconnect every destination that uses it",
 		Tags:        []string{tagAccounts},
 		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
-		Errors:      []int{403, 404},
+		Errors:      []int{403, 404, 502},
 	}, func(ctx context.Context, input *RevokeAccountGrantInput) (*struct{}, error) {
 		userID := middleware.GetUserID(ctx)
 		account, err := h.getEditableAccount(ctx, input.AccountID, userID)
 		if err != nil {
 			return nil, err
+		}
+		if err := h.revokeProviderAuthorization(ctx, account); err != nil {
+			log.Printf("failed to revoke provider authorization account=%s provider=%s: %v", account.ID, account.Platform, err)
+			return nil, huma.Error502BadGateway("failed to revoke provider authorization")
 		}
 		now := time.Now().UTC()
 		if err := h.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
@@ -2301,6 +2305,39 @@ func (h *OAuthHandler) RevokeAccountGrant(api huma.API) {
 		}
 		return nil, nil
 	})
+}
+
+func (h *OAuthHandler) revokeProviderAuthorization(ctx context.Context, account models.SocialAccount) error {
+	key := account.Platform
+	if account.Platform == mastodonProvider {
+		key = mastodonProvider + ":" + account.InstanceURL
+	}
+	revoker, ok := h.providers[key].(platform.AuthorizationRevoker)
+	if !ok {
+		return nil
+	}
+
+	var encrypted []byte
+	if account.OAuthGrantID == "" {
+		encrypted = account.AccessTokenEnc
+	} else {
+		var grant models.OAuthGrant
+		if err := h.db.NewSelect().Model(&grant).
+			Column("access_token_encrypted").
+			Where("id = ? AND workspace_id = ? AND revoked_at IS NULL", account.OAuthGrantID, account.WorkspaceID).
+			Scan(ctx); err != nil {
+			return err
+		}
+		encrypted = grant.AccessTokenEnc
+	}
+	if len(encrypted) == 0 {
+		return errors.New("provider authorization credential is unavailable")
+	}
+	accessToken, err := h.crypto.Decrypt(encrypted)
+	if err != nil {
+		return fmt.Errorf("decrypt provider authorization: %w", err)
+	}
+	return revoker.RevokeAuthorization(ctx, accessToken)
 }
 
 func (h *OAuthHandler) getAccessibleAccount(ctx context.Context, accountID, userID string) (models.SocialAccount, error) {

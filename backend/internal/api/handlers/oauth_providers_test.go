@@ -64,6 +64,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 		providers: map[string]platform.Adapter{
 			"bluesky":                   providerAvailabilityAdapter{},
 			"discord":                   providerAvailabilityAdapter{},
+			"pinterest":                 providerAvailabilityAdapter{},
 			"x":                         providerAvailabilityAdapter{},
 			"mastodon:https://masto.pt": mastodonAdapter,
 			"mastodon:Personal":         mastodonAdapter,
@@ -74,6 +75,7 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 		&oauthReadinessLedger{control: providerreadiness.RuntimeControlStateEnabled},
 		platform.AppConfig{Provider: "bluesky", ClientID: "bluesky-app"},
 		platform.AppConfig{Provider: "discord", ConnectionMode: "webhook"},
+		platform.AppConfig{Provider: "pinterest", ClientID: "pin-app", ClientSecret: "pin-secret", RedirectURI: "https://app.test/api/v1/accounts/pinterest/callback"},
 		platform.AppConfig{Provider: "x", ClientID: "x-app"},
 		platform.AppConfig{Provider: mastodonProvider, ClientID: "mastodon-app", InstanceURL: "https://masto.pt"},
 	)
@@ -97,8 +99,9 @@ func TestListProvidersReportsConfiguredProviders(t *testing.T) {
 	require.True(t, out[1].Configured)
 	require.ElementsMatch(t, []string{"webhook", "bot"}, out[1].ConnectionModes)
 	require.Equal(t, "pinterest", out[2].Platform)
-	require.Equal(t, providerStatusPlanned, out[2].Status)
-	require.False(t, out[2].Configured)
+	require.Equal(t, providerStatusAvailable, out[2].Status)
+	require.True(t, out[2].Configured)
+	require.Contains(t, out[2].Capabilities, "Board targeting")
 	require.Equal(t, "telegram", out[3].Platform)
 	require.Equal(t, providerStatusPlanned, out[3].Status)
 	require.False(t, out[3].Configured)

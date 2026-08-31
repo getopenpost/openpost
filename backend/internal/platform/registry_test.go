@@ -72,9 +72,12 @@ func TestBuildAdapterRegistryAcceptsCompleteContractOnlyApps(t *testing.T) {
 	}, RegistryOptions{})
 
 	require.NoError(t, err)
+	require.Contains(t, adapters, "pinterest")
 	require.Contains(t, adapters, "discord")
-	require.Len(t, entries, 1)
-	require.Equal(t, ConnectionModeWebhook, entries[0].ConnectionMode)
+	require.Len(t, entries, 2)
+	require.Equal(t, ConnectionModeOAuth, entries[0].ConnectionMode)
+	require.Equal(t, providerPinterest, entries[0].Provider)
+	require.Equal(t, ConnectionModeWebhook, entries[1].ConnectionMode)
 }
 
 func TestValidateAppConfigFailsClosedForHostedAndSelfHostedBotShapes(t *testing.T) {

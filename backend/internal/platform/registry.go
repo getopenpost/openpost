@@ -56,6 +56,12 @@ var appBuilders = map[string]appBuilder{
 	providerDiscord: func(_ AppConfig, _ RegistryOptions) (Adapter, error) {
 		return NewDiscordAdapter(), nil
 	},
+	providerPinterest: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
+		if strings.TrimSpace(app.ClientID) == "" || strings.TrimSpace(app.ClientSecret) == "" || strings.TrimSpace(app.RedirectURI) == "" {
+			return nil, fmt.Errorf("pinterest provider app requires client_id, client_secret, and redirect_uri")
+		}
+		return NewPinterestAdapter(app.ClientID, app.ClientSecret, app.RedirectURI), nil
+	},
 	providerFacebook: func(app AppConfig, _ RegistryOptions) (Adapter, error) {
 		if strings.TrimSpace(app.ClientID) == "" {
 			return nil, fmt.Errorf("facebook provider app requires client_id")

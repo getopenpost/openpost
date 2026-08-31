@@ -19020,6 +19020,16 @@
 							}
 						},
 						"description": "Internal Server Error"
+					},
+					"502": {
+						"content": {
+							"application/problem+json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorModel"
+								}
+							}
+						},
+						"description": "Bad Gateway"
 					}
 				},
 				"summary": "Revoke a provider grant and disconnect every destination that uses it",
@@ -19205,12 +19215,12 @@
 				"operationId": "get-auth-url",
 				"parameters": [
 					{
-						"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)",
+						"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest)",
 						"in": "path",
 						"name": "platform",
 						"required": true,
 						"schema": {
-							"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube)",
+							"description": "Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest)",
 							"type": "string"
 						}
 					},

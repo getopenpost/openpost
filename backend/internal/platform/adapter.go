@@ -293,6 +293,18 @@ type PublishingOptionsProvider interface {
 	SearchPublishingOptions(ctx context.Context, accessToken string, input PublishingOptionsInput) (PublishingOptionsPage, error)
 }
 
+// PublishingTargetValidator rechecks an account-owned subdestination before
+// media upload or any other provider mutation begins.
+type PublishingTargetValidator interface {
+	ValidatePublishingTarget(ctx context.Context, accessToken, accountID string, settings map[string]interface{}) error
+}
+
+// AuthorizationRevoker invalidates a provider credential before OpenPost
+// clears the encrypted local grant.
+type AuthorizationRevoker interface {
+	RevokeAuthorization(ctx context.Context, accessToken string) error
+}
+
 type AccountCapabilityInput struct {
 	Intent        string
 	OutputProfile string

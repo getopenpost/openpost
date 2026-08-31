@@ -12975,6 +12975,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ErrorModel"];
                 };
             };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
         };
     };
     "search-account-publishing-options": {
@@ -13083,7 +13092,7 @@ export interface operations {
             };
             header?: never;
             path: {
-                /** @description Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube) */
+                /** @description Social platform (x, mastodon, bluesky, linkedin, threads, instagram, facebook, tiktok, youtube, pinterest) */
                 platform: string;
             };
             cookie?: never;

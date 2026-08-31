@@ -237,6 +237,7 @@ type Requirements struct {
 	RequireProductionProviderApp bool               `json:"require_production_provider_app"`
 	RequireExactRevision         bool               `json:"require_exact_revision"`
 	RequireApproval              bool               `json:"require_approval"`
+	RequiredApprovalTier         string             `json:"required_approval_tier,omitempty"`
 	RequireAuthorization         bool               `json:"require_authorization"`
 	RequireLocalEvidence         bool               `json:"require_local_evidence"`
 	RequireLiveEvidence          bool               `json:"require_live_evidence"`

@@ -252,11 +252,16 @@ func PublicationContract(
 	if err != nil {
 		return CertificationContract{}, err
 	}
+	requiredApprovalTier := ""
+	if enforceCertification && capability.Provider == capabilities.ProviderPinterest {
+		requiredApprovalTier = "standard"
+	}
 	requirements := Requirements{
 		RequireConfiguration:         true,
 		RequireProductionDeployment:  enforceCertification,
 		RequireProductionProviderApp: enforceCertification,
 		RequireApproval:              enforceCertification,
+		RequiredApprovalTier:         requiredApprovalTier,
 		RequireAuthorization:         true,
 		RequireLocalEvidence:         enforceCertification,
 		RequireLiveEvidence:          enforceCertification,
@@ -290,6 +295,10 @@ func ConnectionContract(provider string, enforceCertification bool) (Certificati
 	if err != nil {
 		return CertificationContract{}, err
 	}
+	requiredApprovalTier := ""
+	if enforceCertification && provider == capabilities.ProviderPinterest {
+		requiredApprovalTier = "standard"
+	}
 	return CertificationContract{
 		SchemaVersion:    CertificationContractSchemaVersion,
 		CapabilityDigest: capabilityDigest,
@@ -299,6 +308,7 @@ func ConnectionContract(provider string, enforceCertification bool) (Certificati
 			RequireProductionDeployment:  enforceCertification,
 			RequireProductionProviderApp: enforceCertification,
 			RequireApproval:              enforceCertification,
+			RequiredApprovalTier:         requiredApprovalTier,
 			AllowTrialExecution:          enforceCertification,
 		},
 	}, nil
@@ -328,6 +338,8 @@ func RequiredScopesForSubject(subject Subject) []string {
 	switch subject.Provider {
 	case capabilities.ProviderFacebook:
 		return []string{"pages_manage_posts", "pages_read_engagement"}
+	case capabilities.ProviderPinterest:
+		return []string{"boards:read", "boards:write", "pins:read", "pins:write", "user_accounts:read"}
 	case capabilities.ProviderInstagram:
 		return []string{"instagram_basic", "instagram_content_publish"}
 	case capabilities.ProviderYouTube:

@@ -27,6 +27,31 @@ func PublishingTargetContract(provider string) TargetContract {
 	}
 }
 
+// ResolveTargetKey derives provider subdestination identity from typed
+// rendition settings and rejects an explicit key that disagrees with them.
+func ResolveTargetKey(provider, base, requested string, settings map[string]interface{}) (string, error) {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	base = strings.TrimSpace(base)
+	requested = strings.TrimSpace(requested)
+	if provider == providerPinterest {
+		if boardID := settingString(settings, "board_id"); boardID != "" {
+			derived := base + ":board:" + boardID
+			if requested == "" || requested == base {
+				requested = derived
+			} else if requested != derived {
+				return "", errors.New("target_key does not match the selected Pinterest board")
+			}
+		}
+	}
+	if requested == "" {
+		requested = base
+	}
+	if err := ValidateTargetKey(provider, base, requested); err != nil {
+		return "", err
+	}
+	return requested, nil
+}
+
 // ValidateTargetKey preserves legacy account-owned target suffixes while
 // rejecting provider-crossing, oversized, or malformed keys.
 func ValidateTargetKey(provider, base, target string) error {

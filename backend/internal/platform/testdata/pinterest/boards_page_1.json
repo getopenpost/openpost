@@ -1,0 +1,12 @@
+{
+  "items": [
+    {
+      "id": "board-1",
+      "name": "Launches",
+      "privacy": "PUBLIC",
+      "owner": { "username": "openpost" }
+    },
+    { "id": "board-2", "name": "Lessons", "privacy": "PUBLIC", "owner": { "username": "openpost" } }
+  ],
+  "bookmark": "page-2"
+}

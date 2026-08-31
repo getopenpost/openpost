@@ -918,7 +918,7 @@ func (h *PublicationHandler) upsertRenditionsTx(
 		targets := make(map[renditionservice.TargetIdentity]struct{}, len(renditions))
 		for _, input := range renditions {
 			account := accountMap[input.SocialAccountID]
-			targetKey, targetErr := normalizeRenditionTargetKey(account, input.TargetKey)
+			targetKey, targetErr := normalizeRenditionTargetKey(account, input.TargetKey, input.Settings)
 			if targetErr != nil {
 				return PublicationResponse{}, huma.Error400BadRequest(targetErr.Error())
 			}
@@ -1731,7 +1731,7 @@ func (h *PublicationHandler) insertRenditions(
 		if !ok {
 			return huma.Error400BadRequest("one or more social accounts are invalid, disconnected, or outside this workspace")
 		}
-		targetKey, err := normalizeRenditionTargetKey(account, input.TargetKey)
+		targetKey, err := normalizeRenditionTargetKey(account, input.TargetKey, input.Settings)
 		if err != nil {
 			return huma.Error400BadRequest(err.Error())
 		}
@@ -4131,16 +4131,8 @@ func renditionAccountIDs(renditions []RenditionInput) []string {
 	return out
 }
 
-func normalizeRenditionTargetKey(account models.SocialAccount, requested string) (string, error) {
-	base := publicationauth.TargetKey(account)
-	target := strings.TrimSpace(requested)
-	if target == "" {
-		return base, nil
-	}
-	if err := platform.ValidateTargetKey(account.Platform, base, target); err != nil {
-		return "", err
-	}
-	return target, nil
+func normalizeRenditionTargetKey(account models.SocialAccount, requested string, settings map[string]interface{}) (string, error) {
+	return platform.ResolveTargetKey(account.Platform, publicationauth.TargetKey(account), requested, settings)
 }
 
 func allPublicationMediaIDs(

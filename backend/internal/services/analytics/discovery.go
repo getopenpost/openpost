@@ -279,7 +279,16 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 		status, code, retryAfter := classifyDiscoveryError(err)
 		return s.recordDiscoveryOutcome(ctx, account, state, status, code, safeDiscoveryMessage(status), now.Add(max(defaultDiscoveryBackoff, retryAfter)), now, true)
 	}
-	allowed, err := s.reserveDiscoveryRead(ctx, state, policy.ReadRequestsPerDay, now)
+	discoveryRequest := platform.AccountContentDiscoveryRequest{
+		AccountID: account.AccountID, GrantedScopes: strings.Fields(account.GrantedScopes),
+		CapabilityState: analyticsCapabilityState(account.CapabilityState), Cursor: state.Cursor,
+		PublishedAfter: state.CyclePublishedAfter, PageSize: pageSize,
+	}
+	listingReads := 1
+	if estimator, ok := discoverer.(platform.AccountContentDiscoveryReadEstimator); ok {
+		listingReads = max(1, estimator.AccountContentDiscoveryReadRequests(discoveryRequest))
+	}
+	allowed, err := s.reserveDiscoveryReads(ctx, state, policy.ReadRequestsPerDay, listingReads, now)
 	if err != nil {
 		return err
 	}
@@ -287,25 +296,29 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 		return nil
 	}
 
-	page, err := discoverer.DiscoverAccountContent(ctx, token, platform.AccountContentDiscoveryRequest{
-		AccountID: account.AccountID, GrantedScopes: strings.Fields(account.GrantedScopes),
-		CapabilityState: analyticsCapabilityState(account.CapabilityState), Cursor: state.Cursor,
-		PublishedAfter: state.CyclePublishedAfter, PageSize: pageSize,
-	})
+	page, err := discoverer.DiscoverAccountContent(ctx, token, discoveryRequest)
 	if err != nil {
-		status, code, retryAfter := classifyDiscoveryError(err)
-		next := now.Add(defaultDiscoveryBackoff)
-		switch status {
-		case platform.AccountContentDiscoveryRateLimited:
-			next = now.Add(max(defaultDiscoveryBackoff, retryAfter))
-		case platform.AccountContentDiscoveryPermissionRequired:
-			next = now.Add(routineDiscoveryCadence)
-		case platform.AccountContentDiscoveryCostLimited:
-			next = nextUTCDay(now)
-		case platform.AccountContentDiscoveryUnsupported:
-			next = now.Add(routineDiscoveryCadence)
+		return s.recordDiscoveryProviderError(ctx, account, state, err, now)
+	}
+	if measurer, ok := discoverer.(platform.AccountContentBatchMeasurer); ok {
+		providerIDs := discoveryProviderContentIDs(page.Items, state.CyclePublishedAfter)
+		if len(providerIDs) > 0 {
+			allowed, err = s.reserveDiscoveryReads(ctx, state, policy.ReadRequestsPerDay, 1, now)
+			if err != nil {
+				return err
+			}
+			if !allowed {
+				return nil
+			}
+			measurements, measurementErr := measurer.FetchAccountContentBatchMeasurements(ctx, token, platform.AccountContentBatchMeasurementRequest{
+				AccountID: account.AccountID, GrantedScopes: strings.Fields(account.GrantedScopes),
+				CapabilityState: analyticsCapabilityState(account.CapabilityState), ProviderContentIDs: providerIDs,
+			})
+			if measurementErr != nil {
+				return s.recordDiscoveryProviderError(ctx, account, state, measurementErr, now)
+			}
+			page = attachDiscoveryMeasurements(page, providerIDs, measurements)
 		}
-		return s.recordDiscoveryOutcome(ctx, account, state, status, code, safeDiscoveryMessage(status), next, now, true)
 	}
 	continuation, err := s.commitDiscoveryPage(ctx, account, state, page, pageSize, now)
 	if err != nil {
@@ -320,6 +333,97 @@ func (s *Service) handleAccountContentDiscovery(ctx context.Context, payload job
 		return &DiscoveryContinuationError{}
 	}
 	return nil
+}
+
+func (s *Service) recordDiscoveryProviderError(ctx context.Context, account models.SocialAccount, state *models.AccountContentDiscoveryState, err error, now time.Time) error {
+	status, code, retryAfter := classifyDiscoveryError(err)
+	next := now.Add(defaultDiscoveryBackoff)
+	switch status {
+	case platform.AccountContentDiscoveryRateLimited:
+		next = now.Add(max(defaultDiscoveryBackoff, retryAfter))
+	case platform.AccountContentDiscoveryPermissionRequired, platform.AccountContentDiscoveryUnsupported:
+		next = now.Add(routineDiscoveryCadence)
+	case platform.AccountContentDiscoveryCostLimited:
+		next = nextUTCDay(now)
+	}
+	return s.recordDiscoveryOutcome(ctx, account, state, status, code, safeDiscoveryMessage(status), next, now, true)
+}
+
+func discoveryProviderContentIDs(items []platform.AccountContentItem, publishedAfter time.Time) []string {
+	seen := make(map[string]struct{}, len(items))
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		id := strings.TrimSpace(item.ProviderContentID)
+		if id == "" || item.PublishedAt.Before(publishedAfter) {
+			continue
+		}
+		if _, duplicate := seen[id]; duplicate {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func attachDiscoveryMeasurements(page platform.AccountContentPage, requestedIDs []string, measurements platform.AccountContentBatchMeasurements) platform.AccountContentPage {
+	missing := false
+	requested := make(map[string]struct{}, len(requestedIDs))
+	for _, id := range requestedIDs {
+		requested[id] = struct{}{}
+		if _, ok := measurements[id]; !ok {
+			missing = true
+		}
+	}
+	for index := range page.Items {
+		id := strings.TrimSpace(page.Items[index].ProviderContentID)
+		if _, ok := requested[id]; !ok {
+			continue
+		}
+		batch, ok := measurements[id]
+		if !ok {
+			continue
+		}
+		if page.Items[index].Measurements == nil {
+			page.Items[index].Measurements = platform.AnalyticsMeasurements{}
+		}
+		for metric, measurement := range batch {
+			page.Items[index].Measurements[metric] = measurement
+		}
+	}
+	if missing {
+		page.Coverage.Status = platform.AccountContentDiscoveryPartial
+		page.Coverage.Description = boundedDiscoveryMessage(strings.TrimSpace(page.Coverage.Description + " Some item statistics were unavailable."))
+	}
+	return page
+}
+
+func exactDiscoveryRenditions(ctx context.Context, db bun.IDB, account models.SocialAccount, items []platform.AccountContentItem) (map[string]string, error) {
+	ids := discoveryProviderContentIDs(items, time.Time{})
+	matches := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return matches, nil
+	}
+	var renditions []models.Rendition
+	if err := db.NewSelect().Model(&renditions).
+		Column("id", "external_id").
+		Where("social_account_id = ? AND platform = ?", account.ID, account.Platform).
+		Where("external_id IN (?)", bun.List(ids)).
+		Scan(ctx); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf("load exact discovery renditions: %w", err)
+	}
+	counts := make(map[string]int, len(renditions))
+	for _, rendition := range renditions {
+		externalID := strings.TrimSpace(rendition.ExternalID)
+		counts[externalID]++
+		matches[externalID] = rendition.ID
+	}
+	for externalID, count := range counts {
+		if count != 1 {
+			delete(matches, externalID)
+		}
+	}
+	return matches, nil
 }
 
 //nolint:gocyclo // The page transaction validates, deduplicates, caps, and checkpoints one provider result atomically.
@@ -354,7 +458,18 @@ func (s *Service) commitDiscoveryPage(ctx context.Context, account models.Social
 
 	continuation := false
 	err := s.db.RunInTx(ctx, &sql.TxOptions{}, func(txCtx context.Context, tx bun.Tx) error {
+		renditions, err := exactDiscoveryRenditions(txCtx, tx, account, items)
+		if err != nil {
+			return err
+		}
 		for _, item := range items {
+			item.RenditionID = ""
+			item.Origin = platform.AccountContentOriginExternal
+			item.OriginConfidence = platform.AccountContentOriginConfidenceExact
+			if renditionID := renditions[strings.TrimSpace(item.ProviderContentID)]; renditionID != "" {
+				item.RenditionID = renditionID
+				item.Origin = platform.AccountContentOriginOpenPost
+			}
 			if _, err := upsertAccountContent(txCtx, tx, account, item, now); err != nil {
 				return fmt.Errorf("store discovery page item: %w", err)
 			}
@@ -407,13 +522,14 @@ func (s *Service) finishDiscoveryCap(ctx context.Context, state *models.AccountC
 	return upsertDiscoveryState(ctx, s.db, state)
 }
 
-func (s *Service) reserveDiscoveryRead(ctx context.Context, state *models.AccountContentDiscoveryState, limit int, now time.Time) (bool, error) {
+func (s *Service) reserveDiscoveryReads(ctx context.Context, state *models.AccountContentDiscoveryState, limit, requested int, now time.Time) (bool, error) {
 	window := utcDay(now)
 	if state.ReadBudgetWindowStart.IsZero() || !state.ReadBudgetWindowStart.Equal(window) {
 		state.ReadBudgetWindowStart = window
 		state.ReadBudgetUsed = 0
 	}
-	if state.ReadBudgetUsed >= limit {
+	requested = max(1, requested)
+	if requested > limit-state.ReadBudgetUsed {
 		state.Status = string(platform.AccountContentDiscoveryPartial)
 		state.CoverageStatus = string(platform.AccountContentDiscoveryPartial)
 		state.FailureCode = "account_read_budget_exhausted"
@@ -422,7 +538,7 @@ func (s *Service) reserveDiscoveryRead(ctx context.Context, state *models.Accoun
 		state.UpdatedAt = now
 		return false, upsertDiscoveryState(ctx, s.db, state)
 	}
-	state.ReadBudgetUsed++
+	state.ReadBudgetUsed += requested
 	state.LastAttemptedAt = now
 	state.UpdatedAt = now
 	return true, upsertDiscoveryState(ctx, s.db, state)

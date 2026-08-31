@@ -780,3 +780,136 @@ func TestValidateMediaYouTubeRequiresOneVideo(t *testing.T) {
 		t.Fatalf("expected no issues for one video, got %#v", issues)
 	}
 }
+
+func TestYouTubeDiscoversBoundedUploadsPlaylistPages(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	channelCalls := 0
+	playlistCalls := 0
+	historyStart := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.Header.Get(headerAuthorization) != "Bearer access-token" {
+			t.Fatalf("unexpected auth header %q", req.Header.Get(headerAuthorization))
+		}
+		switch req.URL.Path {
+		case "/youtube/v3/channels":
+			channelCalls++
+			if req.URL.Query().Get("part") != "contentDetails" || req.URL.Query().Get("id") != "channel-1" {
+				t.Fatalf("unexpected channel query %s", req.URL.RawQuery)
+			}
+			return jsonResponse(req, `{"items":[{"contentDetails":{"relatedPlaylists":{"uploads":"uploads-1"}}}]}`), nil
+		case "/youtube/v3/playlistItems":
+			playlistCalls++
+			if req.URL.Query().Get("playlistId") != "uploads-1" || req.URL.Query().Get("maxResults") != "2" {
+				t.Fatalf("unexpected uploads query %s", req.URL.RawQuery)
+			}
+			if req.URL.Query().Get("pageToken") == "" {
+				return jsonResponse(req, `{"nextPageToken":"page-2","items":[
+					{"snippet":{"title":"  First   upload  ","description":"first","resourceId":{"videoId":"video-a"}},"contentDetails":{"videoId":"video-a","videoPublishedAt":"2026-02-03T12:00:00Z"}},
+					{"snippet":{"title":"Second upload","description":"second","publishedAt":"2026-02-02T12:00:00Z","resourceId":{"videoId":"video-b"}},"contentDetails":{"videoId":"video-b"}}
+				]}`), nil
+			}
+			if req.URL.Query().Get("pageToken") != "page-2" {
+				t.Fatalf("unexpected page token %q", req.URL.Query().Get("pageToken"))
+			}
+			return jsonResponse(req, `{"nextPageToken":"page-3","items":[
+				{"snippet":{"title":"At bound","description":"third","resourceId":{"videoId":"video-c"}},"contentDetails":{"videoId":"video-c","videoPublishedAt":"2026-01-01T00:00:00Z"}},
+				{"snippet":{"title":"Too old","description":"old","resourceId":{"videoId":"video-old"}},"contentDetails":{"videoId":"video-old","videoPublishedAt":"2025-12-31T23:59:59Z"}}
+			]}`), nil
+		default:
+			t.Fatalf("unexpected request %s %s", req.Method, req.URL.String())
+			return nil, nil
+		}
+	})}
+
+	adapter := NewYouTubeAdapter("", "", "")
+	if adapter.AccountContentDiscoveryReadRequests(AccountContentDiscoveryRequest{}) != 2 ||
+		adapter.AccountContentDiscoveryReadRequests(AccountContentDiscoveryRequest{Cursor: "opaque"}) != 1 {
+		t.Fatal("expected channel lookup only on the first discovery page")
+	}
+	first, err := adapter.DiscoverAccountContent(context.Background(), "access-token", AccountContentDiscoveryRequest{
+		AccountID: "channel-1", PublishedAfter: historyStart, PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("first discovery page returned error: %v", err)
+	}
+	if len(first.Items) != 2 || first.Items[0].ProviderContentID != "video-a" || first.Items[0].Title != "First upload" {
+		t.Fatalf("unexpected first page: %#v", first)
+	}
+	if first.Items[0].ExternalURL != "https://www.youtube.com/watch?v=video-a" || first.Items[0].ContentProfile != "long_video" {
+		t.Fatalf("unexpected normalized upload: %#v", first.Items[0])
+	}
+	if first.NextCursor == "" || first.NextCursor == "page-2" || first.Coverage.Status != AccountContentDiscoveryPartial {
+		t.Fatalf("expected opaque partial cursor, got %#v", first)
+	}
+
+	second, err := adapter.DiscoverAccountContent(context.Background(), "access-token", AccountContentDiscoveryRequest{
+		AccountID: "channel-1", Cursor: first.NextCursor, PublishedAfter: historyStart, PageSize: 2,
+	})
+	if err != nil {
+		t.Fatalf("second discovery page returned error: %v", err)
+	}
+	if len(second.Items) != 1 || second.Items[0].ProviderContentID != "video-c" || !second.Items[0].PublishedAt.Equal(historyStart) {
+		t.Fatalf("unexpected bounded second page: %#v", second)
+	}
+	if second.NextCursor != "" || second.Coverage.Status != AccountContentDiscoveryComplete {
+		t.Fatalf("lower history bound must complete pagination: %#v", second)
+	}
+	if channelCalls != 1 || playlistCalls != 2 {
+		t.Fatalf("expected playlist identity to persist in the cursor, calls=%d/%d", channelCalls, playlistCalls)
+	}
+}
+
+func TestYouTubeBatchUploadStatisticsRemainKeyedAndLifetime(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		if req.URL.Path != "/youtube/v3/videos" || req.URL.Query().Get("part") != "statistics" || req.URL.Query().Get("id") != "video-a,video-b" {
+			t.Fatalf("unexpected statistics request %s", req.URL.String())
+		}
+		return jsonResponse(req, `{"items":[
+			{"id":"video-b","statistics":{"viewCount":"200","likeCount":"20","commentCount":"2"}},
+			{"id":"video-a","statistics":{"viewCount":"100","likeCount":"10","commentCount":"1"}}
+		]}`), nil
+	})}
+
+	measurements, err := NewYouTubeAdapter("", "", "").FetchAccountContentBatchMeasurements(context.Background(), "access-token", AccountContentBatchMeasurementRequest{
+		AccountID: "channel-1", ProviderContentIDs: []string{"video-a", "video-b", "video-a"},
+	})
+	if err != nil {
+		t.Fatalf("batch statistics returned error: %v", err)
+	}
+	if measurements["video-a"][MetricViews].Value != 100 || measurements["video-b"][MetricViews].Value != 200 {
+		t.Fatalf("video metrics crossed provider IDs: %#v", measurements)
+	}
+	metadata := measurements["video-b"][MetricLikes].AnalyticsMetricMetadata
+	if metadata.Unit != AnalyticsMetricUnitCount || metadata.Aggregation != AnalyticsMetricAggregationLifetimeTotal || metadata.Source != youtubeDataAPIMetricSource {
+		t.Fatalf("unexpected lifetime metric semantics: %#v", metadata)
+	}
+}
+
+func TestYouTubeDiscoveryClassifiesQuotaWithoutPersistingProviderBody(t *testing.T) {
+	originalClient := httpClient
+	defer func() { httpClient = originalClient }()
+
+	httpClient = &http.Client{Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		response := jsonResponseWithStatus(req, http.StatusForbidden, `{"error":{"errors":[{"reason":"quotaExceeded"}],"message":"secret provider detail"}}`)
+		response.Header.Set("Retry-After", "3600")
+		return response, nil
+	})}
+	_, err := NewYouTubeAdapter("", "", "").DiscoverAccountContent(context.Background(), "access-token", AccountContentDiscoveryRequest{
+		AccountID: "channel-1", PageSize: 1,
+	})
+	if err == nil {
+		t.Fatal("expected quota error")
+	}
+	var discoveryErr *AccountContentDiscoveryError
+	if !errors.As(err, &discoveryErr) || discoveryErr.Status != AccountContentDiscoveryRateLimited || discoveryErr.Code != "quotaExceeded" || discoveryErr.RetryAfter != time.Hour {
+		t.Fatalf("unexpected quota classification: %#v, %v", discoveryErr, err)
+	}
+	if strings.Contains(err.Error(), "secret provider detail") {
+		t.Fatalf("provider response leaked through discovery error: %v", err)
+	}
+}

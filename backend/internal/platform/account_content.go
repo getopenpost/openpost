@@ -119,6 +119,13 @@ type AccountContentDiscoverer interface {
 	DiscoverAccountContent(ctx context.Context, accessToken string, input AccountContentDiscoveryRequest) (AccountContentPage, error)
 }
 
+// AccountContentDiscoveryReadEstimator lets an adapter declare the exact
+// number of provider reads needed for a page before the shared durable budget
+// is reserved. Adapters that do not implement it cost one read per page.
+type AccountContentDiscoveryReadEstimator interface {
+	AccountContentDiscoveryReadRequests(input AccountContentDiscoveryRequest) int
+}
+
 type AccountContentBatchMeasurementRequest struct {
 	AccountID          string
 	GrantedScopes      []string

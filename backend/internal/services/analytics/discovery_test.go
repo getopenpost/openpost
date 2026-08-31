@@ -29,6 +29,91 @@ func (f *fakeAccountContentDiscoverer) DiscoverAccountContent(ctx context.Contex
 	return f.discover(ctx, token, request)
 }
 
+type fakeBatchAccountContentDiscoverer struct {
+	*fakeAccountContentDiscoverer
+	measure func(context.Context, string, platform.AccountContentBatchMeasurementRequest) (platform.AccountContentBatchMeasurements, error)
+}
+
+func (f *fakeBatchAccountContentDiscoverer) FetchAccountContentBatchMeasurements(ctx context.Context, token string, request platform.AccountContentBatchMeasurementRequest) (platform.AccountContentBatchMeasurements, error) {
+	return f.measure(ctx, token, request)
+}
+
+func TestDiscoveryLinksExactRenditionOnceAndKeepsExternalUploadsPublicationFree(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	account := seedAnalyticsAccount(t, db, "content.read")
+	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
+	publication := models.Publication{
+		ID: "publication-managed", WorkspaceID: account.WorkspaceID, CreatedByID: "user-1",
+		Title: "Managed", Intent: "post", ContentProfile: models.ContentProfileLongVideo,
+		SourceContent: "Managed", Status: models.PublicationStatusPublished, ActualRunAt: now.Add(-time.Hour),
+		CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	require.NoError(t, func() error { _, err := db.NewInsert().Model(&publication).Exec(t.Context()); return err }())
+	rendition := models.Rendition{
+		ID: "rendition-managed", PublicationID: publication.ID, SocialAccountID: account.ID,
+		Platform: account.Platform, Profile: models.ContentProfileLongVideo, Status: models.RenditionStatusPublished,
+		ExternalID: "video-managed", CreatedAt: now.Add(-time.Hour), UpdatedAt: now.Add(-time.Hour),
+	}
+	require.NoError(t, func() error { _, err := db.NewInsert().Model(&rendition).Exec(t.Context()); return err }())
+
+	adapter := &fakeBatchAccountContentDiscoverer{
+		fakeAccountContentDiscoverer: &fakeAccountContentDiscoverer{
+			support: platform.AccountContentDiscoverySupport{Supported: true, RequiredScopes: []string{"content.read"}},
+			discover: func(context.Context, string, platform.AccountContentDiscoveryRequest) (platform.AccountContentPage, error) {
+				managed := discoveryItem("video-managed", now.Add(-time.Hour))
+				external := discoveryItem("video-external", now.Add(-2*time.Hour))
+				return platform.AccountContentPage{
+					Items:    []platform.AccountContentItem{managed, external, managed},
+					Coverage: platform.AccountContentCoverage{Status: platform.AccountContentDiscoveryComplete},
+				}, nil
+			},
+		},
+		measure: func(_ context.Context, token string, request platform.AccountContentBatchMeasurementRequest) (platform.AccountContentBatchMeasurements, error) {
+			require.Equal(t, "token", token)
+			require.Equal(t, []string{"video-managed", "video-external"}, request.ProviderContentIDs)
+			lifetime := platform.AnalyticsMetricMetadata{Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal}
+			return platform.AccountContentBatchMeasurements{
+				"video-external": {platform.MetricViews: {Value: 20, AnalyticsMetricMetadata: lifetime}},
+				"video-managed":  {platform.MetricViews: {Value: 10, AnalyticsMetricMetadata: lifetime}},
+			}, nil
+		},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetProvider(account.Platform, adapter)
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.now = func() time.Time { return now }
+	_, err := service.ReconsiderAccountContentDiscovery(t.Context(), account.ID)
+	require.NoError(t, err)
+	job := loadDiscoveryJob(t, db, account.ID)
+	require.NoError(t, service.HandleJob(t.Context(), job.Type, job.Payload))
+
+	var contents []models.AccountContent
+	require.NoError(t, db.NewSelect().Model(&contents).Where("social_account_id = ?", account.ID).Order("provider_content_id ASC").Scan(t.Context()))
+	require.Len(t, contents, 2, "rediscovery and managed matching must share one provider identity row")
+	require.Equal(t, "video-external", contents[0].ProviderContentID)
+	require.Equal(t, string(platform.AccountContentOriginExternal), contents[0].Origin)
+	require.Empty(t, contents[0].RenditionID)
+	require.Equal(t, "video-managed", contents[1].ProviderContentID)
+	require.Equal(t, string(platform.AccountContentOriginOpenPost), contents[1].Origin)
+	require.Equal(t, rendition.ID, contents[1].RenditionID)
+
+	publicationCount, err := db.NewSelect().Model((*models.Publication)(nil)).Count(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, publicationCount, "external discovery must not synthesize a Publication")
+	for _, content := range contents {
+		var state models.AnalyticsSyncState
+		require.NoError(t, db.NewSelect().Model(&state).Where("subject_type = ? AND subject_id = ?", subjectAccountContent, content.ID).Scan(t.Context()))
+		if content.ProviderContentID == "video-external" {
+			require.JSONEq(t, `{"views":20}`, state.MetricsJSON)
+		} else {
+			require.JSONEq(t, `{"views":10}`, state.MetricsJSON)
+		}
+	}
+	var discoveryState models.AccountContentDiscoveryState
+	require.NoError(t, db.NewSelect().Model(&discoveryState).Where("social_account_id = ?", account.ID).Scan(t.Context()))
+	require.Equal(t, 2, discoveryState.ReadBudgetUsed, "listing and batch measurement reads both consume the durable budget")
+}
+
 func TestDiscoveryCommitsEachPageBeforeCrashSafeContinuationAndDeduplicates(t *testing.T) {
 	db := newAnalyticsTestDB(t)
 	account := seedAnalyticsAccount(t, db, "content.read")
@@ -280,7 +365,7 @@ func TestDiscoveryProviderConcurrencyDefersNonWinningActiveJob(t *testing.T) {
 	require.Zero(t, calls)
 }
 
-func newDiscoveryTestService(db *bun.DB, adapter *fakeAccountContentDiscoverer, now time.Time) *Service {
+func newDiscoveryTestService(db *bun.DB, adapter platform.Adapter, now time.Time) *Service {
 	service := NewService(db, staticTokenSource{})
 	service.SetProvider("test", adapter)
 	service.SetFeatureGate(alwaysEnabledGate{})

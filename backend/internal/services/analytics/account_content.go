@@ -66,14 +66,17 @@ func upsertAccountContent(
 	}
 	if normalized.RenditionID != "" {
 		count, countErr := db.NewSelect().Model((*models.Rendition)(nil)).
-			Where("id = ? AND social_account_id = ? AND platform = ?", normalized.RenditionID, account.ID, account.Platform).
+			Where("id = ? AND social_account_id = ? AND platform = ? AND external_id = ?",
+				normalized.RenditionID, account.ID, account.Platform, normalized.ProviderContentID).
 			Count(ctx)
 		if countErr != nil {
 			return nil, fmt.Errorf("validate account content rendition: %w", countErr)
 		}
 		if count != 1 {
-			return nil, fmt.Errorf("rendition link is not an exact match for this social account")
+			return nil, fmt.Errorf("rendition link is not an exact match for this social account and persisted external ID")
 		}
+		normalized.Origin = platform.AccountContentOriginOpenPost
+		normalized.OriginConfidence = platform.AccountContentOriginConfidenceExact
 	}
 
 	content := &models.AccountContent{

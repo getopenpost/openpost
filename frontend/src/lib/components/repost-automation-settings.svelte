@@ -15,7 +15,7 @@
 	import SettingsFormFooter from '$lib/components/settings-form-footer.svelte';
 	import SocialAccountIdentity from '$lib/components/social-account-identity.svelte';
 	import { m } from '$lib/paraglide/messages';
-	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
+	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { showToast } from '$lib/toast';
 	import { getOptionalUnsavedChanges } from '$lib/unsaved-changes.svelte';
 	import ActivityIcon from '@lucide/svelte/icons/activity';
@@ -592,8 +592,7 @@
 						<div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
 							<div class="min-w-0">
 								<p class="truncate text-sm font-medium">
-									{formatSocialAccountName(grant.target_username, grant.platform)} ·
-									{platformLabel(grant.platform)}
+									{formatSocialAccountLabel(grant.target_username, grant.platform)}
 								</p>
 								<p class="text-sm text-muted-foreground">
 									{grant.direction === 'inbound'
@@ -637,7 +636,7 @@
 	title={m.repost_revoke_title()}
 	description={grantToRevoke
 		? m.repost_revoke_body({
-				account: formatSocialAccountName(grantToRevoke.target_username, grantToRevoke.platform)
+				account: formatSocialAccountLabel(grantToRevoke.target_username, grantToRevoke.platform)
 			})
 		: ''}
 	confirmLabel={m.repost_revoke_access()}

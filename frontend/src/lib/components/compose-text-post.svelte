@@ -81,7 +81,7 @@
 	import WorkspaceSetupGuide from './workspace-setup-guide.svelte';
 	import WorkspaceActivationCompletion from './workspace-activation-completion.svelte';
 	import PlatformIcon from './platform-icon.svelte';
-	import { formatSocialAccountName } from '$lib/utils';
+	import { formatSocialAccountLabel, formatSocialAccountName } from '$lib/utils';
 	import { Badge } from '$lib/components/ui/badge';
 	import { getPlatformKey, getPlatformName } from '$lib/utils';
 	import { CalendarDate, isEqualDay } from '@internationalized/date';
@@ -852,7 +852,7 @@
 		selectedAccounts.map((account) => ({
 			accountId: account.id,
 			provider: getPlatformKey(account.platform),
-			label: `${accountLabel(account)} · ${getPlatformName(account.platform)}`
+			label: accountContextLabel(account)
 		}))
 	);
 	const targetedRuntimeIssues = $derived.by(() =>
@@ -864,7 +864,7 @@
 				id: `account-${account.id}-${index}-${message}`,
 				message,
 				accountId: account.id,
-				targetLabel: `${accountLabel(account)} · ${getPlatformName(account.platform)}`,
+				targetLabel: accountContextLabel(account),
 				provider: getPlatformKey(account.platform)
 			}))
 		)
@@ -3303,6 +3303,14 @@
 		);
 	}
 
+	function accountContextLabel(account: SocialAccount): string {
+		return formatSocialAccountLabel(
+			account.account_username,
+			account.platform,
+			account.slug || account.account_id
+		);
+	}
+
 	function destinationFormatOptions(account: SocialAccount) {
 		const resolved = resolvedCapabilities[account.id];
 		const current = requestedOutputProfiles[account.id] || resolved?.output_profile || '';
@@ -4707,7 +4715,7 @@
 			if (!currentMediaIDs.includes(mediaID) && currentMediaIDs.length >= composerMediaLimit) {
 				const account = accounts.find((candidate) => candidate.id === accountID);
 				aiMemeError = m.compose_ai_meme_remove_media({
-					account: account ? accountLabel(account) : m.compose_ai_this_destination()
+					account: account ? accountContextLabel(account) : m.compose_ai_this_destination()
 				});
 				return false;
 			}

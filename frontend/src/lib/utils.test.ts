@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { formatAccountHandle, formatSocialAccountName } from './utils';
+import {
+	formatAccountHandle,
+	formatAccountPlatformLabel,
+	formatSocialAccountLabel,
+	formatSocialAccountName
+} from './utils';
 
 describe('formatAccountHandle', () => {
 	it('adds a handle prefix when it is missing', () => {
@@ -32,5 +37,28 @@ describe('formatSocialAccountName', () => {
 	it('keeps display-name platforms unprefixed', () => {
 		expect(formatSocialAccountName('Rodrigo', 'linkedin')).toBe('Rodrigo');
 		expect(formatSocialAccountName('OpenPost Studio', 'youtube')).toBe('OpenPost Studio');
+	});
+});
+
+describe('formatSocialAccountLabel', () => {
+	it('keeps identical handles distinct by including the platform', () => {
+		expect(formatSocialAccountLabel('rodrgds', 'bluesky')).toBe('@rodrgds · Bluesky');
+		expect(formatSocialAccountLabel('rodrgds', 'threads')).toBe('@rodrgds · Threads');
+	});
+
+	it('uses the platform or supplied fallback when the username is missing', () => {
+		expect(formatSocialAccountLabel('', 'linkedin')).toBe('LinkedIn');
+		expect(formatSocialAccountLabel('', 'linkedin', 'OpenPost team')).toBe(
+			'OpenPost team · LinkedIn'
+		);
+	});
+});
+
+describe('formatAccountPlatformLabel', () => {
+	it('combines an already resolved account name and platform label', () => {
+		expect(formatAccountPlatformLabel('OpenPost team', 'LinkedIn')).toBe(
+			'OpenPost team · LinkedIn'
+		);
+		expect(formatAccountPlatformLabel('LinkedIn', 'LinkedIn')).toBe('LinkedIn');
 	});
 });

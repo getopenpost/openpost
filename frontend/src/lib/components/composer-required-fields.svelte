@@ -7,7 +7,7 @@
 	import { Textarea } from '$lib/components/ui/textarea';
 	import AppSelect from './app-select.svelte';
 	import SocialAccountAvatar from './social-account-avatar.svelte';
-	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
+	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 	import { settingLabel } from '$lib/setting-label';
 	import type { ComposerSettings, ComposerSettingValue } from '$lib/components/compose/modes';
@@ -75,7 +75,11 @@
 	}
 
 	function accountContextLabel(account: SocialAccount): string {
-		return `${accountLabel(account)} · ${getPlatformName(account.platform)}`;
+		return formatSocialAccountLabel(
+			account.account_username,
+			account.platform,
+			account.slug || account.id
+		);
 	}
 
 	function valueAsString(accountId: string, key: string): string {

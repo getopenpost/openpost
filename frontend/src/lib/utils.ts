@@ -93,6 +93,26 @@ export function formatSocialAccountName(
 		: normalizedUsername;
 }
 
+export function formatSocialAccountLabel(
+	username: string | null | undefined,
+	platform: string,
+	fallback = ''
+): string {
+	const accountName = formatSocialAccountName(username, platform) || fallback.trim();
+	const platformName = getPlatformName(platform);
+	return formatAccountPlatformLabel(accountName, platformName);
+}
+
+export function formatAccountPlatformLabel(accountName: string, platformName: string): string {
+	const normalizedAccountName = accountName.trim();
+	const normalizedPlatformName = platformName.trim();
+	if (!normalizedAccountName) return normalizedPlatformName;
+	if (normalizedAccountName.toLocaleLowerCase() === normalizedPlatformName.toLocaleLowerCase()) {
+		return normalizedPlatformName;
+	}
+	return `${normalizedAccountName} · ${normalizedPlatformName}`;
+}
+
 export function getStatusColor(status: string): string {
 	const colors = new Map([
 		['draft', 'bg-muted text-muted-foreground'],

@@ -20,7 +20,12 @@
 	import DestructiveConfirmDialog from '$lib/components/destructive-confirm-dialog.svelte';
 	import type { DestructiveActionOutcome } from '$lib/destructive-action-outcome';
 	import MoreHorizontalIcon from '@lucide/svelte/icons/ellipsis';
-	import { formatSocialAccountName, getPlatformName, getPlatformColor } from '$lib/utils';
+	import {
+		formatAccountPlatformLabel,
+		formatSocialAccountName,
+		getPlatformName,
+		getPlatformColor
+	} from '$lib/utils';
 	import PlatformIcon from '$lib/components/platform-icon.svelte';
 	import { goto } from '$app/navigation';
 	import { resolveAppPath } from '$lib/app-path';
@@ -276,7 +281,7 @@
 	function accountRemovalTitle(): string {
 		const action = accountRemovalAction;
 		if (!action) return '';
-		const account = accountDisplayName(action.account);
+		const account = accountContextLabel(action.account);
 		if (isConnectorAccount(action.account)) {
 			return m.accounts_connector_remove_title({ account });
 		}
@@ -292,7 +297,7 @@
 	function accountRemovalDescription(): string {
 		const action = accountRemovalAction;
 		if (!action) return '';
-		const account = accountDisplayName(action.account);
+		const account = accountContextLabel(action.account);
 		const count = grantDestinationCount(action.account);
 		if (isConnectorAccount(action.account)) {
 			return m.accounts_connector_remove_body({ account });
@@ -342,16 +347,16 @@
 			onAccountsChanged();
 			const successMessage = isConnectorAccount(account)
 				? m.accounts_connector_removed_success({
-						account: accountDisplayName(account)
+						account: accountContextLabel(account)
 					})
 				: action.kind === 'disconnect-destination'
 					? m.accounts_destination_disconnected_success({
-							account: accountDisplayName(account)
+							account: accountContextLabel(account)
 						})
 					: count > 1
 						? m.accounts_authorization_removed_success({ count })
 						: m.accounts_connection_removed_success({
-								account: accountDisplayName(account)
+								account: accountContextLabel(account)
 							});
 			return { ok: true, successMessage };
 		} catch (e) {
@@ -381,6 +386,10 @@
 				(!entry.installation_id && entry.platform === account.platform)
 		);
 		return provider ? providerTitle(provider) : getPlatformName(account.platform);
+	}
+
+	function accountContextLabel(account: SocialAccount): string {
+		return formatAccountPlatformLabel(accountDisplayName(account), accountPlatformName(account));
 	}
 
 	function accountSlug(account: SocialAccount): string {
@@ -1239,7 +1248,7 @@
 															size="icon-sm"
 															class="min-h-11 min-w-11 sm:min-h-9 sm:min-w-9"
 															aria-label={m.accounts_actions_for({
-																account: accountDisplayName(account)
+																account: accountContextLabel(account)
 															})}
 														>
 															<MoreHorizontalIcon class="size-4" />

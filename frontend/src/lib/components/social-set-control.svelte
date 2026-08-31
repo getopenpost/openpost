@@ -21,7 +21,7 @@
 	import CheckIcon from '@lucide/svelte/icons/check';
 	import PencilIcon from '@lucide/svelte/icons/pencil';
 	import Trash2Icon from '@lucide/svelte/icons/trash-2';
-	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
+	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { m } from '$lib/paraglide/messages';
 
 	type SocialSet = components['schemas']['SocialSetResponse'];
@@ -498,7 +498,13 @@
 <DestructiveConfirmDialog
 	bind:open={customAccountConfirmOpen}
 	title={m.compose_remove_custom_account_title({
-		account: pendingCustomAccount ? accountLabel(pendingCustomAccount) : ''
+		account: pendingCustomAccount
+			? formatSocialAccountLabel(
+					pendingCustomAccount.account_username,
+					pendingCustomAccount.platform,
+					pendingCustomAccount.slug || pendingCustomAccount.account_id
+				)
+			: ''
 	})}
 	description={m.compose_remove_custom_account_body()}
 	confirmLabel={m.compose_remove_custom_account_confirm()}

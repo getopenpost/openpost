@@ -30,7 +30,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import { m } from '$lib/paraglide/messages';
 	import { getLocaleTag } from '$lib/i18n';
-	import { formatSocialAccountName, getPlatformName } from '$lib/utils';
+	import { formatSocialAccountLabel, formatSocialAccountName, getPlatformName } from '$lib/utils';
 	import { hasEngagementMeasurement, type AnalyticsSortMode } from '$lib/analytics-overview';
 	import {
 		allFeatureEffectiveDisabled,
@@ -47,6 +47,15 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 	type RangeDays = 7 | 30 | 90;
 	type ChartMetric = 'followers' | 'engagement' | 'views';
 	type FeatureState = FeatureComponents['schemas']['FeatureStateResponse'];
+	type AnalyticsInsight = {
+		title: string;
+		body: string;
+		account?: {
+			name: string;
+			platform: string;
+			avatarUrl?: string | null;
+		};
+	};
 
 	let overview = $state.raw<AnalyticsOverview | null>(null);
 	let rangeDays = $state<RangeDays>(30);
@@ -170,7 +179,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		summaryMetrics.filter((item) => item.metric.measured === 0)
 	);
 	const analyticsInsights = $derived.by(() => {
-		const insights: { title: string; body: string }[] = [];
+		const insights: AnalyticsInsight[] = [];
 		const strongestPublication = publications
 			.filter((publication) => publication.engagement_measured > 0)
 			.toSorted((left, right) => right.engagement - left.engagement)[0];
@@ -188,14 +197,19 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			.filter(hasEngagementMeasurement)
 			.toSorted((left, right) => right.engagement - left.engagement)[0];
 		if (strongestDestination) {
+			const account = accounts.find(
+				(candidate) => candidate.id === strongestDestination.account_id
+			);
 			insights.push({
 				title: m.analytics_insight_top_destination(),
 				body: m.analytics_insight_top_destination_body({
-					account:
-						formatSocialAccountName(strongestDestination.username, strongestDestination.platform) ||
-						getPlatformName(strongestDestination.platform),
 					engagement: formatNumber(strongestDestination.engagement)
-				})
+				}),
+				account: {
+					name: renditionName(strongestDestination),
+					platform: strongestDestination.platform,
+					avatarUrl: account?.avatar_url
+				}
 			});
 		}
 		const decliningAccount = accounts
@@ -205,9 +219,13 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			insights.push({
 				title: m.analytics_insight_follower_decline(),
 				body: m.analytics_insight_follower_decline_body({
-					account: accountName(decliningAccount),
 					count: formatNumber(Math.abs(decliningAccount.follower_delta ?? 0))
-				})
+				}),
+				account: {
+					name: accountName(decliningAccount),
+					platform: decliningAccount.platform,
+					avatarUrl: decliningAccount.avatar_url
+				}
 			});
 		}
 		return insights.slice(0, 3);
@@ -365,9 +383,13 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		return formatSocialAccountName(account.username, account.platform) || account.platform;
 	}
 
+	function accountLabel(account: AnalyticsAccount): string {
+		return formatSocialAccountLabel(account.username, account.platform);
+	}
+
 	function accountFilterLabel(account: AnalyticsAccount | undefined): string {
 		if (!account) return m.analytics_account_filter();
-		return `${m.analytics_account_filter()}: ${accountName(account)}, ${getPlatformName(account.platform)}`;
+		return `${m.analytics_account_filter()}: ${accountLabel(account)}`;
 	}
 
 	function renditionAccount(rendition: AnalyticsContent): AnalyticsAccount | undefined {
@@ -576,7 +598,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 			{#each accountsNeedingReconnect as account (account.id)}
 				<InlineNotice
 					tone="warning"
-					message={`${accountName(account)}: ${account.error_message || m.analytics_permission_required()}`}
+					message={`${accountLabel(account)}: ${account.error_message || m.analytics_permission_required()}`}
 				>
 					{#snippet actions()}
 						<Button href="/settings?tab=accounts" variant="outline" size="sm"
@@ -688,7 +710,9 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 							{chartDescription}
 							{#if selectedAccount}
 								<span>
-									{m.analytics_filtered_to_account({ account: accountName(selectedAccount) })}</span
+									{m.analytics_filtered_to_account({
+										account: accountLabel(selectedAccount)
+									})}</span
 								>
 							{/if}
 						</p>
@@ -801,7 +825,17 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						{#each analyticsInsights as insight (insight.title)}
 							<div class="p-4">
 								<p class="text-sm font-semibold">{insight.title}</p>
-								<p class="mt-1 text-sm leading-5 text-muted-foreground">{insight.body}</p>
+								{#if insight.account}
+									<SocialAccountIdentity
+										class="mt-2"
+										name={insight.account.name}
+										platform={insight.account.platform}
+										avatarUrl={insight.account.avatarUrl}
+										detail={insight.body}
+									/>
+								{:else}
+									<p class="mt-1 text-sm leading-5 text-muted-foreground">{insight.body}</p>
+								{/if}
 							</div>
 						{/each}
 					</div>
@@ -816,7 +850,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{selectedAccount
-								? m.analytics_content_for_account({ account: accountName(selectedAccount) })
+								? m.analytics_content_for_account({ account: accountLabel(selectedAccount) })
 								: m.analytics_content_description()}
 						</p>
 					</div>
@@ -847,7 +881,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 					<div class="overflow-hidden rounded-xl border border-border">
 						<div
 							data-testid="analytics-content-table-header"
-							class="hidden grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_6rem_6rem_7.5rem_auto] items-center gap-4 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground md:grid"
+							class="analytics-content-grid analytics-content-table-header hidden gap-4 border-b border-border bg-muted/30 px-4 py-2.5 text-xs font-medium text-muted-foreground"
 							aria-hidden="true"
 						>
 							<span>{m.analytics_table_post()}</span>
@@ -862,9 +896,7 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 								{@const renditions = publication.renditions ?? []}
 								{@const expanded = expandedPublicationID === publication.publication_id}
 								<article>
-									<div
-										class="grid min-w-0 gap-4 px-4 py-4 md:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_6rem_6rem_7.5rem_auto] md:items-center"
-									>
+									<div class="analytics-content-grid grid min-w-0 gap-4 px-4 py-4">
 										<div class="min-w-0">
 											<a
 												href={resolve('/publications/[id]', { id: publication.publication_id })}
@@ -872,12 +904,15 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 											>
 												{publicationLabel(publication)}
 											</a>
-											<div class="mt-1 text-xs text-muted-foreground md:hidden">
+											<div class="analytics-mobile-date mt-1 text-xs text-muted-foreground">
 												{formatDate(publication.published_at)}
 											</div>
 										</div>
 
-										<div class="flex min-w-0 items-center gap-2 text-sm">
+										<div
+											class="flex min-w-0 items-center gap-2 text-sm"
+											data-testid="analytics-row-destinations"
+										>
 											<span class="flex shrink-0 items-center gap-1" aria-hidden="true">
 												{#each renditions.slice(0, 4) as rendition (rendition.rendition_id)}
 													<span
@@ -894,10 +929,8 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 											</span>
 										</div>
 
-										<div
-											class="flex items-baseline justify-between gap-3 text-sm md:block md:text-end"
-										>
-											<span class="text-xs text-muted-foreground md:hidden"
+										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
+											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_summary_engagement()}</span
 											>
 											<span class="font-medium tabular-nums">
@@ -906,22 +939,21 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 													: '—'}
 											</span>
 										</div>
-										<div
-											class="flex items-baseline justify-between gap-3 text-sm md:block md:text-end"
-										>
-											<span class="text-xs text-muted-foreground md:hidden"
+										<div class="analytics-metric flex items-baseline justify-between gap-3 text-sm">
+											<span class="analytics-row-label text-xs text-muted-foreground"
 												>{m.analytics_views()}</span
 											>
 											<span class="font-medium tabular-nums">{publicationViews(publication)}</span>
 										</div>
-										<div class="hidden text-sm text-muted-foreground md:block">
+										<div class="analytics-published hidden text-sm text-muted-foreground">
+											<span class="analytics-row-label">{m.analytics_table_published()}: </span>
 											{formatDate(publication.published_at)}
 										</div>
 
 										<Button
 											variant="ghost"
 											size="sm"
-											class="w-full justify-between md:w-auto md:justify-self-end"
+											class="analytics-details-action w-full justify-between"
 											aria-expanded={expanded}
 											aria-controls={`analytics-publication-${publication.publication_id}`}
 											onclick={() =>
@@ -1035,3 +1067,47 @@ FORM: Publications are the primary rows; provider renditions disclose in place w
 		</div>
 	{/if}
 </PageContainer>
+
+<style>
+	@container (min-width: 60rem) {
+		.analytics-content-grid {
+			grid-template-columns:
+				minmax(0, 2fr) minmax(8rem, 1fr) 6rem 6rem 7.5rem
+				14rem;
+			align-items: center;
+		}
+
+		.analytics-content-table-header {
+			display: grid;
+		}
+
+		.analytics-mobile-date {
+			display: none;
+		}
+
+		.analytics-metric {
+			display: block;
+			text-align: end;
+		}
+
+		.analytics-published {
+			display: block;
+		}
+
+		.analytics-row-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			padding: 0;
+			margin: -1px;
+			overflow: hidden;
+			clip: rect(0, 0, 0, 0);
+			white-space: nowrap;
+			border: 0;
+		}
+
+		.analytics-details-action {
+			justify-self: stretch;
+		}
+	}
+</style>

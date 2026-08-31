@@ -59,18 +59,45 @@ func (s *Service) overviewContentBaseQuery(workspaceID string, start time.Time, 
 	return query
 }
 
-func (s *Service) metricValueExpr(metric string) string {
+func (s *Service) rawMetricValueExpr(metric string) string {
 	if s.db.Dialect().Name() == dialect.PG {
 		return fmt.Sprintf("CAST(COALESCE(NULLIF(ast.metrics_json, '')::jsonb ->> '%s', '0') AS BIGINT)", metric)
 	}
 	return fmt.Sprintf("CAST(COALESCE(json_extract(ast.metrics_json, '$.%s'), 0) AS INTEGER)", metric)
 }
 
-func (s *Service) metricPresentExpr(metric string) string {
+func (s *Service) rawMetricPresentExpr(metric string) string {
 	if s.db.Dialect().Name() == dialect.PG {
 		return fmt.Sprintf("COALESCE(NULLIF(ast.metrics_json, '')::jsonb ? '%s', FALSE)", metric)
 	}
 	return fmt.Sprintf("json_type(ast.metrics_json, '$.%s') IS NOT NULL", metric)
+}
+
+func (s *Service) contentMetricCompatibleExpr(metric string) string {
+	if s.db.Dialect().Name() == dialect.PG {
+		return fmt.Sprintf(
+			"(COALESCE(NULLIF(ast.metric_metadata_json, ''), '{}')::jsonb = '{}'::jsonb OR (COALESCE(NULLIF(ast.metric_metadata_json, ''), '{}')::jsonb -> '%s' ->> 'unit' = '%s' AND COALESCE(NULLIF(ast.metric_metadata_json, ''), '{}')::jsonb -> '%s' ->> 'aggregation' = '%s'))",
+			metric,
+			platform.AnalyticsMetricUnitCount,
+			metric,
+			platform.AnalyticsMetricAggregationLifetimeTotal,
+		)
+	}
+	return fmt.Sprintf(
+		"(COALESCE(TRIM(ast.metric_metadata_json), '') IN ('', '{}') OR (json_extract(ast.metric_metadata_json, '$.%s.unit') = '%s' AND json_extract(ast.metric_metadata_json, '$.%s.aggregation') = '%s'))",
+		metric,
+		platform.AnalyticsMetricUnitCount,
+		metric,
+		platform.AnalyticsMetricAggregationLifetimeTotal,
+	)
+}
+
+func (s *Service) metricValueExpr(metric string) string {
+	return "CASE WHEN " + s.contentMetricCompatibleExpr(metric) + " THEN " + s.rawMetricValueExpr(metric) + " ELSE 0 END"
+}
+
+func (s *Service) metricPresentExpr(metric string) string {
+	return "(" + s.rawMetricPresentExpr(metric) + " AND " + s.contentMetricCompatibleExpr(metric) + ")"
 }
 
 func (s *Service) engagementValueExpr() string {
@@ -245,7 +272,12 @@ func mergeOverviewContentSummary(
 		if account.ID != accountID {
 			continue
 		}
-		if followers, ok := account.Metrics[platform.MetricFollowers]; ok {
+		if followers, ok := compatibleCountMetricValue(
+			account.Metrics,
+			account.MetricMetadata,
+			platform.MetricFollowers,
+			platform.AnalyticsMetricAggregationCurrentSnapshot,
+		); ok {
 			contentSummary.Followers = MetricSummary{Value: followers, Delta: account.FollowerDelta, Measured: 1}
 		}
 		break

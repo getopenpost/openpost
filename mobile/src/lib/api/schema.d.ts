@@ -4710,6 +4710,9 @@ export interface components {
       id: string;
       /** Format: date-time */
       last_synced_at?: string;
+      metric_metadata: {
+        [key: string]: components["schemas"]["AnalyticsMetricMetadata"];
+      };
       metrics: {
         [key: string]: number;
       };
@@ -4914,6 +4917,23 @@ export interface components {
       /** Format: int64 */
       revision?: number;
       workspace_activated?: boolean;
+    };
+    AnalyticsMetricMetadata: {
+      /** @enum {string} */
+      aggregation:
+        | "current_snapshot"
+        | "lifetime_total"
+        | "reporting_period_total"
+        | "reporting_period_average";
+      /** Format: date-time */
+      period_end?: string;
+      /** Format: date-time */
+      period_start?: string;
+      /** Format: int64 */
+      scale?: number;
+      source?: string;
+      /** @enum {string} */
+      unit: "count" | "milliseconds" | "basis_points";
     };
     Angle: {
       approach: string;
@@ -5784,6 +5804,9 @@ export interface components {
       external_url?: string;
       /** Format: date-time */
       last_synced_at?: string;
+      metric_metadata: {
+        [key: string]: components["schemas"]["AnalyticsMetricMetadata"];
+      };
       metrics: {
         [key: string]: number;
       };

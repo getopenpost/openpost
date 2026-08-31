@@ -347,15 +347,16 @@ func (s *Service) syncAccount(ctx context.Context, accountID string) error {
 	if err != nil {
 		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
-	values, err := adapter.FetchAccountAnalytics(ctx, token, platform.AccountAnalyticsRequest{
+	request := platform.AccountAnalyticsRequest{
 		AccountID:       account.AccountID,
 		GrantedScopes:   strings.Fields(account.GrantedScopes),
 		CapabilityState: analyticsCapabilityState(account.CapabilityState),
-	})
+	}
+	values, metadata, err := fetchAccountMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {
 		return s.recordFailure(ctx, subjectAccount, account.ID, account, adapter, err)
 	}
-	return s.recordSuccess(ctx, subjectAccount, account.ID, account, "", "", values, accountCadence)
+	return s.recordSuccess(ctx, subjectAccount, account.ID, account, "", "", values, metadata, accountCadence)
 }
 
 func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
@@ -403,7 +404,7 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
 	s.resolveAndStoreContentURL(ctx, adapter, token, account, &rendition)
-	values, err := adapter.FetchContentAnalytics(ctx, token, platform.ContentAnalyticsRequest{
+	request := platform.ContentAnalyticsRequest{
 		AccountID:     account.AccountID,
 		ExternalIDs:   externalIDs,
 		Profile:       rendition.Profile,
@@ -411,11 +412,12 @@ func (s *Service) syncRendition(ctx context.Context, renditionID string) error {
 		PublishedAt:   publishedAt,
 		GrantedScopes: strings.Fields(account.GrantedScopes),
 		OwnReplyCount: max(0, len(externalIDs)-1),
-	})
+	}
+	values, metadata, err := fetchContentMeasurements(ctx, adapter, token, request, account.Platform)
 	if err != nil {
 		return s.recordFailure(ctx, subjectRendition, rendition.ID, account, adapter, err)
 	}
-	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, contentCadence(s.now().Sub(publishedAt)))
+	return s.recordSuccess(ctx, subjectRendition, rendition.ID, account, rendition.PublicationID, rendition.ID, values, metadata, contentCadence(s.now().Sub(publishedAt)))
 }
 
 func (s *Service) resolveAndStoreContentURL(
@@ -469,6 +471,7 @@ func (s *Service) recordSuccess(
 	account models.SocialAccount,
 	publicationID, renditionID string,
 	values platform.AnalyticsValues,
+	metadata map[string]platform.AnalyticsMetricMetadata,
 	baseCadence time.Duration,
 ) error {
 	if values == nil {
@@ -478,12 +481,16 @@ func (s *Service) recordSuccess(
 	if err != nil {
 		return fmt.Errorf("encode analytics values: %w", err)
 	}
+	metadataJSON, err := encodeMetricMetadata(metadata)
+	if err != nil {
+		return err
+	}
 	now := s.now()
 	state, err := s.loadState(ctx, subjectType, subjectID)
 	if err != nil {
 		return fmt.Errorf("load analytics sync state: %w", err)
 	}
-	unchanged := state != nil && state.MetricsJSON == string(metricsJSON)
+	unchanged := state != nil && state.MetricsJSON == string(metricsJSON) && state.MetricMetadataJSON == metadataJSON
 	streak := 0
 	if unchanged {
 		streak = state.UnchangedStreak + 1
@@ -498,48 +505,51 @@ func (s *Service) recordSuccess(
 		captureKey := subjectType + ":" + subjectID + ":" + now.Truncate(time.Minute).Format(time.RFC3339)
 		if subjectType == subjectAccount {
 			snapshot := &models.AnalyticsAccountSnapshot{
-				ID:              uuid.NewString(),
-				WorkspaceID:     account.WorkspaceID,
-				SocialAccountID: account.ID,
-				Platform:        account.Platform,
-				MetricsJSON:     string(metricsJSON),
-				CapturedAt:      now,
-				CaptureKey:      captureKey,
+				ID:                 uuid.NewString(),
+				WorkspaceID:        account.WorkspaceID,
+				SocialAccountID:    account.ID,
+				Platform:           account.Platform,
+				MetricsJSON:        string(metricsJSON),
+				MetricMetadataJSON: metadataJSON,
+				CapturedAt:         now,
+				CaptureKey:         captureKey,
 			}
 			if _, err := tx.NewInsert().Model(snapshot).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return fmt.Errorf("store account analytics snapshot: %w", err)
 			}
 		} else {
 			snapshot := &models.AnalyticsRenditionSnapshot{
-				ID:              uuid.NewString(),
-				WorkspaceID:     account.WorkspaceID,
-				PublicationID:   publicationID,
-				RenditionID:     renditionID,
-				SocialAccountID: account.ID,
-				Platform:        account.Platform,
-				MetricsJSON:     string(metricsJSON),
-				CapturedAt:      now,
-				CaptureKey:      captureKey,
+				ID:                 uuid.NewString(),
+				WorkspaceID:        account.WorkspaceID,
+				PublicationID:      publicationID,
+				RenditionID:        renditionID,
+				SocialAccountID:    account.ID,
+				Platform:           account.Platform,
+				MetricsJSON:        string(metricsJSON),
+				MetricMetadataJSON: metadataJSON,
+				CapturedAt:         now,
+				CaptureKey:         captureKey,
 			}
 			if _, err := tx.NewInsert().Model(snapshot).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
 				return fmt.Errorf("store rendition analytics snapshot: %w", err)
 			}
 		}
 		return upsertState(ctx, tx, &models.AnalyticsSyncState{
-			ID:              stateID(subjectType, subjectID),
-			WorkspaceID:     account.WorkspaceID,
-			SubjectType:     subjectType,
-			SubjectID:       subjectID,
-			SocialAccountID: account.ID,
-			Platform:        account.Platform,
-			Status:          string(platform.AnalyticsStatusOK),
-			MetricsJSON:     string(metricsJSON),
-			LastAttemptedAt: now,
-			LastSuccessAt:   now,
-			NextSyncAt:      nextSyncAt,
-			UnchangedStreak: streak,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			ID:                 stateID(subjectType, subjectID),
+			WorkspaceID:        account.WorkspaceID,
+			SubjectType:        subjectType,
+			SubjectID:          subjectID,
+			SocialAccountID:    account.ID,
+			Platform:           account.Platform,
+			Status:             string(platform.AnalyticsStatusOK),
+			MetricsJSON:        string(metricsJSON),
+			MetricMetadataJSON: metadataJSON,
+			LastAttemptedAt:    now,
+			LastSuccessAt:      now,
+			NextSyncAt:         nextSyncAt,
+			UnchangedStreak:    streak,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		})
 	})
 }
@@ -559,30 +569,33 @@ func (s *Service) recordUnavailable(ctx context.Context, subjectType, subjectID 
 		next = now.Add(accountCadence)
 	}
 	metricsJSON := "{}"
+	metadataJSON := "{}"
 	lastSuccessAt := time.Time{}
 	unchangedStreak := 0
 	if state != nil {
 		metricsJSON = state.MetricsJSON
+		metadataJSON = state.MetricMetadataJSON
 		lastSuccessAt = state.LastSuccessAt
 		unchangedStreak = state.UnchangedStreak
 	}
 	return upsertState(ctx, s.db, &models.AnalyticsSyncState{
-		ID:              stateID(subjectType, subjectID),
-		WorkspaceID:     account.WorkspaceID,
-		SubjectType:     subjectType,
-		SubjectID:       subjectID,
-		SocialAccountID: account.ID,
-		Platform:        account.Platform,
-		Status:          string(status),
-		ErrorCode:       code,
-		ErrorMessage:    message,
-		MetricsJSON:     metricsJSON,
-		LastAttemptedAt: now,
-		LastSuccessAt:   lastSuccessAt,
-		NextSyncAt:      next,
-		UnchangedStreak: unchangedStreak,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 stateID(subjectType, subjectID),
+		WorkspaceID:        account.WorkspaceID,
+		SubjectType:        subjectType,
+		SubjectID:          subjectID,
+		SocialAccountID:    account.ID,
+		Platform:           account.Platform,
+		Status:             string(status),
+		ErrorCode:          code,
+		ErrorMessage:       message,
+		MetricsJSON:        metricsJSON,
+		MetricMetadataJSON: metadataJSON,
+		LastAttemptedAt:    now,
+		LastSuccessAt:      lastSuccessAt,
+		NextSyncAt:         next,
+		UnchangedStreak:    unchangedStreak,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 }
 
@@ -603,30 +616,33 @@ func (s *Service) recordFailure(ctx context.Context, subjectType, subjectID stri
 		return fmt.Errorf("load failed analytics sync state: %w", err)
 	}
 	metricsJSON := "{}"
+	metadataJSON := "{}"
 	lastSuccessAt := time.Time{}
 	unchangedStreak := 0
 	if state != nil {
 		metricsJSON = state.MetricsJSON
+		metadataJSON = state.MetricMetadataJSON
 		lastSuccessAt = state.LastSuccessAt
 		unchangedStreak = state.UnchangedStreak
 	}
 	err = upsertState(ctx, s.db, &models.AnalyticsSyncState{
-		ID:              stateID(subjectType, subjectID),
-		WorkspaceID:     account.WorkspaceID,
-		SubjectType:     subjectType,
-		SubjectID:       subjectID,
-		SocialAccountID: account.ID,
-		Platform:        account.Platform,
-		Status:          string(status),
-		ErrorCode:       code,
-		ErrorMessage:    safeAnalyticsMessageForAdapter(adapter, status, code),
-		MetricsJSON:     metricsJSON,
-		LastAttemptedAt: now,
-		LastSuccessAt:   lastSuccessAt,
-		NextSyncAt:      next,
-		UnchangedStreak: unchangedStreak,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:                 stateID(subjectType, subjectID),
+		WorkspaceID:        account.WorkspaceID,
+		SubjectType:        subjectType,
+		SubjectID:          subjectID,
+		SocialAccountID:    account.ID,
+		Platform:           account.Platform,
+		Status:             string(status),
+		ErrorCode:          code,
+		ErrorMessage:       safeAnalyticsMessageForAdapter(adapter, status, code),
+		MetricsJSON:        metricsJSON,
+		MetricMetadataJSON: metadataJSON,
+		LastAttemptedAt:    now,
+		LastSuccessAt:      lastSuccessAt,
+		NextSyncAt:         next,
+		UnchangedStreak:    unchangedStreak,
+		CreatedAt:          now,
+		UpdatedAt:          now,
 	})
 	if err != nil {
 		return err
@@ -650,6 +666,7 @@ func upsertState(ctx context.Context, db bun.IDB, state *models.AnalyticsSyncSta
 		Set("error_code = EXCLUDED.error_code").
 		Set("error_message = EXCLUDED.error_message").
 		Set("metrics_json = EXCLUDED.metrics_json").
+		Set("metric_metadata_json = EXCLUDED.metric_metadata_json").
 		Set("last_attempted_at = EXCLUDED.last_attempted_at").
 		Set("last_success_at = EXCLUDED.last_success_at").
 		Set("next_sync_at = EXCLUDED.next_sync_at").

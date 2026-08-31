@@ -150,6 +150,20 @@ type fakeAnalyticsAdapter struct {
 	contentErr error
 }
 
+type fakeSemanticAnalyticsAdapter struct {
+	fakeAnalyticsAdapter
+	accountMeasurements platform.AnalyticsMeasurements
+	contentMeasurements platform.AnalyticsMeasurements
+}
+
+func (f *fakeSemanticAnalyticsAdapter) FetchAccountAnalyticsMeasurements(context.Context, string, platform.AccountAnalyticsRequest) (platform.AnalyticsMeasurements, error) {
+	return f.accountMeasurements, f.accountErr
+}
+
+func (f *fakeSemanticAnalyticsAdapter) FetchContentAnalyticsMeasurements(context.Context, string, platform.ContentAnalyticsRequest) (platform.AnalyticsMeasurements, error) {
+	return f.contentMeasurements, f.contentErr
+}
+
 func (f *fakeAnalyticsAdapter) AnalyticsSupport() platform.AnalyticsSupport {
 	return f.support
 }
@@ -160,6 +174,105 @@ func (f *fakeAnalyticsAdapter) FetchAccountAnalytics(context.Context, string, pl
 
 func (f *fakeAnalyticsAdapter) FetchContentAnalytics(context.Context, string, platform.ContentAnalyticsRequest) (platform.AnalyticsValues, error) {
 	return f.content, f.contentErr
+}
+
+func TestSemanticMeasurementsRoundTripAndIncompatibleMetricsDoNotAggregate(t *testing.T) {
+	db := newAnalyticsTestDB(t)
+	ctx := context.Background()
+	account := seedAnalyticsAccount(t, db, "")
+	now := time.Date(2026, 8, 18, 12, 0, 0, 0, time.UTC)
+	publication := seedAnalyticsPublication(t, db, account.WorkspaceID, "publication-semantics", now)
+	rendition := models.Rendition{
+		ID: "rendition-semantics", PublicationID: publication.ID, SocialAccountID: account.ID,
+		Platform: account.Platform, Profile: "short_text", Status: models.RenditionStatusPublished,
+		ExternalID: "provider-semantics", CreatedAt: now, UpdatedAt: now,
+	}
+	_, err := db.NewInsert().Model(&rendition).Exec(ctx)
+	require.NoError(t, err)
+
+	periodStart := now.Add(-24 * time.Hour)
+	periodEnd := now
+	scale := int64(100)
+	adapter := &fakeSemanticAnalyticsAdapter{
+		fakeAnalyticsAdapter: fakeAnalyticsAdapter{support: platform.AnalyticsSupport{Account: true, Content: true}},
+		accountMeasurements: platform.AnalyticsMeasurements{
+			platform.MetricFollowers: {
+				Value: 42,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationCurrentSnapshot,
+				},
+			},
+		},
+		contentMeasurements: platform.AnalyticsMeasurements{
+			platform.MetricLikes: {
+				Value: 3,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
+				},
+			},
+			platform.MetricViews: {
+				Value: 1250,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitMilliseconds, Aggregation: platform.AnalyticsMetricAggregationLifetimeTotal,
+					Source: "provider_report", Scale: &scale,
+				},
+			},
+			platform.MetricImpressions: {
+				Value: 800,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitCount, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodTotal,
+					PeriodStart: &periodStart, PeriodEnd: &periodEnd,
+				},
+			},
+			"completion_rate": {
+				Value: 8750,
+				AnalyticsMetricMetadata: platform.AnalyticsMetricMetadata{
+					Unit: platform.AnalyticsMetricUnitBasisPoints, Aggregation: platform.AnalyticsMetricAggregationReportingPeriodAverage,
+					Source: "provider_report", PeriodStart: &periodStart, PeriodEnd: &periodEnd,
+				},
+			},
+		},
+	}
+	service := NewService(db, staticTokenSource{})
+	service.SetFeatureGate(alwaysEnabledGate{})
+	service.SetProvider("test", adapter)
+	service.now = func() time.Time { return now }
+
+	require.NoError(t, service.syncAccount(ctx, account.ID))
+	require.NoError(t, service.syncRendition(ctx, rendition.ID))
+	var accountState models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&accountState).Where("id = ?", stateID(subjectAccount, account.ID)).Scan(ctx))
+	var accountSnapshot models.AnalyticsAccountSnapshot
+	require.NoError(t, db.NewSelect().Model(&accountSnapshot).Where("social_account_id = ?", account.ID).Scan(ctx))
+	require.JSONEq(t, accountState.MetricsJSON, accountSnapshot.MetricsJSON)
+	require.JSONEq(t, accountState.MetricMetadataJSON, accountSnapshot.MetricMetadataJSON)
+
+	var state models.AnalyticsSyncState
+	require.NoError(t, db.NewSelect().Model(&state).Where("id = ?", stateID(subjectRendition, rendition.ID)).Scan(ctx))
+	var snapshot models.AnalyticsRenditionSnapshot
+	require.NoError(t, db.NewSelect().Model(&snapshot).Where("rendition_id = ?", rendition.ID).Scan(ctx))
+	require.JSONEq(t, state.MetricsJSON, snapshot.MetricsJSON)
+	require.JSONEq(t, state.MetricMetadataJSON, snapshot.MetricMetadataJSON)
+
+	values, metadata := decodeAnalyticsMetrics(state.MetricsJSON, state.MetricMetadataJSON, platform.AnalyticsMetricSubjectContent, state.Platform)
+	require.Equal(t, int64(1250), values[platform.MetricViews])
+	require.Equal(t, platform.AnalyticsMetricUnitMilliseconds, metadata[platform.MetricViews].Unit)
+	require.Equal(t, "provider_report", metadata[platform.MetricViews].Source)
+	require.Equal(t, scale, *metadata[platform.MetricViews].Scale)
+	require.Equal(t, platform.AnalyticsMetricUnitBasisPoints, metadata["completion_rate"].Unit)
+	require.Equal(t, periodStart, *metadata["completion_rate"].PeriodStart)
+	require.Equal(t, periodEnd, *metadata["completion_rate"].PeriodEnd)
+
+	overview, err := service.Overview(ctx, account.WorkspaceID, 30)
+	require.NoError(t, err)
+	require.Equal(t, int64(42), overview.Summary.Followers.Value)
+	require.Equal(t, int64(3), overview.Summary.Engagement.Value)
+	require.Zero(t, overview.Summary.Views.Value)
+	require.Zero(t, overview.Summary.Views.Measured)
+	require.Zero(t, overview.Summary.Impressions.Measured)
+	require.Empty(t, overview.Trends.Views)
+	require.Equal(t, int64(1250), overview.Content[0].Metrics[platform.MetricViews], "incompatible raw measurements remain inspectable")
+	require.Equal(t, platform.AnalyticsMetricUnitMilliseconds, overview.Content[0].MetricMetadata[platform.MetricViews].Unit)
 }
 
 func TestAccountSyncStoresHistoryAndBacksOffWhenUnchanged(t *testing.T) {
@@ -728,8 +841,8 @@ func TestOverviewAggregatesLatestProviderMetricsWithoutBlendingExposureKinds(t *
 			Items: []DailyBreakdownItem{{Key: "rendition-1", Label: "Launch", Platform: account.Platform, PublicationID: publication.ID, Value: 5}},
 		},
 		{
-			Date: now.Format("2006-01-02"), Value: 3,
-			Items: []DailyBreakdownItem{{Key: "rendition-1", Label: "Launch", Platform: account.Platform, PublicationID: publication.ID, Value: 3}},
+			Date: now.Format("2006-01-02"), Value: 2,
+			Items: []DailyBreakdownItem{{Key: "rendition-1", Label: "Launch", Platform: account.Platform, PublicationID: publication.ID, Value: 2}},
 		},
 	}, overview.Trends.Engagement)
 	require.Equal(t, []DailyBreakdownPoint{

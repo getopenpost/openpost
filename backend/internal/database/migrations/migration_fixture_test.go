@@ -18,6 +18,9 @@ func runTestMigrations(t *testing.T, db *bun.DB) error {
 		(*models.PostDestination)(nil),
 		(*models.PostVariant)(nil),
 		(*models.Job)(nil),
+		(*models.AnalyticsAccountSnapshot)(nil),
+		(*models.AnalyticsRenditionSnapshot)(nil),
+		(*models.AnalyticsSyncState)(nil),
 	} {
 		if _, err := db.NewCreateTable().Model(model).IfNotExists().Exec(t.Context()); err != nil {
 			return err

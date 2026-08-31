@@ -99,6 +99,9 @@ func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 	require.NoError(t, json.Unmarshal(getResponse.Body.Bytes(), &overview))
 	require.Len(t, overview.Accounts, 1)
 	require.Equal(t, int64(10), overview.Summary.Followers.Value)
+	require.Equal(t, platform.AnalyticsMetricUnitCount, overview.Accounts[0].MetricMetadata[platform.MetricFollowers].Unit)
+	require.Equal(t, platform.AnalyticsMetricAggregationCurrentSnapshot, overview.Accounts[0].MetricMetadata[platform.MetricFollowers].Aggregation)
+	require.Equal(t, "x", overview.Accounts[0].MetricMetadata[platform.MetricFollowers].Source)
 
 	body := bytes.NewBufferString(`{"workspace_id":"ws-1"}`)
 	refreshRequest := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/analytics/refresh", body)

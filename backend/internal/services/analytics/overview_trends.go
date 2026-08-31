@@ -13,6 +13,11 @@ import (
 	"github.com/uptrace/bun"
 )
 
+type decodedAnalyticsSnapshot struct {
+	values   platform.AnalyticsValues
+	metadata map[string]platform.AnalyticsMetricMetadata
+}
+
 func dailyFollowerTrend(accounts []AccountOverview, accountID string) []DailyBreakdownPoint {
 	byDate := map[string][]DailyBreakdownItem{}
 	for _, account := range accounts {
@@ -103,7 +108,7 @@ func (s *Service) loadRenditionTrendBaselines(
 	statement := `
 		WITH ranked AS (
 			SELECT id, workspace_id, publication_id, rendition_id, social_account_id, platform,
-				metrics_json, capture_key, captured_at,
+				metrics_json, metric_metadata_json, capture_key, captured_at,
 				ROW_NUMBER() OVER (PARTITION BY rendition_id ORDER BY captured_at DESC) AS row_number
 			FROM analytics_rendition_snapshots
 			WHERE workspace_id = ? AND captured_at < ? AND rendition_id IN (?)`
@@ -112,7 +117,7 @@ func (s *Service) loadRenditionTrendBaselines(
 		statement += " AND social_account_id = ?"
 		args = append(args, accountID)
 	}
-	statement += ") SELECT id, workspace_id, publication_id, rendition_id, social_account_id, platform, metrics_json, capture_key, captured_at FROM ranked WHERE row_number = 1"
+	statement += ") SELECT id, workspace_id, publication_id, rendition_id, social_account_id, platform, metrics_json, metric_metadata_json, capture_key, captured_at FROM ranked WHERE row_number = 1"
 	var snapshots []models.AnalyticsRenditionSnapshot
 	if err := s.db.NewRaw(statement, args...).Scan(ctx, &snapshots); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("load rendition analytics trend baselines: %w", err)
@@ -221,9 +226,15 @@ func appendRenditionTrend(
 		}
 		daily = append(daily, snapshot)
 	}
-	var previous platform.AnalyticsValues
+	var previous *decodedAnalyticsSnapshot
 	for _, snapshot := range daily {
-		current := decodeAnalyticsValues(snapshot.MetricsJSON)
+		values, metadata := decodeAnalyticsMetrics(
+			snapshot.MetricsJSON,
+			snapshot.MetricMetadataJSON,
+			platform.AnalyticsMetricSubjectContent,
+			snapshot.Platform,
+		)
+		current := &decodedAnalyticsSnapshot{values: values, metadata: metadata}
 		if snapshot.CapturedAt.Before(start) {
 			previous = current
 			continue
@@ -232,24 +243,54 @@ func appendRenditionTrend(
 			previous = current
 			continue
 		}
-		if previous == nil {
-			previous = platform.AnalyticsValues{}
-		}
 		date := snapshot.CapturedAt.UTC().Format("2006-01-02")
 		item := DailyBreakdownItem{
 			Key: snapshot.RenditionID, Label: label, Platform: snapshot.Platform,
 			PublicationID: snapshot.PublicationID,
 		}
-		engagementDelta := platform.EngagementTotal(current) - platform.EngagementTotal(previous)
+		var engagementDelta int64
+		for _, metric := range engagementMetricNames {
+			engagementDelta += comparableContentMetricDelta(current.values, current.metadata, previous, metric)
+		}
 		if engagementDelta != 0 {
 			engagementByDate[date] = append(engagementByDate[date], withTrendValue(item, engagementDelta, username))
 		}
-		viewsDelta := current[platform.MetricViews] - previous[platform.MetricViews]
+		viewsDelta := comparableContentMetricDelta(current.values, current.metadata, previous, platform.MetricViews)
 		if viewsDelta != 0 {
 			viewsByDate[date] = append(viewsByDate[date], withTrendValue(item, viewsDelta, username))
 		}
 		previous = current
 	}
+}
+
+func comparableContentMetricDelta(
+	current platform.AnalyticsValues,
+	currentMetadata map[string]platform.AnalyticsMetricMetadata,
+	previous *decodedAnalyticsSnapshot,
+	metric string,
+) int64 {
+	currentValue, ok := compatibleCountMetricValue(
+		current,
+		currentMetadata,
+		metric,
+		platform.AnalyticsMetricAggregationLifetimeTotal,
+	)
+	if !ok {
+		return 0
+	}
+	if previous == nil {
+		return currentValue
+	}
+	previousValue, ok := compatibleCountMetricValue(
+		previous.values,
+		previous.metadata,
+		metric,
+		platform.AnalyticsMetricAggregationLifetimeTotal,
+	)
+	if !ok {
+		return 0
+	}
+	return currentValue - previousValue
 }
 
 func withTrendValue(item DailyBreakdownItem, value int64, username string) DailyBreakdownItem {

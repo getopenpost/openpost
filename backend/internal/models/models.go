@@ -1433,34 +1433,36 @@ type RenditionMedia struct {
 }
 
 // AnalyticsAccountSnapshot is an immutable provider measurement. MetricsJSON
-// contains only normalized counters; provider responses and tokens are never
-// retained.
+// contains only normalized integers and MetricMetadataJSON preserves their
+// meaning; provider responses and tokens are never retained.
 type AnalyticsAccountSnapshot struct {
 	bun.BaseModel `bun:"table:analytics_account_snapshots"`
 
-	ID              string    `bun:",pk" json:"id"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SocialAccountID string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform        string    `bun:",notnull" json:"platform"`
-	MetricsJSON     string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
-	CaptureKey      string    `bun:"capture_key,notnull,default:''" json:"-"`
-	CapturedAt      time.Time `bun:"captured_at,notnull" json:"captured_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	CaptureKey         string    `bun:"capture_key,notnull,default:''" json:"-"`
+	CapturedAt         time.Time `bun:"captured_at,notnull" json:"captured_at"`
 }
 
-// AnalyticsRenditionSnapshot stores aggregate metrics for one provider
+// AnalyticsRenditionSnapshot stores normalized metrics for one provider
 // rendition. Thread segment counters are normalized into the rendition total.
 type AnalyticsRenditionSnapshot struct {
 	bun.BaseModel `bun:"table:analytics_rendition_snapshots"`
 
-	ID              string    `bun:",pk" json:"id"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	PublicationID   string    `bun:"publication_id,notnull" json:"publication_id"`
-	RenditionID     string    `bun:"rendition_id,notnull" json:"rendition_id"`
-	SocialAccountID string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform        string    `bun:",notnull" json:"platform"`
-	MetricsJSON     string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
-	CaptureKey      string    `bun:"capture_key,notnull,default:''" json:"-"`
-	CapturedAt      time.Time `bun:"captured_at,notnull" json:"captured_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	PublicationID      string    `bun:"publication_id,notnull" json:"publication_id"`
+	RenditionID        string    `bun:"rendition_id,notnull" json:"rendition_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	CaptureKey         string    `bun:"capture_key,notnull,default:''" json:"-"`
+	CapturedAt         time.Time `bun:"captured_at,notnull" json:"captured_at"`
 }
 
 // AnalyticsSyncState is the latest collection state for an account or
@@ -1468,22 +1470,23 @@ type AnalyticsRenditionSnapshot struct {
 type AnalyticsSyncState struct {
 	bun.BaseModel `bun:"table:analytics_sync_states"`
 
-	ID              string    `bun:",pk" json:"id"`
-	WorkspaceID     string    `bun:"workspace_id,notnull" json:"workspace_id"`
-	SubjectType     string    `bun:"subject_type,notnull" json:"subject_type"`
-	SubjectID       string    `bun:"subject_id,notnull" json:"subject_id"`
-	SocialAccountID string    `bun:"social_account_id,notnull" json:"social_account_id"`
-	Platform        string    `bun:",notnull" json:"platform"`
-	Status          string    `bun:",notnull,default:'pending'" json:"status"`
-	ErrorCode       string    `bun:"error_code,notnull,default:''" json:"error_code"`
-	ErrorMessage    string    `bun:"error_message,notnull,default:''" json:"error_message"`
-	MetricsJSON     string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
-	LastAttemptedAt time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at"`
-	LastSuccessAt   time.Time `bun:"last_success_at,nullzero" json:"last_success_at"`
-	NextSyncAt      time.Time `bun:"next_sync_at,nullzero" json:"next_sync_at"`
-	UnchangedStreak int       `bun:"unchanged_streak,notnull,default:0" json:"unchanged_streak"`
-	CreatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
-	UpdatedAt       time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
+	ID                 string    `bun:",pk" json:"id"`
+	WorkspaceID        string    `bun:"workspace_id,notnull" json:"workspace_id"`
+	SubjectType        string    `bun:"subject_type,notnull" json:"subject_type"`
+	SubjectID          string    `bun:"subject_id,notnull" json:"subject_id"`
+	SocialAccountID    string    `bun:"social_account_id,notnull" json:"social_account_id"`
+	Platform           string    `bun:",notnull" json:"platform"`
+	Status             string    `bun:",notnull,default:'pending'" json:"status"`
+	ErrorCode          string    `bun:"error_code,notnull,default:''" json:"error_code"`
+	ErrorMessage       string    `bun:"error_message,notnull,default:''" json:"error_message"`
+	MetricsJSON        string    `bun:"metrics_json,notnull,default:'{}'" json:"metrics_json"`
+	MetricMetadataJSON string    `bun:"metric_metadata_json,notnull,default:'{}'" json:"metric_metadata_json"`
+	LastAttemptedAt    time.Time `bun:"last_attempted_at,nullzero" json:"last_attempted_at"`
+	LastSuccessAt      time.Time `bun:"last_success_at,nullzero" json:"last_success_at"`
+	NextSyncAt         time.Time `bun:"next_sync_at,nullzero" json:"next_sync_at"`
+	UnchangedStreak    int       `bun:"unchanged_streak,notnull,default:0" json:"unchanged_streak"`
+	CreatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"created_at"`
+	UpdatedAt          time.Time `bun:",nullzero,notnull,default:current_timestamp" json:"updated_at"`
 }
 
 // EngagementAttachment is the safe public metadata needed to render a

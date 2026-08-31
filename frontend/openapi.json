@@ -825,6 +825,12 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"metric_metadata": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+						},
+						"type": "object"
+					},
 					"metrics": {
 						"additionalProperties": {
 							"format": "int64",
@@ -871,6 +877,7 @@
 					"missing_account_scopes",
 					"missing_content_scopes",
 					"metrics",
+					"metric_metadata",
 					"follower_series",
 					"stale"
 				],
@@ -1247,6 +1254,42 @@
 					}
 				},
 				"required": ["message"],
+				"type": "object"
+			},
+			"AnalyticsMetricMetadata": {
+				"additionalProperties": false,
+				"properties": {
+					"aggregation": {
+						"enum": [
+							"current_snapshot",
+							"lifetime_total",
+							"reporting_period_total",
+							"reporting_period_average"
+						],
+						"type": "string"
+					},
+					"period_end": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"period_start": {
+						"format": "date-time",
+						"type": "string"
+					},
+					"scale": {
+						"format": "int64",
+						"minimum": 1,
+						"type": "integer"
+					},
+					"source": {
+						"type": "string"
+					},
+					"unit": {
+						"enum": ["count", "milliseconds", "basis_points"],
+						"type": "string"
+					}
+				},
+				"required": ["unit", "aggregation"],
 				"type": "object"
 			},
 			"Angle": {
@@ -3296,6 +3339,12 @@
 						"format": "date-time",
 						"type": "string"
 					},
+					"metric_metadata": {
+						"additionalProperties": {
+							"$ref": "#/components/schemas/AnalyticsMetricMetadata"
+						},
+						"type": "object"
+					},
 					"metrics": {
 						"additionalProperties": {
 							"format": "int64",
@@ -3344,6 +3393,7 @@
 					"published_at",
 					"status",
 					"metrics",
+					"metric_metadata",
 					"engagement",
 					"stale"
 				],

@@ -55,43 +55,45 @@ type TrendSeries struct {
 }
 
 type AccountOverview struct {
-	ID                   string                   `json:"id"`
-	Platform             string                   `json:"platform"`
-	Username             string                   `json:"username"`
-	AvatarURL            string                   `json:"avatar_url,omitempty"`
-	Status               string                   `json:"status"`
-	ErrorCode            string                   `json:"error_code,omitempty"`
-	ErrorMessage         string                   `json:"error_message,omitempty"`
-	AccountSupported     bool                     `json:"account_supported"`
-	ContentSupported     bool                     `json:"content_supported"`
-	MissingAccountScopes []string                 `json:"missing_account_scopes"`
-	MissingContentScopes []string                 `json:"missing_content_scopes"`
-	Metrics              platform.AnalyticsValues `json:"metrics"`
-	FollowerDelta        *int64                   `json:"follower_delta,omitempty"`
-	FollowerSeries       []SeriesPoint            `json:"follower_series"`
-	LastSyncedAt         time.Time                `json:"last_synced_at,omitempty"`
-	NextSyncAt           time.Time                `json:"next_sync_at,omitempty"`
-	Stale                bool                     `json:"stale"`
+	ID                   string                                      `json:"id"`
+	Platform             string                                      `json:"platform"`
+	Username             string                                      `json:"username"`
+	AvatarURL            string                                      `json:"avatar_url,omitempty"`
+	Status               string                                      `json:"status"`
+	ErrorCode            string                                      `json:"error_code,omitempty"`
+	ErrorMessage         string                                      `json:"error_message,omitempty"`
+	AccountSupported     bool                                        `json:"account_supported"`
+	ContentSupported     bool                                        `json:"content_supported"`
+	MissingAccountScopes []string                                    `json:"missing_account_scopes"`
+	MissingContentScopes []string                                    `json:"missing_content_scopes"`
+	Metrics              platform.AnalyticsValues                    `json:"metrics"`
+	MetricMetadata       map[string]platform.AnalyticsMetricMetadata `json:"metric_metadata"`
+	FollowerDelta        *int64                                      `json:"follower_delta,omitempty"`
+	FollowerSeries       []SeriesPoint                               `json:"follower_series"`
+	LastSyncedAt         time.Time                                   `json:"last_synced_at,omitempty"`
+	NextSyncAt           time.Time                                   `json:"next_sync_at,omitempty"`
+	Stale                bool                                        `json:"stale"`
 }
 
 type ContentOverview struct {
-	PublicationID string                   `json:"publication_id"`
-	RenditionID   string                   `json:"rendition_id"`
-	Title         string                   `json:"title"`
-	Excerpt       string                   `json:"excerpt"`
-	Platform      string                   `json:"platform"`
-	AccountID     string                   `json:"account_id"`
-	Username      string                   `json:"username"`
-	ExternalURL   string                   `json:"external_url,omitempty"`
-	PublishedAt   time.Time                `json:"published_at"`
-	Status        string                   `json:"status"`
-	ErrorCode     string                   `json:"error_code,omitempty"`
-	ErrorMessage  string                   `json:"error_message,omitempty"`
-	Metrics       platform.AnalyticsValues `json:"metrics"`
-	Engagement    int64                    `json:"engagement"`
-	LastSyncedAt  time.Time                `json:"last_synced_at,omitempty"`
-	NextSyncAt    time.Time                `json:"next_sync_at,omitempty"`
-	Stale         bool                     `json:"stale"`
+	PublicationID  string                                      `json:"publication_id"`
+	RenditionID    string                                      `json:"rendition_id"`
+	Title          string                                      `json:"title"`
+	Excerpt        string                                      `json:"excerpt"`
+	Platform       string                                      `json:"platform"`
+	AccountID      string                                      `json:"account_id"`
+	Username       string                                      `json:"username"`
+	ExternalURL    string                                      `json:"external_url,omitempty"`
+	PublishedAt    time.Time                                   `json:"published_at"`
+	Status         string                                      `json:"status"`
+	ErrorCode      string                                      `json:"error_code,omitempty"`
+	ErrorMessage   string                                      `json:"error_message,omitempty"`
+	Metrics        platform.AnalyticsValues                    `json:"metrics"`
+	MetricMetadata map[string]platform.AnalyticsMetricMetadata `json:"metric_metadata"`
+	Engagement     int64                                       `json:"engagement"`
+	LastSyncedAt   time.Time                                   `json:"last_synced_at,omitempty"`
+	NextSyncAt     time.Time                                   `json:"next_sync_at,omitempty"`
+	Stale          bool                                        `json:"stale"`
 }
 
 type PublicationOverview struct {
@@ -350,6 +352,7 @@ func (s *Service) buildAccountOverview(account models.SocialAccount, state model
 		AvatarURL:            account.AccountAvatarURL,
 		Status:               string(platform.AnalyticsStatusPending),
 		Metrics:              platform.AnalyticsValues{},
+		MetricMetadata:       map[string]platform.AnalyticsMetricMetadata{},
 		FollowerSeries:       []SeriesPoint{},
 		MissingAccountScopes: []string{},
 		MissingContentScopes: []string{},
@@ -368,7 +371,12 @@ func (s *Service) buildAccountOverview(account models.SocialAccount, state model
 		overview.LastSyncedAt = state.LastSuccessAt
 		overview.NextSyncAt = state.NextSyncAt
 		overview.Stale = analyticsStateStale(state, s.now())
-		overview.Metrics = decodeAnalyticsValues(state.MetricsJSON)
+		overview.Metrics, overview.MetricMetadata = decodeAnalyticsMetrics(
+			state.MetricsJSON,
+			state.MetricMetadataJSON,
+			platform.AnalyticsMetricSubjectAccount,
+			state.Platform,
+		)
 	}
 	return overview
 }
@@ -390,7 +398,12 @@ func applyAnalyticsSupport(overview *AccountOverview, account models.SocialAccou
 }
 
 func addFollowerSummary(summary *MetricSummary, overview AccountOverview) {
-	if followers, ok := overview.Metrics[platform.MetricFollowers]; ok {
+	if followers, ok := compatibleCountMetricValue(
+		overview.Metrics,
+		overview.MetricMetadata,
+		platform.MetricFollowers,
+		platform.AnalyticsMetricAggregationCurrentSnapshot,
+	); ok {
 		summary.Value += followers
 		summary.Measured++
 	}
@@ -429,21 +442,24 @@ func buildContentOverviews(
 			state,
 			now,
 		)
-		item.Engagement = platform.EngagementTotal(item.Metrics)
+		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
+		item.Engagement = platform.EngagementTotal(compatible)
 		summary.Engagement.Value += item.Engagement
-		if platform.HasEngagementMetric(item.Metrics) {
+		if platform.HasEngagementMetric(compatible) {
 			summary.Engagement.Measured++
 		}
-		addMeasuredSummary(&summary.Views, item.Metrics, platform.MetricViews)
-		addMeasuredSummary(&summary.Impressions, item.Metrics, platform.MetricImpressions)
-		addMeasuredSummary(&summary.Reach, item.Metrics, platform.MetricReach)
+		addMeasuredSummary(&summary.Views, compatible, platform.MetricViews)
+		addMeasuredSummary(&summary.Impressions, compatible, platform.MetricImpressions)
+		addMeasuredSummary(&summary.Reach, compatible, platform.MetricReach)
 		content = append(content, item)
 	}
 	sort.SliceStable(content, func(i, j int) bool {
 		if content[i].Engagement != content[j].Engagement {
 			return content[i].Engagement > content[j].Engagement
 		}
-		return content[i].Metrics[platform.MetricViews] > content[j].Metrics[platform.MetricViews]
+		left, _ := compatibleCountMetricValue(content[i].Metrics, content[i].MetricMetadata, platform.MetricViews, platform.AnalyticsMetricAggregationLifetimeTotal)
+		right, _ := compatibleCountMetricValue(content[j].Metrics, content[j].MetricMetadata, platform.MetricViews, platform.AnalyticsMetricAggregationLifetimeTotal)
+		return left > right
 	})
 	return content
 }
@@ -470,17 +486,18 @@ func buildContentOverview(
 		)
 	}
 	item := ContentOverview{
-		PublicationID: publication.ID,
-		RenditionID:   rendition.ID,
-		Title:         publication.Title,
-		Excerpt:       firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
-		Platform:      rendition.Platform,
-		AccountID:     account.ID,
-		Username:      account.AccountUsername,
-		ExternalURL:   externalURL,
-		PublishedAt:   publishedAt,
-		Status:        string(platform.AnalyticsStatusPending),
-		Metrics:       platform.AnalyticsValues{},
+		PublicationID:  publication.ID,
+		RenditionID:    rendition.ID,
+		Title:          publication.Title,
+		Excerpt:        firstNonEmptyAnalyticsText(publication.SourceText, publication.SourceContent),
+		Platform:       rendition.Platform,
+		AccountID:      account.ID,
+		Username:       account.AccountUsername,
+		ExternalURL:    externalURL,
+		PublishedAt:    publishedAt,
+		Status:         string(platform.AnalyticsStatusPending),
+		Metrics:        platform.AnalyticsValues{},
+		MetricMetadata: map[string]platform.AnalyticsMetricMetadata{},
 	}
 	if state.ID != "" {
 		item.Status = state.Status
@@ -489,7 +506,12 @@ func buildContentOverview(
 		item.LastSyncedAt = state.LastSuccessAt
 		item.NextSyncAt = state.NextSyncAt
 		item.Stale = analyticsStateStale(state, now)
-		item.Metrics = decodeAnalyticsValues(state.MetricsJSON)
+		item.Metrics, item.MetricMetadata = decodeAnalyticsMetrics(
+			state.MetricsJSON,
+			state.MetricMetadataJSON,
+			platform.AnalyticsMetricSubjectContent,
+			state.Platform,
+		)
 	}
 	return item
 }
@@ -517,11 +539,12 @@ func buildPublicationOverviews(content []ContentOverview) []PublicationOverview 
 			order = append(order, item.PublicationID)
 		}
 		publication.Renditions = append(publication.Renditions, item)
+		compatible := compatibleContentValues(item.Metrics, item.MetricMetadata)
 		publication.Engagement += item.Engagement
-		if platform.HasEngagementMetric(item.Metrics) {
+		if platform.HasEngagementMetric(compatible) {
 			publication.EngagementMeasured++
 		}
-		for metric, value := range item.Metrics {
+		for metric, value := range compatible {
 			publication.Metrics[metric] += value
 			publication.Measured[metric]++
 		}
@@ -622,8 +645,18 @@ func accountFollowerHistory(snapshots []models.AnalyticsAccountSnapshot) ([]Seri
 	daily := make(map[string]int64)
 	order := make([]string, 0)
 	for _, snapshot := range snapshots {
-		values := decodeAnalyticsValues(snapshot.MetricsJSON)
-		followers, ok := values[platform.MetricFollowers]
+		values, metadata := decodeAnalyticsMetrics(
+			snapshot.MetricsJSON,
+			snapshot.MetricMetadataJSON,
+			platform.AnalyticsMetricSubjectAccount,
+			snapshot.Platform,
+		)
+		followers, ok := compatibleCountMetricValue(
+			values,
+			metadata,
+			platform.MetricFollowers,
+			platform.AnalyticsMetricAggregationCurrentSnapshot,
+		)
 		if !ok {
 			continue
 		}

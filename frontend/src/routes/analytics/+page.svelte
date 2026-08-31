@@ -6,9 +6,11 @@ FIRST VIEWPORT: The reporting window, refresh action, metric ledger, and unified
 FORM: Server-owned insights and content rows preserve source, period, sample, and provider context.
 -->
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { client } from '$lib/api/client';
 	import type { components } from '$lib/api/types';
+	import { ui } from '$lib/stores/ui.svelte';
 	import { workspaceCtx } from '$lib/stores/workspace.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as Select from '$lib/components/ui/select';
@@ -65,8 +67,10 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 	let loading = $state(true);
 	let loadingMore = $state(false);
 	let refreshing = $state(false);
+	let repurposingReferenceKey = $state('');
 	let error = $state('');
 	let toastMessage = $state('');
+	let toastTone = $state<'success' | 'error'>('success');
 	let dataWorkspaceID = $state('');
 	let dataRequestSequence = 0;
 	let analyticsFeatures = $state.raw<FeatureState[]>([]);
@@ -247,8 +251,10 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 			}
 		} catch (cause) {
 			if (requestSequence !== dataRequestSequence) return;
-			if (append) toastMessage = m.analytics_load_more_failed();
-			else error = cause instanceof Error ? cause.message : m.analytics_failed_load();
+			if (append) {
+				toastTone = 'error';
+				toastMessage = m.analytics_load_more_failed();
+			} else error = cause instanceof Error ? cause.message : m.analytics_failed_load();
 		} finally {
 			if (requestSequence === dataRequestSequence) {
 				loading = false;
@@ -282,11 +288,38 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 				body: { workspace_id: currentWorkspaceID }
 			});
 			if (response.error || !response.data) throw new Error(m.analytics_refresh_failed());
+			toastTone = 'success';
 			toastMessage = m.analytics_refresh_queued({ count: response.data.queued });
 		} catch {
+			toastTone = 'error';
 			toastMessage = m.analytics_refresh_failed();
 		} finally {
 			refreshing = false;
+		}
+	}
+
+	async function repurposeContent(item: AnalyticsContent) {
+		const key = contentIdentity(item);
+		if (!currentWorkspaceID || repurposingReferenceKey) return;
+		repurposingReferenceKey = key;
+		try {
+			const response = await client.POST('/analytics/repurpose', {
+				body: {
+					workspace_id: currentWorkspaceID,
+					reference: item.reference,
+					range: { days: rangeDays }
+				}
+			});
+			if (response.error || !response.data) {
+				throw new Error(response.error?.detail || m.analytics_repurpose_failed());
+			}
+			ui.setRepurposeHandoff(response.data);
+			await goto(resolve('/'));
+		} catch (cause) {
+			toastTone = 'error';
+			toastMessage = cause instanceof Error ? cause.message : m.analytics_repurpose_failed();
+		} finally {
+			repurposingReferenceKey = '';
 		}
 	}
 
@@ -640,7 +673,7 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 		message={toastMessage}
 		onDismiss={() => (toastMessage = '')}
 		dismissLabel={m.common_dismiss()}
-		tone={toastMessage === m.analytics_refresh_failed() ? 'error' : 'success'}
+		tone={toastTone}
 	/>
 {/if}
 
@@ -1138,19 +1171,35 @@ FORM: Server-owned insights and content rows preserve source, period, sample, an
 										<div class="hidden text-sm text-muted-foreground md:block">
 											{formatDate(item.published_at)}
 										</div>
-										<Button
-											variant="ghost"
-											size="sm"
-											class="w-full justify-between md:w-auto md:justify-self-end"
-											aria-expanded={expanded}
-											aria-controls={`analytics-content-${id.replace(':', '-')}`}
-											onclick={() => (expandedContentID = expanded ? '' : id)}
+										<div
+											class="flex min-h-11 w-full items-center gap-1 md:w-auto md:justify-self-end"
 										>
-											{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
-											<ChevronDownIcon
-												class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
-											/>
-										</Button>
+											<Button
+												variant="outline"
+												size="sm"
+												class="min-h-11 flex-1 sm:min-h-8 md:flex-none"
+												disabled={Boolean(repurposingReferenceKey)}
+												onclick={() => repurposeContent(item)}
+												data-testid={`analytics-repurpose-${id}`}
+											>
+												{repurposingReferenceKey === id
+													? m.analytics_repurposing()
+													: m.analytics_repurpose()}
+											</Button>
+											<Button
+												variant="ghost"
+												size="sm"
+												class="min-h-11 flex-1 justify-between sm:min-h-8 md:flex-none"
+												aria-expanded={expanded}
+												aria-controls={`analytics-content-${id.replace(':', '-')}`}
+												onclick={() => (expandedContentID = expanded ? '' : id)}
+											>
+												{expanded ? m.analytics_hide_details() : m.analytics_show_details()}
+												<ChevronDownIcon
+													class={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+												/>
+											</Button>
+										</div>
 									</div>
 									{#if expanded}
 										<div

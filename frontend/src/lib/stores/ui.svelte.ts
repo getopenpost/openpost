@@ -5,6 +5,9 @@ import {
 	type PublicationInvalidationBatch,
 	type PublicationInvalidationRequest
 } from '$lib/publication-invalidation';
+import type { components } from '$lib/api/types';
+
+export type RepurposeHandoff = components['schemas']['RepurposeSource'];
 
 const publicationRefreshDebounceMS = 2_500;
 
@@ -24,6 +27,7 @@ export class UIState {
 	workspaceSetupRevision = $state(0);
 	activeComposerDraftId = $state<string | null>(null);
 	pendingPrompt = $state<PendingPrompt | null>(null);
+	pendingRepurposeHandoff = $state.raw<RepurposeHandoff | null>(null);
 	isFeedbackOpen = $state(false);
 	#publicationInvalidationCoalescer = new PublicationInvalidationCoalescer();
 	#publicationRefreshTimer: ReturnType<typeof setTimeout> | null = null;
@@ -59,6 +63,16 @@ export class UIState {
 
 	clearPrompt() {
 		this.pendingPrompt = null;
+	}
+
+	setRepurposeHandoff(handoff: RepurposeHandoff) {
+		this.pendingRepurposeHandoff = handoff;
+	}
+
+	consumeRepurposeHandoff(handoffID: string) {
+		if (this.pendingRepurposeHandoff?.handoff_id === handoffID) {
+			this.pendingRepurposeHandoff = null;
+		}
 	}
 
 	setActiveComposerDraft(id: string) {

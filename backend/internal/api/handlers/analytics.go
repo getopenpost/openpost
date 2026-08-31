@@ -57,6 +57,18 @@ type RefreshAnalyticsOutput struct {
 	}
 }
 
+type RepurposeAnalyticsInput struct {
+	Body struct {
+		WorkspaceID string                            `json:"workspace_id" required:"true" doc:"Workspace ID"`
+		Reference   analyticsservice.ContentReference `json:"reference" doc:"Opaque discriminated analytics content reference"`
+		Range       analyticsservice.RepurposeRange   `json:"range" doc:"Reporting range used to recompute private evidence"`
+	}
+}
+
+type RepurposeAnalyticsOutput struct {
+	Body analyticsservice.RepurposeSource
+}
+
 func (h *AnalyticsHandler) RegisterRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "get-analytics-overview",
@@ -87,6 +99,35 @@ func (h *AnalyticsHandler) RegisterRoutes(api huma.API) {
 			return nil, huma.Error500InternalServerError("failed to load analytics")
 		}
 		return &GetAnalyticsOverviewOutput{Body: overview}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "prepare-analytics-repurpose",
+		Method:      http.MethodPost,
+		Path:        "/analytics/repurpose",
+		Summary:     "Prepare a fresh local repurpose handoff",
+		Description: "Resolves bounded stored source fields and private evidence without creating or changing a Publication, Rendition, provider item, or AI build.",
+		Tags:        []string{tagAnalytics},
+		Middlewares: huma.Middlewares{middleware.AuthMiddleware(api, h.auth)},
+		Errors:      []int{400, 403, 404, 410, 422, 500},
+	}, func(ctx context.Context, input *RepurposeAnalyticsInput) (*RepurposeAnalyticsOutput, error) {
+		if err := h.requireWorkspaceAccess(ctx, input.Body.WorkspaceID, true); err != nil {
+			return nil, err
+		}
+		handoff, err := h.service.ResolveRepurposeSource(ctx, input.Body.WorkspaceID, input.Body.Reference, input.Body.Range)
+		switch {
+		case errors.Is(err, analyticsservice.ErrInvalidRepurposeReference):
+			return nil, huma.Error400BadRequest("invalid repurpose source")
+		case errors.Is(err, analyticsservice.ErrRepurposeSourceNotFound):
+			return nil, huma.Error404NotFound("repurpose source not found")
+		case errors.Is(err, analyticsservice.ErrRepurposeSourceUnavailable):
+			return nil, huma.NewError(http.StatusGone, "This source is no longer available to repurpose.")
+		case errors.Is(err, analyticsservice.ErrRepurposeSourceUnsupported):
+			return nil, huma.NewError(http.StatusUnprocessableEntity, "This content format cannot be repurposed.")
+		case err != nil:
+			return nil, huma.Error500InternalServerError("failed to prepare repurpose source")
+		}
+		return &RepurposeAnalyticsOutput{Body: handoff}, nil
 	})
 
 	huma.Register(api, huma.Operation{

@@ -10,12 +10,27 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   const requestedRanges: string[] = [];
   const requestedSources: string[] = [];
   let refreshRequests = 0;
+  let repurposeRequests = 0;
+  let automaticBuilderRequests = 0;
+  let automaticDraftRequests = 0;
 
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
   page.on("response", (response) => {
     if (response.status() === 401) unauthorizedResponses.push(response.url());
+  });
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (
+      request.method() === "POST" &&
+      (url.pathname.includes("/post-builder") || url.pathname.includes("/publication-builds"))
+    ) {
+      automaticBuilderRequests += 1;
+    }
+    if (request.method() === "POST" && url.pathname.endsWith("/publications")) {
+      automaticDraftRequests += 1;
+    }
   });
   const unique = Date.now().toString(36);
   const auth = await registerUser(request, `analytics-${unique}@example.com`);
@@ -38,6 +53,54 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
       await route.fulfill({
         contentType: "application/json",
         json: { queued: 4, message: "Analytics refresh queued." },
+      });
+      return;
+    }
+    if (
+      route.request().method() === "POST" &&
+      requestURL.pathname.endsWith("/analytics/repurpose")
+    ) {
+      repurposeRequests += 1;
+      const body = route.request().postDataJSON() as {
+        workspace_id: string;
+        reference: { type: string; publication_id?: string; rendition_id?: string };
+        range: { days: number };
+      };
+      expect(body).toEqual({
+        workspace_id: workspace.id,
+        reference: {
+          type: "openpost",
+          publication_id: "publication-1",
+          rendition_id: "rendition-x",
+        },
+        range: { days: 30 },
+      });
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
+      await route.fulfill({
+        contentType: "application/json",
+        json: {
+          handoff_id: "handoff-1",
+          workspace_id: workspace.id,
+          title: "Launch notes",
+          source_text: "Bounded stored launch lesson.",
+          content_profile: "short_text",
+          destination_account_ids: ["account-x"],
+          range: { days: 30 },
+          provenance: {
+            origin: "openpost",
+            platform: "x",
+            published_at: "2026-07-25T09:00:00Z",
+            reference: body.reference,
+          },
+          evidence: [
+            {
+              metric: "impressions",
+              value: 8800,
+              collected_at: "2026-07-26T11:55:00Z",
+              metadata: { unit: "count", aggregation: "lifetime_total", source: "x" },
+            },
+          ],
+        },
       });
       return;
     }
@@ -463,6 +526,15 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
               {
                 publication_id: "publication-1",
                 rendition_id: "rendition-x",
+                reference: {
+                  type: "openpost",
+                  publication_id: "publication-1",
+                  rendition_id: "rendition-x",
+                },
+                source: "openpost",
+                content_profile: "short_text",
+                measurements: {},
+                metric_metadata: {},
                 title: "Launch notes",
                 excerpt: "OpenPost now keeps one result across destinations.",
                 platform: "x",
@@ -495,6 +567,15 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
               {
                 publication_id: "publication-2",
                 rendition_id: "rendition-youtube",
+                reference: {
+                  type: "openpost",
+                  publication_id: "publication-2",
+                  rendition_id: "rendition-youtube",
+                },
+                source: "openpost",
+                content_profile: "long_video",
+                measurements: {},
+                metric_metadata: {},
                 title: "Product walkthrough",
                 excerpt: "A complete product walkthrough.",
                 platform: "youtube",
@@ -733,6 +814,18 @@ test("analytics keeps provider metrics distinct across desktop and phone layouts
   }
   await page.getByRole("button", { name: "More" }).click();
   await expect(page.getByRole("menuitem", { name: "Analytics", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  const repurposeButton = page.getByTestId("analytics-repurpose-openpost:rendition-x");
+  await repurposeButton.dblclick();
+  await expect(page.getByRole("heading", { name: "Review repurpose direction" })).toBeVisible();
+  await expect(page.locator("textarea").first()).toHaveValue("Bounded stored launch lesson.");
+  await expect(page).toHaveURL(/\/$/u);
+  expect(page.url()).not.toContain("Bounded");
+  expect(page.url()).not.toContain("handoff");
+  expect(repurposeRequests).toBe(1);
+  expect(automaticBuilderRequests).toBe(0);
+  expect(automaticDraftRequests).toBe(0);
   expect({ consoleErrors, unauthorizedResponses }).toEqual({
     consoleErrors: [],
     unauthorizedResponses: [],

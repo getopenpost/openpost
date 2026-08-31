@@ -613,6 +613,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/analytics/repurpose": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Prepare a fresh local repurpose handoff
+     * @description Resolves bounded stored source fields and private evidence without creating or changing a Publication, Rendition, provider item, or AI build.
+     */
+    post: operations["prepare-analytics-repurpose"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api-tokens": {
     parameters: {
       query?: never;
@@ -10687,6 +10707,61 @@ export interface components {
       readonly $schema?: string;
       message: string;
     };
+    RepurposeAnalyticsInputBody: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/RepurposeAnalyticsInputBody.json
+       */
+      readonly $schema?: string;
+      /** @description Reporting range used to recompute private evidence */
+      range: components["schemas"]["RepurposeRange"];
+      /** @description Opaque discriminated analytics content reference */
+      reference: components["schemas"]["ContentReference"];
+      /** @description Workspace ID */
+      workspace_id: string;
+    };
+    RepurposeEvidence: {
+      /** Format: date-time */
+      collected_at: string;
+      metadata: components["schemas"]["AnalyticsMetricMetadata"];
+      metric: string;
+      /** Format: int64 */
+      value: number;
+    };
+    RepurposeProvenance: {
+      /** @enum {string} */
+      origin: "openpost" | "external";
+      platform: string;
+      /** Format: date-time */
+      published_at: string;
+      reference: components["schemas"]["ContentReference"];
+    };
+    RepurposeRange: {
+      /**
+       * Format: int64
+       * @description Reporting window in days
+       * @enum {integer}
+       */
+      days: 7 | 30 | 90;
+    };
+    RepurposeSource: {
+      /**
+       * Format: uri
+       * @description A URL to the JSON Schema for this object.
+       * @example https://example.com/schemas/RepurposeSource.json
+       */
+      readonly $schema?: string;
+      content_profile: string;
+      destination_account_ids: string[] | null;
+      evidence: components["schemas"]["RepurposeEvidence"][] | null;
+      handoff_id: string;
+      provenance: components["schemas"]["RepurposeProvenance"];
+      range: components["schemas"]["RepurposeRange"];
+      source_text: string;
+      title: string;
+      workspace_id: string;
+    };
     RequestPasswordResetInputBody: {
       /**
        * Format: uri
@@ -14651,6 +14726,84 @@ export interface operations {
       };
       /** @description Forbidden */
       403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Unprocessable Entity */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Internal Server Error */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+    };
+  };
+  "prepare-analytics-repurpose": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RepurposeAnalyticsInputBody"];
+      };
+    };
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RepurposeSource"];
+        };
+      };
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/problem+json": components["schemas"]["ErrorModel"];
+        };
+      };
+      /** @description Gone */
+      410: {
         headers: {
           [name: string]: unknown;
         };

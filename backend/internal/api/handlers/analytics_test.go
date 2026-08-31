@@ -91,6 +91,70 @@ func TestAnalyticsOverviewRejectsCursorFromAnotherSource(t *testing.T) {
 	require.Equal(t, http.StatusBadRequest, mismatchResponse.Code, mismatchResponse.Body.String())
 }
 
+func TestAnalyticsRepurposeRequiresEditorAndKeepsOpaqueReferencesWorkspaceScoped(t *testing.T) {
+	db := createHandlerTestDB(
+		t,
+		(*models.WorkspaceMember)(nil),
+		(*models.SocialAccount)(nil),
+		(*models.Publication)(nil),
+		(*models.Rendition)(nil),
+		(*models.AnalyticsRenditionSnapshot)(nil),
+		(*models.AnalyticsAccountContentSnapshot)(nil),
+		(*models.AccountContent)(nil),
+	)
+	ctx := t.Context()
+	now := time.Now().UTC()
+	member := models.WorkspaceMember{WorkspaceID: "ws-1", UserID: "user-1", Role: models.WorkspaceRoleViewer}
+	_, err := db.NewInsert().Model(&member).Exec(ctx)
+	require.NoError(t, err)
+	account := models.SocialAccount{
+		ID: "account-1", WorkspaceID: "ws-1", Slug: "x-account", Platform: "x", AccountID: "provider-account",
+		AccountUsername: "person", AccessTokenEnc: []byte("encrypted"), IsActive: true, CreatedAt: now,
+	}
+	_, err = db.NewInsert().Model(&account).Exec(ctx)
+	require.NoError(t, err)
+	content := models.AccountContent{
+		ID: "external-1", WorkspaceID: "ws-1", SocialAccountID: account.ID, Platform: account.Platform,
+		ProviderContentID: "provider-secret", ContentProfile: models.ContentProfileShortText,
+		Title: "A useful lesson", Text: "Stored source text", PublishedAt: now.Add(-time.Hour),
+		Origin: string(platform.AccountContentOriginExternal), OriginConfidence: string(platform.AccountContentOriginConfidenceExact),
+		FirstDiscoveredAt: now, LastSeenAt: now, CreatedAt: now, UpdatedAt: now,
+	}
+	_, err = db.NewInsert().Model(&content).Exec(ctx)
+	require.NoError(t, err)
+	service := analyticsservice.NewService(db, analyticsHandlerTokenSource{})
+	e := echo.New()
+	api := humaecho.NewWithGroup(e, e.Group("/api/v1"), huma.DefaultConfig("Test", "1.0.0"))
+	NewAnalyticsHandler(db, testAuthenticator{}, service).RegisterRoutes(api)
+
+	invoke := func(body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/analytics/repurpose", bytes.NewBufferString(body))
+		request.Header.Set("Authorization", "Bearer web-token")
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		e.ServeHTTP(response, request)
+		return response
+	}
+	body := `{"workspace_id":"ws-1","reference":{"type":"external","account_content_id":"external-1"},"range":{"days":30}}`
+	require.Equal(t, http.StatusForbidden, invoke(body).Code, "viewers cannot prepare repurpose state")
+	_, err = db.NewUpdate().Model((*models.WorkspaceMember)(nil)).Set("role = ?", models.WorkspaceRoleEditor).
+		Where("workspace_id = ? AND user_id = ?", "ws-1", "user-1").Exec(ctx)
+	require.NoError(t, err)
+
+	forged := `{"workspace_id":"ws-1","reference":{"type":"external","account_content_id":"forged-provider-secret"},"range":{"days":30}}`
+	require.Equal(t, http.StatusNotFound, invoke(forged).Code)
+	crossWorkspace := `{"workspace_id":"another-workspace","reference":{"type":"external","account_content_id":"external-1"},"range":{"days":30}}`
+	require.Equal(t, http.StatusForbidden, invoke(crossWorkspace).Code)
+
+	response := invoke(body)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var handoff analyticsservice.RepurposeSource
+	require.NoError(t, json.Unmarshal(response.Body.Bytes(), &handoff))
+	require.Equal(t, "Stored source text", handoff.SourceText)
+	require.NotEmpty(t, handoff.HandoffID)
+	require.NotContains(t, response.Body.String(), "provider-secret")
+}
+
 func TestAnalyticsOverviewAllowsViewerButRefreshRequiresEditor(t *testing.T) {
 	db := createHandlerTestDB(
 		t,

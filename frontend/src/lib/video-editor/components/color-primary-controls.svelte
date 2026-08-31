@@ -298,6 +298,11 @@
 		commit({ [name]: value });
 	}
 
+	function cancelParameter(name: string): void {
+		delete parameterDrafts[name];
+		if (itemId) colorPreviewStore.clearEffectDraft(itemId);
+	}
+
 	function parameterDisplay(name: string) {
 		const param = schema(name);
 		return (
@@ -624,9 +629,7 @@
 					</div>
 					<Slider
 						disabled={!controlsEnabled}
-						class="mt-0.5 h-3 w-full cursor-ew-resize"
-						trackClass="h-2.5 border border-black/80 bg-zinc-800"
-						rangeClass="bg-transparent"
+						class="wheel-thumb [&_[data-slot=slider-thumb]]:shadow-none"
 						min={levelRange.min}
 						max={levelRange.max}
 						step={descriptor.display.step}
@@ -636,6 +639,8 @@
 							updateParameter(descriptor.level, levelFromDisplay(descriptor, nextValue))}
 						onValueCommit={(nextValue) =>
 							commitParameter(descriptor.level, levelFromDisplay(descriptor, nextValue))}
+						onValueCancel={() => cancelParameter(descriptor.level)}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 				{/if}
 			</div>
@@ -884,6 +889,36 @@
 	:global(.wheel-chip:focus-visible) {
 		border-color: rgb(251 146 60);
 		box-shadow: 0 0 0 1px rgb(251 146 60 / 55%);
+	}
+
+	:global(.wheel-thumb) {
+		margin-top: 0.125rem;
+		height: 0.65rem;
+		width: 100%;
+		cursor: ew-resize;
+	}
+
+	:global(.wheel-thumb [data-slot='slider-track']) {
+		height: 0.65rem;
+		border: 1px solid rgb(0 0 0 / 80%);
+		border-radius: 999px;
+		background: repeating-linear-gradient(
+			90deg,
+			rgb(255 255 255 / 22%) 0 1px,
+			rgb(0 0 0 / 65%) 1px 5px
+		);
+	}
+
+	:global(.wheel-thumb [data-slot='slider-range']) {
+		background: transparent;
+	}
+
+	:global(.wheel-thumb [data-slot='slider-thumb']) {
+		height: 0.7rem;
+		width: 0.7rem;
+		border: 1px solid rgb(0 0 0 / 80%);
+		border-radius: 999px;
+		background: rgb(228 228 231);
 	}
 
 	@media (pointer: coarse) {

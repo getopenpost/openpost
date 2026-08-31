@@ -241,7 +241,7 @@
 		<span class="text-[10px] font-medium text-white/48">{label}</span>
 		<div class="flex min-w-0 items-center gap-1">
 			<Slider
-				class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
+				class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 				{min}
 				{max}
 				{step}
@@ -254,6 +254,7 @@
 				}}
 				onValueCommit={(nextValue) => commit(property, nextValue)}
 				onValueCancel={cancelGesture}
+				onKeydown={(event) => event.stopPropagation()}
 			/>
 			<div class="relative w-[4.8rem] shrink-0">
 				<ScrubbableNumberInput

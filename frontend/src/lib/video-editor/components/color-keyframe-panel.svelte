@@ -204,7 +204,7 @@
 			>
 				<span class="shrink-0">{m.video_editor_keyframe_property()}</span>
 				<AppSelect
-					class="h-6 min-w-0 flex-1 rounded-sm border border-white/10 bg-black/35 px-1 text-[10px] text-white/80 outline-none focus:border-orange-400"
+					class="h-6! min-w-0 flex-1 rounded-sm border-white/10 bg-black/35 px-1 text-[10px] text-white/80 shadow-none hover:bg-white/5"
 					value={activeProperty}
 					options={propertyOptions}
 					ariaLabel={m.video_editor_keyframe_property()}

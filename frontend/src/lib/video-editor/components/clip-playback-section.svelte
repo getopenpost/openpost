@@ -192,7 +192,7 @@
 				<span class="text-[10px] font-medium text-white/48">{m.video_editor_clip_speed()}</span>
 				<div class="flex min-w-0 items-center gap-1">
 					<Slider
-						class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
+						class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 						min={0.1}
 						max={10}
 						step={0.01}
@@ -204,6 +204,7 @@
 						}}
 						onValueCommit={(nextValue) => commitGesture('speed', nextValue)}
 						onValueCancel={cancelGesture}
+						onKeydown={(event) => event.stopPropagation()}
 					/>
 					<div class="relative w-[4.6rem] shrink-0">
 						<ScrubbableNumberInput
@@ -248,7 +249,7 @@
 						<span class="text-[10px] font-medium text-white/48">{control.label}</span>
 						<div class="flex min-w-0 items-center gap-1">
 							<Slider
-								class="h-7 min-w-8 flex-1 accent-[oklch(0.72_0.15_50)]"
+								class="h-7 min-w-8 flex-1 [&_[data-slot=slider-thumb]]:shadow-none"
 								min={0}
 								max={fadeLimit()}
 								step={0.05}
@@ -260,6 +261,7 @@
 								}}
 								onValueCommit={(nextValue) => commitGesture(field, nextValue)}
 								onValueCancel={cancelGesture}
+								onKeydown={(event) => event.stopPropagation()}
 							/>
 							<div class="relative w-[4.6rem] shrink-0">
 								<ScrubbableNumberInput

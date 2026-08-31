@@ -7,6 +7,9 @@ describe('Slider', () => {
 	it('commits one keyboard gesture after all repeated arrow updates', async () => {
 		const onValueChange = vi.fn();
 		const onValueCommit = vi.fn();
+		const onKeydown = vi.fn((event: KeyboardEvent) => event.stopPropagation());
+		const onWindowKeydown = vi.fn();
+		window.addEventListener('keydown', onWindowKeydown);
 		const screen = await render(Slider, {
 			value: 0,
 			min: 0,
@@ -14,7 +17,8 @@ describe('Slider', () => {
 			step: 1,
 			ariaLabel: 'Precision value',
 			onValueChange,
-			onValueCommit
+			onValueCommit,
+			onKeydown
 		});
 		const thumb = screen.getByRole('slider', { name: 'Precision value' });
 		thumb.element().focus();
@@ -24,6 +28,9 @@ describe('Slider', () => {
 		expect(onValueChange).toHaveBeenCalledTimes(4);
 		expect(onValueCommit).toHaveBeenCalledOnce();
 		expect(onValueCommit).toHaveBeenCalledWith(4);
+		expect(onKeydown).toHaveBeenCalledTimes(4);
+		expect(onWindowKeydown).not.toHaveBeenCalled();
+		window.removeEventListener('keydown', onWindowKeydown);
 	});
 
 	it('cancels a pending keyboard gesture without a late commit', async () => {

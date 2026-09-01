@@ -199,7 +199,7 @@ func writeHTMLResponse(c echo.Context, data []byte, managedEdition bool) error {
 
 func writeHTMLStatusResponse(c echo.Context, data []byte, managedEdition bool, status int) error {
 	if managedEdition {
-		data = renderManagedEditionMetadata(data)
+		data = renderManagedEditionMetadata(data, normalizedRequestPath(c.Request().URL))
 	}
 	c.Response().Header().Set("Content-Type", "text/html")
 	c.Response().Header().Set("Content-Length", strconv.Itoa(len(data)))
@@ -347,18 +347,42 @@ func normalizedRequestPath(requestURL *url.URL) string {
 	return requestURL.Path
 }
 
-func renderManagedEditionMetadata(indexData []byte) []byte {
+const managedEditionReviewFallback = `<noscript data-openpost-review-fallback>
+	<main style="box-sizing:border-box;max-width:42rem;margin:0 auto;padding:4rem 1.5rem;font:16px/1.6 system-ui,sans-serif;color:CanvasText;background:Canvas">
+		<h1 style="font-size:2rem;line-height:1.2">OpenPost</h1>
+		<p>Create, adapt, schedule, publish, and review social content from one workspace.</p>
+		<nav aria-label="OpenPost product and policies">
+			<a href="https://openpo.st/pricing">Pricing</a>
+			<span aria-hidden="true"> · </span>
+			<a href="https://openpo.st/terms">Terms</a>
+			<span aria-hidden="true"> · </span>
+			<a href="https://openpo.st/privacy">Privacy</a>
+			<span aria-hidden="true"> · </span>
+			<a href="https://openpo.st/refunds">Refunds</a>
+		</nav>
+		<p>Enable JavaScript to sign in to the OpenPost app.</p>
+	</main>
+</noscript>`
+
+func renderManagedEditionMetadata(indexData []byte, requestPath string) []byte {
 	htmlDocument := string(indexData)
 	if !strings.Contains(htmlDocument, "<head>") || strings.Contains(htmlDocument, `name="openpost-edition"`) {
 		return indexData
 	}
-	return []byte(strings.Replace(
+	htmlDocument = strings.Replace(
 		htmlDocument,
 		"<head>",
 		`<head>
 		<meta name="openpost-edition" content="cloud">`,
 		1,
-	))
+	)
+	if requestPath != "/" && requestPath != "/login" && requestPath != "/checkout" {
+		return []byte(htmlDocument)
+	}
+	if !strings.Contains(htmlDocument, "</body>") {
+		return []byte(htmlDocument)
+	}
+	return []byte(strings.Replace(htmlDocument, "</body>", managedEditionReviewFallback+"\n</body>", 1))
 }
 
 func loadPublicProfilePageMetadata(ctx context.Context, db *bun.DB, requestedUsername string) (publicProfilePageMetadata, bool, error) {

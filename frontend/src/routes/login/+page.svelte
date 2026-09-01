@@ -33,6 +33,9 @@
 	let oidcProviders = $state<OIDCProvider[]>([]);
 	let discoveryEmail = $state('');
 	let ssoLoading = $state('');
+	const hostedEdition =
+		typeof document !== 'undefined' &&
+		document.querySelector('meta[name="openpost-edition"]')?.getAttribute('content') === 'cloud';
 
 	const needsMfa = $derived(mfaToken.length > 0);
 	const visibleProviders = $derived(oidcProviders);
@@ -347,7 +350,9 @@
 				placeholder="••••••••"
 			/>
 
-			<p class="text-sm leading-6 text-muted-foreground">{m.auth_login_session_notice()}</p>
+			<p class="text-sm leading-6 text-muted-foreground">
+				{m.auth_login_session_notice()}
+			</p>
 
 			{#if authConfiguration?.password_reset_enabled}
 				<div class="-mt-2 text-right">
@@ -402,5 +407,40 @@
 				>{m.auth_login_create_one()}</a
 			>
 		</p>
+
+		{#if hostedEdition}
+			<div class="mt-5 border-t pt-4 text-center text-sm/6 text-muted-foreground">
+				<p>{m.public_home_meta_description()}</p>
+				<nav
+					aria-label={m.public_home_legal_label()}
+					class="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1"
+				>
+					<a
+						class="inline-flex min-h-11 items-center rounded-sm px-1 font-medium text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						href="https://openpo.st/pricing"
+					>
+						{m.public_home_full_pricing()}
+					</a>
+					<a
+						class="inline-flex min-h-11 items-center rounded-sm px-1 font-medium text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						href="https://openpo.st/terms"
+					>
+						{m.public_home_terms()}
+					</a>
+					<a
+						class="inline-flex min-h-11 items-center rounded-sm px-1 font-medium text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						href="https://openpo.st/privacy"
+					>
+						{m.public_home_privacy()}
+					</a>
+					<a
+						class="inline-flex min-h-11 items-center rounded-sm px-1 font-medium text-foreground hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+						href="https://openpo.st/refunds"
+					>
+						{m.public_home_refunds()}
+					</a>
+				</nav>
+			</div>
+		{/if}
 	{/if}
 </StandaloneShell>

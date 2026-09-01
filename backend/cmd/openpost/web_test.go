@@ -332,6 +332,27 @@ func TestSelfHostedSpaRootDoesNotAdvertiseManagedPlans(t *testing.T) {
 	require.NotContains(t, rec.Body.String(), `name="openpost-edition"`)
 }
 
+func TestManagedSpaRootProvidesProductReviewFallback(t *testing.T) {
+	webFS := fstest.MapFS{
+		"index.html": {Data: []byte(`<html><head></head><body><div id="app">app</div></body></html>`)},
+	}
+	e := echo.New()
+	registerSpaRoutesWithProfileMetadata(e, webFS, nil, "https://app.openpo.st", true, true)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	e.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	html := rec.Body.String()
+	require.Contains(t, html, `name="openpost-edition" content="cloud"`)
+	require.Contains(t, html, "Create, adapt, schedule, publish, and review social content")
+	require.Contains(t, html, `href="https://openpo.st/pricing"`)
+	require.Contains(t, html, `href="https://openpo.st/terms"`)
+	require.Contains(t, html, `href="https://openpo.st/privacy"`)
+	require.Contains(t, html, `href="https://openpo.st/refunds"`)
+}
+
 func TestRenderPublicProfileHTMLAddsEscapedShareMetadata(t *testing.T) {
 	t.Parallel()
 

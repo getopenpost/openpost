@@ -1,7 +1,7 @@
 import { parseChangelog } from '@openpost/changelog';
 
 const canonicalChangelogUrl = 'https://openpo.st/changelog';
-const stableChangelogId = 'https://openpost.social/changelog';
+const stableChangelogId = canonicalChangelogUrl;
 
 function escapeXml(value: string) {
 	return value

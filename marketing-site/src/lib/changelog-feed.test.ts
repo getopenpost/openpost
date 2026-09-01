@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { renderChangelogAtomFeed } from './changelog-feed';
 
 describe('changelog Atom identity', () => {
-	test('moves current links without replaying historical entry IDs', () => {
+	test('uses the canonical changelog URL for feed and entry identity', () => {
 		const feed = renderChangelogAtomFeed(`## [1.2.3] - 2026-08-31
 
 ### Changed
@@ -11,9 +11,9 @@ describe('changelog Atom identity', () => {
 - Moved the public domain.
 `);
 
-		expect(feed).toContain('<id>https://openpost.social/changelog#v1.2.3</id>');
+		expect(feed).toContain('<id>https://openpo.st/changelog#v1.2.3</id>');
 		expect(feed).toContain('<link href="https://openpo.st/changelog#v1.2.3" />');
-		expect(feed).toContain('<id>https://openpost.social/changelog</id>');
+		expect(feed).toContain('<id>https://openpo.st/changelog</id>');
 		expect(feed).toContain(
 			'<link href="https://openpo.st/changelog.xml" rel="self" type="application/atom+xml" />'
 		);

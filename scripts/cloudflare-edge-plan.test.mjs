@@ -52,10 +52,13 @@ test("assigns canonical behavior and legacy redirects to their owning zones", ()
   assert.equal(plan.zones[1].zone_id_env, "OPENPOST_CLOUDFLARE_PUBLIC_ZONE_ID");
   assert.equal(plan.zones[1].rules.http_request_transform.length, 0);
   const legacy = plan.zones[1].rules.http_request_dynamic_redirect;
-  assert.equal(legacy.length, 4);
+  assert.equal(legacy.length, 7);
   assert.ok(legacy.every((rule) => rule.action_parameters.from_value.preserve_query_string));
   assert.match(JSON.stringify(legacy), /https:\/\/openpo\.st/u);
   assert.match(JSON.stringify(legacy), /https:\/\/docs\.openpo\.st/u);
+  assert.match(JSON.stringify(legacy), /https:\/\/app\.openpo\.st/u);
+  assert.match(JSON.stringify(legacy), /https:\/\/media\.openpo\.st/u);
+  assert.match(JSON.stringify(legacy), /https:\/\/cool\.openpo\.st/u);
 });
 
 async function preparedApplyArgs({ plan, client, evidenceDirectory }) {

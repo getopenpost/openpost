@@ -10,7 +10,8 @@ files and never reads Cloudflare credentials or changes a zone.
 `cloudflare/edge-plan.json` records two owned zones. The canonical `openpo.st`
 zone owns Markdown negotiation, transforms, response headers, and cache
 variation for `openpo.st` and `docs.openpo.st`. The legacy `openpost.social`
-zone owns only the reviewed marketing and documentation redirects. The file
+zone owns only reviewed redirects to the matching marketing, documentation,
+application, media, and telemetry hosts. The file
 also records execution order, credential names, and Cloudflare Free limits.
 `scripts/cloudflare-edge-plan.mjs` derives every eligible path from
 `marketingRouteManifest` and `docsPageCatalog`. Run:
@@ -27,9 +28,9 @@ characters. Each public build also rejects a `_headers` line over 2,000
 characters. The generated plan uses this Cloudflare execution order:
 
 1. `http_request_dynamic_redirect` canonicalizes known routes and preserves the
-   query string. On the legacy zone it redirects marketing paths to `openpo.st`
-   and documentation paths to `docs.openpo.st`, with path, query, and each
-   surface's trailing-slash rules preserved.
+   query string. On the legacy zone it redirects each hostname to its matching
+   `openpo.st` hostname. Paths and queries stay intact, including the marketing
+   and documentation trailing-slash rules.
 2. `http_request_transform` selects an explicit Markdown artifact only for a
    canonical `GET` or `HEAD` request with one case-folded `Accept` value equal
    to `text/markdown` after HTTP field-value parsing. Mixed, weighted, wildcard,
@@ -248,8 +249,8 @@ revision, and the AI crawl observation as separate evidence.
 
 ## Live acceptance
 
-Use Cloudflare Trace for all four marketing and documentation hosts before
-enabling redirects and after apply. Confirm the legacy Single Redirect rules
+Use Cloudflare Trace for the canonical marketing and documentation hosts and
+all five former hostnames before enabling redirects and after apply. Confirm the legacy Single Redirect rules
 preserve path and query, the canonical Single Redirect runs before URL Rewrite,
 Cache Rules see the canonical request and `Accept`, and response-header
 transformation occurs after cache configuration. Then check:
@@ -260,14 +261,14 @@ transformation occurs after cache configuration. Then check:
   artifact without changing the visible canonical URL;
 - trailing-slash redirects preserve query strings, and explicit `.md`, assets,
   machine resources, and unknown paths do not redirect or rewrite;
-- legacy marketing and documentation requests reach the matching canonical host
-  with one permanent redirect and without crossing between the two surfaces;
+- every former hostname reaches its matching canonical host with one permanent
+  redirect;
 - first HTML and Markdown requests create separate cache entries, then repeated
   requests hit the matching representation without crossing content types.
 
 Cloudflare Trace is the rule-order evidence. Response headers and repeated
-requests are the cache-order evidence. Record both canonical hosts, both legacy
-hosts, `GET` and `HEAD`, one ordinary page, the root, and one documentation
+requests are the cache-order evidence. Record both canonical content hosts, all
+former hosts, `GET` and `HEAD`, one ordinary page, the root, and one documentation
 section index.
 
 Review Cloudflare AI Crawl Control within 24 hours of the first apply and within

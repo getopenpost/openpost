@@ -3,7 +3,6 @@ import * as SecureStore from "expo-secure-store";
 import { normalizeServerUrl } from "./server-url";
 
 export const HOSTED_URL = "https://app.openpo.st";
-export const LEGACY_HOSTED_URL = "https://app.openpost.social";
 
 export type ServerConfig = {
   /** Origin of the OpenPost server, e.g. https://app.openpo.st */
@@ -30,11 +29,7 @@ async function notify() {
 
 export async function loadServer(): Promise<ServerConfig | null> {
   const stored = await SecureStore.getItemAsync(KEY);
-  const normalized = stored ? normalizeServerUrl(stored) : null;
-  const baseUrl = normalized === LEGACY_HOSTED_URL ? HOSTED_URL : normalized;
-  if (baseUrl && baseUrl !== normalized) {
-    await SecureStore.setItemAsync(KEY, baseUrl);
-  }
+  const baseUrl = stored ? normalizeServerUrl(stored) : null;
   current = baseUrl ? { baseUrl, isHosted: baseUrl === HOSTED_URL } : null;
   await notify();
   return current;

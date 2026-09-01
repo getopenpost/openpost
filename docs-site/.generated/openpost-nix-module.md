@@ -17,8 +17,6 @@ let
   cfg = config.vps.openpost;
   isCloud = cfg.edition == "cloud";
   runtimeContract = builtins.fromJSON (builtins.readFile ./runtime-contract.json);
-  legacyHostedOrigin = "https://app.openpost.social";
-
   # Host port (external) - must be unique per service
   openpostHostPort = 8090;
   # Container port (internal) - OpenPost listens on 8080 inside container
@@ -186,7 +184,6 @@ let
     OPENPOST_EDITION = cfg.edition;
     OPENPOST_APP_URL = "https://${cfg.domain}";
     OPENPOST_PUBLIC_URL = "https://${cfg.domain}";
-    OPENPOST_EXTRA_CORS_ORIGINS = "https://${cfg.domain},${legacyHostedOrigin}";
     OPENPOST_DISABLE_REGISTRATIONS = "false";
     OPENPOST_STOCK_MEDIA_ENABLED = "true";
     LINKEDIN_DISABLE_THREAD_REPLIES = "true";
@@ -585,11 +582,11 @@ in
             OPENPOST_SUPPORT_EMAIL=hello@openpo.st
             OPENPOST_EMAIL_VERIFICATION_REQUIRED=true
             OPENPOST_EMAIL_PROVIDER=smtp
-            OPENPOST_EMAIL_FROM=hello@openpost.social
+            OPENPOST_EMAIL_FROM=hello@openpo.st
             OPENPOST_SMTP_HOST=smtp.purelymail.com
             OPENPOST_SMTP_PORT=465
-            OPENPOST_SMTP_USERNAME=hello@openpost.social
-            OPENPOST_SMTP_FROM=hello@openpost.social
+            OPENPOST_SMTP_USERNAME=hello@openpo.st
+            OPENPOST_SMTP_FROM=hello@openpo.st
             OPENPOST_SMTP_TLS_MODE=tls
             OPENPOST_SMTP_SERVER_NAME=smtp.purelymail.com
             OPENPOST_IMAGE_CAPTION_PROVIDER=azure/eu

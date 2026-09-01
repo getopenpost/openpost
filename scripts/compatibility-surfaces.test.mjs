@@ -64,7 +64,7 @@ test("refuses to hide a required candidate by deleting its registry entry", () =
 
 test("requires every hostname compatibility entry to name its hosts and retirement gate", () => {
   const { registry, openapi } = readCompatibilityInputs();
-  const entry = entryByID(registry, "hostname.app-legacy");
+  const entry = entryByID(registry, "hostname.public-redirects");
   entry.hostnames = ["not a hostname"];
   entry.compatibility.retirement_condition = "";
   const problems = validationProblems(registry, openapi).join("\n");

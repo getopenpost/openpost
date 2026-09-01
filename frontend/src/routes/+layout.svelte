@@ -23,7 +23,6 @@
 	import FeedbackDialog from '$lib/components/feedback-dialog.svelte';
 	import BillingRecoveryNotice from '$lib/components/billing-recovery-notice.svelte';
 	import ConnectivityNotice from '$lib/components/connectivity-notice.svelte';
-	import LegacyDomainNotice from '$lib/components/legacy-domain-notice.svelte';
 	import { captureWebReauthGrant } from '$lib/auth/reauth';
 	import { client } from '$lib/api/client';
 	import { Toaster } from '$lib/components/ui/sonner';
@@ -318,7 +317,6 @@
 	<ModeWatcher themeColors={{ light: '#faf9f7', dark: '#251f1c' }} />{/if}
 <Toaster position="bottom-center" richColors closeButton />
 {#if !isPreviewRoute && !isErrorRoute}<ConnectivityNotice />{/if}
-{#if !isPreviewRoute && !isErrorRoute}<LegacyDomainNotice />{/if}
 {#if isPreviewRoute}
 	{@render children()}
 {:else if authState.isLoading || pendingRedirect || ssoChallengeInFlight || (!isPublicProfileRoute && !routeSkipsWorkspaceBootstrap && authState.isAuthenticated && !authState.user?.legal_acceptance_required && !onboardingChecked)}

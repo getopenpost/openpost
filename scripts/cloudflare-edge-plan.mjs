@@ -86,10 +86,11 @@ function redirectRule(zone, paths, mode) {
 }
 
 function legacyRedirectRules(redirect, routes) {
-  const sectionIndexes = routes.filter((route) => route !== "/" && route.endsWith("/"));
+  const canonicalRoutes = routes ?? [];
+  const sectionIndexes = canonicalRoutes.filter((route) => route !== "/" && route.endsWith("/"));
   const noncanonicalPaths =
     redirect.surface === "marketing"
-      ? routes.filter((route) => route !== "/").map((route) => `${route}/`)
+      ? canonicalRoutes.filter((route) => route !== "/").map((route) => `${route}/`)
       : sectionIndexes.map((route) => route.slice(0, -1));
   const normalizePath =
     redirect.surface === "marketing"

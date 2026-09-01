@@ -12,17 +12,10 @@ mock.module("expo-secure-store", () => ({
   },
 }));
 
-const { HOSTED_URL, LEGACY_HOSTED_URL, loadServer, setServer } = await import("./server");
+const { HOSTED_URL, loadServer, setServer } = await import("./server");
 
 describe("server persistence", () => {
   beforeEach(() => values.clear());
-
-  test("migrates only the exact former Hosted URL", async () => {
-    await setServer(LEGACY_HOSTED_URL);
-
-    expect(await loadServer()).toEqual({ baseUrl: HOSTED_URL, isHosted: true });
-    expect(values.get("openpost.server.baseUrl")).toBe(HOSTED_URL);
-  });
 
   test("preserves self-hosted servers", async () => {
     await setServer("https://social.example.com");

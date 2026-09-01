@@ -53,6 +53,24 @@
           "hostname": "docs.openpost.social",
           "target_hostname": "docs.openpo.st",
           "surface": "documentation"
+        },
+        {
+          "key": "legacy-application",
+          "hostname": "app.openpost.social",
+          "target_hostname": "app.openpo.st",
+          "surface": "application"
+        },
+        {
+          "key": "legacy-media",
+          "hostname": "media.openpost.social",
+          "target_hostname": "media.openpo.st",
+          "surface": "media"
+        },
+        {
+          "key": "legacy-telemetry",
+          "hostname": "cool.openpost.social",
+          "target_hostname": "cool.openpo.st",
+          "surface": "telemetry"
         }
       ]
     }

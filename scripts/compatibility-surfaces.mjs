@@ -5,10 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 export const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 export const requiredCompatibilityEntryIDs = [
-  "hostname.app-legacy",
-  "hostname.media-legacy",
   "hostname.public-redirects",
-  "hostname.telemetry-legacy",
   "rest.accounts.destination-options",
   "rest.accounts.mastodon-servers",
   "rest.auth.oidc-logout",

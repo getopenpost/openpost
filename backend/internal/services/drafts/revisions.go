@@ -59,7 +59,7 @@ func (e *ConflictError) ContentType(contentType string) string {
 func NewConflictError(metadata ConflictMetadata) error {
 	metadata.ChangedDomains = UniqueDomains(metadata.ChangedDomains)
 	return &ConflictError{
-		Type:     "https://openpost.social/problems/draft-revision-conflict",
+		Type:     "https://openpo.st/problems/draft-revision-conflict",
 		Title:    "Draft changed elsewhere",
 		Status:   http.StatusConflict,
 		Detail:   "This draft changed after the editor loaded it. Reload the saved version, overwrite it, or save these edits as a copy.",

@@ -115,7 +115,7 @@ func TestAdapterForInstanceReregistersWhenRedirectChanges(t *testing.T) {
 		Host:               strings.TrimPrefix(instanceServer.URL, "https://"),
 		ClientID:           "old-client",
 		ClientSecretEnc:    oldSecret,
-		RedirectURI:        "https://app.openpost.social/accounts/mastodon/callback",
+		RedirectURI:        "https://previous.example.com/accounts/mastodon/callback",
 		Scopes:             defaultScopes,
 		RegistrationStatus: registrationStatusActive,
 	}).Exec(ctx)

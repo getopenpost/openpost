@@ -790,7 +790,7 @@ All notable changes to this project are documented in this file.
 - Unified Workspace access behind one application decision for read, edit, and administer actions across request middleware and transactional callers. The decision now combines credential Workspace binding, Organization identity policy, active Workspace membership, and role level while keeping safe denial separate from operational failure.
 - Proved the complete UX program through one combined browser and integration matrix covering the first-use journey, daily work, collaboration and safety, local recovery, responsive presentations, themes, locales, keyboard and announced state, automated serious and critical accessibility checks, clean console output, and synchronized Self-hosted claims. Reconciled the audit-remediation backlog to remove the completed UX work and retain external status infrastructure as a separate deferred boundary.
 - Split Cloudflare edge changes into a read-only preparation and a separate apply that requires the reviewed forward-plan and prepared-operation digests, so operators can inspect the live snapshot and exact rollback before any production write.
-- Grouped the marketing and documentation edge rules into the one deployed `openpost.social` Cloudflare zone, so each phase is inspected, applied, and rolled back once without one host overwriting the other.
+- Grouped the former marketing and documentation redirect rules into one Cloudflare zone, so each phase is inspected, applied, and rolled back once without one host overwriting the other.
 - Kept the exact Markdown `Accept` gate within the function set Cloudflare permits in every deployed edge phase, so the reviewed plan can be applied without weakening rejection of mixed, weighted, wildcard, parameterized, repeated, or internally spaced values.
 - Added a bounded four-hour Cloudflare edge TTL to the exact `Accept` cache variants so repeated HTML and Markdown requests produce real cache hits while remaining separated in both request orders.
 - Published a dedicated Self-hosted product path with an explicit no-software-fee boundary outside Hosted service plans, complete operator responsibilities, current deployment and source links, responsive no-JavaScript HTML, and an agent-readable Markdown representation.
@@ -2170,10 +2170,10 @@ This section consolidates the changes shipped between `v1.28.0` and `v1.41.2` be
 
 ### Changed
 
-- Migrated from openpost.rgo.pt to app.openpost.social (app), docs.openpost.social (docs), and openpost.social (landing page).
+- Split the original hosted address into dedicated application, documentation, and marketing domains.
 - Enabled registrations on hosted instance.
-- Updated all doc links from op.rgo.pt to docs.openpost.social.
-- Added marketing-site/ — minimal Astro landing page at openpost.social.
+- Updated all documentation links from the original short domain to the public documentation site.
+- Added `marketing-site/`, a minimal Astro landing page.
 - Moved docs and marketing site deployment from VPS/GitHub Pages to Cloudflare Pages.
 - Moved the JavaScript workspace to pnpm workspaces with Turborepo orchestration across the web app, docs site, and marketing site.
 - Tightened cloud-mode CORS defaults so hosted deployments allow only `OPENPOST_APP_URL` plus explicit extra origins, while self-hosted installs keep local development and Capacitor defaults.
